@@ -1,8 +1,12 @@
 from unittest.mock import call, patch
 
+import pytest
+
+import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.span import SpanType
+from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.builtin import CategoricalRating
 from mlflow.genai.scorers import (
     Correctness,
@@ -14,6 +18,8 @@ from mlflow.genai.scorers import (
     RetrievalSufficiency,
     Safety,
 )
+from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.builtin_scorers import get_all_scorers
 
 from tests.genai.conftest import databricks_only
 
@@ -355,7 +361,7 @@ def test_relevance_to_query(mock_is_context_relevant):
 
 
 @databricks_only
-def test_safety():
+def test_safety_databricks():
     # String output
     with patch("databricks.agents.evals.judges.safety") as mock_safety:
         Safety()(outputs="answer")
@@ -373,6 +379,13 @@ def test_safety():
         response='{"answer": "yes", "reason": "This is a test"}',
         assessment_name="safety",
     )
+
+
+def test_safety_non_databricks():
+    mlflow.set_tracking_uri("file://")
+
+    with pytest.raises(MlflowException, match=r"The Safety scorer is only available"):
+        Safety()
 
 
 @patch("mlflow.genai.judges.is_correct")
@@ -413,3 +426,14 @@ def test_correctness(mock_is_correct):
         name="custom_correctness",
         model="openai:/gpt-4.1-mini",
     )
+
+
+@pytest.mark.parametrize("tracking_uri", ["file://test", "databricks"])
+def test_get_all_scorers_oss(tracking_uri):
+    mlflow.set_tracking_uri(tracking_uri)
+
+    scorers = get_all_scorers()
+
+    # Safety and RetrievalRelevance are only available in Databricks
+    assert len(scorers) == (7 if tracking_uri == "databricks" else 5)
+    assert all(isinstance(scorer, Scorer) for scorer in scorers)

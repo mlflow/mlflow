@@ -8,8 +8,8 @@ from google.protobuf.json_format import MessageToDict
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.dataset_record_source import DatasetRecordSource, DatasetRecordSourceType
-from mlflow.protos.evaluation_datasets_pb2 import DatasetRecord as ProtoDatasetRecord
-from mlflow.protos.evaluation_datasets_pb2 import DatasetRecordSource as ProtoDatasetRecordSource
+from mlflow.protos.datasets_pb2 import DatasetRecord as ProtoDatasetRecord
+from mlflow.protos.datasets_pb2 import DatasetRecordSource as ProtoDatasetRecordSource
 
 
 @dataclass

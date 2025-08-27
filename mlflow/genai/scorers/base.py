@@ -33,6 +33,18 @@ class ScorerKind(Enum):
 _ALLOWED_SCORERS_FOR_REGISTRATION = [ScorerKind.BUILTIN, ScorerKind.DECORATOR]
 
 
+class ScorerStatus(Enum):
+    """Status of a scorer.
+
+    Scorer status is determined by the sample rate due to the backend not having
+    a notion of whether a scorer is started or stopped.
+    """
+
+    UNREGISTERED = "UNREGISTERED"  # sampling config not set
+    STARTED = "STARTED"  # sample_rate > 0
+    STOPPED = "STOPPED"  # sample_rate == 0
+
+
 @dataclass
 class ScorerSamplingConfig:
     """Configuration for registered scorer sampling."""
@@ -92,6 +104,7 @@ class Scorer(BaseModel):
 
     _cached_dump: dict[str, Any] | None = PrivateAttr(default=None)
     _sampling_config: ScorerSamplingConfig | None = PrivateAttr(default=None)
+    _registered_backend: str | None = PrivateAttr(default=None)
 
     @property
     @experimental(version="3.2.0")
@@ -104,6 +117,16 @@ class Scorer(BaseModel):
     def filter_string(self) -> str | None:
         """Get the filter string for this scorer."""
         return self._sampling_config.filter_string if self._sampling_config else None
+
+    @property
+    @experimental(version="3.3.0")
+    def status(self) -> ScorerStatus:
+        """Get the status of this scorer, using only the local state."""
+
+        if self._registered_backend is None:
+            return ScorerStatus.UNREGISTERED
+
+        return ScorerStatus.STARTED if (self.sample_rate or 0) > 0 else ScorerStatus.STOPPED
 
     def __repr__(self) -> str:
         # Get the standard representation from the parent class
@@ -148,7 +171,8 @@ class Scorer(BaseModel):
             call_signature=source_info.get("call_signature"),
             original_func_name=source_info.get("original_func_name"),
         )
-        return asdict(serialized)
+        self._cached_dump = asdict(serialized)
+        return self._cached_dump
 
     def _extract_source_code_info(self) -> dict[str, str | None]:
         """Extract source code information for the original decorated function."""
@@ -169,18 +193,23 @@ class Scorer(BaseModel):
     @classmethod
     def model_validate(cls, obj: Any) -> "Scorer":
         """Override model_validate to reconstruct scorer from source code."""
-        if not isinstance(obj, dict):
+        # Handle SerializedScorer object
+        if isinstance(obj, SerializedScorer):
+            serialized = obj
+        # Handle dict object
+        elif isinstance(obj, dict):
+            # Parse the serialized data using our dataclass
+            try:
+                serialized = SerializedScorer(**obj)
+            except Exception as e:
+                raise MlflowException.invalid_parameter_value(
+                    f"Failed to parse serialized scorer data: {e}"
+                )
+        else:
             raise MlflowException.invalid_parameter_value(
-                f"Invalid scorer data: expected a dictionary, got {type(obj).__name__}. "
-                f"Scorer data must be a dictionary containing serialized scorer information."
-            )
-
-        # Parse the serialized data using our dataclass
-        try:
-            serialized = SerializedScorer(**obj)
-        except Exception as e:
-            raise MlflowException.invalid_parameter_value(
-                f"Failed to parse serialized scorer data: {e}"
+                f"Invalid scorer data: expected a SerializedScorer object or dictionary, "
+                f"got {type(obj).__name__}. Scorer data must be either a SerializedScorer object "
+                "or a dictionary containing serialized scorer information."
             )
 
         # Log version information for debugging
@@ -416,6 +445,7 @@ class Scorer(BaseModel):
             A new Scorer instance with server registration information.
 
         Example:
+
             .. code-block:: python
 
                 import mlflow
@@ -439,10 +469,11 @@ class Scorer(BaseModel):
                     name="output_length_checker", experiment_id="12345"
                 )
         """
-        from mlflow.genai.scorers.registry import add_registered_scorer
+        # Get the current tracking store
+        from mlflow.genai.scorers.registry import DatabricksStore, _get_scorer_store
 
         self._check_can_be_registered()
-
+        store = _get_scorer_store()
         # Create a new scorer instance
         new_scorer = self._create_copy()
 
@@ -453,18 +484,12 @@ class Scorer(BaseModel):
             if new_scorer._cached_dump is not None:
                 new_scorer._cached_dump["name"] = name
 
-        # Add the scorer to the server with sample_rate=0 (not actively sampling)
-        add_registered_scorer(
-            name=new_scorer.name,
-            scorer=new_scorer,
-            sample_rate=0.0,
-            filter_string=None,
-            experiment_id=experiment_id,
-        )
+        store.register_scorer(experiment_id, new_scorer)
 
-        # Set the sampling config on the new instance
-        new_scorer._sampling_config = ScorerSamplingConfig(sample_rate=0.0, filter_string=None)
-
+        if isinstance(store, DatabricksStore):
+            new_scorer._registered_backend = "databricks"
+        else:
+            new_scorer._registered_backend = "tracking"
         return new_scorer
 
     @experimental(version="3.2.0")
@@ -513,14 +538,26 @@ class Scorer(BaseModel):
                     )
                 )
         """
-        from mlflow.genai.scorers.registry import update_registered_scorer
+        from mlflow.genai.scorers.registry import DatabricksStore
+        from mlflow.tracking._tracking_service.utils import get_tracking_uri
+        from mlflow.utils.uri import is_databricks_uri
+
+        if not is_databricks_uri(get_tracking_uri()):
+            raise MlflowException(
+                "Scheduling scorers is only supported by Databricks tracking URI."
+            )
 
         self._check_can_be_registered()
+
+        if sampling_config.sample_rate is not None and sampling_config.sample_rate <= 0:
+            raise MlflowException.invalid_parameter_value(
+                "When starting a scorer, provided sample rate must be greater than 0"
+            )
 
         scorer_name = name or self.name
 
         # Update the scorer on the server
-        return update_registered_scorer(
+        return DatabricksStore.update_registered_scorer(
             name=scorer_name,
             scorer=self,
             sample_rate=sampling_config.sample_rate,
@@ -557,6 +594,7 @@ class Scorer(BaseModel):
             A new Scorer instance with updated configuration.
 
         Example:
+
             .. code-block:: python
 
                 import mlflow
@@ -579,14 +617,21 @@ class Scorer(BaseModel):
                 )
                 print(f"Added filter: {filtered_scorer.filter_string}")
         """
-        from mlflow.genai.scorers.registry import update_registered_scorer
+        from mlflow.genai.scorers.registry import DatabricksStore
+        from mlflow.tracking._tracking_service.utils import get_tracking_uri
+        from mlflow.utils.uri import is_databricks_uri
+
+        if not is_databricks_uri(get_tracking_uri()):
+            raise MlflowException(
+                "Updating scheduled scorers is only supported by Databricks tracking URI."
+            )
 
         self._check_can_be_registered()
 
         scorer_name = name or self.name
 
         # Update the scorer on the server
-        return update_registered_scorer(
+        return DatabricksStore.update_registered_scorer(
             name=scorer_name,
             scorer=self,
             sample_rate=sampling_config.sample_rate,
@@ -612,6 +657,7 @@ class Scorer(BaseModel):
             A new Scorer instance with sample rate set to 0.
 
         Example:
+
             .. code-block:: python
 
                 import mlflow
@@ -632,6 +678,14 @@ class Scorer(BaseModel):
                     sampling_config=ScorerSamplingConfig(sample_rate=0.3)
                 )
         """
+        from mlflow.tracking._tracking_service.utils import get_tracking_uri
+        from mlflow.utils.uri import is_databricks_uri
+
+        if not is_databricks_uri(get_tracking_uri()):
+            raise MlflowException(
+                "Stopping scheduled scorers is only supported by Databricks tracking URI."
+            )
+
         self._check_can_be_registered()
 
         scorer_name = name or self.name

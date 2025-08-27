@@ -36,18 +36,14 @@
 .conceptGrid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 1rem;
-  max-width: 800px;
-  margin: 0 auto;
+  margin: 0 1rem;
 }
 
 .conceptCard {
   border: none;
   border-radius: 8px;
   padding: 1.5rem;
-  background: var(--ifm-color-emphasis-100);
-  box-shadow: none;
-  transition: none;
+  background: var(--ifm-background-surface-color);
 }
 
 .conceptHeader {
@@ -101,7 +97,7 @@
 @media (min-width: 1024px) {
   .conceptGrid {
     grid-template-columns: repeat(3, 1fr);
-    gap: 2rem;
+    gap: 1rem;
   }
 
   .conceptCard {

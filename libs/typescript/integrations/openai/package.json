@@ -1,6 +1,6 @@
 {
   "name": "mlflow-openai",
-  "version": "0.1.0-rc.0",
+  "version": "0.1.0",
   "description": "OpenAI integration package for MLflow Tracing",
   "repository": {
     "type": "git",

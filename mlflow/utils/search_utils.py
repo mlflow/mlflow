@@ -1607,10 +1607,12 @@ class SearchTraceUtils(SearchUtils):
     # decision if we find a way to support them efficiently.
     VALID_TAG_COMPARATORS = {"!=", "="}
     VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", "IN", "NOT IN"}
+    VALID_SPAN_ATTRIBUTE_COMPARATORS = {"!=", "=", "IN", "NOT IN", "LIKE", "ILIKE"}
 
     _REQUEST_METADATA_IDENTIFIER = "request_metadata"
     _TAG_IDENTIFIER = "tag"
     _ATTRIBUTE_IDENTIFIER = "attribute"
+    _SPAN_IDENTIFIER = "span"
 
     # These are aliases for the base identifiers
     # e.g. trace.status is equivalent to attribute.status
@@ -1620,8 +1622,16 @@ class SearchTraceUtils(SearchUtils):
         "trace": _ATTRIBUTE_IDENTIFIER,
         "metadata": _REQUEST_METADATA_IDENTIFIER,
     }
-    _IDENTIFIERS = {_TAG_IDENTIFIER, _REQUEST_METADATA_IDENTIFIER, _ATTRIBUTE_IDENTIFIER}
+    _IDENTIFIERS = {
+        _TAG_IDENTIFIER,
+        _REQUEST_METADATA_IDENTIFIER,
+        _ATTRIBUTE_IDENTIFIER,
+        _SPAN_IDENTIFIER,
+    }
     _VALID_IDENTIFIERS = _IDENTIFIERS | set(_ALTERNATE_IDENTIFIERS.keys())
+
+    # Supported span attributes
+    _SUPPORTED_SPAN_ATTRIBUTES = {"name"}
 
     SUPPORT_IN_COMPARISON_ATTRIBUTE_KEYS = {"name", "status", "request_id", "run_id"}
 
@@ -1664,6 +1674,12 @@ class SearchTraceUtils(SearchUtils):
             lhs = trace.request_metadata.get(key)
         elif cls.is_attribute(type_, key, comparator):
             lhs = getattr(trace, key)
+        elif cls.is_span(type_, key, comparator):
+            raise MlflowException(
+                "Span filtering requires database support and cannot be performed "
+                "on in-memory trace data.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         elif sed.get("type") == cls._TAG_IDENTIFIER:
             lhs = trace.tags.get(key)
         else:
@@ -1697,6 +1713,10 @@ class SearchTraceUtils(SearchUtils):
         """
         Replace search key to tag or metadata key if it is in the mapping.
         """
+        # Don't replace keys for span filters - they have their own namespace
+        if parsed.get("type") == cls._SPAN_IDENTIFIER:
+            return parsed
+
         key = parsed.get("key").lower()
         if key in cls.SEARCH_KEY_TO_TAG:
             parsed["type"] = cls._TAG_IDENTIFIER
@@ -1715,6 +1735,26 @@ class SearchTraceUtils(SearchUtils):
             if comparator not in cls.VALID_TAG_COMPARATORS:
                 raise MlflowException(
                     f"Invalid comparator '{comparator}' not one of '{cls.VALID_TAG_COMPARATORS}'",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            return True
+        return False
+
+    @classmethod
+    def is_span(cls, key_type, key_name, comparator):
+        if key_type == cls._SPAN_IDENTIFIER:
+            if key_name in cls._SUPPORTED_SPAN_ATTRIBUTES:
+                if comparator not in cls.VALID_SPAN_ATTRIBUTE_COMPARATORS:
+                    raise MlflowException(
+                        f"span.{key_name} comparator '{comparator}' not one of "
+                        f"'{cls.VALID_SPAN_ATTRIBUTE_COMPARATORS}'",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+            else:
+                supported_attrs = ", ".join(sorted(cls._SUPPORTED_SPAN_ATTRIBUTES))
+                raise MlflowException(
+                    f"Invalid span attribute '{key_name}'. "
+                    f"Supported attributes: {supported_attrs}.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
@@ -1804,6 +1844,18 @@ class SearchTraceUtils(SearchUtils):
                     f"{token.value}",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
+        elif identifier_type == cls._SPAN_IDENTIFIER:
+            if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
+                return cls._strip_quotes(token.value, expect_quoted_value=True)
+            elif isinstance(token, Parenthesis):
+                return cls._parse_attribute_lists(token)
+            else:
+                raise MlflowException(
+                    "Expected a quoted string value for "
+                    f"{identifier_type} (e.g. 'my-value'). Got value "
+                    f"{token.value}",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
         else:
             # Expected to be either "param" or "metric".
             raise MlflowException(
@@ -1846,6 +1898,10 @@ class SearchTraceUtils(SearchUtils):
         comp = cls._get_identifier(stripped_comparison[0].value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = stripped_comparison[1].value
         comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), stripped_comparison[2])
+
+        if comp.get("type") == cls._SPAN_IDENTIFIER:
+            cls.is_span(comp["type"], comp["key"], comp["comparator"])
+
         return comp
 
 

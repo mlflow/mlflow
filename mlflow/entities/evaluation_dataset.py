@@ -10,7 +10,9 @@ from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.dataset_record import DatasetRecord
 from mlflow.entities.dataset_record_source import DatasetRecordSourceType
 from mlflow.exceptions import MlflowException
-from mlflow.protos.evaluation_datasets_pb2 import EvaluationDataset as ProtoEvaluationDataset
+from mlflow.protos.datasets_pb2 import Dataset as ProtoDataset
+from mlflow.telemetry.events import MergeRecordsEvent
+from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking._tracking_service.utils import _get_store, get_tracking_uri
 from mlflow.tracking.context import registry as context_registry
 from mlflow.utils.mlflow_tags import MLFLOW_USER
@@ -115,7 +117,10 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         """
         if self._records is None:
             tracking_store = _get_store()
-            self._records = tracking_store._load_dataset_records(self.dataset_id)
+            # For lazy loading, we want all records (no pagination)
+            self._records, _ = tracking_store._load_dataset_records(
+                self.dataset_id, max_results=None
+            )
         return self._records or []
 
     def has_records(self) -> bool:
@@ -184,6 +189,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         else:
             return df.to_dict("records")
 
+    @record_usage_event(MergeRecordsEvent)
     def merge_records(
         self, records: list[dict[str, Any]] | "pd.DataFrame" | list["Trace"]
     ) -> "EvaluationDataset":
@@ -203,21 +209,13 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         Example:
             .. code-block:: python
 
-                # Method 1: Direct usage with search_traces DataFrame output (default)
+                # Direct usage with search_traces DataFrame output
                 traces_df = mlflow.search_traces()  # Returns DataFrame by default
-                dataset.merge_records(traces_df)  # Automatically extracts trace data
+                dataset.merge_records(traces_df)  # No extraction needed
 
-                # Method 2: Using list of Trace objects from search_traces
-                traces_list = mlflow.search_traces(return_type="list")  # Returns list[Trace]
-                dataset.merge_records(traces_list)  # Directly accepts Trace objects
-
-                # Method 3: Standard DataFrame with inputs/expectations
+                # Or with standard DataFrame
                 df = pd.DataFrame([{"inputs": {"q": "What?"}, "expectations": {"a": "Answer"}}])
                 dataset.merge_records(df)
-
-                # Method 4: List of dictionaries
-                records = [{"inputs": {"q": "Test?"}, "expectations": {"score": 0.9}}]
-                dataset.merge_records(records)
         """
         import pandas as pd
 
@@ -231,6 +229,8 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
             record_dicts = records
 
         self._validate_record_dicts(record_dicts)
+
+        self._infer_source_types(record_dicts)
 
         tracking_store = _get_store()
 
@@ -275,6 +275,36 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
                     "Each record must have an 'inputs' field"
                 )
 
+    def _infer_source_types(self, record_dicts: list[dict[str, Any]]) -> None:
+        """Infer source types for records without explicit source information.
+
+        Simple inference rules:
+        - Records with expectations -> HUMAN (manual test cases/ground truth)
+        - Records with inputs but no expectations -> CODE (programmatically generated)
+
+        Inference can be overridden by providing explicit source information.
+
+        Note that trace inputs (from List[Trace] or pd.DataFrame of Trace data) will
+        always be inferred as a trace source type when processing trace records.
+
+        Args:
+            record_dicts: List of record dictionaries to process (modified in place)
+        """
+        for record in record_dicts:
+            if "source" in record:
+                continue
+
+            if "expectations" in record and record["expectations"]:
+                record["source"] = {
+                    "source_type": DatasetRecordSourceType.HUMAN.value,
+                    "source_data": {},
+                }
+            elif "inputs" in record and "expectations" not in record:
+                record["source"] = {
+                    "source_type": DatasetRecordSourceType.CODE.value,
+                    "source_data": {},
+                }
+
     def to_df(self) -> "pd.DataFrame":
         """
         Convert dataset records to a pandas DataFrame.
@@ -316,9 +346,9 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
 
         return pd.DataFrame(data)
 
-    def to_proto(self) -> ProtoEvaluationDataset:
+    def to_proto(self) -> ProtoDataset:
         """Convert to protobuf representation."""
-        proto = ProtoEvaluationDataset()
+        proto = ProtoDataset()
 
         proto.dataset_id = self.dataset_id
         proto.name = self.name
@@ -341,7 +371,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         return proto
 
     @classmethod
-    def from_proto(cls, proto: ProtoEvaluationDataset) -> "EvaluationDataset":
+    def from_proto(cls, proto: ProtoDataset) -> "EvaluationDataset":
         """Create instance from protobuf representation."""
         tags = None
         if proto.HasField("tags"):

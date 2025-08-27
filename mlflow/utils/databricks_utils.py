@@ -1441,8 +1441,7 @@ def databricks_api_disabled(api_name: str = "This API", alternative: str | None 
     """
     Decorator that disables an API method when used with Databricks.
 
-    This decorator checks if the method is being called with Databricks authentication
-    (via the use_databricks_sdk flag) and raises an error if so.
+    This decorator checks if the tracking URI is a Databricks URI and raises an error if so.
 
     Args:
         api_name: Name of the API for the error message.
@@ -1455,14 +1454,13 @@ def databricks_api_disabled(api_name: str = "This API", alternative: str | None 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
-            if not hasattr(self, "get_host_creds"):
+            from mlflow.tracking import get_tracking_uri
+            from mlflow.utils.uri import is_databricks_uri
+
+            tracking_uri = get_tracking_uri()
+            if not is_databricks_uri(tracking_uri):
                 return func(self, *args, **kwargs)
 
-            host_creds = self.get_host_creds()
-            if not host_creds or not getattr(host_creds, "use_databricks_sdk", False):
-                return func(self, *args, **kwargs)
-
-            # If we're here, we're in Databricks - raise the error
             error_msg = f"{api_name} is not supported in Databricks environments."
             if alternative:
                 error_msg += f" {alternative}"

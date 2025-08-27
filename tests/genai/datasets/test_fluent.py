@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+import tempfile
 import warnings
 from unittest import mock
 
@@ -8,6 +9,9 @@ import pandas as pd
 import pytest
 
 import mlflow
+from mlflow.data import Dataset
+from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
+from mlflow.entities.dataset_record_source import DatasetRecordSourceType
 from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import (
@@ -19,8 +23,9 @@ from mlflow.genai.datasets import (
     search_datasets,
     set_dataset_tags,
 )
-from mlflow.genai.evaluation import evaluate
-from mlflow.genai.scorers import scorer
+from mlflow.genai.datasets.evaluation_dataset import (
+    EvaluationDataset as WrapperEvaluationDataset,
+)
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_EVALUATION_DATASETS_MAX_RESULTS
 from mlflow.tracking import MlflowClient
@@ -250,7 +255,6 @@ def test_search_datasets_with_mock(mock_client):
             last_update_time=123456789,
         ),
     ]
-    # Mock the paginated response - first page returns 2 datasets with no continuation token
     mock_client.search_datasets.return_value = PagedList(datasets, None)
 
     result = search_datasets(
@@ -262,12 +266,11 @@ def test_search_datasets_with_mock(mock_client):
 
     assert len(result) == 2
     assert isinstance(result, list)
-    # The pagination wrapper will request up to SEARCH_EVALUATION_DATASETS_MAX_RESULTS (50) per page
-    # even though we requested max_results=100
+
     mock_client.search_datasets.assert_called_once_with(
         experiment_ids=["exp1", "exp2"],
         filter_string="name LIKE 'test%'",
-        max_results=50,  # This is the page size (SEARCH_EVALUATION_DATASETS_MAX_RESULTS)
+        max_results=50,
         order_by=["created_time DESC"],
         page_token=None,
     )
@@ -286,21 +289,23 @@ def test_search_datasets_single_experiment_id(mock_client):
     mock_client.search_datasets.return_value = PagedList(datasets, None)
 
     # When no max_results is specified, it defaults to None which means get all
-    search_datasets(experiment_ids="exp1")
+    # Mock time to have a consistent filter_string
+    with mock.patch("time.time", return_value=1234567890):
+        search_datasets(experiment_ids="exp1")
 
     # The pagination wrapper will use SEARCH_EVALUATION_DATASETS_MAX_RESULTS as the page size
+    # Now the function adds default filter (last 7 days) and order_by when not specified
+    seven_days_ago = int((1234567890 - 7 * 24 * 60 * 60) * 1000)
     mock_client.search_datasets.assert_called_once_with(
         experiment_ids=["exp1"],
-        filter_string=None,
+        filter_string=f"created_time >= {seven_days_ago}",
         max_results=SEARCH_EVALUATION_DATASETS_MAX_RESULTS,  # Page size
-        order_by=None,
+        order_by=["created_time DESC"],
         page_token=None,
     )
 
 
 def test_search_datasets_pagination_handling(mock_client):
-    """Test that search_datasets handles pagination automatically."""
-    # Create datasets for multiple pages
     page1_datasets = [
         EntityEvaluationDataset(
             dataset_id=f"id{i}",
@@ -323,33 +328,26 @@ def test_search_datasets_pagination_handling(mock_client):
         for i in range(3, 5)
     ]
 
-    # Mock paginated responses
     mock_client.search_datasets.side_effect = [
-        PagedList(page1_datasets, "token1"),  # First page with token
-        PagedList(page2_datasets, None),  # Second page without token (last page)
+        PagedList(page1_datasets, "token1"),
+        PagedList(page2_datasets, None),
     ]
 
-    # Call search_datasets without page_token
     result = search_datasets(experiment_ids=["exp1"], max_results=10)
 
-    # Verify all datasets are returned
     assert len(result) == 5
     assert isinstance(result, list)
 
-    # Verify pagination was handled automatically
     assert mock_client.search_datasets.call_count == 2
 
-    # Check first call - should request with page_token=None
     first_call = mock_client.search_datasets.call_args_list[0]
     assert first_call[1]["page_token"] is None
 
-    # Check second call - should request with page_token="token1"
     second_call = mock_client.search_datasets.call_args_list[1]
     assert second_call[1]["page_token"] == "token1"
 
 
 def test_search_datasets_single_page(mock_client):
-    """Test that search_datasets handles single page results correctly."""
     datasets = [
         EntityEvaluationDataset(
             dataset_id="id1",
@@ -360,16 +358,13 @@ def test_search_datasets_single_page(mock_client):
         )
     ]
 
-    # Mock single page response with no token
     mock_client.search_datasets.return_value = PagedList(datasets, None)
 
     result = search_datasets(max_results=10)
 
-    # Verify single page is handled correctly
     assert len(result) == 1
     assert isinstance(result, list)
 
-    # Should only be called once
     assert mock_client.search_datasets.call_count == 1
 
 
@@ -434,7 +429,7 @@ def test_create_dataset_minimal_params(tracking_uri):
 
     assert dataset.name == "minimal_dataset"
     assert "mlflow.user" not in dataset.tags or isinstance(dataset.tags.get("mlflow.user"), str)
-    assert dataset.experiment_ids == []
+    assert dataset.experiment_ids == ["0"]
 
 
 def test_active_record_pattern_merge_records(tracking_uri, experiments):
@@ -522,9 +517,14 @@ def test_dataset_with_dataframe_records(tracking_uri, experiments):
     assert len(result_df) == 2
     assert all(col in result_df.columns for col in ["inputs", "expectations", "tags"])
 
-    first_record = result_df.iloc[0]
-    assert first_record["inputs"]["text"] == "The movie was amazing!"
-    assert first_record["expectations"]["sentiment"] == "positive"
+    # Check that all expected records are present (order-agnostic)
+    texts = {record["inputs"]["text"] for _, record in result_df.iterrows()}
+    expected_texts = {"The movie was amazing!", "Terrible experience"}
+    assert texts == expected_texts
+
+    sentiments = {record["expectations"]["sentiment"] for _, record in result_df.iterrows()}
+    expected_sentiments = {"positive", "negative"}
+    assert sentiments == expected_sentiments
 
 
 def test_search_datasets(tracking_uri, experiments):
@@ -1131,6 +1131,155 @@ def test_trace_integration_end_to_end(client, experiment):
     assert len(manual_records) == 1
 
 
+def test_dataset_pagination_transparency_large_records(tracking_uri, experiments):
+    dataset = create_dataset(
+        name="test_pagination_transparency",
+        experiment_id=experiments[0],
+        tags={"test": "large_dataset"},
+    )
+
+    large_records = []
+    for i in range(150):
+        large_records.append(
+            {
+                "inputs": {"question": f"Question {i}", "index": i},
+                "expectations": {"answer": f"Answer {i}", "score": i * 0.01},
+            }
+        )
+
+    dataset.merge_records(large_records)
+
+    all_records = dataset.records
+    assert len(all_records) == 150
+
+    record_indices = {record.inputs["index"] for record in all_records}
+    expected_indices = set(range(150))
+    assert record_indices == expected_indices
+
+    record_scores = {record.expectations["score"] for record in all_records}
+    expected_scores = {i * 0.01 for i in range(150)}
+    assert record_scores == expected_scores
+
+    df = dataset.to_df()
+    assert len(df) == 150
+
+    df_indices = {row["index"] for row in df["inputs"]}
+    assert df_indices == expected_indices
+
+    assert not hasattr(dataset, "page_token")
+    assert not hasattr(dataset, "next_page_token")
+    assert not hasattr(dataset, "max_results")
+
+    second_access = dataset.records
+    assert second_access is all_records
+
+    dataset._records = None
+    refreshed_records = dataset.records
+    assert len(refreshed_records) == 150
+
+
+def test_dataset_internal_pagination_with_mock(tracking_uri, experiments):
+    from mlflow.tracking._tracking_service.utils import _get_store
+
+    dataset = create_dataset(
+        name="test_internal_pagination",
+        experiment_id=experiments[0],
+        tags={"test": "pagination_mock"},
+    )
+
+    records = []
+    for i in range(75):
+        records.append(
+            {"inputs": {"question": f"Q{i}", "id": i}, "expectations": {"answer": f"A{i}"}}
+        )
+
+    dataset.merge_records(records)
+
+    dataset._records = None
+
+    store = _get_store()
+    with mock.patch.object(
+        store, "_load_dataset_records", wraps=store._load_dataset_records
+    ) as mock_load:
+        accessed_records = dataset.records
+
+        mock_load.assert_called_once_with(dataset.dataset_id, max_results=None)
+        assert len(accessed_records) == 75
+
+    dataset._records = None
+
+    with mock.patch.object(
+        store, "_load_dataset_records", wraps=store._load_dataset_records
+    ) as mock_load:
+        df = dataset.to_df()
+
+        mock_load.assert_called_once_with(dataset.dataset_id, max_results=None)
+        assert len(df) == 75
+
+
+def test_dataset_experiment_associations(tracking_uri, experiments):
+    from mlflow.genai.datasets import (
+        add_dataset_to_experiments,
+        remove_dataset_from_experiments,
+    )
+
+    dataset = create_dataset(
+        name="test_associations",
+        experiment_id=experiments[0],
+        tags={"test": "associations"},
+    )
+
+    initial_exp_ids = dataset.experiment_ids
+    assert experiments[0] in initial_exp_ids
+
+    updated = add_dataset_to_experiments(
+        dataset_id=dataset.dataset_id, experiment_ids=[experiments[1], experiments[2]]
+    )
+    assert experiments[0] in updated.experiment_ids
+    assert experiments[1] in updated.experiment_ids
+    assert experiments[2] in updated.experiment_ids
+    assert len(updated.experiment_ids) == 3
+
+    result = add_dataset_to_experiments(
+        dataset_id=dataset.dataset_id, experiment_ids=[experiments[1], experiments[2]]
+    )
+    assert len(result.experiment_ids) == 3
+    assert all(exp in result.experiment_ids for exp in experiments)
+
+    removed = remove_dataset_from_experiments(
+        dataset_id=dataset.dataset_id, experiment_ids=[experiments[1], experiments[2]]
+    )
+    assert experiments[1] not in removed.experiment_ids
+    assert experiments[2] not in removed.experiment_ids
+    assert experiments[0] in removed.experiment_ids
+    assert len(removed.experiment_ids) == 1
+
+    with mock.patch("mlflow.store.tracking.sqlalchemy_store._logger.warning") as mock_warning:
+        idempotent = remove_dataset_from_experiments(
+            dataset_id=dataset.dataset_id, experiment_ids=[experiments[1], experiments[2]]
+        )
+        assert mock_warning.call_count == 2
+        assert "was not associated" in mock_warning.call_args_list[0][0][0]
+
+    assert len(idempotent.experiment_ids) == 1
+
+
+def test_dataset_associations_filestore_blocking():
+    from mlflow.genai.datasets import (
+        add_dataset_to_experiments,
+        remove_dataset_from_experiments,
+    )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        mlflow.set_tracking_uri(f"file://{temp_dir}")
+
+        with pytest.raises(NotImplementedError, match="not supported with FileStore"):
+            add_dataset_to_experiments(dataset_id="d-test123", experiment_ids=["1", "2"])
+
+        with pytest.raises(NotImplementedError, match="not supported with FileStore"):
+            remove_dataset_from_experiments(dataset_id="d-test123", experiment_ids=["1"])
+
+
 def test_evaluation_dataset_tags_crud_workflow(tracking_uri, experiments):
     dataset = create_dataset(
         name="test_tags_crud",
@@ -1397,115 +1546,392 @@ def test_deprecated_parameter_substitution(experiment):
     delete_dataset(dataset_id=dataset.dataset_id)
 
 
-def test_dataset_with_genai_evaluate_integration(tracking_uri, experiments):
-    for i in range(5):
-        with mlflow.start_run(experiment_id=experiments[0]):
-            trace_tags = {
-                "environment": "test",
-                "model_version": "v1.0",
-                "test_iteration": str(i),
-                "quality": "high" if i % 2 == 0 else "medium",
-            }
+def test_create_dataset_uses_active_experiment_when_not_specified(tracking_uri):
+    exp_id = mlflow.create_experiment("test_active_experiment")
+    mlflow.set_experiment(experiment_id=exp_id)
 
-            with mlflow.start_span(name=f"qa_trace_{i}", attributes=trace_tags) as span:
-                inputs = {
-                    "question": f"Question {i}: What is MLflow?",
-                    "context": "MLflow is an open source platform for ML lifecycle management",
-                }
-                outputs = {"answer": f"Answer {i}: MLflow is a platform for managing ML workflows"}
+    dataset = create_dataset(name="test_with_active_exp")
 
-                span.set_inputs(inputs)
-                span.set_outputs(outputs)
+    assert dataset.experiment_ids == [exp_id]
 
-                mlflow.log_expectation(
-                    trace_id=span.trace_id,
-                    name="correctness",
-                    value=i % 2 == 0,
-                    span_id=span.span_id,
-                )
-                mlflow.log_expectation(
-                    trace_id=span.trace_id,
-                    name="relevance_score",
-                    value=0.7 + (i * 0.05),
-                    span_id=span.span_id,
-                )
+    from mlflow.tracking import fluent
 
-    traces_list = mlflow.search_traces(experiment_ids=[experiments[0]], return_type="list")
+    fluent._active_experiment_id = None
 
-    assert len(traces_list) == 5
 
+def test_create_dataset_with_no_active_experiment(tracking_uri):
+    from mlflow.tracking import fluent
+
+    fluent._active_experiment_id = None
+
+    dataset = create_dataset(name="test_no_active_exp")
+
+    assert dataset.experiment_ids == ["0"]
+
+
+def test_create_dataset_explicit_overrides_active_experiment(tracking_uri):
+    active_exp = mlflow.create_experiment("active_exp")
+    explicit_exp = mlflow.create_experiment("explicit_exp")
+
+    mlflow.set_experiment(experiment_id=active_exp)
+
+    dataset = create_dataset(name="test_explicit_override", experiment_id=explicit_exp)
+
+    assert dataset.experiment_ids == [explicit_exp]
+
+    from mlflow.tracking import fluent
+
+    fluent._active_experiment_id = None
+
+
+def test_create_dataset_none_uses_active_experiment(tracking_uri):
+    exp_id = mlflow.create_experiment("test_none_experiment")
+    mlflow.set_experiment(experiment_id=exp_id)
+
+    dataset = create_dataset(name="test_none_exp", experiment_id=None)
+
+    assert dataset.experiment_ids == [exp_id]
+
+    from mlflow.tracking import fluent
+
+    fluent._active_experiment_id = None
+
+
+def test_source_type_inference():
+    exp = mlflow.create_experiment("test_source_inference")
     dataset = create_dataset(
-        name="evaluate_integration_test",
-        experiment_id=experiments[0],
-        tags={"test": "integration", "mlflow.user": "test_user"},
+        name="test_source_inference", experiment_id=exp, tags={"test": "source_inference"}
     )
 
-    dataset.merge_records(traces_list)
+    human_records = [
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "expectations": {"answer": "MLflow is an ML platform", "quality": 0.9},
+        },
+        {
+            "inputs": {"question": "How to track experiments?"},
+            "expectations": {"answer": "Use mlflow.start_run()", "quality": 0.85},
+        },
+    ]
+    dataset.merge_records(human_records)
 
-    assert len(dataset.records) == 5
+    df = dataset.to_df()
+    human_sources = df[df["source_type"] == DatasetRecordSourceType.HUMAN.value]
+    assert len(human_sources) == 2
 
-    @scorer
-    def simple_length_scorer(outputs=None, inputs=None, expectations=None, **kwargs):
-        """Score based on answer length."""
-        if outputs is None:
-            return 0.0
-        answer = outputs.get("answer", "") if isinstance(outputs, dict) else str(outputs)
-        return min(len(answer) / 100, 1.0)
+    code_records = [{"inputs": {"question": f"Generated question {i}"}} for i in range(3)]
+    dataset.merge_records(code_records)
 
-    @scorer
-    def expectation_based_scorer(outputs=None, inputs=None, expectations=None, **kwargs):
-        """Score that compares with expectations."""
-        if expectations and isinstance(expectations, dict) and "relevance_score" in expectations:
-            return expectations["relevance_score"]
-        return 0.5
+    df = dataset.to_df()
+    code_sources = df[df["source_type"] == DatasetRecordSourceType.CODE.value]
+    assert len(code_sources) == 3
 
-    result = evaluate(
-        data=dataset,
-        scorers=[simple_length_scorer, expectation_based_scorer],
-    )
+    explicit_records = [
+        {
+            "inputs": {"question": "Document-based question"},
+            "expectations": {"answer": "From document"},
+            "source": {
+                "source_type": DatasetRecordSourceType.DOCUMENT.value,
+                "source_data": {"source_id": "doc123", "page": 5},
+            },
+        }
+    ]
+    dataset.merge_records(explicit_records)
 
-    assert result is not None
-    assert result.run_id is not None
+    df = dataset.to_df()
+    doc_sources = df[df["source_type"] == DatasetRecordSourceType.DOCUMENT.value]
+    assert len(doc_sources) == 1
+    assert doc_sources.iloc[0]["source_id"] == "doc123"
 
-    metrics = result.metrics
-    assert "simple_length_scorer/mean" in metrics or "simple_length_scorer/v1/mean" in metrics
-    assert (
-        "expectation_based_scorer/mean" in metrics or "expectation_based_scorer/v1/mean" in metrics
-    )
+    empty_exp_records = [{"inputs": {"question": "Has empty expectations"}, "expectations": {}}]
+    dataset.merge_records(empty_exp_records)
 
-    if hasattr(result, "tables"):
-        tables = result.tables
-        if tables and "eval_results_table" in tables:
-            eval_df = tables["eval_results_table"]
-            assert len(eval_df) == 5
+    df = dataset.to_df()
+    last_record = df.iloc[-1]
+    assert last_record["source_type"] not in [
+        DatasetRecordSourceType.HUMAN.value,
+        DatasetRecordSourceType.CODE.value,
+    ]
 
-            assert (
-                "simple_length_scorer/score" in eval_df.columns
-                or "simple_length_scorer/v1/score" in eval_df.columns
-            )
-            assert (
-                "expectation_based_scorer/score" in eval_df.columns
-                or "expectation_based_scorer/v1/score" in eval_df.columns
-            )
+    explicit_trace = [
+        {
+            "inputs": {"question": "From trace"},
+            "source": {
+                "source_type": DatasetRecordSourceType.TRACE.value,
+                "source_data": {"trace_id": "trace123"},
+            },
+        }
+    ]
+    dataset.merge_records(explicit_trace)
 
-            if "expectation_based_scorer/score" in eval_df.columns:
-                score_col = "expectation_based_scorer/score"
-            else:
-                score_col = "expectation_based_scorer/v1/score"
+    df = dataset.to_df()
+    trace_sources = df[df["source_type"] == DatasetRecordSourceType.TRACE.value]
+    assert len(trace_sources) == 1, f"Expected 1 TRACE source, got {len(trace_sources)}"
+    assert trace_sources.iloc[0]["source_id"] == "trace123"
 
-            for idx, row in eval_df.iterrows():
-                expected_relevance = 0.7 + (idx * 0.05)
-                actual_score = row[score_col]
-                error_msg = f"Row {idx}: expected {expected_relevance}, got {actual_score}"
-                assert abs(actual_score - expected_relevance) < 0.01, error_msg
-
-    run = mlflow.get_run(result.run_id)
-    assert run.inputs is not None
-    assert run.inputs.dataset_inputs is not None
-    assert len(run.inputs.dataset_inputs) > 0
-
-    dataset_input = run.inputs.dataset_inputs[0]
-    assert dataset_input.dataset.name == dataset.name
-    assert dataset_input.dataset.digest == dataset.digest
+    source_counts = df["source_type"].value_counts()
+    assert source_counts.get(DatasetRecordSourceType.HUMAN.value, 0) == 2
+    assert source_counts.get(DatasetRecordSourceType.CODE.value, 0) == 3
+    assert source_counts.get(DatasetRecordSourceType.DOCUMENT.value, 0) == 1
+    assert source_counts.get(DatasetRecordSourceType.TRACE.value, 0) == 1
 
     delete_dataset(dataset_id=dataset.dataset_id)
+
+
+def test_trace_source_type_detection():
+    exp = mlflow.create_experiment("test_trace_source_detection")
+
+    trace_ids = []
+    for i in range(3):
+        with mlflow.start_run(experiment_id=exp):
+            with mlflow.start_span(name=f"test_span_{i}") as span:
+                span.set_inputs({"question": f"Question {i}", "context": f"Context {i}"})
+                span.set_outputs({"answer": f"Answer {i}"})
+                trace_ids.append(span.trace_id)
+
+                if i < 2:
+                    mlflow.log_expectation(
+                        trace_id=span.trace_id,
+                        name="quality",
+                        value=0.8 + i * 0.05,
+                        span_id=span.span_id,
+                    )
+
+    dataset = create_dataset(
+        name="test_trace_sources", experiment_id=exp, tags={"test": "trace_source_detection"}
+    )
+
+    client = mlflow.MlflowClient()
+    traces = [client.get_trace(tid) for tid in trace_ids]
+    dataset.merge_records(traces)
+
+    df = dataset.to_df()
+    trace_sources = df[df["source_type"] == DatasetRecordSourceType.TRACE.value]
+    assert len(trace_sources) == 3
+
+    for idx, trace_id in enumerate(trace_ids):
+        matching_records = df[df["source_id"] == trace_id]
+        assert len(matching_records) == 1
+
+    dataset2 = create_dataset(
+        name="test_trace_sources_df", experiment_id=exp, tags={"test": "trace_source_df"}
+    )
+
+    traces_df = mlflow.search_traces(experiment_ids=[exp])
+    assert not traces_df.empty
+    dataset2.merge_records(traces_df)
+
+    df2 = dataset2.to_df()
+    trace_sources2 = df2[df2["source_type"] == DatasetRecordSourceType.TRACE.value]
+    assert len(trace_sources2) == len(traces_df)
+
+    dataset3 = create_dataset(
+        name="test_trace_sources_list", experiment_id=exp, tags={"test": "trace_source_list"}
+    )
+
+    traces_list = mlflow.search_traces(experiment_ids=[exp], return_type="list")
+    assert len(traces_list) > 0
+    dataset3.merge_records(traces_list)
+
+    df3 = dataset3.to_df()
+    trace_sources3 = df3[df3["source_type"] == DatasetRecordSourceType.TRACE.value]
+    assert len(trace_sources3) == len(traces_list)
+
+    df_with_expectations = df[df["expectations"].apply(lambda x: bool(x) and len(x) > 0)]
+    assert len(df_with_expectations) == 2
+
+    delete_dataset(dataset_id=dataset.dataset_id)
+    delete_dataset(dataset_id=dataset2.dataset_id)
+    delete_dataset(dataset_id=dataset3.dataset_id)
+
+
+def test_create_dataset_explicit_overrides_active_experiment(tracking_uri):
+    active_exp = mlflow.create_experiment("active_exp")
+    explicit_exp = mlflow.create_experiment("explicit_exp")
+
+    mlflow.set_experiment(experiment_id=active_exp)
+
+    dataset = create_dataset(name="test_explicit_override", experiment_id=explicit_exp)
+
+    assert dataset.experiment_ids == [explicit_exp]
+
+    from mlflow.tracking import fluent
+
+    fluent._active_experiment_id = None
+
+
+def test_create_dataset_none_uses_active_experiment(tracking_uri):
+    exp_id = mlflow.create_experiment("test_none_experiment")
+    mlflow.set_experiment(experiment_id=exp_id)
+
+    dataset = create_dataset(name="test_none_exp", experiment_id=None)
+
+    assert dataset.experiment_ids == [exp_id]
+
+    from mlflow.tracking import fluent
+
+    fluent._active_experiment_id = None
+
+
+def test_create_dataset_empty_list_stays_empty(tracking_uri):
+    exp_id = mlflow.create_experiment("test_empty_list")
+    mlflow.set_experiment(experiment_id=exp_id)
+
+    dataset = create_dataset(name="test_empty_list", experiment_id=[])
+
+    assert dataset.experiment_ids == []
+
+    from mlflow.tracking import fluent
+
+    fluent._active_experiment_id = None
+
+
+def test_search_datasets_filter_string_edge_cases(tracking_uri):
+    exp_id = mlflow.create_experiment("test_filter_edge_cases")
+
+    dataset = create_dataset(name="test_dataset", experiment_id=exp_id, tags={"test": "value"})
+
+    with mock.patch("mlflow.tracking.client.MlflowClient.search_datasets") as mock_search:
+        mock_search.return_value = mock.MagicMock(token=None, items=[dataset])
+
+        search_datasets(experiment_ids=exp_id, filter_string=None)
+        call_args = mock_search.call_args
+        filter_arg = call_args.kwargs.get("filter_string")
+        assert "created_time >=" in filter_arg
+
+        mock_search.reset_mock()
+
+        search_datasets(experiment_ids=exp_id, filter_string=[])
+        call_args = mock_search.call_args
+        filter_arg = call_args.kwargs.get("filter_string")
+        assert "created_time >=" in filter_arg
+
+        mock_search.reset_mock()
+
+        search_datasets(experiment_ids=exp_id, filter_string="")
+        call_args = mock_search.call_args
+        filter_arg = call_args.kwargs.get("filter_string")
+        assert "created_time >=" in filter_arg
+
+        mock_search.reset_mock()
+
+        search_datasets(experiment_ids=exp_id, filter_string='name = "test"')
+        call_args = mock_search.call_args
+        filter_arg = call_args.kwargs.get("filter_string")
+        assert filter_arg == 'name = "test"'
+
+
+def test_wrapper_type_is_actually_returned_not_entity(tracking_uri, experiments):
+    dataset = create_dataset(
+        name="test_wrapper",
+        experiment_id=experiments[0],
+        tags={"test": "wrapper_check"},
+    )
+
+    assert isinstance(dataset, WrapperEvaluationDataset)
+    assert not isinstance(dataset, EntityEvaluationDataset)
+    assert hasattr(dataset, "_mlflow_dataset")
+    assert dataset._mlflow_dataset is not None
+    assert isinstance(dataset._mlflow_dataset, EntityEvaluationDataset)
+
+
+def test_wrapper_delegates_all_properties_correctly(tracking_uri, experiments):
+    dataset = create_dataset(
+        name="test_delegation",
+        experiment_id=experiments[0],
+        tags={"env": "test", "version": "1.0"},
+    )
+
+    assert dataset.name == "test_delegation"
+    assert dataset.dataset_id.startswith("d-")
+    assert dataset.tags["env"] == "test"
+    assert dataset.tags["version"] == "1.0"
+    assert experiments[0] in dataset.experiment_ids
+    assert dataset.created_time > 0
+    assert dataset.last_update_time > 0
+    assert dataset.digest is not None
+    assert hasattr(dataset, "source")
+    assert dataset.source._get_source_type() == "mlflow_evaluation_dataset"
+
+
+def test_get_and_search_return_wrapper_not_entity(tracking_uri, experiments):
+    created = create_dataset(
+        name="test_get_wrapper",
+        experiment_id=experiments[0],
+        tags={"test": "get"},
+    )
+
+    retrieved = get_dataset(dataset_id=created.dataset_id)
+    assert isinstance(retrieved, WrapperEvaluationDataset)
+    assert not isinstance(retrieved, EntityEvaluationDataset)
+    assert retrieved.dataset_id == created.dataset_id
+    assert retrieved.name == created.name
+
+    results = search_datasets(
+        experiment_ids=experiments[0],
+        filter_string="name = 'test_get_wrapper'",
+    )
+    assert len(results) == 1
+    assert isinstance(results[0], WrapperEvaluationDataset)
+    assert not isinstance(results[0], EntityEvaluationDataset)
+
+
+def test_wrapper_vs_direct_client_usage(tracking_uri, experiments):
+    client = MlflowClient()
+
+    entity_dataset = client.create_dataset(
+        name="test_client_direct",
+        experiment_id=experiments[0],
+        tags={"direct": "client"},
+    )
+    assert isinstance(entity_dataset, EntityEvaluationDataset)
+    assert not isinstance(entity_dataset, WrapperEvaluationDataset)
+
+    wrapped_dataset = create_dataset(
+        name="test_wrapped",
+        experiment_id=experiments[0],
+        tags={"wrapped": "fluent"},
+    )
+    assert isinstance(wrapped_dataset, WrapperEvaluationDataset)
+    assert not isinstance(wrapped_dataset, EntityEvaluationDataset)
+    assert wrapped_dataset._mlflow_dataset is not None
+
+    wrapped_from_entity = WrapperEvaluationDataset(entity_dataset)
+    assert wrapped_from_entity == entity_dataset
+
+
+def test_wrapper_works_with_mlflow_log_input_integration(tracking_uri, experiments):
+    dataset = create_dataset(
+        name="test_log_input",
+        experiment_id=experiments[0],
+    )
+
+    records = [
+        {
+            "inputs": {"question": "Test question"},
+            "expectations": {"answer": "Test answer"},
+        }
+    ]
+    dataset.merge_records(records)
+
+    with mlflow.start_run(experiment_id=experiments[0]) as run:
+        mlflow.log_input(dataset, context="evaluation")
+
+    run_data = mlflow.get_run(run.info.run_id)
+    assert len(run_data.inputs.dataset_inputs) == 1
+    dataset_input = run_data.inputs.dataset_inputs[0]
+    assert dataset_input.dataset.name == "test_log_input"
+    assert dataset_input.dataset.digest == dataset.digest
+
+
+def test_wrapper_isinstance_checks_for_dataset_interfaces(tracking_uri, experiments):
+    dataset = create_dataset(
+        name="test_isinstance",
+        experiment_id=experiments[0],
+    )
+
+    assert isinstance(dataset, Dataset)
+    assert isinstance(dataset, PyFuncConvertibleDatasetMixin)
+    assert isinstance(dataset, WrapperEvaluationDataset)
+    assert not isinstance(dataset, EntityEvaluationDataset)
+    assert isinstance(dataset, (WrapperEvaluationDataset, EntityEvaluationDataset))

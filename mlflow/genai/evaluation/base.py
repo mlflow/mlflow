@@ -12,7 +12,7 @@ from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvalua
 from mlflow.entities.logged_model_input import LoggedModelInput
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.exceptions import MlflowException
-from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset as ManagedEvaluationDataset
+from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.genai.evaluation.constant import InputDatasetColumn
 from mlflow.genai.evaluation.utils import (
     _convert_scorer_to_legacy_metric,
@@ -21,12 +21,16 @@ from mlflow.genai.evaluation.utils import (
 from mlflow.genai.scorers import Scorer
 from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME, BuiltInScorer
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
+from mlflow.genai.utils.display_utils import display_evaluation_output
 from mlflow.genai.utils.trace_utils import clean_up_extra_traces, convert_predict_fn
 from mlflow.models.evaluation.base import (
     EvaluationResult,
     _is_model_deployment_endpoint_uri,
     _start_run_or_reuse_active_run,
 )
+from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
+from mlflow.telemetry.events import GenAIEvaluateEvent
+from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.constant import (
     DATABRICKS_OPTIONS_KEY,
     DATABRICKS_OUTPUT_KEY,
@@ -36,6 +40,7 @@ from mlflow.tracing.utils.copy import copy_trace_to_experiment
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import _set_active_model
 from mlflow.utils.annotations import experimental
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_IS_EVALUATION
 from mlflow.utils.uri import is_databricks_uri
 
 if TYPE_CHECKING:
@@ -232,8 +237,7 @@ def evaluate(
         This function is not thread-safe. Please do not use it in multi-threaded
         environments.
     """
-    # Handle both ManagedEvaluationDataset and EntityEvaluationDataset
-    is_managed_dataset = isinstance(data, (ManagedEvaluationDataset, EntityEvaluationDataset))
+    is_managed_dataset = isinstance(data, (EvaluationDataset, EntityEvaluationDataset))
 
     scorers = validate_scorers(scorers)
     # convert into a pandas dataframe with expected evaluation set schema
@@ -273,10 +277,11 @@ def evaluate(
     return result
 
 
+@record_usage_event(GenAIEvaluateEvent)
 def _evaluate_oss(data, scorers, predict_fn, model_id):
     from mlflow.genai.evaluation import harness
 
-    if isinstance(data, (ManagedEvaluationDataset, EntityEvaluationDataset)):
+    if isinstance(data, (EvaluationDataset, EntityEvaluationDataset)):
         mlflow_dataset = data
         df = data.to_df()
     else:
@@ -289,21 +294,34 @@ def _evaluate_oss(data, scorers, predict_fn, model_id):
                 "response": InputDatasetColumn.OUTPUTS,
             }
         )
-        mlflow_dataset = mlflow.data.from_pandas(df=data)
+        # Use default name for evaluation dataset when converting from DataFrame
+        mlflow_dataset = mlflow.data.from_pandas(df=data, name="dataset")
         df = data
 
     with (
         _start_run_or_reuse_active_run() as run_id,
         _set_active_model(model_id=model_id) if model_id else nullcontext(),
+        # NB: Auto-logging should be enabled outside the thread pool to avoid race conditions.
+        configure_autologging_for_evaluation(enable_tracing=True),
     ):
         _log_dataset_input(mlflow_dataset, run_id, model_id)
 
-        return harness.run(
+        # NB: Set this tag before run finishes to suppress the generic run URL printing.
+        MlflowClient().set_tag(run_id, MLFLOW_RUN_IS_EVALUATION, "true")
+
+        result = harness.run(
             predict_fn=predict_fn,
             eval_df=df,
             scorers=scorers,
             run_id=run_id,
         )
+
+    try:
+        display_evaluation_output(run_id)
+    except Exception:
+        logger.debug("Failed to display summary and usage instructions", exc_info=True)
+
+    return result
 
 
 def _evaluate_dbx(data, scorers, predict_fn, model_id):
@@ -311,6 +329,7 @@ def _evaluate_dbx(data, scorers, predict_fn, model_id):
     the mlflow.evaluate() function. This is a temporary migration state and we will
     eventually unify this into OSS flow.
     """
+    import pandas as pd
 
     # NB: The "RAG_EVAL_MAX_WORKERS" env var is used in the DBX agent harness, but is
     # deprecated in favor of the new "MLFLOW_GENAI_EVAL_MAX_WORKERS" env var. The old
@@ -322,6 +341,11 @@ def _evaluate_dbx(data, scorers, predict_fn, model_id):
             "The `RAG_EVAL_MAX_WORKERS` environment variable is deprecated. "
             "Please use `MLFLOW_GENAI_EVAL_MAX_WORKERS` instead."
         )
+
+    if isinstance(data, pd.DataFrame):
+        from mlflow.data.evaluation_dataset import convert_data_to_mlflow_dataset
+
+        data = convert_data_to_mlflow_dataset(data=data, name="dataset")
 
     with warnings.catch_warnings():
         warnings.filterwarnings(

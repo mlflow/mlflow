@@ -151,7 +151,7 @@ backwards compatibility testing may be requested.
 ### Consider introducing new features as MLflow Plugins
 
 [MLflow Plugins](https://mlflow.org/docs/latest/plugins.html) enable
-integration of third-party modules with many of MLflow’s components,
+integration of third-party modules with many of MLflow's components,
 allowing you to maintain and iterate on certain features independently
 of the MLflow Repository. Before implementing changes to the MLflow code
 base, consider whether your feature might be better structured as an
@@ -437,6 +437,32 @@ yarn start
 The Javascript Dev Server will run at <http://localhost:3000> and the
 MLflow server will run at <http://localhost:5000> and show runs logged
 in `./mlruns`.
+
+**Note:** On some versions of MacOS, the "Airplay Receiver" process runs on port 5000 by default,
+which can cause [network request failures](https://stackoverflow.com/questions/72369320/why-always-something-is-running-at-port-5000-on-my-mac).
+If you are encountering such issues, disable the
+process via system settings, or specify another port (e.g. `mlflow server --port 8000`).
+
+If specifying a different port, please set the following environment variables before running `yarn start`:
+
+- `MLFLOW_PROXY=<tracking_server_uri>`
+- `MLFLOW_DEV_PROXY_MODE=false`
+
+For example:
+
+```
+$ mlflow server --port 8000
+...
+
+(in a separate shell)
+$ export MLFLOW_PROXY=http://127.0.0.1:8000
+$ export MLFLOW_DEV_PROXY_MODE=false
+$ yarn install
+$ yarn start
+...
+
+(UI should now be visible at localhost:3000)
+```
 
 #### Launching MLflow UI with MLflow AI Gateway for PromptLab
 
@@ -758,7 +784,7 @@ If you are contributing a new model flavor, follow these steps:
     `mlflow/examples/new-model-flavor`
 3.  Implement your Python training `new-model-flavor` code in this
     directory
-4.  Convert this directory’s content into an [MLflow
+4.  Convert this directory's content into an [MLflow
     Project](https://mlflow.org/docs/latest/projects.html) executable
 5.  Add `README.md`, `MLproject`, and `conda.yaml` files and your code
 6.  Read instructions in the `mlflow/test/examples/README.md` and add a

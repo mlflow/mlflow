@@ -6,16 +6,20 @@ import ImageBox from "@site/src/components/ImageBox";
 import TabsWrapper from "@site/src/components/TabsWrapper";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
-import { MessageSquare, Target, BarChart3, ExternalLink, Bot, Users, CheckCircle, TrendingUp, Database, Book, Rocket } from "lucide-react";
+import { MessageSquare, Target, BarChart3, ExternalLink, Bot, Users, CheckCircle, TrendingUp, Database, Book, Rocket, Scale } from "lucide-react";
 
 
 # Evaluating LLMs/Agents with MLflow
 
 MLflow's evaluation and monitoring capabilities help you systematically measure, improve, and maintain the quality of your GenAI applications throughout their lifecycle from development through production.
 
-<ImageBox src="/images/mlflow-3/eval-monitor/evaluation-driven-development.png" alt="Evaluation Driven Development" />
+<ImageBox src="/images/mlflow-3/eval-monitor/evaluation-result-video.gif" alt="Prompt Evaluation" />
 
-The tenet of MLflow's evaluation capabilities is **Evaluation-Driven Development**. This is an emerging practice to tackle the challenge of building high-quality LLM/Agentic applications. MLflow is an **end-to-end** platform that is designed to support this practice and help you deploy AI applications with confidence.
+A core tenet of MLflow's evaluation capabilities is **Evaluation-Driven Development**. This is an emerging practice to tackle the challenge of building high-quality LLM/Agentic applications. MLflow is an **end-to-end** platform that is designed to support this practice and help you deploy AI applications with confidence.
+
+<ImageBox src="/images/mlflow-3/eval-monitor/evaluation-driven-development.png" alt="Evaluation Driven Development" width="90%"/>
+
+## Key Capabilities
 
 ## Evaluation Datasets
 
@@ -109,7 +113,7 @@ The tenet of MLflow's evaluation capabilities is **Evaluation-Driven Development
 
         Being the industry's most-trusted experiment tracking platform, MLflow provides a strong foundation for tracking your evaluation results and effectively collaborating with your team.
 
-        [Learn more →](/genai/eval-monitor)
+        [Learn more →](/genai/eval-monitor/quickstart)
 
         </div>
 
@@ -297,7 +301,7 @@ Open the MLflow UI to review the evaluation results. If you are using OSS MLflow
 mlflow ui --port 5000
 ```
 
-If you are using cloud-based MLflow, open the experiment page in the platform.
+If you are using cloud-based MLflow, open the experiment page in the platform. You should see a new evaluation run is created under the "Runs" tab. Click on the run name to view the evaluation results.
 
 <ImageBox src="/images/mlflow-3/eval-monitor/quickstart-eval-hero.png" alt="Evaluation Results" />
 
@@ -314,12 +318,21 @@ If you are using cloud-based MLflow, open the experiment page in the platform.
     containerHeight={64}
   />
   <TileCard
-    icon={MessageSquare}
+    icon={Scale}
     iconSize={48}
-    title="Collect User Feedback"
-    description="Understand how to collect user feedback for your applications."
-    href="/genai/tracing/collect-user-feedback"
-    linkText="Learn about feedback tracking →"
+    title="Evaluate Agents"
+    description="Evaluate AI agents with specialized techniques and custom scorers."
+    href="/genai/eval-monitor/running-evaluation/agents"
+    linkText="Evaluate agents →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Scale}
+    iconSize={48}
+    title="Building Scorers"
+    description="Get started with MLflow's powerful scorers for evaluating qualities."
+    href="/genai/eval-monitor/scorers"
+    linkText="Learn about scorers →"
     containerHeight={64}
   />
 </TilesGrid>

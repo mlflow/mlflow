@@ -4,7 +4,7 @@ import pytest
 
 from mlflow.entities.dataset_record_source import DatasetRecordSource, DatasetRecordSourceType
 from mlflow.exceptions import MlflowException
-from mlflow.protos.evaluation_datasets_pb2 import DatasetRecordSource as ProtoDatasetRecordSource
+from mlflow.protos.datasets_pb2 import DatasetRecordSource as ProtoDatasetRecordSource
 
 
 def test_dataset_record_source_type_constants():

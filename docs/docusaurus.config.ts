@@ -424,10 +424,6 @@ const config: Config = {
             from: ['/tracing/integrations/openai-agent'],
           },
           {
-            to: '/genai/tracing/integrations/listing/swarm',
-            from: ['/tracing/integrations/swarm'],
-          },
-          {
             to: '/genai/tracing/integrations/listing/txtai',
             from: ['/tracing/integrations/txtai'],
           },

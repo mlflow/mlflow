@@ -166,7 +166,7 @@ class ChatAgentState(TypedDict):
     Step 2: Define the LLM and your tools
 
     If you want to return attachments and custom_outputs from your tool, you can return a
-    dictionary with keys “content”, “attachments”, and “custom_outputs”. This dictionary will be
+    dictionary with keys "content", "attachments", and "custom_outputs". This dictionary will be
     parsed out by the ChatAgentToolNode and properly stored in your LangGraph's state.
 
 
