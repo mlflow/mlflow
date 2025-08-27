@@ -55,17 +55,14 @@ class DatabricksTrackingArtifactRepository(ArtifactRepository, ABC):
     @abstractmethod
     def _get_uri_regex(self) -> re.Pattern:
         """Return the regex pattern for matching URIs of this type."""
-        pass
 
     @abstractmethod
     def _get_expected_uri_format(self) -> str:
         """Return a description of the expected URI format."""
-        pass
 
     @abstractmethod
     def _build_root_path(self, experiment_id: str, match: re.Match, relative_path: str) -> str:
         """Build the root path for the Databricks SDK repository."""
-        pass
 
     def log_artifact(self, local_file: str, artifact_path: str | None = None) -> None:
         try:
