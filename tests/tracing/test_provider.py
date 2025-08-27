@@ -25,7 +25,7 @@ from mlflow.tracing.provider import (
     trace_disabled,
 )
 
-from tests.tracing.helper import get_traces, purge_traces
+from tests.tracing.helper import get_traces, purge_traces, skip_when_testing_trace_sdk
 
 
 @pytest.fixture
@@ -399,6 +399,7 @@ def test_otlp_exclusive_vs_dual_export(monkeypatch):
             assert isinstance(processors[1], MlflowV3SpanProcessor)
 
 
+@skip_when_testing_trace_sdk
 def test_otlp_spans_and_metrics_export(monkeypatch):
     """Test OTLP export with both spans and metrics enabled."""
     from mlflow.environment_variables import MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT

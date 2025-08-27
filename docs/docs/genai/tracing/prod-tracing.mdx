@@ -218,9 +218,16 @@ with mlflow.start_span(name="foo") as span:
 
 MLflow can export OpenTelemetry metrics when a metrics endpoint is configured. This allows you to monitor span durations and other trace-related metrics in compatible monitoring systems.
 
+**Prerequisites**: The `opentelemetry-exporter-otlp` library must be installed to enable metrics export:
+
+```bash
+pip install opentelemetry-exporter-otlp
+```
+
 To enable metrics export:
 
 **Configure OpenTelemetry metrics endpoint**:
+
 ```bash
 # For OpenTelemetry Collector (gRPC endpoint)
 export OTEL_EXPORTER_OTLP_METRICS_ENDPOINT="http://localhost:4317"
@@ -258,6 +265,7 @@ When enabled, MLflow exports the following OpenTelemetry histogram metric:
     - `metadata.*`: All trace metadata (e.g., `metadata.mlflow.sourceRun`, `metadata.mlflow.modelId`, `metadata.mlflow.trace.tokenUsage`)
 
 This histogram allows you to analyze:
+
 - Response time distributions across different span types
 - Performance differences between root spans and child spans
 - Error rates by monitoring spans with "ERROR" status
