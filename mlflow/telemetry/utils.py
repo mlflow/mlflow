@@ -1,10 +1,17 @@
+import logging
 import os
 
 from packaging.version import Version
 
-from mlflow.environment_variables import _MLFLOW_TESTING_TELEMETRY, MLFLOW_DISABLE_TELEMETRY
+from mlflow.environment_variables import (
+    _MLFLOW_TELEMETRY_LOGGING,
+    _MLFLOW_TESTING_TELEMETRY,
+    MLFLOW_DISABLE_TELEMETRY,
+)
 from mlflow.telemetry.constant import CONFIG_STAGING_URL, CONFIG_URL
 from mlflow.version import VERSION
+
+_logger = logging.getLogger(__name__)
 
 
 def _is_ci_env_or_testing() -> bool:
@@ -72,7 +79,9 @@ def is_telemetry_disabled() -> bool:
             or _IS_IN_DATABRICKS
             or _IS_MLFLOW_DEV_VERSION
         )
-    except Exception:
+    except Exception as e:
+        if _MLFLOW_TELEMETRY_LOGGING.get():
+            _logger.error(f"Failed to check telemetry disabled status: {e}")
         return True
 
 
