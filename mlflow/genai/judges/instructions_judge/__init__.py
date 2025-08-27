@@ -49,31 +49,29 @@ class InstructionsJudge(Judge):
             kwargs: Additional configuration parameters
         """
         super().__init__(name=name, **kwargs)
-        
+
         if not name or not isinstance(name, str):
             raise MlflowException(
-                "name must be a non-empty string",
-                error_code=INVALID_PARAMETER_VALUE
+                "name must be a non-empty string", error_code=INVALID_PARAMETER_VALUE
             )
         if not instructions or not isinstance(instructions, str):
             raise MlflowException(
-                "instructions must be a non-empty string",
-                error_code=INVALID_PARAMETER_VALUE
+                "instructions must be a non-empty string", error_code=INVALID_PARAMETER_VALUE
             )
-        
+
         self._instructions = instructions
         self._model = model or get_default_model()
-        
+
         self._instructions_prompt = PromptVersion(
             name=name,
             version=1,
             template=instructions,
         )
-        
-        self._custom_template_variables = (
-            self._instructions_prompt.variables - set(self._RESERVED_INSTRUCTION_TEMPLATE_VARIABLES)
+
+        self._custom_template_variables = self._instructions_prompt.variables - set(
+            self._RESERVED_INSTRUCTION_TEMPLATE_VARIABLES
         )
-        
+
         self._validate_model_format()
         self._validate_instructions_template()
 
@@ -86,7 +84,7 @@ class InstructionsJudge(Judge):
     def model(self) -> str:
         """Get the model for this judge."""
         return self._model
-    
+
     @property
     def template_variables(self) -> set[str]:
         """Get the template variables from the instructions."""
@@ -167,7 +165,7 @@ class InstructionsJudge(Judge):
     def _validate_model_format(self) -> None:
         """
         Validate that the model is in a valid format.
-        
+
         Valid formats:
         - "databricks" for Databricks-native integration
         - "provider/model" for LiteLLM providers (e.g., "openai/gpt-4")
@@ -175,38 +173,38 @@ class InstructionsJudge(Judge):
         """
         if self._model == "databricks":
             return
-        
+
         if "/" not in self._model:
             raise MlflowException(
                 f"Model '{self._model}' is not in a valid format. "
                 "Expected format: '<provider>/<model-name>' (e.g., 'openai/gpt-4') "
                 "or 'databricks' for Databricks-native integration.",
-                error_code=INVALID_PARAMETER_VALUE
+                error_code=INVALID_PARAMETER_VALUE,
             )
-        
+
         provider, model_name = self._model.split("/", 1)
         if not provider or not model_name:
             raise MlflowException(
                 f"Invalid model format '{self._model}'. "
                 "Both provider and model name must be non-empty.",
-                error_code=INVALID_PARAMETER_VALUE
+                error_code=INVALID_PARAMETER_VALUE,
             )
-    
+
     def _validate_instructions_template(self) -> None:
         """
         Validate that instructions contain at least one variable and don't contain
-        a mix of trace and inputs/outputs/expectations variables. 
-        
+        a mix of trace and inputs/outputs/expectations variables.
+
         """
         template_vars = self.template_variables
-        
+
         if not template_vars:
             raise MlflowException(
                 "Instructions template must contain at least one variable (e.g., {{inputs}}, "
                 "{{outputs}}, {{trace}}, or custom variables).",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        
+
         has_trace = self._TEMPLATE_VARIABLE_TRACE in template_vars
         has_inputs = self._TEMPLATE_VARIABLE_INPUTS in template_vars
         has_outputs = self._TEMPLATE_VARIABLE_OUTPUTS in template_vars
@@ -215,8 +213,9 @@ class InstructionsJudge(Judge):
             if self._custom_template_variables:
                 raise MlflowException(
                     "When submitting a 'trace' variable, no other variables are permitted. "
-                    f"found: {self._custom_template_variables}. A submitted trace contains the complete "
-                    "context for evaluation and should not be mixed with other variables.",
+                    f"found: {self._custom_template_variables}. A submitted trace contains "
+                    "the complete context for evaluation and should not be mixed with "
+                    "other variables.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             if has_inputs or has_outputs:
@@ -242,30 +241,30 @@ class InstructionsJudge(Judge):
     ) -> None:
         """
         Validate that required template variables are present in inputs, outputs, or expectations.
-        
+
         Args:
             inputs: Input dictionary to validate
             outputs: Output dictionary to validate
             expectations: Expectations dictionary to validate
-            
+
         Raises:
             MlflowException: If any required template variable is missing
         """
         if not self._custom_template_variables:
             return
-        
+
         input_keys = set(inputs.keys()) if inputs is not None else set()
         output_keys = set(outputs.keys()) if outputs is not None else set()
         expectation_keys = set(expectations.keys()) if expectations is not None else set()
         available_vars = input_keys | output_keys | expectation_keys
-        
+
         missing_vars = self._custom_template_variables - available_vars
-        
+
         if missing_vars:
             raise MlflowException(
                 f"Required template variables {missing_vars} are missing from inputs, outputs, "
                 "and expectations. Each variable must be present in at least one of them.",
-                error_code=INVALID_PARAMETER_VALUE
+                error_code=INVALID_PARAMETER_VALUE,
             )
 
 

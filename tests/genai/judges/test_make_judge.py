@@ -19,17 +19,9 @@ from mlflow.tracing.utils import build_otel_context
 @pytest.fixture
 def mock_invoke_judge_model(monkeypatch):
     def _mock(model_uri, prompt, assessment_name):
-        return Feedback(
-            name=assessment_name,
-            value=True,
-            rationale="The response is formal"
-        )
-    
-    monkeypatch.setattr(
-        mlflow.genai.judges.instructions_judge,
-        "invoke_judge_model",
-        _mock
-    )
+        return Feedback(name=assessment_name, value=True, rationale="The response is formal")
+
+    monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "invoke_judge_model", _mock)
     return _mock
 
 
@@ -67,15 +59,17 @@ def mock_trace():
         trace_metadata={
             "mlflow.trace_schema.version": "2",
             "mlflow.traceInputs": json.dumps({"question": "What is MLflow?"}),
-            "mlflow.traceOutputs": json.dumps({"answer": "MLflow is an open source platform for ML lifecycle management."}),
+            "mlflow.traceOutputs": json.dumps(
+                {"answer": "MLflow is an open source platform for ML lifecycle management."}
+            ),
         },
         tags={
             "mlflow.traceName": "test_trace",
             "mlflow.source.name": "test",
             "mlflow.source.type": "LOCAL",
-        }
+        },
     )
-    
+
     spans = [
         create_test_span(
             span_id=1,
@@ -94,18 +88,16 @@ def mock_trace():
             span_type=SpanType.LLM,
         ),
     ]
-    
+
     trace_data = TraceData(spans=spans)
     return Trace(info=trace_info, data=trace_data)
 
 
 def test_make_judge_creates_instructions_judge():
     judge = make_judge(
-        name="test_judge",
-        instructions="Check if {{text}} is formal",
-        model="openai/gpt-4"
+        name="test_judge", instructions="Check if {{text}} is formal", model="openai/gpt-4"
     )
-    
+
     assert isinstance(judge, InstructionsJudge)
     assert judge.name == "test_judge"
     assert judge.instructions == "Check if {{text}} is formal"
@@ -114,100 +106,123 @@ def test_make_judge_creates_instructions_judge():
 
 def test_make_judge_with_default_model(monkeypatch):
     monkeypatch.setenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
-    
-    judge = make_judge(
-        name="test_judge",
-        instructions="Check if {{response}} is accurate"
-    )
-    
+
+    judge = make_judge(name="test_judge", instructions="Check if {{response}} is accurate")
+
     assert judge.model == "openai:/gpt-4.1-mini"
 
 
 def test_make_judge_with_databricks_default(monkeypatch):
     monkeypatch.setattr("mlflow.genai.judges.utils.is_databricks_uri", lambda x: True)
-    
-    judge = make_judge(
-        name="test_judge",
-        instructions="Check if {{text}} is valid"
-    )
-    
+
+    judge = make_judge(name="test_judge", instructions="Check if {{text}} is valid")
+
     assert judge.model == "databricks"
 
 
-@pytest.mark.parametrize(("instructions", "expected_vars", "expected_custom"), [
-    ("Check if {{query}} is answered by {{response}} with {{tone}}", 
-     {"query", "response", "tone"}, {"query", "response", "tone"}),
-    ("Check {{answer}} against {{expected_answer}}",
-     {"answer", "expected_answer"}, {"answer", "expected_answer"}),
-    ("Validate {{source_text}} and {{translated_text}}",
-     {"source_text", "translated_text"}, {"source_text", "translated_text"}),
-])
+@pytest.mark.parametrize(
+    ("instructions", "expected_vars", "expected_custom"),
+    [
+        (
+            "Check if {{query}} is answered by {{response}} with {{tone}}",
+            {"query", "response", "tone"},
+            {"query", "response", "tone"},
+        ),
+        (
+            "Check {{answer}} against {{expected_answer}}",
+            {"answer", "expected_answer"},
+            {"answer", "expected_answer"},
+        ),
+        (
+            "Validate {{source_text}} and {{translated_text}}",
+            {"source_text", "translated_text"},
+            {"source_text", "translated_text"},
+        ),
+    ],
+)
 def test_template_variable_extraction(instructions, expected_vars, expected_custom):
-    judge = make_judge(
-        name="test_judge",
-        instructions=instructions,
-        model="openai/gpt-4"
-    )
-    
+    judge = make_judge(name="test_judge", instructions=instructions, model="openai/gpt-4")
+
     assert judge.template_variables == expected_vars
     assert judge._custom_template_variables == expected_custom
 
 
-@pytest.mark.parametrize(("name", "instructions", "model", "error_pattern"), [
-    ("", "Check {{text}}", "openai/gpt-4", "name must be a non-empty string"),
-    ("test", "", "openai/gpt-4", "instructions must be a non-empty string"),
-    ("test", "Check response", "openai/gpt-4", "Instructions template must contain at least one variable"),
-    ("test", "Check {{text}}", "invalid-model", "Model 'invalid-model' is not in a valid format"),
-    ("test", "Check {{text}}", "invalid/", "Both provider and model name must be non-empty"),
-    ("test", "Check {{text}}", "/model", "Both provider and model name must be non-empty"),
-])
+@pytest.mark.parametrize(
+    ("name", "instructions", "model", "error_pattern"),
+    [
+        ("", "Check {{text}}", "openai/gpt-4", "name must be a non-empty string"),
+        ("test", "", "openai/gpt-4", "instructions must be a non-empty string"),
+        (
+            "test",
+            "Check response",
+            "openai/gpt-4",
+            "Instructions template must contain at least one variable",
+        ),
+        (
+            "test",
+            "Check {{text}}",
+            "invalid-model",
+            "Model 'invalid-model' is not in a valid format",
+        ),
+        ("test", "Check {{text}}", "invalid/", "Both provider and model name must be non-empty"),
+        ("test", "Check {{text}}", "/model", "Both provider and model name must be non-empty"),
+    ],
+)
 def test_validation_errors(name, instructions, model, error_pattern):
     with pytest.raises(MlflowException, match=error_pattern):
         make_judge(name=name, instructions=instructions, model=model)
 
 
-@pytest.mark.parametrize("model", [
-    "databricks",
-    "openai/gpt-4",
-    "anthropic/claude-3",
-    "endpoints/my-endpoint",
-    "bedrock/claude-v1",
-])
+@pytest.mark.parametrize(
+    "model",
+    [
+        "databricks",
+        "openai/gpt-4",
+        "anthropic/claude-3",
+        "endpoints/my-endpoint",
+        "bedrock/claude-v1",
+    ],
+)
 def test_valid_model_formats(model):
-    judge = make_judge(
-        name="test_judge",
-        instructions="Check if {{text}} is valid",
-        model=model
-    )
+    judge = make_judge(name="test_judge", instructions="Check if {{text}} is valid", model=model)
     assert judge.model == model
 
 
-@pytest.mark.parametrize(("instructions", "model", "error_pattern"), [
-    ("Analyze {{trace}} and check {{custom_field}}", "openai/gpt-4", 
-     "When submitting a 'trace' variable, no other variables are permitted"),
-    ("Analyze {{trace}} and {{inputs}}", "openai/gpt-4",
-     "Instructions template cannot contain both 'trace' and 'inputs'/'outputs'"),
-    ("Analyze {{trace}} and {{outputs}}", "openai/gpt-4",
-     "Instructions template cannot contain both 'trace' and 'inputs'/'outputs'"),
-    ("Analyze {{trace}} for errors", "databricks",
-     "Model cannot be 'databricks' when using 'trace' variable"),
-])
+@pytest.mark.parametrize(
+    ("instructions", "model", "error_pattern"),
+    [
+        (
+            "Analyze {{trace}} and check {{custom_field}}",
+            "openai/gpt-4",
+            "When submitting a 'trace' variable, no other variables are permitted",
+        ),
+        (
+            "Analyze {{trace}} and {{inputs}}",
+            "openai/gpt-4",
+            "Instructions template cannot contain both 'trace' and 'inputs'/'outputs'",
+        ),
+        (
+            "Analyze {{trace}} and {{outputs}}",
+            "openai/gpt-4",
+            "Instructions template cannot contain both 'trace' and 'inputs'/'outputs'",
+        ),
+        (
+            "Analyze {{trace}} for errors",
+            "databricks",
+            "Model cannot be 'databricks' when using 'trace' variable",
+        ),
+    ],
+)
 def test_trace_variable_restrictions(instructions, model, error_pattern):
     with pytest.raises(MlflowException, match=error_pattern):
-        make_judge(
-            name="test_judge",
-            instructions=instructions,
-            model=model
-        )
+        make_judge(name="test_judge", instructions=instructions, model=model)
 
 
 def test_call_with_trace_not_supported(mock_trace):
     judge = make_judge(
-        name="test_judge",
-        instructions="Check if {{text}} is valid",
-        model="openai/gpt-4"
+        name="test_judge", instructions="Check if {{text}} is valid", model="openai/gpt-4"
     )
-    
+
     with pytest.raises(MlflowException, match="Trace evaluation is not supported in this version"):
         judge(trace=mock_trace)
 
@@ -216,33 +231,29 @@ def test_call_validates_missing_custom_variables():
     judge = make_judge(
         name="test_judge",
         instructions="Check if {{query}} matches {{expected_answer}}",
-        model="openai/gpt-4"
+        model="openai/gpt-4",
     )
-    
+
     with pytest.raises(MlflowException, match="Required template variables .* are missing"):
         judge(inputs={"query": "What is 2+2?"})
 
 
 def test_call_with_no_inputs_or_outputs():
     judge = make_judge(
-        name="test_judge",
-        instructions="Check if {{text}} is valid",
-        model="openai/gpt-4"
+        name="test_judge", instructions="Check if {{text}} is valid", model="openai/gpt-4"
     )
-    
+
     with pytest.raises(MlflowException, match="Must specify either 'inputs'/'outputs' or 'trace'"):
         judge()
 
 
 def test_call_with_valid_inputs_returns_feedback(mock_invoke_judge_model):
     judge = make_judge(
-        name="formality_judge",
-        instructions="Check if {{response}} is formal",
-        model="openai/gpt-4"
+        name="formality_judge", instructions="Check if {{response}} is formal", model="openai/gpt-4"
     )
-    
+
     result = judge(outputs={"response": "Dear Sir/Madam, I am writing to inquire..."})
-    
+
     assert isinstance(result, Feedback)
     assert result.name == "formality_judge"
     assert result.value is True
@@ -251,68 +262,53 @@ def test_call_with_valid_inputs_returns_feedback(mock_invoke_judge_model):
 
 def test_call_with_expectations_as_json(monkeypatch):
     captured_prompt = None
-    
+
     def mock_invoke(model_uri, prompt, assessment_name):
         nonlocal captured_prompt
         captured_prompt = prompt
         return Feedback(name=assessment_name, value=True)
-    
-    monkeypatch.setattr(
-        mlflow.genai.judges.instructions_judge,
-        "invoke_judge_model",
-        mock_invoke
-    )
-    
+
+    monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "invoke_judge_model", mock_invoke)
+
     judge = make_judge(
         name="test_judge",
         instructions="Check {{answer}} against {{expectations}}",
-        model="openai/gpt-4"
+        model="openai/gpt-4",
     )
-    
-    judge(
-        inputs={"answer": "42"},
-        expectations={"correct": True, "score": 100}
-    )
-    
+
+    judge(inputs={"answer": "42"}, expectations={"correct": True, "score": 100})
+
     assert '"correct": true' in captured_prompt
     assert '"score": 100' in captured_prompt
 
 
 def test_call_with_custom_variables_from_inputs(monkeypatch):
     captured_prompt = None
-    
+
     def mock_invoke(model_uri, prompt, assessment_name):
         nonlocal captured_prompt
         captured_prompt = prompt
         return Feedback(name=assessment_name, value=True)
-    
-    monkeypatch.setattr(
-        mlflow.genai.judges.instructions_judge,
-        "invoke_judge_model",
-        mock_invoke
-    )
-    
+
+    monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "invoke_judge_model", mock_invoke)
+
     judge = make_judge(
         name="test_judge",
         instructions="Check if {{question}} meets {{criteria}}",
-        model="openai/gpt-4"
+        model="openai/gpt-4",
     )
-    
-    result = judge(
-        inputs={"question": "What is AI?", "criteria": "technical accuracy"}
-    )
-    
+
+    result = judge(inputs={"question": "What is AI?", "criteria": "technical accuracy"})
+
     assert isinstance(result, Feedback)
     assert "Check if What is AI? meets technical accuracy" in captured_prompt
 
 
 def test_description_property():
     judge = make_judge(
-        name="test_judge",
-        instructions="Check if {{text}} is formal",
-        model="openai/gpt-4"
+        name="test_judge", instructions="Check if {{text}} is formal", model="openai/gpt-4"
     )
-    
+
     description = judge.description
     assert "Instructions-based judge: test_judge" in description
     assert "Check if {{text}} is formal" in description
@@ -320,58 +316,50 @@ def test_description_property():
 
 def test_kind_property():
     judge = make_judge(
-        name="test_judge",
-        instructions="Check if {{text}} is valid",
-        model="openai/gpt-4"
+        name="test_judge", instructions="Check if {{text}} is valid", model="openai/gpt-4"
     )
-    
+
     assert judge.kind == ScorerKind.CLASS
 
 
-@pytest.mark.parametrize(("inputs", "outputs", "expectations"), [
-    ({"text": "hello", "result": "world"}, None, None),
-    ({"text": "hello"}, {"result": "world"}, None),
-    ({"text": "hello"}, {"result": "world"}, {"expected": "world"}),
-    (None, {"text": "hello", "result": "world"}, None),
-])
+@pytest.mark.parametrize(
+    ("inputs", "outputs", "expectations"),
+    [
+        ({"text": "hello", "result": "world"}, None, None),
+        ({"text": "hello"}, {"result": "world"}, None),
+        ({"text": "hello"}, {"result": "world"}, {"expected": "world"}),
+        (None, {"text": "hello", "result": "world"}, None),
+    ],
+)
 def test_call_with_various_input_combinations(
     mock_invoke_judge_model, inputs, outputs, expectations
 ):
     judge = make_judge(
-        name="test_judge",
-        instructions="Check {{text}} and {{result}}",
-        model="openai/gpt-4"
+        name="test_judge", instructions="Check {{text}} and {{result}}", model="openai/gpt-4"
     )
-    
+
     result = judge(inputs=inputs, outputs=outputs, expectations=expectations)
     assert isinstance(result, Feedback)
 
 
 def test_prompt_formatting_with_all_variable_types(monkeypatch):
     captured_prompt = None
-    
+
     def mock_invoke(model_uri, prompt, assessment_name):
         nonlocal captured_prompt
         captured_prompt = prompt
         return Feedback(name=assessment_name, value=True)
-    
-    monkeypatch.setattr(
-        mlflow.genai.judges.instructions_judge,
-        "invoke_judge_model",
-        mock_invoke
-    )
-    
+
+    monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "invoke_judge_model", mock_invoke)
+
     judge = make_judge(
         name="test",
         instructions="Query: {{query}}, Response: {{response}}, Custom: {{my_var}}",
-        model="openai/gpt-4"
+        model="openai/gpt-4",
     )
-    
-    judge(
-        inputs={"query": "test", "my_var": "custom_value"},
-        outputs={"response": "answer"}
-    )
-    
+
+    judge(inputs={"query": "test", "my_var": "custom_value"}, outputs={"response": "answer"})
+
     assert "Query: test" in captured_prompt
     assert "Response: answer" in captured_prompt
     assert "Custom: custom_value" in captured_prompt
