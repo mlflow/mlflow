@@ -868,6 +868,75 @@ service MlflowService {
       rpc_doc_title: "Delete Assessment",
     };
   }
+
+  // =============================================================================
+  // Scorer Management RPCs
+  // =============================================================================
+
+  // Register a scorer for an experiment.
+  rpc registerScorer (RegisterScorer) returns (RegisterScorer.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/scorers/register"
+        since {major: 3, minor: 0},
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Register Scorer",
+    };
+  }
+
+  // List all scorers for an experiment.
+  rpc listScorers (ListScorers) returns (ListScorers.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/scorers/list"
+        since {major: 3, minor: 0},
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "List Scorers",
+    };
+  }
+
+  // List all versions of a specific scorer for an experiment.
+  rpc listScorerVersions (ListScorerVersions) returns (ListScorerVersions.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/scorers/versions"
+        since {major: 3, minor: 0},
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "List Scorer Versions",
+    };
+  }
+
+  // Get a specific scorer for an experiment.
+  rpc getScorer (GetScorer) returns (GetScorer.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/scorers/get"
+        since {major: 3, minor: 0},
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Get Scorer",
+    };
+  }
+
+  // Delete a scorer for an experiment.
+  rpc deleteScorer (DeleteScorer) returns (DeleteScorer.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/scorers/delete"
+        since {major: 3, minor: 0},
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Delete Scorer",
+    };
+  }
 }
 
 // View type for ListExperiments query.
