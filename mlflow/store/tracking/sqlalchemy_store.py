@@ -2521,8 +2521,8 @@ class SqlAlchemyStore(AbstractStore):
             ]
 
             # Use merge() instead of add() to handle duplicate trace creation gracefully.
-            # Both MlflowV3SpanProcessor (on span start) and MlflowV3SpanExporter (on trace completion)
-            # call this method with the same trace_id. merge() will INSERT or UPDATE as needed,
+            # Some span processors and exporters (such as MlflowV3SpanProcessor and MlflowV3SpanExporter)
+            # may call this method with the same trace_id. merge() will INSERT or UPDATE as needed,
             # avoiding UNIQUE constraint violations on the request_id primary key.
             session.merge(sql_trace_info)
             return sql_trace_info.to_mlflow_entity()
