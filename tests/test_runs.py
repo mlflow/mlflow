@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import textwrap
 from unittest import mock
@@ -9,6 +10,18 @@ from click.testing import CliRunner
 import mlflow
 from mlflow import experiments
 from mlflow.runs import create_run, list_run
+
+
+@pytest.fixture(autouse=True)
+def suppress_logging():
+    """Suppress logging for all tests to ensure clean CLI output."""
+    # Suppress all logging
+    logging.disable(logging.CRITICAL)
+
+    yield
+
+    # Re-enable logging
+    logging.disable(logging.NOTSET)
 
 
 def test_list_run():
@@ -84,16 +97,7 @@ def test_create_run_with_experiment_name():
     result = CliRunner().invoke(create_run, ["--experiment-name", exp_name])
     assert result.exit_code == 0
 
-    # Extract JSON from output (it may be mixed with logs)
-    lines = result.output.strip().split("\n")
-    try:
-        # Find lines that contain just the JSON brackets
-        start = next(i for i, line in enumerate(lines) if line.strip() == "{")
-        end = next(i for i, line in enumerate(lines) if line.strip() == "}")
-        json_output = "\n".join(lines[start : end + 1])
-        output = json.loads(json_output)
-    except (StopIteration, ValueError):
-        assert False, "No JSON output found"
+    output = json.loads(result.output)
     assert "run_id" in output
     assert output["status"] == "FINISHED"
 
