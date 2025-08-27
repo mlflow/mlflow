@@ -1,6 +1,8 @@
 import click
 
 from mlflow.mcp.server import run_server
+from mlflow.telemetry.events import McpRunEvent
+from mlflow.telemetry.track import record_usage_event
 
 
 @click.group(
@@ -26,5 +28,6 @@ def cli():
         "like Claude Desktop or other AI assistants."
     )
 )
+@record_usage_event(McpRunEvent)
 def run():
     run_server()
