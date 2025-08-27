@@ -218,6 +218,11 @@ with mlflow.start_span(name="foo") as span:
 
 MLflow can export OpenTelemetry metrics when a metrics endpoint is configured. This allows you to monitor span durations and other trace-related metrics in compatible monitoring systems.
 
+**Prerequisites**: The `opentelemetry-exporter-otlp` library must be installed to enable metrics export:
+```bash
+pip install opentelemetry-exporter-otlp
+```
+
 To enable metrics export:
 
 **Configure OpenTelemetry metrics endpoint**:
