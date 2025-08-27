@@ -58,7 +58,7 @@ class MlflowV3SpanExporter(SpanExporter):
 
     def _export_spans_incrementally(
         self, spans: Sequence[ReadableSpan], manager: InMemoryTraceManager
-    ):
+    ) -> None:
         """
         Export spans incrementally as they complete.
 
@@ -102,9 +102,7 @@ class MlflowV3SpanExporter(SpanExporter):
 
                 # Get the LiveSpan from the trace manager
                 span_id = encode_span_id(span.context.span_id)
-                mlflow_span = manager.get_span_from_id(mlflow_trace_id, span_id)
-
-                if mlflow_span:
+                if mlflow_span := manager.get_span_from_id(mlflow_trace_id, span_id):
                     if experiment_id not in spans_by_experiment:
                         spans_by_experiment[experiment_id] = []
                     spans_by_experiment[experiment_id].append(mlflow_span)

@@ -2281,6 +2281,6 @@ def test_traces_can_be_searched_by_span_properties(async_logging_enabled):
         mlflow.flush_trace_async_logging(terminate=True)
 
     traces = mlflow.search_traces(filter_string='span.name = "test_span"', return_type="list")
-    assert len(traces) >= 1, "Should find at least one trace with span name 'test_span'"
+    assert len(traces) == 1, "Should find exactly one trace with span name 'test_span'"
     found_span_names = [span.name for span in traces[0].data.spans]
     assert "test_span" in found_span_names
