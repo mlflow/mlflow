@@ -2,8 +2,6 @@
 CLI for runs
 """
 
-from __future__ import annotations
-
 import json
 
 import click
@@ -133,18 +131,6 @@ def describe_run(run_id: str) -> None:
     type=click.STRING,
     help="ID of the parent run for nested runs (optional).",
 )
-@click.option(
-    "--nested",
-    is_flag=True,
-    default=False,
-    help="Create a nested run within the current active run.",
-)
-@click.option(
-    "--log-system-metrics",
-    is_flag=True,
-    default=None,
-    help="Enable system metrics logging (CPU/GPU utilization).",
-)
 def create_run(
     experiment_id: str | None,
     experiment_name: str | None,
@@ -153,8 +139,6 @@ def create_run(
     tags: tuple[str, ...],
     status: str,
     parent_run_id: str | None,
-    nested: bool,
-    log_system_metrics: bool | None,
 ) -> None:
     """
     Create a new MLflow run and immediately end it with the specified status.
@@ -174,8 +158,6 @@ def create_run(
             multiple tags. Format: key=value (e.g., env=prod, model=xgboost, version=1.0).
         status: Final status of the run. Options: FINISHED (default), FAILED, or KILLED.
         parent_run_id: Optional ID of a parent run to create a nested run under.
-        nested: If True, create as a nested run within the currently active run.
-        log_system_metrics: If True, enable logging of system metrics (CPU/GPU utilization).
 
     Raises:
         UsageError: If both or neither experiment_id and experiment_name are specified,
@@ -213,11 +195,10 @@ def create_run(
         active_run = mlflow.start_run(
             experiment_id=experiment_id,
             run_name=run_name,
-            nested=nested,
+            nested=bool(parent_run_id),
             parent_run_id=parent_run_id,
             tags=tags_dict,
             description=description,
-            log_system_metrics=log_system_metrics,
         )
         run_id = active_run.info.run_id
         actual_experiment_id = active_run.info.experiment_id
