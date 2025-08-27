@@ -9,7 +9,6 @@ from mlflow.genai.judges.base import Judge
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils import format_prompt, get_default_model, invoke_judge_model
 from mlflow.genai.scorers.base import ScorerKind
-from mlflow.metrics.genai.model_utils import _parse_model_uri
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
 
@@ -163,6 +162,9 @@ class InstructionsJudge(Judge):
         """
         if self._model == _DATABRICKS_DEFAULT_JUDGE_MODEL:
             return
+
+        # Import here to avoid circular dependency and pandas requirement
+        from mlflow.metrics.genai.model_utils import _parse_model_uri
 
         _parse_model_uri(self._model)
 
