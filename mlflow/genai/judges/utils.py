@@ -48,9 +48,9 @@ def invoke_judge_model(
     num_retries: int = 10,
 ) -> Feedback:
     """
-    Invoke the judge model.
+    Invoke the judge.
 
-    First, try to invoke the judge model via litellm. If litellm is not installed,
+    First, try to invoke the judge via litellm. If litellm is not installed,
     fallback to native parsing using the AI Gateway adapters.
 
     Args:
@@ -73,7 +73,7 @@ def invoke_judge_model(
         response = _invoke_litellm(provider, model_name, prompt, trace, num_retries)
     elif trace is not None:
         raise MlflowException(
-            "LiteLLM is required for using traces with judge models. "
+            "LiteLLM is required for using traces with judges. "
             "Please install it with `pip install litellm`.",
             error_code=BAD_REQUEST,
         )
@@ -103,7 +103,7 @@ def invoke_judge_model(
         )
     except json.JSONDecodeError as e:
         raise MlflowException(
-            f"Failed to parse the response from the judge model. Response: {response}",
+            f"Failed to parse the response from the judge. Response: {response}",
             error_code=INVALID_PARAMETER_VALUE,
         ) from e
 
@@ -119,31 +119,23 @@ def _is_litellm_available() -> bool:
         return False
 
 
-def _get_judge_response_format() -> Dict[str, Any]:
+def _create_tool_response_message(tool_call_id: str, tool_name: str, content: str) -> Dict[str, Any]:
     """
-    Get the response format for judge model evaluations.
+    Create a tool response message for LiteLLM.
+    
+    Args:
+        tool_call_id: The ID of the tool call being responded to.
+        tool_name: The name of the tool that was invoked.
+        content: The content to include in the response.
     
     Returns:
-        A dictionary containing the JSON schema for structured outputs.
+        A dictionary representing the tool response message.
     """
     return {
-        "type": "json_schema",
-        "json_schema": {
-            "name": "judge_evaluation",
-            "strict": True,
-            "schema": {
-                "type": "object",
-                "properties": {
-                    "result": {"type": "string", "description": "The evaluation rating/result"},
-                    "rationale": {
-                        "type": "string",
-                        "description": "Detailed explanation for the evaluation",
-                    },
-                },
-                "required": ["result", "rationale"],
-                "additionalProperties": False,
-            },
-        },
+        "tool_call_id": tool_call_id,
+        "role": "tool",
+        "name": tool_name,
+        "content": content,
     }
 
 
@@ -151,7 +143,7 @@ def _invoke_litellm(
     provider: str, model_name: str, prompt: str, trace: Trace | None, num_retries: int
 ) -> str:
     """
-    Invoke the judge model via litellm with retry support.
+    Invoke the judge via litellm with retry support.
 
     Args:
         provider: The provider name (e.g., 'openai', 'anthropic').
@@ -179,13 +171,9 @@ def _invoke_litellm(
     if trace is not None:
         judge_tools = list_judge_tools()
         tools = [tool.get_definition().to_dict() for tool in judge_tools]
-        _logger.debug(f"Registered {len(judge_tools)} judge tools for trace evaluation")
-        for tool in judge_tools:
-            _logger.debug(f"  - Tool: {tool.name}")
 
     while True:
         try:
-            _logger.debug(f"Calling LiteLLM with {len(messages)} messages and {len(tools)} tools")
             response = litellm.completion(
                 model=litellm_model_uri,
                 messages=messages,
@@ -200,17 +188,11 @@ def _invoke_litellm(
             )
             message = response.choices[0].message
             if not message.tool_calls:
-                _logger.debug("No tool calls in response, returning final content")
-                return message.content
+                    return message.content
 
-            _logger.debug(f"Model requested {len(message.tool_calls)} tool calls")
             messages.append(message.model_dump())
             for tool_call in message.tool_calls:
                 try:
-                    _logger.debug(
-                        f"Invoking judge tool: {tool_call.function.name} with arguments: "
-                        f"{tool_call.function.arguments}"
-                    )
                     mlflow_tool_call = ToolCall(
                         id=tool_call.id,
                         function={
@@ -219,16 +201,11 @@ def _invoke_litellm(
                         },
                     )
                     result = _judge_tool_registry.invoke(mlflow_tool_call, trace)
-                    _logger.debug(f"Tool {tool_call.function.name} completed successfully")
                 except Exception as e:
-                    _logger.debug(f"Tool {tool_call.function.name} failed with error: {e}")
                     messages.append(
-                        {
-                            "tool_call_id": tool_call.id,
-                            "role": "tool",
-                            "name": tool_call.function.name,
-                            "content": f"Error: {e!s}",
-                        }
+                        _create_tool_response_message(
+                            tool_call.id, tool_call.function.name, f"Error: {e!s}"
+                        )
                     )
                 else:
                     # Convert dataclass results to dict if needed
@@ -236,17 +213,41 @@ def _invoke_litellm(
                     if is_dataclass(result):
                         result = asdict(result)
                     result_json = json.dumps(result, default=str) if not isinstance(result, str) else result
-                    _logger.debug(f"Tool {tool_call.function.name} result: {result_json}")
                     messages.append(
-                        {
-                            "tool_call_id": tool_call.id,
-                            "role": "tool",
-                            "name": tool_call.function.name,
-                            "content": result_json,
-                        }
+                        _create_tool_response_message(
+                            tool_call.id, tool_call.function.name, result_json
+                        )
                     )
         except Exception as e:
-            raise MlflowException(f"Failed to invoke the judge model via litellm: {e}") from e
+            raise MlflowException(f"Failed to invoke the judge via litellm: {e}") from e
+
+
+def _get_judge_response_format() -> Dict[str, Any]:
+    """
+    Get the response format for judge evaluations.
+    
+    Returns:
+        A dictionary containing the JSON schema for structured outputs.
+    """
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "judge_evaluation",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "result": {"type": "string", "description": "The evaluation rating/result"},
+                    "rationale": {
+                        "type": "string",
+                        "description": "Detailed explanation for the evaluation",
+                    },
+                },
+                "required": ["result", "rationale"],
+                "additionalProperties": False,
+            },
+        },
+    }
 
 
 def _get_litellm_retry_policy(num_retries: int):
