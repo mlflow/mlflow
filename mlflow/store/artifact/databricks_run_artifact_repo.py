@@ -23,12 +23,12 @@ class DatabricksRunArtifactRepository(DatabricksTrackingArtifactRepository):
     )
 
     def _get_uri_regex(self) -> re.Pattern:
-        _logger.info(f"[RUN_REPO_DEBUG] Returning URI regex for run artifacts")
+        _logger.info("[RUN_REPO_DEBUG] Returning URI regex for run artifacts")
         return self._URI_REGEX
 
     def _get_expected_uri_format(self) -> str:
         _logger.info(
-            f"[RUN_REPO_DEBUG] Expected URI format: databricks/mlflow-tracking/<EXP_ID>/<RUN_ID>"
+            "[RUN_REPO_DEBUG] Expected URI format: databricks/mlflow-tracking/<EXP_ID>/<RUN_ID>"
         )
         return "databricks/mlflow-tracking/<EXP_ID>/<RUN_ID>"
 
@@ -38,7 +38,8 @@ class DatabricksRunArtifactRepository(DatabricksTrackingArtifactRepository):
             f"/WorkspaceInternal/Mlflow/Artifacts/{experiment_id}/Runs/{run_id}{relative_path}"
         )
         _logger.info(
-            f"[RUN_REPO_DEBUG] Built root path: experiment_id={experiment_id}, run_id={run_id}, relative_path={relative_path} -> {root_path}"
+            f"[RUN_REPO_DEBUG] Built root path: experiment_id={experiment_id}, "
+            f"run_id={run_id}, relative_path={relative_path} -> {root_path}"
         )
         return root_path
 

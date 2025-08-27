@@ -5,6 +5,7 @@ import pytest
 from databricks.sdk.service.files import DirectoryEntry
 
 from mlflow.entities.file_info import FileInfo
+from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.databricks_logged_model_artifact_repo import (
     DatabricksLoggedModelArtifactRepository,
 )
@@ -172,7 +173,7 @@ def test_constructor_with_valid_uri():
 
 def test_constructor_with_invalid_uri():
     """Test that constructor raises exception with invalid URIs."""
-    with pytest.raises(Exception):
+    with pytest.raises(MlflowException, match="Invalid artifact URI"):
         DatabricksLoggedModelArtifactRepository("invalid_uri")
 
 

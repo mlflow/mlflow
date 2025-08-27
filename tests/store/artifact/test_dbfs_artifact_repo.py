@@ -1,10 +1,9 @@
 from unittest import mock
 
-from mlflow.store.artifact.databricks_run_artifact_repo import DatabricksRunArtifactRepository
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRepository
+from mlflow.store.artifact.databricks_run_artifact_repo import DatabricksRunArtifactRepository
 from mlflow.store.artifact.dbfs_artifact_repo import (
     DbfsRestArtifactRepository,
     dbfs_artifact_repo_factory,

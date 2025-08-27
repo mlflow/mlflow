@@ -228,7 +228,8 @@ def dbfs_artifact_repo_factory(artifact_uri: str, tracking_uri: str | None = Non
         _logger.info(f"[DBFS_FACTORY_DEBUG] ACLed artifacts URI detected: {artifact_uri}")
         if DatabricksLoggedModelArtifactRepository.is_logged_model_uri(artifact_uri):
             _logger.info(
-                f"[DBFS_FACTORY_DEBUG] Creating DatabricksLoggedModelArtifactRepository for: {artifact_uri}"
+                f"[DBFS_FACTORY_DEBUG] Creating DatabricksLoggedModelArtifactRepository "
+                f"for: {artifact_uri}"
             )
             return DatabricksLoggedModelArtifactRepository(
                 cleaned_artifact_uri, tracking_uri=tracking_uri

@@ -26,7 +26,10 @@ class DatabricksLoggedModelArtifactRepository(DatabricksTrackingArtifactReposito
 
     def _build_root_path(self, experiment_id: str, match: re.Match, relative_path: str) -> str:
         model_id = match.group("model_id")
-        return f"/WorkspaceInternal/Mlflow/Artifacts/{experiment_id}/LoggedModels/{model_id}{relative_path}"
+        return (
+            f"/WorkspaceInternal/Mlflow/Artifacts/{experiment_id}/LoggedModels/{model_id}"
+            f"{relative_path}"
+        )
 
     @staticmethod
     def is_logged_model_uri(artifact_uri: str) -> bool:
