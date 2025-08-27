@@ -192,14 +192,15 @@ def create_run(
     tags_dict = {}
     if tags:
         for tag in tags:
-            if "=" not in tag:
-                raise click.UsageError(
-                    f"Invalid tag format: '{tag}'. Tags must be in key=value format."
-                )
-            key, value = tag.split("=", 1)
-            if key in tags_dict:
-                raise click.UsageError(f"Duplicate tag key: '{key}'")
-            tags_dict[key] = value
+            match tag.split("=", 1):
+                case [key, value]:
+                    if key in tags_dict:
+                        raise click.UsageError(f"Duplicate tag key: '{key}'")
+                    tags_dict[key] = value
+                case _:
+                    raise click.UsageError(
+                        f"Invalid tag format: '{tag}'. Tags must be in key=value format."
+                    )
 
     # Set the experiment if using experiment_name
     if experiment_name:

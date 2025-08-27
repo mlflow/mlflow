@@ -61,7 +61,6 @@ def test_csv_generation(tmp_path):
 
 
 def test_create_run_with_experiment_id():
-    """Test creating a run with experiment ID."""
     mlflow.create_experiment("test_create_run_exp")
     exp = mlflow.get_experiment_by_name("test_create_run_exp")
 
@@ -80,7 +79,6 @@ def test_create_run_with_experiment_id():
 
 
 def test_create_run_with_experiment_name():
-    """Test creating a run with experiment name."""
     exp_name = "test_create_run_by_name"
 
     result = CliRunner().invoke(create_run, ["--experiment-name", exp_name])
@@ -88,20 +86,14 @@ def test_create_run_with_experiment_name():
 
     # Extract JSON from output (it may be mixed with logs)
     lines = result.output.strip().split("\n")
-    json_output = None
-    for i in range(len(lines)):
-        if lines[i].strip() == "{":
-            # Found start of JSON, collect until closing brace
-            json_lines = []
-            for j in range(i, len(lines)):
-                json_lines.append(lines[j])
-                if lines[j].strip() == "}":
-                    json_output = "\n".join(json_lines)
-                    break
-            break
-
-    assert json_output is not None, "No JSON output found"
-    output = json.loads(json_output)
+    try:
+        # Find lines that contain just the JSON brackets
+        start = next(i for i, line in enumerate(lines) if line.strip() == "{")
+        end = next(i for i, line in enumerate(lines) if line.strip() == "}")
+        json_output = "\n".join(lines[start : end + 1])
+        output = json.loads(json_output)
+    except (StopIteration, ValueError):
+        assert False, "No JSON output found"
     assert "run_id" in output
     assert output["status"] == "FINISHED"
 
@@ -112,7 +104,6 @@ def test_create_run_with_experiment_name():
 
 
 def test_create_run_with_custom_name_and_description():
-    """Test creating a run with custom name and description."""
     mlflow.create_experiment("test_run_with_details")
     exp = mlflow.get_experiment_by_name("test_run_with_details")
 
@@ -142,7 +133,6 @@ def test_create_run_with_custom_name_and_description():
 
 
 def test_create_run_with_tags():
-    """Test creating a run with tags."""
     mlflow.create_experiment("test_run_with_tags")
     exp = mlflow.get_experiment_by_name("test_run_with_tags")
 
@@ -169,50 +159,35 @@ def test_create_run_with_tags():
     assert run.data.tags["version"] == "1.0"
 
 
-def test_create_run_with_different_status():
-    """Test creating runs with different end statuses."""
+@pytest.mark.parametrize("status", ["FAILED", "KILLED"])
+def test_create_run_with_different_status(status):
     mlflow.create_experiment("test_run_statuses")
     exp = mlflow.get_experiment_by_name("test_run_statuses")
 
-    # Test FAILED status
     result = CliRunner().invoke(
-        create_run, ["--experiment-id", exp.experiment_id, "--status", "FAILED"]
+        create_run, ["--experiment-id", exp.experiment_id, "--status", status]
     )
     assert result.exit_code == 0
     output = json.loads(result.output)
-    assert output["status"] == "FAILED"
+    assert output["status"] == status
 
     run = mlflow.get_run(output["run_id"])
-    assert run.info.status == "FAILED"
-
-    # Test KILLED status
-    result = CliRunner().invoke(
-        create_run, ["--experiment-id", exp.experiment_id, "--status", "KILLED"]
-    )
-    assert result.exit_code == 0
-    output = json.loads(result.output)
-    assert output["status"] == "KILLED"
-
-    run = mlflow.get_run(output["run_id"])
-    assert run.info.status == "KILLED"
+    assert run.info.status == status
 
 
 def test_create_run_missing_experiment():
-    """Test error when neither experiment-id nor experiment-name is provided."""
     result = CliRunner().invoke(create_run, [])
     assert result.exit_code != 0
     assert "Must specify exactly one of --experiment-id or --experiment-name" in result.output
 
 
 def test_create_run_both_experiment_params():
-    """Test error when both experiment-id and experiment-name are provided."""
     result = CliRunner().invoke(create_run, ["--experiment-id", "0", "--experiment-name", "test"])
     assert result.exit_code != 0
     assert "Must specify exactly one of --experiment-id or --experiment-name" in result.output
 
 
 def test_create_run_invalid_tag_format():
-    """Test error with invalid tag format."""
     mlflow.create_experiment("test_invalid_tag")
     exp = mlflow.get_experiment_by_name("test_invalid_tag")
 
@@ -224,7 +199,6 @@ def test_create_run_invalid_tag_format():
 
 
 def test_create_run_duplicate_tag_key():
-    """Test error with duplicate tag keys."""
     mlflow.create_experiment("test_duplicate_tag")
     exp = mlflow.get_experiment_by_name("test_duplicate_tag")
 
