@@ -10,22 +10,15 @@ from cachetools import TTLCache
 
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.trace import Trace
-from mlflow.genai.experimental.databricks_trace_exporter_utils import (
+from mlflow.protos.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
+from mlflow.tracing.export.inference_table import InferenceTableSpanExporter
+from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
+from mlflow.tracing.utils.databricks_delta_utils import (
     DatabricksTraceServerClient,
     create_archival_zerobus_sdk,
     import_zerobus_sdk_classes,
 )
-from mlflow.genai.experimental.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
-from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
 from mlflow.utils.annotations import experimental
-
-try:
-    from opentelemetry.sdk.trace import ReadableSpan
-
-    from mlflow.tracing.export.inference_table import InferenceTableSpanExporter
-except ImportError:
-    InferenceTableSpanExporter = None
-    ReadableSpan = None
 
 _logger = logging.getLogger(__name__)
 

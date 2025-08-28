@@ -7,20 +7,20 @@ from unittest.mock import Mock
 
 import pytest
 
+from mlflow.entities.databricks_trace_storage_config import (
+    DatabricksTraceDeltaStorageConfig,
+)
 from mlflow.entities.span import Span
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
-from mlflow.genai.experimental.databricks_trace_exporter import (
+from mlflow.tracing.export.databricks_delta import (
     DatabricksDeltaArchivalMixin,
     InferenceTableDeltaSpanExporter,
     MlflowV3DeltaSpanExporter,
     ZerobusStreamFactory,
-)
-from mlflow.genai.experimental.databricks_trace_storage_config import (
-    DatabricksTraceDeltaStorageConfig,
 )
 
 # Import ingest SDK classes - these will be mocked by conftest.py when not available
@@ -125,9 +125,11 @@ def mock_manager_trace(sample_trace_without_spans):
 @pytest.fixture(autouse=True)
 def clear_mixin_cache():
     """Automatically clear cache before each test to avoid interference."""
-    DatabricksDeltaArchivalMixin._config_cache.clear()
+    if DatabricksDeltaArchivalMixin._config_cache is not None:
+        DatabricksDeltaArchivalMixin._config_cache.clear()
     yield
-    DatabricksDeltaArchivalMixin._config_cache.clear()
+    if DatabricksDeltaArchivalMixin._config_cache is not None:
+        DatabricksDeltaArchivalMixin._config_cache.clear()
 
 
 # =============================================================================
@@ -342,7 +344,7 @@ def test_archive_with_no_experiment_id(monkeypatch):
     trace = Trace(info=trace_info, data=trace_data)
 
     with mock.patch(
-        "mlflow.genai.experimental.databricks_trace_exporter.DatabricksTraceServerClient"
+        "mlflow.tracing.utils.databricks_delta_utils.DatabricksTraceServerClient"
     ) as mock_client_class:
         # Archive should return early without calling the client
         mixin.archive_trace(trace)
@@ -352,14 +354,19 @@ def test_archive_with_no_experiment_id(monkeypatch):
 def test_archive_with_missing_archival_config(sample_trace_without_spans, monkeypatch):
     """Test that mixin handles gracefully when no configuration is available."""
 
-    mixin = DatabricksDeltaArchivalMixin()
-
     with (
         mock.patch(
-            "mlflow.genai.experimental.databricks_trace_exporter.DatabricksTraceServerClient"
+            "mlflow.tracing.utils.databricks_delta_utils.DatabricksTraceServerClient"
         ) as mock_client_class,
-        mock.patch("mlflow.genai.experimental.databricks_trace_exporter._logger") as mock_logger,
+        mock.patch("mlflow.tracing.export.databricks_delta._logger") as mock_logger,
+        mock.patch("mlflow.tracing.export.databricks_delta.TTLCache") as mock_cache_class,
     ):
+        # Set up the mock cache
+        mock_cache = mock.MagicMock()
+        mock_cache_class.return_value = mock_cache
+
+        mixin = DatabricksDeltaArchivalMixin()
+
         # Mock no config available (returns None, not an exception)
         mock_client = mock_client_class.return_value
         mock_client.get_trace_destination.return_value = None
@@ -385,9 +392,9 @@ def test_delta_mixin_archive_archival_config_error_handling(
 
     with (
         mock.patch(
-            "mlflow.genai.experimental.databricks_trace_exporter.DatabricksTraceServerClient"
+            "mlflow.tracing.utils.databricks_delta_utils.DatabricksTraceServerClient"
         ) as mock_client_class,
-        mock.patch("mlflow.genai.experimental.databricks_trace_exporter._logger") as mock_logger,
+        mock.patch("mlflow.tracing.export.databricks_delta._logger") as mock_logger,
     ):
         # Mock client to raise an error during config fetch
         mock_client = mock_client_class.return_value
@@ -411,7 +418,7 @@ def test_delta_mixin_archive_with_valid_archival_config(
 
     with (
         mock.patch(
-            "mlflow.genai.experimental.databricks_trace_exporter.DatabricksTraceServerClient"
+            "mlflow.tracing.utils.databricks_delta_utils.DatabricksTraceServerClient"
         ) as mock_client_class,
         mock.patch.object(mixin, "_archive_trace") as mock_archive_trace,
     ):
@@ -443,10 +450,10 @@ def test_archive_trace_integration_flow(sample_trace_with_spans, sample_config, 
 
     with (
         mock.patch(
-            "mlflow.genai.experimental.databricks_trace_exporter.DatabricksTraceServerClient"
+            "mlflow.tracing.utils.databricks_delta_utils.DatabricksTraceServerClient"
         ) as mock_client_class,
         mock.patch(
-            "mlflow.genai.experimental.databricks_trace_exporter.ZerobusStreamFactory.get_instance"
+            "mlflow.tracing.export.databricks_delta.ZerobusStreamFactory.get_instance"
         ) as mock_get_instance,
     ):
         # Setup mocks
@@ -481,12 +488,12 @@ def test_archive_trace_with_empty_spans(sample_trace_without_spans, sample_confi
 
     with (
         mock.patch(
-            "mlflow.genai.experimental.databricks_trace_exporter.DatabricksTraceServerClient"
+            "mlflow.tracing.utils.databricks_delta_utils.DatabricksTraceServerClient"
         ) as mock_client_class,
         mock.patch(
-            "mlflow.genai.experimental.databricks_trace_exporter.ZerobusStreamFactory.get_instance"
+            "mlflow.tracing.export.databricks_delta.ZerobusStreamFactory.get_instance"
         ) as mock_get_instance,
-        mock.patch("mlflow.genai.experimental.databricks_trace_exporter._logger") as mock_logger,
+        mock.patch("mlflow.tracing.export.databricks_delta._logger") as mock_logger,
     ):
         # Setup mocks
         mock_client = mock_client_class.return_value
@@ -524,12 +531,12 @@ def test_archive_trace_ingest_stream_error_handling(
 
     with (
         mock.patch(
-            "mlflow.genai.experimental.databricks_trace_exporter.DatabricksTraceServerClient"
+            "mlflow.tracing.utils.databricks_delta_utils.DatabricksTraceServerClient"
         ) as mock_client_class,
         mock.patch(
-            "mlflow.genai.experimental.databricks_trace_exporter.ZerobusStreamFactory.get_instance"
+            "mlflow.tracing.export.databricks_delta.ZerobusStreamFactory.get_instance"
         ) as mock_get_instance,
-        mock.patch("mlflow.genai.experimental.databricks_trace_exporter._logger") as mock_logger,
+        mock.patch("mlflow.tracing.export.databricks_delta._logger") as mock_logger,
     ):
         # Setup mocks
         mock_client = mock_client_class.return_value
@@ -554,7 +561,7 @@ def test_ingest_stream_factory_singleton_behavior():
     """Test that ZerobusStreamFactory maintains singleton behavior per table."""
     from zerobus_sdk import TableProperties
 
-    from mlflow.genai.experimental.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
+    from mlflow.protos.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
 
     # Create table properties for testing using mock class
     table_props1 = TableProperties("table1", DeltaProtoSpan.DESCRIPTOR)
@@ -577,7 +584,7 @@ def test_ingest_stream_factory_get_or_create_stream():
     """Test stream creation and caching behavior."""
     from zerobus_sdk import TableProperties
 
-    from mlflow.genai.experimental.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
+    from mlflow.protos.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
 
     # Create table properties for testing using mock class
     table_props = TableProperties("test_table", DeltaProtoSpan.DESCRIPTOR)
@@ -591,7 +598,7 @@ def test_ingest_stream_factory_get_or_create_stream():
     mock_stream = mock.Mock()
 
     with mock.patch(
-        "mlflow.genai.experimental.databricks_trace_exporter.create_archival_zerobus_sdk"
+        "mlflow.tracing.utils.databricks_delta_utils.create_archival_zerobus_sdk"
     ) as mock_create_sdk:
         mock_sdk_instance = mock.Mock()
         mock_sdk_instance.create_stream.return_value = mock_stream
@@ -611,7 +618,7 @@ def test_ingest_stream_factory_recreates_stream_on_invalid_state(invalid_state):
     from zerobus_sdk import TableProperties
     from zerobus_sdk.shared.definitions import StreamState
 
-    from mlflow.genai.experimental.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
+    from mlflow.protos.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
 
     # Create table properties for testing using mock class
     table_props = TableProperties("test_table", DeltaProtoSpan.DESCRIPTOR)
@@ -631,9 +638,9 @@ def test_ingest_stream_factory_recreates_stream_on_invalid_state(invalid_state):
 
     with (
         mock.patch(
-            "mlflow.genai.experimental.databricks_trace_exporter.create_archival_zerobus_sdk"
+            "mlflow.tracing.utils.databricks_delta_utils.create_archival_zerobus_sdk"
         ) as mock_create_sdk,
-        mock.patch("mlflow.genai.experimental.databricks_trace_exporter._logger") as mock_logger,
+        mock.patch("mlflow.tracing.export.databricks_delta._logger") as mock_logger,
     ):
         mock_sdk_instance = mock.Mock()
         # First call returns old stream, second call returns new stream
@@ -667,7 +674,7 @@ def test_ingest_stream_factory_reuses_valid_stream(valid_state):
     from zerobus_sdk import TableProperties
     from zerobus_sdk.shared.definitions import StreamState
 
-    from mlflow.genai.experimental.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
+    from mlflow.protos.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
 
     # Create table properties for testing using mock class
     table_props = TableProperties("test_table", DeltaProtoSpan.DESCRIPTOR)
@@ -685,9 +692,9 @@ def test_ingest_stream_factory_reuses_valid_stream(valid_state):
 
     with (
         mock.patch(
-            "mlflow.genai.experimental.databricks_trace_exporter.create_archival_zerobus_sdk"
+            "mlflow.tracing.utils.databricks_delta_utils.create_archival_zerobus_sdk"
         ) as mock_create_sdk,
-        mock.patch("mlflow.genai.experimental.databricks_trace_exporter._logger") as mock_logger,
+        mock.patch("mlflow.tracing.export.databricks_delta._logger") as mock_logger,
     ):
         mock_sdk_instance = mock.Mock()
         mock_sdk_instance.create_stream.return_value = mock_stream
@@ -721,7 +728,7 @@ def test_ingest_stream_factory_atexit_registration():
     """Test that atexit handler is registered once."""
     from zerobus_sdk import TableProperties
 
-    from mlflow.genai.experimental.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
+    from mlflow.protos.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
 
     # Reset atexit registration flag
     ZerobusStreamFactory._atexit_registered = False
@@ -744,7 +751,7 @@ def test_ingest_stream_factory_thread_safety():
     """Test concurrent access to factory instances."""
     from zerobus_sdk import TableProperties
 
-    from mlflow.genai.experimental.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
+    from mlflow.protos.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
 
     # Clear existing instances
     ZerobusStreamFactory._instances.clear()
@@ -971,11 +978,11 @@ def test_convert_trace_to_proto_spans_filters_spans_without_id():
 
     # Mock the logger to verify debug message
     # Also mock the line that's causing the AttributeError to skip it for this test
-    with mock.patch("mlflow.genai.experimental.databricks_trace_exporter._logger") as mock_logger:
+    with mock.patch("mlflow.tracing.export.databricks_delta._logger") as mock_logger:
 
         def patched_convert(trace):
             """Patched version that skips the problematic attributes line"""
-            from mlflow.genai.experimental.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
+            from mlflow.protos.databricks_trace_otel_pb2 import Span as DeltaProtoSpan
 
             delta_proto_spans = []
 

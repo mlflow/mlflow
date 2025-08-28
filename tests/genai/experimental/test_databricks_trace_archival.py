@@ -6,16 +6,15 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from mlflow.entities.databricks_trace_storage_config import (
+    DatabricksTraceDeltaStorageConfig,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.genai.experimental.databricks_trace_archival import (
     SUPPORTED_SCHEMA_VERSION,
     _create_genai_trace_view,
     _validate_schema_versions,
     set_experiment_storage_location,
-)
-from mlflow.genai.experimental.databricks_trace_exporter import DatabricksDeltaArchivalMixin
-from mlflow.genai.experimental.databricks_trace_storage_config import (
-    DatabricksTraceDeltaStorageConfig,
 )
 from mlflow.protos.databricks_trace_server_pb2 import (
     TraceDestination as ProtoTraceDestination,
@@ -24,6 +23,7 @@ from mlflow.protos.databricks_trace_server_pb2 import (
     TraceLocation as ProtoTraceLocation,
 )
 from mlflow.tracing.destination import DatabricksUnityCatalog
+from mlflow.tracing.export.databricks_delta import DatabricksDeltaArchivalMixin
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_TRACE_ROLLING_DELETION_ENABLED,
     MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE,
@@ -70,7 +70,7 @@ def mock_delta_archival_mixin():
 def mock_trace_storage():
     """Fixture that mocks DatabricksTraceServerClient for _get_trace_storage_config verification."""
     with patch(
-        "mlflow.genai.experimental.databricks_trace_exporter.DatabricksTraceServerClient"
+        "mlflow.tracing.utils.databricks_delta_utils.DatabricksTraceServerClient"
     ) as mock_client:
         mock_client_instance = Mock()
         mock_client_instance.get_trace_destination.return_value = None
@@ -281,7 +281,7 @@ def test_backend_returns_unsupported_spans_schema(
     # Use the fixture's mock workspace client
     mock_workspace_client_class.return_value = mock_workspace_client
     # Create config with unsupported spans schema version
-    from mlflow.genai.experimental.databricks_trace_storage_config import (
+    from mlflow.entities.databricks_trace_storage_config import (
         DatabricksTraceDeltaStorageConfig,
     )
 
@@ -324,7 +324,7 @@ def test_backend_returns_unsupported_events_schema(
     # Use the fixture's mock workspace client
     mock_workspace_client_class.return_value = mock_workspace_client
     # Create config with unsupported events schema version
-    from mlflow.genai.experimental.databricks_trace_storage_config import (
+    from mlflow.entities.databricks_trace_storage_config import (
         DatabricksTraceDeltaStorageConfig,
     )
 
@@ -368,7 +368,7 @@ def test_experiment_tag_setting_failure(
     # Use the fixture's mock workspace client
     mock_workspace_client_class.return_value = mock_workspace_client
     # Create a valid config
-    from mlflow.genai.experimental.databricks_trace_storage_config import (
+    from mlflow.entities.databricks_trace_storage_config import (
         DatabricksTraceDeltaStorageConfig,
     )
 
@@ -414,7 +414,7 @@ def test_successful_experiment_tag_setting(
     # Use the fixture's mock workspace client
     mock_workspace_client_class.return_value = mock_workspace_client
     # Create a valid config
-    from mlflow.genai.experimental.databricks_trace_storage_config import (
+    from mlflow.entities.databricks_trace_storage_config import (
         DatabricksTraceDeltaStorageConfig,
     )
 
@@ -505,7 +505,7 @@ def test_successful_archival_with_prefix(
     # Use the fixture's mock workspace client
     mock_workspace_client_class.return_value = mock_workspace_client
     # Create a valid config
-    from mlflow.genai.experimental.databricks_trace_storage_config import (
+    from mlflow.entities.databricks_trace_storage_config import (
         DatabricksTraceDeltaStorageConfig,
     )
 
