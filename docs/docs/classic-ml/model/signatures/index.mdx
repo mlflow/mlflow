@@ -1092,7 +1092,7 @@ loaded_model = mlflow.sklearn.load_model(mv.source)
 # Provide signature, e.g. via infer_signature on dataset
 signature = infer_signature(X_test, predictions)
 
-with mlflow.start_run() as r:
+with mlflow.start_run():
     model_info = mlflow.sklearn.log_model(
         loaded_model,
         name="my_model",
@@ -1105,7 +1105,7 @@ with mlflow.start_run() as r:
 NOTE: For `pyfunc` models, you will need to unwrap the model as follows:
 
 ```python
-with mlflow.start_run() as r:
+with mlflow.start_run():
     model_info = mlflow.pyfunc.log_model(
         python_model=loaded.unwrap_python_model(),
         name="my_model",
