@@ -2,7 +2,7 @@
 Usage:
 
 ```
-python outputs/better_diff.py --pr https://github.com/mlflow/mlflow/pull/17230 > diff.txt
+python outputs/diff.py --pr https://github.com/mlflow/mlflow/pull/17230 > diff.txt
 ```
 
 Output format:
