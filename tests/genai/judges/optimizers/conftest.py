@@ -11,9 +11,10 @@ from mlflow.genai.judges.base import Judge
 class MockJudge(Judge):
     """Mock judge implementation for testing."""
 
-    def __init__(self, name="mock_judge", description="A mock judge for testing", **kwargs):
+    def __init__(self, name="mock_judge", description=None, **kwargs):
         super().__init__(name=name, **kwargs)
-        self._description = description
+        # Use a proper template with variables for testing
+        self._description = description or "Evaluate if the {{outputs}} properly addresses {{inputs}}"
 
     @property
     def description(self) -> str:

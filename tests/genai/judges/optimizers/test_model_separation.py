@@ -183,14 +183,19 @@ def test_optimizer_model_separate_from_judge_model(mock_judge, sample_traces_wit
     mock_dspy.LM.side_effect = track_lm_call
 
     with patch.dict("sys.modules", {"dspy": mock_dspy}):
-        # Create optimizer with its own model
-        optimizer = SIMBAAlignmentOptimizer(model="optimizer:/model")
+        with patch("mlflow.genai.judges.make_judge") as mock_make_judge:
+            mock_optimized_judge = Mock()
+            mock_optimized_judge.name = "mock_judge_optimized"
+            mock_make_judge.return_value = mock_optimized_judge
+            
+            # Create optimizer with its own model
+            optimizer = SIMBAAlignmentOptimizer(model="optimizer:/model")
 
-        # Mock judge has a different model (but we don't need to check it)
-        # The optimizer should use its own model regardless
+            # Mock judge has a different model (but we don't need to check it)
+            # The optimizer should use its own model regardless
 
-        # Perform alignment
-        optimizer.align(mock_judge, sample_traces_with_assessments)
+            # Perform alignment
+            optimizer.align(mock_judge, sample_traces_with_assessments)
 
     # Verify optimizer used its own model, not the judge's model
     assert "optimizer:/model" in lm_calls

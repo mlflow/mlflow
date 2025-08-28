@@ -78,16 +78,24 @@ def test_full_alignment_workflow(mock_judge, sample_traces_with_assessments):
     mock_dspy.LM.return_value = Mock()
 
     with patch.dict("sys.modules", {"dspy": mock_dspy}):
-        optimizer = SIMBAAlignmentOptimizer()
+        with patch("mlflow.genai.judges.make_judge") as mock_make_judge:
+            # Mock the optimized judge
+            mock_optimized_judge = Mock()
+            mock_optimized_judge.name = "mock_judge_optimized"
+            mock_make_judge.return_value = mock_optimized_judge
+            
+            optimizer = SIMBAAlignmentOptimizer()
+            result = optimizer.align(mock_judge, sample_traces_with_assessments)
 
-        result = optimizer.align(mock_judge, sample_traces_with_assessments)
-
-    # Should return a judge
+    # Should return an optimized judge
     assert result is not None
+    assert result == mock_optimized_judge
 
     # Verify DSPy components were called through the optimization process
     assert mock_dspy.SIMBA.called
     assert mock_dspy.make_signature.called
+    # Verify make_judge was called to create the optimized judge
+    assert mock_make_judge.called
     # ChainOfThought may or may not be called depending on DSPy implementation
     # The key verification is that SIMBA was called and alignment succeeded
 
@@ -115,12 +123,18 @@ def test_alignment_with_default_parameters(mock_judge, sample_traces_with_assess
 
     # Test with default parameters
     with patch.dict("sys.modules", {"dspy": mock_dspy}):
-        optimizer = SIMBAAlignmentOptimizer()
+        with patch("mlflow.genai.judges.make_judge") as mock_make_judge:
+            mock_optimized_judge = Mock()
+            mock_optimized_judge.name = "mock_judge_optimized"
+            mock_make_judge.return_value = mock_optimized_judge
+            
+            optimizer = SIMBAAlignmentOptimizer()
 
-        result = optimizer.align(mock_judge, sample_traces_with_assessments)
+            result = optimizer.align(mock_judge, sample_traces_with_assessments)
 
     # Should return a judge
     assert result is not None
+    assert result == mock_optimized_judge
 
     # Verify DSPy components were called with alignment process
     assert mock_dspy.SIMBA.called

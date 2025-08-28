@@ -395,17 +395,31 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
 
     def _create_optimized_judge(self, original_judge: Judge, instructions: str) -> Judge:
         """
-        Create a new optimized judge from the original judge and optimized program.
+        Create a new optimized judge from the original judge and optimized instructions.
 
-        For now, this is a placeholder that returns the original judge.
-        Future implementations would create a new judge with optimized prompts.
+        Uses make_judge() to create a new InstructionsJudge with the optimized instructions
+        from DSPy, preserving the original judge's name and model configuration.
 
         Args:
             original_judge: The original judge
-            optimized_program: The optimized DSPy program
+            instructions: The optimized instructions from DSPy optimization
 
         Returns:
-            A new optimized Judge instance
+            A new optimized Judge instance with improved instructions
         """
-        # ALKIS: Call `make_judge()` with the updated instructions and return the new judge
-        return original_judge
+        from mlflow.genai.judges import make_judge
+        
+        # Create a new judge with optimized instructions
+        # Use the original judge's name with "_optimized" suffix
+        optimized_name = f"{original_judge.name}_optimized"
+        
+        # Get the model from the original judge if available, otherwise use judge's default
+        judge_model = getattr(original_judge, 'model', None) or getattr(original_judge, '_model', None)
+        
+        self._logger.info(f"Creating optimized judge '{optimized_name}' with DSPy-optimized instructions")
+        
+        return make_judge(
+            name=optimized_name,
+            instructions=instructions,
+            model=judge_model
+        )

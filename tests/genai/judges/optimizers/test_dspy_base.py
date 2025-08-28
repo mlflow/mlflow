@@ -212,13 +212,20 @@ def test_align_success(mock_judge, sample_traces_with_assessments):
     mock_dspy.Predict.return_value = mock_program
 
     with patch.dict("sys.modules", {"dspy": mock_dspy}):
-        # Setup concrete optimizer
-        optimizer = ConcreteDSPyOptimizer()
+        with patch("mlflow.genai.judges.make_judge") as mock_make_judge:
+            # Mock the optimized judge
+            mock_optimized_judge = Mock()
+            mock_optimized_judge.name = "mock_judge_optimized"
+            mock_make_judge.return_value = mock_optimized_judge
+            
+            # Setup concrete optimizer
+            optimizer = ConcreteDSPyOptimizer()
 
-        result = optimizer.align(mock_judge, sample_traces_with_assessments)
+            result = optimizer.align(mock_judge, sample_traces_with_assessments)
 
-    # Should return a judge (even if it's the original for now)
+    # Should return an optimized judge
     assert result is not None
+    assert result == mock_optimized_judge
 
 
 def test_align_no_traces(mock_judge):
@@ -271,3 +278,34 @@ def test_align_no_dspy(mock_judge, sample_traces_with_assessments):
 
         with pytest.raises(MlflowException, match="DSPy library is required"):
             optimizer.align(mock_judge, sample_traces_with_assessments)
+
+
+def test_create_optimized_judge():
+    """Test that _create_optimized_judge creates a new judge with make_judge."""
+    from unittest.mock import patch
+    
+    optimizer = ConcreteDSPyOptimizer()
+    
+    # Mock the original judge
+    original_judge = Mock()
+    original_judge.name = "test_judge"
+    original_judge.model = "openai:/gpt-4"
+    
+    optimized_instructions = "These are the optimized instructions from DSPy"
+    
+    # Mock make_judge - patch where it's imported inside the function
+    with patch("mlflow.genai.judges.make_judge") as mock_make_judge:
+        mock_optimized_judge = Mock()
+        mock_make_judge.return_value = mock_optimized_judge
+        
+        result = optimizer._create_optimized_judge(original_judge, optimized_instructions)
+        
+        # Verify make_judge was called with correct parameters
+        mock_make_judge.assert_called_once_with(
+            name="test_judge_optimized",
+            instructions=optimized_instructions,
+            model="openai:/gpt-4"
+        )
+        
+        # Verify the optimized judge was returned
+        assert result == mock_optimized_judge

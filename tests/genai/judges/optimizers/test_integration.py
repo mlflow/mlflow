@@ -53,8 +53,13 @@ def test_simba_optimizer_workflow(mock_judge, sample_traces_with_assessments):
 
     # Test SIMBA optimizer
     with patch.dict("sys.modules", {"dspy": mock_dspy}):
-        simba_optimizer = SIMBAAlignmentOptimizer()
-        result = simba_optimizer.align(mock_judge, sample_traces_with_assessments)
+        with patch("mlflow.genai.judges.make_judge") as mock_make_judge:
+            mock_optimized_judge = Mock()
+            mock_optimized_judge.name = "mock_judge_optimized"
+            mock_make_judge.return_value = mock_optimized_judge
+            
+            simba_optimizer = SIMBAAlignmentOptimizer()
+            result = simba_optimizer.align(mock_judge, sample_traces_with_assessments)
 
     # Verify successful completion
     assert result is not None
@@ -90,10 +95,15 @@ def test_judge_integration(mock_judge, sample_traces_with_assessments):
     mock_dspy.LM.return_value = Mock()
 
     with patch.dict("sys.modules", {"dspy": mock_dspy}):
-        optimizer = SIMBAAlignmentOptimizer()
+        with patch("mlflow.genai.judges.make_judge") as mock_make_judge:
+            mock_optimized_judge = Mock()
+            mock_optimized_judge.name = "mock_judge_optimized"
+            mock_make_judge.return_value = mock_optimized_judge
+            
+            optimizer = SIMBAAlignmentOptimizer()
 
-        # Test using the judge's align method
-        result = mock_judge.align(optimizer, sample_traces_with_assessments)
+            # Test using the judge's align method
+            result = mock_judge.align(optimizer, sample_traces_with_assessments)
 
     # Should return a judge instance
     assert result is not None
@@ -126,11 +136,16 @@ def test_trace_processing_consistency(mock_judge, sample_traces_with_assessments
     mock_dspy.LM.return_value = Mock()
 
     with patch.dict("sys.modules", {"dspy": mock_dspy}):
-        optimizer = SIMBAAlignmentOptimizer()
+        with patch("mlflow.genai.judges.make_judge") as mock_make_judge:
+            mock_optimized_judge = Mock()
+            mock_optimized_judge.name = "mock_judge_optimized"
+            mock_make_judge.return_value = mock_optimized_judge
+            
+            optimizer = SIMBAAlignmentOptimizer()
 
-        # Process traces - should not raise exceptions
-        result = optimizer.align(mock_judge, sample_traces_with_assessments)
-        assert result is not None
+            # Process traces - should not raise exceptions
+            result = optimizer.align(mock_judge, sample_traces_with_assessments)
+            assert result is not None
 
     # Verify DSPy.Example was called for each valid trace
     assert mock_dspy.Example.call_count >= 1
