@@ -69,9 +69,7 @@ def mock_delta_archival_mixin():
 @pytest.fixture
 def mock_trace_storage():
     """Fixture that mocks DatabricksTraceServerClient for _get_trace_storage_config verification."""
-    with patch(
-        "mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient"
-    ) as mock_client:
+    with patch("mlflow.tracing.export.databricks_delta.DatabricksTraceServerClient") as mock_client:
         mock_client_instance = Mock()
         mock_client_instance.get_trace_destination.return_value = None
         mock_client.return_value = mock_client_instance
