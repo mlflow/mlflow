@@ -5,6 +5,10 @@ on:
     types: [created]
   pull_request:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   codex:
     runs-on: ubuntu-latest
