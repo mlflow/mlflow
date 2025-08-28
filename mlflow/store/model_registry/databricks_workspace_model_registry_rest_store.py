@@ -56,7 +56,7 @@ class DatabricksWorkspaceModelRegistryRestStore(RestStore):
             try:
                 logger.info(f"Downloading artifacts for models:/{src_mv.name}/{src_mv.version}")
                 local_model_dir = mlflow.artifacts.download_artifacts(
-                    artifact_uri=f"models:/{src_mv.name}/{src_mv.version}", tracking_uri=self.tracking_uri
+                    artifact_uri=f"models:/{src_mv.name}/{src_mv.version}", tracking_uri="databricks"
                 )
                 logger.info(f"Successfully downloaded artifacts to: {local_model_dir}")
             except Exception as e:
@@ -64,16 +64,14 @@ class DatabricksWorkspaceModelRegistryRestStore(RestStore):
                 logger.info("Raising MlflowException with detailed error message")
                 raise MlflowException(
                     f"Unable to download model {src_mv.name} version {src_mv.version} "
-                    f"artifacts from source artifact location '{src_mv.source}' in "
-                    f"order to migrate them to Unity Catalog. Please ensure the source "
-                    f"artifact location exists and that you can download from it via "
+                    f"artifacts from Databricks workspace registry in order to migrate "
+                    f"them to Unity Catalog. Please ensure the model version artifacts "
+                    f"exist and that you can download them via "
                     f"mlflow.artifacts.download_artifacts()"
                 ) from e
             
             logger.info("Creating UcModelRegistryStore instance")
-            uc_store = UcModelRegistryStore(
-                store_uri="databricks-uc", tracking_uri=self.tracking_uri
-            )
+            uc_store = UcModelRegistryStore(store_uri="databricks-uc", tracking_uri="databricks")
             logger.info("UcModelRegistryStore instance created successfully")
             
             logger.info("Getting bypass_signature_validation environment variable")
