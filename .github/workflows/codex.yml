@@ -17,8 +17,8 @@ jobs:
       models: read
       pull-requests: write
     timeout-minutes: 10
-    # Trigger this workflow if a maintainer/collaborator comments '/review' on a pull request
-    # if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/review') && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association ) }}
+    # Trigger this workflow if harupy comments '/review' on a pull request
+    # if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/review') && github.event.comment.user.login == 'harupy' }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -102,7 +102,7 @@ jobs:
             - Reference the specific style guide rule being violated
 
           ## 6. Submit Review
-          - Use `submit_pending_pull_request_review` tool
+          - Use `submit_pending_pull_request_review` tool to submit the review
           EOF
 
       - name: Run codex
