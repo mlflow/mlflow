@@ -1,6 +1,6 @@
 # Python Style Guide
 
-This style guide provides **conventions that [ruff](https://docs.astral.sh/ruff/) and [clint](./dev/clint) cannot enforce**.
+This guide documents Python coding conventions that go beyond what [ruff](https://docs.astral.sh/ruff/) and [clint](../../dev/clint/) can enforce. The practices below require human judgment to implement correctly and improve code readability, maintainability, and testability across the MLflow codebase.
 
 ## Avoid Redundant Test Docstrings
 
