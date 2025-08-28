@@ -75,8 +75,9 @@ jobs:
           and review the given PR.
 
           # Instructions
-          1. Read `PR_DIFF.txt` and `dev/guides/python.md`.
-          2. Carefully review the changes in the PR and identify the lines violating the style guide.
+          1. Run `python dev/better_diff.py --pr ${{ github.event.pull_request.html_url }}` to get the PR diff.
+          1. Read `dev/guides/python.md`.
+          2. Carefully review the PR diff and identify the lines violating the style guide.
           3. If you find any issues, proceed to the next step without approval, otherwise skip the rest of the instructions.
           4. Use the `create_pending_pull_request_review` tool to start a review.
           5. Use the `add_comment_to_pending_review` tool to add comments to the review.
