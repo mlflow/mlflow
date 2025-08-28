@@ -86,6 +86,8 @@ jobs:
           6. Use the `submit_pending_pull_request_review` tool to submit the review.
           EOF
 
+          cat AGENTS.md
+
       - name: Run codex
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
