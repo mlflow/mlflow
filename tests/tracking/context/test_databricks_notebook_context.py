@@ -12,8 +12,6 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_SOURCE_TYPE,
 )
 
-from tests.helper_functions import multi_context
-
 
 def test_databricks_notebook_run_context_in_context():
     with mock.patch("mlflow.utils.databricks_utils.is_in_databricks_notebook") as in_notebook_mock:
@@ -36,18 +34,12 @@ def test_databricks_notebook_run_context_tags():
         return_value=("https://databricks.com", "123456"),
     )
 
-    with multi_context(
-        patch_notebook_id,
-        patch_notebook_path,
-        patch_webapp_url,
-        patch_workspace_url,
-        patch_workspace_info,
-    ) as (
-        notebook_id_mock,
-        notebook_path_mock,
-        webapp_url_mock,
-        workspace_url_mock,
-        workspace_info_mock,
+    with (
+        patch_notebook_id as notebook_id_mock,
+        patch_notebook_path as notebook_path_mock,
+        patch_webapp_url as webapp_url_mock,
+        patch_workspace_url as workspace_url_mock,
+        patch_workspace_info as workspace_info_mock,
     ):
         assert DatabricksNotebookRunContext().tags() == {
             MLFLOW_SOURCE_NAME: notebook_path_mock.return_value,
@@ -59,18 +51,12 @@ def test_databricks_notebook_run_context_tags():
             MLFLOW_DATABRICKS_WORKSPACE_ID: workspace_info_mock.return_value[1],
         }
 
-    with multi_context(
-        patch_notebook_id,
-        patch_notebook_path,
-        patch_webapp_url,
-        patch_workspace_url_none,
-        patch_workspace_info,
-    ) as (
-        notebook_id_mock,
-        notebook_path_mock,
-        webapp_url_mock,
-        workspace_url_mock,
-        workspace_info_mock,
+    with (
+        patch_notebook_id as notebook_id_mock,
+        patch_notebook_path as notebook_path_mock,
+        patch_webapp_url as webapp_url_mock,
+        patch_workspace_url_none as workspace_url_mock,
+        patch_workspace_info as workspace_info_mock,
     ):
         assert DatabricksNotebookRunContext().tags() == {
             MLFLOW_SOURCE_NAME: notebook_path_mock.return_value,
