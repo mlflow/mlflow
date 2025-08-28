@@ -137,13 +137,10 @@ cd docs && yarn serve --port 8080
 
 See `mlflow/server/js/` for frontend development.
 
-<<<<<<< HEAD
-=======
 ## Language-Specific Style Guides
 
 - [Python](/dev/guides/python.md)
 
->>>>>>> master
 ## Git Workflow
 
 ### Committing Changes
