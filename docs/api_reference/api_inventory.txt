@@ -708,6 +708,7 @@ mlflow.genai.judges.is_context_sufficient
 mlflow.genai.judges.is_correct
 mlflow.genai.judges.is_grounded
 mlflow.genai.judges.is_safe
+mlflow.genai.judges.make_judge
 mlflow.genai.judges.meets_guidelines
 mlflow.genai.judges.utils.CategoricalRating
 mlflow.genai.label_schemas.InputCategorical
