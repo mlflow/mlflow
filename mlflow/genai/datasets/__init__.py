@@ -71,7 +71,7 @@ def _validate_non_databricks_params(
     if dataset_id is None:
         raise ValueError(
             "Parameter 'dataset_id' is required. "
-            "Use search_evaluation_datasets() to find the dataset ID by name if needed."
+            "Use search_datasets() to find the dataset ID by name if needed."
         )
 
 
@@ -93,6 +93,41 @@ def create_dataset(
 
     Returns:
         An EvaluationDataset object representing the created dataset.
+
+    Examples:
+        .. code-block:: python
+
+            from mlflow.genai.datasets import create_dataset
+
+            # Create a dataset with a single experiment
+            dataset = create_dataset(
+                name="customer_support_qa_v1",
+                experiment_id="0",  # Default experiment
+                tags={
+                    "version": "1.0",
+                    "purpose": "regression_testing",
+                    "model": "gpt-4",
+                    "team": "ml-platform",
+                },
+            )
+            print(f"Created dataset: {dataset.dataset_id}")
+            # Output: Created dataset: d-1a2b3c4d5e6f7890abcdef1234567890
+
+            # Create a dataset linked to multiple experiments
+            multi_exp_dataset = create_dataset(
+                name="cross_team_eval_dataset",
+                experiment_id=["1", "2", "5"],  # Multiple experiment IDs
+                tags={
+                    "coverage": "comprehensive",
+                    "status": "development",
+                },
+            )
+
+            # Create a dataset without tags (minimal example)
+            simple_dataset = create_dataset(
+                name="quick_test_dataset",
+                experiment_id="3",  # Specific experiment
+            )
     """
     if name is None:
         raise ValueError("Parameter 'name' is required.")
@@ -144,6 +179,36 @@ def delete_dataset(
     Note:
         - In Databricks environments: Use 'name' to specify the dataset.
         - Outside of Databricks: Use 'dataset_id' to specify the dataset
+
+    Examples:
+        .. code-block:: python
+
+            from mlflow.genai.datasets import delete_dataset, search_datasets
+
+            # Delete a specific dataset by ID (non-Databricks)
+            delete_dataset(dataset_id="d-4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e")
+
+            # Clean up old test datasets
+            test_datasets = search_datasets(
+                filter_string="name LIKE 'test_%' AND tags.environment = 'development'",
+                order_by=["created_time ASC"],
+            )
+
+            # Delete datasets older than the most recent 5
+            if len(test_datasets) > 5:
+                for dataset in test_datasets[:-5]:  # Keep the 5 most recent
+                    print(f"Deleting old test dataset: {dataset.name}")
+                    delete_dataset(dataset_id=dataset.dataset_id)
+
+            # Delete datasets with specific criteria
+            deprecated_datasets = search_datasets(filter_string="tags.status = 'deprecated'")
+            for dataset in deprecated_datasets:
+                delete_dataset(dataset_id=dataset.dataset_id)
+                print(f"Deleted deprecated dataset: {dataset.name}")
+
+    .. warning::
+        Deleting a dataset is permanent and cannot be undone. All associated
+        records, tags, and metadata will be permanently removed.
     """
 
     if is_databricks_default_tracking_uri(get_tracking_uri()):
@@ -180,6 +245,34 @@ def get_dataset(
     Note:
         - In Databricks environments: Use 'name' to specify the dataset.
         - Outside of Databricks: Use 'dataset_id' to specify the dataset
+
+    Examples:
+        .. code-block:: python
+
+            from mlflow.genai.datasets import get_dataset
+
+            # Get a dataset by ID (non-Databricks)
+            dataset = get_dataset(dataset_id="d-7f2e3a9b8c1d4e5f6a7b8c9d0e1f2a3b")
+
+            # Access dataset properties
+            print(f"Dataset name: {dataset.name}")
+            print(f"Number of records: {len(dataset.records)}")
+            print(f"Tags: {dataset.tags}")
+            print(f"Created by: {dataset.created_by}")
+
+            # Work with the dataset
+            df = dataset.to_df()  # Convert to pandas DataFrame
+            schema = dataset.schema  # Get auto-computed schema
+            profile = dataset.profile  # Get dataset statistics
+
+            # Add new records to the dataset
+            new_test_cases = [
+                {
+                    "inputs": {"question": "What is MLflow?"},
+                    "expectations": {"accuracy": 0.95, "contains_tracking": True},
+                }
+            ]
+            dataset.merge_records(new_test_cases)
     """
 
     if is_databricks_default_tracking_uri(get_tracking_uri()):
@@ -209,6 +302,11 @@ def search_datasets(
     """
     Search for datasets (non-Databricks only).
 
+    .. warning::
+        Calling ``search_datasets()`` without any parameters will return ALL datasets
+        in your tracking server. This can be slow or even crash your Python session if
+        you have many datasets. Always use filters or ``max_results`` to limit the results.
+
     Args:
         experiment_ids: Single experiment ID (str) or list of experiment IDs to filter by.
             If None, searches across all experiments.
@@ -230,41 +328,105 @@ def search_datasets(
     Returns:
         List of EvaluationDataset objects matching the search criteria
 
+    .. list-table:: Common Search Patterns
+        :widths: 40 60
+        :header-rows: 1
+
+        * - Search Pattern
+          - Example Code
+
+        * - **Find datasets by name**
+          - .. code-block:: python
+
+                # Exact match
+                datasets = search_datasets(
+                    filter_string="name = 'production_qa_v2'"
+                )
+
+                # Pattern matching
+                datasets = search_datasets(
+                    filter_string="name LIKE 'qa_%'"
+                )
+
+        * - **Find datasets by experiment**
+          - .. code-block:: python
+
+                # Single experiment
+                datasets = search_datasets(
+                    experiment_ids="1"
+                )
+
+                # Multiple experiments
+                datasets = search_datasets(
+                    experiment_ids=["0", "1", "2", "5"]
+                )
+
+        * - **Find datasets by tags**
+          - .. code-block:: python
+
+                # Single tag
+                datasets = search_datasets(
+                    filter_string="tags.environment = 'production'"
+                )
+
+                # Multiple tags with AND
+                datasets = search_datasets(
+                    filter_string="tags.status = 'validated' AND tags.version = '2.0'"
+                )
+
+        * - **Find datasets by creator**
+          - .. code-block:: python
+
+                datasets = search_datasets(
+                    filter_string="created_by = 'alice@company.com'"
+                )
+
+        * - **Find recent datasets**
+          - .. code-block:: python
+
+                # Last 10 datasets created
+                datasets = search_datasets(
+                    order_by=["created_time DESC"],
+                    max_results=10
+                )
+
+        * - **Complex search**
+          - .. code-block:: python
+
+                # Production-ready datasets from specific team
+                datasets = search_datasets(
+                    experiment_ids="1",
+                    filter_string="tags.status = 'production' AND "
+                                  "tags.team = 'ml-platform' AND "
+                                  "name LIKE '%customer%'",
+                    order_by=["last_update_time DESC"],
+                    max_results=20
+                )
+
     Examples:
         .. code-block:: python
 
             from mlflow.genai.datasets import search_datasets
 
-            # Search all datasets
-            all_datasets = search_datasets()
+            # WARNING: This returns ALL datasets - use with caution!
+            # all_datasets = search_datasets()  # May be slow or crash
 
-            # Search datasets in specific experiments
-            exp_datasets = search_datasets(experiment_ids=["exp1", "exp2"])
+            # Better: Always use filters or limits
+            recent_datasets = search_datasets(max_results=100)
 
-            # Search by name pattern
-            qa_datasets = search_datasets(filter_string="name LIKE 'qa_%'")
+            # Search in specific experiments
+            exp_datasets = search_datasets(experiment_ids=["1", "2", "3"])
 
-            # Search by creator
-            user_datasets = search_datasets(filter_string="created_by = 'alice@company.com'")
-
-            # Search by tags
-            prod_datasets = search_datasets(filter_string="tags.environment = 'production'")
-
-            # Complex filter with AND condition
-            recent_prod = search_datasets(
-                filter_string="tags.environment = 'production' AND tags.version >= '2.0'"
+            # Find production datasets
+            prod_datasets = search_datasets(
+                filter_string="tags.environment = 'production'", order_by=["name ASC"]
             )
 
-            # Order by creation time (newest first)
-            recent_datasets = search_datasets(order_by=["created_time DESC"])
-
-            # Combine multiple search criteria
-            filtered_datasets = search_datasets(
-                experiment_ids="exp123",
-                filter_string="name LIKE 'eval_%' AND tags.status = 'validated'",
-                order_by=["last_update_time DESC", "name ASC"],
-                max_results=10,
-            )
+            # Iterate through results (pagination handled automatically)
+            for dataset in prod_datasets:
+                print(f"{dataset.name} (ID: {dataset.dataset_id})")
+                print(f"  Records: {len(dataset.records)}")
+                print(f"  Tags: {dataset.tags}")
 
     Note:
         This API is not available in Databricks environments. Use Unity Catalog
@@ -319,24 +481,55 @@ def set_dataset_tags(
     Set tags for a dataset.
 
     This implements a batch tag operation - existing tags are merged with new tags.
-    To remove a tag, use delete_evaluation_dataset_tag() instead.
+    To remove a tag, set its value to None or use delete_dataset_tag() instead.
 
     Args:
         dataset_id: The ID of the dataset.
-        tags: Dictionary of tags to set.
+        tags: Dictionary of tags to set. Setting a value to None removes the tag.
 
-    Usage::
+    Examples:
+        .. code-block:: python
 
-        set_dataset_tags(
-            dataset_id="dataset_abc123",
-            tags={
-                "environment": "production",
-                "version": "2.0",
-            },
-        )
+            from mlflow.genai.datasets import set_dataset_tags, get_dataset
+
+            # Get your dataset
+            dataset = get_dataset(dataset_id="d-8f3a2b1c4e5d6f7a8b9c0d1e2f3a4b5c")
+
+            # Add or update multiple tags
+            set_dataset_tags(
+                dataset_id=dataset.dataset_id,
+                tags={
+                    "environment": "production",  # Add new tag
+                    "version": "2.0",  # Update existing tag
+                    "validated": "true",
+                    "validation_date": "2024-11-01",
+                    "team": "ml-platform",
+                },
+            )
+
+            # Remove tags by setting to None
+            set_dataset_tags(
+                dataset_id=dataset.dataset_id,
+                tags={
+                    "deprecated_tag": None,  # This removes the tag
+                    "old_version": None,  # This also removes the tag
+                },
+            )
+
+            # Update status after validation
+            set_dataset_tags(
+                dataset_id=dataset.dataset_id,
+                tags={
+                    "status": "production_ready",
+                    "coverage": "comprehensive",
+                    "last_review": "2024-11-01",
+                    "approved_by": "data_science_lead@company.com",
+                },
+            )
 
     Note:
         This API is not available in Databricks environments yet.
+        Tags in Databricks are managed through Unity Catalog.
     """
     if is_databricks_default_tracking_uri(get_tracking_uri()):
         raise NotImplementedError(
@@ -364,12 +557,29 @@ def delete_dataset_tag(
         dataset_id: The ID of the dataset.
         key: The tag key to delete.
 
-    Usage::
+    Examples:
+        .. code-block:: python
 
-        delete_dataset_tag(dataset_id="dataset_abc123", key="deprecated")
+            from mlflow.genai.datasets import delete_dataset_tag, get_dataset
+
+            # Get your dataset
+            dataset = get_dataset(dataset_id="d-9e8f7c6b5a4d3e2f1a0b9c8d7e6f5a4b")
+
+            # Remove a single tag
+            delete_dataset_tag(dataset_id=dataset.dataset_id, key="deprecated")
+
+            # Remove outdated tags during cleanup
+            outdated_tags = ["old_version", "temp_flag", "development_only"]
+            for tag_key in outdated_tags:
+                delete_dataset_tag(dataset_id=dataset.dataset_id, key=tag_key)
+
+            # Check remaining tags
+            updated_dataset = get_dataset(dataset_id=dataset.dataset_id)
+            print(f"Remaining tags: {updated_dataset.tags}")
 
     Note:
         This API is not available in Databricks environments yet.
+        Tags in Databricks are managed through Unity Catalog.
     """
     if is_databricks_default_tracking_uri(get_tracking_uri()):
         raise NotImplementedError(

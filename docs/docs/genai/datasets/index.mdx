@@ -1,0 +1,349 @@
+import Tabs from "@theme/Tabs"
+import TabItem from "@theme/TabItem"
+import { APILink } from "@site/src/components/APILink";
+import ImageBox from "@site/src/components/ImageBox";
+import TabsWrapper from "@site/src/components/TabsWrapper";
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import ConceptOverview from "@site/src/components/ConceptOverview";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import DAGLoop from "@site/src/components/DAGLoop";
+import { Database, Layers, TestTube, GitBranch, Users, ChartBar, FileText, Book, Code, Activity, Target, BarChart3, TrendingUp, RefreshCw } from "lucide-react";
+
+# Evaluation Datasets
+
+## Transform Your GenAI Testing with Structured Evaluation Data
+
+Evaluation datasets are the foundation of systematic GenAI application testing. They provide a centralized way to manage test data, ground truth expectations, and evaluation results—enabling you to measure and improve the quality of your AI applications with confidence.
+
+## Quickstart: Build Your First Evaluation Dataset
+
+There are several ways to create evaluation datasets, each suited to different stages of your GenAI development process. **Expectations are the cornerstone of effective evaluation**—they define the ground truth against which your AI's outputs are measured, enabling systematic quality assessment across iterations.
+
+<TabsWrapper>
+<Tabs>
+<TabItem value="from-traces" label="Build from Traces" default>
+
+```python
+import mlflow
+from mlflow.genai.datasets import create_dataset
+
+# Create your evaluation dataset
+dataset = create_dataset(
+    name="production_validation_set",
+    experiment_id=["0"],  # "0" is the default experiment
+    tags={"team": "ml-platform", "stage": "validation"},
+)
+
+# First, retrieve traces that will become the basis of the dataset
+# Request list format to work with individual Trace objects
+traces = mlflow.search_traces(
+    experiment_ids=["0"],
+    max_results=50,
+    filter_string="attributes.trace_name = 'chat_completion'",
+    return_type="list",  # Returns list[Trace] for direct manipulation
+)
+
+# Add expectations to the traces
+for trace in traces[:20]:
+    # Expectations can be structured metrics
+    mlflow.log_expectation(
+        trace_id=trace.info.trace_id,
+        name="output_quality",
+        value={"relevance": 0.95, "accuracy": 1.0, "contains_citation": True},
+    )
+
+    # They can also be specific expected text
+    mlflow.log_expectation(
+        trace_id=trace.info.trace_id,
+        name="expected_answer",
+        value="The correct answer should include step-by-step instructions for password reset with email verification",
+    )
+
+# Retrieve the traces with added expectations
+annotated_traces = mlflow.search_traces(
+    experiment_ids=["0"], max_results=100, return_type="list"  # Get list[Trace] objects
+)
+
+# Merge the list of Trace objects directly into your dataset
+dataset.merge_records(annotated_traces)
+```
+
+</TabItem>
+<TabItem value="from-dicts" label="From Dictionaries">
+
+```python
+import mlflow
+from mlflow.genai.datasets import create_dataset
+
+# Create dataset with manual test cases
+dataset = create_dataset(
+    name="regression_test_suite",
+    experiment_id=["0", "1"],  # Multiple experiments
+    tags={"type": "regression", "priority": "critical"},
+)
+
+# Define test cases with expected outputs
+test_cases = [
+    {
+        "inputs": {
+            "question": "How do I reset my password?",
+            "context": "user_support",
+        },
+        "expectations": {
+            "answer": "To reset your password, click 'Forgot Password' on the login page, enter your email, and follow the link sent to your inbox",
+            "contains_steps": True,
+            "tone": "helpful",
+            "max_response_time": 2.0,
+        },
+    },
+    {
+        "inputs": {
+            "question": "What are your refund policies?",
+            "context": "customer_service",
+        },
+        "expectations": {
+            "includes_timeframe": True,
+            "mentions_exceptions": True,
+            "accuracy": 1.0,
+        },
+    },
+]
+
+dataset.merge_records(test_cases)
+```
+
+</TabItem>
+<TabItem value="from-pandas" label="From DataFrame">
+
+```python
+import pandas as pd
+import mlflow
+from mlflow.genai.datasets import create_dataset
+
+# Create dataset from existing test data
+dataset = create_dataset(
+    name="benchmark_dataset",
+    experiment_id=["0"],  # Use your experiment ID
+    tags={"source": "benchmark", "version": "2024.1"},
+)
+
+# Method 1: Use traces from search_traces (default returns DataFrame)
+# search_traces returns a pandas DataFrame by default when pandas is installed
+traces_df = mlflow.search_traces(
+    experiment_ids=["0"],  # Search in your experiment
+    max_results=100
+    # No return_type specified - defaults to "pandas"
+)
+
+# The DataFrame from search_traces can be passed directly
+dataset.merge_records(traces_df)
+
+# Method 2: Create your own DataFrame with inputs and expectations
+# You can also create a DataFrame with the expected structure
+custom_df = pd.DataFrame(
+    {
+        "inputs.question": [
+            "What is MLflow?",
+            "How do I track experiments?",
+            "Explain model versioning",
+        ],
+        "inputs.domain": ["general", "technical", "technical"],
+        "expectations.relevance": [1.0, 0.95, 0.9],
+        "expectations.technical_accuracy": [1.0, 1.0, 0.95],
+        "expectations.includes_examples": [True, True, False],
+        "tags.priority": ["high", "medium", "medium"],  # Optional tags
+        "tags.reviewed": [True, True, False],
+    }
+)
+
+# merge_records accepts DataFrames with inputs, expectations, and tags columns
+dataset.merge_records(custom_df)
+```
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
+## Why Evaluation Datasets?
+
+<FeatureHighlights features={[
+  {
+    icon: Database,
+    title: "Centralized Test Management",
+    description: "Store all your test cases, expected outputs, and evaluation criteria in one place. No more scattered CSV files or hardcoded test data."
+  },
+  {
+    icon: RefreshCw,
+    title: "Consistent Evaluation Source",
+    description: "Maintain a concrete representation of test data that can be used repeatedly as your project evolves. Eliminate manual testing and avoid repeatedly assembling evaluation data for each iteration."
+  },
+  {
+    icon: TestTube,
+    title: "Systematic Testing",
+    description: "Move beyond ad-hoc testing to systematic evaluation. Define clear expectations and measure performance consistently across deployments."
+  },
+  {
+    icon: Users,
+    title: "Collaborative Improvement",
+    description: "Enable your entire team to contribute test cases and expectations. Share evaluation datasets across projects and teams."
+  }
+]} />
+
+## The Evaluation Loop
+
+Evaluation datasets bridge the critical gap between trace generation and evaluation execution in the GenAI development lifecycle. As you test your application and capture traces with expectations, **evaluation datasets transform these individual test cases into a materialized, reusable evaluation suite**. This creates a consistent and evolving collection of evaluation records that grows with your application—each iteration adds new test cases while preserving the historical test coverage. Rather than losing valuable test scenarios after each development cycle, you build a comprehensive evaluation asset that can immediately assess the quality of changes and improvements to your implementation.
+
+<DAGLoop
+  title="The Evaluation Loop"
+  steps={[
+    {
+      icon: Code,
+      title: "Iterate on Code",
+      description: "Build and improve your GenAI application",
+      detailedDescription: "Whether starting fresh or improving existing code, implement changes to your GenAI application. Use MLflow's comprehensive tracing to monitor each iteration, capture execution details, and track how your modifications impact performance and quality."
+    },
+    {
+      icon: TestTube,
+      title: "Test App",
+      description: "Run initial tests and scenarios",
+      detailedDescription: "Execute thorough testing with diverse prompts including edge cases, adversarial inputs, and typical user scenarios. Use MLflow's tracing to capture every interaction, response time, and token consumption for analysis."
+    },
+    {
+      icon: Activity,
+      title: "Collect Traces",
+      description: "Capture real interactions",
+      detailedDescription: "Systematically collect traces from both testing environments and production deployments. Each trace contains the complete request-response cycle, intermediate steps, and metadata that forms the foundation of your evaluation data."
+    },
+    {
+      icon: Target,
+      title: "Add Expectations",
+      description: "Define ground truth outputs",
+      detailedDescription: "Annotate traces with expected outputs and quality criteria. Domain experts define what constitutes correct behavior, creating a gold standard for evaluation. These expectations become the benchmark against which all AI responses are measured."
+    },
+    {
+      icon: Database,
+      title: "Create Dataset",
+      description: "Organize evaluation data",
+      detailedDescription: "Transform your annotated traces into structured evaluation datasets. These datasets become reusable test suites that can be versioned, shared across teams, and used to consistently measure performance across different model versions and configurations.",
+      isFocus: true
+    },
+    {
+      icon: BarChart3,
+      title: "Run Evaluation",
+      description: "Execute systematic evaluation",
+      detailedDescription: "Run comprehensive evaluations using MLflow's evaluation framework with automated scorers, LLM judges, and custom metrics. Generate detailed reports comparing actual outputs against expectations to quantify your AI's performance."
+    },
+    {
+      icon: TrendingUp,
+      title: "Analyze Results",
+      description: "Identify improvements",
+      detailedDescription: "Deep dive into evaluation results to identify patterns, failure modes, and improvement opportunities. Use MLflow's visualization tools to compare performance across experiments and track progress over time."
+    }
+  ]}
+  loopBackIcon={RefreshCw}
+  loopBackText="Iterate & Improve"
+  loopBackDescription="After analyzing results, iterate on your application by refining prompts, adjusting model parameters, or enhancing your evaluation criteria. The cycle continues as you progressively improve quality."
+  circleSize={600}
+/>
+
+## Key Features
+
+<ConceptOverview concepts={[
+  {
+    icon: Target,
+    title: "Ground Truth Management",
+    description: "Define and maintain expected outputs for your test cases. Capture expert knowledge about what constitutes correct behavior for your AI system."
+  },
+  {
+    icon: GitBranch,
+    title: "Schema Evolution",
+    description: "Automatically track the structure of your test data as it evolves. Add new fields and test dimensions without breaking existing evaluations."
+  },
+  {
+    icon: RefreshCw,
+    title: "Incremental Updates",
+    description: "Continuously improve your test suite by adding new cases from production. Update expectations as your understanding of correct behavior evolves."
+  },
+  {
+    icon: FileText,
+    title: "Flexible Tagging",
+    description: "Organize datasets with tags for easy discovery and filtering. Track metadata like data sources, annotation guidelines, and quality levels."
+  },
+  {
+    icon: TrendingUp,
+    title: "Performance Tracking",
+    description: "Monitor how your application performs against the same test data over time. Identify regressions and improvements across deployments."
+  },
+  {
+    icon: Activity,
+    title: "Experiment Integration",
+    description: "Link datasets to MLflow experiments for complete traceability. Understand which test data was used for each model evaluation."
+  }
+]} />
+
+## Core Concepts
+
+<TilesGrid>
+  <TileCard
+    icon={Layers}
+    iconSize={48}
+    title="Dataset Structure"
+    description="Understand how evaluation datasets organize test inputs, expectations, and metadata"
+    href="/genai/concepts/evaluation-datasets"
+    linkText="Learn the concepts →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Code}
+    iconSize={48}
+    title="SDK Guide"
+    description="Complete guide to creating and managing evaluation datasets programmatically"
+    href="/genai/datasets/sdk-guide"
+    linkText="View SDK guide →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={ChartBar}
+    iconSize={48}
+    title="Evaluation Integration"
+    description="Learn how to use datasets with MLflow's evaluation framework"
+    href="/genai/eval-monitor"
+    linkText="Explore evaluation →"
+    containerHeight={64}
+  />
+</TilesGrid>
+
+## Next Steps
+
+Ready to improve your GenAI testing? Start with these resources:
+
+<TilesGrid>
+  <TileCard
+    icon={Target}
+    iconSize={48}
+    title="Setting Expectations"
+    description="Learn how to define ground truth and expected outputs for your AI system"
+    href="/genai/assessments/expectations"
+    linkText="Define expectations →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Activity}
+    iconSize={48}
+    title="Tracing Guide"
+    description="Capture detailed execution data from your GenAI applications"
+    href="/genai/tracing"
+    linkText="Start tracing →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={ChartBar}
+    iconSize={48}
+    title="Evaluation Framework"
+    description="Run systematic evaluations using your datasets with automated scorers"
+    href="/genai/eval-monitor"
+    linkText="Learn evaluation →"
+    containerHeight={64}
+  />
+</TilesGrid>

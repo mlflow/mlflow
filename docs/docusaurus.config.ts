@@ -278,6 +278,38 @@ const config: Config = {
               '/ml/getting-started/databricks-trial',
             ],
           },
+          // Redirect deleted data-model pages to GenAI main page
+          {
+            to: '/genai',
+            from: [
+              '/genai/data-model',
+              '/genai/data-model/index',
+              '/genai/data-model/app-versions',
+              '/genai/data-model/experiments',
+              '/genai/data-model/logged-model',
+              '/genai/data-model/model-registry',
+              '/genai/data-model/prompts',
+              '/genai/data-model/runs',
+              '/genai/data-model/traces',
+            ],
+          },
+          // Redirect moved concepts pages from tracing to top-level
+          {
+            to: '/genai/concepts/feedback',
+            from: ['/genai/tracing/concepts/feedback'],
+          },
+          {
+            to: '/genai/concepts/expectations',
+            from: ['/genai/tracing/concepts/expectations'],
+          },
+          {
+            to: '/genai/concepts/span',
+            from: ['/genai/tracing/concepts/span'],
+          },
+          {
+            to: '/genai/concepts/trace',
+            from: ['/genai/tracing/concepts/trace'],
+          },
           // GenAI/LLM Related Redirects
           {
             to: '/genai/tracing',
@@ -288,7 +320,7 @@ const config: Config = {
             from: ['/tracing/faq'],
           },
           {
-            to: '/genai/tracing/concepts/trace',
+            to: '/genai/concepts/trace',
             from: ['/tracing/tracing-schema', '/llms/tracing/tracing-schema'],
           },
           {
@@ -406,7 +438,7 @@ const config: Config = {
 
           // Tracing Redirects
           {
-            to: '/genai/tracing/concepts/trace',
+            to: '/genai/concepts/trace',
             from: ['/genai/tracing/data-model', '/genai/tracing/trace-instrumentation'],
           },
           // LLM Flavors Redirects
