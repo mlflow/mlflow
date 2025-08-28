@@ -11,7 +11,6 @@ from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.utils.enum_utils import StrEnum
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
-from mlflow.types.llm import ToolCall
 from mlflow.utils.uri import is_databricks_uri
 
 _logger = logging.getLogger(__name__)
@@ -204,7 +203,7 @@ def _invoke_litellm(
             raise MlflowException(f"Failed to invoke the judge via litellm: {e}") from e
 
 
-def _create_mlflow_tool_call_from_litellm(litellm_tool_call) -> ToolCall:
+def _create_mlflow_tool_call_from_litellm(litellm_tool_call) -> Any:
     """
     Create an MLflow ToolCall from a LiteLLM tool call.
 
@@ -214,6 +213,8 @@ def _create_mlflow_tool_call_from_litellm(litellm_tool_call) -> ToolCall:
     Returns:
         An MLflow ToolCall object.
     """
+    from mlflow.types.llm import ToolCall
+
     return ToolCall(
         id=litellm_tool_call.id,
         function={
