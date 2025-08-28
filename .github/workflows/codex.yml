@@ -80,7 +80,7 @@ jobs:
           # Instructions
 
           ## 1. Fetch and Analyze PR
-          - Fetch the PR diff
+          - Run `python dev/diff.py --pr <PR_URL>` to get the PR diff
           - Carefully examine all changes in the diff
 
           ## 2. Review Against Style Guide
