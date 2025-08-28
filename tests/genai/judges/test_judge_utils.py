@@ -29,7 +29,7 @@ def mock_tool_response():
 
 
 @pytest.fixture
-def test_trace():
+def mock_trace():
     """Fixture that creates a test Trace object."""
     trace_info = TraceInfo(
         trace_id="test-trace",
@@ -137,14 +137,14 @@ def test_invoke_judge_model_with_unsupported_provider():
             )
 
 
-def test_invoke_judge_model_with_trace_requires_litellm(test_trace):
+def test_invoke_judge_model_with_trace_requires_litellm(mock_trace):
     with pytest.raises(MlflowException, match=r"LiteLLM is required for using traces with judges"):
         with mock.patch("mlflow.genai.judges.utils._is_litellm_available", return_value=False):
             invoke_judge_model(
                 model_uri="openai:/gpt-4",
                 prompt="Test prompt",
                 assessment_name="test",
-                trace=test_trace,
+                trace=mock_trace,
             )
 
 
@@ -159,7 +159,7 @@ def test_invoke_judge_model_invalid_json_response():
             )
 
 
-def test_invoke_judge_model_with_trace_passes_tools(test_trace, mock_response):
+def test_invoke_judge_model_with_trace_passes_tools(mock_trace, mock_response):
     with (
         mock.patch("litellm.completion", return_value=mock_response) as mock_litellm,
         mock.patch("mlflow.genai.judges.tools.list_judge_tools") as mock_list_tools,
@@ -185,7 +185,7 @@ def test_invoke_judge_model_with_trace_passes_tools(test_trace, mock_response):
             model_uri="openai:/gpt-4",
             prompt="Evaluate this response",
             assessment_name="quality_check",
-            trace=test_trace,
+            trace=mock_trace,
         )
 
     # Verify tools were passed to litellm completion
@@ -198,7 +198,7 @@ def test_invoke_judge_model_with_trace_passes_tools(test_trace, mock_response):
     assert call_kwargs["tool_choice"] == "auto"
 
 
-def test_invoke_judge_model_tool_calling_loop(test_trace):
+def test_invoke_judge_model_tool_calling_loop(mock_trace):
     # First call: model requests tool call
     mock_tool_call_response = ModelResponse(
         choices=[
@@ -247,7 +247,7 @@ def test_invoke_judge_model_tool_calling_loop(test_trace):
             model_uri="openai:/gpt-4",
             prompt="Evaluate this response",
             assessment_name="quality_check",
-            trace=test_trace,
+            trace=mock_trace,
         )
 
     # Verify litellm.completion was called twice (tool call + final response)
