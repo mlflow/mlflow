@@ -23,6 +23,18 @@ jobs:
     # Trigger this workflow if harupy comments '/review' on a pull request
     # if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/review') && github.event.comment.user.login == 'harupy' }}
     steps:
+      - name: React to comment
+        if: ${{ github.event_name == 'issue_comment' }}
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const { comment } = context.payload;
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: comment.id,
+              content: 'rocket'
+            });
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           sparse-checkout: |
@@ -121,4 +133,4 @@ jobs:
           PR_URL: ${{ github.event.issue.pull_request.html_url || github.event.pull_request.html_url}}
         run: |
           # codex sometimes hangs. Use timeout to prevent this.
-          timeout 5m ./codex exec --skip-git-repo-check "Can you review $PR_URL?" || true
+          timeout 3m ./codex exec --skip-git-repo-check "Can you review $PR_URL?" || true
