@@ -315,7 +315,8 @@ def test_copy_model_version_unity_catalog_signature_validation_bypass(store, sam
 
             # Mock environment variable to enable signature validation bypass
             with mock.patch.dict(
-                "os.environ", {"MLFLOW_REGISTRY_MIGRATION_SKIP_SIGNATURE_VALIDATION": "True"}
+                "os.environ",
+                {"MLFLOW_SKIP_SIGNATURE_CHECK_FOR_MIGRATION_TO_DATABRICKS_UC_REGISTRY": "True"},
             ):
                 store.copy_model_version(sample_model_version, dst_name)
 

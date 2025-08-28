@@ -5,6 +5,7 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.utils.logging_utils import eprint
+from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME
 
 
 def _raise_unsupported_method(method, message=None):
@@ -47,8 +48,8 @@ class DatabricksWorkspaceModelRegistryRestStore(RestStore):
         This method can be used within the Databricks workspace registry to copy model versions
         between registered models, or to migrate model versions from the Databricks workspace
         registry to Unity Catalog. During the migration, signature validation can be bypassed
-        by setting the `MLFLOW_REGISTRY_MIGRATION_SKIP_SIGNATURE_VALIDATION` environment variable
-        to `True`.
+        by setting the `MLFLOW_SKIP_SIGNATURE_CHECK_FOR_MIGRATION_TO_DATABRICKS_UC_REGISTRY`
+        environment variable to `True`.
 
         Args:
             src_mv: A :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
@@ -67,9 +68,10 @@ class DatabricksWorkspaceModelRegistryRestStore(RestStore):
             )
 
             source_uri = f"models:/{src_mv.name}/{src_mv.version}"
+            tracking_uri = mlflow.get_tracking_uri()
             try:
                 local_model_dir = mlflow.artifacts.download_artifacts(
-                    artifact_uri=source_uri, tracking_uri="databricks"
+                    artifact_uri=source_uri, tracking_uri=tracking_uri
                 )
             except Exception as e:
                 raise MlflowException(
@@ -79,7 +81,10 @@ class DatabricksWorkspaceModelRegistryRestStore(RestStore):
                     f"exist and that you can download them via "
                     f"mlflow.artifacts.download_artifacts()"
                 ) from e
-            uc_store = UcModelRegistryStore(store_uri="databricks-uc", tracking_uri="databricks")
+            uc_store = UcModelRegistryStore(
+                store_uri=_DATABRICKS_UNITY_CATALOG_SCHEME,
+                tracking_uri=tracking_uri,
+            )
             try:
                 create_model_response = uc_store.create_registered_model(dst_name)
                 eprint(f"Successfully registered model '{create_model_response.name}'.")
@@ -90,9 +95,7 @@ class DatabricksWorkspaceModelRegistryRestStore(RestStore):
                     f"Registered model '{dst_name}' already exists."
                     f" Creating a new version of this model..."
                 )
-            env_var = (
-                mlflow.environment_variables.MLFLOW_REGISTRY_MIGRATION_SKIP_SIGNATURE_VALIDATION
-            )
+            env_var = mlflow.environment_variables.MLFLOW_SKIP_SIGNATURE_CHECK_FOR_MIGRATION_TO_DATABRICKS_UC_REGISTRY
             bypass_signature_validation = env_var.get()
             return uc_store._create_model_version_with_optional_signature_validation(
                 name=dst_name,
