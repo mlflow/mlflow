@@ -63,11 +63,6 @@ jobs:
           env = { "GITHUB_PERSONAL_ACCESS_TOKEN" = "${{ secrets.GITHUB_TOKEN }}" }
           EOF
 
-      - name: Fetch diff
-        run: |
-          python dev/better_diff.py --pr ${{ github.event.pull_request.html_url }} > PR_DIFF.txt
-          head -n 100 PR_DIFF.txt
-
       - name: Prompt
         run: |
           cat <<'EOF' > AGENTS.md
@@ -75,7 +70,7 @@ jobs:
           and review the given PR.
 
           # Instructions
-          1. Run `python dev/better_diff.py --pr ${{ github.event.pull_request.html_url }}` to get the PR diff.
+          1. Run `python dev/better_diff.py --pr <PR_URL>` to get the PR diff.
           1. Read `dev/guides/python.md`.
           2. Carefully review the PR diff and identify the changes violating the style guide.
           3. If you find any issues, proceed to the next step without approval, otherwise skip the rest of the instructions.
@@ -94,6 +89,7 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.issue.pull_request.html_url || github.event.pull_request.html_url}}
         run: |
           # codex sometimes hangs. Use timeout to prevent this.
-          timeout 5m ./codex exec --skip-git-repo-check "Can you review ${{ github.event.pull_request.html_url }}?" || true
+          timeout 5m ./codex exec --skip-git-repo-check "Can you review $PR_URL?" || true

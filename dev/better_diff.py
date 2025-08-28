@@ -2,7 +2,22 @@
 Usage:
 
 ```
-python outputs/better_diff.py --pr https://github.com/mlflow/mlflow/pull/17230 > sample.txt
+python outputs/better_diff.py --pr https://github.com/mlflow/mlflow/pull/17230 > diff.txt
+```
+
+Output format:
+
+The script generates a side-by-side diff view with line numbers and change markers:
+
+```
+File: path/to/file.py
+=============================================================================
+                    Old                 │             New
+────────────────────────────────────────┼────────────────────────────────────
+   10  - old_line_content               │   10  + new_line_content
+   11    unchanged_line                 │   11    unchanged_line
+   12  - deleted_line                   │
+                                        │   12  + added_line
 ```
 """
 
