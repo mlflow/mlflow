@@ -648,52 +648,6 @@ const sidebarsGenAI: SidebarsConfig = {
         id: 'governance/ai-gateway/index',
       },
     },
-    {
-      type: 'category',
-      label: 'Data Model',
-      className: 'sidebar-top-level-category',
-      items: [
-        {
-          type: 'doc',
-          id: 'data-model/experiments',
-          label: 'Experiments',
-        },
-        {
-          type: 'doc',
-          id: 'data-model/logged-model',
-          label: 'Logged Model',
-        },
-        {
-          type: 'doc',
-          id: 'data-model/runs',
-          label: 'Runs',
-        },
-        {
-          type: 'doc',
-          id: 'data-model/traces',
-          label: 'Traces',
-        },
-        {
-          type: 'doc',
-          id: 'data-model/prompts',
-          label: 'Prompts',
-        },
-        {
-          type: 'doc',
-          id: 'data-model/app-versions',
-          label: 'Version Tracking',
-        },
-        {
-          type: 'doc',
-          id: 'data-model/model-registry',
-          label: 'Model Registry',
-        },
-      ],
-      link: {
-        type: 'doc',
-        id: 'data-model/index',
-      },
-    },
   ],
 };
 
