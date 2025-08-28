@@ -125,7 +125,7 @@ The below section outlines the data currently collected in this version of MLflo
 #### Tracked Events
 
 **No details about the specific model, code, or weights are collected.** Only the parameters listed under the `Tracked Parameters` column are recorded alongside the event;
-For events with None in the `Tracked Parameters` column, only the event name is recorded.
+For events with None in the `Tracked Parameters` column, only the event name is recorded. If "MLFLOW_EXPERIMENT_ID" environment variable exists, it is tracked as a param.
 
 <Table>
   <thead>
@@ -137,14 +137,19 @@ For events with None in the `Tracked Parameters` column, only the event name is 
   </thead>
   <tbody>
     <tr>
-      <td>create_experiment</td>
+      <td>import_mlflow</td>
       <td>None</td>
       <td>None</td>
     </tr>
     <tr>
+      <td>create_experiment</td>
+      <td>Created Experiment ID (random uuid or integer)</td>
+      <td>`{"experiment_id": "0"}`</td>
+    </tr>
+    <tr>
       <td>create_run</td>
-      <td>Whether the packages in [PACKAGES_TO_CHECK_IMPORT](https://github.com/mlflow/mlflow/blob/c71fd0d677c1806ba2d5928398435c4de2c25c0e/mlflow/telemetry/constant.py#L19) are imported or not</td>
-      <td>`{"imports": ["sklearn"]}`</td>
+      <td>Whether the packages in [MODULES_TO_CHECK_IMPORT](https://github.com/mlflow/mlflow/blob/c71fd0d677c1806ba2d5928398435c4de2c25c0e/mlflow/telemetry/constant.py#L19) are imported or not; experiment ID used when creating the run</td>
+      <td>`{"imports": ["sklearn"], "experiment_id": "0"}`</td>
     </tr>
     <tr>
       <td>create_logged_model</td>
@@ -200,6 +205,26 @@ For events with None in the `Tracked Parameters` column, only the event name is 
       <td>prompt_optimization</td>
       <td>None</td>
       <td>None</td>
+    </tr>
+    <tr>
+      <td>log_dataset</td>
+      <td>None</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td>log_metric</td>
+      <td>Whether synchronous mode is on or not</td>
+      <td>`{"synchronous": False}`</td>
+    </tr>
+    <tr>
+      <td>log_param</td>
+      <td>Whether synchronous mode is on or not</td>
+      <td>`{"synchronous": True}`</td>
+    </tr>
+    <tr>
+      <td>log_batch</td>
+      <td>Information on whether metrics, parameters, or tags are logged, and the logging mode</td>
+      <td>`{"metrics": False, "params": True, "tags": False, "synchronous": False}`</td>
     </tr>
   </tbody>
 </Table>

@@ -16,6 +16,7 @@ import {
 } from './ModelTraceExplorerViewStateContext';
 import { useGetModelTraceInfoV3 } from './hooks/useGetModelTraceInfoV3';
 import { ModelTraceExplorerSummaryView } from './summary-view/ModelTraceExplorerSummaryView';
+import { ModelTraceHeaderDetails } from './ModelTraceHeaderDetails';
 
 const ModelTraceExplorerImpl = ({
   modelTrace,
@@ -61,6 +62,9 @@ const ModelTraceExplorerImpl = ({
         overflow: 'hidden',
       }}
     >
+      <div css={{ paddingLeft: theme.spacing.md, paddingBottom: theme.spacing.md }}>
+        <ModelTraceHeaderDetails modelTrace={modelTrace} />
+      </div>
       <Tabs.List css={{ paddingLeft: theme.spacing.md, flexShrink: 0 }}>
         <Tabs.Trigger value="summary">
           <FormattedMessage
