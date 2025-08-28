@@ -35,3 +35,36 @@ class DatabricksWorkspaceModelRegistryRestStore(RestStore):
             "(https://docs.databricks.com/en/machine-learning/manage-model-lifecycle/index.html)."
         )
         self._await_model_version_creation_impl(mv, await_creation_for, hint=uc_hint)
+
+    def copy_model_version(self, src_mv, dst_name):
+        if len(dst_name.split(".")) == 3:
+            import mlflow
+            from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
+            try:
+                local_model_dir = mlflow.artifacts.download_artifacts(
+                    artifact_uri=src_mv.source, tracking_uri=self.tracking_uri
+                )
+            except Exception as e:
+                raise MlflowException(
+                    f"Unable to download model {src_mv.name} version {src_mv.version} "
+                    f"artifacts from source artifact location '{src_mv.source}' in "
+                    f"order to migrate them to Unity Catalog. Please ensure the source "
+                    f"artifact location exists and that you can download from it via "
+                    f"mlflow.artifacts.download_artifacts()"
+                ) from e
+            uc_store = UcModelRegistryStore(
+                store_uri="databricks-uc", tracking_uri=self.tracking_uri
+            )
+            bypass_signature_validation = (
+                mlflow.environment_variables.MLFLOW_REGISTRY_MIGRATION_SKIP_SIGNATURE_VALIDATION.get()
+            )
+            return uc_store._create_model_version_with_optional_signature_validation(
+                name=dst_name,
+                source=src_mv.source,
+                run_id=src_mv.run_id,
+                local_model_path=local_model_dir,
+                model_id=src_mv.model_id,
+                bypass_signature_validation=bypass_signature_validation,
+            )
+        else:
+            return super().copy_model_version(src_mv, dst_name)
