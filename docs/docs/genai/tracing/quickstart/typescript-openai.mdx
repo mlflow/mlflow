@@ -98,6 +98,19 @@ _You can leave the `Artifact Location` field blank for now. It is an advanced co
     });
     ```
 
+    If [authentication](/ml/auth) is enabled on the tracking server, you can pass the credential through `trackingServerUsername` and `trackingServerPassword`.
+
+    ```typescript
+    import { init } from "mlflow-tracing";
+
+    init({
+        trackingUri: "<your-tracking-server-uri>",
+        experimentId: "<your-experiment-id>",
+        trackingServerUsername: "<your-tracking-server-username>",
+        trackingServerPassword: "<your-tracking-server-password>",
+    });
+    ```
+
     </TabItem>
 
     <TabItem value="remote" label="Remote MLflow Server">
@@ -110,6 +123,19 @@ _You can leave the `Artifact Location` field blank for now. It is an advanced co
     init({
         trackingUri: "<remote-tracking-server-uri>",
         experimentId: "<your-experiment-id>",
+    });
+    ```
+
+    If [authentication](/ml/auth) is enabled on the tracking server, you can pass the credential through `trackingServerUsername` and `trackingServerPassword`.
+
+    ```typescript
+    import { init } from "mlflow-tracing";
+
+    init({
+        trackingUri: "<remote-tracking-server-uri>",
+        experimentId: "<your-experiment-id>",
+        trackingServerUsername: "<remote-tracking-server-username>",
+        trackingServerPassword: "<remote-tracking-server-password>",
     });
     ```
 
