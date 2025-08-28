@@ -75,6 +75,7 @@ from mlflow.tracking.artifact_utils import (
     _download_artifact_from_uri,
     _get_root_uri_and_artifact_path,
 )
+from mlflow.tracking.fluent import _initialize_logged_model
 from mlflow.utils import databricks_utils
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
@@ -359,12 +360,13 @@ def log_model(
             model_id=model_id,
         )
     # Otherwise, override the default model log behavior and save model directly to artifact repo
-    logged_model = mlflow.initialize_logged_model(
+    logged_model = _initialize_logged_model(
         name=name,
         source_run_id=run.info.run_id if (run := mlflow.active_run()) else None,
         model_type=model_type,
         params=params,
         tags=tags,
+        flavor=FLAVOR_NAME,
     )
     mlflow_model = Model(artifact_path=logged_model.artifact_location, run_id=run_id)
     with TempDir() as tmp:

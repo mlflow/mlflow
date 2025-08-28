@@ -5,9 +5,11 @@
       "severity": "error",
       "pattern": [
         {
-          "regexp": "^([^:]+): (Unformatted file\\. .+)$",
+          "regexp": "^([^:]+):(\\d+):(\\d+): (Unformatted file\\. .+)$",
           "file": 1,
-          "message": 2
+          "line": 2,
+          "column": 3,
+          "message": 4
         }
       ]
     }

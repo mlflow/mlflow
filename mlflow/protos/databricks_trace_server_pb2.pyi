@@ -229,6 +229,38 @@ class Span(_message.Message):
     status: Span.Status
     def __init__(self, trace_id: _Optional[bytes] = ..., span_id: _Optional[bytes] = ..., trace_state: _Optional[str] = ..., parent_span_id: _Optional[bytes] = ..., flags: _Optional[int] = ..., name: _Optional[str] = ..., kind: _Optional[_Union[Span.SpanKind, str]] = ..., start_time_unix_nano: _Optional[int] = ..., end_time_unix_nano: _Optional[int] = ..., attributes: _Optional[_Mapping[str, _struct_pb2.Value]] = ..., dropped_attributes_count: _Optional[int] = ..., events: _Optional[_Iterable[_Union[Span.Event, _Mapping]]] = ..., dropped_events_count: _Optional[int] = ..., links: _Optional[_Iterable[_Union[Span.Link, _Mapping]]] = ..., dropped_links_count: _Optional[int] = ..., status: _Optional[_Union[Span.Status, _Mapping]] = ...) -> None: ...
 
+class CreateTraceDestinationRequest(_message.Message):
+    __slots__ = ("trace_location", "uc_catalog", "uc_schema", "uc_table_prefix")
+    TRACE_LOCATION_FIELD_NUMBER: _ClassVar[int]
+    UC_CATALOG_FIELD_NUMBER: _ClassVar[int]
+    UC_SCHEMA_FIELD_NUMBER: _ClassVar[int]
+    UC_TABLE_PREFIX_FIELD_NUMBER: _ClassVar[int]
+    trace_location: TraceLocation
+    uc_catalog: str
+    uc_schema: str
+    uc_table_prefix: str
+    def __init__(self, trace_location: _Optional[_Union[TraceLocation, _Mapping]] = ..., uc_catalog: _Optional[str] = ..., uc_schema: _Optional[str] = ..., uc_table_prefix: _Optional[str] = ...) -> None: ...
+
+class GetTraceDestinationRequest(_message.Message):
+    __slots__ = ("trace_location",)
+    TRACE_LOCATION_FIELD_NUMBER: _ClassVar[int]
+    trace_location: TraceLocation
+    def __init__(self, trace_location: _Optional[_Union[TraceLocation, _Mapping]] = ...) -> None: ...
+
+class TraceDestination(_message.Message):
+    __slots__ = ("trace_location", "spans_table_name", "events_table_name", "spans_schema_version", "events_schema_version")
+    TRACE_LOCATION_FIELD_NUMBER: _ClassVar[int]
+    SPANS_TABLE_NAME_FIELD_NUMBER: _ClassVar[int]
+    EVENTS_TABLE_NAME_FIELD_NUMBER: _ClassVar[int]
+    SPANS_SCHEMA_VERSION_FIELD_NUMBER: _ClassVar[int]
+    EVENTS_SCHEMA_VERSION_FIELD_NUMBER: _ClassVar[int]
+    trace_location: TraceLocation
+    spans_table_name: str
+    events_table_name: str
+    spans_schema_version: str
+    events_schema_version: str
+    def __init__(self, trace_location: _Optional[_Union[TraceLocation, _Mapping]] = ..., spans_table_name: _Optional[str] = ..., events_table_name: _Optional[str] = ..., spans_schema_version: _Optional[str] = ..., events_schema_version: _Optional[str] = ...) -> None: ...
+
 class DatabricksTracingServerService(_service.service): ...
 
 class DatabricksTracingServerService_Stub(DatabricksTracingServerService): ...

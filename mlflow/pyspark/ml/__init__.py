@@ -918,7 +918,7 @@ def autolog(
             to the path of your allowlist file.
         log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
             If ``False``, dataset information is not logged.
-        disable: If ``True``, disables the scikit-learn autologging integration. If ``False``,
+        disable: If ``True``, disables the PySpark ML autologging integration. If ``False``,
             enables the pyspark ML autologging integration.
         exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
             If ``False``, autologged content is logged to the active fluent run,
