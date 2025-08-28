@@ -10,6 +10,7 @@ from queue import Empty, Full, Queue
 
 import requests
 
+from mlflow.environment_variables import _MLFLOW_TELEMETRY_SESSION_ID
 from mlflow.telemetry.constant import (
     BATCH_SIZE,
     BATCH_TIME_INTERVAL_SECONDS,
@@ -18,14 +19,17 @@ from mlflow.telemetry.constant import (
     RETRYABLE_ERRORS,
     UNRECOVERABLE_ERRORS,
 )
-from mlflow.telemetry.schemas import Record, TelemetryConfig, TelemetryInfo, get_source_sdk
-from mlflow.telemetry.utils import _get_config_url, is_telemetry_disabled
+from mlflow.telemetry.events import ImportMlflowEvent
+from mlflow.telemetry.schemas import Record, Status, TelemetryConfig, TelemetryInfo, get_source_sdk
+from mlflow.telemetry.utils import _get_config_url, _log_error, is_telemetry_disabled
 from mlflow.utils.logging_utils import should_suppress_logs_in_thread, suppress_logs_in_thread
 
 
 class TelemetryClient:
     def __init__(self):
-        self.info = asdict(TelemetryInfo())
+        self.info = asdict(
+            TelemetryInfo(session_id=_MLFLOW_TELEMETRY_SESSION_ID.get() or uuid.uuid4().hex)
+        )
         self._queue: Queue[list[Record]] = Queue(maxsize=MAX_QUEUE_SIZE)
         self._lock = threading.RLock()
         self._max_workers = MAX_WORKERS
@@ -59,6 +63,18 @@ class TelemetryClient:
                 if self.config is None:
                     self._is_stopped = True
                     _set_telemetry_client(None)
+                else:
+                    # send the import record immediately after config is fetched
+                    # do not add if config is None
+                    self.add_record(
+                        Record(
+                            event_name=ImportMlflowEvent.name,
+                            timestamp_ns=time.time_ns(),
+                            status=Status.SUCCESS,
+                            duration_ms=0,
+                        ),
+                        send_immediately=True,
+                    )
                 self._is_config_fetched = True
             except Exception:
                 self._is_stopped = True
@@ -104,17 +120,15 @@ class TelemetryClient:
                     ingestion_url=config["ingestion_url"],
                     disable_events=set(config.get("disable_events", [])),
                 )
-            except Exception:
+            except Exception as e:
+                _log_error(f"Failed to get telemetry config: {e}")
                 return
 
-    def add_record(self, record: Record):
+    def add_record(self, record: Record, send_immediately: bool = False):
         """
         Add a record to be batched and sent to the telemetry server.
         """
-        send_immediately = False
         if not self.is_active:
-            # send the first record immediately to ensure the current session is captured
-            send_immediately = True
             self.activate()
 
         if self._is_stopped:
@@ -139,8 +153,7 @@ class TelemetryClient:
             self._queue.put(self._pending_records, block=False)
             self._pending_records = []
         except Full:
-            # TODO: record this case
-            pass
+            _log_error("Failed to add record to the queue, queue is full")
 
     def _process_records(self, records: list[Record], request_timeout: float = 1):
         """Process a batch of telemetry records."""
@@ -197,8 +210,8 @@ class TelemetryClient:
                     return
                 else:
                     return
-        except Exception:
-            pass
+        except Exception as e:
+            _log_error(f"Failed to send telemetry records: {e}")
 
     def _consumer(self) -> None:
         """Individual consumer that processes records from the queue."""
@@ -279,8 +292,8 @@ class TelemetryClient:
             with suppress_logs_in_thread(), warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 self.flush(terminate=True)
-        except Exception:
-            pass
+        except Exception as e:
+            _log_error(f"Failed to flush telemetry during termination: {e}")
 
     def flush(self, terminate=False) -> None:
         """
@@ -308,8 +321,8 @@ class TelemetryClient:
             # For non-terminating flush, just wait for queue to empty
             try:
                 self._queue.join()
-            except Exception:
-                pass
+            except Exception as e:
+                _log_error(f"Failed to flush telemetry: {e}")
 
     def _update_backend_store(self):
         """
@@ -321,8 +334,8 @@ class TelemetryClient:
             from mlflow.tracking._tracking_service.utils import _get_tracking_scheme
 
             self.info["tracking_uri_scheme"] = _get_tracking_scheme()
-        except Exception:
-            pass
+        except Exception as e:
+            _log_error(f"Failed to update backend store: {e}")
 
     def _clean_up(self):
         """Join all threads"""
@@ -344,7 +357,8 @@ def set_telemetry_client():
     else:
         try:
             _set_telemetry_client(TelemetryClient())
-        except Exception:
+        except Exception as e:
+            _log_error(f"Failed to set telemetry client: {e}")
             _set_telemetry_client(None)
 
 
@@ -352,6 +366,10 @@ def _set_telemetry_client(value: TelemetryClient | None):
     global _MLFLOW_TELEMETRY_CLIENT
     with _client_lock:
         _MLFLOW_TELEMETRY_CLIENT = value
+        if value:
+            _MLFLOW_TELEMETRY_SESSION_ID.set(value.info["session_id"])
+        else:
+            _MLFLOW_TELEMETRY_SESSION_ID.unset()
 
 
 def get_telemetry_client() -> TelemetryClient | None:

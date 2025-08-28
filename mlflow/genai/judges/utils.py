@@ -132,6 +132,9 @@ def _invoke_litellm(
 
     Returns:
         The model's response content.
+
+    Raises:
+        MlflowException: If the request fails after all retries.
     """
     import litellm
 
@@ -272,6 +275,32 @@ def _get_judge_response_format() -> dict[str, Any]:
             },
         },
     }
+
+
+def _get_litellm_retry_policy(num_retries: int):
+    """
+    Get a LiteLLM retry policy for retrying requests when transient API errors occur.
+
+    Args:
+        num_retries: The number of times to retry a request if it fails transiently due to
+                     network error, rate limiting, etc. Requests are retried with exponential
+                     backoff.
+
+    Returns:
+        A LiteLLM RetryPolicy instance.
+    """
+    from litellm import RetryPolicy
+
+    return RetryPolicy(
+        TimeoutErrorRetries=num_retries,
+        RateLimitErrorRetries=num_retries,
+        InternalServerErrorRetries=num_retries,
+        ContentPolicyViolationErrorRetries=num_retries,
+        # We don't retry on errors that are unlikely to be transient
+        # (e.g. bad request, invalid auth credentials)
+        BadRequestErrorRetries=0,
+        AuthenticationErrorRetries=0,
+    )
 
 
 def _get_litellm_retry_policy(num_retries: int):

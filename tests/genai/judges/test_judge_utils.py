@@ -14,7 +14,6 @@ from mlflow.genai.judges.utils import CategoricalRating, invoke_judge_model
 from mlflow.types.llm import ToolCall
 
 
-# Fixtures for testing
 @pytest.fixture
 def mock_response():
     """Fixture that creates a mock ModelResponse with default result and rationale."""

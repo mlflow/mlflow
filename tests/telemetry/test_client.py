@@ -7,6 +7,7 @@ from unittest import mock
 import pytest
 
 import mlflow
+from mlflow.environment_variables import _MLFLOW_TELEMETRY_SESSION_ID
 from mlflow.telemetry.client import (
     BATCH_SIZE,
     BATCH_TIME_INTERVAL_SECONDS,
@@ -15,7 +16,7 @@ from mlflow.telemetry.client import (
     TelemetryClient,
     get_telemetry_client,
 )
-from mlflow.telemetry.events import CreateLoggedModelEvent, CreateRunEvent
+from mlflow.telemetry.events import CreateLoggedModelEvent, CreateRunEvent, ImportMlflowEvent
 from mlflow.telemetry.schemas import Record, SourceSDK, Status
 from mlflow.utils.os import is_windows
 from mlflow.version import IS_TRACING_SDK_ONLY, VERSION
@@ -33,6 +34,17 @@ def test_telemetry_client_initialization(mock_telemetry_client: TelemetryClient,
     assert mock_telemetry_client._max_workers == MAX_WORKERS
     assert mock_telemetry_client._batch_size == BATCH_SIZE
     assert mock_telemetry_client._batch_time_interval == BATCH_TIME_INTERVAL_SECONDS
+
+
+def test_telemetry_client_session_id(
+    mock_telemetry_client: TelemetryClient, mock_requests, monkeypatch
+):
+    monkeypatch.setenv(_MLFLOW_TELEMETRY_SESSION_ID.name, "test_session_id")
+    with TelemetryClient() as telemetry_client:
+        assert telemetry_client.info["session_id"] == "test_session_id"
+    monkeypatch.delenv(_MLFLOW_TELEMETRY_SESSION_ID.name, raising=False)
+    with TelemetryClient() as telemetry_client:
+        assert telemetry_client.info["session_id"] != "test_session_id"
 
 
 def test_add_record_and_send(mock_telemetry_client: TelemetryClient, mock_requests):
@@ -434,11 +446,10 @@ def test_batch_time_interval(mock_requests, monkeypatch):
         status=Status.SUCCESS,
     )
     telemetry_client.add_record(record1)
+    assert len(telemetry_client._pending_records) == 1
 
-    # Should send first recordimmediately
-    time.sleep(0.5)
     events = {req["data"]["event_name"] for req in mock_requests}
-    assert "test_event_1" in events
+    assert "test_event_1" not in events
 
     # Add second record before time interval
     record2 = Record(
@@ -447,7 +458,7 @@ def test_batch_time_interval(mock_requests, monkeypatch):
         status=Status.SUCCESS,
     )
     telemetry_client.add_record(record2)
-    assert len(telemetry_client._pending_records) == 1
+    assert len(telemetry_client._pending_records) == 2
 
     # Wait for time interval to pass
     time.sleep(1.5)
@@ -745,7 +756,9 @@ def test_records_not_dropped_when_fetching_config(mock_requests):
             telemetry_client._config_thread.join(timeout=3)
             telemetry_client.add_record(record)
             telemetry_client.flush()
-            validate_telemetry_record(telemetry_client, mock_requests, record.event_name)
+            validate_telemetry_record(
+                telemetry_client, mock_requests, record.event_name, check_params=False
+            )
 
 
 @pytest.mark.no_mock_requests_get
@@ -824,7 +837,10 @@ def test_disable_events(mock_requests):
         ):
             mlflow.initialize_logged_model(name="model", tags={"key": "value"})
             telemetry_client.flush()
-            assert len(mock_requests) == 0
+            assert len(mock_requests) == 1
+            validate_telemetry_record(
+                telemetry_client, mock_requests, ImportMlflowEvent.name, check_params=False
+            )
 
             with mlflow.start_run():
                 pass
