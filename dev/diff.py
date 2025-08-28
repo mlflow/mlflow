@@ -2,22 +2,7 @@
 Usage:
 
 ```
-python outputs/diff.py --pr https://github.com/mlflow/mlflow/pull/17230 > diff.txt
-```
-
-Output format:
-
-The script generates a side-by-side diff view with line numbers and change markers:
-
-```
-File: path/to/file.py
-=============================================================================
-                    Old                 │             New
-────────────────────────────────────────┼────────────────────────────────────
-   10  - old_line_content               │   10  + new_line_content
-   11    unchanged_line                 │   11    unchanged_line
-   12  - deleted_line                   │
-                                        │   12  + added_line
+python dev/diff.py --pr https://github.com/mlflow/mlflow/pull/16870 > diff.txt
 ```
 """
 
@@ -223,7 +208,6 @@ class TextFormatter:
 
     @staticmethod
     def calculate_line_num_width(file_diffs: list[FileDiff]) -> int:
-        """Calculate the required width for line numbers based on the maximum line number."""
         max_line = 0
         for file_diff in file_diffs:
             for hunk in file_diff.hunks:
@@ -356,7 +340,6 @@ class TextFormatter:
         return result
 
     def _format_single_line(self, line: DiffLine | None, is_old: bool) -> list[str]:
-        """Format a single diff line, returning multiple lines if wrapped."""
         if not line:
             return [" " * self.line_width]
 
@@ -419,37 +402,27 @@ class TextFormatter:
         return "\n".join(self.format_file_diff(fd) for fd in file_diffs)
 
 
-def format_diff(diff_hunk: str) -> str:
-    """Format complete diff text into readable output."""
-    parser = DiffParser(diff_hunk)
-    file_diffs = parser.parse()
-    line_num_width = TextFormatter.calculate_line_num_width(file_diffs)
-    formatter = TextFormatter(line_num_width=line_num_width)
-    return formatter.format_diff(file_diffs)
+_PR_URL_PATTERN = re.compile(r"https://github\.com/([^/]+)/([^/]+)/pull/(\d+)")
 
 
 def get_pr_diff(pr_url: str) -> str:
     # Parse GitHub PR URL to extract owner, repo, and PR number
     # Format: https://github.com/{owner}/{repo}/pull/{number}
-    match = re.match(r"https://github\.com/([^/]+)/([^/]+)/pull/(\d+)", pr_url)
+    match = _PR_URL_PATTERN.match(pr_url)
     if not match:
         print(f"Invalid GitHub PR URL format: {pr_url}", file=sys.stderr)
         sys.exit(1)
 
     owner, repo, pr_number = match.groups()
 
-    # Use GitHub API to get the diff
     api_url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}"
-
-    # Create request with authentication if GITHUB_TOKEN is available
     request = Request(api_url)
     request.add_header("Accept", "application/vnd.github.v3.diff")
-    github_token = os.environ.get("GITHUB_TOKEN")
-    if github_token:
+    if github_token := os.environ.get("GITHUB_TOKEN"):
         request.add_header("Authorization", f"token {github_token}")
 
     try:
-        with urlopen(request, timeout=30) as response:
+        with urlopen(request, timeout=5) as response:
             return response.read().decode("utf-8")
     except HTTPError as e:
         print(
@@ -481,7 +454,6 @@ def get_pr_diff(pr_url: str) -> str:
 
 
 def main() -> None:
-    """CLI entry point."""
     parser = argparse.ArgumentParser(
         description="Format Git diffs into readable side-by-side output"
     )
@@ -491,35 +463,19 @@ def main() -> None:
     parser.add_argument(
         "--width", type=int, default=100, help="Line width for formatting (default: 80)"
     )
-    parser.add_argument("--file", type=str, help="Only show diff for the specified file")
-
     args = parser.parse_args()
 
-    # Get diff text from PR URL or stdin
     diff_text = get_pr_diff(args.pr)
-
-    if not diff_text.strip():
-        print("No diff data provided.", file=sys.stderr)
-        sys.exit(1)
-
-    # Print PR URL if provided
-    if args.pr:
-        print(f"PR: {args.pr}")
-        print()
-
+    print(f"PR: {args.pr}")
     print("Note: Long lines are wrapped to fit the specified width.")
 
-    # Parse the diff first
     diff_parser = DiffParser(diff_text)
     file_diffs = diff_parser.parse()
 
     # Exclude non-python files
     file_diffs = [f for f in file_diffs if f.new_file.suffix == ".py" or f.old_file.suffix == ".py"]
 
-    # Calculate the required line number width
     line_num_width = TextFormatter.calculate_line_num_width(file_diffs)
-
-    # Create formatter with the calculated line number width
     formatter = TextFormatter(line_width=args.width, line_num_width=line_num_width)
     formatted_output = formatter.format_diff(file_diffs)
     print(formatted_output)

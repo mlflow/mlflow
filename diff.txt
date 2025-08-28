@@ -1,0 +1,233 @@
+PR: https://github.com/mlflow/mlflow/pull/16870
+Note: Long lines are wrapped to fit the specified width.
+
+File: mlflow/tracking/context/databricks_job_context.py
+===========================================================================================================================================================================================================
+                                                Old                                                  │                                                 New
+─────────────────────────────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────
+  23           job_type = databricks_utils.get_job_type()                                            │   23           job_type = databricks_utils.get_job_type()
+  24           webapp_url = databricks_utils.get_webapp_url()                                        │   24           webapp_url = databricks_utils.get_webapp_url()
+  25           workspace_url = databricks_utils.get_workspace_url()                                  │   25           workspace_url = databricks_utils.get_workspace_url()
+  26 -         workspace_url_fallback, workspace_id =                                                │   26 +         workspace_id = databricks_utils.get_workspace_id()
+       databricks_utils.get_workspace_info_from_dbutils()                                            │
+  27           tags = {                                                                              │   27           tags = {
+  28               MLFLOW_SOURCE_NAME: (                                                             │   28               MLFLOW_SOURCE_NAME: (
+  29                   f"jobs/{job_id}/run/{job_run_id}"                                             │   29                   f"jobs/{job_id}/run/{job_run_id}"
+                                                                                                     │
+  42               tags[MLFLOW_DATABRICKS_WEBAPP_URL] = webapp_url                                   │   42               tags[MLFLOW_DATABRICKS_WEBAPP_URL] = webapp_url
+  43           if workspace_url is not None:                                                         │   43           if workspace_url is not None:
+  44               tags[MLFLOW_DATABRICKS_WORKSPACE_URL] = workspace_url                             │   44               tags[MLFLOW_DATABRICKS_WORKSPACE_URL] = workspace_url
+  45 -         elif workspace_url_fallback is not None:                                              │   45 +         else:
+  46 -             tags[MLFLOW_DATABRICKS_WORKSPACE_URL] = workspace_url_fallback                    │   46 +             workspace_url_fallback, _ = databricks_utils.get_workspace_info_from_dbutils()
+                                                                                                     │   47 +             if workspace_url_fallback is not None:
+                                                                                                     │   48 +                 tags[MLFLOW_DATABRICKS_WORKSPACE_URL] = workspace_url_fallback
+  47           if workspace_id is not None:                                                          │   49           if workspace_id is not None:
+  48               tags[MLFLOW_DATABRICKS_WORKSPACE_ID] = workspace_id                               │   50               tags[MLFLOW_DATABRICKS_WORKSPACE_ID] = workspace_id
+  49           return tags                                                                           │   51           return tags
+
+File: mlflow/tracking/context/databricks_notebook_context.py
+===========================================================================================================================================================================================================
+                                                Old                                                  │                                                 New
+─────────────────────────────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────
+  21           notebook_path = databricks_utils.get_notebook_path()                                  │   21           notebook_path = databricks_utils.get_notebook_path()
+  22           webapp_url = databricks_utils.get_webapp_url()                                        │   22           webapp_url = databricks_utils.get_webapp_url()
+  23           workspace_url = databricks_utils.get_workspace_url()                                  │   23           workspace_url = databricks_utils.get_workspace_url()
+  24 -         workspace_url_fallback, workspace_id =                                                │   24 +         workspace_id = databricks_utils.get_workspace_id()
+       databricks_utils.get_workspace_info_from_dbutils()                                            │
+  25           tags = {                                                                              │   25           tags = {
+  26               MLFLOW_SOURCE_NAME: notebook_path,                                                │   26               MLFLOW_SOURCE_NAME: notebook_path,
+  27               MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.NOTEBOOK),                    │   27               MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.NOTEBOOK),
+                                                                                                     │
+  34               tags[MLFLOW_DATABRICKS_WEBAPP_URL] = webapp_url                                   │   34               tags[MLFLOW_DATABRICKS_WEBAPP_URL] = webapp_url
+  35           if workspace_url is not None:                                                         │   35           if workspace_url is not None:
+  36               tags[MLFLOW_DATABRICKS_WORKSPACE_URL] = workspace_url                             │   36               tags[MLFLOW_DATABRICKS_WORKSPACE_URL] = workspace_url
+  37 -         elif workspace_url_fallback is not None:                                              │   37 +         else:
+  38 -             tags[MLFLOW_DATABRICKS_WORKSPACE_URL] = workspace_url_fallback                    │   38 +             workspace_url_fallback, _ = databricks_utils.get_workspace_info_from_dbutils()
+                                                                                                     │   39 +             if workspace_url_fallback is not None:
+                                                                                                     │   40 +                 tags[MLFLOW_DATABRICKS_WORKSPACE_URL] = workspace_url_fallback
+  39           if workspace_id is not None:                                                          │   41           if workspace_id is not None:
+  40               tags[MLFLOW_DATABRICKS_WORKSPACE_ID] = workspace_id                               │   42               tags[MLFLOW_DATABRICKS_WORKSPACE_ID] = workspace_id
+  41           return tags                                                                           │   43           return tags
+
+File: mlflow/tracking/default_experiment/databricks_notebook_experiment_provider.py
+===========================================================================================================================================================================================================
+                                                Old                                                  │                                                 New
+─────────────────────────────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────
+                                                                                                     │    1 + from functools import lru_cache
+                                                                                                     │    2 +
+   1   from mlflow.exceptions import MlflowException                                                 │    3   from mlflow.exceptions import MlflowException
+   2   from mlflow.protos import databricks_pb2                                                      │    4   from mlflow.protos import databricks_pb2
+   3   from mlflow.tracking.client import MlflowClient                                               │    5   from mlflow.tracking.client import MlflowClient
+                                                                                                     │
+   7                                                                                                 │    9
+   8                                                                                                 │   10
+   9   class DatabricksNotebookExperimentProvider(DefaultExperimentProvider):                        │   11   class DatabricksNotebookExperimentProvider(DefaultExperimentProvider):
+  10 -     _resolved_notebook_experiment_id = None                                                   │
+  11 -                                                                                               │
+  12       def in_context(self):                                                                     │   12       def in_context(self):
+  13           return databricks_utils.is_in_databricks_notebook()                                   │   13           return databricks_utils.is_in_databricks_notebook()
+  14                                                                                                 │   14
+  15 -     def get_experiment_id(self):                                                              │   15 +     @lru_cache(maxsize=1)
+  16 -         if DatabricksNotebookExperimentProvider._resolved_notebook_experiment_id:             │   16 +     @staticmethod
+  17 -             return DatabricksNotebookExperimentProvider._resolved_notebook_experiment_id      │   17 +     def _resolve_notebook_experiment_id():
+  18 -                                                                                               │
+  19           source_notebook_id = databricks_utils.get_notebook_id()                               │   18           source_notebook_id = databricks_utils.get_notebook_id()
+  20           source_notebook_name = databricks_utils.get_notebook_path()                           │   19           source_notebook_name = databricks_utils.get_notebook_path()
+  21           tags = {                                                                              │   20           tags = {
+                                                                                                     │
+  39               else:                                                                             │   38               else:
+  40                   raise e                                                                       │   39                   raise e
+  41                                                                                                 │   40
+  42 -         DatabricksNotebookExperimentProvider._resolved_notebook_experiment_id = experiment_id │
+  43 -                                                                                               │
+  44           return experiment_id                                                                  │   41           return experiment_id
+                                                                                                     │   42 +
+                                                                                                     │   43 +     def get_experiment_id(self):
+                                                                                                     │   44 +         return DatabricksNotebookExperimentProvider._resolve_notebook_experiment_id()
+
+File: tests/tracing/utils/test_environment.py
+===========================================================================================================================================================================================================
+                                                Old                                                  │                                                 New
+─────────────────────────────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────
+  50           mock_db_utils.get_notebook_path.return_value = "/Users/bob/test.py"                   │   50           mock_db_utils.get_notebook_path.return_value = "/Users/bob/test.py"
+  51           mock_db_utils.get_webapp_url.return_value = None                                      │   51           mock_db_utils.get_webapp_url.return_value = None
+  52           mock_db_utils.get_workspace_url.return_value = None                                   │   52           mock_db_utils.get_workspace_url.return_value = None
+                                                                                                     │   53 +         mock_db_utils.get_workspace_id.return_value = None
+  53           mock_db_utils.get_workspace_info_from_dbutils.return_value = (None, None)             │   54           mock_db_utils.get_workspace_info_from_dbutils.return_value = (None, None)
+  54                                                                                                 │   55
+  55           assert resolve_env_metadata() == {                                                    │   56           assert resolve_env_metadata() == {
+
+File: tests/tracking/context/test_databricks_job_context.py
+===========================================================================================================================================================================================================
+                                                Old                                                  │                                                 New
+─────────────────────────────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────
+  28           "mlflow.utils.databricks_utils.get_workspace_url",                                    │   28           "mlflow.utils.databricks_utils.get_workspace_url",
+  29           return_value="https://dev.databricks.com",                                            │   29           return_value="https://dev.databricks.com",
+  30       )                                                                                         │   30       )
+                                                                                                     │   31 +     patch_workspace_id = mock.patch(
+                                                                                                     │   32 +         "mlflow.utils.databricks_utils.get_workspace_id", return_value="123456"
+                                                                                                     │   33 +     )
+  31       patch_workspace_url_none = mock.patch(                                                    │   34       patch_workspace_url_none = mock.patch(
+  32           "mlflow.utils.databricks_utils.get_workspace_url", return_value=None                  │   35           "mlflow.utils.databricks_utils.get_workspace_url", return_value=None
+  33       )                                                                                         │   36       )
+                                                                                                     │
+  43           patch_webapp_url as webapp_url_mock,                                                  │   46           patch_webapp_url as webapp_url_mock,
+  44           patch_workspace_url as workspace_url_mock,                                            │   47           patch_workspace_url as workspace_url_mock,
+  45           patch_workspace_info as workspace_info_mock,                                          │   48           patch_workspace_info as workspace_info_mock,
+                                                                                                     │   49 +         patch_workspace_id as workspace_id_mock,
+  46       ):                                                                                        │   50       ):
+  47           assert DatabricksJobRunContext().tags() == {                                          │   51           assert DatabricksJobRunContext().tags() == {
+  48               MLFLOW_SOURCE_NAME: (                                                             │   52               MLFLOW_SOURCE_NAME: (
+                                                                                                     │
+  54               MLFLOW_DATABRICKS_JOB_TYPE: job_type_mock.return_value,                           │   58               MLFLOW_DATABRICKS_JOB_TYPE: job_type_mock.return_value,
+  55               MLFLOW_DATABRICKS_WEBAPP_URL: webapp_url_mock.return_value,                       │   59               MLFLOW_DATABRICKS_WEBAPP_URL: webapp_url_mock.return_value,
+  56               MLFLOW_DATABRICKS_WORKSPACE_URL: workspace_url_mock.return_value,                 │   60               MLFLOW_DATABRICKS_WORKSPACE_URL: workspace_url_mock.return_value,
+  57 -             MLFLOW_DATABRICKS_WORKSPACE_ID: workspace_info_mock.return_value[1],              │   61 +             MLFLOW_DATABRICKS_WORKSPACE_ID: workspace_id_mock.return_value,
+  58           }                                                                                     │   62           }
+  59                                                                                                 │   63
+  60       with (                                                                                    │   64       with (
+                                                                                                     │
+  64           patch_webapp_url as webapp_url_mock,                                                  │   68           patch_webapp_url as webapp_url_mock,
+  65           patch_workspace_url_none as workspace_url_mock,                                       │   69           patch_workspace_url_none as workspace_url_mock,
+  66           patch_workspace_info as workspace_info_mock,                                          │   70           patch_workspace_info as workspace_info_mock,
+                                                                                                     │   71 +         patch_workspace_id as workspace_id_mock,
+  67       ):                                                                                        │   72       ):
+  68           assert DatabricksJobRunContext().tags() == {                                          │   73           assert DatabricksJobRunContext().tags() == {
+  69               MLFLOW_SOURCE_NAME: (                                                             │   74               MLFLOW_SOURCE_NAME: (
+                                                                                                     │
+  75               MLFLOW_DATABRICKS_JOB_TYPE: job_type_mock.return_value,                           │   80               MLFLOW_DATABRICKS_JOB_TYPE: job_type_mock.return_value,
+  76               MLFLOW_DATABRICKS_WEBAPP_URL: webapp_url_mock.return_value,                       │   81               MLFLOW_DATABRICKS_WEBAPP_URL: webapp_url_mock.return_value,
+  77               MLFLOW_DATABRICKS_WORKSPACE_URL: workspace_info_mock.return_value[0],  # fallback │   82               MLFLOW_DATABRICKS_WORKSPACE_URL: workspace_info_mock.return_value[0],  # fallback
+       value                                                                                         │        value
+  78 -             MLFLOW_DATABRICKS_WORKSPACE_ID: workspace_info_mock.return_value[1],              │   83 +             MLFLOW_DATABRICKS_WORKSPACE_ID: workspace_id_mock.return_value,
+  79           }                                                                                     │   84           }
+  80                                                                                                 │   85
+  81                                                                                                 │   86
+
+File: tests/tracking/context/test_databricks_notebook_context.py
+===========================================================================================================================================================================================================
+                                                Old                                                  │                                                 New
+─────────────────────────────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────
+  26           "mlflow.utils.databricks_utils.get_workspace_url",                                    │   26           "mlflow.utils.databricks_utils.get_workspace_url",
+  27           return_value="https://dev.databricks.com",                                            │   27           return_value="https://dev.databricks.com",
+  28       )                                                                                         │   28       )
+                                                                                                     │   29 +     patch_workspace_id = mock.patch(
+                                                                                                     │   30 +         "mlflow.utils.databricks_utils.get_workspace_id", return_value="123456"
+                                                                                                     │   31 +     )
+  29       patch_workspace_url_none = mock.patch(                                                    │   32       patch_workspace_url_none = mock.patch(
+  30           "mlflow.utils.databricks_utils.get_workspace_url", return_value=None                  │   33           "mlflow.utils.databricks_utils.get_workspace_url", return_value=None
+  31       )                                                                                         │   34       )
+                                                                                                     │
+  40           patch_webapp_url as webapp_url_mock,                                                  │   43           patch_webapp_url as webapp_url_mock,
+  41           patch_workspace_url as workspace_url_mock,                                            │   44           patch_workspace_url as workspace_url_mock,
+  42           patch_workspace_info as workspace_info_mock,                                          │   45           patch_workspace_info as workspace_info_mock,
+                                                                                                     │   46 +         patch_workspace_id as workspace_id_mock,
+  43       ):                                                                                        │   47       ):
+  44           assert DatabricksNotebookRunContext().tags() == {                                     │   48           assert DatabricksNotebookRunContext().tags() == {
+  45               MLFLOW_SOURCE_NAME: notebook_path_mock.return_value,                              │   49               MLFLOW_SOURCE_NAME: notebook_path_mock.return_value,
+                                                                                                     │
+  48               MLFLOW_DATABRICKS_NOTEBOOK_PATH: notebook_path_mock.return_value,                 │   52               MLFLOW_DATABRICKS_NOTEBOOK_PATH: notebook_path_mock.return_value,
+  49               MLFLOW_DATABRICKS_WEBAPP_URL: webapp_url_mock.return_value,                       │   53               MLFLOW_DATABRICKS_WEBAPP_URL: webapp_url_mock.return_value,
+  50               MLFLOW_DATABRICKS_WORKSPACE_URL: workspace_url_mock.return_value,                 │   54               MLFLOW_DATABRICKS_WORKSPACE_URL: workspace_url_mock.return_value,
+  51 -             MLFLOW_DATABRICKS_WORKSPACE_ID: workspace_info_mock.return_value[1],              │   55 +             MLFLOW_DATABRICKS_WORKSPACE_ID: workspace_id_mock.return_value,
+  52           }                                                                                     │   56           }
+  53                                                                                                 │   57
+  54       with (                                                                                    │   58       with (
+                                                                                                     │
+  57           patch_webapp_url as webapp_url_mock,                                                  │   61           patch_webapp_url as webapp_url_mock,
+  58           patch_workspace_url_none as workspace_url_mock,                                       │   62           patch_workspace_url_none as workspace_url_mock,
+  59           patch_workspace_info as workspace_info_mock,                                          │   63           patch_workspace_info as workspace_info_mock,
+                                                                                                     │   64 +         patch_workspace_id as workspace_id_mock,
+  60       ):                                                                                        │   65       ):
+  61           assert DatabricksNotebookRunContext().tags() == {                                     │   66           assert DatabricksNotebookRunContext().tags() == {
+  62               MLFLOW_SOURCE_NAME: notebook_path_mock.return_value,                              │   67               MLFLOW_SOURCE_NAME: notebook_path_mock.return_value,
+                                                                                                     │
+  65               MLFLOW_DATABRICKS_NOTEBOOK_PATH: notebook_path_mock.return_value,                 │   70               MLFLOW_DATABRICKS_NOTEBOOK_PATH: notebook_path_mock.return_value,
+  66               MLFLOW_DATABRICKS_WEBAPP_URL: webapp_url_mock.return_value,                       │   71               MLFLOW_DATABRICKS_WEBAPP_URL: webapp_url_mock.return_value,
+  67               MLFLOW_DATABRICKS_WORKSPACE_URL: workspace_info_mock.return_value[0],  # fallback │   72               MLFLOW_DATABRICKS_WORKSPACE_URL: workspace_info_mock.return_value[0],  # fallback
+       value                                                                                         │        value
+  68 -             MLFLOW_DATABRICKS_WORKSPACE_ID: workspace_info_mock.return_value[1],              │   73 +             MLFLOW_DATABRICKS_WORKSPACE_ID: workspace_id_mock.return_value,
+  69           }                                                                                     │   74           }
+  70                                                                                                 │   75
+  71                                                                                                 │   76
+
+File: tests/tracking/default_experiment/test_databricks_notebook_experiment_provider.py
+===========================================================================================================================================================================================================
+                                                Old                                                  │                                                 New
+─────────────────────────────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────
+   1   from unittest import mock                                                                     │    1   from unittest import mock
+   2                                                                                                 │    2
+                                                                                                     │    3 + import pytest
+                                                                                                     │    4 +
+   3   from mlflow import MlflowClient                                                               │    5   from mlflow import MlflowClient
+   4   from mlflow.exceptions import MlflowException                                                 │    6   from mlflow.exceptions import MlflowException
+   5   from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE                              │    7   from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+                                                                                                     │
+   9   from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_SOURCE_ID,                             │   11   from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_SOURCE_ID,
+       MLFLOW_EXPERIMENT_SOURCE_TYPE                                                                 │        MLFLOW_EXPERIMENT_SOURCE_TYPE
+  10                                                                                                 │   12
+  11                                                                                                 │   13
+                                                                                                     │   14 + @pytest.fixture(autouse=True)
+                                                                                                     │   15 + def reset_resolved_notebook_experiment_id():
+                                                                                                     │   16 +     DatabricksNotebookExperimentProvider._resolve_notebook_experiment_id.cache_clear()
+                                                                                                     │   17 +
+                                                                                                     │   18 +
+  12   def test_databricks_notebook_default_experiment_in_context():                                 │   19   def test_databricks_notebook_default_experiment_in_context():
+  13       with mock.patch("mlflow.utils.databricks_utils.is_in_databricks_notebook") as             │   20       with mock.patch("mlflow.utils.databricks_utils.is_in_databricks_notebook") as
+       in_notebook_mock:                                                                             │        in_notebook_mock:
+  14           assert DatabricksNotebookExperimentProvider().in_context() ==                         │   21           assert DatabricksNotebookExperimentProvider().in_context() ==
+       in_notebook_mock.return_value                                                                 │        in_notebook_mock.return_value
+
+File: tests/tracking/fluent/test_fluent.py
+===========================================================================================================================================================================================================
+                                                Old                                                  │                                                 New
+─────────────────────────────────────────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────
+ 621       )                                                                                         │  621       )
+ 622       mock_workspace_id = mock.Mock()                                                           │  622       mock_workspace_id = mock.Mock()
+ 623       workspace_info_patch = mock.patch(                                                        │  623       workspace_info_patch = mock.patch(
+ 624 -         "mlflow.utils.databricks_utils.get_workspace_info_from_dbutils",                      │  624 +         "mlflow.utils.databricks_utils.get_workspace_id",
+ 625 -         return_value=(mock_webapp_url, mock_workspace_id),                                    │  625 +         return_value=mock_workspace_id,
+ 626       )                                                                                         │  626       )
+ 627                                                                                                 │  627
+ 628       expected_tags = {                                                                         │  628       expected_tags = {
+ 629                                                                                                 │  629
