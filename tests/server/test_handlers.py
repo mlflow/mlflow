@@ -1178,15 +1178,17 @@ def test_catch_mlflow_exception_dynamic_headers():
             error_code=INTERNAL_ERROR
         )
         ex.json_kwargs = {
-            "request_id": "abc123",
-            "retry_after": 30,
-            "x_custom_code": "42"
+            "headers": {
+                "request_id": "abc123",
+                "retry_after": 30,
+                "x_custom_code": "42"
+            }
         }
         raise ex
 
     response = test_handler()
     assert response.status_code == 500
     headers = response.headers
-    assert headers.get("X-Request-Id") == "abc123"
-    assert headers.get("X-Retry-After") == "30"
-    assert headers.get("X-X-Custom-Code") == "42"
+    assert headers.get("X-request_id") == "abc123"
+    assert headers.get("X-retry_after") == "30"
+    assert headers.get("X-x_custom_code") == "42"

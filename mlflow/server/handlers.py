@@ -647,9 +647,9 @@ def catch_mlflow_exception(func):
                 mimetype="application/json"
             )
             # add all dynamic fields from json_kwargs as X- headers
-            for key, value in getattr(e, "json_kwargs", {}).items():
-                header_name = f"X-{key.replace('_', '-').title()}"
-                response.headers[header_name] = str(value)
+            headers = getattr(e, "json_kwargs", {}).get("headers", {})
+            for key, value in headers.items():
+                response.headers[f"X-{key}"] = value
             return response
 
     return wrapper
