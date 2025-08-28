@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 
 from mlflow.entities.trace import Trace
@@ -15,7 +17,7 @@ class AlignmentOptimizer(ABC):
     """
 
     @abstractmethod
-    def align(self, judge: "Judge", traces: list[Trace]) -> "Judge":
+    def align(self, judge: Judge, traces: list[Trace]) -> Judge:
         """
         Align a judge using the provided traces.
 
@@ -25,9 +27,6 @@ class AlignmentOptimizer(ABC):
 
         Returns:
             A new Judge instance that is better aligned with the input traces.
-
-        Raises:
-            MlflowException: If alignment fails or insufficient data is provided
         """
 
 
@@ -48,9 +47,9 @@ class Judge(Scorer):
         """
 
     @experimental(version="3.4.0")
-    def align(self, optimizer: "AlignmentOptimizer", traces: list[Trace]) -> "Judge":
+    def align(self, optimizer: AlignmentOptimizer, traces: list[Trace]) -> Judge:
         """
-        Align this judge with human preferencesusing the provided optimizer and traces.
+        Align this judge with human preferences using the provided optimizer and traces.
 
         Args:
             optimizer: The alignment optimizer to use

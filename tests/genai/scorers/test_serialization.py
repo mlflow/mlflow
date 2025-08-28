@@ -6,6 +6,7 @@ import pytest
 from mlflow.entities import Feedback
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import Scorer, scorer
+from mlflow.genai.scorers.builtin_scorers import Guidelines
 
 # ============================================================================
 # FORMAT VALIDATION TESTS (Minimal - just check serialization structure)
@@ -122,7 +123,11 @@ def test_multiple_parameters_round_trip():
         return outputs.startswith(inputs) and len(outputs) > expectations.get("min_length", 0)
 
     # Test original
-    test_args = {"inputs": "Hello", "outputs": "Hello world!", "expectations": {"min_length": 5}}
+    test_args = {
+        "inputs": "Hello",
+        "outputs": "Hello world!",
+        "expectations": {"min_length": 5},
+    }
     assert multi_param_scorer(**test_args) is True
 
     # Round-trip
@@ -546,7 +551,10 @@ def test_builtin_scorer_with_custom_name_compatibility():
             "name": "custom_guidelines",
             "aggregations": ["mean", "max"],
             "required_columns": ["inputs", "outputs"],
-            "guidelines": ["Be polite and professional", "Provide accurate information"],
+            "guidelines": [
+                "Be polite and professional",
+                "Provide accurate information",
+            ],
         },
         "call_source": None,
         "call_signature": None,
@@ -562,7 +570,10 @@ def test_builtin_scorer_with_custom_name_compatibility():
     assert isinstance(deserialized, Guidelines)
     assert deserialized.name == "custom_guidelines"
     assert deserialized.aggregations == ["mean", "max"]
-    assert deserialized.guidelines == ["Be polite and professional", "Provide accurate information"]
+    assert deserialized.guidelines == [
+        "Be polite and professional",
+        "Provide accurate information",
+    ]
     assert deserialized.required_columns == {"inputs", "outputs"}
 
 
@@ -659,3 +670,27 @@ def test_decorator_scorer_multiple_serialization_round_trips():
     # Verify functionality is preserved
     assert recovered(outputs="hello world") is True
     assert recovered(outputs="hi") is False
+
+
+def test_builtin_scorer_description_preserved_through_serialization():
+    scorer = Guidelines(name="test_guidelines", guidelines=["Be helpful"])
+
+    original_description = scorer.description
+    assert (
+        original_description
+        == "Evaluates whether the agent's response follows specific constraints or instructions."
+    )
+
+    serialized = scorer.model_dump()
+    assert "builtin_scorer_pydantic_data" in serialized
+    pydantic_data = serialized["builtin_scorer_pydantic_data"]
+
+    assert "description" in pydantic_data
+    assert pydantic_data["description"] == original_description
+
+    deserialized = Scorer.model_validate(serialized)
+
+    assert isinstance(deserialized, Guidelines)
+    assert deserialized.description == original_description
+    assert deserialized.name == "test_guidelines"
+    assert deserialized.guidelines == ["Be helpful"]
