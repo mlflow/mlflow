@@ -106,7 +106,7 @@ jobs:
             - Reference the specific style guide rule being violated
 
           ## 6. Submit Review
-          - Use `submit_pending_pull_request_review` tool to submit the review
+          - Use `submit_pending_pull_request_review` tool to submit the review with a short summary.
           EOF
 
       - name: Run codex
