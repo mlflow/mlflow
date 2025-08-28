@@ -86,4 +86,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # codex sometimes hangs. Use timeout to prevent this.
-          timeout 3m ./codex --ask-for-approval=never exec --skip-git-repo-check "Can you review ${{ github.event.pull_request.html_url }}?" || true
+          timeout 5m ./codex --ask-for-approval=never exec --skip-git-repo-check "Can you review ${{ github.event.pull_request.html_url }}?" || true
