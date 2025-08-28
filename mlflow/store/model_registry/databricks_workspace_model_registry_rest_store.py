@@ -37,31 +37,18 @@ class DatabricksWorkspaceModelRegistryRestStore(RestStore):
         self._await_model_version_creation_impl(mv, await_creation_for, hint=uc_hint)
 
     def copy_model_version(self, src_mv, dst_name):
-        import logging
-        logger = logging.getLogger(__name__)
-        
-        logger.info(f"copy_model_version called with src_mv={src_mv}, dst_name={dst_name}")
-        
-        logger.info(f"Checking if dst_name has 3 parts: {dst_name.split('.')}")
         if len(dst_name.split(".")) == 3:
-            logger.info("dst_name has 3 parts, proceeding with Unity Catalog migration path")
-            
-            logger.info("Importing mlflow module")
             import mlflow
-            
-            logger.info("Importing UcModelRegistryStore from unity catalog registry")
-            from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
-            
-            logger.info("Starting try block for downloading artifacts")
+            from mlflow.store._unity_catalog.registry.rest_store import (
+                UcModelRegistryStore,
+            )
+
+            source_uri = f"models:/{src_mv.name}/{src_mv.version}"
             try:
-                logger.info(f"Downloading artifacts for models:/{src_mv.name}/{src_mv.version}")
                 local_model_dir = mlflow.artifacts.download_artifacts(
-                    artifact_uri=f"models:/{src_mv.name}/{src_mv.version}", tracking_uri="databricks"
+                    artifact_uri=source_uri, tracking_uri="databricks"
                 )
-                logger.info(f"Successfully downloaded artifacts to: {local_model_dir}")
             except Exception as e:
-                logger.info(f"Exception occurred during artifact download: {e}")
-                logger.info("Raising MlflowException with detailed error message")
                 raise MlflowException(
                     f"Unable to download model {src_mv.name} version {src_mv.version} "
                     f"artifacts from Databricks workspace registry in order to migrate "
@@ -69,32 +56,19 @@ class DatabricksWorkspaceModelRegistryRestStore(RestStore):
                     f"exist and that you can download them via "
                     f"mlflow.artifacts.download_artifacts()"
                 ) from e
-            
-            logger.info("Creating UcModelRegistryStore instance")
-            uc_store = UcModelRegistryStore(store_uri="databricks-uc", tracking_uri="databricks")
-            logger.info("UcModelRegistryStore instance created successfully")
-            
-            logger.info("Getting bypass_signature_validation environment variable")
+            uc_store = UcModelRegistryStore(
+                store_uri="databricks-uc", tracking_uri="databricks"
+            )
             bypass_signature_validation = (
                 mlflow.environment_variables.MLFLOW_REGISTRY_MIGRATION_SKIP_SIGNATURE_VALIDATION.get()
             )
-            logger.info(f"bypass_signature_validation value: {bypass_signature_validation}")
-            
-            logger.info("Calling _create_model_version_with_optional_signature_validation on uc_store")
-            result = uc_store._create_model_version_with_optional_signature_validation(
+            return uc_store._create_model_version_with_optional_signature_validation(
                 name=dst_name,
-                source=src_mv.source,
+                source=source_uri,
                 run_id=src_mv.run_id,
                 local_model_path=local_model_dir,
                 model_id=src_mv.model_id,
                 bypass_signature_validation=bypass_signature_validation,
             )
-            logger.info(f"_create_model_version_with_optional_signature_validation returned: {result}")
-            logger.info("Returning result from Unity Catalog path")
-            return result
         else:
-            logger.info("dst_name does not have 3 parts, calling super().copy_model_version")
-            result = super().copy_model_version(src_mv, dst_name)
-            logger.info(f"super().copy_model_version returned: {result}")
-            logger.info("Returning result from super() path")
-            return result
+            return super().copy_model_version(src_mv, dst_name)
