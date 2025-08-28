@@ -1,8 +1,25 @@
 """
-Fetch and display Python file diffs from a GitHub Pull Request.
+Fetch and display Python file diffs from a GitHub Pull Request, annotating each line with its
+corresponding line number. This helps LLMs leave precise comments at the correct locations.
 
-Usage:
-python dev/py_diff.py --pr https://github.com/mlflow/mlflow/pull/16870
+# Usage
+
+python dev/diff.py --pr https://github.com/mlflow/mlflow/pull/16870
+
+# Example output
+
+diff --git a/path/to/file.py b/path/to/file.py
+index abc123..def456 100644
+--- a/path/to/file.py
++++ b/path/to/file.py
+@@ -10,7 +10,7 @@
+   10    10 |  import os
+   11    11 |  import sys
+   12    12 |  from typing import Optional
+   13       | -from old_module import OldClass
+         14 | +from new_module import NewClass
+   14    15 |
+   15    16 |  def process_data(input_file: str) -> dict:
 """
 
 import argparse
