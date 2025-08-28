@@ -33,6 +33,30 @@ def format_prompt(prompt: str, **values) -> str:
     return prompt
 
 
+def add_output_format_instructions(prompt: str) -> str:
+    """
+    Add structured output format instructions to a judge prompt.
+
+    This ensures the LLM returns a JSON response with 'result' and 'rationale' fields,
+    matching the expected format for the invoke_judge_model function.
+
+    Args:
+        prompt: The formatted prompt with template variables filled in
+
+    Returns:
+        The prompt with output format instructions appended
+    """
+    output_format_instructions = """
+
+Please provide your assessment in the following JSON format only (no markdown):
+
+{
+    "result": "Your evaluation result/rating",
+    "rationale": "Detailed explanation for your evaluation"
+}"""
+    return prompt + output_format_instructions
+
+
 def _sanitize_justification(justification: str) -> str:
     # Some judge prompts instruct the model to think step by step.
     return justification.replace("Let's think step by step. ", "")
