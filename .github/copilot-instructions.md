@@ -21,6 +21,6 @@ In this repository, we use the following comments to trigger GitHub Action workf
 - `/autoformat`: Triggers the [`autoformat.yml`](./workflows/autoformat.yml) workflow.
 - `/cvt`: Triggers the [`cross-version-tests.yml`](./workflows/cross-version-tests.yml) workflow.
 
-## Language-Specific Guidelines
+## Language-Specific Style Guides
 
 - [Python](../dev/guides/python.md)
