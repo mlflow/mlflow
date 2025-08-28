@@ -35,11 +35,12 @@ jobs:
 
       - name: Set up config
         run: |
-          # https://github.com/openai/codex/blob/main/codex-rs/config.md
+          # https://github.com/openai/codex/blob/main/docs/config.md
           mkdir -p ~/.codex
           cat <<'EOF' > ~/.codex/config.toml
-          # https://github.com/marketplace/models/azure-openai/gpt-4-1
-          # model = "openai/gpt-4.1"
+          # TODO: Use github models when gpt-5 supports higher input/output token limits
+          # https://github.com/marketplace/models/azure-openai/gpt-5
+          # model = "openai/gpt-5"
           # model_provider = "github-models"
           model_verbosity = "high"
           approval_policy = "never"
@@ -56,6 +57,7 @@ jobs:
           wire_api = "chat"
 
           [mcp_servers.github]
+          # https://github.com/github/github-mcp-server
           command = "docker"
           args = [
             "run",
@@ -63,6 +65,8 @@ jobs:
             "--rm",
             "-e",
             "GITHUB_PERSONAL_ACCESS_TOKEN",
+            "-e",
+            "GITHUB_TOOLSETS=pull_requests",
             "ghcr.io/github/github-mcp-server",
           ]
           env = { "GITHUB_PERSONAL_ACCESS_TOKEN" = "${{ secrets.GITHUB_TOKEN }}" }
