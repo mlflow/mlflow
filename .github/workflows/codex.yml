@@ -38,6 +38,10 @@ jobs:
           # model_provider = "github-models"
           model_verbosity = "high"
           approval_policy = "never"
+          sandbox_mode = "workspace-write"
+
+          [sandbox_workspace_write]
+          network_access = true
 
           [model_providers.github-models]
           # https://docs.github.com/en/github-models/use-github-models/prototyping-with-ai-models#rate-limits
