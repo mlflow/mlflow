@@ -1,5 +1,10 @@
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import (
+    RESOURCE_ALREADY_EXISTS,
+    ErrorCode,
+)
 from mlflow.store.model_registry.rest_store import RestStore
+from mlflow.utils.logging_utils import eprint
 
 
 def _raise_unsupported_method(method, message=None):
@@ -37,6 +42,24 @@ class DatabricksWorkspaceModelRegistryRestStore(RestStore):
         self._await_model_version_creation_impl(mv, await_creation_for, hint=uc_hint)
 
     def copy_model_version(self, src_mv, dst_name):
+        """
+        Copy a model version from one registered model to another as a new model version.
+        This method can be used within the Databricks workspace registry to copy model versions
+        between registered models, or to migrate model versions from the Databricks workspace
+        registry to Unity Catalog. During the migration, signature validation can be bypassed
+        by setting the `MLFLOW_REGISTRY_MIGRATION_SKIP_SIGNATURE_VALIDATION` environment variable
+        to `True`.
+
+        Args:
+            src_mv: A :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
+                the source model version.
+            dst_name: The name of the registered model to copy the model version to. If a
+                registered model with this name does not exist, it will be created.
+
+        Returns:
+            Single :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
+            the cloned model version.
+        """
         if len(dst_name.split(".")) == 3:
             import mlflow
             from mlflow.store._unity_catalog.registry.rest_store import (
@@ -57,6 +80,16 @@ class DatabricksWorkspaceModelRegistryRestStore(RestStore):
                     f"mlflow.artifacts.download_artifacts()"
                 ) from e
             uc_store = UcModelRegistryStore(store_uri="databricks-uc", tracking_uri="databricks")
+            try:
+                create_model_response = uc_store.create_registered_model(dst_name)
+                eprint(f"Successfully registered model '{create_model_response.name}'.")
+            except MlflowException as e:
+                if e.error_code != ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
+                    raise
+                eprint(
+                    f"Registered model '{dst_name}' already exists."
+                    f" Creating a new version of this model..."
+                )
             env_var = (
                 mlflow.environment_variables.MLFLOW_REGISTRY_MIGRATION_SKIP_SIGNATURE_VALIDATION
             )
