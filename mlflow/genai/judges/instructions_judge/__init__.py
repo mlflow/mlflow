@@ -152,10 +152,6 @@ class InstructionsJudge(Judge):
         """Return the kind of scorer this judge represents."""
         return ScorerKind.CLASS
 
-    def _check_can_be_registered(self, error_message: str | None = None) -> None:
-        """Override to allow InstructionsJudge to be registered despite being ScorerKind.CLASS."""
-        # InstructionsJudge can be registered because it has proper serialization support
-
     def _validate_model_format(self) -> None:
         """
         Validate that the model is in a valid format.
