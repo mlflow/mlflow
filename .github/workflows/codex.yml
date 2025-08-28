@@ -55,6 +55,7 @@ jobs:
       - name: Fetch diff
         run: |
           python dev/better_diff.py --pr ${{ github.event.pull_request.html_url }} > PR_DIFF.txt
+          head -n 100 PR_DIFF.txt
 
       - name: Prompt
         run: |
