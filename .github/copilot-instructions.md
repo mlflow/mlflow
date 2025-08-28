@@ -23,4 +23,4 @@ In this repository, we use the following comments to trigger GitHub Action workf
 
 ## Language-Specific Guidelines
 
-- [Python](../dev/style-guides/python.md)
+- [Python](../dev/guides/python.md)

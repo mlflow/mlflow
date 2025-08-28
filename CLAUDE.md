@@ -139,7 +139,7 @@ See `mlflow/server/js/` for frontend development.
 
 ## Language-Specific Guidelines
 
-- [Python](/dev/style-guides/python.md)
+- [Python](/dev/guides/python.md)
 
 ## Git Workflow
 
