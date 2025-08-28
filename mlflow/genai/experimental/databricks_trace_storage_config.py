@@ -5,6 +5,7 @@ from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.utils.annotations import experimental
 
 
+# TODO: update experimental version number before merging
 @experimental(version="3.2.0")
 @dataclass
 class DatabricksTraceDeltaStorageConfig(_MlflowObject):

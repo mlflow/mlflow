@@ -5,13 +5,15 @@ Trace archival functionality for MLflow that enables archiving traces to Delta t
 import importlib.util
 import logging
 
-from mlflow.environment_variables import MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL
 from mlflow.exceptions import MlflowException
+from mlflow.genai.experimental.databricks_trace_exporter import DatabricksDeltaArchivalMixin
 from mlflow.genai.experimental.databricks_trace_exporter_utils import (
     DatabricksTraceServerClient,
-    get_workspace_id,
+    _get_workspace_id,
 )
+from mlflow.tracing.destination import DatabricksUnityCatalog
 from mlflow.tracking import MlflowClient
+from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils.annotations import experimental
 from mlflow.utils.mlflow_tags import (
@@ -28,6 +30,88 @@ SUPPORTED_SCHEMA_VERSION = "v1"
 TRACE_SNAPSHOT_OTEL_EVENT_NAME = "genai.trace.snapshot"
 ASSESSMENTS_SNAPSHOT_OTEL_EVENT_NAME = "genai.assessments.snapshot"
 TAGS_SNAPSHOT_OTEL_EVENT_NAME = "genai.tags.snapshot"
+
+
+# TODO: update experimental version number before merging
+@experimental(version="3.2.0")
+def set_experiment_storage_location(
+    location: DatabricksUnityCatalog | None, experiment_id: str | None = None
+) -> str | None:
+    """
+    Set the experiment storage location.
+
+    This function sets up the infrastructure needed to archive traces from an MLflow experiment
+    to Unity Catalog Delta tables. It:
+    1. Calls the Databricks trace server to create trace destination metadata
+    2. Creates a logical view that combines the raw otel spans and events tables
+       created by trace server
+    3. Sets an experiment tag indicating where the storage location is
+
+    This function is idempotent - if storage location is already set for the experiment,
+    it returns the existing view name without making any changes.
+
+    Args:
+        location: The storage location for experiment traces in Unity Catalog.
+            If None, the storage location will be unset.
+        experiment_id: The MLflow experiment ID to set the storage location for.
+            If not specified, the default experiment will be used.
+
+    Returns:
+        The name of the created storage location in the format:
+        "{catalog}.{schema}.{table_prefix}_experiment_{workspace_id}_{experiment_id}_genai_view"
+        or None if the storage location is unset.
+
+    Raises:
+        MlflowException: If the storage location configuration already exists,
+        trace destination creation fails, table creation fails, or experiment tag setting fails.
+
+    Example:
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.tracing.destination import DatabricksUnityCatalog
+        from mlflow.genai.experimental import set_experiment_storage_location
+
+        view_name = set_experiment_storage_location(
+            DatabricksUnityCatalog(
+                catalog="my_catalog", schema="my_schema", table_prefix="my_prefix"
+            ),
+            experiment_id="12345",
+        )
+        print(view_name)  # my_catalog.my_schema.my_prefix_experiment_123_12345_genai_view
+
+
+        @mlflow.trace
+        def add(x):
+            return x + 1
+
+
+        add(1)  # this writes the trace to the storage location set above
+
+    """
+    if importlib.util.find_spec("databricks.agents") is None:
+        raise ImportError(
+            "The `databricks-agents` package is required to set experiment storage location."
+            "Please install it with `pip install databricks-agents`."
+        )
+
+    if experiment_id is None:
+        experiment_id = _get_experiment_id()
+
+    # Clear cached storage config
+    with DatabricksDeltaArchivalMixin._config_cache_lock:
+        DatabricksDeltaArchivalMixin._config_cache.pop(experiment_id, None)
+
+    if location is None:
+        DatabricksTraceServerClient().delete_trace_destination(experiment_id)
+        MlflowClient().set_experiment_tag(
+            experiment_id, MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE, None
+        )
+        _logger.info(f"Unset storage location for experiment {experiment_id}.")
+    else:
+        return _enable_databricks_trace_archival(
+            experiment_id, location.catalog, location.schema, location.table_prefix
+        )
 
 
 def _validate_schema_versions(spans_version: str, events_version: str) -> None:
@@ -311,8 +395,8 @@ def _enable_trace_rolling_deletion(experiment_id: str) -> None:
         raise MlflowException(error_msg) from e
 
 
-def _do_enable_databricks_archival(
-    experiment_id: str, catalog: str, schema: str, table_prefix: str = "trace_logs"
+def _enable_databricks_trace_archival(
+    experiment_id: str, catalog: str, schema: str, table_prefix: str
 ) -> str:
     """
     Enable trace archival by orchestrating the full archival enablement process.
@@ -329,9 +413,9 @@ def _do_enable_databricks_archival(
         The name of the created trace archival view
 
     Raises:
-        MlflowException: If any step of the archival process fails
+        MlflowException: If any step of the archival process fails or if archival is already enabled
     """
-    workspace_id = get_workspace_id()
+    workspace_id = _get_workspace_id()
     trace_archival_location = (
         f"{catalog}.{schema}.{table_prefix}_experiment_{workspace_id}_{experiment_id}_genai_view"
     )
@@ -344,12 +428,26 @@ def _do_enable_databricks_archival(
             f"Creating archival configuration for experiment {experiment_id} in {catalog}.{schema}"
         )
 
-        trace_archive_config = DatabricksTraceServerClient().create_trace_destination(
-            experiment_id=experiment_id,
-            catalog=catalog,
-            schema=schema,
-            table_prefix=table_prefix,
-        )
+        # The backend API is idempotent if the same configuration already exists
+        # and does not recreate existing tables.
+        # It will throw ALREADY_EXISTS error if a different configuration already exists
+        # or if the table schema versions have changed.
+        try:
+            trace_archive_config = DatabricksTraceServerClient().create_trace_destination(
+                experiment_id=experiment_id,
+                catalog=catalog,
+                schema=schema,
+                table_prefix=table_prefix,
+            )
+        except Exception as e:
+            if e.error_code == "ALREADY_EXISTS":
+                raise MlflowException(
+                    f"Storage location already set for experiment {experiment_id}. "
+                    f"To link the experiment to a new storage location, first call "
+                    f"`set_experiment_storage_location(None, '{experiment_id}')` and try again."
+                ) from e
+            raise e
+
         _logger.debug(
             f"Trace archival enabled with Spans table: {trace_archive_config.spans_table_name}, "
             f"Events table: {trace_archive_config.events_table_name}, "
@@ -357,7 +455,7 @@ def _do_enable_databricks_archival(
             f"Events schema version: {trace_archive_config.events_schema_version}"
         )
 
-        # 3. Validate schema versions before proceeding
+        # 2. Validate schema versions before proceeding
         _validate_schema_versions(
             trace_archive_config.spans_schema_version, trace_archive_config.events_schema_version
         )
@@ -370,20 +468,18 @@ def _do_enable_databricks_archival(
             trace_archive_config.events_table_name,
         )
 
-        # 5. Set experiment tag to track the archival location
+        # 4. Set experiment tag to track the archival location
         MlflowClient().set_experiment_tag(
             experiment_id, MLFLOW_DATABRICKS_TRACE_STORAGE_TABLE, trace_archival_location
         )
 
-        # 6. Enable rolling deletion for the experiment
+        # 5. Enable rolling deletion for the experiment
         _enable_trace_rolling_deletion(experiment_id)
 
         _logger.info(
             f"Trace archival to Databricks enabled successfully for experiment {experiment_id} "
             f"with target archival available at: {trace_archival_location}"
         )
-
-        MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL.set(True)
 
         return trace_archival_location
 
@@ -392,55 +488,3 @@ def _do_enable_databricks_archival(
         raise MlflowException(
             f"Failed to enable trace archival for experiment {experiment_id}: {e!s}"
         ) from e
-
-
-@experimental(version="3.2.0")
-def enable_databricks_trace_archival(
-    experiment_id: str, catalog: str, schema: str, table_prefix: str = "trace_logs"
-) -> str:
-    """
-    Enable trace archival for an MLflow experiment by creating Delta tables and views.
-
-    This function sets up the infrastructure needed to archive traces from an MLflow experiment
-    to Unity Catalog Delta tables. It:
-    1. Calls the Databricks trace server to create trace destination metadata
-    2. Creates a logical view that combines the raw otel spans and events tables
-       created by trace server
-    3. Sets an experiment tag indicating where the archival data is stored
-
-    This function is idempotent - if archival is already enabled for the experiment,
-    it returns the existing view name without making any changes.
-
-    TODO: move this orchestration to the mlflow backend once this feature
-    graduates from private preview
-
-    Args:
-        experiment_id: The MLflow experiment ID to enable archival for.
-        catalog: The Unity Catalog catalog name where tables will be created.
-        schema: The Unity Catalog schema name where tables will be created.
-        table_prefix: The prefix for the archival table and view names. Defaults to "trace_logs".
-
-    Returns:
-        The name of the created trace archival view in the format:
-        "{catalog}.{schema}.{table_prefix}_{experiment_id}"
-
-    Raises:
-        MlflowException: If the trace destination creation fails, table creation fails,
-            or experiment tag setting fails.
-
-    Example:
-        >>> import mlflow.tracing
-        >>> view_name = mlflow.tracing.enable_databricks_archival(
-        ...     "12345", "my_catalog", "my_schema", "my_prefix"
-        ... )
-        >>> print(view_name)
-        my_catalog.my_schema.my_prefix_12345
-    """
-
-    if importlib.util.find_spec("databricks.agents") is None:
-        raise ImportError(
-            "The `databricks-agents` package is required to use databricks trace archival."
-            "Please install it with `pip install databricks-agents`."
-        )
-
-    return _do_enable_databricks_archival(experiment_id, catalog, schema, table_prefix)

@@ -10,9 +10,6 @@ from cachetools import TTLCache
 
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.trace import Trace
-from mlflow.environment_variables import (
-    MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL,
-)
 from mlflow.genai.experimental.databricks_trace_exporter_utils import (
     DatabricksTraceServerClient,
     create_archival_zerobus_sdk,
@@ -56,17 +53,13 @@ class DatabricksDeltaArchivalMixin:
 
     def archive_trace(self, trace: Trace):
         """
-        Try to export a trace to Databricks Delta if archival is configured for the experiment.
+        Try to export a trace to Databricks Unity Catalog if a storage location is set
+        for the experiment.
         This method handles all enablement checking, configuration resolution, and authentication.
 
         Args:
             trace: MLflow Trace object containing spans data.
         """
-        # Check if delta archival is globally enabled
-        if not MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL.get():
-            _logger.debug("Trace archival to databricks is disabled")
-            return
-
         try:
             # Extract experiment ID from trace location
             experiment_id = None
@@ -85,8 +78,7 @@ class DatabricksDeltaArchivalMixin:
             config = self._get_trace_storage_config(experiment_id)
             if config is None:
                 _logger.debug(
-                    f"Databricks trace archival is not enabled for experiment {experiment_id}, "
-                    "skipping."
+                    f"No storage location configured for experiment {experiment_id}, skipping."
                 )
                 return
 
@@ -217,12 +209,8 @@ class DatabricksDeltaArchivalMixin:
             events = getattr(span, "events", []) or []
             for event in events:
                 attributes = getattr(event, "attributes", {}) or {}
-                if event_timestamp := getattr(event, "timestamp", None):
-                    timestamp_ns = int(event_timestamp * 1e3)
-                else:
-                    timestamp_ns = current_time_ns
                 event_dict = {
-                    "time_unix_nano": timestamp_ns,
+                    "time_unix_nano": getattr(event, "timestamp", current_time_ns),
                     "name": getattr(event, "name", "event"),
                     # serialize attribute values to json string
                     # custom logic to prevent double quotes for string and datetime values
@@ -254,6 +242,7 @@ class DatabricksDeltaArchivalMixin:
         return delta_proto_spans
 
 
+# TODO: update experimental version number before merging
 @experimental(version="3.2.0")
 class MlflowV3DeltaSpanExporter(MlflowV3SpanExporter, DatabricksDeltaArchivalMixin):
     """
@@ -284,6 +273,7 @@ class MlflowV3DeltaSpanExporter(MlflowV3SpanExporter, DatabricksDeltaArchivalMix
             _logger.warning(f"Failed to archive trace to Databricks Delta: {e}")
 
 
+# TODO: update experimental version number before merging
 @experimental(version="3.2.0")
 class InferenceTableDeltaSpanExporter(InferenceTableSpanExporter, DatabricksDeltaArchivalMixin):
     """

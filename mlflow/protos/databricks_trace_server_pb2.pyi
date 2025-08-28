@@ -1,6 +1,7 @@
 import databricks_pb2 as _databricks_pb2
 import assessments_pb2 as _assessments_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
+from google.protobuf import empty_pb2 as _empty_pb2
 from google.protobuf import struct_pb2 as _struct_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from scalapb import scalapb_pb2 as _scalapb_pb2
@@ -242,6 +243,12 @@ class CreateTraceDestinationRequest(_message.Message):
     def __init__(self, trace_location: _Optional[_Union[TraceLocation, _Mapping]] = ..., uc_catalog: _Optional[str] = ..., uc_schema: _Optional[str] = ..., uc_table_prefix: _Optional[str] = ...) -> None: ...
 
 class GetTraceDestinationRequest(_message.Message):
+    __slots__ = ("trace_location",)
+    TRACE_LOCATION_FIELD_NUMBER: _ClassVar[int]
+    trace_location: TraceLocation
+    def __init__(self, trace_location: _Optional[_Union[TraceLocation, _Mapping]] = ...) -> None: ...
+
+class DeleteTraceDestinationRequest(_message.Message):
     __slots__ = ("trace_location",)
     TRACE_LOCATION_FIELD_NUMBER: _ClassVar[int]
     trace_location: TraceLocation
