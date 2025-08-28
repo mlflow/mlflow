@@ -22,7 +22,7 @@ jobs:
       - uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5.5.0
       - name: Install codex
         run: |
-          curl -L -o codex.tar.gz https://github.com/openai/codex/releases/download/rust-v0.25.0/codex-aarch64-unknown-linux-musl.tar.gz
+          curl -L -o codex.tar.gz https://github.com/openai/codex/releases/download/rust-v0.25.0/codex-x86_64-unknown-linux-musl.tar.gz
           tar -xzf codex.tar.gz
           mv codex-aarch64-unknown-linux-musl codex
           chmod +x codex
