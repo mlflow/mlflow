@@ -104,7 +104,7 @@ export const getRouteDefs = () => [
   },
   {
     path: RoutePaths.compareExperimentsSearch,
-    element: createLazyRouteElement(() => import(/* webpackChunkName: "experimentPage" */ './components/HomePage')),
+    element: createLazyRouteElement(() => import(/* webpackChunkName: "experimentPage" */ './components/experiment-page/ExperimentPage')),
     pageId: PageId.compareExperimentsSearch,
   },
   {
