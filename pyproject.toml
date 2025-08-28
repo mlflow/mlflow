@@ -313,10 +313,6 @@ example-rules = [
   "unnamed-thread",
   "thread-pool-executor-without-thread-name-prefix",
 ]
-# Ignore specific rules for evaluation dataset implementation
-"mlflow/server/__init__.py" = ["lazy-builtin-import"]
-"mlflow/store/tracking/rest_store.py" = ["unparameterized-generic-type"]
-
 # This file intentionally shows problematic code as an example of what NOT to do
 "docs/docs/genai/mlflow-3/faqs.mdx" = ["get-artifact-uri"]
 

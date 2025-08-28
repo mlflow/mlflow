@@ -6104,13 +6104,13 @@ class MlflowClient:
 
             # Search for datasets in specific experiments
             datasets = client.search_datasets(
-                experiment_ids=["0", "1"], filter_string="name LIKE 'qa_%'", max_results=10
+                experiment_ids=["exp1", "exp2"], filter_string="name LIKE 'qa_%'", max_results=10
             )
 
             # Get next page if available
             if datasets.token:
                 next_page = client.search_datasets(
-                    experiment_ids=["0", "1"], page_token=datasets.token
+                    experiment_ids=["exp1", "exp2"], page_token=datasets.token
                 )
         """
         return self._tracking_client.search_datasets(
@@ -6142,7 +6142,7 @@ class MlflowClient:
 
             # Set tags for a dataset
             client.set_dataset_tags(
-                dataset_id="d-4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d",
+                dataset_id="dataset123",
                 tags={
                     "environment": "production",
                     "version": "2.0",
@@ -6169,9 +6169,7 @@ class MlflowClient:
             client = MlflowClient()
 
             # Delete a tag
-            client.delete_dataset_tag(
-                dataset_id="d-7f8e9a0b1c2d3e4f5a6b7c8d9e0f1a2b", key="deprecated"
-            )
+            client.delete_dataset_tag(dataset_id="dataset123", key="deprecated")
         """
         self._tracking_client.delete_dataset_tag(dataset_id=dataset_id, key=key)
 

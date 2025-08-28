@@ -28,7 +28,6 @@ from mlflow.entities import (
 # Constants for Databricks API disabled decorator
 _DATABRICKS_DATASET_API_NAME = "Evaluation dataset APIs"
 _DATABRICKS_DATASET_ALTERNATIVE = "Use the databricks-agents library for dataset operations."
-
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
 from mlflow.entities.span import Span
 from mlflow.entities.trace import Trace
@@ -1352,7 +1351,7 @@ class RestStore(AbstractStore):
             req.tags = json.dumps(tags)
 
         req_body = message_to_json(req)
-
+        # Dataset APIs are v3.0 endpoints
         response_proto = self._call_endpoint(
             CreateDataset, req_body, endpoint="/api/3.0/mlflow/datasets/create"
         )
@@ -1371,6 +1370,8 @@ class RestStore(AbstractStore):
         """
         from mlflow.entities import EvaluationDataset
 
+        # GetDataset uses path parameter, not request body
+        # Dataset APIs are v3.0 endpoints
         response_proto = self._call_endpoint(
             GetDataset, None, endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}"
         )
@@ -1384,7 +1385,8 @@ class RestStore(AbstractStore):
         Args:
             dataset_id: The ID of the dataset to delete.
         """
-
+        # DeleteDataset uses path parameter, not request body
+        # Dataset APIs are v3.0 endpoints
         self._call_endpoint(DeleteDataset, None, endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}")
 
     @databricks_api_disabled(_DATABRICKS_DATASET_API_NAME, _DATABRICKS_DATASET_ALTERNATIVE)
@@ -1419,7 +1421,7 @@ class RestStore(AbstractStore):
             page_token=page_token,
         )
         req_body = message_to_json(req)
-
+        # Dataset APIs are v3.0 endpoints
         response_proto = self._call_endpoint(
             SearchEvaluationDatasets, req_body, endpoint="/api/3.0/mlflow/datasets/search"
         )
@@ -1440,11 +1442,11 @@ class RestStore(AbstractStore):
         Returns:
             Dictionary with 'inserted' and 'updated' counts.
         """
-
         req = UpsertDatasetRecords(
             records=json.dumps(records),
         )
         req_body = message_to_json(req)
+        # Dataset APIs are v3.0 endpoints - dataset_id is in path
         response_proto = self._call_endpoint(
             UpsertDatasetRecords,
             req_body,
@@ -1466,7 +1468,6 @@ class RestStore(AbstractStore):
             dataset_id: The ID of the dataset to update.
             tags: Dictionary of tags to update.
         """
-
         req = SetDatasetTags(
             tags=json.dumps(tags),
         )
@@ -1485,7 +1486,8 @@ class RestStore(AbstractStore):
             dataset_id: The ID of the dataset.
             key: The tag key to delete.
         """
-
+        # DeleteDatasetTag uses path parameters for both dataset_id and key
+        # Dataset APIs are v3.0 endpoints
         self._call_endpoint(
             DeleteDatasetTag, None, endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}/tags/{key}"
         )
@@ -1501,7 +1503,8 @@ class RestStore(AbstractStore):
         Returns:
             List of experiment IDs associated with the dataset.
         """
-
+        # GetDatasetExperimentIds uses path parameter
+        # Dataset APIs are v3.0 endpoints
         response_proto = self._call_endpoint(
             GetDatasetExperimentIds,
             None,

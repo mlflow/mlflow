@@ -98,10 +98,12 @@ from mlflow.protos.service_pb2 import (
     CreateLoggedModel,
     CreateRun,
     DeleteAssessment,
-    DeleteEvaluationDataset,
-    DeleteEvaluationDatasetTag,
+    DeleteDataset,
+    DeleteDatasetTag,
+    DeleteExperiment,
     DeleteExperimentTag,
     DeleteLoggedModel,
+    DeleteLoggedModelTag,
     DeleteRun,
     DeleteScorer,
     DeleteTag,
@@ -3622,6 +3624,11 @@ def _create_dataset_handler():
             "tags": [_assert_string],
         },
     )
+
+    tags = None
+    if hasattr(request_message, "tags") and request_message.tags:
+        tags = json.loads(request_message.tags)
+
     dataset = _get_tracking_store().create_dataset(
         name=request_message.name,
         experiment_ids=list(request_message.experiment_ids)

@@ -109,7 +109,7 @@ dataset = create_dataset(
 
 Build your dataset by adding test cases from production traces and manual curation. **Expectations are typically defined by subject matter experts (SMEs)** who understand the domain and can establish ground truth for what constitutes correct behavior.
 
-[Learn how to define expectations →](/genai/assessments/expectations) - Expectations are the ground truth values that define what your AI should produce. They're added by SMEs who review outputs and establish quality standards.
+[Learn how to define expectations →](/genai/assessments/expectations) Expectations are the ground truth values that define what your AI should produce. They're added by SMEs who review outputs and establish quality standards.
 
 <TabsWrapper>
   <Tabs>
@@ -170,7 +170,7 @@ test_cases = [
             "answer_quality": 0.95,
             "contains_steps": True,
             "mentions_security": True,
-            "response": "To reset your password, please follow these steps...",
+            "response": "To reset your password, please follow these steps:\n1. Click 'Forgot Password' on the login page\n2. Enter your registered email address\n3. Check your email for the reset link\n4. Click the link and create a new password\n5. Use your new password to log in",
         },
         "tags": {
             "category": "account_management",
@@ -196,6 +196,7 @@ dataset.merge_records(test_cases)
 ```
 
     </TabItem>
+
   </Tabs>
 </TabsWrapper>
 
@@ -339,6 +340,35 @@ Here are practical examples of filter strings to help you find the right dataset
   </tbody>
 </table>
 
+### Step 6: Manage Experiment Associations
+
+Datasets can be dynamically associated with experiments after creation using <APILink fn="mlflow.genai.datasets.add_dataset_to_experiments" /> and <APILink fn="mlflow.genai.datasets.remove_dataset_from_experiments" />.
+
+This functionality enables several important use cases:
+
+- **Cross-team collaboration**: Share datasets across teams by adding their experiment IDs
+- **Lifecycle management**: Remove outdated experiment associations as projects mature
+- **Project reorganization**: Dynamically reorganize datasets as your project structure evolves
+
+```python
+from mlflow.genai.datasets import (
+    add_dataset_to_experiments,
+    remove_dataset_from_experiments,
+)
+
+# Add dataset to additional experiments
+dataset = add_dataset_to_experiments(
+    dataset_id="d-1a2b3c4d5e6f7890abcdef1234567890", experiment_ids=["3", "4", "5"]
+)
+print(f"Dataset now linked to experiments: {dataset.experiment_ids}")
+
+# Remove dataset from specific experiments
+dataset = remove_dataset_from_experiments(
+    dataset_id="d-1a2b3c4d5e6f7890abcdef1234567890", experiment_ids=["3"]
+)
+print(f"Updated experiment associations: {dataset.experiment_ids}")
+```
+
 ## The Active Record Pattern
 
 The `EvaluationDataset` object follows an active record pattern—it's both a data container and provides methods to interact with the backend:
@@ -351,7 +381,12 @@ dataset = get_dataset(dataset_id="d-1a2b3c4d5e6f7890abcdef1234567890")
 current_record_count = len(dataset.records)  # Lazy loads if needed
 
 # Add new records directly on the object
-new_records = [{"inputs": {...}, "expectations": {...}}]
+new_records = [
+    {
+        "inputs": {"question": "What are your business hours?"},
+        "expectations": {"mentions_hours": True, "includes_timezone": True},
+    }
+]
 dataset.merge_records(new_records)  # Updates backend immediately
 
 # Convert to DataFrame for analysis
@@ -426,8 +461,13 @@ for trace in traces[:20]:  # Review subset
         value={"approved": True, "quality_score": 0.9},
     )
 
-# Re-merge the same traces - existing records are updated with expectations
-dataset.merge_records(traces[:20])
+# IMPORTANT: Re-fetch traces to get the attached expectations
+updated_traces = mlflow.search_traces(
+    experiment_ids=["0"], max_results=100, return_type="list"
+)
+
+# Re-merge the updated traces - existing records are updated with expectations
+dataset.merge_records(updated_traces[:20])
 ```
 
     </TabItem>
@@ -455,6 +495,7 @@ dataset.merge_records([record_a, record_b])
 ```
 
     </TabItem>
+
   </Tabs>
 </TabsWrapper>
 
@@ -535,12 +576,19 @@ dataset.merge_records(generated_tests)
 ```
 
     </TabItem>
+
   </Tabs>
 </TabsWrapper>
 
 ### Manual Source Specification
 
-You can explicitly specify the source type and metadata for any record:
+You can explicitly specify the source type and metadata for any record. When no explicit source is provided, MLflow automatically infers the source type before sending records to the backend using these rules:
+
+- **Records with expectations** → Inferred as `HUMAN` source (indicates manual annotation or ground truth)
+- **Records with only inputs** (no expectations) → Inferred as `CODE` source (indicates programmatic generation)
+- **Records from traces** → Always marked as `TRACE` source (regardless of expectations)
+
+This inference happens client-side in the `merge_records()` method before records are sent to the tracking backend. You can override this automatic inference by providing explicit source information:
 
 ```python
 # Specify HUMAN source for manually curated test cases
@@ -576,6 +624,8 @@ dataset.merge_records([human_curated, from_docs, generated])
 ```
 
 ### Available Source Types
+
+Source types enable powerful filtering and analysis of your evaluation results. You can analyze performance by data origin to understand if your model performs differently on human-curated vs. generated test cases, or production traces vs. documentation examples.
 
 <FeatureHighlights features={[
   {
@@ -671,22 +721,22 @@ df = dataset.to_df()
 ```
 
     </TabItem>
+
   </Tabs>
 </TabsWrapper>
-
 
 ## Search Filter Reference
 
 Use these fields in your filter strings. **Note:** The fluent API returns a `PagedList` that can be iterated directly - pagination is handled automatically when you iterate over the results.
 
-| Field | Type | Example |
-|-------|------|---------|
-| `name` | string | `name = 'production_tests'` |
-| `tags.<key>` | string | `tags.status = 'validated'` |
-| `created_by` | string | `created_by = 'alice@company.com'` |
-| `last_updated_by` | string | `last_updated_by = 'bob@company.com'` |
-| `created_time` | timestamp | `created_time > 1698800000000` |
-| `last_update_time` | timestamp | `last_update_time > 1698800000000` |
+| Field              | Type      | Example                               |
+| ------------------ | --------- | ------------------------------------- |
+| `name`             | string    | `name = 'production_tests'`           |
+| `tags.<key>`       | string    | `tags.status = 'validated'`           |
+| `created_by`       | string    | `created_by = 'alice@company.com'`    |
+| `last_updated_by`  | string    | `last_updated_by = 'bob@company.com'` |
+| `created_time`     | timestamp | `created_time > 1698800000000`        |
+| `last_update_time` | timestamp | `last_update_time > 1698800000000`    |
 
 ### Filter Operators
 
@@ -778,10 +828,12 @@ client.delete_dataset(dataset_id=dataset.dataset_id)
 ```
 
     </TabItem>
+
   </Tabs>
 </TabsWrapper>
 
 The client API provides the same capabilities as the fluent API but is better suited for:
+
 - Production applications that need explicit client management
 - Scenarios requiring custom tracking URIs or authentication
 - Integration with existing MLflow client-based workflows

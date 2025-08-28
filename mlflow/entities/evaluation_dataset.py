@@ -27,7 +27,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
     """
     Evaluation dataset for storing inputs and expectations for GenAI evaluation.
 
-    This class supports lazy loading of records - when retrieved via get_dataset(),
+    This class supports lazy loading of records - when retrieved via get_evaluation_dataset(),
     only metadata is loaded. Records are fetched when to_df() or merge_records() is called.
     """
 

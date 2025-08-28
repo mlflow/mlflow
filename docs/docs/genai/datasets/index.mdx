@@ -46,18 +46,18 @@ traces = mlflow.search_traces(
 
 # Add expectations to the traces
 for trace in traces[:20]:
-    # Expectations can be numeric or boolean...
+    # Expectations can be structured metrics
     mlflow.log_expectation(
         trace_id=trace.info.trace_id,
         name="output_quality",
         value={"relevance": 0.95, "accuracy": 1.0, "contains_citation": True},
     )
 
-    # ... and can also be contextual text
+    # They can also be specific expected text
     mlflow.log_expectation(
         trace_id=trace.info.trace_id,
         name="expected_answer",
-        value="The correct answer should include step-by-step instructions...",
+        value="The correct answer should include step-by-step instructions for password reset with email verification",
     )
 
 # Retrieve the traces with added expectations
@@ -91,7 +91,7 @@ test_cases = [
             "context": "user_support",
         },
         "expectations": {
-            "answer": "To reset your password, click 'Forgot Password' on the login page...",
+            "answer": "To reset your password, click 'Forgot Password' on the login page, enter your email, and follow the link sent to your inbox",
             "contains_steps": True,
             "tone": "helpful",
             "max_response_time": 2.0,

@@ -1107,24 +1107,6 @@ service MlflowService {
       rpc_doc_title: "Get Evaluation Dataset Records",
     };
   }
-  
-  // Get records for an evaluation dataset
-  rpc getEvaluationDatasetRecords(GetEvaluationDatasetRecords) returns (GetEvaluationDatasetRecords.Response) {
-    option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/evaluation-datasets/{dataset_id}/records"
-        since { major: 3, minor: 0 },
-      }],
-      error_codes: [
-        INVALID_PARAMETER_VALUE,
-        RESOURCE_DOES_NOT_EXIST,
-        INTERNAL_ERROR
-      ],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Get Evaluation Dataset Records",
-    };
-  }
 }
 
 // View type for ListExperiments query.
@@ -2790,13 +2772,14 @@ message SearchTracesV3 {
 
 // Evaluation Dataset Messages
 
-message CreateEvaluationDataset {
-  option (scalapb.message).extends = "org.mlflow.api.proto.ProtoMessage";
-
-  message Request {
-    // Dataset name
-    optional string name = 1 [(validate_required) = true];
-    
+message CreateDataset {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  
+  // Dataset name
+  optional string name = 1 [(validate_required) = true];
+  
+  // Associated experiment IDs. If not provided, defaults to the current active experiment.
+  repeated string experiment_ids = 2;
   
   // Source type
   optional datasets.DatasetRecordSource.SourceType source_type = 3;
@@ -2823,6 +2806,7 @@ message CreateEvaluationDataset {
 }
 
 message GetDataset {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
   
   // Dataset ID
   optional string dataset_id = 1 [(validate_required) = true];
@@ -2876,6 +2860,7 @@ message SearchEvaluationDatasets {
     optional string next_page_token = 2;
   }
 }
+
 
 message SetDatasetTags {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";

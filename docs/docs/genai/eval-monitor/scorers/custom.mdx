@@ -74,7 +74,7 @@ As input, custom scorers have access to:
 - The `inputs` dictionary, derived from either the input dataset or MLflow post-processing from your trace.
 - The `outputs` value, derived from either the input dataset or trace. If `predict_fn` is provided, the `outputs` value will be the return value of the `predict_fn`.
 - The `expectations` dictionary, derived from the `expectations` field in the input dataset, or associated with the trace.
-- The complete [MLflow trace](/genai/tracing/concepts/trace), including spans, attributes, and outputs.
+- The complete [MLflow trace](/genai/concepts/trace), including spans, attributes, and outputs.
 
 ```python
 @scorer
