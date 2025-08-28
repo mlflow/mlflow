@@ -20,7 +20,6 @@ jobs:
         run: |
           curl -L -o codex.tar.gz https://github.com/openai/codex/releases/download/rust-v0.25.0/codex-aarch64-unknown-linux-musl.tar.gz
           tar -xzf codex.tar.gz
-          # rename codex-aarch64-unknown-linux-musl to codex
           mv codex-aarch64-unknown-linux-musl codex
           chmod +x codex
 
@@ -79,4 +78,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          codex --ask-for-approval=never exec --skip-git-repo-check "Can you review ${{ github.event.pull_request.html_url }}?"
+          ./codex --ask-for-approval=never exec --skip-git-repo-check "Can you review ${{ github.event.pull_request.html_url }}?"
