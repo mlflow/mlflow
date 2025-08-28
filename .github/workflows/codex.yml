@@ -71,7 +71,7 @@ jobs:
           # Instructions
           1. Read `PR_DIFF.txt` and `dev/guides/python.md`.
           2. Carefully review the changes in the PR and identify the lines violating the style guide.
-          3. If you find any issues, proceed to the next step, otherwise skip the rest of the instructions.
+          3. If you find any issues, proceed to the next step without approval, otherwise skip the rest of the instructions.
           4. Use the `create_pending_pull_request_review` tool to start a review.
           5. Use the `add_comment_to_pending_review` tool to add comments to the review.
              - When commenting on a specific line, set the `subjectType` parameter to `LINE`.
