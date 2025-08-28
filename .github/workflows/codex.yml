@@ -107,6 +107,7 @@ jobs:
 
           ## 6. Submit Review
           - Use `submit_pending_pull_request_review` tool to submit the review with a short summary.
+          - Include the GitHub Actions run URL at the end of the review body: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           EOF
 
       - name: Run codex
