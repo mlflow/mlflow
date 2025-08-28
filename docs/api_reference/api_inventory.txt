@@ -689,6 +689,8 @@ mlflow.genai.datasets.get_dataset
 mlflow.genai.delete_dataset
 mlflow.genai.delete_labeling_session
 mlflow.genai.delete_prompt_alias
+mlflow.genai.disable_git_model_versioning
+mlflow.genai.enable_git_model_versioning
 mlflow.genai.evaluate
 mlflow.genai.get_dataset
 mlflow.genai.get_labeling_session
