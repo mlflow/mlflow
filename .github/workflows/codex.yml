@@ -80,9 +80,8 @@ jobs:
           # Instructions
 
           ## 1. Fetch and Analyze PR
-          - Run `python dev/diff.py --pr <PR_URL>` to get the PR diff
+          - Fetch the PR diff
           - Carefully examine all changes in the diff
-          - DO NOT examine local files. Only examine the diff fetched by `dev/diff.py`
 
           ## 2. Review Against Style Guide
           - Read `dev/guides/python.md` thoroughly
