@@ -26,6 +26,7 @@ jobs:
           tar -xzf codex.tar.gz
           mv codex-x86_64-unknown-linux-musl codex
           chmod +x codex
+          ./codex --version
 
       - name: Set up config
         run: |
