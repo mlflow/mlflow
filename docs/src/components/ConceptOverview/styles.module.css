@@ -4,7 +4,6 @@
   --concept-primary-dark: #0066cc;
   --concept-primary-light: rgba(1, 148, 226, 0.3);
   --concept-primary-lightest: rgba(1, 148, 226, 0.1);
-  --concept-background: var(--ifm-background-color);
   --concept-border: var(--ifm-border-color);
   --concept-text-primary: var(--ifm-color-emphasis-900);
   --concept-text-secondary: var(--ifm-color-emphasis-700);
@@ -15,7 +14,6 @@
   --concept-primary-dark: #5cb7cc;
   --concept-primary-light: rgba(1, 148, 226, 0.3);
   --concept-primary-lightest: rgba(1, 148, 226, 0.15);
-  --concept-background: var(--ifm-background-color);
   --concept-border: var(--ifm-border-color);
   --concept-text-primary: var(--ifm-color-emphasis-900);
   --concept-text-secondary: var(--ifm-color-emphasis-700);
