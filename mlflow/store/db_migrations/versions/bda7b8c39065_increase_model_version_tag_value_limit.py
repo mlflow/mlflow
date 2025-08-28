@@ -1,7 +1,5 @@
 """increase_model_version_tag_value_limit
 
-Revision ID: bda7b8c39065
-Revises: 6953534de441
 Create Date: 2025-06-23 11:05:41.676297
 
 """

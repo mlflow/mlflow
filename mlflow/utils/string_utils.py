@@ -6,30 +6,30 @@ from typing import Any
 from mlflow.utils.os import is_windows
 
 
-def strip_prefix(original, prefix):
+def strip_prefix(original: str, prefix: str) -> str:
     if original.startswith(prefix):
         return original[len(prefix) :]
     return original
 
 
-def strip_suffix(original, suffix):
+def strip_suffix(original: str, suffix: str) -> str:
     if original.endswith(suffix) and suffix != "":
         return original[: -len(suffix)]
     return original
 
 
-def is_string_type(item):
+def is_string_type(item: Any) -> bool:
     return isinstance(item, str)
 
 
-def generate_feature_name_if_not_string(s):
+def generate_feature_name_if_not_string(s: Any) -> str:
     if isinstance(s, str):
         return s
 
     return f"feature_{s}"
 
 
-def truncate_str_from_middle(s, max_length):
+def truncate_str_from_middle(s: str, max_length: int) -> str:
     assert max_length > 5
     if len(s) <= max_length:
         return s
@@ -74,7 +74,7 @@ cmd_meta_or_space = r"[\s\"\^\&\|\<\>\(\)\%\!]"
 cmd_meta_inside_quotes = r"([\"\%\!])"
 
 
-def mslex_quote(s, for_cmd=True):
+def mslex_quote(s: str, for_cmd: bool = True) -> str:
     """
     Quote a string for use as a command line argument in DOS or Windows.
 
@@ -129,7 +129,7 @@ def mslex_quote(s, for_cmd=True):
     return "".join(parts())
 
 
-def quote(s):
+def quote(s: str) -> str:
     return mslex_quote(s) if is_windows() else shlex.quote(s)
 
 
@@ -140,7 +140,7 @@ def _backtick_quote(s: str) -> str:
     return f"`{s}`" if not (s.startswith("`") and s.endswith("`")) else s
 
 
-def format_table_cell_value(field: str, cell_value, values: list[Any] | None = None) -> str:
+def format_table_cell_value(field: str, cell_value: Any, values: list[Any] | None = None) -> str:
     """
     Format cell values for table display with field-specific formatting.
 

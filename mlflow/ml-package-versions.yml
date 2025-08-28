@@ -796,6 +796,10 @@ ag2:
           "openai",
           "numpy<2",
         ]
+      # see https://github.com/ag2ai/ag2/issues/2046, this release
+      # used simple string comparison for packages and does not
+      # recognize that version 1.100 is greater than 1.66
+      "== 0.8.7": ["openai<1.99.9"]
     run: pytest tests/ag2
 
 autogen:
@@ -894,7 +898,7 @@ pydantic_ai:
       # Update key libraries from source w/ no-deps
       pip install --no-deps \
       # We need to install pydantic_graph and pydantic_ai_slim as pydantic_ai is dependent on both of them
-      # and we need to install them seperately. Without pinning them seperately would result in dependency
+      # and we need to install them separately. Without pinning them separately would result in dependency
       # conflict errors and the installation of pydantic_ai would get failed. 
       # Ref: https://github.com/pydantic/pydantic-ai/blob/main/pydantic_ai_slim/pyproject.toml#L45-L52
         "git+https://github.com/pydantic/pydantic-ai.git#egg=pydantic-graph&subdirectory=pydantic_graph" \
@@ -928,6 +932,7 @@ smolagents:
 
 strands:
   package_info:
+    genai: true
     pip_release: "strands-agents"
     module_name: "strands"
     install_dev: |

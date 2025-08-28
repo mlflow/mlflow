@@ -1,8 +1,10 @@
+import functools
 import json
 import logging
 from typing import Any
 
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
+from packaging.version import Version
 
 from mlflow.entities import (
     DatasetInput,
@@ -101,6 +103,7 @@ from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
     _V3_TRACE_REST_API_PATH_PREFIX,
+    MlflowHostCreds,
     call_endpoint,
     extract_api_info_for_service,
     get_logged_model_endpoint,
@@ -128,6 +131,33 @@ class RestStore(AbstractStore):
     def __init__(self, get_host_creds):
         super().__init__()
         self.get_host_creds = get_host_creds
+
+    @staticmethod
+    @functools.lru_cache
+    def _get_server_version(host_creds: MlflowHostCreds) -> Version | None:
+        """
+        Get the MLflow server version with caching.
+
+        Args:
+            host_creds: MlflowHostCreds object
+
+        Returns:
+            Version object if successful, None if failed to retrieve version.
+        """
+        try:
+            response = http_request(
+                host_creds=host_creds,
+                endpoint="/version",
+                method="GET",
+                timeout=3,  # Short timeout to fail fast if server version API isn't available
+                max_retries=0,  # No retries - default retry policy takes minutes, which is too long
+                raise_on_status=True,
+            )
+            return Version(response.text)
+        except Exception as e:
+            _logger.debug(f"Failed to retrieve server version: {e}")
+
+        return None
 
     def _call_endpoint(
         self,
@@ -1074,7 +1104,12 @@ class RestStore(AbstractStore):
                 serialized_scorer=serialized_scorer,
             )
         )
-        response_proto = self._call_endpoint(RegisterScorer, req_body)
+        # Scorer APIs are v3.0 endpoints
+        response_proto = self._call_endpoint(
+            RegisterScorer,
+            req_body,
+            endpoint="/api/3.0/mlflow/scorers/register",
+        )
         return response_proto.version
 
     def list_scorers(self, experiment_id: str) -> list[ScorerVersion]:
@@ -1088,7 +1123,12 @@ class RestStore(AbstractStore):
             List of Scorer entities.
         """
         req_body = message_to_json(ListScorers(experiment_id=experiment_id))
-        response_proto = self._call_endpoint(ListScorers, req_body)
+        # Scorer APIs are v3.0 endpoints
+        response_proto = self._call_endpoint(
+            ListScorers,
+            req_body,
+            endpoint="/api/3.0/mlflow/scorers/list",
+        )
         return [ScorerVersion.from_proto(scorer) for scorer in response_proto.scorers]
 
     def list_scorer_versions(self, experiment_id: str, name: str) -> list[ScorerVersion]:
@@ -1103,7 +1143,12 @@ class RestStore(AbstractStore):
             List of Scorer entities for all versions.
         """
         req_body = message_to_json(ListScorerVersions(experiment_id=experiment_id, name=name))
-        response_proto = self._call_endpoint(ListScorerVersions, req_body)
+        # Scorer APIs are v3.0 endpoints
+        response_proto = self._call_endpoint(
+            ListScorerVersions,
+            req_body,
+            endpoint="/api/3.0/mlflow/scorers/versions",
+        )
         return [ScorerVersion.from_proto(scorer) for scorer in response_proto.scorers]
 
     def get_scorer(
@@ -1124,7 +1169,12 @@ class RestStore(AbstractStore):
         req_body = message_to_json(
             GetScorer(experiment_id=experiment_id, name=name, version=version)
         )
-        response_proto = self._call_endpoint(GetScorer, req_body)
+        # Scorer APIs are v3.0 endpoints
+        response_proto = self._call_endpoint(
+            GetScorer,
+            req_body,
+            endpoint="/api/3.0/mlflow/scorers/get",
+        )
         return ScorerVersion.from_proto(response_proto.scorer)
 
     def delete_scorer(self, experiment_id: str, name: str, version: int | None = None) -> None:
@@ -1142,7 +1192,12 @@ class RestStore(AbstractStore):
         req_body = message_to_json(
             DeleteScorer(experiment_id=experiment_id, name=name, version=version)
         )
-        self._call_endpoint(DeleteScorer, req_body)
+        # Scorer APIs are v3.0 endpoints
+        self._call_endpoint(
+            DeleteScorer,
+            req_body,
+            endpoint="/api/3.0/mlflow/scorers/delete",
+        )
 
     ############################################################################################
     # Deprecated MLflow Tracing APIs. Kept for backward compatibility but do not use.
@@ -1283,6 +1338,17 @@ class RestStore(AbstractStore):
         """
         if not spans:
             return []
+
+        server_version = self._get_server_version(self.get_host_creds())
+        if server_version is None:
+            raise NotImplementedError(
+                "log_spans is not supported: could not identify MLflow server version"
+            )
+        elif server_version < Version("3.4"):
+            raise NotImplementedError(
+                f"log_spans is not supported: MLflow server version {server_version} is"
+                f" less than 3.4"
+            )
 
         trace_ids = {span.trace_id for span in spans}
         if len(trace_ids) > 1:

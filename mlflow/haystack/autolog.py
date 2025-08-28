@@ -127,14 +127,12 @@ class HaystackSpanProcessor(SimpleSpanProcessor):
 
         mlflow_span._span._name = comp_type or comp_alias or span.name
 
-        inputs = span.attributes.get("haystack.component.input")
-        outputs = span.attributes.get("haystack.component.output")
-        if inputs is not None:
+        if (inputs := span.attributes.get("haystack.component.input")) is not None:
             try:
                 mlflow_span.set_inputs(json.loads(inputs))
             except Exception:
                 mlflow_span.set_inputs(inputs)
-        if outputs is not None:
+        if (outputs := span.attributes.get("haystack.component.output")) is not None:
             try:
                 mlflow_span.set_outputs(json.loads(outputs))
             except Exception:
@@ -186,11 +184,13 @@ def _parse_token_usage(outputs: Any) -> dict[str, int] | None:
 
         replies = outputs.get("replies")
         if isinstance(replies, list) and len(replies) > 0:
-            usage = replies[0].get("meta").get("usage") if isinstance(replies[0], dict) else None
+            usage = (
+                replies[0].get("meta", {}).get("usage", {}) if isinstance(replies[0], dict) else {}
+            )
 
         meta = outputs.get("meta")
         if isinstance(meta, list) and len(meta) > 0:
-            usage = meta[0].get("usage")
+            usage = meta[0].get("usage", {}) if isinstance(meta[0], dict) else {}
 
         if isinstance(usage, dict):
             in_tok = usage.get("prompt_tokens", 0)
