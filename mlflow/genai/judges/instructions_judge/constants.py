@@ -1,7 +1,7 @@
 """Constants for InstructionsJudge."""
 
 INSTRUCTIONS_JUDGE_EVALUATION_PROMPT_TEMPLATE = """
-You are evaluating the provided data according to specific task instructions. 
+You are evaluating the provided data according to specific task instructions.
 
 You MUST follow this methodology:
 
