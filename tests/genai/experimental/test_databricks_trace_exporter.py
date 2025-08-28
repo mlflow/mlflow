@@ -344,7 +344,7 @@ def test_archive_with_no_experiment_id(monkeypatch):
     trace = Trace(info=trace_info, data=trace_data)
 
     with mock.patch(
-        "mlflow.tracing.utils.databricks_delta_utils.DatabricksTraceServerClient"
+        "mlflow.tracing.export.databricks_delta.DatabricksTraceServerClient"
     ) as mock_client_class:
         # Archive should return early without calling the client
         mixin.archive_trace(trace)
@@ -356,7 +356,7 @@ def test_archive_with_missing_archival_config(sample_trace_without_spans, monkey
 
     with (
         mock.patch(
-            "mlflow.tracing.utils.databricks_delta_utils.DatabricksTraceServerClient"
+            "mlflow.tracing.export.databricks_delta.DatabricksTraceServerClient"
         ) as mock_client_class,
         mock.patch("mlflow.tracing.export.databricks_delta._logger") as mock_logger,
         mock.patch("mlflow.tracing.export.databricks_delta.TTLCache") as mock_cache_class,
@@ -392,7 +392,7 @@ def test_delta_mixin_archive_archival_config_error_handling(
 
     with (
         mock.patch(
-            "mlflow.tracing.utils.databricks_delta_utils.DatabricksTraceServerClient"
+            "mlflow.tracing.export.databricks_delta.DatabricksTraceServerClient"
         ) as mock_client_class,
         mock.patch("mlflow.tracing.export.databricks_delta._logger") as mock_logger,
     ):
@@ -418,7 +418,7 @@ def test_delta_mixin_archive_with_valid_archival_config(
 
     with (
         mock.patch(
-            "mlflow.tracing.utils.databricks_delta_utils.DatabricksTraceServerClient"
+            "mlflow.tracing.export.databricks_delta.DatabricksTraceServerClient"
         ) as mock_client_class,
         mock.patch.object(mixin, "_archive_trace") as mock_archive_trace,
     ):
@@ -450,7 +450,7 @@ def test_archive_trace_integration_flow(sample_trace_with_spans, sample_config, 
 
     with (
         mock.patch(
-            "mlflow.tracing.utils.databricks_delta_utils.DatabricksTraceServerClient"
+            "mlflow.tracing.export.databricks_delta.DatabricksTraceServerClient"
         ) as mock_client_class,
         mock.patch(
             "mlflow.tracing.export.databricks_delta.ZerobusStreamFactory.get_instance"
@@ -488,7 +488,7 @@ def test_archive_trace_with_empty_spans(sample_trace_without_spans, sample_confi
 
     with (
         mock.patch(
-            "mlflow.tracing.utils.databricks_delta_utils.DatabricksTraceServerClient"
+            "mlflow.tracing.export.databricks_delta.DatabricksTraceServerClient"
         ) as mock_client_class,
         mock.patch(
             "mlflow.tracing.export.databricks_delta.ZerobusStreamFactory.get_instance"
@@ -531,7 +531,7 @@ def test_archive_trace_ingest_stream_error_handling(
 
     with (
         mock.patch(
-            "mlflow.tracing.utils.databricks_delta_utils.DatabricksTraceServerClient"
+            "mlflow.tracing.export.databricks_delta.DatabricksTraceServerClient"
         ) as mock_client_class,
         mock.patch(
             "mlflow.tracing.export.databricks_delta.ZerobusStreamFactory.get_instance"
@@ -598,7 +598,7 @@ def test_ingest_stream_factory_get_or_create_stream():
     mock_stream = mock.Mock()
 
     with mock.patch(
-        "mlflow.tracing.utils.databricks_delta_utils.create_archival_zerobus_sdk"
+        "mlflow.tracing.export.databricks_delta.create_archival_zerobus_sdk"
     ) as mock_create_sdk:
         mock_sdk_instance = mock.Mock()
         mock_sdk_instance.create_stream.return_value = mock_stream
@@ -638,7 +638,7 @@ def test_ingest_stream_factory_recreates_stream_on_invalid_state(invalid_state):
 
     with (
         mock.patch(
-            "mlflow.tracing.utils.databricks_delta_utils.create_archival_zerobus_sdk"
+            "mlflow.tracing.export.databricks_delta.create_archival_zerobus_sdk"
         ) as mock_create_sdk,
         mock.patch("mlflow.tracing.export.databricks_delta._logger") as mock_logger,
     ):
@@ -692,7 +692,7 @@ def test_ingest_stream_factory_reuses_valid_stream(valid_state):
 
     with (
         mock.patch(
-            "mlflow.tracing.utils.databricks_delta_utils.create_archival_zerobus_sdk"
+            "mlflow.tracing.export.databricks_delta.create_archival_zerobus_sdk"
         ) as mock_create_sdk,
         mock.patch("mlflow.tracing.export.databricks_delta._logger") as mock_logger,
     ):
