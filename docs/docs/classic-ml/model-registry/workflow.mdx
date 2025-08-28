@@ -202,6 +202,40 @@ import os
 mlflow.set_registry_uri("databricks-uc://my-databricks-shard1")
 ```
 
+#### Migrating to Databricks Unity Catalog Model Registry from Databricks Workspace Model Registry
+
+To migrate model versions from the Databricks Workspace Model Registry to the Databricks Unity Catalog Model Registry, we
+recommend using the <APILink fn="mlflow.client.MlflowClient.copy_model_version">`copy_model_version()`</APILink> API. The
+source URI would be from your workspace registry, and the destination would be a 3-level UC model name, e.g.
+
+```python
+from mlflow import MlflowClient
+
+# Registry URI must be set to workspace registry
+client = MlflowClient(registry_uri="databricks")
+src_model_uri = f"models:/my_wmr_model/1"
+uc_migrated_copy = client.copy_model_version(
+    src_model_uri, "mycatalog.myschema.my_uc_model"
+)
+```
+
+Additionally, models registered to Databricks Unity Catalog require a signature to be set. If the workspace-registered
+model version does not already have a signature set, we recommend following the [Model Signatures](/ml/model/signatures)
+instructions to add one. However, to ease the burden of migration, you can also set the environment variable
+`MLFLOW_REGISTRY_MIGRATION_SKIP_SIGNATURE_VALIDATION` to `true` that will work ONLY with the
+
+<APILink fn="mlflow.client.MlflowClient.copy_model_version">`copy_model_version()`</APILink> API as indicated above, and
+allow you to migrate the model to Unity Catalog, bypassing the signature requirement.
+
+```python
+import os
+
+os.environ["MLFLOW_REGISTRY_MIGRATION_SKIP_SIGNATURE_VALIDATION"] = "True"
+```
+
+NOTE: not having a signature on your Unity Catalog registered model version will limit the available feature set.
+For a full list of what will be unavailable, refer to the [Databricks documentation](https://docs.databricks.com/aws/en/machine-learning/manage-model-lifecycle/#train-and-register-unity-catalog-compatible-models).
+
 ### OSS Unity Catalog Model Registry
 
 To use an [OSS Unity Catalog](https://www.unitycatalog.io/) server as your MLflow model registry, specify the UC server address in the
