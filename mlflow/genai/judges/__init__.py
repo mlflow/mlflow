@@ -18,7 +18,7 @@ __all__ = [
     "Judge",
     "AlignmentOptimizer",
     # Optimizer classes
-    "DSPyAlignmentOptimizer", 
+    "DSPyAlignmentOptimizer",
     "SIMBAAlignmentOptimizer",
     # Existing builtin judges
     "CategoricalRating",

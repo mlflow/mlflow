@@ -3,12 +3,13 @@
 import json
 import logging
 from abc import abstractmethod
-from typing import Any
+from typing import Any, Callable
 
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import AlignmentOptimizer, Judge
 from mlflow.utils.annotations import experimental
+from mlflow.genai.judges.utils import get_default_model
 
 logger = logging.getLogger(__name__)
 
@@ -30,10 +31,10 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
             model: Model to use for DSPy optimization. If None, uses get_default_model().
             **kwargs: Additional keyword arguments.
         """
-        from mlflow.genai.judges.utils import get_default_model
 
-        # Private member variables
+        # ALKIS: Set up these private variables using PrivateAttr similar to other parts of the codebase
         self._logger = logging.getLogger(self.__class__.__name__)
+        # ALKIS: Remove this variable
         self._kwargs = kwargs
         # Private member variable for the model, defaulted to get_default_model()
         self._model = model if model is not None else get_default_model()
@@ -257,7 +258,7 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
         except ImportError:
             raise MlflowException("DSPy library is required but not installed")
 
-    def _create_agreement_metric(self) -> callable:
+    def _create_agreement_metric(self) -> Callable:
         """
         Create DSPy metric function for judge optimization.
 
@@ -273,16 +274,16 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
                 predicted = getattr(pred, "result", None)
 
                 if expected is None or predicted is None:
-                    return 0.0
+                    return False
 
                 # Normalize both to consistent format
                 expected_norm = str(expected).lower().strip()
                 predicted_norm = str(predicted).lower().strip()
 
-                return 1.0 if expected_norm == predicted_norm else 0.0
+                return expected_norm == predicted_norm
             except Exception:
                 # Return 0 for any errors
-                return 0.0
+                return False
 
         return agreement_metric
 
@@ -299,6 +300,7 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
             return dspy.LM(model=self._model)
         except ImportError:
             raise MlflowException("DSPy library is required but not installed")
+        # ALKIS: Add another handler for the case that dspy.LM fails
 
     def align(self, judge: Judge, traces: list[Trace]) -> Judge:
         """
@@ -341,7 +343,7 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
                 signature = self._create_dspy_signature(instructions)
 
                 # Create DSPy program
-                program = dspy.ChainOfThought(signature)
+                program = dspy.Predict(signature)
                 self._logger.info("Created DSPy program with signature")
 
                 # Convert traces to DSPy format
@@ -405,8 +407,5 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
         Returns:
             A new optimized Judge instance
         """
-        # TODO: Call `make_judge()` with the updated instructions
-        # For now, return the original judge as a placeholder
-        # In a real implementation, this would create a new judge with optimized instructions
-        self._logger.info("Created optimized judge (placeholder implementation)")
+        # ALKIS: Call `make_judge()` with the updated instructions and return the new judge
         return original_judge
