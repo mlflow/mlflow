@@ -12,6 +12,7 @@ import re
 import sys
 import textwrap
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -36,8 +37,8 @@ class DiffHunk:
 
 @dataclass
 class FileDiff:
-    old_file: str
-    new_file: str
+    old_file: Path
+    new_file: Path
     hunks: list[DiffHunk]
 
 
@@ -71,8 +72,8 @@ class DiffParser:
             self.current_line += 1
             return None
 
-        old_file = match.group(1)
-        new_file = match.group(2)
+        old_file = Path(match.group(1))
+        new_file = Path(match.group(2))
         self.current_line += 1
 
         # Check for binary files
@@ -469,7 +470,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Format Git diffs into readable side-by-side output"
     )
-    parser.add_argument("--pr", type=str, help="GitHub PR URL to fetch and format diff")
+    parser.add_argument(
+        "--pr", type=str, required=True, help="GitHub PR URL to fetch and format diff"
+    )
     parser.add_argument(
         "--width", type=int, default=100, help="Line width for formatting (default: 80)"
     )
@@ -478,7 +481,7 @@ def main() -> None:
     args = parser.parse_args()
 
     # Get diff text from PR URL or stdin
-    diff_text = get_pr_diff(args.pr) if args.pr else sys.stdin.read()
+    diff_text = get_pr_diff(args.pr)
 
     if not diff_text.strip():
         print("No diff data provided.", file=sys.stderr)
@@ -495,14 +498,8 @@ def main() -> None:
     diff_parser = DiffParser(diff_text)
     file_diffs = diff_parser.parse()
 
-    # Filter by file if specified
-    if args.file:
-        file_diffs = [
-            fd for fd in file_diffs if fd.new_file == args.file or fd.old_file == args.file
-        ]
-        if not file_diffs:
-            print(f"No diff found for file: {args.file}", file=sys.stderr)
-            sys.exit(1)
+    # Exclude non-python files
+    file_diffs = [f for f in file_diffs if f.new_file.suffix == ".py" or f.old_file.suffix == ".py"]
 
     # Calculate the required line number width
     line_num_width = TextFormatter.calculate_line_num_width(file_diffs)
