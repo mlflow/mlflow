@@ -907,7 +907,12 @@ class UcModelRegistryStore(BaseRestStore):
         bypass_signature_validation: bool = False,
     ):
         """
-        Create a new model version from given source and run ID.
+        Private method to create a new model version from given source and run ID, with optional
+        bypass of signature validation. This bypass is currently only used by the
+        DatabricksWorkspaceModelRegistryRestStore to migrate model versions from the Databricks
+        workspace registry to Unity Catalog via copy_model_version. We do not want to allow
+        normal use of create_model_version to bypass signature validation, so we have this
+        private method.
 
         Args:
             name: Registered model name.
@@ -1028,6 +1033,7 @@ class UcModelRegistryStore(BaseRestStore):
             source=source,
             run_id=run_id,
             tags=tags,
+            run_link=run_link,
             description=description,
             local_model_path=local_model_path,
             model_id=model_id,

@@ -21,9 +21,7 @@ def store(creds):
 
 
 def _expected_unsupported_method_error_message(method):
-    return (
-        f"Method '{method}' is unsupported for models in the Workspace Model Registry"
-    )
+    return f"Method '{method}' is unsupported for models in the Workspace Model Registry"
 
 
 def test_workspace_model_registry_alias_apis_unsupported(store):
@@ -34,9 +32,7 @@ def test_workspace_model_registry_alias_apis_unsupported(store):
         store.set_registered_model_alias(name="mycoolmodel", alias="myalias", version=1)
     with pytest.raises(
         MlflowException,
-        match=_expected_unsupported_method_error_message(
-            "delete_registered_model_alias"
-        ),
+        match=_expected_unsupported_method_error_message("delete_registered_model_alias"),
     ):
         store.delete_registered_model_alias(name="mycoolmodel", alias="myalias")
     with pytest.raises(
@@ -61,9 +57,7 @@ def test_copy_model_version_regular_path(store):
     )
 
     # Mock the parent class method
-    with mock.patch.object(
-        store.__class__.__bases__[0], "copy_model_version"
-    ) as mock_parent_copy:
+    with mock.patch.object(store.__class__.__bases__[0], "copy_model_version") as mock_parent_copy:
         mock_parent_copy.return_value = ModelVersion(
             name="new_model",
             version="1",
@@ -172,9 +166,7 @@ def test_copy_model_version_unity_catalog_migration_download_failure(store):
     with mock.patch("mlflow.artifacts.download_artifacts") as mock_download:
         mock_download.side_effect = Exception("Download failed")
 
-        with pytest.raises(
-            MlflowException, match="Unable to download model test_model version 1"
-        ):
+        with pytest.raises(MlflowException, match="Unable to download model test_model version 1"):
             store.copy_model_version(src_mv, dst_name)
 
         # Verify download_artifacts was called

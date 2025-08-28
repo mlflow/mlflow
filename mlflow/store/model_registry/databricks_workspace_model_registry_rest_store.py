@@ -56,12 +56,11 @@ class DatabricksWorkspaceModelRegistryRestStore(RestStore):
                     f"exist and that you can download them via "
                     f"mlflow.artifacts.download_artifacts()"
                 ) from e
-            uc_store = UcModelRegistryStore(
-                store_uri="databricks-uc", tracking_uri="databricks"
+            uc_store = UcModelRegistryStore(store_uri="databricks-uc", tracking_uri="databricks")
+            env_var = (
+                mlflow.environment_variables.MLFLOW_REGISTRY_MIGRATION_SKIP_SIGNATURE_VALIDATION
             )
-            bypass_signature_validation = (
-                mlflow.environment_variables.MLFLOW_REGISTRY_MIGRATION_SKIP_SIGNATURE_VALIDATION.get()
-            )
+            bypass_signature_validation = env_var.get()
             return uc_store._create_model_version_with_optional_signature_validation(
                 name=dst_name,
                 source=source_uri,
