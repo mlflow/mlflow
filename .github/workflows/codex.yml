@@ -21,6 +21,7 @@ jobs:
           # download https://github.com/openai/codex/releases/download/rust-v0.25.0/codex-aarch64-unknown-linux-musl.tar.gz
           curl -L -o codex.tar.gz https://github.com/openai/codex/releases/download/rust-v0.25.0/codex-aarch64-unknown-linux-musl.tar.gz
           tar -xzf codex.tar.gz
+          ls
           mv codex /tmp/codex/bin
           chmod +x /tmp/codex/bin/codex
 
