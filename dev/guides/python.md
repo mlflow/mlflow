@@ -89,13 +89,13 @@ from unittest import mock
 # Bad
 def test_foo():
     with mock.patch("foo.bar"):
-        func_calling_bar()
+        calls_bar()
 
 
 # Good
 def test_bar():
     with mock.patch("foo.bar") as mock_bar:
-        func_calling_bar()
+        calls_bar()
         mock_bar.assert_called_once()
 ```
 
