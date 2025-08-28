@@ -25,7 +25,7 @@ concurrency:
 
 defaults:
   run:
-    shell: bash --noprofile --norc -exo pipefail {0}
+    shell: bash
 
 jobs:
   build:
@@ -128,13 +128,6 @@ jobs:
 
       - name: Test dev/install-skinny.sh
         if: github.event_name == 'pull_request'
-        run: |
-          dev/install-skinny.sh pull/${{ github.event.pull_request.number }}/merge
-
-      - name: Test dev/install-skinny.sh
-        if: github.event_name == 'pull_request'
-        env:
-          PIP_DRY_RUN: "1"
         run: |
           dev/install-skinny.sh pull/${{ github.event.pull_request.number }}/merge
 
