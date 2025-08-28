@@ -38,8 +38,8 @@ def _get_workspace_id():
         from databricks.sdk import WorkspaceClient
 
         return WorkspaceClient().get_workspace_id()
-    except ImportError:
-        raise ImportError("databricks-sdk is required for trace archival functionality")
+    except ImportError as e:
+        raise ImportError("databricks-sdk is required for trace archival functionality") from e
 
 
 def create_archival_zerobus_sdk():
@@ -308,7 +308,7 @@ class DatabricksTraceServerClient:
 
     def create_trace_destination(
         self, experiment_id: str, catalog: str, schema: str, table_prefix: str | None = None
-    ) -> "DatabricksTraceDeltaStorageConfig":
+    ) -> DatabricksTraceDeltaStorageConfig:
         """
         Create a trace destination for archiving traces from an MLflow experiment.
 
@@ -351,9 +351,7 @@ class DatabricksTraceServerClient:
         # Convert response to config
         return self._proto_to_config(response_proto)
 
-    def get_trace_destination(
-        self, experiment_id: str
-    ) -> "DatabricksTraceDeltaStorageConfig | None":
+    def get_trace_destination(self, experiment_id: str) -> DatabricksTraceDeltaStorageConfig | None:
         """
         Get the trace destination configuration for an experiment.
 
@@ -430,9 +428,7 @@ class DatabricksTraceServerClient:
             response_proto=Empty(),
         )
 
-    def _proto_to_config(
-        self, proto: "ProtoTraceDestination"
-    ) -> "DatabricksTraceDeltaStorageConfig":
+    def _proto_to_config(self, proto: ProtoTraceDestination) -> DatabricksTraceDeltaStorageConfig:
         """Convert a TraceDestination proto to DatabricksTraceDeltaStorageConfig."""
         # Validate that this is an experiment location
         if proto.trace_location.type != ProtoTraceLocation.TraceLocationType.MLFLOW_EXPERIMENT:
