@@ -217,13 +217,14 @@ def create_run(
     help="ID of the run to link traces to.",
 )
 @click.option(
+    "trace_ids",
     "--trace-id",
     "-t",
     multiple=True,
     required=True,
     help="Trace ID to link to the run. Can be specified multiple times (maximum 100 traces).",
 )
-def link_traces(run_id: str, trace_id: tuple[str, ...]) -> None:
+def link_traces(run_id: str, trace_ids: tuple[str, ...]) -> None:
     """
     Link traces to a run.
 
@@ -231,12 +232,9 @@ def link_traces(run_id: str, trace_id: tuple[str, ...]) -> None:
     linked to runs to establish relationships between traces and runs.
     Maximum 100 traces can be linked in a single command.
     """
-    # Convert tuple to list
-    trace_ids = list(trace_id)
-
     try:
         client = MlflowClient()
-        client.link_traces_to_run(trace_ids, run_id)
+        client.link_traces_to_run(list(trace_ids), run_id)
 
         # Output success message with count
         click.echo(f"Successfully linked {len(trace_ids)} trace(s) to run '{run_id}'")

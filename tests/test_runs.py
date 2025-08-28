@@ -3,7 +3,7 @@ import logging
 import os
 import textwrap
 from unittest import mock
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from click.testing import CliRunner
@@ -217,8 +217,7 @@ def test_create_run_duplicate_tag_key():
 
 
 def test_link_traces_single_trace():
-    mock_client = MagicMock()
-    with patch("mlflow.runs.MlflowClient", return_value=mock_client):
+    with patch("mlflow.runs.MlflowClient.link_traces_to_run") as mock_link_traces:
         result = CliRunner().invoke(
             link_traces,
             ["--run-id", "test_run_123", "--trace-id", "trace_abc"],
@@ -226,12 +225,11 @@ def test_link_traces_single_trace():
 
         assert result.exit_code == 0
         assert "Successfully linked 1 trace(s) to run 'test_run_123'" in result.output
-        mock_client.link_traces_to_run.assert_called_once_with(["trace_abc"], "test_run_123")
+        mock_link_traces.assert_called_once_with(["trace_abc"], "test_run_123")
 
 
 def test_link_traces_multiple_traces():
-    mock_client = MagicMock()
-    with patch("mlflow.runs.MlflowClient", return_value=mock_client):
+    with patch("mlflow.runs.MlflowClient.link_traces_to_run") as mock_link_traces:
         result = CliRunner().invoke(
             link_traces,
             [
@@ -248,14 +246,11 @@ def test_link_traces_multiple_traces():
 
         assert result.exit_code == 0
         assert "Successfully linked 3 trace(s) to run 'test_run_456'" in result.output
-        mock_client.link_traces_to_run.assert_called_once_with(
-            ["trace_1", "trace_2", "trace_3"], "test_run_456"
-        )
+        mock_link_traces.assert_called_once_with(["trace_1", "trace_2", "trace_3"], "test_run_456")
 
 
 def test_link_traces_with_short_option():
-    mock_client = MagicMock()
-    with patch("mlflow.runs.MlflowClient", return_value=mock_client):
+    with patch("mlflow.runs.MlflowClient.link_traces_to_run") as mock_link_traces:
         result = CliRunner().invoke(
             link_traces,
             ["--run-id", "run_789", "-t", "trace_x", "-t", "trace_y"],
@@ -263,16 +258,17 @@ def test_link_traces_with_short_option():
 
         assert result.exit_code == 0
         assert "Successfully linked 2 trace(s) to run 'run_789'" in result.output
-        mock_client.link_traces_to_run.assert_called_once_with(["trace_x", "trace_y"], "run_789")
+        mock_link_traces.assert_called_once_with(["trace_x", "trace_y"], "run_789")
 
 
 def test_link_traces_file_store_error():
-    mock_client = MagicMock()
-    mock_client.link_traces_to_run.side_effect = MlflowException(
-        "Linking traces to runs is not supported in FileStore. "
-        "Please use a database-backed store (e.g., SQLAlchemy store) for this feature."
-    )
-    with patch("mlflow.runs.MlflowClient", return_value=mock_client):
+    with patch(
+        "mlflow.runs.MlflowClient.link_traces_to_run",
+        side_effect=MlflowException(
+            "Linking traces to runs is not supported in FileStore. "
+            "Please use a database-backed store (e.g., SQLAlchemy store) for this feature."
+        ),
+    ):
         result = CliRunner().invoke(
             link_traces,
             ["--run-id", "test_run", "--trace-id", "trace_1"],
@@ -284,11 +280,12 @@ def test_link_traces_file_store_error():
 
 
 def test_link_traces_too_many_traces_error():
-    mock_client = MagicMock()
-    mock_client.link_traces_to_run.side_effect = MlflowException(
-        "Cannot link more than 100 traces to a run in a single request. Provided 101 traces."
-    )
-    with patch("mlflow.runs.MlflowClient", return_value=mock_client):
+    with patch(
+        "mlflow.runs.MlflowClient.link_traces_to_run",
+        side_effect=MlflowException(
+            "Cannot link more than 100 traces to a run in a single request. Provided 101 traces."
+        ),
+    ):
         result = CliRunner().invoke(
             link_traces,
             ["--run-id", "test_run", "--trace-id", "trace_1"],
@@ -314,9 +311,10 @@ def test_link_traces_missing_trace_id():
 
 
 def test_link_traces_generic_error():
-    mock_client = MagicMock()
-    mock_client.link_traces_to_run.side_effect = MlflowException("Some other error")
-    with patch("mlflow.runs.MlflowClient", return_value=mock_client):
+    with patch(
+        "mlflow.runs.MlflowClient.link_traces_to_run",
+        side_effect=MlflowException("Some other error"),
+    ):
         result = CliRunner().invoke(
             link_traces,
             ["--run-id", "test_run", "--trace-id", "trace_1"],
