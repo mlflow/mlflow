@@ -137,11 +137,9 @@ cd docs && yarn serve --port 8080
 
 See `mlflow/server/js/` for frontend development.
 
-## Code Style
+## Language-Specific Guidelines
 
-- Do not add docstrings to functions that simply repeat the function name
-- Prefer using `pytest.mark.parametrize` for tests with similar logic but different parameters
-- Use match statements (Python 3.10+) for cleaner pattern matching where appropriate
+- [Python](/dev/style-guides/python.md)
 
 ## Git Workflow
 
