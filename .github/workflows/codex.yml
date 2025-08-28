@@ -34,8 +34,8 @@ jobs:
           mkdir -p ~/.codex
           cat <<'EOF' > ~/.codex/config.toml
           # https://github.com/marketplace/models/azure-openai/gpt-4-1
-          model = "openai/gpt-4.1"
-          model_provider = "github-models"
+          # model = "openai/gpt-4.1"
+          # model_provider = "github-models"
           model_verbosity = "high"
           approval_policy = "never"
 
@@ -85,6 +85,7 @@ jobs:
 
       - name: Run codex
         env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # codex sometimes hangs. Use timeout to prevent this.
