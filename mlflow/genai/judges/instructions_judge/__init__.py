@@ -3,12 +3,13 @@ from typing import Any
 
 from pydantic import PrivateAttr
 
+import mlflow
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import Judge
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils import format_prompt, get_default_model, invoke_judge_model
-from mlflow.genai.scorers.base import ScorerKind
+from mlflow.genai.scorers.base import _SERIALIZATION_VERSION, ScorerKind
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
 
@@ -151,6 +152,10 @@ class InstructionsJudge(Judge):
         """Return the kind of scorer this judge represents."""
         return ScorerKind.CLASS
 
+    def _check_can_be_registered(self, error_message: str | None = None) -> None:
+        """Override to allow InstructionsJudge to be registered despite being ScorerKind.CLASS."""
+        # InstructionsJudge can be registered because it has proper serialization support
+
     def _validate_model_format(self) -> None:
         """
         Validate that the model is in a valid format.
@@ -244,6 +249,24 @@ class InstructionsJudge(Judge):
                 "and expectations. Each variable must be present in at least one of them.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+
+    def model_dump(self, **kwargs) -> dict[str, Any]:
+        """Override model_dump to serialize as a SerializedScorer."""
+        return {
+            "name": self.name,
+            "aggregations": self.aggregations,
+            "mlflow_version": mlflow.__version__,
+            "serialization_version": _SERIALIZATION_VERSION,
+            "instructions_judge_pydantic_data": {
+                "instructions": self._instructions,
+                "model": self._model,
+            },
+            "builtin_scorer_class": None,
+            "builtin_scorer_pydantic_data": None,
+            "call_source": None,
+            "call_signature": None,
+            "original_func_name": None,
+        }
 
 
 __all__ = ["InstructionsJudge"]

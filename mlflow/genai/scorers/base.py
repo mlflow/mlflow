@@ -79,21 +79,29 @@ class SerializedScorer:
     call_signature: str | None = None
     original_func_name: str | None = None
 
+    # InstructionsJudge fields (for make_judge created judges)
+    instructions_judge_pydantic_data: dict[str, Any] | None = None
+
     def __post_init__(self):
-        """Validate that either builtin scorer fields or decorator scorer fields are present."""
+        """Validate that exactly one type of scorer fields is present."""
         has_builtin_fields = self.builtin_scorer_class is not None
         has_decorator_fields = self.call_source is not None
+        has_instructions_fields = self.instructions_judge_pydantic_data is not None
 
-        if not has_builtin_fields and not has_decorator_fields:
+        # Count how many field types are present
+        field_count = sum([has_builtin_fields, has_decorator_fields, has_instructions_fields])
+
+        if field_count == 0:
             raise ValueError(
                 "SerializedScorer must have either builtin scorer fields "
-                "(builtin_scorer_class) or decorator scorer fields (call_source) present"
+                "(builtin_scorer_class), decorator scorer fields (call_source), "
+                "or instructions judge fields (instructions_judge_pydantic_data) present"
             )
 
-        if has_builtin_fields and has_decorator_fields:
+        if field_count > 1:
             raise ValueError(
-                "SerializedScorer cannot have both builtin scorer fields and "
-                "decorator scorer fields present simultaneously"
+                "SerializedScorer cannot have multiple types of scorer fields "
+                "present simultaneously"
             )
 
 
@@ -229,6 +237,18 @@ class Scorer(BaseModel):
         # Handle decorator scorers
         elif serialized.call_source and serialized.call_signature and serialized.original_func_name:
             return cls._reconstruct_decorator_scorer(serialized)
+
+        # Handle InstructionsJudge scorers
+        elif serialized.instructions_judge_pydantic_data:
+            from mlflow.genai.judges.instructions_judge import InstructionsJudge
+
+            data = serialized.instructions_judge_pydantic_data
+            return InstructionsJudge(
+                name=serialized.name,
+                instructions=data["instructions"],
+                model=data["model"],
+                aggregations=serialized.aggregations,
+            )
 
         # Invalid serialized data
         else:
