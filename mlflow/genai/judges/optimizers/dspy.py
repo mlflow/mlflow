@@ -244,6 +244,12 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
         try:
             import dspy
 
+            from mlflow.genai.judges.utils import get_judge_response_format
+
+            # Get field descriptions from the response format schema for consistency
+            response_format = get_judge_response_format()
+            schema_properties = response_format["json_schema"]["schema"]["properties"]
+
             return dspy.make_signature(
                 {
                     InstructionsJudge.get_template_variable_inputs(): (
@@ -256,11 +262,19 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
                     ),
                     InstructionsJudge.get_template_variable_result(): (
                         str,
-                        dspy.OutputField(desc="pass or fail based on the inputs and outputs"),
+                        dspy.OutputField(
+                            desc=schema_properties[
+                                InstructionsJudge.get_template_variable_result()
+                            ]["description"]
+                        ),
                     ),
                     InstructionsJudge.get_template_variable_rationale(): (
                         str,
-                        dspy.OutputField(desc="Rationale explaining the pass or fail result"),
+                        dspy.OutputField(
+                            desc=schema_properties[
+                                InstructionsJudge.get_template_variable_rationale()
+                            ]["description"]
+                        ),
                     ),
                 },
                 instructions,

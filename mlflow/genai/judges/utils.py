@@ -150,7 +150,7 @@ def _invoke_litellm(
     litellm_model_uri = f"{provider}/{model_name}"
     messages = [{"role": "user", "content": prompt}]
     tools = []
-    response_format = _get_judge_response_format()
+    response_format = get_judge_response_format()
 
     if trace is not None:
         judge_tools = list_judge_tools()
@@ -253,7 +253,7 @@ def _create_litellm_tool_response_message(
     }
 
 
-def _get_judge_response_format() -> dict[str, Any]:
+def get_judge_response_format() -> dict[str, Any]:
     """
     Get the response format for judge evaluations.
 
