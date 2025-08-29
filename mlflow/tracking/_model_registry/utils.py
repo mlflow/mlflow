@@ -202,9 +202,9 @@ def _get_rest_store(store_uri, **_):
     return RestStore(partial(get_default_host_creds, store_uri))
 
 
-def _get_databricks_rest_store(store_uri, **_):
+def _get_databricks_rest_store(store_uri, tracking_uri, **_):
     warn_on_deprecated_cross_workspace_registry_uri(registry_uri=store_uri)
-    return DatabricksWorkspaceModelRegistryRestStore(partial(get_databricks_host_creds, store_uri))
+    return DatabricksWorkspaceModelRegistryRestStore(store_uri, tracking_uri)
 
 
 # We define the global variable as `None` so that instantiating the store does not lead to circular

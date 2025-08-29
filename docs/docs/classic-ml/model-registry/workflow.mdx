@@ -252,9 +252,9 @@ workspace_client = MlflowClient(registry_uri="databricks")
 uc_client = MlflowClient(registry_uri="databricks-uc")
 
 
-# Make a dummy model that can be used to increment the version number
-def make_dummy_uri() -> str:
-    class _Dummy(mlflow.pyfunc.PythonModel):
+# Make a placeholder model that can be used to increment the version number
+def make_placeholder_uri() -> str:
+    class _Placeholder(mlflow.pyfunc.PythonModel):
         def predict(self, ctx, x):
             return None
 
@@ -262,7 +262,7 @@ def make_dummy_uri() -> str:
         schema = Schema([ColSpec(AnyType())])
         model = mlflow.pyfunc.log_model(
             name="m",
-            python_model=_Dummy(),
+            python_model=_Placeholder(),
             signature=ModelSignature(inputs=schema, outputs=schema),
         )
         return f"models:/{model.model_id}"
@@ -281,17 +281,19 @@ def src_has_mv(name: str, v: int) -> bool:
 # a destination Databricks Unity Catalog registered model
 def copy_model_versions_to_uc(src: str, dst: str) -> None:
     latests = workspace_client.get_latest_versions(src)
-    top = max(int(v.version) for v in latests)
-    dummy_uri = make_dummy_uri()
+    max_version_number = max(int(v.version) for v in latests)
+    dummy_uri = make_placeholder_uri()
 
-    for v in range(1, top + 1):
+    for v in range(1, max_version_number + 1):
         if src_has_mv(src, v):
             mlflow.set_registry_uri("databricks")
             workspace_client.copy_model_version(f"models:/{src}/{str(v)}", dst)
         else:
             mlflow.set_registry_uri("databricks-uc")
+            # Create and immediately delete a placeholder model version to increment
+            # the version counter on the UC model, so the version numbers on the UC
+            # model match those on the workspace registered model.
             mv = uc_client.create_model_version(dst, dummy_uri)
-            # delete immediately so it just bumps numbering
             uc_client.delete_model_version(dst, mv.version)
 
 
