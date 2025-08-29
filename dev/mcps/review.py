@@ -7,8 +7,6 @@
 GitHub PR Review MCP Server - Tools for automated PR code reviews.
 
 Provides MCP tools for fetching PR diffs with line numbers and adding review comments.
-Run with: fastmcp dev/review_mcp.py
-Requires: GITHUB_TOKEN environment variable for API authentication.
 """
 
 import functools

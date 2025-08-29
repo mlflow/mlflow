@@ -79,7 +79,7 @@ jobs:
           args = [
             "run",
             "--no-project",
-            "dev/review_mcp.py"
+            "dev/mcps/review.py"
           ]
           env = { "GITHUB_TOKEN" = "${{ secrets.GITHUB_TOKEN }}" }
           EOF
