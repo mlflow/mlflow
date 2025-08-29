@@ -56,8 +56,8 @@ def github_api_request(
 
 
 @functools.lru_cache(maxsize=32)
-def fetch_pr_diff(owner: str, repo: str, pr_number: int) -> str:
-    url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}"
+def fetch_pr_diff(owner: str, repo: str, pull_number: int) -> str:
+    url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pull_number}"
     return github_api_request(url, accept_header="application/vnd.github.v3.diff")
 
 
@@ -149,9 +149,9 @@ def fetch_diff(
     return filter_python_diff(full_diff)
 
 
-def fetch_pr_head_commit(owner: str, repo: str, pr_number: str) -> str:
+def fetch_pr_head_commit(owner: str, repo: str, pull_number: int) -> str:
     """Fetch the head commit SHA of a pull request."""
-    url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}"
+    url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pull_number}"
     pr_data = github_api_request(url)
     return pr_data["head"]["sha"]
 
@@ -200,7 +200,7 @@ def add_pr_review_comment(
     https://docs.github.com/en/rest/pulls/comments?apiVersion=2022-11-28#create-a-review-comment-for-a-pull-request
     """
     # First, fetch the head commit SHA
-    commit_id = fetch_pr_head_commit(owner, repo, str(pull_number))
+    commit_id = fetch_pr_head_commit(owner, repo, pull_number)
     url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pull_number}/comments"
     data = {
         "commit_id": commit_id,
