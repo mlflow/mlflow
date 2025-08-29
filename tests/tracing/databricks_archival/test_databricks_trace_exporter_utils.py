@@ -416,9 +416,9 @@ def test_create_trace_destination_success(mock_host_creds):
     response_proto.trace_location.type = ProtoTraceLocation.TraceLocationType.MLFLOW_EXPERIMENT
     response_proto.trace_location.mlflow_experiment.experiment_id = "exp123"
     response_proto.spans_table_name = "catalog.schema.spans_123"
-    response_proto.events_table_name = "catalog.schema.events_123"
+    response_proto.logs_table_name = "catalog.schema.events_123"
     response_proto.spans_schema_version = "v1"
-    response_proto.events_schema_version = "v1"
+    response_proto.logs_schema_version = "v1"
 
     with mock.patch(
         "mlflow.tracing.utils.databricks_delta_utils.call_endpoint",
@@ -442,7 +442,7 @@ def test_create_trace_destination_success(mock_host_creds):
         assert isinstance(result, DatabricksTraceDeltaStorageConfig)
         assert result.experiment_id == "exp123"
         assert result.spans_table_name == "catalog.schema.spans_123"
-        assert result.events_table_name == "catalog.schema.events_123"
+        assert result.logs_table_name == "catalog.schema.events_123"
 
 
 def test_create_trace_destination_without_table_prefix(mock_host_creds):
@@ -453,9 +453,9 @@ def test_create_trace_destination_without_table_prefix(mock_host_creds):
     response_proto.trace_location.type = ProtoTraceLocation.TraceLocationType.MLFLOW_EXPERIMENT
     response_proto.trace_location.mlflow_experiment.experiment_id = "exp123"
     response_proto.spans_table_name = "catalog.schema.spans_generated"
-    response_proto.events_table_name = "catalog.schema.events_generated"
+    response_proto.logs_table_name = "catalog.schema.events_generated"
     response_proto.spans_schema_version = "v1"
-    response_proto.events_schema_version = "v1"
+    response_proto.logs_schema_version = "v1"
 
     with mock.patch(
         "mlflow.tracing.utils.databricks_delta_utils.call_endpoint",
@@ -484,9 +484,9 @@ def test_get_trace_destination_success(mock_host_creds):
     response_proto.trace_location.type = ProtoTraceLocation.TraceLocationType.MLFLOW_EXPERIMENT
     response_proto.trace_location.mlflow_experiment.experiment_id = "exp123"
     response_proto.spans_table_name = "catalog.schema.spans_123"
-    response_proto.events_table_name = "catalog.schema.events_123"
+    response_proto.logs_table_name = "catalog.schema.events_123"
     response_proto.spans_schema_version = "v1"
-    response_proto.events_schema_version = "v1"
+    response_proto.logs_schema_version = "v1"
 
     with mock.patch(
         "mlflow.tracing.utils.databricks_delta_utils.call_endpoint",
@@ -548,18 +548,18 @@ def test_proto_to_config_valid(mock_host_creds):
     proto.trace_location.type = ProtoTraceLocation.TraceLocationType.MLFLOW_EXPERIMENT
     proto.trace_location.mlflow_experiment.experiment_id = "exp123"
     proto.spans_table_name = "catalog.schema.spans_123"
-    proto.events_table_name = "catalog.schema.events_123"
+    proto.logs_table_name = "catalog.schema.events_123"
     proto.spans_schema_version = "v1"
-    proto.events_schema_version = "v1"
+    proto.logs_schema_version = "v1"
 
     result = client._proto_to_config(proto)
 
     assert isinstance(result, DatabricksTraceDeltaStorageConfig)
     assert result.experiment_id == "exp123"
     assert result.spans_table_name == "catalog.schema.spans_123"
-    assert result.events_table_name == "catalog.schema.events_123"
+    assert result.logs_table_name == "catalog.schema.events_123"
     assert result.spans_schema_version == "v1"
-    assert result.events_schema_version == "v1"
+    assert result.logs_schema_version == "v1"
 
 
 def test_proto_to_config_invalid_location_type(mock_host_creds):

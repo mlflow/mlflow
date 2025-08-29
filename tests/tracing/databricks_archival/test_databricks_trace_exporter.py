@@ -106,9 +106,9 @@ def sample_config():
     return DatabricksTraceDeltaStorageConfig(
         experiment_id=_EXPERIMENT_ID,
         spans_table_name="catalog.schema.spans_123",
-        events_table_name="catalog.schema.events_123",
+        logs_table_name="catalog.schema.events_123",
         spans_schema_version="v1",
-        events_schema_version="v1",
+        logs_schema_version="v1",
     )
 
 

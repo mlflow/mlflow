@@ -16,27 +16,27 @@ class DatabricksTraceDeltaStorageConfig(_MlflowObject):
         spans_table_name: The full qualified name of the open telemetry compatible
             spans table in the format
             `catalog.schema.table`.
-        events_table_name: The full qualified name of the open telemetry compatible
-            events table in the format
+        logs_table_name: The full qualified name of the open telemetry compatible
+            logs table in the format
             `catalog.schema.table`.
         spans_schema_version: The schema version of the open telemetry compatible spans table.
-        events_schema_version: The schema version of the open telemetry compatible events table.
+        logs_schema_version: The schema version of the open telemetry compatible logs table.
     """
 
     experiment_id: str
     spans_table_name: str
-    events_table_name: str
+    logs_table_name: str
     spans_schema_version: str
-    events_schema_version: str
+    logs_schema_version: str
 
     def to_dict(self) -> dict[str, Any]:
         """Convert the TraceArchiveConfiguration object to a dictionary."""
         return {
             "experiment_id": self.experiment_id,
             "spans_table_name": self.spans_table_name,
-            "events_table_name": self.events_table_name,
+            "logs_table_name": self.logs_table_name,
             "spans_schema_version": self.spans_schema_version,
-            "events_schema_version": self.events_schema_version,
+            "logs_schema_version": self.logs_schema_version,
         }
 
     @classmethod
@@ -66,7 +66,7 @@ class DatabricksTraceDeltaStorageConfig(_MlflowObject):
         return cls(
             experiment_id=proto.trace_location.mlflow_experiment.experiment_id,
             spans_table_name=proto.spans_table_name,
-            events_table_name=proto.events_table_name,
+            logs_table_name=proto.logs_table_name,
             spans_schema_version=proto.spans_schema_version,
-            events_schema_version=proto.events_schema_version,
+            logs_schema_version=proto.logs_schema_version,
         )
