@@ -170,7 +170,7 @@ def add_pr_review_comment(
         "For multi-line comments, the first line of the range that the comment applies to",
     ] = None,
     side: Annotated[
-        Literal["LEFT", "RIGHT"] | None,
+        Literal["LEFT", "RIGHT"],
         "The side of the diff to comment on. LEFT indicates the previous state, RIGHT indicates "
         "the new state",
     ] = "RIGHT",
@@ -182,7 +182,7 @@ def add_pr_review_comment(
         ),
     ] = None,
     subject_type: Annotated[
-        Literal["LINE", "FILE"] | None,
+        Literal["LINE", "FILE"],
         (
             "The level at which the comment is targeted. LINE indicates a specific line, "
             "FILE indicates the entire file"
@@ -198,22 +198,17 @@ def add_pr_review_comment(
     commit_id = fetch_pr_head_commit(owner, repo, str(pull_number))
     url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pull_number}/comments"
     data = {
-        "owner": owner,
-        "repo": repo,
-        "pull_number": pull_number,
         "commit_id": commit_id,
         "path": path,
         "line": line,
         "body": body,
+        "side": side,
+        "subject_type": subject_type,
     }
-    if side is not None:
-        data["side"] = side
     if start_line is not None:
         data["start_line"] = start_line
     if start_side is not None:
         data["start_side"] = start_side
-    if subject_type is not None:
-        data["subject_type"] = subject_type
 
     result = github_api_request(url, method="POST", data=data)
     return f"Comment added successfully: {result.get('html_url', 'No URL returned')}"
