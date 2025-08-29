@@ -14,6 +14,10 @@ jobs:
       actions: write # To delete artifacts
     timeout-minutes: 10
     steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          sparse-checkout: |
+            .github
       - name: Download PR number
         uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
         with:
@@ -26,30 +30,6 @@ jobs:
         run: |
           cat /tmp/pr_number.txt
           echo "pr_number=$(cat /tmp/pr_number.txt)" >> $GITHUB_OUTPUT
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        if: github.event.workflow_run.conclusion == 'failure'
-        with:
-          sparse-checkout: |
-            .github
-      - name: Handle docs workflow failure
-        if: github.event.workflow_run.conclusion == 'failure'
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
-        env:
-          COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
-          PULL_NUMBER: ${{ steps.pr_number.outputs.pr_number }}
-          WORKFLOW_RUN_ID: ${{ github.run_id }}
-          STAGE: failed
-          DOCS_WORKFLOW_RUN_URL: ${{ github.event.workflow_run.html_url }}
-        with:
-          script: |
-            const script = require(
-              `${process.env.GITHUB_WORKSPACE}/.github/workflows/preview-comment.js`
-            );
-            await script({ context, github, env: process.env });
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          sparse-checkout: |
-            .github
       - name: Download build artifact
         uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
         with:
