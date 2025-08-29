@@ -245,7 +245,7 @@ def deprecated_parameter(old_param: str, new_param: str, version: str | None = N
                 warnings.warn(
                     f"Parameter '{old_param}' is deprecated{version_msg}. "
                     f"Please use '{new_param}' instead.",
-                    category=DeprecationWarning,
+                    category=FutureWarning,
                     stacklevel=2,
                 )
 
