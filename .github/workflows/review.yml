@@ -39,7 +39,9 @@ jobs:
         with:
           sparse-checkout: |
             dev
-      - uses: ./.github/actions/setup-python
+      - uses: astral-sh/setup-uv@f0ec1fc3b38f5e7cd731bb6ce540c5af426746bb # v6.1.0
+        with:
+          version: 0.7.8
       - name: Install codex
         run: |
           curl -L -o codex.tar.gz https://github.com/openai/codex/releases/download/rust-v0.25.0/codex-x86_64-unknown-linux-musl.tar.gz
