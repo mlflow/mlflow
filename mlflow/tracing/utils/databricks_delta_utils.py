@@ -450,24 +450,3 @@ class DatabricksTraceServerClient:
             spans_schema_version=proto.spans_schema_version,
             events_schema_version=proto.events_schema_version,
         )
-
-
-# TODO: Remove this once the ingest SDK is made public
-def import_zerobus_sdk_classes():
-    """
-    Import zerobus_sdk classes needed for trace archival.
-
-    This helper function centralizes all zerobus_sdk imports to make it easy
-    to mock in tests when the package is not available. Eventually, the zerobus_sdk
-    package will be released and this function can be removed.
-
-    Returns:
-        tuple: (TableProperties, StreamState) classes from zerobus_sdk
-
-    Raises:
-        ImportError: If zerobus_sdk package is not available
-    """
-    from zerobus_sdk import TableProperties
-    from zerobus_sdk.shared.definitions import StreamState
-
-    return TableProperties, StreamState

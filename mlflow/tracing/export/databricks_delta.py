@@ -4,9 +4,17 @@ import logging
 import threading
 import time
 from datetime import datetime
-from typing import TYPE_CHECKING, Sequence
+from typing import Sequence
 
 from cachetools import TTLCache
+
+try:
+    from zerobus_sdk import TableProperties
+    from zerobus_sdk.shared.definitions import StreamState
+
+    ZEROBUS_SDK_AVAILABLE = True
+except ImportError:
+    ZEROBUS_SDK_AVAILABLE = False
 
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.trace import Trace
@@ -16,22 +24,12 @@ from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
 from mlflow.tracing.utils.databricks_delta_utils import (
     DatabricksTraceServerClient,
     create_archival_zerobus_sdk,
-    import_zerobus_sdk_classes,
 )
 from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
 TRACE_STORAGE_CONFIG_CACHE_TTL_SECONDS = 300  # Cache experiment configs for 5 minutes
-
-if TYPE_CHECKING:
-    try:
-        TableProperties, _ = import_zerobus_sdk_classes()
-    except ImportError:
-        # When zerobus_sdk is not available, create a placeholder for type annotations
-        from typing import Any
-
-        TableProperties = Any
 
 
 class DatabricksDeltaArchivalMixin:
@@ -78,7 +76,6 @@ class DatabricksDeltaArchivalMixin:
             # Store configuration for this export
             self._spans_table_name = config.spans_table_name
 
-            TableProperties, _ = import_zerobus_sdk_classes()
             self._spans_table_properties = TableProperties(
                 config.spans_table_name, DeltaProtoSpan.DESCRIPTOR
             )
@@ -360,8 +357,6 @@ class ZerobusStreamFactory:
         # Check if we have a cached stream
         if stream_cache and "stream" in stream_cache:
             stream = stream_cache["stream"]
-
-            _, StreamState = import_zerobus_sdk_classes()
 
             # Invalidate the bad stream from the cache if stream is in a valid state
             if stream.get_state() not in [StreamState.OPENED, StreamState.FLUSHING]:
