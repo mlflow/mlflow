@@ -29,6 +29,11 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
     _logger: logging.Logger = PrivateAttr()
     _model: str = PrivateAttr()
 
+    @property
+    def model(self) -> str:
+        """Get the model used by this optimizer."""
+        return self._model
+
     def __init__(self, model: str | None = None, **kwargs):
         """
         Initialize DSPy optimizer with common parameters.
@@ -231,11 +236,12 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
         # This can be extended to extract from judge prompts or other sources
         return judge.description
 
-    def _create_dspy_signature(self, instructions: str) -> Any:
+    def _create_dspy_signature(self, judge: Judge, instructions: str) -> Any:
         """
         Create DSPy signature for judge evaluation.
 
         Args:
+            judge: The judge to create signature for
             instructions: Instructions text for the signature
 
         Returns:
@@ -244,41 +250,26 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
         try:
             import dspy
 
-            from mlflow.genai.judges.utils import get_judge_response_format
+            # Build signature fields dictionary using the judge's field definitions
+            signature_fields = {}
+            
+            # Get input fields from the judge
+            input_fields = judge.get_input_fields()
+            for field in input_fields:
+                signature_fields[field.name] = (
+                    str,
+                    dspy.InputField(desc=field.description),
+                )
+            
+            # Get output fields from the judge  
+            output_fields = judge.get_output_fields()
+            for field in output_fields:
+                signature_fields[field.name] = (
+                    str,
+                    dspy.OutputField(desc=field.description),
+                )
 
-            # Get field descriptions from the response format schema for consistency
-            response_format = get_judge_response_format()
-            schema_properties = response_format["json_schema"]["schema"]["properties"]
-
-            return dspy.make_signature(
-                {
-                    InstructionsJudge.get_template_variable_inputs(): (
-                        str,
-                        dspy.InputField(desc="Inputs to the model"),
-                    ),
-                    InstructionsJudge.get_template_variable_outputs(): (
-                        str,
-                        dspy.InputField(desc="Outputs from the model"),
-                    ),
-                    InstructionsJudge.get_template_variable_result(): (
-                        str,
-                        dspy.OutputField(
-                            desc=schema_properties[
-                                InstructionsJudge.get_template_variable_result()
-                            ]["description"]
-                        ),
-                    ),
-                    InstructionsJudge.get_template_variable_rationale(): (
-                        str,
-                        dspy.OutputField(
-                            desc=schema_properties[
-                                InstructionsJudge.get_template_variable_rationale()
-                            ]["description"]
-                        ),
-                    ),
-                },
-                instructions,
-            )
+            return dspy.make_signature(signature_fields, instructions)
 
         except ImportError:
             raise MlflowException("DSPy library is required but not installed")
@@ -369,7 +360,7 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
                 instructions = self._extract_judge_instructions(judge)
                 self._logger.info(f"Extracted instructions: {instructions}")
 
-                signature = self._create_dspy_signature(instructions)
+                signature = self._create_dspy_signature(judge, instructions)
 
                 # Create DSPy program that will simulate the judge
                 # The program should use the judge's model, not the optimizer's model

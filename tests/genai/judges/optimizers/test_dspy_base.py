@@ -178,26 +178,26 @@ def test_extract_judge_instructions(mock_judge):
     assert result == mock_judge.description
 
 
-def test_create_dspy_signature():
+def test_create_dspy_signature(mock_judge):
     """Test creating DSPy signature."""
     mock_dspy = MagicMock()
     with patch.dict("sys.modules", {"dspy": mock_dspy}):
         optimizer = ConcreteDSPyOptimizer()
         instructions = "Test instructions"
 
-        optimizer._create_dspy_signature(instructions)
+        optimizer._create_dspy_signature(mock_judge, instructions)
 
     mock_dspy.make_signature.assert_called_once()
     args, kwargs = mock_dspy.make_signature.call_args
     assert args[1] == instructions  # instructions passed as second argument
 
 
-def test_create_dspy_signature_no_dspy():
+def test_create_dspy_signature_no_dspy(mock_judge):
     """Test signature creation when DSPy is not available."""
     with patch.dict("sys.modules", {"dspy": None}):
         optimizer = ConcreteDSPyOptimizer()
         with pytest.raises(MlflowException, match="DSPy library is required"):
-            optimizer._create_dspy_signature("test")
+            optimizer._create_dspy_signature(mock_judge, "test")
 
 
 def test_create_agreement_metric():
@@ -451,7 +451,7 @@ def test_optimizer_and_judge_use_different_models():
             optimizer = TestDSPyOptimizer(model=optimizer_model)
 
             # Verify optimizer has the correct model
-            assert optimizer._model == optimizer_model
+            assert optimizer.model == optimizer_model
 
             # Verify judge model before alignment
             assert mock_judge.model == judge_model
@@ -488,3 +488,33 @@ def test_optimizer_and_judge_use_different_models():
             # Verify result is the optimized judge with correct model
             assert result == mock_optimized_judge
             assert result.model == judge_model
+
+
+def test_optimizer_default_model_initialization():
+    """Test that optimizer uses default model when none specified."""
+    with patch("mlflow.genai.judges.optimizers.dspy.get_default_model") as mock_get_default:
+        mock_get_default.return_value = "openai:/gpt-4.1-mini"
+
+        optimizer = ConcreteDSPyOptimizer()
+
+        assert optimizer.model == "openai:/gpt-4.1-mini"
+        mock_get_default.assert_called_once()
+
+
+def test_optimizer_custom_model_initialization():
+    """Test that optimizer uses custom model when specified."""
+    custom_model = "anthropic:/claude-3.5-sonnet"
+
+    optimizer = ConcreteDSPyOptimizer(model=custom_model)
+
+    assert optimizer.model == custom_model
+
+
+def test_different_models_no_interference():
+    """Test that different optimizers maintain separate models."""
+    optimizer1 = ConcreteDSPyOptimizer(model="openai:/gpt-3.5-turbo")
+    optimizer2 = ConcreteDSPyOptimizer(model="anthropic:/claude-3")
+
+    assert optimizer1.model == "openai:/gpt-3.5-turbo"
+    assert optimizer2.model == "anthropic:/claude-3"
+    assert optimizer1.model != optimizer2.model

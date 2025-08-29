@@ -5,7 +5,7 @@ from unittest.mock import Mock
 import pytest
 
 from mlflow.entities.trace import Trace, TraceData, TraceInfo
-from mlflow.genai.judges.base import Judge
+from mlflow.genai.judges.base import Judge, JudgeField
 
 
 class MockJudge(Judge):
@@ -31,6 +31,13 @@ class MockJudge(Judge):
     def __call__(self, inputs, outputs, expectations=None, trace=None):
         # Simple mock implementation
         return "pass" if "good" in str(outputs).lower() else "fail"
+
+    def get_input_fields(self) -> list[JudgeField]:
+        """Get the input fields for this mock judge."""
+        return [
+            JudgeField(name="inputs", description="Test inputs"),
+            JudgeField(name="outputs", description="Test outputs"),
+        ]
 
 
 @pytest.fixture

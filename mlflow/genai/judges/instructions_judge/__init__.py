@@ -5,7 +5,7 @@ from pydantic import PrivateAttr
 
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.exceptions import MlflowException
-from mlflow.genai.judges.base import Judge
+from mlflow.genai.judges.base import Judge, JudgeField
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils import (
     RESPONSE_KEY_RATIONALE,
@@ -192,6 +192,18 @@ class InstructionsJudge(Judge):
     def kind(self) -> ScorerKind:
         """Return the kind of scorer this judge represents."""
         return ScorerKind.CLASS
+
+    def get_input_fields(self) -> list[JudgeField]:
+        """
+        Get the input fields for this judge.
+        
+        Returns:
+            List of JudgeField objects defining the input fields.
+        """
+        return [
+            JudgeField(name=self.get_template_variable_inputs(), description="Inputs to the model"),
+            JudgeField(name=self.get_template_variable_outputs(), description="Outputs from the model"),
+        ]
 
     def _validate_model_format(self) -> None:
         """
