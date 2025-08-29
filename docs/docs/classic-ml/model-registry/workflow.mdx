@@ -261,7 +261,7 @@ def make_dummy_uri() -> str:
     with mlflow.start_run() as run:
         schema = Schema([ColSpec(AnyType())])
         mlflow.pyfunc.log_model(
-            "m",
+            name="m",
             python_model=_Dummy(),
             signature=ModelSignature(inputs=schema, outputs=schema),
         )
