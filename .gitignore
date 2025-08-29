@@ -125,3 +125,4 @@ gunicorn.conf.py
 
 # Ignore claude files (but not CLAUDE.md which we're tracking)
 .claude/
+plan.md
