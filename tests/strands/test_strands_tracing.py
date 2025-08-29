@@ -2,11 +2,10 @@ import json
 from unittest.mock import patch
 
 from strands import Agent
-from strands.agent.agent import run_tool
 from strands.agent.agent_result import AgentResult
 from strands.models.model import Model
 from strands.telemetry.metrics import EventLoopMetrics, Trace
-from strands.tools.executor import run_tools
+from strands.tools.executors import SequentialToolExecutor
 from strands.tools.tools import PythonAgentTool
 
 import mlflow
@@ -107,16 +106,20 @@ def test_function_calling_creates_single_trace():
 
     async def new_run_loop(self, message, invocation_state):
         tool_use = {"toolUseId": "tool-1", "name": "sum", "input": {"a": 1, "b": 2}}
-        tool_events = run_tools(
-            handler=lambda tool_use: run_tool(self, tool_use, invocation_state),
+        # Use SequentialToolExecutor instead of run_tools
+        tool_executor = SequentialToolExecutor()
+        tool_results = []
+        cycle_trace = Trace("cycle")
+        cycle_span = self.trace_span if hasattr(self, 'trace_span') else None
+        
+        async for event in tool_executor._execute(
+            agent=self,
             tool_uses=[tool_use],
-            event_loop_metrics=self.event_loop_metrics,
-            invalid_tool_use_ids=[],
-            tool_results=[],
-            cycle_trace=Trace("cycle"),
-            parent_span=self.trace_span,
-        )
-        async for _ in tool_events:
+            tool_results=tool_results,
+            cycle_trace=cycle_trace,
+            cycle_span=cycle_span,
+            invocation_state=invocation_state
+        ):
             pass
         yield {"stop": (result.stop_reason, result.message, result.metrics, result.state)}
 
@@ -146,16 +149,20 @@ def test_multiple_agents_single_trace():
     async def new_run_loop(self, message, invocation_state):
         if self is agent1:
             tool_use = {"toolUseId": "tool-1", "name": "sum", "input": {"a": 1, "b": 2}}
-            tool_events = run_tools(
-                handler=lambda tool_use: run_tool(self, tool_use, invocation_state),
+            # Use SequentialToolExecutor instead of run_tools
+            tool_executor = SequentialToolExecutor()
+            tool_results = []
+            cycle_trace = Trace("cycle")
+            cycle_span = self.trace_span if hasattr(self, 'trace_span') else None
+            
+            async for event in tool_executor._execute(
+                agent=self,
                 tool_uses=[tool_use],
-                event_loop_metrics=self.event_loop_metrics,
-                invalid_tool_use_ids=[],
-                tool_results=[],
-                cycle_trace=Trace("cycle"),
-                parent_span=self.trace_span,
-            )
-            async for _ in tool_events:
+                tool_results=tool_results,
+                cycle_trace=cycle_trace,
+                cycle_span=cycle_span,
+                invocation_state=invocation_state
+            ):
                 pass
             await agent2.invoke_async("hello")
             yield {"stop": (res1.stop_reason, res1.message, res1.metrics, res1.state)}
