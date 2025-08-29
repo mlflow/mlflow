@@ -182,12 +182,12 @@ def add_pr_review_comment(
         ),
     ] = None,
     subject_type: Annotated[
-        Literal["LINE", "FILE"],
+        Literal["line", "file"],
         (
-            "The level at which the comment is targeted. LINE indicates a specific line, "
-            "FILE indicates the entire file"
+            "The level at which the comment is targeted. 'line' indicates a specific line, "
+            "'file' indicates the entire file"
         ),
-    ] = "LINE",
+    ] = "line",
 ) -> str:
     """
     Add a review comment to a pull request.
@@ -211,7 +211,7 @@ def add_pr_review_comment(
         data["start_side"] = start_side
 
     result = github_api_request(url, method="POST", data=data)
-    return f"Comment added successfully: {result.get('html_url', 'No URL returned')}"
+    return f"Comment added successfully: {result.get('html_url')}"
 
 
 def main() -> None:
