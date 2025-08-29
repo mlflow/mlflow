@@ -27,6 +27,8 @@ async def _create_and_invoke_kernel_simple(mock_openai):
 
 
 async def _create_and_invoke_kernel_complex(mock_openai):
+    from semantic_kernel.prompt_template import PromptTemplateConfig
+
     openai_client = openai.AsyncOpenAI(api_key="test", base_url=mock_openai)
     kernel = Kernel()
     kernel.add_service(
@@ -42,10 +44,15 @@ async def _create_and_invoke_kernel_complex(mock_openai):
     settings.temperature = 0.7
     settings.top_p = 0.8
 
+    prompt_template_config = PromptTemplateConfig(
+        template="{{$chat_history}}{{$user_input}}",
+        allow_dangerously_set_content=True
+    )
+
     chat_function = kernel.add_function(
         plugin_name="ChatBot",
         function_name="Chat",
-        prompt="{{$chat_history}}{{$user_input}}",
+        prompt_template_config=prompt_template_config,
         template_format="semantic-kernel",
         prompt_execution_settings=settings,
     )
@@ -67,6 +74,7 @@ async def _create_and_invoke_kernel_complex(mock_openai):
             user_input=user_input,
             chat_history=chat_history,
         ),
+        allow_dangerously_set_content=True,
     )
 
 
