@@ -218,6 +218,7 @@ uc_migrated_copy = client.copy_model_version(
     src_model_uri, "mycatalog.myschema.my_uc_model"
 )
 ```
+
 If the destination UC model doesn't exist, one will be created as part of this API call (assuming the right ACLs).
 
 Additionally, models registered to Databricks Unity Catalog require a signature to be set. If the workspace-registered
