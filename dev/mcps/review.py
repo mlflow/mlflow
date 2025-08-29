@@ -202,9 +202,9 @@ def add_pr_review_comment(
         "repo": repo,
         "pull_number": pull_number,
         "commit_id": commit_id,
-        "body": body,
         "path": path,
         "line": line,
+        "body": body,
     }
     if side is not None:
         data["side"] = side
