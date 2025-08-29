@@ -20,8 +20,8 @@ jobs:
       models: read
       pull-requests: write
     timeout-minutes: 10
-    # Run on pull_request events or when harupy comments '/review' on a pull request
-    if: ${{ github.event_name == 'pull_request' || (github.event.issue.pull_request && startsWith(github.event.comment.body, '/review') && github.event.comment.user.login == 'harupy') }}
+    # Run on pull_request events from mlflow/mlflow (not forks) or when harupy comments '/review' on a pull request
+    if: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'mlflow/mlflow') || (github.event.issue.pull_request && startsWith(github.event.comment.body, '/review') && github.event.comment.user.login == 'harupy') }}
     steps:
       - name: React to comment
         if: ${{ github.event_name == 'issue_comment' }}
