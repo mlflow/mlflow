@@ -74,7 +74,7 @@ jobs:
       #     yarn knip
       - name: Run extract-i18n lint
         run: |
-          yarn i18n:check
+          yarn i18n --lint
       - name: Run type-check
         run: |
           yarn type-check
