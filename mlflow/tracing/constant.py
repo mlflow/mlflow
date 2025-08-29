@@ -21,6 +21,7 @@ class TraceMetadataKey:
 class TraceTagKey:
     TRACE_NAME = "mlflow.traceName"
     EVAL_REQUEST_ID = "mlflow.eval.requestId"
+    SPANS_LOCATION = "mlflow.trace.spansLocation"
 
 
 class TokenUsageKey:
@@ -104,3 +105,6 @@ DATABRICKS_OUTPUT_KEY = "databricks_output"
 
 # Assessment constants
 ASSESSMENT_ID_PREFIX = "a-"
+
+# Spans location
+TRACKING_STORE = "tracking_store"
