@@ -1,17 +1,18 @@
 """
-List spans tool for MLflow GenAI judges.
+Tool definitions for MLflow GenAI judges.
 
-This module provides a tool for retrieving all spans from a trace,
-allowing judges to analyze the detailed execution flow and span hierarchy.
+This module provides concrete JudgeTool implementations that judges can use
+to analyze traces and extract information during evaluation.
 """
 
-from typing import Any
+from dataclasses import dataclass
 
+from mlflow.entities.span_status import SpanStatus
 from mlflow.entities.trace import Trace
 from mlflow.genai.judges.tools.base import JudgeTool
-from mlflow.genai.judges.tools.constants import ToolNames
 from mlflow.types.llm import (
     FunctionToolDefinition,
+    ParamProperty,
     ToolDefinition,
     ToolParamsSchema,
 )
@@ -19,46 +20,136 @@ from mlflow.utils.annotations import experimental
 
 
 @experimental(version="3.4.0")
+@dataclass
+class SpanInfo:
+    """Information about a single span."""
+
+    span_id: str
+    name: str
+    span_type: str
+    start_time_ms: float
+    end_time_ms: float
+    duration_ms: float
+    parent_id: str | None
+    status: SpanStatus
+    is_root: bool  # True if parent_id is None, else False
+    attribute_names: list[str]  # Names of attributes in this span
+
+
+@experimental(version="3.4.0")
+@dataclass
+class ListSpansResult:
+    """Result from listing spans with optional pagination."""
+
+    spans: list[SpanInfo]
+    next_page_token: str | None = None
+
+
+@experimental(version="3.4.0")
 class ListSpansTool(JudgeTool):
     """
-    Tool for retrieving all spans from a trace.
+    Tool for listing and analyzing spans within a trace.
 
-    This provides access to detailed span data including timing, inputs, outputs,
-    and hierarchical relationships within the trace execution.
+    This tool provides functionality to extract and analyze span information
+    from MLflow traces, including span names, types, durations, and metadata.
     """
 
     @property
     def name(self) -> str:
-        return ToolNames.LIST_SPANS
+        return "list_spans"
 
     def get_definition(self) -> ToolDefinition:
         return ToolDefinition(
             function=FunctionToolDefinition(
-                name=ToolNames.LIST_SPANS,
+                name="list_spans",
                 description=(
-                    "Retrieve all spans from the trace. Each span represents a unit of work "
-                    "within the trace execution and contains detailed information like timing, "
-                    "inputs, outputs, status, and hierarchical relationships. Use this to "
-                    "analyze the detailed execution flow, identify performance bottlenecks, "
-                    "or examine the internal structure of the traced operation."
+                    "List information about spans within a trace with pagination support. "
+                    "Returns span metadata including span_id, name, span_type, timing data "
+                    "(start_time_ms, end_time_ms, duration_ms), parent_id, status, and "
+                    "attribute_names (list of attribute keys). This provides an overview of "
+                    "all spans but does not fetch full span content."
                 ),
                 parameters=ToolParamsSchema(
                     type="object",
-                    properties={},
+                    properties={
+                        "max_results": ParamProperty(
+                            type="integer",
+                            description="Maximum number of spans to return (default: 100)",
+                        ),
+                        "page_token": ParamProperty(
+                            type="string",
+                            description="Token for retrieving the next page of results",
+                        ),
+                    },
                     required=[],
                 ),
             ),
             type="function",
         )
 
-    def invoke(self, trace: Trace) -> list[dict[str, Any]]:
+    def invoke(
+        self, trace: Trace, max_results: int = 100, page_token: str | None = None
+    ) -> ListSpansResult:
         """
-        Get all spans from the trace.
+        List spans from a trace with pagination support.
 
         Args:
             trace: The MLflow trace object to analyze
+            max_results: Maximum number of spans to return (default: 100)
+            page_token: Token for retrieving the next page of results
 
         Returns:
-            List of span dictionaries containing detailed span information
+            ListSpansResult containing spans list and optional next page token
         """
-        return [span.to_dict() for span in trace.data.spans]
+        if not trace or not trace.data or not trace.data.spans:
+            return ListSpansResult(spans=[])
+
+        # Parse page token to get start index
+        start_index = 0
+        if page_token is not None:
+            try:
+                start_index = int(page_token)
+            except (ValueError, TypeError) as e:
+                from mlflow.exceptions import MlflowException
+                from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+
+                raise MlflowException(
+                    f"Invalid page_token '{page_token}': must be a valid integer",
+                    error_code=INVALID_PARAMETER_VALUE,
+                ) from e
+
+        # Get the slice of spans for this page
+        all_spans = trace.data.spans
+        end_index = start_index + max_results
+        page_spans = all_spans[start_index:end_index]
+
+        # Build span info for this page
+        spans_info = []
+        for span in page_spans:
+            start_time_ms = span.start_time_ns / 1_000_000
+            end_time_ms = span.end_time_ns / 1_000_000
+            duration_ms = end_time_ms - start_time_ms
+
+            # Get attribute names
+            attribute_names = list(span.attributes.keys()) if span.attributes else []
+
+            span_info = SpanInfo(
+                span_id=span.span_id,
+                name=span.name,
+                span_type=span.span_type,
+                start_time_ms=start_time_ms,
+                end_time_ms=end_time_ms,
+                duration_ms=duration_ms,
+                parent_id=span.parent_id,
+                status=span.status,
+                is_root=(span.parent_id is None),
+                attribute_names=attribute_names,
+            )
+            spans_info.append(span_info)
+
+        # Determine next page token - only include if there are more pages
+        next_page_token = None
+        if end_index < len(all_spans):
+            next_page_token = str(end_index)
+
+        return ListSpansResult(spans=spans_info, next_page_token=next_page_token)
