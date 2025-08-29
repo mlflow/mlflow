@@ -947,3 +947,8 @@ _MLFLOW_TESTING_TELEMETRY = _BooleanEnvironmentVariable("_MLFLOW_TESTING_TELEMET
 #: This should never be set by users or explicitly.
 #: (default: ``None``)
 _MLFLOW_TELEMETRY_SESSION_ID = _EnvironmentVariable("_MLFLOW_TELEMETRY_SESSION_ID", str, None)
+
+
+#: Internal flag to enable telemetry logging
+#: (default: ``False``)
+_MLFLOW_TELEMETRY_LOGGING = _BooleanEnvironmentVariable("_MLFLOW_TELEMETRY_LOGGING", False)

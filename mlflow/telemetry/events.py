@@ -160,3 +160,7 @@ class LogBatchEvent(Event):
             "tags": bool(arguments.get("tags")),
             "synchronous": arguments.get("synchronous"),
         }
+
+
+class McpRunEvent(Event):
+    name: str = "mcp_run"
