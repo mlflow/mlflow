@@ -122,7 +122,6 @@
 
   // Editor settings
   "editor.rulers": [100], // Show ruler at 100 chars for Python
-  "editor.formatOnSaveTimeout": 5000,
 
   // Python specific settings
   "python.terminal.activateEnvironment": true,
