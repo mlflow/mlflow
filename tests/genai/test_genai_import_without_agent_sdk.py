@@ -3,13 +3,13 @@ from unittest.mock import patch
 import pytest
 
 from mlflow.genai.datasets import create_dataset, delete_dataset, get_dataset
-from mlflow.genai.experimental.databricks_trace_archival import set_experiment_storage_location
 from mlflow.genai.scorers import (
     delete_scorer,
     get_scorer,
     list_scorers,
 )
 from mlflow.genai.scorers.base import Scorer
+from mlflow.tracing.databricks_archival import set_experiment_storage_location
 
 
 # Test `mlflow.genai` namespace
