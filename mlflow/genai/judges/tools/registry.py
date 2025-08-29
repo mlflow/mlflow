@@ -119,5 +119,7 @@ def list_judge_tools() -> list[JudgeTool]:
 
 
 from mlflow.genai.judges.tools.get_trace_info import GetTraceInfoTool
+from mlflow.genai.judges.tools.list_spans import ListSpansTool
 
 _judge_tool_registry.register(GetTraceInfoTool())
+_judge_tool_registry.register(ListSpansTool())
