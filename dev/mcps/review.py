@@ -197,7 +197,15 @@ def add_pr_review_comment(
     # First, fetch the head commit SHA
     commit_id = fetch_pr_head_commit(owner, repo, str(pull_number))
     url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pull_number}/comments"
-    data = {"body": body, "path": path, "line": line, "commit_id": commit_id}
+    data = {
+        "owner": owner,
+        "repo": repo,
+        "pull_number": pull_number,
+        "commit_id": commit_id,
+        "body": body,
+        "path": path,
+        "line": line,
+    }
     if side is not None:
         data["side"] = side
     if start_line is not None:
