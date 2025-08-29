@@ -7,7 +7,6 @@ import logging
 
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.destination import DatabricksUnityCatalog
-from mlflow.tracing.export.databricks_delta import DatabricksDeltaArchivalMixin
 from mlflow.tracing.utils.databricks_delta_utils import (
     DatabricksTraceServerClient,
     _get_workspace_id,
@@ -70,7 +69,7 @@ def set_experiment_storage_location(
 
         import mlflow
         from mlflow.tracing.destination import DatabricksUnityCatalog
-        from mlflow.genai.experimental import set_experiment_storage_location
+        from mlflow.tracing.databricks_archival import set_experiment_storage_location
 
         view_name = set_experiment_storage_location(
             DatabricksUnityCatalog(
@@ -89,6 +88,18 @@ def set_experiment_storage_location(
         add(1)  # this writes the trace to the storage location set above
 
     """
+    from mlflow.tracing.export.databricks_delta import (
+        ZEROBUS_SDK_AVAILABLE,
+        DatabricksDeltaArchivalMixin,
+    )
+
+    if not ZEROBUS_SDK_AVAILABLE:
+        raise ImportError(
+            "The `databricks-zerobus` package is required to set experiment storage location."
+            # TODO: uncomment this after zerobus sdk is released
+            # "Please install it with `pip install databricks-zerobus`."
+        )
+
     if importlib.util.find_spec("databricks.agents") is None:
         raise ImportError(
             "The `databricks-agents` package is required to set experiment storage location."
@@ -114,13 +125,13 @@ def set_experiment_storage_location(
         )
 
 
-def _validate_schema_versions(spans_version: str, events_version: str) -> None:
+def _validate_schema_versions(spans_version: str, logs_version: str) -> None:
     """
-    Validate that both spans and events tables use supported schema versions.
+    Validate that both spans and logs tables use supported schema versions.
 
     Args:
         spans_version: Schema version of the spans table
-        events_version: Schema version of the events table
+        logs_version: Schema version of the logs table
 
     Raises:
         MlflowException: If either table uses an unsupported schema version
@@ -131,15 +142,13 @@ def _validate_schema_versions(spans_version: str, events_version: str) -> None:
             f"Only {SUPPORTED_SCHEMA_VERSION} is supported for GenAI trace views."
         )
 
-    if events_version != SUPPORTED_SCHEMA_VERSION:
+    if logs_version != SUPPORTED_SCHEMA_VERSION:
         raise MlflowException(
-            f"Unsupported events table schema version: {events_version}. "
+            f"Unsupported logs table schema version: {logs_version}. "
             f"Only {SUPPORTED_SCHEMA_VERSION} is supported for GenAI trace views."
         )
 
-    _logger.debug(
-        f"Schema version validation passed: spans={spans_version}, events={events_version}"
-    )
+    _logger.debug(f"Schema version validation passed: spans={spans_version}, logs={logs_version}")
 
 
 def _get_spark_session():
@@ -158,14 +167,14 @@ def _get_spark_session():
         return DatabricksSession.builder.serverless(True).getOrCreate()
 
 
-def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str) -> None:
+def _create_genai_trace_view(view_name: str, spans_table: str, logs_table: str) -> None:
     """
-    Create a logical view for GenAI trace data that combines spans and events tables.
+    Create a logical view for GenAI trace data that combines spans and logs tables.
 
     Args:
         view_name: The name of the final view to create (e.g., 'catalog.schema.trace_logs_12345')
         spans_table: The name of the table containing raw spans data
-        events_table: The name of the table containing raw events data
+        logs_table: The name of the table containing raw logs data
 
     Raises:
         MlflowException: If view creation fails
@@ -184,7 +193,7 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
                 trace_id,
                 PARSE_JSON(body) AS trace_data -- Parse the JSON body as a VARIANT
               FROM
-                {events_table}
+                {logs_table}
               WHERE
                 event_name = '{TRACE_SNAPSHOT_OTEL_EVENT_NAME}'
             ),
@@ -249,7 +258,7 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
                     ORDER BY time_unix_nano DESC
                   ) AS rn
                 FROM
-                  {events_table}
+                  {logs_table}
                 WHERE
                   event_name = '{ASSESSMENTS_SNAPSHOT_OTEL_EVENT_NAME}'
                 )
@@ -269,7 +278,7 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
                     ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
                   ) AS tag_json
               FROM
-                {events_table}
+                {logs_table}
               WHERE
                 event_name = '{TAGS_SNAPSHOT_OTEL_EVENT_NAME}'
               QUALIFY
@@ -450,22 +459,23 @@ def _enable_databricks_trace_archival(
 
         _logger.debug(
             f"Trace archival enabled with Spans table: {trace_archive_config.spans_table_name}, "
-            f"Events table: {trace_archive_config.events_table_name}, "
+            f"Logs table: {trace_archive_config.logs_table_name}, "
             f"Spans schema version: {trace_archive_config.spans_schema_version}, "
-            f"Events schema version: {trace_archive_config.events_schema_version}"
+            f"Logs schema version: {trace_archive_config.logs_schema_version}"
         )
 
         # 2. Validate schema versions before proceeding
         _validate_schema_versions(
-            trace_archive_config.spans_schema_version, trace_archive_config.events_schema_version
+            trace_archive_config.spans_schema_version, trace_archive_config.logs_schema_version
         )
 
         # 4. Create the logical view
+        _logger.info("Creating Delta tables. This may take up to 30 seconds...")
         _logger.debug(f"Creating trace archival at: {trace_archival_location}")
         _create_genai_trace_view(
             trace_archival_location,
             trace_archive_config.spans_table_name,
-            trace_archive_config.events_table_name,
+            trace_archive_config.logs_table_name,
         )
 
         # 4. Set experiment tag to track the archival location
@@ -478,7 +488,7 @@ def _enable_databricks_trace_archival(
 
         _logger.info(
             f"Trace archival to Databricks enabled successfully for experiment {experiment_id} "
-            f"with target archival available at: {trace_archival_location}"
+            f"at {trace_archival_location}"
         )
 
         return trace_archival_location

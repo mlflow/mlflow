@@ -255,18 +255,18 @@ class DeleteTraceDestinationRequest(_message.Message):
     def __init__(self, trace_location: _Optional[_Union[TraceLocation, _Mapping]] = ...) -> None: ...
 
 class TraceDestination(_message.Message):
-    __slots__ = ("trace_location", "spans_table_name", "events_table_name", "spans_schema_version", "events_schema_version")
+    __slots__ = ("trace_location", "spans_table_name", "logs_table_name", "spans_schema_version", "logs_schema_version")
     TRACE_LOCATION_FIELD_NUMBER: _ClassVar[int]
     SPANS_TABLE_NAME_FIELD_NUMBER: _ClassVar[int]
-    EVENTS_TABLE_NAME_FIELD_NUMBER: _ClassVar[int]
+    LOGS_TABLE_NAME_FIELD_NUMBER: _ClassVar[int]
     SPANS_SCHEMA_VERSION_FIELD_NUMBER: _ClassVar[int]
-    EVENTS_SCHEMA_VERSION_FIELD_NUMBER: _ClassVar[int]
+    LOGS_SCHEMA_VERSION_FIELD_NUMBER: _ClassVar[int]
     trace_location: TraceLocation
     spans_table_name: str
-    events_table_name: str
+    logs_table_name: str
     spans_schema_version: str
-    events_schema_version: str
-    def __init__(self, trace_location: _Optional[_Union[TraceLocation, _Mapping]] = ..., spans_table_name: _Optional[str] = ..., events_table_name: _Optional[str] = ..., spans_schema_version: _Optional[str] = ..., events_schema_version: _Optional[str] = ...) -> None: ...
+    logs_schema_version: str
+    def __init__(self, trace_location: _Optional[_Union[TraceLocation, _Mapping]] = ..., spans_table_name: _Optional[str] = ..., logs_table_name: _Optional[str] = ..., spans_schema_version: _Optional[str] = ..., logs_schema_version: _Optional[str] = ...) -> None: ...
 
 class DatabricksTracingServerService(_service.service): ...
 

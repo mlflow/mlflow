@@ -446,7 +446,7 @@ class DatabricksTraceServerClient:
         return DatabricksTraceDeltaStorageConfig(
             experiment_id=proto.trace_location.mlflow_experiment.experiment_id,
             spans_table_name=proto.spans_table_name,
-            events_table_name=proto.events_table_name,
+            logs_table_name=proto.logs_table_name,
             spans_schema_version=proto.spans_schema_version,
-            events_schema_version=proto.events_schema_version,
+            logs_schema_version=proto.logs_schema_version,
         )

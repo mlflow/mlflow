@@ -10,17 +10,17 @@ from mlflow.entities.databricks_trace_storage_config import (
     DatabricksTraceDeltaStorageConfig,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.genai.experimental.databricks_trace_archival import (
-    SUPPORTED_SCHEMA_VERSION,
-    _create_genai_trace_view,
-    _validate_schema_versions,
-    set_experiment_storage_location,
-)
 from mlflow.protos.databricks_trace_server_pb2 import (
     TraceDestination as ProtoTraceDestination,
 )
 from mlflow.protos.databricks_trace_server_pb2 import (
     TraceLocation as ProtoTraceLocation,
+)
+from mlflow.tracing.databricks_archival import (
+    SUPPORTED_SCHEMA_VERSION,
+    _create_genai_trace_view,
+    _validate_schema_versions,
+    set_experiment_storage_location,
 )
 from mlflow.tracing.destination import DatabricksUnityCatalog
 from mlflow.tracing.export.databricks_delta import DatabricksDeltaArchivalMixin
@@ -53,11 +53,16 @@ def _create_mock_databricks_agents():
 
 
 @pytest.fixture
+def mock_zerobus_sdk():
+    """Mock zerobus SDK availability for testing."""
+    with patch("mlflow.tracing.export.databricks_delta.ZEROBUS_SDK_AVAILABLE", True):
+        yield
+
+
+@pytest.fixture
 def mock_delta_archival_mixin():
     """Fixture that provides a mocked DatabricksDeltaArchivalMixin cache."""
-    with patch(
-        "mlflow.genai.experimental.databricks_trace_archival.DatabricksDeltaArchivalMixin"
-    ) as mock_mixin:
+    with patch("mlflow.tracing.export.databricks_delta.DatabricksDeltaArchivalMixin") as mock_mixin:
         # Setup cache mocking for testing cache clearing behavior
         mock_mixin._config_cache_lock = Mock()
         mock_mixin._config_cache_lock.__enter__ = Mock()
@@ -79,7 +84,7 @@ def mock_trace_storage():
 def _create_trace_destination_proto(
     experiment_id: str = "12345",
     spans_table_name: str = "catalog.schema.spans",
-    events_table_name: str = "catalog.schema.events",
+    logs_table_name: str = "catalog.schema.events",
 ) -> ProtoTraceDestination:
     """Helper function to create a ProtoTraceDestination object for testing."""
     proto_trace_location = ProtoTraceLocation()
@@ -89,9 +94,9 @@ def _create_trace_destination_proto(
     proto_response = ProtoTraceDestination()
     proto_response.trace_location.CopyFrom(proto_trace_location)
     proto_response.spans_table_name = spans_table_name
-    proto_response.events_table_name = events_table_name
+    proto_response.logs_table_name = logs_table_name
     proto_response.spans_schema_version = SUPPORTED_SCHEMA_VERSION
-    proto_response.events_schema_version = SUPPORTED_SCHEMA_VERSION
+    proto_response.logs_schema_version = SUPPORTED_SCHEMA_VERSION
 
     return proto_response
 
@@ -108,8 +113,8 @@ def _create_trace_destination_proto(
     ],
 )
 @patch("databricks.sdk.WorkspaceClient")
-@patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
-@patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
+@patch("mlflow.tracing.databricks_archival.DatabricksTraceServerClient")
+@patch("mlflow.tracing.databricks_archival.MlflowClient")
 def test_create_trace_destination_api_failures(
     mock_mlflow_client,
     mock_trace_client,
@@ -137,19 +142,19 @@ def test_create_trace_destination_api_failures(
 
 
 @patch("databricks.sdk.WorkspaceClient")
-@patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
-@patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
+@patch("mlflow.tracing.databricks_archival.DatabricksTraceServerClient")
+@patch("mlflow.tracing.databricks_archival.MlflowClient")
 def test_malformed_api_response(
     mock_mlflow_client, mock_trace_client, mock_workspace_client_class, mock_workspace_client
 ):
     """Test handling of malformed API responses."""
     # Use the fixture's mock workspace client
     mock_workspace_client_class.return_value = mock_workspace_client
-    # Mock trace client to return malformed config (missing events_table_name)
+    # Mock trace client to return malformed config (missing logs_table_name)
     mock_config = Mock()
     mock_config.spans_table_name = "catalog.schema.spans"
-    # Missing events_table_name intentionally
-    del mock_config.events_table_name  # Make sure it doesn't have this attribute
+    # Missing logs_table_name intentionally
+    del mock_config.logs_table_name  # Make sure it doesn't have this attribute
 
     mock_trace_client_instance = Mock()
     mock_trace_client_instance.create_trace_destination.return_value = mock_config
@@ -168,7 +173,7 @@ def test_malformed_api_response(
 # Spark view creation tests
 
 
-@patch("mlflow.genai.experimental.databricks_trace_archival._get_active_spark_session")
+@patch("mlflow.tracing.databricks_archival._get_active_spark_session")
 def test_create_genai_trace_view_with_active_session(mock_get_active_session):
     """Test creating GenAI trace view with an active Spark session."""
     # Mock active Spark session
@@ -190,7 +195,7 @@ def test_create_genai_trace_view_with_active_session(mock_get_active_session):
     assert "catalog.schema.events_table" in sql_call
 
 
-@patch("mlflow.genai.experimental.databricks_trace_archival._get_active_spark_session")
+@patch("mlflow.tracing.databricks_archival._get_active_spark_session")
 @patch("pyspark.sql.SparkSession.builder")
 def test_create_genai_trace_view_with_fallback_session(mock_builder, mock_get_active_session):
     """Test creating view when no active session but can create a new one."""
@@ -213,7 +218,7 @@ def test_create_genai_trace_view_with_fallback_session(mock_builder, mock_get_ac
     mock_spark.sql.assert_called_once()
 
 
-@patch("mlflow.genai.experimental.databricks_trace_archival._get_active_spark_session")
+@patch("mlflow.tracing.databricks_archival._get_active_spark_session")
 @patch("pyspark.sql.SparkSession.builder")
 def test_create_genai_trace_view_spark_session_creation_fails(
     mock_builder, mock_get_active_session
@@ -249,9 +254,9 @@ def test_unsupported_spans_schema_version():
         _validate_schema_versions("v2", SUPPORTED_SCHEMA_VERSION)
 
 
-def test_unsupported_events_schema_version():
+def test_unsupported_logs_schema_version():
     """Test that MlflowException is raised when events table has unsupported schema version."""
-    with pytest.raises(MlflowException, match="Unsupported events table schema version: v0"):
+    with pytest.raises(MlflowException, match="Unsupported logs table schema version: v0"):
         _validate_schema_versions(SUPPORTED_SCHEMA_VERSION, "v0")
 
 
@@ -264,8 +269,8 @@ def test_both_unsupported_schema_versions():
 
 @patch("importlib.util.find_spec", return_value=Mock())
 @patch("databricks.sdk.WorkspaceClient")
-@patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
-@patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
+@patch("mlflow.tracing.databricks_archival.DatabricksTraceServerClient")
+@patch("mlflow.tracing.databricks_archival._create_genai_trace_view")
 @patch("mlflow.tracking.MlflowClient")
 def test_backend_returns_unsupported_spans_schema(
     mock_mlflow_client,
@@ -286,9 +291,9 @@ def test_backend_returns_unsupported_spans_schema(
     mock_config = DatabricksTraceDeltaStorageConfig(
         experiment_id="12345",
         spans_table_name="catalog.schema.spans",
-        events_table_name="catalog.schema.events",
+        logs_table_name="catalog.schema.events",
         spans_schema_version="v2",  # Unsupported version
-        events_schema_version=SUPPORTED_SCHEMA_VERSION,
+        logs_schema_version=SUPPORTED_SCHEMA_VERSION,
     )
 
     # Mock trace client to return config
@@ -307,8 +312,8 @@ def test_backend_returns_unsupported_spans_schema(
 
 @patch("importlib.util.find_spec", return_value=Mock())
 @patch("databricks.sdk.WorkspaceClient")
-@patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
-@patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
+@patch("mlflow.tracing.databricks_archival.DatabricksTraceServerClient")
+@patch("mlflow.tracing.databricks_archival._create_genai_trace_view")
 @patch("mlflow.tracking.MlflowClient")
 def test_backend_returns_unsupported_events_schema(
     mock_mlflow_client,
@@ -329,9 +334,9 @@ def test_backend_returns_unsupported_events_schema(
     mock_config = DatabricksTraceDeltaStorageConfig(
         experiment_id="12345",
         spans_table_name="catalog.schema.spans",
-        events_table_name="catalog.schema.events",
+        logs_table_name="catalog.schema.events",
         spans_schema_version=SUPPORTED_SCHEMA_VERSION,
-        events_schema_version="v0",  # Unsupported version
+        logs_schema_version="v0",  # Unsupported version
     )
 
     # Mock trace client to return config
@@ -344,7 +349,7 @@ def test_backend_returns_unsupported_events_schema(
     mock_mlflow_client.return_value = mock_client_instance
 
     location = DatabricksUnityCatalog(catalog="catalog", schema="schema", table_prefix="prefix")
-    with pytest.raises(MlflowException, match="Unsupported events table schema version: v0"):
+    with pytest.raises(MlflowException, match="Unsupported logs table schema version: v0"):
         set_experiment_storage_location(location, experiment_id="12345")
 
 
@@ -352,8 +357,8 @@ def test_backend_returns_unsupported_events_schema(
 
 
 @patch("databricks.sdk.WorkspaceClient")
-@patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
-@patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
+@patch("mlflow.tracing.databricks_archival.DatabricksTraceServerClient")
+@patch("mlflow.tracing.databricks_archival._create_genai_trace_view")
 @patch("mlflow.tracking.MlflowClient")
 def test_experiment_tag_setting_failure(
     mock_mlflow_client,
@@ -373,9 +378,9 @@ def test_experiment_tag_setting_failure(
     mock_config = DatabricksTraceDeltaStorageConfig(
         experiment_id="12345",
         spans_table_name="catalog.schema.spans",
-        events_table_name="catalog.schema.events",
+        logs_table_name="catalog.schema.events",
         spans_schema_version=SUPPORTED_SCHEMA_VERSION,
-        events_schema_version=SUPPORTED_SCHEMA_VERSION,
+        logs_schema_version=SUPPORTED_SCHEMA_VERSION,
     )
 
     # Mock trace client to return valid config
@@ -398,9 +403,9 @@ def test_experiment_tag_setting_failure(
 
 
 @patch("databricks.sdk.WorkspaceClient")
-@patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
-@patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
-@patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
+@patch("mlflow.tracing.databricks_archival.DatabricksTraceServerClient")
+@patch("mlflow.tracing.databricks_archival._create_genai_trace_view")
+@patch("mlflow.tracing.databricks_archival.MlflowClient")
 def test_successful_experiment_tag_setting(
     mock_mlflow_client,
     mock_create_view,
@@ -419,9 +424,9 @@ def test_successful_experiment_tag_setting(
     mock_config = DatabricksTraceDeltaStorageConfig(
         experiment_id="12345",
         spans_table_name="catalog.schema.spans",
-        events_table_name="catalog.schema.events",
+        logs_table_name="catalog.schema.events",
         spans_schema_version=SUPPORTED_SCHEMA_VERSION,
-        events_schema_version=SUPPORTED_SCHEMA_VERSION,
+        logs_schema_version=SUPPORTED_SCHEMA_VERSION,
     )
 
     # Mock trace client to return valid config
@@ -485,9 +490,9 @@ def test_successful_experiment_tag_setting(
     ],
 )
 @patch("databricks.sdk.WorkspaceClient")
-@patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
-@patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
-@patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
+@patch("mlflow.tracing.databricks_archival.DatabricksTraceServerClient")
+@patch("mlflow.tracing.databricks_archival._create_genai_trace_view")
+@patch("mlflow.tracing.databricks_archival.MlflowClient")
 def test_successful_archival_with_prefix(
     mock_mlflow_client,
     mock_create_view,
@@ -510,9 +515,9 @@ def test_successful_archival_with_prefix(
     mock_config = DatabricksTraceDeltaStorageConfig(
         experiment_id="12345",
         spans_table_name=expected_spans_table,
-        events_table_name=expected_events_table,
+        logs_table_name=expected_events_table,
         spans_schema_version=SUPPORTED_SCHEMA_VERSION,
-        events_schema_version=SUPPORTED_SCHEMA_VERSION,
+        logs_schema_version=SUPPORTED_SCHEMA_VERSION,
     )
 
     # Mock trace client to return valid config
@@ -568,9 +573,9 @@ def test_successful_archival_with_prefix(
 
 
 @patch("databricks.sdk.WorkspaceClient")
-@patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
-@patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
-@patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
+@patch("mlflow.tracing.databricks_archival.DatabricksTraceServerClient")
+@patch("mlflow.tracing.databricks_archival._create_genai_trace_view")
+@patch("mlflow.tracing.databricks_archival.MlflowClient")
 def test_idempotent_enablement(
     mock_mlflow_client,
     mock_create_view,
@@ -584,9 +589,9 @@ def test_idempotent_enablement(
     mock_config = DatabricksTraceDeltaStorageConfig(
         experiment_id="12345",
         spans_table_name="catalog.schema.experiment_12345_spans",
-        events_table_name="catalog.schema.experiment_12345_events",
+        logs_table_name="catalog.schema.experiment_12345_events",
         spans_schema_version=SUPPORTED_SCHEMA_VERSION,
-        events_schema_version=SUPPORTED_SCHEMA_VERSION,
+        logs_schema_version=SUPPORTED_SCHEMA_VERSION,
     )
 
     # Mock trace client to return valid config (simulating existing archival)
@@ -649,9 +654,9 @@ def test_idempotent_enablement(
 
 
 @patch("databricks.sdk.WorkspaceClient")
-@patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
-@patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
-@patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
+@patch("mlflow.tracing.databricks_archival.DatabricksTraceServerClient")
+@patch("mlflow.tracing.databricks_archival._create_genai_trace_view")
+@patch("mlflow.tracing.databricks_archival.MlflowClient")
 def test_enablement_failure_due_to_storage_config_conflict(
     mock_mlflow_client,
     mock_create_view,
@@ -687,9 +692,9 @@ def test_enablement_failure_due_to_storage_config_conflict(
 
 
 @patch("databricks.sdk.WorkspaceClient")
-@patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
-@patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
-@patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
+@patch("mlflow.tracing.databricks_archival.DatabricksTraceServerClient")
+@patch("mlflow.tracing.databricks_archival._create_genai_trace_view")
+@patch("mlflow.tracing.databricks_archival.MlflowClient")
 def test_rolling_deletion_tag_failure(
     mock_mlflow_client,
     mock_create_view,
@@ -704,9 +709,9 @@ def test_rolling_deletion_tag_failure(
     mock_config = DatabricksTraceDeltaStorageConfig(
         experiment_id="12345",
         spans_table_name="catalog.schema.spans",
-        events_table_name="catalog.schema.events",
+        logs_table_name="catalog.schema.events",
         spans_schema_version=SUPPORTED_SCHEMA_VERSION,
-        events_schema_version=SUPPORTED_SCHEMA_VERSION,
+        logs_schema_version=SUPPORTED_SCHEMA_VERSION,
     )
 
     # Mock trace client to return valid config
@@ -749,15 +754,16 @@ def test_rolling_deletion_tag_failure(
 # Tests for set_experiment_storage_location function
 
 
-@patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
-@patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
-@patch("mlflow.genai.experimental.databricks_trace_archival._get_experiment_id")
+@patch("mlflow.tracing.databricks_archival.MlflowClient")
+@patch("mlflow.tracing.databricks_archival.DatabricksTraceServerClient")
+@patch("mlflow.tracing.databricks_archival._get_experiment_id")
 def test_set_experiment_storage_location_unset_with_default_experiment(
     mock_get_experiment_id,
     mock_trace_client,
     mock_mlflow_client,
     mock_delta_archival_mixin,
     mock_trace_storage,
+    mock_zerobus_sdk,
 ):
     """Test unsetting storage location with default experiment ID."""
     # Mock default experiment ID
@@ -793,10 +799,14 @@ def test_set_experiment_storage_location_unset_with_default_experiment(
     assert result is None
 
 
-@patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
-@patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
+@patch("mlflow.tracing.databricks_archival.MlflowClient")
+@patch("mlflow.tracing.databricks_archival.DatabricksTraceServerClient")
 def test_set_experiment_storage_location_unset_with_explicit_experiment(
-    mock_trace_client, mock_mlflow_client, mock_delta_archival_mixin, mock_trace_storage
+    mock_trace_client,
+    mock_mlflow_client,
+    mock_delta_archival_mixin,
+    mock_trace_storage,
+    mock_zerobus_sdk,
 ):
     """Test unsetting storage location with explicit experiment ID."""
     # Mock clients
@@ -829,10 +839,10 @@ def test_set_experiment_storage_location_unset_with_explicit_experiment(
     assert result is None
 
 
-@patch("mlflow.genai.experimental.databricks_trace_archival._enable_databricks_trace_archival")
-@patch("mlflow.genai.experimental.databricks_trace_archival._get_experiment_id")
+@patch("mlflow.tracing.databricks_archival._enable_databricks_trace_archival")
+@patch("mlflow.tracing.databricks_archival._get_experiment_id")
 def test_set_experiment_storage_location_set_with_default_experiment(
-    mock_get_experiment_id, mock_enable_archival, mock_delta_archival_mixin
+    mock_get_experiment_id, mock_enable_archival, mock_delta_archival_mixin, mock_zerobus_sdk
 ):
     """Test setting storage location with DatabricksUnityCatalog using default experiment ID."""
     # Mock default experiment ID
@@ -859,9 +869,9 @@ def test_set_experiment_storage_location_set_with_default_experiment(
     assert "67890" not in mock_delta_archival_mixin._config_cache
 
 
-@patch("mlflow.genai.experimental.databricks_trace_archival._enable_databricks_trace_archival")
+@patch("mlflow.tracing.databricks_archival._enable_databricks_trace_archival")
 def test_set_experiment_storage_location_set_with_explicit_experiment(
-    mock_enable_archival, mock_delta_archival_mixin
+    mock_enable_archival, mock_delta_archival_mixin, mock_zerobus_sdk
 ):
     """Test setting storage location with DatabricksUnityCatalog using explicit experiment ID."""
     # Create a mock DatabricksUnityCatalog location
@@ -886,10 +896,10 @@ def test_set_experiment_storage_location_set_with_explicit_experiment(
 
 
 @patch("databricks.sdk.WorkspaceClient")
-@patch("mlflow.genai.experimental.databricks_trace_archival.DatabricksTraceServerClient")
-@patch("mlflow.genai.experimental.databricks_trace_archival._create_genai_trace_view")
-@patch("mlflow.genai.experimental.databricks_trace_archival._enable_trace_rolling_deletion")
-@patch("mlflow.genai.experimental.databricks_trace_archival.MlflowClient")
+@patch("mlflow.tracing.databricks_archival.DatabricksTraceServerClient")
+@patch("mlflow.tracing.databricks_archival._create_genai_trace_view")
+@patch("mlflow.tracing.databricks_archival._enable_trace_rolling_deletion")
+@patch("mlflow.tracing.databricks_archival.MlflowClient")
 def test_set_experiment_storage_location_twice_shows_helpful_error(
     mock_mlflow_client,
     mock_rolling_deletion,
@@ -897,6 +907,7 @@ def test_set_experiment_storage_location_twice_shows_helpful_error(
     mock_trace_client,
     mock_workspace_client_class,
     mock_workspace_client,
+    mock_zerobus_sdk,
 ):
     """Test that setting storage location twice provides helpful error message."""
     # Use the fixture's mock workspace client
@@ -908,9 +919,9 @@ def test_set_experiment_storage_location_twice_shows_helpful_error(
     # Mock successful config for first call
     mock_config = Mock(
         spans_table_name="catalog.schema.prefix_12345_spans",
-        events_table_name="catalog.schema.prefix_12345_events",
+        logs_table_name="catalog.schema.prefix_12345_events",
         spans_schema_version="v1",
-        events_schema_version="v1",
+        logs_schema_version="v1",
     )
 
     # First call succeeds, second call raises ALREADY_EXISTS
@@ -955,3 +966,20 @@ def test_set_experiment_storage_location_twice_shows_helpful_error(
 
     # Verify create_trace_destination was called twice
     assert mock_trace_client_instance.create_trace_destination.call_count == 2
+
+
+def test_set_experiment_storage_location_zerobus_sdk_not_available():
+    """Test that ImportError is raised when zerobus SDK is not available."""
+    from mlflow.tracing.destination import DatabricksUnityCatalog
+
+    with patch("mlflow.tracing.export.databricks_delta.ZEROBUS_SDK_AVAILABLE", False):
+        location = DatabricksUnityCatalog(
+            catalog="test_catalog", schema="test_schema", table_prefix="test_prefix"
+        )
+
+        with pytest.raises(
+            ImportError,
+            match=r"The `databricks-zerobus` package is required to set "
+            r"experiment storage location",
+        ):
+            set_experiment_storage_location(location, experiment_id="12345")
