@@ -129,7 +129,6 @@ cd docs && yarn serve --port 8080
 - `.python-version`: Minimum Python version (3.10)
 - `requirements/`: Dependency specifications
 - `mlflow/ml-package-versions.yml`: Supported ML framework versions
-- `.github/copilot-instructions.md`: Additional coding guidelines
 
 ## Common Development Tasks
 

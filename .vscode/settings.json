@@ -19,7 +19,16 @@
 
   // Python analysis
   "python.analysis.typeCheckingMode": "off", // Disable Pylance strict checking
-  "python.analysis.exclude": ["**/*_pb2.py", "**/*_pb2.pyi"],
+  "python.analysis.exclude": [
+    // Default paths to exclude
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.*",
+    // Extra paths to exclude
+    "**/*_pb2.py",
+    "**/*_pb2.pyi",
+    "libs/**"
+  ],
 
   // TypeScript/JavaScript Configuration
   "[typescript]": {
@@ -113,7 +122,6 @@
 
   // Editor settings
   "editor.rulers": [100], // Show ruler at 100 chars for Python
-  "editor.formatOnSaveTimeout": 5000,
 
   // Python specific settings
   "python.terminal.activateEnvironment": true,
