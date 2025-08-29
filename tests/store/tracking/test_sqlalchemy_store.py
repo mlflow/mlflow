@@ -100,6 +100,7 @@ from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
     TRACE_SCHEMA_VERSION_KEY,
     TraceMetadataKey,
+    TraceTagKey,
 )
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.utils import mlflow_tags
@@ -8735,3 +8736,302 @@ def test_calculate_trace_filter_correlation_with_base_filter(store):
     assert result_no_base.filter1_count == 9
     assert result_no_base.filter2_count == 7
     assert result_no_base.joint_count == 5
+
+
+# Tests for load_spans functionality
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_load_spans_basic(store: SqlAlchemyStore, is_async: bool):
+    """Test basic load_spans functionality after ingesting spans."""
+    experiment_id = store.create_experiment("test_load_spans")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    spans = [
+        create_test_span(
+            trace_id=trace_id,
+            name="root_span",
+            span_id=111,
+            status=trace_api.StatusCode.OK,
+            start_ns=1_000_000_000,
+            end_ns=2_000_000_000,
+            trace_num=12345,
+        ),
+        create_test_span(
+            trace_id=trace_id,
+            name="child_span",
+            span_id=222,
+            parent_id=111,
+            status=trace_api.StatusCode.UNSET,
+            start_ns=1_500_000_000,
+            end_ns=1_800_000_000,
+            trace_num=12345,
+        ),
+    ]
+
+    if is_async:
+        await store.log_spans_async(experiment_id, spans)
+    else:
+        store.log_spans(experiment_id, spans)
+
+    if is_async:
+        loaded_spans = await store.load_spans_async(trace_id)
+    else:
+        loaded_spans = store.load_spans(trace_id)
+
+    assert len(loaded_spans) == 2
+
+    root_span = next(s for s in loaded_spans if s.name == "root_span")
+    child_span = next(s for s in loaded_spans if s.name == "child_span")
+
+    assert root_span.trace_id == trace_id
+    assert root_span.span_id == "000000000000006f"
+    assert root_span.parent_id is None
+    assert root_span.start_time_ns == 1_000_000_000
+    assert root_span.end_time_ns == 2_000_000_000
+
+    assert child_span.trace_id == trace_id
+    assert child_span.span_id == "00000000000000de"
+    assert child_span.parent_id == "000000000000006f"
+    assert child_span.start_time_ns == 1_500_000_000
+    assert child_span.end_time_ns == 1_800_000_000
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_load_spans_empty_trace(store: SqlAlchemyStore, is_async: bool):
+    """Test load_spans returns empty list for non-existent trace."""
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    if is_async:
+        loaded_spans = await store.load_spans_async(trace_id)
+    else:
+        loaded_spans = store.load_spans(trace_id)
+
+    assert loaded_spans == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_load_spans_ordering(store: SqlAlchemyStore, is_async: bool):
+    """Test that loaded spans are ordered by start time."""
+    experiment_id = store.create_experiment("test_load_spans_ordering")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    spans = [
+        create_test_span(
+            trace_id=trace_id,
+            name="second_span",
+            span_id=222,
+            start_ns=2_000_000_000,
+            end_ns=3_000_000_000,
+            trace_num=12345,
+        ),
+        create_test_span(
+            trace_id=trace_id,
+            name="first_span",
+            span_id=111,
+            start_ns=1_000_000_000,
+            end_ns=2_000_000_000,
+            trace_num=12345,
+        ),
+        create_test_span(
+            trace_id=trace_id,
+            name="third_span",
+            span_id=333,
+            start_ns=3_000_000_000,
+            end_ns=4_000_000_000,
+            trace_num=12345,
+        ),
+    ]
+
+    if is_async:
+        await store.log_spans_async(experiment_id, spans)
+    else:
+        store.log_spans(experiment_id, spans)
+
+    if is_async:
+        loaded_spans = await store.load_spans_async(trace_id)
+    else:
+        loaded_spans = store.load_spans(trace_id)
+
+    assert len(loaded_spans) == 3
+    assert loaded_spans[0].name == "first_span"
+    assert loaded_spans[1].name == "second_span"
+    assert loaded_spans[2].name == "third_span"
+
+    assert loaded_spans[0].start_time_ns == 1_000_000_000
+    assert loaded_spans[1].start_time_ns == 2_000_000_000
+    assert loaded_spans[2].start_time_ns == 3_000_000_000
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_load_spans_with_complex_attributes(store: SqlAlchemyStore, is_async: bool):
+    """Test loading spans with various attributes and metadata."""
+    experiment_id = store.create_experiment("test_load_spans_complex")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    otel_span = create_test_otel_span(
+        trace_id=trace_id,
+        name="complex_span",
+        status_code=trace_api.StatusCode.ERROR,
+        status_description="Test error",
+        start_time=1_000_000_000,
+        end_time=2_000_000_000,
+        trace_id_num=12345,
+        span_id_num=111,
+    )
+
+    otel_span._attributes = {
+        "llm.model_name": "gpt-4",
+        "llm.input_tokens": 100,
+        "llm.output_tokens": 50,
+        "custom.key": "custom_value",
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+    }
+
+    span = create_mlflow_span(otel_span, trace_id, "LLM")
+
+    if is_async:
+        await store.log_spans_async(experiment_id, [span])
+    else:
+        store.log_spans(experiment_id, [span])
+
+    if is_async:
+        loaded_spans = await store.load_spans_async(trace_id)
+    else:
+        loaded_spans = store.load_spans(trace_id)
+
+    assert len(loaded_spans) == 1
+    loaded_span = loaded_spans[0]
+
+    assert loaded_span.status.status_code == "ERROR"
+    assert loaded_span.status.description == "Test error"
+
+    assert loaded_span.attributes.get("llm.model_name") == "gpt-4"
+    assert loaded_span.attributes.get("llm.input_tokens") == 100
+    assert loaded_span.attributes.get("llm.output_tokens") == 50
+    assert loaded_span.attributes.get("custom.key") == "custom_value"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_load_spans_multiple_traces(store: SqlAlchemyStore, is_async: bool):
+    experiment_id = store.create_experiment("test_load_spans_multiple")
+    trace_id_1 = f"tr-{uuid.uuid4().hex}"
+    trace_id_2 = f"tr-{uuid.uuid4().hex}"
+
+    spans_trace_1 = [
+        create_test_span(
+            trace_id=trace_id_1,
+            name="trace1_span1",
+            span_id=111,
+            trace_num=12345,
+        ),
+        create_test_span(
+            trace_id=trace_id_1,
+            name="trace1_span2",
+            span_id=112,
+            trace_num=12345,
+        ),
+    ]
+
+    spans_trace_2 = [
+        create_test_span(
+            trace_id=trace_id_2,
+            name="trace2_span1",
+            span_id=221,
+            trace_num=67890,
+        ),
+    ]
+
+    if is_async:
+        await store.log_spans_async(experiment_id, spans_trace_1)
+        await store.log_spans_async(experiment_id, spans_trace_2)
+    else:
+        store.log_spans(experiment_id, spans_trace_1)
+        store.log_spans(experiment_id, spans_trace_2)
+
+    if is_async:
+        loaded_spans_1 = await store.load_spans_async(trace_id_1)
+    else:
+        loaded_spans_1 = store.load_spans(trace_id_1)
+
+    if is_async:
+        loaded_spans_2 = await store.load_spans_async(trace_id_2)
+    else:
+        loaded_spans_2 = store.load_spans(trace_id_2)
+
+    assert len(loaded_spans_1) == 2
+    assert len(loaded_spans_2) == 1
+
+    trace_1_spans = [span.to_dict() for span in loaded_spans_1]
+    trace_2_spans = [span.to_dict() for span in loaded_spans_2]
+
+    assert [span.to_dict() for span in loaded_spans_1] == trace_1_spans
+    assert [span.to_dict() for span in loaded_spans_2] == trace_2_spans
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [False, True])
+async def test_load_spans_preserves_json_serialization(store: SqlAlchemyStore, is_async: bool):
+    """Test that load_spans correctly deserializes JSON-stored span data."""
+    experiment_id = store.create_experiment("test_load_spans_json")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    original_span = create_test_span(
+        trace_id=trace_id,
+        name="json_test_span",
+        span_id=111,
+        status=trace_api.StatusCode.OK,
+        start_ns=1_000_000_000,
+        end_ns=2_000_000_000,
+        trace_num=12345,
+    )
+
+    if is_async:
+        await store.log_spans_async(experiment_id, [original_span])
+    else:
+        store.log_spans(experiment_id, [original_span])
+
+    if is_async:
+        loaded_spans = await store.load_spans_async(trace_id)
+    else:
+        loaded_spans = store.load_spans(trace_id)
+
+    assert len(loaded_spans) == 1
+    loaded_span = loaded_spans[0]
+
+    loaded_dict = loaded_span.to_dict()
+    original_dict = original_span.to_dict()
+
+    assert loaded_dict["name"] == original_dict["name"]
+    assert loaded_dict["trace_id"] == original_dict["trace_id"]
+    assert loaded_dict["span_id"] == original_dict["span_id"]
+    assert loaded_dict["start_time_unix_nano"] == original_dict["start_time_unix_nano"]
+    assert loaded_dict["end_time_unix_nano"] == original_dict["end_time_unix_nano"]
+
+
+def test_load_spans_integration_with_trace_handler(store: SqlAlchemyStore):
+    """Test integration between load_spans and trace handler functionality."""
+    experiment_id = store.create_experiment("test_integration")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    spans = [
+        create_test_span(
+            trace_id=trace_id,
+            name="integration_span",
+            span_id=111,
+            status=trace_api.StatusCode.OK,
+            trace_num=12345,
+        ),
+    ]
+
+    store.log_spans(experiment_id, spans)
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == "tracking_store"
+
+    loaded_spans = store.load_spans(trace_id)
+    assert len(loaded_spans) == 1
+    assert loaded_spans[0].name == "integration_span"
