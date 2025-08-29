@@ -345,6 +345,11 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
     #  3. MLflow will pick the implementation based on given destination id.
     trace_destination = _MLFLOW_TRACE_USER_DESTINATION.get()
     if trace_destination and isinstance(trace_destination, (MlflowExperiment, Databricks)):
+        if is_in_databricks_model_serving_environment():
+            _logger.warning(
+                "The trace destination is set in the model serving environment, in this case, "
+                "inference payload traces will not be exported to the inference table."
+            )
         processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
         processors.append(processor)
     elif is_in_databricks_model_serving_environment():
