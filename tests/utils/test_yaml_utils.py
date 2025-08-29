@@ -176,13 +176,3 @@ b: 3
         actual_unsorted = f.read()
 
     assert actual_unsorted == expected_unsorted
-
-
-def foo(s):
-    return len(s)
-
-
-def test_foo():
-    assert foo("a") == 1
-    assert foo("aa") == 2
-    assert foo("aaa") == 3
