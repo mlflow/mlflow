@@ -56,16 +56,27 @@ def _create_mock_zerobus_context():
     mock_sdk = mock.MagicMock()
     mock_sdk.create_stream.return_value = mock_stream
 
+    # Create the mock modules properly
+    mock_zerobus_sdk = mock.MagicMock(
+        ZerobusSdk=mock.MagicMock(return_value=mock_sdk),
+        TableProperties=mock.MagicMock(side_effect=lambda *args: mock.MagicMock()),
+    )
+
+    # Create the definitions module with StreamState
+    mock_definitions = mock.MagicMock()
+    mock_definitions.StreamState = MockStreamState
+
+    # Create the shared module
+    mock_shared = mock.MagicMock()
+    mock_shared.definitions = mock_definitions
+
     # Mock the entire module hierarchy
     return mock.patch.dict(
         "sys.modules",
         {
-            "zerobus_sdk": mock.MagicMock(
-                ZerobusSdk=mock.MagicMock(return_value=mock_sdk),
-                TableProperties=mock.MagicMock(side_effect=lambda *args: mock.MagicMock()),
-            ),
-            "zerobus_sdk.shared": mock.MagicMock(),
-            "zerobus_sdk.shared.definitions": mock.MagicMock(StreamState=MockStreamState),
+            "zerobus_sdk": mock_zerobus_sdk,
+            "zerobus_sdk.shared": mock_shared,
+            "zerobus_sdk.shared.definitions": mock_definitions,
         },
     )
 
@@ -90,4 +101,14 @@ def mock_zerobus_sdk():
 
     # Real package not available - apply enum-compatible mocks
     with _create_mock_zerobus_context():
+        # Inject StreamState and TableProperties into the module namespace
+        # when they're not available from the import
+        import mlflow.tracing.export.databricks_delta as delta_module
+
+        if not hasattr(delta_module, "StreamState"):
+            delta_module.StreamState = MockStreamState
+        if not hasattr(delta_module, "TableProperties"):
+            delta_module.TableProperties = mock.MagicMock(
+                side_effect=lambda *args: mock.MagicMock()
+            )
         yield

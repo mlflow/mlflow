@@ -10,10 +10,10 @@ import re
 
 from google.protobuf.empty_pb2 import Empty
 
-from mlflow.exceptions import MlflowException
-from mlflow.genai.experimental.databricks_trace_storage_config import (
+from mlflow.entities.databricks_trace_storage_config import (
     DatabricksTraceDeltaStorageConfig,
 )
+from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_trace_server_pb2 import (
     CreateTraceDestinationRequest,
     DeleteTraceDestinationRequest,
@@ -33,9 +33,13 @@ _logger = logging.getLogger(__name__)
 
 
 def _get_workspace_id():
-    from databricks.sdk import WorkspaceClient
+    """Get workspace ID from Databricks SDK."""
+    try:
+        from databricks.sdk import WorkspaceClient
 
-    return WorkspaceClient().get_workspace_id()
+        return WorkspaceClient().get_workspace_id()
+    except ImportError as e:
+        raise ImportError("databricks-sdk is required for trace archival functionality") from e
 
 
 def create_archival_zerobus_sdk():
@@ -446,24 +450,3 @@ class DatabricksTraceServerClient:
             spans_schema_version=proto.spans_schema_version,
             events_schema_version=proto.events_schema_version,
         )
-
-
-# TODO: Remove this once the ingest SDK is made public
-def import_zerobus_sdk_classes():
-    """
-    Import zerobus_sdk classes needed for trace archival.
-
-    This helper function centralizes all zerobus_sdk imports to make it easy
-    to mock in tests when the package is not available. Eventually, the zerobus_sdk
-    package will be released and this function can be removed.
-
-    Returns:
-        tuple: (TableProperties, StreamState) classes from zerobus_sdk
-
-    Raises:
-        ImportError: If zerobus_sdk package is not available
-    """
-    from zerobus_sdk import TableProperties
-    from zerobus_sdk.shared.definitions import StreamState
-
-    return TableProperties, StreamState

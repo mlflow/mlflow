@@ -6,12 +6,12 @@ import importlib.util
 import logging
 
 from mlflow.exceptions import MlflowException
-from mlflow.genai.experimental.databricks_trace_exporter import DatabricksDeltaArchivalMixin
-from mlflow.genai.experimental.databricks_trace_exporter_utils import (
+from mlflow.tracing.destination import DatabricksUnityCatalog
+from mlflow.tracing.export.databricks_delta import DatabricksDeltaArchivalMixin
+from mlflow.tracing.utils.databricks_delta_utils import (
     DatabricksTraceServerClient,
     _get_workspace_id,
 )
-from mlflow.tracing.destination import DatabricksUnityCatalog
 from mlflow.tracking import MlflowClient
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils._spark_utils import _get_active_spark_session

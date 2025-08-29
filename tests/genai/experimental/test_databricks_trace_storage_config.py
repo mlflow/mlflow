@@ -4,10 +4,10 @@ Tests for TraceArchiveConfiguration entity.
 
 import pytest
 
-from mlflow.exceptions import MlflowException
-from mlflow.genai.experimental.databricks_trace_storage_config import (
+from mlflow.entities.databricks_trace_storage_config import (
     DatabricksTraceDeltaStorageConfig,
 )
+from mlflow.exceptions import MlflowException
 
 
 def test_trace_storage_configuration_entity():

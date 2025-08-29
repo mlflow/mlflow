@@ -4,19 +4,19 @@ from unittest import mock
 
 import pytest
 
+from mlflow.entities.databricks_trace_storage_config import (
+    DatabricksTraceDeltaStorageConfig,
+)
 from mlflow.exceptions import MlflowException
-from mlflow.genai.experimental.databricks_trace_exporter_utils import (
+from mlflow.protos.databricks_trace_server_pb2 import TraceDestination as ProtoTraceDestination
+from mlflow.protos.databricks_trace_server_pb2 import TraceLocation as ProtoTraceLocation
+from mlflow.tracing.utils.databricks_delta_utils import (
     DatabricksTraceServerClient,
     _resolve_archival_token,
     _resolve_archival_workspace_url,
     _resolve_ingest_url,
     create_archival_zerobus_sdk,
 )
-from mlflow.genai.experimental.databricks_trace_storage_config import (
-    DatabricksTraceDeltaStorageConfig,
-)
-from mlflow.protos.databricks_trace_server_pb2 import TraceDestination as ProtoTraceDestination
-from mlflow.protos.databricks_trace_server_pb2 import TraceLocation as ProtoTraceLocation
 
 # =============================================================================
 # Test Fixtures
@@ -192,7 +192,7 @@ def test_resolve_ingest_url_with_env_override(monkeypatch):
 
     # Should not even call get_databricks_host_creds
     with mock.patch(
-        "mlflow.genai.experimental.databricks_trace_exporter_utils.get_databricks_host_creds"
+        "mlflow.tracing.utils.databricks_delta_utils.get_databricks_host_creds"
     ) as mock_get_creds:
         result = _resolve_ingest_url()
         assert result == override_url  # Returned as-is
@@ -288,7 +288,7 @@ def test_resolve_archival_workspace_url_with_env_override(monkeypatch):
     monkeypatch.setenv("MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL", override_url)
 
     with mock.patch(
-        "mlflow.genai.experimental.databricks_trace_exporter_utils.get_databricks_host_creds"
+        "mlflow.tracing.utils.databricks_delta_utils.get_databricks_host_creds"
     ) as mock_get_creds:
         result = _resolve_archival_workspace_url()
         assert result == override_url  # Returned as-is
@@ -340,7 +340,7 @@ def test_resolve_archival_token_with_env_override(monkeypatch):
     monkeypatch.setenv("MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN", override_token)
 
     with mock.patch(
-        "mlflow.genai.experimental.databricks_trace_exporter_utils.get_databricks_host_creds"
+        "mlflow.tracing.utils.databricks_delta_utils.get_databricks_host_creds"
     ) as mock_get_creds:
         result = _resolve_archival_token()
         assert result == override_token
@@ -400,7 +400,7 @@ def test_databricks_trace_server_client_init_with_creds():
 def test_databricks_trace_server_client_init_without_creds(mock_host_creds):
     """Test client initialization without credentials."""
     with mock.patch(
-        "mlflow.genai.experimental.databricks_trace_exporter_utils.get_databricks_host_creds",
+        "mlflow.tracing.utils.databricks_delta_utils.get_databricks_host_creds",
         return_value=mock_host_creds,
     ):
         client = DatabricksTraceServerClient()
@@ -421,7 +421,7 @@ def test_create_trace_destination_success(mock_host_creds):
     response_proto.events_schema_version = "v1"
 
     with mock.patch(
-        "mlflow.genai.experimental.databricks_trace_exporter_utils.call_endpoint",
+        "mlflow.tracing.utils.databricks_delta_utils.call_endpoint",
         return_value=response_proto,
     ) as mock_call:
         result = client.create_trace_destination(
@@ -458,7 +458,7 @@ def test_create_trace_destination_without_table_prefix(mock_host_creds):
     response_proto.events_schema_version = "v1"
 
     with mock.patch(
-        "mlflow.genai.experimental.databricks_trace_exporter_utils.call_endpoint",
+        "mlflow.tracing.utils.databricks_delta_utils.call_endpoint",
         return_value=response_proto,
     ) as mock_call:
         result = client.create_trace_destination(
@@ -489,7 +489,7 @@ def test_get_trace_destination_success(mock_host_creds):
     response_proto.events_schema_version = "v1"
 
     with mock.patch(
-        "mlflow.genai.experimental.databricks_trace_exporter_utils.call_endpoint",
+        "mlflow.tracing.utils.databricks_delta_utils.call_endpoint",
         return_value=response_proto,
     ) as mock_call:
         result = client.get_trace_destination(experiment_id="exp123")
@@ -521,7 +521,7 @@ def test_get_trace_destination_not_found(mock_host_creds, error_message):
     client = DatabricksTraceServerClient(host_creds=mock_host_creds)
 
     with mock.patch(
-        "mlflow.genai.experimental.databricks_trace_exporter_utils.call_endpoint",
+        "mlflow.tracing.utils.databricks_delta_utils.call_endpoint",
         side_effect=MlflowException(error_message),
     ):
         result = client.get_trace_destination(experiment_id="exp123")
@@ -533,7 +533,7 @@ def test_get_trace_destination_other_error(mock_host_creds):
     client = DatabricksTraceServerClient(host_creds=mock_host_creds)
 
     with mock.patch(
-        "mlflow.genai.experimental.databricks_trace_exporter_utils.call_endpoint",
+        "mlflow.tracing.utils.databricks_delta_utils.call_endpoint",
         side_effect=MlflowException("Internal server error"),
     ):
         with pytest.raises(MlflowException, match=r"Internal server error"):
