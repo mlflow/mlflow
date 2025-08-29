@@ -56,7 +56,7 @@ def github_api_request(
 
 
 @functools.lru_cache(maxsize=32)
-def fetch_pr_diff(owner: str, repo: str, pr_number: str) -> str:
+def fetch_pr_diff(owner: str, repo: str, pr_number: int) -> str:
     url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}"
     return github_api_request(url, accept_header="application/vnd.github.v3.diff")
 
