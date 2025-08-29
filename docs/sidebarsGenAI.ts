@@ -233,6 +233,17 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: 'MCP',
+      className: 'sidebar-top-level-category',
+      items: [
+        {
+          type: 'doc',
+          id: 'mcp/index',
+        },
+      ],
+    },
+    {
+      type: 'category',
       label: 'Evaluate & Monitor',
       className: 'sidebar-top-level-category',
       items: [
