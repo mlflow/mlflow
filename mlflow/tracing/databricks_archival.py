@@ -300,21 +300,25 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
             -- 6. Main query - join the trace metadata with associated tags, assessments and spans.
             -- All transformation are moved here to keep the joins performant
             SELECT
-              ts.trace_data:trace_id::STRING AS trace_id,
-              ts.trace_data:client_request_id::STRING AS client_request_id,
-              TIMESTAMP_MILLIS(CAST(ts.trace_data:request_time::DOUBLE AS BIGINT)) AS request_time,
-              ts.trace_data:state::STRING AS state,
-              CAST(ts.trace_data:execution_duration::DOUBLE AS BIGINT) AS execution_duration_ms,
-              ts.trace_data:request_preview::STRING AS request_preview,
-              ts.trace_data:response_preview::STRING AS response_preview,
+              CAST(ts.trace_data['trace_id'] AS STRING) AS trace_id,
+              CAST(ts.trace_data['client_request_id'] AS STRING) AS client_request_id,
+              TIMESTAMP_MILLIS(
+                CAST(CAST(ts.trace_data['request_time'] AS DOUBLE) AS BIGINT)
+              ) AS request_time,
+              CAST(ts.trace_data['state'] AS STRING) AS state,
+              CAST(
+                CAST(ts.trace_data['execution_duration'] AS DOUBLE) AS BIGINT
+              ) AS execution_duration_ms,
+              CAST(ts.trace_data['request_preview'] AS STRING) AS request_preview,
+              CAST(ts.trace_data['response_preview'] AS STRING) AS response_preview,
               rs.request AS request,
               rs.response AS response,
               FROM_JSON(
-                ts.trace_data:trace_metadata::STRING, 'MAP<STRING, STRING>'
+                CAST(ts.trace_data['trace_metadata'] AS STRING), 'MAP<STRING, STRING>'
               ) AS trace_metadata,
               COALESCE(FROM_JSON(lt.tag_json, 'MAP<STRING, STRING>'), MAP()) AS tags,
               FROM_JSON(
-                ts.trace_data:trace_location::STRING,
+                CAST(ts.trace_data['trace_location'] AS STRING),
                 'STRUCT<
                   type: STRING,
                   mlflow_experiment: STRUCT<
@@ -330,25 +334,27 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
                 TRANSFORM(
                   aa.assessments,
                   body -> STRUCT(
-                    body:assessment_id::STRING AS assessment_id,
-                    body:trace_id::STRING AS trace_id,
-                    body:assessment_name::STRING AS name,
+                    CAST(body['assessment_id'] AS STRING) AS assessment_id,
+                    CAST(body['trace_id'] AS STRING) AS trace_id,
+                    CAST(body['assessment_name'] AS STRING) AS name,
                     FROM_JSON(
-                        body:source::STRING,
+                        CAST(body['source'] AS STRING),
                         'STRUCT<source_id: STRING, source_type: STRING>'
                     ) AS source,
-                    TIMESTAMP_MILLIS(CAST(body:create_time::DOUBLE AS BIGINT)) AS create_time,
                     TIMESTAMP_MILLIS(
-                        CAST(body:last_update_time::DOUBLE AS BIGINT)
+                      CAST(CAST(body['create_time'] AS DOUBLE) AS BIGINT)
+                    ) AS create_time,
+                    TIMESTAMP_MILLIS(
+                        CAST(CAST(body['last_update_time'] AS DOUBLE) AS BIGINT)
                     ) AS last_update_time,
-                    FROM_JSON(body:expectation::STRING,
+                    FROM_JSON(CAST(body['expectation'] AS STRING),
                         'STRUCT<
                             value: STRING,
                             serialized_value: STRUCT<serialization_format: STRING, value: STRING>
                             >
                         ') AS expectation,
                     FROM_JSON(
-                        body:feedback::STRING,
+                        CAST(body['feedback'] AS STRING),
                         'STRUCT<
                             value: STRING,
                             error: STRUCT<
@@ -358,10 +364,10 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
                             >
                          >'
                     ) AS feedback,
-                    body:rationale::STRING AS rationale,
-                    FROM_JSON(body:metadata::STRING, 'MAP<STRING, STRING>') AS metadata,
-                    body:span_id::STRING AS span_id,
-                    body:valid::BOOLEAN AS valid
+                    CAST(body['rationale'] AS STRING) AS rationale,
+                    FROM_JSON(CAST(body['metadata'] AS STRING), 'MAP<STRING, STRING>') AS metadata,
+                    CAST(body['span_id'] AS STRING) AS span_id,
+                    CAST(body['valid'] AS BOOLEAN) AS valid
                   )
                 ),
                 ARRAY()
