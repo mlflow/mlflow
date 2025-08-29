@@ -14,6 +14,7 @@ import json
 import os
 import re
 from typing import Annotated, Any, Literal
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from fastmcp import FastMCP
@@ -42,12 +43,16 @@ def github_api_request(
     else:
         req = Request(url, headers=headers, method=method)
 
-    with urlopen(req) as response:
-        content = response.read().decode("utf-8")
-        # Return raw content for diff accept header, JSON otherwise
-        if accept_header == "application/vnd.github.v3.diff":
-            return content
-        return json.loads(content)
+    try:
+        with urlopen(req) as response:
+            content = response.read().decode("utf-8")
+            # Return raw content for diff accept header, JSON otherwise
+            if accept_header == "application/vnd.github.v3.diff":
+                return content
+            return json.loads(content)
+    except HTTPError as e:
+        body = e.read().decode("utf-8")
+        raise RuntimeError(f"Error fetching GitHub API: {e.code} {e.reason} {body}") from e
 
 
 @functools.lru_cache(maxsize=32)
@@ -171,14 +176,14 @@ def add_pr_review_comment(
     ] = None,
     side: Annotated[
         Literal["LEFT", "RIGHT"],
-        "The side of the diff to comment on. LEFT indicates the previous state, RIGHT indicates "
-        "the new state",
+        "The side of the diff to comment on. 'LEFT' indicates the previous state, 'RIGHT' "
+        "indicates the new state",
     ] = "RIGHT",
     start_side: Annotated[
         Literal["LEFT", "RIGHT"] | None,
         (
-            "The starting side of the diff to comment on. LEFT indicates the previous state, "
-            "RIGHT indicates the new state"
+            "The starting side of the diff to comment on. 'LEFT' indicates the previous state, "
+            "'RIGHT' indicates the new state"
         ),
     ] = None,
     subject_type: Annotated[
@@ -203,12 +208,13 @@ def add_pr_review_comment(
         "line": line,
         "body": body,
         "side": side,
-        "subject_type": subject_type,
     }
     if start_line is not None:
         data["start_line"] = start_line
     if start_side is not None:
         data["start_side"] = start_side
+    if subject_type == "file":
+        data["subject_type"] = subject_type
 
     result = github_api_request(url, method="POST", data=data)
     return f"Comment added successfully: {result.get('html_url')}"
