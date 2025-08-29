@@ -1059,13 +1059,13 @@
     "defaultMessage": "Monitoring",
     "description": "A button enabling evaluation results monitoring mode on the experiment page"
   },
-  "Hboqen": {
-    "defaultMessage": "Failed to load chart",
-    "description": "Title for the error message when the MLflow chart fails to load"
-  },
   "HZdpLU": {
     "defaultMessage": "Only alphanumeric characters, underscores, hyphens, and dots are allowed",
     "description": "A validation state for the prompt name format in the prompt creation modal"
+  },
+  "Hboqen": {
+    "defaultMessage": "Failed to load chart",
+    "description": "Title for the error message when the MLflow chart fails to load"
   },
   "Hk0RSH": {
     "defaultMessage": "Y-axis:",
@@ -2759,10 +2759,6 @@
     "defaultMessage": "Absolute date and time",
     "description": "A tooltip line chart configuration for the step function of wall time"
   },
-  "npKSv/": {
-    "defaultMessage": "No description",
-    "description": "Placeholder text when no description is provided for the logged model displayed in the logged models details page"
-  },
   "ny+fBZ": {
     "defaultMessage": "Columns",
     "description": "Dropdown text to display columns names that could to be rendered for the experiment runs table"
@@ -3266,22 +3262,6 @@
   "xmpvlI": {
     "defaultMessage": "Unhide run",
     "description": "A tooltip for the visibility icon button in the runs table next to the hidden run"
-  },
-  "xnr5KT": {
-    "defaultMessage": "No events found",
-    "description": "Empty state for the events tab in the model trace explorer. Events are logs of arbitrary things (e.g. exceptions) that occur during the execution of a span, and can be user-defined."
-  },
-  "xq0Rde": {
-    "defaultMessage": "New",
-    "description": "Sidebar create popover button to create new experiment, model or prompt"
-  },
-  "xwe7WH": {
-    "defaultMessage": "Default rendering",
-    "description": "Tooltip content for a button that changes the render mode to default"
-  },
-  "y2oQyU": {
-    "defaultMessage": "Model name",
-    "description": "Header title for the model name column in the logged model list table"
   },
   "y3JM9B": {
     "defaultMessage": "Show more columns",
