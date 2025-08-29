@@ -100,12 +100,6 @@ def set_experiment_storage_location(
             # "Please install it with `pip install databricks-zerobus`."
         )
 
-    if importlib.util.find_spec("databricks.agents") is None:
-        raise ImportError(
-            "The `databricks-agents` package is required to set experiment storage location."
-            "Please install it with `pip install databricks-agents`."
-        )
-
     if experiment_id is None:
         experiment_id = _get_experiment_id()
 
@@ -274,17 +268,22 @@ def _create_genai_trace_view(view_name: str, spans_table: str, events_table: str
             latest_tags AS (
               SELECT
                 trace_id,
-                FIRST_VALUE(body) OVER (
-                    PARTITION BY trace_id
-                    ORDER BY time_unix_nano DESC
-                    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
-                  ) AS tag_json
-              FROM
-                {events_table}
-              WHERE
-                event_name = '{TAGS_SNAPSHOT_OTEL_EVENT_NAME}'
-              QUALIFY
-                ROW_NUMBER() OVER (PARTITION BY trace_id ORDER BY time_unix_nano DESC) = 1
+                tag_json
+              FROM (
+                SELECT
+                  trace_id,
+                  FIRST_VALUE(body) OVER (
+                      PARTITION BY trace_id
+                      ORDER BY time_unix_nano DESC
+                      ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+                    ) AS tag_json,
+                  ROW_NUMBER() OVER (PARTITION BY trace_id ORDER BY time_unix_nano DESC) AS rn
+                FROM
+                  {events_table}
+                WHERE
+                  event_name = '{TAGS_SNAPSHOT_OTEL_EVENT_NAME}'
+              )
+              WHERE rn = 1
             ),
             -- 5. Extract the root span which contains the full request and response
             -- and not previews from the trace snapshot event

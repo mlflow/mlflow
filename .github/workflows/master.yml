@@ -101,7 +101,6 @@ jobs:
         run: |
           source .venv/bin/activate
           source dev/setup-ssh.sh
-          pip install databricks-agents
           pytest tests/tracing/databricks_archival
 
   py310:
