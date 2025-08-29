@@ -7,7 +7,6 @@ import logging
 
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.destination import DatabricksUnityCatalog
-from mlflow.tracing.export.databricks_delta import DatabricksDeltaArchivalMixin
 from mlflow.tracing.utils.databricks_delta_utils import (
     DatabricksTraceServerClient,
     _get_workspace_id,
@@ -70,7 +69,7 @@ def set_experiment_storage_location(
 
         import mlflow
         from mlflow.tracing.destination import DatabricksUnityCatalog
-        from mlflow.genai.experimental import set_experiment_storage_location
+        from mlflow.tracing.databricks_archival import set_experiment_storage_location
 
         view_name = set_experiment_storage_location(
             DatabricksUnityCatalog(
@@ -89,6 +88,18 @@ def set_experiment_storage_location(
         add(1)  # this writes the trace to the storage location set above
 
     """
+    from mlflow.tracing.export.databricks_delta import (
+        ZEROBUS_SDK_AVAILABLE,
+        DatabricksDeltaArchivalMixin,
+    )
+
+    if not ZEROBUS_SDK_AVAILABLE:
+        raise ImportError(
+            "The `databricks-zerobus` package is required to set experiment storage location."
+            # TODO: uncomment this after zerobus sdk is released
+            # "Please install it with `pip install databricks-zerobus`."
+        )
+
     if importlib.util.find_spec("databricks.agents") is None:
         raise ImportError(
             "The `databricks-agents` package is required to set experiment storage location."

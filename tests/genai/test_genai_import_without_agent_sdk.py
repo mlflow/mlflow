@@ -3,13 +3,13 @@ from unittest.mock import patch
 import pytest
 
 from mlflow.genai.datasets import create_dataset, delete_dataset, get_dataset
-from mlflow.genai.experimental.databricks_trace_archival import set_experiment_storage_location
 from mlflow.genai.scorers import (
     delete_scorer,
     get_scorer,
     list_scorers,
 )
 from mlflow.genai.scorers.base import Scorer
+from mlflow.tracing.databricks_archival import set_experiment_storage_location
 
 
 # Test `mlflow.genai` namespace
@@ -53,14 +53,14 @@ def test_delete_dataset_raises_when_agents_not_installed():
 
 
 def test_set_experiment_storage_location_raises_when_agents_not_installed():
-    """Test that ImportError is raised when databricks-agents package is not available."""
+    """Test that ImportError is raised when databricks-zerobus package is not available."""
     from mlflow.tracing.destination import DatabricksUnityCatalog
 
     location = DatabricksUnityCatalog(catalog="catalog", schema="schema", table_prefix="prefix")
 
     with pytest.raises(
         ImportError,
-        match=r"The `databricks-agents` package is required to set experiment storage location",
+        match=r"The `databricks-zerobus` package is required to set experiment storage location",
     ):
         set_experiment_storage_location(location, experiment_id="12345")
 
