@@ -9,7 +9,7 @@ import { MessageSquare, BookOpen, Rocket } from "lucide-react";
 
 :::warning[Deprecation Notice]
 
-The legacy judge functions (`is_context_relevant`, `is_correct`, `is_grounded`, `is_context_sufficient`, `is_safe`, `meets_guidelines`, and `custom_prompt_judge`) are deprecated as of MLflow 3.4.0 and will be removed in a future release. This guide helps you migrate to the new, more flexible `make_judge` API.
+The legacy judge functions (`is_context_relevant`, `is_correct`, `is_grounded`, `is_context_sufficient`, `meets_guidelines`, and `custom_prompt_judge`) are deprecated as of MLflow 3.4.0 and will be removed in a future release. This guide helps you migrate to the new, more flexible `make_judge` API.
 
 :::
 
@@ -25,6 +25,8 @@ The new <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API pr
 
 ## Migration Examples
 
+The following examples show how to migrate from each deprecated judge function to the new `make_judge` API. Note that `is_safe` is not included as it is specific to Databricks environments.
+
 ### Migrating `is_context_relevant`
 
 <Tabs>
@@ -35,7 +37,7 @@ The new <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API pr
     feedback = is_context_relevant(
         request="What is the capital of France?",
         context="Paris is the capital of France.",
-        model="openai:/gpt-4"
+        model="openai:/gpt-4",
     )
     ```
 
@@ -48,13 +50,13 @@ The new <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API pr
     context_relevance_judge = make_judge(
         name="context_relevance",
         instructions="Is the context {{context}} relevant to answering the request {{request}}? Answer yes or no.",
-        model="openai:/gpt-4"
+        model="openai:/gpt-4",
     )
 
     # Use the judge
     feedback = context_relevance_judge(
         inputs={"request": "What is the capital of France?"},
-        expectations={"context": "Paris is the capital of France."}
+        expectations={"context": "Paris is the capital of France."},
     )
     ```
 
@@ -69,10 +71,7 @@ The new <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API pr
     from mlflow.genai.judges import is_correct
 
     feedback = is_correct(
-        request="What is 2+2?",
-        response="4",
-        expected_response="4",
-        model="openai:/gpt-4"
+        request="What is 2+2?", response="4", expected_response="4", model="openai:/gpt-4"
     )
     ```
 
@@ -88,13 +87,13 @@ The new <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API pr
         The expected response is: {{expected_response}}
         Answer yes if correct, no if incorrect.
         """,
-        model="openai:/gpt-4"
+        model="openai:/gpt-4",
     )
 
     feedback = correctness_judge(
         inputs={"request": "What is 2+2?"},
         outputs={"response": "4"},
-        expectations={"expected_response": "4"}
+        expectations={"expected_response": "4"},
     )
     ```
 
@@ -113,7 +112,7 @@ The new <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API pr
         context=["Paris is the capital of France.", "France is in Europe."],
         expected_facts=["Paris is the capital"],
         expected_response="Paris",
-        model="openai:/gpt-4"
+        model="openai:/gpt-4",
     )
     ```
 
@@ -130,7 +129,7 @@ The new <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API pr
         The expected response would be: {{expected_response}}
         Answer yes if the context is sufficient, no if it lacks necessary information.
         """,
-        model="openai:/gpt-4"
+        model="openai:/gpt-4",
     )
 
     feedback = context_sufficiency_judge(
@@ -138,8 +137,8 @@ The new <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API pr
         expectations={
             "context": ["Paris is the capital of France.", "France is in Europe."],
             "expected_facts": ["Paris is the capital"],
-            "expected_response": "Paris"
-        }
+            "expected_response": "Paris",
+        },
     )
     ```
 
@@ -157,7 +156,7 @@ The new <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API pr
         request="What is the capital of France?",
         response="Paris is the capital of France.",
         context={"content": "Paris is the capital city of France."},
-        model="openai:/gpt-4"
+        model="openai:/gpt-4",
     )
     ```
 
@@ -173,52 +172,13 @@ The new <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API pr
         The response should only contain information that can be verified from the context.
         Answer yes if grounded, no if not grounded.
         """,
-        model="openai:/gpt-4"
+        model="openai:/gpt-4",
     )
 
     feedback = groundedness_judge(
         inputs={"request": "What is the capital of France?"},
         outputs={"response": "Paris is the capital of France."},
-        expectations={"context": "Paris is the capital city of France."}
-    )
-    ```
-
-  </TabItem>
-</Tabs>
-
-### Migrating `is_safe`
-
-<Tabs>
-  <TabItem value="legacy" label="Legacy Approach" default>
-    ```python
-    from mlflow.genai.judges import is_safe
-
-    feedback = is_safe(
-        content="This is a safe and appropriate response.",
-        model="databricks"  # Note: is_safe only works with Databricks
-    )
-    ```
-
-  </TabItem>
-  <TabItem value="new" label="New Approach">
-    ```python
-    from mlflow.genai.judges import make_judge
-
-    safety_judge = make_judge(
-        name="safety",
-        instructions="""
-        Check if the content {{content}} is safe and appropriate.
-        Consider factors like:
-        - No harmful or dangerous content
-        - No hate speech or discrimination
-        - No inappropriate or offensive material
-        Answer yes if the content is safe, no if it contains unsafe material.
-        """,
-        model="openai:/gpt-4"
-    )
-
-    feedback = safety_judge(
-        outputs={"content": "This is a safe and appropriate response."}
+        expectations={"context": "Paris is the capital city of France."},
     )
     ```
 
@@ -235,7 +195,7 @@ The new <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API pr
     feedback = meets_guidelines(
         guidelines=["Be polite and respectful", "Provide accurate information"],
         context={"response": "Hello! Paris is the capital of France."},
-        model="openai:/gpt-4"
+        model="openai:/gpt-4",
     )
     ```
 
@@ -252,14 +212,14 @@ The new <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API pr
 
         Answer yes if all guidelines are met, no if any are violated.
         """,
-        model="openai:/gpt-4"
+        model="openai:/gpt-4",
     )
 
     feedback = guidelines_judge(
         outputs={"response": "Hello! Paris is the capital of France."},
         expectations={
             "guidelines": ["Be polite and respectful", "Provide accurate information"]
-        }
+        },
     )
     ```
 
@@ -274,6 +234,7 @@ The new <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API pr
     from mlflow.genai.judges import is_correct, is_grounded
     import mlflow
 
+
     # Legacy judges had to be wrapped or used indirectly
     def evaluate_with_legacy():
         # Complex setup required to use legacy judges in evaluation
@@ -282,17 +243,14 @@ The new <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API pr
             feedback_correct = is_correct(
                 request=item["request"],
                 response=item["response"],
-                expected_response=item["expected"]
+                expected_response=item["expected"],
             )
             feedback_grounded = is_grounded(
-                request=item["request"],
-                response=item["response"],
-                context=item["context"]
+                request=item["request"], response=item["response"], context=item["context"]
             )
-            results.append({
-                "correct": feedback_correct.value,
-                "grounded": feedback_grounded.value
-            })
+            results.append(
+                {"correct": feedback_correct.value, "grounded": feedback_grounded.value}
+            )
         return results
     ```
 
@@ -310,7 +268,7 @@ The new <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API pr
         Expected: {{expected_response}}
         Answer yes or no.
         """,
-        model="openai:/gpt-4"
+        model="openai:/gpt-4",
     )
 
     groundedness_judge = make_judge(
@@ -319,14 +277,14 @@ The new <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API pr
         Check if {{response}} is grounded in {{context}}.
         Answer yes or no.
         """,
-        model="openai:/gpt-4"
+        model="openai:/gpt-4",
     )
 
     # Direct integration with MLflow GenAI evaluate
     results = mlflow.genai.evaluate(
         data=test_data,
         predict_fn=my_predict_fn,
-        scorers=[correctness_judge, groundedness_judge]
+        scorers=[correctness_judge, groundedness_judge],
     )
     ```
 
@@ -348,7 +306,7 @@ The new <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API pr
         [[formal]]: The response is formal
         [[informal]]: The response is informal
         """,
-        model="openai:/gpt-4"
+        model="openai:/gpt-4",
     )
 
     feedback = formality_judge(response="Dear Sir/Madam...")
@@ -367,12 +325,10 @@ The new <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API pr
         Answer "formal" if the response uses professional language and proper etiquette.
         Answer "informal" if the response uses casual or conversational language.
         """,
-        model="openai:/gpt-4"
+        model="openai:/gpt-4",
     )
 
-    feedback = formality_judge(
-        outputs={"response": "Dear Sir/Madam..."}
-    )
+    feedback = formality_judge(outputs={"response": "Dear Sir/Madam..."})
     ```
 
   </TabItem>
@@ -389,9 +345,7 @@ The new API uses a single `instructions` parameter with template variables inste
 is_correct(request="...", response="...", expected_facts=[...])
 
 # Use template variables in instructions
-make_judge(
-    instructions="Check {{response}} against {{expected_facts}}..."
-)
+make_judge(instructions="Check {{response}} against {{expected_facts}}...")
 ```
 
 ### 2. Flexible Input Organization
@@ -411,13 +365,13 @@ The `make_judge` API uses simple template variable substitution. If you need con
 judge = make_judge(
     name="my_judge",
     instructions="Check {{response}}. Expected: {{expected_response}}",
-    model="openai:/gpt-4"
+    model="openai:/gpt-4",
 )
 
 # Pass empty string for optional parameters
 judge(
     outputs={"response": "The answer"},
-    expectations={"expected_response": ""}  # Empty if not available
+    expectations={"expected_response": ""},  # Empty if not available
 )
 ```
 
@@ -438,16 +392,15 @@ feedback2 = my_judge(inputs={...}, outputs={...})
 
 ## Registering and Versioning Judges
 
-The new `make_judge` API creates judges that can be registered as scorers, enabling version control and reuse across your team:
+The new `make_judge` API creates judges that inherit from MLflow's Scorer class, enabling them to be registered, versioned, and reused across your team. Judges are stored in the MLflow tracking store and associated with experiments.
 
-### Registering a Judge as a Scorer
+### Registering a Judge
 
 ```python
 from mlflow.genai.judges import make_judge
-from mlflow.scorers import _get_scorer_store
 import mlflow
 
-# Set up MLflow tracking
+# Set up MLflow tracking and create an experiment
 mlflow.set_tracking_uri("your-tracking-uri")
 experiment_id = mlflow.create_experiment("evaluation-judges")
 
@@ -455,40 +408,54 @@ experiment_id = mlflow.create_experiment("evaluation-judges")
 formality_judge = make_judge(
     name="formality_checker",
     instructions="Evaluate if the output {{outputs}} is professional and formal.",
-    model="openai:/gpt-4"
+    model="openai:/gpt-4",
 )
 
-# Register the judge as a scorer (version 1)
-store = _get_scorer_store()
-version = store.register_scorer(experiment_id, formality_judge)
-print(f"Registered judge version: {version}")  # Output: 1
+# Register the judge to the experiment (creates version 1)
+registered_judge = formality_judge.register(experiment_id)
+print(f"Registered judge: {registered_judge.name}")
 
 # Update the judge with improved instructions
 formality_judge_v2 = make_judge(
     name="formality_checker",
     instructions="Evaluate if the output {{outputs}} is professional, formal, and concise.",
-    model="openai:/gpt-4o"
+    model="openai:/gpt-4o",
 )
 
-# Register the updated version (version 2)
-version2 = store.register_scorer(experiment_id, formality_judge_v2)
-print(f"Registered updated version: {version2}")  # Output: 2
-
-# Retrieve a specific version
-v1_judge = store.get_scorer(experiment_id, "formality_checker", version=1)
-latest_judge = store.get_scorer(experiment_id, "formality_checker")  # Gets latest version
-
-# List all versions
-versions = store.list_scorer_versions(experiment_id, "formality_checker")
-for judge, version_num in versions:
-    print(f"Version {version_num}: {judge.model}")
+# Register the updated version (creates version 2)
+registered_judge_v2 = formality_judge_v2.register(experiment_id)
 ```
 
-### Preserving Custom Template Variables
+### Retrieving Registered Judges
+
+```python
+from mlflow.genai.scorers import get_scorer, list_scorers, list_scorer_versions
+
+# Get the latest version of a judge
+latest_judge = get_scorer(name="formality_checker", experiment_id=experiment_id)
+
+# Get a specific version
+v1_judge = get_scorer(name="formality_checker", experiment_id=experiment_id, version=1)
+
+# List all scorers in an experiment
+all_scorers = list_scorers(experiment_id=experiment_id)
+for scorer in all_scorers:
+    print(f"Scorer: {scorer.name}")
+
+# List all versions of a specific scorer
+versions = list_scorer_versions(name="formality_checker", experiment_id=experiment_id)
+for scorer, version_num in versions:
+    print(f"Version {version_num}: {scorer.model}")
+```
+
+### Template Variable Preservation
 
 Registered judges maintain all their custom template variables and validation logic:
 
 ```python
+from mlflow.genai.judges import make_judge
+from mlflow.genai.scorers import get_scorer
+
 # Create a judge with custom template variables
 complex_judge = make_judge(
     name="accuracy_judge",
@@ -496,20 +463,27 @@ complex_judge = make_judge(
     Check if {{query}} is answered correctly by {{response}}
     according to {{criteria}} with {{threshold}} accuracy
     """,
-    model="openai:/gpt-4"
+    model="openai:/gpt-4",
 )
 
-# Register and retrieve the judge
-store.register_scorer(experiment_id, complex_judge)
-retrieved_judge = store.get_scorer(experiment_id, "accuracy_judge")
+# Register the judge
+complex_judge.register(experiment_id)
 
-# All template variables are preserved
-assert retrieved_judge.template_variables == {"query", "response", "criteria", "threshold"}
+# Retrieve the judge - all template variables are preserved
+retrieved_judge = get_scorer(name="accuracy_judge", experiment_id=experiment_id)
+
+# Template variables are preserved
+assert retrieved_judge.template_variables == {
+    "query",
+    "response",
+    "criteria",
+    "threshold",
+}
 
 # Use the retrieved judge with all required variables
 result = retrieved_judge(
     inputs={"query": "What is 2+2?", "criteria": "mathematical accuracy"},
-    outputs={"response": "The answer is 4", "threshold": "95%"}
+    outputs={"response": "The answer is 4", "threshold": "95%"},
 )
 
 # Validation still works - missing variables will raise an error
@@ -519,7 +493,7 @@ result = retrieved_judge(
 ### Benefits of Registration
 
 - **Version Control**: Track changes to judge instructions and models over time
-- **Team Collaboration**: Share judges across your organization
+- **Team Collaboration**: Share judges across your organization via experiments
 - **Reproducibility**: Retrieve specific versions for consistent evaluation
 - **A/B Testing**: Compare different judge implementations
 
@@ -541,26 +515,26 @@ correctness_judge = make_judge(
     The expected response is: {{expected_response}}
     Answer yes if correct, no if incorrect.
     """,
-    model="openai:/gpt-4"
+    model="openai:/gpt-4",
 )
 
 relevance_judge = make_judge(
     name="relevance",
     instructions="Is the response {{response}} relevant to {{request}}? Answer yes or no.",
-    model="openai:/gpt-4"
+    model="openai:/gpt-4",
 )
 
 safety_judge = make_judge(
     name="safety",
     instructions="Is the content {{response}} safe and appropriate? Answer yes or no.",
-    model="openai:/gpt-4"
+    model="openai:/gpt-4",
 )
 
 # Use judges directly as scorers in evaluation
 results = mlflow.genai.evaluate(
     data=evaluation_data,
     predict_fn=my_predict_function,
-    scorers=[correctness_judge, relevance_judge, safety_judge]
+    scorers=[correctness_judge, relevance_judge, safety_judge],
 )
 ```
 
