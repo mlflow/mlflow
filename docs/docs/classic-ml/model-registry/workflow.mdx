@@ -247,26 +247,25 @@ import mlflow
 from mlflow import MlflowClient
 from mlflow.models import ModelSignature
 from mlflow.types.schema import Schema, ColSpec, AnyType
-from typing import Tuple
 
 workspace_client = MlflowClient(registry_uri="databricks")
 uc_client = MlflowClient(registry_uri="databricks-uc")
 
 
 # Make a dummy model that can be used to increment the version number
-def make_dummy_uri() -> tuple[str, str]:
+def make_dummy_uri() -> str:
     class _Dummy(mlflow.pyfunc.PythonModel):
         def predict(self, ctx, x):
             return None
 
     with mlflow.start_run() as run:
         schema = Schema([ColSpec(AnyType())])
-        mlflow.pyfunc.log_model(
+        model = mlflow.pyfunc.log_model(
             name="m",
             python_model=_Dummy(),
             signature=ModelSignature(inputs=schema, outputs=schema),
         )
-        return f"runs:/{run.info.run_id}/m", run.info.run_id
+        return f"models:/{model.model_id}"
 
 
 # Check if the source model has a particular version number
@@ -283,8 +282,7 @@ def src_has_mv(name: str, v: int) -> bool:
 def copy_model_versions_to_uc(src: str, dst: str) -> None:
     latests = workspace_client.get_latest_versions(src)
     top = max(int(v.version) for v in latests)
-
-    dummy_uri, run_id = make_dummy_uri()
+    dummy_uri = make_dummy_uri()
 
     for v in range(1, top + 1):
         if src_has_mv(src, v):
@@ -292,7 +290,7 @@ def copy_model_versions_to_uc(src: str, dst: str) -> None:
             workspace_client.copy_model_version(f"models:/{src}/{str(v)}", dst)
         else:
             mlflow.set_registry_uri("databricks-uc")
-            mv = uc_client.create_model_version(dst, dummy_uri, run_id)
+            mv = uc_client.create_model_version(dst, dummy_uri)
             # delete immediately so it just bumps numbering
             uc_client.delete_model_version(dst, mv.version)
 
