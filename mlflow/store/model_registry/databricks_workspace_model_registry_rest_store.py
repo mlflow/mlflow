@@ -1,3 +1,6 @@
+from mlflow.environment_variables import (
+    MLFLOW_SKIP_SIGNATURE_CHECK_FOR_MIGRATION_TO_DATABRICKS_UC_REGISTRY,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
@@ -61,7 +64,7 @@ class DatabricksWorkspaceModelRegistryRestStore(RestStore):
             Single :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
             the cloned model version.
         """
-        if len(dst_name.split(".")) == 3:
+        if dst_name.count(".") == 2:
             import mlflow
             from mlflow.store._unity_catalog.registry.rest_store import (
                 UcModelRegistryStore,
@@ -95,7 +98,7 @@ class DatabricksWorkspaceModelRegistryRestStore(RestStore):
                     f"Registered model '{dst_name}' already exists."
                     f" Creating a new version of this model..."
                 )
-            env_var = mlflow.environment_variables.MLFLOW_SKIP_SIGNATURE_CHECK_FOR_MIGRATION_TO_DATABRICKS_UC_REGISTRY
+            env_var = MLFLOW_SKIP_SIGNATURE_CHECK_FOR_MIGRATION_TO_DATABRICKS_UC_REGISTRY
             bypass_signature_validation = env_var.get()
             return uc_store._create_model_version_with_optional_signature_validation(
                 name=dst_name,

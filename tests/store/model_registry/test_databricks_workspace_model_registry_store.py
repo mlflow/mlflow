@@ -21,7 +21,7 @@ def store(creds):
 
 
 @pytest.fixture
-def sample_model_version():
+def sample_model_version() -> ModelVersion:
     """Common ModelVersion object for testing copy_model_version"""
     return ModelVersion(
         name="test_model",
@@ -34,6 +34,13 @@ def sample_model_version():
         run_link="test_link",
         model_id="test_model_id",
     )
+
+
+@pytest.fixture(autouse=True)
+def mock_tracking_uri():
+    """Automatically mock mlflow.get_tracking_uri to return 'databricks' for all tests"""
+    with mock.patch("mlflow.get_tracking_uri", return_value="databricks"):
+        yield
 
 
 def _expected_unsupported_method_error_message(method):
@@ -89,9 +96,9 @@ def test_copy_model_version_unity_catalog_success(store, sample_model_version):
     dst_name = "catalog.schema.model"
 
     # Mock mlflow.artifacts.download_artifacts
-    with mock.patch("mlflow.artifacts.download_artifacts") as mock_download:
-        mock_download.return_value = "/tmp/local_model_dir"
-
+    with mock.patch(
+        "mlflow.artifacts.download_artifacts", return_value="/tmp/local_model_dir"
+    ) as mock_download:
         # Mock UcModelRegistryStore
         with mock.patch(
             "mlflow.store._unity_catalog.registry.rest_store.UcModelRegistryStore"
@@ -151,10 +158,12 @@ def test_copy_model_version_unity_catalog_migration_download_failure(store, samp
 
     dst_name = "catalog.schema.model"
 
-    # Mock mlflow.artifacts.download_artifacts to raise an exception
-    with mock.patch("mlflow.artifacts.download_artifacts") as mock_download:
-        mock_download.side_effect = Exception("Download failed")
-
+    # Mock multiple dependencies in a single context manager
+    with (
+        mock.patch(
+            "mlflow.artifacts.download_artifacts", side_effect=Exception("Download failed")
+        ) as mock_download,
+    ):
         with pytest.raises(MlflowException, match="Unable to download model test_model version 1"):
             store.copy_model_version(sample_model_version, dst_name)
 
@@ -171,67 +180,68 @@ def test_copy_model_version_unity_catalog_registered_model_already_exists(
 
     dst_name = "catalog.schema.existing_model"
 
-    # Mock mlflow.artifacts.download_artifacts
-    with mock.patch("mlflow.artifacts.download_artifacts") as mock_download:
-        mock_download.return_value = "/tmp/local_model_dir"
-
-        # Mock UcModelRegistryStore
-        with mock.patch(
+    # Mock multiple dependencies in a single context manager
+    with (
+        mock.patch(
+            "mlflow.artifacts.download_artifacts", return_value="/tmp/local_model_dir"
+        ) as mock_download,
+        mock.patch(
             "mlflow.store._unity_catalog.registry.rest_store.UcModelRegistryStore"
-        ) as mock_uc_store_class:
-            mock_uc_store = mock.MagicMock()
-            mock_uc_store_class.return_value = mock_uc_store
+        ) as mock_uc_store_class,
+    ):
+        mock_uc_store = mock.MagicMock()
+        mock_uc_store_class.return_value = mock_uc_store
 
-            # Mock create_registered_model to raise RESOURCE_ALREADY_EXISTS error
-            from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ErrorCode
+        # Mock create_registered_model to raise RESOURCE_ALREADY_EXISTS error
+        from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ErrorCode
 
-            # Create a mock exception with the correct error_code
-            mock_exception = MlflowException("Model already exists")
-            mock_exception.error_code = ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
-            mock_uc_store.create_registered_model.side_effect = mock_exception
+        # Create a mock exception with the correct error_code
+        mock_exception = MlflowException("Model already exists")
+        mock_exception.error_code = ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
+        mock_uc_store.create_registered_model.side_effect = mock_exception
 
-            # Mock the _create_model_version_with_optional_signature_validation method
-            mock_uc_store._create_model_version_with_optional_signature_validation.return_value = (
-                ModelVersion(
-                    name=dst_name,
-                    version="1",
-                    creation_timestamp=1234567890,
-                    run_id="test_run_id",
-                    source="models:/test_model/1",
-                    description="test description",
-                    tags=[ModelVersionTag("key", "value")],
-                    run_link="test_link",
-                    model_id="test_model_id",
-                )
-            )
-
-            result = store.copy_model_version(sample_model_version, dst_name)
-
-            # Verify UcModelRegistryStore was created with correct parameters
-            mock_uc_store_class.assert_called_once_with(
-                store_uri="databricks-uc", tracking_uri="databricks"
-            )
-
-            # Verify download_artifacts was called with correct parameters
-            mock_download.assert_called_once_with(
-                artifact_uri="models:/test_model/1", tracking_uri="databricks"
-            )
-
-            # Verify create_registered_model was called
-            mock_uc_store.create_registered_model.assert_called_once_with(dst_name)
-
-            # Verify the UC store method was called with correct parameters
-            mock_uc_store._create_model_version_with_optional_signature_validation.assert_called_once_with(
+        # Mock the _create_model_version_with_optional_signature_validation method
+        mock_uc_store._create_model_version_with_optional_signature_validation.return_value = (
+            ModelVersion(
                 name=dst_name,
-                source="models:/test_model/1",
+                version="1",
+                creation_timestamp=1234567890,
                 run_id="test_run_id",
-                local_model_path="/tmp/local_model_dir",
+                source="models:/test_model/1",
+                description="test description",
+                tags=[ModelVersionTag("key", "value")],
+                run_link="test_link",
                 model_id="test_model_id",
-                bypass_signature_validation=False,
             )
+        )
 
-            assert result.name == dst_name
-            assert result.source == "models:/test_model/1"
+        result = store.copy_model_version(sample_model_version, dst_name)
+
+        # Verify UcModelRegistryStore was created with correct parameters
+        mock_uc_store_class.assert_called_once_with(
+            store_uri="databricks-uc", tracking_uri="databricks"
+        )
+
+        # Verify download_artifacts was called with correct parameters
+        mock_download.assert_called_once_with(
+            artifact_uri="models:/test_model/1", tracking_uri="databricks"
+        )
+
+        # Verify create_registered_model was called
+        mock_uc_store.create_registered_model.assert_called_once_with(dst_name)
+
+        # Verify the UC store method was called with correct parameters
+        mock_uc_store._create_model_version_with_optional_signature_validation.assert_called_once_with(
+            name=dst_name,
+            source="models:/test_model/1",
+            run_id="test_run_id",
+            local_model_path="/tmp/local_model_dir",
+            model_id="test_model_id",
+            bypass_signature_validation=False,
+        )
+
+        assert result.name == dst_name
+        assert result.source == "models:/test_model/1"
 
 
 def test_copy_model_version_unity_catalog_registered_model_creation_failure(
@@ -241,46 +251,49 @@ def test_copy_model_version_unity_catalog_registered_model_creation_failure(
 
     dst_name = "catalog.schema.failing_model"
 
-    # Mock mlflow.artifacts.download_artifacts
-    with mock.patch("mlflow.artifacts.download_artifacts") as mock_download:
-        mock_download.return_value = "/tmp/local_model_dir"
-
-        # Mock UcModelRegistryStore
-        with mock.patch(
+    # Mock multiple dependencies in a single context manager
+    with (
+        mock.patch(
+            "mlflow.artifacts.download_artifacts", return_value="/tmp/local_model_dir"
+        ) as mock_download,
+        mock.patch(
             "mlflow.store._unity_catalog.registry.rest_store.UcModelRegistryStore"
-        ) as mock_uc_store_class:
-            mock_uc_store = mock.MagicMock()
-            mock_uc_store_class.return_value = mock_uc_store
+        ) as mock_uc_store_class,
+    ):
+        mock_uc_store = mock.MagicMock()
+        mock_uc_store_class.return_value = mock_uc_store
 
-            # Mock create_registered_model to raise a different error
-            from mlflow.exceptions import MlflowException
+        # Mock create_registered_model to raise a different error
+        from mlflow.exceptions import MlflowException
 
-            mock_uc_store.create_registered_model.side_effect = MlflowException(
-                "Permission denied", error_code="PERMISSION_DENIED"
-            )
+        mock_uc_store.create_registered_model.side_effect = MlflowException(
+            "Permission denied", error_code="PERMISSION_DENIED"
+        )
 
-            # The method should re-raise the exception
-            with pytest.raises(MlflowException, match="Permission denied"):
-                store.copy_model_version(sample_model_version, dst_name)
+        # The method should re-raise the exception
+        with pytest.raises(MlflowException, match="Permission denied"):
+            store.copy_model_version(sample_model_version, dst_name)
 
-            # Verify UcModelRegistryStore was created with correct parameters
-            mock_uc_store_class.assert_called_once_with(
-                store_uri="databricks-uc", tracking_uri="databricks"
-            )
+        # Verify UcModelRegistryStore was created with correct parameters
+        mock_uc_store_class.assert_called_once_with(
+            store_uri="databricks-uc", tracking_uri="databricks"
+        )
 
-            # Verify download_artifacts was called with correct parameters
-            mock_download.assert_called_once_with(
-                artifact_uri="models:/test_model/1", tracking_uri="databricks"
-            )
+        # Verify download_artifacts was called with correct parameters
+        mock_download.assert_called_once_with(
+            artifact_uri="models:/test_model/1", tracking_uri="databricks"
+        )
 
-            # Verify create_registered_model was called
-            mock_uc_store.create_registered_model.assert_called_once_with(dst_name)
+        # Verify create_registered_model was called
+        mock_uc_store.create_registered_model.assert_called_once_with(dst_name)
 
-            # Verify the UC store method was NOT called since creation failed
-            mock_uc_store._create_model_version_with_optional_signature_validation.assert_not_called()
+        # Verify the UC store method was NOT called since creation failed
+        mock_uc_store._create_model_version_with_optional_signature_validation.assert_not_called()
 
 
-def test_copy_model_version_unity_catalog_signature_validation_bypass(store, sample_model_version):
+def test_copy_model_version_unity_catalog_signature_validation_bypass(
+    store, sample_model_version, monkeypatch
+):
     """Test copy_model_version signature validation bypass via environment variable"""
     dst_name = "catalog.schema.model"
 
@@ -314,11 +327,11 @@ def test_copy_model_version_unity_catalog_signature_validation_bypass(store, sam
             )
 
             # Mock environment variable to enable signature validation bypass
-            with mock.patch.dict(
-                "os.environ",
-                {"MLFLOW_SKIP_SIGNATURE_CHECK_FOR_MIGRATION_TO_DATABRICKS_UC_REGISTRY": "True"},
-            ):
-                store.copy_model_version(sample_model_version, dst_name)
+            monkeypatch.setenv(
+                "MLFLOW_SKIP_SIGNATURE_CHECK_FOR_MIGRATION_TO_DATABRICKS_UC_REGISTRY",
+                "True",
+            )
+            store.copy_model_version(sample_model_version, dst_name)
 
             # Verify the UC store method was called with bypass_signature_validation=True
             mock_uc_store._create_model_version_with_optional_signature_validation.assert_called_once_with(

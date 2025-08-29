@@ -231,11 +231,72 @@ allow you to migrate the model to Unity Catalog, bypassing the signature require
 ```python
 import os
 
-os.environ["MLFLOW_SKIP_SIGNATURE_CHECK_FOR_MIGRATION_TO_DATABRICKS_UC_REGISTRY"] = "true"
+skip_sig_var = "MLFLOW_SKIP_SIGNATURE_CHECK_FOR_MIGRATION_TO_DATABRICKS_UC_REGISTRY"
+os.environ[skip_sig_var] = "true"
 ```
 
 NOTE: not having a signature on your Unity Catalog registered model version will limit the available feature set.
 For a full list of what will be unavailable, refer to the [Databricks documentation](https://docs.databricks.com/aws/en/machine-learning/manage-model-lifecycle/#train-and-register-unity-catalog-compatible-models).
+
+If you want to migrate all of the model versions in your workspace registered model to a destination UC model,
+you can use a script as follows:
+
+```python
+import mlflow
+from mlflow import MlflowClient
+from mlflow.models import ModelSignature
+from mlflow.types.schema import Schema, ColSpec, AnyType
+
+workspace_client = MlflowClient(registry_uri="databricks")
+uc_client = MlflowClient(registry_uri="databricks-uc")
+
+
+# Make a dummy model that can be used to increment the version number
+def make_dummy_uri() -> str:
+    class _Dummy(mlflow.pyfunc.PythonModel):
+        def predict(self, ctx, x):
+            return None
+
+    with mlflow.start_run() as run:
+        schema = Schema([ColSpec(AnyType())])
+        mlflow.pyfunc.log_model(
+            "m",
+            python_model=_Dummy(),
+            signature=ModelSignature(inputs=schema, outputs=schema),
+        )
+        return f"runs:/{run.info.run_id}/m", run.info.run_id
+
+
+# Check if the source model has a particular version number
+def src_has_mv(name: str, v: int) -> bool:
+    try:
+        workspace_client.get_model_version(name, str(v))
+        return True
+    except Exception:
+        return False
+
+
+# Copy model versions from a source Databricks workspace-registered model to
+# a destination Databricks Unity Catalog registered model
+def copy_model_versions_to_uc(src: str, dst: str) -> None:
+    latests = workspace_client.get_latest_versions(src)
+    top = max(int(v.version) for v in latests)
+
+    dummy_uri, run_id = make_dummy_uri()
+
+    for v in range(1, top + 1):
+        if src_has_mv(src, v):
+            mlflow.set_registry_uri("databricks")
+            workspace_client.copy_model_version(f"models:/{src}/{str(v)}", dst)
+        else:
+            mlflow.set_registry_uri("databricks-uc")
+            mv = uc_client.create_model_version(dst, dummy_uri, run_id)
+            # delete immediately so it just bumps numbering
+            uc_client.delete_model_version(dst, mv.version)
+
+
+copy_model_versions_to_uc("my_wmr_model", "mycatalog.myschema.my_uc_model")
+```
 
 ### OSS Unity Catalog Model Registry
 
