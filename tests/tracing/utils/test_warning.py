@@ -50,7 +50,7 @@ def test_request_id_backward_compatible():
         )
 
         assert len(w) == 1
-        assert issubclass(w[0].category, DeprecationWarning)
+        assert issubclass(w[0].category, FutureWarning)
         assert "request_id" in str(w[0].message)
         assert "deprecated" in str(w[0].message).lower()
         assert "trace_id" in str(w[0].message)
@@ -63,7 +63,7 @@ def test_request_id_backward_compatible():
         client.end_trace(request_id=parent_span.trace_id)
 
         assert len(w) == 2
-        assert all(issubclass(warn.category, DeprecationWarning) for warn in w)
+        assert all(issubclass(warn.category, FutureWarning) for warn in w)
         assert all("request_id" in str(warn.message) for warn in w)
 
     # Valid usage without request_id -> no warning
