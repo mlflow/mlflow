@@ -1508,7 +1508,7 @@ def test_deprecated_parameter_substitution(experiment):
         )
 
         assert len(w) == 1
-        assert issubclass(w[0].category, DeprecationWarning)
+        assert issubclass(w[0].category, FutureWarning)
         assert "uc_table_name" in str(w[0].message)
         assert "deprecated" in str(w[0].message).lower()
         assert "name" in str(w[0].message)
@@ -1530,7 +1530,7 @@ def test_deprecated_parameter_substitution(experiment):
             get_dataset(uc_table_name="test_dataset_deprecated")
 
         assert len(w) == 1
-        assert issubclass(w[0].category, DeprecationWarning)
+        assert issubclass(w[0].category, FutureWarning)
         assert "uc_table_name" in str(w[0].message)
 
     with warnings.catch_warnings(record=True) as w:
@@ -1540,7 +1540,7 @@ def test_deprecated_parameter_substitution(experiment):
             delete_dataset(uc_table_name="test_dataset_deprecated")
 
         assert len(w) == 1
-        assert issubclass(w[0].category, DeprecationWarning)
+        assert issubclass(w[0].category, FutureWarning)
         assert "uc_table_name" in str(w[0].message)
 
     delete_dataset(dataset_id=dataset.dataset_id)
