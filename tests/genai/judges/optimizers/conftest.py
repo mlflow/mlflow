@@ -11,14 +11,22 @@ from mlflow.genai.judges.base import Judge
 class MockJudge(Judge):
     """Mock judge implementation for testing."""
 
-    def __init__(self, name="mock_judge", description=None, **kwargs):
+    def __init__(self, name="mock_judge", description=None, model=None, **kwargs):
         super().__init__(name=name, **kwargs)
         # Use a proper template with variables for testing
-        self._description = description or "Evaluate if the {{outputs}} properly addresses {{inputs}}"
+        self._description = (
+            description or "Evaluate if the {{outputs}} properly addresses {{inputs}}"
+        )
+        self._model = model
 
     @property
     def description(self) -> str:
         return self._description
+
+    @property
+    def model(self) -> str:
+        """Get the model for this judge."""
+        return self._model
 
     def __call__(self, inputs, outputs, expectations=None, trace=None):
         # Simple mock implementation
@@ -28,7 +36,7 @@ class MockJudge(Judge):
 @pytest.fixture
 def mock_judge():
     """Create a mock judge for testing."""
-    return MockJudge()
+    return MockJudge(model="openai:/gpt-3.5-turbo")
 
 
 @pytest.fixture
@@ -54,6 +62,114 @@ def sample_trace_with_assessment():
     mock_trace_data.response = {"outputs": "test output"}
 
     # Mock trace
+    mock_trace = Mock(spec=Trace)
+    mock_trace.info = mock_trace_info
+    mock_trace.data = mock_trace_data
+
+    return mock_trace
+
+
+@pytest.fixture
+def trace_with_nested_request_response():
+    """Create a trace with nested request/response structure."""
+    mock_assessment = Mock()
+    mock_assessment.name = "mock_judge"
+    mock_assessment.source.source_type = "HUMAN"
+    mock_assessment.feedback.value = "pass"
+    mock_assessment.rationale = "Complex nested structure handled well"
+
+    mock_trace_info = Mock(spec=TraceInfo)
+    mock_trace_info.trace_id = "test_trace_nested"
+    mock_trace_info.assessments = [mock_assessment]
+    mock_trace_info.request_preview = (
+        '{"query": {"text": "nested input", "context": {"key": "value"}}}'
+    )
+    mock_trace_info.response_preview = (
+        '{"result": {"answer": "nested output", "metadata": {"score": 0.9}}}'
+    )
+
+    mock_trace_data = Mock(spec=TraceData)
+    mock_trace_data.request = {"query": {"text": "nested input", "context": {"key": "value"}}}
+    mock_trace_data.response = {"result": {"answer": "nested output", "metadata": {"score": 0.9}}}
+
+    mock_trace = Mock(spec=Trace)
+    mock_trace.info = mock_trace_info
+    mock_trace.data = mock_trace_data
+
+    return mock_trace
+
+
+@pytest.fixture
+def trace_with_list_request_response():
+    """Create a trace with list-based request/response."""
+    mock_assessment = Mock()
+    mock_assessment.name = "mock_judge"
+    mock_assessment.source.source_type = "HUMAN"
+    mock_assessment.feedback.value = "fail"
+    mock_assessment.rationale = "List processing needs improvement"
+
+    mock_trace_info = Mock(spec=TraceInfo)
+    mock_trace_info.trace_id = "test_trace_list"
+    mock_trace_info.assessments = [mock_assessment]
+    mock_trace_info.request_preview = '["item1", "item2", "item3"]'
+    mock_trace_info.response_preview = '["result1", "result2"]'
+
+    mock_trace_data = Mock(spec=TraceData)
+    mock_trace_data.request = ["item1", "item2", "item3"]
+    mock_trace_data.response = ["result1", "result2"]
+
+    mock_trace = Mock(spec=Trace)
+    mock_trace.info = mock_trace_info
+    mock_trace.data = mock_trace_data
+
+    return mock_trace
+
+
+@pytest.fixture
+def trace_with_string_request_response():
+    """Create a trace with simple string request/response."""
+    mock_assessment = Mock()
+    mock_assessment.name = "mock_judge"
+    mock_assessment.source.source_type = "HUMAN"
+    mock_assessment.feedback.value = "pass"
+    mock_assessment.rationale = "Simple string handled correctly"
+
+    mock_trace_info = Mock(spec=TraceInfo)
+    mock_trace_info.trace_id = "test_trace_string"
+    mock_trace_info.assessments = [mock_assessment]
+    mock_trace_info.request_preview = '"What is the capital of France?"'
+    mock_trace_info.response_preview = '"Paris"'
+
+    mock_trace_data = Mock(spec=TraceData)
+    mock_trace_data.request = "What is the capital of France?"
+    mock_trace_data.response = "Paris"
+
+    mock_trace = Mock(spec=Trace)
+    mock_trace.info = mock_trace_info
+    mock_trace.data = mock_trace_data
+
+    return mock_trace
+
+
+@pytest.fixture
+def trace_with_mixed_types():
+    """Create a trace with mixed data types in request/response."""
+    mock_assessment = Mock()
+    mock_assessment.name = "mock_judge"
+    mock_assessment.source.source_type = "HUMAN"
+    mock_assessment.feedback.value = "pass"
+    mock_assessment.rationale = "Mixed types processed successfully"
+
+    mock_trace_info = Mock(spec=TraceInfo)
+    mock_trace_info.trace_id = "test_trace_mixed"
+    mock_trace_info.assessments = [mock_assessment]
+    mock_trace_info.request_preview = '{"prompt": "test", "temperature": 0.7, "max_tokens": 100}'
+    mock_trace_info.response_preview = '{"text": "response", "tokens_used": 50, "success": true}'
+
+    mock_trace_data = Mock(spec=TraceData)
+    mock_trace_data.request = {"prompt": "test", "temperature": 0.7, "max_tokens": 100}
+    mock_trace_data.response = {"text": "response", "tokens_used": 50, "success": True}
+
     mock_trace = Mock(spec=Trace)
     mock_trace.info = mock_trace_info
     mock_trace.data = mock_trace_data

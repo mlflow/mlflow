@@ -1,5 +1,5 @@
 import json
-from typing import Any
+from typing import Any, ClassVar
 
 from pydantic import PrivateAttr
 
@@ -7,7 +7,13 @@ from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import Judge
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
-from mlflow.genai.judges.utils import format_prompt, get_default_model, invoke_judge_model
+from mlflow.genai.judges.utils import (
+    RESPONSE_KEY_RATIONALE,
+    RESPONSE_KEY_RESULT,
+    format_prompt,
+    get_default_model,
+    invoke_judge_model,
+)
 from mlflow.genai.scorers.base import ScorerKind
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
@@ -22,11 +28,47 @@ class InstructionsJudge(Judge):
     making it flexible for various assessment criteria.
     """
 
-    _TEMPLATE_VARIABLE_INPUTS = "inputs"
-    _TEMPLATE_VARIABLE_OUTPUTS = "outputs"
-    _TEMPLATE_VARIABLE_TRACE = "trace"
-    _TEMPLATE_VARIABLE_EXPECTATIONS = "expectations"
-    _RESERVED_INSTRUCTION_TEMPLATE_VARIABLES = [
+    # Private template variable names (read-only access via class methods)
+    _TEMPLATE_VARIABLE_INPUTS: ClassVar[str] = "inputs"
+    _TEMPLATE_VARIABLE_OUTPUTS: ClassVar[str] = "outputs"
+    _TEMPLATE_VARIABLE_RESULT: ClassVar[str] = RESPONSE_KEY_RESULT
+    _TEMPLATE_VARIABLE_RATIONALE: ClassVar[str] = RESPONSE_KEY_RATIONALE
+    _TEMPLATE_VARIABLE_TRACE: ClassVar[str] = "trace"
+    _TEMPLATE_VARIABLE_EXPECTATIONS: ClassVar[str] = "expectations"
+
+    # Public class methods for read-only access to template variables
+    @classmethod
+    def get_template_variable_inputs(cls) -> str:
+        """Get the template variable name for inputs."""
+        return cls._TEMPLATE_VARIABLE_INPUTS
+
+    @classmethod
+    def get_template_variable_outputs(cls) -> str:
+        """Get the template variable name for outputs."""
+        return cls._TEMPLATE_VARIABLE_OUTPUTS
+
+    @classmethod
+    def get_template_variable_result(cls) -> str:
+        """Get the template variable name for result."""
+        return cls._TEMPLATE_VARIABLE_RESULT
+
+    @classmethod
+    def get_template_variable_rationale(cls) -> str:
+        """Get the template variable name for rationale."""
+        return cls._TEMPLATE_VARIABLE_RATIONALE
+
+    @classmethod
+    def get_template_variable_trace(cls) -> str:
+        """Get the template variable name for trace."""
+        return cls._TEMPLATE_VARIABLE_TRACE
+
+    @classmethod
+    def get_template_variable_expectations(cls) -> str:
+        """Get the template variable name for expectations."""
+        return cls._TEMPLATE_VARIABLE_EXPECTATIONS
+
+    # Reserved template variables that cannot be used in instructions
+    _RESERVED_INSTRUCTION_TEMPLATE_VARIABLES: ClassVar[list] = [
         _TEMPLATE_VARIABLE_INPUTS,
         _TEMPLATE_VARIABLE_OUTPUTS,
         _TEMPLATE_VARIABLE_TRACE,

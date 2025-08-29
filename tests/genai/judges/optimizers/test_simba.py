@@ -53,7 +53,7 @@ def test_dspy_optimize_no_dspy():
         optimizer = SIMBAAlignmentOptimizer()
 
         with pytest.raises(MlflowException, match="DSPy library is required"):
-            optimizer._dspy_optimize(Mock(), [], [], Mock())
+            optimizer._dspy_optimize(Mock(), [], Mock())
 
 
 def test_full_alignment_workflow(mock_judge, sample_traces_with_assessments):
@@ -81,9 +81,9 @@ def test_full_alignment_workflow(mock_judge, sample_traces_with_assessments):
         with patch("mlflow.genai.judges.make_judge") as mock_make_judge:
             # Mock the optimized judge
             mock_optimized_judge = Mock()
-            mock_optimized_judge.name = "mock_judge_optimized"
+            mock_optimized_judge.name = "mock_judge"
             mock_make_judge.return_value = mock_optimized_judge
-            
+
             optimizer = SIMBAAlignmentOptimizer()
             result = optimizer.align(mock_judge, sample_traces_with_assessments)
 
@@ -125,9 +125,9 @@ def test_alignment_with_default_parameters(mock_judge, sample_traces_with_assess
     with patch.dict("sys.modules", {"dspy": mock_dspy}):
         with patch("mlflow.genai.judges.make_judge") as mock_make_judge:
             mock_optimized_judge = Mock()
-            mock_optimized_judge.name = "mock_judge_optimized"
+            mock_optimized_judge.name = "mock_judge"
             mock_make_judge.return_value = mock_optimized_judge
-            
+
             optimizer = SIMBAAlignmentOptimizer()
 
             result = optimizer.align(mock_judge, sample_traces_with_assessments)

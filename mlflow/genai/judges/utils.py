@@ -15,6 +15,10 @@ from mlflow.utils.uri import is_databricks_uri
 
 _logger = logging.getLogger(__name__)
 
+# Public module variables for response format keys
+RESPONSE_KEY_RESULT = "result"
+RESPONSE_KEY_RATIONALE = "rationale"
+
 # "endpoints" is a special case for Databricks model serving endpoints.
 _NATIVE_PROVIDERS = ["openai", "anthropic", "bedrock", "mistral", "endpoints"]
 
@@ -264,13 +268,16 @@ def _get_judge_response_format() -> dict[str, Any]:
             "schema": {
                 "type": "object",
                 "properties": {
-                    "result": {"type": "string", "description": "The evaluation rating/result"},
-                    "rationale": {
+                    RESPONSE_KEY_RESULT: {
+                        "type": "string",
+                        "description": "The evaluation rating/result",
+                    },
+                    RESPONSE_KEY_RATIONALE: {
                         "type": "string",
                         "description": "Detailed explanation for the evaluation",
                     },
                 },
-                "required": ["result", "rationale"],
+                "required": [RESPONSE_KEY_RESULT, RESPONSE_KEY_RATIONALE],
                 "additionalProperties": False,
             },
         },

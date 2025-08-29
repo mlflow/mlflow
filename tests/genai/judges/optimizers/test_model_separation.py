@@ -4,9 +4,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.optimizers.simba import SIMBAAlignmentOptimizer
-
 
 # Test Optimizer Judge Model Separation
 
@@ -85,10 +83,12 @@ def test_model_parameter_preserved_through_inheritance():
 
 def test_kwargs_handling_with_model_parameter():
     """Test that kwargs are handled correctly alongside model parameter."""
-    optimizer = SIMBAAlignmentOptimizer(model="custom:/model", custom_param="value", another_param=42)
+    optimizer = SIMBAAlignmentOptimizer(
+        model="custom:/model", custom_param="value", another_param=42
+    )
 
     assert optimizer._model == "custom:/model"
-    assert optimizer._kwargs == {"custom_param": "value", "another_param": 42}
+    # Note: _kwargs is no longer stored as it wasn't being used
 
     # Verify SIMBA-specific parameters are still set correctly
     assert optimizer._bsize == SIMBAAlignmentOptimizer.DEFAULT_BSIZE
@@ -129,7 +129,7 @@ def test_dspy_context_manager_called(mock_context):
         mock_assessment.source_id = "test judge"  # Must match sanitized name
         mock_assessment.feedback = Mock(value="pass")
         mock_assessment.rationale = "test rationale"
-        
+
         mock_trace = Mock()
         mock_trace.info.trace_id = "test_trace"
         mock_trace.info.assessments = [mock_assessment]
@@ -185,9 +185,9 @@ def test_optimizer_model_separate_from_judge_model(mock_judge, sample_traces_wit
     with patch.dict("sys.modules", {"dspy": mock_dspy}):
         with patch("mlflow.genai.judges.make_judge") as mock_make_judge:
             mock_optimized_judge = Mock()
-            mock_optimized_judge.name = "mock_judge_optimized"
+            mock_optimized_judge.name = "mock_judge"
             mock_make_judge.return_value = mock_optimized_judge
-            
+
             # Create optimizer with its own model
             optimizer = SIMBAAlignmentOptimizer(model="optimizer:/model")
 

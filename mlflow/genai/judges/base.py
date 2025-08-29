@@ -2,13 +2,15 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
+from pydantic import BaseModel
+
 from mlflow.entities.trace import Trace
 from mlflow.genai.scorers.base import Scorer
 from mlflow.utils.annotations import experimental
 
 
 @experimental(version="3.4.0")
-class AlignmentOptimizer(ABC):
+class AlignmentOptimizer(BaseModel, ABC):
     """
     Abstract base class for judge alignment optimizers.
 

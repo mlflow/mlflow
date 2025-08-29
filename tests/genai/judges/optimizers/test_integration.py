@@ -55,9 +55,9 @@ def test_simba_optimizer_workflow(mock_judge, sample_traces_with_assessments):
     with patch.dict("sys.modules", {"dspy": mock_dspy}):
         with patch("mlflow.genai.judges.make_judge") as mock_make_judge:
             mock_optimized_judge = Mock()
-            mock_optimized_judge.name = "mock_judge_optimized"
+            mock_optimized_judge.name = "mock_judge"
             mock_make_judge.return_value = mock_optimized_judge
-            
+
             simba_optimizer = SIMBAAlignmentOptimizer()
             result = simba_optimizer.align(mock_judge, sample_traces_with_assessments)
 
@@ -97,9 +97,9 @@ def test_judge_integration(mock_judge, sample_traces_with_assessments):
     with patch.dict("sys.modules", {"dspy": mock_dspy}):
         with patch("mlflow.genai.judges.make_judge") as mock_make_judge:
             mock_optimized_judge = Mock()
-            mock_optimized_judge.name = "mock_judge_optimized"
+            mock_optimized_judge.name = "mock_judge"
             mock_make_judge.return_value = mock_optimized_judge
-            
+
             optimizer = SIMBAAlignmentOptimizer()
 
             # Test using the judge's align method
@@ -138,9 +138,9 @@ def test_trace_processing_consistency(mock_judge, sample_traces_with_assessments
     with patch.dict("sys.modules", {"dspy": mock_dspy}):
         with patch("mlflow.genai.judges.make_judge") as mock_make_judge:
             mock_optimized_judge = Mock()
-            mock_optimized_judge.name = "mock_judge_optimized"
+            mock_optimized_judge.name = "mock_judge"
             mock_make_judge.return_value = mock_optimized_judge
-            
+
             optimizer = SIMBAAlignmentOptimizer()
 
             # Process traces - should not raise exceptions

@@ -1,6 +1,8 @@
 """SIMBA alignment optimizer implementation."""
 
-from typing import Any
+from typing import Any, ClassVar
+
+from pydantic import PrivateAttr
 
 from mlflow.genai.judges.optimizers.dspy import DSPyAlignmentOptimizer
 from mlflow.utils.annotations import experimental
@@ -16,8 +18,11 @@ class SIMBAAlignmentOptimizer(DSPyAlignmentOptimizer):
     """
 
     # Class constants for default SIMBA parameters
-    DEFAULT_BSIZE = 4
-    DEFAULT_SEED = 42
+    DEFAULT_BSIZE: ClassVar[int] = 4
+    DEFAULT_SEED: ClassVar[int] = 42
+
+    _bsize: int = PrivateAttr()
+    _seed: int = PrivateAttr()
 
     def __init__(self, model: str | None = None, **kwargs):
         """
@@ -28,20 +33,19 @@ class SIMBAAlignmentOptimizer(DSPyAlignmentOptimizer):
             **kwargs: Additional keyword arguments passed to parent class
         """
         super().__init__(model=model, **kwargs)
-        # Private instance variables for SIMBA-specific parameters
+        # Private instance variables for SIMBA-specific parameters using PrivateAttr
         self._bsize = self.DEFAULT_BSIZE
         self._seed = self.DEFAULT_SEED
 
-    def _dspy_optimize(self, program, train_examples, val_examples, metric_fn) -> Any:
+    def _dspy_optimize(self, program, examples, metric_fn) -> Any:
         """
         Perform SIMBA optimization with algorithm-specific parameters.
 
-        SIMBA only uses student, trainset, and seed parameters (no validation set).
+        SIMBA uses all examples as training data (no separate validation set).
 
         Args:
             program: The DSPy program to optimize
-            train_examples: Training examples
-            val_examples: Validation examples (unused for SIMBA)
+            examples: Examples for optimization
             metric_fn: Metric function for optimization
 
         Returns:
@@ -54,9 +58,10 @@ class SIMBAAlignmentOptimizer(DSPyAlignmentOptimizer):
             optimizer = dspy.SIMBA(metric=metric_fn, bsize=self._bsize)
 
             # Compile with SIMBA-specific parameters
+            # SIMBA uses all examples as training data
             return optimizer.compile(
                 student=program,
-                trainset=train_examples,
+                trainset=examples,
                 seed=self._seed,
             )
 

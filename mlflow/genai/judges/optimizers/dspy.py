@@ -5,11 +5,14 @@ import logging
 from abc import abstractmethod
 from typing import Any, Callable
 
+from pydantic import PrivateAttr
+
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import AlignmentOptimizer, Judge
-from mlflow.utils.annotations import experimental
+from mlflow.genai.judges.make_judge import InstructionsJudge
 from mlflow.genai.judges.utils import get_default_model
+from mlflow.utils.annotations import experimental
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +26,9 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
     and handling DSPy program compilation.
     """
 
+    _logger: logging.Logger = PrivateAttr()
+    _model: str = PrivateAttr()
+
     def __init__(self, model: str | None = None, **kwargs):
         """
         Initialize DSPy optimizer with common parameters.
@@ -31,23 +37,22 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
             model: Model to use for DSPy optimization. If None, uses get_default_model().
             **kwargs: Additional keyword arguments.
         """
-
-        # ALKIS: Set up these private variables using PrivateAttr similar to other parts of the codebase
+        super().__init__(**kwargs)
+        # Initialize private variables using PrivateAttr
         self._logger = logging.getLogger(self.__class__.__name__)
-        # ALKIS: Remove this variable
-        self._kwargs = kwargs
         # Private member variable for the model, defaulted to get_default_model()
         self._model = model if model is not None else get_default_model()
 
     @abstractmethod
-    def _dspy_optimize(self, program, train_examples, val_examples, metric_fn) -> Any:
+    def _dspy_optimize(self, program, examples, metric_fn) -> Any:
         """
         Perform DSPy optimization with algorithm-specific parameters.
 
+        Each implementation can decide how to split the data internally if needed.
+
         Args:
             program: The DSPy program to optimize
-            train_examples: Training examples
-            val_examples: Validation examples
+            examples: Examples for optimization (implementations decide how to split)
             metric_fn: Metric function for optimization
 
         Returns:
@@ -241,13 +246,19 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
 
             return dspy.make_signature(
                 {
-                    "inputs": (str, dspy.InputField(desc="Inputs to the model")),
-                    "outputs": (str, dspy.InputField(desc="Outputs from the model")),
-                    "result": (
+                    InstructionsJudge.get_template_variable_inputs(): (
+                        str,
+                        dspy.InputField(desc="Inputs to the model"),
+                    ),
+                    InstructionsJudge.get_template_variable_outputs(): (
+                        str,
+                        dspy.InputField(desc="Outputs from the model"),
+                    ),
+                    InstructionsJudge.get_template_variable_result(): (
                         str,
                         dspy.OutputField(desc="pass or fail based on the inputs and outputs"),
                     ),
-                    "rationale": (
+                    InstructionsJudge.get_template_variable_rationale(): (
                         str,
                         dspy.OutputField(desc="Rationale explaining the pass or fail result"),
                     ),
@@ -300,7 +311,10 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
             return dspy.LM(model=self._model)
         except ImportError:
             raise MlflowException("DSPy library is required but not installed")
-        # ALKIS: Add another handler for the case that dspy.LM fails
+        except Exception as e:
+            raise MlflowException(
+                f"Failed to initialize DSPy language model with model '{self._model}': {e!s}"
+            )
 
     def align(self, judge: Judge, traces: list[Trace]) -> Judge:
         """
@@ -313,7 +327,8 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
 
         Args:
             judge: The judge to be optimized
-            traces: List of traces containing alignment data
+            traces: List of traces containing alignment data.
+                   The implementation will split these traces internally for train/validation.
 
         Returns:
             A new optimized Judge instance
@@ -342,9 +357,12 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
 
                 signature = self._create_dspy_signature(instructions)
 
-                # Create DSPy program
-                program = dspy.Predict(signature)
-                self._logger.info("Created DSPy program with signature")
+                # Create DSPy program that will simulate the judge
+                # The program should use the judge's model, not the optimizer's model
+                judge_model = dspy.LM(model=judge.model)
+                with dspy.context(lm=judge_model):
+                    program = dspy.Predict(signature)
+                self._logger.info("Created DSPy program with signature using judge's model")
 
                 # Convert traces to DSPy format
                 dspy_examples = []
@@ -363,24 +381,14 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
                 if len(dspy_examples) < 2:
                     raise MlflowException("At least 2 valid examples are required for optimization")
 
-                # Split into train and validation sets
-                split_point = max(1, len(dspy_examples) // 2)
-                train_examples = dspy_examples[:split_point]
-                val_examples = (
-                    dspy_examples[split_point:]
-                    if len(dspy_examples) > split_point
-                    else train_examples[:1]
-                )
-
                 # Create metric function
                 agreement_metric = self._create_agreement_metric()
 
                 self._logger.info("Starting DSPy optimization...")
 
                 # Use the algorithm-specific optimization method
-                optimized_program = self._dspy_optimize(
-                    program, train_examples, val_examples, agreement_metric
-                )
+                # Each implementation decides how to handle data splitting
+                optimized_program = self._dspy_optimize(program, dspy_examples, agreement_metric)
 
                 self._logger.info("DSPy optimization completed")
 
@@ -408,18 +416,16 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
             A new optimized Judge instance with improved instructions
         """
         from mlflow.genai.judges import make_judge
-        
+
         # Create a new judge with optimized instructions
-        # Use the original judge's name with "_optimized" suffix
-        optimized_name = f"{original_judge.name}_optimized"
-        
-        # Get the model from the original judge if available, otherwise use judge's default
-        judge_model = getattr(original_judge, 'model', None) or getattr(original_judge, '_model', None)
-        
-        self._logger.info(f"Creating optimized judge '{optimized_name}' with DSPy-optimized instructions")
-        
-        return make_judge(
-            name=optimized_name,
-            instructions=instructions,
-            model=judge_model
+        # Use the same name as the original judge
+        optimized_name = original_judge.name
+
+        # Get the model from the original judge using the model property
+        judge_model = original_judge.model
+
+        self._logger.info(
+            f"Creating optimized judge '{optimized_name}' with DSPy-optimized instructions"
         )
+
+        return make_judge(name=optimized_name, instructions=instructions, model=judge_model)
