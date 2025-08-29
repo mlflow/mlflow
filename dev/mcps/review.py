@@ -46,13 +46,13 @@ def github_api_request(
     try:
         with urlopen(req) as response:
             content = response.read().decode("utf-8")
-            # Return raw content for diff accept header, JSON otherwise
-            if accept_header == "application/vnd.github.v3.diff":
-                return content
-            return json.loads(content)
     except HTTPError as e:
         body = e.read().decode("utf-8")
         raise RuntimeError(f"Error fetching GitHub API: {e.code} {e.reason} {body}") from e
+
+    if accept_header == "application/vnd.github.v3.diff":
+        return content
+    return json.loads(content)
 
 
 @functools.lru_cache(maxsize=32)
