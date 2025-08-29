@@ -14,7 +14,6 @@ from mlflow.tracking._tracking_service.utils import (
 from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.databricks_utils import (
-    get_databricks_host_creds,
     is_in_databricks_serverless_runtime,
     warn_on_deprecated_cross_workspace_registry_uri,
 )
