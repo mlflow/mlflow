@@ -106,7 +106,7 @@
     "**/node_modules": true,
     "**/build": true,
     "**/dist": true,
-    "**/*_pb2.py": false,
+    "**/*_pb2.py": true,
     "**/*_pb2.pyi": true
   },
 
