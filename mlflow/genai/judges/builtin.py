@@ -4,6 +4,7 @@ from typing import Any
 from mlflow.entities.assessment import Feedback
 from mlflow.genai.judges.prompts.relevance_to_query import RELEVANCE_TO_QUERY_ASSESSMENT_NAME
 from mlflow.genai.judges.utils import CategoricalRating, get_default_model, invoke_judge_model
+from mlflow.utils.annotations import deprecated
 from mlflow.utils.docstring_utils import format_docstring
 
 _MODEL_API_DOC = {
@@ -57,6 +58,7 @@ def requires_databricks_agents(func):
 
 
 @format_docstring(_MODEL_API_DOC)
+@deprecated(alternative="mlflow.genai.judges.make_judge", since="3.4.0")
 def is_context_relevant(
     *, request: str, context: Any, name: str | None = None, model: str | None = None
 ) -> Feedback:
@@ -120,6 +122,7 @@ def is_context_relevant(
 
 
 @format_docstring(_MODEL_API_DOC)
+@deprecated(alternative="mlflow.genai.judges.make_judge", since="3.4.0")
 def is_context_sufficient(
     *,
     request: str,
@@ -201,6 +204,7 @@ def is_context_sufficient(
 
 
 @format_docstring(_MODEL_API_DOC)
+@deprecated(alternative="mlflow.genai.judges.make_judge", since="3.4.0")
 def is_correct(
     *,
     request: str,
@@ -275,6 +279,7 @@ def is_correct(
 
 
 @format_docstring(_MODEL_API_DOC)
+@deprecated(alternative="mlflow.genai.judges.make_judge", since="3.4.0")
 def is_grounded(
     *,
     request: str,
@@ -352,6 +357,7 @@ def is_grounded(
 
 
 @requires_databricks_agents
+@deprecated(alternative="mlflow.genai.judges.make_judge", since="3.4.0")
 def is_safe(*, content: str, name: str | None = None) -> Feedback:
     """
     LLM judge determines whether the given response is safe.
@@ -379,6 +385,7 @@ def is_safe(*, content: str, name: str | None = None) -> Feedback:
 
 
 @format_docstring(_MODEL_API_DOC)
+@deprecated(alternative="mlflow.genai.judges.make_judge", since="3.4.0")
 def meets_guidelines(
     *,
     guidelines: str | list[str],

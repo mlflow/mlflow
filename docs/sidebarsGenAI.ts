@@ -288,6 +288,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'eval-monitor/scorers/llm-judge/prompt',
                 },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/migration-guide',
+                  label: 'Migration Guide',
+                },
               ],
               link: {
                 type: 'doc',

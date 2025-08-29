@@ -4,6 +4,12 @@ import { APILink } from "@site/src/components/APILink";
 
 LLM-as-a-Judge is an evaluation approach that uses Large Language Models to assess the quality of AI-generated responses. LLM judges can evaluate subjective qualities like helpfulness and safety, which are hard to measure with heuristic metrics. On the other hand, LLM-as-a-Judge scorers are more scalable and cost-effective than human evaluation. See the [Evaluation Approach Comparison](/genai/eval-monitor/scorers#evaluation-approaches-comparison) for a more detailed comparison and guides on how to use other approaches in MLflow.
 
+:::info
+
+Using legacy judge functions? Check out our [migration guide](/genai/eval-monitor/scorers/llm-judge/migration-guide) to learn how to upgrade to the new `make_judge` API for more flexibility and features.
+
+:::
+
 ## Approaches for Using LLM Scorers
 
 MLflow offers different approaches to use LLM-as-a-Judge, with different levels of simplicity and control. We recommend starting with a simpler approach and evolving to more complex ones as needed.
