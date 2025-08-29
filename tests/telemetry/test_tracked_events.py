@@ -5,6 +5,7 @@ from unittest import mock
 import pandas as pd
 import pytest
 import sklearn.neighbors as knn
+from click.testing import CliRunner
 
 import mlflow
 from mlflow import MlflowClient
@@ -31,6 +32,7 @@ from mlflow.telemetry.events import (
     LogDatasetEvent,
     LogMetricEvent,
     LogParamEvent,
+    McpRunEvent,
     PromptOptimizationEvent,
     StartTraceEvent,
 )
@@ -547,3 +549,15 @@ set_model(TestModel())
 
     mlflow.pyfunc.load_model("models:/test/1")
     validate_telemetry_record(mock_telemetry_client, mock_requests, GetLoggedModelEvent.name)
+
+
+def test_mcp_run(mock_requests, mock_telemetry_client: TelemetryClient):
+    from mlflow.mcp.cli import run
+
+    runner = CliRunner(catch_exceptions=False)
+    with mock.patch("mlflow.mcp.cli.run_server") as mock_run_server:
+        runner.invoke(run)
+
+    mock_run_server.assert_called_once()
+    mock_telemetry_client.flush()
+    validate_telemetry_record(mock_telemetry_client, mock_requests, McpRunEvent.name)
