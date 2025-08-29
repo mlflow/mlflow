@@ -100,7 +100,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceTag,
 )
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import TRACKING_STORE, TraceMetadataKey, TraceTagKey
 from mlflow.tracing.utils import TraceJSONEncoder, generate_request_id_v2
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.file_utils import local_file_uri_to_path, mkdir
@@ -3256,6 +3256,7 @@ class SqlAlchemyStore(AbstractStore):
 
                 # Create trace info for this new trace. We need to establish the trace
                 # before we can add spans to it, as spans have a foreign key to trace_info.
+                # TODO: request/response_preview is not set here.
                 sql_trace_info = SqlTraceInfo(
                     request_id=trace_id,
                     experiment_id=experiment_id,
@@ -3265,7 +3266,14 @@ class SqlAlchemyStore(AbstractStore):
                     client_request_id=None,
                 )
                 # Add the artifact location tag that's required for search_traces to work
-                sql_trace_info.tags = [self._get_trace_artifact_location_tag(experiment, trace_id)]
+                sql_trace_info.tags = [
+                    self._get_trace_artifact_location_tag(experiment, trace_id),
+                    SqlTraceTag(
+                        key=TraceTagKey.SPANS_LOCATION,
+                        value=TRACKING_STORE,
+                        request_id=trace_id,
+                    ),
+                ]
                 session.add(sql_trace_info)
                 try:
                     session.flush()
@@ -3377,6 +3385,40 @@ class SqlAlchemyStore(AbstractStore):
                     # UNSET is unexpected in production but we handle it gracefully.
                     return TraceState.OK.value
         return None
+
+    def load_spans(self, trace_id: str) -> list[Span]:
+        """
+        Load all spans for a given trace from the database.
+
+        Args:
+            trace_id: The trace ID to load spans for.
+
+        Returns:
+            List of Span objects for the given trace, ordered by start time.
+        """
+        with self.ManagedSessionMaker() as session:
+            # Query all spans for the given trace, ordered by start time
+            sql_spans = (
+                session.query(SqlSpan)
+                .filter(SqlSpan.trace_id == trace_id)
+                .order_by(SqlSpan.start_time_unix_nano)
+                .all()
+            )
+
+            if not sql_spans:
+                return []
+
+            # Convert SqlSpan objects to Span objects
+            spans = []
+            for sql_span in sql_spans:
+                span_dict = json.loads(sql_span.content)
+                span = Span.from_dict(span_dict)
+                spans.append(span)
+
+            return spans
+
+    async def load_spans_async(self, trace_id: str) -> list[Span]:
+        return self.load_spans(trace_id)
 
     #######################################################################################
     # Entity Association Methods
