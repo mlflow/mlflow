@@ -121,7 +121,7 @@ def fetch_diff(
     pull_number: Annotated[int, "Pull request number"],
 ) -> str:
     """
-    Fetch the diff of Python files in a pull request.
+    Fetch the diff of Python files in a pull request, and display it with line numbers.
 
     Example output:
 
@@ -135,7 +135,7 @@ def fetch_diff(
     11    11 |  import sys
     12    12 |  from typing import Optional
     13       | -from old_module import OldClass
-            14 | +from new_module import NewClass
+          14 | +from new_module import NewClass
     14    15 |
     15    16 |  def process_data(input_file: str) -> dict:
     ```
