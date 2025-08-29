@@ -7,7 +7,6 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
 import mlflow
 from mlflow.entities.span import create_mlflow_span
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TraceTagKey
@@ -119,6 +118,8 @@ def test_tracing_client_calculate_trace_filter_correlation_without_base_filter()
 @skip_when_testing_trace_sdk
 def test_tracing_client_get_trace_with_database_stored_spans():
     """Test that TracingClient.get_trace works with spans stored in the database."""
+    from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+
     client = TracingClient()
 
     with mlflow.start_run():
