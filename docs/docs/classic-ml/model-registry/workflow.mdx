@@ -247,13 +247,14 @@ import mlflow
 from mlflow import MlflowClient
 from mlflow.models import ModelSignature
 from mlflow.types.schema import Schema, ColSpec, AnyType
+from typing import Tuple
 
 workspace_client = MlflowClient(registry_uri="databricks")
 uc_client = MlflowClient(registry_uri="databricks-uc")
 
 
 # Make a dummy model that can be used to increment the version number
-def make_dummy_uri() -> str:
+def make_dummy_uri() -> tuple[str, str]:
     class _Dummy(mlflow.pyfunc.PythonModel):
         def predict(self, ctx, x):
             return None

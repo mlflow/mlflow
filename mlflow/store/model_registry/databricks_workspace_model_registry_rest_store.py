@@ -1,3 +1,4 @@
+import mlflow
 from mlflow.environment_variables import (
     MLFLOW_SKIP_SIGNATURE_CHECK_FOR_MIGRATION_TO_DATABRICKS_UC_REGISTRY,
 )
@@ -6,6 +7,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
     ErrorCode,
 )
+from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME
@@ -65,11 +67,6 @@ class DatabricksWorkspaceModelRegistryRestStore(RestStore):
             the cloned model version.
         """
         if dst_name.count(".") == 2:
-            import mlflow
-            from mlflow.store._unity_catalog.registry.rest_store import (
-                UcModelRegistryStore,
-            )
-
             source_uri = f"models:/{src_mv.name}/{src_mv.version}"
             tracking_uri = mlflow.get_tracking_uri()
             try:
