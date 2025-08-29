@@ -84,7 +84,7 @@ def mock_trace_storage():
 def _create_trace_destination_proto(
     experiment_id: str = "12345",
     spans_table_name: str = "catalog.schema.spans",
-    events_table_name: str = "catalog.schema.events",
+    logs_table_name: str = "catalog.schema.events",
 ) -> ProtoTraceDestination:
     """Helper function to create a ProtoTraceDestination object for testing."""
     proto_trace_location = ProtoTraceLocation()
@@ -94,9 +94,9 @@ def _create_trace_destination_proto(
     proto_response = ProtoTraceDestination()
     proto_response.trace_location.CopyFrom(proto_trace_location)
     proto_response.spans_table_name = spans_table_name
-    proto_response.events_table_name = events_table_name
+    proto_response.logs_table_name = logs_table_name
     proto_response.spans_schema_version = SUPPORTED_SCHEMA_VERSION
-    proto_response.events_schema_version = SUPPORTED_SCHEMA_VERSION
+    proto_response.logs_schema_version = SUPPORTED_SCHEMA_VERSION
 
     return proto_response
 
@@ -150,11 +150,11 @@ def test_malformed_api_response(
     """Test handling of malformed API responses."""
     # Use the fixture's mock workspace client
     mock_workspace_client_class.return_value = mock_workspace_client
-    # Mock trace client to return malformed config (missing events_table_name)
+    # Mock trace client to return malformed config (missing logs_table_name)
     mock_config = Mock()
     mock_config.spans_table_name = "catalog.schema.spans"
-    # Missing events_table_name intentionally
-    del mock_config.events_table_name  # Make sure it doesn't have this attribute
+    # Missing logs_table_name intentionally
+    del mock_config.logs_table_name  # Make sure it doesn't have this attribute
 
     mock_trace_client_instance = Mock()
     mock_trace_client_instance.create_trace_destination.return_value = mock_config
@@ -254,9 +254,9 @@ def test_unsupported_spans_schema_version():
         _validate_schema_versions("v2", SUPPORTED_SCHEMA_VERSION)
 
 
-def test_unsupported_events_schema_version():
+def test_unsupported_logs_schema_version():
     """Test that MlflowException is raised when events table has unsupported schema version."""
-    with pytest.raises(MlflowException, match="Unsupported events table schema version: v0"):
+    with pytest.raises(MlflowException, match="Unsupported logs table schema version: v0"):
         _validate_schema_versions(SUPPORTED_SCHEMA_VERSION, "v0")
 
 
@@ -291,9 +291,9 @@ def test_backend_returns_unsupported_spans_schema(
     mock_config = DatabricksTraceDeltaStorageConfig(
         experiment_id="12345",
         spans_table_name="catalog.schema.spans",
-        events_table_name="catalog.schema.events",
+        logs_table_name="catalog.schema.events",
         spans_schema_version="v2",  # Unsupported version
-        events_schema_version=SUPPORTED_SCHEMA_VERSION,
+        logs_schema_version=SUPPORTED_SCHEMA_VERSION,
     )
 
     # Mock trace client to return config
@@ -334,9 +334,9 @@ def test_backend_returns_unsupported_events_schema(
     mock_config = DatabricksTraceDeltaStorageConfig(
         experiment_id="12345",
         spans_table_name="catalog.schema.spans",
-        events_table_name="catalog.schema.events",
+        logs_table_name="catalog.schema.events",
         spans_schema_version=SUPPORTED_SCHEMA_VERSION,
-        events_schema_version="v0",  # Unsupported version
+        logs_schema_version="v0",  # Unsupported version
     )
 
     # Mock trace client to return config
@@ -349,7 +349,7 @@ def test_backend_returns_unsupported_events_schema(
     mock_mlflow_client.return_value = mock_client_instance
 
     location = DatabricksUnityCatalog(catalog="catalog", schema="schema", table_prefix="prefix")
-    with pytest.raises(MlflowException, match="Unsupported events table schema version: v0"):
+    with pytest.raises(MlflowException, match="Unsupported logs table schema version: v0"):
         set_experiment_storage_location(location, experiment_id="12345")
 
 
@@ -378,9 +378,9 @@ def test_experiment_tag_setting_failure(
     mock_config = DatabricksTraceDeltaStorageConfig(
         experiment_id="12345",
         spans_table_name="catalog.schema.spans",
-        events_table_name="catalog.schema.events",
+        logs_table_name="catalog.schema.events",
         spans_schema_version=SUPPORTED_SCHEMA_VERSION,
-        events_schema_version=SUPPORTED_SCHEMA_VERSION,
+        logs_schema_version=SUPPORTED_SCHEMA_VERSION,
     )
 
     # Mock trace client to return valid config
@@ -424,9 +424,9 @@ def test_successful_experiment_tag_setting(
     mock_config = DatabricksTraceDeltaStorageConfig(
         experiment_id="12345",
         spans_table_name="catalog.schema.spans",
-        events_table_name="catalog.schema.events",
+        logs_table_name="catalog.schema.events",
         spans_schema_version=SUPPORTED_SCHEMA_VERSION,
-        events_schema_version=SUPPORTED_SCHEMA_VERSION,
+        logs_schema_version=SUPPORTED_SCHEMA_VERSION,
     )
 
     # Mock trace client to return valid config
@@ -515,9 +515,9 @@ def test_successful_archival_with_prefix(
     mock_config = DatabricksTraceDeltaStorageConfig(
         experiment_id="12345",
         spans_table_name=expected_spans_table,
-        events_table_name=expected_events_table,
+        logs_table_name=expected_events_table,
         spans_schema_version=SUPPORTED_SCHEMA_VERSION,
-        events_schema_version=SUPPORTED_SCHEMA_VERSION,
+        logs_schema_version=SUPPORTED_SCHEMA_VERSION,
     )
 
     # Mock trace client to return valid config
@@ -589,9 +589,9 @@ def test_idempotent_enablement(
     mock_config = DatabricksTraceDeltaStorageConfig(
         experiment_id="12345",
         spans_table_name="catalog.schema.experiment_12345_spans",
-        events_table_name="catalog.schema.experiment_12345_events",
+        logs_table_name="catalog.schema.experiment_12345_events",
         spans_schema_version=SUPPORTED_SCHEMA_VERSION,
-        events_schema_version=SUPPORTED_SCHEMA_VERSION,
+        logs_schema_version=SUPPORTED_SCHEMA_VERSION,
     )
 
     # Mock trace client to return valid config (simulating existing archival)
@@ -709,9 +709,9 @@ def test_rolling_deletion_tag_failure(
     mock_config = DatabricksTraceDeltaStorageConfig(
         experiment_id="12345",
         spans_table_name="catalog.schema.spans",
-        events_table_name="catalog.schema.events",
+        logs_table_name="catalog.schema.events",
         spans_schema_version=SUPPORTED_SCHEMA_VERSION,
-        events_schema_version=SUPPORTED_SCHEMA_VERSION,
+        logs_schema_version=SUPPORTED_SCHEMA_VERSION,
     )
 
     # Mock trace client to return valid config
@@ -919,9 +919,9 @@ def test_set_experiment_storage_location_twice_shows_helpful_error(
     # Mock successful config for first call
     mock_config = Mock(
         spans_table_name="catalog.schema.prefix_12345_spans",
-        events_table_name="catalog.schema.prefix_12345_events",
+        logs_table_name="catalog.schema.prefix_12345_events",
         spans_schema_version="v1",
-        events_schema_version="v1",
+        logs_schema_version="v1",
     )
 
     # First call succeeds, second call raises ALREADY_EXISTS
