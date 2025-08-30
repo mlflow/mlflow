@@ -22,11 +22,11 @@ def extract_text_from_data(data: Any, field_type: str) -> str:
     """
     if data is None:
         return ""
-    
+
     # If already a string, return it
     if isinstance(data, str):
         return data
-    
+
     # If it's a dict, try to extract the most relevant field
     if isinstance(data, dict):
         # Define the keys to try based on field type
@@ -52,7 +52,7 @@ def extract_text_from_data(data: Any, field_type: str) -> str:
                 "message",
                 "messages",
             )
-        
+
         # Try each key in order
         for key in keys_to_try:
             if key in data:
@@ -62,10 +62,10 @@ def extract_text_from_data(data: Any, field_type: str) -> str:
                     return json.dumps(value)
                 else:
                     return str(value)
-        
+
         # If no specific keys found, return the full dict as string
         return json.dumps(data)
-    
+
     # For any other type, convert to string
     return str(data)
 

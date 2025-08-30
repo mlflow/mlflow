@@ -8,8 +8,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import Judge, JudgeField
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils import (
-    RESPONSE_KEY_RATIONALE,
-    RESPONSE_KEY_RESULT,
     format_prompt,
     get_default_model,
     invoke_judge_model,
@@ -178,13 +176,15 @@ class InstructionsJudge(Judge):
     def get_input_fields(self) -> list[JudgeField]:
         """
         Get the input fields for this judge.
-        
+
         Returns:
             List of JudgeField objects defining the input fields.
         """
         return [
             JudgeField(name=self.get_template_variable_inputs(), description="Inputs to the model"),
-            JudgeField(name=self.get_template_variable_outputs(), description="Outputs from the model"),
+            JudgeField(
+                name=self.get_template_variable_outputs(), description="Outputs from the model"
+            ),
         ]
 
     def _validate_model_format(self) -> None:

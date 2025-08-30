@@ -262,21 +262,21 @@ def get_judge_response_format() -> dict[str, Any]:
     """
     # Import here to avoid circular imports
     from mlflow.genai.judges.base import Judge
-    
+
     # Get the standard output fields from the Judge class (source of truth)
     output_fields = Judge.get_output_fields()
-    
+
     # Build the properties dictionary from the field definitions
     properties = {}
     required_fields = []
-    
+
     for field in output_fields:
         properties[field.name] = {
             "type": "string",
             "description": field.description,
         }
         required_fields.append(field.name)
-    
+
     return {
         "type": "json_schema",
         "json_schema": {

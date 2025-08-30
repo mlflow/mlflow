@@ -15,7 +15,7 @@ class JudgeField(BaseModel):
     
     Used to define input and output fields for judge evaluation signatures.
     """
-    
+
     name: str = Field(..., description="Name of the field")
     description: str = Field(..., description="Description of what the field represents")
 

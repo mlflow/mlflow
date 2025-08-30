@@ -1,9 +1,8 @@
 """DSPy-based alignment optimizer implementation."""
 
-import json
 import logging
 from abc import abstractmethod
-from typing import Any, Callable
+from typing import Any
 
 from pydantic import PrivateAttr
 
@@ -11,7 +10,6 @@ from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.base import AlignmentOptimizer, Judge
-from mlflow.genai.judges.make_judge import InstructionsJudge
 from mlflow.genai.judges.optimizers.dspy_utils import (
     agreement_metric,
     create_dspy_signature,
@@ -76,20 +74,20 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
             import dspy
 
             class CustomPredict(dspy.Predict):
-                    """Custom DSPy Predict class that allows passing an LM to the forward method."""
-                    def __init__(self, judge):
-                        super().__init__(create_dspy_signature(judge))
-                        self._lm = dspy.LM(model=judge.model)
+                """Custom DSPy Predict class that allows passing an LM to the forward method."""
 
-                    def forward(self, *args, **kwargs):
-                        # If an LM is supplied via kwargs, use that, else use self.lm
-                        lm = kwargs.pop('lm', self._lm)
-                        return super().forward(*args, lm=lm, **kwargs)
+                def __init__(self, judge):
+                    super().__init__(create_dspy_signature(judge))
+                    self._lm = dspy.LM(model=judge.model)
+
+                def forward(self, *args, **kwargs):
+                    # If an LM is supplied via kwargs, use that, else use self.lm
+                    lm = kwargs.pop("lm", self._lm)
+                    return super().forward(*args, lm=lm, **kwargs)
 
             return CustomPredict(judge)
         except ImportError:
             raise MlflowException("DSPy library is required but not installed")
-
 
     def align(self, judge: Judge, traces: list[Trace]) -> Judge:
         """
@@ -169,7 +167,9 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
                     f"Creating optimized judge '{optimized_name}' with DSPy-optimized instructions"
                 )
 
-                return make_judge(name=optimized_name, instructions=optimized_instructions, model=judge_model)
+                return make_judge(
+                    name=optimized_name, instructions=optimized_instructions, model=judge_model
+                )
 
         except ImportError:
             raise MlflowException("DSPy library is required but not installed")

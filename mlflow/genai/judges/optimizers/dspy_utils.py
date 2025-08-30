@@ -1,7 +1,7 @@
 """Utility functions for DSPy-based alignment optimizers."""
 
 import logging
-from typing import Any, Callable
+from typing import Any
 
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
@@ -56,15 +56,12 @@ def trace_to_dspy_example(trace: Trace, judge_name: str) -> Any | None:
 
         if not expected_result:
             logger.warning(
-                f"No human assessment found for judge '{judge_name}' "
-                f"in trace {trace.info.trace_id}"
+                f"No human assessment found for judge '{judge_name}' in trace {trace.info.trace_id}"
             )
             return None
 
         if not expected_result.feedback:
-            logger.warning(
-                f"No feedback found in assessment for trace {trace.info.trace_id}"
-            )
+            logger.warning(f"No feedback found in assessment for trace {trace.info.trace_id}")
             return None
 
         # Create DSPy example
@@ -98,11 +95,10 @@ def create_dspy_signature(judge) -> Any:
     """
     try:
         import dspy
-        from mlflow.genai.judges.base import Judge
 
         # Build signature fields dictionary using the judge's field definitions
         signature_fields = {}
-        
+
         # Get input fields from the judge
         input_fields = judge.get_input_fields()
         for field in input_fields:
@@ -110,8 +106,8 @@ def create_dspy_signature(judge) -> Any:
                 str,
                 dspy.InputField(desc=field.description),
             )
-        
-        # Get output fields from the judge  
+
+        # Get output fields from the judge
         output_fields = judge.get_output_fields()
         for field in output_fields:
             signature_fields[field.name] = (
