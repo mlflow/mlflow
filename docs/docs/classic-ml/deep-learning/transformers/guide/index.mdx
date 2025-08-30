@@ -171,22 +171,13 @@ import transformers
 # Read a pre-trained conversation pipeline from HuggingFace hub
 conversational_pipeline = transformers.pipeline(model="microsoft/DialoGPT-medium")
 
-# Define the signature
-signature = mlflow.models.infer_signature(
-    "Hi there, chatbot!",
-    mlflow.transformers.generate_signature_output(
-        conversational_pipeline, "Hi there, chatbot!"
-    ),
-)
-
 # Log the pipeline
 with mlflow.start_run():
     model_info = mlflow.transformers.log_model(
         transformers_model=conversational_pipeline,
         name="chatbot",
         task="conversational",
-        signature=signature,
-        input_example="A clever and witty question",
+        input_example="Hi there, chatbot!",  # Signature is inferred from input_example
     )
 
 # Load the saved pipeline as pyfunc
@@ -292,7 +283,7 @@ per each of the samples.
 ```python
 import mlflow
 from mlflow.models import infer_signature
-from mlflow.transformers import generate_signature_output
+# generate_signature_output is deprecated
 import transformers
 
 architecture = "mrm8488/t5-base-finetuned-common_gen"
@@ -302,12 +293,6 @@ model = transformers.pipeline(
     model=transformers.T5ForConditionalGeneration.from_pretrained(architecture),
 )
 data = "pencil draw paper"
-
-# Infer the signature
-signature = infer_signature(
-    data,
-    generate_signature_output(model, data),
-)
 
 # Define an model_config
 model_config = {
@@ -322,7 +307,7 @@ mlflow.transformers.save_model(
     model,
     path="text2text",
     model_config=model_config,
-    signature=signature,
+    input_example=data,  # Signature is inferred from input_example
 )
 
 pyfunc_loaded = mlflow.pyfunc.load_model("text2text")
@@ -345,7 +330,7 @@ when calling `predict`.
 ```python
 import mlflow
 from mlflow.models import infer_signature
-from mlflow.transformers import generate_signature_output
+# generate_signature_output is deprecated
 import transformers
 
 architecture = "mrm8488/t5-base-finetuned-common_gen"
@@ -368,19 +353,12 @@ inference_params = {
     "do_sample": True,
 }
 
-# Infer the signature including params
-signature_with_params = infer_signature(
-    data,
-    generate_signature_output(model, data),
-    params=inference_params,
-)
-
 # Saving model with signature and model config
 mlflow.transformers.save_model(
     model,
     path="text2text",
     model_config=model_config,
-    signature=signature_with_params,
+    input_example=(data, inference_params),  # Signature is inferred from input_example tuple
 )
 
 pyfunc_loaded = mlflow.pyfunc.load_model("text2text")
@@ -570,11 +548,9 @@ Model license information was introduced in **MLflow 2.10.0**. Previous versions
 
 For pipelines that support `pyfunc`, there are 3 means of attaching a model signature to the `MLmodel` file.
 
-- Provide a model signature explicitly via setting a valid `ModelSignature` to the `signature` attribute. This can be generated via the helper utility <APILink fn="mlflow.transformers.generate_signature_output" />
-
-- Provide an `input_example`. The signature will be inferred and validated that it matches the appropriate input type. The output type will be validated by performing inference automatically (if the model is a `pyfunc` supported type).
-
-- Do nothing. The `transformers` flavor will automatically apply the appropriate general signature that the pipeline type supports (only for a single-entity; collections will not be inferred).
+- Provide a model signature explicitly via setting a valid `ModelSignature` to the `signature` attribute.
+- Provide an `input_example`. The signature will be inferred. If the model accepts inference parameters (e.g., `max_length`, `temperature`), you can provide `input_example` as a tuple: `(your_input_data, your_parameters_dict)` to include these parameters in the inferred signature.
+- Do nothing. The `transformers` flavor will automatically apply the appropriate general signature that the pipeline type supports (only for a single-entity; collections will not be inferred). The utility `mlflow.transformers.generate_signature_output` was previously available to help generate outputs for explicit signature creation but is now deprecated in favor of using `input_example`.
 
 ## Scale Inference with Overriding Pytorch dtype \{#scalability-for-inference}
 
@@ -718,15 +694,15 @@ An example of specifying an appropriate uri-based input model signature for an a
 
 ```python
 from mlflow.models import infer_signature
-from mlflow.transformers import generate_signature_output
+# generate_signature_output is deprecated
 
 url = "https://www.mywebsite.com/sound/files/for/transcription/file111.mp3"
-signature = infer_signature(url, generate_signature_output(my_audio_pipeline, url))
+# Signature is inferred from input_example in log_model
 with mlflow.start_run():
     mlflow.transformers.log_model(
         transformers_model=my_audio_pipeline,
         name="my_transcriber",
-        signature=signature,
+        input_example=url,
     )
 ```
 
