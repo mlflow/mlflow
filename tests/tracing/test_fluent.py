@@ -2265,3 +2265,22 @@ async def test_set_destination_in_async_contexts(async_logging_enabled):
         assert len(traces) == 1
         assert traces[0].info.experiment_id == exp_id
         assert len(traces[0].data.spans) == 2
+
+
+@skip_when_testing_trace_sdk
+def test_traces_can_be_searched_by_span_properties(async_logging_enabled):
+    """Smoke test that traces can be searched by span name using filter_string."""
+
+    @mlflow.trace(name="test_span")
+    def test_function():
+        return "result"
+
+    test_function()
+
+    if async_logging_enabled:
+        mlflow.flush_trace_async_logging(terminate=True)
+
+    traces = mlflow.search_traces(filter_string='span.name = "test_span"', return_type="list")
+    assert len(traces) == 1, "Should find exactly one trace with span name 'test_span'"
+    found_span_names = [span.name for span in traces[0].data.spans]
+    assert "test_span" in found_span_names
