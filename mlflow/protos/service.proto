@@ -2695,3 +2695,4 @@ message Scorer {
   // The creation time of the scorer version (in milliseconds since epoch).
   optional int64 creation_time = 5;
 }
+
