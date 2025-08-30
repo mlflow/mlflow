@@ -40,6 +40,16 @@ class Parameter:
 
 
 @dataclass
+class Function:
+    is_private: bool
+    name: str
+    args: ast.arguments
+    lineno: int
+    col_offset: int
+    returns: ast.expr | None
+
+
+@dataclass
 class Signature:
     positional: list[Parameter]  # Includes positional-only and regular positional
     keyword_only: list[Parameter]
@@ -48,7 +58,7 @@ class Signature:
 
 
 @dataclass
-class ParameterError:
+class SignatureWarning:
     message: str
     param_name: str
     lineno: int
@@ -114,10 +124,42 @@ def parse_signature(args: ast.arguments) -> Signature:
     )
 
 
-def check_signature_compatibility(
-    old_fn: ast.FunctionDef | ast.AsyncFunctionDef,
-    new_fn: ast.FunctionDef | ast.AsyncFunctionDef,
-) -> list[ParameterError]:
+def check_function_type_hints(fn: Function) -> SignatureWarning | None:
+    """
+    Check if a function has proper type hints for all parameters and return type.
+    Returns a single error if any type hints are missing, None otherwise.
+    """
+    # Check return type
+    if fn.returns is None:
+        return SignatureWarning(
+            message=f"Function '{fn.name}' is missing type hints.",
+            param_name=fn.name,
+            lineno=fn.lineno,
+            col_offset=fn.col_offset,
+        )
+
+    args = fn.args
+    all_args = (
+        args.posonlyargs
+        + args.args
+        + args.kwonlyargs
+        + ([args.vararg] if args.vararg else [])
+        + ([args.kwarg] if args.kwarg else [])
+    )
+
+    for arg in all_args:
+        if arg.annotation is None:
+            return SignatureWarning(
+                message=f"Function '{fn.name}' is missing type hints.",
+                param_name=fn.name,
+                lineno=fn.lineno,
+                col_offset=fn.col_offset,
+            )
+
+    return None
+
+
+def check_signature_compatibility(old_fn: Function, new_fn: Function) -> list[SignatureWarning]:
     """
     Return list of error messages when *new_fn* is not backward-compatible with *old_fn*,
     or None if compatible.
@@ -137,7 +179,7 @@ def check_signature_compatibility(
     """
     old_sig = parse_signature(old_fn.args)
     new_sig = parse_signature(new_fn.args)
-    errors: list[ParameterError] = []
+    errors: list[SignatureWarning] = []
 
     # ------------------------------------------------------------------ #
     # 1. Positional / pos-only parameters
@@ -147,7 +189,7 @@ def check_signature_compatibility(
     for idx, old_param in enumerate(old_sig.positional):
         if idx >= len(new_sig.positional):
             errors.append(
-                ParameterError(
+                SignatureWarning(
                     message=f"Positional param '{old_param.name}' was removed.",
                     param_name=old_param.name,
                     lineno=old_param.lineno,
@@ -159,7 +201,7 @@ def check_signature_compatibility(
         new_param = new_sig.positional[idx]
         if old_param.name != new_param.name:
             errors.append(
-                ParameterError(
+                SignatureWarning(
                     message=(
                         f"Positional param order/name changed: "
                         f"'{old_param.name}' -> '{new_param.name}'."
@@ -174,7 +216,7 @@ def check_signature_compatibility(
 
         if (not old_param.is_required) and new_param.is_required:
             errors.append(
-                ParameterError(
+                SignatureWarning(
                     message=f"Optional positional param '{old_param.name}' became required.",
                     param_name=new_param.name,
                     lineno=new_param.lineno,
@@ -188,7 +230,7 @@ def check_signature_compatibility(
             new_param = new_sig.positional[idx]
             if new_param.is_required:
                 errors.append(
-                    ParameterError(
+                    SignatureWarning(
                         message=f"New required positional param '{new_param.name}' added.",
                         param_name=new_param.name,
                         lineno=new_param.lineno,
@@ -210,7 +252,7 @@ def check_signature_compatibility(
     for name in old_kw_names - new_kw_names:
         old_param = old_kw_by_name[name]
         errors.append(
-            ParameterError(
+            SignatureWarning(
                 message=f"Keyword-only param '{name}' was removed.",
                 param_name=name,
                 lineno=old_param.lineno,
@@ -223,7 +265,7 @@ def check_signature_compatibility(
         if not old_kw_by_name[name].is_required and new_kw_by_name[name].is_required:
             new_param = new_kw_by_name[name]
             errors.append(
-                ParameterError(
+                SignatureWarning(
                     message=f"Keyword-only param '{name}' became required.",
                     param_name=name,
                     lineno=new_param.lineno,
@@ -235,7 +277,7 @@ def check_signature_compatibility(
     for param in new_sig.keyword_only:
         if param.is_required and param.name not in old_kw_names:
             errors.append(
-                ParameterError(
+                SignatureWarning(
                     message=f"New required keyword-only param '{param.name}' added.",
                     param_name=param.name,
                     lineno=param.lineno,
@@ -251,30 +293,51 @@ def _is_private(n: str) -> bool:
 
 
 class FunctionSignatureExtractor(ast.NodeVisitor):
-    def __init__(self):
-        self.functions: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] = {}
+    def __init__(self, path: Path):
+        self.functions: dict[str, Function] = {}
         self.stack: list[ast.ClassDef] = []
+        self.path = path
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self.stack.append(node)
         self.generic_visit(node)
         self.stack.pop()
 
-    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
-        # Is this a private function or a function in a private class?
-        # If so, skip it.
-        if _is_private(node.name) or (self.stack and _is_private(self.stack[-1].name)):
-            return
+    def is_private(self, name: str) -> bool:
+        if _is_private(name):
+            return True
 
+        # Check if the function is in a private class
+        if self.stack and _is_private(self.stack[-1].name):
+            return True
+
+        # Check if the function is in a private module
+        if any(_is_private(p) for p in self.path.parts):
+            return True
+
+        return False
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         names = [*(c.name for c in self.stack), node.name]
-        self.functions[".".join(names)] = node
+        self.functions[".".join(names)] = Function(
+            is_private=self.is_private(node.name),
+            name=node.name,
+            args=node.args,
+            lineno=node.lineno,
+            col_offset=node.col_offset,
+            returns=node.returns,
+        )
 
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
-        if _is_private(node.name) or (self.stack and _is_private(self.stack[-1].name)):
-            return
-
         names = [*(c.name for c in self.stack), node.name]
-        self.functions[".".join(names)] = node
+        self.functions[".".join(names)] = Function(
+            is_private=self.is_private(node.name),
+            name=node.name,
+            args=node.args,
+            lineno=node.lineno,
+            col_offset=node.col_offset,
+            returns=node.returns,
+        )
 
 
 def get_changed_python_files(base_branch: str = "master") -> list[Path]:
@@ -292,9 +355,9 @@ def get_changed_python_files(base_branch: str = "master") -> list[Path]:
     return [Path(f) for f in files if f]
 
 
-def parse_functions(content: str) -> dict[str, ast.FunctionDef | ast.AsyncFunctionDef]:
+def parse_functions(content: str, path: Path) -> dict[str, Function]:
     tree = ast.parse(content)
-    extractor = FunctionSignatureExtractor()
+    extractor = FunctionSignatureExtractor(path)
     extractor.visit(tree)
     return extractor.functions
 
@@ -318,38 +381,76 @@ def compare_signatures(base_branch: str = "master") -> list[Error]:
         if file_path.parts[0] != "mlflow":
             continue
 
-        # Ignore private modules
-        if any(part.startswith("_") for part in file_path.parts):
+        # Ignore files in mlflow/protos directory
+        if file_path.is_relative_to("mlflow/protos"):
             continue
 
         base_content = get_file_content_at_revision(file_path, base_branch)
-        if base_content is None:
-            # Find not found in the base branch, likely added in the current branch
-            continue
 
         if not file_path.exists():
             # File not found, likely deleted in the current branch
             continue
 
         current_content = file_path.read_text()
-        base_functions = parse_functions(base_content)
-        current_functions = parse_functions(current_content)
-        for func_name in set(base_functions.keys()) & set(current_functions.keys()):
-            base_func = base_functions[func_name]
-            current_func = current_functions[func_name]
-            if param_errors := check_signature_compatibility(base_func, current_func):
-                # Create individual errors for each problematic parameter
-                for param_error in param_errors:
+
+        if base_content is None:
+            # File not found in the base branch, likely added in the current branch
+            # Check all functions in the new file for type hints
+            current_functions = parse_functions(current_content, file_path)
+            for func_name, current_func in current_functions.items():
+                if type_error := check_function_type_hints(current_func):
                     errors.append(
                         Error(
                             file_path=file_path,
-                            line=param_error.lineno,
-                            column=param_error.col_offset + 1,
+                            line=type_error.lineno,
+                            column=type_error.col_offset + 1,
                             lines=[
-                                "[Non-blocking | Ignore if not public API]",
-                                param_error.message,
-                                f"This change will break existing `{func_name}` calls.",
-                                "If this is not intended, please fix it.",
+                                "[Non-blocking]",
+                                type_error.message,
+                            ],
+                        )
+                    )
+        else:
+            # File exists in both base and current branch
+            base_functions = parse_functions(base_content, file_path)
+            current_functions = parse_functions(current_content, file_path)
+
+            # Check existing functions for signature compatibility
+            for func_name in set(base_functions.keys()) & set(current_functions.keys()):
+                base_func = base_functions[func_name]
+                current_func = current_functions[func_name]
+                if base_func.is_private or current_func.is_private:
+                    continue
+                if param_errors := check_signature_compatibility(base_func, current_func):
+                    # Create individual errors for each problematic parameter
+                    for param_error in param_errors:
+                        errors.append(
+                            Error(
+                                file_path=file_path,
+                                line=param_error.lineno,
+                                column=param_error.col_offset + 1,
+                                lines=[
+                                    "[Non-blocking | Ignore if not public API]",
+                                    param_error.message,
+                                    f"This change will break existing `{func_name}` calls.",
+                                    "If this is not intended, please fix it.",
+                                ],
+                            )
+                        )
+
+            # Check newly added functions for type hints
+            new_function_names = set(current_functions.keys()) - set(base_functions.keys())
+            for func_name in new_function_names:
+                current_func = current_functions[func_name]
+                if type_error := check_function_type_hints(current_func):
+                    errors.append(
+                        Error(
+                            file_path=file_path,
+                            line=type_error.lineno,
+                            column=type_error.col_offset + 1,
+                            lines=[
+                                "[Non-blocking]",
+                                type_error.message,
                             ],
                         )
                     )

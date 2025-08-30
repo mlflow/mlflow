@@ -418,3 +418,16 @@ with contextlib.suppress(Exception):
 from mlflow.telemetry import set_telemetry_client
 
 set_telemetry_client()
+
+
+# test
+def _untyped_fn(a, b):
+    return a + b
+
+
+def _partially_typed_fn(a: int, b: int):
+    return a + b
+
+
+def _typed_fn(a: int, b: int) -> int:
+    return a + b
