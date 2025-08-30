@@ -365,6 +365,7 @@ def _get_virtualenv_extra_env_vars(env_root_dir=None):
     if env_root_dir is not None:
         # Note: Both conda pip and virtualenv can use the pip cache directory.
         extra_env["PIP_CACHE_DIR"] = os.path.join(env_root_dir, _PIP_CACHE_DIR)
+        extra_env["UV_CACHE_DIR"] = os.path.join(env_root_dir, "uv_cache")
     return extra_env
 
 
