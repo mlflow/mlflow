@@ -31,8 +31,6 @@ class InstructionsJudge(Judge):
     # Private template variable names (read-only access via class methods)
     _TEMPLATE_VARIABLE_INPUTS: ClassVar[str] = "inputs"
     _TEMPLATE_VARIABLE_OUTPUTS: ClassVar[str] = "outputs"
-    _TEMPLATE_VARIABLE_RESULT: ClassVar[str] = RESPONSE_KEY_RESULT
-    _TEMPLATE_VARIABLE_RATIONALE: ClassVar[str] = RESPONSE_KEY_RATIONALE
     _TEMPLATE_VARIABLE_TRACE: ClassVar[str] = "trace"
     _TEMPLATE_VARIABLE_EXPECTATIONS: ClassVar[str] = "expectations"
 
