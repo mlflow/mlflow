@@ -33,14 +33,14 @@ module.exports = async ({ context, github, core }) => {
 
   if (yes && no) {
     core.setFailed(
-      "Both yes and no are selected. Please select only one in the `Should this PR be included in the next patch release?` section."
+      "Both yes and no are selected. Please select only one in the `Should this PR be included in the next patch release?` section.",
     );
     return;
   }
 
   if (!yes && !no) {
     core.setFailed(
-      "Please fill in the `Should this PR be included in the next patch release?` section."
+      "Please fill in the `Should this PR be included in the next patch release?` section.",
     );
     return;
   }
@@ -58,12 +58,12 @@ module.exports = async ({ context, github, core }) => {
 
   const versionLabelPattern = /^v\d+\.\d+\.\d+$/;
   const existingVersionLabel = existingLabels.data.find((label) =>
-    versionLabelPattern.test(label.name)
+    versionLabelPattern.test(label.name),
   );
 
   if (existingVersionLabel) {
     core.info(
-      `Version label ${existingVersionLabel.name} already exists on this PR. Skipping label addition.`
+      `Version label ${existingVersionLabel.name} already exists on this PR. Skipping label addition.`,
     );
     return;
   }

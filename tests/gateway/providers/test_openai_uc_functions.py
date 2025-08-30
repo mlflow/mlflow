@@ -133,9 +133,9 @@ async def test_uc_functions(monkeypatch):
     ]
 
     params = []
-    for name, typ in [("x", "integer"), ("y", "integer")]:
+    for name, type in [("x", "integer"), ("y", "integer")]:
         p = mock.MagicMock()
-        p.type_json = json.dumps({"type": typ})
+        p.type_json = json.dumps({"type": type})
         p.name = name
         params.append(p)
 
@@ -301,9 +301,9 @@ async def test_uc_functions_user_defined_functions(monkeypatch):
     ]
 
     params = []
-    for name, typ in [("x", "integer"), ("y", "integer")]:
+    for name, type in [("x", "integer"), ("y", "integer")]:
         p = mock.MagicMock()
-        p.type_json = json.dumps({"type": typ})
+        p.type_json = json.dumps({"type": type})
         p.name = name
         params.append(p)
 

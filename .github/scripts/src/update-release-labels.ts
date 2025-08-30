@@ -100,7 +100,7 @@ function extractPRNumberFromCommitMessage(commitMessage: string): number | null 
 async function extractPRNumbersFromBranch(
   github: GitHub,
   context: Context,
-  releaseBranch: string
+  releaseBranch: string,
 ): Promise<Set<number>> {
   const releasePRNumbers = new Set<number>();
 
@@ -127,7 +127,7 @@ async function extractPRNumbersFromBranch(
       (error as { status: number }).status === 404
     ) {
       console.log(
-        `Release branch '${releaseBranch}' not found. This may be expected for new releases.`
+        `Release branch '${releaseBranch}' not found. This may be expected for new releases.`,
       );
       console.log("Skipping commit analysis - will update all PRs with the release label.");
     } else {
@@ -144,7 +144,7 @@ async function extractPRNumbersFromBranch(
 async function fetchPRsWithLabel(
   github: GitHub,
   context: Context,
-  releaseLabel: string
+  releaseLabel: string,
 ): Promise<Array<{ number: number; pull_request?: any; state: string }>> {
   const allIssues = await github.paginate(github.rest.issues.listForRepo, {
     owner: context.repo.owner,
@@ -173,13 +173,13 @@ async function updatePRLabels(
   prsWithReleaseLabel: Array<{ number: number; pull_request?: any; state: string }>,
   releasePRNumbers: Set<number>,
   releaseLabel: string,
-  nextPatchLabel: string
+  nextPatchLabel: string,
 ): Promise<void> {
   const pullRequests = prsWithReleaseLabel.filter((item) => item.pull_request);
   console.log(
     `Processing ${pullRequests.length} PRs (filtered out ${
       prsWithReleaseLabel.length - pullRequests.length
-    } issues)`
+    } issues)`,
   );
 
   const prsToUpdate: number[] = [];
@@ -235,7 +235,7 @@ export async function updateReleaseLabels({
     const releasePRNumbers = await extractPRNumbersFromBranch(
       github,
       context,
-      releaseInfo.releaseBranch
+      releaseInfo.releaseBranch,
     );
 
     const prsWithReleaseLabel = await fetchPRsWithLabel(github, context, releaseInfo.releaseLabel);
@@ -246,7 +246,7 @@ export async function updateReleaseLabels({
       prsWithReleaseLabel,
       releasePRNumbers,
       releaseInfo.releaseLabel,
-      releaseInfo.nextPatchLabel
+      releaseInfo.nextPatchLabel,
     );
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);

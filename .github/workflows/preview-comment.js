@@ -173,7 +173,7 @@ module.exports = async ({ github, context, env }) => {
   // Validate required parameters
   if (!commitSha || !pullNumber || !workflowRunId || !stage || !docsWorkflowRunUrl) {
     throw new Error(
-      "Missing required parameters: commit-sha, pull-number, workflow-run-id, stage, docs-workflow-run-url"
+      "Missing required parameters: commit-sha, pull-number, workflow-run-id, stage, docs-workflow-run-url",
     );
   }
 

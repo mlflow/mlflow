@@ -9,7 +9,7 @@ const HAS_CLOSING_PR_LABEL = "has-closing-pr";
 const getIssuesToClose = (body) => {
   const commentsExcluded = body.replace(/<!--(.+?)-->/gs, ""); // remove comments
   const matches = CLOSING_SYNTAX_PATTERNS.flatMap((pattern) =>
-    Array.from(commentsExcluded.matchAll(pattern))
+    Array.from(commentsExcluded.matchAll(pattern)),
   );
   const issueNumbers = matches.map((match) => match[1]);
   return [...new Set(issueNumbers)].sort();
@@ -34,7 +34,7 @@ const test = () => {
     (keyword) => {
       assertArrayEqual(getIssuesToClose(`${keyword} #123`), ["123"]);
       assertArrayEqual(getIssuesToClose(`${capitalizeFirstLetter(keyword)} #123`), ["123"]);
-    }
+    },
   );
 
   const body2 = `

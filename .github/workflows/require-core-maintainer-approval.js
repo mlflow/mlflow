@@ -18,7 +18,7 @@ module.exports = async ({ github, context, core }) => {
     pull_number: context.issue.number,
   });
   const maintainerApproved = reviews.some(
-    ({ state, user: { login } }) => state === "APPROVED" && CORE_MAINTAINERS.has(login)
+    ({ state, user: { login } }) => state === "APPROVED" && CORE_MAINTAINERS.has(login),
   );
   if (!maintainerApproved) {
     const maintainerList = Array.from(CORE_MAINTAINERS)

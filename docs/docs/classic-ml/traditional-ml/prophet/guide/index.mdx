@@ -790,7 +790,7 @@ def optuna_prophet_optimization(df, n_trials=100):
     with mlflow.start_run(run_name="Optuna Prophet Optimization"):
         # Create study
         study = optuna.create_study(
-            direction="minimize", sampler=optuna.samplers.TPESampler(seed=42)
+            direction="minimize", sampler=optuna.samplers.TYPESampler(seed=42)
         )
 
         # Optimize

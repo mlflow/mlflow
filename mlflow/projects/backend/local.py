@@ -60,12 +60,12 @@ from mlflow.utils.virtualenv import (
 _logger = logging.getLogger(__name__)
 
 
-def _env_type_to_env_manager(env_typ):
-    if env_typ == env_type.CONDA:
+def _env_type_to_env_manager(env_type):
+    if env_type == env_type.CONDA:
         return _EnvManager.CONDA
-    elif env_typ == env_type.PYTHON:
+    elif env_type == env_type.PYTHON:
         return _EnvManager.VIRTUALENV
-    elif env_typ == env_type.DOCKER:
+    elif env_type == env_type.DOCKER:
         return _EnvManager.LOCAL
 
 

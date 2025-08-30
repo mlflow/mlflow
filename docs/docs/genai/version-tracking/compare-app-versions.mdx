@@ -202,12 +202,12 @@ def analyze_traces(traces, version_name):
     return {
         "version": version_name,
         "trace_count": len(traces),
-        "avg_execution_time_ms": sum(execution_times) / len(execution_times)
-        if execution_times
-        else 0,
-        "avg_response_length": sum(response_lengths) / len(response_lengths)
-        if response_lengths
-        else 0,
+        "avg_execution_time_ms": (
+            sum(execution_times) / len(execution_times) if execution_times else 0
+        ),
+        "avg_response_length": (
+            sum(response_lengths) / len(response_lengths) if response_lengths else 0
+        ),
         "min_execution_time_ms": min(execution_times) if execution_times else 0,
         "max_execution_time_ms": max(execution_times) if execution_times else 0,
     }
