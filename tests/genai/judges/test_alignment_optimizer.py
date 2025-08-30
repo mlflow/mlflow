@@ -62,7 +62,7 @@ def test_concrete_optimizer_implementation():
     traces = []  # Empty traces for testing
 
     # Should not raise any errors
-    result = optimizer.align(judge, traces)
+    optimizer.align(judge, traces)
 
 
 class MockOptimizerWithTracking(AlignmentOptimizer):
