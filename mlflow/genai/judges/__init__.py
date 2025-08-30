@@ -11,6 +11,7 @@ from mlflow.genai.judges.builtin import (
 )
 from mlflow.genai.judges.custom_prompt_judge import custom_prompt_judge
 from mlflow.genai.judges.make_judge import make_judge
+from mlflow.genai.judges.optimizers import DSPyAlignmentOptimizer, SIMBAAlignmentOptimizer
 from mlflow.genai.judges.utils import CategoricalRating
 
 __all__ = [
@@ -19,6 +20,9 @@ __all__ = [
     # Judge factory
     "make_judge",
     "AlignmentOptimizer",
+    # Optimizer classes
+    "DSPyAlignmentOptimizer",
+    "SIMBAAlignmentOptimizer",
     # Existing builtin judges
     "CategoricalRating",
     "is_grounded",

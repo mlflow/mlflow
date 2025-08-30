@@ -15,6 +15,10 @@ from mlflow.utils.uri import is_databricks_uri
 
 _logger = logging.getLogger(__name__)
 
+# Public module variables for response format keys
+RESPONSE_KEY_RESULT = "result"
+RESPONSE_KEY_RATIONALE = "rationale"
+
 # "endpoints" is a special case for Databricks model serving endpoints.
 _NATIVE_PROVIDERS = ["openai", "anthropic", "bedrock", "mistral", "endpoints"]
 
@@ -146,7 +150,7 @@ def _invoke_litellm(
     litellm_model_uri = f"{provider}/{model_name}"
     messages = [{"role": "user", "content": prompt}]
     tools = []
-    response_format = _get_judge_response_format()
+    response_format = get_judge_response_format()
 
     if trace is not None:
         judge_tools = list_judge_tools()
@@ -249,13 +253,30 @@ def _create_litellm_tool_response_message(
     }
 
 
-def _get_judge_response_format() -> dict[str, Any]:
+def get_judge_response_format() -> dict[str, Any]:
     """
     Get the response format for judge evaluations.
 
     Returns:
         A dictionary containing the JSON schema for structured outputs.
     """
+    # Import here to avoid circular imports
+    from mlflow.genai.judges.base import Judge
+    
+    # Get the standard output fields from the Judge class (source of truth)
+    output_fields = Judge.get_output_fields()
+    
+    # Build the properties dictionary from the field definitions
+    properties = {}
+    required_fields = []
+    
+    for field in output_fields:
+        properties[field.name] = {
+            "type": "string",
+            "description": field.description,
+        }
+        required_fields.append(field.name)
+    
     return {
         "type": "json_schema",
         "json_schema": {
@@ -263,14 +284,8 @@ def _get_judge_response_format() -> dict[str, Any]:
             "strict": True,
             "schema": {
                 "type": "object",
-                "properties": {
-                    "result": {"type": "string", "description": "The evaluation rating/result"},
-                    "rationale": {
-                        "type": "string",
-                        "description": "Detailed explanation for the evaluation",
-                    },
-                },
-                "required": ["result", "rationale"],
+                "properties": properties,
+                "required": required_fields,
                 "additionalProperties": False,
             },
         },
