@@ -347,9 +347,10 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
     if trace_destination and isinstance(trace_destination, (MlflowExperiment, Databricks)):
         if is_in_databricks_model_serving_environment():
             _logger.info(
-                "Traces will be sent to the destination set by `mlflow.tracing.set_destination` API. "
-                "To enable saving traces to both MLflow experiment and inference table, remove "
-                "this API call from your model and set `MLFLOW_EXPERIMENT_ID` env var instead."
+                "Traces will be sent to the destination set by `mlflow.tracing.set_destination` "
+                "API. To enable saving traces to both MLflow experiment and inference table, "
+                "remove this API call from your model and set `MLFLOW_EXPERIMENT_ID` env var "
+                "instead."
             )
         processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
         processors.append(processor)
