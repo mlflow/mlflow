@@ -50,6 +50,7 @@ def test_concrete_implementation_works():
     assert optimizer is not None
 
 
+# ALKIS: These tests should be in a separate file test_trace_utils.py
 def test_extract_text_from_data_string():
     """Test extracting text from string data."""
     result = extract_text_from_data("simple string", "request")
@@ -117,49 +118,16 @@ def test_align_success(sample_traces_with_assessments):
 
     mock_judge = MockJudge(name="mock_judge", model="openai:/gpt-4")
 
-    mock_dspy = MagicMock()
-    # Setup mock DSPy components
-    mock_example = Mock()
-    mock_example.with_inputs.return_value = mock_example
-    mock_dspy.Example.return_value = mock_example
+    with patch("dspy.LM", MagicMock()):
+        # Setup concrete optimizer
+        optimizer = ConcreteDSPyOptimizer()
 
-    mock_signature = Mock()
-    mock_dspy.make_signature.return_value = mock_signature
-
-    mock_program = Mock()
-    mock_program.signature = Mock()
-    mock_program.signature.instructions = "Optimized instructions with {{inputs}} and {{outputs}}"
-    mock_dspy.Predict.return_value = mock_program
-
-    # Mock context manager
-    mock_dspy.context.return_value.__enter__ = Mock(return_value=None)
-    mock_dspy.context.return_value.__exit__ = Mock(return_value=None)
-
-    # Mock LM
-    mock_dspy.LM.return_value = MagicMock()
-
-    with patch.dict("sys.modules", {"dspy": mock_dspy}):
-        with patch("mlflow.genai.judges.optimizers.dspy.make_judge") as mock_make_judge:
-            # Mock the optimized judge
-            mock_optimized_judge = Mock()
-            mock_optimized_judge.name = "mock_judge_optimized"
-            mock_make_judge.return_value = mock_optimized_judge
-
-            # Setup concrete optimizer
-            optimizer = ConcreteDSPyOptimizer()
-
-            result = optimizer.align(mock_judge, sample_traces_with_assessments)
+        result = optimizer.align(mock_judge, sample_traces_with_assessments)
 
     # Should return an optimized judge
     assert result is not None
-    assert result == mock_optimized_judge
-
-    # Verify make_judge was called with correct parameters (from the _create_optimized_judge test)
-    mock_make_judge.assert_called_once_with(
-        name="mock_judge",
-        instructions="Optimized instructions with {{inputs}} and {{outputs}}",
-        model="openai:/gpt-4",
-    )
+    assert result.model == mock_judge.model
+    assert result.instructions == "Optimized instructions with {{inputs}} and {{outputs}}"
 
 
 def test_align_no_traces(mock_judge):
@@ -170,59 +138,23 @@ def test_align_no_traces(mock_judge):
         optimizer.align(mock_judge, [])
 
 
-def test_align_no_valid_examples(mock_judge):
+def test_align_no_valid_examples(mock_judge, sample_trace_without_assessment):
     """Test alignment when no valid examples can be created."""
-    mock_dspy = MagicMock()
-    # Setup DSPy mocks
-    mock_dspy.Example.side_effect = Exception("Failed to create example")
-
-    # Create trace without proper assessment
-    mock_trace = Mock()
-    mock_trace.info.assessments = []
-    mock_trace.info.request_preview = "test"
-    mock_trace.info.response_preview = "test"
-    mock_trace.data.request = "test"
-    mock_trace.data.response = "test"
-
-    with patch.dict("sys.modules", {"dspy": mock_dspy}):
+    with patch("dspy.LM", MagicMock()):
         optimizer = ConcreteDSPyOptimizer()
-
         with pytest.raises(MlflowException, match="No valid examples could be created"):
-            optimizer.align(mock_judge, [mock_trace])
+            optimizer.align(mock_judge, [sample_trace_without_assessment])
 
 
-def test_align_insufficient_examples(mock_judge):
+def test_align_insufficient_examples(mock_judge, sample_trace_with_assessment):
     """Test alignment with insufficient examples."""
     optimizer = ConcreteDSPyOptimizer()
 
     # Mock dspy first to avoid import errors
-    mock_dspy = MagicMock()
-    mock_example = MagicMock()
-    mock_example.with_inputs.return_value = mock_example
-    mock_dspy.Example.return_value = mock_example
-    mock_dspy.LM.return_value = MagicMock()
-    mock_dspy.Predict.return_value = MagicMock()
-    mock_dspy.context.return_value.__enter__ = Mock(return_value=None)
-    mock_dspy.context.return_value.__exit__ = Mock(return_value=None)
-
-    mock_signature = Mock()
-
-    # Mock the create_dspy_signature and trace_to_dspy_example functions
-    with patch("mlflow.genai.judges.optimizers.dspy.create_dspy_signature") as mock_create_sig:
-        mock_create_sig.return_value = mock_signature
-        with patch(
-            "mlflow.genai.judges.optimizers.dspy.trace_to_dspy_example"
-        ) as mock_trace_convert:
-            # Return a valid example (not None) so we get past the "no valid examples" check
-            mock_trace_convert.return_value = mock_example
-
-            with patch.dict("sys.modules", {"dspy": mock_dspy}):
-                # Create a single trace - should result in 1 valid example
-                mock_trace = Mock()
-
-                with pytest.raises(MlflowException, match="At least 2 valid examples are required"):
-                    optimizer.align(mock_judge, [mock_trace])
-
+    with patch("dspy.LM", MagicMock()):
+        with pytest.raises(MlflowException, match="At least 2 valid examples are required"):
+            optimizer.align(mock_judge, [sample_trace_with_assessment])
+        
 
 def test_align_no_dspy(mock_judge, sample_traces_with_assessments):
     """Test alignment when DSPy is not available."""
@@ -270,42 +202,38 @@ def test_optimizer_and_judge_use_different_models(sample_traces_with_assessments
 
     # Direct patching approach: patch only LM, use real DSPy otherwise
     with patch.object(dspy, "LM", side_effect=mock_lm_factory):
-        # Mock the optimized judge creation to avoid extra calls to the mocked LM
-        with patch("mlflow.genai.judges.optimizers.dspy.make_judge") as mock_make_judge:
-            
-            # Override ConcreteDSPyOptimizer's _dspy_optimize to call the program
-            class TestDSPyOptimizer(ConcreteDSPyOptimizer):
-                def _dspy_optimize(self, program, examples, metric_fn):
-                    # Simulate calling the program (which represents the judge)
-                    # This should happen with the judge's model context
-                    # We need to recreate the judge model context here
-                    
-                    lm_in_context = dspy.settings.lm
-                    assert lm_in_context == optimizer_lm
+        # Override ConcreteDSPyOptimizer's _dspy_optimize to call the program
+        class TestDSPyOptimizer(ConcreteDSPyOptimizer):
+            def _dspy_optimize(self, program, examples, metric_fn):
+                
+                lm_in_context = dspy.settings.lm
+                assert lm_in_context == optimizer_lm
 
-                    program(inputs=examples[0].inputs)
-                    
-                    # Return optimized program as usual
-                    return super()._dspy_optimize(program, examples, metric_fn)
+                # Simulate calling the program (which represents the judge)
+                # This should happen with the judge's model context
+                program(inputs=examples[0].inputs)
+                
+                # Return optimized program as usual
+                return super()._dspy_optimize(program, examples, metric_fn)
 
-            # Create optimizer with different model
-            optimizer = TestDSPyOptimizer(model=optimizer_model)
+        # Create optimizer with different model
+        optimizer = TestDSPyOptimizer(model=optimizer_model)
 
-            # Run alignment
-            result = optimizer.align(mock_judge, traces)
+        # Run alignment
+        result = optimizer.align(mock_judge, traces)
 
-            # Verify that the judge's LM was actually called during program execution
-            # This ensures that the program call used the judge's model
-            assert len(judge_lm.context_calls) > 0, (
-                f"Expected judge LM to be called, but got {len(judge_lm.context_calls)} calls. "
-                f"Optimizer calls: {len(optimizer_lm.context_calls)}"
-            )
+        # Verify that the judge's LM was actually called during program execution
+        # This ensures that the program call used the judge's model
+        assert len(judge_lm.context_calls) > 0, (
+            f"Expected judge LM to be called, but got {len(judge_lm.context_calls)} calls. "
+            f"Optimizer calls: {len(optimizer_lm.context_calls)}"
+        )
 
-            # Verify that the optimizer's LM was not called
-            assert len(optimizer_lm.context_calls) == 0, (
-                f"Expected optimizer LM to not be called, but got {len(optimizer_lm.context_calls)} calls. "
-                f"Judge calls: {len(judge_lm.context_calls)}"
-            )
+        # Verify that the optimizer's LM was not called
+        assert len(optimizer_lm.context_calls) == 0, (
+            f"Expected optimizer LM to not be called, but got {len(optimizer_lm.context_calls)} calls. "
+            f"Judge calls: {len(judge_lm.context_calls)}"
+        )
 
 
 

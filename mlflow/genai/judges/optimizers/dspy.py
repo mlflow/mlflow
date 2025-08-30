@@ -70,6 +70,26 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
             Optimized DSPy program
         """
 
+    def _lower_to_dspy(self, judge: Judge) -> Any:
+        """Lowers the judge into a Predict dspy module"""
+        try:
+            import dspy
+
+            class CustomPredict(dspy.Predict):
+                    """Custom DSPy Predict class that allows passing an LM to the forward method."""
+                    def __init__(self, judge):
+                        super().__init__(create_dspy_signature(judge))
+                        self._lm = dspy.LM(model=judge.model)
+
+                    def forward(self, *args, **kwargs):
+                        # If an LM is supplied via kwargs, use that, else use self.lm
+                        lm = kwargs.pop('lm', self._lm)
+                        return super().forward(*args, lm=lm, **kwargs)
+
+            return CustomPredict(judge)
+        except ImportError:
+            raise MlflowException("DSPy library is required but not installed")
+
 
     def align(self, judge: Judge, traces: list[Trace]) -> Judge:
         """
@@ -94,17 +114,6 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
         try:
             import dspy
 
-            class CustomPredict(dspy.Predict):
-                """Custom DSPy Predict class that allows passing an LM to the forward method."""
-                def __init__(self, signature, lm, **kwargs):
-                    super().__init__(signature, **kwargs)
-                    self._lm = lm
-
-                def forward(self, *args, **kwargs):
-                    # If an LM is supplied via kwargs, use that, else use self.lm
-                    lm = kwargs.pop('lm', self._lm)
-                    return super().forward(*args, lm=lm, **kwargs)
-
             if not traces:
                 raise MlflowException("No traces provided for alignment")
 
@@ -118,15 +127,11 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
             # Use DSPy context manager to ensure proper model usage
             with dspy.context(lm=dspy_model):
                 # Extract judge instructions and create DSPy signature
-                instructions = judge.description
+                instructions = judge.instructions
                 self._logger.info(f"Extracted instructions: {instructions}")
 
                 # Create DSPy program that will simulate the judge
-                # The program should use the judge's model, not the optimizer's model
-                judge_model = dspy.LM(model=judge.model)
-                signature = create_dspy_signature(judge, instructions)
-
-                program = CustomPredict(signature, judge_model)
+                program = self._lower_to_dspy(judge)
                 self._logger.info("Created DSPy program with signature using judge's model")
 
                 # Convert traces to DSPy format

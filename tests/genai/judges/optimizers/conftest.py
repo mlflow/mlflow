@@ -11,17 +11,17 @@ import dspy
 class MockJudge(Judge):
     """Mock judge implementation for testing."""
 
-    def __init__(self, name="mock_judge", description=None, model=None, **kwargs):
+    def __init__(self, name="mock_judge", instructions=None, model=None, **kwargs):
         super().__init__(name=name, **kwargs)
         # Use a proper template with variables for testing
-        self._description = (
-            description or "Evaluate if the {{outputs}} properly addresses {{inputs}}"
+        self._instructions = (
+            instructions or "Evaluate if the {{outputs}} properly addresses {{inputs}}"
         )
         self._model = model
 
     @property
-    def description(self) -> str:
-        return self._description
+    def instructions(self) -> str:
+        return self._instructions
 
     @property
     def model(self) -> str:
@@ -59,6 +59,28 @@ def sample_trace_with_assessment():
     mock_trace_info = Mock(spec=TraceInfo)
     mock_trace_info.trace_id = "test_trace_001"
     mock_trace_info.assessments = [mock_assessment]
+    mock_trace_info.request_preview = '{"inputs": "test input"}'
+    mock_trace_info.response_preview = '{"outputs": "test output"}'
+
+    # Mock trace data
+    mock_trace_data = Mock(spec=TraceData)
+    mock_trace_data.request = {"inputs": "test input"}
+    mock_trace_data.response = {"outputs": "test output"}
+
+    # Mock trace
+    mock_trace = Mock(spec=Trace)
+    mock_trace.info = mock_trace_info
+    mock_trace.data = mock_trace_data
+
+    return mock_trace
+
+
+@pytest.fixture
+def sample_trace_without_assessment():
+    """Create a sample trace without human assessment for testing."""
+    # Mock trace info
+    mock_trace_info = Mock(spec=TraceInfo)
+    mock_trace_info.trace_id = "test_trace_001"
     mock_trace_info.request_preview = '{"inputs": "test input"}'
     mock_trace_info.response_preview = '{"outputs": "test output"}'
 

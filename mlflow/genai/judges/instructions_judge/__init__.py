@@ -48,16 +48,6 @@ class InstructionsJudge(Judge):
         return cls._TEMPLATE_VARIABLE_OUTPUTS
 
     @classmethod
-    def get_template_variable_result(cls) -> str:
-        """Get the template variable name for result."""
-        return cls._TEMPLATE_VARIABLE_RESULT
-
-    @classmethod
-    def get_template_variable_rationale(cls) -> str:
-        """Get the template variable name for rationale."""
-        return cls._TEMPLATE_VARIABLE_RATIONALE
-
-    @classmethod
     def get_template_variable_trace(cls) -> str:
         """Get the template variable name for trace."""
         return cls._TEMPLATE_VARIABLE_TRACE
@@ -134,12 +124,6 @@ class InstructionsJudge(Judge):
     def template_variables(self) -> set[str]:
         """Get the template variables from the instructions."""
         return self._instructions_prompt.variables
-
-    @property
-    def description(self) -> str:
-        """Get the description of this judge."""
-        header = f"Instructions-based judge: {self.name}"
-        return f"{header}\n\nInstructions:\n-------------\n\n{self._instructions}"
 
     def __call__(
         self,

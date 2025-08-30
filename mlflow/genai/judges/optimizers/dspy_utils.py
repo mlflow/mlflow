@@ -85,7 +85,7 @@ def trace_to_dspy_example(trace: Trace, judge_name: str) -> Any | None:
         return None
 
 
-def create_dspy_signature(judge, instructions: str) -> Any:
+def create_dspy_signature(judge) -> Any:
     """
     Create DSPy signature for judge evaluation.
 
@@ -119,7 +119,7 @@ def create_dspy_signature(judge, instructions: str) -> Any:
                 dspy.OutputField(desc=field.description),
             )
 
-        return dspy.make_signature(signature_fields, instructions)
+        return dspy.make_signature(signature_fields, judge.instructions)
 
     except ImportError:
         raise MlflowException("DSPy library is required but not installed")
