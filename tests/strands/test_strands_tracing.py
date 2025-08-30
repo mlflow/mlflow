@@ -2,11 +2,9 @@ import json
 from unittest.mock import patch
 
 from strands import Agent
-from strands.agent.agent import run_tool
 from strands.agent.agent_result import AgentResult
 from strands.models.model import Model
 from strands.telemetry.metrics import EventLoopMetrics, Trace
-from strands.tools.executor import run_tools
 from strands.tools.tools import PythonAgentTool
 
 import mlflow
@@ -99,6 +97,32 @@ def test_strands_autolog_single_trace():
         assert len(get_traces()) == 1
 
 
+def run_tool(agent, tool_uses, cycle_trace, invocation_state):
+    try:
+        from strands.agent.agent import run_tool
+        from strands.tools.executor import run_tools
+
+        return run_tools(
+            handler=lambda tool_use: run_tool(agent, tool_use, invocation_state),
+            tool_uses=tool_uses,
+            event_loop_metrics=agent.event_loop_metrics,
+            invalid_tool_use_ids=[],
+            tool_results=[],
+            cycle_trace=cycle_trace,
+            parent_span=agent.trace_span,
+        )
+    except ImportError:
+        from strands.tools.executors import SequentialToolExecutor
+        return SequentialToolExecutor()._execute(
+            agent=agent,
+            tool_uses=tool_uses,
+            tool_results=[],
+            cycle_trace=cycle_trace,
+            cycle_span=agent.trace_span,
+            invocation_state=invocation_state
+        )
+
+
 def test_function_calling_creates_single_trace():
     mlflow.strands.autolog()
 
@@ -107,14 +131,9 @@ def test_function_calling_creates_single_trace():
 
     async def new_run_loop(self, message, invocation_state):
         tool_use = {"toolUseId": "tool-1", "name": "sum", "input": {"a": 1, "b": 2}}
-        tool_events = run_tools(
-            handler=lambda tool_use: run_tool(self, tool_use, invocation_state),
-            tool_uses=[tool_use],
-            event_loop_metrics=self.event_loop_metrics,
-            invalid_tool_use_ids=[],
-            tool_results=[],
-            cycle_trace=Trace("cycle"),
-            parent_span=self.trace_span,
+
+        tool_events = run_tool(
+            agent, [tool_use], Trace("cycle"), invocation_state
         )
         async for _ in tool_events:
             pass
@@ -146,15 +165,11 @@ def test_multiple_agents_single_trace():
     async def new_run_loop(self, message, invocation_state):
         if self is agent1:
             tool_use = {"toolUseId": "tool-1", "name": "sum", "input": {"a": 1, "b": 2}}
-            tool_events = run_tools(
-                handler=lambda tool_use: run_tool(self, tool_use, invocation_state),
-                tool_uses=[tool_use],
-                event_loop_metrics=self.event_loop_metrics,
-                invalid_tool_use_ids=[],
-                tool_results=[],
-                cycle_trace=Trace("cycle"),
-                parent_span=self.trace_span,
+
+            tool_events = run_tool(
+                self, [tool_use], Trace("cycle"), invocation_state
             )
+            
             async for _ in tool_events:
                 pass
             await agent2.invoke_async("hello")
