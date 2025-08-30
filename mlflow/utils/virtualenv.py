@@ -261,6 +261,7 @@ def _create_virtualenv(
         _logger.info(f"Environment {env_dir} already exists")
         return activate_cmd
 
+    extra_env = {}
     if env_manager == em.VIRTUALENV:
         python_bin_path = _install_python(
             python_env.python, pyenv_root=pyenv_root_dir, capture_output=capture_output
@@ -282,6 +283,8 @@ def _create_virtualenv(
         )
         env_creation_cmd = ["uv", "venv", env_dir, f"--python={python_env.python}"]
         install_deps_cmd_prefix = "uv pip install"
+        if pyenv_root_dir:
+            extra_env["UV_PYTHON_INSTALL_DIR"] = pyenv_root_dir
         if _MLFLOW_TESTING.get():
             os.environ["RUST_LOG"] = "uv=debug"
     with remove_on_error(
@@ -293,10 +296,10 @@ def _create_virtualenv(
             env_dir,
         ),
     ):
+
         _exec_cmd(
             env_creation_cmd,
             capture_output=capture_output,
-            extra_env={"UV_PYTHON_INSTALL_DIR": pyenv_root_dir},
         )
 
         _logger.info("Installing dependencies")
@@ -415,9 +418,9 @@ def _get_or_create_virtualenv(
     local_model_path = Path(local_model_path)
     python_env = _get_python_env(local_model_path)
 
-    pyenv_root_dir = None
     if env_root_dir is None:
         virtual_envs_root_path = Path(_get_mlflow_virtualenv_root())
+        pyenv_root_dir = None
     else:
         virtual_envs_root_path = Path(env_root_dir) / _VIRTUALENV_ENVS_DIR
         pyenv_root_path = Path(env_root_dir) / _PYENV_ROOT_DIR
