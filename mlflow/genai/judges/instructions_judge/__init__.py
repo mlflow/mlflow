@@ -7,7 +7,15 @@ from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import Judge
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
-from mlflow.genai.judges.utils import format_prompt, get_default_model, invoke_judge_model
+from mlflow.genai.judges.instructions_judge.constants import (
+    INSTRUCTIONS_JUDGE_EVALUATION_PROMPT_TEMPLATE,
+)
+from mlflow.genai.judges.utils import (
+    add_output_format_instructions,
+    format_prompt,
+    get_default_model,
+    invoke_judge_model,
+)
 from mlflow.genai.scorers.base import ScorerKind
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
@@ -110,8 +118,8 @@ class InstructionsJudge(Judge):
         Evaluate the provided data using the judge's instructions.
 
         Args:
-            inputs: Input dictionary to evaluate. Cannot be used with 'trace'.
-            outputs: Output dictionary to evaluate. Cannot be used with 'trace'.
+            inputs: Input dictionary to evaluate.
+            outputs: Output dictionary to evaluate.
             expectations: Expected outcomes or ground truth.
 
         Returns:
@@ -136,9 +144,14 @@ class InstructionsJudge(Judge):
 
             formatted_prompt = format_prompt(self._instructions, **template_values)
 
+            augmented_prompt = format_prompt(
+                INSTRUCTIONS_JUDGE_EVALUATION_PROMPT_TEMPLATE, task_instructions=formatted_prompt
+            )
+            augmented_prompt = add_output_format_instructions(augmented_prompt)
+
             return invoke_judge_model(
                 model_uri=self._model,
-                prompt=formatted_prompt,
+                prompt=augmented_prompt,
                 assessment_name=self.name,
             )
         raise MlflowException(

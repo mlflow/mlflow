@@ -366,3 +366,61 @@ def test_prompt_formatting_with_all_variable_types(monkeypatch):
     assert "Query: test" in captured_prompt
     assert "Response: answer" in captured_prompt
     assert "Custom: custom_value" in captured_prompt
+
+
+def test_output_format_instructions_added(monkeypatch):
+    captured_prompt = None
+
+    def mock_invoke(model_uri, prompt, assessment_name):
+        nonlocal captured_prompt
+        captured_prompt = prompt
+        return Feedback(name=assessment_name, value=True, rationale="Test rationale")
+
+    monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "invoke_judge_model", mock_invoke)
+
+    judge = make_judge(
+        name="test_judge",
+        instructions="Check if {{text}} is formal",
+        model="openai:/gpt-4",
+    )
+
+    result = judge(outputs={"text": "Hello there"})
+
+    assert "Check if Hello there is formal" in captured_prompt
+    assert "Task Instructions" in captured_prompt
+    assert "EVALUATION APPROACH" in captured_prompt
+    assert "JSON format" in captured_prompt
+    assert result.value is True
+    assert result.rationale == "Test rationale"
+
+
+def test_output_format_instructions_with_complex_template(monkeypatch):
+    captured_prompt = None
+
+    def mock_invoke(model_uri, prompt, assessment_name):
+        nonlocal captured_prompt
+        captured_prompt = prompt
+        return Feedback(name=assessment_name, value="yes", rationale="Test rationale")
+
+    monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "invoke_judge_model", mock_invoke)
+
+    judge = make_judge(
+        name="complex_judge",
+        instructions="Evaluate {{response}} for {{criteria}} considering {{context}}",
+        model="openai:/gpt-4",
+    )
+
+    result = judge(
+        inputs={"context": "formal business setting"},
+        outputs={"response": "Hey what's up"},
+        expectations={"criteria": "professionalism"},
+    )
+
+    assert (
+        "Evaluate Hey what's up for professionalism considering formal business setting"
+        in captured_prompt
+    )
+    assert "Task Instructions" in captured_prompt
+    assert "JSON format" in captured_prompt
+    assert result.value == "yes"
+    assert result.rationale == "Test rationale"

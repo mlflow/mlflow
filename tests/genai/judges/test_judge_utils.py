@@ -10,7 +10,11 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
-from mlflow.genai.judges.utils import CategoricalRating, invoke_judge_model
+from mlflow.genai.judges.utils import (
+    CategoricalRating,
+    add_output_format_instructions,
+    invoke_judge_model,
+)
 from mlflow.types.llm import ToolCall
 
 
@@ -261,3 +265,27 @@ def test_invoke_judge_model_tool_calling_loop(mock_trace):
 
     assert feedback.value == CategoricalRating.YES
     assert feedback.rationale == "The trace looks good."
+
+
+def test_add_output_format_instructions():
+    simple_prompt = "Evaluate this response"
+    formatted = add_output_format_instructions(simple_prompt)
+
+    assert simple_prompt in formatted
+    assert "JSON format" in formatted
+    assert '"result"' in formatted
+    assert '"rationale"' in formatted
+    assert "no markdown" in formatted.lower()
+    assert "Your evaluation result/rating" in formatted
+    assert "Detailed explanation for your evaluation" in formatted
+
+    complex_prompt = "This is a multi-line\nprompt with various\ninstruction details"
+    formatted = add_output_format_instructions(complex_prompt)
+
+    assert complex_prompt in formatted
+    assert formatted.startswith(complex_prompt)
+    assert formatted.endswith("}")
+
+    assert formatted.index(complex_prompt) < formatted.index("JSON format")
+    assert formatted.index(complex_prompt) < formatted.index('"result"')
+    assert formatted.index(complex_prompt) < formatted.index('"rationale"')
