@@ -88,7 +88,6 @@ def create_dspy_signature(judge) -> Any:
 
     Args:
         judge: The judge to create signature for
-        instructions: Instructions text for the signature
 
     Returns:
         DSPy signature object

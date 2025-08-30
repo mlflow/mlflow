@@ -9,14 +9,14 @@ from mlflow.entities.trace import Trace
 def extract_text_from_data(data: Any, field_type: str) -> str:
     """
     Extract text from various data formats in traces.
-    
+
     Handles strings, dicts, lists, and None values by converting
     them to appropriate string representations.
-    
+
     Args:
         data: The data to extract text from
         field_type: Type of field ('request' or 'response') for key priority
-    
+
     Returns:
         Extracted text as string
     """
@@ -73,10 +73,10 @@ def extract_text_from_data(data: Any, field_type: str) -> str:
 def extract_request_from_trace(trace: Trace) -> str:
     """
     Extract request text from an MLflow trace object.
-    
+
     Args:
         trace: MLflow trace object
-    
+
     Returns:
         Extracted request text as string
     """
@@ -90,10 +90,10 @@ def extract_request_from_trace(trace: Trace) -> str:
 def extract_response_from_trace(trace: Trace) -> str:
     """
     Extract response text from an MLflow trace object.
-    
+
     Args:
         trace: MLflow trace object
-    
+
     Returns:
         Extracted response text as string
     """

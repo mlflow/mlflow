@@ -54,7 +54,7 @@ class InstructionsJudge(Judge):
         return cls._TEMPLATE_VARIABLE_EXPECTATIONS
 
     # Reserved template variables that cannot be used in instructions
-    _RESERVED_INSTRUCTION_TEMPLATE_VARIABLES: ClassVar[list] = [
+    _RESERVED_INSTRUCTION_TEMPLATE_VARIABLES: ClassVar[list[str]] = [
         _TEMPLATE_VARIABLE_INPUTS,
         _TEMPLATE_VARIABLE_OUTPUTS,
         _TEMPLATE_VARIABLE_TRACE,

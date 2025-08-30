@@ -12,7 +12,7 @@ from mlflow.utils.annotations import experimental
 class JudgeField(BaseModel):
     """
     Represents a field definition for judges with name and description.
-    
+
     Used to define input and output fields for judge evaluation signatures.
     """
 
@@ -70,7 +70,7 @@ class Judge(Scorer):
     def get_input_fields(self) -> list[JudgeField]:
         """
         Get the input fields for this judge.
-        
+
         Returns:
             List of JudgeField objects defining the input fields.
         """
@@ -80,7 +80,7 @@ class Judge(Scorer):
         """
         Get the standard output fields used by all judges.
         This is the source of truth for judge output field definitions.
-        
+
         Returns:
             List of JudgeField objects defining the standard output fields.
         """
