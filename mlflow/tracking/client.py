@@ -4300,6 +4300,7 @@ class MlflowClient:
         )
 
     def copy_model_version(self, src_model_uri, dst_name) -> ModelVersion:
+        # ruff: noqa: E501
         """
         Copy a model version from one registered model to another as a new model version.
         If the destination model does not exist, it will be created.
@@ -4359,7 +4360,7 @@ class MlflowClient:
             dst_name = "RandomForestRegression-production"
             src_model_uri = f"models:/{mv_src.name}/{mv_src.version}"
             mv_copy = client.copy_model_version(src_model_uri, dst_name)
-            print_model_version_info(mv_copy)
+            print(f"Name: {mv_copy.name}, Version: {mv_copy.version}, Source: {mv_copy.source}")
 
         .. code-block:: python
             :caption: Migration example from Databricks Workspace Model Registry to Unity Catalog
@@ -4367,11 +4368,10 @@ class MlflowClient:
             from mlflow import MlflowClient
             import os
 
-            skip_sig_var = "MLFLOW_SKIP_SIGNATURE_CHECK_FOR_MIGRATION_TO_DATABRICKS_UC_REGISTRY"
-            os.environ[skip_sig_var] = "true"
+            os.environ["MLFLOW_SKIP_SIGNATURE_CHECK_FOR_MIGRATION_TO_DATABRICKS_UC_REGISTRY"] = "true"
             client = MlflowClient(registry_uri="databricks")
 
-            src_model_uri = f"models:/my_wmr_model/1"
+            src_model_uri = f"models:/my_workspace_model/1"
             uc_model_dst_name = "mycatalog.myschema.my_uc_model"
             uc_migrated_copy = client.copy_model_version(src_model_uri, uc_model_dst_name)
             print_model_version_info(uc_migrated_copy)
