@@ -72,7 +72,7 @@ def train(fpath, max_depth, max_features, n_estimators):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--algo", default="tpe", choices=["tpe"], type=str)
+    parser.add_argument("--algo", default="type", choices=["type"], type=str)
     parser.add_argument("--conda-env", required=True, type=str)
     parser.add_argument("--fpath", required=True, type=str)
     parser.add_argument("--n_estimators", type=int, default=100)

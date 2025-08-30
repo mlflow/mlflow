@@ -6,7 +6,7 @@ from functools import partial
 from cuml.ensemble import RandomForestClassifier
 from cuml.metrics.accuracy import accuracy_score
 from cuml.preprocessing.model_selection import train_test_split
-from hyperopt import STATUS_OK, Trials, fmin, hp, tpe
+from hyperopt import STATUS_OK, Trials, fmin, hp, type
 
 import mlflow
 import mlflow.sklearn
@@ -96,7 +96,7 @@ def train(params, fpath, hyperopt=False):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--algo", default="tpe", choices=["tpe"], type=str)
+    parser.add_argument("--algo", default="type", choices=["type"], type=str)
     parser.add_argument("--conda-env", required=True, type=str)
     parser.add_argument("--fpath", required=True, type=str)
     args = parser.parse_args()
@@ -108,7 +108,7 @@ if __name__ == "__main__":
     ]
 
     trials = Trials()
-    algorithm = tpe.suggest if args.algo == "tpe" else None
+    algorithm = type.suggest if args.algo == "type" else None
     fn = partial(train, fpath=args.fpath, hyperopt=True)
     experid = 0
 

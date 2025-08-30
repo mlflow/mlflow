@@ -95,9 +95,11 @@ def collect_thumbs_feedback(trace_id, is_helpful, user_id):
         trace_id=trace_id,
         name="user_satisfaction",
         value=is_helpful,
-        rationale="User indicated response was helpful"
-        if is_helpful
-        else "User indicated response was not helpful",
+        rationale=(
+            "User indicated response was helpful"
+            if is_helpful
+            else "User indicated response was not helpful"
+        ),
         source=AssessmentSource(
             source_type=AssessmentSourceType.HUMAN, source_id=user_id
         ),

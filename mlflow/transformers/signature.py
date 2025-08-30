@@ -176,6 +176,20 @@ def format_input_example_for_special_cases(input_example, pipeline):
 def generate_signature_output(pipeline, data, model_config=None, flavor_config=None, params=None):
     # Lazy import to avoid circular dependencies. Ideally we should move _TransformersWrapper
     # out from __init__.py to avoid this.
+
+    """
+    .. deprecated:: 2.20.0
+       Use :func:`mlflow.models.input_example` instead.
+    """
+    import warnings
+
+    warnings.warn(
+        "`mlflow.transformers.generate_signature_output` is deprecated since MLflow 2.20.0 "
+        "and will be removed in a future release. "
+        "Please use `mlflow.models.input_example` instead.",
+        FutureWarning,  # use FutureWarning (not DeprecationWarning), MLflow prefers this
+        stacklevel=2,
+    )
     from mlflow.transformers import _TransformersWrapper
 
     return _TransformersWrapper(

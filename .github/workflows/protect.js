@@ -52,8 +52,8 @@ module.exports = async ({ github, context }) => {
         status !== "completed"
           ? STATE.pending
           : conclusion === "success" || conclusion === "skipped"
-          ? STATE.success
-          : STATE.failure,
+            ? STATE.success
+            : STATE.failure,
     }));
 
     // Commit statues (e.g., CircleCI checks)
@@ -97,7 +97,7 @@ module.exports = async ({ github, context }) => {
 
     if (checks.some(({ status }) => status === STATE.failure)) {
       throw new Error(
-        "This job ensures that all checks except for this one have passed to prevent accidental auto-merges."
+        "This job ensures that all checks except for this one have passed to prevent accidental auto-merges.",
       );
     }
 

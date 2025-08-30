@@ -19,8 +19,7 @@ Since the filters are applied at **client side** before sending the span to the 
 A filtering function must take a single argument, which is a <APILink fn="mlflow.entities.span.Span">`Span`</APILink> object. It can mutate the span in-place. It must not return a value.
 
 ```python
-def filter_function(span: Span) -> None:
-    ...
+def filter_function(span: Span) -> None: ...
 ```
 
 ## Example 1: Redacting E-mail Address

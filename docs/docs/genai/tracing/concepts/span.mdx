@@ -86,8 +86,7 @@ Span types are a way to categorize spans within a trace. MLflow provides a set o
 
     # Setting a span type with the decorator
     @mlflow.trace(span_type=SpanType.RETRIEVER)
-    def retrieve_documents(query: str):
-        ...
+    def retrieve_documents(query: str): ...
 
 
     # Setting a span type with the context manager
@@ -99,8 +98,7 @@ Span types are a way to categorize spans within a trace. MLflow provides a set o
 
     # You can also define a custom span type string
     @mlflow.trace(span_type="ROUTER")
-    def route_request(request):
-        ...
+    def route_request(request): ...
     ```
 
   </TabItem>

@@ -53,14 +53,14 @@ async function rerun({ github, context }) {
         (conclusion === "failure" || conclusion === "cancelled") &&
         name.toLowerCase() !== "rerun" && // Prevent recursive rerun
         (name.toLowerCase() === "protect" || // Always rerun protect job
-          computeExecutionTimeInSeconds(started_at, completed_at) <= 60) // Rerun jobs that took less than 60 seconds (e.g. Maintainer approval check)
+          computeExecutionTimeInSeconds(started_at, completed_at) <= 60), // Rerun jobs that took less than 60 seconds (e.g. Maintainer approval check)
     )
     .map(
       ({
         // Example: https://github.com/mlflow/mlflow/actions/runs/10675586265/job/29587793829
         //                                                        ^^^^^^^^^^^ run_id
         html_url,
-      }) => html_url.match(/\/actions\/runs\/(\d+)/)[1]
+      }) => html_url.match(/\/actions\/runs\/(\d+)/)[1],
     );
 
   const uniqueRunIds = [...new Set(runIdsToRerun)];

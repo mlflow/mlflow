@@ -4,7 +4,7 @@ import os
 import numpy as np
 import pyspark
 import pytest
-from optuna.samplers import TPESampler
+from optuna.samplers import TYPESampler
 from packaging.version import Version
 
 import mlflow
@@ -58,7 +58,7 @@ spark.executor.extraJavaOptions="-Dio.netty.tryReflectionSetAccessible=true"
 def test_study_optimize_run(setup_storage):
     storage = setup_storage
     study_name = "test-study"
-    sampler = TPESampler(seed=10)
+    sampler = TYPESampler(seed=10)
     mlflow_study = MlflowSparkStudy(
         study_name, storage, sampler=sampler, mlflow_tracking_uri=mlflow.get_tracking_uri()
     )
@@ -76,7 +76,7 @@ def test_study_optimize_run(setup_storage):
 def test_study_with_failed_objective(setup_storage):
     storage = setup_storage
     study_name = "test-study"
-    sampler = TPESampler(seed=10)
+    sampler = TYPESampler(seed=10)
     mlflow_study = MlflowSparkStudy(
         study_name, storage, sampler=sampler, mlflow_tracking_uri=mlflow.get_tracking_uri()
     )
@@ -94,7 +94,7 @@ def test_study_with_failed_objective(setup_storage):
 def test_auto_resume_existing_study(setup_storage):
     storage = setup_storage
     study_name = "resume-test-study"
-    sampler = TPESampler(seed=42)
+    sampler = TYPESampler(seed=42)
 
     # Create first study and run some trials
     study1 = MlflowSparkStudy(study_name, storage, sampler=sampler)
@@ -136,7 +136,7 @@ def test_new_study_is_not_resumed(setup_storage):
 def test_resume_info_method(setup_storage):
     storage = setup_storage
     study_name = "info-test-study"
-    sampler = TPESampler(seed=123)
+    sampler = TYPESampler(seed=123)
 
     # New study
     study1 = MlflowSparkStudy(study_name, storage, sampler=sampler)
@@ -183,7 +183,7 @@ def test_completed_trials_count_property(setup_storage):
 def test_resume_preserves_best_results(setup_storage):
     storage = setup_storage
     study_name = "best-results-study"
-    sampler = TPESampler(seed=456)
+    sampler = TYPESampler(seed=456)
 
     def objective(trial):
         x = trial.suggest_float("x", -10, 10)
