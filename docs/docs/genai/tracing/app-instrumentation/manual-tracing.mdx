@@ -70,7 +70,7 @@ When a trace contains multiple spans with same name, MLflow appends an auto-incr
 The <APILink fn="mlflow.trace" /> decorator accepts following arguments to customize the span to be created:
 
 - 🏷️ **`name` parameter** to override the span name from the default (the name of decorated function)
-- 🎯 **`span_type` parameter** to set the type of span. Set either one of built-in [Span Types](/genai/tracing/concepts/span#span-types) or a string.
+- 🎯 **`span_type` parameter** to set the type of span. Set either one of built-in [Span Types](/genai/concepts/span#span-types) or a string.
 - 🏗️ **`attributes` parameter** to add custom attributes to the span.
 
 :::tip[Decorator Order]
@@ -496,6 +496,6 @@ asyncio.run(async_pipeline(["item1", "item2", "item3"]))
 
 **[Combining with Auto-Tracing](/genai/tracing/app-instrumentation/automatic#combining-manual-and-automatic-tracing)**: Mix automatic and manual tracing for optimal observability
 
-**[Trace Concepts](/genai/tracing/concepts/trace)**: Understand the structure and components of MLflow traces
+**[Trace Concepts](/genai/concepts/trace)**: Understand the structure and components of MLflow traces
 
 **[Querying Traces](/genai/tracing/search-traces)**: Programmatically search and analyze your traces

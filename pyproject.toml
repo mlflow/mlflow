@@ -332,6 +332,7 @@ ser = "ser"                        # serialization
 yhat = "yhat"                      # ŷ
 iternal = "internal"               # typo of "internal"
 instumentation = "instrumentation" # typo of "instrumentation"
+selectin = "selectin"              # SQLAlchemy lazy loading strategy
 
 # https://github.com/crate-ci/typos/blob/master/docs/reference.md
 [tool.typos.files]

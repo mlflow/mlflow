@@ -21,17 +21,24 @@ except ImportError:
     pass
 
 if TYPE_CHECKING:
-    from mlflow.genai.datasets import EvaluationDataset
+    from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
+    from mlflow.genai.datasets import EvaluationDataset as ManagedEvaluationDataset
     from mlflow.genai.evaluation.entities import EvalResult
 
     try:
         import pyspark.sql.dataframe
 
         EvaluationDatasetTypes = (
-            pd.DataFrame | pyspark.sql.dataframe.DataFrame | list[dict] | EvaluationDataset
+            pd.DataFrame
+            | pyspark.sql.dataframe.DataFrame
+            | list[dict]
+            | ManagedEvaluationDataset
+            | EntityEvaluationDataset
         )
     except ImportError:
-        EvaluationDatasetTypes = pd.DataFrame | list[dict] | EvaluationDataset
+        EvaluationDatasetTypes = (
+            pd.DataFrame | list[dict] | ManagedEvaluationDataset | EntityEvaluationDataset
+        )
 
 
 _logger = logging.getLogger(__name__)

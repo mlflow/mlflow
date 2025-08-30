@@ -1,10 +1,13 @@
-FROM amd64/python:3.10
+# MSSQL tools are only available for amd64 architecture
+# GitHub Actions runners use amd64, but local development might use ARM (Apple Silicon)
+# The --platform flag ensures consistent behavior across environments
+FROM --platform=linux/amd64 python:3.10
 
 ARG DEPENDENCIES
 
 # apt-get and system utilities
 RUN apt-get update && apt-get install -y \
-    curl apt-transport-https debconf-utils \
+    curl apt-transport-https debconf-utils gnupg \
     && rm -rf /var/lib/apt/lists/*
 
 # adding custom MS repository

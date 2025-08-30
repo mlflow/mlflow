@@ -1232,10 +1232,13 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     )
     eval_fn_args = [eval_df, builtin_metrics]
 
+    # Import the module directly to avoid mock.patch import issues
+    from mlflow.models.evaluation.utils import metric as metric_module
+
     def dummy_fn(*_):
         pass
 
-    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
+    with mock.patch.object(metric_module._logger, "warning") as mock_warning:
         MetricDefinition(dummy_fn, "dummy_fn", 0, None).evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
             "Did not log metric 'dummy_fn' at index 0 in the `extra_metrics` parameter"
@@ -1245,7 +1248,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def incorrect_return_type(*_):
         return ["stuff"], 3
 
-    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
+    with mock.patch.object(metric_module._logger, "warning") as mock_warning:
         metric = MetricDefinition(incorrect_return_type, incorrect_return_type.__name__, 0)
         metric.evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
@@ -1256,7 +1259,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def non_list_scores(*_):
         return MetricValue(scores=5)
 
-    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
+    with mock.patch.object(metric_module._logger, "warning") as mock_warning:
         MetricDefinition(non_list_scores, non_list_scores.__name__, 0).evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
             f"Did not log metric '{non_list_scores.__name__}' at index 0 in the "
@@ -1266,7 +1269,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def non_numeric_scores(*_):
         return MetricValue(scores=[{"val": "string"}])
 
-    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
+    with mock.patch.object(metric_module._logger, "warning") as mock_warning:
         MetricDefinition(non_numeric_scores, non_numeric_scores.__name__, 0).evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
             f"Did not log metric '{non_numeric_scores.__name__}' at index 0 in the `extra_metrics`"
@@ -1276,7 +1279,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def non_list_justifications(*_):
         return MetricValue(justifications="string")
 
-    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
+    with mock.patch.object(metric_module._logger, "warning") as mock_warning:
         metric = MetricDefinition(non_list_justifications, non_list_justifications.__name__, 0)
         metric.evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
@@ -1288,7 +1291,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def non_str_justifications(*_):
         return MetricValue(justifications=[3, 4])
 
-    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
+    with mock.patch.object(metric_module._logger, "warning") as mock_warning:
         metric = MetricDefinition(non_str_justifications, non_str_justifications.__name__, 0)
         metric.evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
@@ -1300,7 +1303,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def non_dict_aggregates(*_):
         return MetricValue(aggregate_results=[5.0, 4.0])
 
-    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
+    with mock.patch.object(metric_module._logger, "warning") as mock_warning:
         metric = MetricDefinition(non_dict_aggregates, non_dict_aggregates.__name__, 0)
         metric.evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
@@ -1312,7 +1315,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def wrong_type_aggregates(*_):
         return MetricValue(aggregate_results={"toxicity": 0.0, "hi": "hi"})
 
-    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
+    with mock.patch.object(metric_module._logger, "warning") as mock_warning:
         metric = MetricDefinition(wrong_type_aggregates, wrong_type_aggregates.__name__, 0)
         metric.evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
