@@ -126,10 +126,6 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
 
             # Use DSPy context manager to ensure proper model usage
             with dspy.context(lm=dspy_model):
-                # Extract judge instructions and create DSPy signature
-                instructions = judge.instructions
-                self._logger.info(f"Extracted instructions: {instructions}")
-
                 # Create DSPy program that will simulate the judge
                 program = self._lower_to_dspy(judge)
                 self._logger.info("Created DSPy program with signature using judge's model")
