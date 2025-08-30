@@ -3,6 +3,7 @@ from unittest.mock import patch
 import pytest
 
 from mlflow.genai.datasets import create_dataset, delete_dataset, get_dataset
+from mlflow.genai.experimental.databricks_trace_archival import set_experiment_storage_location
 from mlflow.genai.scorers import (
     delete_scorer,
     get_scorer,
@@ -49,6 +50,19 @@ def test_get_dataset_raises_when_agents_not_installed():
 def test_delete_dataset_raises_when_agents_not_installed():
     with pytest.raises(ImportError, match="The `databricks-agents` package is required"):
         delete_dataset("test_dataset")
+
+
+def test_set_experiment_storage_location_raises_when_agents_not_installed():
+    """Test that ImportError is raised when databricks-agents package is not available."""
+    from mlflow.tracing.destination import DatabricksUnityCatalog
+
+    location = DatabricksUnityCatalog(catalog="catalog", schema="schema", table_prefix="prefix")
+
+    with pytest.raises(
+        ImportError,
+        match=r"The `databricks-agents` package is required to set experiment storage location",
+    ):
+        set_experiment_storage_location(location, experiment_id="12345")
 
 
 class MockScorer(Scorer):
