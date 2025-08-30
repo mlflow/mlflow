@@ -7,7 +7,7 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.tracing.processor.base_mlflow import BaseMlflowSpanProcessor
-from mlflow.tracing.utils import generate_trace_id_v3
+from mlflow.tracing.utils import generate_trace_id_v3, get_experiment_id_for_trace
 
 _logger = logging.getLogger(__name__)
 
@@ -23,8 +23,9 @@ class MlflowV3SpanProcessor(BaseMlflowSpanProcessor):
     def __init__(
         self,
         span_exporter: SpanExporter,
+        export_metrics: bool,
     ):
-        super().__init__(span_exporter)
+        super().__init__(span_exporter, export_metrics)
 
     def _start_trace(self, root_span: OTelSpan) -> TraceInfo:
         """
@@ -32,7 +33,7 @@ class MlflowV3SpanProcessor(BaseMlflowSpanProcessor):
 
         This method is called in the on_start method of the base class.
         """
-        experiment_id = self._get_experiment_id_for_trace(root_span)
+        experiment_id = get_experiment_id_for_trace(root_span)
         if experiment_id is None:
             _logger.debug(
                 "Experiment ID is not set for trace. It may not be exported to MLflow backend."
