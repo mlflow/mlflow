@@ -17,13 +17,13 @@ def test_sanitize_judge_name(sample_trace_with_assessment):
     # The sanitization is now done inside trace_to_dspy_example
     # Test that it correctly handles different judge name formats
     from mlflow.genai.judges.optimizers.dspy_utils import trace_to_dspy_example
-    
+
     # Mock dspy module
     mock_dspy = MagicMock()
     mock_example = MagicMock()
     mock_example.with_inputs.return_value = mock_example
     mock_dspy.Example.return_value = mock_example
-    
+
     with patch.dict("sys.modules", {"dspy": mock_dspy}):
         # Test with different case variations - they should all find the assessment
         # The assessment name in the fixture is "mock_judge" in lowercase
@@ -108,15 +108,15 @@ def test_create_agreement_metric():
     pred = Mock()
     pred.result = "pass"
 
-    assert agreement_metric(example, pred) == True
+    assert agreement_metric(example, pred) is True
 
     # Test metric with different results
     pred.result = "fail"
-    assert agreement_metric(example, pred) == False
+    assert agreement_metric(example, pred) is False
 
 
 def test_create_agreement_metric_error_handling():
     """Test agreement metric error handling."""
     # Test with invalid inputs
     result = agreement_metric(None, None)
-    assert result == False
+    assert result is False

@@ -2,8 +2,8 @@
 
 from unittest.mock import MagicMock, Mock, patch
 
-import pytest
 import dspy
+import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.optimizers.dspy import DSPyAlignmentOptimizer
@@ -12,6 +12,7 @@ from mlflow.genai.judges.trace_utils import (
     extract_response_from_trace,
     extract_text_from_data,
 )
+
 from tests.genai.judges.optimizers.conftest import MockDSPyLM
 
 
@@ -154,7 +155,7 @@ def test_align_insufficient_examples(mock_judge, sample_trace_with_assessment):
     with patch("dspy.LM", MagicMock()):
         with pytest.raises(MlflowException, match="At least 2 valid examples are required"):
             optimizer.align(mock_judge, [sample_trace_with_assessment])
-        
+
 
 def test_align_no_dspy(mock_judge, sample_traces_with_assessments):
     """Test alignment when DSPy is not available."""
@@ -196,7 +197,7 @@ def test_optimizer_and_judge_use_different_models(sample_traces_with_assessments
     # Track LM calls and what models they use in context
     optimizer_lm = MockDSPyLM(optimizer_model)
     judge_lm = MockDSPyLM(judge_model)
-    
+
     # Create LM factory that tracks calls to the underlying mocked LMs
     mock_lm_factory = _create_mock_dspy_lm_factory(optimizer_lm, judge_lm)
 
@@ -205,14 +206,13 @@ def test_optimizer_and_judge_use_different_models(sample_traces_with_assessments
         # Override ConcreteDSPyOptimizer's _dspy_optimize to call the program
         class TestDSPyOptimizer(ConcreteDSPyOptimizer):
             def _dspy_optimize(self, program, examples, metric_fn):
-                
                 lm_in_context = dspy.settings.lm
                 assert lm_in_context == optimizer_lm
 
                 # Simulate calling the program (which represents the judge)
                 # This should happen with the judge's model context
                 program(inputs=examples[0].inputs)
-                
+
                 # Return optimized program as usual
                 return super()._dspy_optimize(program, examples, metric_fn)
 
@@ -220,7 +220,7 @@ def test_optimizer_and_judge_use_different_models(sample_traces_with_assessments
         optimizer = TestDSPyOptimizer(model=optimizer_model)
 
         # Run alignment
-        result = optimizer.align(mock_judge, traces)
+        optimizer.align(mock_judge, traces)
 
         # Verify that the judge's LM was actually called during program execution
         # This ensures that the program call used the judge's model
@@ -231,10 +231,10 @@ def test_optimizer_and_judge_use_different_models(sample_traces_with_assessments
 
         # Verify that the optimizer's LM was not called
         assert len(optimizer_lm.context_calls) == 0, (
-            f"Expected optimizer LM to not be called, but got {len(optimizer_lm.context_calls)} calls. "
+            f"Expected optimizer LM to not be called, but got "
+            f"{len(optimizer_lm.context_calls)} calls. "
             f"Judge calls: {len(judge_lm.context_calls)}"
         )
-
 
 
 def test_optimizer_default_model_initialization():
