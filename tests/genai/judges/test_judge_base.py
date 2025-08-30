@@ -10,19 +10,16 @@ from mlflow.genai.scorers.base import Scorer
 
 
 class MockJudgeImplementation(Judge):
-    def __init__(self, name: str, custom_description: str | None = None, **kwargs):
+    def __init__(self, name: str, **kwargs):
         super().__init__(name=name, **kwargs)
-        self._custom_description = custom_description
-
-    @property
-    def description(self) -> str:
-        if self._custom_description:
-            return self._custom_description
-        return f"Mock judge implementation: {self.name}"
 
     @property
     def model(self) -> str:
         return "mock://test-model"
+
+    @property
+    def instructions(self) -> str:
+        return "Mock judge instructions for testing"
 
     def get_input_fields(self) -> list[JudgeField]:
         return [
@@ -55,7 +52,6 @@ def test_judge_implementation():
 
     assert isinstance(judge, Scorer)
     assert isinstance(judge, Judge)
-    assert judge.description == "Mock judge implementation: test_judge"
 
     result = judge(
         inputs={"question": "What is 2+2?"},
@@ -66,22 +62,17 @@ def test_judge_implementation():
     assert result.value is True
     assert "Test evaluation by test_judge" in result.rationale
 
-    judge_custom = MockJudgeImplementation(
-        name="custom_judge", custom_description="Custom description for testing"
-    )
-    assert judge_custom.description == "Custom description for testing"
-
 
 def test_judge_factory_pattern():
-    def make_simple_judge(name: str, description: str) -> Judge:
+    def make_simple_judge(name: str) -> Judge:
         class DynamicJudge(Judge):
-            @property
-            def description(self) -> str:
-                return description
-
             @property
             def model(self) -> str:
                 return "mock://dynamic-model"
+
+            @property
+            def instructions(self) -> str:
+                return "Dynamic judge instructions"
 
             def get_input_fields(self) -> list[JudgeField]:
                 return [
@@ -94,14 +85,11 @@ def test_judge_factory_pattern():
 
         return DynamicJudge(name=name)
 
-    judge = make_simple_judge(
-        name="factory_judge", description="A judge created by factory function"
-    )
+    judge = make_simple_judge(name="factory_judge")
 
     assert isinstance(judge, Judge)
     assert isinstance(judge, Scorer)
     assert judge.name == "factory_judge"
-    assert judge.description == "A judge created by factory function"
 
     result = judge(outputs="test output")
     assert isinstance(result, Feedback)

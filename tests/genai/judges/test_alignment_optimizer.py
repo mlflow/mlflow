@@ -13,8 +13,17 @@ class MockJudge(Judge):
         super().__init__(name=name, **kwargs)
 
     @property
-    def description(self) -> str:
-        return f"Mock judge implementation: {self.name}"
+    def instructions(self) -> str:
+        return "Mock judge instructions"
+
+    @property
+    def model(self) -> str:
+        return "mock-model"
+
+    def get_input_fields(self):
+        from mlflow.genai.judges.base import JudgeField
+
+        return [JudgeField(name="inputs", description="Mock inputs")]
 
     def __call__(self, **kwargs):
         from mlflow.entities.assessment import Feedback
@@ -80,7 +89,7 @@ def test_judge_align_method_delegation():
     expected_result = MockJudge(name="expected")
     optimizer.align.return_value = expected_result
 
-    traces = [mock_trace]
+    traces = [Mock(spec=Trace)]
 
     result = judge.align(optimizer, traces)
 
