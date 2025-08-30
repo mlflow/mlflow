@@ -9,8 +9,14 @@ from pydantic import PrivateAttr
 
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
+from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.base import AlignmentOptimizer, Judge
 from mlflow.genai.judges.make_judge import InstructionsJudge
+from mlflow.genai.judges.optimizers.dspy_utils import (
+    agreement_metric,
+    create_dspy_signature,
+    trace_to_dspy_example,
+)
 from mlflow.genai.judges.utils import get_default_model
 from mlflow.utils.annotations import experimental
 
@@ -64,262 +70,6 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
             Optimized DSPy program
         """
 
-    def _extract_text_from_data(self, data: Any, field_type: str) -> str:
-        """
-        Extract text from trace data, handling various formats.
-
-        Args:
-            data: The data to extract from (can be dict, string, or other)
-            field_type: Either 'request' or 'response' to determine which keys to try
-
-        Returns:
-            Extracted text as string
-        """
-        if data is None:
-            return ""
-
-        # If it's already a string, try to parse as JSON first
-        if isinstance(data, str):
-            try:
-                parsed_data = json.loads(data)
-                data = parsed_data
-            except (json.JSONDecodeError, ValueError):
-                # If JSON parsing fails, return the string as-is
-                return data
-
-        # Handle dict case
-        if isinstance(data, dict):
-            # Define the keys to try based on field type
-            if field_type == "request":
-                keys_to_try = ["request", "inputs", "input", "prompt"]
-            elif field_type == "response":
-                keys_to_try = ["response", "outputs", "output", "content", "text"]
-            else:
-                raise AssertionError(
-                    f"Invalid field_type: {field_type}. Must be 'request' or 'response'."
-                )
-
-            # Try each key in order
-            for key in keys_to_try:
-                if key in data:
-                    value = data[key]
-                    # If the value is a dict or list, convert to string
-                    if isinstance(value, (dict, list)):
-                        return json.dumps(value)
-                    else:
-                        return str(value)
-
-            # If no specific keys found, return the full dict as string
-            return json.dumps(data)
-
-        # For any other type, convert to string
-        return str(data)
-
-    def _extract_request_from_trace(self, trace: Trace) -> str:
-        """
-        Extract request text from an MLflow trace object.
-
-        Args:
-            trace: MLflow trace object
-
-        Returns:
-            Extracted request text as string
-        """
-        # Try trace.data.request first, fall back to trace.info.request_preview
-        request_data = (
-            trace.data.request if hasattr(trace.data, "request") else trace.info.request_preview
-        )
-        return self._extract_text_from_data(request_data, "request")
-
-    def _extract_response_from_trace(self, trace: Trace) -> str:
-        """
-        Extract response text from an MLflow trace object.
-
-        Args:
-            trace: MLflow trace object
-
-        Returns:
-            Extracted response text as string
-        """
-        # Try trace.data.response first, fall back to trace.info.response_preview
-        response_data = (
-            trace.data.response if hasattr(trace.data, "response") else trace.info.response_preview
-        )
-        return self._extract_text_from_data(response_data, "response")
-
-    def _sanitize_judge_name(self, judge_name: str) -> str:
-        """Sanitize judge name for consistent comparison."""
-        return judge_name.lower().strip()
-
-    def _trace_to_dspy_example(self, trace: Trace, judge_name: str) -> Any | None:
-        """
-        Convert MLflow trace to DSPy example format.
-
-        Extracts:
-        - inputs/outputs from trace spans
-        - expected result from human assessments
-        - rationale from assessment feedback
-
-        Args:
-            trace: MLflow trace object
-            judge_name: Name of the judge to find assessments for
-
-        Returns:
-            DSPy example object or None if conversion fails
-        """
-        try:
-            # Import dspy here to allow graceful failure
-            import dspy
-
-            # Extract request and response from trace
-            request = self._extract_request_from_trace(trace)
-            response = self._extract_response_from_trace(trace)
-
-            if not request or not response:
-                self._logger.warning(f"Missing request or response in trace {trace.info.trace_id}")
-                return None
-
-            # Find human assessment for this judge
-            expected_result = None
-            sanitized_judge_name = self._sanitize_judge_name(judge_name)
-
-            if trace.info.assessments:
-                for assessment in trace.info.assessments:
-                    if (
-                        assessment.name == sanitized_judge_name
-                        and assessment.source.source_type == "HUMAN"
-                    ):
-                        expected_result = assessment
-                        break
-
-            if not expected_result:
-                self._logger.warning(
-                    f"No human assessment found for judge '{judge_name}' "
-                    f"in trace {trace.info.trace_id}"
-                )
-                return None
-
-            if not expected_result.feedback:
-                self._logger.warning(
-                    f"No feedback found in assessment for trace {trace.info.trace_id}"
-                )
-                return None
-
-            # Create DSPy example
-            example = dspy.Example(
-                inputs=request,
-                outputs=response,
-                result=str(expected_result.feedback.value).lower(),
-                rationale=expected_result.rationale if expected_result.rationale else "",
-            )
-
-            # Set inputs (what the model should use as input)
-            return example.with_inputs("inputs", "outputs")
-
-        except ImportError:
-            raise MlflowException("DSPy library is required but not installed")
-        except Exception as e:
-            self._logger.error(f"Failed to create DSPy example from trace: {e}")
-            return None
-
-    def _extract_judge_instructions(self, judge: Judge) -> str:
-        """
-        Extract core instructions from judge for DSPy signature creation.
-
-        Args:
-            judge: The judge instance
-
-        Returns:
-            Instructions text for DSPy signature
-        """
-        # For now, use the judge's description as instructions
-        # This can be extended to extract from judge prompts or other sources
-        return judge.description
-
-    def _create_dspy_signature(self, judge: Judge, instructions: str) -> Any:
-        """
-        Create DSPy signature for judge evaluation.
-
-        Args:
-            judge: The judge to create signature for
-            instructions: Instructions text for the signature
-
-        Returns:
-            DSPy signature object
-        """
-        try:
-            import dspy
-
-            # Build signature fields dictionary using the judge's field definitions
-            signature_fields = {}
-            
-            # Get input fields from the judge
-            input_fields = judge.get_input_fields()
-            for field in input_fields:
-                signature_fields[field.name] = (
-                    str,
-                    dspy.InputField(desc=field.description),
-                )
-            
-            # Get output fields from the judge  
-            output_fields = judge.get_output_fields()
-            for field in output_fields:
-                signature_fields[field.name] = (
-                    str,
-                    dspy.OutputField(desc=field.description),
-                )
-
-            return dspy.make_signature(signature_fields, instructions)
-
-        except ImportError:
-            raise MlflowException("DSPy library is required but not installed")
-
-    def _create_agreement_metric(self) -> Callable:
-        """
-        Create DSPy metric function for judge optimization.
-
-        Returns:
-            Metric function for DSPy optimization
-        """
-
-        def agreement_metric(example, pred, trace=None):
-            """Simple agreement metric for judge optimization."""
-            try:
-                # Extract result from example and prediction
-                expected = getattr(example, "result", None)
-                predicted = getattr(pred, "result", None)
-
-                if expected is None or predicted is None:
-                    return False
-
-                # Normalize both to consistent format
-                expected_norm = str(expected).lower().strip()
-                predicted_norm = str(predicted).lower().strip()
-
-                return expected_norm == predicted_norm
-            except Exception:
-                # Return 0 for any errors
-                return False
-
-        return agreement_metric
-
-    def _setup_dspy_model(self) -> Any:
-        """
-        Set up DSPy model from the optimizer's model URI.
-
-        Returns:
-            DSPy model instance configured for the optimizer's model
-        """
-        try:
-            import dspy
-
-            return dspy.LM(model=self._model)
-        except ImportError:
-            raise MlflowException("DSPy library is required but not installed")
-        except Exception as e:
-            raise MlflowException(
-                f"Failed to initialize DSPy language model with model '{self._model}': {e!s}"
-            )
 
     def align(self, judge: Judge, traces: list[Trace]) -> Judge:
         """
@@ -344,6 +94,17 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
         try:
             import dspy
 
+            class CustomPredict(dspy.Predict):
+                """Custom DSPy Predict class that allows passing an LM to the forward method."""
+                def __init__(self, signature, lm, **kwargs):
+                    super().__init__(signature, **kwargs)
+                    self._lm = lm
+
+                def forward(self, *args, **kwargs):
+                    # If an LM is supplied via kwargs, use that, else use self.lm
+                    lm = kwargs.pop('lm', self._lm)
+                    return super().forward(*args, lm=lm, **kwargs)
+
             if not traces:
                 raise MlflowException("No traces provided for alignment")
 
@@ -352,27 +113,26 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
 
             # Configure DSPy to use the optimizer's model
             # This ensures the optimizer uses its own model, separate from the judge's model
-            dspy_model = self._setup_dspy_model()
+            dspy_model = dspy.LM(model=self._model)
 
             # Use DSPy context manager to ensure proper model usage
             with dspy.context(lm=dspy_model):
                 # Extract judge instructions and create DSPy signature
-                instructions = self._extract_judge_instructions(judge)
+                instructions = judge.description
                 self._logger.info(f"Extracted instructions: {instructions}")
-
-                signature = self._create_dspy_signature(judge, instructions)
 
                 # Create DSPy program that will simulate the judge
                 # The program should use the judge's model, not the optimizer's model
                 judge_model = dspy.LM(model=judge.model)
-                with dspy.context(lm=judge_model):
-                    program = dspy.Predict(signature)
+                signature = create_dspy_signature(judge, instructions)
+
+                program = CustomPredict(signature, judge_model)
                 self._logger.info("Created DSPy program with signature using judge's model")
 
                 # Convert traces to DSPy format
                 dspy_examples = []
                 for trace in traces:
-                    example = self._trace_to_dspy_example(trace, judge.name)
+                    example = trace_to_dspy_example(trace, judge.name)
                     if example is not None:
                         dspy_examples.append(example)
 
@@ -386,9 +146,6 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
                 if len(dspy_examples) < 2:
                     raise MlflowException("At least 2 valid examples are required for optimization")
 
-                # Create metric function
-                agreement_metric = self._create_agreement_metric()
-
                 self._logger.info("Starting DSPy optimization...")
 
                 # Use the algorithm-specific optimization method
@@ -397,40 +154,23 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
 
                 self._logger.info("DSPy optimization completed")
 
-                # Create optimized judge - for now, return the original judge
-                # This would be extended to create a new judge with optimized prompts
-                return self._create_optimized_judge(judge, optimized_program.signature.instructions)
+                # Create optimized judge with DSPy-optimized instructions
+                # Use the same name as the original judge
+                optimized_name = judge.name
+
+                # Get the model from the original judge using the model property
+                judge_model = judge.model
+
+                # Extract optimized instructions from the DSPy program
+                optimized_instructions = optimized_program.signature.instructions
+
+                self._logger.info(
+                    f"Creating optimized judge '{optimized_name}' with DSPy-optimized instructions"
+                )
+
+                return make_judge(name=optimized_name, instructions=optimized_instructions, model=judge_model)
 
         except ImportError:
             raise MlflowException("DSPy library is required but not installed")
         except Exception as e:
             raise MlflowException(f"Alignment optimization failed: {e!s}")
-
-    def _create_optimized_judge(self, original_judge: Judge, instructions: str) -> Judge:
-        """
-        Create a new optimized judge from the original judge and optimized instructions.
-
-        Uses make_judge() to create a new InstructionsJudge with the optimized instructions
-        from DSPy, preserving the original judge's name and model configuration.
-
-        Args:
-            original_judge: The original judge
-            instructions: The optimized instructions from DSPy optimization
-
-        Returns:
-            A new optimized Judge instance with improved instructions
-        """
-        from mlflow.genai.judges import make_judge
-
-        # Create a new judge with optimized instructions
-        # Use the same name as the original judge
-        optimized_name = original_judge.name
-
-        # Get the model from the original judge using the model property
-        judge_model = original_judge.model
-
-        self._logger.info(
-            f"Creating optimized judge '{optimized_name}' with DSPy-optimized instructions"
-        )
-
-        return make_judge(name=optimized_name, instructions=instructions, model=judge_model)

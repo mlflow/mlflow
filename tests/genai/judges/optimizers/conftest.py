@@ -6,7 +6,7 @@ import pytest
 
 from mlflow.entities.trace import Trace, TraceData, TraceInfo
 from mlflow.genai.judges.base import Judge, JudgeField
-
+import dspy
 
 class MockJudge(Judge):
     """Mock judge implementation for testing."""
@@ -36,7 +36,6 @@ class MockJudge(Judge):
         """Get the input fields for this mock judge."""
         return [
             JudgeField(name="inputs", description="Test inputs"),
-            JudgeField(name="outputs", description="Test outputs"),
         ]
 
 
@@ -255,3 +254,34 @@ def mock_dspy_optimizer():
         return mock_optimizer
 
     return create_mock_optimizer
+
+
+class MockDSPyLM(dspy.BaseLM):
+    """Mock DSPy LM class for testing that inherits from DSPy's BaseLM."""
+
+    def __init__(self, model_name):
+        super().__init__(model_name)
+        self.model = model_name
+        self.name = model_name
+        self._context_calls = []
+
+    def basic_request(self, prompt, **kwargs):
+        # Track that this LM was called
+        self._context_calls.append(
+            {
+                "model": self.model,
+                "prompt": prompt,
+                "kwargs": kwargs,
+                "context": "lm_basic_request_called",
+            }
+        )
+        
+        # Return a default answer
+        return [{"text": '{"result": "pass", "rationale": "test rationale"}'}]
+
+    def __call__(self, *args, **kwargs):
+        return self.basic_request(str(args), **kwargs)
+
+    @property
+    def context_calls(self):
+        return self._context_calls
