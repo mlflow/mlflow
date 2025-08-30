@@ -296,7 +296,7 @@ def _create_virtualenv(
         _exec_cmd(
             env_creation_cmd,
             capture_output=capture_output,
-            extra_env={"UV_PYTHON_INSTALL_DIR": os.path.join(pyenv_root_dir, "uv_python_install")},
+            extra_env={"UV_PYTHON_INSTALL_DIR": pyenv_root_dir},
         )
 
         _logger.info("Installing dependencies")
@@ -420,10 +420,9 @@ def _get_or_create_virtualenv(
         virtual_envs_root_path = Path(_get_mlflow_virtualenv_root())
     else:
         virtual_envs_root_path = Path(env_root_dir) / _VIRTUALENV_ENVS_DIR
-        if env_manager == em.VIRTUALENV:
-            pyenv_root_path = Path(env_root_dir) / _PYENV_ROOT_DIR
-            pyenv_root_path.mkdir(parents=True, exist_ok=True)
-            pyenv_root_dir = str(pyenv_root_path)
+        pyenv_root_path = Path(env_root_dir) / _PYENV_ROOT_DIR
+        pyenv_root_path.mkdir(parents=True, exist_ok=True)
+        pyenv_root_dir = str(pyenv_root_path)
 
     virtual_envs_root_path.mkdir(parents=True, exist_ok=True)
     env_name = _get_virtualenv_name(python_env, local_model_path, env_id)
