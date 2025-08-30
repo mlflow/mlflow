@@ -2,11 +2,12 @@
 
 from unittest.mock import Mock
 
+import dspy
 import pytest
 
 from mlflow.entities.trace import Trace, TraceData, TraceInfo
 from mlflow.genai.judges.base import Judge, JudgeField
-import dspy
+
 
 class MockJudge(Judge):
     """Mock judge implementation for testing."""
@@ -297,7 +298,7 @@ class MockDSPyLM(dspy.BaseLM):
                 "context": "lm_basic_request_called",
             }
         )
-        
+
         # Return a default answer
         return [{"text": '{"result": "pass", "rationale": "test rationale"}'}]
 
