@@ -296,6 +296,7 @@ def _create_virtualenv(
         _exec_cmd(
             env_creation_cmd,
             capture_output=capture_output,
+            extra_env={"UV_PYTHON_INSTALL_DIR": os.path.join(pyenv_root_dir, "uv_python_install")},
         )
 
         _logger.info("Installing dependencies")
@@ -365,7 +366,6 @@ def _get_virtualenv_extra_env_vars(env_root_dir=None):
     if env_root_dir is not None:
         # Note: Both conda pip and virtualenv can use the pip cache directory.
         extra_env["PIP_CACHE_DIR"] = os.path.join(env_root_dir, _PIP_CACHE_DIR)
-        extra_env["UV_PYTHON_INSTALL_DIR"] = os.path.join(env_root_dir, "uv_python_install")
     return extra_env
 
 
