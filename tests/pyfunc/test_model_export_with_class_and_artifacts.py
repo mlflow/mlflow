@@ -2674,3 +2674,32 @@ def test_lock_model_requirements_constraints(monkeypatch: pytest.MonkeyPatch, tm
     assert "mlflow==" in contents
     assert "openai==1.82.0" in contents
     assert "httpx==" in contents
+
+
+def test_load_context_with_input_example():
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def load_context(self, context):
+            raise Exception("load_context was called")
+
+        def predict(self, model_input: list[str], params=None):
+            return model_input
+
+    with mock.patch("mlflow.models.signature._logger.warning") as mock_warning:
+        mlflow.pyfunc.log_model(
+            name="model",
+            python_model=MyModel(),
+        )
+        assert not any(
+            "Failed to run the predict function on input example" in call[0][0]
+            for call in mock_warning.call_args_list
+        )
+
+        mlflow.pyfunc.log_model(
+            name="model",
+            python_model=MyModel(),
+            input_example=["Hello", "World"],
+        )
+        assert any(
+            "Failed to run the predict function on input example" in call[0][0]
+            for call in mock_warning.call_args_list
+        )
