@@ -25,6 +25,7 @@ defaults:
 
 env:
   MLFLOW_HOME: ${{ github.workspace }}
+  PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
 
 jobs:
   uc-oss-integration-test:
