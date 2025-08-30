@@ -80,27 +80,37 @@ def test_trace_to_dspy_example_no_dspy():
 
 def test_create_dspy_signature(mock_judge):
     """Test creating DSPy signature."""
-    #ALKIS: Do not mock the the dspy module. Use directly the dspy Signature class.
-    mock_dspy = MagicMock()
-    with patch.dict("sys.modules", {"dspy": mock_dspy}):
-        instructions = "Test instructions"
+    pytest.importorskip("dspy", reason="DSPy not installed")
 
-        create_dspy_signature(mock_judge, instructions)
+    signature = create_dspy_signature(mock_judge)
 
-    mock_dspy.make_signature.assert_called_once()
-    args, kwargs = mock_dspy.make_signature.call_args
-    # ALKIS: Check that the arguments are passed correctly in the make_signature call
-    assert args[1] == instructions  # instructions passed as second argument
+    assert signature.instructions == mock_judge.instructions
+
+    # Check that the input fields of the signature are the same as the input fields of the judge
+    judge_input_fields = mock_judge.get_input_fields()
+    for field in judge_input_fields:
+        # Check that the field exists in the signature's input_fields dictionary
+        assert field.name in signature.input_fields
+        # Verify the field description matches
+        assert signature.input_fields[field.name].json_schema_extra["desc"] == field.description
+
+    # Check that the output fields of the signature are the same as the output fields of the judge
+    judge_output_fields = mock_judge.get_output_fields()
+    for field in judge_output_fields:
+        # Check that the field exists in the signature's output_fields dictionary
+        assert field.name in signature.output_fields
+        # Verify the field description matches
+        assert signature.output_fields[field.name].json_schema_extra["desc"] == field.description
 
 
 def test_create_dspy_signature_no_dspy(mock_judge):
     """Test signature creation when DSPy is not available."""
     with patch.dict("sys.modules", {"dspy": None}):
         with pytest.raises(MlflowException, match="DSPy library is required"):
-            create_dspy_signature(mock_judge, "test")
+            create_dspy_signature(mock_judge)
 
 
-def test_create_agreement_metric():
+def test_agreement_metric():
     """Test agreement metric function."""
     # Test metric with matching results
     example = Mock()
@@ -115,7 +125,7 @@ def test_create_agreement_metric():
     assert agreement_metric(example, pred) is False
 
 
-def test_create_agreement_metric_error_handling():
+def test_agreement_metric_error_handling():
     """Test agreement metric error handling."""
     # Test with invalid inputs
     result = agreement_metric(None, None)
