@@ -3,6 +3,8 @@ import { createContext, useContext, useMemo, useState } from 'react';
 import type { ModelTrace, ModelTraceExplorerTab, ModelTraceSpanNode } from './ModelTrace.types';
 import { parseModelTraceToTree, searchTreeBySpanId } from './ModelTraceExplorer.utils';
 import { getTimelineTreeNodesMap } from './timeline-tree/TimelineTree.utils';
+import { isNil } from 'lodash';
+import { useSelectedSpanId } from './hooks/useSelectedSpanId';
 
 export type ModelTraceExplorerViewState = {
   rootNode: ModelTraceSpanNode | null;
@@ -24,15 +26,15 @@ export const ModelTraceExplorerViewStateContext = createContext<ModelTraceExplor
   rootNode: null,
   nodeMap: {},
   activeView: 'summary',
-  setActiveView: () => {},
+  setActiveView: () => { },
   selectedNode: undefined,
-  setSelectedNode: () => {},
+  setSelectedNode: () => { },
   activeTab: 'content',
-  setActiveTab: () => {},
+  setActiveTab: () => { },
   showTimelineTreeGantt: false,
-  setShowTimelineTreeGantt: () => {},
+  setShowTimelineTreeGantt: () => { },
   assessmentsPaneExpanded: false,
-  setAssessmentsPaneExpanded: () => {},
+  setAssessmentsPaneExpanded: () => { },
   assessmentsPaneEnabled: true,
 });
 
@@ -51,19 +53,21 @@ export const ModelTraceExplorerViewStateProvider = ({
   children,
 }: {
   modelTrace: ModelTrace;
-  initialActiveView: 'summary' | 'detail';
+  initialActiveView?: 'summary' | 'detail';
   selectedSpanIdOnRender?: string;
   children: React.ReactNode;
   assessmentsPaneEnabled: boolean;
 }) => {
+  const [selectedSpanId, setSelectedSpanId] = useSelectedSpanId();
   const rootNode = useMemo(() => parseModelTraceToTree(modelTrace), [modelTrace]);
   const nodeMap = useMemo(() => (rootNode ? getTimelineTreeNodesMap([rootNode]) : {}), [rootNode]);
-  const selectedSpanOnRender = searchTreeBySpanId(rootNode, selectedSpanIdOnRender);
-  const defaultSelectedNode = selectedSpanOnRender ?? rootNode ?? undefined;
+  const selectedNode = searchTreeBySpanId(rootNode, selectedSpanId);
+  const defaultSelectedNode = selectedNode ?? rootNode;
   const hasAssessments = (defaultSelectedNode?.assessments?.length ?? 0) > 0;
 
-  const [activeView, setActiveView] = useState<'summary' | 'detail'>(initialActiveView);
-  const [selectedNode, setSelectedNode] = useState<ModelTraceSpanNode | undefined>(defaultSelectedNode);
+  const [activeView, setActiveView] = useState<'summary' | 'detail'>(
+    initialActiveView ?? (selectedSpanId ? 'detail' : 'summary'),
+  );
   const [activeTab, setActiveTab] = useState<ModelTraceExplorerTab>(selectedNode?.chatMessages ? 'chat' : 'content');
   const [showTimelineTreeGantt, setShowTimelineTreeGantt] = useState(false);
   const [assessmentsPaneExpanded, setAssessmentsPaneExpanded] = useState(hasAssessments);
@@ -73,11 +77,19 @@ export const ModelTraceExplorerViewStateProvider = ({
       rootNode,
       nodeMap,
       activeView,
-      setActiveView,
+      setActiveView: (view: 'summary' | 'detail') => {
+        setActiveView(view);
+        if (view === 'summary') {
+          setSelectedSpanId(undefined);
+        }
+      },
       activeTab,
       setActiveTab,
       selectedNode,
-      setSelectedNode,
+      setSelectedNode: (node: ModelTraceSpanNode | undefined) => {
+        const spanId = !isNil(node?.key) ? String(node.key) : undefined;
+        setSelectedSpanId(spanId);
+      },
       showTimelineTreeGantt,
       setShowTimelineTreeGantt,
       assessmentsPaneExpanded,
