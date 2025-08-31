@@ -1387,16 +1387,23 @@ def test_trace_with_staticmethod_order_reversed():
 
 
 def test_update_current_trace():
-    @mlflow.trace
+    @mlflow.trace(name="root_function")
     def f(x):
         mlflow.update_current_trace(tags={"fruit": "apple", "animal": "dog"})
         return g(x) + 1
 
-    @mlflow.trace
+    @mlflow.trace(name="level_1_function")
     def g(y):
-        with mlflow.start_span():
+        with mlflow.start_span(name="level_2_span"):
             mlflow.update_current_trace(tags={"fruit": "orange", "vegetable": "carrot"})
-            return y * 2
+            return h(y) * 2
+
+    @mlflow.trace(name="level_3_function")
+    def h(z):
+        with mlflow.start_span(name="level_4_span"):
+            with mlflow.start_span(name="level_5_span"):
+                mlflow.update_current_trace(tags={"depth": "deep", "level": "5"})
+                return z + 10
 
     f(1)
 
@@ -1404,6 +1411,8 @@ def test_update_current_trace():
         "animal": "dog",
         "fruit": "orange",
         "vegetable": "carrot",
+        "depth": "deep",
+        "level": "5",
     }
 
     # Validate in-memory trace
@@ -1418,6 +1427,27 @@ def test_update_current_trace():
     assert traces[0].info.state == TraceState.OK
     tags = {k: v for k, v in traces[0].info.tags.items() if not k.startswith("mlflow.")}
     assert tags == expected_tags
+
+    # Verify trace can be searched by span names
+    trace_by_root_span = mlflow.search_traces(
+        filter_string='span.name = "root_function"', return_type="list"
+    )
+    assert len(trace_by_root_span) == 1
+
+    trace_by_level_2_span = mlflow.search_traces(
+        filter_string='span.name = "level_2_span"', return_type="list"
+    )
+    assert len(trace_by_level_2_span) == 1
+
+    trace_by_level_5_span = mlflow.search_traces(
+        filter_string='span.name = "level_5_span"', return_type="list"
+    )
+    assert len(trace_by_level_5_span) == 1
+
+    # All searches should return the same trace
+    assert trace_by_root_span[0].info.request_id == trace.info.request_id
+    assert trace_by_level_2_span[0].info.request_id == trace.info.request_id
+    assert trace_by_level_5_span[0].info.request_id == trace.info.request_id
 
 
 def test_update_current_trace_with_client_request_id():
