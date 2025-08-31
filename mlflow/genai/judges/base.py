@@ -9,17 +9,6 @@ from mlflow.genai.scorers.base import Scorer
 from mlflow.utils.annotations import experimental
 
 
-class JudgeField(BaseModel):
-    """
-    Represents a field definition for judges with name and description.
-
-    Used to define input and output fields for judge evaluation signatures.
-    """
-
-    name: str = Field(..., description="Name of the field")
-    description: str = Field(..., description="Description of what the field represents")
-
-
 @experimental(version="3.4.0")
 class AlignmentOptimizer(BaseModel, ABC):
     """

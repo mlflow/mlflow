@@ -202,20 +202,6 @@ class InstructionsJudge(Judge):
         """Return the kind of scorer this judge represents."""
         return ScorerKind.CLASS
 
-    def get_input_fields(self) -> list[JudgeField]:
-        """
-        Get the input fields for this judge.
-
-        Returns:
-            List of JudgeField objects defining the input fields.
-        """
-        return [
-            JudgeField(name=self.get_template_variable_inputs(), description="Inputs to the model"),
-            JudgeField(
-                name=self.get_template_variable_outputs(), description="Outputs from the model"
-            ),
-        ]
-
     def _validate_model_format(self) -> None:
         """
         Validate that the model is in a valid format.
