@@ -104,7 +104,7 @@ def get_platform_key() -> PlatformKey | None:
 
 
 def extract_gzip_from_url(url: str, dest_dir: Path, binary_name: str) -> Path:
-    print(f"Downloading from {url}...")
+    print(f"Downloading from {url}")
     output_path = dest_dir / binary_name
 
     with urllib.request.urlopen(url) as response:
