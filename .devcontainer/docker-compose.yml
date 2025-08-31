@@ -1,7 +1,7 @@
-version: '3'
+version: "3"
 services:
   mlflow:
-    image: 'ghcr.io/mlflow/mlflow-devcontainer'
+    image: "ghcr.io/mlflow/mlflow-devcontainer"
     working_dir: /workspaces/mlflow
     environment:
       MLFLOW_HOME: /workspaces/mlflow

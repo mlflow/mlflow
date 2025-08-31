@@ -15,9 +15,9 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: 'The branch, tag or SHA to build the wheel from.'
+        description: "The branch, tag or SHA to build the wheel from."
         required: true
-        default: 'master'
+        default: "master"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
@@ -37,7 +37,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        type: ['dev', 'skinny', 'tracing']
+        type: ["dev", "skinny", "tracing"]
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:

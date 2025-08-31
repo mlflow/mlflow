@@ -3,16 +3,16 @@ name: Dev environment setup
 on:
   push:
     paths:
-      - 'dev/dev-env-setup.sh'
-      - 'dev/test-dev-env-setup.sh'
-      - '.github/workflows/dev-setup.yml'
+      - "dev/dev-env-setup.sh"
+      - "dev/test-dev-env-setup.sh"
+      - ".github/workflows/dev-setup.yml"
   pull_request:
     paths:
-      - 'dev/dev-env-setup.sh'
-      - 'dev/test-dev-env-setup.sh'
-      - '.github/workflows/dev-setup.yml'
+      - "dev/dev-env-setup.sh"
+      - "dev/test-dev-env-setup.sh"
+      - ".github/workflows/dev-setup.yml"
   schedule:
-    - cron: '42 7 * * 0'
+    - cron: "42 7 * * 0"
   workflow_dispatch:
     inputs:
       repository:
@@ -20,14 +20,14 @@ on:
           [Optional] Repository name with owner. For example, mlflow/mlflow.
            Defaults to the repository that triggered a workflow.
         required: false
-        default: ''
+        default: ""
       ref:
         description: >
           [Optional] The branch, tag or SHA to checkout. When checking out the repository that
            triggered a workflow, this defaults to the reference or SHA for that event. Otherwise,
            uses the default branch.
         required: false
-        default: ''
+        default: ""
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}

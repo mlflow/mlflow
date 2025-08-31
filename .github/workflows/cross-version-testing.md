@@ -28,7 +28,7 @@ Cross version testing is a testing strategy to ensure ML integrations in MLflow 
 sklearn:
   package_info:
     # [Required] `pip_release` specifies the package this integration depends on.
-    pip_release: 'scikit-learn'
+    pip_release: "scikit-learn"
 
     # [Optional] `install_dev` specifies a set of commands to install the dev version of the package.
     # For example, the command below builds a wheel from the latest main branch of
@@ -48,17 +48,17 @@ sklearn:
     # For example, '">= 0.24.0": ["xgboost"]' is interpreted as 'if the version of scikit-learn
     # to install is newer than or equal to 0.24.0, install xgboost'.
     requirements:
-      '>= 0.24.0': ['xgboost']
+      ">= 0.24.0": ["xgboost"]
 
     # [Required] `minimum` specifies the minimum supported version for the latest release of MLflow.
-    minimum: '0.20.3'
+    minimum: "0.20.3"
 
     # [Required] `maximum` specifies the maximum supported version for the latest release of MLflow.
-    maximum: '1.0'
+    maximum: "1.0"
 
     # [Optional] `unsupported` specifies a list of versions that should NOT be supported due to
     # unacceptable issues or bugs.
-    unsupported: ['0.21.3']
+    unsupported: ["0.21.3"]
 
     # [Required] `run` specifies a set of commands to run tests.
     run: |

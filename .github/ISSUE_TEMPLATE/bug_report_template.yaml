@@ -1,7 +1,7 @@
 name: Bug Report (Use "UI Bug Report" for UI bugs)
 description: Create a report to help us reproduce and correct the bug
-labels: 'bug'
-title: '[BUG]'
+labels: "bug"
+title: "[BUG]"
 
 body:
   - type: markdown
@@ -186,23 +186,23 @@ body:
       label: What component(s) does this bug affect?
       description: Please choose one or more components below.
       options:
-        - label: '`area/tracking`: Tracking Service, tracking client APIs, autologging'
+        - label: "`area/tracking`: Tracking Service, tracking client APIs, autologging"
           required: false
-        - label: '`area/model-registry`: Model Registry service, APIs, and the fluent client calls for Model Registry'
+        - label: "`area/model-registry`: Model Registry service, APIs, and the fluent client calls for Model Registry"
           required: false
-        - label: '`area/scoring`: MLflow model serving, deployment tools, Spark UDFs'
+        - label: "`area/scoring`: MLflow model serving, deployment tools, Spark UDFs"
           required: false
-        - label: '`area/evaluation`: MLflow model evaluation features, evaluation metrics, and evaluation workflows'
+        - label: "`area/evaluation`: MLflow model evaluation features, evaluation metrics, and evaluation workflows"
           required: false
-        - label: '`area/prompt`: MLflow prompt engineering features, prompt templates, and prompt management'
+        - label: "`area/prompt`: MLflow prompt engineering features, prompt templates, and prompt management"
           required: false
-        - label: '`area/tracing`: MLflow Tracing features, tracing APIs, and LLM tracing functionality'
+        - label: "`area/tracing`: MLflow Tracing features, tracing APIs, and LLM tracing functionality"
           required: false
-        - label: '`area/gateway`: MLflow AI Gateway client APIs, server, and third-party integrations'
+        - label: "`area/gateway`: MLflow AI Gateway client APIs, server, and third-party integrations"
           required: false
-        - label: '`area/projects`: MLproject format, project running backends'
+        - label: "`area/projects`: MLproject format, project running backends"
           required: false
-        - label: '`area/uiux`: Front-end, user experience, plotting'
+        - label: "`area/uiux`: Front-end, user experience, plotting"
           required: false
-        - label: '`area/docs`: MLflow documentation pages'
+        - label: "`area/docs`: MLflow documentation pages"
           required: false

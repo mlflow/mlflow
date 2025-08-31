@@ -1,13 +1,13 @@
-name: 'py-cache-key'
-description: 'Generate a key for Python package cache'
+name: "py-cache-key"
+description: "Generate a key for Python package cache"
 
 outputs:
   key:
-    description: 'Cache key'
+    description: "Cache key"
     value: ${{ steps.cache-key.outputs.value }}
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - name: cache-key
       id: cache-key

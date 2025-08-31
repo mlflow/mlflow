@@ -1,6 +1,6 @@
 name: Good First Issue
-description: '[Maintainer only] Use this template for issues that are good for first time contributors.'
-labels: 'good first issue'
+description: "[Maintainer only] Use this template for issues that are good for first time contributors."
+labels: "good first issue"
 
 body:
   - type: textarea

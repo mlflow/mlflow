@@ -1,13 +1,13 @@
-name: 'update-requirements'
-description: 'Update requirements YAML specifications and re-generate requirements text files'
+name: "update-requirements"
+description: "Update requirements YAML specifications and re-generate requirements text files"
 
 outputs:
   updated:
-    description: 'Indicates whether the requirements have been updated'
+    description: "Indicates whether the requirements have been updated"
     value: ${{ steps.update-requirements.outputs.updated }}
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - name: Update requirements
       id: update-requirements

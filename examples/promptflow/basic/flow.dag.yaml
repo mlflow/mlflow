@@ -31,7 +31,7 @@ nodes:
     inputs:
       prompt: ${hello_prompt.output}
       deployment_name: gpt-4o-mini
-      max_tokens: '120'
+      max_tokens: "120"
 environment:
   image: mcr.microsoft.com/azureml/promptflow/promptflow-runtime:latest
   python_requirements_txt: requirements.txt

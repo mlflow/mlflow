@@ -13,7 +13,7 @@ on:
       - requirements/gateway-requirements.yaml
       - .github/workflows/requirements.yml
   schedule:
-    - cron: '0 13 * * *'
+    - cron: "0 13 * * *"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
@@ -23,9 +23,9 @@ env:
   MLFLOW_HOME: ${{ github.workspace }}
   MLFLOW_CONDA_HOME: /usr/share/miniconda
   SPARK_LOCAL_IP: localhost
-  PYTHON_VERSION: '3.10' # minimum supported version + 1
+  PYTHON_VERSION: "3.10" # minimum supported version + 1
   PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
-  _MLFLOW_TESTING_TELEMETRY: 'true'
+  _MLFLOW_TESTING_TELEMETRY: "true"
 
 defaults:
   run:

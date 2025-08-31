@@ -1,7 +1,7 @@
-name: 'pipdeptree'
-description: 'pipdeptree'
+name: "pipdeptree"
+description: "pipdeptree"
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - shell: bash
       run: |

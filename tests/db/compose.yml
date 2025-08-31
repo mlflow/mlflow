@@ -9,7 +9,7 @@ services:
     entrypoint: /mlflow/home/tests/db/entrypoint.sh
     command: pytest tests/db
     environment:
-      DISABLE_RESET_MLFLOW_URI_FIXTURE: 'true'
+      DISABLE_RESET_MLFLOW_URI_FIXTURE: "true"
 
   postgresql:
     image: postgres
@@ -69,7 +69,7 @@ services:
     restart: always
     environment:
       ACCEPT_EULA: Y
-      SA_PASSWORD: '1Secure*Password1'
+      SA_PASSWORD: "1Secure*Password1"
 
   mlflow-mssql:
     depends_on:
@@ -106,12 +106,12 @@ services:
     extends:
       service: base
     environment:
-      MLFLOW_TRACKING_URI: 'sqlite:////tmp/mlflowdb'
+      MLFLOW_TRACKING_URI: "sqlite:////tmp/mlflowdb"
       INSTALL_MLFLOW_FROM_REPO: true
 
   migration-sqlite:
     extends:
       service: base
     environment:
-      MLFLOW_TRACKING_URI: 'sqlite:////tmp/mlflowdb'
+      MLFLOW_TRACKING_URI: "sqlite:////tmp/mlflowdb"
     command: tests/db/check_migration.sh

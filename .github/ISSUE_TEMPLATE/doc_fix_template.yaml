@@ -1,7 +1,7 @@
 name: Documentation Fix
 description: Use this template for proposing documentation fixes/improvements.
-labels: 'area/docs'
-title: '[DOC-FIX]'
+labels: "area/docs"
+title: "[DOC-FIX]"
 
 body:
   - type: markdown

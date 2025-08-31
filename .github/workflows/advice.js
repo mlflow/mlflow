@@ -15,7 +15,7 @@ async function getDcoCheck(github, owner, repo, sha) {
     });
 
     const { check_runs } = resp.data;
-    if (check_runs.length > 0 && check_runs[0].status === 'completed') {
+    if (check_runs.length > 0 && check_runs[0].status === "completed") {
       return check_runs[0];
     }
     console.log(`[Attempt ${index + 1}/${numAttempts}]`, "The DCO check hasn't completed yet.");
@@ -29,7 +29,7 @@ module.exports = async ({ context, github }) => {
   const { user, body } = context.payload.pull_request;
   const messages = [];
 
-  const title = '&#x1F6E0 DevTools &#x1F6E0';
+  const title = "&#x1F6E0 DevTools &#x1F6E0";
   if (body && !body.includes(title)) {
     const codespacesBadge = `[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/${user.login}/mlflow/pull/${issue_number}?quickstart=1)`;
     const newSection = `
@@ -65,38 +65,38 @@ For Databricks, use the following command:
   }
 
   const dcoCheck = await getDcoCheck(github, owner, repo, sha);
-  if (dcoCheck && dcoCheck.conclusion !== 'success') {
+  if (dcoCheck && dcoCheck.conclusion !== "success") {
     messages.push(
-      '#### &#x26a0; DCO check\n\n' +
-        'The DCO check failed. ' +
+      "#### &#x26a0; DCO check\n\n" +
+        "The DCO check failed. " +
         `Please sign off your commit(s) by following the instructions [here](${dcoCheck.html_url}). ` +
-        'See https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md#sign-your-work for more ' +
-        'details.',
+        "See https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md#sign-your-work for more " +
+        "details."
     );
   }
 
-  if (label.endsWith(':master')) {
+  if (label.endsWith(":master")) {
     messages.push(
-      '#### &#x26a0; PR branch check\n\n' +
-        'This PR was filed from the master branch in your fork, which is not recommended ' +
-        'and may cause our CI checks to fail. Please close this PR and file a new PR from ' +
-        'a non-master branch.',
+      "#### &#x26a0; PR branch check\n\n" +
+        "This PR was filed from the master branch in your fork, which is not recommended " +
+        "and may cause our CI checks to fail. Please close this PR and file a new PR from " +
+        "a non-master branch."
     );
   }
 
-  if (!(body || '').includes('How should the PR be classified in the release notes?')) {
+  if (!(body || "").includes("How should the PR be classified in the release notes?")) {
     messages.push(
-      '#### &#x26a0; Invalid PR template\n\n' +
-        'This PR does not appear to have been filed using the MLflow PR template. ' +
-        'Please copy the PR template from [here](https://raw.githubusercontent.com/mlflow/mlflow/master/.github/pull_request_template.md) ' +
-        'and fill it out.',
+      "#### &#x26a0; Invalid PR template\n\n" +
+        "This PR does not appear to have been filed using the MLflow PR template. " +
+        "Please copy the PR template from [here](https://raw.githubusercontent.com/mlflow/mlflow/master/.github/pull_request_template.md) " +
+        "and fill it out."
     );
   }
 
   if (messages.length > 0) {
     const body =
       `@${user.login} Thank you for the contribution! Could you fix the following issue(s)?\n\n` +
-      messages.join('\n\n');
+      messages.join("\n\n");
     await github.rest.issues.createComment({
       owner,
       repo,
