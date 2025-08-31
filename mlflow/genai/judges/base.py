@@ -43,6 +43,17 @@ class AlignmentOptimizer(BaseModel, ABC):
         """
 
 
+class JudgeField(BaseModel):
+    """
+    Represents a field definition for judges with name and description.
+
+    Used to define input and output fields for judge evaluation signatures.
+    """
+
+    name: str = Field(..., description="Name of the field")
+    description: str = Field(..., description="Description of what the field represents")
+
+
 @experimental(version="3.4.0")
 class Judge(Scorer):
     """
@@ -56,14 +67,7 @@ class Judge(Scorer):
     @abstractmethod
     def instructions(self) -> str:
         """
-        Plain text description of what this judge evaluates.
-        """
-
-    @property
-    @abstractmethod
-    def model(self) -> str:
-        """
-        Get the model for this judge.
+        Plain text instructions of what this judge evaluates.
         """
 
     @abstractmethod

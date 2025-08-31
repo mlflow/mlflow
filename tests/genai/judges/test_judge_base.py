@@ -10,21 +10,23 @@ from mlflow.genai.scorers.base import Scorer
 
 
 class MockJudgeImplementation(Judge):
-    def __init__(self, name: str, **kwargs):
+    def __init__(self, name: str, custom_instructions: str | None = None, **kwargs):
         super().__init__(name=name, **kwargs)
-
-    @property
-    def model(self) -> str:
-        return "mock://test-model"
+        self._custom_instructions = custom_instructions
 
     @property
     def instructions(self) -> str:
-        return "Mock judge instructions for testing"
+        if self._custom_instructions:
+            return self._custom_instructions
+        return f"Mock judge implementation: {self.name}"
 
     def get_input_fields(self) -> list[JudgeField]:
+        """Get input fields for mock judge."""
         return [
-            JudgeField(name="inputs", description="Test inputs"),
-            JudgeField(name="outputs", description="Test outputs"),
+            JudgeField(name="inputs", description="Input data for evaluation"),
+            JudgeField(name="outputs", description="Output data for evaluation"),
+            JudgeField(name="expectations", description="Expected outcomes"),
+            JudgeField(name="trace", description="Trace for evaluation"),
         ]
 
     def __call__(
@@ -52,6 +54,7 @@ def test_judge_implementation():
 
     assert isinstance(judge, Scorer)
     assert isinstance(judge, Judge)
+    assert judge.instructions == "Mock judge implementation: test_judge"
 
     result = judge(
         inputs={"question": "What is 2+2?"},
@@ -62,22 +65,23 @@ def test_judge_implementation():
     assert result.value is True
     assert "Test evaluation by test_judge" in result.rationale
 
+    judge_custom = MockJudgeImplementation(
+        name="custom_judge", custom_instructions="Custom instructions for testing"
+    )
+    assert judge_custom.instructions == "Custom instructions for testing"
+
 
 def test_judge_factory_pattern():
-    def make_simple_judge(name: str) -> Judge:
+    def make_simple_judge(name: str, instructions: str) -> Judge:
         class DynamicJudge(Judge):
             @property
-            def model(self) -> str:
-                return "mock://dynamic-model"
-
-            @property
             def instructions(self) -> str:
-                return "Dynamic judge instructions"
+                return instructions
 
             def get_input_fields(self) -> list[JudgeField]:
+                """Get input fields for dynamic judge."""
                 return [
-                    JudgeField(name="inputs", description="Dynamic test inputs"),
-                    JudgeField(name="outputs", description="Dynamic test outputs"),
+                    JudgeField(name="outputs", description="Output to evaluate"),
                 ]
 
             def __call__(self, **kwargs):
@@ -85,11 +89,14 @@ def test_judge_factory_pattern():
 
         return DynamicJudge(name=name)
 
-    judge = make_simple_judge(name="factory_judge")
+    judge = make_simple_judge(
+        name="factory_judge", instructions="A judge created by factory function"
+    )
 
     assert isinstance(judge, Judge)
     assert isinstance(judge, Scorer)
     assert judge.name == "factory_judge"
+    assert judge.instructions == "A judge created by factory function"
 
     result = judge(outputs="test output")
     assert isinstance(result, Feedback)

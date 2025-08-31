@@ -4,6 +4,7 @@ import pytest
 
 from mlflow.entities.trace import Trace
 from mlflow.genai.judges import AlignmentOptimizer, Judge
+from mlflow.genai.judges.base import JudgeField
 
 
 class MockJudge(Judge):
@@ -14,16 +15,14 @@ class MockJudge(Judge):
 
     @property
     def instructions(self) -> str:
-        return "Mock judge instructions"
+        return f"Mock judge implementation: {self.name}"
 
-    @property
-    def model(self) -> str:
-        return "mock-model"
-
-    def get_input_fields(self):
-        from mlflow.genai.judges.base import JudgeField
-
-        return [JudgeField(name="inputs", description="Mock inputs")]
+    def get_input_fields(self) -> list[JudgeField]:
+        """Get input fields for mock judge."""
+        return [
+            JudgeField(name="input", description="Mock input field"),
+            JudgeField(name="output", description="Mock output field"),
+        ]
 
     def __call__(self, **kwargs):
         from mlflow.entities.assessment import Feedback

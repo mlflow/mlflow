@@ -100,7 +100,11 @@ def test_make_judge_creates_instructions_judge():
 
     assert isinstance(judge, InstructionsJudge)
     assert judge.name == "test_judge"
-    assert judge.instructions == "Check if {{text}} is formal"
+    expected_instructions = (
+        "Instructions-based judge: test_judge\n\nInstructions:\n-------------\n\n"
+        "Check if {{text}} is formal"
+    )
+    assert judge.instructions == expected_instructions
     assert judge.model == "openai:/gpt-4"
 
 
@@ -305,6 +309,16 @@ def test_call_with_custom_variables_from_inputs(monkeypatch):
 
     assert isinstance(result, Feedback)
     assert "Check if What is AI? meets technical accuracy" in captured_prompt
+
+
+def test_instructions_property():
+    judge = make_judge(
+        name="test_judge", instructions="Check if {{text}} is formal", model="openai:/gpt-4"
+    )
+
+    instructions = judge.instructions
+    assert "Instructions-based judge: test_judge" in instructions
+    assert "Check if {{text}} is formal" in instructions
 
 
 def test_kind_property():
