@@ -7,10 +7,10 @@ to analyze traces and extract information during evaluation.
 
 from dataclasses import dataclass
 
-from mlflow.entities.span_status import SpanStatus
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.tools.base import JudgeTool
+from mlflow.genai.judges.tools.types import SpanInfo
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types.llm import (
     FunctionToolDefinition,
@@ -23,28 +23,34 @@ from mlflow.utils.annotations import experimental
 
 @experimental(version="3.4.0")
 @dataclass
-class SpanInfo:
-    """Information about a single span."""
-
-    span_id: str
-    name: str
-    span_type: str
-    start_time_ms: float
-    end_time_ms: float
-    duration_ms: float
-    parent_id: str | None
-    status: SpanStatus
-    is_root: bool  # True if parent_id is None, else False
-    attribute_names: list[str]  # Names of attributes in this span
-
-
-@experimental(version="3.4.0")
-@dataclass
 class ListSpansResult:
     """Result from listing spans with optional pagination."""
 
     spans: list[SpanInfo]
     next_page_token: str | None = None
+
+
+def _create_span_info(span) -> SpanInfo:
+    """Create SpanInfo from a span object."""
+    start_time_ms = span.start_time_ns / 1_000_000
+    end_time_ms = span.end_time_ns / 1_000_000
+    duration_ms = end_time_ms - start_time_ms
+
+    # Get attribute names
+    attribute_names = list(span.attributes.keys()) if span.attributes else []
+
+    return SpanInfo(
+        span_id=span.span_id,
+        name=span.name,
+        span_type=span.span_type,
+        start_time_ms=start_time_ms,
+        end_time_ms=end_time_ms,
+        duration_ms=duration_ms,
+        parent_id=span.parent_id,
+        status=span.status,
+        is_root=(span.parent_id is None),
+        attribute_names=attribute_names,
+    )
 
 
 @experimental(version="3.4.0")
@@ -123,28 +129,7 @@ class ListSpansTool(JudgeTool):
         page_spans = all_spans[start_index:end_index]
 
         # Build span info for this page
-        spans_info = []
-        for span in page_spans:
-            start_time_ms = span.start_time_ns / 1_000_000
-            end_time_ms = span.end_time_ns / 1_000_000
-            duration_ms = end_time_ms - start_time_ms
-
-            # Get attribute names
-            attribute_names = list(span.attributes.keys()) if span.attributes else []
-
-            span_info = SpanInfo(
-                span_id=span.span_id,
-                name=span.name,
-                span_type=span.span_type,
-                start_time_ms=start_time_ms,
-                end_time_ms=end_time_ms,
-                duration_ms=duration_ms,
-                parent_id=span.parent_id,
-                status=span.status,
-                is_root=(span.parent_id is None),
-                attribute_names=attribute_names,
-            )
-            spans_info.append(span_info)
+        spans_info = [_create_span_info(span) for span in page_spans]
 
         # Determine next page token - only include if there are more pages
         next_page_token = None
