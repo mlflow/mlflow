@@ -30,39 +30,29 @@
 
   // TypeScript/JavaScript Configuration
   "[typescript]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.formatOnSave": true,
     "editor.codeActionsOnSave": {
       "source.fixAll.eslint": "explicit"
     }
   },
   "[typescriptreact]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.formatOnSave": true,
     "editor.codeActionsOnSave": {
       "source.fixAll.eslint": "explicit"
     }
   },
   "[javascript]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.formatOnSave": true,
     "editor.codeActionsOnSave": {
       "source.fixAll.eslint": "explicit"
     }
   },
   "[javascriptreact]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.formatOnSave": true,
     "editor.codeActionsOnSave": {
       "source.fixAll.eslint": "explicit"
     }
   },
-
-  // Prettier configuration (matches mlflow/server/js/prettier.config.js)
-  "prettier.printWidth": 120,
-  "prettier.singleQuote": true,
-  "prettier.trailingComma": "all",
-  "prettier.tabWidth": 2,
 
   // ESLint configuration
   "eslint.workingDirectories": ["./mlflow/server/js"],
@@ -74,23 +64,19 @@
 
   // JSON formatting
   "[json]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.formatOnSave": true
   },
   "[jsonc]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.formatOnSave": true
   },
 
   // YAML formatting
   "[yaml]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.formatOnSave": true
   },
 
   // Markdown formatting
   "[markdown]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.formatOnSave": false // Don't auto-format markdown as it might break documentation
   },
 
