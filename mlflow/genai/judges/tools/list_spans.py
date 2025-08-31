@@ -8,10 +8,9 @@ to analyze traces and extract information during evaluation.
 from dataclasses import dataclass
 
 from mlflow.entities.trace import Trace
-from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.tools.base import JudgeTool
 from mlflow.genai.judges.tools.types import SpanInfo
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.genai.judges.tools.utils import create_page_token, parse_page_token
 from mlflow.types.llm import (
     FunctionToolDefinition,
     ParamProperty,
@@ -112,16 +111,7 @@ class ListSpansTool(JudgeTool):
         if not trace or not trace.data or not trace.data.spans:
             return ListSpansResult(spans=[])
 
-        # Parse page token to get start index
-        start_index = 0
-        if page_token is not None:
-            try:
-                start_index = int(page_token)
-            except (ValueError, TypeError) as e:
-                raise MlflowException(
-                    f"Invalid page_token '{page_token}': must be a valid integer",
-                    error_code=INVALID_PARAMETER_VALUE,
-                ) from e
+        start_index = parse_page_token(page_token)
 
         # Get the slice of spans for this page
         all_spans = trace.data.spans
@@ -134,6 +124,6 @@ class ListSpansTool(JudgeTool):
         # Determine next page token - only include if there are more pages
         next_page_token = None
         if end_index < len(all_spans):
-            next_page_token = str(end_index)
+            next_page_token = create_page_token(end_index)
 
         return ListSpansResult(spans=spans_info, next_page_token=next_page_token)

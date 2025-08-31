@@ -13,6 +13,24 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.genai.judges.tools.list_spans import ListSpansResult, ListSpansTool
 from mlflow.genai.judges.tools.types import SpanInfo
+from mlflow.types.llm import ToolDefinition
+
+
+def test_list_spans_tool_name():
+    tool = ListSpansTool()
+    assert tool.name == "list_spans"
+
+
+def test_list_spans_tool_get_definition():
+    tool = ListSpansTool()
+    definition = tool.get_definition()
+
+    assert isinstance(definition, ToolDefinition)
+    assert definition.function.name == "list_spans"
+    assert "List information about spans within a trace" in definition.function.description
+    assert definition.function.parameters.type == "object"
+    assert definition.function.parameters.required == []
+    assert definition.type == "function"
 
 
 @pytest.fixture
@@ -126,19 +144,15 @@ def test_list_spans_tool_invoke_with_pagination(mock_trace_with_spans):
 
 
 def test_list_spans_tool_invoke_invalid_page_token(mock_trace_with_spans):
-    """Test that invalid page tokens raise MlflowException."""
-    from mlflow.exceptions import MlflowException
-
+    """Test that invalid page tokens default to start from beginning."""
     tool = ListSpansTool()
 
-    # Test with invalid string token - should raise exception
-    with pytest.raises(
-        MlflowException, match="Invalid page_token 'invalid': must be a valid integer"
-    ):
-        tool.invoke(mock_trace_with_spans, page_token="invalid")
+    # Test with invalid string token - should start from beginning
+    result = tool.invoke(mock_trace_with_spans, page_token="invalid")
+    assert len(result.spans) == 2
+    assert result.spans[0].name == "root_span"
 
-    # Test with non-string invalid token - should raise exception
-    with pytest.raises(
-        MlflowException, match="Invalid page_token '\\[\\]': must be a valid integer"
-    ):
-        tool.invoke(mock_trace_with_spans, page_token=[])
+    # Test with non-string invalid token - should start from beginning
+    result = tool.invoke(mock_trace_with_spans, page_token=[])
+    assert len(result.spans) == 2
+    assert result.spans[0].name == "root_span"
