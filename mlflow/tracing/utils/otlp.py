@@ -22,9 +22,7 @@ def should_export_otlp_metrics() -> bool:
 
     Returns True if metrics endpoint is configured.
     """
-    # Check if metrics endpoint is configured
-    metrics_endpoint = _get_otlp_metrics_endpoint()
-    return metrics_endpoint is not None
+    return _get_otlp_metrics_endpoint() is not None
 
 
 def get_otlp_exporter() -> SpanExporter:
