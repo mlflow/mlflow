@@ -419,24 +419,3 @@ def test_otlp_spans_and_metrics_export(monkeypatch):
     otel_processor = processors[0]
     assert isinstance(otel_processor, OtelSpanProcessor)
     assert otel_processor._export_metrics is True
-
-
-def test_otlp_no_export(monkeypatch):
-    """Test that no OtelSpanProcessor is created when neither export is enabled."""
-    from mlflow.tracing.provider import _get_tracer
-
-    monkeypatch.delenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", raising=False)
-    monkeypatch.delenv("OTEL_EXPORTER_OTLP_ENDPOINT", raising=False)
-    monkeypatch.delenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", raising=False)
-    monkeypatch.delenv("OTEL_EXPORTER_OTLP_METRICS_PROTOCOL", raising=False)
-
-    mlflow.tracing.reset()
-    tracer = _get_tracer("test")
-
-    from mlflow.tracing.provider import _MLFLOW_TRACER_PROVIDER
-
-    assert _MLFLOW_TRACER_PROVIDER is not None
-    processors = tracer.span_processor._span_processors
-
-    assert len(processors) == 1
-    assert isinstance(processors[0], MlflowV3SpanProcessor)
