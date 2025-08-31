@@ -5,15 +5,11 @@ import time
 from unittest import mock
 
 import pytest
+from opentelemetry.sdk.metrics.export import InMemoryMetricReader
+from opentelemetry.trace import StatusCode
 
 import mlflow
 from mlflow.tracing.processor.otel import OtelSpanProcessor
-
-try:
-    from opentelemetry.sdk.metrics.export import InMemoryMetricReader
-    from opentelemetry.trace import StatusCode
-except ImportError:
-    pytest.skip("OTLP metric exporters are not installed", allow_module_level=True)
 
 
 def create_mock_span(
