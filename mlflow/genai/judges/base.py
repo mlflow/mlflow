@@ -41,9 +41,9 @@ class Judge(Scorer):
 
     @property
     @abstractmethod
-    def description(self) -> str:
+    def instructions(self) -> str:
         """
-        Plain text description of what this judge evaluates.
+        Plain text instructions of what this judge evaluates.
         """
 
     @experimental(version="3.4.0")

@@ -79,11 +79,6 @@ class InstructionsJudge(Judge):
         self._validate_instructions_template()
 
     @property
-    def instructions(self) -> str:
-        """Get the instructions for this judge."""
-        return self._instructions
-
-    @property
     def model(self) -> str:
         """Get the model for this judge."""
         return self._model
@@ -94,8 +89,8 @@ class InstructionsJudge(Judge):
         return self._instructions_prompt.variables
 
     @property
-    def description(self) -> str:
-        """Get the description of this judge."""
+    def instructions(self) -> str:
+        """Get the instructions of this judge."""
         header = f"Instructions-based judge: {self.name}"
         return f"{header}\n\nInstructions:\n-------------\n\n{self._instructions}"
 

@@ -58,9 +58,9 @@ class BuiltInScorer(Judge):
 
     @property
     @abstractmethod
-    def description(self) -> str:
+    def instructions(self) -> str:
         """
-        Get the description of what this scorer evaluates.
+        Get the instructions of what this scorer evaluates.
         """
 
     def model_dump(self, **kwargs) -> dict[str, Any]:
@@ -68,7 +68,7 @@ class BuiltInScorer(Judge):
         from pydantic import BaseModel
 
         pydantic_model_data = BaseModel.model_dump(self, mode="json", **kwargs)
-        pydantic_model_data["description"] = self.description
+        pydantic_model_data["instructions"] = self.instructions
 
         serialized = SerializedScorer(
             name=self.name,
@@ -164,8 +164,8 @@ class RetrievalRelevance(BuiltInScorer):
         super().__init__(**kwargs)
 
     @property
-    def description(self) -> str:
-        """Get the description of what this scorer evaluates."""
+    def instructions(self) -> str:
+        """Get the instructions of what this scorer evaluates."""
         return "Evaluates whether each retrieved context chunk is relevant to the input request."
 
     def __call__(self, *, trace: Trace) -> Feedback:
@@ -259,8 +259,8 @@ class RetrievalSufficiency(BuiltInScorer):
     required_columns: set[str] = {"inputs", "trace"}
 
     @property
-    def description(self) -> str:
-        """Get the description of what this scorer evaluates."""
+    def instructions(self) -> str:
+        """Get the instructions of what this scorer evaluates."""
         return (
             "Evaluates whether retrieved documents provide all necessary information to "
             "generate the expected response."
@@ -360,8 +360,8 @@ class RetrievalGroundedness(BuiltInScorer):
     required_columns: set[str] = {"inputs", "trace"}
 
     @property
-    def description(self) -> str:
-        """Get the description of what this scorer evaluates."""
+    def instructions(self) -> str:
+        """Get the instructions of what this scorer evaluates."""
         return (
             "Assesses whether the agent's response is aligned with the information in the "
             "retrieved context."
@@ -469,8 +469,8 @@ class Guidelines(BuiltInScorer):
     required_columns: set[str] = {"inputs", "outputs"}
 
     @property
-    def description(self) -> str:
-        """Get the description of what this scorer evaluates."""
+    def instructions(self) -> str:
+        """Get the instructions of what this scorer evaluates."""
         return (
             "Evaluates whether the agent's response follows specific constraints or instructions."
         )
@@ -554,8 +554,8 @@ class ExpectationsGuidelines(BuiltInScorer):
     required_columns: set[str] = {"inputs", "outputs"}
 
     @property
-    def description(self) -> str:
-        """Get the description of what this scorer evaluates."""
+    def instructions(self) -> str:
+        """Get the instructions of what this scorer evaluates."""
         return "Evaluates adherence to per-example guidelines provided in the expectations column."
 
     def validate_columns(self, columns: set[str]) -> None:
@@ -651,8 +651,8 @@ class RelevanceToQuery(BuiltInScorer):
     required_columns: set[str] = {"inputs", "outputs"}
 
     @property
-    def description(self) -> str:
-        """Get the description of what this scorer evaluates."""
+    def instructions(self) -> str:
+        """Get the instructions of what this scorer evaluates."""
         return "Ensures the agent's response directly addresses the user's input without deviating."
 
     def __call__(self, *, inputs: dict[str, Any], outputs: Any) -> Feedback:
@@ -716,8 +716,8 @@ class Safety(BuiltInScorer):
     required_columns: set[str] = {"inputs", "outputs"}
 
     @property
-    def description(self) -> str:
-        """Get the description of what this scorer evaluates."""
+    def instructions(self) -> str:
+        """Get the instructions of what this scorer evaluates."""
         return "Ensures responses do not contain harmful, offensive, or toxic content."
 
     def __init__(self, /, **kwargs):
@@ -807,8 +807,8 @@ class Correctness(BuiltInScorer):
     required_columns: set[str] = {"inputs", "outputs"}
 
     @property
-    def description(self) -> str:
-        """Get the description of what this scorer evaluates."""
+    def instructions(self) -> str:
+        """Get the instructions of what this scorer evaluates."""
         return (
             "Ensures the agent's responses are correct and accurate against expected facts or "
             "responses."

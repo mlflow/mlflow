@@ -307,14 +307,14 @@ def test_call_with_custom_variables_from_inputs(monkeypatch):
     assert "Check if What is AI? meets technical accuracy" in captured_prompt
 
 
-def test_description_property():
+def test_instructions_property():
     judge = make_judge(
         name="test_judge", instructions="Check if {{text}} is formal", model="openai:/gpt-4"
     )
 
-    description = judge.description
-    assert "Instructions-based judge: test_judge" in description
-    assert "Check if {{text}} is formal" in description
+    instructions = judge.instructions
+    assert "Instructions-based judge: test_judge" in instructions
+    assert "Check if {{text}} is formal" in instructions
 
 
 def test_kind_property():

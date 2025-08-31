@@ -13,7 +13,7 @@ class MockJudge(Judge):
         super().__init__(name=name, **kwargs)
 
     @property
-    def description(self) -> str:
+    def instructions(self) -> str:
         return f"Mock judge implementation: {self.name}"
 
     def __call__(self, **kwargs):

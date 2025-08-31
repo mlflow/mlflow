@@ -672,12 +672,12 @@ def test_decorator_scorer_multiple_serialization_round_trips():
     assert recovered(outputs="hi") is False
 
 
-def test_builtin_scorer_description_preserved_through_serialization():
+def test_builtin_scorer_instructions_preserved_through_serialization():
     scorer = Guidelines(name="test_guidelines", guidelines=["Be helpful"])
 
-    original_description = scorer.description
+    original_instructions = scorer.instructions
     assert (
-        original_description
+        original_instructions
         == "Evaluates whether the agent's response follows specific constraints or instructions."
     )
 
@@ -685,12 +685,12 @@ def test_builtin_scorer_description_preserved_through_serialization():
     assert "builtin_scorer_pydantic_data" in serialized
     pydantic_data = serialized["builtin_scorer_pydantic_data"]
 
-    assert "description" in pydantic_data
-    assert pydantic_data["description"] == original_description
+    assert "instructions" in pydantic_data
+    assert pydantic_data["instructions"] == original_instructions
 
     deserialized = Scorer.model_validate(serialized)
 
     assert isinstance(deserialized, Guidelines)
-    assert deserialized.description == original_description
+    assert deserialized.instructions == original_instructions
     assert deserialized.name == "test_guidelines"
     assert deserialized.guidelines == ["Be helpful"]
