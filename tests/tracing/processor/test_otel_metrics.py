@@ -1,6 +1,7 @@
 """Tests for OtelSpanProcessor metrics export functionality."""
 
 import os
+import time
 from unittest import mock
 
 import pytest
@@ -111,6 +112,7 @@ def test_metrics_collection_from_spans(otel_metrics_env):
 
                 @mlflow.trace(span_type="LLM", name="test_llm_call")
                 def test_function():
+                    time.sleep(0.01)
                     span = mlflow.get_current_active_span()
                     if span:
                         span.set_attributes(
@@ -131,7 +133,7 @@ def test_metrics_collection_from_spans(otel_metrics_env):
                 duration_ms = call_args[0][0]
                 attributes = call_args[1]["attributes"]
 
-                assert duration_ms > 0
+                assert duration_ms >= 10
                 assert attributes["span_type"] == "LLM"
                 assert attributes["span_status"] == "OK"
                 assert attributes["root"] == "True"
