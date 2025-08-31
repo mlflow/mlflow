@@ -19,4 +19,4 @@ jobs:
         run: |
           uv pip install --system . -r requirements/lint-requirements.txt
           pre-commit install --install-hooks
-          pre-commit run install-bin
+          pre-commit run install-bin --all-files
