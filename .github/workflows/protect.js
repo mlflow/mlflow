@@ -13,9 +13,9 @@ module.exports = async ({ github, context }) => {
   const { sha } = context.payload.pull_request.head;
 
   const STATE = {
-    pending: "pending",
-    success: "success",
-    failure: "failure",
+    pending: 'pending',
+    success: 'success',
+    failure: 'failure',
   };
 
   async function sleep(ms) {
@@ -34,9 +34,9 @@ module.exports = async ({ github, context }) => {
         owner,
         repo,
         ref,
-        filter: "latest",
+        filter: 'latest',
       })
-    ).filter(({ name }) => name !== "protect");
+    ).filter(({ name }) => name !== 'protect');
 
     const latestRuns = {};
     for (const run of checkRuns) {
@@ -49,9 +49,9 @@ module.exports = async ({ github, context }) => {
     const runs = Object.values(latestRuns).map(({ name, status, conclusion, check_suite }) => ({
       name: `${name} (${check_suite.id})`,
       status:
-        status !== "completed"
+        status !== 'completed'
           ? STATE.pending
-          : conclusion === "success" || conclusion === "skipped"
+          : conclusion === 'success' || conclusion === 'skipped'
           ? STATE.success
           : STATE.failure,
     }));
@@ -77,7 +77,7 @@ module.exports = async ({ github, context }) => {
     const statuses = Object.values(latestStatuses).map(({ context, state }) => ({
       name: context,
       status:
-        state === "pending" ? STATE.pending : state === "success" ? STATE.success : STATE.failure,
+        state === 'pending' ? STATE.pending : state === 'success' ? STATE.success : STATE.failure,
     }));
 
     return [...runs, ...statuses].sort((a, b) => a.name.localeCompare(b.name));
@@ -91,18 +91,18 @@ module.exports = async ({ github, context }) => {
     const checks = await fetchChecks(sha);
     const longest = Math.max(...checks.map(({ name }) => name.length));
     checks.forEach(({ name, status }) => {
-      const icon = status === STATE.success ? "✅" : status === STATE.failure ? "❌" : "🕒";
+      const icon = status === STATE.success ? '✅' : status === STATE.failure ? '❌' : '🕒';
       console.log(`- ${name.padEnd(longest)}: ${icon} ${status}`);
     });
 
     if (checks.some(({ status }) => status === STATE.failure)) {
       throw new Error(
-        "This job ensures that all checks except for this one have passed to prevent accidental auto-merges."
+        'This job ensures that all checks except for this one have passed to prevent accidental auto-merges.',
       );
     }
 
     if (checks.length > 0 && checks.every(({ status }) => status === STATE.success)) {
-      console.log("All checks passed");
+      console.log('All checks passed');
       return;
     }
 
@@ -112,5 +112,5 @@ module.exports = async ({ github, context }) => {
     await sleep(sleepLength);
   }
 
-  throw new Error("Timeout");
+  throw new Error('Timeout');
 };

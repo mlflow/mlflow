@@ -69,7 +69,7 @@ jobs:
           npm run convert-notebooks
       - name: Build docs
         env:
-          GTM_ID: "GTM-TEST"
+          GTM_ID: 'GTM-TEST'
           API_REFERENCE_PREFIX: https://pr-${{ github.event.pull_request.number }}--mlflow-docs-preview.netlify.app/docs/
         run: |
           npm run build-all -- --no-r --use-npm

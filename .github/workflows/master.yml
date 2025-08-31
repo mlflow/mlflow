@@ -30,8 +30,8 @@ env:
   SPARK_LOCAL_IP: localhost
   PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
   PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
-  PYTHONUTF8: "1"
-  _MLFLOW_TESTING_TELEMETRY: "true"
+  PYTHONUTF8: '1'
+  _MLFLOW_TESTING_TELEMETRY: 'true'
 
 jobs:
   # python-skinny tests cover a subset of mlflow functionality
@@ -466,7 +466,7 @@ jobs:
           # when creating an `Engine`. `QueuePool` prevents the removal of temporary database
           # files created during tests on Windows as it keeps the DB connection open until
           # it's explicitly disposed.
-          MLFLOW_SQLALCHEMYSTORE_POOLCLASS: "NullPool"
+          MLFLOW_SQLALCHEMYSTORE_POOLCLASS: 'NullPool'
         run: |
           source .venv/Scripts/activate
           # Set Hadoop environment variables required for testing Spark integrations on Windows

@@ -1,16 +1,16 @@
-version: "3"
+version: '3'
 services:
   minio:
     image: minio/minio
     expose:
-      - "9000"
+      - '9000'
     ports:
-      - "9000:9000"
+      - '9000:9000'
       # MinIO Console is available at http://localhost:9001
-      - "9001:9001"
+      - '9001:9001'
     environment:
-      MINIO_ROOT_USER: "user"
-      MINIO_ROOT_PASSWORD: "password"
+      MINIO_ROOT_USER: 'user'
+      MINIO_ROOT_PASSWORD: 'password'
     healthcheck:
       test: timeout 5s bash -c ':> /dev/tcp/127.0.0.1/9000' || exit 1
       interval: 1s
@@ -37,17 +37,17 @@ services:
   artifacts-server:
     build:
       context: .
-      dockerfile: "${DOCKERFILE:-Dockerfile}"
+      dockerfile: '${DOCKERFILE:-Dockerfile}'
     depends_on:
       - minio-create-bucket
     expose:
-      - "5500"
+      - '5500'
     ports:
-      - "5500:5500"
+      - '5500:5500'
     environment:
       MLFLOW_S3_ENDPOINT_URL: http://minio:9000
-      AWS_ACCESS_KEY_ID: "user"
-      AWS_SECRET_ACCESS_KEY: "password"
+      AWS_ACCESS_KEY_ID: 'user'
+      AWS_SECRET_ACCESS_KEY: 'password'
     command: >
       mlflow server
       --host 0.0.0.0
@@ -67,15 +67,15 @@ services:
   tracking-server:
     build:
       context: .
-      dockerfile: "${DOCKERFILE:-Dockerfile}"
+      dockerfile: '${DOCKERFILE:-Dockerfile}'
     depends_on:
       - postgres
       - artifacts-server
     expose:
-      - "5000"
+      - '5000'
     ports:
       # MLflow UI is available at http://localhost:5000
-      - "5000:5000"
+      - '5000:5000'
     command: >
       mlflow server
       --host 0.0.0.0
@@ -87,7 +87,7 @@ services:
   client:
     build:
       context: .
-      dockerfile: "${DOCKERFILE:-Dockerfile}"
+      dockerfile: '${DOCKERFILE:-Dockerfile}'
     depends_on:
       - tracking-server
     environment:

@@ -1,7 +1,7 @@
-name: "cache-venv"
-description: "Cache .venv directory for faster dependency installation"
+name: 'cache-venv'
+description: 'Cache .venv directory for faster dependency installation'
 runs:
-  using: "composite"
+  using: 'composite'
   steps:
     - uses: ./.github/actions/py-cache-key
       id: py-cache-key

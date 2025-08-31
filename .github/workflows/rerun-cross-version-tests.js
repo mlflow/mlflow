@@ -4,7 +4,7 @@ module.exports = async ({ context, github, workflow_id }) => {
     owner,
     repo,
     workflow_id,
-    event: "schedule",
+    event: 'schedule',
   });
 
   if (workflowRunsData.total_count === 0) {
@@ -12,7 +12,7 @@ module.exports = async ({ context, github, workflow_id }) => {
   }
 
   const { id: run_id, conclusion } = workflowRunsData.workflow_runs[0];
-  if (conclusion === "success") {
+  if (conclusion === 'success') {
     return;
   }
 
@@ -21,7 +21,7 @@ module.exports = async ({ context, github, workflow_id }) => {
     repo,
     run_id,
   });
-  const failedJobs = jobs.filter((job) => job.conclusion !== "success");
+  const failedJobs = jobs.filter((job) => job.conclusion !== 'success');
   if (failedJobs.length === 0) {
     return;
   }

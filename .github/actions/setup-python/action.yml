@@ -1,15 +1,15 @@
-name: "setup-python"
+name: 'setup-python'
 description: "Ensures to install a python version that's available on Anaconda"
 inputs:
   python-version:
-    description: "The python version to install. If unspecified, install the minimum python version mlflow supports."
+    description: 'The python version to install. If unspecified, install the minimum python version mlflow supports.'
     required: false
 outputs:
   python-version:
-    description: "The installed python version"
+    description: 'The installed python version'
     value: ${{ steps.get-python-version.outputs.version }}
 runs:
-  using: "composite"
+  using: 'composite'
   steps:
     - name: get-python-version
       id: get-python-version

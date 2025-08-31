@@ -14,11 +14,11 @@ module.exports = async ({ context, github, core }) => {
 
   // Skip running this check on CD automation PRs
   if (!body) {
-    core.info("Skipping processing because the PR has no body.");
+    core.info('Skipping processing because the PR has no body.');
     return;
   }
 
-  const marker = "<!-- patch -->";
+  const marker = '<!-- patch -->';
   if (body && !body.includes(marker)) {
     return;
   }
@@ -26,21 +26,21 @@ module.exports = async ({ context, github, core }) => {
   const patchSection = body.split(marker)[1];
   const yesRegex = /- \[( |x)\] yes/gi;
   const yesMatch = yesRegex.exec(patchSection);
-  const yes = yesMatch ? yesMatch[1].toLowerCase() === "x" : false;
+  const yes = yesMatch ? yesMatch[1].toLowerCase() === 'x' : false;
   const noRegex = /- \[( |x)\] no/gi;
   const noMatch = noRegex.exec(patchSection);
-  const no = noMatch ? noMatch[1].toLowerCase() === "x" : false;
+  const no = noMatch ? noMatch[1].toLowerCase() === 'x' : false;
 
   if (yes && no) {
     core.setFailed(
-      "Both yes and no are selected. Please select only one in the `Should this PR be included in the next patch release?` section."
+      'Both yes and no are selected. Please select only one in the `Should this PR be included in the next patch release?` section.',
     );
     return;
   }
 
   if (!yes && !no) {
     core.setFailed(
-      "Please fill in the `Should this PR be included in the next patch release?` section."
+      'Please fill in the `Should this PR be included in the next patch release?` section.',
     );
     return;
   }
@@ -58,12 +58,12 @@ module.exports = async ({ context, github, core }) => {
 
   const versionLabelPattern = /^v\d+\.\d+\.\d+$/;
   const existingVersionLabel = existingLabels.data.find((label) =>
-    versionLabelPattern.test(label.name)
+    versionLabelPattern.test(label.name),
   );
 
   if (existingVersionLabel) {
     core.info(
-      `Version label ${existingVersionLabel.name} already exists on this PR. Skipping label addition.`
+      `Version label ${existingVersionLabel.name} already exists on this PR. Skipping label addition.`,
     );
     return;
   }
@@ -72,10 +72,10 @@ module.exports = async ({ context, github, core }) => {
     owner,
     repo,
   });
-  const latest = releases.data.find(({ tag_name }) => tag_name.startsWith("v"));
-  const version = latest.tag_name.replace("v", "");
-  const [major, minor, micro] = version.replace(/rc\d+$/, "").split(".");
-  const nextMicro = version.includes("rc") ? micro : (parseInt(micro) + 1).toString();
+  const latest = releases.data.find(({ tag_name }) => tag_name.startsWith('v'));
+  const version = latest.tag_name.replace('v', '');
+  const [major, minor, micro] = version.replace(/rc\d+$/, '').split('.');
+  const nextMicro = version.includes('rc') ? micro : (parseInt(micro) + 1).toString();
   const label = `v${major}.${minor}.${nextMicro}`;
   await github.rest.issues.addLabels({
     owner,

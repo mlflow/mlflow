@@ -12,9 +12,9 @@ async function main({ context, github }) {
   // Run the workflow
   const flavors = flavorsMatch[1];
   const uuid = Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join(
-    ""
+    '',
   );
-  const workflow_id = "cross-version-tests.yml";
+  const workflow_id = 'cross-version-tests.yml';
   await github.rest.actions.createWorkflowDispatch({
     owner,
     repo,
@@ -41,7 +41,7 @@ async function main({ context, github }) {
       owner,
       repo,
       workflow_id,
-      event: "workflow_dispatch",
+      event: 'workflow_dispatch',
     });
     run = runs.workflow_runs.find((run) => run.name.includes(uuid));
     if (run) {
@@ -54,7 +54,7 @@ async function main({ context, github }) {
       owner,
       repo,
       issue_number: pull_number,
-      body: "Failed to find the triggered workflow run.",
+      body: 'Failed to find the triggered workflow run.',
     });
     return;
   }

@@ -1,7 +1,7 @@
-name: "show-versions"
-description: "Show python package versions sorted by release date"
+name: 'show-versions'
+description: 'Show python package versions sorted by release date'
 runs:
-  using: "composite"
+  using: 'composite'
   steps:
     - shell: bash
       run: |

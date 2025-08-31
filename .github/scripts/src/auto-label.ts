@@ -1,6 +1,6 @@
-import type { getOctokit } from "@actions/github";
-import type { context as ContextType } from "@actions/github";
-import OpenAI from "openai";
+import type { getOctokit } from '@actions/github';
+import type { context as ContextType } from '@actions/github';
+import OpenAI from 'openai';
 
 type GitHub = ReturnType<typeof getOctokit>;
 type Context = typeof ContextType;
@@ -22,17 +22,17 @@ export async function generateAutoLabelPrompt({
 
   const filteredLabels = allLabels
     .map((label) => label.name)
-    .filter((name) => name.startsWith("area/") || name.startsWith("domain/"))
-    .join("\n");
+    .filter((name) => name.startsWith('area/') || name.startsWith('domain/'))
+    .join('\n');
 
   let issueNumber;
-  if (context.eventName === "pull_request") {
+  if (context.eventName === 'pull_request') {
     const latestIssues = await github.rest.issues.listForRepo({
       owner,
       repo,
-      state: "open",
-      sort: "created",
-      direction: "desc",
+      state: 'open',
+      sort: 'created',
+      direction: 'desc',
       per_page: 1,
     });
     issueNumber = latestIssues.data[0].number;
@@ -48,13 +48,13 @@ export async function generateAutoLabelPrompt({
 
   const issueData = {
     title: issue.data.title,
-    body: issue.data.body || "",
+    body: issue.data.body || '',
     labels: issue.data.labels
-      .map((label) => (typeof label === "string" ? label : label.name))
+      .map((label) => (typeof label === 'string' ? label : label.name))
       .filter((name): name is string => name !== undefined),
   };
 
-  const currentLabels = issueData.labels.join(", ");
+  const currentLabels = issueData.labels.join(', ');
 
   const prompt = `You're an issue triage assistant for GitHub issues. Your task is to analyze the issue and list appropriate labels from the provided list.
 
@@ -100,13 +100,13 @@ export async function getAutoLabelsFromOpenAI({
   });
 
   const response = await client.chat.completions.create({
-    model: "gpt-4o",
-    messages: [{ role: "user", content: prompt }],
+    model: 'gpt-4o',
+    messages: [{ role: 'user', content: prompt }],
     max_tokens: 1000,
     temperature: 0.0,
   });
 
-  return response.choices[0].message.content || "";
+  return response.choices[0].message.content || '';
 }
 
 export async function autoLabel({
@@ -120,11 +120,11 @@ export async function autoLabel({
   const baseUrl = process.env.OPENAI_API_BASE;
 
   if (!apiKey) {
-    throw new Error("OPENAI_API_KEY environment variable is not set");
+    throw new Error('OPENAI_API_KEY environment variable is not set');
   }
 
   if (!baseUrl) {
-    throw new Error("OPENAI_API_BASE environment variable is not set");
+    throw new Error('OPENAI_API_BASE environment variable is not set');
   }
 
   const prompt = await generateAutoLabelPrompt({ github, context });

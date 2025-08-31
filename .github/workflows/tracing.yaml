@@ -25,7 +25,7 @@ defaults:
 env:
   MLFLOW_HOME: /home/runner/work/mlflow/mlflow
   MLFLOW_CONDA_HOME: /usr/share/miniconda
-  PYTHONUTF8: "1"
+  PYTHONUTF8: '1'
 
 jobs:
   core:

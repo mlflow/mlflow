@@ -2,9 +2,9 @@
  * Script to manage documentation preview comments on pull requests.
  */
 
-const path = require("path");
+const path = require('path');
 
-const MARKER = "<!-- documentation preview -->";
+const MARKER = '<!-- documentation preview -->';
 
 /**
  * Fetch changed files from a pull request
@@ -37,29 +37,29 @@ async function fetchChangedFiles({ github, owner, repo, pullNumber }) {
  * @returns {string[]} Array of documentation page paths
  */
 function getChangedDocPages(changedFiles) {
-  const DOCS_DIR = "docs/docs/";
+  const DOCS_DIR = 'docs/docs/';
   const changedPages = [];
 
   for (const file of changedFiles) {
     const ext = path.extname(file);
-    if (ext !== ".md" && ext !== ".mdx") continue;
+    if (ext !== '.md' && ext !== '.mdx') continue;
     if (!file.startsWith(DOCS_DIR)) continue;
 
     const relativePath = path.relative(DOCS_DIR, file);
     const { dir, name, base } = path.parse(relativePath);
 
     let pagePath;
-    if (base === "index.mdx") {
+    if (base === 'index.mdx') {
       pagePath = dir;
     } else {
       pagePath = path.join(dir, name);
     }
 
     // Adjust classic-ml/ to ml/
-    pagePath = pagePath.replace(/^classic-ml/, "ml");
+    pagePath = pagePath.replace(/^classic-ml/, 'ml');
 
     // Ensure forward slashes for web paths
-    pagePath = pagePath.split(path.sep).join("/");
+    pagePath = pagePath.split(path.sep).join('/');
 
     changedPages.push(pagePath);
   }
@@ -90,7 +90,7 @@ async function upsertComment({ github, owner, repo, pullNumber, commentBody }) {
   const commentBodyWithMarker = `${MARKER}\n\n${commentBody}`;
 
   if (!existingComment) {
-    console.log("Creating comment");
+    console.log('Creating comment');
     await github.rest.issues.createComment({
       owner,
       repo,
@@ -98,7 +98,7 @@ async function upsertComment({ github, owner, repo, pullNumber, commentBody }) {
       body: commentBodyWithMarker,
     });
   } else {
-    console.log("Updating comment");
+    console.log('Updating comment');
     await github.rest.issues.updateComment({
       owner,
       repo,
@@ -125,10 +125,10 @@ function getCommentTemplate({
   mainMessage,
   changedPages,
 }) {
-  let changedPagesSection = "";
+  let changedPagesSection = '';
 
   if (changedPages && changedPages.length > 0) {
-    const pageLinks = changedPages.map((page) => `- ${page}`).join("\n");
+    const pageLinks = changedPages.map((page) => `- ${page}`).join('\n');
     changedPagesSection = `
 
 <details>
@@ -173,16 +173,16 @@ module.exports = async ({ github, context, env }) => {
   // Validate required parameters
   if (!commitSha || !pullNumber || !workflowRunId || !stage || !docsWorkflowRunUrl) {
     throw new Error(
-      "Missing required parameters: commit-sha, pull-number, workflow-run-id, stage, docs-workflow-run-url"
+      'Missing required parameters: commit-sha, pull-number, workflow-run-id, stage, docs-workflow-run-url',
     );
   }
 
-  if (!["completed", "failed"].includes(stage)) {
+  if (!['completed', 'failed'].includes(stage)) {
     throw new Error("Stage must be either 'completed' or 'failed'");
   }
 
-  if (stage === "completed" && !netlifyUrl) {
-    throw new Error("netlify-url is required for completed stage");
+  if (stage === 'completed' && !netlifyUrl) {
+    throw new Error('netlify-url is required for completed stage');
   }
 
   const { owner, repo } = context.repo;
@@ -191,7 +191,7 @@ module.exports = async ({ github, context, env }) => {
   let mainMessage;
   let changedPages = [];
 
-  if (stage === "completed") {
+  if (stage === 'completed') {
     mainMessage = `is available at:\n\n- ${netlifyUrl}`;
 
     // Fetch changed files and get documentation pages
@@ -204,11 +204,11 @@ module.exports = async ({ github, context, env }) => {
         changedPages = docPages.map((page) => `[${page}](${netlifyUrl}/${page})`);
       }
     } catch (error) {
-      console.error("Error fetching changed files:", error);
+      console.error('Error fetching changed files:', error);
       // Continue without changed pages list
     }
-  } else if (stage === "failed") {
-    mainMessage = "failed to build or deploy.";
+  } else if (stage === 'failed') {
+    mainMessage = 'failed to build or deploy.';
   }
 
   const commentBody = getCommentTemplate({

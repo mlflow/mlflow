@@ -1,4 +1,4 @@
-const fs = require("fs");
+const fs = require('fs');
 
 function computeExecutionTimeInSeconds(started_at, completed_at) {
   const startedAt = new Date(started_at);
@@ -14,21 +14,21 @@ async function download({ github, context }) {
   });
 
   const matchArtifact = allArtifacts.data.artifacts.find((artifact) => {
-    return artifact.name == "pr_number";
+    return artifact.name == 'pr_number';
   });
 
   const download = await github.rest.actions.downloadArtifact({
     owner: context.repo.owner,
     repo: context.repo.repo,
     artifact_id: matchArtifact.id,
-    archive_format: "zip",
+    archive_format: 'zip',
   });
 
   fs.writeFileSync(`${process.env.GITHUB_WORKSPACE}/pr_number.zip`, Buffer.from(download.data));
 }
 
 async function rerun({ github, context }) {
-  const pull_number = Number(fs.readFileSync("./pr_number"));
+  const pull_number = Number(fs.readFileSync('./pr_number'));
   const {
     repo: { owner, repo },
   } = context;
@@ -48,19 +48,19 @@ async function rerun({ github, context }) {
     // Select failed/cancelled github action runs
     .filter(
       ({ name, status, conclusion, started_at, completed_at, app: { slug } }) =>
-        slug === "github-actions" &&
-        status === "completed" &&
-        (conclusion === "failure" || conclusion === "cancelled") &&
-        name.toLowerCase() !== "rerun" && // Prevent recursive rerun
-        (name.toLowerCase() === "protect" || // Always rerun protect job
-          computeExecutionTimeInSeconds(started_at, completed_at) <= 60) // Rerun jobs that took less than 60 seconds (e.g. Maintainer approval check)
+        slug === 'github-actions' &&
+        status === 'completed' &&
+        (conclusion === 'failure' || conclusion === 'cancelled') &&
+        name.toLowerCase() !== 'rerun' && // Prevent recursive rerun
+        (name.toLowerCase() === 'protect' || // Always rerun protect job
+          computeExecutionTimeInSeconds(started_at, completed_at) <= 60), // Rerun jobs that took less than 60 seconds (e.g. Maintainer approval check)
     )
     .map(
       ({
         // Example: https://github.com/mlflow/mlflow/actions/runs/10675586265/job/29587793829
         //                                                        ^^^^^^^^^^^ run_id
         html_url,
-      }) => html_url.match(/\/actions\/runs\/(\d+)/)[1]
+      }) => html_url.match(/\/actions\/runs\/(\d+)/)[1],
     );
 
   const uniqueRunIds = [...new Set(runIdsToRerun)];

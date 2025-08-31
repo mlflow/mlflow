@@ -1,7 +1,7 @@
-name: "free-disk-space"
-description: "free disk space"
+name: 'free-disk-space'
+description: 'free disk space'
 runs:
-  using: "composite"
+  using: 'composite'
   steps:
     - shell: bash
       run: |

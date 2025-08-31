@@ -1,10 +1,10 @@
 function isAllowed({ author_association, user }) {
   return (
-    ["owner", "member", "collaborator"].includes(author_association.toLowerCase()) ||
+    ['owner', 'member', 'collaborator'].includes(author_association.toLowerCase()) ||
     // Allow Copilot and mlflow-app bot to run this workflow
     (user &&
-      user.type.toLowerCase() === "bot" &&
-      ["copilot", "mlflow-app[bot]"].includes(user.login.toLowerCase()))
+      user.type.toLowerCase() === 'bot' &&
+      ['copilot', 'mlflow-app[bot]'].includes(user.login.toLowerCase()))
   );
 }
 
@@ -30,7 +30,7 @@ async function createFailureComment(github, context, message) {
 }
 
 module.exports = async ({ context, github, core }) => {
-  if (context.eventName === "issue_comment") {
+  if (context.eventName === 'issue_comment') {
     const { comment } = context.payload;
     if (
       !isAllowed({

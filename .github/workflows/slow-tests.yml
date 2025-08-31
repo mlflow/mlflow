@@ -5,8 +5,8 @@ on:
   pull_request:
     paths:
       # Run this workflow in PR when relevant files change
-      - ".github/workflows/slow-tests.yml"
-      - "tests/pyfunc/docker/**"
+      - '.github/workflows/slow-tests.yml'
+      - 'tests/pyfunc/docker/**'
   workflow_dispatch:
     inputs:
       repository:
@@ -14,17 +14,17 @@ on:
           [Optional] Repository name with owner. For example, mlflow/mlflow.
            Defaults to the repository that triggered a workflow.
         required: false
-        default: ""
+        default: ''
       ref:
         description: >
           [Optional] The branch, tag or SHA to checkout. When checking out the repository that
            triggered a workflow, this defaults to the reference or SHA for that event. Otherwise,
            uses the default branch.
         required: false
-        default: ""
+        default: ''
   schedule:
     # Run this workflow daily at 13:00 UTC
-    - cron: "0 13 * * *"
+    - cron: '0 13 * * *'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
@@ -35,7 +35,7 @@ defaults:
     shell: bash
 
 env:
-  MLFLOW_RUN_SLOW_TESTS: "true"
+  MLFLOW_RUN_SLOW_TESTS: 'true'
   MLFLOW_HOME: ${{ github.workspace }}
   PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
   PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt

@@ -8,14 +8,14 @@ on:
       - reopened
       - ready_for_review
     paths:
-      - "mlflow/protos/**"
+      - 'mlflow/protos/**'
       - .github/workflows/protobuf-cross-test.yml
   push:
     branches:
       - master
       - branch-[0-9]+.[0-9]+
     paths:
-      - "mlflow/protos/**"
+      - 'mlflow/protos/**'
       - .github/workflows/protobuf-cross-test.yml
 
 concurrency:
@@ -34,7 +34,7 @@ env:
   # https://github.com/actions/virtual-environments/blob/main/images/linux/scripts/installers/miniconda.sh
   MLFLOW_CONDA_HOME: /usr/share/miniconda
   SPARK_LOCAL_IP: localhost
-  PYTHONUTF8: "1"
+  PYTHONUTF8: '1'
   PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
 
 jobs:

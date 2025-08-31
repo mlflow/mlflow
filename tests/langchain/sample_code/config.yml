@@ -1,6 +1,6 @@
 llm_prompt_template: "Answer the following question based on the context: {context}\nQuestion: {question}"
 embedding_size: 5
-response: "Databricks"
+response: 'Databricks'
 not_used_array:
   - 1
   - 2

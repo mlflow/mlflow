@@ -3,11 +3,11 @@ name: External Link Checker
 on:
   schedule:
     # Runs at 00:00 UTC every day
-    - cron: "0 13 * * *"
+    - cron: '0 13 * * *'
   workflow_dispatch: # Allow manual runs
   pull_request:
     paths:
-      - ".github/workflows/link-checker.yml"
+      - '.github/workflows/link-checker.yml'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
@@ -30,7 +30,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/setup-node
         with:
-          cache: "npm"
+          cache: 'npm'
           cache-dependency-path: docs/package-lock.json
       - name: Install dependencies
         run: |

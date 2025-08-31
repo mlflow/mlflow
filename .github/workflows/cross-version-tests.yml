@@ -15,29 +15,29 @@ on:
           [Optional] Repository name with owner. For example, mlflow/mlflow.
            Defaults to the repository that triggered a workflow.
         required: false
-        default: ""
+        default: ''
       ref:
         description: >
           [Optional] The branch, tag or SHA to checkout. When checking out the repository that
            triggered a workflow, this defaults to the reference or SHA for that event. Otherwise,
            uses the default branch.
         required: false
-        default: ""
+        default: ''
       flavors:
         description: "[Optional] Comma-separated string specifying which flavors to test (e.g. 'sklearn, xgboost'). If unspecified, all flavors are tested."
         required: false
-        default: ""
+        default: ''
       versions:
         description: "[Optional] Comma-separated string specifying which versions to test (e.g. '1.2.3, 4.5.6'). If unspecified, all versions are tested."
         required: false
-        default: ""
+        default: ''
       uuid:
-        description: "[Optional] A unique identifier for this run."
+        description: '[Optional] A unique identifier for this run.'
         required: false
-        default: ""
+        default: ''
   schedule:
     # Run this workflow daily at 13:00 UTC
-    - cron: "0 13 * * *"
+    - cron: '0 13 * * *'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}

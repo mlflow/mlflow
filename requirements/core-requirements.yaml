@@ -8,11 +8,11 @@ alembic:
   pip_release: alembic
   max_major_version: 1
   # alembic 1.10.0 contains a regression: https://github.com/sqlalchemy/alembic/issues/1195
-  unsupported: ["1.10.0"]
+  unsupported: ['1.10.0']
 
 docker:
   pip_release: docker
-  minimum: "4.0.0"
+  minimum: '4.0.0'
   max_major_version: 7
 
 flask:
@@ -33,12 +33,12 @@ pandas:
 
 sqlalchemy:
   pip_release: sqlalchemy
-  minimum: "1.4.0"
+  minimum: '1.4.0'
   max_major_version: 2
 
 cryptography:
   pip_release: cryptography
-  minimum: "43.0.0"
+  minimum: '43.0.0'
   max_major_version: 45
 
 gunicorn:
@@ -57,7 +57,7 @@ scikit-learn:
 
 pyarrow:
   pip_release: pyarrow
-  minimum: "4.0.0"
+  minimum: '4.0.0'
   max_major_version: 21
 
 matplotlib:
@@ -70,5 +70,5 @@ graphene:
 
 fastmcp:
   pip_release: fastmcp
-  minimum: "2.0.0"
+  minimum: '2.0.0'
   max_major_version: 2

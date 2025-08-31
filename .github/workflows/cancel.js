@@ -6,13 +6,13 @@ module.exports = async ({ context, github }) => {
     owner,
     repo,
     head_sha: headSha,
-    event: "pull_request",
+    event: 'pull_request',
     per_page: 100,
   });
   const unfinishedRuns = prRuns.filter(
     ({ status, name }) =>
       // `post-merge` job in `release-note` workflow should not be cancelled
-      status !== "completed" && name !== "release-note"
+      status !== 'completed' && name !== 'release-note',
   );
   for (const run of unfinishedRuns) {
     try {

@@ -1,17 +1,17 @@
-import { readFileSync, existsSync, readdirSync, statSync } from "fs";
-import { join, basename } from "path";
-import type { getOctokit } from "@actions/github";
-import type { context as ContextType } from "@actions/github";
+import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
+import { join, basename } from 'path';
+import type { getOctokit } from '@actions/github';
+import type { context as ContextType } from '@actions/github';
 
 type GitHub = ReturnType<typeof getOctokit>;
 type Context = typeof ContextType;
 type GitHubAsset = Awaited<
-  ReturnType<GitHub["rest"]["repos"]["listReleaseAssets"]>
->["data"][number];
-type GitHubRelease = Awaited<ReturnType<GitHub["rest"]["repos"]["getReleaseByTag"]>>["data"];
+  ReturnType<GitHub['rest']['repos']['listReleaseAssets']>
+>['data'][number];
+type GitHubRelease = Awaited<ReturnType<GitHub['rest']['repos']['getReleaseByTag']>>['data'];
 
 // Constants
-const RELEASE_TAG = "nightly";
+const RELEASE_TAG = 'nightly';
 const DAYS_TO_KEEP = 3;
 
 interface SnapshotParams {
@@ -32,14 +32,14 @@ function isSupportedArtifact(filename: string): boolean {
  */
 function getContentType(filename: string): string {
   if (filename.match(/\.whl$/)) {
-    return "application/zip";
+    return 'application/zip';
   } else if (filename.match(/\.tar\.gz$/)) {
-    return "application/gzip";
+    return 'application/gzip';
   } else if (filename.match(/\.jar$/)) {
-    return "application/java-archive";
+    return 'application/java-archive';
   }
   throw new Error(
-    `Unsupported file type for content type: ${filename}. Only .whl, .jar, and .tar.gz are supported.`
+    `Unsupported file type for content type: ${filename}. Only .whl, .jar, and .tar.gz are supported.`,
   );
 }
 
@@ -82,7 +82,7 @@ function addShaToFilename(filename: string, sha: string): string {
   }
 
   throw new Error(
-    `Unexpected file extension for: ${filename}. Only .whl, .jar, and .tar.gz are supported.`
+    `Unexpected file extension for: ${filename}. Only .whl, .jar, and .tar.gz are supported.`,
   );
 }
 
@@ -109,9 +109,9 @@ export async function uploadSnapshots({
   // Check for unsupported file types
   const unsupportedFiles = artifactFiles.filter((f) => !isSupportedArtifact(f));
   if (unsupportedFiles.length > 0) {
-    const names = unsupportedFiles.map((f) => `  - ${basename(f)}`).join("\n");
+    const names = unsupportedFiles.map((f) => `  - ${basename(f)}`).join('\n');
     throw new Error(
-      `Found unsupported file types:\n${names}\nOnly .whl, .jar, and .tar.gz files are supported.`
+      `Found unsupported file types:\n${names}\nOnly .whl, .jar, and .tar.gz files are supported.`,
     );
   }
 
@@ -139,7 +139,7 @@ export async function uploadSnapshots({
     repo,
     tag_name: RELEASE_TAG,
     target_commitish: context.sha,
-    name: `Nightly Build ${new Date().toISOString().split("T")[0]}`,
+    name: `Nightly Build ${new Date().toISOString().split('T')[0]}`,
     body: `This is an automated nightly build of MLflow.
 
 **Last updated:** ${new Date().toUTCString()}
@@ -147,11 +147,11 @@ export async function uploadSnapshots({
 
 **Note:** This release is automatically updated daily with the latest changes from the master branch.`,
     prerelease: true,
-    make_latest: "false" as const,
+    make_latest: 'false' as const,
   };
 
   if (releaseExists) {
-    console.log("Updating existing nightly release...");
+    console.log('Updating existing nightly release...');
     const { data: updatedRelease } = await github.rest.repos.updateRelease({
       ...releaseParams,
       release_id: release!.id,
@@ -159,13 +159,13 @@ export async function uploadSnapshots({
     release = updatedRelease;
     console.log(`Updated existing release: ${release.id}`);
   } else {
-    console.log("Creating new nightly release...");
+    console.log('Creating new nightly release...');
     const { data: newRelease } = await github.rest.repos.createRelease(releaseParams);
     release = newRelease;
     console.log(`Created new release: ${release.id}`);
   }
 
-  console.log("Fetching all existing assets...");
+  console.log('Fetching all existing assets...');
   const allAssets: GitHubAsset[] = await github.paginate(github.rest.repos.listReleaseAssets, {
     owner,
     repo,
@@ -176,7 +176,7 @@ export async function uploadSnapshots({
   // Delete old assets.
   for (const asset of allAssets) {
     if (shouldDeleteAsset(asset, DAYS_TO_KEEP)) {
-      const assetDate = new Date(asset.created_at).toISOString().split("T")[0];
+      const assetDate = new Date(asset.created_at).toISOString().split('T')[0];
       console.log(`Deleting old asset (created ${assetDate}): ${asset.name}`);
       await github.rest.repos.deleteReleaseAsset({
         owner,
@@ -210,13 +210,13 @@ export async function uploadSnapshots({
       name: nameWithSha,
       data: artifactData as unknown as string,
       headers: {
-        "content-type": contentType,
-        "content-length": artifactData.length,
+        'content-type': contentType,
+        'content-length': artifactData.length,
       },
     });
 
     console.log(`Successfully uploaded ${artifactName} as ${nameWithSha}`);
   }
 
-  console.log("All artifacts uploaded successfully");
+  console.log('All artifacts uploaded successfully');
 }

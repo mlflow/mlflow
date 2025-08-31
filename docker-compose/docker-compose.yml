@@ -13,9 +13,9 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - '5432:5432'
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER}']
       interval: 5s
       timeout: 3s
       retries: 10
@@ -30,10 +30,10 @@ services:
       - minio-data:/data
     command: server /data --console-address ":9001"
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - '9000:9000'
+      - '9001:9001'
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${MINIO_PORT}/minio/health/live"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:${MINIO_PORT}/minio/health/live']
       interval: 5s
       timeout: 3s
       retries: 20
@@ -50,7 +50,7 @@ services:
           ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD} &&
         mc mb --ignore-existing myminio/${MINIO_BUCKET:-mlflow}
       '
-    restart: "no"
+    restart: 'no'
 
   mlflow:
     image: ghcr.io/mlflow/mlflow:${MLFLOW_VERSION}
@@ -71,7 +71,7 @@ services:
       AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
       AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
       AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
-      MLFLOW_S3_IGNORE_TLS: "true"
+      MLFLOW_S3_IGNORE_TLS: 'true'
 
       # Server host/port
       MLFLOW_HOST: ${MLFLOW_HOST}
@@ -87,13 +87,13 @@ services:
           --port ${MLFLOW_PORT}
       "
     ports:
-      - "${MLFLOW_PORT}:${MLFLOW_PORT}"
+      - '${MLFLOW_PORT}:${MLFLOW_PORT}'
     healthcheck:
       test:
         [
-          "CMD",
-          "python",
-          "-c",
+          'CMD',
+          'python',
+          '-c',
           "import urllib.request; urllib.request.urlopen('http://localhost:${MLFLOW_PORT}/health')",
         ]
       interval: 10s

@@ -10,7 +10,7 @@ module.exports = async ({ github, context, env }) => {
   const runId = env.RUN_ID;
 
   if (!artifactName || !runId) {
-    throw new Error("Missing required parameters: ARTIFACT_NAME, RUN_ID");
+    throw new Error('Missing required parameters: ARTIFACT_NAME, RUN_ID');
   }
 
   const { owner, repo } = context.repo;

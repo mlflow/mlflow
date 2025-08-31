@@ -1,10 +1,10 @@
-import type { getOctokit } from "@actions/github";
-import type { context as ContextType } from "@actions/github";
-import type { components } from "@octokit/openapi-webhooks-types";
+import type { getOctokit } from '@actions/github';
+import type { context as ContextType } from '@actions/github';
+import type { components } from '@octokit/openapi-webhooks-types';
 
 type GitHub = ReturnType<typeof getOctokit>;
 type Context = typeof ContextType;
-type WorkflowDispatch = components["schemas"]["webhook-workflow-dispatch"];
+type WorkflowDispatch = components['schemas']['webhook-workflow-dispatch'];
 type ReleaseEvent = { release: { tag_name: string } };
 
 interface ReleaseInfo {
@@ -28,25 +28,25 @@ function extractReleaseInfo(context: Context): ReleaseInfo {
   let releaseVersion: string;
   let releaseTag: string;
 
-  if (context.eventName === "workflow_dispatch") {
+  if (context.eventName === 'workflow_dispatch') {
     // Manual trigger with version parameter
     const payload = context.payload as WorkflowDispatch;
     releaseVersion = payload.inputs?.release_version as string;
     if (!releaseVersion) {
-      throw new Error("release_version input is required for workflow_dispatch");
+      throw new Error('release_version input is required for workflow_dispatch');
     }
-    releaseTag = releaseVersion.startsWith("v") ? releaseVersion : `v${releaseVersion}`;
-    releaseVersion = releaseVersion.replace(/^v/, ""); // Remove 'v' prefix if present
+    releaseTag = releaseVersion.startsWith('v') ? releaseVersion : `v${releaseVersion}`;
+    releaseVersion = releaseVersion.replace(/^v/, ''); // Remove 'v' prefix if present
     console.log(`Processing manual workflow for release: ${releaseTag} (${releaseVersion})`);
   } else {
     // Automatic trigger from release event
     const payload = context.payload as ReleaseEvent;
     const release = payload.release;
     if (!release) {
-      throw new Error("Release information not found in payload");
+      throw new Error('Release information not found in payload');
     }
     releaseTag = release.tag_name;
-    releaseVersion = releaseTag.replace(/^v/, ""); // Remove 'v' prefix if present
+    releaseVersion = releaseTag.replace(/^v/, ''); // Remove 'v' prefix if present
     console.log(`Processing release event: ${releaseTag} (${releaseVersion})`);
   }
 
@@ -82,7 +82,7 @@ function extractReleaseInfo(context: Context): ReleaseInfo {
  */
 function extractPRNumberFromCommitMessage(commitMessage: string): number | null {
   const prRegex = /\(#(\d+)\)$/;
-  const lines = commitMessage.split("\n");
+  const lines = commitMessage.split('\n');
 
   for (const line of lines) {
     const match = line.trim().match(prRegex);
@@ -100,7 +100,7 @@ function extractPRNumberFromCommitMessage(commitMessage: string): number | null 
 async function extractPRNumbersFromBranch(
   github: GitHub,
   context: Context,
-  releaseBranch: string
+  releaseBranch: string,
 ): Promise<Set<number>> {
   const releasePRNumbers = new Set<number>();
 
@@ -123,13 +123,13 @@ async function extractPRNumbersFromBranch(
   } catch (error) {
     if (
       error instanceof Error &&
-      "status" in error &&
+      'status' in error &&
       (error as { status: number }).status === 404
     ) {
       console.log(
-        `Release branch '${releaseBranch}' not found. This may be expected for new releases.`
+        `Release branch '${releaseBranch}' not found. This may be expected for new releases.`,
       );
-      console.log("Skipping commit analysis - will update all PRs with the release label.");
+      console.log('Skipping commit analysis - will update all PRs with the release label.');
     } else {
       throw error;
     }
@@ -144,19 +144,19 @@ async function extractPRNumbersFromBranch(
 async function fetchPRsWithLabel(
   github: GitHub,
   context: Context,
-  releaseLabel: string
+  releaseLabel: string,
 ): Promise<Array<{ number: number; pull_request?: any; state: string }>> {
   const allIssues = await github.paginate(github.rest.issues.listForRepo, {
     owner: context.repo.owner,
     repo: context.repo.repo,
     labels: releaseLabel,
-    state: "all",
+    state: 'all',
   });
 
   const prsWithReleaseLabel = allIssues.filter((item) => {
     if (!item.pull_request) return false;
-    if (item.state === "open") return true;
-    if (item.state === "closed" && item.pull_request.merged_at) return true;
+    if (item.state === 'open') return true;
+    if (item.state === 'closed' && item.pull_request.merged_at) return true;
     return false;
   });
 
@@ -173,13 +173,13 @@ async function updatePRLabels(
   prsWithReleaseLabel: Array<{ number: number; pull_request?: any; state: string }>,
   releasePRNumbers: Set<number>,
   releaseLabel: string,
-  nextPatchLabel: string
+  nextPatchLabel: string,
 ): Promise<void> {
   const pullRequests = prsWithReleaseLabel.filter((item) => item.pull_request);
   console.log(
     `Processing ${pullRequests.length} PRs (filtered out ${
       prsWithReleaseLabel.length - pullRequests.length
-    } issues)`
+    } issues)`,
   );
 
   const prsToUpdate: number[] = [];
@@ -189,7 +189,7 @@ async function updatePRLabels(
     prsToUpdate.push(pr.number);
   }
 
-  console.log(`Found ${prsToUpdate.length} PRs that need label updates: ${prsToUpdate.join(", ")}`);
+  console.log(`Found ${prsToUpdate.length} PRs that need label updates: ${prsToUpdate.join(', ')}`);
 
   for (const prNumber of prsToUpdate) {
     try {
@@ -235,7 +235,7 @@ export async function updateReleaseLabels({
     const releasePRNumbers = await extractPRNumbersFromBranch(
       github,
       context,
-      releaseInfo.releaseBranch
+      releaseInfo.releaseBranch,
     );
 
     const prsWithReleaseLabel = await fetchPRsWithLabel(github, context, releaseInfo.releaseLabel);
@@ -246,7 +246,7 @@ export async function updateReleaseLabels({
       prsWithReleaseLabel,
       releasePRNumbers,
       releaseInfo.releaseLabel,
-      releaseInfo.nextPatchLabel
+      releaseInfo.nextPatchLabel,
     );
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
