@@ -13,7 +13,6 @@ from opentelemetry import metrics
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
-from opentelemetry.trace import StatusCode
 
 from mlflow.entities.span import SpanType
 from mlflow.tracing.constant import SpanAttributeKey
@@ -104,12 +103,7 @@ class OtelMetricsMixin:
         except (json.JSONDecodeError, TypeError):
             pass
 
-        # Get span status
-        status = "UNSET"
-        if span.status and span.status.status_code == StatusCode.OK:
-            status = "OK"
-        elif span.status and span.status.status_code == StatusCode.ERROR:
-            status = "ERROR"
+        status = span.status.status_code.name if span.status else "UNSET"
 
         attributes = {
             "root": str(is_root),
