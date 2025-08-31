@@ -104,45 +104,22 @@ class InstructionsJudge(Judge):
         fields = []
 
         if self._TEMPLATE_VARIABLE_INPUTS in self.template_variables:
-            fields.append(
-                JudgeField(
-                    name="inputs",
-                    description="Input dictionary to evaluate"
-                )
-            )
+            fields.append(JudgeField(name="inputs", description="Input dictionary to evaluate"))
 
         if self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables:
-            fields.append(
-                JudgeField(
-                    name="outputs",
-                    description="Output dictionary to evaluate"
-                )
-            )
+            fields.append(JudgeField(name="outputs", description="Output dictionary to evaluate"))
 
         if self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables:
             fields.append(
-                JudgeField(
-                    name="expectations",
-                    description="Expected outcomes or ground truth"
-                )
+                JudgeField(name="expectations", description="Expected outcomes or ground truth")
             )
 
         if self._TEMPLATE_VARIABLE_TRACE in self.template_variables:
-            fields.append(
-                JudgeField(
-                    name="trace",
-                    description="Trace to evaluate"
-                )
-            )
+            fields.append(JudgeField(name="trace", description="Trace to evaluate"))
 
         # Add custom template variables
         for var in self._custom_template_variables:
-            fields.append(
-                JudgeField(
-                    name=var,
-                    description=f"Custom variable: {var}"
-                )
-            )
+            fields.append(JudgeField(name=var, description=f"Custom variable: {var}"))
 
         return fields
 
