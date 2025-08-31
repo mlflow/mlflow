@@ -1428,26 +1428,27 @@ def test_update_current_trace():
     tags = {k: v for k, v in traces[0].info.tags.items() if not k.startswith("mlflow.")}
     assert tags == expected_tags
 
-    # Verify trace can be searched by span names
-    trace_by_root_span = mlflow.search_traces(
-        filter_string='span.name = "root_function"', return_type="list"
-    )
-    assert len(trace_by_root_span) == 1
+    # Verify trace can be searched by span names (only when database backend is available)
+    if not IS_TRACING_SDK_ONLY:
+        trace_by_root_span = mlflow.search_traces(
+            filter_string='span.name = "root_function"', return_type="list"
+        )
+        assert len(trace_by_root_span) == 1
 
-    trace_by_level_2_span = mlflow.search_traces(
-        filter_string='span.name = "level_2_span"', return_type="list"
-    )
-    assert len(trace_by_level_2_span) == 1
+        trace_by_level_2_span = mlflow.search_traces(
+            filter_string='span.name = "level_2_span"', return_type="list"
+        )
+        assert len(trace_by_level_2_span) == 1
 
-    trace_by_level_5_span = mlflow.search_traces(
-        filter_string='span.name = "level_5_span"', return_type="list"
-    )
-    assert len(trace_by_level_5_span) == 1
+        trace_by_level_5_span = mlflow.search_traces(
+            filter_string='span.name = "level_5_span"', return_type="list"
+        )
+        assert len(trace_by_level_5_span) == 1
 
-    # All searches should return the same trace
-    assert trace_by_root_span[0].info.request_id == trace.info.request_id
-    assert trace_by_level_2_span[0].info.request_id == trace.info.request_id
-    assert trace_by_level_5_span[0].info.request_id == trace.info.request_id
+        # All searches should return the same trace
+        assert trace_by_root_span[0].info.request_id == trace.info.request_id
+        assert trace_by_level_2_span[0].info.request_id == trace.info.request_id
+        assert trace_by_level_5_span[0].info.request_id == trace.info.request_id
 
 
 def test_update_current_trace_with_client_request_id():
