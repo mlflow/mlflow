@@ -9,7 +9,7 @@ from dataclasses import dataclass
 
 from mlflow.entities.trace import Trace
 from mlflow.genai.judges.tools.base import JudgeTool
-from mlflow.genai.judges.tools.pagination import create_page_token, parse_page_token
+from mlflow.genai.judges.tools.utils import create_page_token, parse_page_token
 from mlflow.types.llm import FunctionToolDefinition, ToolDefinition, ToolParamsSchema
 from mlflow.utils.annotations import experimental
 
