@@ -1,3 +1,5 @@
+import pytest
+
 from mlflow.entities.span import Span
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
@@ -191,3 +193,41 @@ def test_get_span_tool_invoke_with_pagination():
     # Verify the paginated content matches a complete fetch
     complete_result = tool.invoke(trace, span.span_id, max_content_length=len(all_content) + 1000)
     assert all_content == complete_result.content
+
+
+def test_get_span_tool_invoke_invalid_page_token():
+    """Test that invalid page tokens raise MlflowException."""
+    from mlflow.exceptions import MlflowException
+
+    tool = GetSpanTool()
+
+    otel_span = create_mock_otel_span(
+        trace_id=12345,
+        span_id=123,
+        name="test-span",
+        start_time=1000000000000,
+        end_time=1000001000000,
+    )
+    span = Span(otel_span)
+
+    trace_data = TraceData(spans=[span])
+    trace_info = TraceInfo(
+        trace_id="trace-123",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=1234567890,
+        state=TraceState.OK,
+        execution_duration=250,
+    )
+    trace = Trace(info=trace_info, data=trace_data)
+
+    # Test with invalid string token - should raise exception
+    with pytest.raises(
+        MlflowException, match="Invalid page_token 'invalid': must be a valid integer"
+    ):
+        tool.invoke(trace, span.span_id, page_token="invalid")
+
+    # Test with non-string invalid token - should raise exception
+    with pytest.raises(
+        MlflowException, match="Invalid page_token '\\[\\]': must be a valid integer"
+    ):
+        tool.invoke(trace, span.span_id, page_token=[])
