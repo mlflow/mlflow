@@ -53,14 +53,6 @@ repos:
         entry: mypy
         require_serial: true
 
-      - id: taplo
-        name: taplo
-        entry: dev/taplo.sh
-        language: system
-        files: '\.toml$'
-        stages: [pre-commit]
-        require_serial: true
-
       - id: blacken-docs
         name: blacken-docs
         entry: blacken-docs
@@ -74,6 +66,22 @@ repos:
         entry: clint
         language: system
         files: '\.(py|ipynb|rst|mdx?)$'
+        stages: [pre-commit]
+        require_serial: true
+
+      - id: install-bin
+        name: install-bin
+        entry: python bin/install.py
+        language: system
+        stages: [pre-commit]
+        require_serial: true
+        pass_filenames: false
+
+      - id: taplo
+        name: taplo
+        entry: bin/taplo format
+        language: system
+        files: '\.toml$'
         stages: [pre-commit]
         require_serial: true
 
@@ -118,7 +126,7 @@ repos:
 
       - id: typos
         name: typos
-        entry: dev/typos.sh
+        entry: bin/typos --format brief --force-exclude --color never
         files: '\.(py$|mdx?$)'
         language: system
         stages: [pre-commit]
@@ -126,7 +134,7 @@ repos:
 
       - id: conftest
         name: conftest
-        entry: conftest test --policy .github/policy.rego
+        entry: bin/conftest test --policy .github/policy.rego
         files: '^\.github/(workflows|actions)/.*\.ya?ml$'
         exclude: '^\.github/workflows/copilot-setup-steps\.yml$'
         language: system
