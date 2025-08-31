@@ -14,5 +14,4 @@ class ToolNames:
     """Registry of judge tool names."""
 
     GET_TRACE_INFO = "get_trace_info"
-    LIST_SPANS = "list_spans"
     GET_SPAN = "get_span"

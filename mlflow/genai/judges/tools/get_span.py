@@ -9,6 +9,7 @@ from dataclasses import dataclass
 
 from mlflow.entities.trace import Trace
 from mlflow.genai.judges.tools.base import JudgeTool
+from mlflow.genai.judges.tools.pagination import create_page_token, parse_page_token
 from mlflow.types.llm import FunctionToolDefinition, ToolDefinition, ToolParamsSchema
 from mlflow.utils.annotations import experimental
 
@@ -61,8 +62,8 @@ class GetSpanTool(JudgeTool):
                             "description": (
                                 "List of specific attributes to fetch from the span. If specified, "
                                 "only these attributes will be returned. If not specified, all "
-                                "attributes are returned. Use list_spans first to see available "
-                                "attribute names, then select only the relevant ones."
+                                "attributes are returned. It is recommended to use list_spans "
+                                "first to see available attribute names, then select relevant ones."
                             ),
                         },
                         "max_content_length": {
@@ -122,12 +123,7 @@ class GetSpanTool(JudgeTool):
             )
 
         # Parse page token to get offset
-        offset = 0
-        if page_token:
-            try:
-                offset = int(page_token)
-            except (ValueError, TypeError):
-                offset = 0
+        offset = parse_page_token(page_token)
 
         # Get span data and filter attributes if requested
         span_dict = target_span.to_dict()
@@ -149,7 +145,7 @@ class GetSpanTool(JudgeTool):
         content_chunk = full_content[offset:end_offset]
 
         # Determine if there's more content
-        next_page_token = str(end_offset) if end_offset < total_size else None
+        next_page_token = create_page_token(end_offset) if end_offset < total_size else None
 
         return GetSpanResult(
             span_id=target_span.span_id,
