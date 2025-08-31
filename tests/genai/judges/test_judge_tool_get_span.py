@@ -4,7 +4,7 @@ from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
-from mlflow.genai.judges.tools.get_span import GetSpanResult, GetSpanTool
+from mlflow.genai.judges.tools.get_span import GetSpanTool, SpanResult
 from mlflow.types.llm import ToolDefinition
 
 from tests.tracing.helper import create_mock_otel_span
@@ -51,7 +51,7 @@ def test_get_span_tool_invoke_success():
 
     result = tool.invoke(trace, span.span_id)
 
-    assert isinstance(result, GetSpanResult)
+    assert isinstance(result, SpanResult)
     assert result.span_id == span.span_id
     assert result.content is not None
     assert result.error is None
@@ -82,7 +82,7 @@ def test_get_span_tool_invoke_span_not_found():
 
     result = tool.invoke(trace, "nonexistent-span")
 
-    assert isinstance(result, GetSpanResult)
+    assert isinstance(result, SpanResult)
     assert result.span_id is None
     assert result.content is None
     assert result.error == "Span with ID 'nonexistent-span' not found in trace"
@@ -103,7 +103,7 @@ def test_get_span_tool_invoke_no_spans():
 
     result = tool.invoke(trace, "span-123")
 
-    assert isinstance(result, GetSpanResult)
+    assert isinstance(result, SpanResult)
     assert result.span_id is None
     assert result.content is None
     assert result.error == "Trace has no spans"
@@ -136,7 +136,7 @@ def test_get_span_tool_invoke_with_attributes_filter():
 
     result = tool.invoke(trace, span.span_id, attributes_to_fetch=["key1", "key3"])
 
-    assert isinstance(result, GetSpanResult)
+    assert isinstance(result, SpanResult)
     assert result.span_id == span.span_id
     assert result.content is not None
     assert "key1" in result.content
@@ -175,7 +175,7 @@ def test_get_span_tool_invoke_with_pagination():
     while iterations < max_iterations:
         result = tool.invoke(trace, span.span_id, max_content_length=1000, page_token=page_token)
 
-        assert isinstance(result, GetSpanResult)
+        assert isinstance(result, SpanResult)
         assert result.span_id == span.span_id
         assert result.content is not None
         assert result.error is None
@@ -188,7 +188,6 @@ def test_get_span_tool_invoke_with_pagination():
         page_token = result.page_token
         iterations += 1
 
-    # Verify the complete content contains the large attribute
-    assert "large_data" in all_content
-    assert "x" * 50000 in all_content
-    assert "test-span-with-long-content" in all_content
+    # Verify the paginated content matches a complete fetch
+    complete_result = tool.invoke(trace, span.span_id, max_content_length=len(all_content) + 1000)
+    assert all_content == complete_result.content

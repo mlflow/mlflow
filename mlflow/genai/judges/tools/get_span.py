@@ -16,7 +16,7 @@ from mlflow.utils.annotations import experimental
 
 @experimental(version="3.4.0")
 @dataclass
-class GetSpanResult:
+class SpanResult:
     """Result from getting a span."""
 
     span_id: str | None
@@ -88,7 +88,7 @@ class GetSpanTool(JudgeTool):
         attributes_to_fetch: list[str] | None = None,
         max_content_length: int = 100000,
         page_token: str | None = None,
-    ) -> GetSpanResult:
+    ) -> SpanResult:
         """
         Get a specific span by ID from the trace.
 
@@ -100,10 +100,10 @@ class GetSpanTool(JudgeTool):
             page_token: Token to retrieve the next page (offset in bytes)
 
         Returns:
-            GetSpanResult with the span content as JSON string
+            SpanResult with the span content as JSON string
         """
         if not trace or not trace.data or not trace.data.spans:
-            return GetSpanResult(
+            return SpanResult(
                 span_id=None, content=None, content_size_bytes=0, error="Trace has no spans"
             )
 
@@ -114,7 +114,7 @@ class GetSpanTool(JudgeTool):
                 break
 
         if not target_span:
-            return GetSpanResult(
+            return SpanResult(
                 span_id=None,
                 content=None,
                 content_size_bytes=0,
@@ -136,7 +136,7 @@ class GetSpanTool(JudgeTool):
         content_chunk = full_content[start_offset:end_offset]
         next_page_token = create_page_token(end_offset) if end_offset < total_size else None
 
-        return GetSpanResult(
+        return SpanResult(
             span_id=target_span.span_id,
             content=content_chunk,
             content_size_bytes=len(content_chunk.encode("utf-8")),
