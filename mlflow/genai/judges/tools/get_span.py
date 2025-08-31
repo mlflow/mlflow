@@ -121,10 +121,7 @@ class GetSpanTool(JudgeTool):
                 error=f"Span with ID '{span_id}' not found in trace",
             )
 
-        offset = parse_page_token(page_token)
-
         span_dict = target_span.to_dict()
-
         if attributes_to_fetch is not None and span_dict.get("attributes"):
             filtered_attributes = {}
             for attr in attributes_to_fetch:
@@ -134,10 +131,9 @@ class GetSpanTool(JudgeTool):
 
         full_content = json.dumps(span_dict, default=str, indent=2)
         total_size = len(full_content.encode("utf-8"))
-
-        end_offset = min(offset + max_content_length, total_size)
-        content_chunk = full_content[offset:end_offset]
-
+        start_offset = parse_page_token(page_token)
+        end_offset = min(start_offset + max_content_length, total_size)
+        content_chunk = full_content[start_offset:end_offset]
         next_page_token = create_page_token(end_offset) if end_offset < total_size else None
 
         return GetSpanResult(
