@@ -87,7 +87,6 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
         Args:
             span: An OpenTelemetry ReadableSpan object that is ended.
         """
-        # Handle metrics logging if enabled
         if self._export_metrics:
             self.record_metrics_for_span(span)
 
