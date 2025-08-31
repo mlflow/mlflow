@@ -61,7 +61,7 @@ jobs:
       - name: Install pre-commit hooks
         run: |
           pre-commit install --install-hooks
-          pre-commit run install-bin --all-files
+          pre-commit run install-bin
       - name: Run pre-commit
         id: pre-commit
         env:
