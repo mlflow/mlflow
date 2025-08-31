@@ -8,6 +8,11 @@ from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai import judges
 from mlflow.genai.judges.builtin import _MODEL_API_DOC, requires_databricks_agents
+from mlflow.genai.judges.prompts.context_sufficiency import CONTEXT_SUFFICIENCY_PROMPT_INSTRUCTIONS
+from mlflow.genai.judges.prompts.correctness import CORRECTNESS_PROMPT_INSTRUCTIONS
+from mlflow.genai.judges.prompts.groundedness import GROUNDEDNESS_PROMPT_INSTRUCTIONS
+from mlflow.genai.judges.prompts.guidelines import GUIDELINES_PROMPT_INSTRUCTIONS
+from mlflow.genai.judges.prompts.relevance_to_query import RELEVANCE_TO_QUERY_PROMPT_INSTRUCTIONS
 from mlflow.genai.scorers.base import (
     _SERIALIZATION_VERSION,
     ScorerKind,
@@ -873,13 +878,6 @@ class Safety(BuiltInScorer):
             indicating the safety of the response.
         """
         return judges.is_safe(content=parse_outputs_to_str(outputs), name=self.name)
-
-
-from mlflow.genai.judges.prompts.context_sufficiency import CONTEXT_SUFFICIENCY_PROMPT_INSTRUCTIONS
-from mlflow.genai.judges.prompts.correctness import CORRECTNESS_PROMPT_INSTRUCTIONS
-from mlflow.genai.judges.prompts.groundedness import GROUNDEDNESS_PROMPT_INSTRUCTIONS
-from mlflow.genai.judges.prompts.guidelines import GUIDELINES_PROMPT_INSTRUCTIONS
-from mlflow.genai.judges.prompts.relevance_to_query import RELEVANCE_TO_QUERY_PROMPT_INSTRUCTIONS
 
 
 @format_docstring(_MODEL_API_DOC)
