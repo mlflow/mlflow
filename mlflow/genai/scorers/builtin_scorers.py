@@ -44,7 +44,7 @@ def _validate_tracking_uri_is_databricks(scorer_name: str) -> None:
         )
 
 
-from mlflow.genai.judges.base import Judge
+from mlflow.genai.judges.base import Judge, JudgeField
 
 
 class BuiltInScorer(Judge):
@@ -168,6 +168,24 @@ class RetrievalRelevance(BuiltInScorer):
         """Get the instructions of what this scorer evaluates."""
         return "Evaluates whether each retrieved context chunk is relevant to the input request."
 
+    def get_input_fields(self) -> list[JudgeField]:
+        """
+        Get the input fields for the RetrievalRelevance judge.
+
+        Returns:
+            List of JudgeField objects defining the input fields based on the __call__ method.
+        """
+        return [
+            JudgeField(
+                name="trace",
+                description=(
+                    "The trace of the model's execution. Must contains at least one span with "
+                    "type `RETRIEVER`. MLflow will extract the retrieved context from that span. "
+                    "If multiple spans are found, MLflow will use the **last** one."
+                ),
+            ),
+        ]
+
     def __call__(self, *, trace: Trace) -> Feedback:
         """
         Evaluate chunk relevance for each context chunk.
@@ -261,10 +279,32 @@ class RetrievalSufficiency(BuiltInScorer):
     @property
     def instructions(self) -> str:
         """Get the instructions of what this scorer evaluates."""
-        return (
-            "Evaluates whether retrieved documents provide all necessary information to "
-            "generate the expected response."
-        )
+        return CONTEXT_SUFFICIENCY_PROMPT_INSTRUCTIONS
+
+    def get_input_fields(self) -> list[JudgeField]:
+        """
+        Get the input fields for the RetrievalSufficiency judge.
+
+        Returns:
+            List of JudgeField objects defining the input fields based on the __call__ method.
+        """
+        return [
+            JudgeField(
+                name="trace",
+                description=(
+                    "The trace of the model's execution. Must contain at least one span with "
+                    "type `RETRIEVER`. MLflow will extract the retrieved context from that span. "
+                    "If multiple spans are found, MLflow will use the **last** one."
+                ),
+            ),
+            JudgeField(
+                name="expectations",
+                description=(
+                    "A dictionary of expectations for the response. This must contain either "
+                    "`expected_response` or `expected_facts` key (optional)."
+                ),
+            ),
+        ]
 
     def validate_columns(self, columns: set[str]) -> None:
         super().validate_columns(columns)
@@ -362,10 +402,25 @@ class RetrievalGroundedness(BuiltInScorer):
     @property
     def instructions(self) -> str:
         """Get the instructions of what this scorer evaluates."""
-        return (
-            "Assesses whether the agent's response is aligned with the information in the "
-            "retrieved context."
-        )
+        return GROUNDEDNESS_PROMPT_INSTRUCTIONS
+
+    def get_input_fields(self) -> list[JudgeField]:
+        """
+        Get the input fields for the RetrievalGroundedness judge.
+
+        Returns:
+            List of JudgeField objects defining the input fields based on the __call__ method.
+        """
+        return [
+            JudgeField(
+                name="trace",
+                description=(
+                    "The trace of the model's execution. Must contains at least one span with "
+                    "type `RETRIEVER`. MLflow will extract the retrieved context from that span. "
+                    "If multiple spans are found, MLflow will use the **last** one."
+                ),
+            ),
+        ]
 
     def __call__(self, *, trace: Trace) -> list[Feedback]:
         """
@@ -471,9 +526,28 @@ class Guidelines(BuiltInScorer):
     @property
     def instructions(self) -> str:
         """Get the instructions of what this scorer evaluates."""
-        return (
-            "Evaluates whether the agent's response follows specific constraints or instructions."
-        )
+        return GUIDELINES_PROMPT_INSTRUCTIONS
+
+    def get_input_fields(self) -> list[JudgeField]:
+        """
+        Get the input fields for the Guidelines judge.
+
+        Returns:
+            List of JudgeField objects defining the input fields based on the __call__ method.
+        """
+        return [
+            JudgeField(
+                name="inputs",
+                description=(
+                    "A dictionary of input data, e.g. "
+                    "{'question': 'What is the capital of France?'}."
+                ),
+            ),
+            JudgeField(
+                name="outputs",
+                description="The response from the model, e.g. 'The capital of France is Paris.'",
+            ),
+        ]
 
     def __call__(
         self,
@@ -557,6 +631,34 @@ class ExpectationsGuidelines(BuiltInScorer):
     def instructions(self) -> str:
         """Get the instructions of what this scorer evaluates."""
         return "Evaluates adherence to per-example guidelines provided in the expectations column."
+
+    def get_input_fields(self) -> list[JudgeField]:
+        """
+        Get the input fields for the ExpectationsGuidelines judge.
+
+        Returns:
+            List of JudgeField objects defining the input fields based on the __call__ method.
+        """
+        return [
+            JudgeField(
+                name="inputs",
+                description=(
+                    "A dictionary of input data, e.g. "
+                    "{'question': 'What is the capital of France?'}."
+                ),
+            ),
+            JudgeField(
+                name="outputs",
+                description="The response from the model, e.g. 'The capital of France is Paris.'",
+            ),
+            JudgeField(
+                name="expectations",
+                description=(
+                    "A dictionary containing guidelines for evaluation. "
+                    "Must contain a 'guidelines' key (optional)."
+                ),
+            ),
+        ]
 
     def validate_columns(self, columns: set[str]) -> None:
         super().validate_columns(columns)
@@ -653,7 +755,28 @@ class RelevanceToQuery(BuiltInScorer):
     @property
     def instructions(self) -> str:
         """Get the instructions of what this scorer evaluates."""
-        return "Ensures the agent's response directly addresses the user's input without deviating."
+        return RELEVANCE_TO_QUERY_PROMPT_INSTRUCTIONS
+
+    def get_input_fields(self) -> list[JudgeField]:
+        """
+        Get the input fields for the RelevanceToQuery judge.
+
+        Returns:
+            List of JudgeField objects defining the input fields based on the __call__ method.
+        """
+        return [
+            JudgeField(
+                name="inputs",
+                description=(
+                    "A dictionary of input data, e.g. "
+                    "{'question': 'What is the capital of France?'}."
+                ),
+            ),
+            JudgeField(
+                name="outputs",
+                description="The response from the model, e.g. 'The capital of France is Paris.'",
+            ),
+        ]
 
     def __call__(self, *, inputs: dict[str, Any], outputs: Any) -> Feedback:
         """
@@ -720,6 +843,20 @@ class Safety(BuiltInScorer):
         """Get the instructions of what this scorer evaluates."""
         return "Ensures responses do not contain harmful, offensive, or toxic content."
 
+    def get_input_fields(self) -> list[JudgeField]:
+        """
+        Get the input fields for the Safety judge.
+
+        Returns:
+            List of JudgeField objects defining the input fields based on the __call__ method.
+        """
+        return [
+            JudgeField(
+                name="outputs",
+                description="The response from the model, e.g. 'The capital of France is Paris.'",
+            ),
+        ]
+
     def __init__(self, /, **kwargs):
         _validate_tracking_uri_is_databricks("Safety")
         super().__init__(**kwargs)
@@ -736,6 +873,13 @@ class Safety(BuiltInScorer):
             indicating the safety of the response.
         """
         return judges.is_safe(content=parse_outputs_to_str(outputs), name=self.name)
+
+
+from mlflow.genai.judges.prompts.context_sufficiency import CONTEXT_SUFFICIENCY_PROMPT_INSTRUCTIONS
+from mlflow.genai.judges.prompts.correctness import CORRECTNESS_PROMPT_INSTRUCTIONS
+from mlflow.genai.judges.prompts.groundedness import GROUNDEDNESS_PROMPT_INSTRUCTIONS
+from mlflow.genai.judges.prompts.guidelines import GUIDELINES_PROMPT_INSTRUCTIONS
+from mlflow.genai.judges.prompts.relevance_to_query import RELEVANCE_TO_QUERY_PROMPT_INSTRUCTIONS
 
 
 @format_docstring(_MODEL_API_DOC)
@@ -809,10 +953,7 @@ class Correctness(BuiltInScorer):
     @property
     def instructions(self) -> str:
         """Get the instructions of what this scorer evaluates."""
-        return (
-            "Ensures the agent's responses are correct and accurate against expected facts or "
-            "responses."
-        )
+        return CORRECTNESS_PROMPT_INSTRUCTIONS
 
     def validate_columns(self, columns: set[str]) -> None:
         super().validate_columns(columns)
@@ -824,6 +965,36 @@ class Correctness(BuiltInScorer):
                 self.name,
                 ["expectations/expected_response or expectations/expected_facts"],
             )
+
+    def get_input_fields(self) -> list[JudgeField]:
+        """
+        Get the input fields for the Correctness judge.
+
+        Returns:
+            List of JudgeField objects defining the input fields based on the __call__ method.
+        """
+        return [
+            JudgeField(
+                name="inputs",
+                description=(
+                    "A dictionary of input data, e.g. "
+                    "{'question': 'What is the capital of France?'}."
+                ),
+            ),
+            JudgeField(
+                name="outputs",
+                description="The response from the model, e.g. 'The capital of France is Paris.'",
+            ),
+            JudgeField(
+                name="expectations",
+                description=(
+                    "A dictionary of expectations for the response. This must contain either "
+                    "`expected_response` or `expected_facts` key, which is used to evaluate the "
+                    "response against the expected response or facts respectively. "
+                    "E.g., {'expected_facts': ['Paris', 'France', 'Capital']}"
+                ),
+            ),
+        ]
 
     def __call__(
         self, *, inputs: dict[str, Any], outputs: Any, expectations: dict[str, Any]

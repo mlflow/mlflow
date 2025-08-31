@@ -676,10 +676,6 @@ def test_builtin_scorer_instructions_preserved_through_serialization():
     scorer = Guidelines(name="test_guidelines", guidelines=["Be helpful"])
 
     original_instructions = scorer.instructions
-    assert (
-        original_instructions
-        == "Evaluates whether the agent's response follows specific constraints or instructions."
-    )
 
     serialized = scorer.model_dump()
     assert "builtin_scorer_pydantic_data" in serialized

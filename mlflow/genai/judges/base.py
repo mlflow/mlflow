@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
+from pydantic import BaseModel, Field
+
 from mlflow.entities.trace import Trace
 from mlflow.genai.scorers.base import Scorer
 from mlflow.utils.annotations import experimental
@@ -30,6 +32,17 @@ class AlignmentOptimizer(ABC):
         """
 
 
+class JudgeField(BaseModel):
+    """
+    Represents a field definition for judges with name and description.
+
+    Used to define input and output fields for judge evaluation signatures.
+    """
+
+    name: str = Field(..., description="Name of the field")
+    description: str = Field(..., description="Description of what the field represents")
+
+
 @experimental(version="3.4.0")
 class Judge(Scorer):
     """
@@ -45,6 +58,29 @@ class Judge(Scorer):
         """
         Plain text instructions of what this judge evaluates.
         """
+
+    @abstractmethod
+    def get_input_fields(self) -> list[JudgeField]:
+        """
+        Get the input fields for this judge.
+
+        Returns:
+            List of JudgeField objects defining the input fields.
+        """
+
+    @classmethod
+    def get_output_fields(cls) -> list[JudgeField]:
+        """
+        Get the standard output fields used by all judges.
+        This is the source of truth for judge output field definitions.
+
+        Returns:
+            List of JudgeField objects defining the standard output fields.
+        """
+        return [
+            JudgeField(name="result", description="The evaluation rating/result"),
+            JudgeField(name="rationale", description="Detailed explanation for the evaluation"),
+        ]
 
     @experimental(version="3.4.0")
     def align(self, optimizer: AlignmentOptimizer, traces: list[Trace]) -> Judge:
