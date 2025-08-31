@@ -20,9 +20,9 @@ class GetSpanResult:
     """Result from getting a span."""
 
     span_id: str | None
-    content: str | None  # JSON string of span content (may be truncated)
+    content: str | None
     content_size_bytes: int
-    page_token: str | None = None  # Token to get next page if content was truncated
+    page_token: str | None = None
     error: str | None = None
 
 
@@ -107,7 +107,6 @@ class GetSpanTool(JudgeTool):
                 span_id=None, content=None, content_size_bytes=0, error="Trace has no spans"
             )
 
-        # Find the span with the given ID
         target_span = None
         for span in trace.data.spans:
             if span.span_id == span_id:
@@ -122,29 +121,23 @@ class GetSpanTool(JudgeTool):
                 error=f"Span with ID '{span_id}' not found in trace",
             )
 
-        # Parse page token to get offset
         offset = parse_page_token(page_token)
 
-        # Get span data and filter attributes if requested
         span_dict = target_span.to_dict()
 
         if attributes_to_fetch is not None and span_dict.get("attributes"):
-            # Filter to only requested attributes
             filtered_attributes = {}
             for attr in attributes_to_fetch:
                 if attr in span_dict["attributes"]:
                     filtered_attributes[attr] = span_dict["attributes"][attr]
             span_dict["attributes"] = filtered_attributes
 
-        # Convert to JSON
         full_content = json.dumps(span_dict, default=str, indent=2)
         total_size = len(full_content.encode("utf-8"))
 
-        # Get the chunk for this page
         end_offset = min(offset + max_content_length, total_size)
         content_chunk = full_content[offset:end_offset]
 
-        # Determine if there's more content
         next_page_token = create_page_token(end_offset) if end_offset < total_size else None
 
         return GetSpanResult(

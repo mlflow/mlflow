@@ -167,10 +167,32 @@ def test_get_span_tool_invoke_with_pagination():
     )
     trace = Trace(info=trace_info, data=trace_data)
 
-    result = tool.invoke(trace, span.span_id, max_content_length=1000)
+    # Fetch all content by paginating through all pages
+    all_content = ""
+    page_token = None
+    max_iterations = 100  # Safety limit to prevent infinite loops
+    iterations = 0
 
-    assert isinstance(result, GetSpanResult)
-    assert result.span_id == span.span_id
-    assert result.content is not None
-    assert len(result.content) <= 1000
-    assert result.page_token is not None
+    while iterations < max_iterations:
+        result = tool.invoke(trace, span.span_id, max_content_length=1000, page_token=page_token)
+
+        assert isinstance(result, GetSpanResult)
+        assert result.span_id == span.span_id
+        assert result.content is not None
+        assert result.error is None
+
+        all_content += result.content
+
+        if result.page_token is None:
+            break
+
+        page_token = result.page_token
+        iterations += 1
+
+    # Verify we didn't hit the safety limit
+    assert iterations < max_iterations, "Pagination loop exceeded safety limit"
+
+    # Verify the complete content contains the large attribute
+    assert "large_data" in all_content
+    assert "x" * 50000 in all_content
+    assert "test-span-with-long-content" in all_content
