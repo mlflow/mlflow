@@ -58,12 +58,6 @@
     }
   },
 
-  // Prettier configuration (matches mlflow/server/js/prettier.config.js)
-  "prettier.printWidth": 120,
-  "prettier.singleQuote": true,
-  "prettier.trailingComma": "all",
-  "prettier.tabWidth": 2,
-
   // ESLint configuration
   "eslint.workingDirectories": ["./mlflow/server/js"],
   "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
