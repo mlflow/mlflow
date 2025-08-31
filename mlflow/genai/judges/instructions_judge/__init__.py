@@ -119,8 +119,7 @@ class InstructionsJudge(Judge):
     @property
     def instructions(self) -> str:
         """Get the instructions of this judge."""
-        header = f"Instructions-based judge: {self.name}"
-        return f"{header}\n\nInstructions:\n-------------\n\n{self._instructions}"
+        return self._instructions
 
     def get_input_fields(self) -> list[JudgeField]:
         """
