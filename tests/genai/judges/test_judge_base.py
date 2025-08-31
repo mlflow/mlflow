@@ -5,6 +5,7 @@ import pytest
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
 from mlflow.genai.judges import Judge
+from mlflow.genai.judges.base import JudgeField
 from mlflow.genai.scorers.base import Scorer
 
 
@@ -18,6 +19,15 @@ class MockJudgeImplementation(Judge):
         if self._custom_instructions:
             return self._custom_instructions
         return f"Mock judge implementation: {self.name}"
+
+    def get_input_fields(self) -> list[JudgeField]:
+        """Get input fields for mock judge."""
+        return [
+            JudgeField(name="inputs", description="Input data for evaluation"),
+            JudgeField(name="outputs", description="Output data for evaluation"),
+            JudgeField(name="expectations", description="Expected outcomes"),
+            JudgeField(name="trace", description="Trace for evaluation"),
+        ]
 
     def __call__(
         self,
@@ -67,6 +77,12 @@ def test_judge_factory_pattern():
             @property
             def instructions(self) -> str:
                 return instructions
+
+            def get_input_fields(self) -> list[JudgeField]:
+                """Get input fields for dynamic judge."""
+                return [
+                    JudgeField(name="outputs", description="Output to evaluate"),
+                ]
 
             def __call__(self, **kwargs):
                 return Feedback(name=self.name, value="pass", rationale=f"Evaluated by {self.name}")

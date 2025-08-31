@@ -100,7 +100,11 @@ def test_make_judge_creates_instructions_judge():
 
     assert isinstance(judge, InstructionsJudge)
     assert judge.name == "test_judge"
-    assert judge.instructions == "Check if {{text}} is formal"
+    expected_instructions = (
+        "Instructions-based judge: test_judge\n\nInstructions:\n-------------\n\n"
+        "Check if {{text}} is formal"
+    )
+    assert judge.instructions == expected_instructions
     assert judge.model == "openai:/gpt-4"
 
 

@@ -5,7 +5,7 @@ from pydantic import PrivateAttr
 
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.exceptions import MlflowException
-from mlflow.genai.judges.base import Judge
+from mlflow.genai.judges.base import Judge, JudgeField
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils import format_prompt, get_default_model, invoke_judge_model
 from mlflow.genai.scorers.base import ScorerKind
@@ -93,6 +93,58 @@ class InstructionsJudge(Judge):
         """Get the instructions of this judge."""
         header = f"Instructions-based judge: {self.name}"
         return f"{header}\n\nInstructions:\n-------------\n\n{self._instructions}"
+
+    def get_input_fields(self) -> list[JudgeField]:
+        """
+        Get the input fields for this judge based on the template variables.
+
+        Returns:
+            List of JudgeField objects defining the input fields.
+        """
+        fields = []
+
+        if self._TEMPLATE_VARIABLE_INPUTS in self.template_variables:
+            fields.append(
+                JudgeField(
+                    name="inputs",
+                    description="Input dictionary to evaluate"
+                )
+            )
+
+        if self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables:
+            fields.append(
+                JudgeField(
+                    name="outputs",
+                    description="Output dictionary to evaluate"
+                )
+            )
+
+        if self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables:
+            fields.append(
+                JudgeField(
+                    name="expectations",
+                    description="Expected outcomes or ground truth"
+                )
+            )
+
+        if self._TEMPLATE_VARIABLE_TRACE in self.template_variables:
+            fields.append(
+                JudgeField(
+                    name="trace",
+                    description="Trace to evaluate"
+                )
+            )
+
+        # Add custom template variables
+        for var in self._custom_template_variables:
+            fields.append(
+                JudgeField(
+                    name=var,
+                    description=f"Custom variable: {var}"
+                )
+            )
+
+        return fields
 
     def __call__(
         self,
