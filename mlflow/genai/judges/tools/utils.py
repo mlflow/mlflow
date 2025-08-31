@@ -5,6 +5,8 @@ This module contains utility functions and classes used across
 different judge tool implementations.
 """
 
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
 
 
@@ -31,12 +33,18 @@ def parse_page_token(page_token: str | None) -> int:
         page_token: The page token string to parse, or None
 
     Returns:
-        The offset value, or 0 if token is None or invalid
+        The offset value, or 0 if token is None
+
+    Raises:
+        MlflowException: If page_token is invalid
     """
-    if not page_token:
+    if page_token is None:
         return 0
 
     try:
         return int(page_token)
-    except (ValueError, TypeError):
-        return 0
+    except (ValueError, TypeError) as e:
+        raise MlflowException(
+            f"Invalid page_token '{page_token}': must be a valid integer",
+            error_code=INVALID_PARAMETER_VALUE,
+        ) from e

@@ -144,15 +144,19 @@ def test_list_spans_tool_invoke_with_pagination(mock_trace_with_spans):
 
 
 def test_list_spans_tool_invoke_invalid_page_token(mock_trace_with_spans):
-    """Test that invalid page tokens default to start from beginning."""
+    """Test that invalid page tokens raise MlflowException."""
+    from mlflow.exceptions import MlflowException
+
     tool = ListSpansTool()
 
-    # Test with invalid string token - should start from beginning
-    result = tool.invoke(mock_trace_with_spans, page_token="invalid")
-    assert len(result.spans) == 2
-    assert result.spans[0].name == "root_span"
+    # Test with invalid string token - should raise exception
+    with pytest.raises(
+        MlflowException, match="Invalid page_token 'invalid': must be a valid integer"
+    ):
+        tool.invoke(mock_trace_with_spans, page_token="invalid")
 
-    # Test with non-string invalid token - should start from beginning
-    result = tool.invoke(mock_trace_with_spans, page_token=[])
-    assert len(result.spans) == 2
-    assert result.spans[0].name == "root_span"
+    # Test with non-string invalid token - should raise exception
+    with pytest.raises(
+        MlflowException, match="Invalid page_token '\\[\\]': must be a valid integer"
+    ):
+        tool.invoke(mock_trace_with_spans, page_token=[])
