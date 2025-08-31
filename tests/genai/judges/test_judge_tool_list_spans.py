@@ -79,29 +79,29 @@ def test_list_spans_tool_invoke_success(mock_trace_with_spans):
     assert span2.duration_ms == 300.0  # 0.3 seconds
 
 
-@pytest.mark.parametrize(
-    ("trace_input", "test_name"),
-    [
-        (None, "none_trace"),
-        ("empty_trace", "empty_trace"),
-    ],
-)
-def test_list_spans_tool_invoke_empty_cases(trace_input, test_name):
-    """Test that the tool handles empty cases (None trace or no spans)."""
+def test_list_spans_tool_invoke_none_trace():
+    """Test that the tool handles None trace gracefully."""
     tool = ListSpansTool()
+    result = tool.invoke(None)
 
-    # Handle the empty trace case by creating it inline
-    if trace_input == "empty_trace":
-        trace_info = TraceInfo(
-            trace_id="empty-trace",
-            trace_location=TraceLocation.from_experiment_id("0"),
-            request_time=1234567890,
-            state=TraceState.OK,
-        )
-        trace_data = TraceData(request="{}", response="{}", spans=[])
-        trace_input = Trace(info=trace_info, data=trace_data)
+    assert isinstance(result, ListSpansResult)
+    assert len(result.spans) == 0
+    assert result.next_page_token is None
 
-    result = tool.invoke(trace_input)
+
+def test_list_spans_tool_invoke_empty_trace():
+    """Test that the tool handles traces with no spans."""
+    trace_info = TraceInfo(
+        trace_id="empty-trace",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=1234567890,
+        state=TraceState.OK,
+    )
+    trace_data = TraceData(request="{}", response="{}", spans=[])
+    empty_trace = Trace(info=trace_info, data=trace_data)
+
+    tool = ListSpansTool()
+    result = tool.invoke(empty_trace)
 
     assert isinstance(result, ListSpansResult)
     assert len(result.spans) == 0
