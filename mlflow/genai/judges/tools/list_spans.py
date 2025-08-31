@@ -9,7 +9,9 @@ from dataclasses import dataclass
 
 from mlflow.entities.span_status import SpanStatus
 from mlflow.entities.trace import Trace
+from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.tools.base import JudgeTool
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types.llm import (
     FunctionToolDefinition,
     ParamProperty,
@@ -110,9 +112,6 @@ class ListSpansTool(JudgeTool):
             try:
                 start_index = int(page_token)
             except (ValueError, TypeError) as e:
-                from mlflow.exceptions import MlflowException
-                from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-
                 raise MlflowException(
                     f"Invalid page_token '{page_token}': must be a valid integer",
                     error_code=INVALID_PARAMETER_VALUE,
