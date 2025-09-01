@@ -36,30 +36,6 @@ class SearchTraceRegexResult:
     error: str | None = None
 
 
-def _create_regex_match(match, text: str, span_id: str = "trace") -> RegexMatch:
-    """Create a RegexMatch with surrounding context from a regex match object."""
-    matched_text = match.group()
-    start, end = match.span()
-
-    # Get surrounding context (100 chars before and after)
-    context_start = max(0, start - 100)
-    context_end = min(len(text), end + 100)
-
-    surrounding = text[context_start:context_end]
-
-    # Add ellipses if we truncated
-    if context_start > 0:
-        surrounding = "..." + surrounding
-    if context_end < len(text):
-        surrounding = surrounding + "..."
-
-    return RegexMatch(
-        span_id=span_id,
-        matched_text=matched_text,
-        surrounding_text=surrounding,
-    )
-
-
 @experimental(version="3.4.0")
 class SearchTraceRegexTool(JudgeTool):
     """
@@ -148,11 +124,34 @@ class SearchTraceRegexTool(JudgeTool):
             if total_found >= max_matches:
                 break
 
-            matches.append(_create_regex_match(match, trace_json))
+            matches.append(self._create_regex_match(match, trace_json))
             total_found += 1
 
         return SearchTraceRegexResult(
             pattern=pattern,
             total_matches=total_found,
             matches=matches,
+        )
+
+    def _create_regex_match(self, match, text: str, span_id: str = "trace") -> RegexMatch:
+        """Create a RegexMatch with surrounding context from a regex match object."""
+        matched_text = match.group()
+        start, end = match.span()
+
+        # Get surrounding context (100 chars before and after)
+        context_start = max(0, start - 100)
+        context_end = min(len(text), end + 100)
+
+        surrounding = text[context_start:context_end]
+
+        # Add ellipses if we truncated
+        if context_start > 0:
+            surrounding = "..." + surrounding
+        if context_end < len(text):
+            surrounding = surrounding + "..."
+
+        return RegexMatch(
+            span_id=span_id,
+            matched_text=matched_text,
+            surrounding_text=surrounding,
         )
