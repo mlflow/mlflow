@@ -94,8 +94,6 @@ class OtelMetricsMixin:
         if not self._duration_histogram:
             return
 
-        duration_ms = (span.end_time - span.start_time) / 1e6
-        is_root = span.parent is None
         span_type = span.attributes.get(SpanAttributeKey.SPAN_TYPE, SpanType.UNKNOWN)
         try:
             # Span attributes are JSON encoded by default; decode them for metric label readability
@@ -103,12 +101,10 @@ class OtelMetricsMixin:
         except (json.JSONDecodeError, TypeError):
             pass
 
-        status = span.status.status_code.name if span.status else "UNSET"
-
         attributes = {
-            "root": str(is_root),
+            "root": str(span.parent is None),
             "span_type": span_type,
-            "span_status": status,
+            "span_status": span.status.status_code.name if span.status else "UNSET",
             "experiment_id": get_experiment_id_for_trace(span),
         }
 
@@ -126,4 +122,6 @@ class OtelMetricsMixin:
                         for meta_key, meta_value in trace.info.trace_metadata.items():
                             attributes[f"metadata.{meta_key}"] = str(meta_value)
 
-        self._duration_histogram.record(duration_ms, attributes=attributes)
+        self._duration_histogram.record(
+            (span.end_time - span.start_time) / 1e6, attributes=attributes
+        )
