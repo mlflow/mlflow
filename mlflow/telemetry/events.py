@@ -15,6 +15,10 @@ class Event:
         return None
 
 
+class ImportMlflowEvent(Event):
+    name: str = "import_mlflow"
+
+
 class CreateExperimentEvent(Event):
     name: str = "create_experiment"
 
@@ -156,3 +160,7 @@ class LogBatchEvent(Event):
             "tags": bool(arguments.get("tags")),
             "synchronous": arguments.get("synchronous"),
         }
+
+
+class McpRunEvent(Event):
+    name: str = "mcp_run"

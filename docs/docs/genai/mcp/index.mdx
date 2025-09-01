@@ -1,0 +1,241 @@
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# MLflow MCP Server
+
+:::info
+
+- This feature is experimental and may change in future releases.
+- MLflow 3.4 or newer is required.
+
+:::
+
+The MLflow Model Context Protocol (MCP) server enables AI applications and coding assistants to interact with MLflow traces programmatically. MCP is an open protocol that provides a standardized way for AI tools like Claude, VS Code extensions, and other language models to access external data sources and tools.
+
+The MLflow MCP server exposes all MLflow trace management operations through the MCP protocol, allowing AI assistants to:
+
+- Search and retrieve trace data
+- Analyze trace performance and behavior
+- Log feedback and assessments
+- Manage trace tags and metadata
+- Delete traces and assessments
+
+This integration makes it easy to incorporate MLflow tracing capabilities into AI-powered development workflows, enabling more intelligent analysis and management of your GenAI applications.
+
+## Prerequisites
+
+- MLflow version 3.4 or newer
+- An MCP-compatible client (VS Code, Cursor, Claude, etc.)
+
+## Set up
+
+Configure the MLflow MCP server in your MCP client by adding the server configuration to your client's settings file:
+
+<Tabs>
+  <TabItem label="VS Code" value="vscode">
+
+Add to your VS Code configuration file (`.vscode/mcp.json`):
+
+```json
+{
+  "servers": {
+    "mlflow-mcp": {
+      "command": "uv",
+      "args": ["run", "--with", "mlflow>=3.4", "mlflow", "mcp", "run"],
+      "env": {
+        "MLFLOW_TRACKING_URI": "<MLFLOW_TRACKING_URI>"
+      }
+    }
+  }
+}
+```
+
+  </TabItem>
+  <TabItem label="Cursor" value="cursor">
+
+Add to your Cursor configuration file (`.cursor/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "mlflow-mcp": {
+      "command": "uv",
+      "args": ["run", "--with", "mlflow>=3.4", "mlflow", "mcp", "run"],
+      "env": {
+        "MLFLOW_TRACKING_URI": "<MLFLOW_TRACKING_URI>"
+      }
+    }
+  }
+}
+```
+
+  </TabItem>
+  <TabItem label="Claude" value="claude">
+
+Add to your Claude `.claude/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "mlflow-mcp": {
+      "command": "uv",
+      "args": ["run", "--with", "mlflow>=3.4", "mlflow", "mcp", "run"],
+      "env": {
+        "MLFLOW_TRACKING_URI": "<MLFLOW_TRACKING_URI>"
+      }
+    }
+  }
+}
+```
+
+  </TabItem>
+</Tabs>
+
+Replace `<MLFLOW_TRACKING_URI>` with your MLflow tracking server URL:
+
+- **Local server**: `http://localhost:5000`
+- **Remote server**: `https://your-mlflow-server.com`
+- **Databricks**: Set the tracking URI to `databricks` and configure authentication using environment variables such as `DATABRICKS_HOST` and `DATABRICKS_TOKEN`. For detailed setup instructions, refer to the [Databricks authentication guide](https://docs.databricks.com/aws/en/dev-tools/auth/).
+
+## Available Tools
+
+The MLflow MCP server provides comprehensive trace management capabilities:
+
+| Tool                | Description                             | Key Parameters                                                    |
+| ------------------- | --------------------------------------- | ----------------------------------------------------------------- |
+| `search_traces`     | Search and filter traces in experiments | `experiment_id`, `filter_string`, `max_results`, `extract_fields` |
+| `get_trace`         | Get detailed trace information          | `trace_id`, `extract_fields`                                      |
+| `delete_traces`     | Delete traces by ID or timestamp        | `experiment_id`, `trace_ids`, `max_timestamp_millis`              |
+| `set_trace_tag`     | Add custom tags to traces               | `trace_id`, `key`, `value`                                        |
+| `delete_trace_tag`  | Remove tags from traces                 | `trace_id`, `key`                                                 |
+| `log_feedback`      | Log evaluation scores or judgments      | `trace_id`, `name`, `value`, `source_type`, `rationale`           |
+| `log_expectation`   | Log ground truth labels                 | `trace_id`, `name`, `value`, `source_type`                        |
+| `get_assessment`    | Retrieve assessment details             | `trace_id`, `assessment_id`                                       |
+| `update_assessment` | Modify existing assessments             | `trace_id`, `assessment_id`, `value`, `rationale`                 |
+| `delete_assessment` | Remove assessments                      | `trace_id`, `assessment_id`                                       |
+
+## Field Selection and Filtering
+
+The MCP server supports sophisticated field selection through the `extract_fields` parameter, available in both `search_traces` and `get_trace` tools. This parameter accepts comma-separated field paths using dot notation, allowing you to retrieve only the data you need, reducing response size and improving performance. The `extract_fields` parameter lets you:
+
+- Select specific fields from trace data instead of retrieving everything
+- Use wildcards (`*`) to select all items in arrays or objects
+- Combine multiple field paths in a single request
+- Use backticks for field names containing dots
+
+Example usage with tools:
+
+```python
+# With search_traces
+search_traces(
+    experiment_id="1",
+    extract_fields="info.trace_id,info.state,data.spans.*.name",
+)
+
+# With get_trace
+get_trace(
+    trace_id="tr-abc123",
+    extract_fields="info.assessments.*,info.tags.*",
+)
+```
+
+### Common Field Patterns
+
+**Trace Information:**
+
+- `info.trace_id`: Unique trace identifier
+- `info.state`: Trace status
+- `info.execution_duration`: Total execution time
+- `info.request_preview`: Truncated request preview
+- `info.response_preview`: Truncated response preview
+
+**Tags and Metadata:**
+
+- `info.tags.*`: All trace tags
+- `info.tags.mlflow.traceName`: Trace name
+- `info.trace_metadata.*`: Custom metadata fields
+
+**Assessments:**
+
+- `info.assessments.*`: All assessment data
+- `info.assessments.*.feedback.value`: Feedback scores
+- `info.assessments.*.source.source_type`: Assessment sources
+
+**Span Data:**
+
+- `data.spans.*`: All span information
+- `data.spans.*.name`: Span operation names
+- `data.spans.*.attributes.mlflow.spanType`: Span types (AGENT, TOOL, LLM)
+
+### Field Selection Examples
+
+```bash
+# Get basic trace info
+info.trace_id,info.state,info.execution_duration
+
+# Get all assessments
+info.assessments.*
+
+# Get feedback values only
+info.assessments.*.feedback.value
+
+# Get span names
+data.spans.*.name
+
+# Get trace name (use backticks for dots in field names)
+info.tags.`mlflow.traceName`
+```
+
+## Use Cases and Examples
+
+### Debugging Production Issues
+
+Use the MCP server to quickly identify problematic traces:
+
+```
+User: Find all failed traces in experiment 1 from the last hour
+Agent: Uses `search_traces` with `filter_string="status='ERROR' AND timestamp_ms > [recent_timestamp]"`
+```
+
+### Performance Analysis
+
+Analyze execution patterns and bottlenecks:
+
+```
+User: Show me the slowest traces in experiment 2 with execution times over 5 seconds
+Agent: Uses `search_traces` with `filter_string="execution_time_ms > 5000"` and `order_by="execution_time_ms DESC"`
+```
+
+### Quality Assessment Workflow
+
+Log and manage trace evaluations:
+
+```
+User: Log a relevance score of 0.85 for trace tr-abc123 with rationale about accuracy
+Agent: Uses `log_feedback` with appropriate parameters
+```
+
+### Data Cleanup
+
+Remove old or test traces:
+
+```
+User: Delete traces older than 30 days from experiment 1
+Agent: Uses `delete_traces` with timestamp-based filtering
+```
+
+## Environment Configuration
+
+The MCP server respects standard MLflow environment variables:
+
+- `MLFLOW_TRACKING_URI`: MLflow tracking server URL
+- `MLFLOW_EXPERIMENT_ID`: Default experiment ID
+- Authentication variables for cloud providers (AWS, Azure, GCP)
+
+For Databricks environments, ensure you have appropriate authentication configured (personal access tokens, service principals, etc.).
+
+## Related Documentation
+
+- [MLflow Tracing Overview](/genai/tracing/quickstart)
+- [Collecting User Feedback](/genai/tracing/collect-user-feedback)
+- [Model Context Protocol Specification](https://modelcontextprotocol.io/)

@@ -2520,7 +2520,16 @@ class SqlAlchemyStore(AbstractStore):
                 SqlAssessments.from_mlflow_entity(a) for a in trace_info.assessments
             ]
 
-            session.add(sql_trace_info)
+            try:
+                session.add(sql_trace_info)
+                session.flush()
+            except IntegrityError:
+                # Trace already exists (likely created by log_spans())
+                # Use merge to update with start_trace() data, preserving any logged spans
+                session.rollback()
+                session.merge(sql_trace_info)
+                session.flush()
+
             return sql_trace_info.to_mlflow_entity()
 
     def get_trace_info(self, trace_id: str) -> TraceInfo:

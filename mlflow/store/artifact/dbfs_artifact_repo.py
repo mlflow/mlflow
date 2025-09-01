@@ -4,7 +4,10 @@ import posixpath
 
 import mlflow.utils.databricks_utils
 from mlflow.entities import FileInfo
-from mlflow.environment_variables import MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO
+from mlflow.environment_variables import (
+    MLFLOW_DISABLE_DATABRICKS_SDK_FOR_RUN_ARTIFACTS,
+    MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
@@ -12,6 +15,7 @@ from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRep
 from mlflow.store.artifact.databricks_logged_model_artifact_repo import (
     DatabricksLoggedModelArtifactRepository,
 )
+from mlflow.store.artifact.databricks_run_artifact_repo import DatabricksRunArtifactRepository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracking._tracking_service import utils
@@ -222,6 +226,11 @@ def dbfs_artifact_repo_factory(artifact_uri: str, tracking_uri: str | None = Non
             return DatabricksLoggedModelArtifactRepository(
                 cleaned_artifact_uri, tracking_uri=tracking_uri
             )
+        elif (
+            not MLFLOW_DISABLE_DATABRICKS_SDK_FOR_RUN_ARTIFACTS.get()
+            and DatabricksRunArtifactRepository.is_run_uri(artifact_uri)
+        ):
+            return DatabricksRunArtifactRepository(cleaned_artifact_uri, tracking_uri=tracking_uri)
         return DatabricksArtifactRepository(cleaned_artifact_uri, tracking_uri=tracking_uri)
     elif (
         mlflow.utils.databricks_utils.is_dbfs_fuse_available()

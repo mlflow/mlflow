@@ -76,7 +76,6 @@ from mlflow.utils.async_logging.async_logging_queue import (
 )
 from mlflow.utils.time import get_current_time_millis
 
-from tests.helper_functions import multi_context
 from tests.tracing.helper import get_traces
 
 
@@ -250,7 +249,8 @@ def test_get_experiment_id_from_env(monkeypatch):
     exp_id = mlflow.create_experiment(name)
     random_id = random.randint(100, 1e6)
     assert exp_id != random_id
-    monkeypatch.setenvs({MLFLOW_EXPERIMENT_ID.name: random_id, MLFLOW_EXPERIMENT_NAME.name: name})
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, random_id)
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_NAME.name, name)
     with pytest.raises(
         MlflowException,
         match=(
@@ -266,9 +266,8 @@ def test_get_experiment_id_from_env(monkeypatch):
     exp_id = mlflow.create_experiment(name)
     assert exp_id is not None
     random_id = random.randint(100, 1e6)
-    monkeypatch.setenvs(
-        {MLFLOW_EXPERIMENT_ID.name: random_id, MLFLOW_EXPERIMENT_NAME.name: invalid_name}
-    )
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, random_id)
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_NAME.name, invalid_name)
     mlflow.set_experiment(experiment_id=exp_id)
     assert _get_experiment_id() == exp_id
 
@@ -571,7 +570,7 @@ def test_start_run_defaults(empty_active_run_stack):
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    with multi_context(
+    with (
         experiment_id_patch,
         user_patch,
         source_name_patch,
@@ -622,8 +621,8 @@ def test_start_run_defaults_databricks_notebook(
     )
     mock_workspace_id = mock.Mock()
     workspace_info_patch = mock.patch(
-        "mlflow.utils.databricks_utils.get_workspace_info_from_dbutils",
-        return_value=(mock_webapp_url, mock_workspace_id),
+        "mlflow.utils.databricks_utils.get_workspace_id",
+        return_value=mock_workspace_id,
     )
 
     expected_tags = {
@@ -640,7 +639,7 @@ def test_start_run_defaults_databricks_notebook(
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    with multi_context(
+    with (
         experiment_id_patch,
         databricks_notebook_patch,
         user_patch,
@@ -704,7 +703,7 @@ def test_start_run_creates_new_run_with_user_specified_tags():
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    with multi_context(
+    with (
         experiment_id_patch,
         user_patch,
         source_name_patch,
@@ -757,7 +756,7 @@ def test_start_run_with_parent():
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    with multi_context(
+    with (
         active_run_stack_patch,
         create_run_patch,
         user_patch,
@@ -904,7 +903,7 @@ def test_start_run_with_description(empty_active_run_stack):
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    with multi_context(
+    with (
         experiment_id_patch,
         user_patch,
         source_name_patch,

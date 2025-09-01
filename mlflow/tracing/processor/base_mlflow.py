@@ -1,5 +1,6 @@
 import json
 import logging
+import threading
 from typing import Any
 
 from opentelemetry.context import Context
@@ -50,6 +51,10 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
         self.span_exporter = span_exporter
         self._export_metrics = export_metrics
         self._env_metadata = resolve_env_metadata()
+        # Lock to prevent race conditions during concurrent span name deduplication
+        # This ensures that when multiple spans end simultaneously, their names are
+        # deduplicated atomically without interference
+        self._deduplication_lock = threading.RLock()
 
     def on_start(self, span: OTelSpan, parent_context: Context | None = None):
         """
@@ -90,18 +95,19 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
         if self._export_metrics:
             self.record_metrics_for_span(span)
 
-        # Processing the trace only when the root span is found.
-        if span._parent is not None:
-            return
-
         trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
-        with self._trace_manager.get_trace(trace_id) as trace:
-            if trace is None:
-                _logger.debug(f"Trace data with request ID {trace_id} not found.")
-                return
 
-            self._update_trace_info(trace, span)
-            deduplicate_span_names_in_place(list(trace.span_dict.values()))
+        # Acquire lock before accessing and modifying trace data to prevent race conditions
+        # during concurrent span endings. This ensures span name deduplication happens
+        # atomically without interference from other threads
+        with self._deduplication_lock:
+            with self._trace_manager.get_trace(trace_id) as trace:
+                if trace is not None:
+                    if span._parent is None:
+                        self._update_trace_info(trace, span)
+                    deduplicate_span_names_in_place(list(trace.span_dict.values()))
+                else:
+                    _logger.debug(f"Trace data with request ID {trace_id} not found.")
 
         super().on_end(span)
 

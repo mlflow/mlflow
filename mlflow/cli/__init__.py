@@ -711,6 +711,13 @@ from mlflow.cli import traces
 
 cli.add_command(traces.commands)
 
+try:
+    from mlflow.mcp.cli import cli as mcp_cli
+
+    cli.add_command(mcp_cli)
+except ImportError:
+    pass
+
 # Add Claude Code integration commands
 try:
     import mlflow.claude_code.cli
