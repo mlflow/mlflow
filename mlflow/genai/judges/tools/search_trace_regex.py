@@ -1,8 +1,9 @@
 """
 Tool for searching traces using regex patterns.
 
-This module provides functionality to search through all spans in a trace
-using regular expressions with case-insensitive matching.
+This module provides functionality to search through entire traces (including
+spans, metadata, tags, requests, and responses) using regular expressions
+with case-insensitive matching.
 """
 
 import re
@@ -18,7 +19,7 @@ from mlflow.utils.annotations import experimental
 @experimental(version="3.4.0")
 @dataclass
 class RegexMatch:
-    """Represents a single regex match found in a span."""
+    """Represents a single regex match found in a trace."""
 
     span_id: str
     matched_text: str
@@ -39,11 +40,11 @@ class SearchTraceRegexResult:
 @experimental(version="3.4.0")
 class SearchTraceRegexTool(JudgeTool):
     """
-    Tool for searching through all spans in a trace using regex patterns.
+    Tool for searching through entire traces using regex patterns.
 
-    Performs case-insensitive regex search across all span fields including
-    inputs, outputs, and attributes. Returns matched text with surrounding
-    context to help understand where matches occur.
+    Performs case-insensitive regex search across all trace data including
+    spans, metadata, tags, requests, responses, and other fields. Returns
+    matched text with surrounding context to help understand where matches occur.
     """
 
     @property
@@ -57,10 +58,11 @@ class SearchTraceRegexTool(JudgeTool):
             function=FunctionToolDefinition(
                 name=ToolNames.SEARCH_TRACE_REGEX,
                 description=(
-                    "Search through all spans in the trace using a regular expression pattern. "
-                    "Performs case-insensitive matching and returns all matches with surrounding "
-                    "context. Useful for finding specific patterns, values, or text across the "
-                    "entire trace."
+                    "Search through the entire trace using a regular expression pattern. "
+                    "Performs case-insensitive matching across all trace data including spans, "
+                    "metadata, tags, requests, and responses. Returns all matches with surrounding "
+                    "context. Useful for finding specific patterns, values, or text anywhere in "
+                    "the trace."
                 ),
                 parameters=ToolParamsSchema(
                     type="object",
