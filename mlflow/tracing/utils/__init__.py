@@ -568,7 +568,7 @@ def get_experiment_id_for_trace(span) -> str:
         return experiment_id
 
     if destination := _MLFLOW_TRACE_USER_DESTINATION.get():
-        if exp_id := getattr(destination, "experiment_id"):
+        if exp_id := getattr(destination, "experiment_id", None):
             return exp_id
 
     if run := _get_latest_active_run():

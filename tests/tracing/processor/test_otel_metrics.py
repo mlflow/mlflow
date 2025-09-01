@@ -58,7 +58,7 @@ def test_metrics_export(monkeypatch, metric_reader):
                     assert metric.unit == "ms"
                     data_points.extend(metric.data.data_points)
 
-    assert len(data_points) == 3, "Expected exactly 3 span metrics"
+    assert len(data_points) == 3
     data_points.sort(key=lambda dp: dp.sum)
     llm_metric, chain_metric, tool_metric = data_points
 

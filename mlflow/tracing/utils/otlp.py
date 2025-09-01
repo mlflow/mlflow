@@ -80,9 +80,33 @@ def _get_otlp_metrics_endpoint() -> str | None:
     )
 
 
-def _get_otlp_protocol() -> str:
+def _get_otlp_protocol(default_value: str = "grpc") -> str:
+    """
+    Get the OTLP traces protocol from environment variables.
+
+    Returns the value of OTEL_EXPORTER_OTLP_TRACES_PROTOCOL if set,
+    otherwise falls back to OTEL_EXPORTER_OTLP_PROTOCOL, then to default_value.
+
+    Args:
+        default_value: The default protocol to use if no environment variables are set.
+    """
     return os.environ.get("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL") or os.environ.get(
-        "OTEL_EXPORTER_OTLP_PROTOCOL", "grpc"
+        "OTEL_EXPORTER_OTLP_PROTOCOL", default_value
+    )
+
+
+def _get_otlp_metrics_protocol(default_value: str = "grpc") -> str:
+    """
+    Get the OTLP metrics protocol from environment variables.
+
+    Returns the value of OTEL_EXPORTER_OTLP_METRICS_PROTOCOL if set,
+    otherwise falls back to OTEL_EXPORTER_OTLP_PROTOCOL, then to default_value.
+
+    Args:
+        default_value: The default protocol to use if no environment variables are set.
+    """
+    return os.environ.get("OTEL_EXPORTER_OTLP_METRICS_PROTOCOL") or os.environ.get(
+        "OTEL_EXPORTER_OTLP_PROTOCOL", default_value
     )
 
 

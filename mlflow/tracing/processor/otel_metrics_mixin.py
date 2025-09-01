@@ -7,7 +7,6 @@ while maintaining their own inheritance hierarchies (BatchSpanProcessor, SimpleS
 
 import json
 import logging
-import os
 
 from opentelemetry import metrics
 from opentelemetry.sdk.metrics import MeterProvider
@@ -18,6 +17,7 @@ from mlflow.entities.span import SpanType
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import get_experiment_id_for_trace
+from mlflow.tracing.utils.otlp import _get_otlp_metrics_endpoint, _get_otlp_metrics_protocol
 
 _logger = logging.getLogger(__name__)
 
@@ -43,15 +43,11 @@ class OtelMetricsMixin:
         if self._duration_histogram is not None:
             return
 
-        endpoint = os.environ.get("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT") or os.environ.get(
-            "OTEL_EXPORTER_OTLP_ENDPOINT"
-        )
-        protocol = os.environ.get("OTEL_EXPORTER_OTLP_METRICS_PROTOCOL") or os.environ.get(
-            "OTEL_EXPORTER_OTLP_PROTOCOL", "grpc"
-        )
+        endpoint = _get_otlp_metrics_endpoint()
         if not endpoint:
             return
 
+        protocol = _get_otlp_metrics_protocol()
         if protocol == "grpc":
             from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
                 OTLPMetricExporter,
