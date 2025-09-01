@@ -85,7 +85,7 @@
   // Markdown formatting
   "[markdown]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode",
-    "editor.formatOnSave": false // Don't auto-format markdown as it might break documentation
+    "editor.formatOnSave": true
   },
 
   // Files to exclude from explorer
