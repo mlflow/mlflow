@@ -109,20 +109,12 @@ class SearchTraceRegexTool(JudgeTool):
                 error=f"Invalid regex pattern: {e}",
             )
 
-        if trace.data is None:
-            from mlflow.entities.trace_data import TraceData
-
-            trace.data = TraceData(spans=[])
-
         trace_json = trace.to_json()
-
         matches = []
         total_found = 0
-
         for match in regex.finditer(trace_json):
             if total_found >= max_matches:
                 break
-
             matches.append(self._create_regex_match(match, trace_json))
             total_found += 1
 
@@ -136,17 +128,13 @@ class SearchTraceRegexTool(JudgeTool):
         """Create a RegexMatch with surrounding context from a regex match object."""
         matched_text = match.group()
         start, end = match.span()
-
         context_start = max(0, start - 100)
         context_end = min(len(text), end + 100)
-
         surrounding = text[context_start:context_end]
-
         if context_start > 0:
             surrounding = "..." + surrounding
         if context_end < len(text):
             surrounding = surrounding + "..."
-
         return RegexMatch(
             span_id=span_id,
             matched_text=matched_text,
