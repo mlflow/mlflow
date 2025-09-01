@@ -18,7 +18,7 @@ from mlflow.tracing.utils import build_otel_context
 
 @pytest.fixture
 def mock_invoke_judge_model(monkeypatch):
-    def _mock(model_uri, prompt, assessment_name):
+    def _mock(model_uri, prompt, assessment_name, trace=None):
         return Feedback(name=assessment_name, value=True, rationale="The response is formal")
 
     monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "invoke_judge_model", _mock)
@@ -100,11 +100,7 @@ def test_make_judge_creates_instructions_judge():
 
     assert isinstance(judge, InstructionsJudge)
     assert judge.name == "test_judge"
-    expected_instructions = (
-        "Instructions-based judge: test_judge\n\nInstructions:\n-------------\n\n"
-        "Check if {{text}} is formal"
-    )
-    assert judge.instructions == expected_instructions
+    assert judge.instructions == "Check if {{text}} is formal"
     assert judge.model == "openai:/gpt-4"
 
 
@@ -141,6 +137,16 @@ def test_make_judge_with_databricks_default(monkeypatch):
             "Validate {{source_text}} and {{translated_text}}",
             {"source_text", "translated_text"},
             {"source_text", "translated_text"},
+        ),
+        (
+            "Analyze this {{trace}}",
+            {"trace"},
+            set(),
+        ),
+        (
+            "Analyze {{trace}} against {{expectations}}",
+            {"trace", "expectations"},
+            set(),
         ),
     ],
 )
@@ -198,7 +204,7 @@ def test_valid_model_formats(model):
         (
             "Analyze {{trace}} and check {{custom_field}}",
             "openai:/gpt-4",
-            "When submitting a 'trace' variable, no other variables are permitted",
+            "When using 'trace' variable, no other variables are allowed",
         ),
         (
             "Analyze {{trace}} and {{inputs}}",
@@ -222,14 +228,42 @@ def test_trace_variable_restrictions(instructions, model, error_pattern):
         make_judge(name="test_judge", instructions=instructions, model=model)
 
 
-def test_call_with_trace_not_supported():
+def test_trace_with_expectations_allowed():
+    # expectations is a reserved variable and should work with trace
     judge = make_judge(
-        name="test_judge", instructions="Check if {{text}} is valid", model="openai:/gpt-4"
+        name="test_judge",
+        instructions="Analyze {{trace}} against {{expectations}}",
+        model="openai:/gpt-4",
+    )
+    assert judge.template_variables == {"trace", "expectations"}
+
+
+def test_call_with_trace_supported(mock_trace, monkeypatch):
+    captured_args = {}
+
+    def mock_invoke(model_uri, prompt, assessment_name, trace=None):
+        captured_args.update(
+            {
+                "model_uri": model_uri,
+                "prompt": prompt,
+                "assessment_name": assessment_name,
+                "trace": trace,
+            }
+        )
+        return Feedback(name=assessment_name, value=True, rationale="Trace analyzed")
+
+    monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "invoke_judge_model", mock_invoke)
+
+    judge = make_judge(
+        name="test_judge", instructions="Analyze this {{trace}}", model="openai:/gpt-4"
     )
 
-    # Trace parameter is not supported in PR #1
-    with pytest.raises(TypeError, match="got an unexpected keyword argument 'trace'"):
-        judge(trace="some_trace")
+    result = judge(trace=mock_trace)
+
+    assert isinstance(result, Feedback)
+    assert captured_args["trace"] == mock_trace
+    assert captured_args["model_uri"] == "openai:/gpt-4"
+    assert captured_args["assessment_name"] == "test_judge"
 
 
 def test_call_validates_missing_custom_variables():
@@ -243,12 +277,38 @@ def test_call_validates_missing_custom_variables():
         judge(inputs={"query": "What is 2+2?"})
 
 
+def test_call_validates_trace_with_other_params(mock_trace):
+    judge = make_judge(
+        name="test_judge", instructions="Analyze this {{trace}}", model="openai:/gpt-4"
+    )
+
+    with pytest.raises(
+        MlflowException,
+        match="Cannot specify both 'trace' and 'inputs'/'outputs'/'expectations'",
+    ):
+        judge(trace=mock_trace, inputs={"query": "test"})
+
+    with pytest.raises(
+        MlflowException,
+        match="Cannot specify both 'trace' and 'inputs'/'outputs'/'expectations'",
+    ):
+        judge(trace=mock_trace, outputs={"answer": "test"})
+
+    with pytest.raises(
+        MlflowException,
+        match="Cannot specify both 'trace' and 'inputs'/'outputs'/'expectations'",
+    ):
+        judge(trace=mock_trace, expectations={"expected": "test"})
+
+
 def test_call_with_no_inputs_or_outputs():
     judge = make_judge(
         name="test_judge", instructions="Check if {{text}} is valid", model="openai:/gpt-4"
     )
 
-    with pytest.raises(MlflowException, match="Must specify 'inputs' or 'outputs' for evaluation"):
+    with pytest.raises(
+        MlflowException, match="Must specify either 'trace' or 'inputs'/'outputs' for evaluation"
+    ):
         judge()
 
 
@@ -317,8 +377,11 @@ def test_instructions_property():
     )
 
     instructions = judge.instructions
-    assert "Instructions-based judge: test_judge" in instructions
-    assert "Check if {{text}} is formal" in instructions
+    assert instructions == "Check if {{text}} is formal"
+
+    description = judge.description
+    assert "Instructions-based judge: test_judge" in description
+    assert "Check if {{text}} is formal" in description
 
 
 def test_kind_property():
@@ -370,3 +433,26 @@ def test_prompt_formatting_with_all_variable_types(monkeypatch):
     assert "Query: test" in captured_prompt
     assert "Response: answer" in captured_prompt
     assert "Custom: custom_value" in captured_prompt
+
+
+def test_trace_prompt_augmentation(mock_trace, monkeypatch):
+    captured_prompt = None
+
+    def mock_invoke(model_uri, prompt, assessment_name, trace=None):
+        nonlocal captured_prompt
+        captured_prompt = prompt
+        return Feedback(name=assessment_name, value=True)
+
+    monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "invoke_judge_model", mock_invoke)
+
+    judge = make_judge(
+        name="test_judge", instructions="Analyze this {{trace}} for quality", model="openai:/gpt-4"
+    )
+
+    judge(trace=mock_trace)
+
+    assert "You have access to tools to analyze the trace" in captured_prompt
+    assert "REQUIRED STEPS" in captured_prompt
+    assert "fetch the trace metadata" in captured_prompt
+    assert "Task Instructions" in captured_prompt
+    assert "Analyze this {{trace}} for quality" in captured_prompt
