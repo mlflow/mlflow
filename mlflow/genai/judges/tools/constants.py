@@ -14,3 +14,4 @@ class ToolNames:
     """Registry of judge tool names."""
 
     GET_TRACE_INFO = "get_trace_info"
+    SEARCH_TRACE_REGEX = "search_trace_regex"
