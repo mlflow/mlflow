@@ -6,7 +6,8 @@ from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
-from mlflow.genai.judges.tools.get_root_span import GetRootSpanTool, RootSpanResult
+from mlflow.genai.judges.tools.get_root_span import GetRootSpanTool
+from mlflow.genai.judges.tools.types import SpanResult
 from mlflow.types.llm import ToolDefinition
 
 from tests.tracing.helper import create_mock_otel_span
@@ -66,7 +67,7 @@ def test_get_root_span_tool_invoke_success():
 
     result = tool.invoke(trace)
 
-    assert isinstance(result, RootSpanResult)
+    assert isinstance(result, SpanResult)
     assert result.span_id == root_span.span_id
     assert result.content is not None
     assert result.error is None
@@ -88,7 +89,7 @@ def test_get_root_span_tool_invoke_no_spans():
 
     result = tool.invoke(trace)
 
-    assert isinstance(result, RootSpanResult)
+    assert isinstance(result, SpanResult)
     assert result.span_id is None
     assert result.content is None
     assert result.error == "Trace has no spans"
@@ -130,7 +131,7 @@ def test_get_root_span_tool_invoke_no_root_span():
 
     result = tool.invoke(trace)
 
-    assert isinstance(result, RootSpanResult)
+    assert isinstance(result, SpanResult)
     assert result.span_id is None
     assert result.content is None
     assert result.error == "No root span found in trace"
@@ -163,7 +164,7 @@ def test_get_root_span_tool_invoke_with_attributes_filter():
 
     result = tool.invoke(trace, attributes_to_fetch=["key1", "key3"])
 
-    assert isinstance(result, RootSpanResult)
+    assert isinstance(result, SpanResult)
     assert result.span_id == root_span.span_id
     assert result.content is not None
     assert "key1" in result.content
@@ -202,7 +203,7 @@ def test_get_root_span_tool_invoke_with_pagination():
     while iterations < max_iterations:
         result = tool.invoke(trace, max_content_length=1000, page_token=page_token)
 
-        assert isinstance(result, RootSpanResult)
+        assert isinstance(result, SpanResult)
         assert result.span_id == root_span.span_id
         assert result.content is not None
         assert result.error is None

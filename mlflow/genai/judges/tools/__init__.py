@@ -1,6 +1,6 @@
 from mlflow.genai.judges.tools.base import JudgeTool
-from mlflow.genai.judges.tools.get_root_span import GetRootSpanTool, RootSpanResult
-from mlflow.genai.judges.tools.get_span import GetSpanTool, SpanResult
+from mlflow.genai.judges.tools.get_root_span import GetRootSpanTool
+from mlflow.genai.judges.tools.get_span import GetSpanTool
 from mlflow.genai.judges.tools.get_trace_info import GetTraceInfoTool
 from mlflow.genai.judges.tools.registry import (
     JudgeToolRegistry,
@@ -8,11 +8,11 @@ from mlflow.genai.judges.tools.registry import (
     list_judge_tools,
     register_judge_tool,
 )
+from mlflow.genai.judges.tools.types import SpanResult
 
 __all__ = [
     "JudgeTool",
     "GetRootSpanTool",
-    "RootSpanResult",
     "GetSpanTool",
     "SpanResult",
     "GetTraceInfoTool",

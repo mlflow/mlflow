@@ -6,7 +6,8 @@ from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
-from mlflow.genai.judges.tools.get_span import GetSpanTool, SpanResult
+from mlflow.genai.judges.tools.get_span import GetSpanTool
+from mlflow.genai.judges.tools.types import SpanResult
 from mlflow.types.llm import ToolDefinition
 
 from tests.tracing.helper import create_mock_otel_span
