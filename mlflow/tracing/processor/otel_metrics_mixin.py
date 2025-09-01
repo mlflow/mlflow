@@ -36,7 +36,7 @@ class OtelMetricsMixin:
         self._duration_histogram = None
         self._trace_manager = InMemoryTraceManager.get_instance()
 
-    def _setup_metrics_if_necessary(self):
+    def _setup_metrics_if_necessary(self) -> None:
         """
         Set up OpenTelemetry metrics if not already configured previously.
         """

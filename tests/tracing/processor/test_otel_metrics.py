@@ -98,7 +98,6 @@ def test_no_metrics_when_disabled(monkeypatch, metric_reader):
 
     metrics_data = metric_reader.get_metrics_data()
 
-    # Collect all metric names
     metric_names = []
     if metrics_data:
         for resource_metric in metrics_data.resource_metrics:
