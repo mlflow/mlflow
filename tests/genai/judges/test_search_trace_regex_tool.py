@@ -259,13 +259,15 @@ def test_search_trace_regex_empty_trace():
         state=TraceState.OK,
         execution_duration=0,
     )
-    empty_trace = Trace(info=empty_trace_info, data=None)
+    empty_data = TraceData(spans=[])  # Empty data instead of None
+    empty_trace = Trace(info=empty_trace_info, data=empty_data)
 
-    result = tool.invoke(empty_trace, pattern="test")
+    result = tool.invoke(empty_trace, pattern="empty-trace")
 
-    assert result.total_matches == 0
-    assert len(result.matches) == 0
-    assert result.error == "Trace has no spans to search"
+    # Should still search trace metadata and find the trace_id
+    assert result.total_matches > 0
+    assert len(result.matches) > 0
+    assert result.error is None
 
 
 def test_search_trace_regex_trace_with_no_spans():
@@ -280,11 +282,12 @@ def test_search_trace_regex_trace_with_no_spans():
     )
     no_spans_trace = Trace(info=empty_trace_info, data=empty_data)
 
-    result = tool.invoke(no_spans_trace, pattern="test")
+    result = tool.invoke(no_spans_trace, pattern="no-spans-trace")
 
-    assert result.total_matches == 0
-    assert len(result.matches) == 0
-    assert result.error == "Trace has no spans to search"
+    # Should still search trace metadata and find the trace_id
+    assert result.total_matches > 0
+    assert len(result.matches) > 0
+    assert result.error is None
 
 
 def test_search_trace_regex_span_id_in_matches():

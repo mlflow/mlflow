@@ -131,13 +131,11 @@ class SearchTraceRegexTool(JudgeTool):
                 error=f"Invalid regex pattern: {e}",
             )
 
-        if not trace.data or not trace.data.spans:
-            return SearchTraceRegexResult(
-                pattern=pattern,
-                total_matches=0,
-                matches=[],
-                error="Trace has no spans to search",
-            )
+        # Handle case where trace.data is None
+        if trace.data is None:
+            from mlflow.entities.trace_data import TraceData
+
+            trace.data = TraceData(spans=[])
 
         # Convert entire trace to JSON string for searching
         trace_json = trace.to_json()
