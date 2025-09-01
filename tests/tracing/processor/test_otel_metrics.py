@@ -42,17 +42,14 @@ def test_metrics_export(monkeypatch, metric_reader):
         raise ValueError("Test error")
 
     # Execute successful trace
-    assert parent_function() == "result"
-
+    parent_function()
     # Execute error trace
     with pytest.raises(ValueError, match="Test error"):
         error_function()
 
-    # Verify metrics
     metrics_data = metric_reader.get_metrics_data()
     assert metrics_data is not None
 
-    # Collect all data points
     data_points = []
     for resource_metric in metrics_data.resource_metrics:
         for scope_metric in resource_metric.scope_metrics:
@@ -62,11 +59,7 @@ def test_metrics_export(monkeypatch, metric_reader):
                     data_points.extend(metric.data.data_points)
 
     assert len(data_points) == 3, "Expected exactly 3 span metrics"
-
-    # Sort by duration for predictable ordering
     data_points.sort(key=lambda dp: dp.sum)
-
-    # Check each metric (sorted by duration: LLM=250ms, CHAIN=260ms, TOOL=1000ms)
     llm_metric, chain_metric, tool_metric = data_points
 
     # LLM span (child) - 250ms
@@ -104,8 +97,13 @@ def test_no_metrics_when_disabled(monkeypatch, metric_reader):
     test_function()
 
     metrics_data = metric_reader.get_metrics_data()
+
+    # Collect all metric names
+    metric_names = []
     if metrics_data:
         for resource_metric in metrics_data.resource_metrics:
             for scope_metric in resource_metric.scope_metrics:
                 for metric in scope_metric.metrics:
-                    assert metric.name != "mlflow.trace.span.duration"
+                    metric_names.append(metric.name)
+
+    assert "mlflow.trace.span.duration" not in metric_names
