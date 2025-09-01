@@ -5,7 +5,6 @@ This module provides functionality to search through all spans in a trace
 using regular expressions with case-insensitive matching.
 """
 
-import json
 import re
 from dataclasses import dataclass
 
@@ -116,77 +115,41 @@ class SearchTraceRegexTool(JudgeTool):
                 error="Trace has no spans to search",
             )
 
+        # Convert entire trace to JSON string for searching
+        trace_json = trace.to_json()
+
         matches = []
         total_found = 0
 
-        for span in trace.data.spans:
-            # Search through all span fields that might contain text
-            searchable_texts = []
-
-            # Add inputs
-            if span.inputs:
-                for key, value in span.inputs.items():
-                    if isinstance(value, str):
-                        searchable_texts.append(f"input.{key}: {value}")
-                    else:
-                        searchable_texts.append(f"input.{key}: {json.dumps(value)}")
-
-            # Add outputs
-            if span.outputs:
-                for key, value in span.outputs.items():
-                    if isinstance(value, str):
-                        searchable_texts.append(f"output.{key}: {value}")
-                    else:
-                        searchable_texts.append(f"output.{key}: {json.dumps(value)}")
-
-            # Add attributes
-            if span.attributes:
-                for key, value in span.attributes.items():
-                    if isinstance(value, str):
-                        searchable_texts.append(f"attribute.{key}: {value}")
-                    else:
-                        searchable_texts.append(f"attribute.{key}: {json.dumps(value)}")
-
-            # Add span name and other string fields
-            if span.name:
-                searchable_texts.append(f"name: {span.name}")
-
-            # Search through all text fields
-            for text in searchable_texts:
-                for match in regex.finditer(text):
-                    if total_found >= max_matches:
-                        break
-
-                    matched_text = match.group()
-                    start, end = match.span()
-
-                    # Get surrounding context (100 chars before and after)
-                    context_start = max(0, start - 100)
-                    context_end = min(len(text), end + 100)
-
-                    surrounding = text[context_start:context_end]
-
-                    # Add ellipses if we truncated
-                    if context_start > 0:
-                        surrounding = "..." + surrounding
-                    if context_end < len(text):
-                        surrounding = surrounding + "..."
-
-                    matches.append(
-                        RegexMatch(
-                            span_id=span.span_id,
-                            matched_text=matched_text,
-                            surrounding_text=surrounding,
-                        )
-                    )
-
-                    total_found += 1
-
-                if total_found >= max_matches:
-                    break
-
+        # Find all matches in the JSON string
+        for match in regex.finditer(trace_json):
             if total_found >= max_matches:
                 break
+
+            matched_text = match.group()
+            start, end = match.span()
+
+            # Get surrounding context (100 chars before and after)
+            context_start = max(0, start - 100)
+            context_end = min(len(trace_json), end + 100)
+
+            surrounding = trace_json[context_start:context_end]
+
+            # Add ellipses if we truncated
+            if context_start > 0:
+                surrounding = "..." + surrounding
+            if context_end < len(trace_json):
+                surrounding = surrounding + "..."
+
+            matches.append(
+                RegexMatch(
+                    span_id="trace",  # Simple identifier for whole trace search
+                    matched_text=matched_text,
+                    surrounding_text=surrounding,
+                )
+            )
+
+            total_found += 1
 
         return SearchTraceRegexResult(
             pattern=pattern,

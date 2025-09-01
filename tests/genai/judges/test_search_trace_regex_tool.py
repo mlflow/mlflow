@@ -292,10 +292,9 @@ def test_search_trace_regex_span_id_in_matches():
     trace = create_test_trace()
     result = tool.invoke(trace, pattern="weather")
 
-    # All matches should have valid span IDs (hex format from our test trace)
-    valid_span_ids = {"1234567890abcdef", "abcdef1234567890", "9876543210fedcba"}
+    # All matches should have the trace identifier
     for match in result.matches:
-        assert match.span_id in valid_span_ids
+        assert match.span_id == "trace"
 
 
 def test_search_trace_regex_json_values_searchable():
