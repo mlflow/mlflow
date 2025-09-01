@@ -2,7 +2,7 @@
 
 import pytest
 
-from mlflow.genai.judges.trace_utils import (
+from mlflow.genai.judges.judge_trace_utils import (
     extract_request_from_trace,
     extract_response_from_trace,
     extract_text_from_data,
