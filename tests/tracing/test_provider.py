@@ -405,7 +405,7 @@ def test_otlp_exclusive_vs_dual_export(monkeypatch):
 
 @skip_when_testing_trace_sdk
 @pytest.mark.parametrize("dual_export", [False, True])
-def test_metrics_export_with_otlp(monkeypatch, dual_export):
+def test_metrics_export_with_otlp_trace_export(monkeypatch, dual_export):
     """Test metrics export configuration when OTLP is enabled."""
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://localhost:4317")
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", "http://localhost:9090")
@@ -433,7 +433,7 @@ def test_metrics_export_with_otlp(monkeypatch, dual_export):
 
 
 @skip_when_testing_trace_sdk
-def test_metrics_export_without_otlp(monkeypatch):
+def test_metrics_export_without_otlp_trace_export(monkeypatch):
     """Test metrics export configuration when OTLP is disabled."""
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", "http://localhost:9090")
 
