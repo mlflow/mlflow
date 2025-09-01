@@ -87,7 +87,7 @@ class OtelMetricsMixin:
         """
         self._setup_metrics_if_necessary()
 
-        if not self._duration_histogram:
+        if self._duration_histogram is None:
             return
 
         span_type = span.attributes.get(SpanAttributeKey.SPAN_TYPE, SpanType.UNKNOWN)
