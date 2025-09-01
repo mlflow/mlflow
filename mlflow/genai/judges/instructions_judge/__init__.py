@@ -155,7 +155,6 @@ class InstructionsJudge(Judge):
         Raises:
             MlflowException: If both trace and inputs/outputs are specified
         """
-        # Validate that trace is not specified together with inputs/outputs/expectations
         if trace is not None and (
             inputs is not None or outputs is not None or expectations is not None
         ):
