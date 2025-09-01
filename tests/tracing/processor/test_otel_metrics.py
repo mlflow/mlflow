@@ -55,33 +55,45 @@ def test_metrics_export(monkeypatch, metric_reader):
     metrics_data = metric_reader.get_metrics_data()
     assert metrics_data is not None
 
-    found_metrics = False
-    span_types_seen = set()
-    statuses_seen = set()
-
+    # Collect all data points
+    data_points = []
     for resource_metric in metrics_data.resource_metrics:
         for scope_metric in resource_metric.scope_metrics:
             for metric in scope_metric.metrics:
                 if metric.name == "mlflow.trace.span.duration":
-                    found_metrics = True
                     assert metric.unit == "ms"
-                    assert len(metric.data.data_points) > 0
+                    data_points.extend(metric.data.data_points)
 
-                    for dp in metric.data.data_points:
-                        attrs = dict(dp.attributes)
-                        span_types_seen.add(attrs["span_type"])
-                        statuses_seen.add(attrs["span_status"])
-                        assert dp.sum >= 10  # At least 10ms duration
+    assert len(data_points) == 3, "Expected exactly 3 span metrics"
 
-                        # Check tags on root span
-                        if attrs["root"] == "True" and attrs["span_type"] == "CHAIN":
-                            assert attrs.get("tags.env") == "test"
-                            assert attrs.get("tags.version") == "1.0"
+    # Sort by span type for predictable ordering
+    data_points.sort(key=lambda dp: dict(dp.attributes)["span_type"])
 
-    assert found_metrics, "No metrics found"
-    assert span_types_seen == {"CHAIN", "LLM", "TOOL"}
-    assert "OK" in statuses_seen
-    assert "ERROR" in statuses_seen
+    # Check each metric
+    chain_metric, llm_metric, tool_metric = data_points
+
+    # CHAIN span (parent)
+    chain_metric_attrs = dict(chain_metric.attributes)
+    assert chain_metric_attrs["span_type"] == "CHAIN"
+    assert chain_metric_attrs["span_status"] == "OK"
+    assert chain_metric_attrs["root"] == "True"
+    assert chain_metric_attrs["tags.env"] == "test"
+    assert chain_metric_attrs["tags.version"] == "1.0"
+    assert chain_metric.sum >= 10
+
+    # LLM span (child)
+    llm_metric_attrs = dict(llm_metric.attributes)
+    assert llm_metric_attrs["span_type"] == "LLM"
+    assert llm_metric_attrs["span_status"] == "OK"
+    assert llm_metric_attrs["root"] == "False"
+    assert llm_metric.sum >= 10
+
+    # TOOL span (error)
+    tool_metric_attrs = dict(tool_metric.attributes)
+    assert tool_metric_attrs["span_type"] == "TOOL"
+    assert tool_metric_attrs["span_status"] == "ERROR"
+    assert tool_metric_attrs["root"] == "True"
+    assert tool_metric.sum >= 10
 
 
 def test_no_metrics_when_disabled(monkeypatch, metric_reader):
