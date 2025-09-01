@@ -1,4 +1,5 @@
 from mlflow.genai.judges.tools.base import JudgeTool
+from mlflow.genai.judges.tools.get_span_timing_report import GetSpanTimingReportTool
 from mlflow.genai.judges.tools.get_trace_info import GetTraceInfoTool
 from mlflow.genai.judges.tools.registry import (
     JudgeToolRegistry,
@@ -9,6 +10,7 @@ from mlflow.genai.judges.tools.registry import (
 
 __all__ = [
     "JudgeTool",
+    "GetSpanTimingReportTool",
     "GetTraceInfoTool",
     "JudgeToolRegistry",
     "register_judge_tool",
