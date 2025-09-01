@@ -417,7 +417,6 @@ def test_metrics_export_with_otlp(monkeypatch, dual_export):
     tracer = _get_tracer("test")
 
     if dual_export:
-        # Dual export: both processors exist
         processors = tracer.span_processor._span_processors
         assert len(processors) == 2
         assert isinstance(processors[0], OtelSpanProcessor)
@@ -427,7 +426,6 @@ def test_metrics_export_with_otlp(monkeypatch, dual_export):
         assert processors[0]._export_metrics is False
         assert processors[1]._export_metrics is True
     else:
-        # OTLP-only: wrapped in SynchronousMultiSpanProcessor
         processors = tracer.span_processor._span_processors
         assert len(processors) == 1
         assert isinstance(processors[0], OtelSpanProcessor)
@@ -437,15 +435,15 @@ def test_metrics_export_with_otlp(monkeypatch, dual_export):
 @skip_when_testing_trace_sdk
 def test_metrics_export_without_otlp(monkeypatch):
     """Test metrics export configuration when OTLP is disabled."""
-    # No OTLP endpoints set
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", "http://localhost:9090")
+
+    # No OTLP tracing endpoints set
     monkeypatch.delenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", raising=False)
     monkeypatch.delenv("OTEL_EXPORTER_OTLP_ENDPOINT", raising=False)
-    monkeypatch.setenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", "http://localhost:9090")
 
     mlflow.tracing.reset()
     tracer = _get_tracer("test")
 
-    # MLflow-only: wrapped in SynchronousMultiSpanProcessor
     processors = tracer.span_processor._span_processors
     assert len(processors) == 1
     assert isinstance(processors[0], MlflowV3SpanProcessor)
