@@ -128,4 +128,4 @@ jobs:
           PR_URL: ${{ github.event.issue.pull_request.html_url || github.event.pull_request.html_url}}
         run: |
           # Use timeout in case codex hangs
-          timeout 3m ./codex exec --skip-git-repo-check "Can you review $PR_URL?" || true
+          timeout 5m ./codex exec --skip-git-repo-check "Can you review $PR_URL?" || true
