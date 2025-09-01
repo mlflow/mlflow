@@ -94,7 +94,7 @@ def test_incremental_span_name_deduplication():
 
     trace_id = 12345
     request_id = "tr-" + encode_trace_id(trace_id)
-    processor = MlflowV3SpanProcessor(span_exporter=mock.MagicMock())
+    processor = MlflowV3SpanProcessor(span_exporter=mock.MagicMock(), export_metrics=False)
 
     # Helper to create and register a span
     def create_and_register(name, span_id, parent_id=1):
