@@ -136,6 +136,16 @@ def test_search_trace_regex_max_matches_limit():
     assert len(result.matches) == 5
 
 
+def test_search_trace_regex_default_max_matches():
+    tool = SearchTraceRegexTool()
+    trace = create_test_trace()
+    # Test default value for max_matches parameter
+    result = tool.invoke(trace, pattern=".")  # Should match many characters
+
+    # Should use default limit (50)
+    assert result.total_matches <= 50
+
+
 def test_search_trace_regex_no_matches():
     tool = SearchTraceRegexTool()
     trace = create_test_trace()
@@ -234,13 +244,3 @@ def test_search_trace_regex_ellipses_in_surrounding_context():
     assert match.surrounding_text.startswith("...")
     assert match.surrounding_text.endswith("...")
     assert "target_word" in match.surrounding_text
-
-
-def test_search_trace_regex_default_max_matches():
-    tool = SearchTraceRegexTool()
-    trace = create_test_trace()
-    # Test default value for max_matches parameter
-    result = tool.invoke(trace, pattern=".")  # Should match many characters
-
-    # Should use default limit (50)
-    assert result.total_matches <= 50
