@@ -146,7 +146,7 @@ class InstructionsJudge(Judge):
         Args:
             inputs: Input dictionary to evaluate. Cannot be used with 'trace'.
             outputs: Output dictionary to evaluate. Cannot be used with 'trace'.
-            expectations: Expected outcomes or ground truth that can be used with any mode.
+            expectations: Expected outcomes or ground truth.
             trace: Trace object for evaluation. Cannot be used with 'inputs' or 'outputs'.
 
         Returns:
