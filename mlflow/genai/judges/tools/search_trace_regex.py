@@ -124,7 +124,9 @@ class SearchTraceRegexTool(JudgeTool):
             matches=matches,
         )
 
-    def _create_regex_match(self, match, text: str, span_id: str = "trace") -> RegexMatch:
+    def _create_regex_match(
+        self, match: re.Match[str], text: str, span_id: str = "trace"
+    ) -> RegexMatch:
         """Create a RegexMatch with surrounding context from a regex match object."""
         matched_text = match.group()
         start, end = match.span()
