@@ -7,6 +7,7 @@ while maintaining their own inheritance hierarchies (BatchSpanProcessor, SimpleS
 
 import json
 import logging
+from typing import Any
 
 from opentelemetry import metrics
 from opentelemetry.sdk.metrics import MeterProvider
@@ -30,7 +31,7 @@ class OtelMetricsMixin:
     span-related metrics (e.g. duration) and metadata.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Initialize the mixin and pass through to parent classes."""
         super().__init__(*args, **kwargs)
         self._duration_histogram = None

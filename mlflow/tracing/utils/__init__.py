@@ -12,6 +12,7 @@ from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Generator
 
 from opentelemetry import trace as trace_api
+from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
 from packaging.version import Version
 
@@ -546,7 +547,7 @@ def update_trace_state_from_span_conditionally(trace, root_span):
         trace.info.state = TraceState.from_otel_status(root_span.status)
 
 
-def get_experiment_id_for_trace(span) -> str:
+def get_experiment_id_for_trace(span: OTelReadableSpan) -> str:
     """
     Determine the experiment ID to associate with the trace.
 

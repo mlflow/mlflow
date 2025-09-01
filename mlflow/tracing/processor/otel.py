@@ -19,7 +19,7 @@ class OtelSpanProcessor(OtelMetricsMixin, BatchSpanProcessor):
     is started or ended (before exporting).
     """
 
-    def __init__(self, span_exporter: SpanExporter, export_metrics: bool):
+    def __init__(self, span_exporter: SpanExporter, export_metrics: bool) -> None:
         super().__init__(span_exporter)
         self._export_metrics = export_metrics
         # In opentelemetry-sdk 1.34.0, the `span_exporter` field was removed from the

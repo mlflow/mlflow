@@ -11,7 +11,7 @@ import mlflow
 
 
 @pytest.fixture
-def metric_reader():
+def metric_reader() -> InMemoryMetricReader:
     """Create an in-memory metric reader for testing."""
     reader = InMemoryMetricReader()
     provider = MeterProvider(metric_readers=[reader])
@@ -20,24 +20,25 @@ def metric_reader():
     provider.shutdown()
 
 
-def test_metrics_export(monkeypatch, metric_reader):
-    """Test that metrics are exported with correct attributes."""
+def test_metrics_export(
+    monkeypatch: pytest.MonkeyPatch, metric_reader: InMemoryMetricReader
+) -> None:
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", "http://localhost:9090")
     mlflow.set_experiment("test_experiment")
 
     @mlflow.trace(span_type="CHAIN", name="parent")
-    def parent_function():
+    def parent_function() -> str:
         mlflow.update_current_trace({"env": "test", "version": "1.0"})
         time.sleep(0.01)  # 10ms
         return child_function()
 
     @mlflow.trace(span_type="LLM", name="child")
-    def child_function():
+    def child_function() -> str:
         time.sleep(0.25)  # 250ms
         return "result"
 
     @mlflow.trace(span_type="TOOL", name="error_function")
-    def error_function():
+    def error_function() -> None:
         time.sleep(1.0)  # 1000ms
         raise ValueError("Test error")
 
@@ -86,12 +87,13 @@ def test_metrics_export(monkeypatch, metric_reader):
     assert tool_metric.sum >= 1000
 
 
-def test_no_metrics_when_disabled(monkeypatch, metric_reader):
-    """Test that no metrics are collected when disabled."""
+def test_no_metrics_when_disabled(
+    monkeypatch: pytest.MonkeyPatch, metric_reader: InMemoryMetricReader
+) -> None:
     monkeypatch.delenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", raising=False)
 
     @mlflow.trace(name="test")
-    def test_function():
+    def test_function() -> str:
         return "result"
 
     test_function()
