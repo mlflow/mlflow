@@ -67,14 +67,14 @@ def test_metrics_export(
     llm_metric_attrs = dict(llm_metric.attributes)
     assert llm_metric_attrs["span_type"] == "LLM"
     assert llm_metric_attrs["span_status"] == "OK"
-    assert llm_metric_attrs["root"] == "False"
+    assert llm_metric_attrs["root"] is False
     assert llm_metric.sum >= 250
 
     # CHAIN span (parent) - includes child time, so ~260ms total
     chain_metric_attrs = dict(chain_metric.attributes)
     assert chain_metric_attrs["span_type"] == "CHAIN"
     assert chain_metric_attrs["span_status"] == "OK"
-    assert chain_metric_attrs["root"] == "True"
+    assert chain_metric_attrs["root"] is True
     assert chain_metric_attrs["tags.env"] == "test"
     assert chain_metric_attrs["tags.version"] == "1.0"
     assert chain_metric.sum >= 260
@@ -83,7 +83,7 @@ def test_metrics_export(
     tool_metric_attrs = dict(tool_metric.attributes)
     assert tool_metric_attrs["span_type"] == "TOOL"
     assert tool_metric_attrs["span_status"] == "ERROR"
-    assert tool_metric_attrs["root"] == "True"
+    assert tool_metric_attrs["root"] is True
     assert tool_metric.sum >= 1000
 
 

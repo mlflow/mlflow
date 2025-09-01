@@ -99,7 +99,7 @@ class OtelMetricsMixin:
             pass
 
         attributes = {
-            "root": str(span.parent is None),
+            "root": span.parent is None,
             "span_type": span_type,
             "span_status": span.status.status_code.name if span.status else "UNSET",
             "experiment_id": get_experiment_id_for_trace(span),
