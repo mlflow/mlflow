@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
@@ -12,7 +14,7 @@ from mlflow.genai.judges.tools.search_trace_regex import (
 
 
 def create_test_trace():
-    """Create a test trace with multiple spans and varied content."""
+    """Create a test trace with varied content for testing."""
     trace_dict = {
         "info": {
             "request_id": "test-trace-123",
@@ -20,19 +22,14 @@ def create_test_trace():
             "timestamp_ms": 1234567890,
             "execution_time_ms": 20,
             "status": "OK",
-            "request_metadata": {
-                "mlflow.trace_schema.version": "2",
-            },
+            "request_metadata": {"mlflow.trace_schema.version": "2"},
             "tags": {},
         },
         "data": {
             "spans": [
                 {
-                    "name": "user_authentication",
-                    "context": {
-                        "span_id": "0x1234567890abcdef",
-                        "trace_id": "0xfedcba0987654321fedcba0987654321",
-                    },
+                    "name": "weather_query",
+                    "context": {"span_id": "0x123", "trace_id": "0xabc"},
                     "parent_id": None,
                     "start_time": 1234567890000000000,
                     "end_time": 1234567900000000000,
@@ -40,109 +37,28 @@ def create_test_trace():
                     "status_message": "",
                     "attributes": {
                         "mlflow.traceRequestId": '"test-trace-123"',
-                        "mlflow.spanType": '"LLM"',
                         "mlflow.spanInputs": json.dumps(
-                            {
-                                "user_id": "12345",
-                                "query": "What is the weather today?",
-                                "context": "User is asking about weather information",
-                            }
+                            {"user_id": "12345", "query": "What is the weather today?"}
                         ),
                         "mlflow.spanOutputs": json.dumps(
-                            {
-                                "response": "I'll help you with the weather information.",
-                                "status": "success",
-                            }
+                            {"response": "I'll help you with the weather information."}
                         ),
                         "model": "gpt-4",
-                        "temperature": "0.7",
-                        "system_message": "You are a helpful weather assistant",
+                        "temperature": "22°C",
                     },
                     "events": [],
-                },
-                {
-                    "name": "weather_api_call",
-                    "context": {
-                        "span_id": "0xabcdef1234567890",
-                        "trace_id": "0xfedcba0987654321fedcba0987654321",
-                    },
-                    "parent_id": "0x1234567890abcdef",
-                    "start_time": 1234567901000000000,
-                    "end_time": 1234567905000000000,
-                    "status_code": "OK",
-                    "status_message": "",
-                    "attributes": {
-                        "mlflow.traceRequestId": '"test-trace-123"',
-                        "mlflow.spanType": '"TOOL"',
-                        "mlflow.spanInputs": json.dumps(
-                            {
-                                "api_endpoint": "https://api.weather.com/current",
-                                "location": "San Francisco, CA",
-                                "api_key": "sk_test_key_12345",
-                            }
-                        ),
-                        "mlflow.spanOutputs": json.dumps(
-                            {
-                                "weather_data": {
-                                    "temperature": "22°C",
-                                    "condition": "sunny",
-                                    "humidity": "65%",
-                                },
-                                "error_code": None,
-                            }
-                        ),
-                        "timeout": "30s",
-                        "retry_count": "0",
-                    },
-                    "events": [],
-                },
-                {
-                    "name": "error_handling",
-                    "context": {
-                        "span_id": "0x9876543210fedcba",
-                        "trace_id": "0xfedcba0987654321fedcba0987654321",
-                    },
-                    "parent_id": "0x1234567890abcdef",
-                    "start_time": 1234567906000000000,
-                    "end_time": 1234567908000000000,
-                    "status_code": "OK",
-                    "status_message": "",
-                    "attributes": {
-                        "mlflow.traceRequestId": '"test-trace-123"',
-                        "mlflow.spanType": '"UNKNOWN"',
-                        "mlflow.spanInputs": json.dumps(
-                            {
-                                "error_message": "Connection timeout occurred",
-                                "retry_attempt": 1,
-                            }
-                        ),
-                        "mlflow.spanOutputs": json.dumps(
-                            {
-                                "handled": True,
-                                "fallback_response": "Weather service temporarily unavailable",
-                            }
-                        ),
-                        "error_type": "timeout",
-                        "severity": "warning",
-                    },
-                    "events": [],
-                },
+                }
             ],
             "request": '{"query": "weather"}',
             "response": '{"response": "Weather info"}',
         },
     }
-
     return Trace.from_dict(trace_dict)
 
 
-def test_search_trace_regex_tool_name():
+def test_search_trace_regex_tool_metadata():
     tool = SearchTraceRegexTool()
     assert tool.name == "search_trace_regex"
-
-
-def test_search_trace_regex_tool_definition():
-    tool = SearchTraceRegexTool()
     definition = tool.get_definition()
     assert definition.type == "function"
     assert definition.function.name == "search_trace_regex"
@@ -179,31 +95,24 @@ def test_search_trace_regex_case_insensitive_search():
     assert any("weather" in match.matched_text.lower() for match in result.matches)
 
 
-def test_search_trace_regex_patterns():
+@pytest.mark.parametrize(
+    ("pattern", "expected_content"),
+    [
+        (r"user_id.*\d+", ["user_id", "12345"]),
+        ("query.*weather", ["query", "weather"]),
+        ("response.*help", ["response", "help"]),
+        ("model.*gpt", ["model", "gpt"]),
+        (r"\bweather\b", ["weather"]),
+        (r"[Tt]emperature", ["temperature"]),
+    ],
+)
+def test_search_trace_regex_patterns(pattern, expected_content):
     tool = SearchTraceRegexTool()
     trace = create_test_trace()
-    # Test regex pattern for user_id with digits
-    result = tool.invoke(trace, pattern=r"user_id.*\d+")
-
+    result = tool.invoke(trace, pattern=pattern)
     assert result.total_matches > 0
-    assert any("user_id" in match.matched_text for match in result.matches)
-    assert any("12345" in match.matched_text for match in result.matches)
-
-
-def test_search_trace_regex_search_in_different_fields():
-    tool = SearchTraceRegexTool()
-    trace = create_test_trace()
-    # Search for something in inputs
-    result_input = tool.invoke(trace, pattern="query.*weather")
-    assert result_input.total_matches > 0
-
-    # Search for something in outputs
-    result_output = tool.invoke(trace, pattern="response.*help")
-    assert result_output.total_matches > 0
-
-    # Search for something in attributes
-    result_attr = tool.invoke(trace, pattern="model.*gpt")
-    assert result_attr.total_matches > 0
+    for content in expected_content:
+        assert any(content.lower() in match.matched_text.lower() for match in result.matches)
 
 
 def test_search_trace_regex_surrounding_context():
@@ -259,32 +168,8 @@ def test_search_trace_regex_empty_trace():
         state=TraceState.OK,
         execution_duration=0,
     )
-    empty_data = TraceData(spans=[])  # Empty data instead of None
-    empty_trace = Trace(info=empty_trace_info, data=empty_data)
-
+    empty_trace = Trace(info=empty_trace_info, data=TraceData(spans=[]))
     result = tool.invoke(empty_trace, pattern="empty-trace")
-
-    # Should still search trace metadata and find the trace_id
-    assert result.total_matches > 0
-    assert len(result.matches) > 0
-    assert result.error is None
-
-
-def test_search_trace_regex_trace_with_no_spans():
-    tool = SearchTraceRegexTool()
-    empty_data = TraceData(spans=[])
-    empty_trace_info = TraceInfo(
-        trace_id="no-spans-trace",
-        trace_location=TraceLocation.from_experiment_id("0"),
-        request_time=1234567890,
-        state=TraceState.OK,
-        execution_duration=0,
-    )
-    no_spans_trace = Trace(info=empty_trace_info, data=empty_data)
-
-    result = tool.invoke(no_spans_trace, pattern="no-spans-trace")
-
-    # Should still search trace metadata and find the trace_id
     assert result.total_matches > 0
     assert len(result.matches) > 0
     assert result.error is None
@@ -310,44 +195,22 @@ def test_search_trace_regex_json_values_searchable():
     assert any("temperature" in match.matched_text for match in result.matches)
 
 
-def test_search_trace_regex_complex_regex_patterns():
-    tool = SearchTraceRegexTool()
-    trace = create_test_trace()
-    # Test complex regex with word boundaries
-    result = tool.invoke(trace, pattern=r"\bapi\b")
-
-    assert result.total_matches > 0
-
-    # Test regex with character classes
-    result2 = tool.invoke(trace, pattern=r"[Tt]emperature")
-    assert result2.total_matches > 0
-
-
 def test_search_trace_regex_ellipses_in_surrounding_context():
     tool = SearchTraceRegexTool()
-    # Create a trace with very long text to test ellipses
     long_text = "a" * 200 + "target_word" + "b" * 200
-
-    long_trace_dict = {
+    trace_dict = {
         "info": {
             "request_id": "long-trace",
             "experiment_id": "0",
             "timestamp_ms": 1234567890,
             "execution_time_ms": 10,
             "status": "OK",
-            "request_metadata": {
-                "mlflow.trace_schema.version": "2",
-            },
-            "tags": {},
         },
         "data": {
             "spans": [
                 {
                     "name": "test",
-                    "context": {
-                        "span_id": "0xfedcba0987654321",
-                        "trace_id": "0x1234567890abcdef1234567890abcdef",
-                    },
+                    "context": {"span_id": "0x123", "trace_id": "0xabc"},
                     "parent_id": None,
                     "start_time": 1234567890000000000,
                     "end_time": 1234567900000000000,
@@ -355,9 +218,7 @@ def test_search_trace_regex_ellipses_in_surrounding_context():
                     "status_message": "",
                     "attributes": {
                         "mlflow.traceRequestId": '"long-trace"',
-                        "mlflow.spanType": '"UNKNOWN"',
                         "mlflow.spanInputs": json.dumps({"long_input": long_text}),
-                        "mlflow.spanOutputs": "{}",
                     },
                     "events": [],
                 }
@@ -366,15 +227,10 @@ def test_search_trace_regex_ellipses_in_surrounding_context():
             "response": "{}",
         },
     }
-
-    long_trace = Trace.from_dict(long_trace_dict)
-
-    result = tool.invoke(long_trace, pattern="target_word")
-
+    trace = Trace.from_dict(trace_dict)
+    result = tool.invoke(trace, pattern="target_word")
     assert result.total_matches >= 1
     match = result.matches[0]
-
-    # Should have ellipses due to truncation
     assert match.surrounding_text.startswith("...")
     assert match.surrounding_text.endswith("...")
     assert "target_word" in match.surrounding_text
