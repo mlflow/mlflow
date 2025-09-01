@@ -22,7 +22,7 @@ class RegexMatch:
 
     span_id: str
     matched_text: str
-    surrounding_text: str  # Text with ~100 chars before and after, with ellipses
+    surrounding_text: str
 
 
 @experimental(version="3.4.0")
@@ -107,19 +107,16 @@ class SearchTraceRegexTool(JudgeTool):
                 error=f"Invalid regex pattern: {e}",
             )
 
-        # Handle case where trace.data is None
         if trace.data is None:
             from mlflow.entities.trace_data import TraceData
 
             trace.data = TraceData(spans=[])
 
-        # Convert entire trace to JSON string for searching
         trace_json = trace.to_json()
 
         matches = []
         total_found = 0
 
-        # Find all matches in the JSON string
         for match in regex.finditer(trace_json):
             if total_found >= max_matches:
                 break
@@ -138,13 +135,11 @@ class SearchTraceRegexTool(JudgeTool):
         matched_text = match.group()
         start, end = match.span()
 
-        # Get surrounding context (100 chars before and after)
         context_start = max(0, start - 100)
         context_end = min(len(text), end + 100)
 
         surrounding = text[context_start:context_end]
 
-        # Add ellipses if we truncated
         if context_start > 0:
             surrounding = "..." + surrounding
         if context_end < len(text):
