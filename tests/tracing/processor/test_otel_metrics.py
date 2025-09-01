@@ -8,7 +8,6 @@ from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 
 import mlflow
-from mlflow.tracing.processor.otel import OtelSpanProcessor
 
 
 @pytest.fixture
@@ -24,8 +23,6 @@ def metric_reader():
 def test_metrics_export(monkeypatch, metric_reader):
     """Test that metrics are exported with correct attributes."""
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", "http://localhost:9090")
-
-    OtelSpanProcessor(span_exporter=None, export_metrics=True)
     mlflow.set_experiment("test_experiment")
 
     @mlflow.trace(span_type="CHAIN", name="parent")
@@ -66,11 +63,18 @@ def test_metrics_export(monkeypatch, metric_reader):
 
     assert len(data_points) == 3, "Expected exactly 3 span metrics"
 
-    # Sort by span type for predictable ordering
-    data_points.sort(key=lambda dp: dict(dp.attributes)["span_type"])
+    # Sort by duration for predictable ordering
+    data_points.sort(key=lambda dp: dp.sum)
 
-    # Check each metric
-    chain_metric, llm_metric, tool_metric = data_points
+    # Check each metric (sorted by duration: LLM=250ms, CHAIN=260ms, TOOL=1000ms)
+    llm_metric, chain_metric, tool_metric = data_points
+
+    # LLM span (child) - 250ms
+    llm_metric_attrs = dict(llm_metric.attributes)
+    assert llm_metric_attrs["span_type"] == "LLM"
+    assert llm_metric_attrs["span_status"] == "OK"
+    assert llm_metric_attrs["root"] == "False"
+    assert llm_metric.sum >= 250
 
     # CHAIN span (parent) - includes child time, so ~260ms total
     chain_metric_attrs = dict(chain_metric.attributes)
@@ -80,13 +84,6 @@ def test_metrics_export(monkeypatch, metric_reader):
     assert chain_metric_attrs["tags.env"] == "test"
     assert chain_metric_attrs["tags.version"] == "1.0"
     assert chain_metric.sum >= 260
-
-    # LLM span (child) - 250ms
-    llm_metric_attrs = dict(llm_metric.attributes)
-    assert llm_metric_attrs["span_type"] == "LLM"
-    assert llm_metric_attrs["span_status"] == "OK"
-    assert llm_metric_attrs["root"] == "False"
-    assert llm_metric.sum >= 250
 
     # TOOL span (error) - 1000ms
     tool_metric_attrs = dict(tool_metric.attributes)
@@ -99,8 +96,6 @@ def test_metrics_export(monkeypatch, metric_reader):
 def test_no_metrics_when_disabled(monkeypatch, metric_reader):
     """Test that no metrics are collected when disabled."""
     monkeypatch.delenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", raising=False)
-
-    OtelSpanProcessor(span_exporter=None, export_metrics=False)
 
     @mlflow.trace(name="test")
     def test_function():
