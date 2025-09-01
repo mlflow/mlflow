@@ -31,17 +31,17 @@ def test_metrics_export(monkeypatch, metric_reader):
     @mlflow.trace(span_type="CHAIN", name="parent")
     def parent_function():
         mlflow.update_current_trace({"env": "test", "version": "1.0"})
-        time.sleep(0.02)  # 20ms
+        time.sleep(0.01)  # 10ms
         return child_function()
 
     @mlflow.trace(span_type="LLM", name="child")
     def child_function():
-        time.sleep(0.03)  # 30ms
+        time.sleep(0.25)  # 250ms
         return "result"
 
     @mlflow.trace(span_type="TOOL", name="error_function")
     def error_function():
-        time.sleep(0.015)  # 15ms
+        time.sleep(1.0)  # 1000ms
         raise ValueError("Test error")
 
     # Execute successful trace
@@ -72,28 +72,28 @@ def test_metrics_export(monkeypatch, metric_reader):
     # Check each metric
     chain_metric, llm_metric, tool_metric = data_points
 
-    # CHAIN span (parent) - includes child time, so ~50ms total
+    # CHAIN span (parent) - includes child time, so ~260ms total
     chain_metric_attrs = dict(chain_metric.attributes)
     assert chain_metric_attrs["span_type"] == "CHAIN"
     assert chain_metric_attrs["span_status"] == "OK"
     assert chain_metric_attrs["root"] == "True"
     assert chain_metric_attrs["tags.env"] == "test"
     assert chain_metric_attrs["tags.version"] == "1.0"
-    assert chain_metric.sum >= 50
+    assert chain_metric.sum >= 260
 
-    # LLM span (child) - 30ms
+    # LLM span (child) - 250ms
     llm_metric_attrs = dict(llm_metric.attributes)
     assert llm_metric_attrs["span_type"] == "LLM"
     assert llm_metric_attrs["span_status"] == "OK"
     assert llm_metric_attrs["root"] == "False"
-    assert llm_metric.sum >= 30
+    assert llm_metric.sum >= 250
 
-    # TOOL span (error) - 15ms
+    # TOOL span (error) - 1000ms
     tool_metric_attrs = dict(tool_metric.attributes)
     assert tool_metric_attrs["span_type"] == "TOOL"
     assert tool_metric_attrs["span_status"] == "ERROR"
     assert tool_metric_attrs["root"] == "True"
-    assert tool_metric.sum >= 15
+    assert tool_metric.sum >= 1000
 
 
 def test_no_metrics_when_disabled(monkeypatch, metric_reader):
