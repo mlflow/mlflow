@@ -123,5 +123,5 @@ class OtelMetricsMixin:
                             attributes[f"metadata.{meta_key}"] = str(meta_value)
 
         self._duration_histogram.record(
-            (span.end_time - span.start_time) / 1e6, attributes=attributes
+            amount=(span.end_time - span.start_time) / 1e6, attributes=attributes
         )
