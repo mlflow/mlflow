@@ -117,9 +117,9 @@ class OtelMetricsMixin:
         mlflow_trace_id = self._trace_manager.get_mlflow_trace_id_from_otel_id(
             span.context.trace_id
         )
-        if mlflow_trace_id:
+        if mlflow_trace_id is not None:
             with self._trace_manager.get_trace(mlflow_trace_id) as trace:
-                if trace:
+                if trace is not None:
                     for key, value in trace.info.tags.items():
                         attributes[f"tags.{key}"] = str(value)
                     if trace.info.trace_metadata:
