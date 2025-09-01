@@ -1,8 +1,8 @@
 """
-Configuration and fixtures for experimental genai tests.
+Configuration and fixtures for databricks archival tests.
 
-This conftest.py contains fixtures specific to experimental features
-that should be isolated from the main genai test suite.
+This conftest.py contains fixtures specific to databricks archival features
+that should be isolated from the main test suite.
 
 Testing approach:
 - If the databricks_ingest package is installed, tests will use the real package
@@ -11,7 +11,7 @@ Testing approach:
 
 Examples:
     # Run tests (automatically detects real vs mock implementations)
-    pytest tests/genai/experimental/
+    pytest tests/tracing/databricks_archival/
 """
 
 from enum import Enum

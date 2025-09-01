@@ -97,6 +97,11 @@ jobs:
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
             --ignore-flavors --ignore=tests/examples --ignore=tests/evaluate \
             --ignore tests/genai tests
+      - name: Run Databricks Archival Tests
+        run: |
+          source .venv/bin/activate
+          pip install databricks-agents
+          pytest tests/tracing/databricks_archival
 
   py310:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -326,11 +331,7 @@ jobs:
         run: |
           pip install databricks-agents
           pytest tests/genai --ignore tests/genai/test_genai_import_without_agent_sdk.py \
-            --ignore tests/genai/optimize --ignore tests/genai/prompts --ignore tests/genai/experimental
-
-      - name: Run GenAI Tests (Databricks) with Delta Archival
-        run: |
-          pytest tests/genai/experimental
+            --ignore tests/genai/optimize --ignore tests/genai/prompts
 
       - name: Run Tests with Local Spark Session
         run: |
@@ -339,7 +340,7 @@ jobs:
           # uninstalling databricks-connect.
           pip uninstall -y databricks-connect pyspark
           pip install pyspark
-          pytest tests/genai/evaluate/test_utils.py tests/genai/experimental
+          pytest tests/genai/evaluate/test_utils.py
 
   optuna:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
