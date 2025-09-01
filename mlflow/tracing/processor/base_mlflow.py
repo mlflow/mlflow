@@ -16,7 +16,8 @@ from mlflow.tracing.constant import (
     TraceMetadataKey,
     TraceTagKey,
 )
-from mlflow.tracing.trace_manager import InMemoryTraceManager, _Trace
+from mlflow.tracing.processor.otel_metrics_mixin import OtelMetricsMixin
+from mlflow.tracing.trace_manager import _Trace
 from mlflow.tracing.utils import (
     aggregate_usage_from_spans,
     deduplicate_span_names_in_place,
@@ -29,14 +30,13 @@ from mlflow.tracing.utils import (
 from mlflow.tracing.utils.environment import resolve_env_metadata
 from mlflow.tracking.fluent import (
     _get_active_model_id_global,
-    _get_experiment_id,
     _get_latest_active_run,
 )
 
 _logger = logging.getLogger(__name__)
 
 
-class BaseMlflowSpanProcessor(SimpleSpanProcessor):
+class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
     """
     Defines custom hooks to be executed when a span is started or ended (before exporting).
 
@@ -45,9 +45,11 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
     def __init__(
         self,
         span_exporter: SpanExporter,
+        export_metrics: bool,
     ):
+        super().__init__(span_exporter)
         self.span_exporter = span_exporter
-        self._trace_manager = InMemoryTraceManager.get_instance()
+        self._export_metrics = export_metrics
         self._env_metadata = resolve_env_metadata()
         # Lock to prevent race conditions during concurrent span name deduplication
         # This ensures that when multiple spans end simultaneously, their names are
@@ -90,6 +92,9 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
         Args:
             span: An OpenTelemetry ReadableSpan object that is ended.
         """
+        if self._export_metrics:
+            self.record_metrics_for_span(span)
+
         trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
 
         # Acquire lock before accessing and modifying trace data to prevent race conditions
@@ -105,31 +110,6 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
                     _logger.debug(f"Trace data with request ID {trace_id} not found.")
 
         super().on_end(span)
-
-    def _get_experiment_id_for_trace(self, span: OTelReadableSpan) -> str:
-        """
-        Determine the experiment ID to associate with the trace.
-
-        The experiment ID can be configured in multiple ways, in order of precedence:
-          1. An experiment ID specified via the span creation API i.e. MlflowClient().start_trace()
-          2. An experiment ID specified via `mlflow.tracing.set_destination`
-          3. An experiment ID of an active run.
-          4. The default experiment ID
-        """
-        from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
-        from mlflow.tracking.fluent import _get_latest_active_run
-
-        if experiment_id := get_otel_attribute(span, SpanAttributeKey.EXPERIMENT_ID):
-            return experiment_id
-
-        if destination := _MLFLOW_TRACE_USER_DESTINATION.get():
-            if exp_id := getattr(destination, "experiment_id"):
-                return exp_id
-
-        if run := _get_latest_active_run():
-            return run.info.experiment_id
-
-        return _get_experiment_id()
 
     def _get_basic_trace_metadata(self) -> dict[str, Any]:
         metadata = self._env_metadata.copy()

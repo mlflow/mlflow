@@ -12,6 +12,7 @@ from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Generator
 
 from opentelemetry import trace as trace_api
+from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
 from packaging.version import Version
 
@@ -544,6 +545,38 @@ def update_trace_state_from_span_conditionally(trace, root_span):
     # and we should preserve it
     if trace.info.state == TraceState.IN_PROGRESS:
         trace.info.state = TraceState.from_otel_status(root_span.status)
+
+
+def get_experiment_id_for_trace(span: OTelReadableSpan) -> str:
+    """
+    Determine the experiment ID to associate with the trace.
+
+    The experiment ID can be configured in multiple ways, in order of precedence:
+      1. An experiment ID specified via the span creation API i.e. MlflowClient().start_trace()
+      2. An experiment ID specified via `mlflow.tracing.set_destination`
+      3. An experiment ID of an active run.
+      4. The default experiment ID
+
+    Args:
+        span: The OpenTelemetry ReadableSpan to extract experiment ID from.
+
+    Returns:
+        The experiment ID string to use for the trace.
+    """
+    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
+    from mlflow.tracking.fluent import _get_experiment_id, _get_latest_active_run
+
+    if experiment_id := get_otel_attribute(span, SpanAttributeKey.EXPERIMENT_ID):
+        return experiment_id
+
+    if destination := _MLFLOW_TRACE_USER_DESTINATION.get():
+        if exp_id := getattr(destination, "experiment_id", None):
+            return exp_id
+
+    if run := _get_latest_active_run():
+        return run.info.experiment_id
+
+    return _get_experiment_id()
 
 
 def generate_assessment_id() -> str:

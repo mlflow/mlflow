@@ -36,7 +36,11 @@ from mlflow.tracing.destination import (
 )
 from mlflow.tracing.utils.exception import raise_as_trace_exception
 from mlflow.tracing.utils.once import Once
-from mlflow.tracing.utils.otlp import get_otlp_exporter, should_use_otlp_exporter
+from mlflow.tracing.utils.otlp import (
+    get_otlp_exporter,
+    should_export_otlp_metrics,
+    should_use_otlp_exporter,
+)
 from mlflow.tracing.utils.warning import suppress_warning
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
@@ -333,7 +337,13 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
         from mlflow.tracing.processor.otel import OtelSpanProcessor
 
         exporter = get_otlp_exporter()
-        otel_processor = OtelSpanProcessor(exporter)
+        otel_processor = OtelSpanProcessor(
+            span_exporter=exporter,
+            # Only export metrics from the Otel processor if dual export is not enabled. Otherwise,
+            # both Otel and MLflow processors will export metrics, causing duplication
+            export_metrics=should_export_otlp_metrics()
+            and not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get(),
+        )
         processors.append(otel_processor)
 
         if not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get():
@@ -380,7 +390,10 @@ def _get_mlflow_span_processor(tracking_uri: str):
     from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 
     exporter = MlflowV3SpanExporter(tracking_uri=tracking_uri)
-    return MlflowV3SpanProcessor(exporter)
+    return MlflowV3SpanProcessor(
+        span_exporter=exporter,
+        export_metrics=should_export_otlp_metrics(),
+    )
 
 
 @raise_as_trace_exception
