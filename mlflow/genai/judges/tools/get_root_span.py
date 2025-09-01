@@ -105,7 +105,6 @@ class GetRootSpanTool(JudgeTool):
                 error="No root span found in trace",
             )
 
-        get_span_tool = GetSpanTool()
-        return get_span_tool.invoke(
+        return GetSpanTool().invoke(
             trace, root_span_id, attributes_to_fetch, max_content_length, page_token
         )
