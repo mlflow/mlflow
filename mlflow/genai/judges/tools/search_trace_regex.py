@@ -42,7 +42,7 @@ class SearchTraceRegexTool(JudgeTool):
     """
     Tool for searching through entire traces using regex patterns.
 
-    Performs case-insensitive regex search across all trace data including
+    Performs case-insensitive regex search across all trace fields including
     spans, metadata, tags, requests, responses, and other fields. Returns
     matched text with surrounding context to help understand where matches occur.
     """
@@ -59,7 +59,7 @@ class SearchTraceRegexTool(JudgeTool):
                 name=ToolNames.SEARCH_TRACE_REGEX,
                 description=(
                     "Search through the entire trace using a regular expression pattern. "
-                    "Performs case-insensitive matching across all trace data including spans, "
+                    "Performs case-insensitive matching across all trace fields including spans, "
                     "metadata, tags, requests, and responses. Returns all matches with surrounding "
                     "context. Useful for finding specific patterns, values, or text anywhere in "
                     "the trace."
