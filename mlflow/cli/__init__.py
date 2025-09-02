@@ -6,9 +6,11 @@ import re
 import sys
 import warnings
 from datetime import timedelta
+from pathlib import Path
 
 import click
 from click import UsageError
+from dotenv import load_dotenv
 
 import mlflow.db
 import mlflow.deployments.cli
@@ -45,8 +47,39 @@ class AliasedGroup(click.Group):
         return super().get_command(ctx, cmd_name)
 
 
+def _load_env_file(ctx: click.Context, param: click.Parameter, value: str | None) -> str | None:
+    """
+    Click callback to load environment variables from a dotenv file.
+
+    This function is designed to be used as an eager callback for the --env-file option,
+    ensuring that environment variables are loaded before any command execution.
+    """
+    if value is not None:
+        env_path = Path(value)
+        if not env_path.exists():
+            raise click.BadParameter(f"Environment file '{value}' does not exist.")
+
+        # Load the environment file
+        # override=False means existing environment variables take precedence
+        load_dotenv(env_path, override=False)
+
+        # Log that we've loaded the env file (using click.echo for CLI output)
+        click.echo(f"Loaded environment variables from: {value}", err=True)
+
+    return value
+
+
 @click.group(cls=AliasedGroup)
 @click.version_option(version=version.VERSION)
+@click.option(
+    "--env-file",
+    type=click.Path(exists=False),
+    callback=_load_env_file,
+    expose_value=False,
+    is_eager=True,
+    help="Load environment variables from a dotenv file before executing the command. "
+    "Variables in the file will be loaded but won't override existing environment variables.",
+)
 def cli():
     pass
 
