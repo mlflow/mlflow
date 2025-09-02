@@ -393,8 +393,8 @@ def test_output_format_instructions_added(monkeypatch):
     result = judge(outputs={"text": "Hello there"})
 
     assert "Check if Hello there is formal" in captured_prompt
-    assert "Task Instructions" in captured_prompt
-    assert "EVALUATION APPROACH" in captured_prompt
+    assert "You are a helpful judge" in captured_prompt
+    assert "Your task:" in captured_prompt
     assert "JSON format" in captured_prompt
     assert result.value is True
     assert result.rationale == "Test rationale"
@@ -426,7 +426,8 @@ def test_output_format_instructions_with_complex_template(monkeypatch):
         "Evaluate Hey what's up for professionalism considering formal business setting"
         in captured_prompt
     )
-    assert "Task Instructions" in captured_prompt
+    assert "You are a helpful judge" in captured_prompt
+    assert "Your task:" in captured_prompt
     assert "JSON format" in captured_prompt
     assert result.value == "yes"
     assert result.rationale == "Test rationale"

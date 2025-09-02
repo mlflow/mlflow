@@ -7,9 +7,7 @@ from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import Judge, JudgeField
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
-from mlflow.genai.judges.instructions_judge.constants import (
-    INSTRUCTIONS_JUDGE_EVALUATION_PROMPT_TEMPLATE,
-)
+from mlflow.genai.judges.instructions_judge.constants import INSTRUCTIONS_JUDGE_SYSTEM_PROMPT
 from mlflow.genai.judges.utils import (
     add_output_format_instructions,
     format_prompt,
@@ -166,16 +164,18 @@ class InstructionsJudge(Judge):
                     )
                 template_values.update(expectations)
 
-            formatted_prompt = format_prompt(self._instructions, **template_values)
+            formatted_instructions = format_prompt(self._instructions, **template_values)
 
-            augmented_prompt = format_prompt(
-                INSTRUCTIONS_JUDGE_EVALUATION_PROMPT_TEMPLATE, task_instructions=formatted_prompt
+            system_prompt_content = format_prompt(
+                INSTRUCTIONS_JUDGE_SYSTEM_PROMPT, instructions=formatted_instructions
             )
-            augmented_prompt = add_output_format_instructions(augmented_prompt)
+
+            full_prompt = system_prompt_content
+            full_prompt = add_output_format_instructions(full_prompt)
 
             return invoke_judge_model(
                 model_uri=self._model,
-                prompt=augmented_prompt,
+                prompt=full_prompt,
                 assessment_name=self.name,
             )
         raise MlflowException(
