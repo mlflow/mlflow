@@ -174,13 +174,14 @@ def _invoke_litellm(
         try:
             try:
                 response = _make_completion_request(include_response_format=True)
-            except litellm.BadRequestError:
+            except litellm.BadRequestError as e:
                 # Retry without response_format if the request failed due to bad request.
                 # Some models don't support structured outputs (response_format) at all,
                 # and some models don't support both tool calling and structured outputs together.
                 _logger.debug(
                     f"Model {litellm_model_uri} may not support structured outputs or combined "
-                    f"tool calling + structured outputs. Falling back to unstructured response."
+                    f"tool calling + structured outputs. BadRequestError: {e}. "
+                    f"Falling back to unstructured response."
                 )
                 response = _make_completion_request(include_response_format=False)
 
