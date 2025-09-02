@@ -5,7 +5,7 @@ from unittest import mock
 import pytest
 
 import mlflow
-from mlflow.entities import TraceInfo, TraceLocation, TraceState, ViewType
+from mlflow.entities import ScorerVersion, TraceInfo, TraceState, ViewType
 from mlflow.entities.model_registry import (
     ModelVersion,
     ModelVersionTag,
@@ -13,6 +13,7 @@ from mlflow.entities.model_registry import (
     RegisteredModelTag,
 )
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY
+from mlflow.entities.trace_location import TraceLocation as EntityTraceLocation
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.protos.model_registry_pb2 import (
@@ -38,7 +39,21 @@ from mlflow.protos.model_registry_pb2 import (
     UpdateModelVersion,
     UpdateRegisteredModel,
 )
-from mlflow.protos.service_pb2 import CreateExperiment, SearchRuns
+from mlflow.protos.service_pb2 import (
+    CreateExperiment,
+    DeleteScorer,
+    GetScorer,
+    ListScorers,
+    ListScorerVersions,
+    RegisterScorer,
+    SearchExperiments,
+    SearchLoggedModels,
+    SearchRuns,
+    SearchTraces,
+    SearchTracesV3,
+    TraceLocation,
+)
+from mlflow.protos.webhooks_pb2 import ListWebhooks
 from mlflow.server import (
     ARTIFACTS_DESTINATION_ENV_VAR,
     BACKEND_STORE_URI_ENV_VAR,
@@ -46,6 +61,8 @@ from mlflow.server import (
     app,
 )
 from mlflow.server.handlers import (
+    ModelRegistryStoreRegistryWrapper,
+    TrackingStoreRegistryWrapper,
     _convert_path_parameter_to_flask_format,
     _create_experiment,
     _create_model_version,
@@ -56,18 +73,28 @@ from mlflow.server.handlers import (
     _delete_registered_model,
     _delete_registered_model_alias,
     _delete_registered_model_tag,
+    _delete_scorer,
+    _deprecated_search_traces_v2,
     _get_latest_versions,
     _get_model_version,
     _get_model_version_by_alias,
     _get_model_version_download_uri,
     _get_registered_model,
     _get_request_message,
+    _get_scorer,
     _get_trace_artifact_repo,
+    _list_scorer_versions,
+    _list_scorers,
+    _list_webhooks,
     _log_batch,
+    _register_scorer,
     _rename_registered_model,
+    _search_experiments,
+    _search_logged_models,
     _search_model_versions,
     _search_registered_models,
     _search_runs,
+    _search_traces_v3,
     _set_model_version_tag,
     _set_registered_model_alias,
     _set_registered_model_tag,
@@ -78,6 +105,7 @@ from mlflow.server.handlers import (
     catch_mlflow_exception,
     get_endpoints,
 )
+from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -86,6 +114,8 @@ from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
+from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
+from mlflow.store.tracking.rest_store import RestStore
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE
@@ -261,8 +291,30 @@ def test_search_runs_default_view_type(mock_get_request_message, mock_tracking_s
     mock_get_request_message.return_value = SearchRuns(experiment_ids=["0"])
     mock_tracking_store.search_runs.return_value = PagedList([], None)
     _search_runs()
-    args, _ = mock_tracking_store.search_runs.call_args
-    assert args[2] == ViewType.ACTIVE_ONLY
+    _, kwargs = mock_tracking_store.search_runs.call_args
+    assert kwargs["run_view_type"] == ViewType.ACTIVE_ONLY
+
+
+def test_search_runs_empty_page_token(mock_get_request_message, mock_tracking_store):
+    """
+    Test that empty page_token from protobuf is converted to None before calling store
+    """
+    # Create proto without setting page_token
+    search_runs_proto = SearchRuns()
+    search_runs_proto.experiment_ids.append("0")
+    search_runs_proto.max_results = 10
+    # Verify protobuf returns empty string for unset field
+    assert search_runs_proto.page_token == ""
+
+    mock_get_request_message.return_value = search_runs_proto
+    mock_tracking_store.search_runs.return_value = PagedList([], None)
+
+    _search_runs()
+
+    # Verify store was called with None, not empty string
+    mock_tracking_store.search_runs.assert_called_once()
+    call_kwargs = mock_tracking_store.search_runs.call_args.kwargs
+    assert call_kwargs["page_token"] is None  # page_token should be None, not ""
 
 
 def test_log_batch_api_req(mock_get_request_json):
@@ -404,7 +456,7 @@ def test_search_registered_models(mock_get_request_message, mock_model_registry_
         "filter_string": "",
         "max_results": SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
         "order_by": [],
-        "page_token": "",
+        "page_token": None,
     }
     assert json.loads(resp.get_data()) == {"registered_models": jsonify(rmds)}
 
@@ -416,7 +468,7 @@ def test_search_registered_models(mock_get_request_message, mock_model_registry_
         "filter_string": "hello",
         "max_results": SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
         "order_by": [],
-        "page_token": "",
+        "page_token": None,
     }
     assert json.loads(resp.get_data()) == {
         "registered_models": jsonify(rmds[:1]),
@@ -427,7 +479,7 @@ def test_search_registered_models(mock_get_request_message, mock_model_registry_
     mock_model_registry_store.search_registered_models.return_value = PagedList([rmds[0]], "tik")
     resp = _search_registered_models()
     _, args = mock_model_registry_store.search_registered_models.call_args
-    assert args == {"filter_string": "hi", "max_results": 5, "order_by": [], "page_token": ""}
+    assert args == {"filter_string": "hi", "max_results": 5, "order_by": [], "page_token": None}
     assert json.loads(resp.get_data()) == {
         "registered_models": jsonify([rmds[0]]),
         "next_page_token": "tik",
@@ -694,7 +746,7 @@ def test_search_model_versions(mock_get_request_message, mock_model_registry_sto
         filter_string="source_path = 'A/B/CD'",
         max_results=SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD,
         order_by=[],
-        page_token="",
+        page_token=None,
     )
     assert json.loads(resp.get_data()) == {"model_versions": jsonify(mvds)}
 
@@ -705,7 +757,7 @@ def test_search_model_versions(mock_get_request_message, mock_model_registry_sto
         filter_string="name='model_1'",
         max_results=SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD,
         order_by=[],
-        page_token="",
+        page_token=None,
     )
     assert json.loads(resp.get_data()) == {
         "model_versions": jsonify(mvds[:1]),
@@ -718,7 +770,7 @@ def test_search_model_versions(mock_get_request_message, mock_model_registry_sto
     )
     resp = _search_model_versions()
     mock_model_registry_store.search_model_versions.assert_called_with(
-        filter_string="version<=12", max_results=2, order_by=[], page_token=""
+        filter_string="version<=12", max_results=2, order_by=[], page_token=None
     )
     assert json.loads(resp.get_data()) == {
         "model_versions": jsonify([mvds[0], mvds[2]]),
@@ -895,7 +947,7 @@ def test_get_trace_artifact_repo(location, expected_class, expected_uri, monkeyp
     monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, "s3://bucket")
     trace_info = TraceInfo(
         trace_id="123",
-        trace_location=TraceLocation.from_experiment_id("0"),
+        trace_location=EntityTraceLocation.from_experiment_id("0"),
         request_time=0,
         execution_duration=1,
         state=TraceState.OK,
@@ -945,3 +997,417 @@ def test_create_prompt_as_model_version(mock_get_request_message, mock_model_reg
     assert {tag.key: tag.value for tag in args["tags"]} == {tag.key: tag.value for tag in tags}
     assert args["run_link"] == ""
     assert json.loads(resp.get_data()) == {"model_version": jsonify(mv)}
+
+
+def test_register_scorer(mock_get_request_message, mock_tracking_store):
+    """Test register_scorer handler."""
+    experiment_id = "123"
+    name = "accuracy_scorer"
+    serialized_scorer = "serialized_scorer_data"
+
+    mock_get_request_message.return_value = RegisterScorer(
+        experiment_id=experiment_id, name=name, serialized_scorer=serialized_scorer
+    )
+
+    mock_tracking_store.register_scorer.return_value = 1
+
+    resp = _register_scorer()
+
+    # Verify the tracking store was called with correct arguments
+    mock_tracking_store.register_scorer.assert_called_once_with(
+        experiment_id, name, serialized_scorer
+    )
+
+    # Verify the response
+    response_data = json.loads(resp.get_data())
+    assert response_data == {"version": 1}
+
+
+def test_list_scorers(mock_get_request_message, mock_tracking_store):
+    """Test list_scorers handler."""
+    experiment_id = "123"
+
+    mock_get_request_message.return_value = ListScorers(experiment_id=experiment_id)
+
+    # Create mock scorers
+    scorers = [
+        ScorerVersion(
+            experiment_id=123,
+            scorer_name="accuracy_scorer",
+            scorer_version=1,
+            serialized_scorer="serialized_accuracy_scorer",
+            creation_time=12345,
+        ),
+        ScorerVersion(
+            experiment_id=123,
+            scorer_name="safety_scorer",
+            scorer_version=2,
+            serialized_scorer="serialized_safety_scorer",
+            creation_time=12345,
+        ),
+    ]
+
+    mock_tracking_store.list_scorers.return_value = scorers
+
+    resp = _list_scorers()
+
+    # Verify the tracking store was called with correct arguments
+    mock_tracking_store.list_scorers.assert_called_once_with(experiment_id)
+
+    # Verify the response
+    response_data = json.loads(resp.get_data())
+    assert len(response_data["scorers"]) == 2
+    assert response_data["scorers"][0]["scorer_name"] == "accuracy_scorer"
+    assert response_data["scorers"][0]["scorer_version"] == 1
+    assert response_data["scorers"][0]["serialized_scorer"] == "serialized_accuracy_scorer"
+    assert response_data["scorers"][1]["scorer_name"] == "safety_scorer"
+    assert response_data["scorers"][1]["scorer_version"] == 2
+    assert response_data["scorers"][1]["serialized_scorer"] == "serialized_safety_scorer"
+
+
+def test_list_scorer_versions(mock_get_request_message, mock_tracking_store):
+    """Test list_scorer_versions handler."""
+    experiment_id = "123"
+    name = "accuracy_scorer"
+
+    mock_get_request_message.return_value = ListScorerVersions(
+        experiment_id=experiment_id, name=name
+    )
+
+    # Create mock scorers with multiple versions
+    scorers = [
+        ScorerVersion(
+            experiment_id=123,
+            scorer_name="accuracy_scorer",
+            scorer_version=1,
+            serialized_scorer="serialized_accuracy_scorer_v1",
+            creation_time=12345,
+        ),
+        ScorerVersion(
+            experiment_id=123,
+            scorer_name="accuracy_scorer",
+            scorer_version=2,
+            serialized_scorer="serialized_accuracy_scorer_v2",
+            creation_time=12345,
+        ),
+    ]
+
+    mock_tracking_store.list_scorer_versions.return_value = scorers
+
+    resp = _list_scorer_versions()
+
+    # Verify the tracking store was called with correct arguments
+    mock_tracking_store.list_scorer_versions.assert_called_once_with(experiment_id, name)
+
+    # Verify the response
+    response_data = json.loads(resp.get_data())
+    assert len(response_data["scorers"]) == 2
+    assert response_data["scorers"][0]["scorer_version"] == 1
+    assert response_data["scorers"][0]["serialized_scorer"] == "serialized_accuracy_scorer_v1"
+    assert response_data["scorers"][1]["scorer_version"] == 2
+    assert response_data["scorers"][1]["serialized_scorer"] == "serialized_accuracy_scorer_v2"
+
+
+def test_get_scorer_with_version(mock_get_request_message, mock_tracking_store):
+    """Test get_scorer handler with specific version."""
+    experiment_id = "123"
+    name = "accuracy_scorer"
+    version = 2
+
+    mock_get_request_message.return_value = GetScorer(
+        experiment_id=experiment_id, name=name, version=version
+    )
+
+    # Mock the return value as a ScorerVersion entity
+    mock_scorer_version = ScorerVersion(
+        experiment_id=123,
+        scorer_name="accuracy_scorer",
+        scorer_version=2,
+        serialized_scorer="serialized_accuracy_scorer_v2",
+        creation_time=1640995200000,
+    )
+    mock_tracking_store.get_scorer.return_value = mock_scorer_version
+
+    resp = _get_scorer()
+
+    # Verify the tracking store was called with correct arguments (positional)
+    mock_tracking_store.get_scorer.assert_called_once_with(experiment_id, name, version)
+
+    # Verify the response
+    response_data = json.loads(resp.get_data())
+    assert response_data["scorer"]["experiment_id"] == 123
+    assert response_data["scorer"]["scorer_name"] == "accuracy_scorer"
+    assert response_data["scorer"]["scorer_version"] == 2
+    assert response_data["scorer"]["serialized_scorer"] == "serialized_accuracy_scorer_v2"
+    assert response_data["scorer"]["creation_time"] == 1640995200000
+
+
+def test_get_scorer_without_version(mock_get_request_message, mock_tracking_store):
+    """Test get_scorer handler without version (should return latest)."""
+    experiment_id = "123"
+    name = "accuracy_scorer"
+
+    mock_get_request_message.return_value = GetScorer(experiment_id=experiment_id, name=name)
+
+    # Mock the return value as a ScorerVersion entity
+    mock_scorer_version = ScorerVersion(
+        experiment_id=123,
+        scorer_name="accuracy_scorer",
+        scorer_version=3,
+        serialized_scorer="serialized_accuracy_scorer_latest",
+        creation_time=1640995200000,
+    )
+    mock_tracking_store.get_scorer.return_value = mock_scorer_version
+
+    resp = _get_scorer()
+
+    # Verify the tracking store was called with correct arguments (positional, version=None)
+    mock_tracking_store.get_scorer.assert_called_once_with(experiment_id, name, None)
+
+    # Verify the response
+    response_data = json.loads(resp.get_data())
+    assert response_data["scorer"]["experiment_id"] == 123
+    assert response_data["scorer"]["scorer_name"] == "accuracy_scorer"
+    assert response_data["scorer"]["scorer_version"] == 3
+    assert response_data["scorer"]["serialized_scorer"] == "serialized_accuracy_scorer_latest"
+    assert response_data["scorer"]["creation_time"] == 1640995200000
+
+
+def test_delete_scorer_with_version(mock_get_request_message, mock_tracking_store):
+    """Test delete_scorer handler with specific version."""
+    experiment_id = "123"
+    name = "accuracy_scorer"
+    version = 2
+
+    mock_get_request_message.return_value = DeleteScorer(
+        experiment_id=experiment_id, name=name, version=version
+    )
+
+    resp = _delete_scorer()
+
+    # Verify the tracking store was called with correct arguments (positional)
+    mock_tracking_store.delete_scorer.assert_called_once_with(experiment_id, name, version)
+
+    # Verify the response (should be empty for delete operations)
+    response_data = json.loads(resp.get_data())
+    assert response_data == {}
+
+
+def test_delete_scorer_without_version(mock_get_request_message, mock_tracking_store):
+    """Test delete_scorer handler without version (should delete all versions)."""
+    experiment_id = "123"
+    name = "accuracy_scorer"
+
+    mock_get_request_message.return_value = DeleteScorer(experiment_id=experiment_id, name=name)
+
+    resp = _delete_scorer()
+
+    # Verify the tracking store was called with correct arguments (positional, version=None)
+    mock_tracking_store.delete_scorer.assert_called_once_with(experiment_id, name, None)
+
+    # Verify the response (should be empty for delete operations)
+    response_data = json.loads(resp.get_data())
+    assert response_data == {}
+
+
+def test_databricks_tracking_store_registration():
+    """Test that Databricks tracking store is properly registered."""
+    registry = TrackingStoreRegistryWrapper()
+
+    # Test that the correct store type is returned for databricks scheme
+    store = registry.get_store("databricks", artifact_uri=None)
+    assert isinstance(store, RestStore)
+
+    # Verify that the store was created with the right get_host_creds function
+    # The RestStore should have a get_host_creds attribute that is a partial function
+    assert hasattr(store, "get_host_creds")
+    assert store.get_host_creds.func.__name__ == "get_databricks_host_creds"
+    assert store.get_host_creds.args == ("databricks",)
+
+
+def test_databricks_model_registry_store_registration():
+    """Test that Databricks model registry stores are properly registered."""
+    registry = ModelRegistryStoreRegistryWrapper()
+
+    # Test that the correct store type is returned for databricks
+    store = registry.get_store("databricks")
+    assert isinstance(store, ModelRegistryRestStore)
+
+    # Verify that the store was created with the right get_host_creds function
+    assert hasattr(store, "get_host_creds")
+    assert store.get_host_creds.func.__name__ == "get_databricks_host_creds"
+    assert store.get_host_creds.args == ("databricks",)
+
+    # Test that the correct store type is returned for databricks-uc
+    uc_store = registry.get_store("databricks-uc")
+    assert isinstance(uc_store, UcModelRegistryStore)
+
+    # Verify that the UC store was created with the right get_host_creds function
+    # Note: UcModelRegistryStore uses get_databricks_host_creds internally,
+    # not get_databricks_uc_host_creds
+    assert hasattr(uc_store, "get_host_creds")
+    assert uc_store.get_host_creds.func.__name__ == "get_databricks_host_creds"
+    assert uc_store.get_host_creds.args == ("databricks-uc",)
+
+    # Also verify it has tracking_uri set
+    assert hasattr(uc_store, "tracking_uri")
+    # The tracking_uri will be set based on environment/test config
+    # In test environment, it may be set to a test sqlite database
+    assert uc_store.tracking_uri is not None
+
+
+def test_search_experiments_empty_page_token(mock_get_request_message, mock_tracking_store):
+    """Test that _search_experiments converts empty page_token to None."""
+    # Create proto without setting page_token - it defaults to empty string
+    search_experiments_proto = SearchExperiments()
+    search_experiments_proto.max_results = 10
+
+    # Verify that proto's default page_token is empty string
+    assert search_experiments_proto.page_token == ""
+
+    mock_get_request_message.return_value = search_experiments_proto
+    mock_tracking_store.search_experiments.return_value = PagedList([], None)
+
+    _search_experiments()
+
+    # Verify that search_experiments was called with page_token=None (not empty string)
+    mock_tracking_store.search_experiments.assert_called_once()
+    call_kwargs = mock_tracking_store.search_experiments.call_args.kwargs
+    assert call_kwargs.get("page_token") is None
+    assert call_kwargs.get("max_results") == 10
+
+
+def test_search_registered_models_empty_page_token(
+    mock_get_request_message, mock_model_registry_store
+):
+    """Test that _search_registered_models converts empty page_token to None."""
+    # Create proto without setting page_token - it defaults to empty string
+    search_registered_models_proto = SearchRegisteredModels()
+    search_registered_models_proto.max_results = 10
+
+    # Verify that proto's default page_token is empty string
+    assert search_registered_models_proto.page_token == ""
+
+    mock_get_request_message.return_value = search_registered_models_proto
+    mock_model_registry_store.search_registered_models.return_value = PagedList([], None)
+
+    _search_registered_models()
+
+    # Verify that search_registered_models was called with page_token=None (not empty string)
+    mock_model_registry_store.search_registered_models.assert_called_once()
+    call_kwargs = mock_model_registry_store.search_registered_models.call_args.kwargs
+    assert call_kwargs.get("page_token") is None
+    assert call_kwargs.get("max_results") == 10
+
+
+def test_search_model_versions_empty_page_token(
+    mock_get_request_message, mock_model_registry_store
+):
+    """Test that _search_model_versions converts empty page_token to None."""
+    # Create proto without setting page_token - it defaults to empty string
+    search_model_versions_proto = SearchModelVersions()
+    search_model_versions_proto.max_results = 10
+
+    # Verify that proto's default page_token is empty string
+    assert search_model_versions_proto.page_token == ""
+
+    mock_get_request_message.return_value = search_model_versions_proto
+    mock_model_registry_store.search_model_versions.return_value = PagedList([], None)
+
+    _search_model_versions()
+
+    # Verify that search_model_versions was called with page_token=None (not empty string)
+    mock_model_registry_store.search_model_versions.assert_called_once()
+    call_kwargs = mock_model_registry_store.search_model_versions.call_args.kwargs
+    assert call_kwargs.get("page_token") is None
+    assert call_kwargs.get("max_results") == 10
+
+
+def test_search_traces_v3_empty_page_token(mock_get_request_message, mock_tracking_store):
+    """Test that _search_traces_v3 converts empty page_token to None."""
+    # Create proto without setting page_token - it defaults to empty string
+    # SearchTracesV3 requires locations field
+    search_traces_proto = SearchTracesV3()
+    location = TraceLocation()
+    location.mlflow_experiment.experiment_id = "1"
+    search_traces_proto.locations.append(location)
+    search_traces_proto.max_results = 10
+
+    # Verify that proto's default page_token is empty string
+    assert search_traces_proto.page_token == ""
+
+    mock_get_request_message.return_value = search_traces_proto
+    mock_tracking_store.search_traces.return_value = ([], None)
+
+    _search_traces_v3()
+
+    # Verify that search_traces was called with page_token=None (not empty string)
+    mock_tracking_store.search_traces.assert_called_once()
+    call_kwargs = mock_tracking_store.search_traces.call_args.kwargs
+    assert call_kwargs.get("page_token") is None
+    assert call_kwargs.get("max_results") == 10
+
+
+def test_deprecated_search_traces_v2_empty_page_token(
+    mock_get_request_message, mock_tracking_store
+):
+    """Test that _deprecated_search_traces_v2 converts empty page_token to None."""
+    # Create proto without setting page_token - it defaults to empty string
+    search_traces_proto = SearchTraces()
+    search_traces_proto.max_results = 10
+
+    # Verify that proto's default page_token is empty string
+    assert search_traces_proto.page_token == ""
+
+    mock_get_request_message.return_value = search_traces_proto
+    mock_tracking_store.search_traces.return_value = ([], None)
+
+    _deprecated_search_traces_v2()
+
+    # Verify that search_traces was called with page_token=None (not empty string)
+    mock_tracking_store.search_traces.assert_called_once()
+    call_kwargs = mock_tracking_store.search_traces.call_args.kwargs
+    assert call_kwargs.get("page_token") is None
+    assert call_kwargs.get("max_results") == 10
+
+
+def test_search_logged_models_empty_page_token(mock_get_request_message, mock_tracking_store):
+    """Test that _search_logged_models converts empty page_token to None."""
+    # Create proto without setting page_token - it defaults to empty string
+    search_logged_models_proto = SearchLoggedModels()
+    search_logged_models_proto.max_results = 10
+
+    # Verify that proto's default page_token is empty string
+    assert search_logged_models_proto.page_token == ""
+
+    mock_get_request_message.return_value = search_logged_models_proto
+    mock_tracking_store.search_logged_models.return_value = PagedList([], None)
+
+    _search_logged_models()
+
+    # Verify that search_logged_models was called with page_token=None (not empty string)
+    mock_tracking_store.search_logged_models.assert_called_once()
+    call_kwargs = mock_tracking_store.search_logged_models.call_args.kwargs
+    assert call_kwargs.get("page_token") is None
+    assert call_kwargs.get("max_results") == 10
+
+
+def test_list_webhooks_empty_page_token(mock_get_request_message, mock_model_registry_store):
+    """Test that _list_webhooks converts empty page_token to None."""
+    # Create proto without setting page_token - it defaults to empty string
+    list_webhooks_proto = ListWebhooks()
+    list_webhooks_proto.max_results = 10
+
+    # Verify that proto's default page_token is empty string
+    assert list_webhooks_proto.page_token == ""
+
+    mock_get_request_message.return_value = list_webhooks_proto
+    mock_model_registry_store.list_webhooks.return_value = PagedList([], None)
+
+    _list_webhooks()
+
+    # Verify that list_webhooks was called with page_token=None (not empty string)
+    mock_model_registry_store.list_webhooks.assert_called_once()
+    call_kwargs = mock_model_registry_store.list_webhooks.call_args.kwargs
+    assert call_kwargs.get("page_token") is None
+    assert call_kwargs.get("max_results") == 10

@@ -3600,6 +3600,7 @@ def log_model(
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
     """
+    flavor_name = _get_pyfunc_model_flavor_name(python_model)
     return Model.log(
         artifact_path=artifact_path,
         name=name,
@@ -3628,7 +3629,25 @@ def log_model(
         model_type=model_type,
         step=step,
         model_id=model_id,
+        # only used for checking python model type
+        flavor_name=flavor_name,
     )
+
+
+def _get_pyfunc_model_flavor_name(python_model: Any) -> str:
+    if python_model is None:
+        return "pyfunc"
+    if isinstance(python_model, str):
+        return "pyfunc.ModelFromCode"
+    if IS_RESPONSES_AGENT_AVAILABLE and isinstance(python_model, ResponsesAgent):
+        return "pyfunc.ResponsesAgent"
+    if isinstance(python_model, ChatAgent):
+        return "pyfunc.ChatAgent"
+    if isinstance(python_model, ChatModel):
+        return "pyfunc.ChatModel"
+    if isinstance(python_model, PythonModel):
+        return "pyfunc.CustomPythonModel"
+    return "pyfunc"
 
 
 def _save_model_with_loader_module_and_data_path(

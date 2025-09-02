@@ -433,6 +433,9 @@ mlflow.entities.RunStatus.to_string
 mlflow.entities.RunTag
 mlflow.entities.RunTag.from_proto
 mlflow.entities.RunTag.to_proto
+mlflow.entities.ScorerVersion
+mlflow.entities.ScorerVersion.from_proto
+mlflow.entities.ScorerVersion.to_proto
 mlflow.entities.SourceType
 mlflow.entities.SourceType.from_string
 mlflow.entities.SourceType.to_string
@@ -573,6 +576,7 @@ mlflow.entities.run_inputs.RunInputs
 mlflow.entities.run_outputs.RunOutputs
 mlflow.entities.run_status.RunStatus
 mlflow.entities.run_tag.RunTag
+mlflow.entities.scorer.ScorerVersion
 mlflow.entities.source_type.SourceType
 mlflow.entities.span.LiveSpan
 mlflow.entities.span.NoOpSpan
@@ -685,6 +689,8 @@ mlflow.genai.datasets.get_dataset
 mlflow.genai.delete_dataset
 mlflow.genai.delete_labeling_session
 mlflow.genai.delete_prompt_alias
+mlflow.genai.disable_git_model_versioning
+mlflow.genai.enable_git_model_versioning
 mlflow.genai.evaluate
 mlflow.genai.get_dataset
 mlflow.genai.get_labeling_session
@@ -1167,6 +1173,7 @@ mlflow.statsmodels.save_model
 mlflow.store.entities.PagedList
 mlflow.store.entities.PagedList.to_list
 mlflow.store.entities.paged_list.PagedList
+mlflow.strands.autolog
 mlflow.system_metrics.disable_system_metrics_logging
 mlflow.system_metrics.enable_system_metrics_logging
 mlflow.system_metrics.set_system_metrics_node_id

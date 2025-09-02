@@ -783,6 +783,10 @@
     "defaultMessage": "Created by",
     "description": "Run page > Overview > Run author section label"
   },
+  "7KPJii": {
+    "defaultMessage": "Tags",
+    "description": "Label for the tags section"
+  },
   "7NKkk1": {
     "defaultMessage": "Save",
     "description": "Modal button text to save the changes to rename the experiment run name"
@@ -1862,6 +1866,10 @@
   "K+5g8S": {
     "defaultMessage": "Trace data is not available for in-progress traces. Please wait for the trace to complete.",
     "description": "Experiment page > traces data drawer > in-progress description"
+  },
+  "K1JLVU": {
+    "defaultMessage": "Latency",
+    "description": "Label for the latency section"
   },
   "K5rmCE": {
     "defaultMessage": "S3",
@@ -3617,6 +3625,10 @@
     "defaultMessage": "Submit",
     "description": "Experiment page > artifact compare view > \"add new row\" modal submit button label"
   },
+  "ega/Za": {
+    "defaultMessage": "Hide finished runs",
+    "description": "Menu option for hiding all finished runs in the experiment view runs compare mode"
+  },
   "erqoIC": {
     "defaultMessage": "Run Name:",
     "description": "Text for run name row header in the main table in the model comparison\n                page"
@@ -4016,6 +4028,10 @@
   "igK5Su": {
     "defaultMessage": "Error",
     "description": "Experiment page > traces table > status label > error"
+  },
+  "imKpxw": {
+    "defaultMessage": "ID",
+    "description": "Label for the ID section"
   },
   "ivRq5S": {
     "defaultMessage": "Send Feedback",
@@ -5261,6 +5277,10 @@
     "defaultMessage": "Guideline adherence",
     "description": "Evaluation results > known type of evaluation result assessment > guideline adherence assessment. Used to indicate if the result adheres to the guidelines in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Guideline adherence: moderate\""
   },
+  "xgypqc": {
+    "defaultMessage": "Copied to clipboard",
+    "description": "Success message for the notification"
+  },
   "xmPKKq": {
     "defaultMessage": "Model Version:",
     "description": "Text for model version row header in the main table in the model\n                comparison page"
@@ -5448,6 +5468,10 @@
   "zmMR5p": {
     "defaultMessage": "An error occurred while rendering this component.",
     "description": "Description for default error message in prompts management UI"
+  },
+  "zp4MBw": {
+    "defaultMessage": "Token count",
+    "description": "Label for the token count section"
   },
   "zv4Ycc": {
     "defaultMessage": "View as table",

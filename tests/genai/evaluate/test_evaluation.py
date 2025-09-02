@@ -2,8 +2,9 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 from unittest import mock
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
+import pandas as pd
 import pytest
 
 import mlflow
@@ -12,10 +13,11 @@ from mlflow.entities.assessment_source import AssessmentSource, AssessmentSource
 from mlflow.entities.span import SpanType
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
-from mlflow.genai.datasets import create_dataset
+from mlflow.genai.datasets import EvaluationDataset, create_dataset
 from mlflow.genai.scorers.base import scorer
-from mlflow.genai.scorers.builtin_scorers import Safety
+from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_IS_EVALUATION
 
 from tests.evaluate.test_evaluation import _DUMMY_CHAT_RESPONSE
 from tests.tracing.helper import get_traces
@@ -83,6 +85,7 @@ def _validate_assessments(traces):
         assert isinstance(a_expected_response, Expectation)
         assert isinstance(a_expected_response.value, str)
         assert a_expected_response.source.source_type == AssessmentSourceType.HUMAN
+        assert a_expected_response.source.source_id is not None
 
         a_max_length = assessments["max_length"]
         assert isinstance(a_max_length, Expectation)
@@ -147,6 +150,9 @@ def test_evaluate_with_static_dataset(is_in_databricks):
     assert len(run.inputs.dataset_inputs) == 1
     assert run.inputs.dataset_inputs[0].dataset.name == "dataset"
     assert run.inputs.dataset_inputs[0].dataset.source_type == "code"
+
+    if not is_in_databricks:
+        assert run.data.tags[MLFLOW_RUN_IS_EVALUATION] == "true"
 
 
 @pytest.mark.parametrize("is_predict_fn_traced", [True, False])
@@ -471,7 +477,7 @@ def test_trace_input_can_contain_string_input(pass_full_dataframe, is_in_databri
         traces = traces[["trace"]]
 
     # Harness should run without an error
-    mlflow.genai.evaluate(data=traces, scorers=[Safety()])
+    mlflow.genai.evaluate(data=traces, scorers=[RelevanceToQuery()])
 
 
 def test_max_workers_env_var(is_in_databricks, monkeypatch):
@@ -490,7 +496,7 @@ def test_max_workers_env_var(is_in_databricks, monkeypatch):
                         "outputs": "MLflow is a tool for ML",
                     }
                 ],
-                scorers=[Safety()],
+                scorers=[RelevanceToQuery()],
             )
             # ThreadPoolExecutor is called twice in OSS (harness + scorers)
             first_call = mock_executor.call_args_list[0]
@@ -507,3 +513,114 @@ def test_max_workers_env_var(is_in_databricks, monkeypatch):
     if is_in_databricks:
         monkeypatch.setenv("RAG_EVAL_MAX_WORKERS", "30")
         _validate_max_workers(30)
+
+
+def test_dataset_name_is_logged_correctly(is_in_databricks):
+    data = pd.DataFrame(
+        {
+            "inputs": [{"question": "What is MLflow?"}],
+            "outputs": ["MLflow is a tool for ML"],
+        }
+    )
+
+    with mlflow.start_run() as run:
+        mlflow.genai.evaluate(
+            data=data,
+            scorers=[RelevanceToQuery()],
+        )
+
+    if not is_in_databricks:
+        run_data = mlflow.get_run(run.info.run_id)
+        assert run_data.inputs is not None
+        assert run_data.inputs.dataset_inputs is not None
+        assert len(run_data.inputs.dataset_inputs) > 0
+
+        dataset_input = run_data.inputs.dataset_inputs[0]
+        dataset = dataset_input.dataset
+        assert dataset.name == "dataset"
+
+
+def test_evaluate_with_dataset_preserves_name(is_in_databricks):
+    from mlflow.entities import Dataset as DatasetEntity
+
+    data = pd.DataFrame(
+        {
+            "inputs": [{"question": "What is MLflow?"}],
+            "outputs": ["MLflow is a tool for ML"],
+        }
+    )
+
+    mock_managed_dataset = MagicMock(spec=EvaluationDataset)
+    type(mock_managed_dataset).name = mock.PropertyMock(return_value="my_managed_dataset")
+    mock_managed_dataset.to_df.return_value = data
+    mock_managed_dataset.digest = "test_digest"
+    mock_managed_dataset.source = MagicMock()
+    mock_managed_dataset.source.to_json.return_value = "{}"
+    mock_managed_dataset.source._get_source_type.return_value = "test"
+    mock_managed_dataset._to_mlflow_entity.return_value = DatasetEntity(
+        name="my_managed_dataset",
+        digest="test_digest",
+        source_type="test",
+        source="{}",
+        schema=None,
+        profile=None,
+    )
+
+    if not is_in_databricks:
+        with mlflow.start_run() as run:
+            mlflow.genai.evaluate(
+                data=data,
+                scorers=[RelevanceToQuery()],
+            )
+
+        run_data = mlflow.get_run(run.info.run_id)
+        dataset_input = run_data.inputs.dataset_inputs[0]
+        assert dataset_input.dataset.name == "dataset"
+
+        with mlflow.start_run() as run:
+            mlflow.genai.evaluate(
+                data=mock_managed_dataset,
+                scorers=[RelevanceToQuery()],
+            )
+
+        run_data = mlflow.get_run(run.info.run_id)
+        dataset_input = run_data.inputs.dataset_inputs[0]
+        assert dataset_input.dataset.name == "my_managed_dataset"
+
+
+def test_evaluate_with_managed_dataset_preserves_name():
+    mock_managed_dataset = MagicMock()
+    mock_managed_dataset.dataset_id = "d-1234567890abcdef1234567890abcdef"
+    mock_managed_dataset.name = "test.evaluation.sample_dataset"
+    mock_managed_dataset.digest = "abc123"
+    mock_managed_dataset.schema = None
+    mock_managed_dataset.profile = None
+    mock_managed_dataset.source_type = "databricks-uc-table"
+    mock_managed_dataset.create_time = None
+    mock_managed_dataset.created_by = None
+    mock_managed_dataset.last_update_time = None
+    mock_managed_dataset.last_updated_by = None
+    mock_managed_dataset.to_df.return_value = pd.DataFrame(
+        {
+            "inputs": [{"question": "What is MLflow?"}],
+            "outputs": ["MLflow is a tool for ML"],
+        }
+    )
+
+    dataset = EvaluationDataset(mock_managed_dataset)
+
+    with mlflow.start_run() as run:
+        mlflow.genai.evaluate(
+            data=dataset,
+            scorers=[RelevanceToQuery()],
+        )
+
+        run_data = mlflow.get_run(run.info.run_id)
+
+        assert run_data.inputs is not None
+        assert run_data.inputs.dataset_inputs is not None
+        assert len(run_data.inputs.dataset_inputs) > 0
+
+        dataset_input = run_data.inputs.dataset_inputs[0]
+        logged_dataset = dataset_input.dataset
+        assert logged_dataset.name == "test.evaluation.sample_dataset"

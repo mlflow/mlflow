@@ -36,14 +36,23 @@ from mlflow.store.tracking import (
     SEARCH_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking.rest_store import RestStore
-from mlflow.telemetry.events import CreateExperimentEvent, CreateLoggedModelEvent, CreateRunEvent
+from mlflow.telemetry.events import (
+    CreateExperimentEvent,
+    CreateLoggedModelEvent,
+    CreateRunEvent,
+    GetLoggedModelEvent,
+    LogBatchEvent,
+    LogDatasetEvent,
+    LogMetricEvent,
+    LogParamEvent,
+)
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
 from mlflow.utils import chunk_list
 from mlflow.utils.async_logging.run_operations import RunOperations, get_combined_run_operations
 from mlflow.utils.databricks_utils import get_workspace_url, is_in_databricks_notebook
-from mlflow.utils.mlflow_tags import MLFLOW_USER
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_IS_EVALUATION, MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, is_databricks_uri
@@ -310,6 +319,7 @@ class TrackingServiceClient:
         """
         self.store.rename_experiment(experiment_id, new_name)
 
+    @record_usage_event(LogMetricEvent)
     def log_metric(
         self,
         run_id,
@@ -366,6 +376,7 @@ class TrackingServiceClient:
         else:
             return self.store.log_metric_async(run_id, metric)
 
+    @record_usage_event(LogParamEvent)
     def log_param(self, run_id, key, value, synchronous=True):
         """Log a parameter (e.g. model hyperparameter) against the run ID. Value is converted to
         a string.
@@ -480,6 +491,7 @@ class TrackingServiceClient:
             run_name=name,
         )
 
+    @record_usage_event(LogBatchEvent)
     def log_batch(
         self, run_id, metrics=(), params=(), tags=(), synchronous=True
     ) -> RunOperations | None:
@@ -568,6 +580,7 @@ class TrackingServiceClient:
             # Merge all the run operations into a single run operations object
             return get_combined_run_operations(run_operations_list)
 
+    @record_usage_event(LogDatasetEvent)
     def log_inputs(
         self,
         run_id: str,
@@ -736,9 +749,17 @@ class TrackingServiceClient:
         host_url = get_workspace_url()
         if host_url is None:
             host_url = self.store.get_host_creds().host.rstrip("/")
-        run_info = self.store.get_run(run_id).info
-        experiment_id = run_info.experiment_id
-        run_name = run_info.run_name
+        run = self.store.get_run(run_id)
+
+        # Check for a special run tag that indicates the run is triggered by evaluation.
+        # MLflow already shows a link to evaluation results so no need to print it again.
+        if (
+            is_eval_tag := run.data.tags.get(MLFLOW_RUN_IS_EVALUATION)
+        ) and is_eval_tag.lower() == "true":
+            return
+
+        experiment_id = run.info.experiment_id
+        run_name = run.info.run_name
         if is_databricks_uri(self.tracking_uri):
             experiment_url = f"{host_url}/ml/experiments/{experiment_id}"
         else:
@@ -858,6 +879,7 @@ class TrackingServiceClient:
     def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
         return self.store.finalize_logged_model(model_id, status)
 
+    @record_usage_event(GetLoggedModelEvent)
     def get_logged_model(self, model_id: str) -> LoggedModel:
         return self.store.get_logged_model(model_id)
 
