@@ -4,6 +4,8 @@ from typing_extensions import Self
 
 import mlflow
 from mlflow.genai.git_versioning.git_info import GitInfo, GitOperationError
+from mlflow.telemetry.events import GitModelVersioningEvent
+from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking.fluent import _set_active_model
 from mlflow.utils.annotations import experimental
 
@@ -113,6 +115,7 @@ def enable_git_model_versioning(remote_name: str = "origin") -> GitContext:
     return context
 
 
+@record_usage_event(GitModelVersioningEvent)
 @experimental(version="3.4.0")
 def disable_git_model_versioning() -> None:
     """
