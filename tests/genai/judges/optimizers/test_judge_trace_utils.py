@@ -8,34 +8,7 @@ from mlflow.entities.trace import Trace
 from mlflow.genai.judges.judge_trace_utils import (
     extract_request_from_trace,
     extract_response_from_trace,
-    extract_text_from_data,
 )
-
-
-def test_extract_text_from_data_string():
-    """Test extracting text from string data."""
-    result = extract_text_from_data("simple string", "request")
-    assert result == "simple string"
-
-
-def test_extract_text_from_data_dict_request():
-    """Test extracting request text from dictionary data."""
-    data = {"prompt": "test input", "other": "ignored"}
-    result = extract_text_from_data(data, "request")
-    assert result == "test input"
-
-
-def test_extract_text_from_data_dict_response():
-    """Test extracting response text from dictionary data."""
-    data = {"content": "test output", "other": "ignored"}
-    result = extract_text_from_data(data, "response")
-    assert result == "test output"
-
-
-def test_extract_text_from_data_none():
-    """Test extracting text from None data."""
-    result = extract_text_from_data(None, "request")
-    assert result == ""
 
 
 @pytest.mark.parametrize(
