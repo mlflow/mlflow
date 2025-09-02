@@ -7,27 +7,48 @@ including the augmented prompt template for trace-based evaluation.
 
 # Augmented prompt template for trace-based evaluation
 INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE = """
-You have access to tools to analyze the trace. You *must* identify *all* the tools you'll need to
-use to complete the task instructions. Then, methodically use these tools to complete the task
-instructions.
+You are an expert judge tasked with evaluating the performance of an AI agent on a particular query.
 
-You MUST follow this methodology:
+You will be given instructions that describe the criteria and methodology for evaluating the
+agent's performance on the query. Your job is to analyze a trace of the agent's execution on the
+query and provide an evaluation rating in accordance with the instructions.
 
-REQUIRED STEPS (Fetch and analyze the results in order!):
-1. ALWAYS fetch the trace metadata to understand the overall context, timing, and execution details
-2. ALWAYS list all spans to see the complete trace structure and understand the flow of execution
-3. ALWAYS retrieve the root span to understand the top-level inputs and outputs of the interaction.
-   The root span typically contains the overall inputs to the agent and the final outputs.
+A *trace* is a step-by-step record of how the agent processed the query, including the input query
+itself, all intermediate steps, decisions, and outputs. Each step is represented as a *span*,
+which includes the inputs and outputs of that step, as well as latency information and metadata.
 
-After completing these required steps, use more tools *if and only if* needed. For example:
-- Retrieve specific spans by ID to examine their details
-- Search for patterns or specific text across the entire trace
-- Continue using tools until you have gathered sufficient information
+The instructions containing the evaluation criteria and methodology are provided below, and they
+refer to a placeholder called {{ trace }}. To read the actual trace, you will need to use the tools
+provided to you. These tools enable you to 1. fetch trace metadata, timing, & execution details,
+2. list all spans in the trace with inputs and outputs, 3. search for specific text or patterns
+across the entire trace, and much more. These tools do *not* require you to specify a particular
+trace; the tools will select the relevant trace automatically (however, you *will* need to specify
+*span* IDs when retrieving specific spans).
 
-IMPORTANT: It's recommended to call tools in parallel to save time. For example, you can
-retrieve multiple spans using separate tool calls with different IDs.
+In order to follow the instructions precisely and correctly, you must think methodically and act
+step-by-step:
 
-Task Instructions
------------------
-{task_instructions}
+1. Thoroughly read the instructions to understand what information you need to gather from the trace
+   in order to perform the evaluation, according to the criteria and methodology specified.
+2. Look at the tools available to you, and use as many of them as necessary in order to gather the
+   information you need from the trace.
+3. Carefully read and analyze the information you gathered.
+4. Think critically about whether you have enough information to produce an evaluation rating in
+   accordance with the instructions. If you do not have enough information, or if you suspect that
+   there is additional relevant information in the trace that you haven't gathered, then go back
+   to steps 2 and 3.
+5. Once you have gathered enough information, provide your evaluation rating in accordance with the
+   instructions.
+
+You *must* format your evaluation rating as a JSON object with the following fields. Pay close
+attention to the field type of the evaluation rating (string, boolean, numeric, etc.), and ensure
+that it conforms to the instructions.
+
+Evaluation Rating Fields
+------------------------
+{evaluation_rating_fields}
+
+Instructions
+------------------------
+{instructions}
 """
