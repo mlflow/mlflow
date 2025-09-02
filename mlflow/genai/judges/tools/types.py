@@ -24,5 +24,5 @@ class SpanInfo:
     duration_ms: float
     parent_id: str | None
     status: SpanStatus
-    is_root: bool  # True if parent_id is None, else False
-    attribute_names: list[str]  # Names of attributes in this span
+    is_root: bool
+    attribute_names: list[str]
