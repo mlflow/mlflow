@@ -49,7 +49,6 @@ def make_judge(
 
     if aggregations is None:
         aggregations = []
-
     validate_aggregations(aggregations)
 
     return InstructionsJudge(
