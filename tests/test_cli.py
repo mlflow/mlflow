@@ -768,7 +768,7 @@ def test_env_file_loading(tmp_path, monkeypatch):
     # Use a custom command that captures environment
     captured_env = {}
 
-    def capture_env_command():
+    def capture_env_command() -> int:
         """Helper command to capture environment variables."""
         captured_env.update(os.environ.copy())
         click.echo("Environment captured")
@@ -807,7 +807,7 @@ def test_env_file_loading(tmp_path, monkeypatch):
 
     captured_env_override = {}
 
-    def capture_env_override():
+    def capture_env_override() -> int:
         captured_env_override.update(os.environ.copy())
         return 0
 
