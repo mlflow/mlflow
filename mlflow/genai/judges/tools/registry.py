@@ -118,8 +118,12 @@ def list_judge_tools() -> list[JudgeTool]:
     return _judge_tool_registry.list_tools()
 
 
+from mlflow.genai.judges.tools.get_span import GetSpanTool
 from mlflow.genai.judges.tools.get_trace_info import GetTraceInfoTool
+from mlflow.genai.judges.tools.list_spans import ListSpansTool
 from mlflow.genai.judges.tools.search_trace_regex import SearchTraceRegexTool
 
 _judge_tool_registry.register(GetTraceInfoTool())
+_judge_tool_registry.register(GetSpanTool())
+_judge_tool_registry.register(ListSpansTool())
 _judge_tool_registry.register(SearchTraceRegexTool())

@@ -256,6 +256,21 @@ def _get_judge_response_format() -> dict[str, Any]:
     Returns:
         A dictionary containing the JSON schema for structured outputs.
     """
+    # Import here to avoid circular imports
+    from mlflow.genai.judges.base import Judge
+
+    output_fields = Judge.get_output_fields()
+
+    properties = {}
+    required_fields = []
+
+    for field in output_fields:
+        properties[field.name] = {
+            "type": "string",
+            "description": field.description,
+        }
+        required_fields.append(field.name)
+
     return {
         "type": "json_schema",
         "json_schema": {
@@ -263,14 +278,8 @@ def _get_judge_response_format() -> dict[str, Any]:
             "strict": True,
             "schema": {
                 "type": "object",
-                "properties": {
-                    "result": {"type": "string", "description": "The evaluation rating/result"},
-                    "rationale": {
-                        "type": "string",
-                        "description": "Detailed explanation for the evaluation",
-                    },
-                },
-                "required": ["result", "rationale"],
+                "properties": properties,
+                "required": required_fields,
                 "additionalProperties": False,
             },
         },
