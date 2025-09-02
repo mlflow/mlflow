@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from pathlib import Path
 from unittest import mock
 from urllib.parse import unquote, urlparse
 from urllib.request import url2pathname
@@ -743,7 +744,7 @@ def test_doctor():
     assert res.exit_code == 0
 
 
-def test_env_file_loading(tmp_path, monkeypatch):
+def test_env_file_loading(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # Setup: Create an experiment using the Python SDK
     test_tracking_uri = f"file://{tmp_path}/mlruns"
     test_experiment_name = "test_experiment_from_env"
@@ -779,6 +780,10 @@ def test_env_file_loading(tmp_path, monkeypatch):
     # Verify the loading message
     assert "Loaded environment variables from:" in result.stderr
     assert str(env_file_path) in result.stderr
+
+
+def test_env_file_loading_invalid_path() -> None:
+    runner = CliRunner()
 
     # Test error handling for non-existent file
     result = runner.invoke(
