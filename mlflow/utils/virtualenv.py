@@ -244,7 +244,7 @@ def _create_virtualenv(
     local_model_path: Path,
     python_env: _PythonEnv,
     env_dir: Path,
-    pyenv_root_dir: str | None = None,
+    python_installation_dir: str | None = None,
     env_manager: Literal["virtualenv", "uv"] = em.UV,
     extra_env: dict[str, str] | None = None,
     capture_output: bool = False,
@@ -264,7 +264,7 @@ def _create_virtualenv(
     env_creation_extra_env = {}
     if env_manager == em.VIRTUALENV:
         python_bin_path = _install_python(
-            python_env.python, pyenv_root=pyenv_root_dir, capture_output=capture_output
+            python_env.python, pyenv_root=python_installation_dir, capture_output=capture_output
         )
         _logger.info(f"Creating a new environment in {env_dir} with {python_bin_path}")
         env_creation_cmd = [
@@ -283,8 +283,10 @@ def _create_virtualenv(
         )
         env_creation_cmd = ["uv", "venv", env_dir, f"--python={python_env.python}"]
         install_deps_cmd_prefix = "uv pip install"
-        if pyenv_root_dir:
-            env_creation_extra_env["UV_PYTHON_INSTALL_DIR"] = pyenv_root_dir
+        if python_installation_dir:
+            # Setting `UV_PYTHON_INSTALL_DIR` to make `uv env` install python into
+            # the directory it points to.
+            env_creation_extra_env["UV_PYTHON_INSTALL_DIR"] = python_installation_dir
         if _MLFLOW_TESTING.get():
             os.environ["RUST_LOG"] = "uv=debug"
     with remove_on_error(
@@ -420,12 +422,12 @@ def _get_or_create_virtualenv(
 
     if env_root_dir is None:
         virtual_envs_root_path = Path(_get_mlflow_virtualenv_root())
-        pyenv_root_dir = None
+        python_installation_dir = None
     else:
         virtual_envs_root_path = Path(env_root_dir) / _VIRTUALENV_ENVS_DIR
         pyenv_root_path = Path(env_root_dir) / _PYENV_ROOT_DIR
         pyenv_root_path.mkdir(parents=True, exist_ok=True)
-        pyenv_root_dir = str(pyenv_root_path)
+        python_installation_dir = str(pyenv_root_path)
 
     virtual_envs_root_path.mkdir(parents=True, exist_ok=True)
     env_name = _get_virtualenv_name(python_env, local_model_path, env_id)
@@ -457,7 +459,7 @@ def _get_or_create_virtualenv(
         local_model_path=local_model_path,
         python_env=python_env,
         env_dir=env_dir,
-        pyenv_root_dir=pyenv_root_dir,
+        python_installation_dir=python_installation_dir,
         env_manager=env_manager,
         extra_env=extra_envs,
         capture_output=capture_output,
