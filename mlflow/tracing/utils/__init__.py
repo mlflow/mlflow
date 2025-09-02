@@ -8,7 +8,7 @@ import os
 import uuid
 from collections import Counter
 from contextlib import contextmanager
-from dataclasses import asdict, is_dataclass
+from dataclasses import asdict, dataclass, is_dataclass
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Generator
 
@@ -609,7 +609,15 @@ def _bypass_attribute_guard(span: OTelSpan) -> Generator[None, None, None]:
         span._end_time = original_end_time
 
 
-def capture_location_from_frame(frame) -> tuple[int | None, str | None]:
+@dataclass
+class FrameLocation:
+    """Represents the location information extracted from a frame."""
+
+    line_number: int | None
+    file_path: str | None
+
+
+def capture_location_from_frame(frame) -> FrameLocation:
     """
     Capture the line number and file path from a given frame.
 
@@ -617,10 +625,11 @@ def capture_location_from_frame(frame) -> tuple[int | None, str | None]:
         frame: The frame object to extract location information from.
 
     Returns:
-        A tuple of (line_number, file_path) where file_path is relative to cwd if possible.
+        A FrameLocation object with line_number and file_path attributes.
+        file_path is relative to cwd if possible.
     """
     if frame is None:
-        return None, None
+        return FrameLocation(line_number=None, file_path=None)
 
     line_number = frame.f_lineno
     file_path = frame.f_code.co_filename
@@ -629,7 +638,7 @@ def capture_location_from_frame(frame) -> tuple[int | None, str | None]:
         # Try to make it relative to current working directory
         cwd = os.getcwd()
         relative_path = os.path.relpath(file_path, cwd) if file_path.startswith(cwd) else file_path
-        return line_number, relative_path
+        return FrameLocation(line_number=line_number, file_path=relative_path)
     except Exception:
         # Fallback to absolute path if relative path calculation fails
-        return line_number, file_path
+        return FrameLocation(line_number=line_number, file_path=file_path)

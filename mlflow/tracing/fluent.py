@@ -173,7 +173,7 @@ def trace(
         decorator_frame = (
             frame.f_back.f_back.f_back if frame and frame.f_back and frame.f_back.f_back else None
         )
-        decorator_line_number, decorator_file_path = capture_location_from_frame(decorator_frame)
+        decorator_location = capture_location_from_frame(decorator_frame)
 
         # Check if the function is a classmethod or staticmethod
         is_classmethod = isinstance(fn, classmethod)
@@ -183,11 +183,11 @@ def trace(
         original_fn = fn.__func__ if is_classmethod or is_staticmethod else fn
 
         # Merge file and line number into attributes
-        merged_attributes = dict(attributes) if attributes is not None else {}
-        if decorator_line_number is not None:
-            merged_attributes[SpanAttributeKey.LINE_NUMBER] = decorator_line_number
-        if decorator_file_path is not None:
-            merged_attributes[SpanAttributeKey.FILE_PATH] = decorator_file_path
+        merged_attributes = dict(attributes or {})
+        if decorator_location.line_number is not None:
+            merged_attributes[SpanAttributeKey.LINE_NUMBER] = decorator_location.line_number
+        if decorator_location.file_path is not None:
+            merged_attributes[SpanAttributeKey.FILE_PATH] = decorator_location.file_path
 
         # Apply the appropriate wrapper to the original function
         if inspect.isgeneratorfunction(original_fn) or inspect.isasyncgenfunction(original_fn):
@@ -504,11 +504,11 @@ def start_span(
         # Capture the file and line number where start_span() was called
         frame = inspect.currentframe()
         caller_frame = frame.f_back.f_back if frame and frame.f_back and frame.f_back else None
-        caller_line_number, caller_file_path = capture_location_from_frame(caller_frame)
-        if caller_line_number is not None:
-            attributes[SpanAttributeKey.LINE_NUMBER] = caller_line_number
-        if caller_file_path is not None:
-            attributes[SpanAttributeKey.FILE_PATH] = caller_file_path
+        caller_location = capture_location_from_frame(caller_frame)
+        if caller_location.line_number is not None:
+            attributes[SpanAttributeKey.LINE_NUMBER] = caller_location.line_number
+        if caller_location.file_path is not None:
+            attributes[SpanAttributeKey.FILE_PATH] = caller_location.file_path
 
         mlflow_span.set_attributes(attributes)
         InMemoryTraceManager.get_instance().register_span(mlflow_span)
