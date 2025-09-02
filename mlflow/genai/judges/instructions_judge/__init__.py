@@ -152,6 +152,15 @@ class InstructionsJudge(Judge):
         if inputs is not None or outputs is not None:
             self._validate_call_args_contain_template_fields(inputs, outputs, expectations)
 
+            # Build the system message with instructions template and output format
+            system_content = format_prompt(
+                INSTRUCTIONS_JUDGE_SYSTEM_PROMPT, instructions=self._instructions
+            )
+            system_content = add_output_format_instructions(
+                system_content, output_fields=self.get_output_fields()
+            )
+
+            # Build the user message with variable substitutions
             template_values = {}
             if inputs is not None:
                 template_values.update(inputs)
@@ -164,18 +173,27 @@ class InstructionsJudge(Judge):
                     )
                 template_values.update(expectations)
 
-            formatted_instructions = format_prompt(self._instructions, **template_values)
+            # Create user content with the actual values for each variable
+            user_message_parts = []
+            for var_name in sorted(self.template_variables):
+                if var_name in template_values:
+                    value = template_values[var_name]
+                    formatted_value = (
+                        value if isinstance(value, str) else json.dumps(value, default=str)
+                    )
+                    user_message_parts.append(f"{var_name}: {formatted_value}")
 
-            system_prompt_content = format_prompt(
-                INSTRUCTIONS_JUDGE_SYSTEM_PROMPT, instructions=formatted_instructions
-            )
+            user_content = "\n".join(user_message_parts)
 
-            full_prompt = system_prompt_content
-            full_prompt = add_output_format_instructions(full_prompt)
+            # Create messages list
+            messages = [
+                {"role": "system", "content": system_content},
+                {"role": "user", "content": user_content},
+            ]
 
             return invoke_judge_model(
                 model_uri=self._model,
-                prompt=full_prompt,
+                prompt=messages,
                 assessment_name=self.name,
             )
         raise MlflowException(

@@ -270,11 +270,11 @@ def test_call_with_valid_inputs_returns_feedback(mock_invoke_judge_model):
 
 
 def test_call_with_expectations_as_json(monkeypatch):
-    captured_prompt = None
+    captured_messages = None
 
     def mock_invoke(model_uri, prompt, assessment_name):
-        nonlocal captured_prompt
-        captured_prompt = prompt
+        nonlocal captured_messages
+        captured_messages = prompt
         return Feedback(name=assessment_name, value=True)
 
     monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "invoke_judge_model", mock_invoke)
@@ -287,16 +287,22 @@ def test_call_with_expectations_as_json(monkeypatch):
 
     judge(inputs={"answer": "42"}, expectations={"correct": True, "score": 100})
 
-    assert '"correct": true' in captured_prompt
-    assert '"score": 100' in captured_prompt
+    # Check that we have a list of messages
+    assert isinstance(captured_messages, list)
+    assert len(captured_messages) == 2
+
+    # Expectations should be in the user message as JSON
+    user_msg = captured_messages[1]
+    assert '"correct": true' in user_msg["content"]
+    assert '"score": 100' in user_msg["content"]
 
 
 def test_call_with_custom_variables_from_inputs(monkeypatch):
-    captured_prompt = None
+    captured_messages = None
 
     def mock_invoke(model_uri, prompt, assessment_name):
-        nonlocal captured_prompt
-        captured_prompt = prompt
+        nonlocal captured_messages
+        captured_messages = prompt
         return Feedback(name=assessment_name, value=True)
 
     monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "invoke_judge_model", mock_invoke)
@@ -310,7 +316,18 @@ def test_call_with_custom_variables_from_inputs(monkeypatch):
     result = judge(inputs={"question": "What is AI?", "criteria": "technical accuracy"})
 
     assert isinstance(result, Feedback)
-    assert "Check if What is AI? meets technical accuracy" in captured_prompt
+    # Check that we have a list of messages
+    assert isinstance(captured_messages, list)
+    assert len(captured_messages) == 2
+
+    # Check system message has the template
+    system_msg = captured_messages[0]
+    assert "Check if {{question}} meets {{criteria}}" in system_msg["content"]
+
+    # Check user message has the values
+    user_msg = captured_messages[1]
+    assert "criteria: technical accuracy" in user_msg["content"]
+    assert "question: What is AI?" in user_msg["content"]
 
 
 def test_instructions_property():
@@ -352,11 +369,11 @@ def test_call_with_various_input_combinations(
 
 
 def test_prompt_formatting_with_all_variable_types(monkeypatch):
-    captured_prompt = None
+    captured_messages = None
 
     def mock_invoke(model_uri, prompt, assessment_name):
-        nonlocal captured_prompt
-        captured_prompt = prompt
+        nonlocal captured_messages
+        captured_messages = prompt
         return Feedback(name=assessment_name, value=True)
 
     monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "invoke_judge_model", mock_invoke)
@@ -369,17 +386,27 @@ def test_prompt_formatting_with_all_variable_types(monkeypatch):
 
     judge(inputs={"query": "test", "my_var": "custom_value"}, outputs={"response": "answer"})
 
-    assert "Query: test" in captured_prompt
-    assert "Response: answer" in captured_prompt
-    assert "Custom: custom_value" in captured_prompt
+    # Check that we have a list of messages
+    assert isinstance(captured_messages, list)
+    assert len(captured_messages) == 2
+
+    # Check system message has the template
+    system_msg = captured_messages[0]
+    assert "Query: {{query}}, Response: {{response}}, Custom: {{my_var}}" in system_msg["content"]
+
+    # Check user message has all the values
+    user_msg = captured_messages[1]
+    assert "my_var: custom_value" in user_msg["content"]
+    assert "query: test" in user_msg["content"]
+    assert "response: answer" in user_msg["content"]
 
 
 def test_output_format_instructions_added(monkeypatch):
-    captured_prompt = None
+    captured_messages = None
 
     def mock_invoke(model_uri, prompt, assessment_name):
-        nonlocal captured_prompt
-        captured_prompt = prompt
+        nonlocal captured_messages
+        captured_messages = prompt
         return Feedback(name=assessment_name, value=True, rationale="Test rationale")
 
     monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "invoke_judge_model", mock_invoke)
@@ -392,20 +419,32 @@ def test_output_format_instructions_added(monkeypatch):
 
     result = judge(outputs={"text": "Hello there"})
 
-    assert "Check if Hello there is formal" in captured_prompt
-    assert "You are a helpful judge" in captured_prompt
-    assert "Your task:" in captured_prompt
-    assert "JSON format" in captured_prompt
+    # Check that we have a list of messages
+    assert isinstance(captured_messages, list)
+    assert len(captured_messages) == 2
+
+    # Check system message
+    system_msg = captured_messages[0]
+    assert system_msg["role"] == "system"
+    assert "You are a helpful judge" in system_msg["content"]
+    assert "Check if {{text}} is formal" in system_msg["content"]
+    assert "JSON format" in system_msg["content"]
+
+    # Check user message
+    user_msg = captured_messages[1]
+    assert user_msg["role"] == "user"
+    assert "text: Hello there" in user_msg["content"]
+
     assert result.value is True
     assert result.rationale == "Test rationale"
 
 
 def test_output_format_instructions_with_complex_template(monkeypatch):
-    captured_prompt = None
+    captured_messages = None
 
     def mock_invoke(model_uri, prompt, assessment_name):
-        nonlocal captured_prompt
-        captured_prompt = prompt
+        nonlocal captured_messages
+        captured_messages = prompt
         return Feedback(name=assessment_name, value="yes", rationale="Test rationale")
 
     monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "invoke_judge_model", mock_invoke)
@@ -422,13 +461,24 @@ def test_output_format_instructions_with_complex_template(monkeypatch):
         expectations={"criteria": "professionalism"},
     )
 
-    assert (
-        "Evaluate Hey what's up for professionalism considering formal business setting"
-        in captured_prompt
-    )
-    assert "You are a helpful judge" in captured_prompt
-    assert "Your task:" in captured_prompt
-    assert "JSON format" in captured_prompt
+    # Check that we have a list of messages
+    assert isinstance(captured_messages, list)
+    assert len(captured_messages) == 2
+
+    # Check system message
+    system_msg = captured_messages[0]
+    assert system_msg["role"] == "system"
+    assert "You are a helpful judge" in system_msg["content"]
+    assert "Evaluate {{response}} for {{criteria}} considering {{context}}" in system_msg["content"]
+    assert "JSON format" in system_msg["content"]
+
+    # Check user message has all the variable values
+    user_msg = captured_messages[1]
+    assert user_msg["role"] == "user"
+    assert "context: formal business setting" in user_msg["content"]
+    assert "criteria: professionalism" in user_msg["content"]
+    assert "response: Hey what's up" in user_msg["content"]
+
     assert result.value == "yes"
     assert result.rationale == "Test rationale"
 

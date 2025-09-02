@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import logging
 import re
@@ -33,27 +35,38 @@ def format_prompt(prompt: str, **values) -> str:
     return prompt
 
 
-def add_output_format_instructions(prompt: str) -> str:
+def add_output_format_instructions(prompt: str, output_fields: list[Any] | None = None) -> str:
     """
     Add structured output format instructions to a judge prompt.
 
-    This ensures the LLM returns a JSON response with 'result' and 'rationale' fields,
+    This ensures the LLM returns a JSON response with the expected fields,
     matching the expected format for the invoke_judge_model function.
 
     Args:
         prompt: The formatted prompt with template variables filled in
+        output_fields: List of JudgeField objects defining output fields.
+                      If None, uses default judge output fields.
 
     Returns:
         The prompt with output format instructions appended
     """
-    output_format_instructions = """
+    if output_fields is None:
+        from mlflow.genai.judges.base import Judge
+
+        output_fields = Judge.get_output_fields()
+
+    # Build the JSON format string from output fields
+    json_format_lines = []
+    for field in output_fields:
+        json_format_lines.append(f'    "{field.name}": "{field.description}"')
+
+    json_format = "{\n" + ",\n".join(json_format_lines) + "\n}"
+
+    output_format_instructions = f"""
 
 Please provide your assessment in the following JSON format only (no markdown):
 
-{
-    "result": "Your evaluation result/rating",
-    "rationale": "Detailed explanation for your evaluation"
-}"""
+{json_format}"""
     return prompt + output_format_instructions
 
 
@@ -62,9 +75,34 @@ def _sanitize_justification(justification: str) -> str:
     return justification.replace("Let's think step by step. ", "")
 
 
+def _messages_to_single_prompt(messages: list[dict[str, Any]]) -> str:
+    """
+    Convert a list of message dicts to a single prompt string for providers
+    that don't support message-based APIs.
+
+    Args:
+        messages: List of message dicts with 'role' and 'content' keys.
+
+    Returns:
+        A single prompt string combining all messages.
+    """
+    prompt_parts = []
+    for message in messages:
+        role = message.get("role", "user")
+        content = message.get("content", "")
+        if role == "system":
+            prompt_parts.append(f"System: {content}")
+        elif role == "user":
+            prompt_parts.append(f"{content}")
+        elif role == "assistant":
+            prompt_parts.append(f"Assistant: {content}")
+
+    return "\n\n".join(prompt_parts)
+
+
 def invoke_judge_model(
     model_uri: str,
-    prompt: str,
+    prompt: str | list[dict[str, Any]],
     assessment_name: str,
     trace: Trace | None = None,
     num_retries: int = 10,
@@ -77,7 +115,8 @@ def invoke_judge_model(
 
     Args:
         model_uri: The model URI.
-        prompt: The prompt to evaluate.
+        prompt: The prompt to evaluate. Can be a string (single prompt) or
+                a list of message dicts with 'role' and 'content' keys.
         assessment_name: The name of the assessment.
         trace: Optional trace object for context.
         num_retries: Number of retries on transient failures when using litellm.
@@ -90,9 +129,12 @@ def invoke_judge_model(
 
     provider, model_name = _parse_model_uri(model_uri)
 
+    # Convert string prompt to messages list if needed
+    messages = prompt if isinstance(prompt, list) else [{"role": "user", "content": prompt}]
+
     # Try litellm first for better performance.
     if _is_litellm_available():
-        response = _invoke_litellm(provider, model_name, prompt, trace, num_retries)
+        response = _invoke_litellm(provider, model_name, messages, trace, num_retries)
     elif trace is not None:
         raise MlflowException(
             "LiteLLM is required for using traces with judges. "
@@ -100,9 +142,11 @@ def invoke_judge_model(
             error_code=BAD_REQUEST,
         )
     elif provider in _NATIVE_PROVIDERS:
+        # Native providers don't support message lists, so convert to single prompt
+        payload = prompt if isinstance(prompt, str) else _messages_to_single_prompt(messages)
         response = score_model_on_payload(
             model_uri=model_uri,
-            payload=prompt,
+            payload=payload,
             endpoint_type=get_endpoint_type(model_uri) or "llm/v1/chat",
         )
     else:
@@ -142,7 +186,11 @@ def _is_litellm_available() -> bool:
 
 
 def _invoke_litellm(
-    provider: str, model_name: str, prompt: str, trace: Trace | None, num_retries: int
+    provider: str,
+    model_name: str,
+    messages: list[dict[str, Any]],
+    trace: Trace | None,
+    num_retries: int,
 ) -> str:
     """
     Invoke the judge via litellm with retry support.
@@ -150,7 +198,7 @@ def _invoke_litellm(
     Args:
         provider: The provider name (e.g., 'openai', 'anthropic').
         model_name: The model name.
-        prompt: The prompt to send to the model.
+        messages: List of message dicts with 'role' and 'content' keys.
         trace: Optional trace object for context with tool calling support.
         num_retries: Number of retries with exponential backoff on transient failures.
 
@@ -168,7 +216,6 @@ def _invoke_litellm(
     from mlflow.genai.judges.tools.registry import _judge_tool_registry
 
     litellm_model_uri = f"{provider}/{model_name}"
-    messages = [{"role": "user", "content": prompt}]
     tools = []
     response_format = _get_judge_response_format()
 
@@ -308,32 +355,6 @@ def _get_judge_response_format() -> dict[str, Any]:
             },
         },
     }
-
-
-def _get_litellm_retry_policy(num_retries: int):
-    """
-    Get a LiteLLM retry policy for retrying requests when transient API errors occur.
-
-    Args:
-        num_retries: The number of times to retry a request if it fails transiently due to
-                     network error, rate limiting, etc. Requests are retried with exponential
-                     backoff.
-
-    Returns:
-        A LiteLLM RetryPolicy instance.
-    """
-    from litellm import RetryPolicy
-
-    return RetryPolicy(
-        TimeoutErrorRetries=num_retries,
-        RateLimitErrorRetries=num_retries,
-        InternalServerErrorRetries=num_retries,
-        ContentPolicyViolationErrorRetries=num_retries,
-        # We don't retry on errors that are unlikely to be transient
-        # (e.g. bad request, invalid auth credentials)
-        BadRequestErrorRetries=0,
-        AuthenticationErrorRetries=0,
-    )
 
 
 def _get_litellm_retry_policy(num_retries: int):
