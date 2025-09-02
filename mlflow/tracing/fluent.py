@@ -170,17 +170,12 @@ def trace(
     def decorator(fn):
         # Capture the file and line number where the decorator was applied
         decorator_location = None
-        try:
-            frame = inspect.currentframe()
-            decorator_frame = (
-                frame.f_back.f_back.f_back
-                if frame and frame.f_back and frame.f_back.f_back
-                else None
-            )
+        frame = inspect.currentframe()
+        decorator_frame = (
+            frame.f_back.f_back.f_back if frame and frame.f_back and frame.f_back.f_back else None
+        )
+        if decorator_frame is not None:
             decorator_location = capture_location_from_frame(decorator_frame)
-        except Exception:
-            # Skip location capture if unable to determine frame location
-            pass
 
         # Check if the function is a classmethod or staticmethod
         is_classmethod = isinstance(fn, classmethod)
@@ -509,13 +504,10 @@ def start_span(
 
         # Capture the file and line number where start_span() was called
         caller_location = None
-        try:
-            frame = inspect.currentframe()
-            caller_frame = frame.f_back.f_back if frame and frame.f_back and frame.f_back else None
+        frame = inspect.currentframe()
+        caller_frame = frame.f_back.f_back if frame and frame.f_back and frame.f_back else None
+        if caller_frame is not None:
             caller_location = capture_location_from_frame(caller_frame)
-        except Exception:
-            # Skip location capture if unable to determine frame location
-            pass
 
         if caller_location is not None:
             attributes[SpanAttributeKey.LINE_NUMBER] = caller_location.line_number

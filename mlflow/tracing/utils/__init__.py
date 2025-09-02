@@ -627,15 +627,7 @@ def capture_location_from_frame(frame) -> FrameLocation:
     Returns:
         A FrameLocation object with line_number and file_path attributes.
         file_path is relative to cwd if possible.
-
-    Raises:
-        MlflowException: If frame is None or location information cannot be extracted.
     """
-    if frame is None:
-        from mlflow.exceptions import INTERNAL_ERROR, MlflowException
-
-        raise MlflowException("Cannot capture location: frame is None", error_code=INTERNAL_ERROR)
-
     line_number = frame.f_lineno
     file_path = frame.f_code.co_filename
 
