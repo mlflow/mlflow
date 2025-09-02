@@ -169,11 +169,18 @@ def trace(
 
     def decorator(fn):
         # Capture the file and line number where the decorator was applied
-        frame = inspect.currentframe()
-        decorator_frame = (
-            frame.f_back.f_back.f_back if frame and frame.f_back and frame.f_back.f_back else None
-        )
-        decorator_location = capture_location_from_frame(decorator_frame)
+        decorator_location = None
+        try:
+            frame = inspect.currentframe()
+            decorator_frame = (
+                frame.f_back.f_back.f_back
+                if frame and frame.f_back and frame.f_back.f_back
+                else None
+            )
+            decorator_location = capture_location_from_frame(decorator_frame)
+        except Exception:
+            # Skip location capture if unable to determine frame location
+            pass
 
         # Check if the function is a classmethod or staticmethod
         is_classmethod = isinstance(fn, classmethod)
@@ -184,9 +191,8 @@ def trace(
 
         # Merge file and line number into attributes
         merged_attributes = dict(attributes or {})
-        if decorator_location.line_number is not None:
+        if decorator_location is not None:
             merged_attributes[SpanAttributeKey.LINE_NUMBER] = decorator_location.line_number
-        if decorator_location.file_path is not None:
             merged_attributes[SpanAttributeKey.FILE_PATH] = decorator_location.file_path
 
         # Apply the appropriate wrapper to the original function
@@ -502,12 +508,17 @@ def start_span(
         attributes = dict(attributes) if attributes is not None else {}
 
         # Capture the file and line number where start_span() was called
-        frame = inspect.currentframe()
-        caller_frame = frame.f_back.f_back if frame and frame.f_back and frame.f_back else None
-        caller_location = capture_location_from_frame(caller_frame)
-        if caller_location.line_number is not None:
+        caller_location = None
+        try:
+            frame = inspect.currentframe()
+            caller_frame = frame.f_back.f_back if frame and frame.f_back and frame.f_back else None
+            caller_location = capture_location_from_frame(caller_frame)
+        except Exception:
+            # Skip location capture if unable to determine frame location
+            pass
+
+        if caller_location is not None:
             attributes[SpanAttributeKey.LINE_NUMBER] = caller_location.line_number
-        if caller_location.file_path is not None:
             attributes[SpanAttributeKey.FILE_PATH] = caller_location.file_path
 
         mlflow_span.set_attributes(attributes)

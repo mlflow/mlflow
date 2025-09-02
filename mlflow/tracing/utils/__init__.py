@@ -613,8 +613,8 @@ def _bypass_attribute_guard(span: OTelSpan) -> Generator[None, None, None]:
 class FrameLocation:
     """Represents the location information extracted from a frame."""
 
-    line_number: int | None
-    file_path: str | None
+    line_number: int
+    file_path: str
 
 
 def capture_location_from_frame(frame) -> FrameLocation:
@@ -627,9 +627,14 @@ def capture_location_from_frame(frame) -> FrameLocation:
     Returns:
         A FrameLocation object with line_number and file_path attributes.
         file_path is relative to cwd if possible.
+
+    Raises:
+        MlflowException: If frame is None or location information cannot be extracted.
     """
     if frame is None:
-        return FrameLocation(line_number=None, file_path=None)
+        from mlflow.exceptions import INTERNAL_ERROR, MlflowException
+
+        raise MlflowException("Cannot capture location: frame is None", error_code=INTERNAL_ERROR)
 
     line_number = frame.f_lineno
     file_path = frame.f_code.co_filename
