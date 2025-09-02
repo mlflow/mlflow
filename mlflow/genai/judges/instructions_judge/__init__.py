@@ -191,8 +191,14 @@ class InstructionsJudge(Judge):
 
         # Handle trace-based evaluation
         if trace is not None:
+            # Format output fields for the prompt template
+            output_fields = self.get_output_fields()
+            evaluation_rating_fields = "\n".join(
+                [f"- {field.name}: {field.description}" for field in output_fields]
+            )
+
             augmented_prompt = INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE.format(
-                task_instructions=self._instructions
+                evaluation_rating_fields=evaluation_rating_fields, instructions=self._instructions
             )
             return invoke_judge_model(
                 model_uri=self._model,

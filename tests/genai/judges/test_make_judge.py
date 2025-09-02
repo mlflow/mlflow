@@ -451,8 +451,11 @@ def test_trace_prompt_augmentation(mock_trace, monkeypatch):
 
     judge(trace=mock_trace)
 
-    assert "You have access to tools to analyze the trace" in captured_prompt
-    assert "REQUIRED STEPS" in captured_prompt
-    assert "fetch the trace metadata" in captured_prompt
-    assert "Task Instructions" in captured_prompt
+    assert "expert judge" in captured_prompt
+    assert "step-by-step record" in captured_prompt
+    assert "provided to you" in captured_prompt
+    assert "Evaluation Rating Fields" in captured_prompt
+    assert "- result: The evaluation rating/result" in captured_prompt
+    assert "- rationale: Detailed explanation for the evaluation" in captured_prompt
+    assert "Instructions" in captured_prompt
     assert "Analyze this {{trace}} for quality" in captured_prompt
