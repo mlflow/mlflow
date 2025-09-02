@@ -5,25 +5,14 @@ This module provides a tool for retrieving a specific span by ID.
 """
 
 import json
-from dataclasses import dataclass
 
 from mlflow.entities.trace import Trace
 from mlflow.genai.judges.tools.base import JudgeTool
+from mlflow.genai.judges.tools.constants import ToolNames
+from mlflow.genai.judges.tools.types import SpanResult
 from mlflow.genai.judges.tools.utils import create_page_token, parse_page_token
 from mlflow.types.llm import FunctionToolDefinition, ToolDefinition, ToolParamsSchema
 from mlflow.utils.annotations import experimental
-
-
-@experimental(version="3.4.0")
-@dataclass
-class SpanResult:
-    """Result from getting a span."""
-
-    span_id: str | None
-    content: str | None
-    content_size_bytes: int
-    page_token: str | None = None
-    error: str | None = None
 
 
 @experimental(version="3.4.0")
@@ -36,12 +25,12 @@ class GetSpanTool(JudgeTool):
 
     @property
     def name(self) -> str:
-        return "get_span"
+        return ToolNames.GET_SPAN
 
     def get_definition(self) -> ToolDefinition:
         return ToolDefinition(
             function=FunctionToolDefinition(
-                name="get_span",
+                name=ToolNames.GET_SPAN,
                 description=(
                     "Retrieve a specific span by its ID. Returns the complete span data "
                     "including inputs, outputs, attributes, events, and timing information. "

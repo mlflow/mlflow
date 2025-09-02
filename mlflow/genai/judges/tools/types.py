@@ -1,14 +1,33 @@
 """
+<<<<<<< HEAD
+Type definitions for MLflow GenAI judge tools.
+
+This module contains dataclass definitions for results and other types
+used across the judge tools system.
+=======
 Shared types for MLflow GenAI judge tools.
 
 This module provides common data structures and types that can be reused
 across multiple judge tools for consistent data representation.
+>>>>>>> origin/judges
 """
 
 from dataclasses import dataclass
 
 from mlflow.entities.span_status import SpanStatus
 from mlflow.utils.annotations import experimental
+
+
+@experimental(version="3.4.0")
+@dataclass
+class SpanResult:
+    """Result from getting span content."""
+
+    span_id: str | None
+    content: str | None
+    content_size_bytes: int
+    page_token: str | None = None
+    error: str | None = None
 
 
 @experimental(version="3.4.0")
