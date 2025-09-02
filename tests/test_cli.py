@@ -745,7 +745,6 @@ def test_doctor():
 
 
 def test_env_file_loading():
-    """Test that --env-file flag loads environment variables from a dotenv file."""
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create a test .env file
         env_file_path = os.path.join(temp_dir, "test.env")
