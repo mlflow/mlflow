@@ -141,14 +141,15 @@ class InstructionsJudge(Judge):
         Args:
             inputs: Input dictionary to evaluate. Cannot be used with 'trace'.
             outputs: Output dictionary to evaluate. Cannot be used with 'trace'.
-            expectations: Expected outcomes or ground truth.
-            trace: Trace object for evaluation. Cannot be used with 'inputs' or 'outputs'.
+            expectations: Expected outcomes or ground truth. Cannot be used with 'trace'.
+            trace: Trace object for evaluation. Cannot be used with 'inputs', 'outputs', or
+                'expectations'.
 
         Returns:
             Evaluation results
 
         """
-        if trace is not None and sum(x is not None for x in [inputs, outputs, expectations]) > 0:
+        if trace is not None and (inputs, outputs, expectations).count(None) < 3:
             raise MlflowException(
                 "Cannot specify both 'trace' and 'inputs'/'outputs'/'expectations'. Use either "
                 "'trace' for trace-based evaluation or 'inputs'/'outputs'/'expectations' for "
