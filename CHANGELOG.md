@@ -7,7 +7,7 @@ MLflow 3.4.0rc0 includes several major features and improvements
 Major new features:
 
 - [Tracing] Tracing: export opentelemetry metrics with span-level statistics (#17325, @dbczumar)
-- [] Introduce MLflow MCP server (#17122, @harupy)
+- [MCP Server] Introduce MLflow MCP server (#17122, @harupy)
 - [Tracking] Strands Agent Tracing (#17151, @joelrobin18)
 
 Features:
@@ -16,12 +16,12 @@ Features:
 - [Tracing] Add MLFLOW_ENABLE_OTLP_EXPORTER environment variable (#17505, @dbczumar)
 - [Scoring] Add MLFLOW_DEPLOYMENT_CLIENT_HTTP_REQUEST_TIMEOUT environment variable (#17252, @dbczumar)
 - [Tracing] Tracing: export opentelemetry metrics with span-level statistics (#17325, @dbczumar)
-- [Tracing / Tracking] [CLI] Add 'mlflow runs link-traces' command (#17444, @nsthorat)
+- [Tracing / Tracking / Models] [CLI] Add 'mlflow runs link-traces' command (#17444, @nsthorat)
 - [Tracking] Add 'mlflow runs create' CLI command for programmatic run creation (#17417, @nsthorat)
 - [Model Registry / Tracking] Add Databricks backend support to MLflow server (#17411, @nsthorat)
-- [] Add automatic Git-based model versioning for GenAI applications (#17076, @harupy)
-- [] Improve WheeledModel._download_wheels safety (#17004, @serena-ruan)
-- [Tracking] [1/3] Correlations backend - SQL Store and NPMI (#17309, @BenWilson2)
+- [Tracking / Tracing ] Add automatic Git-based model versioning for GenAI applications (#17076, @harupy)
+- [Models] Improve WheeledModel._download_wheels safety (#17004, @serena-ruan)
+- [Tracking] [1/3] Introduces the correlations backend for calculating a correlation score amongst trace data (#17309, @BenWilson2)
 - [Tracking] Strands Agent Tracing (#17151, @joelrobin18)
 - [Tracing] Introduce mlflow autolog claude to trace claude code interactions (#17305, @smoorjani)
 - [Tracing / UI] Add MLflow traces CLI command with comprehensive search and management capabilities (#17302, @nsthorat)
