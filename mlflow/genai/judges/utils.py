@@ -153,7 +153,7 @@ def _invoke_litellm(
         judge_tools = list_judge_tools()
         tools = [tool.get_definition().to_dict() for tool in judge_tools]
 
-    def _make_completion_request(include_response_format: bool = True):
+    def _make_completion_request(include_response_format: bool):
         """Helper to make litellm completion request with optional response_format."""
         kwargs = {
             "model": litellm_model_uri,
