@@ -5,6 +5,8 @@ from unittest.mock import Mock
 import dspy
 import pytest
 
+from mlflow.entities.span import Span
+from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.entities.trace import Trace, TraceData, TraceInfo
 from mlflow.genai.judges.base import Judge, JudgeField
 
@@ -56,6 +58,14 @@ def sample_trace_with_assessment():
     mock_assessment.feedback.value = "pass"
     mock_assessment.rationale = "This looks good"
 
+    # Mock span with inputs and outputs
+    mock_span = Mock(spec=Span)
+    mock_span.span_id = "span-1"
+    mock_span.name = "root_span"
+    mock_span.inputs = {"inputs": "test input"}
+    mock_span.outputs = {"outputs": "test output"}
+    mock_span.status = SpanStatus(SpanStatusCode.OK)
+
     # Mock trace info
     mock_trace_info = Mock(spec=TraceInfo)
     mock_trace_info.trace_id = "test_trace_001"
@@ -67,6 +77,7 @@ def sample_trace_with_assessment():
     mock_trace_data = Mock(spec=TraceData)
     mock_trace_data.request = {"inputs": "test input"}
     mock_trace_data.response = {"outputs": "test output"}
+    mock_trace_data.spans = [mock_span]
 
     # Mock trace
     mock_trace = Mock(spec=Trace)
@@ -79,6 +90,14 @@ def sample_trace_with_assessment():
 @pytest.fixture
 def sample_trace_without_assessment():
     """Create a sample trace without human assessment for testing."""
+    # Mock span with inputs and outputs
+    mock_span = Mock(spec=Span)
+    mock_span.span_id = "span-1"
+    mock_span.name = "root_span"
+    mock_span.inputs = {"inputs": "test input"}
+    mock_span.outputs = {"outputs": "test output"}
+    mock_span.status = SpanStatus(SpanStatusCode.OK)
+
     # Mock trace info
     mock_trace_info = Mock(spec=TraceInfo)
     mock_trace_info.trace_id = "test_trace_001"
@@ -89,6 +108,7 @@ def sample_trace_without_assessment():
     mock_trace_data = Mock(spec=TraceData)
     mock_trace_data.request = {"inputs": "test input"}
     mock_trace_data.response = {"outputs": "test output"}
+    mock_trace_data.spans = [mock_span]
 
     # Mock trace
     mock_trace = Mock(spec=Trace)
@@ -107,6 +127,14 @@ def trace_with_nested_request_response():
     mock_assessment.feedback.value = "pass"
     mock_assessment.rationale = "Complex nested structure handled well"
 
+    # Mock span with nested inputs and outputs
+    mock_span = Mock(spec=Span)
+    mock_span.span_id = "span-1"
+    mock_span.name = "root_span"
+    mock_span.inputs = {"query": {"text": "nested input", "context": {"key": "value"}}}
+    mock_span.outputs = {"result": {"answer": "nested output", "metadata": {"score": 0.9}}}
+    mock_span.status = SpanStatus(SpanStatusCode.OK)
+
     mock_trace_info = Mock(spec=TraceInfo)
     mock_trace_info.trace_id = "test_trace_nested"
     mock_trace_info.assessments = [mock_assessment]
@@ -120,6 +148,7 @@ def trace_with_nested_request_response():
     mock_trace_data = Mock(spec=TraceData)
     mock_trace_data.request = {"query": {"text": "nested input", "context": {"key": "value"}}}
     mock_trace_data.response = {"result": {"answer": "nested output", "metadata": {"score": 0.9}}}
+    mock_trace_data.spans = [mock_span]
 
     mock_trace = Mock(spec=Trace)
     mock_trace.info = mock_trace_info
@@ -137,6 +166,14 @@ def trace_with_list_request_response():
     mock_assessment.feedback.value = "fail"
     mock_assessment.rationale = "List processing needs improvement"
 
+    # Mock span with list inputs and outputs wrapped in dict structure
+    mock_span = Mock(spec=Span)
+    mock_span.span_id = "span-1"
+    mock_span.name = "root_span"
+    mock_span.inputs = {"items": ["item1", "item2", "item3"]}
+    mock_span.outputs = {"results": ["result1", "result2"]}
+    mock_span.status = SpanStatus(SpanStatusCode.OK)
+
     mock_trace_info = Mock(spec=TraceInfo)
     mock_trace_info.trace_id = "test_trace_list"
     mock_trace_info.assessments = [mock_assessment]
@@ -146,6 +183,7 @@ def trace_with_list_request_response():
     mock_trace_data = Mock(spec=TraceData)
     mock_trace_data.request = ["item1", "item2", "item3"]
     mock_trace_data.response = ["result1", "result2"]
+    mock_trace_data.spans = [mock_span]
 
     mock_trace = Mock(spec=Trace)
     mock_trace.info = mock_trace_info
@@ -163,6 +201,14 @@ def trace_with_string_request_response():
     mock_assessment.feedback.value = "pass"
     mock_assessment.rationale = "Simple string handled correctly"
 
+    # Mock span with string inputs and outputs
+    mock_span = Mock(spec=Span)
+    mock_span.span_id = "span-1"
+    mock_span.name = "root_span"
+    mock_span.inputs = "What is the capital of France?"
+    mock_span.outputs = "Paris"
+    mock_span.status = SpanStatus(SpanStatusCode.OK)
+
     mock_trace_info = Mock(spec=TraceInfo)
     mock_trace_info.trace_id = "test_trace_string"
     mock_trace_info.assessments = [mock_assessment]
@@ -172,6 +218,7 @@ def trace_with_string_request_response():
     mock_trace_data = Mock(spec=TraceData)
     mock_trace_data.request = "What is the capital of France?"
     mock_trace_data.response = "Paris"
+    mock_trace_data.spans = [mock_span]
 
     mock_trace = Mock(spec=Trace)
     mock_trace.info = mock_trace_info
@@ -189,6 +236,14 @@ def trace_with_mixed_types():
     mock_assessment.feedback.value = "pass"
     mock_assessment.rationale = "Mixed types processed successfully"
 
+    # Mock span with mixed type inputs and outputs
+    mock_span = Mock(spec=Span)
+    mock_span.span_id = "span-1"
+    mock_span.name = "root_span"
+    mock_span.inputs = {"prompt": "test", "temperature": 0.7, "max_tokens": 100}
+    mock_span.outputs = {"text": "response", "tokens_used": 50, "success": True}
+    mock_span.status = SpanStatus(SpanStatusCode.OK)
+
     mock_trace_info = Mock(spec=TraceInfo)
     mock_trace_info.trace_id = "test_trace_mixed"
     mock_trace_info.assessments = [mock_assessment]
@@ -198,6 +253,7 @@ def trace_with_mixed_types():
     mock_trace_data = Mock(spec=TraceData)
     mock_trace_data.request = {"prompt": "test", "temperature": 0.7, "max_tokens": 100}
     mock_trace_data.response = {"text": "response", "tokens_used": 50, "success": True}
+    mock_trace_data.spans = [mock_span]
 
     mock_trace = Mock(spec=Trace)
     mock_trace.info = mock_trace_info
@@ -219,6 +275,14 @@ def sample_traces_with_assessments():
         mock_assessment.feedback.value = "pass" if i % 2 == 0 else "fail"
         mock_assessment.rationale = f"Rationale for trace {i}"
 
+        # Mock span with inputs and outputs
+        mock_span = Mock(spec=Span)
+        mock_span.span_id = f"span-{i}"
+        mock_span.name = "root_span"
+        mock_span.inputs = {"inputs": f"test input {i}"}
+        mock_span.outputs = {"outputs": f"test output {i}"}
+        mock_span.status = SpanStatus(SpanStatusCode.OK)
+
         # Mock trace info
         mock_trace_info = Mock(spec=TraceInfo)
         mock_trace_info.trace_id = f"test_trace_{i:03d}"
@@ -230,6 +294,7 @@ def sample_traces_with_assessments():
         mock_trace_data = Mock(spec=TraceData)
         mock_trace_data.request = {"inputs": f"test input {i}"}
         mock_trace_data.response = {"outputs": f"test output {i}"}
+        mock_trace_data.spans = [mock_span]
 
         # Mock trace
         mock_trace = Mock(spec=Trace)

@@ -4,6 +4,7 @@ import json
 from typing import Any
 
 from mlflow.entities.trace import Trace
+from mlflow.genai.utils.trace_utils import parse_inputs_to_str, parse_outputs_to_str
 
 
 def extract_text_from_data(data: Any, field_type: str) -> str:
@@ -80,11 +81,7 @@ def extract_request_from_trace(trace: Trace) -> str:
     Returns:
         Extracted request text as string
     """
-    # Try trace.data.request first, fall back to trace.info.request_preview
-    request_data = (
-        trace.data.request if hasattr(trace.data, "request") else trace.info.request_preview
-    )
-    return extract_text_from_data(request_data, "request")
+    return parse_inputs_to_str(trace.data.spans[0].inputs)
 
 
 def extract_response_from_trace(trace: Trace) -> str:
@@ -97,8 +94,4 @@ def extract_response_from_trace(trace: Trace) -> str:
     Returns:
         Extracted response text as string
     """
-    # Try trace.data.response first, fall back to trace.info.response_preview
-    response_data = (
-        trace.data.response if hasattr(trace.data, "response") else trace.info.response_preview
-    )
-    return extract_text_from_data(response_data, "response")
+    return parse_outputs_to_str(trace.data.spans[0].outputs)
