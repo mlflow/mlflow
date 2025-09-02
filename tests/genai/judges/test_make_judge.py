@@ -379,10 +379,6 @@ def test_instructions_property():
     instructions = judge.instructions
     assert instructions == "Check if {{text}} is formal"
 
-    description = judge.description
-    assert "Instructions-based judge: test_judge" in description
-    assert "Check if {{text}} is formal" in description
-
 
 def test_kind_property():
     judge = make_judge(

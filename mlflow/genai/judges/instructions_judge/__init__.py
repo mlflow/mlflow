@@ -97,12 +97,6 @@ class InstructionsJudge(Judge):
         """Get the instructions for this judge."""
         return self._instructions
 
-    @property
-    def description(self) -> str:
-        """Get the description of this judge."""
-        header = f"Instructions-based judge: {self.name}"
-        return f"{header}\n\nInstructions:\n-------------\n\n{self._instructions}"
-
     def get_input_fields(self) -> list[JudgeField]:
         """
         Get the input fields for this judge based on the template variables.
