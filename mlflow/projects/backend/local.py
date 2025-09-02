@@ -165,7 +165,7 @@ class LocalBackend(AbstractBackend):
                 local_model_path=work_dir_path,
                 python_env=python_env,
                 env_dir=env_dir,
-                python_installation_dir=pyenv_root_dir,
+                python_install_dir=pyenv_root_dir,
                 env_manager=env_manager,
                 extra_env=env_vars,
             )
