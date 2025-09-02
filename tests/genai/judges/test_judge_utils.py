@@ -297,6 +297,11 @@ def test_invoke_judge_model_retries_without_response_format_on_bad_request(mock_
 
 def test_invoke_judge_model_stops_trying_response_format_after_failure():
     """Test that after BadRequestError, subsequent tool calls don't try response_format."""
+    # Clear any existing cache for this test
+    from mlflow.genai.judges.utils import _MODEL_RESPONSE_FORMAT_CAPABILITIES
+
+    _MODEL_RESPONSE_FORMAT_CAPABILITIES.clear()
+
     bad_request_error = litellm.BadRequestError(
         message="response_format not supported", model="openai/gpt-4", llm_provider="openai"
     )
@@ -359,3 +364,53 @@ def test_invoke_judge_model_stops_trying_response_format_after_failure():
         assert "response_format" not in third_call_kwargs
 
         assert feedback.name == "test"
+
+
+def test_invoke_judge_model_caches_capabilities_globally():
+    """Test that model capabilities are cached globally across function calls."""
+    bad_request_error = litellm.BadRequestError(
+        message="response_format not supported", model="openai/gpt-4", llm_provider="openai"
+    )
+
+    success_response = ModelResponse(
+        choices=[{"message": {"content": '{"result": "yes", "rationale": "Test rationale"}'}}]
+    )
+
+    # Clear any existing cache for this test
+    from mlflow.genai.judges.utils import _MODEL_RESPONSE_FORMAT_CAPABILITIES
+
+    _MODEL_RESPONSE_FORMAT_CAPABILITIES.clear()
+
+    # First call - should try response_format and cache the failure
+    with mock.patch(
+        "litellm.completion", side_effect=[bad_request_error, success_response]
+    ) as mock_litellm:
+        feedback1 = invoke_judge_model(
+            model_uri="openai:/gpt-4",
+            prompt="Test prompt 1",
+            assessment_name="test1",
+        )
+
+        # Should have been called twice (initial fail + retry)
+        assert mock_litellm.call_count == 2
+        assert feedback1.name == "test1"
+
+        # Verify capability was cached
+        assert _MODEL_RESPONSE_FORMAT_CAPABILITIES.get("openai/gpt-4") is False
+
+    # Second call - should directly use cached capability (no response_format)
+    with mock.patch("litellm.completion", return_value=success_response) as mock_litellm_2:
+        feedback2 = invoke_judge_model(
+            model_uri="openai:/gpt-4",
+            prompt="Test prompt 2",
+            assessment_name="test2",
+        )
+
+        # Should only be called once (no retry needed)
+        assert mock_litellm_2.call_count == 1
+
+        # Should not include response_format
+        call_kwargs = mock_litellm_2.call_args.kwargs
+        assert "response_format" not in call_kwargs
+
+        assert feedback2.name == "test2"

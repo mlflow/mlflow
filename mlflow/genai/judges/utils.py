@@ -19,6 +19,10 @@ _logger = logging.getLogger(__name__)
 # "endpoints" is a special case for Databricks model serving endpoints.
 _NATIVE_PROVIDERS = ["openai", "anthropic", "bedrock", "mistral", "endpoints"]
 
+# Global cache to track model capabilities across function calls
+# Key: model URI (e.g., "openai/gpt-4"), Value: boolean indicating response_format support
+_MODEL_RESPONSE_FORMAT_CAPABILITIES = {}
+
 
 def get_default_model() -> str:
     if is_databricks_uri(mlflow.get_tracking_uri()):
@@ -170,7 +174,8 @@ def _invoke_litellm(
             kwargs["response_format"] = response_format
         return litellm.completion(**kwargs)
 
-    include_response_format = True
+    # Check global cache for model capabilities, default to True if not cached
+    include_response_format = _MODEL_RESPONSE_FORMAT_CAPABILITIES.get(litellm_model_uri, True)
 
     while True:
         try:
@@ -186,6 +191,8 @@ def _invoke_litellm(
                         f"tool calling + structured outputs. BadRequestError: {e}. "
                         f"Falling back to unstructured response."
                     )
+                    # Cache the capability for future calls
+                    _MODEL_RESPONSE_FORMAT_CAPABILITIES[litellm_model_uri] = False
                     include_response_format = False
                     response = _make_completion_request(include_response_format=False)
                 else:
