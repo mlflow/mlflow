@@ -170,20 +170,27 @@ def _invoke_litellm(
             kwargs["response_format"] = response_format
         return litellm.completion(**kwargs)
 
+    include_response_format = True
+
     while True:
         try:
             try:
-                response = _make_completion_request(include_response_format=True)
+                response = _make_completion_request(include_response_format=include_response_format)
             except litellm.BadRequestError as e:
-                # Retry without response_format if the request failed due to bad request.
-                # Some models don't support structured outputs (response_format) at all,
-                # and some models don't support both tool calling and structured outputs together.
-                _logger.debug(
-                    f"Model {litellm_model_uri} may not support structured outputs or combined "
-                    f"tool calling + structured outputs. BadRequestError: {e}. "
-                    f"Falling back to unstructured response."
-                )
-                response = _make_completion_request(include_response_format=False)
+                if include_response_format:
+                    # Retry without response_format if the request failed due to bad request.
+                    # Some models don't support structured outputs (response_format) at all,
+                    # and some models don't support both tool calling and structured outputs.
+                    _logger.debug(
+                        f"Model {litellm_model_uri} may not support structured outputs or combined "
+                        f"tool calling + structured outputs. BadRequestError: {e}. "
+                        f"Falling back to unstructured response."
+                    )
+                    include_response_format = False
+                    response = _make_completion_request(include_response_format=False)
+                else:
+                    # Already tried without response_format and still got BadRequestError
+                    raise
 
             message = response.choices[0].message
             if not message.tool_calls:
