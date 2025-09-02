@@ -100,10 +100,10 @@ def set_experiment_storage_location(
             # "Please install it with `pip install databricks-zerobus`."
         )
 
-    if importlib.util.find_spec("databricks.agents") is None:
+    if importlib.util.find_spec("databricks.connect") is None:
         raise ImportError(
-            "The `databricks-agents` package is required to set experiment storage location."
-            "Please install it with `pip install databricks-agents`."
+            "The `databricks-connect` package is required to set experiment storage location. "
+            "Please install it with `pip install databricks-connect`."
         )
 
     if experiment_id is None:
