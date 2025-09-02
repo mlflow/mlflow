@@ -4,6 +4,7 @@ from typing import Any
 from opentelemetry.proto.common.v1.common_pb2 import AnyValue
 from opentelemetry.sdk.trace.export import SpanExporter
 
+from mlflow.environment_variables import MLFLOW_ENABLE_OTLP_EXPORTER
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 
@@ -13,7 +14,10 @@ OTLP_TRACES_PATH = "/v1/traces"
 
 
 def should_use_otlp_exporter() -> bool:
-    return _get_otlp_endpoint() is not None
+    """
+    Determine if OTLP traces should be exported based on environment configuration.
+    """
+    return _get_otlp_endpoint() is not None and MLFLOW_ENABLE_OTLP_EXPORTER.get()
 
 
 def should_export_otlp_metrics() -> bool:

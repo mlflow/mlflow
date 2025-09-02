@@ -663,6 +663,12 @@ MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT = _BooleanEnvironmentVariable(
     "MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT", False
 )
 
+#: Controls whether MLflow should export traces to OTLP endpoint when
+#: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT is set. This allows users to disable MLflow's OTLP
+#: export even when the OTEL endpoint is configured for other telemetry clients.
+#: (default: ``True``)
+MLFLOW_ENABLE_OTLP_EXPORTER = _BooleanEnvironmentVariable("MLFLOW_ENABLE_OTLP_EXPORTER", True)
+
 
 # Default addressing style to use for boto client
 MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE = _EnvironmentVariable(
