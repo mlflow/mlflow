@@ -13,7 +13,8 @@ from mlflow.genai.judges.tools.search_trace_regex import (
 )
 
 
-def create_test_trace():
+@pytest.fixture
+def test_trace():
     """Create a test trace with varied content for testing."""
     trace_dict = {
         "info": {
@@ -65,13 +66,13 @@ def test_search_trace_regex_tool_metadata():
     assert "regular expression" in definition.function.description.lower()
     assert "pattern" in definition.function.parameters.properties
     assert "max_matches" in definition.function.parameters.properties
+    assert "surrounding_content_length" in definition.function.parameters.properties
     assert definition.function.parameters.required == ["pattern"]
 
 
-def test_search_trace_regex_basic_search_success():
+def test_search_trace_regex_basic_search_success(test_trace):
     tool = SearchTraceRegexTool()
-    trace = create_test_trace()
-    result = tool.invoke(trace, pattern="weather")
+    result = tool.invoke(test_trace, pattern="weather")
 
     assert isinstance(result, SearchTraceRegexResult)
     assert result.pattern == "weather"
@@ -84,11 +85,10 @@ def test_search_trace_regex_basic_search_success():
     assert len(weather_matches) > 0
 
 
-def test_search_trace_regex_case_insensitive_search():
+def test_search_trace_regex_case_insensitive_search(test_trace):
     tool = SearchTraceRegexTool()
-    trace = create_test_trace()
     # Search for "Weather" (capital W)
-    result = tool.invoke(trace, pattern="Weather")
+    result = tool.invoke(test_trace, pattern="Weather")
 
     assert result.total_matches > 0
     # Should find matches even though pattern has different case
@@ -106,19 +106,17 @@ def test_search_trace_regex_case_insensitive_search():
         (r"[Tt]emperature", ["temperature"]),
     ],
 )
-def test_search_trace_regex_patterns(pattern, expected_content):
+def test_search_trace_regex_patterns(test_trace, pattern, expected_content):
     tool = SearchTraceRegexTool()
-    trace = create_test_trace()
-    result = tool.invoke(trace, pattern=pattern)
+    result = tool.invoke(test_trace, pattern=pattern)
     assert result.total_matches > 0
     for content in expected_content:
         assert any(content.lower() in match.matched_text.lower() for match in result.matches)
 
 
-def test_search_trace_regex_surrounding_context():
+def test_search_trace_regex_surrounding_context(test_trace):
     tool = SearchTraceRegexTool()
-    trace = create_test_trace()
-    result = tool.invoke(trace, pattern="weather")
+    result = tool.invoke(test_trace, pattern="weather")
 
     # Check that matches include surrounding context
     for match in result.matches:
@@ -126,30 +124,27 @@ def test_search_trace_regex_surrounding_context():
         assert match.matched_text.lower() in match.surrounding_text.lower()
 
 
-def test_search_trace_regex_max_matches_limit():
+def test_search_trace_regex_max_matches_limit(test_trace):
     tool = SearchTraceRegexTool()
-    trace = create_test_trace()
     # Use a pattern that should match many times
-    result = tool.invoke(trace, pattern=".", max_matches=5)
+    result = tool.invoke(test_trace, pattern=".", max_matches=5)
 
     assert result.total_matches == 5
     assert len(result.matches) == 5
 
 
-def test_search_trace_regex_default_max_matches():
+def test_search_trace_regex_default_max_matches(test_trace):
     tool = SearchTraceRegexTool()
-    trace = create_test_trace()
     # Test default value for max_matches parameter
-    result = tool.invoke(trace, pattern=".")  # Should match many characters
+    result = tool.invoke(test_trace, pattern=".")  # Should match many characters
 
     # Should use default limit (50)
     assert result.total_matches <= 50
 
 
-def test_search_trace_regex_no_matches():
+def test_search_trace_regex_no_matches(test_trace):
     tool = SearchTraceRegexTool()
-    trace = create_test_trace()
-    result = tool.invoke(trace, pattern="nonexistent_pattern_xyz")
+    result = tool.invoke(test_trace, pattern="nonexistent_pattern_xyz")
 
     assert result.pattern == "nonexistent_pattern_xyz"
     assert result.total_matches == 0
@@ -157,10 +152,9 @@ def test_search_trace_regex_no_matches():
     assert result.error is None
 
 
-def test_search_trace_regex_invalid_regex():
+def test_search_trace_regex_invalid_regex(test_trace):
     tool = SearchTraceRegexTool()
-    trace = create_test_trace()
-    result = tool.invoke(trace, pattern="[invalid_regex")
+    result = tool.invoke(test_trace, pattern="[invalid_regex")
 
     assert result.pattern == "[invalid_regex"
     assert result.total_matches == 0
@@ -185,21 +179,19 @@ def test_search_trace_regex_empty_trace():
     assert result.error is None
 
 
-def test_search_trace_regex_span_id_in_matches():
+def test_search_trace_regex_span_id_in_matches(test_trace):
     tool = SearchTraceRegexTool()
-    trace = create_test_trace()
-    result = tool.invoke(trace, pattern="weather")
+    result = tool.invoke(test_trace, pattern="weather")
 
     # All matches should have the trace identifier
     for match in result.matches:
         assert match.span_id == "trace"
 
 
-def test_search_trace_regex_json_values_searchable():
+def test_search_trace_regex_json_values_searchable(test_trace):
     tool = SearchTraceRegexTool()
-    trace = create_test_trace()
     # Test that JSON values in outputs are searchable
-    result = tool.invoke(trace, pattern="temperature.*22")
+    result = tool.invoke(test_trace, pattern="temperature.*22")
 
     assert result.total_matches > 0
     assert any("temperature" in match.matched_text for match in result.matches)
@@ -244,3 +236,73 @@ def test_search_trace_regex_ellipses_in_surrounding_context():
     assert match.surrounding_text.startswith("...")
     assert match.surrounding_text.endswith("...")
     assert "target_word" in match.surrounding_text
+
+
+def test_search_trace_regex_configurable_surrounding_content_length():
+    """Test that the surrounding_content_length parameter controls the surrounding context size."""
+    tool = SearchTraceRegexTool()
+    # Create text with known positions: 50 'a's, then 'target', then 50 'b's
+    long_text = "a" * 50 + "target" + "b" * 50
+    trace_dict = {
+        "info": {
+            "request_id": "context-test",
+            "experiment_id": "0",
+            "timestamp_ms": 1234567890,
+            "execution_time_ms": 10,
+            "status": "OK",
+        },
+        "data": {
+            "spans": [
+                {
+                    "name": "test",
+                    "context": {"span_id": "0x123", "trace_id": "0xabc"},
+                    "parent_id": None,
+                    "start_time": 1234567890000000000,
+                    "end_time": 1234567900000000000,
+                    "status_code": "OK",
+                    "status_message": "",
+                    "attributes": {
+                        "mlflow.traceRequestId": '"context-test"',
+                        "mlflow.spanInputs": json.dumps({"input": long_text}),
+                    },
+                    "events": [],
+                }
+            ],
+            "request": "{}",
+            "response": "{}",
+        },
+    }
+    trace = Trace.from_dict(trace_dict)
+
+    # Test with small context window (10 characters)
+    result_small = tool.invoke(trace, pattern="target", surrounding_content_length=10)
+    assert result_small.total_matches >= 1
+    match_small = result_small.matches[0]
+
+    # Test with large context window (30 characters)
+    result_large = tool.invoke(trace, pattern="target", surrounding_content_length=30)
+    assert result_large.total_matches >= 1
+    match_large = result_large.matches[0]
+
+    # The large surrounding content length should include more surrounding text
+    assert len(match_large.surrounding_text) > len(match_small.surrounding_text)
+    assert "target" in match_small.surrounding_text
+    assert "target" in match_large.surrounding_text
+
+
+def test_search_trace_regex_default_surrounding_content_length(test_trace):
+    """Test that the default surrounding_content_length parameter works correctly."""
+    tool = SearchTraceRegexTool()
+
+    # Test with explicit default value
+    result_explicit = tool.invoke(test_trace, pattern="weather", surrounding_content_length=100)
+
+    # Test with implicit default (should be same as explicit)
+    result_implicit = tool.invoke(test_trace, pattern="weather")
+
+    assert result_explicit.total_matches == result_implicit.total_matches
+    assert len(result_explicit.matches) == len(result_implicit.matches)
+
+    # The surrounding text should be the same length for both calls
+    for match_exp, match_imp in zip(result_explicit.matches, result_implicit.matches):
+        assert len(match_exp.surrounding_text) == len(match_imp.surrounding_text)

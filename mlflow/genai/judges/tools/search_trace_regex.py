@@ -80,6 +80,14 @@ class SearchTraceRegexTool(JudgeTool):
                             "description": "Maximum number of matches to return (default: 50)",
                             "default": 50,
                         },
+                        "surrounding_content_length": {
+                            "type": "integer",
+                            "description": (
+                                "Number of characters to include before and after each match "
+                                "for context (default: 100)"
+                            ),
+                            "default": 100,
+                        },
                     },
                     required=["pattern"],
                 ),
@@ -87,7 +95,13 @@ class SearchTraceRegexTool(JudgeTool):
             type="function",
         )
 
-    def invoke(self, trace: Trace, pattern: str, max_matches: int = 50) -> SearchTraceRegexResult:
+    def invoke(
+        self,
+        trace: Trace,
+        pattern: str,
+        max_matches: int = 50,
+        surrounding_content_length: int = 100,
+    ) -> SearchTraceRegexResult:
         """
         Search through the trace using a regex pattern.
 
@@ -95,6 +109,8 @@ class SearchTraceRegexTool(JudgeTool):
             trace: The MLflow trace object to search through
             pattern: Regular expression pattern to search for
             max_matches: Maximum number of matches to return
+            surrounding_content_length: Number of characters to include before and after each
+                match for context
 
         Returns:
             SearchTraceRegexResult containing the search results
@@ -115,7 +131,11 @@ class SearchTraceRegexTool(JudgeTool):
         for match in regex.finditer(trace_json):
             if total_found >= max_matches:
                 break
-            matches.append(self._create_regex_match(match, trace_json))
+            matches.append(
+                self._create_regex_match(
+                    match, trace_json, surrounding_content_length=surrounding_content_length
+                )
+            )
             total_found += 1
 
         return SearchTraceRegexResult(
@@ -125,13 +145,17 @@ class SearchTraceRegexTool(JudgeTool):
         )
 
     def _create_regex_match(
-        self, match: re.Match[str], text: str, span_id: str = "trace"
+        self,
+        match: re.Match[str],
+        text: str,
+        span_id: str = "trace",
+        surrounding_content_length: int = 100,
     ) -> RegexMatch:
         """Create a RegexMatch with surrounding context from a regex match object."""
         matched_text = match.group()
         start, end = match.span()
-        context_start = max(0, start - 100)
-        context_end = min(len(text), end + 100)
+        context_start = max(0, start - surrounding_content_length)
+        context_end = min(len(text), end + surrounding_content_length)
         surrounding = text[context_start:context_end]
         if context_start > 0:
             surrounding = "..." + surrounding
