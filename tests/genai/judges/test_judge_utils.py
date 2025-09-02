@@ -266,6 +266,11 @@ def test_invoke_judge_model_tool_calling_loop(mock_trace):
 
 def test_invoke_judge_model_retries_without_response_format_on_bad_request(mock_response):
     """Test that when BadRequestError occurs, we retry without response_format."""
+    # Clear any existing cache for this test
+    from mlflow.genai.judges.utils import _MODEL_RESPONSE_FORMAT_CAPABILITIES
+
+    _MODEL_RESPONSE_FORMAT_CAPABILITIES.clear()
+
     bad_request_error = litellm.BadRequestError(
         message="response_format not supported", model="openai/gpt-4", llm_provider="openai"
     )
