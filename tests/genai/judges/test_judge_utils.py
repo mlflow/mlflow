@@ -15,6 +15,14 @@ from mlflow.genai.judges.utils import CategoricalRating, invoke_judge_model
 from mlflow.types.llm import ToolCall
 
 
+@pytest.fixture(autouse=True)
+def clear_model_capabilities_cache():
+    """Clear the global model capabilities cache before each test."""
+    from mlflow.genai.judges.utils import _MODEL_RESPONSE_FORMAT_CAPABILITIES
+
+    _MODEL_RESPONSE_FORMAT_CAPABILITIES.clear()
+
+
 @pytest.fixture
 def mock_response():
     """Fixture that creates a mock ModelResponse with default result and rationale."""
@@ -266,11 +274,6 @@ def test_invoke_judge_model_tool_calling_loop(mock_trace):
 
 def test_invoke_judge_model_retries_without_response_format_on_bad_request(mock_response):
     """Test that when BadRequestError occurs, we retry without response_format."""
-    # Clear any existing cache for this test
-    from mlflow.genai.judges.utils import _MODEL_RESPONSE_FORMAT_CAPABILITIES
-
-    _MODEL_RESPONSE_FORMAT_CAPABILITIES.clear()
-
     bad_request_error = litellm.BadRequestError(
         message="response_format not supported", model="openai/gpt-4", llm_provider="openai"
     )
@@ -302,11 +305,6 @@ def test_invoke_judge_model_retries_without_response_format_on_bad_request(mock_
 
 def test_invoke_judge_model_stops_trying_response_format_after_failure():
     """Test that after BadRequestError, subsequent tool calls don't try response_format."""
-    # Clear any existing cache for this test
-    from mlflow.genai.judges.utils import _MODEL_RESPONSE_FORMAT_CAPABILITIES
-
-    _MODEL_RESPONSE_FORMAT_CAPABILITIES.clear()
-
     bad_request_error = litellm.BadRequestError(
         message="response_format not supported", model="openai/gpt-4", llm_provider="openai"
     )
@@ -373,6 +371,8 @@ def test_invoke_judge_model_stops_trying_response_format_after_failure():
 
 def test_invoke_judge_model_caches_capabilities_globally():
     """Test that model capabilities are cached globally across function calls."""
+    from mlflow.genai.judges.utils import _MODEL_RESPONSE_FORMAT_CAPABILITIES
+
     bad_request_error = litellm.BadRequestError(
         message="response_format not supported", model="openai/gpt-4", llm_provider="openai"
     )
@@ -380,11 +380,6 @@ def test_invoke_judge_model_caches_capabilities_globally():
     success_response = ModelResponse(
         choices=[{"message": {"content": '{"result": "yes", "rationale": "Test rationale"}'}}]
     )
-
-    # Clear any existing cache for this test
-    from mlflow.genai.judges.utils import _MODEL_RESPONSE_FORMAT_CAPABILITIES
-
-    _MODEL_RESPONSE_FORMAT_CAPABILITIES.clear()
 
     # First call - should try response_format and cache the failure
     with mock.patch(
