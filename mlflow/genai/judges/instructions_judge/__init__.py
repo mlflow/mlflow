@@ -145,10 +145,9 @@ class InstructionsJudge(Judge):
 
         Returns:
             Evaluation results
+
         """
-        if trace is not None and (
-            inputs is not None or outputs is not None or expectations is not None
-        ):
+        if trace is not None and sum(x is not None for x in [inputs, outputs, expectations]) > 0:
             raise MlflowException(
                 "Cannot specify both 'trace' and 'inputs'/'outputs'/'expectations'. Use either "
                 "'trace' for trace-based evaluation or 'inputs'/'outputs'/'expectations' for "
@@ -244,12 +243,12 @@ class InstructionsJudge(Judge):
         has_outputs = self._TEMPLATE_VARIABLE_OUTPUTS in template_vars
 
         if has_trace:
-            non_reserved_vars = template_vars - set(self._RESERVED_INSTRUCTION_TEMPLATE_VARIABLES)
-            if non_reserved_vars:
+            if self._custom_template_variables:
                 raise MlflowException(
-                    f"When using 'trace' variable, no other variables are allowed. "
-                    f"Found: {non_reserved_vars}. The 'trace' variable provides complete context "
-                    "and should not be mixed with other template variables.",
+                    "When submitting a 'trace' variable, no other variables are permitted. "
+                    f"found: {self._custom_template_variables}. A submitted trace contains "
+                    "the complete context for evaluation and should not be mixed with "
+                    "other variables.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             if has_inputs or has_outputs:
