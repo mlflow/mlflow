@@ -343,12 +343,12 @@ message TraceDestination {
   // The full qualified name of the spans table: `catalog.schema.table`
   optional string spans_table_name = 2 [(validate_required) = true];
 
-  // The full qualified name of the events table: `catalog.schema.table`
-  optional string events_table_name = 3 [(validate_required) = true];
+  // The full qualified name of the logs table: `catalog.schema.table`
+  optional string logs_table_name = 3 [(validate_required) = true];
 
   // The schema version of the spans table.
   optional string spans_schema_version = 4;
 
-  // The schema version of the events table.
-  optional string events_schema_version = 5;
+  // The schema version of the logs table.
+  optional string logs_schema_version = 5;
 }
