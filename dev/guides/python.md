@@ -191,3 +191,25 @@ def test_foo(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("FOO", "True")
     ...
 ```
+
+## Use Pytest's tmp_path Fixture for Temporary Files
+
+Use `tmp_path` fixture instead of manual `tempfile.TemporaryDirectory()` for handling temporary files and directories in tests. Pytest automatically cleans up the temporary directory after the test, provides better test isolation, and integrates seamlessly with pytest's fixture system.
+
+```python
+# Bad
+import tempfile
+
+
+def test_foo():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        ...
+
+
+# Good
+from pathlib import Path
+
+
+def test_foo(tmp_path: Path):
+    ...
+```
