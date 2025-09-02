@@ -14,8 +14,9 @@ agent's performance on the query. Your job is to analyze a trace of the agent's 
 query and provide an evaluation rating in accordance with the instructions.
 
 A *trace* is a step-by-step record of how the agent processed the query, including the input query
-itself, all intermediate steps, decisions, and outputs. Each step is represented as a *span*,
-which includes the inputs and outputs of that step, as well as latency information and metadata.
+itself, all intermediate steps, decisions, and outputs. Each step in a trace is represented as a
+*span*, which includes the inputs and outputs of that step, as well as latency information and
+metadata.
 
 The instructions containing the evaluation criteria and methodology are provided below, and they
 refer to a placeholder called {{ trace }}. To read the actual trace, you will need to use the tools
