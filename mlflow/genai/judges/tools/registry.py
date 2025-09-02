@@ -11,7 +11,6 @@ from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.tools.base import JudgeTool
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
-from mlflow.types.llm import ToolCall
 from mlflow.utils.annotations import experimental
 
 
@@ -31,7 +30,7 @@ class JudgeToolRegistry:
         """
         self._tools[tool.name] = tool
 
-    def invoke(self, tool_call: ToolCall, trace: Trace) -> Any:
+    def invoke(self, tool_call: Any, trace: Trace) -> Any:
         """
         Invoke a tool using a ToolCall instance and trace.
 
@@ -94,7 +93,7 @@ def register_judge_tool(tool: JudgeTool) -> None:
 
 
 @experimental(version="3.4.0")
-def invoke_judge_tool(tool_call: ToolCall, trace: Trace) -> Any:
+def invoke_judge_tool(tool_call: Any, trace: Trace) -> Any:
     """
     Invoke a judge tool using a ToolCall instance and trace.
 
@@ -119,6 +118,10 @@ def list_judge_tools() -> list[JudgeTool]:
     return _judge_tool_registry.list_tools()
 
 
+from mlflow.genai.judges.tools.get_span import GetSpanTool
 from mlflow.genai.judges.tools.get_trace_info import GetTraceInfoTool
+from mlflow.genai.judges.tools.list_spans import ListSpansTool
 
 _judge_tool_registry.register(GetTraceInfoTool())
+_judge_tool_registry.register(GetSpanTool())
+_judge_tool_registry.register(ListSpansTool())
