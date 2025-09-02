@@ -81,7 +81,18 @@ def extract_request_from_trace(trace: Trace) -> str:
     Returns:
         Extracted request text as string
     """
-    return parse_inputs_to_str(trace.data.spans[0].inputs)
+    # Check for the existence of trace.data and trace.data.spans and also the inputs
+    if not hasattr(trace, "data") or trace.data is None:
+        return ""
+
+    if not hasattr(trace.data, "spans") or not trace.data.spans:
+        return ""
+
+    first_span = trace.data.spans[0]
+    if not hasattr(first_span, "inputs") or first_span.inputs is None:
+        return ""
+
+    return parse_inputs_to_str(first_span.inputs)
 
 
 def extract_response_from_trace(trace: Trace) -> str:
@@ -94,4 +105,15 @@ def extract_response_from_trace(trace: Trace) -> str:
     Returns:
         Extracted response text as string
     """
-    return parse_outputs_to_str(trace.data.spans[0].outputs)
+    # Check for the existence of trace.data and trace.data.spans and also the outputs
+    if not hasattr(trace, "data") or trace.data is None:
+        return ""
+
+    if not hasattr(trace.data, "spans") or not trace.data.spans:
+        return ""
+
+    first_span = trace.data.spans[0]
+    if not hasattr(first_span, "outputs") or first_span.outputs is None:
+        return ""
+
+    return parse_outputs_to_str(first_span.outputs)
