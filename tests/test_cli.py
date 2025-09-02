@@ -9,6 +9,7 @@ from unittest import mock
 from urllib.parse import unquote, urlparse
 from urllib.request import url2pathname
 
+import click
 import numpy as np
 import pandas as pd
 import pytest
@@ -769,8 +770,6 @@ def test_env_file_loading():
 
             def capture_env_command():
                 """Helper command to capture environment variables."""
-                import click
-
                 captured_env.update(os.environ.copy())
                 click.echo("Environment captured")
                 return 0
