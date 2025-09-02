@@ -177,18 +177,31 @@ def test_foo(input: str, expected: int):
 
 ## Use Pytest's Monkeypatch for Mocking Environment Variables
 
-Use `monkeypatch.setenv()` instead of `mock.patch.dict()` for environment variables. Pytest's monkeypatch fixture automatically restores the original environment after the test, providing cleaner and more reliable test isolation.
+Use `monkeypatch.setenv()` and `monkeypatch.delenv()` instead of `mock.patch.dict()` for environment variables. Pytest's monkeypatch fixture automatically restores the original environment after the test, providing cleaner and more reliable test isolation.
 
 ```python
-# Bad
+# Bad - Setting environment variables
 def test_foo():
     with mock.patch.dict("os.environ", {"FOO": "True"}):
         ...
 
 
-# Good
+# Bad - Removing environment variables
+def test_bar():
+    with mock.patch.dict("os.environ", {}, clear=True):
+        ...
+
+
+# Good - Setting environment variables
 def test_foo(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("FOO", "True")
+    ...
+
+
+# Good - Removing environment variables
+def test_bar(monkeypatch: pytest.MonkeyPatch):
+    # raising=False prevents KeyError if FOO doesn't exist
+    monkeypatch.delenv("FOO", raising=False)
     ...
 ```
 
