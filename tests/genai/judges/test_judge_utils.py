@@ -1,6 +1,7 @@
 import json
 from unittest import mock
 
+import litellm
 import pytest
 from litellm.types.utils import ModelResponse
 
@@ -261,3 +262,34 @@ def test_invoke_judge_model_tool_calling_loop(mock_trace):
 
     assert feedback.value == CategoricalRating.YES
     assert feedback.rationale == "The trace looks good."
+
+
+def test_invoke_judge_model_retries_without_response_format_on_bad_request(mock_response):
+    """Test that when BadRequestError occurs, we retry without response_format."""
+    bad_request_error = litellm.BadRequestError(
+        message="response_format not supported", model="openai/gpt-4", llm_provider="openai"
+    )
+
+    with mock.patch(
+        "litellm.completion", side_effect=[bad_request_error, mock_response]
+    ) as mock_litellm:
+        feedback = invoke_judge_model(
+            model_uri="openai:/gpt-4",
+            prompt="Test prompt",
+            assessment_name="test",
+        )
+
+        # Should have been called twice - once with response_format, once without
+        assert mock_litellm.call_count == 2
+
+        # First call should include response_format
+        first_call_kwargs = mock_litellm.call_args_list[0].kwargs
+        assert "response_format" in first_call_kwargs
+
+        # Second call should not include response_format
+        second_call_kwargs = mock_litellm.call_args_list[1].kwargs
+        assert "response_format" not in second_call_kwargs
+
+        # Should still return valid feedback
+        assert feedback.name == "test"
+        assert feedback.value == CategoricalRating.YES

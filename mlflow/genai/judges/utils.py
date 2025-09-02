@@ -153,20 +153,34 @@ def _invoke_litellm(
         judge_tools = list_judge_tools()
         tools = [tool.get_definition().to_dict() for tool in judge_tools]
 
+    def _make_completion_request(include_response_format: bool = True):
+        """Helper to make litellm completion request with optional response_format."""
+        kwargs = {
+            "model": litellm_model_uri,
+            "messages": messages,
+            "tools": tools if tools else None,
+            "tool_choice": "auto" if tools else None,
+            "retry_policy": _get_litellm_retry_policy(num_retries),
+            "retry_strategy": "exponential_backoff_retry",
+            # In LiteLLM version 1.55.3+, max_retries is stacked on top of retry_policy.
+            # To avoid double-retry, we set max_retries=0
+            "max_retries": 0,
+        }
+        if include_response_format:
+            kwargs["response_format"] = response_format
+        return litellm.completion(**kwargs)
+
     while True:
         try:
-            response = litellm.completion(
-                model=litellm_model_uri,
-                messages=messages,
-                tools=tools if tools else None,
-                tool_choice="auto" if tools else None,
-                response_format=response_format,
-                retry_policy=_get_litellm_retry_policy(num_retries),
-                retry_strategy="exponential_backoff_retry",
-                # In LiteLLM version 1.55.3+, max_retries is stacked on top of retry_policy.
-                # To avoid double-retry, we set max_retries=0
-                max_retries=0,
-            )
+            try:
+                response = _make_completion_request(include_response_format=True)
+            except litellm.BadRequestError as e:
+                # Retry without response_format if the request failed due to bad request
+                _logger.warning(
+                    f"Request failed with BadRequestError: {e}. Retrying without response_format."
+                )
+                response = _make_completion_request(include_response_format=False)
+
             message = response.choices[0].message
             if not message.tool_calls:
                 return message.content
