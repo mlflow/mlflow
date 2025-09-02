@@ -174,15 +174,16 @@ def _invoke_litellm(
             kwargs["response_format"] = response_format
         return litellm.completion(**kwargs)
 
-    # Check global cache for model capabilities, default to True if not cached
-    include_response_format = _MODEL_RESPONSE_FORMAT_CAPABILITIES.get(litellm_model_uri, True)
-
     while True:
         try:
             try:
-                response = _make_completion_request(include_response_format=include_response_format)
+                response = _make_completion_request(
+                    include_response_format=_MODEL_RESPONSE_FORMAT_CAPABILITIES.get(
+                        litellm_model_uri, True
+                    )
+                )
             except litellm.BadRequestError as e:
-                if include_response_format:
+                if _MODEL_RESPONSE_FORMAT_CAPABILITIES.get(litellm_model_uri, True):
                     # Retry without response_format if the request failed due to bad request.
                     # Some models don't support structured outputs (response_format) at all,
                     # and some models don't support both tool calling and structured outputs.
@@ -193,7 +194,6 @@ def _invoke_litellm(
                     )
                     # Cache the capability for future calls
                     _MODEL_RESPONSE_FORMAT_CAPABILITIES[litellm_model_uri] = False
-                    include_response_format = False
                     response = _make_completion_request(include_response_format=False)
                 else:
                     # Already tried without response_format and still got BadRequestError
