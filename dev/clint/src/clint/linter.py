@@ -694,6 +694,9 @@ class Linter(ast.NodeVisitor):
         if rules.ForbiddenSetActiveModelUsage.check(node, self.resolver):
             self._check(Location.from_node(node), rules.ForbiddenSetActiveModelUsage())
 
+        if expr := rules.ForbiddenDeprecationWarning.check(node, self.resolver):
+            self._check(Location.from_node(expr), rules.ForbiddenDeprecationWarning())
+
         if rules.UnnamedThread.check(node, self.resolver):
             self._check(Location.from_node(node), rules.UnnamedThread())
 

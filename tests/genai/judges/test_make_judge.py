@@ -1,9 +1,11 @@
 import json
 
+import pandas as pd
 import pytest
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
 import mlflow
+import mlflow.genai
 import mlflow.genai.judges.instructions_judge
 from mlflow.entities import Span, SpanType, Trace, TraceData, TraceInfo
 from mlflow.entities.assessment import Feedback
@@ -100,7 +102,11 @@ def test_make_judge_creates_instructions_judge():
 
     assert isinstance(judge, InstructionsJudge)
     assert judge.name == "test_judge"
-    assert judge.instructions == "Check if {{text}} is formal"
+    expected_instructions = (
+        "Instructions-based judge: test_judge\n\nInstructions:\n-------------\n\n"
+        "Check if {{text}} is formal"
+    )
+    assert judge.instructions == expected_instructions
     assert judge.model == "openai:/gpt-4"
 
 
@@ -307,14 +313,14 @@ def test_call_with_custom_variables_from_inputs(monkeypatch):
     assert "Check if What is AI? meets technical accuracy" in captured_prompt
 
 
-def test_description_property():
+def test_instructions_property():
     judge = make_judge(
         name="test_judge", instructions="Check if {{text}} is formal", model="openai:/gpt-4"
     )
 
-    description = judge.description
-    assert "Instructions-based judge: test_judge" in description
-    assert "Check if {{text}} is formal" in description
+    instructions = judge.instructions
+    assert "Instructions-based judge: test_judge" in instructions
+    assert "Check if {{text}} is formal" in instructions
 
 
 def test_kind_property():
@@ -424,3 +430,144 @@ def test_output_format_instructions_with_complex_template(monkeypatch):
     assert "JSON format" in captured_prompt
     assert result.value == "yes"
     assert result.rationale == "Test rationale"
+
+
+def test_instructions_judge_works_with_evaluate(mock_invoke_judge_model):
+    judge = make_judge(
+        name="response_quality",
+        instructions="Evaluate if the {{response}} is helpful for answering the {{question}}",
+        model="openai:/gpt-4",
+        aggregations=["mean"],
+    )
+
+    assert judge.aggregations == ["mean"]
+
+    data = pd.DataFrame(
+        {
+            "inputs": [
+                {"question": "What is MLflow?"},
+                {"question": "How to track experiments?"},
+            ],
+            "outputs": [
+                {"response": "MLflow is an open source platform for ML lifecycle."},
+                {"response": "Use mlflow.start_run() to track experiments."},
+            ],
+        }
+    )
+
+    result = mlflow.genai.evaluate(data=data, scorers=[judge])
+
+    assert "response_quality/mean" in result.metrics
+    assert result.metrics["response_quality/mean"] == 1.0
+
+    assert "response_quality/value" in result.result_df.columns
+    assert len(result.result_df["response_quality/value"]) == 2
+    assert all(score is True for score in result.result_df["response_quality/value"])
+
+
+def test_instructions_judge_with_no_aggregations(mock_invoke_judge_model):
+    judge = make_judge(
+        name="response_quality",
+        instructions="Evaluate if the {{response}} is helpful for answering the {{question}}",
+        model="openai:/gpt-4",
+    )
+
+    assert judge.aggregations == []
+
+    data = pd.DataFrame(
+        {
+            "inputs": [
+                {"question": "What is MLflow?"},
+                {"question": "How to track experiments?"},
+            ],
+            "outputs": [
+                {"response": "MLflow is an open source platform for ML lifecycle."},
+                {"response": "Use mlflow.start_run() to track experiments."},
+            ],
+        }
+    )
+
+    result = mlflow.genai.evaluate(data=data, scorers=[judge])
+
+    assert "response_quality/mean" not in result.metrics
+    assert "response_quality/value" in result.result_df.columns
+    assert len(result.result_df["response_quality/value"]) == 2
+    assert all(score is True for score in result.result_df["response_quality/value"])
+
+
+def test_make_judge_with_aggregations_validation():
+    with pytest.raises(MlflowException, match="Invalid aggregation 'invalid'"):
+        make_judge(
+            name="test_judge",
+            instructions="Check if {{text}} is valid",
+            model="openai:/gpt-4",
+            aggregations=["mean", "invalid", "max"],
+        )
+
+    with pytest.raises(MlflowException, match="Valid aggregations are"):
+        make_judge(
+            name="test_judge",
+            instructions="Check if {{text}} is valid",
+            model="openai:/gpt-4",
+            aggregations=["not_valid"],
+        )
+
+    with pytest.raises(MlflowException, match="Aggregation must be either a string"):
+        make_judge(
+            name="test_judge",
+            instructions="Check if {{text}} is valid",
+            model="openai:/gpt-4",
+            aggregations=["mean", 123],
+        )
+
+    def custom_aggregation(values):
+        return sum(values) / len(values) if values else 0
+
+    judge_with_custom_func = make_judge(
+        name="test_judge",
+        instructions="Check if {{text}} is valid",
+        model="openai:/gpt-4",
+        aggregations=["mean", custom_aggregation],
+    )
+    assert "mean" in judge_with_custom_func.aggregations
+    assert custom_aggregation in judge_with_custom_func.aggregations
+
+    all_valid_aggregations = ["min", "max", "mean", "median", "variance", "p90"]
+    judge_with_all_aggs = make_judge(
+        name="test_judge",
+        instructions="Check if {{text}} is valid",
+        model="openai:/gpt-4",
+        aggregations=all_valid_aggregations,
+    )
+    assert judge_with_all_aggs.aggregations == all_valid_aggregations
+
+
+def test_make_judge_with_aggregations(mock_invoke_judge_model):
+    judge_with_custom_aggs = make_judge(
+        name="formal_judge",
+        instructions="Check if {{text}} is formal",
+        model="openai:/gpt-4",
+        aggregations=["mean", "max", "min"],
+    )
+
+    assert judge_with_custom_aggs.name == "formal_judge"
+    assert judge_with_custom_aggs.aggregations == ["mean", "max", "min"]
+
+    judge_with_default_aggs = make_judge(
+        name="simple_judge",
+        instructions="Check if {{text}} is valid",
+        model="openai:/gpt-4",
+    )
+
+    assert judge_with_default_aggs.name == "simple_judge"
+    assert judge_with_default_aggs.aggregations == []
+
+    judge_with_empty_aggs = make_judge(
+        name="no_aggs_judge",
+        instructions="Check if {{text}} exists",
+        model="openai:/gpt-4",
+        aggregations=[],
+    )
+
+    assert judge_with_empty_aggs.name == "no_aggs_judge"
+    assert judge_with_empty_aggs.aggregations == []

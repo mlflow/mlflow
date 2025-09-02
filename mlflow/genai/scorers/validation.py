@@ -4,7 +4,7 @@ from collections import defaultdict
 from typing import Any, Callable
 
 from mlflow.exceptions import MlflowException
-from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.base import AggregationFunc, Scorer
 from mlflow.genai.scorers.builtin_scorers import (
     BuiltInScorer,
     MissingColumnsException,
@@ -170,3 +170,32 @@ def valid_data_for_builtin_scorers(
             else:
                 msg += f"\n - `{col}` column is required by [{', '.join(scorers)}]."
         _logger.info(msg)
+
+
+def validate_aggregations(aggregations: list[str | AggregationFunc] | None) -> None:
+    """
+    Validate that aggregations are either valid string names or callable functions.
+
+    Args:
+        aggregations: List of aggregation functions to validate. Can be strings from
+                     the standard set or callable functions.
+    """
+    if not aggregations:
+        return
+
+    from mlflow.genai.scorers.aggregation import _AGGREGATE_FUNCTIONS
+
+    valid_aggregation_names = set(_AGGREGATE_FUNCTIONS.keys())
+
+    for agg in aggregations:
+        if isinstance(agg, str):
+            if agg not in valid_aggregation_names:
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid aggregation '{agg}'. Valid aggregations are: "
+                    f"{sorted(valid_aggregation_names)}"
+                )
+        elif not callable(agg):
+            raise MlflowException.invalid_parameter_value(
+                f"Aggregation must be either a string from {sorted(valid_aggregation_names)} "
+                f"or a callable function, got {type(agg).__name__}"
+            )
