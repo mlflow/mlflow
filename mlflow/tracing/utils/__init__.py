@@ -632,10 +632,8 @@ def capture_location_from_frame(frame) -> FrameLocation:
     file_path = frame.f_code.co_filename
 
     try:
-        # Try to make it relative to current working directory
         cwd = os.getcwd()
         relative_path = os.path.relpath(file_path, cwd) if file_path.startswith(cwd) else file_path
         return FrameLocation(line_number=line_number, file_path=relative_path)
     except Exception:
-        # Fallback to absolute path if relative path calculation fails
         return FrameLocation(line_number=line_number, file_path=file_path)
