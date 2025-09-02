@@ -1,4 +1,5 @@
 import json
+from dataclasses import asdict
 from typing import Any
 
 from pydantic import PrivateAttr
@@ -9,7 +10,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import Judge
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils import format_prompt, get_default_model, invoke_judge_model
-from mlflow.genai.scorers.base import _SERIALIZATION_VERSION, ScorerKind
+from mlflow.genai.scorers.base import _SERIALIZATION_VERSION, ScorerKind, SerializedScorer
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
 
@@ -248,21 +249,22 @@ class InstructionsJudge(Judge):
 
     def model_dump(self, **kwargs) -> dict[str, Any]:
         """Override model_dump to serialize as a SerializedScorer."""
-        return {
-            "name": self.name,
-            "aggregations": self.aggregations,
-            "mlflow_version": mlflow.__version__,
-            "serialization_version": _SERIALIZATION_VERSION,
-            "instructions_judge_pydantic_data": {
+        serialized_scorer = SerializedScorer(
+            name=self.name,
+            aggregations=self.aggregations,
+            mlflow_version=mlflow.__version__,
+            serialization_version=_SERIALIZATION_VERSION,
+            instructions_judge_pydantic_data={
                 "instructions": self._instructions,
                 "model": self._model,
             },
-            "builtin_scorer_class": None,
-            "builtin_scorer_pydantic_data": None,
-            "call_source": None,
-            "call_signature": None,
-            "original_func_name": None,
-        }
+            builtin_scorer_class=None,
+            builtin_scorer_pydantic_data=None,
+            call_source=None,
+            call_signature=None,
+            original_func_name=None,
+        )
+        return asdict(serialized_scorer)
 
 
 __all__ = ["InstructionsJudge"]

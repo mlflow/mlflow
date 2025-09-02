@@ -239,16 +239,43 @@ class Scorer(BaseModel):
             return cls._reconstruct_decorator_scorer(serialized)
 
         # Handle InstructionsJudge scorers
-        elif serialized.instructions_judge_pydantic_data:
+        elif serialized.instructions_judge_pydantic_data is not None:
             from mlflow.genai.judges.instructions_judge import InstructionsJudge
 
             data = serialized.instructions_judge_pydantic_data
-            return InstructionsJudge(
-                name=serialized.name,
-                instructions=data["instructions"],
-                model=data["model"],
-                aggregations=serialized.aggregations,
-            )
+
+            field_specs = {
+                "instructions": str,
+                "model": str,
+            }
+
+            errors = []
+            for field, expected_type in field_specs.items():
+                if field not in data:
+                    errors.append(f"missing required field '{field}'")
+                elif not isinstance(data[field], expected_type):
+                    actual_type = type(data[field]).__name__
+                    errors.append(
+                        f"field '{field}' must be {expected_type.__name__}, got {actual_type}"
+                    )
+
+            if errors:
+                raise MlflowException.invalid_parameter_value(
+                    f"Failed to deserialize InstructionsJudge scorer '{serialized.name}': "
+                    f"{'; '.join(errors)}"
+                )
+
+            try:
+                return InstructionsJudge(
+                    name=serialized.name,
+                    instructions=data["instructions"],
+                    model=data["model"],
+                    aggregations=serialized.aggregations,
+                )
+            except Exception as e:
+                raise MlflowException.invalid_parameter_value(
+                    f"Failed to create InstructionsJudge scorer '{serialized.name}': {e}"
+                )
 
         # Invalid serialized data
         else:
