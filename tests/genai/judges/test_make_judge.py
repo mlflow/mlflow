@@ -537,15 +537,26 @@ def test_judge_registration_as_scorer(mock_invoke_judge_model):
     assert isinstance(result, Feedback)
     assert result.name == "test_judge"
 
-    expected_prompt = (
-        "Evaluate if the response This output demonstrates professional "
-        "communication. is professional and formal."
-    )
     assert len(mock_invoke_judge_model.calls) == 1
     model_uri, prompt, assessment_name = mock_invoke_judge_model.calls[0]
     assert model_uri == "openai:/gpt-4"
-    assert prompt == expected_prompt
     assert assessment_name == "test_judge"
+
+    # Check that prompt is now a list of messages
+    assert isinstance(prompt, list)
+    assert len(prompt) == 2
+
+    # Check system message
+    assert prompt[0]["role"] == "system"
+    assert "You are a helpful judge" in prompt[0]["content"]
+    assert (
+        "Evaluate if the response {{response}} is professional and formal." in prompt[0]["content"]
+    )
+    assert "JSON format" in prompt[0]["content"]
+
+    # Check user message
+    assert prompt[1]["role"] == "user"
+    assert prompt[1]["content"] == "response: This output demonstrates professional communication."
 
     mock_invoke_judge_model.reset_mock()
     result2 = deserialized(outputs=test_output)
@@ -553,8 +564,14 @@ def test_judge_registration_as_scorer(mock_invoke_judge_model):
     assert len(mock_invoke_judge_model.calls) == 1
     model_uri, prompt, assessment_name = mock_invoke_judge_model.calls[0]
     assert model_uri == "openai:/gpt-4"
-    assert prompt == expected_prompt
     assert assessment_name == "test_judge"
+
+    # Verify the same message structure for deserialized judge
+    assert isinstance(prompt, list)
+    assert len(prompt) == 2
+    assert prompt[0]["role"] == "system"
+    assert prompt[1]["role"] == "user"
+    assert prompt[1]["content"] == "response: This output demonstrates professional communication."
 
     v2_instructions = "Evaluate if the output {{outputs}} is professional, formal, and concise."
     judge_v2 = make_judge(
@@ -621,15 +638,31 @@ def test_judge_registration_preserves_custom_variables(mock_invoke_judge_model):
     assert isinstance(result, Feedback)
     assert result.name == "custom_judge"
 
-    expected_prompt = (
-        "Check if What is 2+2? is answered correctly by The answer is 4 "
-        "according to mathematical accuracy with 95% accuracy"
-    )
     assert len(mock_invoke_judge_model.calls) == 1
     model_uri, prompt, assessment_name = mock_invoke_judge_model.calls[0]
     assert model_uri == "openai:/gpt-4"
-    assert prompt == expected_prompt
     assert assessment_name == "custom_judge"
+
+    # Check that prompt is now a list of messages
+    assert isinstance(prompt, list)
+    assert len(prompt) == 2
+
+    # Check system message
+    assert prompt[0]["role"] == "system"
+    assert "You are a helpful judge" in prompt[0]["content"]
+    assert "Check if {{query}} is answered correctly by {{response}}" in prompt[0]["content"]
+    assert "according to {{criteria}} with {{threshold}} accuracy" in prompt[0]["content"]
+    assert "JSON format" in prompt[0]["content"]
+
+    # Check user message with all custom variables
+    assert prompt[1]["role"] == "user"
+    expected_user_content = (
+        "criteria: mathematical accuracy\n"
+        "query: What is 2+2?\n"
+        "response: The answer is 4\n"
+        "threshold: 95%"
+    )
+    assert prompt[1]["content"] == expected_user_content
 
     mock_invoke_judge_model.reset_mock()
 
