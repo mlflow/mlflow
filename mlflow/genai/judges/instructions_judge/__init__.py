@@ -149,16 +149,27 @@ class InstructionsJudge(Judge):
             Evaluation results
 
         """
-        if trace is not None and (inputs, outputs, expectations).count(None) < 3:
-            raise MlflowException(
-                "Cannot specify both 'trace' and 'inputs'/'outputs'/'expectations'. Use either "
-                "'trace' for trace-based evaluation or 'inputs'/'outputs'/'expectations' for "
-                "field-based evaluation.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
+        # Determine evaluation mode based on template variables
+        is_trace_based = self._TEMPLATE_VARIABLE_TRACE in self.template_variables
+
+        if is_trace_based:
+            # This is a trace-based judge - require trace, ignore inputs/outputs
+            if trace is None:
+                raise MlflowException(
+                    "Trace is required for judges that use {{trace}} variable.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            # Use trace-based evaluation (ignore inputs/outputs/expectations)
+        else:
+            # This is a field-based judge - require inputs/outputs, ignore trace
+            if inputs is None and outputs is None:
+                raise MlflowException(
+                    "Must specify 'inputs' or 'outputs' for field-based evaluation.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
 
         # Handle field-based evaluation (inputs/outputs)
-        if inputs is not None or outputs is not None:
+        if not is_trace_based:
             self._validate_call_args_contain_template_fields(inputs, outputs, expectations)
 
             template_values = {}
@@ -182,7 +193,7 @@ class InstructionsJudge(Judge):
             )
 
         # Handle trace-based evaluation
-        if trace is not None:
+        else:  # is_trace_based
             output_fields = self.get_output_fields()
             evaluation_rating_fields = "\n".join(
                 [f"- {field.name}: {field.description}" for field in output_fields]
@@ -197,11 +208,6 @@ class InstructionsJudge(Judge):
                 assessment_name=self.name,
                 trace=trace,
             )
-
-        raise MlflowException(
-            "Must specify either 'trace' or 'inputs'/'outputs' for evaluation.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
 
     @property
     def kind(self) -> ScorerKind:
