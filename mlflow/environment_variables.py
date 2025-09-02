@@ -717,8 +717,8 @@ MLFLOW_DISABLE_DATABRICKS_SDK_FOR_RUN_ARTIFACTS = _BooleanEnvironmentVariable(
 #: Skip signature validation check when migrating model versions from Databricks Workspace
 #: Model Registry to Databricks Unity Catalog Model Registry.
 #: (default: ``False``)
-MLFLOW_SKIP_SIGNATURE_CHECK_FOR_MIGRATION_TO_DATABRICKS_UC_REGISTRY = _BooleanEnvironmentVariable(
-    "MLFLOW_SKIP_SIGNATURE_CHECK_FOR_MIGRATION_TO_DATABRICKS_UC_REGISTRY", False
+MLFLOW_SKIP_SIGNATURE_CHECK_FOR_UC_REGISTRY_MIGRATION = _BooleanEnvironmentVariable(
+    "MLFLOW_SKIP_SIGNATURE_CHECK_FOR_UC_REGISTRY_MIGRATION", False
 )
 
 # Specifies the model environment archive file downloading path when using

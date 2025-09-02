@@ -1,9 +1,7 @@
 from functools import partial
 
 import mlflow
-from mlflow.environment_variables import (
-    MLFLOW_SKIP_SIGNATURE_CHECK_FOR_MIGRATION_TO_DATABRICKS_UC_REGISTRY,
-)
+from mlflow.environment_variables import MLFLOW_SKIP_SIGNATURE_CHECK_FOR_UC_REGISTRY_MIGRATION
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
@@ -60,8 +58,8 @@ class DatabricksWorkspaceModelRegistryRestStore(RestStore):
         This method can be used within the Databricks workspace registry to copy model versions
         between registered models, or to migrate model versions from the Databricks workspace
         registry to Unity Catalog. During the migration, signature validation can be bypassed
-        by setting the `MLFLOW_SKIP_SIGNATURE_CHECK_FOR_MIGRATION_TO_DATABRICKS_UC_REGISTRY`
-        environment variable to `True`.
+        by setting the `MLFLOW_SKIP_SIGNATURE_CHECK_FOR_UC_REGISTRY_MIGRATION`environment variable
+        to `True`.
 
         Args:
             src_mv: A :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
@@ -101,15 +99,14 @@ class DatabricksWorkspaceModelRegistryRestStore(RestStore):
                     f"Registered model '{dst_name}' already exists."
                     f" Creating a new version of this model..."
                 )
-            env_var = MLFLOW_SKIP_SIGNATURE_CHECK_FOR_MIGRATION_TO_DATABRICKS_UC_REGISTRY
-            bypass_signature_validation = env_var.get()
+            skip_signature = MLFLOW_SKIP_SIGNATURE_CHECK_FOR_UC_REGISTRY_MIGRATION.get()
             return uc_store._create_model_version_with_optional_signature_validation(
                 name=dst_name,
                 source=source_uri,
                 run_id=src_mv.run_id,
                 local_model_path=local_model_dir,
                 model_id=src_mv.model_id,
-                bypass_signature_validation=bypass_signature_validation,
+                bypass_signature_validation=skip_signature,
             )
         else:
             return super().copy_model_version(src_mv, dst_name)

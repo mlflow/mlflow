@@ -306,10 +306,7 @@ def test_copy_model_version_unity_catalog_signature_validation_bypass(
         )
 
         # Mock environment variable to enable signature validation bypass
-        monkeypatch.setenv(
-            "MLFLOW_SKIP_SIGNATURE_CHECK_FOR_MIGRATION_TO_DATABRICKS_UC_REGISTRY",
-            "True",
-        )
+        monkeypatch.setenv("MLFLOW_SKIP_SIGNATURE_CHECK_FOR_UC_REGISTRY_MIGRATION", "True")
         store.copy_model_version(sample_model_version, dst_name)
 
         # Verify the UC store method was called with bypass_signature_validation=True

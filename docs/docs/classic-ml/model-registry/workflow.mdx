@@ -224,7 +224,7 @@ If the destination UC model doesn't exist, one will be created as part of this A
 Additionally, models registered to Databricks Unity Catalog require a signature to be set. If the workspace-registered
 model version does not already have a signature set, we recommend following the [Model Signatures](/ml/model/signatures)
 instructions to add one. However, to simplify the migration process, you can also set the environment variable
-`MLFLOW_SKIP_SIGNATURE_CHECK_FOR_MIGRATION_TO_DATABRICKS_UC_REGISTRY` to `true`. This ONLY works with the
+`MLFLOW_SKIP_SIGNATURE_CHECK_FOR_UC_REGISTRY_MIGRATION` to `true`. This ONLY works with the
 
 <APILink fn="mlflow.client.MlflowClient.copy_model_version">`copy_model_version()`</APILink> API as indicated above, and
 it allows you to migrate the model to Unity Catalog while bypassing the signature requirement.
@@ -232,7 +232,7 @@ it allows you to migrate the model to Unity Catalog while bypassing the signatur
 ```python
 import os
 
-os.environ["MLFLOW_SKIP_SIGNATURE_CHECK_FOR_MIGRATION_TO_DATABRICKS_UC_REGISTRY"] = "true"
+os.environ["MLFLOW_SKIP_SIGNATURE_CHECK_FOR_UC_REGISTRY_MIGRATION"] = "true"
 ```
 
 If you want to migrate all of the model versions in your workspace registered model to a destination UC model,

@@ -4300,15 +4300,14 @@ class MlflowClient:
         )
 
     def copy_model_version(self, src_model_uri, dst_name) -> ModelVersion:
-        # ruff: noqa: E501
         """
         Copy a model version from one registered model to another as a new model version.
         If the destination model does not exist, it will be created.
 
         This method can also be used to migrate model versions from the Databricks workspace
         registry to Unity Catalog. During the migration, signature validation can be bypassed
-        by setting the `MLFLOW_SKIP_SIGNATURE_CHECK_FOR_MIGRATION_TO_DATABRICKS_UC_REGISTRY`
-        environment variable to `True`.
+        by setting the `MLFLOW_SKIP_SIGNATURE_CHECK_FOR_UC_REGISTRY_MIGRATION`environment
+        variable to `True`.
 
         Args:
             src_model_uri: The model URI of the model version to copy. This must be a model
@@ -4368,7 +4367,7 @@ class MlflowClient:
             from mlflow import MlflowClient
             import os
 
-            os.environ["MLFLOW_SKIP_SIGNATURE_CHECK_FOR_MIGRATION_TO_DATABRICKS_UC_REGISTRY"] = "true"
+            os.environ["MLFLOW_SKIP_SIGNATURE_CHECK_FOR_UC_REGISTRY_MIGRATION"] = "true"
             client = MlflowClient(registry_uri="databricks")
 
             src_model_uri = f"models:/my_workspace_model/1"
