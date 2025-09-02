@@ -145,9 +145,6 @@ class InstructionsJudge(Judge):
 
         Returns:
             Evaluation results
-
-        Raises:
-            MlflowException: If both trace and inputs/outputs are specified
         """
         if trace is not None and (
             inputs is not None or outputs is not None or expectations is not None
@@ -185,7 +182,6 @@ class InstructionsJudge(Judge):
 
         # Handle trace-based evaluation
         if trace is not None:
-            # Format output fields for the prompt template
             output_fields = self.get_output_fields()
             evaluation_rating_fields = "\n".join(
                 [f"- {field.name}: {field.description}" for field in output_fields]
