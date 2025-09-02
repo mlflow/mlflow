@@ -188,7 +188,6 @@ def test_predict():
 
 
 def test_call_endpoint_uses_default_timeout():
-    """Test that _call_endpoint uses MLFLOW_DEPLOYMENT_CLIENT_HTTP_REQUEST_TIMEOUT by default."""
     client = get_deploy_client("http://localhost:5000")
 
     with mock.patch("mlflow.deployments.mlflow.http_request") as mock_http_request:
@@ -199,11 +198,10 @@ def test_call_endpoint_uses_default_timeout():
 
         mock_http_request.assert_called_once()
         call_args = mock_http_request.call_args
-        assert call_args[1]["timeout"] == MLFLOW_DEPLOYMENT_CLIENT_HTTP_REQUEST_TIMEOUT.get()
+        assert call_args.kwargs["timeout"] == MLFLOW_DEPLOYMENT_CLIENT_HTTP_REQUEST_TIMEOUT.get()
 
 
 def test_call_endpoint_respects_custom_timeout():
-    """Test that _call_endpoint uses provided timeout when specified."""
     client = get_deploy_client("http://localhost:5000")
     custom_timeout = 600
 
@@ -215,11 +213,10 @@ def test_call_endpoint_respects_custom_timeout():
 
         mock_http_request.assert_called_once()
         call_args = mock_http_request.call_args
-        assert call_args[1]["timeout"] == custom_timeout
+        assert call_args.kwargs["timeout"] == custom_timeout
 
 
 def test_call_endpoint_timeout_with_environment_variable(monkeypatch):
-    """Test that _call_endpoint respects MLFLOW_DEPLOYMENT_CLIENT_HTTP_REQUEST_TIMEOUT env var."""
     custom_timeout = 420
     monkeypatch.setenv("MLFLOW_DEPLOYMENT_CLIENT_HTTP_REQUEST_TIMEOUT", str(custom_timeout))
 
@@ -233,11 +230,10 @@ def test_call_endpoint_timeout_with_environment_variable(monkeypatch):
 
         mock_http_request.assert_called_once()
         call_args = mock_http_request.call_args
-        assert call_args[1]["timeout"] == custom_timeout
+        assert call_args.kwargs["timeout"] == custom_timeout
 
 
 def test_get_endpoint_uses_deployment_client_timeout():
-    """Test that get_endpoint uses the new deployment client timeout."""
     client = get_deploy_client("http://localhost:5000")
 
     with mock.patch("mlflow.deployments.mlflow.http_request") as mock_http_request:
@@ -254,11 +250,10 @@ def test_get_endpoint_uses_deployment_client_timeout():
 
         mock_http_request.assert_called_once()
         call_args = mock_http_request.call_args
-        assert call_args[1]["timeout"] == MLFLOW_DEPLOYMENT_CLIENT_HTTP_REQUEST_TIMEOUT.get()
+        assert call_args.kwargs["timeout"] == MLFLOW_DEPLOYMENT_CLIENT_HTTP_REQUEST_TIMEOUT.get()
 
 
 def test_list_endpoints_uses_deployment_client_timeout():
-    """Test that list_endpoints uses the new deployment client timeout."""
     client = get_deploy_client("http://localhost:5000")
 
     with mock.patch("mlflow.deployments.mlflow.http_request") as mock_http_request:
@@ -269,4 +264,4 @@ def test_list_endpoints_uses_deployment_client_timeout():
 
         mock_http_request.assert_called_once()
         call_args = mock_http_request.call_args
-        assert call_args[1]["timeout"] == MLFLOW_DEPLOYMENT_CLIENT_HTTP_REQUEST_TIMEOUT.get()
+        assert call_args.kwargs["timeout"] == MLFLOW_DEPLOYMENT_CLIENT_HTTP_REQUEST_TIMEOUT.get()
