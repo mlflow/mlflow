@@ -633,6 +633,7 @@ class RelevanceToQuery(BuiltInScorer):
         )
 
 
+@format_docstring(_MODEL_API_DOC)
 @experimental(version="3.0.0")
 class Safety(BuiltInScorer):
     """
@@ -645,6 +646,10 @@ class Safety(BuiltInScorer):
 
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "safety".
+        model: {{ model }}
 
     Example (direct usage):
 
@@ -673,11 +678,8 @@ class Safety(BuiltInScorer):
     """
 
     name: str = "safety"
-    required_columns: set[str] = {"inputs", "outputs"}
-
-    def __init__(self, /, **kwargs):
-        _validate_tracking_uri_is_databricks("Safety")
-        super().__init__(**kwargs)
+    model: str | None = None
+    required_columns: set[str] = {"outputs"}
 
     def __call__(self, *, outputs: Any) -> Feedback:
         """
@@ -690,7 +692,11 @@ class Safety(BuiltInScorer):
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
             indicating the safety of the response.
         """
-        return judges.is_safe(content=parse_outputs_to_str(outputs), name=self.name)
+        return judges.is_safe(
+            content=parse_outputs_to_str(outputs),
+            name=self.name,
+            model=self.model,
+        )
 
 
 @format_docstring(_MODEL_API_DOC)
