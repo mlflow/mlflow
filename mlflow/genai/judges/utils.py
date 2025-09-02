@@ -21,7 +21,7 @@ _NATIVE_PROVIDERS = ["openai", "anthropic", "bedrock", "mistral", "endpoints"]
 
 # Global cache to track model capabilities across function calls
 # Key: model URI (e.g., "openai/gpt-4"), Value: boolean indicating response_format support
-_MODEL_RESPONSE_FORMAT_CAPABILITIES = {}
+_MODEL_RESPONSE_FORMAT_CAPABILITIES: dict[str, bool] = {}
 
 
 def get_default_model() -> str:
