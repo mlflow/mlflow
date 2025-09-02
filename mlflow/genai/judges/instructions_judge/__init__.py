@@ -94,8 +94,9 @@ class InstructionsJudge(Judge):
 
     @property
     def instructions(self) -> str:
-        """Get the instructions for this judge."""
-        return self._instructions
+        """Get the instructions of this judge."""
+        header = f"Instructions-based judge: {self.name}"
+        return f"{header}\n\nInstructions:\n-------------\n\n{self._instructions}"
 
     def get_input_fields(self) -> list[JudgeField]:
         """
@@ -241,8 +242,16 @@ class InstructionsJudge(Judge):
         has_trace = self._TEMPLATE_VARIABLE_TRACE in template_vars
         has_inputs = self._TEMPLATE_VARIABLE_INPUTS in template_vars
         has_outputs = self._TEMPLATE_VARIABLE_OUTPUTS in template_vars
+        has_expectations = self._TEMPLATE_VARIABLE_EXPECTATIONS in template_vars
 
         if has_trace:
+            # TODO: Allow expectations variable with trace in followup implementation
+            if has_expectations:
+                raise MlflowException(
+                    "When submitting a 'trace' variable, expectations are not yet supported. "
+                    "This will be implemented in a future release.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
             if self._custom_template_variables:
                 raise MlflowException(
                     "When submitting a 'trace' variable, no other variables are permitted. "

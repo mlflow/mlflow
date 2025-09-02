@@ -147,11 +147,6 @@ def test_make_judge_with_databricks_default(monkeypatch):
             {"trace"},
             set(),
         ),
-        (
-            "Analyze {{trace}} against {{expectations}}",
-            {"trace", "expectations"},
-            set(),
-        ),
     ],
 )
 def test_template_variable_extraction(instructions, expected_vars, expected_custom):
@@ -208,7 +203,7 @@ def test_valid_model_formats(model):
         (
             "Analyze {{trace}} and check {{custom_field}}",
             "openai:/gpt-4",
-            "When using 'trace' variable, no other variables are allowed",
+            "When submitting a 'trace' variable, no other variables are permitted",
         ),
         (
             "Analyze {{trace}} and {{inputs}}",
@@ -232,14 +227,17 @@ def test_trace_variable_restrictions(instructions, model, error_pattern):
         make_judge(name="test_judge", instructions=instructions, model=model)
 
 
-def test_trace_with_expectations_allowed():
-    # expectations is a reserved variable and should work with trace
-    judge = make_judge(
-        name="test_judge",
-        instructions="Analyze {{trace}} against {{expectations}}",
-        model="openai:/gpt-4",
-    )
-    assert judge.template_variables == {"trace", "expectations"}
+def test_trace_with_expectations_not_allowed():
+    # expectations should not be allowed with trace yet (TODO: implement in followup)
+    with pytest.raises(
+        MlflowException,
+        match="When submitting a 'trace' variable, expectations are not yet supported",
+    ):
+        make_judge(
+            name="test_judge",
+            instructions="Analyze {{trace}} against {{expectations}}",
+            model="openai:/gpt-4",
+        )
 
 
 def test_call_with_trace_supported(mock_trace, monkeypatch):
