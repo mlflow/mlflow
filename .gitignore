@@ -87,9 +87,13 @@ dev-env-setup-progress
 *.swp
 *.swo
 *.idea
-*.vscode
 *.iml
 *~
+
+# vscode
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
 
 # mkdocs documentation
 /site
