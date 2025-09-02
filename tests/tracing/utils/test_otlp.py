@@ -30,39 +30,43 @@ _TEST_HTTP_OTLP_ENDPOINT = "http://127.0.0.1:4317/v1/traces"
 _TEST_HTTPS_OTLP_ENDPOINT = "https://127.0.0.1:4317/v1/traces"
 
 
-def test_should_use_otlp_exporter(monkeypatch):
-    # No endpoint configured - should not use OTLP exporter
-    assert not should_use_otlp_exporter()
+@pytest.mark.parametrize(
+    ("traces_endpoint", "otlp_endpoint", "mlflow_enable", "expected"),
+    [
+        # No endpoints configured
+        (None, None, None, False),  # Default behavior - no export without endpoint
+        (None, None, "true", False),  # Explicit enable but no endpoint
+        (None, None, "false", False),  # Explicit disable and no endpoint
+        # OTEL_EXPORTER_OTLP_TRACES_ENDPOINT configured
+        (_TEST_HTTP_OTLP_ENDPOINT, None, None, True),  # Default behavior - export enabled
+        (_TEST_HTTP_OTLP_ENDPOINT, None, "true", True),  # Explicit enable
+        (_TEST_HTTP_OTLP_ENDPOINT, None, "false", False),  # Explicit disable
+        # OTEL_EXPORTER_OTLP_ENDPOINT configured
+        (None, _TEST_HTTP_OTLP_ENDPOINT, None, True),  # Default behavior - export enabled
+        (None, _TEST_HTTP_OTLP_ENDPOINT, "true", True),  # Explicit enable
+        (None, _TEST_HTTP_OTLP_ENDPOINT, "false", False),  # Explicit disable
+        # Both endpoints configured (traces endpoint takes precedence)
+        (_TEST_HTTP_OTLP_ENDPOINT, _TEST_HTTPS_OTLP_ENDPOINT, None, True),
+        (_TEST_HTTP_OTLP_ENDPOINT, _TEST_HTTPS_OTLP_ENDPOINT, "false", False),
+    ],
+)
+def test_should_use_otlp_exporter(
+    traces_endpoint, otlp_endpoint, mlflow_enable, expected, monkeypatch
+):
+    # Clear all relevant environment variables to ensure test isolation
+    monkeypatch.delenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", raising=False)
+    monkeypatch.delenv("OTEL_EXPORTER_OTLP_ENDPOINT", raising=False)
+    monkeypatch.delenv("MLFLOW_ENABLE_OTLP_EXPORTER", raising=False)
 
-    # Endpoint configured - should use OTLP exporter by default
-    monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", _TEST_HTTP_OTLP_ENDPOINT)
-    assert should_use_otlp_exporter()
+    # Set environment variables based on test parameters
+    if traces_endpoint is not None:
+        monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", traces_endpoint)
+    if otlp_endpoint is not None:
+        monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", otlp_endpoint)
+    if mlflow_enable is not None:
+        monkeypatch.setenv("MLFLOW_ENABLE_OTLP_EXPORTER", mlflow_enable)
 
-    # Explicitly enable MLflow OTLP exporter (redundant since default is True)
-    monkeypatch.setenv("MLFLOW_ENABLE_OTLP_EXPORTER", "true")
-    assert should_use_otlp_exporter()
-
-    # Explicitly disable MLflow OTLP exporter - should not use OTLP exporter even with endpoint set
-    monkeypatch.setenv("MLFLOW_ENABLE_OTLP_EXPORTER", "false")
-    assert not should_use_otlp_exporter()
-
-    # Re-enable MLflow OTLP exporter
-    monkeypatch.setenv("MLFLOW_ENABLE_OTLP_EXPORTER", "true")
-    assert should_use_otlp_exporter()
-
-    # Test with OTEL_EXPORTER_OTLP_ENDPOINT instead
-    monkeypatch.delenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
-    monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", _TEST_HTTP_OTLP_ENDPOINT)
-    assert should_use_otlp_exporter()
-
-    # Disable MLflow OTLP exporter with OTEL_EXPORTER_OTLP_ENDPOINT
-    monkeypatch.setenv("MLFLOW_ENABLE_OTLP_EXPORTER", "false")
-    assert not should_use_otlp_exporter()
-
-    # No endpoint but MLFLOW_ENABLE_OTLP_EXPORTER is true - still should not use OTLP exporter
-    monkeypatch.delenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-    monkeypatch.setenv("MLFLOW_ENABLE_OTLP_EXPORTER", "true")
-    assert not should_use_otlp_exporter()
+    assert should_use_otlp_exporter() is expected
 
 
 @pytest.mark.parametrize(
