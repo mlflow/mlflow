@@ -778,8 +778,8 @@ def test_env_file_loading(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
     assert test_experiment_name in result.output
 
     # Verify the loading message
-    assert "Loaded environment variables from:" in result.stderr
-    assert str(env_file_path) in result.stderr
+    assert "Loaded environment variables from:" in result.output
+    assert str(env_file_path) in result.output
 
 
 def test_env_file_loading_invalid_path() -> None:

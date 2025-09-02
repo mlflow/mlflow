@@ -64,7 +64,7 @@ def _load_env_file(ctx: click.Context, param: click.Parameter, value: str | None
         load_dotenv(env_path, override=False)
 
         # Log that we've loaded the env file (using click.echo for CLI output)
-        click.echo(f"Loaded environment variables from: {value}", err=True)
+        click.echo(f"Loaded environment variables from: {value}")
 
     return value
 
