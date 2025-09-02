@@ -10,7 +10,7 @@ import warnings
 from flask import Flask, Response, send_from_directory
 from packaging.version import Version
 
-from mlflow.environment_variables import MLFLOW_FLASK_SERVER_SECRET_KEY
+from mlflow.environment_variables import _MLFLOW_SGI_NAME, MLFLOW_FLASK_SERVER_SECRET_KEY
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
 from mlflow.server.handlers import (
@@ -321,6 +321,13 @@ def _run_server(
     using_gunicorn = gunicorn_opts is not None
     using_waitress = waitress_opts is not None
     using_uvicorn = not using_gunicorn and not using_waitress
+
+    if using_uvicorn:
+        env_map[_MLFLOW_SGI_NAME.name] = "uvicorn"
+    elif using_waitress:
+        env_map[_MLFLOW_SGI_NAME.name] = "waitress"
+    elif using_gunicorn:
+        env_map[_MLFLOW_SGI_NAME.name] = "gunicorn"
 
     if app_name is None:
         is_factory = False

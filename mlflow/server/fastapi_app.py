@@ -8,13 +8,14 @@ to FastAPI endpoints.
 
 from fastapi import FastAPI
 from fastapi.middleware.wsgi import WSGIMiddleware
+from flask import Flask
 
 from mlflow.server import app as flask_app
 from mlflow.server.otel_api import otel_router
 from mlflow.version import VERSION
 
 
-def create_fastapi_app():
+def create_fastapi_app(flask_app: Flask = flask_app):
     """
     Create a FastAPI application that wraps the existing Flask app.
 
