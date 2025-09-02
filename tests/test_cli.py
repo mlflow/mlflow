@@ -744,86 +744,83 @@ def test_doctor():
     assert res.exit_code == 0
 
 
-def test_env_file_loading():
-    with tempfile.TemporaryDirectory() as temp_dir:
-        # Create a test .env file
-        env_file_path = os.path.join(temp_dir, "test.env")
-        test_tracking_uri = f"file://{temp_dir}/mlruns"
-        test_experiment_name = "test_experiment_from_env"
+def test_env_file_loading(tmp_path):
+    # Create a test .env file
+    env_file_path = tmp_path / "test.env"
+    test_tracking_uri = f"file://{tmp_path}/mlruns"
+    test_experiment_name = "test_experiment_from_env"
 
-        with open(env_file_path, "w") as f:
-            f.write(f"MLFLOW_TRACKING_URI={test_tracking_uri}\n")
-            f.write(f"MLFLOW_EXPERIMENT_NAME={test_experiment_name}\n")
+    env_file_path.write_text(
+        f"MLFLOW_TRACKING_URI={test_tracking_uri}\nMLFLOW_EXPERIMENT_NAME={test_experiment_name}\n"
+    )
 
-        runner = CliRunner()
+    runner = CliRunner()
 
-        # Clear environment to ensure we're testing the loading
-        with mock.patch.dict(os.environ, {}, clear=True):
-            # Ensure variables are not set before running command
-            assert "MLFLOW_TRACKING_URI" not in os.environ
-            assert "MLFLOW_EXPERIMENT_NAME" not in os.environ
+    # Clear environment to ensure we're testing the loading
+    with mock.patch.dict(os.environ, {}, clear=True):
+        # Ensure variables are not set before running command
+        assert "MLFLOW_TRACKING_URI" not in os.environ
+        assert "MLFLOW_EXPERIMENT_NAME" not in os.environ
 
-            # We need to capture the environment variables set during command execution
-            # Use a custom command that captures environment
-            captured_env = {}
+        # We need to capture the environment variables set during command execution
+        # Use a custom command that captures environment
+        captured_env = {}
 
-            def capture_env_command():
-                """Helper command to capture environment variables."""
-                captured_env.update(os.environ.copy())
-                click.echo("Environment captured")
-                return 0
+        def capture_env_command():
+            """Helper command to capture environment variables."""
+            captured_env.update(os.environ.copy())
+            click.echo("Environment captured")
+            return 0
 
-            # Add our test command to the CLI
-            cli.command(name="test-env")(capture_env_command)
+        # Add our test command to the CLI
+        cli.command(name="test-env")(capture_env_command)
 
-            try:
-                result = runner.invoke(
-                    cli, ["--env-file", env_file_path, "test-env"], catch_exceptions=False
-                )
+        try:
+            result = runner.invoke(
+                cli, ["--env-file", str(env_file_path), "test-env"], catch_exceptions=False
+            )
 
-                # Check that the command executed successfully
-                assert result.exit_code == 0
+            # Check that the command executed successfully
+            assert result.exit_code == 0
 
-                # Verify the MLflow environment variables were actually loaded
-                assert captured_env.get("MLFLOW_TRACKING_URI") == test_tracking_uri
-                assert captured_env.get("MLFLOW_EXPERIMENT_NAME") == test_experiment_name
+            # Verify the MLflow environment variables were actually loaded
+            assert captured_env.get("MLFLOW_TRACKING_URI") == test_tracking_uri
+            assert captured_env.get("MLFLOW_EXPERIMENT_NAME") == test_experiment_name
 
-                # Verify the loading message
-                assert "Loaded environment variables from:" in result.stderr
-                assert env_file_path in result.stderr
-            finally:
-                # Clean up the test command
-                cli.commands.pop("test-env", None)
+            # Verify the loading message
+            assert "Loaded environment variables from:" in result.stderr
+            assert str(env_file_path) in result.stderr
+        finally:
+            # Clean up the test command
+            cli.commands.pop("test-env", None)
 
-        # Test error handling for non-existent file
-        result = runner.invoke(
-            cli, ["--env-file", "nonexistent.env", "doctor"], catch_exceptions=False
-        )
-        assert result.exit_code != 0
-        assert "Environment file 'nonexistent.env' does not exist" in result.output
+    # Test error handling for non-existent file
+    result = runner.invoke(cli, ["--env-file", "nonexistent.env", "doctor"], catch_exceptions=False)
+    assert result.exit_code != 0
+    assert "Environment file 'nonexistent.env' does not exist" in result.output
 
-        # Test that existing environment variables are not overridden
-        existing_tracking_uri = "databricks://existing"
-        with mock.patch.dict(os.environ, {"MLFLOW_TRACKING_URI": existing_tracking_uri}):
-            captured_env_override = {}
+    # Test that existing environment variables are not overridden
+    existing_tracking_uri = "databricks://existing"
+    with mock.patch.dict(os.environ, {"MLFLOW_TRACKING_URI": existing_tracking_uri}):
+        captured_env_override = {}
 
-            def capture_env_override():
-                captured_env_override.update(os.environ.copy())
-                return 0
+        def capture_env_override():
+            captured_env_override.update(os.environ.copy())
+            return 0
 
-            cli.command(name="test-env-override")(capture_env_override)
+        cli.command(name="test-env-override")(capture_env_override)
 
-            try:
-                result = runner.invoke(
-                    cli, ["--env-file", env_file_path, "test-env-override"], catch_exceptions=False
-                )
+        try:
+            result = runner.invoke(
+                cli, ["--env-file", str(env_file_path), "test-env-override"], catch_exceptions=False
+            )
 
-                # Verify existing MLFLOW_TRACKING_URI was NOT overridden
-                assert captured_env_override.get("MLFLOW_TRACKING_URI") == existing_tracking_uri
-                # But MLFLOW_EXPERIMENT_NAME should still be loaded since it wasn't set
-                assert captured_env_override.get("MLFLOW_EXPERIMENT_NAME") == test_experiment_name
-            finally:
-                cli.commands.pop("test-env-override", None)
+            # Verify existing MLFLOW_TRACKING_URI was NOT overridden
+            assert captured_env_override.get("MLFLOW_TRACKING_URI") == existing_tracking_uri
+            # But MLFLOW_EXPERIMENT_NAME should still be loaded since it wasn't set
+            assert captured_env_override.get("MLFLOW_EXPERIMENT_NAME") == test_experiment_name
+        finally:
+            cli.commands.pop("test-env-override", None)
 
 
 def test_mlflow_gc_with_datasets(sqlite_store):
