@@ -82,7 +82,9 @@ def extract_request_from_trace(trace: Trace) -> str:
     """
     # Try trace.data.request first, fall back to trace.info.request_preview
     request_data = (
-        trace.data.request if hasattr(trace.data, "request") else trace.info.request_preview
+        trace.data.request
+        if hasattr(trace.data, "request")
+        else trace.info.request_preview
     )
     return extract_text_from_data(request_data, "request")
 
@@ -99,6 +101,8 @@ def extract_response_from_trace(trace: Trace) -> str:
     """
     # Try trace.data.response first, fall back to trace.info.response_preview
     response_data = (
-        trace.data.response if hasattr(trace.data, "response") else trace.info.response_preview
+        trace.data.response
+        if hasattr(trace.data, "response")
+        else trace.info.response_preview
     )
     return extract_text_from_data(response_data, "response")

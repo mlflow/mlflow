@@ -126,7 +126,9 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
             with dspy.context(lm=dspy_model):
                 # Create DSPy program that will simulate the judge
                 program = self._lower_to_dspy(judge)
-                self._logger.info("Created DSPy program with signature using judge's model")
+                self._logger.info(
+                    "Created DSPy program with signature using judge's model"
+                )
 
                 # Convert traces to DSPy format
                 dspy_examples = []
@@ -140,16 +142,22 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
                 )
 
                 if not dspy_examples:
-                    raise MlflowException("No valid examples could be created from traces")
+                    raise MlflowException(
+                        "No valid examples could be created from traces"
+                    )
 
                 if len(dspy_examples) < 2:
-                    raise MlflowException("At least 2 valid examples are required for optimization")
+                    raise MlflowException(
+                        "At least 2 valid examples are required for optimization"
+                    )
 
                 self._logger.info("Starting DSPy optimization...")
 
                 # Use the algorithm-specific optimization method
                 # Each implementation decides how to handle data splitting
-                optimized_program = self._dspy_optimize(program, dspy_examples, agreement_metric)
+                optimized_program = self._dspy_optimize(
+                    program, dspy_examples, agreement_metric
+                )
 
                 self._logger.info("DSPy optimization completed")
 
@@ -168,7 +176,9 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
                 )
 
                 return make_judge(
-                    name=optimized_name, instructions=optimized_instructions, model=judge_model
+                    name=optimized_name,
+                    instructions=optimized_instructions,
+                    model=judge_model,
                 )
 
         except ImportError:

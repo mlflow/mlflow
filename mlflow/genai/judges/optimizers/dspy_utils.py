@@ -38,7 +38,9 @@ def trace_to_dspy_example(trace: Trace, judge_name: str) -> Any | None:
         response = extract_response_from_trace(trace)
 
         if not request or not response:
-            logger.warning(f"Missing request or response in trace {trace.info.trace_id}")
+            logger.warning(
+                f"Missing request or response in trace {trace.info.trace_id}"
+            )
             return None
 
         # Find human assessment for this judge
@@ -61,7 +63,9 @@ def trace_to_dspy_example(trace: Trace, judge_name: str) -> Any | None:
             return None
 
         if not expected_result.feedback:
-            logger.warning(f"No feedback found in assessment for trace {trace.info.trace_id}")
+            logger.warning(
+                f"No feedback found in assessment for trace {trace.info.trace_id}"
+            )
             return None
 
         # Create DSPy example
