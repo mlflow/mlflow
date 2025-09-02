@@ -200,9 +200,8 @@ def test_foo(monkeypatch: pytest.MonkeyPatch):
 
 # Good - Removing environment variables
 def test_bar(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.delenv(
-        "FOO", raising=False
-    )  # raising=False prevents KeyError if FOO doesn't exist
+    # raising=False prevents KeyError if FOO doesn't exist
+    monkeypatch.delenv("FOO", raising=False)
     ...
 ```
 
