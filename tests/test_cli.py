@@ -802,7 +802,7 @@ def test_env_file_loading(tmp_path, monkeypatch):
     assert "Environment file 'nonexistent.env' does not exist" in result.output
 
     # Test that existing environment variables are not overridden
-    existing_tracking_uri = "databricks://existing"
+    existing_tracking_uri = "databricks"
     monkeypatch.setenv("MLFLOW_TRACKING_URI", existing_tracking_uri)
 
     captured_env_override = {}
