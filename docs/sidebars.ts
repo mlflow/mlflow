@@ -230,7 +230,7 @@ const sidebars: SidebarsConfig = {
               items: [
                 {
                   type: 'doc',
-                  id: 'llms/responses-agent-intro/index',
+                  id: 'genai/serving/responses-agent',
                   label: 'ResponsesAgent Introduction',
                 },
               ],

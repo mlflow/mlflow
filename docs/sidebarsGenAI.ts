@@ -555,7 +555,7 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
-                  id: 'flavors/responses-agent-intro',
+                  id: 'serving/responses-agent',
                   label: 'Building with ResponsesAgent',
                 },
               ],
