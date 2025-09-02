@@ -296,7 +296,6 @@ def _create_virtualenv(
             env_dir,
         ),
     ):
-
         _exec_cmd(
             env_creation_cmd,
             capture_output=capture_output,
