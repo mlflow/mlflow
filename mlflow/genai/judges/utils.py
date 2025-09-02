@@ -9,6 +9,7 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
+from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.utils.enum_utils import StrEnum
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.utils.uri import is_databricks_uri
@@ -21,7 +22,7 @@ _NATIVE_PROVIDERS = ["openai", "anthropic", "bedrock", "mistral", "endpoints"]
 
 def get_default_model() -> str:
     if is_databricks_uri(mlflow.get_tracking_uri()):
-        return "databricks"
+        return _DATABRICKS_DEFAULT_JUDGE_MODEL
     else:
         return "openai:/gpt-4.1-mini"
 
