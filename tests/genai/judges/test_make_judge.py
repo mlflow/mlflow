@@ -281,28 +281,32 @@ def test_call_validates_missing_custom_variables():
         judge(inputs={"query": "What is 2+2?"})
 
 
-def test_call_validates_trace_with_other_params(mock_trace):
+def test_call_trace_based_judge_ignores_inputs_outputs(mock_trace, monkeypatch):
+    # Test that trace-based judges ignore inputs/outputs and work with trace only
+    captured_args = {}
+
+    def mock_invoke(model_uri, prompt, assessment_name, trace=None):
+        captured_args.update({"trace": trace, "prompt": prompt})
+        return Feedback(name=assessment_name, value=True, rationale="Trace analyzed")
+
+    monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "invoke_judge_model", mock_invoke)
+
     judge = make_judge(
         name="test_judge", instructions="Analyze this {{trace}}", model="openai:/gpt-4"
     )
 
-    with pytest.raises(
-        MlflowException,
-        match="Cannot specify both 'trace' and 'inputs'/'outputs'/'expectations'",
-    ):
-        judge(trace=mock_trace, inputs={"query": "test"})
+    # These should all work - trace-based judge ignores inputs/outputs
+    result1 = judge(trace=mock_trace, inputs={"query": "test"})
+    assert isinstance(result1, Feedback)
+    assert captured_args["trace"] == mock_trace
 
-    with pytest.raises(
-        MlflowException,
-        match="Cannot specify both 'trace' and 'inputs'/'outputs'/'expectations'",
-    ):
-        judge(trace=mock_trace, outputs={"answer": "test"})
+    result2 = judge(trace=mock_trace, outputs={"answer": "test"})
+    assert isinstance(result2, Feedback)
+    assert captured_args["trace"] == mock_trace
 
-    with pytest.raises(
-        MlflowException,
-        match="Cannot specify both 'trace' and 'inputs'/'outputs'/'expectations'",
-    ):
-        judge(trace=mock_trace, expectations={"expected": "test"})
+    result3 = judge(trace=mock_trace, expectations={"expected": "test"})
+    assert isinstance(result3, Feedback)
+    assert captured_args["trace"] == mock_trace
 
 
 def test_call_with_no_inputs_or_outputs():
@@ -311,7 +315,7 @@ def test_call_with_no_inputs_or_outputs():
     )
 
     with pytest.raises(
-        MlflowException, match="Must specify either 'trace' or 'inputs'/'outputs' for evaluation"
+        MlflowException, match="Must specify 'inputs' or 'outputs' for field-based evaluation"
     ):
         judge()
 
