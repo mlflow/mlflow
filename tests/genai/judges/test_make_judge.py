@@ -389,12 +389,11 @@ def test_judge_registration_as_scorer(mock_invoke_judge_model):
         model="openai:/gpt-4",
     )
 
-    assert judge.instructions == original_instructions
+    formatted_instructions = judge.instructions
+    assert "Instructions-based judge: test_judge" in formatted_instructions
+    assert original_instructions in formatted_instructions
     assert judge.model == "openai:/gpt-4"
     assert judge.template_variables == {"response"}
-    original_description = judge.description
-    assert "Instructions-based judge: test_judge" in original_description
-    assert original_instructions in original_description
 
     serialized = judge.model_dump()
     assert "name" in serialized
@@ -411,20 +410,18 @@ def test_judge_registration_as_scorer(mock_invoke_judge_model):
     assert retrieved_scorer is not None
     assert isinstance(retrieved_scorer, InstructionsJudge)
     assert retrieved_scorer.name == "test_judge"
-    assert retrieved_scorer.instructions == original_instructions
+    assert retrieved_scorer.instructions == formatted_instructions
     assert retrieved_scorer.model == "openai:/gpt-4"
     assert retrieved_scorer.template_variables == {"response"}
-    assert retrieved_scorer.description == original_description
-    assert "Instructions-based judge: test_judge" in retrieved_scorer.description
-    assert original_instructions in retrieved_scorer.description
+    assert "Instructions-based judge: test_judge" in retrieved_scorer.instructions
+    assert original_instructions in retrieved_scorer.instructions
 
     deserialized = Scorer.model_validate(serialized)
     assert isinstance(deserialized, InstructionsJudge)
     assert deserialized.name == judge.name
-    assert deserialized.instructions == original_instructions
+    assert deserialized.instructions == formatted_instructions
     assert deserialized.model == judge.model
     assert deserialized.template_variables == {"response"}
-    assert deserialized.description == original_description
 
     test_output = {"response": "This output demonstrates professional communication."}
     result = retrieved_scorer(outputs=test_output)
@@ -465,21 +462,22 @@ def test_judge_registration_as_scorer(mock_invoke_judge_model):
     v1_scorer, v1_num = versions[0]
     assert v1_num == 1
     assert isinstance(v1_scorer, InstructionsJudge)
-    assert v1_scorer.instructions == original_instructions
+    assert "Instructions-based judge: test_judge" in v1_scorer.instructions
+    assert original_instructions in v1_scorer.instructions
     assert v1_scorer.model == "openai:/gpt-4"
 
     v2_scorer, v2_num = versions[1]
     assert v2_num == 2
     assert isinstance(v2_scorer, InstructionsJudge)
-    assert v2_scorer.instructions == v2_instructions
+    assert "Instructions-based judge: test_judge" in v2_scorer.instructions
+    assert v2_instructions in v2_scorer.instructions
     assert v2_scorer.model == "openai:/gpt-4o"
 
     latest = store.get_scorer(experiment, "test_judge")
     assert isinstance(latest, InstructionsJudge)
-    assert latest.instructions == v2_instructions
+    assert "Instructions-based judge: test_judge" in latest.instructions
+    assert v2_instructions in latest.instructions
     assert latest.model == "openai:/gpt-4o"
-    assert "Instructions-based judge: test_judge" in latest.description
-    assert v2_instructions in latest.description
 
 
 def test_judge_registration_preserves_custom_variables(mock_invoke_judge_model):
@@ -503,7 +501,8 @@ def test_judge_registration_preserves_custom_variables(mock_invoke_judge_model):
 
     retrieved_judge = store.get_scorer(experiment, "custom_judge", version)
     assert isinstance(retrieved_judge, InstructionsJudge)
-    assert retrieved_judge.instructions == instructions_with_custom
+    assert "Instructions-based judge: custom_judge" in retrieved_judge.instructions
+    assert instructions_with_custom in retrieved_judge.instructions
     assert retrieved_judge.template_variables == {"query", "response", "criteria", "threshold"}
 
     result = retrieved_judge(
@@ -551,7 +550,7 @@ def test_model_dump_comprehensive():
     assert serialized["serialization_version"] == 1
 
     assert "aggregations" in serialized
-    assert serialized["aggregations"] is None
+    assert serialized["aggregations"] == []
 
     assert "instructions_judge_pydantic_data" in serialized
     assert isinstance(serialized["instructions_judge_pydantic_data"], dict)
@@ -602,10 +601,9 @@ def test_model_dump_comprehensive():
         deserialized = Scorer.model_validate(serialized_data)
         assert isinstance(deserialized, InstructionsJudge)
         assert deserialized.name == serialized_data["name"]
-        assert (
-            deserialized.instructions
-            == serialized_data["instructions_judge_pydantic_data"]["instructions"]
-        )
+        raw_instructions = serialized_data["instructions_judge_pydantic_data"]["instructions"]
+        assert raw_instructions in deserialized.instructions
+        assert f"Instructions-based judge: {deserialized.name}" in deserialized.instructions
         assert deserialized.model == serialized_data["instructions_judge_pydantic_data"]["model"]
 
 
@@ -670,7 +668,7 @@ def test_model_dump_uses_serialized_scorer_dataclass():
 
     expected_scorer = SerializedScorer(
         name="test_dataclass_judge",
-        aggregations=None,
+        aggregations=[],
         mlflow_version=mlflow.__version__,
         serialization_version=1,
         instructions_judge_pydantic_data={
