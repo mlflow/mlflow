@@ -4,6 +4,7 @@ from __future__ import annotations
 import inspect
 import json
 import logging
+import os
 import uuid
 from collections import Counter
 from contextlib import contextmanager
@@ -606,3 +607,29 @@ def _bypass_attribute_guard(span: OTelSpan) -> Generator[None, None, None]:
         yield
     finally:
         span._end_time = original_end_time
+
+
+def capture_location_from_frame(frame) -> tuple[int | None, str | None]:
+    """
+    Capture the line number and file path from a given frame.
+
+    Args:
+        frame: The frame object to extract location information from.
+
+    Returns:
+        A tuple of (line_number, file_path) where file_path is relative to cwd if possible.
+    """
+    if frame is None:
+        return None, None
+
+    line_number = frame.f_lineno
+    file_path = frame.f_code.co_filename
+
+    try:
+        # Try to make it relative to current working directory
+        cwd = os.getcwd()
+        relative_path = os.path.relpath(file_path, cwd) if file_path.startswith(cwd) else file_path
+        return line_number, relative_path
+    except Exception:
+        # Fallback to absolute path if relative path calculation fails
+        return line_number, file_path

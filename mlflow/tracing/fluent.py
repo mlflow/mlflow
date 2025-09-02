@@ -6,7 +6,6 @@ import importlib
 import inspect
 import json
 import logging
-import os
 from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, Callable, Generator, Literal
 
@@ -35,6 +34,7 @@ from mlflow.tracing.utils import (
     SPANS_COLUMN_NAME,
     TraceJSONEncoder,
     capture_function_input_args,
+    capture_location_from_frame,
     encode_span_id,
     exclude_immutable_tags,
     get_otel_attribute,
@@ -170,23 +170,10 @@ def trace(
     def decorator(fn):
         # Capture the file and line number where the decorator was applied
         frame = inspect.currentframe()
-        decorator_line_number = None
-        decorator_file_path = None
-        if frame and frame.f_back and frame.f_back.f_back:
-            decorator_frame = frame.f_back.f_back
-            decorator_line_number = decorator_frame.f_lineno
-
-            file_path = decorator_frame.f_code.co_filename
-            try:
-                # Try to make it relative to current working directory
-                cwd = os.getcwd()
-                if file_path.startswith(cwd):
-                    decorator_file_path = os.path.relpath(file_path, cwd)
-                else:
-                    decorator_file_path = file_path
-            except Exception:
-                # Fallback to absolute path if relative path calculation fails
-                decorator_file_path = file_path
+        decorator_frame = (
+            frame.f_back.f_back.f_back if frame and frame.f_back and frame.f_back.f_back else None
+        )
+        decorator_line_number, decorator_file_path = capture_location_from_frame(decorator_frame)
 
         # Check if the function is a classmethod or staticmethod
         is_classmethod = isinstance(fn, classmethod)
@@ -516,23 +503,12 @@ def start_span(
 
         # Capture the file and line number where start_span() was called
         frame = inspect.currentframe()
-        # We need to go up two levels because start_span is a context manager
-        if frame and frame.f_back and frame.f_back.f_back:
-            caller_frame = frame.f_back.f_back
-            attributes[SpanAttributeKey.LINE_NUMBER] = caller_frame.f_lineno
-
-            file_path = caller_frame.f_code.co_filename
-            try:
-                # Try to make it relative to current working directory
-                cwd = os.getcwd()
-                if file_path.startswith(cwd):
-                    relative_path = os.path.relpath(file_path, cwd)
-                else:
-                    relative_path = file_path
-                attributes[SpanAttributeKey.FILE_PATH] = relative_path
-            except Exception:
-                # Fallback to absolute path if relative path calculation fails
-                attributes[SpanAttributeKey.FILE_PATH] = file_path
+        caller_frame = frame.f_back.f_back if frame and frame.f_back and frame.f_back else None
+        caller_line_number, caller_file_path = capture_location_from_frame(caller_frame)
+        if caller_line_number is not None:
+            attributes[SpanAttributeKey.LINE_NUMBER] = caller_line_number
+        if caller_file_path is not None:
+            attributes[SpanAttributeKey.FILE_PATH] = caller_file_path
 
         mlflow_span.set_attributes(attributes)
         InMemoryTraceManager.get_instance().register_span(mlflow_span)
