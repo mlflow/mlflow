@@ -4,12 +4,12 @@ from __future__ import annotations
 import inspect
 import json
 import logging
-import os
 import uuid
 from collections import Counter
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, is_dataclass
 from functools import lru_cache
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generator
 
 from opentelemetry import trace as trace_api
@@ -632,8 +632,9 @@ def capture_location_from_frame(frame) -> FrameLocation:
     file_path = frame.f_code.co_filename
 
     try:
-        cwd = os.getcwd()
-        relative_path = os.path.relpath(file_path, cwd) if file_path.startswith(cwd) else file_path
-        return FrameLocation(line_number=line_number, file_path=relative_path)
-    except Exception:
+        relative_path = Path(file_path).resolve().relative_to(Path.cwd())
+        return FrameLocation(line_number=line_number, file_path=str(relative_path))
+    except (ValueError, Exception):
+        # ValueError: file is not under cwd
+        # Exception: any other issue (permissions, etc.)
         return FrameLocation(line_number=line_number, file_path=file_path)
