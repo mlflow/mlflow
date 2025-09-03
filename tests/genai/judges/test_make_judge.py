@@ -1,4 +1,5 @@
 import json
+from dataclasses import asdict
 
 import pandas as pd
 import pytest
@@ -14,16 +15,22 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
-from mlflow.genai.scorers.base import ScorerKind
+from mlflow.genai.scorers.base import Scorer, ScorerKind, SerializedScorer
+from mlflow.genai.scorers.registry import _get_scorer_store
 from mlflow.tracing.utils import build_otel_context
 
 
 @pytest.fixture
 def mock_invoke_judge_model(monkeypatch):
-    def _mock(model_uri, prompt, assessment_name, trace=None):
+    calls = []
+
+    def _mock(model_uri, prompt, assessment_name):
+        calls.append((model_uri, prompt, assessment_name))
         return Feedback(name=assessment_name, value=True, rationale="The response is formal")
 
     monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "invoke_judge_model", _mock)
+    _mock.calls = calls
+    _mock.reset_mock = lambda: calls.clear()
     return _mock
 
 
@@ -155,7 +162,6 @@ def test_template_variable_extraction(instructions, expected_vars, expected_cust
     judge = make_judge(name="test_judge", instructions=instructions, model="openai:/gpt-4")
 
     assert judge.template_variables == expected_vars
-    assert judge._custom_template_variables == expected_custom
 
 
 @pytest.mark.parametrize(
@@ -438,6 +444,316 @@ def test_prompt_formatting_with_all_variable_types(monkeypatch):
     assert "Query: test" in captured_prompt
     assert "Response: answer" in captured_prompt
     assert "Custom: custom_value" in captured_prompt
+
+
+def test_judge_registration_as_scorer(mock_invoke_judge_model):
+    experiment = mlflow.create_experiment("test_judge_registration")
+
+    original_instructions = "Evaluate if the response {{response}} is professional and formal."
+    judge = make_judge(
+        name="test_judge",
+        instructions=original_instructions,
+        model="openai:/gpt-4",
+    )
+
+    formatted_instructions = judge.instructions
+    assert "Instructions-based judge: test_judge" in formatted_instructions
+    assert original_instructions in formatted_instructions
+    assert judge.model == "openai:/gpt-4"
+    assert judge.template_variables == {"response"}
+
+    serialized = judge.model_dump()
+    assert "name" in serialized
+    assert serialized["name"] == "test_judge"
+    assert "instructions_judge_pydantic_data" in serialized
+    assert serialized["instructions_judge_pydantic_data"]["instructions"] == original_instructions
+    assert serialized["instructions_judge_pydantic_data"]["model"] == "openai:/gpt-4"
+
+    store = _get_scorer_store()
+    version = store.register_scorer(experiment, judge)
+    assert version == 1
+
+    retrieved_scorer = store.get_scorer(experiment, "test_judge", version)
+    assert retrieved_scorer is not None
+    assert isinstance(retrieved_scorer, InstructionsJudge)
+    assert retrieved_scorer.name == "test_judge"
+    assert retrieved_scorer.instructions == formatted_instructions
+    assert retrieved_scorer.model == "openai:/gpt-4"
+    assert retrieved_scorer.template_variables == {"response"}
+    assert "Instructions-based judge: test_judge" in retrieved_scorer.instructions
+    assert original_instructions in retrieved_scorer.instructions
+
+    deserialized = Scorer.model_validate(serialized)
+    assert isinstance(deserialized, InstructionsJudge)
+    assert deserialized.name == judge.name
+    assert deserialized.instructions == formatted_instructions
+    assert deserialized.model == judge.model
+    assert deserialized.template_variables == {"response"}
+
+    test_output = {"response": "This output demonstrates professional communication."}
+    result = retrieved_scorer(outputs=test_output)
+    assert isinstance(result, Feedback)
+    assert result.name == "test_judge"
+
+    expected_prompt = (
+        "Evaluate if the response This output demonstrates professional "
+        "communication. is professional and formal."
+    )
+    assert len(mock_invoke_judge_model.calls) == 1
+    model_uri, prompt, assessment_name = mock_invoke_judge_model.calls[0]
+    assert model_uri == "openai:/gpt-4"
+    assert prompt == expected_prompt
+    assert assessment_name == "test_judge"
+
+    mock_invoke_judge_model.reset_mock()
+    result2 = deserialized(outputs=test_output)
+    assert isinstance(result2, Feedback)
+    assert len(mock_invoke_judge_model.calls) == 1
+    model_uri, prompt, assessment_name = mock_invoke_judge_model.calls[0]
+    assert model_uri == "openai:/gpt-4"
+    assert prompt == expected_prompt
+    assert assessment_name == "test_judge"
+
+    v2_instructions = "Evaluate if the output {{outputs}} is professional, formal, and concise."
+    judge_v2 = make_judge(
+        name="test_judge",
+        instructions=v2_instructions,
+        model="openai:/gpt-4o",
+    )
+    version2 = store.register_scorer(experiment, judge_v2)
+    assert version2 == 2
+
+    versions = store.list_scorer_versions(experiment, "test_judge")
+    assert len(versions) == 2
+
+    v1_scorer, v1_num = versions[0]
+    assert v1_num == 1
+    assert isinstance(v1_scorer, InstructionsJudge)
+    assert "Instructions-based judge: test_judge" in v1_scorer.instructions
+    assert original_instructions in v1_scorer.instructions
+    assert v1_scorer.model == "openai:/gpt-4"
+
+    v2_scorer, v2_num = versions[1]
+    assert v2_num == 2
+    assert isinstance(v2_scorer, InstructionsJudge)
+    assert "Instructions-based judge: test_judge" in v2_scorer.instructions
+    assert v2_instructions in v2_scorer.instructions
+    assert v2_scorer.model == "openai:/gpt-4o"
+
+    latest = store.get_scorer(experiment, "test_judge")
+    assert isinstance(latest, InstructionsJudge)
+    assert "Instructions-based judge: test_judge" in latest.instructions
+    assert v2_instructions in latest.instructions
+    assert latest.model == "openai:/gpt-4o"
+
+
+def test_judge_registration_preserves_custom_variables(mock_invoke_judge_model):
+    experiment = mlflow.create_experiment("test_custom_vars")
+
+    instructions_with_custom = (
+        "Check if {{query}} is answered correctly by {{response}} "
+        "according to {{criteria}} with {{threshold}} accuracy"
+    )
+    judge = make_judge(
+        name="custom_judge",
+        instructions=instructions_with_custom,
+        model="openai:/gpt-4",
+    )
+
+    assert judge.template_variables == {"query", "response", "criteria", "threshold"}
+
+    store = _get_scorer_store()
+    version = store.register_scorer(experiment, judge)
+    assert version == 1
+
+    retrieved_judge = store.get_scorer(experiment, "custom_judge", version)
+    assert isinstance(retrieved_judge, InstructionsJudge)
+    assert "Instructions-based judge: custom_judge" in retrieved_judge.instructions
+    assert instructions_with_custom in retrieved_judge.instructions
+    assert retrieved_judge.template_variables == {"query", "response", "criteria", "threshold"}
+
+    result = retrieved_judge(
+        inputs={"query": "What is 2+2?", "criteria": "mathematical accuracy"},
+        outputs={"response": "The answer is 4", "threshold": "95%"},
+    )
+    assert isinstance(result, Feedback)
+    assert result.name == "custom_judge"
+
+    expected_prompt = (
+        "Check if What is 2+2? is answered correctly by The answer is 4 "
+        "according to mathematical accuracy with 95% accuracy"
+    )
+    assert len(mock_invoke_judge_model.calls) == 1
+    model_uri, prompt, assessment_name = mock_invoke_judge_model.calls[0]
+    assert model_uri == "openai:/gpt-4"
+    assert prompt == expected_prompt
+    assert assessment_name == "custom_judge"
+
+    mock_invoke_judge_model.reset_mock()
+
+    with pytest.raises(MlflowException, match="Required template variables .* are missing"):
+        retrieved_judge(
+            inputs={"query": "What is 2+2?"},
+            outputs={"response": "The answer is 4"},
+        )
+
+
+def test_model_dump_comprehensive():
+    basic_judge = make_judge(
+        name="basic_judge",
+        instructions="Check if {{inputs}} is correct",
+        model="openai:/gpt-4",
+    )
+
+    serialized = basic_judge.model_dump()
+
+    assert isinstance(serialized, dict)
+    assert "name" in serialized
+    assert serialized["name"] == "basic_judge"
+
+    assert "mlflow_version" in serialized
+    assert serialized["mlflow_version"] == mlflow.__version__
+    assert "serialization_version" in serialized
+    assert serialized["serialization_version"] == 1
+
+    assert "aggregations" in serialized
+    assert serialized["aggregations"] == []
+
+    assert "instructions_judge_pydantic_data" in serialized
+    assert isinstance(serialized["instructions_judge_pydantic_data"], dict)
+    assert "instructions" in serialized["instructions_judge_pydantic_data"]
+    assert (
+        serialized["instructions_judge_pydantic_data"]["instructions"]
+        == "Check if {{inputs}} is correct"
+    )
+    assert "model" in serialized["instructions_judge_pydantic_data"]
+    assert serialized["instructions_judge_pydantic_data"]["model"] == "openai:/gpt-4"
+
+    assert "builtin_scorer_class" in serialized
+    assert serialized["builtin_scorer_class"] is None
+    assert "builtin_scorer_pydantic_data" in serialized
+    assert serialized["builtin_scorer_pydantic_data"] is None
+    assert "call_source" in serialized
+    assert serialized["call_source"] is None
+    assert "call_signature" in serialized
+    assert serialized["call_signature"] is None
+    assert "original_func_name" in serialized
+    assert serialized["original_func_name"] is None
+
+    complex_judge = make_judge(
+        name="complex_judge",
+        instructions="Check if {{inputs}} matches {{expectations}} for {{custom_field}}",
+        model="anthropic:/claude-3",
+    )
+
+    complex_serialized = complex_judge.model_dump()
+
+    assert complex_serialized["instructions_judge_pydantic_data"]["instructions"] == (
+        "Check if {{inputs}} matches {{expectations}} for {{custom_field}}"
+    )
+    assert complex_serialized["instructions_judge_pydantic_data"]["model"] == "anthropic:/claude-3"
+
+    default_model_judge = make_judge(
+        name="default_judge",
+        instructions="Evaluate {{outputs}}",
+    )
+
+    default_serialized = default_model_judge.model_dump()
+    assert default_serialized["instructions_judge_pydantic_data"]["model"] in [
+        "databricks",
+        "openai:/gpt-4.1-mini",
+    ]
+
+    for serialized_data in [serialized, complex_serialized, default_serialized]:
+        deserialized = Scorer.model_validate(serialized_data)
+        assert isinstance(deserialized, InstructionsJudge)
+        assert deserialized.name == serialized_data["name"]
+        raw_instructions = serialized_data["instructions_judge_pydantic_data"]["instructions"]
+        assert raw_instructions in deserialized.instructions
+        assert f"Instructions-based judge: {deserialized.name}" in deserialized.instructions
+        assert deserialized.model == serialized_data["instructions_judge_pydantic_data"]["model"]
+
+
+def test_instructions_judge_deserialization_validation():
+    invalid_data_missing_instructions = {
+        "name": "test_judge",
+        "aggregations": None,
+        "mlflow_version": mlflow.__version__,
+        "serialization_version": 1,
+        "instructions_judge_pydantic_data": {"model": "openai:/gpt-4"},
+        "builtin_scorer_class": None,
+        "builtin_scorer_pydantic_data": None,
+        "call_source": None,
+        "call_signature": None,
+        "original_func_name": None,
+    }
+
+    with pytest.raises(MlflowException, match="missing required field 'instructions'"):
+        Scorer.model_validate(invalid_data_missing_instructions)
+
+    invalid_data_missing_model = {
+        "name": "test_judge",
+        "aggregations": None,
+        "mlflow_version": mlflow.__version__,
+        "serialization_version": 1,
+        "instructions_judge_pydantic_data": {"instructions": "Check {{inputs}}"},
+        "builtin_scorer_class": None,
+        "builtin_scorer_pydantic_data": None,
+        "call_source": None,
+        "call_signature": None,
+        "original_func_name": None,
+    }
+
+    with pytest.raises(MlflowException, match="missing required field 'model'"):
+        Scorer.model_validate(invalid_data_missing_model)
+
+    invalid_data_wrong_type = {
+        "name": "test_judge",
+        "aggregations": None,
+        "mlflow_version": mlflow.__version__,
+        "serialization_version": 1,
+        "instructions_judge_pydantic_data": {"instructions": 123, "model": "openai:/gpt-4"},
+        "builtin_scorer_class": None,
+        "builtin_scorer_pydantic_data": None,
+        "call_source": None,
+        "call_signature": None,
+        "original_func_name": None,
+    }
+
+    with pytest.raises(MlflowException, match="field 'instructions' must be str, got int"):
+        Scorer.model_validate(invalid_data_wrong_type)
+
+
+def test_model_dump_uses_serialized_scorer_dataclass():
+    judge = make_judge(
+        name="test_dataclass_judge",
+        instructions="Evaluate {{inputs}} and {{outputs}}",
+        model="openai:/gpt-3.5-turbo",
+    )
+
+    serialized = judge.model_dump()
+
+    expected_scorer = SerializedScorer(
+        name="test_dataclass_judge",
+        aggregations=[],
+        mlflow_version=mlflow.__version__,
+        serialization_version=1,
+        instructions_judge_pydantic_data={
+            "instructions": "Evaluate {{inputs}} and {{outputs}}",
+            "model": "openai:/gpt-3.5-turbo",
+        },
+        builtin_scorer_class=None,
+        builtin_scorer_pydantic_data=None,
+        call_source=None,
+        call_signature=None,
+        original_func_name=None,
+    )
+
+    expected_dict = asdict(expected_scorer)
+
+    assert serialized == expected_dict
+
+    assert set(serialized.keys()) == set(expected_dict.keys())
 
 
 def test_instructions_judge_works_with_evaluate(mock_invoke_judge_model):
