@@ -134,25 +134,24 @@ class TracingClient:
     def _get_trace_data(self, trace_info: TraceInfo) -> TraceData:
         if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == TRACKING_STORE:
             return TraceData(spans=self.store.load_spans(trace_info.trace_id))
-        else:
-            try:
-                return self._download_trace_data(trace_info)
-            except MlflowTraceDataNotFound:
-                raise MlflowException(
-                    message=(
-                        f"Trace with ID {trace_info.trace_id} cannot be loaded because it is "
-                        "missing span data. Please try creating or loading another trace."
-                    ),
-                    error_code=BAD_REQUEST,
-                ) from None  # Ensure the original spammy exception is not included in the traceback
-            except MlflowTraceDataCorrupted:
-                raise MlflowException(
-                    message=(
-                        f"Trace with ID {trace_info.trace_id} cannot be loaded because its span "
-                        "data is corrupted. Please try creating or loading another trace."
-                    ),
-                    error_code=BAD_REQUEST,
-                ) from None  # Ensure the original spammy exception is not included in the traceback
+        try:
+            return self._download_trace_data(trace_info)
+        except MlflowTraceDataNotFound:
+            raise MlflowException(
+                message=(
+                    f"Trace with ID {trace_info.trace_id} cannot be loaded because it is "
+                    "missing span data. Please try creating or loading another trace."
+                ),
+                error_code=BAD_REQUEST,
+            ) from None  # Ensure the original spammy exception is not included in the traceback
+        except MlflowTraceDataCorrupted:
+            raise MlflowException(
+                message=(
+                    f"Trace with ID {trace_info.trace_id} cannot be loaded because its span "
+                    "data is corrupted. Please try creating or loading another trace."
+                ),
+                error_code=BAD_REQUEST,
+            ) from None  # Ensure the original spammy exception is not included in the traceback
 
     def get_online_trace_details(
         self,
