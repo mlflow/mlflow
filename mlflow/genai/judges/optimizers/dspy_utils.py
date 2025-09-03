@@ -10,6 +10,7 @@ from mlflow.genai.judges.judge_trace_utils import (
     extract_request_from_trace,
     extract_response_from_trace,
 )
+from mlflow.metrics.genai.model_utils import _parse_model_uri
 
 # Import dspy - raise exception if not installed
 try:
@@ -21,6 +22,31 @@ if TYPE_CHECKING:
     from mlflow.genai.judges.base import Judge
 
 _logger = logging.getLogger(__name__)
+
+
+def convert_mlflow_uri_to_litellm(model_uri: str) -> str:
+    """
+    Convert MLflow model URI format to LiteLLM format.
+
+    MLflow uses URIs like 'openai:/gpt-4' while LiteLLM expects 'openai/gpt-4'.
+
+    Args:
+        model_uri: MLflow model URI (e.g., 'openai:/gpt-4')
+
+    Returns:
+        LiteLLM-compatible model string (e.g., 'openai/gpt-4')
+
+    Examples:
+        >>> convert_mlflow_uri_to_litellm("openai:/gpt-4")
+        "openai/gpt-4"
+        >>> convert_mlflow_uri_to_litellm("anthropic:/claude-3")
+        "anthropic/claude-3"
+    """
+    try:
+        scheme, path = _parse_model_uri(model_uri)
+        return f"{scheme}/{path}"
+    except Exception as e:
+        raise MlflowException(f"Failed to convert MLflow URI to LiteLLM format: {e}")
 
 
 def trace_to_dspy_example(trace: Trace, judge_name: str) -> Optional["dspy.Example"]:

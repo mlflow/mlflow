@@ -10,6 +10,7 @@ from mlflow.genai.judges.judge_trace_utils import (
 )
 from mlflow.genai.judges.optimizers.dspy_utils import (
     agreement_metric,
+    convert_mlflow_uri_to_litellm,
     create_dspy_signature,
     trace_to_dspy_example,
 )
@@ -142,3 +143,38 @@ def test_agreement_metric_error_handling():
     # Test with invalid inputs
     result = agreement_metric(None, None)
     assert result is False
+
+
+def test_convert_mlflow_uri_to_litellm():
+    """Test conversion of MLflow URI to LiteLLM format."""
+    # Test OpenAI model
+    assert convert_mlflow_uri_to_litellm("openai:/gpt-4") == "openai/gpt-4"
+    assert convert_mlflow_uri_to_litellm("openai:/gpt-3.5-turbo") == "openai/gpt-3.5-turbo"
+
+    # Test Anthropic model
+    assert convert_mlflow_uri_to_litellm("anthropic:/claude-3") == "anthropic/claude-3"
+    assert (
+        convert_mlflow_uri_to_litellm("anthropic:/claude-3.5-sonnet")
+        == "anthropic/claude-3.5-sonnet"
+    )
+
+    # Test other providers
+    assert convert_mlflow_uri_to_litellm("cohere:/command") == "cohere/command"
+    assert convert_mlflow_uri_to_litellm("databricks:/dbrx") == "databricks/dbrx"
+
+
+def test_convert_mlflow_uri_to_litellm_invalid():
+    """Test conversion with invalid URIs."""
+    from mlflow.exceptions import MlflowException
+
+    # Test invalid format (missing colon-slash)
+    with pytest.raises(MlflowException, match="Failed to convert MLflow URI"):
+        convert_mlflow_uri_to_litellm("openai-gpt-4")
+
+    # Test empty string
+    with pytest.raises(MlflowException, match="Failed to convert MLflow URI"):
+        convert_mlflow_uri_to_litellm("")
+
+    # Test None (would cause an exception in _parse_model_uri)
+    with pytest.raises(MlflowException, match="Failed to convert MLflow URI"):
+        convert_mlflow_uri_to_litellm(None)

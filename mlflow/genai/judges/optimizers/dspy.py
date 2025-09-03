@@ -12,11 +12,11 @@ from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.base import AlignmentOptimizer, Judge
 from mlflow.genai.judges.optimizers.dspy_utils import (
     agreement_metric,
+    convert_mlflow_uri_to_litellm,
     create_dspy_signature,
     trace_to_dspy_example,
 )
 from mlflow.genai.judges.utils import get_default_model
-from mlflow.metrics.genai.model_utils import _parse_model_uri
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
 
@@ -30,7 +30,7 @@ except ImportError:
         error_code=INTERNAL_ERROR,
     )
 
-logger = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
 
 
 @experimental(version="3.4.0")
@@ -92,8 +92,7 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
             def __init__(self, judge):
                 super().__init__(create_dspy_signature(judge))
                 # Convert MLflow model URI to LiteLLM format for DSPy
-                scheme, path = _parse_model_uri(judge.model)
-                judge_model_litellm = f"{scheme}/{path}"
+                judge_model_litellm = convert_mlflow_uri_to_litellm(judge.model)
                 self._lm = dspy.LM(model=judge_model_litellm)
 
             def forward(self, *args, **kwargs):
@@ -133,8 +132,7 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
             self._logger.info(f"Setting up DSPy context with model: {self._model}")
 
             # Convert MLflow model URI to LiteLLM format for DSPy
-            scheme, path = _parse_model_uri(self._model)
-            optimizer_model_litellm = f"{scheme}/{path}"
+            optimizer_model_litellm = convert_mlflow_uri_to_litellm(self._model)
 
             # Configure DSPy to use the optimizer's model
             # This ensures the optimizer uses its own model, separate from the judge's model
