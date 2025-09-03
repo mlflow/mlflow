@@ -158,7 +158,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
   {
     id: 'claude_code',
     name: 'Claude Code',
-    logoPath: '/images/logos/claude-code-logo.png',
+    logoPath: '/images/logos/claude-code-logo.svg',
     link: '/genai/tracing/integrations/listing/claude_code',
   },
 ];
