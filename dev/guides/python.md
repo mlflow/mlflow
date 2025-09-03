@@ -120,27 +120,8 @@ for item in items:
         result = item
         break
 
-if result is None:
-    raise ValueError("Item not found")
-
-# Also bad
-found = False
-for item in items:
-    if item.name == "target":
-        result = item
-        found = True
-        break
-
-if not found:
-    raise ValueError("Item not found")
-
 # Good
 result = next((item for item in items if item.name == "target"), None)
-if result is None:
-    raise ValueError("Item not found")
-
-# Good - with immediate error for missing items
-result = next(item for item in items if item.name == "target")
 ```
 
 The `next()` function accepts an optional default value as the second argument. If no default is provided and no item is found, it raises `StopIteration`. When a default is provided, that value is returned if no matching item is found.
