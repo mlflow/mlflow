@@ -13,7 +13,7 @@ from mlflow.genai.judges.judge_trace_utils import (
 logger = logging.getLogger(__name__)
 
 
-def trace_to_dspy_example(trace: Trace, judge_name: str) -> Any | None:
+def trace_to_dspy_example(trace: Trace, judge_name: str) -> "DSPyExample" | None:
     """
     Convert MLflow trace to DSPy example format.
 
