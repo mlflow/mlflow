@@ -33,6 +33,36 @@ def foo(s: str) -> int:
     return len(s)
 ```
 
+### Exceptions
+
+**Test functions:** The `-> None` return type can be omitted for test functions since they implicitly return `None` and the return value is not used.
+
+```python
+# Acceptable
+def test_foo(s: str):
+    ...
+
+
+# Also acceptable (but not required)
+def test_foo(s: str) -> None:
+    ...
+```
+
+**`__init__` methods:** The `-> None` return type can be omitted for `__init__` methods since they always return `None` by definition.
+
+```python
+# Acceptable
+class Foo:
+    def __init__(self, s: str):
+        ...
+
+
+# Also acceptable (but not required)
+class Foo:
+    def __init__(self, s: str) -> None:
+        ...
+```
+
 ## Minimize Try-Catch Block Scope
 
 Wrap only the specific operations that can raise exceptions. Keep safe operations outside the try block to improve debugging and avoid masking unexpected errors.
@@ -177,17 +207,52 @@ def test_foo(input: str, expected: int):
 
 ## Use Pytest's Monkeypatch for Mocking Environment Variables
 
-Use `monkeypatch.setenv()` instead of `mock.patch.dict()` for environment variables. Pytest's monkeypatch fixture automatically restores the original environment after the test, providing cleaner and more reliable test isolation.
+Use `monkeypatch.setenv()` and `monkeypatch.delenv()` instead of `mock.patch.dict()` for environment variables. Pytest's monkeypatch fixture automatically restores the original environment after the test, providing cleaner and more reliable test isolation.
 
 ```python
-# Bad
+# Bad - Setting environment variables
 def test_foo():
     with mock.patch.dict("os.environ", {"FOO": "True"}):
         ...
 
 
-# Good
+# Bad - Removing environment variables
+def test_bar():
+    with mock.patch.dict("os.environ", {}, clear=True):
+        ...
+
+
+# Good - Setting environment variables
 def test_foo(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("FOO", "True")
+    ...
+
+
+# Good - Removing environment variables
+def test_bar(monkeypatch: pytest.MonkeyPatch):
+    # raising=False prevents KeyError if FOO doesn't exist
+    monkeypatch.delenv("FOO", raising=False)
+    ...
+```
+
+## Use Pytest's tmp_path Fixture for Temporary Files
+
+Use `tmp_path` fixture instead of manual `tempfile.TemporaryDirectory()` for handling temporary files and directories in tests. Pytest automatically cleans up the temporary directory after the test, provides better test isolation, and integrates seamlessly with pytest's fixture system.
+
+```python
+# Bad
+import tempfile
+
+
+def test_foo():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        ...
+
+
+# Good
+from pathlib import Path
+
+
+def test_foo(tmp_path: Path):
     ...
 ```
