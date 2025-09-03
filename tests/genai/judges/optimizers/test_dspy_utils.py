@@ -34,7 +34,7 @@ def test_sanitize_judge_name(sample_trace_with_assessment):
 
 def test_trace_to_dspy_example_success(sample_trace_with_assessment):
     """Test successful conversion of trace to DSPy example."""
-    pytest.importorskip("dspy", reason="DSPy not installed")
+    dspy = pytest.importorskip("dspy", reason="DSPy not installed")
 
     # Use the fixture directly
     trace = sample_trace_with_assessment
@@ -42,12 +42,14 @@ def test_trace_to_dspy_example_success(sample_trace_with_assessment):
     # Use real DSPy since we've skipped if it's not available
     result = trace_to_dspy_example(trace, "mock_judge")
 
-    assert result is not None
-    # Verify the result has the expected DSPy structure
-    assert hasattr(result, "inputs")
-    assert hasattr(result, "outputs")
-    assert hasattr(result, "result")
-    assert hasattr(result, "rationale")
+    # Assert that the result is an instance of dspy.Example
+    assert isinstance(result, dspy.Example)
+
+    # Check the result has the correct values
+    assert "test input" in result["inputs"]
+    assert "test output" in result["outputs"]
+    assert result["result"] == "pass"
+    assert result["rationale"] == "This looks good"
 
 
 def test_trace_to_dspy_example_no_assessment():

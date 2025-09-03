@@ -51,6 +51,8 @@ def mock_judge():
 @pytest.fixture
 def sample_trace_with_assessment():
     """Create a sample trace with human assessment for testing."""
+    # ALKIS: Instead of mocking the trace, construct an actual Trace instance
+    # that has the same information.
     # Mock assessment
     mock_assessment = Mock()
     mock_assessment.name = "mock_judge"

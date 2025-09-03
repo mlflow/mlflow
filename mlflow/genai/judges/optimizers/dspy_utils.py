@@ -1,7 +1,7 @@
 """Utility functions for DSPy-based alignment optimizers."""
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any, Optional
 
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
@@ -10,10 +10,15 @@ from mlflow.genai.judges.judge_trace_utils import (
     extract_response_from_trace,
 )
 
+if TYPE_CHECKING:
+    import dspy
+
+    from mlflow.genai.judges.base import Judge
+
 logger = logging.getLogger(__name__)
 
 
-def trace_to_dspy_example(trace: Trace, judge_name: str) -> "DSPyExample" | None:
+def trace_to_dspy_example(trace: Trace, judge_name: str) -> Optional["dspy.Example"]:
     """
     Convert MLflow trace to DSPy example format.
 
@@ -82,7 +87,7 @@ def trace_to_dspy_example(trace: Trace, judge_name: str) -> "DSPyExample" | None
         return None
 
 
-def create_dspy_signature(judge) -> Any:
+def create_dspy_signature(judge: "Judge") -> "dspy.Signature":
     """
     Create DSPy signature for judge evaluation.
 
@@ -120,7 +125,7 @@ def create_dspy_signature(judge) -> Any:
         raise MlflowException("DSPy library is required but not installed")
 
 
-def agreement_metric(example, pred, trace=None):
+def agreement_metric(example: Any, pred: Any, trace: Any | None = None):
     """Simple agreement metric for judge optimization."""
     try:
         # Extract result from example and prediction
@@ -135,6 +140,6 @@ def agreement_metric(example, pred, trace=None):
         predicted_norm = str(predicted).lower().strip()
 
         return expected_norm == predicted_norm
-    except Exception:
-        # Return 0 for any errors
+    except Exception as e:
+        logger.warning(f"Error in agreement_metric: {e}")
         return False
