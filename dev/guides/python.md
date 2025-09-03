@@ -39,30 +39,28 @@ def foo(s: str) -> int:
 
 ```python
 # Acceptable
-def test_user_creation():
-    user = create_user("Alice")
-    assert user.name == "Alice"
+def test_foo(s: str):
+    ...
 
 
 # Also acceptable (but not required)
-def test_user_creation() -> None:
-    user = create_user("Alice")
-    assert user.name == "Alice"
+def test_foo(s: str) -> None:
+    ...
 ```
 
 **`__init__` methods:** The `-> None` return type can be omitted for `__init__` methods since they always return `None` by definition.
 
 ```python
 # Acceptable
-def __init__(self, name: str, age: int):
-    self.name = name
-    self.age = age
+class Foo:
+    def __init__(self, s: str):
+        ...
 
 
 # Also acceptable (but not required)
-def __init__(self, name: str, age: int) -> None:
-    self.name = name
-    self.age = age
+class Foo:
+    def __init__(self, s: str) -> None:
+        ...
 ```
 
 ## Minimize Try-Catch Block Scope
