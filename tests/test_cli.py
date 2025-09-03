@@ -746,7 +746,8 @@ def test_doctor():
 
 def test_env_file_loading(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # Setup: Create an experiment using the Python SDK
-    test_tracking_uri = f"file://{tmp_path}/mlruns"
+    # Use local path directly instead of file:// URI to avoid Windows issues
+    test_tracking_uri = str(tmp_path / "mlruns")
     test_experiment_name = "test_experiment_from_env"
 
     # Create experiment using SDK
