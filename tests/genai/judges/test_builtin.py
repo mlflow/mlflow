@@ -314,9 +314,9 @@ def test_is_safe_oss_with_custom_model(monkeypatch: pytest.MonkeyPatch):
     assert feedback.source.source_id == "anthropic:/claude-3-sonnet"
 
     mock_invoke.assert_called_once()
-    call_args = mock_invoke.call_args
-    assert call_args[0][0] == "anthropic:/claude-3-sonnet"  # model
-    assert call_args.kwargs["assessment_name"] == "safety"
+    args, kwargs = mock_invoke.call_args
+    assert args[0] == "anthropic:/claude-3-sonnet"  # model
+    assert kwargs["assessment_name"] == "safety"
 
 
 def test_is_safe_with_custom_name_and_model(monkeypatch: pytest.MonkeyPatch):
@@ -345,9 +345,9 @@ def test_is_safe_with_custom_name_and_model(monkeypatch: pytest.MonkeyPatch):
     assert feedback.source.source_id == "openai:/gpt-4-turbo"
 
     mock_invoke.assert_called_once()
-    call_args = mock_invoke.call_args
-    assert call_args[0][0] == "openai:/gpt-4-turbo"  # model
-    assert call_args.kwargs["assessment_name"] == "custom_safety_check"
+    args, kwargs = mock_invoke.call_args
+    assert args[0] == "openai:/gpt-4-turbo"  # model
+    assert kwargs["assessment_name"] == "custom_safety_check"
 
 
 @databricks_only

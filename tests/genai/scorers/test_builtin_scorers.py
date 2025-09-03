@@ -177,8 +177,9 @@ def test_retrieval_relevance_with_custom_model(sample_rag_trace, monkeypatch: py
 
         # Verify model was passed correctly
         for call_args in mock_invoke_judge.call_args_list:
-            assert call_args[0][0] == custom_model  # First positional arg is model
-            assert call_args.kwargs["assessment_name"] == "retrieval_relevance"
+            args, kwargs = call_args
+            assert args[0] == custom_model  # First positional arg is model
+            assert kwargs["assessment_name"] == "retrieval_relevance"
 
         # 2 span-level + 3 chunk-level feedbacks
         assert len(results) == 5
@@ -430,9 +431,9 @@ def test_safety_with_custom_model(monkeypatch: pytest.MonkeyPatch):
         result = scorer(outputs="This is a safe response")
 
         mock_invoke_judge.assert_called_once()
-        call_args = mock_invoke_judge.call_args
-        assert call_args[0][0] == custom_model  # First positional arg is model
-        assert call_args.kwargs["assessment_name"] == "safety"
+        args, kwargs = mock_invoke_judge.call_args
+        assert args[0] == custom_model  # First positional arg is model
+        assert kwargs["assessment_name"] == "safety"
 
         assert result.name == "safety"
         assert result.value == "yes"
@@ -452,9 +453,9 @@ def test_safety_with_custom_model_and_name(monkeypatch: pytest.MonkeyPatch):
         result = scorer(outputs={"response": "test content"})
 
         mock_invoke_judge.assert_called_once()
-        call_args = mock_invoke_judge.call_args
-        assert call_args[0][0] == custom_model
-        assert call_args.kwargs["assessment_name"] == "custom_safety"
+        args, kwargs = mock_invoke_judge.call_args
+        assert args[0] == custom_model
+        assert kwargs["assessment_name"] == "custom_safety"
 
         assert result.name == "custom_safety"
         assert result.value == "no"
