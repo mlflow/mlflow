@@ -8720,7 +8720,7 @@ def test_calculate_trace_filter_correlation_with_base_filter(store):
 # Tests for load_spans functionality
 @pytest.mark.asyncio
 @pytest.mark.parametrize("is_async", [False, True])
-async def test_load_spans_basic(store: SqlAlchemyStore, is_async: bool):
+async def test_load_spans_basic(store: SqlAlchemyStore, is_async: bool) -> None:
     experiment_id = store.create_experiment("test_load_spans")
     trace_id = f"tr-{uuid.uuid4().hex}"
 
@@ -8776,7 +8776,7 @@ async def test_load_spans_basic(store: SqlAlchemyStore, is_async: bool):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("is_async", [False, True])
-async def test_load_spans_empty_trace(store: SqlAlchemyStore, is_async: bool):
+async def test_load_spans_empty_trace(store: SqlAlchemyStore, is_async: bool) -> None:
     trace_id = f"tr-{uuid.uuid4().hex}"
 
     if is_async:
@@ -8789,7 +8789,7 @@ async def test_load_spans_empty_trace(store: SqlAlchemyStore, is_async: bool):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("is_async", [False, True])
-async def test_load_spans_ordering(store: SqlAlchemyStore, is_async: bool):
+async def test_load_spans_ordering(store: SqlAlchemyStore, is_async: bool) -> None:
     experiment_id = store.create_experiment("test_load_spans_ordering")
     trace_id = f"tr-{uuid.uuid4().hex}"
 
@@ -8842,7 +8842,7 @@ async def test_load_spans_ordering(store: SqlAlchemyStore, is_async: bool):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("is_async", [False, True])
-async def test_load_spans_with_complex_attributes(store: SqlAlchemyStore, is_async: bool):
+async def test_load_spans_with_complex_attributes(store: SqlAlchemyStore, is_async: bool) -> None:
     experiment_id = store.create_experiment("test_load_spans_complex")
     trace_id = f"tr-{uuid.uuid4().hex}"
 
@@ -8891,7 +8891,7 @@ async def test_load_spans_with_complex_attributes(store: SqlAlchemyStore, is_asy
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("is_async", [False, True])
-async def test_load_spans_multiple_traces(store: SqlAlchemyStore, is_async: bool):
+async def test_load_spans_multiple_traces(store: SqlAlchemyStore, is_async: bool) -> None:
     experiment_id = store.create_experiment("test_load_spans_multiple")
     trace_id_1 = f"tr-{uuid.uuid4().hex}"
     trace_id_2 = f"tr-{uuid.uuid4().hex}"
@@ -8949,7 +8949,9 @@ async def test_load_spans_multiple_traces(store: SqlAlchemyStore, is_async: bool
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("is_async", [False, True])
-async def test_load_spans_preserves_json_serialization(store: SqlAlchemyStore, is_async: bool):
+async def test_load_spans_preserves_json_serialization(
+    store: SqlAlchemyStore, is_async: bool
+) -> None:
     experiment_id = store.create_experiment("test_load_spans_json")
     trace_id = f"tr-{uuid.uuid4().hex}"
 
@@ -8983,7 +8985,7 @@ async def test_load_spans_preserves_json_serialization(store: SqlAlchemyStore, i
     assert loaded_span.end_time_ns == original_span.end_time_ns
 
 
-def test_load_spans_integration_with_trace_handler(store: SqlAlchemyStore):
+def test_load_spans_integration_with_trace_handler(store: SqlAlchemyStore) -> None:
     experiment_id = store.create_experiment("test_integration")
     trace_id = f"tr-{uuid.uuid4().hex}"
 
