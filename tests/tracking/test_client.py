@@ -2730,8 +2730,7 @@ def test_link_multiple_prompt_types_to_run():
         assert expected_prompt in linked_prompts
 
 
-def test_log_spans_and_get_trace_with_sqlalchemy_store(tmp_path):
-    """Test that log_spans + mlflow.get_trace() works with SqlAlchemyStore."""
+def test_log_spans_and_get_trace_with_sqlalchemy_store(tmp_path: Path) -> None:
     tracking_uri = f"sqlite:///{tmp_path}/test.db"
 
     with _use_tracking_uri(tracking_uri):
