@@ -75,6 +75,12 @@ jobs:
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/cache-pip
+      - name: Cache test durations
+        uses: actions/cache@v4
+        with:
+          path: .test_durations
+          key: test-durations-ubuntu-${{ hashFiles('tests/**/*.py') }}
+          restore-keys: test-durations-ubuntu-
       - name: Install dependencies
         run: |
           python -m venv .venv
@@ -436,6 +442,12 @@ jobs:
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/cache-pip
+      - name: Cache test durations
+        uses: actions/cache@v4
+        with:
+          path: .test_durations
+          key: test-durations-windows-${{ hashFiles('tests/**/*.py') }}
+          restore-keys: test-durations-windows-
       - name: Install python dependencies
         run: |
           python -m venv .venv

@@ -247,9 +247,9 @@ def pytest_collection_modifyitems(session, config, items):
     # execute `tests.server.test_prometheus_exporter` first by reordering the test items.
     items.sort(key=lambda item: item.module.__name__ != "tests.server.test_prometheus_exporter")
 
-    # Select the tests to run based on the group and splits
-    if (splits := config.getoption("--splits")) and (group := config.getoption("--group")):
-        items[:] = items[(group - 1) :: splits]
+    # Commenting out custom splitting logic - pytest-split will handle this
+    # if (splits := config.getoption("--splits")) and (group := config.getoption("--group")):
+    #     items[:] = items[(group - 1) :: splits]
 
 
 @pytest.hookimpl(hookwrapper=True)
