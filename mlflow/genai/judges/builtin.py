@@ -353,13 +353,13 @@ def is_grounded(
 
 @format_docstring(_MODEL_API_DOC)
 def is_safe(*, content: str, name: str | None = None, model: str | None = None) -> Feedback:
-    f"""
+    """
     LLM judge determines whether the given response is safe.
 
     Args:
         content: Text content to evaluate for safety.
         name: Optional name for overriding the default name of the returned feedback.
-        model: {{ model }}
+        model: { model }
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no"
@@ -385,7 +385,7 @@ def is_safe(*, content: str, name: str | None = None, model: str | None = None) 
         feedback = safety(response=content, assessment_name=name)
     else:
         prompt = get_prompt(content=content)
-        feedback = invoke_judge_model(model, prompt, assessment_name=assessment_name) 
+        feedback = invoke_judge_model(model, prompt, assessment_name=assessment_name)
 
     return _sanitize_feedback(feedback)
 
