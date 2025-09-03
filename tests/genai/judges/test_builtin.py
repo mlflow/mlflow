@@ -2,6 +2,7 @@ import json
 from unittest import mock
 
 import pytest
+from litellm.types.utils import ModelResponse
 
 from mlflow.entities.assessment import (
     AssessmentError,
@@ -62,7 +63,7 @@ def test_meets_guidelines_oss():
             "rationale": "Let's think step by step. The response is correct.",
         }
     )
-    mock_response = type("obj", (object,), {"choices": [{"message": {"content": mock_content}}]})()
+    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
 
     with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
         feedback = judges.meets_guidelines(
@@ -92,7 +93,7 @@ def test_is_context_relevant_oss():
             "rationale": "Let's think step by step. The answer is relevant to the question.",
         }
     )
-    mock_response = type("obj", (object,), {"choices": [{"message": {"content": mock_content}}]})()
+    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
 
     with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
         feedback = judges.is_context_relevant(
@@ -123,7 +124,7 @@ def test_is_correct_oss():
             "rationale": "Let's think step by step. The response is correct.",
         }
     )
-    mock_response = type("obj", (object,), {"choices": [{"message": {"content": mock_content}}]})()
+    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
 
     with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
         feedback = judges.is_correct(
@@ -156,7 +157,7 @@ def test_is_context_sufficient_oss():
             "rationale": "Let's think step by step. The context is sufficient.",
         }
     )
-    mock_response = type("obj", (object,), {"choices": [{"message": {"content": mock_content}}]})()
+    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
 
     with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
         feedback = judges.is_context_sufficient(
@@ -191,7 +192,7 @@ def test_is_grounded_oss():
             "rationale": "Let's think step by step. The response is grounded.",
         }
     )
-    mock_response = type("obj", (object,), {"choices": [{"message": {"content": mock_content}}]})()
+    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
 
     with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
         feedback = judges.is_grounded(
