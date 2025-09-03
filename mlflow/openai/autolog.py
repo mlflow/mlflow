@@ -1,6 +1,7 @@
 import importlib.metadata
 import json
 import logging
+import time
 from typing import Any, AsyncIterator, Iterator
 
 from packaging.version import Version
@@ -214,6 +215,11 @@ def _try_parse_raw_response(response: Any) -> Any:
     return response
 
 
+def _is_response_api(original):
+    class_name, _ = original.__dual__.split(".")
+    return class_name in ["Responses", "AsyncResponses"]
+
+
 def patched_call(original, self, *args, **kwargs):
     config = AutoLoggingConfig.init(flavor_name=mlflow.openai.FLAVOR_NAME)
     active_run = mlflow.active_run()
@@ -231,7 +237,7 @@ def patched_call(original, self, *args, **kwargs):
         raise
 
     if config.log_traces:
-        _end_span_on_success(span, kwargs, raw_result)
+        _end_span_on_success(span, kwargs, raw_result, is_response_api=_is_response_api(original))
 
     return raw_result
 
@@ -253,7 +259,7 @@ async def async_patched_call(original, self, *args, **kwargs):
         raise
 
     if config.log_traces:
-        _end_span_on_success(span, kwargs, raw_result)
+        _end_span_on_success(span, kwargs, raw_result, is_response_api=_is_response_api(original))
 
     return raw_result
 
@@ -287,7 +293,7 @@ def _start_span(
     return span
 
 
-def _end_span_on_success(span: LiveSpan, inputs: dict[str, Any], raw_result: Any):
+def _end_span_on_success(span: LiveSpan, inputs: dict[str, Any], raw_result: Any, is_response_api: bool):
     from openai import AsyncStream, Stream
 
     result = _try_parse_raw_response(raw_result)
@@ -301,7 +307,7 @@ def _end_span_on_success(span: LiveSpan, inputs: dict[str, Any], raw_result: Any
                 _add_span_event(span, i, chunk)
                 output.append(chunk)
                 yield chunk
-            _process_last_chunk(span, chunk, inputs, output)
+            _process_last_chunk(span, chunk, inputs, output, is_response_api)
 
         result._iterator = _stream_output_logging_hook(result._iterator)
     elif isinstance(result, AsyncStream):
@@ -312,7 +318,7 @@ def _end_span_on_success(span: LiveSpan, inputs: dict[str, Any], raw_result: Any
                 _add_span_event(span, len(output), chunk)
                 output.append(chunk)
                 yield chunk
-            _process_last_chunk(span, chunk, inputs, output)
+            _process_last_chunk(span, chunk, inputs, output, is_response_api)
 
         result._iterator = _stream_output_logging_hook(result._iterator)
     else:
@@ -323,15 +329,12 @@ def _end_span_on_success(span: LiveSpan, inputs: dict[str, Any], raw_result: Any
             _logger.warning(f"Encountered unexpected error when ending trace: {e}", exc_info=True)
 
 
-def _process_last_chunk(span: LiveSpan, chunk: Any, inputs: dict[str, Any], output: list[Any]):
+def _process_last_chunk(span: LiveSpan, chunk: Any, inputs: dict[str, Any], output: list[Any], is_response_api: bool):
     if _is_responses_final_event(chunk):
         output = chunk.response
-    elif _is_response_output_item_done_event(chunk):
-        from openai.types.responses import Response
-        output = chunk.item  # return object of ResponseOutputItem type
     else:
         # Reconstruct a completion object from streaming chunks
-        output = _reconstruct_completion_from_stream(output)
+        output = _reconstruct_completion_from_stream(output, is_response_api)
 
         # Set usage information on span if available
         if usage := getattr(chunk, "usage", None):
@@ -342,10 +345,10 @@ def _process_last_chunk(span: LiveSpan, chunk: Any, inputs: dict[str, Any], outp
             }
             span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
 
-    _end_span_on_success(span, inputs, output)
+    _end_span_on_success(span, inputs, output, is_response_api)
 
 
-def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
+def _reconstruct_completion_from_stream(chunks: list[Any], is_response_api: bool) -> Any:
     """
     Reconstruct a completion object from streaming chunks.
 
@@ -354,6 +357,17 @@ def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
     """
     if not chunks:
         return None
+
+    if is_response_api:
+        from openai.types.responses import ResponseOutputItemDoneEvent
+        from mlflow.types.responses_helpers import Response
+
+        output = []
+        for chunk in chunks:
+            if isinstance(chunk, ResponseOutputItemDoneEvent):
+                output.append(chunk.item)
+
+        return Response(output=output)
 
     if chunks[0].object == "text_completion":
         # Handling for the deprecated Completions API. Keep the legacy behavior for now.
@@ -414,6 +428,7 @@ def _is_responses_final_event(chunk: Any) -> bool:
 def _is_response_output_item_done_event(chunk: Any) -> bool:
     try:
         from openai.types.responses import ResponseOutputItemDoneEvent
+        from openai.types.responses import Response
 
         return isinstance(chunk, ResponseOutputItemDoneEvent)
     except ImportError:
