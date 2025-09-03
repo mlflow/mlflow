@@ -374,10 +374,10 @@ def is_safe(*, content: str, name: str | None = None, model: str | None = None) 
             feedback = is_safe(content="I am a happy person.")
             print(feedback.value)  # "yes"
     """
-    from mlflow.genai.judges.prompts.safety import SAFETY_FEEDBACK_NAME, get_prompt
+    from mlflow.genai.judges.prompts.safety import SAFETY_ASSESSMENT_NAME, get_prompt
 
     model = model or get_default_model()
-    assessment_name = name or SAFETY_FEEDBACK_NAME
+    assessment_name = name or SAFETY_ASSESSMENT_NAME
 
     if model == "databricks":
         from databricks.agents.evals.judges import safety

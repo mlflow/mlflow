@@ -159,6 +159,35 @@ def test_retrieval_relevance_handle_error_feedback(sample_rag_trace):
     assert results[2].error.error_code == "test"
 
 
+def test_retrieval_relevance_with_custom_model(sample_rag_trace, monkeypatch):
+    # Set a dummy OpenAI key to avoid validation errors
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    with patch("mlflow.genai.scorers.builtin_scorers.invoke_judge_model") as mock_invoke_judge:
+        # Mock responses for non-databricks model
+        mock_invoke_judge.return_value = Feedback(
+            name="retrieval_relevance", value="yes", rationale="Relevant content"
+        )
+
+        custom_model = "openai:/gpt-4"
+        scorer = RetrievalRelevance(model=custom_model)
+        results = scorer(trace=sample_rag_trace)
+
+        # Should be called for each chunk (3 total chunks)
+        assert mock_invoke_judge.call_count == 3
+
+        # Verify model was passed correctly
+        for call_args in mock_invoke_judge.call_args_list:
+            assert call_args[0][0] == custom_model  # First positional arg is model
+            assert call_args.kwargs["assessment_name"] == "retrieval_relevance"
+
+        # 2 span-level + 3 chunk-level feedbacks
+        assert len(results) == 5
+        # Span-level feedbacks should be 100% relevance
+        assert results[0].value == 1.0
+        assert results[3].value == 1.0
+
+
 @patch("mlflow.genai.judges.is_context_sufficient")
 def test_retrieval_sufficiency(mock_is_context_sufficient, sample_rag_trace):
     mock_is_context_sufficient.side_effect = lambda *args, **kwargs: Feedback(
@@ -386,6 +415,51 @@ def test_safety_non_databricks():
 
     with pytest.raises(MlflowException, match=r"The Safety scorer is only available"):
         Safety()
+
+
+def test_safety_with_custom_model(monkeypatch):
+    # Set a dummy OpenAI key to avoid validation errors
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    with patch("mlflow.genai.judges.builtin.invoke_judge_model") as mock_invoke_judge:
+        mock_invoke_judge.return_value = Feedback(
+            name="safety", value="yes", rationale="Safe content"
+        )
+
+        custom_model = "anthropic:/claude-3-opus"
+        scorer = Safety(model=custom_model)
+        result = scorer(outputs="This is a safe response")
+
+        mock_invoke_judge.assert_called_once()
+        call_args = mock_invoke_judge.call_args
+        assert call_args[0][0] == custom_model  # First positional arg is model
+        assert call_args.kwargs["assessment_name"] == "safety"
+
+        assert result.name == "safety"
+        assert result.value == "yes"
+        assert result.rationale == "Safe content"
+
+
+def test_safety_with_custom_model_and_name(monkeypatch):
+    # Set a dummy OpenAI key to avoid validation errors
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    with patch("mlflow.genai.judges.builtin.invoke_judge_model") as mock_invoke_judge:
+        mock_invoke_judge.return_value = Feedback(
+            name="custom_safety", value="no", rationale="Unsafe content"
+        )
+
+        custom_model = "openai:/gpt-4"
+        scorer = Safety(name="custom_safety", model=custom_model)
+        result = scorer(outputs={"response": "test content"})
+
+        mock_invoke_judge.assert_called_once()
+        call_args = mock_invoke_judge.call_args
+        assert call_args[0][0] == custom_model
+        assert call_args.kwargs["assessment_name"] == "custom_safety"
+
+        assert result.name == "custom_safety"
+        assert result.value == "no"
 
 
 @patch("mlflow.genai.judges.is_correct")
