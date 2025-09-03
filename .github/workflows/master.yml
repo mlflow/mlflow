@@ -132,8 +132,8 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh
           # test telemetry events
-          uv pip install -c requirements/constraints.txt openai
-          uv pip install -c requirements/constraints.txt .
+          uv pip install --system -c requirements/constraints.txt openai
+          uv pip install --system -c requirements/constraints.txt .
       - uses: ./.github/actions/show-versions
       - name: Run tests
         run: |
@@ -143,7 +143,7 @@ jobs:
         run: |
           # this needs to be run in a separate job because installing databricks-connect could break other 
           # tests that uses normal SparkSession instead of remote SparkSession
-          uv pip install -c requirements/constraints.txt databricks-agents
+          uv pip install --system -c requirements/constraints.txt databricks-agents
           pytest tests/utils/test_requirements_utils.py::test_infer_pip_requirements_on_databricks_agents
 
   database:
@@ -277,7 +277,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          uv pip install -c requirements/constraints.txt pyspark langchain langchain-community '.[mlserver]'
+          uv pip install --system -c requirements/constraints.txt pyspark langchain langchain-community '.[mlserver]'
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
@@ -311,7 +311,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          uv pip install -c requirements/constraints.txt pyspark torch transformers langchain langchain-experimental '.[genai]' 'shap<0.47.0' lightgbm xgboost
+          uv pip install --system -c requirements/constraints.txt pyspark torch transformers langchain langchain-experimental '.[genai]' 'shap<0.47.0' lightgbm xgboost
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
@@ -338,7 +338,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          uv pip install -c requirements/constraints.txt openai dspy
+          uv pip install --system -c requirements/constraints.txt openai dspy
       - uses: ./.github/actions/show-versions
       - name: Run GenAI Tests (OSS)
         run: |
@@ -346,7 +346,7 @@ jobs:
 
       - name: Run GenAI Tests (Databricks)
         run: |
-          uv pip install -c requirements/constraints.txt databricks-agents
+          uv pip install --system -c requirements/constraints.txt databricks-agents
           pytest tests/genai --ignore tests/genai/test_genai_import_without_agent_sdk.py \
             --ignore tests/genai/optimize --ignore tests/genai/prompts
 
@@ -356,7 +356,7 @@ jobs:
           # tests with local spark session. To work around this, we run skipped tests after
           # uninstalling databricks-connect.
           pip uninstall -y databricks-connect pyspark
-          uv pip install -c requirements/constraints.txt pyspark
+          uv pip install --system -c requirements/constraints.txt pyspark
           pytest tests/genai/evaluate/test_utils.py
 
   optuna:
@@ -376,7 +376,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          uv pip install -c requirements/constraints.txt 'pyspark>=3.5' 'optuna>=4' .
+          uv pip install --system -c requirements/constraints.txt 'pyspark>=3.5' 'optuna>=4' .
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
@@ -406,7 +406,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          uv pip install -c requirements/constraints.txt tensorflow 'pyspark[connect]' typing_extensions -U
+          uv pip install --system -c requirements/constraints.txt tensorflow 'pyspark[connect]' typing_extensions -U
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
@@ -418,7 +418,7 @@ jobs:
           pytest tests/pyfunc/test_spark_connect.py
       - name: Run tests on pydantic v1
         run: |
-          uv pip install -c requirements/constraints.txt 'pydantic<2'
+          uv pip install --system -c requirements/constraints.txt 'pydantic<2'
           pytest --store-durations --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
             tests/types tests/pyfunc/test_pyfunc_model_with_type_hints.py tests/utils/test_pydantic_utils.py
 
@@ -479,7 +479,7 @@ jobs:
           python -m venv .venv
           source .venv/Scripts/activate
           # Install mlflow-test-plugin without dependencies (must be separate)
-          uv pip install -c requirements/constraints.txt --no-deps tests/resources/mlflow-test-plugin
+          uv pip install --no-deps tests/resources/mlflow-test-plugin
           # Install all other packages in parallel with uv (with constraints)
           uv pip install -c requirements/constraints.txt -U pip setuptools wheel \
             '.[extras,genai]' \
