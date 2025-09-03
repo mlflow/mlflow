@@ -87,7 +87,7 @@ def test_align_insufficient_examples(mock_judge, sample_trace_with_assessment):
 
     # Mock dspy first to avoid import errors
     with patch("dspy.LM", MagicMock()):
-        with pytest.raises(MlflowException, match="At least 2 valid examples are required"):
+        with pytest.raises(MlflowException, match="At least 2 valid traces are required"):
             optimizer.align(mock_judge, [sample_trace_with_assessment])
 
 
@@ -199,3 +199,58 @@ def test_different_models_no_interference():
     assert optimizer1.model == "openai:/gpt-3.5-turbo"
     assert optimizer2.model == "anthropic:/claude-3"
     assert optimizer1.model != optimizer2.model
+
+
+def test_mlflow_to_litellm_uri_conversion_in_optimizer(sample_traces_with_assessments):
+    """Test that MLflow URIs are correctly converted to LiteLLM format in optimizer."""
+    from tests.genai.judges.optimizers.conftest import MockJudge
+
+    # Setup models with MLflow URI format
+    judge_model = "openai:/gpt-4"
+    optimizer_model = "anthropic:/claude-3.5-sonnet"
+
+    mock_judge = MockJudge(name="mock_judge", model=judge_model)
+
+    # Track what models are passed to dspy.LM
+    lm_calls = []
+
+    def mock_lm_init(model=None, **kwargs):
+        lm_calls.append(model)
+        return MagicMock()
+
+    with patch("dspy.LM", side_effect=mock_lm_init):
+        optimizer = ConcreteDSPyOptimizer(model=optimizer_model)
+        optimizer.align(mock_judge, sample_traces_with_assessments)
+
+    # Check that URIs were converted to LiteLLM format (slash instead of colon-slash)
+    assert "anthropic/claude-3.5-sonnet" in lm_calls
+    assert "openai/gpt-4" in lm_calls
+    # Original MLflow format should not be passed to dspy.LM
+    assert "anthropic:/claude-3.5-sonnet" not in lm_calls
+    assert "openai:/gpt-4" not in lm_calls
+
+
+def test_mlflow_to_litellm_uri_conversion_in_judge_program():
+    """Test that judge's model URI is converted when creating DSPy program."""
+    from tests.genai.judges.optimizers.conftest import MockJudge
+
+    # Create mock judge with MLflow URI format
+    mock_judge = MockJudge(name="test_judge", model="openai:/gpt-4o-mini")
+
+    optimizer = ConcreteDSPyOptimizer()
+
+    # Track what model is passed to dspy.LM when creating judge program
+    lm_calls = []
+
+    def mock_lm_init(model=None, **kwargs):
+        lm_calls.append(model)
+        return MagicMock()
+
+    with patch("dspy.LM", side_effect=mock_lm_init):
+        program = optimizer._get_dspy_program_from_judge(mock_judge)
+        # Force initialization of the LM by accessing the internal _lm
+        _ = program._lm
+
+    # Should have converted the URI
+    assert "openai/gpt-4o-mini" in lm_calls
+    assert "openai:/gpt-4o-mini" not in lm_calls
