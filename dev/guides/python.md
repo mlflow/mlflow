@@ -124,8 +124,6 @@ for item in items:
 result = next((item for item in items if item.name == "target"), None)
 ```
 
-The `next()` function accepts an optional default value as the second argument. If no default is provided and no item is found, it raises `StopIteration`. When a default is provided, that value is returned if no matching item is found.
-
 ## Always Verify Mock Calls with Assertions
 
 Every mocked function must have an assertion (`assert_called`, `assert_called_once`, etc.) to verify it was invoked correctly. Without assertions, tests may pass even when the mocked code isn't executed.
