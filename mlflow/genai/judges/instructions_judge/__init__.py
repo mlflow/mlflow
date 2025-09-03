@@ -1,6 +1,6 @@
 import json
 from dataclasses import asdict
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import PrivateAttr
 
@@ -22,8 +22,10 @@ from mlflow.genai.judges.utils import (
 )
 from mlflow.genai.scorers.base import _SERIALIZATION_VERSION, ScorerKind, SerializedScorer
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.types.llm import ChatMessage
 from mlflow.utils.annotations import experimental
+
+if TYPE_CHECKING:
+    from mlflow.types.llm import ChatMessage  # noqa: F401
 
 
 @experimental(version="3.4.0")
@@ -215,6 +217,8 @@ class InstructionsJudge(Judge):
             user_content = "\n".join(user_message_parts)
 
             # Create messages list using ChatMessage objects
+            from mlflow.types.llm import ChatMessage
+
             messages = [
                 ChatMessage(role="system", content=system_content),
                 ChatMessage(role="user", content=user_content),
