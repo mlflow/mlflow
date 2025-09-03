@@ -365,7 +365,7 @@ def _reconstruct_completion_from_stream(chunks: list[Any], is_response_api: bool
         output = []
         for chunk in chunks:
             if isinstance(chunk, ResponseOutputItemDoneEvent):
-                output.append(chunk.item)
+                output.append(chunk.item.to_dict())
 
         return Response(output=output)
 
