@@ -116,9 +116,6 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
 
         Returns:
             A new optimized Judge instance
-
-        Raises:
-            MlflowException: If optimization fails or insufficient data is provided
         """
         try:
             if not traces:
