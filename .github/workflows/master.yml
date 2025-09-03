@@ -80,11 +80,10 @@ jobs:
       - name: Download test durations
         uses: actions/cache@v4
         with:
-          path: .test_durations
-          # Unique key per job to prevent conflicts
-          key: test-durations-ubuntu-${{ github.run_id }}-${{ matrix.group }}
+          path: .test_durations_linux
+          key: test-durations-linux-${{ github.run_id }}-${{ matrix.group }}
           restore-keys: |
-            test-durations-ubuntu-combined-
+            test-durations-linux-combined-
             test-durations-ubuntu-
       - name: Install dependencies
         run: |
@@ -105,7 +104,7 @@ jobs:
         run: |
           source .venv/bin/activate
           source dev/setup-ssh.sh
-          pytest --store-durations --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
+          pytest --store-durations --durations-path=.test_durations_linux --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
             --ignore-flavors --ignore=tests/examples --ignore=tests/evaluate \
             --ignore tests/genai tests
       - name: Upload test durations
@@ -113,7 +112,7 @@ jobs:
         if: always()
         with:
           name: python-durations-${{ matrix.group }}
-          path: .test_durations
+          path: .test_durations_linux
 
   py310:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -411,7 +410,7 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest --store-durations --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
+          pytest --store-durations --durations-path=.test_durations_linux --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
             tests/pyfunc tests/types --ignore tests/pyfunc/test_spark_connect.py
 
           # test_spark_connect.py fails if it's run with other tests, so run it separately.
@@ -419,7 +418,7 @@ jobs:
       - name: Run tests on pydantic v1
         run: |
           uv pip install --system -c requirements/constraints.txt 'pydantic<2'
-          pytest --store-durations --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
+          pytest --store-durations --durations-path=.test_durations_linux --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
             tests/types tests/pyfunc/test_pyfunc_model_with_type_hints.py tests/utils/test_pydantic_utils.py
 
   sagemaker:
@@ -468,12 +467,10 @@ jobs:
       - name: Download test durations
         uses: actions/cache@v4
         with:
-          path: .test_durations
-          # Unique key per job to prevent conflicts
+          path: .test_durations_windows
           key: test-durations-windows-${{ github.run_id }}-${{ matrix.group }}
           restore-keys: |
             test-durations-windows-combined-
-            test-durations-windows-
       - name: Install python dependencies
         run: |
           python -m venv .venv
@@ -509,19 +506,19 @@ jobs:
           export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests
-          pytest --store-durations --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+          pytest --store-durations --durations-path=.test_durations_windows --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
             --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/evaluate --ignore=tests/optuna \
             --ignore=tests/pyspark/optuna --ignore=tests/genai --ignore=tests/telemetry tests
       - name: Run telemetry tests
         run: |
           source .venv/Scripts/activate
-          pytest --store-durations --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/telemetry
+          pytest --store-durations --durations-path=.test_durations_windows --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/telemetry
       - name: Upload test durations
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: windows-durations-${{ matrix.group }}
-          path: .test_durations
+          path: .test_durations_windows
 
   combine-durations:
     if: always()
@@ -542,11 +539,11 @@ jobs:
           # No need to install pytest-split, script handles JSON directly
           python dev/combine_test_durations.py
 
-      - name: Cache combined Ubuntu durations
+      - name: Cache combined Linux durations
         uses: actions/cache@v4
         with:
-          path: .test_durations_ubuntu
-          key: test-durations-ubuntu-combined-${{ github.sha }}
+          path: .test_durations_linux
+          key: test-durations-linux-combined-${{ github.sha }}
 
       - name: Cache combined Windows durations
         uses: actions/cache@v4

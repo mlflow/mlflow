@@ -6,6 +6,8 @@ mlruns.db
 mlflow.db
 **/basic_auth.db
 .test_durations
+.test_durations_linux
+.test_durations_windows
 
 # Mac
 .DS_Store
