@@ -1,0 +1,159 @@
+"""CLI integration tests for AI commands feature."""
+
+from unittest import mock
+
+from click.testing import CliRunner
+
+from mlflow.cli import cli
+
+
+def test_list_commands_cli():
+    """Test CLI list command."""
+    mock_commands = [
+        {
+            "key": "genai/analyze_experiment",
+            "namespace": "genai",
+            "description": "Analyzes an MLflow experiment",
+        },
+        {
+            "key": "ml/train",
+            "namespace": "ml",
+            "description": "Training helper",
+        },
+    ]
+
+    with mock.patch("mlflow.cli.ai_commands.list_commands", return_value=mock_commands):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["ai-commands", "list"])
+
+    assert result.exit_code == 0
+    assert "genai/analyze_experiment: Analyzes an MLflow experiment" in result.output
+    assert "ml/train: Training helper" in result.output
+
+
+def test_list_commands_with_namespace_cli():
+    """Test CLI list command with namespace filter."""
+    mock_commands = [
+        {
+            "key": "genai/analyze_experiment",
+            "namespace": "genai",
+            "description": "Analyzes an MLflow experiment",
+        },
+    ]
+
+    with mock.patch(
+        "mlflow.cli.ai_commands.list_commands", return_value=mock_commands
+    ) as mock_list:
+        runner = CliRunner()
+        result = runner.invoke(cli, ["ai-commands", "list", "--namespace", "genai"])
+
+    assert result.exit_code == 0
+    mock_list.assert_called_once_with("genai")
+    assert "genai/analyze_experiment" in result.output
+
+
+def test_list_commands_empty_cli():
+    """Test CLI list command when no commands found."""
+    with mock.patch("mlflow.cli.ai_commands.list_commands", return_value=[]):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["ai-commands", "list"])
+
+    assert result.exit_code == 0
+    assert "No commands found" in result.output
+
+
+def test_list_commands_empty_namespace_cli():
+    """Test CLI list command when no commands in namespace."""
+    with mock.patch("mlflow.cli.ai_commands.list_commands", return_value=[]):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["ai-commands", "list", "--namespace", "unknown"])
+
+    assert result.exit_code == 0
+    assert "No commands found in namespace 'unknown'" in result.output
+
+
+def test_get_command_cli():
+    """Test CLI get command."""
+    mock_content = """---
+namespace: genai
+description: Test command
+---
+
+Hello! This is test content."""
+
+    with mock.patch("mlflow.cli.ai_commands.get_command", return_value=mock_content):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["ai-commands", "get", "genai/analyze_experiment"])
+
+    assert result.exit_code == 0
+    assert mock_content == result.output.rstrip("\n")
+
+
+def test_get_invalid_command_cli():
+    """Test CLI get command with invalid key."""
+    with mock.patch(
+        "mlflow.cli.ai_commands.get_command",
+        side_effect=FileNotFoundError("Command 'invalid/cmd' not found"),
+    ):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["ai-commands", "get", "invalid/cmd"])
+
+    assert result.exit_code != 0
+    assert "Error: Command 'invalid/cmd' not found" in result.output
+
+
+def test_ai_commands_help():
+    """Test AI commands help text."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["ai-commands", "--help"])
+
+    assert result.exit_code == 0
+    assert "Manage MLflow AI commands for LLMs" in result.output
+    assert "list" in result.output
+    assert "get" in result.output
+
+
+def test_get_command_help():
+    """Test get command help text."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["ai-commands", "get", "--help"])
+
+    assert result.exit_code == 0
+    assert "Get a specific command by key" in result.output
+    assert "KEY" in result.output
+
+
+def test_list_command_help():
+    """Test list command help text."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["ai-commands", "list", "--help"])
+
+    assert result.exit_code == 0
+    assert "List all available commands" in result.output
+    assert "--namespace" in result.output
+
+
+def test_actual_command_exists():
+    """Test that our actual command exists and can be retrieved."""
+    runner = CliRunner()
+
+    # Test list includes our command
+    result = runner.invoke(cli, ["ai-commands", "list"])
+    assert result.exit_code == 0
+    assert "genai/analyze_experiment" in result.output
+
+    # Test we can get the command
+    result = runner.invoke(cli, ["ai-commands", "get", "genai/analyze_experiment"])
+    assert result.exit_code == 0
+    assert "# Analyze Experiment" in result.output
+    assert "Analyzes traces in an MLflow experiment" in result.output
+
+    # Test filtering by namespace
+    result = runner.invoke(cli, ["ai-commands", "list", "--namespace", "genai"])
+    assert result.exit_code == 0
+    assert "genai/analyze_experiment" in result.output
+
+    # Test filtering by wrong namespace excludes it
+    result = runner.invoke(cli, ["ai-commands", "list", "--namespace", "ml"])
+    assert result.exit_code == 0
+    assert "genai/analyze_experiment" not in result.output
