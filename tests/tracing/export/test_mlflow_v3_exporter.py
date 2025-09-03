@@ -69,6 +69,10 @@ def test_export(is_async, monkeypatch):
             "mlflow.store.tracking.rest_store.call_endpoint", side_effect=mock_response
         ) as mock_call_endpoint,
         mock.patch(
+            "mlflow.store.tracking.rest_store.RestStore._get_server_version",
+            return_value=None,
+        ) as mock_get_server_version,
+        mock.patch(
             "mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None
         ) as mock_upload_trace_data,
     ):
@@ -76,6 +80,8 @@ def test_export(is_async, monkeypatch):
 
         if is_async:
             _flush_async_logging()
+
+        mock_get_server_version.assert_called()
 
     # Verify client methods were called correctly
     mock_call_endpoint.assert_called_once()
