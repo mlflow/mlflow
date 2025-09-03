@@ -474,6 +474,118 @@ def mock_dspy_optimizer():
     return create_mock_optimizer
 
 
+@pytest.fixture
+def trace_with_two_human_assessments():
+    """Create a trace with two HUMAN assessments with different timestamps."""
+    # Create two real assessment objects (Feedback) with different timestamps
+    older_assessment = Feedback(
+        name="mock_judge",
+        value="fail",
+        rationale="First assessment - should not be used",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user1"),
+        create_time_ms=int(time.time() * 1000) - 1000,  # 1 second older
+    )
+
+    newer_assessment = Feedback(
+        name="mock_judge",
+        value="pass",
+        rationale="Second assessment - should be used (more recent)",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user2"),
+        create_time_ms=int(time.time() * 1000),  # Current time (newer)
+    )
+
+    # Create OpenTelemetry span
+    current_time_ns = int(time.time() * 1e9)
+    otel_span = OTelReadableSpan(
+        name="root_span",
+        context=build_otel_context(12360, 160),
+        parent=None,
+        start_time=current_time_ns,
+        end_time=current_time_ns + 1000000,
+        attributes={
+            "mlflow.traceRequestId": json.dumps("test_trace_two_human"),
+            "mlflow.spanInputs": json.dumps({"inputs": "test input"}),
+            "mlflow.spanOutputs": json.dumps({"outputs": "test output"}),
+            "mlflow.spanType": json.dumps("CHAIN"),
+        },
+    )
+
+    real_span = Span(otel_span)
+
+    trace_info = TraceInfo(
+        trace_id="test_trace_two_human",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=int(time.time() * 1000),
+        state=TraceState.OK,
+        execution_duration=1000,
+        trace_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
+        tags={},
+        assessments=[older_assessment, newer_assessment],  # Order shouldn't matter due to sorting
+        request_preview='{"inputs": "test input"}',
+        response_preview='{"outputs": "test output"}',
+    )
+
+    trace_data = TraceData(spans=[real_span])
+    return Trace(info=trace_info, data=trace_data)
+
+
+@pytest.fixture
+def trace_with_human_and_llm_assessments():
+    """Create a trace with both HUMAN and LLM_JUDGE assessments (HUMAN should be prioritized)."""
+    # Create HUMAN assessment (older timestamp)
+    human_assessment = Feedback(
+        name="mock_judge",
+        value="fail",
+        rationale="Human assessment - should be prioritized",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="human_user"),
+        create_time_ms=int(time.time() * 1000) - 2000,  # 2 seconds older
+    )
+
+    # Create LLM_JUDGE assessment (newer timestamp)
+    llm_assessment = Feedback(
+        name="mock_judge",
+        value="pass",
+        rationale="LLM assessment - should not be used despite being newer",
+        source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="gpt-4"),
+        create_time_ms=int(time.time() * 1000),  # Current time (newer)
+    )
+
+    # Create OpenTelemetry span
+    current_time_ns = int(time.time() * 1e9)
+    otel_span = OTelReadableSpan(
+        name="root_span",
+        context=build_otel_context(12361, 161),
+        parent=None,
+        start_time=current_time_ns,
+        end_time=current_time_ns + 1000000,
+        attributes={
+            "mlflow.traceRequestId": json.dumps("test_trace_human_llm"),
+            "mlflow.spanInputs": json.dumps({"inputs": "test input"}),
+            "mlflow.spanOutputs": json.dumps({"outputs": "test output"}),
+            "mlflow.spanType": json.dumps("CHAIN"),
+        },
+    )
+
+    real_span = Span(otel_span)
+
+    trace_info = TraceInfo(
+        trace_id="test_trace_human_llm",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=int(time.time() * 1000),
+        state=TraceState.OK,
+        execution_duration=1000,
+        trace_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
+        tags={},
+        # Order shouldn't matter - HUMAN should be chosen
+        assessments=[llm_assessment, human_assessment],
+        request_preview='{"inputs": "test input"}',
+        response_preview='{"outputs": "test output"}',
+    )
+
+    trace_data = TraceData(spans=[real_span])
+    return Trace(info=trace_info, data=trace_data)
+
+
 class MockDSPyLM(dspy.BaseLM):
     """Mock DSPy LM class for testing that inherits from DSPy's BaseLM."""
 

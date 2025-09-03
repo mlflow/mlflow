@@ -35,6 +35,32 @@ def test_sanitize_judge_name(sample_trace_with_assessment):
         assert trace_to_dspy_example(sample_trace_with_assessment, "MOCK_JUDGE") is not None
 
 
+def test_trace_to_dspy_example_two_human_assessments(trace_with_two_human_assessments):
+    """Test that most recent HUMAN assessment is used when there are multiple HUMAN assessments."""
+    dspy = pytest.importorskip("dspy", reason="DSPy not installed")
+
+    trace = trace_with_two_human_assessments
+    result = trace_to_dspy_example(trace, "mock_judge")
+
+    assert isinstance(result, dspy.Example)
+    # Should use the newer assessment with value="pass" and specific rationale
+    assert result["result"] == "pass"
+    assert result["rationale"] == "Second assessment - should be used (more recent)"
+
+
+def test_trace_to_dspy_example_human_vs_llm_priority(trace_with_human_and_llm_assessments):
+    """Test that HUMAN assessment is prioritized over LLM_JUDGE even when LLM_JUDGE is newer."""
+    dspy = pytest.importorskip("dspy", reason="DSPy not installed")
+
+    trace = trace_with_human_and_llm_assessments
+    result = trace_to_dspy_example(trace, "mock_judge")
+
+    assert isinstance(result, dspy.Example)
+    # Should use the HUMAN assessment despite being older
+    assert result["result"] == "fail"
+    assert result["rationale"] == "Human assessment - should be prioritized"
+
+
 def test_trace_to_dspy_example_success(sample_trace_with_assessment):
     """Test successful conversion of trace to DSPy example."""
     dspy = pytest.importorskip("dspy", reason="DSPy not installed")
