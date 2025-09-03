@@ -276,8 +276,8 @@ def test_add_output_format_instructions():
     assert '"result"' in formatted
     assert '"rationale"' in formatted
     assert "no markdown" in formatted.lower()
-    assert "Your evaluation result/rating" in formatted
-    assert "Detailed explanation for your evaluation" in formatted
+    assert "The evaluation rating/result" in formatted
+    assert "Detailed explanation for the evaluation" in formatted
 
     complex_prompt = "This is a multi-line\nprompt with various\ninstruction details"
     formatted = add_output_format_instructions(complex_prompt)
