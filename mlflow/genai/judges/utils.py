@@ -106,12 +106,14 @@ def invoke_judge_model(
 
     provider, model_name = _parse_model_uri(model_uri)
 
-    # Convert to uniform dict format for internal processing
+    # Convert to uniform ChatMessage format for internal processing
     if isinstance(prompt, str):
-        messages = [{"role": "user", "content": prompt}]
+        from mlflow.types.llm import ChatMessage
+
+        messages = [ChatMessage(role="user", content=prompt)]
     else:
-        # Convert ChatMessage objects to dicts
-        messages = [{"role": msg.role, "content": msg.content} for msg in prompt]
+        # Already ChatMessage objects
+        messages = prompt
 
     # Try litellm first for better performance.
     if _is_litellm_available():
@@ -123,9 +125,11 @@ def invoke_judge_model(
             error_code=BAD_REQUEST,
         )
     elif provider in _NATIVE_PROVIDERS:
+        # Convert ChatMessage objects to dicts for native providers
+        messages_dict = [{"role": msg.role, "content": msg.content} for msg in messages]
         response = score_model_on_payload(
             model_uri=model_uri,
-            payload=messages,
+            payload=messages_dict,
             endpoint_type=get_endpoint_type(model_uri) or "llm/v1/chat",
         )
     else:
@@ -167,7 +171,7 @@ def _is_litellm_available() -> bool:
 def _invoke_litellm(
     provider: str,
     model_name: str,
-    messages: list[dict[str, Any]],
+    messages: list["ChatMessage"],
     trace: Trace | None,
     num_retries: int,
 ) -> str:
@@ -177,7 +181,7 @@ def _invoke_litellm(
     Args:
         provider: The provider name (e.g., 'openai', 'anthropic').
         model_name: The model name.
-        messages: List of message dicts with 'role' and 'content' keys.
+        messages: List of ChatMessage objects.
         trace: Optional trace object for context with tool calling support.
         num_retries: Number of retries with exponential backoff on transient failures.
 
@@ -194,6 +198,9 @@ def _invoke_litellm(
     from mlflow.genai.judges.tools import list_judge_tools
     from mlflow.genai.judges.tools.registry import _judge_tool_registry
 
+    # Convert ChatMessage objects to dicts for litellm
+    messages_dict = [{"role": msg.role, "content": msg.content} for msg in messages]
+
     litellm_model_uri = f"{provider}/{model_name}"
     tools = []
     response_format = _get_judge_response_format()
@@ -206,7 +213,7 @@ def _invoke_litellm(
         """Helper to make litellm completion request with optional response_format."""
         kwargs = {
             "model": litellm_model_uri,
-            "messages": messages,
+            "messages": messages_dict,
             "tools": tools if tools else None,
             "tool_choice": "auto" if tools else None,
             "retry_policy": _get_litellm_retry_policy(num_retries),
@@ -248,7 +255,7 @@ def _invoke_litellm(
             if not message.tool_calls:
                 return message.content
 
-            messages.append(message.model_dump())
+            messages_dict.append(message.model_dump())
             # TODO: Consider making tool calls concurrent for better performance.
             # Currently sequential for simplicity and to maintain order of results.
             for tool_call in message.tool_calls:
@@ -258,7 +265,7 @@ def _invoke_litellm(
                     )
                     result = _judge_tool_registry.invoke(tool_call=mlflow_tool_call, trace=trace)
                 except Exception as e:
-                    messages.append(
+                    messages_dict.append(
                         _create_litellm_tool_response_message(
                             tool_call_id=tool_call.id,
                             tool_name=tool_call.function.name,
@@ -273,7 +280,7 @@ def _invoke_litellm(
                     result_json = (
                         json.dumps(result, default=str) if not isinstance(result, str) else result
                     )
-                    messages.append(
+                    messages_dict.append(
                         _create_litellm_tool_response_message(
                             tool_call_id=tool_call.id,
                             tool_name=tool_call.function.name,

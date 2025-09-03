@@ -16,6 +16,7 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
+from mlflow.genai.judges.instructions_judge.constants import JUDGE_BASE_PROMPT
 from mlflow.genai.scorers.base import Scorer, ScorerKind, SerializedScorer
 from mlflow.genai.scorers.registry import _get_scorer_store
 from mlflow.tracing.utils import build_otel_context
@@ -500,7 +501,7 @@ def test_output_format_instructions_added(monkeypatch):
     # Check system message
     system_msg = captured_messages[0]
     assert system_msg.role == "system"
-    assert "You are a helpful judge" in system_msg.content
+    assert system_msg.content.startswith(JUDGE_BASE_PROMPT)
     assert "Check if {{text}} is formal" in system_msg.content
     assert "JSON format" in system_msg.content
 
@@ -542,7 +543,7 @@ def test_output_format_instructions_with_complex_template(monkeypatch):
     # Check system message
     system_msg = captured_messages[0]
     assert system_msg.role == "system"
-    assert "You are a helpful judge" in system_msg.content
+    assert system_msg.content.startswith(JUDGE_BASE_PROMPT)
     assert "Evaluate {{response}} for {{criteria}} considering {{context}}" in system_msg.content
     assert "JSON format" in system_msg.content
 
@@ -617,7 +618,7 @@ def test_judge_registration_as_scorer(mock_invoke_judge_model):
 
     # Check system message
     assert prompt[0].role == "system"
-    assert "You are a helpful judge" in prompt[0].content
+    assert prompt[0].content.startswith(JUDGE_BASE_PROMPT)
     assert "Evaluate if the response {{response}} is professional and formal." in prompt[0].content
     assert "JSON format" in prompt[0].content
 
@@ -716,7 +717,7 @@ def test_judge_registration_preserves_custom_variables(mock_invoke_judge_model):
 
     # Check system message
     assert prompt[0].role == "system"
-    assert "You are a helpful judge" in prompt[0].content
+    assert prompt[0].content.startswith(JUDGE_BASE_PROMPT)
     assert "Check if {{query}} is answered correctly by {{response}}" in prompt[0].content
     assert "according to {{criteria}} with {{threshold}} accuracy" in prompt[0].content
     assert "JSON format" in prompt[0].content
