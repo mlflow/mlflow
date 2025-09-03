@@ -94,7 +94,7 @@ jobs:
         run: |
           source .venv/bin/activate
           source dev/setup-ssh.sh
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} -n auto --dist=loadscope --quiet --requires-ssh \
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} -n 2 --dist=loadfile --quiet --requires-ssh \
             --ignore-flavors --ignore=tests/examples --ignore=tests/evaluate \
             --ignore tests/genai tests
 
@@ -264,7 +264,7 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} -n auto --dist=loadscope tests/models
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} -n 2 --dist=loadfile tests/models
 
   # NOTE: numpy is pinned in this suite due to its heavy reliance on shap, which internally uses
   # references to the now fully deprecated (as of 1.24.x) numpy types (i.e., np.bool).
@@ -296,7 +296,7 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} -n auto --dist=loadscope tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} -n 2 --dist=loadfile tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
       - name: Run tests with delta
         run: |
           pytest tests/evaluate/test_default_evaluator_delta.py
@@ -386,7 +386,7 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} -n auto --dist=loadscope --durations=30 \
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} -n 2 --dist=loadfile --durations=30 \
             tests/pyfunc tests/types --ignore tests/pyfunc/test_spark_connect.py
 
           # test_spark_connect.py fails if it's run with other tests, so run it separately.
@@ -394,7 +394,7 @@ jobs:
       - name: Run tests on pydantic v1
         run: |
           pip install 'pydantic<2'
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} -n auto --dist=loadscope --durations=30 \
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} -n 2 --dist=loadfile --durations=30 \
             tests/types tests/pyfunc/test_pyfunc_model_with_type_hints.py tests/utils/test_pydantic_utils.py
 
   sagemaker:
@@ -473,10 +473,10 @@ jobs:
           export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} -n auto --dist=loadscope \
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} -n 2 --dist=loadfile \
             --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/evaluate --ignore=tests/optuna \
             --ignore=tests/pyspark/optuna --ignore=tests/genai --ignore=tests/telemetry tests
       - name: Run telemetry tests
         run: |
           source .venv/Scripts/activate
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} -n auto --dist=loadscope tests/telemetry
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} -n 2 --dist=loadfile tests/telemetry
