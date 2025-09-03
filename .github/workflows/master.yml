@@ -455,7 +455,7 @@ jobs:
           python -m venv .venv
           source .venv/Scripts/activate
           # Install mlflow-test-plugin without dependencies (must be separate)
-          uv pip install --no-dependencies tests/resources/mlflow-test-plugin
+          uv pip install --no-deps tests/resources/mlflow-test-plugin
           # Install all other packages in parallel with uv
           uv pip install -U pip setuptools wheel \
             '.[extras,genai]' \
