@@ -65,8 +65,6 @@ jobs:
       fail-fast: false
       matrix:
         group: [1, 2]
-        include:
-          - splits: 2
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
@@ -94,7 +92,7 @@ jobs:
         run: |
           source .venv/bin/activate
           source dev/setup-ssh.sh
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
+          pytest -n auto --quiet --requires-ssh \
             --ignore-flavors --ignore=tests/examples --ignore=tests/evaluate \
             --ignore tests/genai tests
 
@@ -247,8 +245,6 @@ jobs:
       fail-fast: false
       matrix:
         group: [1, 2]
-        include:
-          - splits: 2
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
@@ -264,7 +260,7 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/models
+          pytest -n auto tests/models
 
   # NOTE: numpy is pinned in this suite due to its heavy reliance on shap, which internally uses
   # references to the now fully deprecated (as of 1.24.x) numpy types (i.e., np.bool).
@@ -280,8 +276,6 @@ jobs:
       fail-fast: false
       matrix:
         group: [1, 2]
-        include:
-          - splits: 2
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
@@ -296,7 +290,7 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
+          pytest -n auto tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
       - name: Run tests with delta
         run: |
           pytest tests/evaluate/test_default_evaluator_delta.py
@@ -368,8 +362,6 @@ jobs:
       fail-fast: false
       matrix:
         group: [1, 2, 3, 4]
-        include:
-          - splits: 4
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
@@ -386,7 +378,7 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
+          pytest -n auto --durations=30 \
             tests/pyfunc tests/types --ignore tests/pyfunc/test_spark_connect.py
 
           # test_spark_connect.py fails if it's run with other tests, so run it separately.
@@ -394,7 +386,7 @@ jobs:
       - name: Run tests on pydantic v1
         run: |
           pip install 'pydantic<2'
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
+          pytest -n auto --durations=30 \
             tests/types tests/pyfunc/test_pyfunc_model_with_type_hints.py tests/utils/test_pydantic_utils.py
 
   sagemaker:
@@ -427,8 +419,6 @@ jobs:
       fail-fast: false
       matrix:
         group: [1, 2]
-        include:
-          - splits: 2
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
@@ -473,10 +463,10 @@ jobs:
           export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+          pytest -n auto \
             --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/evaluate --ignore=tests/optuna \
             --ignore=tests/pyspark/optuna --ignore=tests/genai --ignore=tests/telemetry tests
       - name: Run telemetry tests
         run: |
           source .venv/Scripts/activate
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/telemetry
+          pytest -n auto tests/telemetry
