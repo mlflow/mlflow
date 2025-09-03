@@ -382,7 +382,7 @@ def is_safe(*, content: str, name: str | None = None, model: str | None = None) 
     if model == "databricks":
         from databricks.agents.evals.judges import safety
 
-        feedback = safety(response=content, assessment_name=name)
+        feedback = safety(response=content, assessment_name=assessment_name)
     else:
         prompt = get_prompt(content=content)
         feedback = invoke_judge_model(model, prompt, assessment_name=assessment_name)
