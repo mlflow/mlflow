@@ -100,7 +100,7 @@ jobs:
       - name: Run Databricks Archival Tests
         run: |
           source .venv/bin/activate
-          pip install databricks-agents
+          pip install databricks-connect
           pytest tests/tracing/databricks_archival
 
   py310:

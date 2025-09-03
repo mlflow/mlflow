@@ -44,11 +44,11 @@ def mock_workspace_client(mock_workspace_id):
     return client
 
 
-def _create_mock_databricks_agents():
-    """Helper function to create a mock databricks.agents module with proper __spec__."""
+def _create_mock_databricks_connect():
+    """Helper function to create a mock databricks.connect module with proper __spec__."""
     mock_module = Mock()
     mock_module.__spec__ = Mock()
-    mock_module.__spec__.name = "databricks.agents"
+    mock_module.__spec__.name = "databricks.connect"
     return mock_module
 
 
