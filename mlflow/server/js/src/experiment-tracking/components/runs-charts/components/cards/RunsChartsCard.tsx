@@ -10,7 +10,7 @@ import type {
   RunsChartsParallelCardConfig,
   RunsChartsScatterCardConfig,
 } from '../../runs-charts.types';
-import { RunsChartsRunData } from '../RunsCharts.common';
+import type { RunsChartsRunData } from '../RunsCharts.common';
 import { RunsChartsBarChartCard } from './RunsChartsBarChartCard';
 import { RunsChartsLineChartCard } from './RunsChartsLineChartCard';
 import { RunsChartsScatterChartCard } from './RunsChartsScatterChartCard';
@@ -25,7 +25,7 @@ import type {
 import { RunsChartsDifferenceChartCard } from './RunsChartsDifferenceChartCard';
 import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
 import { RunsChartsImageChartCard } from './RunsChartsImageChartCard';
-import { RunsChartsGlobalLineChartConfig } from '../../../experiment-page/models/ExperimentPageUIState';
+import type { RunsChartsGlobalLineChartConfig } from '../../../experiment-page/models/ExperimentPageUIState';
 
 export interface RunsChartsCardProps
   extends RunsChartCardReorderProps,

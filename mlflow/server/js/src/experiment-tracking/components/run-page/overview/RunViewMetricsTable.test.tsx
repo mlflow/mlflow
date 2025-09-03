@@ -1,10 +1,11 @@
 import { keyBy } from 'lodash';
 import { renderWithIntl, fastFillInput, act, screen, within } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
-import { LoggedModelProto, MetricEntitiesByName, RunInfoEntity } from '../../../types';
+import type { LoggedModelProto, MetricEntitiesByName, RunInfoEntity } from '../../../types';
 import { RunViewMetricsTable } from './RunViewMetricsTable';
 import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
 
 // Larger timeout for integration testing (table rendering)
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(60000);
 
 const testRunUuid = 'test-run-uuid';

@@ -8,26 +8,24 @@ import {
   VisibleIcon,
   Typography,
 } from '@databricks/design-system';
-import { Theme } from '@emotion/react';
+import type { Theme } from '@emotion/react';
 import { FormattedMessage } from 'react-intl';
 import { Link } from '../../../../common/utils/RoutingUtils';
 import Routes from '../../../routes';
 import { useExperimentIds } from '../../experiment-page/hooks/useExperimentIds';
-import { RunsChartsRunData, RunsChartsLineChartXAxisType } from './RunsCharts.common';
-import {
-  RunsChartsTooltipBodyProps,
-  RunsChartsTooltipMode,
-  containsMultipleRunsTooltipData,
-} from '../hooks/useRunsChartsTooltip';
-import {
+import type { RunsChartsRunData } from './RunsCharts.common';
+import { RunsChartsLineChartXAxisType } from './RunsCharts.common';
+import type { RunsChartsTooltipBodyProps } from '../hooks/useRunsChartsTooltip';
+import { RunsChartsTooltipMode, containsMultipleRunsTooltipData } from '../hooks/useRunsChartsTooltip';
+import type {
   RunsChartsBarCardConfig,
   RunsChartsCardConfig,
-  RunsChartType,
   RunsChartsScatterCardConfig,
   RunsChartsContourCardConfig,
   RunsChartsLineCardConfig,
   RunsChartsParallelCardConfig,
 } from '../runs-charts.types';
+import { RunsChartType } from '../runs-charts.types';
 import {
   type RunsCompareMultipleTracesTooltipData,
   type RunsMetricsSingleTraceTooltipData,

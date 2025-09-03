@@ -1,5 +1,4 @@
 import { Alert, LegacySkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
-
 import { useEffect, useState } from 'react';
 import { ErrorCodes } from '../../../common/constants';
 import NotFoundPage from '../NotFoundPage';
@@ -24,9 +23,9 @@ import {
 import { useExperimentPageSearchFacets } from './hooks/useExperimentPageSearchFacets';
 import { usePersistExperimentPageViewState } from './hooks/usePersistExperimentPageViewState';
 import { useDispatch } from 'react-redux';
-import { ThunkDispatch } from '../../../redux-types';
+import type { ThunkDispatch } from '../../../redux-types';
 import { useExperimentRuns } from './hooks/useExperimentRuns';
-import { ExperimentRunsSelectorResult } from './utils/experimentRuns.selector';
+import type { ExperimentRunsSelectorResult } from './utils/experimentRuns.selector';
 import { useSharedExperimentViewState } from './hooks/useSharedExperimentViewState';
 import { useInitializeUIState } from './hooks/useInitializeUIState';
 import { ExperimentViewDescriptionNotes } from './components/ExperimentViewDescriptionNotes';

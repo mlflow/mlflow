@@ -28,23 +28,18 @@ import {
 } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 
-import {
-  shouldEnableExperimentPageAutoRefresh,
-  shouldEnablePromptLab,
-  shouldUseRenamedUnifiedTracesTab,
-} from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { shouldEnablePromptLab, shouldUseRenamedUnifiedTracesTab } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import React, { useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { ToggleIconButton } from '../../../../../common/components/ToggleIconButton';
-import { ErrorWrapper } from '../../../../../common/utils/ErrorWrapper';
+import type { ErrorWrapper } from '../../../../../common/utils/ErrorWrapper';
 import { LIFECYCLE_FILTER } from '../../../../constants';
-import { UpdateExperimentViewStateFn } from '../../../../types';
+import type { UpdateExperimentViewStateFn } from '../../../../types';
 import { useExperimentIds } from '../../hooks/useExperimentIds';
-import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
+import type { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
 import { getStartTimeColumnDisplayName } from '../../utils/experimentPage.common-utils';
-import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
-import { ExperimentViewRefreshButton } from './ExperimentViewRefreshButton';
+import type { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { RunsSearchAutoComplete } from './RunsSearchAutoComplete';
 import type { ExperimentStoreEntities, DatasetSummary, ExperimentViewRunsCompareMode } from '../../../../types';
 import { datasetSummariesEqual } from '../../../../utils/DatasetUtils';
@@ -53,10 +48,8 @@ import { PreviewBadge } from '@mlflow/mlflow/src/shared/building_blocks/PreviewB
 import { useCreateNewRun } from '../../hooks/useCreateNewRun';
 import { useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
 import { useUpdateExperimentPageSearchFacets } from '../../hooks/useExperimentPageSearchFacets';
-import {
-  ExperimentPageSearchFacetsState,
-  createExperimentPageSearchFacetsState,
-} from '../../models/ExperimentPageSearchFacetsState';
+import type { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
+import { createExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
 import { useUpdateExperimentViewUIState } from '../../contexts/ExperimentPageUIStateContext';
 
 export type ExperimentViewRunsControlsFiltersProps = {
@@ -428,27 +421,24 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                   description="Experiment page > control bar > label for a checkbox toggle button that hides chart cards with no corresponding data"
                 />
               </DropdownMenu.CheckboxItem>
-              {shouldEnableExperimentPageAutoRefresh() && (
-                <>
-                  <DropdownMenu.Separator />
-                  <DropdownMenu.CheckboxItem
-                    componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_402"
-                    checked={autoRefreshEnabled}
-                    onClick={() =>
-                      updateUIState((state) => ({
-                        ...state,
-                        autoRefreshEnabled: !state.autoRefreshEnabled,
-                      }))
-                    }
-                  >
-                    <DropdownMenu.ItemIndicator />
-                    <FormattedMessage
-                      defaultMessage="Auto-refresh"
-                      description="String for the auto-refresh button that refreshes the runs list automatically"
-                    />
-                  </DropdownMenu.CheckboxItem>
-                </>
-              )}
+
+              <DropdownMenu.Separator />
+              <DropdownMenu.CheckboxItem
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_402"
+                checked={autoRefreshEnabled}
+                onClick={() =>
+                  updateUIState((state) => ({
+                    ...state,
+                    autoRefreshEnabled: !state.autoRefreshEnabled,
+                  }))
+                }
+              >
+                <DropdownMenu.ItemIndicator />
+                <FormattedMessage
+                  defaultMessage="Auto-refresh"
+                  description="String for the auto-refresh button that refreshes the runs list automatically"
+                />
+              </DropdownMenu.CheckboxItem>
             </DropdownMenu.Content>
           </DropdownMenu.Root>
 
@@ -474,7 +464,6 @@ export const ExperimentViewRunsControlsFilters = React.memo(
               />
             </LegacyTooltip>
           )}
-          {!shouldEnableExperimentPageAutoRefresh() && <ExperimentViewRefreshButton refreshRuns={refreshRuns} />}
           {/* TODO: Add tooltip to guide users to this button */}
           {!isComparingExperiments && (
             <DropdownMenu.Root>

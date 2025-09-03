@@ -3,7 +3,8 @@ import React, { useState, useMemo, useCallback } from 'react';
 
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import type { ModelTrace, ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
+import type { Assessment, ModelTrace, ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
+import { AssessmentSchemaContextProvider } from '@databricks/web-shared/model-trace-explorer';
 
 import { computeEvaluationsComparison } from './GenAiTracesTable.utils';
 import { GenAiTracesTableBody } from './GenAiTracesTableBody';
@@ -52,8 +53,8 @@ interface GenAITracesTableBodyContainerProps {
   enableRowSelection?: boolean;
 }
 
-const GenAITracesTableBodyContainerImpl: React.FC<GenAITracesTableBodyContainerProps> = React.memo(
-  (props: GenAITracesTableBodyContainerProps) => {
+const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAITracesTableBodyContainerProps>> =
+  React.memo((props: GenAITracesTableBodyContainerProps) => {
     const {
       experimentId,
       currentTraceInfoV3,
@@ -183,6 +184,10 @@ const GenAITracesTableBodyContainerImpl: React.FC<GenAITracesTableBodyContainerP
       [currentEvaluationResults, compareToEvaluationResults],
     );
 
+    const assessments = useMemo(() => {
+      return currentEvaluationResults.flatMap((evalResult) => evalResult?.traceInfo?.assessments ?? []) as Assessment[];
+    }, [currentEvaluationResults]);
+
     return (
       <div
         css={{
@@ -208,36 +213,37 @@ const GenAITracesTableBodyContainerImpl: React.FC<GenAITracesTableBodyContainerP
               overflowY: 'hidden',
             }}
           >
-            <GenAiTracesTableBody
-              experimentId={experimentId}
-              selectedColumns={selectedColumns}
-              allColumns={allColumns}
-              evaluations={evaluationResults}
-              selectedEvaluationId={selectedEvaluationId}
-              selectedAssessmentInfos={selectedAssessmentInfos}
-              assessmentInfos={assessmentInfos}
-              assessmentFilters={assessmentFilters}
-              onChangeEvaluationId={setSelectedEvaluationId}
-              getRunColor={getRunColor}
-              runUuid={runUuid}
-              compareToRunUuid={compareToRunUuid}
-              runDisplayName={currentRunDisplayName}
-              compareToRunDisplayName={compareToRunDisplayName}
-              enableRowSelection={enableRowSelection}
-              rowSelection={rowSelection}
-              setRowSelection={setRowSelection}
-              toggleAssessmentFilter={handleAssessmentFilterToggle}
-              tableSort={tableSort}
-              getTrace={getTrace}
-              onTraceTagsEdit={onTraceTagsEdit}
-              enableGrouping={shouldEnableTagGrouping()}
-            />
+            <AssessmentSchemaContextProvider assessments={assessments}>
+              <GenAiTracesTableBody
+                experimentId={experimentId}
+                selectedColumns={selectedColumns}
+                allColumns={allColumns}
+                evaluations={evaluationResults}
+                selectedEvaluationId={selectedEvaluationId}
+                selectedAssessmentInfos={selectedAssessmentInfos}
+                assessmentInfos={assessmentInfos}
+                assessmentFilters={assessmentFilters}
+                onChangeEvaluationId={setSelectedEvaluationId}
+                getRunColor={getRunColor}
+                runUuid={runUuid}
+                compareToRunUuid={compareToRunUuid}
+                runDisplayName={currentRunDisplayName}
+                compareToRunDisplayName={compareToRunDisplayName}
+                enableRowSelection={enableRowSelection}
+                rowSelection={rowSelection}
+                setRowSelection={setRowSelection}
+                toggleAssessmentFilter={handleAssessmentFilterToggle}
+                tableSort={tableSort}
+                getTrace={getTrace}
+                onTraceTagsEdit={onTraceTagsEdit}
+                enableGrouping={shouldEnableTagGrouping()}
+              />
+            </AssessmentSchemaContextProvider>
           </div>
         </div>
       </div>
     );
-  },
-);
+  });
 
 // TODO: Add an error boundary to the OSS trace table
 export const GenAITracesTableBodyContainer = GenAITracesTableBodyContainerImpl;

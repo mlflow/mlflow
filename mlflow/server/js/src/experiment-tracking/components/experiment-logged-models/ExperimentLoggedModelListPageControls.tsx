@@ -20,10 +20,10 @@ import { ExperimentLoggedModelListPageColumnSelector } from './ExperimentLoggedM
 import { coerceToEnum } from '@databricks/web-shared/utils';
 import { ExperimentLoggedModelListPageMode } from './hooks/useExperimentLoggedModelListPageMode';
 import { ExperimentLoggedModelListPageAutoComplete } from './ExperimentLoggedModelListPageAutoComplete';
-import { LoggedModelMetricDataset, LoggedModelProto } from '../../types';
+import type { LoggedModelMetricDataset, LoggedModelProto } from '../../types';
 import { ExperimentLoggedModelListPageDatasetDropdown } from './ExperimentLoggedModelListPageDatasetDropdown';
 import { ExperimentLoggedModelListPageOrderBySelector } from './ExperimentLoggedModelListPageOrderBySelector';
-import { LoggedModelsTableGroupByMode } from './ExperimentLoggedModelListPageTable.utils';
+import type { LoggedModelsTableGroupByMode } from './ExperimentLoggedModelListPageTable.utils';
 import { ExperimentLoggedModelListPageGroupBySelector } from './ExperimentLoggedModelListPageGroupBySelector';
 import { shouldEnableLoggedModelsGrouping } from '../../../common/utils/FeatureUtils';
 

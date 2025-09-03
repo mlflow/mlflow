@@ -8,7 +8,7 @@
 import cookie from 'cookie';
 import JsonBigInt from 'json-bigint';
 import yaml from 'js-yaml';
-import _ from 'lodash';
+import { isNil, pickBy } from 'lodash';
 import { ErrorWrapper } from './ErrorWrapper';
 
 export const HTTPMethods = {
@@ -263,7 +263,7 @@ export const fetchEndpoint = ({
 
 const filterUndefinedFields = (data: any) => {
   if (!Array.isArray(data)) {
-    return _.pickBy(data, (v) => v !== undefined);
+    return pickBy(data, (v) => v !== undefined);
   } else {
     return data.filter((v) => v !== undefined);
   }

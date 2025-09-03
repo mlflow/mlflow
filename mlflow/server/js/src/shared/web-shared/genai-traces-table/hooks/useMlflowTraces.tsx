@@ -62,7 +62,7 @@ interface SearchMlflowLocations {
   };
 }
 
-const SEARCH_MLFLOW_TRACES_QUERY_KEY = 'searchMlflowTraces';
+export const SEARCH_MLFLOW_TRACES_QUERY_KEY = 'searchMlflowTraces';
 
 export const invalidateMlflowSearchTracesCache = ({ queryClient }: { queryClient: QueryClient }) => {
   queryClient.invalidateQueries({ queryKey: [SEARCH_MLFLOW_TRACES_QUERY_KEY] });
@@ -173,12 +173,12 @@ export const useMlflowTracesTableMetadata = ({
       assessmentInfos,
       allColumns,
       totalCount: evaluatedTraces.length,
-      isLoading: isInnerLoading,
+      isLoading: isInnerLoading && !disabled,
       error,
       isEmpty: evaluatedTraces.length === 0,
       tableFilterOptions,
     };
-  }, [assessmentInfos, allColumns, isInnerLoading, error, evaluatedTraces.length, tableFilterOptions]);
+  }, [assessmentInfos, allColumns, isInnerLoading, error, evaluatedTraces.length, tableFilterOptions, disabled]);
 };
 
 const getNetworkAndClientFilters = (
@@ -192,7 +192,7 @@ const getNetworkAndClientFilters = (
     clientFilters: TableFilter[];
   }>(
     (acc, filter) => {
-      // MLflow search api does not support assessment filters, so we need to pass them as client filters
+      // Mlflow search api does not support assessment filters, so we need to pass them as client filters
       if (filter.column === TracesTableColumnGroup.ASSESSMENT) {
         acc.clientFilters.push(filter);
       } else {

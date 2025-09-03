@@ -10,7 +10,7 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { LoggedModelProto, MetricEntitiesByName, MetricEntity, RunInfoEntity } from '../../../types';
+import type { LoggedModelProto, MetricEntitiesByName, MetricEntity, RunInfoEntity } from '../../../types';
 import { compact, flatMap, groupBy, isEmpty, keyBy, mapValues, sum, values } from 'lodash';
 import { useMemo, useState } from 'react';
 import { Link } from '../../../../common/utils/RoutingUtils';
@@ -18,8 +18,10 @@ import Routes from '../../../routes';
 import { RunPageTabName } from '../../../constants';
 import { FormattedMessage, defineMessages, useIntl } from 'react-intl';
 import { isSystemMetricKey } from '../../../utils/MetricsUtils';
-import { ColumnDef, Table as TableDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import type { ColumnDef, Table as TableDef } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import type { UseGetRunQueryResponseRunInfo } from '../hooks/useGetRunQuery';
+import { isUndefined } from 'lodash';
 import { useExperimentTrackingDetailsPageLayoutStyles } from '../../../hooks/useExperimentTrackingDetailsPageLayoutStyles';
 
 const { systemMetricsLabel, modelMetricsLabel } = defineMessages({

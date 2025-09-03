@@ -11,24 +11,15 @@ import {
   useDesignSystemTheme,
   TableSkeletonRows,
 } from '@databricks/design-system';
-import {
-  ColumnDef,
-  RowSelectionState,
-  SortingState,
-  ColumnSort,
-  flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from '@tanstack/react-table';
-import { ModelEntity, ModelVersionInfoEntity, ModelAliasMap } from '../../experiment-tracking/types';
-import { KeyValueEntity } from '../../common/types';
+import type { ColumnDef, RowSelectionState, SortingState, ColumnSort } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table';
+import type { ModelEntity, ModelVersionInfoEntity, ModelAliasMap } from '../../experiment-tracking/types';
+import type { KeyValueEntity } from '../../common/types';
 import { useEffect, useMemo, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { RegisteringModelDocUrl } from '../../common/constants';
 import {
   ACTIVE_STAGES,
-  EMPTY_CELL_PLACEHOLDER,
   ModelVersionStatusIcons,
   StageTagComponents,
   mlflowAliasesLearnMoreLink,
@@ -39,14 +30,13 @@ import { ModelRegistryRoutes } from '../routes';
 import Utils from '../../common/utils/Utils';
 import { KeyValueTagsEditorCell } from '../../common/components/KeyValueTagsEditorCell';
 import { useDispatch } from 'react-redux';
-import { ThunkDispatch } from '../../redux-types';
+import type { ThunkDispatch } from '../../redux-types';
 import { useEditKeyValueTagsModal } from '../../common/hooks/useEditKeyValueTagsModal';
 import { useEditAliasesModal } from '../../common/hooks/useEditAliasesModal';
 import { updateModelVersionTagsApi } from '../actions';
 import { ModelVersionTableAliasesCell } from './aliases/ModelVersionTableAliasesCell';
-import { Interpolation, Theme } from '@emotion/react';
+import type { Interpolation, Theme } from '@emotion/react';
 import { truncateToFirstLineWithMaxLength } from '../../common/utils/StringUtils';
-import ExpandableList from '../../common/components/ExpandableList';
 import { setModelVersionAliasesApi } from '../actions';
 
 type ModelVersionTableProps = {

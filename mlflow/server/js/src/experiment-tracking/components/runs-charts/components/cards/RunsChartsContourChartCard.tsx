@@ -1,12 +1,8 @@
 import { useMemo } from 'react';
 import type { RunsChartsRunData } from '../RunsCharts.common';
 import type { RunsChartsContourCardConfig } from '../../runs-charts.types';
-import {
-  RunsChartCardFullScreenProps,
-  RunsChartCardReorderProps,
-  RunsChartCardWrapper,
-  RunsChartsChartsDragGroup,
-} from './ChartCard.common';
+import type { RunsChartCardFullScreenProps, RunsChartCardReorderProps } from './ChartCard.common';
+import { RunsChartCardWrapper, RunsChartsChartsDragGroup } from './ChartCard.common';
 import { RunsContourPlot } from '../RunsContourPlot';
 import { useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
 import { useChartImageDownloadHandler } from '../../hooks/useChartImageDownloadHandler';

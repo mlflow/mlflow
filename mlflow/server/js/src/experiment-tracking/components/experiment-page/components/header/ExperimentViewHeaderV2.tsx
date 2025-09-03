@@ -9,9 +9,9 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { ExperimentViewCopyTitle } from './ExperimentViewCopyTitle';
-import { ExperimentEntity } from '../../../../types';
-import { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
-import { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
+import type { ExperimentEntity } from '../../../../types';
+import type { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
+import type { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import { ExperimentViewArtifactLocation } from '../ExperimentViewArtifactLocation';
 import { ExperimentViewCopyExperimentId } from './ExperimentViewCopyExperimentId';
 import { ExperimentViewCopyArtifactLocation } from './ExperimentViewCopyArtifactLocation';
@@ -20,7 +20,7 @@ import { TabSelectorBar } from './tab-selector-bar/TabSelectorBar';
 import { ExperimentViewHeaderShareButton } from './ExperimentViewHeaderShareButton';
 import { getExperimentKindFromTags } from '../../../../utils/ExperimentKindUtils';
 
-import { ExperimentKind } from '../../../../constants';
+import type { ExperimentKind } from '../../../../constants';
 /**
  * Header for a single experiment page. Displays title, breadcrumbs and provides
  * controls for renaming, deleting and editing permissions.
@@ -33,6 +33,7 @@ export const ExperimentViewHeaderV2 = React.memo(
     uiState,
     setEditing,
     experimentKindSelector,
+    refetchExperiment,
   }: {
     experiment: ExperimentEntity;
     inferredExperimentKind?: ExperimentKind;
@@ -40,10 +41,21 @@ export const ExperimentViewHeaderV2 = React.memo(
     uiState?: ExperimentPageUIState;
     setEditing: (editing: boolean) => void;
     experimentKindSelector?: React.ReactNode;
+    refetchExperiment?: () => Promise<unknown>;
   }) => {
     const { theme } = useDesignSystemTheme();
-    // eslint-disable-next-line prefer-const
-    let breadcrumbs: React.ReactNode[] = [];
+    const breadcrumbs: React.ReactNode[] = useMemo(
+      () => [
+        // eslint-disable-next-line react/jsx-key
+        <Link to={Routes.experimentsObservatoryRoute} data-testid="experiment-observatory-link">
+          <FormattedMessage
+            defaultMessage="Experiments"
+            description="Breadcrumb nav item to link to the list of experiments page"
+          />
+        </Link>,
+      ],
+      [],
+    );
     const experimentIds = useMemo(() => (experiment ? [experiment?.experimentId] : []), [experiment]);
     // Extract the last part of the experiment name
     const normalizedExperimentName = useMemo(() => experiment.name.split('/').pop(), [experiment.name]);
@@ -138,6 +150,12 @@ export const ExperimentViewHeaderV2 = React.memo(
               experimentIds={experimentIds}
               searchFacetsState={searchFacetsState}
               uiState={uiState}
+            />
+            <ExperimentViewManagementMenu
+              experiment={experiment}
+              setEditing={setEditing}
+              refetchExperiment={refetchExperiment}
+              enableBudgetPolicyEditor={enableBudgetPolicyEditor}
             />
           </div>
         </div>

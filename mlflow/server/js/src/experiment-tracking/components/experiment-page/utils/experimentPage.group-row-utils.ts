@@ -1,11 +1,12 @@
-import { compact, entries, isObject, isNil, isUndefined, reject, values, Dictionary } from 'lodash';
+import type { Dictionary } from 'lodash';
+import { compact, entries, isObject, isNil, isUndefined, reject, values } from 'lodash';
+import type { RunGroupByGroupingValue } from './experimentPage.row-types';
 import {
   type RowGroupRenderMetadata,
   type RowRenderMetadata,
   type RunGroupParentInfo,
   RunGroupingAggregateFunction,
   RunGroupingMode,
-  RunGroupByGroupingValue,
   RunRowVisibilityControl,
 } from './experimentPage.row-types';
 import type { SingleRunData } from './experimentPage.row-utils';

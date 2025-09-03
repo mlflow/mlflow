@@ -3,11 +3,11 @@ import { renderWithIntl, screen, waitFor, within } from '@mlflow/mlflow/src/comm
 import { getExperimentApi, getRunApi, updateRunApi } from '../../actions';
 import { searchModelVersionsApi } from '../../../model-registry/actions';
 import { merge } from 'lodash';
-import { ReduxState } from '../../../redux-types';
-import { DeepPartial } from 'redux';
+import type { ReduxState } from '../../../redux-types';
+import type { DeepPartial } from 'redux';
 import { RunPage } from './RunPage';
 import { testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
-import { RunInfoEntity } from '../../types';
+import type { RunInfoEntity } from '../../types';
 import userEvent from '@testing-library/user-event';
 import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
 import { TestApolloProvider } from '../../../common/utils/TestApolloProvider';
@@ -17,11 +17,13 @@ import {
 } from '../../../common/utils/FeatureUtils';
 import { setupServer } from '../../../common/utils/setup-msw';
 import { graphql, rest } from 'msw';
-import { GetRun, GetRunVariables, MlflowRunStatus } from '../../../graphql/__generated__/graphql';
+import type { GetRun, GetRunVariables } from '../../../graphql/__generated__/graphql';
+import { MlflowRunStatus } from '../../../graphql/__generated__/graphql';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import Utils from '../../../common/utils/Utils';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(90000); // Higher timeout due to integration testing and tables
 
 jest.mock('../../../common/utils/FeatureUtils', () => ({
@@ -57,6 +59,7 @@ describe('RunPage (legacy redux + REST API)', () => {
   const server = setupServer();
 
   beforeEach(() => {
+    process.env['MLFLOW_USE_ABSOLUTE_AJAX_URLS'] = 'true';
     jest.mocked(shouldEnableGraphQLRunDetailsPage).mockImplementation(() => false);
   });
 

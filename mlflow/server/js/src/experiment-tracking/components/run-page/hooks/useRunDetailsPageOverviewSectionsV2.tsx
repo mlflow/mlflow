@@ -1,9 +1,10 @@
 import { Button, FileIcon, useDesignSystemTheme } from '@databricks/design-system';
-import { KeyValueProperty, NoneCell, AsideSections } from '@databricks/web-shared/utils';
+import type { AsideSections } from '@databricks/web-shared/utils';
+import { KeyValueProperty, NoneCell } from '@databricks/web-shared/utils';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { LoggedModelProto, RunDatasetWithTags, RunInfoEntity } from '../../../types';
-import { KeyValueEntity } from '../../../../common/types';
-import { UseGetRunQueryResponseRunInfo } from './useGetRunQuery';
+import type { LoggedModelProto, RunDatasetWithTags, RunInfoEntity } from '../../../types';
+import type { KeyValueEntity } from '../../../../common/types';
+import type { UseGetRunQueryResponseRunInfo } from './useGetRunQuery';
 import Utils from '../../../../common/utils/Utils';
 import { RunViewTagsBox } from '../overview/RunViewTagsBox';
 import { RunViewUserLinkBox } from '../overview/RunViewUserLinkBox';
@@ -16,7 +17,7 @@ import { RunViewSourceBox } from '../overview/RunViewSourceBox';
 import { Link, useLocation } from '../../../../common/utils/RoutingUtils';
 import { RunViewLoggedModelsBox } from '../overview/RunViewLoggedModelsBox';
 import { useMemo } from 'react';
-import { RunPageModelVersionSummary } from './useUnifiedRegisteredModelVersionsSummariesForRun';
+import type { RunPageModelVersionSummary } from './useUnifiedRegisteredModelVersionsSummariesForRun';
 import { RunViewRegisteredModelsBox } from '../overview/RunViewRegisteredModelsBox';
 import Routes from '../../../routes';
 

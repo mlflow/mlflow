@@ -66,7 +66,6 @@ describe('useGetExperimentPageActiveTabByRoute', () => {
   ];
 
   test.each(testCases)('$name', ({ pathname, expectedTabName, expectedTopLevelTabName }) => {
-    // @ts-expect-error - only pathname is used in this test
     jest.mocked(useLocation).mockReturnValue({ pathname });
 
     const { result } = renderHook(() => useGetExperimentPageActiveTabByRoute());
@@ -77,7 +76,6 @@ describe('useGetExperimentPageActiveTabByRoute', () => {
 
   test('should return undefined when feature flag is disabled', () => {
     jest.mocked(shouldEnableExperimentPageChildRoutes).mockReturnValue(false);
-    // @ts-expect-error - only pathname is used in this test
     jest.mocked(useLocation).mockReturnValue({ pathname: '/experiments/123/runs' });
 
     const { result } = renderHook(() => useGetExperimentPageActiveTabByRoute());

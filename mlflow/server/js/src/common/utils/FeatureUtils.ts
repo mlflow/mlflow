@@ -2,7 +2,6 @@
  * This file aggregates utility functions for enabling features configured by flags.
  * In the OSS version, you can override them in local development by manually changing the return values.
  */
-export const shouldEnableExperimentPageAutoRefresh = () => true;
 
 export const shouldEnableRunDetailsPageAutoRefresh = () => true;
 /**
@@ -56,8 +55,8 @@ export const shouldRerunExperimentUISeeding = () => false;
 /**
  * Determines if the V2 experiment page header is enabled.
  */
-export const shouldEnableExperimentPageHeaderV2 = () => false;
-export const shouldEnableExperimentKindInference = () => false;
+export const shouldEnableExperimentPageHeaderV2 = () => true;
+export const shouldEnableExperimentKindInference = () => true;
 
 /**
  * Determines if the new prompts tab on DB platform is enabled.
@@ -115,11 +114,15 @@ export const shouldEnableTraceInsights = () => {
   return false;
 };
 
+export const shouldEnableTracesSyncUI = () => {
+  return false;
+};
+
 /**
  * Total number of traces that will be fetched via mlflow traces 3.0 search api in eval tab
  */
 export const getEvalTabTotalTracesLimit = () => {
-  return 10000;
+  return 1000;
 };
 
 /**
@@ -127,4 +130,12 @@ export const getEvalTabTotalTracesLimit = () => {
  */
 export const isExperimentEvalResultsMonitoringUIEnabled = () => {
   return true;
+};
+
+export const shouldUseUnifiedArtifactBrowserForLoggedModels = () => {
+  return false;
+};
+
+export const shouldUseUnifiedArtifactBrowserForRunDetailsPage = () => {
+  return false;
 };

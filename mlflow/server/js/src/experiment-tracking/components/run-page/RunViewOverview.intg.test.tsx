@@ -1,8 +1,8 @@
-import { DeepPartial } from 'redux';
+import type { DeepPartial } from 'redux';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
 import { waitFor, renderWithIntl, screen, within } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { RunViewOverview } from './RunViewOverview';
-import { ReduxState } from '../../../redux-types';
+import type { ReduxState } from '../../../redux-types';
 import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 import { cloneDeep, merge } from 'lodash';
 import userEvent from '@testing-library/user-event';
@@ -12,13 +12,13 @@ import { NOTE_CONTENT_TAG } from '../../utils/NoteUtils';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { EXPERIMENT_PARENT_ID_TAG } from '../experiment-page/utils/experimentPage.common-utils';
 import type { RunInfoEntity } from '../../types';
-import { KeyValueEntity } from '../../../common/types';
+import type { KeyValueEntity } from '../../../common/types';
 import { TestApolloProvider } from '../../../common/utils/TestApolloProvider';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import type { LoggedModelProto } from '../../types';
 import { type RunPageModelVersionSummary } from './hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
 import { useExperimentTrackingDetailsPageLayoutStyles } from '../../hooks/useExperimentTrackingDetailsPageLayoutStyles';
-import { LINKED_PROMPTS_TAG_KEY } from '../../pages/prompts/utils';
+import { ExperimentKind, MLFLOW_LINKED_PROMPTS_TAG } from '../../constants';
 
 jest.mock('../../hooks/useExperimentTrackingDetailsPageLayoutStyles', () => ({
   useExperimentTrackingDetailsPageLayoutStyles: jest.fn(),
@@ -50,6 +50,7 @@ jest.mock('../../pages/prompts/hooks/usePromptVersionsForRunQuery', () => ({
   })),
 }));
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000); // Larget timeout for integration testing
 
 const testRunUuid = 'test-run-uuid';
@@ -110,12 +111,14 @@ describe('RunViewOverview integration', () => {
     reduxStoreEntities = {},
     loggedModelsV3,
     registeredModelVersionSummaries = [],
+    experimentKind = ExperimentKind.CUSTOM_MODEL_DEVELOPMENT,
   }: {
     tags?: Record<string, KeyValueEntity>;
     reduxStoreEntities?: DeepPartial<ReduxState['entities']>;
     runInfo?: Partial<RunInfoEntity>;
     registeredModelVersionSummaries?: RunPageModelVersionSummary[];
     loggedModelsV3?: LoggedModelProto[] | undefined;
+    experimentKind?: ExperimentKind;
   } = {}) => {
     const state: DeepPartial<ReduxState> = {
       entities: merge(
@@ -146,6 +149,7 @@ describe('RunViewOverview integration', () => {
                   tags={merge({}, testEntitiesState.tagsByRunUuid?.[testRunUuid], tags) || {}}
                   registeredModelVersionSummaries={registeredModelVersionSummaries}
                   loggedModelsV3={loggedModelsV3}
+                  experimentKind={experimentKind}
                 />
               </MemoryRouter>
             </TestApolloProvider>
@@ -360,8 +364,8 @@ describe('RunViewOverview integration', () => {
   test('Run overview contains prompts from run tags', async () => {
     renderComponent({
       tags: {
-        [LINKED_PROMPTS_TAG_KEY]: {
-          key: LINKED_PROMPTS_TAG_KEY,
+        [MLFLOW_LINKED_PROMPTS_TAG]: {
+          key: MLFLOW_LINKED_PROMPTS_TAG,
           value: JSON.stringify([{ name: testPromptName2, version: testPromptVersion.toString() }]),
         },
       },
@@ -372,7 +376,7 @@ describe('RunViewOverview integration', () => {
     });
   });
 
-  test('Run overview contains prompts from prompt version tags', async () => {
+  test('Run overview contains registered prompts', async () => {
     renderComponent();
 
     await waitFor(() => {

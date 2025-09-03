@@ -1,7 +1,7 @@
-import { ColumnDef } from '@tanstack/react-table';
+import type { ColumnDef } from '@tanstack/react-table';
 import { ModelVersionTableAliasesCell } from '../../../../model-registry/components/aliases/ModelVersionTableAliasesCell';
-import { RegisteredPromptVersion } from '../types';
-import { PromptsVersionsTableMetadata } from '../utils';
+import type { RegisteredPromptVersion } from '../types';
+import type { PromptsVersionsTableMetadata } from '../utils';
 
 export const PromptVersionsTableAliasesCell: ColumnDef<RegisteredPromptVersion>['cell'] = ({
   getValue,

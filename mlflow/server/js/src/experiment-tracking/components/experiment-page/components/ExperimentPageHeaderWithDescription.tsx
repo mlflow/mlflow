@@ -1,16 +1,16 @@
 import { useMemo, useState } from 'react';
-import { useGetExperimentQuery } from '../../../hooks/useExperimentQuery';
+import type { useGetExperimentQuery } from '../../../hooks/useExperimentQuery';
 import { ExperimentViewHeader, ExperimentViewHeaderSkeleton } from './header/ExperimentViewHeader';
-import { ExperimentEntity } from '../../../types';
+import type { ExperimentEntity } from '../../../types';
 import { ExperimentViewDescriptionNotes } from './ExperimentViewDescriptionNotes';
 import { NOTE_CONTENT_TAG } from '../../../utils/NoteUtils';
-import { ApolloError } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
+import type { ApolloError } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 import { getGraphQLErrorMessage } from '../../../../graphql/get-graphql-error';
 import { Alert, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { ExperimentViewHeaderV2, ExperimentViewHeaderV2Skeleton } from './header/ExperimentViewHeaderV2';
 import { shouldEnableExperimentPageHeaderV2 } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
-import { ExperimentKind } from '../../../constants';
+import type { ExperimentKind } from '../../../constants';
 
 type GetExperimentReturnType = ReturnType<typeof useGetExperimentQuery>['data'];
 
@@ -24,6 +24,7 @@ export const ExperimentPageHeaderWithDescription = ({
   error,
   experimentKindSelector,
   inferredExperimentKind,
+  refetchExperiment,
 }: {
   experiment: GetExperimentReturnType;
   loading?: boolean;
@@ -31,6 +32,7 @@ export const ExperimentPageHeaderWithDescription = ({
   error: ApolloError | ReturnType<typeof useGetExperimentQuery>['apiError'];
   experimentKindSelector?: React.ReactNode;
   inferredExperimentKind?: ExperimentKind;
+  refetchExperiment?: () => Promise<unknown>;
 }) => {
   const { theme } = useDesignSystemTheme();
   const [showAddDescriptionButton, setShowAddDescriptionButton] = useState(true);
@@ -82,6 +84,7 @@ export const ExperimentPageHeaderWithDescription = ({
             inferredExperimentKind={inferredExperimentKind}
             setEditing={setEditing}
             experimentKindSelector={experimentKindSelector}
+            refetchExperiment={refetchExperiment}
           />
         ) : (
           <ExperimentViewHeader

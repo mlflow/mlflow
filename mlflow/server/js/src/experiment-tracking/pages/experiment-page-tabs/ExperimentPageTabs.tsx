@@ -142,6 +142,7 @@ const ExperimentPageTabsImpl = () => {
         onNoteUpdated={refetchExperiment}
         error={experimentError}
         inferredExperimentKind={inferredExperimentKind}
+        refetchExperiment={refetchExperiment}
         experimentKindSelector={
           <ExperimentViewHeaderKindSelector
             value={experimentKind}
