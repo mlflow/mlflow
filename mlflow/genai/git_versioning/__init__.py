@@ -61,6 +61,14 @@ class GitContext:
 _active_context: GitContext | None = None
 
 
+@record_usage_event(GitModelVersioningEvent)
+def _enable_git_model_versioning(remote_name: str) -> None:
+    global _active_context
+    context = GitContext(remote_name=remote_name)
+    _active_context = context
+    return context
+
+
 @experimental(version="3.4.0")
 def enable_git_model_versioning(remote_name: str = "origin") -> GitContext:
     """
@@ -109,13 +117,9 @@ def enable_git_model_versioning(remote_name: str = "origin") -> GitContext:
         If Git is not available or the current directory is not a Git repository,
         a warning is issued and versioning is disabled (context.info will be None).
     """
-    global _active_context
-    context = GitContext(remote_name=remote_name)
-    _active_context = context
-    return context
+    return _enable_git_model_versioning(remote_name)
 
 
-@record_usage_event(GitModelVersioningEvent)
 @experimental(version="3.4.0")
 def disable_git_model_versioning() -> None:
     """
