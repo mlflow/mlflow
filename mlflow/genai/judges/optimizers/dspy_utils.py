@@ -37,7 +37,7 @@ def trace_to_dspy_example(trace: Trace, judge_name: str) -> Any | None:
         request = extract_request_from_trace(trace)
         response = extract_response_from_trace(trace)
 
-        if not request or not response:
+        if request is None or response is None:
             logger.warning(f"Missing request or response in trace {trace.info.trace_id}")
             return None
 
