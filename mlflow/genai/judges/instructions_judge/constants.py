@@ -5,12 +5,19 @@ This module contains constant values used by the InstructionsJudge class,
 including the augmented prompt template for trace-based evaluation.
 """
 
-# Augmented prompt template for trace-based evaluation
-INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE = """
-You are an expert judge tasked with evaluating the performance of an AI agent on a particular query.
+# Common base prompt for all judge evaluations
+JUDGE_BASE_PROMPT = """You are an expert judge tasked with evaluating the performance of an AI
+agent on a particular query. You will be given instructions that describe the criteria and
+methodology for evaluating the agent's performance on the query."""
 
-You will be given instructions that describe the criteria and methodology for evaluating the
-agent's performance on the query. Your job is to analyze a trace of the agent's execution on the
+# Simple system prompt for field-based evaluation
+INSTRUCTIONS_JUDGE_SYSTEM_PROMPT = JUDGE_BASE_PROMPT + "\n\nYour task: {{instructions}}."
+
+
+# Augmented prompt template for trace-based evaluation
+INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE = (
+    JUDGE_BASE_PROMPT
+    + """ Your job is to analyze a trace of the agent's execution on the
 query and provide an evaluation rating in accordance with the instructions.
 
 A *trace* is a step-by-step record of how the agent processed the query, including the input query
@@ -53,3 +60,4 @@ Instructions
 ------------------------
 {instructions}
 """
+)

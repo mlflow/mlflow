@@ -1,6 +1,6 @@
 import json
 from dataclasses import asdict
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import PrivateAttr
 
@@ -11,12 +11,21 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import Judge, JudgeField
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.instructions_judge.constants import (
+    INSTRUCTIONS_JUDGE_SYSTEM_PROMPT,
     INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE,
 )
-from mlflow.genai.judges.utils import format_prompt, get_default_model, invoke_judge_model
+from mlflow.genai.judges.utils import (
+    add_output_format_instructions,
+    format_prompt,
+    get_default_model,
+    invoke_judge_model,
+)
 from mlflow.genai.scorers.base import _SERIALIZATION_VERSION, ScorerKind, SerializedScorer
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
+
+if TYPE_CHECKING:
+    from mlflow.types.llm import ChatMessage  # noqa: F401
 
 
 @experimental(version="3.4.0")
@@ -174,6 +183,15 @@ class InstructionsJudge(Judge):
         if not is_trace_based:
             self._validate_call_args_contain_template_fields(inputs, outputs, expectations)
 
+            # Build the system message with instructions template and output format
+            system_content = format_prompt(
+                INSTRUCTIONS_JUDGE_SYSTEM_PROMPT, instructions=self._instructions
+            )
+            system_content = add_output_format_instructions(
+                system_content, output_fields=self.get_output_fields()
+            )
+
+            # Build the user message with variable substitutions
             template_values = {}
             if inputs is not None:
                 template_values.update(inputs)
@@ -186,11 +204,29 @@ class InstructionsJudge(Judge):
                     )
                 template_values.update(expectations)
 
-            formatted_prompt = format_prompt(self._instructions, **template_values)
+            # Create user content with the actual values for each variable
+            user_message_parts = []
+            for var_name in sorted(self.template_variables):
+                if var_name in template_values:
+                    value = template_values[var_name]
+                    formatted_value = (
+                        value if isinstance(value, str) else json.dumps(value, default=str)
+                    )
+                    user_message_parts.append(f"{var_name}: {formatted_value}")
+
+            user_content = "\n".join(user_message_parts)
+
+            # Create messages list using ChatMessage objects
+            from mlflow.types.llm import ChatMessage
+
+            messages = [
+                ChatMessage(role="system", content=system_content),
+                ChatMessage(role="user", content=user_content),
+            ]
 
             return invoke_judge_model(
                 model_uri=self._model,
-                prompt=formatted_prompt,
+                prompt=messages,
                 assessment_name=self.name,
             )
 
@@ -201,8 +237,12 @@ class InstructionsJudge(Judge):
                 [f"- {field.name}: {field.description}" for field in output_fields]
             )
 
-            augmented_prompt = INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE.format(
+            base_prompt = INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE.format(
                 evaluation_rating_fields=evaluation_rating_fields, instructions=self._instructions
+            )
+            # Add structured output format instructions
+            augmented_prompt = add_output_format_instructions(
+                base_prompt, output_fields=output_fields
             )
             return invoke_judge_model(
                 model_uri=self._model,
