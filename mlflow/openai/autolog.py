@@ -326,6 +326,9 @@ def _end_span_on_success(span: LiveSpan, inputs: dict[str, Any], raw_result: Any
 def _process_last_chunk(span: LiveSpan, chunk: Any, inputs: dict[str, Any], output: list[Any]):
     if _is_responses_final_event(chunk):
         output = chunk.response
+    elif _is_response_output_item_done_event(chunk):
+        from openai.types.responses import Response
+        output = chunk.item  # return object of ResponseOutputItem type
     else:
         # Reconstruct a completion object from streaming chunks
         output = _reconstruct_completion_from_stream(output)
@@ -404,6 +407,15 @@ def _is_responses_final_event(chunk: Any) -> bool:
         from openai.types.responses import ResponseCompletedEvent
 
         return isinstance(chunk, ResponseCompletedEvent)
+    except ImportError:
+        return False
+
+
+def _is_response_output_item_done_event(chunk: Any) -> bool:
+    try:
+        from openai.types.responses import ResponseOutputItemDoneEvent
+
+        return isinstance(chunk, ResponseOutputItemDoneEvent)
     except ImportError:
         return False
 
