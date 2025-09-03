@@ -10,7 +10,6 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.span import Span
-from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.entities.trace import Trace, TraceData, TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
@@ -157,205 +156,311 @@ def sample_trace_without_assessment():
 @pytest.fixture
 def trace_with_nested_request_response():
     """Create a trace with nested request/response structure."""
+    # Create actual trace with real MLflow objects
+
+    # Create a real assessment object
     mock_assessment = Mock()
     mock_assessment.name = "mock_judge"
-    mock_assessment.source.source_type = "HUMAN"
+    mock_assessment.source = AssessmentSource(
+        source_type=AssessmentSourceType.HUMAN, source_id="test_user"
+    )
+    mock_assessment.feedback = Mock()
     mock_assessment.feedback.value = "pass"
     mock_assessment.rationale = "Complex nested structure handled well"
+    mock_assessment.create_time_ms = int(time.time() * 1000)
 
-    # Mock span with nested inputs and outputs
-    mock_span = Mock(spec=Span)
-    mock_span.span_id = "span-1"
-    mock_span.name = "root_span"
-    mock_span.inputs = {"query": {"text": "nested input", "context": {"key": "value"}}}
-    mock_span.outputs = {"result": {"answer": "nested output", "metadata": {"score": 0.9}}}
-    mock_span.status = SpanStatus(SpanStatusCode.OK)
+    # Create OpenTelemetry span with nested structure
+    current_time_ns = int(time.time() * 1e9)
+    nested_inputs = {"query": {"text": "nested input", "context": {"key": "value"}}}
+    nested_outputs = {"result": {"answer": "nested output", "metadata": {"score": 0.9}}}
 
-    mock_trace_info = Mock(spec=TraceInfo)
-    mock_trace_info.trace_id = "test_trace_nested"
-    mock_trace_info.assessments = [mock_assessment]
-    mock_trace_info.request_preview = (
-        '{"query": {"text": "nested input", "context": {"key": "value"}}}'
+    otel_span = OTelReadableSpan(
+        name="root_span",
+        context=build_otel_context(12347, 113),
+        parent=None,
+        start_time=current_time_ns,
+        end_time=current_time_ns + 1000000,
+        attributes={
+            "mlflow.traceRequestId": json.dumps("test_trace_nested"),
+            "mlflow.spanInputs": json.dumps(nested_inputs),
+            "mlflow.spanOutputs": json.dumps(nested_outputs),
+            "mlflow.spanType": json.dumps("CHAIN"),
+        },
     )
-    mock_trace_info.response_preview = (
-        '{"result": {"answer": "nested output", "metadata": {"score": 0.9}}}'
+
+    # Create real Span object
+    real_span = Span(otel_span)
+
+    # Create real TraceInfo
+    trace_info = TraceInfo(
+        trace_id="test_trace_nested",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=int(time.time() * 1000),
+        state=TraceState.OK,
+        execution_duration=1000,
+        trace_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
+        tags={},
+        assessments=[mock_assessment],
+        request_preview=json.dumps(nested_inputs),
+        response_preview=json.dumps(nested_outputs),
     )
 
-    mock_trace_data = Mock(spec=TraceData)
-    mock_trace_data.request = {"query": {"text": "nested input", "context": {"key": "value"}}}
-    mock_trace_data.response = {"result": {"answer": "nested output", "metadata": {"score": 0.9}}}
-    mock_trace_data.spans = [mock_span]
+    # Create real TraceData
+    trace_data = TraceData(spans=[real_span])
 
-    mock_trace = Mock(spec=Trace)
-    mock_trace.info = mock_trace_info
-    mock_trace.data = mock_trace_data
-
-    return mock_trace
+    # Create real Trace object
+    return Trace(info=trace_info, data=trace_data)
 
 
 @pytest.fixture
 def trace_with_list_request_response():
     """Create a trace with list-based request/response."""
+    # Create actual trace with real MLflow objects
+
+    # Create a real assessment object
     mock_assessment = Mock()
     mock_assessment.name = "mock_judge"
-    mock_assessment.source.source_type = "HUMAN"
+    mock_assessment.source = AssessmentSource(
+        source_type=AssessmentSourceType.HUMAN, source_id="test_user"
+    )
+    mock_assessment.feedback = Mock()
     mock_assessment.feedback.value = "fail"
     mock_assessment.rationale = "List processing needs improvement"
+    mock_assessment.create_time_ms = int(time.time() * 1000)
 
-    # Mock span with list inputs and outputs wrapped in dict structure
-    mock_span = Mock(spec=Span)
-    mock_span.span_id = "span-1"
-    mock_span.name = "root_span"
-    mock_span.inputs = {"items": ["item1", "item2", "item3"]}
-    mock_span.outputs = {"results": ["result1", "result2"]}
-    mock_span.status = SpanStatus(SpanStatusCode.OK)
+    # Create OpenTelemetry span with list structure
+    current_time_ns = int(time.time() * 1e9)
+    list_inputs = {"items": ["item1", "item2", "item3"]}
+    list_outputs = {"results": ["result1", "result2"]}
 
-    mock_trace_info = Mock(spec=TraceInfo)
-    mock_trace_info.trace_id = "test_trace_list"
-    mock_trace_info.assessments = [mock_assessment]
-    mock_trace_info.request_preview = '["item1", "item2", "item3"]'
-    mock_trace_info.response_preview = '["result1", "result2"]'
+    otel_span = OTelReadableSpan(
+        name="root_span",
+        context=build_otel_context(12348, 114),
+        parent=None,
+        start_time=current_time_ns,
+        end_time=current_time_ns + 1000000,
+        attributes={
+            "mlflow.traceRequestId": json.dumps("test_trace_list"),
+            "mlflow.spanInputs": json.dumps(list_inputs),
+            "mlflow.spanOutputs": json.dumps(list_outputs),
+            "mlflow.spanType": json.dumps("CHAIN"),
+        },
+    )
 
-    mock_trace_data = Mock(spec=TraceData)
-    mock_trace_data.request = ["item1", "item2", "item3"]
-    mock_trace_data.response = ["result1", "result2"]
-    mock_trace_data.spans = [mock_span]
+    # Create real Span object
+    real_span = Span(otel_span)
 
-    mock_trace = Mock(spec=Trace)
-    mock_trace.info = mock_trace_info
-    mock_trace.data = mock_trace_data
+    # Create real TraceInfo
+    trace_info = TraceInfo(
+        trace_id="test_trace_list",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=int(time.time() * 1000),
+        state=TraceState.OK,
+        execution_duration=1000,
+        trace_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
+        tags={},
+        assessments=[mock_assessment],
+        request_preview='["item1", "item2", "item3"]',
+        response_preview='["result1", "result2"]',
+    )
 
-    return mock_trace
+    # Create real TraceData
+    trace_data = TraceData(spans=[real_span])
+
+    # Create real Trace object
+    return Trace(info=trace_info, data=trace_data)
 
 
 @pytest.fixture
 def trace_with_string_request_response():
     """Create a trace with simple string request/response."""
+    # Create actual trace with real MLflow objects
+
+    # Create a real assessment object
     mock_assessment = Mock()
     mock_assessment.name = "mock_judge"
-    mock_assessment.source.source_type = "HUMAN"
+    mock_assessment.source = AssessmentSource(
+        source_type=AssessmentSourceType.HUMAN, source_id="test_user"
+    )
+    mock_assessment.feedback = Mock()
     mock_assessment.feedback.value = "pass"
     mock_assessment.rationale = "Simple string handled correctly"
+    mock_assessment.create_time_ms = int(time.time() * 1000)
 
-    # Mock span with string inputs and outputs
-    mock_span = Mock(spec=Span)
-    mock_span.span_id = "span-1"
-    mock_span.name = "root_span"
-    mock_span.inputs = "What is the capital of France?"
-    mock_span.outputs = "Paris"
-    mock_span.status = SpanStatus(SpanStatusCode.OK)
+    # Create OpenTelemetry span with string inputs/outputs
+    current_time_ns = int(time.time() * 1e9)
+    string_input = "What is the capital of France?"
+    string_output = "Paris"
 
-    mock_trace_info = Mock(spec=TraceInfo)
-    mock_trace_info.trace_id = "test_trace_string"
-    mock_trace_info.assessments = [mock_assessment]
-    mock_trace_info.request_preview = '"What is the capital of France?"'
-    mock_trace_info.response_preview = '"Paris"'
+    otel_span = OTelReadableSpan(
+        name="root_span",
+        context=build_otel_context(12349, 115),
+        parent=None,
+        start_time=current_time_ns,
+        end_time=current_time_ns + 1000000,
+        attributes={
+            "mlflow.traceRequestId": json.dumps("test_trace_string"),
+            "mlflow.spanInputs": json.dumps(string_input),
+            "mlflow.spanOutputs": json.dumps(string_output),
+            "mlflow.spanType": json.dumps("CHAIN"),
+        },
+    )
 
-    mock_trace_data = Mock(spec=TraceData)
-    mock_trace_data.request = "What is the capital of France?"
-    mock_trace_data.response = "Paris"
-    mock_trace_data.spans = [mock_span]
+    # Create real Span object
+    real_span = Span(otel_span)
 
-    mock_trace = Mock(spec=Trace)
-    mock_trace.info = mock_trace_info
-    mock_trace.data = mock_trace_data
+    # Create real TraceInfo
+    trace_info = TraceInfo(
+        trace_id="test_trace_string",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=int(time.time() * 1000),
+        state=TraceState.OK,
+        execution_duration=1000,
+        trace_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
+        tags={},
+        assessments=[mock_assessment],
+        request_preview=json.dumps(string_input),
+        response_preview=json.dumps(string_output),
+    )
 
-    return mock_trace
+    # Create real TraceData
+    trace_data = TraceData(spans=[real_span])
+
+    # Create real Trace object
+    return Trace(info=trace_info, data=trace_data)
 
 
 @pytest.fixture
 def trace_with_mixed_types():
     """Create a trace with mixed data types in request/response."""
+    # Create actual trace with real MLflow objects
+
+    # Create a real assessment object
     mock_assessment = Mock()
     mock_assessment.name = "mock_judge"
-    mock_assessment.source.source_type = "HUMAN"
+    mock_assessment.source = AssessmentSource(
+        source_type=AssessmentSourceType.HUMAN, source_id="test_user"
+    )
+    mock_assessment.feedback = Mock()
     mock_assessment.feedback.value = "pass"
     mock_assessment.rationale = "Mixed types processed successfully"
+    mock_assessment.create_time_ms = int(time.time() * 1000)
 
-    # Mock span with mixed type inputs and outputs
-    mock_span = Mock(spec=Span)
-    mock_span.span_id = "span-1"
-    mock_span.name = "root_span"
-    mock_span.inputs = {"prompt": "test", "temperature": 0.7, "max_tokens": 100}
-    mock_span.outputs = {"text": "response", "tokens_used": 50, "success": True}
-    mock_span.status = SpanStatus(SpanStatusCode.OK)
+    # Create OpenTelemetry span with mixed types
+    current_time_ns = int(time.time() * 1e9)
+    mixed_inputs = {"prompt": "test", "temperature": 0.7, "max_tokens": 100}
+    mixed_outputs = {"text": "response", "tokens_used": 50, "success": True}
 
-    mock_trace_info = Mock(spec=TraceInfo)
-    mock_trace_info.trace_id = "test_trace_mixed"
-    mock_trace_info.assessments = [mock_assessment]
-    mock_trace_info.request_preview = '{"prompt": "test", "temperature": 0.7, "max_tokens": 100}'
-    mock_trace_info.response_preview = '{"text": "response", "tokens_used": 50, "success": true}'
+    otel_span = OTelReadableSpan(
+        name="root_span",
+        context=build_otel_context(12350, 116),
+        parent=None,
+        start_time=current_time_ns,
+        end_time=current_time_ns + 1000000,
+        attributes={
+            "mlflow.traceRequestId": json.dumps("test_trace_mixed"),
+            "mlflow.spanInputs": json.dumps(mixed_inputs),
+            "mlflow.spanOutputs": json.dumps(mixed_outputs),
+            "mlflow.spanType": json.dumps("CHAIN"),
+        },
+    )
 
-    mock_trace_data = Mock(spec=TraceData)
-    mock_trace_data.request = {"prompt": "test", "temperature": 0.7, "max_tokens": 100}
-    mock_trace_data.response = {"text": "response", "tokens_used": 50, "success": True}
-    mock_trace_data.spans = [mock_span]
+    # Create real Span object
+    real_span = Span(otel_span)
 
-    mock_trace = Mock(spec=Trace)
-    mock_trace.info = mock_trace_info
-    mock_trace.data = mock_trace_data
+    # Create real TraceInfo
+    trace_info = TraceInfo(
+        trace_id="test_trace_mixed",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=int(time.time() * 1000),
+        state=TraceState.OK,
+        execution_duration=1000,
+        trace_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
+        tags={},
+        assessments=[mock_assessment],
+        request_preview=json.dumps(mixed_inputs),
+        response_preview=json.dumps(mixed_outputs),
+    )
 
-    return mock_trace
+    # Create real TraceData
+    trace_data = TraceData(spans=[real_span])
+
+    # Create real Trace object
+    return Trace(info=trace_info, data=trace_data)
 
 
 @pytest.fixture
 def sample_traces_with_assessments():
     """Create multiple sample traces with assessments."""
     traces = []
+    # Create actual traces with real MLflow objects
 
     for i in range(5):
-        # Mock assessment
+        # Create a real assessment object
         mock_assessment = Mock()
         mock_assessment.name = "mock_judge"
-        mock_assessment.source.source_type = "HUMAN"
+        mock_assessment.source = AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN, source_id="test_user"
+        )
+        mock_assessment.feedback = Mock()
         mock_assessment.feedback.value = "pass" if i % 2 == 0 else "fail"
         mock_assessment.rationale = f"Rationale for trace {i}"
+        mock_assessment.create_time_ms = int(time.time() * 1000) + i  # Slightly different times
 
-        # Mock span with inputs and outputs
-        mock_span = Mock(spec=Span)
-        mock_span.span_id = f"span-{i}"
-        mock_span.name = "root_span"
-        mock_span.inputs = {"inputs": f"test input {i}"}
-        mock_span.outputs = {"outputs": f"test output {i}"}
-        mock_span.status = SpanStatus(SpanStatusCode.OK)
+        # Create OpenTelemetry span
+        current_time_ns = int(time.time() * 1e9) + i * 1000000
+        inputs = {"inputs": f"test input {i}"}
+        outputs = {"outputs": f"test output {i}"}
 
-        # Mock trace info
-        mock_trace_info = Mock(spec=TraceInfo)
-        mock_trace_info.trace_id = f"test_trace_{i:03d}"
-        mock_trace_info.assessments = [mock_assessment]
-        mock_trace_info.request_preview = f'{{"inputs": "test input {i}"}}'
-        mock_trace_info.response_preview = f'{{"outputs": "test output {i}"}}'
+        otel_span = OTelReadableSpan(
+            name="root_span",
+            context=build_otel_context(12351 + i, 117 + i),
+            parent=None,
+            start_time=current_time_ns,
+            end_time=current_time_ns + 1000000,
+            attributes={
+                "mlflow.traceRequestId": json.dumps(f"test_trace_{i:03d}"),
+                "mlflow.spanInputs": json.dumps(inputs),
+                "mlflow.spanOutputs": json.dumps(outputs),
+                "mlflow.spanType": json.dumps("CHAIN"),
+            },
+        )
 
-        # Mock trace data
-        mock_trace_data = Mock(spec=TraceData)
-        mock_trace_data.request = {"inputs": f"test input {i}"}
-        mock_trace_data.response = {"outputs": f"test output {i}"}
-        mock_trace_data.spans = [mock_span]
+        # Create real Span object
+        real_span = Span(otel_span)
 
-        # Mock trace
-        mock_trace = Mock(spec=Trace)
-        mock_trace.info = mock_trace_info
-        mock_trace.data = mock_trace_data
+        # Create real TraceInfo
+        trace_info = TraceInfo(
+            trace_id=f"test_trace_{i:03d}",
+            trace_location=TraceLocation.from_experiment_id("0"),
+            request_time=int(time.time() * 1000) + i,
+            state=TraceState.OK,
+            execution_duration=1000,
+            trace_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
+            tags={},
+            assessments=[mock_assessment],
+            request_preview=json.dumps(inputs),
+            response_preview=json.dumps(outputs),
+        )
 
-        traces.append(mock_trace)
+        # Create real TraceData
+        trace_data = TraceData(spans=[real_span])
+
+        # Create real Trace object
+        trace = Trace(info=trace_info, data=trace_data)
+        traces.append(trace)
 
     return traces
 
 
 @pytest.fixture
 def mock_dspy_example():
-    """Create a mock DSPy example for testing."""
-    mock_example = Mock()
-    mock_example.inputs = "test inputs"
-    mock_example.outputs = "test outputs"
-    mock_example.result = "pass"
-    mock_example.rationale = "test rationale"
-
-    def mock_with_inputs(*args):
-        return mock_example
-
-    mock_example.with_inputs = mock_with_inputs
-    return mock_example
+    """Create a DSPy example for testing."""
+    # Return an actual dspy.Example
+    example = dspy.Example(
+        inputs="test inputs", outputs="test outputs", result="pass", rationale="test rationale"
+    )
+    return example.with_inputs("inputs", "outputs")
 
 
 @pytest.fixture

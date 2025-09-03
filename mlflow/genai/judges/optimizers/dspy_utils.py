@@ -17,6 +17,7 @@ try:
 
     DSPY_AVAILABLE = True
 except ImportError:
+    # DSPy is not installed - functions will raise MlflowException when called
     dspy = None
     DSPY_AVAILABLE = False
 
@@ -61,8 +62,15 @@ def trace_to_dspy_example(trace: Trace, judge_name: str) -> Optional["dspy.Examp
         sanitized_judge_name = judge_name.lower().strip()
 
         if trace.info.assessments:
-            # Process the assessments in reverse chronological order (most recent first)
-            for assessment in reversed(trace.info.assessments):
+            # Sort assessments by creation time (most recent first) then process
+            sorted_assessments = sorted(
+                trace.info.assessments,
+                key=lambda a: (
+                    a.create_time_ms if hasattr(a, "create_time_ms") and a.create_time_ms else 0
+                ),
+                reverse=True,
+            )
+            for assessment in sorted_assessments:
                 if (
                     assessment.name == sanitized_judge_name
                     and assessment.source.source_type == AssessmentSourceType.HUMAN
