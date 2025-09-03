@@ -4,9 +4,27 @@ import { APILink } from "@site/src/components/APILink";
 
 LLM-as-a-Judge is an evaluation approach that uses Large Language Models to assess the quality of AI-generated responses. LLM judges can evaluate subjective qualities like helpfulness and safety, which are hard to measure with heuristic metrics. On the other hand, LLM-as-a-Judge scorers are more scalable and cost-effective than human evaluation. See the [Evaluation Approach Comparison](/genai/eval-monitor/scorers#evaluation-approaches-comparison) for a more detailed comparison and guides on how to use other approaches in MLflow.
 
+:::tip[New in MLflow 3.4.0: make_judge API]
+
+The new <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API provides a unified, flexible interface for creating custom LLM judges. It offers template-based instructions, seamless integration with MLflow evaluation, and version control capabilities.
+
+[Learn more about make_judge →](/genai/eval-monitor/scorers/llm-judge/make-judge)
+
+:::
+
 ## Approaches for Using LLM Scorers
 
-MLflow offers different approaches to use LLM-as-a-Judge, with different levels of simplicity and control. We recommend starting with a simpler approach and evolving to more complex ones as needed.
+MLflow offers different approaches to use LLM-as-a-Judge, with different levels of simplicity and control. We recommend starting with the make_judge API for the best balance of simplicity and flexibility.
+
+### make_judge API (Recommended)
+
+Simplicity: ⭐⭐⭐⭐
+Control: ⭐⭐⭐⭐⭐
+
+- **Best for**: Creating any type of custom judge with a unified, template-based interface. Perfect for teams who want flexibility without complexity.
+- **How it works**: Write natural language templates with variable substitution. Register and version your judges for team collaboration. Supports all evaluation scenarios with clean separation of inputs, outputs, and expectations.
+
+[Get started with make_judge »](/genai/eval-monitor/scorers/llm-judge/make-judge)
 
 ### Predefined LLM scorers
 

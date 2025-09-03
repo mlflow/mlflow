@@ -7,6 +7,14 @@ import ServerSetup from "@site/src/content/setup_server.mdx";
 
 # GenAI Evaluation Quickstart
 
+:::info[New in MLflow 3.4.0: make_judge API]
+
+After completing this quickstart, explore the new <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API for creating custom judges with template-based instructions and version control capabilities.
+
+[Learn about make_judge →](/genai/eval-monitor/scorers/llm-judge/make-judge)
+
+:::
+
 This quickstart guide will walk you through evaluating your GenAI applications with MLflow's comprehensive evaluation framework. In less than 5 minutes, you'll learn how to evaluate LLM outputs, use built-in and custom evaluation criteria, and analyze results in the MLflow UI.
 
 <ImageBox src="/images/mlflow-3/eval-monitor/quickstart-eval-hero.png" alt="Simple Evaluation Results" />
@@ -126,6 +134,10 @@ scorers = [
 ]
 ```
 
+:::info[Pro Tip]
+For more advanced custom judges with template-based instructions and version control, check out the new <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API. It provides a unified interface for all judge types and seamless MLflow integration. [Learn more →](/genai/eval-monitor/scorers/llm-judge/make-judge)
+:::
+
 Here we use three scorers:
 
 - <APILink fn="mlflow.genai.scorers.Correctness">Correctness</APILink>: Evaluates if the answer is factually correct, using the "expected_response" field in the dataset.
@@ -195,3 +207,14 @@ Congratulations! You've successfully:
 - ✅ Learned to analyze results in the MLflow UI
 
 MLflow's evaluation framework provides comprehensive tools for assessing GenAI application quality, helping you build more reliable and effective AI systems.
+
+## Next Steps: Advanced Custom Judges
+
+Want to create more sophisticated custom judges? The new **make_judge API** (MLflow 3.4.0+) provides a unified, flexible interface for creating custom LLM judges with:
+
+- **Template-based instructions** with variable substitution
+- **Version control** for registering and tracking judge iterations
+- **Seamless integration** with MLflow evaluation framework
+- **Flexible data organization** with inputs, outputs, and expectations
+
+[Learn how to use make_judge →](/genai/eval-monitor/scorers/llm-judge/make-judge)

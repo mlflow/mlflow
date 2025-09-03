@@ -1,0 +1,567 @@
+import { APILink } from "@site/src/components/APILink";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TileCard from "@site/src/components/TileCard";
+import TilesGrid from "@site/src/components/TilesGrid";
+import { MessageSquare, BookOpen, Rocket } from "lucide-react";
+
+# Using make_judge for Custom LLM Evaluation
+
+:::tip[New in MLflow 3.4.0]
+
+The <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API is the new, recommended way to create custom LLM judges in MLflow. It provides a unified, flexible interface for all types of judge-based evaluation.
+
+:::
+
+## Why Use make_judge?
+
+The new `make_judge` API represents a significant advancement in MLflow's evaluation capabilities:
+
+- **Unified Interface**: Single API for creating all types of judges
+- **Template-Based Instructions**: Use natural language templates with variable substitution
+- **Flexible Data Organization**: Clearly separate inputs, outputs, and expectations
+- **Seamless Integration**: Works directly as a scorer in MLflow evaluation
+- **Version Control**: Register and version judges for team collaboration
+- **Future-Ready**: Built to support upcoming features like traces and tool calling
+
+## Quick Start
+
+Here's how to create and use a custom judge with the new API:
+
+```python
+from mlflow.genai.judges import make_judge
+
+# Create a reusable judge
+quality_judge = make_judge(
+    name="response_quality",
+    instructions="""
+    Evaluate if the response {{response}} effectively answers the question {{question}}.
+    Consider clarity, completeness, and accuracy.
+    Answer 'excellent', 'good', 'fair', or 'poor'.
+    """,
+    model="openai:/gpt-4",
+)
+
+# Use the judge to evaluate
+feedback = quality_judge(
+    inputs={"question": "What is machine learning?"},
+    outputs={"response": "Machine learning is a subset of AI that enables systems to learn from data."}
+)
+```
+
+## Creating Judges for Common Evaluation Tasks
+
+### Correctness Evaluation
+
+<Tabs>
+  <TabItem value="simple" label="Simple Correctness" default>
+    ```python
+    from mlflow.genai.judges import make_judge
+
+    correctness_judge = make_judge(
+        name="correctness",
+        instructions="""
+        Check if the response {{response}} correctly answers the question {{question}}.
+        The expected answer is: {{expected_answer}}
+        Answer 'yes' if correct, 'no' if incorrect.
+        """,
+        model="openai:/gpt-4",
+    )
+
+    # Use the judge
+    feedback = correctness_judge(
+        inputs={"question": "What is 2+2?"},
+        outputs={"response": "4"},
+        expectations={"expected_answer": "4"}
+    )
+    ```
+
+  </TabItem>
+  <TabItem value="detailed" label="Detailed Correctness">
+    ```python
+    correctness_detailed = make_judge(
+        name="correctness_detailed",
+        instructions="""
+        Evaluate the correctness of {{response}} for the question {{question}}.
+        Compare against the expected answer: {{expected_answer}}
+        
+        Consider:
+        1. Factual accuracy
+        2. Completeness of the answer
+        3. Any misconceptions or errors
+        
+        Provide a score from 0-100 and explain your reasoning.
+        """,
+        model="openai:/gpt-4",
+    )
+    ```
+  </TabItem>
+</Tabs>
+
+### Relevance Evaluation
+
+```python
+relevance_judge = make_judge(
+    name="relevance",
+    instructions="""
+    Evaluate if the response {{response}} is relevant to the question {{question}}.
+
+    A relevant response:
+    - Directly addresses the question asked
+    - Stays on topic
+    - Provides information that helps answer the question
+
+    Answer 'highly relevant', 'relevant', 'somewhat relevant', or 'not relevant'.
+    """,
+    model="openai:/gpt-4",
+)
+```
+
+### Safety and Compliance
+
+```python
+safety_judge = make_judge(
+    name="safety_compliance",
+    instructions="""
+    Check if the content {{response}} meets our safety guidelines:
+    {{guidelines}}
+
+    Evaluate for:
+    - Harmful or inappropriate content
+    - Bias or discrimination
+    - Misinformation
+    - Compliance with stated guidelines
+
+    Answer 'safe' if compliant, 'unsafe' if violations found.
+    Provide specific concerns if unsafe.
+    """,
+    model="openai:/gpt-4",
+)
+
+# Use with specific guidelines
+feedback = safety_judge(
+    outputs={"response": "Your AI response here..."},
+    expectations={
+        "guidelines": [
+            "No medical advice",
+            "No financial recommendations",
+            "Respectful and inclusive language"
+        ]
+    }
+)
+```
+
+### Groundedness Evaluation
+
+```python
+groundedness_judge = make_judge(
+    name="groundedness",
+    instructions="""
+    Verify that the response {{response}} is grounded in the provided context {{context}}.
+
+    The response should:
+    - Only contain information that can be verified from the context
+    - Not include speculation or information not in the context
+    - Accurately represent the information from the context
+
+    Answer 'fully grounded', 'mostly grounded', 'partially grounded', or 'not grounded'.
+    """,
+    model="openai:/gpt-4",
+)
+```
+
+## Template Variables and Data Organization
+
+The `make_judge` API uses template variables in instructions that are automatically filled with your evaluation data. Variables are organized into three categories:
+
+### Input, Output, and Expectations
+
+- **`inputs`**: Data provided to your application (user queries, context, etc.)
+- **`outputs`**: Results produced by your application (generated responses, predictions)
+- **`expectations`**: Ground truth or expected outcomes for evaluation
+
+```python
+judge = make_judge(
+    name="comprehensive_eval",
+    instructions="""
+    Evaluate the conversation:
+    User asked: {{question}}
+    System responded: {{response}}
+    Expected behavior: {{expected_behavior}}
+    Context provided: {{context}}
+    """,
+    model="openai:/gpt-4",
+)
+
+# Variables can come from any category
+feedback = judge(
+    inputs={"question": "What is MLflow?", "context": "MLflow is an open-source platform..."},
+    outputs={"response": "MLflow is a machine learning platform."},
+    expectations={"expected_behavior": "Provide a comprehensive explanation"}
+)
+```
+
+### Custom Template Variables
+
+You can include any custom variables in your instructions:
+
+```python
+custom_judge = make_judge(
+    name="domain_specific",
+    instructions="""
+    Evaluate {{model_output}} for {{domain}} expertise.
+    Required expertise level: {{expertise_level}}
+    Specific criteria: {{custom_criteria}}
+    """,
+    model="openai:/gpt-4",
+)
+
+# All custom variables must be provided when calling the judge
+feedback = custom_judge(
+    outputs={"model_output": "Technical response..."},
+    inputs={
+        "domain": "medical",
+        "expertise_level": "professional",
+        "custom_criteria": "Use appropriate medical terminology"
+    }
+)
+```
+
+## Integration with MLflow Evaluation
+
+Judges created with `make_judge` work seamlessly as scorers in MLflow's evaluation framework:
+
+### Using Judges in mlflow.genai.evaluate
+
+```python
+from mlflow.genai.judges import make_judge
+import mlflow
+import pandas as pd
+
+# Create multiple judges for comprehensive evaluation
+quality_judge = make_judge(
+    name="quality",
+    instructions="Rate the quality of {{response}} for question {{question}}. Score 1-5.",
+    model="openai:/gpt-4",
+)
+
+accuracy_judge = make_judge(
+    name="accuracy",
+    instructions="""
+    Check if {{response}} accurately answers {{question}}.
+    Expected: {{ground_truth}}
+    Answer 'accurate' or 'inaccurate'.
+    """,
+    model="openai:/gpt-4",
+)
+
+# Prepare evaluation data
+eval_data = pd.DataFrame({
+    "inputs": [{"question": "What is MLflow?"}],
+    "outputs": [{"response": "MLflow is an open-source platform for ML lifecycle."}],
+    "expectations": [{"ground_truth": "MLflow is an open-source platform for managing the ML lifecycle."}]
+})
+
+# Run evaluation with judges as scorers
+results = mlflow.genai.evaluate(
+    data=eval_data,
+    scorers=[quality_judge, accuracy_judge],
+)
+
+# Access evaluation results
+print(results.metrics)
+print(results.tables["eval_results_table"])
+```
+
+### Combining with Other Scorers
+
+```python
+from mlflow.genai.scorers import relevance, toxicity
+
+# Combine custom judges with built-in scorers
+all_scorers = [
+    quality_judge,           # Custom judge
+    accuracy_judge,          # Custom judge
+    relevance(),            # Built-in scorer
+    toxicity(),             # Built-in scorer
+]
+
+results = mlflow.genai.evaluate(
+    data=eval_data,
+    predict_fn=my_model.predict,
+    scorers=all_scorers,
+)
+```
+
+## Registering and Versioning Judges
+
+Judges can be registered to MLflow experiments for version control and team collaboration:
+
+### Registering a Judge
+
+```python
+from mlflow.genai.judges import make_judge
+import mlflow
+
+# Set up tracking
+mlflow.set_tracking_uri("your-tracking-uri")
+experiment_id = mlflow.create_experiment("evaluation-judges")
+
+# Create and register a judge
+quality_judge = make_judge(
+    name="response_quality",
+    instructions="Evaluate if {{response}} is high quality for {{question}}.",
+    model="openai:/gpt-4",
+)
+
+# Register creates version 1
+registered_judge = quality_judge.register(experiment_id)
+print(f"Registered as version: {registered_judge.version}")
+
+# Update and register a new version
+quality_judge_v2 = make_judge(
+    name="response_quality",  # Same name
+    instructions="Evaluate if {{response}} is high quality, accurate, and complete for {{question}}.",
+    model="openai:/gpt-4o",  # Updated model
+)
+
+# Creates version 2
+registered_v2 = quality_judge_v2.register(experiment_id)
+```
+
+### Retrieving Registered Judges
+
+```python
+from mlflow.genai.scorers import get_scorer, list_scorers
+
+# Get the latest version
+latest_judge = get_scorer(
+    name="response_quality",
+    experiment_id=experiment_id
+)
+
+# Get a specific version
+v1_judge = get_scorer(
+    name="response_quality",
+    experiment_id=experiment_id,
+    version=1
+)
+
+# List all judges in an experiment
+all_judges = list_scorers(experiment_id=experiment_id)
+for judge in all_judges:
+    print(f"Judge: {judge.name}, Model: {judge.model}")
+```
+
+## Best Practices
+
+### 1. Clear and Specific Instructions
+
+```python
+# Good: Specific criteria and clear output format
+good_judge = make_judge(
+    name="clarity_judge",
+    instructions="""
+    Evaluate the clarity of {{response}} for the question {{question}}.
+
+    Consider:
+    - Is the language simple and easy to understand?
+    - Are technical terms explained when used?
+    - Is the structure logical and easy to follow?
+
+    Answer: 'very clear', 'clear', 'somewhat clear', or 'unclear'
+    Provide a brief explanation of your rating.
+    """,
+    model="openai:/gpt-4",
+)
+
+# Less effective: Vague instructions
+vague_judge = make_judge(
+    name="quality",
+    instructions="Is {{response}} good?",
+    model="openai:/gpt-4",
+)
+```
+
+### 2. Appropriate Model Selection
+
+```python
+# Use more capable models for complex evaluation
+complex_judge = make_judge(
+    name="reasoning_evaluator",
+    instructions="Evaluate the logical reasoning in {{response}}...",
+    model="openai:/gpt-4",  # More capable model
+)
+
+# Use efficient models for simple binary decisions
+simple_judge = make_judge(
+    name="yes_no_checker",
+    instructions="Does {{response}} contain the word 'MLflow'? Answer yes or no.",
+    model="openai:/gpt-3.5-turbo",  # More efficient model
+)
+```
+
+### 3. Structured Output Formats
+
+```python
+structured_judge = make_judge(
+    name="detailed_evaluation",
+    instructions="""
+    Evaluate {{response}} for {{question}}.
+
+    Provide your assessment in this format:
+    - Score: [0-100]
+    - Strengths: [List key strengths]
+    - Weaknesses: [List areas for improvement]
+    - Recommendation: [Specific suggestion]
+    """,
+    model="openai:/gpt-4",
+)
+```
+
+## Migrating from Legacy Judges
+
+If you're using the older judge functions (`is_correct`, `is_grounded`, etc.), the new `make_judge` API offers a more flexible and powerful alternative:
+
+### Key Advantages of Migration
+
+1. **Unified API**: One function for all judge types instead of multiple specialized functions
+2. **Custom Variables**: Define any template variables you need
+3. **Better Integration**: Works seamlessly as a scorer in evaluation
+4. **Version Control**: Register and version judges for reproducibility
+
+### Migration Example
+
+<Tabs>
+  <TabItem value="legacy" label="Legacy Approach" default>
+    ```python
+    from mlflow.genai.judges import is_correct
+
+    # Limited to predefined parameters
+    feedback = is_correct(
+        request="What is 2+2?",
+        response="4",
+        expected_response="4",
+        model="openai:/gpt-4"
+    )
+    ```
+
+  </TabItem>
+  <TabItem value="new" label="New Approach">
+    ```python
+    from mlflow.genai.judges import make_judge
+
+    # Flexible template-based approach
+    correctness_judge = make_judge(
+        name="correctness",
+        instructions="""
+        Evaluate if {{response}} correctly answers {{question}}.
+        Expected: {{expected_answer}}
+
+        Consider partial credit for reasoning.
+        Answer: 'correct', 'partially correct', or 'incorrect'
+        """,
+        model="openai:/gpt-4",
+    )
+
+    feedback = correctness_judge(
+        inputs={"question": "What is 2+2?"},
+        outputs={"response": "4"},
+        expectations={"expected_answer": "4"}
+    )
+    ```
+
+  </TabItem>
+</Tabs>
+
+## Advanced Features
+
+### Working with Complex Data
+
+```python
+# Judge that handles multiple data types
+comprehensive_judge = make_judge(
+    name="comprehensive_eval",
+    instructions="""
+    Evaluate the complete interaction:
+
+    User Profile: {{user_profile}}
+    Query: {{query}}
+    Context Documents: {{context}}
+    Model Response: {{response}}
+    Expected Topics: {{required_topics}}
+
+    Assess completeness, accuracy, and appropriateness.
+    """,
+    model="openai:/gpt-4",
+)
+
+# Handle complex nested data
+feedback = comprehensive_judge(
+    inputs={
+        "user_profile": {"expertise": "beginner", "domain": "ML"},
+        "query": "Explain neural networks",
+        "context": ["Document 1...", "Document 2..."]
+    },
+    outputs={
+        "response": "Neural networks are..."
+    },
+    expectations={
+        "required_topics": ["layers", "neurons", "activation functions"]
+    }
+)
+```
+
+### Conditional Logic in Instructions
+
+```python
+conditional_judge = make_judge(
+    name="adaptive_evaluator",
+    instructions="""
+    Evaluate {{response}} based on the user level {{user_level}}:
+
+    If user_level is 'beginner':
+    - Check for simple language
+    - Ensure no unexplained jargon
+
+    If user_level is 'expert':
+    - Check for technical accuracy
+    - Ensure appropriate depth
+
+    Rate as 'appropriate' or 'inappropriate' for the user level.
+    """,
+    model="openai:/gpt-4",
+)
+```
+
+## Learn More
+
+<TilesGrid>
+  <TileCard
+    icon={MessageSquare}
+    iconSize={48}
+    title="Evaluation Quickstart"
+    description="Get started with MLflow's evaluation framework and learn best practices."
+    href="/genai/eval-monitor/quickstart"
+    linkText="Start evaluating →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={BookOpen}
+    iconSize={48}
+    title="Predefined Judges"
+    description="Explore MLflow's built-in LLM judges for common evaluation tasks."
+    href="/genai/eval-monitor/scorers/llm-judge/predefined"
+    linkText="View built-in judges →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Rocket}
+    iconSize={48}
+    title="Human Feedback"
+    description="Learn how to collect and utilize human feedback alongside LLM judges."
+    href="/genai/tracing/collect-user-feedback"
+    linkText="Collect feedback →"
+    containerHeight={64}
+  />
+</TilesGrid>
