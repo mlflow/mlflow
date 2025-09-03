@@ -1,10 +1,10 @@
-"""Unit tests for the commands module."""
+"""Unit tests for the AI commands utilities."""
 
 from unittest import mock
 
 import pytest
 
-from mlflow.commands import get_command, list_commands, parse_frontmatter
+from mlflow.ai_commands import get_command, list_commands, parse_frontmatter
 
 
 def test_parse_frontmatter_with_metadata():
@@ -83,7 +83,7 @@ description: Training command
 ---
 Content""")
 
-    with mock.patch("mlflow.commands.core.Path") as mock_path:
+    with mock.patch("mlflow.ai_commands.ai_command_utils.Path") as mock_path:
         # Mock Path(__file__).parent to return tmp_path/commands
         mock_path.return_value.parent = tmp_path / "commands"
 
@@ -124,7 +124,7 @@ description: Training command
 ---
 Content""")
 
-    with mock.patch("mlflow.commands.core.Path") as mock_path:
+    with mock.patch("mlflow.ai_commands.ai_command_utils.Path") as mock_path:
         mock_path.return_value.parent = tmp_path / "commands"
 
         # Filter by genai namespace
@@ -150,7 +150,7 @@ This is the full content."""
     test_cmd = genai_dir / "analyze.md"
     test_cmd.write_text(test_content)
 
-    with mock.patch("mlflow.commands.core.Path") as mock_path:
+    with mock.patch("mlflow.ai_commands.ai_command_utils.Path") as mock_path:
         mock_path.return_value.parent = tmp_path / "commands"
 
         content = get_command("genai/analyze")
@@ -163,7 +163,7 @@ def test_get_command_not_found(tmp_path):
     commands_dir = tmp_path / "commands"
     commands_dir.mkdir()
 
-    with mock.patch("mlflow.commands.core.Path") as mock_path:
+    with mock.patch("mlflow.ai_commands.ai_command_utils.Path") as mock_path:
         mock_path.return_value.parent = commands_dir
 
         with pytest.raises(FileNotFoundError, match="Command 'nonexistent/command' not found"):
@@ -176,7 +176,7 @@ def test_list_commands_empty_directory(tmp_path):
     commands_dir = tmp_path / "commands"
     commands_dir.mkdir()
 
-    with mock.patch("mlflow.commands.core.Path") as mock_path:
+    with mock.patch("mlflow.ai_commands.ai_command_utils.Path") as mock_path:
         mock_path.return_value.parent = tmp_path
 
         commands = list_commands()
@@ -186,7 +186,7 @@ def test_list_commands_empty_directory(tmp_path):
 
 def test_list_commands_nonexistent_directory(tmp_path):
     """Test listing commands when directory doesn't exist."""
-    with mock.patch("mlflow.commands.core.Path") as mock_path:
+    with mock.patch("mlflow.ai_commands.ai_command_utils.Path") as mock_path:
         mock_path.return_value.parent = tmp_path
 
         commands = list_commands()
@@ -212,7 +212,7 @@ Content""")
     invalid_cmd.touch()
     invalid_cmd.chmod(0o000)  # Remove read permissions
 
-    with mock.patch("mlflow.commands.core.Path") as mock_path:
+    with mock.patch("mlflow.ai_commands.ai_command_utils.Path") as mock_path:
         mock_path.return_value.parent = tmp_path / "commands"
 
         # Should skip the unreadable file

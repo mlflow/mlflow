@@ -15,8 +15,7 @@ import mlflow.deployments.cli
 import mlflow.experiments
 import mlflow.runs
 import mlflow.store.artifact.cli
-from mlflow import projects, version
-from mlflow.cli import ai_commands
+from mlflow import ai_commands, projects, version
 from mlflow.entities import ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID, MLFLOW_EXPERIMENT_NAME

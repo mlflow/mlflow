@@ -22,7 +22,7 @@ def test_list_commands_cli():
         },
     ]
 
-    with mock.patch("mlflow.cli.ai_commands.list_commands", return_value=mock_commands):
+    with mock.patch("mlflow.ai_commands.list_commands", return_value=mock_commands):
         runner = CliRunner()
         result = runner.invoke(cli, ["ai-commands", "list"])
 
@@ -54,22 +54,22 @@ def test_list_commands_with_namespace_cli():
 
 def test_list_commands_empty_cli():
     """Test CLI list command when no commands found."""
-    with mock.patch("mlflow.cli.ai_commands.list_commands", return_value=[]):
+    with mock.patch("mlflow.ai_commands.list_commands", return_value=[]):
         runner = CliRunner()
         result = runner.invoke(cli, ["ai-commands", "list"])
 
     assert result.exit_code == 0
-    assert "No commands found" in result.output
+    assert "No AI commands found" in result.output
 
 
 def test_list_commands_empty_namespace_cli():
     """Test CLI list command when no commands in namespace."""
-    with mock.patch("mlflow.cli.ai_commands.list_commands", return_value=[]):
+    with mock.patch("mlflow.ai_commands.list_commands", return_value=[]):
         runner = CliRunner()
         result = runner.invoke(cli, ["ai-commands", "list", "--namespace", "unknown"])
 
     assert result.exit_code == 0
-    assert "No commands found in namespace 'unknown'" in result.output
+    assert "No AI commands found in namespace 'unknown'" in result.output
 
 
 def test_get_command_cli():
@@ -81,7 +81,7 @@ description: Test command
 
 Hello! This is test content."""
 
-    with mock.patch("mlflow.cli.ai_commands.get_command", return_value=mock_content):
+    with mock.patch("mlflow.ai_commands.get_command", return_value=mock_content):
         runner = CliRunner()
         result = runner.invoke(cli, ["ai-commands", "get", "genai/analyze_experiment"])
 
@@ -119,7 +119,7 @@ def test_get_command_help():
     result = runner.invoke(cli, ["ai-commands", "get", "--help"])
 
     assert result.exit_code == 0
-    assert "Get a specific command by key" in result.output
+    assert "Get a specific AI command by key" in result.output
     assert "KEY" in result.output
 
 
@@ -129,7 +129,7 @@ def test_list_command_help():
     result = runner.invoke(cli, ["ai-commands", "list", "--help"])
 
     assert result.exit_code == 0
-    assert "List all available commands" in result.output
+    assert "List all available AI commands" in result.output
     assert "--namespace" in result.output
 
 
