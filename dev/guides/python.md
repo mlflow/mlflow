@@ -108,6 +108,22 @@ def get_user() -> User:
     return User(name="Alice", age=30, occupation="Engineer")
 ```
 
+## Use next() to Find First Match Instead of Loop-and-Break
+
+Use the `next()` builtin function with a generator expression to find the first item that matches a condition. This is more concise and functional than manually looping with break statements.
+
+```python
+# Bad
+result = None
+for item in items:
+    if item.name == "target":
+        result = item
+        break
+
+# Good
+result = next((item for item in items if item.name == "target"), None)
+```
+
 ## Always Verify Mock Calls with Assertions
 
 Every mocked function must have an assertion (`assert_called`, `assert_called_once`, etc.) to verify it was invoked correctly. Without assertions, tests may pass even when the mocked code isn't executed.
