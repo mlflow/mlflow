@@ -508,10 +508,23 @@ jobs:
           # Run Windows tests (including telemetry)
           pytest --store-durations --durations-path=.test_durations_windows --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
             --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/evaluate --ignore=tests/optuna \
-            --ignore=tests/pyspark/optuna --ignore=tests/genai tests
+            --ignore=tests/pyspark/optuna --ignore=tests/genai tests || true
+
+          # Upload duration file immediately after pytest completes
+          echo "Checking for duration file and uploading..."
+          if [ -f .test_durations_windows ]; then
+            echo "Duration file found, uploading as artifact"
+            # Use GitHub Actions environment file to set output
+            echo "duration_file_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "Warning: Duration file not found"
+            echo "duration_file_exists=false" >> $GITHUB_OUTPUT
+            ls -la .test_duration* 2>/dev/null || echo "No .test_duration* files found"
+          fi
+        id: pytest_run
       - name: Upload test durations
         uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && steps.pytest_run.outputs.duration_file_exists == 'true'
         with:
           name: windows-durations-${{ matrix.group }}
           path: .test_durations_windows
