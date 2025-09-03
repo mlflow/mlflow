@@ -505,35 +505,10 @@ jobs:
           # Set Hadoop environment variables required for testing Spark integrations on Windows
           export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
           export PATH=$PATH:$HADOOP_HOME/bin
-          # Run Windows tests
+          # Run Windows tests (including telemetry)
           pytest --store-durations --durations-path=.test_durations_windows --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
             --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/evaluate --ignore=tests/optuna \
-            --ignore=tests/pyspark/optuna --ignore=tests/genai --ignore=tests/telemetry tests
-      - name: Run telemetry tests
-        run: |
-          source .venv/Scripts/activate
-          pytest --store-durations --durations-path=.test_durations_windows --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/telemetry
-      - name: Debug - Check for duration file
-        if: always()
-        run: |
-          echo "Checking for duration files..."
-          if (Test-Path .test_durations_windows) {
-            echo "Found .test_durations_windows"
-            echo "File size: $((Get-Item .test_durations_windows).length) bytes"
-            echo "First 500 chars of content:"
-            Get-Content .test_durations_windows -TotalCount 10
-          } else {
-            echo "No .test_durations_windows found"
-          }
-          if (Test-Path .test_durations) {
-            echo "Found .test_durations (default name)"
-            echo "File size: $((Get-Item .test_durations).length) bytes"
-          } else {
-            echo "No .test_durations found"
-          }
-          echo "Listing all files starting with .test*:"
-          Get-ChildItem -Path . -Filter ".test*" -File
-        shell: pwsh
+            --ignore=tests/pyspark/optuna --ignore=tests/genai tests
       - name: Upload test durations
         uses: actions/upload-artifact@v4
         if: always()
