@@ -33,6 +33,36 @@ def foo(s: str) -> int:
     return len(s)
 ```
 
+### Exceptions
+
+**Test functions:** The `-> None` return type can be omitted for test functions since they implicitly return `None` and the return value is not used.
+
+```python
+# Acceptable
+def test_foo(s: str):
+    ...
+
+
+# Also acceptable (but not required)
+def test_foo(s: str) -> None:
+    ...
+```
+
+**`__init__` methods:** The `-> None` return type can be omitted for `__init__` methods since they always return `None` by definition.
+
+```python
+# Acceptable
+class Foo:
+    def __init__(self, s: str):
+        ...
+
+
+# Also acceptable (but not required)
+class Foo:
+    def __init__(self, s: str) -> None:
+        ...
+```
+
 ## Minimize Try-Catch Block Scope
 
 Wrap only the specific operations that can raise exceptions. Keep safe operations outside the try block to improve debugging and avoid masking unexpected errors.
