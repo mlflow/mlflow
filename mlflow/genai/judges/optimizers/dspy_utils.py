@@ -11,19 +11,13 @@ from mlflow.genai.judges.judge_trace_utils import (
     extract_response_from_trace,
 )
 
-# Try to import dspy - will be None if not installed
+# Import dspy - raise exception if not installed
 try:
     import dspy
-
-    DSPY_AVAILABLE = True
 except ImportError:
-    # DSPy is not installed - functions will raise MlflowException when called
-    dspy = None
-    DSPY_AVAILABLE = False
+    raise MlflowException("DSPy library is required but not installed")
 
 if TYPE_CHECKING:
-    import dspy
-
     from mlflow.genai.judges.base import Judge
 
 _logger = logging.getLogger(__name__)
@@ -45,9 +39,6 @@ def trace_to_dspy_example(trace: Trace, judge_name: str) -> Optional["dspy.Examp
     Returns:
         DSPy example object or None if conversion fails
     """
-    if not DSPY_AVAILABLE:
-        raise MlflowException("DSPy library is required but not installed")
-
     try:
         # Extract request and response from trace
         request = extract_request_from_trace(trace)
@@ -114,9 +105,6 @@ def create_dspy_signature(judge: "Judge") -> "dspy.Signature":
     Returns:
         DSPy signature object
     """
-    if not DSPY_AVAILABLE:
-        raise MlflowException("DSPy library is required but not installed")
-
     try:
         # Build signature fields dictionary using the judge's field definitions
         signature_fields = {}

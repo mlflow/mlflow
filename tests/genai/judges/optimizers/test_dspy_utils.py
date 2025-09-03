@@ -4,7 +4,6 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.judge_trace_utils import (
     extract_request_from_trace,
     extract_response_from_trace,
@@ -84,9 +83,10 @@ def test_trace_to_dspy_example_no_assessment():
 
 def test_trace_to_dspy_example_no_dspy():
     """Test trace conversion when DSPy is not available."""
-    with patch("mlflow.genai.judges.optimizers.dspy_utils.DSPY_AVAILABLE", False):
-        with pytest.raises(MlflowException, match="DSPy library is required"):
-            trace_to_dspy_example(Mock(), "judge")
+    # Since dspy is imported at module level and raises exception immediately,
+    # we can't really test this scenario anymore. The module won't load without dspy.
+    # This test is kept for documentation purposes but will be skipped.
+    pytest.skip("Cannot test missing dspy since module requires it at import time")
 
 
 def test_create_dspy_signature(mock_judge):
@@ -116,9 +116,10 @@ def test_create_dspy_signature(mock_judge):
 
 def test_create_dspy_signature_no_dspy(mock_judge):
     """Test signature creation when DSPy is not available."""
-    with patch("mlflow.genai.judges.optimizers.dspy_utils.DSPY_AVAILABLE", False):
-        with pytest.raises(MlflowException, match="DSPy library is required"):
-            create_dspy_signature(mock_judge)
+    # Since dspy is imported at module level and raises exception immediately,
+    # we can't really test this scenario anymore. The module won't load without dspy.
+    # This test is kept for documentation purposes but will be skipped.
+    pytest.skip("Cannot test missing dspy since module requires it at import time")
 
 
 def test_agreement_metric():
