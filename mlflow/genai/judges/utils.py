@@ -4,7 +4,11 @@ import json
 import logging
 import re
 from dataclasses import asdict, is_dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from mlflow.genai.judges.base import JudgeField
+    from mlflow.types.llm import ChatMessage
 
 import mlflow
 from mlflow.entities.assessment import Feedback
@@ -40,7 +44,7 @@ def format_prompt(prompt: str, **values) -> str:
     return prompt
 
 
-def add_output_format_instructions(prompt: str, output_fields: list[Any] | None = None) -> str:
+def add_output_format_instructions(prompt: str, output_fields: list["JudgeField"]) -> str:
     """
     Add structured output format instructions to a judge prompt.
 
@@ -50,17 +54,10 @@ def add_output_format_instructions(prompt: str, output_fields: list[Any] | None 
     Args:
         prompt: The formatted prompt with template variables filled in
         output_fields: List of JudgeField objects defining output fields.
-                      If None, uses default judge output fields.
 
     Returns:
         The prompt with output format instructions appended
     """
-    if output_fields is None:
-        from mlflow.genai.judges.base import Judge
-
-        output_fields = Judge.get_output_fields()
-
-    # Build the JSON format string from output fields
     json_format_lines = []
     for field in output_fields:
         json_format_lines.append(f'    "{field.name}": "{field.description}"')
@@ -80,34 +77,9 @@ def _sanitize_justification(justification: str) -> str:
     return justification.replace("Let's think step by step. ", "")
 
 
-def _messages_to_single_prompt(messages: list[dict[str, Any]]) -> str:
-    """
-    Convert a list of message dicts to a single prompt string for providers
-    that don't support message-based APIs.
-
-    Args:
-        messages: List of message dicts with 'role' and 'content' keys.
-
-    Returns:
-        A single prompt string combining all messages.
-    """
-    prompt_parts = []
-    for message in messages:
-        role = message.get("role", "user")
-        content = message.get("content", "")
-        if role == "system":
-            prompt_parts.append(f"System: {content}")
-        elif role == "user":
-            prompt_parts.append(f"{content}")
-        elif role == "assistant":
-            prompt_parts.append(f"Assistant: {content}")
-
-    return "\n\n".join(prompt_parts)
-
-
 def invoke_judge_model(
     model_uri: str,
-    prompt: str | list[dict[str, Any]],
+    prompt: str | list["ChatMessage"],
     assessment_name: str,
     trace: Trace | None = None,
     num_retries: int = 10,
@@ -121,7 +93,7 @@ def invoke_judge_model(
     Args:
         model_uri: The model URI.
         prompt: The prompt to evaluate. Can be a string (single prompt) or
-                a list of message dicts with 'role' and 'content' keys.
+                a list of ChatMessage objects.
         assessment_name: The name of the assessment.
         trace: Optional trace object for context.
         num_retries: Number of retries on transient failures when using litellm.
@@ -134,8 +106,12 @@ def invoke_judge_model(
 
     provider, model_name = _parse_model_uri(model_uri)
 
-    # Convert string prompt to messages list if needed
-    messages = prompt if isinstance(prompt, list) else [{"role": "user", "content": prompt}]
+    # Convert to uniform dict format for internal processing
+    if isinstance(prompt, str):
+        messages = [{"role": "user", "content": prompt}]
+    else:
+        # Convert ChatMessage objects to dicts
+        messages = [{"role": msg.role, "content": msg.content} for msg in prompt]
 
     # Try litellm first for better performance.
     if _is_litellm_available():
@@ -147,11 +123,9 @@ def invoke_judge_model(
             error_code=BAD_REQUEST,
         )
     elif provider in _NATIVE_PROVIDERS:
-        # Native providers don't support message lists, so convert to single prompt
-        payload = prompt if isinstance(prompt, str) else _messages_to_single_prompt(messages)
         response = score_model_on_payload(
             model_uri=model_uri,
-            payload=payload,
+            payload=messages,
             endpoint_type=get_endpoint_type(model_uri) or "llm/v1/chat",
         )
     else:

@@ -11,12 +11,13 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
+from mlflow.genai.judges.base import Judge
 from mlflow.genai.judges.utils import (
     CategoricalRating,
     add_output_format_instructions,
     invoke_judge_model,
 )
-from mlflow.types.llm import ToolCall
+from mlflow.types.llm import ChatMessage, ToolCall
 
 
 @pytest.fixture(autouse=True)
@@ -114,6 +115,31 @@ def test_invoke_judge_model_successful_with_litellm(num_retries, mock_response):
     assert feedback.source.source_id == "openai:/gpt-4"
 
 
+def test_invoke_judge_model_with_chat_messages(mock_response):
+    messages = [
+        ChatMessage(role="system", content="You are a helpful assistant"),
+        ChatMessage(role="user", content="Evaluate this response"),
+    ]
+
+    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+        feedback = invoke_judge_model(
+            model_uri="openai:/gpt-4",
+            prompt=messages,
+            assessment_name="quality_check",
+        )
+
+    mock_litellm.assert_called_once()
+    call_args = mock_litellm.call_args
+    messages_arg = call_args.kwargs["messages"]
+
+    assert len(messages_arg) == 2
+    assert messages_arg[0] == {"role": "system", "content": "You are a helpful assistant"}
+    assert messages_arg[1] == {"role": "user", "content": "Evaluate this response"}
+
+    assert feedback.name == "quality_check"
+    assert feedback.value == CategoricalRating.YES
+
+
 def test_invoke_judge_model_successful_with_native_provider():
     mock_response = json.dumps({"result": "yes", "rationale": "The response meets all criteria."})
 
@@ -131,7 +157,7 @@ def test_invoke_judge_model_successful_with_native_provider():
 
     mock_score_model_on_payload.assert_called_once_with(
         model_uri="openai:/gpt-4",
-        payload="Evaluate this response",
+        payload=[{"role": "user", "content": "Evaluate this response"}],
         endpoint_type="llm/v1/chat",
     )
 
@@ -277,8 +303,10 @@ def test_invoke_judge_model_tool_calling_loop(mock_trace):
 
 
 def test_add_output_format_instructions():
+    output_fields = Judge.get_output_fields()
+
     simple_prompt = "Evaluate this response"
-    formatted = add_output_format_instructions(simple_prompt)
+    formatted = add_output_format_instructions(simple_prompt, output_fields=output_fields)
 
     assert simple_prompt in formatted
     assert "JSON format" in formatted
@@ -289,7 +317,7 @@ def test_add_output_format_instructions():
     assert "Detailed explanation for the evaluation" in formatted
 
     complex_prompt = "This is a multi-line\nprompt with various\ninstruction details"
-    formatted = add_output_format_instructions(complex_prompt)
+    formatted = add_output_format_instructions(complex_prompt, output_fields=output_fields)
 
     assert complex_prompt in formatted
     assert formatted.startswith(complex_prompt)

@@ -1,5 +1,6 @@
 import json
 from dataclasses import asdict
+from unittest import mock
 
 import pandas as pd
 import pytest
@@ -18,6 +19,7 @@ from mlflow.genai.judges.instructions_judge import InstructionsJudge
 from mlflow.genai.scorers.base import Scorer, ScorerKind, SerializedScorer
 from mlflow.genai.scorers.registry import _get_scorer_store
 from mlflow.tracing.utils import build_otel_context
+from mlflow.types.llm import ChatMessage
 
 
 @pytest.fixture
@@ -365,8 +367,8 @@ def test_call_with_expectations_as_json(monkeypatch):
 
     # Expectations should be in the user message as JSON
     user_msg = captured_messages[1]
-    assert '"correct": true' in user_msg["content"]
-    assert '"score": 100' in user_msg["content"]
+    assert '"correct": true' in user_msg.content
+    assert '"score": 100' in user_msg.content
 
 
 def test_call_with_custom_variables_from_inputs(monkeypatch):
@@ -394,12 +396,12 @@ def test_call_with_custom_variables_from_inputs(monkeypatch):
 
     # Check system message has the template
     system_msg = captured_messages[0]
-    assert "Check if {{question}} meets {{criteria}}" in system_msg["content"]
+    assert "Check if {{question}} meets {{criteria}}" in system_msg.content
 
     # Check user message has the values
     user_msg = captured_messages[1]
-    assert "criteria: technical accuracy" in user_msg["content"]
-    assert "question: What is AI?" in user_msg["content"]
+    assert "criteria: technical accuracy" in user_msg.content
+    assert "question: What is AI?" in user_msg.content
 
 
 def test_instructions_property():
@@ -464,13 +466,13 @@ def test_prompt_formatting_with_all_variable_types(monkeypatch):
 
     # Check system message has the template
     system_msg = captured_messages[0]
-    assert "Query: {{query}}, Response: {{response}}, Custom: {{my_var}}" in system_msg["content"]
+    assert "Query: {{query}}, Response: {{response}}, Custom: {{my_var}}" in system_msg.content
 
     # Check user message has all the values
     user_msg = captured_messages[1]
-    assert "my_var: custom_value" in user_msg["content"]
-    assert "query: test" in user_msg["content"]
-    assert "response: answer" in user_msg["content"]
+    assert "my_var: custom_value" in user_msg.content
+    assert "query: test" in user_msg.content
+    assert "response: answer" in user_msg.content
 
 
 def test_output_format_instructions_added(monkeypatch):
@@ -497,15 +499,15 @@ def test_output_format_instructions_added(monkeypatch):
 
     # Check system message
     system_msg = captured_messages[0]
-    assert system_msg["role"] == "system"
-    assert "You are a helpful judge" in system_msg["content"]
-    assert "Check if {{text}} is formal" in system_msg["content"]
-    assert "JSON format" in system_msg["content"]
+    assert system_msg.role == "system"
+    assert "You are a helpful judge" in system_msg.content
+    assert "Check if {{text}} is formal" in system_msg.content
+    assert "JSON format" in system_msg.content
 
     # Check user message
     user_msg = captured_messages[1]
-    assert user_msg["role"] == "user"
-    assert "text: Hello there" in user_msg["content"]
+    assert user_msg.role == "user"
+    assert "text: Hello there" in user_msg.content
 
     assert result.value is True
     assert result.rationale == "Test rationale"
@@ -539,17 +541,17 @@ def test_output_format_instructions_with_complex_template(monkeypatch):
 
     # Check system message
     system_msg = captured_messages[0]
-    assert system_msg["role"] == "system"
-    assert "You are a helpful judge" in system_msg["content"]
-    assert "Evaluate {{response}} for {{criteria}} considering {{context}}" in system_msg["content"]
-    assert "JSON format" in system_msg["content"]
+    assert system_msg.role == "system"
+    assert "You are a helpful judge" in system_msg.content
+    assert "Evaluate {{response}} for {{criteria}} considering {{context}}" in system_msg.content
+    assert "JSON format" in system_msg.content
 
     # Check user message has all the variable values
     user_msg = captured_messages[1]
-    assert user_msg["role"] == "user"
-    assert "context: formal business setting" in user_msg["content"]
-    assert "criteria: professionalism" in user_msg["content"]
-    assert "response: Hey what's up" in user_msg["content"]
+    assert user_msg.role == "user"
+    assert "context: formal business setting" in user_msg.content
+    assert "criteria: professionalism" in user_msg.content
+    assert "response: Hey what's up" in user_msg.content
 
     assert result.value == "yes"
     assert result.rationale == "Test rationale"
@@ -609,21 +611,19 @@ def test_judge_registration_as_scorer(mock_invoke_judge_model):
     assert model_uri == "openai:/gpt-4"
     assert assessment_name == "test_judge"
 
-    # Check that prompt is now a list of messages
+    # Check that prompt is now a list of ChatMessage objects
     assert isinstance(prompt, list)
     assert len(prompt) == 2
 
     # Check system message
-    assert prompt[0]["role"] == "system"
-    assert "You are a helpful judge" in prompt[0]["content"]
-    assert (
-        "Evaluate if the response {{response}} is professional and formal." in prompt[0]["content"]
-    )
-    assert "JSON format" in prompt[0]["content"]
+    assert prompt[0].role == "system"
+    assert "You are a helpful judge" in prompt[0].content
+    assert "Evaluate if the response {{response}} is professional and formal." in prompt[0].content
+    assert "JSON format" in prompt[0].content
 
     # Check user message
-    assert prompt[1]["role"] == "user"
-    assert prompt[1]["content"] == "response: This output demonstrates professional communication."
+    assert prompt[1].role == "user"
+    assert prompt[1].content == "response: This output demonstrates professional communication."
 
     mock_invoke_judge_model.reset_mock()
     result2 = deserialized(outputs=test_output)
@@ -636,9 +636,9 @@ def test_judge_registration_as_scorer(mock_invoke_judge_model):
     # Verify the same message structure for deserialized judge
     assert isinstance(prompt, list)
     assert len(prompt) == 2
-    assert prompt[0]["role"] == "system"
-    assert prompt[1]["role"] == "user"
-    assert prompt[1]["content"] == "response: This output demonstrates professional communication."
+    assert prompt[0].role == "system"
+    assert prompt[1].role == "user"
+    assert prompt[1].content == "response: This output demonstrates professional communication."
 
     v2_instructions = "Evaluate if the output {{outputs}} is professional, formal, and concise."
     judge_v2 = make_judge(
@@ -710,26 +710,26 @@ def test_judge_registration_preserves_custom_variables(mock_invoke_judge_model):
     assert model_uri == "openai:/gpt-4"
     assert assessment_name == "custom_judge"
 
-    # Check that prompt is now a list of messages
+    # Check that prompt is now a list of ChatMessage objects
     assert isinstance(prompt, list)
     assert len(prompt) == 2
 
     # Check system message
-    assert prompt[0]["role"] == "system"
-    assert "You are a helpful judge" in prompt[0]["content"]
-    assert "Check if {{query}} is answered correctly by {{response}}" in prompt[0]["content"]
-    assert "according to {{criteria}} with {{threshold}} accuracy" in prompt[0]["content"]
-    assert "JSON format" in prompt[0]["content"]
+    assert prompt[0].role == "system"
+    assert "You are a helpful judge" in prompt[0].content
+    assert "Check if {{query}} is answered correctly by {{response}}" in prompt[0].content
+    assert "according to {{criteria}} with {{threshold}} accuracy" in prompt[0].content
+    assert "JSON format" in prompt[0].content
 
     # Check user message with all custom variables
-    assert prompt[1]["role"] == "user"
+    assert prompt[1].role == "user"
     expected_user_content = (
         "criteria: mathematical accuracy\n"
         "query: What is 2+2?\n"
         "response: The answer is 4\n"
         "threshold: 95%"
     )
-    assert prompt[1]["content"] == expected_user_content
+    assert prompt[1].content == expected_user_content
 
     mock_invoke_judge_model.reset_mock()
 
@@ -1063,3 +1063,59 @@ def test_trace_prompt_augmentation(mock_trace, monkeypatch):
     assert "- rationale: Detailed explanation for the evaluation" in captured_prompt
     assert "Instructions" in captured_prompt
     assert "Analyze this {{trace}} for quality" in captured_prompt
+
+
+def test_instructions_judge_with_chat_messages():
+    captured_args = {}
+
+    def capture_invoke(*args, **kwargs):
+        captured_args.update(kwargs)
+        captured_args["args"] = args
+        return Feedback(
+            name=kwargs.get("assessment_name", "test"),
+            value=True,
+            rationale="Test passed",
+        )
+
+    messages = [
+        ChatMessage(role="system", content="You are an evaluation assistant."),
+        ChatMessage(role="user", content="Is this response helpful for the question?"),
+    ]
+
+    with mock.patch("mlflow.genai.judges.utils.invoke_judge_model", side_effect=capture_invoke):
+        from mlflow.genai.judges.utils import invoke_judge_model
+
+        result = invoke_judge_model(
+            model_uri="openai:/gpt-4",
+            prompt=messages,
+            assessment_name="test_assessment",
+        )
+
+    prompt_arg = captured_args.get("prompt")
+    assert prompt_arg is not None
+    assert prompt_arg == messages
+
+    judge = make_judge(
+        name="response_quality",
+        instructions="Evaluate if the {{response}} is helpful for answering the {{question}}",
+        model="openai:/gpt-4",
+    )
+
+    captured_args.clear()
+
+    with mock.patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model", side_effect=capture_invoke
+    ):
+        result = judge(
+            inputs={"question": "What is MLflow?"}, outputs={"response": "MLflow is great"}
+        )
+
+    assert result.value is True
+    assert result.rationale == "Test passed"
+
+    prompt_sent = captured_args.get("prompt")
+    assert isinstance(prompt_sent, list)
+    assert len(prompt_sent) == 2
+    assert all(isinstance(msg, ChatMessage) for msg in prompt_sent)
+    assert prompt_sent[0].role == "system"
+    assert prompt_sent[1].role == "user"

@@ -22,6 +22,7 @@ from mlflow.genai.judges.utils import (
 )
 from mlflow.genai.scorers.base import _SERIALIZATION_VERSION, ScorerKind, SerializedScorer
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.types.llm import ChatMessage
 from mlflow.utils.annotations import experimental
 
 
@@ -213,10 +214,10 @@ class InstructionsJudge(Judge):
 
             user_content = "\n".join(user_message_parts)
 
-            # Create messages list
+            # Create messages list using ChatMessage objects
             messages = [
-                {"role": "system", "content": system_content},
-                {"role": "user", "content": user_content},
+                ChatMessage(role="system", content=system_content),
+                ChatMessage(role="user", content=user_content),
             ]
 
             return invoke_judge_model(
@@ -232,8 +233,12 @@ class InstructionsJudge(Judge):
                 [f"- {field.name}: {field.description}" for field in output_fields]
             )
 
-            augmented_prompt = INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE.format(
+            base_prompt = INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE.format(
                 evaluation_rating_fields=evaluation_rating_fields, instructions=self._instructions
+            )
+            # Add structured output format instructions
+            augmented_prompt = add_output_format_instructions(
+                base_prompt, output_fields=output_fields
             )
             return invoke_judge_model(
                 model_uri=self._model,
