@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
     from mlflow.genai.judges.base import Judge
 
-logger = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
 
 
 def trace_to_dspy_example(trace: Trace, judge_name: str) -> Optional["dspy.Example"]:
@@ -43,7 +43,7 @@ def trace_to_dspy_example(trace: Trace, judge_name: str) -> Optional["dspy.Examp
         response = extract_response_from_trace(trace)
 
         if request is None or response is None:
-            logger.warning(f"Missing request or response in trace {trace.info.trace_id}")
+            _logger.warning(f"Missing request or response in trace {trace.info.trace_id}")
             return None
 
         # Find human assessment for this judge
@@ -60,13 +60,13 @@ def trace_to_dspy_example(trace: Trace, judge_name: str) -> Optional["dspy.Examp
                     break
 
         if not expected_result:
-            logger.warning(
+            _logger.warning(
                 f"No human assessment found for judge '{judge_name}' in trace {trace.info.trace_id}"
             )
             return None
 
         if not expected_result.feedback:
-            logger.warning(f"No feedback found in assessment for trace {trace.info.trace_id}")
+            _logger.warning(f"No feedback found in assessment for trace {trace.info.trace_id}")
             return None
 
         # Create DSPy example
@@ -82,9 +82,6 @@ def trace_to_dspy_example(trace: Trace, judge_name: str) -> Optional["dspy.Examp
 
     except ImportError:
         raise MlflowException("DSPy library is required but not installed")
-    except Exception as e:
-        logger.error(f"Failed to create DSPy example from trace: {e}")
-        return None
 
 
 def create_dspy_signature(judge: "Judge") -> "dspy.Signature":
@@ -141,5 +138,5 @@ def agreement_metric(example: Any, pred: Any, trace: Any | None = None):
 
         return expected_norm == predicted_norm
     except Exception as e:
-        logger.warning(f"Error in agreement_metric: {e}")
+        _logger.warning(f"Error in agreement_metric: {e}")
         return False

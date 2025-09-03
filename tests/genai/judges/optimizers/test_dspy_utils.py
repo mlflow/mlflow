@@ -5,6 +5,10 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 from mlflow.exceptions import MlflowException
+from mlflow.genai.judges.judge_trace_utils import (
+    extract_request_from_trace,
+    extract_response_from_trace,
+)
 from mlflow.genai.judges.optimizers.dspy_utils import (
     agreement_metric,
     create_dspy_signature,
@@ -45,9 +49,9 @@ def test_trace_to_dspy_example_success(sample_trace_with_assessment):
     # Assert that the result is an instance of dspy.Example
     assert isinstance(result, dspy.Example)
 
-    # Check the result has the correct values
-    assert "test input" in result["inputs"]
-    assert "test output" in result["outputs"]
+    # Check the result has the correct values using the extraction functions
+    assert result["inputs"] == extract_request_from_trace(trace)
+    assert result["outputs"] == extract_response_from_trace(trace)
     assert result["result"] == "pass"
     assert result["rationale"] == "This looks good"
 
@@ -66,6 +70,11 @@ def test_trace_to_dspy_example_no_assessment():
     mock_trace.info.response_preview = "test"
     mock_trace.data.request = "test"
     mock_trace.data.response = "test"
+    # Add spans to mock trace
+    mock_span = Mock()
+    mock_span.inputs = {"inputs": "test"}
+    mock_span.outputs = {"outputs": "test"}
+    mock_trace.data.spans = [mock_span]
 
     with patch.dict("sys.modules", {"dspy": mock_dspy}):
         result = trace_to_dspy_example(mock_trace, "mock_judge")
