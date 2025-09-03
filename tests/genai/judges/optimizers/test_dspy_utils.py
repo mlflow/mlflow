@@ -84,7 +84,7 @@ def test_trace_to_dspy_example_no_assessment():
 
 def test_trace_to_dspy_example_no_dspy():
     """Test trace conversion when DSPy is not available."""
-    with patch.dict("sys.modules", {"dspy": None}):
+    with patch("mlflow.genai.judges.optimizers.dspy_utils.DSPY_AVAILABLE", False):
         with pytest.raises(MlflowException, match="DSPy library is required"):
             trace_to_dspy_example(Mock(), "judge")
 
@@ -116,7 +116,7 @@ def test_create_dspy_signature(mock_judge):
 
 def test_create_dspy_signature_no_dspy(mock_judge):
     """Test signature creation when DSPy is not available."""
-    with patch.dict("sys.modules", {"dspy": None}):
+    with patch("mlflow.genai.judges.optimizers.dspy_utils.DSPY_AVAILABLE", False):
         with pytest.raises(MlflowException, match="DSPy library is required"):
             create_dspy_signature(mock_judge)
 

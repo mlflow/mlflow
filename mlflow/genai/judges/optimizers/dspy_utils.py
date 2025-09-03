@@ -3,12 +3,22 @@
 import logging
 from typing import TYPE_CHECKING, Any, Optional
 
+from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.judge_trace_utils import (
     extract_request_from_trace,
     extract_response_from_trace,
 )
+
+# Try to import dspy - will be None if not installed
+try:
+    import dspy
+
+    DSPY_AVAILABLE = True
+except ImportError:
+    dspy = None
+    DSPY_AVAILABLE = False
 
 if TYPE_CHECKING:
     import dspy
@@ -34,10 +44,10 @@ def trace_to_dspy_example(trace: Trace, judge_name: str) -> Optional["dspy.Examp
     Returns:
         DSPy example object or None if conversion fails
     """
-    try:
-        # Import dspy here to allow graceful failure
-        import dspy
+    if not DSPY_AVAILABLE:
+        raise MlflowException("DSPy library is required but not installed")
 
+    try:
         # Extract request and response from trace
         request = extract_request_from_trace(trace)
         response = extract_response_from_trace(trace)
@@ -51,10 +61,11 @@ def trace_to_dspy_example(trace: Trace, judge_name: str) -> Optional["dspy.Examp
         sanitized_judge_name = judge_name.lower().strip()
 
         if trace.info.assessments:
-            for assessment in trace.info.assessments:
+            # Process the assessments in reverse chronological order (most recent first)
+            for assessment in reversed(trace.info.assessments):
                 if (
                     assessment.name == sanitized_judge_name
-                    and assessment.source.source_type == "HUMAN"
+                    and assessment.source.source_type == AssessmentSourceType.HUMAN
                 ):
                     expected_result = assessment
                     break
@@ -80,8 +91,9 @@ def trace_to_dspy_example(trace: Trace, judge_name: str) -> Optional["dspy.Examp
         # Set inputs (what the model should use as input)
         return example.with_inputs("inputs", "outputs")
 
-    except ImportError:
-        raise MlflowException("DSPy library is required but not installed")
+    except Exception as e:
+        _logger.error(f"Failed to create DSPy example from trace: {e}")
+        return None
 
 
 def create_dspy_signature(judge: "Judge") -> "dspy.Signature":
@@ -94,9 +106,10 @@ def create_dspy_signature(judge: "Judge") -> "dspy.Signature":
     Returns:
         DSPy signature object
     """
-    try:
-        import dspy
+    if not DSPY_AVAILABLE:
+        raise MlflowException("DSPy library is required but not installed")
 
+    try:
         # Build signature fields dictionary using the judge's field definitions
         signature_fields = {}
 
@@ -118,8 +131,8 @@ def create_dspy_signature(judge: "Judge") -> "dspy.Signature":
 
         return dspy.make_signature(signature_fields, judge.instructions)
 
-    except ImportError:
-        raise MlflowException("DSPy library is required but not installed")
+    except Exception as e:
+        raise MlflowException(f"Failed to create DSPy signature: {e}")
 
 
 def agreement_metric(example: Any, pred: Any, trace: Any | None = None):
