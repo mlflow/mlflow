@@ -164,3 +164,7 @@ class LogBatchEvent(Event):
 
 class McpRunEvent(Event):
     name: str = "mcp_run"
+
+
+class GitModelVersioningEvent(Event):
+    name: str = "git_model_versioning"

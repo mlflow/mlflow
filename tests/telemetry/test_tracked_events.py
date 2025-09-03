@@ -27,6 +27,7 @@ from mlflow.telemetry.events import (
     EvaluateEvent,
     GenAIEvaluateEvent,
     GetLoggedModelEvent,
+    GitModelVersioningEvent,
     LogAssessmentEvent,
     LogBatchEvent,
     LogDatasetEvent,
@@ -561,3 +562,13 @@ def test_mcp_run(mock_requests, mock_telemetry_client: TelemetryClient):
     mock_run_server.assert_called_once()
     mock_telemetry_client.flush()
     validate_telemetry_record(mock_telemetry_client, mock_requests, McpRunEvent.name)
+
+
+def test_git_model_versioning(mock_requests, mock_telemetry_client):
+    from mlflow.genai import enable_git_model_versioning
+
+    with enable_git_model_versioning():
+        pass
+
+    mock_telemetry_client.flush()
+    validate_telemetry_record(mock_telemetry_client, mock_requests, GitModelVersioningEvent.name)
