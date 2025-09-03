@@ -57,10 +57,7 @@ def test_trace_to_dspy_example_success(sample_trace_with_assessment):
     ).with_inputs("inputs", "outputs")
 
     # Compare the examples
-    assert result["inputs"] == expected_example["inputs"]
-    assert result["outputs"] == expected_example["outputs"]
-    assert result["result"] == expected_example["result"]
-    assert result["rationale"] == expected_example["rationale"]
+    assert result == expected_example
 
 
 def test_trace_to_dspy_example_no_assessment(sample_trace_without_assessment):
