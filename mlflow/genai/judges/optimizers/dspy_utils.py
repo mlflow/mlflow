@@ -1,8 +1,9 @@
 """Utility functions for DSPy-based alignment optimizers."""
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any, Optional
 
+from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.judge_trace_utils import (
@@ -10,10 +11,19 @@ from mlflow.genai.judges.judge_trace_utils import (
     extract_response_from_trace,
 )
 
-logger = logging.getLogger(__name__)
+# Import dspy - raise exception if not installed
+try:
+    import dspy
+except ImportError:
+    raise MlflowException("DSPy library is required but not installed")
+
+if TYPE_CHECKING:
+    from mlflow.genai.judges.base import Judge
+
+_logger = logging.getLogger(__name__)
 
 
-def trace_to_dspy_example(trace: Trace, judge_name: str) -> Any | None:
+def trace_to_dspy_example(trace: Trace, judge_name: str) -> Optional["dspy.Example"]:
     """
     Convert MLflow trace to DSPy example format.
 
@@ -30,15 +40,12 @@ def trace_to_dspy_example(trace: Trace, judge_name: str) -> Any | None:
         DSPy example object or None if conversion fails
     """
     try:
-        # Import dspy here to allow graceful failure
-        import dspy
-
         # Extract request and response from trace
         request = extract_request_from_trace(trace)
         response = extract_response_from_trace(trace)
 
-        if not request or not response:
-            logger.warning(f"Missing request or response in trace {trace.info.trace_id}")
+        if request is None or response is None:
+            _logger.warning(f"Missing request or response in trace {trace.info.trace_id}")
             return None
 
         # Find human assessment for this judge
@@ -46,22 +53,30 @@ def trace_to_dspy_example(trace: Trace, judge_name: str) -> Any | None:
         sanitized_judge_name = judge_name.lower().strip()
 
         if trace.info.assessments:
-            for assessment in trace.info.assessments:
+            # Sort assessments by creation time (most recent first) then process
+            sorted_assessments = sorted(
+                trace.info.assessments,
+                key=lambda a: (
+                    a.create_time_ms if hasattr(a, "create_time_ms") and a.create_time_ms else 0
+                ),
+                reverse=True,
+            )
+            for assessment in sorted_assessments:
                 if (
                     assessment.name == sanitized_judge_name
-                    and assessment.source.source_type == "HUMAN"
+                    and assessment.source.source_type == AssessmentSourceType.HUMAN
                 ):
                     expected_result = assessment
                     break
 
         if not expected_result:
-            logger.warning(
+            _logger.warning(
                 f"No human assessment found for judge '{judge_name}' in trace {trace.info.trace_id}"
             )
             return None
 
         if not expected_result.feedback:
-            logger.warning(f"No feedback found in assessment for trace {trace.info.trace_id}")
+            _logger.warning(f"No feedback found in assessment for trace {trace.info.trace_id}")
             return None
 
         # Create DSPy example
@@ -75,14 +90,12 @@ def trace_to_dspy_example(trace: Trace, judge_name: str) -> Any | None:
         # Set inputs (what the model should use as input)
         return example.with_inputs("inputs", "outputs")
 
-    except ImportError:
-        raise MlflowException("DSPy library is required but not installed")
     except Exception as e:
-        logger.error(f"Failed to create DSPy example from trace: {e}")
+        _logger.error(f"Failed to create DSPy example from trace: {e}")
         return None
 
 
-def create_dspy_signature(judge) -> Any:
+def create_dspy_signature(judge: "Judge") -> "dspy.Signature":
     """
     Create DSPy signature for judge evaluation.
 
@@ -93,8 +106,6 @@ def create_dspy_signature(judge) -> Any:
         DSPy signature object
     """
     try:
-        import dspy
-
         # Build signature fields dictionary using the judge's field definitions
         signature_fields = {}
 
@@ -116,11 +127,11 @@ def create_dspy_signature(judge) -> Any:
 
         return dspy.make_signature(signature_fields, judge.instructions)
 
-    except ImportError:
-        raise MlflowException("DSPy library is required but not installed")
+    except Exception as e:
+        raise MlflowException(f"Failed to create DSPy signature: {e}")
 
 
-def agreement_metric(example, pred, trace=None):
+def agreement_metric(example: "dspy.Example", pred: Any, trace: Any | None = None):
     """Simple agreement metric for judge optimization."""
     try:
         # Extract result from example and prediction
@@ -134,7 +145,9 @@ def agreement_metric(example, pred, trace=None):
         expected_norm = str(expected).lower().strip()
         predicted_norm = str(predicted).lower().strip()
 
+        _logger.debug(f"expected_norm: {expected_norm}, predicted_norm: {predicted_norm}")
+
         return expected_norm == predicted_norm
-    except Exception:
-        # Return 0 for any errors
+    except Exception as e:
+        _logger.warning(f"Error in agreement_metric: {e}")
         return False
