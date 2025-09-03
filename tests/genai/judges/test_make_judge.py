@@ -151,6 +151,11 @@ def test_make_judge_with_databricks_default(monkeypatch):
             {"source_text", "translated_text"},
             {"source_text", "translated_text"},
         ),
+        (
+            "Analyze this {{trace}}",
+            {"trace"},
+            set(),
+        ),
     ],
 )
 def test_template_variable_extraction(instructions, expected_vars, expected_custom):
@@ -230,13 +235,45 @@ def test_trace_variable_restrictions(instructions, model, error_pattern):
         make_judge(name="test_judge", instructions=instructions, model=model)
 
 
-def test_call_with_trace_not_supported():
+def test_trace_with_expectations_not_allowed():
+    # expectations should not be allowed with trace yet (TODO: implement in followup)
+    with pytest.raises(
+        MlflowException,
+        match="When submitting a 'trace' variable, expectations are not yet supported",
+    ):
+        make_judge(
+            name="test_judge",
+            instructions="Analyze {{trace}} against {{expectations}}",
+            model="openai:/gpt-4",
+        )
+
+
+def test_call_with_trace_supported(mock_trace, monkeypatch):
+    captured_args = {}
+
+    def mock_invoke(model_uri, prompt, assessment_name, trace=None):
+        captured_args.update(
+            {
+                "model_uri": model_uri,
+                "prompt": prompt,
+                "assessment_name": assessment_name,
+                "trace": trace,
+            }
+        )
+        return Feedback(name=assessment_name, value=True, rationale="Trace analyzed")
+
+    monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "invoke_judge_model", mock_invoke)
+
     judge = make_judge(
-        name="test_judge", instructions="Check if {{text}} is valid", model="openai:/gpt-4"
+        name="test_judge", instructions="Analyze this {{trace}}", model="openai:/gpt-4"
     )
 
-    with pytest.raises(TypeError, match="got an unexpected keyword argument 'trace'"):
-        judge(trace="some_trace")
+    result = judge(trace=mock_trace)
+
+    assert isinstance(result, Feedback)
+    assert captured_args["trace"] == mock_trace
+    assert captured_args["model_uri"] == "openai:/gpt-4"
+    assert captured_args["assessment_name"] == "test_judge"
 
 
 def test_call_validates_missing_custom_variables():
@@ -250,12 +287,42 @@ def test_call_validates_missing_custom_variables():
         judge(inputs={"query": "What is 2+2?"})
 
 
+def test_call_trace_based_judge_ignores_inputs_outputs(mock_trace, monkeypatch):
+    # Test that trace-based judges ignore inputs/outputs and work with trace only
+    captured_args = {}
+
+    def mock_invoke(model_uri, prompt, assessment_name, trace=None):
+        captured_args.update({"trace": trace, "prompt": prompt})
+        return Feedback(name=assessment_name, value=True, rationale="Trace analyzed")
+
+    monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "invoke_judge_model", mock_invoke)
+
+    judge = make_judge(
+        name="test_judge", instructions="Analyze this {{trace}}", model="openai:/gpt-4"
+    )
+
+    # These should all work - trace-based judge ignores inputs/outputs
+    result1 = judge(trace=mock_trace, inputs={"query": "test"})
+    assert isinstance(result1, Feedback)
+    assert captured_args["trace"] == mock_trace
+
+    result2 = judge(trace=mock_trace, outputs={"answer": "test"})
+    assert isinstance(result2, Feedback)
+    assert captured_args["trace"] == mock_trace
+
+    result3 = judge(trace=mock_trace, expectations={"expected": "test"})
+    assert isinstance(result3, Feedback)
+    assert captured_args["trace"] == mock_trace
+
+
 def test_call_with_no_inputs_or_outputs():
     judge = make_judge(
         name="test_judge", instructions="Check if {{text}} is valid", model="openai:/gpt-4"
     )
 
-    with pytest.raises(MlflowException, match="Must specify 'inputs' or 'outputs' for evaluation"):
+    with pytest.raises(
+        MlflowException, match="Must specify 'inputs' or 'outputs' for field-based evaluation"
+    ):
         judge()
 
 
@@ -828,3 +895,29 @@ def test_make_judge_with_aggregations(mock_invoke_judge_model):
 
     assert judge_with_empty_aggs.name == "no_aggs_judge"
     assert judge_with_empty_aggs.aggregations == []
+
+
+def test_trace_prompt_augmentation(mock_trace, monkeypatch):
+    captured_prompt = None
+
+    def mock_invoke(model_uri, prompt, assessment_name, trace=None):
+        nonlocal captured_prompt
+        captured_prompt = prompt
+        return Feedback(name=assessment_name, value=True)
+
+    monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "invoke_judge_model", mock_invoke)
+
+    judge = make_judge(
+        name="test_judge", instructions="Analyze this {{trace}} for quality", model="openai:/gpt-4"
+    )
+
+    judge(trace=mock_trace)
+
+    assert "expert judge" in captured_prompt
+    assert "step-by-step record" in captured_prompt
+    assert "provided to you" in captured_prompt
+    assert "Evaluation Rating Fields" in captured_prompt
+    assert "- result: The evaluation rating/result" in captured_prompt
+    assert "- rationale: Detailed explanation for the evaluation" in captured_prompt
+    assert "Instructions" in captured_prompt
+    assert "Analyze this {{trace}} for quality" in captured_prompt

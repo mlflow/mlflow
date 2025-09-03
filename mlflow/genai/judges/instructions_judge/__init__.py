@@ -6,9 +6,13 @@ from pydantic import PrivateAttr
 
 import mlflow
 from mlflow.entities.model_registry.prompt_version import PromptVersion
+from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import Judge, JudgeField
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
+from mlflow.genai.judges.instructions_judge.constants import (
+    INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE,
+)
 from mlflow.genai.judges.utils import format_prompt, get_default_model, invoke_judge_model
 from mlflow.genai.scorers.base import _SERIALIZATION_VERSION, ScorerKind, SerializedScorer
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -131,6 +135,7 @@ class InstructionsJudge(Judge):
         inputs: dict[str, Any] | None = None,
         outputs: dict[str, Any] | None = None,
         expectations: dict[str, Any] | None = None,
+        trace: Trace | None = None,
     ) -> Any:
         """
         Evaluate the provided data using the judge's instructions.
@@ -138,14 +143,35 @@ class InstructionsJudge(Judge):
         Args:
             inputs: Input dictionary to evaluate. Cannot be used with 'trace'.
             outputs: Output dictionary to evaluate. Cannot be used with 'trace'.
-            expectations: Expected outcomes or ground truth.
+            expectations: Expected outcomes or ground truth. Cannot be used with 'trace'.
+            trace: Trace object for evaluation. Cannot be used with 'inputs', 'outputs', or
+                'expectations'.
 
         Returns:
             Evaluation results
 
         """
+        # Determine evaluation mode based on template variables
+        is_trace_based = self._TEMPLATE_VARIABLE_TRACE in self.template_variables
 
-        if inputs is not None or outputs is not None:
+        if is_trace_based:
+            # This is a trace-based judge - require trace, ignore inputs/outputs
+            if trace is None:
+                raise MlflowException(
+                    "Trace is required for judges that use {{trace}} variable.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            # Use trace-based evaluation (ignore inputs/outputs/expectations)
+        else:
+            # This is a field-based judge - require inputs/outputs, ignore trace
+            if inputs is None and outputs is None:
+                raise MlflowException(
+                    "Must specify 'inputs' or 'outputs' for field-based evaluation.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+        # Handle field-based evaluation (inputs/outputs)
+        if not is_trace_based:
             self._validate_call_args_contain_template_fields(inputs, outputs, expectations)
 
             template_values = {}
@@ -167,10 +193,23 @@ class InstructionsJudge(Judge):
                 prompt=formatted_prompt,
                 assessment_name=self.name,
             )
-        raise MlflowException(
-            "Must specify 'inputs' or 'outputs' for evaluation.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
+
+        # Handle trace-based evaluation
+        else:  # is_trace_based
+            output_fields = self.get_output_fields()
+            evaluation_rating_fields = "\n".join(
+                [f"- {field.name}: {field.description}" for field in output_fields]
+            )
+
+            augmented_prompt = INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE.format(
+                evaluation_rating_fields=evaluation_rating_fields, instructions=self._instructions
+            )
+            return invoke_judge_model(
+                model_uri=self._model,
+                prompt=augmented_prompt,
+                assessment_name=self.name,
+                trace=trace,
+            )
 
     @property
     def kind(self) -> ScorerKind:
@@ -212,8 +251,16 @@ class InstructionsJudge(Judge):
         has_trace = self._TEMPLATE_VARIABLE_TRACE in template_vars
         has_inputs = self._TEMPLATE_VARIABLE_INPUTS in template_vars
         has_outputs = self._TEMPLATE_VARIABLE_OUTPUTS in template_vars
+        has_expectations = self._TEMPLATE_VARIABLE_EXPECTATIONS in template_vars
 
         if has_trace:
+            # TODO: Allow expectations variable with trace in followup implementation
+            if has_expectations:
+                raise MlflowException(
+                    "When submitting a 'trace' variable, expectations are not yet supported. "
+                    "This will be implemented in a future release.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
             if self._custom_template_variables:
                 raise MlflowException(
                     "When submitting a 'trace' variable, no other variables are permitted. "
