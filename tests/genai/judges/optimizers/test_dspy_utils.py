@@ -145,36 +145,33 @@ def test_agreement_metric_error_handling():
     assert result is False
 
 
-def test_convert_mlflow_uri_to_litellm():
+@pytest.mark.parametrize(
+    ("mlflow_uri", "expected_litellm_uri"),
+    [
+        ("openai:/gpt-4", "openai/gpt-4"),
+        ("openai:/gpt-3.5-turbo", "openai/gpt-3.5-turbo"),
+        ("anthropic:/claude-3", "anthropic/claude-3"),
+        ("anthropic:/claude-3.5-sonnet", "anthropic/claude-3.5-sonnet"),
+        ("cohere:/command", "cohere/command"),
+        ("databricks:/dbrx", "databricks/dbrx"),
+    ],
+)
+def test_convert_mlflow_uri_to_litellm(mlflow_uri, expected_litellm_uri):
     """Test conversion of MLflow URI to LiteLLM format."""
-    # Test OpenAI model
-    assert convert_mlflow_uri_to_litellm("openai:/gpt-4") == "openai/gpt-4"
-    assert convert_mlflow_uri_to_litellm("openai:/gpt-3.5-turbo") == "openai/gpt-3.5-turbo"
-
-    # Test Anthropic model
-    assert convert_mlflow_uri_to_litellm("anthropic:/claude-3") == "anthropic/claude-3"
-    assert (
-        convert_mlflow_uri_to_litellm("anthropic:/claude-3.5-sonnet")
-        == "anthropic/claude-3.5-sonnet"
-    )
-
-    # Test other providers
-    assert convert_mlflow_uri_to_litellm("cohere:/command") == "cohere/command"
-    assert convert_mlflow_uri_to_litellm("databricks:/dbrx") == "databricks/dbrx"
+    assert convert_mlflow_uri_to_litellm(mlflow_uri) == expected_litellm_uri
 
 
-def test_convert_mlflow_uri_to_litellm_invalid():
+@pytest.mark.parametrize(
+    "invalid_uri",
+    [
+        "openai-gpt-4",  # Invalid format (missing colon-slash)
+        "",  # Empty string
+        None,  # None value
+    ],
+)
+def test_convert_mlflow_uri_to_litellm_invalid(invalid_uri):
     """Test conversion with invalid URIs."""
     from mlflow.exceptions import MlflowException
 
-    # Test invalid format (missing colon-slash)
     with pytest.raises(MlflowException, match="Failed to convert MLflow URI"):
-        convert_mlflow_uri_to_litellm("openai-gpt-4")
-
-    # Test empty string
-    with pytest.raises(MlflowException, match="Failed to convert MLflow URI"):
-        convert_mlflow_uri_to_litellm("")
-
-    # Test None (would cause an exception in _parse_model_uri)
-    with pytest.raises(MlflowException, match="Failed to convert MLflow URI"):
-        convert_mlflow_uri_to_litellm(None)
+        convert_mlflow_uri_to_litellm(invalid_uri)
