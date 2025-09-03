@@ -8,6 +8,7 @@ import dspy
 import pytest
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
+from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.span import Span
 from mlflow.entities.trace import Trace, TraceData, TraceInfo
@@ -60,15 +61,13 @@ def sample_trace_with_assessment():
     """Create a sample trace with human assessment for testing."""
     # Create actual trace with real MLflow objects instead of mocks
 
-    # Create a real assessment object
-    mock_assessment = Mock()
-    mock_assessment.name = "mock_judge"
-    mock_assessment.source = AssessmentSource(
-        source_type=AssessmentSourceType.HUMAN, source_id="test_user"
+    # Create a real assessment object (Feedback)
+    assessment = Feedback(
+        name="mock_judge",
+        value="pass",
+        rationale="This looks good",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="test_user"),
     )
-    mock_assessment.feedback = Mock()
-    mock_assessment.feedback.value = "pass"
-    mock_assessment.rationale = "This looks good"
 
     # Create OpenTelemetry span with proper attributes
     current_time_ns = int(time.time() * 1e9)
@@ -98,7 +97,7 @@ def sample_trace_with_assessment():
         execution_duration=1000,
         trace_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
         tags={},
-        assessments=[mock_assessment],
+        assessments=[assessment],
         request_preview='{"inputs": "test input"}',
         response_preview='{"outputs": "test output"}',
     )
@@ -158,16 +157,14 @@ def trace_with_nested_request_response():
     """Create a trace with nested request/response structure."""
     # Create actual trace with real MLflow objects
 
-    # Create a real assessment object
-    mock_assessment = Mock()
-    mock_assessment.name = "mock_judge"
-    mock_assessment.source = AssessmentSource(
-        source_type=AssessmentSourceType.HUMAN, source_id="test_user"
+    # Create a real assessment object (Feedback)
+    assessment = Feedback(
+        name="mock_judge",
+        value="pass",
+        rationale="Complex nested structure handled well",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="test_user"),
+        create_time_ms=int(time.time() * 1000),
     )
-    mock_assessment.feedback = Mock()
-    mock_assessment.feedback.value = "pass"
-    mock_assessment.rationale = "Complex nested structure handled well"
-    mock_assessment.create_time_ms = int(time.time() * 1000)
 
     # Create OpenTelemetry span with nested structure
     current_time_ns = int(time.time() * 1e9)
@@ -200,7 +197,7 @@ def trace_with_nested_request_response():
         execution_duration=1000,
         trace_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
         tags={},
-        assessments=[mock_assessment],
+        assessments=[assessment],
         request_preview=json.dumps(nested_inputs),
         response_preview=json.dumps(nested_outputs),
     )
@@ -217,16 +214,14 @@ def trace_with_list_request_response():
     """Create a trace with list-based request/response."""
     # Create actual trace with real MLflow objects
 
-    # Create a real assessment object
-    mock_assessment = Mock()
-    mock_assessment.name = "mock_judge"
-    mock_assessment.source = AssessmentSource(
-        source_type=AssessmentSourceType.HUMAN, source_id="test_user"
+    # Create a real assessment object (Feedback)
+    assessment = Feedback(
+        name="mock_judge",
+        value="fail",
+        rationale="List processing needs improvement",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="test_user"),
+        create_time_ms=int(time.time() * 1000),
     )
-    mock_assessment.feedback = Mock()
-    mock_assessment.feedback.value = "fail"
-    mock_assessment.rationale = "List processing needs improvement"
-    mock_assessment.create_time_ms = int(time.time() * 1000)
 
     # Create OpenTelemetry span with list structure
     current_time_ns = int(time.time() * 1e9)
@@ -259,7 +254,7 @@ def trace_with_list_request_response():
         execution_duration=1000,
         trace_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
         tags={},
-        assessments=[mock_assessment],
+        assessments=[assessment],
         request_preview='["item1", "item2", "item3"]',
         response_preview='["result1", "result2"]',
     )
@@ -276,16 +271,14 @@ def trace_with_string_request_response():
     """Create a trace with simple string request/response."""
     # Create actual trace with real MLflow objects
 
-    # Create a real assessment object
-    mock_assessment = Mock()
-    mock_assessment.name = "mock_judge"
-    mock_assessment.source = AssessmentSource(
-        source_type=AssessmentSourceType.HUMAN, source_id="test_user"
+    # Create a real assessment object (Feedback)
+    assessment = Feedback(
+        name="mock_judge",
+        value="pass",
+        rationale="Simple string handled correctly",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="test_user"),
+        create_time_ms=int(time.time() * 1000),
     )
-    mock_assessment.feedback = Mock()
-    mock_assessment.feedback.value = "pass"
-    mock_assessment.rationale = "Simple string handled correctly"
-    mock_assessment.create_time_ms = int(time.time() * 1000)
 
     # Create OpenTelemetry span with string inputs/outputs
     current_time_ns = int(time.time() * 1e9)
@@ -318,7 +311,7 @@ def trace_with_string_request_response():
         execution_duration=1000,
         trace_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
         tags={},
-        assessments=[mock_assessment],
+        assessments=[assessment],
         request_preview=json.dumps(string_input),
         response_preview=json.dumps(string_output),
     )
@@ -335,16 +328,14 @@ def trace_with_mixed_types():
     """Create a trace with mixed data types in request/response."""
     # Create actual trace with real MLflow objects
 
-    # Create a real assessment object
-    mock_assessment = Mock()
-    mock_assessment.name = "mock_judge"
-    mock_assessment.source = AssessmentSource(
-        source_type=AssessmentSourceType.HUMAN, source_id="test_user"
+    # Create a real assessment object (Feedback)
+    assessment = Feedback(
+        name="mock_judge",
+        value="pass",
+        rationale="Mixed types processed successfully",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="test_user"),
+        create_time_ms=int(time.time() * 1000),
     )
-    mock_assessment.feedback = Mock()
-    mock_assessment.feedback.value = "pass"
-    mock_assessment.rationale = "Mixed types processed successfully"
-    mock_assessment.create_time_ms = int(time.time() * 1000)
 
     # Create OpenTelemetry span with mixed types
     current_time_ns = int(time.time() * 1e9)
@@ -377,7 +368,7 @@ def trace_with_mixed_types():
         execution_duration=1000,
         trace_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
         tags={},
-        assessments=[mock_assessment],
+        assessments=[assessment],
         request_preview=json.dumps(mixed_inputs),
         response_preview=json.dumps(mixed_outputs),
     )
@@ -396,16 +387,14 @@ def sample_traces_with_assessments():
     # Create actual traces with real MLflow objects
 
     for i in range(5):
-        # Create a real assessment object
-        mock_assessment = Mock()
-        mock_assessment.name = "mock_judge"
-        mock_assessment.source = AssessmentSource(
-            source_type=AssessmentSourceType.HUMAN, source_id="test_user"
+        # Create a real assessment object (Feedback)
+        assessment = Feedback(
+            name="mock_judge",
+            value="pass" if i % 2 == 0 else "fail",
+            rationale=f"Rationale for trace {i}",
+            source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="test_user"),
+            create_time_ms=int(time.time() * 1000) + i,  # Slightly different times
         )
-        mock_assessment.feedback = Mock()
-        mock_assessment.feedback.value = "pass" if i % 2 == 0 else "fail"
-        mock_assessment.rationale = f"Rationale for trace {i}"
-        mock_assessment.create_time_ms = int(time.time() * 1000) + i  # Slightly different times
 
         # Create OpenTelemetry span
         current_time_ns = int(time.time() * 1e9) + i * 1000000
@@ -438,7 +427,7 @@ def sample_traces_with_assessments():
             execution_duration=1000,
             trace_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
             tags={},
-            assessments=[mock_assessment],
+            assessments=[assessment],
             request_preview=json.dumps(inputs),
             response_preview=json.dumps(outputs),
         )

@@ -131,7 +131,7 @@ def create_dspy_signature(judge: "Judge") -> "dspy.Signature":
         raise MlflowException(f"Failed to create DSPy signature: {e}")
 
 
-def agreement_metric(example: Any, pred: Any, trace: Any | None = None):
+def agreement_metric(example: "dspy.Example", pred: Any, trace: Any | None = None):
     """Simple agreement metric for judge optimization."""
     try:
         # Extract result from example and prediction
@@ -144,6 +144,8 @@ def agreement_metric(example: Any, pred: Any, trace: Any | None = None):
         # Normalize both to consistent format
         expected_norm = str(expected).lower().strip()
         predicted_norm = str(predicted).lower().strip()
+
+        _logger.debug(f"expected_norm: {expected_norm}, predicted_norm: {predicted_norm}")
 
         return expected_norm == predicted_norm
     except Exception as e:
