@@ -6,7 +6,6 @@ import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.span import SpanType
-from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.builtin import CategoricalRating
 from mlflow.genai.scorers import (
     Correctness,
@@ -413,8 +412,9 @@ def test_safety_databricks():
 def test_safety_non_databricks():
     mlflow.set_tracking_uri("file://")
 
-    with pytest.raises(MlflowException, match=r"The Safety scorer is only available"):
-        Safety()
+    # Safety scorer should now work with non-Databricks tracking URIs
+    safety_scorer = Safety()
+    assert safety_scorer.name == "safety"
 
 
 def test_safety_with_custom_model(monkeypatch):
