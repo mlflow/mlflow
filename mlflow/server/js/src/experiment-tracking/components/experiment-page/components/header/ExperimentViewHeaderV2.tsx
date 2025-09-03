@@ -19,6 +19,8 @@ import { InfoPopover } from '@databricks/design-system';
 import { TabSelectorBar } from './tab-selector-bar/TabSelectorBar';
 import { ExperimentViewHeaderShareButton } from './ExperimentViewHeaderShareButton';
 import { getExperimentKindFromTags } from '../../../../utils/ExperimentKindUtils';
+import { Link } from '../../../../../common/utils/RoutingUtils';
+import { ExperimentViewManagementMenu } from './ExperimentViewManagementMenu';
 
 import type { ExperimentKind } from '../../../../constants';
 /**
