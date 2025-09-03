@@ -746,8 +746,9 @@ def test_doctor():
 
 def test_env_file_loading(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # Setup: Create an experiment using the Python SDK
-    # Use os.path.join for proper cross-platform path handling
-    test_tracking_uri = os.path.join(str(tmp_path), "mlruns")
+    # Use file:// URI format for cross-platform compatibility
+    mlruns_path = tmp_path / "mlruns"
+    test_tracking_uri = mlruns_path.as_uri()  # This creates proper file:// URI
     test_experiment_name = "test_experiment_from_env"
 
     # Create experiment using SDK
