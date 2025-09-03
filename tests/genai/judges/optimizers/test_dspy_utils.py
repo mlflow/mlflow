@@ -48,45 +48,30 @@ def test_trace_to_dspy_example_success(sample_trace_with_assessment):
     # Assert that the result is an instance of dspy.Example
     assert isinstance(result, dspy.Example)
 
-    # Check the result has the correct values using the extraction functions
-    assert result["inputs"] == extract_request_from_trace(trace)
-    assert result["outputs"] == extract_response_from_trace(trace)
-    assert result["result"] == "pass"
-    assert result["rationale"] == "This looks good"
+    # Construct an expected example and assert that the result is the same
+    expected_example = dspy.Example(
+        inputs=extract_request_from_trace(trace),
+        outputs=extract_response_from_trace(trace),
+        result="pass",
+        rationale="This looks good",
+    ).with_inputs("inputs", "outputs")
+
+    # Compare the examples
+    assert result["inputs"] == expected_example["inputs"]
+    assert result["outputs"] == expected_example["outputs"]
+    assert result["result"] == expected_example["result"]
+    assert result["rationale"] == expected_example["rationale"]
 
 
-def test_trace_to_dspy_example_no_assessment():
+def test_trace_to_dspy_example_no_assessment(sample_trace_without_assessment):
     """Test trace conversion with no matching assessment."""
-    mock_dspy = MagicMock()
-    mock_example = MagicMock()
-    mock_dspy.Example.return_value = mock_example
+    # Use the fixture for trace without assessment
+    trace = sample_trace_without_assessment
 
-    # Create trace without assessments
-    mock_trace = Mock()
-    mock_trace.info.trace_id = "test"
-    mock_trace.info.assessments = []
-    mock_trace.info.request_preview = "test"
-    mock_trace.info.response_preview = "test"
-    mock_trace.data.request = "test"
-    mock_trace.data.response = "test"
-    # Add spans to mock trace
-    mock_span = Mock()
-    mock_span.inputs = {"inputs": "test"}
-    mock_span.outputs = {"outputs": "test"}
-    mock_trace.data.spans = [mock_span]
-
-    with patch.dict("sys.modules", {"dspy": mock_dspy}):
-        result = trace_to_dspy_example(mock_trace, "mock_judge")
+    # This should return None since there's no matching assessment
+    result = trace_to_dspy_example(trace, "mock_judge")
 
     assert result is None
-
-
-def test_trace_to_dspy_example_no_dspy():
-    """Test trace conversion when DSPy is not available."""
-    # Since dspy is imported at module level and raises exception immediately,
-    # we can't really test this scenario anymore. The module won't load without dspy.
-    # This test is kept for documentation purposes but will be skipped.
-    pytest.skip("Cannot test missing dspy since module requires it at import time")
 
 
 def test_create_dspy_signature(mock_judge):
@@ -112,14 +97,6 @@ def test_create_dspy_signature(mock_judge):
         assert field.name in signature.output_fields
         # Verify the field description matches
         assert signature.output_fields[field.name].json_schema_extra["desc"] == field.description
-
-
-def test_create_dspy_signature_no_dspy(mock_judge):
-    """Test signature creation when DSPy is not available."""
-    # Since dspy is imported at module level and raises exception immediately,
-    # we can't really test this scenario anymore. The module won't load without dspy.
-    # This test is kept for documentation purposes but will be skipped.
-    pytest.skip("Cannot test missing dspy since module requires it at import time")
 
 
 def test_agreement_metric():
