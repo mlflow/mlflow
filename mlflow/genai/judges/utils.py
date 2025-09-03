@@ -11,6 +11,7 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
+from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.utils.enum_utils import StrEnum
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.utils.uri import is_databricks_uri
@@ -20,10 +21,14 @@ _logger = logging.getLogger(__name__)
 # "endpoints" is a special case for Databricks model serving endpoints.
 _NATIVE_PROVIDERS = ["openai", "anthropic", "bedrock", "mistral", "endpoints"]
 
+# Global cache to track model capabilities across function calls
+# Key: model URI (e.g., "openai/gpt-4"), Value: boolean indicating response_format support
+_MODEL_RESPONSE_FORMAT_CAPABILITIES: dict[str, bool] = {}
+
 
 def get_default_model() -> str:
     if is_databricks_uri(mlflow.get_tracking_uri()):
-        return "databricks"
+        return _DATABRICKS_DEFAULT_JUDGE_MODEL
     else:
         return "openai:/gpt-4.1-mini"
 
@@ -223,20 +228,48 @@ def _invoke_litellm(
         judge_tools = list_judge_tools()
         tools = [tool.get_definition().to_dict() for tool in judge_tools]
 
+    def _make_completion_request(include_response_format: bool):
+        """Helper to make litellm completion request with optional response_format."""
+        kwargs = {
+            "model": litellm_model_uri,
+            "messages": messages,
+            "tools": tools if tools else None,
+            "tool_choice": "auto" if tools else None,
+            "retry_policy": _get_litellm_retry_policy(num_retries),
+            "retry_strategy": "exponential_backoff_retry",
+            # In LiteLLM version 1.55.3+, max_retries is stacked on top of retry_policy.
+            # To avoid double-retry, we set max_retries=0
+            "max_retries": 0,
+        }
+        if include_response_format:
+            kwargs["response_format"] = response_format
+        return litellm.completion(**kwargs)
+
     while True:
         try:
-            response = litellm.completion(
-                model=litellm_model_uri,
-                messages=messages,
-                tools=tools if tools else None,
-                tool_choice="auto" if tools else None,
-                response_format=response_format,
-                retry_policy=_get_litellm_retry_policy(num_retries),
-                retry_strategy="exponential_backoff_retry",
-                # In LiteLLM version 1.55.3+, max_retries is stacked on top of retry_policy.
-                # To avoid double-retry, we set max_retries=0
-                max_retries=0,
-            )
+            try:
+                response = _make_completion_request(
+                    include_response_format=_MODEL_RESPONSE_FORMAT_CAPABILITIES.get(
+                        litellm_model_uri, True
+                    )
+                )
+            except litellm.BadRequestError as e:
+                if _MODEL_RESPONSE_FORMAT_CAPABILITIES.get(litellm_model_uri, True):
+                    # Retry without response_format if the request failed due to bad request.
+                    # Some models don't support structured outputs (response_format) at all,
+                    # and some models don't support both tool calling and structured outputs.
+                    _logger.debug(
+                        f"Model {litellm_model_uri} may not support structured outputs or combined "
+                        f"tool calling + structured outputs. BadRequestError: {e}. "
+                        f"Falling back to unstructured response."
+                    )
+                    # Cache the capability for future calls
+                    _MODEL_RESPONSE_FORMAT_CAPABILITIES[litellm_model_uri] = False
+                    response = _make_completion_request(include_response_format=False)
+                else:
+                    # Already tried without response_format and still got BadRequestError
+                    raise
+
             message = response.choices[0].message
             if not message.tool_calls:
                 return message.content
