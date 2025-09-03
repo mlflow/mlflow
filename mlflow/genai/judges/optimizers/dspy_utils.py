@@ -35,12 +35,6 @@ def convert_mlflow_uri_to_litellm(model_uri: str) -> str:
 
     Returns:
         LiteLLM-compatible model string (e.g., 'openai/gpt-4')
-
-    Examples:
-        >>> convert_mlflow_uri_to_litellm("openai:/gpt-4")
-        "openai/gpt-4"
-        >>> convert_mlflow_uri_to_litellm("anthropic:/claude-3")
-        "anthropic/claude-3"
     """
     try:
         scheme, path = _parse_model_uri(model_uri)

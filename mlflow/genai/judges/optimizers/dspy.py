@@ -42,8 +42,8 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
     and handling DSPy program compilation.
     """
 
-    _logger: logging.Logger = PrivateAttr()
-    _model: str = PrivateAttr()
+    _logger: logging.Logger 
+    _model: str 
 
     @property
     def model(self) -> str:
@@ -131,15 +131,10 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
 
             self._logger.info(f"Setting up DSPy context with model: {self._model}")
 
-            # Convert MLflow model URI to LiteLLM format for DSPy
-            optimizer_model_litellm = convert_mlflow_uri_to_litellm(self._model)
-
             # Configure DSPy to use the optimizer's model
             # This ensures the optimizer uses its own model, separate from the judge's model
-            optimizer_model = dspy.LM(model=optimizer_model_litellm)
-
-            # Use DSPy context manager to ensure proper model usage
-            with dspy.context(lm=optimizer_model):
+            optimizer_model_litellm = convert_mlflow_uri_to_litellm(self._model)
+            with dspy.context(lm=dspy.LM(model=optimizer_model_litellm)):
                 # Create DSPy program that will simulate the judge
                 program = self._get_dspy_program_from_judge(judge)
                 self._logger.info("Created DSPy program with signature using judge's model")

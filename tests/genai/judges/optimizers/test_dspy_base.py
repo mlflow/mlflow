@@ -174,11 +174,11 @@ def test_optimizer_and_judge_use_different_models(sample_traces_with_assessments
 def test_optimizer_default_model_initialization():
     """Test that optimizer uses default model when none specified."""
     with patch("mlflow.genai.judges.optimizers.dspy.get_default_model") as mock_get_default:
-        mock_get_default.return_value = "openai:/gpt-4.1-mini"
+        mock_get_default.return_value = "whichever default model is used"
 
         optimizer = ConcreteDSPyOptimizer()
 
-        assert optimizer.model == "openai:/gpt-4.1-mini"
+        assert optimizer.model == "whichever default model is used"
         mock_get_default.assert_called_once()
 
 
