@@ -426,9 +426,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [1, 2]
+        group: [1, 2, 3, 4, 5, 6]
         include:
-          - splits: 2
+          - splits: 6
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
@@ -473,10 +473,10 @@ jobs:
           export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} -n 2 --dist=loadfile \
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
             --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/evaluate --ignore=tests/optuna \
             --ignore=tests/pyspark/optuna --ignore=tests/genai --ignore=tests/telemetry tests
       - name: Run telemetry tests
         run: |
           source .venv/Scripts/activate
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} -n 2 --dist=loadfile tests/telemetry
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/telemetry
