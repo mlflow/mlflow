@@ -216,7 +216,7 @@ def _try_parse_raw_response(response: Any) -> Any:
 
 
 def _is_response_api(original):
-    class_name, _ = original.__dual__.split(".")
+    class_name, _ = original.__qualname__.split(".")
     return class_name in ["Responses", "AsyncResponses"]
 
 
