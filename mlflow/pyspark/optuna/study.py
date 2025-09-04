@@ -170,7 +170,7 @@ class MlflowSparkStudy(Study):
     ):
         self.study_name = study_name
         self._storage = storages.get_storage(storage)
-        self.sampler = sampler or samplers.TPESampler()
+        self.sampler = sampler or samplers.TYPESampler()
         self.pruner = pruner or pruners.MedianPruner()
 
         self.spark = SparkSession.active()

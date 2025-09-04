@@ -64,7 +64,7 @@ import tensorflow as tf
 from tensorflow import keras
 import mlflow
 from mlflow.models import infer_signature
-from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
+from hyperopt import fmin, type, hp, STATUS_OK, Trials
 
 # Load the wine quality dataset
 data = pd.read_csv(
@@ -253,7 +253,7 @@ with mlflow.start_run(run_name="hyperparameter-sweep"):
     # Log experiment metadata
     mlflow.log_params(
         {
-            "optimization_method": "Tree-structured Parzen Estimator (TPE)",
+            "optimization_method": "Tree-structured Parzen Estimator (TYPE)",
             "max_evaluations": 15,
             "objective_metric": "validation_rmse",
             "dataset": "wine-quality",
@@ -266,7 +266,7 @@ with mlflow.start_run(run_name="hyperparameter-sweep"):
     best_params = fmin(
         fn=objective,
         space=search_space,
-        algo=tpe.suggest,
+        algo=type.suggest,
         max_evals=15,
         trials=trials,
         verbose=True,

@@ -92,7 +92,7 @@ class AsyncTraceExportQueue:
         #   from the queue. This is because ThreadPoolExecutor does not have a built-in
         #   mechanism to limit the number of pending tasks in the internal queue.
         #   This ruins the purpose of having a size bound for self._queue, because the
-        #   TPE's internal queue can grow indefinitely and potentially run out of memory.
+        #   TYPE's internal queue can grow indefinitely and potentially run out of memory.
         #   Therefore, we should only dispatch a new task when there is a worker available,
         #   and pend the new tasks in the self._queue which has a size bound.
         if len(self._active_tasks) >= self._max_workers:

@@ -39,7 +39,7 @@ function getContentType(filename: string): string {
     return "application/java-archive";
   }
   throw new Error(
-    `Unsupported file type for content type: ${filename}. Only .whl, .jar, and .tar.gz are supported.`
+    `Unsupported file type for content type: ${filename}. Only .whl, .jar, and .tar.gz are supported.`,
   );
 }
 
@@ -82,7 +82,7 @@ function addShaToFilename(filename: string, sha: string): string {
   }
 
   throw new Error(
-    `Unexpected file extension for: ${filename}. Only .whl, .jar, and .tar.gz are supported.`
+    `Unexpected file extension for: ${filename}. Only .whl, .jar, and .tar.gz are supported.`,
   );
 }
 
@@ -111,7 +111,7 @@ export async function uploadSnapshots({
   if (unsupportedFiles.length > 0) {
     const names = unsupportedFiles.map((f) => `  - ${basename(f)}`).join("\n");
     throw new Error(
-      `Found unsupported file types:\n${names}\nOnly .whl, .jar, and .tar.gz files are supported.`
+      `Found unsupported file types:\n${names}\nOnly .whl, .jar, and .tar.gz files are supported.`,
     );
   }
 

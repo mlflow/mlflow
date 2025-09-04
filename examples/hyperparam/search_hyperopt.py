@@ -13,7 +13,7 @@ This example currently does not support parallel execution.
 
 import click
 import numpy as np
-from hyperopt import fmin, hp, rand, tpe
+from hyperopt import fmin, hp, rand, type
 
 import mlflow.projects
 from mlflow.tracking import MlflowClient
@@ -27,7 +27,7 @@ _inf = np.finfo(np.float64).max
 @click.option("--max-runs", type=click.INT, default=10, help="Maximum number of runs to evaluate.")
 @click.option("--epochs", type=click.INT, default=500, help="Number of epochs")
 @click.option("--metric", type=click.STRING, default="rmse", help="Metric to optimize on.")
-@click.option("--algo", type=click.STRING, default="tpe.suggest", help="Optimizer algorithm.")
+@click.option("--algo", type=click.STRING, default="type.suggest", help="Optimizer algorithm.")
 @click.option("--seed", type=click.INT, default=97531, help="Seed for the random generator")
 @click.argument("training_data")
 def train(training_data, max_runs, epochs, metric, algo, seed):
@@ -136,7 +136,7 @@ def train(training_data, max_runs, epochs, metric, algo, seed):
         best = fmin(
             fn=new_eval(epochs, experiment_id, train_null_loss, valid_null_loss, test_null_loss),
             space=space,
-            algo=tpe.suggest if algo == "tpe.suggest" else rand.suggest,
+            algo=type.suggest if algo == "type.suggest" else rand.suggest,
             max_evals=max_runs,
         )
         mlflow.set_tag("best params", str(best))

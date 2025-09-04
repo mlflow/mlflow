@@ -31,7 +31,7 @@ module.exports = async ({ github, context }) => {
 
   // Exclude labels that are not available in the repository or have been added/removed by a user
   const labels = bodyLabels.filter(
-    ({ name }) => repoLabels.includes(name) && !userLabels.includes(name)
+    ({ name }) => repoLabels.includes(name) && !userLabels.includes(name),
   );
   console.log("Labels to add/remove:", labels);
 
@@ -69,8 +69,8 @@ module.exports = async ({ github, context }) => {
           repo,
           issue_number,
           name,
-        })
-      )
+        }),
+      ),
     );
     for (const { status, reason } of results) {
       if (status === "rejected") {
