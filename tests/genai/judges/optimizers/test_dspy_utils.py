@@ -10,6 +10,7 @@ from mlflow.genai.judges.judge_trace_utils import (
 )
 from mlflow.genai.judges.optimizers.dspy_utils import (
     agreement_metric,
+    convert_mlflow_uri_to_litellm,
     create_dspy_signature,
     trace_to_dspy_example,
 )
@@ -142,3 +143,35 @@ def test_agreement_metric_error_handling():
     # Test with invalid inputs
     result = agreement_metric(None, None)
     assert result is False
+
+
+@pytest.mark.parametrize(
+    ("mlflow_uri", "expected_litellm_uri"),
+    [
+        ("openai:/gpt-4", "openai/gpt-4"),
+        ("openai:/gpt-3.5-turbo", "openai/gpt-3.5-turbo"),
+        ("anthropic:/claude-3", "anthropic/claude-3"),
+        ("anthropic:/claude-3.5-sonnet", "anthropic/claude-3.5-sonnet"),
+        ("cohere:/command", "cohere/command"),
+        ("databricks:/dbrx", "databricks/dbrx"),
+    ],
+)
+def test_convert_mlflow_uri_to_litellm(mlflow_uri, expected_litellm_uri):
+    """Test conversion of MLflow URI to LiteLLM format."""
+    assert convert_mlflow_uri_to_litellm(mlflow_uri) == expected_litellm_uri
+
+
+@pytest.mark.parametrize(
+    "invalid_uri",
+    [
+        "openai-gpt-4",  # Invalid format (missing colon-slash)
+        "",  # Empty string
+        None,  # None value
+    ],
+)
+def test_convert_mlflow_uri_to_litellm_invalid(invalid_uri):
+    """Test conversion with invalid URIs."""
+    from mlflow.exceptions import MlflowException
+
+    with pytest.raises(MlflowException, match="Failed to convert MLflow URI"):
+        convert_mlflow_uri_to_litellm(invalid_uri)
