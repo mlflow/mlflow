@@ -1,5 +1,6 @@
 """Tests for DSPyAlignmentOptimizer base class."""
 
+from typing import Any, Callable, Collection
 from unittest.mock import MagicMock, Mock, patch
 
 import dspy
@@ -14,7 +15,12 @@ from tests.genai.judges.optimizers.conftest import MockDSPyLM
 class ConcreteDSPyOptimizer(DSPyAlignmentOptimizer):
     """Concrete implementation for testing."""
 
-    def _dspy_optimize(self, program, examples, metric_fn):
+    def _dspy_optimize(
+        self,
+        program: "dspy.Module",
+        examples: Collection["dspy.Example"],
+        metric_fn: Callable[["dspy.Example", Any, Any | None], bool],
+    ) -> "dspy.Module":
         # Mock implementation for testing
         mock_program = Mock()
         mock_program.signature = Mock()
@@ -70,16 +76,24 @@ def test_align_no_traces(mock_judge):
     """Test alignment with no traces provided."""
     optimizer = ConcreteDSPyOptimizer()
 
-    with pytest.raises(MlflowException, match="No traces provided"):
+    with pytest.raises(MlflowException, match="Alignment optimization failed") as exc_info:
         optimizer.align(mock_judge, [])
+
+    # Check that the chained exception has the expected message
+    assert exc_info.value.__cause__ is not None
+    assert "No traces provided" in str(exc_info.value.__cause__)
 
 
 def test_align_no_valid_examples(mock_judge, sample_trace_without_assessment):
     """Test alignment when no valid examples can be created."""
     with patch("dspy.LM", MagicMock()):
         optimizer = ConcreteDSPyOptimizer()
-        with pytest.raises(MlflowException, match="No valid examples could be created"):
+        with pytest.raises(MlflowException, match="Alignment optimization failed") as exc_info:
             optimizer.align(mock_judge, [sample_trace_without_assessment])
+
+        # Check that the chained exception has the expected message
+        assert exc_info.value.__cause__ is not None
+        assert "No valid examples could be created" in str(exc_info.value.__cause__)
 
 
 def test_align_insufficient_examples(mock_judge, sample_trace_with_assessment):
@@ -88,8 +102,12 @@ def test_align_insufficient_examples(mock_judge, sample_trace_with_assessment):
 
     # Mock dspy first to avoid import errors
     with patch("dspy.LM", MagicMock()):
-        with pytest.raises(MlflowException, match="At least 2 valid traces are required"):
+        with pytest.raises(MlflowException, match="Alignment optimization failed") as exc_info:
             optimizer.align(mock_judge, [sample_trace_with_assessment])
+
+        # Check that the chained exception has the expected message
+        assert exc_info.value.__cause__ is not None
+        assert "At least 2 valid traces are required" in str(exc_info.value.__cause__)
 
 
 def _create_mock_dspy_lm_factory(optimizer_lm, judge_lm):
@@ -135,7 +153,12 @@ def test_optimizer_and_judge_use_different_models(sample_traces_with_assessments
     with patch.object(dspy, "LM", side_effect=mock_lm_factory):
         # Override ConcreteDSPyOptimizer's _dspy_optimize to call the program
         class TestDSPyOptimizer(ConcreteDSPyOptimizer):
-            def _dspy_optimize(self, program, examples, metric_fn):
+            def _dspy_optimize(
+                self,
+                program: "dspy.Module",
+                examples: Collection["dspy.Example"],
+                metric_fn: Callable[["dspy.Example", Any, Any | None], bool],
+            ) -> "dspy.Module":
                 lm_in_context = dspy.settings.lm
                 assert lm_in_context == optimizer_lm
 
