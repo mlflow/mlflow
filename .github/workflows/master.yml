@@ -98,9 +98,11 @@ jobs:
           ls -la ~/.local/bin/ || echo "~/.local/bin/ not found"
       - name: Install dependencies
         run: |
+          uv venv .venv
+          source .venv/bin/activate
           source ./dev/install-common-deps.sh --ml
           # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
-          uv pip install --system -c requirements/constraints.txt tf-keras
+          uv pip install -c requirements/constraints.txt tf-keras
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Import check
@@ -343,8 +345,10 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
+          uv venv .venv
+          source .venv/bin/activate
           source ./dev/install-common-deps.sh
-          uv pip install --system -c requirements/constraints.txt pyspark langchain langchain-community '.[mlserver]'
+          uv pip install -c requirements/constraints.txt pyspark langchain langchain-community '.[mlserver]'
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
@@ -394,8 +398,10 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
+          uv venv .venv
+          source .venv/bin/activate
           source ./dev/install-common-deps.sh
-          uv pip install --system -c requirements/constraints.txt pyspark torch transformers langchain langchain-experimental '.[genai]' 'shap<0.47.0' lightgbm xgboost
+          uv pip install -c requirements/constraints.txt pyspark torch transformers langchain langchain-experimental '.[genai]' 'shap<0.47.0' lightgbm xgboost
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
@@ -444,8 +450,10 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
+          uv venv .venv
+          source .venv/bin/activate
           source ./dev/install-common-deps.sh
-          uv pip install --system -c requirements/constraints.txt openai dspy
+          uv pip install -c requirements/constraints.txt openai dspy
       - uses: ./.github/actions/show-versions
       - name: Run GenAI Tests (OSS)
         run: |
@@ -453,7 +461,7 @@ jobs:
 
       - name: Run GenAI Tests (Databricks)
         run: |
-          uv pip install --system -c requirements/constraints.txt databricks-agents
+          uv pip install -c requirements/constraints.txt databricks-agents
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations-path=tests/.test_durations tests/genai --ignore tests/genai/test_genai_import_without_agent_sdk.py \
             --ignore tests/genai/optimize --ignore tests/genai/prompts
 
@@ -463,7 +471,7 @@ jobs:
           # tests with local spark session. To work around this, we run skipped tests after
           # uninstalling databricks-connect.
           pip uninstall -y databricks-connect pyspark
-          uv pip install --system -c requirements/constraints.txt pyspark
+          uv pip install -c requirements/constraints.txt pyspark
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations-path=tests/.test_durations tests/genai/evaluate/test_utils.py
 
   optuna:
@@ -499,8 +507,10 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
+          uv venv .venv
+          source .venv/bin/activate
           source ./dev/install-common-deps.sh
-          uv pip install --system -c requirements/constraints.txt 'pyspark>=3.5' 'optuna>=4' .
+          uv pip install -c requirements/constraints.txt 'pyspark>=3.5' 'optuna>=4' .
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
