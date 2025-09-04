@@ -7,7 +7,7 @@ import platform
 import subprocess
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, NamedTuple, TypeVar
+from typing import TYPE_CHECKING, Callable, NamedTuple, ParamSpec, TypeVar
 
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.request_utils import augmented_raise_for_status
@@ -30,6 +30,7 @@ from mlflow.legacy_databricks_cli.configure.provider import (
     ProfileConfigProvider,
     SparkTaskContextConfigProvider,
 )
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils.rest_utils import MlflowHostCreds, http_request
 from mlflow.utils.uri import (
@@ -1434,3 +1435,45 @@ def stage_model_for_databricks_model_serving(model_name: str, model_version: str
         },
     )
     augmented_raise_for_status(response)
+
+
+P = ParamSpec("P")
+T = TypeVar("T")
+
+
+def databricks_api_disabled(api_name: str = "This API", alternative: str | None = None):
+    """
+    Decorator that disables an API method when used with Databricks.
+
+    This decorator checks if the tracking URI is a Databricks URI and raises an error if so.
+
+    Args:
+        api_name: Name of the API for the error message.
+        alternative: Optional alternative solution to suggest in the error message.
+
+    Returns:
+        Decorator function that wraps the method to check for Databricks.
+    """
+
+    def decorator(func: Callable[P, T]) -> Callable[P, T]:
+        @functools.wraps(func)
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+            from mlflow.tracking import get_tracking_uri
+            from mlflow.utils.uri import is_databricks_uri
+
+            tracking_uri = get_tracking_uri()
+            if not is_databricks_uri(tracking_uri):
+                return func(*args, **kwargs)
+
+            error_msg = f"{api_name} is not supported in Databricks environments."
+            if alternative:
+                error_msg += f" {alternative}"
+
+            raise MlflowException(
+                error_msg,
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        return wrapper
+
+    return decorator

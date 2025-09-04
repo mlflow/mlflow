@@ -1,7 +1,6 @@
 from typing import Any
 from urllib.parse import urlparse
 
-from mlflow.artifacts import download_artifacts
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -21,6 +20,8 @@ class DummyDatasetSource(DatasetSource):
 
     def load(self) -> str:
         # Ignore the "dummy" URI scheme and download the local path
+        from mlflow.artifacts import download_artifacts
+
         parsed_uri = urlparse(self._uri)
         return download_artifacts(parsed_uri.path)
 
