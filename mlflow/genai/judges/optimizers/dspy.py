@@ -62,7 +62,10 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
 
     @abstractmethod
     def _dspy_optimize(
-        self, program: "dspy.Module", examples: Collection["dspy.Example"], metric_fn: Callable
+        self,
+        program: "dspy.Module",
+        examples: Collection["dspy.Example"],
+        metric_fn: Callable[["dspy.Example", Any, Any | None], bool],
     ) -> "dspy.Module":
         """
         Perform DSPy optimization with algorithm-specific parameters.

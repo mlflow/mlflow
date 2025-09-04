@@ -1,6 +1,6 @@
 """Tests for DSPyAlignmentOptimizer base class."""
 
-from typing import Callable, Collection
+from typing import Any, Callable, Collection
 from unittest.mock import MagicMock, Mock, patch
 
 import dspy
@@ -16,7 +16,10 @@ class ConcreteDSPyOptimizer(DSPyAlignmentOptimizer):
     """Concrete implementation for testing."""
 
     def _dspy_optimize(
-        self, program: "dspy.Module", examples: Collection["dspy.Example"], metric_fn: Callable
+        self,
+        program: "dspy.Module",
+        examples: Collection["dspy.Example"],
+        metric_fn: Callable[["dspy.Example", Any, Any | None], bool],
     ) -> "dspy.Module":
         # Mock implementation for testing
         mock_program = Mock()
@@ -154,7 +157,7 @@ def test_optimizer_and_judge_use_different_models(sample_traces_with_assessments
                 self,
                 program: "dspy.Module",
                 examples: Collection["dspy.Example"],
-                metric_fn: Callable,
+                metric_fn: Callable[["dspy.Example", Any, Any | None], bool],
             ) -> "dspy.Module":
                 lm_in_context = dspy.settings.lm
                 assert lm_in_context == optimizer_lm
