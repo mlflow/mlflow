@@ -109,6 +109,7 @@ jobs:
         run: |
           # `-I` is used to avoid importing modules from user-specific site-packages
           # that might conflict with the built-in modules (e.g. `types`).
+          # uv run automatically uses the .venv we created
           uv run python -I tests/check_mlflow_lazily_imports_ml_packages.py
       - name: Run tests
         run: |
