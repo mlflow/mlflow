@@ -157,6 +157,14 @@ def comprehensive_check(inputs, outputs):
 
 ## Parsing Traces for Scoring
 
+:::warning[Important: Trace-based Scorers Require Active Traces]
+
+Scorers that accept a `trace` parameter **cannot be used with static pandas DataFrames**. They require actual execution traces from your application.
+
+If you need to evaluate static data (e.g., a CSV file with pre-generated responses), use scorers that work with `inputs`, `outputs`, and `expectations` parameters only.
+
+:::
+
 Scorers have access to the complete MLflow traces, including spans, attributes, and outputs, allowing you to evaluate the agent's behavior precisely, not just the final output.
 The <APILink fn="mlflow.entities.Trace.search_spans">`Trace.search_spans`</APILink> API is a powerful way to retrieve such intermediate information from the trace.
 
