@@ -105,12 +105,31 @@ jobs:
           uv pip install -c requirements/constraints.txt tf-keras
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
+      - name: Debug venv
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "Contents of current directory:"
+          ls -la | head -20
+          echo "Checking if .venv exists:"
+          if [ -d ".venv" ]; then
+            echo ".venv directory exists"
+            echo "Python in .venv:"
+            ls -la .venv/bin/python* || true
+            echo "Packages in .venv:"
+            .venv/bin/pip list | head -20 || true
+          else
+            echo ".venv directory does NOT exist"
+          fi
+          echo "UV environment detection:"
+          uv run python -c "import sys; print('Python:', sys.executable)"
+          uv run python -c "import sys; print('Path:', sys.path[:3])"
       - name: Import check
         run: |
-          # `-I` is used to avoid importing modules from user-specific site-packages
-          # that might conflict with the built-in modules (e.g. `types`).
-          # uv run automatically uses the .venv we created
-          uv run python -I tests/check_mlflow_lazily_imports_ml_packages.py
+          # Try without -I flag to see if uv run can find packages in .venv
+          # Also add debug to see which Python is being used
+          echo "Testing without -I flag:"
+          uv run python -c "import sys; print('Python executable:', sys.executable)"
+          uv run python tests/check_mlflow_lazily_imports_ml_packages.py
       - name: Run tests
         run: |
           source dev/setup-ssh.sh
