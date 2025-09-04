@@ -330,23 +330,28 @@ def _end_span_on_success(span: LiveSpan, inputs: dict[str, Any], raw_result: Any
 
 
 def _process_last_chunk(span: LiveSpan, chunk: Any, inputs: dict[str, Any], output: list[Any], is_response_api: bool):
-    if _is_responses_final_event(chunk):
-        output = chunk.response
-    else:
-        # Reconstruct a completion object from streaming chunks
-        output = _reconstruct_completion_from_stream(output, is_response_api)
+    try:
+        if _is_responses_final_event(chunk):
+            output = chunk.response
+        else:
+            # Reconstruct a completion object from streaming chunks
+            output = _reconstruct_completion_from_stream(output, is_response_api)
 
-        # Set usage information on span if available
-        if usage := getattr(chunk, "usage", None):
-            usage_dict = {
-                TokenUsageKey.INPUT_TOKENS: usage.prompt_tokens,
-                TokenUsageKey.OUTPUT_TOKENS: usage.completion_tokens,
-                TokenUsageKey.TOTAL_TOKENS: usage.total_tokens,
-            }
-            span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
+            # Set usage information on span if available
+            if usage := getattr(chunk, "usage", None):
+                usage_dict = {
+                    TokenUsageKey.INPUT_TOKENS: usage.prompt_tokens,
+                    TokenUsageKey.OUTPUT_TOKENS: usage.completion_tokens,
+                    TokenUsageKey.TOTAL_TOKENS: usage.total_tokens,
+                }
+                span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
 
-    _end_span_on_success(span, inputs, output, is_response_api)
-
+        _end_span_on_success(span, inputs, output, is_response_api)
+    except Exception as inner_e:
+        _logger.warning(
+            "Encountered unexpected error when autologging processes the chunks "
+            f"in response: {inner_e}"
+        )
 
 def _reconstruct_completion_from_stream(chunks: list[Any], is_response_api: bool) -> Any:
     """
