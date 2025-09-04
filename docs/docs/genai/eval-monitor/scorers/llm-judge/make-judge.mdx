@@ -87,7 +87,7 @@ The `make_judge` API uses a powerful template system with reserved and custom va
     trace_judge = make_judge(
         name="agent_performance",
         instructions=(
-            "Analyze the {trace} to evaluate the agent's performance.\n\n"
+            "Analyze the {{ trace }} to evaluate the agent's performance.\n\n"
             "Check for:\n"
             "1. Efficient execution and tool usage\n"
             "2. Error handling and recovery\n"
@@ -121,7 +121,7 @@ The `make_judge` API uses a powerful template system with reserved and custom va
     quality_judge = make_judge(
         name="response_quality",
         instructions=(
-            "Evaluate if {response} answers {question} well.\n"
+            "Evaluate if {{ response }} answers {{ question }} well.\n"
             "Consider clarity and accuracy.\n"
             "Answer 'excellent', 'good', or 'poor'."
         ),
@@ -159,7 +159,7 @@ The trace contains complete execution context and should not be mixed with parti
     tool_judge = make_judge(
         name="tool_usage",
         instructions=(
-            "Examine the {trace} for tool usage patterns.\n"
+            "Examine the {{ trace }} for tool usage patterns.\n"
             "Check: tool selection, sequencing, output utilization, error handling.\n"
             "Rate as 'optimal', 'acceptable', or 'inefficient'."
         ),
@@ -170,7 +170,7 @@ The trace contains complete execution context and should not be mixed with parti
     reasoning_judge = make_judge(
         name="reasoning",
         instructions=(
-            "Analyze reasoning in {trace}.\n"
+            "Analyze reasoning in {{ trace }}.\n"
             "Evaluate: logical progression, assumptions, conclusions.\n"
             "Score 0-100 for reasoning quality."
         ),
@@ -181,7 +181,7 @@ The trace contains complete execution context and should not be mixed with parti
     error_judge = make_judge(
         name="error_recovery",
         instructions=(
-            "Review {trace} for error handling.\n"
+            "Review {{ trace }} for error handling.\n"
             "Check: detection, recovery strategies, user impact.\n"
             "Rate as 'robust', 'adequate', or 'fragile'."
         ),
@@ -196,8 +196,8 @@ The trace contains complete execution context and should not be mixed with parti
     correctness_judge = make_judge(
         name="correctness",
         instructions=(
-            "Check if {response} correctly answers {question}.\n"
-            "Expected: {expected_answer}\n"
+            "Check if {{ response }} correctly answers {{ question }}.\n"
+            "Expected: {{ expected_answer }}\n"
             "Answer 'yes' or 'no' with reasoning."
         ),
         model="openai:/gpt-4",
@@ -207,7 +207,7 @@ The trace contains complete execution context and should not be mixed with parti
     safety_judge = make_judge(
         name="safety",
         instructions=(
-            "Check if {response} meets guidelines: {guidelines}\n"
+            "Check if {{ response }} meets guidelines: {{ guidelines }}\n"
             "Answer 'safe' or 'unsafe' with concerns."
         ),
         model="openai:/gpt-4",
@@ -217,7 +217,7 @@ The trace contains complete execution context and should not be mixed with parti
     grounded_judge = make_judge(
         name="groundedness",
         instructions=(
-            "Verify {response} is grounded in {context}.\n"
+            "Verify {{ response }} is grounded in {{ context }}.\n"
             "Rate: 'fully', 'mostly', 'partially', or 'not' grounded."
         ),
         model="openai:/gpt-4",
@@ -241,15 +241,17 @@ import pandas as pd
 # Create multiple judges for comprehensive evaluation
 quality_judge = make_judge(
     name="quality",
-    instructions=("Rate the quality of {response} for question {question}. Score 1-5."),
+    instructions=(
+        "Rate the quality of {{ response }} for question {{ question }}. Score 1-5."
+    ),
     model="openai:/gpt-4",
 )
 
 accuracy_judge = make_judge(
     name="accuracy",
     instructions=(
-        "Check if {response} accurately answers {question}.\n"
-        "Expected: {ground_truth}\n"
+        "Check if {{ response }} accurately answers {{ question }}.\n"
+        "Expected: {{ ground_truth }}\n"
         "Answer 'accurate' or 'inaccurate'."
     ),
     model="openai:/gpt-4",
@@ -298,7 +300,7 @@ experiment_id = mlflow.create_experiment("evaluation-judges")
 # Create and register a judge
 quality_judge = make_judge(
     name="response_quality",
-    instructions=("Evaluate if {response} is high quality for {question}."),
+    instructions=("Evaluate if {{ response }} is high quality for {{ question }}."),
     model="openai:/gpt-4",
 )
 
@@ -310,8 +312,8 @@ print(f"Registered as version: {registered_judge.version}")
 quality_judge_v2 = make_judge(
     name="response_quality",  # Same name
     instructions=(
-        "Evaluate if {response} is high quality, accurate, and complete "
-        "for {question}."
+        "Evaluate if {{ response }} is high quality, accurate, and complete "
+        "for {{ question }}."
     ),
     model="openai:/gpt-4o",  # Updated model
 )
@@ -370,8 +372,8 @@ If you're using the older judge functions (`is_correct`, `is_grounded`, etc.), t
     correctness_judge = make_judge(
         name="correctness",
         instructions=(
-            "Evaluate if {response} correctly answers {question}.\n"
-            "Expected: {expected_answer}\n\n"
+            "Evaluate if {{ response }} correctly answers {{ question }}.\n"
+            "Expected: {{ expected_answer }}\n\n"
             "Consider partial credit for reasoning.\n"
             "Answer: 'correct', 'partially correct', or 'incorrect'"
         ),
@@ -398,11 +400,11 @@ comprehensive_judge = make_judge(
     name="comprehensive_eval",
     instructions=(
         "Evaluate the complete interaction:\n\n"
-        "User Profile: {user_profile}\n"
-        "Query: {query}\n"
-        "Context Documents: {context}\n"
-        "Model Response: {response}\n"
-        "Expected Topics: {required_topics}\n\n"
+        "User Profile: {{ user_profile }}\n"
+        "Query: {{ query }}\n"
+        "Context Documents: {{ context }}\n"
+        "Model Response: {{ response }}\n"
+        "Expected Topics: {{ required_topics }}\n\n"
         "Assess completeness, accuracy, and appropriateness."
     ),
     model="openai:/gpt-4",
@@ -426,7 +428,7 @@ feedback = comprehensive_judge(
 conditional_judge = make_judge(
     name="adaptive_evaluator",
     instructions=(
-        "Evaluate {response} based on the user level {user_level}:\n\n"
+        "Evaluate {{ response }} based on the user level {{ user_level }}:\n\n"
         "If user_level is 'beginner':\n"
         "- Check for simple language\n"
         "- Ensure no unexplained jargon\n\n"
@@ -461,7 +463,7 @@ from mlflow.genai.judges import make_judge
 perf_judge = make_judge(
     name="performance",
     instructions=(
-        "Analyze {trace} for: slow operations (>2s), redundancy, efficiency.\n"
+        "Analyze {{ trace }} for: slow operations (>2s), redundancy, efficiency.\n"
         "Rate: 'fast', 'acceptable', or 'slow'. List bottlenecks."
     ),
     model="openai:/gpt-4",
