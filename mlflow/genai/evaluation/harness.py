@@ -124,6 +124,14 @@ def _run_single(
     assessments.extend(eval_item.get_expectation_assessments())
     eval_result = EvalResult(eval_item=eval_item, assessments=assessments)
 
+    tags = eval_item.tags or {}
+    for key, value in tags.items():
+        try:
+            mlflow.set_tag(key, value)
+        except Exception as e:
+            # Failures in logging to MLflow should not fail the entire harness run
+            _logger.warning(f"Failed to log tag {key} to MLflow: {e}")
+
     try:
         logged_trace = _log_assessments(
             run_id=run_id,
