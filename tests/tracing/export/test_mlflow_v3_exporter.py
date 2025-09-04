@@ -31,6 +31,18 @@ from mlflow.tracing.provider import _get_trace_exporter
 _EXPERIMENT_ID = "dummy-experiment-id"
 
 
+@pytest.fixture(autouse=True, scope="module")
+def patch_get_server_version():
+    # When spans are logged, `_get_server_version` is called. Because `DATABRICKS_HOST` is set to
+    # a dummy value, the Databricks SDK repeatedly retries the version check, causing tests to
+    # hang for a long time. To avoid this, mock `_get_server_version`.
+    with mock.patch(
+        "mlflow.store.tracking.rest_store.RestStore._get_server_version", return_value=None
+    ) as mock_get_server_version:
+        yield
+        mock_get_server_version.assert_called()
+
+
 @mlflow.trace
 def _predict(x: str) -> str:
     with mlflow.start_span(name="child") as child_span:
@@ -69,10 +81,6 @@ def test_export(is_async, monkeypatch):
             "mlflow.store.tracking.rest_store.call_endpoint", side_effect=mock_response
         ) as mock_call_endpoint,
         mock.patch(
-            "mlflow.store.tracking.rest_store.RestStore._get_server_version",
-            return_value=None,
-        ) as mock_get_server_version,
-        mock.patch(
             "mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None
         ) as mock_upload_trace_data,
     ):
@@ -80,8 +88,6 @@ def test_export(is_async, monkeypatch):
 
         if is_async:
             _flush_async_logging()
-
-        mock_get_server_version.assert_called()
 
     # Verify client methods were called correctly
     mock_call_endpoint.assert_called_once()
