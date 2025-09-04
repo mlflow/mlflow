@@ -2,10 +2,20 @@
 
 from typing import Any, ClassVar
 
-from pydantic import PrivateAttr
-
+from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.optimizers.dspy import DSPyAlignmentOptimizer
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.utils.annotations import experimental
+
+# Import dspy - raise exception if not installed
+try:
+    import dspy
+except ImportError:
+    raise MlflowException(
+        "DSPy library is required but not installed. "
+        "Please install it with: pip install 'mlflow[genai-dspy]'",
+        error_code=INTERNAL_ERROR,
+    )
 
 
 @experimental(version="3.4.0")
@@ -21,9 +31,6 @@ class SIMBAAlignmentOptimizer(DSPyAlignmentOptimizer):
     DEFAULT_BSIZE: ClassVar[int] = 4
     DEFAULT_SEED: ClassVar[int] = 42
 
-    _bsize: int = PrivateAttr()
-    _seed: int = PrivateAttr()
-
     def __init__(self, model: str | None = None, **kwargs):
         """
         Initialize SIMBA optimizer with default parameters.
@@ -33,7 +40,6 @@ class SIMBAAlignmentOptimizer(DSPyAlignmentOptimizer):
             **kwargs: Additional keyword arguments passed to parent class
         """
         super().__init__(model=model, **kwargs)
-        # Private instance variables for SIMBA-specific parameters using PrivateAttr
         self._bsize = self.DEFAULT_BSIZE
         self._seed = self.DEFAULT_SEED
 
@@ -51,21 +57,13 @@ class SIMBAAlignmentOptimizer(DSPyAlignmentOptimizer):
         Returns:
             Optimized DSPy program
         """
-        try:
-            import dspy
+        # Create SIMBA optimizer
+        optimizer = dspy.SIMBA(metric=metric_fn, bsize=self._bsize)
 
-            # Create SIMBA optimizer
-            optimizer = dspy.SIMBA(metric=metric_fn, bsize=self._bsize)
-
-            # Compile with SIMBA-specific parameters
-            # SIMBA uses all examples as training data
-            return optimizer.compile(
-                student=program,
-                trainset=examples,
-                seed=self._seed,
-            )
-
-        except ImportError:
-            from mlflow.exceptions import MlflowException
-
-            raise MlflowException("DSPy library is required but not installed")
+        # Compile with SIMBA-specific parameters
+        # SIMBA uses all examples as training data
+        return optimizer.compile(
+            student=program,
+            trainset=examples,
+            seed=self._seed,
+        )
