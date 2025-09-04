@@ -213,7 +213,7 @@ Content""")
     # Create a file with invalid YAML to trigger parsing error
     invalid_cmd = genai_dir / "invalid.md"
     invalid_cmd.write_text("Invalid content that will cause parsing error")
-    
+
     # On Unix-like systems, remove read permissions
     if platform.system() != "Windows":
         invalid_cmd.chmod(0o000)
