@@ -1,6 +1,7 @@
 """Tests for SIMBAAlignmentOptimizer."""
 
-from unittest.mock import MagicMock, Mock, patch
+from importlib import reload
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -12,13 +13,15 @@ def test_dspy_optimize_no_dspy():
     """Test that SIMBAAlignmentOptimizer raises error when DSPy is not available."""
     # Since dspy import is now at module level, we need to test this differently
     # The error should be raised when importing the module, not when calling methods
+
+    def _reload_module():
+        import mlflow.genai.judges.optimizers.simba as simba_module
+
+        reload(simba_module)
+
     with patch.dict("sys.modules", {"dspy": None}):
         with pytest.raises(MlflowException, match="DSPy library is required"):
-            # This will trigger the module import and the exception
-            from importlib import reload
-            import mlflow.genai.judges.optimizers.simba as simba_module
-
-            reload(simba_module)
+            _reload_module()
 
 
 def test_full_alignment_workflow(mock_judge, sample_traces_with_assessments):
