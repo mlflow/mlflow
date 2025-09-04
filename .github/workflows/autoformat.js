@@ -99,7 +99,7 @@ const approveWorkflowRuns = async (context, github, head_sha) => {
       owner,
       repo,
       run_id: run.id,
-    })
+    }),
   );
   const results = await Promise.allSettled(approvePromises);
   for (const result of results) {
@@ -145,7 +145,7 @@ This permission is required for the autoformat bot to push changes to your branc
     });
 
     throw new Error(
-      'The "Allow edits and access to secrets by maintainers" checkbox must be checked for autoformat to work properly.'
+      'The "Allow edits and access to secrets by maintainers" checkbox must be checked for autoformat to work properly.',
     );
   }
 };

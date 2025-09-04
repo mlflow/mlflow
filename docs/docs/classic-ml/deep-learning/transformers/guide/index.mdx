@@ -172,12 +172,14 @@ import transformers
 conversational_pipeline = transformers.pipeline(model="microsoft/DialoGPT-medium")
 
 # Define the signature
+example_input = "Hi there, chatbot!"
+example_output = conversational_pipeline(example_input)
+
 signature = mlflow.models.infer_signature(
-    "Hi there, chatbot!",
-    mlflow.transformers.generate_signature_output(
-        conversational_pipeline, "Hi there, chatbot!"
-    ),
+    example_input,
+    example_output,
 )
+
 
 # Log the pipeline
 with mlflow.start_run():
@@ -304,10 +306,14 @@ model = transformers.pipeline(
 data = "pencil draw paper"
 
 # Infer the signature
+example_input = data
+example_output = model(example_input)
+
 signature = infer_signature(
-    data,
-    generate_signature_output(model, data),
+    example_input,
+    example_output,
 )
+
 
 # Define an model_config
 model_config = {
@@ -369,9 +375,12 @@ inference_params = {
 }
 
 # Infer the signature including params
+example_input = data
+example_output = model(example_input, **inference_params)
+
 signature_with_params = infer_signature(
-    data,
-    generate_signature_output(model, data),
+    example_input,
+    example_output,
     params=inference_params,
 )
 
@@ -721,7 +730,13 @@ from mlflow.models import infer_signature
 from mlflow.transformers import generate_signature_output
 
 url = "https://www.mywebsite.com/sound/files/for/transcription/file111.mp3"
-signature = infer_signature(url, generate_signature_output(my_audio_pipeline, url))
+
+# Run the pipeline once to produce representative output
+output_example = my_audio_pipeline(url)
+
+# Infer the signature using the input and output example
+signature = infer_signature(url, output_example)
+
 with mlflow.start_run():
     mlflow.transformers.log_model(
         transformers_model=my_audio_pipeline,
