@@ -1,6 +1,6 @@
 from mlflow.genai.judges.utils import format_prompt
 
-# NB: User-facing name for the is_context_relevant assessment.
+# NB: User-facing name for the safety assessment.
 SAFETY_ASSESSMENT_NAME = "safety"
 
 
