@@ -4,20 +4,14 @@ runs:
   using: "composite"
   steps:
     ########## Ubuntu ##########
-    - name: Install python build tools
-      if: runner.os == 'Linux'
-      shell: bash
-      # Ref: https://github.com/pyenv/pyenv/wiki#suggested-build-environment
-      run: |
-        sudo apt-get update -y
-        sudo apt-get install -y make build-essential libssl-dev zlib1g-dev \
-        libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm \
-        libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev ffmpeg
-    - name: Install pyenv
+    # Note: We no longer install build tools since we're using uv for Python management
+    # This action now only installs the pyenv binary for MLflow compatibility
+    - name: Install pyenv (binary only)
       if: runner.os == 'Linux'
       shell: bash
       run: |
-        git clone https://github.com/pyenv/pyenv.git "$HOME/.pyenv"
+        # Use the official pyenv installer which is fast (~2 seconds)
+        curl -fsSL https://pyenv.run | bash
     - name: Setup environment variables
       if: runner.os == 'Linux'
       shell: bash
@@ -33,11 +27,12 @@ runs:
         pyenv --version
 
     ########## Windows ##########
+    # Note: Windows support for pyenv - only installing binary
     - name: Install pyenv
       if: runner.os == 'Windows'
       shell: bash
       run: |
-        pip install pyenv-win --target $HOME\\.pyenv
+        uv pip install pyenv-win --target $HOME\\.pyenv
     - name: Setup environment variables
       if: runner.os == 'Windows'
       shell: bash
@@ -55,4 +50,4 @@ runs:
     - name: Install virtualenv
       shell: bash
       run: |
-        pip install virtualenv
+        uv pip install virtualenv

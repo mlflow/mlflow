@@ -47,13 +47,33 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/free-disk-space
+      - name: Install uv
+        uses: astral-sh/setup-uv@557e51de59eb14aaaba2ed9621916900a91d50c6 # v6
+      - name: Fix uv PATH
+        run: |
+          if ! command -v uv &> /dev/null; then
+            echo "uv not found in PATH, attempting to locate and add to PATH..."
+            UV_PATH=$(find /opt/hostedtoolcache/uv -name "uv" -type f | head -1)
+            if [ -n "$UV_PATH" ]; then
+              UV_DIR=$(dirname "$UV_PATH")
+              echo "$UV_DIR" >> $GITHUB_PATH
+              echo "Added $UV_DIR to PATH"
+            else
+              echo "uv binary not found"
+              exit 1
+            fi
+          else
+            echo "uv already available in PATH"
+          fi
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps-uv.sh --skinny
+      - uses: ./.github/actions/show-versions
       - name: Run tests
         run: |
-          ./dev/run-python-skinny-tests.sh
+          uv run ./dev/run-python-skinny-tests.sh
 
   python:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -267,6 +287,8 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
+          # Add uv's virtual environment bin to PATH so Java can find mlflow executable
+          export PATH="$(pwd)/.venv/bin:$PATH"
           cd mlflow/java
           mvn clean package -q
 
@@ -560,6 +582,7 @@ jobs:
             echo "uv already available in PATH"
           fi
       - uses: ./.github/actions/setup-java
+      - uses: ./.github/actions/setup-pyenv
       - name: Install dependencies
         run: |
           uv run ./dev/install-common-deps-uv.sh
@@ -609,6 +632,7 @@ jobs:
             echo "uv already available in PATH"
           fi
       - uses: ./.github/actions/setup-java
+      - uses: ./.github/actions/setup-pyenv
       - name: Install dependencies
         run: |
           uv run ./dev/install-common-deps-uv.sh
