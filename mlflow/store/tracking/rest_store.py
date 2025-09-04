@@ -45,6 +45,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
+    CalculateTraceFilterCorrelation,
     CreateAssessment,
     CreateDataset,
     CreateExperiment,
@@ -116,6 +117,7 @@ from mlflow.protos.service_pb2 import (
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.abstract_store import AbstractStore
+from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER, OTLP_TRACES_PATH
 from mlflow.utils.databricks_utils import databricks_api_disabled
 from mlflow.utils.proto_json_utils import message_to_json
@@ -534,6 +536,38 @@ class RestStore(AbstractStore):
         )
         req_body = message_to_json(request)
         return self._call_endpoint(SearchUnifiedTraces, req_body)
+
+    def calculate_trace_filter_correlation(
+        self,
+        experiment_ids: list[str],
+        filter_string1: str,
+        filter_string2: str,
+        base_filter: str | None = None,
+    ) -> TraceFilterCorrelationResult:
+        """
+        Calculate correlation between two trace filter conditions using NPMI.
+
+        Args:
+            experiment_ids: List of experiment_ids to search over
+            filter_string1: First filter condition in search_traces filter syntax
+            filter_string2: Second filter condition in search_traces filter syntax
+            base_filter: Optional base filter that both filter1 and filter2 are tested on top of
+
+        Returns:
+            TraceFilterCorrelationResult containing NPMI analytics data.
+        """
+        request = CalculateTraceFilterCorrelation(
+            experiment_ids=experiment_ids,
+            filter_string1=filter_string1,
+            filter_string2=filter_string2,
+        )
+        if base_filter is not None:
+            request.base_filter = base_filter
+
+        req_body = message_to_json(request)
+        v3_endpoint = f"{_V3_TRACE_REST_API_PATH_PREFIX}/calculate-filter-correlation"
+        response_proto = self._call_endpoint(CalculateTraceFilterCorrelation, req_body, v3_endpoint)
+        return TraceFilterCorrelationResult.from_proto(response_proto)
 
     def set_trace_tag(self, trace_id: str, key: str, value: str):
         """

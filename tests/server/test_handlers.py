@@ -40,6 +40,7 @@ from mlflow.protos.model_registry_pb2 import (
     UpdateRegisteredModel,
 )
 from mlflow.protos.service_pb2 import (
+    CalculateTraceFilterCorrelation,
     CreateExperiment,
     DeleteScorer,
     GetScorer,
@@ -63,6 +64,7 @@ from mlflow.server import (
 from mlflow.server.handlers import (
     ModelRegistryStoreRegistryWrapper,
     TrackingStoreRegistryWrapper,
+    _calculate_trace_filter_correlation,
     _convert_path_parameter_to_flask_format,
     _create_dataset_handler,
     _create_experiment,
@@ -125,6 +127,7 @@ from mlflow.store.model_registry import (
 )
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
 from mlflow.store.tracking.rest_store import RestStore
+from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE
@@ -1568,6 +1571,132 @@ def test_delete_scorer_without_version(mock_get_request_message, mock_tracking_s
     # Verify the response (should be empty for delete operations)
     response_data = json.loads(resp.get_data())
     assert response_data == {}
+
+
+def test_calculate_trace_filter_correlation(mock_get_request_message, mock_tracking_store):
+    experiment_ids = ["123", "456"]
+    filter_string1 = "span.type = 'LLM'"
+    filter_string2 = "feedback.quality > 0.8"
+    base_filter = "request_time > 1000"
+
+    mock_request = CalculateTraceFilterCorrelation(
+        experiment_ids=experiment_ids,
+        filter_string1=filter_string1,
+        filter_string2=filter_string2,
+        base_filter=base_filter,
+    )
+    mock_get_request_message.return_value = mock_request
+
+    mock_result = TraceFilterCorrelationResult(
+        npmi=0.456,
+        npmi_smoothed=0.445,
+        filter1_count=100,
+        filter2_count=80,
+        joint_count=50,
+        total_count=200,
+    )
+    mock_tracking_store.calculate_trace_filter_correlation.return_value = mock_result
+
+    resp = _calculate_trace_filter_correlation()
+
+    mock_tracking_store.calculate_trace_filter_correlation.assert_called_once_with(
+        experiment_ids=experiment_ids,
+        filter_string1=filter_string1,
+        filter_string2=filter_string2,
+        base_filter=base_filter,
+    )
+
+    response_data = json.loads(resp.get_data())
+    assert response_data["npmi"] == 0.456
+    assert response_data["npmi_smoothed"] == 0.445
+    assert response_data["filter1_count"] == 100
+    assert response_data["filter2_count"] == 80
+    assert response_data["joint_count"] == 50
+    assert response_data["total_count"] == 200
+
+
+def test_calculate_trace_filter_correlation_without_base_filter(
+    mock_get_request_message, mock_tracking_store
+):
+    experiment_ids = ["123"]
+    filter_string1 = "span.type = 'LLM'"
+    filter_string2 = "feedback.quality > 0.8"
+
+    mock_request = CalculateTraceFilterCorrelation(
+        experiment_ids=experiment_ids,
+        filter_string1=filter_string1,
+        filter_string2=filter_string2,
+    )
+    mock_get_request_message.return_value = mock_request
+
+    mock_result = TraceFilterCorrelationResult(
+        npmi=0.789,
+        npmi_smoothed=0.775,
+        filter1_count=50,
+        filter2_count=40,
+        joint_count=30,
+        total_count=100,
+    )
+    mock_tracking_store.calculate_trace_filter_correlation.return_value = mock_result
+
+    resp = _calculate_trace_filter_correlation()
+
+    mock_tracking_store.calculate_trace_filter_correlation.assert_called_once_with(
+        experiment_ids=experiment_ids,
+        filter_string1=filter_string1,
+        filter_string2=filter_string2,
+        base_filter=None,
+    )
+
+    response_data = json.loads(resp.get_data())
+    assert response_data["npmi"] == 0.789
+    assert response_data["npmi_smoothed"] == 0.775
+    assert response_data["filter1_count"] == 50
+    assert response_data["filter2_count"] == 40
+    assert response_data["joint_count"] == 30
+    assert response_data["total_count"] == 100
+
+
+def test_calculate_trace_filter_correlation_with_nan_npmi(
+    mock_get_request_message, mock_tracking_store
+):
+    experiment_ids = ["123"]
+    filter_string1 = "span.type = 'LLM'"
+    filter_string2 = "feedback.quality > 0.8"
+
+    mock_request = CalculateTraceFilterCorrelation(
+        experiment_ids=experiment_ids,
+        filter_string1=filter_string1,
+        filter_string2=filter_string2,
+    )
+    mock_get_request_message.return_value = mock_request
+
+    mock_result = TraceFilterCorrelationResult(
+        npmi=float("nan"),
+        npmi_smoothed=None,
+        filter1_count=0,
+        filter2_count=0,
+        joint_count=0,
+        total_count=100,
+    )
+    mock_tracking_store.calculate_trace_filter_correlation.return_value = mock_result
+
+    resp = _calculate_trace_filter_correlation()
+
+    mock_tracking_store.calculate_trace_filter_correlation.assert_called_once_with(
+        experiment_ids=experiment_ids,
+        filter_string1=filter_string1,
+        filter_string2=filter_string2,
+        base_filter=None,
+    )
+
+    response_data = json.loads(resp.get_data())
+    assert "npmi" not in response_data
+    assert "npmi_smoothed" not in response_data
+    assert response_data["filter1_count"] == 0
+    assert response_data["filter2_count"] == 0
+    assert response_data["joint_count"] == 0
+    assert response_data["total_count"] == 100
 
 
 def test_databricks_tracking_store_registration():
