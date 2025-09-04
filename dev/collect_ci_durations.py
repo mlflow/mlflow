@@ -65,7 +65,7 @@ jobs:
           uv pip install --system -c requirements/constraints.txt typing_extensions dspy
           uv pip install --system -c requirements/constraints.txt 'pydantic<2'  # For pydantic v1 tests
           # Install test plugin
-          uv pip install --no-deps tests/resources/mlflow-test-plugin
+          uv pip install --system --no-deps tests/resources/mlflow-test-plugin
       
       - name: Run ALL tests with duration collection
         run: |
@@ -145,13 +145,13 @@ def create_workflow_content(branch_name, suites=None):
     # Simply return the workflow with branch name filled in
     return WORKFLOW_CONTENT.format(branch_name=branch_name)
 
-def wait_for_workflow(run_id, max_wait_minutes=60):
+def wait_for_workflow(run_id, repo, max_wait_minutes=60):
     """Wait for workflow to complete with timeout."""
     start_time = time.time()
     max_wait = max_wait_minutes * 60
     
     print(f"\nWorkflow started with run ID: {run_id}")
-    print(f"View at: https://github.com/mlflow/mlflow/actions/runs/{run_id}")
+    print(f"View at: https://github.com/{repo}/actions/runs/{run_id}")
     print(f"Waiting for completion (max {max_wait_minutes} minutes)...\n")
     
     while True:
@@ -160,27 +160,52 @@ def wait_for_workflow(run_id, max_wait_minutes=60):
             print(f"\nTimeout: Workflow did not complete within {max_wait_minutes} minutes")
             return False
         
-        # Check workflow status
+        # Check workflow status - with repo for reliability
         status = run_command(
-            f"gh run view {run_id} --json status,conclusion --jq '.status + \"|\" + .conclusion'",
+            f"gh run view {run_id} --repo {repo} --json status,conclusion --jq '.status + \"|\" + .conclusion'",
             check=False
         )
         
         if status:
-            workflow_status, conclusion = status.split("|")
-            
-            # Print progress update every 30 seconds
+            try:
+                workflow_status, conclusion = status.split("|")
+                
+                # Print progress update every 30 seconds
+                if int(elapsed) % 30 == 0:
+                    minutes_elapsed = int(elapsed / 60)
+                    print(f"  [{minutes_elapsed}m elapsed] Workflow status: {workflow_status}")
+                
+                if workflow_status == "completed":
+                    print(f"\nWorkflow completed with conclusion: {conclusion}")
+                    return conclusion in ["success", "failure"]  # We want artifacts even if tests fail
+            except ValueError:
+                # Handle case where split fails
+                print(f"Warning: Unexpected status format: {status}")
+        else:
+            # Command failed - print warning but continue waiting
             if int(elapsed) % 30 == 0:
-                minutes_elapsed = int(elapsed / 60)
-                print(f"  [{minutes_elapsed}m elapsed] Workflow status: {workflow_status}")
-            
-            if workflow_status == "completed":
-                print(f"\nWorkflow completed with conclusion: {conclusion}")
-                return conclusion in ["success", "failure"]  # We want artifacts even if tests fail
+                print(f"  [{int(elapsed/60)}m elapsed] Unable to check workflow status, retrying...")
         
         time.sleep(5)
     
     return False
+
+def get_github_repo():
+    """Get GitHub repo from git remote."""
+    remote_url = run_command("git remote get-url origin")
+    if remote_url:
+        # Parse github.com:user/repo.git or https://github.com/user/repo.git
+        if "github.com" in remote_url:
+            if remote_url.startswith("git@"):
+                # SSH format: git@github.com:user/repo.git
+                repo_path = remote_url.split(":")[-1]
+            else:
+                # HTTPS format: https://github.com/user/repo.git
+                repo_path = remote_url.split("github.com/")[-1]
+            # Remove .git suffix if present
+            repo_path = repo_path.replace(".git", "")
+            return repo_path
+    return "mlflow/mlflow"  # fallback
 
 def main():
     parser = argparse.ArgumentParser(
@@ -249,6 +274,7 @@ Examples:
     
     workflow_file = Path(".github/workflows/temp-duration-collection.yml")
     current_branch = None
+    repo = get_github_repo()
     
     try:
         # Check for uncommitted changes
@@ -285,9 +311,9 @@ Examples:
         print("\nWaiting for workflow to start...")
         time.sleep(10)
         
-        # Get the run ID
+        # Get the run ID - add repo explicitly for safety
         run_id = run_command(
-            f"gh run list --branch {args.branch} --limit 1 --json databaseId --jq '.[0].databaseId'"
+            f"gh run list --repo {repo} --branch {args.branch} --limit 1 --json databaseId --jq '.[0].databaseId'"
         )
         
         if not run_id:
@@ -295,7 +321,7 @@ Examples:
             run_command(f"gh workflow run temp-duration-collection.yml --ref {args.branch}")
             time.sleep(10)
             run_id = run_command(
-                f"gh run list --branch {args.branch} --limit 1 --json databaseId --jq '.[0].databaseId'"
+                f"gh run list --repo {repo} --branch {args.branch} --limit 1 --json databaseId --jq '.[0].databaseId'"
             )
         
         if not run_id:
@@ -303,7 +329,7 @@ Examples:
             return 1
         
         # Wait for completion
-        if not wait_for_workflow(run_id, args.timeout):
+        if not wait_for_workflow(run_id, repo, args.timeout):
             print("Warning: Workflow did not complete successfully, but attempting to download any artifacts...")
         
         # Download artifacts
@@ -315,7 +341,7 @@ Examples:
             shutil.rmtree(old_dir, ignore_errors=True)
             
         # Download the duration artifact
-        result = run_command(f"gh run download {run_id} --name final-test-durations", check=False)
+        result = run_command(f"gh run download {run_id} --repo {repo} --name final-test-durations", check=False)
         
         # Check if download succeeded and file exists in the expected location
         duration_file = Path("final-test-durations/all_test_durations.json")
