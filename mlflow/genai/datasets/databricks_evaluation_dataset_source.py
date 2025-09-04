@@ -33,6 +33,12 @@ class DatabricksEvaluationDatasetSource(DatasetSource):
     def _get_source_type() -> str:
         return "databricks_evaluation_dataset"
 
+
+class DatabricksUCTableDatasetSource(DatabricksEvaluationDatasetSource):
+    @staticmethod
+    def _get_source_type() -> str:
+        return "databricks-uc-table"
+
     def load(self, **kwargs) -> Any:
         """
         Loads the dataset from the source.
