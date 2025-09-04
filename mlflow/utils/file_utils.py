@@ -757,8 +757,10 @@ def get_or_create_tmp_dir():
     else:
         tmp_dir = tempfile.mkdtemp()
         # mkdtemp creates a directory with permission 0o700
-        # change it to be 0o777 to ensure it can be seen in spark UDF
-        os.chmod(tmp_dir, 0o777)
+        # For Spark UDFs, we need to make it accessible to other processes
+        # Use 0o755 (owner: rwx, group: r-x, others: r-x) instead of 0o777
+        # This allows read/execute but not write for group and others
+        os.chmod(tmp_dir, 0o755)
         atexit.register(shutil.rmtree, tmp_dir, ignore_errors=True)
 
     return tmp_dir
