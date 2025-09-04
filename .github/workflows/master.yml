@@ -74,6 +74,12 @@ jobs:
         uses: astral-sh/setup-uv@557e51de59eb14aaaba2ed9621916900a91d50c6 # v6
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-java
+      - name: Debug uv installation
+        run: |
+          echo "PATH: $PATH"
+          which uv || echo "uv not found in PATH"
+          uv --version || echo "uv version failed"
+          ls -la ~/.local/bin/ || echo "~/.local/bin/ not found"
       - name: Install dependencies
         run: |
           uv run ./dev/install-common-deps.sh --ml
