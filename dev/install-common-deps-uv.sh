@@ -43,7 +43,8 @@ done
 sudo apt clean
 df -h
 
-uv run python --version
+# Don't use 'uv run' here as it would install the root project dependencies
+python --version
 uv --version
 
 # Build the list of packages to install
@@ -74,6 +75,11 @@ fi
 # Additional packages
 packages+=" aiohttp"
 
+# For skinny mode, set environment variable to avoid discovering root pyproject.toml
+if [[ "$SKINNY" == "true" ]]; then
+  export UV_NO_CONFIG=1
+fi
+
 # Single uv pip install call for all packages
 retry-with-backoff uv pip install --upgrade $packages
 
@@ -81,10 +87,10 @@ retry-with-backoff uv pip install --upgrade $packages
 uv pip install --no-deps tests/resources/mlflow-test-plugin
 
 # Print current environment info
-uv run which mlflow
+which mlflow
 
-# Print mlflow version
-uv run mlflow --version
+# Print mlflow version  
+mlflow --version
 
 # Turn off trace output & exit-on-errors
 set +ex

@@ -73,7 +73,7 @@ jobs:
       - uses: ./.github/actions/show-versions
       - name: Run tests
         run: |
-          uv run ./dev/run-python-skinny-tests.sh
+          ./dev/run-python-skinny-tests.sh
 
   python:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false

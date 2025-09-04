@@ -7,4 +7,5 @@ runs:
       run: |
         # Run the script directly with uv, installing dependencies inline
         # This creates an ephemeral environment, avoiding system Python issues
-        uv run --with aiohttp --with pip python dev/show_package_release_dates.py
+        # Use --no-project to avoid installing root project dependencies
+        uv run --no-project --with aiohttp --with pip python dev/show_package_release_dates.py
