@@ -72,9 +72,22 @@ jobs:
       - uses: ./.github/actions/untracked
       - name: Install uv
         uses: astral-sh/setup-uv@557e51de59eb14aaaba2ed9621916900a91d50c6 # v6
-      - name: Add uv to PATH
+      - name: Fix uv PATH
         run: |
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          if ! command -v uv &> /dev/null; then
+            echo "uv not found in PATH, attempting to locate and add to PATH..."
+            UV_PATH=$(find /opt/hostedtoolcache/uv -name "uv" -type f | head -1)
+            if [ -n "$UV_PATH" ]; then
+              UV_DIR=$(dirname "$UV_PATH")
+              echo "$UV_DIR" >> $GITHUB_PATH
+              echo "Added $UV_DIR to PATH"
+            else
+              echo "uv binary not found"
+              exit 1
+            fi
+          else
+            echo "uv already available in PATH"
+          fi
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-java
       - name: Debug uv installation
