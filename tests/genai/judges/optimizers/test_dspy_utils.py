@@ -4,7 +4,10 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from mlflow.exceptions import MlflowException
+from mlflow.genai.judges.judge_trace_utils import (
+    extract_request_from_trace,
+    extract_response_from_trace,
+)
 from mlflow.genai.judges.optimizers.dspy_utils import (
     agreement_metric,
     convert_mlflow_uri_to_litellm,
@@ -33,9 +36,35 @@ def test_sanitize_judge_name(sample_trace_with_assessment):
         assert trace_to_dspy_example(sample_trace_with_assessment, "MOCK_JUDGE") is not None
 
 
+def test_trace_to_dspy_example_two_human_assessments(trace_with_two_human_assessments):
+    """Test that most recent HUMAN assessment is used when there are multiple HUMAN assessments."""
+    dspy = pytest.importorskip("dspy", reason="DSPy not installed")
+
+    trace = trace_with_two_human_assessments
+    result = trace_to_dspy_example(trace, "mock_judge")
+
+    assert isinstance(result, dspy.Example)
+    # Should use the newer assessment with value="pass" and specific rationale
+    assert result["result"] == "pass"
+    assert result["rationale"] == "Second assessment - should be used (more recent)"
+
+
+def test_trace_to_dspy_example_human_vs_llm_priority(trace_with_human_and_llm_assessments):
+    """Test that HUMAN assessment is prioritized over LLM_JUDGE even when LLM_JUDGE is newer."""
+    dspy = pytest.importorskip("dspy", reason="DSPy not installed")
+
+    trace = trace_with_human_and_llm_assessments
+    result = trace_to_dspy_example(trace, "mock_judge")
+
+    assert isinstance(result, dspy.Example)
+    # Should use the HUMAN assessment despite being older
+    assert result["result"] == "fail"
+    assert result["rationale"] == "Human assessment - should be prioritized"
+
+
 def test_trace_to_dspy_example_success(sample_trace_with_assessment):
     """Test successful conversion of trace to DSPy example."""
-    pytest.importorskip("dspy", reason="DSPy not installed")
+    dspy = pytest.importorskip("dspy", reason="DSPy not installed")
 
     # Use the fixture directly
     trace = sample_trace_with_assessment
@@ -43,44 +72,30 @@ def test_trace_to_dspy_example_success(sample_trace_with_assessment):
     # Use real DSPy since we've skipped if it's not available
     result = trace_to_dspy_example(trace, "mock_judge")
 
-    assert result is not None
-    # Verify the result has the expected DSPy structure
-    assert hasattr(result, "inputs")
-    assert hasattr(result, "outputs")
-    assert hasattr(result, "result")
-    assert hasattr(result, "rationale")
+    # Assert that the result is an instance of dspy.Example
+    assert isinstance(result, dspy.Example)
+
+    # Construct an expected example and assert that the result is the same
+    expected_example = dspy.Example(
+        inputs=extract_request_from_trace(trace),
+        outputs=extract_response_from_trace(trace),
+        result="pass",
+        rationale="This looks good",
+    ).with_inputs("inputs", "outputs")
+
+    # Compare the examples
+    assert result == expected_example
 
 
-def test_trace_to_dspy_example_no_assessment():
+def test_trace_to_dspy_example_no_assessment(sample_trace_without_assessment):
     """Test trace conversion with no matching assessment."""
-    mock_dspy = MagicMock()
-    mock_example = MagicMock()
-    mock_dspy.Example.return_value = mock_example
+    # Use the fixture for trace without assessment
+    trace = sample_trace_without_assessment
 
-    # Create trace without assessments
-    mock_trace = Mock()
-    mock_trace.info.trace_id = "test"
-    mock_trace.info.assessments = []
-    mock_trace.info.request_preview = "test"
-    mock_trace.info.response_preview = "test"
-    mock_trace.data.request = "test"
-    mock_trace.data.response = "test"
-
-    with patch.dict("sys.modules", {"dspy": mock_dspy}):
-        result = trace_to_dspy_example(mock_trace, "mock_judge")
+    # This should return None since there's no matching assessment
+    result = trace_to_dspy_example(trace, "mock_judge")
 
     assert result is None
-
-
-def test_trace_to_dspy_example_no_dspy():
-    """Test that dspy_utils raises error when DSPy is not available."""
-    # Since dspy import is now at module level, the error is raised on module import
-    with patch.dict("sys.modules", {"dspy": None}):
-        with pytest.raises(MlflowException, match="DSPy library is required"):
-            from importlib import reload
-            import mlflow.genai.judges.optimizers.dspy_utils as dspy_utils_module
-
-            reload(dspy_utils_module)
 
 
 def test_create_dspy_signature(mock_judge):
@@ -106,17 +121,6 @@ def test_create_dspy_signature(mock_judge):
         assert field.name in signature.output_fields
         # Verify the field description matches
         assert signature.output_fields[field.name].json_schema_extra["desc"] == field.description
-
-
-def test_create_dspy_signature_no_dspy(mock_judge):
-    """Test that dspy_utils raises error when DSPy is not available."""
-    # Since dspy import is now at module level, the error is raised on module import
-    with patch.dict("sys.modules", {"dspy": None}):
-        with pytest.raises(MlflowException, match="DSPy library is required"):
-            from importlib import reload
-            import mlflow.genai.judges.optimizers.dspy_utils as dspy_utils_module
-
-            reload(dspy_utils_module)
 
 
 def test_agreement_metric():
