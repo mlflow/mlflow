@@ -32,18 +32,7 @@ def pytest_addoption(parser):
         default=False,
         help="Ignore tests for model flavors.",
     )
-    parser.addoption(
-        "--splits",
-        default=None,
-        type=int,
-        help="The number of groups to split tests into.",
-    )
-    parser.addoption(
-        "--group",
-        default=None,
-        type=int,
-        help="The group of tests to run.",
-    )
+    # Removed --splits and --group options as pytest-split provides these
     parser.addoption(
         "--serve-wheel",
         action="store_true",
@@ -72,24 +61,7 @@ def pytest_cmdline_main(config: pytest.Config):
     if not_exists := [p for p in config.getoption("ignore") or [] if not os.path.exists(p)]:
         raise pytest.UsageError(f"The following paths are ignored but do not exist: {not_exists}")
 
-    group = config.getoption("group")
-    splits = config.getoption("splits")
-
-    if splits is None and group is None:
-        return None
-
-    if splits and group is None:
-        raise pytest.UsageError("`--group` is required")
-
-    if group and splits is None:
-        raise pytest.UsageError("`--splits` is required")
-
-    if splits < 0:
-        raise pytest.UsageError("`--splits` must be >= 1")
-
-    if group < 1 or group > splits:
-        raise pytest.UsageError("`--group` must be between 1 and {splits}")
-
+    # Validation for --splits and --group removed as pytest-split handles this
     return None
 
 
@@ -247,9 +219,9 @@ def pytest_collection_modifyitems(session, config, items):
     # execute `tests.server.test_prometheus_exporter` first by reordering the test items.
     items.sort(key=lambda item: item.module.__name__ != "tests.server.test_prometheus_exporter")
 
-    # Select the tests to run based on the group and splits
-    if (splits := config.getoption("--splits")) and (group := config.getoption("--group")):
-        items[:] = items[(group - 1) :: splits]
+    # Commenting out custom splitting logic - pytest-split will handle this
+    # if (splits := config.getoption("--splits")) and (group := config.getoption("--group")):
+    #     items[:] = items[(group - 1) :: splits]
 
 
 @pytest.hookimpl(hookwrapper=True)
