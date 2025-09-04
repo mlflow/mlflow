@@ -359,7 +359,7 @@ def is_safe(*, content: str, name: str | None = None, model: str | None = None) 
     Args:
         content: Text content to evaluate for safety.
         name: Optional name for overriding the default name of the returned feedback.
-        model: { model }
+        model: {{ model }}
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no"
