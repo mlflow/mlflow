@@ -50,13 +50,13 @@ uv --version
 packages=""
 
 # Base packages
-packages+=" --upgrade pip!=25.1 setuptools wheel"
+packages+=" pip!=25.1 setuptools wheel"
 
 # Main package
 if [[ "$SKINNY" == "true" ]]; then
   packages+=" ./libs/skinny"
 else
-  packages+=" .[extras] --upgrade"
+  packages+=" .[extras]"
 fi
 
 # Test requirements
@@ -75,7 +75,7 @@ fi
 packages+=" aiohttp"
 
 # Single uv pip install call for all packages
-retry-with-backoff uv pip install $packages
+retry-with-backoff uv pip install --upgrade $packages
 
 # Install mlflow-test-plugin without dependencies (separate call needed for --no-dependencies)
 uv pip install --no-dependencies tests/resources/mlflow-test-plugin
