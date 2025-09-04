@@ -1,6 +1,5 @@
 """Unit tests for the AI commands utilities."""
 
-import os
 import platform
 from unittest import mock
 
