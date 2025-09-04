@@ -168,6 +168,7 @@ class RetrievalRelevance(BuiltInScorer):
 
             # Compute relevance for each chunk. Call `chunk_relevance` judge directly
             # to get a list of feedbacks with ids.
+            # TODO: Replace with using relevance to query judge (with sanitization)
             chunk_feedbacks = chunk_relevance(
                 request=request, retrieved_context=chunks, assessment_name=self.name
             )
