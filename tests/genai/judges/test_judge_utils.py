@@ -6,7 +6,7 @@ from litellm.types.utils import ModelResponse
 
 from mlflow.entities.assessment import AssessmentSourceType
 from mlflow.exceptions import MlflowException
-from mlflow.genai.judges.utils import CategoricalRating, invoke_judge_model
+from mlflow.genai.judges.utils import CategoricalRating, format_prompt, invoke_judge_model
 
 
 def test_invoke_judge_model_successful_with_litellm():
@@ -77,3 +77,13 @@ def test_invoke_judge_model_invalid_json_response():
             invoke_judge_model(
                 model_uri="openai:/gpt-4", prompt="Test prompt", assessment_name="test"
             )
+
+
+def test_format_prompt_substitution():
+    """Test that format_prompt correctly substitutes variables and handles escape sequences."""
+    prompt_template = "Evaluate the following context: {{context}}"
+    test_context = "The quick brown fox jumps over the lazy dog. Test escape sequences: \\x \\u"
+    expected_prompt = f"Evaluate the following context: {test_context}"
+
+    formatted_prompt = format_prompt(prompt_template, context=test_context)
+    assert formatted_prompt == expected_prompt
