@@ -1,0 +1,66 @@
+name: Collect Test Durations (Temporary)
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'temp-durations-1756988623'
+
+jobs:
+  collect-all-durations:
+    name: Collect all test durations
+    runs-on: ubuntu-latest
+    timeout-minutes: 480
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
+      
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+      
+      - name: Install ALL dependencies
+        run: |
+          # Use the exact same dependency installation as master.yml jobs
+          source ./dev/install-common-deps.sh --ml
+          # Add the additional dependencies that various master.yml jobs install
+          uv pip install --system -c requirements/constraints.txt tf-keras
+          uv pip install --system -c requirements/constraints.txt '.[mlserver]' '.[genai]'
+          uv pip install --system -c requirements/constraints.txt pyspark langchain langchain-community langchain-experimental
+          uv pip install --system -c requirements/constraints.txt torch transformers 'shap<0.47.0' lightgbm xgboost
+          uv pip install --system -c requirements/constraints.txt uvicorn 'litellm>=1.52.9'
+          uv pip install --system -c requirements/constraints.txt openai dspy 'optuna>=4'
+          uv pip install --system -c requirements/constraints.txt typing_extensions
+          uv pip install --system -c requirements/constraints.txt 'pydantic<2'
+      
+      - name: Run ALL tests with duration collection
+        run: |
+          # Run ALL tests to collect complete durations using same ignores as master.yml python job
+          pytest --store-durations --durations-path=all_test_durations.json             --ignore-flavors --ignore=tests/examples --ignore=tests/evaluate             --ignore tests/genai tests -v || true
+      
+      - name: Verify duration file exists and show stats
+        if: always()
+        run: |
+          echo "=== Duration file verification ==="
+          if [ -f all_test_durations.json ]; then
+            echo "✓ Duration file exists"
+            echo "File size: $(ls -lh all_test_durations.json | awk '{print $5}')"
+            echo "Number of test durations: $(python -c "import json; print(len(json.load(open('all_test_durations.json'))))")"
+            echo ""
+            echo "=== First 50 lines of duration file ==="
+            head -50 all_test_durations.json
+            echo ""
+            echo "=== Last 50 lines of duration file ==="
+            tail -50 all_test_durations.json
+          else
+            echo "ERROR: Duration file all_test_durations.json not found!"
+            echo "Current directory contents:"
+            ls -la
+          fi
+      
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: final-test-durations
+          path: all_test_durations.json
+          retention-days: 7
