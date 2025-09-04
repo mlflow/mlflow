@@ -50,7 +50,7 @@ jobs:
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
         run: |
-          source ./dev/install-common-deps.sh --skinny
+          source ./dev/install-common-deps-uv.sh --skinny
       - name: Run tests
         run: |
           ./dev/run-python-skinny-tests.sh
@@ -98,7 +98,6 @@ jobs:
           ls -la ~/.local/bin/ || echo "~/.local/bin/ not found"
       - name: Install dependencies
         run: |
-          uv venv .venv
           source ./dev/install-common-deps-uv.sh --ml
           # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
           uv pip install -c requirements/constraints.txt tf-keras
@@ -163,8 +162,7 @@ jobs:
           uv python pin 3.10
       - name: Install dependencies
         run: |
-          uv venv .venv
-          uv run ./dev/install-common-deps.sh
+          uv run ./dev/install-common-deps-uv.sh
           # test telemetry events
           uv pip install -c requirements/constraints.txt openai
           uv pip install -c requirements/constraints.txt .
@@ -264,7 +262,7 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          source ./dev/install-common-deps.sh
+          source ./dev/install-common-deps-uv.sh
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
@@ -309,9 +307,7 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          python -m venv .venv
-          source .venv/bin/activate
-          source ./dev/install-common-deps.sh --ml
+          source ./dev/install-common-deps-uv.sh --ml
           # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
           # Required by mlflow.litellm. Temporarily update the version here due to version conflict with dspy.
           uv pip install -c requirements/constraints.txt tf-keras uvicorn "litellm>=1.52.9"
@@ -319,8 +315,7 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          source .venv/bin/activate
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations-path=tests/.test_durations \
+          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations-path=tests/.test_durations \
             tests/utils/test_model_utils.py \
             tests/tracking/fluent/test_fluent_autolog.py \
             tests/autologging \
@@ -367,15 +362,13 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          uv venv .venv
-          source .venv/bin/activate
-          source ./dev/install-common-deps.sh
+          source ./dev/install-common-deps-uv.sh
           uv pip install -c requirements/constraints.txt pyspark langchain langchain-community '.[mlserver]'
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations-path=tests/.test_durations tests/models
+          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations-path=tests/.test_durations tests/models
 
   # NOTE: numpy is pinned in this suite due to its heavy reliance on shap, which internally uses
   # references to the now fully deprecated (as of 1.24.x) numpy types (i.e., np.bool).
@@ -420,18 +413,16 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          uv venv .venv
-          source .venv/bin/activate
-          source ./dev/install-common-deps.sh
+          source ./dev/install-common-deps-uv.sh
           uv pip install -c requirements/constraints.txt pyspark torch transformers langchain langchain-experimental '.[genai]' 'shap<0.47.0' lightgbm xgboost
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations-path=tests/.test_durations tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
+          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations-path=tests/.test_durations tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
       - name: Run tests with delta
         run: |
-          pytest tests/evaluate/test_default_evaluator_delta.py
+          uv run pytest tests/evaluate/test_default_evaluator_delta.py
 
   genai:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -472,19 +463,17 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          uv venv .venv
-          source .venv/bin/activate
-          source ./dev/install-common-deps.sh
+          source ./dev/install-common-deps-uv.sh
           uv pip install -c requirements/constraints.txt openai dspy
       - uses: ./.github/actions/show-versions
       - name: Run GenAI Tests (OSS)
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations-path=tests/.test_durations tests/genai
+          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations-path=tests/.test_durations tests/genai
 
       - name: Run GenAI Tests (Databricks)
         run: |
           uv pip install -c requirements/constraints.txt databricks-agents
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations-path=tests/.test_durations tests/genai --ignore tests/genai/test_genai_import_without_agent_sdk.py \
+          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations-path=tests/.test_durations tests/genai --ignore tests/genai/test_genai_import_without_agent_sdk.py \
             --ignore tests/genai/optimize --ignore tests/genai/prompts
 
       - name: Run Tests with Local Spark Session
@@ -494,7 +483,7 @@ jobs:
           # uninstalling databricks-connect.
           pip uninstall -y databricks-connect pyspark
           uv pip install -c requirements/constraints.txt pyspark
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations-path=tests/.test_durations tests/genai/evaluate/test_utils.py
+          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations-path=tests/.test_durations tests/genai/evaluate/test_utils.py
 
   optuna:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -529,15 +518,13 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          uv venv .venv
-          source .venv/bin/activate
-          source ./dev/install-common-deps.sh
+          source ./dev/install-common-deps-uv.sh
           uv pip install -c requirements/constraints.txt 'pyspark>=3.5' 'optuna>=4' .
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest tests/optuna tests/pyspark/optuna
+          uv run pytest tests/optuna tests/pyspark/optuna
   pyfunc:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
@@ -575,7 +562,7 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          uv run ./dev/install-common-deps.sh
+          uv run ./dev/install-common-deps-uv.sh
           uv pip install -c requirements/constraints.txt tensorflow 'pyspark[connect]' typing_extensions -U
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
@@ -624,7 +611,7 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          uv run ./dev/install-common-deps.sh
+          uv run ./dev/install-common-deps-uv.sh
           uv pip install -c requirements/constraints.txt tensorflow 'pyspark[connect]' typing_extensions -U
           # Install pydantic v1 for this job
           uv pip install -c requirements/constraints.txt 'pydantic<2'
@@ -672,12 +659,12 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          source ./dev/install-common-deps.sh --ml
+          source ./dev/install-common-deps-uv.sh --ml
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations-path=tests/.test_durations tests/sagemaker
+          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations-path=tests/.test_durations tests/sagemaker
 
   windows:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -757,6 +744,6 @@ jobs:
           export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests (including telemetry)
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations-path=tests/.test_durations \
+          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations-path=tests/.test_durations \
             --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/evaluate --ignore=tests/optuna \
             --ignore=tests/pyspark/optuna --ignore=tests/genai tests || true
