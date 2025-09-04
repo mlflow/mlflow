@@ -41,12 +41,7 @@ from mlflow.entities import (
     Trace,
     ViewType,
 )
-from mlflow.entities.model_registry import (
-    ModelVersion,
-    Prompt,
-    PromptVersion,
-    RegisteredModel,
-)
+from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, NoOpSpan
 from mlflow.entities.trace_status import TraceStatus
@@ -92,10 +87,7 @@ from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
-from mlflow.store.tracking import (
-    SEARCH_MAX_RESULTS_DEFAULT,
-    SEARCH_TRACES_DEFAULT_MAX_RESULTS,
-)
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX
 from mlflow.tracing.display import get_display_handler
