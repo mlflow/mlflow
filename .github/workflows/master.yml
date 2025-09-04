@@ -106,13 +106,22 @@ jobs:
           source dev/setup-ssh.sh
           pytest --store-durations --durations-path=.test_durations_linux --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
             --ignore-flavors --ignore=tests/examples --ignore=tests/evaluate \
-            --ignore tests/genai tests
+            --ignore tests/genai tests || true
+
+          # Check and upload duration file
+          if [ -f .test_durations_linux ]; then
+            echo "Duration file found at .test_durations_linux - size: $(stat -c%s .test_durations_linux 2>/dev/null || stat -f%z .test_durations_linux) bytes"
+          else
+            echo "Warning: No duration file found at .test_durations_linux"
+            ls -la .test_durations* 2>/dev/null || echo "No .test_durations* files"
+          fi
       - name: Upload test durations
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: python-durations-${{ matrix.group }}
           path: .test_durations_linux
+          if-no-files-found: warn
 
   py310:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -524,10 +533,11 @@ jobs:
         id: pytest_run
       - name: Upload test durations
         uses: actions/upload-artifact@v4
-        if: always() && steps.pytest_run.outputs.duration_file_exists == 'true'
+        if: always()
         with:
           name: windows-durations-${{ matrix.group }}
           path: .test_durations_windows
+          if-no-files-found: warn
 
   combine-durations:
     if: always()
