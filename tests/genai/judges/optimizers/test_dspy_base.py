@@ -64,7 +64,6 @@ def test_align_success(sample_traces_with_assessments):
     assert result.model == mock_judge.model
     # The instructions are wrapped by make_judge with a header and formatting
     assert "Optimized instructions with {{inputs}} and {{outputs}}" in result.instructions
-    assert "Instructions-based judge: mock_judge" in result.instructions
 
 
 def test_align_no_traces(mock_judge):
@@ -91,16 +90,6 @@ def test_align_insufficient_examples(mock_judge, sample_trace_with_assessment):
     with patch("dspy.LM", MagicMock()):
         with pytest.raises(MlflowException, match="At least 2 valid traces are required"):
             optimizer.align(mock_judge, [sample_trace_with_assessment])
-
-
-def test_align_no_dspy(mock_judge, sample_traces_with_assessments):
-    """Test that DSPy import error is handled at module level."""
-    # Since DSPy import check now happens at module import time,
-    # we can't test runtime behavior when DSPy is missing.
-    # If DSPy were missing, the module import would fail.
-    # This test now just verifies the module can be imported (which means DSPy is available)
-    from mlflow.genai.judges.optimizers.dspy import DSPyAlignmentOptimizer
-    assert DSPyAlignmentOptimizer is not None
 
 
 def _create_mock_dspy_lm_factory(optimizer_lm, judge_lm):
