@@ -37,57 +37,75 @@ on:
     branches:
       - '{branch_name}'
 
+env:
+  MLFLOW_HOME: ${{{{ github.workspace }}}}
+  MLFLOW_CONDA_HOME: /usr/share/miniconda
+  SPARK_LOCAL_IP: localhost
+  PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
+  PIP_CONSTRAINT: ${{{{ github.workspace }}}}/requirements/constraints.txt
+  PYTHONUTF8: "1"
+  _MLFLOW_TESTING_TELEMETRY: "true"
+
 jobs:
-  collect-all-durations:
-    name: Collect all test durations
+  collect-durations:
+    name: Collect test durations
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 480
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        include:
+          - splits: 10
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/untracked
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+      - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
-      
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
-      
-      - name: Install ALL dependencies
+      - uses: ./.github/actions/cache-pip
+      - name: Install dependencies
         run: |
-          source ./dev/install-common-deps.sh
-          # Install ALL dependencies for comprehensive test coverage - "install the world"
-          uv pip install --system -c requirements/constraints.txt .[extras]
-          uv pip install --system -c requirements/constraints.txt '.[mlserver]' '.[genai]'
-          uv pip install --system -c requirements/constraints.txt tensorflow 'pyspark[connect]' torch transformers
-          uv pip install --system -c requirements/constraints.txt langchain langchain-community langchain-experimental
-          uv pip install --system -c requirements/constraints.txt 'shap<0.47.0' lightgbm xgboost catboost
-          uv pip install --system -c requirements/constraints.txt tf-keras uvicorn 'litellm>=1.52.9'
-          uv pip install --system -c requirements/constraints.txt databricks-agents openai 'optuna>=4'
-          uv pip install --system -c requirements/constraints.txt typing_extensions dspy
-          uv pip install --system -c requirements/constraints.txt 'pydantic<2'  # For pydantic v1 tests
-          # Install test plugin
-          uv pip install --system --no-deps tests/resources/mlflow-test-plugin
-      
-      - name: Run ALL tests with duration collection
+          python -m venv .venv
+          source .venv/bin/activate
+          source ./dev/install-common-deps.sh --ml
+          # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
+          uv pip install -c requirements/constraints.txt tf-keras
+      - uses: ./.github/actions/show-versions
+      - uses: ./.github/actions/pipdeptree
+      - name: Import check
         run: |
-          # TEST MODE: Just run a quick test to verify workflow works
-          pytest --store-durations --durations-path=all_test_durations.json tests/test_version.py -v || true
+          source .venv/bin/activate
+          # `-I` is used to avoid importing modules from user-specific site-packages
+          # that might conflict with the built-in modules (e.g. `types`).
+          python -I tests/check_mlflow_lazily_imports_ml_packages.py
+      
+      - name: Run tests
+        run: |
+          source .venv/bin/activate
+          source dev/setup-ssh.sh
+          pytest --splits=${{{{ matrix.splits }}}} --group=${{{{ matrix.group }}}} \
+            --store-durations --durations-path=group_${{{{ matrix.group }}}}_durations.json --quiet --requires-ssh \
+            --ignore-flavors --ignore=tests/examples --ignore=tests/evaluate \
+            --ignore tests/genai tests || true
       
       - name: Verify duration file exists and show stats
         if: always()
         run: |
-          echo "=== Duration file verification ==="
-          if [ -f all_test_durations.json ]; then
-            echo "✓ Duration file exists"
-            echo "File size: $(ls -lh all_test_durations.json | awk '{{print $5}}')"
-            echo "Number of test durations: $(python -c "import json; print(len(json.load(open('all_test_durations.json'))))")"
+          echo "=== Duration file verification for group ${{{{ matrix.group }}}} ==="
+          duration_file="group_${{{{ matrix.group }}}}_durations.json"
+          if [ -f "$duration_file" ]; then
+            echo "✓ Duration file exists: $duration_file"
+            echo "File size: $(ls -lh "$duration_file" | awk '{{print $5}}')"
+            echo "Number of test durations: $(python -c "import json; print(len(json.load(open('$duration_file'))))")"
             echo ""
-            echo "=== First 50 lines of duration file ==="
-            head -50 all_test_durations.json
-            echo ""
-            echo "=== Last 50 lines of duration file ==="
-            tail -50 all_test_durations.json
+            echo "=== First 20 lines of duration file ==="
+            head -20 "$duration_file"
           else
-            echo "ERROR: Duration file all_test_durations.json not found!"
+            echo "ERROR: Duration file $duration_file not found!"
             echo "Current directory contents:"
             ls -la
           fi
@@ -95,8 +113,8 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: final-test-durations
-          path: all_test_durations.json
+          name: test-durations-group-${{{{ matrix.group }}}}
+          path: group_${{{{ matrix.group }}}}_durations.json
           retention-days: 7
 """
 
@@ -330,51 +348,62 @@ Examples:
         if not wait_for_workflow(run_id, repo, args.timeout):
             print("Warning: Workflow did not complete successfully, but attempting to download any artifacts...")
         
-        # Download artifacts to temp directory and copy to tests/.test_durations
-        print("\nDownloading duration artifacts...")
+        # Download all matrix artifacts and merge them
+        print("\nDownloading matrix duration artifacts...")
         
         # Create a temp directory for download
         with tempfile.TemporaryDirectory() as tmpdir:
-            # Download the duration artifact to temp directory
-            download_cmd = f"cd {tmpdir} && gh run download {run_id} --repo {repo} --name final-test-durations"
-            result = run_command(download_cmd, check=False)
+            # Download all matrix artifacts (test-durations-group-1, test-durations-group-2, etc.)
+            merged_durations = {}
+            groups_found = 0
             
-            if result is None:
-                print("Warning: Artifact download may have failed")
+            # Try to download each group artifact (we used groups 1, 2)
+            for group in range(1, 11):  # Check up to 10 groups
+                artifact_name = f"test-durations-group-{group}"
+                download_cmd = f"cd {tmpdir} && gh run download {run_id} --repo {repo} --name {artifact_name}"
+                result = run_command(download_cmd, check=False)
                 
-            # Check if download succeeded and file exists
-            # Note: gh run download puts the file directly in the current directory
-            duration_file = Path(tmpdir) / "all_test_durations.json"
+                # Check if this group's duration file exists
+                duration_file = Path(tmpdir) / f"group_{group}_durations.json"
+                if duration_file.exists():
+                    groups_found += 1
+                    print(f"Found artifact: {artifact_name}")
+                    
+                    # Read and merge this group's durations
+                    with open(duration_file) as f:
+                        group_durations = json.load(f)
+                    
+                    if isinstance(group_durations, dict):
+                        merged_durations.update(group_durations)
+                        print(f"  Merged {len(group_durations)} durations from group {group}")
+                    else:
+                        print(f"  Warning: Group {group} data is not a dictionary")
             
-            if not duration_file.exists():
-                print(f"ERROR: Could not find all_test_durations.json in {tmpdir}")
+            if groups_found == 0:
+                print(f"ERROR: No matrix artifacts found in {tmpdir}")
                 print(f"Directory contents: {list(Path(tmpdir).iterdir())}")
                 print(f"View logs at: https://github.com/{repo}/actions/runs/{run_id}")
                 return 1
             
-            # Read and validate the duration file
-            with open(duration_file) as f:
-                new_durations = json.load(f)
-            
-            # Validate that this looks like a test duration file
-            if not isinstance(new_durations, dict):
-                print(f"ERROR: Duration file is not a dictionary: {type(new_durations)}")
+            # Validate merged durations
+            if not merged_durations:
+                print("ERROR: No test durations were collected from any group")
                 return 1
-            
+                
             # Check that keys look like test names (should contain "::" for pytest format)
-            if new_durations and not any("::" in key for key in new_durations.keys()):
-                print(f"ERROR: Duration file doesn't appear to contain test durations")
-                print(f"Sample keys: {list(new_durations.keys())[:5]}")
+            if not any("::" in key for key in merged_durations.keys()):
+                print(f"ERROR: Merged data doesn't appear to contain test durations")
+                print(f"Sample keys: {list(merged_durations.keys())[:5]}")
                 return 1
             
-            print(f"\nCollected {len(new_durations)} test durations")
+            print(f"\nCollected {len(merged_durations)} test durations from {groups_found} matrix groups")
             
             # Copy to tests/.test_durations (overwrite)
             target = Path("tests/.test_durations")
             with open(target, 'w') as f:
-                json.dump(new_durations, f, indent=2, sort_keys=True)
+                json.dump(merged_durations, f, indent=2, sort_keys=True)
             
-            print(f"✓ Wrote {len(new_durations)} durations to {target}")
+            print(f"✓ Wrote {len(merged_durations)} durations to {target}")
         
     except KeyboardInterrupt:
         print("\n\nInterrupted by user")
