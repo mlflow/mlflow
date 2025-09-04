@@ -73,16 +73,24 @@ def test_align_no_traces(mock_judge):
     """Test alignment with no traces provided."""
     optimizer = ConcreteDSPyOptimizer()
 
-    with pytest.raises(MlflowException, match="Alignment optimization failed"):
+    with pytest.raises(MlflowException, match="Alignment optimization failed") as exc_info:
         optimizer.align(mock_judge, [])
+
+    # Check that the chained exception has the expected message
+    assert exc_info.value.__cause__ is not None
+    assert "No traces provided" in str(exc_info.value.__cause__)
 
 
 def test_align_no_valid_examples(mock_judge, sample_trace_without_assessment):
     """Test alignment when no valid examples can be created."""
     with patch("dspy.LM", MagicMock()):
         optimizer = ConcreteDSPyOptimizer()
-        with pytest.raises(MlflowException, match="Alignment optimization failed"):
+        with pytest.raises(MlflowException, match="Alignment optimization failed") as exc_info:
             optimizer.align(mock_judge, [sample_trace_without_assessment])
+
+        # Check that the chained exception has the expected message
+        assert exc_info.value.__cause__ is not None
+        assert "No valid examples could be created" in str(exc_info.value.__cause__)
 
 
 def test_align_insufficient_examples(mock_judge, sample_trace_with_assessment):
@@ -91,8 +99,12 @@ def test_align_insufficient_examples(mock_judge, sample_trace_with_assessment):
 
     # Mock dspy first to avoid import errors
     with patch("dspy.LM", MagicMock()):
-        with pytest.raises(MlflowException, match="Alignment optimization failed"):
+        with pytest.raises(MlflowException, match="Alignment optimization failed") as exc_info:
             optimizer.align(mock_judge, [sample_trace_with_assessment])
+
+        # Check that the chained exception has the expected message
+        assert exc_info.value.__cause__ is not None
+        assert "At least 2 valid traces are required" in str(exc_info.value.__cause__)
 
 
 def _create_mock_dspy_lm_factory(optimizer_lm, judge_lm):
