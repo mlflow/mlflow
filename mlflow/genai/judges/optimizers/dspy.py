@@ -2,7 +2,7 @@
 
 import logging
 from abc import abstractmethod
-from typing import Any
+from typing import Any, Callable, Collection
 
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
@@ -57,12 +57,13 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
             **kwargs: Additional keyword arguments.
         """
         super().__init__(**kwargs)
-        # Initialize private variables using PrivateAttr
         self._logger = logging.getLogger(self.__class__.__name__)
         self._model = model if model is not None else get_default_model()
 
     @abstractmethod
-    def _dspy_optimize(self, program, examples, metric_fn) -> Any:
+    def _dspy_optimize(
+        self, program: "dspy.Module", examples: Collection["dspy.Example"], metric_fn: Callable
+    ) -> "dspy.Module":
         """
         Perform DSPy optimization with algorithm-specific parameters.
 
@@ -178,4 +179,4 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
         except Exception as e:
             raise MlflowException(
                 f"Alignment optimization failed: {e!s}", error_code=INTERNAL_ERROR
-            )
+            ) from e

@@ -1,5 +1,6 @@
 """Tests for DSPyAlignmentOptimizer base class."""
 
+from typing import Callable, Collection
 from unittest.mock import MagicMock, Mock, patch
 
 import dspy
@@ -14,7 +15,9 @@ from tests.genai.judges.optimizers.conftest import MockDSPyLM
 class ConcreteDSPyOptimizer(DSPyAlignmentOptimizer):
     """Concrete implementation for testing."""
 
-    def _dspy_optimize(self, program, examples, metric_fn):
+    def _dspy_optimize(
+        self, program: "dspy.Module", examples: Collection["dspy.Example"], metric_fn: Callable
+    ) -> "dspy.Module":
         # Mock implementation for testing
         mock_program = Mock()
         mock_program.signature = Mock()
@@ -135,7 +138,12 @@ def test_optimizer_and_judge_use_different_models(sample_traces_with_assessments
     with patch.object(dspy, "LM", side_effect=mock_lm_factory):
         # Override ConcreteDSPyOptimizer's _dspy_optimize to call the program
         class TestDSPyOptimizer(ConcreteDSPyOptimizer):
-            def _dspy_optimize(self, program, examples, metric_fn):
+            def _dspy_optimize(
+                self,
+                program: "dspy.Module",
+                examples: Collection["dspy.Example"],
+                metric_fn: Callable,
+            ) -> "dspy.Module":
                 lm_in_context = dspy.settings.lm
                 assert lm_in_context == optimizer_lm
 

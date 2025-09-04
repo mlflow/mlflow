@@ -1,6 +1,6 @@
 """SIMBA alignment optimizer implementation."""
 
-from typing import Any, ClassVar
+from typing import Callable, ClassVar, Collection
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.optimizers.dspy import DSPyAlignmentOptimizer
@@ -43,7 +43,9 @@ class SIMBAAlignmentOptimizer(DSPyAlignmentOptimizer):
         self._bsize = self.DEFAULT_BSIZE
         self._seed = self.DEFAULT_SEED
 
-    def _dspy_optimize(self, program, examples, metric_fn) -> Any:
+    def _dspy_optimize(
+        self, program: "dspy.Module", examples: Collection["dspy.Example"], metric_fn: Callable
+    ) -> "dspy.Module":
         """
         Perform SIMBA optimization with algorithm-specific parameters.
 
