@@ -4,8 +4,6 @@ import logging
 from abc import abstractmethod
 from typing import Any
 
-from pydantic import PrivateAttr
-
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges import make_judge

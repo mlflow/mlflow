@@ -120,26 +120,30 @@ def create_dspy_signature(judge) -> Any:
     Returns:
         DSPy signature object
     """
-    # Build signature fields dictionary using the judge's field definitions
-    signature_fields = {}
+    try:
+        # Build signature fields dictionary using the judge's field definitions
+        signature_fields = {}
 
-    # Get input fields from the judge
-    input_fields = judge.get_input_fields()
-    for field in input_fields:
-        signature_fields[field.name] = (
-            str,
-            dspy.InputField(desc=field.description),
-        )
+        # Get input fields from the judge
+        input_fields = judge.get_input_fields()
+        for field in input_fields:
+            signature_fields[field.name] = (
+                str,
+                dspy.InputField(desc=field.description),
+            )
 
-    # Get output fields from the judge
-    output_fields = judge.get_output_fields()
-    for field in output_fields:
-        signature_fields[field.name] = (
-            str,
-            dspy.OutputField(desc=field.description),
-        )
+        # Get output fields from the judge
+        output_fields = judge.get_output_fields()
+        for field in output_fields:
+            signature_fields[field.name] = (
+                str,
+                dspy.OutputField(desc=field.description),
+            )
 
-    return dspy.make_signature(signature_fields, judge.instructions)
+        return dspy.make_signature(signature_fields, judge.instructions)
+
+    except ImportError:
+        raise MlflowException("DSPy library is required but not installed")
 
 
 def agreement_metric(example, pred, trace=None):

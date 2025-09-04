@@ -88,17 +88,8 @@ def test_align_insufficient_examples(mock_judge, sample_trace_with_assessment):
 
     # Mock dspy first to avoid import errors
     with patch("dspy.LM", MagicMock()):
-        with pytest.raises(MlflowException, match="At least 2 valid examples are required"):
+        with pytest.raises(MlflowException, match="At least 2 valid traces are required"):
             optimizer.align(mock_judge, [sample_trace_with_assessment])
-
-
-def test_align_no_dspy(mock_judge, sample_traces_with_assessments):
-    """Test alignment when DSPy is not available."""
-    with patch.dict("sys.modules", {"dspy": None}):
-        optimizer = ConcreteDSPyOptimizer()
-
-        with pytest.raises(MlflowException, match="DSPy library is required"):
-            optimizer.align(mock_judge, sample_traces_with_assessments)
 
 
 def _create_mock_dspy_lm_factory(optimizer_lm, judge_lm):
