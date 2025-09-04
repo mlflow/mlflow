@@ -12,13 +12,25 @@ from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.base import AlignmentOptimizer, Judge
 from mlflow.genai.judges.optimizers.dspy_utils import (
     agreement_metric,
+    convert_mlflow_uri_to_litellm,
     create_dspy_signature,
     trace_to_dspy_example,
 )
 from mlflow.genai.judges.utils import get_default_model
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
 
-logger = logging.getLogger(__name__)
+# Import dspy - raise exception if not installed
+try:
+    import dspy
+except ImportError:
+    raise MlflowException(
+        "DSPy library is required but not installed. "
+        "Please install it with: pip install 'mlflow[genai-dspy]'",
+        error_code=INTERNAL_ERROR,
+    )
+
+_logger = logging.getLogger(__name__)
 
 
 @experimental(version="3.4.0")
@@ -30,8 +42,8 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
     and handling DSPy program compilation.
     """
 
-    _logger: logging.Logger = PrivateAttr()
-    _model: str = PrivateAttr()
+    _logger: logging.Logger
+    _model: str
 
     @property
     def model(self) -> str:
@@ -49,7 +61,6 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
         super().__init__(**kwargs)
         # Initialize private variables using PrivateAttr
         self._logger = logging.getLogger(self.__class__.__name__)
-        # Private member variable for the model, defaulted to get_default_model()
         self._model = model if model is not None else get_default_model()
 
     @abstractmethod
@@ -68,26 +79,28 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
             Optimized DSPy program
         """
 
-    def _lower_to_dspy(self, judge: Judge) -> Any:
-        """Lowers the judge into a Predict dspy module"""
-        try:
-            import dspy
+    def _get_dspy_program_from_judge(self, judge: Judge) -> Any:
+        """Convert a judge into a DSPy Predict module."""
 
-            class CustomPredict(dspy.Predict):
-                """Custom DSPy Predict class that allows passing an LM to the forward method."""
+        class CustomPredict(dspy.Predict):
+            """
+            Custom DSPy Predict class that allows passing an LM to the forward method.
+            This is necessary to ensure that the optimized dspy program uses the judge's model,
+            while we allow for the optimizer itself to use a different model.
+            """
 
-                def __init__(self, judge):
-                    super().__init__(create_dspy_signature(judge))
-                    self._lm = dspy.LM(model=judge.model)
+            def __init__(self, judge):
+                super().__init__(create_dspy_signature(judge))
+                # Convert MLflow model URI to LiteLLM format for DSPy
+                judge_model_litellm = convert_mlflow_uri_to_litellm(judge.model)
+                self._lm = dspy.LM(model=judge_model_litellm)
 
-                def forward(self, *args, **kwargs):
-                    # If an LM is supplied via kwargs, use that, else use self.lm
-                    lm = kwargs.pop("lm", self._lm)
-                    return super().forward(*args, lm=lm, **kwargs)
+            def forward(self, *args, **kwargs):
+                # If an LM is supplied via kwargs, use that, else use self.lm
+                lm = kwargs.pop("lm", self._lm)
+                return super().forward(*args, lm=lm, **kwargs)
 
-            return CustomPredict(judge)
-        except ImportError:
-            raise MlflowException("DSPy library is required but not installed")
+        return CustomPredict(judge)
 
     def align(self, judge: Judge, traces: list[Trace]) -> Judge:
         """
@@ -105,30 +118,23 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
 
         Returns:
             A new optimized Judge instance
-
-        Raises:
-            MlflowException: If optimization fails or insufficient data is provided
         """
         try:
-            import dspy
-
             if not traces:
-                raise MlflowException("No traces provided for alignment")
+                raise MlflowException(
+                    "No traces provided for alignment",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
 
-            # Set up DSPy context to use the optimizer's model
             self._logger.info(f"Setting up DSPy context with model: {self._model}")
 
             # Configure DSPy to use the optimizer's model
             # This ensures the optimizer uses its own model, separate from the judge's model
-            dspy_model = dspy.LM(model=self._model)
-
-            # Use DSPy context manager to ensure proper model usage
-            with dspy.context(lm=dspy_model):
+            optimizer_model_litellm = convert_mlflow_uri_to_litellm(self._model)
+            with dspy.context(lm=dspy.LM(model=optimizer_model_litellm)):
                 # Create DSPy program that will simulate the judge
-                program = self._lower_to_dspy(judge)
-                self._logger.info(
-                    "Created DSPy program with signature using judge's model"
-                )
+                program = self._get_dspy_program_from_judge(judge)
+                self._logger.info("Created DSPy program with signature using judge's model")
 
                 # Convert traces to DSPy format
                 dspy_examples = []
@@ -143,45 +149,35 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
 
                 if not dspy_examples:
                     raise MlflowException(
-                        "No valid examples could be created from traces"
+                        f"No valid examples could be created from traces. "
+                        f"Ensure that the provided traces contain Feedback entries "
+                        f"with name {judge.name}",
+                        error_code=INVALID_PARAMETER_VALUE,
                     )
 
                 if len(dspy_examples) < 2:
                     raise MlflowException(
-                        "At least 2 valid examples are required for optimization"
+                        f"At least 2 valid traces are required for optimization. "
+                        f"Label more traces with Feedback entries with name {judge.name}",
+                        error_code=INVALID_PARAMETER_VALUE,
                     )
 
                 self._logger.info("Starting DSPy optimization...")
 
                 # Use the algorithm-specific optimization method
                 # Each implementation decides how to handle data splitting
-                optimized_program = self._dspy_optimize(
-                    program, dspy_examples, agreement_metric
-                )
+                optimized_program = self._dspy_optimize(program, dspy_examples, agreement_metric)
 
                 self._logger.info("DSPy optimization completed")
 
                 # Create optimized judge with DSPy-optimized instructions
-                # Use the same name as the original judge
-                optimized_name = judge.name
 
-                # Get the model from the original judge using the model property
-                judge_model = judge.model
-
-                # Extract optimized instructions from the DSPy program
                 optimized_instructions = optimized_program.signature.instructions
-
-                self._logger.info(
-                    f"Creating optimized judge '{optimized_name}' with DSPy-optimized instructions"
-                )
-
                 return make_judge(
-                    name=optimized_name,
-                    instructions=optimized_instructions,
-                    model=judge_model,
+                    name=judge.name, instructions=optimized_instructions, model=judge.model
                 )
 
-        except ImportError:
-            raise MlflowException("DSPy library is required but not installed")
         except Exception as e:
-            raise MlflowException(f"Alignment optimization failed: {e!s}")
+            raise MlflowException(
+                f"Alignment optimization failed: {e!s}", error_code=INTERNAL_ERROR
+            )

@@ -9,8 +9,37 @@ from mlflow.genai.judges.judge_trace_utils import (
     extract_request_from_trace,
     extract_response_from_trace,
 )
+from mlflow.metrics.genai.model_utils import _parse_model_uri
 
-logger = logging.getLogger(__name__)
+# Import dspy - raise exception if not installed
+try:
+    import dspy
+except ImportError:
+    raise MlflowException(
+        "DSPy library is required but not installed. "
+        "Please install it with: pip install 'mlflow[genai-dspy]'"
+    )
+
+_logger = logging.getLogger(__name__)
+
+
+def convert_mlflow_uri_to_litellm(model_uri: str) -> str:
+    """
+    Convert MLflow model URI format to LiteLLM format.
+
+    MLflow uses URIs like 'openai:/gpt-4' while LiteLLM expects 'openai/gpt-4'.
+
+    Args:
+        model_uri: MLflow model URI (e.g., 'openai:/gpt-4')
+
+    Returns:
+        LiteLLM-compatible model string (e.g., 'openai/gpt-4')
+    """
+    try:
+        scheme, path = _parse_model_uri(model_uri)
+        return f"{scheme}/{path}"
+    except Exception as e:
+        raise MlflowException(f"Failed to convert MLflow URI to LiteLLM format: {e}")
 
 
 def trace_to_dspy_example(trace: Trace, judge_name: str) -> Any | None:
@@ -30,15 +59,12 @@ def trace_to_dspy_example(trace: Trace, judge_name: str) -> Any | None:
         DSPy example object or None if conversion fails
     """
     try:
-        # Import dspy here to allow graceful failure
-        import dspy
-
         # Extract request and response from trace
         request = extract_request_from_trace(trace)
         response = extract_response_from_trace(trace)
 
         if not request or not response:
-            logger.warning(
+            _logger.warning(
                 f"Missing request or response in trace {trace.info.trace_id}"
             )
             return None
@@ -57,13 +83,13 @@ def trace_to_dspy_example(trace: Trace, judge_name: str) -> Any | None:
                     break
 
         if not expected_result:
-            logger.warning(
+            _logger.warning(
                 f"No human assessment found for judge '{judge_name}' in trace {trace.info.trace_id}"
             )
             return None
 
         if not expected_result.feedback:
-            logger.warning(
+            _logger.warning(
                 f"No feedback found in assessment for trace {trace.info.trace_id}"
             )
             return None
@@ -79,10 +105,8 @@ def trace_to_dspy_example(trace: Trace, judge_name: str) -> Any | None:
         # Set inputs (what the model should use as input)
         return example.with_inputs("inputs", "outputs")
 
-    except ImportError:
-        raise MlflowException("DSPy library is required but not installed")
     except Exception as e:
-        logger.error(f"Failed to create DSPy example from trace: {e}")
+        _logger.error(f"Failed to create DSPy example from trace: {e}")
         return None
 
 
@@ -96,32 +120,26 @@ def create_dspy_signature(judge) -> Any:
     Returns:
         DSPy signature object
     """
-    try:
-        import dspy
+    # Build signature fields dictionary using the judge's field definitions
+    signature_fields = {}
 
-        # Build signature fields dictionary using the judge's field definitions
-        signature_fields = {}
+    # Get input fields from the judge
+    input_fields = judge.get_input_fields()
+    for field in input_fields:
+        signature_fields[field.name] = (
+            str,
+            dspy.InputField(desc=field.description),
+        )
 
-        # Get input fields from the judge
-        input_fields = judge.get_input_fields()
-        for field in input_fields:
-            signature_fields[field.name] = (
-                str,
-                dspy.InputField(desc=field.description),
-            )
+    # Get output fields from the judge
+    output_fields = judge.get_output_fields()
+    for field in output_fields:
+        signature_fields[field.name] = (
+            str,
+            dspy.OutputField(desc=field.description),
+        )
 
-        # Get output fields from the judge
-        output_fields = judge.get_output_fields()
-        for field in output_fields:
-            signature_fields[field.name] = (
-                str,
-                dspy.OutputField(desc=field.description),
-            )
-
-        return dspy.make_signature(signature_fields, judge.instructions)
-
-    except ImportError:
-        raise MlflowException("DSPy library is required but not installed")
+    return dspy.make_signature(signature_fields, judge.instructions)
 
 
 def agreement_metric(example, pred, trace=None):
