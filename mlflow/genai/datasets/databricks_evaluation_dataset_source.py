@@ -33,12 +33,6 @@ class DatabricksEvaluationDatasetSource(DatasetSource):
     def _get_source_type() -> str:
         return "databricks_evaluation_dataset"
 
-
-class DatabricksUCTableDatasetSource(DatabricksEvaluationDatasetSource):
-    @staticmethod
-    def _get_source_type() -> str:
-        return "databricks-uc-table"
-
     def load(self, **kwargs) -> Any:
         """
         Loads the dataset from the source.
@@ -81,3 +75,9 @@ class DatabricksUCTableDatasetSource(DatabricksEvaluationDatasetSource):
         Creates an instance from a dictionary representation.
         """
         return cls(table_name=source_dict["table_name"], dataset_id=source_dict["dataset_id"])
+
+
+class DatabricksUCTableDatasetSource(DatabricksEvaluationDatasetSource):
+    @staticmethod
+    def _get_source_type() -> str:
+        return "databricks-uc-table"
