@@ -3,57 +3,60 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - 'temp-durations-1756988623'
+      - 'temp-durations-1756989960'
 
 jobs:
-  collect-all-durations:
-    name: Collect all test durations
+  collect-durations:
+    name: Collect test durations
     runs-on: ubuntu-latest
-    timeout-minutes: 480
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1, 2]
+        include:
+          - splits: 2
     steps:
       - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+      - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
-      
       - name: Install ALL dependencies
         run: |
+          # Clean up space before installing
+          sudo apt clean
+          df -h
           # Use the exact same dependency installation as master.yml jobs
           source ./dev/install-common-deps.sh --ml
-          # Add the additional dependencies that various master.yml jobs install
-          uv pip install --system -c requirements/constraints.txt tf-keras
-          uv pip install --system -c requirements/constraints.txt '.[mlserver]' '.[genai]'
-          uv pip install --system -c requirements/constraints.txt pyspark langchain langchain-community langchain-experimental
-          uv pip install --system -c requirements/constraints.txt torch transformers 'shap<0.47.0' lightgbm xgboost
-          uv pip install --system -c requirements/constraints.txt uvicorn 'litellm>=1.52.9'
-          uv pip install --system -c requirements/constraints.txt openai dspy 'optuna>=4'
-          uv pip install --system -c requirements/constraints.txt typing_extensions
-          uv pip install --system -c requirements/constraints.txt 'pydantic<2'
+          # Add all additional dependencies in a single uv pip install command for speed
+          uv pip install --system -c requirements/constraints.txt             tf-keras '.[mlserver]' '.[genai]' pyspark             langchain langchain-community langchain-experimental             torch transformers 'shap<0.47.0' lightgbm xgboost             uvicorn 'litellm>=1.52.9' openai dspy 'optuna>=4'             typing_extensions 'pydantic<2'
+          # Clean up after installation
+          sudo apt clean
+          df -h
       
-      - name: Run ALL tests with duration collection
+      - name: Run tests
         run: |
-          # Run ALL tests to collect complete durations using same ignores as master.yml python job
-          pytest --store-durations --durations-path=all_test_durations.json             --ignore-flavors --ignore=tests/examples --ignore=tests/evaluate             --ignore tests/genai tests -v || true
+          # Test with a small subset first - just version and basic tests
+          pytest --splits=${ matrix.splits } --group=${ matrix.group }             --store-durations --durations-path=group_${ matrix.group }_durations.json             tests/test_version.py tests/utils/test_*.py -v || true
       
       - name: Verify duration file exists and show stats
         if: always()
         run: |
-          echo "=== Duration file verification ==="
-          if [ -f all_test_durations.json ]; then
-            echo "✓ Duration file exists"
-            echo "File size: $(ls -lh all_test_durations.json | awk '{print $5}')"
-            echo "Number of test durations: $(python -c "import json; print(len(json.load(open('all_test_durations.json'))))")"
+          echo "=== Duration file verification for group ${ matrix.group } ==="
+          duration_file="group_${ matrix.group }_durations.json"
+          if [ -f $duration_file ]; then
+            echo "✓ Duration file exists: $duration_file"
+            echo "File size: $(ls -lh $duration_file | awk '{print $5}')"
+            echo "Number of test durations: $(python -c "import json; print(len(json.load(open('$duration_file'))))")"
             echo ""
-            echo "=== First 50 lines of duration file ==="
-            head -50 all_test_durations.json
-            echo ""
-            echo "=== Last 50 lines of duration file ==="
-            tail -50 all_test_durations.json
+            echo "=== First 20 lines of duration file ==="
+            head -20 $duration_file
           else
-            echo "ERROR: Duration file all_test_durations.json not found!"
+            echo "ERROR: Duration file $duration_file not found!"
             echo "Current directory contents:"
             ls -la
           fi
@@ -61,6 +64,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: final-test-durations
-          path: all_test_durations.json
+          name: test-durations-group-${ matrix.group }
+          path: group_${ matrix.group }_durations.json
           retention-days: 7
