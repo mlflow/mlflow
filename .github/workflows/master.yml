@@ -503,7 +503,7 @@ jobs:
           # databricks-agents installs databricks-connect that blocks us from running spark-related
           # tests with local spark session. To work around this, we run skipped tests after
           # uninstalling databricks-connect.
-          pip uninstall -y databricks-connect pyspark
+          uv pip uninstall databricks-connect pyspark
           uv pip install -c requirements/constraints.txt pyspark
           uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations-path=tests/.test_durations tests/genai/evaluate/test_utils.py
 
