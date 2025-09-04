@@ -215,7 +215,7 @@ def _try_parse_raw_response(response: Any) -> Any:
     return response
 
 
-def _is_response_api(original):
+def _is_response_api(original: Any) -> bool:
     class_name, _ = original.__qualname__.split(".")
     return class_name in ["Responses", "AsyncResponses"]
 
@@ -329,7 +329,12 @@ def _end_span_on_success(span: LiveSpan, inputs: dict[str, Any], raw_result: Any
             _logger.warning(f"Encountered unexpected error when ending trace: {e}", exc_info=True)
 
 
-def _process_last_chunk(span: LiveSpan, chunk: Any, inputs: dict[str, Any], output: list[Any], is_response_api: bool):
+def _process_last_chunk(
+    span: LiveSpan,
+    chunk: Any, inputs: dict[str, Any],
+    output: list[Any],
+    is_response_api: bool,
+) -> None:
     try:
         if _is_responses_final_event(chunk):
             output = chunk.response
@@ -347,10 +352,10 @@ def _process_last_chunk(span: LiveSpan, chunk: Any, inputs: dict[str, Any], outp
                 span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
 
         _end_span_on_success(span, inputs, output, is_response_api)
-    except Exception as inner_e:
+    except Exception as e:
         _logger.warning(
             "Encountered unexpected error when autologging processes the chunks "
-            f"in response: {inner_e}"
+            f"in response: {e}"
         )
 
 def _reconstruct_completion_from_stream(chunks: list[Any], is_response_api: bool) -> Any:
@@ -367,10 +372,11 @@ def _reconstruct_completion_from_stream(chunks: list[Any], is_response_api: bool
         from openai.types.responses import ResponseOutputItemDoneEvent
         from mlflow.types.responses_helpers import Response
 
-        output = []
-        for chunk in chunks:
-            if isinstance(chunk, ResponseOutputItemDoneEvent):
-                output.append(chunk.item.to_dict())
+        output = [
+            chunk.item.to_dict()
+            for chunk in chunks
+            if isinstance(chunk, ResponseOutputItemDoneEvent)
+        ]
 
         return Response(output=output)
 
