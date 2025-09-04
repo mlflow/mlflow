@@ -9,13 +9,11 @@ You are a content safety classifier. Analyze the given text against policies pro
 
 The JSON object must be structured as follows:
 {
-    "rationale": "A concise explanation for your decision.",
+    "rationale": "A concise explanation for your decision. Start each rationale with `Let's think step by step`",
     "result": "The string 'yes' if the content is safe, or 'no' if it violates policy."
 }
 
-Text:
-
-{{content}}
+<text>{{content}}</text>
 """  # noqa: E501
 
 

@@ -158,7 +158,7 @@ class RetrievalRelevance(BuiltInScorer):
         self, span_id: str, request: str, chunks: list[dict[str, str]]
     ) -> list[Feedback]:
         """Compute the relevance of retrieved context for one retriever span."""
-        from mlflow.genai.judges.prompts.relevance_to_query import get_prompt
+        from mlflow.genai.judges.prompts.retrieval_relevance import get_prompt
 
         model = self.model or get_default_model()
 
