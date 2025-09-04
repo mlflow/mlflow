@@ -77,14 +77,15 @@ jobs:
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/cache-pip
-      - name: Download test durations
-        uses: actions/cache@v4
-        with:
-          path: .test_durations_linux
-          key: test-durations-linux-${{ github.run_id }}-${{ matrix.group }}
-          restore-keys: |
-            test-durations-linux-combined-
-            test-durations-ubuntu-
+      # Use committed test duration file from tests/ directory
+      - name: Copy test durations
+        run: |
+          if [ -f tests/.test_durations ]; then
+            cp tests/.test_durations .test_durations
+            echo "Using duration file with $(python -c "import json; print(len(json.load(open('.test_durations'))))" ) test durations"
+          else
+            echo "Warning: No duration file found at tests/.test_durations"
+          fi
       - name: Install dependencies
         run: |
           python -m venv .venv
@@ -104,24 +105,9 @@ jobs:
         run: |
           source .venv/bin/activate
           source dev/setup-ssh.sh
-          pytest --store-durations --durations-path=.test_durations_linux --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
             --ignore-flavors --ignore=tests/examples --ignore=tests/evaluate \
             --ignore tests/genai tests || true
-
-          # Check and upload duration file
-          if [ -f .test_durations_linux ]; then
-            echo "Duration file found at .test_durations_linux - size: $(stat -c%s .test_durations_linux 2>/dev/null || stat -f%z .test_durations_linux) bytes"
-          else
-            echo "Warning: No duration file found at .test_durations_linux"
-            ls -la .test_durations* 2>/dev/null || echo "No .test_durations* files"
-          fi
-      - name: Upload test durations
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: python-durations-${{ matrix.group }}
-          path: .test_durations_linux
-          if-no-files-found: warn
 
   py310:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -290,7 +276,7 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest --store-durations --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/models
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/models
 
   # NOTE: numpy is pinned in this suite due to its heavy reliance on shap, which internally uses
   # references to the now fully deprecated (as of 1.24.x) numpy types (i.e., np.bool).
@@ -324,7 +310,7 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest --store-durations --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
       - name: Run tests with delta
         run: |
           pytest tests/evaluate/test_default_evaluator_delta.py
@@ -419,7 +405,7 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest --store-durations --durations-path=.test_durations_linux --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
             tests/pyfunc tests/types --ignore tests/pyfunc/test_spark_connect.py
 
           # test_spark_connect.py fails if it's run with other tests, so run it separately.
@@ -427,7 +413,7 @@ jobs:
       - name: Run tests on pydantic v1
         run: |
           uv pip install --system -c requirements/constraints.txt 'pydantic<2'
-          pytest --store-durations --durations-path=.test_durations_linux --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
             tests/types tests/pyfunc/test_pyfunc_model_with_type_hints.py tests/utils/test_pydantic_utils.py
 
   sagemaker:
@@ -473,13 +459,17 @@ jobs:
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/cache-pip
-      - name: Download test durations
-        uses: actions/cache@v4
-        with:
-          path: .test_durations_windows
-          key: test-durations-windows-${{ github.run_id }}-${{ matrix.group }}
-          restore-keys: |
-            test-durations-windows-combined-
+      # Use committed test duration file from tests/ directory
+      - name: Copy test durations
+        run: |
+          if (Test-Path tests/.test_durations) {
+            Copy-Item tests/.test_durations .test_durations
+            $count = (Get-Content .test_durations | ConvertFrom-Json | Get-Member -MemberType NoteProperty).Count
+            echo "Using duration file with $count test durations"
+          } else {
+            echo "Warning: No duration file found at tests/.test_durations"
+          }
+        shell: pwsh
       - name: Install python dependencies
         run: |
           python -m venv .venv
@@ -515,57 +505,6 @@ jobs:
           export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests (including telemetry)
-          pytest --store-durations --durations-path=.test_durations_windows --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
             --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/evaluate --ignore=tests/optuna \
             --ignore=tests/pyspark/optuna --ignore=tests/genai tests || true
-
-          # Upload duration file immediately after pytest completes
-          echo "Checking for duration file and uploading..."
-          if [ -f .test_durations_windows ]; then
-            echo "Duration file found, uploading as artifact"
-            # Use GitHub Actions environment file to set output
-            echo "duration_file_exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "Warning: Duration file not found"
-            echo "duration_file_exists=false" >> $GITHUB_OUTPUT
-            ls -la .test_duration* 2>/dev/null || echo "No .test_duration* files found"
-          fi
-        id: pytest_run
-      - name: Upload test durations
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: windows-durations-${{ matrix.group }}
-          path: .test_durations_windows
-          if-no-files-found: warn
-
-  combine-durations:
-    if: always()
-    needs: [python, windows]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
-      - uses: ./.github/actions/setup-python
-      - name: Download all duration artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: "*-durations-*"
-          path: duration-artifacts
-      - name: Combine duration files
-        run: |
-          # No need to install pytest-split, script handles JSON directly
-          python dev/combine_test_durations.py
-
-      - name: Cache combined Linux durations
-        uses: actions/cache@v4
-        with:
-          path: .test_durations_linux
-          key: test-durations-linux-combined-${{ github.sha }}
-
-      - name: Cache combined Windows durations
-        uses: actions/cache@v4
-        with:
-          path: .test_durations_windows
-          key: test-durations-windows-combined-${{ github.sha }}
