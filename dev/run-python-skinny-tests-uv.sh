@@ -17,7 +17,7 @@ export MLFLOW_SKINNY='true'
 # This prevents uv from installing the main mlflow dependencies
 export UV_NO_CONFIG=1
 
-uv run pytest tests/test_skinny_client_omits_sql_libs.py
+uv run --no-project pytest tests/test_skinny_client_omits_sql_libs.py
 
 # After verifying skinny client does not include store specific requirements,
 # we are installing sqlalchemy store requirements as our example store for the test suite.
@@ -27,12 +27,12 @@ uv pip install sqlalchemy alembic cryptography
 # Given the example store does not delete dependencies, we verify non store related dependencies
 # after the example store setup. This verifies both the example store and skinny client do not add
 # unintended libraries.
-uv run pytest tests/test_skinny_client_omits_data_science_libs.py
+uv run --no-project pytest tests/test_skinny_client_omits_data_science_libs.py
 
 # Install numpy that is required by mlflow.types.schema and pre-installed in DBR.
 uv pip install numpy
 
-uv run pytest \
+uv run --no-project pytest \
   tests/test_runs.py \
   tests/tracking/test_client.py \
   tests/tracking/test_tracking.py \
@@ -47,6 +47,6 @@ uv run pytest \
   --import-mode=importlib
 
 uv pip install pandas
-uv run pytest tests/test_skinny_client_autolog_without_scipy.py
+uv run --no-project pytest tests/test_skinny_client_autolog_without_scipy.py
 
 test $err = 0
