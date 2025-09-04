@@ -77,15 +77,6 @@ jobs:
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/cache-pip
-      # Use committed test duration file from tests/ directory
-      - name: Copy test durations
-        run: |
-          if [ -f tests/.test_durations ]; then
-            cp tests/.test_durations .test_durations
-            echo "Using duration file with $(python -c "import json; print(len(json.load(open('.test_durations'))))" ) test durations"
-          else
-            echo "Warning: No duration file found at tests/.test_durations"
-          fi
       - name: Install dependencies
         run: |
           python -m venv .venv
@@ -105,7 +96,7 @@ jobs:
         run: |
           source .venv/bin/activate
           source dev/setup-ssh.sh
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations-path=tests/.test_durations --quiet --requires-ssh \
             --ignore-flavors --ignore=tests/examples --ignore=tests/evaluate \
             --ignore tests/genai tests || true
 
@@ -276,7 +267,7 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/models
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations-path=tests/.test_durations tests/models
 
   # NOTE: numpy is pinned in this suite due to its heavy reliance on shap, which internally uses
   # references to the now fully deprecated (as of 1.24.x) numpy types (i.e., np.bool).
@@ -310,7 +301,7 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations-path=tests/.test_durations tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
       - name: Run tests with delta
         run: |
           pytest tests/evaluate/test_default_evaluator_delta.py
@@ -405,7 +396,7 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations-path=tests/.test_durations --durations=30 \
             tests/pyfunc tests/types --ignore tests/pyfunc/test_spark_connect.py
 
           # test_spark_connect.py fails if it's run with other tests, so run it separately.
@@ -413,7 +404,7 @@ jobs:
       - name: Run tests on pydantic v1
         run: |
           uv pip install --system -c requirements/constraints.txt 'pydantic<2'
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations-path=tests/.test_durations --durations=30 \
             tests/types tests/pyfunc/test_pyfunc_model_with_type_hints.py tests/utils/test_pydantic_utils.py
 
   sagemaker:
@@ -459,17 +450,6 @@ jobs:
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/cache-pip
-      # Use committed test duration file from tests/ directory
-      - name: Copy test durations
-        run: |
-          if (Test-Path tests/.test_durations) {
-            Copy-Item tests/.test_durations .test_durations
-            $count = (Get-Content .test_durations | ConvertFrom-Json | Get-Member -MemberType NoteProperty).Count
-            echo "Using duration file with $count test durations"
-          } else {
-            echo "Warning: No duration file found at tests/.test_durations"
-          }
-        shell: pwsh
       - name: Install python dependencies
         run: |
           python -m venv .venv
@@ -505,6 +485,6 @@ jobs:
           export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests (including telemetry)
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations-path=tests/.test_durations \
             --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/evaluate --ignore=tests/optuna \
             --ignore=tests/pyspark/optuna --ignore=tests/genai tests || true
