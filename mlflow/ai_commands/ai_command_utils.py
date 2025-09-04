@@ -1,5 +1,6 @@
 """Core module for managing MLflow commands."""
 
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -56,7 +57,8 @@ def list_commands(namespace: str | None = None) -> list[dict[str, Any]]:
 
             # Build command key from path (e.g., genai/analyze_experiment)
             relative_path = md_file.relative_to(commands_dir)
-            command_key = str(relative_path.with_suffix(""))
+            # Use forward slashes consistently across platforms
+            command_key = str(relative_path.with_suffix("")).replace(os.sep, "/")
 
             # Filter by namespace if specified
             if namespace and not command_key.startswith(f"{namespace}/"):
@@ -90,7 +92,9 @@ def get_command(key: str) -> str:
     """
     # We're in mlflow/commands/core.py, so parent is mlflow/commands/
     commands_dir = Path(__file__).parent
-    command_path = commands_dir / f"{key}.md"
+    # Convert forward slashes to OS-specific separators for file path
+    key_parts = key.split("/")
+    command_path = commands_dir.joinpath(*key_parts).with_suffix(".md")
 
     if not command_path.exists():
         raise FileNotFoundError(f"Command '{key}' not found")

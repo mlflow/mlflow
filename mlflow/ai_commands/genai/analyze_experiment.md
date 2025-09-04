@@ -20,36 +20,60 @@ Analyzes traces in an MLflow experiment for quality issues, performance problems
     - PostgreSQL: `postgresql://user:password@host:port/database`
     - MySQL: `mysql://user:password@host:port/database`
     - File Store: `file:///path/to/mlruns` or just `/path/to/mlruns`
-  - Set `MLFLOW_TRACKING_URI=<provided_uri>`
+  - Ask user to create an environment file (e.g., `mlflow.env`) containing:
+    ```
+    MLFLOW_TRACKING_URI=<provided_uri>
+    ```
 
   **Option 2: Databricks**
 
   - Ask which authentication method:
     - **PAT Auth**: Request `DATABRICKS_HOST` and `DATABRICKS_TOKEN`
     - **Profile Auth**: Request `DATABRICKS_CONFIG_PROFILE` name
-  - Set `MLFLOW_TRACKING_URI=databricks`
-  - Set the appropriate auth environment variables
+  - Ask user to create an environment file (e.g., `mlflow.env`) containing:
 
-- Verify connection by listing experiments: `export MLFLOW_TRACKING_URI=<uri> && uv run python -m mlflow experiments search`
+    ```
+    # For PAT Auth:
+    MLFLOW_TRACKING_URI=databricks
+    DATABRICKS_HOST=<provided_host>
+    DATABRICKS_TOKEN=<provided_token>
+
+    # OR for Profile Auth:
+    MLFLOW_TRACKING_URI=databricks
+    DATABRICKS_CONFIG_PROFILE=<provided_profile>
+    ```
+
+  **Option 3: Environment Variables Already Set**
+
+  - Ask user "Do you already have MLflow environment variables set in your shell (bashrc/zshrc)?"
+  - If yes, test connection directly: `uv run python -m mlflow experiments search --max-results 10`
+  - If this works, skip env file creation and use commands without `--env-file` flag
+  - If not, fall back to Options 1 or 2
+
+- Ask user for the path to their environment file (if using Options 1-2)
+- Verify connection by listing experiments: `uv run --env-file <env_file_path> python -m mlflow experiments search --max-results 10`
+- **Option to search by name**: If user knows the experiment name, use `--filter-string` parameter:
+  - `uv run --env-file <env_file_path> python -m mlflow experiments search --filter-string "name LIKE '%experiment_name%'" --max-results 10`
 - Ask user for experiment ID or let them choose from the list
 - **WAIT for user response** - do not continue until they provide the experiment ID
-- Set `MLFLOW_EXPERIMENT_ID` environment variable
-- Run `uv run python -m mlflow traces --help` to understand the CLI commands and options
+- Add `MLFLOW_EXPERIMENT_ID=<experiment_id>` to their environment file
+- Run `uv run --env-file <env_file_path> python -m mlflow traces --help` to understand the CLI commands and options
 
 ### 1.2 Test Trace Retrieval
 
-- Call `uv run python -m mlflow traces search --max-results 5` to verify:
+- Call `uv run --env-file <env_file_path> python -m mlflow traces search --max-results 5` to verify:
   - Traces exist in the experiment
   - CLI is working properly (using local MLflow installation)
   - Database connection is valid
 - Extract sample trace IDs for testing
-- Get one full trace with `uv run python -m mlflow traces get --trace-id <id>` to understand the data structure
+- Get one full trace with `uv run --env-file <env_file_path> python -m mlflow traces get --trace-id <id>` to understand the data structure
 
 ## Step 2: Analysis Phase
 
 ### 2.1 Bulk Trace Collection
 
-- Search for a larger sample (20-50 traces)
+- Search for a larger sample using `--max-results` parameter (start with 20-50 traces for initial analysis)
+- **IMPORTANT**: Use `--max-results` to limit results for users with hundreds of thousands of experiments/traces
 - Extract key fields: trace_id, state, execution_duration_ms, request_preview, response_preview
 
 ### 2.1.5 Understand Agent Purpose and Capabilities
@@ -104,7 +128,8 @@ Process traces in batches of 10, building and refining hypotheses with each batc
 
 - **Error Analysis**
 
-  - Filter for ERROR traces: `mlflow traces search --filter "info.state = 'ERROR'" --max-results 10`
+  - Filter for ERROR traces: `uv run --env-file <env_file_path> python -m mlflow traces search --filter "info.state = 'ERROR'" --max-results 10`
+  - **Adjust --max-results as needed**: Start with 10-20, increase if you need more examples to identify patterns
   - **Pattern Analysis Focus**: Identify WHY errors occur by examining:
     - Tool/API failures in spans (look for spans with type "TOOL" that failed)
     - Rate limiting responses from external APIs
@@ -121,7 +146,8 @@ Process traces in batches of 10, building and refining hypotheses with each batc
   - **Note**: You may discover other operational error patterns as you analyze the traces
 
 - **Performance Problems (High Latency Analysis)**
-  - Filter for OK traces with high latency: `mlflow traces search --filter "info.state = 'OK'" --max-results 10`
+  - Filter for OK traces with high latency: `uv run --env-file <env_file_path> python -m mlflow traces search --filter "info.state = 'OK'" --max-results 10`
+  - **Adjust --max-results as needed**: Start with 10-20, increase if you need more examples to identify patterns
   - **Pattern Analysis Focus**: Identify WHY traces are slow by examining:
     - Tool call duration patterns in spans
     - Number of sequential vs parallel tool calls
@@ -190,8 +216,9 @@ Process successful traces to identify what's working well:
 - Ask user where to save the report (markdown file path, e.g., `experiment_analysis.md`)
 - **ONLY NOW use uv inline Python scripts for statistical calculations** - never compute stats manually
 - Inline Python scripts are ONLY for final math/statistics, NOT for trace exploration
+- Use `uv run --env-file <env_file_path> python -c "..."` for any Python calculations that need MLflow access
 - Generate a single comprehensive markdown report with:
-  - **Summary statistics** (computed via `uv run python -c "..."` with collected trace data):
+  - **Summary statistics** (computed via `uv run --env-file <env_file_path> python -c "..."` with collected trace data):
     - Total traces analyzed
     - Success rate (OK vs ERROR percentage)
     - Average, median, p95 latency for successful traces
