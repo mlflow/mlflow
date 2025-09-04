@@ -6,4 +6,6 @@ runs:
     - shell: bash
       run: |
         uv pip install aiohttp > /dev/null
+        # Install pip in uv environment so the script can use it
+        uv pip install pip > /dev/null
         uv run python dev/show_package_release_dates.py
