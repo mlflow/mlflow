@@ -334,7 +334,7 @@ Examples:
         
         if not run_id:
             print("Workflow didn't auto-start, triggering manually...")
-            run_command(f"gh workflow run temp-duration-collection.yml --ref {args.branch}")
+            run_command(f"gh workflow run temp-duration-collection.yml --repo {repo} --ref {args.branch}")
             time.sleep(10)
             run_id = run_command(
                 f"gh run list --repo {repo} --branch {args.branch} --limit 1 --json databaseId --jq '.[0].databaseId'"
