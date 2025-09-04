@@ -139,6 +139,7 @@ jobs:
           uv python pin 3.10
       - name: Install dependencies
         run: |
+          uv venv .venv
           uv run ./dev/install-common-deps.sh
           # test telemetry events
           uv pip install -c requirements/constraints.txt openai
@@ -418,9 +419,25 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/free-disk-space
       - name: Install uv
         uses: astral-sh/setup-uv@557e51de59eb14aaaba2ed9621916900a91d50c6 # v6
-      - uses: ./.github/actions/free-disk-space
+      - name: Fix uv PATH
+        run: |
+          if ! command -v uv &> /dev/null; then
+            echo "uv not found in PATH, attempting to locate and add to PATH..."
+            UV_PATH=$(find /opt/hostedtoolcache/uv -name "uv" -type f | head -1)
+            if [ -n "$UV_PATH" ]; then
+              UV_DIR=$(dirname "$UV_PATH")
+              echo "$UV_DIR" >> $GITHUB_PATH
+              echo "Added $UV_DIR to PATH"
+            else
+              echo "uv binary not found"
+              exit 1
+            fi
+          else
+            echo "uv already available in PATH"
+          fi
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
@@ -451,9 +468,25 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/free-disk-space
       - name: Install uv
         uses: astral-sh/setup-uv@557e51de59eb14aaaba2ed9621916900a91d50c6 # v6
-      - uses: ./.github/actions/free-disk-space
+      - name: Fix uv PATH
+        run: |
+          if ! command -v uv &> /dev/null; then
+            echo "uv not found in PATH, attempting to locate and add to PATH..."
+            UV_PATH=$(find /opt/hostedtoolcache/uv -name "uv" -type f | head -1)
+            if [ -n "$UV_PATH" ]; then
+              UV_DIR=$(dirname "$UV_PATH")
+              echo "$UV_DIR" >> $GITHUB_PATH
+              echo "Added $UV_DIR to PATH"
+            else
+              echo "uv binary not found"
+              exit 1
+            fi
+          else
+            echo "uv already available in PATH"
+          fi
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
