@@ -133,3 +133,81 @@ After installing LibYAML, you need to reinstall PyYAML:
 # Reinstall PyYAML
 pip --no-cache-dir install --force-reinstall -I pyyaml
 ```
+
+## Troubleshooting Database Migrations
+
+### PostgreSQL 11 Compatibility Issue
+
+:::warning postgresql-11-generated-columns
+**Error: "syntax error at or near '(' ... duration_ns BIGINT GENERATED ALWAYS AS"**
+
+If you encounter this error when running MLflow with PostgreSQL 11:
+
+```
+sqlalchemy.exc.ProgrammingError: (psycopg2.errors.SyntaxError) syntax error at or near "("
+LINE 12: duration_ns BIGINT GENERATED ALWAYS AS (end_time_unix_nano ...
+                                                 ^
+```
+
+This occurs because PostgreSQL 11 doesn't support GENERATED columns (introduced in PostgreSQL 12). MLflow 3.3.1+ automatically detects your PostgreSQL version and uses alternative methods for PostgreSQL 11.
+
+**Solution for existing installations:**
+
+If you're upgrading MLflow and encounter this error, run the following SQL commands directly on your database:
+
+```sql
+-- Add the missing column
+ALTER TABLE spans ADD COLUMN IF NOT EXISTS duration_ns BIGINT;
+
+-- Create trigger to maintain the column
+CREATE OR REPLACE FUNCTION update_span_duration()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.end_time_unix_nano IS NOT NULL THEN
+        NEW.duration_ns = NEW.end_time_unix_nano - NEW.start_time_unix_nano;
+    ELSE
+        NEW.duration_ns = NULL;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER span_duration_trigger
+BEFORE INSERT OR UPDATE OF end_time_unix_nano, start_time_unix_nano ON spans
+FOR EACH ROW
+EXECUTE FUNCTION update_span_duration();
+
+-- Update existing rows
+UPDATE spans
+SET duration_ns = end_time_unix_nano - start_time_unix_nano
+WHERE end_time_unix_nano IS NOT NULL AND duration_ns IS NULL;
+
+-- Mark migration as complete
+INSERT INTO alembic_version (version_num) VALUES ('a1b2c3d4e5f6')
+ON CONFLICT DO NOTHING;
+```
+
+**Recommendations:**
+- **Upgrade PostgreSQL**: Consider upgrading to PostgreSQL 12 or later for full feature support.
+- **Fresh installations**: MLflow automatically handles PostgreSQL 11 compatibility.
+- **Report issues**: If you continue experiencing problems, please [report them on GitHub](https://github.com/mlflow/mlflow/issues).
+
+:::
+
+### General Migration Issues
+
+If you encounter other database migration errors:
+
+1. **Always backup your database** before running migrations
+2. **Check your database version** compatibility:
+   - PostgreSQL: 11+ (12+ recommended)
+   - MySQL: 5.7+
+   - SQLite: 3.7.0+
+3. **Run migrations manually** if automatic migration fails:
+   ```bash
+   mlflow db upgrade [your-database-uri]
+   ```
+4. **Check migration status**:
+   ```sql
+   SELECT * FROM alembic_version;
+   ```

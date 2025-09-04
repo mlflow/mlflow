@@ -4,6 +4,7 @@ import json
 import logging
 import math
 import random
+import re
 import threading
 import time
 import uuid
@@ -250,6 +251,36 @@ class SqlAlchemyStore(AbstractStore):
 
     def _get_dialect(self):
         return self.engine.dialect.name
+
+    def _supports_generated_columns(self):
+        """
+        Check if the database supports generated/computed columns.
+        This is cached per SqlAlchemyStore instance.
+        """
+        if not hasattr(self, "_generated_columns_support"):
+            dialect_name = self._get_dialect()
+            if dialect_name == "postgresql":
+                # PostgreSQL 12+ supports generated columns
+                with self.engine.connect() as conn:
+                    from sqlalchemy import text
+
+                    result = conn.execute(text("SELECT version()"))
+                    version_str = result.scalar()
+                    match = re.search(r"PostgreSQL (\d+)", version_str)
+                    if match:
+                        pg_version = int(match.group(1))
+                        self._generated_columns_support = pg_version >= 12
+                    else:
+                        # Can't determine version, assume no support for safety
+                        self._generated_columns_support = False
+            elif dialect_name == "mysql":
+                # MySQL 5.7+ supports generated columns
+                self._generated_columns_support = True
+            else:
+                # SQLite 3.31.0+ supports generated columns, but hard to check version
+                # Other databases: assume support
+                self._generated_columns_support = True
+        return self._generated_columns_support
 
     def _dispose_engine(self):
         self.engine.dispose()
@@ -3337,6 +3368,14 @@ class SqlAlchemyStore(AbstractStore):
                     end_time_unix_nano=span.end_time_ns,
                     content=content_json,
                 )
+
+                # For PostgreSQL < 12, manually calculate duration_ns since
+                # generated columns are not supported
+                if not self._supports_generated_columns():
+                    if span.end_time_ns is not None and span.start_time_ns is not None:
+                        sql_span.duration_ns = span.end_time_ns - span.start_time_ns
+                    else:
+                        sql_span.duration_ns = None
 
                 session.merge(sql_span)
 
