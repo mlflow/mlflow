@@ -739,8 +739,8 @@ class MlflowClient:
                 return registry_client.get_prompt_version(name, version_or_alias)
         except MlflowException as exc:
             if allow_missing and exc.error_code in (
-                ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
-                ErrorCode.Name(INVALID_PARAMETER_VALUE),
+                ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),  # missing prompt/version
+                ErrorCode.Name(INVALID_PARAMETER_VALUE),  # missing alias
             ):
                 return None
             raise
