@@ -5,5 +5,5 @@ runs:
   steps:
     - shell: bash
       run: |
-        # Use uv run with aiohttp dependency
-        uv run --with aiohttp python dev/show_package_release_dates.py
+        uv pip install aiohttp > /dev/null
+        uv run python dev/show_package_release_dates.py
