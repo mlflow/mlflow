@@ -9,12 +9,16 @@ from mlflow.genai.judges.optimizers.simba import SIMBAAlignmentOptimizer
 
 
 def test_dspy_optimize_no_dspy():
-    """Test optimization when DSPy is not available."""
+    """Test that SIMBAAlignmentOptimizer raises error when DSPy is not available."""
+    # Since dspy import is now at module level, we need to test this differently
+    # The error should be raised when importing the module, not when calling methods
     with patch.dict("sys.modules", {"dspy": None}):
-        optimizer = SIMBAAlignmentOptimizer()
-
         with pytest.raises(MlflowException, match="DSPy library is required"):
-            optimizer._dspy_optimize(Mock(), [], Mock())
+            # This will trigger the module import and the exception
+            from importlib import reload
+            import mlflow.genai.judges.optimizers.simba as simba_module
+
+            reload(simba_module)
 
 
 def test_full_alignment_workflow(mock_judge, sample_traces_with_assessments):
@@ -35,4 +39,11 @@ def test_full_alignment_workflow(mock_judge, sample_traces_with_assessments):
     # Should return an optimized judge
     assert result is not None
     assert result.model == mock_judge.model
-    assert result.instructions == "Optimized instructions with {{inputs}} and {{outputs}}"
+    # The judge instructions are formatted by make_judge with a header
+    expected_instructions = (
+        "Instructions-based judge: mock_judge\n\n"
+        "Instructions:\n"
+        "-------------\n\n"
+        "Optimized instructions with {{inputs}} and {{outputs}}"
+    )
+    assert result.instructions == expected_instructions

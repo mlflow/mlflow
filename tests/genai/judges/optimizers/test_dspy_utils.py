@@ -73,10 +73,14 @@ def test_trace_to_dspy_example_no_assessment():
 
 
 def test_trace_to_dspy_example_no_dspy():
-    """Test trace conversion when DSPy is not available."""
+    """Test that dspy_utils raises error when DSPy is not available."""
+    # Since dspy import is now at module level, the error is raised on module import
     with patch.dict("sys.modules", {"dspy": None}):
         with pytest.raises(MlflowException, match="DSPy library is required"):
-            trace_to_dspy_example(Mock(), "judge")
+            from importlib import reload
+            import mlflow.genai.judges.optimizers.dspy_utils as dspy_utils_module
+
+            reload(dspy_utils_module)
 
 
 def test_create_dspy_signature(mock_judge):
@@ -105,10 +109,14 @@ def test_create_dspy_signature(mock_judge):
 
 
 def test_create_dspy_signature_no_dspy(mock_judge):
-    """Test signature creation when DSPy is not available."""
+    """Test that dspy_utils raises error when DSPy is not available."""
+    # Since dspy import is now at module level, the error is raised on module import
     with patch.dict("sys.modules", {"dspy": None}):
         with pytest.raises(MlflowException, match="DSPy library is required"):
-            create_dspy_signature(mock_judge)
+            from importlib import reload
+            import mlflow.genai.judges.optimizers.dspy_utils as dspy_utils_module
+
+            reload(dspy_utils_module)
 
 
 def test_agreement_metric():
