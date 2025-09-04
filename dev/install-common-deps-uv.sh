@@ -77,8 +77,8 @@ packages+=" aiohttp"
 # Single uv pip install call for all packages
 retry-with-backoff uv pip install --upgrade $packages
 
-# Install mlflow-test-plugin without dependencies (separate call needed for --no-dependencies)
-uv pip install --no-dependencies tests/resources/mlflow-test-plugin
+# Install mlflow-test-plugin without dependencies (separate call needed for --no-deps)
+uv pip install --no-deps tests/resources/mlflow-test-plugin
 
 # Print current environment info
 uv run which mlflow
