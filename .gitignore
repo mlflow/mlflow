@@ -6,6 +6,8 @@ mlruns.db
 mlflow.db
 **/basic_auth.db
 # Note: tests/.test_durations is NOT ignored - it's committed for pytest-split
+# Ignore temporary CI duration collection artifacts
+group_*_durations.json
 
 # Mac
 .DS_Store

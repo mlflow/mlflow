@@ -98,9 +98,9 @@ jobs:
           ls -la ~/.local/bin/ || echo "~/.local/bin/ not found"
       - name: Install dependencies
         run: |
-          uv run ./dev/install-common-deps.sh --ml
+          source ./dev/install-common-deps.sh --ml
           # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
-          uv pip install -c requirements/constraints.txt tf-keras
+          uv pip install --system -c requirements/constraints.txt tf-keras
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Import check
@@ -236,6 +236,7 @@ jobs:
           else
             echo "uv already available in PATH"
           fi
+      - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
