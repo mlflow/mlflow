@@ -585,17 +585,17 @@ jobs:
       - uses: ./.github/actions/setup-pyenv
       - name: Install dependencies
         run: |
-          uv run ./dev/install-common-deps-uv.sh
+          ./dev/install-common-deps-uv.sh
           uv pip install -c requirements/constraints.txt tensorflow 'pyspark[connect]' typing_extensions -U
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations-path=tests/.test_durations --durations=30 \
+          uv run --no-project pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations-path=tests/.test_durations --durations=30 \
             tests/pyfunc tests/types --ignore tests/pyfunc/test_spark_connect.py
 
           # test_spark_connect.py fails if it's run with other tests, so run it separately.
-          uv run pytest tests/pyfunc/test_spark_connect.py
+          uv run --no-project pytest tests/pyfunc/test_spark_connect.py
 
   pyfunc-pydanticv1:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -635,7 +635,7 @@ jobs:
       - uses: ./.github/actions/setup-pyenv
       - name: Install dependencies
         run: |
-          uv run ./dev/install-common-deps-uv.sh
+          ./dev/install-common-deps-uv.sh
           uv pip install -c requirements/constraints.txt tensorflow 'pyspark[connect]' typing_extensions -U
           # Install pydantic v1 for this job
           uv pip install -c requirements/constraints.txt 'pydantic<2'
