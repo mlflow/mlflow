@@ -41,7 +41,12 @@ from mlflow.entities import (
     Trace,
     ViewType,
 )
-from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
+from mlflow.entities.model_registry import (
+    ModelVersion,
+    Prompt,
+    PromptVersion,
+    RegisteredModel,
+)
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, NoOpSpan
 from mlflow.entities.trace_status import TraceStatus
@@ -87,7 +92,10 @@ from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
+from mlflow.store.tracking import (
+    SEARCH_MAX_RESULTS_DEFAULT,
+    SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+)
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX
 from mlflow.tracing.display import get_display_handler
@@ -722,8 +730,15 @@ class MlflowClient:
         """
         parsed_name_or_uri, parsed_version = parse_prompt_name_or_uri(name_or_uri, version)
         if parsed_name_or_uri.startswith("prompts:/"):
-            # URI case: parse the URI to extract name and version/alias
-            name, version_or_alias = self.parse_prompt_uri(parsed_name_or_uri)
+            # URI case: parse the URI to extract name and version (resolving alias is provided)
+            try:
+                name, version_or_alias = self.parse_prompt_uri(parsed_name_or_uri)
+            except MlflowException as exc:
+                if allow_missing and (
+                    "not found" in exc.message.lower() or "does not exist" in exc.message.lower()
+                ):
+                    return None
+                raise
         else:
             # Name case: use the name and provided version
             name = parsed_name_or_uri
