@@ -729,30 +729,27 @@ class MlflowClient:
                 is not found.
         """
         parsed_name_or_uri, parsed_version = parse_prompt_name_or_uri(name_or_uri, version)
-        if parsed_name_or_uri.startswith("prompts:/"):
-            # URI case: parse the URI to extract name and version (resolving alias is provided)
-            try:
-                name, version_or_alias = self.parse_prompt_uri(parsed_name_or_uri)
-            except MlflowException as exc:
-                if allow_missing and (
-                    "not found" in exc.message.lower() or "does not exist" in exc.message.lower()
-                ):
-                    return None
-                raise
-        else:
-            # Name case: use the name and provided version
-            name = parsed_name_or_uri
-            version_or_alias = parsed_version
 
-        registry_client = self._get_registry_client()
         try:
+            if parsed_name_or_uri.startswith("prompts:/"):
+                # URI case: parse the URI to extract name and version (resolving alias if provided)
+                name, version_or_alias = self.parse_prompt_uri(parsed_name_or_uri)
+            else:
+                # Name case: use the name and provided version
+                name = parsed_name_or_uri
+                version_or_alias = parsed_version
+
+            registry_client = self._get_registry_client()
             # If version_or_alias is not a digit, treat as alias
             if isinstance(version_or_alias, str) and not version_or_alias.isdigit():
                 return registry_client.get_prompt_version_by_alias(name, version_or_alias)
             else:
                 return registry_client.get_prompt_version(name, version_or_alias)
         except MlflowException as exc:
-            if allow_missing and exc.error_code in ("RESOURCE_DOES_NOT_EXIST", "NOT_FOUND"):
+            if allow_missing and exc.error_code in [
+                ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
+                ErrorCode.Name(INVALID_PARAMETER_VALUE),
+            ]:
                 return None
             raise
 
