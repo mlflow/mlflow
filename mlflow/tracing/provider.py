@@ -36,7 +36,11 @@ from mlflow.tracing.destination import (
 )
 from mlflow.tracing.utils.exception import raise_as_trace_exception
 from mlflow.tracing.utils.once import Once
-from mlflow.tracing.utils.otlp import get_otlp_exporter, should_use_otlp_exporter
+from mlflow.tracing.utils.otlp import (
+    get_otlp_exporter,
+    should_export_otlp_metrics,
+    should_use_otlp_exporter,
+)
 from mlflow.tracing.utils.warning import suppress_warning
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
@@ -333,7 +337,13 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
         from mlflow.tracing.processor.otel import OtelSpanProcessor
 
         exporter = get_otlp_exporter()
-        otel_processor = OtelSpanProcessor(exporter)
+        otel_processor = OtelSpanProcessor(
+            span_exporter=exporter,
+            # Only export metrics from the Otel processor if dual export is not enabled. Otherwise,
+            # both Otel and MLflow processors will export metrics, causing duplication
+            export_metrics=should_export_otlp_metrics()
+            and not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get(),
+        )
         processors.append(otel_processor)
 
         if not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get():
@@ -345,6 +355,13 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
     #  3. MLflow will pick the implementation based on given destination id.
     trace_destination = _MLFLOW_TRACE_USER_DESTINATION.get()
     if trace_destination and isinstance(trace_destination, (MlflowExperiment, Databricks)):
+        if is_in_databricks_model_serving_environment():
+            _logger.info(
+                "Traces will be sent to the destination set by `mlflow.tracing.set_destination` "
+                "API. To enable saving traces to both MLflow experiment and inference table, "
+                "remove this API call from your model and set `MLFLOW_EXPERIMENT_ID` env var "
+                "instead."
+            )
         processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
         processors.append(processor)
     elif is_in_databricks_model_serving_environment():
@@ -373,7 +390,10 @@ def _get_mlflow_span_processor(tracking_uri: str):
     from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 
     exporter = MlflowV3SpanExporter(tracking_uri=tracking_uri)
-    return MlflowV3SpanProcessor(exporter)
+    return MlflowV3SpanProcessor(
+        span_exporter=exporter,
+        export_metrics=should_export_otlp_metrics(),
+    )
 
 
 @raise_as_trace_exception

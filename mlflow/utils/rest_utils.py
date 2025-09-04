@@ -110,6 +110,12 @@ def http_request(
         MLFLOW_HTTP_REQUEST_BACKOFF_JITTER.get() if backoff_jitter is None else backoff_jitter
     )
 
+    from mlflow.tracking.request_header.registry import resolve_request_headers
+
+    headers = dict(**resolve_request_headers())
+    if extra_headers:
+        headers = dict(**headers, **extra_headers)
+
     if host_creds.use_databricks_sdk:
         from databricks.sdk.errors import DatabricksError
 
@@ -134,7 +140,7 @@ def http_request(
                 raw_response = ws_client.api_client.do(
                     method=method,
                     path=endpoint,
-                    headers=extra_headers,
+                    headers=headers,
                     raw=True,
                     query=kwargs.get("params"),
                     body=kwargs.get("json"),
@@ -203,12 +209,6 @@ def http_request(
             f"'{MLFLOW_ENABLE_DB_SDK.name}' to true",
             error_code=CUSTOMER_UNAUTHORIZED,
         )
-
-    from mlflow.tracking.request_header.registry import resolve_request_headers
-
-    headers = dict(**resolve_request_headers())
-    if extra_headers:
-        headers = dict(**headers, **extra_headers)
 
     if auth_str:
         headers["Authorization"] = auth_str

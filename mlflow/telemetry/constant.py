@@ -2,7 +2,7 @@ from mlflow.ml_package_versions import GENAI_FLAVOR_TO_MODULE_NAME, NON_GENAI_FL
 
 # NB: Kinesis PutRecords API has a limit of 500 records per request
 BATCH_SIZE = 500
-BATCH_TIME_INTERVAL_SECONDS = 30
+BATCH_TIME_INTERVAL_SECONDS = 10
 MAX_QUEUE_SIZE = 1000
 MAX_WORKERS = 1
 CONFIG_STAGING_URL = "https://config-staging.mlflow-telemetry.io"

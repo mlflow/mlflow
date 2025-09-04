@@ -35,6 +35,30 @@ tail -f /tmp/mlflow-dev-server.log
 
 This uses `uv` (fast Python package manager) to automatically manage dependencies and run the development environment.
 
+### Start Development Server with Databricks Backend
+
+To run the MLflow dev server that proxies requests to a Databricks workspace:
+
+```bash
+# IMPORTANT: All four environment variables below are REQUIRED for proper Databricks backend operation
+# Set them in this exact order:
+export DATABRICKS_HOST="https://your-workspace.databricks.com"  # Your Databricks workspace URL
+export DATABRICKS_TOKEN="your-databricks-token"                # Your Databricks personal access token
+export MLFLOW_TRACKING_URI="databricks"                        # Must be set to "databricks"
+export MLFLOW_REGISTRY_URI="databricks-uc"                     # Use "databricks-uc" for Unity Catalog, or "databricks" for workspace model registry
+
+# Start the dev server with these environment variables
+nohup uv run bash dev/run-dev-server.sh > /tmp/mlflow-dev-server.log 2>&1 &
+
+# Monitor the logs
+tail -f /tmp/mlflow-dev-server.log
+
+# The MLflow server will now proxy tracking and model registry requests to Databricks
+# Access the UI at http://localhost:3000 to see your Databricks experiments and models
+```
+
+**Note**: The MLflow server acts as a proxy, forwarding API requests to your Databricks workspace while serving the local React frontend. This allows you to develop and test UI changes against real Databricks data.
+
 ## Development Commands
 
 ### Testing
@@ -105,13 +129,16 @@ cd docs && yarn serve --port 8080
 - `.python-version`: Minimum Python version (3.10)
 - `requirements/`: Dependency specifications
 - `mlflow/ml-package-versions.yml`: Supported ML framework versions
-- `.github/copilot-instructions.md`: Additional coding guidelines
 
 ## Common Development Tasks
 
 ### Modifying the UI
 
 See `mlflow/server/js/` for frontend development.
+
+## Language-Specific Style Guides
+
+- [Python](/dev/guides/python.md)
 
 ## Git Workflow
 
@@ -208,22 +235,14 @@ This runs Ruff, typos checker, and other tools automatically before commits.
 - `typos` - Spell checker
 - `conftest` - Policy testing tool
 
-If you want to run these hooks, **ASK THE USER FIRST** before installing:
+To install these tools:
 
 ```bash
-# On Linux/CI: Use the provided install scripts
-bash dev/install-taplo.sh
-bash dev/install-typos.sh
-bash dev/install-conftest.sh
-
-# On macOS: Use cargo or download directly (scripts don't support macOS)
-cargo install taplo-cli@0.9.3 --locked
-cargo install typos-cli@1.28.0 --locked
-# For conftest, download from: https://github.com/open-policy-agent/conftest/releases
-
-# Alternative for macOS (homebrew - may have different versions):
-brew install taplo typos-cli conftest
+# Install all tools at once (recommended)
+uv run bin/install.py
 ```
+
+This automatically downloads and installs the correct versions of all external tools to the `bin/` directory. The tools work on both Linux and ARM Macs.
 
 These tools are optional. Use `SKIP=taplo,typos,conftest` if they're not installed.
 

@@ -14,6 +14,7 @@ from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, ErrorCode
 from mlflow.protos.service_pb2 import GetRun
 from mlflow.pyfunc.scoring_server import NumpyEncoder
 from mlflow.tracking.request_header.default_request_header_provider import (
+    _CLIENT_VERSION,
     _USER_AGENT,
     DefaultRequestHeaderProvider,
 )
@@ -146,13 +147,9 @@ def test_http_request_with_aws_sigv4(request, monkeypatch):
 
     from requests_auth_aws_sigv4 import AWSSigV4
 
-    monkeypatch.setenvs(
-        {
-            "AWS_ACCESS_KEY_ID": "access-key",
-            "AWS_SECRET_ACCESS_KEY": "secret-key",
-            "AWS_DEFAULT_REGION": "eu-west-1",
-        }
-    )
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "access-key")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "secret-key")
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "eu-west-1")
     aws_sigv4 = MlflowHostCreds("http://my-host", aws_sigv4=True)
     response = mock.MagicMock()
     response.status_code = 200
@@ -318,7 +315,7 @@ def test_http_request_request_headers(request):
 
 
 @mock.patch("requests.Session.request")
-def test_http_request_request_headers_user_agent(request):
+def test_http_request_request_headers_default(request):
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
 
     from mlflow_test_plugin.request_header_provider import PluginRequestHeaderProvider
@@ -331,14 +328,16 @@ def test_http_request_request_headers_user_agent(request):
         mock.patch.object(
             PluginRequestHeaderProvider,
             "request_headers",
-            return_value={_USER_AGENT: "test_user_agent"},
+            return_value={_USER_AGENT: "test_user_agent", _CLIENT_VERSION: "test_client_version"},
         ),
     ):
         host_only = MlflowHostCreds("http://my-host", server_cert_path="/some/path")
+        default_headers = DefaultRequestHeaderProvider().request_headers()
         expected_headers = {
-            _USER_AGENT: "{} {}".format(
-                DefaultRequestHeaderProvider().request_headers()[_USER_AGENT], "test_user_agent"
-            )
+            _USER_AGENT: "{} {}".format(default_headers[_USER_AGENT], "test_user_agent"),
+            _CLIENT_VERSION: "{} {}".format(
+                default_headers[_CLIENT_VERSION], "test_client_version"
+            ),
         }
 
         response = mock.MagicMock()
@@ -356,7 +355,7 @@ def test_http_request_request_headers_user_agent(request):
 
 
 @mock.patch("requests.Session.request")
-def test_http_request_request_headers_user_agent_and_extra_header(request):
+def test_http_request_request_headers_default_and_extra_header(request):
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
 
     from mlflow_test_plugin.request_header_provider import PluginRequestHeaderProvider
@@ -369,13 +368,19 @@ def test_http_request_request_headers_user_agent_and_extra_header(request):
         mock.patch.object(
             PluginRequestHeaderProvider,
             "request_headers",
-            return_value={_USER_AGENT: "test_user_agent", "header": "value"},
+            return_value={
+                _USER_AGENT: "test_user_agent",
+                _CLIENT_VERSION: "test_client_version",
+                "header": "value",
+            },
         ),
     ):
         host_only = MlflowHostCreds("http://my-host", server_cert_path="/some/path")
+        default_headers = DefaultRequestHeaderProvider().request_headers()
         expected_headers = {
-            _USER_AGENT: "{} {}".format(
-                DefaultRequestHeaderProvider().request_headers()[_USER_AGENT], "test_user_agent"
+            _USER_AGENT: "{} {}".format(default_headers[_USER_AGENT], "test_user_agent"),
+            _CLIENT_VERSION: "{} {}".format(
+                default_headers[_CLIENT_VERSION], "test_client_version"
             ),
             "header": "value",
         }

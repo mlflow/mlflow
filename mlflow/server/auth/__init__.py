@@ -30,7 +30,7 @@ from mlflow import MlflowException
 from mlflow.entities import Experiment
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import RegisteredModel
-from mlflow.environment_variables import MLFLOW_FLASK_SERVER_SECRET_KEY
+from mlflow.environment_variables import _MLFLOW_SGI_NAME, MLFLOW_FLASK_SERVER_SECRET_KEY
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INTERNAL_ERROR,
@@ -116,6 +116,7 @@ from mlflow.server.auth.routes import (
     UPDATE_USER_PASSWORD,
 )
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
+from mlflow.server.fastapi_app import create_fastapi_app
 from mlflow.server.handlers import (
     _get_model_registry_store,
     _get_request_message,
@@ -1223,4 +1224,7 @@ def create_app(app: Flask = app):
     app.before_request(_before_request)
     app.after_request(_after_request)
 
-    return app
+    if _MLFLOW_SGI_NAME.get() == "uvicorn":
+        return create_fastapi_app(app)
+    else:
+        return app

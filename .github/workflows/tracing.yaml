@@ -56,6 +56,7 @@ jobs:
             --ignore tests/tracing/utils/test_otlp.py \
             --ignore tests/tracing/test_assessment.py \
             --ignore tests/tracing/test_otel_logging.py \
+            --ignore tests/tracing/processor/test_otel_metrics.py \
             --import-mode=importlib
 
   # TODO: Add a job to run autologging tests against integrated libraries (latest versions)

@@ -8,10 +8,11 @@ from typing import TYPE_CHECKING, Any, Callable
 import mlflow
 from mlflow.data.dataset import Dataset
 from mlflow.entities.dataset_input import DatasetInput
+from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
 from mlflow.entities.logged_model_input import LoggedModelInput
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.exceptions import MlflowException
-from mlflow.genai.datasets import EvaluationDataset
+from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.genai.evaluation.constant import InputDatasetColumn
 from mlflow.genai.evaluation.utils import (
     _convert_scorer_to_legacy_metric,
@@ -236,7 +237,7 @@ def evaluate(
         This function is not thread-safe. Please do not use it in multi-threaded
         environments.
     """
-    is_managed_dataset = isinstance(data, EvaluationDataset)
+    is_managed_dataset = isinstance(data, (EvaluationDataset, EntityEvaluationDataset))
 
     scorers = validate_scorers(scorers)
     # convert into a pandas dataframe with expected evaluation set schema
@@ -280,7 +281,7 @@ def evaluate(
 def _evaluate_oss(data, scorers, predict_fn, model_id):
     from mlflow.genai.evaluation import harness
 
-    if isinstance(data, EvaluationDataset):
+    if isinstance(data, (EvaluationDataset, EntityEvaluationDataset)):
         mlflow_dataset = data
         df = data.to_df()
     else:

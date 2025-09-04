@@ -8,6 +8,7 @@ import "google/protobuf/duration.proto";
 import "google/protobuf/field_mask.proto";
 import "google/protobuf/timestamp.proto";
 import "assessments.proto";
+import "datasets.proto";
 
 option java_package = "org.mlflow.api.proto";
 option py_generic_services = true;
@@ -882,6 +883,157 @@ service MlflowService {
     };
   }
 
+  // Evaluation Dataset RPCs
+
+  // Create an evaluation dataset
+  rpc createDataset(CreateDataset) returns (CreateDataset.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/datasets/create"
+        since { major: 3, minor: 0 },
+      }],
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        CUSTOMER_UNAUTHORIZED,
+        ALREADY_EXISTS,
+        INTERNAL_ERROR
+      ],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Create Evaluation Dataset",
+    };
+  }
+
+  // Get an evaluation dataset by ID
+  rpc getDataset(GetDataset) returns (GetDataset.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/datasets/{dataset_id}"
+        since { major: 3, minor: 0 },
+      }],
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Get Evaluation Dataset",
+    };
+  }
+
+  // Delete an evaluation dataset
+  rpc deleteDataset(DeleteDataset) returns (DeleteDataset.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/datasets/{dataset_id}"
+        since { major: 3, minor: 0 },
+      }],
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Delete Evaluation Dataset",
+    };
+  }
+
+  // Search evaluation datasets
+  rpc searchEvaluationDatasets(SearchEvaluationDatasets) returns (SearchEvaluationDatasets.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/datasets/search"
+        since { major: 3, minor: 0 },
+      }, {
+        method: "GET",
+        path: "/mlflow/datasets/search"
+        since { major: 3, minor: 0 },
+      }],
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        INTERNAL_ERROR
+      ],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Search Evaluation Datasets",
+    };
+  }
+
+
+  // Update evaluation dataset tags
+  rpc setDatasetTags(SetDatasetTags) returns (SetDatasetTags.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "PATCH",
+        path: "/mlflow/datasets/{dataset_id}/tags"
+        since { major: 3, minor: 0 },
+      }],
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Set Evaluation Dataset Tags",
+    };
+  }
+
+  // Delete an evaluation dataset tag
+  rpc deleteDatasetTag(DeleteDatasetTag) returns (DeleteDatasetTag.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/datasets/{dataset_id}/tags/{key}"
+        since { major: 3, minor: 0 },
+      }],
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Delete Evaluation Dataset Tag",
+    };
+  }
+
+  // Upsert evaluation dataset records
+  rpc upsertDatasetRecords(UpsertDatasetRecords) returns (UpsertDatasetRecords.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/datasets/{dataset_id}/records"
+        since { major: 3, minor: 0 },
+      }],
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Upsert Evaluation Dataset Records",
+    };
+  }
+
+  // Get experiment IDs associated with an evaluation dataset
+  rpc getDatasetExperimentIds(GetDatasetExperimentIds) returns (GetDatasetExperimentIds.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/datasets/{dataset_id}/experiment-ids"
+        since { major: 3, minor: 0 },
+      }],
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Get Evaluation Dataset Experiment IDs",
+   };
+  }
+
   // =============================================================================
   // Scorer Management RPCs
   // =============================================================================
@@ -892,7 +1044,7 @@ service MlflowService {
       endpoints: [{
         method: "POST",
         path: "/mlflow/scorers/register"
-        since {major: 2, minor: 0},
+        since {major: 3, minor: 0},
       }],
       visibility: PUBLIC,
       rpc_doc_title: "Register Scorer",
@@ -905,7 +1057,7 @@ service MlflowService {
       endpoints: [{
         method: "GET",
         path: "/mlflow/scorers/list"
-        since {major: 2, minor: 0},
+        since {major: 3, minor: 0},
       }],
       visibility: PUBLIC,
       rpc_doc_title: "List Scorers",
@@ -918,7 +1070,7 @@ service MlflowService {
       endpoints: [{
         method: "GET",
         path: "/mlflow/scorers/versions"
-        since {major: 2, minor: 0},
+        since {major: 3, minor: 0},
       }],
       visibility: PUBLIC,
       rpc_doc_title: "List Scorer Versions",
@@ -931,7 +1083,7 @@ service MlflowService {
       endpoints: [{
         method: "GET",
         path: "/mlflow/scorers/get"
-        since {major: 2, minor: 0},
+        since {major: 3, minor: 0},
       }],
       visibility: PUBLIC,
       rpc_doc_title: "Get Scorer",
@@ -944,10 +1096,28 @@ service MlflowService {
       endpoints: [{
         method: "DELETE",
         path: "/mlflow/scorers/delete"
-        since {major: 2, minor: 0},
+        since {major: 3, minor: 0},
       }],
       visibility: PUBLIC,
       rpc_doc_title: "Delete Scorer",
+    };
+  }
+  
+  // Get records for an evaluation dataset
+  rpc getDatasetRecords(GetDatasetRecords) returns (GetDatasetRecords.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/datasets/{dataset_id}/records"
+        since { major: 3, minor: 0 },
+      }],
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Get Evaluation Dataset Records",
     };
   }
 }
@@ -2647,6 +2817,210 @@ message SearchTracesV3 {
     // Information about traces that match the search criteria.
     repeated TraceInfoV3 traces = 1;
     optional string next_page_token = 2;
+  }
+}
+
+// Evaluation Dataset Messages
+
+message CreateDataset {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  
+  // Dataset name
+  optional string name = 1 [(validate_required) = true];
+  
+  // Associated experiment IDs. If not provided, defaults to the current active experiment.
+  repeated string experiment_ids = 2;
+  
+  // Source type
+  optional datasets.DatasetRecordSource.SourceType source_type = 3;
+  
+  // Source information
+  optional string source = 4;
+  
+  // Schema information (JSON)
+  optional string schema = 5;
+  
+  // Profile information (JSON)
+  optional string profile = 6;
+  
+  // User creating the dataset
+  optional string created_by = 7;
+  
+  // Tags to set on the dataset (JSON string mapping keys to values)
+  optional string tags = 8;
+  
+  message Response {
+    // The created dataset
+    optional datasets.Dataset dataset = 1;
+  }
+}
+
+message GetDataset {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  
+  // Dataset ID
+  optional string dataset_id = 1 [(validate_required) = true];
+  
+  // Optional page token for paginating records
+  optional string page_token = 2;
+  
+  message Response {
+    // The dataset (without records for lazy loading)
+    optional datasets.Dataset dataset = 1;
+    
+    // Next page token if more records exist
+    optional string next_page_token = 2;
+  }
+}
+
+message DeleteDataset {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  
+  // Dataset ID to delete
+  optional string dataset_id = 1 [(validate_required) = true];
+  
+  message Response {
+    // Empty response
+  }
+}
+
+message SearchEvaluationDatasets {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  
+  // Associated experiment IDs to filter by
+  repeated string experiment_ids = 1;
+  
+  // Filter string for dataset names
+  optional string filter_string = 2;
+  
+  // Maximum number of results
+  optional int32 max_results = 3 [default = 1000];
+  
+  // Ordering criteria
+  repeated string order_by = 4;
+  
+  // Page token for pagination
+  optional string page_token = 5;
+  
+  message Response {
+    // List of datasets (metadata only)
+    repeated datasets.Dataset datasets = 1;
+    
+    // Next page token if more results exist
+    optional string next_page_token = 2;
+  }
+}
+
+
+message SetDatasetTags {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  
+  // Dataset ID to update tags for
+  optional string dataset_id = 1 [(validate_required) = true];
+  
+  // Tags to update (JSON string).
+  optional string tags = 2 [(validate_required) = true];
+  
+  message Response {
+    // The updated dataset
+    optional datasets.Dataset dataset = 1;
+  }
+}
+
+message DeleteDatasetTag {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  
+  // Dataset ID to delete tag from
+  optional string dataset_id = 1 [(validate_required) = true];
+  
+  // Tag key to delete
+  optional string key = 2 [(validate_required) = true];
+  
+  message Response {
+  }
+}
+
+message UpsertDatasetRecords {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  
+  // Dataset ID to upsert records for
+  optional string dataset_id = 1 [(validate_required) = true];
+  
+  // Records to upsert (JSON serialized list of record dictionaries)
+  optional string records = 2 [(validate_required) = true];
+  
+  // User performing the update
+  optional string updated_by = 3;
+  
+  message Response {
+    // Number of records inserted
+    optional int32 inserted_count = 1;
+    
+    // Number of records updated
+    optional int32 updated_count = 2;
+  }
+}
+
+message GetDatasetExperimentIds {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  
+  // Dataset ID to get experiment IDs for
+  optional string dataset_id = 1 [(validate_required) = true];
+  
+  message Response {
+    // List of experiment IDs associated with the dataset
+    repeated string experiment_ids = 1;
+  }
+}
+
+message GetDatasetRecords {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  
+  // Dataset ID to get records for
+  optional string dataset_id = 1 [(validate_required) = true];
+  
+  // Optional pagination - maximum number of records to return
+  optional int32 max_results = 2 [default = 1000];
+  
+  // Optional pagination token for getting next page
+  optional string page_token = 3;
+  
+  message Response {
+    // Records in the dataset (JSON serialized list)
+    optional string records = 1;
+    
+    // Pagination token for next page (if more records exist)
+    optional string next_page_token = 2;
+  }
+}
+
+message AddDatasetToExperiments {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  
+  // Dataset ID to add to experiments
+  optional string dataset_id = 1 [(validate_required) = true];
+  
+  // Experiment IDs to associate with the dataset
+  repeated string experiment_ids = 2;
+  
+  message Response {
+    // The updated dataset with new experiment associations
+    optional Dataset dataset = 1;
+  }
+}
+
+message RemoveDatasetFromExperiments {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  
+  // Dataset ID to remove from experiments
+  optional string dataset_id = 1 [(validate_required) = true];
+  
+  // Experiment IDs to disassociate from the dataset
+  repeated string experiment_ids = 2;
+  
+  message Response {
+    // The updated dataset after removing experiment associations
+    optional Dataset dataset = 1;
   }
 }
 
