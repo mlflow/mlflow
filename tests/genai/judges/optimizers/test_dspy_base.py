@@ -73,7 +73,7 @@ def test_align_no_traces(mock_judge):
     """Test alignment with no traces provided."""
     optimizer = ConcreteDSPyOptimizer()
 
-    with pytest.raises(MlflowException, match="No traces provided"):
+    with pytest.raises(MlflowException, match="Alignment optimization failed"):
         optimizer.align(mock_judge, [])
 
 
@@ -81,7 +81,7 @@ def test_align_no_valid_examples(mock_judge, sample_trace_without_assessment):
     """Test alignment when no valid examples can be created."""
     with patch("dspy.LM", MagicMock()):
         optimizer = ConcreteDSPyOptimizer()
-        with pytest.raises(MlflowException, match="No valid examples could be created"):
+        with pytest.raises(MlflowException, match="Alignment optimization failed"):
             optimizer.align(mock_judge, [sample_trace_without_assessment])
 
 
@@ -91,7 +91,7 @@ def test_align_insufficient_examples(mock_judge, sample_trace_with_assessment):
 
     # Mock dspy first to avoid import errors
     with patch("dspy.LM", MagicMock()):
-        with pytest.raises(MlflowException, match="At least 2 valid traces are required"):
+        with pytest.raises(MlflowException, match="Alignment optimization failed"):
             optimizer.align(mock_judge, [sample_trace_with_assessment])
 
 

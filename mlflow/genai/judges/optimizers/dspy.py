@@ -177,6 +177,4 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
                 )
 
         except Exception as e:
-            raise MlflowException(
-                f"Alignment optimization failed: {e!s}", error_code=INTERNAL_ERROR
-            ) from e
+            raise MlflowException("Alignment optimization failed", error_code=INTERNAL_ERROR) from e
