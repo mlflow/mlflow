@@ -738,10 +738,10 @@ class MlflowClient:
             else:
                 return registry_client.get_prompt_version(name, version_or_alias)
         except MlflowException as exc:
-            if allow_missing and exc.error_code in [
+            if allow_missing and exc.error_code in (
                 ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
                 ErrorCode.Name(INVALID_PARAMETER_VALUE),
-            ]:
+            ):
                 return None
             raise
 
