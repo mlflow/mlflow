@@ -281,9 +281,7 @@ Examples:
         uncommitted = run_command("git status --porcelain", check=False)
         if uncommitted:
             print("Warning: You have uncommitted changes. They will not be included in the duration collection.")
-            response = input("Continue anyway? (y/N): ")
-            if response.lower() != 'y':
-                return 1
+            print("Continuing anyway...")
         
         print(f"\nCollecting durations for suites: {', '.join(args.suites)}")
         print(f"Using branch: {args.branch}\n")
@@ -332,80 +330,51 @@ Examples:
         if not wait_for_workflow(run_id, repo, args.timeout):
             print("Warning: Workflow did not complete successfully, but attempting to download any artifacts...")
         
-        # Download artifacts
+        # Download artifacts to temp directory and copy to tests/.test_durations
         print("\nDownloading duration artifacts...")
-        # First, clean any existing artifact directories
-        for old_dir in Path(".").glob("final-test-durations*"):
-            shutil.rmtree(old_dir, ignore_errors=True)
-        for old_dir in Path(".").glob("test-durations-*"):
-            shutil.rmtree(old_dir, ignore_errors=True)
-            
-        # Download the duration artifact
-        result = run_command(f"gh run download {run_id} --repo {repo} --name final-test-durations", check=False)
         
-        # Check if download succeeded and file exists in the expected location
-        duration_file = Path("final-test-durations/all_test_durations.json")
-        
-        if not duration_file.exists():
-            print("Warning: Could not find final-test-durations/all_test_durations.json")
-            print("Checking directory contents...")
+        # Create a temp directory for download
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Download the duration artifact to temp directory
+            download_cmd = f"cd {tmpdir} && gh run download {run_id} --repo {repo} --name final-test-durations"
+            result = run_command(download_cmd, check=False)
             
-            # Look for the file
-            possible_files = list(Path(".").glob("*/all_test_durations.json"))
-            if possible_files:
-                duration_file = possible_files[0]
-                print(f"Found duration file at: {duration_file}")
-            else:
-                # Try to find any JSON files
-                json_files = list(Path(".").glob("*/*.json"))
-                if json_files:
-                    print(f"Found JSON files: {json_files}")
-                    duration_file = json_files[0]
-                else:
-                    print("ERROR: No duration files found in downloaded artifacts")
-                    print("Directory contents:")
-                    for item in Path(".").iterdir():
-                        print(f"  {item}")
-                        if item.is_dir():
-                            for subitem in item.iterdir():
-                                print(f"    {subitem}")
-        
-        # Process the duration file
-        if duration_file and duration_file.exists():
-            target = Path("tests/.test_durations")
+            if result is None:
+                print("Warning: Artifact download may have failed")
+                
+            # Check if download succeeded and file exists
+            # Note: gh run download puts the file directly in the current directory
+            duration_file = Path(tmpdir) / "all_test_durations.json"
             
+            if not duration_file.exists():
+                print(f"ERROR: Could not find all_test_durations.json in {tmpdir}")
+                print(f"Directory contents: {list(Path(tmpdir).iterdir())}")
+                print(f"View logs at: https://github.com/{repo}/actions/runs/{run_id}")
+                return 1
+            
+            # Read and validate the duration file
             with open(duration_file) as f:
                 new_durations = json.load(f)
             
+            # Validate that this looks like a test duration file
+            if not isinstance(new_durations, dict):
+                print(f"ERROR: Duration file is not a dictionary: {type(new_durations)}")
+                return 1
+            
+            # Check that keys look like test names (should contain "::" for pytest format)
+            if new_durations and not any("::" in key for key in new_durations.keys()):
+                print(f"ERROR: Duration file doesn't appear to contain test durations")
+                print(f"Sample keys: {list(new_durations.keys())[:5]}")
+                return 1
+            
             print(f"\nCollected {len(new_durations)} test durations")
             
-            # Merge with existing if present
-            if target.exists():
-                with open(target) as f:
-                    existing = json.load(f)
-                print(f"Merging with {len(existing)} existing durations")
-                existing.update(new_durations)
-                
-                with open(target, 'w') as f:
-                    json.dump(existing, f, indent=2, sort_keys=True)
-                
-                print(f"Updated {target} with {len(existing)} total durations")
-            else:
-                with open(target, 'w') as f:
-                    json.dump(new_durations, f, indent=2, sort_keys=True)
-                print(f"Created {target} with {len(new_durations)} durations")
+            # Copy to tests/.test_durations (overwrite)
+            target = Path("tests/.test_durations")
+            with open(target, 'w') as f:
+                json.dump(new_durations, f, indent=2, sort_keys=True)
             
-            # Cleanup downloaded artifacts
-            for artifact_dir in Path(".").glob("final-test-durations*"):
-                shutil.rmtree(artifact_dir, ignore_errors=True)
-            for artifact_dir in Path(".").glob("test-durations-*"):
-                shutil.rmtree(artifact_dir, ignore_errors=True)
-            
-            print(f"\n✓ Duration file updated successfully: {target}")
-        else:
-            print("\nWarning: No duration artifacts found. Check the workflow logs for errors.")
-            print(f"View logs at: https://github.com/mlflow/mlflow/actions/runs/{run_id}")
-            return 1
+            print(f"✓ Wrote {len(new_durations)} durations to {target}")
         
     except KeyboardInterrupt:
         print("\n\nInterrupted by user")
