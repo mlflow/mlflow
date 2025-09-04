@@ -39,9 +39,21 @@ do
   esac
 done
 
+# For skinny mode, set environment variable to avoid discovering root pyproject.toml
+# This needs to be set early so all uv commands respect it
+if [[ "$SKINNY" == "true" ]]; then
+  export UV_NO_CONFIG=1
+fi
+
 # Cleanup apt repository to make room for tests.
 sudo apt clean
 df -h
+
+# Ensure virtual environment exists (uv will reuse if already present)
+uv venv
+
+# Activate the virtual environment for non-uv commands
+source .venv/bin/activate
 
 # Don't use 'uv run' here as it would install the root project dependencies
 python --version
@@ -74,11 +86,6 @@ fi
 
 # Additional packages
 packages+=" aiohttp"
-
-# For skinny mode, set environment variable to avoid discovering root pyproject.toml
-if [[ "$SKINNY" == "true" ]]; then
-  export UV_NO_CONFIG=1
-fi
 
 # Single uv pip install call for all packages
 retry-with-backoff uv pip install --upgrade $packages
