@@ -10,7 +10,6 @@ from mlflow.ai_commands import get_command, list_commands, parse_frontmatter
 
 
 def test_parse_frontmatter_with_metadata():
-    """Test parsing markdown with frontmatter."""
     content = """---
 namespace: genai
 description: Test command
@@ -28,7 +27,6 @@ This is the body."""
 
 
 def test_parse_frontmatter_without_metadata():
-    """Test parsing markdown without frontmatter."""
     content = "# Just a regular markdown file\nNo frontmatter here."
 
     metadata, body = parse_frontmatter(content)
@@ -38,7 +36,6 @@ def test_parse_frontmatter_without_metadata():
 
 
 def test_parse_frontmatter_malformed():
-    """Test parsing malformed frontmatter."""
     content = """---
 invalid: yaml: [
 ---
@@ -51,7 +48,6 @@ Body content"""
 
 
 def test_parse_frontmatter_empty_metadata():
-    """Test parsing empty frontmatter."""
     content = """---
 ---
 Body content"""
@@ -63,7 +59,6 @@ Body content"""
 
 
 def test_list_commands_all(tmp_path):
-    """Test listing all commands."""
     # Create test command structure
     genai_dir = tmp_path / "commands" / "genai"
     genai_dir.mkdir(parents=True)
@@ -98,7 +93,6 @@ Content""")
 
 
 def test_list_commands_with_namespace_filter(tmp_path):
-    """Test listing commands filtered by namespace."""
     # Setup test commands
     genai_dir = tmp_path / "commands" / "genai"
     genai_dir.mkdir(parents=True)
@@ -138,7 +132,6 @@ Content""")
 
 
 def test_get_command_success(tmp_path):
-    """Test successfully getting a command."""
     genai_dir = tmp_path / "commands" / "genai"
     genai_dir.mkdir(parents=True)
 
@@ -162,7 +155,6 @@ This is the full content."""
 
 
 def test_get_command_not_found(tmp_path):
-    """Test getting a non-existent command."""
     commands_dir = tmp_path / "commands"
     commands_dir.mkdir()
 
@@ -174,7 +166,6 @@ def test_get_command_not_found(tmp_path):
 
 
 def test_list_commands_empty_directory(tmp_path):
-    """Test listing commands when directory is empty."""
     # Create empty commands directory
     commands_dir = tmp_path / "commands"
     commands_dir.mkdir()
@@ -188,7 +179,6 @@ def test_list_commands_empty_directory(tmp_path):
 
 
 def test_list_commands_nonexistent_directory(tmp_path):
-    """Test listing commands when directory doesn't exist."""
     with mock.patch("mlflow.ai_commands.ai_command_utils.Path") as mock_path:
         mock_path.return_value.parent = tmp_path
 
@@ -198,7 +188,6 @@ def test_list_commands_nonexistent_directory(tmp_path):
 
 
 def test_list_commands_with_invalid_files(tmp_path):
-    """Test listing commands skips files that can't be read."""
     genai_dir = tmp_path / "commands" / "genai"
     genai_dir.mkdir(parents=True)
 
@@ -236,7 +225,6 @@ Content""")
 
 
 def test_list_commands_sorted():
-    """Test that commands are sorted by key."""
     # Use the real implementation with actual files
     commands = list_commands()
 

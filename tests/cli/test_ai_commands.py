@@ -8,7 +8,6 @@ from mlflow.cli import cli
 
 
 def test_list_commands_cli():
-    """Test CLI list command."""
     mock_commands = [
         {
             "key": "genai/analyze_experiment",
@@ -32,7 +31,6 @@ def test_list_commands_cli():
 
 
 def test_list_commands_with_namespace_cli():
-    """Test CLI list command with namespace filter."""
     mock_commands = [
         {
             "key": "genai/analyze_experiment",
@@ -53,7 +51,6 @@ def test_list_commands_with_namespace_cli():
 
 
 def test_list_commands_empty_cli():
-    """Test CLI list command when no commands found."""
     with mock.patch("mlflow.ai_commands.list_commands", return_value=[]):
         runner = CliRunner()
         result = runner.invoke(cli, ["ai-commands", "list"])
@@ -63,7 +60,6 @@ def test_list_commands_empty_cli():
 
 
 def test_list_commands_empty_namespace_cli():
-    """Test CLI list command when no commands in namespace."""
     with mock.patch("mlflow.ai_commands.list_commands", return_value=[]):
         runner = CliRunner()
         result = runner.invoke(cli, ["ai-commands", "list", "--namespace", "unknown"])
@@ -73,7 +69,6 @@ def test_list_commands_empty_namespace_cli():
 
 
 def test_get_command_cli():
-    """Test CLI get command."""
     mock_content = """---
 namespace: genai
 description: Test command
@@ -90,7 +85,6 @@ Hello! This is test content."""
 
 
 def test_get_invalid_command_cli():
-    """Test CLI get command with invalid key."""
     with mock.patch(
         "mlflow.cli.ai_commands.get_command",
         side_effect=FileNotFoundError("Command 'invalid/cmd' not found"),
@@ -103,7 +97,6 @@ def test_get_invalid_command_cli():
 
 
 def test_ai_commands_help():
-    """Test AI commands help text."""
     runner = CliRunner()
     result = runner.invoke(cli, ["ai-commands", "--help"])
 
@@ -114,7 +107,6 @@ def test_ai_commands_help():
 
 
 def test_get_command_help():
-    """Test get command help text."""
     runner = CliRunner()
     result = runner.invoke(cli, ["ai-commands", "get", "--help"])
 
@@ -124,7 +116,6 @@ def test_get_command_help():
 
 
 def test_list_command_help():
-    """Test list command help text."""
     runner = CliRunner()
     result = runner.invoke(cli, ["ai-commands", "list", "--help"])
 
@@ -134,7 +125,6 @@ def test_list_command_help():
 
 
 def test_actual_command_exists():
-    """Test that our actual command exists and can be retrieved."""
     runner = CliRunner()
 
     # Test list includes our command
