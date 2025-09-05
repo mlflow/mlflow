@@ -339,6 +339,11 @@ class MlflowCallback(BaseCallback):
         else:
             prediction_context = None
 
+        # Format image inputs as markdown.
+        for input_name, input_value in inputs.items():
+            if isinstance(input_value, dspy.Image):
+                inputs[input_name] = f"![Image]({input_value.url})"
+
         with maybe_set_prediction_context(prediction_context):
             span = start_span_no_context(
                 name=name,
