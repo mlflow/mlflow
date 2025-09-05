@@ -42,11 +42,6 @@ def test_full_alignment_workflow(mock_judge, sample_traces_with_assessments):
     # Should return an optimized judge
     assert result is not None
     assert result.model == mock_judge.model
-    # The judge instructions are formatted by make_judge with a header
-    expected_instructions = (
-        "Instructions-based judge: mock_judge\n\n"
-        "Instructions:\n"
-        "-------------\n\n"
-        "Optimized instructions with {{inputs}} and {{outputs}}"
-    )
+    # The judge instructions should be the raw optimized instructions
+    expected_instructions = "Optimized instructions with {{inputs}} and {{outputs}}"
     assert result.instructions == expected_instructions
