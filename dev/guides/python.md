@@ -2,20 +2,20 @@
 
 This guide documents Python coding conventions that go beyond what [ruff](https://docs.astral.sh/ruff/) and [clint](../../dev/clint/) can enforce. The practices below require human judgment to implement correctly and improve code readability, maintainability, and testability across the MLflow codebase.
 
-## Avoid Redundant Test Docstrings
+## Avoid Redundant Docstrings
 
-Omit docstrings that merely echo the function name without adding value. Test names should be self-documenting.
+Omit docstrings that merely repeat the function name or provide no additional value. Function names should be self-documenting.
 
 ```python
 # Bad
-def test_foo():
-    """Test foo"""
-    ...
+def calculate_sum(a: int, b: int) -> int:
+    """Calculate sum"""
+    return a + b
 
 
 # Good
-def test_foo():
-    ...
+def calculate_sum(a: int, b: int) -> int:
+    return a + b
 ```
 
 ## Use Type Hints for All Functions
