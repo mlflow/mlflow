@@ -422,8 +422,9 @@ def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
 
 
 def _reconstruct_response_from_stream(chunks: list[Any]) -> Any:
-    from mlflow.types.responses_helpers import Response
     from openai.types.responses import ResponseOutputItemDoneEvent
+
+    from mlflow.types.responses_helpers import Response
 
     output = [
         chunk.item.to_dict()

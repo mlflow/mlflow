@@ -822,10 +822,14 @@ async def test_model_loading_set_active_model_id_without_fetching_logged_model(
 )
 @skip_when_testing_trace_sdk
 def test_reconstruct_response_from_stream():
+    from openai.types.responses import (
+        ResponseOutputItemDoneEvent,
+        ResponseOutputMessage,
+        ResponseOutputText,
+    )
+
     from mlflow.openai.autolog import _reconstruct_response_from_stream
     from mlflow.types.responses_helpers import OutputItem
-    from openai.types.responses import ResponseOutputItemDoneEvent, ResponseOutputMessage
-    from openai.types.responses import ResponseOutputText
 
     content1 = ResponseOutputText(annotations=[], text="Hello", type="output_text")
     content2 = ResponseOutputText(annotations=[], text=" world", type="output_text")
