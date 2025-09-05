@@ -17,7 +17,10 @@ def make_judge(
 
     Args:
         name: The name of the judge
-        instructions: Natural language instructions for evaluation
+        instructions: Natural language instructions for evaluation. Must contain at least one
+                      template variable: {{ inputs }}, {{ outputs }}, {{ expectations }},
+                      or {{ trace }} to reference evaluation data. Custom variables are not
+                      supported.
         model: The model identifier to use for evaluation (e.g., "openai:/gpt-4")
         aggregations: List of aggregation functions to apply. Can be strings from
                       ["min", "max", "mean", "median", "variance", "p90"] or callable functions.
@@ -33,7 +36,7 @@ def make_judge(
             from mlflow.genai.judges import make_judge
 
 
-            # Create a toy agent that responds to questions
+            # Create an agent that responds to questions
             def my_agent(question):
                 # Simple toy agent that just echoes back
                 return f"You asked about: {question}"
@@ -86,8 +89,25 @@ def make_judge(
                 model="openai:/gpt-4",
             )
 
-            # Trace evaluation (trace object passed to agent, not interpolated)
-            result = trace_judge(trace=my_trace_object)
+            # Evaluate with expectations (must be dictionaries)
+            result = correctness_judge(
+                inputs={"question": "What is the capital of France?"},
+                outputs={"answer": "The capital of France is Paris."},
+                expectations={"expected_answer": "Paris"},
+            )
+
+            # Create a judge that evaluates based on trace context
+            trace_judge = make_judge(
+                name="trace_quality",
+                instructions="Evaluate the overall quality of the {{ trace }} execution.",
+                model="openai:/gpt-4",
+            )
+
+            # Use with search_traces() - evaluate each trace
+            traces = mlflow.search_traces(experiment_ids=["1"], return_type="list")
+            for trace in traces:
+                feedback = trace_judge(trace=trace)
+                print(f"Trace {trace.info.trace_id}: {feedback.value} - {feedback.rationale}")
     """
 
     if aggregations is None:
