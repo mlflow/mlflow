@@ -52,7 +52,6 @@ class InstructionsJudge(Judge):
     _model: str = PrivateAttr()
     _instructions_prompt: PromptVersion = PrivateAttr()
 
-
     def __init__(self, name: str, instructions: str, model: str | None = None, **kwargs):
         """
         Initialize the InstructionsJudge.
