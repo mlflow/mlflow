@@ -51,6 +51,7 @@ class InstructionsJudge(Judge):
     _instructions: str = PrivateAttr()
     _model: str = PrivateAttr()
     _instructions_prompt: PromptVersion = PrivateAttr()
+
     _custom_template_variables: set[str] = PrivateAttr()
 
     def __init__(self, name: str, instructions: str, model: str | None = None, **kwargs):
@@ -89,6 +90,16 @@ class InstructionsJudge(Judge):
         self._custom_template_variables = self._instructions_prompt.variables - set(
             self._RESERVED_INSTRUCTION_TEMPLATE_VARIABLES
         )
+
+        # Reject any custom template variables
+        if self._custom_template_variables:
+            allowed_vars = ", ".join(self._RESERVED_INSTRUCTION_TEMPLATE_VARIABLES)
+            raise MlflowException(
+                f"Instructions template contains unsupported variables: "
+                f"{self._custom_template_variables}. "
+                f"Only the following variables are allowed: {allowed_vars}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
         self._validate_model_format()
         self._validate_instructions_template()
@@ -131,10 +142,7 @@ class InstructionsJudge(Judge):
         if self._TEMPLATE_VARIABLE_TRACE in self.template_variables:
             fields.append(JudgeField(name="trace", description="Trace to evaluate"))
 
-        # Add custom template variables
-        for var in self._custom_template_variables:
-            fields.append(JudgeField(name=var, description=f"Custom variable: {var}"))
-
+        # Custom template variables are no longer supported
         return fields
 
     def __call__(
@@ -180,8 +188,6 @@ class InstructionsJudge(Judge):
 
         # Handle field-based evaluation (inputs/outputs)
         if not is_trace_based:
-            self._validate_call_args_contain_template_fields(inputs, outputs, expectations)
-
             # Build the system message with instructions template and output format
             system_content = format_prompt(
                 INSTRUCTIONS_JUDGE_SYSTEM_PROMPT, instructions=self._instructions
@@ -192,24 +198,21 @@ class InstructionsJudge(Judge):
 
             # Build the user message with variable substitutions
             template_values = {}
-            if inputs is not None:
-                if self._TEMPLATE_VARIABLE_INPUTS in self.template_variables:
-                    template_values[self._TEMPLATE_VARIABLE_INPUTS] = json.dumps(
-                        inputs, default=str, indent=2
-                    )
-                template_values.update(inputs)
-            if outputs is not None:
-                if self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables:
-                    template_values[self._TEMPLATE_VARIABLE_OUTPUTS] = json.dumps(
-                        outputs, default=str, indent=2
-                    )
-                template_values.update(outputs)
-            if expectations is not None:
-                if self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables:
-                    template_values[self._TEMPLATE_VARIABLE_EXPECTATIONS] = json.dumps(
-                        expectations, default=str, indent=2
-                    )
-                template_values.update(expectations)
+            if inputs is not None and self._TEMPLATE_VARIABLE_INPUTS in self.template_variables:
+                template_values[self._TEMPLATE_VARIABLE_INPUTS] = json.dumps(
+                    inputs, default=str, indent=2
+                )
+            if outputs is not None and self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables:
+                template_values[self._TEMPLATE_VARIABLE_OUTPUTS] = json.dumps(
+                    outputs, default=str, indent=2
+                )
+            if (
+                expectations is not None
+                and self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables
+            ):
+                template_values[self._TEMPLATE_VARIABLE_EXPECTATIONS] = json.dumps(
+                    expectations, default=str, indent=2
+                )
 
             # Create user content with the actual values for each variable
             user_message_parts = []
@@ -291,7 +294,7 @@ class InstructionsJudge(Judge):
         if not template_vars:
             raise MlflowException(
                 "Instructions template must contain at least one variable (e.g., {{inputs}}, "
-                "{{outputs}}, {{trace}}, or custom variables).",
+                "{{outputs}}, {{trace}}, or {{expectations}}).",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
@@ -308,14 +311,7 @@ class InstructionsJudge(Judge):
                     "This will be implemented in a future release.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
-            if self._custom_template_variables:
-                raise MlflowException(
-                    "When submitting a 'trace' variable, no other variables are permitted. "
-                    f"found: {self._custom_template_variables}. A submitted trace contains "
-                    "the complete context for evaluation and should not be mixed with "
-                    "other variables.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
+            # Custom variables check is no longer needed here since they're rejected in __init__
             if has_inputs or has_outputs:
                 raise MlflowException(
                     "Instructions template cannot contain both 'trace' and 'inputs'/'outputs' "
@@ -330,40 +326,6 @@ class InstructionsJudge(Judge):
                     "(e.g., model='openai:/gpt-4o').",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
-
-    def _validate_call_args_contain_template_fields(
-        self,
-        inputs: dict[str, Any] | None = None,
-        outputs: dict[str, Any] | None = None,
-        expectations: dict[str, Any] | None = None,
-    ) -> None:
-        """
-        Validate that required template variables are present in inputs, outputs, or expectations.
-
-        Args:
-            inputs: Input dictionary to validate
-            outputs: Output dictionary to validate
-            expectations: Expectations dictionary to validate
-
-        Raises:
-            MlflowException: If any required template variable is missing
-        """
-        if not self._custom_template_variables:
-            return
-
-        input_keys = set(inputs.keys()) if inputs is not None else set()
-        output_keys = set(outputs.keys()) if outputs is not None else set()
-        expectation_keys = set(expectations.keys()) if expectations is not None else set()
-        available_vars = input_keys | output_keys | expectation_keys
-
-        missing_vars = self._custom_template_variables - available_vars
-
-        if missing_vars:
-            raise MlflowException(
-                f"Required template variables {missing_vars} are missing from inputs, outputs, "
-                "and expectations. Each variable must be present in at least one of them.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
 
     def model_dump(self, **kwargs) -> dict[str, Any]:
         """Override model_dump to serialize as a SerializedScorer."""
