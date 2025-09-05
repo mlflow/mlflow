@@ -106,8 +106,7 @@ class InstructionsJudge(Judge):
     @property
     def instructions(self) -> str:
         """Get the instructions of this judge."""
-        header = f"Instructions-based judge: {self.name}"
-        return f"{header}\n\nInstructions:\n-------------\n\n{self._instructions}"
+        return self._instructions
 
     def get_input_fields(self) -> list[JudgeField]:
         """
@@ -194,8 +193,16 @@ class InstructionsJudge(Judge):
             # Build the user message with variable substitutions
             template_values = {}
             if inputs is not None:
+                if self._TEMPLATE_VARIABLE_INPUTS in self.template_variables:
+                    template_values[self._TEMPLATE_VARIABLE_INPUTS] = json.dumps(
+                        inputs, default=str, indent=2
+                    )
                 template_values.update(inputs)
             if outputs is not None:
+                if self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables:
+                    template_values[self._TEMPLATE_VARIABLE_OUTPUTS] = json.dumps(
+                        outputs, default=str, indent=2
+                    )
                 template_values.update(outputs)
             if expectations is not None:
                 if self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables:
