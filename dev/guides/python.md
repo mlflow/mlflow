@@ -8,11 +8,6 @@ Omit docstrings that merely repeat the function name or provide no additional va
 
 ```python
 # Bad
-def test_foo():
-    """Test foo"""
-    ...
-
-
 def calculate_sum(a, b):
     """Calculate sum"""
     return a + b
@@ -24,10 +19,6 @@ def process_data(data):
 
 
 # Good
-def test_foo():
-    ...
-
-
 def calculate_sum(a, b):
     return a + b
 
