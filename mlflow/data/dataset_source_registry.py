@@ -224,8 +224,10 @@ except ImportError:
 try:
     from mlflow.genai.datasets.databricks_evaluation_dataset_source import (
         DatabricksEvaluationDatasetSource,
+        DatabricksUCTableDatasetSource,
     )
 
     _dataset_source_registry.register(DatabricksEvaluationDatasetSource)
+    _dataset_source_registry.register(DatabricksUCTableDatasetSource)
 except ImportError:
     pass
