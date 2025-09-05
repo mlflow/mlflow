@@ -107,6 +107,7 @@ def test_invoke_judge_model_successful_with_litellm(num_retries, mock_response):
         retry_policy=expected_retry_policy,
         retry_strategy="exponential_backoff_retry",
         max_retries=0,
+        drop_params=True,
     )
 
     assert feedback.name == "quality_check"
@@ -329,15 +330,25 @@ def test_add_output_format_instructions():
     assert formatted.index(complex_prompt) < formatted.index('"rationale"')
 
 
-def test_invoke_judge_model_retries_without_response_format_on_bad_request(mock_response):
-    """Test that when BadRequestError occurs, we retry without response_format."""
-    bad_request_error = litellm.BadRequestError(
+@pytest.mark.parametrize(
+    ("error_type", "error_class"),
+    [
+        ("BadRequestError", litellm.BadRequestError),
+        ("UnsupportedParamsError", litellm.UnsupportedParamsError),
+    ],
+)
+def test_invoke_judge_model_retries_without_response_format_on_bad_request(
+    mock_response, error_type, error_class
+):
+    """
+    Test that when BadRequestError or UnsupportedParamsError occurs, we retry
+    without response_format.
+    """
+    error = error_class(
         message="response_format not supported", model="openai/gpt-4", llm_provider="openai"
     )
 
-    with mock.patch(
-        "litellm.completion", side_effect=[bad_request_error, mock_response]
-    ) as mock_litellm:
+    with mock.patch("litellm.completion", side_effect=[error, mock_response]) as mock_litellm:
         feedback = invoke_judge_model(
             model_uri="openai:/gpt-4",
             prompt="Test prompt",
