@@ -427,9 +427,7 @@ def _reconstruct_response_from_stream(chunks: list[Any]) -> Any:
     from mlflow.types.responses_helpers import Response
 
     output = [
-        chunk.item.to_dict()
-        for chunk in chunks
-        if isinstance(chunk, ResponseOutputItemDoneEvent)
+        chunk.item.to_dict() for chunk in chunks if isinstance(chunk, ResponseOutputItemDoneEvent)
     ]
 
     return Response(output=output)

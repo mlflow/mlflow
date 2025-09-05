@@ -818,7 +818,7 @@ async def test_model_loading_set_active_model_id_without_fetching_logged_model(
 
 
 @pytest.mark.skipif(
-    Version(openai.__version__) < Version("1.6"), reason="Requires OpenAI SDK >= 1.6"
+    Version(openai.__version__) < Version("1.66"), reason="Requires OpenAI SDK >= 1.66"
 )
 @skip_when_testing_trace_sdk
 def test_reconstruct_response_from_stream():
