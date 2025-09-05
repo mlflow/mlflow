@@ -10,7 +10,7 @@ from dspy.utils.callback import BaseCallback
 import mlflow
 from mlflow.dspy.constant import FLAVOR_NAME
 from mlflow.dspy.util import log_dspy_module_params, save_dspy_module_state
-from mlflow.entities import SpanStatusCode, SpanType
+from mlflow.entities import Feedback, SpanStatusCode, SpanType
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.span_event import SpanEvent
 from mlflow.exceptions import MlflowException
@@ -53,6 +53,7 @@ class MlflowCallback(BaseCallback):
         # call_id: (LiveSpan, OTel token)
         self._call_id_to_span: dict[str, SpanWithToken] = {}
         self._call_id_to_module: dict[str, Any] = {}
+        self._outputs_ids_to_trace_id: dict[Any, str] = {}
 
         ###### state management for optimization process ######
         # The current callback logic assumes there is no optimization running in parallel.
@@ -95,6 +96,9 @@ class MlflowCallback(BaseCallback):
     @skip_if_trace_disabled
     def on_module_end(self, call_id: str, outputs: Any | None, exception: Exception | None = None):
         instance = self._call_id_to_module.pop(call_id)
+        self._outputs_ids_to_trace_id[id(outputs)] = (
+            mlflow.get_current_active_span().trace_id
+        )
 
         if _get_fully_qualified_class_name(instance) == "dspy.retrieve.databricks_rm.DatabricksRM":
             from mlflow.entities.document import Document
@@ -276,6 +280,28 @@ class MlflowCallback(BaseCallback):
                 mlflow.log_table(self._generate_result_table(outputs.results), "result_table.json")
             except Exception:
                 _logger.debug("Failed to log result table.", exc_info=True)
+
+            for i, (example, prediction, score) in enumerate(outputs.results):
+                trace_id = self._outputs_ids_to_trace_id[id(prediction)]
+
+                feedback = None
+                value = None
+                if isinstance(score, dspy.Prediction):
+                    feedback = score.feedback if "feedback" in score else None
+                    value = score.score if "score" in score else None
+                elif isinstance(score, float | int | bool):
+                    value = score
+
+                mlflow.log_assessment(
+                    trace_id=trace_id,
+                    assessment=Feedback(
+                        name="Eval Metric",
+                        value=value,
+                        rationale=feedback,
+                        metadata=None,
+                    ),
+                )
+
         if score is not None:
             mlflow.log_metric("eval", score)
 
