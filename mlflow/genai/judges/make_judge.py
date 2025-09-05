@@ -63,11 +63,11 @@ def make_judge(
                 model="openai:/gpt-4",
             )
 
-            # Evaluate with expectations
+            # Evaluate with expectations (must be dictionaries)
             result = correctness_judge(
                 inputs={"question": "What is the capital of France?"},
-                outputs="The capital of France is Paris.",
-                expectations="Paris",
+                outputs={"answer": "The capital of France is Paris."},
+                expectations={"expected_answer": "Paris"},
             )
 
             # Create a judge that evaluates based on trace context
@@ -76,6 +76,12 @@ def make_judge(
                 instructions="Evaluate the overall quality of the {{ trace }} execution.",
                 model="openai:/gpt-4",
             )
+
+            # Use with search_traces() - evaluate each trace
+            traces = mlflow.search_traces(experiment_ids=["1"], return_type="list")
+            for trace in traces:
+                feedback = trace_judge(trace=trace)
+                print(f"Trace {trace.info.trace_id}: {feedback.value} - {feedback.rationale}")
     """
 
     if aggregations is None:
