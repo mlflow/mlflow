@@ -1,7 +1,6 @@
 import importlib.metadata
 import json
 import logging
-import time
 from typing import Any, AsyncIterator, Iterator
 
 from packaging.version import Version
@@ -293,7 +292,12 @@ def _start_span(
     return span
 
 
-def _end_span_on_success(span: LiveSpan, inputs: dict[str, Any], raw_result: Any, is_responses_api: bool):
+def _end_span_on_success(
+    span: LiveSpan,
+    inputs: dict[str, Any],
+    raw_result: Any,
+    is_responses_api: bool,
+):
     from openai import AsyncStream, Stream
 
     result = _try_parse_raw_response(raw_result)
