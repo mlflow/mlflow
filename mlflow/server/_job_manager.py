@@ -2,12 +2,12 @@ import logging
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict, Optional
+from typing import Any
 
 from mlflow.environment_variables import MLFLOW_MAX_CONCURRENT_PROMPT_OPTIMIZATION_JOBS
-from mlflow.genai.scorers.builtin_scorers import get_builtin_scorer_by_name
-from mlflow.genai.optimize.types import LLMParams, OptimizerConfig
 from mlflow.exceptions import MlflowException
+from mlflow.genai.optimize.types import LLMParams, OptimizerConfig
+from mlflow.genai.scorers.builtin_scorers import get_builtin_scorer_by_name
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.service_pb2 import GetOptimizePromptJob
 
@@ -24,12 +24,19 @@ class PromptOptimizationJobManager:
         self._lock = threading.Lock()
         self._executor = ThreadPoolExecutor(
             max_workers=MLFLOW_MAX_CONCURRENT_PROMPT_OPTIMIZATION_JOBS.get(),
-            thread_name_prefix="prompt_opt"
+            thread_name_prefix="prompt_opt",
         )
 
-    def create_job(self, *, train_dataset_id: str, eval_dataset_id: str | None,
-                   prompt_url: str, scorers: list, target_llm: str,
-                   algorithm: str | None) -> str:
+    def create_job(
+        self,
+        *,
+        train_dataset_id: str,
+        eval_dataset_id: str | None,
+        prompt_url: str,
+        scorers: list,
+        target_llm: str,
+        algorithm: str | None,
+    ) -> str:
         """Create a new prompt optimization job."""
         with self._lock:
             job_id = str(self._next_job_id)
@@ -45,7 +52,7 @@ class PromptOptimizationJobManager:
                 "algorithm": algorithm,
                 "result": None,
                 "error": None,
-                "created_time": int(time.time() * 1000)
+                "created_time": int(time.time() * 1000),
             }
 
             # Submit the job to the thread pool
@@ -53,7 +60,7 @@ class PromptOptimizationJobManager:
 
             return job_id
 
-    def get_job(self, job_id: str) -> Optional[Dict]:
+    def get_job(self, job_id: str) -> dict | None:
         """Get job status and result."""
         job = self._jobs.get(job_id)
         if job:
@@ -109,7 +116,7 @@ class PromptOptimizationJobManager:
                         scorer = get_scorer(
                             name=custom_scorer["name"],
                             experiment_id=custom_scorer["experiment_id"],
-                            version=custom_scorer.get("version")
+                            version=custom_scorer.get("version"),
                         )
                         scorer_instances.append(scorer)
                     else:
@@ -135,11 +142,11 @@ class PromptOptimizationJobManager:
             # Set up LLM parameters
 
             # Parse target_llm to create LLMParams
-            target_llm = job['target_llm']
+            target_llm = job["target_llm"]
             llm_params = LLMParams(model_name=target_llm)
 
             # Set up optimizer config
-            algorithm = job['algorithm']
+            algorithm = job["algorithm"]
 
             algorithm_kwarg = {"algorithm": algorithm} if algorithm else {}
 
@@ -162,12 +169,13 @@ class PromptOptimizationJobManager:
             # Save optimization result
             job["result"] = {
                 "prompt_url": result.prompt.uri,
-                "evaluation_score": result.final_eval_score
+                "evaluation_score": result.final_eval_score,
             }
             job["status"] = GetOptimizePromptJob.PromptOptimizationJobStatus.COMPLETED
 
         except Exception as e:
             import traceback
+
             traceback.print_exc()
             job["status"] = GetOptimizePromptJob.PromptOptimizationJobStatus.FAILED
             job["error"] = str(e)

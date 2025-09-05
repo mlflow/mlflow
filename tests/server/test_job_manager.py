@@ -1,16 +1,15 @@
 import time
 import uuid
-
-import pytest
 from unittest.mock import patch
 
-from mlflow.server._job_manager import PromptOptimizationJobManager
+import pytest
+
 from mlflow.genai.datasets import create_dataset
 from mlflow.genai.optimize.types import OptimizerOutput
-from mlflow.protos.service_pb2 import GetOptimizePromptJob
 from mlflow.genai.scorers import scorer
+from mlflow.protos.service_pb2 import GetOptimizePromptJob
+from mlflow.server._job_manager import PromptOptimizationJobManager
 from mlflow.tracking.fluent import _get_experiment_id
-from tests.genai.optimize.test_base import sample_prompt, sample_data
 
 
 @pytest.fixture
@@ -23,16 +22,19 @@ class TestPromptOptimizationJobManager:
     """Test cases for PromptOptimizationJobManager."""
 
     @patch("mlflow.genai.optimize.base._DSPyMIPROv2Optimizer.optimize")
-    def test_create_and_get_optimize_prompt_job(self, mock_optimizer, job_manager, sample_data, sample_prompt):
+    def test_create_and_get_optimize_prompt_job(
+        self, mock_optimizer, job_manager, sample_data, sample_prompt
+    ):
         """Test creating a prompt optimization job and then getting its info."""
+
         # Create and register a custom scorer
         @scorer
         def custom_accuracy(inputs, outputs, expectations):
             return 1.0
-        
+
         # Register the custom scorer in an experiment
         custom_accuracy.register(name="custom_accuracy", experiment_id=_get_experiment_id())
-        
+
         # Mock the optimizer to return a successful result
         def mock_fn(*args, **kwargs):
             time.sleep(1)
@@ -57,9 +59,9 @@ class TestPromptOptimizationJobManager:
                 {
                     "custom_scorer": {
                         "name": "custom_accuracy",
-                        "experiment_id": _get_experiment_id()
+                        "experiment_id": _get_experiment_id(),
                     }
-                }
+                },
             ],
             target_llm="gpt-4",
             algorithm="DSPy/MIPROv2",
@@ -68,10 +70,10 @@ class TestPromptOptimizationJobManager:
         # Verify job was created successfully
         assert job_id == "0"
         assert job_id in job_manager._jobs
-        
+
         # Wait for the job to start (it runs in a background thread)
         time.sleep(0.5)
-        
+
         # Get the job info and verify all details after completion
         job = job_manager.get_job(job_id)
         assert job["train_dataset_id"] == train_dataset_id
@@ -84,7 +86,7 @@ class TestPromptOptimizationJobManager:
                     "name": "custom_accuracy",
                     "experiment_id": _get_experiment_id(),
                 }
-            }
+            },
         ]
         assert job["target_llm"] == "gpt-4"
         assert job["algorithm"] == "DSPy/MIPROv2"
@@ -97,6 +99,9 @@ class TestPromptOptimizationJobManager:
         job = job_manager.get_job(job_id)
         assert job["status"] == GetOptimizePromptJob.PromptOptimizationJobStatus.COMPLETED
         assert job["result"] is not None
-        assert job["result"]["prompt_url"] == f"prompts:/{sample_prompt.name}/{sample_prompt.version + 1}"
+        assert (
+            job["result"]["prompt_url"]
+            == f"prompts:/{sample_prompt.name}/{sample_prompt.version + 1}"
+        )
         assert job["result"]["evaluation_score"] == 1.0
         assert job["error"] is None

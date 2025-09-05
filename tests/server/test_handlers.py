@@ -43,9 +43,11 @@ from mlflow.protos.service_pb2 import (
     CalculateTraceFilterCorrelation,
     CreateExperiment,
     DeleteScorer,
+    GetOptimizePromptJob,
     GetScorer,
     ListScorers,
     ListScorerVersions,
+    OptimizePrompt,
     RegisterScorer,
     SearchExperiments,
     SearchLoggedModels,
@@ -53,8 +55,6 @@ from mlflow.protos.service_pb2 import (
     SearchTraces,
     SearchTracesV3,
     TraceLocation,
-    OptimizePrompt,
-    GetOptimizePromptJob,
 )
 from mlflow.protos.webhooks_pb2 import ListWebhooks
 from mlflow.server import (
@@ -89,6 +89,7 @@ from mlflow.server.handlers import (
     _get_model_version,
     _get_model_version_by_alias,
     _get_model_version_download_uri,
+    _get_optimize_prompts_job_handler,
     _get_registered_model,
     _get_request_message,
     _get_scorer,
@@ -97,6 +98,7 @@ from mlflow.server.handlers import (
     _list_scorers,
     _list_webhooks,
     _log_batch,
+    _optimize_prompts_handler,
     _register_scorer,
     _rename_registered_model,
     _search_evaluation_datasets_handler,
@@ -115,8 +117,6 @@ from mlflow.server.handlers import (
     _update_registered_model,
     _upsert_dataset_records_handler,
     _validate_source_run,
-    _optimize_prompts_handler,
-    _get_optimize_prompts_job_handler,
     catch_mlflow_exception,
     get_endpoints,
 )
@@ -1570,26 +1570,22 @@ def test_optimize_prompt_handler(mock_get_request_message):
         scorers=[
             {"name": "retrieval_relevance"},
             {"name": "correctness"},
-            {
-                "custom_scorer": {
-                    "name": "custom_scorer",
-                    "experiment_id": "exp_123",
-                    "version": 1
-                }
-            }
+            {"custom_scorer": {"name": "custom_scorer", "experiment_id": "exp_123", "version": 1}},
         ],
         target_llm="gpt-4",
-        algorithm="DSPy/MIPROv2"
+        algorithm="DSPy/MIPROv2",
     )
-    
+
     mock_get_request_message.return_value = mock_request
-    
+
     # Mock the job manager
-    with mock.patch("mlflow.server._job_manager._prompt_optimization_job_manager") as mock_job_manager:
+    with mock.patch(
+        "mlflow.server._job_manager._prompt_optimization_job_manager"
+    ) as mock_job_manager:
         mock_job_manager.create_job.return_value = "job_789"
-        
+
         resp = _optimize_prompts_handler()
-        
+
         # Verify the job manager was called with correct arguments
         mock_job_manager.create_job.assert_called_once_with(
             train_dataset_id="train_dataset_123",
@@ -1602,14 +1598,14 @@ def test_optimize_prompt_handler(mock_get_request_message):
                     "custom_scorer": {
                         "name": "custom_scorer",
                         "experiment_id": "exp_123",
-                        "version": 1
+                        "version": 1,
                     }
-                }
+                },
             ],
             target_llm="gpt-4",
-            algorithm="DSPy/MIPROv2"
+            algorithm="DSPy/MIPROv2",
         )
-        
+
         # Verify the response
         response_data = json.loads(resp.get_data())
         assert response_data == {"job_id": "job_789"}
@@ -1618,24 +1614,23 @@ def test_optimize_prompt_handler(mock_get_request_message):
 def test_get_optimize_prompt_job_handler(mock_get_request_message):
     """Test _get_optimize_prompts_job_handler."""
     job_id = "job_123"
-    
+
     # Mock the job manager
-    with mock.patch("mlflow.server._job_manager._prompt_optimization_job_manager") as mock_job_manager:
+    with mock.patch(
+        "mlflow.server._job_manager._prompt_optimization_job_manager"
+    ) as mock_job_manager:
         # Mock a completed job
         mock_job = {
             "status": GetOptimizePromptJob.PromptOptimizationJobStatus.COMPLETED,
-            "result": {
-                "prompt_url": "prompt://my_prompt/3",
-                "evaluation_score": 0.95
-            }
+            "result": {"prompt_url": "prompt://my_prompt/3", "evaluation_score": 0.95},
         }
         mock_job_manager.get_job.return_value = mock_job
-        
+
         resp = _get_optimize_prompts_job_handler(job_id)
-        
+
         # Verify the job manager was called with correct job ID
         mock_job_manager.get_job.assert_called_once_with(job_id)
-        
+
         # Verify the response
         response_data = json.loads(resp.get_data())
         assert response_data["status"] == "COMPLETED"
@@ -1646,21 +1641,23 @@ def test_get_optimize_prompt_job_handler(mock_get_request_message):
 def test_get_optimize_prompt_job_handler_running_job(mock_get_request_message):
     """Test _get_optimize_prompts_job_handler for a running job."""
     job_id = "job_123"
-    
+
     # Mock the job manager
-    with mock.patch("mlflow.server._job_manager._prompt_optimization_job_manager") as mock_job_manager:
+    with mock.patch(
+        "mlflow.server._job_manager._prompt_optimization_job_manager"
+    ) as mock_job_manager:
         # Mock a pending job
         mock_job = {
             "status": GetOptimizePromptJob.PromptOptimizationJobStatus.RUNNING,
-            "result": None
+            "result": None,
         }
         mock_job_manager.get_job.return_value = mock_job
-        
+
         resp = _get_optimize_prompts_job_handler(job_id)
-        
+
         # Verify the job manager was called with correct job ID
         mock_job_manager.get_job.assert_called_once_with(job_id)
-        
+
         # Verify the response
         response_data = json.loads(resp.get_data())
         assert response_data["status"] == "RUNNING"
@@ -1670,9 +1667,11 @@ def test_get_optimize_prompt_job_handler_running_job(mock_get_request_message):
 def test_get_optimize_prompt_job_handler_job_not_found(mock_get_request_message):
     """Test _get_optimize_prompts_job_handler when job is not found."""
     job_id = "job_123"
-    
+
     # Mock the job manager
-    with mock.patch("mlflow.server._job_manager._prompt_optimization_job_manager") as mock_job_manager:
+    with mock.patch(
+        "mlflow.server._job_manager._prompt_optimization_job_manager"
+    ) as mock_job_manager:
         # Mock job not found
         mock_job_manager.get_job.return_value = None
 

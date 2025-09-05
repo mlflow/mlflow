@@ -11,6 +11,7 @@ import tempfile
 import time
 import urllib
 from functools import partial, wraps
+
 import requests
 from flask import Response, current_app, jsonify, request, send_file
 from google.protobuf import descriptor
@@ -543,7 +544,7 @@ def _assert_item_type_string(x):
 def _assert_scorer_param(x):
     """Validate that x is a valid ScorerParam object."""
     assert isinstance(x, dict), "ScorerParam must be a dictionary"
-    
+
     # Check if it's a string name (has 'name' field)
     if "name" in x:
         assert isinstance(x["name"], str), "ScorerParam name must be a string"
@@ -556,9 +557,13 @@ def _assert_scorer_param(x):
         assert "name" in custom_scorer, "custom_scorer must have 'name' field"
         assert isinstance(custom_scorer["name"], str), "custom_scorer name must be a string"
         assert "experiment_id" in custom_scorer, "custom_scorer must have 'experiment_id' field"
-        assert isinstance(custom_scorer["experiment_id"], str), "custom_scorer experiment_id must be a string"
+        assert isinstance(custom_scorer["experiment_id"], str), (
+            "custom_scorer experiment_id must be a string"
+        )
         if "version" in custom_scorer:
-            assert isinstance(custom_scorer["version"], int), "custom_scorer version must be an integer"
+            assert isinstance(custom_scorer["version"], int), (
+                "custom_scorer version must be an integer"
+            )
         # Should not have other fields
         assert len(x) == 1, "ScorerParam with custom_scorer should not have other fields"
     else:
@@ -3902,8 +3907,9 @@ def _get_dataset_records_handler(dataset_id):
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _optimize_prompts_handler():
-    from mlflow.server._job_manager import _prompt_optimization_job_manager
     from google.protobuf.json_format import MessageToDict
+
+    from mlflow.server._job_manager import _prompt_optimization_job_manager
 
     request_message = _get_request_message(
         OptimizePrompt(),
@@ -3925,7 +3931,9 @@ def _optimize_prompts_handler():
         train_dataset_id=request_message.train_dataset_id,
         eval_dataset_id=request_message.eval_dataset_id,
         prompt_url=request_message.prompt_url,
-        scorers=[MessageToDict(s, preserving_proto_field_name=True) for s in request_message.scorers],
+        scorers=[
+            MessageToDict(s, preserving_proto_field_name=True) for s in request_message.scorers
+        ],
         target_llm=target_llm,
         algorithm=algorithm,
     )
@@ -3947,7 +3955,7 @@ def _get_optimize_prompts_job_handler(job_id):
             f"Prompt optimization job with id '{job_id}' not found",
             RESOURCE_DOES_NOT_EXIST,
         )
-    
+
     response_message = GetOptimizePromptJob.Response()
 
     response_message.status = job["status"]
