@@ -4,12 +4,15 @@ runs:
   using: "composite"
   steps:
     ########## Ubuntu ##########
-    # Note: We no longer install build tools since we're using uv for Python management
-    # This action now only installs the pyenv binary for MLflow compatibility
-    - name: Install pyenv (binary only)
+    # Note: We need libbz2-dev for MLflow's virtualenv creation which uses pyenv install
+    - name: Install minimal dependencies for pyenv
       if: runner.os == 'Linux'
       shell: bash
       run: |
+        # Install only libbz2-dev for the _bz2 Python module
+        # This is required when MLflow creates virtualenvs with pyenv
+        sudo apt-get update && sudo apt-get install -y --no-install-recommends libbz2-dev
+
         # Use the official pyenv installer which is fast (~2 seconds)
         curl -fsSL https://pyenv.run | bash
     - name: Setup environment variables

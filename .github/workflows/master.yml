@@ -583,6 +583,11 @@ jobs:
           fi
       - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/setup-pyenv
+      - name: Configure virtualenv to use uv Python
+        run: |
+          # Use uv's Python (which has all modules including _bz2) instead of pyenv's
+          export VIRTUALENV_PYTHON=$(which python3)
+          echo "VIRTUALENV_PYTHON=$VIRTUALENV_PYTHON" >> $GITHUB_ENV
       - name: Install dependencies
         run: |
           ./dev/install-common-deps-uv.sh
@@ -633,6 +638,11 @@ jobs:
           fi
       - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/setup-pyenv
+      - name: Configure virtualenv to use uv Python
+        run: |
+          # Use uv's Python (which has all modules including _bz2) instead of pyenv's
+          export VIRTUALENV_PYTHON=$(which python3)
+          echo "VIRTUALENV_PYTHON=$VIRTUALENV_PYTHON" >> $GITHUB_ENV
       - name: Install dependencies
         run: |
           ./dev/install-common-deps-uv.sh
