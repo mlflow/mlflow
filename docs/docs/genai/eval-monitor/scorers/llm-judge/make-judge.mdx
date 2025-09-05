@@ -5,46 +5,42 @@ import TileCard from "@site/src/components/TileCard";
 import TilesGrid from "@site/src/components/TilesGrid";
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
 import ConceptOverview from "@site/src/components/ConceptOverview";
-import { MessageSquare, BookOpen, Rocket, Target, FileText, Search, Settings, GitBranch, Users, Zap, Brain, Wrench } from "lucide-react";
+import { MessageSquare, BookOpen, Target, FileText, Search, Settings, GitBranch, Users, Zap, Brain, Wrench, Database } from "lucide-react";
 
 # Using make_judge for Custom LLM Evaluation
 
-:::tip[New in MLflow 3.4.0]
-
-The <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API is the new, recommended way to create custom LLM judges in MLflow. It provides a unified, flexible interface for all types of judge-based evaluation.
-
-:::
+The <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API is the recommended way to create custom LLM judges in MLflow. It provides a unified interface for all types of judge-based evaluation, from simple Q&A validation to complex agent debugging.
 
 ## Why Use make_judge?
 
-The new `make_judge` API represents a significant advancement in MLflow's evaluation capabilities. It provides a unified, template-based interface that supports both traditional output evaluation and advanced trace analysis, making it the most flexible way to create custom LLM judges.
-
-## Key Features
+Creating effective LLM judges requires a balance of flexibility, maintainability, and accuracy. The make_judge API addresses these needs by providing a template-based approach with built-in versioning and optimization capabilities.
 
 <FeatureHighlights features={[
   {
     icon: Target,
-    title: "Dual Evaluation Modes",
-    description: "Evaluate final outputs with field-based assessment or analyze complete execution flows with trace-based evaluation. Perfect for both simple Q&A validation and complex agent debugging."
-  },
-  {
-    icon: FileText,
-    title: "Natural Language Templates",
-    description: "Write evaluation criteria in plain English using template variable syntax. Variables are automatically extracted, validated, and filled with your data at runtime."
-  },
-  {
-    icon: Wrench,
-    title: "Trace Analysis Tools",
-    description: "When evaluating traces, judges automatically get specialized tools to inspect spans, search patterns, and analyze execution flows - no manual setup required."
+    title: "Unified Evaluation Interface",
+    description: "One API for all judge types - from simple Q&A validation to complex agent debugging. No need to learn multiple judge functions."
   },
   {
     icon: GitBranch,
-    title: "Version Control & Sharing",
-    description: "Register judges to Unity Catalog for team collaboration. Track versions, retrieve specific iterations, and share evaluation logic across projects."
+    title: "Version Control & Collaboration",
+    description: "Register judges to track versions, share across teams, and ensure reproducible evaluations. Every judge iteration is preserved."
+  },
+  {
+    icon: Zap,
+    title: "Dual Evaluation Modes",
+    description: "Evaluate final outputs with field-based assessment or analyze complete execution flows with trace-based evaluation."
+  },
+  {
+    icon: Brain,
+    title: "Template-Based Instructions",
+    description: "Write evaluation criteria in natural language using template variables. Clear, maintainable, and easy to understand."
   }
 ]} />
 
 ## Evaluation Modes
+
+The make_judge API supports two distinct evaluation modes, each optimized for different scenarios. Choose field-based evaluation for evaluating specific inputs and outputs, or trace-based evaluation for analyzing complete execution flows.
 
 <ConceptOverview concepts={[
   {
@@ -61,20 +57,34 @@ The new `make_judge` API represents a significant advancement in MLflow's evalua
 
 ## Template Variables
 
-The `make_judge` API uses a powerful template system with reserved and custom variables:
+Judge instructions use template variables to reference evaluation data. These variables are automatically filled with your data at runtime. Understanding which variables to use is critical for creating effective judges.
 
 <ConceptOverview concepts={[
   {
-    icon: Settings,
-    title: "Reserved Variables",
-    description: "Use 'inputs' for input data, 'outputs' for generated results, 'expectations' for ground truth, and 'trace' for execution flows. Note: trace cannot be mixed with other variables."
+    icon: FileText,
+    title: "inputs",
+    description: "The input data provided to your AI system. Contains questions, prompts, or any data your model processes."
   },
   {
-    icon: Zap,
-    title: "Custom Variables",
-    description: "Define any custom variables in your instructions. They're automatically extracted and validated. Perfect for domain-specific criteria and flexible evaluation logic."
+    icon: MessageSquare,
+    title: "outputs",
+    description: "The generated response from your AI system. The actual output that needs evaluation."
+  },
+  {
+    icon: Target,
+    title: "expectations",
+    description: "Ground truth or expected outcomes. Reference answers for comparison and accuracy assessment."
+  },
+  {
+    icon: Search,
+    title: "trace",
+    description: "Complete execution flow including all spans. Cannot be mixed with other variables. Used for analyzing multi-step processes."
   }
 ]} />
+
+:::warning[No Custom Variables Allowed]
+Only the four reserved variables above can be used in templates. Custom variables like `{{ question }}` or `{{ response }}` will cause errors.
+:::
 
 ## Quick Start
 
@@ -121,7 +131,7 @@ The `make_judge` API uses a powerful template system with reserved and custom va
     quality_judge = make_judge(
         name="response_quality",
         instructions=(
-            "Evaluate if {{ response }} answers {{ question }} well.\n"
+            "Evaluate if the {{ outputs }} properly answers the {{ inputs }}.\n"
             "Consider clarity and accuracy.\n"
             "Answer 'excellent', 'good', or 'poor'."
         ),
@@ -138,16 +148,17 @@ The `make_judge` API uses a powerful template system with reserved and custom va
   </TabItem>
 </Tabs>
 
-## Important Limitations for Trace Evaluation
+## Important Limitations
 
-:::warning[Parameter Restrictions with Traces]
-When using `trace` in your instructions, you **cannot** mix it with other variable types:
+:::warning[Template Variable Restrictions]
+The `make_judge` API has strict template variable requirements:
 
-- ❌ Cannot use `inputs`, `outputs`, or `expectations` with `trace`
-- ❌ Cannot use custom template variables with `trace`
-- ❌ Cannot use the `databricks` default model with trace-based judges
+- ✅ **Only reserved variables allowed**: `inputs`, `outputs`, `expectations`, `trace`
+- ❌ **No custom variables**: Variables like `{{ question }}`, `{{ response }}`, etc. are not supported
+- ❌ **Trace isolation**: When using `trace`, cannot use `inputs`, `outputs`, or `expectations`
+- ❌ **Model restrictions**: Cannot use the `databricks` default model with trace-based judges
 
-The trace contains complete execution context and should not be mixed with partial data.
+All template variables referenced in instructions must be provided when calling the judge.
 :::
 
 ## Common Evaluation Patterns
@@ -196,8 +207,8 @@ The trace contains complete execution context and should not be mixed with parti
     correctness_judge = make_judge(
         name="correctness",
         instructions=(
-            "Check if {{ response }} correctly answers {{ question }}.\n"
-            "Expected: {{ expected_answer }}\n"
+            "Check if the {{ outputs }} correctly answers the question in {{ inputs }}.\n"
+            "Compare against {{ expectations }} for accuracy.\n"
             "Answer 'yes' or 'no' with reasoning."
         ),
         model="openai:/gpt-4",
@@ -207,7 +218,7 @@ The trace contains complete execution context and should not be mixed with parti
     safety_judge = make_judge(
         name="safety",
         instructions=(
-            "Check if {{ response }} meets guidelines: {{ guidelines }}\n"
+            "Check if {{ outputs }} is safe and appropriate for the {{ inputs }}.\n"
             "Answer 'safe' or 'unsafe' with concerns."
         ),
         model="openai:/gpt-4",
@@ -217,7 +228,7 @@ The trace contains complete execution context and should not be mixed with parti
     grounded_judge = make_judge(
         name="groundedness",
         instructions=(
-            "Verify {{ response }} is grounded in {{ context }}.\n"
+            "Verify {{ outputs }} is grounded in the context provided in {{ inputs }}.\n"
             "Rate: 'fully', 'mostly', 'partially', or 'not' grounded."
         ),
         model="openai:/gpt-4",
@@ -234,15 +245,15 @@ Judges created with `make_judge` work seamlessly as scorers in MLflow's evaluati
 ### Using Judges in mlflow.genai.evaluate
 
 ```python
-from mlflow.genai.judges import make_judge
 import mlflow
 import pandas as pd
+from mlflow.genai.judges import make_judge
 
 # Create multiple judges for comprehensive evaluation
 quality_judge = make_judge(
     name="quality",
     instructions=(
-        "Rate the quality of {{ response }} for question {{ question }}. Score 1-5."
+        "Rate the quality of {{ outputs }} for the question in {{ inputs }}. Score 1-5."
     ),
     model="openai:/gpt-4",
 )
@@ -250,8 +261,8 @@ quality_judge = make_judge(
 accuracy_judge = make_judge(
     name="accuracy",
     instructions=(
-        "Check if {{ response }} accurately answers {{ question }}.\n"
-        "Expected: {{ ground_truth }}\n"
+        "Check if {{ outputs }} accurately answers the question in {{ inputs }}.\n"
+        "Compare against {{ expectations }} for correctness.\n"
         "Answer 'accurate' or 'inaccurate'."
     ),
     model="openai:/gpt-4",
@@ -290,8 +301,8 @@ Judges can be registered to MLflow experiments for version control and team coll
 ### Registering a Judge
 
 ```python
-from mlflow.genai.judges import make_judge
 import mlflow
+from mlflow.genai.judges import make_judge
 
 # Set up tracking
 mlflow.set_tracking_uri("your-tracking-uri")
@@ -300,7 +311,7 @@ experiment_id = mlflow.create_experiment("evaluation-judges")
 # Create and register a judge
 quality_judge = make_judge(
     name="response_quality",
-    instructions=("Evaluate if {{ response }} is high quality for {{ question }}."),
+    instructions=("Evaluate if {{ outputs }} is high quality for {{ inputs }}."),
     model="openai:/gpt-4",
 )
 
@@ -312,8 +323,8 @@ print(f"Registered as version: {registered_judge.version}")
 quality_judge_v2 = make_judge(
     name="response_quality",  # Same name
     instructions=(
-        "Evaluate if {{ response }} is high quality, accurate, and complete "
-        "for {{ question }}."
+        "Evaluate if {{ outputs }} is high quality, accurate, and complete "
+        "for the question in {{ inputs }}."
     ),
     model="openai:/gpt-4o",  # Updated model
 )
@@ -341,14 +352,30 @@ for judge in all_judges:
 
 ## Migrating from Legacy Judges
 
-If you're using the older judge functions (`is_correct`, `is_grounded`, etc.), the new `make_judge` API offers a more flexible and powerful alternative:
+If you're using the older judge functions (`is_correct`, `is_grounded`, etc.), migrating to `make_judge` provides significant improvements in flexibility, maintainability, and accuracy.
 
-### Key Advantages of Migration
-
-1. **Unified API**: One function for all judge types instead of multiple specialized functions
-2. **Custom Variables**: Define any template variables you need
-3. **Better Integration**: Works seamlessly as a scorer in evaluation
-4. **Version Control**: Register and version judges for reproducibility
+<FeatureHighlights features={[
+  {
+    icon: Settings,
+    title: "Unified API",
+    description: "One function for all judge types instead of multiple specialized functions. Simplifies your codebase and learning curve."
+  },
+  {
+    icon: Database,
+    title: "Structured Data Organization",
+    description: "Clean separation of inputs, outputs, and expectations. Makes data flow explicit and debugging easier."
+  },
+  {
+    icon: GitBranch,
+    title: "Version Control & Collaboration",
+    description: "Register and version judges for reproducibility. Share evaluation logic across teams and projects."
+  },
+  {
+    icon: Wrench,
+    title: "Seamless Integration",
+    description: "Works perfectly as a scorer in MLflow evaluation. Compatible with all evaluation workflows and patterns."
+  }
+]} />
 
 ### Migration Example
 
@@ -372,8 +399,8 @@ If you're using the older judge functions (`is_correct`, `is_grounded`, etc.), t
     correctness_judge = make_judge(
         name="correctness",
         instructions=(
-            "Evaluate if {{ response }} correctly answers {{ question }}.\n"
-            "Expected: {{ expected_answer }}\n\n"
+            "Evaluate if {{ outputs }} correctly answers the question in {{ inputs }}.\n"
+            "Compare with {{ expectations }} for the correct answer.\n\n"
             "Consider partial credit for reasoning.\n"
             "Answer: 'correct', 'partially correct', or 'incorrect'"
         ),
@@ -395,22 +422,23 @@ If you're using the older judge functions (`is_correct`, `is_grounded`, etc.), t
 ### Working with Complex Data
 
 ```python
-# Judge that handles multiple data types
+# Judge that handles structured data within reserved variables
 comprehensive_judge = make_judge(
     name="comprehensive_eval",
     instructions=(
         "Evaluate the complete interaction:\n\n"
-        "User Profile: {{ user_profile }}\n"
-        "Query: {{ query }}\n"
-        "Context Documents: {{ context }}\n"
-        "Model Response: {{ response }}\n"
-        "Expected Topics: {{ required_topics }}\n\n"
+        "Review the inputs including user profile, query, and context.\n"
+        "Assess if the outputs appropriately respond to the inputs.\n"
+        "Check against expectations for required topics.\n\n"
+        "The {{ inputs }} contain user information and context.\n"
+        "The {{ outputs }} contain the model's response.\n"
+        "The {{ expectations }} list required coverage.\n\n"
         "Assess completeness, accuracy, and appropriateness."
     ),
     model="openai:/gpt-4",
 )
 
-# Handle complex nested data
+# Handle complex nested data within reserved variables
 feedback = comprehensive_judge(
     inputs={
         "user_profile": {"expertise": "beginner", "domain": "ML"},
@@ -428,11 +456,11 @@ feedback = comprehensive_judge(
 conditional_judge = make_judge(
     name="adaptive_evaluator",
     instructions=(
-        "Evaluate {{ response }} based on the user level {{ user_level }}:\n\n"
-        "If user_level is 'beginner':\n"
+        "Evaluate the {{ outputs }} based on the user level in {{ inputs }}:\n\n"
+        "If the user level in inputs is 'beginner':\n"
         "- Check for simple language\n"
         "- Ensure no unexplained jargon\n\n"
-        "If user_level is 'expert':\n"
+        "If the user level in inputs is 'expert':\n"
         "- Check for technical accuracy\n"
         "- Ensure appropriate depth\n\n"
         "Rate as 'appropriate' or 'inappropriate' for the user level."
@@ -441,19 +469,9 @@ conditional_judge = make_judge(
 )
 ```
 
-## Advanced Trace Workflows
+## Advanced Workflows
 
-### Trace Analysis Tools
-
-When evaluating traces, judges automatically receive specialized tools:
-
-- `get_trace_info` - Retrieve metadata and timing
-- `list_spans` - View all execution steps
-- `search_trace_regex` - Find patterns across traces
-- `get_span` - Inspect specific steps
-- `get_root_span` - Access top-level context
-
-### Complete Workflow Example
+### Complete Trace Evaluation Example
 
 ```python
 import mlflow
@@ -469,23 +487,40 @@ perf_judge = make_judge(
     model="openai:/gpt-4",
 )
 
-# Collect and evaluate traces
-traces = []
+# Collect traces and evaluate them
+evaluation_results = []
 for query in ["What is MLflow?", "How to track?"]:
     with mlflow.start_span("query") as span:
-        # Example: my_agent would be your actual agent instance
-        response = "Response for: " + query  # my_agent.process(query)
-        trace = mlflow.get_trace(span.trace_id)
+        # Your actual agent processing
+        response = f"Response for: {query}"  # my_agent.process(query)
+        trace_id = span.trace_id
 
-        # Evaluate immediately
-        feedback = perf_judge(trace=trace)
-        traces.append(
-            {"query": query, "rating": feedback.value, "issues": feedback.rationale}
-        )
+    # Retrieve the completed trace
+    trace = mlflow.get_trace(trace_id)
 
-# Log evaluation results
+    # Evaluate the trace
+    feedback = perf_judge(trace=trace)
+
+    # Log feedback to the trace
+    mlflow.log_feedback(
+        trace_id=trace_id,
+        name="performance",
+        value=feedback.value,
+        rationale=feedback.rationale,
+    )
+
+    evaluation_results.append(
+        {
+            "query": query,
+            "trace_id": trace_id,
+            "rating": feedback.value,
+            "issues": feedback.rationale,
+        }
+    )
+
+# Log evaluation summary
 with mlflow.start_run():
-    mlflow.log_table(traces, "trace_evaluations.json")
+    mlflow.log_table(evaluation_results, "trace_evaluations.json")
 ```
 
 ### Combining with Human Feedback
@@ -493,25 +528,46 @@ with mlflow.start_run():
 Automate initial analysis and flag traces for human review:
 
 ```python
+import mlflow
+from mlflow.entities import AssessmentSource, AssessmentSourceType
+
+# Create a trace to evaluate
+with mlflow.start_span("example_operation") as span:
+    # Your operation here
+    trace_id = span.trace_id
+
+trace = mlflow.get_trace(trace_id)
+
+# Create quality judge
+trace_quality_judge = make_judge(
+    name="quality",
+    instructions="Evaluate the quality of {{ trace }}. Rate as 'good', 'poor', or 'needs improvement'.",
+    model="openai:/gpt-4",
+)
+
 # Automated evaluation
 auto_feedback = trace_quality_judge(trace=trace)
 
+# Log automated feedback
+mlflow.log_feedback(
+    trace_id=trace_id,
+    name="quality_auto",
+    value=auto_feedback.value,
+    rationale=auto_feedback.rationale,
+    source=AssessmentSource(
+        source_type=AssessmentSourceType.LLM_JUDGE, source_id="quality_judge_v1"
+    ),
+)
+
 # Flag for human review if needed
 if auto_feedback.value in ["poor", "needs improvement"]:
-    # Example: human_review_queue would be your review system
-    # human_review_queue.add({...})
+    # Add to review queue (your system)
     review_item = {
-        "trace_id": trace.trace_id,
+        "trace_id": trace_id,
         "auto_rating": auto_feedback.value,
         "needs_review": True,
     }
-
-# Combine automated and human insights
-final_assessment = {
-    "trace_id": trace.trace_id,
-    "automated": auto_feedback,
-    # "human": await get_human_feedback(trace.trace_id),
-}
+    # human_review_queue.add(review_item)
 ```
 
 ## Learn More
@@ -536,21 +592,21 @@ final_assessment = {
     containerHeight={64}
   />
   <TileCard
-    icon={Rocket}
-    iconSize={48}
-    title="Human Feedback"
-    description="Learn how to collect and utilize human feedback alongside LLM judges."
-    href="/genai/tracing/collect-user-feedback"
-    linkText="Collect feedback →"
-    containerHeight={64}
-  />
-  <TileCard
     icon={GitBranch}
     iconSize={48}
     title="Tracing Guide"
     description="Learn how to collect and analyze traces for comprehensive evaluation."
     href="/genai/tracing"
     linkText="Start tracing →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Brain}
+    iconSize={48}
+    title="Human Feedback"
+    description="Learn how to collect and utilize human feedback for evaluation."
+    href="/genai/assessments/feedback"
+    linkText="Collect feedback →"
     containerHeight={64}
   />
 </TilesGrid>

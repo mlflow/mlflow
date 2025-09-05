@@ -8,7 +8,18 @@ import { Bot, BookOpen, MessageSquare } from "lucide-react";
 
 :::info[Consider using make_judge API]
 
-The new <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API (MLflow 3.4.0+) provides a more streamlined approach for creating custom judges with template-based instructions, version control, and improved data organization.
+The new <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API (MLflow 3.4.0+) is the recommended approach for most use cases. It provides:
+
+- **Cleaner data organization** with reserved variables (`inputs`, `outputs`, `expectations`, `trace`)
+- **Version control** and team collaboration features
+- **Judge alignment** capabilities with human feedback
+- **Simpler API** for common evaluation patterns
+
+Use `custom_prompt_judge` when you need:
+
+- Complete control over prompt structure
+- Custom variable names beyond the reserved set
+- Complex multi-choice outputs
 
 [Learn about make_judge →](/genai/eval-monitor/scorers/llm-judge/make-judge)
 
@@ -65,12 +76,13 @@ def is_issue_resolved(inputs, outputs):
     return issue_judge(conversation=conversation)
 ```
 
-## Prompt requirements
+## Prompt Requirements
 
-The prompt template for the judge must have:
+The prompt template for `custom_prompt_judge` must have:
 
-- Placeholders for input values with **double curly braces**, e.g., `{{conversation}}`.
-- Choices for the judge to select from as output, enclosed in **square brackets**, e.g., `[[fully_resolved]]`. The choice name can contain alphanumeric characters and underscores.
+- **Template placeholders** with double curly braces, e.g., `{{conversation}}`. These placeholders are replaced with your data at evaluation time.
+- **Output choices** enclosed in square brackets, e.g., `[[fully_resolved]]`. The choice name can contain alphanumeric characters and underscores.
+- **Flexible variable names**: Unlike `make_judge`, you can use any variable names in your template, not just reserved ones.
 
 :::tip Handling Parsing Errors
 
