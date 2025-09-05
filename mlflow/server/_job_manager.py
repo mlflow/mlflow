@@ -33,7 +33,7 @@ class PromptOptimizationJobManager:
         train_dataset_id: str,
         eval_dataset_id: str | None,
         prompt_url: str,
-        scorers: list,
+        scorers: list[Any],
         target_llm: str,
         algorithm: str | None,
     ) -> str:
@@ -60,7 +60,7 @@ class PromptOptimizationJobManager:
 
             return job_id
 
-    def get_job(self, job_id: str) -> dict | None:
+    def get_job(self, job_id: str) -> dict[str, Any] | None:
         """Get job status and result."""
         job = self._jobs.get(job_id)
         if job:
@@ -174,9 +174,6 @@ class PromptOptimizationJobManager:
             job["status"] = GetOptimizePromptJob.PromptOptimizationJobStatus.COMPLETED
 
         except Exception as e:
-            import traceback
-
-            traceback.print_exc()
             job["status"] = GetOptimizePromptJob.PromptOptimizationJobStatus.FAILED
             job["error"] = str(e)
             _logger.error(f"Prompt optimization job {job_id} failed: {e}")
