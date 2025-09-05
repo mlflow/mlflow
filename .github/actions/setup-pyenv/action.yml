@@ -16,8 +16,14 @@ runs:
           libreadline-dev \
           liblzma-dev
 
-        # Use the official pyenv installer which is fast (~2 seconds)
-        curl -fsSL https://pyenv.run | bash
+        # Check if pyenv is already installed
+        if [ -d "$HOME/.pyenv" ]; then
+          echo "pyenv is already installed at $HOME/.pyenv"
+        else
+          echo "Installing pyenv..."
+          # Use the official pyenv installer which is fast (~2 seconds)
+          curl -fsSL https://pyenv.run | bash
+        fi
     - name: Setup environment variables
       if: runner.os == 'Linux'
       shell: bash
