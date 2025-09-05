@@ -13,6 +13,7 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import Judge
 from mlflow.genai.judges.utils import (
+    _MODEL_RESPONSE_FORMAT_CAPABILITIES,
     CategoricalRating,
     add_output_format_instructions,
     invoke_judge_model,
@@ -470,3 +471,64 @@ def test_invoke_judge_model_caches_capabilities_globally():
         assert "response_format" not in call_kwargs
 
         assert feedback2.name == "test2"
+
+
+def test_unsupported_response_format_handling_supports_multiple_threads():
+    """
+    When an LLM is invoked with structured outputs and returns a BadRequestsError,
+    we cache the lack of support for structured outputs ("response_format") in a
+    "model capability cache" to avoid retrying with structured outputs again.
+
+    This test simulates a race condition where another thread modifies the
+    model capability cache between the initial check and the exception handler,
+    ensuring that we still retry correctly without response_format.
+    """
+    model_key = "openai/gpt-4-race-bug"
+    _MODEL_RESPONSE_FORMAT_CAPABILITIES.clear()
+
+    bad_request_error = litellm.BadRequestError(
+        message="response_format not supported", model=model_key, llm_provider="openai"
+    )
+
+    call_count = 0
+    capabilities_cache_call_count = 0
+
+    def mock_completion(**kwargs):
+        nonlocal call_count
+        call_count += 1
+        if "response_format" in kwargs:
+            raise bad_request_error
+        else:
+            return ModelResponse(
+                choices=[{"message": {"content": '{"result": "yes", "rationale": "Success"}'}}]
+            )
+
+    class MockCapabilitiesCache(dict):
+        """Mock cache that simulates the race condition."""
+
+        def get(self, key, default=None):
+            nonlocal capabilities_cache_call_count
+            capabilities_cache_call_count += 1
+
+            if capabilities_cache_call_count == 1:
+                return True
+            elif capabilities_cache_call_count == 2:
+                return False
+            else:
+                return False
+
+    with (
+        mock.patch("litellm.completion", side_effect=mock_completion),
+        mock.patch(
+            "mlflow.genai.judges.utils._MODEL_RESPONSE_FORMAT_CAPABILITIES", MockCapabilitiesCache()
+        ),
+    ):
+        result = invoke_judge_model(
+            model_uri=f"openai:/{model_key}",
+            prompt="Test prompt",
+            assessment_name="race_bug_test",
+        )
+
+        assert call_count == 2, "Should make 2 calls: initial (fails) + retry (succeeds)"
+        assert capabilities_cache_call_count == 1
+        assert result.value == "yes"

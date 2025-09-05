@@ -203,7 +203,6 @@ def _invoke_litellm(
 
     litellm_model_uri = f"{provider}/{model_name}"
     tools = []
-    response_format = _get_judge_response_format()
 
     if trace is not None:
         judge_tools = list_judge_tools()
@@ -221,21 +220,24 @@ def _invoke_litellm(
             # In LiteLLM version 1.55.3+, max_retries is stacked on top of retry_policy.
             # To avoid double-retry, we set max_retries=0
             "max_retries": 0,
+            # Drop any parameters that are known to be unsupported by the LLM
+            "drop_params": True,
         }
         if include_response_format:
-            kwargs["response_format"] = response_format
+            kwargs["response_format"] = _get_judge_response_format()
         return litellm.completion(**kwargs)
 
+    include_response_format = _MODEL_RESPONSE_FORMAT_CAPABILITIES.get(litellm_model_uri, True)
     while True:
         try:
             try:
-                response = _make_completion_request(
-                    include_response_format=_MODEL_RESPONSE_FORMAT_CAPABILITIES.get(
-                        litellm_model_uri, True
-                    )
-                )
+                response = _make_completion_request(include_response_format=include_response_format)
             except litellm.BadRequestError as e:
-                if _MODEL_RESPONSE_FORMAT_CAPABILITIES.get(litellm_model_uri, True):
+                # Check whether the request attempted to use structured outputs, rather than
+                # checking whether the model supports structured outputs in the capabilities cache,
+                # since the capabilities cache may have been update between the time that
+                # include_response_format was set and the request was made
+                if include_response_format:
                     # Retry without response_format if the request failed due to bad request.
                     # Some models don't support structured outputs (response_format) at all,
                     # and some models don't support both tool calling and structured outputs.
@@ -246,6 +248,7 @@ def _invoke_litellm(
                     )
                     # Cache the capability for future calls
                     _MODEL_RESPONSE_FORMAT_CAPABILITIES[litellm_model_uri] = False
+                    include_response_format = False
                     response = _make_completion_request(include_response_format=False)
                 else:
                     # Already tried without response_format and still got BadRequestError
