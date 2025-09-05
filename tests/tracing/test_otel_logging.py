@@ -163,51 +163,49 @@ def test_otel_endpoint_requires_experiment_id_header(mlflow_server: str):
     assert response.status_code == 422
 
 
-def test_invalid_otel_span_format_returns_400(mlflow_server: str):
-    """
-    Test that invalid OpenTelemetry protobuf format returns HTTP 400.
-    """
-    # Try multiple types of invalid data to ensure we catch protobuf parsing issues
-    # Different protobuf library versions may handle invalid data differently
-    invalid_test_cases = [
+@pytest.mark.parametrize(
+    "invalid_data",
+    [
         b"this is not valid protobuf data at all",  # Completely invalid
         b"\x00\x00\x00\x00",  # Just null bytes
         b"\xff\xff\xff\xff" * 100,  # Invalid protobuf wire format
         b"{'json': 'data'}",  # JSON instead of protobuf
-    ]
+    ],
+)
+def test_invalid_otel_span_format_returns_400(mlflow_server: str, invalid_data: bytes):
+    """
+    Test that invalid OpenTelemetry protobuf format returns HTTP 400.
+    """
+    # Retry up to 3 times in case of transient issues
+    for attempt in range(3):
+        response = requests.post(
+            f"{mlflow_server}/v1/traces",
+            data=invalid_data,
+            headers={
+                "Content-Type": "application/x-protobuf",
+                MLFLOW_EXPERIMENT_ID_HEADER: "test-experiment",
+            },
+            timeout=10,
+        )
 
-    for invalid_data in invalid_test_cases:
-        # Retry up to 3 times in case of transient issues
-        for attempt in range(3):
-            response = requests.post(
-                f"{mlflow_server}/v1/traces",
-                data=invalid_data,
-                headers={
-                    "Content-Type": "application/x-protobuf",
-                    MLFLOW_EXPERIMENT_ID_HEADER: "test-experiment",
-                },
-                timeout=10,
+        # Server should return 400 for invalid protobuf data
+        # If protobuf parsing succeeds but produces empty data, server returns
+        # 400 for "no spans found"
+        if response.status_code == 400:
+            # Verify error message indicates invalid format or no spans
+            assert any(
+                msg in response.text.lower() for msg in ["invalid", "no spans found", "protobuf"]
+            ), f"Unexpected error message: {response.text}"
+            break  # Success, test passed
+        elif attempt < 2:
+            # Wait briefly before retry
+            time.sleep(0.5)
+        else:
+            # Final attempt failed
+            assert False, (
+                f"Expected 400 for invalid protobuf data, got {response.status_code}. "
+                f"Response: {response.text[:200]}"
             )
-
-            # Server should return 400 for invalid protobuf data
-            # If protobuf parsing succeeds but produces empty data, server returns
-            # 400 for "no spans found"
-            if response.status_code == 400:
-                # Verify error message indicates invalid format or no spans
-                assert any(
-                    msg in response.text.lower()
-                    for msg in ["invalid", "no spans found", "protobuf"]
-                ), f"Unexpected error message: {response.text}"
-                break  # Success, move to next test case
-            elif attempt < 2:
-                # Wait briefly before retry
-                time.sleep(0.5)
-            else:
-                # Final attempt failed
-                assert False, (
-                    f"Expected 400 for invalid protobuf data, got {response.status_code}. "
-                    f"Response: {response.text[:200]}"
-                )
 
 
 def test_missing_required_span_fields_returns_422(mlflow_server: str):
