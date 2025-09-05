@@ -130,7 +130,7 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          uv run ./dev/install-common-deps-uv.sh
+          ./dev/install-common-deps-uv.sh
           # test telemetry events
           uv pip install -c requirements/constraints.txt openai
           uv pip install -c requirements/constraints.txt .
@@ -297,7 +297,6 @@ jobs:
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
-      - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
@@ -340,7 +339,6 @@ jobs:
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
-      - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
@@ -381,7 +379,6 @@ jobs:
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
-      - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
@@ -436,7 +433,6 @@ jobs:
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
-      - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
@@ -466,7 +462,6 @@ jobs:
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
-      - uses: ./.github/actions/setup-pyenv
       - name: Configure virtualenv to use uv Python
         run: |
           # Use uv's Python (which has all modules including _bz2) instead of pyenv's
@@ -480,7 +475,7 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          uv run --no-project pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
             --store-durations --durations-path=group_${{ matrix.group }}_durations.json --durations=30 \
             tests/pyfunc tests/types --ignore tests/pyfunc/test_spark_connect.py
 
@@ -513,7 +508,6 @@ jobs:
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
-      - uses: ./.github/actions/setup-pyenv
       - name: Configure virtualenv to use uv Python
         run: |
           # Use uv's Python (which has all modules including _bz2) instead of pyenv's
