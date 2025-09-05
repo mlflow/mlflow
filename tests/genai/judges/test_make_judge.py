@@ -1,4 +1,6 @@
 import json
+import sys
+import types
 from dataclasses import asdict
 from unittest import mock
 
@@ -11,12 +13,14 @@ import mlflow.genai
 import mlflow.genai.judges.instructions_judge
 from mlflow.entities import Span, SpanType, Trace, TraceData, TraceInfo
 from mlflow.entities.assessment import Feedback
+from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
 from mlflow.genai.judges.instructions_judge.constants import JUDGE_BASE_PROMPT
+from mlflow.genai.judges.utils import validate_judge_model
 from mlflow.genai.scorers.base import Scorer, ScorerKind, SerializedScorer
 from mlflow.genai.scorers.registry import _get_scorer_store
 from mlflow.tracing.utils import build_otel_context
@@ -158,33 +162,80 @@ def test_make_judge_with_databricks_default(monkeypatch):
     assert judge.model == "databricks"
 
 
-def test_databricks_model_invocation_requires_litellm(monkeypatch):
-    monkeypatch.setattr("mlflow.genai.judges.utils._is_litellm_available", lambda: False)
-
-    judge = make_judge(
-        name="test_judge", instructions="Check if {{outputs}} is valid", model="databricks"
-    )
+def test_databricks_model_requires_databricks_agents(monkeypatch):
+    # Simulate databricks.agents.evals not being installed
+    monkeypatch.setitem(sys.modules, "databricks.agents.evals.judges", None)
 
     with pytest.raises(
-        MlflowException, match="To use 'databricks' as the judge model, install litellm"
+        MlflowException,
+        match="To use 'databricks' as the judge model, the Databricks agents library",
     ):
-        judge(outputs={"text": "test output"})
+        make_judge(
+            name="test_judge", instructions="Check if {{outputs}} is valid", model="databricks"
+        )
 
 
-def test_databricks_model_works_with_litellm(monkeypatch):
-    from mlflow.genai.judges.constants import (
-        _DATABRICKS_DEFAULT_MODEL_NAME,
-        _DATABRICKS_PROVIDER_NAME,
-    )
+def test_litellm_provider_requires_litellm(monkeypatch):
+    # Simulate litellm not being installed
+    monkeypatch.setitem(sys.modules, "litellm", None)
 
-    monkeypatch.setattr("mlflow.genai.judges.utils._is_litellm_available", lambda: True)
+    with pytest.raises(
+        MlflowException,
+        match="LiteLLM is required for using 'azure' as a provider",
+    ):
+        make_judge(
+            name="test_judge", instructions="Check if {{outputs}} is valid", model="azure:/gpt-4"
+        )
 
-    def mock_litellm_invoke(provider, model_name, messages, trace, num_retries):
-        assert provider == _DATABRICKS_PROVIDER_NAME
-        assert model_name == _DATABRICKS_DEFAULT_MODEL_NAME
-        return json.dumps({"result": True, "rationale": "Valid output"})
 
-    monkeypatch.setattr("mlflow.genai.judges.utils._invoke_litellm", mock_litellm_invoke)
+def test_native_providers_work_without_litellm(monkeypatch):
+    # Simulate litellm not being installed
+    monkeypatch.setitem(sys.modules, "litellm", None)
+
+    # These providers should work without litellm
+    for provider in ["openai", "anthropic", "bedrock", "mistral", "endpoints"]:
+        judge = make_judge(
+            name=f"test_judge_{provider}",
+            instructions="Check if {{outputs}} is valid",
+            model=f"{provider}:/test-model",
+        )
+        assert judge.model == f"{provider}:/test-model"
+
+
+def test_validate_judge_model_function():
+    # Test valid models don't raise
+    validate_judge_model("openai:/gpt-4")
+    validate_judge_model("anthropic:/claude-3")
+    validate_judge_model("endpoints:/my-endpoint")
+
+    # Test invalid model format raises
+    with pytest.raises(MlflowException, match="Malformed model uri"):
+        validate_judge_model("invalid-model")
+
+    with pytest.raises(MlflowException, match="Malformed model uri"):
+        validate_judge_model("openai:")
+
+    with pytest.raises(MlflowException, match="Malformed model uri"):
+        validate_judge_model(":/model")
+
+
+def test_databricks_model_works_with_guidelines(monkeypatch):
+    # Mock the databricks.agents.evals.judges.guidelines function
+    def mock_guidelines(guidelines, context, assessment_name):
+        assert assessment_name == "test_judge"
+        assert "Check if" in guidelines or "outputs" in str(context)
+        return Feedback(
+            name=assessment_name,
+            value=True,
+            rationale="Valid output",
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE, source_id="databricks"
+            ),
+        )
+
+    mock_module = types.ModuleType("databricks.agents.evals.judges")
+    mock_module.guidelines = mock_guidelines
+    monkeypatch.setitem(sys.modules, "databricks.agents.evals.judges", mock_module)
 
     judge = make_judge(
         name="test_judge", instructions="Check if {{outputs}} is valid", model="databricks"

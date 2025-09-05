@@ -1,3 +1,1 @@
 _DATABRICKS_DEFAULT_JUDGE_MODEL = "databricks"
-_DATABRICKS_PROVIDER_NAME = "databricks"
-_DATABRICKS_DEFAULT_MODEL_NAME = "databricks-dbrx-instruct"

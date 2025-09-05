@@ -19,13 +19,15 @@ from mlflow.genai.judges.utils import (
     format_prompt,
     get_default_model,
     invoke_judge_model,
+    validate_judge_model,
 )
 from mlflow.genai.scorers.base import _SERIALIZATION_VERSION, ScorerKind, SerializedScorer
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.types.llm import ChatMessage
 from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
-    from mlflow.types.llm import ChatMessage  # noqa: F401
+    pass
 
 
 @experimental(version="3.4.0")
@@ -226,8 +228,6 @@ class InstructionsJudge(Judge):
             user_content = "\n".join(user_message_parts)
 
             # Create messages list using ChatMessage objects
-            from mlflow.types.llm import ChatMessage
-
             messages = [
                 ChatMessage(role="system", content=system_content),
                 ChatMessage(role="user", content=user_content),
@@ -274,13 +274,7 @@ class InstructionsJudge(Judge):
         - "provider:/<model-name>" URI format (e.g., "openai:/gpt-4")
         - "endpoints:/<endpoint-name>" for Databricks model serving endpoints
         """
-        if self._model == _DATABRICKS_DEFAULT_JUDGE_MODEL:
-            return
-
-        # Import here to avoid circular dependency and pandas requirement
-        from mlflow.metrics.genai.model_utils import _parse_model_uri
-
-        _parse_model_uri(self._model)
+        validate_judge_model(self._model)
 
     def _validate_instructions_template(self) -> None:
         """
