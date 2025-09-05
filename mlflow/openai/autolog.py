@@ -215,8 +215,11 @@ def _try_parse_raw_response(response: Any) -> Any:
 
 
 def _is_responses_api(original: Any) -> bool:
-    class_name, _ = original.__qualname__.split(".")
-    return class_name in ["Responses", "AsyncResponses"]
+    match getattr(original, "__qualname__", "").split("."):
+        case [class_name, _]:
+            return class_name in {"Responses", "AsyncResponses"}
+        case _:
+            return False
 
 
 def patched_call(original, self, *args, **kwargs):
