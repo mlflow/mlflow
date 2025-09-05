@@ -388,19 +388,25 @@ jobs:
       - uses: ./.github/actions/show-versions
       - name: Run GenAI Tests (OSS)
         run: |
+          # Copy consolidated duration file for reading (gets overwritten with this group's durations)
+          cp .github/workflows/test_durations/genai.test_duration /tmp/genai_durations.json 2>/dev/null || echo "{}" > /tmp/genai_durations.json
           uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --durations-path=.github/workflows/test_durations/genai.test_duration \
-            --store-durations \
+            --durations-path=/tmp/genai_durations.json --store-durations \
             tests/genai
+          # Move to group-specific file for artifact upload
+          mv /tmp/genai_durations.json group_${{ matrix.group }}_durations.json
 
       - name: Run GenAI Tests (Databricks)
         run: |
           uv pip install -c requirements/constraints.txt databricks-agents
+          # Copy existing group durations file to append to it
+          cp group_${{ matrix.group }}_durations.json /tmp/genai_durations.json 2>/dev/null || echo "{}" > /tmp/genai_durations.json
           uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --durations-path=.github/workflows/test_durations/genai.test_duration \
-            --store-durations \
+            --durations-path=/tmp/genai_durations.json --store-durations \
             tests/genai --ignore tests/genai/test_genai_import_without_agent_sdk.py \
             --ignore tests/genai/optimize --ignore tests/genai/prompts
+          # Move back to group file
+          mv /tmp/genai_durations.json group_${{ matrix.group }}_durations.json
 
       - name: Run Tests with Local Spark Session
         run: |
@@ -409,10 +415,13 @@ jobs:
           # uninstalling databricks-connect.
           uv pip uninstall databricks-connect pyspark
           uv pip install -c requirements/constraints.txt pyspark
+          # Copy existing group durations file to append to it
+          cp group_${{ matrix.group }}_durations.json /tmp/genai_durations.json 2>/dev/null || echo "{}" > /tmp/genai_durations.json
           uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --durations-path=.github/workflows/test_durations/genai.test_duration \
-            --store-durations \
+            --durations-path=/tmp/genai_durations.json --store-durations \
             tests/genai/evaluate/test_utils.py
+          # Move back to group file
+          mv /tmp/genai_durations.json group_${{ matrix.group }}_durations.json
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
@@ -523,10 +532,13 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests with pydantic v1
         run: |
+          # Copy consolidated duration file for reading (gets overwritten with this group's durations)
+          cp .github/workflows/test_durations/pyfunc-pydanticv1.test_duration /tmp/pydantic_durations.json 2>/dev/null || echo "{}" > /tmp/pydantic_durations.json
           uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --durations-path=.github/workflows/test_durations/pyfunc-pydanticv1.test_duration \
-            --store-durations --durations=30 \
+            --durations-path=/tmp/pydantic_durations.json --store-durations --durations=30 \
             tests/types tests/pyfunc/test_pyfunc_model_with_type_hints.py tests/utils/test_pydantic_utils.py
+          # Move to group-specific file for artifact upload
+          mv /tmp/pydantic_durations.json group_${{ matrix.group }}_durations.json
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
@@ -560,10 +572,13 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
+          # Copy consolidated duration file for reading (gets overwritten with this group's durations)
+          cp .github/workflows/test_durations/sagemaker.test_duration /tmp/sagemaker_durations.json 2>/dev/null || echo "{}" > /tmp/sagemaker_durations.json
           uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --durations-path=.github/workflows/test_durations/sagemaker.test_duration \
-            --store-durations \
+            --durations-path=/tmp/sagemaker_durations.json --store-durations \
             tests/sagemaker
+          # Move to group-specific file for artifact upload
+          mv /tmp/sagemaker_durations.json group_${{ matrix.group }}_durations.json
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
@@ -650,11 +665,14 @@ jobs:
           export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests (including telemetry)
+          # Copy consolidated duration file for reading (gets overwritten with this group's durations)
+          cp .github/workflows/test_durations/windows.test_duration /tmp/windows_durations.json 2>/dev/null || echo "{}" > /tmp/windows_durations.json
           uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --durations-path=.github/workflows/test_durations/windows.test_duration \
-            --store-durations \
+            --durations-path=/tmp/windows_durations.json --store-durations \
             --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/evaluate --ignore=tests/optuna \
             --ignore=tests/pyspark/optuna --ignore=tests/genai tests || true
+          # Move to group-specific file for artifact upload
+          mv /tmp/windows_durations.json group_${{ matrix.group }}_durations.json
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
