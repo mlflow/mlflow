@@ -2,7 +2,6 @@
 
 import tempfile
 from unittest import mock
-from unittest.mock import patch
 
 import pytest
 
@@ -15,7 +14,7 @@ from mlflow.genai.scorers.base import ScorerSamplingConfig
 @pytest.fixture
 def mock_databricks_tracking_uri():
     """Module-level fixture to mock Databricks tracking URI for tests that need it."""
-    with patch(
+    with mock.patch(
         "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks"
     ) as mock_uri:
         yield mock_uri
@@ -44,18 +43,22 @@ def test_non_databricks_model_cannot_register(
 
 def test_safety_with_databricks_model_can_register(mock_databricks_tracking_uri: mock.Mock):
     """Test that Safety scorer with databricks model can be registered."""
-    with patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer") as mock_add:
+    with mock.patch(
+        "mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer"
+    ) as mock_add:
         scorer = Safety(model="databricks:/my-judge-model")
         registered = scorer.register()
 
-        assert registered.name == "safety"
-        mock_add.assert_called_once()
-        mock_databricks_tracking_uri.assert_called()
+    assert registered.name == "safety"
+    mock_add.assert_called_once()
+    mock_databricks_tracking_uri.assert_called()
 
 
 def test_builtin_scorer_without_custom_model_can_register(mock_databricks_tracking_uri: mock.Mock):
     """Test that builtin scorers without custom models can be registered."""
-    with patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer") as mock_add:
+    with mock.patch(
+        "mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer"
+    ) as mock_add:
         # Safety with default model (None)
         scorer = Safety()
         registered = scorer.register()
@@ -67,9 +70,10 @@ def test_builtin_scorer_without_custom_model_can_register(mock_databricks_tracki
         # RetrievalRelevance with default model (None)
         scorer = RetrievalRelevance()
         registered = scorer.register()
-        assert registered.name == "retrieval_relevance"
-        mock_add.assert_called_once()
-        mock_databricks_tracking_uri.assert_called()
+
+    assert registered.name == "retrieval_relevance"
+    mock_add.assert_called_once()
+    mock_databricks_tracking_uri.assert_called()
 
 
 def test_scorer_start_with_non_databricks_model_fails(mock_databricks_tracking_uri: mock.Mock):
@@ -108,7 +112,7 @@ def test_non_databricks_backend_allows_any_model(tmp_path):
         tracking_uri = f"sqlite:///{tmpdir}/test.db"
         mlflow.set_tracking_uri(tracking_uri)
 
-        with patch(
+        with mock.patch(
             "mlflow.tracking._tracking_service.utils.get_tracking_uri",
             return_value=tracking_uri,
         ):
