@@ -1,5 +1,6 @@
 """Tests for builtin scorer registration validation with custom judge models."""
 
+import tempfile
 from unittest import mock
 from unittest.mock import patch
 
@@ -103,9 +104,6 @@ def test_scorer_stop_with_non_databricks_model_fails(mock_databricks_tracking_ur
 
 def test_non_databricks_backend_allows_any_model(tmp_path):
     """Test that non-databricks backends allow any model provider."""
-    # Ensure we're not using databricks backend for this test
-    import tempfile
-
     with tempfile.TemporaryDirectory() as tmpdir:
         tracking_uri = f"sqlite:///{tmpdir}/test.db"
         mlflow.set_tracking_uri(tracking_uri)
