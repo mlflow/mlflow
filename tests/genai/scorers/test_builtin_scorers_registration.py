@@ -1,8 +1,7 @@
 """Tests for builtin scorer registration validation with custom judge models."""
 
 import tempfile
-from pathlib import Path
-from typing import Iterator, Type
+from typing import Iterator
 from unittest import mock
 
 import pytest
@@ -31,7 +30,7 @@ def mock_databricks_tracking_uri() -> Iterator[mock.Mock]:
     ],
 )
 def test_non_databricks_model_cannot_register(
-    scorer_class: Type[Scorer], model: str, mock_databricks_tracking_uri: mock.Mock
+    scorer_class: type[Scorer], model: str, mock_databricks_tracking_uri: mock.Mock
 ):
     scorer = scorer_class(model=model)
     with pytest.raises(
@@ -101,7 +100,18 @@ def test_scorer_stop_with_non_databricks_model_fails(mock_databricks_tracking_ur
     mock_databricks_tracking_uri.assert_called()
 
 
-def test_non_databricks_backend_allows_any_model(tmp_path: Path):
+@pytest.mark.parametrize(
+    ("scorer_class", "model", "expected_name"),
+    [
+        (Safety, "openai:/gpt-4", "safety"),
+        (Safety, "anthropic:/claude-3-opus", "safety"),
+        (RetrievalRelevance, "openai:/gpt-4", "retrieval_relevance"),
+        (RetrievalRelevance, "anthropic:/claude-3", "retrieval_relevance"),
+    ],
+)
+def test_non_databricks_backend_allows_any_model(
+    scorer_class: type[Scorer], model: str, expected_name: str
+):
     with tempfile.TemporaryDirectory() as tmpdir:
         tracking_uri = f"sqlite:///{tmpdir}/test.db"
         mlflow.set_tracking_uri(tracking_uri)
@@ -112,15 +122,10 @@ def test_non_databricks_backend_allows_any_model(tmp_path: Path):
         ) as mock_get_tracking_uri:
             experiment_id = mlflow.create_experiment("test_any_model_allowed")
 
-            # OpenAI model should work with MLflow backend
-            scorer = Safety(model="openai:/gpt-4")
+            # Non-Databricks models should work with MLflow backend
+            scorer = scorer_class(model=model)
             registered = scorer.register(experiment_id=experiment_id)
-            assert registered.name == "safety"
-
-            # Anthropic model should work with MLflow backend
-            scorer = RetrievalRelevance(model="anthropic:/claude-3-opus")
-            registered = scorer.register(experiment_id=experiment_id)
-            assert registered.name == "retrieval_relevance"
+            assert registered.name == expected_name
 
             mock_get_tracking_uri.assert_called()
 
