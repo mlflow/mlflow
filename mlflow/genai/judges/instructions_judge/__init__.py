@@ -163,6 +163,27 @@ class InstructionsJudge(Judge):
             Evaluation results
 
         """
+        if inputs is not None and not isinstance(inputs, dict):
+            raise MlflowException(
+                f"'inputs' must be a dictionary, got {type(inputs).__name__}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        if outputs is not None and not isinstance(outputs, dict):
+            raise MlflowException(
+                f"'outputs' must be a dictionary, got {type(outputs).__name__}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        if expectations is not None and not isinstance(expectations, dict):
+            raise MlflowException(
+                f"'expectations' must be a dictionary, got {type(expectations).__name__}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        if trace is not None and not isinstance(trace, Trace):
+            raise MlflowException(
+                f"'trace' must be a Trace instance, got {type(trace).__name__}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
         # Check if the input arguments match the template variables
         missing_params = []
 
