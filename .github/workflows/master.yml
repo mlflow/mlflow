@@ -98,13 +98,12 @@ jobs:
         run: |
           source dev/setup-ssh.sh
           uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --durations-path=.github/workflows/test_durations/python.test_duration \
-            --store-durations \
+            --store-durations --durations-path=group_${{ matrix.group }}_durations.json \
             --quiet --requires-ssh \
             --ignore-flavors --ignore=tests/examples --ignore=tests/evaluate \
             --ignore tests/genai tests || true
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: test-durations-python-group-${{ matrix.group }}
@@ -140,8 +139,7 @@ jobs:
         run: |
           uv run python -c "import sys; assert sys.version_info[:2] == (3, 10), sys.version_info"
           uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --durations-path=.github/workflows/test_durations/python-skinny-tests.test_duration \
-            --store-durations \
+            --store-durations --durations-path=group_${{ matrix.group }}_durations.json \
             tests/types/test_type_hints.py tests/pyfunc/test_pyfunc_model_with_type_hints.py tests/telemetry || [ $? -eq 5 ]
       - name: Run databricks-connect related tests
         run: |
@@ -149,11 +147,10 @@ jobs:
           # tests that uses normal SparkSession instead of remote SparkSession
           uv pip install -c requirements/constraints.txt databricks-agents
           uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --durations-path=.github/workflows/test_durations/python-skinny-tests.test_duration \
-            --store-durations \
+            --store-durations --durations-path=group_${{ matrix.group }}_durations.json \
             tests/utils/test_requirements_utils.py::test_infer_pip_requirements_on_databricks_agents || [ $? -eq 5 ]
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: test-durations-python-skinny-tests-group-${{ matrix.group }}
@@ -267,14 +264,13 @@ jobs:
       - name: Run tests
         run: |
           uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --durations-path=.github/workflows/test_durations/flavors.test_duration \
-            --store-durations \
+            --store-durations --durations-path=group_${{ matrix.group }}_durations.json \
             tests/utils/test_model_utils.py \
             tests/tracking/fluent/test_fluent_autolog.py \
             tests/autologging \
             tests/server/auth
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: test-durations-flavors-group-${{ matrix.group }}
@@ -312,11 +308,10 @@ jobs:
       - name: Run tests
         run: |
           uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --durations-path=.github/workflows/test_durations/models.test_duration \
-            --store-durations \
+            --store-durations --durations-path=group_${{ matrix.group }}_durations.json \
             tests/models
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: test-durations-models-group-${{ matrix.group }}
@@ -356,11 +351,10 @@ jobs:
       - name: Run tests
         run: |
           uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --durations-path=.github/workflows/test_durations/evaluate.test_duration \
-            --store-durations \
+            --store-durations --durations-path=group_${{ matrix.group }}_durations.json \
             tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: test-durations-evaluate-group-${{ matrix.group }}
@@ -423,7 +417,7 @@ jobs:
             --store-durations \
             tests/genai/evaluate/test_utils.py
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: test-durations-genai-group-${{ matrix.group }}
@@ -486,15 +480,14 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --durations-path=.github/workflows/test_durations/pyfunc.test_duration \
-            --store-durations --durations=30 \
+          uv run --no-project pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+            --store-durations --durations-path=group_${{ matrix.group }}_durations.json --durations=30 \
             tests/pyfunc tests/types --ignore tests/pyfunc/test_spark_connect.py
 
           # test_spark_connect.py fails if it's run with other tests, so run it separately.
           uv run pytest tests/pyfunc/test_spark_connect.py
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: test-durations-pyfunc-group-${{ matrix.group }}
@@ -541,7 +534,7 @@ jobs:
             --store-durations --durations=30 \
             tests/types tests/pyfunc/test_pyfunc_model_with_type_hints.py tests/utils/test_pydantic_utils.py
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: test-durations-pyfunc-pydanticv1-group-${{ matrix.group }}
@@ -578,7 +571,7 @@ jobs:
             --store-durations \
             tests/sagemaker
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: test-durations-sagemaker-group-${{ matrix.group }}
@@ -669,7 +662,7 @@ jobs:
             --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/evaluate --ignore=tests/optuna \
             --ignore=tests/pyspark/optuna --ignore=tests/genai tests || true
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: test-durations-windows-group-${{ matrix.group }}
