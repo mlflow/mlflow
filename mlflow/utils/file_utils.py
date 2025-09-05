@@ -760,7 +760,7 @@ def get_or_create_tmp_dir():
         # For Spark UDFs, we need to make it accessible to other processes
         # Use 0o755 (owner: rwx, group: r-x, others: r-x) instead of 0o777
         # This allows read/execute but not write for group and others
-        os.chmod(tmp_dir, 0o755)
+        os.chmod(tmp_dir, 0o750)
         atexit.register(shutil.rmtree, tmp_dir, ignore_errors=True)
 
     return tmp_dir
