@@ -153,7 +153,10 @@ This occurs because PostgreSQL 11 doesn't support GENERATED columns (introduced 
 
 **Solution for existing installations:**
 
-If you're upgrading MLflow and encounter this error, run the following SQL commands directly on your database:
+If you're upgrading MLflow and encounter this error, you have two options:
+
+**Option 1: Fix the database schema (Recommended)**
+Run the following SQL commands directly on your database:
 
 ```sql
 -- Add the missing column
@@ -187,11 +190,82 @@ INSERT INTO alembic_version (version_num) VALUES ('a1b2c3d4e5f6')
 ON CONFLICT DO NOTHING;
 ```
 
+**Option 2: Skip the problematic migration (if Option 1 doesn't work)**
+If you're completely blocked and need to bypass the spans table creation:
+
+```sql
+-- Mark the migration as complete without creating the table
+-- WARNING: This will skip spans/tracing functionality
+INSERT INTO alembic_version (version_num) VALUES ('a1b2c3d4e5f6')
+ON CONFLICT DO NOTHING;
+```
+
 **Recommendations:**
+
 - **Upgrade PostgreSQL**: Consider upgrading to PostgreSQL 12 or later for full feature support.
 - **Fresh installations**: MLflow automatically handles PostgreSQL 11 compatibility.
 - **Report issues**: If you continue experiencing problems, please [report them on GitHub](https://github.com/mlflow/mlflow/issues).
 
+:::
+
+### Downgrading MLflow with Database Backend
+
+:::warning downgrade-with-database
+**Error: "No such revision or branch" when downgrading**
+
+If you're downgrading MLflow (e.g., from 3.3.x to 3.2.0) and encounter:
+
+```
+alembic.script.revision.ResolutionError: No such revision or branch '1a0cddfcaa16'
+```
+
+This occurs because your database has migrations from the newer version that don't exist in the older version.
+
+**Solution:**
+
+1. **Identify the last migration that exists in your target version:**
+
+   ```sql
+   -- Check current migrations in your database
+   SELECT * FROM alembic_version;
+   ```
+
+2. **Remove migrations that don't exist in the target version:**
+
+   ```sql
+   -- For downgrading from 3.3.x to 3.2.0, remove these migrations:
+   DELETE FROM alembic_version WHERE version_num IN (
+     '1a0cddfcaa16',  -- webhooks (3.3.0)
+     '534353b11cbc',  -- scorer tables (3.3.0)
+     '71994744cf8e',  -- evaluation datasets (3.3.0)
+     'e2c54d7e0d3f'   -- PostgreSQL 11 fix (3.3.1)
+   );
+
+   -- Set to the last migration in 3.2.0
+   INSERT INTO alembic_version (version_num)
+   SELECT 'de4033877273'  -- entity_associations (last in 3.2.0)
+   WHERE NOT EXISTS (SELECT 1 FROM alembic_version WHERE version_num = 'de4033877273');
+   ```
+
+3. **Clean up tables created by newer migrations (optional but recommended):**
+
+   ```sql
+   -- Drop tables that were added after 3.2.0
+   DROP TABLE IF EXISTS webhook_events CASCADE;
+   DROP TABLE IF EXISTS webhooks CASCADE;
+   DROP TABLE IF EXISTS scorer_versions CASCADE;
+   DROP TABLE IF EXISTS scorers CASCADE;
+   DROP TABLE IF EXISTS evaluation_dataset_records CASCADE;
+   DROP TABLE IF EXISTS evaluation_dataset_tags CASCADE;
+   DROP TABLE IF EXISTS evaluation_datasets CASCADE;
+   ```
+
+4. **Start MLflow with the older version:**
+   ```bash
+   mlflow server --backend-store-uri <your-database-uri>
+   ```
+
+**Important:** Always backup your database before downgrading!
 :::
 
 ### General Migration Issues

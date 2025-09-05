@@ -5,6 +5,7 @@ Revises: de4033877273
 Create Date: 2024-01-10 00:00:00.000000
 
 """
+
 import sqlalchemy as sa
 from alembic import op
 
@@ -58,7 +59,7 @@ def upgrade():
     """
     Fix for PostgreSQL 11 users who failed to create spans table due to
     GENERATED column syntax not being supported.
-    
+
     This migration:
     1. Detects if running on PostgreSQL < 12
     2. Checks if spans table exists but duration_ns is missing (migration failed)
@@ -129,7 +130,7 @@ def upgrade():
     op.execute(
         text(
             """
-        UPDATE spans 
+        UPDATE spans
         SET duration_ns = end_time_unix_nano - start_time_unix_nano
         WHERE end_time_unix_nano IS NOT NULL AND duration_ns IS NULL;
         """
