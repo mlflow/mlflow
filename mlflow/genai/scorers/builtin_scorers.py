@@ -844,3 +844,39 @@ class MissingColumnsException(MlflowException):
         super().__init__(
             f"The following columns are required for the scorer {scorer}: {missing_columns}"
         )
+
+
+# Name to builtin scorer mapping for prompt optimization
+BUILTIN_SCORER_MAP = {
+    "retrieval_relevance": RetrievalRelevance,
+    "retrieval_sufficiency": RetrievalSufficiency,
+    "retrieval_groundedness": RetrievalGroundedness,
+    "guidelines": Guidelines,
+    "expectations_guidelines": ExpectationsGuidelines,
+    "relevance_to_query": RelevanceToQuery,
+    "safety": Safety,
+    "correctness": Correctness,
+}
+
+
+def get_builtin_scorer_by_name(scorer_name: str) -> BuiltInScorer:
+    """
+    Get a builtin scorer instance by name.
+    
+    Args:
+        scorer_name: The name of the scorer to get.
+        
+    Returns:
+        An instance of the builtin scorer.
+        
+    Raises:
+        MlflowException: If the scorer name is not found.
+    """
+    if scorer_name not in BUILTIN_SCORER_MAP:
+        available_scorers = list(BUILTIN_SCORER_MAP.keys())
+        raise MlflowException(
+            f"Unknown scorer name: {scorer_name}. Available scorers: {available_scorers}"
+        )
+    
+    scorer_class = BUILTIN_SCORER_MAP[scorer_name]
+    return scorer_class()

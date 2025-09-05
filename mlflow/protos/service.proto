@@ -1120,6 +1120,46 @@ service MlflowService {
       rpc_doc_title: "Get Evaluation Dataset Records",
     };
   }
+
+  // =============================================================================
+  // Prompt Optimization RPCs
+  // =============================================================================
+
+  // Start a prompt optimization job.
+  rpc optimizePrompt(OptimizePrompt) returns (OptimizePrompt.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/optimize-prompt"
+        since { major: 3, minor: 0 },
+      }],
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        CUSTOMER_UNAUTHORIZED,
+        INTERNAL_ERROR
+      ],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Start Prompt Optimization Job",
+    };
+  }
+
+  // Get the status and result of a prompt optimization job.
+  rpc getOptimizePromptJob(GetOptimizePromptJob) returns (GetOptimizePromptJob.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/get-optimize-prompt-job/{job_id}"
+        since { major: 3, minor: 0 },
+      }],
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Get Prompt Optimization Job Status",
+    };
+  }
 }
 
 // View type for ListExperiments query.
@@ -3118,4 +3158,90 @@ message Scorer {
   optional string serialized_scorer = 4;
   // The creation time of the scorer version (in milliseconds since epoch).
   optional int64 creation_time = 5;
+}
+
+message ScorerParam {
+   message CustomScorerParam {
+     optional string name = 1;
+     optional string experiment_id = 2;
+     optional int32 version = 3;
+  }
+   oneof param {
+      string name = 1;
+      CustomScorerParam custom_scorer = 2;
+   }
+}
+
+// =============================================================================
+// Prompt Optimization Messages
+// =============================================================================
+
+// Request to start a prompt optimization job.
+message OptimizePrompt {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the training dataset.
+  optional string train_dataset_id = 1 [(validate_required) = true];
+  
+  // ID of the evaluation dataset.
+  optional string eval_dataset_id = 2 [(validate_required) = false];
+  
+  // URL of the prompt to optimize.
+  optional string prompt_url = 3 [(validate_required) = true];
+  
+  // List of scorer names to use for evaluation.
+  repeated ScorerParam scorers = 4 [(validate_required) = true];
+
+    // Target LLM to use for optimization.
+  optional string target_llm = 5;
+
+  // Algorithm to use for optimization.
+  optional string algorithm = 6;
+
+  message Response {
+    // ID of the created optimization job.
+    optional string job_id = 1;
+  }
+}
+
+// Request to get the status and result of a prompt optimization job.
+message GetOptimizePromptJob {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the optimization job.
+  optional string job_id = 1 [(validate_required) = true];
+
+  // Status of a prompt optimization job.
+  enum PromptOptimizationJobStatus {
+    UNSPECIFIED = 0;
+
+    // Job is pending and waiting to start.
+    PENDING = 1;
+
+    // Job is currently running.
+    RUNNING = 2;
+
+    // Job has completed successfully.
+    COMPLETED = 3;
+
+    // Job has failed.
+    FAILED = 4;
+  }
+
+  // Result of a completed prompt optimization job.
+  message PromptOptimizationResult {
+    // URL of the optimized prompt.
+    optional string prompt_url = 1;
+
+    // Evaluation score achieved by the optimized prompt.
+    optional double evaluation_score = 2;
+  }
+
+  message Response {
+    // Current status of the optimization job.
+    optional PromptOptimizationJobStatus status = 1;
+    
+    // Result of the optimization job (only present if status is COMPLETED).
+    optional PromptOptimizationResult result = 2;
+  }
 }

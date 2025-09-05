@@ -11,7 +11,6 @@ import tempfile
 import time
 import urllib
 from functools import partial, wraps
-
 import requests
 from flask import Response, current_app, jsonify, request, send_file
 from google.protobuf import descriptor
@@ -123,6 +122,7 @@ from mlflow.protos.service_pb2 import (
     GetLoggedModel,
     GetMetricHistory,
     GetMetricHistoryBulkInterval,
+    GetOptimizePromptJob,
     GetRun,
     GetScorer,
     GetTraceInfo,
@@ -140,6 +140,7 @@ from mlflow.protos.service_pb2 import (
     LogOutputs,
     LogParam,
     MlflowService,
+    OptimizePrompt,
     RegisterScorer,
     RemoveDatasetFromExperiments,
     RestoreExperiment,
@@ -537,6 +538,37 @@ def _assert_intlike_within_range(x, min_value, max_value, message=None):
 
 def _assert_item_type_string(x):
     assert all(isinstance(item, str) for item in x)
+
+
+def _assert_scorer_param(x):
+    """Validate that x is a valid ScorerParam object."""
+    assert isinstance(x, dict), "ScorerParam must be a dictionary"
+    
+    # Check if it's a string name (has 'name' field)
+    if "name" in x:
+        assert isinstance(x["name"], str), "ScorerParam name must be a string"
+        # Should not have other fields for string name
+        assert len(x) == 1, "ScorerParam with name should not have other fields"
+    # Check if it's a custom scorer (has 'custom_scorer' field)
+    elif "custom_scorer" in x:
+        custom_scorer = x["custom_scorer"]
+        assert isinstance(custom_scorer, dict), "custom_scorer must be a dictionary"
+        assert "name" in custom_scorer, "custom_scorer must have 'name' field"
+        assert isinstance(custom_scorer["name"], str), "custom_scorer name must be a string"
+        assert "experiment_id" in custom_scorer, "custom_scorer must have 'experiment_id' field"
+        assert isinstance(custom_scorer["experiment_id"], str), "custom_scorer experiment_id must be a string"
+        if "version" in custom_scorer:
+            assert isinstance(custom_scorer["version"], int), "custom_scorer version must be an integer"
+        # Should not have other fields
+        assert len(x) == 1, "ScorerParam with custom_scorer should not have other fields"
+    else:
+        raise AssertionError("ScorerParam must have either 'name' or 'custom_scorer' field")
+
+
+def _assert_scorer_params(x):
+    _assert_array(x)
+    for e in x:
+        _assert_scorer_param(e)
 
 
 _TYPE_VALIDATORS = {
@@ -3864,6 +3896,70 @@ def _get_dataset_records_handler(dataset_id):
     return _wrap_response(response_message)
 
 
+# Prompt Optimization APIs
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _optimize_prompts_handler():
+    from mlflow.server._job_manager import _prompt_optimization_job_manager
+    from google.protobuf.json_format import MessageToDict
+
+    request_message = _get_request_message(
+        OptimizePrompt(),
+        schema={
+            "train_dataset_id": [_assert_required, _assert_string],
+            "eval_dataset_id": [_assert_string],
+            "prompt_url": [_assert_required, _assert_string],
+            "scorers": [_assert_required, _assert_scorer_params],
+            "target_llm": [_assert_required, _assert_string],
+            "algorithm": [_assert_string],
+        },
+    )
+
+    target_llm = request_message.target_llm
+    algorithm = request_message.algorithm or "DSPy/MIPROv2"
+
+    # Create the optimization job
+    job_id = _prompt_optimization_job_manager.create_job(
+        train_dataset_id=request_message.train_dataset_id,
+        eval_dataset_id=request_message.eval_dataset_id,
+        prompt_url=request_message.prompt_url,
+        scorers=[MessageToDict(s, preserving_proto_field_name=True) for s in request_message.scorers],
+        target_llm=target_llm,
+        algorithm=algorithm,
+    )
+
+    response_message = OptimizePrompt.Response()
+    response_message.job_id = job_id
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_optimize_prompts_job_handler(job_id):
+    from mlflow.server._job_manager import _prompt_optimization_job_manager
+
+    job = _prompt_optimization_job_manager.get_job(job_id)
+
+    if not job:
+        raise MlflowException(
+            f"Prompt optimization job with id '{job_id}' not found",
+            RESOURCE_DOES_NOT_EXIST,
+        )
+    
+    response_message = GetOptimizePromptJob.Response()
+
+    response_message.status = job["status"]
+    # Add result if job is completed
+    if job["status"] == GetOptimizePromptJob.PromptOptimizationJobStatus.COMPLETED:
+        result = response_message.result
+        result.prompt_url = job["result"]["prompt_url"]
+        result.evaluation_score = job["result"]["evaluation_score"]
+
+    return _wrap_response(response_message)
+
+
 HANDLERS = {
     # Tracking Server APIs
     CreateExperiment: _create_experiment,
@@ -3979,4 +4075,7 @@ HANDLERS = {
     ListScorerVersions: _list_scorer_versions,
     GetScorer: _get_scorer,
     DeleteScorer: _delete_scorer,
+    # Prompt Optimization APIs
+    OptimizePrompt: _optimize_prompts_handler,
+    GetOptimizePromptJob: _get_optimize_prompts_job_handler,
 }
