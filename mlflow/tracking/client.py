@@ -75,6 +75,7 @@ from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     FEATURE_DISABLED,
     INVALID_PARAMETER_VALUE,
+    NOT_FOUND,
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
@@ -739,8 +740,9 @@ class MlflowClient:
                 return registry_client.get_prompt_version(name, version_or_alias)
         except MlflowException as exc:
             if allow_missing and exc.error_code in (
-                ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),  # missing prompt/version
-                ErrorCode.Name(INVALID_PARAMETER_VALUE),  # missing alias
+                ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
+                ErrorCode.Name(INVALID_PARAMETER_VALUE),  # missing alias - file store only
+                ErrorCode.Name(NOT_FOUND),
             ):
                 return None
             raise
