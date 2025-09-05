@@ -1,19 +1,20 @@
 """Tests for builtin scorer registration validation with custom judge models."""
 
 import tempfile
+from pathlib import Path
+from typing import Iterator, Type
 from unittest import mock
 
 import pytest
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.genai.scorers import RetrievalRelevance, Safety
+from mlflow.genai.scorers import RetrievalRelevance, Safety, Scorer
 from mlflow.genai.scorers.base import ScorerSamplingConfig
 
 
 @pytest.fixture
-def mock_databricks_tracking_uri():
-    """Module-level fixture to mock Databricks tracking URI for tests that need it."""
+def mock_databricks_tracking_uri() -> Iterator[mock.Mock]:
     with mock.patch(
         "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks"
     ) as mock_uri:
@@ -30,9 +31,8 @@ def mock_databricks_tracking_uri():
     ],
 )
 def test_non_databricks_model_cannot_register(
-    scorer_class, model, mock_databricks_tracking_uri: mock.Mock
+    scorer_class: Type[Scorer], model: str, mock_databricks_tracking_uri: mock.Mock
 ):
-    """Test that scorers with non-databricks models cannot be registered."""
     scorer = scorer_class(model=model)
     with pytest.raises(
         MlflowException, match="The scorer's judge model must use Databricks as a model provider"
@@ -42,7 +42,6 @@ def test_non_databricks_model_cannot_register(
 
 
 def test_safety_with_databricks_model_can_register(mock_databricks_tracking_uri: mock.Mock):
-    """Test that Safety scorer with databricks model can be registered."""
     with mock.patch(
         "mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer"
     ) as mock_add:
@@ -55,7 +54,6 @@ def test_safety_with_databricks_model_can_register(mock_databricks_tracking_uri:
 
 
 def test_builtin_scorer_without_custom_model_can_register(mock_databricks_tracking_uri: mock.Mock):
-    """Test that builtin scorers without custom models can be registered."""
     with mock.patch(
         "mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer"
     ) as mock_add:
@@ -77,7 +75,6 @@ def test_builtin_scorer_without_custom_model_can_register(mock_databricks_tracki
 
 
 def test_scorer_start_with_non_databricks_model_fails(mock_databricks_tracking_uri: mock.Mock):
-    """Test that start() method also validates model provider."""
     scorer = Safety(model="openai:/gpt-4")
     with pytest.raises(
         MlflowException, match="The scorer's judge model must use Databricks as a model provider"
@@ -87,7 +84,6 @@ def test_scorer_start_with_non_databricks_model_fails(mock_databricks_tracking_u
 
 
 def test_scorer_update_with_non_databricks_model_fails(mock_databricks_tracking_uri: mock.Mock):
-    """Test that update() method also validates model provider."""
     scorer = Safety(model="anthropic:/claude-3")
     with pytest.raises(
         MlflowException, match="The scorer's judge model must use Databricks as a model provider"
@@ -97,7 +93,6 @@ def test_scorer_update_with_non_databricks_model_fails(mock_databricks_tracking_
 
 
 def test_scorer_stop_with_non_databricks_model_fails(mock_databricks_tracking_uri: mock.Mock):
-    """Test that stop() method also validates model provider."""
     scorer = RetrievalRelevance(model="openai:/gpt-4")
     with pytest.raises(
         MlflowException, match="The scorer's judge model must use Databricks as a model provider"
@@ -106,8 +101,7 @@ def test_scorer_stop_with_non_databricks_model_fails(mock_databricks_tracking_ur
     mock_databricks_tracking_uri.assert_called()
 
 
-def test_non_databricks_backend_allows_any_model(tmp_path):
-    """Test that non-databricks backends allow any model provider."""
+def test_non_databricks_backend_allows_any_model(tmp_path: Path):
     with tempfile.TemporaryDirectory() as tmpdir:
         tracking_uri = f"sqlite:///{tmpdir}/test.db"
         mlflow.set_tracking_uri(tracking_uri)
@@ -115,7 +109,7 @@ def test_non_databricks_backend_allows_any_model(tmp_path):
         with mock.patch(
             "mlflow.tracking._tracking_service.utils.get_tracking_uri",
             return_value=tracking_uri,
-        ):
+        ) as mock_get_tracking_uri:
             experiment_id = mlflow.create_experiment("test_any_model_allowed")
 
             # OpenAI model should work with MLflow backend
@@ -127,6 +121,8 @@ def test_non_databricks_backend_allows_any_model(tmp_path):
             scorer = RetrievalRelevance(model="anthropic:/claude-3-opus")
             registered = scorer.register(experiment_id=experiment_id)
             assert registered.name == "retrieval_relevance"
+
+            mock_get_tracking_uri.assert_called()
 
 
 def test_error_message_shows_actual_model(mock_databricks_tracking_uri: mock.Mock):
