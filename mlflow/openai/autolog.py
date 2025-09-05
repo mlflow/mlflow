@@ -335,7 +335,8 @@ def _end_span_on_success(
 
 def _process_last_chunk(
     span: LiveSpan,
-    chunk: Any, inputs: dict[str, Any],
+    chunk: Any,
+    inputs: dict[str, Any],
     output: list[Any],
     is_responses_api: bool,
 ) -> None:
@@ -358,9 +359,9 @@ def _process_last_chunk(
         _end_span_on_success(span, inputs, output, is_responses_api)
     except Exception as e:
         _logger.warning(
-            "Encountered unexpected error when autologging processes the chunks "
-            f"in response: {e}"
+            f"Encountered unexpected error when autologging processes the chunks in response: {e}"
         )
+
 
 def _reconstruct_completion_from_stream(chunks: list[Any], is_responses_api: bool) -> Any:
     """

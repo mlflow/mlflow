@@ -817,6 +817,10 @@ async def test_model_loading_set_active_model_id_without_fetching_logged_model(
     assert span.inputs["messages"][0]["content"] == f"test {model_id}"
 
 
+@pytest.mark.skipif(
+    Version(openai.__version__) < Version("1.6"), reason="Requires OpenAI SDK >= 1.6"
+)
+@skip_when_testing_trace_sdk
 def test_reconstruct_response_from_output_done_events():
     """Test _reconstruct_completion_from_stream with is_responses_api=True."""
     from mlflow.openai.autolog import _reconstruct_completion_from_stream
@@ -828,33 +832,19 @@ def test_reconstruct_response_from_output_done_events():
     content2 = ResponseOutputText(annotations=[], text=" world", type="output_text")
 
     message1 = ResponseOutputMessage(
-        id="test-1",
-        content=[content1],
-        role="assistant",
-        status="completed",
-        type="message"
+        id="test-1", content=[content1], role="assistant", status="completed", type="message"
     )
 
     message2 = ResponseOutputMessage(
-        id="test-2", 
-        content=[content2],
-        role="assistant",
-        status="completed",
-        type="message"
+        id="test-2", content=[content2], role="assistant", status="completed", type="message"
     )
 
     chunk1 = ResponseOutputItemDoneEvent(
-        item=message1,
-        output_index=0,
-        sequence_number=1,
-        type="response.output_item.done"
+        item=message1, output_index=0, sequence_number=1, type="response.output_item.done"
     )
 
     chunk2 = ResponseOutputItemDoneEvent(
-        item=message2,
-        output_index=1,
-        sequence_number=2,
-        type="response.output_item.done"
+        item=message2, output_index=1, sequence_number=2, type="response.output_item.done"
     )
 
     chunks = [chunk1, chunk2]
