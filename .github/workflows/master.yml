@@ -475,12 +475,12 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+          uv run --no-project pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
             --store-durations --durations-path=group_${{ matrix.group }}_durations.json --durations=30 \
             tests/pyfunc tests/types --ignore tests/pyfunc/test_spark_connect.py
 
           # test_spark_connect.py fails if it's run with other tests, so run it separately.
-          uv run pytest tests/pyfunc/test_spark_connect.py
+          uv run --no-project pytest tests/pyfunc/test_spark_connect.py
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()

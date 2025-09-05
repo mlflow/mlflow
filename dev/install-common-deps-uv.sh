@@ -90,11 +90,11 @@ packages+=" aiohttp"
 # Add virtualenv for model isolation (needed by MLflow for creating model environments)
 packages+=" virtualenv"
 
-# Single uv pip install call for all packages
-retry-with-backoff uv pip install --upgrade $packages
+# Single uv pip install call for all packages with constraints
+retry-with-backoff uv pip install -c requirements/constraints.txt --upgrade $packages
 
 # Install mlflow-test-plugin without dependencies (separate call needed for --no-deps)
-uv pip install --no-deps tests/resources/mlflow-test-plugin
+uv pip install -c requirements/constraints.txt --no-deps tests/resources/mlflow-test-plugin
 
 # Print current environment info
 which mlflow
