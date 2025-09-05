@@ -4,14 +4,17 @@ runs:
   using: "composite"
   steps:
     ########## Ubuntu ##########
-    # Note: We need libbz2-dev for MLflow's virtualenv creation which uses pyenv install
+    # Note: We need minimal build deps for MLflow's virtualenv creation which uses pyenv install
     - name: Install minimal dependencies for pyenv
       if: runner.os == 'Linux'
       shell: bash
       run: |
-        # Install only libbz2-dev for the _bz2 Python module
-        # This is required when MLflow creates virtualenvs with pyenv
-        sudo apt-get update && sudo apt-get install -y --no-install-recommends libbz2-dev
+        # Install minimal dependencies required for Python modules used by MLflow
+        # These are needed when MLflow creates virtualenvs with pyenv install
+        sudo apt-get update && sudo apt-get install -y --no-install-recommends \
+          libbz2-dev \
+          libreadline-dev \
+          liblzma-dev
 
         # Use the official pyenv installer which is fast (~2 seconds)
         curl -fsSL https://pyenv.run | bash

@@ -176,6 +176,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@557e51de59eb14aaaba2ed9621916900a91d50c6 # v6
       - uses: ./.github/actions/setup-java
+      - uses: ./.github/actions/setup-pyenv
       - name: Install Python 3.10
         run: |
           uv python install 3.10
