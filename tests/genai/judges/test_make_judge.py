@@ -1221,6 +1221,85 @@ def test_judge_accepts_valid_trace(mock_trace, mock_invoke_judge_model):
     assert mock_invoke_judge_model.captured_args["trace"] == mock_trace
 
 
+def test_unused_parameters_trigger_warning(mock_invoke_judge_model):
+    # Judge that only uses inputs
+    judge = make_judge(
+        name="inputs_only",
+        instructions="Check if {{inputs}} is valid",
+        model="openai:/gpt-4",
+    )
+
+    # Pass both inputs and outputs, but outputs should trigger warning
+    with mock.patch("mlflow.genai.judges.instructions_judge._logger.warning") as mock_warning:
+        judge(inputs={"test": "value"}, outputs={"ignored": "data"})
+
+        mock_warning.assert_called_once()
+        warning_message = mock_warning.call_args[0][0]
+        assert "'outputs'" in warning_message
+        assert "not used by this judge's instructions" in warning_message
+
+    # Judge that only uses outputs
+    outputs_judge = make_judge(
+        name="outputs_only",
+        instructions="Check if {{outputs}} is formal",
+        model="openai:/gpt-4",
+    )
+
+    # Pass inputs, outputs, and expectations - inputs and expectations should trigger warning
+    with mock.patch("mlflow.genai.judges.instructions_judge._logger.warning") as mock_warning:
+        outputs_judge(
+            inputs={"ignored": "input"},
+            outputs={"response": "test"},
+            expectations={"also": "ignored"},
+        )
+
+        mock_warning.assert_called_once()
+        warning_message = mock_warning.call_args[0][0]
+        assert "'inputs'" in warning_message
+        assert "'expectations'" in warning_message
+        assert "not used by this judge's instructions" in warning_message
+
+    # Judge that uses all parameters - no warning should be triggered
+    full_judge = make_judge(
+        name="full_judge",
+        instructions="Check {{inputs}}, {{outputs}}, and {{expectations}}",
+        model="openai:/gpt-4",
+    )
+
+    with mock.patch("mlflow.genai.judges.instructions_judge._logger.warning") as mock_warning:
+        full_judge(
+            inputs={"test": "input"},
+            outputs={"test": "output"},
+            expectations={"test": "expectation"},
+        )
+
+        # No warnings should be raised
+        mock_warning.assert_not_called()
+
+
+def test_trace_judge_warns_about_ignored_parameters(mock_trace, mock_invoke_judge_model):
+    # Create a trace-based judge
+    trace_judge = make_judge(
+        name="trace_judge",
+        instructions="Analyze this {{trace}}",
+        model="openai:/gpt-4",
+    )
+
+    # Pass trace with other parameters - should warn about ignored inputs/outputs
+    with mock.patch("mlflow.genai.judges.instructions_judge._logger.warning") as mock_warning:
+        trace_judge(
+            trace=mock_trace,
+            inputs={"ignored": "input"},
+            outputs={"ignored": "output"},
+        )
+
+        # Should get warning about unused inputs and outputs
+        mock_warning.assert_called_once()
+        warning_message = mock_warning.call_args[0][0]
+        assert "'inputs'" in warning_message
+        assert "'outputs'" in warning_message
+
+
 def test_instructions_judge_with_chat_messages():
     captured_args = {}
 
