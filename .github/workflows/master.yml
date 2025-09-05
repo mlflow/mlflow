@@ -48,25 +48,8 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
-      - name: Install uv
-        uses: astral-sh/setup-uv@557e51de59eb14aaaba2ed9621916900a91d50c6 # v6
-      - name: Fix uv PATH
-        run: |
-          if ! command -v uv &> /dev/null; then
-            echo "uv not found in PATH, attempting to locate and add to PATH..."
-            UV_PATH=$(find /opt/hostedtoolcache/uv -name "uv" -type f | head -1)
-            if [ -n "$UV_PATH" ]; then
-              UV_DIR=$(dirname "$UV_PATH")
-              echo "$UV_DIR" >> $GITHUB_PATH
-              echo "Added $UV_DIR to PATH"
-            else
-              echo "uv binary not found"
-              exit 1
-            fi
-          else
-            echo "uv already available in PATH"
-          fi
       - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps-uv.sh --skinny
@@ -91,31 +74,9 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
-      - name: Install uv
-        uses: astral-sh/setup-uv@557e51de59eb14aaaba2ed9621916900a91d50c6 # v6
-      - name: Fix uv PATH
-        run: |
-          if ! command -v uv &> /dev/null; then
-            echo "uv not found in PATH, attempting to locate and add to PATH..."
-            UV_PATH=$(find /opt/hostedtoolcache/uv -name "uv" -type f | head -1)
-            if [ -n "$UV_PATH" ]; then
-              UV_DIR=$(dirname "$UV_PATH")
-              echo "$UV_DIR" >> $GITHUB_PATH
-              echo "Added $UV_DIR to PATH"
-            else
-              echo "uv binary not found"
-              exit 1
-            fi
-          else
-            echo "uv already available in PATH"
-          fi
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
-      - name: Debug uv installation
-        run: |
-          echo "PATH: $PATH"
-          which uv || echo "uv not found in PATH"
-          uv --version || echo "uv version failed"
-          ls -la ~/.local/bin/ || echo "~/.local/bin/ not found"
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps-uv.sh --ml
@@ -123,24 +84,6 @@ jobs:
           uv pip install -c requirements/constraints.txt tf-keras
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
-      - name: Debug venv
-        run: |
-          echo "Current directory: $(pwd)"
-          echo "Contents of current directory:"
-          ls -la | head -20
-          echo "Checking if .venv exists:"
-          if [ -d ".venv" ]; then
-            echo ".venv directory exists"
-            echo "Python in .venv:"
-            ls -la .venv/bin/python* || true
-            echo "Packages in .venv:"
-            .venv/bin/pip list | head -20 || true
-          else
-            echo ".venv directory does NOT exist"
-          fi
-          echo "UV environment detection:"
-          uv run python -c "import sys; print('Python:', sys.executable)"
-          uv run python -c "import sys; print('Path:', sys.path[:3])"
       - name: Import check
         run: |
           # Try without -I flag to see if uv run can find packages in .venv
@@ -173,14 +116,9 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
-      - name: Install uv
-        uses: astral-sh/setup-uv@557e51de59eb14aaaba2ed9621916900a91d50c6 # v6
-      - uses: ./.github/actions/setup-java
+      - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
-      - name: Install Python 3.10
-        run: |
-          uv python install 3.10
-          uv python pin 3.10
+      - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
           uv run ./dev/install-common-deps-uv.sh
@@ -261,25 +199,8 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
-      - name: Install uv
-        uses: astral-sh/setup-uv@557e51de59eb14aaaba2ed9621916900a91d50c6 # v6
-      - name: Fix uv PATH
-        run: |
-          if ! command -v uv &> /dev/null; then
-            echo "uv not found in PATH, attempting to locate and add to PATH..."
-            UV_PATH=$(find /opt/hostedtoolcache/uv -name "uv" -type f | head -1)
-            if [ -n "$UV_PATH" ]; then
-              UV_DIR=$(dirname "$UV_PATH")
-              echo "$UV_DIR" >> $GITHUB_PATH
-              echo "Added $UV_DIR to PATH"
-            else
-              echo "uv binary not found"
-              exit 1
-            fi
-          else
-            echo "uv already available in PATH"
-          fi
       - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
@@ -309,24 +230,8 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
-      - name: Install uv
-        uses: astral-sh/setup-uv@557e51de59eb14aaaba2ed9621916900a91d50c6 # v6
-      - name: Fix uv PATH
-        run: |
-          if ! command -v uv &> /dev/null; then
-            echo "uv not found in PATH, attempting to locate and add to PATH..."
-            UV_PATH=$(find /opt/hostedtoolcache/uv -name "uv" -type f | head -1)
-            if [ -n "$UV_PATH" ]; then
-              UV_DIR=$(dirname "$UV_PATH")
-              echo "$UV_DIR" >> $GITHUB_PATH
-              echo "Added $UV_DIR to PATH"
-            else
-              echo "uv binary not found"
-              exit 1
-            fi
-          else
-            echo "uv already available in PATH"
-          fi
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
@@ -362,25 +267,8 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
-      - name: Install uv
-        uses: astral-sh/setup-uv@557e51de59eb14aaaba2ed9621916900a91d50c6 # v6
-      - name: Fix uv PATH
-        run: |
-          if ! command -v uv &> /dev/null; then
-            echo "uv not found in PATH, attempting to locate and add to PATH..."
-            UV_PATH=$(find /opt/hostedtoolcache/uv -name "uv" -type f | head -1)
-            if [ -n "$UV_PATH" ]; then
-              UV_DIR=$(dirname "$UV_PATH")
-              echo "$UV_DIR" >> $GITHUB_PATH
-              echo "Added $UV_DIR to PATH"
-            else
-              echo "uv binary not found"
-              exit 1
-            fi
-          else
-            echo "uv already available in PATH"
-          fi
       - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
@@ -413,25 +301,8 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
-      - name: Install uv
-        uses: astral-sh/setup-uv@557e51de59eb14aaaba2ed9621916900a91d50c6 # v6
-      - name: Fix uv PATH
-        run: |
-          if ! command -v uv &> /dev/null; then
-            echo "uv not found in PATH, attempting to locate and add to PATH..."
-            UV_PATH=$(find /opt/hostedtoolcache/uv -name "uv" -type f | head -1)
-            if [ -n "$UV_PATH" ]; then
-              UV_DIR=$(dirname "$UV_PATH")
-              echo "$UV_DIR" >> $GITHUB_PATH
-              echo "Added $UV_DIR to PATH"
-            else
-              echo "uv binary not found"
-              exit 1
-            fi
-          else
-            echo "uv already available in PATH"
-          fi
       - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
@@ -463,25 +334,8 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
-      - name: Install uv
-        uses: astral-sh/setup-uv@557e51de59eb14aaaba2ed9621916900a91d50c6 # v6
-      - name: Fix uv PATH
-        run: |
-          if ! command -v uv &> /dev/null; then
-            echo "uv not found in PATH, attempting to locate and add to PATH..."
-            UV_PATH=$(find /opt/hostedtoolcache/uv -name "uv" -type f | head -1)
-            if [ -n "$UV_PATH" ]; then
-              UV_DIR=$(dirname "$UV_PATH")
-              echo "$UV_DIR" >> $GITHUB_PATH
-              echo "Added $UV_DIR to PATH"
-            else
-              echo "uv binary not found"
-              exit 1
-            fi
-          else
-            echo "uv already available in PATH"
-          fi
       - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
@@ -518,25 +372,8 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
-      - name: Install uv
-        uses: astral-sh/setup-uv@557e51de59eb14aaaba2ed9621916900a91d50c6 # v6
-      - name: Fix uv PATH
-        run: |
-          if ! command -v uv &> /dev/null; then
-            echo "uv not found in PATH, attempting to locate and add to PATH..."
-            UV_PATH=$(find /opt/hostedtoolcache/uv -name "uv" -type f | head -1)
-            if [ -n "$UV_PATH" ]; then
-              UV_DIR=$(dirname "$UV_PATH")
-              echo "$UV_DIR" >> $GITHUB_PATH
-              echo "Added $UV_DIR to PATH"
-            else
-              echo "uv binary not found"
-              exit 1
-            fi
-          else
-            echo "uv already available in PATH"
-          fi
       - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
@@ -564,24 +401,8 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
-      - name: Install uv
-        uses: astral-sh/setup-uv@557e51de59eb14aaaba2ed9621916900a91d50c6 # v6
-      - name: Fix uv PATH
-        run: |
-          if ! command -v uv &> /dev/null; then
-            echo "uv not found in PATH, attempting to locate and add to PATH..."
-            UV_PATH=$(find /opt/hostedtoolcache/uv -name "uv" -type f | head -1)
-            if [ -n "$UV_PATH" ]; then
-              UV_DIR=$(dirname "$UV_PATH")
-              echo "$UV_DIR" >> $GITHUB_PATH
-              echo "Added $UV_DIR to PATH"
-            else
-              echo "uv binary not found"
-              exit 1
-            fi
-          else
-            echo "uv already available in PATH"
-          fi
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/setup-pyenv
       - name: Configure virtualenv to use uv Python
@@ -619,24 +440,8 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
-      - name: Install uv
-        uses: astral-sh/setup-uv@557e51de59eb14aaaba2ed9621916900a91d50c6 # v6
-      - name: Fix uv PATH
-        run: |
-          if ! command -v uv &> /dev/null; then
-            echo "uv not found in PATH, attempting to locate and add to PATH..."
-            UV_PATH=$(find /opt/hostedtoolcache/uv -name "uv" -type f | head -1)
-            if [ -n "$UV_PATH" ]; then
-              UV_DIR=$(dirname "$UV_PATH")
-              echo "$UV_DIR" >> $GITHUB_PATH
-              echo "Added $UV_DIR to PATH"
-            else
-              echo "uv binary not found"
-              exit 1
-            fi
-          else
-            echo "uv already available in PATH"
-          fi
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/setup-pyenv
       - name: Configure virtualenv to use uv Python
@@ -672,25 +477,8 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
-      - name: Install uv
-        uses: astral-sh/setup-uv@557e51de59eb14aaaba2ed9621916900a91d50c6 # v6
-      - name: Fix uv PATH
-        run: |
-          if ! command -v uv &> /dev/null; then
-            echo "uv not found in PATH, attempting to locate and add to PATH..."
-            UV_PATH=$(find /opt/hostedtoolcache/uv -name "uv" -type f | head -1)
-            if [ -n "$UV_PATH" ]; then
-              UV_DIR=$(dirname "$UV_PATH")
-              echo "$UV_DIR" >> $GITHUB_PATH
-              echo "Added $UV_DIR to PATH"
-            else
-              echo "uv binary not found"
-              exit 1
-            fi
-          else
-            echo "uv already available in PATH"
-          fi
       - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
