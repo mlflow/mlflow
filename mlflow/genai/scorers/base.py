@@ -727,13 +727,12 @@ class Scorer(BaseModel):
             and model is not None
             and not model.startswith("databricks")
         ):
-            error_message = (
+            raise MlflowException.invalid_parameter_value(
                 "The scorer's judge model must use Databricks as a model provider "
                 "in order to be registered or updated. Please use the default judge model or "
                 "specify a model value starting with `databricks:/`. "
                 f"Got {model}."
             )
-            raise MlflowException.invalid_parameter_value(error_message)
 
 
 @experimental(version="3.0.0")
