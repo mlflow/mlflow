@@ -15,7 +15,11 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
-from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
+from mlflow.genai.judges.constants import (
+    _DATABRICKS_DEFAULT_JUDGE_MODEL,
+    _DATABRICKS_DEFAULT_MODEL_NAME,
+    _DATABRICKS_PROVIDER_NAME,
+)
 from mlflow.genai.utils.enum_utils import StrEnum
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.utils.uri import is_databricks_uri
@@ -104,7 +108,23 @@ def invoke_judge_model(
         score_model_on_payload,
     )
 
-    provider, model_name = _parse_model_uri(model_uri)
+    if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
+        # When using "databricks", use litellm with databricks provider
+        # or fall back to native implementation if available
+        if _is_litellm_available():
+            # Use litellm with databricks provider
+            # The actual endpoint will be determined from environment variables
+            # like DATABRICKS_HOST and DATABRICKS_TOKEN
+            provider = _DATABRICKS_PROVIDER_NAME
+            model_name = _DATABRICKS_DEFAULT_MODEL_NAME
+        else:
+            raise MlflowException(
+                "To use 'databricks' as the judge model, install litellm: `pip install litellm`. "
+                "This will automatically use your Databricks workspace configuration.",
+                error_code=BAD_REQUEST,
+            )
+    else:
+        provider, model_name = _parse_model_uri(model_uri)
 
     # Convert to uniform ChatMessage format for internal processing
     if isinstance(prompt, str):

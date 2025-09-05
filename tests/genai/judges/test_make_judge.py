@@ -158,6 +158,44 @@ def test_make_judge_with_databricks_default(monkeypatch):
     assert judge.model == "databricks"
 
 
+def test_databricks_model_invocation_requires_litellm(monkeypatch):
+    monkeypatch.setattr("mlflow.genai.judges.utils._is_litellm_available", lambda: False)
+
+    judge = make_judge(
+        name="test_judge", instructions="Check if {{outputs}} is valid", model="databricks"
+    )
+
+    with pytest.raises(
+        MlflowException, match="To use 'databricks' as the judge model, install litellm"
+    ):
+        judge(outputs={"text": "test output"})
+
+
+def test_databricks_model_works_with_litellm(monkeypatch):
+    from mlflow.genai.judges.constants import (
+        _DATABRICKS_DEFAULT_MODEL_NAME,
+        _DATABRICKS_PROVIDER_NAME,
+    )
+
+    monkeypatch.setattr("mlflow.genai.judges.utils._is_litellm_available", lambda: True)
+
+    def mock_litellm_invoke(provider, model_name, messages, trace, num_retries):
+        assert provider == _DATABRICKS_PROVIDER_NAME
+        assert model_name == _DATABRICKS_DEFAULT_MODEL_NAME
+        return json.dumps({"result": True, "rationale": "Valid output"})
+
+    monkeypatch.setattr("mlflow.genai.judges.utils._invoke_litellm", mock_litellm_invoke)
+
+    judge = make_judge(
+        name="test_judge", instructions="Check if {{outputs}} is valid", model="databricks"
+    )
+
+    result = judge(outputs={"text": "test output"})
+    assert isinstance(result, Feedback)
+    assert result.value is True
+    assert result.rationale == "Valid output"
+
+
 @pytest.mark.parametrize(
     ("instructions", "expected_vars"),
     [
