@@ -721,14 +721,17 @@ class Scorer(BaseModel):
             raise MlflowException.invalid_parameter_value(error_message)
 
         store = _get_scorer_store()
-        if isinstance(store, DatabricksStore) and not getattr(
-            self, "model", "databricks"
-        ).startswith("databricks"):
+        model = getattr(self, "model", None)
+        if (
+            isinstance(store, DatabricksStore)
+            and model is not None
+            and not model.startswith("databricks")
+        ):
             error_message = (
                 "The scorer's judge model must use Databricks as a model provider "
                 "in order to be registered or updated. Please use the default judge model or "
                 "specify a model value starting with `databricks:/`. "
-                f"Got {getattr(self, 'model', None)}."
+                f"Got {model}."
             )
             raise MlflowException.invalid_parameter_value(error_message)
 
