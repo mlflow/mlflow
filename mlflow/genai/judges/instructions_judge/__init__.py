@@ -164,7 +164,6 @@ class InstructionsJudge(Judge):
 
         """
         # Check if the input arguments match the template variables
-        # If any template variables are missing, throw an MLflow exception
         missing_params = []
 
         if self._TEMPLATE_VARIABLE_INPUTS in self.template_variables and inputs is None:
