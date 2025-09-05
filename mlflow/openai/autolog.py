@@ -373,8 +373,8 @@ def _reconstruct_completion_from_stream(chunks: list[Any], is_responses_api: boo
         return None
 
     if is_responses_api:
-        from openai.types.responses import ResponseOutputItemDoneEvent
         from mlflow.types.responses_helpers import Response
+        from openai.types.responses import ResponseOutputItemDoneEvent
 
         output = [
             chunk.item.to_dict()
