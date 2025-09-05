@@ -181,8 +181,21 @@ class InstructionsJudge(Judge):
         else:
             # This is a field-based judge - require inputs/outputs, ignore trace
             if inputs is None and outputs is None:
+                # Determine which parameters are expected based on template variables
+                missing_vars = []
+                if self._TEMPLATE_VARIABLE_INPUTS in self.template_variables:
+                    missing_vars.append("inputs")
+                if self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables:
+                    missing_vars.append("outputs")
+                
+                if missing_vars:
+                    missing_str = "', '".join(missing_vars)
+                    error_msg = f"Must specify '{missing_str}' for field-based evaluation."
+                else:
+                    error_msg = "Must specify 'inputs' or 'outputs' for field-based evaluation."
+                
                 raise MlflowException(
-                    "Must specify 'inputs' or 'outputs' for field-based evaluation.",
+                    error_msg,
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 

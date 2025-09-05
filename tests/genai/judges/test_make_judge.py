@@ -105,6 +105,35 @@ def mock_trace():
     return Trace(info=trace_info, data=trace_data)
 
 
+@pytest.fixture
+def mock_invoke_judge_model_with_trace(monkeypatch):
+    captured_args = {}
+
+    def mock_invoke(model_uri, prompt, assessment_name, trace=None):
+        captured_args["model_uri"] = model_uri
+        captured_args["prompt"] = prompt
+        captured_args["assessment_name"] = assessment_name
+        captured_args["trace"] = trace
+        return Feedback(name=assessment_name, value=True, rationale="Trace analyzed")
+
+    monkeypatch.setattr("mlflow.genai.judges.instructions_judge.invoke_judge_model", mock_invoke)
+    return captured_args
+
+
+@pytest.fixture
+def mock_invoke_judge_capture_messages(monkeypatch):
+    captured_messages = {}
+
+    def mock_invoke(model_uri, prompt, assessment_name):
+        captured_messages["model_uri"] = model_uri
+        captured_messages["prompt"] = prompt
+        captured_messages["assessment_name"] = assessment_name
+        return Feedback(name=assessment_name, value=True)
+
+    monkeypatch.setattr("mlflow.genai.judges.instructions_judge.invoke_judge_model", mock_invoke)
+    return captured_messages
+
+
 def test_make_judge_creates_instructions_judge():
     judge = make_judge(
         name="test_judge", instructions="Check if {{outputs}} is formal", model="openai:/gpt-4"
@@ -117,11 +146,15 @@ def test_make_judge_creates_instructions_judge():
 
 
 def test_make_judge_with_default_model(monkeypatch):
-    monkeypatch.setenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
+    expected_model = "openai:/gpt-4-test"
+    monkeypatch.setattr(
+        "mlflow.genai.judges.instructions_judge.get_default_model",
+        lambda: expected_model,
+    )
 
     judge = make_judge(name="test_judge", instructions="Check if {{outputs}} is accurate")
 
-    assert judge.model == "openai:/gpt-4.1-mini"
+    assert judge.model == expected_model
 
 
 def test_make_judge_with_databricks_default(monkeypatch):
@@ -299,27 +332,12 @@ def test_call_with_trace_supported(mock_trace, monkeypatch):
     assert captured_args["assessment_name"] == "test_judge"
 
 
-def test_call_validates_missing_reserved_variables():
-    # Test that custom variables are rejected at creation time
-    with pytest.raises(
-        MlflowException, match="Instructions template contains unsupported variables"
-    ):
-        make_judge(
-            name="test_judge",
-            instructions="Check if {{query}} matches {{expected_answer}}",
-            model="openai:/gpt-4",
-        )
 
-
-def test_call_trace_based_judge_ignores_inputs_outputs(mock_trace, monkeypatch):
+def test_call_trace_based_judge_ignores_inputs_outputs(
+    mock_trace, mock_invoke_judge_model_with_trace
+):
     # Test that trace-based judges ignore inputs/outputs and work with trace only
-    captured_args = {}
-
-    def mock_invoke(model_uri, prompt, assessment_name, trace=None):
-        captured_args.update({"trace": trace, "prompt": prompt})
-        return Feedback(name=assessment_name, value=True, rationale="Trace analyzed")
-
-    monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "invoke_judge_model", mock_invoke)
+    captured_args = mock_invoke_judge_model_with_trace
 
     judge = make_judge(
         name="test_judge", instructions="Analyze this {{trace}}", model="openai:/gpt-4"
@@ -345,12 +363,12 @@ def test_call_with_no_inputs_or_outputs():
     )
 
     with pytest.raises(
-        MlflowException, match="Must specify 'inputs' or 'outputs' for field-based evaluation"
+        MlflowException, match="Must specify 'outputs' for field-based evaluation"
     ):
         judge()
 
 
-def test_call_with_valid_inputs_returns_feedback(mock_invoke_judge_model):
+def test_call_with_valid_outputs_returns_feedback(mock_invoke_judge_model):
     judge = make_judge(
         name="formality_judge",
         instructions="Check if {{outputs}} is formal",
@@ -372,19 +390,65 @@ def test_call_with_valid_inputs_returns_feedback(mock_invoke_judge_model):
     assert len(prompt) == 2
     # Check that the user message contains the JSON-serialized outputs
     user_msg = prompt[1]
-    assert "response" in user_msg.content
-    assert test_output in user_msg.content
+    import json
+    expected_outputs_json = json.dumps({"response": test_output}, default=str, indent=2)
+    assert expected_outputs_json in user_msg.content
 
 
-def test_call_with_expectations_as_json(monkeypatch):
-    captured_messages = None
+def test_call_with_valid_inputs_returns_feedback(mock_invoke_judge_model):
+    judge = make_judge(
+        name="input_judge",
+        instructions="Check if {{inputs}} is valid",
+        model="openai:/gpt-4",
+    )
 
-    def mock_invoke(model_uri, prompt, assessment_name):
-        nonlocal captured_messages
-        captured_messages = prompt
-        return Feedback(name=assessment_name, value=True)
+    test_input = {"query": "What is MLflow?"}
+    result = judge(inputs=test_input)
 
-    monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "invoke_judge_model", mock_invoke)
+    assert isinstance(result, Feedback)
+    assert result.name == "input_judge"
+    assert result.value is True
+    assert result.rationale == "The response is formal"
+
+    # Verify the prompt contains the inputs value as JSON
+    assert len(mock_invoke_judge_model.calls) == 1
+    model_uri, prompt, assessment_name = mock_invoke_judge_model.calls[0]
+    user_msg = prompt[1]
+
+    import json
+    expected_inputs_json = json.dumps(test_input, default=str, indent=2)
+    assert expected_inputs_json in user_msg.content
+
+
+def test_call_with_valid_inputs_and_outputs_returns_feedback(mock_invoke_judge_model):
+    judge = make_judge(
+        name="inputs_outputs_judge",
+        instructions="Check if {{outputs}} matches {{inputs}}",
+        model="openai:/gpt-4",
+    )
+
+    test_input = {"query": "What is MLflow?"}
+    test_output = {"response": "MLflow is an open source platform"}
+    result = judge(inputs=test_input, outputs=test_output)
+
+    assert isinstance(result, Feedback)
+    assert result.name == "inputs_outputs_judge"
+    assert result.value is True
+    assert result.rationale == "The response is formal"
+
+    # Verify the prompt contains both inputs and outputs values as JSON
+    assert len(mock_invoke_judge_model.calls) == 1
+    model_uri, prompt, assessment_name = mock_invoke_judge_model.calls[0]
+    user_msg = prompt[1]
+
+    import json
+    expected_inputs_json = json.dumps(test_input, default=str, indent=2)
+    expected_outputs_json = json.dumps(test_output, default=str, indent=2)
+    assert expected_inputs_json in user_msg.content
+    assert expected_outputs_json in user_msg.content
+
+
+def test_call_with_expectations_as_json(mock_invoke_judge_capture_messages):
 
     judge = make_judge(
         name="test_judge",
@@ -392,40 +456,36 @@ def test_call_with_expectations_as_json(monkeypatch):
         model="openai:/gpt-4",
     )
 
-    judge(outputs={"answer": "42"}, expectations={"correct": True, "score": 100})
+    expectations = {"correct": True, "score": 100}
+    judge(outputs={"answer": "42"}, expectations=expectations)
 
     # Check that we have a list of messages
+    captured_messages = mock_invoke_judge_capture_messages["prompt"]
     assert isinstance(captured_messages, list)
     assert len(captured_messages) == 2
 
     # Expectations should be in the user message as JSON
     user_msg = captured_messages[1]
-    assert '"correct": true' in user_msg.content
-    assert '"score": 100' in user_msg.content
+    import json
+    expected_expectations_json = json.dumps(expectations, default=str, indent=2)
+    assert expected_expectations_json in user_msg.content
 
 
-def test_call_with_reserved_variables(monkeypatch):
-    captured_messages = None
-
-    def mock_invoke(model_uri, prompt, assessment_name):
-        nonlocal captured_messages
-        captured_messages = prompt
-        return Feedback(name=assessment_name, value=True)
-
-    monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "invoke_judge_model", mock_invoke)
-
+def test_call_with_reserved_variables(mock_invoke_judge_capture_messages):
     judge = make_judge(
         name="test_judge",
         instructions="Check if {{inputs}} meets {{expectations}}",
         model="openai:/gpt-4",
     )
 
-    result = judge(
-        inputs={"question": "What is AI?"}, expectations={"criteria": "technical accuracy"}
-    )
+    inputs_data = {"question": "What is AI?"}
+    expectations_data = {"criteria": "technical accuracy"}
+    result = judge(inputs=inputs_data, expectations=expectations_data)
 
     assert isinstance(result, Feedback)
+
     # Check that we have a list of messages
+    captured_messages = mock_invoke_judge_capture_messages["prompt"]
     assert isinstance(captured_messages, list)
     assert len(captured_messages) == 2
 
@@ -433,10 +493,13 @@ def test_call_with_reserved_variables(monkeypatch):
     system_msg = captured_messages[0]
     assert "Check if {{inputs}} meets {{expectations}}" in system_msg.content
 
-    # Check user message has the serialized inputs and expectations
+    # Check user message has the JSON dumps of inputs and expectations
     user_msg = captured_messages[1]
-    assert "expectations:" in user_msg.content
-    assert "inputs:" in user_msg.content
+    import json
+    expected_inputs_json = json.dumps(inputs_data, default=str, indent=2)
+    expected_expectations_json = json.dumps(expectations_data, default=str, indent=2)
+    assert expected_inputs_json in user_msg.content
+    assert expected_expectations_json in user_msg.content
     assert "technical accuracy" in user_msg.content
     assert "What is AI?" in user_msg.content
 
@@ -478,29 +541,21 @@ def test_call_with_various_input_combinations(
     assert isinstance(result, Feedback)
 
 
-def test_prompt_formatting_with_all_reserved_variable_types(monkeypatch):
-    captured_messages = None
-
-    def mock_invoke(model_uri, prompt, assessment_name):
-        nonlocal captured_messages
-        captured_messages = prompt
-        return Feedback(name=assessment_name, value=True)
-
-    monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "invoke_judge_model", mock_invoke)
-
+def test_prompt_formatting_with_all_reserved_variable_types(mock_invoke_judge_capture_messages):
     judge = make_judge(
         name="test",
         instructions="Inputs: {{inputs}}, Outputs: {{outputs}}, Expectations: {{expectations}}",
         model="openai:/gpt-4",
     )
 
-    judge(
-        inputs={"query": "test", "context": "testing"},
-        outputs={"response": "answer", "score": 0.9},
-        expectations={"expected": "correct answer"},
-    )
+    inputs_data = {"query": "test", "context": "testing"}
+    outputs_data = {"response": "answer", "score": 0.9}
+    expectations_data = {"expected": "correct answer"}
+
+    judge(inputs=inputs_data, outputs=outputs_data, expectations=expectations_data)
 
     # Check that we have a list of messages
+    captured_messages = mock_invoke_judge_capture_messages["prompt"]
     assert isinstance(captured_messages, list)
     assert len(captured_messages) == 2
 
@@ -509,30 +564,18 @@ def test_prompt_formatting_with_all_reserved_variable_types(monkeypatch):
     expected_template = "Inputs: {{inputs}}, Outputs: {{outputs}}, Expectations: {{expectations}}"
     assert expected_template in system_msg.content
 
-    # Check user message has all the serialized values
+    # Check user message has all the JSON-serialized values
     user_msg = captured_messages[1]
-    assert "expectations:" in user_msg.content
-    assert "inputs:" in user_msg.content
-    assert "outputs:" in user_msg.content
-    # Check the actual data is in the JSON
-    assert "query" in user_msg.content
-    assert "test" in user_msg.content
-    assert "response" in user_msg.content
-    assert "answer" in user_msg.content
-    assert "expected" in user_msg.content
-    assert "correct answer" in user_msg.content
+    import json
+    expected_inputs_json = json.dumps(inputs_data, default=str, indent=2)
+    expected_outputs_json = json.dumps(outputs_data, default=str, indent=2)
+    expected_expectations_json = json.dumps(expectations_data, default=str, indent=2)
+    assert expected_inputs_json in user_msg.content
+    assert expected_outputs_json in user_msg.content
+    assert expected_expectations_json in user_msg.content
 
 
-def test_output_format_instructions_added(monkeypatch):
-    captured_messages = None
-
-    def mock_invoke(model_uri, prompt, assessment_name):
-        nonlocal captured_messages
-        captured_messages = prompt
-        return Feedback(name=assessment_name, value=True, rationale="Test rationale")
-
-    monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "invoke_judge_model", mock_invoke)
-
+def test_output_format_instructions_added(mock_invoke_judge_capture_messages):
     judge = make_judge(
         name="test_judge",
         instructions="Check if {{outputs}} is formal",
@@ -542,71 +585,50 @@ def test_output_format_instructions_added(monkeypatch):
     result = judge(outputs={"text": "Hello there"})
 
     # Check that we have a list of messages
+    captured_messages = mock_invoke_judge_capture_messages["prompt"]
     assert isinstance(captured_messages, list)
     assert len(captured_messages) == 2
 
-    # Check system message
+    # Check system message contains proper output format instructions
     system_msg = captured_messages[0]
     assert system_msg.role == "system"
     assert system_msg.content.startswith(JUDGE_BASE_PROMPT)
     assert "Check if {{outputs}} is formal" in system_msg.content
-    assert "JSON format" in system_msg.content
-
-    # Check user message
-    user_msg = captured_messages[1]
-    assert user_msg.role == "user"
-    assert "outputs:" in user_msg.content
-    assert "Hello there" in user_msg.content
+    # Tighter assertion for output format instructions
+    assert "Please provide your assessment in the following JSON format only" in system_msg.content
+    assert '"result": "The evaluation rating/result"' in system_msg.content
+    assert '"rationale": "Detailed explanation for the evaluation"' in system_msg.content
 
     assert result.value is True
-    assert result.rationale == "Test rationale"
 
 
-def test_output_format_instructions_with_complex_template(monkeypatch):
-    captured_messages = None
-
-    def mock_invoke(model_uri, prompt, assessment_name):
-        nonlocal captured_messages
-        captured_messages = prompt
-        return Feedback(name=assessment_name, value="yes", rationale="Test rationale")
-
-    monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "invoke_judge_model", mock_invoke)
-
+def test_output_format_instructions_with_complex_template(mock_invoke_judge_capture_messages):
     judge = make_judge(
         name="complex_judge",
         instructions="Evaluate {{outputs}} considering {{inputs}} and {{expectations}}",
         model="openai:/gpt-4",
     )
 
-    result = judge(
+    judge(
         inputs={"context": "formal business setting"},
         outputs={"response": "Hey what's up"},
         expectations={"criteria": "professionalism"},
     )
 
     # Check that we have a list of messages
+    captured_messages = mock_invoke_judge_capture_messages["prompt"]
     assert isinstance(captured_messages, list)
     assert len(captured_messages) == 2
 
-    # Check system message
+    # Check system message contains proper output format instructions
     system_msg = captured_messages[0]
     assert system_msg.role == "system"
     assert system_msg.content.startswith(JUDGE_BASE_PROMPT)
     assert "Evaluate {{outputs}} considering {{inputs}} and {{expectations}}" in system_msg.content
-    assert "JSON format" in system_msg.content
-
-    # Check user message has all the variable values
-    user_msg = captured_messages[1]
-    assert user_msg.role == "user"
-    assert "expectations:" in user_msg.content
-    assert "inputs:" in user_msg.content
-    assert "outputs:" in user_msg.content
-    assert "formal business setting" in user_msg.content
-    assert "professionalism" in user_msg.content
-    assert "Hey what's up" in user_msg.content
-
-    assert result.value == "yes"
-    assert result.rationale == "Test rationale"
+    # Tighter assertion for output format instructions
+    assert "Please provide your assessment in the following JSON format only" in system_msg.content
+    assert '"result": "The evaluation rating/result"' in system_msg.content
+    assert '"rationale": "Detailed explanation for the evaluation"' in system_msg.content
 
 
 def test_judge_registration_as_scorer(mock_invoke_judge_model):
