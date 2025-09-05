@@ -55,20 +55,8 @@ def run_command(cmd, capture=True, check=True):
 
 
 def get_github_repo():
-    """Get GitHub repo from git remote."""
-    remote_url = run_command("git remote get-url origin")
-    if remote_url:
-        # Parse github.com:user/repo.git or https://github.com/user/repo.git
-        if "github.com" in remote_url:
-            if remote_url.startswith("git@"):
-                # SSH format: git@github.com:user/repo.git
-                repo_path = remote_url.split(":")[-1]
-            else:
-                # HTTPS format: https://github.com/user/repo.git
-                repo_path = remote_url.split("github.com/")[-1]
-            # Remove .git suffix if present
-            return repo_path.replace(".git", "")
-    return "mlflow/mlflow"  # fallback
+    """Get GitHub repo - always returns mlflow/mlflow."""
+    return "mlflow/mlflow"
 
 
 def get_recent_run_id(repo, branch="master", status="completed"):
@@ -103,7 +91,9 @@ def download_duration_artifacts(run_id, repo):
                     f"cd {tmpdir} && gh run download {run_id} --repo {repo} "
                     f"--name {artifact_name} 2>/dev/null"
                 )
-                if run_command(download_cmd, check=False):
+                result = run_command(download_cmd, check=False)
+                # Check if download was successful (result is None on failure, stdout on success)
+                if result is not None:
                     # The artifact is downloaded directly as group_N_durations.json
                     duration_file = Path(tmpdir) / f"group_{group}_durations.json"
                     if duration_file.exists():
@@ -154,6 +144,9 @@ Examples:
 
   # Download from latest run on specific branch
   python dev/collect_ci_durations.py --branch my-feature-branch
+
+  # Download from specific repo
+  python dev/collect_ci_durations.py --run-id 1234567890 --repo mlflow/mlflow
 """,
     )
     parser.add_argument(
@@ -167,9 +160,14 @@ Examples:
         default="master",
         help="Branch name to get latest run from (default: master)",
     )
+    parser.add_argument(
+        "--repo",
+        type=str,
+        help="GitHub repository (e.g. mlflow/mlflow). Defaults to current repo or mlflow/mlflow",
+    )
 
     args = parser.parse_args()
-    repo = get_github_repo()
+    repo = args.repo if args.repo else get_github_repo()
 
     # Determine which run to download from
     if args.run_id:
