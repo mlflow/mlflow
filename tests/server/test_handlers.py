@@ -1584,7 +1584,7 @@ def test_catch_mlflow_exception_dynamic_headers():
             "headers": {
                 "request_id": "abc123",
                 "retry_after": 30,
-                "x_custom_code": "42"
+                "custom_code": "42"
             }
         }
         raise ex
@@ -1592,9 +1592,9 @@ def test_catch_mlflow_exception_dynamic_headers():
     response = test_handler()
     assert response.status_code == 500
     headers = response.headers
-    assert headers.get("X-request_id") == "abc123"
-    assert headers.get("X-retry_after") == "30"
-    assert headers.get("X-x_custom_code") == "42"
+    assert headers.get("request_id") == "abc123"
+    assert headers.get("retry_after") == "30"
+    assert headers.get("custom_code") == "42"
 
 
 def test_calculate_trace_filter_correlation(mock_get_request_message, mock_tracking_store):
