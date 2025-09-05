@@ -17,7 +17,10 @@ def make_judge(
 
     Args:
         name: The name of the judge
-        instructions: Natural language instructions for evaluation
+        instructions: Natural language instructions for evaluation. Must contain at least one
+                      template variable: {{ inputs }}, {{ outputs }}, {{ expectations }},
+                      or {{ trace }} to reference evaluation data. Custom variables are not
+                      supported.
         model: The model identifier to use for evaluation (e.g., "openai:/gpt-4")
         aggregations: List of aggregation functions to apply. Can be strings from
                       ["min", "max", "mean", "median", "variance", "p90"] or callable functions.
@@ -32,18 +35,46 @@ def make_judge(
             import mlflow
             from mlflow.genai.judges import make_judge
 
-            # Create a judge that evaluates response formality
-            formality_judge = make_judge(
-                name="formality_checker",
-                instructions="The response should be formal and professional",
+            # Create a judge that evaluates response quality using template variables
+            quality_judge = make_judge(
+                name="response_quality",
+                instructions=(
+                    "Evaluate if the response in {{ outputs }} correctly answers "
+                    "the question in {{ inputs }}. The response should be accurate, "
+                    "complete, and professional."
+                ),
                 model="openai:/gpt-4",
                 aggregations=["mean", "max"],
             )
 
             # Evaluate a response
-            result = formality_judge(
+            result = quality_judge(
                 inputs={"question": "What is machine learning?"},
                 outputs="ML is basically when computers learn stuff on their own",
+            )
+
+            # Create a judge that compares against expectations
+            correctness_judge = make_judge(
+                name="correctness",
+                instructions=(
+                    "Compare the {{ outputs }} against the {{ expectations }}. "
+                    "Rate how well they match on a scale of 1-5."
+                ),
+                model="openai:/gpt-4",
+            )
+
+            # Evaluate with expectations
+            result = correctness_judge(
+                inputs={"question": "What is the capital of France?"},
+                outputs="The capital of France is Paris.",
+                expectations="Paris",
+            )
+
+            # Create a judge that evaluates based on trace context
+            trace_judge = make_judge(
+                name="trace_quality",
+                instructions="Evaluate the overall quality of the {{ trace }} execution.",
+                model="openai:/gpt-4",
             )
     """
 
