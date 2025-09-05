@@ -310,7 +310,6 @@ class InstructionsJudge(Judge):
                     "This will be implemented in a future release.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
-            # Custom variables check is no longer needed here since they're rejected in __init__
             if has_inputs or has_outputs:
                 raise MlflowException(
                     "Instructions template cannot contain both 'trace' and 'inputs'/'outputs' "
