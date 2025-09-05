@@ -120,8 +120,7 @@ def test_create_and_get_optimize_prompt_job(
     assert job["status"] == GetOptimizePromptJob.PromptOptimizationJobStatus.COMPLETED
     assert job["result"] is not None
     assert (
-        job["result"]["prompt_url"]
-        == f"prompts:/{sample_prompt.name}/{sample_prompt.version + 1}"
+        job["result"]["prompt_url"] == f"prompts:/{sample_prompt.name}/{sample_prompt.version + 1}"
     )
     assert job["result"]["evaluation_score"] == 1.0
     assert job["error"] is None
