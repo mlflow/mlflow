@@ -710,12 +710,26 @@ class Scorer(BaseModel):
         return copy
 
     def _check_can_be_registered(self, error_message: str | None = None) -> None:
+        from mlflow.genai.scorers.registry import DatabricksStore, _get_scorer_store
+
         if self.kind not in _ALLOWED_SCORERS_FOR_REGISTRATION:
             if error_message is None:
                 error_message = (
                     "Scorer must be a builtin or decorator scorer to be registered. "
                     f"Got {self.kind}."
                 )
+            raise MlflowException.invalid_parameter_value(error_message)
+
+        store = _get_scorer_store()
+        if isinstance(store, DatabricksStore) and not getattr(
+            self, "model", "databricks"
+        ).startswith("databricks"):
+            error_message = (
+                "The scorer's judge model must use Databricks as a model provider "
+                "in order to be registered. Please use the default judge model or specify a model "
+                "value starting with `databricks:/`. "
+                f"Got {getattr(self, 'model', None)}."
+            )
             raise MlflowException.invalid_parameter_value(error_message)
 
 
