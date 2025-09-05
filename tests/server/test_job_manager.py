@@ -1,8 +1,8 @@
-import pandas as pd
 import time
 import uuid
 from unittest.mock import patch
 
+import pandas as pd
 import pytest
 
 from mlflow.genai.datasets import create_dataset
@@ -10,8 +10,8 @@ from mlflow.genai.optimize.types import OptimizerOutput
 from mlflow.genai.scorers import scorer
 from mlflow.protos.service_pb2 import GetOptimizePromptJob
 from mlflow.server._job_manager import PromptOptimizationJobManager
-from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.tracking._model_registry.fluent import register_prompt
+from mlflow.tracking.fluent import _get_experiment_id
 
 
 @pytest.fixture
