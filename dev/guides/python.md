@@ -8,23 +8,14 @@ Omit docstrings that merely repeat the function name or provide no additional va
 
 ```python
 # Bad
-def calculate_sum(a, b):
+def calculate_sum(a: int, b: int) -> int:
     """Calculate sum"""
     return a + b
 
 
-def process_data(data):
-    """Process data"""
-    return data.strip()
-
-
 # Good
-def calculate_sum(a, b):
+def calculate_sum(a: int, b: int) -> int:
     return a + b
-
-
-def process_data(data):
-    return data.strip()
 ```
 
 ## Use Type Hints for All Functions
