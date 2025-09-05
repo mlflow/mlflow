@@ -2676,7 +2676,10 @@ def test_lock_model_requirements_constraints(monkeypatch: pytest.MonkeyPatch, tm
     assert "httpx==" in contents
 
 
-def test_load_context_with_input_example():
+@pytest.mark.parametrize(
+    ("input_example", "expected_result"), [(["Hello", "World"], True), (None, False)]
+)
+def test_load_context_with_input_example(input_example, expected_result):
     class MyModel(mlflow.pyfunc.PythonModel):
         def load_context(self, context):
             raise Exception("load_context was called")
@@ -2684,22 +2687,12 @@ def test_load_context_with_input_example():
         def predict(self, model_input: list[str], params=None):
             return model_input
 
+    msg = "Failed to run the predict function on input example"
+
     with mock.patch("mlflow.models.signature._logger.warning") as mock_warning:
         mlflow.pyfunc.log_model(
             name="model",
             python_model=MyModel(),
+            input_example=input_example,
         )
-        assert not any(
-            "Failed to run the predict function on input example" in call[0][0]
-            for call in mock_warning.call_args_list
-        )
-
-        mlflow.pyfunc.log_model(
-            name="model",
-            python_model=MyModel(),
-            input_example=["Hello", "World"],
-        )
-        assert any(
-            "Failed to run the predict function on input example" in call[0][0]
-            for call in mock_warning.call_args_list
-        )
+        assert any(msg in call.args[0] for call in mock_warning.call_args_list) == expected_result
