@@ -1,6 +1,6 @@
 import json
 from dataclasses import asdict
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from pydantic import PrivateAttr
 
@@ -25,9 +25,6 @@ from mlflow.genai.scorers.base import _SERIALIZATION_VERSION, ScorerKind, Serial
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types.llm import ChatMessage
 from mlflow.utils.annotations import experimental
-
-if TYPE_CHECKING:
-    pass
 
 
 @experimental(version="3.4.0")
