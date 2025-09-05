@@ -25,15 +25,35 @@ from mlflow.types.llm import ChatMessage
 
 @pytest.fixture
 def mock_invoke_judge_model(monkeypatch):
+    """Unified fixture that captures all invocation details and supports different use cases."""
     calls = []
+    captured_args = {}
 
-    def _mock(model_uri, prompt, assessment_name):
+    def _mock(model_uri, prompt, assessment_name, trace=None):
+        # Store call details in list format (for backward compatibility)
         calls.append((model_uri, prompt, assessment_name))
-        return Feedback(name=assessment_name, value=True, rationale="The response is formal")
+
+        # Store latest call details in dict format
+        captured_args.update({
+            "model_uri": model_uri,
+            "prompt": prompt,
+            "assessment_name": assessment_name,
+            "trace": trace
+        })
+
+        # Return appropriate Feedback based on whether trace is provided
+        if trace is not None:
+            return Feedback(name=assessment_name, value=True, rationale="Trace analyzed")
+        else:
+            return Feedback(name=assessment_name, value=True, rationale="The response is formal")
 
     monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "invoke_judge_model", _mock)
+
+    # Attach convenience properties for different usage patterns
     _mock.calls = calls
-    _mock.reset_mock = lambda: calls.clear()
+    _mock.captured_args = captured_args
+    _mock.reset_mock = lambda: (calls.clear(), captured_args.clear())
+
     return _mock
 
 
@@ -105,33 +125,6 @@ def mock_trace():
     return Trace(info=trace_info, data=trace_data)
 
 
-@pytest.fixture
-def mock_invoke_judge_model_with_trace(monkeypatch):
-    captured_args = {}
-
-    def mock_invoke(model_uri, prompt, assessment_name, trace=None):
-        captured_args["model_uri"] = model_uri
-        captured_args["prompt"] = prompt
-        captured_args["assessment_name"] = assessment_name
-        captured_args["trace"] = trace
-        return Feedback(name=assessment_name, value=True, rationale="Trace analyzed")
-
-    monkeypatch.setattr("mlflow.genai.judges.instructions_judge.invoke_judge_model", mock_invoke)
-    return captured_args
-
-
-@pytest.fixture
-def mock_invoke_judge_capture_messages(monkeypatch):
-    captured_messages = {}
-
-    def mock_invoke(model_uri, prompt, assessment_name):
-        captured_messages["model_uri"] = model_uri
-        captured_messages["prompt"] = prompt
-        captured_messages["assessment_name"] = assessment_name
-        return Feedback(name=assessment_name, value=True)
-
-    monkeypatch.setattr("mlflow.genai.judges.instructions_judge.invoke_judge_model", mock_invoke)
-    return captured_messages
 
 
 def test_make_judge_creates_instructions_judge():
@@ -334,10 +327,10 @@ def test_call_with_trace_supported(mock_trace, monkeypatch):
 
 
 def test_call_trace_based_judge_ignores_inputs_outputs(
-    mock_trace, mock_invoke_judge_model_with_trace
+    mock_trace, mock_invoke_judge_model
 ):
     # Test that trace-based judges ignore inputs/outputs and work with trace only
-    captured_args = mock_invoke_judge_model_with_trace
+    captured_args = mock_invoke_judge_model.captured_args
 
     judge = make_judge(
         name="test_judge", instructions="Analyze this {{trace}}", model="openai:/gpt-4"
@@ -445,7 +438,7 @@ def test_call_with_valid_inputs_and_outputs_returns_feedback(mock_invoke_judge_m
     assert expected_outputs_json in user_msg.content
 
 
-def test_call_with_expectations_as_json(mock_invoke_judge_capture_messages):
+def test_call_with_expectations_as_json(mock_invoke_judge_model):
 
     judge = make_judge(
         name="test_judge",
@@ -457,7 +450,7 @@ def test_call_with_expectations_as_json(mock_invoke_judge_capture_messages):
     judge(outputs={"answer": "42"}, expectations=expectations)
 
     # Check that we have a list of messages
-    captured_messages = mock_invoke_judge_capture_messages["prompt"]
+    captured_messages = mock_invoke_judge_model.captured_args["prompt"]
     assert isinstance(captured_messages, list)
     assert len(captured_messages) == 2
 
@@ -467,7 +460,7 @@ def test_call_with_expectations_as_json(mock_invoke_judge_capture_messages):
     assert expected_expectations_json in user_msg.content
 
 
-def test_call_with_reserved_variables(mock_invoke_judge_capture_messages):
+def test_call_with_reserved_variables(mock_invoke_judge_model):
     judge = make_judge(
         name="test_judge",
         instructions="Check if {{inputs}} meets {{expectations}}",
@@ -481,7 +474,7 @@ def test_call_with_reserved_variables(mock_invoke_judge_capture_messages):
     assert isinstance(result, Feedback)
 
     # Check that we have a list of messages
-    captured_messages = mock_invoke_judge_capture_messages["prompt"]
+    captured_messages = mock_invoke_judge_model.captured_args["prompt"]
     assert isinstance(captured_messages, list)
     assert len(captured_messages) == 2
 
@@ -536,7 +529,7 @@ def test_call_with_various_input_combinations(
     assert isinstance(result, Feedback)
 
 
-def test_prompt_formatting_with_all_reserved_variable_types(mock_invoke_judge_capture_messages):
+def test_prompt_formatting_with_all_reserved_variable_types(mock_invoke_judge_model):
     judge = make_judge(
         name="test",
         instructions="Inputs: {{inputs}}, Outputs: {{outputs}}, Expectations: {{expectations}}",
@@ -550,7 +543,7 @@ def test_prompt_formatting_with_all_reserved_variable_types(mock_invoke_judge_ca
     judge(inputs=inputs_data, outputs=outputs_data, expectations=expectations_data)
 
     # Check that we have a list of messages
-    captured_messages = mock_invoke_judge_capture_messages["prompt"]
+    captured_messages = mock_invoke_judge_model.captured_args["prompt"]
     assert isinstance(captured_messages, list)
     assert len(captured_messages) == 2
 
@@ -569,7 +562,7 @@ def test_prompt_formatting_with_all_reserved_variable_types(mock_invoke_judge_ca
     assert expected_expectations_json in user_msg.content
 
 
-def test_output_format_instructions_added(mock_invoke_judge_capture_messages):
+def test_output_format_instructions_added(mock_invoke_judge_model):
     judge = make_judge(
         name="test_judge",
         instructions="Check if {{outputs}} is formal",
@@ -579,7 +572,7 @@ def test_output_format_instructions_added(mock_invoke_judge_capture_messages):
     result = judge(outputs={"text": "Hello there"})
 
     # Check that we have a list of messages
-    captured_messages = mock_invoke_judge_capture_messages["prompt"]
+    captured_messages = mock_invoke_judge_model.captured_args["prompt"]
     assert isinstance(captured_messages, list)
     assert len(captured_messages) == 2
 
@@ -596,7 +589,7 @@ def test_output_format_instructions_added(mock_invoke_judge_capture_messages):
     assert result.value is True
 
 
-def test_output_format_instructions_with_complex_template(mock_invoke_judge_capture_messages):
+def test_output_format_instructions_with_complex_template(mock_invoke_judge_model):
     judge = make_judge(
         name="complex_judge",
         instructions="Evaluate {{outputs}} considering {{inputs}} and {{expectations}}",
@@ -610,7 +603,7 @@ def test_output_format_instructions_with_complex_template(mock_invoke_judge_capt
     )
 
     # Check that we have a list of messages
-    captured_messages = mock_invoke_judge_capture_messages["prompt"]
+    captured_messages = mock_invoke_judge_model.captured_args["prompt"]
     assert isinstance(captured_messages, list)
     assert len(captured_messages) == 2
 

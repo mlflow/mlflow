@@ -52,7 +52,6 @@ class InstructionsJudge(Judge):
     _model: str = PrivateAttr()
     _instructions_prompt: PromptVersion = PrivateAttr()
 
-    _custom_template_variables: set[str] = PrivateAttr()
 
     def __init__(self, name: str, instructions: str, model: str | None = None, **kwargs):
         """
@@ -87,16 +86,15 @@ class InstructionsJudge(Judge):
             template=instructions,
         )
 
-        self._custom_template_variables = self._instructions_prompt.variables - set(
+        # Reject any custom template variables
+        custom_template_variables = self._instructions_prompt.variables - set(
             self._RESERVED_INSTRUCTION_TEMPLATE_VARIABLES
         )
-
-        # Reject any custom template variables
-        if self._custom_template_variables:
+        if custom_template_variables:
             allowed_vars = ", ".join(self._RESERVED_INSTRUCTION_TEMPLATE_VARIABLES)
             raise MlflowException(
                 f"Instructions template contains unsupported variables: "
-                f"{self._custom_template_variables}. "
+                f"{custom_template_variables}. "
                 f"Only the following variables are allowed: {allowed_vars}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
@@ -142,7 +140,6 @@ class InstructionsJudge(Judge):
         if self._TEMPLATE_VARIABLE_TRACE in self.template_variables:
             fields.append(JudgeField(name="trace", description="Trace to evaluate"))
 
-        # Custom template variables are no longer supported
         return fields
 
     def __call__(
