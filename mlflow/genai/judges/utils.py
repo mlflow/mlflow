@@ -1,8 +1,14 @@
+from __future__ import annotations
+
 import json
 import logging
 import re
 from dataclasses import asdict, is_dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from mlflow.genai.judges.base import JudgeField
+    from mlflow.types.llm import ChatMessage
 
 import mlflow
 from mlflow.entities.assessment import Feedback
@@ -38,6 +44,34 @@ def format_prompt(prompt: str, **values) -> str:
     return prompt
 
 
+def add_output_format_instructions(prompt: str, output_fields: list["JudgeField"]) -> str:
+    """
+    Add structured output format instructions to a judge prompt.
+
+    This ensures the LLM returns a JSON response with the expected fields,
+    matching the expected format for the invoke_judge_model function.
+
+    Args:
+        prompt: The formatted prompt with template variables filled in
+        output_fields: List of JudgeField objects defining output fields.
+
+    Returns:
+        The prompt with output format instructions appended
+    """
+    json_format_lines = []
+    for field in output_fields:
+        json_format_lines.append(f'    "{field.name}": "{field.description}"')
+
+    json_format = "{\n" + ",\n".join(json_format_lines) + "\n}"
+
+    output_format_instructions = f"""
+
+Please provide your assessment in the following JSON format only (no markdown):
+
+{json_format}"""
+    return prompt + output_format_instructions
+
+
 def _sanitize_justification(justification: str) -> str:
     # Some judge prompts instruct the model to think step by step.
     return justification.replace("Let's think step by step. ", "")
@@ -45,7 +79,7 @@ def _sanitize_justification(justification: str) -> str:
 
 def invoke_judge_model(
     model_uri: str,
-    prompt: str,
+    prompt: str | list["ChatMessage"],
     assessment_name: str,
     trace: Trace | None = None,
     num_retries: int = 10,
@@ -58,7 +92,8 @@ def invoke_judge_model(
 
     Args:
         model_uri: The model URI.
-        prompt: The prompt to evaluate.
+        prompt: The prompt to evaluate. Can be a string (single prompt) or
+                a list of ChatMessage objects.
         assessment_name: The name of the assessment.
         trace: Optional trace object for context.
         num_retries: Number of retries on transient failures when using litellm.
@@ -71,9 +106,18 @@ def invoke_judge_model(
 
     provider, model_name = _parse_model_uri(model_uri)
 
+    # Convert to uniform ChatMessage format for internal processing
+    if isinstance(prompt, str):
+        from mlflow.types.llm import ChatMessage
+
+        messages = [ChatMessage(role="user", content=prompt)]
+    else:
+        # Already ChatMessage objects
+        messages = prompt
+
     # Try litellm first for better performance.
     if _is_litellm_available():
-        response = _invoke_litellm(provider, model_name, prompt, trace, num_retries)
+        response = _invoke_litellm(provider, model_name, messages, trace, num_retries)
     elif trace is not None:
         raise MlflowException(
             "LiteLLM is required for using traces with judges. "
@@ -81,9 +125,11 @@ def invoke_judge_model(
             error_code=BAD_REQUEST,
         )
     elif provider in _NATIVE_PROVIDERS:
+        # Convert ChatMessage objects to dicts for native providers
+        messages_dict = [{"role": msg.role, "content": msg.content} for msg in messages]
         response = score_model_on_payload(
             model_uri=model_uri,
-            payload=prompt,
+            payload=messages_dict,
             endpoint_type=get_endpoint_type(model_uri) or "llm/v1/chat",
         )
     else:
@@ -123,7 +169,11 @@ def _is_litellm_available() -> bool:
 
 
 def _invoke_litellm(
-    provider: str, model_name: str, prompt: str, trace: Trace | None, num_retries: int
+    provider: str,
+    model_name: str,
+    messages: list["ChatMessage"],
+    trace: Trace | None,
+    num_retries: int,
 ) -> str:
     """
     Invoke the judge via litellm with retry support.
@@ -131,7 +181,7 @@ def _invoke_litellm(
     Args:
         provider: The provider name (e.g., 'openai', 'anthropic').
         model_name: The model name.
-        prompt: The prompt to send to the model.
+        messages: List of ChatMessage objects.
         trace: Optional trace object for context with tool calling support.
         num_retries: Number of retries with exponential backoff on transient failures.
 
@@ -148,8 +198,10 @@ def _invoke_litellm(
     from mlflow.genai.judges.tools import list_judge_tools
     from mlflow.genai.judges.tools.registry import _judge_tool_registry
 
+    # Convert ChatMessage objects to dicts for litellm
+    messages_dict = [{"role": msg.role, "content": msg.content} for msg in messages]
+
     litellm_model_uri = f"{provider}/{model_name}"
-    messages = [{"role": "user", "content": prompt}]
     tools = []
     response_format = _get_judge_response_format()
 
@@ -161,7 +213,7 @@ def _invoke_litellm(
         """Helper to make litellm completion request with optional response_format."""
         kwargs = {
             "model": litellm_model_uri,
-            "messages": messages,
+            "messages": messages_dict,
             "tools": tools if tools else None,
             "tool_choice": "auto" if tools else None,
             "retry_policy": _get_litellm_retry_policy(num_retries),
@@ -203,7 +255,7 @@ def _invoke_litellm(
             if not message.tool_calls:
                 return message.content
 
-            messages.append(message.model_dump())
+            messages_dict.append(message.model_dump())
             # TODO: Consider making tool calls concurrent for better performance.
             # Currently sequential for simplicity and to maintain order of results.
             for tool_call in message.tool_calls:
@@ -213,7 +265,7 @@ def _invoke_litellm(
                     )
                     result = _judge_tool_registry.invoke(tool_call=mlflow_tool_call, trace=trace)
                 except Exception as e:
-                    messages.append(
+                    messages_dict.append(
                         _create_litellm_tool_response_message(
                             tool_call_id=tool_call.id,
                             tool_name=tool_call.function.name,
@@ -228,7 +280,7 @@ def _invoke_litellm(
                     result_json = (
                         json.dumps(result, default=str) if not isinstance(result, str) else result
                     )
-                    messages.append(
+                    messages_dict.append(
                         _create_litellm_tool_response_message(
                             tool_call_id=tool_call.id,
                             tool_name=tool_call.function.name,
@@ -317,32 +369,6 @@ def _get_judge_response_format() -> dict[str, Any]:
             },
         },
     }
-
-
-def _get_litellm_retry_policy(num_retries: int):
-    """
-    Get a LiteLLM retry policy for retrying requests when transient API errors occur.
-
-    Args:
-        num_retries: The number of times to retry a request if it fails transiently due to
-                     network error, rate limiting, etc. Requests are retried with exponential
-                     backoff.
-
-    Returns:
-        A LiteLLM RetryPolicy instance.
-    """
-    from litellm import RetryPolicy
-
-    return RetryPolicy(
-        TimeoutErrorRetries=num_retries,
-        RateLimitErrorRetries=num_retries,
-        InternalServerErrorRetries=num_retries,
-        ContentPolicyViolationErrorRetries=num_retries,
-        # We don't retry on errors that are unlikely to be transient
-        # (e.g. bad request, invalid auth credentials)
-        BadRequestErrorRetries=0,
-        AuthenticationErrorRetries=0,
-    )
 
 
 def _get_litellm_retry_policy(num_retries: int):
