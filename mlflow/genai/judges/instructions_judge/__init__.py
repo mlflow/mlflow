@@ -163,37 +163,28 @@ class InstructionsJudge(Judge):
             Evaluation results
 
         """
+        # Check if the input arguments match the template variables
+        # If any template variables are missing, throw an MLflow exception
+        missing_params = []
+
+        if self._TEMPLATE_VARIABLE_INPUTS in self.template_variables and inputs is None:
+            missing_params.append("inputs")
+        if self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables and outputs is None:
+            missing_params.append("outputs")
+        if self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables and expectations is None:
+            missing_params.append("expectations")
+        if self._TEMPLATE_VARIABLE_TRACE in self.template_variables and trace is None:
+            missing_params.append("trace")
+
+        if missing_params:
+            missing_str = "', '".join(missing_params)
+            raise MlflowException(
+                f"Must specify '{missing_str}' - required by template variables in instructions.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
         # Determine evaluation mode based on template variables
         is_trace_based = self._TEMPLATE_VARIABLE_TRACE in self.template_variables
-
-        if is_trace_based:
-            # This is a trace-based judge - require trace, ignore inputs/outputs
-            if trace is None:
-                raise MlflowException(
-                    "Trace is required for judges that use {{trace}} variable.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-            # Use trace-based evaluation (ignore inputs/outputs/expectations)
-        else:
-            # This is a field-based judge - require inputs/outputs, ignore trace
-            if inputs is None and outputs is None:
-                # Determine which parameters are expected based on template variables
-                missing_vars = []
-                if self._TEMPLATE_VARIABLE_INPUTS in self.template_variables:
-                    missing_vars.append("inputs")
-                if self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables:
-                    missing_vars.append("outputs")
-
-                if missing_vars:
-                    missing_str = "', '".join(missing_vars)
-                    error_msg = f"Must specify '{missing_str}' for field-based evaluation."
-                else:
-                    error_msg = "Must specify 'inputs' or 'outputs' for field-based evaluation."
-
-                raise MlflowException(
-                    error_msg,
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
 
         # Handle field-based evaluation (inputs/outputs)
         if not is_trace_based:

@@ -352,7 +352,9 @@ def test_call_with_no_inputs_or_outputs():
         name="test_judge", instructions="Check if {{outputs}} is valid", model="openai:/gpt-4"
     )
 
-    with pytest.raises(MlflowException, match="Must specify 'outputs' for field-based evaluation"):
+    with pytest.raises(
+        MlflowException, match="Must specify 'outputs' - required by template variables"
+    ):
         judge()
 
 
@@ -504,23 +506,29 @@ def test_kind_property():
 
 
 @pytest.mark.parametrize(
-    ("inputs", "outputs", "expectations"),
+    ("inputs", "outputs", "expectations", "should_fail"),
     [
-        ({"text": "hello", "result": "world"}, None, None),
-        ({"text": "hello"}, {"result": "world"}, None),
-        ({"text": "hello"}, {"result": "world"}, {"expected": "world"}),
-        (None, {"text": "hello", "result": "world"}, None),
+        ({"text": "hello", "result": "world"}, None, None, True),  # Missing outputs
+        ({"text": "hello"}, {"result": "world"}, None, False),  # Valid: both inputs and outputs
+        ({"text": "hello"}, {"result": "world"}, {"expected": "world"}, False),  # Valid: all
+        (None, {"text": "hello", "result": "world"}, None, True),  # Missing inputs
     ],
 )
 def test_call_with_various_input_combinations(
-    mock_invoke_judge_model, inputs, outputs, expectations
+    mock_invoke_judge_model, inputs, outputs, expectations, should_fail
 ):
     judge = make_judge(
         name="test_judge", instructions="Check {{inputs}} and {{outputs}}", model="openai:/gpt-4"
     )
 
-    result = judge(inputs=inputs, outputs=outputs, expectations=expectations)
-    assert isinstance(result, Feedback)
+    if should_fail:
+        with pytest.raises(
+            MlflowException, match="Must specify .* - required by template variables"
+        ):
+            judge(inputs=inputs, outputs=outputs, expectations=expectations)
+    else:
+        result = judge(inputs=inputs, outputs=outputs, expectations=expectations)
+        assert isinstance(result, Feedback)
 
 
 def test_prompt_formatting_with_all_reserved_variable_types(mock_invoke_judge_model):
