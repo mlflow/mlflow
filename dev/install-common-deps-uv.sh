@@ -87,6 +87,9 @@ fi
 # Additional packages
 packages+=" aiohttp"
 
+# Add virtualenv for model isolation (needed by MLflow for creating model environments)
+packages+=" virtualenv"
+
 # Single uv pip install call for all packages
 retry-with-backoff uv pip install --upgrade $packages
 
