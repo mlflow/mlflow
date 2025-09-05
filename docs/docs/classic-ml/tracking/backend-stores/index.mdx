@@ -136,12 +136,26 @@ pip --no-cache-dir install --force-reinstall -I pyyaml
 
 ## Troubleshooting Database Migrations
 
+:::info Database Compatibility
+**The issues described in this section are specific to PostgreSQL 11 and earlier.**
+
+Users of the following databases are **NOT affected**:
+- ✅ PostgreSQL 12 and later
+- ✅ MySQL (all versions)
+- ✅ SQLite (all versions)
+- ✅ MS SQL Server (all versions)
+
+If you're using PostgreSQL 11 or earlier with MLflow 3.3.x, you may encounter migration issues that require manual intervention.
+:::
+
 ### PostgreSQL 11 Compatibility Issue
 
 :::warning postgresql-11-generated-columns
 **Error: "syntax error at or near '(' ... duration_ns BIGINT GENERATED ALWAYS AS"**
 
-If you encounter this error when running MLflow with PostgreSQL 11:
+**⚠️ This issue ONLY affects PostgreSQL version 11 and earlier. Users of PostgreSQL 12+, MySQL, SQLite, or MS SQL Server are NOT affected.**
+
+If you encounter this error when running MLflow 3.3.x with PostgreSQL 11:
 
 ```
 sqlalchemy.exc.ProgrammingError: (psycopg2.errors.SyntaxError) syntax error at or near "("
@@ -149,7 +163,7 @@ LINE 12: duration_ns BIGINT GENERATED ALWAYS AS (end_time_unix_nano ...
                                                  ^
 ```
 
-This occurs because PostgreSQL 11 doesn't support GENERATED columns (introduced in PostgreSQL 12). MLflow 3.3.1+ automatically detects your PostgreSQL version and uses alternative methods for PostgreSQL 11.
+This occurs because PostgreSQL 11 doesn't support GENERATED columns (introduced in PostgreSQL 12). MLflow 3.4.0+ will automatically detect your PostgreSQL version and use alternative methods for PostgreSQL 11.
 
 **Solution for existing installations:**
 
@@ -213,6 +227,8 @@ ON CONFLICT DO NOTHING;
 :::warning downgrade-with-database
 **Error: "No such revision or branch" when downgrading**
 
+**Note:** This is most commonly encountered by PostgreSQL 11 users trying to downgrade from MLflow 3.3.x to 3.2.0 after the spans table migration failed. Other database users (PostgreSQL 12+, MySQL, SQLite, MS SQL) typically don't need to downgrade.
+
 If you're downgrading MLflow (e.g., from 3.3.x to 3.2.0) and encounter:
 
 ```
@@ -233,12 +249,13 @@ This occurs because your database has migrations from the newer version that don
 2. **Remove migrations that don't exist in the target version:**
 
    ```sql
-   -- For downgrading from 3.3.x to 3.2.0, remove these migrations:
+   -- For downgrading from 3.3.x to 3.2.0:
+   -- Remove migrations that were added in 3.3.0
+
    DELETE FROM alembic_version WHERE version_num IN (
      '1a0cddfcaa16',  -- webhooks (3.3.0)
-     '534353b11cbc',  -- scorer tables (3.3.0)
-     '71994744cf8e',  -- evaluation datasets (3.3.0)
-     'e2c54d7e0d3f'   -- PostgreSQL 11 fix (3.3.1)
+     'a1b2c3d4e5f6',  -- spans table (3.3.0 - may have failed on PostgreSQL 11)
+     '770bee3ae1dd'   -- assessments table (3.3.0)
    );
 
    -- Set to the last migration in 3.2.0
@@ -250,14 +267,14 @@ This occurs because your database has migrations from the newer version that don
 3. **Clean up tables created by newer migrations (optional but recommended):**
 
    ```sql
-   -- Drop tables that were added after 3.2.0
+   -- Drop tables that were added in 3.3.0
    DROP TABLE IF EXISTS webhook_events CASCADE;
    DROP TABLE IF EXISTS webhooks CASCADE;
-   DROP TABLE IF EXISTS scorer_versions CASCADE;
-   DROP TABLE IF EXISTS scorers CASCADE;
-   DROP TABLE IF EXISTS evaluation_dataset_records CASCADE;
-   DROP TABLE IF EXISTS evaluation_dataset_tags CASCADE;
-   DROP TABLE IF EXISTS evaluation_datasets CASCADE;
+   DROP TABLE IF EXISTS assessments CASCADE;
+   DROP TABLE IF EXISTS spans CASCADE;
+
+   -- Note: The spans table may not exist if its creation failed on PostgreSQL 11
+   -- The DROP IF EXISTS will handle this gracefully
    ```
 
 4. **Start MLflow with the older version:**
