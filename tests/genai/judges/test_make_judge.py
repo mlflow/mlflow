@@ -34,12 +34,14 @@ def mock_invoke_judge_model(monkeypatch):
         calls.append((model_uri, prompt, assessment_name))
 
         # Store latest call details in dict format
-        captured_args.update({
-            "model_uri": model_uri,
-            "prompt": prompt,
-            "assessment_name": assessment_name,
-            "trace": trace
-        })
+        captured_args.update(
+            {
+                "model_uri": model_uri,
+                "prompt": prompt,
+                "assessment_name": assessment_name,
+                "trace": trace,
+            }
+        )
 
         # Return appropriate Feedback based on whether trace is provided
         if trace is not None:
@@ -123,8 +125,6 @@ def mock_trace():
 
     trace_data = TraceData(spans=spans)
     return Trace(info=trace_info, data=trace_data)
-
-
 
 
 def test_make_judge_creates_instructions_judge():
@@ -325,10 +325,7 @@ def test_call_with_trace_supported(mock_trace, monkeypatch):
     assert captured_args["assessment_name"] == "test_judge"
 
 
-
-def test_call_trace_based_judge_ignores_inputs_outputs(
-    mock_trace, mock_invoke_judge_model
-):
+def test_call_trace_based_judge_ignores_inputs_outputs(mock_trace, mock_invoke_judge_model):
     # Test that trace-based judges ignore inputs/outputs and work with trace only
     captured_args = mock_invoke_judge_model.captured_args
 
@@ -355,9 +352,7 @@ def test_call_with_no_inputs_or_outputs():
         name="test_judge", instructions="Check if {{outputs}} is valid", model="openai:/gpt-4"
     )
 
-    with pytest.raises(
-        MlflowException, match="Must specify 'outputs' for field-based evaluation"
-    ):
+    with pytest.raises(MlflowException, match="Must specify 'outputs' for field-based evaluation"):
         judge()
 
 
@@ -439,7 +434,6 @@ def test_call_with_valid_inputs_and_outputs_returns_feedback(mock_invoke_judge_m
 
 
 def test_call_with_expectations_as_json(mock_invoke_judge_model):
-
     judge = make_judge(
         name="test_judge",
         instructions="Check {{outputs}} against {{expectations}}",
