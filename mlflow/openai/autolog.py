@@ -343,10 +343,11 @@ def _process_last_chunk(
     try:
         if _is_responses_final_event(chunk):
             output = chunk.response
+        elif is_responses_api:
+            output = _reconstruct_response_from_stream(output)
         else:
             # Reconstruct a completion object from streaming chunks
-            output = _reconstruct_completion_from_stream(output, is_responses_api)
-
+            output = _reconstruct_completion_from_stream(output)
             # Set usage information on span if available
             if usage := getattr(chunk, "usage", None):
                 usage_dict = {
@@ -363,7 +364,7 @@ def _process_last_chunk(
         )
 
 
-def _reconstruct_completion_from_stream(chunks: list[Any], is_responses_api: bool) -> Any:
+def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
     """
     Reconstruct a completion object from streaming chunks.
 
@@ -372,18 +373,6 @@ def _reconstruct_completion_from_stream(chunks: list[Any], is_responses_api: boo
     """
     if not chunks:
         return None
-
-    if is_responses_api:
-        from mlflow.types.responses_helpers import Response
-        from openai.types.responses import ResponseOutputItemDoneEvent
-
-        output = [
-            chunk.item.to_dict()
-            for chunk in chunks
-            if isinstance(chunk, ResponseOutputItemDoneEvent)
-        ]
-
-        return Response(output=output)
 
     if chunks[0].object == "text_completion":
         # Handling for the deprecated Completions API. Keep the legacy behavior for now.
@@ -430,6 +419,19 @@ def _reconstruct_completion_from_stream(chunks: list[Any], is_responses_api: boo
         system_fingerprint=last_chunk.system_fingerprint,
         usage=last_chunk.usage,
     )
+
+
+def _reconstruct_response_from_stream(chunks: list[Any]) -> Any:
+    from mlflow.types.responses_helpers import Response
+    from openai.types.responses import ResponseOutputItemDoneEvent
+
+    output = [
+        chunk.item.to_dict()
+        for chunk in chunks
+        if isinstance(chunk, ResponseOutputItemDoneEvent)
+    ]
+
+    return Response(output=output)
 
 
 def _is_responses_final_event(chunk: Any) -> bool:

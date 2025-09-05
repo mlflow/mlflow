@@ -821,9 +821,8 @@ async def test_model_loading_set_active_model_id_without_fetching_logged_model(
     Version(openai.__version__) < Version("1.6"), reason="Requires OpenAI SDK >= 1.6"
 )
 @skip_when_testing_trace_sdk
-def test_reconstruct_response_from_output_done_events():
-    """Test _reconstruct_completion_from_stream with is_responses_api=True."""
-    from mlflow.openai.autolog import _reconstruct_completion_from_stream
+def test_reconstruct_response_from_stream():
+    from mlflow.openai.autolog import _reconstruct_response_from_stream
     from mlflow.types.responses_helpers import OutputItem
     from openai.types.responses import ResponseOutputItemDoneEvent, ResponseOutputMessage
     from openai.types.responses import ResponseOutputText
@@ -849,7 +848,7 @@ def test_reconstruct_response_from_output_done_events():
 
     chunks = [chunk1, chunk2]
 
-    result = _reconstruct_completion_from_stream(chunks, is_responses_api=True)
+    result = _reconstruct_response_from_stream(chunks)
 
     assert result.output == [
         OutputItem(**chunk1.item.to_dict()),
