@@ -235,7 +235,7 @@ def _invoke_litellm(
             except litellm.BadRequestError as e:
                 # Check whether the request attempted to use structured outputs, rather than
                 # checking whether the model supports structured outputs in the capabilities cache,
-                # since the capabilities cache may have been update between the time that
+                # since the capabilities cache may have been updated between the time that
                 # include_response_format was set and the request was made
                 if include_response_format:
                     # Retry without response_format if the request failed due to bad request.
