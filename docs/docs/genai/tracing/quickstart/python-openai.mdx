@@ -3,6 +3,7 @@ import TabItem from '@theme/TabItem';
 import { APILink } from "@site/src/components/APILink";
 import ImageBox from '@site/src/components/ImageBox';
 import TabsWrapper from '@site/src/components/TabsWrapper';
+import ServerSetup from "@site/src/content/setup_server.mdx";
 
 # Tracing Quickstart (Python)
 
@@ -34,59 +35,7 @@ The code example in this guide uses the OpenAI SDK; however, the contents of thi
 
 MLflow logs Traces in a tracking server. Connect your local environment to the tracking server by one of the following methods.
 
-<TabsWrapper>
-<Tabs>
-<TabItem value="local" label="Local MLflow" default>
-
-For the fastest setup, you can run MLflow locally:
-
-```bash
-# Start MLflow tracking server locally
-mlflow ui
-
-# This will start the server at http://127.0.0.1:5000
-```
-
-</TabItem>
-
-<TabItem value="remote" label="Remote MLflow Server">
-
-If you have a remote MLflow tracking server, configure the connection:
-
-```python
-import os
-import mlflow
-
-# Set your MLflow tracking URI
-os.environ["MLFLOW_TRACKING_URI"] = "http://your-mlflow-server:5000"
-# Or directly in code
-mlflow.set_tracking_uri("http://your-mlflow-server:5000")
-```
-
-</TabItem>
-
-<TabItem value="databricks" label="Databricks">
-
-If you have a Databricks account, configure the connection:
-
-```python
-import mlflow
-
-mlflow.login()
-```
-
-This will prompt you for your configuration details (Databricks Host url and a PAT).
-
-</TabItem>
-
-</Tabs>
-</TabsWrapper>
-
-:::tip
-
-If you are unsure about how to set up an MLflow tracking server, you can start with the cloud-based MLflow powered by Databricks: <ins>[Sign up for free →](https://login.databricks.com/?destination_url=%2Fml%2Fexperiments-signup%3Fsource%3DTRY_MLFLOW&dbx_source=TRY_MLFLOW&signup_experience_step=EXPRESS&provider=MLFLOW&utm_source=mlflow_org&tuuid=a9534f33-78bf-4b81-becc-4334e993251d&rl_aid=e6685d78-9f85-4fed-b64f-08e247f53547&intent=SIGN_UP)</ins>
-
-:::
+<ServerSetup />
 
 ### Create a new MLflow Experiment
 
@@ -148,6 +97,7 @@ Let's define a Python function that fetches the weather information from a weath
 
 ```python
 import requests
+from mlflow.entities import SpanType
 
 
 # Decorated with @mlflow.trace to trace the function call.
@@ -188,6 +138,7 @@ Lastly, define a simple flow that first asks the LLM to get instructions for cal
 
 ```python
 import json
+from mlflow.entities import SpanType
 
 
 # Define a simple tool calling agent

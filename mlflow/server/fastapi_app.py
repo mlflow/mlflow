@@ -8,12 +8,14 @@ to FastAPI endpoints.
 
 from fastapi import FastAPI
 from fastapi.middleware.wsgi import WSGIMiddleware
+from flask import Flask
 
 from mlflow.server import app as flask_app
+from mlflow.server.otel_api import otel_router
 from mlflow.version import VERSION
 
 
-def create_fastapi_app():
+def create_fastapi_app(flask_app: Flask = flask_app):
     """
     Create a FastAPI application that wraps the existing Flask app.
 
@@ -32,8 +34,13 @@ def create_fastapi_app():
         openapi_url=None,
     )
 
+    # Include OpenTelemetry API router BEFORE mounting Flask app
+    # This ensures FastAPI routes take precedence over the catch-all Flask mount
+    fastapi_app.include_router(otel_router)
+
     # Mount the entire Flask application at the root path
     # This ensures compatibility with existing APIs
+    # NOTE: This must come AFTER include_router to avoid Flask catching all requests
     fastapi_app.mount("/", WSGIMiddleware(flask_app))
 
     return fastapi_app

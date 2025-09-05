@@ -34,9 +34,8 @@ from tests.tracking.integration_test_utils import _init_server
 
 @pytest.fixture(autouse=True)
 def clear_credentials(monkeypatch):
-    monkeypatch.delenvs(
-        [MLFLOW_TRACKING_USERNAME.name, MLFLOW_TRACKING_PASSWORD.name], raising=False
-    )
+    monkeypatch.delenv(MLFLOW_TRACKING_USERNAME.name, raising=False)
+    monkeypatch.delenv(MLFLOW_TRACKING_PASSWORD.name, raising=False)
 
 
 @pytest.fixture
@@ -54,6 +53,7 @@ def client(tmp_path):
         root_artifact_uri=tmp_path.joinpath("artifacts").as_uri(),
         app="mlflow.server.auth:create_app",
         extra_env={MLFLOW_FLASK_SERVER_SECRET_KEY.name: "my-secret-key"},
+        server_type="flask",
     ) as url:
         yield AuthServiceClient(url)
 

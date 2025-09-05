@@ -1,5 +1,8 @@
 from unittest.mock import call, patch
 
+import pytest
+
+import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.span import SpanType
@@ -14,6 +17,8 @@ from mlflow.genai.scorers import (
     RetrievalSufficiency,
     Safety,
 )
+from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.builtin_scorers import get_all_scorers
 
 from tests.genai.conftest import databricks_only
 
@@ -151,6 +156,36 @@ def test_retrieval_relevance_handle_error_feedback(sample_rag_trace):
     assert results[1].value == CategoricalRating.YES
     assert results[2].value is None
     assert results[2].error.error_code == "test"
+
+
+def test_retrieval_relevance_with_custom_model(sample_rag_trace, monkeypatch: pytest.MonkeyPatch):
+    # Set a dummy OpenAI key to avoid validation errors
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    with patch(
+        "mlflow.genai.scorers.builtin_scorers.invoke_judge_model",
+        return_value=Feedback(
+            name="retrieval_relevance", value="yes", rationale="Relevant content"
+        ),
+    ) as mock_invoke_judge:
+        custom_model = "openai:/gpt-4"
+        scorer = RetrievalRelevance(model=custom_model)
+        results = scorer(trace=sample_rag_trace)
+
+        # Should be called for each chunk (3 total chunks)
+        assert mock_invoke_judge.call_count == 3
+
+        # Verify model was passed correctly
+        for call_args in mock_invoke_judge.call_args_list:
+            args, kwargs = call_args
+            assert args[0] == custom_model  # First positional arg is model
+            assert kwargs["assessment_name"] == "retrieval_relevance"
+
+        # 2 span-level + 3 chunk-level feedbacks
+        assert len(results) == 5
+        # Span-level feedbacks should be 100% relevance
+        assert results[0].value == 1.0
+        assert results[3].value == 1.0
 
 
 @patch("mlflow.genai.judges.is_context_sufficient")
@@ -355,7 +390,7 @@ def test_relevance_to_query(mock_is_context_relevant):
 
 
 @databricks_only
-def test_safety():
+def test_safety_databricks():
     # String output
     with patch("databricks.agents.evals.judges.safety") as mock_safety:
         Safety()(outputs="answer")
@@ -373,6 +408,57 @@ def test_safety():
         response='{"answer": "yes", "reason": "This is a test"}',
         assessment_name="safety",
     )
+
+
+def test_safety_non_databricks():
+    mlflow.set_tracking_uri("file://")
+
+    # Safety scorer should now work with non-Databricks tracking URIs
+    safety_scorer = Safety()
+    assert safety_scorer.name == "safety"
+
+
+def test_safety_with_custom_model(monkeypatch: pytest.MonkeyPatch):
+    # Set a dummy OpenAI key to avoid validation errors
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    with patch(
+        "mlflow.genai.judges.builtin.invoke_judge_model",
+        return_value=Feedback(name="safety", value="yes", rationale="Safe content"),
+    ) as mock_invoke_judge:
+        custom_model = "anthropic:/claude-3-opus"
+        scorer = Safety(model=custom_model)
+        result = scorer(outputs="This is a safe response")
+
+        mock_invoke_judge.assert_called_once()
+        args, kwargs = mock_invoke_judge.call_args
+        assert args[0] == custom_model  # First positional arg is model
+        assert kwargs["assessment_name"] == "safety"
+
+        assert result.name == "safety"
+        assert result.value == "yes"
+        assert result.rationale == "Safe content"
+
+
+def test_safety_with_custom_model_and_name(monkeypatch: pytest.MonkeyPatch):
+    # Set a dummy OpenAI key to avoid validation errors
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    with patch(
+        "mlflow.genai.judges.builtin.invoke_judge_model",
+        return_value=Feedback(name="custom_safety", value="no", rationale="Unsafe content"),
+    ) as mock_invoke_judge:
+        custom_model = "openai:/gpt-4"
+        scorer = Safety(name="custom_safety", model=custom_model)
+        result = scorer(outputs={"response": "test content"})
+
+        mock_invoke_judge.assert_called_once()
+        args, kwargs = mock_invoke_judge.call_args
+        assert args[0] == custom_model
+        assert kwargs["assessment_name"] == "custom_safety"
+
+        assert result.name == "custom_safety"
+        assert result.value == "no"
 
 
 @patch("mlflow.genai.judges.is_correct")
@@ -413,3 +499,14 @@ def test_correctness(mock_is_correct):
         name="custom_correctness",
         model="openai:/gpt-4.1-mini",
     )
+
+
+@pytest.mark.parametrize("tracking_uri", ["file://test", "databricks"])
+def test_get_all_scorers_oss(tracking_uri):
+    mlflow.set_tracking_uri(tracking_uri)
+
+    scorers = get_all_scorers()
+
+    # Safety and RetrievalRelevance are only available in Databricks
+    assert len(scorers) == (7 if tracking_uri == "databricks" else 5)
+    assert all(isinstance(scorer, Scorer) for scorer in scorers)

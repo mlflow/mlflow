@@ -40,9 +40,9 @@ pyspark
 # Required for testing the opentelemetry exporter of tracing
 opentelemetry-exporter-otlp-proto-grpc
 opentelemetry-exporter-otlp-proto-http
-# TODO: remove this once XGBoost releases >2.1.3
-scikit-learn<1.6
 # Required for testing mlflow.server.auth
 Flask-WTF<2
 # required for testing polars dataset integration
 polars>=1
+# required for testing mlflow.genai.optimize_prompt
+dspy
