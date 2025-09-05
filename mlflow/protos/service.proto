@@ -1148,7 +1148,7 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "GET",
-        path: "/mlflow/get-optimize-prompt-job/{job_id}"
+        path: "/mlflow/optimize-prompt/{job_id}"
         since { major: 3, minor: 0 },
       }],
       error_codes: [
