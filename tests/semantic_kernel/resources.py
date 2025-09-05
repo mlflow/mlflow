@@ -45,8 +45,7 @@ async def _create_and_invoke_kernel_complex(mock_openai):
     settings.top_p = 0.8
 
     prompt_template_config = PromptTemplateConfig(
-        template="{{$chat_history}}{{$user_input}}",
-        allow_dangerously_set_content=True
+        template="{{$chat_history}}{{$user_input}}", allow_dangerously_set_content=True
     )
 
     chat_function = kernel.add_function(
