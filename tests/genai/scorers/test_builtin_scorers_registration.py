@@ -1,6 +1,6 @@
 """Tests for builtin scorer registration validation with custom judge models."""
 
-import tempfile
+from pathlib import Path
 from typing import Iterator
 from unittest import mock
 
@@ -110,24 +110,23 @@ def test_scorer_stop_with_non_databricks_model_fails(mock_databricks_tracking_ur
     ],
 )
 def test_non_databricks_backend_allows_any_model(
-    scorer_class: type[Scorer], model: str, expected_name: str
+    scorer_class: type[Scorer], model: str, expected_name: str, tmp_path: Path
 ):
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tracking_uri = f"sqlite:///{tmpdir}/test.db"
-        mlflow.set_tracking_uri(tracking_uri)
+    tracking_uri = f"sqlite:///{tmp_path}/test.db"
+    mlflow.set_tracking_uri(tracking_uri)
 
-        with mock.patch(
-            "mlflow.tracking._tracking_service.utils.get_tracking_uri",
-            return_value=tracking_uri,
-        ) as mock_get_tracking_uri:
-            experiment_id = mlflow.create_experiment("test_any_model_allowed")
+    with mock.patch(
+        "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+        return_value=tracking_uri,
+    ) as mock_get_tracking_uri:
+        experiment_id = mlflow.create_experiment("test_any_model_allowed")
 
-            # Non-Databricks models should work with MLflow backend
-            scorer = scorer_class(model=model)
-            registered = scorer.register(experiment_id=experiment_id)
-            assert registered.name == expected_name
+        # Non-Databricks models should work with MLflow backend
+        scorer = scorer_class(model=model)
+        registered = scorer.register(experiment_id=experiment_id)
+        assert registered.name == expected_name
 
-            mock_get_tracking_uri.assert_called()
+        mock_get_tracking_uri.assert_called()
 
 
 def test_error_message_shows_actual_model(mock_databricks_tracking_uri: mock.Mock):
@@ -135,8 +134,7 @@ def test_error_message_shows_actual_model(mock_databricks_tracking_uri: mock.Moc
     model = "openai:/gpt-4-turbo"
     scorer = Safety(model=model)
 
-    with pytest.raises(MlflowException, match=f"Got {model}") as exc_info:
+    with pytest.raises(MlflowException, match=f"Got {model}"):
         scorer.register()
 
-    assert f"Got {model}" in str(exc_info.value)
     mock_databricks_tracking_uri.assert_called()
