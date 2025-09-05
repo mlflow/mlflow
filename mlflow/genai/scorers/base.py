@@ -726,8 +726,8 @@ class Scorer(BaseModel):
         ).startswith("databricks"):
             error_message = (
                 "The scorer's judge model must use Databricks as a model provider "
-                "in order to be registered. Please use the default judge model or specify a model "
-                "value starting with `databricks:/`. "
+                "in order to be registered or updated. Please use the default judge model or "
+                "specify a model value starting with `databricks:/`. "
                 f"Got {getattr(self, 'model', None)}."
             )
             raise MlflowException.invalid_parameter_value(error_message)
