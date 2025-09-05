@@ -82,16 +82,84 @@ Judge instructions use template variables to reference evaluation data. These va
   }
 ]} />
 
-:::warning[No Custom Variables Allowed]
-Only the four reserved variables above can be used in templates. Custom variables like `{{ question }}` or `{{ response }}` will cause errors.
+### How Template Variables Work
+
+When you use template variables in your instructions, MLflow processes them in two distinct ways depending on the variable type:
+
+**Direct Interpolation** (`inputs`, `outputs`, `expectations`): These variables are directly interpolated into the prompt as formatted strings. The dictionaries you pass are converted to readable text and inserted into your instruction template. This gives you full control over how the data appears in the evaluation prompt.
+
+**Agent-Based Analysis** (`trace`): The trace variable works differently to handle complexity at scale. Instead of interpolating potentially massive JSON data directly into the prompt, the trace metadata (trace_id, experiment_id, request_id) is passed to an evaluation agent that fetches and analyzes the full trace details. This design enables trace-based judges to handle large, complex execution flows without hitting token limits.
+
+:::note[Trace Processing Behavior]
+The `{{ trace }}` variable is NOT interpolated as JSON into the prompt. This is by design - traces can contain thousands of spans with extensive data that would overwhelm token limits. Instead, an intelligent agent fetches and analyzes the trace data, allowing it to focus on relevant aspects based on your evaluation instructions.
+:::
+
+### Variable Restrictions
+
+:::warning[Only Reserved Variables Allowed]
+You can only use the four reserved template variables shown above (`inputs`, `outputs`, `expectations`, `trace`). Custom variables like `{{ question }}`, `{{ response }}`, or `{{ context }}` will cause validation errors. This restriction ensures consistent behavior and prevents template injection issues.
 :::
 
 ## Quick Start
 
 <Tabs>
-  <TabItem value="trace" label="Trace-Based (Recommended)" default>
+  <TabItem value="field" label="Field-Based (Simple)" default>
     ```python
     from mlflow.genai.judges import make_judge
+
+    # Create a toy agent that responds to questions
+    def my_agent(question):
+        # Simple toy agent that echoes back
+        return f"You asked about: {question}"
+
+
+    # Create a judge that evaluates response quality
+    quality_judge = make_judge(
+        name="response_quality",
+        instructions=(
+            "Evaluate if the response in {{ outputs }} correctly answers "
+            "the question in {{ inputs }}. The response should be accurate, "
+            "complete, and professional."
+        ),
+        model="openai:/gpt-4",
+    )
+
+    # Get agent response
+    question = "What is machine learning?"
+    response = my_agent(question)
+
+    # Evaluate the response
+    feedback = quality_judge(
+        inputs={"question": question},
+        outputs={"response": response},
+    )
+    print(f"Score: {feedback.value}")
+    print(f"Rationale: {feedback.rationale}")
+    ```
+
+  </TabItem>
+  <TabItem value="trace" label="Trace-Based (Advanced)">
+    ```python
+    from mlflow.genai.judges import make_judge
+    import mlflow
+
+    # Create a more complex toy agent with tracing
+    @mlflow.trace
+    def my_complex_agent(query):
+        with mlflow.start_span("parse_query") as parse_span:
+            # Parse the user query
+            parsed = f"Parsed: {query}"
+            parse_span.set_inputs({"query": query})
+            parse_span.set_outputs({"parsed": parsed})
+
+        with mlflow.start_span("generate_response") as gen_span:
+            # Generate response
+            response = f"Response to: {parsed}"
+            gen_span.set_inputs({"parsed": parsed})
+            gen_span.set_outputs({"response": response})
+
+        return response
+
 
     # Create a judge that analyzes complete execution flows
     trace_judge = make_judge(
@@ -108,41 +176,18 @@ Only the four reserved variables above can be used in templates. Custom variable
         model="openai:/gpt-4",  # Note: Cannot use 'databricks' model
     )
 
-    # Evaluate a trace from your agent
-    import mlflow
+    # Execute agent and capture trace
+    with mlflow.start_span("agent_task") as span:
+        response = my_complex_agent("What is MLflow?")
+        trace_id = span.request_id
 
-    # Your agent execution (automatically traced)
-    # Example: my_agent would be your actual agent instance
-    # user_input would be the user's query
-    with mlflow.start_span("agent_execution") as span:
-        response = "Agent response here"  # my_agent.process_query(user_input)
+    # Get the trace
+    trace = mlflow.get_trace(trace_id)
 
-    # Get and evaluate the trace
-    trace = mlflow.get_trace(span.trace_id)
+    # Evaluate the trace
     feedback = trace_judge(trace=trace)
-    ```
-
-  </TabItem>
-  <TabItem value="field" label="Field-Based">
-    ```python
-    from mlflow.genai.judges import make_judge
-
-    # Create a judge for evaluating outputs
-    quality_judge = make_judge(
-        name="response_quality",
-        instructions=(
-            "Evaluate if the {{ outputs }} properly answers the {{ inputs }}.\n"
-            "Consider clarity and accuracy.\n"
-            "Answer 'excellent', 'good', or 'poor'."
-        ),
-        model="openai:/gpt-4",
-    )
-
-    # Evaluate specific fields
-    feedback = quality_judge(
-        inputs={"question": "What is MLflow?"},
-        outputs={"response": "MLflow is an ML platform."},
-    )
+    print(f"Performance: {feedback.value}")
+    print(f"Analysis: {feedback.rationale}")
     ```
 
   </TabItem>

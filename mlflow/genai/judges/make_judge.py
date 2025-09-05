@@ -32,19 +32,62 @@ def make_judge(
             import mlflow
             from mlflow.genai.judges import make_judge
 
-            # Create a judge that evaluates response formality
-            formality_judge = make_judge(
-                name="formality_checker",
-                instructions="The response should be formal and professional",
+
+            # Create a toy agent that responds to questions
+            def my_agent(question):
+                # Simple toy agent that just echoes back
+                return f"You asked about: {question}"
+
+
+            # Create a judge that evaluates response quality
+            quality_judge = make_judge(
+                name="response_quality",
+                instructions=(
+                    "Evaluate if the response in {{outputs}} correctly answers "
+                    "the question in {{inputs}}. The response should be accurate, "
+                    "complete, and professional."
+                ),
                 model="openai:/gpt-4",
                 aggregations=["mean", "max"],
             )
 
-            # Evaluate a response
-            result = formality_judge(
-                inputs={"question": "What is machine learning?"},
-                outputs="ML is basically when computers learn stuff on their own",
+            # Get agent response
+            question = "What is machine learning?"
+            response = my_agent(question)
+
+            # Evaluate the response
+            result = quality_judge(
+                inputs={"question": question},
+                outputs={"response": response},
             )
+            print(f"Score: {result.value}")
+            print(f"Rationale: {result.rationale}")
+
+        **Template Variable Behavior**:
+
+        - ``{{inputs}}``, ``{{outputs}}``, ``{{expectations}}``: These variables are directly
+          interpolated into the prompt. The dictionaries you pass are formatted and inserted
+          as strings in the instruction template.
+
+        - ``{{trace}}``: This variable has special behavior. Instead of interpolating the trace
+          as JSON, the trace metadata is passed to an evaluation agent that fetches and analyzes
+          the full trace details. This is useful for evaluating complex multi-step interactions
+          that are logged as traces.
+
+        .. code-block:: python
+
+            # Example with trace evaluation
+            trace_judge = make_judge(
+                name="trace_analyzer",
+                instructions=(
+                    "Analyze the {{trace}} and determine if the agent's responses "
+                    "were helpful and accurate throughout the conversation."
+                ),
+                model="openai:/gpt-4",
+            )
+
+            # Trace evaluation (trace object passed to agent, not interpolated)
+            result = trace_judge(trace=my_trace_object)
     """
 
     if aggregations is None:
