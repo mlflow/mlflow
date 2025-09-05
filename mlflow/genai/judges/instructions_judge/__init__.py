@@ -187,13 +187,13 @@ class InstructionsJudge(Judge):
                     missing_vars.append("inputs")
                 if self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables:
                     missing_vars.append("outputs")
-                
+
                 if missing_vars:
                     missing_str = "', '".join(missing_vars)
                     error_msg = f"Must specify '{missing_str}' for field-based evaluation."
                 else:
                     error_msg = "Must specify 'inputs' or 'outputs' for field-based evaluation."
-                
+
                 raise MlflowException(
                     error_msg,
                     error_code=INVALID_PARAMETER_VALUE,

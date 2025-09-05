@@ -390,7 +390,6 @@ def test_call_with_valid_outputs_returns_feedback(mock_invoke_judge_model):
     assert len(prompt) == 2
     # Check that the user message contains the JSON-serialized outputs
     user_msg = prompt[1]
-    import json
     expected_outputs_json = json.dumps({"response": test_output}, default=str, indent=2)
     assert expected_outputs_json in user_msg.content
 
@@ -415,7 +414,6 @@ def test_call_with_valid_inputs_returns_feedback(mock_invoke_judge_model):
     model_uri, prompt, assessment_name = mock_invoke_judge_model.calls[0]
     user_msg = prompt[1]
 
-    import json
     expected_inputs_json = json.dumps(test_input, default=str, indent=2)
     assert expected_inputs_json in user_msg.content
 
@@ -441,7 +439,6 @@ def test_call_with_valid_inputs_and_outputs_returns_feedback(mock_invoke_judge_m
     model_uri, prompt, assessment_name = mock_invoke_judge_model.calls[0]
     user_msg = prompt[1]
 
-    import json
     expected_inputs_json = json.dumps(test_input, default=str, indent=2)
     expected_outputs_json = json.dumps(test_output, default=str, indent=2)
     assert expected_inputs_json in user_msg.content
@@ -466,7 +463,6 @@ def test_call_with_expectations_as_json(mock_invoke_judge_capture_messages):
 
     # Expectations should be in the user message as JSON
     user_msg = captured_messages[1]
-    import json
     expected_expectations_json = json.dumps(expectations, default=str, indent=2)
     assert expected_expectations_json in user_msg.content
 
@@ -495,7 +491,6 @@ def test_call_with_reserved_variables(mock_invoke_judge_capture_messages):
 
     # Check user message has the JSON dumps of inputs and expectations
     user_msg = captured_messages[1]
-    import json
     expected_inputs_json = json.dumps(inputs_data, default=str, indent=2)
     expected_expectations_json = json.dumps(expectations_data, default=str, indent=2)
     assert expected_inputs_json in user_msg.content
@@ -566,7 +561,6 @@ def test_prompt_formatting_with_all_reserved_variable_types(mock_invoke_judge_ca
 
     # Check user message has all the JSON-serialized values
     user_msg = captured_messages[1]
-    import json
     expected_inputs_json = json.dumps(inputs_data, default=str, indent=2)
     expected_outputs_json = json.dumps(outputs_data, default=str, indent=2)
     expected_expectations_json = json.dumps(expectations_data, default=str, indent=2)
