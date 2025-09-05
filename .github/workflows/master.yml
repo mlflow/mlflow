@@ -97,11 +97,15 @@ jobs:
       - name: Run tests
         run: |
           source dev/setup-ssh.sh
+          # Copy consolidated duration file for reading (gets overwritten with this group's durations)
+          cp .github/workflows/test_durations/python.test_duration /tmp/python_durations.json 2>/dev/null || echo "{}" > /tmp/python_durations.json
           uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --store-durations --durations-path=group_${{ matrix.group }}_durations.json \
+            --durations-path=/tmp/python_durations.json --store-durations \
             --quiet --requires-ssh \
             --ignore-flavors --ignore=tests/examples --ignore=tests/evaluate \
             --ignore tests/genai tests || true
+          # Move to group-specific file for artifact upload
+          mv /tmp/python_durations.json group_${{ matrix.group }}_durations.json
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
@@ -138,17 +142,25 @@ jobs:
       - name: Run tests
         run: |
           uv run python -c "import sys; assert sys.version_info[:2] == (3, 10), sys.version_info"
+          # Copy consolidated duration file for reading (gets overwritten with this group's durations)
+          cp .github/workflows/test_durations/python-skinny-tests.test_duration /tmp/skinny_durations.json 2>/dev/null || echo "{}" > /tmp/skinny_durations.json
           uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --store-durations --durations-path=group_${{ matrix.group }}_durations.json \
+            --durations-path=/tmp/skinny_durations.json --store-durations \
             tests/types/test_type_hints.py tests/pyfunc/test_pyfunc_model_with_type_hints.py tests/telemetry || [ $? -eq 5 ]
+          # Move to group-specific file for artifact upload
+          mv /tmp/skinny_durations.json group_${{ matrix.group }}_durations.json
       - name: Run databricks-connect related tests
         run: |
           # this needs to be run in a separate job because installing databricks-connect could break other 
           # tests that uses normal SparkSession instead of remote SparkSession
           uv pip install -c requirements/constraints.txt databricks-agents
+          # Note: These tests append to the existing durations file
+          cp group_${{ matrix.group }}_durations.json /tmp/skinny_durations.json 2>/dev/null || echo "{}" > /tmp/skinny_durations.json
           uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --store-durations --durations-path=group_${{ matrix.group }}_durations.json \
+            --durations-path=/tmp/skinny_durations.json --store-durations \
             tests/utils/test_requirements_utils.py::test_infer_pip_requirements_on_databricks_agents || [ $? -eq 5 ]
+          # Move back to group-specific file
+          mv /tmp/skinny_durations.json group_${{ matrix.group }}_durations.json
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
@@ -263,12 +275,16 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
+          # Copy consolidated duration file for reading (gets overwritten with this group's durations)
+          cp .github/workflows/test_durations/flavors.test_duration /tmp/flavors_durations.json 2>/dev/null || echo "{}" > /tmp/flavors_durations.json
           uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --store-durations --durations-path=group_${{ matrix.group }}_durations.json \
+            --durations-path=/tmp/flavors_durations.json --store-durations \
             tests/utils/test_model_utils.py \
             tests/tracking/fluent/test_fluent_autolog.py \
             tests/autologging \
             tests/server/auth
+          # Move to group-specific file for artifact upload
+          mv /tmp/flavors_durations.json group_${{ matrix.group }}_durations.json
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
@@ -306,9 +322,13 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
+          # Copy consolidated duration file for reading (gets overwritten with this group's durations)
+          cp .github/workflows/test_durations/models.test_duration /tmp/models_durations.json 2>/dev/null || echo "{}" > /tmp/models_durations.json
           uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --store-durations --durations-path=group_${{ matrix.group }}_durations.json \
+            --durations-path=/tmp/models_durations.json --store-durations \
             tests/models
+          # Move to group-specific file for artifact upload
+          mv /tmp/models_durations.json group_${{ matrix.group }}_durations.json
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
@@ -348,9 +368,13 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
+          # Copy consolidated duration file for reading (gets overwritten with this group's durations)
+          cp .github/workflows/test_durations/evaluate.test_duration /tmp/evaluate_durations.json 2>/dev/null || echo "{}" > /tmp/evaluate_durations.json
           uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --store-durations --durations-path=group_${{ matrix.group }}_durations.json \
+            --durations-path=/tmp/evaluate_durations.json --store-durations \
             tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
+          # Move to group-specific file for artifact upload
+          mv /tmp/evaluate_durations.json group_${{ matrix.group }}_durations.json
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
@@ -484,9 +508,13 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
+          # Copy consolidated duration file for reading (gets overwritten with this group's durations)
+          cp .github/workflows/test_durations/pyfunc.test_duration /tmp/pyfunc_durations.json 2>/dev/null || echo "{}" > /tmp/pyfunc_durations.json
           uv run --no-project pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --store-durations --durations-path=group_${{ matrix.group }}_durations.json --durations=30 \
+            --durations-path=/tmp/pyfunc_durations.json --store-durations --durations=30 \
             tests/pyfunc tests/types --ignore tests/pyfunc/test_spark_connect.py
+          # Move to group-specific file for artifact upload
+          mv /tmp/pyfunc_durations.json group_${{ matrix.group }}_durations.json
 
           # test_spark_connect.py fails if it's run with other tests, so run it separately.
           uv run --no-project pytest tests/pyfunc/test_spark_connect.py
