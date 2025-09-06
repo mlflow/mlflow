@@ -170,7 +170,7 @@ def _is_litellm_available() -> bool:
         return False
 
 
-class _SuppressLiteLLMFeedback(ContextDecorator):
+class _SuppressLiteLLMNonfatalErrors(ContextDecorator):
     """
     Thread-safe context manager and decorator to suppress LiteLLM's "Give Feedback" and
     "Provider List" messages. These messages indicate nonfatal bugs in the LiteLLM library;
@@ -185,7 +185,7 @@ class _SuppressLiteLLMFeedback(ContextDecorator):
         self.count = 0
         self.original_litellm_settings = {}
 
-    def __enter__(self) -> "_SuppressLiteLLMFeedback":
+    def __enter__(self) -> "_SuppressLiteLLMNonfatalErrors":
         try:
             import litellm
         except ImportError:
@@ -233,10 +233,10 @@ class _SuppressLiteLLMFeedback(ContextDecorator):
 
 
 # Global instance for use as decorator
-_suppress_litellm_feedback = _SuppressLiteLLMFeedback()
+_suppress_litellm_nonfatal_errors = _SuppressLiteLLMNonfatalErrors()
 
 
-@_suppress_litellm_feedback
+@_suppress_litellm_nonfatal_errors
 def _invoke_litellm(
     provider: str,
     model_name: str,
