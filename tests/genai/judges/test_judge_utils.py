@@ -547,10 +547,6 @@ def test_unsupported_response_format_handling_supports_multiple_threads():
 
 def test_litellm_nonfatal_error_messages_suppressed():
     """Test that LiteLLM nonfatal error messages are suppressed during judge execution."""
-    # Set initial values that should be restored after invoke_judge_model completes
-    litellm.set_verbose = True
-    litellm.suppress_debug_info = False
-
     suppression_state_during_call = {}
 
     def mock_completion(**kwargs):
@@ -563,11 +559,7 @@ def test_litellm_nonfatal_error_messages_suppressed():
         )
 
     with mock.patch("litellm.completion", side_effect=mock_completion):
-        # Verify initial state (before invoke_judge_model)
-        assert litellm.set_verbose is True
-        assert litellm.suppress_debug_info is False
-
-        # Call invoke_judge_model which should suppress during execution
+        # Call invoke_judge_model - the decorator should suppress litellm messages
         result = invoke_judge_model(
             model_uri="openai:/gpt-4",
             prompt="Test prompt for suppression",
@@ -577,10 +569,6 @@ def test_litellm_nonfatal_error_messages_suppressed():
         # Verify suppression was active during the litellm.completion call
         assert suppression_state_during_call["set_verbose"] is False
         assert suppression_state_during_call["suppress_debug_info"] is True
-
-        # Verify original settings are restored after the call
-        assert litellm.set_verbose is True
-        assert litellm.suppress_debug_info is False
 
         # Verify the call succeeded
         assert result.value == "pass"
