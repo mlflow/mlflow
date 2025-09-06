@@ -1576,16 +1576,9 @@ def test_delete_scorer_without_version(mock_get_request_message, mock_tracking_s
 def test_catch_mlflow_exception_dynamic_headers():
     @catch_mlflow_exception
     def test_handler():
-        ex = MlflowException(
-            "dynamic header test",
-            error_code=INTERNAL_ERROR
-        )
+        ex = MlflowException("dynamic header test", error_code=INTERNAL_ERROR)
         ex.json_kwargs = {
-            "headers": {
-                "request_id": "abc123",
-                "retry_after": 30,
-                "custom_code": "42"
-            }
+            "headers": {"request_id": "abc123", "retry_after": 30, "custom_code": "42"}
         }
         raise ex
 

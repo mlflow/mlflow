@@ -680,7 +680,7 @@ def catch_mlflow_exception(func):
             response = Response(
                 response=e.serialize_as_json(),
                 status=e.get_http_status_code(),
-                mimetype="application/json"
+                mimetype="application/json",
             )
             # add all dynamic fields from json_kwargs as X- headers
             headers = getattr(e, "json_kwargs", {}).get("headers", {})
