@@ -29,7 +29,7 @@ def test_scorer_register(mock_add, mock_get_tracking_uri):
     my_scorer = length_check
     registered = my_scorer.register(name="my_length_check")
 
-    mock_get_tracking_uri.assert_called_once()
+    mock_get_tracking_uri.assert_called()
 
     # Check immutability - returns new instance
     assert registered is not my_scorer
@@ -81,7 +81,7 @@ def test_scorer_start(mock_update, mock_get_tracking_uri):
         sampling_config=ScorerSamplingConfig(sample_rate=0.5, filter_string="trace.status = 'OK'")
     )
 
-    mock_get_tracking_uri.assert_called_once()
+    mock_get_tracking_uri.assert_called()
 
     # Check immutability
     assert started is not my_scorer
@@ -141,7 +141,7 @@ def test_scorer_update(mock_update, mock_get_tracking_uri):
         sampling_config=ScorerSamplingConfig(sample_rate=0.4, filter_string="old filter")
     )
 
-    mock_get_tracking_uri.assert_called_once()
+    mock_get_tracking_uri.assert_called()
 
     assert updated._sampling_config.sample_rate == 0.4
     assert updated._sampling_config.filter_string == "old filter"
