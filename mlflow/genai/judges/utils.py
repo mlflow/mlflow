@@ -24,6 +24,7 @@ _logger = logging.getLogger(__name__)
 
 # "endpoints" is a special case for Databricks model serving endpoints.
 _NATIVE_PROVIDERS = ["openai", "anthropic", "bedrock", "mistral", "endpoints"]
+_LITELLM_PROVIDERS = ["azure", "vertexai", "cohere", "replicate", "groq", "together"]
 
 # Global cache to track model capabilities across function calls
 # Key: model URI (e.g., "openai/gpt-4"), Value: boolean indicating response_format support
@@ -35,6 +36,55 @@ def get_default_model() -> str:
         return _DATABRICKS_DEFAULT_JUDGE_MODEL
     else:
         return "openai:/gpt-4.1-mini"
+
+
+def validate_judge_model(model_uri: str) -> None:
+    """
+    Validate that a judge model URI is valid and has required dependencies.
+
+    This function performs early validation at judge construction time to provide
+    fast feedback about configuration issues.
+
+    Args:
+        model_uri: The model URI to validate (e.g., "databricks", "openai:/gpt-4")
+
+    Raises:
+        MlflowException: If the model URI is invalid or required dependencies are missing.
+    """
+    from mlflow.metrics.genai.model_utils import _parse_model_uri
+
+    # Special handling for Databricks default model
+    if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
+        # Check if databricks-agents is available
+        try:
+            import databricks.agents.evals.judges  # noqa: F401
+        except ImportError:
+            raise MlflowException(
+                "To use 'databricks' as the judge model, the Databricks agents library must be "
+                "installed. Please install it with: `pip install databricks-agents`",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        return
+
+    # Validate the URI format and extract provider
+    provider, model_name = _parse_model_uri(model_uri)
+
+    # Check if LiteLLM is required and available for non-native providers
+    if provider not in _NATIVE_PROVIDERS:
+        try:
+            import litellm  # noqa: F401
+        except ImportError:
+            if provider in _LITELLM_PROVIDERS:
+                raise MlflowException(
+                    f"LiteLLM is required for using '{provider}' as a provider. "
+                    "Please install it with: `pip install litellm`",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            # Unknown provider - warn but don't fail
+            _logger.warning(
+                f"Provider '{provider}' may not be supported. Supported providers include: "
+                f"{', '.join(_NATIVE_PROVIDERS + _LITELLM_PROVIDERS)}"
+            )
 
 
 def format_prompt(prompt: str, **values) -> str:
@@ -77,6 +127,152 @@ def _sanitize_justification(justification: str) -> str:
     return justification.replace("Let's think step by step. ", "")
 
 
+def _invoke_databricks_judge(
+    prompt: str | list["ChatMessage"],
+    assessment_name: str,
+) -> Feedback:
+    """
+    Invoke the Databricks judge using the databricks.agents.evals library.
+
+    Uses the direct chat completions API for clean prompt submission without
+    any additional formatting or template requirements.
+
+    Args:
+        prompt: The formatted prompt with template variables filled in.
+        assessment_name: The name of the assessment.
+
+    Returns:
+        Feedback object from the Databricks judge.
+
+    Raises:
+        MlflowException: If databricks-agents is not installed or invocation fails.
+    """
+    try:
+        from databricks.rag_eval import context
+
+        from mlflow.types.llm import ChatMessage
+
+        full_prompt = ""
+
+        if isinstance(prompt, str):
+            # Simple string prompt - use directly
+            full_prompt = prompt
+        else:
+            # Combine ChatMessage list into a formatted prompt
+            # The chat completions endpoint expects a single prompt string
+            if isinstance(prompt, list) and len(prompt) > 0:
+                prompt_parts = []
+
+                for msg in prompt:
+                    if isinstance(msg, ChatMessage):
+                        if msg.role == "system":
+                            prompt_parts.append(f"System: {msg.content}")
+                        elif msg.role == "user":
+                            prompt_parts.append(f"User: {msg.content}")
+                        elif msg.role == "assistant":
+                            prompt_parts.append(f"Assistant: {msg.content}")
+
+                full_prompt = "\n\n".join(prompt_parts)
+
+        # Get the managed RAG client within the eval context
+        # The eval_context is required for proper Databricks environment setup
+        @context.eval_context
+        def call_chat_completions():
+            managed_rag_client = context.get_context().build_managed_rag_client()
+
+            # Call the chat completions endpoint directly
+            llm_result = managed_rag_client.get_chat_completions_result(
+                full_prompt,
+                None,  # No additional parameters needed
+            )
+
+            if llm_result.output is not None:
+                try:
+                    # The output should be JSON with 'result' and 'rationale' fields
+                    # as specified in our InstructionsJudge prompt
+                    response_data = json.loads(llm_result.output)
+
+                    return Feedback(
+                        name=assessment_name,
+                        value=response_data.get("result"),
+                        rationale=response_data.get("rationale", ""),
+                        source=AssessmentSource(
+                            source_type=AssessmentSourceType.LLM_JUDGE, source_id="databricks"
+                        ),
+                    )
+                except (json.JSONDecodeError, KeyError) as e:
+                    # If parsing fails, return the raw output as rationale
+                    _logger.debug(f"Failed to parse JSON response: {e}")
+                    return Feedback(
+                        name=assessment_name,
+                        value=True,  # Default to True if we can't parse
+                        rationale=str(llm_result.output),
+                        source=AssessmentSource(
+                            source_type=AssessmentSourceType.LLM_JUDGE, source_id="databricks"
+                        ),
+                    )
+            else:
+                error_msg = getattr(llm_result, "error_message", "Unknown error")
+                raise MlflowException(
+                    f"Databricks judge returned no output: {error_msg}", error_code=BAD_REQUEST
+                )
+
+        return call_chat_completions()
+
+    except ImportError as e:
+        raise MlflowException(
+            "To use 'databricks' as the judge model, the Databricks agents library must be "
+            "installed. Please install it with: `pip install databricks-agents`",
+            error_code=BAD_REQUEST,
+        ) from e
+    except Exception as e:
+        _logger.debug(f"Failed to invoke Databricks guidelines judge: {e}")
+        raise MlflowException(
+            f"Failed to invoke Databricks judge: {e}",
+            error_code=BAD_REQUEST,
+        ) from e
+
+
+def _invoke_via_gateway(
+    model_uri: str,
+    provider: str,
+    messages: list["ChatMessage"],
+) -> str:
+    """
+    Invoke the judge model via native AI Gateway adapters.
+
+    Args:
+        model_uri: The full model URI.
+        provider: The provider name.
+        messages: List of ChatMessage objects.
+
+    Returns:
+        The JSON response string from the model.
+
+    Raises:
+        MlflowException: If the provider is not natively supported or invocation fails.
+    """
+    from mlflow.metrics.genai.model_utils import get_endpoint_type, score_model_on_payload
+
+    if provider not in _NATIVE_PROVIDERS:
+        raise MlflowException(
+            f"LiteLLM is required for using '{provider}' LLM. Please install it with "
+            "`pip install litellm`.",
+            error_code=BAD_REQUEST,
+        )
+
+    # Import ChatMessage only when needed
+
+    # Convert ChatMessage objects to dicts for native providers
+    messages_dict = [{"role": msg.role, "content": msg.content} for msg in messages]
+
+    return score_model_on_payload(
+        model_uri=model_uri,
+        payload=messages_dict,
+        endpoint_type=get_endpoint_type(model_uri) or "llm/v1/chat",
+    )
+
+
 def invoke_judge_model(
     model_uri: str,
     prompt: str | list["ChatMessage"],
@@ -87,8 +283,10 @@ def invoke_judge_model(
     """
     Invoke the judge model.
 
-    First, try to invoke the judge model via litellm. If litellm is not installed,
-    fallback to native parsing using the AI Gateway adapters.
+    Routes to the appropriate implementation based on the model URI:
+    - "databricks": Uses databricks.agents.evals library
+    - LiteLLM-supported providers: Uses LiteLLM if available
+    - Native providers: Falls back to AI Gateway adapters
 
     Args:
         model_uri: The model URI.
@@ -97,25 +295,25 @@ def invoke_judge_model(
         assessment_name: The name of the assessment.
         trace: Optional trace object for context.
         num_retries: Number of retries on transient failures when using litellm.
+
+    Returns:
+        Feedback object with the judge's assessment.
+
+    Raises:
+        MlflowException: If the model cannot be invoked or dependencies are missing.
     """
-    from mlflow.metrics.genai.model_utils import (
-        _parse_model_uri,
-        get_endpoint_type,
-        score_model_on_payload,
-    )
+    if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
+        return _invoke_databricks_judge(prompt, assessment_name)
+
+    from mlflow.metrics.genai.model_utils import _parse_model_uri
 
     provider, model_name = _parse_model_uri(model_uri)
 
-    # Convert to uniform ChatMessage format for internal processing
-    if isinstance(prompt, str):
-        from mlflow.types.llm import ChatMessage
+    # Import ChatMessage only when needed
+    from mlflow.types.llm import ChatMessage
 
-        messages = [ChatMessage(role="user", content=prompt)]
-    else:
-        # Already ChatMessage objects
-        messages = prompt
+    messages = [ChatMessage(role="user", content=prompt)] if isinstance(prompt, str) else prompt
 
-    # Try litellm first for better performance.
     if _is_litellm_available():
         response = _invoke_litellm(provider, model_name, messages, trace, num_retries)
     elif trace is not None:
@@ -124,24 +322,12 @@ def invoke_judge_model(
             "Please install it with `pip install litellm`.",
             error_code=BAD_REQUEST,
         )
-    elif provider in _NATIVE_PROVIDERS:
-        # Convert ChatMessage objects to dicts for native providers
-        messages_dict = [{"role": msg.role, "content": msg.content} for msg in messages]
-        response = score_model_on_payload(
-            model_uri=model_uri,
-            payload=messages_dict,
-            endpoint_type=get_endpoint_type(model_uri) or "llm/v1/chat",
-        )
     else:
-        raise MlflowException(
-            f"LiteLLM is required for using '{provider}' LLM. Please install it with "
-            "`pip install litellm`.",
-            error_code=BAD_REQUEST,
-        )
+        response = _invoke_via_gateway(model_uri, provider, messages)
 
     try:
         response_dict = json.loads(response)
-        feedback = Feedback(
+        return Feedback(
             name=assessment_name,
             value=response_dict["result"],
             rationale=_sanitize_justification(response_dict.get("rationale", "")),
@@ -155,8 +341,6 @@ def invoke_judge_model(
             f"Failed to parse the response from the judge. Response: {response}",
             error_code=INVALID_PARAMETER_VALUE,
         ) from e
-
-    return feedback
 
 
 def _is_litellm_available() -> bool:
