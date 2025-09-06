@@ -78,6 +78,4 @@ jobs:
       - name: Run tests
         run: |
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/evaluate \
-            --ignore=tests/optuna --ignore=tests/pyspark/optuna --ignore=tests/genai \
-            --ignore=tests/telemetry tests
+            'tests/tracing/test_otel_logging.py::test_invalid_otel_span_format_returns_400'

@@ -10,6 +10,7 @@ The actual span ingestion logic would need to properly convert incoming OTel for
 to MLflow spans, which requires more complex conversion logic.
 """
 
+import sys
 from typing import Any
 
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
@@ -75,6 +76,7 @@ async def export_traces(
 
     body = await request.body()
     parsed_request = ExportTraceServiceRequest()
+    print(body, file=sys.stderr)
 
     try:
         # In Python protobuf library 5.x, ParseFromString may not raise DecodeError on invalid data
