@@ -543,3 +543,44 @@ def test_unsupported_response_format_handling_supports_multiple_threads():
         assert call_count == 2, "Should make 2 calls: initial (fails) + retry (succeeds)"
         assert capabilities_cache_call_count == 1
         assert result.value == "yes"
+
+
+def test_litellm_set_verbose_and_suppress_debug_info_during_judge_invocation():
+    """Test that litellm.set_verbose and suppress_debug_info are suppressed during execution."""
+    # Set initial values that should be restored after invoke_judge_model completes
+    litellm.set_verbose = True
+    litellm.suppress_debug_info = False
+
+    suppression_state_during_call = {}
+
+    def mock_completion(**kwargs):
+        # Capture the state of litellm flags during the call
+        suppression_state_during_call["set_verbose"] = litellm.set_verbose
+        suppression_state_during_call["suppress_debug_info"] = litellm.suppress_debug_info
+
+        return ModelResponse(
+            choices=[{"message": {"content": '{"result": "pass", "rationale": "Test completed"}'}}]
+        )
+
+    with mock.patch("litellm.completion", side_effect=mock_completion):
+        # Verify initial state (before invoke_judge_model)
+        assert litellm.set_verbose is True
+        assert litellm.suppress_debug_info is False
+
+        # Call invoke_judge_model which should suppress during execution
+        result = invoke_judge_model(
+            model_uri="openai:/gpt-4",
+            prompt="Test prompt for suppression",
+            assessment_name="suppression_test",
+        )
+
+        # Verify suppression was active during the litellm.completion call
+        assert suppression_state_during_call["set_verbose"] is False
+        assert suppression_state_during_call["suppress_debug_info"] is True
+
+        # Verify original settings are restored after the call
+        assert litellm.set_verbose is True
+        assert litellm.suppress_debug_info is False
+
+        # Verify the call succeeded
+        assert result.value == "pass"
