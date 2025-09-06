@@ -1573,6 +1573,23 @@ def test_delete_scorer_without_version(mock_get_request_message, mock_tracking_s
     assert response_data == {}
 
 
+def test_catch_mlflow_exception_dynamic_headers():
+    @catch_mlflow_exception
+    def test_handler():
+        ex = MlflowException("dynamic header test", error_code=INTERNAL_ERROR)
+        ex.json_kwargs = {
+            "headers": {"request_id": "abc123", "retry_after": 30, "custom_code": "42"}
+        }
+        raise ex
+
+    response = test_handler()
+    assert response.status_code == 500
+    headers = response.headers
+    assert headers.get("request_id") == "abc123"
+    assert headers.get("retry_after") == "30"
+    assert headers.get("custom_code") == "42"
+
+
 def test_calculate_trace_filter_correlation(mock_get_request_message, mock_tracking_store):
     experiment_ids = ["123", "456"]
     filter_string1 = "span.type = 'LLM'"
