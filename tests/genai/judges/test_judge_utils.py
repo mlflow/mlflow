@@ -545,8 +545,8 @@ def test_unsupported_response_format_handling_supports_multiple_threads():
         assert result.value == "yes"
 
 
-def test_litellm_set_verbose_and_suppress_debug_info_during_judge_invocation():
-    """Test that litellm.set_verbose and suppress_debug_info are suppressed during execution."""
+def test_litellm_nonfatal_error_messages_suppressed():
+    """Test that LiteLLM nonfatal error messages are suppressed during judge execution."""
     # Set initial values that should be restored after invoke_judge_model completes
     litellm.set_verbose = True
     litellm.suppress_debug_info = False
