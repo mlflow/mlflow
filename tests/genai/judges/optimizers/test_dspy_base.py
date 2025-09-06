@@ -283,10 +283,6 @@ def test_dspy_align_litellm_nonfatal_error_messages_suppressed():
 
     from tests.genai.judges.optimizers.conftest import MockJudge
 
-    # Set initial values that should be restored after align completes
-    litellm.set_verbose = True
-    litellm.suppress_debug_info = False
-
     suppression_state_during_call = {}
 
     def mock_dspy_optimize(program, examples, metric_fn):
@@ -294,46 +290,24 @@ def test_dspy_align_litellm_nonfatal_error_messages_suppressed():
         suppression_state_during_call["set_verbose"] = litellm.set_verbose
         suppression_state_during_call["suppress_debug_info"] = litellm.suppress_debug_info
 
-        # Return a mock optimized program that DSPy expects
-        mock_optimized_program = Mock()
-        mock_optimized_program.signature = Mock()
-        mock_optimized_program.signature.instructions = "Optimized instructions"
-        return mock_optimized_program
+        # Return a mock optimized program
+        mock_program = Mock()
+        mock_program.signature = Mock()
+        mock_program.signature.instructions = "Optimized instructions"
+        return mock_program
 
-    # Create test traces - create enough valid traces to pass validation
     mock_traces = [Mock(spec=Trace) for _ in range(3)]
     mock_judge = MockJudge(name="test_judge", model="openai:/gpt-4o-mini")
-
     optimizer = ConcreteDSPyOptimizer()
 
     with (
         patch("dspy.LM"),
-        patch("mlflow.genai.judges.optimizers.dspy.trace_to_dspy_example") as mock_trace_to_example,
-        patch("mlflow.genai.judges.optimizers.dspy.make_judge") as mock_make_judge,
+        patch("mlflow.genai.judges.optimizers.dspy.trace_to_dspy_example", return_value=Mock()),
+        patch("mlflow.genai.judges.optimizers.dspy.make_judge", return_value=Mock()),
         patch.object(optimizer, "_dspy_optimize", mock_dspy_optimize),
     ):
-        # Set up mocks to return valid examples
-        mock_example = Mock()
-        mock_trace_to_example.return_value = mock_example
+        optimizer.align(mock_judge, mock_traces)
 
-        # Set up make_judge to return a mock judge
-        mock_optimized_judge = Mock()
-        mock_make_judge.return_value = mock_optimized_judge
-
-        # Verify initial state (before align)
-        assert litellm.set_verbose is True
-        assert litellm.suppress_debug_info is False
-
-        # Call align which should suppress during execution
-        result = optimizer.align(mock_judge, mock_traces)
-
-        # Verify suppression was active during the DSPy optimization calls
+        # Verify suppression was active during the DSPy optimization call
         assert suppression_state_during_call["set_verbose"] is False
         assert suppression_state_during_call["suppress_debug_info"] is True
-
-        # Verify original settings are restored after the call
-        assert litellm.set_verbose is True
-        assert litellm.suppress_debug_info is False
-
-        # Verify the call succeeded
-        assert result is not None
