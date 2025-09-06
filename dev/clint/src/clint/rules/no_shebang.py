@@ -12,9 +12,4 @@ class NoShebang(Rule):
 
         A shebang line is a line that starts with '#!' (typically #!/usr/bin/env python).
         """
-        if not file_content.strip():
-            return False
-
-        # Split only at the first newline for efficiency
-        first_line = file_content.split("\n", 1)[0]
-        return first_line.lstrip().startswith("#!")
+        return file_content.startswith("#!")

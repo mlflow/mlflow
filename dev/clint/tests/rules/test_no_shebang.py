@@ -7,16 +7,12 @@ from clint.rules import NoShebang
 
 
 def test_no_shebang(index_path: Path, tmp_path: Path) -> None:
-    """Test that shebang lines are detected in Python files."""
     tmp_file = tmp_path / "test.py"
 
     # Test file with shebang - should trigger violation
     tmp_file.write_text(
         """#!/usr/bin/env python
-import os
-
-def hello():
-    print("Hello, world!")
+print("Hello, world!")
 """
     )
     config = Config(select={NoShebang.name})
@@ -26,13 +22,7 @@ def hello():
     assert results[0].loc == Location(0, 0)  # First line, first column (0-indexed)
 
     # Test file without shebang - should not trigger violation
-    tmp_file.write_text(
-        """import os
-
-def hello():
-    print("Hello, world!")
-"""
-    )
+    tmp_file.write_text("""print("Hello, world!")""")
     results = lint_file(tmp_file, config, index_path)
     assert len(results) == 0
 
@@ -50,7 +40,6 @@ def hello():
 def test_no_shebang_various_patterns(
     index_path: Path, tmp_path: Path, shebang_pattern: str
 ) -> None:
-    """Test various shebang patterns."""
     tmp_file = tmp_path / "test.py"
     config = Config(select={NoShebang.name})
 
@@ -73,7 +62,6 @@ def test_no_shebang_various_patterns(
 def test_no_shebang_edge_cases(
     index_path: Path, tmp_path: Path, content: str, description: str
 ) -> None:
-    """Test edge cases for shebang detection that should not trigger violations."""
     tmp_file = tmp_path / "test.py"
     config = Config(select={NoShebang.name})
 
