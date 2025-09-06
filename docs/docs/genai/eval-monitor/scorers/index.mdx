@@ -32,6 +32,31 @@ Evaluating the quality of your GenAI application can be done in different ways. 
 | **Flexibility**  | Limited to predefined patterns                       | Highly flexible with custom prompts                        | Maximum flexibility                                               |
 | **MLflow Guide** | [Custom Scorers](custom.mdx)                         | [LLM-based Scorers](/genai/eval-monitor/scorers/llm-judge) | [Collecting Human Feedback](/genai/tracing/collect-user-feedback) |
 
+## Scorer Data Requirements
+
+:::warning[Important: Trace-based vs Static Data Compatibility]
+
+Not all scorers work with static datasets. Some scorers are designed specifically to analyze execution traces and **will not function with static pandas DataFrames** that only contain inputs/outputs/expectations.
+
+:::
+
+### Scorer Compatibility Matrix
+
+| Scorer Category            | Static Data Support | Trace Required                | Example Scorers                                                             |
+| -------------------------- | ------------------- | ----------------------------- | --------------------------------------------------------------------------- |
+| **Field-based Scorers**    | ✅ Yes              | ❌ No                         | `Correctness`, `RelevanceToQuery`, `Safety`, custom scorers using `@scorer` |
+| **Trace-based Scorers**    | ❌ No               | ✅ Yes                        | Scorers analyzing execution flow, tool usage patterns, span attributes      |
+| **Retrieval Scorers**      | ❌ No               | ✅ Yes (with RETRIEVER spans) | `RetrievalGroundedness`, `RetrievalRelevance`, `RetrievalSufficiency`       |
+| **Agent Behavior Scorers** | ❌ No               | ✅ Yes                        | Custom scorers analyzing multi-step workflows, tool trajectories            |
+
+### Key Points:
+
+- **Static datasets** (pandas DataFrames with inputs/outputs/expectations) work only with field-based scorers
+- **Trace-based scorers** require actual execution traces from your application
+- If you see errors about missing traces when using retrieval or agent scorers, you need to:
+  1. Use a `predict_fn` that generates traces, OR
+  2. Include pre-collected traces in your dataset
+
 ## Next Steps
 
 <TilesGrid>

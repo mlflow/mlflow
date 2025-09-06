@@ -894,7 +894,7 @@ class UcModelRegistryStore(BaseRestStore):
             return None
         return mlflow.get_logged_model(model_id)
 
-    def create_model_version(
+    def _create_model_version_with_optional_signature_validation(
         self,
         name,
         source,
@@ -904,9 +904,15 @@ class UcModelRegistryStore(BaseRestStore):
         description=None,
         local_model_path=None,
         model_id: str | None = None,
+        bypass_signature_validation: bool = False,
     ):
         """
-        Create a new model version from given source and run ID.
+        Private method to create a new model version from given source and run ID, with optional
+        bypass of signature validation. This bypass is currently only used by the
+        DatabricksWorkspaceModelRegistryRestStore to migrate model versions from the Databricks
+        workspace registry to Unity Catalog via copy_model_version. We do not want to allow
+        normal use of create_model_version to bypass signature validation, so we have this
+        private method.
 
         Args:
             name: Registered model name.
@@ -923,6 +929,7 @@ class UcModelRegistryStore(BaseRestStore):
                 mlflow.<flavor>.log_model(..., registered_model_name) call.
             model_id: The ID of the model (from an Experiment) that is being promoted to a
                 registered model version, if applicable.
+            bypass_signature_validation: Whether to bypass signature validation.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
@@ -958,7 +965,8 @@ class UcModelRegistryStore(BaseRestStore):
             extra_headers = {_DATABRICKS_LINEAGE_ID_HEADER: header_base64}
         full_name = get_full_name_from_sc(name, self.spark)
         with self._local_model_dir(source, local_model_path) as local_model_dir:
-            self._validate_model_signature(local_model_dir)
+            if not bypass_signature_validation:
+                self._validate_model_signature(local_model_dir)
             self._download_model_weights_if_not_saved(local_model_dir)
             feature_deps = get_feature_dependencies(local_model_dir)
             other_model_deps = get_model_version_dependencies(local_model_dir)
@@ -985,6 +993,52 @@ class UcModelRegistryStore(BaseRestStore):
                 name=full_name, version=model_version.version
             )
             return model_version_from_uc_proto(finalized_mv)
+
+    def create_model_version(
+        self,
+        name,
+        source,
+        run_id=None,
+        tags=None,
+        run_link=None,
+        description=None,
+        local_model_path=None,
+        model_id: str | None = None,
+    ):
+        """
+        Create a new model version from given source and run ID.
+
+        Args:
+            name: Registered model name.
+            source: URI indicating the location of the model artifacts.
+            run_id: Run ID from MLflow tracking server that generated the model.
+            tags: A list of :py:class:`mlflow.entities.model_registry.ModelVersionTag`
+                instances associated with this model version.
+            run_link: Link to the run from an MLflow tracking server that generated this model.
+            description: Description of the version.
+            local_model_path: Local path to the MLflow model, if it's already accessible on the
+                local filesystem. Can be used by AbstractStores that upload model version files
+                to the model registry to avoid a redundant download from the source location when
+                logging and registering a model via a single
+                mlflow.<flavor>.log_model(..., registered_model_name) call.
+            model_id: The ID of the model (from an Experiment) that is being promoted to a
+                registered model version, if applicable.
+
+        Returns:
+            A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
+            created in the backend.
+        """
+        return self._create_model_version_with_optional_signature_validation(
+            name=name,
+            source=source,
+            run_id=run_id,
+            tags=tags,
+            run_link=run_link,
+            description=description,
+            local_model_path=local_model_path,
+            model_id=model_id,
+            bypass_signature_validation=False,
+        )
 
     def _get_artifact_repo(self, model_version, model_name=None):
         def base_credential_refresh_def():

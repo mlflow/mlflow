@@ -5,17 +5,20 @@ from unittest import mock
 import pandas as pd
 import pytest
 import sklearn.neighbors as knn
+from click.testing import CliRunner
 
 import mlflow
 from mlflow import MlflowClient
-from mlflow.entities import Feedback, Metric, Param, RunTag
+from mlflow.entities import EvaluationDataset, Feedback, Metric, Param, RunTag
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
+from mlflow.genai.datasets import create_dataset
 from mlflow.genai.optimize.types import LLMParams, OptimizerOutput
 from mlflow.genai.scorers import scorer
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.pyfunc.model import ResponsesAgent, ResponsesAgentRequest, ResponsesAgentResponse
 from mlflow.telemetry.client import TelemetryClient
 from mlflow.telemetry.events import (
+    CreateDatasetEvent,
     CreateExperimentEvent,
     CreateLoggedModelEvent,
     CreateModelVersionEvent,
@@ -26,11 +29,14 @@ from mlflow.telemetry.events import (
     EvaluateEvent,
     GenAIEvaluateEvent,
     GetLoggedModelEvent,
+    GitModelVersioningEvent,
     LogAssessmentEvent,
     LogBatchEvent,
     LogDatasetEvent,
     LogMetricEvent,
     LogParamEvent,
+    McpRunEvent,
+    MergeRecordsEvent,
     PromptOptimizationEvent,
     StartTraceEvent,
 )
@@ -364,6 +370,45 @@ def test_prompt_optimization(mock_requests, mock_telemetry_client: TelemetryClie
     validate_telemetry_record(mock_telemetry_client, mock_requests, PromptOptimizationEvent.name)
 
 
+def test_create_dataset(mock_requests, mock_telemetry_client: TelemetryClient):
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_store:
+        mock_store_instance = mock.MagicMock()
+        mock_store.return_value = mock_store_instance
+        mock_store_instance.create_dataset.return_value = mock.MagicMock(
+            dataset_id="test-dataset-id", name="test_dataset", tags={"test": "value"}
+        )
+
+        create_dataset(name="test_dataset", tags={"test": "value"})
+        validate_telemetry_record(mock_telemetry_client, mock_requests, CreateDatasetEvent.name)
+
+
+def test_merge_records(mock_requests, mock_telemetry_client: TelemetryClient):
+    with mock.patch("mlflow.entities.evaluation_dataset._get_store") as mock_store:
+        mock_store_instance = mock.MagicMock()
+        mock_store.return_value = mock_store_instance
+        mock_store_instance.get_dataset.return_value = mock.MagicMock(dataset_id="test-id")
+        mock_store_instance.upsert_dataset_records.return_value = {"inserted": 2, "updated": 0}
+
+        evaluation_dataset = EvaluationDataset(
+            dataset_id="test-id",
+            name="test",
+            digest="digest",
+            created_time=123,
+            last_update_time=456,
+        )
+
+        records = [
+            {"inputs": {"q": "Q1"}, "expectations": {"a": "A1"}},
+            {"inputs": {"q": "Q2"}, "expectations": {"a": "A2"}},
+        ]
+        evaluation_dataset.merge_records(records)
+
+        expected_params = {"record_count": 2, "input_type": "list[dict]"}
+        validate_telemetry_record(
+            mock_telemetry_client, mock_requests, MergeRecordsEvent.name, expected_params
+        )
+
+
 def test_log_dataset(mock_requests, mock_telemetry_client: TelemetryClient):
     with mlflow.start_run() as run:
         dataset = mlflow.data.from_pandas(pd.DataFrame({"x": [1, 2, 3], "y": [4, 5, 6]}))
@@ -547,3 +592,25 @@ set_model(TestModel())
 
     mlflow.pyfunc.load_model("models:/test/1")
     validate_telemetry_record(mock_telemetry_client, mock_requests, GetLoggedModelEvent.name)
+
+
+def test_mcp_run(mock_requests, mock_telemetry_client: TelemetryClient):
+    from mlflow.mcp.cli import run
+
+    runner = CliRunner(catch_exceptions=False)
+    with mock.patch("mlflow.mcp.cli.run_server") as mock_run_server:
+        runner.invoke(run)
+
+    mock_run_server.assert_called_once()
+    mock_telemetry_client.flush()
+    validate_telemetry_record(mock_telemetry_client, mock_requests, McpRunEvent.name)
+
+
+def test_git_model_versioning(mock_requests, mock_telemetry_client):
+    from mlflow.genai import enable_git_model_versioning
+
+    with enable_git_model_versioning():
+        pass
+
+    mock_telemetry_client.flush()
+    validate_telemetry_record(mock_telemetry_client, mock_requests, GitModelVersioningEvent.name)

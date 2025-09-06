@@ -421,6 +421,7 @@ def _get_package_data(package_type: PackageType) -> dict[str, list[str]] | None:
             "server/auth/basic_auth.ini",
             "server/auth/db/migrations/alembic.ini",
             "models/notebook_resources/**/*",
+            "ai_commands/**/*.md",
         ]
     }
 

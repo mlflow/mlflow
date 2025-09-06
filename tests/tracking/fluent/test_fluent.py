@@ -621,8 +621,8 @@ def test_start_run_defaults_databricks_notebook(
     )
     mock_workspace_id = mock.Mock()
     workspace_info_patch = mock.patch(
-        "mlflow.utils.databricks_utils.get_workspace_info_from_dbutils",
-        return_value=(mock_webapp_url, mock_workspace_id),
+        "mlflow.utils.databricks_utils.get_workspace_id",
+        return_value=mock_workspace_id,
     )
 
     expected_tags = {
