@@ -168,6 +168,36 @@ def _is_litellm_available() -> bool:
         return False
 
 
+def _suppress_litellm_feedback(func):
+    """
+    Decorator to suppress LiteLLM's "Give Feedback" and "Provider List" messages
+    for the duration of the decorated function call. These messages indicate nonfatal
+    bugs in the LiteLLM library; they are often noisy and can be safely ignored.
+    """
+
+    def wrapper(*args, **kwargs):
+        try:
+            import litellm
+        except ImportError:
+            return func(*args, **kwargs)
+
+        original_set_verbose = getattr(litellm, "set_verbose", None)
+        original_suppress_debug_info = getattr(litellm, "suppress_debug_info", None)
+
+        try:
+            litellm.set_verbose = False
+            litellm.suppress_debug_info = True
+            return func(*args, **kwargs)
+        finally:
+            if original_set_verbose is not None:
+                litellm.set_verbose = original_set_verbose
+            if original_suppress_debug_info is not None:
+                litellm.suppress_debug_info = original_suppress_debug_info
+
+    return wrapper
+
+
+@_suppress_litellm_feedback
 def _invoke_litellm(
     provider: str,
     model_name: str,
@@ -192,8 +222,6 @@ def _invoke_litellm(
         MlflowException: If the request fails after all retries.
     """
     import litellm
-
-    litellm._turn_on_debug()
 
     # Import at function level to avoid circular imports
     # (tools.registry imports from utils for invoke_judge_model)
