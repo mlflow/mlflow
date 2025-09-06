@@ -1574,6 +1574,76 @@ class Scorer(_message.Message):
     creation_time: int
     def __init__(self, experiment_id: _Optional[int] = ..., scorer_name: _Optional[str] = ..., scorer_version: _Optional[int] = ..., serialized_scorer: _Optional[str] = ..., creation_time: _Optional[int] = ...) -> None: ...
 
+class ScorerParam(_message.Message):
+    __slots__ = ("name", "custom_scorer")
+    class CustomScorerParam(_message.Message):
+        __slots__ = ("name", "experiment_id", "version")
+        NAME_FIELD_NUMBER: _ClassVar[int]
+        EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+        VERSION_FIELD_NUMBER: _ClassVar[int]
+        name: str
+        experiment_id: str
+        version: int
+        def __init__(self, name: _Optional[str] = ..., experiment_id: _Optional[str] = ..., version: _Optional[int] = ...) -> None: ...
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    CUSTOM_SCORER_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    custom_scorer: ScorerParam.CustomScorerParam
+    def __init__(self, name: _Optional[str] = ..., custom_scorer: _Optional[_Union[ScorerParam.CustomScorerParam, _Mapping]] = ...) -> None: ...
+
+class OptimizePrompt(_message.Message):
+    __slots__ = ("train_dataset_id", "eval_dataset_id", "prompt_url", "scorers", "target_llm", "algorithm")
+    class Response(_message.Message):
+        __slots__ = ("job_id",)
+        JOB_ID_FIELD_NUMBER: _ClassVar[int]
+        job_id: str
+        def __init__(self, job_id: _Optional[str] = ...) -> None: ...
+    TRAIN_DATASET_ID_FIELD_NUMBER: _ClassVar[int]
+    EVAL_DATASET_ID_FIELD_NUMBER: _ClassVar[int]
+    PROMPT_URL_FIELD_NUMBER: _ClassVar[int]
+    SCORERS_FIELD_NUMBER: _ClassVar[int]
+    TARGET_LLM_FIELD_NUMBER: _ClassVar[int]
+    ALGORITHM_FIELD_NUMBER: _ClassVar[int]
+    train_dataset_id: str
+    eval_dataset_id: str
+    prompt_url: str
+    scorers: _containers.RepeatedCompositeFieldContainer[ScorerParam]
+    target_llm: str
+    algorithm: str
+    def __init__(self, train_dataset_id: _Optional[str] = ..., eval_dataset_id: _Optional[str] = ..., prompt_url: _Optional[str] = ..., scorers: _Optional[_Iterable[_Union[ScorerParam, _Mapping]]] = ..., target_llm: _Optional[str] = ..., algorithm: _Optional[str] = ...) -> None: ...
+
+class GetOptimizePromptJob(_message.Message):
+    __slots__ = ("job_id",)
+    class PromptOptimizationJobStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+        __slots__ = ()
+        UNSPECIFIED: _ClassVar[GetOptimizePromptJob.PromptOptimizationJobStatus]
+        PENDING: _ClassVar[GetOptimizePromptJob.PromptOptimizationJobStatus]
+        RUNNING: _ClassVar[GetOptimizePromptJob.PromptOptimizationJobStatus]
+        COMPLETED: _ClassVar[GetOptimizePromptJob.PromptOptimizationJobStatus]
+        FAILED: _ClassVar[GetOptimizePromptJob.PromptOptimizationJobStatus]
+    UNSPECIFIED: GetOptimizePromptJob.PromptOptimizationJobStatus
+    PENDING: GetOptimizePromptJob.PromptOptimizationJobStatus
+    RUNNING: GetOptimizePromptJob.PromptOptimizationJobStatus
+    COMPLETED: GetOptimizePromptJob.PromptOptimizationJobStatus
+    FAILED: GetOptimizePromptJob.PromptOptimizationJobStatus
+    class PromptOptimizationResult(_message.Message):
+        __slots__ = ("prompt_url", "evaluation_score")
+        PROMPT_URL_FIELD_NUMBER: _ClassVar[int]
+        EVALUATION_SCORE_FIELD_NUMBER: _ClassVar[int]
+        prompt_url: str
+        evaluation_score: float
+        def __init__(self, prompt_url: _Optional[str] = ..., evaluation_score: _Optional[float] = ...) -> None: ...
+    class Response(_message.Message):
+        __slots__ = ("status", "result")
+        STATUS_FIELD_NUMBER: _ClassVar[int]
+        RESULT_FIELD_NUMBER: _ClassVar[int]
+        status: GetOptimizePromptJob.PromptOptimizationJobStatus
+        result: GetOptimizePromptJob.PromptOptimizationResult
+        def __init__(self, status: _Optional[_Union[GetOptimizePromptJob.PromptOptimizationJobStatus, str]] = ..., result: _Optional[_Union[GetOptimizePromptJob.PromptOptimizationResult, _Mapping]] = ...) -> None: ...
+    JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    job_id: str
+    def __init__(self, job_id: _Optional[str] = ...) -> None: ...
+
 class MlflowService(_service.service): ...
 
 class MlflowService_Stub(MlflowService): ...
