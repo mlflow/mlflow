@@ -23,7 +23,7 @@ def get_default_model() -> str:
 def format_prompt(prompt: str, **values) -> str:
     """Format double-curly variables in the prompt template."""
     for key, value in values.items():
-        prompt = re.sub(r"\{\{\s*" + key + r"\s*\}\}", str(value), prompt)
+        prompt = re.sub(r"\{\{\s*" + key + r"\s*\}\}", lambda _: str(value), prompt)
     return prompt
 
 
