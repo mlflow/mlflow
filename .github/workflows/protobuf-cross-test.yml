@@ -41,7 +41,7 @@ jobs:
   core_tests:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 360
     permissions:
       contents: read
     strategy:
@@ -77,7 +77,16 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/evaluate \
-            --ignore=tests/optuna --ignore=tests/pyspark/optuna --ignore=tests/genai \
-            --ignore=tests/telemetry tests
+          pip install 'tf_keras<2.20' 'tensorflow<2.20'
+          for i in {1..10}; do
+            pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+              --ignore-flavors \
+              --ignore=tests/projects \
+              --ignore=tests/examples \
+              --ignore=tests/evaluate \
+              --ignore=tests/optuna \
+              --ignore=tests/pyspark/optuna \
+              --ignore=tests/genai \
+              --ignore=tests/telemetry \
+              tests
+          done
