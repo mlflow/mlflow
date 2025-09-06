@@ -20,15 +20,14 @@ jobs:
       models: read
       pull-requests: write
     timeout-minutes: 10
-    # Run on pull_request events from mlflow/mlflow (not forks) or when harupy comments '/review' on a pull request
+    # Run on pull_request events from mlflow/mlflow (not forks) or when anyone comments '/review' on a pull request
     if: >
       (github.event_name == 'pull_request' &&
        github.event.pull_request.head.repo.full_name == 'mlflow/mlflow')
       ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.pull_request &&
-       startsWith(github.event.comment.body, '/review') &&
-       github.event.comment.user.login == 'harupy')
+       startsWith(github.event.comment.body, '/review'))
     steps:
       - name: React to comment
         if: ${{ github.event_name == 'issue_comment' }}
@@ -42,6 +41,21 @@ jobs:
               comment_id: comment.id,
               content: 'rocket'
             });
+      - name: Check authorization for issue comment
+        if: ${{ github.event_name == 'issue_comment' && github.event.comment.user.login != 'harupy' }}
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            // Leave a comment indicating only 'harupy' is allowed to trigger the workflow
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: "⚠️ Only **harupy** is authorized to trigger this workflow via comments. Your request has been ignored."
+            });
+
+            // Fail the workflow to abort further execution
+            throw new Error("Unauthorized user attempted to trigger workflow: " + context.payload.comment.user.login);
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           sparse-checkout: |
