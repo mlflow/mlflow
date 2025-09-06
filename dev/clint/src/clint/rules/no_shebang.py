@@ -16,4 +16,4 @@ class NoShebang(Rule):
             return False
 
         first_line = file_content.split("\n")[0]
-        return first_line.startswith("#!")
+        return first_line.lstrip().startswith("#!")
