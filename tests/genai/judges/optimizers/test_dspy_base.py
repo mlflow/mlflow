@@ -4,12 +4,14 @@ from typing import Any, Callable, Collection
 from unittest.mock import MagicMock, Mock, patch
 
 import dspy
+import litellm
 import pytest
 
+from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.optimizers.dspy import DSPyAlignmentOptimizer
 
-from tests.genai.judges.optimizers.conftest import MockDSPyLM
+from tests.genai.judges.optimizers.conftest import MockDSPyLM, MockJudge
 
 
 class ConcreteDSPyOptimizer(DSPyAlignmentOptimizer):
@@ -277,12 +279,6 @@ def test_mlflow_to_litellm_uri_conversion_in_judge_program():
 
 def test_dspy_align_litellm_nonfatal_error_messages_suppressed():
     """Test that LiteLLM nonfatal error messages are suppressed during DSPy align method."""
-    import litellm
-
-    from mlflow.entities.trace import Trace
-
-    from tests.genai.judges.optimizers.conftest import MockJudge
-
     suppression_state_during_call = {}
 
     def mock_dspy_optimize(program, examples, metric_fn):
