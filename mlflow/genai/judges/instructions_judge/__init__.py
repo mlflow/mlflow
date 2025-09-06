@@ -219,30 +219,29 @@ class InstructionsJudge(Judge):
             # Build the user message with variable substitutions
             template_values = {}
             if inputs is not None and self._TEMPLATE_VARIABLE_INPUTS in self.template_variables:
-                template_values[self._TEMPLATE_VARIABLE_INPUTS] = json.dumps(
-                    inputs, default=str, indent=2
+                json_inputs = json.dumps(inputs, default=str, indent=2)
+                template_values[self._TEMPLATE_VARIABLE_INPUTS] = (
+                    f"{self._TEMPLATE_VARIABLE_INPUTS}: {json_inputs}"
                 )
             if outputs is not None and self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables:
-                template_values[self._TEMPLATE_VARIABLE_OUTPUTS] = json.dumps(
-                    outputs, default=str, indent=2
+                json_outputs = json.dumps(outputs, default=str, indent=2)
+                template_values[self._TEMPLATE_VARIABLE_OUTPUTS] = (
+                    f"{self._TEMPLATE_VARIABLE_OUTPUTS}: {json_outputs}"
                 )
             if (
                 expectations is not None
                 and self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables
             ):
-                template_values[self._TEMPLATE_VARIABLE_EXPECTATIONS] = json.dumps(
-                    expectations, default=str, indent=2
+                json_expectations = json.dumps(expectations, default=str, indent=2)
+                template_values[self._TEMPLATE_VARIABLE_EXPECTATIONS] = (
+                    f"{self._TEMPLATE_VARIABLE_EXPECTATIONS}: {json_expectations}"
                 )
 
             # Create user content with the actual values for each variable
             user_message_parts = []
             for var_name in sorted(self.template_variables):
                 if var_name in template_values:
-                    value = template_values[var_name]
-                    formatted_value = (
-                        value if isinstance(value, str) else json.dumps(value, default=str)
-                    )
-                    user_message_parts.append(f"{var_name}: {formatted_value}")
+                    user_message_parts.append(template_values[var_name])
 
             user_content = "\n".join(user_message_parts)
 
