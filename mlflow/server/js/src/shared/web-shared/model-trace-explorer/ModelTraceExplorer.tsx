@@ -21,13 +21,9 @@ import { ModelTraceHeaderDetails } from './ModelTraceHeaderDetails';
 const ModelTraceExplorerImpl = ({
   modelTrace,
   className,
-  selectedSpanId,
-  onSelectSpan,
 }: {
   modelTrace: ModelTrace;
   className?: string;
-  selectedSpanId?: string;
-  onSelectSpan?: (selectedSpanId?: string) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const enableSummaryView = shouldEnableSummaryView();
@@ -39,8 +35,6 @@ const ModelTraceExplorerImpl = ({
         <ModelTraceExplorerDetailView
           modelTrace={modelTrace}
           className={className}
-          selectedSpanId={selectedSpanId}
-          onSelectSpan={onSelectSpan}
         />
       </div>
     );
@@ -102,8 +96,6 @@ const ModelTraceExplorerImpl = ({
         <ModelTraceExplorerDetailView
           modelTrace={modelTrace}
           className={className}
-          selectedSpanId={selectedSpanId}
-          onSelectSpan={onSelectSpan}
         />
       </Tabs.Content>
     </Tabs.Root>
@@ -117,15 +109,11 @@ const ContextProviders = ({ children }: { traceId: string; children: React.React
 export const ModelTraceExplorer = ({
   modelTrace: initialModelTrace,
   className,
-  initialActiveView = 'summary',
-  selectedSpanId,
-  onSelectSpan,
+  initialActiveView,
 }: {
   modelTrace: ModelTrace;
   className?: string;
   initialActiveView?: 'summary' | 'detail';
-  selectedSpanId?: string;
-  onSelectSpan?: (selectedSpanId?: string) => void;
 }) => {
   const [modelTrace, setModelTrace] = useState(initialModelTrace);
   const [assessmentsPaneEnabled, setAssessmentsPaneEnabled] = useState(true);
@@ -148,14 +136,11 @@ export const ModelTraceExplorer = ({
       <ModelTraceExplorerViewStateProvider
         modelTrace={modelTrace}
         initialActiveView={initialActiveView}
-        selectedSpanIdOnRender={selectedSpanId}
         assessmentsPaneEnabled={assessmentsPaneEnabled}
       >
         <ModelTraceExplorerImpl
           modelTrace={modelTrace}
           className={className}
-          selectedSpanId={selectedSpanId}
-          onSelectSpan={onSelectSpan}
         />
       </ModelTraceExplorerViewStateProvider>
     </ContextProviders>
