@@ -163,7 +163,6 @@ def test_otel_endpoint_requires_experiment_id_header(mlflow_server: str):
     assert response.status_code == 422
 
 
-@pytest.mark.repeat(500)
 def test_invalid_otel_span_format_returns_400(mlflow_server: str):
     """
     Test that invalid OpenTelemetry protobuf format returns HTTP 400.
