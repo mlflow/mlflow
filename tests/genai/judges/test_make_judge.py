@@ -1262,6 +1262,111 @@ def test_trace_prompt_augmentation(mock_trace, monkeypatch):
     assert "Analyze this {{ trace }} for quality" in captured_prompt
 
 
+def test_judge_rejects_scalar_inputs():
+    judge = make_judge(
+        name="test_judge",
+        instructions="Check if {{inputs}} is valid",
+        model="openai:/gpt-4",
+    )
+
+    with pytest.raises(MlflowException, match="'inputs' must be a dictionary, got str"):
+        judge(inputs="cat")
+
+    with pytest.raises(MlflowException, match="'inputs' must be a dictionary, got int"):
+        judge(inputs=42)
+
+    with pytest.raises(MlflowException, match="'inputs' must be a dictionary, got list"):
+        judge(inputs=["item1", "item2"])
+
+
+def test_judge_rejects_scalar_outputs():
+    judge = make_judge(
+        name="test_judge",
+        instructions="Check if {{outputs}} is valid",
+        model="openai:/gpt-4",
+    )
+
+    with pytest.raises(MlflowException, match="'outputs' must be a dictionary, got str"):
+        judge(outputs="response text")
+
+    with pytest.raises(MlflowException, match="'outputs' must be a dictionary, got bool"):
+        judge(outputs=True)
+
+    with pytest.raises(MlflowException, match="'outputs' must be a dictionary, got float"):
+        judge(outputs=3.14)
+
+
+def test_judge_rejects_scalar_expectations():
+    judge = make_judge(
+        name="test_judge",
+        instructions="Compare {{outputs}} to {{expectations}}",
+        model="openai:/gpt-4",
+    )
+
+    with pytest.raises(MlflowException, match="'expectations' must be a dictionary, got str"):
+        judge(outputs={"result": "test"}, expectations="expected value")
+
+    with pytest.raises(MlflowException, match="'expectations' must be a dictionary, got tuple"):
+        judge(outputs={"result": "test"}, expectations=("expected", "values"))
+
+
+def test_judge_accepts_valid_dict_inputs(mock_invoke_judge_model):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Check if {{inputs}} and {{outputs}} are valid",
+        model="openai:/gpt-4",
+    )
+
+    result = judge(
+        inputs={"question": "What is MLflow?"},
+        outputs={"answer": "MLflow is an open source platform"},
+    )
+    assert isinstance(result, Feedback)
+
+    result = judge(inputs={}, outputs={})
+    assert isinstance(result, Feedback)
+
+    result = judge(
+        inputs={"nested": {"key": "value"}},
+        outputs={"response": {"status": "ok", "data": "result"}},
+    )
+    assert isinstance(result, Feedback)
+
+
+def test_judge_rejects_invalid_trace():
+    judge = make_judge(
+        name="test_judge",
+        instructions="Analyze this {{trace}}",
+        model="openai:/gpt-4",
+    )
+
+    with pytest.raises(MlflowException, match="'trace' must be a Trace instance, got str"):
+        judge(trace="not a trace")
+
+    with pytest.raises(MlflowException, match="'trace' must be a Trace instance, got dict"):
+        judge(trace={"trace_data": "invalid"})
+
+    inputs_judge = make_judge(
+        name="inputs_judge",
+        instructions="Check {{inputs}}",
+        model="openai:/gpt-4",
+    )
+    with pytest.raises(MlflowException, match="Must specify 'inputs'"):
+        inputs_judge(trace=None)
+
+
+def test_judge_accepts_valid_trace(mock_trace, mock_invoke_judge_model):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Analyze this {{trace}}",
+        model="openai:/gpt-4",
+    )
+
+    result = judge(trace=mock_trace)
+    assert isinstance(result, Feedback)
+    assert mock_invoke_judge_model.captured_args["trace"] == mock_trace
+
+
 def test_instructions_judge_with_chat_messages():
     captured_args = {}
 
