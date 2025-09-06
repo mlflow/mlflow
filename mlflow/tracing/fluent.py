@@ -34,6 +34,7 @@ from mlflow.tracing.utils import (
     SPANS_COLUMN_NAME,
     TraceJSONEncoder,
     capture_function_input_args,
+    capture_location_from_frame,
     encode_span_id,
     exclude_immutable_tags,
     get_otel_attribute,
@@ -166,6 +167,15 @@ def trace(
     """
 
     def decorator(fn):
+        # Capture the file and line number where the decorator was applied
+        decorator_location = None
+        frame = inspect.currentframe()
+        decorator_frame = (
+            frame.f_back.f_back.f_back if frame and frame.f_back and frame.f_back.f_back else None
+        )
+        if decorator_frame is not None:
+            decorator_location = capture_location_from_frame(decorator_frame)
+
         # Check if the function is a classmethod or staticmethod
         is_classmethod = isinstance(fn, classmethod)
         is_staticmethod = isinstance(fn, staticmethod)
@@ -173,13 +183,19 @@ def trace(
         # Extract the original function if it's a descriptor
         original_fn = fn.__func__ if is_classmethod or is_staticmethod else fn
 
+        # Merge file and line number into attributes
+        merged_attributes = dict(attributes or {})
+        if decorator_location is not None:
+            merged_attributes[SpanAttributeKey.LINE_NUMBER] = decorator_location.line_number
+            merged_attributes[SpanAttributeKey.FILE_PATH] = decorator_location.file_path
+
         # Apply the appropriate wrapper to the original function
         if inspect.isgeneratorfunction(original_fn) or inspect.isasyncgenfunction(original_fn):
             wrapped = _wrap_generator(
                 original_fn,
                 name,
                 span_type,
-                attributes,
+                merged_attributes,
                 output_reducer,
                 trace_destination,
             )
@@ -188,7 +204,9 @@ def trace(
                 raise MlflowException.invalid_parameter_value(
                     "The output_reducer argument is only supported for generator functions."
                 )
-            wrapped = _wrap_function(original_fn, name, span_type, attributes, trace_destination)
+            wrapped = _wrap_function(
+                original_fn, name, span_type, merged_attributes, trace_destination
+            )
 
         # If the original was a descriptor, wrap the result back as the same type of descriptor
         if is_classmethod:
@@ -482,6 +500,18 @@ def start_span(
         request_id = get_otel_attribute(otel_span, SpanAttributeKey.REQUEST_ID)
         mlflow_span = create_mlflow_span(otel_span, request_id, span_type)
         attributes = dict(attributes) if attributes is not None else {}
+
+        # Capture the file and line number where start_span() was called
+        caller_location = None
+        frame = inspect.currentframe()
+        caller_frame = frame.f_back.f_back if frame and frame.f_back and frame.f_back else None
+        if caller_frame is not None:
+            caller_location = capture_location_from_frame(caller_frame)
+
+        if caller_location is not None:
+            attributes[SpanAttributeKey.LINE_NUMBER] = caller_location.line_number
+            attributes[SpanAttributeKey.FILE_PATH] = caller_location.file_path
+
         mlflow_span.set_attributes(attributes)
         InMemoryTraceManager.get_instance().register_span(mlflow_span)
 
