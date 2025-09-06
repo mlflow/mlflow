@@ -326,7 +326,7 @@ jobs:
           cp .github/workflows/test_durations/models.test_duration /tmp/models_group_${{ matrix.group }}_durations.json 2>/dev/null || echo "{}" > /tmp/models_group_${{ matrix.group }}_durations.json
           uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
             --durations-path=/tmp/models_group_${{ matrix.group }}_durations.json --store-durations \
-            tests/models
+            tests/models || [ $? -eq 5 ]
           # Move to group-specific file for artifact upload
           mv /tmp/models_group_${{ matrix.group }}_durations.json group_${{ matrix.group }}_durations.json
 
@@ -372,7 +372,7 @@ jobs:
           cp .github/workflows/test_durations/evaluate.test_duration /tmp/evaluate_group_${{ matrix.group }}_durations.json 2>/dev/null || echo "{}" > /tmp/evaluate_group_${{ matrix.group }}_durations.json
           uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
             --durations-path=/tmp/evaluate_group_${{ matrix.group }}_durations.json --store-durations \
-            tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
+            tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py || [ $? -eq 5 ]
           # Move to group-specific file for artifact upload
           mv /tmp/evaluate_group_${{ matrix.group }}_durations.json group_${{ matrix.group }}_durations.json
 
