@@ -14,7 +14,7 @@ from mlflow.genai.judges.optimizers.dspy_utils import (
     create_dspy_signature,
     trace_to_dspy_example,
 )
-from mlflow.genai.judges.utils import get_default_model
+from mlflow.genai.judges.utils import _suppress_litellm_nonfatal_errors, get_default_model
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
 
@@ -104,6 +104,7 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
 
         return CustomPredict(judge)
 
+    @_suppress_litellm_nonfatal_errors
     def align(self, judge: Judge, traces: list[Trace]) -> Judge:
         """
         Main alignment method that orchestrates the DSPy optimization process.
