@@ -116,6 +116,14 @@ const RunsChartCardWrapperRaw = ({
     () => onReorderWith(uuid || '', nextChartUuid || ''),
     [onReorderWith, uuid, nextChartUuid],
   );
+  const onMoveToTop = useCallback(
+    () => onReorderWith(uuid || '', '__TOP__'),
+    [onReorderWith, uuid],
+  );
+  const onMoveToBottom = useCallback(
+    () => onReorderWith(uuid || '', '__BOTTOM__'),
+    [onReorderWith, uuid],
+  );
 
   const usingCustomTitle = React.isValidElement(title);
 
@@ -281,6 +289,16 @@ const RunsChartCardWrapperRaw = ({
             )}
             <DropdownMenu.Separator />
             <DropdownMenu.Item
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_cards_chartcard.common.tsx_move_to_top"
+              onClick={onMoveToTop}
+              data-testid="experiment-view-compare-runs-move-to-top"
+            >
+              <FormattedMessage
+                defaultMessage="Move to top"
+                description="Experiment page > compare runs tab > chart header > move to top option"
+              />
+            </DropdownMenu.Item>
+            <DropdownMenu.Item
               componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_cards_chartcard.common.tsx_334"
               disabled={!canMoveUp}
               onClick={onMoveUp}
@@ -300,6 +318,16 @@ const RunsChartCardWrapperRaw = ({
               <FormattedMessage
                 defaultMessage="Move down"
                 description="Experiment page > compare runs tab > chart header > move down option"
+              />
+            </DropdownMenu.Item>
+            <DropdownMenu.Item
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_cards_chartcard.common.tsx_move_to_top"
+              onClick={onMoveToBottom}
+              data-testid="experiment-view-compare-runs-move-to-bottom"
+            >
+              <FormattedMessage
+                defaultMessage="Move to bottom"
+                description="Experiment page > compare runs tab > chart header > move to bottom option"
               />
             </DropdownMenu.Item>
             {additionalMenuContent}
