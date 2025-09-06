@@ -193,6 +193,8 @@ def _invoke_litellm(
     """
     import litellm
 
+    litellm._turn_on_debug()
+
     # Import at function level to avoid circular imports
     # (tools.registry imports from utils for invoke_judge_model)
     from mlflow.genai.judges.tools import list_judge_tools
