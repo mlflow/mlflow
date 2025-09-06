@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Button, ButtonProps } from '@databricks/design-system';
+import type { ButtonProps } from '@databricks/design-system';
+import { Button } from '@databricks/design-system';
 import { CreateModelModal } from './CreateModelModal';
 import { FormattedMessage } from 'react-intl';
 

@@ -21,7 +21,7 @@ interface GenAITracesTableConfigProviderProps {
   children: ReactNode;
 }
 
-export const GenAITracesTableConfigProvider: React.FC<GenAITracesTableConfigProviderProps> = ({
+export const GenAITracesTableConfigProvider: React.FC<React.PropsWithChildren<GenAITracesTableConfigProviderProps>> = ({
   config = {},
   children,
 }) => {

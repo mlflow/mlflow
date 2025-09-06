@@ -1,6 +1,6 @@
 import { ParagraphSkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { ModelVersionTableAliasesCell } from '../../../../model-registry/components/aliases/ModelVersionTableAliasesCell';
-import { RegisteredPrompt, RegisteredPromptVersion } from '../types';
+import type { RegisteredPrompt, RegisteredPromptVersion } from '../types';
 import Utils from '../../../../common/utils/Utils';
 import { FormattedMessage } from 'react-intl';
 import { Link } from '../../../../common/utils/RoutingUtils';

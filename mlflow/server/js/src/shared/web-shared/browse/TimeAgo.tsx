@@ -134,7 +134,10 @@ export const getTimeAgoStrings = ({
   };
 };
 
-export const TimeAgo: React.FC<TimeAgoProps> = ({ date, tooltipFormatOptions = DateTooltipOptions }) => {
+export const TimeAgo: React.FC<React.PropsWithChildren<TimeAgoProps>> = ({
+  date,
+  tooltipFormatOptions = DateTooltipOptions,
+}) => {
   const intl = useIntl();
   const { displayText, tooltipTitle } = getTimeAgoStrings({ date, intl, tooltipFormatOptions });
   return (

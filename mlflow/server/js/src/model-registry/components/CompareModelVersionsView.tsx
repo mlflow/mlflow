@@ -8,8 +8,9 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import { Link } from '../../common/utils/RoutingUtils';
-import _ from 'lodash';
-import { FormattedMessage, injectIntl, IntlShape } from 'react-intl';
+import { every, isEmpty, uniq } from 'lodash';
+import type { IntlShape } from 'react-intl';
+import { FormattedMessage, injectIntl } from 'react-intl';
 import { Switch, LegacyTabs, useDesignSystemTheme } from '@databricks/design-system';
 
 import { getParams, getRunInfo } from '../../experiment-tracking/reducers/Reducers';
@@ -481,8 +482,8 @@ export class CompareModelVersionsViewImpl extends Component<
     // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
     const isActive = this.state[activeSection];
     const showSchemaSection = schemaActive && isActive;
-    const showListByIndex = !compareByColumnNameToggle && !_.isEmpty(listByIndex);
-    const showListByName = compareByColumnNameToggle && !_.isEmpty(listByName);
+    const showListByIndex = !compareByColumnNameToggle && !isEmpty(listByIndex);
+    const showListByName = compareByColumnNameToggle && !isEmpty(listByName);
     const listByIndexHeaderMap = (key: any, data: any) => (
       <>
         {sectionName} [{key}]
@@ -578,7 +579,7 @@ export class CompareModelVersionsViewImpl extends Component<
       // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
       records.forEach((r: any) => (data[r.key][i] = r.value));
     });
-    if (_.isEmpty(keys) || _.isEmpty(list)) {
+    if (isEmpty(keys) || isEmpty(list)) {
       return (
         <tr className={`table-row ${show ? '' : 'hidden-row'}`}>
           <th scope="row" className="rowHeader block-content">
@@ -595,7 +596,7 @@ export class CompareModelVersionsViewImpl extends Component<
       );
     }
     // @ts-expect-error TS(2345): Argument of type 'string' is not assignable to par... Remove this comment to see the full error message
-    const isAllNumeric = _.every(keys, (key) => !isNaN(key));
+    const isAllNumeric = every(keys, (key) => !isNaN(key));
     if (isAllNumeric) {
       keys.sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
     } else {
@@ -604,7 +605,7 @@ export class CompareModelVersionsViewImpl extends Component<
     let identical = true;
     const resultRows = keys.map((k) => {
       // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
-      const isDifferent = data[k].length > 1 && _.uniq(data[k]).length > 1;
+      const isDifferent = data[k].length > 1 && uniq(data[k]).length > 1;
       identical = !isDifferent && identical;
       return (
         <tr key={k} className={`table-row ${(toggle && !isDifferent) || !show ? 'hidden-row' : ''}`}>

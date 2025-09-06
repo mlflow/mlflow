@@ -6,8 +6,9 @@
  */
 
 import React from 'react';
-import _ from 'lodash';
-import { Link, NavigateFunction } from '../../common/utils/RoutingUtils';
+import { sortBy } from 'lodash';
+import type { NavigateFunction } from '../../common/utils/RoutingUtils';
+import { Link } from '../../common/utils/RoutingUtils';
 import { ModelRegistryRoutes } from '../routes';
 import { TagAssignmentModal } from '../../common/components/TagAssignmentModal';
 import { TagList } from '../../common/components/TagList';
@@ -44,7 +45,7 @@ import { shouldShowModelsNextUI, shouldUseSharedTaggingUI } from '../../common/u
 import { ModelVersionViewAliasEditor } from './aliases/ModelVersionViewAliasEditor';
 import type { ModelEntity, RunInfoEntity } from '../../experiment-tracking/types';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
-import { KeyValueEntity } from '../../common/types';
+import type { KeyValueEntity } from '../../common/types';
 
 type ModelVersionViewImplProps = {
   modelName?: string;
@@ -143,7 +144,7 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
   };
 
   getTags = () =>
-    _.sortBy(
+    sortBy(
       Utils.getVisibleTagValues(this.props.tags).map(([key, value]) => ({
         key,
         name: key,

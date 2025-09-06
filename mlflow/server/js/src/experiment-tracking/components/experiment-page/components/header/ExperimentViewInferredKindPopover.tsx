@@ -1,6 +1,6 @@
 import { Button, CloseIcon, Popover, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { ExperimentKind } from '../../../../constants';
+import type { ExperimentKind } from '../../../../constants';
 import { ExperimentKindDropdownLabels, ExperimentKindShortLabels } from '../../../../utils/ExperimentKindUtils';
 
 export const ExperimentViewInferredKindPopover = ({

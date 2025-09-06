@@ -23,7 +23,7 @@ import Utils from '../../common/utils/Utils';
 import ParallelCoordinatesPlotPanel from './ParallelCoordinatesPlotPanel';
 import { PageHeader } from '../../shared/building_blocks/PageHeader';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
-import { RunInfoEntity } from '../types';
+import type { RunInfoEntity } from '../types';
 import { CompareRunArtifactView } from './CompareRunArtifactView';
 
 const { TabPane } = LegacyTabs;

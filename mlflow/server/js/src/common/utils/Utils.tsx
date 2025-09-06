@@ -9,12 +9,13 @@ import React from 'react';
 import moment from 'moment';
 import qs from 'qs';
 import { MLFLOW_INTERNAL_PREFIX } from './TagUtils';
-import _ from 'lodash';
+import { chain, flatMap as lodashFlatMap, merge, omit, sortBy, spread, uniq, uniqWith } from 'lodash';
 import { ErrorCodes, SupportPageUrl } from '../constants';
-import { FormattedMessage, IntlShape } from 'react-intl';
+import type { IntlShape } from 'react-intl';
+import { FormattedMessage } from 'react-intl';
 import { ErrorWrapper } from './ErrorWrapper';
-import { RunInfoEntity } from '../../experiment-tracking/types';
-import { KeyValueEntity } from '../types';
+import type { RunInfoEntity } from '../../experiment-tracking/types';
+import type { KeyValueEntity } from '../types';
 import { NOTE_CONTENT_TAG } from '../../experiment-tracking/utils/NoteUtils';
 
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
@@ -878,7 +879,7 @@ class Utils {
   }
 
   static getVisibleTagKeyList(tagsList: any) {
-    return _.uniq(_.flatMap(tagsList, (tags) => Utils.getVisibleTagValues(tags).map(([key]) => key)));
+    return uniq(lodashFlatMap(tagsList, (tags) => Utils.getVisibleTagValues(tags).map(([key]) => key)));
   }
 
   /**
@@ -891,11 +892,11 @@ class Utils {
    */
   static concatAndGroupArraysById(array: any, arrayToConcat: any, id: any) {
     return (
-      _(array)
+      chain(array)
         .concat(arrayToConcat)
         .groupBy(id)
         // complication of _.merge necessary to avoid mutating arguments
-        .map(_.spread((obj, source) => _.merge({}, obj, source)))
+        .map(spread((obj, source) => merge({}, obj, source)))
         .value()
     );
   }
@@ -928,7 +929,7 @@ class Utils {
         // extract artifact path, flavors and creation time from tag.
         // 'python_function' should be interpreted as pyfunc flavor
         const filtered = models.map((model: any) => {
-          const removeFunc = Object.keys(_.omit(model.flavors, 'python_function'));
+          const removeFunc = Object.keys(omit(model.flavors, 'python_function'));
           const flavors = removeFunc.length ? removeFunc : ['pyfunc'];
           return {
             artifactPath: model.artifact_path,
@@ -938,7 +939,7 @@ class Utils {
         });
         // sort in descending order of creation time
         const sorted = filtered.sort((a: any, b: any) => parseFloat(b.utcTimeCreated) - parseFloat(a.utcTimeCreated));
-        return _.uniqWith(sorted, (a, b) => (a as any).artifactPath === (b as any).artifactPath);
+        return uniqWith(sorted, (a, b) => (a as any).artifactPath === (b as any).artifactPath);
       }
     }
     return [];
@@ -1044,7 +1045,7 @@ class Utils {
   }
 
   static sortExperimentsById = (experiments: any) => {
-    return _.sortBy(experiments, [({ experimentId }) => experimentId]);
+    return sortBy(experiments, [({ experimentId }) => experimentId]);
   };
 
   static getExperimentNameMap = (experiments: any) => {

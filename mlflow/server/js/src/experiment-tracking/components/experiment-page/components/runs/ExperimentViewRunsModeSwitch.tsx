@@ -1,6 +1,6 @@
 import { InfoPopover, LegacyTabs, LegacyTooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
+import type { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
 import type { ExperimentViewRunsCompareMode } from '../../../../types';
 import { PreviewBadge } from '@mlflow/mlflow/src/shared/building_blocks/PreviewBadge';
 import { FeatureBadge } from '@mlflow/mlflow/src/shared/building_blocks/FeatureBadge';

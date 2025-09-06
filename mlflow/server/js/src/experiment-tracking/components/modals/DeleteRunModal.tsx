@@ -10,7 +10,8 @@ import { ConfirmModal } from './ConfirmModal';
 import { deleteRunApi, openErrorModal } from '../../actions';
 import { connect } from 'react-redux';
 import Utils from '../../../common/utils/Utils';
-import { IntlShape, injectIntl } from 'react-intl';
+import type { IntlShape } from 'react-intl';
+import { injectIntl } from 'react-intl';
 
 type Props = {
   isOpen: boolean;

@@ -4,7 +4,7 @@ import { first, isNil } from 'lodash';
 import type { ThemeType } from '@databricks/design-system';
 import { ArrowRightIcon, Tag, Tooltip, Typography, UserIcon } from '@databricks/design-system';
 import type { IntlShape } from '@databricks/i18n';
-import type { ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
+import { ExpectationValuePreview, type ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
 
 import { LoggedModelCell } from './LoggedModelCell';
 import { NullCell } from './NullCell';
@@ -221,6 +221,37 @@ export const assessmentCellRenderer = (
         />
       )}
     </div>
+  );
+};
+
+export const expectationCellRenderer = (
+  theme: ThemeType,
+  intl: IntlShape,
+  isComparing: boolean,
+  expectationName: string,
+  comparisonEntry: EvalTraceComparisonEntry,
+) => {
+  const currentValue = comparisonEntry.currentRunValue?.targets?.[expectationName];
+  const otherValue = comparisonEntry.otherRunValue?.targets?.[expectationName];
+
+  const currentValuePreview = currentValue ? (
+    <ExpectationValuePreview parsedValue={currentValue} singleLine />
+  ) : (
+    <NullCell isComparing={isComparing} />
+  );
+  const otherValuePreview = otherValue ? (
+    <ExpectationValuePreview parsedValue={otherValue} singleLine />
+  ) : (
+    <NullCell isComparing={isComparing} />
+  );
+
+  return isComparing ? (
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+      <div css={{ display: 'flex', flex: 1 }}>{currentValuePreview}</div>
+      <div css={{ display: 'flex', flex: 1 }}>{otherValuePreview}</div>
+    </div>
+  ) : (
+    currentValuePreview
   );
 };
 

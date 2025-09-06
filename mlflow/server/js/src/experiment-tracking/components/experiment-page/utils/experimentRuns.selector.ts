@@ -1,9 +1,7 @@
-import {
+import type {
   ExperimentEntity,
   ExperimentStoreEntities,
-  LIFECYCLE_FILTER,
   ModelVersionInfoEntity,
-  MODEL_VERSION_FILTER,
   DatasetSummary,
   RunInfoEntity,
   RunDatasetWithTags,
@@ -11,7 +9,8 @@ import {
   RunInputsType,
   RunOutputsType,
 } from '../../../types';
-import { KeyValueEntity } from '../../../../common/types';
+import { LIFECYCLE_FILTER, MODEL_VERSION_FILTER } from '../../../types';
+import type { KeyValueEntity } from '../../../../common/types';
 import { getLatestMetrics } from '../../../reducers/MetricReducer';
 import { getExperimentTags, getParams, getRunDatasets, getRunInfo, getRunTags } from '../../../reducers/Reducers';
 import { pickBy } from 'lodash';

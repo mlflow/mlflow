@@ -7,7 +7,7 @@
 
 import { MLFLOW_LOGGED_ARTIFACTS_TAG } from '../constants';
 import { RunLoggedArtifactType, type RunLoggedArtifactsDeclaration } from '../types';
-import { KeyValueEntity } from '../../common/types';
+import type { KeyValueEntity } from '../../common/types';
 
 export class ArtifactNode {
   children: any;

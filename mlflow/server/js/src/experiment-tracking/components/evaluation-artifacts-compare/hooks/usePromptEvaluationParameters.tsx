@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
-import { MessageDescriptor, defineMessage } from 'react-intl';
+import type { MessageDescriptor } from 'react-intl';
+import { defineMessage } from 'react-intl';
 
 // Hardcoded model parameter definitions
 const parameterDefinitions: {

@@ -396,16 +396,16 @@ describe('getRetrievedContextFromTrace', () => {
     // Chunk 0
     expect(result?.[0].docUrl).toBe('s3://mybucket/doc1');
     expect(result?.[0].content).toBe('Document 1');
-    expect(result?.[0].retrievalAssessmentsByName?.['chunk_relevance']).toHaveLength(1);
-    expect(result?.[0].retrievalAssessmentsByName?.['chunk_relevance']?.[0].stringValue).toBe('yes');
-    expect(result?.[0].retrievalAssessmentsByName?.['relevance']).toBeUndefined();
+    expect(result?.[0].retrievalAssessmentsByName?.chunk_relevance).toHaveLength(1);
+    expect(result?.[0].retrievalAssessmentsByName?.chunk_relevance?.[0].stringValue).toBe('yes');
+    expect(result?.[0].retrievalAssessmentsByName?.relevance).toBeUndefined();
 
     // Chunk 1
     expect(result?.[1].docUrl).toBe('s3://mybucket/doc2');
     expect(result?.[1].content).toBe('Document 2');
-    expect(result?.[1].retrievalAssessmentsByName?.['chunk_relevance']).toHaveLength(1);
-    expect(result?.[1].retrievalAssessmentsByName?.['chunk_relevance']?.[0].stringValue).toBe('no');
-    expect(result?.[1].retrievalAssessmentsByName?.['relevance']).toBeUndefined();
+    expect(result?.[1].retrievalAssessmentsByName?.chunk_relevance).toHaveLength(1);
+    expect(result?.[1].retrievalAssessmentsByName?.chunk_relevance?.[0].stringValue).toBe('no');
+    expect(result?.[1].retrievalAssessmentsByName?.relevance).toBeUndefined();
   });
 });
 

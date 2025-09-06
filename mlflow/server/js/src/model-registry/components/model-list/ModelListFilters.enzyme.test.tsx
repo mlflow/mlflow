@@ -1,5 +1,6 @@
 import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
-import { ModelListFilters, ModelListFiltersProps } from './ModelListFilters';
+import type { ModelListFiltersProps } from './ModelListFilters';
+import { ModelListFilters } from './ModelListFilters';
 
 describe('ModelListFilters', () => {
   const minimalProps: ModelListFiltersProps = {

@@ -5,7 +5,7 @@ import { AliasTag } from '../../../common/components/AliasTag';
 import { useCallback } from 'react';
 import { useDispatch } from 'react-redux';
 import { FormattedMessage } from 'react-intl';
-import { ThunkDispatch } from '../../../redux-types';
+import type { ThunkDispatch } from '../../../redux-types';
 import { setModelVersionAliasesApi } from '../../actions';
 import { mlflowAliasesLearnMoreLink } from '../../constants';
 

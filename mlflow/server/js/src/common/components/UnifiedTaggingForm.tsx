@@ -7,9 +7,9 @@ import {
   TagAssignmentValue,
   TagAssignmentRemoveButton,
 } from '@databricks/web-shared/unified-tagging';
-import { UseFormReturn } from 'react-hook-form';
+import type { UseFormReturn } from 'react-hook-form';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { KeyValueEntity } from '../types';
+import type { KeyValueEntity } from '../types';
 
 const keyProperty = 'key';
 const valueProperty = 'value';

@@ -1,15 +1,15 @@
 import { Overflow, ParagraphSkeleton, Tag, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
 import { Link } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
-import { LoggedModelProto } from '../../types';
+import type { LoggedModelProto } from '../../types';
 import { getStableColorForRun } from '../../utils/RunNameUtils';
 import { RunColorPill } from '../experiment-page/components/RunColorPill';
 import { ExperimentLoggedModelTableGroupCell } from './ExperimentLoggedModelTableGroupCell';
+import type { LoggedModelsTableRow } from './ExperimentLoggedModelListPageTable.utils';
 import {
   isLoggedModelDataGroupDataRow,
   isLoggedModelRow,
   LoggedModelsTableGroupingEnabledClass,
-  LoggedModelsTableRow,
 } from './ExperimentLoggedModelListPageTable.utils';
 import { isSymbol } from 'lodash';
 import { useExperimentLoggedModelRegisteredVersions } from './hooks/useExperimentLoggedModelRegisteredVersions';

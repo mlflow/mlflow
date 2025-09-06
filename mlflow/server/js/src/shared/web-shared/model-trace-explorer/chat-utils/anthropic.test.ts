@@ -1,6 +1,6 @@
 import { normalizeConversation } from '../ModelTraceExplorer.utils';
 
-export const MOCK_ANTHROPIC_INPUT = {
+const MOCK_ANTHROPIC_INPUT = {
   max_tokens: 1024,
   messages: [
     {
@@ -23,7 +23,7 @@ export const MOCK_ANTHROPIC_INPUT = {
   model: 'claude-sonnet-4-20250514',
 };
 
-export const MOCK_ANTHROPIC_OUTPUT = {
+const MOCK_ANTHROPIC_OUTPUT = {
   id: 'msg_01QU6qxHJ25f73LPeRMF94vd',
   content: [
     {

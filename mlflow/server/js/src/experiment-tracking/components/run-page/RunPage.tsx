@@ -13,7 +13,7 @@ import { RunViewHeader } from './RunViewHeader';
 import { RunViewOverview } from './RunViewOverview';
 import { useRunDetailsPageData } from './hooks/useRunDetailsPageData';
 import { useRunViewActiveTab } from './useRunViewActiveTab';
-import { ReduxState } from '../../../redux-types';
+import type { ReduxState } from '../../../redux-types';
 import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
 import { RunNotFoundView } from '../RunNotFoundView';
 import { ErrorCodes } from '../../../common/constants';
@@ -33,6 +33,7 @@ import { getGraphQLErrorMessage } from '../../../graphql/get-graphql-error';
 import { useLoggedModelsForExperimentRun } from '../experiment-page/hooks/useLoggedModelsForExperimentRun';
 import { useLoggedModelsForExperimentRunV2 } from '../experiment-page/hooks/useLoggedModelsForExperimentRunV2';
 import { RunViewEvaluationsTab } from '../evaluations/RunViewEvaluationsTab';
+import { getExperimentKindFromTags } from '../../utils/ExperimentKindUtils';
 
 const RunPageLoadingState = () => (
   <PageContainer>
@@ -79,6 +80,8 @@ export const RunPage = () => {
     experimentId,
     runUuid,
   });
+
+  const hasRunData = Boolean(runInfo);
 
   const [modelMetricKeys, systemMetricKeys] = useMemo<[string[], string[]]>(() => {
     if (!latestMetrics) {
@@ -184,6 +187,7 @@ export const RunPage = () => {
         loggedModelsV3={loggedModelsV3}
         isLoadingLoggedModels={isLoadingLoggedModels}
         loggedModelsError={loggedModelsError ?? undefined}
+        experimentKind={getExperimentKindFromTags(experiment?.tags)}
       />
     );
   };
@@ -218,7 +222,13 @@ export const RunPage = () => {
   }
 
   // Catch-all for GraphQL errors
-  if (shouldEnableGraphQLRunDetailsPage() && (error || apiError)) {
+  if (
+    shouldEnableGraphQLRunDetailsPage() &&
+    (error || apiError) &&
+    // We display the error only if we have no run data, as it's possible
+    // to get partial results due to failure in a nested resolver
+    !hasRunData
+  ) {
     return (
       <div css={{ marginTop: theme.spacing.lg }}>
         <Empty
@@ -254,6 +264,7 @@ export const RunPage = () => {
           runTags={tags}
           runParams={params}
           runUuid={runUuid}
+          runOutputs={runOutputs}
           artifactRootUri={runInfo?.artifactUri ?? undefined}
           registeredModelVersionSummaries={registeredModelVersionSummaries}
           isLoading={loading || isLoadingLoggedModels}

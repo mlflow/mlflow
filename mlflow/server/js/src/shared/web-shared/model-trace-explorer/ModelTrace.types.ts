@@ -283,6 +283,7 @@ export enum CodeSnippetRenderMode {
   JSON = 'json',
   TEXT = 'text',
   MARKDOWN = 'markdown',
+  PYTHON = 'python',
 }
 
 type ModelTraceTextContentPart = {

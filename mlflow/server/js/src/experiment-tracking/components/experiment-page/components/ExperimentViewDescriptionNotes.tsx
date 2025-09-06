@@ -1,5 +1,5 @@
-import { ExperimentEntity } from '../../../types';
-import { KeyValueEntity } from '../../../../common/types';
+import type { ExperimentEntity } from '../../../types';
+import type { KeyValueEntity } from '../../../../common/types';
 import {
   Button,
   ChevronDownIcon,
@@ -13,7 +13,7 @@ import { useCallback, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { getExperimentTags } from '../../../reducers/Reducers';
 import { NOTE_CONTENT_TAG } from '../../../utils/NoteUtils';
-import { ThunkDispatch } from '../../../../redux-types';
+import type { ThunkDispatch } from '../../../../redux-types';
 import React from 'react';
 import 'react-mde/lib/styles/css/react-mde-all.css';
 import ReactMde, { SvgIcon } from 'react-mde';

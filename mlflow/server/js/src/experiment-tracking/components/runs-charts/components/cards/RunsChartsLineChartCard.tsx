@@ -1,5 +1,7 @@
-import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { RunsChartsRunData, RunsChartsLineChartXAxisType, removeOutliersFromMetricHistory } from '../RunsCharts.common';
+import type { ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { RunsChartsRunData } from '../RunsCharts.common';
+import { RunsChartsLineChartXAxisType, removeOutliersFromMetricHistory } from '../RunsCharts.common';
 import { RunsMetricsLinePlot } from '../RunsMetricsLinePlot';
 import { RunsChartsTooltipMode, useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
 import {
@@ -7,12 +9,11 @@ import {
   type RunsChartsCardConfig,
   type RunsChartsLineCardConfig,
 } from '../../runs-charts.types';
+import type { RunsChartCardVisibilityProps, RunsChartCardSizeProps } from './ChartCard.common';
 import {
   type RunsChartCardReorderProps,
   RunsChartCardWrapper,
   RunsChartsChartsDragGroup,
-  RunsChartCardVisibilityProps,
-  RunsChartCardSizeProps,
   RunsChartCardLoadingPlaceholder,
 } from './ChartCard.common';
 import { useSampledMetricHistory } from '../../hooks/useSampledMetricHistory';
@@ -22,20 +23,18 @@ import {
   shouldEnableChartExpressions,
 } from '../../../../../common/utils/FeatureUtils';
 import { findAbsoluteTimestampRangeForRelativeRange } from '../../utils/findChartStepsByTimestamp';
-import { Figure } from 'react-plotly.js';
-import { ReduxState } from '../../../../../redux-types';
+import type { Figure } from 'react-plotly.js';
+import type { ReduxState } from '../../../../../redux-types';
 import { shallowEqual, useSelector } from 'react-redux';
 import { useCompareRunChartSelectedRange } from '../../hooks/useCompareRunChartSelectedRange';
-import { MetricHistoryByName } from '@mlflow/mlflow/src/experiment-tracking/types';
+import type { MetricHistoryByName } from '@mlflow/mlflow/src/experiment-tracking/types';
 import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
 import { useGroupedChartRunData } from '../../../runs-compare/hooks/useGroupedChartRunData';
-import {
-  ExperimentChartImageDownloadFileFormat,
-  useChartImageDownloadHandler,
-} from '../../hooks/useChartImageDownloadHandler';
+import type { ExperimentChartImageDownloadFileFormat } from '../../hooks/useChartImageDownloadHandler';
+import { useChartImageDownloadHandler } from '../../hooks/useChartImageDownloadHandler';
 import { downloadChartMetricHistoryCsv } from '../../../experiment-page/utils/experimentPage.common-utils';
 import { RunsChartsNoDataFoundIndicator } from '../RunsChartsNoDataFoundIndicator';
-import { RunsChartsGlobalLineChartConfig } from '../../../experiment-page/models/ExperimentPageUIState';
+import type { RunsChartsGlobalLineChartConfig } from '../../../experiment-page/models/ExperimentPageUIState';
 import { useLineChartGlobalConfig } from '../hooks/useLineChartGlobalConfig';
 
 const getV2ChartTitle = (cardConfig: RunsChartsLineCardConfig): string => {

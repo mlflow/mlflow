@@ -1,4 +1,4 @@
-import { KeyValueEntity } from '../../../common/types';
+import type { KeyValueEntity } from '../../../common/types';
 
 export interface LoggedModelArtifactViewerProps {
   /**

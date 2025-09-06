@@ -7,7 +7,8 @@
 
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
-import { injectIntl, FormattedMessage, IntlShape, useIntl } from 'react-intl';
+import type { IntlShape } from 'react-intl';
+import { injectIntl, FormattedMessage, useIntl } from 'react-intl';
 import { Link } from '../../common/utils/RoutingUtils';
 import { getBasename } from '../../common/utils/FileUtils';
 import { ArtifactNode as ArtifactUtils, ArtifactNode } from '../utils/ArtifactUtils';
@@ -22,11 +23,11 @@ import {
   modelVersionStatusIconTooltips,
 } from '../../model-registry/constants';
 import Utils from '../../common/utils/Utils';
-import _, { first } from 'lodash';
+import { first, flatMap, groupBy, last } from 'lodash';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
+import type { DesignSystemHocProps } from '@databricks/design-system';
 import {
   Alert,
-  DesignSystemHocProps,
   Empty,
   LayerIcon,
   LegacyTooltip,
@@ -34,6 +35,7 @@ import {
   WithDesignSystemThemeHoc,
 } from '@databricks/design-system';
 import './ArtifactView.css';
+
 import { getArtifactRootUri, getArtifacts } from '../reducers/Reducers';
 import { getAllModelVersions } from '../../model-registry/reducers';
 import { listArtifactsApi, listArtifactsLoggedModelApi } from '../actions';
@@ -50,7 +52,7 @@ import { getLoggedTablesFromTags } from '@mlflow/mlflow/src/common/utils/TagUtil
 import { CopyButton } from '../../shared/building_blocks/CopyButton';
 import type { LoggedModelArtifactViewerProps } from './artifact-view-components/ArtifactViewComponents.types';
 import { MlflowService } from '../sdk/MlflowService';
-import { KeyValueEntity } from '../../common/types';
+import type { KeyValueEntity } from '../../common/types';
 
 const { Text } = Typography;
 
@@ -110,7 +112,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
   }
 
   renderModelVersionInfoSection(existingModelVersions: any, intl: IntlShape) {
-    return <ModelVersionInfoSection modelVersion={_.last(existingModelVersions)} intl={this.props.intl} />;
+    return <ModelVersionInfoSection modelVersion={last(existingModelVersions)} intl={this.props.intl} />;
   }
 
   renderPathAndSizeInfo() {
@@ -215,7 +217,13 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     );
   }
 
-  onDownloadClick(runUuid: any, artifactPath: any, loggedModelId?: string, isFallbackToLoggedModelArtifacts?: boolean) {
+  onDownloadClick(
+    // comment for copybara formatting
+    runUuid: any,
+    artifactPath: any,
+    loggedModelId?: string,
+    isFallbackToLoggedModelArtifacts?: boolean,
+  ) {
     // Logged model artifact API should be used when falling back to logged model artifacts on the run artifact page.
     if (runUuid && !isFallbackToLoggedModelArtifacts) {
       window.location.href = getArtifactLocationUrl(artifactPath, runUuid);
@@ -544,11 +552,11 @@ const mapStateToProps = (state: any, ownProps: any) => {
     isLoggedModelsMode && loggedModelId ? getArtifacts(loggedModelId, state) : getArtifacts(runUuid, state);
   const artifactRootUri = ownProps?.artifactRootUri ?? getArtifactRootUri(runUuid, state);
   const modelVersions = getAllModelVersions(state);
-  const modelVersionsWithNormalizedSource = _.flatMap(modelVersions, (version) => {
+  const modelVersionsWithNormalizedSource = flatMap(modelVersions, (version) => {
     // @ts-expect-error TS(2698): Spread types may only be created from object types... Remove this comment to see the full error message
     return { ...version, source: Utils.normalize((version as any).source) };
   });
-  const modelVersionsBySource = _.groupBy(modelVersionsWithNormalizedSource, 'source');
+  const modelVersionsBySource = groupBy(modelVersionsWithNormalizedSource, 'source');
   return { artifactNode, artifactRootUri, modelVersions, modelVersionsBySource, apis };
 };
 

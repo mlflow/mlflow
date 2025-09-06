@@ -8,13 +8,14 @@ import {
 
 import { ExperimentKind, ExperimentPageTabName } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { useExperimentPageViewMode } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/hooks/useExperimentPageViewMode';
+import { useExperimentEvaluationRunsData } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/hooks/useExperimentEvaluationRunsData';
 import { Link, useParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { coerceToEnum } from '@databricks/web-shared/utils';
 import { shouldEnablePromptsTabOnDBPlatform } from '../../../../../../common/utils/FeatureUtils';
+import type { TabConfigMap } from './TabSelectorBarConstants';
 import {
-  TabConfigMap,
-  GenAIExperimentTabConfigMap,
-  GenAIExperimentWithPromptsTabConfigMap,
+  getGenAIExperimentTabConfigMap,
+  getGenAIExperimentWithPromptsTabConfigMap,
   CustomExperimentTabConfigMap,
   DefaultTabConfigMap,
 } from './TabSelectorBarConstants';
@@ -24,13 +25,13 @@ import { useGetExperimentPageActiveTabByRoute } from '../../../hooks/useGetExper
 const isRunsViewTab = (tabName: string) => ['TABLE', 'CHART', 'ARTIFACT'].includes(tabName);
 const iTracesViewTab = (tabName: string) => ['TRACES'].includes(tabName);
 
-const getExperimentTabsConfig = (experimentKind?: ExperimentKind): TabConfigMap => {
+const getExperimentTabsConfig = (experimentKind?: ExperimentKind, hasTrainingRuns = false): TabConfigMap => {
   switch (experimentKind) {
     case ExperimentKind.GENAI_DEVELOPMENT:
     case ExperimentKind.GENAI_DEVELOPMENT_INFERRED:
       return shouldEnablePromptsTabOnDBPlatform()
-        ? GenAIExperimentWithPromptsTabConfigMap
-        : GenAIExperimentTabConfigMap;
+        ? getGenAIExperimentWithPromptsTabConfigMap({ includeRunsTab: hasTrainingRuns })
+        : getGenAIExperimentTabConfigMap({ includeRunsTab: hasTrainingRuns });
     case ExperimentKind.CUSTOM_MODEL_DEVELOPMENT:
     case ExperimentKind.CUSTOM_MODEL_DEVELOPMENT_INFERRED:
     case ExperimentKind.FORECASTING:
@@ -47,6 +48,15 @@ export const TabSelectorBar = ({ experimentKind }: { experimentKind?: Experiment
   const { experimentId, tabName } = useParams();
   const { theme } = useDesignSystemTheme();
   const [viewMode] = useExperimentPageViewMode();
+
+  const isGenAIExperiment =
+    experimentKind === ExperimentKind.GENAI_DEVELOPMENT || experimentKind === ExperimentKind.GENAI_DEVELOPMENT_INFERRED;
+
+  const { trainingRuns } = useExperimentEvaluationRunsData({
+    experimentId: experimentId || '',
+    enabled: isGenAIExperiment,
+    filter: '', // not important in this case, we show the runs tab if there are any training runs
+  });
 
   // In the tab selector bar, we're interested in top-level tab names based on the current route
   const { topLevelTabName: tabNameFromRoute } = useGetExperimentPageActiveTabByRoute();
@@ -75,7 +85,11 @@ export const TabSelectorBar = ({ experimentKind }: { experimentKind?: Experiment
 
   const activeTab = tabNameFromRoute ?? tabNameFromParams ?? tabNameFromViewMode;
 
-  const tabsConfig = getExperimentTabsConfig(experimentKind ?? ExperimentKind.NO_INFERRED_TYPE);
+  const hasTrainingRuns = trainingRuns?.length > 0;
+  const tabsConfig = getExperimentTabsConfig(
+    experimentKind ?? ExperimentKind.NO_INFERRED_TYPE,
+    isGenAIExperiment && hasTrainingRuns,
+  );
 
   return (
     <SegmentedControlGroup

@@ -1,6 +1,7 @@
 import { ExperimentViewHeader } from './ExperimentViewHeader';
 import { renderWithIntl, act, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
-import { ExperimentEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
+import type { ExperimentEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
+import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { BrowserRouter } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { Provider } from 'react-redux';

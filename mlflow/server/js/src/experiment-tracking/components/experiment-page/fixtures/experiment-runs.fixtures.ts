@@ -1,4 +1,4 @@
-import { ExperimentStoreEntities } from '../../../types';
+import type { ExperimentStoreEntities } from '../../../types';
 
 /**
  * Sample snapshot of the store with experiment and runs.

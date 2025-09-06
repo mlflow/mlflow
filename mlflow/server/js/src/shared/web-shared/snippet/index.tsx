@@ -17,7 +17,7 @@ SyntaxHighlighter.registerLanguage('json', json);
 
 import duotoneDarkStyle from './theme/databricks-duotone-dark';
 import lightStyle from './theme/databricks-light';
-import { CSSProperties, ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { pick } from 'lodash';
 export type CodeSnippetTheme = 'duotoneDark' | 'light';
 export const buttonBackgroundColorDark = 'rgba(140, 203, 255, 0)';
@@ -78,7 +78,7 @@ export interface CodeSnippetProps {
   /**
    * Custom tag to use for the `<pre>` element
    */
-  PreTag?: keyof JSX.IntrinsicElements | React.ComponentType<any> | undefined;
+  PreTag?: keyof JSX.IntrinsicElements | React.ComponentType<React.PropsWithChildren<any>> | undefined;
 }
 
 /**

@@ -5,10 +5,8 @@ import { EXPERIMENT_RUNS_MOCK_STORE } from '../../fixtures/experiment-runs.fixtu
 import { experimentRunsSelector } from '../../utils/experimentRuns.selector';
 import { RunsSearchAutoComplete } from './RunsSearchAutoComplete';
 import { ErrorWrapper } from '../../../../../common/utils/ErrorWrapper';
-import {
-  ExperimentPageSearchFacetsState,
-  createExperimentPageSearchFacetsState,
-} from '../../models/ExperimentPageSearchFacetsState';
+import type { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
+import { createExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
 
 const MOCK_EXPERIMENT = EXPERIMENT_RUNS_MOCK_STORE.entities.experimentsById['123456789'];
 

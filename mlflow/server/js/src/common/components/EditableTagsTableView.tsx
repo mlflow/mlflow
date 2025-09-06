@@ -9,7 +9,7 @@ import React, { Component } from 'react';
 import Utils from '../utils/Utils';
 import { LegacyForm, Input, Button, Spacer } from '@databricks/design-system';
 import { EditableFormTable } from './tables/EditableFormTable';
-import _ from 'lodash';
+import { sortBy } from 'lodash';
 import { FormattedMessage, injectIntl } from 'react-intl';
 
 type Props = {
@@ -46,7 +46,7 @@ class EditableTagsTableViewImpl extends Component<Props> {
   ];
 
   getData = () =>
-    _.sortBy(
+    sortBy(
       Utils.getVisibleTagValues(this.props.tags).map((values) => ({
         key: values[0],
         name: values[0],

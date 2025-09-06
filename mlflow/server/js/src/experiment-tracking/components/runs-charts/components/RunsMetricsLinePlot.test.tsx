@@ -1,4 +1,5 @@
-import { RunsMetricsLinePlot, RunsMetricsLinePlotProps } from './RunsMetricsLinePlot';
+import type { RunsMetricsLinePlotProps } from './RunsMetricsLinePlot';
+import { RunsMetricsLinePlot } from './RunsMetricsLinePlot';
 import { renderWithIntl, cleanup } from '../../../../common/utils/TestUtils.react18';
 import { LazyPlot } from '../../LazyPlot';
 import type { PlotParams } from 'react-plotly.js';

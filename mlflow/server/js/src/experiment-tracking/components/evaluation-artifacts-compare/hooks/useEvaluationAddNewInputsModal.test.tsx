@@ -1,6 +1,6 @@
 import { useEvaluationAddNewInputsModal } from './useEvaluationAddNewInputsModal';
 import { act, renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
-import { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
+import type { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
 import { createParamFieldName } from '../../experiment-page/utils/experimentPage.column-utils';
 import { useEffect } from 'react';
 import userEvent from '@testing-library/user-event';

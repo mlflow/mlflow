@@ -84,7 +84,7 @@ export const useDragAndDropElement = ({
  * It should prevent HTML5Backend collisions, see:
  * https://github.com/react-dnd/react-dnd/blob/7c88c37489a53b5ac98699c46a506a8e085f1c03/packages/backend-html5/src/HTML5BackendImpl.ts#L107-L109
  */
-export const DragAndDropProvider: React.FC = ({ children }) => {
+export const DragAndDropProvider: React.FC<React.PropsWithChildren<unknown>> = ({ children }) => {
   const rootElementRef = useRef<HTMLDivElement>(null);
   const [manager, setManager] = useState<DragDropManager | null>(null);
 

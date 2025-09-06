@@ -11,7 +11,8 @@ import {
   Typography,
 } from '@databricks/design-system';
 import { ExperimentViewDatasetSchemaTable } from './ExperimentViewDatasetSchemaTable';
-import { DatasetSourceTypes, RunDatasetWithTags } from '../../../../types';
+import type { RunDatasetWithTags } from '../../../../types';
+import { DatasetSourceTypes } from '../../../../types';
 import { useEffect, useMemo, useState } from 'react';
 import React from 'react';
 import { FormattedMessage } from 'react-intl';

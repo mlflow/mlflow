@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { ReduxState, ThunkDispatch } from '../../../redux-types';
+import type { ReduxState, ThunkDispatch } from '../../../redux-types';
 import { getExperimentApi, getRunApi } from '../../actions';
 import { searchModelVersionsApi } from '../../../model-registry/actions';
 import { pickBy } from 'lodash';
@@ -10,7 +10,11 @@ import Utils from '../../../common/utils/Utils';
  * Hook fetching data for the run page: both run and experiment entities.
  * The initial fetch action is omitted if entities are already in the store.
  */
-export const useRunDetailsPageDataLegacy = (runUuid: string, experimentId: string) => {
+export const useRunDetailsPageDataLegacy = (
+  runUuid: string,
+  experimentId: string,
+  enableWorkspaceModelsRegistryCall = true,
+) => {
   const [runRequestId, setRunRequestId] = useState('');
   const [experimentRequestId, setExperimentRequestId] = useState('');
   const dispatch = useDispatch<ThunkDispatch>();
@@ -40,8 +44,10 @@ export const useRunDetailsPageDataLegacy = (runUuid: string, experimentId: strin
   }, [dispatch, experimentId]);
 
   const fetchModelVersions = useCallback(() => {
-    dispatch(searchModelVersionsApi({ run_id: runUuid }));
-  }, [dispatch, runUuid]);
+    if (enableWorkspaceModelsRegistryCall) {
+      dispatch(searchModelVersionsApi({ run_id: runUuid }));
+    }
+  }, [dispatch, runUuid, enableWorkspaceModelsRegistryCall]);
 
   // Do the initial run & experiment fetch only if it's not in the store already
   useEffect(() => {

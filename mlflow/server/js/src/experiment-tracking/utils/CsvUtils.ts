@@ -2,7 +2,7 @@ import { compact, uniq } from 'lodash';
 import Utils from '../../common/utils/Utils';
 import type { RunsChartsRunData } from '../components/runs-charts/components/RunsCharts.common';
 import type { MetricEntity, RunInfoEntity } from '../types';
-import { KeyValueEntity } from '../../common/types';
+import type { KeyValueEntity } from '../../common/types';
 import moment from 'moment';
 
 const { getDuration, getRunNameFromTags, getSourceType, getSourceName, getUser } = Utils;

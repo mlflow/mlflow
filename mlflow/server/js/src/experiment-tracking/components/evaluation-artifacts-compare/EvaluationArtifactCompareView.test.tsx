@@ -2,13 +2,13 @@ import { Provider } from 'react-redux';
 import type { EvaluationDataReduxState } from '../../reducers/EvaluationDataReducer';
 import { EvaluationArtifactCompareView } from './EvaluationArtifactCompareView';
 import configureStore from 'redux-mock-store';
-import { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
+import type { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
 import { ExperimentPageViewState } from '../experiment-page/models/ExperimentPageViewState';
 import { renderWithIntl, act, within, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 
 import { getEvaluationTableArtifact } from '../../actions';
 import { MLFLOW_LOGGED_ARTIFACTS_TAG, MLFLOW_RUN_SOURCE_TYPE_TAG, MLflowRunSourceType } from '../../constants';
-import { EvaluationArtifactCompareTableProps } from './components/EvaluationArtifactCompareTable';
+import type { EvaluationArtifactCompareTableProps } from './components/EvaluationArtifactCompareTable';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import userEventGlobal, { PointerEventsCheckLevel } from '@testing-library/user-event';

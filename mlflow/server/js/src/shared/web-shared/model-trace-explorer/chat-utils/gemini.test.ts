@@ -1,12 +1,12 @@
 import { normalizeConversation } from '../ModelTraceExplorer.utils';
 
-export const MOCK_GEMINI_INPUT = {
+const MOCK_GEMINI_INPUT = {
   model: 'gemini-2.5-flash',
   contents: 'Explain how AI works in a few words',
   config: null,
 };
 
-export const MOCK_GEMINI_OUTPUT = {
+const MOCK_GEMINI_OUTPUT = {
   sdk_http_response: {
     headers: {
       'content-type': 'application/json; charset=UTF-8',

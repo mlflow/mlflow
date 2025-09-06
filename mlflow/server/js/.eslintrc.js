@@ -585,29 +585,17 @@ module.exports = {
         'no-shadow': 'off',
         '@typescript-eslint/no-shadow': 'off',
 
-        // Please leave this rule as the last item in the array, as it's quite large
-        '@typescript-eslint/ban-types': [
+        // Allow empty interfaces that extend at least one other interface
+        '@typescript-eslint/no-empty-object-type': ['error', { allowInterfaces: 'with-single-extends' }],
+        '@typescript-eslint/no-unsafe-function-type': 'error',
+        '@typescript-eslint/no-wrapper-object-types': 'error',
+        '@typescript-eslint/no-restricted-types': [
           'error',
           {
             types: {
-              Function: {
-                message:
-                  'The `Function` type accepts any function-like value. It provides no type safety when calling the function, which can be a common source of bugs.\nIt also accepts things like class declarations, which will throw at runtime as they will not be called with `new`.\nIf you are expecting the function to accept certain arguments, you should explicitly define the function shape.',
-                fixWith: '(...args: unknown[]) => unknown',
-              },
-              '{}': {
-                message:
-                  '`{}` actually means "any non-nullish value".\n- If you want a type meaning "any object", you probably want `Record<string, unknown>` instead.\n- If you want a type meaning "any value", you probably want `unknown` instead.\n- If you want a type meaning "empty object", you probably want `Record<string, never>` instead.',
-                fixWith: 'Record<string, never>',
-              },
-              Object: {
-                message:
-                  '`Object` actually means "any non-nullish value".\n- If you want a type meaning "any object", you probably want `Record<string, unknown>` instead.\n- If you want a type meaning "any value", you probably want `unknown` instead.\n- If you want a type meaning "empty object", you probably want `Record<string, never>` instead.',
-                fixWith: 'Record<string, unknown>',
-              },
               object: {
                 message:
-                  "Don't use `object` as a type. The `object` type is currently hard to use ([see this issue](https://github.com/microsoft/TypeScript/issues/21732)).\nConsider using `Record<string, unknown>` instead, as it allows you to more easily inspect and use the keys.",
+                  'Don\'t use `object` as a type unless you have a deep understanding of the TS type system. The `object` type is currently hard to use ([see this issue](https://github.com/microsoft/TypeScript/issues/21732)).\nConsider using `Record<string, unknown>` instead for "an object where all attributes aren\'t checked", as it allows you to more easily inspect and use the keys.\nHowever, it may be fine to use `object` for generic type requirements (`type MyType<T extends object> = ...`)',
                 fixWith: 'Record<string, unknown>',
               },
             },
@@ -618,8 +606,8 @@ module.exports = {
       },
     },
     {
-      files: ['*.test.js', '*-test.js', '*-test.jsx', '*.test.ts', '*-test.ts', '*.test.tsx', '*-test.tsx', 'test/**'],
-      plugins: ['jest', 'chai-expect', 'chai-friendly', 'testing-library'],
+      files: ['*.test.js', '*-test.js', '*-test.jsx', 'test/**'],
+      plugins: ['jest', 'chai-expect', 'chai-friendly'],
       globals: {
         sinon: true,
         chai: true,
@@ -635,7 +623,6 @@ module.exports = {
         'testing-library/no-debugging-utils': 'error',
         'testing-library/no-dom-import': 'error',
         'testing-library/await-async-utils': 'error',
-        '@typescript-eslint/no-non-null-assertion': 'off',
       },
     },
     {

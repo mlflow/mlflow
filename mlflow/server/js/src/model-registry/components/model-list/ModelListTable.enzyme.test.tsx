@@ -2,7 +2,8 @@ import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 import { getTableRowByCellText, getTableRows } from '@databricks/design-system/test-utils/enzyme';
 import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import { renderWithIntl, act, screen, within } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
-import { ModelListTable, ModelListTableProps } from './ModelListTable';
+import type { ModelListTableProps } from './ModelListTable';
+import { ModelListTable } from './ModelListTable';
 
 import { Stages } from '../../constants';
 import Utils from '../../../common/utils/Utils';

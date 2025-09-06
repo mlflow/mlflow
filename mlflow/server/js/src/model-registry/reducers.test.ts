@@ -260,8 +260,7 @@ describe('test modelVersionsByModel', () => {
     });
   });
 
-  test('SEARCH_MODEL_VERSION doesnt merge with states', () => {
-    // Reducers should not merge results for pagination
+  test('SEARCH_MODEL_VERSION updates states correctly', () => {
     const version1 = mockModelVersionDetailed('modelA', 1, 'Production', 'READY');
     const version2 = mockModelVersionDetailed('modelA', 2, 'Staging', 'READY');
     const state = { modelX: {} };

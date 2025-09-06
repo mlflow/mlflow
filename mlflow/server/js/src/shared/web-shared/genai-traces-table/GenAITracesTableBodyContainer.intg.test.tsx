@@ -35,6 +35,7 @@ jest.mock('@tanstack/react-virtual', () => {
   };
 });
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000);
 
 // Mock necessary modules

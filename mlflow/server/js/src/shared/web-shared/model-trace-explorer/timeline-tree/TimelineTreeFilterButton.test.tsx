@@ -9,6 +9,7 @@ import { TEST_SPAN_FILTER_STATE } from './TimelineTree.test-utils';
 import { TimelineTreeFilterButton } from './TimelineTreeFilterButton';
 import type { SpanFilterState } from '../ModelTrace.types';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000);
 
 const TestWrapper = () => {

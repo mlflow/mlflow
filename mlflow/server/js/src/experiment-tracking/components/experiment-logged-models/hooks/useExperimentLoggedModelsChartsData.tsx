@@ -1,6 +1,6 @@
 import { compact, keyBy } from 'lodash';
 import { useMemo } from 'react';
-import { LoggedModelProto } from '../../../types';
+import type { LoggedModelProto } from '../../../types';
 import { getStableColorForRun } from '../../../utils/RunNameUtils';
 import type { RunsChartsRunData } from '../../runs-charts/components/RunsCharts.common';
 import { useExperimentLoggedModelListPageRowVisibilityContext } from './useExperimentLoggedModelListPageRowVisibility';

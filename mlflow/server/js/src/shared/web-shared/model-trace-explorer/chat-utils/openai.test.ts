@@ -1,6 +1,6 @@
 import { normalizeConversation } from '../ModelTraceExplorer.utils';
 
-export const MOCK_OPENAI_CHAT_INPUT = {
+const MOCK_OPENAI_CHAT_INPUT = {
   model: 'gpt-4o-mini',
   messages: [
     {
@@ -46,7 +46,7 @@ export const MOCK_OPENAI_CHAT_INPUT = {
   ],
 };
 
-export const MOCK_OPENAI_CHAT_OUTPUT = {
+const MOCK_OPENAI_CHAT_OUTPUT = {
   id: 'chatcmpl-A8HdoWt2DsJgtZoxjjAcPdx01jkul',
   choices: [
     {
@@ -84,7 +84,7 @@ export const MOCK_OPENAI_CHAT_OUTPUT = {
   },
 };
 
-export const MOCK_OPENAI_RESPONSES_OUTPUT = {
+const MOCK_OPENAI_RESPONSES_OUTPUT = {
   id: 'resp_68916d4bd2b4819f89d9b238a190feda00db89e39031ce17',
   created_at: 1754361163,
   error: null,
@@ -152,7 +152,7 @@ export const MOCK_OPENAI_RESPONSES_OUTPUT = {
   store: true,
 };
 
-export const MOCK_OPENAI_RESPONSES_INPUT = {
+const MOCK_OPENAI_RESPONSES_INPUT = {
   model: 'o4-mini',
   input: 'What is the capital of France?',
 };

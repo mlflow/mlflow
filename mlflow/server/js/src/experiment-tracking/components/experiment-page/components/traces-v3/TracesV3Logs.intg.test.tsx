@@ -1,4 +1,4 @@
-import { ComponentProps } from 'react';
+import type { ComponentProps } from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { IntlProvider } from 'react-intl';
 import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
@@ -16,7 +16,7 @@ import {
 } from '@databricks/web-shared/genai-traces-table';
 
 import { getUser } from '@databricks/web-shared/global-settings';
-import { NetworkRequestError } from '@databricks/web-shared/errors';
+import type { NetworkRequestError } from '@databricks/web-shared/errors';
 import { TestRouter, testRoute, waitForRoutesToBeRendered } from '@mlflow/mlflow/src/common/utils/RoutingTestUtils';
 
 // Mock the virtualizer to render all rows in tests

@@ -1,18 +1,20 @@
 import { merge } from 'lodash';
 import type { ReactNode } from 'react';
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useMemo, useCallback } from 'react';
 
 // A global config that is used as a context for monitoring components.
 export interface MonitoringConfig {
   dateNow: Date;
-  setDateNow: (date: Date) => void;
+  lastRefreshTime: number;
+  refresh: () => void;
 }
 
 // Define a default configuration
 const getDefaultConfig = (): MonitoringConfig => {
   return {
     dateNow: new Date(),
-    setDateNow: (date: Date) => {},
+    lastRefreshTime: Date.now(),
+    refresh: () => {},
   };
 };
 
@@ -24,20 +26,32 @@ interface MonitoringConfigProviderProps {
   children: ReactNode;
 }
 
-export const MonitoringConfigProvider: React.FC<MonitoringConfigProviderProps> = ({ config, children }) => {
+export const MonitoringConfigProvider: React.FC<React.PropsWithChildren<MonitoringConfigProviderProps>> = ({
+  config,
+  children,
+}) => {
   const defaultConfig = getDefaultConfig();
   // Remove undefined values from the config object
 
-  const mergedConfig: MonitoringConfig = merge({}, defaultConfig, config);
+  const mergedConfig = merge({}, defaultConfig, config);
 
-  const [dateNow, setDateNow] = React.useState(mergedConfig.dateNow);
+  const [lastRefreshTime, setLastRefreshTime] = React.useState(mergedConfig.lastRefreshTime);
+
+  // Derive dateNow from lastRefreshTime
+  const dateNow = useMemo(() => new Date(lastRefreshTime), [lastRefreshTime]);
+
+  // Single refresh method
+  const refresh = useCallback(() => {
+    setLastRefreshTime(Date.now());
+  }, []);
 
   return (
     <MonitoringConfigContext.Provider
       value={{
         ...mergedConfig,
         dateNow,
-        setDateNow,
+        lastRefreshTime,
+        refresh,
       }}
     >
       {children}

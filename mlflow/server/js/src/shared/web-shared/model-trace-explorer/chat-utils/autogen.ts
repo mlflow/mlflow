@@ -1,8 +1,8 @@
 import { compact, get, has, isArray, isNil, isObject, isString } from 'lodash';
-import { ModelTraceChatMessage } from '../ModelTrace.types';
+
+import type { ModelTraceChatMessage } from '../ModelTrace.types';
 import { prettyPrintChatMessage, prettyPrintToolCall } from '../ModelTraceExplorer.utils';
 
-// Type definitions for autogen messages
 interface AutogenFunctionCall {
   id: string;
   name: string;

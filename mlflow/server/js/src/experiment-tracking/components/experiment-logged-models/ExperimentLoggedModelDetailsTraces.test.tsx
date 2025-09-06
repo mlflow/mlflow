@@ -3,9 +3,10 @@ import { IntlProvider } from 'react-intl';
 import { setupServer } from '../../../common/utils/setup-msw';
 import { render, screen, waitFor } from '../../../common/utils/TestUtils.react18';
 import { setupTestRouter, testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
-import { LoggedModelProto } from '../../types';
+import type { LoggedModelProto } from '../../types';
 import { ExperimentLoggedModelDetailsTraces } from './ExperimentLoggedModelDetailsTraces';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(90000); // Larger timeout for integration testing (table rendering)
 
 describe('ExperimentLoggedModelDetailsTraces integration test', () => {

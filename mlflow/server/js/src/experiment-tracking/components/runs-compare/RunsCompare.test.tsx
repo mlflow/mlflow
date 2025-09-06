@@ -8,22 +8,21 @@ import {
   waitFor,
   cleanup,
 } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
-import { ImageEntity, MetricEntitiesByName } from '../../types';
+import type { ImageEntity, MetricEntitiesByName } from '../../types';
 import { ExperimentPageUIStateContextProvider } from '../experiment-page/contexts/ExperimentPageUIStateContext';
-import {
-  createExperimentPageUIState,
+import type {
   ExperimentPageUIState,
   ExperimentRunsChartsUIConfiguration,
 } from '../experiment-page/models/ExperimentPageUIState';
-import { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
-import {
-  RunsChartType,
+import { createExperimentPageUIState } from '../experiment-page/models/ExperimentPageUIState';
+import type { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
+import type {
   RunsChartsBarCardConfig,
   RunsChartsLineCardConfig,
   RunsChartsParallelCardConfig,
   RunsChartsDifferenceCardConfig,
-  DifferenceCardConfigCompareGroup,
 } from '../runs-charts/runs-charts.types';
+import { RunsChartType, DifferenceCardConfigCompareGroup } from '../runs-charts/runs-charts.types';
 import { RunsCompare } from './RunsCompare';
 import { useSampledMetricHistory } from '../runs-charts/hooks/useSampledMetricHistory';
 import userEvent from '@testing-library/user-event';
@@ -31,6 +30,7 @@ import { RunsChartsLineChartXAxisType } from '../runs-charts/components/RunsChar
 import { useState } from 'react';
 import { DesignSystemProvider } from '@databricks/design-system';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000); // Larger timeout for integration testing
 
 // Mock the chart component to save time on rendering
@@ -57,6 +57,7 @@ jest.mock('../runs-charts/hooks/useIsInViewport', () => ({
   useIsInViewport: () => ({ isInViewport: true, setElementRef: jest.fn() }),
 }));
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000); // Larger timeout for integration testing
 
 // Helper function to assert order of HTMLElements

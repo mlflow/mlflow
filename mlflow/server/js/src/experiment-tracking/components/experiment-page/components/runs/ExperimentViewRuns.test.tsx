@@ -1,6 +1,7 @@
 import { MockedReduxStoreProvider } from '../../../../../common/utils/TestUtils';
 import { EXPERIMENT_RUNS_MOCK_STORE } from '../../fixtures/experiment-runs.fixtures';
-import { ExperimentViewRuns, ExperimentViewRunsProps } from './ExperimentViewRuns';
+import type { ExperimentViewRunsProps } from './ExperimentViewRuns';
+import { ExperimentViewRuns } from './ExperimentViewRuns';
 import { MemoryRouter } from '../../../../../common/utils/RoutingUtils';
 import { createExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import { createExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
@@ -14,6 +15,7 @@ import { useFetchedRunsNotification } from '../../hooks/useFetchedRunsNotificati
 import { useExperimentRunRows } from '../../utils/experimentPage.row-utils';
 import { DesignSystemProvider } from '@databricks/design-system';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(90000); // Larger timeout for integration testing (table rendering)
 
 // Rendering ag-grid table takes a lot of resources and time, we increase waitFor()'s timeout from default 5000 ms

@@ -1,4 +1,5 @@
-import { defineMessages, MessageDescriptor } from 'react-intl';
+import type { MessageDescriptor } from 'react-intl';
+import { defineMessages } from 'react-intl';
 // @ts-expect-error TS(7016): Could not find a declaration file for module 'date... Remove this comment to see the full error message
 import dateFormat from 'dateformat';
 import { MLFLOW_SYSTEM_METRIC_PREFIX } from '../constants';

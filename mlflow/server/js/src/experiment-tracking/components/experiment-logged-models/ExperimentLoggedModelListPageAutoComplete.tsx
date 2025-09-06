@@ -1,11 +1,9 @@
 import { FormattedMessage } from 'react-intl';
 import { EntitySearchAutoComplete } from '../EntitySearchAutoComplete';
-import { LoggedModelProto } from '../../types';
+import type { LoggedModelProto } from '../../types';
 import { useMemo } from 'react';
-import {
-  EntitySearchAutoCompleteEntityNameGroup,
-  getEntitySearchOptionsFromEntityNames,
-} from '../EntitySearchAutoComplete.utils';
+import type { EntitySearchAutoCompleteEntityNameGroup } from '../EntitySearchAutoComplete.utils';
+import { getEntitySearchOptionsFromEntityNames } from '../EntitySearchAutoComplete.utils';
 import { isUserFacingTag } from '../../../common/utils/TagUtils';
 
 const getEntityNamesFromLoggedModelsData = (

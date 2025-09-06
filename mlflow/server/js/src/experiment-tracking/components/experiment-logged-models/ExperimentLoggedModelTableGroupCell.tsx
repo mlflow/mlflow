@@ -2,7 +2,8 @@ import { Button, ChevronDownIcon, ChevronRightIcon, Typography, useDesignSystemT
 import { Link } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
 import { useExperimentLoggedModelListPageTableContext } from './ExperimentLoggedModelListPageTableContext';
-import { LoggedModelDataGroupDataRow, LoggedModelsTableSpecialRowID } from './ExperimentLoggedModelListPageTable.utils';
+import type { LoggedModelDataGroupDataRow } from './ExperimentLoggedModelListPageTable.utils';
+import { LoggedModelsTableSpecialRowID } from './ExperimentLoggedModelListPageTable.utils';
 import { FormattedMessage } from 'react-intl';
 
 export const ExperimentLoggedModelTableGroupCell = ({ data }: { data: LoggedModelDataGroupDataRow }) => {

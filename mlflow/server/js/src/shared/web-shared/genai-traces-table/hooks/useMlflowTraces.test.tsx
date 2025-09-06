@@ -1,10 +1,16 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import React from 'react';
 
+import { IntlProvider } from '@databricks/i18n';
 import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
 
 import { useGenAiTraceEvaluationArtifacts } from './useGenAiTraceEvaluationArtifacts';
-import { invalidateMlflowSearchTracesCache, useMlflowTraces, useSearchMlflowTraces } from './useMlflowTraces';
+import {
+  invalidateMlflowSearchTracesCache,
+  useMlflowTraces,
+  useMlflowTracesTableMetadata,
+  useSearchMlflowTraces,
+} from './useMlflowTraces';
 import { EXECUTION_DURATION_COLUMN_ID, SESSION_COLUMN_ID, LOGGED_MODEL_COLUMN_ID } from './useTableColumns';
 import { FilterOperator, TracesTableColumnGroup, TracesTableColumnType } from '../types';
 import type { TraceInfoV3, RunEvaluationTracesDataEntry } from '../types';
@@ -37,9 +43,24 @@ function createWrapper() {
     },
   });
   return ({ children }: { children: React.ReactNode }) => (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    <IntlProvider locale="en">
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    </IntlProvider>
   );
 }
+
+describe('useMlflowTracesTableMetadata', () => {
+  test('returns empty data and isLoading = false when disabled is true', async () => {
+    const { result } = renderHook(
+      () => useMlflowTracesTableMetadata({ experimentId: 'some-experiment', disabled: true }),
+      {
+        wrapper: createWrapper(),
+      },
+    );
+
+    expect(result.current.isLoading).toBe(false);
+  });
+});
 
 describe('useSearchMlflowTraces', () => {
   beforeEach(() => {

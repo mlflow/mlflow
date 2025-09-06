@@ -1,12 +1,14 @@
 import { type ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
 import { screen } from '@testing-library/react';
-import { TracesViewTable, TracesViewTableProps } from './TracesViewTable';
+import type { TracesViewTableProps } from './TracesViewTable';
+import { TracesViewTable } from './TracesViewTable';
 import { renderWithIntl } from '../../../common/utils/TestUtils.react18';
-import { KeyValueEntity } from '../../../common/types';
+import type { KeyValueEntity } from '../../../common/types';
 import userEvent from '@testing-library/user-event';
 import { ExperimentViewTracesTableColumns } from './TracesView.utils';
 import { DesignSystemProvider } from '@databricks/design-system';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000); // Larger timeout for integration testing (table rendering)
 
 const generateMockTrace = (

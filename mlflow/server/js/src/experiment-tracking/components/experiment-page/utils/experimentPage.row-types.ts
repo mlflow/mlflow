@@ -1,5 +1,5 @@
 import type { ModelVersionInfoEntity, RunInfoEntity, RunDatasetWithTags, MetricEntity } from '../../../types';
-import { KeyValueEntity } from '../../../../common/types';
+import type { KeyValueEntity } from '../../../../common/types';
 import type { LoggedModelProto } from '../../../types';
 
 /**

@@ -1,6 +1,6 @@
-import { DeepPartial } from 'redux';
+import type { DeepPartial } from 'redux';
 import { renderWithIntl, act, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
-import { RunDatasetWithTags, RunInfoEntity } from '../../../types';
+import type { RunDatasetWithTags, RunInfoEntity } from '../../../types';
 import { RunViewDatasetBox } from './RunViewDatasetBox';
 import userEvent from '@testing-library/user-event';
 import { openDropdownMenu } from '@databricks/design-system/test-utils/rtl';

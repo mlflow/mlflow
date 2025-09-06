@@ -1,4 +1,4 @@
-import { LoggedModelProto } from '../../types';
+import type { LoggedModelProto } from '../../types';
 import { ExperimentLoggedModelSourceBox } from './ExperimentLoggedModelSourceBox';
 
 /**

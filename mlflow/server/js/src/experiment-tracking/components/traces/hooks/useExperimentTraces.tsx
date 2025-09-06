@@ -4,7 +4,7 @@ import { MlflowService } from '../../../sdk/MlflowService';
 import { EXPERIMENT_TRACES_SORTABLE_COLUMNS, getTraceInfoRunId } from '../TracesView.utils';
 import { ViewType } from '../../../sdk/MlflowEnums';
 import { first, uniq, values } from 'lodash';
-import { RunEntity } from '../../../types';
+import type { RunEntity } from '../../../types';
 
 // A filter expression used to filter traces by run ID
 const RUN_ID_FILTER_EXPRESSION = 'request_metadata.`mlflow.sourceRun`';

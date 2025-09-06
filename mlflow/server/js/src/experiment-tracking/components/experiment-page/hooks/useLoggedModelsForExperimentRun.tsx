@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useSearchLoggedModelsQuery } from '../../../hooks/logged-models/useSearchLoggedModelsQuery';
-import { UseGetRunQueryResponseInputs, UseGetRunQueryResponseOutputs } from '../../run-page/hooks/useGetRunQuery';
+import type { UseGetRunQueryResponseInputs, UseGetRunQueryResponseOutputs } from '../../run-page/hooks/useGetRunQuery';
 import { compact, isEmpty, uniq } from 'lodash';
 
 export const useLoggedModelsForExperimentRun = (

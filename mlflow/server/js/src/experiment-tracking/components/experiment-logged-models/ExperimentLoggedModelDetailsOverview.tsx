@@ -1,6 +1,6 @@
 import { Alert, GenericSkeleton, Spacer, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import type { LoggedModelProto } from '../../types';
-import { KeyValueEntity } from '../../../common/types';
+import type { KeyValueEntity } from '../../../common/types';
 import { DetailsOverviewMetadataTable } from '../DetailsOverviewMetadataTable';
 import { DetailsOverviewMetadataRow } from '../DetailsOverviewMetadataRow';
 import { FormattedMessage } from 'react-intl';
@@ -13,6 +13,7 @@ import { useMemo } from 'react';
 import { isEmpty, keyBy } from 'lodash';
 import { ExperimentLoggedModelDetailsMetricsTable } from './ExperimentLoggedModelDetailsMetricsTable';
 import { ExperimentLoggedModelDetailsPageRunsTable } from './ExperimentLoggedModelDetailsRunsTable';
+import { ExperimentLoggedModelDetailsPageLinkedPromptsTable } from './ExperimentLoggedModelDetailsPageLinkedPromptsTable';
 import { useRelatedRunsDataForLoggedModels } from '../../hooks/logged-models/useRelatedRunsDataForLoggedModels';
 import { Link } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
@@ -23,17 +24,20 @@ import { useExperimentTrackingDetailsPageLayoutStyles } from '../../hooks/useExp
 import { ExperimentLoggedModelSourceBox } from './ExperimentLoggedModelSourceBox';
 import { DetailsPageLayout } from '../../../common/components/details-page-layout/DetailsPageLayout';
 import { useExperimentLoggedModelDetailsMetadataV2 } from './hooks/useExperimentLoggedModelDetailsMetadataV2';
-import { MLFLOW_LOGGED_MODEL_USER_TAG } from '../../constants';
+import { ExperimentKind, MLFLOW_LOGGED_MODEL_USER_TAG } from '../../constants';
 
 export const ExperimentLoggedModelDetailsOverview = ({
   onDataUpdated,
   loggedModel,
+  experimentKind,
 }: {
   onDataUpdated: () => void | Promise<any>;
   loggedModel?: LoggedModelProto;
+  experimentKind?: ExperimentKind;
 }) => {
   const { theme } = useDesignSystemTheme();
   const { usingUnifiedDetailsLayout } = useExperimentTrackingDetailsPageLayoutStyles();
+  const shouldRenderLinkedPromptsTable = experimentKind === ExperimentKind.GENAI_DEVELOPMENT;
 
   // Fetch related runs data for the logged model
   const {
@@ -222,7 +226,13 @@ export const ExperimentLoggedModelDetailsOverview = ({
                   gridTemplateRows: '400px 400px',
                   marginBottom: theme.spacing.md,
                 },
-            { gap: theme.spacing.lg, overflow: 'hidden' },
+            {
+              gap: theme.spacing.lg,
+              overflow: 'hidden',
+              // add some bottom padding so the user can interact with the
+              // last table closer to the center of the page
+              paddingBottom: theme.spacing.lg * 3,
+            },
           ]}
         >
           <ExperimentLoggedModelDetailsMetricsTable
@@ -236,6 +246,9 @@ export const ExperimentLoggedModelDetailsOverview = ({
             relatedRunsLoading={relatedRunsLoading}
             relatedRunsData={relatedRunsData ?? undefined}
           />
+          {shouldRenderLinkedPromptsTable && (
+            <ExperimentLoggedModelDetailsPageLinkedPromptsTable loggedModel={loggedModel} />
+          )}
         </div>
       </DetailsPageLayout>
     </ExperimentLoggedModelOpenDatasetDetailsContextProvider>
