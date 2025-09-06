@@ -77,5 +77,7 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            'tests/tracing/test_otel_logging.py::test_invalid_otel_span_format_returns_400'
+          for i in {1..100}; do
+            pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+              'tests/tracing/test_otel_logging.py'
+          done
