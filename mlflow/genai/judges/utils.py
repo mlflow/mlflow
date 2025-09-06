@@ -232,7 +232,7 @@ class _SuppressLiteLLMNonfatalErrors(ContextDecorator):
         return False
 
 
-# Global instance for use as decorator
+# Global instance for use as threadsafe decorator
 _suppress_litellm_nonfatal_errors = _SuppressLiteLLMNonfatalErrors()
 
 
