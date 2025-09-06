@@ -14,6 +14,7 @@ from mlflow.genai.judges.instructions_judge.constants import (
     INSTRUCTIONS_JUDGE_SYSTEM_PROMPT,
     INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE,
 )
+from mlflow.genai.judges.instructions_judge.utils import extract_evaluation_fields_from_trace
 from mlflow.genai.judges.utils import (
     add_output_format_instructions,
     format_prompt,
@@ -153,14 +154,24 @@ class InstructionsJudge(Judge):
         Evaluate the provided data using the judge's instructions.
 
         Args:
-            inputs: Input dictionary to evaluate. Cannot be used with 'trace'.
-            outputs: Output dictionary to evaluate. Cannot be used with 'trace'.
-            expectations: Expected outcomes or ground truth. Cannot be used with 'trace'.
-            trace: Trace object for evaluation. Cannot be used with 'inputs', 'outputs', or
-                'expectations'.
+            inputs: Input dictionary to evaluate. If not provided and a trace is given,
+                will be extracted from the trace's root span inputs.
+            outputs: Output dictionary to evaluate. If not provided and a trace is given,
+                will be extracted from the trace's root span outputs.
+            expectations: Expected outcomes or ground truth. If not provided and a trace is given,
+                will be extracted from the trace's expectation assessments.
+            trace: Trace object for evaluation. When the template uses {{ inputs }}, {{ outputs }},
+                or {{ expectations }} (not {{ trace }}), the values will be extracted from the
+                trace.
 
         Returns:
             Evaluation results
+
+        **Note on Trace Behavior**:
+        - If template uses {{ trace }}: The trace is passed to an agent for evaluation.
+        - If template uses {{ inputs }}/{{ outputs }}/{{ expectations }}: Values are extracted from:
+          - inputs/outputs: From the trace's root span
+          - expectations: From the trace's human-set expectation assessments (ground truth only)
 
         """
         if inputs is not None and not isinstance(inputs, dict):
@@ -183,6 +194,21 @@ class InstructionsJudge(Judge):
                 f"'trace' must be a Trace instance, got {type(trace).__name__}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+
+        # Extract fields from trace if needed (when not using {{ trace }} template)
+        if trace is not None and self._TEMPLATE_VARIABLE_TRACE not in self.template_variables:
+            extracted = extract_evaluation_fields_from_trace(trace)
+
+            # Use extracted values if not already provided
+            if inputs is None and self._TEMPLATE_VARIABLE_INPUTS in self.template_variables:
+                inputs = extracted.inputs
+            if outputs is None and self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables:
+                outputs = extracted.outputs
+            if (
+                expectations is None
+                and self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables
+            ):
+                expectations = extracted.expectations
 
         # Check if the input arguments match the template variables
         missing_params = []
@@ -313,8 +339,8 @@ class InstructionsJudge(Judge):
 
         if not template_vars:
             raise MlflowException(
-                "Instructions template must contain at least one variable (e.g., {{inputs}}, "
-                "{{outputs}}, {{trace}}, or {{expectations}}).",
+                "Instructions template must contain at least one variable (e.g., {{ inputs }}, "
+                "{{ outputs }}, {{ trace }}, or {{ expectations }}).",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
