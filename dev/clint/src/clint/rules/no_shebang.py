@@ -15,5 +15,6 @@ class NoShebang(Rule):
         if not file_content.strip():
             return False
 
-        first_line = file_content.split("\n")[0]
+        # Split only at the first newline for efficiency
+        first_line = file_content.split("\n", 1)[0]
         return first_line.lstrip().startswith("#!")
