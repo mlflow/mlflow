@@ -3,6 +3,7 @@ import sys
 import types
 from dataclasses import asdict
 from unittest import mock
+from unittest.mock import patch
 
 import pandas as pd
 import pytest
@@ -13,7 +14,6 @@ import mlflow.genai
 import mlflow.genai.judges.instructions_judge
 from mlflow.entities import Span, SpanType, Trace, TraceData, TraceInfo
 from mlflow.entities.assessment import Feedback
-from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
@@ -133,12 +133,12 @@ def mock_trace():
 
 def test_make_judge_creates_instructions_judge():
     judge = make_judge(
-        name="test_judge", instructions="Check if {{outputs}} is formal", model="openai:/gpt-4"
+        name="test_judge", instructions="Check if {{ outputs }} is formal", model="openai:/gpt-4"
     )
 
     assert isinstance(judge, InstructionsJudge)
     assert judge.name == "test_judge"
-    assert judge.instructions == "Check if {{outputs}} is formal"
+    assert judge.instructions == "Check if {{ outputs }} is formal"
     assert judge.model == "openai:/gpt-4"
 
 
@@ -149,7 +149,7 @@ def test_make_judge_with_default_model(monkeypatch):
         lambda: expected_model,
     )
 
-    judge = make_judge(name="test_judge", instructions="Check if {{outputs}} is accurate")
+    judge = make_judge(name="test_judge", instructions="Check if {{ outputs }} is accurate")
 
     assert judge.model == expected_model
 
@@ -157,7 +157,7 @@ def test_make_judge_with_default_model(monkeypatch):
 def test_make_judge_with_databricks_default(monkeypatch):
     monkeypatch.setattr("mlflow.genai.judges.utils.is_databricks_uri", lambda x: True)
 
-    judge = make_judge(name="test_judge", instructions="Check if {{outputs}} is valid")
+    judge = make_judge(name="test_judge", instructions="Check if {{ outputs }} is valid")
 
     assert judge.model == "databricks"
 
@@ -171,7 +171,7 @@ def test_databricks_model_requires_databricks_agents(monkeypatch):
         match="To use 'databricks' as the judge model, the Databricks agents library",
     ):
         make_judge(
-            name="test_judge", instructions="Check if {{outputs}} is valid", model="databricks"
+            name="test_judge", instructions="Check if {{ outputs }} is valid", model="databricks"
         )
 
 
@@ -184,7 +184,7 @@ def test_litellm_provider_requires_litellm(monkeypatch):
         match="LiteLLM is required for using 'azure' as a provider",
     ):
         make_judge(
-            name="test_judge", instructions="Check if {{outputs}} is valid", model="azure:/gpt-4"
+            name="test_judge", instructions="Check if {{ outputs }} is valid", model="azure:/gpt-4"
         )
 
 
@@ -196,7 +196,7 @@ def test_native_providers_work_without_litellm(monkeypatch):
     for provider in ["openai", "anthropic", "bedrock", "mistral", "endpoints"]:
         judge = make_judge(
             name=f"test_judge_{provider}",
-            instructions="Check if {{outputs}} is valid",
+            instructions="Check if {{ outputs }} is valid",
             model=f"{provider}:/test-model",
         )
         assert judge.model == f"{provider}:/test-model"
@@ -219,26 +219,39 @@ def test_validate_judge_model_function():
         validate_judge_model(":/model")
 
 
-def test_databricks_model_works_with_guidelines(monkeypatch):
-    # Mock the databricks.agents.evals.judges.guidelines function
-    def mock_guidelines(guidelines, context, assessment_name):
-        assert assessment_name == "test_judge"
-        assert "Check if" in guidelines or "outputs" in str(context)
-        return Feedback(
-            name=assessment_name,
-            value=True,
-            rationale="Valid output",
-            source=AssessmentSource(
-                source_type=AssessmentSourceType.LLM_JUDGE, source_id="databricks"
-            ),
-        )
+def test_databricks_model_works_with_chat_completions(monkeypatch):
+    mock_judges_module = types.ModuleType("databricks.agents.evals.judges")
+    monkeypatch.setitem(sys.modules, "databricks.agents.evals.judges", mock_judges_module)
 
-    mock_module = types.ModuleType("databricks.agents.evals.judges")
-    mock_module.guidelines = mock_guidelines
-    monkeypatch.setitem(sys.modules, "databricks.agents.evals.judges", mock_module)
+    class MockLLMResult:
+        def __init__(self):
+            self.output = json.dumps({"result": True, "rationale": "Valid output"})
+            self.error_message = None
+
+    class MockManagedRAGClient:
+        def get_chat_completions_result(self, prompt, params):
+            # Verify we're getting the right prompt format
+            assert "Check if" in prompt or "outputs" in prompt
+            return MockLLMResult()
+
+    class MockContext:
+        def build_managed_rag_client(self):
+            return MockManagedRAGClient()
+
+    mock_rag_eval = types.ModuleType("databricks.rag_eval")
+    monkeypatch.setitem(sys.modules, "databricks.rag_eval", mock_rag_eval)
+
+    mock_context_module = types.ModuleType("databricks.rag_eval.context")
+    mock_context_module.get_context = lambda: MockContext()
+    mock_context_module.eval_context = lambda func: func  # Pass-through decorator
+    mock_context_module.context = mock_context_module  # Self-reference for import
+
+    # Attach context as an attribute of rag_eval
+    mock_rag_eval.context = mock_context_module
+    monkeypatch.setitem(sys.modules, "databricks.rag_eval.context", mock_context_module)
 
     judge = make_judge(
-        name="test_judge", instructions="Check if {{outputs}} is valid", model="databricks"
+        name="test_judge", instructions="Check if {{ outputs }} is valid", model="databricks"
     )
 
     result = judge(outputs={"text": "test output"})
@@ -247,27 +260,62 @@ def test_databricks_model_works_with_guidelines(monkeypatch):
     assert result.rationale == "Valid output"
 
 
+def test_databricks_model_works_with_trace(monkeypatch):
+    mock_judges_module = types.ModuleType("databricks.agents.evals.judges")
+    monkeypatch.setitem(sys.modules, "databricks.agents.evals.judges", mock_judges_module)
+
+    class MockLLMResult:
+        def __init__(self):
+            self.output = json.dumps({"result": True, "rationale": "Trace looks good"})
+            self.error_message = None
+
+    class MockManagedRAGClient:
+        def get_chat_completions_result(self, prompt, params):
+            assert "Analyze {{ trace }}" in prompt or "trace" in prompt
+            return MockLLMResult()
+
+    class MockContext:
+        def build_managed_rag_client(self):
+            return MockManagedRAGClient()
+
+    mock_rag_eval = types.ModuleType("databricks.rag_eval")
+    monkeypatch.setitem(sys.modules, "databricks.rag_eval", mock_rag_eval)
+
+    mock_context_module = types.ModuleType("databricks.rag_eval.context")
+    mock_context_module.get_context = lambda: MockContext()
+    mock_context_module.eval_context = lambda func: func  # Pass-through decorator
+    mock_context_module.context = mock_context_module  # Self-reference for import
+
+    mock_rag_eval.context = mock_context_module
+    monkeypatch.setitem(sys.modules, "databricks.rag_eval.context", mock_context_module)
+
+    judge = make_judge(
+        name="trace_judge", instructions="Analyze {{ trace }} for errors", model="databricks"
+    )
+    assert judge.model == "databricks"
+
+
 @pytest.mark.parametrize(
     ("instructions", "expected_vars"),
     [
         (
-            "Check if {{inputs}} is correct",
+            "Check if {{ inputs }} is correct",
             {"inputs"},
         ),
         (
-            "Check {{outputs}} against expectations",
+            "Check {{ outputs }} against expectations",
             {"outputs"},
         ),
         (
-            "Validate {{inputs}} and {{outputs}}",
+            "Validate {{ inputs }} and {{ outputs }}",
             {"inputs", "outputs"},
         ),
         (
-            "Check {{inputs}}, {{outputs}}, and {{expectations}}",
+            "Check {{ inputs }}, {{ outputs }}, and {{ expectations }}",
             {"inputs", "outputs", "expectations"},
         ),
         (
-            "Analyze this {{trace}}",
+            "Analyze this {{ trace }}",
             {"trace"},
         ),
     ],
@@ -282,15 +330,15 @@ def test_template_variable_extraction(instructions, expected_vars):
     ("instructions", "error_pattern"),
     [
         (
-            "Check if {{query}} is answered by {{response}}",
+            "Check if {{ query }} is answered by {{ response }}",
             "Instructions template contains unsupported variables: {'query', 'response'}",
         ),
         (
-            "Check {{answer}} against {{expected_answer}}",
+            "Check {{ answer }} against {{ expected_answer }}",
             "Instructions template contains unsupported variables: {'answer', 'expected_answer'}",
         ),
         (
-            "Validate {{custom_field}}",
+            "Validate {{ custom_field }}",
             "Instructions template contains unsupported variables: {'custom_field'}",
         ),
     ],
@@ -305,7 +353,7 @@ def test_custom_variables_rejected(instructions, error_pattern):
 @pytest.mark.parametrize(
     ("name", "instructions", "model", "error_pattern"),
     [
-        ("", "Check {{outputs}}", "openai:/gpt-4", "name must be a non-empty string"),
+        ("", "Check {{ outputs }}", "openai:/gpt-4", "name must be a non-empty string"),
         ("test", "", "openai:/gpt-4", "instructions must be a non-empty string"),
         (
             "test",
@@ -315,12 +363,12 @@ def test_custom_variables_rejected(instructions, error_pattern):
         ),
         (
             "test",
-            "Check {{outputs}}",
+            "Check {{ outputs }}",
             "invalid-model",
             "Malformed model uri 'invalid-model'",
         ),
-        ("test", "Check {{outputs}}", "invalid:/", "Malformed model uri 'invalid:/'"),
-        ("test", "Check {{outputs}}", "openai:", "Malformed model uri 'openai:'"),
+        ("test", "Check {{ outputs }}", "invalid:/", "Malformed model uri 'invalid:/'"),
+        ("test", "Check {{ outputs }}", "openai:", "Malformed model uri 'openai:'"),
     ],
 )
 def test_validation_errors(name, instructions, model, error_pattern):
@@ -339,7 +387,9 @@ def test_validation_errors(name, instructions, model, error_pattern):
     ],
 )
 def test_valid_model_formats(model):
-    judge = make_judge(name="test_judge", instructions="Check if {{outputs}} is valid", model=model)
+    judge = make_judge(
+        name="test_judge", instructions="Check if {{ outputs }} is valid", model=model
+    )
     assert judge.model == model
 
 
@@ -347,24 +397,19 @@ def test_valid_model_formats(model):
     ("instructions", "model", "error_pattern"),
     [
         (
-            "Analyze {{trace}} and check {{custom_field}}",
+            "Analyze {{ trace }} and check {{ custom_field }}",
             "openai:/gpt-4",
             "Instructions template contains unsupported variables",
         ),
         (
-            "Analyze {{trace}} and {{inputs}}",
+            "Analyze {{ trace }} and {{ inputs }}",
             "openai:/gpt-4",
             "Instructions template cannot contain both 'trace' and 'inputs'/'outputs'",
         ),
         (
-            "Analyze {{trace}} and {{outputs}}",
+            "Analyze {{ trace }} and {{ outputs }}",
             "openai:/gpt-4",
             "Instructions template cannot contain both 'trace' and 'inputs'/'outputs'",
-        ),
-        (
-            "Analyze {{trace}} for errors",
-            "databricks",
-            "Model cannot be 'databricks' when using 'trace' variable",
         ),
     ],
 )
@@ -381,7 +426,7 @@ def test_trace_with_expectations_not_allowed():
     ):
         make_judge(
             name="test_judge",
-            instructions="Analyze {{trace}} against {{expectations}}",
+            instructions="Analyze {{ trace }} against {{ expectations }}",
             model="openai:/gpt-4",
         )
 
@@ -403,7 +448,7 @@ def test_call_with_trace_supported(mock_trace, monkeypatch):
     monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "invoke_judge_model", mock_invoke)
 
     judge = make_judge(
-        name="test_judge", instructions="Analyze this {{trace}}", model="openai:/gpt-4"
+        name="test_judge", instructions="Analyze this {{ trace }}", model="openai:/gpt-4"
     )
 
     result = judge(trace=mock_trace)
@@ -419,7 +464,7 @@ def test_call_trace_based_judge_ignores_inputs_outputs(mock_trace, mock_invoke_j
     captured_args = mock_invoke_judge_model.captured_args
 
     judge = make_judge(
-        name="test_judge", instructions="Analyze this {{trace}}", model="openai:/gpt-4"
+        name="test_judge", instructions="Analyze this {{ trace }}", model="openai:/gpt-4"
     )
 
     # These should all work - trace-based judge ignores inputs/outputs
@@ -438,7 +483,7 @@ def test_call_trace_based_judge_ignores_inputs_outputs(mock_trace, mock_invoke_j
 
 def test_call_with_no_inputs_or_outputs():
     judge = make_judge(
-        name="test_judge", instructions="Check if {{outputs}} is valid", model="openai:/gpt-4"
+        name="test_judge", instructions="Check if {{ outputs }} is valid", model="openai:/gpt-4"
     )
 
     with pytest.raises(
@@ -450,7 +495,7 @@ def test_call_with_no_inputs_or_outputs():
 def test_call_with_valid_outputs_returns_feedback(mock_invoke_judge_model):
     judge = make_judge(
         name="formality_judge",
-        instructions="Check if {{outputs}} is formal",
+        instructions="Check if {{ outputs }} is formal",
         model="openai:/gpt-4",
     )
 
@@ -476,7 +521,7 @@ def test_call_with_valid_outputs_returns_feedback(mock_invoke_judge_model):
 def test_call_with_valid_inputs_returns_feedback(mock_invoke_judge_model):
     judge = make_judge(
         name="input_judge",
-        instructions="Check if {{inputs}} is valid",
+        instructions="Check if {{ inputs }} is valid",
         model="openai:/gpt-4",
     )
 
@@ -500,7 +545,7 @@ def test_call_with_valid_inputs_returns_feedback(mock_invoke_judge_model):
 def test_call_with_valid_inputs_and_outputs_returns_feedback(mock_invoke_judge_model):
     judge = make_judge(
         name="inputs_outputs_judge",
-        instructions="Check if {{outputs}} matches {{inputs}}",
+        instructions="Check if {{ outputs }} matches {{ inputs }}",
         model="openai:/gpt-4",
     )
 
@@ -527,7 +572,7 @@ def test_call_with_valid_inputs_and_outputs_returns_feedback(mock_invoke_judge_m
 def test_call_with_expectations_as_json(mock_invoke_judge_model):
     judge = make_judge(
         name="test_judge",
-        instructions="Check {{outputs}} against {{expectations}}",
+        instructions="Check {{ outputs }} against {{ expectations }}",
         model="openai:/gpt-4",
     )
 
@@ -548,7 +593,7 @@ def test_call_with_expectations_as_json(mock_invoke_judge_model):
 def test_call_with_reserved_variables(mock_invoke_judge_model):
     judge = make_judge(
         name="test_judge",
-        instructions="Check if {{inputs}} meets {{expectations}}",
+        instructions="Check if {{ inputs }} meets {{ expectations }}",
         model="openai:/gpt-4",
     )
 
@@ -565,7 +610,7 @@ def test_call_with_reserved_variables(mock_invoke_judge_model):
 
     # Check system message has the template
     system_msg = captured_messages[0]
-    assert "Check if {{inputs}} meets {{expectations}}" in system_msg.content
+    assert "Check if {{ inputs }} meets {{ expectations }}" in system_msg.content
 
     # Check user message has the JSON dumps of inputs and expectations
     user_msg = captured_messages[1]
@@ -579,16 +624,16 @@ def test_call_with_reserved_variables(mock_invoke_judge_model):
 
 def test_instructions_property():
     judge = make_judge(
-        name="test_judge", instructions="Check if {{outputs}} is formal", model="openai:/gpt-4"
+        name="test_judge", instructions="Check if {{ outputs }} is formal", model="openai:/gpt-4"
     )
 
     instructions = judge.instructions
-    assert instructions == "Check if {{outputs}} is formal"
+    assert instructions == "Check if {{ outputs }} is formal"
 
 
 def test_kind_property():
     judge = make_judge(
-        name="test_judge", instructions="Check if {{outputs}} is valid", model="openai:/gpt-4"
+        name="test_judge", instructions="Check if {{ outputs }} is valid", model="openai:/gpt-4"
     )
 
     assert judge.kind == ScorerKind.CLASS
@@ -607,7 +652,9 @@ def test_call_with_various_input_combinations(
     mock_invoke_judge_model, inputs, outputs, expectations, should_fail
 ):
     judge = make_judge(
-        name="test_judge", instructions="Check {{inputs}} and {{outputs}}", model="openai:/gpt-4"
+        name="test_judge",
+        instructions="Check {{ inputs }} and {{ outputs }}",
+        model="openai:/gpt-4",
     )
 
     if should_fail:
@@ -623,7 +670,9 @@ def test_call_with_various_input_combinations(
 def test_prompt_formatting_with_all_reserved_variable_types(mock_invoke_judge_model):
     judge = make_judge(
         name="test",
-        instructions="Inputs: {{inputs}}, Outputs: {{outputs}}, Expectations: {{expectations}}",
+        instructions=(
+            "Inputs: {{ inputs }}, Outputs: {{ outputs }}, Expectations: {{ expectations }}"
+        ),
         model="openai:/gpt-4",
     )
 
@@ -640,7 +689,9 @@ def test_prompt_formatting_with_all_reserved_variable_types(mock_invoke_judge_mo
 
     # Check system message has the template
     system_msg = captured_messages[0]
-    expected_template = "Inputs: {{inputs}}, Outputs: {{outputs}}, Expectations: {{expectations}}"
+    expected_template = (
+        "Inputs: {{ inputs }}, Outputs: {{ outputs }}, Expectations: {{ expectations }}"
+    )
     assert expected_template in system_msg.content
 
     # Check user message has all the JSON-serialized values
@@ -656,7 +707,7 @@ def test_prompt_formatting_with_all_reserved_variable_types(mock_invoke_judge_mo
 def test_output_format_instructions_added(mock_invoke_judge_model):
     judge = make_judge(
         name="test_judge",
-        instructions="Check if {{outputs}} is formal",
+        instructions="Check if {{ outputs }} is formal",
         model="openai:/gpt-4",
     )
 
@@ -671,7 +722,7 @@ def test_output_format_instructions_added(mock_invoke_judge_model):
     system_msg = captured_messages[0]
     assert system_msg.role == "system"
     assert system_msg.content.startswith(JUDGE_BASE_PROMPT)
-    assert "Check if {{outputs}} is formal" in system_msg.content
+    assert "Check if {{ outputs }} is formal" in system_msg.content
     # Tighter assertion for output format instructions
     assert "Please provide your assessment in the following JSON format only" in system_msg.content
     assert '"result": "The evaluation rating/result"' in system_msg.content
@@ -683,7 +734,7 @@ def test_output_format_instructions_added(mock_invoke_judge_model):
 def test_output_format_instructions_with_complex_template(mock_invoke_judge_model):
     judge = make_judge(
         name="complex_judge",
-        instructions="Evaluate {{outputs}} considering {{inputs}} and {{expectations}}",
+        instructions="Evaluate {{ outputs }} considering {{ inputs }} and {{ expectations }}",
         model="openai:/gpt-4",
     )
 
@@ -702,7 +753,10 @@ def test_output_format_instructions_with_complex_template(mock_invoke_judge_mode
     system_msg = captured_messages[0]
     assert system_msg.role == "system"
     assert system_msg.content.startswith(JUDGE_BASE_PROMPT)
-    assert "Evaluate {{outputs}} considering {{inputs}} and {{expectations}}" in system_msg.content
+    assert (
+        "Evaluate {{ outputs }} considering {{ inputs }} and {{ expectations }}"
+        in system_msg.content
+    )
     # Tighter assertion for output format instructions
     assert "Please provide your assessment in the following JSON format only" in system_msg.content
     assert '"result": "The evaluation rating/result"' in system_msg.content
@@ -712,7 +766,7 @@ def test_output_format_instructions_with_complex_template(mock_invoke_judge_mode
 def test_judge_registration_as_scorer(mock_invoke_judge_model):
     experiment = mlflow.create_experiment("test_judge_registration")
 
-    original_instructions = "Evaluate if the {{outputs}} is professional and formal."
+    original_instructions = "Evaluate if the {{ outputs }} is professional and formal."
     judge = make_judge(
         name="test_judge",
         instructions=original_instructions,
@@ -766,7 +820,7 @@ def test_judge_registration_as_scorer(mock_invoke_judge_model):
     # Check system message
     assert prompt[0].role == "system"
     assert prompt[0].content.startswith(JUDGE_BASE_PROMPT)
-    assert "Evaluate if the {{outputs}} is professional and formal." in prompt[0].content
+    assert "Evaluate if the {{ outputs }} is professional and formal." in prompt[0].content
     assert "JSON format" in prompt[0].content
 
     # Check user message
@@ -790,7 +844,7 @@ def test_judge_registration_as_scorer(mock_invoke_judge_model):
     assert "outputs:" in prompt[1].content
     assert "This output demonstrates professional communication." in prompt[1].content
 
-    v2_instructions = "Evaluate if the output {{outputs}} is professional, formal, and concise."
+    v2_instructions = "Evaluate if the output {{ outputs }} is professional, formal, and concise."
     judge_v2 = make_judge(
         name="test_judge",
         instructions=v2_instructions,
@@ -824,7 +878,8 @@ def test_judge_registration_with_reserved_variables(mock_invoke_judge_model):
     experiment = mlflow.create_experiment("test_reserved_vars")
 
     instructions_with_reserved = (
-        "Check if {{inputs}} is answered correctly by {{outputs}} according to {{expectations}}"
+        "Check if {{ inputs }} is answered correctly by {{ outputs }} "
+        "according to {{ expectations }}"
     )
     judge = make_judge(
         name="reserved_judge",
@@ -863,8 +918,8 @@ def test_judge_registration_with_reserved_variables(mock_invoke_judge_model):
     # Check system message
     assert prompt[0].role == "system"
     assert prompt[0].content.startswith(JUDGE_BASE_PROMPT)
-    assert "Check if {{inputs}} is answered correctly by {{outputs}}" in prompt[0].content
-    assert "according to {{expectations}}" in prompt[0].content
+    assert "Check if {{ inputs }} is answered correctly by {{ outputs }}" in prompt[0].content
+    assert "according to {{ expectations }}" in prompt[0].content
     assert "JSON format" in prompt[0].content
 
     # Check user message with all reserved variables as JSON
@@ -884,7 +939,7 @@ def test_judge_registration_with_reserved_variables(mock_invoke_judge_model):
 def test_model_dump_comprehensive():
     basic_judge = make_judge(
         name="basic_judge",
-        instructions="Check if {{inputs}} is correct",
+        instructions="Check if {{ inputs }} is correct",
         model="openai:/gpt-4",
     )
 
@@ -907,7 +962,7 @@ def test_model_dump_comprehensive():
     assert "instructions" in serialized["instructions_judge_pydantic_data"]
     assert (
         serialized["instructions_judge_pydantic_data"]["instructions"]
-        == "Check if {{inputs}} is correct"
+        == "Check if {{ inputs }} is correct"
     )
     assert "model" in serialized["instructions_judge_pydantic_data"]
     assert serialized["instructions_judge_pydantic_data"]["model"] == "openai:/gpt-4"
@@ -925,20 +980,20 @@ def test_model_dump_comprehensive():
 
     complex_judge = make_judge(
         name="complex_judge",
-        instructions="Check if {{inputs}} matches {{expectations}}",
+        instructions="Check if {{ inputs }} matches {{ expectations }}",
         model="anthropic:/claude-3",
     )
 
     complex_serialized = complex_judge.model_dump()
 
     assert complex_serialized["instructions_judge_pydantic_data"]["instructions"] == (
-        "Check if {{inputs}} matches {{expectations}}"
+        "Check if {{ inputs }} matches {{ expectations }}"
     )
     assert complex_serialized["instructions_judge_pydantic_data"]["model"] == "anthropic:/claude-3"
 
     default_model_judge = make_judge(
         name="default_judge",
-        instructions="Evaluate {{outputs}}",
+        instructions="Evaluate {{ outputs }}",
     )
 
     default_serialized = default_model_judge.model_dump()
@@ -978,7 +1033,7 @@ def test_instructions_judge_deserialization_validation():
         "aggregations": None,
         "mlflow_version": mlflow.__version__,
         "serialization_version": 1,
-        "instructions_judge_pydantic_data": {"instructions": "Check {{inputs}}"},
+        "instructions_judge_pydantic_data": {"instructions": "Check {{ inputs }}"},
         "builtin_scorer_class": None,
         "builtin_scorer_pydantic_data": None,
         "call_source": None,
@@ -1009,7 +1064,7 @@ def test_instructions_judge_deserialization_validation():
 def test_model_dump_uses_serialized_scorer_dataclass():
     judge = make_judge(
         name="test_dataclass_judge",
-        instructions="Evaluate {{inputs}} and {{outputs}}",
+        instructions="Evaluate {{ inputs }} and {{ outputs }}",
         model="openai:/gpt-3.5-turbo",
     )
 
@@ -1021,7 +1076,7 @@ def test_model_dump_uses_serialized_scorer_dataclass():
         mlflow_version=mlflow.__version__,
         serialization_version=1,
         instructions_judge_pydantic_data={
-            "instructions": "Evaluate {{inputs}} and {{outputs}}",
+            "instructions": "Evaluate {{ inputs }} and {{ outputs }}",
             "model": "openai:/gpt-3.5-turbo",
         },
         builtin_scorer_class=None,
@@ -1041,7 +1096,7 @@ def test_model_dump_uses_serialized_scorer_dataclass():
 def test_instructions_judge_works_with_evaluate(mock_invoke_judge_model):
     judge = make_judge(
         name="response_quality",
-        instructions="Evaluate if the {{outputs}} is helpful given {{inputs}}",
+        instructions="Evaluate if the {{ outputs }} is helpful given {{ inputs }}",
         model="openai:/gpt-4",
         aggregations=["mean"],
     )
@@ -1074,7 +1129,7 @@ def test_instructions_judge_works_with_evaluate(mock_invoke_judge_model):
 def test_instructions_judge_with_no_aggregations(mock_invoke_judge_model):
     judge = make_judge(
         name="response_quality",
-        instructions="Evaluate if the {{outputs}} is helpful given {{inputs}}",
+        instructions="Evaluate if the {{ outputs }} is helpful given {{ inputs }}",
         model="openai:/gpt-4",
     )
 
@@ -1105,7 +1160,7 @@ def test_make_judge_with_aggregations_validation():
     with pytest.raises(MlflowException, match="Invalid aggregation 'invalid'"):
         make_judge(
             name="test_judge",
-            instructions="Check if {{outputs}} is valid",
+            instructions="Check if {{ outputs }} is valid",
             model="openai:/gpt-4",
             aggregations=["mean", "invalid", "max"],
         )
@@ -1113,7 +1168,7 @@ def test_make_judge_with_aggregations_validation():
     with pytest.raises(MlflowException, match="Valid aggregations are"):
         make_judge(
             name="test_judge",
-            instructions="Check if {{outputs}} is valid",
+            instructions="Check if {{ outputs }} is valid",
             model="openai:/gpt-4",
             aggregations=["not_valid"],
         )
@@ -1121,7 +1176,7 @@ def test_make_judge_with_aggregations_validation():
     with pytest.raises(MlflowException, match="Aggregation must be either a string"):
         make_judge(
             name="test_judge",
-            instructions="Check if {{outputs}} is valid",
+            instructions="Check if {{ outputs }} is valid",
             model="openai:/gpt-4",
             aggregations=["mean", 123],
         )
@@ -1131,7 +1186,7 @@ def test_make_judge_with_aggregations_validation():
 
     judge_with_custom_func = make_judge(
         name="test_judge",
-        instructions="Check if {{outputs}} is valid",
+        instructions="Check if {{ outputs }} is valid",
         model="openai:/gpt-4",
         aggregations=["mean", custom_aggregation],
     )
@@ -1141,7 +1196,7 @@ def test_make_judge_with_aggregations_validation():
     all_valid_aggregations = ["min", "max", "mean", "median", "variance", "p90"]
     judge_with_all_aggs = make_judge(
         name="test_judge",
-        instructions="Check if {{outputs}} is valid",
+        instructions="Check if {{ outputs }} is valid",
         model="openai:/gpt-4",
         aggregations=all_valid_aggregations,
     )
@@ -1151,7 +1206,7 @@ def test_make_judge_with_aggregations_validation():
 def test_make_judge_with_aggregations(mock_invoke_judge_model):
     judge_with_custom_aggs = make_judge(
         name="formal_judge",
-        instructions="Check if {{outputs}} is formal",
+        instructions="Check if {{ outputs }} is formal",
         model="openai:/gpt-4",
         aggregations=["mean", "max", "min"],
     )
@@ -1161,7 +1216,7 @@ def test_make_judge_with_aggregations(mock_invoke_judge_model):
 
     judge_with_default_aggs = make_judge(
         name="simple_judge",
-        instructions="Check if {{outputs}} is valid",
+        instructions="Check if {{ outputs }} is valid",
         model="openai:/gpt-4",
     )
 
@@ -1170,7 +1225,7 @@ def test_make_judge_with_aggregations(mock_invoke_judge_model):
 
     judge_with_empty_aggs = make_judge(
         name="no_aggs_judge",
-        instructions="Check if {{outputs}} exists",
+        instructions="Check if {{ outputs }} exists",
         model="openai:/gpt-4",
         aggregations=[],
     )
@@ -1190,7 +1245,9 @@ def test_trace_prompt_augmentation(mock_trace, monkeypatch):
     monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "invoke_judge_model", mock_invoke)
 
     judge = make_judge(
-        name="test_judge", instructions="Analyze this {{trace}} for quality", model="openai:/gpt-4"
+        name="test_judge",
+        instructions="Analyze this {{ trace }} for quality",
+        model="openai:/gpt-4",
     )
 
     judge(trace=mock_trace)
@@ -1202,7 +1259,7 @@ def test_trace_prompt_augmentation(mock_trace, monkeypatch):
     assert "- result: The evaluation rating/result" in captured_prompt
     assert "- rationale: Detailed explanation for the evaluation" in captured_prompt
     assert "Instructions" in captured_prompt
-    assert "Analyze this {{trace}} for quality" in captured_prompt
+    assert "Analyze this {{ trace }} for quality" in captured_prompt
 
 
 def test_instructions_judge_with_chat_messages():
@@ -1237,7 +1294,7 @@ def test_instructions_judge_with_chat_messages():
 
     judge = make_judge(
         name="response_quality",
-        instructions="Evaluate if the {{outputs}} is helpful given {{inputs}}",
+        instructions="Evaluate if the {{ outputs }} is helpful given {{ inputs }}",
         model="openai:/gpt-4",
     )
 
@@ -1259,3 +1316,60 @@ def test_instructions_judge_with_chat_messages():
     assert all(isinstance(msg, ChatMessage) for msg in prompt_sent)
     assert prompt_sent[0].role == "system"
     assert prompt_sent[1].role == "user"
+
+
+@pytest.mark.parametrize(
+    ("instructions", "provided_params", "expected_warning"),
+    [
+        (
+            "Evaluate if {{ outputs }} is correct",
+            {"outputs": {"answer": "42"}, "inputs": {"question": "What is life?"}},
+            "'inputs'",
+        ),
+        (
+            "Check {{ inputs }}",
+            {"inputs": {"q": "test"}, "outputs": {"a": "result"}, "expectations": {"e": "42"}},
+            "'outputs', 'expectations'",
+        ),
+        (
+            "Evaluate {{ trace }}",
+            {"inputs": {"q": "test"}, "outputs": {"a": "result"}},
+            "'inputs', 'outputs'",
+        ),
+    ],
+)
+def test_unused_parameters_warning(
+    instructions, provided_params, expected_warning, mock_invoke_judge_model
+):
+    judge = make_judge(
+        name="test_judge",
+        instructions=instructions,
+        model="openai:/gpt-4",
+    )
+
+    if "{{ trace }}" in instructions:
+        trace = Trace(
+            info=TraceInfo(
+                trace_id="test-trace-id",
+                trace_location=TraceLocation.from_experiment_id("0"),
+                request_time=1234567890,
+                execution_duration=1000,
+                state=TraceState.OK,
+                trace_metadata={},
+            ),
+            data=TraceData(spans=[]),
+        )
+        provided_params = {"trace": trace, **provided_params}
+
+    with patch("mlflow.genai.judges.instructions_judge._logger") as mock_logger:
+        judge(**provided_params)
+
+        assert mock_logger.warning.called
+
+        warning_call_args = mock_logger.warning.call_args
+        assert warning_call_args is not None
+
+        warning_msg = warning_call_args[0][0]
+
+        assert "parameters were provided but are not used" in warning_msg
+        assert expected_warning in warning_msg

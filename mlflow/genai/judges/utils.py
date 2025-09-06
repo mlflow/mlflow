@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from mlflow.genai.judges.base import JudgeField
+    from mlflow.types.llm import ChatMessage
 
 import mlflow
 from mlflow.entities.assessment import Feedback
@@ -17,7 +18,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.utils.enum_utils import StrEnum
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
-from mlflow.types.llm import ChatMessage
 from mlflow.utils.uri import is_databricks_uri
 
 _logger = logging.getLogger(__name__)
@@ -134,6 +134,9 @@ def _invoke_databricks_judge(
     """
     Invoke the Databricks judge using the databricks.agents.evals library.
 
+    Uses the direct chat completions API for clean prompt submission without
+    any additional formatting or template requirements.
+
     Args:
         prompt: The formatted prompt with template variables filled in.
         assessment_name: The name of the assessment.
@@ -145,37 +148,76 @@ def _invoke_databricks_judge(
         MlflowException: If databricks-agents is not installed or invocation fails.
     """
     try:
-        from databricks.agents.evals.judges import guidelines
+        from databricks.rag_eval import context
 
-        # Extract the instructions/guidelines and context from the prompt
-        # The prompt has already been formatted with template variables filled in
-        instructions_text = ""
-        context = {}
+        from mlflow.types.llm import ChatMessage
+
+        full_prompt = ""
 
         if isinstance(prompt, str):
-            instructions_text = prompt
-            context["evaluation_prompt"] = prompt
+            # Simple string prompt - use directly
+            full_prompt = prompt
         else:
+            # Combine ChatMessage list into a formatted prompt
+            # The chat completions endpoint expects a single prompt string
             if isinstance(prompt, list) and len(prompt) > 0:
+                prompt_parts = []
+
                 for msg in prompt:
                     if isinstance(msg, ChatMessage):
                         if msg.role == "system":
-                            instructions_text = msg.content
+                            prompt_parts.append(f"System: {msg.content}")
                         elif msg.role == "user":
-                            context["evaluation_data"] = msg.content
+                            prompt_parts.append(f"User: {msg.content}")
+                        elif msg.role == "assistant":
+                            prompt_parts.append(f"Assistant: {msg.content}")
 
-                if not instructions_text:
-                    messages_content = []
-                    for msg in prompt:
-                        if isinstance(msg, ChatMessage):
-                            messages_content.append(f"{msg.role}: {msg.content}")
-                    instructions_text = "\n".join(messages_content)
+                full_prompt = "\n\n".join(prompt_parts)
 
-        return guidelines(
-            guidelines=instructions_text,
-            context=context,
-            assessment_name=assessment_name,
-        )
+        # Get the managed RAG client within the eval context
+        # The eval_context is required for proper Databricks environment setup
+        @context.eval_context
+        def call_chat_completions():
+            managed_rag_client = context.get_context().build_managed_rag_client()
+
+            # Call the chat completions endpoint directly
+            llm_result = managed_rag_client.get_chat_completions_result(
+                full_prompt,
+                None,  # No additional parameters needed
+            )
+
+            if llm_result.output is not None:
+                try:
+                    # The output should be JSON with 'result' and 'rationale' fields
+                    # as specified in our InstructionsJudge prompt
+                    response_data = json.loads(llm_result.output)
+
+                    return Feedback(
+                        name=assessment_name,
+                        value=response_data.get("result"),
+                        rationale=response_data.get("rationale", ""),
+                        source=AssessmentSource(
+                            source_type=AssessmentSourceType.LLM_JUDGE, source_id="databricks"
+                        ),
+                    )
+                except (json.JSONDecodeError, KeyError) as e:
+                    # If parsing fails, return the raw output as rationale
+                    _logger.debug(f"Failed to parse JSON response: {e}")
+                    return Feedback(
+                        name=assessment_name,
+                        value=True,  # Default to True if we can't parse
+                        rationale=str(llm_result.output),
+                        source=AssessmentSource(
+                            source_type=AssessmentSourceType.LLM_JUDGE, source_id="databricks"
+                        ),
+                    )
+            else:
+                error_msg = getattr(llm_result, "error_message", "Unknown error")
+                raise MlflowException(
+                    f"Databricks judge returned no output: {error_msg}", error_code=BAD_REQUEST
+                )
+
+        return call_chat_completions()
 
     except ImportError as e:
         raise MlflowException(
@@ -218,6 +260,8 @@ def _invoke_via_gateway(
             "`pip install litellm`.",
             error_code=BAD_REQUEST,
         )
+
+    # Import ChatMessage only when needed
 
     # Convert ChatMessage objects to dicts for native providers
     messages_dict = [{"role": msg.role, "content": msg.content} for msg in messages]
@@ -264,6 +308,9 @@ def invoke_judge_model(
     from mlflow.metrics.genai.model_utils import _parse_model_uri
 
     provider, model_name = _parse_model_uri(model_uri)
+
+    # Import ChatMessage only when needed
+    from mlflow.types.llm import ChatMessage
 
     messages = [ChatMessage(role="user", content=prompt)] if isinstance(prompt, str) else prompt
 
