@@ -701,3 +701,64 @@ def test_evaluate_with_managed_dataset_preserves_name():
         dataset_input = run_data.inputs.dataset_inputs[0]
         logged_dataset = dataset_input.dataset
         assert logged_dataset.name == "test.evaluation.sample_dataset"
+
+
+def test_evaluate_with_tags():
+    """Test that tags from evaluation data are logged to MLflow runs."""
+    data = [
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "outputs": "MLflow is a tool for ML",
+            "expectations": {"expected_response": "MLflow is a tool for ML"},
+            "tags": {"environment": "test", "model_version": "v1.0"},
+        },
+        {
+            "inputs": {"question": "What is Spark?"},
+            "outputs": "Spark is a fast data processing engine",
+            "expectations": {"expected_response": "Spark is a fast data processing engine"},
+            "tags": {"environment": "production", "team": "data-science"},
+        },
+    ]
+
+    with mock.patch("mlflow.set_tag") as mock_set_tag:
+        mlflow.genai.evaluate(
+            data=data,
+            scorers=[exact_match],
+        )
+
+        # Verify that tags were logged for each eval item
+        expected_calls = [
+            mock.call("environment", "test"),
+            mock.call("model_version", "v1.0"),
+            mock.call("environment", "production"),
+            mock.call("team", "data-science"),
+        ]
+
+        # Check that all expected calls were made (order may vary due to parallel execution)
+        actual_calls = mock_set_tag.call_args_list
+        assert len(actual_calls) == len(expected_calls)
+        for expected_call in expected_calls:
+            assert expected_call in actual_calls
+
+
+def test_evaluate_with_tags_error_handling(is_in_databricks):
+    """Test that tag logging errors don't fail the evaluation."""
+    data = [
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "outputs": "MLflow is a tool for ML",
+            "expectations": {"expected_response": "MLflow is a tool for ML"},
+            "tags": {"invalid_tag": "value"},
+        }
+    ]
+
+    # Mock set_tag to raise an exception
+    with mock.patch("mlflow.set_tag", side_effect=Exception("Tag logging failed")):
+        # This should not raise an exception
+        result = mlflow.genai.evaluate(
+            data=data,
+            scorers=[exact_match],
+        )
+
+        # Evaluation should still succeed
+        assert "exact_match/mean" in result.metrics

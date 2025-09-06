@@ -32,6 +32,9 @@ class EvalItem:
     """Expectations from the eval item."""
     expectations: dict[str, Any]
 
+    """Tags from the eval item."""
+    tags: dict[str, str] | None = None
+
     """Trace of the model invocation."""
     trace: Trace | None = None
 
@@ -61,11 +64,15 @@ class EvalItem:
         # Extract expectations column from the dataset.
         expectations = row.get(InputDatasetColumn.EXPECTATIONS, {})
 
+        # Extract tags column from the dataset.
+        tags = row.get(InputDatasetColumn.TAGS, {})
+
         return cls(
             request_id=request_id,
             inputs=inputs,
             outputs=outputs,
             expectations=expectations,
+            tags=tags,
             trace=trace,
         )
 
@@ -111,6 +118,7 @@ class EvalItem:
             ResultDataFrameColumn.OUTPUTS: self.outputs,
             ResultDataFrameColumn.TRACE: self.trace.to_json(),
             ResultDataFrameColumn.EXPECTATIONS: self.expectations,
+            ResultDataFrameColumn.TAGS: self.tags,
             ResultDataFrameColumn.ERROR_MESSAGE: self.error_message,
         }
         return {k: v for k, v in inputs.items() if v is not None}

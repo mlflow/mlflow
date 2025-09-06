@@ -14,6 +14,7 @@ _EVAL_ITEM = EvalItem(
     inputs={"dummy_input": "dummy_input"},
     outputs="dummy_output",
     expectations={"dummy_expectation": "dummy_expectation"},
+    tags={"test_tag": "test_value"},
     trace=None,
 )
 

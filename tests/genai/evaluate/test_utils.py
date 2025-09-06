@@ -52,6 +52,7 @@ def sample_dict_data_single():
             "inputs": {"question": "What is Spark?"},
             "outputs": "actual response for first question",
             "expectations": {"expected_response": "expected response for first question"},
+            "tags": {"sample_tag": "value"},
         },
     ]
 
@@ -63,13 +64,15 @@ def sample_dict_data_multiple():
             "inputs": {"question": "What is Spark?"},
             "outputs": "actual response for first question",
             "expectations": {"expected_response": "expected response for first question"},
+            "tags": {"category": "spark"},
         },
         {
             "inputs": {"question": "How can you minimize data shuffling in Spark?"},
             "outputs": "actual response for second question",
             "expectations": {"expected_response": "expected response for second question"},
+            "tags": {"category": "spark", "topic": "optimization"},
         },
-        # Some records might not have expectations
+        # Some records might not have expectations or tags
         {
             "inputs": {"question": "What is MLflow?"},
             "outputs": "actual response for third question",
