@@ -41,7 +41,7 @@ jobs:
   core_tests:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 360
     permissions:
       contents: read
     strategy:
@@ -77,7 +77,15 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          for i in {1..100}; do
+          for i in {1..10}; do
             pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-              'tests/tracing/test_otel_logging.py'
+              --ignore-flavors \
+              --ignore=tests/projects \
+              --ignore=tests/examples \
+              --ignore=tests/evaluate \
+              --ignore=tests/optuna \
+              --ignore=tests/pyspark/optuna \
+              --ignore=tests/genai \
+              --ignore=tests/telemetry \
+              tests
           done
