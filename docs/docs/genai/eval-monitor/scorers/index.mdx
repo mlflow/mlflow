@@ -6,6 +6,14 @@ import { Bot, GitBranch, Target, Scale } from "lucide-react";
 
 # What are Scorers?
 
+:::info[New in MLflow 3.4.0: make_judge API]
+
+The <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API provides a unified interface for creating custom LLM judges with template-based instructions, version control capabilities, and improved flexibility for handling various evaluation scenarios.
+
+[Learn more about make_judge →](/genai/eval-monitor/scorers/llm-judge/make-judge)
+
+:::
+
 **Scorers** are key components of the MLflow GenAI evaluation framework. They provide a unified interface to define evaluation criteria for your models, agents, and applications.
 
 Scorers can be considered as **metrics** in the traditional ML sense. However, they are more flexible and can return more structured quality feedback, not only the scalar values that are typically represented by metrics.

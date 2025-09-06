@@ -6,6 +6,19 @@ import { Hammer, Bot, GitBranch } from "lucide-react";
 
 # Use Predefined LLM Scorers
 
+:::tip[Consider using make_judge for custom criteria]
+
+The new <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API (MLflow 3.4.0+) provides a more flexible approach for creating custom evaluation criteria:
+
+- **Unified interface** - One API for all judge types
+- **Template-based** - Natural language instructions with variable substitution
+- **Version control** - Register and version your judges for team collaboration
+- **Domain-specific criteria** - Define evaluation criteria tailored to your use case
+
+[Learn about make_judge →](/genai/eval-monitor/scorers/llm-judge/make-judge)
+
+:::
+
 MLflow provides several pre-configured LLM judge scorers optimized for common evaluation scenarios.
 
 :::tip

@@ -6,6 +6,19 @@ import { Bot, GitBranch, MessageSquare } from "lucide-react";
 
 # Create Custom LLM Scorers
 
+:::info[New: make_judge API for unified judge creation]
+
+The <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API (MLflow 3.4.0+) offers a unified approach for creating custom judges:
+
+- **Single API** - Replace Guidelines, ExpectationsGuidelines, and custom_prompt_judge with one interface
+- **Template-based** - Natural language templates with variable substitution
+- **Version control** - Register and track judge iterations
+- **Flexible data handling** - Clean separation of inputs, outputs, and expectations
+
+[Learn about make_judge →](/genai/eval-monitor/scorers/llm-judge/make-judge)
+
+:::
+
 While MLflow's predefined LLM judge scorers offer excellent starting points for common quality dimensions in simpler applications, you'll need to create custom LLM judges as your application becomes more complex and to tune your evaluation criteria to meet the specific, nuanced business requirements of your use case and align with your domain expert's judgment. MLflow provides robust and flexible ways to create **custom LLM judges** tailored to these unique requirements.
 
 ## Guidelines (_we suggest starting here_)

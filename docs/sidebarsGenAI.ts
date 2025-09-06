@@ -289,6 +289,11 @@ const sidebarsGenAI: SidebarsConfig = {
               items: [
                 {
                   type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/make-judge',
+                  label: 'make_judge API',
+                },
+                {
+                  type: 'doc',
                   id: 'eval-monitor/scorers/llm-judge/predefined',
                 },
                 {

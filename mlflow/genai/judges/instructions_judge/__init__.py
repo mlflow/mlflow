@@ -159,6 +159,13 @@ class InstructionsJudge(Judge):
             trace: Trace object for evaluation. Cannot be used with 'inputs', 'outputs', or
                 'expectations'.
 
+                **Important Note on Trace Behavior**: When using {{trace}} in your instructions,
+                the trace metadata (trace_id, experiment_id, request_id, etc.) is passed to an
+                agent that fetches and analyzes the full trace details. The trace is NOT
+                interpolated as JSON directly into the prompt. This differs from inputs/outputs/
+                expectations which are directly interpolated as formatted strings into the prompt
+                template.
+
         Returns:
             Evaluation results
 
