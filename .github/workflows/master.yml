@@ -89,13 +89,19 @@ jobs:
           # `-I` is used to avoid importing modules from user-specific site-packages
           # that might conflict with the built-in modules (e.g. `types`).
           uv run python -I tests/check_mlflow_lazily_imports_ml_packages.py
-      - name: Setup SSH and run tests
-        run: |
-          source dev/setup-ssh.sh
-      - uses: ./.github/actions/manage-test-durations
+      - uses: ./.github/actions/setup-test-durations
         with:
           job_name: "python"
-          test_command: "uv run pytest --quiet --requires-ssh --ignore-flavors --ignore=tests/examples --ignore=tests/evaluate --ignore tests/genai tests || true"
+      - name: Run tests
+        run: |
+          source dev/setup-ssh.sh
+          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+            --durations-path=/tmp/python_group_${{ matrix.group }}_durations.json --store-durations \
+            --quiet --requires-ssh --ignore-flavors --ignore=tests/examples --ignore=tests/evaluate \
+            --ignore tests/genai tests || true
+      - uses: ./.github/actions/upload-test-durations
+        with:
+          job_name: "python"
 
   py310:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -122,35 +128,31 @@ jobs:
           uv pip install -c requirements/constraints.txt openai
           uv pip install -c requirements/constraints.txt .
       - uses: ./.github/actions/show-versions
+      - uses: ./.github/actions/setup-test-durations
+        with:
+          job_name: "python-skinny-tests"
       - name: Run tests
         run: |
           uv run python -c "import sys; assert sys.version_info[:2] == (3, 10), sys.version_info"
-          # Copy consolidated duration file for reading (gets overwritten with this group's durations)
-          cp .github/workflows/test_durations/python-skinny-tests.test_duration /tmp/skinny_group_${{ matrix.group }}_durations.json 2>/dev/null || echo "{}" > /tmp/skinny_group_${{ matrix.group }}_durations.json
           uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --durations-path=/tmp/skinny_group_${{ matrix.group }}_durations.json --store-durations \
+            --durations-path=/tmp/python-skinny-tests_group_${{ matrix.group }}_durations.json --store-durations \
             tests/types/test_type_hints.py tests/pyfunc/test_pyfunc_model_with_type_hints.py tests/telemetry || [ $? -eq 5 ]
-          # Move to group-specific file for artifact upload
-          mv /tmp/skinny_group_${{ matrix.group }}_durations.json group_${{ matrix.group }}_durations.json
+          # Move to group file for the next step to append
+          mv /tmp/python-skinny-tests_group_${{ matrix.group }}_durations.json group_${{ matrix.group }}_durations.json
       - name: Run databricks-connect related tests
         run: |
           # this needs to be run in a separate job because installing databricks-connect could break other 
           # tests that uses normal SparkSession instead of remote SparkSession
           uv pip install -c requirements/constraints.txt databricks-agents
-          # Note: These tests append to the existing durations file
-          cp group_${{ matrix.group }}_durations.json /tmp/skinny_group_${{ matrix.group }}_durations.json 2>/dev/null || echo "{}" > /tmp/skinny_group_${{ matrix.group }}_durations.json
+          # Copy existing durations to append to them
+          cp group_${{ matrix.group }}_durations.json /tmp/python-skinny-tests_group_${{ matrix.group }}_durations.json 2>/dev/null || echo "{}" > /tmp/python-skinny-tests_group_${{ matrix.group }}_durations.json
           uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --durations-path=/tmp/skinny_group_${{ matrix.group }}_durations.json --store-durations \
+            --durations-path=/tmp/python-skinny-tests_group_${{ matrix.group }}_durations.json --store-durations \
             tests/utils/test_requirements_utils.py::test_infer_pip_requirements_on_databricks_agents || [ $? -eq 5 ]
-          # Move back to group-specific file
-          mv /tmp/skinny_group_${{ matrix.group }}_durations.json group_${{ matrix.group }}_durations.json
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        if: always()
+      - uses: ./.github/actions/upload-test-durations
         with:
-          name: test-durations-python-skinny-tests-group-${{ matrix.group }}
-          path: group_${{ matrix.group }}_durations.json
-          retention-days: 7
+          job_name: "python-skinny-tests"
 
   database:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -256,10 +258,17 @@ jobs:
           uv pip install -c requirements/constraints.txt tf-keras uvicorn "litellm>=1.52.9"
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
-      - uses: ./.github/actions/manage-test-durations
+      - uses: ./.github/actions/setup-test-durations
         with:
           job_name: "flavors"
-          test_command: "uv run pytest tests/utils/test_model_utils.py tests/tracking/fluent/test_fluent_autolog.py tests/autologging tests/server/auth"
+      - name: Run tests
+        run: |
+          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+            --durations-path=/tmp/flavors_group_${{ matrix.group }}_durations.json --store-durations \
+            tests/utils/test_model_utils.py tests/tracking/fluent/test_fluent_autolog.py tests/autologging tests/server/auth
+      - uses: ./.github/actions/upload-test-durations
+        with:
+          job_name: "flavors"
 
   # It takes 9 ~ 10 minutes to run tests in `tests/models`. To make CI finish faster,
   # run these tests in a separate job.
@@ -288,10 +297,17 @@ jobs:
           uv pip install -c requirements/constraints.txt pyspark langchain langchain-community '.[mlserver]'
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
-      - uses: ./.github/actions/manage-test-durations
+      - uses: ./.github/actions/setup-test-durations
         with:
           job_name: "models"
-          test_command: "uv run pytest tests/models || [ $? -eq 5 ]"
+      - name: Run tests
+        run: |
+          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+            --durations-path=/tmp/models_group_${{ matrix.group }}_durations.json --store-durations \
+            tests/models || [ $? -eq 5 ]
+      - uses: ./.github/actions/upload-test-durations
+        with:
+          job_name: "models"
 
   # NOTE: numpy is pinned in this suite due to its heavy reliance on shap, which internally uses
   # references to the now fully deprecated (as of 1.24.x) numpy types (i.e., np.bool).
@@ -322,10 +338,17 @@ jobs:
           uv pip install -c requirements/constraints.txt pyspark torch transformers langchain langchain-experimental '.[genai]' 'shap<0.47.0' lightgbm xgboost
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
-      - uses: ./.github/actions/manage-test-durations
+      - uses: ./.github/actions/setup-test-durations
         with:
           job_name: "evaluate"
-          test_command: "uv run pytest tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py || [ $? -eq 5 ]"
+      - name: Run tests
+        run: |
+          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+            --durations-path=/tmp/evaluate_group_${{ matrix.group }}_durations.json --store-durations \
+            tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py || [ $? -eq 5 ]
+      - uses: ./.github/actions/upload-test-durations
+        with:
+          job_name: "evaluate"
       - name: Run tests with delta
         run: |
           uv run pytest tests/evaluate/test_default_evaluator_delta.py
@@ -354,20 +377,21 @@ jobs:
           source ./dev/install-common-deps-uv.sh
           uv pip install -c requirements/constraints.txt openai dspy
       - uses: ./.github/actions/show-versions
+      - uses: ./.github/actions/setup-test-durations
+        with:
+          job_name: "genai"
       - name: Run GenAI Tests (OSS)
         run: |
-          # Copy consolidated duration file for reading (gets overwritten with this group's durations)
-          cp .github/workflows/test_durations/genai.test_duration /tmp/genai_group_${{ matrix.group }}_durations.json 2>/dev/null || echo "{}" > /tmp/genai_group_${{ matrix.group }}_durations.json
           uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
             --durations-path=/tmp/genai_group_${{ matrix.group }}_durations.json --store-durations \
             tests/genai
-          # Move to group-specific file for artifact upload
+          # Move to group file for next step to append
           mv /tmp/genai_group_${{ matrix.group }}_durations.json group_${{ matrix.group }}_durations.json
 
       - name: Run GenAI Tests (Databricks)
         run: |
           uv pip install -c requirements/constraints.txt databricks-agents
-          # Copy existing group durations file to append to it
+          # Copy existing durations to append to them
           cp group_${{ matrix.group }}_durations.json /tmp/genai_group_${{ matrix.group }}_durations.json 2>/dev/null || echo "{}" > /tmp/genai_group_${{ matrix.group }}_durations.json
           uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
             --durations-path=/tmp/genai_group_${{ matrix.group }}_durations.json --store-durations \
@@ -383,20 +407,15 @@ jobs:
           # uninstalling databricks-connect.
           uv pip uninstall databricks-connect pyspark
           uv pip install -c requirements/constraints.txt pyspark
-          # Copy existing group durations file to append to it
+          # Copy existing durations to append to them
           cp group_${{ matrix.group }}_durations.json /tmp/genai_group_${{ matrix.group }}_durations.json 2>/dev/null || echo "{}" > /tmp/genai_group_${{ matrix.group }}_durations.json
           uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
             --durations-path=/tmp/genai_group_${{ matrix.group }}_durations.json --store-durations \
             tests/genai/evaluate/test_utils.py
-          # Move back to group file
-          mv /tmp/genai_group_${{ matrix.group }}_durations.json group_${{ matrix.group }}_durations.json
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        if: always()
+      - uses: ./.github/actions/upload-test-durations
         with:
-          name: test-durations-genai-group-${{ matrix.group }}
-          path: group_${{ matrix.group }}_durations.json
-          retention-days: 7
+          job_name: "genai"
 
   optuna:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -450,25 +469,21 @@ jobs:
           uv pip install -c requirements/constraints.txt tensorflow 'pyspark[connect]' typing_extensions -U
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
+      - uses: ./.github/actions/setup-test-durations
+        with:
+          job_name: "pyfunc"
       - name: Run tests
         run: |
-          # Copy consolidated duration file for reading (gets overwritten with this group's durations)
-          cp .github/workflows/test_durations/pyfunc.test_duration /tmp/pyfunc_group_${{ matrix.group }}_durations.json 2>/dev/null || echo "{}" > /tmp/pyfunc_group_${{ matrix.group }}_durations.json
           uv run --no-project pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
             --durations-path=/tmp/pyfunc_group_${{ matrix.group }}_durations.json --store-durations --durations=30 \
             tests/pyfunc tests/types --ignore tests/pyfunc/test_spark_connect.py
-          # Move to group-specific file for artifact upload
-          mv /tmp/pyfunc_group_${{ matrix.group }}_durations.json group_${{ matrix.group }}_durations.json
 
           # test_spark_connect.py fails if it's run with other tests, so run it separately.
           uv run --no-project pytest tests/pyfunc/test_spark_connect.py
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        if: always()
+      - uses: ./.github/actions/upload-test-durations
         with:
-          name: test-durations-pyfunc-group-${{ matrix.group }}
-          path: group_${{ matrix.group }}_durations.json
-          retention-days: 7
+          job_name: "pyfunc"
 
   pyfunc-pydanticv1:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -502,22 +517,19 @@ jobs:
           uv pip install -c requirements/constraints.txt 'pydantic<2'
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
+      - uses: ./.github/actions/setup-test-durations
+        with:
+          job_name: "pyfunc-pydanticv1"
+
       - name: Run tests with pydantic v1
         run: |
-          # Copy consolidated duration file for reading (gets overwritten with this group's durations)
-          cp .github/workflows/test_durations/pyfunc-pydanticv1.test_duration /tmp/pydantic_group_${{ matrix.group }}_durations.json 2>/dev/null || echo "{}" > /tmp/pydantic_group_${{ matrix.group }}_durations.json
           uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --durations-path=/tmp/pydantic_group_${{ matrix.group }}_durations.json --store-durations --durations=30 \
+            --durations-path=/tmp/pyfunc-pydanticv1_group_${{ matrix.group }}_durations.json --store-durations --durations=30 \
             tests/types tests/pyfunc/test_pyfunc_model_with_type_hints.py tests/utils/test_pydantic_utils.py
-          # Move to group-specific file for artifact upload
-          mv /tmp/pydantic_group_${{ matrix.group }}_durations.json group_${{ matrix.group }}_durations.json
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        if: always()
+      - uses: ./.github/actions/upload-test-durations
         with:
-          name: test-durations-pyfunc-pydanticv1-group-${{ matrix.group }}
-          path: group_${{ matrix.group }}_durations.json
-          retention-days: 7
+          job_name: "pyfunc-pydanticv1"
 
   sagemaker:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -542,10 +554,17 @@ jobs:
           source ./dev/install-common-deps-uv.sh --ml
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
-      - uses: ./.github/actions/manage-test-durations
+      - uses: ./.github/actions/setup-test-durations
         with:
           job_name: "sagemaker"
-          test_command: "uv run pytest tests/sagemaker"
+      - name: Run tests
+        run: |
+          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+            --durations-path=/tmp/sagemaker_group_${{ matrix.group }}_durations.json --store-durations \
+            tests/sagemaker
+      - uses: ./.github/actions/upload-test-durations
+        with:
+          job_name: "sagemaker"
 
   windows:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -624,9 +643,17 @@ jobs:
           # Set Hadoop environment variables required for testing Spark integrations on Windows
           export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
           export PATH=$PATH:$HADOOP_HOME/bin
-      - uses: ./.github/actions/manage-test-durations
-        env:
-          MLFLOW_SQLALCHEMYSTORE_POOLCLASS: "NullPool"
+      - uses: ./.github/actions/setup-test-durations
         with:
           job_name: "windows"
-          test_command: "uv run pytest --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/evaluate --ignore=tests/optuna --ignore=tests/pyspark/optuna --ignore=tests/genai tests || true"
+      - name: Run tests
+        env:
+          MLFLOW_SQLALCHEMYSTORE_POOLCLASS: "NullPool"
+        run: |
+          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+            --durations-path=/tmp/windows_group_${{ matrix.group }}_durations.json --store-durations \
+            --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/evaluate --ignore=tests/optuna \
+            --ignore=tests/pyspark/optuna --ignore=tests/genai tests || true
+      - uses: ./.github/actions/upload-test-durations
+        with:
+          job_name: "windows"
