@@ -157,6 +157,9 @@ def test_get_store_sqlalchemy_store(tmp_path, monkeypatch, db_type):
         store = _get_store()
         assert isinstance(store, SqlAlchemyStore)
         assert store.db_uri == uri
+        # Create another store to ensure the engine is cached
+        another_store = _get_store()
+        assert store.engine is another_store.engine
         if is_windows():
             assert store.artifact_root_uri == Path.cwd().joinpath("mlruns").as_uri()
         else:
