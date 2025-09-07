@@ -2650,31 +2650,13 @@ e.g., struct<a:int, b:array<int>>.
                 else:
                     local_model_path_on_executor = None
 
-                if check_port_connectivity():
-                    # launch scoring server
-                    server_port = find_free_port()
-                    host = "127.0.0.1"
-                    scoring_server_proc = pyfunc_backend.serve(
-                        model_uri=local_model_path_on_executor or local_model_path,
-                        port=server_port,
-                        host=host,
-                        timeout=MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get(),
-                        enable_mlserver=False,
-                        synchronous=False,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.STDOUT,
-                        model_config=model_config,
-                    )
-
-                    client = ScoringServerClient(host, server_port)
-                else:
-                    scoring_server_proc = pyfunc_backend.serve_stdin(
-                        model_uri=local_model_path_on_executor or local_model_path,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.STDOUT,
-                        model_config=model_config,
-                    )
-                    client = StdinScoringServerClient(scoring_server_proc)
+                scoring_server_proc = pyfunc_backend.serve_stdin(
+                    model_uri=local_model_path_on_executor or local_model_path,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    model_config=model_config,
+                )
+                client = StdinScoringServerClient(scoring_server_proc)
 
                 _logger.info("Using %s", client.__class__.__name__)
 
