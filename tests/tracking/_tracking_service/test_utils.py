@@ -2,6 +2,7 @@ import io
 import itertools
 import os
 import pickle
+import uuid
 from importlib import reload
 from pathlib import Path
 from unittest import mock
@@ -138,12 +139,11 @@ def test_get_store_rest_store_with_no_insecure(monkeypatch):
 def test_get_store_sqlalchemy_store(tmp_path, monkeypatch, db_type):
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", raising=False)
-    patch_create_engine = mock.patch("sqlalchemy.create_engine")
 
-    uri = f"{db_type}://hostname/database"
+    uri = f"{db_type}://hostname/database-{uuid.uuid4().hex}"
     monkeypatch.setenv(MLFLOW_TRACKING_URI.name, uri)
     with (
-        patch_create_engine as mock_create_engine,
+        mock.patch("sqlalchemy.create_engine") as mock_create_engine,
         mock.patch("mlflow.store.db.utils._verify_schema"),
         mock.patch("mlflow.store.db.utils._initialize_tables"),
         mock.patch(
@@ -169,13 +169,11 @@ def test_get_store_sqlalchemy_store(tmp_path, monkeypatch, db_type):
 @pytest.mark.parametrize("db_type", DATABASE_ENGINES)
 def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_path, monkeypatch, db_type):
     monkeypatch.chdir(tmp_path)
-    uri = f"{db_type}://hostname/database"
+    uri = f"{db_type}://hostname/database-{uuid.uuid4().hex}"
     artifact_uri = "file:artifact/path"
     monkeypatch.setenv(MLFLOW_TRACKING_URI.name, uri)
     with (
-        mock.patch(
-            "sqlalchemy.create_engine",
-        ) as mock_create_engine,
+        mock.patch("sqlalchemy.create_engine") as mock_create_engine,
         mock.patch("mlflow.store.db.utils._verify_schema"),
         mock.patch("mlflow.store.db.utils._initialize_tables"),
         mock.patch(
@@ -193,7 +191,7 @@ def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_path, monkeypatch, db_
                 Path.cwd().joinpath("artifact", "path")
             )
 
-    mock_create_engine.assert_not_called()
+    mock_create_engine.assert_called_once_with(uri, pool_pre_ping=True)
 
 
 def test_get_store_databricks(monkeypatch):
