@@ -46,6 +46,7 @@ def _flush_async_logging():
     exporter._async_queue.flush(terminate=True)
 
 
+@pytest.mark.timeout(20)  # Test must complete within 20 seconds
 @pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
 def test_export(is_async, monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
