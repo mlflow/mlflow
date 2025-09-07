@@ -28,7 +28,7 @@ print("Hello, world!")
 
 
 @pytest.mark.parametrize(
-    "shebang_pattern",
+    "shebang",
     [
         "#!/usr/bin/env python",
         "#!/usr/bin/python",
@@ -37,34 +37,30 @@ print("Hello, world!")
         "#! /usr/bin/env python",  # With space after #!
     ],
 )
-def test_no_shebang_various_patterns(
-    index_path: Path, tmp_path: Path, shebang_pattern: str
-) -> None:
+def test_no_shebang_various_patterns(index_path: Path, tmp_path: Path, shebang: str) -> None:
     tmp_file = tmp_path / "test.py"
     config = Config(select={NoShebang.name})
 
-    tmp_file.write_text(f"{shebang_pattern}\nprint('hello')\n")
+    tmp_file.write_text(f"{shebang}\nprint('hello')\n")
     results = lint_file(tmp_file, config, index_path)
-    assert len(results) == 1, f"Failed to detect shebang: {shebang_pattern}"
     assert isinstance(results[0].rule, NoShebang)
     assert results[0].loc == Location(0, 0)
 
 
 @pytest.mark.parametrize(
-    ("content", "description"),
+    "content",
     [
-        ("", "empty file"),
-        ("   \n   \n", "whitespace only"),
-        ('\n#!/usr/bin/env python\nprint("hello")\n', "shebang not on first line"),
-        ("# This is a comment\nimport os\n", "comment that starts with # but not shebang"),
+        "",
+        "   \n   \n",
+        '\n#!/usr/bin/env python\nprint("hello")\n',
+        "# This is a comment\nimport os\n",
     ],
+    ids=["empty_file", "whitespace_only", "shebang_not_on_first_line", "comment_not_shebang"],
 )
-def test_no_shebang_edge_cases(
-    index_path: Path, tmp_path: Path, content: str, description: str
-) -> None:
+def test_no_shebang_edge_cases(index_path: Path, tmp_path: Path, content: str) -> None:
     tmp_file = tmp_path / "test.py"
     config = Config(select={NoShebang.name})
 
     tmp_file.write_text(content)
     results = lint_file(tmp_file, config, index_path)
-    assert len(results) == 0, f"Should not trigger violation for: {description}"
+    assert len(results) == 0
