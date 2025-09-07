@@ -1,19 +1,34 @@
 #!/usr/bin/env python
 """
-Collect test durations from CI by downloading artifacts from existing runs.
+Download and merge test duration data from MLflow CI runs.
 
-This script downloads test duration artifacts from GitHub Actions runs and
-merges them into per-job duration files in .github/workflows/test_durations/.
+This script is part of MLflow's intelligent test parallelization system. It downloads
+test timing data collected by pytest-split during CI runs and merges it into
+consolidated duration files used for future test splitting.
+
+How it works:
+1. MLflow CI jobs collect test execution times using pytest-split's --store-durations
+2. Each job uploads timing data as artifacts (test-durations-{job}-group-{N})
+3. This script downloads these artifacts from completed CI runs
+4. The timing data is merged into consolidated files
+   (.github/workflows/test_durations/{job}.test_duration)
+5. Future CI runs use these consolidated files for intelligent test distribution
+
+The result is a feedback loop where test execution times continuously improve
+test parallelization, reducing overall CI runtime.
 
 Usage:
     # Download from latest master run
-    python dev/collect_ci_durations.py
+    python dev/download_test_durations.py
 
     # Download from specific run ID
-    python dev/collect_ci_durations.py --run-id 1234567890
+    python dev/download_test_durations.py --run-id 1234567890
 
     # Download from latest run on specific branch
-    python dev/collect_ci_durations.py --branch my-feature-branch
+    python dev/download_test_durations.py --branch my-feature-branch
+
+    # Download from specific repo (default: mlflow/mlflow)
+    python dev/download_test_durations.py --run-id 1234567890 --repo mlflow/mlflow
 """
 
 import argparse
@@ -132,21 +147,21 @@ def save_job_durations(job_durations):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Collect test durations from CI",
+        description="Download and merge test duration data from MLflow CI runs",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   # Download from latest master run
-  python dev/collect_ci_durations.py
+  python dev/download_test_durations.py
 
   # Download from specific run ID
-  python dev/collect_ci_durations.py --run-id 1234567890
+  python dev/download_test_durations.py --run-id 1234567890
 
   # Download from latest run on specific branch
-  python dev/collect_ci_durations.py --branch my-feature-branch
+  python dev/download_test_durations.py --branch my-feature-branch
 
   # Download from specific repo
-  python dev/collect_ci_durations.py --run-id 1234567890 --repo mlflow/mlflow
+  python dev/download_test_durations.py --run-id 1234567890 --repo mlflow/mlflow
 """,
     )
     parser.add_argument(

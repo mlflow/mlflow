@@ -1,0 +1,67 @@
+# Test Duration Management for MLflow CI
+#
+# This action manages test duration collection and artifact uploading for MLflow's intelligent test splitting.
+#
+# How Test Durations Work:
+# 1. Each CI job reads from a consolidated duration file (.github/workflows/test_durations/{job}.test_duration)
+# 2. pytest-split uses these durations to intelligently distribute tests across parallel groups
+# 3. During test execution, pytest-split collects new timing data with --store-durations
+# 4. New durations are stored in group-specific files and uploaded as artifacts
+# 5. The download_test_durations.py script can download and merge these artifacts to update the consolidated files
+# 6. This creates a feedback loop where test execution times continuously improve parallelization
+#
+# Usage in jobs:
+#   - uses: ./.github/actions/manage-test-durations
+#     with:
+#       job_name: 'python'
+#       test_command: 'uv run pytest --quiet --requires-ssh tests/'
+#
+# The action handles:
+# - Copying the consolidated duration file for pytest-split to read
+# - Running the test command with proper duration tracking flags
+# - Moving the results to the correct location for artifact upload
+# - Uploading the duration artifact for future CI runs
+
+name: "Manage Test Durations"
+description: "Handle test duration file copying, test execution with duration tracking, and artifact uploading"
+
+inputs:
+  job_name:
+    description: "Job name for duration files (e.g. python, pyfunc, models)"
+    required: true
+  test_command:
+    description: "Test command to run (without --splits, --group, --durations-path, --store-durations flags - these are added automatically)"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup test duration file
+      shell: bash
+      run: |
+        # Copy consolidated duration file for pytest-split to read
+        # If the file doesn't exist, create an empty JSON object as fallback
+        cp .github/workflows/test_durations/${{ inputs.job_name }}.test_duration /tmp/${{ inputs.job_name }}_group_${{ matrix.group }}_durations.json 2>/dev/null || echo "{}" > /tmp/${{ inputs.job_name }}_group_${{ matrix.group }}_durations.json
+
+    - name: Run tests with duration tracking
+      shell: bash
+      run: |
+        # Run the test command with pytest-split flags for duration collection
+        # --splits and --group come from the job matrix
+        # --durations-path and --store-durations enable duration collection
+        ${{ inputs.test_command }} --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+          --durations-path=/tmp/${{ inputs.job_name }}_group_${{ matrix.group }}_durations.json --store-durations
+
+    - name: Prepare duration artifact
+      shell: bash
+      run: |
+        # Move the updated duration file to the expected location for artifact upload
+        mv /tmp/${{ inputs.job_name }}_group_${{ matrix.group }}_durations.json group_${{ matrix.group }}_durations.json
+
+    - name: Upload test durations
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      if: always()
+      with:
+        name: test-durations-${{ inputs.job_name }}-group-${{ matrix.group }}
+        path: group_${{ matrix.group }}_durations.json
+        retention-days: 7
