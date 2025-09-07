@@ -86,14 +86,9 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Import check
         run: |
-          # Try without -I flag to see if uv run can find packages in .venv
-          # Also add debug to see which Python is being used
-          echo "Testing without -I flag:"
-          uv run python -c "import sys; print('Python executable:', sys.executable)"
-          echo "Checking if pyspark is installed:"
-          uv run python -c "import pyspark; print('pyspark version:', pyspark.__version__)" || echo "pyspark not found"
-          echo "Running import check:"
-          uv run python tests/check_mlflow_lazily_imports_ml_packages.py
+          # `-I` is used to avoid importing modules from user-specific site-packages
+          # that might conflict with the built-in modules (e.g. `types`).
+          uv run python -I tests/check_mlflow_lazily_imports_ml_packages.py
       - name: Setup SSH and run tests
         run: |
           source dev/setup-ssh.sh
