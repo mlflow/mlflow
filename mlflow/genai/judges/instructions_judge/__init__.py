@@ -161,10 +161,8 @@ class InstructionsJudge(Judge):
         Evaluate the provided data using the judge's instructions.
 
         Args:
-            inputs: Any input data to evaluate. Will be JSON-serialized for the prompt,
-                falling back to string representation if needed. Cannot be used with 'trace'.
-            outputs: Any output data to evaluate. Will be JSON-serialized for the prompt,
-                falling back to string representation if needed. Cannot be used with 'trace'.
+            inputs: Input data to evaluate. Cannot be used with 'trace'.
+            outputs: Output data to evaluate. Cannot be used with 'trace'.
             expectations: Expected outcomes or ground truth as a dictionary. Cannot be used with
                 'trace'.
             trace: Trace object for evaluation. Cannot be used with 'inputs', 'outputs', or
