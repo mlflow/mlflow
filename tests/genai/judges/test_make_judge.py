@@ -1219,7 +1219,9 @@ def test_trace_prompt_augmentation(mock_trace, monkeypatch):
         ({"valid_field": "ok", "bad_field": {1, 2}}, True),
     ],
 )
-def test_judge_accepts_various_data_types(mock_invoke_judge_model, test_value, expect_json):
+def test_judge_accepts_various_input_output_data_types(
+    mock_invoke_judge_model, test_value, expect_json
+):
     judge = make_judge(
         name="test_judge",
         instructions="Compare {{inputs}} with {{outputs}}",
