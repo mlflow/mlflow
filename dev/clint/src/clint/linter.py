@@ -757,9 +757,7 @@ class Linter(ast.NodeVisitor):
             self._check(Location.from_noqa(noqa), rule)
 
     def visit_file_content(self, src: str) -> None:
-        """Check file-level content for violations."""
         if rules.NoShebang.check(src):
-            # Shebang is on the first line (0-indexed)
             self._check(Location(0, 0), rules.NoShebang())
 
 

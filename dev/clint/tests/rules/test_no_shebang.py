@@ -10,19 +10,15 @@ def test_no_shebang(index_path: Path, tmp_path: Path) -> None:
     tmp_file = tmp_path / "test.py"
 
     # Test file with shebang - should trigger violation
-    tmp_file.write_text(
-        """#!/usr/bin/env python
-print("Hello, world!")
-"""
-    )
+    tmp_file.write_text("#!/usr/bin/env python\nprint('hello')")
     config = Config(select={NoShebang.name})
     results = lint_file(tmp_file, config, index_path)
     assert len(results) == 1
-    assert isinstance(results[0].rule, NoShebang)
+    assert all(isinstance(r.rule, NoShebang) for r in results)
     assert results[0].loc == Location(0, 0)  # First line, first column (0-indexed)
 
     # Test file without shebang - should not trigger violation
-    tmp_file.write_text("""print("Hello, world!")""")
+    tmp_file.write_text("print('hello')")
     results = lint_file(tmp_file, config, index_path)
     assert len(results) == 0
 
@@ -43,7 +39,7 @@ def test_no_shebang_various_patterns(index_path: Path, tmp_path: Path, shebang: 
 
     tmp_file.write_text(f"{shebang}\nprint('hello')\n")
     results = lint_file(tmp_file, config, index_path)
-    assert isinstance(results[0].rule, NoShebang)
+    assert all(isinstance(r.rule, NoShebang) for r in results)
     assert results[0].loc == Location(0, 0)
 
 
@@ -55,7 +51,12 @@ def test_no_shebang_various_patterns(index_path: Path, tmp_path: Path, shebang: 
         '\n#!/usr/bin/env python\nprint("hello")\n',
         "# This is a comment\nimport os\n",
     ],
-    ids=["empty_file", "whitespace_only", "shebang_not_on_first_line", "comment_not_shebang"],
+    ids=[
+        "empty_file",
+        "whitespace_only",
+        "shebang_not_on_first_line",
+        "comment_not_shebang",
+    ],
 )
 def test_no_shebang_edge_cases(index_path: Path, tmp_path: Path, content: str) -> None:
     tmp_file = tmp_path / "test.py"
