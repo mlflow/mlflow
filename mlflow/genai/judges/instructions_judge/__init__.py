@@ -126,10 +126,10 @@ class InstructionsJudge(Judge):
         fields = []
 
         if self._TEMPLATE_VARIABLE_INPUTS in self.template_variables:
-            fields.append(JudgeField(name="inputs", description="Input dictionary to evaluate"))
+            fields.append(JudgeField(name="inputs", description="Input data to evaluate"))
 
         if self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables:
-            fields.append(JudgeField(name="outputs", description="Output dictionary to evaluate"))
+            fields.append(JudgeField(name="outputs", description="Output data to evaluate"))
 
         if self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables:
             fields.append(
@@ -141,11 +141,19 @@ class InstructionsJudge(Judge):
 
         return fields
 
+    def _safe_json_dumps(self, value: Any) -> str:
+        """Safely serialize a value to JSON, falling back to str() if JSON serialization fails."""
+        try:
+            return json.dumps(value, default=str, indent=2)
+        except Exception:
+            # If JSON serialization fails, fall back to string representation
+            return str(value)
+
     def __call__(
         self,
         *,
-        inputs: dict[str, Any] | None = None,
-        outputs: dict[str, Any] | None = None,
+        inputs: Any = None,
+        outputs: Any = None,
         expectations: dict[str, Any] | None = None,
         trace: Trace | None = None,
     ) -> Any:
@@ -153,9 +161,10 @@ class InstructionsJudge(Judge):
         Evaluate the provided data using the judge's instructions.
 
         Args:
-            inputs: Input dictionary to evaluate. Cannot be used with 'trace'.
-            outputs: Output dictionary to evaluate. Cannot be used with 'trace'.
-            expectations: Expected outcomes or ground truth. Cannot be used with 'trace'.
+            inputs: Input data to evaluate. Cannot be used with 'trace'.
+            outputs: Output data to evaluate. Cannot be used with 'trace'.
+            expectations: Expected outcomes or ground truth as a dictionary. Cannot be used with
+                'trace'.
             trace: Trace object for evaluation. Cannot be used with 'inputs', 'outputs', or
                 'expectations'.
 
@@ -163,16 +172,6 @@ class InstructionsJudge(Judge):
             Evaluation results
 
         """
-        if inputs is not None and not isinstance(inputs, dict):
-            raise MlflowException(
-                f"'inputs' must be a dictionary, got {type(inputs).__name__}",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        if outputs is not None and not isinstance(outputs, dict):
-            raise MlflowException(
-                f"'outputs' must be a dictionary, got {type(outputs).__name__}",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
         if expectations is not None and not isinstance(expectations, dict):
             raise MlflowException(
                 f"'expectations' must be a dictionary, got {type(expectations).__name__}",
@@ -219,29 +218,22 @@ class InstructionsJudge(Judge):
             # Build the user message with variable substitutions
             template_values = {}
             if inputs is not None and self._TEMPLATE_VARIABLE_INPUTS in self.template_variables:
-                json_inputs = json.dumps(inputs, default=str, indent=2)
-                template_values[self._TEMPLATE_VARIABLE_INPUTS] = (
-                    f"{self._TEMPLATE_VARIABLE_INPUTS}: {json_inputs}"
-                )
+                template_values[self._TEMPLATE_VARIABLE_INPUTS] = self._safe_json_dumps(inputs)
             if outputs is not None and self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables:
-                json_outputs = json.dumps(outputs, default=str, indent=2)
-                template_values[self._TEMPLATE_VARIABLE_OUTPUTS] = (
-                    f"{self._TEMPLATE_VARIABLE_OUTPUTS}: {json_outputs}"
-                )
+                template_values[self._TEMPLATE_VARIABLE_OUTPUTS] = self._safe_json_dumps(outputs)
             if (
                 expectations is not None
                 and self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables
             ):
-                json_expectations = json.dumps(expectations, default=str, indent=2)
-                template_values[self._TEMPLATE_VARIABLE_EXPECTATIONS] = (
-                    f"{self._TEMPLATE_VARIABLE_EXPECTATIONS}: {json_expectations}"
+                template_values[self._TEMPLATE_VARIABLE_EXPECTATIONS] = self._safe_json_dumps(
+                    expectations
                 )
 
             # Create user content with the actual values for each variable
             user_message_parts = []
             for var_name in sorted(self.template_variables):
                 if var_name in template_values:
-                    user_message_parts.append(template_values[var_name])
+                    user_message_parts.append(f"{var_name}: {template_values[var_name]}")
 
             user_content = "\n".join(user_message_parts)
 

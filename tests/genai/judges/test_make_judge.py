@@ -1012,6 +1012,84 @@ def test_instructions_judge_with_no_aggregations(mock_invoke_judge_model):
     assert all(score is True for score in result.result_df["response_quality/value"])
 
 
+@pytest.mark.parametrize(
+    ("trace_inputs", "trace_outputs", "span_inputs", "span_outputs"),
+    [
+        (
+            {"question": "What is MLflow?"},
+            {"answer": "MLflow is a platform"},
+            {"prompt": "Explain"},
+            {"response": "MLflow helps"},
+        ),
+        ("What is 2+2?", "The answer is 4", {"query": "Solve this"}, {"result": "4"}),
+        (
+            {"question": "What is AI?"},
+            "AI is intelligence",
+            {"query": "Define AI"},
+            {"response": "Artificial Intelligence"},
+        ),
+        (
+            "Calculate 5+5",
+            {"result": 10, "confidence": 0.99},
+            {"task": "Simple math"},
+            {"answer": 10},
+        ),
+        ({}, {}, {}, {}),
+        (None, None, None, None),
+        (
+            {"user": {"id": 1, "question": "Help"}},
+            {"response": {"text": "Sure!", "metadata": {"lang": "en"}}},
+            {"context": [1, 2, 3]},
+            {"output": [{"type": "text", "value": "response"}]},
+        ),
+        (42, True, {"number": 3.14}, {"result": False}),
+        (["question1", "question2"], ["answer1", "answer2"], {"list": [1, 2]}, {"output": [3, 4]}),
+    ],
+)
+def test_instructions_judge_works_with_evaluate_on_trace(
+    mock_invoke_judge_model, trace_inputs, trace_outputs, span_inputs, span_outputs
+):
+    trace_info = TraceInfo(
+        trace_id="test-trace",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=1234567890,
+        execution_duration=1000,
+        state=TraceState.OK,
+        trace_metadata={
+            "mlflow.trace_schema.version": "2",
+            "mlflow.traceInputs": json.dumps(trace_inputs),
+            "mlflow.traceOutputs": json.dumps(trace_outputs),
+        },
+        tags={
+            "mlflow.traceName": "test_trace",
+            "mlflow.source.name": "test",
+            "mlflow.source.type": "LOCAL",
+        },
+    )
+    spans = [
+        create_test_span(
+            span_id=1,
+            parent_id=None,
+            name="test_span",
+            inputs=span_inputs,
+            outputs=span_outputs,
+            span_type=SpanType.CHAIN,
+        ),
+    ]
+    trace = Trace(info=trace_info, data=TraceData(spans=spans))
+    judge = make_judge(
+        name="trace_evaluator",
+        instructions="Analyze this {{trace}} for quality and correctness",
+        model="openai:/gpt-4",
+    )
+    data = pd.DataFrame({"trace": [trace]})
+    result = mlflow.genai.evaluate(data=data, scorers=[judge])
+
+    assert "trace_evaluator/value" in result.result_df.columns
+    assert len(result.result_df["trace_evaluator/value"]) == 1
+    assert result.result_df["trace_evaluator/value"].iloc[0]
+
+
 def test_make_judge_with_aggregations_validation():
     with pytest.raises(MlflowException, match="Invalid aggregation 'invalid'"):
         make_judge(
@@ -1116,38 +1194,53 @@ def test_trace_prompt_augmentation(mock_trace, monkeypatch):
     assert "Analyze this {{trace}} for quality" in captured_prompt
 
 
-def test_judge_rejects_scalar_inputs():
+@pytest.mark.parametrize(
+    ("test_value", "expect_json"),
+    [
+        ("simple string", True),
+        (42, True),
+        (3.14, True),
+        (True, True),
+        (False, True),
+        (["item1", "item2"], True),
+        ({"key": "value"}, True),
+        ({"nested": {"data": [1, 2, 3]}}, True),
+        ([], True),
+        ({}, True),
+        ("", True),
+        (0, True),
+        # Non-JSON-serializable objects that fall back to str()
+        ({1, 2, 3}, False),
+        (frozenset([4, 5, 6]), False),
+        (lambda x: x + 1, False),
+        (iter([1, 2, 3]), False),
+        (range(3), False),
+        # JSON object with non-serializable field - json.dumps works with default=str
+        ({"valid_field": "ok", "bad_field": {1, 2}}, True),
+    ],
+)
+def test_judge_accepts_various_input_output_data_types(
+    mock_invoke_judge_model, test_value, expect_json
+):
     judge = make_judge(
         name="test_judge",
-        instructions="Check if {{inputs}} is valid",
+        instructions="Compare {{inputs}} with {{outputs}}",
         model="openai:/gpt-4",
     )
 
-    with pytest.raises(MlflowException, match="'inputs' must be a dictionary, got str"):
-        judge(inputs="cat")
+    result = judge(inputs=test_value, outputs=test_value)
+    assert isinstance(result, Feedback)
 
-    with pytest.raises(MlflowException, match="'inputs' must be a dictionary, got int"):
-        judge(inputs=42)
+    # Verify both inputs and outputs values were serialized in the prompt
+    captured_messages = mock_invoke_judge_model.captured_args["prompt"]
+    user_msg = captured_messages[1]
 
-    with pytest.raises(MlflowException, match="'inputs' must be a dictionary, got list"):
-        judge(inputs=["item1", "item2"])
-
-
-def test_judge_rejects_scalar_outputs():
-    judge = make_judge(
-        name="test_judge",
-        instructions="Check if {{outputs}} is valid",
-        model="openai:/gpt-4",
+    expected_value = (
+        json.dumps(test_value, default=str, indent=2) if expect_json else str(test_value)
     )
-
-    with pytest.raises(MlflowException, match="'outputs' must be a dictionary, got str"):
-        judge(outputs="response text")
-
-    with pytest.raises(MlflowException, match="'outputs' must be a dictionary, got bool"):
-        judge(outputs=True)
-
-    with pytest.raises(MlflowException, match="'outputs' must be a dictionary, got float"):
-        judge(outputs=3.14)
+    assert expected_value in user_msg.content
+    # Should appear twice (once for inputs, once for outputs)
+    assert user_msg.content.count(expected_value) == 2
 
 
 def test_judge_rejects_scalar_expectations():
