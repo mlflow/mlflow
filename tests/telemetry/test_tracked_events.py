@@ -30,6 +30,7 @@ from mlflow.telemetry.events import (
     GenAIEvaluateEvent,
     GetLoggedModelEvent,
     GitModelVersioningEvent,
+    InvokeCustomJudgeModelEvent,
     LogAssessmentEvent,
     LogBatchEvent,
     LogDatasetEvent,
@@ -614,3 +615,62 @@ def test_git_model_versioning(mock_requests, mock_telemetry_client):
 
     mock_telemetry_client.flush()
     validate_telemetry_record(mock_telemetry_client, mock_requests, GitModelVersioningEvent.name)
+
+
+@pytest.mark.parametrize(
+    ("model_uri", "expected_provider", "litellm_available", "use_native_provider"),
+    [
+        ("databricks:/llama-3.1-70b", "databricks", True, False),
+        ("openai:/gpt-4o-mini", "openai", True, False),
+        ("endpoints:/my-endpoint", "endpoints", False, True),
+        ("anthropic:/claude-3-opus", "anthropic", True, False),
+    ],
+)
+def test_invoke_custom_judge_model(
+    mock_requests,
+    mock_telemetry_client: TelemetryClient,
+    model_uri,
+    expected_provider,
+    litellm_available,
+    use_native_provider,
+):
+    from mlflow.genai.judges.utils import invoke_judge_model
+
+    mock_response = json.dumps({"result": 0.8, "rationale": "Test rationale"})
+
+    with mock.patch(
+        "mlflow.genai.judges.utils._is_litellm_available", return_value=litellm_available
+    ):
+        if use_native_provider:
+            with mock.patch.object(
+                __import__("mlflow.metrics.genai.model_utils", fromlist=["score_model_on_payload"]),
+                "score_model_on_payload",
+                return_value=mock_response,
+            ):
+                with mock.patch.object(
+                    __import__("mlflow.metrics.genai.model_utils", fromlist=["get_endpoint_type"]),
+                    "get_endpoint_type",
+                    return_value="llm/v1/chat",
+                ):
+                    invoke_judge_model(
+                        model_uri=model_uri,
+                        prompt="Test prompt",
+                        assessment_name="test_assessment",
+                    )
+        else:
+            with mock.patch(
+                "mlflow.genai.judges.utils._invoke_litellm", return_value=mock_response
+            ):
+                invoke_judge_model(
+                    model_uri=model_uri,
+                    prompt="Test prompt",
+                    assessment_name="test_assessment",
+                )
+
+        expected_params = {"model_provider": expected_provider}
+        validate_telemetry_record(
+            mock_telemetry_client,
+            mock_requests,
+            InvokeCustomJudgeModelEvent.name,
+            expected_params,
+        )

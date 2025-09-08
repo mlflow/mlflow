@@ -2,20 +2,20 @@
 
 This guide documents Python coding conventions that go beyond what [ruff](https://docs.astral.sh/ruff/) and [clint](../../dev/clint/) can enforce. The practices below require human judgment to implement correctly and improve code readability, maintainability, and testability across the MLflow codebase.
 
-## Avoid Redundant Test Docstrings
+## Avoid Redundant Docstrings
 
-Omit docstrings that merely echo the function name without adding value. Test names should be self-documenting.
+Omit docstrings that merely repeat the function name or provide no additional value. Function names should be self-documenting.
 
 ```python
 # Bad
-def test_foo():
-    """Test foo"""
-    ...
+def calculate_sum(a: int, b: int) -> int:
+    """Calculate sum"""
+    return a + b
 
 
 # Good
-def test_foo():
-    ...
+def calculate_sum(a: int, b: int) -> int:
+    return a + b
 ```
 
 ## Use Type Hints for All Functions
@@ -122,6 +122,35 @@ for item in items:
 
 # Good
 result = next((item for item in items if item.name == "target"), None)
+```
+
+## Use Pattern Matching for String Splitting
+
+When splitting strings into a fixed number of parts, use pattern matching instead of direct unpacking or verbose length checks. Pattern matching provides concise, safe extraction that clearly handles both expected and unexpected cases.
+
+```python
+# Bad: unsafe
+a, b = some_str.split(".")
+
+# Bad: safe but verbose
+if some_str.count(".") == 1:
+    a, b = some_str.split(".")
+else:
+    raise ValueError(f"Invalid format: {some_str!r}")
+
+# Bad: safe but verbose
+splits = some_str.split(".")
+if len(splits) == 2:
+    a, b = splits
+else:
+    raise ValueError(f"Invalid format: {some_str!r}")
+
+# Good
+match some_str.split("."):
+    case [a, b]:
+        ...
+    case _:
+        raise ValueError(f"Invalid format: {some_str!r}")
 ```
 
 ## Always Verify Mock Calls with Assertions

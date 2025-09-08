@@ -92,6 +92,7 @@ from mlflow.protos.model_registry_pb2 import (
 )
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
+    CalculateTraceFilterCorrelation,
     CreateAssessment,
     CreateDataset,
     CreateExperiment,
@@ -2896,6 +2897,35 @@ def _delete_traces():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def _calculate_trace_filter_correlation():
+    """
+    A request handler for `POST /mlflow/traces/calculate-filter-correlation` to calculate
+    NPMI correlation between two trace filter conditions.
+    """
+    request_message = _get_request_message(
+        CalculateTraceFilterCorrelation(),
+        schema={
+            "experiment_ids": [_assert_array, _assert_required, _assert_item_type_string],
+            "filter_string1": [_assert_string, _assert_required],
+            "filter_string2": [_assert_string, _assert_required],
+            "base_filter": [_assert_string],
+        },
+    )
+
+    result = _get_tracking_store().calculate_trace_filter_correlation(
+        experiment_ids=request_message.experiment_ids,
+        filter_string1=request_message.filter_string1,
+        filter_string2=request_message.filter_string2,
+        base_filter=request_message.base_filter
+        if request_message.HasField("base_filter")
+        else None,
+    )
+
+    return _wrap_response(result.to_proto())
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _set_trace_tag(request_id):
     """
     A request handler for `PATCH /mlflow/traces/{request_id}/tags` to set tags on a TraceInfo record
@@ -3916,6 +3946,7 @@ HANDLERS = {
     GetTraceInfoV3: _get_trace_info_v3,
     SearchTracesV3: _search_traces_v3,
     DeleteTracesV3: _delete_traces,
+    CalculateTraceFilterCorrelation: _calculate_trace_filter_correlation,
     SetTraceTagV3: _set_trace_tag_v3,
     DeleteTraceTagV3: _delete_trace_tag,
     LinkTracesToRun: _link_traces_to_run,

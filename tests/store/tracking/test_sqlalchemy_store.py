@@ -8631,7 +8631,6 @@ def test_calculate_trace_filter_correlation_empty_experiment_list(store):
     assert result.filter1_count == 0
     assert result.filter2_count == 0
     assert result.joint_count == 0
-    # When there are no traces, NPMI is undefined (NaN)
     assert math.isnan(result.npmi)
 
 
@@ -8653,7 +8652,6 @@ def test_calculate_trace_filter_correlation_with_base_filter(store):
         )
         store.start_trace(trace_info)
 
-    # Later time period (will be included by base filter)
     later_time = 2000000000000
     # Create traces in the later period:
     # - 10 total traces in the time window

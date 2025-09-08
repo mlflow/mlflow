@@ -1,4 +1,5 @@
 import json
+import math
 import time
 from unittest import mock
 
@@ -46,6 +47,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.protos.service_pb2 import (
+    CalculateTraceFilterCorrelation,
     CreateAssessment,
     CreateDataset,
     CreateLoggedModel,
@@ -91,6 +93,7 @@ from mlflow.protos.service_pb2 import RunTag as ProtoRunTag
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
 from mlflow.store.tracking.rest_store import _METHOD_TO_INFO, RestStore
+from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracking.request_header.default_request_header_provider import (
     DefaultRequestHeaderProvider,
@@ -2588,6 +2591,95 @@ def test_delete_scorer_without_version():
             DeleteScorer,
             message_to_json(DeleteScorer(experiment_id=experiment_id, name=name)),
             endpoint="/api/3.0/mlflow/scorers/delete",
+        )
+
+
+def test_calculate_trace_filter_correlation():
+    store = RestStore(lambda: None)
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
+        experiment_ids = ["123", "456"]
+        filter_string1 = "span.type = 'LLM'"
+        filter_string2 = "feedback.quality > 0.8"
+        base_filter = "request_time > 1000"
+
+        mock_response = mock.MagicMock()
+        mock_response.npmi = 0.456
+        mock_response.npmi_smoothed = 0.445
+        mock_response.filter1_count = 100
+        mock_response.filter2_count = 80
+        mock_response.joint_count = 50
+        mock_response.total_count = 200
+        mock_response.HasField = lambda field: field in ["npmi", "npmi_smoothed"]
+        mock_call_endpoint.return_value = mock_response
+
+        result = store.calculate_trace_filter_correlation(
+            experiment_ids=experiment_ids,
+            filter_string1=filter_string1,
+            filter_string2=filter_string2,
+            base_filter=base_filter,
+        )
+
+        assert isinstance(result, TraceFilterCorrelationResult)
+        assert result.npmi == 0.456
+        assert result.npmi_smoothed == 0.445
+        assert result.filter1_count == 100
+        assert result.filter2_count == 80
+        assert result.joint_count == 50
+        assert result.total_count == 200
+
+        expected_request = CalculateTraceFilterCorrelation(
+            experiment_ids=experiment_ids,
+            filter_string1=filter_string1,
+            filter_string2=filter_string2,
+            base_filter=base_filter,
+        )
+        mock_call_endpoint.assert_called_once_with(
+            CalculateTraceFilterCorrelation,
+            message_to_json(expected_request),
+            "/api/3.0/mlflow/traces/calculate-filter-correlation",
+        )
+
+
+def test_calculate_trace_filter_correlation_without_base_filter():
+    store = RestStore(lambda: None)
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
+        experiment_ids = ["123"]
+        filter_string1 = "span.type = 'LLM'"
+        filter_string2 = "feedback.quality > 0.8"
+
+        mock_response = mock.MagicMock()
+        mock_response.filter1_count = 0
+        mock_response.filter2_count = 0
+        mock_response.joint_count = 0
+        mock_response.total_count = 100
+        mock_response.HasField = lambda field: False
+        mock_call_endpoint.return_value = mock_response
+
+        result = store.calculate_trace_filter_correlation(
+            experiment_ids=experiment_ids,
+            filter_string1=filter_string1,
+            filter_string2=filter_string2,
+        )
+
+        assert isinstance(result, TraceFilterCorrelationResult)
+        assert math.isnan(result.npmi)
+        assert result.npmi_smoothed is None
+        assert result.filter1_count == 0
+        assert result.filter2_count == 0
+        assert result.joint_count == 0
+        assert result.total_count == 100
+
+        expected_request = CalculateTraceFilterCorrelation(
+            experiment_ids=experiment_ids,
+            filter_string1=filter_string1,
+            filter_string2=filter_string2,
+        )
+        mock_call_endpoint.assert_called_once_with(
+            CalculateTraceFilterCorrelation,
+            message_to_json(expected_request),
+            "/api/3.0/mlflow/traces/calculate-filter-correlation",
         )
 
 
