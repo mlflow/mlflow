@@ -301,9 +301,6 @@ def _invoke_litellm(
     include_response_format = _MODEL_RESPONSE_FORMAT_CAPABILITIES.get(litellm_model_uri, True)
     while True:
         try:
-            messages_dict = _prune_messages_over_context_length(
-                messages=messages_dict, model_name=litellm_model_uri, max_tokens=100000
-            )
             try:
                 response = _make_completion_request(
                     messages_dict, include_response_format=include_response_format
@@ -322,15 +319,23 @@ def _invoke_litellm(
                         f"tool calling + structured outputs. Error: {e}. "
                         f"Falling back to unstructured response."
                     )
-                    # Cache the capability for future calls
+                    # Cache the lack of structured outputs support for future calls
                     _MODEL_RESPONSE_FORMAT_CAPABILITIES[litellm_model_uri] = False
+                    # Retry without response_format
                     include_response_format = False
-                    response = _make_completion_request(
-                        messages_dict, include_response_format=False
-                    )
+                    continue
                 else:
                     # Already tried without response_format and still got error
                     raise
+            except Exception as e:
+                if isinstance(e, litellm.ContextWindowExceededError) or "context length" in str(e):
+                    # Retry with pruned messages
+                    messages_dict = _prune_messages_over_context_length(
+                        messages=messages_dict,
+                        model_name=litellm_model_uri,
+                        max_tokens=litellm.get_max_tokens(litellm_model_uri) or 100000,
+                    )
+                    continue
 
             message = response.choices[0].message
             if not message.tool_calls:
@@ -455,17 +460,15 @@ def _get_judge_response_format() -> dict[str, Any]:
 def _prune_messages_over_context_length(
     messages: list["litellm.Message"],  # noqa: F821
     model_name: str,
-    max_tokens: int = 100000,
+    max_tokens: int,
 ) -> list["litellm.Message"]:  # noqa: F821
     """
-    Prune tool call messages from history to stay under token limit.
-
-    Removes oldest tool call + tool response message pairs until under limit.
+    Prune messages from history to stay under token limit.
 
     Args:
-        messages: List of LiteLLM message objects
-        model_name: Model name for token counting
-        max_tokens: Maximum token limit (default: 100,000)
+        messages: List of LiteLLM message objects.
+        model_name: Model name for token counting.
+        max_tokens: Maximum token limit.
 
     Returns:
         Pruned list of LiteLLM message objects under the token limit
