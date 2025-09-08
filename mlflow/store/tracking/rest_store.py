@@ -173,8 +173,8 @@ class RestStore(AbstractStore):
                 timeout=3,  # Short timeout to fail fast if server version API isn't available
                 # Disable non-DB SDK retries; default retry policy takes minutes, which is too long
                 max_retries=0,
-                # Disable Databricks SDK retries (0 is interpreted as 'unspecified', so we use -1)
-                retry_timeout_seconds=0.1,
+                # Approx disable DB SDK retries (0 is interpreted as 'unspecified', so use 1)
+                retry_timeout_seconds=1,
                 raise_on_status=True,
             )
             return Version(response.text)
