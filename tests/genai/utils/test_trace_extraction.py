@@ -1,6 +1,9 @@
+from unittest.mock import Mock
+
 import mlflow
 from mlflow.entities.assessment import Expectation
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.entities.trace import Trace
 from mlflow.genai.utils.trace_utils import (
     extract_expectations_from_trace,
     extract_inputs_from_trace,
@@ -68,9 +71,7 @@ def test_extract_expectations_human_only():
         assessment=Expectation(
             name="llm_rating",
             value=llm_expectation,
-            source=AssessmentSource(
-                source_type=AssessmentSourceType.LLM_JUDGE, source_id="gpt-4"
-            ),
+            source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="gpt-4"),
         ),
     )
 
@@ -221,9 +222,6 @@ def test_extract_request_response_mixed_types():
 
 
 def test_extract_from_trace_with_no_root_span():
-    from unittest.mock import Mock
-    from mlflow.entities.trace import Trace
-
     mock_trace = Mock(spec=Trace)
     mock_trace.data = Mock()
     mock_trace.data._get_root_span = Mock(return_value=None)
