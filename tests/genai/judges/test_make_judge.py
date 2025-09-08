@@ -1327,7 +1327,7 @@ def test_non_context_error_does_not_trigger_pruning(monkeypatch):
     """Test that non-context errors are re-raised without pruning."""
     from mlflow.genai.judges.utils import _invoke_litellm
 
-    messages = [{"role": "user", "content": "Test"}]
+    messages = [ChatMessage(role="user", content="Test")]
 
     def mock_completion(**kwargs):
         raise Exception("some other error")
