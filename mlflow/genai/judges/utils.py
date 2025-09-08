@@ -332,7 +332,7 @@ def _invoke_litellm(
                     # Retry with pruned messages
                     messages_dict = _prune_messages_over_context_length(
                         messages=messages_dict,
-                        model_name=litellm_model_uri,
+                        model=litellm_model_uri,
                         max_tokens=litellm.get_max_tokens(litellm_model_uri) or 100000,
                     )
                     continue
@@ -459,7 +459,7 @@ def _get_judge_response_format() -> dict[str, Any]:
 
 def _prune_messages_over_context_length(
     messages: list["litellm.Message"],  # noqa: F821
-    model_name: str,
+    model: str,
     max_tokens: int,
 ) -> list["litellm.Message"]:  # noqa: F821
     """
@@ -467,7 +467,7 @@ def _prune_messages_over_context_length(
 
     Args:
         messages: List of LiteLLM message objects.
-        model_name: Model name for token counting.
+        model: Model name for token counting.
         max_tokens: Maximum token limit.
 
     Returns:
@@ -475,12 +475,12 @@ def _prune_messages_over_context_length(
     """
     import litellm
 
-    initial_tokens = litellm.token_counter(model=model_name, messages=messages)
+    initial_tokens = litellm.token_counter(model=model, messages=messages)
     if initial_tokens <= max_tokens:
         return messages
     pruned_messages = messages[:]
     # Remove tool call pairs until we're under limit
-    while litellm.token_counter(model=model_name, messages=pruned_messages) > max_tokens:
+    while litellm.token_counter(model=model, messages=pruned_messages) > max_tokens:
         # Find first assistant message with tool calls
         assistant_msg = None
         assistant_idx = None
@@ -500,7 +500,7 @@ def _prune_messages_over_context_length(
             if not (msg.role == "tool" and msg.tool_call_id in tool_call_ids)
         ]
 
-    final_tokens = litellm.token_counter(model=model_name, messages=pruned_messages)
+    final_tokens = litellm.token_counter(model=model, messages=pruned_messages)
     _logger.info(f"Pruned message history from {initial_tokens} to {final_tokens} tokens")
     return pruned_messages
 
