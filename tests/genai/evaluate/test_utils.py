@@ -1,6 +1,7 @@
 import json
+import sys
 from typing import Any, Literal
-from unittest.mock import patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pandas as pd
 import pytest
@@ -413,6 +414,29 @@ def test_predict_fn_receives_correct_data(data_fixture, request, is_in_databrick
     ][:row_count]
     # Using set because eval harness runs predict_fn in parallel
     assert set(received_args) == set(expected_contents)
+
+
+def test_convert_scorer_to_legacy_metric_aggregations_attribute():
+    # NB: Mock databricks.agents.evals since it's not installed in CI
+    mock_metric_instance = MagicMock()
+    mock_metric_decorator = Mock(return_value=mock_metric_instance)
+    sys.modules["databricks.agents.evals"] = Mock(metric=mock_metric_decorator)
+
+    mock_scorer = Mock()
+    mock_scorer.name = "test_scorer"
+    mock_scorer.aggregations = ["mean", "max", "p90"]
+    mock_scorer.run = Mock(return_value={"score": 1.0})
+
+    result = _convert_scorer_to_legacy_metric(mock_scorer)
+
+    mock_metric_decorator.assert_called_once()
+    call_kwargs = mock_metric_decorator.call_args[1]
+    assert "aggregations" not in call_kwargs
+    assert call_kwargs["name"] == "test_scorer"
+
+    assert result.aggregations == ["mean", "max", "p90"]
+
+    del sys.modules["databricks.agents.evals"]
 
 
 @databricks_only
