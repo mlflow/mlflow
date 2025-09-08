@@ -81,6 +81,8 @@ def test_align_no_traces(mock_judge):
     with pytest.raises(MlflowException, match="Alignment optimization failed") as exc_info:
         optimizer.align(mock_judge, [])
 
+    # Check that the main error message includes the exception details
+    assert "No traces provided" in str(exc_info.value)
     # Check that the chained exception has the expected message
     assert exc_info.value.__cause__ is not None
     assert "No traces provided" in str(exc_info.value.__cause__)
@@ -93,6 +95,8 @@ def test_align_no_valid_examples(mock_judge, sample_trace_without_assessment):
         with pytest.raises(MlflowException, match="Alignment optimization failed") as exc_info:
             optimizer.align(mock_judge, [sample_trace_without_assessment])
 
+        # Check that the main error message includes the exception details
+        assert "No valid examples could be created" in str(exc_info.value)
         # Check that the chained exception has the expected message
         assert exc_info.value.__cause__ is not None
         assert "No valid examples could be created" in str(exc_info.value.__cause__)
@@ -107,6 +111,8 @@ def test_align_insufficient_examples(mock_judge, sample_trace_with_assessment):
         with pytest.raises(MlflowException, match="Alignment optimization failed") as exc_info:
             optimizer.align(mock_judge, [sample_trace_with_assessment])
 
+        # Check that the main error message includes the exception details
+        assert "At least 2 valid traces are required" in str(exc_info.value)
         # Check that the chained exception has the expected message
         assert exc_info.value.__cause__ is not None
         assert "At least 2 valid traces are required" in str(exc_info.value.__cause__)
