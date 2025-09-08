@@ -179,30 +179,49 @@ def _split_messages_for_databricks(messages: list["ChatMessage"]) -> tuple[str |
 
 
 def _parse_databricks_judge_response(
-    llm_output: str,
+    llm_output: str | None,
     assessment_name: str,
 ) -> Feedback:
     """
     Parse the response from Databricks judge into a Feedback object.
 
     Args:
-        llm_output: Raw output from the LLM.
+        llm_output: Raw output from the LLM, or None if no response.
         assessment_name: Name of the assessment.
 
     Returns:
-        Feedback object with parsed results.
-
-    Raises:
-        Exception: If parsing fails in any way.
+        Feedback object with parsed results or error.
     """
-    response_data = json.loads(llm_output)
+    source = AssessmentSource(
+        source_type=AssessmentSourceType.LLM_JUDGE, source_id=_DATABRICKS_DEFAULT_JUDGE_MODEL
+    )
+
+    error = None
+
+    if not llm_output:
+        error = "Empty response from Databricks judge"
+
+    if not error:
+        try:
+            response_data = json.loads(llm_output)
+        except json.JSONDecodeError as e:
+            error = f"Invalid JSON response from Databricks judge: {e}"
+
+    if not error and "result" not in response_data:
+        error = f"Response missing 'result' field: {response_data}"
+
+    if error:
+        return Feedback(
+            name=assessment_name,
+            error=error,
+            source=source,
+        )
+
     return Feedback(
         name=assessment_name,
         value=response_data["result"],
         rationale=response_data.get("rationale", ""),
-        source=AssessmentSource(
-            source_type=AssessmentSourceType.LLM_JUDGE, source_id=_DATABRICKS_DEFAULT_JUDGE_MODEL
-        ),
+        source=source,
     )
 
 
@@ -226,7 +245,6 @@ def _invoke_databricks_judge(
     Raises:
         MlflowException: If databricks-agents is not installed.
     """
-    # Check if databricks-agents is installed
     _check_databricks_agents_installed(error_code=BAD_REQUEST)
 
     from databricks.rag_eval import context

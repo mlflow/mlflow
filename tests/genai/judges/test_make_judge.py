@@ -319,7 +319,7 @@ def test_databricks_model_handles_errors_gracefully(mock_databricks_rag_eval):
     result = judge(outputs={"text": "test output"})
     assert isinstance(result, Feedback)
     assert result.error is not None
-    assert "Failed to invoke Databricks judge" in result.error
+    assert "Invalid JSON response" in result.error  # NB: Non-JSON response error
 
     class MockLLMResultMissingField:
         def __init__(self):
@@ -338,7 +338,7 @@ def test_databricks_model_handles_errors_gracefully(mock_databricks_rag_eval):
     result = judge(outputs={"text": "test output"})
     assert isinstance(result, Feedback)
     assert result.error is not None
-    assert "Failed to invoke Databricks judge" in result.error
+    assert "Response missing 'result' field" in result.error  # NB: Missing result field error
 
     class MockLLMResultNone:
         output = None
@@ -356,7 +356,7 @@ def test_databricks_model_handles_errors_gracefully(mock_databricks_rag_eval):
     result = judge(outputs={"text": "test output"})
     assert isinstance(result, Feedback)
     assert result.error is not None
-    assert "Failed to invoke Databricks judge" in result.error
+    assert "Empty response from Databricks judge" in result.error  # NB: None/empty response error
 
 
 def test_databricks_model_works_with_trace(mock_databricks_rag_eval):
