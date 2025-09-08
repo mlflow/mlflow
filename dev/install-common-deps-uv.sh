@@ -93,11 +93,11 @@ packages+=" aiohttp"
 packages+=" virtualenv"
 
 # Single uv pip install call for all packages with constraints
-# Use --no-config and --no-project to avoid picking up local configuration
-uv pip install --no-config --no-project -c requirements/constraints.txt --upgrade $packages
+# Use --no-config to avoid picking up local configuration
+uv pip install --no-config -c requirements/constraints.txt --upgrade $packages
 
 # Install mlflow-test-plugin without dependencies (separate call needed for --no-deps)
-uv pip install --no-config --no-project -c requirements/constraints.txt --no-deps tests/resources/mlflow-test-plugin
+uv pip install --no-config -c requirements/constraints.txt --no-deps tests/resources/mlflow-test-plugin
 
 # Print current environment info
 which mlflow
