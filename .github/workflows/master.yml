@@ -86,9 +86,9 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Import check
         run: |
-          # `-I` is used to avoid importing modules from user-specific site-packages
-          # that might conflict with the built-in modules (e.g. `types`).
-          uv run python -I tests/check_mlflow_lazily_imports_ml_packages.py
+          # uv run handles virtual environment isolation properly, so -I flag is not needed
+          # and actually causes issues with package discovery
+          uv run python tests/check_mlflow_lazily_imports_ml_packages.py
       - uses: ./.github/actions/setup-test-durations
         with:
           job_name: "python"
