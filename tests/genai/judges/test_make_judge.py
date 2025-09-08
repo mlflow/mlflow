@@ -1326,6 +1326,10 @@ def test_context_window_error_removes_tool_calls_and_retries(
     assert messages_after_retry[0] == messages_at_error[0]  # system
     assert messages_after_retry[1] == messages_at_error[1]  # user
     assert len(messages_after_retry) == 4  # system, user, 1 tool pair
+    # Verify the remaining tool call is the last one (tool calls pruned from beginning)
+    assert messages_after_retry[2]["role"] == "assistant"
+    assert messages_after_retry[2]["tool_calls"][0]["id"] == "call3"
+    assert messages_after_retry[3]["role"] == "tool"
 
     assert result.value == "pass"
 
