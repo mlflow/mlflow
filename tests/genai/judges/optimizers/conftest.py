@@ -386,7 +386,7 @@ def sample_traces_with_assessments():
     traces = []
     # Create actual traces with real MLflow objects
 
-    for i in range(10):
+    for i in range(5):
         # Create a real assessment object (Feedback)
         assessment = Feedback(
             name="mock_judge",

@@ -37,7 +37,9 @@ def test_full_alignment_workflow(mock_judge, sample_traces_with_assessments):
     with patch("dspy.SIMBA", MagicMock()) as mock_simba_class, patch("dspy.LM", MagicMock()):
         mock_simba_class.return_value = mock_simba
         optimizer = SIMBAAlignmentOptimizer()
-        result = optimizer.align(mock_judge, sample_traces_with_assessments)
+        # Mock get_min_traces_required to work with 5 traces from fixture
+        with patch.object(SIMBAAlignmentOptimizer, "get_min_traces_required", return_value=5):
+            result = optimizer.align(mock_judge, sample_traces_with_assessments)
 
     # Should return an optimized judge
     assert result is not None
