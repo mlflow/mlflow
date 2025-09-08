@@ -95,7 +95,7 @@ jobs:
       - name: Setup SSH and run tests
         run: |
           source dev/setup-ssh.sh
-          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --split-algo=least_duration \
+          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --splitting-algorithm=$PYTEST_SPLITTING_ALGORITHM \
             --durations-path=$PYTEST_DURATIONS_PATH --store-durations \
             --quiet --requires-ssh --ignore-flavors --ignore=tests/examples --ignore=tests/evaluate \
             --ignore tests/genai tests || true
@@ -134,7 +134,7 @@ jobs:
       - name: Run tests
         run: |
           uv run python -c "import sys; assert sys.version_info[:2] == (3, 10), sys.version_info"
-          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --split-algo=least_duration \
+          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --splitting-algorithm=$PYTEST_SPLITTING_ALGORITHM \
             --durations-path=$PYTEST_DURATIONS_PATH --store-durations \
             tests/types/test_type_hints.py tests/pyfunc/test_pyfunc_model_with_type_hints.py \
             tests/telemetry || [ $? -eq 5 ]
@@ -144,7 +144,7 @@ jobs:
           # this needs to be run in a separate job because installing databricks-connect could break other 
           # tests that uses normal SparkSession instead of remote SparkSession
           uv pip install -c requirements/constraints.txt databricks-agents
-          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --split-algo=least_duration \
+          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --splitting-algorithm=$PYTEST_SPLITTING_ALGORITHM \
             --durations-path=$PYTEST_DURATIONS_PATH --store-durations \
             tests/utils/test_requirements_utils.py::test_infer_pip_requirements_on_databricks_agents || [ $? -eq 5 ]
 
@@ -261,7 +261,7 @@ jobs:
           job_name: "flavors"
       - name: Run tests
         run: |
-          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --split-algo=least_duration \
+          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --splitting-algorithm=$PYTEST_SPLITTING_ALGORITHM \
             --durations-path=$PYTEST_DURATIONS_PATH --store-durations \
             tests/utils/test_model_utils.py tests/tracking/fluent/test_fluent_autolog.py \
             tests/autologging tests/server/auth
@@ -301,7 +301,7 @@ jobs:
           job_name: "models"
       - name: Run tests
         run: |
-          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --split-algo=least_duration \
+          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --splitting-algorithm=$PYTEST_SPLITTING_ALGORITHM \
             --durations-path=$PYTEST_DURATIONS_PATH --store-durations \
             tests/models || [ $? -eq 5 ]
       - uses: ./.github/actions/upload-test-durations
@@ -342,7 +342,7 @@ jobs:
           job_name: "evaluate"
       - name: Run tests
         run: |
-          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --split-algo=least_duration \
+          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --splitting-algorithm=$PYTEST_SPLITTING_ALGORITHM \
             --durations-path=$PYTEST_DURATIONS_PATH --store-durations \
             --ignore=tests/evaluate/test_default_evaluator_delta.py \
             tests/evaluate || [ $? -eq 5 ]
@@ -382,14 +382,14 @@ jobs:
           job_name: "genai"
       - name: Run GenAI Tests (OSS)
         run: |
-          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --split-algo=least_duration \
+          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --splitting-algorithm=$PYTEST_SPLITTING_ALGORITHM \
             --durations-path=$PYTEST_DURATIONS_PATH --store-durations \
             tests/genai
 
       - name: Run GenAI Tests (Databricks)
         run: |
           uv pip install -c requirements/constraints.txt databricks-agents
-          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --split-algo=least_duration \
+          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --splitting-algorithm=$PYTEST_SPLITTING_ALGORITHM \
             --durations-path=$PYTEST_DURATIONS_PATH --store-durations \
             tests/genai --ignore tests/genai/test_genai_import_without_agent_sdk.py \
             --ignore tests/genai/optimize --ignore tests/genai/prompts
@@ -401,7 +401,7 @@ jobs:
           # uninstalling databricks-connect.
           uv pip uninstall databricks-connect pyspark
           uv pip install -c requirements/constraints.txt pyspark
-          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --split-algo=least_duration \
+          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --splitting-algorithm=$PYTEST_SPLITTING_ALGORITHM \
             --durations-path=$PYTEST_DURATIONS_PATH --store-durations \
             tests/genai/evaluate/test_utils.py
 
@@ -466,7 +466,7 @@ jobs:
           job_name: "pyfunc"
       - name: Run tests
         run: |
-          uv run --no-project pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --split-algo=least_duration \
+          uv run --no-project pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --splitting-algorithm=$PYTEST_SPLITTING_ALGORITHM \
             --durations-path=$PYTEST_DURATIONS_PATH --store-durations --durations=30 \
             tests/pyfunc tests/types --ignore tests/pyfunc/test_spark_connect.py
 
@@ -515,7 +515,7 @@ jobs:
 
       - name: Run tests with pydantic v1
         run: |
-          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --split-algo=least_duration \
+          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --splitting-algorithm=$PYTEST_SPLITTING_ALGORITHM \
             --durations-path=$PYTEST_DURATIONS_PATH \
             --store-durations --durations=30 \
             tests/types tests/pyfunc/test_pyfunc_model_with_type_hints.py tests/utils/test_pydantic_utils.py
@@ -552,7 +552,7 @@ jobs:
           job_name: "sagemaker"
       - name: Run tests
         run: |
-          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --split-algo=least_duration \
+          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --splitting-algorithm=$PYTEST_SPLITTING_ALGORITHM \
             --durations-path=$PYTEST_DURATIONS_PATH --store-durations \
             tests/sagemaker
       - uses: ./.github/actions/upload-test-durations
@@ -643,7 +643,7 @@ jobs:
         env:
           MLFLOW_SQLALCHEMYSTORE_POOLCLASS: "NullPool"
         run: |
-          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --split-algo=least_duration \
+          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --splitting-algorithm=$PYTEST_SPLITTING_ALGORITHM \
             --durations-path=$PYTEST_DURATIONS_PATH --store-durations \
             --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/evaluate \
             --ignore=tests/optuna --ignore=tests/pyspark/optuna --ignore=tests/genai \
