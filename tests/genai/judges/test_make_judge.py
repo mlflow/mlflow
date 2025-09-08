@@ -1,3 +1,4 @@
+import copy
 import json
 from dataclasses import asdict
 from unittest import mock
@@ -1274,7 +1275,7 @@ def test_context_window_error_removes_tool_calls_and_retries(
 
     def mock_completion(**kwargs):
         nonlocal exception_raised
-        captured_message_histories.append(kwargs["messages"])
+        captured_message_histories.append(copy.deepcopy(kwargs["messages"]))
 
         if len(kwargs["messages"]) >= 8 and not exception_raised:
             exception_raised = True
@@ -1316,10 +1317,16 @@ def test_context_window_error_removes_tool_calls_and_retries(
 
     # Find error call and verify retry has fewer messages
     error_idx = next(i for i, msgs in enumerate(captured_message_histories) if len(msgs) >= 8)
-    # Due to pruning, retry should have fewer messages (or same if can't prune more)
-    assert len(captured_message_histories[-1]) <= len(captured_message_histories[error_idx])
-    # Verify tool calls were actually attempted (multiple completion calls made)
-    assert len(captured_message_histories) > 2
+    messages_at_error = captured_message_histories[error_idx]
+    messages_after_retry = captured_message_histories[error_idx + 1]
+
+    # Verify pruning happened
+    assert len(messages_after_retry) < len(messages_at_error)
+    # Verify system/user messages preserved but some tool calls removed
+    assert messages_after_retry[0] == messages_at_error[0]  # system
+    assert messages_after_retry[1] == messages_at_error[1]  # user
+    assert len(messages_after_retry) == 4  # system, user, 1 tool pair
+
     assert result.value == "pass"
 
 
