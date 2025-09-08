@@ -305,6 +305,14 @@ def _invoke_litellm(
                 response = _make_completion_request(
                     messages_dict, include_response_format=include_response_format
                 )
+            except litellm.ContextWindowExceededError:
+                # Handle context window errors first (before BadRequestError since it's a subclass)
+                messages_dict = _prune_messages_over_context_length(
+                    messages=messages_dict,
+                    model=litellm_model_uri,
+                    max_tokens=litellm.get_max_tokens(litellm_model_uri) or 100000,
+                )
+                continue
             except (litellm.BadRequestError, litellm.UnsupportedParamsError) as e:
                 # Check whether the request attempted to use structured outputs, rather than
                 # checking whether the model supports structured outputs in the capabilities cache,
@@ -328,7 +336,7 @@ def _invoke_litellm(
                     # Already tried without response_format and still got error
                     raise
             except Exception as e:
-                if isinstance(e, litellm.ContextWindowExceededError) or "context length" in str(e):
+                if "context length" in str(e):
                     # Retry with pruned messages
                     messages_dict = _prune_messages_over_context_length(
                         messages=messages_dict,
