@@ -26,7 +26,7 @@ runs:
       shell: bash
       run: |
         # Move the updated duration file to the expected location for artifact upload
-        mv /tmp/${{ inputs.job_name }}_group_${{ matrix.group }}_durations.json group_${{ matrix.group }}_durations.json
+        mv $PYTEST_DURATIONS_PATH group_${{ matrix.group }}_durations.json
 
     - name: Upload test duration artifact
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

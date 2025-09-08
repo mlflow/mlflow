@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# This script is a uv-based version of dev/install-common-deps.sh, replacing pip/pipenv with uv for faster dependency management.
+
 set -ex
 
 function retry-with-backoff() {

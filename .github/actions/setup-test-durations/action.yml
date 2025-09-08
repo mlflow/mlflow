@@ -25,6 +25,8 @@ runs:
     - name: Setup duration file for pytest-split
       shell: bash
       run: |
+        # Set environment variable for pytest durations path
+        echo "PYTEST_DURATIONS_PATH=/tmp/${{ inputs.job_name }}_group_${{ matrix.group }}_durations.json" >> $GITHUB_ENV
         # Copy consolidated duration file for pytest-split to read
         # If the file doesn't exist, create an empty JSON object as fallback
         cp .github/workflows/test_durations/${{ inputs.job_name }}.test_duration /tmp/${{ inputs.job_name }}_group_${{ matrix.group }}_durations.json 2>/dev/null || echo "{}" > /tmp/${{ inputs.job_name }}_group_${{ matrix.group }}_durations.json

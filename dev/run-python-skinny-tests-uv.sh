@@ -2,6 +2,8 @@
 
 # Executes a subset of mlflow tests that is supported with fewer dependencies than the core mlflow package.
 # Tests include most client interactions and compatibility points with the mlflow plugins around tracking, projects, models, deployments, and the cli.
+# 
+# This script is a uv-based version of dev/run-python-skinny-tests.sh, replacing pip/pipenv with uv for faster dependency management.
 
 # The SQL alchemy store's dependencies are added for a base client/store that can be tested against.
 # A different example client/store with a minimal dependency footprint could also work for this purpose.
