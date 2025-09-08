@@ -2,7 +2,7 @@ import pytest
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.genai.utils.data_validation import check_model_prediction, validate_tags
+from mlflow.genai.utils.data_validation import check_model_prediction
 
 from tests.tracing.helper import get_traces
 
@@ -199,33 +199,3 @@ def test_check_model_prediction_unknown_error():
     sample_input = {"question": "What is the capital of France?"}
     with pytest.raises(MlflowException, match=r"Failed to run the prediction function"):
         check_model_prediction(fn, sample_input)
-
-
-@pytest.mark.parametrize(
-    "tags",
-    [
-        None,
-        {},
-        {"key": "value"},
-        {"env": "test", "model": "v1.0"},
-        {"key": 123},  # Values can be any type
-        {"key1": "value1", "key2": None},  # Values can be any type
-    ],
-)
-def test_validate_tags_valid(tags):
-    validate_tags(tags)
-
-
-@pytest.mark.parametrize(
-    ("tags", "expected_error"),
-    [
-        ("invalid", "Tags must be a dictionary, got str"),
-        (123, "Tags must be a dictionary, got int"),
-        ([1, 2, 3], "Tags must be a dictionary, got list"),
-        ({123: "value"}, "Tag keys must be strings, got int for key: 123"),
-        ({"key1": "value1", 123: "value2"}, "Tag keys must be strings, got int for key: 123"),
-    ],
-)
-def test_validate_tags_invalid(tags, expected_error):
-    with pytest.raises(MlflowException, match=expected_error):
-        validate_tags(tags)

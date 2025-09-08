@@ -19,12 +19,13 @@ from mlflow.genai.evaluation import context
 from mlflow.genai.evaluation.entities import EvalItem, EvalResult, EvaluationResult
 from mlflow.genai.evaluation.utils import (
     complete_eval_futures_with_progress_base,
+    is_none_or_nan,
     make_code_type_assessment_source,
     standardize_scorer_value,
+    validate_tags,
 )
 from mlflow.genai.scorers.aggregation import compute_aggregated_metrics
 from mlflow.genai.scorers.base import Scorer
-from mlflow.genai.utils.data_validation import validate_tags
 from mlflow.genai.utils.trace_utils import create_minimal_trace
 from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.tracing.constant import AssessmentMetadataKey
@@ -125,7 +126,7 @@ def _run_single(
     assessments.extend(eval_item.get_expectation_assessments())
     eval_result = EvalResult(eval_item=eval_item, assessments=assessments)
 
-    tags = eval_item.tags or {}
+    tags = eval_item.tags if not is_none_or_nan(eval_item.tags) else {}
     validate_tags(tags)
 
     for key, value in tags.items():
