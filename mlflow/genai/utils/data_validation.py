@@ -144,3 +144,28 @@ def _has_required_keyword_arguments(params: inspect.Signature, required_args: li
 
     # Required argument must be a subset of the function's arguments
     return set(required_args) <= set(func_args)
+
+
+def validate_tags(tags: Any) -> None:
+    """
+    Validate that tags are in the expected format: dict[str, str].
+
+    Args:
+        tags: The tags to validate.
+
+    Raises:
+        MlflowException: If tags are not in the correct format.
+    """
+    if tags is None:
+        return
+
+    if not isinstance(tags, dict):
+        raise MlflowException.invalid_parameter_value(
+            f"Tags must be a dictionary, got {type(tags).__name__}. "
+        )
+
+    for key in tags.keys():
+        if not isinstance(key, str):
+            raise MlflowException.invalid_parameter_value(
+                f"Tag keys must be strings, got {type(key).__name__} for key: {key!r}. "
+            )

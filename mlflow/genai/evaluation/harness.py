@@ -24,6 +24,7 @@ from mlflow.genai.evaluation.utils import (
 )
 from mlflow.genai.scorers.aggregation import compute_aggregated_metrics
 from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.utils.data_validation import validate_tags
 from mlflow.genai.utils.trace_utils import create_minimal_trace
 from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.tracing.constant import AssessmentMetadataKey
@@ -125,6 +126,8 @@ def _run_single(
     eval_result = EvalResult(eval_item=eval_item, assessments=assessments)
 
     tags = eval_item.tags or {}
+    validate_tags(tags)
+
     for key, value in tags.items():
         try:
             mlflow.set_tag(key, value)

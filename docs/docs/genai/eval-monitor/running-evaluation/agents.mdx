@@ -119,7 +119,7 @@ def predict_fn(question: str) -> str:
 
 ### Step 2: Create evaluation dataset
 
-Design test cases as a list of dictionaries, each with an `inputs`, `expectations`, and `tags` field. We would like to evaluate the correctness of the output, but also the tool calls used by the agent.
+Design test cases as a list of dictionaries, each with an `inputs`, `expectations`, and an optional  `tags` field. We would like to evaluate the correctness of the output, but also the tool calls used by the agent.
 
 ```python
 eval_dataset = [

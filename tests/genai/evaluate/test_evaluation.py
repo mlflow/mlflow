@@ -703,22 +703,50 @@ def test_evaluate_with_managed_dataset_preserves_name():
         assert logged_dataset.name == "test.evaluation.sample_dataset"
 
 
-def test_evaluate_with_tags():
+@pytest.mark.parametrize(
+    ("tags_data", "expected_calls"),
+    [
+        # Regular tags
+        (
+            [
+                {"environment": "test", "model_version": "v1.0"},
+                {"environment": "production", "team": "data-science"},
+            ],
+            [
+                ("environment", "test"),
+                ("model_version", "v1.0"),
+                ("environment", "production"),
+                ("team", "data-science"),
+            ],
+        ),
+        # Empty tags dict
+        (
+            [{}, {}],
+            [],
+        ),
+        # None tags (no tags field)
+        (
+            [None, None],
+            [],
+        ),
+        # Mix of tags and empty/None
+        (
+            [{"env": "test"}, {}, None],
+            [("env", "test")],
+        ),
+    ],
+)
+def test_evaluate_with_tags(tags_data, expected_calls):
     """Test that tags from evaluation data are logged to MLflow runs."""
-    data = [
-        {
-            "inputs": {"question": "What is MLflow?"},
-            "outputs": "MLflow is a tool for ML",
-            "expectations": {"expected_response": "MLflow is a tool for ML"},
-            "tags": {"environment": "test", "model_version": "v1.0"},
-        },
-        {
-            "inputs": {"question": "What is Spark?"},
-            "outputs": "Spark is a fast data processing engine",
-            "expectations": {"expected_response": "Spark is a fast data processing engine"},
-            "tags": {"environment": "production", "team": "data-science"},
-        },
-    ]
+    data = []
+    for i, tags in enumerate(tags_data):
+        item = {
+            "inputs": {"question": f"What is question {i}?"},
+            "outputs": f"Answer {i}",
+            "expectations": {"expected_response": f"Answer {i}"},
+            "tags": tags,
+        }
+        data.append(item)
 
     with mock.patch("mlflow.set_tag") as mock_set_tag:
         mlflow.genai.evaluate(
@@ -726,18 +754,11 @@ def test_evaluate_with_tags():
             scorers=[exact_match],
         )
 
-        # Verify that tags were logged for each eval item
-        expected_calls = [
-            mock.call("environment", "test"),
-            mock.call("model_version", "v1.0"),
-            mock.call("environment", "production"),
-            mock.call("team", "data-science"),
-        ]
-
         # Check that all expected calls were made (order may vary due to parallel execution)
         actual_calls = mock_set_tag.call_args_list
-        assert len(actual_calls) == len(expected_calls)
-        for expected_call in expected_calls:
+        expected_mock_calls = [mock.call(key, value) for key, value in expected_calls]
+        assert len(actual_calls) == len(expected_mock_calls)
+        for expected_call in expected_mock_calls:
             assert expected_call in actual_calls
 
 
@@ -762,3 +783,21 @@ def test_evaluate_with_tags_error_handling(is_in_databricks):
 
         # Evaluation should still succeed
         assert "exact_match/mean" in result.metrics
+
+
+def test_evaluate_with_invalid_tags_type():
+    """Test that invalid tag types raise appropriate validation errors."""
+    data = [
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "outputs": "MLflow is a tool for ML",
+            "expectations": {"expected_response": "MLflow is a tool for ML"},
+            "tags": "invalid_tags_string",  # Should be dict
+        }
+    ]
+
+    with pytest.raises(MlflowException, match="Tags must be a dictionary"):
+        mlflow.genai.evaluate(
+            data=data,
+            scorers=[exact_match],
+        )
