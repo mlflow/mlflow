@@ -17,7 +17,7 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
-from mlflow.genai.judges import make_judge
+from mlflow.genai import make_judge
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
 from mlflow.genai.judges.instructions_judge.constants import JUDGE_BASE_PROMPT
 from mlflow.genai.judges.utils import _LITELLM_PROVIDERS, _NATIVE_PROVIDERS, validate_judge_model
