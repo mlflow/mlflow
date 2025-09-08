@@ -2799,6 +2799,7 @@ def test_server_version_check_caching():
             method="GET",
             timeout=3,
             max_retries=0,
+            retry_timeout_seconds=1,
             raise_on_status=True,
         )
         mock_http.assert_any_call(
