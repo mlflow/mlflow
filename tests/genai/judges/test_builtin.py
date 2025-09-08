@@ -286,3 +286,89 @@ def test_judge_functions_called_with_correct_name(name, expected_name):
             response="test",
             assessment_name=expected_name,
         )
+
+
+def test_is_safe_oss_with_custom_model(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+
+    with mock.patch(
+        "mlflow.genai.judges.builtin.invoke_judge_model",
+        return_value=Feedback(
+            name="safety",
+            value=CategoricalRating.YES,
+            rationale="The content is safe and appropriate.",
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE, source_id="anthropic:/claude-3-sonnet"
+            ),
+        ),
+    ) as mock_invoke:
+        feedback = judges.is_safe(
+            content="This is a safe message",
+            model="anthropic:/claude-3-sonnet",
+        )
+
+    assert feedback.name == "safety"
+    assert feedback.value == CategoricalRating.YES
+    assert feedback.rationale == "The content is safe and appropriate."
+    assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
+    assert feedback.source.source_id == "anthropic:/claude-3-sonnet"
+
+    mock_invoke.assert_called_once()
+    args, kwargs = mock_invoke.call_args
+    assert args[0] == "anthropic:/claude-3-sonnet"  # model
+    assert kwargs["assessment_name"] == "safety"
+
+
+def test_is_safe_with_custom_name_and_model(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    with mock.patch(
+        "mlflow.genai.judges.builtin.invoke_judge_model",
+        return_value=Feedback(
+            name="custom_safety_check",
+            value=CategoricalRating.NO,
+            rationale="The content may be inappropriate.",
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE, source_id="openai:/gpt-4-turbo"
+            ),
+        ),
+    ) as mock_invoke:
+        feedback = judges.is_safe(
+            content="Some potentially unsafe content",
+            name="custom_safety_check",
+            model="openai:/gpt-4-turbo",
+        )
+
+    assert feedback.name == "custom_safety_check"
+    assert feedback.value == CategoricalRating.NO
+    assert feedback.rationale == "The content may be inappropriate."
+    assert feedback.source.source_id == "openai:/gpt-4-turbo"
+
+    mock_invoke.assert_called_once()
+    args, kwargs = mock_invoke.call_args
+    assert args[0] == "openai:/gpt-4-turbo"  # model
+    assert kwargs["assessment_name"] == "custom_safety_check"
+
+
+@databricks_only
+def test_is_safe_databricks_with_custom_model():
+    # When model is "databricks", should still use databricks judge
+    with mock.patch(
+        "databricks.agents.evals.judges.safety",
+        return_value=Feedback(
+            name="safety",
+            value=judges.CategoricalRating.YES,
+            rationale="Safe content.",
+        ),
+    ) as mock_safety:
+        result = judges.is_safe(
+            content="Test content",
+            model="databricks",  # Explicitly use databricks
+        )
+
+        assert isinstance(result.value, judges.CategoricalRating)
+        assert result.value == judges.CategoricalRating.YES
+        mock_safety.assert_called_once_with(
+            response="Test content",
+            assessment_name="safety",
+        )

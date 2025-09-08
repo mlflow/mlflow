@@ -6,7 +6,7 @@ from litellm.types.utils import ModelResponse
 
 from mlflow.entities.assessment import AssessmentSourceType
 from mlflow.exceptions import MlflowException
-from mlflow.genai.judges.utils import CategoricalRating, invoke_judge_model
+from mlflow.genai.judges.utils import CategoricalRating, format_prompt, invoke_judge_model
 
 
 @pytest.mark.parametrize("num_retries", [None, 3])
@@ -97,3 +97,32 @@ def test_invoke_judge_model_invalid_json_response():
             invoke_judge_model(
                 model_uri="openai:/gpt-4", prompt="Test prompt", assessment_name="test"
             )
+
+
+@pytest.mark.parametrize(
+    ("prompt_template", "values", "expected"),
+    [
+        # Test with Unicode escape-like sequences
+        (
+            "User input: {{ user_text }}",
+            {"user_text": r"Path is C:\users\john"},
+            r"User input: Path is C:\users\john",
+        ),
+        # Test with newlines and tabs
+        (
+            "Data: {{ data }}",
+            {"data": "Line1\\nLine2\\tTabbed"},
+            "Data: Line1\\nLine2\\tTabbed",
+        ),
+        # Test with multiple variables
+        (
+            "Path: {{ path }}, Command: {{ cmd }}",
+            {"path": r"C:\temp", "cmd": r"echo \u0041"},
+            r"Path: C:\temp, Command: echo \u0041",
+        ),
+    ],
+)
+def test_format_prompt_with_backslashes(prompt_template, values, expected):
+    """Test that format_prompt correctly handles values containing backslashes."""
+    result = format_prompt(prompt_template, **values)
+    assert result == expected

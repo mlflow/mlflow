@@ -1,5 +1,6 @@
 from unittest import mock
 
+from mlflow.models import dependencies_schemas
 from mlflow.models.dependencies_schemas import (
     DependenciesSchemas,
     DependenciesSchemasType,
@@ -204,7 +205,7 @@ def test_multiple_set_retriever_schema_with_same_name_with_different_schemas():
         other_columns=["column1", "column2"],
     )
 
-    with mock.patch("mlflow.models.dependencies_schemas._logger") as mock_logger:
+    with mock.patch.object(dependencies_schemas, "_logger") as mock_logger:
         set_retriever_schema(
             name="my_ret_1",
             primary_key="primary-key",
@@ -254,7 +255,7 @@ def test_multiple_set_retriever_schema_with_same_name_with_same_schema():
         other_columns=["column1", "column2"],
     )
 
-    with mock.patch("mlflow.models.dependencies_schemas._logger") as mock_logger:
+    with mock.patch.object(dependencies_schemas, "_logger") as mock_logger:
         set_retriever_schema(
             name="my_ret_1",
             primary_key="primary-key",
