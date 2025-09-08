@@ -69,8 +69,9 @@ export {
 
 export const createLazyRouteElement = (
   // Load the module's default export and turn it into React Element
-  componentLoader: () => Promise<{ default: React.ComponentType<any> }>,
+  componentLoader: () => Promise<{ default: React.ComponentType<React.PropsWithChildren<any>> }>,
 ) => React.createElement(React.lazy(componentLoader));
-export const createRouteElement = (component: React.ComponentType<any>) => React.createElement(component);
+export const createRouteElement = (component: React.ComponentType<React.PropsWithChildren<any>>) =>
+  React.createElement(component);
 
 export type { Location, NavigateFunction, Params, To, NavigateOptions };

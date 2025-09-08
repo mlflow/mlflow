@@ -1,4 +1,3 @@
-import { isObject } from 'lodash';
 import { useState } from 'react';
 
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
@@ -12,20 +11,6 @@ import { ExpectationValuePreview } from './ExpectationValuePreview';
 import { SpanNameDetailViewLink } from './SpanNameDetailViewLink';
 import type { ExpectationAssessment } from '../ModelTrace.types';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
-
-const getValuePreview = (parsedValue: any) => {
-  if (Array.isArray(parsedValue)) {
-    return parsedValue.map((item, index) => <ExpectationValuePreview value={item} key={index} />);
-  }
-
-  if (isObject(parsedValue)) {
-    return Object.entries(parsedValue).map(([key, value]) => (
-      <ExpectationValuePreview key={key} objectKey={key} value={value} />
-    ));
-  }
-
-  return <ExpectationValuePreview value={parsedValue} />;
-};
 
 export const ExpectationItem = ({ expectation }: { expectation: ExpectationAssessment }) => {
   const { theme } = useDesignSystemTheme();
@@ -74,7 +59,7 @@ export const ExpectationItem = ({ expectation }: { expectation: ExpectationAsses
           onCancel={() => setIsEditing(false)}
         />
       ) : (
-        getValuePreview(parsedValue)
+        <ExpectationValuePreview parsedValue={parsedValue} />
       )}
       {showAssociatedSpan && (
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>

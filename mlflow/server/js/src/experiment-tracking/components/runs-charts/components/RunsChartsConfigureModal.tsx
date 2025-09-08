@@ -2,21 +2,19 @@
  * TODO: implement actual UI for this modal, it's a crude placeholder with minimal logic for now
  */
 import { Modal, useDesignSystemTheme, SimpleSelect, SimpleSelectOption } from '@databricks/design-system';
-import { Interpolation, Theme } from '@emotion/react';
+import type { Interpolation, Theme } from '@emotion/react';
 import React, { useCallback, useMemo, useState } from 'react';
 import { useIntl, FormattedMessage } from 'react-intl';
-import {
+import type {
   RunsChartsBarCardConfig,
-  RunsChartsCardConfig,
-  RunsChartType,
   RunsChartsLineCardConfig,
   RunsChartsContourCardConfig,
   RunsChartsScatterCardConfig,
   RunsChartsParallelCardConfig,
   RunsChartsDifferenceCardConfig,
   RunsChartsImageCardConfig,
-  type RunsChartsMetricByDatasetEntry,
 } from '../runs-charts.types';
+import { RunsChartsCardConfig, RunsChartType, type RunsChartsMetricByDatasetEntry } from '../runs-charts.types';
 
 import { ReactComponent as ChartBarIcon } from '../../../../common/static/chart-bar.svg';
 import { ReactComponent as ChartContourIcon } from '../../../../common/static/chart-contour.svg';
@@ -50,17 +48,19 @@ import { DifferenceViewPlot } from './charts/DifferenceViewPlot';
 
 const previewComponentsMap: Record<
   RunsChartType,
-  React.FC<{
-    previewData: RunsChartsRunData[];
-    cardConfig: any;
-    groupBy: RunsGroupByConfig | null;
-    globalLineChartConfig?: RunsChartsGlobalLineChartConfig;
-    setCardConfig: (
-      setter: (
-        current: RunsChartsCardConfig,
-      ) => RunsChartsDifferenceCardConfig | RunsChartsImageCardConfig | RunsChartsLineCardConfig,
-    ) => void;
-  }>
+  React.FC<
+    React.PropsWithChildren<{
+      previewData: RunsChartsRunData[];
+      cardConfig: any;
+      groupBy: RunsGroupByConfig | null;
+      globalLineChartConfig?: RunsChartsGlobalLineChartConfig;
+      setCardConfig: (
+        setter: (
+          current: RunsChartsCardConfig,
+        ) => RunsChartsDifferenceCardConfig | RunsChartsImageCardConfig | RunsChartsLineCardConfig,
+      ) => void;
+    }>
+  >
 > = {
   [RunsChartType.BAR]: RunsChartsConfigureBarChartPreview,
   [RunsChartType.CONTOUR]: RunsChartsConfigureContourChartPreview,

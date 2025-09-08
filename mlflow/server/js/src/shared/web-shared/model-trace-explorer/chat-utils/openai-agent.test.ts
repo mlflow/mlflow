@@ -1,6 +1,6 @@
 import { normalizeConversation } from '../ModelTraceExplorer.utils';
 
-export const MOCK_OPENAI_AGENT_INPUT = [
+const MOCK_OPENAI_AGENT_INPUT = [
   {
     content: 'What is the weather like in Tokyo today?',
     role: 'user',
@@ -20,7 +20,7 @@ export const MOCK_OPENAI_AGENT_INPUT = [
   },
 ];
 
-export const MOCK_OPENAI_AGENT_OUTPUT = [
+const MOCK_OPENAI_AGENT_OUTPUT = [
   {
     id: 'msg_67d3694a904c8191819d3b2c22d3a90f0b0cc610b3768fc1',
     content: [
@@ -36,7 +36,7 @@ export const MOCK_OPENAI_AGENT_OUTPUT = [
   },
 ];
 
-export const MOCK_OPENAI_AGENT_COMPLEX_INPUT = [
+const MOCK_OPENAI_AGENT_COMPLEX_INPUT = [
   {
     content: 'Please check the weather and book a flight to Tokyo.',
     role: 'user',
@@ -69,7 +69,7 @@ export const MOCK_OPENAI_AGENT_COMPLEX_INPUT = [
   },
 ];
 
-export const MOCK_OPENAI_AGENT_COMPLEX_OUTPUT = [
+const MOCK_OPENAI_AGENT_COMPLEX_OUTPUT = [
   {
     id: 'msg_final_response',
     content: [

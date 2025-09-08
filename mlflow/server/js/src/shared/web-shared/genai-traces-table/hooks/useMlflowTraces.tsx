@@ -40,7 +40,7 @@ import {
   getMlflowTracesSearchPageSize,
   getEvalTabTotalTracesLimit,
 } from '../utils/FeatureUtils';
-import { makeRequest } from '../utils/FetchUtils';
+import { fetchFn, getAjaxUrl } from '../utils/FetchUtils';
 import MlflowUtils from '../utils/MlflowUtils';
 import { convertTraceInfoV3ToRunEvalEntry, getCustomMetadataKeyFromColumnId } from '../utils/TraceUtils';
 import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
@@ -62,7 +62,7 @@ interface SearchMlflowLocations {
   };
 }
 
-const SEARCH_MLFLOW_TRACES_QUERY_KEY = 'searchMlflowTraces';
+export const SEARCH_MLFLOW_TRACES_QUERY_KEY = 'searchMlflowTraces';
 
 export const invalidateMlflowSearchTracesCache = ({ queryClient }: { queryClient: QueryClient }) => {
   queryClient.invalidateQueries({ queryKey: [SEARCH_MLFLOW_TRACES_QUERY_KEY] });
@@ -173,12 +173,12 @@ export const useMlflowTracesTableMetadata = ({
       assessmentInfos,
       allColumns,
       totalCount: evaluatedTraces.length,
-      isLoading: isInnerLoading,
+      isLoading: isInnerLoading && !disabled,
       error,
       isEmpty: evaluatedTraces.length === 0,
       tableFilterOptions,
     };
-  }, [assessmentInfos, allColumns, isInnerLoading, error, evaluatedTraces.length, tableFilterOptions]);
+  }, [assessmentInfos, allColumns, isInnerLoading, error, evaluatedTraces.length, tableFilterOptions, disabled]);
 };
 
 const getNetworkAndClientFilters = (
@@ -192,7 +192,7 @@ const getNetworkAndClientFilters = (
     clientFilters: TableFilter[];
   }>(
     (acc, filter) => {
-      // MLflow search api does not support assessment filters, so we need to pass them as client filters
+      // Mlflow search api does not support assessment filters, so we need to pass them as client filters
       if (filter.column === TracesTableColumnGroup.ASSESSMENT) {
         acc.clientFilters.push(filter);
       } else {
@@ -399,18 +399,23 @@ const useSearchMlflowTracesInner = ({
         if (pageToken) {
           payload.page_token = pageToken;
         }
-        const response: { traces: TraceInfoV3[]; next_page_token?: string } = await makeRequest(
-          getAjaxUrl('ajax-api/3.0/mlflow/traces/search'),
-          'POST',
-          payload,
-        );
-        const traces = response.traces;
+        const queryResponse = await fetchFn(getAjaxUrl('ajax-api/3.0/mlflow/traces/search'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+          signal,
+        });
+        if (!queryResponse.ok) throw matchPredefinedErrorFromResponse(queryResponse);
+        const json = (await queryResponse.json()) as { traces: TraceInfoV3[]; next_page_token?: string };
+        const traces = json.traces;
         if (!isNil(traces)) {
           allTraces = allTraces.concat(traces);
         }
 
         // If there's no next page, break out of the loop.
-        pageToken = response.next_page_token;
+        pageToken = json.next_page_token;
         if (!pageToken) break;
       }
       return allTraces;

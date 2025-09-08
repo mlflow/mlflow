@@ -1,5 +1,5 @@
 import { first, sortBy } from 'lodash';
-import { ModelEntity } from '../../../experiment-tracking/types';
+import type { ModelEntity } from '../../../experiment-tracking/types';
 import { AliasTag } from '../../../common/components/AliasTag';
 import { Button, DropdownMenu, useDesignSystemTheme } from '@databricks/design-system';
 import { Link } from '../../../common/utils/RoutingUtils';

@@ -6,39 +6,27 @@ import { useDesignSystemTheme } from '@databricks/design-system';
 import { useCompareToRunUuid } from './hooks/useCompareToRunUuid';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 import { EvaluationRunCompareSelector } from './EvaluationRunCompareSelector';
-import { MlflowService } from '../../sdk/MlflowService';
-import { ModelTrace } from '@databricks/web-shared/model-trace-explorer';
+import { useSavePendingEvaluationAssessments } from './hooks/useSavePendingEvaluationAssessments';
+import type {
+  GenAiTraceEvaluationArtifactFile,
+  TracesTableColumn,
+  RunEvaluationTracesDataEntry,
+} from '@databricks/web-shared/genai-traces-table';
 import {
   EXECUTION_DURATION_COLUMN_ID,
-  GenAiTraceEvaluationArtifactFile,
   GenAiTracesTable,
   GenAiTracesMarkdownConverterProvider,
+  RUN_EVALUATION_RESULTS_TAB_COMPARE_RUNS,
+  RUN_EVALUATION_RESULTS_TAB_SINGLE_RUN,
   STATE_COLUMN_ID,
   TAGS_COLUMN_ID,
-  TracesTableColumn,
   TracesTableColumnType,
-  RunEvaluationTracesDataEntry,
   useGenAiTraceEvaluationArtifacts,
 } from '@databricks/web-shared/genai-traces-table';
-import { useMarkdownConverter } from '../../../common/utils/MarkdownUtils';
-import { useSearchRunsQuery } from '../run-page/hooks/useSearchRunsQuery';
 import { useRunLoggedTraceTableArtifacts } from './hooks/useRunLoggedTraceTableArtifacts';
-
-async function getTrace(requestId?: string, traceId?: string): Promise<ModelTrace | undefined> {
-  const [traceInfo, traceData] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    MlflowService.getExperimentTraceInfo(requestId!).then((response) => response.trace_info || {}),
-    // get-trace-artifact is only currently supported in mlflow 2.0 apis
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    MlflowService.getExperimentTraceData(requestId!),
-  ]);
-  return traceData
-    ? {
-        info: traceInfo,
-        data: traceData,
-      }
-    : undefined;
-}
+import { useMarkdownConverter } from '../../../common/utils/MarkdownUtils';
+import { getTraceLegacy } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
+import { useSearchRunsQuery } from '../run-page/hooks/useSearchRunsQuery';
 
 export const RunViewEvaluationsTabArtifacts = ({
   experimentId,
@@ -63,6 +51,7 @@ export const RunViewEvaluationsTabArtifacts = ({
   const [compareToRunUuid, setCompareToRunUuid] = useCompareToRunUuid();
 
   const makeHtmlFromMarkdown = useMarkdownConverter();
+  const saveAssessmentsQuery = useSavePendingEvaluationAssessments();
 
   const {
     data: compareToRunData,
@@ -99,7 +88,8 @@ export const RunViewEvaluationsTabArtifacts = ({
       compareToRunUuid,
       compareToRunDisplayName,
       compareToRunLoading,
-      getTrace,
+      saveAssessmentsQuery,
+      getTrace: getTraceLegacy,
       initialSelectedColumns,
     } as const;
     return (

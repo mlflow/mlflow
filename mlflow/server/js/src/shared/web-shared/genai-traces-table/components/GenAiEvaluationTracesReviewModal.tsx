@@ -43,7 +43,7 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
     otherRunDisplayName?: string;
     exportToEvalsInstanceEnabled?: boolean;
     assessmentInfos: AssessmentInfo[];
-    getTrace?: (requestId?: string, traceId?: string) => Promise<ModelTrace | undefined>;
+    getTrace?: (traceId?: string) => Promise<ModelTrace | undefined>;
     saveAssessmentsQuery?: SaveAssessmentsQuery;
   }) => {
     const { theme, classNamePrefix } = useDesignSystemTheme();
@@ -108,28 +108,12 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
 
     const tracesTableConfig = useGenAITracesTableConfig();
 
-    const traceQueryResult = useGetTrace(
-      getTrace,
-      evaluation?.currentRunValue?.requestId,
-      evaluation?.currentRunValue?.traceInfo?.trace_id,
-    );
-    const compareToTraceQueryResult = useGetTrace(
-      getTrace,
-      evaluation?.otherRunValue?.requestId,
-      evaluation?.otherRunValue?.traceInfo?.trace_id,
-    );
+    const traceQueryResult = useGetTrace(getTrace, evaluation?.currentRunValue?.traceInfo?.trace_id);
+    const compareToTraceQueryResult = useGetTrace(getTrace, evaluation?.otherRunValue?.traceInfo?.trace_id);
 
     // Prefetching the next and previous traces to optimize performance
-    useGetTrace(
-      getTrace,
-      nextEvaluation?.currentRunValue?.requestId,
-      nextEvaluation?.currentRunValue?.traceInfo?.trace_id,
-    );
-    useGetTrace(
-      getTrace,
-      previousEvaluation?.currentRunValue?.requestId,
-      previousEvaluation?.currentRunValue?.traceInfo?.trace_id,
-    );
+    useGetTrace(getTrace, nextEvaluation?.currentRunValue?.traceInfo?.trace_id);
+    useGetTrace(getTrace, previousEvaluation?.currentRunValue?.traceInfo?.trace_id);
 
     // is true if only one of the two runs has a trace
     const isSingleTraceView = Boolean(evaluation?.currentRunValue) !== Boolean(evaluation?.otherRunValue);

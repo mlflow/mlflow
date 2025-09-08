@@ -90,7 +90,7 @@ function GenAiTracesTableImpl({
   compareToRunLoading?: boolean;
   sampledInfo?: SampleInfo;
   exportToEvalsInstanceEnabled?: boolean;
-  getTrace?: (requestId?: string, traceId?: string) => Promise<ModelTrace | undefined>;
+  getTrace?: (traceId?: string) => Promise<ModelTrace | undefined>;
   saveAssessmentsQuery?: SaveAssessmentsQuery;
   enableRunEvaluationWriteFeatures?: boolean;
   defaultSortOption?: EvaluationsOverviewTableSort;

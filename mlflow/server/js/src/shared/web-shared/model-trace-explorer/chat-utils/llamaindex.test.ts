@@ -1,6 +1,6 @@
 import { normalizeConversation } from '../ModelTraceExplorer.utils';
 
-export const MOCK_LLAMAINDEX_INPUT = {
+const MOCK_LLAMAINDEX_INPUT = {
   messages: [
     {
       role: 'system',
@@ -25,7 +25,7 @@ export const MOCK_LLAMAINDEX_INPUT = {
   ],
 };
 
-export const MOCK_LLAMAINDEX_OUTPUT = {
+const MOCK_LLAMAINDEX_OUTPUT = {
   message: {
     role: 'assistant',
     additional_kwargs: {},

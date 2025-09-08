@@ -8,7 +8,7 @@ import { getUUID } from '../../common/utils/ActionUtils';
 import { useNavigate } from '../../common/utils/RoutingUtils';
 import Utils from '../../common/utils/Utils';
 import { getModelNameFilter } from '../utils/SearchUtils';
-import { ReduxState, ThunkDispatch } from '../../redux-types';
+import type { ReduxState, ThunkDispatch } from '../../redux-types';
 import { createModelVersionApi, createRegisteredModelApi, searchRegisteredModelsApi } from '../actions';
 import { ModelRegistryRoutes } from '../routes';
 import {
@@ -17,7 +17,7 @@ import {
   RegisterModelForm,
   SELECTED_MODEL_FIELD,
 } from './RegisterModelForm';
-import { ModelVersionInfoEntity } from '../../experiment-tracking/types';
+import type { ModelVersionInfoEntity } from '../../experiment-tracking/types';
 
 const MAX_SEARCH_REGISTERED_MODELS = 5;
 

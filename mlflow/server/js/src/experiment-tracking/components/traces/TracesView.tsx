@@ -6,13 +6,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TraceDataDrawer } from './TraceDataDrawer';
 import { useEditExperimentTraceTags } from './hooks/useEditExperimentTraceTags';
 import { TracesViewControls } from './TracesViewControls';
-import { SortingState } from '@tanstack/react-table';
+import type { SortingState } from '@tanstack/react-table';
 import { compact, isFunction, isNil, uniq } from 'lodash';
 import { useExperimentViewTracesUIState } from './hooks/useExperimentViewTracesUIState';
 import { ExperimentViewTracesTableColumns, getTraceInfoTotalTokens } from './TracesView.utils';
 import { useActiveExperimentTrace } from './hooks/useActiveExperimentTrace';
 import { useActiveExperimentSpan } from './hooks/useActiveExperimentSpan';
-import { ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
 
 export const TRACE_AUTO_REFRESH_INTERVAL = 30000;
 

@@ -1,7 +1,7 @@
 import { fulfilled, pending } from '../../common/utils/ActionUtils';
-import { AsyncAction, AsyncFulfilledAction } from '../../redux-types';
-import { MlflowDeploymentsEndpoint } from '../sdk/ModelGatewayService';
-import { SearchMlflowDeploymentsModelRoutesAction } from '../actions/ModelGatewayActions';
+import type { AsyncAction, AsyncFulfilledAction } from '../../redux-types';
+import type { MlflowDeploymentsEndpoint } from '../sdk/ModelGatewayService';
+import type { SearchMlflowDeploymentsModelRoutesAction } from '../actions/ModelGatewayActions';
 import { ModelGatewayRouteTask } from '../sdk/MlflowEnums';
 import { modelGatewayReducer } from './ModelGatewayReducer';
 

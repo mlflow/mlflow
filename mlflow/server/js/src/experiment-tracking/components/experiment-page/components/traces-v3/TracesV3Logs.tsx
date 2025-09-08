@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Empty, ParagraphSkeleton, DangerIcon } from '@databricks/design-system';
+import type { TracesTableColumn, TraceActions } from '@databricks/web-shared/genai-traces-table';
 import {
   EXECUTION_DURATION_COLUMN_ID,
   GenAiTracesMarkdownConverterProvider,
@@ -8,13 +9,11 @@ import {
   REQUEST_TIME_COLUMN_ID,
   STATE_COLUMN_ID,
   RESPONSE_COLUMN_ID,
-  TracesTableColumn,
   TracesTableColumnType,
   useSearchMlflowTraces,
   useSelectedColumns,
   getEvalTabTotalTracesLimit,
   GenAITracesTableProvider,
-  TraceActions,
   useFilters,
   getTracesTagKeys,
   useTableSort,
@@ -22,17 +21,17 @@ import {
   TOKENS_COLUMN_ID,
   invalidateMlflowSearchTracesCache,
 } from '@databricks/web-shared/genai-traces-table';
-import { MlflowService } from '@mlflow/mlflow/src/experiment-tracking/sdk/MlflowService';
 import { useMarkdownConverter } from '@mlflow/mlflow/src/common/utils/MarkdownUtils';
 import { shouldEnableTraceInsights } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { useDeleteTracesMutation } from '../../../evaluations/hooks/useDeleteTraces';
 import { useEditExperimentTraceTags } from '../../../traces/hooks/useEditExperimentTraceTags';
 import { useIntl } from '@databricks/i18n';
+import { getTrace } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
 import { TracesV3EmptyState } from './TracesV3EmptyState';
 import { useQueryClient } from '@databricks/web-shared/query-client';
 import { useSetInitialTimeFilter } from './hooks/useSetInitialTimeFilter';
 
-export const TracesV3Logs = React.memo(
+const TracesV3LogsImpl = React.memo(
   ({
     experimentId,
     endpointName,
@@ -72,6 +71,7 @@ export const TracesV3Logs = React.memo(
       return columns.filter(
         (col) =>
           col.type === TracesTableColumnType.ASSESSMENT ||
+          col.type === TracesTableColumnType.EXPECTATION ||
           col.type === TracesTableColumnType.INPUT ||
           (col.type === TracesTableColumnType.TRACE_INFO &&
             [
@@ -119,21 +119,6 @@ export const TracesV3Logs = React.memo(
       tableSort,
     });
 
-    // Get trace function
-    // Only traceId is used for trace v3
-    const getTrace = useCallback(async (requestId?: string, traceId?: string) => {
-      const [traceInfoResponse, traceData] = await Promise.all([
-        traceId ? MlflowService.getExperimentTraceInfoV3(traceId) : undefined,
-        traceId ? MlflowService.getExperimentTraceData(traceId) : undefined,
-      ]);
-      return traceData
-        ? {
-            info: traceInfoResponse?.trace?.trace_info || {},
-            data: traceData,
-          }
-        : undefined;
-    }, []);
-
     const deleteTracesMutation = useDeleteTracesMutation();
 
     // TODO: We should update this to use web-shared/unified-tagging components for the
@@ -159,7 +144,7 @@ export const TracesV3Logs = React.memo(
           EditTagsModal,
         },
       };
-    }, [getTrace, deleteTracesMutation, showEditTagsModalForTrace, EditTagsModal]);
+    }, [deleteTracesMutation, showEditTagsModalForTrace, EditTagsModal]);
 
     const countInfo = useMemo(() => {
       return {
@@ -292,3 +277,5 @@ export const TracesV3Logs = React.memo(
     );
   },
 );
+
+export const TracesV3Logs = TracesV3LogsImpl;
