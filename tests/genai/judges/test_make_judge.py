@@ -271,16 +271,17 @@ def test_valid_model_formats(model):
             "openai:/gpt-4",
             "Instructions template contains unsupported variables",
         ),
-        (
-            "Analyze {{ trace }} and {{ inputs }}",
-            "openai:/gpt-4",
-            "Instructions template cannot contain both 'trace' and 'inputs'/'outputs'",
-        ),
-        (
-            "Analyze {{ trace }} and {{ outputs }}",
-            "openai:/gpt-4",
-            "Instructions template cannot contain both 'trace' and 'inputs'/'outputs'",
-        ),
+        # These are now ALLOWED - mixing trace with inputs/outputs is supported
+        # (
+        #     "Analyze {{ trace }} and {{ inputs }}",
+        #     "openai:/gpt-4",
+        #     "Instructions template cannot contain both 'trace' and 'inputs'/'outputs'",
+        # ),
+        # (
+        #     "Analyze {{ trace }} and {{ outputs }}",
+        #     "openai:/gpt-4",
+        #     "Instructions template cannot contain both 'trace' and 'inputs'/'outputs'",
+        # ),
         (
             "Analyze {{ trace }} for errors",
             "databricks",
@@ -293,17 +294,35 @@ def test_trace_variable_restrictions(instructions, model, error_pattern):
         make_judge(name="test_judge", instructions=instructions, model=model)
 
 
-def test_trace_with_expectations_not_allowed():
-    # expectations should not be allowed with trace yet (TODO: implement in followup)
-    with pytest.raises(
-        MlflowException,
-        match="When submitting a 'trace' variable, expectations are not yet supported",
-    ):
-        make_judge(
-            name="test_judge",
-            instructions="Analyze {{ trace }} against {{ expectations }}",
-            model="openai:/gpt-4",
-        )
+def test_trace_with_inputs_outputs_allowed():
+    # These combinations are now ALLOWED - we support mixed templates
+    judge1 = make_judge(
+        name="test_judge",
+        instructions="Analyze {{ trace }} and {{ inputs }}",
+        model="openai:/gpt-4",
+    )
+    assert judge1.template_variables == {"trace", "inputs"}
+
+    judge2 = make_judge(
+        name="test_judge",
+        instructions="Analyze {{ trace }} and {{ outputs }}",
+        model="openai:/gpt-4",
+    )
+    assert judge2.template_variables == {"trace", "outputs"}
+
+
+def test_trace_with_expectations_allowed():
+    # Test that mixing trace with expectations is now allowed
+    judge = make_judge(
+        name="test_judge",
+        instructions="Analyze {{ trace }} against {{ expectations }}",
+        model="openai:/gpt-4",
+    )
+
+    # Verify the judge was created successfully and has both template variables
+    assert judge is not None
+    assert "trace" in judge.template_variables
+    assert "expectations" in judge.template_variables
 
 
 def test_call_with_trace_supported(mock_trace, monkeypatch):
