@@ -1280,11 +1280,9 @@ def test_context_window_error_removes_tool_calls_and_retries(
         if len(kwargs["messages"]) >= 8 and not exception_raised:
             exception_raised = True
             raise exception_class(*exception_args)
-
         mock_response = mock.Mock()
         mock_response.choices = [mock.Mock()]
         mock_response.choices[0].message = mock.Mock()
-
         if exception_raised:
             mock_response.choices[0].message.tool_calls = None
             mock_response.choices[
@@ -1305,6 +1303,8 @@ def test_context_window_error_removes_tool_calls_and_retries(
             }
         return mock_response
 
+    # Mock tool registry to return empty dict (simulates tool call returning no useful data)
+    # This causes the judge to keep making tool calls until it hits the context limit
     monkeypatch.setattr(
         "mlflow.genai.judges.tools.registry._judge_tool_registry.invoke", lambda *_: {}
     )
