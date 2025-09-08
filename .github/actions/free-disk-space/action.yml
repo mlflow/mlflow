@@ -5,6 +5,8 @@ runs:
   steps:
     - shell: bash
       run: |
-        sudo rm -rf "$AGENT_TOOLSDIRECTORY"
-        sudo rm -rf /usr/share/dotnet
-        sudo rm -rf /usr/local/lib/android
+        # Temporarily commented out slow disk cleanup operations
+        # sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+        # sudo rm -rf /usr/share/dotnet
+        # sudo rm -rf /usr/local/lib/android
+        echo "Disk cleanup operations skipped for faster CI"

@@ -169,7 +169,7 @@ def test_universal_autolog_throws_if_specific_autolog_throws_in_test_mode(librar
     # Ensure the mlflow module is imported before we try to mock it
     # This prevents test order dependency issues
     __import__(mlflow_module.__name__)
-    
+
     with mock.patch(mlflow_module.__name__ + ".autolog") as autolog_mock:
         autolog_mock.side_effect = Exception("asdf")
 

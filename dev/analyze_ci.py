@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 Analyze MLflow CI workflow runs for performance optimization.
 
@@ -398,7 +397,7 @@ def print_test_analysis(test_analysis: dict[str, Any], top_n: int = 20):
         return
 
     summary = test_analysis["summary"]
-    print(f"\nPYTHON TEST SUMMARY")
+    print("\nPYTHON TEST SUMMARY")
     print(f"Total Tests: {summary['total_tests']:,}")
     print(f"Total Duration: {format_duration(int(summary['total_duration_seconds']))}")
     print(f"Average Duration: {summary['average_duration']:.2f}s")
@@ -411,7 +410,7 @@ def print_test_analysis(test_analysis: dict[str, Any], top_n: int = 20):
             :10
         ]  # Show top 10 files
 
-        print(f"\nTOP 10 TEST FILES BY TOTAL DURATION")
+        print("\nTOP 10 TEST FILES BY TOTAL DURATION")
         print(
             "┌────────────────────────────────────────┬────────┬──────────┬──────────┬──────────┐"
         )
@@ -435,7 +434,8 @@ def print_test_analysis(test_analysis: dict[str, Any], top_n: int = 20):
             )
 
             print(
-                f"│ {display_name:<38} │ {test_count:<6} │ {total_dur:<8} │ {avg_dur:<8} │ {slowest_dur:<8} │"
+                f"│ {display_name:<38} │ {test_count:<6} │ {total_dur:<8} │ "
+                f"{avg_dur:<8} │ {slowest_dur:<8} │"
             )
 
         print(
@@ -451,7 +451,8 @@ def print_test_analysis(test_analysis: dict[str, Any], top_n: int = 20):
             "┌────────────────────────────────────────────────────────────────┬──────────┬─────────────┐"
         )
         print(
-            "│ Test Name                                                      │ Duration │ Job-Group   │"
+            "│ Test Name                                                      │ Duration │ "
+            "Job-Group   │"
         )
         print(
             "├────────────────────────────────────────────────────────────────┼──────────┼─────────────┤"
@@ -483,7 +484,7 @@ def print_test_analysis(test_analysis: dict[str, Any], top_n: int = 20):
     # Test distribution by group
     by_group = test_analysis["by_group"]
     if by_group:
-        print(f"\nTEST DISTRIBUTION BY GROUP")
+        print("\nTEST DISTRIBUTION BY GROUP")
         print("┌─────────────────────┬──────────┬────────────┬──────────────┐")
         print("│ Job-Group           │ Tests    │ Total Time │ Avg Duration │")
         print("├─────────────────────┼──────────┼────────────┼──────────────┤")
@@ -595,7 +596,9 @@ def print_human_readable(
 
 
 def print_json_output(
-    run_info: dict[str, str], analysis: dict[str, dict[str, str]], test_analysis: dict[str, Any] | None = None
+    run_info: dict[str, str],
+    analysis: dict[str, dict[str, str]],
+    test_analysis: dict[str, Any] | None = None,
 ):
     """Print analysis in JSON format."""
     output = {

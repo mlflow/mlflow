@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 Download and merge test duration data from MLflow CI runs.
 
