@@ -438,15 +438,11 @@ paddle:
     # PyPI versions jump from 1.8.5 directly to 2.6.0
     minimum: "2.6.0"
     maximum: "3.1.1"
-    requirements:
-      "< 2.6.0": ["numpy<2"]
     run: |
       pytest tests/paddle/test_paddle_model_export.py
   autologging:
     minimum: "2.6.0"
     maximum: "3.1.1"
-    requirements:
-      "< 2.6.0": ["numpy<2"]
     run: |
       pytest tests/paddle/test_paddle_autolog.py
 
