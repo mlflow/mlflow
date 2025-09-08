@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import logging
 import re
+import threading
+from contextlib import ContextDecorator
 from dataclasses import asdict, is_dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -168,6 +170,73 @@ def _is_litellm_available() -> bool:
         return False
 
 
+class _SuppressLiteLLMNonfatalErrors(ContextDecorator):
+    """
+    Thread-safe context manager and decorator to suppress LiteLLM's "Give Feedback" and
+    "Provider List" messages. These messages indicate nonfatal bugs in the LiteLLM library;
+    they are often noisy and can be safely ignored.
+
+    Uses reference counting to ensure suppression remains active while any thread is running,
+    preventing race conditions in parallel execution.
+    """
+
+    def __init__(self):
+        self.lock = threading.RLock()
+        self.count = 0
+        self.original_litellm_settings = {}
+
+    def __enter__(self) -> "_SuppressLiteLLMNonfatalErrors":
+        try:
+            import litellm
+        except ImportError:
+            return self
+
+        with self.lock:
+            if self.count == 0:
+                # First caller - store original settings and enable suppression
+                self.original_litellm_settings = {
+                    "set_verbose": getattr(litellm, "set_verbose", None),
+                    "suppress_debug_info": getattr(litellm, "suppress_debug_info", None),
+                }
+                litellm.set_verbose = False
+                litellm.suppress_debug_info = True
+            self.count += 1
+
+        return self
+
+    def __exit__(
+        self,
+        _exc_type: type[BaseException] | None,
+        _exc_val: BaseException | None,
+        _exc_tb: Any | None,
+    ) -> bool:
+        try:
+            import litellm
+        except ImportError:
+            return False
+
+        with self.lock:
+            self.count -= 1
+            if self.count == 0:
+                # Last caller - restore original settings
+                if (
+                    original_verbose := self.original_litellm_settings.get("set_verbose")
+                ) is not None:
+                    litellm.set_verbose = original_verbose
+                if (
+                    original_suppress := self.original_litellm_settings.get("suppress_debug_info")
+                ) is not None:
+                    litellm.suppress_debug_info = original_suppress
+                self.original_litellm_settings.clear()
+
+        return False
+
+
+# Global instance for use as threadsafe decorator
+_suppress_litellm_nonfatal_errors = _SuppressLiteLLMNonfatalErrors()
+
+
+@_suppress_litellm_nonfatal_errors
 def _invoke_litellm(
     provider: str,
     model_name: str,

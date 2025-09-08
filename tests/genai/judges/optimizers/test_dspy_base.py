@@ -4,12 +4,14 @@ from typing import Any, Callable, Collection
 from unittest.mock import MagicMock, Mock, patch
 
 import dspy
+import litellm
 import pytest
 
+from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.optimizers.dspy import DSPyAlignmentOptimizer
 
-from tests.genai.judges.optimizers.conftest import MockDSPyLM
+from tests.genai.judges.optimizers.conftest import MockDSPyLM, MockJudge
 
 
 class ConcreteDSPyOptimizer(DSPyAlignmentOptimizer):
@@ -273,3 +275,35 @@ def test_mlflow_to_litellm_uri_conversion_in_judge_program():
     # Should have converted the URI
     assert "openai/gpt-4o-mini" in lm_calls
     assert "openai:/gpt-4o-mini" not in lm_calls
+
+
+def test_dspy_align_litellm_nonfatal_error_messages_suppressed():
+    """Test that LiteLLM nonfatal error messages are suppressed during DSPy align method."""
+    suppression_state_during_call = {}
+
+    def mock_dspy_optimize(program, examples, metric_fn):
+        # Capture the state of litellm flags during the DSPy optimization call
+        suppression_state_during_call["set_verbose"] = litellm.set_verbose
+        suppression_state_during_call["suppress_debug_info"] = litellm.suppress_debug_info
+
+        # Return a mock optimized program
+        mock_program = Mock()
+        mock_program.signature = Mock()
+        mock_program.signature.instructions = "Optimized instructions"
+        return mock_program
+
+    mock_traces = [Mock(spec=Trace) for _ in range(3)]
+    mock_judge = MockJudge(name="test_judge", model="openai:/gpt-4o-mini")
+    optimizer = ConcreteDSPyOptimizer()
+
+    with (
+        patch("dspy.LM"),
+        patch("mlflow.genai.judges.optimizers.dspy.trace_to_dspy_example", return_value=Mock()),
+        patch("mlflow.genai.judges.optimizers.dspy.make_judge", return_value=Mock()),
+        patch.object(optimizer, "_dspy_optimize", mock_dspy_optimize),
+    ):
+        optimizer.align(mock_judge, mock_traces)
+
+        # Verify suppression was active during the DSPy optimization call
+        assert suppression_state_during_call["set_verbose"] is False
+        assert suppression_state_during_call["suppress_debug_info"] is True
