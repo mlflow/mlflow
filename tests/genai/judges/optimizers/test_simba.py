@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.genai.judges.optimizers.simba import SIMBAAlignmentOptimizer
+from mlflow.genai.judges.optimizers import SIMBAAlignmentOptimizer
 
 
 def test_dspy_optimize_no_dspy():
