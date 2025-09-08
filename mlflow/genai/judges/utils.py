@@ -7,6 +7,8 @@ from mlflow.entities.assessment_source import AssessmentSource, AssessmentSource
 from mlflow.exceptions import MlflowException
 from mlflow.genai.utils.enum_utils import StrEnum
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.telemetry.events import InvokeCustomJudgeModelEvent
+from mlflow.telemetry.track import record_usage_event
 from mlflow.utils.uri import is_databricks_uri
 
 # "endpoints" is a special case for Databricks model serving endpoints.
@@ -35,6 +37,7 @@ def _sanitize_justification(justification: str) -> str:
     return justification.replace("Let's think step by step. ", "")
 
 
+@record_usage_event(InvokeCustomJudgeModelEvent)
 def invoke_judge_model(
     model_uri: str, prompt: str, assessment_name: str, num_retries: int = 10
 ) -> Feedback:
