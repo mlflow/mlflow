@@ -1,3 +1,4 @@
+import logging
 from functools import partial
 from urllib.parse import parse_qs, urlparse
 
@@ -13,6 +14,8 @@ from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME
+
+_logger = logging.getLogger(__name__)
 
 
 def _extract_workspace_id_from_run_link(run_link: str) -> str | None:
@@ -33,23 +36,21 @@ def _extract_workspace_id_from_run_link(run_link: str) -> str | None:
         return None
 
     try:
-        # Parse the URL to extract query parameters
         parsed_url = urlparse(run_link)
         query_params = parse_qs(parsed_url.query)
-
-        # Check if 'o' parameter exists in query string
         if "o" not in query_params:
             return None
-
-        # Get the first value for the 'o' parameter
         workspace_id = query_params["o"][0]
-
-        # Validate that the workspace ID is a valid positive integer
         workspace_id_int = int(workspace_id)
         if workspace_id_int < 0:
             return None
         return workspace_id
     except (ValueError, IndexError, KeyError):
+        _logger.warning(
+            "Unable to get model version source run's workspace ID from source run link. "
+            "The source workspace ID on the destination model version will be set to the "
+            "registry workspace ID."
+        )
         return None
 
 

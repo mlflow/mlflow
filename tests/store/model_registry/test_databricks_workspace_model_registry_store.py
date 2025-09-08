@@ -36,72 +36,74 @@ def _expected_unsupported_method_error_message(method):
 
 
 @pytest.mark.parametrize(
-    ("run_link", "expected_workspace_id", "description"),
+    ("run_link", "expected_workspace_id"),
     [
         # Valid cases
+        # valid workspace ID
         (
             "https://workspace.databricks.com/?o=10002#mlflow/experiments/test-exp-id/runs/runid",
             "10002",
-            "valid workspace ID",
         ),
+        # valid workspace ID with artifact path
         (
             "https://workspace.databricks.com/?o=12345#mlflow/experiments/test-exp-id/runs/runid/artifactPath/model",
             "12345",
-            "valid workspace ID with artifact path",
         ),
+        # different Databricks domain
         (
             "https://mycompany.cloud.databricks.com/?o=98765#mlflow/experiments/test-exp-id/runs/runid",
             "98765",
-            "different Databricks domain",
         ),
+        # multiple query parameters
         (
             "https://workspace.databricks.com/?param1=value1&o=67890&param2=value2#mlflow/experiments/test-exp-id/runs/runid",
             "67890",
-            "multiple query parameters",
         ),
-        ("https://workspace.databricks.com/?o=12345", "12345", "valid URL without hash fragment"),
+        # valid URL without hash fragment
+        ("https://workspace.databricks.com/?o=12345", "12345"),
         # Invalid cases
+        # no workspace ID parameter
         (
             "https://workspace.databricks.com/#mlflow/experiments/test-exp-id/runs/runid",
             None,
-            "no workspace ID parameter",
         ),
+        # empty workspace ID parameter
         (
             "https://workspace.databricks.com/?o=#mlflow/experiments/test-exp-id/runs/runid",
             None,
-            "empty workspace ID parameter",
         ),
+        # non-numeric workspace ID
         (
             "https://workspace.databricks.com/?o=abc123#mlflow/experiments/test-exp-id/runs/runid",
             None,
-            "non-numeric workspace ID",
         ),
+        # workspace ID with spaces
         (
             "https://workspace.databricks.com/?o=12 34#mlflow/experiments/test-exp-id/runs/runid",
             None,
-            "workspace ID with spaces",
         ),
+        # negative workspace ID
         (
             "https://workspace.databricks.com/?o=-123#mlflow/experiments/test-exp-id/runs/runid",
             None,
-            "negative workspace ID",
         ),
+        # float workspace ID
         (
             "https://workspace.databricks.com/?o=123.45#mlflow/experiments/test-exp-id/runs/runid",
             None,
-            "float workspace ID",
         ),
+        # malformed URL missing equals sign
         (
             "https://workspace.databricks.com/?o12345#mlflow/experiments/test-exp-id/runs/runid",
             None,
-            "malformed URL missing equals sign",
         ),
-        ("", None, "empty string input"),
-        (None, None, "None input"),
+        # empty string input
+        ("", None),
+        # None input
+        (None, None),
     ],
 )
-def test_extract_workspace_id_from_run_link(run_link, expected_workspace_id, description):
-    """Test _extract_workspace_id_from_run_link function with various inputs."""
+def test_extract_workspace_id_from_run_link(run_link, expected_workspace_id):
     assert _extract_workspace_id_from_run_link(run_link) == expected_workspace_id
 
 
