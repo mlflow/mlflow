@@ -62,11 +62,8 @@ runs:
     - name: Install virtualenv
       shell: bash
       run: |
-        # Create .venv if it doesn't exist and install virtualenv there
+        # Create a virtual environment if it doesn't exist
         if [ ! -d ".venv" ]; then
           uv venv
         fi
         uv pip install virtualenv
-
-        # Add .venv/bin to PATH so MLflow can find the uv-managed virtualenv
-        echo "$(pwd)/.venv/bin" >> $GITHUB_PATH
