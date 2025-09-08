@@ -65,7 +65,7 @@ uv --version
 packages=""
 
 # Base packages
-packages+=" pip!=25.1 setuptools wheel"
+packages+="pip!=25.1 setuptools wheel"
 
 # Main package
 if [[ "$SKINNY" == "true" ]]; then
@@ -93,7 +93,7 @@ packages+=" aiohttp"
 packages+=" virtualenv"
 
 # Single uv pip install call for all packages with constraints
-retry-with-backoff uv pip install -c requirements/constraints.txt --upgrade $packages
+uv pip install -c requirements/constraints.txt --upgrade $packages
 
 # Install mlflow-test-plugin without dependencies (separate call needed for --no-deps)
 uv pip install -c requirements/constraints.txt --no-deps tests/resources/mlflow-test-plugin
