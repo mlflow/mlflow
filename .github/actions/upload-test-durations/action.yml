@@ -4,23 +4,23 @@
 # It moves the updated duration file and uploads it as a CI artifact.
 #
 # Usage:
-#   - uses: ./.github/actions/upload-test-durations  
+#   - uses: ./.github/actions/upload-test-durations
 #     with:
 #       job_name: 'python'
 #
 # This expects /tmp/{job_name}_group_${{ matrix.group }}_durations.json to exist
 # (created by pytest-split during test execution with --store-durations).
 
-name: 'Upload Test Durations'
-description: 'Move and upload test duration artifacts for future CI runs'
+name: "Upload Test Durations"
+description: "Move and upload test duration artifacts for future CI runs"
 
 inputs:
   job_name:
-    description: 'Job name for duration files (e.g. python, pyfunc, models)'
+    description: "Job name for duration files (e.g. python, pyfunc, models)"
     required: true
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - name: Prepare duration artifact
       shell: bash

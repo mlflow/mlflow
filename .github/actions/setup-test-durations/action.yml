@@ -11,16 +11,16 @@
 # This creates /tmp/{job_name}_group_${{ matrix.group }}_durations.json for pytest-split to read.
 # Use this at the start of test execution, before running pytest with --durations-path.
 
-name: 'Setup Test Durations'
-description: 'Copy consolidated test duration file for pytest-split to read'
+name: "Setup Test Durations"
+description: "Copy consolidated test duration file for pytest-split to read"
 
 inputs:
   job_name:
-    description: 'Job name for duration files (e.g. python, pyfunc, models)'
+    description: "Job name for duration files (e.g. python, pyfunc, models)"
     required: true
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - name: Setup duration file for pytest-split
       shell: bash

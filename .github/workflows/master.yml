@@ -92,7 +92,7 @@ jobs:
       - uses: ./.github/actions/setup-test-durations
         with:
           job_name: "python"
-      - name: Run tests
+      - name: Setup SSH and run tests
         run: |
           source dev/setup-ssh.sh
           uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
