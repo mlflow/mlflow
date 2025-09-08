@@ -202,6 +202,34 @@ def test_foo():
         calls_bar()
 ```
 
+## Prefer `unittest.mock.patch` as a Context Manager
+
+`unittest.mock.patch` should be used as a **context manager** rather than as a decorator, unless the patch must stay active for the entire test (which is unlikely in most cases). Using a context manager avoids patches being active longer than needed and makes it clear which code depends on them.
+
+```python
+from unittest import mock
+
+
+# Bad
+@mock.patch("foo.bar")
+def test_bar(mock_bar):
+    result1 = foo.bar()  # bar is patched here
+    result2 = foo.baz()  # baz depends on real bar, but bar is still patched!
+    assert result1 == "ok"
+    assert result2 == "baz"
+    # bar stays patched even after we're done using it
+
+
+# Good
+def test_bar():
+    with mock.patch("foo.bar") as mock_bar:
+        result1 = foo.bar()  # bar is patched only in this block
+    result2 = foo.baz()  # baz now uses the real bar
+    assert result1 == "ok"
+    assert result2 == "baz"
+    # outside patch, everything back to normal
+```
+
 ## Use Pytest's Monkeypatch for Directory Changes
 
 Use `monkeypatch.chdir()` instead of manual `os.chdir()` with try/finally blocks. Pytest automatically restores the original directory after the test, preventing side effects.
