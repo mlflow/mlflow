@@ -2589,10 +2589,7 @@ e.g., struct<a:int, b:array<int>>.
         iterator: Iterator[Tuple[Union[pandas.Series, pandas.DataFrame], ...]],  # noqa: UP006,UP007
     ) -> Iterator[result_type_hint]:
         # importing here to prevent circular import
-        from mlflow.pyfunc.scoring_server.client import (
-            ScoringServerClient,
-            StdinScoringServerClient,
-        )
+        from mlflow.pyfunc.scoring_server.client import StdinScoringServerClient
 
         # Note: this is a pandas udf function in iteration style, which takes an iterator of
         # tuple of pandas.Series and outputs an iterator of pandas.Series.
