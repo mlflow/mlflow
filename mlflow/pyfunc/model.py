@@ -840,7 +840,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
         methods to help create output items that can be a part of a ResponsesAgentResponse or
         ResponsesAgentStreamEvent.
 
-        See https://www.mlflow.org/docs/latest/llms/responses-agent-intro/ for more details.
+        See https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro for more details.
         """
 
         _skip_type_hint_validation = True
@@ -901,8 +901,8 @@ if IS_PYDANTIC_V2_OR_NEWER:
             Given a ResponsesAgentRequest, returns a ResponsesAgentResponse.
 
             You can see example implementations at
-            https://www.mlflow.org/docs/latest/llms/responses-agent-intro#simple-chat-example and
-            https://www.mlflow.org/docs/latest/llms/responses-agent-intro#tool-calling-example.
+            https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#simple-chat-example and
+            https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#tool-calling-example.
             """
 
         def predict_stream(
@@ -912,11 +912,11 @@ if IS_PYDANTIC_V2_OR_NEWER:
             Given a ResponsesAgentRequest, returns a generator of ResponsesAgentStreamEvent objects.
 
             See more details at
-            https://www.mlflow.org/docs/latest/llms/responses-agent-intro#streaming-agent-output.
+            https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#streaming-agent-output.
 
             You can see example implementations at
-            https://www.mlflow.org/docs/latest/llms/responses-agent-intro#simple-chat-example and
-            https://www.mlflow.org/docs/latest/llms/responses-agent-intro#tool-calling-example.
+            https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#simple-chat-example and
+            https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#tool-calling-example.
             """
             raise NotImplementedError(
                 "Streaming implementation not provided. Please override the "
@@ -927,7 +927,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
             """Helper method to create a dictionary conforming to the text delta schema for
             streaming.
 
-            Read more at https://www.mlflow.org/docs/latest/llms/responses-agent-intro/#streaming-agent-output.
+            Read more at https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#streaming-agent-output.
             """
             return {
                 "type": "response.output_text.delta",
@@ -938,7 +938,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
         def create_text_output_item(self, text: str, id: str) -> dict[str, Any]:
             """Helper method to create a dictionary conforming to the text output item schema.
 
-            Read more at https://www.mlflow.org/docs/latest/llms/responses-agent-intro/#creating-agent-output.
+            Read more at https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#creating-agent-output.
 
             Args:
                 text (str): The text to be outputted.
@@ -961,7 +961,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
         ) -> dict[str, Any]:
             """Helper method to create a dictionary conforming to the function call item schema.
 
-            Read more at https://www.mlflow.org/docs/latest/llms/responses-agent-intro/#creating-agent-output.
+            Read more at https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#creating-agent-output.
 
             Args:
                 id (str): The id of the output item.
@@ -981,7 +981,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
             """Helper method to create a dictionary conforming to the function call output item
             schema.
 
-            Read more at https://www.mlflow.org/docs/latest/llms/responses-agent-intro/#creating-agent-output.
+            Read more at https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#creating-agent-output.
 
             Args:
                 call_id (str): The id of the function call.
