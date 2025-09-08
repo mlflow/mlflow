@@ -5,6 +5,7 @@ This module provides a registry system for managing and invoking JudgeTool insta
 """
 
 import json
+import logging
 from typing import Any
 
 from mlflow.entities.trace import Trace
@@ -12,6 +13,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.tools.base import JudgeTool
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.annotations import experimental
+
+_logger = logging.getLogger(__name__)
 
 
 @experimental(version="3.4.0")
@@ -60,8 +63,11 @@ class JudgeToolRegistry:
                 error_code="INVALID_PARAMETER_VALUE",
             )
 
+        _logger.debug(f"Invoking tool '{function_name}' with args: {arguments}")
         try:
-            return tool.invoke(trace, **arguments)
+            result = tool.invoke(trace, **arguments)
+            _logger.debug(f"Tool '{function_name}' returned: {result}")
+            return result
         except TypeError as e:
             raise MlflowException(
                 f"Invalid arguments for tool '{function_name}': {e}",
