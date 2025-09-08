@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
-from mlflow.genai.judges.judge_trace_utils import (
+from mlflow.genai.utils.trace_utils import (
     extract_request_from_trace,
     extract_response_from_trace,
 )

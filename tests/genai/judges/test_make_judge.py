@@ -134,7 +134,9 @@ def mock_trace():
 
 def test_make_judge_creates_instructions_judge():
     judge = make_judge(
-        name="test_judge", instructions="Check if {{ outputs }} is formal", model="openai:/gpt-4"
+        name="test_judge",
+        instructions="Check if {{ outputs }} is formal",
+        model="openai:/gpt-4",
     )
 
     assert isinstance(judge, InstructionsJudge)
@@ -321,7 +323,9 @@ def test_call_with_trace_supported(mock_trace, monkeypatch):
     monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "invoke_judge_model", mock_invoke)
 
     judge = make_judge(
-        name="test_judge", instructions="Analyze this {{ trace }}", model="openai:/gpt-4"
+        name="test_judge",
+        instructions="Analyze this {{ trace }}",
+        model="openai:/gpt-4",
     )
 
     result = judge(trace=mock_trace)
@@ -337,7 +341,9 @@ def test_call_trace_based_judge_ignores_inputs_outputs(mock_trace, mock_invoke_j
     captured_args = mock_invoke_judge_model.captured_args
 
     judge = make_judge(
-        name="test_judge", instructions="Analyze this {{ trace }}", model="openai:/gpt-4"
+        name="test_judge",
+        instructions="Analyze this {{ trace }}",
+        model="openai:/gpt-4",
     )
 
     # These should all work - trace-based judge ignores inputs/outputs
@@ -356,7 +362,9 @@ def test_call_trace_based_judge_ignores_inputs_outputs(mock_trace, mock_invoke_j
 
 def test_call_with_no_inputs_or_outputs():
     judge = make_judge(
-        name="test_judge", instructions="Check if {{ outputs }} is valid", model="openai:/gpt-4"
+        name="test_judge",
+        instructions="Check if {{ outputs }} is valid",
+        model="openai:/gpt-4",
     )
 
     with pytest.raises(
@@ -497,7 +505,9 @@ def test_call_with_reserved_variables(mock_invoke_judge_model):
 
 def test_instructions_property():
     judge = make_judge(
-        name="test_judge", instructions="Check if {{ outputs }} is formal", model="openai:/gpt-4"
+        name="test_judge",
+        instructions="Check if {{ outputs }} is formal",
+        model="openai:/gpt-4",
     )
 
     instructions = judge.instructions
@@ -506,7 +516,9 @@ def test_instructions_property():
 
 def test_kind_property():
     judge = make_judge(
-        name="test_judge", instructions="Check if {{ outputs }} is valid", model="openai:/gpt-4"
+        name="test_judge",
+        instructions="Check if {{ outputs }} is valid",
+        model="openai:/gpt-4",
     )
 
     assert judge.kind == ScorerKind.CLASS
@@ -516,8 +528,18 @@ def test_kind_property():
     ("inputs", "outputs", "expectations", "should_fail"),
     [
         ({"text": "hello", "result": "world"}, None, None, True),  # Missing outputs
-        ({"text": "hello"}, {"result": "world"}, None, False),  # Valid: both inputs and outputs
-        ({"text": "hello"}, {"result": "world"}, {"expected": "world"}, False),  # Valid: all
+        (
+            {"text": "hello"},
+            {"result": "world"},
+            None,
+            False,
+        ),  # Valid: both inputs and outputs
+        (
+            {"text": "hello"},
+            {"result": "world"},
+            {"expected": "world"},
+            False,
+        ),  # Valid: all
         (None, {"text": "hello", "result": "world"}, None, True),  # Missing inputs
     ],
 )
@@ -922,7 +944,10 @@ def test_instructions_judge_deserialization_validation():
         "aggregations": None,
         "mlflow_version": mlflow.__version__,
         "serialization_version": 1,
-        "instructions_judge_pydantic_data": {"instructions": 123, "model": "openai:/gpt-4"},
+        "instructions_judge_pydantic_data": {
+            "instructions": 123,
+            "model": "openai:/gpt-4",
+        },
         "builtin_scorer_class": None,
         "builtin_scorer_pydantic_data": None,
         "call_source": None,
@@ -1279,10 +1304,12 @@ def test_instructions_judge_with_chat_messages():
     captured_args.clear()
 
     with mock.patch(
-        "mlflow.genai.judges.instructions_judge.invoke_judge_model", side_effect=capture_invoke
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        side_effect=capture_invoke,
     ):
         result = judge(
-            inputs={"question": "What is MLflow?"}, outputs={"response": "MLflow is great"}
+            inputs={"question": "What is MLflow?"},
+            outputs={"response": "MLflow is great"},
         )
 
     assert result.value is True
@@ -1511,3 +1538,191 @@ def test_trace_with_trace_template_ignores_extraction(mock_invoke_judge_model):
 
     assert isinstance(prompt, str)
     assert "analyze a trace" in prompt.lower()
+
+
+def test_field_based_template_with_trace_and_explicit_inputs(mock_invoke_judge_model):
+    # NB: Tests that when both trace and explicit inputs are provided for a field-based template,
+    # the explicit inputs take precedence over trace extraction
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate if {{ inputs }} matches {{ outputs }}",
+        model="openai:/gpt-4",
+    )
+
+    trace_inputs = {"question": "What is in the trace?"}
+    trace_outputs = {"answer": "Trace answer"}
+    explicit_inputs = {"question": "What is explicitly provided?"}
+    explicit_outputs = {"answer": "Explicit answer"}
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs(trace_inputs)
+        span.set_outputs(trace_outputs)
+
+    trace = mlflow.get_trace(span.trace_id)
+
+    # Call with both trace and explicit values
+    judge(trace=trace, inputs=explicit_inputs, outputs=explicit_outputs)
+
+    assert len(mock_invoke_judge_model.calls) == 1
+    model_uri, prompt, assessment_name = mock_invoke_judge_model.calls[0]
+    messages = prompt
+
+    assert isinstance(messages, list)
+    assert len(messages) == 2
+
+    user_message = messages[1].content
+    # Verify explicit values were used, not trace values
+    assert "explicitly provided" in user_message
+    assert "Explicit answer" in user_message
+    assert "in the trace" not in user_message
+    assert "Trace answer" not in user_message
+
+
+def test_field_based_template_extracts_missing_fields_from_trace(
+    mock_invoke_judge_model,
+):
+    # NB: Tests that when trace is provided but some fields are missing,
+    # they are extracted from the trace
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate if {{ inputs }} matches {{ outputs }}",
+        model="openai:/gpt-4",
+    )
+
+    trace_inputs = {"question": "From trace"}
+    trace_outputs = {"answer": "Trace output"}
+    explicit_inputs = {"question": "Explicitly provided"}
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs(trace_inputs)
+        span.set_outputs(trace_outputs)
+
+    trace = mlflow.get_trace(span.trace_id)
+
+    # Call with trace and only explicit inputs (outputs should be extracted from trace)
+    judge(trace=trace, inputs=explicit_inputs)
+
+    assert len(mock_invoke_judge_model.calls) == 1
+    model_uri, prompt, assessment_name = mock_invoke_judge_model.calls[0]
+    messages = prompt
+
+    user_message = messages[1].content
+    # Verify explicit inputs were used
+    assert "Explicitly provided" in user_message
+    # Verify outputs were extracted from trace
+    assert "Trace output" in user_message
+
+
+def test_trace_based_template_with_additional_inputs(mock_invoke_judge_model):
+    # NB: Tests that trace-based templates properly interpolate field variables in instructions
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate the {{ trace }} considering the reference {{ inputs }}",
+        model="openai:/gpt-4",
+    )
+
+    additional_inputs = {"reference": "This is the expected behavior"}
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs({"question": "What is MLflow?"})
+        span.set_outputs({"answer": "MLflow is an ML platform"})
+
+    trace = mlflow.get_trace(span.trace_id)
+
+    # Call with both trace and additional inputs
+    judge(trace=trace, inputs=additional_inputs)
+
+    assert len(mock_invoke_judge_model.calls) == 1
+    model_uri, prompt, assessment_name = mock_invoke_judge_model.calls[0]
+
+    # Should be a string prompt for trace-based evaluation
+    assert isinstance(prompt, str)
+    assert "analyze a trace" in prompt.lower()
+
+    # The template variable {{ inputs }} should be replaced with the actual JSON
+    expected_inputs_json = json.dumps(additional_inputs, default=str, indent=2)
+    assert expected_inputs_json in prompt
+    assert "reference" in prompt
+    assert "This is the expected behavior" in prompt
+    # Should NOT have the literal {{ inputs }} anymore
+    assert "{{ inputs }}" not in prompt
+
+
+def test_mixed_template_validation_allows_trace_with_fields():
+    # NB: Tests that we can create a judge with both trace and field variables
+    # This used to raise an error but should now be allowed
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate {{ trace }} against {{ inputs }} and {{ outputs }}",
+        model="openai:/gpt-4",
+    )
+
+    assert judge.template_variables == {"trace", "inputs", "outputs"}
+
+
+def test_mixed_trace_and_fields_template_comprehensive(mock_invoke_judge_model):
+    # NB: Comprehensive test for mixed template with all field types
+    judge = make_judge(
+        name="test_judge",
+        instructions=(
+            "Evaluate the {{ trace }} considering the reference {{ inputs }}, "
+            "expected {{ outputs }}, and ground truth {{ expectations }}"
+        ),
+        model="openai:/gpt-4",
+    )
+
+    assert judge.template_variables == {"trace", "inputs", "outputs", "expectations"}
+
+    # Create a trace
+    trace_inputs = {"question": "What is MLflow?"}
+    trace_outputs = {"answer": "MLflow is an open source platform"}
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs(trace_inputs)
+        span.set_outputs(trace_outputs)
+
+    trace = mlflow.get_trace(span.trace_id)
+
+    # Provide additional context
+    additional_inputs = {"reference": "This is the expected input format"}
+    additional_outputs = {"expected_format": "JSON with answer field"}
+    additional_expectations = {"criteria": "Answer must mention ML lifecycle"}
+
+    # Call with trace and all additional fields
+    judge(
+        trace=trace,
+        inputs=additional_inputs,
+        outputs=additional_outputs,
+        expectations=additional_expectations,
+    )
+
+    assert len(mock_invoke_judge_model.calls) == 1
+    model_uri, prompt, assessment_name = mock_invoke_judge_model.calls[0]
+
+    # Should be a string prompt for trace-based evaluation
+    assert isinstance(prompt, str)
+    assert "analyze a trace" in prompt.lower()
+
+    # All template variables should be interpolated with actual values
+    expected_inputs_json = json.dumps(additional_inputs, default=str, indent=2)
+    expected_outputs_json = json.dumps(additional_outputs, default=str, indent=2)
+    expected_expectations_json = json.dumps(additional_expectations, default=str, indent=2)
+
+    assert expected_inputs_json in prompt
+    assert expected_outputs_json in prompt
+    assert expected_expectations_json in prompt
+
+    # Verify specific values are present
+    assert "reference" in prompt
+    assert "This is the expected input format" in prompt
+    assert "expected_format" in prompt
+    assert "JSON with answer field" in prompt
+    assert "criteria" in prompt
+    assert "Answer must mention ML lifecycle" in prompt
+
+    # Should NOT have the literal template variables anymore
+    assert "{{ inputs }}" not in prompt
+    assert "{{ outputs }}" not in prompt
+    assert "{{ expectations }}" not in prompt
+    # But {{ trace }} should remain since it's handled by the agent
+    assert "{{ trace }}" in prompt or "{{trace}}" in prompt

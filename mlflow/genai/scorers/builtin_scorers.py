@@ -19,6 +19,8 @@ from mlflow.genai.scorers.base import (
     SerializedScorer,
 )
 from mlflow.genai.utils.trace_utils import (
+    extract_request_from_trace,
+    extract_response_from_trace,
     extract_retrieval_context_from_trace,
     parse_inputs_to_str,
     parse_outputs_to_str,
@@ -207,7 +209,7 @@ class RetrievalRelevance(BuiltInScorer):
             for the relevance of its chunks and 1 assessment for the average relevance of all
             chunks.
         """
-        request = parse_inputs_to_str(trace.data.spans[0].inputs)
+        request = extract_request_from_trace(trace)
         span_id_to_context = extract_retrieval_context_from_trace(trace)
 
         feedbacks = []
@@ -336,7 +338,7 @@ class RetrievalSufficiency(BuiltInScorer):
                 `expected_response` key is required. Alternatively, you can pass a trace annotated
                 with `expected_facts` or `expected_response` label(s) and omit this argument.
         """
-        request = parse_inputs_to_str(trace.data.spans[0].inputs)
+        request = extract_request_from_trace(trace)
         span_id_to_context = extract_retrieval_context_from_trace(trace)
 
         expectations = expectations or {}
@@ -440,8 +442,8 @@ class RetrievalGroundedness(BuiltInScorer):
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
             indicating the groundedness of the response.
         """
-        request = parse_inputs_to_str(trace.data.spans[0].inputs)
-        response = parse_outputs_to_str(trace.data.spans[0].outputs)
+        request = extract_request_from_trace(trace)
+        response = extract_response_from_trace(trace)
         span_id_to_context = extract_retrieval_context_from_trace(trace)
         feedbacks = []
         for span_id, context in span_id_to_context.items():

@@ -14,14 +14,22 @@ from mlflow.genai.judges.instructions_judge.constants import (
     INSTRUCTIONS_JUDGE_SYSTEM_PROMPT,
     INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE,
 )
-from mlflow.genai.judges.instructions_judge.utils import extract_evaluation_fields_from_trace
 from mlflow.genai.judges.utils import (
     add_output_format_instructions,
     format_prompt,
     get_default_model,
     invoke_judge_model,
 )
-from mlflow.genai.scorers.base import _SERIALIZATION_VERSION, ScorerKind, SerializedScorer
+from mlflow.genai.scorers.base import (
+    _SERIALIZATION_VERSION,
+    ScorerKind,
+    SerializedScorer,
+)
+from mlflow.genai.utils.trace_utils import (
+    extract_expectations_from_trace,
+    extract_inputs_from_trace,
+    extract_outputs_from_trace,
+)
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
 
@@ -71,7 +79,8 @@ class InstructionsJudge(Judge):
             )
         if not instructions or not isinstance(instructions, str):
             raise MlflowException(
-                "instructions must be a non-empty string", error_code=INVALID_PARAMETER_VALUE
+                "instructions must be a non-empty string",
+                error_code=INVALID_PARAMETER_VALUE,
             )
 
         self._instructions = instructions
@@ -197,18 +206,17 @@ class InstructionsJudge(Judge):
 
         # Extract fields from trace if needed (when not using {{ trace }} template)
         if trace is not None and self._TEMPLATE_VARIABLE_TRACE not in self.template_variables:
-            extracted = extract_evaluation_fields_from_trace(trace)
-
             # Use extracted values if not already provided
             if inputs is None and self._TEMPLATE_VARIABLE_INPUTS in self.template_variables:
-                inputs = extracted.inputs
+                inputs = extract_inputs_from_trace(trace)
             if outputs is None and self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables:
-                outputs = extracted.outputs
+                outputs = extract_outputs_from_trace(trace)
             if (
                 expectations is None
                 and self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables
             ):
-                expectations = extracted.expectations
+                # Extract only human-set expectations as ground truth
+                expectations = extract_expectations_from_trace(trace, human_only=True)
 
         # Check if the input arguments match the template variables
         missing_params = []
@@ -293,9 +301,36 @@ class InstructionsJudge(Judge):
                 [f"- {field.name}: {field.description}" for field in output_fields]
             )
 
+            # Interpolate non-trace template variables in the instructions
+            interpolated_instructions = self._instructions
+
+            # Replace template variables with actual values
+            if inputs is not None and self._TEMPLATE_VARIABLE_INPUTS in self.template_variables:
+                inputs_json = json.dumps(inputs, default=str, indent=2)
+                interpolated_instructions = interpolated_instructions.replace(
+                    "{{ inputs }}", inputs_json
+                ).replace("{{inputs}}", inputs_json)
+
+            if outputs is not None and self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables:
+                outputs_json = json.dumps(outputs, default=str, indent=2)
+                interpolated_instructions = interpolated_instructions.replace(
+                    "{{ outputs }}", outputs_json
+                ).replace("{{outputs}}", outputs_json)
+
+            if (
+                expectations is not None
+                and self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables
+            ):
+                expectations_json = json.dumps(expectations, default=str, indent=2)
+                interpolated_instructions = interpolated_instructions.replace(
+                    "{{ expectations }}", expectations_json
+                ).replace("{{expectations}}", expectations_json)
+
             base_prompt = INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE.format(
-                evaluation_rating_fields=evaluation_rating_fields, instructions=self._instructions
+                evaluation_rating_fields=evaluation_rating_fields,
+                instructions=interpolated_instructions,
             )
+
             # Add structured output format instructions
             augmented_prompt = add_output_format_instructions(
                 base_prompt, output_fields=output_fields
@@ -345,25 +380,8 @@ class InstructionsJudge(Judge):
             )
 
         has_trace = self._TEMPLATE_VARIABLE_TRACE in template_vars
-        has_inputs = self._TEMPLATE_VARIABLE_INPUTS in template_vars
-        has_outputs = self._TEMPLATE_VARIABLE_OUTPUTS in template_vars
-        has_expectations = self._TEMPLATE_VARIABLE_EXPECTATIONS in template_vars
 
         if has_trace:
-            # TODO: Allow expectations variable with trace in followup implementation
-            if has_expectations:
-                raise MlflowException(
-                    "When submitting a 'trace' variable, expectations are not yet supported. "
-                    "This will be implemented in a future release.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-            if has_inputs or has_outputs:
-                raise MlflowException(
-                    "Instructions template cannot contain both 'trace' and 'inputs'/'outputs' "
-                    "variables. Use either 'trace' for trace-based evaluation or "
-                    "'inputs'/'outputs' for field-based evaluation.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
             if self._model == _DATABRICKS_DEFAULT_JUDGE_MODEL:
                 raise MlflowException(
                     "Model cannot be 'databricks' when using 'trace' variable in "

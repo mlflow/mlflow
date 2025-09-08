@@ -6,6 +6,7 @@ from opentelemetry.trace import NoOpTracer
 from pydantic import BaseModel
 
 import mlflow
+from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.entities.span import Span, SpanType
 from mlflow.entities.trace import Trace
 from mlflow.genai.evaluation.utils import is_none_or_nan
@@ -25,6 +26,120 @@ _MESSAGE_KEY = "message"
 _MESSAGES_KEY = "messages"
 _CHOICES_KEY = "choices"
 _CONTENT_KEY = "content"
+
+
+def extract_request_from_trace(trace: Trace) -> str | None:
+    """
+    Extract request text from an MLflow trace object.
+
+    Args:
+        trace: MLflow trace object
+
+    Returns:
+        Extracted request text as string, or None if no root span
+    """
+    root_span = trace.data._get_root_span()
+    if root_span is None:
+        return None
+    return parse_inputs_to_str(root_span.inputs)
+
+
+def extract_response_from_trace(trace: Trace) -> str | None:
+    """
+    Extract response text from an MLflow trace object.
+
+    Args:
+        trace: MLflow trace object
+
+    Returns:
+        Extracted response text as string, or None if no root span
+    """
+    root_span = trace.data._get_root_span()
+    if root_span is None:
+        return None
+    return parse_outputs_to_str(root_span.outputs)
+
+
+def extract_inputs_from_trace(trace: Trace) -> dict[str, Any] | None:
+    """
+    Extract inputs as a dictionary from the root span of an MLflow trace.
+
+    Args:
+        trace: MLflow trace object
+
+    Returns:
+        Inputs dictionary, or None if no root span
+    """
+    root_span = trace.data._get_root_span()
+    if root_span and root_span.inputs is not None:
+        # Convert to dict if it's not already
+        if isinstance(root_span.inputs, dict):
+            return root_span.inputs
+        else:
+            return {"value": root_span.inputs}
+    return None
+
+
+def extract_outputs_from_trace(trace: Trace) -> dict[str, Any] | None:
+    """
+    Extract outputs as a dictionary from the root span of an MLflow trace.
+
+    Args:
+        trace: MLflow trace object
+
+    Returns:
+        Outputs dictionary, or None if no root span
+    """
+    root_span = trace.data._get_root_span()
+    if root_span and root_span.outputs is not None:
+        # Convert to dict if it's not already
+        if isinstance(root_span.outputs, dict):
+            return root_span.outputs
+        else:
+            return {"value": root_span.outputs}
+    return None
+
+
+def extract_expectations_from_trace(
+    trace: Trace, human_only: bool = False
+) -> dict[str, Any] | None:
+    """
+    Extract expectations from trace assessments.
+
+    Args:
+        trace: MLflow trace object
+        human_only: If True, only extract human-set expectations (ground truth).
+                    If False, extract all expectations.
+
+    Returns:
+        Dictionary of expectations, or None if no expectations found
+    """
+    expectation_assessments = trace.search_assessments(type="expectation")
+
+    if human_only:
+        # Filter for human-set expectations only (ground truth)
+        expectation_assessments = [
+            exp
+            for exp in expectation_assessments
+            if exp.source and exp.source.source_type == AssessmentSourceType.HUMAN
+        ]
+
+    if not expectation_assessments:
+        return None
+
+    # If there's only one expectation, use its value directly
+    if len(expectation_assessments) == 1:
+        exp_value = expectation_assessments[0].expectation.value
+        # Convert to dict if it's not already
+        if exp_value is not None and not isinstance(exp_value, dict):
+            return {"value": exp_value}
+        return exp_value
+    else:
+        # If there are multiple expectations, create a dict with expectation names as keys
+        expectations = {}
+        for exp in expectation_assessments:
+            expectations[exp.name] = exp.expectation.value
+        return expectations
 
 
 def convert_predict_fn(predict_fn: Callable[..., Any], sample_input: Any) -> Callable[..., Any]:
