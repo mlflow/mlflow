@@ -901,7 +901,8 @@ if IS_PYDANTIC_V2_OR_NEWER:
             Given a ResponsesAgentRequest, returns a ResponsesAgentResponse.
 
             You can see example implementations at
-            https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#simple-chat-example and
+            https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#simple-chat-example
+            and
             https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#tool-calling-example.
             """
 
@@ -915,7 +916,8 @@ if IS_PYDANTIC_V2_OR_NEWER:
             https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#streaming-agent-output.
 
             You can see example implementations at
-            https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#simple-chat-example and
+            https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#simple-chat-example
+            and
             https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#tool-calling-example.
             """
             raise NotImplementedError(

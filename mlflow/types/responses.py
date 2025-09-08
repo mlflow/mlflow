@@ -42,7 +42,8 @@ class ResponsesAgentRequest(BaseRequestPayload):
 
     Args:
         input: List of simple `role` and `content` messages or output items. See examples at
-            https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#testing-out-your-agent and
+            https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#testing-out-your-agent
+            and
             https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#creating-agent-output.
         custom_inputs (Dict[str, Any]): An optional param to provide arbitrary additional context
             to the model. The dictionary values must be JSON-serializable.
