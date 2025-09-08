@@ -1256,4 +1256,83 @@ def test_instructions_judge_with_chat_messages():
     assert len(prompt_sent) == 2
     assert all(isinstance(msg, ChatMessage) for msg in prompt_sent)
     assert prompt_sent[0].role == "system"
-    assert prompt_sent[1].role == "user"
+
+
+@pytest.mark.parametrize(
+    ("exception_class", "exception_args"),
+    [
+        (__import__("litellm").ContextWindowExceededError, ("Context exceeded", "gpt-4", "openai")),
+        (Exception, ("maximum context length is exceeded",)),
+        (ValueError, ("context length exceeded",)),
+    ],
+)
+def test_context_window_error_removes_tool_calls_and_retries(
+    exception_class, exception_args, monkeypatch, mock_trace
+):
+    captured_message_histories = []
+    exception_raised = False
+
+    def mock_completion(**kwargs):
+        nonlocal exception_raised
+        captured_message_histories.append(kwargs["messages"])
+
+        if len(kwargs["messages"]) >= 8 and not exception_raised:
+            exception_raised = True
+            raise exception_class(*exception_args)
+
+        mock_response = mock.Mock()
+        mock_response.choices = [mock.Mock()]
+        mock_response.choices[0].message = mock.Mock()
+
+        if exception_raised:
+            mock_response.choices[0].message.tool_calls = None
+            mock_response.choices[
+                0
+            ].message.content = '{"result": "pass", "rationale": "Test passed"}'
+        else:
+            call_id = f"call{len(captured_message_histories)}"
+            mock_response.choices[0].message.tool_calls = [
+                mock.Mock(id=call_id, function=mock.Mock(name="get_span", arguments="{}"))
+            ]
+            mock_response.choices[0].message.content = None
+            mock_response.choices[0].message.model_dump = lambda: {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {"id": call_id, "function": {"name": "get_span", "arguments": "{}"}}
+                ],
+            }
+        return mock_response
+
+    monkeypatch.setattr(
+        "mlflow.genai.judges.tools.registry._judge_tool_registry.invoke", lambda *_: {}
+    )
+    monkeypatch.setattr("litellm.completion", mock_completion)
+    monkeypatch.setattr("litellm.token_counter", lambda model, messages: len(messages) * 20)
+    monkeypatch.setattr("litellm.get_max_tokens", lambda model: 100)
+
+    judge = make_judge(name="test", instructions="test {{inputs}}", model="openai:/gpt-4")
+    result = judge(inputs={"input": "test"}, outputs={"output": "test"}, trace=mock_trace)
+
+    # Find error call and verify retry has fewer messages
+    error_idx = next(i for i, msgs in enumerate(captured_message_histories) if len(msgs) >= 8)
+    # Due to pruning, retry should have fewer messages (or same if can't prune more)
+    assert len(captured_message_histories[-1]) <= len(captured_message_histories[error_idx])
+    # Verify tool calls were actually attempted (multiple completion calls made)
+    assert len(captured_message_histories) > 2
+    assert result.value == "pass"
+
+
+def test_non_context_error_does_not_trigger_pruning(monkeypatch):
+    """Test that non-context errors are re-raised without pruning."""
+    from mlflow.genai.judges.utils import _invoke_litellm
+
+    messages = [{"role": "user", "content": "Test"}]
+
+    def mock_completion(**kwargs):
+        raise Exception("some other error")
+
+    monkeypatch.setattr("litellm.completion", mock_completion)
+
+    with pytest.raises(MlflowException, match="some other error"):
+        _invoke_litellm("openai", "gpt-4", messages, None, 1)

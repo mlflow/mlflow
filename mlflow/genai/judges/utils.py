@@ -336,6 +336,7 @@ def _invoke_litellm(
                         max_tokens=litellm.get_max_tokens(litellm_model_uri) or 100000,
                     )
                     continue
+                raise
 
             message = response.choices[0].message
             if not message.tool_calls:
@@ -485,7 +486,10 @@ def _prune_messages_over_context_length(
         assistant_msg = None
         assistant_idx = None
         for i, msg in enumerate(pruned_messages):
-            if msg.role == "assistant" and msg.tool_calls:
+            # Handle both dict and Message objects
+            role = msg.get("role") if isinstance(msg, dict) else msg.role
+            tool_calls = msg.get("tool_calls") if isinstance(msg, dict) else msg.tool_calls
+            if role == "assistant" and tool_calls:
                 assistant_msg = msg
                 assistant_idx = i
                 break
@@ -493,11 +497,18 @@ def _prune_messages_over_context_length(
             break  # No more tool calls to remove
         pruned_messages.pop(assistant_idx)
         # Remove corresponding tool response messages
-        tool_call_ids = {tc.id for tc in assistant_msg.tool_calls}
+        if isinstance(assistant_msg, dict):
+            tool_call_ids = {tc["id"] for tc in assistant_msg.get("tool_calls", [])}
+        else:
+            tool_call_ids = {tc.id for tc in assistant_msg.tool_calls}
         pruned_messages = [
             msg
             for msg in pruned_messages
-            if not (msg.role == "tool" and msg.tool_call_id in tool_call_ids)
+            if not (
+                (msg.get("role") if isinstance(msg, dict) else msg.role) == "tool"
+                and (msg.get("tool_call_id") if isinstance(msg, dict) else msg.tool_call_id)
+                in tool_call_ids
+            )
         ]
 
     final_tokens = litellm.token_counter(model=model, messages=pruned_messages)
