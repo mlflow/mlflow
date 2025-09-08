@@ -736,6 +736,7 @@ mlflow.genai.labeling.labeling.Agent
 mlflow.genai.labeling.labeling.LabelingSession
 mlflow.genai.labeling.labeling.ReviewApp
 mlflow.genai.load_prompt
+mlflow.genai.make_judge
 mlflow.genai.optimize.BasePromptOptimizer
 mlflow.genai.optimize.BasePromptOptimizer.optimize
 mlflow.genai.optimize.DSPyPromptOptimizer
