@@ -1,4 +1,5 @@
 from functools import partial
+from urllib.parse import parse_qs, urlparse
 
 import mlflow
 from mlflow.environment_variables import MLFLOW_SKIP_SIGNATURE_CHECK_FOR_UC_REGISTRY_MIGRATION
@@ -31,30 +32,25 @@ def _extract_workspace_id_from_run_link(run_link: str) -> str | None:
     if not run_link:
         return None
 
-    # Look for the o=WORKSPACE_ID pattern in the URL (can be ?o= or &o=)
-    if ("?o=" in run_link or "&o=" in run_link) and "#" in run_link:
-        try:
-            # Split on ?o= or &o= and take the part after it
-            if "?o=" in run_link:
-                workspace_part = run_link.split("?o=")[1]
-            else:
-                workspace_part = run_link.split("&o=")[1]
+    try:
+        # Parse the URL to extract query parameters
+        parsed_url = urlparse(run_link)
+        query_params = parse_qs(parsed_url.query)
 
-            # Split on # to get just the query parameters part
-            query_part = workspace_part.split("#")[0]
-
-            # Extract just the workspace ID value (before any & characters)
-            workspace_id = query_part.split("&")[0]
-
-            # Validate that the workspace ID is a valid positive integer
-            workspace_id_int = int(workspace_id)
-            if workspace_id_int < 0:
-                return None
-            return workspace_id
-        except (IndexError, ValueError):
+        # Check if 'o' parameter exists in query string
+        if "o" not in query_params:
             return None
 
-    return None
+        # Get the first value for the 'o' parameter
+        workspace_id = query_params["o"][0]
+
+        # Validate that the workspace ID is a valid positive integer
+        workspace_id_int = int(workspace_id)
+        if workspace_id_int < 0:
+            return None
+        return workspace_id
+    except (ValueError, IndexError, KeyError):
+        return None
 
 
 def _raise_unsupported_method(method, message=None):
