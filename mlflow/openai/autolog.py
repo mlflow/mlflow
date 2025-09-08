@@ -346,9 +346,11 @@ def _process_last_chunk(
     try:
         if _is_responses_final_event(chunk):
             output = chunk.response
+        elif not output:
+            output = None
         elif is_responses_api:
             output = _reconstruct_response_from_stream(output)
-        else:
+        elif output[0].object in ["text_completion", "chat.completion.chunk"]:
             # Reconstruct a completion object from streaming chunks
             output = _reconstruct_completion_from_stream(output)
             # Set usage information on span if available
@@ -374,9 +376,6 @@ def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
     This preserves the structure and metadata that would be present in a non-streaming
     completion response, including ID, model, timestamps, usage, etc.
     """
-    if not chunks:
-        return None
-
     if chunks[0].object == "text_completion":
         # Handling for the deprecated Completions API. Keep the legacy behavior for now.
         def _extract_content(chunk: Any) -> str:
@@ -385,9 +384,6 @@ def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
             return chunk.choices[0].text or ""
 
         return "".join(map(_extract_content, chunks))
-
-    if chunks[0].object != "chat.completion.chunk":
-        return chunks  # Ignore non-chat chunks
 
     from openai.types.chat import ChatCompletion
     from openai.types.chat.chat_completion import Choice
