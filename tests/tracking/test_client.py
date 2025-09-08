@@ -52,7 +52,7 @@ from mlflow.store.model_registry.sqlalchemy_store import (
 )
 from mlflow.store.tracking import SEARCH_EVALUATION_DATASETS_MAX_RESULTS, SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as SqlAlchemyTrackingStore
-from mlflow.tracing.constant import TraceMetadataKey, TraceTagKey
+from mlflow.tracing.constant import TRACKING_STORE, TraceMetadataKey, TraceTagKey
 from mlflow.tracing.provider import _get_tracer, trace_disabled
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.tracking import set_registry_uri
@@ -3072,14 +3072,14 @@ def test_log_spans_and_get_trace_with_sqlalchemy_store(tmp_path: Path) -> None:
 
         # Verify the trace has the spans location tag set
         trace_info = store.get_trace_info(trace_id)
-        assert trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == "tracking_store"
+        assert trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == TRACKING_STORE
 
         # Now test that mlflow.get_trace() works and loads spans from the database
         trace = mlflow.get_trace(trace_id)
 
         # Verify trace structure
         assert trace.info.trace_id == trace_id
-        assert trace.info.tags.get(TraceTagKey.SPANS_LOCATION) == "tracking_store"
+        assert trace.info.tags.get(TraceTagKey.SPANS_LOCATION) == TRACKING_STORE
 
         # Verify spans were loaded from database
         assert len(trace.data.spans) == 2
