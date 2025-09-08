@@ -277,11 +277,11 @@ def _invoke_litellm(
         judge_tools = list_judge_tools()
         tools = [tool.get_definition().to_dict() for tool in judge_tools]
 
-    def _make_completion_request(include_response_format: bool):
+    def _make_completion_request(messages: list[litellm.Message], include_response_format: bool):
         """Helper to make litellm completion request with optional response_format."""
         kwargs = {
             "model": litellm_model_uri,
-            "messages": messages_dict,
+            "messages": messages,
             "tools": tools if tools else None,
             "tool_choice": "auto" if tools else None,
             "retry_policy": _get_litellm_retry_policy(num_retries),
@@ -301,8 +301,13 @@ def _invoke_litellm(
     include_response_format = _MODEL_RESPONSE_FORMAT_CAPABILITIES.get(litellm_model_uri, True)
     while True:
         try:
+            messages_dict = _prune_messages_over_context_length(
+                messages=messages_dict, model_name=litellm_model_uri, max_tokens=100000
+            )
             try:
-                response = _make_completion_request(include_response_format=include_response_format)
+                response = _make_completion_request(
+                    messages_dict, include_response_format=include_response_format
+                )
             except (litellm.BadRequestError, litellm.UnsupportedParamsError) as e:
                 # Check whether the request attempted to use structured outputs, rather than
                 # checking whether the model supports structured outputs in the capabilities cache,
@@ -320,7 +325,9 @@ def _invoke_litellm(
                     # Cache the capability for future calls
                     _MODEL_RESPONSE_FORMAT_CAPABILITIES[litellm_model_uri] = False
                     include_response_format = False
-                    response = _make_completion_request(include_response_format=False)
+                    response = _make_completion_request(
+                        messages_dict, include_response_format=False
+                    )
                 else:
                     # Already tried without response_format and still got error
                     raise
@@ -443,6 +450,56 @@ def _get_judge_response_format() -> dict[str, Any]:
             },
         },
     }
+
+
+def _prune_messages_over_context_length(
+    messages: list["litellm.Message"],  # noqa: F821
+    model_name: str,
+    max_tokens: int = 100000,
+) -> list["litellm.Message"]:  # noqa: F821
+    """
+    Prune tool call messages from history to stay under token limit.
+
+    Removes oldest tool call + tool response message pairs until under limit.
+
+    Args:
+        messages: List of LiteLLM message objects
+        model_name: Model name for token counting
+        max_tokens: Maximum token limit (default: 100,000)
+
+    Returns:
+        Pruned list of LiteLLM message objects under the token limit
+    """
+    import litellm
+
+    initial_tokens = litellm.token_counter(model=model_name, messages=messages)
+    if initial_tokens <= max_tokens:
+        return messages
+    pruned_messages = messages[:]
+    # Remove tool call pairs until we're under limit
+    while litellm.token_counter(model=model_name, messages=pruned_messages) > max_tokens:
+        # Find first assistant message with tool calls
+        assistant_msg = None
+        assistant_idx = None
+        for i, msg in enumerate(pruned_messages):
+            if msg.role == "assistant" and msg.tool_calls:
+                assistant_msg = msg
+                assistant_idx = i
+                break
+        if assistant_msg is None:
+            break  # No more tool calls to remove
+        pruned_messages.pop(assistant_idx)
+        # Remove corresponding tool response messages
+        tool_call_ids = {tc.id for tc in assistant_msg.tool_calls}
+        pruned_messages = [
+            msg
+            for msg in pruned_messages
+            if not (msg.role == "tool" and msg.tool_call_id in tool_call_ids)
+        ]
+
+    final_tokens = litellm.token_counter(model=model_name, messages=pruned_messages)
+    _logger.info(f"Pruned message history from {initial_tokens} to {final_tokens} tokens")
+    return pruned_messages
 
 
 def _get_litellm_retry_policy(num_retries: int):
