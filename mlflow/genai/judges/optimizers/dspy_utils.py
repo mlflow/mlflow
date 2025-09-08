@@ -82,8 +82,9 @@ def trace_to_dspy_example(trace: Trace, judge_name: str) -> Optional["dspy.Examp
                 reverse=True,
             )
             for assessment in sorted_assessments:
+                sanitized_assessment_name = assessment.name.lower().strip()
                 if (
-                    assessment.name == sanitized_judge_name
+                    sanitized_assessment_name == sanitized_judge_name
                     and assessment.source.source_type == AssessmentSourceType.HUMAN
                 ):
                     expected_result = assessment
