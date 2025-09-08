@@ -342,11 +342,22 @@ class PromptVersion(_ModelRegistryEntity):
             kwargs: Keyword arguments to replace the variables in the template.
         """
         input_keys = set(kwargs.keys())
-        template_str = self.template if self.is_text_prompt else json.dumps(self.template)
-        for key, value in kwargs.items():
-            template_str = re.sub(r"\{\{\s*" + key + r"\s*\}\}", str(value), template_str)
-        template = template_str if self.is_text_prompt else json.loads(template_str)
 
+        def escape_backslashes(prompt: str) -> str:
+            for key, value in kwargs.items():
+                value = str(value).replace("\\", "\\\\")
+                prompt = re.sub(r"\{\{\s*" + re.escape(key) + r"\s*\}\}", value, prompt)
+            return prompt
+
+        if self.is_text_prompt:
+            template = escape_backslashes(self.template)
+        else:
+            # For chat prompts, we need to handle JSON properly
+            # Instead of working with JSON strings, work with the Python objects directly
+            template = [
+                {"role": message["role"], "content": escape_backslashes(message.get("content"))}
+                for message in self.template
+            ]
         if missing_keys := self.variables - input_keys:
             if not allow_partial:
                 raise MlflowException.invalid_parameter_value(
