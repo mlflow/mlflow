@@ -13,6 +13,7 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import Judge
 from mlflow.genai.judges.utils import (
+    _MODEL_RESPONSE_FORMAT_CAPABILITIES,
     CategoricalRating,
     add_output_format_instructions,
     invoke_judge_model,
@@ -106,6 +107,7 @@ def test_invoke_judge_model_successful_with_litellm(num_retries, mock_response):
         retry_policy=expected_retry_policy,
         retry_strategy="exponential_backoff_retry",
         max_retries=0,
+        drop_params=True,
     )
 
     assert feedback.name == "quality_check"
@@ -328,15 +330,25 @@ def test_add_output_format_instructions():
     assert formatted.index(complex_prompt) < formatted.index('"rationale"')
 
 
-def test_invoke_judge_model_retries_without_response_format_on_bad_request(mock_response):
-    """Test that when BadRequestError occurs, we retry without response_format."""
-    bad_request_error = litellm.BadRequestError(
+@pytest.mark.parametrize(
+    ("error_type", "error_class"),
+    [
+        ("BadRequestError", litellm.BadRequestError),
+        ("UnsupportedParamsError", litellm.UnsupportedParamsError),
+    ],
+)
+def test_invoke_judge_model_retries_without_response_format_on_bad_request(
+    mock_response, error_type, error_class
+):
+    """
+    Test that when BadRequestError or UnsupportedParamsError occurs, we retry
+    without response_format.
+    """
+    error = error_class(
         message="response_format not supported", model="openai/gpt-4", llm_provider="openai"
     )
 
-    with mock.patch(
-        "litellm.completion", side_effect=[bad_request_error, mock_response]
-    ) as mock_litellm:
+    with mock.patch("litellm.completion", side_effect=[error, mock_response]) as mock_litellm:
         feedback = invoke_judge_model(
             model_uri="openai:/gpt-4",
             prompt="Test prompt",
@@ -470,3 +482,93 @@ def test_invoke_judge_model_caches_capabilities_globally():
         assert "response_format" not in call_kwargs
 
         assert feedback2.name == "test2"
+
+
+def test_unsupported_response_format_handling_supports_multiple_threads():
+    """
+    When an LLM is invoked with structured outputs and returns a BadRequestsError,
+    we cache the lack of support for structured outputs ("response_format") in a
+    "model capability cache" to avoid retrying with structured outputs again.
+
+    This test simulates a race condition where another thread modifies the
+    model capability cache between the initial check and the exception handler,
+    ensuring that we still retry correctly without response_format.
+    """
+    model_key = "openai/gpt-4-race-bug"
+    _MODEL_RESPONSE_FORMAT_CAPABILITIES.clear()
+
+    bad_request_error = litellm.BadRequestError(
+        message="response_format not supported", model=model_key, llm_provider="openai"
+    )
+
+    call_count = 0
+    capabilities_cache_call_count = 0
+
+    def mock_completion(**kwargs):
+        nonlocal call_count
+        call_count += 1
+        if "response_format" in kwargs:
+            raise bad_request_error
+        else:
+            return ModelResponse(
+                choices=[{"message": {"content": '{"result": "yes", "rationale": "Success"}'}}]
+            )
+
+    class MockCapabilitiesCache(dict):
+        """Mock cache that simulates the race condition."""
+
+        def get(self, key, default=None):
+            nonlocal capabilities_cache_call_count
+            capabilities_cache_call_count += 1
+
+            if capabilities_cache_call_count == 1:
+                return True
+            elif capabilities_cache_call_count == 2:
+                return False
+            else:
+                return False
+
+    with (
+        mock.patch("litellm.completion", side_effect=mock_completion),
+        mock.patch(
+            "mlflow.genai.judges.utils._MODEL_RESPONSE_FORMAT_CAPABILITIES", MockCapabilitiesCache()
+        ),
+    ):
+        result = invoke_judge_model(
+            model_uri=f"openai:/{model_key}",
+            prompt="Test prompt",
+            assessment_name="race_bug_test",
+        )
+
+        assert call_count == 2, "Should make 2 calls: initial (fails) + retry (succeeds)"
+        assert capabilities_cache_call_count == 1
+        assert result.value == "yes"
+
+
+def test_litellm_nonfatal_error_messages_suppressed():
+    """Test that LiteLLM nonfatal error messages are suppressed during judge execution."""
+    suppression_state_during_call = {}
+
+    def mock_completion(**kwargs):
+        # Capture the state of litellm flags during the call
+        suppression_state_during_call["set_verbose"] = litellm.set_verbose
+        suppression_state_during_call["suppress_debug_info"] = litellm.suppress_debug_info
+
+        return ModelResponse(
+            choices=[{"message": {"content": '{"result": "pass", "rationale": "Test completed"}'}}]
+        )
+
+    with mock.patch("litellm.completion", side_effect=mock_completion):
+        # Call invoke_judge_model - the decorator should suppress litellm messages
+        result = invoke_judge_model(
+            model_uri="openai:/gpt-4",
+            prompt="Test prompt for suppression",
+            assessment_name="suppression_test",
+        )
+
+        # Verify suppression was active during the litellm.completion call
+        assert suppression_state_during_call["set_verbose"] is False
+        assert suppression_state_during_call["suppress_debug_info"] is True
+
+        # Verify the call succeeded
+        assert result.value == "pass"

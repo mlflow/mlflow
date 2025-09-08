@@ -270,7 +270,7 @@ class Scorer(BaseModel):
                     name=serialized.name,
                     instructions=data["instructions"],
                     model=data["model"],
-                    aggregations=serialized.aggregations,
+                    # TODO: add aggregations here once we support boolean/numeric judge outputs
                 )
             except Exception as e:
                 raise MlflowException.invalid_parameter_value(
