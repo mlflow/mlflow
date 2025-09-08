@@ -62,7 +62,8 @@ class InstructionsJudge(Judge):
             model: The model identifier to use for evaluation (e.g., "openai:/gpt-4")
             kwargs: Additional configuration parameters
         """
-        super().__init__(name=name, **kwargs)
+        # TODO: remove default aggregations once we support boolean/numeric judge outputs
+        super().__init__(name=name, aggregations=[], **kwargs)
 
         if not name or not isinstance(name, str):
             raise MlflowException(
