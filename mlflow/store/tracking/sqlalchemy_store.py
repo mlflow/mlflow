@@ -2523,10 +2523,10 @@ class SqlAlchemyStore(AbstractStore):
                 response_preview=trace_info.response_preview,
             )
 
-            sql_trace_info.tags = [
+            tags = [
                 SqlTraceTag(request_id=trace_id, key=k, value=v) for k, v in trace_info.tags.items()
-            ]
-            sql_trace_info.tags.append(self._get_trace_artifact_location_tag(experiment, trace_id))
+            ] + [self._get_trace_artifact_location_tag(experiment, trace_id)]
+            sql_trace_info.tags = tags
 
             sql_trace_info.request_metadata = [
                 SqlTraceMetadata(request_id=trace_id, key=k, value=v)
@@ -2543,6 +2543,10 @@ class SqlAlchemyStore(AbstractStore):
                 # Trace already exists (likely created by log_spans())
                 # Use merge to update with start_trace() data, preserving any logged spans
                 session.rollback()
+                db_sql_trace_info = (
+                    session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
+                )
+                sql_trace_info.tags.extend(db_sql_trace_info.tags)
                 session.merge(sql_trace_info)
                 session.flush()
 
@@ -3266,14 +3270,15 @@ class SqlAlchemyStore(AbstractStore):
                     client_request_id=None,
                 )
                 # Add the artifact location tag that's required for search_traces to work
-                sql_trace_info.tags = [
-                    self._get_trace_artifact_location_tag(experiment, trace_id),
+                tags = [
                     SqlTraceTag(
                         key=TraceTagKey.SPANS_LOCATION,
                         value=TRACKING_STORE,
                         request_id=trace_id,
                     ),
+                    self._get_trace_artifact_location_tag(experiment, trace_id),
                 ]
+                sql_trace_info.tags = tags
                 session.add(sql_trace_info)
                 try:
                     session.flush()
@@ -3288,6 +3293,9 @@ class SqlAlchemyStore(AbstractStore):
                         .filter(SqlTraceInfo.request_id == trace_id)
                         .one()
                     )
+                    sql_trace_info.tags.extend(tags)
+                    session.merge(sql_trace_info)
+                    session.flush()
 
             # Atomic update of trace time range using SQLAlchemy's case expressions.
             # This is necessary to handle concurrent span additions from multiple processes/threads
