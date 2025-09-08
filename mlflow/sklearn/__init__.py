@@ -273,29 +273,21 @@ def save_model(
     model_data_path = os.path.join(path, model_data_subpath)
 
     # For skops format, detect trusted types before saving
-    trusted_types = None
+    trusted_types = []
     if serialization_format == SERIALIZATION_FORMAT_SKOPS:
-        try:
-            import skops.io
+        _save_model(
+            sk_model=sk_model,
+            output_path=model_data_path,
+            serialization_format=serialization_format,
+        )
 
-            # Save model temporarily to detect trusted types
-            _save_model(
-                sk_model=sk_model,
-                output_path=model_data_path,
-                serialization_format=serialization_format,
-            )
-            # Get untrusted types from the saved model
-            trusted_types = skops.io.get_untrusted_types(file=model_data_path)
-            if trusted_types:
-                _logger.info(f"Detected trusted types for skops model: {trusted_types}")
-        except Exception as e:
-            _logger.warning(f"Failed to detect trusted types for skops model: {e}")
-            # Still save the model even if trusted types detection fails
-            _save_model(
-                sk_model=sk_model,
-                output_path=model_data_path,
-                serialization_format=serialization_format,
-            )
+        # If skops is not installed, _save_model will raise an ImportError
+        import skops.io
+
+        # Get untrusted types from the saved model
+        trusted_types = skops.io.get_untrusted_types(data=sk_model)
+        if trusted_types:
+            _logger.info(f"Detected trusted types for skops model: {trusted_types}")
     else:
         _save_model(
             sk_model=sk_model,
@@ -328,7 +320,7 @@ def save_model(
         "code": code_path_subdir,
     }
 
-    # Add trusted types for skops models
+    # Add required trusted types for skops to load the model
     if serialization_format == SERIALIZATION_FORMAT_SKOPS and trusted_types:
         flavor_config["trusted_types"] = trusted_types
 
@@ -602,7 +594,9 @@ def _load_pyfunc(path):
 
     return _SklearnModelWrapper(
         _load_model_from_local_file(
-            path=path, serialization_format=serialization_format, trusted_types=trusted_types
+            path=path,
+            serialization_format=serialization_format,
+            trusted_types=trusted_types,
         )
     )
 
@@ -691,12 +685,11 @@ def _save_model(sk_model, output_path, serialization_format):
         try:
             import skops.io
         except ImportError as e:
-            raise MlflowException(
+            raise ImportError(
                 message=(
                     "Failed to import skops. Make sure skops is installed by running "
-                    "`pip install skops`."
+                    "`pip install skops` for instance."
                 ),
-                error_code=INTERNAL_ERROR,
             ) from e
 
         # Use skops.io.dump for skops format
@@ -1072,7 +1065,12 @@ class _AutologgingMetricsManager:
 _AUTOLOGGING_METRICS_MANAGER = _AutologgingMetricsManager()
 
 
-_metric_api_excluding_list = ["check_scoring", "get_scorer", "make_scorer", "get_scorer_names"]
+_metric_api_excluding_list = [
+    "check_scoring",
+    "get_scorer",
+    "make_scorer",
+    "get_scorer_names",
+]
 
 
 def _get_metric_name_list():
@@ -1619,7 +1617,8 @@ def _autolog(
                     )
             except Exception as e:
                 _logger.warning(
-                    "Failed to log training dataset information to MLflow Tracking. Reason: %s", e
+                    "Failed to log training dataset information to MLflow Tracking. Reason: %s",
+                    e,
                 )
 
     def _log_posttraining_metadata(autologging_client, estimator, X, y, sample_weight):
@@ -2053,17 +2052,33 @@ def _autolog(
     if log_post_training_metrics:
         for metric_name in _get_metric_name_list():
             safe_patch(
-                flavor_name, sklearn.metrics, metric_name, patched_metric_api, manage_run=False
+                flavor_name,
+                sklearn.metrics,
+                metric_name,
+                patched_metric_api,
+                manage_run=False,
             )
 
         # `sklearn.metrics.SCORERS` was removed in scikit-learn 1.3
         if hasattr(sklearn.metrics, "get_scorer_names"):
             for scoring in sklearn.metrics.get_scorer_names():
                 scorer = sklearn.metrics.get_scorer(scoring)
-                safe_patch(flavor_name, scorer, "_score_func", patched_metric_api, manage_run=False)
+                safe_patch(
+                    flavor_name,
+                    scorer,
+                    "_score_func",
+                    patched_metric_api,
+                    manage_run=False,
+                )
         else:
             for scorer in sklearn.metrics.SCORERS.values():
-                safe_patch(flavor_name, scorer, "_score_func", patched_metric_api, manage_run=False)
+                safe_patch(
+                    flavor_name,
+                    scorer,
+                    "_score_func",
+                    patched_metric_api,
+                    manage_run=False,
+                )
 
     def patched_fn_with_autolog_disabled(original, *args, **kwargs):
         with disable_autologging():
