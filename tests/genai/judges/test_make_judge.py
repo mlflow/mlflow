@@ -35,6 +35,10 @@ def mock_databricks_rag_eval(monkeypatch):
     databricks.rag_eval.context.get_context().build_managed_rag_client().get_chat_completions_result()
     This fixture mocks the entire module hierarchy to test without actual databricks dependencies.
     """
+    # Mock the entire databricks.agents.evals module hierarchy
+    mock_evals_module = types.ModuleType("databricks.agents.evals")
+    monkeypatch.setitem(sys.modules, "databricks.agents.evals", mock_evals_module)
+
     mock_judges_module = types.ModuleType("databricks.agents.evals.judges")
     monkeypatch.setitem(sys.modules, "databricks.agents.evals.judges", mock_judges_module)
 
@@ -48,9 +52,11 @@ def mock_databricks_rag_eval(monkeypatch):
             self.expected_content = expected_content
             self.response_data = response_data
 
-        def get_chat_completions_result(self, prompt, params):
+        def get_chat_completions_result(self, user_prompt, system_prompt):
+            # Check that expected content is in either user or system prompt
             if self.expected_content:
-                assert self.expected_content in prompt
+                combined = (system_prompt or "") + " " + user_prompt
+                assert self.expected_content in combined
             return MockLLMResult(self.response_data)
 
     class MockContext:
@@ -216,6 +222,8 @@ def test_make_judge_with_databricks_default(monkeypatch):
 
 
 def test_databricks_model_requires_databricks_agents(monkeypatch):
+    # NB: Mock both the parent module and the specific module to simulate missing databricks-agents
+    monkeypatch.setitem(sys.modules, "databricks.agents.evals", None)
     monkeypatch.setitem(sys.modules, "databricks.agents.evals.judges", None)
 
     with pytest.raises(
@@ -287,6 +295,68 @@ def test_databricks_model_works_with_chat_completions(mock_databricks_rag_eval):
     assert isinstance(result, Feedback)
     assert result.value is True
     assert result.rationale == "Valid output"
+
+
+def test_databricks_model_handles_errors_gracefully(mock_databricks_rag_eval):
+    class MockLLMResultInvalid:
+        def __init__(self):
+            self.output = "This is not valid JSON - maybe the model returned plain text"
+
+    class MockClientInvalid:
+        def get_chat_completions_result(self, user_prompt, system_prompt):
+            return MockLLMResultInvalid()
+
+    class MockContextInvalid:
+        def build_managed_rag_client(self):
+            return MockClientInvalid()
+
+    mock_databricks_rag_eval.get_context = lambda: MockContextInvalid()
+
+    judge = make_judge(
+        name="test_judge", instructions="Check if {{ outputs }} is valid", model="databricks"
+    )
+
+    result = judge(outputs={"text": "test output"})
+    assert isinstance(result, Feedback)
+    assert result.error is not None
+    assert "Failed to invoke Databricks judge" in result.error
+
+    class MockLLMResultMissingField:
+        def __init__(self):
+            self.output = json.dumps({"rationale": "Some rationale but no result field"})
+
+    class MockClientMissingField:
+        def get_chat_completions_result(self, user_prompt, system_prompt):
+            return MockLLMResultMissingField()
+
+    class MockContextMissingField:
+        def build_managed_rag_client(self):
+            return MockClientMissingField()
+
+    mock_databricks_rag_eval.get_context = lambda: MockContextMissingField()
+
+    result = judge(outputs={"text": "test output"})
+    assert isinstance(result, Feedback)
+    assert result.error is not None
+    assert "Failed to invoke Databricks judge" in result.error
+
+    class MockLLMResultNone:
+        output = None
+
+    class MockClientNone:
+        def get_chat_completions_result(self, user_prompt, system_prompt):
+            return MockLLMResultNone()
+
+    class MockContextNone:
+        def build_managed_rag_client(self):
+            return MockClientNone()
+
+    mock_databricks_rag_eval.get_context = lambda: MockContextNone()
+
+    result = judge(outputs={"text": "test output"})
+    assert isinstance(result, Feedback)
+    assert result.error is not None
+    assert "Failed to invoke Databricks judge" in result.error
 
 
 def test_databricks_model_works_with_trace(mock_databricks_rag_eval):

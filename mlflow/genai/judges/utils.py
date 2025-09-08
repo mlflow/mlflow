@@ -33,6 +33,26 @@ _LITELLM_PROVIDERS = ["azure", "vertexai", "cohere", "replicate", "groq", "toget
 _MODEL_RESPONSE_FORMAT_CAPABILITIES: dict[str, bool] = {}
 
 
+def _check_databricks_agents_installed(error_code: str = INVALID_PARAMETER_VALUE) -> None:
+    """Check if databricks-agents is installed for databricks judge functionality.
+
+    Args:
+        error_code: The MLflow error code to use. Defaults to INVALID_PARAMETER_VALUE.
+
+    Raises:
+        MlflowException: If databricks-agents is not installed.
+    """
+    try:
+        import databricks.agents.evals  # noqa: F401
+    except ImportError:
+        raise MlflowException(
+            f"To use '{_DATABRICKS_DEFAULT_JUDGE_MODEL}' as the judge model, the Databricks "
+            "agents library must be installed. Please install it with: "
+            "`pip install databricks-agents`",
+            error_code=error_code,
+        )
+
+
 def get_default_model() -> str:
     if is_databricks_uri(mlflow.get_tracking_uri()):
         return _DATABRICKS_DEFAULT_JUDGE_MODEL
@@ -58,14 +78,7 @@ def validate_judge_model(model_uri: str) -> None:
     # Special handling for Databricks default model
     if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
         # Check if databricks-agents is available
-        try:
-            import databricks.agents.evals.judges  # noqa: F401
-        except ImportError:
-            raise MlflowException(
-                "To use 'databricks' as the judge model, the Databricks agents library must be "
-                "installed. Please install it with: `pip install databricks-agents`",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
+        _check_databricks_agents_installed()
         return
 
     # Validate the URI format and extract provider
@@ -82,11 +95,6 @@ def validate_judge_model(model_uri: str) -> None:
                     "Please install it with: `pip install litellm`",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
-            # Unknown provider - warn but don't fail
-            _logger.warning(
-                f"Provider '{provider}' may not be supported. Supported providers include: "
-                f"{', '.join(_NATIVE_PROVIDERS + _LITELLM_PROVIDERS)}"
-            )
 
 
 def format_prompt(prompt: str, **values) -> str:
@@ -129,6 +137,75 @@ def _sanitize_justification(justification: str) -> str:
     return justification.replace("Let's think step by step. ", "")
 
 
+def _split_messages_for_databricks(messages: list["ChatMessage"]) -> tuple[str | None, str]:
+    """
+    Split a list of ChatMessage objects into system and user prompts for Databricks API.
+
+    Args:
+        messages: List of ChatMessage objects to split.
+
+    Returns:
+        Tuple of (system_prompt, user_prompt) where system_prompt may be None.
+
+    Raises:
+        MlflowException: If the messages list is empty or invalid.
+    """
+    from mlflow.types.llm import ChatMessage
+
+    if not messages:
+        raise MlflowException(
+            "Invalid prompt format: expected non-empty list of ChatMessage",
+            error_code=BAD_REQUEST,
+        )
+
+    system_prompt = None
+    user_parts = []
+
+    for msg in messages:
+        if isinstance(msg, ChatMessage):
+            if msg.role == "system":
+                if system_prompt is None:
+                    system_prompt = msg.content
+                else:
+                    user_parts.append(f"System: {msg.content}")
+            elif msg.role == "user":
+                user_parts.append(msg.content)
+            elif msg.role == "assistant":
+                user_parts.append(f"Assistant: {msg.content}")
+
+    user_prompt = "\n\n".join(user_parts) if user_parts else ""
+
+    return system_prompt, user_prompt
+
+
+def _parse_databricks_judge_response(
+    llm_output: str,
+    assessment_name: str,
+) -> Feedback:
+    """
+    Parse the response from Databricks judge into a Feedback object.
+
+    Args:
+        llm_output: Raw output from the LLM.
+        assessment_name: Name of the assessment.
+
+    Returns:
+        Feedback object with parsed results.
+
+    Raises:
+        Exception: If parsing fails in any way.
+    """
+    response_data = json.loads(llm_output)
+    return Feedback(
+        name=assessment_name,
+        value=response_data["result"],
+        rationale=response_data.get("rationale", ""),
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.LLM_JUDGE, source_id=_DATABRICKS_DEFAULT_JUDGE_MODEL
+        ),
+    )
+
+
 def _invoke_databricks_judge(
     prompt: str | list["ChatMessage"],
     assessment_name: str,
@@ -147,98 +224,43 @@ def _invoke_databricks_judge(
         Feedback object from the Databricks judge.
 
     Raises:
-        MlflowException: If databricks-agents is not installed or invocation fails.
+        MlflowException: If databricks-agents is not installed.
     """
+    # Check if databricks-agents is installed
+    _check_databricks_agents_installed(error_code=BAD_REQUEST)
+
+    from databricks.rag_eval import context
+
     try:
-        from databricks.rag_eval import context
-
-        from mlflow.types.llm import ChatMessage
-
-        full_prompt = ""
-
         if isinstance(prompt, str):
-            # Simple string prompt - use directly
-            full_prompt = prompt
+            system_prompt = None
+            user_prompt = prompt
         else:
-            # Combine ChatMessage list into a formatted prompt
-            # The chat completions endpoint expects a single prompt string
-            if isinstance(prompt, list) and len(prompt) > 0:
-                prompt_parts = []
+            system_prompt, user_prompt = _split_messages_for_databricks(prompt)
 
-                for msg in prompt:
-                    if isinstance(msg, ChatMessage):
-                        if msg.role == "system":
-                            prompt_parts.append(f"System: {msg.content}")
-                        elif msg.role == "user":
-                            prompt_parts.append(f"User: {msg.content}")
-                        elif msg.role == "assistant":
-                            prompt_parts.append(f"Assistant: {msg.content}")
-
-                full_prompt = "\n\n".join(prompt_parts)
-            else:
-                raise MlflowException(
-                    f"Invalid prompt format: expected string or non-empty list of ChatMessage, "
-                    f"got {type(prompt).__name__}",
-                    error_code=BAD_REQUEST,
-                )
-
-        # Get the managed RAG client within the eval context
-        # The eval_context is required for proper Databricks environment setup
         @context.eval_context
         def call_chat_completions():
             managed_rag_client = context.get_context().build_managed_rag_client()
 
-            # Call the chat completions endpoint directly
             llm_result = managed_rag_client.get_chat_completions_result(
-                full_prompt,
-                None,  # No additional parameters needed
+                user_prompt=user_prompt,
+                system_prompt=system_prompt,
             )
 
-            if llm_result.output is not None:
-                try:
-                    # The output should be JSON with 'result' and 'rationale' fields
-                    # as specified in our InstructionsJudge prompt
-                    response_data = json.loads(llm_result.output)
-
-                    return Feedback(
-                        name=assessment_name,
-                        value=response_data.get("result"),
-                        rationale=response_data.get("rationale", ""),
-                        source=AssessmentSource(
-                            source_type=AssessmentSourceType.LLM_JUDGE, source_id="databricks"
-                        ),
-                    )
-                except (json.JSONDecodeError, KeyError) as e:
-                    # If parsing fails, return the raw output as rationale
-                    _logger.debug(f"Failed to parse JSON response: {e}")
-                    return Feedback(
-                        name=assessment_name,
-                        value=True,  # Default to True if we can't parse
-                        rationale=str(llm_result.output),
-                        source=AssessmentSource(
-                            source_type=AssessmentSourceType.LLM_JUDGE, source_id="databricks"
-                        ),
-                    )
-            else:
-                error_msg = getattr(llm_result, "error_message", "Unknown error")
-                raise MlflowException(
-                    f"Databricks judge returned no output: {error_msg}", error_code=BAD_REQUEST
-                )
+            return _parse_databricks_judge_response(llm_result.output, assessment_name)
 
         return call_chat_completions()
 
-    except ImportError as e:
-        raise MlflowException(
-            "To use 'databricks' as the judge model, the Databricks agents library must be "
-            "installed. Please install it with: `pip install databricks-agents`",
-            error_code=BAD_REQUEST,
-        ) from e
     except Exception as e:
-        _logger.debug(f"Failed to invoke Databricks guidelines judge: {e}")
-        raise MlflowException(
-            f"Failed to invoke Databricks judge: {e}",
-            error_code=BAD_REQUEST,
-        ) from e
+        _logger.debug(f"Failed to invoke Databricks judge: {e}")
+        return Feedback(
+            name=assessment_name,
+            error=f"Failed to invoke Databricks judge: {e}",
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE,
+                source_id=_DATABRICKS_DEFAULT_JUDGE_MODEL,
+            ),
+        )
 
 
 def _invoke_via_gateway(
@@ -269,14 +291,9 @@ def _invoke_via_gateway(
             error_code=BAD_REQUEST,
         )
 
-    # Import ChatMessage only when needed
-
-    # Convert ChatMessage objects to dicts for native providers
-    messages_dict = [{"role": msg.role, "content": msg.content} for msg in messages]
-
     return score_model_on_payload(
         model_uri=model_uri,
-        payload=messages_dict,
+        payload=[{"role": msg.role, "content": msg.content} for msg in messages],
         endpoint_type=get_endpoint_type(model_uri) or "llm/v1/chat",
     )
 
