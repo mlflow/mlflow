@@ -65,7 +65,7 @@ uv --version
 packages=""
 
 # Base packages
-packages+="pip!=25.1 setuptools wheel"
+packages+=" pip!=25.1 setuptools wheel"
 
 # Main package
 if [[ "$SKINNY" == "true" ]]; then
