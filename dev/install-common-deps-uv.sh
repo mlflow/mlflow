@@ -96,8 +96,13 @@ packages+=" virtualenv"
 # Use --no-config to avoid picking up local configuration
 uv pip install --no-config -c requirements/constraints.txt --upgrade $packages
 
-# Install mlflow-test-plugin without dependencies (separate call needed for --no-deps)
-uv pip install --no-config -c requirements/constraints.txt tests/resources/mlflow-test-plugin
+# Install mlflow-test-plugin
+# For skinny client, use --no-deps to avoid pulling in unnecessary dependencies
+if [[ "$SKINNY" == "true" ]]; then
+  uv pip install --no-config -c requirements/constraints.txt --no-deps tests/resources/mlflow-test-plugin
+else
+  uv pip install --no-config -c requirements/constraints.txt tests/resources/mlflow-test-plugin
+fi
 
 # Print current environment info
 which mlflow
