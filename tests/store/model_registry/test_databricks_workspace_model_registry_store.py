@@ -6,6 +6,7 @@ from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
 from mlflow.exceptions import MlflowException
 from mlflow.store.model_registry.databricks_workspace_model_registry_rest_store import (
     DatabricksWorkspaceModelRegistryRestStore,
+    _extract_workspace_id_from_run_link,
 )
 
 
@@ -32,6 +33,88 @@ def sample_model_version() -> ModelVersion:
 
 def _expected_unsupported_method_error_message(method):
     return f"Method '{method}' is unsupported for models in the Workspace Model Registry"
+
+
+@pytest.mark.parametrize(
+    ("run_link", "expected_workspace_id", "description"),
+    [
+        # Valid cases
+        (
+            "https://workspace.databricks.com/?o=10002#mlflow/experiments/test-exp-id/runs/runid",
+            "10002",
+            "valid workspace ID"
+        ),
+        (
+            "https://workspace.databricks.com/?o=12345#mlflow/experiments/test-exp-id/runs/runid/artifactPath/model",
+            "12345",
+            "valid workspace ID with artifact path"
+        ),
+        (
+            "https://mycompany.cloud.databricks.com/?o=98765#mlflow/experiments/test-exp-id/runs/runid",
+            "98765",
+            "different Databricks domain"
+        ),
+        (
+            "https://workspace.databricks.com/?param1=value1&o=67890&param2=value2#mlflow/experiments/test-exp-id/runs/runid",
+            "67890",
+            "multiple query parameters"
+        ),
+        # Invalid cases
+        (
+            "https://workspace.databricks.com/#mlflow/experiments/test-exp-id/runs/runid",
+            None,
+            "no workspace ID parameter"
+        ),
+        (
+            "https://workspace.databricks.com/?o=#mlflow/experiments/test-exp-id/runs/runid",
+            None,
+            "empty workspace ID parameter"
+        ),
+        (
+            "https://workspace.databricks.com/?o=abc123#mlflow/experiments/test-exp-id/runs/runid",
+            None,
+            "non-numeric workspace ID"
+        ),
+        (
+            "https://workspace.databricks.com/?o=12 34#mlflow/experiments/test-exp-id/runs/runid",
+            None,
+            "workspace ID with spaces"
+        ),
+        (
+            "https://workspace.databricks.com/?o=-123#mlflow/experiments/test-exp-id/runs/runid",
+            None,
+            "negative workspace ID"
+        ),
+        (
+            "https://workspace.databricks.com/?o=123.45#mlflow/experiments/test-exp-id/runs/runid",
+            None,
+            "float workspace ID"
+        ),
+        (
+            "https://workspace.databricks.com/?o=12345",
+            None,
+            "malformed URL missing hash"
+        ),
+        (
+            "https://workspace.databricks.com/?o12345#mlflow/experiments/test-exp-id/runs/runid",
+            None,
+            "malformed URL missing equals sign"
+        ),
+        (
+            "",
+            None,
+            "empty string input"
+        ),
+        (
+            None,
+            None,
+            "None input"
+        ),
+    ],
+)
+def test_extract_workspace_id_from_run_link(run_link, expected_workspace_id, description):
+    """Test _extract_workspace_id_from_run_link function with various inputs."""
+    assert _extract_workspace_id_from_run_link(run_link) == expected_workspace_id
 
 
 def test_workspace_model_registry_alias_apis_unsupported(store):

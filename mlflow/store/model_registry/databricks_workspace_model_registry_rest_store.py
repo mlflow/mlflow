@@ -14,6 +14,49 @@ from mlflow.utils.logging_utils import eprint
 from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME
 
 
+def _extract_workspace_id_from_run_link(run_link: str) -> str | None:
+    """
+    Extract workspace ID from a Databricks run link URL.
+
+    Args:
+        run_link: URL like "https://workspace.databricks.com/?o=10002#mlflow/experiments/test-exp-id/runs/runid"
+        The workspace ID is the part after the ?o= in the URL, and before the #,
+        e.g. 10002 in the example above.
+        The run_link is only present if the run was logged in a Databricks Workspace
+        different from the registry workspace.
+
+    Returns:
+        The workspace ID as a string, or None if not found or invalid
+    """
+    if not run_link:
+        return None
+
+    # Look for the o=WORKSPACE_ID pattern in the URL (can be ?o= or &o=)
+    if ("?o=" in run_link or "&o=" in run_link) and "#" in run_link:
+        try:
+            # Split on ?o= or &o= and take the part after it
+            if "?o=" in run_link:
+                workspace_part = run_link.split("?o=")[1]
+            else:
+                workspace_part = run_link.split("&o=")[1]
+
+            # Split on # to get just the query parameters part
+            query_part = workspace_part.split("#")[0]
+
+            # Extract just the workspace ID value (before any & characters)
+            workspace_id = query_part.split("&")[0]
+
+            # Validate that the workspace ID is a valid positive integer
+            workspace_id_int = int(workspace_id)
+            if workspace_id_int < 0:
+                return None
+            return workspace_id
+        except (IndexError, ValueError):
+            return None
+
+    return None
+
+
 def _raise_unsupported_method(method, message=None):
     messages = [
         f"Method '{method}' is unsupported for models in the Workspace Model Registry. "
@@ -100,6 +143,7 @@ class DatabricksWorkspaceModelRegistryRestStore(RestStore):
                     f" Creating a new version of this model..."
                 )
             skip_signature = MLFLOW_SKIP_SIGNATURE_CHECK_FOR_UC_REGISTRY_MIGRATION.get()
+            source_workspace_id = _extract_workspace_id_from_run_link(src_mv.run_link)
             return uc_store._create_model_version_with_optional_signature_validation(
                 name=dst_name,
                 source=source_uri,
@@ -107,6 +151,7 @@ class DatabricksWorkspaceModelRegistryRestStore(RestStore):
                 local_model_path=local_model_dir,
                 model_id=src_mv.model_id,
                 bypass_signature_validation=skip_signature,
+                source_workspace_id=source_workspace_id,
             )
         else:
             return super().copy_model_version(src_mv, dst_name)
