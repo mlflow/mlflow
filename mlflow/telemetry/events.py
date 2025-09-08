@@ -209,3 +209,18 @@ class McpRunEvent(Event):
 
 class GitModelVersioningEvent(Event):
     name: str = "git_model_versioning"
+
+
+class InvokeCustomJudgeModelEvent(Event):
+    name: str = "invoke_custom_judge_model"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        from mlflow.metrics.genai.model_utils import _parse_model_uri
+
+        model_uri = arguments.get("model_uri")
+        if not model_uri:
+            return {"model_provider": None}
+
+        model_provider, _ = _parse_model_uri(model_uri)
+        return {"model_provider": model_provider}
