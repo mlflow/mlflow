@@ -1319,7 +1319,6 @@ def test_context_window_error_removes_tool_calls_and_retries(
     error_idx = next(i for i, msgs in enumerate(captured_message_histories) if len(msgs) >= 8)
     messages_at_error = captured_message_histories[error_idx]
     messages_after_retry = captured_message_histories[error_idx + 1]
-
     # Verify pruning happened
     assert len(messages_after_retry) < len(messages_at_error)
     # Verify system/user messages preserved but some tool calls removed
@@ -1330,7 +1329,6 @@ def test_context_window_error_removes_tool_calls_and_retries(
     assert messages_after_retry[2]["role"] == "assistant"
     assert messages_after_retry[2]["tool_calls"][0]["id"] == "call3"
     assert messages_after_retry[3]["role"] == "tool"
-
     assert result.value == "pass"
 
 
