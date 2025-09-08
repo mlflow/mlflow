@@ -126,10 +126,10 @@ class InstructionsJudge(Judge):
         fields = []
 
         if self._TEMPLATE_VARIABLE_INPUTS in self.template_variables:
-            fields.append(JudgeField(name="inputs", description="Input dictionary to evaluate"))
+            fields.append(JudgeField(name="inputs", description="Input data to evaluate"))
 
         if self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables:
-            fields.append(JudgeField(name="outputs", description="Output dictionary to evaluate"))
+            fields.append(JudgeField(name="outputs", description="Output data to evaluate"))
 
         if self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables:
             fields.append(
@@ -141,20 +141,8 @@ class InstructionsJudge(Judge):
 
         return fields
 
-    def _validate_parameter_types(
-        self, inputs: Any, outputs: Any, expectations: Any, trace: Any
-    ) -> None:
+    def _validate_parameter_types(self, expectations: Any, trace: Any) -> None:
         """Validate that parameters have correct types."""
-        if inputs is not None and not isinstance(inputs, dict):
-            raise MlflowException(
-                f"'inputs' must be a dictionary, got {type(inputs).__name__}",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        if outputs is not None and not isinstance(outputs, dict):
-            raise MlflowException(
-                f"'outputs' must be a dictionary, got {type(outputs).__name__}",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
         if expectations is not None and not isinstance(expectations, dict):
             raise MlflowException(
                 f"'expectations' must be a dictionary, got {type(expectations).__name__}",
@@ -212,11 +200,19 @@ class InstructionsJudge(Judge):
                 f"appear in the instructions: {self.template_variables}"
             )
 
+    def _safe_json_dumps(self, value: Any) -> str:
+        """Safely serialize a value to JSON, falling back to str() if JSON serialization fails."""
+        try:
+            return json.dumps(value, default=str, indent=2)
+        except Exception:
+            # If JSON serialization fails, fall back to string representation
+            return str(value)
+
     def __call__(
         self,
         *,
-        inputs: dict[str, Any] | None = None,
-        outputs: dict[str, Any] | None = None,
+        inputs: Any = None,
+        outputs: Any = None,
         expectations: dict[str, Any] | None = None,
         trace: Trace | None = None,
     ) -> Any:
@@ -224,9 +220,10 @@ class InstructionsJudge(Judge):
         Evaluate the provided data using the judge's instructions.
 
         Args:
-            inputs: Input dictionary to evaluate. Cannot be used with 'trace'.
-            outputs: Output dictionary to evaluate. Cannot be used with 'trace'.
-            expectations: Expected outcomes or ground truth. Cannot be used with 'trace'.
+            inputs: Input data to evaluate. Cannot be used with 'trace'.
+            outputs: Output data to evaluate. Cannot be used with 'trace'.
+            expectations: Expected outcomes or ground truth as a dictionary. Cannot be used with
+                'trace'.
             trace: Trace object for evaluation. Cannot be used with 'inputs', 'outputs', or
                 'expectations'.
 
@@ -234,33 +231,11 @@ class InstructionsJudge(Judge):
             Evaluation results
 
         """
-        # Validate parameter types
-        self._validate_parameter_types(inputs, outputs, expectations, trace)
+        self._validate_parameter_types(expectations, trace)
 
-        # Check required parameters
         self._check_required_parameters(inputs, outputs, expectations, trace)
 
-        # Warn about unused parameters
         self._warn_unused_parameters(inputs, outputs, expectations, trace)
-
-        # Check if the input arguments match the template variables
-        missing_params = []
-
-        if self._TEMPLATE_VARIABLE_INPUTS in self.template_variables and inputs is None:
-            missing_params.append("inputs")
-        if self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables and outputs is None:
-            missing_params.append("outputs")
-        if self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables and expectations is None:
-            missing_params.append("expectations")
-        if self._TEMPLATE_VARIABLE_TRACE in self.template_variables and trace is None:
-            missing_params.append("trace")
-
-        if missing_params:
-            missing_str = "', '".join(missing_params)
-            raise MlflowException(
-                f"Must specify '{missing_str}' - required by template variables in instructions.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
 
         # Determine evaluation mode based on template variables
         is_trace_based = self._TEMPLATE_VARIABLE_TRACE in self.template_variables
@@ -278,19 +253,15 @@ class InstructionsJudge(Judge):
             # Build the user message with variable substitutions
             template_values = {}
             if inputs is not None and self._TEMPLATE_VARIABLE_INPUTS in self.template_variables:
-                template_values[self._TEMPLATE_VARIABLE_INPUTS] = json.dumps(
-                    inputs, default=str, indent=2
-                )
+                template_values[self._TEMPLATE_VARIABLE_INPUTS] = self._safe_json_dumps(inputs)
             if outputs is not None and self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables:
-                template_values[self._TEMPLATE_VARIABLE_OUTPUTS] = json.dumps(
-                    outputs, default=str, indent=2
-                )
+                template_values[self._TEMPLATE_VARIABLE_OUTPUTS] = self._safe_json_dumps(outputs)
             if (
                 expectations is not None
                 and self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables
             ):
-                template_values[self._TEMPLATE_VARIABLE_EXPECTATIONS] = json.dumps(
-                    expectations, default=str, indent=2
+                template_values[self._TEMPLATE_VARIABLE_EXPECTATIONS] = self._safe_json_dumps(
+                    expectations
                 )
 
             # Create user content with the actual values for each variable
