@@ -21,6 +21,7 @@ from mlflow.genai.judges.utils import (
     invoke_judge_model,
 )
 from mlflow.genai.scorers.base import _SERIALIZATION_VERSION, ScorerKind, SerializedScorer
+from mlflow.prompt.constants import PROMPT_TEMPLATE_VARIABLE_PATTERN
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
 
@@ -51,6 +52,7 @@ class InstructionsJudge(Judge):
     _instructions: str = PrivateAttr()
     _model: str = PrivateAttr()
     _instructions_prompt: PromptVersion = PrivateAttr()
+    _ordered_template_variables: list[str] = PrivateAttr()
 
     def __init__(self, name: str, instructions: str, model: str | None = None, **kwargs):
         """
@@ -85,6 +87,15 @@ class InstructionsJudge(Judge):
             version=1,
             template=instructions,
         )
+
+        # Extract variables in the order they appear in the template
+        all_vars = PROMPT_TEMPLATE_VARIABLE_PATTERN.findall(instructions)
+        seen = set()
+        self._ordered_template_variables = []
+        for var in all_vars:
+            if var not in seen and var in self._RESERVED_INSTRUCTION_TEMPLATE_VARIABLES:
+                seen.add(var)
+                self._ordered_template_variables.append(var)
 
         # Reject any custom template variables
         custom_template_variables = self._instructions_prompt.variables - set(
@@ -232,7 +243,7 @@ class InstructionsJudge(Judge):
 
             # Create user content with the actual values for each variable
             user_message_parts = []
-            for var_name in sorted(self.template_variables):
+            for var_name in self._ordered_template_variables:
                 if var_name in template_values:
                     user_message_parts.append(f"{var_name}: {template_values[var_name]}")
 

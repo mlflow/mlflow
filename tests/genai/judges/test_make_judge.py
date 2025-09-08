@@ -1294,4 +1294,4 @@ def test_context_labels_added_to_interpolated_values(mock_invoke_judge_model):
     inputs_pos = user_content.index("inputs:")
     outputs_pos = user_content.index("outputs:")
 
-    assert expectations_pos < inputs_pos < outputs_pos, "Variables should be in alphabetical order"
+    assert outputs_pos < inputs_pos < expectations_pos
