@@ -20,11 +20,61 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
 from mlflow.genai.judges.instructions_judge.constants import JUDGE_BASE_PROMPT
-from mlflow.genai.judges.utils import validate_judge_model
+from mlflow.genai.judges.utils import _LITELLM_PROVIDERS, _NATIVE_PROVIDERS, validate_judge_model
 from mlflow.genai.scorers.base import Scorer, ScorerKind, SerializedScorer
 from mlflow.genai.scorers.registry import _get_scorer_store
 from mlflow.tracing.utils import build_otel_context
 from mlflow.types.llm import ChatMessage
+
+
+@pytest.fixture
+def mock_databricks_rag_eval(monkeypatch):
+    """Mock the databricks.rag_eval module structure for testing databricks judges.
+
+    NB: The databricks judge uses the following call chain:
+    databricks.rag_eval.context.get_context().build_managed_rag_client().get_chat_completions_result()
+    This fixture mocks the entire module hierarchy to test without actual databricks dependencies.
+    """
+    mock_judges_module = types.ModuleType("databricks.agents.evals.judges")
+    monkeypatch.setitem(sys.modules, "databricks.agents.evals.judges", mock_judges_module)
+
+    class MockLLMResult:
+        def __init__(self, output_data=None):
+            self.output = json.dumps(output_data or {"result": True, "rationale": "Test passed"})
+            self.error_message = None
+
+    class MockManagedRAGClient:
+        def __init__(self, expected_content=None, response_data=None):
+            self.expected_content = expected_content
+            self.response_data = response_data
+
+        def get_chat_completions_result(self, prompt, params):
+            if self.expected_content:
+                assert self.expected_content in prompt
+            return MockLLMResult(self.response_data)
+
+    class MockContext:
+        def __init__(self, expected_content=None, response_data=None):
+            self.expected_content = expected_content
+            self.response_data = response_data
+
+        def build_managed_rag_client(self):
+            return MockManagedRAGClient(self.expected_content, self.response_data)
+
+    mock_rag_eval = types.ModuleType("databricks.rag_eval")
+    monkeypatch.setitem(sys.modules, "databricks.rag_eval", mock_rag_eval)
+
+    mock_context_module = types.ModuleType("databricks.rag_eval.context")
+
+    mock_context_module.MockContext = MockContext
+    mock_context_module.get_context = lambda: MockContext()
+    mock_context_module.eval_context = lambda func: func  # Pass-through decorator
+    mock_context_module.context = mock_context_module  # Self-reference for import
+
+    mock_rag_eval.context = mock_context_module
+    monkeypatch.setitem(sys.modules, "databricks.rag_eval.context", mock_context_module)
+
+    return mock_context_module
 
 
 @pytest.fixture
@@ -155,6 +205,9 @@ def test_make_judge_with_default_model(monkeypatch):
 
 
 def test_make_judge_with_databricks_default(monkeypatch):
+    mock_judges_module = types.ModuleType("databricks.agents.evals.judges")
+    monkeypatch.setitem(sys.modules, "databricks.agents.evals.judges", mock_judges_module)
+
     monkeypatch.setattr("mlflow.genai.judges.utils.is_databricks_uri", lambda x: True)
 
     judge = make_judge(name="test_judge", instructions="Check if {{ outputs }} is valid")
@@ -163,7 +216,6 @@ def test_make_judge_with_databricks_default(monkeypatch):
 
 
 def test_databricks_model_requires_databricks_agents(monkeypatch):
-    # Simulate databricks.agents.evals not being installed
     monkeypatch.setitem(sys.modules, "databricks.agents.evals.judges", None)
 
     with pytest.raises(
@@ -175,31 +227,34 @@ def test_databricks_model_requires_databricks_agents(monkeypatch):
         )
 
 
-def test_litellm_provider_requires_litellm(monkeypatch):
-    # Simulate litellm not being installed
+@pytest.mark.parametrize("provider", _LITELLM_PROVIDERS)
+def test_litellm_provider_requires_litellm(monkeypatch, provider):
     monkeypatch.setitem(sys.modules, "litellm", None)
 
     with pytest.raises(
         MlflowException,
-        match="LiteLLM is required for using 'azure' as a provider",
+        match=f"LiteLLM is required for using '{provider}' as a provider",
     ):
         make_judge(
-            name="test_judge", instructions="Check if {{ outputs }} is valid", model="azure:/gpt-4"
-        )
-
-
-def test_native_providers_work_without_litellm(monkeypatch):
-    # Simulate litellm not being installed
-    monkeypatch.setitem(sys.modules, "litellm", None)
-
-    # These providers should work without litellm
-    for provider in ["openai", "anthropic", "bedrock", "mistral", "endpoints"]:
-        judge = make_judge(
-            name=f"test_judge_{provider}",
+            name="test_judge",
             instructions="Check if {{ outputs }} is valid",
             model=f"{provider}:/test-model",
         )
-        assert judge.model == f"{provider}:/test-model"
+
+
+@pytest.mark.parametrize(
+    "provider",
+    _NATIVE_PROVIDERS,
+)
+def test_native_providers_work_without_litellm(monkeypatch, provider):
+    monkeypatch.setitem(sys.modules, "litellm", None)
+
+    judge = make_judge(
+        name=f"test_judge_{provider}",
+        instructions="Check if {{ outputs }} is valid",
+        model=f"{provider}:/test-model",
+    )
+    assert judge.model == f"{provider}:/test-model"
 
 
 def test_validate_judge_model_function():
@@ -219,36 +274,10 @@ def test_validate_judge_model_function():
         validate_judge_model(":/model")
 
 
-def test_databricks_model_works_with_chat_completions(monkeypatch):
-    mock_judges_module = types.ModuleType("databricks.agents.evals.judges")
-    monkeypatch.setitem(sys.modules, "databricks.agents.evals.judges", mock_judges_module)
-
-    class MockLLMResult:
-        def __init__(self):
-            self.output = json.dumps({"result": True, "rationale": "Valid output"})
-            self.error_message = None
-
-    class MockManagedRAGClient:
-        def get_chat_completions_result(self, prompt, params):
-            # Verify we're getting the right prompt format
-            assert "Check if" in prompt or "outputs" in prompt
-            return MockLLMResult()
-
-    class MockContext:
-        def build_managed_rag_client(self):
-            return MockManagedRAGClient()
-
-    mock_rag_eval = types.ModuleType("databricks.rag_eval")
-    monkeypatch.setitem(sys.modules, "databricks.rag_eval", mock_rag_eval)
-
-    mock_context_module = types.ModuleType("databricks.rag_eval.context")
-    mock_context_module.get_context = lambda: MockContext()
-    mock_context_module.eval_context = lambda func: func  # Pass-through decorator
-    mock_context_module.context = mock_context_module  # Self-reference for import
-
-    # Attach context as an attribute of rag_eval
-    mock_rag_eval.context = mock_context_module
-    monkeypatch.setitem(sys.modules, "databricks.rag_eval.context", mock_context_module)
+def test_databricks_model_works_with_chat_completions(mock_databricks_rag_eval):
+    mock_databricks_rag_eval.get_context = lambda: mock_databricks_rag_eval.MockContext(
+        expected_content="outputs", response_data={"result": True, "rationale": "Valid output"}
+    )
 
     judge = make_judge(
         name="test_judge", instructions="Check if {{ outputs }} is valid", model="databricks"
@@ -260,34 +289,10 @@ def test_databricks_model_works_with_chat_completions(monkeypatch):
     assert result.rationale == "Valid output"
 
 
-def test_databricks_model_works_with_trace(monkeypatch):
-    mock_judges_module = types.ModuleType("databricks.agents.evals.judges")
-    monkeypatch.setitem(sys.modules, "databricks.agents.evals.judges", mock_judges_module)
-
-    class MockLLMResult:
-        def __init__(self):
-            self.output = json.dumps({"result": True, "rationale": "Trace looks good"})
-            self.error_message = None
-
-    class MockManagedRAGClient:
-        def get_chat_completions_result(self, prompt, params):
-            assert "Analyze {{ trace }}" in prompt or "trace" in prompt
-            return MockLLMResult()
-
-    class MockContext:
-        def build_managed_rag_client(self):
-            return MockManagedRAGClient()
-
-    mock_rag_eval = types.ModuleType("databricks.rag_eval")
-    monkeypatch.setitem(sys.modules, "databricks.rag_eval", mock_rag_eval)
-
-    mock_context_module = types.ModuleType("databricks.rag_eval.context")
-    mock_context_module.get_context = lambda: MockContext()
-    mock_context_module.eval_context = lambda func: func  # Pass-through decorator
-    mock_context_module.context = mock_context_module  # Self-reference for import
-
-    mock_rag_eval.context = mock_context_module
-    monkeypatch.setitem(sys.modules, "databricks.rag_eval.context", mock_context_module)
+def test_databricks_model_works_with_trace(mock_databricks_rag_eval):
+    mock_databricks_rag_eval.get_context = lambda: mock_databricks_rag_eval.MockContext(
+        expected_content="trace", response_data={"result": True, "rationale": "Trace looks good"}
+    )
 
     judge = make_judge(
         name="trace_judge", instructions="Analyze {{ trace }} for errors", model="databricks"
@@ -386,7 +391,12 @@ def test_validation_errors(name, instructions, model, error_pattern):
         "bedrock:/claude-v1",
     ],
 )
-def test_valid_model_formats(model):
+def test_valid_model_formats(monkeypatch, model):
+    # Mock databricks.agents.evals.judges for the databricks model case
+    if model == "databricks":
+        mock_judges_module = types.ModuleType("databricks.agents.evals.judges")
+        monkeypatch.setitem(sys.modules, "databricks.agents.evals.judges", mock_judges_module)
+
     judge = make_judge(
         name="test_judge", instructions="Check if {{ outputs }} is valid", model=model
     )

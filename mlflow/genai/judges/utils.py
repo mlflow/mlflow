@@ -173,6 +173,12 @@ def _invoke_databricks_judge(
                             prompt_parts.append(f"Assistant: {msg.content}")
 
                 full_prompt = "\n\n".join(prompt_parts)
+            else:
+                raise MlflowException(
+                    f"Invalid prompt format: expected string or non-empty list of ChatMessage, "
+                    f"got {type(prompt).__name__}",
+                    error_code=BAD_REQUEST,
+                )
 
         # Get the managed RAG client within the eval context
         # The eval_context is required for proper Databricks environment setup
