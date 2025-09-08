@@ -1,4 +1,7 @@
 import json
+import logging
+import traceback
+from dataclasses import dataclass
 
 import mlflow
 from mlflow.entities.assessment import Feedback
@@ -8,8 +11,10 @@ from mlflow.genai.utils.enum_utils import StrEnum
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.telemetry.events import InvokeCustomJudgeModelEvent
 from mlflow.telemetry.track import record_usage_event
+from mlflow.telemetry.utils import _is_in_databricks
 from mlflow.utils.uri import is_databricks_uri
 
+_logger = logging.getLogger(__name__)
 # "endpoints" is a special case for Databricks model serving endpoints.
 _NATIVE_PROVIDERS = ["openai", "anthropic", "bedrock", "mistral", "endpoints"]
 
@@ -26,22 +31,116 @@ def _sanitize_justification(justification: str) -> str:
     return justification.replace("Let's think step by step. ", "")
 
 
-@record_usage_event(InvokeCustomJudgeModelEvent)
-def invoke_judge_model(
-    model_uri: str, prompt: str, assessment_name: str, num_retries: int = 10
-) -> Feedback:
-    """
-    Invoke the judge model.
+@dataclass
+class InvokeDatabricksModelOutput:
+    response: str
+    request_id: str | None
+    num_prompt_tokens: int | None
+    num_completion_tokens: int | None
 
-    First, try to invoke the judge model via litellm. If litellm is not installed,
-    fallback to native parsing using the AI Gateway adapters.
 
-    Args:
-        model_uri: The model URI.
-        prompt: The prompt to evaluate.
-        assessment_name: The name of the assessment.
-        num_retries: Number of retries on transient failures when using litellm.
-    """
+def _invoke_databricks_model(
+    *, model_name: str, prompt: str, num_retries: int
+) -> InvokeDatabricksModelOutput:
+    return InvokeDatabricksModelOutput(
+        response="",
+        request_id=None,
+        num_prompt_tokens=None,
+        num_completion_tokens=None,
+    )
+
+
+def _record_judge_model_usage_success_databricks_telemetry(
+    *,
+    request_id: str | None,
+    model_provider: str,
+    endpoint_name: str,
+    num_prompt_tokens: int | None,
+    num_completion_tokens: int | None,
+) -> None:
+    try:
+        from databricks.agents.telemetry import record_judge_model_usage_success
+    except:
+        _logger.debug(
+            "Failed to import databricks.agents.telemetry.record_judge_model_usage_success; "
+            "databricks-agents needs to be installed."
+        )
+        return
+
+    from mlflow.models.model import get_job_id, get_job_run_id, get_workspace_id
+    from mlflow.tracking.fluent import _get_experiment_id
+
+    experiment_id = _get_experiment_id()
+    workspace_id = get_workspace_id()
+    job_id = get_job_id()
+    job_run_id = get_job_run_id()
+
+    record_judge_model_usage_success(
+        request_id=request_id,
+        experiment_id=experiment_id,
+        job_id=job_id,
+        job_run_id=job_run_id,
+        workspace_id=workspace_id,
+        model_provider=model_provider,
+        endpoint_name=endpoint_name,
+        num_prompt_tokens=num_prompt_tokens,
+        num_completion_tokens=num_completion_tokens,
+    )
+
+
+def _record_judge_model_usage_failure_databricks_telemetry(
+    *,
+    model_provider: str,
+    endpoint_name: str,
+    error_code: str,
+    error_message: str,
+) -> None:
+    try:
+        from databricks.agents.telemetry import record_judge_model_usage_failure
+    except:
+        _logger.debug(
+            "Failed to import databricks.agents.telemetry.record_judge_model_usage_success; "
+            "databricks-agents needs to be installed."
+        )
+        return
+
+    from mlflow.models.model import get_job_id, get_job_run_id, get_workspace_id
+    from mlflow.tracking.fluent import _get_experiment_id
+
+    experiment_id = _get_experiment_id()
+    workspace_id = get_workspace_id()
+    job_id = get_job_id()
+    job_run_id = get_job_run_id()
+
+    record_judge_model_usage_failure(
+        experiment_id=experiment_id,
+        job_id=job_id,
+        job_run_id=job_run_id,
+        workspace_id=workspace_id,
+        model_provider=model_provider,
+        endpoint_name=endpoint_name,
+        error_code=error_code,
+        error_message=error_message,
+    )
+
+
+@dataclass
+class InvokeJudgeModelHelperOutput:
+    feedback: Feedback
+    model_provider: str
+    model_name: str
+    request_id: str | None
+    num_prompt_tokens: int | None
+    num_completion_tokens: int | None
+
+
+def _invoke_judge_model(
+    *,
+    model_uri: str,
+    prompt: str,
+    assessment_name: str,
+    num_retries: int = 10,
+) -> InvokeJudgeModelHelperOutput:
     from mlflow.metrics.genai.model_utils import (
         _parse_model_uri,
         get_endpoint_type,
@@ -49,9 +148,22 @@ def invoke_judge_model(
     )
 
     provider, model_name = _parse_model_uri(model_uri)
+    request_id = None
+    num_prompt_tokens = None
+    num_completion_tokens = None
 
-    # Try litellm first for better performance.
-    if _is_litellm_available():
+    if provider == "databricks":
+        output = _invoke_databricks_model(
+            model_name=model_name,
+            prompt=prompt,
+            num_retries=num_retries,
+        )
+        response = output.response
+        request_id = output.request_id
+        num_prompt_tokens = output.num_prompt_tokens
+        num_completion_tokens = output.num_completion_tokens
+    elif _is_litellm_available():
+        # prioritize litellm for better performance
         response = _invoke_litellm(provider, model_name, prompt, num_retries)
     elif provider in _NATIVE_PROVIDERS:
         response = score_model_on_payload(
@@ -83,7 +195,67 @@ def invoke_judge_model(
             error_code=INVALID_PARAMETER_VALUE,
         ) from e
 
-    return feedback
+    return InvokeJudgeModelHelperOutput(
+        feedback=feedback,
+        model_provider=provider,
+        model_name=model_name,
+        request_id=request_id,
+        num_prompt_tokens=num_prompt_tokens,
+        num_completion_tokens=num_completion_tokens,
+    )
+
+
+@record_usage_event(InvokeCustomJudgeModelEvent)
+def invoke_judge_model(
+    model_uri: str, prompt: str, assessment_name: str, num_retries: int = 10
+) -> Feedback:
+    """
+    Invoke the judge model.
+
+    First, try to invoke the judge model via litellm. If litellm is not installed,
+    fallback to native parsing using the AI Gateway adapters.
+
+    Args:
+        model_uri: The model URI.
+        prompt: The prompt to evaluate.
+        assessment_name: The name of the assessment.
+        num_retries: Number of retries on transient failures when using litellm.
+    """
+    error = None
+    try:
+        output = _invoke_judge_model(
+            model_uri=model_uri,
+            prompt=prompt,
+            assessment_name=assessment_name,
+            num_retries=num_retries,
+        )
+    except:
+        error = traceback.format_exc()
+
+    # Only record detailed telemetry when in Databricks
+    if not _is_in_databricks():
+        return output.feedback
+
+    try:
+        if error is not None:
+            _record_judge_model_usage_failure_databricks_telemetry(
+                model_provider=output.model_provider,
+                endpoint_name=output.model_name,
+                error_code="UNKNOWN",
+                error_message=error,
+            )
+        else:
+            _record_judge_model_usage_success_databricks_telemetry(
+                request_id=output.request_id,
+                model_provider=output.model_provider,
+                endpoint_name=output.model_name,
+                num_prompt_tokens=output.num_prompt_tokens,
+                num_completion_tokens=output.num_completion_tokens,
+            )
+    except Exception as telemetry_error:
+        _logger.debug("Failed to record judge model usage telemetry. Error: %s", telemetry_error)
+
+    return output.feedback
 
 
 def _is_litellm_available() -> bool:
