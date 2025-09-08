@@ -1,7 +1,6 @@
 import sys
 from typing import Any
 
-from mlflow.metrics.genai.model_utils import _parse_model_uri
 from mlflow.telemetry.constant import GENAI_MODULES, MODULES_TO_CHECK_IMPORT
 
 
@@ -217,6 +216,8 @@ class InvokeCustomJudgeModelEvent(Event):
 
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        from mlflow.metrics.genai.model_utils import _parse_model_uri
+
         model_uri = arguments.get("model_uri")
         if not model_uri:
             return {"model_provider": None}
