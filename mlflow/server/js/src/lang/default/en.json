@@ -5003,6 +5003,10 @@
     "defaultMessage": "Download as PNG",
     "description": "Experiment page > compare runs tab > chart header > download as PNG option"
   },
+  "s8a93+": {
+    "defaultMessage": "Traces",
+    "description": "Run details page > tab selector > Traces tab"
+  },
   "sAtY9h": {
     "defaultMessage": "Track and compare versions of your models",
     "description": "Empty state title displayed when no models are logged in the machine learning logged models list page"
