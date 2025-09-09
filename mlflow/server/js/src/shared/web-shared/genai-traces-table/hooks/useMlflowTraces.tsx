@@ -191,7 +191,7 @@ const getNetworkAndClientFilters = (
     clientFilters: TableFilter[];
   }>(
     (acc, filter) => {
-      // Mlflow search api does not support assessment filters, so we need to pass them as client filters
+      // MLflow search api does not support assessment filters, so we need to pass them as client filters
       if (filter.column === TracesTableColumnGroup.ASSESSMENT) {
         acc.clientFilters.push(filter);
       } else {
