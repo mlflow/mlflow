@@ -432,6 +432,7 @@ from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.environment_variables import (
     _MLFLOW_IN_CAPTURE_MODULE_PROCESS,
     _MLFLOW_TESTING,
+    MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF,
     MLFLOW_DISABLE_SCHEMA_DETAILS,
     MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR,
     MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT,
@@ -2583,13 +2584,18 @@ e.g., struct<a:int, b:array<int>>.
 
     tracking_uri = mlflow.get_tracking_uri()
 
+    enforce_stdin_scoring_server = MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF.get()
+
     @pandas_udf(result_type)
     def udf(
         # `pandas_udf` does not support modern type annotations
         iterator: Iterator[Tuple[Union[pandas.Series, pandas.DataFrame], ...]],  # noqa: UP006,UP007
     ) -> Iterator[result_type_hint]:
         # importing here to prevent circular import
-        from mlflow.pyfunc.scoring_server.client import StdinScoringServerClient
+        from mlflow.pyfunc.scoring_server.client import (
+            ScoringServerClient,
+            StdinScoringServerClient,
+        )
 
         # Note: this is a pandas udf function in iteration style, which takes an iterator of
         # tuple of pandas.Series and outputs an iterator of pandas.Series.
@@ -2647,13 +2653,31 @@ e.g., struct<a:int, b:array<int>>.
                 else:
                     local_model_path_on_executor = None
 
-                scoring_server_proc = pyfunc_backend.serve_stdin(
-                    model_uri=local_model_path_on_executor or local_model_path,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    model_config=model_config,
-                )
-                client = StdinScoringServerClient(scoring_server_proc)
+                if not enforce_stdin_scoring_server and check_port_connectivity():
+                    # launch scoring server
+                    server_port = find_free_port()
+                    host = "127.0.0.1"
+                    scoring_server_proc = pyfunc_backend.serve(
+                        model_uri=local_model_path_on_executor or local_model_path,
+                        port=server_port,
+                        host=host,
+                        timeout=MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get(),
+                        enable_mlserver=False,
+                        synchronous=False,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        model_config=model_config,
+                    )
+
+                    client = ScoringServerClient(host, server_port)
+                else:
+                    scoring_server_proc = pyfunc_backend.serve_stdin(
+                        model_uri=local_model_path_on_executor or local_model_path,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        model_config=model_config,
+                    )
+                    client = StdinScoringServerClient(scoring_server_proc)
 
                 _logger.info("Using %s", client.__class__.__name__)
 

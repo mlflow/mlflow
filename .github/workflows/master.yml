@@ -391,6 +391,9 @@ jobs:
 
           # test_spark_connect.py fails if it's run with other tests, so run it separately.
           pytest tests/pyfunc/test_spark_connect.py
+          
+          # Test spark_udf with `MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF` mode
+          MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF=true pytest tests/pyfunc/test_spark.py
       - name: Run tests on pydantic v1
         run: |
           pip install 'pydantic<2'
