@@ -43,7 +43,7 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
     _logger: logging.Logger
     _model: str
 
-    _LIMIT_TRACES: ClassVar[int] = 10
+    _MINIMUM_TRACES_REQUIRED_FOR_OPTIMIZATION: ClassVar[int] = 10
 
     @classmethod
     def get_min_traces_required(cls) -> int:
