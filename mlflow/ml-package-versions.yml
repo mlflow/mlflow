@@ -434,15 +434,13 @@ paddle:
   package_info:
     pip_release: "paddlepaddle"
   models:
-    minimum: "2.6.2"
+    minimum: "2.5.2"
     maximum: "3.1.1"
-    requirements:
     run: |
       pytest tests/paddle/test_paddle_model_export.py
   autologging:
-    minimum: "2.6.2"
+    minimum: "2.5.2"
     maximum: "3.1.1"
-    requirements:
     run: |
       pytest tests/paddle/test_paddle_autolog.py
 
