@@ -3,6 +3,7 @@ import json
 from dataclasses import asdict
 from unittest import mock
 
+import litellm
 import pandas as pd
 import pytest
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
@@ -1280,8 +1281,6 @@ def test_context_window_error_removes_tool_calls_and_retries(
         if len(kwargs["messages"]) >= 8 and not exception_raised:
             exception_raised = True
             raise exception_class(*exception_args)
-        import litellm
-
         mock_response = mock.Mock()
         mock_response.choices = [mock.Mock()]
         if exception_raised:
