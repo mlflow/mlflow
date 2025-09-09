@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 # Defer import of builtin_scorers to avoid circular imports:
 # - builtin_scorers imports Judge from mlflow.genai.judges.base
 # - mlflow.genai.judges.base imports Scorer from mlflow.genai.scorers.base
-# Using __getattr__ for lazy loading is a standard Python pattern for this scenario
+# Using __getattr__ for lazy loading to address
 
 _builtin_scorers_cache = {}
 
