@@ -5,6 +5,5 @@ runs:
   steps:
     - shell: bash
       run: |
-        du -sh /usr/local/lib/android
         # Run in background to save time
         sudo rm -rf /usr/local/lib/android &
