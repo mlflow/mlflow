@@ -74,7 +74,7 @@ Analyzes traces in an MLflow experiment for quality issues, performance problems
   - Tools are working properly
   - Connection is valid
 - Extract sample trace IDs for testing
-- Get one full trace by trace_id to understand the data structure
+- Get one full trace by trace_id that has state OK to understand the data structure (errors might not have the structure)
 
 ## Step 2: Analysis Phase
 
