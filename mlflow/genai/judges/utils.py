@@ -350,6 +350,8 @@ def invoke_judge_model(
     in_databricks = _is_in_databricks()
 
     try:
+        # TODO: have both litellm and native providers support adjusting
+        # retry policy based on environment variables
         output = _invoke_judge_model(
             model_uri=model_uri,
             prompt=prompt,
