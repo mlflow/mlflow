@@ -22,28 +22,41 @@ from mlflow.genai.scorers.registry import delete_scorer, get_scorer, list_scorer
 #   avoiding the circular import at runtime
 
 
+# Define the attributes that should be lazily loaded
+_LAZY_IMPORTS = {
+    "Correctness",
+    "ExpectationsGuidelines",
+    "Guidelines",
+    "RelevanceToQuery",
+    "RetrievalGroundedness",
+    "RetrievalRelevance",
+    "RetrievalSufficiency",
+    "Safety",
+    "get_all_scorers",
+}
+
+
 def __getattr__(name):
     """Lazily import builtin scorers to avoid circular dependency."""
-    # Define the attributes that should be lazily loaded
-    _lazy_imports = {
-        "Correctness",
-        "ExpectationsGuidelines",
-        "Guidelines",
-        "RelevanceToQuery",
-        "RetrievalGroundedness",
-        "RetrievalRelevance",
-        "RetrievalSufficiency",
-        "Safety",
-        "get_all_scorers",
-    }
-
-    if name in _lazy_imports:
+    if name in _LAZY_IMPORTS:
         # Import the module when first accessed
         from mlflow.genai.scorers import builtin_scorers
 
         return getattr(builtin_scorers, name)
 
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__():
+    """Return the list of attributes available in this module.
+
+    This is necessary for Sphinx autodoc and other introspection tools
+    to discover the lazily-loaded scorer classes.
+    """
+    # Get the default module attributes
+    module_attrs = list(globals().keys())
+    # Add the lazy imports
+    return sorted(set(module_attrs) | _LAZY_IMPORTS)
 
 
 # The TYPE_CHECKING block below is for static analysis tools only.
@@ -98,3 +111,22 @@ __all__ = [
     "list_scorers",
     "delete_scorer",
 ]
+
+# For Sphinx autodoc: explicitly set the lazy-loaded classes as module attributes
+# This allows Sphinx to document them even though they're not imported at module initialization
+# These will be replaced by the actual classes when accessed via __getattr__
+import sys
+
+if "sphinx" in sys.modules:
+    # Only do this when building docs to avoid the circular import
+    from mlflow.genai.scorers.builtin_scorers import (
+        Correctness,
+        ExpectationsGuidelines,
+        Guidelines,
+        RelevanceToQuery,
+        RetrievalGroundedness,
+        RetrievalRelevance,
+        RetrievalSufficiency,
+        Safety,
+        get_all_scorers,
+    )
