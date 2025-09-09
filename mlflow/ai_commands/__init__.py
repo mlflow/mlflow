@@ -2,9 +2,14 @@
 
 import click
 
-from mlflow.ai_commands.ai_command_utils import get_command, list_commands, parse_frontmatter
+from mlflow.ai_commands.ai_command_utils import (
+    get_command,
+    get_command_body,
+    list_commands,
+    parse_frontmatter,
+)
 
-__all__ = ["get_command", "list_commands", "parse_frontmatter", "commands"]
+__all__ = ["get_command", "get_command_body", "list_commands", "parse_frontmatter", "commands"]
 
 
 @click.group("ai-commands")
