@@ -300,7 +300,7 @@ def _invoke_litellm(
 
     def _prune_messages_for_context_window():
         """Helper to prune messages when context window is exceeded."""
-        return _prune_messages_over_context_length(
+        return _prune_messages_exceeding_context_window_length(
             messages=messages,
             model=litellm_model_uri,
             max_tokens=litellm.get_max_tokens(litellm_model_uri) or 100000,
@@ -469,7 +469,7 @@ def _get_judge_response_format() -> dict[str, Any]:
     }
 
 
-def _prune_messages_over_context_length(
+def _prune_messages_exceeding_context_window_length(
     messages: list["litellm.Message"],  # noqa: F821
     model: str,
     max_tokens: int,
