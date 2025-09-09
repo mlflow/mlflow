@@ -92,7 +92,7 @@ def test_prompt_format():
         ("$100", "test", "Path: $100, Unicode: test"),
     ],
 )
-def test_prompt_format_backslash_escape(path_value, unicode_value, expected):
+def test_prompt_format_backslash_escape(path_value: str, unicode_value: str, expected: str):
     prompt = PromptVersion(name="test", version=1, template="Path: {{path}}, Unicode: {{unicode}}")
     result = prompt.format(path=path_value, unicode=unicode_value)
     assert result == expected
@@ -113,7 +113,7 @@ def test_prompt_format_backslash_escape(path_value, unicode_value, expected):
         ("casual", 'He said "Hello"', 'He said "Hello"'),
     ],
 )
-def test_prompt_format_chat_backslash_escape(style, question, expected_content):
+def test_prompt_format_chat_backslash_escape(style: str, question: str, expected_content: str):
     """Test that PromptVersion.format correctly handles backslashes in chat prompts."""
     chat_template = [
         {"role": "system", "content": "You are a {{style}} assistant."},

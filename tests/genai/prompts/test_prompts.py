@@ -292,7 +292,9 @@ def test_register_prompt_with_nested_variables():
         ),
     ],
 )
-def test_format_prompt_with_backslashes(prompt_template, values, expected):
+def test_format_prompt_with_backslashes(
+    prompt_template: str, values: dict[str, str], expected: str
+):
     """Test that format_prompt correctly handles values containing backslashes."""
     result = format_prompt(prompt_template, **values)
     assert result == expected
