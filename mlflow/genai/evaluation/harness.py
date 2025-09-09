@@ -131,8 +131,7 @@ def _run_single(
 
     for key, value in tags.items():
         try:
-            # mlflow.set_tag(key, value)
-            _logger.info(f"Logging tag {key} to MLflow: {value}")
+            mlflow.set_trace_tag(trace_id=eval_item.trace.info.trace_id, key=key, value=value)
         except Exception as e:
             # Failures in logging to MLflow should not fail the entire harness run
             _logger.warning(f"Failed to log tag {key} to MLflow: {e}")
