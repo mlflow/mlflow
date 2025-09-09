@@ -5,6 +5,7 @@ import pytest
 from pydantic import BaseModel
 
 import mlflow
+from mlflow.genai.prompts.utils import format_prompt
 
 
 @contextmanager
@@ -266,3 +267,32 @@ def test_register_prompt_with_nested_variables():
         "user.preferences.greeting",
     }
     assert prompt.variables == expected_variables
+
+
+@pytest.mark.parametrize(
+    ("prompt_template", "values", "expected"),
+    [
+        # Test with Unicode escape-like sequences
+        (
+            "User input: {{ user_text }}",
+            {"user_text": r"Path is C:\users\john"},
+            r"User input: Path is C:\users\john",
+        ),
+        # Test with newlines and tabs
+        (
+            "Data: {{ data }}",
+            {"data": "Line1\\nLine2\\tTabbed"},
+            "Data: Line1\\nLine2\\tTabbed",
+        ),
+        # Test with multiple variables
+        (
+            "Path: {{ path }}, Command: {{ cmd }}",
+            {"path": r"C:\temp", "cmd": r"echo \u0041"},
+            r"Path: C:\temp, Command: echo \u0041",
+        ),
+    ],
+)
+def test_format_prompt_with_backslashes(prompt_template, values, expected):
+    """Test that format_prompt correctly handles values containing backslashes."""
+    result = format_prompt(prompt_template, **values)
+    assert result == expected

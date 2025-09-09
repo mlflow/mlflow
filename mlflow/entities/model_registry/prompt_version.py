@@ -341,21 +341,19 @@ class PromptVersion(_ModelRegistryEntity):
                 If False, raise an error if there are missing variables.
             kwargs: Keyword arguments to replace the variables in the template.
         """
+        from mlflow.genai.prompts.utils import format_prompt
+
         input_keys = set(kwargs.keys())
-
-        def escape_backslashes(prompt: str) -> str:
-            for key, value in kwargs.items():
-                value = str(value).replace("\\", "\\\\")
-                prompt = re.sub(r"\{\{\s*" + re.escape(key) + r"\s*\}\}", value, prompt)
-            return prompt
-
         if self.is_text_prompt:
-            template = escape_backslashes(self.template)
+            template = format_prompt(self.template, **kwargs)
         else:
             # For chat prompts, we need to handle JSON properly
             # Instead of working with JSON strings, work with the Python objects directly
             template = [
-                {"role": message["role"], "content": escape_backslashes(message.get("content"))}
+                {
+                    "role": message["role"],
+                    "content": format_prompt(message.get("content"), **kwargs),
+                }
                 for message in self.template
             ]
         if missing_keys := self.variables - input_keys:

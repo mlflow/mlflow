@@ -1,6 +1,6 @@
 from typing import Any
 
-from mlflow.genai.judges.utils import format_prompt
+from mlflow.genai.prompts.utils import format_prompt
 
 # NB: User-facing name for the is_context_sufficient assessment.
 CONTEXT_SUFFICIENCY_FEEDBACK_NAME = "context_sufficiency"
