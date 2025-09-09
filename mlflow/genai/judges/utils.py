@@ -143,8 +143,8 @@ def _invoke_databricks_model(
                 ) from e
 
         # Check HTTP status before parsing JSON
-        if res.status_code == 400 or res.status_code == 403:
-            # Don't retry on bad request or auth issues
+        if res.status_code in [400, 401, 403, 404]:
+            # Don't retry on bad request, unauthorized, not found, or forbidden
             raise MlflowException(
                 f"Databricks model invocation failed with status {res.status_code}: {res.text}",
                 error_code=INVALID_PARAMETER_VALUE,

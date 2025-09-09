@@ -250,15 +250,16 @@ def test_invoke_databricks_model_successful_invocation() -> None:
     assert result.num_completion_tokens == 5
 
 
-def test_invoke_databricks_model_bad_request_error_no_retry() -> None:
-    """Test that 400/403 errors are not retried."""
+@pytest.mark.parametrize("status_code", [400, 401, 403, 404])
+def test_invoke_databricks_model_bad_request_error_no_retry(status_code: int) -> None:
+    """Test that 400/401/403/404 errors are not retried."""
     mock_creds = mock.Mock()
     mock_creds.host = "https://test.databricks.com"
     mock_creds.token = "test-token"
 
     mock_response = mock.Mock()
-    mock_response.status_code = 400
-    mock_response.text = "Bad request"
+    mock_response.status_code = status_code
+    mock_response.text = f"Error {status_code}"
 
     with (
         mock.patch(
@@ -270,7 +271,7 @@ def test_invoke_databricks_model_bad_request_error_no_retry() -> None:
             return_value=mock_response,
         ) as mock_post,
     ):
-        with pytest.raises(MlflowException, match="failed with status 400"):
+        with pytest.raises(MlflowException, match=f"failed with status {status_code}"):
             _invoke_databricks_model(model_name="test-model", prompt="test prompt", num_retries=3)
 
         mock_post.assert_called_once()
