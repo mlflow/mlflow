@@ -62,6 +62,7 @@ SAFE_PICKLE_CLASSES = {
     'cloudpickle.cloudpickle._function_setstate',
     'cloudpickle.cloudpickle._make_empty_cell',
     'cloudpickle.cloudpickle._make_cell',
+    'cloudpickle.cloudpickle.subimport',
 
     # Sentence Transformers
     'sentence_transformers.SentenceTransformer.SentenceTransformer',
