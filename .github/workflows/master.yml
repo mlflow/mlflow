@@ -100,7 +100,7 @@ jobs:
 
       - name: Run databricks-connect related tests
         run: |
-          # this needs to be run in a separate job because installing databricks-connect could break other 
+          # this needs to be run in a separate job because installing databricks-connect could break other
           # tests that uses normal SparkSession instead of remote SparkSession
           source .venv/bin/activate
           pip install databricks-agents
