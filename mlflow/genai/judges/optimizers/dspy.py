@@ -52,7 +52,7 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
         Returns:
             The minimum number of traces required for optimization.
         """
-        return cls._LIMIT_TRACES
+        return cls._MINIMUM_TRACES_REQUIRED_FOR_OPTIMIZATION
 
     @property
     def model(self) -> str:
