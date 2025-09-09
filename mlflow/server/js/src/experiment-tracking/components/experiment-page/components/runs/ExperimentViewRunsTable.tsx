@@ -128,9 +128,11 @@ export const ExperimentViewRunsTable = React.memo(
       );
 
       // Filter tag keys based on selected columns
-      const filteredTags = Object.fromEntries(
-        Object.entries(runsData.tagsList).filter(([key]) =>
-          selectedColumns.includes(makeCanonicalSortKey(COLUMN_TYPES.TAGS, key)),
+      const filteredTags = runsData.tagsList.map((tags) =>
+        Object.fromEntries(
+          Object.entries(tags).filter(([key]) =>
+            selectedColumns.includes(makeCanonicalSortKey(COLUMN_TYPES.TAGS, key)),
+          ),
         ),
       );
 
@@ -402,7 +404,6 @@ export const ExperimentViewRunsTable = React.memo(
                 maxBlocksInCache={20} // Increased from 10
                 cacheBlockSize={100}
                 maxConcurrentDatasourceRequests={2} // Increased from 1
-                suppressModelUpdateAfterUpdateTransaction
                 immutableData // Added for better performance
                 getRowNodeId={(data) => data.rowUuid} // Added for better row identification
                 suppressPropertyNamesCheck // Added to reduce overhead
