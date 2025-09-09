@@ -122,13 +122,13 @@ docker compose down
 
 ## Tips & Troubleshooting
 
-- **Verify connectivity**  
+- **Verify connectivity**
   If MLflow can't write artifacts, confirm your S3 settings:
 
   - `MLFLOW_DEFAULT_ARTIFACT_ROOT` points to your MinIO bucket (e.g., `s3://mlflow/`)
   - `MLFLOW_S3_ENDPOINT_URL` is reachable from the MLflow container (often `http://minio:9000`)
 
-- **Resetting the environment**  
+- **Resetting the environment**
   If you want a clean slate, stop the stack and remove volumes:
 
   ```bash
@@ -142,7 +142,7 @@ docker compose down
   - PostgreSQL: `docker compose logs -f postgres`
   - MinIO: `docker compose logs -f minio`
 
-- **Port conflicts**  
+- **Port conflicts**
   If `5000` (or any other port) is in use, change it in `.env` and restart:
   ```bash
   docker compose down

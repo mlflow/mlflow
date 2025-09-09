@@ -335,34 +335,34 @@ MLflow 2.22.0 brings important bug fixes and improves the UI and tracking capabi
 
 Features:
 
-- [Tracking] Supported tracing for OpenAI Responses API.  
+- [Tracking] Supported tracing for OpenAI Responses API.
   (#15240, @B-Step62)
-- [Tracking] Introduced `get_last_active_trace`, which affects model serving/monitoring logic.  
+- [Tracking] Introduced `get_last_active_trace`, which affects model serving/monitoring logic.
   (#15233, @B-Step62)
-- [Tracking] Introduced async export for Databricks traces (default behavior).  
+- [Tracking] Introduced async export for Databricks traces (default behavior).
   (#15163, @B-Step62)
-- [AI Gateway] Added Gemini embeddings support with corresponding unit tests.  
+- [AI Gateway] Added Gemini embeddings support with corresponding unit tests.
   (#15017, @joelrobin18)
-- [Tracking / SQLAlchemy] MySQL SSL connections are now supported with client certs.  
+- [Tracking / SQLAlchemy] MySQL SSL connections are now supported with client certs.
   (#14839, @aksylumoed)
-- [Models] Added Optuna storage utility for enabling parallel hyperparameter tuning.  
+- [Models] Added Optuna storage utility for enabling parallel hyperparameter tuning.
   (#15243, @XiaohanZhangCMU)
-- [Artifacts] Added support for Azure Data Lake Storage (ADLS) artifact repositories.  
+- [Artifacts] Added support for Azure Data Lake Storage (ADLS) artifact repositories.
   (#14723, @serena-ruan)
-- [UI] Artifact views for text now auto-refresh in the UI.  
+- [UI] Artifact views for text now auto-refresh in the UI.
   (#14939, @joelrobin18)
 
 Bug Fixes:
 
-- [Tracking / UI] Fixed serialization for structured output in `langchain_tracer` + added unit tests.  
+- [Tracking / UI] Fixed serialization for structured output in `langchain_tracer` + added unit tests.
   (#14971, @joelrobin18)
-- [Server-infra] Enforced password validation for authentication (min. 8 characters).  
+- [Server-infra] Enforced password validation for authentication (min. 8 characters).
   (#15287, @WeichenXu123)
-- [Deployments] Resolved an issue with the OpenAI Gateway adapter.  
+- [Deployments] Resolved an issue with the OpenAI Gateway adapter.
   (#15286, @WeichenXu123)
-- [Artifacts / Tracking / Server-infra] Normalized paths by stripping trailing slashes.  
+- [Artifacts / Tracking / Server-infra] Normalized paths by stripping trailing slashes.
   (#15016, @tarek7669)
-- [Tags] Fixed bug where tag values containing `": "` were being truncated.  
+- [Tags] Fixed bug where tag values containing `": "` were being truncated.
   (#14896, @harupy)
 
 Small bug fixes and documentation updates:
