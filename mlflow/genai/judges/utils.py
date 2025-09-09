@@ -357,14 +357,13 @@ def invoke_judge_model(
             num_retries=num_retries,
         )
     except Exception:
-        error_traceback = traceback.format_exc()
         if in_databricks:
             try:
                 _record_judge_model_usage_failure_databricks_telemetry(
                     model_provider=model_provider,
                     endpoint_name=model_name,
                     error_code="UNKNOWN",
-                    error_message=error_traceback,
+                    error_message=traceback.format_exc(),
                 )
             except Exception as telemetry_error:
                 _logger.debug(
