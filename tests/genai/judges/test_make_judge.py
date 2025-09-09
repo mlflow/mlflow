@@ -5,6 +5,7 @@ from dataclasses import asdict
 from unittest import mock
 from unittest.mock import patch
 
+import litellm
 import pandas as pd
 import pytest
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
@@ -1656,7 +1657,6 @@ def test_trace_field_extraction_with_non_dict_values(mock_invoke_judge_model):
     user_msg = prompt[1]
     user_content = user_msg.content
 
-    # Non-dict values are now serialized directly as JSON strings
     expected_inputs_json = json.dumps(trace_inputs, default=str, indent=2)
     expected_outputs_json = json.dumps(trace_outputs, default=str, indent=2)
 
@@ -1699,7 +1699,6 @@ def test_trace_field_extraction_with_expectations(mock_invoke_judge_model):
 
     expected_inputs_json = json.dumps(trace_inputs, default=str, indent=2)
     expected_outputs_json = json.dumps(trace_outputs, default=str, indent=2)
-    # The new API returns expectations as {name: value} dict
     expected_expectations_json = json.dumps(
         {"expected_answer": expected_answer}, default=str, indent=2
     )
@@ -1825,8 +1824,6 @@ def test_trace_with_trace_template_ignores_extraction(mock_invoke_judge_model):
 
 
 def test_field_based_template_with_trace_and_explicit_inputs(mock_invoke_judge_model):
-    # NB: Tests that when both trace and explicit inputs are provided for a field-based template,
-    # the explicit inputs take precedence over trace extraction
     judge = make_judge(
         name="test_judge",
         instructions="Evaluate if {{ inputs }} matches {{ outputs }}",
@@ -1844,7 +1841,6 @@ def test_field_based_template_with_trace_and_explicit_inputs(mock_invoke_judge_m
 
     trace = mlflow.get_trace(span.trace_id)
 
-    # Call with both trace and explicit values
     judge(trace=trace, inputs=explicit_inputs, outputs=explicit_outputs)
 
     assert len(mock_invoke_judge_model.calls) == 1
@@ -1855,7 +1851,6 @@ def test_field_based_template_with_trace_and_explicit_inputs(mock_invoke_judge_m
     assert len(messages) == 2
 
     user_message = messages[1].content
-    # Verify explicit values were used, not trace values
     assert "explicitly provided" in user_message
     assert "Explicit answer" in user_message
     assert "in the trace" not in user_message
@@ -1865,8 +1860,6 @@ def test_field_based_template_with_trace_and_explicit_inputs(mock_invoke_judge_m
 def test_field_based_template_extracts_missing_fields_from_trace(
     mock_invoke_judge_model,
 ):
-    # NB: Tests that when trace is provided but some fields are missing,
-    # they are extracted from the trace
     judge = make_judge(
         name="test_judge",
         instructions="Evaluate if {{ inputs }} matches {{ outputs }}",
@@ -1883,22 +1876,18 @@ def test_field_based_template_extracts_missing_fields_from_trace(
 
     trace = mlflow.get_trace(span.trace_id)
 
-    # Call with trace and only explicit inputs (outputs should be extracted from trace)
     judge(trace=trace, inputs=explicit_inputs)
 
     assert len(mock_invoke_judge_model.calls) == 1
-    model_uri, prompt, assessment_name = mock_invoke_judge_model.calls[0]
+    _, prompt, _ = mock_invoke_judge_model.calls[0]
     messages = prompt
 
     user_message = messages[1].content
-    # Verify explicit inputs were used
     assert "Explicitly provided" in user_message
-    # Verify outputs were extracted from trace
     assert "Trace output" in user_message
 
 
 def test_trace_based_template_with_additional_inputs(mock_invoke_judge_model):
-    # NB: Tests that trace-based templates properly interpolate field variables in instructions
     judge = make_judge(
         name="test_judge",
         instructions="Evaluate the {{ trace }} considering the reference {{ inputs }}",
@@ -1913,28 +1902,22 @@ def test_trace_based_template_with_additional_inputs(mock_invoke_judge_model):
 
     trace = mlflow.get_trace(span.trace_id)
 
-    # Call with both trace and additional inputs
     judge(trace=trace, inputs=additional_inputs)
 
     assert len(mock_invoke_judge_model.calls) == 1
-    model_uri, prompt, assessment_name = mock_invoke_judge_model.calls[0]
+    _, prompt, _ = mock_invoke_judge_model.calls[0]
 
-    # Should be a string prompt for trace-based evaluation
     assert isinstance(prompt, str)
     assert "analyze a trace" in prompt.lower()
 
-    # The template variable {{ inputs }} should be replaced with the actual JSON
     expected_inputs_json = json.dumps(additional_inputs, default=str, indent=2)
     assert expected_inputs_json in prompt
     assert "reference" in prompt
     assert "This is the expected behavior" in prompt
-    # Should NOT have the literal {{ inputs }} anymore
     assert "{{ inputs }}" not in prompt
 
 
 def test_mixed_template_validation_allows_trace_with_fields():
-    # NB: Tests that we can create a judge with both trace and field variables
-    # This used to raise an error but should now be allowed
     judge = make_judge(
         name="test_judge",
         instructions="Evaluate {{ trace }} against {{ inputs }} and {{ outputs }}",
@@ -1945,7 +1928,6 @@ def test_mixed_template_validation_allows_trace_with_fields():
 
 
 def test_mixed_trace_and_fields_template_comprehensive(mock_invoke_judge_model):
-    # NB: Comprehensive test for mixed template with all field types
     judge = make_judge(
         name="test_judge",
         instructions=(
@@ -1957,7 +1939,6 @@ def test_mixed_trace_and_fields_template_comprehensive(mock_invoke_judge_model):
 
     assert judge.template_variables == {"trace", "inputs", "outputs", "expectations"}
 
-    # Create a trace
     trace_inputs = {"question": "What is MLflow?"}
     trace_outputs = {"answer": "MLflow is an open source platform"}
 
@@ -1967,12 +1948,10 @@ def test_mixed_trace_and_fields_template_comprehensive(mock_invoke_judge_model):
 
     trace = mlflow.get_trace(span.trace_id)
 
-    # Provide additional context
     additional_inputs = {"reference": "This is the expected input format"}
     additional_outputs = {"expected_format": "JSON with answer field"}
     additional_expectations = {"criteria": "Answer must mention ML lifecycle"}
 
-    # Call with trace and all additional fields
     judge(
         trace=trace,
         inputs=additional_inputs,
@@ -1981,13 +1960,11 @@ def test_mixed_trace_and_fields_template_comprehensive(mock_invoke_judge_model):
     )
 
     assert len(mock_invoke_judge_model.calls) == 1
-    model_uri, prompt, assessment_name = mock_invoke_judge_model.calls[0]
+    _, prompt, _ = mock_invoke_judge_model.calls[0]
 
-    # Should be a string prompt for trace-based evaluation
     assert isinstance(prompt, str)
     assert "analyze a trace" in prompt.lower()
 
-    # All template variables should be interpolated with actual values
     expected_inputs_json = json.dumps(additional_inputs, default=str, indent=2)
     expected_outputs_json = json.dumps(additional_outputs, default=str, indent=2)
     expected_expectations_json = json.dumps(additional_expectations, default=str, indent=2)
@@ -1996,7 +1973,6 @@ def test_mixed_trace_and_fields_template_comprehensive(mock_invoke_judge_model):
     assert expected_outputs_json in prompt
     assert expected_expectations_json in prompt
 
-    # Verify specific values are present
     assert "reference" in prompt
     assert "This is the expected input format" in prompt
     assert "expected_format" in prompt
@@ -2004,9 +1980,72 @@ def test_mixed_trace_and_fields_template_comprehensive(mock_invoke_judge_model):
     assert "criteria" in prompt
     assert "Answer must mention ML lifecycle" in prompt
 
-    # Should NOT have the literal template variables anymore
     assert "{{ inputs }}" not in prompt
     assert "{{ outputs }}" not in prompt
     assert "{{ expectations }}" not in prompt
-    # But {{ trace }} should remain since it's handled by the agent
     assert "{{ trace }}" in prompt or "{{trace}}" in prompt
+
+
+@pytest.mark.parametrize(
+    "exception",
+    [
+        litellm.ContextWindowExceededError("Context exceeded", "gpt-4", "openai"),
+        litellm.BadRequestError("maximum context length is exceeded", "gpt-4", "openai"),
+    ],
+)
+def test_context_window_error_removes_tool_calls_and_retries(exception, monkeypatch, mock_trace):
+    exception_raised = False
+    captured_error_messages = None
+    captured_retry_messages = None
+
+    def mock_completion(**kwargs):
+        nonlocal exception_raised
+        nonlocal captured_error_messages
+        nonlocal captured_retry_messages
+
+        if len(kwargs["messages"]) >= 8 and not exception_raised:
+            captured_error_messages = kwargs["messages"]
+            exception_raised = True
+            raise exception
+
+        mock_response = mock.Mock()
+        mock_response.choices = [mock.Mock()]
+        if exception_raised:
+            captured_retry_messages = kwargs["messages"]
+            mock_response.choices[0].message = litellm.Message(
+                role="assistant",
+                content='{"result": "pass", "rationale": "Test passed"}',
+                tool_calls=None,
+            )
+        else:
+            call_id = f"call_{len(kwargs['messages'])}"
+            mock_response.choices[0].message = litellm.Message(
+                role="assistant",
+                content=None,
+                tool_calls=[{"id": call_id, "function": {"name": "get_span", "arguments": "{}"}}],
+            )
+        return mock_response
+
+    monkeypatch.setattr("litellm.completion", mock_completion)
+    monkeypatch.setattr("litellm.token_counter", lambda model, messages: len(messages) * 20)
+    monkeypatch.setattr("litellm.get_max_tokens", lambda model: 120)
+
+    judge = make_judge(name="test", instructions="test {{inputs}}", model="openai:/gpt-4")
+    judge(inputs={"input": "test"}, outputs={"output": "test"}, trace=mock_trace)
+
+    # Verify pruning happened; we expect that 2 messages were removed (one tool call pair consisting
+    # of 1. assistant message and 2. tool call result message)
+    assert captured_retry_messages == captured_error_messages[:2] + captured_error_messages[4:8]
+
+
+def test_non_context_error_does_not_trigger_pruning(monkeypatch):
+    def mock_completion(**kwargs):
+        raise Exception("some other error")
+
+    monkeypatch.setattr("litellm.completion", mock_completion)
+
+    judge = make_judge(
+        name="test_judge", instructions="Check if {{inputs}} is correct", model="openai:/gpt-4"
+    )
+    with pytest.raises(MlflowException, match="some other error"):
+        judge(inputs={"input": "test"}, outputs={"output": "test"})
