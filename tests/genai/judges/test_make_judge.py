@@ -1315,8 +1315,6 @@ def test_context_window_error_removes_tool_calls_and_retries(
 
 
 def test_non_context_error_does_not_trigger_pruning(monkeypatch):
-    """Test that non-context errors are re-raised without pruning."""
-
     def mock_completion(**kwargs):
         raise Exception("some other error")
 
