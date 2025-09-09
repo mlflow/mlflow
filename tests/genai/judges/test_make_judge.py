@@ -1,4 +1,3 @@
-import copy
 import json
 from dataclasses import asdict
 from unittest import mock
@@ -1271,27 +1270,31 @@ def test_instructions_judge_with_chat_messages():
 def test_context_window_error_removes_tool_calls_and_retries(
     exception_class, exception_args, monkeypatch, mock_trace
 ):
-    captured_message_histories = []
     exception_raised = False
+    captured_error_messages = None
+    captured_retry_messages = None
 
     def mock_completion(**kwargs):
         nonlocal exception_raised
-        captured_message_histories.append(copy.deepcopy(kwargs["messages"]))
+        nonlocal captured_error_messages
+        nonlocal captured_retry_messages
 
         if len(kwargs["messages"]) >= 8 and not exception_raised:
+            captured_error_messages = kwargs["messages"]
             exception_raised = True
             raise exception_class(*exception_args)
 
         mock_response = mock.Mock()
         mock_response.choices = [mock.Mock()]
         if exception_raised:
+            captured_retry_messages = kwargs["messages"]
             mock_response.choices[0].message = litellm.Message(
                 role="assistant",
                 content='{"result": "pass", "rationale": "Test passed"}',
                 tool_calls=None,
             )
         else:
-            call_id = f"call{len(captured_message_histories)}"
+            call_id = f"call_{len(kwargs['messages'])}"
             mock_response.choices[0].message = litellm.Message(
                 role="assistant",
                 content=None,
@@ -1309,36 +1312,24 @@ def test_context_window_error_removes_tool_calls_and_retries(
     monkeypatch.setattr("litellm.get_max_tokens", lambda model: 100)
 
     judge = make_judge(name="test", instructions="test {{inputs}}", model="openai:/gpt-4")
-    result = judge(inputs={"input": "test"}, outputs={"output": "test"}, trace=mock_trace)
+    judge(inputs={"input": "test"}, outputs={"output": "test"}, trace=mock_trace)
 
-    # Find error call and verify retry has fewer messages
-    error_idx = next(i for i, msgs in enumerate(captured_message_histories) if len(msgs) >= 8)
-    messages_at_error = captured_message_histories[error_idx]
-    messages_after_retry = captured_message_histories[error_idx + 1]
     # Verify pruning happened; we expect that 4 messages were removed (2 tool call pairs
     # of 1. assistant message and 2. tool call result message)
-    assert len(messages_after_retry) < len(messages_at_error)
-    # Verify system/user messages preserved but some tool calls removed
-    assert messages_after_retry[0] == messages_at_error[0]  # system
-    assert messages_after_retry[1] == messages_at_error[1]  # user
-    assert len(messages_after_retry) == 4  # system, user, 1 tool pair
-    # Verify the remaining tool call is the last one (tool calls pruned from beginning)
-    assert messages_after_retry[2]["role"] == "assistant"
-    assert messages_after_retry[2]["tool_calls"][0]["id"] == "call3"
-    assert messages_after_retry[3]["role"] == "tool"
-    assert result.value == "pass"
+    assert captured_retry_messages == captured_error_messages[:2] + captured_error_messages[6:8]
 
 
 def test_non_context_error_does_not_trigger_pruning(monkeypatch):
     """Test that non-context errors are re-raised without pruning."""
-    from mlflow.genai.judges.utils import _invoke_litellm
-
-    messages = [ChatMessage(role="user", content="Test")]
 
     def mock_completion(**kwargs):
         raise Exception("some other error")
 
     monkeypatch.setattr("litellm.completion", mock_completion)
 
+    judge = make_judge(
+        name="test_judge", instructions="Check if {{inputs}} is correct", model="openai:/gpt-4"
+    )
+
     with pytest.raises(MlflowException, match="some other error"):
-        _invoke_litellm("openai", "gpt-4", messages, None, 1)
+        judge(inputs={"input": "test"}, outputs={"output": "test"})
