@@ -546,3 +546,59 @@ def test_otel_roundtrip_conversion(sample_otel_span_for_conversion):
         assert rt_event.name == orig_event.name
         assert rt_event.timestamp == orig_event.timestamp
         assert rt_event.attributes == orig_event.attributes
+
+
+def test_span_attributes_not_double_stringified():
+    """Test that span attributes like spanInputs are not double-stringified when serialized."""
+    import json
+    from mlflow.entities.trace_data import TraceData
+    from mlflow.tracing.constant import SpanAttributeKey
+    from opentelemetry.sdk.resources import Resource as _OTelResource
+    
+    test_input = "Sluggish economy hits German jobs\n\nThe number of people out of work in Europe's largest (...)"
+    test_output = {"result": "some output", "nested": {"key": "value"}}
+    
+    otel_span = OTelReadableSpan(
+        name="test_span",
+        context=build_otel_context(123456789, 987654321),
+        parent=None,
+        start_time=1000000000,
+        end_time=2000000000,
+        attributes={
+            SpanAttributeKey.REQUEST_ID: json.dumps("tr-test123"),
+            SpanAttributeKey.INPUTS: json.dumps(test_input),
+            SpanAttributeKey.OUTPUTS: json.dumps(test_output),
+            SpanAttributeKey.SPAN_TYPE: json.dumps("TEST"),
+        },
+        status=OTelStatus(OTelStatusCode.OK),
+        resource=_OTelResource.get_empty(),
+        events=[],
+    )
+    
+    span = Span(otel_span)
+    
+    span_dict = span.to_dict()
+    
+    attributes = span_dict["attributes"]
+    
+    assert attributes[SpanAttributeKey.INPUTS] == test_input
+    assert isinstance(attributes[SpanAttributeKey.INPUTS], str)
+    
+    assert attributes[SpanAttributeKey.OUTPUTS] == test_output
+    assert isinstance(attributes[SpanAttributeKey.OUTPUTS], dict)
+    
+    trace_data = TraceData(spans=[span])
+    trace_dict = trace_data.to_dict()
+    
+    trace_json = json.dumps(trace_dict)
+    
+    parsed_trace = json.loads(trace_json)
+    
+    parsed_span = parsed_trace["spans"][0]
+    parsed_attributes = parsed_span["attributes"]
+    
+    assert parsed_attributes[SpanAttributeKey.INPUTS] == test_input
+    assert parsed_attributes[SpanAttributeKey.OUTPUTS] == test_output
+    
+    assert '\\\\n' not in trace_json
+    assert '\\\\"' not in trace_json
