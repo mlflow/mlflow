@@ -308,6 +308,8 @@ def _invoke_litellm(
         try:
             max_context_length = litellm.get_max_tokens(litellm_model_uri)
         except Exception:
+            # If the model is unknown to LiteLLM, fetching its max tokens may
+            # result in an exception
             max_context_length = None
 
         return _prune_messages_exceeding_context_window_length(
