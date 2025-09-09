@@ -32,26 +32,6 @@ from mlflow.utils.uri import is_databricks_uri
 
 GENAI_CONFIG_NAME = "databricks-agent"
 
-
-def _validate_tracking_uri_is_databricks(scorer_name: str) -> None:
-    """Validate that the current tracking URI is set to Databricks.
-
-    Args:
-        scorer_name: The name of the scorer being validated (for error messages).
-
-    Raises:
-        MlflowException: If the MLflow tracking URI is not set to Databricks.
-    """
-    from mlflow.utils.uri import is_databricks_uri
-
-    if not is_databricks_uri(mlflow.get_tracking_uri()):
-        raise MlflowException(
-            f"The {scorer_name} scorer is only available in Databricks managed "
-            "MLflow. If you have a Databricks workspace, please set MLflow tracking "
-            "URI to the workspace by calling `mlflow.set_tracking_uri('databricks')`."
-        )
-
-
 from mlflow.genai.judges.base import Judge, JudgeField
 
 
