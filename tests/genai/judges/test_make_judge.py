@@ -1257,6 +1257,45 @@ def test_instructions_judge_with_chat_messages():
     assert len(prompt_sent) == 2
     assert all(isinstance(msg, ChatMessage) for msg in prompt_sent)
     assert prompt_sent[0].role == "system"
+    assert prompt_sent[1].role == "user"
+
+
+def test_context_labels_added_to_interpolated_values(mock_invoke_judge_model):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate if {{outputs}} answers {{inputs}} per {{expectations}}",
+        model="openai:/gpt-4",
+    )
+
+    test_inputs = {"question": "What is MLflow?"}
+    test_outputs = {"answer": "MLflow is an open source platform"}
+    test_expectations = {"criteria": "Must mention open source"}
+
+    judge(inputs=test_inputs, outputs=test_outputs, expectations=test_expectations)
+
+    assert len(mock_invoke_judge_model.calls) == 1
+    _, prompt, _ = mock_invoke_judge_model.calls[0]
+
+    user_msg = prompt[1]
+    user_content = user_msg.content
+
+    assert "inputs:" in user_content, "Missing 'inputs:' label"
+    assert "outputs:" in user_content, "Missing 'outputs:' label"
+    assert "expectations:" in user_content, "Missing 'expectations:' label"
+
+    expected_inputs_json = json.dumps(test_inputs, default=str, indent=2)
+    expected_outputs_json = json.dumps(test_outputs, default=str, indent=2)
+    expected_expectations_json = json.dumps(test_expectations, default=str, indent=2)
+
+    assert f"inputs: {expected_inputs_json}" in user_content
+    assert f"outputs: {expected_outputs_json}" in user_content
+    assert f"expectations: {expected_expectations_json}" in user_content
+
+    expectations_pos = user_content.index("expectations:")
+    inputs_pos = user_content.index("inputs:")
+    outputs_pos = user_content.index("outputs:")
+
+    assert outputs_pos < inputs_pos < expectations_pos
 
 
 @pytest.mark.parametrize(
@@ -1301,14 +1340,14 @@ def test_context_window_error_removes_tool_calls_and_retries(exception, monkeypa
 
     monkeypatch.setattr("litellm.completion", mock_completion)
     monkeypatch.setattr("litellm.token_counter", lambda model, messages: len(messages) * 20)
-    monkeypatch.setattr("litellm.get_max_tokens", lambda model: 100)
+    monkeypatch.setattr("litellm.get_max_tokens", lambda model: 120)
 
     judge = make_judge(name="test", instructions="test {{inputs}}", model="openai:/gpt-4")
     judge(inputs={"input": "test"}, outputs={"output": "test"}, trace=mock_trace)
 
-    # Verify pruning happened; we expect that 4 messages were removed (2 tool call pairs
+    # Verify pruning happened; we expect that 2 messages were removed (one tool call pair consisting
     # of 1. assistant message and 2. tool call result message)
-    assert captured_retry_messages == captured_error_messages[:2] + captured_error_messages[6:8]
+    assert captured_retry_messages == captured_error_messages[:2] + captured_error_messages[4:8]
 
 
 def test_non_context_error_does_not_trigger_pruning(monkeypatch):

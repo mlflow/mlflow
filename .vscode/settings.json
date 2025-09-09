@@ -25,8 +25,6 @@
     "**/__pycache__",
     "**/.*",
     // Extra paths to exclude
-    "**/*_pb2.py",
-    "**/*_pb2.pyi",
     "libs/**"
   ],
 
@@ -60,12 +58,6 @@
     }
   },
 
-  // Prettier configuration (matches mlflow/server/js/prettier.config.js)
-  "prettier.printWidth": 120,
-  "prettier.singleQuote": true,
-  "prettier.trailingComma": "all",
-  "prettier.tabWidth": 2,
-
   // ESLint configuration
   "eslint.workingDirectories": ["./mlflow/server/js"],
   "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
@@ -93,7 +85,7 @@
   // Markdown formatting
   "[markdown]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode",
-    "editor.formatOnSave": false // Don't auto-format markdown as it might break documentation
+    "editor.formatOnSave": true
   },
 
   // Files to exclude from explorer
@@ -105,9 +97,7 @@
     "**/.ruff_cache": true,
     "**/node_modules": true,
     "**/build": true,
-    "**/dist": true,
-    "**/*_pb2.py": true,
-    "**/*_pb2.pyi": true
+    "**/dist": true
   },
 
   // Search exclusions

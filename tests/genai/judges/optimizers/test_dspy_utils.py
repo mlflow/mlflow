@@ -30,7 +30,8 @@ def test_sanitize_judge_name(sample_trace_with_assessment):
 
     with patch.dict("sys.modules", {"dspy": mock_dspy}):
         # Test with different case variations - they should all find the assessment
-        # The assessment name in the fixture is "mock_judge" in lowercase
+        # The assessment name in the fixture is "  Mock_JUDGE  " (mixed case + whitespace)
+        # These should all match because both assessment name and judge name get sanitized
         assert trace_to_dspy_example(sample_trace_with_assessment, "  mock_judge  ") is not None
         assert trace_to_dspy_example(sample_trace_with_assessment, "Mock_Judge") is not None
         assert trace_to_dspy_example(sample_trace_with_assessment, "MOCK_JUDGE") is not None
