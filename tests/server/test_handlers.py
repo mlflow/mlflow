@@ -12,17 +12,10 @@ from mlflow.entities.model_registry import (
     RegisteredModel,
     RegisteredModelTag,
 )
-from mlflow.entities.model_registry.prompt_version import (
-    IS_PROMPT_TAG_KEY,
-    PROMPT_TEXT_TAG_KEY,
-)
+from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY
 from mlflow.entities.trace_location import TraceLocation as EntityTraceLocation
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import (
-    INTERNAL_ERROR,
-    INVALID_PARAMETER_VALUE,
-    ErrorCode,
-)
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.protos.model_registry_pb2 import (
     CreateModelVersion,
     CreateRegisteredModel,
