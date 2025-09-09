@@ -102,6 +102,7 @@ jobs:
         run: |
           # this needs to be run in a separate job because installing databricks-connect could break other 
           # tests that uses normal SparkSession instead of remote SparkSession
+          source .venv/bin/activate
           pip install databricks-agents
           pytest tests/utils/test_requirements_utils.py::test_infer_pip_requirements_on_databricks_agents
 
