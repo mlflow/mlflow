@@ -905,6 +905,7 @@ class UcModelRegistryStore(BaseRestStore):
         local_model_path=None,
         model_id: str | None = None,
         bypass_signature_validation: bool = False,
+        source_workspace_id: str | None = None,
     ):
         """
         Private method to create a new model version from given source and run ID, with optional
@@ -930,6 +931,8 @@ class UcModelRegistryStore(BaseRestStore):
             model_id: The ID of the model (from an Experiment) that is being promoted to a
                 registered model version, if applicable.
             bypass_signature_validation: Whether to bypass signature validation.
+            source_workspace_id: The workspace ID of the source run. If not provided,
+                it will be fetched from the run headers.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
@@ -940,7 +943,8 @@ class UcModelRegistryStore(BaseRestStore):
         if logged_model:
             run_id = logged_model.source_run_id
         headers, run = self._get_run_and_headers(run_id)
-        source_workspace_id = self._get_workspace_id(headers)
+        if source_workspace_id is None:
+            source_workspace_id = self._get_workspace_id(headers)
         notebook_id = self._get_notebook_id(run)
         lineage_securable_list = self._get_lineage_input_sources(run)
         job_id = self._get_job_id(run)
