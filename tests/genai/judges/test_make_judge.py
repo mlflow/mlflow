@@ -496,16 +496,6 @@ def test_valid_model_formats(monkeypatch, model):
             "openai:/gpt-4",
             "Instructions template contains unsupported variables",
         ),
-        (
-            "Analyze {{ trace }} and {{ inputs }}",
-            "openai:/gpt-4",
-            "Instructions template cannot contain both 'trace' and 'inputs'/'outputs'",
-        ),
-        (
-            "Analyze {{ trace }} and {{ outputs }}",
-            "openai:/gpt-4",
-            "Instructions template cannot contain both 'trace' and 'inputs'/'outputs'",
-        ),
     ],
 )
 def test_trace_variable_restrictions(instructions, model, error_pattern):

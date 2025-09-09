@@ -224,12 +224,45 @@ class InstructionsJudge(Judge):
                 f"appear in the instructions: {self.template_variables}"
             )
 
+    def _resolve_inputs_from_trace(self, inputs: Any, trace: Trace) -> Any:
+        """Extract inputs from trace if not provided and template requires it."""
+        if (
+            inputs is None
+            and self._TEMPLATE_VARIABLE_INPUTS in self.template_variables
+            and self._TEMPLATE_VARIABLE_TRACE not in self.template_variables
+        ):
+            return extract_inputs_from_trace(trace)
+        return inputs
+
+    def _resolve_outputs_from_trace(self, outputs: Any, trace: Trace) -> Any:
+        """Extract outputs from trace if not provided and template requires it."""
+        if (
+            outputs is None
+            and self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables
+            and self._TEMPLATE_VARIABLE_TRACE not in self.template_variables
+        ):
+            return extract_outputs_from_trace(trace)
+        return outputs
+
+    def _resolve_expectations_from_trace(
+        self, expectations: dict[str, Any] | None, trace: Trace
+    ) -> dict[str, Any] | None:
+        """Extract human expectations from trace if not provided and template requires it."""
+        if (
+            expectations is None
+            and self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables
+            and self._TEMPLATE_VARIABLE_TRACE not in self.template_variables
+        ):
+            from mlflow.entities.assessment_source import AssessmentSourceType
+
+            return extract_expectations_from_trace(trace, source=AssessmentSourceType.HUMAN)
+        return expectations
+
     def _safe_json_dumps(self, value: Any) -> str:
         """Safely serialize a value to JSON, falling back to str() if JSON serialization fails."""
         try:
             return json.dumps(value, default=str, indent=2)
         except Exception:
-            # If JSON serialization fails, fall back to string representation
             return str(value)
 
     def __call__(
@@ -270,36 +303,18 @@ class InstructionsJudge(Judge):
         """
         self._validate_parameter_types(expectations, trace)
 
-        # Extract fields from trace if needed (when not using {{ trace }} template)
-        if trace is not None and self._TEMPLATE_VARIABLE_TRACE not in self.template_variables:
-            # Use extracted values if not already provided
-            if inputs is None and self._TEMPLATE_VARIABLE_INPUTS in self.template_variables:
-                inputs = extract_inputs_from_trace(trace)
-            if outputs is None and self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables:
-                outputs = extract_outputs_from_trace(trace)
-            if (
-                expectations is None
-                and self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables
-            ):
-                # Extract only human-set expectations as ground truth
-                from mlflow.entities.assessment_source import AssessmentSourceType
+        if trace is not None:
+            inputs = self._resolve_inputs_from_trace(inputs, trace)
+            outputs = self._resolve_outputs_from_trace(outputs, trace)
+            expectations = self._resolve_expectations_from_trace(expectations, trace)
 
-                expectations = extract_expectations_from_trace(
-                    trace, source=AssessmentSourceType.HUMAN
-                )
-
-        # Check if the input arguments match the template variables
-        missing_params = []
         self._check_required_parameters(inputs, outputs, expectations, trace)
 
         self._warn_unused_parameters(inputs, outputs, expectations, trace)
 
-        # Determine evaluation mode based on template variables
         is_trace_based = self._TEMPLATE_VARIABLE_TRACE in self.template_variables
 
-        # Handle field-based evaluation (inputs/outputs)
         if not is_trace_based:
-            # Build the system message with instructions template and output format
             system_content = format_prompt(
                 INSTRUCTIONS_JUDGE_SYSTEM_PROMPT, instructions=self._instructions
             )
@@ -307,7 +322,6 @@ class InstructionsJudge(Judge):
                 system_content, output_fields=self.get_output_fields()
             )
 
-            # Build the user message with variable substitutions
             template_values = {}
             if inputs is not None and self._TEMPLATE_VARIABLE_INPUTS in self.template_variables:
                 template_values[self._TEMPLATE_VARIABLE_INPUTS] = self._safe_json_dumps(inputs)
@@ -321,7 +335,6 @@ class InstructionsJudge(Judge):
                     expectations
                 )
 
-            # Create user content with the actual values for each variable
             user_message_parts = []
             for var_name in self._ordered_template_variables:
                 if var_name in template_values:
@@ -329,7 +342,6 @@ class InstructionsJudge(Judge):
 
             user_content = "\n".join(user_message_parts)
 
-            # Create messages list using ChatMessage objects
             from mlflow.types.llm import ChatMessage
 
             messages = [
@@ -343,17 +355,14 @@ class InstructionsJudge(Judge):
                 assessment_name=self.name,
             )
 
-        # Handle trace-based evaluation
-        else:  # is_trace_based
+        else:
             output_fields = self.get_output_fields()
             evaluation_rating_fields = "\n".join(
                 [f"- {field.name}: {field.description}" for field in output_fields]
             )
 
-            # Interpolate non-trace template variables in the instructions
             interpolated_instructions = self._instructions
 
-            # Replace template variables with actual values
             if inputs is not None and self._TEMPLATE_VARIABLE_INPUTS in self.template_variables:
                 inputs_json = json.dumps(inputs, default=str, indent=2)
                 interpolated_instructions = interpolated_instructions.replace(
@@ -380,7 +389,6 @@ class InstructionsJudge(Judge):
                 instructions=interpolated_instructions,
             )
 
-            # Add structured output format instructions
             augmented_prompt = add_output_format_instructions(
                 base_prompt, output_fields=output_fields
             )
@@ -420,7 +428,6 @@ class InstructionsJudge(Judge):
                 "{{ outputs }}, {{ trace }}, or {{ expectations }}).",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-
 
     def model_dump(self, **kwargs) -> dict[str, Any]:
         """Override model_dump to serialize as a SerializedScorer."""
