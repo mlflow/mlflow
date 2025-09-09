@@ -163,7 +163,7 @@ const TracesV3LogsImpl = React.memo(
     const renderMainContent = () => {
       // If isEmpty and not enableTraceInsights, show empty state without navigation
       if (!enableTraceInsights && isTableEmpty) {
-        return <TracesV3EmptyState experimentIds={[experimentId]} />;
+        return <TracesV3EmptyState experimentIds={[experimentId]} loggedModelId={loggedModelId} />;
       }
       // Default traces view with optional navigation
       return (
@@ -237,7 +237,7 @@ const TracesV3LogsImpl = React.memo(
 
     // Early return for empty state without insights
     if (!enableTraceInsights && isTableEmpty) {
-      return <TracesV3EmptyState experimentIds={[experimentId]} />;
+      return <TracesV3EmptyState experimentIds={[experimentId]} loggedModelId={loggedModelId} />;
     }
 
     // Single unified layout with toolbar and content
