@@ -125,7 +125,9 @@ class HaystackSpanProcessor(SimpleSpanProcessor):
         comp_type = span.attributes.get("haystack.component.type")
         mlflow_span.set_span_type(_infer_span_type_from_haystack(comp_type, comp_alias, span))
 
-        mlflow_span._span._name = comp_type or comp_alias or span.name
+        span_name = comp_type or comp_alias or span.name
+        mlflow_span._span._name = span_name
+        mlflow_span._original_name = span_name
 
         if (inputs := span.attributes.get("haystack.component.input")) is not None:
             try:

@@ -35,9 +35,11 @@ def test_haystack_autolog_single_trace():
     assert len(traces) == 1
     spans = traces[0].data.spans
     assert spans[0].span_type == SpanType.CHAIN
+    assert spans[0].name == "haystack.pipeline.run"
     assert spans[0].inputs == {"adder": {"a": 1, "b": 2}}
     assert spans[0].outputs == {"adder": {"sum": 3}}
     assert spans[1].span_type == SpanType.TOOL
+    assert spans[1].name == "Add"
     assert spans[1].inputs == {"a": 1, "b": 2}
     assert spans[1].outputs == {"sum": 3}
 
@@ -59,8 +61,11 @@ def test_pipeline_with_multiple_components_single_trace():
     assert len(traces) == 1
     spans = traces[0].data.spans
     assert spans[0].span_type == SpanType.CHAIN
+    assert spans[0].name == "haystack.pipeline.run"
     assert spans[1].span_type == SpanType.TOOL
     assert spans[2].span_type == SpanType.TOOL
+    assert spans[1].name == "Add"
+    assert spans[2].name == "Multiply"
     assert spans[1].inputs == {"a": 1, "b": 2}
     assert spans[1].outputs == {"sum": 3}
     assert spans[2].inputs == {"value": 3, "factor": 4}
@@ -100,6 +105,7 @@ def test_token_usage_parsed_for_llm_component():
     assert len(traces) == 1
     span = traces[0].data.spans[1]
     assert span.span_type == SpanType.LLM
+    assert span.name == "MyLLM"
     assert span.attributes[SpanAttributeKey.CHAT_USAGE] == {
         "input_tokens": 1,
         "output_tokens": 2,
@@ -144,6 +150,7 @@ def test_in_memory_retriever_component_traced():
     assert len(traces) == 1
     span = traces[0].data.spans[1]
     assert span.span_type == SpanType.RETRIEVER
+    assert span.name == "InMemoryBM25Retriever"
     assert span.outputs["documents"][0]["content"] == "foo"
 
 
@@ -165,6 +172,9 @@ def test_multiple_components_in_pipeline_reranker():
     assert len(traces) == 1
     spans = traces[0].data.spans
     assert spans[0].span_type == SpanType.CHAIN
+    assert spans[0].name == "haystack.pipeline.run"
+    assert spans[1].name == "InMemoryBM25Retriever"
+    assert spans[2].name == "LostInTheMiddleRanker"
     assert spans[1].span_type == SpanType.RETRIEVER
     assert spans[2].span_type == SpanType.RERANKER
     assert spans[1].inputs["query"] == "foo"
