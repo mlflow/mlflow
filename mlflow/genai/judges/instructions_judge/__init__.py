@@ -179,7 +179,11 @@ class InstructionsJudge(Judge):
             )
 
     def _check_required_parameters(
-        self, inputs: Any, outputs: Any, expectations: dict[str, Any] | None, trace: Trace | None
+        self,
+        inputs: Any | None,
+        outputs: Any | None,
+        expectations: dict[str, Any] | None,
+        trace: Trace | None,
     ) -> None:
         """Check that all required parameters are provided."""
         missing_params = []
@@ -200,7 +204,11 @@ class InstructionsJudge(Judge):
             )
 
     def _warn_unused_parameters(
-        self, inputs: Any, outputs: Any, expectations: dict[str, Any] | None, trace: Trace | None
+        self,
+        inputs: Any | None,
+        outputs: Any | None,
+        expectations: dict[str, Any] | None,
+        trace: Trace | None,
     ) -> None:
         """Warn about parameters that were provided but aren't used."""
         unused_params = []
@@ -224,7 +232,7 @@ class InstructionsJudge(Judge):
                 f"appear in the instructions: {self.template_variables}"
             )
 
-    def _resolve_inputs_from_trace(self, inputs: Any, trace: Trace) -> Any:
+    def _resolve_inputs_from_trace(self, inputs: Any | None, trace: Trace) -> Any | None:
         """Extract inputs from trace if not provided and template requires it."""
         if (
             inputs is None
@@ -234,7 +242,7 @@ class InstructionsJudge(Judge):
             return extract_inputs_from_trace(trace)
         return inputs
 
-    def _resolve_outputs_from_trace(self, outputs: Any, trace: Trace) -> Any:
+    def _resolve_outputs_from_trace(self, outputs: Any | None, trace: Trace) -> Any | None:
         """Extract outputs from trace if not provided and template requires it."""
         if (
             outputs is None
@@ -296,7 +304,7 @@ class InstructionsJudge(Judge):
           placeholders ({{ inputs }}/{{ outputs }}/{{ expectations }}). The agent will still use
           tools to fetch span data but will have this additional context in the user prompt.
         - If template uses {{ inputs }}/{{ outputs }}/{{ expectations }} without {{ trace }}:
-          Values are extracted from (if a trace is provided during invocation):
+          Values are extracted from the trace, if specified, as follows:
           - inputs/outputs: From the trace's root span
           - expectations: From the trace's human-set expectation assessments (ground truth only)
 
