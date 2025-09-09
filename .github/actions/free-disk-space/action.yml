@@ -5,6 +5,17 @@ runs:
   steps:
     - shell: bash
       run: |
-        sudo rm -rf "$AGENT_TOOLSDIRECTORY"
-        sudo rm -rf /usr/share/dotnet
-        sudo rm -rf /usr/local/lib/android
+        echo "=== Initial disk space ==="
+        df -h
+
+        echo "=== Removing AGENT_TOOLSDIRECTORY ==="
+        time timeout 300 sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+
+        echo "=== Removing /usr/share/dotnet ==="
+        time timeout 300 sudo rm -rf /usr/share/dotnet
+
+        echo "=== Removing /usr/local/lib/android ==="
+        time timeout 300 sudo rm -rf /usr/local/lib/android
+
+        echo "=== Final disk space ==="
+        df -h
