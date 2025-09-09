@@ -1,7 +1,8 @@
 import re
+from typing import Any
 
 
-def format_prompt(prompt: str, **values) -> str:
+def format_prompt(prompt: str, **values: Any) -> str:
     """Format double-curly variables in the prompt template."""
     for key, value in values.items():
         # Escape backslashes in the replacement string to prevent re.sub from interpreting
