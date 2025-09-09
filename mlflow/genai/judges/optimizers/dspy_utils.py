@@ -24,6 +24,13 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 
+def _sanitize_assessment_name(name: str) -> str:
+    """
+    Sanitize a name by converting it to lowercase and stripping whitespace.
+    """
+    return name.lower().strip()
+
+
 def convert_mlflow_uri_to_litellm(model_uri: str) -> str:
     """
     Convert MLflow model URI format to LiteLLM format.
@@ -70,7 +77,6 @@ def trace_to_dspy_example(trace: Trace, judge_name: str) -> Optional["dspy.Examp
 
         # Find human assessment for this judge
         expected_result = None
-        sanitized_judge_name = judge_name.lower().strip()
 
         if trace.info.assessments:
             # Sort assessments by creation time (most recent first) then process
@@ -82,8 +88,10 @@ def trace_to_dspy_example(trace: Trace, judge_name: str) -> Optional["dspy.Examp
                 reverse=True,
             )
             for assessment in sorted_assessments:
+                sanitized_assessment_name = _sanitize_assessment_name(assessment.name)
+                sanitized_judge_name = _sanitize_assessment_name(judge_name)
                 if (
-                    assessment.name == sanitized_judge_name
+                    sanitized_assessment_name == sanitized_judge_name
                     and assessment.source.source_type == AssessmentSourceType.HUMAN
                 ):
                     expected_result = assessment
