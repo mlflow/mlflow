@@ -75,12 +75,12 @@ def _load_env_file(ctx: click.Context, param: click.Parameter, value: str | None
     "--env-file",
     type=click.Path(exists=False),
     callback=_load_env_file,
-    expose_value=False,
+    expose_value=True,
     is_eager=True,
     help="Load environment variables from a dotenv file before executing the command. "
     "Variables in the file will be loaded but won't override existing environment variables.",
 )
-def cli():
+def cli(env_file):
     pass
 
 
@@ -309,16 +309,18 @@ def _validate_static_prefix(ctx, param, value):
 
 
 @cli.command()
+@click.pass_context
 @click.option(
     "--backend-store-uri",
-    envvar="MLFLOW_BACKEND_STORE_URI",
+    envvar=["MLFLOW_BACKEND_STORE_URI", "MLFLOW_TRACKING_URI"],
     metavar="PATH",
     default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
     help="URI to which to persist experiment and run data. Acceptable URIs are "
     "SQLAlchemy-compatible database connection strings "
     "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
     "(e.g. 'file:///absolute/path/to/directory'). By default, data will be logged "
-    "to the ./mlruns directory.",
+    "to the ./mlruns directory. Uses MLFLOW_TRACKING_URI or MLFLOW_BACKEND_STORE_URI "
+    "environment variables if set.",
 )
 @click.option(
     "--registry-store-uri",
@@ -411,6 +413,7 @@ def _validate_static_prefix(ctx, param, value):
     ),
 )
 def server(
+    ctx,
     backend_store_uri,
     registry_store_uri,
     default_artifact_root,
@@ -438,6 +441,9 @@ def server(
     """
     from mlflow.server import _run_server
     from mlflow.server.handlers import initialize_backend_stores
+
+    # Get env_file from parent context
+    env_file = ctx.parent.params.get("env_file") if ctx.parent else None
 
     if dev:
         if is_windows():
@@ -499,6 +505,7 @@ def server(
             expose_prometheus=expose_prometheus,
             app_name=app_name,
             uvicorn_opts=uvicorn_opts,
+            env_file=env_file,
         )
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")
