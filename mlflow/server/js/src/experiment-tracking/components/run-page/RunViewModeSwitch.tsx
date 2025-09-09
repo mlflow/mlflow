@@ -62,6 +62,10 @@ export const RunViewModeSwitch = () => {
         key={RunPageTabName.SYSTEM_METRIC_CHARTS}
       />
       <LegacyTabs.TabPane
+        tab={<FormattedMessage defaultMessage="Traces" description="Run details page > tab selector > Traces tab" />}
+        key={RunPageTabName.EVALUATIONS}
+      />
+      <LegacyTabs.TabPane
         tab={
           <FormattedMessage defaultMessage="Artifacts" description="Run details page > tab selector > artifacts tab" />
         }

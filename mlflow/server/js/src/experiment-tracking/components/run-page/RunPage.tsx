@@ -162,6 +162,8 @@ export const RunPage = () => {
             params={params}
           />
         );
+      case RunPageTabName.EVALUATIONS:
+        return renderEvaluationTab();
       case RunPageTabName.ARTIFACTS:
         return (
           <RunViewArtifactTab
