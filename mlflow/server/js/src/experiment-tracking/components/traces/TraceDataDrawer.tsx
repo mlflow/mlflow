@@ -21,15 +21,11 @@ export const TraceDataDrawer = ({
   traceInfo,
   loadingTraceInfo,
   onClose,
-  selectedSpanId,
-  onSelectSpan,
 }: {
   requestId: string;
   traceInfo?: ModelTraceInfo;
   loadingTraceInfo?: boolean;
   onClose: () => void;
-  selectedSpanId?: string;
-  onSelectSpan?: (selectedSpanId?: string) => void;
 }) => {
   const {
     traceData,
@@ -79,9 +75,9 @@ export const TraceDataDrawer = ({
     () =>
       traceData
         ? {
-            info: traceInfoToUse || {},
-            data: traceData,
-          }
+          info: traceInfoToUse || {},
+          data: traceData,
+        }
         : undefined,
     [traceData, traceInfoToUse],
   );
@@ -166,8 +162,6 @@ export const TraceDataDrawer = ({
         >
           <ModelTraceExplorer
             modelTrace={combinedModelTrace}
-            selectedSpanId={selectedSpanId}
-            onSelectSpan={onSelectSpan}
           />
         </div>
       );
