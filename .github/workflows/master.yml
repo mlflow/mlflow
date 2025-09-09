@@ -77,6 +77,8 @@ jobs:
       - uses: ./.github/actions/cache-pip
       - run: |
           df -h
+          jobs
+          ls /usr/local/lib
       - name: Install dependencies
         run: |
           python -m venv .venv
