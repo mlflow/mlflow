@@ -1260,16 +1260,14 @@ def test_instructions_judge_with_chat_messages():
 
 
 @pytest.mark.parametrize(
-    ("exception_class", "exception_args"),
+    "exception",
     [
-        (__import__("litellm").ContextWindowExceededError, ("Context exceeded", "gpt-4", "openai")),
-        (Exception, ("maximum context length is exceeded",)),
-        (ValueError, ("context length exceeded",)),
+        litellm.ContextWindowExceededError("Context exceeded", "gpt-4", "openai"),
+        Exception("maximum context length is exceeded"),
+        ValueError("context length exceeded"),
     ],
 )
-def test_context_window_error_removes_tool_calls_and_retries(
-    exception_class, exception_args, monkeypatch, mock_trace
-):
+def test_context_window_error_removes_tool_calls_and_retries(exception, monkeypatch, mock_trace):
     exception_raised = False
     captured_error_messages = None
     captured_retry_messages = None
@@ -1282,7 +1280,7 @@ def test_context_window_error_removes_tool_calls_and_retries(
         if len(kwargs["messages"]) >= 8 and not exception_raised:
             captured_error_messages = kwargs["messages"]
             exception_raised = True
-            raise exception_class(*exception_args)
+            raise exception
 
         mock_response = mock.Mock()
         mock_response.choices = [mock.Mock()]
