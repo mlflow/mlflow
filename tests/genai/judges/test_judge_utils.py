@@ -69,6 +69,7 @@ def test_invoke_judge_model_successful_with_litellm(num_retries, mock_response):
 
         feedback = invoke_judge_model(**kwargs)
 
+    import litellm
     from litellm import RetryPolicy
 
     expected_retries = 10 if num_retries is None else num_retries
@@ -81,9 +82,17 @@ def test_invoke_judge_model_successful_with_litellm(num_retries, mock_response):
         AuthenticationErrorRetries=0,
     )
 
+    # Check that the messages were converted to litellm.Message objects
+    call_args = mock_litellm.call_args
+    assert len(call_args.kwargs["messages"]) == 1
+    msg = call_args.kwargs["messages"][0]
+    assert isinstance(msg, litellm.Message)
+    assert msg.role == "user"
+    assert msg.content == "Evaluate this response"
+
     mock_litellm.assert_called_once_with(
         model="openai/gpt-4",
-        messages=[{"role": "user", "content": "Evaluate this response"}],
+        messages=mock.ANY,  # We check the messages separately above
         tools=None,
         tool_choice=None,
         response_format={
@@ -131,13 +140,19 @@ def test_invoke_judge_model_with_chat_messages(mock_response):
             assessment_name="quality_check",
         )
 
+    import litellm
+
     mock_litellm.assert_called_once()
     call_args = mock_litellm.call_args
     messages_arg = call_args.kwargs["messages"]
 
     assert len(messages_arg) == 2
-    assert messages_arg[0] == {"role": "system", "content": "You are a helpful assistant"}
-    assert messages_arg[1] == {"role": "user", "content": "Evaluate this response"}
+    assert isinstance(messages_arg[0], litellm.Message)
+    assert messages_arg[0].role == "system"
+    assert messages_arg[0].content == "You are a helpful assistant"
+    assert isinstance(messages_arg[1], litellm.Message)
+    assert messages_arg[1].role == "user"
+    assert messages_arg[1].content == "Evaluate this response"
 
     assert feedback.name == "quality_check"
     assert feedback.value == CategoricalRating.YES
