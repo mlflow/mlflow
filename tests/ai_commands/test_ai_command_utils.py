@@ -233,32 +233,45 @@ def test_list_commands_sorted():
         assert keys == sorted(keys)
 
 
-def test_get_command_body_success(tmp_path):
-    """Verifies frontmatter is properly stripped from command content."""
+def test_get_command_body(tmp_path):
+    """Strips frontmatter from command content and returns body only."""
     genai_dir = tmp_path / "commands" / "genai"
     genai_dir.mkdir(parents=True)
 
-    test_content = """---
+    # Test with frontmatter
+    content_with_frontmatter = """---
 namespace: genai
 description: Test command
 ---
 
 # Test Command
-This is the body content without frontmatter."""
+This is the body content."""
 
     test_cmd = genai_dir / "analyze.md"
-    test_cmd.write_text(test_content)
+    test_cmd.write_text(content_with_frontmatter)
+
+    # Test without frontmatter - should return entire content
+    content_no_frontmatter = """# Simple Command
+This is just markdown content."""
+
+    simple_cmd = genai_dir / "simple.md"
+    simple_cmd.write_text(content_no_frontmatter)
 
     with mock.patch("mlflow.ai_commands.ai_command_utils.Path") as mock_path:
         mock_path.return_value.parent = tmp_path / "commands"
 
+        # Test with frontmatter
         body = get_command_body("genai/analyze")
 
-    # Should only return body content, not frontmatter
-    assert "namespace: genai" not in body
-    assert "description: Test command" not in body
-    assert "# Test Command" in body
-    assert "This is the body content without frontmatter." in body
+        # Should strip frontmatter and return only body
+        assert "namespace: genai" not in body
+        assert "description: Test command" not in body
+        assert "# Test Command" in body
+        assert "This is the body content." in body
+
+        # Test without frontmatter
+        body_no_frontmatter = get_command_body("genai/simple")
+        assert body_no_frontmatter == content_no_frontmatter
 
 
 def test_get_command_body_not_found(tmp_path):
@@ -271,24 +284,3 @@ def test_get_command_body_not_found(tmp_path):
 
         with pytest.raises(FileNotFoundError, match="Command 'nonexistent/command' not found"):
             get_command_body("nonexistent/command")
-
-
-def test_get_command_body_no_frontmatter(tmp_path):
-    """Returns entire content when no frontmatter is present."""
-    genai_dir = tmp_path / "commands" / "genai"
-    genai_dir.mkdir(parents=True)
-
-    # Content without frontmatter
-    test_content = """# Simple Command
-This is just regular markdown content."""
-
-    test_cmd = genai_dir / "simple.md"
-    test_cmd.write_text(test_content)
-
-    with mock.patch("mlflow.ai_commands.ai_command_utils.Path") as mock_path:
-        mock_path.return_value.parent = tmp_path / "commands"
-
-        body = get_command_body("genai/simple")
-
-    # Should return the entire content since there's no frontmatter
-    assert body == test_content
