@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     import litellm
 
     from mlflow.genai.judges.base import JudgeField
-    from mlflow.types.llm import ChatMessage
+    from mlflow.types.llm import ChatMessage, ToolCall
 
 import mlflow
 from mlflow.entities.assessment import Feedback
@@ -393,7 +393,9 @@ def _invoke_litellm(
             raise MlflowException(f"Failed to invoke the judge via litellm: {e}") from e
 
 
-def _create_mlflow_tool_call_from_litellm(litellm_tool_call) -> Any:
+def _create_mlflow_tool_call_from_litellm(
+    litellm_tool_call: "litellm.ChatCompletionMessageToolCall",
+) -> "ToolCall":
     """
     Create an MLflow ToolCall from a LiteLLM tool call.
 
@@ -512,7 +514,9 @@ def _prune_messages_exceeding_context_window_length(
             break  # No more tool calls to remove
         pruned_messages.pop(assistant_idx)
         # Remove corresponding tool response messages
-        tool_call_ids = {tc.id for tc in assistant_msg.tool_calls}
+        tool_call_ids = {
+            tc.id if hasattr(tc, "id") else tc["id"] for tc in assistant_msg.tool_calls
+        }
         pruned_messages = [
             msg
             for msg in pruned_messages
