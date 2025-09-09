@@ -8770,12 +8770,9 @@ async def test_load_spans_basic(store: SqlAlchemyStore, is_async: bool) -> None:
 
     if is_async:
         await store.log_spans_async(experiment_id, spans)
-    else:
-        store.log_spans(experiment_id, spans)
-
-    if is_async:
         loaded_spans = await store.load_spans_async(trace_id)
     else:
+        store.log_spans(experiment_id, spans)
         loaded_spans = store.load_spans(trace_id)
 
     assert len(loaded_spans) == 2
@@ -8844,12 +8841,9 @@ async def test_load_spans_ordering(store: SqlAlchemyStore, is_async: bool) -> No
 
     if is_async:
         await store.log_spans_async(experiment_id, spans)
-    else:
-        store.log_spans(experiment_id, spans)
-
-    if is_async:
         loaded_spans = await store.load_spans_async(trace_id)
     else:
+        store.log_spans(experiment_id, spans)
         loaded_spans = store.load_spans(trace_id)
 
     assert len(loaded_spans) == 3
@@ -8891,12 +8885,9 @@ async def test_load_spans_with_complex_attributes(store: SqlAlchemyStore, is_asy
 
     if is_async:
         await store.log_spans_async(experiment_id, [span])
-    else:
-        store.log_spans(experiment_id, [span])
-
-    if is_async:
         loaded_spans = await store.load_spans_async(trace_id)
     else:
+        store.log_spans(experiment_id, [span])
         loaded_spans = store.load_spans(trace_id)
 
     assert len(loaded_spans) == 1
@@ -8945,18 +8936,12 @@ async def test_load_spans_multiple_traces(store: SqlAlchemyStore, is_async: bool
     if is_async:
         await store.log_spans_async(experiment_id, spans_trace_1)
         await store.log_spans_async(experiment_id, spans_trace_2)
+        loaded_spans_1 = await store.load_spans_async(trace_id_1)
+        loaded_spans_2 = await store.load_spans_async(trace_id_2)
     else:
         store.log_spans(experiment_id, spans_trace_1)
         store.log_spans(experiment_id, spans_trace_2)
-
-    if is_async:
-        loaded_spans_1 = await store.load_spans_async(trace_id_1)
-    else:
         loaded_spans_1 = store.load_spans(trace_id_1)
-
-    if is_async:
-        loaded_spans_2 = await store.load_spans_async(trace_id_2)
-    else:
         loaded_spans_2 = store.load_spans(trace_id_2)
 
     assert len(loaded_spans_1) == 2
@@ -8989,12 +8974,9 @@ async def test_load_spans_preserves_json_serialization(
 
     if is_async:
         await store.log_spans_async(experiment_id, [original_span])
-    else:
-        store.log_spans(experiment_id, [original_span])
-
-    if is_async:
         loaded_spans = await store.load_spans_async(trace_id)
     else:
+        store.log_spans(experiment_id, [original_span])
         loaded_spans = store.load_spans(trace_id)
 
     assert len(loaded_spans) == 1

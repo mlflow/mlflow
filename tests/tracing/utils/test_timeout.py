@@ -88,7 +88,7 @@ def test_trace_halted_after_timeout(monkeypatch):
     )
 
     first_span = trace.data.spans[1]
-    assert first_span.name == "slow_function_1"
+    assert first_span.name == "slow_function"
     assert first_span.status.status_code == SpanStatusCode.OK
 
     # The rest of the spans should not be logged to the backend.

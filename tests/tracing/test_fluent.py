@@ -180,6 +180,8 @@ def mock_client():
 
 @pytest.fixture
 def mock_otel_trace_start_time():
+    # mock the start time of a trace, ensuring the root span has
+    # a smaller start time than child spans.
     with mock.patch("opentelemetry.sdk.trace.time_ns", return_value=1726145091022155000):
         yield
 
