@@ -6,7 +6,6 @@ runs:
     - shell: bash
       run: |
         df -h
-        sudo rm -rf "$AGENT_TOOLSDIRECTORY" &
         sudo rm -rf /usr/share/dotnet &
         sudo rm -rf /usr/local/lib/android &
         jobs
