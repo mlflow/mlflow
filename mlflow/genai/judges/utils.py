@@ -268,7 +268,7 @@ def _invoke_litellm(
     from mlflow.genai.judges.tools import list_judge_tools
     from mlflow.genai.judges.tools.registry import _judge_tool_registry
 
-    messages_dict = [litellm.Message(role=msg.role, content=msg.content) for msg in messages]
+    messages = [litellm.Message(role=msg.role, content=msg.content) for msg in messages]
 
     litellm_model_uri = f"{provider}/{model_name}"
     tools = []
@@ -298,20 +298,25 @@ def _invoke_litellm(
             kwargs["response_format"] = _get_judge_response_format()
         return litellm.completion(**kwargs)
 
+    def _prune_messages_for_context_window():
+        """Helper to prune messages when context window is exceeded."""
+        return _prune_messages_over_context_length(
+            messages=messages,
+            model=litellm_model_uri,
+            max_tokens=litellm.get_max_tokens(litellm_model_uri) or 100000,
+        )
+
     include_response_format = _MODEL_RESPONSE_FORMAT_CAPABILITIES.get(litellm_model_uri, True)
     while True:
         try:
             try:
                 response = _make_completion_request(
-                    messages_dict, include_response_format=include_response_format
+                    messages, include_response_format=include_response_format
                 )
             except litellm.ContextWindowExceededError:
-                # Handle context window errors first (before BadRequestError since it's a subclass)
-                messages_dict = _prune_messages_over_context_length(
-                    messages=messages_dict,
-                    model=litellm_model_uri,
-                    max_tokens=litellm.get_max_tokens(litellm_model_uri) or 100000,
-                )
+                # Handle LiteLLM context window errors first
+                # (before BadRequestError since it's a subclass)
+                messages = _prune_messages_for_context_window()
                 continue
             except (litellm.BadRequestError, litellm.UnsupportedParamsError) as e:
                 # Check whether the request attempted to use structured outputs, rather than
@@ -338,11 +343,7 @@ def _invoke_litellm(
             except Exception as e:
                 if "context length" in str(e):
                     # Retry with pruned messages
-                    messages_dict = _prune_messages_over_context_length(
-                        messages=messages_dict,
-                        model=litellm_model_uri,
-                        max_tokens=litellm.get_max_tokens(litellm_model_uri) or 100000,
-                    )
+                    messages = _prune_messages_for_context_window()
                     continue
                 raise
 
@@ -350,7 +351,7 @@ def _invoke_litellm(
             if not message.tool_calls:
                 return message.content
 
-            messages_dict.append(message)
+            messages.append(message)
             # TODO: Consider making tool calls concurrent for better performance.
             # Currently sequential for simplicity and to maintain order of results.
             for tool_call in message.tool_calls:
@@ -360,7 +361,7 @@ def _invoke_litellm(
                     )
                     result = _judge_tool_registry.invoke(tool_call=mlflow_tool_call, trace=trace)
                 except Exception as e:
-                    messages_dict.append(
+                    messages.append(
                         _create_litellm_tool_response_message(
                             tool_call_id=tool_call.id,
                             tool_name=tool_call.function.name,
@@ -375,7 +376,7 @@ def _invoke_litellm(
                     result_json = (
                         json.dumps(result, default=str) if not isinstance(result, str) else result
                     )
-                    messages_dict.append(
+                    messages.append(
                         _create_litellm_tool_response_message(
                             tool_call_id=tool_call.id,
                             tool_name=tool_call.function.name,
