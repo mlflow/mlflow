@@ -41,6 +41,67 @@ class InvokeDatabricksModelOutput:
     num_completion_tokens: int | None
 
 
+def _parse_databricks_model_response(res_json: dict, headers: dict) -> InvokeDatabricksModelOutput:
+    """
+    Parse and validate the response from a Databricks model invocation.
+
+    Args:
+        res_json: The JSON response from the model
+        headers: The response headers
+
+    Returns:
+        InvokeDatabricksModelOutput with parsed response data
+
+    Raises:
+        MlflowException: If the response structure is invalid
+    """
+    # Validate and extract choices
+    choices = res_json.get("choices", [])
+    if not choices:
+        raise MlflowException(
+            "Invalid response from Databricks model: missing 'choices' field",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    first_choice = choices[0]
+    if "message" not in first_choice:
+        raise MlflowException(
+            "Invalid response from Databricks model: missing 'message' field",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    content = first_choice["message"].get("content")
+    if content is None:
+        raise MlflowException(
+            "Invalid response from Databricks model: missing 'content' field",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    # Handle reasoning response (list of content items)
+    if isinstance(content, list):
+        text_content = None
+        for item in content:
+            if isinstance(item, dict) and item.get("type") == "text":
+                text_content = item.get("text")
+                break
+
+        if text_content is None:
+            raise MlflowException(
+                "Invalid reasoning response: no text content found in response list",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        content = text_content
+
+    usage = res_json.get("usage", {})
+
+    return InvokeDatabricksModelOutput(
+        response=content,
+        request_id=headers.get("x-request-id"),
+        num_prompt_tokens=usage.get("prompt_tokens"),
+        num_completion_tokens=usage.get("completion_tokens"),
+    )
+
+
 def _invoke_databricks_model(
     *, model_name: str, prompt: str, num_retries: int
 ) -> InvokeDatabricksModelOutput:
@@ -96,51 +157,8 @@ def _invoke_databricks_model(
                     error_code=INVALID_PARAMETER_VALUE,
                 ) from e
 
-            # Safe dictionary access with validation
-            choices = res_json.get("choices", [])
-            if not choices:
-                raise MlflowException(
-                    "Invalid response from Databricks model: missing 'choices' field",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-
-            first_choice = choices[0]
-            if "message" not in first_choice:
-                raise MlflowException(
-                    "Invalid response from Databricks model: missing 'message' field",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-
-            content = first_choice["message"].get("content")
-            if content is None:
-                raise MlflowException(
-                    "Invalid response from Databricks model: missing 'content' field",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-
-            # Handle reasoning response
-            if isinstance(content, list):
-                text_content = None
-                for item in content:
-                    if isinstance(item, dict) and item.get("type") == "text":
-                        text_content = item.get("text")
-                        break
-
-                if text_content is None:
-                    raise MlflowException(
-                        "Invalid reasoning response: no text content found in response list",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
-                content = text_content
-
-            usage = res_json.get("usage", {})
-
-            return InvokeDatabricksModelOutput(
-                response=content,
-                request_id=res.headers.get("x-request-id"),
-                num_prompt_tokens=usage.get("prompt_tokens"),
-                num_completion_tokens=usage.get("completion_tokens"),
-            )
+            # Parse and validate the response using helper function
+            return _parse_databricks_model_response(res_json, res.headers)
 
         except (requests.RequestException, requests.ConnectionError) as e:
             last_exception = e
