@@ -75,25 +75,6 @@ if TYPE_CHECKING:
         get_all_scorers,
     )
 
-# Explicitly declare module-level attributes for Sphinx autodoc.
-# This __annotations__ dict helps documentation generators (like Sphinx) understand
-# what attributes are available in this module without having to execute __getattr__.
-# It provides type information for each lazily-loaded scorer class.
-__annotations__ = {
-    "Correctness": "type[mlflow.genai.scorers.builtin_scorers.Correctness]",
-    "ExpectationsGuidelines": "type[mlflow.genai.scorers.builtin_scorers.ExpectationsGuidelines]",
-    "Guidelines": "type[mlflow.genai.scorers.builtin_scorers.Guidelines]",
-    "RelevanceToQuery": "type[mlflow.genai.scorers.builtin_scorers.RelevanceToQuery]",
-    "RetrievalGroundedness": "type[mlflow.genai.scorers.builtin_scorers.RetrievalGroundedness]",
-    "RetrievalRelevance": "type[mlflow.genai.scorers.builtin_scorers.RetrievalRelevance]",
-    "RetrievalSufficiency": "type[mlflow.genai.scorers.builtin_scorers.RetrievalSufficiency]",
-    "Safety": "type[mlflow.genai.scorers.builtin_scorers.Safety]",
-    "get_all_scorers": (
-        "Callable[[], dict[str, type[mlflow.genai.scorers.builtin_scorers.BuiltInScorer]]]"
-    ),
-}
-
-
 __all__ = [
     "Correctness",
     "ExpectationsGuidelines",
