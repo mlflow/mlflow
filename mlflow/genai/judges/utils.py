@@ -35,7 +35,7 @@ _LITELLM_PROVIDERS = ["azure", "vertexai", "cohere", "replicate", "groq", "toget
 _MODEL_RESPONSE_FORMAT_CAPABILITIES: dict[str, bool] = {}
 
 
-class DatabricksPrompts(NamedTuple):
+class DatabricksLLMJudgePrompts(NamedTuple):
     """Result of splitting ChatMessage list for Databricks API."""
 
     system_prompt: str | None
@@ -66,6 +66,16 @@ def get_default_model() -> str:
         return "openai:/gpt-4.1-mini"
 
 
+def _is_litellm_available() -> bool:
+    """Check if LiteLLM is available for import."""
+    try:
+        import litellm  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
 def validate_judge_model(model_uri: str) -> None:
     """
     Validate that a judge model URI is valid and has required dependencies.
@@ -91,16 +101,13 @@ def validate_judge_model(model_uri: str) -> None:
     provider, model_name = _parse_model_uri(model_uri)
 
     # Check if LiteLLM is required and available for non-native providers
-    if provider not in _NATIVE_PROVIDERS:
-        try:
-            import litellm  # noqa: F401
-        except ImportError:
-            if provider in _LITELLM_PROVIDERS:
-                raise MlflowException(
-                    f"LiteLLM is required for using '{provider}' as a provider. "
-                    "Please install it with: `pip install litellm`",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
+    if provider not in _NATIVE_PROVIDERS and provider in _LITELLM_PROVIDERS:
+        if not _is_litellm_available():
+            raise MlflowException(
+                f"LiteLLM is required for using '{provider}' as a provider. "
+                "Please install it with: `pip install litellm`",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
 
 def format_prompt(prompt: str, **values) -> str:
@@ -146,7 +153,7 @@ def _sanitize_justification(justification: str) -> str:
     return justification.replace("Let's think step by step. ", "")
 
 
-def _split_messages_for_databricks(messages: list["ChatMessage"]) -> DatabricksPrompts:
+def _split_messages_for_databricks(messages: list["ChatMessage"]) -> DatabricksLLMJudgePrompts:
     """
     Split a list of ChatMessage objects into system and user prompts for Databricks API.
 
@@ -154,7 +161,7 @@ def _split_messages_for_databricks(messages: list["ChatMessage"]) -> DatabricksP
         messages: List of ChatMessage objects to split.
 
     Returns:
-        DatabricksPrompts namedtuple with system_prompt and user_prompt fields.
+        DatabricksLLMJudgePrompts namedtuple with system_prompt and user_prompt fields.
         The system_prompt may be None.
 
     Raises:
@@ -189,7 +196,7 @@ def _split_messages_for_databricks(messages: list["ChatMessage"]) -> DatabricksP
 
     user_prompt = "\n\n".join(user_parts) if user_parts else ""
 
-    return DatabricksPrompts(system_prompt=system_prompt, user_prompt=user_prompt)
+    return DatabricksLLMJudgePrompts(system_prompt=system_prompt, user_prompt=user_prompt)
 
 
 def _parse_databricks_judge_response(
@@ -399,15 +406,6 @@ def invoke_judge_model(
             f"Failed to parse the response from the judge. Response: {response}",
             error_code=INVALID_PARAMETER_VALUE,
         ) from e
-
-
-def _is_litellm_available() -> bool:
-    try:
-        import litellm  # noqa: F401
-
-        return True
-    except ImportError:
-        return False
 
 
 class _SuppressLiteLLMNonfatalErrors(ContextDecorator):
