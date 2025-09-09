@@ -253,8 +253,8 @@ def invoke_judge_model(
         assessment_name: The name of the assessment.
         num_retries: Number of retries on transient failures when using litellm.
     """
-    error = None
-    error_traceback = None
+    in_databricks = _is_in_databricks()
+
     try:
         output = _invoke_judge_model(
             model_uri=model_uri,
@@ -264,32 +264,37 @@ def invoke_judge_model(
         )
     except Exception:
         error_traceback = traceback.format_exc()
+        if in_databricks:
+            try:
+                _record_judge_model_usage_failure_databricks_telemetry(
+                    model_provider=output.model_provider,
+                    endpoint_name=output.model_name,
+                    error_code="UNKNOWN",
+                    error_message=error_traceback,
+                )
+            except Exception as telemetry_error:
+                _logger.debug(
+                    "Failed to record judge model usage failure telemetry. Error: %s",
+                    telemetry_error,
+                )
+        raise
 
-    # Only record detailed telemetry when in Databricks
-    if not _is_in_databricks():
+    if not in_databricks:
         return output.feedback
 
     try:
-        if error is not None:
-            _record_judge_model_usage_failure_databricks_telemetry(
-                model_provider=output.model_provider,
-                endpoint_name=output.model_name,
-                error_code="UNKNOWN",
-                error_message=error_traceback,
-            )
-        else:
-            _record_judge_model_usage_success_databricks_telemetry(
-                request_id=output.request_id,
-                model_provider=output.model_provider,
-                endpoint_name=output.model_name,
-                num_prompt_tokens=output.num_prompt_tokens,
-                num_completion_tokens=output.num_completion_tokens,
-            )
+        _record_judge_model_usage_success_databricks_telemetry(
+            request_id=output.request_id,
+            model_provider=output.model_provider,
+            endpoint_name=output.model_name,
+            num_prompt_tokens=output.num_prompt_tokens,
+            num_completion_tokens=output.num_completion_tokens,
+        )
     except Exception as telemetry_error:
-        _logger.debug("Failed to record judge model usage telemetry. Error: %s", telemetry_error)
-
-    if error is not None:
-        raise error
+        _logger.debug(
+            "Failed to record judge model usage success telemetry. Error: %s",
+            telemetry_error,
+        )
 
     return output.feedback
 
