@@ -234,6 +234,7 @@ def test_list_commands_sorted():
 
 
 def test_get_command_body_success(tmp_path):
+    """Verifies frontmatter is properly stripped from command content."""
     genai_dir = tmp_path / "commands" / "genai"
     genai_dir.mkdir(parents=True)
 
@@ -261,6 +262,7 @@ This is the body content without frontmatter."""
 
 
 def test_get_command_body_not_found(tmp_path):
+    """Raises FileNotFoundError for non-existent commands."""
     commands_dir = tmp_path / "commands"
     commands_dir.mkdir()
 
@@ -272,6 +274,7 @@ def test_get_command_body_not_found(tmp_path):
 
 
 def test_get_command_body_no_frontmatter(tmp_path):
+    """Returns entire content when no frontmatter is present."""
     genai_dir = tmp_path / "commands" / "genai"
     genai_dir.mkdir(parents=True)
 
