@@ -43,7 +43,9 @@ class InvokeDatabricksModelOutput:
     num_completion_tokens: int | None
 
 
-def _parse_databricks_model_response(res_json: dict[str, Any], headers: dict[str, Any]) -> InvokeDatabricksModelOutput:
+def _parse_databricks_model_response(
+    res_json: dict[str, Any], headers: dict[str, Any]
+) -> InvokeDatabricksModelOutput:
     """
     Parse and validate the response from a Databricks model invocation.
 
