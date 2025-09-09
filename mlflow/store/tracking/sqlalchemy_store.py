@@ -2546,7 +2546,12 @@ class SqlAlchemyStore(AbstractStore):
                 db_sql_trace_info = (
                     session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
                 )
-                sql_trace_info.tags.extend(db_sql_trace_info.tags)
+                sql_trace_info.tags.extend(
+                    [
+                        SqlTraceTag(request_id=trace_id, key=tag.key, value=tag.value)
+                        for tag in db_sql_trace_info.tags
+                    ]
+                )
                 session.merge(sql_trace_info)
                 session.flush()
 
@@ -3423,7 +3428,41 @@ class SqlAlchemyStore(AbstractStore):
                 span = Span.from_dict(span_dict)
                 spans.append(span)
 
+            # TODO: we should ensure the spans are logged in the correct order
+            # and remove this sorting when loading spans
+            return self._sort_spans_hierarchically(spans)
+
+    def _sort_spans_hierarchically(self, spans: list[Span]) -> list[Span]:
+        """
+        Sort spans hierarchically: root spans first, then their children in depth-first order.
+        """
+        if not spans:
             return spans
+
+        # Find root spans (spans with no parent_id)
+        root_spans = [span for span in spans if span.parent_id is None]
+
+        # Create a mapping from parent_id to children
+        children_by_parent = {}
+        for span in spans:
+            if span.parent_id is not None:
+                if span.parent_id not in children_by_parent:
+                    children_by_parent[span.parent_id] = []
+                children_by_parent[span.parent_id].append(span)
+
+        def dfs_traverse(span):
+            """Depth-first traversal to collect spans in hierarchical order"""
+            result = [span]
+            for child in children_by_parent.get(span.span_id, []):
+                result.extend(dfs_traverse(child))
+            return result
+
+        # Traverse each root span and its children
+        sorted_spans = []
+        for root in root_spans:
+            sorted_spans.extend(dfs_traverse(root))
+
+        return sorted_spans
 
     async def load_spans_async(self, trace_id: str) -> list[Span]:
         return self.load_spans(trace_id)
