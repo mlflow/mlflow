@@ -299,10 +299,15 @@ def _invoke_litellm(
 
     def _prune_messages_for_context_window():
         """Helper to prune messages when context window is exceeded."""
+        try:
+            max_context_length = litellm.get_max_tokens(litellm_model_uri)
+        except Exception:
+            max_context_length = None
+
         return _prune_messages_exceeding_context_window_length(
             messages=messages,
             model=litellm_model_uri,
-            max_tokens=litellm.get_max_tokens(litellm_model_uri) or 100000,
+            max_tokens=max_context_length or 100000,
         )
 
     include_response_format = _MODEL_RESPONSE_FORMAT_CAPABILITIES.get(litellm_model_uri, True)
@@ -312,12 +317,11 @@ def _invoke_litellm(
                 response = _make_completion_request(
                     messages, include_response_format=include_response_format
                 )
-            except litellm.ContextWindowExceededError:
-                # Handle LiteLLM context window errors first
-                # (before BadRequestError since it's a subclass)
-                messages = _prune_messages_for_context_window()
-                continue
             except (litellm.BadRequestError, litellm.UnsupportedParamsError) as e:
+                if isinstance(e, litellm.ContextWindowExceededError) or "context length" in str(e):
+                    # Retry with pruned messages
+                    messages = _prune_messages_for_context_window()
+                    continue
                 # Check whether the request attempted to use structured outputs, rather than
                 # checking whether the model supports structured outputs in the capabilities cache,
                 # since the capabilities cache may have been updated between the time that
@@ -337,14 +341,7 @@ def _invoke_litellm(
                     include_response_format = False
                     continue
                 else:
-                    # Already tried without response_format and still got error
                     raise
-            except Exception as e:
-                if "context length" in str(e):
-                    # Retry with pruned messages
-                    messages = _prune_messages_for_context_window()
-                    continue
-                raise
 
             message = response.choices[0].message
             if not message.tool_calls:

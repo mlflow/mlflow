@@ -1263,8 +1263,7 @@ def test_instructions_judge_with_chat_messages():
     "exception",
     [
         litellm.ContextWindowExceededError("Context exceeded", "gpt-4", "openai"),
-        Exception("maximum context length is exceeded"),
-        ValueError("context length exceeded"),
+        litellm.BadRequestError("maximum context length is exceeded", "gpt-4", "openai"),
     ],
 )
 def test_context_window_error_removes_tool_calls_and_retries(exception, monkeypatch, mock_trace):
