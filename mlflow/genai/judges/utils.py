@@ -260,7 +260,6 @@ def _invoke_litellm(
     Raises:
         MlflowException: If the request fails after all retries.
     """
-    # Convert ChatMessage objects to litellm.Message objects
     import litellm
 
     # Import at function level to avoid circular imports
