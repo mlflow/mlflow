@@ -69,7 +69,6 @@ def test_invoke_judge_model_successful_with_litellm(num_retries, mock_response):
 
         feedback = invoke_judge_model(**kwargs)
 
-    import litellm
     from litellm import RetryPolicy
 
     expected_retries = 10 if num_retries is None else num_retries
@@ -139,8 +138,6 @@ def test_invoke_judge_model_with_chat_messages(mock_response):
             prompt=messages,
             assessment_name="quality_check",
         )
-
-    import litellm
 
     mock_litellm.assert_called_once()
     call_args = mock_litellm.call_args
