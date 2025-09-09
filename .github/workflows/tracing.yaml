@@ -45,7 +45,7 @@ jobs:
 
       - name: Install test dependencies
         run: |
-          pip install pytest pytest-asyncio
+          pip install pytest pytest-asyncio pytest-timeout
 
       - name: Run core tracing tests
         # NB: OTLP exporter includes large dependencies, so we want to test it in a separate job

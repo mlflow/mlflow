@@ -254,13 +254,6 @@ def filter_versions(
     2. Older than or equal to `max_ver.major`.
     3. Not in `unsupported`.
     """
-    # Prevent specifying non-existent versions
-    assert min_ver in versions, (
-        f"Minimum version {min_ver} is not in the list of {versions} for {flavor}"
-    )
-    assert max_ver in versions or allow_unreleased_max_version, (
-        f"Maximum version {max_ver} is not in the list of {versions} for {flavor}"
-    )
 
     def _is_supported(v):
         for specified_set in unsupported:
@@ -617,7 +610,7 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
                 versions = sorted(versions)[:: -cfg.test_every_n_versions][::-1]
 
             # Always test the minimum version
-            if cfg.minimum not in versions:
+            if cfg.minimum not in versions and cfg.minimum in all_versions:
                 versions.append(cfg.minimum)
 
             if not is_ref and cfg.requirements:
