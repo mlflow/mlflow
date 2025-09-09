@@ -1323,6 +1323,5 @@ def test_non_context_error_does_not_trigger_pruning(monkeypatch):
     judge = make_judge(
         name="test_judge", instructions="Check if {{inputs}} is correct", model="openai:/gpt-4"
     )
-
     with pytest.raises(MlflowException, match="some other error"):
         judge(inputs={"input": "test"}, outputs={"output": "test"})
