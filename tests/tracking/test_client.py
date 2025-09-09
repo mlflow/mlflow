@@ -2393,7 +2393,6 @@ def test_load_prompt_with_alias_uri(tracking_uri):
 
 
 def test_load_prompt_allow_missing_name_version(tracking_uri):
-    """Test that load_prompt with name+version respects allow_missing parameter."""
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Non-existent prompt by name+version should return None when allow_missing=True
@@ -2415,7 +2414,6 @@ def test_load_prompt_allow_missing_name_version(tracking_uri):
 
 
 def test_load_prompt_allow_missing_uri_version(tracking_uri):
-    """Test that load_prompt with URI+version respects allow_missing parameter."""
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Non-existent prompt by URI+version should return None when allow_missing=True
@@ -2437,7 +2435,6 @@ def test_load_prompt_allow_missing_uri_version(tracking_uri):
 
 
 def test_load_prompt_allow_missing_uri_alias(tracking_uri):
-    """Test that load_prompt with URI+alias respects allow_missing parameter."""
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Non-existent prompt with alias should return None when allow_missing=True

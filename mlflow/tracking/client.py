@@ -725,15 +725,12 @@ class MlflowClient:
 
         try:
             if parsed_name_or_uri.startswith("prompts:/"):
-                # URI case: parse the URI to extract name and version (resolving alias if provided)
                 name, version_or_alias = self.parse_prompt_uri(parsed_name_or_uri)
             else:
-                # Name case: use the name and provided version
                 name = parsed_name_or_uri
                 version_or_alias = parsed_version
 
             registry_client = self._get_registry_client()
-            # If version_or_alias is not a digit, treat as alias
             if isinstance(version_or_alias, str) and not version_or_alias.isdigit():
                 return registry_client.get_prompt_version_by_alias(name, version_or_alias)
             else:
@@ -741,7 +738,7 @@ class MlflowClient:
         except MlflowException as exc:
             if allow_missing and exc.error_code in (
                 ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
-                ErrorCode.Name(INVALID_PARAMETER_VALUE),  # missing alias - file store only
+                ErrorCode.Name(INVALID_PARAMETER_VALUE),  # missing alias (file/sql registry)
                 ErrorCode.Name(NOT_FOUND),
             ):
                 return None
