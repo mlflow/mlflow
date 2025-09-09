@@ -6,7 +6,7 @@ import re
 import threading
 from contextlib import ContextDecorator
 from dataclasses import asdict, is_dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 if TYPE_CHECKING:
     from mlflow.genai.judges.base import JudgeField
@@ -35,11 +35,15 @@ _LITELLM_PROVIDERS = ["azure", "vertexai", "cohere", "replicate", "groq", "toget
 _MODEL_RESPONSE_FORMAT_CAPABILITIES: dict[str, bool] = {}
 
 
-def _check_databricks_agents_installed(error_code: str = INVALID_PARAMETER_VALUE) -> None:
-    """Check if databricks-agents is installed for databricks judge functionality.
+class DatabricksPrompts(NamedTuple):
+    """Result of splitting ChatMessage list for Databricks API."""
 
-    Args:
-        error_code: The MLflow error code to use. Defaults to INVALID_PARAMETER_VALUE.
+    system_prompt: str | None
+    user_prompt: str
+
+
+def _check_databricks_agents_installed() -> None:
+    """Check if databricks-agents is installed for databricks judge functionality.
 
     Raises:
         MlflowException: If databricks-agents is not installed.
@@ -51,7 +55,7 @@ def _check_databricks_agents_installed(error_code: str = INVALID_PARAMETER_VALUE
             f"To use '{_DATABRICKS_DEFAULT_JUDGE_MODEL}' as the judge model, the Databricks "
             "agents library must be installed. Please install it with: "
             "`pip install databricks-agents`",
-            error_code=error_code,
+            error_code=BAD_REQUEST,
         )
 
 
@@ -142,7 +146,7 @@ def _sanitize_justification(justification: str) -> str:
     return justification.replace("Let's think step by step. ", "")
 
 
-def _split_messages_for_databricks(messages: list["ChatMessage"]) -> tuple[str | None, str]:
+def _split_messages_for_databricks(messages: list["ChatMessage"]) -> DatabricksPrompts:
     """
     Split a list of ChatMessage objects into system and user prompts for Databricks API.
 
@@ -150,7 +154,8 @@ def _split_messages_for_databricks(messages: list["ChatMessage"]) -> tuple[str |
         messages: List of ChatMessage objects to split.
 
     Returns:
-        Tuple of (system_prompt, user_prompt) where system_prompt may be None.
+        DatabricksPrompts namedtuple with system_prompt and user_prompt fields.
+        The system_prompt may be None.
 
     Raises:
         MlflowException: If the messages list is empty or invalid.
@@ -169,6 +174,10 @@ def _split_messages_for_databricks(messages: list["ChatMessage"]) -> tuple[str |
     for msg in messages:
         if isinstance(msg, ChatMessage):
             if msg.role == "system":
+                # Use the first system message as the actual system prompt for the API.
+                # Any subsequent system messages are appended to the user prompt to preserve
+                # their content and maintain the order in which they appear in the submitted
+                # evaluation payload.
                 if system_prompt is None:
                     system_prompt = msg.content
                 else:
@@ -180,7 +189,7 @@ def _split_messages_for_databricks(messages: list["ChatMessage"]) -> tuple[str |
 
     user_prompt = "\n\n".join(user_parts) if user_parts else ""
 
-    return system_prompt, user_prompt
+    return DatabricksPrompts(system_prompt=system_prompt, user_prompt=user_prompt)
 
 
 def _parse_databricks_judge_response(
@@ -200,28 +209,26 @@ def _parse_databricks_judge_response(
     source = AssessmentSource(
         source_type=AssessmentSourceType.LLM_JUDGE, source_id=_DATABRICKS_DEFAULT_JUDGE_MODEL
     )
-
-    error = None
-
     if not llm_output:
-        error = "Empty response from Databricks judge"
-
-    if not error:
-        try:
-            response_data = json.loads(llm_output)
-        except json.JSONDecodeError as e:
-            error = f"Invalid JSON response from Databricks judge: {e}"
-
-    if not error and "result" not in response_data:
-        error = f"Response missing 'result' field: {response_data}"
-
-    if error:
         return Feedback(
             name=assessment_name,
-            error=error,
+            error="Empty response from Databricks judge",
             source=source,
         )
-
+    try:
+        response_data = json.loads(llm_output)
+    except json.JSONDecodeError as e:
+        return Feedback(
+            name=assessment_name,
+            error=f"Invalid JSON response from Databricks judge: {e}",
+            source=source,
+        )
+    if "result" not in response_data:
+        return Feedback(
+            name=assessment_name,
+            error=f"Response missing 'result' field: {response_data}",
+            source=source,
+        )
     return Feedback(
         name=assessment_name,
         value=response_data["result"],
@@ -250,7 +257,7 @@ def _invoke_databricks_judge(
     Raises:
         MlflowException: If databricks-agents is not installed.
     """
-    _check_databricks_agents_installed(error_code=BAD_REQUEST)
+    _check_databricks_agents_installed()
 
     from databricks.rag_eval import context
 
@@ -259,7 +266,9 @@ def _invoke_databricks_judge(
             system_prompt = None
             user_prompt = prompt
         else:
-            system_prompt, user_prompt = _split_messages_for_databricks(prompt)
+            prompts = _split_messages_for_databricks(prompt)
+            system_prompt = prompts.system_prompt
+            user_prompt = prompts.user_prompt
 
         @context.eval_context
         def call_chat_completions():

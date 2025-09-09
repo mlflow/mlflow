@@ -6,8 +6,15 @@ import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
-from mlflow.genai import judges
-from mlflow.genai.judges.builtin import _MODEL_API_DOC
+from mlflow.genai.judges.builtin import (
+    _MODEL_API_DOC,
+    is_context_relevant,
+    is_context_sufficient,
+    is_correct,
+    is_grounded,
+    is_safe,
+    meets_guidelines,
+)
 from mlflow.genai.judges.prompts.context_sufficiency import CONTEXT_SUFFICIENCY_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.correctness import CORRECTNESS_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.groundedness import GROUNDEDNESS_PROMPT_INSTRUCTIONS
@@ -167,7 +174,6 @@ class RetrievalRelevance(BuiltInScorer):
     required_columns: set[str] = {"inputs", "trace"}
 
     def __init__(self, /, **kwargs):
-        _validate_tracking_uri_is_databricks("RetrievalRelevance")
         super().__init__(**kwargs)
 
     @property
@@ -241,9 +247,6 @@ class RetrievalRelevance(BuiltInScorer):
                 feedback = invoke_judge_model(model, prompt, assessment_name=self.name)
                 chunk_feedbacks.append(feedback)
 
-        chunk_feedbacks = chunk_relevance(
-            request=request, retrieved_context=chunks, assessment_name=self.name
-        )
         for feedback in chunk_feedbacks:
             feedback.span_id = span_id
 
@@ -370,7 +373,7 @@ class RetrievalSufficiency(BuiltInScorer):
 
         feedbacks = []
         for span_id, context in span_id_to_context.items():
-            feedback = judges.is_context_sufficient(
+            feedback = is_context_sufficient(
                 request=request,
                 context=context,
                 expected_response=expected_response,
@@ -464,7 +467,7 @@ class RetrievalGroundedness(BuiltInScorer):
         span_id_to_context = extract_retrieval_context_from_trace(trace)
         feedbacks = []
         for span_id, context in span_id_to_context.items():
-            feedback = judges.is_grounded(
+            feedback = is_grounded(
                 request=request,
                 response=response,
                 context=context,
@@ -590,7 +593,7 @@ class Guidelines(BuiltInScorer):
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
             indicating the adherence to the specified guidelines.
         """
-        return judges.meets_guidelines(
+        return meets_guidelines(
             guidelines=self.guidelines,
             context={
                 "request": parse_inputs_to_str(inputs),
@@ -718,7 +721,7 @@ class ExpectationsGuidelines(BuiltInScorer):
                 "must be present in the trace."
             )
 
-        return judges.meets_guidelines(
+        return meets_guidelines(
             guidelines=guidelines,
             context={
                 "request": parse_inputs_to_str(inputs),
@@ -815,7 +818,7 @@ class RelevanceToQuery(BuiltInScorer):
             indicating the relevance of the response to the query.
         """
         request = parse_inputs_to_str(inputs)
-        return judges.is_context_relevant(
+        return is_context_relevant(
             request=request, context=outputs, name=self.name, model=self.model
         )
 
@@ -860,6 +863,7 @@ class Safety(BuiltInScorer):
     """
 
     name: str = "safety"
+    model: str | None = None
     required_columns: set[str] = {"inputs", "outputs"}
 
     @property
@@ -882,7 +886,6 @@ class Safety(BuiltInScorer):
         ]
 
     def __init__(self, /, **kwargs):
-        _validate_tracking_uri_is_databricks("Safety")
         super().__init__(**kwargs)
 
     def __call__(self, *, outputs: Any) -> Feedback:
@@ -896,7 +899,7 @@ class Safety(BuiltInScorer):
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
             indicating the safety of the response.
         """
-        return judges.is_safe(
+        return is_safe(
             content=parse_outputs_to_str(outputs),
             name=self.name,
             model=self.model,
@@ -1046,7 +1049,7 @@ class Correctness(BuiltInScorer):
                 "in the `expectations` dictionary."
             )
 
-        return judges.is_correct(
+        return is_correct(
             request=request,
             response=response,
             expected_response=expected_response,

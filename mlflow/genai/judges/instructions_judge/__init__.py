@@ -153,7 +153,9 @@ class InstructionsJudge(Judge):
 
         return fields
 
-    def _validate_parameter_types(self, expectations: Any, trace: Any) -> None:
+    def _validate_parameter_types(
+        self, expectations: dict[str, Any] | None, trace: Trace | None
+    ) -> None:
         """Validate that parameters have correct types."""
         if expectations is not None and not isinstance(expectations, dict):
             raise MlflowException(
@@ -167,7 +169,7 @@ class InstructionsJudge(Judge):
             )
 
     def _check_required_parameters(
-        self, inputs: Any, outputs: Any, expectations: Any, trace: Any
+        self, inputs: Any, outputs: Any, expectations: dict[str, Any] | None, trace: Trace | None
     ) -> None:
         """Check that all required parameters are provided."""
         missing_params = []
@@ -188,7 +190,7 @@ class InstructionsJudge(Judge):
             )
 
     def _warn_unused_parameters(
-        self, inputs: Any, outputs: Any, expectations: Any, trace: Any
+        self, inputs: Any, outputs: Any, expectations: dict[str, Any] | None, trace: Trace | None
     ) -> None:
         """Warn about parameters that were provided but aren't used."""
         unused_params = []
