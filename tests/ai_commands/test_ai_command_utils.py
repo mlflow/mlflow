@@ -5,7 +5,7 @@ from unittest import mock
 
 import pytest
 
-from mlflow.ai_commands import get_command, list_commands, parse_frontmatter
+from mlflow.ai_commands import get_command, get_command_body, list_commands, parse_frontmatter
 
 
 def test_parse_frontmatter_with_metadata():
@@ -231,3 +231,61 @@ def test_list_commands_sorted():
     if len(commands) > 1:
         keys = [cmd["key"] for cmd in commands]
         assert keys == sorted(keys)
+
+
+def test_get_command_body_success(tmp_path):
+    genai_dir = tmp_path / "commands" / "genai"
+    genai_dir.mkdir(parents=True)
+
+    test_content = """---
+namespace: genai
+description: Test command
+---
+
+# Test Command
+This is the body content without frontmatter."""
+
+    test_cmd = genai_dir / "analyze.md"
+    test_cmd.write_text(test_content)
+
+    with mock.patch("mlflow.ai_commands.ai_command_utils.Path") as mock_path:
+        mock_path.return_value.parent = tmp_path / "commands"
+
+        body = get_command_body("genai/analyze")
+
+    # Should only return body content, not frontmatter
+    assert "namespace: genai" not in body
+    assert "description: Test command" not in body
+    assert "# Test Command" in body
+    assert "This is the body content without frontmatter." in body
+
+
+def test_get_command_body_not_found(tmp_path):
+    commands_dir = tmp_path / "commands"
+    commands_dir.mkdir()
+
+    with mock.patch("mlflow.ai_commands.ai_command_utils.Path") as mock_path:
+        mock_path.return_value.parent = commands_dir
+
+        with pytest.raises(FileNotFoundError, match="Command 'nonexistent/command' not found"):
+            get_command_body("nonexistent/command")
+
+
+def test_get_command_body_no_frontmatter(tmp_path):
+    genai_dir = tmp_path / "commands" / "genai"
+    genai_dir.mkdir(parents=True)
+
+    # Content without frontmatter
+    test_content = """# Simple Command
+This is just regular markdown content."""
+
+    test_cmd = genai_dir / "simple.md"
+    test_cmd.write_text(test_content)
+
+    with mock.patch("mlflow.ai_commands.ai_command_utils.Path") as mock_path:
+        mock_path.return_value.parent = tmp_path / "commands"
+
+        body = get_command_body("genai/simple")
+
+    # Should return the entire content since there's no frontmatter
+    assert body == test_content
