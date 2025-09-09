@@ -260,6 +260,7 @@ def _invoke_litellm(
     Raises:
         MlflowException: If the request fails after all retries.
     """
+    # Convert ChatMessage objects to litellm.Message objects
     import litellm
 
     # Import at function level to avoid circular imports
@@ -267,8 +268,7 @@ def _invoke_litellm(
     from mlflow.genai.judges.tools import list_judge_tools
     from mlflow.genai.judges.tools.registry import _judge_tool_registry
 
-    # Convert ChatMessage objects to dicts for litellm
-    messages_dict = [{"role": msg.role, "content": msg.content} for msg in messages]
+    messages_dict = [litellm.Message(role=msg.role, content=msg.content) for msg in messages]
 
     litellm_model_uri = f"{provider}/{model_name}"
     tools = []
@@ -350,7 +350,7 @@ def _invoke_litellm(
             if not message.tool_calls:
                 return message.content
 
-            messages_dict.append(message.model_dump())
+            messages_dict.append(message)
             # TODO: Consider making tool calls concurrent for better performance.
             # Currently sequential for simplicity and to maintain order of results.
             for tool_call in message.tool_calls:
@@ -409,7 +409,7 @@ def _create_mlflow_tool_call_from_litellm(litellm_tool_call) -> Any:
 
 def _create_litellm_tool_response_message(
     tool_call_id: str, tool_name: str, content: str
-) -> dict[str, str]:
+) -> "litellm.Message":  # noqa: F821
     """
     Create a tool response message for LiteLLM.
 
@@ -419,14 +419,16 @@ def _create_litellm_tool_response_message(
         content: The content to include in the response.
 
     Returns:
-        A dictionary representing the tool response message.
+        A litellm.Message object representing the tool response message.
     """
-    return {
-        "tool_call_id": tool_call_id,
-        "role": "tool",
-        "name": tool_name,
-        "content": content,
-    }
+    import litellm
+
+    return litellm.Message(
+        tool_call_id=tool_call_id,
+        role="tool",
+        name=tool_name,
+        content=content,
+    )
 
 
 def _get_judge_response_format() -> dict[str, Any]:
@@ -487,6 +489,7 @@ def _prune_messages_over_context_length(
     initial_tokens = litellm.token_counter(model=model, messages=messages)
     if initial_tokens <= max_tokens:
         return messages
+
     pruned_messages = messages[:]
     # Remove tool call pairs until we're under limit
     while litellm.token_counter(model=model, messages=pruned_messages) > max_tokens:
@@ -494,10 +497,7 @@ def _prune_messages_over_context_length(
         assistant_msg = None
         assistant_idx = None
         for i, msg in enumerate(pruned_messages):
-            # Handle both dict and Message objects
-            role = msg.get("role") if isinstance(msg, dict) else msg.role
-            tool_calls = msg.get("tool_calls") if isinstance(msg, dict) else msg.tool_calls
-            if role == "assistant" and tool_calls:
+            if msg.role == "assistant" and msg.tool_calls:
                 assistant_msg = msg
                 assistant_idx = i
                 break
@@ -505,18 +505,11 @@ def _prune_messages_over_context_length(
             break  # No more tool calls to remove
         pruned_messages.pop(assistant_idx)
         # Remove corresponding tool response messages
-        if isinstance(assistant_msg, dict):
-            tool_call_ids = {tc["id"] for tc in assistant_msg.get("tool_calls", [])}
-        else:
-            tool_call_ids = {tc.id for tc in assistant_msg.tool_calls}
+        tool_call_ids = {tc.id for tc in assistant_msg.tool_calls}
         pruned_messages = [
             msg
             for msg in pruned_messages
-            if not (
-                (msg.get("role") if isinstance(msg, dict) else msg.role) == "tool"
-                and (msg.get("tool_call_id") if isinstance(msg, dict) else msg.tool_call_id)
-                in tool_call_ids
-            )
+            if not (msg.role == "tool" and msg.tool_call_id in tool_call_ids)
         ]
 
     final_tokens = litellm.token_counter(model=model, messages=pruned_messages)

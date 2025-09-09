@@ -1280,27 +1280,23 @@ def test_context_window_error_removes_tool_calls_and_retries(
         if len(kwargs["messages"]) >= 8 and not exception_raised:
             exception_raised = True
             raise exception_class(*exception_args)
+        import litellm
+
         mock_response = mock.Mock()
         mock_response.choices = [mock.Mock()]
-        mock_response.choices[0].message = mock.Mock()
         if exception_raised:
-            mock_response.choices[0].message.tool_calls = None
-            mock_response.choices[
-                0
-            ].message.content = '{"result": "pass", "rationale": "Test passed"}'
+            mock_response.choices[0].message = litellm.Message(
+                role="assistant",
+                content='{"result": "pass", "rationale": "Test passed"}',
+                tool_calls=None,
+            )
         else:
             call_id = f"call{len(captured_message_histories)}"
-            mock_response.choices[0].message.tool_calls = [
-                mock.Mock(id=call_id, function=mock.Mock(name="get_span", arguments="{}"))
-            ]
-            mock_response.choices[0].message.content = None
-            mock_response.choices[0].message.model_dump = lambda: {
-                "role": "assistant",
-                "content": None,
-                "tool_calls": [
-                    {"id": call_id, "function": {"name": "get_span", "arguments": "{}"}}
-                ],
-            }
+            mock_response.choices[0].message = litellm.Message(
+                role="assistant",
+                content=None,
+                tool_calls=[{"id": call_id, "function": {"name": "get_span", "arguments": "{}"}}],
+            )
         return mock_response
 
     # Mock tool registry to return empty dict (simulates tool call returning no useful data)
