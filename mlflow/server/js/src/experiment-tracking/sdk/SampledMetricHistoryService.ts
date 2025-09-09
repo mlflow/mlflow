@@ -1,9 +1,9 @@
 import { difference } from 'lodash';
 import { getUUID } from '../../common/utils/ActionUtils';
 import { fetchEndpoint, jsonBigIntResponseParser } from '../../common/utils/FetchUtils';
-import { AsyncAction, ReduxState, ThunkDispatch } from '../../redux-types';
+import type { AsyncAction, ReduxState, ThunkDispatch } from '../../redux-types';
 import { createChartAxisRangeKey } from '../components/runs-charts/components/RunsCharts.common';
-import { MetricEntity } from '../types';
+import type { MetricEntity } from '../types';
 import { type ParsedQs, stringify as queryStringStringify } from 'qs';
 import { EXPERIMENT_RUNS_METRIC_AUTO_REFRESH_INTERVAL } from '../utils/MetricsUtils';
 

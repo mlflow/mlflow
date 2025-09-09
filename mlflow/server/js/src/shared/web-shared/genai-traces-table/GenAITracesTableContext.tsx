@@ -26,7 +26,9 @@ interface GenAITracesTableProviderProps {
   children: React.ReactNode;
 }
 
-export const GenAITracesTableProvider: React.FC<GenAITracesTableProviderProps> = ({ children }) => {
+export const GenAITracesTableProvider: React.FC<React.PropsWithChildren<GenAITracesTableProviderProps>> = ({
+  children,
+}) => {
   const [table, setTable] = useState<Table<TraceRow> | undefined>();
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
 

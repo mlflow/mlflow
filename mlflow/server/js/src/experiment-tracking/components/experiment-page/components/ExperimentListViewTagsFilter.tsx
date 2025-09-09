@@ -1,8 +1,9 @@
 import { useFieldArray, useForm } from 'react-hook-form';
-import { OPERATORS, TagFilter } from '../hooks/useTagsFilter';
+import type { TagFilter } from '../hooks/useTagsFilter';
+import { OPERATORS } from '../hooks/useTagsFilter';
 import { Button, CloseIcon, PlusIcon, RHFControlledComponents, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { Interpolation, Theme } from '@emotion/react';
+import type { Interpolation, Theme } from '@emotion/react';
 import { Fragment } from 'react';
 
 const EMPTY_TAG = { key: '', value: '', operator: 'IS' } satisfies TagFilter;

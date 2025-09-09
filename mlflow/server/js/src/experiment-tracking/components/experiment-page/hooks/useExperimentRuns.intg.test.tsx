@@ -1,9 +1,8 @@
 import { renderHook, act, type RenderHookResult, waitFor } from '@testing-library/react';
-import {
-  ExperimentPageSearchFacetsState,
-  createExperimentPageSearchFacetsState,
-} from '../models/ExperimentPageSearchFacetsState';
-import { ExperimentPageUIState, createExperimentPageUIState } from '../models/ExperimentPageUIState';
+import type { ExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
+import { createExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
+import type { ExperimentPageUIState } from '../models/ExperimentPageUIState';
+import { createExperimentPageUIState } from '../models/ExperimentPageUIState';
 import { useExperimentRuns } from './useExperimentRuns';
 import { loadMoreRunsApi, searchRunsApi } from '../../../actions';
 import { applyMiddleware, combineReducers, createStore } from 'redux';
@@ -26,7 +25,6 @@ import Utils from '../../../../common/utils/Utils';
 import { ExperimentRunsSelectorResult } from '../utils/experimentRuns.selector';
 import { RUNS_AUTO_REFRESH_INTERVAL } from '../utils/experimentPage.fetch-utils';
 import {
-  shouldEnableExperimentPageAutoRefresh,
   shouldUsePredefinedErrorsInExperimentTracking,
   shouldUseRegexpBasedAutoRunsSearchFilter,
 } from '../../../../common/utils/FeatureUtils';
@@ -52,7 +50,6 @@ jest.mock('../../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../../../common/utils/FeatureUtils')>(
     '../../../../common/utils/FeatureUtils',
   ),
-  shouldEnableExperimentPageAutoRefresh: jest.fn(),
   shouldUsePredefinedErrorsInExperimentTracking: jest.fn(),
   shouldUseRegexpBasedAutoRunsSearchFilter: jest.fn(() => false),
 }));
@@ -578,7 +575,6 @@ describe('useExperimentRuns - integration test', () => {
 
   describe('useExperimentRuns auto-refresh', () => {
     beforeEach(() => {
-      jest.mocked(shouldEnableExperimentPageAutoRefresh).mockImplementation(() => true);
       jest.mocked(searchRunsApi).mockClear();
 
       // Mock the response to be a success with 100 runs

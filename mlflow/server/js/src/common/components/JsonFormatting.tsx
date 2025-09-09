@@ -9,7 +9,12 @@ interface JsonPreviewProps {
   codeSnippetStyle?: React.CSSProperties;
 }
 
-export const JsonPreview: React.FC<JsonPreviewProps> = ({ json, wrapperStyle, overlayStyle, codeSnippetStyle }) => {
+export const JsonPreview: React.FC<React.PropsWithChildren<JsonPreviewProps>> = ({
+  json,
+  wrapperStyle,
+  overlayStyle,
+  codeSnippetStyle,
+}) => {
   const { formattedJson, isJsonContent } = useFormattedJson(json);
 
   const defaultWrapperStyle: React.CSSProperties = {
@@ -66,7 +71,7 @@ function useFormattedJson(json: string) {
   }, [json]);
 }
 
-export const FormattedJsonDisplay: React.FC<{ json: string }> = ({ json }) => {
+export const FormattedJsonDisplay: React.FC<React.PropsWithChildren<{ json: string }>> = ({ json }) => {
   const { formattedJson, isJsonContent } = useFormattedJson(json);
 
   return (

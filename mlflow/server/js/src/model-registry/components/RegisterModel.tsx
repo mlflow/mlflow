@@ -6,8 +6,9 @@
  */
 
 import React from 'react';
-import _, { identity, isUndefined } from 'lodash';
-import { Button, ButtonProps, Modal, Spacer, LegacyTooltip, Typography, ModalProps } from '@databricks/design-system';
+import { identity, isUndefined, debounce } from 'lodash';
+import type { ButtonProps } from '@databricks/design-system';
+import { Button, Modal, Spacer, LegacyTooltip, Typography, ModalProps } from '@databricks/design-system';
 import { FormattedMessage, injectIntl, type IntlShape } from 'react-intl';
 import {
   CREATE_NEW_MODEL_OPTION_VALUE,
@@ -117,7 +118,9 @@ export class RegisterModelImpl extends React.Component<RegisterModelImplProps, R
   };
 
   handleSearchRegisteredModels = (input: any) => {
-    this.props.searchRegisteredModelsApi(getModelNameFilter(input), MAX_SEARCH_REGISTERED_MODELS);
+    if (this.isWorkspaceModelRegistryEnabled) {
+      this.props.searchRegisteredModelsApi(getModelNameFilter(input), MAX_SEARCH_REGISTERED_MODELS);
+    }
   };
 
   reloadModelVersionsForCurrentRun = () => {
@@ -170,13 +173,19 @@ export class RegisterModelImpl extends React.Component<RegisterModelImplProps, R
     });
   };
 
+  get isWorkspaceModelRegistryEnabled() {
+    return true;
+  }
+
   componentDidMount() {
-    this.props.searchRegisteredModelsApi();
+    if (this.isWorkspaceModelRegistryEnabled) {
+      this.props.searchRegisteredModelsApi();
+    }
   }
 
   componentDidUpdate(prevProps: RegisterModelImplProps, prevState: RegisterModelImplState) {
     // Repopulate registered model list every time user launch the modal
-    if (prevState.visible === false && this.state.visible === true) {
+    if (prevState.visible === false && this.state.visible === true && this.isWorkspaceModelRegistryEnabled) {
       this.props.searchRegisteredModelsApi();
     }
   }
@@ -186,7 +195,7 @@ export class RegisterModelImpl extends React.Component<RegisterModelImplProps, R
       <RegisterModelForm
         modelByName={modelByName}
         innerRef={this.form}
-        onSearchRegisteredModels={_.debounce(this.handleSearchRegisteredModels, 300)}
+        onSearchRegisteredModels={debounce(this.handleSearchRegisteredModels, 300)}
       />
     );
   }

@@ -1,10 +1,10 @@
-import { ICellRendererParams } from '@ag-grid-community/core';
+import type { ICellRendererParams } from '@ag-grid-community/core';
 import { Button, MinusSquareIcon, PlusSquareIcon, useDesignSystemTheme } from '@databricks/design-system';
-import { Theme } from '@emotion/react';
+import type { Theme } from '@emotion/react';
 import React, { useMemo } from 'react';
 import { Link } from '../../../../../../common/utils/RoutingUtils';
 import Routes from '../../../../../routes';
-import { RunRowType } from '../../../utils/experimentPage.row-types';
+import type { RunRowType } from '../../../utils/experimentPage.row-types';
 import { GroupParentCellRenderer } from './GroupParentCellRenderer';
 import invariant from 'invariant';
 import { RunColorPill } from '../../RunColorPill';

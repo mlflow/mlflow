@@ -1,5 +1,5 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
-import { PropsWithChildren, ReactNode } from 'react';
+import type { PropsWithChildren, ReactNode } from 'react';
 
 interface Props {
   className?: string;

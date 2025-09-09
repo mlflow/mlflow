@@ -4,10 +4,10 @@ import { Provider } from 'react-redux';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import configureStore from 'redux-mock-store';
-import { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
+import type { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
 import { evaluatePromptTableValue } from '../../../actions/PromptEngineeringActions';
 import { cloneDeep } from 'lodash';
-import { UseEvaluationArtifactTableDataResult } from './useEvaluationArtifactTableData';
+import type { UseEvaluationArtifactTableDataResult } from './useEvaluationArtifactTableData';
 import { IntlProvider } from 'react-intl';
 
 // Mock the evaluation action, it simulates taking 1000 ms to evaluate a single value

@@ -13,6 +13,7 @@ import {
   getMockedRegisteredPromptVersionSetTagsResponse,
 } from './test-utils';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000); // increase timeout due to heavier use of tables, modals and forms
 
 describe('PromptsPage', () => {

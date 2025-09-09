@@ -1,16 +1,14 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
-import { Data, Datum, Layout, PlotMouseEvent } from 'plotly.js';
+import type { Data, Datum, Layout, PlotMouseEvent } from 'plotly.js';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { LazyPlot } from '../../LazyPlot';
 import { useMutableChartHoverCallback } from '../hooks/useMutableHoverCallback';
 import { highlightScatterTraces, useRenderRunsChartTraceHighlight } from '../hooks/useRunsChartTraceHighlight';
+import type { RunsChartsRunData, RunsChartAxisDef, RunsPlotsCommonProps } from './RunsCharts.common';
 import {
   commonRunsChartStyles,
-  RunsChartsRunData,
-  RunsChartAxisDef,
   runsChartDefaultContourMargin,
   runsChartHoverlabel,
-  RunsPlotsCommonProps,
   createThemedPlotlyLayout,
   useDynamicPlotSize,
   getLegendDataFromRuns,

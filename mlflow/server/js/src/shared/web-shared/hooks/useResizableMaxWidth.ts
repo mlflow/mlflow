@@ -1,4 +1,5 @@
-import { MutableRefObject, useCallback, useLayoutEffect, useRef, useState } from 'react';
+import type { MutableRefObject } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 
 export function useResizableMaxWidth(minWidth: number) {
   const ref: MutableRefObject<HTMLDivElement | null> = useRef<HTMLDivElement>(null);

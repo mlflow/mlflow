@@ -12,13 +12,14 @@ import type { SuppressKeyboardEventParams } from '@ag-grid-community/core';
 
 // TODO: Import this icon from design system when added
 import { ReactComponent as VisibleFillIcon } from '../../../../../../common/static/icon-visible-fill.svg';
-import { Theme } from '@emotion/react';
+import type { Theme } from '@emotion/react';
 import React, { useMemo } from 'react';
 import { FormattedMessage, defineMessages } from 'react-intl';
-import { RunRowType, RunRowVisibilityControl } from '../../../utils/experimentPage.row-types';
+import type { RunRowType } from '../../../utils/experimentPage.row-types';
+import { RunRowVisibilityControl } from '../../../utils/experimentPage.row-types';
 import { shouldEnableToggleIndividualRunsInGroups } from '../../../../../../common/utils/FeatureUtils';
 import { useUpdateExperimentViewUIState } from '../../../contexts/ExperimentPageUIStateContext';
-import { RUNS_VISIBILITY_MODE } from '../../../models/ExperimentPageUIState';
+import type { RUNS_VISIBILITY_MODE } from '../../../models/ExperimentPageUIState';
 import { isRemainingRunsGroup } from '../../../utils/experimentPage.group-row-utils';
 import { RunVisibilityControlButton } from './RunVisibilityControlButton';
 import { useExperimentViewRunsTableHeaderContext } from '../ExperimentViewRunsTableHeaderContext';

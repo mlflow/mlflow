@@ -1,3 +1,4 @@
+import type { ThemeType } from '@databricks/design-system';
 import {
   Radio,
   LegacySelect,
@@ -5,7 +6,6 @@ import {
   LegacyTooltip,
   QuestionMarkIcon,
   useDesignSystemTheme,
-  ThemeType,
   SegmentedControlGroup,
   SegmentedControlButton,
   InfoSmallIcon,

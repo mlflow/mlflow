@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { isEmpty, last, uniqBy } from 'lodash';
-import { LoggedModelMetricDataset, LoggedModelProto } from '../../types';
+import type { LoggedModelMetricDataset, LoggedModelProto } from '../../types';
 import { loggedModelsDataRequest } from './request.utils';
 import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 import { useMemo } from 'react';

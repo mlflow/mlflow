@@ -1,11 +1,9 @@
 import { Overflow, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { useState } from 'react';
 import type { RunDatasetWithTags, RunInfoEntity } from '../../../types';
-import { KeyValueEntity } from '../../../../common/types';
-import {
-  DatasetWithRunType,
-  ExperimentViewDatasetDrawer,
-} from '../../experiment-page/components/runs/ExperimentViewDatasetDrawer';
+import type { KeyValueEntity } from '../../../../common/types';
+import type { DatasetWithRunType } from '../../experiment-page/components/runs/ExperimentViewDatasetDrawer';
+import { ExperimentViewDatasetDrawer } from '../../experiment-page/components/runs/ExperimentViewDatasetDrawer';
 import { ExperimentViewDatasetWithContext } from '../../experiment-page/components/runs/ExperimentViewDatasetWithContext';
 import type { UseGetRunQueryResponseRunInfo } from '../hooks/useGetRunQuery';
 

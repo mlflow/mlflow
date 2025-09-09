@@ -7,7 +7,6 @@ import { NullCell } from './NullCell';
 import { makeRequest } from '../utils/FetchUtils';
 import MlflowUtils from '../utils/MlflowUtils';
 import { Link } from '../utils/RoutingUtils';
-import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 export const RunName = (props: { experimentId: string; runUuid: string }) => {
   const { experimentId, runUuid } = props;
@@ -65,7 +64,7 @@ const useRunName = (experimentId: string, runUuid: string) => {
     queryFn: async () => {
       const filter = `run_id IN ('${runUuid}')`;
 
-      const res: RunNameResponse = await makeRequest(getAjaxUrl('ajax-api/2.0/mlflow/runs/search'), 'POST', {
+      const res: RunNameResponse = await makeRequest('/ajax-api/2.0/mlflow/databricks/runs/search', 'POST', {
         experiment_ids: [experimentId],
         filter,
       });

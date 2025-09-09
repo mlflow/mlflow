@@ -18,6 +18,7 @@ import type { KeyValueEntity } from '../../common/types';
 import { readFileSync } from 'fs';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000); // Larger timeout for integration testing
 
 jest.mock('../../common/utils/ArtifactUtils', () => ({

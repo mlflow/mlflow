@@ -1,5 +1,5 @@
 import React, { useCallback, useContext, useMemo, useState } from 'react';
-import { RunRowType } from '../utils/experimentPage.row-types';
+import type { RunRowType } from '../utils/experimentPage.row-types';
 import { EvaluationCreatePromptRunModal } from '../../evaluation-artifacts-compare/EvaluationCreatePromptRunModal';
 import { shouldEnablePromptLab } from '../../../../common/utils/FeatureUtils';
 

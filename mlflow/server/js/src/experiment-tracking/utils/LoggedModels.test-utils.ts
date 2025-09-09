@@ -1,5 +1,6 @@
 import { random } from 'lodash';
-import { LoggedModelProto, LoggedModelStatusProtoEnum } from '../types';
+import type { LoggedModelProto } from '../types';
+import { LoggedModelStatusProtoEnum } from '../types';
 import { generateRandomRunName } from './RunNameUtils';
 import { rest } from 'msw';
 

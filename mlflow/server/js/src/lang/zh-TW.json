@@ -147,6 +147,10 @@
     "defaultMessage" : "Databricks API 秘密",
     "description" : "Label for API secret reference input for Databricks Model Serving"
   },
+  "/6l4Ln" : {
+    "defaultMessage" : "追蹤同步已成功停用。",
+    "description" : "Success notification title when trace sync is disabled"
+  },
   "/7+KCP" : {
     "defaultMessage" : "一些值（小於 5%）為空。",
     "description" : "AutoML warning shown when <5% nulls are found in columns"
@@ -246,6 +250,10 @@
   "/iaU14" : {
     "defaultMessage" : "取消更新",
     "description" : "Title text for cancel update modal on endpoint view page"
+  },
+  "/k7Xvj" : {
+    "defaultMessage" : "金鑰",
+    "description" : "Tag filter input for key field in the tags filter popover for experiments page search by tags"
   },
   "/mvhBB" : {
     "defaultMessage" : "圖表最高反映至 {traceArchiveLatestRequestTime}",
@@ -498,6 +506,10 @@
     "defaultMessage" : "（版本 {sourceModelVersion}）",
     "description" : "Version number of the source model version"
   },
+  "1T2RpQ" : {
+    "defaultMessage" : "提示",
+    "description" : "Title for linked prompts table on logged model details page"
+  },
   "1UVDwT" : {
     "defaultMessage" : "新增評論",
     "description" : "Text for add comment button on activities list on model version page"
@@ -710,10 +722,6 @@
     "defaultMessage" : "編輯",
     "description" : "Text for the edit button next to the description section title on the experiment view page"
   },
-  "2ZMhRC" : {
-    "defaultMessage" : "使用者速率限制 （{number} QPM）",
-    "description" : "External model serving configuration form > form summary > AI gateway summary > user rate limit indicator"
-  },
   "2a/rR8" : {
     "defaultMessage" : "取消",
     "description" : "Key-value tag editor modal > Manage Tag cancel button"
@@ -790,10 +798,6 @@
     "defaultMessage" : "編輯",
     "description" : "Text for the edit button next to the description section title on\n             the model view page"
   },
-  "39X+ZY" : {
-    "defaultMessage" : "請造訪<link>排程計分員文件</link>以管理計分員。",
-    "description" : "Alert description when scheduled scorers exist"
-  },
   "39i3+I" : {
     "defaultMessage" : "無伺服器預算原則標籤",
     "description" : "Endpoint form summary title for budget policy tags"
@@ -809,6 +813,10 @@
   "3DPb2S" : {
     "defaultMessage" : "此範例會需要 {minVersion} 或更新版本的 MLflow。如果您的 MLflow 版本低於此版本，請在筆記本儲存格中運行「{installCommand}」，然後運行「{restartCommand}」以重新啟動核心。",
     "description" : "Alert description informing the user of how to upgrade MLflow to the minimum required version"
+  },
+  "3FZ8dZ" : {
+    "defaultMessage" : "重新命名",
+    "description" : "Text for rename button on the experiment view page header"
   },
   "3HTxsL" : {
     "defaultMessage" : "區域",
@@ -869,9 +877,17 @@
     "defaultMessage" : "錯誤",
     "description" : "UC Models page > Error empty state title"
   },
+  "3ZlUpH" : {
+    "defaultMessage" : "停用同步功能",
+    "description" : "Button text to disable trace sync"
+  },
   "3bagxW" : {
     "defaultMessage" : "<link>瞭解更多</link>",
     "description" : "Learn more tooltip link to learn more on how to search models"
+  },
+  "3gQy8y" : {
+    "defaultMessage" : "Endpoint 速率限制 ({limits})",
+    "description" : "External model serving configuration form > form summary > AI gateway summary > endpoint rate limit indicator"
   },
   "3geT+I" : {
     "defaultMessage" : "使用 Log 成品 API，儲存來自 MLflow 執行的檔案輸出。",
@@ -905,6 +921,10 @@
     "defaultMessage" : "擷取 OAuth 權杖",
     "description" : "Modal title for fetching oauth token for route optimized endpoint"
   },
+  "3zU3+M" : {
+    "defaultMessage" : "版本",
+    "description" : "Header for version column in linked prompts table on logged model details page"
+  },
   "4+RPaz" : {
     "defaultMessage" : "刪除",
     "description" : "Text for delete button on model version view page header"
@@ -936,6 +956,10 @@
   "45L7wY" : {
     "defaultMessage" : "若要下載選定的指標資料，請在 Databricks 筆記本中運行此程式碼片段。然後，從儲存格輸出中選擇「下載所有列」。",
     "description" : "Experiments > metric charts > download full CSV data modal > help text part 1"
+  },
+  "45qzkk" : {
+    "defaultMessage" : "輸入模型名稱 (例如：{exampleExternalModelName})",
+    "description" : "Placeholder text for a text input that users enter an LLM model name into with an example model name"
   },
   "46xd2Z" : {
     "defaultMessage" : "比較",
@@ -1076,6 +1100,10 @@
     "defaultMessage" : "顯示所有運行",
     "description" : "Menu option for revealing all hidden runs in the experiment view runs compare mode"
   },
+  "51B+R6" : {
+    "defaultMessage" : "此端點正在服務下列已棄用的佈建輸送量模型：<strong>{modelList}</strong>。請在棄用日期之前改移轉至有支援的模型。",
+    "description" : "Warning message for multiple deprecated provisioned throughput models"
+  },
   "53b+wP" : {
     "defaultMessage" : "步驟",
     "description" : "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use step axis in all charts"
@@ -1083,6 +1111,10 @@
   "54MnyJ" : {
     "defaultMessage" : "使用的資料集",
     "description" : "Run page > Overview > FinetuneDetails > Run datasets section label"
+  },
+  "55mClg" : {
+    "defaultMessage" : "標籤篩選條件",
+    "description" : "Button to open the tags filter popover in the experiments page"
   },
   "58MfVS" : {
     "defaultMessage" : "新增審閱者",
@@ -1223,6 +1255,10 @@
   "5xPlEu" : {
     "defaultMessage" : "來源執行",
     "description" : "Header title for the source run column in the logged model list table"
+  },
+  "5y4o+l" : {
+    "defaultMessage" : "模型",
+    "description" : "Sidebar button inside the 'new' popover to create new model"
   },
   "5yWkFd" : {
     "defaultMessage" : "增加或減少語言模型的信賴度。",
@@ -1432,6 +1468,10 @@
     "defaultMessage" : "值",
     "description" : "Tag assignment modal > Value label"
   },
+  "7+KwX+" : {
+    "defaultMessage" : "Endpoint ({limits})",
+    "description" : "Endpoint details page > External model details > AI Gateway details > rate limit > endpoint rate limit label"
+  },
   "7+r2yp" : {
     "defaultMessage" : "建立評估資料集",
     "description" : "Title for a quickstart guide on MLflow evaluation datasets"
@@ -1555,6 +1595,10 @@
   "7cuzHn" : {
     "defaultMessage" : "動作",
     "description" : "Column header of AutoML warnings table. Describes what actions AutoML took as a result of a warning, as well as what actions we recommend that the user take."
+  },
+  "7d6xZ2" : {
+    "defaultMessage" : "啟用同步功能",
+    "description" : "Button text to enable trace sync"
   },
   "7gOeQm" : {
     "defaultMessage" : "刪除",
@@ -1740,6 +1784,10 @@
     "defaultMessage" : "開始 Endpoint",
     "description" : "Title text for start endpoint modal on endpoint view page"
   },
+  "8nX+fI" : {
+    "defaultMessage" : "正在載入同步狀態…",
+    "description" : "Label shown while loading trace sync status"
+  },
   "8pZrYZ" : {
     "defaultMessage" : "一或多個服務實體發生錯誤。",
     "description" : "Error message for when there is an api error."
@@ -1792,6 +1840,10 @@
     "defaultMessage" : "刪除模型版本",
     "description" : "Title text for model version deletion modal in model versions view page"
   },
+  "9Bj7oS" : {
+    "defaultMessage" : "網路發生錯誤。",
+    "description" : "Error message for generic network error"
+  },
   "9CqEWy" : {
     "defaultMessage" : "載入更多",
     "description" : "Load more button text to load more experiment runs"
@@ -1811,6 +1863,10 @@
   "9JyC1e" : {
     "defaultMessage" : "串流處理 （Delta Live Tables）",
     "description" : "Label for a streaming inference type in the modal for configuring inference for a registered model"
+  },
+  "9KLNi5" : {
+    "defaultMessage" : "刪除",
+    "description" : "Experiments page list, delete bulk experiments modal primary button"
   },
   "9KXBFn" : {
     "defaultMessage" : "標籤",
@@ -1896,6 +1952,14 @@
     "defaultMessage" : "{pt} 權杖/秒",
     "description" : "description of provisioned throughput of a served model"
   },
+  "9ut1Fj" : {
+    "defaultMessage" : "建立",
+    "description" : "Label for the create experiment action on the experiments list page"
+  },
+  "9vT4HV" : {
+    "defaultMessage" : "按名稱篩選實驗",
+    "description" : "Placeholder text inside experiments search bar"
+  },
   "9vj5Ap" : {
     "defaultMessage" : "沒有記錄指標",
     "description" : "Run page > Overview > Metrics table > No metrics recorded"
@@ -1915,6 +1979,10 @@
   "9y+yUQ" : {
     "defaultMessage" : "檔案太大而無法預覽",
     "description" : "Label to indicate that the file is too large to preview"
+  },
+  "9y/o/P" : {
+    "defaultMessage" : "預設使用者 ({limits})",
+    "description" : "Endpoint details page > External model details > AI Gateway details > rate limit > default user limit label"
   },
   "9zFSfg" : {
     "defaultMessage" : "頻率不相符",
@@ -1967,6 +2035,10 @@
   "AH/7/t" : {
     "defaultMessage" : "發佈的功能({length})",
     "description" : "Title text for the online store published features section."
+  },
+  "AK7rsc" : {
+    "defaultMessage" : "此實驗並未啟用 Delta 同步的功能",
+    "description" : "Message displayed when the delta sync is not enabled for this experiment."
   },
   "ALGzYP" : {
     "defaultMessage" : "非必選。為此 Endpoint 配置警示。",
@@ -2083,6 +2155,10 @@
   "B8RvlZ" : {
     "defaultMessage" : "比較版本 {baseline} 與版本 {compared}",
     "description" : "Label for comparing prompt versions in the prompt comparison view. Variables {baseline} and {compared} are numeric version numbers being compared."
+  },
+  "BB6In/" : {
+    "defaultMessage" : "標籤",
+    "description" : "Header for the tags column in the experiments table"
   },
   "BCpX6U" : {
     "defaultMessage" : "註冊模型",
@@ -2240,6 +2316,10 @@
     "defaultMessage" : "服務實體必須具有實體名稱或提供商。",
     "description" : "Error message for when served entity name or providers are not provided"
   },
+  "C9wfr0" : {
+    "defaultMessage" : "沒有提示",
+    "description" : "No results message for linked prompts table on logged model details page"
+  },
   "CDOfWP" : {
     "defaultMessage" : "系統指標",
     "description" : "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > system metrics heading"
@@ -2291,6 +2371,10 @@
   "Cbgg9B" : {
     "defaultMessage" : "切換側邊",
     "description" : "A label for button used to switch prompt versions when in side-by-side comparison view"
+  },
+  "CbzDeZ" : {
+    "defaultMessage" : "渲染此元件時發生錯誤。",
+    "description" : "Description for default error message in Trace V3 page"
   },
   "CcZmhi" : {
     "defaultMessage" : "取消",
@@ -2572,10 +2656,6 @@
     "defaultMessage" : "指標",
     "description" : "Label for the ungrouped metrics column group in the logged model column selector"
   },
-  "EdaSNm" : {
-    "defaultMessage" : "無限制",
-    "description" : "External model serving configuration form > AI Gateway section > rate limits section > label for checkbox that disables rate limit"
-  },
   "EeSKt9" : {
     "defaultMessage" : "標籤",
     "description" : "Endpoint form summary title for tags"
@@ -2592,9 +2672,17 @@
     "defaultMessage" : "尚未準備就緒",
     "description" : "\"Not ready\" state for payload logging on this endpoint"
   },
+  "Enbu45" : {
+    "defaultMessage" : "Delta 同步：未啟用",
+    "description" : "Label shown when trace sync is not enabled"
+  },
   "EpFST9" : {
     "defaultMessage" : "沒有記錄追蹤資料",
     "description" : "Experiment page > traces data drawer > no trace data recorded empty state"
+  },
+  "Epo8/i" : {
+    "defaultMessage" : "{count, plural, other {刪除{count,number}個實驗}}",
+    "description" : "Experiments page list, delete bulk experiments modal title"
   },
   "EqNhV6" : {
     "defaultMessage" : "已批准階段轉換",
@@ -2707,6 +2795,10 @@
   "FZubuU" : {
     "defaultMessage" : "輸入實驗名稱",
     "description" : "Input placeholder to enter experiment name for create experiment"
+  },
+  "FbAMd+" : {
+    "defaultMessage" : "錯誤",
+    "description" : "Title for error fallback component in Trace V3 page"
   },
   "FdDWTo" : {
     "defaultMessage" : "全部清除",
@@ -2868,6 +2960,10 @@
     "defaultMessage" : "基礎模型",
     "description" : "Select source for the entity in the entity selector; this source is popular foundation models or a model external to Databricks"
   },
+  "Gf0rKw" : {
+    "defaultMessage" : "配置會在您的追蹤上自動使用運算資源的評估。",
+    "description" : "Description for monitor metrics configuration"
+  },
   "Gf9R9e" : {
     "defaultMessage" : "(已棄用) 有效主題",
     "description" : "This feature is deprecated. An AI Gateway guardrails configuration label for a checkbox that enables blocking content that does not correspond to user-specified allowed topics"
@@ -2931,10 +3027,6 @@
   "H3bZtA" : {
     "defaultMessage" : "生成權杖時發生錯誤",
     "description" : "Generic error message when token generation fails"
-  },
-  "H5VL08" : {
-    "defaultMessage" : "{number} QPM（每個 Endpoint）",
-    "description" : "Endpoint details page > External model details > AI Gateway details > rate limit > per-endpoint rate limit label (QPM = queries per minute)"
   },
   "H7JwOl" : {
     "defaultMessage" : "刪除版本",
@@ -3187,6 +3279,10 @@
     "defaultMessage" : "步驟",
     "description" : "Label for a radio button that configures the x-axis on a line chart. This option is for the step number that the metrics were logged."
   },
+  "IgjmBX" : {
+    "defaultMessage" : "將追蹤同步至 Unity Catalog。",
+    "description" : "Title for the trace sync configuration modal"
+  },
   "Ik96R6" : {
     "defaultMessage" : "編輯",
     "description" : "Text for the edit button next to the description section title on\n             the model version view page"
@@ -3267,13 +3363,13 @@
     "defaultMessage" : "人工智慧護欄",
     "description" : "External model serving configuration form > AI Gateway section > label for checkbox enabling guardrails"
   },
+  "JDpv0G" : {
+    "defaultMessage" : "運算子",
+    "description" : "Tag filter input for operator field in the tags filter popover for experiments page search by tags"
+  },
   "JEap6P" : {
     "defaultMessage" : "您提供的範圍對於一個或多個時間序列來說太長了。AutoML 在這些時間序列上使用較短的時間範圍進行訓練和驗證。",
     "description" : "Action that AutoML took when user-provided horizon is too long for\n              one or more time series"
-  },
-  "JFXAqZ" : {
-    "defaultMessage" : "從下拉式選單中選取模型，或輸入您想使用的模型名稱。下拉式清單並不詳盡。如果您要使用的模型未列出，請輸入模型名稱。",
-    "description" : "Hint text for provider model configuration"
   },
   "JGQ5B2" : {
     "defaultMessage" : "新增",
@@ -3294,6 +3390,14 @@
   "JOlueI" : {
     "defaultMessage" : "無法刪除提示版本",
     "description" : "Error message when deleting a managed prompt version fails"
+  },
+  "JT49u5" : {
+    "defaultMessage" : "表格名稱",
+    "description" : "Label for the table name input field"
+  },
+  "JUTcIz" : {
+    "defaultMessage" : "建立時間",
+    "description" : "Header for the time created column in the experiments table"
   },
   "JVpmki" : {
     "defaultMessage" : "狀態",
@@ -3431,6 +3535,10 @@
     "defaultMessage" : "請聯絡您的管理員，透過設定＞通知來新增目的地。",
     "description" : "Warning message when no system destinations are available"
   },
+  "KTqXu1" : {
+    "defaultMessage" : "正在同步至",
+    "description" : "Prefix text before table name"
+  },
   "KV3BXl" : {
     "defaultMessage" : "選定為基準版本",
     "description" : "Label for selecting baseline prompt version in the comparison view"
@@ -3514,6 +3622,10 @@
   "L/3NZw" : {
     "defaultMessage" : "Bedrock 提供者",
     "description" : "Label for provider input for Amazon Bedrock"
+  },
+  "L/4iQO" : {
+    "defaultMessage" : "刪除",
+    "description" : "Label for the delete experiments action on the experiments list page"
   },
   "L/U++H" : {
     "defaultMessage" : "運行",
@@ -3667,9 +3779,17 @@
     "defaultMessage" : "不支援的 {t} 類型",
     "description" : "AutoML warning text shown when the user selects a target or time column with an unsupported type"
   },
+  "M9hl61" : {
+    "defaultMessage" : "此端點正在服務為即將在 {deprecationDate} 被棄用的佈建輸送量模型：<strong>{modelName}</strong>。敬請參閱 https://docs.databricks.com/aws/en/machine-learning/foundation-model-apis/supported-models 以瞭解更多與目前有支援之模型相關的資訊。",
+    "description" : "Warning message for single deprecated provisioned throughput model"
+  },
   "MAQBy2" : {
     "defaultMessage" : "在本地進行開發",
     "description" : "Title for develop locally card"
+  },
+  "MAlLxh" : {
+    "defaultMessage" : "輸入表格名稱",
+    "description" : "Placeholder text for table name input"
   },
   "MBNIRk" : {
     "defaultMessage" : "屬性",
@@ -3690,10 +3810,6 @@
   "MMfpP9" : {
     "defaultMessage" : "功能",
     "description" : "Text for the features page header title."
-  },
-  "MNzpv5" : {
-    "defaultMessage" : "每個 Endpoint",
-    "description" : "External model serving configuration form > AI Gateway section > label for rate limits per endpoint"
   },
   "MR5Lcw" : {
     "defaultMessage" : "OpenAI API 基礎",
@@ -3863,6 +3979,10 @@
     "defaultMessage" : "比較 1 個實驗的 {numRuns} 次運行",
     "description" : "Breadcrumb title for compare runs page with single experiment"
   },
+  "NPlcrl" : {
+    "defaultMessage" : "清除篩選條件",
+    "description" : "Button to clear filters in the tags filter popover for experiments page search by tags"
+  },
   "NRbYA+" : {
     "defaultMessage" : "未啟用",
     "description" : "\"Not enabled\" state for this endpoint --> inference tables has never been enabled"
@@ -3910,6 +4030,10 @@
   "Nm/Pjx" : {
     "defaultMessage" : "註冊於",
     "description" : "Column title text for created at timestamp in model version table"
+  },
+  "NmzMUb" : {
+    "defaultMessage" : "輸入模型名稱",
+    "description" : "Placeholder text for a text input that users enter an LLM model name into"
   },
   "Nnsm0p" : {
     "defaultMessage" : "此實驗中的所有運行均已篩選。變更或清除篩選條件以檢視運行。",
@@ -4014,6 +4138,14 @@
   "OGT/Ar" : {
     "defaultMessage" : "調整為零",
     "description" : "Scale to zero toggle for create endpoint forms"
+  },
+  "OH7hV5" : {
+    "defaultMessage" : "值",
+    "description" : "Tag filter input for value field in the tags filter popover for experiments page search by tags"
+  },
+  "OLVCpq" : {
+    "defaultMessage" : "若欲設定 Gen AI 監控或管理標記工作階段，請參閱 {experimentLink}",
+    "description" : "Helper text linking to the experiment from the traces tab"
   },
   "ONIiUE" : {
     "defaultMessage" : "顯示前 20 個",
@@ -4294,6 +4426,10 @@
     "defaultMessage" : "新增/編輯{endpointName}的標籤",
     "description" : "Modal title for edit endpoint tags"
   },
+  "QBYbF3" : {
+    "defaultMessage" : "提示",
+    "description" : "Sidebar link for prompts tab"
+  },
   "QC5Vjq" : {
     "defaultMessage" : "Y 軸：",
     "description" : "Label where the users can choose the metric of the experiment run to be plotted on the Y-axis"
@@ -4322,6 +4458,10 @@
     "defaultMessage" : "使用其他參數或停用運行分組以繼續。",
     "description" : "Experiment page > compare runs > parallel coordinates chart > unsupported string values warning > description"
   },
+  "QRnRh3" : {
+    "defaultMessage" : "找不到任何實驗",
+    "description" : "Label for the empty state in the experiments table when no experiments are found"
+  },
   "QRybLB" : {
     "defaultMessage" : "在服務的實體中，按照列出的順序，自動容錯移轉 429/5xx 要求。<link>瞭解更多</link>。",
     "description" : "External model serving configuration form > AI Gateway section > label for hint explaining fallbacks enablement"
@@ -4338,6 +4478,10 @@
     "defaultMessage" : "開啟",
     "description" : "Runs charts > line chart > display points > on setting label"
   },
+  "QZrZhE" : {
+    "defaultMessage" : "選取一組結構描述⋯",
+    "description" : "Placeholder text for schema selector"
+  },
   "Qb9xUn" : {
     "defaultMessage" : "刪除",
     "description" : "Confirmation button used to delete a managed prompt from the registry"
@@ -4346,9 +4490,17 @@
     "defaultMessage" : "已排入佇列",
     "description" : "Run page > Overview > FinetuneDetails > Run status cell > Value for queued state"
   },
+  "QhEnTA" : {
+    "defaultMessage" : "名稱",
+    "description" : "Header for the name column in the experiments table"
+  },
   "Qi6Etm" : {
     "defaultMessage" : "隱藏所有運行",
     "description" : "Menu option for revealing all hidden runs in the experiment view runs compare mode"
+  },
+  "QiMP71" : {
+    "defaultMessage" : "無法啟用追蹤同步。請再試一次。",
+    "description" : "Error message when enabling trace sync fails"
   },
   "QklAjw" : {
     "defaultMessage" : "主機",
@@ -4506,6 +4658,10 @@
     "defaultMessage" : "歷史資料不足",
     "description" : "AutoML warning shown when the dataset does not have enough historical data for forecasting"
   },
+  "S9JIvo" : {
+    "defaultMessage" : "停用追蹤同步失敗",
+    "description" : "Error notification title when disabling trace sync fails"
+  },
   "SCCJKU" : {
     "defaultMessage" : "可以使用配置「spark.databricks.automl.scaleCpusPerTask」停用此行為。",
     "description" : "Action recommended to user to disable behaviour"
@@ -4566,6 +4722,10 @@
     "defaultMessage" : "此模型已記錄環境變數。展開以便設定。",
     "description" : "Tip to set environment variables for custom Unity Catalog model in the collapsed Advanced Configuration section."
   },
+  "STEhnv" : {
+    "defaultMessage" : "說明",
+    "description" : "Header for the description column in the experiments table"
+  },
   "SU2pmO" : {
     "defaultMessage" : "檢視預測",
     "description" : "Button guiding the user to view the predctions of the best model generated by an AutoML experiment"
@@ -4593,10 +4753,6 @@
   "SgMFsE" : {
     "defaultMessage" : "提示",
     "description" : "Breadcrumb nav item to link to the prompts page of an experiment"
-  },
-  "SguJK4" : {
-    "defaultMessage" : "自訂模型名稱",
-    "description" : "Instructs user to enter the name of their model if it is custom, and not in the dropdown."
   },
   "ShhOOp" : {
     "defaultMessage" : "在此時間範圍內找不到資料",
@@ -4805,6 +4961,10 @@
     "defaultMessage" : "取消",
     "description" : "Cancel button label within a modal for adding/editing a new runs comparison chart"
   },
+  "TmliKY" : {
+    "defaultMessage" : "追蹤同步已成功啟用。",
+    "description" : "Success notification title when trace sync is enabled"
+  },
   "TnXWt2" : {
     "defaultMessage" : "資料探索筆記本在資料欄子集上執行，因為資料集太大",
     "description" : "AutoML warning data exploration notebook ran on a subset of columns"
@@ -4849,6 +5009,10 @@
     "defaultMessage" : "<link>版本{versionNumber}</link>",
     "description" : "Row entry for version columns in the registered model page"
   },
+  "U1V/ZX" : {
+    "defaultMessage" : "MLflow 實驗",
+    "description" : "Link text for experiment link in traces tab"
+  },
   "U3btBc" : {
     "defaultMessage" : "範例：",
     "description" : "Text header for examples of mlflow search syntax"
@@ -4856,6 +5020,10 @@
   "U4Xoff" : {
     "defaultMessage" : "新增標籤結構描述",
     "description" : "Button text to add new label schema"
+  },
+  "U4ox5k" : {
+    "defaultMessage" : "實驗",
+    "description" : "Sidebar link for experiments tab"
   },
   "U7peTi" : {
     "defaultMessage" : "使用模式進行推論",
@@ -4932,6 +5100,10 @@
   "UYSMKb" : {
     "defaultMessage" : "結構描述太大，無法顯示所有列。請搜尋欄名稱以篩選結果。目前已顯示了 {currentResults} 筆結果（總計 {allResults} 筆）。",
     "description" : "Text for model inputs/outputs schema table when schema is too large to display all rows"
+  },
+  "Ub5Oce" : {
+    "defaultMessage" : "選取位置",
+    "description" : "Label for the schema selection field"
   },
   "UgF7ax" : {
     "defaultMessage" : "狀態",
@@ -5128,6 +5300,10 @@
     "defaultMessage" : "追蹤",
     "description" : "Label for the traces tab in the MLflow experiment navbar"
   },
+  "Vk+30L" : {
+    "defaultMessage" : "編輯標籤",
+    "description" : "Label for the edit tags button in the experiment list table"
+  },
   "Vkr4Bs" : {
     "defaultMessage" : "新增說明",
     "description" : "experiment page > description modal > title"
@@ -5180,10 +5356,6 @@
     "defaultMessage" : "儲存變更",
     "description" : "Save button text"
   },
-  "VzuUre" : {
-    "defaultMessage" : "支援的格式：圖像、文字、html、pdf、音訊、geojson 檔案",
-    "description" : "Text to explain users which formats are supported to display the artifacts"
-  },
   "W2g1sT" : {
     "defaultMessage" : "步驟 3：在程式碼中載入環境變數",
     "description" : "Step 3 header for loading environment variables"
@@ -5211,6 +5383,10 @@
   "WA9JZI" : {
     "defaultMessage" : "值：",
     "description" : "Label for tag value in modal"
+  },
+  "WEo/0D" : {
+    "defaultMessage" : "瞭解更多",
+    "description" : "Link text for agent deployment docs"
   },
   "WFNifP" : {
     "defaultMessage" : "Endpoint 名稱",
@@ -5320,10 +5496,6 @@
     "defaultMessage" : "流量 (%)",
     "description" : "Label for the traffic config for the served entity of the endpoint"
   },
-  "Wl58Q1" : {
-    "defaultMessage" : "每位使用者",
-    "description" : "External model serving configuration form > AI Gateway section > label for rate limits per user"
-  },
   "Wm6dYs" : {
     "defaultMessage" : "刪除",
     "description" : "A confirmation label of the modal used for deleting logged models"
@@ -5343,6 +5515,10 @@
   "WsbabI" : {
     "defaultMessage" : "未啟用",
     "description" : "Endpoint details page > External model details > AI Gateway details > label displayed when feature is disabled"
+  },
+  "Wv3B3G" : {
+    "defaultMessage" : "支援的格式：影像、文字、html、pdf、音訊、視訊、geojson 檔案",
+    "description" : "Text to explain users which formats are supported to display the artifacts"
   },
   "WvHAEg" : {
     "defaultMessage" : "輸入成品位置（選擇）",
@@ -5487,6 +5663,10 @@
     "defaultMessage" : "搜尋指標圖表",
     "description" : "Run page > Charts tab > Filter metric charts input > placeholder"
   },
+  "Xuz/xh" : {
+    "defaultMessage" : "模型",
+    "description" : "Sidebar link for models tab"
+  },
   "XuzIWs" : {
     "defaultMessage" : "有些軌跡會被您的時間範圍篩選條件隱藏：「{filterLabel}」",
     "description" : "Message shown when traces are hidden by time filter"
@@ -5538,6 +5718,10 @@
   "YDUq/n" : {
     "defaultMessage" : "名稱",
     "description" : "Dropdown button text to copy endpoint name"
+  },
+  "YECxws" : {
+    "defaultMessage" : "比較",
+    "description" : "Label for the compare experiments action on the experiments list page"
   },
   "YEONPl" : {
     "defaultMessage" : "此欄位存在錯誤。",
@@ -5670,6 +5854,14 @@
   "YqW83+" : {
     "defaultMessage" : "選擇實驗類型",
     "description" : "A title for the modal displayed when the experiment type could not be inferred"
+  },
+  "YuWDVj" : {
+    "defaultMessage" : "實驗",
+    "description" : "Sidebar button inside the 'new' popover to create new experiment"
+  },
+  "YuYnxd" : {
+    "defaultMessage" : "刪除",
+    "description" : "Text for delete button on the experiment view page header"
   },
   "Yx79Vd" : {
     "defaultMessage" : "確認",
@@ -5807,6 +5999,10 @@
     "defaultMessage" : "建立後將產生路徑最佳化的端點 URL",
     "description" : "Route optimized endpoint URL placeholder"
   },
+  "ZkQKIi" : {
+    "defaultMessage" : "追蹤",
+    "description" : "Tab title for the traces tab on the endpoint page"
+  },
   "ZlokCq" : {
     "defaultMessage" : "取消",
     "description" : "A label for the cancel button in the delete prompt modal"
@@ -5839,9 +6035,17 @@
     "defaultMessage" : "比較",
     "description" : "Experiment page > artifact compare view > \"compare\" select dropdown label"
   },
+  "ZqHpEG" : {
+    "defaultMessage" : "實驗",
+    "description" : "Header title for the experiments page"
+  },
   "Zqj4VA" : {
     "defaultMessage" : "新運行名稱",
     "description" : "Experiment page > new run modal > run name input label"
+  },
+  "Zt2Uxi" : {
+    "defaultMessage" : "請使用「建立實驗」按鈕來建立新的實驗",
+    "description" : "Guidelines for the user on how to create a new experiment in the experiments list page"
   },
   "ZvJTXB" : {
     "defaultMessage" : "無選取的表格",
@@ -6003,6 +6207,10 @@
     "defaultMessage" : "已建立",
     "description" : "Title text for the feature page created timestamp field."
   },
+  "ahKZrO" : {
+    "defaultMessage" : "將追蹤同步至 Unity Catalog。",
+    "description" : "Title for the trace sync popover"
+  },
   "aiWz6l" : {
     "defaultMessage" : "分類欄中有 1024 到 65536 個不同的值",
     "description" : "AutoML warning shown when columns with very high cardinalty are detected"
@@ -6082,6 +6290,10 @@
   "bDqNJ2" : {
     "defaultMessage" : "最佳模型 <modelLink>{modelName}</modelLink> 是由運行 <runLink>{runName}</runLink>建立的。",
     "description" : "Description of the best model created by an AutoML experiment"
+  },
+  "bEm43v" : {
+    "defaultMessage" : "預設使用者速率限制 ({limits})",
+    "description" : "External model serving configuration form > form summary > AI gateway summary > user rate limit indicator"
   },
   "bGLOtJ" : {
     "defaultMessage" : "自訂提供者模型 URL",
@@ -6179,6 +6391,10 @@
     "defaultMessage" : "輸出",
     "description" : "Table section name for schema outputs in the model comparison page"
   },
+  "btCK/c" : {
+    "defaultMessage" : "服務",
+    "description" : "Feature name for serving v1 used in error message in enable serving\n            button popover."
+  },
   "bthrp2" : {
     "defaultMessage" : "{modelName} 目前因容量限制而停用。",
     "description" : "Disabled message for FMAPI endpoints"
@@ -6266,6 +6482,10 @@
     "defaultMessage" : "運算資源類型",
     "description" : "Title for compute type column on endpoint form"
   },
+  "cGvt8g" : {
+    "defaultMessage" : "同步至 {tableName}",
+    "description" : "Success notification description showing table name"
+  },
   "cHG82A" : {
     "defaultMessage" : "使用",
     "description" : "A text for the use button in the experiment prompt actions"
@@ -6273,6 +6493,10 @@
   "cI+F/q" : {
     "defaultMessage" : "名稱",
     "description" : "Column title for name column in editable tags table view in MLflow"
+  },
+  "cI0kqF" : {
+    "defaultMessage" : "新增標籤",
+    "description" : "Label for the add tags button in the experiment list table"
   },
   "cIV9pX" : {
     "defaultMessage" : "權限遭拒。",
@@ -6401,6 +6625,10 @@
     "defaultMessage" : "價格",
     "description" : "Endpoint details page > active configuration table > Column headers > Price"
   },
+  "dRO0+z" : {
+    "defaultMessage" : "TPM",
+    "description" : "Model serving form > AI Gateway section > rate limits section > TPM header"
+  },
   "dTLq6E" : {
     "defaultMessage" : "展開{title}",
     "description" : "Common component > collapsible section > alternative label when collapsed"
@@ -6417,9 +6645,17 @@
     "defaultMessage" : "標籤",
     "description" : "Title for endpoint tags in the endpoint configuration form"
   },
+  "dbps6u" : {
+    "defaultMessage" : "提示",
+    "description" : "Sidebar button inside the 'new' popover to create new prompt"
+  },
   "dc0rvu" : {
     "defaultMessage" : "更新",
     "description" : "Endpoint details page > Inference table configuration modal > Confirmation button"
+  },
+  "dcoaGS" : {
+    "defaultMessage" : "尚未建立實驗",
+    "description" : "A header for the empty state in the experiments table"
   },
   "ddAFCW" : {
     "defaultMessage" : "500：內部伺服器錯誤",
@@ -6484,10 +6720,6 @@
   "dzoxyA" : {
     "defaultMessage" : "拒絕等候中的請求",
     "description" : "Title for a model version stage transition modal when rejecting a pending request"
-  },
-  "e40hC9" : {
-    "defaultMessage" : "費率限制以 QPM（每分鐘查詢數）確定",
-    "description" : "External model serving configuration form > AI Gateway section > hint for setting rate limits"
   },
   "e4DDBY" : {
     "defaultMessage" : "工作區模型登錄",
@@ -6664,6 +6896,10 @@
   "ez06Dt" : {
     "defaultMessage" : "找不到影像",
     "description" : "Title for the empty state when no images are found in the currently visible runs"
+  },
+  "ezwKqU" : {
+    "defaultMessage" : "Delta 同步：啟用",
+    "description" : "Label shown when trace sync is enabled in popover"
   },
   "f/An1W" : {
     "defaultMessage" : "準備就緒。",
@@ -7341,6 +7577,10 @@
     "defaultMessage" : "設定",
     "description" : "Configure a new endpoint with this model"
   },
+  "isctx4" : {
+    "defaultMessage" : "升級至 MLflow 3 以啟用即時追蹤的功能",
+    "description" : "Title for agents/* endpoints without traces enabled"
+  },
   "ivRq5S" : {
     "defaultMessage" : "傳送意見回饋",
     "description" : "Text for provide feedback button on experiment view page header"
@@ -7492,6 +7732,10 @@
   "jk5LNk" : {
     "defaultMessage" : "您的 Workspace 未啟用電子郵件通知。要存取此功能，請聯絡您的 Workspace 管理員。",
     "description" : "Tooltip text for notifications when not enabled for workspace in the\n               model view page"
+  },
+  "jkH43T" : {
+    "defaultMessage" : "這樣會停止同步全新的追蹤至 Unity Catalog。先前同步至 Unity Catalog 表格中的資料會被保留下來。",
+    "description" : "Tooltip text for disable sync button"
   },
   "jkeYf8" : {
     "defaultMessage" : "解除鎖定群組",
@@ -7677,6 +7921,10 @@
     "defaultMessage" : "每位使用者",
     "description" : "Endpoint details page > Rate limit configuration modal > Per user limit label"
   },
+  "l/+0SR" : {
+    "defaultMessage" : "上次修改",
+    "description" : "Header for the last modified column in the experiments table"
+  },
   "l/GKwW" : {
     "defaultMessage" : "不支援的欄類型",
     "description" : "AutoML warning shown when columns are unsupported"
@@ -7696,6 +7944,10 @@
   "l4q0t9" : {
     "defaultMessage" : "AutoML 忽略了不相容的語義類型註釋。",
     "description" : "Action that AutoML took for columns with incompatible annotations"
+  },
+  "l8Z2nP" : {
+    "defaultMessage" : "移除篩選條件",
+    "description" : "Button to remove a filter in the tags filter popover for experiments page search by tags"
   },
   "lA8QO2" : {
     "defaultMessage" : "編輯標籤",
@@ -8153,6 +8405,10 @@
     "defaultMessage" : "沒有說明",
     "description" : "Placeholder text when no description is provided for the logged model displayed in the logged models details page"
   },
+  "npoynr" : {
+    "defaultMessage" : "提示名稱",
+    "description" : "Header for prompt name column in linked prompts table on logged model details page"
+  },
   "nq8Zd9" : {
     "defaultMessage" : "所有資料列都有無效資料",
     "description" : "AutoML warning shown when all rows have invalid data"
@@ -8296,9 +8552,6 @@
   "oiRLFc" : {
     "defaultMessage" : "已生成 API 金鑰",
     "description" : "Button text showing that an API key has been successfully generated"
-  },
-  "oipM0r" : {
-    "defaultMessage" : "服務"
   },
   "ojT5Zb" : {
     "defaultMessage" : "我的模型",
@@ -8660,6 +8913,10 @@
     "defaultMessage" : "參數",
     "description" : "Run page > Overview > Parameters table > Key column header"
   },
+  "r07QT3" : {
+    "defaultMessage" : "升級至 MLflow 3.1.0+ 以及 databricks-agents 1.2.0+，並啟用 Beta 測試版的 Lakehouse Monitoring for GenAI 以實現即時追蹤的機能。",
+    "description" : "Description for agents/* task type endpoints without traces enabled"
+  },
   "r0kI+i" : {
     "defaultMessage" : "更新",
     "description" : "Endpoint details page > Rate limit configuration modal > Confirmation button"
@@ -8755,6 +9012,10 @@
   "rUpJn1" : {
     "defaultMessage" : "聊天",
     "description" : "Endpoints > Foundation models > \"Chat\" model task label"
+  },
+  "rY00Iw" : {
+    "defaultMessage" : "新增篩選條件",
+    "description" : "Button to add a new filter in the tags filter popover for experiments page search by tags"
   },
   "rYb6mr" : {
     "defaultMessage" : "無效的提示",
@@ -8939,6 +9200,10 @@
   "sV/sVv" : {
     "defaultMessage" : "上次更新時間",
     "description" : "The header for last updated column in the prompts table"
+  },
+  "sWbj1n" : {
+    "defaultMessage" : "套用篩選條件",
+    "description" : "Button to apply filters in the tags filter popover for experiments page search by tags"
   },
   "sXqvoN" : {
     "defaultMessage" : "忽略欄排序",
@@ -9191,6 +9456,10 @@
     "defaultMessage" : "舊版服務 [已棄用]",
     "description" : "Tab name for the serving tab on the model view main panel"
   },
+  "uS0r1L" : {
+    "defaultMessage" : "未知錯誤",
+    "description" : "Default error message when error details are not available"
+  },
   "uTvvDZ" : {
     "defaultMessage" : "查看步驟 →",
     "description" : "Button text to open local development Example drawer"
@@ -9327,10 +9596,6 @@
     "defaultMessage" : "X 軸",
     "description" : "Label for X axis in scatter chart configurator in compare runs chart config modal"
   },
-  "vCSQt5" : {
-    "defaultMessage" : "配置會在您的追蹤上自動運算的排程評估。",
-    "description" : "Description for monitor metrics configuration"
-  },
   "vFeVcH" : {
     "defaultMessage" : "上次由產生者寫入此表格。",
     "description" : "Text on the tooltip describing the definition of last written timestamp field."
@@ -9454,6 +9719,10 @@
   "vxY1CI" : {
     "defaultMessage" : "狀態",
     "description" : "Run page > Overview > Run status section label"
+  },
+  "vxZdfw" : {
+    "defaultMessage" : "請造訪<link>生產監控文件</link>以管理計分員。",
+    "description" : "Alert description when registered scorers exist"
   },
   "w/sljb" : {
     "defaultMessage" : "遞減排序",
@@ -9615,10 +9884,6 @@
     "defaultMessage" : "預覽",
     "description" : "Label for the preview mode on the registered prompt details page"
   },
-  "ws+JFl" : {
-    "defaultMessage" : "{number} QPM（每位使用者）",
-    "description" : "Endpoint details page > External model details > AI Gateway details > rate limit > per-user or specific user rate limit label (QPM = queries per minute)"
-  },
   "wusz4l" : {
     "defaultMessage" : "輸入",
     "description" : "Label indicating that the logged model was the input of the experiment run. Displayed in logged model list table on the run page."
@@ -9731,6 +9996,10 @@
     "defaultMessage" : "GPU 記憶體使用率 (%)",
     "description" : "Graph title for gpu usage metrics graph"
   },
+  "xZ/PkV" : {
+    "defaultMessage" : "搜尋提示",
+    "description" : "Placeholder text for the search input in the prompts table on the logged model details page"
+  },
   "xakw5r" : {
     "defaultMessage" : "刪除",
     "description" : "Text for delete button on the endpoints page header"
@@ -9762,6 +10031,10 @@
   "xpp/3h" : {
     "defaultMessage" : "註冊代碼",
     "description" : "Heading text for code snippet for registering a model to Unity Catalog"
+  },
+  "xq0Rde" : {
+    "defaultMessage" : "新增",
+    "description" : "Sidebar create popover button to create new experiment, model or prompt"
   },
   "xqd0rS" : {
     "defaultMessage" : "新增評論",
@@ -9802,6 +10075,10 @@
   "y56Vz9" : {
     "defaultMessage" : "進行中",
     "description" : "Experiment page > traces table > status label > in progress"
+  },
+  "y6/dQS" : {
+    "defaultMessage" : "選取自動儲存追蹤的位置",
+    "description" : "Help text for schema location when sync is not enabled"
   },
   "y6YRhF" : {
     "defaultMessage" : "新增服務的實體",
@@ -9857,6 +10134,10 @@
   },
   "yPD44x" : {
     "defaultMessage" : "此 Endpoint 託管在不同的地理位置。"
+  },
+  "yRrxFc" : {
+    "defaultMessage" : "記錄到實驗中的所有追蹤都將同步至 Unity Catalog。",
+    "description" : "Description shown when trace sync is not enabled"
   },
   "ySno61" : {
     "defaultMessage" : "下面的程式碼片段示範如何使用記錄模型進行預測。",
@@ -9917,6 +10198,10 @@
   "yltHdB" : {
     "defaultMessage" : "運行名稱",
     "description" : "Experiment page > traces table > run name column header"
+  },
+  "yltiK8" : {
+    "defaultMessage" : "沒有符合您搜尋條件的提示",
+    "description" : "No search results message for linked prompts table on logged model details page"
   },
   "ynD6Gv" : {
     "defaultMessage" : "Microsoft Entra 用戶端 ID",
@@ -9990,10 +10275,6 @@
     "defaultMessage" : "取消",
     "description" : "Cancel button text for model version deletion modal in model versions view page"
   },
-  "zNq6tU" : {
-    "defaultMessage" : "Endpoint 速率限制 ({number} QPM)",
-    "description" : "External model serving configuration form > form summary > AI gateway summary > endpoint rate limit indicator"
-  },
   "zRO++e" : {
     "defaultMessage" : "沒有可從中取得 Log 的模型。",
     "description" : "Text for model selector in endpoints log pane when no models are available"
@@ -10013,6 +10294,10 @@
   "zWwtYm" : {
     "defaultMessage" : "最新",
     "description" : "Run page > Overview > Metrics table > Latest column header"
+  },
+  "zYefTE" : {
+    "defaultMessage" : "選取結構描述",
+    "description" : "Button text to open schema selector"
   },
   "zZCBR9" : {
     "defaultMessage" : "指標",

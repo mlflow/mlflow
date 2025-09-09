@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Typography } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { OverflowMenu } from '../../../../../shared/building_blocks/PageHeader';
-import { ExperimentEntity } from '../../../../types';
+import type { ExperimentEntity } from '../../../../types';
 import { getExperimentType } from '../../utils/experimentPage.common-utils';
 import { shouldEnableExperimentPageHeaderV2 } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { getShareFeedbackOverflowMenuItem } from './ExperimentViewHeader.utils';
@@ -22,10 +22,12 @@ export const ExperimentViewManagementMenu = ({
   experiment,
   setEditing,
   baseComponentId = 'mlflow.experiment_page.managementMenu',
+  refetchExperiment,
 }: {
   experiment: ExperimentEntity;
   setEditing?: (editing: boolean) => void;
   baseComponentId?: string;
+  refetchExperiment?: () => Promise<unknown>;
 }) => {
   const [showRenameExperimentModal, setShowRenameExperimentModal] = useState(false);
   const [showDeleteExperimentModal, setShowDeleteExperimentModal] = useState(false);

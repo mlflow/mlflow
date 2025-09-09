@@ -10,7 +10,7 @@ import { connect } from 'react-redux';
 import Utils from '../../common/utils/Utils';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import { getMetricHistoryApi, getRunApi } from '../actions';
-import _ from 'lodash';
+import { cloneDeep, difference, every as lodashEvery, flatMap as lodashFlatMap, isNumber, negate } from 'lodash';
 import { MetricsPlotView } from './MetricsPlotView';
 import { getRunInfo } from '../reducers/Reducers';
 import { MetricsPlotControls, X_AXIS_WALL, X_AXIS_RELATIVE, X_AXIS_STEP } from './MetricsPlotControls';
@@ -159,8 +159,8 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
 
   getActiveRunUuids = () => {
     const { completedRunUuids, runUuids } = this.props;
-    const activeRunUuids = _.difference(runUuids, completedRunUuids);
-    return activeRunUuids.filter(_.negate(this.isHangingRunUuid)); // Exclude hanging runs
+    const activeRunUuids = difference(runUuids, completedRunUuids);
+    return activeRunUuids.filter(negate(this.isHangingRunUuid)); // Exclude hanging runs
   };
 
   shouldPoll = () => {
@@ -204,7 +204,7 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
 
   static predictChartType(metrics: any) {
     // Show bar chart when every metric has exactly 1 metric history
-    if (metrics && metrics.length && _.every(metrics, (metric) => metric.history && metric.history.length === 1)) {
+    if (metrics && metrics.length && lodashEvery(metrics, (metric) => metric.history && metric.history.length === 1)) {
       return CHART_TYPE_BAR;
     }
     return CHART_TYPE_LINE;
@@ -346,7 +346,7 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
 
     // Sort metric history based on selected x-axis
     metrics.forEach((metric) => {
-      const isStep = selectedXAxis === X_AXIS_STEP && metric.history[0] && _.isNumber(metric.history[0].step);
+      const isStep = selectedXAxis === X_AXIS_STEP && metric.history[0] && isNumber(metric.history[0].step);
       // Metric history can be large. Doing an in-place here to save memory
       metric.history.sort(isStep ? Utils.compareByStepAndTimestamp : Utils.compareByTimestamp);
     });
@@ -361,7 +361,7 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
    */
   handleYAxisLogScaleChange = (yAxisLogScale: any) => {
     const state = this.getUrlState();
-    const newLayout = _.cloneDeep(state.layout);
+    const newLayout = cloneDeep(state.layout);
     const newAxisType = yAxisLogScale ? 'log' : 'linear';
 
     // Handle special case of a linear y-axis scale with negative values converted to log scale &
@@ -744,7 +744,7 @@ const mapStateToProps = (state: any, ownProps: any) => {
   const { latestMetricsByRunUuid, metricsByRunUuid } = state.entities;
 
   // All metric keys from all runUuids, non-distinct
-  const metricKeys = _.flatMap(runUuids, (runUuid) => {
+  const metricKeys = lodashFlatMap(runUuids, (runUuid) => {
     const latestMetrics = latestMetricsByRunUuid[runUuid];
     return latestMetrics ? Object.keys(latestMetrics) : [];
   });
@@ -755,7 +755,7 @@ const mapStateToProps = (state: any, ownProps: any) => {
 
   // Flat array of all metrics, with history and information of the run it belongs to
   // This is used for underlying MetricsPlotView & predicting chartType for MetricsPlotControls
-  const metricsWithRunInfoAndHistory = _.flatMap(runUuids, (runUuid) => {
+  const metricsWithRunInfoAndHistory = lodashFlatMap(runUuids, (runUuid) => {
     const runDisplayName = Utils.getRunDisplayName(getRunInfo(runUuid, state), runUuid);
     runDisplayNames.push(runDisplayName);
     const metricsHistory = metricsByRunUuid[runUuid];

@@ -1,5 +1,5 @@
 import { Button, DropdownMenu, PlusIcon } from '@databricks/design-system';
-import { Theme } from '@emotion/react';
+import type { Theme } from '@emotion/react';
 
 import { ReactComponent as ChartBarIcon } from '../../../../common/static/chart-bar.svg';
 import { ReactComponent as ChartContourIcon } from '../../../../common/static/chart-contour.svg';

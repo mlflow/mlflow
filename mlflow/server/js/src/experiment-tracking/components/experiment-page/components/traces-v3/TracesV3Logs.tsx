@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Empty, ParagraphSkeleton, DangerIcon } from '@databricks/design-system';
+import type { TracesTableColumn, TraceActions } from '@databricks/web-shared/genai-traces-table';
 import {
   EXECUTION_DURATION_COLUMN_ID,
   GenAiTracesMarkdownConverterProvider,
@@ -8,13 +9,11 @@ import {
   REQUEST_TIME_COLUMN_ID,
   STATE_COLUMN_ID,
   RESPONSE_COLUMN_ID,
-  TracesTableColumn,
   TracesTableColumnType,
   useSearchMlflowTraces,
   useSelectedColumns,
   getEvalTabTotalTracesLimit,
   GenAITracesTableProvider,
-  TraceActions,
   useFilters,
   getTracesTagKeys,
   useTableSort,
@@ -32,7 +31,7 @@ import { TracesV3EmptyState } from './TracesV3EmptyState';
 import { useQueryClient } from '@databricks/web-shared/query-client';
 import { useSetInitialTimeFilter } from './hooks/useSetInitialTimeFilter';
 
-export const TracesV3Logs = React.memo(
+const TracesV3LogsImpl = React.memo(
   ({
     experimentId,
     endpointName,
@@ -72,6 +71,7 @@ export const TracesV3Logs = React.memo(
       return columns.filter(
         (col) =>
           col.type === TracesTableColumnType.ASSESSMENT ||
+          col.type === TracesTableColumnType.EXPECTATION ||
           col.type === TracesTableColumnType.INPUT ||
           (col.type === TracesTableColumnType.TRACE_INFO &&
             [
@@ -292,3 +292,5 @@ export const TracesV3Logs = React.memo(
     );
   },
 );
+
+export const TracesV3Logs = TracesV3LogsImpl;

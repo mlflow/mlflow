@@ -2,10 +2,14 @@ import {
   ApolloClient,
   ApolloLink,
   InMemoryCache,
-  Operation,
+  type Operation,
   createHttpLink,
 } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
-import { RetryLink, DefaultHeadersLink } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
+import {
+  // prettier-ignore
+  RetryLink,
+  DefaultHeadersLink as OssDefaultHeadersLink,
+} from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 
 function containsMutation(op: Operation): boolean {
   const definitions = (op.query && op.query.definitions) || [];
@@ -35,8 +39,9 @@ const apolloCache = new InMemoryCache({
 });
 
 export function createApolloClient() {
+  const uri = 'graphql';
   const httpLink = createHttpLink({
-    uri: 'graphql',
+    uri,
     credentials: 'same-origin',
     fetch: graphqlFetch,
   });
@@ -46,6 +51,7 @@ export function createApolloClient() {
     attempts: { retryIf: (_, op) => !containsMutation(op) },
   });
 
+  const DefaultHeadersLink = OssDefaultHeadersLink;
   const defaultHeadersLink = new DefaultHeadersLink({
     cookieStr: document.cookie,
   });

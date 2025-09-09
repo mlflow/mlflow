@@ -2,7 +2,7 @@ import { Alert, FormUI, Modal, RHFControlledComponents, Spacer } from '@databric
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { RegisteredPrompt, RegisteredPromptVersion } from '../types';
+import type { RegisteredPrompt, RegisteredPromptVersion } from '../types';
 import { useCreateRegisteredPromptMutation } from './useCreateRegisteredPromptMutation';
 import { getPromptContentTagValue } from '../utils';
 import { CollapsibleSection } from '@mlflow/mlflow/src/common/components/CollapsibleSection';

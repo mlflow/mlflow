@@ -5,7 +5,8 @@
  * annotations are already looking good, please remove this comment.
  */
 
-import { createIntlCache, createIntl, IntlShape } from 'react-intl';
+import type { IntlShape } from 'react-intl';
+import { createIntlCache, createIntl } from 'react-intl';
 import { DEFAULT_LOCALE, loadMessages } from './loadMessages';
 import { useEffect, useState } from 'react';
 import Utils from '../common/utils/Utils';

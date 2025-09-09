@@ -5,7 +5,7 @@ import { ExperimentLoggedModelTableNameCell } from '../ExperimentLoggedModelTabl
 import { ExperimentLoggedModelTableDateCell } from '../ExperimentLoggedModelTableDateCell';
 import { ExperimentLoggedModelStatusIndicator } from '../ExperimentLoggedModelStatusIndicator';
 import { ExperimentLoggedModelTableDatasetCell } from '../ExperimentLoggedModelTableDatasetCell';
-import { LoggedModelProto } from '../../../types';
+import type { LoggedModelProto } from '../../../types';
 import { compact, isEqual, values, uniq, orderBy, isObject } from 'lodash';
 import { ExperimentLoggedModelTableSourceRunCell } from '../ExperimentLoggedModelTableSourceRunCell';
 import {

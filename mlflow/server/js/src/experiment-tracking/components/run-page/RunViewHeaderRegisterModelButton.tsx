@@ -17,10 +17,10 @@ import { RegisterModel } from '../../../model-registry/components/RegisterModel'
 import { ModelVersionStatusIcons } from '../../../model-registry/constants';
 import { ModelRegistryRoutes } from '../../../model-registry/routes';
 import Routes from '../../routes';
-import { ModelVersionInfoEntity } from '../../types';
-import { KeyValueEntity } from '../../../common/types';
+import type { ModelVersionInfoEntity } from '../../types';
+import type { KeyValueEntity } from '../../../common/types';
 import { ReactComponent as RegisteredModelOkIcon } from '../../../common/static/registered-model-grey-ok.svg';
-import { RunPageModelVersionSummary } from './hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
+import type { RunPageModelVersionSummary } from './hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
 
 interface LoggedModelWithRegistrationInfo {
   path: string;

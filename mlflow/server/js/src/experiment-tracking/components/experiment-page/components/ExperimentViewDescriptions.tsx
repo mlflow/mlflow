@@ -1,8 +1,8 @@
 import { Typography } from '@databricks/design-system';
-import { Theme } from '@emotion/react';
+import type { Theme } from '@emotion/react';
 import React from 'react';
 import { FormattedMessage } from 'react-intl';
-import { ExperimentEntity } from '../../../types';
+import type { ExperimentEntity } from '../../../types';
 import { ExperimentViewArtifactLocation } from './ExperimentViewArtifactLocation';
 
 export const ExperimentViewDescriptions = React.memo(({ experiment }: { experiment: ExperimentEntity }) => (

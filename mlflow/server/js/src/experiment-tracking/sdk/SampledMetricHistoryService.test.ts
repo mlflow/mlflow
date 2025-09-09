@@ -1,6 +1,6 @@
 import { fetchEndpoint } from '../../common/utils/FetchUtils';
 import { createChartAxisRangeKey } from '../components/runs-charts/components/RunsCharts.common';
-import { SampledMetricsByRunUuidState } from '../types';
+import type { SampledMetricsByRunUuidState } from '../types';
 import { getSampledMetricHistoryBulkAction } from './SampledMetricHistoryService';
 
 jest.mock('../../common/utils/FetchUtils', () => ({

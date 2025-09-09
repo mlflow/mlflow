@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useSearchLoggedModelsQuery } from '../../../hooks/logged-models/useSearchLoggedModelsQuery';
-import { LoggedModelProto } from '../../../types';
+import type { LoggedModelProto } from '../../../types';
 
 export const useLoggedModelsForExperimentRunsTable = ({
   experimentIds,

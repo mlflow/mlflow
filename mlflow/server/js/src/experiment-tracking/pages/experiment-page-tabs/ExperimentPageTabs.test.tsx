@@ -17,6 +17,7 @@ import {
 import { ExperimentKind } from '../../constants';
 import { createMLflowRoutePath } from '../../../common/utils/RoutingUtils';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(60000); // Larger timeout for integration testing
 
 jest.mock('../../../common/utils/FeatureUtils', () => ({
@@ -39,7 +40,7 @@ jest.mock('../experiment-traces/ExperimentTracesPage', () => ({
 
 describe('ExperimentLoggedModelListPage', () => {
   const { history } = setupTestRouter();
-  const createTestExperiment = (id = 'test-experiment', name = 'Test experiment name') => {
+  const createTestExperiment = (id = '12345678', name = 'Test experiment name') => {
     return {
       __typename: 'MlflowExperiment',
       artifactLocation: null,
@@ -79,7 +80,7 @@ describe('ExperimentLoggedModelListPage', () => {
                     testRoute(<ExperimentPageTabs />, createMLflowRoutePath('/experiments/:experimentId/:tabName')),
                   ]}
                   history={history}
-                  initialEntries={[createMLflowRoutePath('/experiments/test-experiment/models')]}
+                  initialEntries={[createMLflowRoutePath('/experiments/12345678/models')]}
                 />
               </DesignSystemProvider>
             </QueryClientProvider>
@@ -152,7 +153,7 @@ describe('ExperimentLoggedModelListPage', () => {
     expect(setTagApiSpy).toHaveBeenCalledWith({
       key: NOTE_CONTENT_TAG,
       value: 'Test description',
-      experiment_id: 'test-experiment',
+      experiment_id: '12345678',
     });
   });
 
@@ -192,7 +193,7 @@ describe('ExperimentLoggedModelListPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }));
 
     expect(confirmTagApiSpy).toHaveBeenCalledWith({
-      experiment_id: 'test-experiment',
+      experiment_id: '12345678',
       key: 'mlflow.experimentKind',
       value: ExperimentKind.GENAI_DEVELOPMENT,
     });
@@ -233,7 +234,7 @@ describe('ExperimentLoggedModelListPage', () => {
     await userEvent.click(within(modal).getByRole('button', { name: 'Confirm' }));
 
     expect(confirmTagApiSpy).toHaveBeenCalledWith({
-      experiment_id: 'test-experiment',
+      experiment_id: '12345678',
       key: 'mlflow.experimentKind',
       value: ExperimentKind.GENAI_DEVELOPMENT,
     });

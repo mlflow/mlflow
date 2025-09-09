@@ -1,5 +1,5 @@
 import { Tag, Typography, useDesignSystemTheme } from '@databricks/design-system';
-import { RunInfoEntity } from '../../../types';
+import type { RunInfoEntity } from '../../../types';
 import { RunStatusIcon } from '../../RunStatusIcon';
 import { FormattedMessage } from 'react-intl';
 import type { MlflowRunStatus } from '../../../../graphql/__generated__/graphql';

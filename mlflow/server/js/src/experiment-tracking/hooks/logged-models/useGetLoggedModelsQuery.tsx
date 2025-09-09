@@ -3,7 +3,7 @@ import {
   useQuery,
   type UseQueryOptions,
 } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { LoggedModelProto } from '../../types';
+import type { LoggedModelProto } from '../../types';
 import { loggedModelsDataRequest } from './request.utils';
 import { chunk } from 'lodash';
 import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';

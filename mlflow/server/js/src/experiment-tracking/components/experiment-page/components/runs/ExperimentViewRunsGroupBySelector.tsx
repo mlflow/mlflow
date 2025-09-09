@@ -16,13 +16,9 @@ import {
 import { compact, isEmpty, isString, keys, uniq, values } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MLFLOW_INTERNAL_PREFIX } from '../../../../../common/utils/TagUtils';
-import {
-  RunsGroupByConfig,
-  createRunsGroupByKey,
-  isGroupedBy,
-  normalizeRunsGroupByKey,
-} from '../../utils/experimentPage.group-row-utils';
-import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
+import type { RunsGroupByConfig } from '../../utils/experimentPage.group-row-utils';
+import { createRunsGroupByKey, isGroupedBy, normalizeRunsGroupByKey } from '../../utils/experimentPage.group-row-utils';
+import type { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { RunGroupingAggregateFunction, RunGroupingMode } from '../../utils/experimentPage.row-types';
 import { shouldEnableToggleIndividualRunsInGroups } from '../../../../../common/utils/FeatureUtils';
 

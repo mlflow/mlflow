@@ -1,4 +1,5 @@
-import React, { ComponentProps } from 'react';
+import type { ComponentProps } from 'react';
+import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { ModelsCellRenderer } from './ModelsCellRenderer';
 import { BrowserRouter } from '@mlflow/mlflow/src/common/utils/RoutingUtils';

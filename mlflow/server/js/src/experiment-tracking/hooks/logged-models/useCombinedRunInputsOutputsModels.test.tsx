@@ -1,10 +1,11 @@
 import { renderHook, waitFor } from '../../../common/utils/TestUtils.react18';
-import {
+import type {
   UseGetRunQueryResponseInputs,
   UseGetRunQueryResponseOutputs,
 } from '../../components/run-page/hooks/useGetRunQuery';
 import { useCombinedRunInputsOutputsModels } from './useCombinedRunInputsOutputsModels';
-import { LoggedModelStatusProtoEnum, RunInfoEntity } from '../../types';
+import type { RunInfoEntity } from '../../types';
+import { LoggedModelStatusProtoEnum } from '../../types';
 
 describe('useCombinedRunInputsOutputsModels', () => {
   const generateTestModel = (modelId: string) => ({

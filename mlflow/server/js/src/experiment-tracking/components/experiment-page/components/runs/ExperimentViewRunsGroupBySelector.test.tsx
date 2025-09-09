@@ -1,6 +1,6 @@
 import { IntlProvider } from 'react-intl';
 import { render, screen } from '../../../../../common/utils/TestUtils.react18';
-import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
+import type { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { ExperimentViewRunsGroupBySelector } from './ExperimentViewRunsGroupBySelector';
 import userEventGlobal, { PointerEventsCheckLevel } from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';

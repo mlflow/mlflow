@@ -12,7 +12,7 @@ import {
   Spacer,
 } from '@databricks/design-system';
 import { LogModelWithSignatureUrl } from '../../common/constants';
-import { ColumnSpec, TensorSpec, ColumnType } from '../types/model-schema';
+import type { ColumnSpec, TensorSpec, ColumnType } from '../types/model-schema';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Interpolation, Theme } from '@emotion/react';
 import { identity, isEmpty, isFunction } from 'lodash';

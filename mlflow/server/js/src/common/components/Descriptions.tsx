@@ -1,5 +1,5 @@
 import { Typography } from '@databricks/design-system';
-import { Theme } from '@emotion/react';
+import type { Theme } from '@emotion/react';
 import React from 'react';
 
 export interface DescriptionsProps {

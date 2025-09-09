@@ -1,5 +1,5 @@
 import type { CellContext, ColumnDefTemplate } from '@tanstack/react-table';
-import { ModelTraceInfoWithRunName } from './hooks/useExperimentTraces';
+import type { ModelTraceInfoWithRunName } from './hooks/useExperimentTraces';
 import { keyBy } from 'lodash';
 import { SourceCellRenderer } from '../experiment-page/components/runs/cells/SourceCellRenderer';
 

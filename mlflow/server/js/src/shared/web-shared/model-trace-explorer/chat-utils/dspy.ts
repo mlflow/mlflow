@@ -1,5 +1,6 @@
 import { has, isArray, isString } from 'lodash';
-import { ModelTraceChatMessage } from '../ModelTrace.types';
+
+import type { ModelTraceChatMessage } from '../ModelTrace.types';
 import { prettyPrintChatMessage } from '../ModelTraceExplorer.utils';
 
 export const normalizeDspyChatInput = (obj: unknown): ModelTraceChatMessage[] | null => {

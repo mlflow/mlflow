@@ -5,8 +5,8 @@ import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
 import { getExperimentApi, getRunApi } from '../../actions';
 import { searchModelVersionsApi } from '../../../model-registry/actions';
 import { merge } from 'lodash';
-import { ReduxState } from '../../../redux-types';
-import { DeepPartial } from 'redux';
+import type { ReduxState } from '../../../redux-types';
+import type { DeepPartial } from 'redux';
 import Utils from '../../../common/utils/Utils';
 
 const mockAction = (id: string) => ({ type: 'action', payload: Promise.resolve(), meta: { id } });

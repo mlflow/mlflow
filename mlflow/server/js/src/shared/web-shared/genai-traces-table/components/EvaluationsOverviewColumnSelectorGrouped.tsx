@@ -40,7 +40,7 @@ const getGroupLabel = (group: string): string => {
 /**
  * Column selector with section headers for each column‐group.
  */
-export const EvaluationsOverviewColumnSelectorGrouped: React.FC<Props> = ({
+export const EvaluationsOverviewColumnSelectorGrouped: React.FC<React.PropsWithChildren<Props>> = ({
   columns = [],
   selectedColumns = [],
   toggleColumns,

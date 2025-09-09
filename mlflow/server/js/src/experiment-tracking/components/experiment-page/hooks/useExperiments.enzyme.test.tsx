@@ -6,7 +6,7 @@ import { EXPERIMENT_RUNS_MOCK_STORE } from '../fixtures/experiment-runs.fixtures
 import { useExperiments } from './useExperiments';
 
 describe('useExperiments', () => {
-  const WrapComponent = (Component: React.ComponentType, store: any) => {
+  const WrapComponent = (Component: React.ComponentType<React.PropsWithChildren<unknown>>, store: any) => {
     return (
       <Provider store={createStore((s) => s as any, store)}>
         <Component />

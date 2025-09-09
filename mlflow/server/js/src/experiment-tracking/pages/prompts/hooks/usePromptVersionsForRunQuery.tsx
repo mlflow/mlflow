@@ -1,4 +1,5 @@
-import { QueryFunctionContext, useQuery, UseQueryOptions } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import type { QueryFunctionContext, UseQueryOptions } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import type { PromptVersionsForRunResponse, RegisteredPromptDetailsResponse, RegisteredPromptVersion } from '../types';
 import { RegisteredPromptsApi } from '../api';
 

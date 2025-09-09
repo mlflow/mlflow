@@ -2,12 +2,12 @@ import { Button, PencilIcon, Spinner, Tooltip, useDesignSystemTheme } from '@dat
 import { shouldUseSharedTaggingUI } from '../../../../common/utils/FeatureUtils';
 import { useEditKeyValueTagsModal } from '../../../../common/hooks/useEditKeyValueTagsModal';
 import { useTagAssignmentModal } from '../../../../common/hooks/useTagAssignmentModal';
-import { KeyValueEntity } from '../../../../common/types';
+import type { KeyValueEntity } from '../../../../common/types';
 import { KeyValueTag } from '../../../../common/components/KeyValueTag';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { keys, values } from 'lodash';
 import { useDispatch } from 'react-redux';
-import { ThunkDispatch } from '../../../../redux-types';
+import type { ThunkDispatch } from '../../../../redux-types';
 import { setRunTagsBulkApi, saveRunTagsApi } from '../../../actions';
 import { useMemo, useState } from 'react';
 import { isUserFacingTag } from '../../../../common/utils/TagUtils';

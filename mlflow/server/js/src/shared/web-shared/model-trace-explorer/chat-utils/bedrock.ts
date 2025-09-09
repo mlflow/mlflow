@@ -1,8 +1,8 @@
-import { compact, get, has, isArray, isNil, isObject, isString } from 'lodash';
-import { ModelTraceChatMessage, ModelTraceContentParts } from '../ModelTrace.types';
-import { prettyPrintChatMessage, prettyPrintToolCall } from '../ModelTraceExplorer.utils';
+import { compact, has, isArray, isNil, isObject, isString } from 'lodash';
 
-// Type definitions for Bedrock messages
+import type { ModelTraceChatMessage, ModelTraceContentParts } from '../ModelTrace.types';
+import { prettyPrintToolCall } from '../ModelTraceExplorer.utils';
+
 interface BedrockToolUse {
   toolUseId: string;
   name: string;

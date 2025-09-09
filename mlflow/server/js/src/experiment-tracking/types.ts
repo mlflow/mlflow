@@ -7,10 +7,10 @@ import { type KeyValueEntity } from '../common/types';
  * Note: this could be automatically generated in the future.
  */
 import { type CSSProperties } from 'react';
-import { ExperimentPageViewState } from './components/experiment-page/models/ExperimentPageViewState';
-import { RawEvaluationArtifact } from './sdk/EvaluationArtifactService';
+import type { ExperimentPageViewState } from './components/experiment-page/models/ExperimentPageViewState';
+import type { RawEvaluationArtifact } from './sdk/EvaluationArtifactService';
 import { type ArtifactNode } from './utils/ArtifactUtils';
-import { GetRun } from '../graphql/__generated__/graphql';
+import type { GetRun } from '../graphql/__generated__/graphql';
 
 export interface RunItem {
   runId: string;

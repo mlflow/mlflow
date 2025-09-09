@@ -11,7 +11,7 @@ export const ExperimentLoggedModelDetailsTraces = ({ loggedModel }: { loggedMode
     return null;
   }
   return (
-    <div css={{ height: '100%', overflow: 'hidden' }}>
+    <div css={{ height: '100%' }}>
       <TracesViewTableNoTracesQuickstartContextProvider
         introductionText={
           loggedModel.info?.model_id && (

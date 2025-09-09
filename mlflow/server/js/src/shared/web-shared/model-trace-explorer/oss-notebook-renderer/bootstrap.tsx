@@ -29,7 +29,7 @@ const LazyDesignSystemContext = React.lazy(() =>
   getLazyDesignSystem().then((module) => ({ default: module.DesignSystemEventProvider })),
 );
 
-const DesignSystemProviders: React.FC = ({ children }) => {
+const DesignSystemProviders: React.FC<React.PropsWithChildren<unknown>> = ({ children }) => {
   return (
     <SupportsDuBoisThemes>
       <LazyDesignSystemContext callback={() => {}}>

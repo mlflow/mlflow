@@ -1,4 +1,4 @@
-import { ICellRendererParams } from '@ag-grid-community/core';
+import type { ICellRendererParams } from '@ag-grid-community/core';
 import { render, screen, waitFor } from '../../../../../../common/utils/TestUtils.react18';
 import { GroupParentCellRenderer } from './GroupParentCellRenderer';
 import { IntlProvider } from 'react-intl';

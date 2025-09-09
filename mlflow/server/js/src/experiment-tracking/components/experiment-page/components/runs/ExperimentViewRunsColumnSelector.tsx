@@ -15,13 +15,13 @@ import Utils from '../../../../../common/utils/Utils';
 import { ATTRIBUTE_COLUMN_LABELS, COLUMN_TYPES } from '../../../../constants';
 import { useUpdateExperimentViewUIState } from '../../contexts/ExperimentPageUIStateContext';
 import { useExperimentIds } from '../../hooks/useExperimentIds';
-import { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
+import type { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import {
   extractCanonicalSortKey,
   isCanonicalSortKeyOfType,
   makeCanonicalSortKey,
 } from '../../utils/experimentPage.common-utils';
-import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
+import type { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { customMetricBehaviorDefs } from '../../utils/customMetricBehaviorUtils';
 
 /**

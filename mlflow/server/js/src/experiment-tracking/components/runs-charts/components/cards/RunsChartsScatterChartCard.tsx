@@ -1,13 +1,12 @@
 import { useMemo } from 'react';
 import type { RunsChartsRunData } from '../RunsCharts.common';
 import type { RunsChartsScatterCardConfig } from '../../runs-charts.types';
-import {
+import type {
   RunsChartCardFullScreenProps,
   RunsChartCardReorderProps,
   RunsChartCardVisibilityProps,
-  RunsChartCardWrapper,
-  RunsChartsChartsDragGroup,
 } from './ChartCard.common';
+import { RunsChartCardWrapper, RunsChartsChartsDragGroup } from './ChartCard.common';
 import { RunsScatterPlot } from '../RunsScatterPlot';
 import { useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
 import { useChartImageDownloadHandler } from '../../hooks/useChartImageDownloadHandler';

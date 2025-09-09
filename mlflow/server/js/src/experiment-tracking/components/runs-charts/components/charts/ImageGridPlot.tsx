@@ -1,12 +1,12 @@
-import { RunsChartsImageCardConfig, RunsChartsCardConfig } from '../../runs-charts.types';
-import { RunsChartsRunData } from '../RunsCharts.common';
+import type { RunsChartsImageCardConfig, RunsChartsCardConfig } from '../../runs-charts.types';
+import type { RunsChartsRunData } from '../RunsCharts.common';
 import { ImageGridSingleKeyPlot } from './ImageGridSingleKeyPlot';
 import { ImageGridMultipleKeyPlot } from './ImageGridMultipleKeyPlot';
 import {
   LOG_IMAGE_TAG_INDICATOR,
   NUM_RUNS_TO_SUPPORT_FOR_LOG_IMAGE,
 } from '@mlflow/mlflow/src/experiment-tracking/constants';
-import { RunsGroupByConfig } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/utils/experimentPage.group-row-utils';
+import type { RunsGroupByConfig } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/utils/experimentPage.group-row-utils';
 import { Empty } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 

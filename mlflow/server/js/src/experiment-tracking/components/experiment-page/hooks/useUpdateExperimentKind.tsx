@@ -1,5 +1,5 @@
 import { useMutation } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { ExperimentKind } from '../../../constants';
+import type { ExperimentKind } from '../../../constants';
 import { MlflowService } from '../../../sdk/MlflowService';
 
 /**

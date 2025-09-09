@@ -1,7 +1,7 @@
 import { Icon, LegacyTooltip, VisibleOffIcon, useDesignSystemTheme, visuallyHidden } from '@databricks/design-system';
 import { RUNS_VISIBILITY_MODE } from '../../../models/ExperimentPageUIState';
 import { ReactComponent as VisibleFillIcon } from '../../../../../../common/static/icon-visible-fill.svg';
-import { Theme } from '@emotion/react';
+import type { Theme } from '@emotion/react';
 
 const VisibleIcon = () => <Icon component={VisibleFillIcon} />;
 

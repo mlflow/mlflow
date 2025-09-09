@@ -7,7 +7,7 @@ import { AliasSelect } from '../components/AliasSelect';
 import { FormattedMessage } from 'react-intl';
 
 import { ErrorWrapper } from '../utils/ErrorWrapper';
-import { AliasMap } from '../types';
+import type { AliasMap } from '../types';
 
 const MAX_ALIASES_PER_MODEL_VERSION = 10;
 

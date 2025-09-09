@@ -1,6 +1,6 @@
 import { fulfilled } from '../../common/utils/ActionUtils';
 import { LOAD_MORE_RUNS_API, SEARCH_RUNS_API, GET_RUN_API } from '../actions';
-import { RunInputsType, RunOutputsType } from '../types';
+import type { RunInputsType, RunOutputsType } from '../types';
 
 export const runInputsOutputsByUuid = (
   state: Record<string, { inputs?: RunInputsType; outputs?: RunOutputsType }> = {},

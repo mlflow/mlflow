@@ -1,6 +1,6 @@
 import { IntlProvider } from 'react-intl';
 import { render, screen, waitFor } from '../../../common/utils/TestUtils.react18';
-import { LoggedModelProto, RunEntity } from '../../types';
+import type { LoggedModelProto, RunEntity } from '../../types';
 import { ExperimentLoggedModelDetailsPageRunsTable } from './ExperimentLoggedModelDetailsRunsTable';
 import { testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
 

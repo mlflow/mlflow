@@ -2,7 +2,8 @@ import { render, screen } from '../../../common/utils/TestUtils.react18';
 import ShowArtifactAudioView from './ShowArtifactAudioView';
 
 import { IntlProvider } from 'react-intl';
-import WaveSurfer, { WaveSurferOptions } from 'wavesurfer.js';
+import type { WaveSurferOptions } from 'wavesurfer.js';
+import WaveSurfer from 'wavesurfer.js';
 
 jest.mock('wavesurfer.js', () => {
   const mWaveSurfer = {

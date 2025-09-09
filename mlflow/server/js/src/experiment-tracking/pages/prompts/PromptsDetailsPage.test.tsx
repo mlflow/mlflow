@@ -18,6 +18,7 @@ import { DesignSystemProvider } from '@databricks/design-system';
 import { getTableRowByCellText } from '@databricks/design-system/test-utils/rtl';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000); // increase timeout due to heavier use of tables, modals and forms
 
 describe('PromptsDetailsPage', () => {

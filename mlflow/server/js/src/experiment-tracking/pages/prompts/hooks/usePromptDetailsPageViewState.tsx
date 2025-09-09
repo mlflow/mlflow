@@ -1,7 +1,7 @@
 import { useCallback, useReducer } from 'react';
 import { PromptVersionsTableMode } from '../utils';
 import { first } from 'lodash';
-import { RegisteredPromptDetailsResponse } from '../types';
+import type { RegisteredPromptDetailsResponse } from '../types';
 
 const promptDetailsViewStateReducer = (
   state: {

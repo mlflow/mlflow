@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { ExperimentViewRunsControlsActionsSelectTags } from './ExperimentViewRunsControlsActionsSelectTags';
-import { RunInfoEntity } from '../../../../types';
-import { KeyValueEntity } from '../../../../../common/types';
+import type { RunInfoEntity } from '../../../../types';
+import type { KeyValueEntity } from '../../../../../common/types';
 import { IntlProvider } from 'react-intl';
 import { MemoryRouter } from '../../../../../common/utils/RoutingUtils';
 import { setRunTagsBulkApi } from '@mlflow/mlflow/src/experiment-tracking/actions';
@@ -12,6 +12,7 @@ jest.mock('@mlflow/mlflow/src/experiment-tracking/actions', () => ({
   setRunTagsBulkApi: jest.fn(() => ({ type: 'setRunTagsBulkApi', payload: Promise.resolve() })),
 }));
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(10000);
 
 describe('ExperimentViewRunsControlsActionsSelectTags', () => {

@@ -1,6 +1,6 @@
 import { normalizeConversation } from '../ModelTraceExplorer.utils';
 
-export const MOCK_DSPY_INPUT = {
+const MOCK_DSPY_INPUT = {
   messages: [
     {
       role: 'system',
@@ -16,7 +16,7 @@ export const MOCK_DSPY_INPUT = {
   prompt: null,
 };
 
-export const MOCK_DSPY_OUTPUT = [
+const MOCK_DSPY_OUTPUT = [
   '[[ ## reasoning ## ]]\nThe passage explains the functionality of MLflow Tracing in the context of Generative AI applications. It highlights how this feature improves observability by recording detailed information about the execution process, which aids in identifying bugs and unexpected behaviors. The emphasis is on the benefits of capturing inputs, outputs, and metadata for each step of a request.\n\n[[ ## summary ## ]]\nMLflow Tracing enhances observability in Generative AI applications by recording detailed execution information, helping to identify bugs and unexpected behaviors.\n\n[[ ## completed ## ]]',
 ];
 

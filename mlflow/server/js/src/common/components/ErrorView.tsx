@@ -4,7 +4,8 @@ import error404Img from '../static/404-overflow.svg';
 import Routes from '../../experiment-tracking/routes';
 import { Link } from '../utils/RoutingUtils';
 import { FormattedMessage } from 'react-intl';
-import { DesignSystemHocProps, WithDesignSystemThemeHoc } from '@databricks/design-system';
+import type { DesignSystemHocProps } from '@databricks/design-system';
+import { WithDesignSystemThemeHoc } from '@databricks/design-system';
 
 const altMessages: Record<number, string> = {
   400: '400 Bad Request',

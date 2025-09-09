@@ -1,5 +1,5 @@
 import { useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { SearchRunsApiResponse } from '@mlflow/mlflow/src/experiment-tracking/types';
+import type { SearchRunsApiResponse } from '@mlflow/mlflow/src/experiment-tracking/types';
 import { MlflowService } from '../../../sdk/MlflowService';
 import { useMemo } from 'react';
 
@@ -30,14 +30,29 @@ export const useExperimentEvaluationRunsData = ({
     enabled,
   });
 
-  // we determine a run is an eval run if it contains no model outputs
-  const evaluationRuns = useMemo(
-    () => data?.runs?.filter((run) => (run.outputs?.modelOutputs?.length ?? 0) === 0),
-    [data?.runs],
-  );
+  const { evaluationRuns, trainingRuns } = useMemo(() => {
+    if (!data?.runs) {
+      return { evaluationRuns: [], trainingRuns: [] };
+    }
+    return data.runs.reduce(
+      (acc, run) => {
+        const isTrainingRun = run.outputs?.modelOutputs?.length ?? 0;
+
+        if (isTrainingRun) {
+          acc.trainingRuns.push(run);
+        } else {
+          acc.evaluationRuns.push(run);
+        }
+
+        return acc;
+      },
+      { evaluationRuns: [], trainingRuns: [] } as { evaluationRuns: typeof data.runs; trainingRuns: typeof data.runs },
+    );
+  }, [data]);
 
   return {
     data: evaluationRuns,
+    trainingRuns,
     refetch,
     isLoading,
     isFetching,

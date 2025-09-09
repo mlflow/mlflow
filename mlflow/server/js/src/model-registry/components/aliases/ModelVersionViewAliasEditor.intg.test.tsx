@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 import type { ModelEntity, ModelVersionInfoEntity } from '../../../experiment-tracking/types';
 import { Services as ModelRegistryServices } from '../../services';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(60000); // increase timeout since it's integration testing
 
 /**

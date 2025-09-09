@@ -3,7 +3,7 @@ import { Button, Popover, TableIcon, Tag, Typography, useDesignSystemTheme } fro
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { MLFLOW_RUN_DATASET_CONTEXT_TAG } from '../../../../../constants';
 import type { RunDatasetWithTags } from '../../../../../types';
-import { RunRowType } from '../../../utils/experimentPage.row-types';
+import type { RunRowType } from '../../../utils/experimentPage.row-types';
 import { EXPERIMENT_RUNS_TABLE_ROW_HEIGHT } from '../../../utils/experimentPage.common-utils';
 import type { SuppressKeyboardEventParams } from '@ag-grid-community/core';
 const MAX_DATASETS_VISIBLE = 3;

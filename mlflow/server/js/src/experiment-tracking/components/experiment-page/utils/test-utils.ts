@@ -1,7 +1,8 @@
-import { ExperimentEntity, RunInfoEntity } from '../../../types';
+import type { ExperimentEntity, RunInfoEntity } from '../../../types';
 import { RunsChartsLineChartXAxisType } from '../../runs-charts/components/RunsCharts.common';
-import { ExperimentPageUIState, RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIState';
-import { ExperimentRunsSelectorResult } from './experimentRuns.selector';
+import type { ExperimentPageUIState } from '../models/ExperimentPageUIState';
+import { RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIState';
+import type { ExperimentRunsSelectorResult } from './experimentRuns.selector';
 
 /**
  * Create a base UI state that matches the structure required by the initializer.

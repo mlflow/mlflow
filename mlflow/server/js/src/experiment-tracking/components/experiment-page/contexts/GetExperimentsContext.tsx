@@ -7,7 +7,7 @@ import RequestStateWrapper from '../../../../common/components/RequestStateWrapp
 import Utils from '../../../../common/utils/Utils';
 import type { getExperimentApi, setCompareExperiments, setExperimentTagApi } from '../../../actions';
 import { useDispatch } from 'react-redux';
-import { ThunkDispatch } from '../../../../redux-types';
+import type { ThunkDispatch } from '../../../../redux-types';
 
 export interface GetExperimentsContextActions {
   setExperimentTagApi: typeof setExperimentTagApi;

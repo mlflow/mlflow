@@ -67,9 +67,6 @@ export const DEFAULT_DIFF_SWITCH_SELECTED = false;
 export const DEFAULT_LIFECYCLE_FILTER = LIFECYCLE_FILTER.ACTIVE;
 export const DEFAULT_MODEL_VERSION_FILTER = MODEL_VERSION_FILTER.ALL_RUNS;
 
-export const MAX_DETECT_NEW_RUNS_RESULTS = 26; // so the refresh button badge can be 25+
-export const POLL_INTERVAL = 15000;
-
 export const AUTOML_TAG_PREFIX = '_databricks_automl';
 export const AUTOML_EVALUATION_METRIC_TAG = `${AUTOML_TAG_PREFIX}.evaluation_metric`;
 export const AUTOML_PROBLEM_TYPE_TAG = `${AUTOML_TAG_PREFIX}.problem_type`;
@@ -79,6 +76,7 @@ export const AUTOML_TEST_EVALUATION_METRIC_PREFIX = 'test_';
 export const MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME = 'mlflow.experiment.primaryMetric.name';
 export const MLFLOW_RUN_DATASET_CONTEXT_TAG = 'mlflow.data.context';
 export const MLFLOW_LOGGED_ARTIFACTS_TAG = 'mlflow.loggedArtifacts';
+export const MLFLOW_LINKED_PROMPTS_TAG = 'mlflow.linkedPrompts';
 export const MLFLOW_LOGGED_MODEL_USER_TAG = 'mlflow.user';
 export const EXPERIMENT_PAGE_FEEDBACK_URL = 'https://github.com/mlflow/mlflow/issues/6348';
 
@@ -143,6 +141,7 @@ export enum ExperimentPageTabName {
   Traces = 'traces',
   Models = 'models',
   EvaluationMonitoring = 'evaluation-monitoring',
+  Scorers = 'scorers',
   EvaluationRuns = 'evaluation-runs',
   Datasets = 'datasets',
   LabelingSessions = 'labeling-sessions',

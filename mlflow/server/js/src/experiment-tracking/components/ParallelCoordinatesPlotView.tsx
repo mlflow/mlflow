@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { connect } from 'react-redux';
-import _ from 'lodash';
+import { findLast, invert, isEqual, max, min, range, sortBy, uniq } from 'lodash';
 import { LazyPlot } from './LazyPlot';
 
 const AXIS_LABEL_CLS = '.pcp-plot .parcoords .y-axis .axis-heading .axis-title';
@@ -35,7 +35,7 @@ export class ParallelCoordinatesPlotView extends React.Component<
   static getDerivedStateFromProps(props: any, state: any) {
     const keysFromProps = [...props.paramKeys, ...props.metricKeys];
     const keysFromState = state.sequence;
-    if (!_.isEqual(_.sortBy(keysFromProps), _.sortBy(keysFromState))) {
+    if (!isEqual(sortBy(keysFromProps), sortBy(keysFromState))) {
       return { sequence: keysFromProps };
     }
     return null;
@@ -62,7 +62,7 @@ export class ParallelCoordinatesPlotView extends React.Component<
   }
 
   static getDimensionsOrderedBySequence(dimensions: any, sequence: any) {
-    return _.sortBy(dimensions, [(dimension) => sequence.indexOf(dimension.label)]);
+    return sortBy(dimensions, [(dimension) => sequence.indexOf(dimension.label)]);
   }
 
   static getLabelElementsFromDom = () => Array.from(document.querySelectorAll(AXIS_LABEL_CLS));
@@ -70,13 +70,13 @@ export class ParallelCoordinatesPlotView extends React.Component<
   findLastKeyFromState(keys: any) {
     const { sequence } = this.state;
     const keySet = new Set(keys);
-    return _.findLast(sequence, (key) => keySet.has(key));
+    return findLast(sequence, (key) => keySet.has(key));
   }
 
   static getColorScaleConfigsForDimension(dimension: any) {
     if (!dimension) return null;
-    const cmin = _.min(dimension.values);
-    const cmax = _.max(dimension.values);
+    const cmin = min(dimension.values);
+    const cmax = max(dimension.values);
     return {
       showscale: true,
       colorscale: 'Jet',
@@ -106,7 +106,7 @@ export class ParallelCoordinatesPlotView extends React.Component<
   maybeUpdateStateForColorScale = (currentSequenceFromPlotly: any) => {
     const rightmostMetricKeyFromState = this.findLastKeyFromState(this.props.metricKeys);
     const metricsKeySet = new Set(this.props.metricKeys);
-    const rightmostMetricKeyFromPlotly = _.findLast(currentSequenceFromPlotly, (key) => metricsKeySet.has(key));
+    const rightmostMetricKeyFromPlotly = findLast(currentSequenceFromPlotly, (key) => metricsKeySet.has(key));
     // Currently we always render color scale based on the rightmost metric axis, so if that changes
     // we need to setState with the new axes sequence to trigger a rerender.
     if (rightmostMetricKeyFromState !== rightmostMetricKeyFromPlotly) {
@@ -137,7 +137,7 @@ export class ParallelCoordinatesPlotView extends React.Component<
 export const generateAttributesForCategoricalDimension = (labels: any) => {
   // Create a lookup from label to its own alphabetical sorted order.
   // Ex. ['A', 'B', 'C'] => { 'A': '0', 'B': '1', 'C': '2' }
-  const sortedUniqLabels = _.uniq(labels).sort();
+  const sortedUniqLabels = uniq(labels).sort();
 
   // We always want the UNKNOWN_TERM to be at the top
   // of the chart which is end of the sorted label array
@@ -150,14 +150,14 @@ export const generateAttributesForCategoricalDimension = (labels: any) => {
   if (addUnknownTerm) {
     filteredSortedUniqLabels.push(UNKNOWN_TERM);
   }
-  const labelToIndexStr = _.invert(filteredSortedUniqLabels);
+  const labelToIndexStr = invert(filteredSortedUniqLabels);
   const attributes = {};
 
   // Values are assigned to their alphabetical sorted index number
   (attributes as any).values = labels.map((label: any) => Number(labelToIndexStr[label]));
 
   // Default to alphabetical order for categorical axis here. Ex. [0, 1, 2, 3 ...]
-  (attributes as any).tickvals = _.range(filteredSortedUniqLabels.length);
+  (attributes as any).tickvals = range(filteredSortedUniqLabels.length);
 
   // Default to alphabetical order for categorical axis here. Ex. ['A', 'B', 'C', 'D' ...]
   (attributes as any).ticktext = filteredSortedUniqLabels.map((sortedUniqLabel) =>

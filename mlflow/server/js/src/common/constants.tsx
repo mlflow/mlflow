@@ -28,8 +28,6 @@ export const ModelRegistryOnboardingString = (
 
 export const RegisteringModelDocUrl = DOCS_ROOT + '/model-registry.html#adding-an-mlflow-model-to-the-model-registry';
 
-export const ExperimentCliDocUrl = `${DOCS_ROOT}/cli.html#mlflow-experiments`;
-
 export const ExperimentRunSearchSyntaxDocUrl = `${DOCS_ROOT}/search-runs.html`;
 
 export const PyfuncDocUrl = `${DOCS_ROOT}/python_api/mlflow.pyfunc.html`;
