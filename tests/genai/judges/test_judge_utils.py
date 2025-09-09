@@ -191,43 +191,22 @@ def test_parse_databricks_model_response_invalid_reasoning_response(
         _parse_databricks_model_response(res_json, headers)
 
 
-def test_parse_databricks_model_response_missing_choices() -> None:
-    res_json: dict[str, Any] = {}
+@pytest.mark.parametrize(
+    ("res_json", "expected_error"),
+    [
+        ({}, "missing 'choices' field"),
+        ({"choices": []}, "missing 'choices' field"),
+        ({"choices": [{}]}, "missing 'message' field"),
+        ({"choices": [{"message": {}}]}, "missing 'content' field"),
+        ({"choices": [{"message": {"content": None}}]}, "missing 'content' field"),
+    ],
+)
+def test_parse_databricks_model_response_errors(
+    res_json: dict[str, Any], expected_error: str
+) -> None:
     headers: dict[str, str] = {}
 
-    with pytest.raises(MlflowException, match="missing 'choices' field"):
-        _parse_databricks_model_response(res_json, headers)
-
-
-def test_parse_databricks_model_response_empty_choices() -> None:
-    res_json = {"choices": []}
-    headers: dict[str, str] = {}
-
-    with pytest.raises(MlflowException, match="missing 'choices' field"):
-        _parse_databricks_model_response(res_json, headers)
-
-
-def test_parse_databricks_model_response_missing_message() -> None:
-    res_json = {"choices": [{}]}
-    headers: dict[str, str] = {}
-
-    with pytest.raises(MlflowException, match="missing 'message' field"):
-        _parse_databricks_model_response(res_json, headers)
-
-
-def test_parse_databricks_model_response_missing_content() -> None:
-    res_json = {"choices": [{"message": {}}]}
-    headers: dict[str, str] = {}
-
-    with pytest.raises(MlflowException, match="missing 'content' field"):
-        _parse_databricks_model_response(res_json, headers)
-
-
-def test_parse_databricks_model_response_none_content() -> None:
-    res_json = {"choices": [{"message": {"content": None}}]}
-    headers: dict[str, str] = {}
-
-    with pytest.raises(MlflowException, match="missing 'content' field"):
+    with pytest.raises(MlflowException, match=expected_error):
         _parse_databricks_model_response(res_json, headers)
 
 
