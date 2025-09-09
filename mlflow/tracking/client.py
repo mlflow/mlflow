@@ -738,7 +738,7 @@ class MlflowClient:
         except MlflowException as exc:
             if allow_missing and exc.error_code in (
                 ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
-                ErrorCode.Name(INVALID_PARAMETER_VALUE),  # missing alias (file/sql registry)
+                ErrorCode.Name(INVALID_PARAMETER_VALUE),  # Missing alias (file/sql registry only)
                 ErrorCode.Name(NOT_FOUND),
             ):
                 return None
