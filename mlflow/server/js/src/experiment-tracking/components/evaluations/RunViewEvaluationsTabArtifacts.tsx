@@ -16,8 +16,6 @@ import {
   EXECUTION_DURATION_COLUMN_ID,
   GenAiTracesTable,
   GenAiTracesMarkdownConverterProvider,
-  RUN_EVALUATION_RESULTS_TAB_COMPARE_RUNS,
-  RUN_EVALUATION_RESULTS_TAB_SINGLE_RUN,
   STATE_COLUMN_ID,
   TAGS_COLUMN_ID,
   TracesTableColumnType,
