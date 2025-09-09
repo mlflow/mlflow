@@ -2,7 +2,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 from unittest import mock
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pandas as pd
 import pytest
@@ -701,3 +701,105 @@ def test_evaluate_with_managed_dataset_preserves_name():
         dataset_input = run_data.inputs.dataset_inputs[0]
         logged_dataset = dataset_input.dataset
         assert logged_dataset.name == "test.evaluation.sample_dataset"
+
+
+@pytest.mark.parametrize(
+    ("tags_data", "expected_calls"),
+    [
+        # Regular tags
+        (
+            [
+                {"environment": "test", "model_version": "v1.0"},
+                {"environment": "production", "team": "data-science"},
+            ],
+            [
+                ("environment", "test"),
+                ("model_version", "v1.0"),
+                ("environment", "production"),
+                ("team", "data-science"),
+            ],
+        ),
+        # Empty tags dict
+        (
+            [{}, {}],
+            [],
+        ),
+        # None tags (no tags field)
+        (
+            [None, None],
+            [],
+        ),
+        # Mix of tags and empty/None
+        (
+            [{"env": "test"}, {}, None],
+            [("env", "test")],
+        ),
+    ],
+)
+def test_evaluate_with_tags(tags_data, expected_calls):
+    """Test that tags from evaluation data are logged to MLflow runs."""
+    data = []
+    for i, tags in enumerate(tags_data):
+        item = {
+            "inputs": {"question": f"What is question {i}?"},
+            "outputs": f"Answer {i}",
+            "expectations": {"expected_response": f"Answer {i}"},
+            "tags": tags,
+        }
+        data.append(item)
+
+    with mock.patch("mlflow.set_trace_tag") as mock_set_trace_tag:
+        mlflow.genai.evaluate(
+            data=data,
+            scorers=[exact_match],
+        )
+
+        # Check that all expected calls were made (order may vary due to parallel execution)
+        actual_calls = mock_set_trace_tag.call_args_list
+        expected_mock_calls = [
+            mock.call(trace_id=ANY, key=key, value=value) for key, value in expected_calls
+        ]
+        assert len(actual_calls) == len(expected_mock_calls)
+        for expected_call in expected_mock_calls:
+            assert expected_call in actual_calls
+
+
+def test_evaluate_with_tags_error_handling(is_in_databricks):
+    """Test that tag logging errors don't fail the evaluation."""
+    data = [
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "outputs": "MLflow is a tool for ML",
+            "expectations": {"expected_response": "MLflow is a tool for ML"},
+            "tags": {"invalid_tag": "value"},
+        }
+    ]
+
+    # Mock set_trace_tag to raise an exception
+    with mock.patch("mlflow.set_trace_tag", side_effect=Exception("Tag logging failed")):
+        # This should not raise an exception
+        result = mlflow.genai.evaluate(
+            data=data,
+            scorers=[exact_match],
+        )
+
+        # Evaluation should still succeed
+        assert "exact_match/mean" in result.metrics
+
+
+def test_evaluate_with_invalid_tags_type():
+    """Test that invalid tag types raise appropriate validation errors."""
+    data = [
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "outputs": "MLflow is a tool for ML",
+            "expectations": {"expected_response": "MLflow is a tool for ML"},
+            "tags": "invalid_tags_string",  # Should be dict
+        }
+    ]
+
+    with pytest.raises(MlflowException, match="Tags must be a dictionary"):
+        mlflow.genai.evaluate(
+            data=data,
+            scorers=[exact_match],
+        )

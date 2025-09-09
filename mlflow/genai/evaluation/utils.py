@@ -354,6 +354,33 @@ def is_none_or_nan(value: Any) -> bool:
     return value is None or (isinstance(value, float) and math.isnan(value))
 
 
+def validate_tags(tags: Any) -> None:
+    """
+    Validate that tags are in the expected format: dict[str, str].
+
+    Args:
+        tags: The tags to validate.
+
+    Raises:
+        MlflowException: If tags are not in the correct format.
+    """
+    if is_none_or_nan(tags):
+        return
+
+    if not isinstance(tags, dict):
+        raise MlflowException.invalid_parameter_value(
+            f"Tags must be a dictionary, got {type(tags).__name__}. "
+        )
+
+    errors = []
+    for key in tags.keys():
+        if not isinstance(key, str):
+            errors.append(f"Key {key!r} has type {type(key).__name__}; expected str.")
+
+    if errors:
+        raise MlflowException.invalid_parameter_value("Invalid tags:\n  - " + "\n  - ".join(errors))
+
+
 def complete_eval_futures_with_progress_base(futures: list[Future]) -> list["EvalResult"]:
     """Wraps the as_completed function with a progress bar."""
     futures_as_completed = as_completed(futures)

@@ -210,6 +210,10 @@ def evaluate(
 
             For list of dictionaries, each dict should follow the above schema.
 
+            Optional columns:
+                - tags (optional): Column containing a dictionary of tags. The tags will be logged
+                                   to the respective traces.
+
         scorers: A list of Scorer objects that produces evaluation scores from
             inputs, outputs, and other additional contexts. MLflow provides pre-defined
             scorers, but you can also define custom ones.
