@@ -431,8 +431,4 @@ jobs:
           # Run Windows tests
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
             --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/evaluate --ignore=tests/optuna \
-            --ignore=tests/pyspark/optuna --ignore=tests/genai --ignore=tests/telemetry tests
-      - name: Run telemetry tests
-        run: |
-          source .venv/Scripts/activate
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/telemetry
+            --ignore=tests/pyspark/optuna --ignore=tests/genai tests
