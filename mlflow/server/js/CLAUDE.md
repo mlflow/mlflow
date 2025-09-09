@@ -89,7 +89,7 @@ pushd mlflow/server/js && yarn check-all; popd
 Common components include:
 
 - `Button`, `IconButton` - for actions
-- `Input`, `Textarea`, `Select` - for form inputs
+- `Input`, `Textarea`, `Select` - for form inputs  
 - `Modal`, `Drawer` - for overlays
 - `Table`, `TableRow`, `TableCell` - for data tables
 - `Tabs`, `TabPane` - for tabbed interfaces
@@ -114,9 +114,9 @@ import { useDesignSystemTheme } from '@databricks/design-system';
 
 const Component = () => {
   const { theme } = useDesignSystemTheme();
-
+  
   return (
-    <div style={{
+    <div style={{ 
       color: theme.colors.textPrimary,
       padding: theme.spacing.md,
       fontSize: theme.typography.fontSizeBase
@@ -133,14 +133,14 @@ const Component = () => {
 
 ```typescript
 // ✅ GOOD - Use theme spacing
-<div style={{
+<div style={{ 
   padding: theme.spacing.md,
   marginBottom: theme.spacing.lg,
-  gap: theme.spacing.sm
+  gap: theme.spacing.sm 
 }} />
 
 // ❌ BAD - Avoid hard-coded pixels
-<div style={{
+<div style={{ 
   padding: '16px',
   marginBottom: '24px',
   gap: '8px'
@@ -242,7 +242,7 @@ Example workflow:
 mlflow/server/js/
 ├── src/
 │   ├── experiment-tracking/    # Experiment tracking UI
-│   ├── model-registry/         # Model registry UI
+│   ├── model-registry/         # Model registry UI  
 │   ├── common/                 # Shared components
 │   ├── shared/                 # Shared utilities
 │   └── app.tsx                # Main app entry point
