@@ -211,6 +211,11 @@ def test_make_judge_with_default_model(monkeypatch):
 
 
 def test_make_judge_with_databricks_default(monkeypatch):
+    # Mock the parent module first to prevent ImportError
+    mock_evals_module = types.ModuleType("databricks.agents.evals")
+    monkeypatch.setitem(sys.modules, "databricks.agents.evals", mock_evals_module)
+
+    # Then mock the judges submodule
     mock_judges_module = types.ModuleType("databricks.agents.evals.judges")
     monkeypatch.setitem(sys.modules, "databricks.agents.evals.judges", mock_judges_module)
 
@@ -462,8 +467,13 @@ def test_validation_errors(name, instructions, model, error_pattern):
     ],
 )
 def test_valid_model_formats(monkeypatch, model):
-    # Mock databricks.agents.evals.judges for the databricks model case
+    # Mock databricks.agents.evals modules for the databricks model case
     if model == "databricks":
+        # Mock the parent module first to prevent ImportError
+        mock_evals_module = types.ModuleType("databricks.agents.evals")
+        monkeypatch.setitem(sys.modules, "databricks.agents.evals", mock_evals_module)
+
+        # Then mock the judges submodule
         mock_judges_module = types.ModuleType("databricks.agents.evals.judges")
         monkeypatch.setitem(sys.modules, "databricks.agents.evals.judges", mock_judges_module)
 
