@@ -491,8 +491,18 @@ def test_validate_tags_valid(tags):
         ("invalid", "Tags must be a dictionary, got str"),
         (123, "Tags must be a dictionary, got int"),
         ([1, 2, 3], "Tags must be a dictionary, got list"),
-        ({123: "value"}, "Tag keys must be strings, got int for key: 123"),
-        ({"key1": "value1", 123: "value2"}, "Tag keys must be strings, got int for key: 123"),
+        ({123: "value"}, "Invalid tags:\n  - Key 123 has type int; expected str."),
+        (
+            {"key1": "value1", 123: "value2"},
+            "Invalid tags:\n  - Key 123 has type int; expected str.",
+        ),
+        (
+            {123: "value1", 456: "value2"},
+            (
+                "Invalid tags:\n  - Key 123 has type int; expected str."
+                "\n  - Key 456 has type int; expected str."
+            ),
+        ),
     ],
 )
 def test_validate_tags_invalid(tags, expected_error):

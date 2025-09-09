@@ -372,11 +372,13 @@ def validate_tags(tags: Any) -> None:
             f"Tags must be a dictionary, got {type(tags).__name__}. "
         )
 
+    errors = []
     for key in tags.keys():
         if not isinstance(key, str):
-            raise MlflowException.invalid_parameter_value(
-                f"Tag keys must be strings, got {type(key).__name__} for key: {key!r}. "
-            )
+            errors.append(f"Key {key!r} has type {type(key).__name__}; expected str.")
+
+    if errors:
+        raise MlflowException.invalid_parameter_value("Invalid tags:\n  - " + "\n  - ".join(errors))
 
 
 def complete_eval_futures_with_progress_base(futures: list[Future]) -> list["EvalResult"]:
