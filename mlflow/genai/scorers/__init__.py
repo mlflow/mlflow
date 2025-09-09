@@ -111,22 +111,3 @@ __all__ = [
     "list_scorers",
     "delete_scorer",
 ]
-
-# For Sphinx autodoc: explicitly set the lazy-loaded classes as module attributes
-# This allows Sphinx to document them even though they're not imported at module initialization
-# These will be replaced by the actual classes when accessed via __getattr__
-import sys
-
-if "sphinx" in sys.modules:
-    # Only do this when building docs to avoid the circular import
-    from mlflow.genai.scorers.builtin_scorers import (
-        Correctness,
-        ExpectationsGuidelines,
-        Guidelines,
-        RelevanceToQuery,
-        RetrievalGroundedness,
-        RetrievalRelevance,
-        RetrievalSufficiency,
-        Safety,
-        get_all_scorers,
-    )
