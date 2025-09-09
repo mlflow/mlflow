@@ -635,11 +635,20 @@ def test_invoke_custom_judge_model(
     use_native_provider,
 ):
     from mlflow.genai.judges.utils import invoke_judge_model
+    from mlflow.utils.rest_utils import MlflowHostCreds
 
     mock_response = json.dumps({"result": 0.8, "rationale": "Test rationale"})
 
-    with mock.patch(
-        "mlflow.genai.judges.utils._is_litellm_available", return_value=litellm_available
+    # Mock Databricks credentials for databricks:// URIs
+    mock_creds = MlflowHostCreds(host="https://test.databricks.com", token="test-token")
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.utils._is_litellm_available", return_value=litellm_available
+        ),
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_databricks_host_creds", return_value=mock_creds
+        ),
     ):
         if use_native_provider:
             with mock.patch.object(
@@ -658,9 +667,21 @@ def test_invoke_custom_judge_model(
                         assessment_name="test_assessment",
                     )
         else:
-            with mock.patch(
-                "mlflow.genai.judges.utils._invoke_litellm", return_value=mock_response
+            with (
+                mock.patch("mlflow.genai.judges.utils._invoke_litellm", return_value=mock_response),
+                mock.patch("mlflow.genai.judges.utils._invoke_databricks_model") as mock_databricks,
             ):
+                # For databricks provider, mock the databricks model invocation
+                if expected_provider == "databricks":
+                    from mlflow.genai.judges.utils import InvokeDatabricksModelOutput
+
+                    mock_databricks.return_value = InvokeDatabricksModelOutput(
+                        response=mock_response,
+                        request_id="test-request-id",
+                        num_prompt_tokens=10,
+                        num_completion_tokens=20,
+                    )
+
                 invoke_judge_model(
                     model_uri=model_uri,
                     prompt="Test prompt",
