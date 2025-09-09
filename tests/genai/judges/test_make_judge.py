@@ -1302,11 +1302,6 @@ def test_context_window_error_removes_tool_calls_and_retries(
             )
         return mock_response
 
-    # Mock tool registry to return empty dict (simulates tool call returning no useful data)
-    # This causes the judge to keep making tool calls until it hits the context limit
-    monkeypatch.setattr(
-        "mlflow.genai.judges.tools.registry._judge_tool_registry.invoke", lambda *_: {}
-    )
     monkeypatch.setattr("litellm.completion", mock_completion)
     monkeypatch.setattr("litellm.token_counter", lambda model, messages: len(messages) * 20)
     monkeypatch.setattr("litellm.get_max_tokens", lambda model: 100)
