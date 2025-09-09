@@ -1,9 +1,9 @@
 import json
 import logging
+import requests
+import time
 import traceback
 from dataclasses import dataclass
-
-import requests
 
 import mlflow
 from mlflow.entities.assessment import Feedback
@@ -49,37 +49,116 @@ def _invoke_databricks_model(
     host_creds = get_databricks_host_creds()
     api_url = f"{host_creds.host}/serving-endpoints/{model_name}/invocations"
 
-    res = requests.post(
-        url=api_url,
-        headers={"Authorization": f"Bearer {host_creds.token}"},
-        json={
-            "messages": [
-                {
-                    "role": "user",
-                    "content": prompt,
-                }
-            ],
-        },
-    )
-    res_json = res.json()
-    content = res_json["choices"][0]["message"]["content"]
+    # Implement retry logic with exponential backoff
+    last_exception = None
+    for attempt in range(num_retries + 1):
+        try:
+            res = requests.post(
+                url=api_url,
+                headers={"Authorization": f"Bearer {host_creds.token}"},
+                json={
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": prompt,
+                        }
+                    ],
+                },
+            )
 
-    # handle reasoning response
-    if isinstance(content, list):
-        for item in content:
-            if item["type"] != "text":
-                continue
-            content = item["text"]
-            break
+            # Check HTTP status before parsing JSON
+            if res.status_code == 400 or res.status_code == 403:
+                # Don't retry on bad request or auth issues
+                raise MlflowException(
+                    f"Databricks model invocation failed with status {res.status_code}: {res.text}",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
 
-    usage = res_json.get("usage", {})
+            if res.status_code >= 400:
+                # For other errors, raise exception and potentially retry
+                error_msg = (
+                    f"Databricks model invocation failed with status {res.status_code}: {res.text}"
+                )
+                if attempt < num_retries:
+                    # Log and retry for transient errors
+                    _logger.debug(f"Attempt {attempt + 1} failed: {error_msg}")
+                    time.sleep(2**attempt)  # Exponential backoff
+                    continue
+                else:
+                    raise MlflowException(error_msg, error_code=INVALID_PARAMETER_VALUE)
 
-    return InvokeDatabricksModelOutput(
-        response=content,
-        request_id=res.headers.get("x-request-id"),
-        num_prompt_tokens=usage.get("prompt_tokens"),
-        num_completion_tokens=usage.get("completion_tokens"),
-    )
+            # Parse JSON response
+            try:
+                res_json = res.json()
+            except json.JSONDecodeError as e:
+                raise MlflowException(
+                    f"Failed to parse JSON response from Databricks model: {e}",
+                    error_code=INVALID_PARAMETER_VALUE,
+                ) from e
+
+            # Safe dictionary access with validation
+            choices = res_json.get("choices", [])
+            if not choices:
+                raise MlflowException(
+                    "Invalid response from Databricks model: missing 'choices' field",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            first_choice = choices[0]
+            if "message" not in first_choice:
+                raise MlflowException(
+                    "Invalid response from Databricks model: missing 'message' field",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            content = first_choice["message"].get("content")
+            if content is None:
+                raise MlflowException(
+                    "Invalid response from Databricks model: missing 'content' field",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            # Handle reasoning response
+            if isinstance(content, list):
+                text_content = None
+                for item in content:
+                    if isinstance(item, dict) and item.get("type") == "text":
+                        text_content = item.get("text")
+                        break
+
+                if text_content is None:
+                    raise MlflowException(
+                        "Invalid reasoning response: no text content found in response list",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                content = text_content
+
+            usage = res_json.get("usage", {})
+
+            return InvokeDatabricksModelOutput(
+                response=content,
+                request_id=res.headers.get("x-request-id"),
+                num_prompt_tokens=usage.get("prompt_tokens"),
+                num_completion_tokens=usage.get("completion_tokens"),
+            )
+
+        except (requests.RequestException, requests.ConnectionError) as e:
+            last_exception = e
+            if attempt < num_retries:
+                _logger.debug(f"Request attempt {attempt + 1} failed with error: {e}")
+                time.sleep(2**attempt)  # Exponential backoff
+            else:
+                raise MlflowException(
+                    f"Failed to invoke Databricks model after {num_retries + 1} attempts: {e}",
+                    error_code=INVALID_PARAMETER_VALUE,
+                ) from e
+
+    # This should not be reached, but just in case
+    if last_exception:
+        raise MlflowException(
+            f"Failed to invoke Databricks model: {last_exception}",
+            error_code=INVALID_PARAMETER_VALUE,
+        ) from last_exception
 
 
 def _record_judge_model_usage_success_databricks_telemetry(
