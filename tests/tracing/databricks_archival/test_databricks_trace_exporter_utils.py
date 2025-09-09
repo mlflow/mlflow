@@ -24,10 +24,16 @@ from mlflow.tracing.utils.databricks_delta_utils import (
 
 
 @pytest.fixture
-def mock_host_creds():
+def mock_host():
+    """Mock host URL for testing."""
+    return "https://test-workspace.cloud.databricks.com"
+
+
+@pytest.fixture
+def mock_host_creds(mock_host):
     """Mock host credentials for testing."""
     mock_creds = mock.Mock()
-    mock_creds.host = "https://test-workspace.cloud.databricks.com"
+    mock_creds.host = mock_host
     mock_creds.token = "test-token-12345"
     return mock_creds
 
@@ -38,21 +44,13 @@ def mock_workspace_id():
     return "12345"
 
 
-@pytest.fixture
-def mock_workspace_client(mock_workspace_id):
-    """Mock WorkspaceClient for testing."""
-    client = mock.MagicMock()
-    client.get_workspace_id.return_value = mock_workspace_id
-    return client
-
-
 # =============================================================================
 # create_archival_zerobus_sdk Tests
 # =============================================================================
 
 
 def test_create_archival_zerobus_sdk_success(
-    mock_host_creds, mock_workspace_id, mock_workspace_client, monkeypatch
+    mock_host, mock_host_creds, mock_workspace_id, monkeypatch
 ):
     """Test successful creation of ZerobusSdk."""
     # Clear any environment overrides
@@ -62,12 +60,16 @@ def test_create_archival_zerobus_sdk_success(
 
     with (
         mock.patch(
-            "mlflow.utils.databricks_utils.get_databricks_host_creds",
+            "mlflow.tracing.utils.databricks_delta_utils._get_host",
+            return_value=mock_host,
+        ),
+        mock.patch(
+            "mlflow.tracing.utils.databricks_delta_utils.get_databricks_host_creds",
             return_value=mock_host_creds,
         ),
         mock.patch(
-            "databricks.sdk.WorkspaceClient",
-            return_value=mock_workspace_client,
+            "mlflow.tracing.utils.databricks_delta_utils._get_workspace_id",
+            return_value=mock_workspace_id,
         ),
         mock.patch("zerobus_sdk.ZerobusSdk") as mock_sdk_class,
     ):
@@ -121,18 +123,18 @@ def test_create_archival_zerobus_sdk_with_env_overrides(monkeypatch):
 
 def test_create_archival_zerobus_sdk_resolution_error(mock_host_creds):
     """Test error handling when resolution functions fail."""
-    # Create a mock WorkspaceClient that returns None for workspace_id
-    mock_workspace_client_none = mock.MagicMock()
-    mock_workspace_client_none.get_workspace_id.return_value = None
-
     with (
+        mock.patch(
+            "mlflow.tracing.utils.databricks_delta_utils._get_host",
+            return_value=mock_host,
+        ),
         mock.patch(
             "mlflow.utils.databricks_utils.get_databricks_host_creds",
             return_value=mock_host_creds,
         ),
         mock.patch(
-            "databricks.sdk.WorkspaceClient",
-            return_value=mock_workspace_client_none,
+            "mlflow.tracing.utils.databricks_delta_utils._get_workspace_id",
+            return_value=None,
         ),
         mock.patch("zerobus_sdk.ZerobusSdk") as mock_sdk_class,
     ):
@@ -163,21 +165,16 @@ def test_create_archival_zerobus_sdk_resolution_error(mock_host_creds):
         ("test.azuredatabricks.net", ".ingest.azuredatabricks.net"),
     ],
 )
-def test_resolve_ingest_url_patterns(
-    host_url, expected_suffix, mock_workspace_id, mock_workspace_client
-):
+def test_resolve_ingest_url_patterns(host_url, expected_suffix, mock_workspace_id):
     """Test URL resolution for various host patterns."""
-    mock_creds = mock.Mock()
-    mock_creds.host = host_url
-
     with (
         mock.patch(
-            "mlflow.utils.databricks_utils.get_databricks_host_creds",
-            return_value=mock_creds,
+            "mlflow.tracing.utils.databricks_delta_utils._get_host",
+            return_value=host_url,
         ),
         mock.patch(
-            "databricks.sdk.WorkspaceClient",
-            return_value=mock_workspace_client,
+            "mlflow.tracing.utils.databricks_delta_utils._get_workspace_id",
+            return_value=mock_workspace_id,
         ),
     ):
         result = _resolve_ingest_url()
@@ -190,30 +187,23 @@ def test_resolve_ingest_url_with_env_override(monkeypatch):
     override_url = "override.ingest.url"  # No protocol prefix
     monkeypatch.setenv("MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL", override_url)
 
-    # Should not even call get_databricks_host_creds
-    with mock.patch(
-        "mlflow.tracing.utils.databricks_delta_utils.get_databricks_host_creds"
-    ) as mock_get_creds:
+    # Should not even call _get_host
+    with mock.patch("mlflow.tracing.utils.databricks_delta_utils._get_host") as mock_get_host:
         result = _resolve_ingest_url()
         assert result == override_url  # Returned as-is
-        mock_get_creds.assert_not_called()
+        mock_get_host.assert_not_called()
 
 
-def test_resolve_ingest_url_with_trailing_slash_and_params(
-    mock_workspace_id, mock_workspace_client
-):
+def test_resolve_ingest_url_with_trailing_slash_and_params(mock_workspace_id):
     """Test URL cleanup for trailing slashes and query parameters."""
-    mock_creds = mock.Mock()
-    mock_creds.host = "https://test.cloud.databricks.com/?param=value"
-
     with (
         mock.patch(
-            "mlflow.utils.databricks_utils.get_databricks_host_creds",
-            return_value=mock_creds,
+            "mlflow.tracing.utils.databricks_delta_utils._get_host",
+            return_value="https://test.cloud.databricks.com/?param=value",
         ),
         mock.patch(
-            "databricks.sdk.WorkspaceClient",
-            return_value=mock_workspace_client,
+            "mlflow.tracing.utils.databricks_delta_utils._get_workspace_id",
+            return_value=mock_workspace_id,
         ),
     ):
         result = _resolve_ingest_url()
@@ -223,40 +213,30 @@ def test_resolve_ingest_url_with_trailing_slash_and_params(
 
 def test_resolve_ingest_url_no_workspace_id():
     """Test error when workspace ID cannot be determined."""
-    mock_creds = mock.Mock()
-    mock_creds.host = "https://test.cloud.databricks.com"
-
-    # Create a mock WorkspaceClient that returns None for workspace_id
-    mock_workspace_client_none = mock.MagicMock()
-    mock_workspace_client_none.get_workspace_id.return_value = None
-
     with (
         mock.patch(
-            "mlflow.utils.databricks_utils.get_databricks_host_creds",
-            return_value=mock_creds,
+            "mlflow.tracing.utils.databricks_delta_utils._get_host",
+            return_value="https://test.cloud.databricks.com",
         ),
         mock.patch(
-            "databricks.sdk.WorkspaceClient",
-            return_value=mock_workspace_client_none,
+            "mlflow.tracing.utils.databricks_delta_utils._get_workspace_id",
+            return_value=None,
         ),
     ):
         with pytest.raises(MlflowException, match=r"No workspace ID available"):
             _resolve_ingest_url()
 
 
-def test_resolve_ingest_url_unrecognized_pattern(mock_workspace_id, mock_workspace_client):
+def test_resolve_ingest_url_unrecognized_pattern(mock_workspace_id):
     """Test error for unrecognized host patterns."""
-    mock_creds = mock.Mock()
-    mock_creds.host = "https://unknown.domain.com"
-
     with (
         mock.patch(
-            "mlflow.utils.databricks_utils.get_databricks_host_creds",
-            return_value=mock_creds,
+            "mlflow.tracing.utils.databricks_delta_utils._get_host",
+            return_value="https://unknown.domain.com",
         ),
         mock.patch(
-            "databricks.sdk.WorkspaceClient",
-            return_value=mock_workspace_client,
+            "mlflow.tracing.utils.databricks_delta_utils._get_workspace_id",
+            return_value=mock_workspace_id,
         ),
     ):
         with pytest.raises(
@@ -270,11 +250,11 @@ def test_resolve_ingest_url_unrecognized_pattern(mock_workspace_id, mock_workspa
 # =============================================================================
 
 
-def test_resolve_archival_workspace_url_normal(mock_host_creds):
+def test_resolve_archival_workspace_url_normal(mock_host):
     """Test normal workspace URL resolution with protocol stripping."""
     with mock.patch(
-        "mlflow.utils.databricks_utils.get_databricks_host_creds",
-        return_value=mock_host_creds,
+        "mlflow.tracing.utils.databricks_delta_utils._get_host",
+        return_value=mock_host,
     ):
         result = _resolve_archival_workspace_url()
         # Should strip https:// from the host URL
@@ -287,12 +267,10 @@ def test_resolve_archival_workspace_url_with_env_override(monkeypatch):
     override_url = "override.workspace.url"  # No protocol prefix
     monkeypatch.setenv("MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL", override_url)
 
-    with mock.patch(
-        "mlflow.tracing.utils.databricks_delta_utils.get_databricks_host_creds"
-    ) as mock_get_creds:
+    with mock.patch("mlflow.tracing.utils.databricks_delta_utils._get_host") as mock_get_host:
         result = _resolve_archival_workspace_url()
         assert result == override_url  # Returned as-is
-        mock_get_creds.assert_not_called()
+        mock_get_host.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -308,12 +286,9 @@ def test_resolve_archival_workspace_url_with_env_override(monkeypatch):
 )
 def test_resolve_archival_workspace_url_protocol_stripping(host_url, expected):
     """Test workspace URL protocol stripping with various formats."""
-    mock_creds = mock.Mock()
-    mock_creds.host = host_url
-
     with mock.patch(
-        "mlflow.utils.databricks_utils.get_databricks_host_creds",
-        return_value=mock_creds,
+        "mlflow.tracing.utils.databricks_delta_utils._get_host",
+        return_value=host_url,
     ):
         result = _resolve_archival_workspace_url()
         assert result == expected
@@ -327,7 +302,7 @@ def test_resolve_archival_workspace_url_protocol_stripping(host_url, expected):
 def test_resolve_archival_token_normal(mock_host_creds):
     """Test normal token resolution."""
     with mock.patch(
-        "mlflow.utils.databricks_utils.get_databricks_host_creds",
+        "mlflow.tracing.utils.databricks_delta_utils.get_databricks_host_creds",
         return_value=mock_host_creds,
     ):
         result = _resolve_archival_token()
@@ -353,7 +328,7 @@ def test_resolve_archival_token_missing_token():
     mock_creds.token = None  # No token available
 
     with mock.patch(
-        "mlflow.utils.databricks_utils.get_databricks_host_creds",
+        "mlflow.tracing.utils.databricks_delta_utils.get_databricks_host_creds",
         return_value=mock_creds,
     ):
         with pytest.raises(
@@ -366,7 +341,7 @@ def test_resolve_archival_token_missing_token():
 def test_resolve_archival_token_null_host_creds():
     """Test error when get_databricks_host_creds returns None."""
     with mock.patch(
-        "mlflow.utils.databricks_utils.get_databricks_host_creds",
+        "mlflow.tracing.utils.databricks_delta_utils.get_databricks_host_creds",
         return_value=None,
     ):
         with pytest.raises(MlflowException, match=r"No Databricks authentication available"):
@@ -376,7 +351,7 @@ def test_resolve_archival_token_null_host_creds():
 def test_resolve_archival_token_generic_exception():
     """Test generic exception handling in token resolution."""
     with mock.patch(
-        "mlflow.utils.databricks_utils.get_databricks_host_creds",
+        "mlflow.tracing.utils.databricks_delta_utils.get_databricks_host_creds",
         side_effect=RuntimeError("Connection failed"),
     ):
         with pytest.raises(
