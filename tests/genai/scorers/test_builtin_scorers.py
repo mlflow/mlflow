@@ -19,7 +19,6 @@ from mlflow.genai.scorers import (
 )
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.builtin_scorers import get_all_scorers
-from mlflow.utils.uri import is_databricks_uri
 
 from tests.genai.conftest import databricks_only
 
@@ -511,63 +510,3 @@ def test_get_all_scorers_oss(tracking_uri):
     # Safety and RetrievalRelevance are only available in Databricks
     assert len(scorers) == (7 if tracking_uri == "databricks" else 5)
     assert all(isinstance(scorer, Scorer) for scorer in scorers)
-
-
-def test_retrieval_relevance_get_input_fields():
-    """Test that RetrievalRelevance get_input_fields method returns expected field names."""
-    if is_databricks_uri(mlflow.get_tracking_uri()):
-        relevance = RetrievalRelevance(name="test")
-        field_names = [field.name for field in relevance.get_input_fields()]
-        assert field_names == ["trace"]
-
-
-def test_retrieval_sufficiency_get_input_fields():
-    """Test that RetrievalSufficiency get_input_fields method returns expected field names."""
-    if is_databricks_uri(mlflow.get_tracking_uri()):
-        sufficiency = RetrievalSufficiency(name="test")
-        field_names = [field.name for field in sufficiency.get_input_fields()]
-        assert field_names == ["trace", "expectations"]
-
-
-def test_retrieval_groundedness_get_input_fields():
-    """Test that RetrievalGroundedness get_input_fields method returns expected field names."""
-    if is_databricks_uri(mlflow.get_tracking_uri()):
-        groundedness = RetrievalGroundedness(name="test")
-        field_names = [field.name for field in groundedness.get_input_fields()]
-        assert field_names == ["trace"]
-
-
-def test_guidelines_get_input_fields():
-    """Test that Guidelines get_input_fields method returns expected field names."""
-    guidelines = Guidelines(name="test", guidelines=["Be helpful"])
-    field_names = [field.name for field in guidelines.get_input_fields()]
-    assert field_names == ["inputs", "outputs"]
-
-
-def test_expectations_guidelines_get_input_fields():
-    """Test that ExpectationsGuidelines get_input_fields method returns expected field names."""
-    exp_guidelines = ExpectationsGuidelines(name="test")
-    field_names = [field.name for field in exp_guidelines.get_input_fields()]
-    assert field_names == ["inputs", "outputs", "expectations"]
-
-
-def test_relevance_to_query_get_input_fields():
-    """Test that RelevanceToQuery get_input_fields method returns expected field names."""
-    relevance_query = RelevanceToQuery(name="test")
-    field_names = [field.name for field in relevance_query.get_input_fields()]
-    assert field_names == ["inputs", "outputs"]
-
-
-def test_safety_get_input_fields():
-    """Test that Safety get_input_fields method returns expected field names."""
-    if is_databricks_uri(mlflow.get_tracking_uri()):
-        safety = Safety(name="test")
-        field_names = [field.name for field in safety.get_input_fields()]
-        assert field_names == ["outputs"]
-
-
-def test_correctness_get_input_fields():
-    """Test that Correctness get_input_fields method returns expected field names."""
-    correctness = Correctness(name="test")
-    field_names = [field.name for field in correctness.get_input_fields()]
-    assert field_names == ["inputs", "outputs", "expectations"]

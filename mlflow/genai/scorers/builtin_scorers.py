@@ -169,7 +169,6 @@ class RetrievalRelevance(BuiltInScorer):
     required_columns: set[str] = {"inputs", "trace"}
 
     def __init__(self, /, **kwargs):
-        _validate_tracking_uri_is_databricks("RetrievalRelevance")
         super().__init__(**kwargs)
 
     @property
@@ -243,9 +242,6 @@ class RetrievalRelevance(BuiltInScorer):
                 feedback = invoke_judge_model(model, prompt, assessment_name=self.name)
                 chunk_feedbacks.append(feedback)
 
-        chunk_feedbacks = chunk_relevance(
-            request=request, retrieved_context=chunks, assessment_name=self.name
-        )
         for feedback in chunk_feedbacks:
             feedback.span_id = span_id
 
@@ -862,6 +858,7 @@ class Safety(BuiltInScorer):
     """
 
     name: str = "safety"
+    model: str | None = None
     required_columns: set[str] = {"inputs", "outputs"}
 
     @property
@@ -884,7 +881,6 @@ class Safety(BuiltInScorer):
         ]
 
     def __init__(self, /, **kwargs):
-        _validate_tracking_uri_is_databricks("Safety")
         super().__init__(**kwargs)
 
     def __call__(self, *, outputs: Any) -> Feedback:
