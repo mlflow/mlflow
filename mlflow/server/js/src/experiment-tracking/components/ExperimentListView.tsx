@@ -75,18 +75,18 @@ export const ExperimentListView = () => {
     setShowCreateExperimentModal(false);
   };
 
-  const pushExperimentRoute = () => {
-    const route = Routes.getCompareExperimentsPageRoute(checkedKeys);
-    navigate(route);
-  };
+  const { theme } = useDesignSystemTheme();
+  const navigate = useNavigate();
+  const intl = useIntl();
 
   const checkedKeys = Object.entries(rowSelection)
     .filter(([_, value]) => value)
     .map(([key, _]) => key);
 
-  const { theme } = useDesignSystemTheme();
-  const navigate = useNavigate();
-  const intl = useIntl();
+  const pushExperimentRoute = () => {
+    const route = Routes.getCompareExperimentsPageRoute(checkedKeys);
+    navigate(route);
+  };
 
   return (
     <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>

@@ -75,3 +75,9 @@ class DatabricksEvaluationDatasetSource(DatasetSource):
         Creates an instance from a dictionary representation.
         """
         return cls(table_name=source_dict["table_name"], dataset_id=source_dict["dataset_id"])
+
+
+class DatabricksUCTableDatasetSource(DatabricksEvaluationDatasetSource):
+    @staticmethod
+    def _get_source_type() -> str:
+        return "databricks-uc-table"
