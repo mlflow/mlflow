@@ -36,6 +36,8 @@ wheels/
 *.egg
 MANIFEST
 node_modules
+yarn-error.log
+uv.lock
 .docusaurus
 *-ipynb.mdx
 docs/src/api_modules.json
@@ -78,7 +80,6 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-.python-version
 dev-env-setup-progress
 
 # Editor files
@@ -86,9 +87,13 @@ dev-env-setup-progress
 *.swp
 *.swo
 *.idea
-*.vscode
 *.iml
 *~
+
+# vscode
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
 
 # mkdocs documentation
 /site
@@ -121,3 +126,6 @@ a.md
 
 # Ignore a gunicorn config file
 gunicorn.conf.py
+
+# Ignore claude files (but not CLAUDE.md which we're tracking)
+.claude/

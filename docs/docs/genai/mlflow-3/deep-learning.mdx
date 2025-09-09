@@ -83,7 +83,8 @@ with mlflow.start_run() as run:
     optimizer = torch.optim.Adam(scripted_model.parameters(), lr=0.01)
 
     for epoch in range(101):
-        X_train, y_train = X_train.to(device), y_train.to(device)
+        X_train = X_train.to(device)
+        y_train = y_train.to(device)
         out = scripted_model(X_train)
         loss = criterion(out, y_train)
         optimizer.zero_grad()
@@ -168,4 +169,3 @@ Artifacts of the model can be viewed on the **Artifacts** tab of the model page:
 <div className="center-div" style={{ width: "100%" }}>
     ![The MLflow UI showing the model artifacts](/images/mlflow-3/deep-learning/model_artifacts.png)
 </div>
-

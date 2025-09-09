@@ -360,10 +360,10 @@ def test_set_registered_model_tag(store):
         store.set_registered_model_tag(name1, overriding_tag)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
     # test cannot set tags that are too long
-    long_tag = RegisteredModelTag("longTagKey", "a" * 5001)
+    long_tag = RegisteredModelTag("longTagKey", "a" * 100_001)
     with pytest.raises(
         MlflowException,
-        match=("'value' exceeds the maximum length of 5000 characters"),
+        match=r"'value' exceeds the maximum length of \d+ characters",
     ) as exception_context:
         store.set_registered_model_tag(name2, long_tag)
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -1394,10 +1394,10 @@ def test_set_model_version_tag(store):
         store.set_model_version_tag(name1, 2, overriding_tag)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
     # test cannot set tags that are too long
-    long_tag = ModelVersionTag("longTagKey", "a" * 5001)
+    long_tag = ModelVersionTag("longTagKey", "a" * 100_001)
     with pytest.raises(
         MlflowException,
-        match="'value' exceeds the maximum length of 5000 characters",
+        match=r"'value' exceeds the maximum length of \d+ characters",
     ) as exception_context:
         store.set_model_version_tag(name1, 1, long_tag)
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -1814,3 +1814,31 @@ def test_create_registered_model_handle_prompt_properly(store):
         r"but the name is already taken by a prompt.",
     ):
         store.create_registered_model("prompt")
+
+
+def test_create_model_version_with_model_id_and_no_run_id(store):
+    name = "test_model_with_model_id"
+    store.create_registered_model(name)
+
+    mock_run_id = "mock-run-id-123"
+    mock_logged_model = mock.MagicMock()
+    mock_logged_model.source_run_id = mock_run_id
+
+    with mock.patch("mlflow.tracking.client.MlflowClient") as mock_client_class:
+        mock_client = mock.MagicMock()
+        mock_client_class.return_value = mock_client
+        mock_client.get_logged_model.return_value = mock_logged_model
+
+        mv = store.create_model_version(
+            name=name,
+            source="/absolute/path/to/source",
+            run_id=None,
+            model_id="test-model-id-456",
+        )
+
+        mock_client.get_logged_model.assert_any_call("test-model-id-456")
+
+        assert mv.run_id == mock_run_id
+
+        mvd = store.get_model_version(name=mv.name, version=mv.version)
+        assert mvd.run_id == mock_run_id

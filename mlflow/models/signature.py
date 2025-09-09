@@ -10,8 +10,8 @@ import logging
 import re
 import warnings
 from copy import deepcopy
-from dataclasses import dataclass, is_dataclass
-from typing import TYPE_CHECKING, Any, Optional, Union, get_type_hints
+from dataclasses import is_dataclass
+from typing import TYPE_CHECKING, Any, get_type_hints
 
 import numpy as np
 import pandas as pd
@@ -46,11 +46,11 @@ if TYPE_CHECKING:
     try:
         import pyspark.sql.dataframe
 
-        MlflowInferableDataset = Union[
-            pd.DataFrame, np.ndarray, dict[str, np.ndarray], pyspark.sql.dataframe.DataFrame
-        ]
+        MlflowInferableDataset = (
+            pd.DataFrame | np.ndarray | dict[str, np.ndarray] | pyspark.sql.dataframe.DataFrame
+        )
     except ImportError:
-        MlflowInferableDataset = Union[pd.DataFrame, np.ndarray, dict[str, np.ndarray]]
+        MlflowInferableDataset = pd.DataFrame | np.ndarray | dict[str, np.ndarray]
 
 _logger = logging.getLogger(__name__)
 
@@ -73,8 +73,9 @@ class ModelSignature:
 
     def __init__(
         self,
-        inputs: Union[Schema, dataclass] = None,
-        outputs: Union[Schema, dataclass] = None,
+        # `dataclass` is an invalid type annotation. Use `Any` instead as a workaround.
+        inputs: Schema | Any = None,
+        outputs: Schema | Any = None,
         params: ParamSchema = None,
     ):
         if inputs and not isinstance(inputs, Schema) and not is_dataclass(inputs):
@@ -181,7 +182,7 @@ class ModelSignature:
 def infer_signature(
     model_input: Any = None,
     model_output: "MlflowInferableDataset" = None,
-    params: Optional[dict[str, Any]] = None,
+    params: dict[str, Any] | None = None,
 ) -> ModelSignature:
     """
     Infer an MLflow model signature from the training data (input), model predictions (output)
@@ -387,8 +388,8 @@ def _is_context_in_predict_function_signature(*, func=None, parameters=None):
 
 @filter_user_warnings_once
 def _infer_signature_from_type_hints(
-    func, type_hints: _TypeHints, input_example=None
-) -> Optional[ModelSignature]:
+    python_model, context, type_hints: _TypeHints, input_example=None
+) -> ModelSignature | None:
     """
     Infer the signature from type hints.
     """
@@ -411,6 +412,8 @@ def _infer_signature_from_type_hints(
     except Exception as e:
         warnings.warn(f"Failed to infer signature from type hint: {e.message}", stacklevel=3)
         return None
+
+    func = python_model if callable(python_model) else python_model.predict
 
     # only warn if the pyfunc decorator is not used and schema can
     # be inferred from the input type hint
@@ -472,6 +475,8 @@ def _infer_signature_from_type_hints(
                 inputs = [input_example]
             _logger.info("Running the predict function to generate output based on input example")
             try:
+                if hasattr(python_model, "load_context"):
+                    python_model.load_context(context)
                 output_example = func(*inputs, **kwargs)
             except Exception:
                 _logger.warning(
@@ -499,8 +504,8 @@ def _infer_signature_from_type_hints(
 
 
 def _infer_signature_from_input_example(
-    input_example: Optional[_Example], wrapped_model
-) -> Optional[ModelSignature]:
+    input_example: _Example | None, wrapped_model
+) -> ModelSignature | None:
     """
     Infer the signature from an example input and a PyFunc wrapped model. Catches all exceptions.
 
@@ -588,10 +593,10 @@ def set_signature(
 
     Furthermore, as model registry artifacts are read-only, model artifacts located in the
     model registry and represented by ``models:/`` URI schemes are not compatible with this API.
-    To set a signature on a model version, first set the signature on the source model artifacts.
-    Following this, generate a new model version using the updated model artifacts. For more
-    information about setting signatures on model versions, see
-    `this doc section <https://www.mlflow.org/docs/latest/models.html#set-signature-on-mv>`_.
+    To set a signature on a model version, first load the source model artifacts. Following this,
+    generate a new model version using the loaded model artifacts and a corresponding signature.
+    For more information about setting signatures on model versions, see
+    `this doc section <https://mlflow.org/docs/latest/ml/model/signatures/#adding-signatures-to-registered-model-versions>`_.
 
     Args:
         model_uri: The location, in URI format, of the MLflow model. For example:

@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sys
 import threading
+from pathlib import Path
 
 import pytest
 
@@ -59,6 +60,7 @@ def pytest_configure(config):
         "markers", "do_not_disable_new_import_hook_firing_if_module_already_exists"
     )
     config.addinivalue_line("markers", "classification")
+    config.addinivalue_line("markers", "no_mock_requests_get")
 
     labels = fetch_pr_labels() or []
     if "fail-fast" in labels:
@@ -169,6 +171,7 @@ def pytest_ignore_collect(collection_path, config):
         model_flavors = [
             # Tests of flavor modules.
             "tests/ag2",
+            "tests/agno",
             "tests/anthropic",
             "tests/autogen",
             "tests/azureml",
@@ -200,6 +203,8 @@ def pytest_ignore_collect(collection_path, config):
             "tests/pyfunc",
             "tests/pytorch",
             "tests/sagemaker",
+            "tests/strands",
+            "tests/semantic_kernel",
             "tests/sentence_transformers",
             "tests/shap",
             "tests/sklearn",
@@ -253,14 +258,22 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     failed_test_reports = terminalreporter.stats.get("failed", [])
     if failed_test_reports:
         if len(failed_test_reports) <= 30:
-            terminalreporter.section("command to run failed test cases")
             ids = [repr(report.nodeid) for report in failed_test_reports]
         else:
-            terminalreporter.section("command to run failed test suites")
             # Use dict.fromkeys to preserve the order
             ids = list(dict.fromkeys(report.fspath for report in failed_test_reports))
+        terminalreporter.section("command to run failed tests")
         terminalreporter.write(" ".join(["pytest"] + ids))
         terminalreporter.write("\n" * 2)
+
+        if summary_path := os.environ.get("GITHUB_STEP_SUMMARY"):
+            summary_path = Path(summary_path).resolve()
+            with summary_path.open("a") as f:
+                f.write("## Failed tests\n")
+                f.write("Run the following command to run the failed tests:\n")
+                f.write("```bash\n")
+                f.write(" ".join(["pytest"] + ids) + "\n")
+                f.write("```\n\n")
 
         # If some tests failed at installing mlflow, we suggest using `--serve-wheel` flag.
         # Some test cases try to install mlflow via pip e.g. model loading. They pins

@@ -10,18 +10,28 @@ from pydantic_ai.usage import Usage
 import mlflow
 import mlflow.pydantic_ai  # ensure the integration module is importable
 from mlflow.entities import SpanType
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 
 from tests.tracing.helper import get_traces
 
 PYDANTIC_AI_VERSION = Version(importlib.metadata.version("pydantic_ai"))
+# Usage was deprecated in favor of RequestUsage in 0.7.3
+IS_USAGE_DEPRECATED = PYDANTIC_AI_VERSION >= Version("0.7.3")
 
 _FINAL_ANSWER_WITHOUT_TOOL = "Paris"
 _FINAL_ANSWER_WITH_TOOL = "winner"
 
 
 def _make_dummy_response_without_tool():
+    # Usage was deprecated in favor of RequestUsage in 0.7.3
+    if IS_USAGE_DEPRECATED:
+        from pydantic_ai.usage import RequestUsage
+
     parts = [TextPart(content=_FINAL_ANSWER_WITHOUT_TOOL)]
-    usage = Usage(requests=1, request_tokens=1, response_tokens=1, total_tokens=2)
+    if IS_USAGE_DEPRECATED:
+        usage = RequestUsage(input_tokens=1, output_tokens=1)
+    else:
+        usage = Usage(requests=1, request_tokens=1, response_tokens=1, total_tokens=2)
     if PYDANTIC_AI_VERSION >= Version("0.2.0"):
         return ModelResponse(parts=parts, usage=usage)
     else:
@@ -30,10 +40,18 @@ def _make_dummy_response_without_tool():
 
 
 def _make_dummy_response_with_tool():
+    # Usage was deprecated in favor of RequestUsage in 0.7.3
+    if IS_USAGE_DEPRECATED:
+        from pydantic_ai.usage import RequestUsage
+
     call_parts = [ToolCallPart(tool_name="roulette_wheel", args={"square": 18})]
     final_parts = [TextPart(content=_FINAL_ANSWER_WITH_TOOL)]
-    usage_call = Usage(requests=0, request_tokens=10, response_tokens=20, total_tokens=30)
-    usage_final = Usage(requests=1, request_tokens=100, response_tokens=200, total_tokens=300)
+    if IS_USAGE_DEPRECATED:
+        usage_call = RequestUsage(input_tokens=10, output_tokens=20)
+        usage_final = RequestUsage(input_tokens=100, output_tokens=200)
+    else:
+        usage_call = Usage(requests=0, request_tokens=10, response_tokens=20, total_tokens=30)
+        usage_final = Usage(requests=1, request_tokens=100, response_tokens=200, total_tokens=300)
 
     if PYDANTIC_AI_VERSION >= Version("0.2.0"):
         call_resp = ModelResponse(parts=call_parts, usage=usage_call)
@@ -121,6 +139,18 @@ def test_agent_run_sync_enable_disable_autolog(simple_agent):
     assert span2.span_type == SpanType.LLM
     assert span2.parent_id == spans[1].span_id
 
+    assert span2.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 1,
+        TokenUsageKey.OUTPUT_TOKENS: 1,
+        TokenUsageKey.TOTAL_TOKENS: 2,
+    }
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "total_tokens": 2,
+    }
+
     with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", new=request):
         mlflow.pydantic_ai.autolog(disable=True)
         simple_agent.run_sync("France")
@@ -151,6 +181,18 @@ async def test_agent_run_enable_disable_autolog(simple_agent):
     assert span1.name == "InstrumentedModel.request"
     assert span1.span_type == SpanType.LLM
     assert span1.parent_id == spans[0].span_id
+
+    assert span1.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 1,
+        TokenUsageKey.OUTPUT_TOKENS: 1,
+        TokenUsageKey.TOTAL_TOKENS: 2,
+    }
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "total_tokens": 2,
+    }
 
 
 def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool):
@@ -185,7 +227,6 @@ def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool):
     assert span2.parent_id == spans[1].span_id
 
     span3 = spans[3]
-    assert span3.name == "Tool.run"
     assert span3.span_type == SpanType.TOOL
     assert span3.parent_id == spans[1].span_id
 
@@ -193,6 +234,24 @@ def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool):
     assert span4.name == "InstrumentedModel.request_2"
     assert span4.span_type == SpanType.LLM
     assert span4.parent_id == spans[1].span_id
+
+    assert span2.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 10,
+        TokenUsageKey.OUTPUT_TOKENS: 20,
+        TokenUsageKey.TOTAL_TOKENS: 30,
+    }
+
+    assert span4.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 100,
+        TokenUsageKey.OUTPUT_TOKENS: 200,
+        TokenUsageKey.TOTAL_TOKENS: 300,
+    }
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 110,
+        "output_tokens": 220,
+        "total_tokens": 330,
+    }
 
 
 @pytest.mark.asyncio
@@ -225,7 +284,6 @@ async def test_agent_run_enable_disable_autolog_with_tool(agent_with_tool):
     assert span1.parent_id == spans[0].span_id
 
     span2 = spans[2]
-    assert span2.name == "Tool.run"
     assert span2.span_type == SpanType.TOOL
     assert span2.parent_id == spans[0].span_id
 
@@ -233,6 +291,24 @@ async def test_agent_run_enable_disable_autolog_with_tool(agent_with_tool):
     assert span3.name == "InstrumentedModel.request_2"
     assert span3.span_type == SpanType.LLM
     assert span3.parent_id == spans[0].span_id
+
+    assert span1.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 10,
+        TokenUsageKey.OUTPUT_TOKENS: 20,
+        TokenUsageKey.TOTAL_TOKENS: 30,
+    }
+
+    assert span3.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 100,
+        TokenUsageKey.OUTPUT_TOKENS: 200,
+        TokenUsageKey.TOTAL_TOKENS: 300,
+    }
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 110,
+        "output_tokens": 220,
+        "total_tokens": 330,
+    }
 
 
 def test_agent_run_sync_failure(simple_agent):

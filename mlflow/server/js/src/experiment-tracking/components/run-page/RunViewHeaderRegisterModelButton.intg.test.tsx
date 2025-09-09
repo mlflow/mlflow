@@ -1,14 +1,14 @@
 import { openDropdownMenu } from '@databricks/design-system/test-utils/rtl';
 import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
-import { renderWithIntl, act, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import Utils from '../../../common/utils/Utils';
 import { ReduxState } from '../../../redux-types';
 import { RunViewHeaderRegisterModelButton } from './RunViewHeaderRegisterModelButton';
 import { DesignSystemProvider, DesignSystemThemeProvider } from '@databricks/design-system';
 import userEvent from '@testing-library/user-event';
 import { createModelVersionApi, createRegisteredModelApi } from '../../../model-registry/actions';
-import { KeyValueEntity } from '../../types';
+import { KeyValueEntity } from '../../../common/types';
 
 jest.mock('../../../model-registry/actions', () => ({
   searchRegisteredModelsApi: jest.fn(() => ({ type: 'MOCKED_ACTION', payload: Promise.resolve() })),
@@ -115,8 +115,8 @@ describe('RunViewHeaderRegisterModelButton integration', () => {
     await userEvent.paste('a-new-model');
     await userEvent.click(screen.getByRole('button', { name: 'Register' }));
 
-    expect(createRegisteredModelApi).toBeCalledWith('a-new-model', expect.anything());
-    expect(createModelVersionApi).toBeCalledWith(
+    expect(createRegisteredModelApi).toHaveBeenCalledWith('a-new-model', expect.anything());
+    expect(createModelVersionApi).toHaveBeenCalledWith(
       'a-new-model',
       'file://some/artifact/path/another_artifact_path',
       'testRunUuid',

@@ -25,7 +25,9 @@ MLFLOW_GATEWAY_CLIENT_QUERY_RETRY_CODES = frozenset(
 
 # Provider constants
 MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS = 1_000_000
-MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS = 200_000
+# Max for Claude 3.5 Sonnet. Newer models have higher limits.
+# https://docs.anthropic.com/en/docs/about-claude/models/overview#model-comparison-table
+MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS = 8192
 
 # MLflow model serving constants
 MLFLOW_SERVING_RESPONSE_KEY = "predictions"

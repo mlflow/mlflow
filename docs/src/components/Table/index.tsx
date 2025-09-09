@@ -1,11 +1,9 @@
-import { PropsWithChildren } from "react";
+import { PropsWithChildren } from 'react';
 
 export function Table({ children }: PropsWithChildren) {
   return (
     <div className="w-full overflow-x-auto">
-      <table>
-        {children}
-      </table>
+      <table>{children}</table>
     </div>
-  )
+  );
 }

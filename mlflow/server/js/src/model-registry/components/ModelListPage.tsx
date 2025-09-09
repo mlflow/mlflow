@@ -20,9 +20,7 @@ import { searchRegisteredModelsApi } from '../actions';
 import LocalStorageUtils from '../../common/utils/LocalStorageUtils';
 import { withRouterNext } from '../../common/utils/withRouterNext';
 import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
-import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWrapper';
 import { createMLflowRoutePath } from '../../common/utils/RoutingUtils';
-import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 
 type ModelListPageImplProps = WithRouterNextProps & {
   models?: any[];
@@ -301,25 +299,23 @@ export class ModelListPageImpl extends React.Component<ModelListPageImplProps, M
     } = this.state;
     const { models } = this.props;
     return (
-      <ScrollablePageWrapper>
-        <ModelListView
-          // @ts-expect-error TS(2322): Type '{ models: any[] | undefined; loading: any; e... Remove this comment to see the full error message
-          models={models}
-          loading={this.state.loading}
-          error={this.state.error}
-          searchInput={searchInput}
-          orderByKey={orderByKey}
-          orderByAsc={orderByAsc}
-          currentPage={currentPage}
-          nextPageToken={pageTokens[currentPage + 1]}
-          onSearch={this.handleSearch}
-          onClickNext={this.handleClickNext}
-          onClickPrev={this.handleClickPrev}
-          onClickSortableColumn={this.handleClickSortableColumn}
-          onSetMaxResult={this.handleMaxResultsChange}
-          maxResultValue={this.getMaxResultsSelection()}
-        />
-      </ScrollablePageWrapper>
+      <ModelListView
+        // @ts-expect-error TS(2322): Type '{ models: any[] | undefined; loading: any; e... Remove this comment to see the full error message
+        models={models}
+        loading={this.state.loading}
+        error={this.state.error}
+        searchInput={searchInput}
+        orderByKey={orderByKey}
+        orderByAsc={orderByAsc}
+        currentPage={currentPage}
+        nextPageToken={pageTokens[currentPage + 1]}
+        onSearch={this.handleSearch}
+        onClickNext={this.handleClickNext}
+        onClickPrev={this.handleClickPrev}
+        onClickSortableColumn={this.handleClickSortableColumn}
+        onSetMaxResult={this.handleMaxResultsChange}
+        maxResultValue={this.getMaxResultsSelection()}
+      />
     );
   }
 }

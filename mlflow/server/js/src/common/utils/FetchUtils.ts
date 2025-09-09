@@ -137,7 +137,7 @@ export const fetchEndpointRaw = ({
     ...options,
     ...(timeoutMs && { signal: abortController.signal }),
   };
-
+  // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
   return fetch(url, fetchOptions);
 };
 

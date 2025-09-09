@@ -1,25 +1,42 @@
+import json
 import logging
-from typing import Any, Callable, Optional
+import math
+from typing import TYPE_CHECKING, Any, Callable
 
 from opentelemetry.trace import NoOpTracer
+from pydantic import BaseModel
 
 import mlflow
-from mlflow.entities.span import LiveSpan, Span, SpanType
+from mlflow.entities.span import Span, SpanType
 from mlflow.entities.trace import Trace
 from mlflow.genai.utils.data_validation import check_model_prediction
+from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
-from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracking.client import MlflowClient
+from mlflow.tracing.utils import TraceJSONEncoder
+
+if TYPE_CHECKING:
+    from mlflow.genai.evaluation.entities import EvalItem
 
 _logger = logging.getLogger(__name__)
 
+_MESSAGE_KEY = "message"
+_MESSAGES_KEY = "messages"
+_CHOICES_KEY = "choices"
+_CONTENT_KEY = "content"
 
-def convert_predict_fn(predict_fn: Callable, sample_input: Any) -> Callable:
+
+def convert_predict_fn(predict_fn: Callable[..., Any], sample_input: Any) -> Callable[..., Any]:
     """
     Check the predict_fn is callable and add trace decorator if it is not already traced.
     """
-    with NoOpTracerPatcher() as counter:
+    with (
+        NoOpTracerPatcher() as counter,
+        # Enable auto-tracing before checking if the predict_fn produces traces, so that
+        # functions using auto-traceable libraries (OpenAI, LangChain, etc.) are correctly
+        # identified as traced functions
+        configure_autologging_for_evaluation(enable_tracing=True),
+    ):
         check_model_prediction(predict_fn, sample_input)
 
     if counter.count == 0:
@@ -62,21 +79,96 @@ class NoOpTracerPatcher:
         NoOpTracer.start_span = self.original
 
 
-def parse_inputs_to_str(inputs: Any) -> str:
-    """Parse the inputs to a request string compatible with the judges API"""
-    from databricks.rag_eval.utils import input_output_utils
+def is_none_or_nan(value: Any) -> bool:
+    """
+    Checks whether a value is None or NaN.
 
-    return input_output_utils.request_to_string(inputs)
-
-
-def parse_output_to_str(output: Any) -> str:
-    """Parse the output to a string compatible with the judges API"""
-    from databricks.rag_eval.utils import input_output_utils
-
-    return input_output_utils.response_to_string(output)
+    NB: This function does not handle pandas.NA.
+    """
+    # isinstance(value, float) check is needed to ensure that math.isnan is not called on an array.
+    return value is None or (isinstance(value, float) and math.isnan(value))
 
 
-def extract_retrieval_context_from_trace(trace: Optional[Trace]) -> dict[str, list]:
+def parse_inputs_to_str(value: Any) -> str:
+    """Parse the inputs to a string compatible with the judges API"""
+    if is_none_or_nan(value):
+        # The DBX managed backend doesn't allow empty inputs. This is
+        # a temporary workaround to bypass the validation.
+        return " "
+    if isinstance(value, str):
+        return value
+
+    value = _to_dict(value)
+
+    # Special handling for "messages" key.
+    if (messages := value.get(_MESSAGES_KEY)) and len(messages) > 0:
+        contents = [m.get(_CONTENT_KEY) for m in messages]
+        # If the message contains multiple messages, dump the whole messages object.
+        if len(contents) > 1 and all(isinstance(c, str) for c in contents):
+            return json.dumps(messages)
+        # If the message contains a single message, return the content.
+        elif isinstance(contents[-1], str):
+            return contents[-1]
+    return str(value)
+
+
+def parse_outputs_to_str(value: Any) -> str:
+    """Parse the outputs to a string compatible with the judges API"""
+    if is_none_or_nan(value):
+        return " "
+    if isinstance(value, str):
+        return value
+
+    # PyFuncModel.predict wraps the output in a list
+    if isinstance(value, list) and len(value) > 0:
+        return parse_outputs_to_str(value[0])
+
+    value = _to_dict(value)
+
+    # Special handling for chat response
+    if _is_chat_choices(value.get(_CHOICES_KEY)):
+        content = value[_CHOICES_KEY][0][_MESSAGE_KEY][_CONTENT_KEY]
+    elif _is_chat_messages(value.get(_MESSAGES_KEY)):
+        content = value[_MESSAGES_KEY][-1][_CONTENT_KEY]
+    else:
+        content = json.dumps(value, cls=TraceJSONEncoder)
+    return content
+
+
+def _is_chat_choices(maybe_choices: Any) -> bool:
+    if (
+        not maybe_choices
+        or not isinstance(maybe_choices, list)
+        or not isinstance(maybe_choices[0], dict)
+    ):
+        return False
+
+    message = maybe_choices[0].get(_MESSAGE_KEY)
+    return _is_chat_messages([message])
+
+
+def _is_chat_messages(maybe_messages: Any) -> bool:
+    return (
+        maybe_messages
+        and len(maybe_messages) > 0
+        and isinstance(maybe_messages[-1], dict)
+        and isinstance(maybe_messages[-1].get(_CONTENT_KEY), str)
+    )
+
+
+def _to_dict(obj: Any) -> dict[str, Any]:
+    if hasattr(obj, "to_dict"):
+        return obj.to_dict()
+
+    if isinstance(obj, BaseModel):
+        return obj.model_dump()
+
+    # Convert to JSON string and then back to dictionary to handle nested objects
+    json_str = json.dumps(obj, cls=TraceJSONEncoder)
+    return json.loads(json_str)
+
+
+def extract_retrieval_context_from_trace(trace: Trace | None) -> dict[str, list[Any]]:
     """
     Extract the retrieval context from the trace.
     Only consider the last retrieval span in the trace if there are multiple retrieval spans.
@@ -147,7 +239,7 @@ def _get_top_level_retrieval_spans(trace: Trace) -> list[Span]:
     return top_level_retrieval_spans
 
 
-def _parse_chunk(chunk: Any) -> Optional[dict[str, Any]]:
+def _parse_chunk(chunk: Any) -> dict[str, Any] | None:
     if not isinstance(chunk, dict):
         return None
 
@@ -197,6 +289,9 @@ def clean_up_extra_traces(run_id: str, start_time_ms: int):
                 f"Found {len(extra_trace_ids)} extra traces generated during evaluation run. "
                 "Deleting them."
             )
+            # Import MlflowClient locally to avoid issues with tracing-only SDK
+            from mlflow.tracking.client import MlflowClient
+
             MlflowClient().delete_traces(
                 experiment_id=_get_experiment_id(), trace_ids=extra_trace_ids
             )
@@ -212,32 +307,16 @@ def clean_up_extra_traces(run_id: str, start_time_ms: int):
         )
 
 
-def copy_model_serving_trace_to_eval_run(trace_dict: dict[str, Any]):
+def create_minimal_trace(eval_item: "EvalItem") -> Trace:
     """
-    Copy a trace returned from model serving endpoint to the evaluation run.
-    The copied trace will have a new trace ID and location metadata.
-
-    Args:
-        trace_dict: The trace dictionary returned from model serving endpoint.
-            This can be either V2 or V3 trace.
+    Create a minimal trace object with a single span, based on given inputs/outputs.
     """
-    new_trace_id, new_root_span = None, None
-    spans = [Span.from_dict(span_dict) for span_dict in trace_dict["data"]["spans"]]
+    from mlflow.pyfunc.context import Context, set_prediction_context
 
-    # Create a copy of spans in the current experiment
-    for old_span in spans:
-        new_span = LiveSpan.from_immutable_span(
-            span=old_span,
-            parent_span_id=old_span.parent_id,
-            trace_id=new_trace_id,
-            # Don't close the root span until the end so that we only export the trace
-            # after all spans are copied.
-            end_trace=old_span.parent_id is not None,
-        )
-        InMemoryTraceManager.get_instance().register_span(new_span)
-        if old_span.parent_id is None:
-            new_root_span = new_span
-            new_trace_id = new_span.trace_id
-
-    # Close the root span triggers the trace export.
-    new_root_span.end(end_time_ns=spans[0].end_time_ns)
+    # Set the context so that the trace is logged synchronously
+    context = Context(request_id=eval_item.request_id, is_evaluate=True)
+    with set_prediction_context(context):
+        with mlflow.start_span(name="root_span", span_type=SpanType.CHAIN) as root_span:
+            root_span.set_inputs(eval_item.inputs)
+            root_span.set_outputs(eval_item.outputs)
+        return mlflow.get_trace(root_span.trace_id)

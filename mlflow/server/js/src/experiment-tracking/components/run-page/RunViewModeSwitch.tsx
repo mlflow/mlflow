@@ -5,7 +5,6 @@ import Routes from '../../routes';
 import { RunPageTabName } from '../../constants';
 import { useRunViewActiveTab } from './useRunViewActiveTab';
 import { useState } from 'react';
-import { shouldEnableRunDetailsPageTracesTab } from '../../../common/utils/FeatureUtils';
 
 // Set of tabs that when active, the margin of the tab selector should be removed for better displaying
 const TABS_WITHOUT_MARGIN = [RunPageTabName.ARTIFACTS, RunPageTabName.EVALUATIONS];
@@ -35,9 +34,6 @@ export const RunViewModeSwitch = () => {
   };
 
   const getLegacyTracesTabLink = () => {
-    if (!shouldEnableRunDetailsPageTracesTab()) {
-      return null;
-    }
     return (
       <LegacyTabs.TabPane
         tab={<FormattedMessage defaultMessage="Traces" description="Run details page > tab selector > Traces tab" />}

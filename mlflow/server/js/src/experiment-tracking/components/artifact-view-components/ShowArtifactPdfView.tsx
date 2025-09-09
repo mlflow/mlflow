@@ -6,7 +6,6 @@
  */
 
 import React, { Component } from 'react';
-// @ts-expect-error TS(7016): Could not find a declaration file for module 'reac... Remove this comment to see the full error message
 import { Document, Page, pdfjs } from 'react-pdf';
 import { Pagination, Spinner } from '@databricks/design-system';
 import {
@@ -21,10 +20,9 @@ import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
 import { ArtifactViewErrorState } from './ArtifactViewErrorState';
 import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
 import { fetchArtifactUnified, type FetchArtifactUnifiedFn } from './utils/fetchArtifactUnified';
+import { setupReactPDFWorker } from './utils/setupReactPDFWorker';
 
-// See: https://github.com/wojtekmaj/react-pdf/blob/master/README.md#enable-pdfjs-worker for how
-// workerSrc is supposed to be specified.
-pdfjs.GlobalWorkerOptions.workerSrc = `./static-files/pdf.worker.js`;
+setupReactPDFWorker(pdfjs);
 
 type Props = {
   runUuid: string;
@@ -49,10 +47,13 @@ class ShowArtifactPdfView extends Component<Props, State> {
 
   /** Fetches artifacts and updates component state with the result */
   fetchPdf() {
-    const { path, runUuid, isLoggedModelsMode, loggedModelId, experimentId } = this.props;
+    const { path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags } = this.props;
 
     this.props
-      .getArtifact?.({ path, runUuid, isLoggedModelsMode, loggedModelId, experimentId }, getArtifactBytesContent)
+      .getArtifact?.(
+        { path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags },
+        getArtifactBytesContent,
+      )
       .then((artifactPdfData: any) => {
         this.setState({ pdfData: { data: artifactPdfData }, loading: false });
       })
@@ -65,8 +66,18 @@ class ShowArtifactPdfView extends Component<Props, State> {
     this.fetchPdf();
   }
 
+  resetPDFState() {
+    this.setState({
+      pdfData: undefined,
+      loading: true,
+      currentPage: 1,
+      numPages: 1,
+    });
+  }
+
   componentDidUpdate(prevProps: Props) {
     if (this.props.path !== prevProps.path || this.props.runUuid !== prevProps.runUuid) {
+      this.resetPDFState();
       this.fetchPdf();
     }
   }
@@ -86,8 +97,8 @@ class ShowArtifactPdfView extends Component<Props, State> {
   renderPdf = () => {
     return (
       <React.Fragment>
-        <div className="pdf-viewer">
-          <div className="paginator">
+        <div className="mlflow-pdf-viewer">
+          <div className="mlflow-paginator">
             <Pagination
               // @ts-expect-error TS(2322): Type '{ simple: true; currentPageIndex: number; nu... Remove this comment to see the full error message
               simple
@@ -102,14 +113,19 @@ class ShowArtifactPdfView extends Component<Props, State> {
               dangerouslySetAntdProps={{ simple: true }}
             />
           </div>
-          <div className="document">
+          <div className="mlflow-document">
             <Document
               file={this.state.pdfData}
               onLoadSuccess={this.onDocumentLoadSuccess}
               onLoadError={this.onDocumentLoadError}
               loading={<Spinner />}
             >
-              <Page pageNumber={this.state.currentPage} loading={<Spinner />} />
+              <Page
+                pageNumber={this.state.currentPage}
+                loading={<Spinner />}
+                renderTextLayer={false}
+                renderAnnotationLayer={false}
+              />
             </Document>
           </div>
         </div>
@@ -124,7 +140,7 @@ class ShowArtifactPdfView extends Component<Props, State> {
     if (this.state.error) {
       return <ArtifactViewErrorState className="artifact-pdf-view-error" />;
     } else {
-      return <div className="pdf-outer-container">{this.renderPdf()}</div>;
+      return <div className="mlflow-pdf-outer-container">{this.renderPdf()}</div>;
     }
   }
 }

@@ -40,18 +40,18 @@ export const Descriptions = ({ children, columns }: React.PropsWithChildren<Desc
 
 Descriptions.Item = ({ label, labelSize = 'sm', children, span }: React.PropsWithChildren<DescriptionsItemProps>) => {
   return (
-    <div data-test-id="descriptions-item" css={styles.descriptionItem(span || 1)}>
-      <div data-test-id="descriptions-item-label" css={{ whiteSpace: 'nowrap' }}>
+    <div data-testid="descriptions-item" css={styles.descriptionItem(span || 1)}>
+      <div data-testid="descriptions-item-label" css={{ whiteSpace: 'nowrap' }}>
         <Typography.Text size={labelSize} color="secondary">
           {label}
         </Typography.Text>
       </div>
-      <div data-test-id="descriptions-item-colon" css={styles.colon}>
+      <div data-testid="descriptions-item-colon" css={styles.colon}>
         <Typography.Text size={labelSize} color="secondary">
           :
         </Typography.Text>
       </div>
-      <div data-test-id="descriptions-item-content">{children}</div>
+      <div data-testid="descriptions-item-content">{children}</div>
     </div>
   );
 };

@@ -1,7 +1,7 @@
 import json
 import logging
 from functools import cached_property
-from typing import Any, Optional, Union
+from typing import Any
 
 import numpy as np
 
@@ -33,8 +33,8 @@ class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         features,
         source: DatasetSource,
         targets=None,
-        name: Optional[str] = None,
-        digest: Optional[str] = None,
+        name: str | None = None,
+        digest: str | None = None,
     ):
         """
         Args:
@@ -77,7 +77,7 @@ class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         self._targets = targets
         super().__init__(source=source, name=name, digest=digest)
 
-    def _compute_tensorflow_dataset_digest(  # noqa: D417
+    def _compute_tensorflow_dataset_digest(
         self,
         dataset,
         targets=None,
@@ -182,7 +182,7 @@ class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return self._targets
 
     @property
-    def profile(self) -> Optional[Any]:
+    def profile(self) -> Any | None:
         """
         A profile of the dataset. May be None if no profile is available.
         """
@@ -204,7 +204,7 @@ class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return profile
 
     @cached_property
-    def schema(self) -> Optional[TensorDatasetSchema]:
+    def schema(self) -> TensorDatasetSchema | None:
         """
         An MLflow TensorSpec schema representing the tensor dataset
         """
@@ -308,10 +308,10 @@ class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
 def from_tensorflow(
     features,
-    source: Optional[Union[str, DatasetSource]] = None,
+    source: str | DatasetSource | None = None,
     targets=None,
-    name: Optional[str] = None,
-    digest: Optional[str] = None,
+    name: str | None = None,
+    digest: str | None = None,
 ) -> TensorFlowDataset:
     """Constructs a TensorFlowDataset object from TensorFlow data, optional targets, and source.
 

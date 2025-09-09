@@ -12,17 +12,19 @@ Prophet's strength lies in its intuitive approach to complex time series pattern
 <details>
   <summary>Why Prophet Transforms Time Series Forecasting</summary>
 
-  #### Production-Ready Forecasting
-  - 🚀 **Business-Friendly**: Intuitive parameters that align with business understanding
-  - 📊 **Handles Reality**: Robust to missing data, outliers, and trend changes
-  - 🎯 **Automatic Seasonality**: Built-in daily, weekly, and yearly seasonal patterns
-  - 📈 **Holiday Effects**: Native support for holiday and special event modeling
+#### Production-Ready Forecasting
 
-  #### Analyst-Focused Design
-  - 🔧 **Minimal Configuration**: Works well with default parameters out of the box
-  - 📚 **Interpretable Components**: Clear decomposition of trend, seasonality, and holidays
-  - 🎨 **Rich Visualizations**: Built-in plotting for forecast components and diagnostics
-  - ⚡ **Fast and Scalable**: Optimized Stan implementation for quick iteration
+- 🚀 **Business-Friendly**: Intuitive parameters that align with business understanding
+- 📊 **Handles Reality**: Robust to missing data, outliers, and trend changes
+- 🎯 **Automatic Seasonality**: Built-in daily, weekly, and yearly seasonal patterns
+- 📈 **Holiday Effects**: Native support for holiday and special event modeling
+
+#### Analyst-Focused Design
+
+- 🔧 **Minimal Configuration**: Works well with default parameters out of the box
+- 📚 **Interpretable Components**: Clear decomposition of trend, seasonality, and holidays
+- 🎨 **Rich Visualizations**: Built-in plotting for forecast components and diagnostics
+- ⚡ **Fast and Scalable**: Optimized Stan implementation for quick iteration
 
 </details>
 
@@ -94,20 +96,23 @@ with mlflow.start_run():
 <details>
   <summary>What Gets Automatically Captured</summary>
 
-  #### Model Configuration
-  - ⚙️ **Core Parameters**: Changepoint detection, seasonality strength, holiday effects
-  - 🎯 **Seasonality Settings**: Yearly, weekly, daily seasonality configurations
-  - 🔧 **Advanced Options**: Custom seasonalities, additional regressors, growth models
+#### Model Configuration
 
-  #### Forecast Performance
-  - 📈 **Cross-Validation Metrics**: MSE, RMSE, MAE, MAPE across different forecast horizons
-  - 📊 **Forecast Components**: Trend, seasonal patterns, holiday effects decomposition
-  - 🎯 **Prediction Intervals**: Uncertainty quantification for forecast confidence
+- ⚙️ **Core Parameters**: Changepoint detection, seasonality strength, holiday effects
+- 🎯 **Seasonality Settings**: Yearly, weekly, daily seasonality configurations
+- 🔧 **Advanced Options**: Custom seasonalities, additional regressors, growth models
 
-  #### Production Artifacts
-  - 🤖 **Serialized Models**: Prophet models in native format for deployment
-  - 📋 **Model Signatures**: Automatic input/output schema inference
-  - 📊 **Input Examples**: Sample data for model documentation and testing
+#### Forecast Performance
+
+- 📈 **Cross-Validation Metrics**: MSE, RMSE, MAE, MAPE across different forecast horizons
+- 📊 **Forecast Components**: Trend, seasonal patterns, holiday effects decomposition
+- 🎯 **Prediction Intervals**: Uncertainty quantification for forecast confidence
+
+#### Production Artifacts
+
+- 🤖 **Serialized Models**: Prophet models in native format for deployment
+- 📋 **Model Signatures**: Automatic input/output schema inference
+- 📊 **Input Examples**: Sample data for model documentation and testing
 
 </details>
 
@@ -118,12 +123,12 @@ Prophet's sophisticated time series capabilities are fully supported:
 <details>
   <summary>Comprehensive Time Series Modeling</summary>
 
-  - 📅 **Holiday Modeling**: Built-in support for country-specific holidays and custom events
-  - 📈 **Growth Models**: Linear and logistic growth with capacity constraints
-  - 🔄 **Changepoint Detection**: Automatic detection of trend changes with manual override options
-  - 📊 **Custom Seasonalities**: Add business-specific seasonal patterns (monthly, quarterly)
-  - 🎯 **Additional Regressors**: Include external variables that affect your time series
-  - 📉 **Multiplicative Seasonality**: Handle seasonal effects that scale with trend magnitude
+- 📅 **Holiday Modeling**: Built-in support for country-specific holidays and custom events
+- 📈 **Growth Models**: Linear and logistic growth with capacity constraints
+- 🔄 **Changepoint Detection**: Automatic detection of trend changes with manual override options
+- 📊 **Custom Seasonalities**: Add business-specific seasonal patterns (monthly, quarterly)
+- 🎯 **Additional Regressors**: Include external variables that affect your time series
+- 📉 **Multiplicative Seasonality**: Handle seasonal effects that scale with trend magnitude
 
 </details>
 
@@ -134,17 +139,19 @@ Prophet's business-focused design principles are enhanced by MLflow's tracking:
 <details>
   <summary>Enterprise Forecasting Capabilities</summary>
 
-  #### Forecast Validation
-  - 🔍 **Cross-Validation**: Time series-aware validation with historical simulation
-  - 📊 **Performance Metrics**: Business-relevant metrics like MAPE for percentage errors
-  - 📈 **Horizon Analysis**: Performance evaluation across different forecast periods
-  - 🎯 **Residual Analysis**: Systematic error pattern detection and diagnosis
+#### Forecast Validation
 
-  #### Business Integration
-  - 📅 **Calendar Integration**: Automatic handling of business calendars and holidays
-  - 💼 **Capacity Planning**: Logistic growth models for resource-constrained scenarios
-  - 📊 **Scenario Analysis**: Multiple forecasts with different parameter configurations
-  - 🔄 **Model Updates**: Easy retraining with new data while preserving experiment history
+- 🔍 **Cross-Validation**: Time series-aware validation with historical simulation
+- 📊 **Performance Metrics**: Business-relevant metrics like MAPE for percentage errors
+- 📈 **Horizon Analysis**: Performance evaluation across different forecast periods
+- 🎯 **Residual Analysis**: Systematic error pattern detection and diagnosis
+
+#### Business Integration
+
+- 📅 **Calendar Integration**: Automatic handling of business calendars and holidays
+- 💼 **Capacity Planning**: Logistic growth models for resource-constrained scenarios
+- 📊 **Scenario Analysis**: Multiple forecasts with different parameter configurations
+- 🔄 **Model Updates**: Easy retraining with new data while preserving experiment history
 
 </details>
 
@@ -155,13 +162,13 @@ For large-scale Prophet deployments with hundreds or thousands of models, some p
 :::tip
 Bulk Logging for Performance
 
-  When training many Prophet models (e.g., individual forecasts for thousands of products or locations), avoid overwhelming the MLflow tracking server by using bulk logging approaches:
+When training many Prophet models (e.g., individual forecasts for thousands of products or locations), avoid overwhelming the MLflow tracking server by using bulk logging approaches:
 
-  - 🚀 **In-Memory Aggregation**: Store metrics and parameters in lists/dictionaries during training
-  - 📦 **Batch API Calls**: Use MLflow's bulk logging APIs (`log_metrics()`, `log_params()`) with dictionaries to reduce network overhead
-  - ⚡ **Reduced I/O**: Minimize tracking server requests by batching logging operations
-  - 🎯 **Selective Logging**: Log only essential metrics and parameters for large-scale experiments
-:::
+- 🚀 **In-Memory Aggregation**: Store metrics and parameters in lists/dictionaries during training
+- 📦 **Batch API Calls**: Use MLflow's bulk logging APIs (`log_metrics()`, `log_params()`) with dictionaries to reduce network overhead
+- ⚡ **Reduced I/O**: Minimize tracking server requests by batching logging operations
+- 🎯 **Selective Logging**: Log only essential metrics and parameters for large-scale experiments
+  :::
 
 ## Real-World Applications
 
@@ -182,10 +189,10 @@ The MLflow-Prophet integration excels across diverse time series forecasting use
 <details>
   <summary>Sophisticated Model Validation</summary>
 
-  - 🔄 **Time Series Cross-Validation**: Proper temporal validation avoiding data leakage
-  - 📊 **Multiple Horizon Evaluation**: Performance assessment across short and long-term forecasts
-  - 🎯 **Parameter Optimization**: Systematic hyperparameter tuning with MLflow tracking
-  - 📈 **Model Comparison**: Side-by-side evaluation of different Prophet configurations
+- 🔄 **Time Series Cross-Validation**: Proper temporal validation avoiding data leakage
+- 📊 **Multiple Horizon Evaluation**: Performance assessment across short and long-term forecasts
+- 🎯 **Parameter Optimization**: Systematic hyperparameter tuning with MLflow tracking
+- 📈 **Model Comparison**: Side-by-side evaluation of different Prophet configurations
 
 </details>
 
@@ -194,10 +201,10 @@ The MLflow-Prophet integration excels across diverse time series forecasting use
 <details>
   <summary>Rich Forecast Analysis</summary>
 
-  - 📊 **Component Plots**: Automated logging of trend, seasonality, and holiday components
-  - 📈 **Forecast Visualization**: Interactive plots showing predictions with uncertainty intervals
-  - 🔍 **Diagnostic Charts**: Residual analysis and model fit assessment visualizations
-  - 📅 **Calendar Heatmaps**: Seasonal pattern visualization for business insight
+- 📊 **Component Plots**: Automated logging of trend, seasonality, and holiday components
+- 📈 **Forecast Visualization**: Interactive plots showing predictions with uncertainty intervals
+- 🔍 **Diagnostic Charts**: Residual analysis and model fit assessment visualizations
+- 📅 **Calendar Heatmaps**: Seasonal pattern visualization for business insight
 
 </details>
 
@@ -208,23 +215,26 @@ Our comprehensive developer guide covers the complete spectrum of Prophet-MLflow
 <details>
   <summary>Complete Learning Journey</summary>
 
-  #### Foundation Skills
-  - ⚡ Set up Prophet model logging for immediate experiment tracking
-  - 📊 Master time series data preparation and Prophet's data requirements
-  - 🎯 Understand seasonality configuration and parameter tuning
-  - 🔧 Configure cross-validation for proper time series model evaluation
+#### Foundation Skills
 
-  #### Advanced Techniques
-  - 📅 Implement holiday and special event modeling for business calendars
-  - 📈 Add custom seasonalities and external regressors for complex patterns
-  - 🚀 Deploy Prophet models with MLflow's serving infrastructure
-  - 📊 Build comprehensive forecast validation and monitoring pipelines
+- ⚡ Set up Prophet model logging for immediate experiment tracking
+- 📊 Master time series data preparation and Prophet's data requirements
+- 🎯 Understand seasonality configuration and parameter tuning
+- 🔧 Configure cross-validation for proper time series model evaluation
 
-  #### Production Excellence
-  - 🏭 Build production-ready forecasting systems with proper experiment governance
-  - 👥 Implement team collaboration workflows for shared forecasting model development
-  - 🔍 Set up automated model retraining and forecast monitoring
-  - 📋 Establish forecasting model registry with business approval workflows
+#### Advanced Techniques
+
+- 📅 Implement holiday and special event modeling for business calendars
+- 📈 Add custom seasonalities and external regressors for complex patterns
+- 🚀 Deploy Prophet models with MLflow's serving infrastructure
+- 📊 Build comprehensive forecast validation and monitoring pipelines
+
+#### Production Excellence
+
+- 🏭 Build production-ready forecasting systems with proper experiment governance
+- 👥 Implement team collaboration workflows for shared forecasting model development
+- 🔍 Set up automated model retraining and forecast monitoring
+- 📋 Establish forecasting model registry with business approval workflows
 
 </details>
 

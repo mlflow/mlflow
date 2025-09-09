@@ -3,8 +3,8 @@ import math
 import os
 import random
 import signal
-from collections import namedtuple
 from io import StringIO
+from typing import Any, NamedTuple
 
 import keras
 import numpy as np
@@ -47,7 +47,9 @@ else:
     from keras.optimizers import SGD
 
 
-ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
+class ModelWithData(NamedTuple):
+    model: Any
+    inference_data: Any
 
 
 def build_and_save_sklearn_model(model_path):
@@ -764,7 +766,7 @@ def test_parse_json_input_including_path():
         ({"timeout": 30}, "", "30"),
     ],
 )
-def test_get_cmd(args: dict, expected: str, timeout: str):
+def test_get_cmd(args: dict[str, Any], expected: str, timeout: str):
     cmd, env = get_cmd(model_uri="foo", **args)
 
     assert cmd == (f"uvicorn {expected} mlflow.pyfunc.scoring_server.app:app")

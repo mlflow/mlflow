@@ -1,0 +1,16 @@
+// This file is only imported when shadow dom is disabled
+// See webapp/web/app.config.ts
+
+.mlflow-ui-container a {
+  text-decoration: none;
+}
+
+@import '../common/components/EditableNote.css';
+@import '../model-registry/index.css';
+
+#mlflow-mfe-root,
+#mlflow-mfe-react-root,
+#feature-store-mfe-root,
+#feature-store-mfe-react-root {
+  height: 100%;
+}

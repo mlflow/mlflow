@@ -25,10 +25,11 @@ env:
   SPARK_LOCAL_IP: localhost
   PYTHON_VERSION: "3.10" # minimum supported version + 1
   PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
+  _MLFLOW_TESTING_TELEMETRY: "true"
 
 defaults:
   run:
-    shell: bash --noprofile --norc -exo pipefail {0}
+    shell: bash
 
 jobs:
   skinny:

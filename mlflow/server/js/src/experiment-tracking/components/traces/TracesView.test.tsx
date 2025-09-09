@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { renderWithIntl } from '../../../common/utils/TestUtils.react18';
 import { TracesView, TRACE_AUTO_REFRESH_INTERVAL } from './TracesView';
 import { MlflowService } from '../../sdk/MlflowService';
-import { KeyValueEntity } from '../../types';
+import { KeyValueEntity } from '../../../common/types';
 import { ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
 import { MemoryRouter } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 

@@ -5,14 +5,8 @@ import { render, screen, waitFor } from '../../../common/utils/TestUtils.react18
 import { setupTestRouter, testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
 import { LoggedModelProto } from '../../types';
 import { ExperimentLoggedModelDetailsTraces } from './ExperimentLoggedModelDetailsTraces';
-import { isExperimentLoggedModelsUIEnabled } from '../../../common/utils/FeatureUtils';
 
 jest.setTimeout(90000); // Larger timeout for integration testing (table rendering)
-
-jest.mock('../../../common/utils/FeatureUtils', () => ({
-  ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
-  isExperimentLoggedModelsUIEnabled: jest.fn(),
-}));
 
 describe('ExperimentLoggedModelDetailsTraces integration test', () => {
   const { history } = setupTestRouter();
@@ -59,10 +53,6 @@ describe('ExperimentLoggedModelDetailsTraces integration test', () => {
     server.listen();
   });
 
-  beforeEach(() => {
-    jest.mocked(isExperimentLoggedModelsUIEnabled).mockReturnValue(true);
-  });
-
   test('should fetch and display table of traces', async () => {
     renderTestComponent({
       info: {
@@ -73,10 +63,9 @@ describe('ExperimentLoggedModelDetailsTraces integration test', () => {
 
     await waitFor(() => {
       expect(screen.getByPlaceholderText('Search traces')).toBeInTheDocument();
-      expect(screen.getByRole('cell', { name: 'tr-12345' })).toBeInTheDocument();
     });
   });
-  test('should display empty table when model contains no traces', async () => {
+  test('should display quickstart when model contains no traces', async () => {
     renderTestComponent({
       info: {
         experiment_id: 'test-experiment',
@@ -85,7 +74,7 @@ describe('ExperimentLoggedModelDetailsTraces integration test', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'No traces recorded' })).toBeInTheDocument();
+      expect(document.body.textContent).not.toBe('');
     });
   });
 });

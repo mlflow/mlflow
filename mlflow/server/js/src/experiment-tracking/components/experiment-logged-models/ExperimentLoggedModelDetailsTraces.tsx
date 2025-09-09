@@ -20,12 +20,24 @@ export const ExperimentLoggedModelDetailsTraces = ({ loggedModel }: { loggedMode
         }
         displayVersionWarnings={false}
       >
-        <TracesView
-          experimentIds={experimentIds}
-          loggedModelId={loggedModel.info?.model_id}
-          baseComponentId="mlflow.logged_model.traces"
-        />
+        <TracesComponent experimentIds={experimentIds} loggedModelId={loggedModel.info?.model_id} />
       </TracesViewTableNoTracesQuickstartContextProvider>
     </div>
+  );
+};
+
+const TracesComponent = ({
+  experimentIds,
+  loggedModelId,
+}: {
+  experimentIds: string[];
+  loggedModelId: string | undefined;
+}) => {
+  return (
+    <TracesView
+      experimentIds={experimentIds}
+      loggedModelId={loggedModelId}
+      baseComponentId="mlflow.logged_model.traces"
+    />
   );
 };

@@ -1,12 +1,14 @@
 import {
   Button,
   ChartLineIcon,
+  Checkbox,
   ListIcon,
   SegmentedControlButton,
   SegmentedControlGroup,
   SortAscendingIcon,
   SortDescendingIcon,
   Tooltip,
+  Typography,
   useDesignSystemTheme,
   visuallyHidden,
 } from '@databricks/design-system';
@@ -21,6 +23,9 @@ import { ExperimentLoggedModelListPageAutoComplete } from './ExperimentLoggedMod
 import { LoggedModelMetricDataset, LoggedModelProto } from '../../types';
 import { ExperimentLoggedModelListPageDatasetDropdown } from './ExperimentLoggedModelListPageDatasetDropdown';
 import { ExperimentLoggedModelListPageOrderBySelector } from './ExperimentLoggedModelListPageOrderBySelector';
+import { LoggedModelsTableGroupByMode } from './ExperimentLoggedModelListPageTable.utils';
+import { ExperimentLoggedModelListPageGroupBySelector } from './ExperimentLoggedModelListPageGroupBySelector';
+import { shouldEnableLoggedModelsGrouping } from '../../../common/utils/FeatureUtils';
 
 export const ExperimentLoggedModelListPageControls = ({
   orderByColumn,
@@ -38,9 +43,13 @@ export const ExperimentLoggedModelListPageControls = ({
   selectedFilterDatasets,
   onToggleDataset,
   onClearSelectedDatasets,
+  groupBy,
+  onChangeGroupBy,
 }: {
   orderByColumn?: string;
   orderByAsc?: boolean;
+  groupBy?: LoggedModelsTableGroupByMode;
+  onChangeGroupBy?: (groupBy: LoggedModelsTableGroupByMode | undefined) => void;
   sortingAndFilteringEnabled?: boolean;
   onChangeOrderBy: (orderByColumn: string, orderByAsc: boolean) => void;
   onUpdateColumns: (columnVisibility: Record<string, boolean>) => void;
@@ -145,6 +154,9 @@ export const ExperimentLoggedModelListPageControls = ({
         onUpdateColumns={onUpdateColumns}
         disabled={viewMode === ExperimentLoggedModelListPageMode.CHART}
       />
+      {shouldEnableLoggedModelsGrouping() && (
+        <ExperimentLoggedModelListPageGroupBySelector groupBy={groupBy} onChangeGroupBy={onChangeGroupBy} />
+      )}
     </div>
   );
 };

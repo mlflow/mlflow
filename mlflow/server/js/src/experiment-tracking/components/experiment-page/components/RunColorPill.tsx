@@ -55,6 +55,7 @@ export const RunColorPill = ({
   return (
     <label
       css={{
+        boxSizing: 'border-box',
         width: 12,
         height: 12,
         borderRadius: 6,

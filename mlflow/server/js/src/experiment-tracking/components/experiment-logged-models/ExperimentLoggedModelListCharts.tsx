@@ -29,10 +29,12 @@ const ExperimentLoggedModelListChartsImpl = memo(
     chartData,
     uiState,
     metricKeysByDataset,
+    minWidth,
   }: {
     chartData: RunsChartsRunData[];
     uiState: ExperimentRunsChartsUIConfiguration;
     metricKeysByDataset: RunsChartsMetricByDatasetEntry[];
+    minWidth: number;
   }) => {
     const { theme } = useDesignSystemTheme();
     const { formatMessage } = useIntl();
@@ -92,7 +94,7 @@ const ExperimentLoggedModelListChartsImpl = memo(
     return (
       <div
         css={{
-          backgroundColor: theme.colors.backgroundSecondary,
+          backgroundColor: theme.colors.backgroundPrimary,
           paddingLeft: theme.spacing.md,
           paddingRight: theme.spacing.md,
           paddingBottom: theme.spacing.md,
@@ -103,6 +105,7 @@ const ExperimentLoggedModelListChartsImpl = memo(
           flex: 1,
           overflow: 'hidden',
           display: 'flex',
+          minWidth,
         }}
       >
         <div
@@ -184,7 +187,15 @@ const ExperimentLoggedModelListChartsImpl = memo(
 );
 
 export const ExperimentLoggedModelListCharts = memo(
-  ({ loggedModels, experimentId }: { loggedModels: LoggedModelProto[]; experimentId: string }) => {
+  ({
+    loggedModels,
+    experimentId,
+    minWidth,
+  }: {
+    loggedModels: LoggedModelProto[];
+    experimentId: string;
+    minWidth: number;
+  }) => {
     const { theme } = useDesignSystemTheme();
 
     // Perform deep comparison on the logged models to avoid re-rendering the charts when the logged models change.
@@ -204,7 +215,7 @@ export const ExperimentLoggedModelListCharts = memo(
       return (
         <div
           css={{
-            backgroundColor: theme.colors.backgroundSecondary,
+            backgroundColor: theme.colors.backgroundPrimary,
             paddingTop: theme.spacing.lg,
             borderTop: `1px solid ${theme.colors.border}`,
             borderLeft: `1px solid ${theme.colors.border}`,
@@ -224,6 +235,7 @@ export const ExperimentLoggedModelListCharts = memo(
           chartData={chartData}
           uiState={chartUIState}
           metricKeysByDataset={metricsByDataset}
+          minWidth={minWidth}
         />
       </RunsChartsUIConfigurationContextProvider>
     );

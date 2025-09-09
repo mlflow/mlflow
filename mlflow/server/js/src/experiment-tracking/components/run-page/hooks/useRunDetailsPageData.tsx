@@ -12,13 +12,13 @@ import {
   UseGetRunQueryResponseRunInfo,
 } from './useGetRunQuery';
 import {
-  KeyValueEntity,
   RunDatasetWithTags,
   type ExperimentEntity,
   type MetricEntitiesByName,
   type MetricEntity,
   type RunInfoEntity,
 } from '../../../types';
+import { KeyValueEntity } from '../../../../common/types';
 import {
   shouldEnableGraphQLModelVersionsForRunDetails,
   shouldEnableGraphQLRunDetailsPage,

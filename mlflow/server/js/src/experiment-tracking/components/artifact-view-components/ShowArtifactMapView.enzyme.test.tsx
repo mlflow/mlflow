@@ -35,6 +35,7 @@ describe('ShowArtifactMapView', () => {
     expect(wrapper.length).toBe(1);
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should render error message when error occurs', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.reject(new Error('my error text'));
@@ -56,6 +57,7 @@ describe('ShowArtifactMapView', () => {
     expect(wrapper.find('.artifact-map-view-loading').length).toBe(1);
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should render simple geoJSON in map view', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       const geojson = {
@@ -92,7 +94,7 @@ describe('ShowArtifactMapView', () => {
     instance = wrapper.instance();
     instance.fetchArtifacts = jest.fn();
     wrapper.setProps({ path: 'newpath', runUuid: 'newRunId' });
-    expect(instance.fetchArtifacts).toBeCalled();
-    expect(instance.props.getArtifact).toBeCalled();
+    expect(instance.fetchArtifacts).toHaveBeenCalled();
+    expect(instance.props.getArtifact).toHaveBeenCalled();
   });
 });

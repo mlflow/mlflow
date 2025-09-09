@@ -23,6 +23,12 @@ describe('ModelVersionTable', () => {
     onMetadataUpdated: jest.fn(),
     usingNextModelsUI: false,
     aliases: [],
+    isLoading: false,
+    pagination: <div>Pagination</div>,
+    orderByKey: 'name',
+    orderByAsc: true,
+    getSortFieldName: jest.fn().mockReturnValue('name'),
+    onSortChange: jest.fn(),
   };
 
   const mockStoreFactory = configureStore([thunk, promiseMiddleware()]);

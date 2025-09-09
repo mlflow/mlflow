@@ -5,19 +5,15 @@
  * annotations are already looking good, please remove this comment.
  */
 
-import React from 'react';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import { mockModelVersionDetailed, mockRegisteredModelDetailed } from '../test-utils';
-import { ModelVersionStatus, Stages } from '../constants';
+import { ModelVersionStatus, Stages, MODEL_VERSIONS_PER_PAGE_COMPACT } from '../constants';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import { ModelPageImpl, ModelPage } from './ModelPage';
-import Utils from '../../common/utils/Utils';
 import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
-import { ModelRegistryRoutes } from '../routes';
-import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 
 describe('ModelPage', () => {
   let wrapper;
@@ -26,6 +22,7 @@ describe('ModelPage', () => {
   let minimalStore: any;
   const mockStore = configureStore([thunk, promiseMiddleware()]);
   const navigate = jest.fn();
+  const loadPageMock = (page: any, isInitialLoading: any) => {};
 
   beforeEach(() => {
     jest.resetAllMocks();
@@ -62,7 +59,7 @@ describe('ModelPage', () => {
     expect(wrapper.find(ModelPage).length).toBe(1);
   });
 
-  test('should redirect to model listing page when model is deleted', async () => {
+  test('the states should be correctly set when page is loaded initially', () => {
     wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <MemoryRouter>
@@ -71,11 +68,7 @@ describe('ModelPage', () => {
       </Provider>,
     );
     instance = wrapper.find(ModelPageImpl).instance();
-    const mockError = new ErrorWrapper('{ "error_code": "RESOURCE_DOES_NOT_EXIST", "message": "Foo!" }', 404);
-
-    Utils.isBrowserTabVisible = jest.fn(() => true);
-    instance.loadData = jest.fn().mockReturnValue(Promise.reject(mockError));
-    await instance.pollData();
-    expect(navigate).toHaveBeenCalledWith(ModelRegistryRoutes.modelListPageRoute);
+    jest.spyOn(instance, 'loadPage').mockImplementation(loadPageMock);
+    expect(instance.state.maxResultsSelection).toBe(MODEL_VERSIONS_PER_PAGE_COMPACT);
   });
 });

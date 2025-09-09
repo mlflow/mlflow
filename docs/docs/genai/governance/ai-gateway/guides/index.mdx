@@ -1,19 +1,52 @@
-# Getting Started with MLflow Deployments for LLMs
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import ConceptOverview from "@site/src/components/ConceptOverview";
+import { Settings, Zap, Globe, Database } from "lucide-react";
 
-MLflow provides a robust framework for deploying and managing machine learning models. In this tutorial, we will explore how to set up an
-MLflow AI Gateway tailored for OpenAI's models, allowing seamless integration and querying of OpenAI's powerful language models.
+# Getting Started with MLflow AI Gateway
 
-What's in this tutorial?
+MLflow AI Gateway provides a unified interface for deploying and managing LLM providers, offering centralized API key management and seamless integration with multiple language model services.
 
-This guide will cover:
+<ConceptOverview concepts={[
+  {
+    icon: Settings,
+    title: "Installation & Setup",
+    description: "Install dependencies and configure your AI Gateway environment"
+  },
+  {
+    icon: Database,
+    title: "Configuration",
+    description: "Set up API keys and define endpoints for multiple LLM providers"
+  },
+  {
+    icon: Zap,
+    title: "Gateway Server",
+    description: "Launch and manage your AI Gateway server with zero downtime updates"
+  },
+  {
+    icon: Globe,
+    title: "API Integration",
+    description: "Query endpoints using REST APIs and Python client libraries"
+  }
+]} />
 
-- **Installation**: Setting up the necessary dependencies and tools to get your MLflow AI Gateway up and running.
-- **Configuration**: How to expose your OpenAI token, configure the gateway server, and define routes for various OpenAI models.
-- **Starting the gateway server**: Launching the gateway server and ensuring it's operational.
-- **Querying the gateway server**: Interacting with the gateway server using fluent APIs to query various OpenAI models, including completions, chat, and embeddings.
+By following this guide, you'll have a production-ready MLflow AI Gateway that centralizes access to multiple LLM providers with secure API key management and unified endpoint configuration.
 
-By the end of this tutorial, you'll have a fully functional MLflow AI Gateway tailored for OpenAI, ready to handle and process requests.
-You'll also gain insights into querying different types of routes, providers, and models through the gateway server.
+## Step-by-Step Tutorials
 
-- [Setting Up the MLflow AI Gateway](/genai/governance/ai-gateway/guides/step1-create-deployments)
-- [Querying the MLflow AI Gateway](/genai/governance/ai-gateway/guides/step2-query-deployments)
+<TilesGrid>
+  <TileCard
+    icon={Settings}
+    title="Setting Up the MLflow AI Gateway"
+    description="Install dependencies, configure providers, and launch your gateway server"
+    href="/genai/governance/ai-gateway/guides/step1-create-deployments"
+    linkText="Setup guide →"
+  />
+  <TileCard
+    icon={Globe}
+    title="Querying the MLflow AI Gateway"
+    description="Interact with endpoints using Python client APIs and REST requests"
+    href="/genai/governance/ai-gateway/guides/step2-query-deployments"
+    linkText="Query guide →"
+  />
+</TilesGrid>

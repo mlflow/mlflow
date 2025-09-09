@@ -18,6 +18,7 @@ describe('ShowArtifactVideoView', () => {
         path="foo/bar/video.mp4"
         getArtifact={getArtifactMock}
         isLoggedModelsMode={false}
+        experimentId="experiment-123"
       />,
     );
 

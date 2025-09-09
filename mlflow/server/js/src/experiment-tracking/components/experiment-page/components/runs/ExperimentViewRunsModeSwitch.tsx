@@ -5,11 +5,7 @@ import type { ExperimentViewRunsCompareMode } from '../../../../types';
 import { PreviewBadge } from '@mlflow/mlflow/src/shared/building_blocks/PreviewBadge';
 import { FeatureBadge } from '@mlflow/mlflow/src/shared/building_blocks/FeatureBadge';
 import { getExperimentPageDefaultViewMode, useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
-import {
-  isExperimentLoggedModelsUIEnabled,
-  shouldEnableTracingUI,
-  shouldUseRenamedUnifiedTracesTab,
-} from '../../../../../common/utils/FeatureUtils';
+import { shouldUseRenamedUnifiedTracesTab } from '../../../../../common/utils/FeatureUtils';
 import { MONITORING_BETA_EXPIRATION_DATE } from '../../../../constants';
 import { useExperimentPageSearchFacets } from '../../hooks/useExperimentPageSearchFacets';
 
@@ -80,7 +76,7 @@ export const ExperimentViewRunsModeSwitch = ({
         key="RUNS"
       />
       {/* Display the "Models" tab if we have only one experiment and the feature is enabled. */}
-      {singleExperimentId && isExperimentLoggedModelsUIEnabled() && (
+      {singleExperimentId && (
         <LegacyTabs.TabPane
           key="MODELS"
           tab={
@@ -149,19 +145,17 @@ export const ExperimentViewRunsModeSwitch = ({
         }
         key="ARTIFACT"
       />
-      {shouldEnableTracingUI() && (
-        <LegacyTabs.TabPane
-          tab={
-            <span data-testid="experiment-runs-mode-switch-traces">
-              <FormattedMessage
-                defaultMessage="Traces"
-                description="A button enabling traces mode on the experiment page"
-              />
-            </span>
-          }
-          key="TRACES"
-        />
-      )}
+      <LegacyTabs.TabPane
+        tab={
+          <span data-testid="experiment-runs-mode-switch-traces">
+            <FormattedMessage
+              defaultMessage="Traces"
+              description="A button enabling traces mode on the experiment page"
+            />
+          </span>
+        }
+        key="TRACES"
+      />
     </LegacyTabs>
   );
 };

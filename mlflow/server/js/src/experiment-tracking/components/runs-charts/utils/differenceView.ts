@@ -1,6 +1,6 @@
 import { MLFLOW_SYSTEM_METRIC_PREFIX } from '@mlflow/mlflow/src/experiment-tracking/constants';
-import { KeyValueEntity, MetricEntitiesByName } from '@mlflow/mlflow/src/experiment-tracking/types';
-import { useCallback, useMemo } from 'react';
+import { MetricEntitiesByName } from '../../../types';
+import { KeyValueEntity } from '../../../../common/types';
 import { RunsChartsRunData } from '../components/RunsCharts.common';
 import { DifferenceCardAttributes, RunsChartsDifferenceCardConfig } from '../runs-charts.types';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';

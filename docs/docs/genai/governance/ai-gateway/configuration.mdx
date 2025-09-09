@@ -1,0 +1,311 @@
+# AI Gateway Configuration
+
+import TabsWrapper from "@site/src/components/TabsWrapper";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { Play, Book, Wrench } from "lucide-react";
+
+Configure providers, endpoints, and advanced settings for your MLflow AI Gateway.
+
+## Provider Configurations
+
+Configure endpoints for different LLM providers using these YAML examples:
+
+<TabsWrapper>
+<Tabs>
+<TabItem value="openai" label="OpenAI" default>
+
+```yaml
+endpoints:
+  - name: gpt4-chat
+    endpoint_type: llm/v1/chat
+    model:
+      provider: openai
+      name: gpt-4
+      config:
+        openai_api_key: $OPENAI_API_KEY
+        openai_api_base: https://api.openai.com/v1  # Optional
+        openai_organization: your_org_id  # Optional
+```
+
+</TabItem>
+<TabItem value="azure" label="Azure OpenAI">
+
+```yaml
+endpoints:
+  - name: azure-chat
+    endpoint_type: llm/v1/chat
+    model:
+      provider: azuread
+      name: gpt-35-turbo
+      config:
+        openai_api_key: $AZURE_OPENAI_API_KEY
+        openai_api_base: https://your-resource.openai.azure.com/
+        openai_api_version: "2023-05-15"
+        openai_deployment_name: your-deployment-name
+```
+
+</TabItem>
+<TabItem value="anthropic" label="Anthropic">
+
+```yaml
+endpoints:
+  - name: claude-chat
+    endpoint_type: llm/v1/chat
+    model:
+      provider: anthropic
+      name: claude-2
+      config:
+        anthropic_api_key: $ANTHROPIC_API_KEY
+```
+
+</TabItem>
+<TabItem value="bedrock" label="AWS Bedrock">
+
+```yaml
+endpoints:
+  - name: bedrock-chat
+    endpoint_type: llm/v1/chat
+    model:
+      provider: bedrock
+      name: anthropic.claude-instant-v1
+      config:
+        aws_config:
+          aws_access_key_id: $AWS_ACCESS_KEY_ID
+          aws_secret_access_key: $AWS_SECRET_ACCESS_KEY
+          aws_region: us-east-1
+```
+
+</TabItem>
+<TabItem value="cohere" label="Cohere">
+
+```yaml
+endpoints:
+  - name: cohere-completions
+    endpoint_type: llm/v1/completions
+    model:
+      provider: cohere
+      name: command
+      config:
+        cohere_api_key: $COHERE_API_KEY
+
+  - name: cohere-embeddings
+    endpoint_type: llm/v1/embeddings
+    model:
+      provider: cohere
+      name: embed-english-v2.0
+      config:
+        cohere_api_key: $COHERE_API_KEY
+```
+
+</TabItem>
+<TabItem value="mosaicai" label="MosaicAI">
+
+```yaml
+endpoints:
+  - name: mosaicai-chat
+    endpoint_type: llm/v1/chat
+    model:
+      provider: mosaicai
+      name: llama2-70b-chat
+      config:
+        mosaicai_api_key: $MOSAICAI_API_KEY
+```
+
+</TabItem>
+<TabItem value="databricks" label="Databricks">
+
+Databricks [Foundation Models APIs](https://docs.databricks.com/aws/en/machine-learning/foundation-model-apis/) are compatible with the OpenAI Chat Completions API, so you can use them with `openai` provider in the AI Gateway. Specify the endpoint name (e.g., `databricks-claude-sonnet-4`) in the `name` field and set the host and token as OpenAI API key and base URL respectively.
+
+```yaml
+endpoints:
+  - name: databricks-chat
+    endpoint_type: llm/v1/chat
+    model:
+      provider: openai
+      name: databricks-claude-sonnet-4
+      config:
+        openai_api_key: $DATABRICKS_TOKEN
+        openai_api_base: https://your-workspace.cloud.databricks.com/serving-endpoints/  # Replace with your Databricks workspace URL
+```
+
+</TabItem>
+<TabItem value="mlflow" label="MLflow Models">
+
+```yaml
+endpoints:
+  - name: custom-model
+    endpoint_type: llm/v1/chat
+    model:
+      provider: mlflow-model-serving
+      name: my-model
+      config:
+        model_server_url: http://localhost:5001
+```
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
+## Environment Variables
+
+Store API keys as environment variables for security:
+
+```bash
+# OpenAI
+export OPENAI_API_KEY=sk-...
+
+# Azure OpenAI
+export AZURE_OPENAI_API_KEY=your-azure-key
+export AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+
+# Anthropic
+export ANTHROPIC_API_KEY=sk-ant-...
+
+# AWS Bedrock
+export AWS_ACCESS_KEY_ID=AKIA...
+export AWS_SECRET_ACCESS_KEY=...
+export AWS_REGION=us-east-1
+
+# Cohere
+export COHERE_API_KEY=...
+```
+
+## Advanced Configuration
+
+### Rate Limiting
+
+Configure rate limits per endpoint:
+
+```yaml
+endpoints:
+  - name: rate-limited-chat
+    endpoint_type: llm/v1/chat
+    model:
+      provider: openai
+      name: gpt-3.5-turbo
+      config:
+        openai_api_key: $OPENAI_API_KEY
+    limit:
+      renewal_period: minute
+      calls: 100  # max calls per renewal period
+```
+
+### Model Parameters
+
+Set default model parameters:
+
+```yaml
+endpoints:
+  - name: configured-chat
+    endpoint_type: llm/v1/chat
+    model:
+      provider: openai
+      name: gpt-3.5-turbo
+      config:
+        openai_api_key: $OPENAI_API_KEY
+        temperature: 0.7
+        max_tokens: 1000
+        top_p: 0.9
+```
+
+### Multiple Endpoints
+
+Configure multiple endpoints for different use cases:
+
+```yaml
+endpoints:
+  # Fast, cost-effective endpoint
+  - name: fast-chat
+    endpoint_type: llm/v1/chat
+    model:
+      provider: openai
+      name: gpt-3.5-turbo
+      config:
+        openai_api_key: $OPENAI_API_KEY
+
+  # High-quality endpoint
+  - name: quality-chat
+    endpoint_type: llm/v1/chat
+    model:
+      provider: openai
+      name: gpt-4
+      config:
+        openai_api_key: $OPENAI_API_KEY
+
+  # Embeddings endpoint
+  - name: embeddings
+    endpoint_type: llm/v1/embeddings
+    model:
+      provider: openai
+      name: text-embedding-ada-002
+      config:
+        openai_api_key: $OPENAI_API_KEY
+```
+
+## Dynamic Configuration Updates
+
+The AI Gateway supports hot-reloading of configurations without server restart. Simply update your config.yaml file and changes are detected automatically.
+
+## Security Best Practices
+
+### API Key Management
+
+1. **Never commit API keys** to version control
+2. **Use environment variables** for all sensitive credentials
+3. **Rotate keys regularly** and update environment variables
+4. **Use separate keys** for development and production
+
+### Network Security
+
+1. **Use HTTPS** in production with proper TLS certificates
+2. **Implement authentication** and authorization layers
+3. **Configure firewalls** to restrict access to the gateway
+4. **Monitor and log** all gateway requests for audit trails
+
+### Configuration Security
+
+```yaml
+# Secure configuration example
+endpoints:
+  - name: production-chat
+    endpoint_type: llm/v1/chat
+    model:
+      provider: openai
+      name: gpt-4
+      config:
+        openai_api_key: $OPENAI_API_KEY  # From environment
+    limit:
+      renewal_period: minute
+      calls: 1000
+```
+
+## Next Steps
+
+Now that your providers are configured, learn how to use and integrate your gateway:
+
+<TilesGrid>
+  <TileCard
+    icon={Play}
+    title="Usage Guide"
+    description="Query endpoints with Python client and REST APIs"
+    href="/genai/governance/ai-gateway/usage"
+    linkText="Start using →"
+  />
+  <TileCard
+    icon={Wrench}
+    title="Integration Guide"
+    description="Integrate with applications, frameworks, and production systems"
+    href="/genai/governance/ai-gateway/integration"
+    linkText="Learn integrations →"
+  />
+  <TileCard
+    icon={Book}
+    title="Tutorial"
+    description="Step-by-step walkthrough with examples"
+    href="/genai/governance/ai-gateway/guides"
+    linkText="Follow tutorial →"
+  />
+</TilesGrid>

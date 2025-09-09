@@ -4,7 +4,8 @@ import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { useSelector } from 'react-redux';
 import { ReduxState } from '../../../redux-types';
-import type { KeyValueEntity, MetricEntitiesByName, RunInfoEntity } from '../../types';
+import type { MetricEntitiesByName, RunInfoEntity } from '../../types';
+import { KeyValueEntity } from '../../../common/types';
 
 import { RunsChartsTooltipWrapper } from '../runs-charts/hooks/useRunsChartsTooltip';
 import { RunViewChartTooltipBody } from './RunViewChartTooltipBody';

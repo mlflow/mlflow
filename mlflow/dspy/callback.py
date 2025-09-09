@@ -2,7 +2,7 @@ import logging
 import threading
 from collections import defaultdict
 from functools import wraps
-from typing import Any, Optional, Union
+from typing import Any
 
 import dspy
 from dspy.utils.callback import BaseCallback
@@ -14,10 +14,12 @@ from mlflow.entities import SpanStatusCode, SpanType
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.span_event import SpanEvent
 from mlflow.exceptions import MlflowException
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
-from mlflow.tracing.utils import maybe_set_prediction_context, set_span_chat_messages
+from mlflow.tracing.utils import maybe_set_prediction_context
 from mlflow.tracing.utils.token import SpanWithToken
+from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.autologging_utils import (
     get_autologging_config,
 )
@@ -36,13 +38,21 @@ def skip_if_trace_disabled(func):
     return wrapper
 
 
+def _convert_signature(val):
+    # serialization of dspy.Signature is quite slow, so we should convert it to string
+    if isinstance(val, type) and issubclass(val, dspy.Signature):
+        return repr(val)
+    return val
+
+
 class MlflowCallback(BaseCallback):
     """Callback for generating MLflow traces for DSPy components"""
 
-    def __init__(self, dependencies_schema: Optional[dict[str, Any]] = None):
+    def __init__(self, dependencies_schema: dict[str, Any] | None = None):
         self._dependencies_schema = dependencies_schema
         # call_id: (LiveSpan, OTel token)
         self._call_id_to_span: dict[str, SpanWithToken] = {}
+        self._call_id_to_module: dict[str, Any] = {}
 
         ###### state management for optimization process ######
         # The current callback logic assumes there is no optimization running in parallel.
@@ -80,16 +90,43 @@ class MlflowCallback(BaseCallback):
             inputs=self._unpack_kwargs(inputs),
             attributes=attributes,
         )
+        self._call_id_to_module[call_id] = instance
 
     @skip_if_trace_disabled
-    def on_module_end(
-        self, call_id: str, outputs: Optional[Any], exception: Optional[Exception] = None
-    ):
-        # NB: DSPy's Prediction object is a customized dictionary-like object, but its repr
-        # is not easy to read on UI. Therefore, we unpack it to a dictionary.
-        # https://github.com/stanfordnlp/dspy/blob/6fe693528323c9c10c82d90cb26711a985e18b29/dspy/primitives/prediction.py#L21-L28
-        if isinstance(outputs, dspy.Prediction):
-            outputs = outputs.toDict()
+    def on_module_end(self, call_id: str, outputs: Any | None, exception: Exception | None = None):
+        instance = self._call_id_to_module.pop(call_id)
+
+        if _get_fully_qualified_class_name(instance) == "dspy.retrieve.databricks_rm.DatabricksRM":
+            from mlflow.entities.document import Document
+
+            if isinstance(outputs, dspy.Prediction):
+                # Convert outputs to MLflow document format to make it compatible with
+                # agent evaluation.
+                num_docs = len(outputs.doc_ids)
+                doc_uris = outputs.doc_uris if outputs.doc_uris is not None else [None] * num_docs
+                outputs = [
+                    Document(
+                        page_content=doc_content,
+                        metadata={
+                            "doc_id": doc_id,
+                            "doc_uri": doc_uri,
+                        }
+                        | extra_column_dict,
+                        id=doc_id,
+                    ).to_dict()
+                    for doc_content, doc_id, doc_uri, extra_column_dict in zip(
+                        outputs.docs,
+                        outputs.doc_ids,
+                        doc_uris,
+                        outputs.extra_columns,
+                    )
+                ]
+        else:
+            # NB: DSPy's Prediction object is a customized dictionary-like object, but its repr
+            # is not easy to read on UI. Therefore, we unpack it to a dictionary.
+            # https://github.com/stanfordnlp/dspy/blob/6fe693528323c9c10c82d90cb26711a985e18b29/dspy/primitives/prediction.py#L21-L28
+            if isinstance(outputs, dspy.Prediction):
+                outputs = outputs.toDict()
 
         self._end_span(call_id, outputs, exception)
 
@@ -99,16 +136,22 @@ class MlflowCallback(BaseCallback):
             SpanType.CHAT_MODEL if getattr(instance, "model_type", None) == "chat" else SpanType.LLM
         )
 
+        filtered_kwargs = {
+            key: value
+            for key, value in instance.kwargs.items()
+            if key not in {"api_key", "api_base"}
+        }
         attributes = {
-            **instance.kwargs,
+            **filtered_kwargs,
             "model": instance.model,
             "model_type": instance.model_type,
             "cache": instance.cache,
+            SpanAttributeKey.MESSAGE_FORMAT: "dspy",
         }
 
         inputs = self._unpack_kwargs(inputs)
 
-        span = self._start_span(
+        self._start_span(
             call_id,
             name=f"{instance.__class__.__name__}.__call__",
             span_type=span_type,
@@ -116,41 +159,9 @@ class MlflowCallback(BaseCallback):
             attributes=attributes,
         )
 
-        if messages := self._extract_messages_from_lm_inputs(inputs):
-            try:
-                set_span_chat_messages(span, messages)
-            except Exception as e:
-                _logger.debug(f"Failed to set input messages for {span}. Error: {e}")
-
     @skip_if_trace_disabled
-    def on_lm_end(
-        self, call_id: str, outputs: Optional[Any], exception: Optional[Exception] = None
-    ):
-        st = self._call_id_to_span.get(call_id)
-        try:
-            output_msg = self._extract_messages_from_lm_outputs(outputs)
-            set_span_chat_messages(st.span, output_msg, append=True)
-        except Exception as e:
-            _logger.debug(f"Failed to set output messages for {call_id}. Error: {e}")
-
+    def on_lm_end(self, call_id: str, outputs: Any | None, exception: Exception | None = None):
         self._end_span(call_id, outputs, exception)
-
-    def _extract_messages_from_lm_inputs(self, inputs: dict[str, Any]) -> list[dict[str, str]]:
-        # LM input is either a list of messages or a prompt string
-        # https://github.com/stanfordnlp/dspy/blob/ac5bf56bb1ed7261d9637168563328c1dfeb27af/dspy/clients/lm.py#L92
-        # TODO: Extract tool definition once https://github.com/stanfordnlp/dspy/pull/2023 is merged
-        return inputs.get("messages") or [{"role": "user", "content": inputs.get("prompt")}]
-
-    def _extract_messages_from_lm_outputs(
-        self, outputs: list[Union[str, dict[str, Any]]]
-    ) -> list[dict[str, str]]:
-        # LM output is either a string or a dictionary of text and logprobs
-        # https://github.com/stanfordnlp/dspy/blob/ac5bf56bb1ed7261d9637168563328c1dfeb27af/dspy/clients/lm.py#L105-L114
-        # TODO: Extract tool calls once https://github.com/stanfordnlp/dspy/pull/2023 is merged
-        return [
-            {"role": "assistant", "content": o.get("text") if isinstance(o, dict) else o}
-            for o in outputs
-        ]
 
     @skip_if_trace_disabled
     def on_adapter_format_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
@@ -164,7 +175,7 @@ class MlflowCallback(BaseCallback):
 
     @skip_if_trace_disabled
     def on_adapter_format_end(
-        self, call_id: str, outputs: Optional[Any], exception: Optional[Exception] = None
+        self, call_id: str, outputs: Any | None, exception: Exception | None = None
     ):
         self._end_span(call_id, outputs, exception)
 
@@ -180,7 +191,7 @@ class MlflowCallback(BaseCallback):
 
     @skip_if_trace_disabled
     def on_adapter_parse_end(
-        self, call_id: str, outputs: Optional[Any], exception: Optional[Exception] = None
+        self, call_id: str, outputs: Any | None, exception: Exception | None = None
     ):
         self._end_span(call_id, outputs, exception)
 
@@ -207,9 +218,7 @@ class MlflowCallback(BaseCallback):
         )
 
     @skip_if_trace_disabled
-    def on_tool_end(
-        self, call_id: str, outputs: Optional[Any], exception: Optional[Exception] = None
-    ):
+    def on_tool_end(self, call_id: str, outputs: Any | None, exception: Exception | None = None):
         if call_id in self._call_id_to_span:
             self._end_span(call_id, outputs, exception)
 
@@ -244,7 +253,7 @@ class MlflowCallback(BaseCallback):
         self,
         call_id: str,
         outputs: Any,
-        exception: Optional[Exception] = None,
+        exception: Exception | None = None,
     ):
         """
         Callback handler at the end of evaluation call. Available with DSPy>=2.6.9.
@@ -321,8 +330,8 @@ class MlflowCallback(BaseCallback):
     def _end_span(
         self,
         call_id: str,
-        outputs: Optional[Any],
-        exception: Optional[Exception] = None,
+        outputs: Any | None,
+        exception: Exception | None = None,
     ):
         st = self._call_id_to_span.pop(call_id, None)
 
@@ -372,7 +381,8 @@ class MlflowCallback(BaseCallback):
         # NB: Not using pop() to avoid modifying the original inputs dictionary
         kwargs = inputs.get("kwargs", {})
         inputs_wo_kwargs = {k: v for k, v in inputs.items() if k != "kwargs"}
-        return {**inputs_wo_kwargs, **kwargs}
+        merged = {**inputs_wo_kwargs, **kwargs}
+        return {k: _convert_signature(v) for k, v in merged.items()}
 
     def _generate_result_table(
         self, outputs: list[tuple[dspy.Example, dspy.Prediction, Any]]

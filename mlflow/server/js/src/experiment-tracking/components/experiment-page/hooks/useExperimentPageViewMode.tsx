@@ -1,4 +1,3 @@
-import { shouldUseExperimentPageChartViewAsDefault } from '../../../../common/utils/FeatureUtils';
 import { useNavigate, useSearchParams } from '../../../../common/utils/RoutingUtils';
 import { ExperimentPageTabName } from '../../../constants';
 import Routes from '../../../routes';
@@ -6,8 +5,7 @@ import { type ExperimentViewRunsCompareMode } from '../../../types';
 
 export const EXPERIMENT_PAGE_VIEW_MODE_QUERY_PARAM_KEY = 'compareRunsMode';
 
-export const getExperimentPageDefaultViewMode = (): ExperimentViewRunsCompareMode =>
-  shouldUseExperimentPageChartViewAsDefault() ? 'CHART' : 'TABLE';
+export const getExperimentPageDefaultViewMode = (): ExperimentViewRunsCompareMode => 'TABLE';
 
 // This map is being used to wire routes to certain view modes
 const viewModeToRouteMap: Partial<Record<ExperimentViewRunsCompareMode, (experimentId: string) => void>> = {

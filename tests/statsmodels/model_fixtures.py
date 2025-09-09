@@ -1,4 +1,4 @@
-from collections import namedtuple
+from typing import Any, NamedTuple
 
 import numpy as np
 import pandas as pd
@@ -10,7 +10,11 @@ from statsmodels.tsa.arima_process import arma_generate_sample
 from mlflow.models import ModelSignature
 from mlflow.types.schema import Schema, TensorSpec
 
-ModelWithResults = namedtuple("ModelWithResults", ["model", "alg", "inference_dataframe"])
+
+class ModelWithResults(NamedTuple):
+    model: Any
+    alg: Any
+    inference_dataframe: Any
 
 
 """

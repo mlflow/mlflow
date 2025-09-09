@@ -1,0 +1,532 @@
+---
+sidebar_label: Ground Truth Expectations
+---
+
+import { CardGroup, TitleCard } from "@site/src/components/Card";
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import ConceptOverview from "@site/src/components/ConceptOverview";
+import WorkflowSteps from "@site/src/components/WorkflowSteps";
+import CollapsibleSection from "@site/src/components/CollapsibleSection";
+import TabsWrapper from "@site/src/components/TabsWrapper";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { APILink } from "@site/src/components/APILink";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import { Target, Zap, Database, Shield, Settings, TrendingUp, Users, FileText, MessageSquare, Book, MousePointer, ListCheck, Type, FileInput, Plus, BarChart3 } from "lucide-react";
+import AddExpectationImageUrl from '@site/static/images/assessments/add_expectation_ui.png';
+
+# Ground Truth Expectations
+
+MLflow Expectations provide a systematic way to capture ground truth - the correct or desired outputs that your AI should produce. By establishing these reference points, you create the foundation for meaningful evaluation and continuous improvement of your GenAI applications.
+
+For complete API documentation and implementation details, see the <APILink fn="mlflow.log_expectation" /> reference.
+
+## What are Expectations?
+
+[Expectations](/genai/concepts/expectations) define the "gold standard" for what your AI should produce given specific inputs. They represent the correct answer, desired behavior, or ideal output as determined by domain experts. Think of expectations as the answer key against which actual AI performance is measured.
+
+Unlike [feedback](/genai/assessments/feedback) that evaluates what happened, expectations establish what should happen. They're always created by humans who have the expertise to define correct outcomes.
+
+## Prerequisites
+
+Before using the <APILink fn="mlflow.log_expectation">Expectations API</APILink>, ensure you have:
+
+- MLflow 3.2.0 or later installed
+- An active MLflow tracking server or local tracking setup
+- Traces that have been logged from your GenAI application to an MLflow Experiment
+
+## Why Annotate Ground Truth?
+
+<FeatureHighlights features={[
+  {
+    icon: Target,
+    title: "Create Evaluation Baselines",
+    description: "Establish reference points for objective accuracy measurement. Without ground truth, you can't measure how well your AI performs against known correct answers."
+  },
+  {
+    icon: Zap,
+    title: "Enable Systematic Testing",
+    description: "Transform ad-hoc testing into systematic evaluation by building datasets of expected outputs to consistently measure performance across versions and configurations."
+  },
+  {
+    icon: Database,
+    title: "Support Fine-Tuning and Training",
+    description: "Create high-quality training data from ground truth annotations. Essential for fine-tuning models and training automated evaluators."
+  },
+  {
+    icon: Shield,
+    title: "Establish Quality Standards",
+    description: "Codify quality requirements and transform implicit knowledge into explicit, measurable criteria that everyone can understand and follow."
+  }
+]} />
+
+## Types of Expectations
+
+<TabsWrapper>
+  <Tabs>
+    <TabItem value="factual" label="Factual" default>
+
+### Factual Expectations
+
+For questions with definitive answers:
+
+```python
+mlflow.log_expectation(
+    trace_id=trace_id,
+    name="expected_answer",
+    value="The speed of light in vacuum is 299,792,458 meters per second",
+    source=AssessmentSource(
+        source_type=AssessmentSourceType.HUMAN,
+        source_id="physics_expert@university.edu",
+    ),
+)
+```
+
+    </TabItem>
+    <TabItem value="structured" label="Structured">
+
+### Structured Expectations
+
+For complex outputs with multiple components:
+
+```python
+mlflow.log_expectation(
+    trace_id=trace_id,
+    name="expected_extraction",
+    value={
+        "company": "TechCorp Inc.",
+        "sentiment": "positive",
+        "key_topics": ["product_launch", "quarterly_earnings", "market_expansion"],
+        "action_required": True,
+    },
+    source=AssessmentSource(
+        source_type=AssessmentSourceType.HUMAN, source_id="business_analyst@company.com"
+    ),
+)
+```
+
+    </TabItem>
+    <TabItem value="behavioral" label="Behavioral">
+
+### Behavioral Expectations
+
+For defining how the AI should act:
+
+```python
+mlflow.log_expectation(
+    trace_id=trace_id,
+    name="expected_behavior",
+    value={
+        "should_escalate": True,
+        "required_elements": ["empathy", "solution_offer", "follow_up"],
+        "max_response_length": 150,
+        "tone": "professional_friendly",
+    },
+    source=AssessmentSource(
+        source_type=AssessmentSourceType.HUMAN,
+        source_id="customer_success_lead@company.com",
+    ),
+)
+```
+
+    </TabItem>
+    <TabItem value="span_level" label="Span-Level">
+
+### Span-Level Expectations
+
+For specific operations within your AI pipeline:
+
+```python
+# Expected documents for RAG retrieval
+mlflow.log_expectation(
+    trace_id=trace_id,
+    span_id=retrieval_span_id,
+    name="expected_documents",
+    value=["policy_doc_2024", "faq_section_3", "user_guide_ch5"],
+    source=AssessmentSource(
+        source_type=AssessmentSourceType.HUMAN,
+        source_id="information_architect@company.com",
+    ),
+)
+```
+
+    </TabItem>
+
+  </Tabs>
+</TabsWrapper>
+
+## Step-by-Step Guides
+
+### Add Ground Truth Annotation via UI
+
+The MLflow UI provides an intuitive way to add expectations directly to traces. This approach is ideal for domain experts who need to define ground truth without writing code, and for collaborative annotation workflows where multiple stakeholders contribute different perspectives.
+
+<CollapsibleSection
+  title="Show Step-by-Step Instructions (8 steps)"
+  defaultExpanded={false}
+>
+  <WorkflowSteps
+    steps={[
+      {
+        icon: MousePointer,
+        title: "Navigate to your experiment",
+        description: "Select the trace containing the interaction you want to annotate"
+      },
+      {
+        icon: Plus,
+        title: "Click \"Add Assessment\" button",
+        description: "Access the assessment creation form on the trace detail page"
+      },
+      {
+        icon: ListCheck,
+        title: "Select \"Expectation\" from dropdown",
+        description: "Choose Assessment Type to define ground truth rather than feedback"
+      },
+      {
+        icon: Type,
+        title: "Enter a descriptive name",
+        description: "Use clear names like \"expected_answer\", \"correct_classification\", or \"expected_documents\""
+      },
+      {
+        icon: Settings,
+        title: "Choose the appropriate data type",
+        description: "Select String for text, JSON for structured data, Boolean for binary expectations"
+      },
+      {
+        icon: FileInput,
+        title: "Enter the ground truth value",
+        description: "Define what the AI should have produced for this specific input"
+      },
+      {
+        icon: MessageSquare,
+        title: "Add rationale explaining correctness",
+        description: "Document why this is the correct or expected output for future reference"
+      },
+      {
+        icon: Target,
+        title: "Click \"Create\" to record expectation",
+        description: "Save your ground truth annotation to establish the quality baseline"
+      }
+    ]}
+    screenshot={{
+      src: AddExpectationImageUrl,
+      alt: "Add Expectation"
+    }}
+  />
+</CollapsibleSection>
+
+The expectation will be immediately attached to the trace, establishing the ground truth reference for future evaluation.
+
+### Log Ground Truth via API
+
+Use the programmatic <APILink fn="mlflow.log_expectation" /> API when you need to automate expectation creation, integrate with existing annotation tools, or build custom ground truth collection workflows.
+
+<Tabs>
+  <TabItem value="single" label="Single Annotations" default>
+
+Programmatically create expectations for systematic ground truth collection:
+
+**1. Set up your annotation environment:**
+
+```python
+import mlflow
+from mlflow.entities import AssessmentSource
+from mlflow.entities.assessment_source import AssessmentSourceType
+
+# Define your domain expert source
+expert_source = AssessmentSource(
+    source_type=AssessmentSourceType.HUMAN, source_id="domain_expert@company.com"
+)
+```
+
+**2. Create expectations for different data types:**
+
+```python
+def log_factual_expectation(trace_id, question, correct_answer):
+    """Log expectation for factual questions."""
+    mlflow.log_expectation(
+        trace_id=trace_id,
+        name="expected_factual_answer",
+        value=correct_answer,
+        source=expert_source,
+        metadata={
+            "question": question,
+            "expectation_type": "factual",
+            "confidence": "high",
+            "verified_by": "subject_matter_expert",
+        },
+    )
+
+
+def log_structured_expectation(trace_id, expected_extraction):
+    """Log expectation for structured data extraction."""
+    mlflow.log_expectation(
+        trace_id=trace_id,
+        name="expected_extraction",
+        value=expected_extraction,
+        source=expert_source,
+        metadata={
+            "expectation_type": "structured",
+            "schema_version": "v1.0",
+            "annotation_guidelines": "company_extraction_standards_v2",
+        },
+    )
+
+
+def log_behavioral_expectation(trace_id, expected_behavior):
+    """Log expectation for AI behavior patterns."""
+    mlflow.log_expectation(
+        trace_id=trace_id,
+        name="expected_behavior",
+        value=expected_behavior,
+        source=expert_source,
+        metadata={
+            "expectation_type": "behavioral",
+            "behavior_category": "customer_service",
+            "compliance_requirement": "company_policy_v3",
+        },
+    )
+```
+
+**3. Use the functions in your annotation workflow:**
+
+```python
+# Example: Annotating a customer service interaction
+trace_id = "tr-customer-service-001"
+
+# Define what the AI should have said
+factual_answer = "Your account balance is $1,234.56 as of today."
+log_factual_expectation(trace_id, "What is my account balance?", factual_answer)
+
+# Define expected data extraction
+expected_extraction = {
+    "intent": "account_balance_inquiry",
+    "account_type": "checking",
+    "urgency": "low",
+    "requires_authentication": True,
+}
+log_structured_expectation(trace_id, expected_extraction)
+
+# Define expected behavior
+expected_behavior = {
+    "should_verify_identity": True,
+    "tone": "professional_helpful",
+    "should_offer_additional_help": True,
+    "escalation_required": False,
+}
+log_behavioral_expectation(trace_id, expected_behavior)
+```
+
+  </TabItem>
+  <TabItem value="batch" label="Batch Annotations">
+
+For large-scale ground truth collection, use batch annotation:
+
+**1. Define the batch annotation function:**
+
+```python
+def annotate_batch_expectations(annotation_data):
+    """Annotate multiple traces with ground truth expectations."""
+    for item in annotation_data:
+        try:
+            mlflow.log_expectation(
+                trace_id=item["trace_id"],
+                name=item["expectation_name"],
+                value=item["expected_value"],
+                source=AssessmentSource(
+                    source_type=AssessmentSourceType.HUMAN,
+                    source_id=item["annotator_id"],
+                ),
+                metadata={
+                    "batch_id": item["batch_id"],
+                    "annotation_session": item["session_id"],
+                    "quality_checked": True,
+                },
+            )
+            print(f"✓ Annotated {item['trace_id']}")
+        except Exception as e:
+            print(f"✗ Failed to annotate {item['trace_id']}: {e}")
+```
+
+**2. Prepare your annotation data:**
+
+```python
+# Example batch annotation data
+batch_data = [
+    {
+        "trace_id": "tr-001",
+        "expectation_name": "expected_answer",
+        "expected_value": "Paris is the capital of France",
+        "annotator_id": "expert1@company.com",
+        "batch_id": "geography_qa_batch_1",
+        "session_id": "session_2024_01_15",
+    },
+    {
+        "trace_id": "tr-002",
+        "expectation_name": "expected_answer",
+        "expected_value": "The speed of light is 299,792,458 m/s",
+        "annotator_id": "expert2@company.com",
+        "batch_id": "physics_qa_batch_1",
+        "session_id": "session_2024_01_15",
+    },
+]
+```
+
+**3. Execute batch annotation:**
+
+```python
+annotate_batch_expectations(batch_data)
+```
+
+  </TabItem>
+</Tabs>
+
+## Expectation Annotation Workflows
+
+Different stages of your AI development lifecycle require different approaches to expectation annotation. The following workflows help you systematically create and maintain ground truth expectations that align with your development process and quality goals.
+
+<ConceptOverview concepts={[
+  {
+    icon: Settings,
+    title: "Development Phase",
+    description: "Define success criteria by identifying test scenarios, creating expectations with domain experts, testing AI outputs, and iterating on configurations until expectations are met."
+  },
+  {
+    icon: TrendingUp,
+    title: "Production Monitoring",
+    description: "Enable systematic quality tracking by sampling production traces, adding expectations to create evaluation datasets, and tracking performance trends over time."
+  },
+  {
+    icon: Users,
+    title: "Collaborative Annotation",
+    description: "Use team-based annotation where domain experts define initial expectations, review committees validate and refine, and consensus building resolves disagreements."
+  }
+]} />
+
+## Best Practices
+
+### Be Specific and Measurable
+
+Vague expectations lead to inconsistent evaluation. Define clear, specific criteria that can be objectively verified.
+
+### Document Your Reasoning
+
+Use metadata to explain why an expectation is defined a certain way:
+
+```python
+mlflow.log_expectation(
+    trace_id=trace_id,
+    name="expected_diagnosis",
+    value={
+        "primary": "Type 2 Diabetes",
+        "risk_factors": ["obesity", "family_history"],
+        "recommended_tests": ["HbA1c", "fasting_glucose"],
+    },
+    metadata={
+        "guideline_version": "ADA_2024",
+        "confidence": "high",
+        "based_on": "clinical_presentation_and_history",
+    },
+    source=AssessmentSource(
+        source_type=AssessmentSourceType.HUMAN, source_id="endocrinologist@hospital.org"
+    ),
+)
+```
+
+### Maintain Consistency
+
+Use standardized naming and structure across your expectations to enable meaningful analysis and comparison.
+
+## Managing Expectations
+
+Once you've defined expectations for your traces, you may need to retrieve, update, or delete them to maintain accurate ground truth data.
+
+### Retrieving Expectations
+
+Retrieve specific expectations to analyze your ground truth data:
+
+```python
+# Get a specific expectation by ID
+expectation = mlflow.get_assessment(
+    trace_id="tr-1234567890abcdef", assessment_id="a-0987654321abcdef"
+)
+
+# Access expectation details
+name = expectation.name
+value = expectation.value
+source_type = expectation.source.source_type
+metadata = expectation.metadata if hasattr(expectation, "metadata") else None
+```
+
+### Updating Expectations
+
+Update existing expectations when ground truth needs refinement:
+
+```python
+from mlflow.entities import Expectation
+
+# Update expectation with corrected information
+updated_expectation = Expectation(
+    name="expected_answer",
+    value="The capital of France is Paris, located in the Île-de-France region",
+)
+
+mlflow.update_assessment(
+    trace_id="tr-1234567890abcdef",
+    assessment_id="a-0987654321abcdef",
+    assessment=updated_expectation,
+)
+```
+
+### Deleting Expectations
+
+Remove expectations that were logged incorrectly:
+
+```python
+# Delete specific expectation
+mlflow.delete_assessment(
+    trace_id="tr-1234567890abcdef", assessment_id="a-5555666677778888"
+)
+```
+
+## Integration with Evaluation
+
+Expectations are most powerful when combined with systematic evaluation:
+
+1. **Automated scoring** against expectations
+2. **Human feedback** on expectation achievement
+3. **Gap analysis** between expected and actual
+4. **Performance metrics** based on expectation matching
+
+## Next Steps
+
+<TilesGrid>
+  <TileCard
+    icon={Book}
+    iconSize={48}
+    title="Expectations Concepts"
+    description="Deep dive into expectations architecture and schema"
+    href="/genai/concepts/expectations"
+    linkText="Learn more →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={MessageSquare}
+    iconSize={48}
+    title="Automated and Human Feedback"
+    description="Learn how to collect quality evaluations from multiple sources"
+    href="/genai/assessments/feedback"
+    linkText="Start collecting →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={BarChart3}
+    iconSize={48}
+    title="LLM Evaluation"
+    description="Learn how to systematically evaluate and improve your GenAI applications"
+    href="/genai/eval-monitor"
+    linkText="Start evaluating →"
+    containerHeight={64}
+  />
+</TilesGrid>

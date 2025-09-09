@@ -12,7 +12,8 @@ import {
 import { useState } from 'react';
 import { isUserFacingTag } from '@mlflow/mlflow/src/common/utils/TagUtils';
 import { setRunTagsBulkApi } from '@mlflow/mlflow/src/experiment-tracking/actions';
-import { KeyValueEntity, RunInfoEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
+import { RunInfoEntity } from '../../../../types';
+import { KeyValueEntity } from '../../../../../common/types';
 import { useDispatch } from 'react-redux';
 import { ThunkDispatch } from '@mlflow/mlflow/src/redux-types';
 import { ExperimentViewRunsControlsActionsAddNewTagModal } from './ExperimentViewRunsControlsActionsAddNewTagModal';

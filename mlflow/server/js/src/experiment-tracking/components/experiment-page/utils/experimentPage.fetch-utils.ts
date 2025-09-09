@@ -9,7 +9,8 @@ import {
   DEFAULT_START_TIME,
 } from '../../../constants';
 import { ViewType } from '../../../sdk/MlflowEnums';
-import { KeyValueEntity, LIFECYCLE_FILTER } from '../../../types';
+import { LIFECYCLE_FILTER } from '../../../types';
+import { KeyValueEntity } from '../../../../common/types';
 import { EXPERIMENT_LOG_MODEL_HISTORY_TAG } from './experimentPage.common-utils';
 import { ThunkDispatch } from '../../../../redux-types';
 import type { ExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';

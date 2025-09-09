@@ -6,7 +6,7 @@
  */
 
 import React, { Component } from 'react';
-import { Modal } from '@databricks/design-system';
+import { Modal, ModalProps } from '@databricks/design-system';
 
 type Props = {
   isOpen: boolean;
@@ -15,6 +15,7 @@ type Props = {
   title: React.ReactNode;
   helpText: React.ReactNode;
   confirmButtonText: React.ReactNode;
+  confirmButtonProps?: ModalProps['okButtonProps'];
 };
 
 type State = any;
@@ -52,6 +53,7 @@ export class ConfirmModal extends Component<Props, State> {
         visible={this.props.isOpen}
         onOk={this.handleSubmitWrapper}
         okText={this.props.confirmButtonText}
+        okButtonProps={this.props.confirmButtonProps}
         confirmLoading={this.state.isSubmitting}
         onCancel={this.onRequestCloseHandler}
         // @ts-expect-error TS(2322): Type '{ children: Element; "data-testid": string; ... Remove this comment to see the full error message

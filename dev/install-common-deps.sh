@@ -48,7 +48,7 @@ pip install --upgrade pip!=25.1 setuptools wheel
 pip --version
 
 if [[ "$SKINNY" == "true" ]]; then
-  pip install ./skinny
+  pip install ./libs/skinny
 else
   pip install .[extras] --upgrade
 fi

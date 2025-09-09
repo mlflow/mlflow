@@ -198,7 +198,7 @@ class MlflowMetric(graphene.ObjectType):
 
 
 class MlflowRunData(graphene.ObjectType):
-    metrics = graphene.List(graphene.NonNull(MlflowMetric))
+    metrics = graphene.List(graphene.NonNull('mlflow.server.graphql.graphql_schema_extensions.MlflowMetricExtension'))
     params = graphene.List(graphene.NonNull(MlflowParam))
     tags = graphene.List(graphene.NonNull(MlflowRunTag))
 

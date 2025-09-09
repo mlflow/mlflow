@@ -10,9 +10,12 @@ import { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import { ExperimentViewArtifactLocation } from '../ExperimentViewArtifactLocation';
 import { ExperimentViewCopyExperimentId } from './ExperimentViewCopyExperimentId';
 import { ExperimentViewCopyArtifactLocation } from './ExperimentViewCopyArtifactLocation';
-import { InfoIcon, InfoPopover } from '@databricks/design-system';
+import { InfoSmallIcon, InfoPopover } from '@databricks/design-system';
 import { Popover } from '@databricks/design-system';
 import { EXPERIMENT_PAGE_FEEDBACK_URL } from '@mlflow/mlflow/src/experiment-tracking/constants';
+import { Link } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
+import { ExperimentViewManagementMenu } from './ExperimentViewManagementMenu';
 
 /**
  * Header for a single experiment page. Displays title, breadcrumbs and provides
@@ -32,8 +35,21 @@ export const ExperimentViewHeader = React.memo(
     showAddDescriptionButton: boolean;
     setEditing: (editing: boolean) => void;
   }) => {
-    // eslint-disable-next-line prefer-const
-    let breadcrumbs: React.ReactNode[] = [];
+    const breadcrumbs = useMemo(
+      () => [
+        <Link
+          key={Routes.experimentsObservatoryRoute}
+          to={Routes.experimentsObservatoryRoute}
+          data-testid="experiment-observatory-link"
+        >
+          <FormattedMessage
+            defaultMessage="Experiments"
+            description="Breadcrumb nav item to link to the list of experiments page"
+          />
+        </Link>,
+      ],
+      [],
+    );
     const experimentIds = useMemo(() => (experiment ? [experiment?.experimentId] : []), [experiment]);
 
     const { theme } = useDesignSystemTheme();
@@ -183,6 +199,7 @@ export const ExperimentViewHeader = React.memo(
       >
         <div css={{ display: 'flex', gap: theme.spacing.sm }}>
           {/* Wrap the buttons in a flex element */}
+          <ExperimentViewManagementMenu experiment={experiment} />
           {getShareButton()}
         </div>
       </PageHeader>

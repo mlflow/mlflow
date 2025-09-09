@@ -1,7 +1,6 @@
 import {
   ExperimentEntity,
   ExperimentStoreEntities,
-  KeyValueEntity,
   LIFECYCLE_FILTER,
   ModelVersionInfoEntity,
   MODEL_VERSION_FILTER,
@@ -9,7 +8,10 @@ import {
   RunInfoEntity,
   RunDatasetWithTags,
   MetricEntity,
+  RunInputsType,
+  RunOutputsType,
 } from '../../../types';
+import { KeyValueEntity } from '../../../../common/types';
 import { getLatestMetrics } from '../../../reducers/MetricReducer';
 import { getExperimentTags, getParams, getRunDatasets, getRunInfo, getRunTags } from '../../../reducers/Reducers';
 import { pickBy } from 'lodash';
@@ -73,6 +75,11 @@ export type ExperimentRunsSelectorResult = {
    * datasets corresponding to the 3rd run in the run list
    */
   datasetsList: RunDatasetWithTags[][];
+
+  /**
+   * List of inputs and outputs for each run.
+   */
+  inputsOutputsList?: { inputs?: RunInputsType; outputs?: RunOutputsType }[];
 };
 
 export type ExperimentRunsSelectorParams = {
@@ -184,6 +191,10 @@ export const experimentRunsSelector = (
     return state.entities.runDatasetsByUuid[runInfo.runUuid];
   });
 
+  const inputsOutputsList = runInfos.map((runInfo) => {
+    return state.entities.runInputsOutputsByUuid[runInfo.runUuid];
+  });
+
   /**
    * Extracting lists of metrics by run index
    */
@@ -240,6 +251,7 @@ export const experimentRunsSelector = (
     metricsList,
     runUuidsMatchingFilter,
     datasetsList,
+    inputsOutputsList,
     metricKeyList: Array.from(metricKeysSet.values()).sort(),
     paramKeyList: Array.from(paramKeysSet.values()).sort(),
   };

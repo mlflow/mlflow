@@ -190,7 +190,7 @@ describe('RunViewMetricCharts - autorefresh', () => {
     await renderComponent({ mode: 'system' });
 
     // The initial call for metrics should be sent
-    expect(fetchEndpoint).toBeCalledTimes(1);
+    expect(fetchEndpoint).toHaveBeenCalledTimes(1);
     expect(getLastFetchedMetric()).toEqual('metric_2');
 
     // Wait for the metrics to be fetched
@@ -203,7 +203,7 @@ describe('RunViewMetricCharts - autorefresh', () => {
 
     await waitFor(() => {
       // The next call for metrics should be sent
-      expect(fetchEndpoint).toBeCalledTimes(2);
+      expect(fetchEndpoint).toHaveBeenCalledTimes(2);
       expect(getLastFetchedMetric()).toEqual('metric_2');
     });
 
@@ -217,7 +217,7 @@ describe('RunViewMetricCharts - autorefresh', () => {
 
     await waitFor(() => {
       // We should get no new calls
-      expect(fetchEndpoint).toBeCalledTimes(2);
+      expect(fetchEndpoint).toHaveBeenCalledTimes(2);
       expect(getLastFetchedMetric()).toEqual('metric_2');
     });
 
@@ -228,7 +228,7 @@ describe('RunViewMetricCharts - autorefresh', () => {
 
     await waitFor(() => {
       // We should immediately get a new call
-      expect(fetchEndpoint).toBeCalledTimes(3);
+      expect(fetchEndpoint).toHaveBeenCalledTimes(3);
       expect(getLastFetchedMetric()).toEqual('metric_1');
     });
 
@@ -241,7 +241,7 @@ describe('RunViewMetricCharts - autorefresh', () => {
     });
 
     await waitFor(() => {
-      expect(fetchEndpoint).toBeCalledTimes(4);
+      expect(fetchEndpoint).toHaveBeenCalledTimes(4);
       // We should have a call for original metric
       expect(getLastFetchedMetric()).toEqual('metric_2');
     });
@@ -253,7 +253,7 @@ describe('RunViewMetricCharts - autorefresh', () => {
 
     await waitFor(() => {
       // We should have two more calls - one for metric_2 and one for metric_1
-      expect(fetchEndpoint).toBeCalledTimes(6);
+      expect(fetchEndpoint).toHaveBeenCalledTimes(6);
       expect(getLastFetchedMetrics().slice(-2)).toEqual(expect.arrayContaining(['metric_2', 'metric_1']));
     });
 
@@ -271,7 +271,7 @@ describe('RunViewMetricCharts - autorefresh', () => {
 
     // The next call for "metric_2" should be sent but none for "metric_1"
     await waitFor(() => {
-      expect(fetchEndpoint).toBeCalledTimes(7);
+      expect(fetchEndpoint).toHaveBeenCalledTimes(7);
       expect(getLastFetchedMetric()).toEqual('metric_2');
     });
 
@@ -284,6 +284,6 @@ describe('RunViewMetricCharts - autorefresh', () => {
     });
 
     // We should get no new calls
-    expect(fetchEndpoint).toBeCalledTimes(7);
+    expect(fetchEndpoint).toHaveBeenCalledTimes(7);
   });
 });

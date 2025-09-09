@@ -1,4 +1,4 @@
-from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER, model_validator
+from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
 
 if not IS_PYDANTIC_V2_OR_NEWER:
     raise ImportError(
@@ -6,9 +6,9 @@ if not IS_PYDANTIC_V2_OR_NEWER:
         "Please upgrade to Pydantic v2 or newer."
     )
 import json
-from typing import Any, Optional, Union
+from typing import Any
 
-from pydantic import ConfigDict
+from pydantic import ConfigDict, model_validator
 
 from mlflow.types.agent import ChatContext
 from mlflow.types.chat import BaseModel
@@ -42,8 +42,9 @@ class ResponsesAgentRequest(BaseRequestPayload):
 
     Args:
         input: List of simple `role` and `content` messages or output items. See examples at
-            https://mlflow.org/docs/latest/llms/responses-agent-intro/#testing-out-your-agent and
-            https://mlflow.org/docs/latest/llms/responses-agent-intro/#creating-agent-output.
+            https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#testing-out-your-agent
+            and
+            https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#creating-agent-output.
         custom_inputs (Dict[str, Any]): An optional param to provide arbitrary additional context
             to the model. The dictionary values must be JSON-serializable.
             **Optional** defaults to ``None``
@@ -51,9 +52,9 @@ class ResponsesAgentRequest(BaseRequestPayload):
             endpoint. Includes conversation_id and user_id. **Optional** defaults to ``None``
     """
 
-    input: list[Union[Message, OutputItem]]
-    custom_inputs: Optional[dict[str, Any]] = None
-    context: Optional[ChatContext] = None
+    input: list[Message | OutputItem]
+    custom_inputs: dict[str, Any] | None = None
+    context: ChatContext | None = None
 
 
 class ResponsesAgentResponse(Response):
@@ -61,7 +62,7 @@ class ResponsesAgentResponse(Response):
 
     Args:
         output: List of output items. See examples at
-            https://mlflow.org/docs/latest/llms/responses-agent-intro/#creating-agent-output.
+            https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#creating-agent-output.
         reasoning: Reasoning parameters
         usage: Usage information
         custom_outputs (Dict[str, Any]): An optional param to provide arbitrary additional context
@@ -69,12 +70,12 @@ class ResponsesAgentResponse(Response):
             to ``None``
     """
 
-    custom_outputs: Optional[dict[str, Any]] = None
+    custom_outputs: dict[str, Any] | None = None
 
 
 class ResponsesAgentStreamEvent(BaseModel):
     """Stream event for ResponsesAgent.
-    See examples at https://mlflow.org/docs/latest/llms/responses-agent-intro/#streaming-agent-output
+    See examples at https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#streaming-agent-output
 
     Args:
         type (str): Type of the stream event
@@ -85,7 +86,7 @@ class ResponsesAgentStreamEvent(BaseModel):
 
     model_config = ConfigDict(extra="allow")
     type: str
-    custom_outputs: Optional[dict[str, Any]] = None
+    custom_outputs: dict[str, Any] | None = None
 
     @model_validator(mode="after")
     def check_type(self) -> "ResponsesAgentStreamEvent":
@@ -96,7 +97,7 @@ class ResponsesAgentStreamEvent(BaseModel):
             ResponseTextDeltaEvent(**self.model_dump_compat())
         elif type == "response.output_text.annotation.added":
             ResponseTextAnnotationDeltaEvent(**self.model_dump_compat())
-        elif type == "response.error":
+        elif type == "error":
             ResponseErrorEvent(**self.model_dump_compat())
         elif type == "response.completed":
             ResponseCompletedEvent(**self.model_dump_compat())

@@ -208,7 +208,7 @@ export class RegisterModelImpl extends React.Component<RegisterModelImplProps, R
         key="submit"
         type="primary"
         onClick={() => this.handleRegisterModel()}
-        data-test-id="confirm-register-model"
+        data-testid="confirm-register-model"
       >
         <FormattedMessage defaultMessage="Register" description="Register button text to register the model" />
       </Button>,

@@ -1,5 +1,6 @@
 import { Alert, GenericSkeleton, Spacer, Typography, useDesignSystemTheme } from '@databricks/design-system';
-import type { KeyValueEntity, LoggedModelProto } from '../../types';
+import type { LoggedModelProto } from '../../types';
+import { KeyValueEntity } from '../../../common/types';
 import { DetailsOverviewMetadataTable } from '../DetailsOverviewMetadataTable';
 import { DetailsOverviewMetadataRow } from '../DetailsOverviewMetadataRow';
 import { FormattedMessage } from 'react-intl';
@@ -22,6 +23,7 @@ import { useExperimentTrackingDetailsPageLayoutStyles } from '../../hooks/useExp
 import { ExperimentLoggedModelSourceBox } from './ExperimentLoggedModelSourceBox';
 import { DetailsPageLayout } from '../../../common/components/details-page-layout/DetailsPageLayout';
 import { useExperimentLoggedModelDetailsMetadataV2 } from './hooks/useExperimentLoggedModelDetailsMetadataV2';
+import { MLFLOW_LOGGED_MODEL_USER_TAG } from '../../constants';
 
 export const ExperimentLoggedModelDetailsOverview = ({
   onDataUpdated,
@@ -69,16 +71,15 @@ export const ExperimentLoggedModelDetailsOverview = ({
           }
           value={<ExperimentLoggedModelTableDateCell value={loggedModel.info?.creation_timestamp_ms} />}
         />
-        {/* TODO(ML-47205): Re-enable this when creator name/email is available */}
-        {/* <DetailsOverviewMetadataRow
+        <DetailsOverviewMetadataRow
           title={
             <FormattedMessage
               defaultMessage="Created by"
               description="Label for the creator of a logged model on the logged model details page"
             />
           }
-          value={loggedModel.info?.creator_id}
-        /> */}
+          value={loggedModel.info?.tags?.find((tag) => tag.key === MLFLOW_LOGGED_MODEL_USER_TAG)?.value ?? '-'}
+        />
         <DetailsOverviewMetadataRow
           title={
             <FormattedMessage

@@ -112,7 +112,11 @@ const SchemaTableRow = ({ schemaData }: { schemaData?: (ColumnSpec | TensorSpec)
     const normalizedSearchText = deferredSearchText.toLowerCase();
     return schemaData
       ?.filter((schemaRow) => {
-        return 'name' in schemaRow && schemaRow.name.toLowerCase().includes(normalizedSearchText);
+        return (
+          'name' in schemaRow &&
+          schemaRow.name !== null &&
+          String(schemaRow.name).toLowerCase().includes(normalizedSearchText)
+        );
       })
       .slice(0, LIMIT_VISIBLE_COLUMNS);
   }, [schemaData, deferredSearchText, isLargeSchema]);

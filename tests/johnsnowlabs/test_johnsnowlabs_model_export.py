@@ -19,7 +19,9 @@ from mlflow.pyfunc import spark_udf
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 
-from tests.helper_functions import assert_register_model_called_with_local_model_path
+from tests.helper_functions import (
+    assert_register_model_called_with_local_model_path,
+)
 
 MODEL_CACHE_FOLDER = None
 nlu_model = "en.classify.bert_sequence.covid_sentiment"
@@ -85,7 +87,8 @@ def fix_dataframe_with_respect_for_nlu_issues(df1, df2):
 
 
 def validate_model(original_model, new_model):
-    df1, df2 = original_model.predict("Hello World"), new_model.predict("Hello World")
+    df1 = original_model.predict("Hello World")
+    df2 = new_model.predict("Hello World")
     if isinstance(df2, str):
         df2 = (
             pd.DataFrame(json.loads(df2))
@@ -659,6 +662,8 @@ def test_log_model_calls_register_model(tmp_path, jsl_model):
 #
 #     def mock_get_dbutils():
 #         import inspect
+
+
 #
 #         # _get_dbutils is called during run creation and model logging; to avoid breaking run
 #         # creation, we only mock the output if _get_dbutils is called during spark model logging

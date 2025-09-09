@@ -1,6 +1,6 @@
 from copy import deepcopy
 from dataclasses import asdict, dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 
 @dataclass
@@ -16,7 +16,7 @@ class Document:
 
     page_content: str
     metadata: dict[str, Any] = field(default_factory=dict)
-    id: Optional[str] = None
+    id: str | None = None
 
     @classmethod
     def from_langchain_document(cls, document):

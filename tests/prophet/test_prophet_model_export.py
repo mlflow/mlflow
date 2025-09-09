@@ -1,8 +1,8 @@
 import json
 import os
-from collections import namedtuple
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from typing import Any, NamedTuple
 from unittest import mock
 
 import numpy as np
@@ -67,7 +67,10 @@ class DataGeneration:
         )
 
     def _generate_linear_data(self):
-        DataStruct = namedtuple("DataStruct", "dates, series")
+        class DataStruct(NamedTuple):
+            dates: Any
+            series: Any
+
         series = self._generate_raw()
         date_ranges = np.arange(
             self.start, self.start + timedelta(days=self.size), timedelta(days=1)
@@ -75,7 +78,10 @@ class DataGeneration:
         return DataStruct(date_ranges, series)
 
     def _generate_shift_data(self):
-        DataStruct = namedtuple("DataStruct", "dates, series")
+        class DataStruct(NamedTuple):
+            dates: Any
+            series: Any
+
         raw = self._generate_raw()[: int(self.size * 0.6)]
         temperature = np.concatenate((raw, raw / 2.0)).ravel()[: self.size]
         date_ranges = np.arange(
@@ -112,7 +118,10 @@ TARGET_FIELD_NAME = "yhat"
 DS_FORMAT = "%Y-%m-%dT%H:%M:%S"
 INFER_FORMAT = "%Y-%m-%d %H:%M:%S"
 
-ModelWithSource = namedtuple("ModelWithSource", ["model", "data"])
+
+class ModelWithSource(NamedTuple):
+    model: Any
+    data: Any
 
 
 @pytest.fixture(scope="module")

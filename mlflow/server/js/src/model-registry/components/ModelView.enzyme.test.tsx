@@ -57,6 +57,10 @@ describe('ModelView', () => {
     global.fetch = jest.fn(() => Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }));
     navigateMock.mockClear();
     minimalProps = {
+      orderByKey: 'creation_timestamp',
+      orderByAsc: false,
+      currentPage: 1,
+      nextPageToken: null,
       model: mockRegisteredModelDetailed(
         mockModel.name,
         // @ts-expect-error TS(2345): Argument of type '{ name: any; creation_timestamp:... Remove this comment to see the full error message
@@ -140,19 +144,19 @@ describe('ModelView', () => {
       },
     };
     wrapper = createComponentInstance(props);
-    wrapper.find('button[data-test-id="overflow-menu-trigger"]').simulate('click');
+    wrapper.find('button[data-testid="overflow-menu-trigger"]').simulate('click');
     // The antd `Menu.Item` component converts the `disabled` attribute to `aria-disabled`
     // when generating HTML. Accordingly, we check for the presence of the `aria-disabled`
     // attribute within the rendered HTML.
-    const deleteMenuItem = wrapper.find('[data-test-id="delete"]').hostNodes();
+    const deleteMenuItem = wrapper.find('[data-testid="delete"]').hostNodes();
     expect(deleteMenuItem.prop('aria-disabled')).toBe(true);
     deleteMenuItem.simulate('click');
     expect(wrapper.find(ModelViewImpl).instance().state.isDeleteModalVisible).toBe(false);
   });
   test('compare button is disabled when no/1 run selected, active when 2+ runs selected', () => {
     wrapper = createComponentInstance(minimalProps);
-    expect(wrapper.find('[data-test-id="compareButton"]').hostNodes().length).toBe(1);
-    expect(wrapper.find('[data-test-id="compareButton"]').hostNodes().props().disabled).toEqual(true);
+    expect(wrapper.find('[data-testid="compareButton"]').hostNodes().length).toBe(1);
+    expect(wrapper.find('[data-testid="compareButton"]').hostNodes().props().disabled).toEqual(true);
     wrapper
       .find(ModelViewImpl)
       .instance()
@@ -160,14 +164,14 @@ describe('ModelView', () => {
         runsSelected: { run_id_1: 'version_1' },
       });
     wrapper.update();
-    expect(wrapper.find('[data-test-id="compareButton"]').hostNodes().props().disabled).toEqual(true);
+    expect(wrapper.find('[data-testid="compareButton"]').hostNodes().props().disabled).toEqual(true);
     const twoRunsSelected = { run_id_1: 'version_1', run_id_2: 'version_2' };
     wrapper.find(ModelViewImpl).instance().setState({
       runsSelected: twoRunsSelected,
     });
     wrapper.update();
-    expect(wrapper.find('[data-test-id="compareButton"]').hostNodes().props().disabled).toEqual(false);
-    wrapper.find('[data-test-id="compareButton"]').hostNodes().simulate('click');
+    expect(wrapper.find('[data-testid="compareButton"]').hostNodes().props().disabled).toEqual(false);
+    wrapper.find('[data-testid="compareButton"]').hostNodes().simulate('click');
     expect(navigateMock).toHaveBeenCalledWith(
       ModelRegistryRoutes.getCompareModelVersionsPageRoute(minimalProps['model']['name'], twoRunsSelected),
     );

@@ -1,0 +1,296 @@
+---
+title: Typescript SDK
+description: Lean how to use MLflow Typescript SDK to debug, evaluate, and monitor your applications with MLflow's powerful observability capabilities.
+---
+
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
+import TabsWrapper from "@site/src/components/TabsWrapper";
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+
+# MLflow Typescript SDK for Tracing
+
+:::info Waiting for your feedback
+
+MLflow Typescript SDK is an experimental package. We are actively working on it and would love to hear your feedback. Please raise a feature request or bug reports in <ins>[GitHub](https://github.com/mlflow/mlflow/issues/new/choose)</ins>.
+
+:::
+
+[MLflow's TypeScript SDK](https://www.npmjs.com/package/mlflow-tracing) empowers AI application developers by bringing [MLflow's Tracing](/genai/tracing) capabilities to TypeScript and JavaScript. With minimum code changes, you can **debug**, **evaluate**, and **monitor** your applications with MLflow's powerful observability features and take advantage of the trusted end-to-end MLOps platform.
+
+## Quick Start
+
+If you are new to MLflow Tracing, please start with the following quickstart guide:
+
+<TilesGrid>
+  <TileCard
+    image="/images/logos/javascript-typescript-logo.png"
+    title="Quickstart (JS/TS)"
+    description="Get started with MLflow in JavaScript or TypeScript"
+    href="/genai/tracing/quickstart/typescript-openai"
+    linkText="Start building →"
+    containerHeight={64}
+  />
+</TilesGrid>
+
+## Installation
+
+Install the package from the [npm registry](https://www.npmjs.com/package/mlflow-tracing):
+
+```bash
+npm install mlflow-tracing
+```
+
+After installation, connect your application to an MLflow server by following the [Connecting to an MLflow Server](/genai/tracing/app-instrumentation#2-connect-your-application-with-mlflow) guide.
+
+## Basic Usage
+
+<TabsWrapper>
+<Tabs>
+  <TabItem value="Simple Function">
+
+```typescript
+// Wrap a function with mlflow.trace to generate a span when the function is called.
+const getWeather = mlflow.trace(
+  (city: string) => {
+    return `The weather in ${city} is sunny`;
+  },
+  // Pass options to set span name.
+  { name: 'get-weather' }
+);
+
+// Invoke the function as usual, MLflow will automatically create a span and capture
+// inputs, outputs, latency, and exception information.
+getWeather('San Francisco');
+
+// Alternatively, start and end spans manually.
+const span = mlflow.startSpan({ name: 'my-span', inputs: { message: 'Hi, MLflow!' } });
+span.end({ outputs: { message: 'Hi, what can I do for you?' } });
+```
+
+  </TabItem>
+  <TabItem value="OpenAI">
+
+Install the OpenAI integration package:
+
+```bash
+npm install mlflow-openai
+```
+
+Then, wrap the OpenAI client with the `tracedOpenAI` function:
+
+```typescript
+import * as mlflow from "mlflow-tracing";
+
+// Initialize the tracing SDK
+mlflow.init({
+    trackingUri: "<your-tracking-server-uri>",
+    experimentId: "<your-experiment-id>",
+});
+
+import { OpenAI } from "openai";
+import { tracedOpenAI } from "mlflow-openai";
+
+// Wrap the OpenAI client with the tracedOpenAI function
+const client = tracedOpenAI(new OpenAI());
+
+// Invoke the client as usual
+const response = await client.chat.completions.create({
+    model: "o4-mini",
+    messages: [
+        {"role": "system", "content": "You are a helpful weather assistant."},
+        {"role": "user", "content": "What's the weather like in Seattle?"},
+    ],
+})
+```
+
+  </TabItem>
+</Tabs>
+</TabsWrapper>
+
+## Automatic Tracing
+
+MLflow Tracing Typescript SDK currently supports automatic tracing for the following libraries:
+
+<CardGroup isSmall>
+  <SmallLogoCard link="/genai/tracing/integrations/listing/openai">
+    <span>![OpenAI Logo](/images/logos/openai-logo.png)</span>
+  </SmallLogoCard>
+</CardGroup>
+
+## Manual Tracing
+
+### Tracing a function with the `trace` API
+
+The `trace` API is useful when you want to trace a function.
+
+<Tabs>
+  <TabItem value="function" label="Named Function">
+
+    ```typescript
+    import * as mlflow from "mlflow-tracing";
+
+    const getWeather = async (city: string) => {
+        return `The weather in ${city} is sunny`;
+    };
+
+    // Wrap the function with mlflow.trace to create a traced function.
+    const tracedGetWeather = mlflow.trace(
+        getWeather,
+        { name: 'get-weather' }
+    );
+
+    // Invoke the traced function as usual.
+    await tracedGetWeather('San Francisco');
+    ```
+
+  </TabItem>
+  <TabItem value="anonymous-function" label="Anonymous Function">
+
+    ```typescript
+    import * as mlflow from "mlflow-tracing";
+
+    const getWeather = mlflow.trace(
+        (city: string) => {
+            return `The weather in ${city} is sunny`;
+        },
+        // When wrapping an anonymous function, you need to specify the span name.
+        { name: 'get-weather' }
+    );
+
+    // Invoke the traced function as usual.
+    getWeather('San Francisco');
+    ```
+
+  </TabItem>
+</Tabs>
+
+On the invocation of the traced function, MLflow will automatically create a span that captures:
+
+- Input arguments
+- Return value
+- Exception information if thrown
+- Latency
+
+### Capturing Nested Function Calls
+
+If you trace nested functions, MLflow will generate a trace with multiple spans, where the span structure captures the nested function calls.
+
+```typescript
+const sum = mlflow.trace(
+    (a: number, b: number) => {
+        return a + b;
+    },
+    { name: 'sum' }
+);
+
+const multiply = mlflow.trace(
+    (a: number, b: number) => {
+        return a * b;
+    },
+    { name: 'multiply' }
+);
+
+const computeArea = mlflow.trace(
+    (a: number, b: number, h: number) => {
+        const sumOfBase = sum(a, b);
+        const area = multiply(sumOfBase, h);
+        return multiply(area, 0.5);
+    },
+    { name: 'compute-area' }
+);
+
+computeArea(1, 2, 3);
+```
+
+The trace will look like this:
+
+```
+- compute-area
+  - sum (a=1, b=2)
+  - multiply (a=3, b=3)
+  - multiply (a=9, b=0.5)
+```
+
+### Tracing a class method with the `@trace` API
+
+TypeScript version 5.0+ supports decorators. MLflow Tracing supports this syntax to trace class methods easily. MLflow will automatically create a span that captures:
+
+- Input arguments
+- Return value
+- Exception information if thrown
+- Latency
+
+```typescript
+import * as mlflow from "mlflow-tracing";
+
+class MyClass {
+    @mlflow.trace({ spanType: mlflow.SpanType.LLM })
+    generateText(prompt: string) {
+        return "It's sunny in Seattle!";
+    }
+}
+
+const myClass = new MyClass();
+myClass.generateText("What's the weather like in Seattle?");
+```
+
+### Tracing a block of code with the `withSpan` API
+
+The `withSpan` API is useful when you want to trace a block of code, not a function.
+
+```typescript
+import * as mlflow from "mlflow-tracing";
+
+const question = "What's the weather like in Seattle?";
+
+const result = await mlflow.withSpan(
+    async (span: mlflow.Span) => {
+        return "It's sunny in Seattle!";
+    },
+    // Pass name, span type, and inputs as options.
+    {
+        name: "generateText",
+        spanType: mlflow.SpanType.TOOL,
+        inputs: { prompt: question },
+    }
+);
+```
+
+### Create and End a Span Explicitly
+
+To get more control over the span lifecycle, you can create and end a span explicitly.
+
+```typescript
+import * as mlflow from "mlflow-tracing";
+
+const span = mlflow.startSpan({
+    name: "generateText",
+    spanType: mlflow.SpanType.LLM,
+    inputs: { prompt: question },
+});
+
+span.end({
+    outputs: { answer: "It's sunny in Seattle!" },
+    status: 'OK',
+});
+```
+
+## Grouping Traces by Users and Sessions
+
+Many real-world applications use sessions to maintain multi-turn user interactions. On the other hand, traces are often generated per-request. MLflow supports grouping traces by user sessions to help you understand an end-user's journey and identify issues. Refer to the [Track Users & Sessions](/genai/tracing/track-users-sessions) guide for more details.
+
+## FAQ
+
+#### Q. I found a feature in the Python SDK that is not available in the Typescript SDK.
+
+The Typescript SDK started later than the Python SDK, so some features are not available yet. Please raise a feature request in [GitHub](https://github.com/mlflow/mlflow/issues/new/choose) to get the attention of the maintainers.
+
+#### Q. Do I need to install Python to use MLflow Typescript SDK?
+
+Your application doesn't need to have Python installed. However, if you want to send traces to the self-hosted MLflow server, your server environment needs to have Python.
+
+Alternatively, you can sign-up for [Managed MLflow](https://mlflow.org/#get-started) for free and send traces to the cloud-hosted MLflow server.

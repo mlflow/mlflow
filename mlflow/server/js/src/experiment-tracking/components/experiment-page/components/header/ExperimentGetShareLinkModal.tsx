@@ -130,7 +130,7 @@ export const ExperimentGetShareLinkModal = ({
       title={
         <FormattedMessage
           defaultMessage="Get shareable link"
-          description={'Title text for the experiment "Get link" modal'}
+          description='Title text for the experiment "Get link" modal'
         />
       }
       visible={visible}

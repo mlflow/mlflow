@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { EditableNote } from '../../../../common/components/EditableNote';
-import { KeyValueEntity } from '../../../types';
+import { KeyValueEntity } from '../../../../common/types';
 import { NOTE_CONTENT_TAG } from '../../../utils/NoteUtils';
 import { Button, PencilIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { useDispatch } from 'react-redux';
