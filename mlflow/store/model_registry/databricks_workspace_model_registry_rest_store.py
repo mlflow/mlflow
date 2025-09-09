@@ -18,7 +18,7 @@ from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME
 _logger = logging.getLogger(__name__)
 
 
-def _extract_workspace_id_from_run_link(run_link: str) -> str | None:
+def _extract_workspace_id_from_run_link(run_link: str | None) -> str | None:
     """
     Extract workspace ID from a Databricks run link URL.
 

@@ -103,7 +103,9 @@ def _expected_unsupported_method_error_message(method):
         (None, None),
     ],
 )
-def test_extract_workspace_id_from_run_link(run_link, expected_workspace_id):
+def test_extract_workspace_id_from_run_link(
+    run_link: str | None, expected_workspace_id: str | None
+):
     assert _extract_workspace_id_from_run_link(run_link) == expected_workspace_id
 
 
@@ -208,6 +210,7 @@ def test_copy_model_version_unity_catalog_success(store, sample_model_version):
             local_model_path="/tmp/local_model_dir",
             model_id="test_model_id",
             bypass_signature_validation=False,
+            source_workspace_id=None,
         )
 
         assert result.name == dst_name
@@ -296,6 +299,7 @@ def test_copy_model_version_unity_catalog_registered_model_already_exists(
             local_model_path="/tmp/local_model_dir",
             model_id="test_model_id",
             bypass_signature_validation=False,
+            source_workspace_id=None,
         )
 
         assert result.name == dst_name
@@ -390,4 +394,5 @@ def test_copy_model_version_unity_catalog_signature_validation_bypass(
             local_model_path="/tmp/local_model_dir",
             model_id="test_model_id",
             bypass_signature_validation=True,
+            source_workspace_id=None,
         )
