@@ -28,7 +28,6 @@ class SIMBAAlignmentOptimizer(DSPyAlignmentOptimizer):
     """
 
     # Class constants for default SIMBA parameters
-    DEFAULT_BSIZE: ClassVar[int] = 4
     DEFAULT_SEED: ClassVar[int] = 42
 
     def __init__(self, model: str | None = None, **kwargs):
@@ -40,8 +39,16 @@ class SIMBAAlignmentOptimizer(DSPyAlignmentOptimizer):
             **kwargs: Additional keyword arguments passed to parent class
         """
         super().__init__(model=model, **kwargs)
-        self._bsize = self.DEFAULT_BSIZE
         self._seed = self.DEFAULT_SEED
+
+    def _get_batch_size(self) -> int:
+        """
+        Get the batch size for SIMBA optimization.
+
+        Returns:
+            The batch size to use for SIMBA optimization.
+        """
+        return self.get_min_traces_required()
 
     def _dspy_optimize(
         self,
@@ -63,7 +70,7 @@ class SIMBAAlignmentOptimizer(DSPyAlignmentOptimizer):
             Optimized DSPy program
         """
         # Create SIMBA optimizer
-        optimizer = dspy.SIMBA(metric=metric_fn, bsize=self._bsize)
+        optimizer = dspy.SIMBA(metric=metric_fn, bsize=self._get_batch_size())
 
         # Compile with SIMBA-specific parameters
         # SIMBA uses all examples as training data
