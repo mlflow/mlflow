@@ -24,10 +24,10 @@ def _extract_workspace_id_from_run_link(run_link: str) -> str | None:
 
     Args:
         run_link: URL like "https://workspace.databricks.com/?o=10002#mlflow/experiments/test-exp-id/runs/runid"
-        The workspace ID is the part after the ?o= in the URL, and before the #,
-        e.g. 10002 in the example above.
-        The run_link is only present if the run was logged in a Databricks Workspace
-        different from the registry workspace.
+            The workspace ID is the part after the ?o= in the URL, and before the #,
+            e.g. 10002 in the example above.
+            The run_link is only present if the run was logged in a Databricks Workspace
+            different from the registry workspace.
 
     Returns:
         The workspace ID as a string, or None if not found or invalid
@@ -49,8 +49,7 @@ def _extract_workspace_id_from_run_link(run_link: str) -> str | None:
             _logger.warning(warning_msg)
             return None
         workspace_id = workspace_id_params[0]
-        workspace_id_int = int(workspace_id)
-        if workspace_id_int < 0:
+        if int(workspace_id) < 0:
             _logger.warning(warning_msg)
             return None
         return workspace_id

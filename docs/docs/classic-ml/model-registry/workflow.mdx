@@ -229,6 +229,10 @@ instructions to add one. However, to simplify the migration process, you can als
 <APILink fn="mlflow.client.MlflowClient.copy_model_version">`copy_model_version()`</APILink> API as indicated above, and
 it allows you to migrate the model to Unity Catalog while bypassing the signature requirement.
 
+Model versions that are registered to Databricks Unity Catalog without signatures have limitations. See the
+[Databricks documentation](https://docs.databricks.com/aws/en/machine-learning/manage-model-lifecycle/#add-signature)
+for a detailed list of the limitations.
+
 ```python
 import os
 
