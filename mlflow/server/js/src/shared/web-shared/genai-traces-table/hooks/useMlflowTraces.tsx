@@ -43,7 +43,6 @@ import {
 import { fetchFn, getAjaxUrl } from '../utils/FetchUtils';
 import MlflowUtils from '../utils/MlflowUtils';
 import { convertTraceInfoV3ToRunEvalEntry, getCustomMetadataKeyFromColumnId } from '../utils/TraceUtils';
-import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 interface SearchMlflowTracesRequest {
   locations?: SearchMlflowLocations[];
