@@ -130,50 +130,50 @@ def _invoke_databricks_model(
                     ],
                 },
             )
-
-            # Check HTTP status before parsing JSON
-            if res.status_code == 400 or res.status_code == 403:
-                # Don't retry on bad request or auth issues
-                raise MlflowException(
-                    f"Databricks model invocation failed with status {res.status_code}: {res.text}",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-
-            if res.status_code >= 400:
-                # For other errors, raise exception and potentially retry
-                error_msg = (
-                    f"Databricks model invocation failed with status {res.status_code}: {res.text}"
-                )
-                if attempt < num_retries:
-                    # Log and retry for transient errors
-                    _logger.debug(f"Attempt {attempt + 1} failed: {error_msg}")
-                    time.sleep(2**attempt)  # Exponential backoff
-                    continue
-                else:
-                    raise MlflowException(error_msg, error_code=INVALID_PARAMETER_VALUE)
-
-            # Parse JSON response
-            try:
-                res_json = res.json()
-            except json.JSONDecodeError as e:
-                raise MlflowException(
-                    f"Failed to parse JSON response from Databricks model: {e}",
-                    error_code=INVALID_PARAMETER_VALUE,
-                ) from e
-
-            # Parse and validate the response using helper function
-            return _parse_databricks_model_response(res_json, res.headers)
-
         except (requests.RequestException, requests.ConnectionError) as e:
             last_exception = e
             if attempt < num_retries:
                 _logger.debug(f"Request attempt {attempt + 1} failed with error: {e}")
                 time.sleep(2**attempt)  # Exponential backoff
+                continue
             else:
                 raise MlflowException(
                     f"Failed to invoke Databricks model after {num_retries + 1} attempts: {e}",
                     error_code=INVALID_PARAMETER_VALUE,
                 ) from e
+
+        # Check HTTP status before parsing JSON
+        if res.status_code == 400 or res.status_code == 403:
+            # Don't retry on bad request or auth issues
+            raise MlflowException(
+                f"Databricks model invocation failed with status {res.status_code}: {res.text}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        if res.status_code >= 400:
+            # For other errors, raise exception and potentially retry
+            error_msg = (
+                f"Databricks model invocation failed with status {res.status_code}: {res.text}"
+            )
+            if attempt < num_retries:
+                # Log and retry for transient errors
+                _logger.debug(f"Attempt {attempt + 1} failed: {error_msg}")
+                time.sleep(2**attempt)  # Exponential backoff
+                continue
+            else:
+                raise MlflowException(error_msg, error_code=INVALID_PARAMETER_VALUE)
+
+        # Parse JSON response
+        try:
+            res_json = res.json()
+        except json.JSONDecodeError as e:
+            raise MlflowException(
+                f"Failed to parse JSON response from Databricks model: {e}",
+                error_code=INVALID_PARAMETER_VALUE,
+            ) from e
+
+        # Parse and validate the response using helper function
+        return _parse_databricks_model_response(res_json, res.headers)
 
     # This should not be reached, but just in case
     if last_exception:
