@@ -140,7 +140,6 @@ def test_format_prompt_with_backslashes(
 
 
 def test_parse_databricks_model_response_valid_response() -> None:
-    """Test parsing a valid response with all fields."""
     res_json = {
         "choices": [{"message": {"content": "This is the response"}}],
         "usage": {"prompt_tokens": 10, "completion_tokens": 5},
@@ -157,7 +156,6 @@ def test_parse_databricks_model_response_valid_response() -> None:
 
 
 def test_parse_databricks_model_response_reasoning_response() -> None:
-    """Test parsing a response with list content (reasoning mode)."""
     res_json = {
         "choices": [
             {
@@ -186,7 +184,6 @@ def test_parse_databricks_model_response_reasoning_response() -> None:
 def test_parse_databricks_model_response_invalid_reasoning_response(
     invalid_content: list[dict[str, str]],
 ) -> None:
-    """Test parsing invalid reasoning responses."""
     res_json = {"choices": [{"message": {"content": invalid_content}}]}
     headers: dict[str, str] = {}
 
@@ -195,7 +192,6 @@ def test_parse_databricks_model_response_invalid_reasoning_response(
 
 
 def test_parse_databricks_model_response_missing_choices() -> None:
-    """Test error when choices field is missing."""
     res_json: dict[str, Any] = {}
     headers: dict[str, str] = {}
 
@@ -204,7 +200,6 @@ def test_parse_databricks_model_response_missing_choices() -> None:
 
 
 def test_parse_databricks_model_response_empty_choices() -> None:
-    """Test error when choices array is empty."""
     res_json = {"choices": []}
     headers: dict[str, str] = {}
 
@@ -213,7 +208,6 @@ def test_parse_databricks_model_response_empty_choices() -> None:
 
 
 def test_parse_databricks_model_response_missing_message() -> None:
-    """Test error when message field is missing."""
     res_json = {"choices": [{}]}
     headers: dict[str, str] = {}
 
@@ -222,7 +216,6 @@ def test_parse_databricks_model_response_missing_message() -> None:
 
 
 def test_parse_databricks_model_response_missing_content() -> None:
-    """Test error when content field is missing."""
     res_json = {"choices": [{"message": {}}]}
     headers: dict[str, str] = {}
 
@@ -231,7 +224,6 @@ def test_parse_databricks_model_response_missing_content() -> None:
 
 
 def test_parse_databricks_model_response_none_content() -> None:
-    """Test error when content field is None."""
     res_json = {"choices": [{"message": {"content": None}}]}
     headers: dict[str, str] = {}
 
@@ -240,7 +232,6 @@ def test_parse_databricks_model_response_none_content() -> None:
 
 
 def test_invoke_databricks_model_successful_invocation() -> None:
-    """Test successful Databricks model invocation."""
     mock_creds = mock.Mock()
     mock_creds.host = "https://test.databricks.com"
     mock_creds.token = "test-token"
@@ -308,7 +299,6 @@ def test_invoke_databricks_model_bad_request_error_no_retry() -> None:
 
 
 def test_invoke_databricks_model_retry_logic_with_transient_errors() -> None:
-    """Test retry logic with transient errors."""
     mock_creds = mock.Mock()
     mock_creds.host = "https://test.databricks.com"
     mock_creds.token = "test-token"
@@ -346,7 +336,6 @@ def test_invoke_databricks_model_retry_logic_with_transient_errors() -> None:
 
 
 def test_invoke_databricks_model_json_decode_error() -> None:
-    """Test error handling for invalid JSON response."""
     mock_creds = mock.Mock()
     mock_creds.host = "https://test.databricks.com"
     mock_creds.token = "test-token"
@@ -373,7 +362,6 @@ def test_invoke_databricks_model_json_decode_error() -> None:
 
 
 def test_invoke_databricks_model_connection_error_with_retries() -> None:
-    """Test connection error handling with retries."""
     mock_creds = mock.Mock()
 
     with (
@@ -398,7 +386,6 @@ def test_invoke_databricks_model_connection_error_with_retries() -> None:
 
 
 def test_record_success_telemetry_with_databricks_agents() -> None:
-    """Test successful telemetry recording when databricks-agents is available."""
     from mlflow.genai.judges.utils import _record_judge_model_usage_success_databricks_telemetry
 
     # Mock the telemetry function separately
@@ -454,7 +441,6 @@ def test_record_success_telemetry_with_databricks_agents() -> None:
 
 
 def test_record_success_telemetry_without_databricks_agents() -> None:
-    """Test telemetry recording gracefully handles missing databricks-agents."""
     from mlflow.genai.judges.utils import _record_judge_model_usage_success_databricks_telemetry
 
     with mock.patch.dict("sys.modules", {"databricks.agents.telemetry": None}):
@@ -469,7 +455,6 @@ def test_record_success_telemetry_without_databricks_agents() -> None:
 
 
 def test_record_failure_telemetry_with_databricks_agents() -> None:
-    """Test failure telemetry recording when databricks-agents is available."""
     from mlflow.genai.judges.utils import _record_judge_model_usage_failure_databricks_telemetry
 
     # Mock the telemetry function separately
@@ -523,7 +508,6 @@ def test_record_failure_telemetry_with_databricks_agents() -> None:
 
 
 def test_invoke_judge_model_databricks_success_not_in_databricks() -> None:
-    """Test successful invocation with Databricks model when not in Databricks environment."""
     with (
         mock.patch(
             "mlflow.genai.judges.utils._is_in_databricks",
@@ -556,7 +540,6 @@ def test_invoke_judge_model_databricks_success_not_in_databricks() -> None:
 
 
 def test_invoke_judge_model_databricks_success_in_databricks() -> None:
-    """Test successful invocation with telemetry recording when in Databricks."""
     with (
         mock.patch(
             "mlflow.genai.judges.utils._is_in_databricks",
@@ -597,7 +580,6 @@ def test_invoke_judge_model_databricks_success_in_databricks() -> None:
 
 
 def test_invoke_judge_model_databricks_failure_in_databricks() -> None:
-    """Test failure handling with telemetry recording when in Databricks."""
     with (
         mock.patch(
             "mlflow.genai.judges.utils._is_in_databricks",
@@ -634,7 +616,6 @@ def test_invoke_judge_model_databricks_failure_in_databricks() -> None:
 
 
 def test_invoke_judge_model_databricks_telemetry_error_handling() -> None:
-    """Test that telemetry errors don't break the main flow."""
     with (
         mock.patch(
             "mlflow.genai.judges.utils._is_in_databricks",
