@@ -153,6 +153,10 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
             padding: `0 ${MODAL_SPACING_REM}rem !important`,
             [`& .${classNamePrefix}-modal-body`]: {
               flex: 1,
+              paddingTop: 0,
+            },
+            [`& .${classNamePrefix}-modal-header`]: {
+              paddingBottom: theme.spacing.sm,
             },
           }}
           footer={null} // Hide the footer

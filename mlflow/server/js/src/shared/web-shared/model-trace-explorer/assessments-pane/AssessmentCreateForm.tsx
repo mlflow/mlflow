@@ -87,7 +87,7 @@ export const AssessmentCreateForm = forwardRef<HTMLDivElement, AssessmentCreateF
         }
       }
 
-      if (name === '') {
+      if (!isNamePrefilled && name === '') {
         setNameError(
           <FormattedMessage
             defaultMessage="Please enter a name"

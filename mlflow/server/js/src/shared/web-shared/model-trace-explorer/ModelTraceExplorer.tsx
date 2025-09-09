@@ -39,7 +39,7 @@ const ModelTraceExplorerContent = ({
       value={activeView}
       onValueChange={(value) => setActiveView(value as 'summary' | 'detail')}
       css={{
-        '& > div:first-of-type': {
+        '& > div:nth-of-type(2)': {
           marginBottom: 0,
           flexShrink: 0,
         },
@@ -49,7 +49,7 @@ const ModelTraceExplorerContent = ({
         overflow: 'hidden',
       }}
     >
-      <div css={{ paddingLeft: theme.spacing.md, paddingBottom: theme.spacing.md }}>
+      <div css={{ paddingLeft: theme.spacing.md, paddingBottom: theme.spacing.sm }}>
         <ModelTraceHeaderDetails modelTrace={modelTrace} />
       </div>
       <Tabs.List css={{ paddingLeft: theme.spacing.md, flexShrink: 0 }}>
