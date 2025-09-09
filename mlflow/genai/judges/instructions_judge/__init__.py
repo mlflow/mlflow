@@ -172,22 +172,26 @@ class InstructionsJudge(Judge):
         Evaluate the provided data using the judge's instructions.
 
         Args:
-            inputs: Input dictionary to evaluate. If not provided and a trace is given,
+            inputs: Input data to evaluate. If not provided and a trace is given,
                 will be extracted from the trace's root span inputs.
-            outputs: Output dictionary to evaluate. If not provided and a trace is given,
+            outputs: Output data to evaluate. If not provided and a trace is given,
                 will be extracted from the trace's root span outputs.
             expectations: Expected outcomes or ground truth. If not provided and a trace is given,
                 will be extracted from the trace's expectation assessments.
             trace: Trace object for evaluation. When the template uses {{ inputs }}, {{ outputs }},
-                or {{ expectations }} (not {{ trace }}), the values will be extracted from the
-                trace.
+                or {{ expectations }}, the values will be extracted from the trace.
 
         Returns:
             Evaluation results
 
         **Note on Trace Behavior**:
-        - If template uses {{ trace }}: The trace is passed to an agent for evaluation.
-        - If template uses {{ inputs }}/{{ outputs }}/{{ expectations }}: Values are extracted from:
+        - If template uses {{ trace }}: The trace metadata is used by an agent-based judge that uses
+          tools to fetch aspects of the trace's span data. If inputs/outputs/expectations are also
+          provided, they can augment the agent's context if the template has corresponding
+          placeholders ({{ inputs }}/{{ outputs }}/{{ expectations }}). The agent will still use
+          tools to fetch span data but will have this additional context in the user prompt.
+        - If template uses {{ inputs }}/{{ outputs }}/{{ expectations }} without {{ trace }}:
+          Values are extracted from (if a trace is provided during invocation):
           - inputs/outputs: From the trace's root span
           - expectations: From the trace's human-set expectation assessments (ground truth only)
 

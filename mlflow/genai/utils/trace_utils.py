@@ -60,43 +60,35 @@ def extract_response_from_trace(trace: Trace) -> str | None:
     return parse_outputs_to_str(root_span.outputs)
 
 
-def extract_inputs_from_trace(trace: Trace) -> dict[str, Any] | None:
+def extract_inputs_from_trace(trace: Trace) -> Any:
     """
-    Extract inputs as a dictionary from the root span of an MLflow trace.
+    Extract inputs from the root span of an MLflow trace.
 
     Args:
         trace: MLflow trace object
 
     Returns:
-        Inputs dictionary, or None if no root span
+        Inputs from the root span, or None if no root span or inputs
     """
     root_span = trace.data._get_root_span()
     if root_span and root_span.inputs is not None:
-        # Convert to dict if it's not already
-        if isinstance(root_span.inputs, dict):
-            return root_span.inputs
-        else:
-            return {"value": root_span.inputs}
+        return root_span.inputs
     return None
 
 
-def extract_outputs_from_trace(trace: Trace) -> dict[str, Any] | None:
+def extract_outputs_from_trace(trace: Trace) -> Any:
     """
-    Extract outputs as a dictionary from the root span of an MLflow trace.
+    Extract outputs from the root span of an MLflow trace.
 
     Args:
         trace: MLflow trace object
 
     Returns:
-        Outputs dictionary, or None if no root span
+        Outputs from the root span, or None if no root span or outputs
     """
     root_span = trace.data._get_root_span()
     if root_span and root_span.outputs is not None:
-        # Convert to dict if it's not already
-        if isinstance(root_span.outputs, dict):
-            return root_span.outputs
-        else:
-            return {"value": root_span.outputs}
+        return root_span.outputs
     return None
 
 

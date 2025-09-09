@@ -26,7 +26,6 @@ def test_extract_inputs_outputs_from_trace():
     assert extract_inputs_from_trace(trace) == trace_inputs
     assert extract_outputs_from_trace(trace) == trace_outputs
 
-    # Test string extraction (existing functions have different behavior)
     request_str = extract_request_from_trace(trace)
     response_str = extract_response_from_trace(trace)
     assert "What is MLflow?" in request_str
@@ -40,8 +39,8 @@ def test_extract_inputs_outputs_with_non_dict_values():
 
     trace = mlflow.get_trace(span.trace_id)
 
-    assert extract_inputs_from_trace(trace) == {"value": "simple string input"}
-    assert extract_outputs_from_trace(trace) == {"value": "simple string output"}
+    assert extract_inputs_from_trace(trace) == "simple string input"
+    assert extract_outputs_from_trace(trace) == "simple string output"
 
     assert extract_request_from_trace(trace) == "simple string input"
     assert extract_response_from_trace(trace) == "simple string output"
@@ -133,7 +132,6 @@ def test_extract_from_empty_trace():
     with mlflow.start_span(name="test_span") as span:
         pass
 
-    # Get the trace by span ID
     trace = mlflow.get_trace(span.trace_id)
 
     assert extract_inputs_from_trace(trace) is None
@@ -159,11 +157,9 @@ def test_extract_request_response_nested_structure():
 
     trace = mlflow.get_trace(span.trace_id)
 
-    # Test dict extraction
     assert extract_inputs_from_trace(trace) == nested_inputs
     assert extract_outputs_from_trace(trace) == nested_outputs
 
-    # Test string extraction
     request_str = extract_request_from_trace(trace)
     response_str = extract_response_from_trace(trace)
     assert "nested input" in request_str
@@ -210,11 +206,9 @@ def test_extract_request_response_mixed_types():
 
     trace = mlflow.get_trace(span.trace_id)
 
-    # Test dict extraction
     assert extract_inputs_from_trace(trace) == mixed_inputs
     assert extract_outputs_from_trace(trace) == mixed_outputs
 
-    # Test string extraction
     request_str = extract_request_from_trace(trace)
     response_str = extract_response_from_trace(trace)
     assert "test" in request_str

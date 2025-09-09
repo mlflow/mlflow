@@ -1377,8 +1377,9 @@ def test_trace_field_extraction_with_non_dict_values(mock_invoke_judge_model):
     user_msg = prompt[1]
     user_content = user_msg.content
 
-    expected_inputs_json = json.dumps({"value": trace_inputs}, default=str, indent=2)
-    expected_outputs_json = json.dumps({"value": trace_outputs}, default=str, indent=2)
+    # Non-dict values are now serialized directly as JSON strings
+    expected_inputs_json = json.dumps(trace_inputs, default=str, indent=2)
+    expected_outputs_json = json.dumps(trace_outputs, default=str, indent=2)
 
     assert f"inputs: {expected_inputs_json}" in user_content
     assert f"outputs: {expected_outputs_json}" in user_content
