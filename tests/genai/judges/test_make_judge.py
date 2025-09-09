@@ -5,6 +5,7 @@ from dataclasses import asdict
 from unittest import mock
 from unittest.mock import patch
 
+import litellm
 import pandas as pd
 import pytest
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
@@ -1588,3 +1589,68 @@ def test_context_labels_added_to_interpolated_values(mock_invoke_judge_model):
     outputs_pos = user_content.index("outputs:")
 
     assert outputs_pos < inputs_pos < expectations_pos
+
+
+@pytest.mark.parametrize(
+    "exception",
+    [
+        litellm.ContextWindowExceededError("Context exceeded", "gpt-4", "openai"),
+        litellm.BadRequestError("maximum context length is exceeded", "gpt-4", "openai"),
+    ],
+)
+def test_context_window_error_removes_tool_calls_and_retries(exception, monkeypatch, mock_trace):
+    exception_raised = False
+    captured_error_messages = None
+    captured_retry_messages = None
+
+    def mock_completion(**kwargs):
+        nonlocal exception_raised
+        nonlocal captured_error_messages
+        nonlocal captured_retry_messages
+
+        if len(kwargs["messages"]) >= 8 and not exception_raised:
+            captured_error_messages = kwargs["messages"]
+            exception_raised = True
+            raise exception
+
+        mock_response = mock.Mock()
+        mock_response.choices = [mock.Mock()]
+        if exception_raised:
+            captured_retry_messages = kwargs["messages"]
+            mock_response.choices[0].message = litellm.Message(
+                role="assistant",
+                content='{"result": "pass", "rationale": "Test passed"}',
+                tool_calls=None,
+            )
+        else:
+            call_id = f"call_{len(kwargs['messages'])}"
+            mock_response.choices[0].message = litellm.Message(
+                role="assistant",
+                content=None,
+                tool_calls=[{"id": call_id, "function": {"name": "get_span", "arguments": "{}"}}],
+            )
+        return mock_response
+
+    monkeypatch.setattr("litellm.completion", mock_completion)
+    monkeypatch.setattr("litellm.token_counter", lambda model, messages: len(messages) * 20)
+    monkeypatch.setattr("litellm.get_max_tokens", lambda model: 120)
+
+    judge = make_judge(name="test", instructions="test {{inputs}}", model="openai:/gpt-4")
+    judge(inputs={"input": "test"}, outputs={"output": "test"}, trace=mock_trace)
+
+    # Verify pruning happened; we expect that 2 messages were removed (one tool call pair consisting
+    # of 1. assistant message and 2. tool call result message)
+    assert captured_retry_messages == captured_error_messages[:2] + captured_error_messages[4:8]
+
+
+def test_non_context_error_does_not_trigger_pruning(monkeypatch):
+    def mock_completion(**kwargs):
+        raise Exception("some other error")
+
+    monkeypatch.setattr("litellm.completion", mock_completion)
+
+    judge = make_judge(
+        name="test_judge", instructions="Check if {{inputs}} is correct", model="openai:/gpt-4"
+    )
+    with pytest.raises(MlflowException, match="some other error"):
+        judge(inputs={"input": "test"}, outputs={"output": "test"})
