@@ -5,6 +5,7 @@ import opentelemetry.trace as trace_api
 import pytest
 from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
 from opentelemetry.proto.trace.v1.trace_pb2 import Status as OTelProtoStatus
+from opentelemetry.sdk.resources import Resource as _OTelResource
 from opentelemetry.sdk.trace import Event as OTelEvent
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.trace import Status as OTelStatus
@@ -13,7 +14,9 @@ from opentelemetry.trace import StatusCode as OTelStatusCode
 import mlflow
 from mlflow.entities import LiveSpan, Span, SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.entities.span import NoOpSpan, create_mlflow_span
+from mlflow.entities.trace_data import TraceData
 from mlflow.exceptions import MlflowException
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import _get_tracer, trace_disabled
 from mlflow.tracing.utils import build_otel_context, encode_span_id, encode_trace_id
 
@@ -549,15 +552,12 @@ def test_otel_roundtrip_conversion(sample_otel_span_for_conversion):
 
 
 def test_span_attributes_not_double_stringified():
-    """Test that span attributes like spanInputs are not double-stringified when serialized."""
-    import json
-    from mlflow.entities.trace_data import TraceData
-    from mlflow.tracing.constant import SpanAttributeKey
-    from opentelemetry.sdk.resources import Resource as _OTelResource
-    
-    test_input = "Sluggish economy hits German jobs\n\nThe number of people out of work in Europe's largest (...)"
+    test_input = (
+        "Sluggish economy hits German jobs\n\n"
+        "The number of people out of work in Europe's largest (...)"
+    )
     test_output = {"result": "some output", "nested": {"key": "value"}}
-    
+
     otel_span = OTelReadableSpan(
         name="test_span",
         context=build_otel_context(123456789, 987654321),
@@ -574,31 +574,31 @@ def test_span_attributes_not_double_stringified():
         resource=_OTelResource.get_empty(),
         events=[],
     )
-    
+
     span = Span(otel_span)
-    
+
     span_dict = span.to_dict()
-    
+
     attributes = span_dict["attributes"]
-    
+
     assert attributes[SpanAttributeKey.INPUTS] == test_input
     assert isinstance(attributes[SpanAttributeKey.INPUTS], str)
-    
+
     assert attributes[SpanAttributeKey.OUTPUTS] == test_output
     assert isinstance(attributes[SpanAttributeKey.OUTPUTS], dict)
-    
+
     trace_data = TraceData(spans=[span])
     trace_dict = trace_data.to_dict()
-    
+
     trace_json = json.dumps(trace_dict)
-    
+
     parsed_trace = json.loads(trace_json)
-    
+
     parsed_span = parsed_trace["spans"][0]
     parsed_attributes = parsed_span["attributes"]
-    
+
     assert parsed_attributes[SpanAttributeKey.INPUTS] == test_input
     assert parsed_attributes[SpanAttributeKey.OUTPUTS] == test_output
-    
-    assert '\\\\n' not in trace_json
+
+    assert "\\\\n" not in trace_json
     assert '\\\\"' not in trace_json

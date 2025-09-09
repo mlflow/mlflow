@@ -347,7 +347,10 @@ class Span:
             end_time_unix_nano=end_time_unix_nano,
             events=[event.to_proto() for event in self.events],
             status=status,
-            attributes={k: ParseDict(json.loads(v) if isinstance(v, str) else v, Value()) for k, v in self._span.attributes.items()},
+            attributes={
+                k: ParseDict(json.loads(v) if isinstance(v, str) else v, Value())
+                for k, v in self._span.attributes.items()
+            },
         )
 
     @classmethod
