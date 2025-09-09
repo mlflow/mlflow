@@ -35,22 +35,27 @@ def _extract_workspace_id_from_run_link(run_link: str) -> str | None:
     if not run_link:
         return None
 
+    warning_msg = (
+        "Unable to get model version source run's workspace ID from source run link. "
+        "The source workspace ID on the destination model version will be set to the "
+        "registry workspace ID."
+    )
+
     try:
         parsed_url = urlparse(run_link)
         query_params = parse_qs(parsed_url.query)
-        if "o" not in query_params:
+        workspace_id_params = query_params.get("o")
+        if not workspace_id_params:
+            _logger.warning(warning_msg)
             return None
-        workspace_id = query_params["o"][0]
+        workspace_id = workspace_id_params[0]
         workspace_id_int = int(workspace_id)
         if workspace_id_int < 0:
+            _logger.warning(warning_msg)
             return None
         return workspace_id
-    except (ValueError, IndexError, KeyError):
-        _logger.warning(
-            "Unable to get model version source run's workspace ID from source run link. "
-            "The source workspace ID on the destination model version will be set to the "
-            "registry workspace ID."
-        )
+    except ValueError:
+        _logger.warning(warning_msg)
         return None
 
 
