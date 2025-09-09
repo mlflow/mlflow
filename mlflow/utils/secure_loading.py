@@ -17,6 +17,10 @@ logger = logging.getLogger(__name__)
 
 # Allowlist of safe classes that can be unpickled
 SAFE_PICKLE_CLASSES = {
+
+    # STD types
+    'time.time',
+
     # NumPy types
     'numpy.ndarray',
     'numpy.dtype',
@@ -104,6 +108,11 @@ SAFE_PICKLE_CLASSES = {
     'tokenizers.Tokenizer',
     'tokenizers.models.Model',
     'tokenizers.AddedToken',
+
+    # PyTorch
+    'model.load_checkpoint',
+    'torch.device',
+    'model.SepClassifier',
 }
 
 
