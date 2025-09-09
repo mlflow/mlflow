@@ -429,16 +429,17 @@ def test_convert_scorer_to_legacy_metric_aggregations_attribute():
 
     sys.modules["databricks.agents.evals"] = Mock(metric=mock_metric_decorator)
 
-    mock_scorer = Mock()
-    mock_scorer.name = "test_scorer"
-    mock_scorer.aggregations = ["mean", "max", "p90"]
-    mock_scorer.run = Mock(return_value={"score": 1.0})
+    try:
+        mock_scorer = Mock()
+        mock_scorer.name = "test_scorer"
+        mock_scorer.aggregations = ["mean", "max", "p90"]
+        mock_scorer.run = Mock(return_value={"score": 1.0})
 
-    result = _convert_scorer_to_legacy_metric(mock_scorer)
+        result = _convert_scorer_to_legacy_metric(mock_scorer)
 
-    assert result.aggregations == ["mean", "max", "p90"]
-
-    del sys.modules["databricks.agents.evals"]
+        assert result.aggregations == ["mean", "max", "p90"]
+    finally:
+        del sys.modules["databricks.agents.evals"]
 
 
 @databricks_only
