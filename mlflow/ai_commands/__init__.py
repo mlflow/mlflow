@@ -44,3 +44,23 @@ def get_cmd(key: str) -> None:
     except FileNotFoundError as e:
         click.echo(f"Error: {e}", err=True)
         raise click.Abort()
+
+
+@commands.command("run")
+@click.argument("key")
+def run_cmd(key: str) -> None:
+    """Get a command formatted for execution by an AI assistant."""
+    try:
+        content = get_command(key)
+        _, body = parse_frontmatter(content)
+
+        # Add prefix instructing the assistant to execute the workflow
+        prefix = (
+            "The user has run an MLflow AI command via CLI. "
+            "Start executing the workflow immediately without any preamble.\n\n"
+        )
+
+        click.echo(prefix + body)
+    except FileNotFoundError as e:
+        click.echo(f"Error: {e}", err=True)
+        raise click.Abort()
