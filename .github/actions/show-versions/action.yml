@@ -5,13 +5,7 @@ runs:
   steps:
     - shell: bash
       run: |
-        # Activate the virtual environment if .venv exists
-        if [ -d .venv ]; then
-          if [ ${{ runner.os }} == "Windows" ]; then
-            source .venv/Scripts/activate
-          else
-            source .venv/bin/activate
-          fi
-        fi
-        pip --disable-pip-version-check install aiohttp > /dev/null
-        python dev/show_package_release_dates.py
+        # Run the script directly with uv, installing dependencies inline
+        # This creates an ephemeral environment, avoiding system Python issues
+        # Use --no-project to avoid installing root project dependencies
+        uv run --no-project --with aiohttp --with pip python dev/show_package_release_dates.py

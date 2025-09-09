@@ -5,6 +5,8 @@ outputs/
 mlruns.db
 mlflow.db
 **/basic_auth.db
+# Ignore temporary CI duration collection artifacts
+group_*_durations.json
 
 # Mac
 .DS_Store

@@ -4,20 +4,26 @@ runs:
   using: "composite"
   steps:
     ########## Ubuntu ##########
-    - name: Install python build tools
-      if: runner.os == 'Linux'
-      shell: bash
-      # Ref: https://github.com/pyenv/pyenv/wiki#suggested-build-environment
-      run: |
-        sudo apt-get update -y
-        sudo apt-get install -y make build-essential libssl-dev zlib1g-dev \
-        libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm \
-        libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev ffmpeg
-    - name: Install pyenv
+    # Note: We need minimal build deps for MLflow's virtualenv creation which uses pyenv install
+    - name: Install minimal dependencies for pyenv
       if: runner.os == 'Linux'
       shell: bash
       run: |
-        git clone https://github.com/pyenv/pyenv.git "$HOME/.pyenv"
+        # Install minimal dependencies required for Python modules used by MLflow
+        # These are needed when MLflow creates virtualenvs with pyenv install
+        sudo apt-get update && sudo apt-get install -y --no-install-recommends \
+          libbz2-dev \
+          libreadline-dev \
+          liblzma-dev
+
+        # Check if pyenv is already installed
+        if [ -d "$HOME/.pyenv" ]; then
+          echo "pyenv is already installed at $HOME/.pyenv"
+        else
+          echo "Installing pyenv..."
+          # Use the official pyenv installer which is fast (~2 seconds)
+          curl -fsSL https://pyenv.run | bash
+        fi
     - name: Setup environment variables
       if: runner.os == 'Linux'
       shell: bash
@@ -33,11 +39,12 @@ runs:
         pyenv --version
 
     ########## Windows ##########
+    # Note: Windows support for pyenv - only installing binary
     - name: Install pyenv
       if: runner.os == 'Windows'
       shell: bash
       run: |
-        pip install pyenv-win --target $HOME\\.pyenv
+        uv pip install pyenv-win --target $HOME\\.pyenv
     - name: Setup environment variables
       if: runner.os == 'Windows'
       shell: bash
@@ -55,4 +62,11 @@ runs:
     - name: Install virtualenv
       shell: bash
       run: |
-        pip install virtualenv
+        # Create .venv if it doesn't exist and install virtualenv there
+        if [ ! -d ".venv" ]; then
+          uv venv
+        fi
+        uv pip install virtualenv
+
+        # Add .venv/bin to PATH so MLflow can find the uv-managed virtualenv
+        echo "$(pwd)/.venv/bin" >> $GITHUB_PATH

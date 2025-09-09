@@ -1,0 +1,33 @@
+# Setup Test Durations - Read Path
+#
+# This action handles the "read" side of MLflow's test duration system.
+# It copies the consolidated duration file for pytest-split to use during test execution.
+#
+# Usage:
+#   - uses: ./.github/actions/setup-test-durations
+#     with:
+#       job_name: 'python'
+#
+# This creates /tmp/{job_name}_group_${{ matrix.group }}_durations.json for pytest-split to read.
+# Use this at the start of test execution, before running pytest with --durations-path.
+
+name: "Setup Test Durations"
+description: "Copy consolidated test duration file for pytest-split to read"
+
+inputs:
+  job_name:
+    description: "Job name for duration files (e.g. python, pyfunc, models)"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup duration file for pytest-split
+      shell: bash
+      run: |
+        # Set environment variables for pytest-split configuration
+        echo "PYTEST_DURATIONS_PATH=/tmp/${{ inputs.job_name }}_group_${{ matrix.group }}_durations.json" >> $GITHUB_ENV
+        echo "PYTEST_SPLITTING_ALGORITHM=least_duration" >> $GITHUB_ENV
+        # Copy consolidated duration file for pytest-split to read
+        # If the file doesn't exist, create an empty JSON object as fallback
+        cp .github/workflows/test_durations/${{ inputs.job_name }}.test_duration /tmp/${{ inputs.job_name }}_group_${{ matrix.group }}_durations.json 2>/dev/null || echo "{}" > /tmp/${{ inputs.job_name }}_group_${{ matrix.group }}_durations.json
