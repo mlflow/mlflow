@@ -2,7 +2,7 @@
 
 import logging
 from abc import abstractmethod
-from typing import Any, Callable, Collection
+from typing import Any, Callable, ClassVar, Collection
 
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
@@ -42,6 +42,17 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
 
     _logger: logging.Logger
     _model: str
+
+    _MINIMUM_TRACES_REQUIRED_FOR_OPTIMIZATION: ClassVar[int] = 10
+
+    @classmethod
+    def get_min_traces_required(cls) -> int:
+        """Get the minimum number of traces required for optimization.
+
+        Returns:
+            The minimum number of traces required for optimization.
+        """
+        return cls._MINIMUM_TRACES_REQUIRED_FOR_OPTIMIZATION
 
     @property
     def model(self) -> str:
@@ -158,9 +169,10 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
                         error_code=INVALID_PARAMETER_VALUE,
                     )
 
-                if len(dspy_examples) < 2:
+                min_traces = self.get_min_traces_required()
+                if len(dspy_examples) < min_traces:
                     raise MlflowException(
-                        f"At least 2 valid traces are required for optimization. "
+                        f"At least {min_traces} valid traces are required for optimization. "
                         f"Label more traces with Feedback entries with name {judge.name}",
                         error_code=INVALID_PARAMETER_VALUE,
                     )

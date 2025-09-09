@@ -65,7 +65,9 @@ def test_align_success(sample_traces_with_assessments):
         # Setup concrete optimizer
         optimizer = ConcreteDSPyOptimizer()
 
-        result = optimizer.align(mock_judge, sample_traces_with_assessments)
+        # Mock get_min_traces_required to work with 5 traces from fixture
+        with patch.object(ConcreteDSPyOptimizer, "get_min_traces_required", return_value=5):
+            result = optimizer.align(mock_judge, sample_traces_with_assessments)
 
     # Should return an optimized judge
     assert result is not None
@@ -105,6 +107,7 @@ def test_align_no_valid_examples(mock_judge, sample_trace_without_assessment):
 def test_align_insufficient_examples(mock_judge, sample_trace_with_assessment):
     """Test alignment with insufficient examples."""
     optimizer = ConcreteDSPyOptimizer()
+    min_traces = optimizer.get_min_traces_required()
 
     # Mock dspy first to avoid import errors
     with patch("dspy.LM", MagicMock()):
@@ -112,10 +115,10 @@ def test_align_insufficient_examples(mock_judge, sample_trace_with_assessment):
             optimizer.align(mock_judge, [sample_trace_with_assessment])
 
         # Check that the main error message includes the exception details
-        assert "At least 2 valid traces are required" in str(exc_info.value)
+        assert f"At least {min_traces} valid traces are required" in str(exc_info.value)
         # Check that the chained exception has the expected message
         assert exc_info.value.__cause__ is not None
-        assert "At least 2 valid traces are required" in str(exc_info.value.__cause__)
+        assert f"At least {min_traces} valid traces are required" in str(exc_info.value.__cause__)
 
 
 def _create_mock_dspy_lm_factory(optimizer_lm, judge_lm):
@@ -180,8 +183,9 @@ def test_optimizer_and_judge_use_different_models(sample_traces_with_assessments
         # Create optimizer with different model
         optimizer = TestDSPyOptimizer(model=optimizer_model)
 
-        # Run alignment
-        optimizer.align(mock_judge, traces)
+        # Run alignment with mocked min traces requirement
+        with patch.object(TestDSPyOptimizer, "get_min_traces_required", return_value=5):
+            optimizer.align(mock_judge, traces)
 
         # Verify that the judge's LM was actually called during program execution
         # This ensures that the program call used the judge's model
@@ -247,7 +251,9 @@ def test_mlflow_to_litellm_uri_conversion_in_optimizer(sample_traces_with_assess
 
     with patch("dspy.LM", side_effect=mock_lm_init):
         optimizer = ConcreteDSPyOptimizer(model=optimizer_model)
-        optimizer.align(mock_judge, sample_traces_with_assessments)
+        # Mock get_min_traces_required to work with 5 traces from fixture
+        with patch.object(ConcreteDSPyOptimizer, "get_min_traces_required", return_value=5):
+            optimizer.align(mock_judge, sample_traces_with_assessments)
 
     # Check that URIs were converted to LiteLLM format (slash instead of colon-slash)
     assert "anthropic/claude-3.5-sonnet" in lm_calls
@@ -298,9 +304,10 @@ def test_dspy_align_litellm_nonfatal_error_messages_suppressed():
         mock_program.signature.instructions = "Optimized instructions"
         return mock_program
 
-    mock_traces = [Mock(spec=Trace) for _ in range(3)]
-    mock_judge = MockJudge(name="test_judge", model="openai:/gpt-4o-mini")
     optimizer = ConcreteDSPyOptimizer()
+    min_traces = optimizer.get_min_traces_required()
+    mock_traces = [Mock(spec=Trace) for _ in range(min_traces)]
+    mock_judge = MockJudge(name="test_judge", model="openai:/gpt-4o-mini")
 
     with (
         patch("dspy.LM"),
