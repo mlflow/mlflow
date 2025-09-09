@@ -74,7 +74,7 @@ def _parse_databricks_model_response(
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    content = first_choice.get("message", {"content": None}).get("content")
+    content = first_choice.get("message", {}).get("content")
     if content is None:
         raise MlflowException(
             "Invalid response from Databricks model: missing 'content' field",
