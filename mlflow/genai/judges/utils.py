@@ -9,6 +9,8 @@ from dataclasses import asdict, is_dataclass
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    import litellm
+
     from mlflow.genai.judges.base import JudgeField
     from mlflow.types.llm import ChatMessage
 
@@ -414,7 +416,7 @@ def _create_mlflow_tool_call_from_litellm(litellm_tool_call) -> Any:
 
 def _create_litellm_tool_response_message(
     tool_call_id: str, tool_name: str, content: str
-) -> "litellm.Message":  # noqa: F821
+) -> "litellm.Message":
     """
     Create a tool response message for LiteLLM.
 
@@ -474,10 +476,10 @@ def _get_judge_response_format() -> dict[str, Any]:
 
 
 def _prune_messages_exceeding_context_window_length(
-    messages: list["litellm.Message"],  # noqa: F821
+    messages: list["litellm.Message"],
     model: str,
     max_tokens: int,
-) -> list["litellm.Message"]:  # noqa: F821
+) -> list["litellm.Message"]:
     """
     Prune messages from history to stay under token limit.
 
