@@ -1446,7 +1446,10 @@ def test_trace_field_extraction_with_expectations(mock_invoke_judge_model):
 
     expected_inputs_json = json.dumps(trace_inputs, default=str, indent=2)
     expected_outputs_json = json.dumps(trace_outputs, default=str, indent=2)
-    expected_expectations_json = json.dumps(expected_answer, default=str, indent=2)
+    # The new API returns expectations as {name: value} dict
+    expected_expectations_json = json.dumps(
+        {"expected_answer": expected_answer}, default=str, indent=2
+    )
 
     assert f"inputs: {expected_inputs_json}" in user_content
     assert f"outputs: {expected_outputs_json}" in user_content

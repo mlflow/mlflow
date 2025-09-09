@@ -92,45 +92,35 @@ def extract_outputs_from_trace(trace: Trace) -> Any:
 
 
 def extract_expectations_from_trace(
-    trace: Trace, human_only: bool = False
+    trace: Trace, source: str | None = None
 ) -> dict[str, Any] | None:
     """
     Extract expectations from trace assessments.
 
     Args:
         trace: MLflow trace object
-        human_only: If True, only extract human-set expectations (ground truth).
-                    If False, extract all expectations.
+        source: If specified, only extract expectations from the given source type.
+                Must be one of the valid AssessmentSourceType values
+                If None, extract all expectations regardless of source.
 
     Returns:
         Dictionary of expectations, or None if no expectations found
     """
+    validated_source = AssessmentSourceType._standardize(source) if source is not None else None
+
     expectation_assessments = trace.search_assessments(type="expectation")
 
-    if human_only:
-        # Filter for human-set expectations only (ground truth)
+    if validated_source is not None:
         expectation_assessments = [
             exp
             for exp in expectation_assessments
-            if exp.source and exp.source.source_type == AssessmentSourceType.HUMAN
+            if exp.source and exp.source.source_type == validated_source
         ]
 
     if not expectation_assessments:
         return None
 
-    # If there's only one expectation, use its value directly
-    if len(expectation_assessments) == 1:
-        exp_value = expectation_assessments[0].expectation.value
-        # Convert to dict if it's not already
-        if exp_value is not None and not isinstance(exp_value, dict):
-            return {"value": exp_value}
-        return exp_value
-    else:
-        # If there are multiple expectations, create a dict with expectation names as keys
-        expectations = {}
-        for exp in expectation_assessments:
-            expectations[exp.name] = exp.expectation.value
-        return expectations
+    return {exp.name: exp.expectation.value for exp in expectation_assessments}
 
 
 def convert_predict_fn(predict_fn: Callable[..., Any], sample_input: Any) -> Callable[..., Any]:

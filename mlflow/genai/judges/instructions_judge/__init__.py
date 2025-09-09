@@ -230,7 +230,11 @@ class InstructionsJudge(Judge):
                 and self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables
             ):
                 # Extract only human-set expectations as ground truth
-                expectations = extract_expectations_from_trace(trace, human_only=True)
+                from mlflow.entities.assessment_source import AssessmentSourceType
+
+                expectations = extract_expectations_from_trace(
+                    trace, source=AssessmentSourceType.HUMAN
+                )
 
         # Check if the input arguments match the template variables
         missing_params = []
