@@ -6,6 +6,7 @@ runs:
     - shell: bash
       run: |
         df -h
+        ls /usr/local/lib
         sudo rm -rf /usr/share/dotnet &
         sudo rm -rf /usr/local/lib/android &
         jobs
