@@ -13,9 +13,9 @@ from mlflow.genai.judges.utils import (
     InvokeDatabricksModelOutput,
     _invoke_databricks_model,
     _parse_databricks_model_response,
-    format_prompt,
     invoke_judge_model,
 )
+from mlflow.genai.prompts.utils import format_prompt
 
 
 @pytest.mark.parametrize("num_retries", [None, 3])
