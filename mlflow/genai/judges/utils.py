@@ -3,6 +3,8 @@ import logging
 import traceback
 from dataclasses import dataclass
 
+import requests
+
 import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
@@ -42,11 +44,41 @@ class InvokeDatabricksModelOutput:
 def _invoke_databricks_model(
     *, model_name: str, prompt: str, num_retries: int
 ) -> InvokeDatabricksModelOutput:
+    from mlflow.utils.databricks_utils import get_databricks_host_creds
+
+    host_creds = get_databricks_host_creds()
+    api_url = f"{host_creds.host}/serving-endpoints/{model_name}/invocations"
+
+    res = requests.post(
+        url=api_url,
+        headers={"Authorization": f"Bearer {host_creds.token}"},
+        json={
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ],
+        },
+    )
+    res_json = res.json()
+    content = res_json["choices"][0]["message"]["content"]
+
+    # handle reasoning response
+    if isinstance(content, list):
+        for item in content:
+            if item["type"] != "text":
+                continue
+            content = item["text"]
+            break
+
+    usage = res_json.get("usage", {})
+
     return InvokeDatabricksModelOutput(
-        response="",
-        request_id=None,
-        num_prompt_tokens=None,
-        num_completion_tokens=None,
+        response=content,
+        request_id=res.headers.get("x-request-id"),
+        num_prompt_tokens=usage.get("prompt_tokens"),
+        num_completion_tokens=usage.get("completion_tokens"),
     )
 
 
@@ -60,7 +92,7 @@ def _record_judge_model_usage_success_databricks_telemetry(
 ) -> None:
     try:
         from databricks.agents.telemetry import record_judge_model_usage_success
-    except:
+    except ImportError:
         _logger.debug(
             "Failed to import databricks.agents.telemetry.record_judge_model_usage_success; "
             "databricks-agents needs to be installed."
@@ -97,7 +129,7 @@ def _record_judge_model_usage_failure_databricks_telemetry(
 ) -> None:
     try:
         from databricks.agents.telemetry import record_judge_model_usage_failure
-    except:
+    except ImportError:
         _logger.debug(
             "Failed to import databricks.agents.telemetry.record_judge_model_usage_success; "
             "databricks-agents needs to be installed."
@@ -222,6 +254,7 @@ def invoke_judge_model(
         num_retries: Number of retries on transient failures when using litellm.
     """
     error = None
+    error_traceback = None
     try:
         output = _invoke_judge_model(
             model_uri=model_uri,
@@ -229,8 +262,8 @@ def invoke_judge_model(
             assessment_name=assessment_name,
             num_retries=num_retries,
         )
-    except:
-        error = traceback.format_exc()
+    except Exception:
+        error_traceback = traceback.format_exc()
 
     # Only record detailed telemetry when in Databricks
     if not _is_in_databricks():
@@ -242,7 +275,7 @@ def invoke_judge_model(
                 model_provider=output.model_provider,
                 endpoint_name=output.model_name,
                 error_code="UNKNOWN",
-                error_message=error,
+                error_message=error_traceback,
             )
         else:
             _record_judge_model_usage_success_databricks_telemetry(
@@ -254,6 +287,9 @@ def invoke_judge_model(
             )
     except Exception as telemetry_error:
         _logger.debug("Failed to record judge model usage telemetry. Error: %s", telemetry_error)
+
+    if error is not None:
+        raise error
 
     return output.feedback
 
