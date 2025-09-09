@@ -2400,7 +2400,7 @@ def test_load_prompt_allow_missing_name_version(tracking_uri):
     assert result is None
 
     # Non-existent prompt by name+version should raise exception when allow_missing=False
-    with pytest.raises(MlflowException, match=r"Prompt.*does not exist|not found"):
+    with pytest.raises(MlflowException, match="Prompt with name=nonexistent_prompt not found"):
         client.load_prompt("nonexistent_prompt", version=1, allow_missing=False)
 
     # Existing prompt with non-existent version should return None when allow_missing=True
@@ -2409,7 +2409,9 @@ def test_load_prompt_allow_missing_name_version(tracking_uri):
     assert result is None
 
     # Existing prompt with non-existent version should raise exception when allow_missing=False
-    with pytest.raises(MlflowException, match=r"Prompt.*does not exist|not found"):
+    with pytest.raises(
+        MlflowException, match=r"Prompt \(name=existing_prompt, version=999\) not found"
+    ):
         client.load_prompt("existing_prompt", version=999, allow_missing=False)
 
 
@@ -2421,7 +2423,7 @@ def test_load_prompt_allow_missing_uri_version(tracking_uri):
     assert result is None
 
     # Non-existent prompt by URI+version should raise exception when allow_missing=False
-    with pytest.raises(MlflowException, match=r"Prompt.*does not exist|not found"):
+    with pytest.raises(MlflowException, match="Prompt with name=nonexistent_prompt not found"):
         client.load_prompt("prompts:/nonexistent_prompt/1", allow_missing=False)
 
     # Existing prompt with non-existent version via URI should return None when allow_missing=True
@@ -2430,7 +2432,9 @@ def test_load_prompt_allow_missing_uri_version(tracking_uri):
     assert result is None
 
     # Existing prompt with non-existent version via URI should raise when allow_missing=False
-    with pytest.raises(MlflowException, match=r"Prompt.*does not exist|not found"):
+    with pytest.raises(
+        MlflowException, match=r"Prompt \(name=existing_prompt, version=999\) not found"
+    ):
         client.load_prompt("prompts:/existing_prompt/999", allow_missing=False)
 
 
@@ -2442,7 +2446,7 @@ def test_load_prompt_allow_missing_uri_alias(tracking_uri):
     assert result is None
 
     # Non-existent prompt with alias should raise exception when allow_missing=False
-    with pytest.raises(MlflowException, match=r"Prompt.*does not exist|not found"):
+    with pytest.raises(MlflowException, match="Prompt with name=nonexistent_prompt not found"):
         client.load_prompt("prompts:/nonexistent_prompt@production", allow_missing=False)
 
     # Existing prompt with non-existent alias should return None when allow_missing=True
@@ -2451,7 +2455,7 @@ def test_load_prompt_allow_missing_uri_alias(tracking_uri):
     assert result is None
 
     # Existing prompt with non-existent alias should raise exception when allow_missing=False
-    with pytest.raises(MlflowException, match=r"Prompt.*does not exist|not found"):
+    with pytest.raises(MlflowException, match="Prompt alias nonexistent_alias not found"):
         client.load_prompt("prompts:/existing_prompt@nonexistent_alias", allow_missing=False)
 
 
