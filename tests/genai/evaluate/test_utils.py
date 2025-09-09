@@ -417,9 +417,16 @@ def test_predict_fn_receives_correct_data(data_fixture, request, is_in_databrick
 
 
 def test_convert_scorer_to_legacy_metric_aggregations_attribute():
-    # NB: Mock databricks.agents.evals since it's not installed in CI
     mock_metric_instance = MagicMock()
-    mock_metric_decorator = Mock(return_value=mock_metric_instance)
+
+    # NB: Mocking the behavior of databricks-agents, which does not have the aggregations
+    # argument for the evaluation interface for a metric.
+    def mock_metric_decorator(**kwargs):
+        if "aggregations" in kwargs:
+            raise TypeError("metric() got an unexpected keyword argument 'aggregations'")
+        assert set(kwargs.keys()) <= {"eval_fn", "name"}
+        return mock_metric_instance
+
     sys.modules["databricks.agents.evals"] = Mock(metric=mock_metric_decorator)
 
     mock_scorer = Mock()
@@ -428,11 +435,6 @@ def test_convert_scorer_to_legacy_metric_aggregations_attribute():
     mock_scorer.run = Mock(return_value={"score": 1.0})
 
     result = _convert_scorer_to_legacy_metric(mock_scorer)
-
-    mock_metric_decorator.assert_called_once()
-    call_kwargs = mock_metric_decorator.call_args[1]
-    assert "aggregations" not in call_kwargs
-    assert call_kwargs["name"] == "test_scorer"
 
     assert result.aggregations == ["mean", "max", "p90"]
 
