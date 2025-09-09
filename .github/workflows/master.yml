@@ -75,6 +75,8 @@ jobs:
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/cache-pip
+      - run: |
+          df -h
       - name: Install dependencies
         run: |
           python -m venv .venv
