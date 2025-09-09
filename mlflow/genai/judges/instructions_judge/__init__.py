@@ -1,6 +1,7 @@
 import json
+import logging
 from dataclasses import asdict
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from pydantic import PrivateAttr
 
@@ -9,7 +10,6 @@ from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import Judge, JudgeField
-from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.instructions_judge.constants import (
     INSTRUCTIONS_JUDGE_SYSTEM_PROMPT,
     INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE,
@@ -19,6 +19,7 @@ from mlflow.genai.judges.utils import (
     format_prompt,
     get_default_model,
     invoke_judge_model,
+    validate_judge_model,
 )
 from mlflow.genai.scorers.base import (
     _SERIALIZATION_VERSION,
@@ -34,8 +35,7 @@ from mlflow.prompt.constants import PROMPT_TEMPLATE_VARIABLE_PATTERN
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
 
-if TYPE_CHECKING:
-    from mlflow.types.llm import ChatMessage  # noqa: F401
+_logger = logging.getLogger(__name__)
 
 
 @experimental(version="3.4.0")
@@ -163,6 +163,67 @@ class InstructionsJudge(Judge):
 
         return fields
 
+    def _validate_parameter_types(
+        self, expectations: dict[str, Any] | None, trace: Trace | None
+    ) -> None:
+        """Validate that parameters have correct types."""
+        if expectations is not None and not isinstance(expectations, dict):
+            raise MlflowException(
+                f"'expectations' must be a dictionary, got {type(expectations).__name__}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        if trace is not None and not isinstance(trace, Trace):
+            raise MlflowException(
+                f"'trace' must be a Trace object, got {type(trace).__name__}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+    def _check_required_parameters(
+        self, inputs: Any, outputs: Any, expectations: dict[str, Any] | None, trace: Trace | None
+    ) -> None:
+        """Check that all required parameters are provided."""
+        missing_params = []
+        if self._TEMPLATE_VARIABLE_INPUTS in self.template_variables and inputs is None:
+            missing_params.append("inputs")
+        if self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables and outputs is None:
+            missing_params.append("outputs")
+        if self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables and expectations is None:
+            missing_params.append("expectations")
+        if self._TEMPLATE_VARIABLE_TRACE in self.template_variables and trace is None:
+            missing_params.append("trace")
+
+        if missing_params:
+            missing_str = "', '".join(missing_params)
+            raise MlflowException(
+                f"Must specify '{missing_str}' - required by template variables in instructions.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+    def _warn_unused_parameters(
+        self, inputs: Any, outputs: Any, expectations: dict[str, Any] | None, trace: Trace | None
+    ) -> None:
+        """Warn about parameters that were provided but aren't used."""
+        unused_params = []
+        if inputs is not None and self._TEMPLATE_VARIABLE_INPUTS not in self.template_variables:
+            unused_params.append("inputs")
+        if outputs is not None and self._TEMPLATE_VARIABLE_OUTPUTS not in self.template_variables:
+            unused_params.append("outputs")
+        if (
+            expectations is not None
+            and self._TEMPLATE_VARIABLE_EXPECTATIONS not in self.template_variables
+        ):
+            unused_params.append("expectations")
+        if trace is not None and self._TEMPLATE_VARIABLE_TRACE not in self.template_variables:
+            unused_params.append("trace")
+
+        if unused_params:
+            unused_str = "', '".join(unused_params)
+            _logger.warning(
+                f"The following parameters were provided but are not used by this judge's "
+                f"instructions: '{unused_str}'. The judge only uses template variables that "
+                f"appear in the instructions: {self.template_variables}"
+            )
+
     def _safe_json_dumps(self, value: Any) -> str:
         """Safely serialize a value to JSON, falling back to str() if JSON serialization fails."""
         try:
@@ -207,16 +268,7 @@ class InstructionsJudge(Judge):
           - expectations: From the trace's human-set expectation assessments (ground truth only)
 
         """
-        if expectations is not None and not isinstance(expectations, dict):
-            raise MlflowException(
-                f"'expectations' must be a dictionary, got {type(expectations).__name__}",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        if trace is not None and not isinstance(trace, Trace):
-            raise MlflowException(
-                f"'trace' must be a Trace instance, got {type(trace).__name__}",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
+        self._validate_parameter_types(expectations, trace)
 
         # Extract fields from trace if needed (when not using {{ trace }} template)
         if trace is not None and self._TEMPLATE_VARIABLE_TRACE not in self.template_variables:
@@ -238,22 +290,9 @@ class InstructionsJudge(Judge):
 
         # Check if the input arguments match the template variables
         missing_params = []
+        self._check_required_parameters(inputs, outputs, expectations, trace)
 
-        if self._TEMPLATE_VARIABLE_INPUTS in self.template_variables and inputs is None:
-            missing_params.append("inputs")
-        if self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables and outputs is None:
-            missing_params.append("outputs")
-        if self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables and expectations is None:
-            missing_params.append("expectations")
-        if self._TEMPLATE_VARIABLE_TRACE in self.template_variables and trace is None:
-            missing_params.append("trace")
-
-        if missing_params:
-            missing_str = "', '".join(missing_params)
-            raise MlflowException(
-                f"Must specify '{missing_str}' - required by template variables in instructions.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
+        self._warn_unused_parameters(inputs, outputs, expectations, trace)
 
         # Determine evaluation mode based on template variables
         is_trace_based = self._TEMPLATE_VARIABLE_TRACE in self.template_variables
@@ -366,18 +405,11 @@ class InstructionsJudge(Judge):
         - "provider:/<model-name>" URI format (e.g., "openai:/gpt-4")
         - "endpoints:/<endpoint-name>" for Databricks model serving endpoints
         """
-        if self._model == _DATABRICKS_DEFAULT_JUDGE_MODEL:
-            return
-
-        # Import here to avoid circular dependency and pandas requirement
-        from mlflow.metrics.genai.model_utils import _parse_model_uri
-
-        _parse_model_uri(self._model)
+        validate_judge_model(self._model)
 
     def _validate_instructions_template(self) -> None:
         """
-        Validate that instructions contain at least one variable and don't contain
-        a mix of trace and inputs/outputs/expectations variables.
+        Validate that instructions contain at least one variable.
 
         """
         template_vars = self.template_variables
@@ -389,16 +421,6 @@ class InstructionsJudge(Judge):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        has_trace = self._TEMPLATE_VARIABLE_TRACE in template_vars
-
-        if has_trace:
-            if self._model == _DATABRICKS_DEFAULT_JUDGE_MODEL:
-                raise MlflowException(
-                    "Model cannot be 'databricks' when using 'trace' variable in "
-                    "the instructions template. Specify a different model "
-                    "(e.g., model='openai:/gpt-4o').",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
 
     def model_dump(self, **kwargs) -> dict[str, Any]:
         """Override model_dump to serialize as a SerializedScorer."""

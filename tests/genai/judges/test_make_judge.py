@@ -1,6 +1,9 @@
 import json
+import sys
+import types
 from dataclasses import asdict
 from unittest import mock
+from unittest.mock import patch
 
 import pandas as pd
 import pytest
@@ -22,10 +25,67 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai import make_judge
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
 from mlflow.genai.judges.instructions_judge.constants import JUDGE_BASE_PROMPT
+from mlflow.genai.judges.utils import _LITELLM_PROVIDERS, _NATIVE_PROVIDERS, validate_judge_model
 from mlflow.genai.scorers.base import Scorer, ScorerKind, SerializedScorer
 from mlflow.genai.scorers.registry import _get_scorer_store
 from mlflow.tracing.utils import build_otel_context
 from mlflow.types.llm import ChatMessage
+
+
+@pytest.fixture
+def mock_databricks_rag_eval(monkeypatch):
+    """Mock the databricks.rag_eval module structure for testing databricks judges.
+
+    NB: The databricks judge uses the following call chain:
+    databricks.rag_eval.context.get_context().build_managed_rag_client().get_chat_completions_result()
+    This fixture mocks the entire module hierarchy to test without actual databricks dependencies.
+    """
+    # Mock the entire databricks.agents.evals module hierarchy
+    mock_evals_module = types.ModuleType("databricks.agents.evals")
+    monkeypatch.setitem(sys.modules, "databricks.agents.evals", mock_evals_module)
+
+    mock_judges_module = types.ModuleType("databricks.agents.evals.judges")
+    monkeypatch.setitem(sys.modules, "databricks.agents.evals.judges", mock_judges_module)
+
+    class MockLLMResult:
+        def __init__(self, output_data=None):
+            self.output = json.dumps(output_data or {"result": True, "rationale": "Test passed"})
+            self.error_message = None
+
+    class MockManagedRAGClient:
+        def __init__(self, expected_content=None, response_data=None):
+            self.expected_content = expected_content
+            self.response_data = response_data
+
+        def get_chat_completions_result(self, user_prompt, system_prompt):
+            # Check that expected content is in either user or system prompt
+            if self.expected_content:
+                combined = (system_prompt or "") + " " + user_prompt
+                assert self.expected_content in combined
+            return MockLLMResult(self.response_data)
+
+    class MockContext:
+        def __init__(self, expected_content=None, response_data=None):
+            self.expected_content = expected_content
+            self.response_data = response_data
+
+        def build_managed_rag_client(self):
+            return MockManagedRAGClient(self.expected_content, self.response_data)
+
+    mock_rag_eval = types.ModuleType("databricks.rag_eval")
+    monkeypatch.setitem(sys.modules, "databricks.rag_eval", mock_rag_eval)
+
+    mock_context_module = types.ModuleType("databricks.rag_eval.context")
+
+    mock_context_module.MockContext = MockContext
+    mock_context_module.get_context = lambda: MockContext()
+    mock_context_module.eval_context = lambda func: func  # Pass-through decorator
+    mock_context_module.context = mock_context_module  # Self-reference for import
+
+    mock_rag_eval.context = mock_context_module
+    monkeypatch.setitem(sys.modules, "databricks.rag_eval.context", mock_context_module)
+
+    return mock_context_module
 
 
 @pytest.fixture
@@ -134,9 +194,7 @@ def mock_trace():
 
 def test_make_judge_creates_instructions_judge():
     judge = make_judge(
-        name="test_judge",
-        instructions="Check if {{ outputs }} is formal",
-        model="openai:/gpt-4",
+        name="test_judge", instructions="Check if {{ outputs }} is formal", model="openai:/gpt-4"
     )
 
     assert isinstance(judge, InstructionsJudge)
@@ -158,10 +216,167 @@ def test_make_judge_with_default_model(monkeypatch):
 
 
 def test_make_judge_with_databricks_default(monkeypatch):
+    # Mock the parent module first to prevent ImportError
+    mock_evals_module = types.ModuleType("databricks.agents.evals")
+    monkeypatch.setitem(sys.modules, "databricks.agents.evals", mock_evals_module)
+
+    # Then mock the judges submodule
+    mock_judges_module = types.ModuleType("databricks.agents.evals.judges")
+    monkeypatch.setitem(sys.modules, "databricks.agents.evals.judges", mock_judges_module)
+
     monkeypatch.setattr("mlflow.genai.judges.utils.is_databricks_uri", lambda x: True)
 
     judge = make_judge(name="test_judge", instructions="Check if {{ outputs }} is valid")
 
+    assert judge.model == "databricks"
+
+
+def test_databricks_model_requires_databricks_agents(monkeypatch):
+    # NB: Mock both the parent module and the specific module to simulate missing databricks-agents
+    monkeypatch.setitem(sys.modules, "databricks.agents.evals", None)
+    monkeypatch.setitem(sys.modules, "databricks.agents.evals.judges", None)
+
+    with pytest.raises(
+        MlflowException,
+        match="To use 'databricks' as the judge model, the Databricks agents library",
+    ):
+        make_judge(
+            name="test_judge", instructions="Check if {{ outputs }} is valid", model="databricks"
+        )
+
+
+@pytest.mark.parametrize("provider", _LITELLM_PROVIDERS)
+def test_litellm_provider_requires_litellm(monkeypatch, provider):
+    monkeypatch.setitem(sys.modules, "litellm", None)
+
+    with pytest.raises(
+        MlflowException,
+        match=f"LiteLLM is required for using '{provider}' as a provider",
+    ):
+        make_judge(
+            name="test_judge",
+            instructions="Check if {{ outputs }} is valid",
+            model=f"{provider}:/test-model",
+        )
+
+
+@pytest.mark.parametrize(
+    "provider",
+    _NATIVE_PROVIDERS,
+)
+def test_native_providers_work_without_litellm(monkeypatch, provider):
+    monkeypatch.setitem(sys.modules, "litellm", None)
+
+    judge = make_judge(
+        name=f"test_judge_{provider}",
+        instructions="Check if {{ outputs }} is valid",
+        model=f"{provider}:/test-model",
+    )
+    assert judge.model == f"{provider}:/test-model"
+
+
+def test_validate_judge_model_function():
+    # Test valid models don't raise
+    validate_judge_model("openai:/gpt-4")
+    validate_judge_model("anthropic:/claude-3")
+    validate_judge_model("endpoints:/my-endpoint")
+
+    # Test invalid model format raises
+    with pytest.raises(MlflowException, match="Malformed model uri"):
+        validate_judge_model("invalid-model")
+
+    with pytest.raises(MlflowException, match="Malformed model uri"):
+        validate_judge_model("openai:")
+
+    with pytest.raises(MlflowException, match="Malformed model uri"):
+        validate_judge_model(":/model")
+
+
+def test_databricks_model_works_with_chat_completions(mock_databricks_rag_eval):
+    mock_databricks_rag_eval.get_context = lambda: mock_databricks_rag_eval.MockContext(
+        expected_content="outputs", response_data={"result": True, "rationale": "Valid output"}
+    )
+
+    judge = make_judge(
+        name="test_judge", instructions="Check if {{ outputs }} is valid", model="databricks"
+    )
+
+    result = judge(outputs={"text": "test output"})
+    assert isinstance(result, Feedback)
+    assert result.value is True
+    assert result.rationale == "Valid output"
+
+
+def test_databricks_model_handles_errors_gracefully(mock_databricks_rag_eval):
+    class MockLLMResultInvalid:
+        def __init__(self):
+            self.output = "This is not valid JSON - maybe the model returned plain text"
+
+    class MockClientInvalid:
+        def get_chat_completions_result(self, user_prompt, system_prompt):
+            return MockLLMResultInvalid()
+
+    class MockContextInvalid:
+        def build_managed_rag_client(self):
+            return MockClientInvalid()
+
+    mock_databricks_rag_eval.get_context = lambda: MockContextInvalid()
+
+    judge = make_judge(
+        name="test_judge", instructions="Check if {{ outputs }} is valid", model="databricks"
+    )
+
+    result = judge(outputs={"text": "test output"})
+    assert isinstance(result, Feedback)
+    assert result.error is not None
+    assert "Invalid JSON response" in result.error  # NB: Non-JSON response error
+
+    class MockLLMResultMissingField:
+        def __init__(self):
+            self.output = json.dumps({"rationale": "Some rationale but no result field"})
+
+    class MockClientMissingField:
+        def get_chat_completions_result(self, user_prompt, system_prompt):
+            return MockLLMResultMissingField()
+
+    class MockContextMissingField:
+        def build_managed_rag_client(self):
+            return MockClientMissingField()
+
+    mock_databricks_rag_eval.get_context = lambda: MockContextMissingField()
+
+    result = judge(outputs={"text": "test output"})
+    assert isinstance(result, Feedback)
+    assert result.error is not None
+    assert "Response missing 'result' field" in result.error  # NB: Missing result field error
+
+    class MockLLMResultNone:
+        output = None
+
+    class MockClientNone:
+        def get_chat_completions_result(self, user_prompt, system_prompt):
+            return MockLLMResultNone()
+
+    class MockContextNone:
+        def build_managed_rag_client(self):
+            return MockClientNone()
+
+    mock_databricks_rag_eval.get_context = lambda: MockContextNone()
+
+    result = judge(outputs={"text": "test output"})
+    assert isinstance(result, Feedback)
+    assert result.error is not None
+    assert "Empty response from Databricks judge" in result.error  # NB: None/empty response error
+
+
+def test_databricks_model_works_with_trace(mock_databricks_rag_eval):
+    mock_databricks_rag_eval.get_context = lambda: mock_databricks_rag_eval.MockContext(
+        expected_content="trace", response_data={"result": True, "rationale": "Trace looks good"}
+    )
+
+    judge = make_judge(
+        name="trace_judge", instructions="Analyze {{ trace }} for errors", model="databricks"
+    )
     assert judge.model == "databricks"
 
 
@@ -256,7 +471,17 @@ def test_validation_errors(name, instructions, model, error_pattern):
         "bedrock:/claude-v1",
     ],
 )
-def test_valid_model_formats(model):
+def test_valid_model_formats(monkeypatch, model):
+    # Mock databricks.agents.evals modules for the databricks model case
+    if model == "databricks":
+        # Mock the parent module first to prevent ImportError
+        mock_evals_module = types.ModuleType("databricks.agents.evals")
+        monkeypatch.setitem(sys.modules, "databricks.agents.evals", mock_evals_module)
+
+        # Then mock the judges submodule
+        mock_judges_module = types.ModuleType("databricks.agents.evals.judges")
+        monkeypatch.setitem(sys.modules, "databricks.agents.evals.judges", mock_judges_module)
+
     judge = make_judge(
         name="test_judge", instructions="Check if {{ outputs }} is valid", model=model
     )
@@ -271,21 +496,15 @@ def test_valid_model_formats(model):
             "openai:/gpt-4",
             "Instructions template contains unsupported variables",
         ),
-        # These are now ALLOWED - mixing trace with inputs/outputs is supported
-        # (
-        #     "Analyze {{ trace }} and {{ inputs }}",
-        #     "openai:/gpt-4",
-        #     "Instructions template cannot contain both 'trace' and 'inputs'/'outputs'",
-        # ),
-        # (
-        #     "Analyze {{ trace }} and {{ outputs }}",
-        #     "openai:/gpt-4",
-        #     "Instructions template cannot contain both 'trace' and 'inputs'/'outputs'",
-        # ),
         (
-            "Analyze {{ trace }} for errors",
-            "databricks",
-            "Model cannot be 'databricks' when using 'trace' variable",
+            "Analyze {{ trace }} and {{ inputs }}",
+            "openai:/gpt-4",
+            "Instructions template cannot contain both 'trace' and 'inputs'/'outputs'",
+        ),
+        (
+            "Analyze {{ trace }} and {{ outputs }}",
+            "openai:/gpt-4",
+            "Instructions template cannot contain both 'trace' and 'inputs'/'outputs'",
         ),
     ],
 )
@@ -295,7 +514,6 @@ def test_trace_variable_restrictions(instructions, model, error_pattern):
 
 
 def test_trace_with_inputs_outputs_allowed():
-    # These combinations are now ALLOWED - we support mixed templates
     judge1 = make_judge(
         name="test_judge",
         instructions="Analyze {{ trace }} and {{ inputs }}",
@@ -312,14 +530,12 @@ def test_trace_with_inputs_outputs_allowed():
 
 
 def test_trace_with_expectations_allowed():
-    # Test that mixing trace with expectations is now allowed
     judge = make_judge(
         name="test_judge",
         instructions="Analyze {{ trace }} against {{ expectations }}",
         model="openai:/gpt-4",
     )
 
-    # Verify the judge was created successfully and has both template variables
     assert judge is not None
     assert "trace" in judge.template_variables
     assert "expectations" in judge.template_variables
@@ -342,9 +558,7 @@ def test_call_with_trace_supported(mock_trace, monkeypatch):
     monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "invoke_judge_model", mock_invoke)
 
     judge = make_judge(
-        name="test_judge",
-        instructions="Analyze this {{ trace }}",
-        model="openai:/gpt-4",
+        name="test_judge", instructions="Analyze this {{ trace }}", model="openai:/gpt-4"
     )
 
     result = judge(trace=mock_trace)
@@ -360,9 +574,7 @@ def test_call_trace_based_judge_ignores_inputs_outputs(mock_trace, mock_invoke_j
     captured_args = mock_invoke_judge_model.captured_args
 
     judge = make_judge(
-        name="test_judge",
-        instructions="Analyze this {{ trace }}",
-        model="openai:/gpt-4",
+        name="test_judge", instructions="Analyze this {{ trace }}", model="openai:/gpt-4"
     )
 
     # These should all work - trace-based judge ignores inputs/outputs
@@ -381,9 +593,7 @@ def test_call_trace_based_judge_ignores_inputs_outputs(mock_trace, mock_invoke_j
 
 def test_call_with_no_inputs_or_outputs():
     judge = make_judge(
-        name="test_judge",
-        instructions="Check if {{ outputs }} is valid",
-        model="openai:/gpt-4",
+        name="test_judge", instructions="Check if {{ outputs }} is valid", model="openai:/gpt-4"
     )
 
     with pytest.raises(
@@ -524,9 +734,7 @@ def test_call_with_reserved_variables(mock_invoke_judge_model):
 
 def test_instructions_property():
     judge = make_judge(
-        name="test_judge",
-        instructions="Check if {{ outputs }} is formal",
-        model="openai:/gpt-4",
+        name="test_judge", instructions="Check if {{ outputs }} is formal", model="openai:/gpt-4"
     )
 
     instructions = judge.instructions
@@ -535,9 +743,7 @@ def test_instructions_property():
 
 def test_kind_property():
     judge = make_judge(
-        name="test_judge",
-        instructions="Check if {{ outputs }} is valid",
-        model="openai:/gpt-4",
+        name="test_judge", instructions="Check if {{ outputs }} is valid", model="openai:/gpt-4"
     )
 
     assert judge.kind == ScorerKind.CLASS
@@ -1239,10 +1445,10 @@ def test_judge_rejects_invalid_trace():
         model="openai:/gpt-4",
     )
 
-    with pytest.raises(MlflowException, match="'trace' must be a Trace instance, got str"):
+    with pytest.raises(MlflowException, match="'trace' must be a Trace object, got str"):
         judge(trace="not a trace")
 
-    with pytest.raises(MlflowException, match="'trace' must be a Trace instance, got dict"):
+    with pytest.raises(MlflowException, match="'trace' must be a Trace object, got dict"):
         judge(trace={"trace_data": "invalid"})
 
     inputs_judge = make_judge(
@@ -1340,6 +1546,63 @@ def test_trace_field_extraction_for_inputs_outputs_template(mock_invoke_judge_mo
 
     trace = mlflow.get_trace(span.trace_id)
     judge(trace=trace)
+
+
+@pytest.mark.parametrize(
+    ("instructions", "provided_params", "expected_warning"),
+    [
+        (
+            "Evaluate if {{ outputs }} is correct",
+            {"outputs": {"answer": "42"}, "inputs": {"question": "What is life?"}},
+            "'inputs'",
+        ),
+        (
+            "Check {{ inputs }}",
+            {"inputs": {"q": "test"}, "outputs": {"a": "result"}, "expectations": {"e": "42"}},
+            "'outputs', 'expectations'",
+        ),
+        (
+            "Evaluate {{ trace }}",
+            {"inputs": {"q": "test"}, "outputs": {"a": "result"}},
+            "'inputs', 'outputs'",
+        ),
+    ],
+)
+def test_unused_parameters_warning(
+    instructions, provided_params, expected_warning, mock_invoke_judge_model
+):
+    judge = make_judge(
+        name="test_judge",
+        instructions=instructions,
+        model="openai:/gpt-4",
+    )
+
+    if "{{ trace }}" in instructions:
+        trace = Trace(
+            info=TraceInfo(
+                trace_id="test-trace-id",
+                trace_location=TraceLocation.from_experiment_id("0"),
+                request_time=1234567890,
+                execution_duration=1000,
+                state=TraceState.OK,
+                trace_metadata={},
+            ),
+            data=TraceData(spans=[]),
+        )
+        provided_params = {"trace": trace, **provided_params}
+
+    with patch("mlflow.genai.judges.instructions_judge._logger") as mock_logger:
+        judge(**provided_params)
+
+        assert mock_logger.warning.called
+
+        warning_call_args = mock_logger.warning.call_args
+        assert warning_call_args is not None
+
+        warning_msg = warning_call_args[0][0]
+
+        assert "parameters were provided but are not used" in warning_msg
+        assert expected_warning in warning_msg
 
 
 def test_context_labels_added_to_interpolated_values(mock_invoke_judge_model):
