@@ -253,6 +253,11 @@ def invoke_judge_model(
         assessment_name: The name of the assessment.
         num_retries: Number of retries on transient failures when using litellm.
     """
+    from mlflow.metrics.genai.model_utils import (
+        _parse_model_uri,
+    )
+
+    model_provider, model_name = _parse_model_uri(model_uri)
     in_databricks = _is_in_databricks()
 
     try:
@@ -267,8 +272,8 @@ def invoke_judge_model(
         if in_databricks:
             try:
                 _record_judge_model_usage_failure_databricks_telemetry(
-                    model_provider=output.model_provider,
-                    endpoint_name=output.model_name,
+                    model_provider=model_provider,
+                    endpoint_name=model_name,
                     error_code="UNKNOWN",
                     error_message=error_traceback,
                 )
