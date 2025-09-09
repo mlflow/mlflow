@@ -36,6 +36,38 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: 'Concepts',
+      className: 'sidebar-top-level-category',
+      items: [
+        {
+          type: 'doc',
+          id: 'concepts/trace',
+          label: 'Trace',
+        },
+        {
+          type: 'doc',
+          id: 'concepts/span',
+          label: 'Span',
+        },
+        {
+          type: 'doc',
+          id: 'concepts/feedback',
+          label: 'Feedback',
+        },
+        {
+          type: 'doc',
+          id: 'concepts/expectations',
+          label: 'Expectations',
+        },
+        {
+          type: 'doc',
+          id: 'concepts/evaluation-datasets',
+          label: 'Evaluation Datasets',
+        },
+      ],
+    },
+    {
+      type: 'category',
       label: 'Getting Started',
       className: 'sidebar-top-level-category',
       items: [
@@ -124,32 +156,6 @@ const sidebarsGenAI: SidebarsConfig = {
             type: 'doc',
             id: 'tracing/integrations/index',
           },
-        },
-        {
-          type: 'category',
-          label: 'Concepts',
-          items: [
-            {
-              type: 'doc',
-              id: 'tracing/concepts/trace',
-              label: 'Trace',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/concepts/span',
-              label: 'Span',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/concepts/feedback',
-              label: 'Feedback',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/concepts/expectations',
-              label: 'Expectations',
-            },
-          ],
         },
         {
           type: 'category',
@@ -247,6 +253,26 @@ const sidebarsGenAI: SidebarsConfig = {
       label: 'Evaluate & Monitor',
       className: 'sidebar-top-level-category',
       items: [
+        {
+          type: 'category',
+          label: 'Evaluation Datasets',
+          items: [
+            {
+              type: 'doc',
+              id: 'datasets/end-to-end-workflow',
+              label: 'End-to-End Workflow',
+            },
+            {
+              type: 'doc',
+              id: 'datasets/sdk-guide',
+              label: 'SDK Guide',
+            },
+          ],
+          link: {
+            type: 'doc',
+            id: 'datasets/index',
+          },
+        },
         {
           type: 'doc',
           id: 'eval-monitor/quickstart',

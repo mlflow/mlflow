@@ -10,7 +10,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   review:
@@ -20,15 +20,14 @@ jobs:
       models: read
       pull-requests: write
     timeout-minutes: 10
-    # Run on pull_request events from mlflow/mlflow (not forks) or when harupy comments '/review' on a pull request
+    # Run on pull_request events from mlflow/mlflow (not forks) or when anyone comments '/review' on a pull request
     if: >
       (github.event_name == 'pull_request' &&
        github.event.pull_request.head.repo.full_name == 'mlflow/mlflow')
       ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.pull_request &&
-       startsWith(github.event.comment.body, '/review') &&
-       github.event.comment.user.login == 'harupy')
+       startsWith(github.event.comment.body, '/review'))
     steps:
       - name: React to comment
         if: ${{ github.event_name == 'issue_comment' }}
@@ -42,6 +41,21 @@ jobs:
               comment_id: comment.id,
               content: 'rocket'
             });
+      - name: Check authorization for issue comment
+        if: ${{ github.event_name == 'issue_comment' && github.event.comment.user.login != 'harupy' }}
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            // Leave a comment indicating only 'harupy' is allowed to trigger the workflow
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: "⚠️ Only **harupy** is authorized to trigger this workflow via comments. Your request has been ignored."
+            });
+
+            // Fail the workflow to abort further execution
+            throw new Error("Unauthorized user attempted to trigger workflow: " + context.payload.comment.user.login);
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           sparse-checkout: |
@@ -98,20 +112,21 @@ jobs:
 
           # Instructions
 
-          ## 1. Fetch and Analyze PR
+          ## 1. Fetch PR and Review Against Style Guide
           - Use `fetch_diff` tool to fetch the PR diff
-          - Carefully examine all changes in the diff
-
-          ## 2. Review Against Style Guide
           - Read `dev/guides/python.md` thoroughly
-          - Check for violations of the style guide
+          - Carefully examine ONLY the changed lines (added or modified) in the diff
+          - Check for style guide violations ONLY in these changed lines
+          - Ignore unchanged/context lines and pre-existing code
 
-          ## 3. Decision Point
+          ## 2. Decision Point
           - If NO issues found -> Skip remaining steps
-          - If issues found -> Continue to step 4
+          - If issues found -> Continue to step 3
 
-          ## 4. Add Review Comments
+          ## 3. Add Review Comments
           - Use `add_pr_review_comment` tool for each issue found
+          - ONLY comment on lines that are marked as added (+) or modified in the diff
+          - Never comment on unchanged context lines or pre-existing code
           - Comment parameters:
             - Single-line: Set `subject_type` to `LINE`, specify `line`
             - Multi-line: Set `subject_type` to `LINE`, specify both `start_line` and `line`
@@ -128,4 +143,4 @@ jobs:
           PR_URL: ${{ github.event.issue.pull_request.html_url || github.event.pull_request.html_url}}
         run: |
           # Use timeout in case codex hangs
-          timeout 3m ./codex exec --skip-git-repo-check "Can you review $PR_URL?" || true
+          timeout 5m ./codex exec --skip-git-repo-check "Can you review $PR_URL?" || true

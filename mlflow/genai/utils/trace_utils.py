@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 from typing import TYPE_CHECKING, Any, Callable
 
 from opentelemetry.trace import NoOpTracer
@@ -8,13 +9,11 @@ from pydantic import BaseModel
 import mlflow
 from mlflow.entities.span import Span, SpanType
 from mlflow.entities.trace import Trace
-from mlflow.genai.evaluation.utils import is_none_or_nan
 from mlflow.genai.utils.data_validation import check_model_prediction
 from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.utils import TraceJSONEncoder
-from mlflow.tracking.client import MlflowClient
 
 if TYPE_CHECKING:
     from mlflow.genai.evaluation.entities import EvalItem
@@ -78,6 +77,16 @@ class NoOpTracerPatcher:
 
     def __exit__(self, exc_type, exc_value, traceback):
         NoOpTracer.start_span = self.original
+
+
+def is_none_or_nan(value: Any) -> bool:
+    """
+    Checks whether a value is None or NaN.
+
+    NB: This function does not handle pandas.NA.
+    """
+    # isinstance(value, float) check is needed to ensure that math.isnan is not called on an array.
+    return value is None or (isinstance(value, float) and math.isnan(value))
 
 
 def parse_inputs_to_str(value: Any) -> str:
@@ -280,6 +289,9 @@ def clean_up_extra_traces(run_id: str, start_time_ms: int):
                 f"Found {len(extra_trace_ids)} extra traces generated during evaluation run. "
                 "Deleting them."
             )
+            # Import MlflowClient locally to avoid issues with tracing-only SDK
+            from mlflow.tracking.client import MlflowClient
+
             MlflowClient().delete_traces(
                 experiment_id=_get_experiment_id(), trace_ids=extra_trace_ids
             )

@@ -16,6 +16,7 @@ from mlflow.genai.judges.utils import (
     _MODEL_RESPONSE_FORMAT_CAPABILITIES,
     CategoricalRating,
     add_output_format_instructions,
+    format_prompt,
     invoke_judge_model,
 )
 from mlflow.types.llm import ChatMessage, ToolCall
@@ -572,3 +573,32 @@ def test_litellm_nonfatal_error_messages_suppressed():
 
         # Verify the call succeeded
         assert result.value == "pass"
+
+
+@pytest.mark.parametrize(
+    ("prompt_template", "values", "expected"),
+    [
+        # Test with Unicode escape-like sequences
+        (
+            "User input: {{ user_text }}",
+            {"user_text": r"Path is C:\users\john"},
+            r"User input: Path is C:\users\john",
+        ),
+        # Test with newlines and tabs
+        (
+            "Data: {{ data }}",
+            {"data": "Line1\\nLine2\\tTabbed"},
+            "Data: Line1\\nLine2\\tTabbed",
+        ),
+        # Test with multiple variables
+        (
+            "Path: {{ path }}, Command: {{ cmd }}",
+            {"path": r"C:\temp", "cmd": r"echo \u0041"},
+            r"Path: C:\temp, Command: echo \u0041",
+        ),
+    ],
+)
+def test_format_prompt_with_backslashes(prompt_template, values, expected):
+    """Test that format_prompt correctly handles values containing backslashes."""
+    result = format_prompt(prompt_template, **values)
+    assert result == expected

@@ -52,7 +52,7 @@ class InMemoryTraceManager:
     Manage spans and traces created by the tracing system in memory.
     """
 
-    _instance_lock = threading.Lock()
+    _instance_lock = threading.RLock()
     _instance = None
 
     @classmethod
@@ -69,7 +69,7 @@ class InMemoryTraceManager:
 
         # Store mapping between OpenTelemetry trace ID and MLflow trace ID
         self._otel_id_to_mlflow_trace_id: dict[int, str] = {}
-        self._lock = threading.Lock()  # Lock for _traces
+        self._lock = threading.RLock()  # Lock for _traces
 
     def register_trace(self, otel_trace_id: int, trace_info: TraceInfo):
         """

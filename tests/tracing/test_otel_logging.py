@@ -296,3 +296,20 @@ def test_invalid_content_type_returns_400(mlflow_server: str):
 
     assert response.status_code == 400
     assert "Invalid Content-Type" in response.text
+
+
+def test_empty_resource_spans_returns_400(mlflow_server: str):
+    request = ExportTraceServiceRequest()
+
+    response = requests.post(
+        f"{mlflow_server}/v1/traces",
+        data=request.SerializeToString(),
+        headers={
+            "Content-Type": "application/x-protobuf",
+            MLFLOW_EXPERIMENT_ID_HEADER: "test-experiment",
+        },
+        timeout=10,
+    )
+
+    assert response.status_code == 400
+    assert "no spans found" in response.text
