@@ -61,9 +61,9 @@ def sample_trace_with_assessment():
     """Create a sample trace with human assessment for testing."""
     # Create actual trace with real MLflow objects instead of mocks
 
-    # Create a real assessment object (Feedback)
+    # Create a real assessment object (Feedback) with mixed case/whitespace to test sanitization
     assessment = Feedback(
-        name="mock_judge",
+        name="  Mock_JUDGE  ",
         value="pass",
         rationale="This looks good",
         source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="test_user"),

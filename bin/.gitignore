@@ -1,0 +1,6 @@
+# Ignore everything in this directory
+*
+# Except these files
+!.gitignore
+!install.py
+!README.md

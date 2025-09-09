@@ -1540,3 +1540,41 @@ def test_unused_parameters_warning(
 
         assert "parameters were provided but are not used" in warning_msg
         assert expected_warning in warning_msg
+
+
+def test_context_labels_added_to_interpolated_values(mock_invoke_judge_model):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate if {{outputs}} answers {{inputs}} per {{expectations}}",
+        model="openai:/gpt-4",
+    )
+
+    test_inputs = {"question": "What is MLflow?"}
+    test_outputs = {"answer": "MLflow is an open source platform"}
+    test_expectations = {"criteria": "Must mention open source"}
+
+    judge(inputs=test_inputs, outputs=test_outputs, expectations=test_expectations)
+
+    assert len(mock_invoke_judge_model.calls) == 1
+    _, prompt, _ = mock_invoke_judge_model.calls[0]
+
+    user_msg = prompt[1]
+    user_content = user_msg.content
+
+    assert "inputs:" in user_content, "Missing 'inputs:' label"
+    assert "outputs:" in user_content, "Missing 'outputs:' label"
+    assert "expectations:" in user_content, "Missing 'expectations:' label"
+
+    expected_inputs_json = json.dumps(test_inputs, default=str, indent=2)
+    expected_outputs_json = json.dumps(test_outputs, default=str, indent=2)
+    expected_expectations_json = json.dumps(test_expectations, default=str, indent=2)
+
+    assert f"inputs: {expected_inputs_json}" in user_content
+    assert f"outputs: {expected_outputs_json}" in user_content
+    assert f"expectations: {expected_expectations_json}" in user_content
+
+    expectations_pos = user_content.index("expectations:")
+    inputs_pos = user_content.index("inputs:")
+    outputs_pos = user_content.index("outputs:")
+
+    assert outputs_pos < inputs_pos < expectations_pos
