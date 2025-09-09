@@ -8,7 +8,9 @@ from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.base import AlignmentOptimizer, Judge
+from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.optimizers.dspy_utils import (
+    AgentEvalLM,
     agreement_metric,
     convert_mlflow_uri_to_litellm,
     create_dspy_signature,
@@ -104,9 +106,12 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
 
             def __init__(self, judge):
                 super().__init__(create_dspy_signature(judge))
-                # Convert MLflow model URI to LiteLLM format for DSPy
-                judge_model_litellm = convert_mlflow_uri_to_litellm(judge.model)
-                self._lm = dspy.LM(model=judge_model_litellm)
+                # Use special AgentEvalLM for databricks model, otherwise convert to LiteLLM
+                if judge.model == _DATABRICKS_DEFAULT_JUDGE_MODEL:
+                    self._lm = AgentEvalLM()
+                else:
+                    judge_model_litellm = convert_mlflow_uri_to_litellm(judge.model)
+                    self._lm = dspy.LM(model=judge_model_litellm)
 
             def forward(self, *args, **kwargs):
                 # If an LM is supplied via kwargs, use that, else use self.lm
@@ -144,8 +149,13 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
 
             # Configure DSPy to use the optimizer's model
             # This ensures the optimizer uses its own model, separate from the judge's model
-            optimizer_model_litellm = convert_mlflow_uri_to_litellm(self._model)
-            with dspy.context(lm=dspy.LM(model=optimizer_model_litellm)):
+            if self._model == _DATABRICKS_DEFAULT_JUDGE_MODEL:
+                optimizer_lm = AgentEvalLM()
+            else:
+                optimizer_model_litellm = convert_mlflow_uri_to_litellm(self._model)
+                optimizer_lm = dspy.LM(model=optimizer_model_litellm)
+
+            with dspy.context(lm=optimizer_lm):
                 # Create DSPy program that will simulate the judge
                 program = self._get_dspy_program_from_judge(judge)
                 self._logger.info("Created DSPy program with signature using judge's model")
