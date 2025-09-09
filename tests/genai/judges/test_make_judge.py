@@ -1281,6 +1281,7 @@ def test_context_window_error_removes_tool_calls_and_retries(
         if len(kwargs["messages"]) >= 8 and not exception_raised:
             exception_raised = True
             raise exception_class(*exception_args)
+
         mock_response = mock.Mock()
         mock_response.choices = [mock.Mock()]
         if exception_raised:
