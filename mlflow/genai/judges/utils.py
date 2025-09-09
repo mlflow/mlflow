@@ -203,17 +203,12 @@ def _record_judge_model_usage_success_databricks_telemetry(
     from mlflow.tracking.fluent import _get_experiment_id
     from mlflow.utils.databricks_utils import get_job_id, get_job_run_id, get_workspace_id
 
-    experiment_id = _get_experiment_id()
-    workspace_id = get_workspace_id()
-    job_id = get_job_id()
-    job_run_id = get_job_run_id()
-
     record_judge_model_usage_success(
         request_id=request_id,
-        experiment_id=experiment_id,
-        job_id=job_id,
-        job_run_id=job_run_id,
-        workspace_id=workspace_id,
+        experiment_id=_get_experiment_id(),
+        job_id=get_job_id(),
+        job_run_id=get_job_run_id(),
+        workspace_id=get_workspace_id(),
         model_provider=model_provider,
         endpoint_name=endpoint_name,
         num_prompt_tokens=num_prompt_tokens,
