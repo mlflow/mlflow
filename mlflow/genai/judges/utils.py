@@ -1,9 +1,10 @@
 import json
 import logging
-import requests
 import time
 import traceback
 from dataclasses import dataclass
+
+import requests
 
 import mlflow
 from mlflow.entities.assessment import Feedback
