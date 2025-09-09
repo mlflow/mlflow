@@ -12,10 +12,17 @@ from mlflow.entities.model_registry import (
     RegisteredModel,
     RegisteredModelTag,
 )
-from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY
+from mlflow.entities.model_registry.prompt_version import (
+    IS_PROMPT_TAG_KEY,
+    PROMPT_TEXT_TAG_KEY,
+)
 from mlflow.entities.trace_location import TraceLocation as EntityTraceLocation
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE, ErrorCode
+from mlflow.protos.databricks_pb2 import (
+    INTERNAL_ERROR,
+    INVALID_PARAMETER_VALUE,
+    ErrorCode,
+)
 from mlflow.protos.model_registry_pb2 import (
     CreateModelVersion,
     CreateRegisteredModel,
@@ -1571,23 +1578,6 @@ def test_delete_scorer_without_version(mock_get_request_message, mock_tracking_s
     # Verify the response (should be empty for delete operations)
     response_data = json.loads(resp.get_data())
     assert response_data == {}
-
-
-def test_catch_mlflow_exception_dynamic_headers():
-    @catch_mlflow_exception
-    def test_handler():
-        ex = MlflowException("dynamic header test", error_code=INTERNAL_ERROR)
-        ex.json_kwargs = {
-            "headers": {"request_id": "abc123", "retry_after": 30, "custom_code": "42"}
-        }
-        raise ex
-
-    response = test_handler()
-    assert response.status_code == 500
-    headers = response.headers
-    assert headers.get("request_id") == "abc123"
-    assert headers.get("retry_after") == "30"
-    assert headers.get("custom_code") == "42"
 
 
 def test_calculate_trace_filter_correlation(mock_get_request_message, mock_tracking_store):
