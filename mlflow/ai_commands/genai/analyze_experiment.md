@@ -12,6 +12,8 @@ Analyzes traces in an MLflow experiment for quality issues, performance problems
 **MCP**: Skip to Section 1.2 (auth is pre-configured). Use MCP trace tools.
 **CLI**: Start with Section 1.1 for auth setup. Use `mlflow traces` commands.
 
+**IMPORTANT**: When you ask the user a question, you MUST WAIT for their response before continuing.
+
 ## Step 1: Setup and Configuration
 
 ### 1.1 Collect Tracking Server Information (CLI Only)
