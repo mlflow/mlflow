@@ -748,7 +748,7 @@ def test_evaluate_with_tags(tags_data, expected_calls):
         }
         data.append(item)
 
-    with mock.patch("mlflow.set_tag") as mock_set_tag:
+    with mock.patch("mlflow.set_tag") as mock_set_tag, mlflow.start_run():
         mlflow.genai.evaluate(
             data=data,
             scorers=[exact_match],
@@ -774,7 +774,10 @@ def test_evaluate_with_tags_error_handling(is_in_databricks):
     ]
 
     # Mock set_tag to raise an exception
-    with mock.patch("mlflow.set_tag", side_effect=Exception("Tag logging failed")):
+    with (
+        mock.patch("mlflow.set_tag", side_effect=Exception("Tag logging failed")),
+        mlflow.start_run(),
+    ):
         # This should not raise an exception
         result = mlflow.genai.evaluate(
             data=data,
@@ -796,7 +799,7 @@ def test_evaluate_with_invalid_tags_type():
         }
     ]
 
-    with pytest.raises(MlflowException, match="Tags must be a dictionary"):
+    with pytest.raises(MlflowException, match="Tags must be a dictionary"), mlflow.start_run():
         mlflow.genai.evaluate(
             data=data,
             scorers=[exact_match],
