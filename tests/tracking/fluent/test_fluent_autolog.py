@@ -474,16 +474,9 @@ def test_autolog_genai_import(disable, flavor_and_module):
 
     # pytorch-lightning is not valid flavor name.
     # paddle autologging is not in the list of autologging integrations.
-    # crewai, pydantic_ai, autogen, semantic_kernel, agno, and strands require Python 3.10+ (CI now runs on Python 3.10+).
     if flavor in {
         "pytorch-lightning",
         "paddle",
-        "crewai",
-        "pydantic_ai",
-        "autogen",
-        "semantic_kernel",
-        "agno",
-        "strands",
     }:
         return
 
