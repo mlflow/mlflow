@@ -5,6 +5,7 @@ from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 import assessments_pb2 as _assessments_pb2
 import datasets_pb2 as _datasets_pb2
+import databricks_trace_server_pb2 as _databricks_trace_server_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -1573,6 +1574,17 @@ class Scorer(_message.Message):
     serialized_scorer: str
     creation_time: int
     def __init__(self, experiment_id: _Optional[int] = ..., scorer_name: _Optional[str] = ..., scorer_version: _Optional[int] = ..., serialized_scorer: _Optional[str] = ..., creation_time: _Optional[int] = ...) -> None: ...
+
+class LoadSpans(_message.Message):
+    __slots__ = ("trace_id",)
+    class Response(_message.Message):
+        __slots__ = ("spans",)
+        SPANS_FIELD_NUMBER: _ClassVar[int]
+        spans: _containers.RepeatedCompositeFieldContainer[_databricks_trace_server_pb2.Span]
+        def __init__(self, spans: _Optional[_Iterable[_Union[_databricks_trace_server_pb2.Span, _Mapping]]] = ...) -> None: ...
+    TRACE_ID_FIELD_NUMBER: _ClassVar[int]
+    trace_id: str
+    def __init__(self, trace_id: _Optional[str] = ...) -> None: ...
 
 class MlflowService(_service.service): ...
 
