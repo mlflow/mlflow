@@ -10,7 +10,6 @@ import { RunViewUserLinkBox } from '../overview/RunViewUserLinkBox';
 import { DetailsOverviewCopyableIdBox } from '../../DetailsOverviewCopyableIdBox';
 import { RunViewStatusBox } from '../overview/RunViewStatusBox';
 import { RunViewParentRunBox } from '../overview/RunViewParentRunBox';
-import { RunViewChildRunsBox } from '../overview/RunViewChildRunsBox';
 import { EXPERIMENT_PARENT_ID_TAG } from '../../experiment-page/utils/experimentPage.common-utils';
 import { RunViewDatasetBoxV2 } from '../overview/RunViewDatasetBoxV2';
 import { RunViewSourceBox } from '../overview/RunViewSourceBox';
@@ -117,16 +116,6 @@ export const useRunDetailsPageOverviewSectionsV2 = ({
             description: 'Run page > Overview > Parent run',
           })}
           value={<RunViewParentRunBox parentRunUuid={parentRunIdTag.value} />}
-        />
-      )}
-      {/* Show child runs if this is a parent run */}
-      {!parentRunIdTag && runInfo.runUuid && runInfo.experimentId && (
-        <KeyValueProperty
-          keyValue={intl.formatMessage({
-            defaultMessage: 'Child runs',
-            description: 'Run page > Overview > Child runs',
-          })}
-          value={<RunViewChildRunsBox parentRunUuid={runInfo.runUuid} experimentId={runInfo.experimentId} />}
         />
       )}
       <KeyValueProperty

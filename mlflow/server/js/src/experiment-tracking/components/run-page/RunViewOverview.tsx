@@ -174,13 +174,15 @@ export const RunViewOverview = ({
             value={<RunViewParentRunBox parentRunUuid={parentRunIdTag.value} />}
           />
         )}
-        {/* Show child runs if this is a parent run */}
-        {!parentRunIdTag && runInfo.runUuid && runInfo.experimentId && (
-          <DetailsOverviewMetadataRow
-            title={<FormattedMessage defaultMessage="Child runs" description="Run page > Overview > Child runs" />}
-            value={<RunViewChildRunsBox parentRunUuid={runInfo.runUuid} experimentId={runInfo.experimentId} />}
-          />
-        )}
+        <DetailsOverviewMetadataRow
+          title={
+            <FormattedMessage
+              defaultMessage="Child runs"
+              description="Run page > Overview > Child runs section label"
+            />
+          }
+          value={<RunViewChildRunsBox runUuid={runInfo.runUuid ?? ''} experimentId={runInfo.experimentId ?? ''} />}
+        />
         <DetailsOverviewMetadataRow
           title={
             <FormattedMessage
