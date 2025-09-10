@@ -25,6 +25,7 @@ import pytest
 import pytorch_lightning
 import setfit
 import sklearn
+import smolagents
 import statsmodels
 import tensorflow
 import transformers
@@ -71,8 +72,7 @@ library_to_mlflow_module_genai = {
     groq: mlflow.groq,
     mistralai: mlflow.mistral,
     autogen: mlflow.ag2,
-    # TODO: once Python 3.10 is introduced, enable smolagents
-    # smolagents: mlflow.smolagents,
+    smolagents: mlflow.smolagents,
 }
 
 library_to_mlflow_module_traditional_ai = {
@@ -474,12 +474,11 @@ def test_autolog_genai_import(disable, flavor_and_module):
 
     # pytorch-lightning is not valid flavor name.
     # paddle autologging is not in the list of autologging integrations.
-    # crewai, smolagents, and semantic_kernel require Python 3.10+ (our CI runs on Python 3.9).
+    # crewai, pydantic_ai, autogen, semantic_kernel, agno, and strands require Python 3.10+ (CI now runs on Python 3.10+).
     if flavor in {
         "pytorch-lightning",
         "paddle",
         "crewai",
-        "smolagents",
         "pydantic_ai",
         "autogen",
         "semantic_kernel",
