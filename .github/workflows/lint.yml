@@ -58,8 +58,6 @@ jobs:
       - name: Install dependencies
         run: |
           uv sync --only-group lint
-      - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/pipdeptree
       - name: Install pre-commit hooks
         run: |
           uv run --only-group lint pre-commit install --install-hooks
