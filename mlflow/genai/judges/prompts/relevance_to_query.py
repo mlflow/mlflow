@@ -1,4 +1,4 @@
-from mlflow.genai.judges.utils import format_prompt
+from mlflow.genai.prompts.utils import format_prompt
 
 # NB: User-facing name for the is_context_relevant assessment.
 RELEVANCE_TO_QUERY_ASSESSMENT_NAME = "relevance_to_context"

@@ -25,11 +25,11 @@ _RESPONSE_API_BUILT_IN_TOOLS = {
 def set_span_chat_attributes(span: LiveSpan, inputs: dict[str, Any], output: Any):
     # NB: This function is also used for setting chat attributes for ResponsesAgent tracing spans
     # (TODO: Add doc link). Therefore, the core logic should still run without openai package.
-    if tools := _parse_tools(inputs):
-        try:
+    try:
+        if tools := _parse_tools(inputs):
             set_span_chat_tools(span, tools)
-        except MlflowException:
-            _logger.debug("Failed to set chat tools on span", exc_info=True)
+    except MlflowException:
+        _logger.debug("Failed to set chat tools on span", exc_info=True)
 
     # Extract and set usage information if available
     if usage := _parse_usage(output):

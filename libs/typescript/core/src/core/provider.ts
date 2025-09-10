@@ -25,7 +25,9 @@ export function initializeSDK(): void {
     const client = new MlflowClient({
       trackingUri: hostConfig.trackingUri,
       host: hostConfig.host,
-      databricksToken: hostConfig.databricksToken
+      databricksToken: hostConfig.databricksToken,
+      trackingServerUsername: hostConfig.trackingServerUsername,
+      trackingServerPassword: hostConfig.trackingServerPassword
     });
     const exporter = new MlflowSpanExporter(client);
     processor = new MlflowSpanProcessor(exporter);

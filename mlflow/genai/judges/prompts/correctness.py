@@ -1,4 +1,4 @@
-from mlflow.genai.judges.utils import format_prompt
+from mlflow.genai.prompts.utils import format_prompt
 
 # NB: User-facing name for the is_correct assessment.
 CORRECTNESS_FEEDBACK_NAME = "correctness"

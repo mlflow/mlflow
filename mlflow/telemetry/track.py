@@ -1,5 +1,6 @@
 import functools
 import inspect
+import logging
 import time
 from typing import Any, Callable, ParamSpec, TypeVar
 
@@ -7,12 +8,12 @@ from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID
 from mlflow.telemetry.client import get_telemetry_client
 from mlflow.telemetry.events import Event
 from mlflow.telemetry.schemas import Record, Status
-from mlflow.telemetry.utils import (
-    is_telemetry_disabled,
-)
+from mlflow.telemetry.utils import _log_error, is_telemetry_disabled
 
 P = ParamSpec("P")
 R = TypeVar("R")
+
+_logger = logging.getLogger(__name__)
 
 
 def record_usage_event(event: type[Event]) -> Callable[[Callable[P, R]], Callable[P, R]]:
@@ -41,9 +42,8 @@ def record_usage_event(event: type[Event]) -> Callable[[Callable[P, R]], Callabl
                         )
                     ):
                         client.add_record(record)
-                # TODO: add a logger to log errors guarded by a MLflow env var
-                except Exception:
-                    pass
+                except Exception as e:
+                    _log_error(f"Failed to record telemetry event {event.name}: {e}")
 
         return wrapper
 
@@ -84,7 +84,8 @@ def _generate_telemetry_record(
             status=Status.SUCCESS if success else Status.FAILURE,
             duration_ms=duration_ms,
         )
-    except Exception:
+    except Exception as e:
+        _log_error(f"Failed to generate telemetry record for event {event.name}: {e}")
         return
 
 
@@ -101,5 +102,6 @@ def _is_telemetry_disabled_for_event(event: type[Event]) -> bool:
         # telemetry is disabled
         else:
             return True
-    except Exception:
+    except Exception as e:
+        _log_error(f"Failed to check telemetry status for event {event.name}: {e}")
         return True

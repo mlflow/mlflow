@@ -1,0 +1,122 @@
+---
+sidebar_position: 9
+sidebar_label: Claude Code
+---
+
+import { APILink } from "@site/src/components/APILink";
+import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
+import TOCInline from "@theme/TOCInline";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Tracing Claude Code
+
+![Claude Code Tracing via CLI autolog](/images/llms/anthropic/claude-code-tracing.png)
+
+[MLflow Tracing](/genai/tracing) provides automatic tracing capability for Claude Code conversations. By setting up auto tracing for Claude Code using the `mlflow autolog claude` CLI command, MLflow will automatically capture traces of your Claude Code conversations and log them to the active MLflow Experiment. The trace automatically captures information such as:
+
+- User prompts and assistant responses
+- Tool usage (file operations, code execution, web searches, etc.)
+- Conversation timing and duration
+- Tool execution results
+- Session metadata including working directory and user
+
+## Requirements
+
+- MLflow >= 3.4 installed (`pip install mlflow>=3.4`)
+- Claude Code CLI installed and configured
+
+## Setup
+
+Unlike other integrations, Claude Code tracing is configured via CLI commands rather than Python imports. This is because Claude Code itself operates as a standalone CLI tool.
+
+### Basic Setup
+
+```bash
+# Set up tracing in current directory
+mlflow autolog claude
+
+# Set up tracing in specific directory
+mlflow autolog claude ~/my-project
+
+# Check tracing status
+mlflow autolog claude --status
+
+# Disable tracing
+mlflow autolog claude --disable
+```
+
+### Advanced Configuration
+
+```bash
+# Set up with custom tracking URI
+mlflow autolog claude -u file://./custom-mlruns
+mlflow autolog claude -u sqlite:///mlflow.db
+
+# Set up with Databricks backend and a specific experiment ID
+mlflow autolog claude -u databricks -e 123456789
+
+# Set up with specific experiment
+mlflow autolog claude -n "My AI Project"
+```
+
+## How It Works
+
+1. **Setup Phase**: The `mlflow autolog claude` command configures Claude Code hooks in a `.claude/settings.json` file in your project directory
+2. **Automatic Tracing**: When you use the `claude` command in the configured directory, your conversations are automatically traced
+3. **View Results**: Use the MLflow UI to explore your traces
+
+## Basic Example
+
+```bash
+# Set up tracing in your project
+mlflow autolog claude ~/my-project
+
+# Navigate to project directory
+cd ~/my-project
+
+# Use Claude Code normally - tracing happens automatically
+claude "help me refactor this Python function to be more efficient"
+
+# View traces in MLflow UI
+mlflow ui
+```
+
+## Troubleshooting
+
+### Check Status
+
+```bash
+mlflow autolog claude --status
+```
+
+This shows:
+
+- Whether tracing is enabled
+- Current tracking URI
+- Configured experiment
+- Any configuration issues
+
+### Common Issues
+
+**Tracing not working:**
+
+- Ensure you're in the configured directory
+- Check that `.claude/settings.json` exists
+- Review logs in `.claude/mlflow/claude_tracing.log`
+
+**Missing traces:**
+
+- Check if `MLFLOW_CLAUDE_TRACING_ENABLED=true` in your configuration
+- Verify the tracking URI is accessible
+- Review logs in `.claude/mlflow/claude_tracing.log`
+
+## Disable Tracing
+
+To stop automatic tracing:
+
+```bash
+mlflow autolog claude --disable
+```
+
+This removes the hooks from `.claude/settings.json` but preserves existing traces.

@@ -5,9 +5,14 @@ from unittest.mock import Mock
 import pandas as pd
 import pytest
 
+from mlflow.data.dataset_source_registry import (
+    get_dataset_source_from_json,
+    register_dataset_source,
+)
 from mlflow.data.spark_dataset_source import SparkDatasetSource
 from mlflow.genai.datasets.databricks_evaluation_dataset_source import (
     DatabricksEvaluationDatasetSource,
+    DatabricksUCTableDatasetSource,
 )
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 
@@ -188,3 +193,15 @@ def test_evaluation_dataset_to_evaluation_dataset(mock_managed_dataset):
     assert legacy_dataset._feature_names == ["col1", "col2"]
     assert legacy_dataset.name == "catalog.schema.table"
     assert legacy_dataset.digest == "test-digest"
+
+
+def test_databricks_uc_table_dataset_source():
+    register_dataset_source(DatabricksUCTableDatasetSource)
+
+    source_json = json.dumps({"table_name": "catalog.schema.table", "dataset_id": "test-id"})
+
+    source = get_dataset_source_from_json(source_json, "databricks-uc-table")
+    assert isinstance(source, DatabricksUCTableDatasetSource)
+    assert source._get_source_type() == "databricks-uc-table"
+    assert source.table_name == "catalog.schema.table"
+    assert source.dataset_id == "test-id"

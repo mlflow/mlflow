@@ -4,6 +4,7 @@ from typing import Any
 from opentelemetry.proto.common.v1.common_pb2 import AnyValue
 from opentelemetry.sdk.trace.export import SpanExporter
 
+from mlflow.environment_variables import MLFLOW_ENABLE_OTLP_EXPORTER
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 
@@ -13,7 +14,19 @@ OTLP_TRACES_PATH = "/v1/traces"
 
 
 def should_use_otlp_exporter() -> bool:
-    return _get_otlp_endpoint() is not None
+    """
+    Determine if OTLP traces should be exported based on environment configuration.
+    """
+    return _get_otlp_endpoint() is not None and MLFLOW_ENABLE_OTLP_EXPORTER.get()
+
+
+def should_export_otlp_metrics() -> bool:
+    """
+    Determine if OTLP metrics should be exported based on environment configuration.
+
+    Returns True if metrics endpoint is configured.
+    """
+    return _get_otlp_metrics_endpoint() is not None
 
 
 def get_otlp_exporter() -> SpanExporter:
@@ -62,9 +75,42 @@ def _get_otlp_endpoint() -> str | None:
     )
 
 
-def _get_otlp_protocol() -> str:
+def _get_otlp_metrics_endpoint() -> str | None:
+    """
+    Get the OTLP metrics endpoint from the environment variables.
+    """
+    return os.environ.get("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT") or os.environ.get(
+        "OTEL_EXPORTER_OTLP_ENDPOINT"
+    )
+
+
+def _get_otlp_protocol(default_value: str = "grpc") -> str:
+    """
+    Get the OTLP traces protocol from environment variables.
+
+    Returns the value of OTEL_EXPORTER_OTLP_TRACES_PROTOCOL if set,
+    otherwise falls back to OTEL_EXPORTER_OTLP_PROTOCOL, then to default_value.
+
+    Args:
+        default_value: The default protocol to use if no environment variables are set.
+    """
     return os.environ.get("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL") or os.environ.get(
-        "OTEL_EXPORTER_OTLP_PROTOCOL", "grpc"
+        "OTEL_EXPORTER_OTLP_PROTOCOL", default_value
+    )
+
+
+def _get_otlp_metrics_protocol(default_value: str = "grpc") -> str:
+    """
+    Get the OTLP metrics protocol from environment variables.
+
+    Returns the value of OTEL_EXPORTER_OTLP_METRICS_PROTOCOL if set,
+    otherwise falls back to OTEL_EXPORTER_OTLP_PROTOCOL, then to default_value.
+
+    Args:
+        default_value: The default protocol to use if no environment variables are set.
+    """
+    return os.environ.get("OTEL_EXPORTER_OTLP_METRICS_PROTOCOL") or os.environ.get(
+        "OTEL_EXPORTER_OTLP_PROTOCOL", default_value
     )
 
 

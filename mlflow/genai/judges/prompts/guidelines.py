@@ -1,4 +1,4 @@
-from mlflow.genai.judges.utils import format_prompt
+from mlflow.genai.prompts.utils import format_prompt
 
 GUIDELINES_FEEDBACK_NAME = "guidelines"
 

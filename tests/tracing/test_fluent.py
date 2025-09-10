@@ -1387,16 +1387,23 @@ def test_trace_with_staticmethod_order_reversed():
 
 
 def test_update_current_trace():
-    @mlflow.trace
+    @mlflow.trace(name="root_function")
     def f(x):
         mlflow.update_current_trace(tags={"fruit": "apple", "animal": "dog"})
         return g(x) + 1
 
-    @mlflow.trace
+    @mlflow.trace(name="level_1_function")
     def g(y):
-        with mlflow.start_span():
+        with mlflow.start_span(name="level_2_span"):
             mlflow.update_current_trace(tags={"fruit": "orange", "vegetable": "carrot"})
-            return y * 2
+            return h(y) * 2
+
+    @mlflow.trace(name="level_3_function")
+    def h(z):
+        with mlflow.start_span(name="level_4_span"):
+            with mlflow.start_span(name="level_5_span"):
+                mlflow.update_current_trace(tags={"depth": "deep", "level": "5"})
+                return z + 10
 
     f(1)
 
@@ -1404,6 +1411,8 @@ def test_update_current_trace():
         "animal": "dog",
         "fruit": "orange",
         "vegetable": "carrot",
+        "depth": "deep",
+        "level": "5",
     }
 
     # Validate in-memory trace
@@ -1418,6 +1427,28 @@ def test_update_current_trace():
     assert traces[0].info.state == TraceState.OK
     tags = {k: v for k, v in traces[0].info.tags.items() if not k.startswith("mlflow.")}
     assert tags == expected_tags
+
+    # Verify trace can be searched by span names (only when database backend is available)
+    if not IS_TRACING_SDK_ONLY:
+        trace_by_root_span = mlflow.search_traces(
+            filter_string='span.name = "root_function"', return_type="list"
+        )
+        assert len(trace_by_root_span) == 1
+
+        trace_by_level_2_span = mlflow.search_traces(
+            filter_string='span.name = "level_2_span"', return_type="list"
+        )
+        assert len(trace_by_level_2_span) == 1
+
+        trace_by_level_5_span = mlflow.search_traces(
+            filter_string='span.name = "level_5_span"', return_type="list"
+        )
+        assert len(trace_by_level_5_span) == 1
+
+        # All searches should return the same trace
+        assert trace_by_root_span[0].info.request_id == trace.info.request_id
+        assert trace_by_level_2_span[0].info.request_id == trace.info.request_id
+        assert trace_by_level_5_span[0].info.request_id == trace.info.request_id
 
 
 def test_update_current_trace_with_client_request_id():
@@ -2265,3 +2296,22 @@ async def test_set_destination_in_async_contexts(async_logging_enabled):
         assert len(traces) == 1
         assert traces[0].info.experiment_id == exp_id
         assert len(traces[0].data.spans) == 2
+
+
+@skip_when_testing_trace_sdk
+def test_traces_can_be_searched_by_span_properties(async_logging_enabled):
+    """Smoke test that traces can be searched by span name using filter_string."""
+
+    @mlflow.trace(name="test_span")
+    def test_function():
+        return "result"
+
+    test_function()
+
+    if async_logging_enabled:
+        mlflow.flush_trace_async_logging(terminate=True)
+
+    traces = mlflow.search_traces(filter_string='span.name = "test_span"', return_type="list")
+    assert len(traces) == 1, "Should find exactly one trace with span name 'test_span'"
+    found_span_names = [span.name for span in traces[0].data.spans]
+    assert "test_span" in found_span_names

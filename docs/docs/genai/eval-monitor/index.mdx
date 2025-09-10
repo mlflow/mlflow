@@ -6,7 +6,7 @@ import ImageBox from "@site/src/components/ImageBox";
 import TabsWrapper from "@site/src/components/TabsWrapper";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
-import { Rocket, Target, MessageSquare, Scale } from "lucide-react";
+import { MessageSquare, Target, BarChart3, ExternalLink, Bot, Users, CheckCircle, TrendingUp, Database, Book, Rocket, Scale } from "lucide-react";
 
 # Evaluating LLMs/Agents with MLflow
 
@@ -19,6 +19,86 @@ A core tenet of MLflow's evaluation capabilities is **Evaluation-Driven Developm
 <ImageBox src="/images/mlflow-3/eval-monitor/evaluation-driven-development.png" alt="Evaluation Driven Development" width="90%"/>
 
 ## Key Capabilities
+
+## Evaluation Datasets
+
+<TabsWrapper>
+  <Tabs>
+  <TabItem value="overview" label="Overview" default>
+    <div class="flex-column">
+      <div class="flex-row">
+        <div class="flex-item">
+
+        #### Your Test Data Foundation
+
+        Before you can evaluate your GenAI application, you need test data. **Evaluation Datasets** provide a centralized repository for managing test cases, ground truth expectations, and evaluation data at scale.
+
+        Think of Evaluation Datasets as your "test database" - a single source of truth for all the data needed to evaluate your AI systems. They transform ad-hoc testing into systematic quality assurance.
+
+        [Learn more →](/genai/datasets)
+
+        </div>
+
+        <div class="flex-item padding-md">
+          <div style={{ padding: "20px", backgroundColor: "#f8f9fa", borderRadius: "8px" }}>
+            <h5 style={{ marginTop: 0 }}>Key Capabilities</h5>
+            <ul style={{ marginBottom: 0 }}>
+              <li><strong>Centralized Management:</strong> Store all test data in one place</li>
+              <li><strong>Production Data:</strong> Build from real traces</li>
+              <li><strong>Ground Truth:</strong> Track expectations alongside inputs</li>
+              <li><strong>Team Collaboration:</strong> Share datasets across projects</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </TabItem>
+  <TabItem value="quickstart" label="Quick Start">
+    <div class="flex-column">
+      <div class="flex-row">
+        <div class="flex-item">
+
+        #### Build Your First Dataset in Minutes
+
+        Create evaluation datasets from production traces, manual test cases, or existing data. MLflow makes it simple to organize your test data and expectations for systematic evaluation.
+
+        Start with traces from production, add ground truth expectations, and transform them into reusable evaluation datasets that power your testing workflow.
+
+        [Get started with datasets →](/genai/datasets)
+
+        [View SDK guide →](/genai/datasets/sdk-guide)
+
+        </div>
+
+        <div class="flex-item padding-md">
+          ```python
+          from mlflow.genai.datasets import create_dataset
+
+          # Create a dataset from production traces
+          dataset = create_dataset(
+              name="customer_support_qa", experiment_id=["0"], tags={"stage": "validation"}
+          )
+
+          # Add test cases with expectations
+          dataset.merge_records(
+              [
+                  {
+                      "inputs": {"question": "How to reset password?"},
+                      "expectations": {"contains_steps": True, "mentions_security": True},
+                  }
+              ]
+          )
+          ```
+        </div>
+      </div>
+    </div>
+
+  </TabItem>
+  </Tabs>
+</TabsWrapper>
+
+## Feedback & Expectations
 
 <TabsWrapper>
   <Tabs>

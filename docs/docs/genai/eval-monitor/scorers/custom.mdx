@@ -74,7 +74,7 @@ As input, custom scorers have access to:
 - The `inputs` dictionary, derived from either the input dataset or MLflow post-processing from your trace.
 - The `outputs` value, derived from either the input dataset or trace. If `predict_fn` is provided, the `outputs` value will be the return value of the `predict_fn`.
 - The `expectations` dictionary, derived from the `expectations` field in the input dataset, or associated with the trace.
-- The complete [MLflow trace](/genai/tracing/concepts/trace), including spans, attributes, and outputs.
+- The complete [MLflow trace](/genai/concepts/trace), including spans, attributes, and outputs.
 
 ```python
 @scorer
@@ -156,6 +156,14 @@ def comprehensive_check(inputs, outputs):
 ```
 
 ## Parsing Traces for Scoring
+
+:::warning[Important: Trace-based Scorers Require Active Traces]
+
+Scorers that accept a `trace` parameter **cannot be used with pandas DataFrames**. They require actual execution traces from your application.
+
+If you need to evaluate static data (e.g., a CSV file with pre-generated responses), use scorers that work with `inputs`, `outputs`, and `expectations` parameters only.
+
+:::
 
 Scorers have access to the complete MLflow traces, including spans, attributes, and outputs, allowing you to evaluate the agent's behavior precisely, not just the final output.
 The <APILink fn="mlflow.entities.Trace.search_spans">`Trace.search_spans`</APILink> API is a powerful way to retrieve such intermediate information from the trace.

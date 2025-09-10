@@ -14,8 +14,8 @@ from mlflow.deployments.server.constants import (
 )
 from mlflow.deployments.utils import resolve_endpoint_url
 from mlflow.environment_variables import (
+    MLFLOW_DEPLOYMENT_CLIENT_HTTP_REQUEST_TIMEOUT,
     MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT,
-    MLFLOW_HTTP_REQUEST_TIMEOUT,
 )
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.store.entities.paged_list import PagedList
@@ -130,7 +130,9 @@ class MlflowDeploymentClient(BaseDeploymentClient):
             host_creds=get_default_host_creds(self.target_uri),
             endpoint=route,
             method=method,
-            timeout=MLFLOW_HTTP_REQUEST_TIMEOUT.get() if timeout is None else timeout,
+            timeout=MLFLOW_DEPLOYMENT_CLIENT_HTTP_REQUEST_TIMEOUT.get()
+            if timeout is None
+            else timeout,
             retry_codes=MLFLOW_DEPLOYMENT_CLIENT_REQUEST_RETRY_CODES,
             raise_on_status=False,
             **call_kwargs,

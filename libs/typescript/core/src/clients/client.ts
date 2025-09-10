@@ -15,10 +15,22 @@ export class MlflowClient {
   private databricksToken?: string;
   /** Client implementation to upload/download trace data artifacts */
   private artifactsClient: ArtifactsClient;
+  /** The tracking server username for basic auth */
+  private trackingServerUsername?: string;
+  /** The tracking server password for basic auth */
+  private trackingServerPassword?: string;
 
-  constructor(options: { trackingUri: string; host: string; databricksToken?: string }) {
+  constructor(options: {
+    trackingUri: string;
+    host: string;
+    databricksToken?: string;
+    trackingServerUsername?: string;
+    trackingServerPassword?: string;
+  }) {
     this.host = options.host;
     this.databricksToken = options.databricksToken;
+    this.trackingServerUsername = options.trackingServerUsername;
+    this.trackingServerPassword = options.trackingServerPassword;
     this.artifactsClient = getArtifactsClient({
       trackingUri: options.trackingUri,
       host: options.host,
@@ -40,7 +52,11 @@ export class MlflowClient {
     const response = await makeRequest<StartTraceV3.Response>(
       'POST',
       url,
-      getRequestHeaders(this.databricksToken),
+      getRequestHeaders(
+        this.databricksToken,
+        this.trackingServerUsername,
+        this.trackingServerPassword
+      ),
       payload
     );
     return TraceInfo.fromJson(response.trace.trace_info);
@@ -67,7 +83,11 @@ export class MlflowClient {
     const response = await makeRequest<GetTraceInfoV3.Response>(
       'GET',
       url,
-      getRequestHeaders(this.databricksToken)
+      getRequestHeaders(
+        this.databricksToken,
+        this.trackingServerUsername,
+        this.trackingServerPassword
+      )
     );
 
     // The V3 API returns a Trace object with trace_info field
@@ -99,7 +119,11 @@ export class MlflowClient {
     const response = await makeRequest<CreateExperiment.Response>(
       'POST',
       url,
-      getRequestHeaders(this.databricksToken),
+      getRequestHeaders(
+        this.databricksToken,
+        this.trackingServerUsername,
+        this.trackingServerPassword
+      ),
       payload
     );
     return response.experiment_id;
@@ -111,6 +135,15 @@ export class MlflowClient {
   async deleteExperiment(experimentId: string): Promise<void> {
     const url = DeleteExperiment.getEndpoint(this.host);
     const payload: DeleteExperiment.Request = { experiment_id: experimentId };
-    await makeRequest<void>('POST', url, getRequestHeaders(this.databricksToken), payload);
+    await makeRequest<void>(
+      'POST',
+      url,
+      getRequestHeaders(
+        this.databricksToken,
+        this.trackingServerUsername,
+        this.trackingServerPassword
+      ),
+      payload
+    );
   }
 }

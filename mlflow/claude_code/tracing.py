@@ -137,9 +137,13 @@ def read_transcript(transcript_path: str) -> list[dict[str, Any]]:
         return []
 
 
-def output_hook_response(continue_execution: bool = True, **kwargs) -> None:
+def output_hook_response(error: str | None = None, **kwargs) -> None:
     """Output hook response JSON to stdout for Claude Code hook protocol."""
-    response = {"continue": continue_execution, **kwargs}
+    if error is not None:
+        response = {"continue": False, "stopReason": error, **kwargs}
+    else:
+        response = {"continue": True, **kwargs}
+
     print(json.dumps(response))  # noqa: T201
 
 

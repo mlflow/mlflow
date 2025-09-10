@@ -179,10 +179,15 @@ def stop_hook_handler() -> None:
         # Process the transcript and create MLflow trace
         trace = process_transcript(transcript_path, session_id)
 
-        if trace:
+        if trace is not None:
             output_hook_response()
         else:
-            output_hook_response(error="Failed to process transcript")
+            output_hook_response(
+                error=(
+                    "Failed to process transcript, please check .claude/mlflow/claude_tracing.log"
+                    " for more details"
+                ),
+            )
 
     except Exception as e:
         import sys  # clint: disable=lazy-builtin-import

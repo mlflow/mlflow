@@ -13,6 +13,11 @@ cloudpickle:
   pip_release: cloudpickle
   max_major_version: 3
 
+python-dotenv:
+  pip_release: python-dotenv
+  minimum: "0.19.0"
+  max_major_version: 1
+
 gitpython:
   pip_release: gitpython
   minimum: "3.1.9"

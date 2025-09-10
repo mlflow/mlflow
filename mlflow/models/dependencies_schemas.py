@@ -93,7 +93,7 @@ def set_retriever_schema(
         "explicit configuration. See "
         "https://mlflow.org/docs/latest/genai/data-model/traces/#retriever-spans "
         "for more information.",
-        category=DeprecationWarning,
+        category=FutureWarning,
         stacklevel=2,
     )
 

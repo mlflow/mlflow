@@ -1068,9 +1068,9 @@ from mlflow.models.model import get_model_info
 assert get_model_info(model_uri).signature == signature
 ```
 
-### Working with Model Registry
+### Adding Signatures to Registered Model Versions
 
-For registered models, update the source and create a new version:
+For registered model versions, the underlying artifacts are immutable, so we need to load the model artifacts and create a new version with the signature:
 
 ```python
 from mlflow.client import MlflowClient
@@ -1081,13 +1081,38 @@ model_version = 1
 
 # Get existing model version
 mv = client.get_model_version(name=model_name, version=model_version)
+# Load the model, be sure to match the flavor of the original model.
+# Can use a snippet like this to get the original flavor:
+"""
+model_info = mlflow.models.get_model_info(mv.source)
+print(f"Original flavor: {list(model_info.flavors.keys())}")
+"""
+loaded_model = mlflow.sklearn.load_model(mv.source)
 
-# Update signature on source artifacts
+# Provide signature, e.g. via infer_signature on dataset
 signature = infer_signature(X_test, predictions)
-set_signature(mv.source, signature)
 
-# Create new model version with updated signature
-client.create_model_version(name=model_name, source=mv.source, run_id=mv.run_id)
+with mlflow.start_run():
+    model_info = mlflow.sklearn.log_model(
+        loaded_model,
+        name="my_model",
+        signature=signature,
+    )
+    # Create new model version with updated signature
+    client.create_model_version(name=model_name, source=model_info.model_uri)
+```
+
+NOTE: For `pyfunc` models, you will need to unwrap the model as follows:
+
+```python
+with mlflow.start_run():
+    model_info = mlflow.pyfunc.log_model(
+        python_model=loaded.unwrap_python_model(),
+        name="my_model",
+        signature=signature,
+    )
+    # Create new model version with updated signature
+    client.create_model_version(name=model_name, source=model_info.model_uri)
 ```
 
   </TabItem>

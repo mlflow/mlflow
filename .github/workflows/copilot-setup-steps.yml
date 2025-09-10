@@ -18,7 +18,5 @@ jobs:
       - name: pre-commit setup
         run: |
           uv pip install --system . -r requirements/lint-requirements.txt
-          dev/install-taplo.sh
-          dev/install-typos.sh
-          dev/install-conftest.sh
           pre-commit install --install-hooks
+          pre-commit run install-bin -a -v

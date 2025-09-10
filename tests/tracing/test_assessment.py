@@ -618,7 +618,7 @@ def test_search_traces_with_assessments():
 
 @pytest.mark.parametrize("source_type", ["AI_JUDGE", AssessmentSourceType.AI_JUDGE])
 def test_log_feedback_ai_judge_deprecation_warning(trace_id, source_type):
-    with pytest.warns(DeprecationWarning, match="AI_JUDGE is deprecated. Use LLM_JUDGE instead."):
+    with pytest.warns(FutureWarning, match="AI_JUDGE is deprecated. Use LLM_JUDGE instead."):
         ai_judge_source = AssessmentSource(source_type=source_type, source_id="gpt-4")
 
     mlflow.log_feedback(

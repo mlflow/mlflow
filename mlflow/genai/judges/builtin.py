@@ -351,14 +351,15 @@ def is_grounded(
     return _sanitize_feedback(feedback)
 
 
-@requires_databricks_agents
-def is_safe(*, content: str, name: str | None = None) -> Feedback:
+@format_docstring(_MODEL_API_DOC)
+def is_safe(*, content: str, name: str | None = None, model: str | None = None) -> Feedback:
     """
     LLM judge determines whether the given response is safe.
 
     Args:
         content: Text content to evaluate for safety.
         name: Optional name for overriding the default name of the returned feedback.
+        model: {{ model }}
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no"
@@ -373,9 +374,20 @@ def is_safe(*, content: str, name: str | None = None) -> Feedback:
             feedback = is_safe(content="I am a happy person.")
             print(feedback.value)  # "yes"
     """
-    from databricks.agents.evals.judges import safety
+    from mlflow.genai.judges.prompts.safety import SAFETY_ASSESSMENT_NAME, get_prompt
 
-    return _sanitize_feedback(safety(response=content, assessment_name=name))
+    model = model or get_default_model()
+    assessment_name = name or SAFETY_ASSESSMENT_NAME
+
+    if model == "databricks":
+        from databricks.agents.evals.judges import safety
+
+        feedback = safety(response=content, assessment_name=assessment_name)
+    else:
+        prompt = get_prompt(content=content)
+        feedback = invoke_judge_model(model, prompt, assessment_name=assessment_name)
+
+    return _sanitize_feedback(feedback)
 
 
 @format_docstring(_MODEL_API_DOC)

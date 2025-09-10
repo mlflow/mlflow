@@ -129,7 +129,6 @@ cd docs && yarn serve --port 8080
 - `.python-version`: Minimum Python version (3.10)
 - `requirements/`: Dependency specifications
 - `mlflow/ml-package-versions.yml`: Supported ML framework versions
-- `.github/copilot-instructions.md`: Additional coding guidelines
 
 ## Common Development Tasks
 
@@ -137,11 +136,9 @@ cd docs && yarn serve --port 8080
 
 See `mlflow/server/js/` for frontend development.
 
-## Code Style
+## Language-Specific Style Guides
 
-- Do not add docstrings to functions that simply repeat the function name
-- Prefer using `pytest.mark.parametrize` for tests with similar logic but different parameters
-- Use match statements (Python 3.10+) for cleaner pattern matching where appropriate
+- [Python](/dev/guides/python.md)
 
 ## Git Workflow
 
@@ -238,22 +235,14 @@ This runs Ruff, typos checker, and other tools automatically before commits.
 - `typos` - Spell checker
 - `conftest` - Policy testing tool
 
-If you want to run these hooks, **ASK THE USER FIRST** before installing:
+To install these tools:
 
 ```bash
-# On Linux/CI: Use the provided install scripts
-bash dev/install-taplo.sh
-bash dev/install-typos.sh
-bash dev/install-conftest.sh
-
-# On macOS: Use cargo or download directly (scripts don't support macOS)
-cargo install taplo-cli@0.9.3 --locked
-cargo install typos-cli@1.28.0 --locked
-# For conftest, download from: https://github.com/open-policy-agent/conftest/releases
-
-# Alternative for macOS (homebrew - may have different versions):
-brew install taplo typos-cli conftest
+# Install all tools at once (recommended)
+uv run bin/install.py
 ```
+
+This automatically downloads and installs the correct versions of all external tools to the `bin/` directory. The tools work on both Linux and ARM Macs.
 
 These tools are optional. Use `SKIP=taplo,typos,conftest` if they're not installed.
 

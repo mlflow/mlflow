@@ -29,11 +29,16 @@ env:
 
 jobs:
   lint:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     permissions:
       contents: read
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    name: ${{ matrix.os == 'ubuntu-latest' && 'lint' || 'lint-macos' }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -44,6 +49,7 @@ jobs:
       - uses: ./.github/actions/setup-python
         id: setup-python
       - name: Add problem matchers
+        if: matrix.os == 'ubuntu-latest'
         run: |
           echo "::add-matcher::.github/workflows/matchers/clint.json"
           echo "::add-matcher::.github/workflows/matchers/format.json"
@@ -52,14 +58,12 @@ jobs:
       - name: Install dependencies
         run: |
           uv pip install --system -r requirements/lint-requirements.txt
-          dev/install-taplo.sh
-          dev/install-typos.sh
-          dev/install-conftest.sh
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Install pre-commit hooks
         run: |
           pre-commit install --install-hooks
+          pre-commit run install-bin -a -v
       - name: Run pre-commit
         id: pre-commit
         env:
