@@ -98,6 +98,14 @@ jobs:
             --ignore-flavors --ignore=tests/examples --ignore=tests/evaluate \
             --ignore tests/genai tests
 
+      - name: Downgrade pydantic to v1
+        run: |
+          source .venv/bin/activate
+          pip install 'pydantic<2.0'
+      - name: Run gateway tests with pydantic v1
+        run: |
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/gateway
+
       - name: Run databricks-connect related tests
         run: |
           # this needs to be run in a separate job because installing databricks-connect could break other
@@ -410,4 +418,5 @@ jobs:
           # Run Windows tests
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
             --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/evaluate --ignore=tests/optuna \
-            --ignore=tests/pyspark/optuna --ignore=tests/genai --ignore=tests/sagemaker tests
+            --ignore=tests/pyspark/optuna --ignore=tests/genai --ignore=tests/sagemaker --ignore=tests/gateway \
+            tests
