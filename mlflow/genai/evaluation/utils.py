@@ -21,17 +21,24 @@ except ImportError:
     pass
 
 if TYPE_CHECKING:
-    from mlflow.genai.datasets import EvaluationDataset
+    from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
+    from mlflow.genai.datasets import EvaluationDataset as ManagedEvaluationDataset
     from mlflow.genai.evaluation.entities import EvalResult
 
     try:
         import pyspark.sql.dataframe
 
         EvaluationDatasetTypes = (
-            pd.DataFrame | pyspark.sql.dataframe.DataFrame | list[dict] | EvaluationDataset
+            pd.DataFrame
+            | pyspark.sql.dataframe.DataFrame
+            | list[dict]
+            | ManagedEvaluationDataset
+            | EntityEvaluationDataset
         )
     except ImportError:
-        EvaluationDatasetTypes = pd.DataFrame | list[dict] | EvaluationDataset
+        EvaluationDatasetTypes = (
+            pd.DataFrame | list[dict] | ManagedEvaluationDataset | EntityEvaluationDataset
+        )
 
 
 _logger = logging.getLogger(__name__)
@@ -345,6 +352,33 @@ def is_none_or_nan(value: Any) -> bool:
     """
     # isinstance(value, float) check is needed to ensure that math.isnan is not called on an array.
     return value is None or (isinstance(value, float) and math.isnan(value))
+
+
+def validate_tags(tags: Any) -> None:
+    """
+    Validate that tags are in the expected format: dict[str, str].
+
+    Args:
+        tags: The tags to validate.
+
+    Raises:
+        MlflowException: If tags are not in the correct format.
+    """
+    if is_none_or_nan(tags):
+        return
+
+    if not isinstance(tags, dict):
+        raise MlflowException.invalid_parameter_value(
+            f"Tags must be a dictionary, got {type(tags).__name__}. "
+        )
+
+    errors = []
+    for key in tags.keys():
+        if not isinstance(key, str):
+            errors.append(f"Key {key!r} has type {type(key).__name__}; expected str.")
+
+    if errors:
+        raise MlflowException.invalid_parameter_value("Invalid tags:\n  - " + "\n  - ".join(errors))
 
 
 def complete_eval_futures_with_progress_base(futures: list[Future]) -> list["EvalResult"]:

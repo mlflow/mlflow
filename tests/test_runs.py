@@ -3,13 +3,15 @@ import logging
 import os
 import textwrap
 from unittest import mock
+from unittest.mock import patch
 
 import pytest
 from click.testing import CliRunner
 
 import mlflow
 from mlflow import experiments
-from mlflow.runs import create_run, list_run
+from mlflow.exceptions import MlflowException
+from mlflow.runs import create_run, link_traces, list_run
 
 
 @pytest.fixture(autouse=True)
@@ -212,3 +214,111 @@ def test_create_run_duplicate_tag_key():
     )
     assert result.exit_code != 0
     assert "Duplicate tag key" in result.output
+
+
+def test_link_traces_single_trace():
+    with patch("mlflow.runs.MlflowClient.link_traces_to_run") as mock_link_traces:
+        result = CliRunner().invoke(
+            link_traces,
+            ["--run-id", "test_run_123", "--trace-id", "trace_abc"],
+        )
+
+        assert result.exit_code == 0
+        assert "Successfully linked 1 trace(s) to run 'test_run_123'" in result.output
+        mock_link_traces.assert_called_once_with(["trace_abc"], "test_run_123")
+
+
+def test_link_traces_multiple_traces():
+    with patch("mlflow.runs.MlflowClient.link_traces_to_run") as mock_link_traces:
+        result = CliRunner().invoke(
+            link_traces,
+            [
+                "--run-id",
+                "test_run_456",
+                "--trace-id",
+                "trace_1",
+                "--trace-id",
+                "trace_2",
+                "--trace-id",
+                "trace_3",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "Successfully linked 3 trace(s) to run 'test_run_456'" in result.output
+        mock_link_traces.assert_called_once_with(["trace_1", "trace_2", "trace_3"], "test_run_456")
+
+
+def test_link_traces_with_short_option():
+    with patch("mlflow.runs.MlflowClient.link_traces_to_run") as mock_link_traces:
+        result = CliRunner().invoke(
+            link_traces,
+            ["--run-id", "run_789", "-t", "trace_x", "-t", "trace_y"],
+        )
+
+        assert result.exit_code == 0
+        assert "Successfully linked 2 trace(s) to run 'run_789'" in result.output
+        mock_link_traces.assert_called_once_with(["trace_x", "trace_y"], "run_789")
+
+
+def test_link_traces_file_store_error():
+    with patch(
+        "mlflow.runs.MlflowClient.link_traces_to_run",
+        side_effect=MlflowException(
+            "Linking traces to runs is not supported in FileStore. "
+            "Please use a database-backed store (e.g., SQLAlchemy store) for this feature."
+        ),
+    ):
+        result = CliRunner().invoke(
+            link_traces,
+            ["--run-id", "test_run", "--trace-id", "trace_1"],
+        )
+
+        assert result.exit_code != 0
+        assert "Failed to link traces" in result.output
+        assert "not supported in FileStore" in result.output
+
+
+def test_link_traces_too_many_traces_error():
+    with patch(
+        "mlflow.runs.MlflowClient.link_traces_to_run",
+        side_effect=MlflowException(
+            "Cannot link more than 100 traces to a run in a single request. Provided 101 traces."
+        ),
+    ):
+        result = CliRunner().invoke(
+            link_traces,
+            ["--run-id", "test_run", "--trace-id", "trace_1"],
+        )
+
+        assert result.exit_code != 0
+        assert "Failed to link traces" in result.output
+        assert "100" in result.output
+
+
+def test_link_traces_missing_run_id():
+    result = CliRunner().invoke(link_traces, ["--trace-id", "trace_1"])
+
+    assert result.exit_code != 0
+    assert "Missing option '--run-id'" in result.output
+
+
+def test_link_traces_missing_trace_id():
+    result = CliRunner().invoke(link_traces, ["--run-id", "test_run"])
+
+    assert result.exit_code != 0
+    assert "Missing option '--trace-id'" in result.output
+
+
+def test_link_traces_generic_error():
+    with patch(
+        "mlflow.runs.MlflowClient.link_traces_to_run",
+        side_effect=MlflowException("Some other error"),
+    ):
+        result = CliRunner().invoke(
+            link_traces,
+            ["--run-id", "test_run", "--trace-id", "trace_1"],
+        )
+
+        assert result.exit_code != 0
+        assert "Failed to link traces: Some other error" in result.output

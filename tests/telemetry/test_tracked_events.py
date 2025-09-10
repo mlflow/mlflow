@@ -5,17 +5,20 @@ from unittest import mock
 import pandas as pd
 import pytest
 import sklearn.neighbors as knn
+from click.testing import CliRunner
 
 import mlflow
 from mlflow import MlflowClient
-from mlflow.entities import Feedback, Metric, Param, RunTag
+from mlflow.entities import EvaluationDataset, Feedback, Metric, Param, RunTag
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
+from mlflow.genai.datasets import create_dataset
 from mlflow.genai.optimize.types import LLMParams, OptimizerOutput
 from mlflow.genai.scorers import scorer
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.pyfunc.model import ResponsesAgent, ResponsesAgentRequest, ResponsesAgentResponse
 from mlflow.telemetry.client import TelemetryClient
 from mlflow.telemetry.events import (
+    CreateDatasetEvent,
     CreateExperimentEvent,
     CreateLoggedModelEvent,
     CreateModelVersionEvent,
@@ -26,11 +29,15 @@ from mlflow.telemetry.events import (
     EvaluateEvent,
     GenAIEvaluateEvent,
     GetLoggedModelEvent,
+    GitModelVersioningEvent,
+    InvokeCustomJudgeModelEvent,
     LogAssessmentEvent,
     LogBatchEvent,
     LogDatasetEvent,
     LogMetricEvent,
     LogParamEvent,
+    McpRunEvent,
+    MergeRecordsEvent,
     PromptOptimizationEvent,
     StartTraceEvent,
 )
@@ -364,6 +371,45 @@ def test_prompt_optimization(mock_requests, mock_telemetry_client: TelemetryClie
     validate_telemetry_record(mock_telemetry_client, mock_requests, PromptOptimizationEvent.name)
 
 
+def test_create_dataset(mock_requests, mock_telemetry_client: TelemetryClient):
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_store:
+        mock_store_instance = mock.MagicMock()
+        mock_store.return_value = mock_store_instance
+        mock_store_instance.create_dataset.return_value = mock.MagicMock(
+            dataset_id="test-dataset-id", name="test_dataset", tags={"test": "value"}
+        )
+
+        create_dataset(name="test_dataset", tags={"test": "value"})
+        validate_telemetry_record(mock_telemetry_client, mock_requests, CreateDatasetEvent.name)
+
+
+def test_merge_records(mock_requests, mock_telemetry_client: TelemetryClient):
+    with mock.patch("mlflow.entities.evaluation_dataset._get_store") as mock_store:
+        mock_store_instance = mock.MagicMock()
+        mock_store.return_value = mock_store_instance
+        mock_store_instance.get_dataset.return_value = mock.MagicMock(dataset_id="test-id")
+        mock_store_instance.upsert_dataset_records.return_value = {"inserted": 2, "updated": 0}
+
+        evaluation_dataset = EvaluationDataset(
+            dataset_id="test-id",
+            name="test",
+            digest="digest",
+            created_time=123,
+            last_update_time=456,
+        )
+
+        records = [
+            {"inputs": {"q": "Q1"}, "expectations": {"a": "A1"}},
+            {"inputs": {"q": "Q2"}, "expectations": {"a": "A2"}},
+        ]
+        evaluation_dataset.merge_records(records)
+
+        expected_params = {"record_count": 2, "input_type": "list[dict]"}
+        validate_telemetry_record(
+            mock_telemetry_client, mock_requests, MergeRecordsEvent.name, expected_params
+        )
+
+
 def test_log_dataset(mock_requests, mock_telemetry_client: TelemetryClient):
     with mlflow.start_run() as run:
         dataset = mlflow.data.from_pandas(pd.DataFrame({"x": [1, 2, 3], "y": [4, 5, 6]}))
@@ -547,3 +593,105 @@ set_model(TestModel())
 
     mlflow.pyfunc.load_model("models:/test/1")
     validate_telemetry_record(mock_telemetry_client, mock_requests, GetLoggedModelEvent.name)
+
+
+def test_mcp_run(mock_requests, mock_telemetry_client: TelemetryClient):
+    from mlflow.mcp.cli import run
+
+    runner = CliRunner(catch_exceptions=False)
+    with mock.patch("mlflow.mcp.cli.run_server") as mock_run_server:
+        runner.invoke(run)
+
+    mock_run_server.assert_called_once()
+    mock_telemetry_client.flush()
+    validate_telemetry_record(mock_telemetry_client, mock_requests, McpRunEvent.name)
+
+
+def test_git_model_versioning(mock_requests, mock_telemetry_client):
+    from mlflow.genai import enable_git_model_versioning
+
+    with enable_git_model_versioning():
+        pass
+
+    mock_telemetry_client.flush()
+    validate_telemetry_record(mock_telemetry_client, mock_requests, GitModelVersioningEvent.name)
+
+
+@pytest.mark.parametrize(
+    ("model_uri", "expected_provider", "litellm_available", "use_native_provider"),
+    [
+        ("databricks:/llama-3.1-70b", "databricks", True, False),
+        ("openai:/gpt-4o-mini", "openai", True, False),
+        ("endpoints:/my-endpoint", "endpoints", False, True),
+        ("anthropic:/claude-3-opus", "anthropic", True, False),
+    ],
+)
+def test_invoke_custom_judge_model(
+    mock_requests,
+    mock_telemetry_client: TelemetryClient,
+    model_uri,
+    expected_provider,
+    litellm_available,
+    use_native_provider,
+):
+    from mlflow.genai.judges.utils import invoke_judge_model
+    from mlflow.utils.rest_utils import MlflowHostCreds
+
+    mock_response = json.dumps({"result": 0.8, "rationale": "Test rationale"})
+
+    # Mock Databricks credentials for databricks:// URIs
+    mock_creds = MlflowHostCreds(host="https://test.databricks.com", token="test-token")
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.utils._is_litellm_available", return_value=litellm_available
+        ),
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_databricks_host_creds", return_value=mock_creds
+        ),
+    ):
+        if use_native_provider:
+            with mock.patch.object(
+                __import__("mlflow.metrics.genai.model_utils", fromlist=["score_model_on_payload"]),
+                "score_model_on_payload",
+                return_value=mock_response,
+            ):
+                with mock.patch.object(
+                    __import__("mlflow.metrics.genai.model_utils", fromlist=["get_endpoint_type"]),
+                    "get_endpoint_type",
+                    return_value="llm/v1/chat",
+                ):
+                    invoke_judge_model(
+                        model_uri=model_uri,
+                        prompt="Test prompt",
+                        assessment_name="test_assessment",
+                    )
+        else:
+            with (
+                mock.patch("mlflow.genai.judges.utils._invoke_litellm", return_value=mock_response),
+                mock.patch("mlflow.genai.judges.utils._invoke_databricks_model") as mock_databricks,
+            ):
+                # For databricks provider, mock the databricks model invocation
+                if expected_provider == "databricks":
+                    from mlflow.genai.judges.utils import InvokeDatabricksModelOutput
+
+                    mock_databricks.return_value = InvokeDatabricksModelOutput(
+                        response=mock_response,
+                        request_id="test-request-id",
+                        num_prompt_tokens=10,
+                        num_completion_tokens=20,
+                    )
+
+                invoke_judge_model(
+                    model_uri=model_uri,
+                    prompt="Test prompt",
+                    assessment_name="test_assessment",
+                )
+
+        expected_params = {"model_provider": expected_provider}
+        validate_telemetry_record(
+            mock_telemetry_client,
+            mock_requests,
+            InvokeCustomJudgeModelEvent.name,
+            expected_params,
+        )

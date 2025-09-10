@@ -202,7 +202,6 @@ def pytest_ignore_collect(collection_path, config):
             "tests/pydantic_ai",
             "tests/pyfunc",
             "tests/pytorch",
-            "tests/sagemaker",
             "tests/strands",
             "tests/semantic_kernel",
             "tests/sentence_transformers",
