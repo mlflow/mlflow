@@ -26,12 +26,12 @@ itself, all intermediate steps, decisions, and outputs. Each step in a trace is 
 metadata.
 
 The instructions containing the evaluation criteria and methodology are provided below, and they
-refer to a placeholder called {{ trace }}. To read the actual trace, you will need to use the tools
-provided to you. These tools enable you to 1. fetch trace metadata, timing, & execution details,
-2. list all spans in the trace with inputs and outputs, 3. search for specific text or patterns
-across the entire trace, and much more. These tools do *not* require you to specify a particular
-trace; the tools will select the relevant trace automatically (however, you *will* need to specify
-*span* IDs when retrieving specific spans).
+refer to a placeholder called {{{{ trace }}}}. To read the actual trace, you will need to use the
+tools provided to you. These tools enable you to 1. fetch trace metadata, timing, & execution
+details, 2. list all spans in the trace with inputs and outputs, 3. search for specific text or
+patterns across the entire trace, and much more. These tools do *not* require you to specify a
+particular trace; the tools will select the relevant trace automatically (however, you *will* need
+to specify *span* IDs when retrieving specific spans).
 
 In order to follow the instructions precisely and correctly, you must think methodically and act
 step-by-step:

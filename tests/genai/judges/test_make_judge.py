@@ -1333,7 +1333,6 @@ def test_trace_prompt_augmentation(mock_trace, monkeypatch):
 
     judge(trace=mock_trace)
 
-    # Now prompt is a list of ChatMessage objects
     assert isinstance(captured_prompt, list)
     assert len(captured_prompt) == 2
 
