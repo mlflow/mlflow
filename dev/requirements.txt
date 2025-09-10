@@ -6,4 +6,4 @@ requests
 packaging
 pydantic
 pyyaml
-toml
+tomli

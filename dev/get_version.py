@@ -1,19 +1,19 @@
 # /// script
 # dependencies = [
-#   "toml",
+#   "tomli",
 # ]
 # ///
 import subprocess
 from pathlib import Path
 
-import toml
+import tomli
 
 
 def main():
     repo_root = subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True).strip()
     pyproject_path = Path(repo_root) / "pyproject.toml"
-    with open(pyproject_path) as f:
-        pyproject = toml.load(f)
+    with open(pyproject_path, "rb") as f:
+        pyproject = tomli.load(f)
 
     print(pyproject["project"]["version"])
 
