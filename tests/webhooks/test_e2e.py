@@ -627,7 +627,6 @@ def test_webhook_retry_on_429_rate_limit(
 
 
 def test_prompt_created(mlflow_client: MlflowClient, app_client: AppClient) -> None:
-    """Test webhook delivery for prompt creation events."""
     mlflow_client.create_webhook(
         name="prompt_created",
         url=app_client.get_url("/insecure-webhook"),
@@ -656,7 +655,6 @@ def test_prompt_created(mlflow_client: MlflowClient, app_client: AppClient) -> N
 
 
 def test_prompt_version_created(mlflow_client: MlflowClient, app_client: AppClient) -> None:
-    """Test webhook delivery for prompt version creation events."""
     mlflow_client.create_webhook(
         name="prompt_version_created",
         url=app_client.get_url("/insecure-webhook"),
@@ -693,7 +691,6 @@ def test_prompt_version_created(mlflow_client: MlflowClient, app_client: AppClie
 
 
 def test_prompt_tag_set(mlflow_client: MlflowClient, app_client: AppClient) -> None:
-    """Test webhook delivery for prompt tag set events."""
     mlflow_client.create_webhook(
         name="prompt_tag_set",
         url=app_client.get_url("/insecure-webhook"),
@@ -724,7 +721,6 @@ def test_prompt_tag_set(mlflow_client: MlflowClient, app_client: AppClient) -> N
 
 
 def test_prompt_tag_deleted(mlflow_client: MlflowClient, app_client: AppClient) -> None:
-    """Test webhook delivery for prompt tag deleted events."""
     mlflow_client.create_webhook(
         name="prompt_tag_deleted",
         url=app_client.get_url("/insecure-webhook"),
@@ -756,7 +752,6 @@ def test_prompt_tag_deleted(mlflow_client: MlflowClient, app_client: AppClient) 
 
 
 def test_prompt_version_tag_set(mlflow_client: MlflowClient, app_client: AppClient) -> None:
-    """Test webhook delivery for prompt version tag set events."""
     mlflow_client.create_webhook(
         name="prompt_version_tag_set",
         url=app_client.get_url("/insecure-webhook"),
@@ -794,7 +789,6 @@ def test_prompt_version_tag_set(mlflow_client: MlflowClient, app_client: AppClie
 
 
 def test_prompt_version_tag_deleted(mlflow_client: MlflowClient, app_client: AppClient) -> None:
-    """Test webhook delivery for prompt version tag deleted events."""
     mlflow_client.create_webhook(
         name="prompt_version_tag_deleted",
         url=app_client.get_url("/insecure-webhook"),
@@ -833,7 +827,6 @@ def test_prompt_version_tag_deleted(mlflow_client: MlflowClient, app_client: App
 
 
 def test_prompt_alias_created(mlflow_client: MlflowClient, app_client: AppClient) -> None:
-    """Test webhook delivery for prompt alias created events."""
     mlflow_client.create_webhook(
         name="prompt_alias_created",
         url=app_client.get_url("/insecure-webhook"),
@@ -869,7 +862,6 @@ def test_prompt_alias_created(mlflow_client: MlflowClient, app_client: AppClient
 
 
 def test_prompt_alias_deleted(mlflow_client: MlflowClient, app_client: AppClient) -> None:
-    """Test webhook delivery for prompt alias deleted events."""
     mlflow_client.create_webhook(
         name="prompt_alias_deleted",
         url=app_client.get_url("/insecure-webhook"),
@@ -973,7 +965,6 @@ def test_prompt_webhook_with_mixed_events(
 
 
 def test_prompt_webhook_test_endpoint(mlflow_client: MlflowClient, app_client: AppClient) -> None:
-    """Test that webhook testing works for prompt events."""
     # Create webhook for prompt events
     webhook = mlflow_client.create_webhook(
         name="prompt_test_webhook",
