@@ -173,6 +173,8 @@ def test_server_gunicorn_options():
 
 
 def test_server_mlflow_artifacts_options():
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
     with mock.patch("mlflow.server._run_server") as run_server_mock:
         CliRunner().invoke(server, ["--artifacts-only"])
         run_server_mock.assert_called_once()
