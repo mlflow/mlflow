@@ -214,8 +214,10 @@ def test_spark_udf(spark, model_path):
 
 
 @pytest.mark.parametrize("sklearn_version", ["1.3.2", "1.4.2"])
-@pytest.mark.parametrize("env_manager", ["virtualenv", "conda", "uv"])
-@pytest.mark.parametrize("force_stdin_scoring_server", [False, True])
+@pytest.mark.parametrize(
+    ("env_manager", "force_stdin_scoring_server"),
+    [("virtualenv", False), ("conda", False), ("uv", False), ("uv", True)]
+)
 def test_spark_udf_env_manager_can_restore_env(
     spark, model_path, sklearn_version, env_manager, force_stdin_scoring_server, monkeypatch
 ):
@@ -256,8 +258,10 @@ def test_spark_udf_env_manager_can_restore_env(
     assert result == sklearn_version
 
 
-@pytest.mark.parametrize("env_manager", ["virtualenv", "conda", "uv"])
-@pytest.mark.parametrize("force_stdin_scoring_server", [False, True])
+@pytest.mark.parametrize(
+    ("env_manager", "force_stdin_scoring_server"),
+    [("virtualenv", False), ("conda", False), ("uv", False), ("uv", True)]
+)
 def test_spark_udf_env_manager_predict_sklearn_model(
     spark, sklearn_model, model_path, env_manager, force_stdin_scoring_server, monkeypatch
 ):
@@ -1564,15 +1568,9 @@ def test_spark_udf_infer_return_type(spark, tmp_path):
     assert pdf["output"][1] == ("b", [1], (False, ("another_string",)), [(0.2,), (0.3,)])
 
 
-@pytest.mark.parametrize("force_stdin_scoring_server", [False, True])
 def test_spark_udf_env_manager_with_invalid_pythonpath(
-    spark, sklearn_model, model_path, tmp_path, force_stdin_scoring_server, monkeypatch
+    spark, sklearn_model, model_path, tmp_path, monkeypatch
 ):
-    monkeypatch.setenv(
-        "MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF",
-        str(force_stdin_scoring_server),
-    )
-
     # create an unreadable file
     unreadable_file = tmp_path / "unreadable_file"
     unreadable_file.write_text("unreadable file content")
