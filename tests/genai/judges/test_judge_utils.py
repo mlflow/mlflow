@@ -1176,7 +1176,6 @@ def test_call_chat_completions_success(
 @mock.patch("mlflow.genai.judges.utils._check_databricks_agents_installed")
 def test_call_chat_completions_client_error(mock_check, mock_databricks_rag_eval):
     """Test call_chat_completions when managed RAG client raises an error."""
-    # Make the client throw an error
     mock_databricks_rag_eval["rag_client"].get_chat_completions_result.side_effect = RuntimeError(
         "RAG client failed"
     )
