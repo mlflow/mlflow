@@ -96,7 +96,7 @@ def test_build_image(tmp_path, params):
         content = content.replace(VERSION, get_released_mlflow_version())
         dockerfile.write_text(content)
         shutil.copytree(context_dir, dst_dir)
-        # Build the image if the slow--tests flag is enabled
+        # Build the image if the slow-tests flag is enabled
         if _MLFLOW_RUN_SLOW_TESTS.get():
             for _ in range(3):
                 try:
