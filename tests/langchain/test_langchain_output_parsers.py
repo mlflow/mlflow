@@ -10,6 +10,7 @@ from mlflow.langchain.output_parsers import (
     ChatCompletionsOutputParser,
     StringResponseOutputParser,
 )
+from mlflow.types.llm import ChatCompletionChunk
 
 
 def test_chatcompletions_output_parser_parse_response():
@@ -101,3 +102,65 @@ def test_chat_agent_output_parser_parse_response():
         assert chunk == {
             "delta": {"content": streaming_messages[i], "role": "assistant", "id": "1"}
         }
+
+
+async def async_message_generator(messages):
+    """Helper function to create an async generator from a list of messages."""
+    for message in messages:
+        yield message
+
+
+@pytest.mark.asyncio
+async def test_chatcompletion_output_parser_atransform():
+    parser = ChatCompletionOutputParser()
+    streaming_messages = ["The ", "weather ", "today ", "is"]
+    base_messages = [BaseMessage(content=m, type="test") for m in streaming_messages]
+
+    async_chunks = parser.atransform(async_message_generator(base_messages), RunnableConfig())
+
+    chunks = [chunk async for chunk in async_chunks]
+
+    assert len(chunks) == len(streaming_messages)
+
+    for i, chunk in enumerate(chunks):
+        parsed_chunk = ChatCompletionChunk.from_dict(chunk)
+        assert parsed_chunk.choices[0].delta.content == streaming_messages[i]
+
+
+@pytest.mark.asyncio
+async def test_chatcompletion_output_parser_atransform_empty_stream():
+    parser = ChatCompletionOutputParser()
+
+    # Test with empty async generator
+    async def empty_generator():
+        if False:
+            yield  # Never executed, but makes this a generator
+
+    async_chunks = parser.atransform(empty_generator(), RunnableConfig())
+
+    chunks = []
+    async for chunk in async_chunks:
+        chunks.append(chunk)
+
+    assert len(chunks) == 0
+
+
+@pytest.mark.asyncio
+async def test_chatcompletion_output_parser_atransform_single_message():
+    parser = ChatCompletionOutputParser()
+    message = BaseMessage(content="Hello world!", type="test")
+
+    async_chunks = parser.atransform(async_message_generator([message]), RunnableConfig())
+
+    chunks = []
+    async for chunk in async_chunks:
+        chunks.append(chunk)
+
+    assert len(chunks) == 1
+    chunk = chunks[0]
+
+    # Validate that the chunk can be parsed as a ChatCompletionChunk
+    parsed_chunk = ChatCompletionChunk.from_dict(chunk)
+    assert parsed_chunk.choices[0].delta.content == "Hello world!"
+    assert parsed_chunk.choices[0].delta.role == "assistant"
+    assert parsed_chunk.object == "chat.completion.chunk"
