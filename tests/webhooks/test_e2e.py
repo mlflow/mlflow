@@ -621,3 +621,388 @@ def test_webhook_retry_on_429_rate_limit(
     assert logs[1].error is None
     assert logs[1].payload["name"] == registered_model.name
     assert logs[1].attempt == 2
+
+
+# Prompt Registry Webhook Tests
+
+
+def test_prompt_created(mlflow_client: MlflowClient, app_client: AppClient) -> None:
+    """Test webhook delivery for prompt creation events."""
+    mlflow_client.create_webhook(
+        name="prompt_created",
+        url=app_client.get_url("/insecure-webhook"),
+        events=[WebhookEvent(WebhookEntity.PROMPT, WebhookAction.CREATED)],
+    )
+
+    # Create a prompt by creating a registered model with the special prompt tag
+    prompt = mlflow_client.create_registered_model(
+        name="test_prompt",
+        description="test_prompt_description",
+        tags={
+            "mlflow.prompt.is_prompt": "true",
+            "custom_tag": "custom_value",
+        },
+    )
+
+    logs = app_client.wait_for_logs(expected_count=1)
+    assert len(logs) == 1
+    assert logs[0].endpoint == "/insecure-webhook"
+    # Should exclude the IS_PROMPT_TAG_KEY from the payload
+    assert logs[0].payload == {
+        "name": prompt.name,
+        "description": prompt.description,
+        "tags": {"custom_tag": "custom_value"},  # Should not include is_prompt tag
+    }
+
+
+def test_prompt_version_created(mlflow_client: MlflowClient, app_client: AppClient) -> None:
+    """Test webhook delivery for prompt version creation events."""
+    mlflow_client.create_webhook(
+        name="prompt_version_created",
+        url=app_client.get_url("/insecure-webhook"),
+        events=[WebhookEvent(WebhookEntity.PROMPT_VERSION, WebhookAction.CREATED)],
+    )
+
+    # Create a prompt first
+    prompt = mlflow_client.create_registered_model(
+        name="test_prompt_version",
+        tags={"mlflow.prompt.is_prompt": "true"},
+    )
+
+    # Create a prompt version (model version with prompt tag)
+    prompt_version = mlflow_client.create_model_version(
+        name=prompt.name,
+        source="Hello {{name}}! How are you today?",  # Template as source
+        tags={
+            "mlflow.prompt.is_prompt": "true",
+            "version_tag": "v1",
+        },
+        description="test_prompt_version_description",
+    )
+
+    logs = app_client.wait_for_logs(expected_count=1)
+    assert len(logs) == 1
+    assert logs[0].endpoint == "/insecure-webhook"
+    assert logs[0].payload == {
+        "name": prompt.name,
+        "version": prompt_version.version,
+        "template": "Hello {{name}}! How are you today?",
+        "description": "test_prompt_version_description",
+        "tags": {"version_tag": "v1"},  # Should not include is_prompt tag
+    }
+
+
+def test_prompt_tag_set(mlflow_client: MlflowClient, app_client: AppClient) -> None:
+    """Test webhook delivery for prompt tag set events."""
+    mlflow_client.create_webhook(
+        name="prompt_tag_set",
+        url=app_client.get_url("/insecure-webhook"),
+        events=[WebhookEvent(WebhookEntity.PROMPT_TAG, WebhookAction.SET)],
+    )
+
+    # Create a prompt
+    prompt = mlflow_client.create_registered_model(
+        name="test_prompt_tag_set",
+        tags={"mlflow.prompt.is_prompt": "true"},
+    )
+
+    # Set a tag on the prompt
+    mlflow_client.set_registered_model_tag(
+        name=prompt.name,
+        key="environment",
+        value="production",
+    )
+
+    logs = app_client.wait_for_logs(expected_count=1)
+    assert len(logs) == 1
+    assert logs[0].endpoint == "/insecure-webhook"
+    assert logs[0].payload == {
+        "name": prompt.name,
+        "key": "environment",
+        "value": "production",
+    }
+
+
+def test_prompt_tag_deleted(mlflow_client: MlflowClient, app_client: AppClient) -> None:
+    """Test webhook delivery for prompt tag deleted events."""
+    mlflow_client.create_webhook(
+        name="prompt_tag_deleted",
+        url=app_client.get_url("/insecure-webhook"),
+        events=[WebhookEvent(WebhookEntity.PROMPT_TAG, WebhookAction.DELETED)],
+    )
+
+    # Create a prompt with a tag
+    prompt = mlflow_client.create_registered_model(
+        name="test_prompt_tag_deleted",
+        tags={
+            "mlflow.prompt.is_prompt": "true",
+            "environment": "staging",
+        },
+    )
+
+    # Delete the tag from the prompt
+    mlflow_client.delete_registered_model_tag(
+        name=prompt.name,
+        key="environment",
+    )
+
+    logs = app_client.wait_for_logs(expected_count=1)
+    assert len(logs) == 1
+    assert logs[0].endpoint == "/insecure-webhook"
+    assert logs[0].payload == {
+        "name": prompt.name,
+        "key": "environment",
+    }
+
+
+def test_prompt_version_tag_set(mlflow_client: MlflowClient, app_client: AppClient) -> None:
+    """Test webhook delivery for prompt version tag set events."""
+    mlflow_client.create_webhook(
+        name="prompt_version_tag_set",
+        url=app_client.get_url("/insecure-webhook"),
+        events=[WebhookEvent(WebhookEntity.PROMPT_VERSION_TAG, WebhookAction.SET)],
+    )
+
+    # Create a prompt and version
+    prompt = mlflow_client.create_registered_model(
+        name="test_prompt_version_tag_set",
+        tags={"mlflow.prompt.is_prompt": "true"},
+    )
+    prompt_version = mlflow_client.create_model_version(
+        name=prompt.name,
+        source="Hello {{name}}!",
+        tags={"mlflow.prompt.is_prompt": "true"},
+    )
+
+    # Set a tag on the prompt version
+    mlflow_client.set_model_version_tag(
+        name=prompt_version.name,
+        version=prompt_version.version,
+        key="quality_score",
+        value="excellent",
+    )
+
+    logs = app_client.wait_for_logs(expected_count=1)
+    assert len(logs) == 1
+    assert logs[0].endpoint == "/insecure-webhook"
+    assert logs[0].payload == {
+        "name": prompt.name,
+        "version": prompt_version.version,
+        "key": "quality_score",
+        "value": "excellent",
+    }
+
+
+def test_prompt_version_tag_deleted(mlflow_client: MlflowClient, app_client: AppClient) -> None:
+    """Test webhook delivery for prompt version tag deleted events."""
+    mlflow_client.create_webhook(
+        name="prompt_version_tag_deleted",
+        url=app_client.get_url("/insecure-webhook"),
+        events=[WebhookEvent(WebhookEntity.PROMPT_VERSION_TAG, WebhookAction.DELETED)],
+    )
+
+    # Create a prompt and version with a tag
+    prompt = mlflow_client.create_registered_model(
+        name="test_prompt_version_tag_deleted",
+        tags={"mlflow.prompt.is_prompt": "true"},
+    )
+    prompt_version = mlflow_client.create_model_version(
+        name=prompt.name,
+        source="Hello {{name}}!",
+        tags={
+            "mlflow.prompt.is_prompt": "true",
+            "quality_score": "good",
+        },
+    )
+
+    # Delete the tag from the prompt version
+    mlflow_client.delete_model_version_tag(
+        name=prompt_version.name,
+        version=prompt_version.version,
+        key="quality_score",
+    )
+
+    logs = app_client.wait_for_logs(expected_count=1)
+    assert len(logs) == 1
+    assert logs[0].endpoint == "/insecure-webhook"
+    assert logs[0].payload == {
+        "name": prompt.name,
+        "version": prompt_version.version,
+        "key": "quality_score",
+    }
+
+
+def test_prompt_alias_created(mlflow_client: MlflowClient, app_client: AppClient) -> None:
+    """Test webhook delivery for prompt alias created events."""
+    mlflow_client.create_webhook(
+        name="prompt_alias_created",
+        url=app_client.get_url("/insecure-webhook"),
+        events=[WebhookEvent(WebhookEntity.PROMPT_ALIAS, WebhookAction.CREATED)],
+    )
+
+    # Create a prompt and version
+    prompt = mlflow_client.create_registered_model(
+        name="test_prompt_alias_created",
+        tags={"mlflow.prompt.is_prompt": "true"},
+    )
+    prompt_version = mlflow_client.create_model_version(
+        name=prompt.name,
+        source="Hello {{name}}!",
+        tags={"mlflow.prompt.is_prompt": "true"},
+    )
+
+    # Set an alias on the prompt version
+    mlflow_client.set_registered_model_alias(
+        name=prompt.name,
+        version=prompt_version.version,
+        alias="production",
+    )
+
+    logs = app_client.wait_for_logs(expected_count=1)
+    assert len(logs) == 1
+    assert logs[0].endpoint == "/insecure-webhook"
+    assert logs[0].payload == {
+        "name": prompt.name,
+        "alias": "production",
+        "version": prompt_version.version,
+    }
+
+
+def test_prompt_alias_deleted(mlflow_client: MlflowClient, app_client: AppClient) -> None:
+    """Test webhook delivery for prompt alias deleted events."""
+    mlflow_client.create_webhook(
+        name="prompt_alias_deleted",
+        url=app_client.get_url("/insecure-webhook"),
+        events=[WebhookEvent(WebhookEntity.PROMPT_ALIAS, WebhookAction.DELETED)],
+    )
+
+    # Create a prompt and version with an alias
+    prompt = mlflow_client.create_registered_model(
+        name="test_prompt_alias_deleted",
+        tags={"mlflow.prompt.is_prompt": "true"},
+    )
+    prompt_version = mlflow_client.create_model_version(
+        name=prompt.name,
+        source="Hello {{name}}!",
+        tags={"mlflow.prompt.is_prompt": "true"},
+    )
+    mlflow_client.set_registered_model_alias(
+        name=prompt.name,
+        version=prompt_version.version,
+        alias="staging",
+    )
+
+    # Delete the alias
+    mlflow_client.delete_registered_model_alias(
+        name=prompt.name,
+        alias="staging",
+    )
+
+    logs = app_client.wait_for_logs(expected_count=1)
+    assert len(logs) == 1
+    assert logs[0].endpoint == "/insecure-webhook"
+    assert logs[0].payload == {
+        "name": prompt.name,
+        "alias": "staging",
+    }
+
+
+def test_prompt_webhook_with_mixed_events(
+    mlflow_client: MlflowClient, app_client: AppClient
+) -> None:
+    """Test that webhooks can listen to both model and prompt events."""
+    mlflow_client.create_webhook(
+        name="mixed_events_webhook",
+        url=app_client.get_url("/insecure-webhook"),
+        events=[
+            WebhookEvent(WebhookEntity.REGISTERED_MODEL, WebhookAction.CREATED),
+            WebhookEvent(WebhookEntity.PROMPT, WebhookAction.CREATED),
+            WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED),
+            WebhookEvent(WebhookEntity.PROMPT_VERSION, WebhookAction.CREATED),
+        ],
+    )
+
+    # Create a regular model (should trigger REGISTERED_MODEL.CREATED)
+    model = mlflow_client.create_registered_model(
+        name="regular_model",
+        description="Regular model description",
+    )
+
+    # Create a prompt (should trigger PROMPT.CREATED)
+    prompt = mlflow_client.create_registered_model(
+        name="test_prompt_mixed",
+        description="Prompt description",
+        tags={"mlflow.prompt.is_prompt": "true"},
+    )
+
+    # Create a regular model version (should trigger MODEL_VERSION.CREATED)
+    mlflow_client.create_model_version(
+        name=model.name,
+        source="s3://bucket/model",
+        run_id="1234567890abcdef",
+    )
+
+    # Create a prompt version (should trigger PROMPT_VERSION.CREATED)
+    mlflow_client.create_model_version(
+        name=prompt.name,
+        source="Hello {{name}}!",
+        tags={"mlflow.prompt.is_prompt": "true"},
+    )
+
+    # Wait for all 4 webhook deliveries
+    logs = app_client.wait_for_logs(expected_count=4, timeout=10)
+    assert len(logs) == 4
+
+    # Verify we got the expected event types by checking payload structure
+    payloads_by_fields = {}
+    for log in logs:
+        # Group by payload field combinations to identify event types
+        fields = tuple(sorted(log.payload.keys()))
+        payloads_by_fields[fields] = log.payload
+
+    # Should have 4 different payload structures
+    assert len(payloads_by_fields) == 4
+
+    # Verify specific payload structures exist
+    # REGISTERED_MODEL/PROMPT.CREATED
+    assert ("description", "name", "tags") in payloads_by_fields
+    # MODEL_VERSION.CREATED
+    assert ("description", "name", "run_id", "source", "tags", "version") in payloads_by_fields
+    # PROMPT_VERSION.CREATED
+    assert ("description", "name", "tags", "template", "version") in payloads_by_fields
+
+
+def test_prompt_webhook_test_endpoint(mlflow_client: MlflowClient, app_client: AppClient) -> None:
+    """Test that webhook testing works for prompt events."""
+    # Create webhook for prompt events
+    webhook = mlflow_client.create_webhook(
+        name="prompt_test_webhook",
+        url=app_client.get_url("/insecure-webhook"),
+        events=[
+            WebhookEvent(WebhookEntity.PROMPT, WebhookAction.CREATED),
+            WebhookEvent(WebhookEntity.PROMPT_VERSION, WebhookAction.CREATED),
+            WebhookEvent(WebhookEntity.PROMPT_VERSION_TAG, WebhookAction.SET),
+        ],
+    )
+
+    # Test with prompt version tag event
+    result = mlflow_client.test_webhook(
+        webhook.webhook_id,
+        event=WebhookEvent(WebhookEntity.PROMPT_VERSION_TAG, WebhookAction.SET),
+    )
+
+    # Check that the test was successful
+    assert result.success is True
+    assert result.response_status == 200
+    assert result.error_message is None
+
+    # Check that the correct example payload was sent
+    logs = app_client.wait_for_logs(expected_count=1)
+    assert len(logs) == 1
+    assert logs[0].endpoint == "/insecure-webhook"
+    assert logs[0].payload == {
+        "name": "example_prompt",
+        "version": "1",
+        "key": "example_key",
+        "value": "example_value",
+    }
