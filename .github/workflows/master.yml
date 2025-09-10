@@ -214,8 +214,7 @@ jobs:
           source .venv/bin/activate
           pytest \
             tests/tracking/fluent/test_fluent_autolog.py \
-            tests/autologging \
-            tests/server/auth
+            tests/autologging
 
   # It takes 9 ~ 10 minutes to run tests in `tests/models`. To make CI finish faster,
   # run these tests in a separate job.
@@ -414,6 +413,14 @@ jobs:
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/evaluate --ignore=tests/optuna \
-            --ignore=tests/pyspark/optuna --ignore=tests/genai --ignore=tests/sagemaker --ignore=tests/gateway \
+            --ignore-flavors \
+            --ignore=tests/projects \
+            --ignore=tests/examples \
+            --ignore=tests/evaluate \
+            --ignore=tests/optuna \
+            --ignore=tests/pyspark/optuna \
+            --ignore=tests/genai \
+            --ignore=tests/sagemaker \
+            --ignore=tests/gateway \
+            --ignore=tests/server/auth \
             tests

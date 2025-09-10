@@ -224,8 +224,6 @@ def pytest_ignore_collect(collection_path, config):
             "tests/autologging/test_autologging_behaviors_integration.py",
             "tests/autologging/test_autologging_utils.py",
             "tests/autologging/test_training_session.py",
-            # Opt in authentication feature.
-            "tests/server/auth",
         ]
 
         relpath = os.path.relpath(str(collection_path))
