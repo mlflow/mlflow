@@ -1117,6 +1117,28 @@ def test_invoke_judge_model_databricks_telemetry_error_handling() -> None:
     assert feedback.rationale == "Good"
 
 
+# Tests for call_chat_completions function
+@pytest.fixture
+def mock_databricks_rag_eval():
+    """Clean fixture for mocking databricks.rag_eval dependencies."""
+    mock_rag_client = mock.MagicMock()
+    mock_rag_client.get_chat_completions_result.return_value = AttrDict(
+        {"output": "test response", "error_message": None}
+    )
+
+    mock_context = mock.MagicMock()
+    mock_context.get_context.return_value.build_managed_rag_client.return_value = mock_rag_client
+    mock_context.eval_context = lambda func: func  # Pass-through decorator
+
+    mock_env_vars = mock.MagicMock()
+
+    mock_module = mock.MagicMock()
+    mock_module.context = mock_context
+    mock_module.env_vars = mock_env_vars
+
+    return {"module": mock_module, "rag_client": mock_rag_client, "env_vars": mock_env_vars}
+
+
 @pytest.mark.parametrize(
     ("user_prompt", "system_prompt"),
     [
@@ -1125,71 +1147,42 @@ def test_invoke_judge_model_databricks_telemetry_error_handling() -> None:
     ],
 )
 @mock.patch("mlflow.genai.judges.utils._check_databricks_agents_installed")
-def test_call_chat_completions_success(mock_check, user_prompt, system_prompt):
+def test_call_chat_completions_success(
+    mock_check, user_prompt, system_prompt, mock_databricks_rag_eval
+):
     """Test successful call to call_chat_completions with different prompt combinations."""
-    mock_env_vars = mock.MagicMock()
-    mock_context = mock.MagicMock()
-    mock_managed_rag_client = mock.MagicMock()
-
-    expected_result = AttrDict({"output": "test response", "error_message": None})
-    mock_managed_rag_client.get_chat_completions_result.return_value = expected_result
-    mock_context.get_context.return_value.build_managed_rag_client.return_value = (
-        mock_managed_rag_client
-    )
-
-    # Make eval_context decorator pass through the function
-    def mock_eval_context(func):
-        return func
-
-    mock_context.eval_context = mock_eval_context
-
     with (
-        mock.patch.dict(
-            "sys.modules",
-            {"databricks.rag_eval": mock.MagicMock(context=mock_context, env_vars=mock_env_vars)},
-        ),
+        mock.patch.dict("sys.modules", {"databricks.rag_eval": mock_databricks_rag_eval["module"]}),
         mock.patch("mlflow.genai.judges.utils.VERSION", "1.0.0"),
     ):
         result = call_chat_completions(user_prompt, system_prompt)
 
         # Verify the client name was set
-        mock_env_vars.RAG_EVAL_EVAL_SESSION_CLIENT_NAME.set.assert_called_once_with(
+        mock_databricks_rag_eval[
+            "env_vars"
+        ].RAG_EVAL_EVAL_SESSION_CLIENT_NAME.set.assert_called_once_with(
             "mlflow-judge-optimizer-v1.0.0"
         )
 
         # Verify the managed RAG client was called with correct parameters
-        mock_managed_rag_client.get_chat_completions_result.assert_called_once_with(
+        mock_databricks_rag_eval["rag_client"].get_chat_completions_result.assert_called_once_with(
             user_prompt=user_prompt,
             system_prompt=system_prompt,
         )
 
-        assert result == expected_result
+        assert result.output == "test response"
 
 
 @mock.patch("mlflow.genai.judges.utils._check_databricks_agents_installed")
-def test_call_chat_completions_client_error(mock_check):
+def test_call_chat_completions_client_error(mock_check, mock_databricks_rag_eval):
     """Test call_chat_completions when managed RAG client raises an error."""
-    mock_env_vars = mock.MagicMock()
-    mock_context = mock.MagicMock()
-    mock_managed_rag_client = mock.MagicMock()
-
     # Make the client throw an error
-    mock_managed_rag_client.get_chat_completions_result.side_effect = RuntimeError(
+    mock_databricks_rag_eval["rag_client"].get_chat_completions_result.side_effect = RuntimeError(
         "RAG client failed"
     )
-    mock_context.get_context.return_value.build_managed_rag_client.return_value = (
-        mock_managed_rag_client
-    )
-
-    # Make eval_context decorator pass through the function
-    def mock_eval_context(func):
-        return func
-
-    mock_context.eval_context = mock_eval_context
 
     with mock.patch.dict(
-        "sys.modules",
-        {"databricks.rag_eval": mock.MagicMock(context=mock_context, env_vars=mock_env_vars)},
+        "sys.modules", {"databricks.rag_eval": mock_databricks_rag_eval["module"]}
     ):
         with pytest.raises(RuntimeError, match="RAG client failed"):
             call_chat_completions("test prompt", "system prompt")
