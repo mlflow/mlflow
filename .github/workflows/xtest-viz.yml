@@ -1,0 +1,44 @@
+name: Cross-Version Test Results Visualization
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+  schedule:
+    # Run daily at 16:00 UTC (3 hours after cross-version-tests.yml at 13:00)
+    - cron: "0 16 * * *"
+
+jobs:
+  generate-visualization:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Set up Python
+        uses: actions/setup-python@f677139bbe7f9c59b41e40162b753c062f5d49a3
+        with:
+          python-version: "3.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@45a8b469f8f6eb4eae5a6fec05c69f4c39bf0a54
+
+      - name: Generate cross-version test visualization
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "## Cross-Version Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Generated:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          uv run dev/xtest_viz.py \
+            --days 14 \
+            --repo mlflow/dev >> $GITHUB_STEP_SUMMARY
