@@ -351,6 +351,10 @@ class Span:
         )
 
     @classmethod
+    def from_proto(cls, proto: ProtoSpan) -> "Span":
+        return cls.from_dict(MessageToDict(proto, preserving_proto_field_name=True))
+
+    @classmethod
     def _from_otel_proto(cls, otel_proto_span) -> "Span":
         """
         Create a Span from an OpenTelemetry protobuf span.

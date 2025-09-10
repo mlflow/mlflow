@@ -132,6 +132,7 @@ from mlflow.protos.service_pb2 import (
     ListLoggedModelArtifacts,
     ListScorers,
     ListScorerVersions,
+    LoadSpans,
     LogBatch,
     LogInputs,
     LogLoggedModelParamsRequest,
@@ -3029,6 +3030,20 @@ def get_trace_artifact_handler():
     return _response_with_file_attachment_headers(TRACE_DATA_FILE_NAME, file_sender_response)
 
 
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _load_spans(trace_id):
+    """
+    A request handler for `GET /ajax-api/3.0/mlflow/traces/{trace_id}/load-spans`
+    to load spans for a specific trace.
+    """
+    spans = _get_tracking_store().load_spans(trace_id)
+
+    response_message = LoadSpans.Response(spans=[span.to_proto() for span in spans])
+
+    return _wrap_response(response_message)
+
+
 # Assessments API handlers
 @catch_mlflow_exception
 @_disable_if_artifacts_only
@@ -3955,6 +3970,7 @@ HANDLERS = {
     SetTraceTagV3: _set_trace_tag_v3,
     DeleteTraceTagV3: _delete_trace_tag,
     LinkTracesToRun: _link_traces_to_run,
+    LoadSpans: _load_spans,
     # Assessment APIs
     CreateAssessment: _create_assessment,
     GetAssessmentRequest: _get_assessment,

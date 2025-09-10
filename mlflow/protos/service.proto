@@ -9,6 +9,7 @@ import "google/protobuf/field_mask.proto";
 import "google/protobuf/timestamp.proto";
 import "assessments.proto";
 import "datasets.proto";
+import "databricks_trace_server.proto";
 
 option java_package = "org.mlflow.api.proto";
 option py_generic_services = true;
@@ -707,6 +708,19 @@ service MlflowService {
       }],
       visibility: PUBLIC_UNDOCUMENTED,
       rpc_doc_title: "Calculate Trace Filter Correlation",
+    };
+  }
+
+  // Load spans for a specific trace.
+  rpc loadSpans(LoadSpans) returns (LoadSpans.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/traces/{trace_id}/load-spans"
+        since { major: 3, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Load Spans",
     };
   }
 
@@ -3118,4 +3132,17 @@ message Scorer {
   optional string serialized_scorer = 4;
   // The creation time of the scorer version (in milliseconds since epoch).
   optional int64 creation_time = 5;
+}
+
+// Load spans for a given trace ID
+message LoadSpans {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The trace ID for which to load spans.
+  optional string trace_id = 1 [(validate_required) = true];
+
+  message Response {
+    // List of spans
+    repeated traceserver.Span spans = 1;
+  }
 }

@@ -295,8 +295,7 @@ class TracingClient:
                     )
                     trace_data = TraceData.from_dict(json.loads(trace_data))
                 else:
-                    # For offline traces, download data from artifact storage
-                    trace_data = self._download_trace_data(trace_info)
+                    trace_data = self._get_trace_data(trace_info)
             except MlflowTraceDataException as e:
                 _logger.warning(
                     (
