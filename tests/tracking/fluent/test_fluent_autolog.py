@@ -113,14 +113,6 @@ def reset_global_states():
         except Exception:
             pass
 
-    # TODO: Remove these when we run ci with Python >= 3.10
-    mlflow.utils.import_hooks._post_import_hooks.pop("smolagents", None)
-    mlflow.utils.import_hooks._post_import_hooks.pop("pydantic_ai", None)
-    mlflow.utils.import_hooks._post_import_hooks.pop("crewai", None)
-    mlflow.utils.import_hooks._post_import_hooks.pop("autogen_agentchat", None)
-    mlflow.utils.import_hooks._post_import_hooks.pop("semantic_kernel", None)
-    mlflow.utils.import_hooks._post_import_hooks.pop("agno", None)
-    mlflow.utils.import_hooks._post_import_hooks.pop("strands", None)
     # TODO: Remove this line when we stop supporting google.generativeai
     mlflow.utils.import_hooks._post_import_hooks.pop("google.generativeai", None)
 
