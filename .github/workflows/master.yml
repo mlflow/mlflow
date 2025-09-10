@@ -98,12 +98,10 @@ jobs:
             --ignore-flavors --ignore=tests/examples --ignore=tests/evaluate \
             --ignore tests/genai tests
 
-      - name: Downgrade pydantic to v1
+      - name: Run gateway tests with pydantic v1
         run: |
           source .venv/bin/activate
           pip install 'pydantic<2.0'
-      - name: Run gateway tests with pydantic v1
-        run: |
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/gateway
 
       - name: Run databricks-connect related tests
