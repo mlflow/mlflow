@@ -16,6 +16,7 @@ on:
       - reopened
       - ready_for_review
     paths:
+      - pyproject.toml
       - mlflow/**
       - docs/**
       - .github/workflows/docs.yml
