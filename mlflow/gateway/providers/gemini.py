@@ -165,7 +165,7 @@ class GeminiAdapter(ProviderAdapter):
         )
 
     @classmethod
-    def model_to_chat_streaming(cls, resp: dict, config) -> chat.StreamResponsePayload:
+    def model_to_chat_streaming(cls, resp: dict[str, Any], config) -> chat.StreamResponsePayload:
         # Documentation: https://ai.google.dev/api/generate-content#method:-models.streamgeneratecontent
         #
         # Example Streaming Chunk:
@@ -197,16 +197,17 @@ class GeminiAdapter(ProviderAdapter):
                     index=idx,
                     finish_reason=cand.get("finishReason"),
                     delta=chat.StreamDelta(
-                        role="assistant" if delta_text else None,
-                        content=delta_text or None,
+                        role="assistant",
+                        content=delta_text,
                     ),
                 )
             )
+        current_time = int(time.time())
 
         return chat.StreamResponsePayload(
-            id=f"gemini-chat-stream-{int(time.time())}",
+            id=f"gemini-chat-stream-{current_time}",
             object="chat.completion.chunk",
-            created=int(time.time()),
+            created=current_time,
             model=config.model.name,
             choices=choices,
         )
@@ -292,7 +293,7 @@ class GeminiAdapter(ProviderAdapter):
 
     @classmethod
     def model_to_completions_streaming(
-        cls, resp: dict, config
+        cls, resp: dict[str, Any], config
     ) -> completions.StreamResponsePayload:
         # Documentation: https://ai.google.dev/api/generate-content#method:-models.streamgeneratecontent
 
@@ -321,14 +322,15 @@ class GeminiAdapter(ProviderAdapter):
                 completions.StreamChoice(
                     index=idx,
                     finish_reason=cand.get("finishReason"),
-                    text=delta_text or None,
+                    text=delta_text,
                 )
             )
+        current_time = int(time.time())
 
         return completions.StreamResponsePayload(
-            id=f"gemini-completions-stream-{int(time.time())}",
+            id=f"gemini-completions-stream-{current_time}",
             object="text_completion.chunk",
-            created=int(time.time()),
+            created=current_time,
             model=config.model.name,
             choices=choices,
         )
