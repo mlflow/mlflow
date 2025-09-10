@@ -6,7 +6,7 @@ import promiseMiddleware from 'redux-promise-middleware';
 
 import React, { useRef } from 'react';
 import { DEFAULT_LOCALE } from '../../i18n/loadMessages';
-import { ReduxState } from '../../redux-types';
+import type { ReduxState } from '../../redux-types';
 import { Provider } from 'react-redux';
 
 export const NOOP = (...args: any[]) => {};

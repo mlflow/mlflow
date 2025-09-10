@@ -1,4 +1,5 @@
-import { Dispatch, useCallback, useState } from 'react';
+import type { Dispatch } from 'react';
+import { useCallback, useState } from 'react';
 
 import { LegacySelect, useDesignSystemTheme } from '@databricks/design-system';
 

@@ -6,12 +6,17 @@
  */
 
 import React from 'react';
-import _ from 'lodash';
 import { ModelVersionTable } from './ModelVersionTable';
 import Utils from '../../common/utils/Utils';
-import { Link, NavigateFunction } from '../../common/utils/RoutingUtils';
+import type { NavigateFunction } from '../../common/utils/RoutingUtils';
+import { Link } from '../../common/utils/RoutingUtils';
 import { ModelRegistryRoutes } from '../routes';
-import { ACTIVE_STAGES, MODEL_VERSIONS_PER_PAGE_COMPACT, MODEL_VERSIONS_SEARCH_TIMESTAMP_FIELD } from '../constants';
+import {
+  // prettier-ignore
+  ACTIVE_STAGES,
+  MODEL_VERSIONS_PER_PAGE_COMPACT,
+  MODEL_VERSIONS_SEARCH_TIMESTAMP_FIELD,
+} from '../constants';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { EditableNote } from '../../common/components/EditableNote';
 import { EditableTagsTableView } from '../../common/components/EditableTagsTableView';
@@ -27,15 +32,17 @@ import {
   DangerModal,
   CursorPagination,
 } from '@databricks/design-system';
-import { KeyValueEntity } from '../../common/types';
+import type { KeyValueEntity } from '../../common/types';
 import { Descriptions } from '../../common/components/Descriptions';
 import { TagList } from '../../common/components/TagList';
-import { ModelVersionInfoEntity, type ModelEntity } from '../../experiment-tracking/types';
+import type { ModelVersionInfoEntity } from '../../experiment-tracking/types';
+import { type ModelEntity } from '../../experiment-tracking/types';
 import { shouldShowModelsNextUI, shouldUseSharedTaggingUI } from '../../common/utils/FeatureUtils';
 import { ModelsNextUIToggleSwitch } from './ModelsNextUIToggleSwitch';
 import { withNextModelsUIContext } from '../hooks/useNextModelsUI';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
-import { ColumnSort } from '@tanstack/react-table';
+import type { ColumnSort } from '@tanstack/react-table';
+import { sortBy } from 'lodash';
 
 const CREATION_TIMESTAMP_COLUMN_INDEX = 'creation_timestamp';
 
@@ -197,7 +204,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
   };
 
   getTags = () =>
-    _.sortBy(
+    sortBy(
       Utils.getVisibleTagValues(this.props.tags).map((values) => ({
         key: values[0],
         name: values[0],
@@ -305,7 +312,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
     return (
       <Button
         componentId="codegen_mlflow_app_src_model-registry_components_modelview.tsx_467"
-        data-test-id="descriptionEditButton"
+        data-testid="descriptionEditButton"
         type="link"
         css={styles.editButton}
         onClick={this.startEditingDescription}
@@ -394,7 +401,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
           // Reported during ESLint upgrade
           // eslint-disable-next-line react/prop-types
           defaultCollapsed={!(model as any).description}
-          data-test-id="model-description-section"
+          data-testid="model-description-section"
         >
           <EditableNote
             defaultMarkdown={(model as any).description}
@@ -404,7 +411,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
           />
         </CollapsibleSection>
         {!this.sharedTaggingUIEnabled && (
-          <div data-test-id="tags-section">
+          <div data-testid="tags-section">
             <CollapsibleSection
               css={styles.collapsiblePanel}
               title={
@@ -415,7 +422,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
                 />
               }
               defaultCollapsed={Utils.getVisibleTagValues(tags).length === 0}
-              data-test-id="model-tags-section"
+              data-testid="model-tags-section"
             >
               <EditableTagsTableView
                 // @ts-expect-error TS(2322): Type '{ innerRef: RefObject<unknown>; handleAddTag... Remove this comment to see the full error message
@@ -480,7 +487,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
               </div>
             </>
           }
-          data-test-id="model-versions-section"
+          data-testid="model-versions-section"
         >
           {shouldShowModelsNextUI() && (
             <div
@@ -574,7 +581,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
     const modelName = model.name;
 
     const breadcrumbs = [
-      <Link to={ModelRegistryRoutes.modelListPageRoute}>
+      <Link to={ModelRegistryRoutes.modelListPageRoute} key="registered-models">
         <FormattedMessage
           defaultMessage="Registered Models"
           description="Text for link back to model page under the header on the model view page"

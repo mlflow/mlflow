@@ -26,5 +26,5 @@ export const getMlflowTracesSearchPageSize = () => {
  * Total number of traces that will be fetched via mlflow traces 3.0 search api in eval tab
  */
 export const getEvalTabTotalTracesLimit = () => {
-  return 10000;
+  return 1000;
 };

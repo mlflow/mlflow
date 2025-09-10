@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { RunInfoEntity } from '../../../types';
+import type { RunInfoEntity } from '../../../types';
 import {
   chartColors,
   ChartStoryWrapper,
@@ -7,7 +7,8 @@ import {
   stableNormalRandom,
   useControls,
 } from './RunsCharts.stories-common';
-import { RunsContourPlot, RunsContourPlotProps } from './RunsContourPlot';
+import type { RunsContourPlotProps } from './RunsContourPlot';
+import { RunsContourPlot } from './RunsContourPlot';
 
 export default {
   title: 'Runs charts/Contour plot',

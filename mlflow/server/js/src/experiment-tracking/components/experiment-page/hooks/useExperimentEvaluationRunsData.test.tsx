@@ -43,7 +43,7 @@ describe('useExperimentEvaluationRunsData', () => {
     );
   });
 
-  test('should filter out all runs with a model output', async () => {
+  test('should separate runs with and without model outputs', async () => {
     const { result } = renderHook(
       () => useExperimentEvaluationRunsData({ experimentId: 'test-experiment', enabled: true, filter: '' }),
       {
@@ -63,5 +63,16 @@ describe('useExperimentEvaluationRunsData', () => {
         }),
       );
     });
+
+    expect(result.current.trainingRuns).toHaveLength(1);
+    expect(result.current.trainingRuns?.[0]).toEqual(
+      expect.objectContaining({
+        info: expect.objectContaining({
+          run_uuid: 'run-1',
+          name: 'test-logged-model-1',
+          experiment_id: 'test-experiment',
+        }),
+      }),
+    );
   });
 });

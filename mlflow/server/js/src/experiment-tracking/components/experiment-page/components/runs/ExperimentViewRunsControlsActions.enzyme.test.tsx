@@ -10,18 +10,10 @@ import { EXPERIMENT_RUNS_MOCK_STORE } from '../../fixtures/experiment-runs.fixtu
 // import { SearchExperimentRunsFacetsState } from '../../models/SearchExperimentRunsFacetsState';
 import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
 import { experimentRunsSelector } from '../../utils/experimentRuns.selector';
-import {
-  ExperimentViewRunsControlsActions,
-  ExperimentViewRunsControlsActionsProps,
-} from './ExperimentViewRunsControlsActions';
-import {
-  ExperimentPageSearchFacetsState,
-  createExperimentPageSearchFacetsState,
-} from '../../models/ExperimentPageSearchFacetsState';
-
-jest.mock('./ExperimentViewRefreshButton', () => ({
-  ExperimentViewRefreshButton: () => <div />,
-}));
+import type { ExperimentViewRunsControlsActionsProps } from './ExperimentViewRunsControlsActions';
+import { ExperimentViewRunsControlsActions } from './ExperimentViewRunsControlsActions';
+import type { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
+import { createExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
 
 const MOCK_EXPERIMENT = EXPERIMENT_RUNS_MOCK_STORE.entities.experimentsById['123456789'];
 

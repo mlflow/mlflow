@@ -7,7 +7,7 @@ import { TableRow } from '@databricks/design-system';
 
 import { GenAIMarkdownRenderer, getMarkdownComponents } from './GenAIMarkdownRenderer';
 import { useParsedTableComponents, VirtualizedTableRow, VirtualizedTableCell } from './TableRenderer';
-import { ReactMarkdownProps } from './types';
+import type { ReactMarkdownProps } from './types';
 
 const MARKDOWN_CONTENT = `
 # Test content

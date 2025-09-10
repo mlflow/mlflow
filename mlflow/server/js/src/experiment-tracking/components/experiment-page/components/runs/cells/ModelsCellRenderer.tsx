@@ -3,7 +3,7 @@ import { ModelsIcon, Overflow, Tag, LegacyTooltip, useDesignSystemTheme } from '
 import Utils from '../../../../../../common/utils/Utils';
 import { ModelRegistryRoutes } from '../../../../../../model-registry/routes';
 import Routes from '../../../../../routes';
-import { RunRowModelsInfo } from '../../../utils/experimentPage.row-types';
+import type { RunRowModelsInfo } from '../../../utils/experimentPage.row-types';
 import { Link } from '../../../../../../common/utils/RoutingUtils';
 import { ReactComponent as RegisteredModelOkIcon } from '../../../../../../common/static/registered-model-grey-ok.svg';
 import type { LoggedModelProto } from '../../../../../types';

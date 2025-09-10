@@ -1,8 +1,8 @@
-import { isString } from 'lodash';
+import { isString, isObject, isNil } from 'lodash';
 
 import { Tag, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 
-export const ExpectationValuePreview = ({ objectKey, value }: { objectKey?: string; value: any }) => {
+const SingleExpectationValuePreview = ({ objectKey, value }: { objectKey?: string; value: any }) => {
   const { theme } = useDesignSystemTheme();
   const displayValue = isString(value) ? value : JSON.stringify(value);
 
@@ -24,4 +24,56 @@ export const ExpectationValuePreview = ({ objectKey, value }: { objectKey?: stri
       </Tag>
     </Tooltip>
   );
+};
+
+export const ExpectationValuePreview = ({
+  parsedValue,
+  singleLine = false,
+}: {
+  parsedValue: any;
+  singleLine?: boolean;
+}): React.ReactElement | null => {
+  const { theme } = useDesignSystemTheme();
+
+  if (isNil(parsedValue)) {
+    return null;
+  }
+
+  if (Array.isArray(parsedValue)) {
+    return singleLine ? (
+      <SingleExpectationValuePreview value={parsedValue} />
+    ) : (
+      <div
+        css={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: theme.spacing.sm,
+        }}
+      >
+        {parsedValue.map((item, index) => (
+          <SingleExpectationValuePreview value={item} key={index} />
+        ))}
+      </div>
+    );
+  }
+
+  if (isObject(parsedValue)) {
+    return singleLine ? (
+      <SingleExpectationValuePreview value={parsedValue} />
+    ) : (
+      <div
+        css={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: theme.spacing.sm,
+        }}
+      >
+        {Object.entries(parsedValue).map(([key, value]) => (
+          <SingleExpectationValuePreview key={key} objectKey={key} value={value} />
+        ))}
+      </div>
+    );
+  }
+
+  return <SingleExpectationValuePreview value={parsedValue} />;
 };

@@ -100,3 +100,20 @@ def get_command(key: str) -> str:
         raise FileNotFoundError(f"Command '{key}' not found")
 
     return command_path.read_text()
+
+
+def get_command_body(key: str) -> str:
+    """Get command body content without frontmatter.
+
+    Args:
+        key: Command key (e.g., 'genai/analyze_experiment').
+
+    Returns:
+        Command body content without YAML frontmatter.
+
+    Raises:
+        FileNotFoundError: If command not found.
+    """
+    content = get_command(key)
+    _, body = parse_frontmatter(content)
+    return body

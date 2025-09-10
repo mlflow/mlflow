@@ -119,25 +119,28 @@ def predict_fn(question: str) -> str:
 
 ### Step 2: Create evaluation dataset
 
-Design test cases as a list of dictionaries, each with an `inputs` and `expectations` field. We would like to evaluate the correctness of the output, but also the tool calls used by the agent.
+Design test cases as a list of dictionaries, each with an `inputs`, `expectations`, and an optional `tags` field. We would like to evaluate the correctness of the output, but also the tool calls used by the agent.
 
 ```python
 eval_dataset = [
     {
         "inputs": {"task": "What is 15% of 240?"},
         "expectations": {"answer": 36, "tool_calls": ["multiply"]},
+        "tags": {"topic": "math"},
     },
     {
         "inputs": {
             "task": "I have 8 cookies and 3 friends. How many more cookies should I buy to share equally?"
         },
         "expectations": {"answer": 1, "tool_calls": ["modular", "add"]},
+        "tags": {"topic": "math"},
     },
     {
         "inputs": {
             "task": "I bought 2 shares of stock at $100 each. It's now worth $150. How much profit did I make?"
         },
         "expectations": {"answer": 100, "tool_calls": ["add", "multiply"]},
+        "tags": {"topic": "math"},
     },
 ]
 ```

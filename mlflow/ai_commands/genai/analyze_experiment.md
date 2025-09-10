@@ -7,9 +7,16 @@ description: Analyzes the traces logged in an MLflow experiment to find operatio
 
 Analyzes traces in an MLflow experiment for quality issues, performance problems, and patterns.
 
+# EXECUTION CONTEXT
+
+**MCP**: Skip to Section 1.2 (auth is pre-configured). Use MCP trace tools.
+**CLI**: Start with Section 1.1 for auth setup. Use `mlflow traces` commands.
+
+**IMPORTANT**: When you ask the user a question, you MUST WAIT for their response before continuing.
+
 ## Step 1: Setup and Configuration
 
-### 1.1 Collect Experiment Information
+### 1.1 Collect Tracking Server Information (CLI Only)
 
 - **REQUIRED FIRST**: Ask user "How do you want to authenticate to MLflow?"
 
@@ -51,35 +58,36 @@ Analyzes traces in an MLflow experiment for quality issues, performance problems
   - If not, fall back to Options 1 or 2
 
 - Ask user for the path to their environment file (if using Options 1-2)
-- Verify connection by listing experiments: `uv run --env-file <env_file_path> python -m mlflow experiments search --max-results 10`
-- **Option to search by name**: If user knows the experiment name, use `--filter-string` parameter:
-  - `uv run --env-file <env_file_path> python -m mlflow experiments search --filter-string "name LIKE '%experiment_name%'" --max-results 10`
-- Ask user for experiment ID or let them choose from the list
-- **WAIT for user response** - do not continue until they provide the experiment ID
-- Add `MLFLOW_EXPERIMENT_ID=<experiment_id>` to their environment file
-- Run `uv run --env-file <env_file_path> python -m mlflow traces --help` to understand the CLI commands and options
+- Test connection: `uv run --env-file <env_file_path> python -m mlflow experiments search --max-results 5`
 
-### 1.2 Test Trace Retrieval
+### 1.2 Select Experiment and Test Trace Retrieval
 
-- Call `uv run --env-file <env_file_path> python -m mlflow traces search --max-results 5` to verify:
+- If MLFLOW_EXPERIMENT_ID not already set, list available experiments and ask user to select one:
+
+  - **Option to search by name**: Use filter_string parameter for name search
+  - Ask user for experiment ID or let them choose from the list
+  - **WAIT for user response** - do not continue until they provide the experiment ID
+  - For CLI: Add `MLFLOW_EXPERIMENT_ID=<experiment_id>` to environment file
+
+- Search for traces (max_results=5) to verify:
   - Traces exist in the experiment
-  - CLI is working properly (using local MLflow installation)
-  - Database connection is valid
+  - Tools are working properly
+  - Connection is valid
 - Extract sample trace IDs for testing
-- Get one full trace with `uv run --env-file <env_file_path> python -m mlflow traces get --trace-id <id>` to understand the data structure
+- Get one full trace by trace_id that has state OK to understand the data structure (errors might not have the structure)
 
 ## Step 2: Analysis Phase
 
 ### 2.1 Bulk Trace Collection
 
-- Search for a larger sample using `--max-results` parameter (start with 20-50 traces for initial analysis)
-- **IMPORTANT**: Use `--max-results` to limit results for users with hundreds of thousands of experiments/traces
+- Search for a larger sample (start with 20-50 traces for initial analysis)
+- **IMPORTANT**: Limit results for users with hundreds of thousands of experiments/traces
 - Extract key fields: trace_id, state, execution_duration_ms, request_preview, response_preview
 
 ### 2.1.5 Understand Agent Purpose and Capabilities
 
 - Analyze trace inputs/outputs to understand the agent's task:
-  - Extract trace inputs/outputs: `--extract-fields info.trace_metadata.\`mlflow.traceInputs\`,info.trace_metadata.\`mlflow.traceOutputs\``
+  - Extract trace inputs/outputs fields: info.trace_metadata.mlflow.traceInputs, info.trace_metadata.mlflow.traceOutputs
   - Examine these fields to understand:
     - Types of questions users ask
     - Types of responses the agent provides
@@ -102,7 +110,7 @@ Analyzes traces in an MLflow experiment for quality issues, performance problems
 
 ### 2.2 Operational Issues Analysis (Hypothesis-Driven Approach)
 
-**NOTE: Use MLflow CLI commands for trace exploration - DO NOT use inline Python scripts during this phase**
+**NOTE: Use trace exploration tools - DO NOT use inline Python scripts during this phase**
 
 **Show your thinking as you go**: Always explain your hypothesis development process including:
 
@@ -128,7 +136,7 @@ Process traces in batches of 10, building and refining hypotheses with each batc
 
 - **Error Analysis**
 
-  - Filter for ERROR traces: `uv run --env-file <env_file_path> python -m mlflow traces search --filter "info.state = 'ERROR'" --max-results 10`
+  - Filter for ERROR traces (filter: "info.state = 'ERROR'", max_results=10)
   - **Adjust --max-results as needed**: Start with 10-20, increase if you need more examples to identify patterns
   - **Pattern Analysis Focus**: Identify WHY errors occur by examining:
     - Tool/API failures in spans (look for spans with type "TOOL" that failed)
@@ -146,7 +154,7 @@ Process traces in batches of 10, building and refining hypotheses with each batc
   - **Note**: You may discover other operational error patterns as you analyze the traces
 
 - **Performance Problems (High Latency Analysis)**
-  - Filter for OK traces with high latency: `uv run --env-file <env_file_path> python -m mlflow traces search --filter "info.state = 'OK'" --max-results 10`
+  - Filter for OK traces with high latency (filter: "info.state = 'OK'", max_results=10)
   - **Adjust --max-results as needed**: Start with 10-20, increase if you need more examples to identify patterns
   - **Pattern Analysis Focus**: Identify WHY traces are slow by examining:
     - Tool call duration patterns in spans
@@ -165,7 +173,7 @@ Process traces in batches of 10, building and refining hypotheses with each batc
 
 ### 2.3 Quality Issues Analysis (Hypothesis-Driven Approach)
 
-**NOTE: Use MLflow CLI commands for trace exploration - DO NOT use inline Python scripts during this phase**
+**NOTE: Use trace exploration tools - DO NOT use inline Python scripts during this phase**
 
 Focus on response quality, not operational performance:
 
@@ -183,7 +191,7 @@ Focus on response quality, not operational performance:
 
 ### 2.4 Strengths and Successes Analysis (Hypothesis-Driven Approach)
 
-**NOTE: Use MLflow CLI commands for trace exploration - DO NOT use inline Python scripts during this phase**
+**NOTE: Use trace exploration tools - DO NOT use inline Python scripts during this phase**
 
 Process successful traces to identify what's working well:
 
@@ -214,11 +222,10 @@ Process successful traces to identify what's working well:
 ### 2.5 Generate Final Report
 
 - Ask user where to save the report (markdown file path, e.g., `experiment_analysis.md`)
-- **ONLY NOW use uv inline Python scripts for statistical calculations** - never compute stats manually
-- Inline Python scripts are ONLY for final math/statistics, NOT for trace exploration
-- Use `uv run --env-file <env_file_path> python -c "..."` for any Python calculations that need MLflow access
+- **ONLY NOW use Python for statistical calculations** - never compute stats manually
+- Python calculations are ONLY for final math/statistics, NOT for trace exploration
 - Generate a single comprehensive markdown report with:
-  - **Summary statistics** (computed via `uv run --env-file <env_file_path> python -c "..."` with collected trace data):
+  - **Summary statistics** (computed via Python with collected trace data):
     - Total traces analyzed
     - Success rate (OK vs ERROR percentage)
     - Average, median, p95 latency for successful traces
