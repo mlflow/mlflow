@@ -41,12 +41,14 @@ def create_mock_otel_span(
     that extends ReadableSpan (data object) and exposes the necessary attributes for testing.
     """
 
+    from dataclasses import field
+    
     @dataclass
     class _MockSpanContext:
         trace_id: str
         span_id: str
         trace_flags: trace_api.TraceFlags = trace_api.TraceFlags(1)
-        trace_state: trace_api.TraceState = trace_api.TraceState()
+        trace_state: trace_api.TraceState = field(default_factory=trace_api.TraceState)
 
     class _MockOTelSpan(trace_api.Span, ReadableSpan):
         def __init__(
