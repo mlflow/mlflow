@@ -91,3 +91,5 @@ semantic-kernel
 agno
 # Required by mlflow.strands
 strands-agents
+# Required by mlflow.smolagents
+smolagents
