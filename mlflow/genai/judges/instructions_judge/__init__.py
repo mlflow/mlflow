@@ -221,8 +221,6 @@ class InstructionsJudge(Judge):
             and self._TEMPLATE_VARIABLE_EXPECTATIONS not in self.template_variables
         ):
             unused_params.append("expectations")
-        if trace is not None and self._TEMPLATE_VARIABLE_TRACE not in self.template_variables:
-            unused_params.append("trace")
 
         if unused_params:
             unused_str = "', '".join(unused_params)
@@ -234,21 +232,13 @@ class InstructionsJudge(Judge):
 
     def _resolve_inputs_from_trace(self, inputs: Any | None, trace: Trace) -> Any | None:
         """Extract inputs from trace if not provided and template requires it."""
-        if (
-            inputs is None
-            and self._TEMPLATE_VARIABLE_INPUTS in self.template_variables
-            and self._TEMPLATE_VARIABLE_TRACE not in self.template_variables
-        ):
+        if inputs is None and self._TEMPLATE_VARIABLE_INPUTS in self.template_variables:
             return extract_inputs_from_trace(trace)
         return inputs
 
     def _resolve_outputs_from_trace(self, outputs: Any | None, trace: Trace) -> Any | None:
         """Extract outputs from trace if not provided and template requires it."""
-        if (
-            outputs is None
-            and self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables
-            and self._TEMPLATE_VARIABLE_TRACE not in self.template_variables
-        ):
+        if outputs is None and self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables:
             return extract_outputs_from_trace(trace)
         return outputs
 
@@ -256,15 +246,83 @@ class InstructionsJudge(Judge):
         self, expectations: dict[str, Any] | None, trace: Trace
     ) -> dict[str, Any] | None:
         """Extract human expectations from trace if not provided and template requires it."""
-        if (
-            expectations is None
-            and self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables
-            and self._TEMPLATE_VARIABLE_TRACE not in self.template_variables
-        ):
+        if expectations is None and self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables:
             from mlflow.entities.assessment_source import AssessmentSourceType
 
             return extract_expectations_from_trace(trace, source=AssessmentSourceType.HUMAN)
         return expectations
+
+    def _build_system_message(self, is_trace_based: bool) -> str:
+        """Build the system message based on whether this is trace-based or field-based."""
+        output_fields = self.get_output_fields()
+
+        if is_trace_based:
+            # Trace-based: use trace prompt template
+            evaluation_rating_fields = "\n".join(
+                [f"- {field.name}: {field.description}" for field in output_fields]
+            )
+            base_prompt = INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE.format(
+                evaluation_rating_fields=evaluation_rating_fields,
+                instructions=self._instructions,
+            )
+        else:
+            # Field-based: use standard prompt template
+            base_prompt = format_prompt(
+                INSTRUCTIONS_JUDGE_SYSTEM_PROMPT, instructions=self._instructions
+            )
+
+        return add_output_format_instructions(base_prompt, output_fields=output_fields)
+
+    def _build_user_message(
+        self,
+        inputs: Any | None,
+        outputs: Any | None,
+        expectations: dict[str, Any] | None,
+        is_trace_based: bool,
+    ) -> str:
+        """Build the user message with field values."""
+        template_values = self._build_template_values(inputs, outputs, expectations)
+
+        # For trace-based, exclude {{ trace }} from the fields to include
+        field_vars = (
+            [
+                var
+                for var in self._ordered_template_variables
+                if var != self._TEMPLATE_VARIABLE_TRACE
+            ]
+            if is_trace_based
+            else self._ordered_template_variables
+        )
+
+        # Build user message parts in order
+        user_message_parts = []
+        for var_name in field_vars:
+            if var_name in template_values:
+                user_message_parts.append(f"{var_name}: {template_values[var_name]}")
+
+        return "\n".join(user_message_parts) if user_message_parts else ""
+
+    def _build_template_values(
+        self, inputs: Any | None, outputs: Any | None, expectations: dict[str, Any] | None
+    ) -> dict[str, str]:
+        """Build dictionary of template variable values."""
+        template_values = {}
+
+        if inputs is not None and self._TEMPLATE_VARIABLE_INPUTS in self.template_variables:
+            template_values[self._TEMPLATE_VARIABLE_INPUTS] = self._safe_json_dumps(inputs)
+
+        if outputs is not None and self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables:
+            template_values[self._TEMPLATE_VARIABLE_OUTPUTS] = self._safe_json_dumps(outputs)
+
+        if (
+            expectations is not None
+            and self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables
+        ):
+            template_values[self._TEMPLATE_VARIABLE_EXPECTATIONS] = self._safe_json_dumps(
+                expectations
+            )
+
+        return template_values
 
     def _safe_json_dumps(self, value: Any) -> str:
         """Safely serialize a value to JSON, falling back to str() if JSON serialization fails."""
@@ -317,95 +375,26 @@ class InstructionsJudge(Judge):
             expectations = self._resolve_expectations_from_trace(expectations, trace)
 
         self._check_required_parameters(inputs, outputs, expectations, trace)
-
         self._warn_unused_parameters(inputs, outputs, expectations, trace)
 
         is_trace_based = self._TEMPLATE_VARIABLE_TRACE in self.template_variables
 
-        if not is_trace_based:
-            system_content = format_prompt(
-                INSTRUCTIONS_JUDGE_SYSTEM_PROMPT, instructions=self._instructions
-            )
-            system_content = add_output_format_instructions(
-                system_content, output_fields=self.get_output_fields()
-            )
+        system_content = self._build_system_message(is_trace_based)
+        user_content = self._build_user_message(inputs, outputs, expectations, is_trace_based)
 
-            template_values = {}
-            if inputs is not None and self._TEMPLATE_VARIABLE_INPUTS in self.template_variables:
-                template_values[self._TEMPLATE_VARIABLE_INPUTS] = self._safe_json_dumps(inputs)
-            if outputs is not None and self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables:
-                template_values[self._TEMPLATE_VARIABLE_OUTPUTS] = self._safe_json_dumps(outputs)
-            if (
-                expectations is not None
-                and self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables
-            ):
-                template_values[self._TEMPLATE_VARIABLE_EXPECTATIONS] = self._safe_json_dumps(
-                    expectations
-                )
+        from mlflow.types.llm import ChatMessage
 
-            user_message_parts = []
-            for var_name in self._ordered_template_variables:
-                if var_name in template_values:
-                    user_message_parts.append(f"{var_name}: {template_values[var_name]}")
+        messages = [
+            ChatMessage(role="system", content=system_content),
+            ChatMessage(role="user", content=user_content),
+        ]
 
-            user_content = "\n".join(user_message_parts)
-
-            from mlflow.types.llm import ChatMessage
-
-            messages = [
-                ChatMessage(role="system", content=system_content),
-                ChatMessage(role="user", content=user_content),
-            ]
-
-            return invoke_judge_model(
-                model_uri=self._model,
-                prompt=messages,
-                assessment_name=self.name,
-            )
-
-        else:
-            output_fields = self.get_output_fields()
-            evaluation_rating_fields = "\n".join(
-                [f"- {field.name}: {field.description}" for field in output_fields]
-            )
-
-            interpolated_instructions = self._instructions
-
-            if inputs is not None and self._TEMPLATE_VARIABLE_INPUTS in self.template_variables:
-                inputs_json = json.dumps(inputs, default=str, indent=2)
-                interpolated_instructions = interpolated_instructions.replace(
-                    "{{ inputs }}", inputs_json
-                ).replace("{{inputs}}", inputs_json)
-
-            if outputs is not None and self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables:
-                outputs_json = json.dumps(outputs, default=str, indent=2)
-                interpolated_instructions = interpolated_instructions.replace(
-                    "{{ outputs }}", outputs_json
-                ).replace("{{outputs}}", outputs_json)
-
-            if (
-                expectations is not None
-                and self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables
-            ):
-                expectations_json = json.dumps(expectations, default=str, indent=2)
-                interpolated_instructions = interpolated_instructions.replace(
-                    "{{ expectations }}", expectations_json
-                ).replace("{{expectations}}", expectations_json)
-
-            base_prompt = INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE.format(
-                evaluation_rating_fields=evaluation_rating_fields,
-                instructions=interpolated_instructions,
-            )
-
-            augmented_prompt = add_output_format_instructions(
-                base_prompt, output_fields=output_fields
-            )
-            return invoke_judge_model(
-                model_uri=self._model,
-                prompt=augmented_prompt,
-                assessment_name=self.name,
-                trace=trace,
-            )
+        return invoke_judge_model(
+            model_uri=self._model,
+            prompt=messages,
+            assessment_name=self.name,
+            trace=trace if is_trace_based else None,
+        )
 
     @property
     def kind(self) -> ScorerKind:
