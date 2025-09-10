@@ -487,6 +487,7 @@ mlflow.entities.Trace.to_proto
 mlflow.entities.TraceData
 mlflow.entities.TraceData.from_dict
 mlflow.entities.TraceData.to_dict
+mlflow.entities.TraceData.to_dict_for_export
 mlflow.entities.TraceInfo
 mlflow.entities.TraceInfo.from_dict
 mlflow.entities.TraceInfo.from_proto
