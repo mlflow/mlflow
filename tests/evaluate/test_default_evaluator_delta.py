@@ -34,6 +34,7 @@ def test_write_to_delta_fails_without_spark():
             )
 
 
+@pytest.fixture
 def spark_session_with_delta():
     # Kill any existing Spark session to avoid conflicts.
     if session := SparkSession.getActiveSession():
