@@ -13,7 +13,8 @@ import {
   TableRowAction,
   ColumnsIcon,
 } from '@databricks/design-system';
-import { SortingState, flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table';
+import type { SortingState } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table';
 import React, { useMemo } from 'react';
 import { isNil, entries } from 'lodash';
 import Utils from '../../../common/utils/Utils';
@@ -36,7 +37,8 @@ import type { ModelTraceInfoWithRunName } from './hooks/useExperimentTraces';
 import { TracesViewTableStatusCell } from './TracesViewTableStatusCell';
 import { TracesViewTableRequestPreviewCell, TracesViewTableResponsePreviewCell } from './TracesViewTablePreviewCell';
 import { TracesViewTableSourceCell } from './TracesViewTableSourceCell';
-import { TracesColumnDef, getColumnSizeClassName, getHeaderSizeClassName } from './TracesViewTable.utils';
+import type { TracesColumnDef } from './TracesViewTable.utils';
+import { getColumnSizeClassName, getHeaderSizeClassName } from './TracesViewTable.utils';
 import { TracesViewTableRow } from './TracesViewTableRow';
 import { TracesViewTableTimestampCell } from './TracesViewTableTimestampCell';
 import { TracesViewTableHeaderCheckbox } from './TracesViewTableHeaderCheckbox';

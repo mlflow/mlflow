@@ -1,7 +1,7 @@
 import type { Interpolation, Theme } from '@emotion/react';
 import React, { useState } from 'react';
 
-import { Tag, LegacyTooltip, Typography } from '@databricks/design-system';
+import { Tag, Tooltip, Typography } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
 
 import { KeyValueTagFullViewModal } from './KeyValueTagFullViewModal';
@@ -70,7 +70,10 @@ export const KeyValueTag = ({
         title={tag.key}
         className={className}
       >
-        <LegacyTooltip title={allowFullViewModal ? fullViewModalLabel : ''}>
+        <Tooltip
+          componentId="web-shared.genai-traces-table.key-value-tag.full-view-tooltip"
+          content={allowFullViewModal ? <span>{fullViewModalLabel}</span> : undefined}
+        >
           <span
             css={{ maxWidth, display: 'inline-flex' }}
             onClick={() => (allowFullViewModal ? setIsKeyValueTagFullViewModalVisible(true) : undefined)}
@@ -84,7 +87,7 @@ export const KeyValueTag = ({
               </Typography.Text>
             )}
           </span>
-        </LegacyTooltip>
+        </Tooltip>
       </Tag>
       <div>
         {isKeyValueTagFullViewModalVisible && (

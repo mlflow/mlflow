@@ -6,7 +6,7 @@
  */
 
 import type { Dispatch, Action } from 'redux';
-import { AsyncAction, ReduxState, ThunkDispatch } from '../redux-types';
+import type { AsyncAction, ReduxState, ThunkDispatch } from '../redux-types';
 import { MlflowService } from './sdk/MlflowService';
 import { getUUID } from '../common/utils/ActionUtils';
 import { ErrorCodes } from '../common/constants';
@@ -16,14 +16,12 @@ import { fetchEndpoint, jsonBigIntResponseParser } from '../common/utils/FetchUt
 import { stringify as queryStringStringify } from 'qs';
 import { fetchEvaluationTableArtifact } from './sdk/EvaluationArtifactService';
 import type { EvaluationDataReduxState } from './reducers/EvaluationDataReducer';
-import { ArtifactListFilesResponse, EvaluationArtifactTable } from './types';
-import { KeyValueEntity } from '../common/types';
+import type { ArtifactListFilesResponse, EvaluationArtifactTable } from './types';
+import type { KeyValueEntity } from '../common/types';
 import { MLFLOW_PUBLISHED_VERSION } from '../common/mlflow-published-version';
 import { MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH } from './constants';
 import { ErrorWrapper } from '../common/utils/ErrorWrapper';
 export const RUNS_SEARCH_MAX_RESULTS = 100;
-
-export const SEARCH_EXPERIMENTS_API = 'SEARCH_EXPERIMENTS_API';
 
 export const GET_EXPERIMENT_API = 'GET_EXPERIMENT_API';
 export const getExperimentApi = (experimentId: any, id = getUUID()) => {
@@ -477,41 +475,6 @@ export const getMetricHistoryApi = (runUuid: any, metricKey: any, maxResults: an
 };
 
 export const GET_METRIC_HISTORY_API_BULK = 'GET_METRIC_HISTORY_API_BULK';
-export const getMetricHistoryApiBulk = (
-  runUuids: any,
-  metricKey: any,
-  maxResults = 25000,
-  pageToken: any,
-  id = getUUID(),
-) => {
-  // We are not using MlflowService because this endpoint requires
-  // special query string preparation
-  const queryParams = queryStringStringify(
-    {
-      run_id: runUuids,
-      metric_key: decodeURIComponent(metricKey),
-      max_results: maxResults,
-      page_token: pageToken,
-    },
-    // This configures qs to stringify arrays as ?run_id=123&run_id=234
-    { arrayFormat: 'repeat' },
-  );
-  const request = fetchEndpoint({
-    relativeUrl: `ajax-api/2.0/mlflow/metrics/get-history-bulk?${queryParams}`,
-    success: jsonBigIntResponseParser,
-  });
-  return {
-    type: GET_METRIC_HISTORY_API_BULK,
-    payload: request,
-    meta: {
-      id: id,
-      runUuids: runUuids,
-      key: metricKey,
-      maxResults,
-      pageToken,
-    },
-  };
-};
 
 // TODO: run_uuid is deprecated, use run_id instead
 export const SET_TAG_API = 'SET_TAG_API';

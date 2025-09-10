@@ -1,10 +1,11 @@
 import { IntlProvider } from 'react-intl';
 import { render, screen, act, within, cleanup, waitFor } from '../../../common/utils/TestUtils.react18';
 import { RunViewMetricCharts } from './RunViewMetricCharts';
-import { DeepPartial, applyMiddleware, combineReducers, createStore } from 'redux';
-import { ReduxState } from '../../../redux-types';
+import type { DeepPartial } from 'redux';
+import { applyMiddleware, combineReducers, createStore } from 'redux';
+import type { ReduxState } from '../../../redux-types';
 import { shouldEnableRunDetailsPageAutoRefresh } from '../../../common/utils/FeatureUtils';
-import { RunsMetricsLinePlotProps } from '../runs-charts/components/RunsMetricsLinePlot';
+import type { RunsMetricsLinePlotProps } from '../runs-charts/components/RunsMetricsLinePlot';
 import LocalStorageUtils from '../../../common/utils/LocalStorageUtils';
 import { Provider } from 'react-redux';
 import { sampledMetricsByRunUuid } from '../../reducers/SampledMetricsReducer';
@@ -23,6 +24,7 @@ import { EXPERIMENT_RUNS_METRIC_AUTO_REFRESH_INTERVAL } from '../../utils/Metric
 import { TestApolloProvider } from '../../../common/utils/TestApolloProvider';
 import { MlflowService } from '../../sdk/MlflowService';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(90000); // increase timeout, it's an integration test with a lot of unmocked code
 
 jest.mock('../runs-charts/components/RunsMetricsLinePlot', () => ({

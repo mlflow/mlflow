@@ -8,7 +8,7 @@ jest.mock('../../../hooks/logged-models/useGetLoggedModelsQuery', () => ({
 }));
 
 import { useGetLoggedModelsQuery } from '../../../hooks/logged-models/useGetLoggedModelsQuery';
-import { UseGetRunQueryResponseInputs, UseGetRunQueryResponseOutputs } from '../../run-page/hooks/useGetRunQuery';
+import type { UseGetRunQueryResponseInputs, UseGetRunQueryResponseOutputs } from '../../run-page/hooks/useGetRunQuery';
 
 describe('useLoggedModelsForExperimentRun', () => {
   // Create a wrapper component with QueryClientProvider

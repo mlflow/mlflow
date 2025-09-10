@@ -1,6 +1,6 @@
 import React from 'react';
 import Utils from '../../../../../../common/utils/Utils';
-import { RunRowVersionInfo } from '../../../utils/experimentPage.row-types';
+import type { RunRowVersionInfo } from '../../../utils/experimentPage.row-types';
 
 export const VersionCellRenderer = React.memo(({ value }: { value?: RunRowVersionInfo }) => {
   if (!value) {

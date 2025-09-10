@@ -4,10 +4,11 @@ import { coy as style, atomDark as darkStyle } from 'react-syntax-highlighter/di
 import { getLanguage } from '../../../common/utils/FileUtils';
 import { getArtifactContent } from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactTextView.css';
-import { DesignSystemHocProps, WithDesignSystemThemeHoc } from '@databricks/design-system';
+import type { DesignSystemHocProps } from '@databricks/design-system';
+import { WithDesignSystemThemeHoc } from '@databricks/design-system';
 import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
 import { ArtifactViewErrorState } from './ArtifactViewErrorState';
-import { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
+import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
 import { fetchArtifactUnified } from './utils/fetchArtifactUnified';
 
 const LARGE_ARTIFACT_SIZE = 100 * 1024;

@@ -1,5 +1,5 @@
 import { intersection } from 'lodash';
-import { KeyValueEntity } from '../../../../common/types';
+import type { KeyValueEntity } from '../../../../common/types';
 import { extractLoggedTablesFromRunTags } from '../../../utils/ArtifactUtils';
 import { GenAiTraceEvaluationArtifactFile } from '@databricks/web-shared/genai-traces-table';
 import { useMemo } from 'react';

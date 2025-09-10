@@ -1,7 +1,6 @@
 import { first, groupBy, isEmpty, isObject, orderBy } from 'lodash';
 import type { LoggedModelProto, RunEntity } from '../../types';
 import { useMemo } from 'react';
-import { shouldEnableLoggedModelsGrouping } from '../../../common/utils/FeatureUtils';
 
 export enum LoggedModelsTableGroupByMode {
   RUNS = 'runs',
@@ -79,7 +78,7 @@ export const useLoggedModelTableDataRows = ({
 }) => {
   return useMemo<LoggedModelsTableDataRow[] | undefined>(() => {
     // If grouping is unavailable or not set, return the original list
-    if (!shouldEnableLoggedModelsGrouping() || !groupModelsBy || isEmpty(loggedModelsWithSourceRuns)) {
+    if (!groupModelsBy || isEmpty(loggedModelsWithSourceRuns)) {
       return loggedModelsWithSourceRuns;
     }
 

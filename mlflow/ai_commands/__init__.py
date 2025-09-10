@@ -2,9 +2,14 @@
 
 import click
 
-from mlflow.ai_commands.ai_command_utils import get_command, list_commands, parse_frontmatter
+from mlflow.ai_commands.ai_command_utils import (
+    get_command,
+    get_command_body,
+    list_commands,
+    parse_frontmatter,
+)
 
-__all__ = ["get_command", "list_commands", "parse_frontmatter", "commands"]
+__all__ = ["get_command", "get_command_body", "list_commands", "parse_frontmatter", "commands"]
 
 
 @click.group("ai-commands")
@@ -36,6 +41,26 @@ def get_cmd(key: str) -> None:
     try:
         content = get_command(key)
         click.echo(content)
+    except FileNotFoundError as e:
+        click.echo(f"Error: {e}", err=True)
+        raise click.Abort()
+
+
+@commands.command("run")
+@click.argument("key")
+def run_cmd(key: str) -> None:
+    """Get a command formatted for execution by an AI assistant."""
+    try:
+        content = get_command(key)
+        _, body = parse_frontmatter(content)
+
+        # Add prefix instructing the assistant to execute the workflow
+        prefix = (
+            "The user has run an MLflow AI command via CLI. "
+            "Start executing the workflow immediately without any preamble.\n\n"
+        )
+
+        click.echo(prefix + body)
     except FileNotFoundError as e:
         click.echo(f"Error: {e}", err=True)
         raise click.Abort()

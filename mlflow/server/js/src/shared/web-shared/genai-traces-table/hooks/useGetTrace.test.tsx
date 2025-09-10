@@ -43,7 +43,7 @@ describe('useGetTrace', () => {
 
   test('should be disabled when getTrace is not provided', () => {
     const mockGetTrace = jest.fn();
-    const { result } = renderHook(() => useGetTrace(undefined, 'request-id', 'trace-id'), { wrapper });
+    const { result } = renderHook(() => useGetTrace(undefined, 'trace-id'), { wrapper });
 
     // Query should be disabled when getTrace is nil (enabled: !isNil(getTrace) && ...)
     // The enabled condition evaluates to false when getTrace is undefined
@@ -55,9 +55,9 @@ describe('useGetTrace', () => {
     expect(mockGetTrace).not.toHaveBeenCalled();
   });
 
-  test('should be disabled when neither requestId nor traceId is provided', () => {
+  test('should be disabled when traceId is not provided', () => {
     const mockGetTrace = jest.fn().mockResolvedValue(mockTrace);
-    const { result } = renderHook(() => useGetTrace(mockGetTrace, undefined, undefined), { wrapper });
+    const { result } = renderHook(() => useGetTrace(mockGetTrace, undefined), { wrapper });
 
     // Query should be disabled when both requestId and traceId are nil
     // The enabled condition evaluates to false when both requestId and traceId are undefined
@@ -66,39 +66,15 @@ describe('useGetTrace', () => {
     expect(mockGetTrace).not.toHaveBeenCalled();
   });
 
-  test('should fetch trace when getTrace and requestId are provided', async () => {
-    const mockGetTrace = jest.fn().mockResolvedValue(mockTrace);
-    const { result } = renderHook(() => useGetTrace(mockGetTrace, 'request-id', undefined), { wrapper });
-
-    await waitFor(() => {
-      expect(result.current.isSuccess).toBe(true);
-    });
-
-    expect(mockGetTrace).toHaveBeenCalledWith('request-id', undefined);
-    expect(result.current.data).toEqual(mockTrace);
-  });
-
   test('should fetch trace when getTrace and traceId are provided', async () => {
     const mockGetTrace = jest.fn().mockResolvedValue(mockTrace);
-    const { result } = renderHook(() => useGetTrace(mockGetTrace, undefined, 'trace-id'), { wrapper });
+    const { result } = renderHook(() => useGetTrace(mockGetTrace, 'trace-id'), { wrapper });
 
     await waitFor(() => {
       expect(result.current.isSuccess).toBe(true);
     });
 
-    expect(mockGetTrace).toHaveBeenCalledWith(undefined, 'trace-id');
-    expect(result.current.data).toEqual(mockTrace);
-  });
-
-  test('should fetch trace when getTrace, requestId and traceId are all provided', async () => {
-    const mockGetTrace = jest.fn().mockResolvedValue(mockTrace);
-    const { result } = renderHook(() => useGetTrace(mockGetTrace, 'request-id', 'trace-id'), { wrapper });
-
-    await waitFor(() => {
-      expect(result.current.isSuccess).toBe(true);
-    });
-
-    expect(mockGetTrace).toHaveBeenCalledWith('request-id', 'trace-id');
+    expect(mockGetTrace).toHaveBeenCalledWith('trace-id');
     expect(result.current.data).toEqual(mockTrace);
   });
 });
