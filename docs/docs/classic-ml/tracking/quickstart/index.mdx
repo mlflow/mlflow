@@ -203,29 +203,9 @@ with mlflow.start_run():
 When you run the above code, you will see console output that looks something like this:
 
 ```text
-INFO:     127.0.0.1:56522 - "PATCH /api/2.0/mlflow/logged-models/m-8b08caa5365f4b10ac8e3fe2c8bf001c HTTP/1.1" 200 OK
 2025/09/09 17:22:20 ERROR mlflow.webhooks.delivery: Failed to deliver webhook for event registered_model.created: FileStore does not support list_webhooks_by_event
 Traceback (most recent call last):
-  File "/Users/user/mlflow_learn/.venv/lib/python3.10/site-packages/mlflow/webhooks/delivery.py", line 304, in deliver_webhook
-    _deliver_webhook_impl(event=event, payload=payload, store=store)
-  File "/Users/user/mlflow_learn/.venv/lib/python3.10/site-packages/mlflow/webhooks/delivery.py", line 285, in _deliver_webhook_impl
-    webhooks = _get_cached_webhooks_by_event(store, event, ttl_seconds)
-  File "/Users/user/mlflow_learn/.venv/lib/python3.10/site-packages/mlflow/webhooks/delivery.py", line 249, in _get_cached_webhooks_by_event
-    page = store.list_webhooks_by_event(event, max_results=100, page_token=page_token)
-  File "/Users/user/mlflow_learn/.venv/lib/python3.10/site-packages/mlflow/store/model_registry/abstract_store.py", line 1188, in list_webhooks_by_event
-    raise NotImplementedError(
-NotImplementedError: FileStore does not support list_webhooks_by_event
-INFO:     127.0.0.1:56522 - "POST /api/2.0/mlflow/registered-models/create HTTP/1.1" 200 OK
-2025/09/09 17:22:20 ERROR mlflow.webhooks.delivery: Failed to deliver webhook for event model_version.created: FileStore does not support list_webhooks_by_event
-Traceback (most recent call last):
-  File "/Users/user/mlflow_learn/.venv/lib/python3.10/site-packages/mlflow/webhooks/delivery.py", line 304, in deliver_webhook
-    _deliver_webhook_impl(event=event, payload=payload, store=store)
-  File "/Users/user/mlflow_learn/.venv/lib/python3.10/site-packages/mlflow/webhooks/delivery.py", line 285, in _deliver_webhook_impl
-    webhooks = _get_cached_webhooks_by_event(store, event, ttl_seconds)
-  File "/Users/user/mlflow_learn/.venv/lib/python3.10/site-packages/mlflow/webhooks/delivery.py", line 249, in _get_cached_webhooks_by_event
-    page = store.list_webhooks_by_event(event, max_results=100, page_token=page_token)
-  File "/Users/user/mlflow_learn/.venv/lib/python3.10/site-packages/mlflow/store/model_registry/abstract_store.py", line 1188, in list_webhooks_by_event
-    raise NotImplementedError(
+  ...
 NotImplementedError: FileStore does not support list_webhooks_by_event
 ```
 
