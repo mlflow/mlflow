@@ -72,7 +72,7 @@ jobs:
 
       - name: Test clint
         run: |
-          uv --only-group lint pytest --confcutdir=dev/clint dev/clint
+          uv run --only-group lint pytest --confcutdir=dev/clint dev/clint
 
       - run: |
           uv run --no-project dev/check_function_signatures.py
