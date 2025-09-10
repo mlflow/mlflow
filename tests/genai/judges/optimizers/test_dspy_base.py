@@ -345,7 +345,7 @@ def test_construct_dspy_lm_utility_method(model, expected_type):
         assert ":/" not in result.model
 
 
-def test_align_uses_construct_dspy_lm(sample_traces_with_assessments):
+def test_align_constructs_dspy_lm(sample_traces_with_assessments):
     """Test that align method uses _construct_dspy_lm utility method."""
     from tests.genai.judges.optimizers.conftest import MockJudge
 
@@ -359,11 +359,10 @@ def test_align_uses_construct_dspy_lm(sample_traces_with_assessments):
         mock_construct.return_value = MagicMock()
         optimizer.align(mock_judge, sample_traces_with_assessments)
 
-        # Should have called utility method
         assert mock_construct.called
 
 
-def test_align_uses_default_model(sample_traces_with_assessments):
+def test_align_uses_default_dspy_lm(sample_traces_with_assessments):
     """Test that align method uses _construct_dspy_lm with default model when no model specified."""
     from tests.genai.judges.optimizers.conftest import MockJudge
 
