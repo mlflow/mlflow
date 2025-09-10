@@ -160,6 +160,22 @@ exclude = ["tests", "tests.*"]
 # -----------------------------------------------------------------
 # Dev tool settings: can be updated manually
 
+[dependency-groups]
+lint = [
+  "ruff==0.12.10",
+  "black[jupyter]==23.7.0",
+  "blacken-docs==1.18.0",
+  "pre-commit==4.0.1",
+  "toml==0.10.2",
+  "mypy==1.17.1",
+  "pytest==8.4.0",
+  "pydantic==2.11.7",
+  "clint",
+]
+
+[tool.uv.sources]
+clint = { path = "./dev/clint" }
+
 [tool.ruff]
 line-length = 100
 target-version = "py310"
