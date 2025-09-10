@@ -283,16 +283,9 @@ class InstructionsJudge(Judge):
         """Build the user message with field values."""
         template_values = self._build_template_values(inputs, outputs, expectations)
 
-        # For trace-based, exclude {{ trace }} from the fields to include
-        field_vars = (
-            [
-                var
-                for var in self._ordered_template_variables
-                if var != self._TEMPLATE_VARIABLE_TRACE
-            ]
-            if is_trace_based
-            else self._ordered_template_variables
-        )
+        field_vars = [
+            var for var in self._ordered_template_variables if var != self._TEMPLATE_VARIABLE_TRACE
+        ]
 
         # Build user message parts in order
         user_message_parts = []
