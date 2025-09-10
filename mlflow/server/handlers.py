@@ -3008,11 +3008,16 @@ def get_trace_artifact_handler():
         )
 
     trace_info = _get_tracking_store().get_trace_info(request_id)
-    trace_data = _get_trace_artifact_repo(trace_info).download_trace_data()
+    trace_data_dict = _get_trace_artifact_repo(trace_info).download_trace_data()
+
+    from mlflow.entities.trace_data import TraceData
+
+    trace_data = TraceData.from_dict(trace_data_dict)
+    trace_data_export = trace_data.to_dict_for_export()
 
     # Write data to a BytesIO buffer instead of needing to save a temp file
     buf = io.BytesIO()
-    buf.write(json.dumps(trace_data).encode())
+    buf.write(json.dumps(trace_data_export).encode())
     buf.seek(0)
 
     file_sender_response = send_file(

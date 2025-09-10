@@ -5118,10 +5118,16 @@ async def test_log_spans(store: SqlAlchemyStore, is_async: bool):
 
         content_dict = json.loads(saved_span.content)
         assert content_dict["name"] == "test_span"
-        assert content_dict["attributes"]["mlflow.spanInputs"] == {"input": "test_input"}
-        assert content_dict["attributes"]["mlflow.spanOutputs"] == {"output": "test_output"}
+        assert content_dict["attributes"]["mlflow.spanInputs"] == json.dumps(
+            {"input": "test_input"}, cls=TraceJSONEncoder
+        )
+        assert content_dict["attributes"]["mlflow.spanOutputs"] == json.dumps(
+            {"output": "test_output"}, cls=TraceJSONEncoder
+        )
         expected_type = "LLM" if not is_async else "CHAIN"
-        assert content_dict["attributes"]["mlflow.spanType"] == expected_type
+        assert content_dict["attributes"]["mlflow.spanType"] == json.dumps(
+            expected_type, cls=TraceJSONEncoder
+        )
 
 
 @pytest.mark.asyncio

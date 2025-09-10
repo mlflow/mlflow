@@ -581,14 +581,14 @@ def test_span_attributes_not_double_stringified():
 
     attributes = span_dict["attributes"]
 
-    assert attributes[SpanAttributeKey.INPUTS] == test_input
+    assert attributes[SpanAttributeKey.INPUTS] == json.dumps(test_input)
     assert isinstance(attributes[SpanAttributeKey.INPUTS], str)
 
-    assert attributes[SpanAttributeKey.OUTPUTS] == test_output
-    assert isinstance(attributes[SpanAttributeKey.OUTPUTS], dict)
+    assert attributes[SpanAttributeKey.OUTPUTS] == json.dumps(test_output)
+    assert isinstance(attributes[SpanAttributeKey.OUTPUTS], str)
 
     trace_data = TraceData(spans=[span])
-    trace_dict = trace_data.to_dict()
+    trace_dict = trace_data.to_dict_for_export()
 
     trace_json = json.dumps(trace_dict)
 

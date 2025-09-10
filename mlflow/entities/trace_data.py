@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -28,6 +29,34 @@ class TraceData:
 
     def to_dict(self) -> dict[str, Any]:
         return {"spans": [span.to_dict() for span in self.spans]}
+
+    def to_dict_for_export(self) -> dict[str, Any]:
+        """
+        Convert to dict for external export (e.g., trace artifacts).
+        This method deserializes JSON-stringified attributes to prevent double stringification.
+        """
+        result = {"spans": []}
+        for span in self.spans:
+            span_dict = span.to_dict()
+
+            if "attributes" in span_dict:
+                keys_to_deserialize = [
+                    SpanAttributeKey.INPUTS,
+                    SpanAttributeKey.OUTPUTS,
+                    SpanAttributeKey.SPAN_TYPE,
+                ]
+                for key in keys_to_deserialize:
+                    if key in span_dict["attributes"] and isinstance(
+                        span_dict["attributes"][key], str
+                    ):
+                        try:
+                            span_dict["attributes"][key] = json.loads(span_dict["attributes"][key])
+                        except (json.JSONDecodeError, TypeError):
+                            pass
+
+            result["spans"].append(span_dict)
+
+        return result
 
     @property
     def intermediate_outputs(self) -> dict[str, Any] | None:
