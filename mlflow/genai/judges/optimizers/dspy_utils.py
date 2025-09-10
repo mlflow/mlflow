@@ -53,12 +53,22 @@ def _process_chat_completions(
                     "message": {"role": "assistant", "content": response.output},
                 }
             ],
+            "usage": {
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+            },
             "response_format": "json_object",
         }
     else:
         result_dict = {
             "object": "response",
             "error": response.error_message,
+            "usage": {
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+            },
             "response_format": "json_object",
         }
 

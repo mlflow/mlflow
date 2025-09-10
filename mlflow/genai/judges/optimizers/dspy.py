@@ -33,7 +33,7 @@ except ImportError:
 _logger = logging.getLogger(__name__)
 
 
-def _construct_dspy_lm(model: str):
+def construct_dspy_lm(model: str):
     """
     Create a dspy.LM instance from a given model.
 
@@ -123,7 +123,7 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
 
             def __init__(self, judge):
                 super().__init__(create_dspy_signature(judge))
-                self._lm = _construct_dspy_lm(judge.model)
+                self._lm = construct_dspy_lm(judge.model)
 
             def forward(self, *args, **kwargs):
                 # If an LM is supplied via kwargs, use that, else use self.lm
@@ -161,7 +161,7 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
 
             # Configure DSPy to use the optimizer's model
             # This ensures the optimizer uses its own model, separate from the judge's model
-            optimizer_lm = _construct_dspy_lm(self._model)
+            optimizer_lm = construct_dspy_lm(self._model)
 
             with dspy.context(lm=optimizer_lm):
                 # Create DSPy program that will simulate the judge

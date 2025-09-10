@@ -331,11 +331,11 @@ def test_dspy_align_litellm_nonfatal_error_messages_suppressed():
     ],
 )
 def test_construct_dspy_lm_utility_method(model, expected_type):
-    """Test the _construct_dspy_lm utility method with different model types."""
-    from mlflow.genai.judges.optimizers.dspy import _construct_dspy_lm
+    """Test the construct_dspy_lm utility method with different model types."""
+    from mlflow.genai.judges.optimizers.dspy import construct_dspy_lm
     from mlflow.genai.judges.optimizers.dspy_utils import AgentEvalLM
 
-    result = _construct_dspy_lm(model)
+    result = construct_dspy_lm(model)
 
     if expected_type == "AgentEvalLM":
         assert isinstance(result, AgentEvalLM)
@@ -346,14 +346,14 @@ def test_construct_dspy_lm_utility_method(model, expected_type):
 
 
 def test_align_constructs_dspy_lm(sample_traces_with_assessments):
-    """Test that align method uses _construct_dspy_lm utility method."""
+    """Test that align method uses construct_dspy_lm utility method."""
     from tests.genai.judges.optimizers.conftest import MockJudge
 
     mock_judge = MockJudge(name="mock_judge", model="openai:/gpt-4")
     optimizer = ConcreteDSPyOptimizer(model="anthropic:/claude-3")
 
     with (
-        patch("mlflow.genai.judges.optimizers.dspy._construct_dspy_lm") as mock_construct,
+        patch("mlflow.genai.judges.optimizers.dspy.construct_dspy_lm") as mock_construct,
         patch.object(ConcreteDSPyOptimizer, "get_min_traces_required", return_value=5),
     ):
         mock_construct.return_value = MagicMock()
@@ -363,7 +363,7 @@ def test_align_constructs_dspy_lm(sample_traces_with_assessments):
 
 
 def test_align_uses_default_dspy_lm(sample_traces_with_assessments):
-    """Test that align method uses _construct_dspy_lm with default model when no model specified."""
+    """Test that align method uses construct_dspy_lm with default model when no model specified."""
     from tests.genai.judges.optimizers.conftest import MockJudge
 
     mock_judge = MockJudge(name="mock_judge", model="openai:/gpt-4")
@@ -372,7 +372,7 @@ def test_align_uses_default_dspy_lm(sample_traces_with_assessments):
         optimizer = ConcreteDSPyOptimizer()  # No model specified, should use default
 
     with (
-        patch("mlflow.genai.judges.optimizers.dspy._construct_dspy_lm") as mock_construct,
+        patch("mlflow.genai.judges.optimizers.dspy.construct_dspy_lm") as mock_construct,
         patch.object(ConcreteDSPyOptimizer, "get_min_traces_required", return_value=5),
     ):
         mock_construct.return_value = MagicMock()
