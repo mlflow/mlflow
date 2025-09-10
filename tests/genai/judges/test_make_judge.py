@@ -1312,6 +1312,7 @@ def test_trace_prompt_augmentation(mock_trace, monkeypatch):
 
     assert "expert judge" in captured_prompt
     assert "step-by-step record" in captured_prompt
+    assert "refer to a placeholder called {{ trace }}" in captured_prompt
     assert "provided to you" in captured_prompt
     assert "Evaluation Rating Fields" in captured_prompt
     assert "- result: The evaluation rating/result" in captured_prompt
