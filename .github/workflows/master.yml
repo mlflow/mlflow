@@ -337,7 +337,6 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh
           pip install tensorflow 'pyspark[connect]'
-          pip install typing_extensions -U
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
