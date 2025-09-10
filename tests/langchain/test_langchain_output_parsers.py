@@ -110,6 +110,10 @@ async def async_message_generator(messages):
         yield message
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="Test requires langchain >= 0.2.0 for availability of BaseMessage",
+)
 @pytest.mark.asyncio
 async def test_chatcompletion_output_parser_atransform():
     parser = ChatCompletionOutputParser()
