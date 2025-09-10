@@ -2293,3 +2293,47 @@ def test_trace_only_template_uses_two_messages_with_empty_user(mock_invoke_judge
     user_msg = prompt[1]
     assert user_msg.role == "user"
     assert user_msg.content == ""  # Empty user message for trace-only
+
+
+def test_no_warning_when_extracting_fields_from_trace(mock_invoke_judge_model):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate {{ inputs }} and {{ outputs }}",
+        model="openai:/gpt-4",
+    )
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs({"question": "What is AI?"})
+        span.set_outputs({"answer": "Artificial Intelligence"})
+
+    trace = mlflow.get_trace(span.trace_id)
+
+    # Call judge with only trace - should extract inputs/outputs from it
+    with mock.patch("mlflow.genai.judges.instructions_judge._logger.warning") as mock_warning:
+        judge(trace=trace)
+
+        # Should NOT warn about trace being unused - it's used for extraction
+        mock_warning.assert_not_called()
+
+    # Verify the extraction worked
+    prompt = mock_invoke_judge_model.captured_args["prompt"]
+    assert "What is AI?" in prompt[1].content
+    assert "Artificial Intelligence" in prompt[1].content
+
+
+def test_warning_shown_for_explicitly_provided_unused_fields(mock_invoke_judge_model):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate {{ inputs }} only",
+        model="openai:/gpt-4",
+    )
+
+    # Explicitly provide outputs which isn't used in template
+    with mock.patch("mlflow.genai.judges.instructions_judge._logger.warning") as mock_warning:
+        judge(inputs="What is AI?", outputs="This output is not used by the template")
+
+        # Should warn about outputs being unused
+        mock_warning.assert_called_once()
+        warning_message = mock_warning.call_args[0][0]
+        assert "outputs" in warning_message
+        assert "not used by this judge" in warning_message

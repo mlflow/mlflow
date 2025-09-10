@@ -369,13 +369,19 @@ class InstructionsJudge(Judge):
         """
         self._validate_parameter_types(expectations, trace)
 
+        original_inputs = inputs
+        original_outputs = outputs
+        original_expectations = expectations
+
         if trace is not None:
             inputs = self._resolve_inputs_from_trace(inputs, trace)
             outputs = self._resolve_outputs_from_trace(outputs, trace)
             expectations = self._resolve_expectations_from_trace(expectations, trace)
 
         self._check_required_parameters(inputs, outputs, expectations, trace)
-        self._warn_unused_parameters(inputs, outputs, expectations, trace)
+        self._warn_unused_parameters(
+            original_inputs, original_outputs, original_expectations, trace
+        )
 
         is_trace_based = self._TEMPLATE_VARIABLE_TRACE in self.template_variables
 
