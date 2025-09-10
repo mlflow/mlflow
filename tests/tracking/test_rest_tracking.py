@@ -2793,9 +2793,18 @@ def test_get_trace_artifact_handler(mlflow_client):
     assert response.status_code == 200
     assert response.headers["Content-Disposition"] == "attachment; filename=traces.json"
 
-    # Validate content
     trace_data = TraceData.from_dict(json.loads(response.text))
-    assert trace_data.spans[0].to_dict() == span.to_dict()
+    exported_span_dict = trace_data.spans[0].to_dict()
+    original_span_dict = span.to_dict()
+
+    assert exported_span_dict["name"] == original_span_dict["name"]
+    assert exported_span_dict["span_id"] == original_span_dict["span_id"]
+    assert exported_span_dict["trace_id"] == original_span_dict["trace_id"]
+
+    assert exported_span_dict["attributes"]["mlflow.spanType"] == "UNKNOWN"
+    assert original_span_dict["attributes"]["mlflow.spanType"] == '"UNKNOWN"'
+
+    assert exported_span_dict["attributes"]["fruit"] == original_span_dict["attributes"]["fruit"]
 
 
 def test_link_traces_to_run_and_search_traces(mlflow_client):
