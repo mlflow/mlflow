@@ -971,3 +971,9 @@ _MLFLOW_TELEMETRY_LOGGING = _BooleanEnvironmentVariable("_MLFLOW_TELEMETRY_LOGGI
 #: This should never be set by users or explicitly.
 #: (default: ``None``)
 _MLFLOW_SGI_NAME = _EnvironmentVariable("_MLFLOW_SGI_NAME", str, None)
+
+#: Maximum number of concurrent prompt optimization jobs that can run simultaneously.
+#: (default: ``3``)
+MLFLOW_MAX_CONCURRENT_PROMPT_OPTIMIZATION_JOBS = _EnvironmentVariable(
+    "MLFLOW_MAX_CONCURRENT_PROMPT_OPTIMIZATION_JOBS", int, 3
+)
