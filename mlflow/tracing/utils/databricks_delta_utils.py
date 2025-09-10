@@ -25,7 +25,7 @@ from mlflow.protos.databricks_trace_server_pb2 import (
 from mlflow.protos.databricks_trace_server_pb2 import (
     TraceLocation as ProtoTraceLocation,
 )
-from mlflow.utils.databricks_utils import get_databricks_host_creds
+from mlflow.utils.databricks_utils import get_databricks_host_creds, get_workspace_url
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import call_endpoint
 
@@ -40,6 +40,15 @@ def _get_workspace_id():
         return WorkspaceClient().get_workspace_id()
     except ImportError as e:
         raise ImportError("databricks-sdk is required for trace archival functionality") from e
+
+
+def _get_host():
+    """Get host from Databricks context."""
+    host = get_workspace_url()
+    if not host:
+        host_creds = get_databricks_host_creds()
+        host = host_creds.host
+    return host
 
 
 def create_archival_zerobus_sdk():
@@ -115,7 +124,6 @@ def _resolve_ingest_url() -> str:
     """
     from mlflow.environment_variables import MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL
     from mlflow.exceptions import MlflowException
-    from mlflow.utils.databricks_utils import get_databricks_host_creds
 
     # Check for environment variable override first
     override_url = MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL.get()
@@ -123,8 +131,8 @@ def _resolve_ingest_url() -> str:
         _logger.debug(f"Using ingest URL from environment variable: {override_url}")
         return override_url
 
-    # Get host credentials from Databricks context
-    host_creds = get_databricks_host_creds()
+    # Get host from Databricks context
+    host_url = _get_host()
 
     try:
         workspace_id = _get_workspace_id()
@@ -136,7 +144,6 @@ def _resolve_ingest_url() -> str:
                 "parameter."
             )
 
-        host_url = host_creds.host
         _logger.debug(f"Resolving ingest URL from host: {host_url}")
 
         # Remove protocol if present
@@ -217,7 +224,6 @@ def _resolve_archival_workspace_url() -> str:
         my-workspace.cloud.databricks.com
     """
     from mlflow.environment_variables import MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL
-    from mlflow.utils.databricks_utils import get_databricks_host_creds
 
     # Check for environment variable override first
     override_url = MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL.get()
@@ -225,9 +231,8 @@ def _resolve_archival_workspace_url() -> str:
         _logger.debug(f"Using workspace URL from environment variable: {override_url}")
         return override_url
 
-    # Get workspace URL from Databricks host credentials
-    host_creds = get_databricks_host_creds()
-    workspace_url = host_creds.host
+    # Get workspace URL from Databricks context
+    workspace_url = _get_host()
 
     # Remove protocol if present to ensure consistency with ingest URL format
     if workspace_url.startswith(("http://", "https://")):
@@ -264,7 +269,6 @@ def _resolve_archival_token() -> str:
     """
     from mlflow.environment_variables import MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN
     from mlflow.exceptions import MlflowException
-    from mlflow.utils.databricks_utils import get_databricks_host_creds
 
     # Check for environment variable override first
     override_token = MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN.get()
