@@ -14,7 +14,12 @@ import mlflow
 import mlflow.genai
 import mlflow.genai.judges.instructions_judge
 from mlflow.entities import Span, SpanType, Trace, TraceData, TraceInfo
-from mlflow.entities.assessment import Feedback
+from mlflow.entities.assessment import (
+    AssessmentSource,
+    AssessmentSourceType,
+    Expectation,
+    Feedback,
+)
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
@@ -492,16 +497,6 @@ def test_valid_model_formats(monkeypatch, model):
             "openai:/gpt-4",
             "Instructions template contains unsupported variables",
         ),
-        (
-            "Analyze {{ trace }} and {{ inputs }}",
-            "openai:/gpt-4",
-            "Instructions template cannot contain both 'trace' and 'inputs'/'outputs'",
-        ),
-        (
-            "Analyze {{ trace }} and {{ outputs }}",
-            "openai:/gpt-4",
-            "Instructions template cannot contain both 'trace' and 'inputs'/'outputs'",
-        ),
     ],
 )
 def test_trace_variable_restrictions(instructions, model, error_pattern):
@@ -509,17 +504,32 @@ def test_trace_variable_restrictions(instructions, model, error_pattern):
         make_judge(name="test_judge", instructions=instructions, model=model)
 
 
-def test_trace_with_expectations_not_allowed():
-    # expectations should not be allowed with trace yet (TODO: implement in followup)
-    with pytest.raises(
-        MlflowException,
-        match="When submitting a 'trace' variable, expectations are not yet supported",
-    ):
-        make_judge(
-            name="test_judge",
-            instructions="Analyze {{ trace }} against {{ expectations }}",
-            model="openai:/gpt-4",
-        )
+def test_trace_with_inputs_outputs_allowed():
+    judge1 = make_judge(
+        name="test_judge",
+        instructions="Analyze {{ trace }} and {{ inputs }}",
+        model="openai:/gpt-4",
+    )
+    assert judge1.template_variables == {"trace", "inputs"}
+
+    judge2 = make_judge(
+        name="test_judge",
+        instructions="Analyze {{ trace }} and {{ outputs }}",
+        model="openai:/gpt-4",
+    )
+    assert judge2.template_variables == {"trace", "outputs"}
+
+
+def test_trace_with_expectations_allowed():
+    judge = make_judge(
+        name="test_judge",
+        instructions="Analyze {{ trace }} against {{ expectations }}",
+        model="openai:/gpt-4",
+    )
+
+    assert judge is not None
+    assert "trace" in judge.template_variables
+    assert "expectations" in judge.template_variables
 
 
 def test_call_with_trace_supported(mock_trace, monkeypatch):
@@ -734,8 +744,18 @@ def test_kind_property():
     ("inputs", "outputs", "expectations", "should_fail"),
     [
         ({"text": "hello", "result": "world"}, None, None, True),  # Missing outputs
-        ({"text": "hello"}, {"result": "world"}, None, False),  # Valid: both inputs and outputs
-        ({"text": "hello"}, {"result": "world"}, {"expected": "world"}, False),  # Valid: all
+        (
+            {"text": "hello"},
+            {"result": "world"},
+            None,
+            False,
+        ),  # Valid: both inputs and outputs
+        (
+            {"text": "hello"},
+            {"result": "world"},
+            {"expected": "world"},
+            False,
+        ),  # Valid: all
         (None, {"text": "hello", "result": "world"}, None, True),  # Missing inputs
     ],
 )
@@ -1140,7 +1160,10 @@ def test_instructions_judge_deserialization_validation():
         "aggregations": None,
         "mlflow_version": mlflow.__version__,
         "serialization_version": 1,
-        "instructions_judge_pydantic_data": {"instructions": 123, "model": "openai:/gpt-4"},
+        "instructions_judge_pydantic_data": {
+            "instructions": 123,
+            "model": "openai:/gpt-4",
+        },
         "builtin_scorer_class": None,
         "builtin_scorer_pydantic_data": None,
         "call_source": None,
@@ -1310,15 +1333,19 @@ def test_trace_prompt_augmentation(mock_trace, monkeypatch):
 
     judge(trace=mock_trace)
 
-    assert "expert judge" in captured_prompt
-    assert "step-by-step record" in captured_prompt
-    assert "refer to a placeholder called {{ trace }}" in captured_prompt
-    assert "provided to you" in captured_prompt
-    assert "Evaluation Rating Fields" in captured_prompt
-    assert "- result: The evaluation rating/result" in captured_prompt
-    assert "- rationale: Detailed explanation for the evaluation" in captured_prompt
-    assert "Instructions" in captured_prompt
-    assert "Analyze this {{ trace }} for quality" in captured_prompt
+    assert isinstance(captured_prompt, list)
+    assert len(captured_prompt) == 2
+
+    system_content = captured_prompt[0].content
+    assert captured_prompt[0].role == "system"
+    assert "expert judge" in system_content
+    assert "step-by-step record" in system_content
+    assert "provided to you" in system_content
+    assert "Evaluation Rating Fields" in system_content
+    assert "- result: The evaluation rating/result" in system_content
+    assert "- rationale: Detailed explanation for the evaluation" in system_content
+    assert "Instructions" in system_content
+    assert "Analyze this {{ trace }} for quality" in system_content
 
 
 @pytest.mark.parametrize(
@@ -1373,7 +1400,7 @@ def test_judge_accepts_various_input_output_data_types(
 def test_judge_rejects_scalar_expectations():
     judge = make_judge(
         name="test_judge",
-        instructions="Compare {{outputs}} to {{expectations}}",
+        instructions="Compare {{ outputs }} to {{ expectations }}",
         model="openai:/gpt-4",
     )
 
@@ -1387,7 +1414,7 @@ def test_judge_rejects_scalar_expectations():
 def test_judge_accepts_valid_dict_inputs(mock_invoke_judge_model):
     judge = make_judge(
         name="test_judge",
-        instructions="Check if {{inputs}} and {{outputs}} are valid",
+        instructions="Check if {{ inputs }} and {{ outputs }} are valid",
         model="openai:/gpt-4",
     )
 
@@ -1410,7 +1437,7 @@ def test_judge_accepts_valid_dict_inputs(mock_invoke_judge_model):
 def test_judge_rejects_invalid_trace():
     judge = make_judge(
         name="test_judge",
-        instructions="Analyze this {{trace}}",
+        instructions="Analyze this {{ trace }}",
         model="openai:/gpt-4",
     )
 
@@ -1422,7 +1449,7 @@ def test_judge_rejects_invalid_trace():
 
     inputs_judge = make_judge(
         name="inputs_judge",
-        instructions="Check {{inputs}}",
+        instructions="Check {{ inputs }}",
         model="openai:/gpt-4",
     )
     with pytest.raises(MlflowException, match="Must specify 'inputs'"):
@@ -1432,7 +1459,7 @@ def test_judge_rejects_invalid_trace():
 def test_judge_accepts_valid_trace(mock_trace, mock_invoke_judge_model):
     judge = make_judge(
         name="test_judge",
-        instructions="Analyze this {{trace}}",
+        instructions="Analyze this {{ trace }}",
         model="openai:/gpt-4",
     )
 
@@ -1480,10 +1507,12 @@ def test_instructions_judge_with_chat_messages():
     captured_args.clear()
 
     with mock.patch(
-        "mlflow.genai.judges.instructions_judge.invoke_judge_model", side_effect=capture_invoke
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        side_effect=capture_invoke,
     ):
         result = judge(
-            inputs={"question": "What is MLflow?"}, outputs={"response": "MLflow is great"}
+            inputs={"question": "What is MLflow?"},
+            outputs={"response": "MLflow is great"},
         )
 
     assert result.value is True
@@ -1495,6 +1524,24 @@ def test_instructions_judge_with_chat_messages():
     assert all(isinstance(msg, ChatMessage) for msg in prompt_sent)
     assert prompt_sent[0].role == "system"
     assert prompt_sent[1].role == "user"
+
+
+def test_trace_field_extraction_for_inputs_outputs_template(mock_invoke_judge_model):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate if {{ outputs }} correctly answers {{ inputs }}",
+        model="openai:/gpt-4",
+    )
+
+    trace_inputs = {"question": "What is MLflow?"}
+    trace_outputs = {"answer": "MLflow is an open source platform"}
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs(trace_inputs)
+        span.set_outputs(trace_outputs)
+
+    trace = mlflow.get_trace(span.trace_id)
+    judge(trace=trace)
 
 
 @pytest.mark.parametrize(
@@ -1592,6 +1639,377 @@ def test_context_labels_added_to_interpolated_values(mock_invoke_judge_model):
     assert outputs_pos < inputs_pos < expectations_pos
 
 
+def test_trace_field_extraction_with_non_dict_values(mock_invoke_judge_model):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate if {{ outputs }} correctly answers {{ inputs }}",
+        model="openai:/gpt-4",
+    )
+
+    trace_inputs = "What is MLflow?"
+    trace_outputs = "MLflow is an open source platform"
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs(trace_inputs)
+        span.set_outputs(trace_outputs)
+
+    trace = mlflow.get_trace(span.trace_id)
+    judge(trace=trace)
+
+    assert len(mock_invoke_judge_model.calls) == 1
+    _, prompt, _ = mock_invoke_judge_model.calls[0]
+
+    user_msg = prompt[1]
+    user_content = user_msg.content
+
+    expected_inputs_json = json.dumps(trace_inputs, default=str, indent=2)
+    expected_outputs_json = json.dumps(trace_outputs, default=str, indent=2)
+
+    assert f"inputs: {expected_inputs_json}" in user_content
+    assert f"outputs: {expected_outputs_json}" in user_content
+
+
+def test_trace_field_extraction_with_expectations(mock_invoke_judge_model):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate if {{ outputs }} meets {{ expectations }} for {{ inputs }}",
+        model="openai:/gpt-4",
+    )
+
+    trace_inputs = {"question": "What is MLflow?"}
+    trace_outputs = {"answer": "MLflow is an open source platform"}
+    expected_answer = {"expected": "MLflow is an open source platform for managing ML lifecycle"}
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs(trace_inputs)
+        span.set_outputs(trace_outputs)
+
+    trace = mlflow.get_trace(span.trace_id)
+
+    expectation = Expectation(
+        name="expected_answer",
+        value=expected_answer,
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+    )
+    mlflow.log_assessment(trace_id=span.trace_id, assessment=expectation)
+
+    trace = mlflow.get_trace(span.trace_id)
+    judge(trace=trace)
+
+    assert len(mock_invoke_judge_model.calls) == 1
+    _, prompt, _ = mock_invoke_judge_model.calls[0]
+
+    user_msg = prompt[1]
+    user_content = user_msg.content
+
+    expected_inputs_json = json.dumps(trace_inputs, default=str, indent=2)
+    expected_outputs_json = json.dumps(trace_outputs, default=str, indent=2)
+    expected_expectations_json = json.dumps(
+        {"expected_answer": expected_answer}, default=str, indent=2
+    )
+
+    assert f"inputs: {expected_inputs_json}" in user_content
+    assert f"outputs: {expected_outputs_json}" in user_content
+    assert f"expectations: {expected_expectations_json}" in user_content
+
+
+def test_trace_field_extraction_with_multiple_expectations(mock_invoke_judge_model):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate if {{ outputs }} meets {{ expectations }}",
+        model="openai:/gpt-4",
+    )
+
+    trace_outputs = {"answer": "MLflow is an open source platform"}
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_outputs(trace_outputs)
+
+    trace = mlflow.get_trace(span.trace_id)
+
+    expectation1 = Expectation(
+        name="format",
+        value="Should be a complete sentence",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+    )
+    expectation2 = Expectation(
+        name="content",
+        value="Should mention open source",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+    )
+
+    mlflow.log_assessment(trace_id=span.trace_id, assessment=expectation1)
+    mlflow.log_assessment(trace_id=span.trace_id, assessment=expectation2)
+
+    trace = mlflow.get_trace(span.trace_id)
+    judge(trace=trace)
+
+    assert len(mock_invoke_judge_model.calls) == 1
+    _, prompt, _ = mock_invoke_judge_model.calls[0]
+
+    user_msg = prompt[1]
+    user_content = user_msg.content
+
+    expected_expectations = {
+        "format": "Should be a complete sentence",
+        "content": "Should mention open source",
+    }
+    expected_expectations_json = json.dumps(expected_expectations, default=str, indent=2)
+
+    assert f"expectations: {expected_expectations_json}" in user_content
+
+
+def test_trace_field_extraction_filters_non_human_expectations(mock_invoke_judge_model):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate if {{ outputs }} meets {{ expectations }}",
+        model="openai:/gpt-4",
+    )
+
+    trace_outputs = {"answer": "MLflow is an open source platform"}
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_outputs(trace_outputs)
+
+    trace = mlflow.get_trace(span.trace_id)
+
+    human_expectation = Expectation(
+        name="ground_truth",
+        value="Expected from human",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+    )
+    llm_expectation = Expectation(
+        name="llm_prediction",
+        value="Expected from LLM",
+        source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE),
+    )
+    code_expectation = Expectation(
+        name="code_prediction",
+        value="Expected from code",
+        source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+    )
+
+    mlflow.log_assessment(trace_id=span.trace_id, assessment=human_expectation)
+    mlflow.log_assessment(trace_id=span.trace_id, assessment=llm_expectation)
+    mlflow.log_assessment(trace_id=span.trace_id, assessment=code_expectation)
+
+    trace = mlflow.get_trace(span.trace_id)
+    judge(trace=trace)
+
+    assert len(mock_invoke_judge_model.calls) == 1
+    _, prompt, _ = mock_invoke_judge_model.calls[0]
+
+    user_msg = prompt[1]
+    user_content = user_msg.content
+
+    assert "Expected from human" in user_content
+    assert "Expected from LLM" not in user_content
+    assert "Expected from code" not in user_content
+
+
+def test_trace_with_trace_template_ignores_extraction(mock_invoke_judge_model):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate the {{ trace }} for quality",
+        model="openai:/gpt-4",
+    )
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs({"question": "What is MLflow?"})
+        span.set_outputs({"answer": "MLflow is an open source platform"})
+
+    trace = mlflow.get_trace(span.trace_id)
+    judge(trace=trace)
+
+    assert len(mock_invoke_judge_model.calls) == 1
+    _, prompt, _ = mock_invoke_judge_model.calls[0]
+
+    # Now prompt is a list of ChatMessages
+    assert isinstance(prompt, list)
+    assert len(prompt) == 2
+    assert prompt[0].role == "system"
+    assert "analyze a trace" in prompt[0].content.lower()
+
+
+def test_field_based_template_with_trace_and_explicit_inputs(mock_invoke_judge_model):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate if {{ inputs }} matches {{ outputs }}",
+        model="openai:/gpt-4",
+    )
+
+    trace_inputs = {"question": "What is in the trace?"}
+    trace_outputs = {"answer": "Trace answer"}
+    explicit_inputs = {"question": "What is explicitly provided?"}
+    explicit_outputs = {"answer": "Explicit answer"}
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs(trace_inputs)
+        span.set_outputs(trace_outputs)
+
+    trace = mlflow.get_trace(span.trace_id)
+
+    judge(trace=trace, inputs=explicit_inputs, outputs=explicit_outputs)
+
+    assert len(mock_invoke_judge_model.calls) == 1
+    model_uri, prompt, assessment_name = mock_invoke_judge_model.calls[0]
+    messages = prompt
+
+    assert isinstance(messages, list)
+    assert len(messages) == 2
+
+    user_message = messages[1].content
+    assert "explicitly provided" in user_message
+    assert "Explicit answer" in user_message
+    assert "in the trace" not in user_message
+    assert "Trace answer" not in user_message
+
+
+def test_field_based_template_extracts_missing_fields_from_trace(
+    mock_invoke_judge_model,
+):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate if {{ inputs }} matches {{ outputs }}",
+        model="openai:/gpt-4",
+    )
+
+    trace_inputs = {"question": "From trace"}
+    trace_outputs = {"answer": "Trace output"}
+    explicit_inputs = {"question": "Explicitly provided"}
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs(trace_inputs)
+        span.set_outputs(trace_outputs)
+
+    trace = mlflow.get_trace(span.trace_id)
+
+    judge(trace=trace, inputs=explicit_inputs)
+
+    assert len(mock_invoke_judge_model.calls) == 1
+    _, prompt, _ = mock_invoke_judge_model.calls[0]
+    messages = prompt
+
+    user_message = messages[1].content
+    assert "Explicitly provided" in user_message
+    assert "Trace output" in user_message
+
+
+def test_trace_based_template_with_additional_inputs(mock_invoke_judge_model):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate the {{ trace }} considering the reference {{ inputs }}",
+        model="openai:/gpt-4",
+    )
+
+    additional_inputs = {"reference": "This is the expected behavior"}
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs({"question": "What is MLflow?"})
+        span.set_outputs({"answer": "MLflow is an ML platform"})
+
+    trace = mlflow.get_trace(span.trace_id)
+
+    judge(trace=trace, inputs=additional_inputs)
+
+    assert len(mock_invoke_judge_model.calls) == 1
+    _, prompt, _ = mock_invoke_judge_model.calls[0]
+
+    # Now prompt is a list of ChatMessages
+    assert isinstance(prompt, list)
+    assert len(prompt) == 2
+    assert prompt[0].role == "system"
+    assert "analyze a trace" in prompt[0].content.lower()
+
+    # Check that inputs are in the user message
+    user_content = prompt[1].content
+    assert prompt[1].role == "user"
+    expected_inputs_json = json.dumps(additional_inputs, default=str, indent=2)
+    assert expected_inputs_json in user_content
+    assert "reference" in user_content
+    assert "This is the expected behavior" in user_content
+
+    # Template variable should still be in system message
+    assert "{{ inputs }}" in prompt[0].content
+
+
+def test_mixed_template_validation_allows_trace_with_fields():
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate {{ trace }} against {{ inputs }} and {{ outputs }}",
+        model="openai:/gpt-4",
+    )
+
+    assert judge.template_variables == {"trace", "inputs", "outputs"}
+
+
+def test_mixed_trace_and_fields_template_comprehensive(mock_invoke_judge_model):
+    judge = make_judge(
+        name="test_judge",
+        instructions=(
+            "Evaluate the {{ trace }} considering the reference {{ inputs }}, "
+            "expected {{ outputs }}, and ground truth {{ expectations }}"
+        ),
+        model="openai:/gpt-4",
+    )
+
+    assert judge.template_variables == {"trace", "inputs", "outputs", "expectations"}
+
+    trace_inputs = {"question": "What is MLflow?"}
+    trace_outputs = {"answer": "MLflow is an open source platform"}
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs(trace_inputs)
+        span.set_outputs(trace_outputs)
+
+    trace = mlflow.get_trace(span.trace_id)
+
+    additional_inputs = {"reference": "This is the expected input format"}
+    additional_outputs = {"expected_format": "JSON with answer field"}
+    additional_expectations = {"criteria": "Answer must mention ML lifecycle"}
+
+    judge(
+        trace=trace,
+        inputs=additional_inputs,
+        outputs=additional_outputs,
+        expectations=additional_expectations,
+    )
+
+    assert len(mock_invoke_judge_model.calls) == 1
+    _, prompt, _ = mock_invoke_judge_model.calls[0]
+
+    # Now prompt is a list of ChatMessages
+    assert isinstance(prompt, list)
+    assert len(prompt) == 2
+    assert prompt[0].role == "system"
+    assert "analyze a trace" in prompt[0].content.lower()
+
+    # Check that all field values are in the user message
+    user_content = prompt[1].content
+    assert prompt[1].role == "user"
+
+    expected_inputs_json = json.dumps(additional_inputs, default=str, indent=2)
+    expected_outputs_json = json.dumps(additional_outputs, default=str, indent=2)
+    expected_expectations_json = json.dumps(additional_expectations, default=str, indent=2)
+
+    assert expected_inputs_json in user_content
+    assert expected_outputs_json in user_content
+    assert expected_expectations_json in user_content
+
+    assert "reference" in user_content
+    assert "This is the expected input format" in user_content
+    assert "expected_format" in user_content
+    assert "JSON with answer field" in user_content
+    assert "criteria" in user_content
+    assert "Answer must mention ML lifecycle" in user_content
+
+    # Template variables should be in system message
+    assert "{{ inputs }}" in prompt[0].content
+    assert "{{ outputs }}" in prompt[0].content
+    assert "{{ expectations }}" in prompt[0].content
+    assert "{{ trace }}" in prompt[0].content
+
+
 @pytest.mark.parametrize(
     "exception",
     [
@@ -1655,3 +2073,266 @@ def test_non_context_error_does_not_trigger_pruning(monkeypatch):
     )
     with pytest.raises(MlflowException, match="some other error"):
         judge(inputs={"input": "test"}, outputs={"output": "test"})
+
+
+def test_trace_template_with_expectations_extracts_correctly(mock_invoke_judge_model):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Analyze the {{ trace }} to see if it meets {{ expectations }}",
+        model="openai:/gpt-4",
+    )
+
+    trace_inputs = {"question": "What is MLflow?"}
+    trace_outputs = {"answer": "MLflow is an open source platform"}
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs(trace_inputs)
+        span.set_outputs(trace_outputs)
+
+    trace = mlflow.get_trace(span.trace_id)
+
+    expectation = Expectation(
+        name="accuracy",
+        value="Should mention ML lifecycle management",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+    )
+    mlflow.log_assessment(trace_id=span.trace_id, assessment=expectation)
+
+    trace = mlflow.get_trace(span.trace_id)
+
+    result = judge(trace=trace)
+
+    assert result is not None
+    assert mock_invoke_judge_model.captured_args["trace"] == trace
+
+    prompt = mock_invoke_judge_model.captured_args["prompt"]
+    assert isinstance(prompt, list)
+    assert len(prompt) == 2
+
+    system_msg = prompt[0]
+    assert system_msg.role == "system"
+    assert "{{ expectations }}" in system_msg.content
+    assert "Analyze the {{ trace }} to see if it meets {{ expectations }}" in system_msg.content
+
+    user_msg = prompt[1]
+    assert user_msg.role == "user"
+    assert "expectations:" in user_msg.content
+    assert "Should mention ML lifecycle management" in user_msg.content
+
+
+def test_trace_template_with_outputs_not_interpolated(mock_invoke_judge_model):
+    judge = make_judge(
+        name="test_judge",
+        instructions=(
+            "Check the {{ trace }} and ensure {{ outputs }} is valid. REPEAT: {{ outputs }}"
+        ),
+        model="openai:/gpt-4",
+    )
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs({"q": "test"})
+        span.set_outputs({"a": "test"})
+
+    trace = mlflow.get_trace(span.trace_id)
+
+    explicit_outputs = {"result": "test output with special chars: {}, []"}
+    judge(trace=trace, outputs=explicit_outputs)
+
+    prompt = mock_invoke_judge_model.captured_args["prompt"]
+    assert isinstance(prompt, list)
+    assert len(prompt) == 2
+
+    system_msg = prompt[0]
+    assert system_msg.role == "system"
+    assert "{{ outputs }}" in system_msg.content
+    assert (
+        "Check the {{ trace }} and ensure {{ outputs }} is valid. REPEAT: {{ outputs }}"
+        in system_msg.content
+    )
+    assert (
+        "Check the {{ trace }} and ensure test output with special chars" not in system_msg.content
+    )
+
+    user_msg = prompt[1]
+    assert user_msg.role == "user"
+    assert "outputs:" in user_msg.content
+    assert "test output with special chars: {}, []" in user_msg.content
+
+
+def test_trace_template_field_values_appended_not_interpolated(mock_invoke_judge_model):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Analyze {{ trace }} with {{ inputs }}, {{ outputs }}, and {{ expectations }}",
+        model="openai:/gpt-4",
+    )
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs({"q": "from trace"})
+        span.set_outputs({"a": "from trace"})
+
+    trace = mlflow.get_trace(span.trace_id)
+
+    expectation = Expectation(
+        name="test_exp",
+        value="expected value",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+    )
+    mlflow.log_assessment(trace_id=span.trace_id, assessment=expectation)
+
+    trace = mlflow.get_trace(span.trace_id)
+
+    explicit_inputs = {"custom": "explicit input"}
+    judge(trace=trace, inputs=explicit_inputs)
+
+    prompt = mock_invoke_judge_model.captured_args["prompt"]
+    assert isinstance(prompt, list)
+    assert len(prompt) == 2
+
+    system_msg = prompt[0]
+    assert system_msg.role == "system"
+    assert "{{ trace }}" in system_msg.content
+    assert "{{ inputs }}" in system_msg.content
+    assert "{{ outputs }}" in system_msg.content
+    assert "{{ expectations }}" in system_msg.content
+    assert (
+        "Analyze {{ trace }} with {{ inputs }}, {{ outputs }}, and {{ expectations }}"
+        in system_msg.content
+    )
+
+    user_msg = prompt[1]
+    assert user_msg.role == "user"
+    assert "inputs:" in user_msg.content
+    assert "explicit input" in user_msg.content
+    assert "outputs:" in user_msg.content
+    assert "from trace" in user_msg.content
+    assert "expectations:" in user_msg.content
+    assert "expected value" in user_msg.content
+
+
+def test_trace_template_with_all_fields_extraction(mock_invoke_judge_model):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate {{ trace }} against {{ inputs }}, {{ outputs }}, {{ expectations }}",
+        model="openai:/gpt-4",
+    )
+
+    trace_inputs = {"question": "What is AI?"}
+    trace_outputs = {"answer": "Artificial Intelligence"}
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs(trace_inputs)
+        span.set_outputs(trace_outputs)
+
+    trace = mlflow.get_trace(span.trace_id)
+
+    exp1 = Expectation(
+        name="clarity",
+        value="Should be clear",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+    )
+    exp2 = Expectation(
+        name="accuracy",
+        value="Should be accurate",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+    )
+    mlflow.log_assessment(trace_id=span.trace_id, assessment=exp1)
+    mlflow.log_assessment(trace_id=span.trace_id, assessment=exp2)
+
+    trace = mlflow.get_trace(span.trace_id)
+
+    judge(trace=trace)
+
+    prompt = mock_invoke_judge_model.captured_args["prompt"]
+    assert isinstance(prompt, list)
+    assert len(prompt) == 2
+
+    system_msg = prompt[0]
+    assert system_msg.role == "system"
+    assert (
+        "Evaluate {{ trace }} against {{ inputs }}, {{ outputs }}, {{ expectations }}"
+        in system_msg.content
+    )
+
+    user_msg = prompt[1]
+    assert user_msg.role == "user"
+    assert "What is AI?" in user_msg.content
+    assert "Artificial Intelligence" in user_msg.content
+    assert "Should be clear" in user_msg.content
+    assert "Should be accurate" in user_msg.content
+    assert "inputs:" in user_msg.content
+    assert "outputs:" in user_msg.content
+    assert "expectations:" in user_msg.content
+
+
+def test_trace_only_template_uses_two_messages_with_empty_user(mock_invoke_judge_model):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Analyze this {{ trace }} for quality",
+        model="openai:/gpt-4",
+    )
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs({"q": "test"})
+        span.set_outputs({"a": "test"})
+
+    trace = mlflow.get_trace(span.trace_id)
+
+    judge(trace=trace)
+
+    prompt = mock_invoke_judge_model.captured_args["prompt"]
+
+    assert isinstance(prompt, list)
+    assert len(prompt) == 2
+
+    system_msg = prompt[0]
+    assert system_msg.role == "system"
+    assert "Analyze this {{ trace }} for quality" in system_msg.content
+    assert "expert judge" in system_msg.content
+
+    user_msg = prompt[1]
+    assert user_msg.role == "user"
+    assert user_msg.content == ""  # Empty user message for trace-only
+
+
+def test_no_warning_when_extracting_fields_from_trace(mock_invoke_judge_model):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate {{ inputs }} and {{ outputs }}",
+        model="openai:/gpt-4",
+    )
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs({"question": "What is AI?"})
+        span.set_outputs({"answer": "Artificial Intelligence"})
+
+    trace = mlflow.get_trace(span.trace_id)
+
+    # Call judge with only trace - should extract inputs/outputs from it
+    with mock.patch("mlflow.genai.judges.instructions_judge._logger.warning") as mock_warning:
+        judge(trace=trace)
+
+        # Should NOT warn about trace being unused - it's used for extraction
+        mock_warning.assert_not_called()
+
+    # Verify the extraction worked
+    prompt = mock_invoke_judge_model.captured_args["prompt"]
+    assert "What is AI?" in prompt[1].content
+    assert "Artificial Intelligence" in prompt[1].content
+
+
+def test_warning_shown_for_explicitly_provided_unused_fields(mock_invoke_judge_model):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate {{ inputs }} only",
+        model="openai:/gpt-4",
+    )
+
+    # Explicitly provide outputs which isn't used in template
+    with mock.patch("mlflow.genai.judges.instructions_judge._logger.warning") as mock_warning:
+        judge(inputs="What is AI?", outputs="This output is not used by the template")
+
+        # Should warn about outputs being unused
+        mock_warning.assert_called_once()
+        warning_message = mock_warning.call_args[0][0]
+        assert "outputs" in warning_message
+        assert "not used by this judge" in warning_message

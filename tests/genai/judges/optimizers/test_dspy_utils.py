@@ -4,15 +4,15 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from mlflow.genai.judges.judge_trace_utils import (
-    extract_request_from_trace,
-    extract_response_from_trace,
-)
 from mlflow.genai.judges.optimizers.dspy_utils import (
     agreement_metric,
     convert_mlflow_uri_to_litellm,
     create_dspy_signature,
     trace_to_dspy_example,
+)
+from mlflow.genai.utils.trace_utils import (
+    extract_request_from_trace,
+    extract_response_from_trace,
 )
 
 

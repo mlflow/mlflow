@@ -20,6 +20,8 @@ from mlflow.genai.scorers.base import (
     SerializedScorer,
 )
 from mlflow.genai.utils.trace_utils import (
+    extract_request_from_trace,
+    extract_response_from_trace,
     extract_retrieval_context_from_trace,
     parse_inputs_to_str,
     parse_outputs_to_str,
@@ -29,26 +31,6 @@ from mlflow.utils.docstring_utils import format_docstring
 from mlflow.utils.uri import is_databricks_uri
 
 GENAI_CONFIG_NAME = "databricks-agent"
-
-
-def _validate_tracking_uri_is_databricks(scorer_name: str) -> None:
-    """Validate that the current tracking URI is set to Databricks.
-
-    Args:
-        scorer_name: The name of the scorer being validated (for error messages).
-
-    Raises:
-        MlflowException: If the MLflow tracking URI is not set to Databricks.
-    """
-    from mlflow.utils.uri import is_databricks_uri
-
-    if not is_databricks_uri(mlflow.get_tracking_uri()):
-        raise MlflowException(
-            f"The {scorer_name} scorer is only available in Databricks managed "
-            "MLflow. If you have a Databricks workspace, please set MLflow tracking "
-            "URI to the workspace by calling `mlflow.set_tracking_uri('databricks')`."
-        )
-
 
 from mlflow.genai.judges.base import Judge, JudgeField
 
@@ -208,7 +190,7 @@ class RetrievalRelevance(BuiltInScorer):
             for the relevance of its chunks and 1 assessment for the average relevance of all
             chunks.
         """
-        request = parse_inputs_to_str(trace.data.spans[0].inputs)
+        request = extract_request_from_trace(trace)
         span_id_to_context = extract_retrieval_context_from_trace(trace)
 
         feedbacks = []
@@ -351,7 +333,7 @@ class RetrievalSufficiency(BuiltInScorer):
                 `expected_response` key is required. Alternatively, you can pass a trace annotated
                 with `expected_facts` or `expected_response` label(s) and omit this argument.
         """
-        request = parse_inputs_to_str(trace.data.spans[0].inputs)
+        request = extract_request_from_trace(trace)
         span_id_to_context = extract_retrieval_context_from_trace(trace)
 
         expectations = expectations or {}
@@ -455,8 +437,8 @@ class RetrievalGroundedness(BuiltInScorer):
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
             indicating the groundedness of the response.
         """
-        request = parse_inputs_to_str(trace.data.spans[0].inputs)
-        response = parse_outputs_to_str(trace.data.spans[0].outputs)
+        request = extract_request_from_trace(trace)
+        response = extract_response_from_trace(trace)
         span_id_to_context = extract_retrieval_context_from_trace(trace)
         feedbacks = []
         for span_id, context in span_id_to_context.items():
