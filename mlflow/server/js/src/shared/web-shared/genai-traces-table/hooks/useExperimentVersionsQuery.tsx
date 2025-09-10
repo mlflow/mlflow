@@ -1,7 +1,6 @@
 import { useQuery } from '@databricks/web-shared/query-client';
 
-import { makeRequest } from '../utils/FetchUtils';
-import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
+import { getAjaxUrl, makeRequest } from '../utils/FetchUtils';
 
 interface LoggedModel {
   info: {

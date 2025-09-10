@@ -39,7 +39,10 @@ export const KeyValueTagFullViewModal = React.memo((props: KeyValueTagFullViewMo
             marginBottom: theme.spacing.md,
           }}
         >
-          <CopyActionButton copyText={props.tagValue} />
+          <CopyActionButton
+            componentId="mlflow.genai-traces-table.tag_view_modal.tag_value_copy_button"
+            copyText={props.tagValue}
+          />
         </div>
       </div>
     </Modal>

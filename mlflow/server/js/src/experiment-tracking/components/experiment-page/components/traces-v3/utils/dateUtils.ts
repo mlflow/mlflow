@@ -1,5 +1,5 @@
-import { START_TIME_LABEL } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringFilters';
-import { IntlShape } from 'react-intl';
+import type { START_TIME_LABEL } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringFilters';
+import type { IntlShape } from 'react-intl';
 
 export type TimeBucket = 'SECOND' | 'MINUTE' | 'HOUR' | 'DAY' | 'WEEK' | 'MONTH';
 

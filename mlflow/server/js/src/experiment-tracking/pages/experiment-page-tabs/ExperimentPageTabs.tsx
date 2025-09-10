@@ -3,7 +3,6 @@ import { Button, PageWrapper, Spacer, ParagraphSkeleton, useDesignSystemTheme } 
 import { PredefinedError } from '@databricks/web-shared/errors';
 import invariant from 'invariant';
 import { useNavigate, useParams, Outlet, matchPath, useLocation } from '../../../common/utils/RoutingUtils';
-import { ExperimentViewRunsModeSwitchV2 } from '../../components/experiment-page/components/runs/ExperimentViewRunsModeSwitchV2';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
 import { useExperimentReduxStoreCompat } from '../../hooks/useExperimentReduxStoreCompat';
 import { ExperimentPageHeaderWithDescription } from '../../components/experiment-page/components/ExperimentPageHeaderWithDescription';
@@ -12,7 +11,6 @@ import { ExperimentKind, ExperimentPageTabName } from '../../constants';
 import {
   shouldEnableExperimentKindInference,
   shouldEnableExperimentPageChildRoutes,
-  shouldEnableExperimentPageHeaderV2,
 } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { useUpdateExperimentKind } from '../../components/experiment-page/hooks/useUpdateExperimentKind';
 import { ExperimentViewHeaderKindSelector } from '../../components/experiment-page/components/header/ExperimentViewHeaderKindSelector';
@@ -30,6 +28,10 @@ const ExperimentTracesPage = React.lazy(() => import('../experiment-traces/Exper
 
 const ExperimentLoggedModelListPage = React.lazy(
   () => import('../experiment-logged-models/ExperimentLoggedModelListPage'),
+);
+
+const ExperimentEvaluationRunsPage = React.lazy(
+  () => import('../experiment-evaluation-runs/ExperimentEvaluationRunsPage'),
 );
 
 const ExperimentPageTabsImpl = () => {
@@ -104,7 +106,11 @@ const ExperimentPageTabsImpl = () => {
     if (inferredExperimentPageTab) {
       navigate(Routes.getExperimentPageTabRoute(experimentId, inferredExperimentPageTab), { replace: true });
     }
-  }, [experimentId, navigate, inferredExperimentPageTab]);
+    // `navigate` reference changes whenever navigate is called, causing the
+    // use to be unable to visit any tab until confirming the experiment type
+    // if it is included in the deps array
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [experimentId, inferredExperimentPageTab]);
 
   if (
     inferredExperimentKind === ExperimentKind.NO_INFERRED_TYPE &&
@@ -142,6 +148,7 @@ const ExperimentPageTabsImpl = () => {
         onNoteUpdated={refetchExperiment}
         error={experimentError}
         inferredExperimentKind={inferredExperimentKind}
+        refetchExperiment={refetchExperiment}
         experimentKindSelector={
           <ExperimentViewHeaderKindSelector
             value={experimentKind}
@@ -153,21 +160,15 @@ const ExperimentPageTabsImpl = () => {
           />
         }
       />
-      {shouldEnableExperimentPageHeaderV2() ? (
-        activeTab === ExperimentPageTabName.EvaluationRuns || activeTab === ExperimentPageTabName.Datasets ? (
-          <EvaluationSubTabSelector experimentId={experimentId} activeTab={activeTab} />
-        ) : activeTab === ExperimentPageTabName.LabelingSessions ||
-          activeTab === ExperimentPageTabName.LabelingSchemas ? (
-          <LabelingSubTabSelector experimentId={experimentId} activeTab={activeTab} />
-        ) : (
-          <>
-            <Spacer size="sm" shrinks={false} />
-            <div css={{ width: '100%', borderTop: `1px solid ${theme.colors.border}` }} />
-          </>
-        )
+      {activeTab === ExperimentPageTabName.EvaluationRuns || activeTab === ExperimentPageTabName.Datasets ? (
+        <EvaluationSubTabSelector experimentId={experimentId} activeTab={activeTab} />
+      ) : activeTab === ExperimentPageTabName.LabelingSessions ||
+        activeTab === ExperimentPageTabName.LabelingSchemas ? (
+        <LabelingSubTabSelector experimentId={experimentId} activeTab={activeTab} />
       ) : (
         <>
-          <ExperimentViewRunsModeSwitchV2 experimentId={experimentId} activeTab={activeTab} />
+          <Spacer size="sm" shrinks={false} />
+          <div css={{ width: '100%', borderTop: `1px solid ${theme.colors.border}` }} />
         </>
       )}
       <Spacer size="sm" shrinks={false} />
@@ -187,6 +188,7 @@ const ExperimentPageTabsImpl = () => {
             {activeTab === ExperimentPageTabName.Traces && <ExperimentTracesPage />}
             {activeTab === ExperimentPageTabName.Runs && <ExperimentRunsPage />}
             {activeTab === ExperimentPageTabName.Models && <ExperimentLoggedModelListPage />}
+            {activeTab === ExperimentPageTabName.EvaluationRuns && <ExperimentEvaluationRunsPage />}
           </>
         )}
       </React.Suspense>

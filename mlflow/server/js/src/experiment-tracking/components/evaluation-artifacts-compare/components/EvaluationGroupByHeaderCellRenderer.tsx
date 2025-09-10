@@ -1,4 +1,4 @@
-import { IHeaderParams } from '@ag-grid-community/core';
+import type { IHeaderParams } from '@ag-grid-community/core';
 import { LegacyTooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { truncate } from 'lodash';
 import { EvaluationTableHeader } from './EvaluationTableHeader';

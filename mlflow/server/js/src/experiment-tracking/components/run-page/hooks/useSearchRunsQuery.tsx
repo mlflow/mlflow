@@ -1,7 +1,7 @@
 import { type ApolloError, type ApolloQueryResult, gql } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 import { useQuery } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 import { first } from 'lodash';
-import { SearchRuns } from '../../../../graphql/__generated__/graphql';
+import type { SearchRuns } from '../../../../graphql/__generated__/graphql';
 
 const SEARCH_RUNS_QUERY = gql`
   query SearchRuns($data: MlflowSearchRunsInput!) {

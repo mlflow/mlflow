@@ -51,7 +51,7 @@ const MlflowRootRoute = ({
   const { theme } = useDesignSystemTheme();
 
   return (
-    <>
+    <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <ErrorModal />
       <AppErrorBoundary>
         <MlflowHeader
@@ -94,7 +94,7 @@ const MlflowRootRoute = ({
           </main>
         </div>
       </AppErrorBoundary>
-    </>
+    </div>
   );
 };
 export const MlflowRouter = ({

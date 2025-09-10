@@ -10,8 +10,9 @@ import {
   Switch,
   Spinner,
 } from '@databricks/design-system';
-import { Theme } from '@emotion/react';
-import React, { PropsWithChildren, ReactNode, memo, useCallback, forwardRef } from 'react';
+import type { Theme } from '@emotion/react';
+import type { PropsWithChildren, ReactNode } from 'react';
+import React, { memo, useCallback, forwardRef } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { RunsChartsRunData } from '../RunsCharts.common';
 import type { RunsChartsCardConfig } from '../../runs-charts.types';

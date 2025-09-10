@@ -7,12 +7,7 @@ import Utils from '../../../../common/utils/Utils';
 import { RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIState';
 import { RunGroupingAggregateFunction, RunGroupingMode, RunRowVisibilityControl } from './experimentPage.row-types';
 import {
-  EXPERIMENT_FIELD_PREFIX_METRIC,
-  EXPERIMENT_FIELD_PREFIX_PARAM,
-  EXPERIMENT_FIELD_PREFIX_TAG,
-} from './experimentPage.common-utils';
-import {
-  SingleRunData,
+  type SingleRunData,
   prepareRunsGridData,
   useExperimentRunRows,
   extractRunRowParam,
