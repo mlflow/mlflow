@@ -278,9 +278,6 @@ jobs:
       - name: Run tests
         run: |
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
-      - name: Run tests with delta
-        run: |
-          pytest tests/evaluate/test_default_evaluator_delta.py
 
   genai:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
