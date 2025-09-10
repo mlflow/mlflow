@@ -312,15 +312,14 @@ def _validate_static_prefix(ctx, param, value):
 @click.pass_context
 @click.option(
     "--backend-store-uri",
-    envvar=["MLFLOW_BACKEND_STORE_URI", "MLFLOW_TRACKING_URI"],
+    envvar="MLFLOW_BACKEND_STORE_URI",
     metavar="PATH",
     default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
     help="URI to which to persist experiment and run data. Acceptable URIs are "
     "SQLAlchemy-compatible database connection strings "
     "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
     "(e.g. 'file:///absolute/path/to/directory'). By default, data will be logged "
-    "to the ./mlruns directory. Uses MLFLOW_TRACKING_URI or MLFLOW_BACKEND_STORE_URI "
-    "environment variables if set.",
+    "to the ./mlruns directory.",
 )
 @click.option(
     "--registry-store-uri",
