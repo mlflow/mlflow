@@ -2,7 +2,7 @@ import os
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 from unittest import mock
 
@@ -41,8 +41,6 @@ def create_mock_otel_span(
     that extends ReadableSpan (data object) and exposes the necessary attributes for testing.
     """
 
-    from dataclasses import field
-    
     @dataclass
     class _MockSpanContext:
         trace_id: str

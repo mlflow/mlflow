@@ -4,12 +4,13 @@ import json
 import logging
 import re
 import threading
-from contextlib import ContextDecorator
-from dataclasses import asdict, dataclass, is_dataclass
-import requests
 import time
 import traceback
+from contextlib import ContextDecorator
+from dataclasses import asdict, dataclass, is_dataclass
 from typing import TYPE_CHECKING, Any, NamedTuple
+
+import requests
 
 if TYPE_CHECKING:
     import litellm
@@ -393,7 +394,7 @@ def invoke_judge_model(
                 num_retries=num_retries,
             )
             feedback = output.feedback
-            
+
             # Record success telemetry only when in Databricks
             if in_databricks:
                 try:
@@ -409,9 +410,9 @@ def invoke_judge_model(
                         "Failed to record judge model usage success telemetry. Error: %s",
                         telemetry_error,
                     )
-            
+
             return feedback
-            
+
         except Exception:
             # Record failure telemetry only when in Databricks
             if in_databricks:
@@ -447,16 +448,15 @@ def invoke_judge_model(
         response_dict = json.loads(response)
     except json.JSONDecodeError as e:
         raise MlflowException(
-            f"Failed to parse response from judge model. Response: {response}", error_code=BAD_REQUEST
+            f"Failed to parse response from judge model. Response: {response}",
+            error_code=BAD_REQUEST,
         ) from e
 
     feedback = Feedback(
         name=assessment_name,
         value=response_dict["result"],
         rationale=_sanitize_justification(response_dict.get("rationale", "")),
-        source=AssessmentSource(
-            source_type=AssessmentSourceType.LLM_JUDGE, source_id=model_uri
-        ),
+        source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id=model_uri),
     )
 
     if "error" in response_dict:
@@ -722,6 +722,7 @@ def _invoke_judge_model(
     elif _is_litellm_available():
         # prioritize litellm for better performance
         from mlflow.types.llm import ChatMessage
+
         messages = [ChatMessage(role="user", content=prompt)]
         response = _invoke_litellm(provider, model_name, messages, None, num_retries)
     elif provider in _NATIVE_PROVIDERS:
@@ -762,7 +763,6 @@ def _invoke_judge_model(
         num_prompt_tokens=num_prompt_tokens,
         num_completion_tokens=num_completion_tokens,
     )
-
 
 
 class _SuppressLiteLLMNonfatalErrors(ContextDecorator):
