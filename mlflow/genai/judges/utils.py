@@ -253,6 +253,19 @@ def _parse_databricks_judge_response(
 
 
 def call_chat_completions(user_prompt: str, system_prompt: str):
+    """
+    Invokes the Databricks chat completions API using the databricks.agents.evals library.
+
+    Args:
+        user_prompt (str): The user prompt.
+        system_prompt (str): The system prompt.
+
+    Returns:
+        The chat completions result.
+
+    Raises:
+        MlflowException: If databricks-agents is not installed.
+    """
     _check_databricks_agents_installed()
 
     from databricks.rag_eval import context, env_vars

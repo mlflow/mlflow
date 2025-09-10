@@ -6,11 +6,11 @@ from typing import TYPE_CHECKING, Any, Optional
 from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
+from mlflow.genai.judges.utils import call_chat_completions
 from mlflow.genai.utils.trace_utils import (
     extract_request_from_trace,
     extract_response_from_trace,
 )
-from mlflow.genai.judges.utils import call_chat_completions
 from mlflow.metrics.genai.model_utils import _parse_model_uri
 from mlflow.utils import AttrDict
 
@@ -36,7 +36,9 @@ def _to_attrdict(obj):
         return obj
 
 
-def _call_managed_rag_client(user_prompt: str, system_prompt: str | None = None):
+def _process_chat_completions(
+    user_prompt: str, system_prompt: str | None = None
+) -> AttrDict[str, Any]:
     """Call managed RAG client and return formatted response."""
     response = call_chat_completions(user_prompt=user_prompt, system_prompt=system_prompt)
 
@@ -75,7 +77,9 @@ class AgentEvalLM(dspy.BaseLM):
     def load_state(self, state):
         pass
 
-    def forward(self, prompt=None, messages=None, **kwargs):
+    def forward(
+        self, prompt: str | None = None, messages: list[dict[str, Any]] | None = None, **kwargs
+    ) -> AttrDict[str, Any]:
         """Forward pass for the language model."""
         user_prompt = None
         system_prompt = None
@@ -90,7 +94,7 @@ class AgentEvalLM(dspy.BaseLM):
         if not user_prompt and prompt:
             user_prompt = prompt
 
-        return _call_managed_rag_client(user_prompt, system_prompt)
+        return _process_chat_completions(user_prompt, system_prompt)
 
 
 def _sanitize_assessment_name(name: str) -> str:

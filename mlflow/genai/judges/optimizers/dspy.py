@@ -33,6 +33,23 @@ except ImportError:
 _logger = logging.getLogger(__name__)
 
 
+def _construct_dspy_lm(model: str):
+    """
+    Create a dspy.LM instance from a given model.
+
+    Args:
+        model: The model identifier/URI
+
+    Returns:
+        A dspy.LM instance configured for the given model
+    """
+    if model == _DATABRICKS_DEFAULT_JUDGE_MODEL:
+        return AgentEvalLM()
+    else:
+        model_litellm = convert_mlflow_uri_to_litellm(model)
+        return dspy.LM(model=model_litellm)
+
+
 @experimental(version="3.4.0")
 class DSPyAlignmentOptimizer(AlignmentOptimizer):
     """
@@ -106,12 +123,7 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
 
             def __init__(self, judge):
                 super().__init__(create_dspy_signature(judge))
-                # Use special AgentEvalLM for databricks model, otherwise convert to LiteLLM
-                if judge.model == _DATABRICKS_DEFAULT_JUDGE_MODEL:
-                    self._lm = AgentEvalLM()
-                else:
-                    judge_model_litellm = convert_mlflow_uri_to_litellm(judge.model)
-                    self._lm = dspy.LM(model=judge_model_litellm)
+                self._lm = _construct_dspy_lm(judge.model)
 
             def forward(self, *args, **kwargs):
                 # If an LM is supplied via kwargs, use that, else use self.lm
@@ -149,11 +161,7 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
 
             # Configure DSPy to use the optimizer's model
             # This ensures the optimizer uses its own model, separate from the judge's model
-            if self._model == _DATABRICKS_DEFAULT_JUDGE_MODEL:
-                optimizer_lm = AgentEvalLM()
-            else:
-                optimizer_model_litellm = convert_mlflow_uri_to_litellm(self._model)
-                optimizer_lm = dspy.LM(model=optimizer_model_litellm)
+            optimizer_lm = _construct_dspy_lm(self._model)
 
             with dspy.context(lm=optimizer_lm):
                 # Create DSPy program that will simulate the judge

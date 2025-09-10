@@ -320,3 +320,65 @@ def test_dspy_align_litellm_nonfatal_error_messages_suppressed():
         # Verify suppression was active during the DSPy optimization call
         assert suppression_state_during_call["set_verbose"] is False
         assert suppression_state_during_call["suppress_debug_info"] is True
+
+
+@pytest.mark.parametrize(
+    ("model", "expected_type"),
+    [
+        ("databricks", "AgentEvalLM"),
+        ("openai:/gpt-4", "dspy.LM"),
+        ("anthropic:/claude-3", "dspy.LM"),
+    ],
+)
+def test_construct_dspy_lm_utility_method(model, expected_type):
+    """Test the _construct_dspy_lm utility method with different model types."""
+    from mlflow.genai.judges.optimizers.dspy import _construct_dspy_lm
+    from mlflow.genai.judges.optimizers.dspy_utils import AgentEvalLM
+
+    result = _construct_dspy_lm(model)
+
+    if expected_type == "AgentEvalLM":
+        assert isinstance(result, AgentEvalLM)
+    elif expected_type == "dspy.LM":
+        assert isinstance(result, dspy.LM)
+        # Ensure MLflow URI format is converted (no :/ in the model)
+        assert ":/" not in result.model
+
+
+def test_align_uses_construct_dspy_lm(sample_traces_with_assessments):
+    """Test that align method uses _construct_dspy_lm utility method."""
+    from tests.genai.judges.optimizers.conftest import MockJudge
+
+    mock_judge = MockJudge(name="mock_judge", model="openai:/gpt-4")
+    optimizer = ConcreteDSPyOptimizer(model="anthropic:/claude-3")
+
+    with (
+        patch("mlflow.genai.judges.optimizers.dspy._construct_dspy_lm") as mock_construct,
+        patch.object(ConcreteDSPyOptimizer, "get_min_traces_required", return_value=5),
+    ):
+        mock_construct.return_value = MagicMock()
+        optimizer.align(mock_judge, sample_traces_with_assessments)
+
+        # Should have called utility method
+        assert mock_construct.called
+
+
+def test_align_uses_default_model(sample_traces_with_assessments):
+    """Test that align method uses _construct_dspy_lm with default model when no model specified."""
+    from tests.genai.judges.optimizers.conftest import MockJudge
+
+    mock_judge = MockJudge(name="mock_judge", model="openai:/gpt-4")
+
+    with patch("mlflow.genai.judges.optimizers.dspy.get_default_model", return_value="databricks"):
+        optimizer = ConcreteDSPyOptimizer()  # No model specified, should use default
+
+    with (
+        patch("mlflow.genai.judges.optimizers.dspy._construct_dspy_lm") as mock_construct,
+        patch.object(ConcreteDSPyOptimizer, "get_min_traces_required", return_value=5),
+    ):
+        mock_construct.return_value = MagicMock()
+        optimizer.align(mock_judge, sample_traces_with_assessments)
+
+        # Should have called utility method with default databricks model
+        call_args = [call[0][0] for call in mock_construct.call_args_list]
+        assert "databricks" in call_args
