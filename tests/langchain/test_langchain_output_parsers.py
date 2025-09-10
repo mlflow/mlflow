@@ -105,7 +105,6 @@ def test_chat_agent_output_parser_parse_response():
 
 
 async def async_message_generator(messages):
-    """Helper function to create an async generator from a list of messages."""
     for message in messages:
         yield message
 
