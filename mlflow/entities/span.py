@@ -29,6 +29,7 @@ from mlflow.tracing.utils import (
     decode_id,
     encode_span_id,
     encode_trace_id,
+    generate_mlflow_trace_id_from_otel_trace_id,
 )
 from mlflow.tracing.utils.otlp import (
     _decode_otel_proto_anyvalue,
@@ -381,8 +382,12 @@ class Span:
             start_time=otel_proto_span.start_time_unix_nano,
             end_time=otel_proto_span.end_time_unix_nano,
             attributes={
-                attr.key: _decode_otel_proto_anyvalue(attr.value)
-                for attr in otel_proto_span.attributes
+                **{
+                    attr.key: _decode_otel_proto_anyvalue(attr.value)
+                    for attr in otel_proto_span.attributes
+                },
+                # Include the MLflow trace request ID
+                SpanAttributeKey.REQUEST_ID: generate_mlflow_trace_id_from_otel_trace_id(trace_id),
             },
             status=OTelStatus(status_code, otel_proto_span.status.message or None),
             events=[
@@ -488,6 +493,12 @@ class LiveSpan(Span):
         from mlflow.tracing.attachments import Attachment
 
         self._attachments: dict[str, Attachment] = {}
+        # Track the original span name for deduplication purposes during span logging.
+        # Why: When traces contain multiple spans with identical names (e.g., multiple "LLM"
+        # or "query" spans), it's difficult for users to distinguish between them in the UI
+        # and logs. As spans are logged, we incrementally add numeric suffixes (_1, _2, etc.) to
+        # make each span uniquely identifiable within its trace
+        self._original_name = otel_span.name
 
     def set_span_type(self, span_type: str):
         """Set the type of the span."""

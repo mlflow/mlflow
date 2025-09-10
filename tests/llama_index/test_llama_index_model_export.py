@@ -357,7 +357,8 @@ def test_retriever_engine_predict(single_index, with_input_example):
 
 
 def test_llama_index_databricks_integration(monkeypatch, document, model_path, mock_openai):
-    monkeypatch.setenvs({"DATABRICKS_TOKEN": "test", "DATABRICKS_SERVING_ENDPOINT": mock_openai})
+    monkeypatch.setenv("DATABRICKS_TOKEN", "test")
+    monkeypatch.setenv("DATABRICKS_SERVING_ENDPOINT", mock_openai)
     monkeypatch.setattr(Settings, "llm", Databricks(model="dbrx-instruct"))
     monkeypatch.setattr(
         Settings, "embed_model", DatabricksEmbedding(model="databricks-bge-large-en")

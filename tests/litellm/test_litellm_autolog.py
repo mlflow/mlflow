@@ -9,6 +9,24 @@ from mlflow.entities.span import SpanType
 from tests.tracing.helper import get_traces
 
 
+def _assert_usage(
+    attributes,
+    expected_prompt_tokens=None,
+    expected_completion_tokens=None,
+    expected_total_tokens=None,
+):
+    if "mlflow.chat.tokenUsage" in attributes:
+        usage = attributes["mlflow.chat.tokenUsage"]
+        assert usage["total_tokens"] == expected_total_tokens
+        assert usage["input_tokens"] == expected_prompt_tokens
+        assert usage["output_tokens"] == expected_completion_tokens
+    else:
+        usage = attributes["usage"]
+        assert usage["total_tokens"] == expected_total_tokens
+        assert usage["completion_tokens"] == expected_completion_tokens
+        assert usage["prompt_tokens"] == expected_prompt_tokens
+
+
 @pytest.fixture(autouse=True)
 def cleanup_callbacks():
     yield
@@ -40,11 +58,12 @@ def test_litellm_tracing_success():
     assert spans[0].attributes["call_type"] == "completion"
     assert spans[0].attributes["cache_hit"] is None
     assert spans[0].attributes["response_cost"] > 0
-    assert spans[0].attributes["usage"] == {
-        "completion_tokens": 12,
-        "prompt_tokens": 9,
-        "total_tokens": 21,
-    }
+    _assert_usage(
+        spans[0].attributes,
+        expected_prompt_tokens=9,
+        expected_completion_tokens=12,
+        expected_total_tokens=21,
+    )
 
 
 def test_litellm_tracing_failure():
@@ -97,11 +116,12 @@ def test_litellm_tracing_streaming():
     }
     assert spans[0].outputs["choices"][0]["message"]["content"] == "Hello world"
     assert spans[0].attributes["model"] == "gpt-4o-mini"
-    assert spans[0].attributes["usage"] == {
-        "prompt_tokens": 8,
-        "completion_tokens": 2,
-        "total_tokens": 10,
-    }
+    _assert_usage(
+        spans[0].attributes,
+        expected_prompt_tokens=8,
+        expected_completion_tokens=2,
+        expected_total_tokens=10,
+    )
 
 
 @pytest.mark.asyncio
@@ -114,9 +134,8 @@ async def test_litellm_tracing_async():
     )
     assert response.choices[0].message.content == '[{"role": "system", "content": "Hello"}]'
 
-    # Await the logger task to ensure that the trace is logged.
-    logger_task = next(t for t in asyncio.all_tasks() if "async_" in t.get_coro().__name__)
-    await logger_task
+    # Adding a sleep here to ensure that trace is logged.
+    await asyncio.sleep(0.1)
 
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace.info.status == "OK"
@@ -131,7 +150,12 @@ async def test_litellm_tracing_async():
     assert spans[0].attributes["call_type"] == "acompletion"
     assert spans[0].attributes["cache_hit"] is None
     assert spans[0].attributes["response_cost"] > 0
-    assert spans[0].attributes["usage"] is not None
+    _assert_usage(
+        spans[0].attributes,
+        expected_prompt_tokens=9,
+        expected_completion_tokens=12,
+        expected_total_tokens=21,
+    )
 
 
 @pytest.mark.asyncio

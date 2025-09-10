@@ -292,25 +292,6 @@ def mock_s3_bucket():
         yield bucket_name
 
 
-class ExtendedMonkeyPatch(pytest.MonkeyPatch):  # type: ignore
-    def setenvs(self, envs, prepend=None):
-        for name, value in envs.items():
-            self.setenv(name, value, prepend)
-
-    def delenvs(self, names, raising=True):
-        for name in names:
-            self.delenv(name, raising)
-
-
-@pytest.fixture
-def monkeypatch():
-    """
-    Overrides the default monkeypatch fixture to use `ExtendedMonkeyPatch`.
-    """
-    with ExtendedMonkeyPatch().context() as mp:
-        yield mp
-
-
 @pytest.fixture
 def tmp_sqlite_uri(tmp_path):
     path = tmp_path.joinpath("mlflow.db").as_uri()

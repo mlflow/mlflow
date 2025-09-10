@@ -42,12 +42,8 @@ MOCK_TOOLS = [
 
 @pytest.fixture(params=[True, False], ids=["sync", "async"])
 def client(request, monkeypatch, mock_openai):
-    monkeypatch.setenvs(
-        {
-            "OPENAI_API_KEY": "test",
-            "OPENAI_API_BASE": mock_openai,
-        }
-    )
+    monkeypatch.setenv("OPENAI_API_KEY", "test")
+    monkeypatch.setenv("OPENAI_API_BASE", mock_openai)
     if request.param:
         client = openai.OpenAI(api_key="test", base_url=mock_openai)
         client._is_async = False
@@ -746,12 +742,8 @@ async def test_autolog_link_traces_to_loaded_model_embeddings(client, embedding_
 def test_autolog_link_traces_to_loaded_model_embeddings_pyfunc(
     monkeypatch, mock_openai, embedding_models
 ):
-    monkeypatch.setenvs(
-        {
-            "OPENAI_API_KEY": "test",
-            "OPENAI_API_BASE": mock_openai,
-        }
-    )
+    monkeypatch.setenv("OPENAI_API_KEY", "test")
+    monkeypatch.setenv("OPENAI_API_BASE", mock_openai)
 
     mlflow.openai.autolog()
 
@@ -771,12 +763,8 @@ def test_autolog_link_traces_to_loaded_model_embeddings_pyfunc(
 
 @skip_when_testing_trace_sdk
 def test_autolog_link_traces_to_active_model(monkeypatch, mock_openai, embedding_models):
-    monkeypatch.setenvs(
-        {
-            "OPENAI_API_KEY": "test",
-            "OPENAI_API_BASE": mock_openai,
-        }
-    )
+    monkeypatch.setenv("OPENAI_API_KEY", "test")
+    monkeypatch.setenv("OPENAI_API_BASE", mock_openai)
 
     model = mlflow.create_external_model(name="test_model")
     mlflow.set_active_model(model_id=model.model_id)
@@ -827,3 +815,46 @@ async def test_model_loading_set_active_model_id_without_fetching_logged_model(
     model_id = traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID]
     assert model_id is not None
     assert span.inputs["messages"][0]["content"] == f"test {model_id}"
+
+
+@pytest.mark.skipif(
+    Version(openai.__version__) < Version("1.66"), reason="Requires OpenAI SDK >= 1.66"
+)
+@skip_when_testing_trace_sdk
+def test_reconstruct_response_from_stream():
+    from openai.types.responses import (
+        ResponseOutputItemDoneEvent,
+        ResponseOutputMessage,
+        ResponseOutputText,
+    )
+
+    from mlflow.openai.autolog import _reconstruct_response_from_stream
+    from mlflow.types.responses_helpers import OutputItem
+
+    content1 = ResponseOutputText(annotations=[], text="Hello", type="output_text")
+    content2 = ResponseOutputText(annotations=[], text=" world", type="output_text")
+
+    message1 = ResponseOutputMessage(
+        id="test-1", content=[content1], role="assistant", status="completed", type="message"
+    )
+
+    message2 = ResponseOutputMessage(
+        id="test-2", content=[content2], role="assistant", status="completed", type="message"
+    )
+
+    chunk1 = ResponseOutputItemDoneEvent(
+        item=message1, output_index=0, sequence_number=1, type="response.output_item.done"
+    )
+
+    chunk2 = ResponseOutputItemDoneEvent(
+        item=message2, output_index=1, sequence_number=2, type="response.output_item.done"
+    )
+
+    chunks = [chunk1, chunk2]
+
+    result = _reconstruct_response_from_stream(chunks)
+
+    assert result.output == [
+        OutputItem(**chunk1.item.to_dict()),
+        OutputItem(**chunk2.item.to_dict()),
+    ]

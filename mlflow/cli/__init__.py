@@ -6,16 +6,18 @@ import re
 import sys
 import warnings
 from datetime import timedelta
+from pathlib import Path
 
 import click
 from click import UsageError
+from dotenv import load_dotenv
 
 import mlflow.db
 import mlflow.deployments.cli
 import mlflow.experiments
 import mlflow.runs
 import mlflow.store.artifact.cli
-from mlflow import projects, version
+from mlflow import ai_commands, projects, version
 from mlflow.entities import ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID, MLFLOW_EXPERIMENT_NAME
@@ -45,8 +47,39 @@ class AliasedGroup(click.Group):
         return super().get_command(ctx, cmd_name)
 
 
+def _load_env_file(ctx: click.Context, param: click.Parameter, value: str | None) -> str | None:
+    """
+    Click callback to load environment variables from a dotenv file.
+
+    This function is designed to be used as an eager callback for the --env-file option,
+    ensuring that environment variables are loaded before any command execution.
+    """
+    if value is not None:
+        env_path = Path(value)
+        if not env_path.exists():
+            raise click.BadParameter(f"Environment file '{value}' does not exist.")
+
+        # Load the environment file
+        # override=False means existing environment variables take precedence
+        load_dotenv(env_path, override=False)
+
+        # Log that we've loaded the env file (using click.echo for CLI output)
+        click.echo(f"Loaded environment variables from: {value}")
+
+    return value
+
+
 @click.group(cls=AliasedGroup)
 @click.version_option(version=version.VERSION)
+@click.option(
+    "--env-file",
+    type=click.Path(exists=False),
+    callback=_load_env_file,
+    expose_value=False,
+    is_eager=True,
+    help="Load environment variables from a dotenv file before executing the command. "
+    "Variables in the file will be loaded but won't override existing environment variables.",
+)
 def cli():
     pass
 
@@ -710,6 +743,24 @@ cli.add_command(mlflow.db.commands)
 from mlflow.cli import traces
 
 cli.add_command(traces.commands)
+
+# Add AI commands CLI
+cli.add_command(ai_commands.commands)
+
+try:
+    from mlflow.mcp.cli import cli as mcp_cli
+
+    cli.add_command(mcp_cli)
+except ImportError:
+    pass
+
+# Add Claude Code integration commands
+try:
+    import mlflow.claude_code.cli
+
+    cli.add_command(mlflow.claude_code.cli.commands)
+except ImportError:
+    pass
 
 # We are conditional loading these commands since the skinny client does
 # not support them due to the pandas and numpy dependencies of MLflow Models

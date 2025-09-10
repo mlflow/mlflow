@@ -1,5 +1,7 @@
 from unittest import mock
 
+import pytest
+
 from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -7,6 +9,11 @@ from mlflow.tracking.default_experiment.databricks_notebook_experiment_provider 
     DatabricksNotebookExperimentProvider,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_SOURCE_ID, MLFLOW_EXPERIMENT_SOURCE_TYPE
+
+
+@pytest.fixture(autouse=True)
+def reset_resolved_notebook_experiment_id():
+    DatabricksNotebookExperimentProvider._resolve_notebook_experiment_id.cache_clear()
 
 
 def test_databricks_notebook_default_experiment_in_context():
