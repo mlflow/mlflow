@@ -16,7 +16,6 @@
     "i18n:check": "yarn i18n --lint",
     "i18n": "node scripts/extract-i18n.js",
     "knip": "knip --reporter markdown --preprocessor ./knip-preprocessor.ts",
-    "playwright-jsessionid-cookie": "node scripts/playwright-jsessionid-cookie.js",
     "build": "craco --max_old_space_size=8192 build",
     "prettier": "prettier",
     "graphql-codegen": "python ../../../dev/proto_to_graphql/code_generator.py && yarn graphql-codegen:clean && yarn graphql-codegen:base",
