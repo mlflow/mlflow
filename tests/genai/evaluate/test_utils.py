@@ -1,6 +1,7 @@
 import json
+import sys
 from typing import Any, Literal
-from unittest.mock import patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pandas as pd
 import pytest
@@ -418,6 +419,33 @@ def test_predict_fn_receives_correct_data(data_fixture, request, is_in_databrick
     ][:row_count]
     # Using set because eval harness runs predict_fn in parallel
     assert set(received_args) == set(expected_contents)
+
+
+def test_convert_scorer_to_legacy_metric_aggregations_attribute(monkeypatch):
+    mock_metric_instance = MagicMock()
+
+    # NB: Mocking the behavior of databricks-agents, which does not have the aggregations
+    # argument for the evaluation interface for a metric.
+    def mock_metric_decorator(**kwargs):
+        if "aggregations" in kwargs:
+            raise TypeError("metric() got an unexpected keyword argument 'aggregations'")
+        assert set(kwargs.keys()) <= {"eval_fn", "name"}
+        return mock_metric_instance
+
+    mock_evals = Mock(metric=mock_metric_decorator)
+    mock_evals.judges = Mock()  # Add the judges submodule to prevent AttributeError
+
+    monkeypatch.setitem(sys.modules, "databricks.agents.evals", mock_evals)
+    monkeypatch.setitem(sys.modules, "databricks.agents.evals.judges", mock_evals.judges)
+
+    mock_scorer = Mock()
+    mock_scorer.name = "test_scorer"
+    mock_scorer.aggregations = ["mean", "max", "p90"]
+    mock_scorer.run = Mock(return_value={"score": 1.0})
+
+    result = _convert_scorer_to_legacy_metric(mock_scorer)
+
+    assert result.aggregations == ["mean", "max", "p90"]
 
 
 @databricks_only
