@@ -247,10 +247,10 @@ def _build_gunicorn_command(gunicorn_opts, host, port, workers, app_name):
     ]
 
 
-def _build_uvicorn_command(uvicorn_opts, host, port, workers, app_name):
+def _build_uvicorn_command(uvicorn_opts, host, port, workers, app_name, env_file=None):
     """Build command to run uvicorn server."""
     opts = shlex.split(uvicorn_opts) if uvicorn_opts else []
-    return [
+    cmd = [
         sys.executable,
         "-m",
         "uvicorn",
@@ -261,8 +261,11 @@ def _build_uvicorn_command(uvicorn_opts, host, port, workers, app_name):
         str(port),
         "--workers",
         str(workers),
-        app_name,
     ]
+    if env_file:
+        cmd.extend(["--env-file", env_file])
+    cmd.append(app_name)
+    return cmd
 
 
 def _run_server(
@@ -282,6 +285,7 @@ def _run_server(
     expose_prometheus=None,
     app_name=None,
     uvicorn_opts=None,
+    env_file=None,
 ):
     """
     Run the MLflow server, wrapping it in gunicorn, uvicorn, or waitress on windows
@@ -345,7 +349,7 @@ def _run_server(
     # Determine which server to use
     if using_uvicorn:
         # Use uvicorn (default when no specific server options are provided)
-        full_command = _build_uvicorn_command(uvicorn_opts, host, port, workers or 4, app)
+        full_command = _build_uvicorn_command(uvicorn_opts, host, port, workers or 4, app, env_file)
     elif using_waitress:
         # Use waitress if explicitly requested
         warnings.warn(

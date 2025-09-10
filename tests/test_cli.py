@@ -87,6 +87,7 @@ def test_server_uvicorn_options():
             expose_prometheus=None,
             app_name=None,
             uvicorn_opts=None,
+            env_file=None,
         )
 
     with mock.patch("mlflow.server._run_server") as run_server_mock:
@@ -108,6 +109,7 @@ def test_server_uvicorn_options():
             expose_prometheus=None,
             app_name=None,
             uvicorn_opts="--loop asyncio --limit-concurrency 100",
+            env_file=None,
         )
 
 
@@ -133,6 +135,7 @@ def test_server_dev_mode():
             expose_prometheus=None,
             app_name=None,
             uvicorn_opts="--reload --log-level debug",
+            env_file=None,
         )
 
 
@@ -158,6 +161,7 @@ def test_server_gunicorn_options():
             expose_prometheus=None,
             app_name=None,
             uvicorn_opts=None,
+            env_file=None,
         )
 
     # Test conflicting options
@@ -169,6 +173,8 @@ def test_server_gunicorn_options():
 
 
 def test_server_mlflow_artifacts_options():
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
     with mock.patch("mlflow.server._run_server") as run_server_mock:
         CliRunner().invoke(server, ["--artifacts-only"])
         run_server_mock.assert_called_once()
@@ -793,6 +799,19 @@ def test_env_file_loading_invalid_path() -> None:
     )
     assert result.exit_code != 0
     assert "Environment file 'nonexistent.env' does not exist" in result.output
+
+
+def test_server_with_env_file(tmp_path):
+    """Test that --env-file is passed through to uvicorn."""
+    env_file = tmp_path / ".env"
+    env_file.write_text("TEST_VAR=test_value\n")
+
+    with mock.patch("mlflow.server._run_server") as run_server_mock:
+        result = CliRunner().invoke(cli, ["--env-file", str(env_file), "server"])
+        assert result.exit_code == 0
+        run_server_mock.assert_called_once()
+        # Verify env_file parameter is passed
+        assert run_server_mock.call_args.kwargs["env_file"] == str(env_file)
 
 
 def test_mlflow_gc_with_datasets(sqlite_store):
