@@ -9,6 +9,7 @@ import React from 'react';
 import './ModelListView.css';
 import Utils from '../../common/utils/Utils';
 import {
+  AntdTableSortOrder,
   REGISTERED_MODELS_PER_PAGE_COMPACT,
   REGISTERED_MODELS_SEARCH_NAME_FIELD,
   REGISTERED_MODELS_SEARCH_TIMESTAMP_FIELD,
@@ -19,7 +20,7 @@ import LocalStorageUtils from '../../common/utils/LocalStorageUtils';
 import { PageHeader } from '../../shared/building_blocks/PageHeader';
 
 import { FormattedMessage, type IntlShape, injectIntl } from 'react-intl';
-import { Alert, CursorPagination, Spacer as DuBoisSpacer, Spacer, Typography } from '@databricks/design-system';
+import { CursorPagination, Spacer, Typography } from '@databricks/design-system';
 import { shouldShowModelsNextUI } from '../../common/utils/FeatureUtils';
 import { ModelListFilters } from './model-list/ModelListFilters';
 import { ModelListTable } from './model-list/ModelListTable';
@@ -104,22 +105,21 @@ export class ModelListViewImpl extends React.Component<ModelListViewImplProps, M
     }
   };
 
-  unifiedTableSortChange = ({ orderByKey, orderByAsc }: any) => {
+  unifiedTableSortChange = ({ orderByKey, orderByAsc }: { orderByKey: string; orderByAsc: boolean }) => {
     // Different column keys are used for sorting and data accessing,
     // mapping to proper keys happens below
-    const fieldMappedToSortKey =
-      // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
-      {
-        timestamp: 'last_updated_timestamp',
-      }[orderByKey] || orderByKey;
-
+    const fieldMappedToSortKey = { timestamp: LAST_MODIFIED_COLUMN_INDEX }[orderByKey] || orderByKey;
     this.handleTableChange(undefined, undefined, {
       field: fieldMappedToSortKey,
-      order: orderByAsc ? 'undefined' : 'descend',
+      order: orderByAsc ? AntdTableSortOrder.ASC : AntdTableSortOrder.DESC,
     });
   };
 
-  handleTableChange = (pagination: any, filters: any, sorter: any) => {
+  handleTableChange = (
+    pagination: any,
+    filters: any,
+    sorter: { field: string; order: typeof AntdTableSortOrder[keyof typeof AntdTableSortOrder] },
+  ) => {
     this.props.onClickSortableColumn(ModelListViewImpl.getSortFieldName(sorter.field), sorter.order);
   };
 
@@ -146,13 +146,12 @@ export class ModelListViewImpl extends React.Component<ModelListViewImplProps, M
       currentPage,
       nextPageToken,
       searchInput,
+      loading,
+      error,
     } = this.props;
-    const { loading, error } = this.props;
 
     // Determine if we use any filters at the moment
-    const isFiltered =
-      // prettier-ignore
-      Boolean(searchInput);
+    const isFiltered = !!searchInput;
 
     const title = (
       <FormattedMessage

@@ -12,7 +12,7 @@ import {
 } from '@databricks/design-system';
 import { Interpolation, Theme } from '@emotion/react';
 import { ColumnDef, flexRender, getCoreRowModel, SortingState, useReactTable } from '@tanstack/react-table';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Link } from '../../../common/utils/RoutingUtils';
 import { ModelListTagsCell, ModelListVersionLinkCell } from './ModelTableCellRenderers';
@@ -74,9 +74,7 @@ export const ModelListTable = ({
 
   const { usingNextModelsUI } = useNextModelsUIContext();
 
-  const enrichedModelsData: EnrichedModelEntity[] = modelsData.map((model) => {
-    return model;
-  });
+  const [sorting, setSorting] = useState<SortingState>([{ id: orderByKey, desc: !orderByAsc }]);
 
   const tableColumns = useMemo(() => {
     const columns: ModelsColumnDef[] = [
@@ -209,13 +207,10 @@ export const ModelListTable = ({
     return columns;
   }, [intl, usingNextModelsUI]);
 
-  const sorting: SortingState = [{ id: orderByKey, desc: !orderByAsc }];
-
-  const setSorting = (stateUpdater: SortingState | ((state: SortingState) => SortingState)) => {
+  const onSortingChange = (stateUpdater: SortingState | ((state: SortingState) => SortingState)) => {
     const [newSortState] = typeof stateUpdater === 'function' ? stateUpdater(sorting) : stateUpdater;
-    if (newSortState) {
-      onSortChange({ orderByKey: newSortState.id, orderByAsc: !newSortState.desc });
-    }
+    setSorting([newSortState]);
+    onSortChange({ orderByKey: newSortState.id, orderByAsc: !newSortState.desc });
   };
 
   // eslint-disable-next-line prefer-const
@@ -274,14 +269,14 @@ export const ModelListTable = ({
   const isEmpty = () => (!isLoading && table.getRowModel().rows.length === 0) || error;
 
   const table = useReactTable<EnrichedModelEntity>({
-    data: enrichedModelsData,
+    data: modelsData,
     columns: tableColumns,
     state: {
       sorting,
     },
     getCoreRowModel: getCoreRowModel(),
     getRowId: ({ id }) => id,
-    onSortingChange: setSorting,
+    onSortingChange: onSortingChange,
   });
 
   return (
@@ -302,8 +297,7 @@ export const ModelListTable = ({
               sortDirection={header.column.getIsSorted() || 'none'}
               onToggleSort={() => {
                 const [currentSortColumn] = sorting;
-                const changingDirection = header.column.id === currentSortColumn.id;
-                const sortDesc = changingDirection ? !currentSortColumn.desc : false;
+                const sortDesc = !currentSortColumn.desc;
                 header.column.toggleSorting(sortDesc);
               }}
               css={(header.column.columnDef as ModelsColumnDef).meta?.styles}
