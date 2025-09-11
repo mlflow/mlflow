@@ -15,12 +15,11 @@ Consider the following claim and document. You must determine whether claim is s
 </claim>
 <document>{{retrieval_context}}</document>
 
-Please indicate whether each statement in the claim is supported by the document using the json format:
+Please indicate whether each statement in the claim is supported by the document using only the following json format. Do not use any markdown formatting or output additional lines.
 {
   "rationale": "Reason for the assessment. If the claim is not fully supported by the document, state which parts are not supported. Start each rationale with `Let's think step by step`",
   "result": "yes|no"
-}
-Do not output additional lines.\
+}\
 """  # noqa: E501
 
 

@@ -10,11 +10,12 @@ Given the following set of guidelines and some inputs, please assess whether the
 </guidelines>
 {{guidelines_context}}
 
-Please provide your assessment using the following json format. Do not use any markdown formatting. If any of the guidelines are not satisfied, the result must be "no". If none of the guidelines apply to the given inputs, the result must be "yes".
+Please provide your assessment using only the following json format. Do not use any markdown formatting or output additional lines. If any of the guidelines are not satisfied, the result must be "no". If none of the guidelines apply to the given inputs, the result must be "yes".
 {
   "rationale": "Detailed reasoning for your assessment. If the assessment does not satisfy the guideline, state which parts of the guideline are not satisfied. Start each rationale with `Let's think step by step. `",
   "result": "yes|no"
-}"""  # noqa: E501
+}\
+"""  # noqa: E501
 
 
 def get_prompt(
