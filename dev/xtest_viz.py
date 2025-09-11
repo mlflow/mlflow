@@ -241,14 +241,10 @@ class XTestViz:
 
     async def generate_results_table(self, days_back: int = 30) -> str:
         """Generate markdown table of cross-version test results."""
-        try:
-            data_rows = await self.fetch_all_jobs(days_back)
-            if not data_rows:
-                return "No workflow runs found in the specified time period."
-            return self.render_results_table(data_rows)
-        except Exception as e:
-            print(f"Error during execution: {e}", file=sys.stderr)
-            return "Error fetching workflow data."
+        data_rows = await self.fetch_all_jobs(days_back)
+        if not data_rows:
+            return "No workflow runs found in the specified time period."
+        return self.render_results_table(data_rows)
 
 
 async def main():
@@ -274,14 +270,8 @@ async def main():
         print("Set GITHUB_TOKEN environment variable or use --token option.", file=sys.stderr)
 
     visualizer = XTestViz(github_token=token, repo=args.repo)
-
-    try:
-        output = await visualizer.generate_results_table(args.days)
-        print(output)
-
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+    output = await visualizer.generate_results_table(args.days)
+    print(output)
 
 
 if __name__ == "__main__":
