@@ -1305,7 +1305,6 @@ def add_trace(trace: Trace | dict[str, Any], target: LiveSpan | None = None):
         )
 
 
-@experimental(version="2.21.0")
 def log_trace(
     name: str = "Task",
     request: Any | None = None,

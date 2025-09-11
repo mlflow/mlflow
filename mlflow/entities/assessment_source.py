@@ -9,7 +9,6 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
 
 
-@experimental(version="2.21.0")
 @dataclass
 class AssessmentSource(_MlflowObject):
     """
@@ -101,7 +100,6 @@ class AssessmentSource(_MlflowObject):
         )
 
 
-@experimental(version="2.21.0")
 class AssessmentSourceType:
     """
     Enumeration and validator for assessment source types.

@@ -190,7 +190,6 @@ def detach_span_from_context(token: contextvars.Token):
     context_api.detach(token)
 
 
-@experimental(version="2.21.0")
 def set_destination(destination: TraceDestination, *, context_local: bool = False):
     """
     Set a custom span destination to which MLflow will export the traces.

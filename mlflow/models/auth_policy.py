@@ -2,7 +2,6 @@ from mlflow.models.resources import Resource, _ResourceBuilder
 from mlflow.utils.annotations import experimental
 
 
-@experimental(version="2.21.0")
 class UserAuthPolicy:
     """
     A minimal list of scopes that the user should have access to
