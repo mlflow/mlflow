@@ -66,8 +66,8 @@ class XTestViz:
         """Extract string inside parentheses from job name.
 
         Examples:
-        - "test1 (sklearn / autologging / 1.3.1)" -> "sklearn, autologging, 1.3.1"
-        - "test2 (pytorch / models / 2.1.0)" -> "pytorch, models, 2.1.0"
+        - "test1 (sklearn / autologging / 1.3.1)" -> "sklearn / autologging / 1.3.1"
+        - "test2 (pytorch / models / 2.1.0)" -> "pytorch / models / 2.1.0"
 
         Returns:
             str: Content inside parentheses, or original name if no parentheses found
@@ -79,9 +79,14 @@ class XTestViz:
 
         return job_name
 
-    async def _make_request(self, session: aiohttp.ClientSession, url: str) -> dict[str, Any]:
+    async def _make_request(
+        self,
+        session: aiohttp.ClientSession,
+        url: str,
+        params: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
         """Make an async HTTP GET request and return JSON response."""
-        async with session.get(url, headers=self.headers) as response:
+        async with session.get(url, headers=self.headers, params=params) as response:
             response.raise_for_status()
             return await response.json()
 
@@ -104,10 +109,9 @@ class XTestViz:
                 "status": "completed",
                 "event": "schedule",
             }
-            query_string = "&".join(f"{k}={v}" for k, v in params.items())
-            url = f"https://api.github.com/repos/{self.repo}/actions/workflows/cross-version-tests.yml/runs?{query_string}"
+            url = f"https://api.github.com/repos/{self.repo}/actions/workflows/cross-version-tests.yml/runs"
 
-            data = await self._make_request(session, url)
+            data = await self._make_request(session, url, params=params)
             runs = data.get("workflow_runs", [])
 
             if not runs:
@@ -135,10 +139,9 @@ class XTestViz:
 
         while True:
             params = {"per_page": str(self.per_page), "page": str(page)}
-            query_string = "&".join(f"{k}={v}" for k, v in params.items())
-            url = f"https://api.github.com/repos/{self.repo}/actions/runs/{run_id}/jobs?{query_string}"
+            url = f"https://api.github.com/repos/{self.repo}/actions/runs/{run_id}/jobs"
 
-            data = await self._make_request(session, url)
+            data = await self._make_request(session, url, params=params)
             jobs = data.get("jobs", [])
 
             if not jobs:
@@ -256,7 +259,7 @@ class XTestViz:
         return self.render_results_table(data_rows)
 
 
-async def main():
+async def main() -> None:
     parser = argparse.ArgumentParser(description="Visualize MLflow cross-version test results")
     parser.add_argument(
         "--days", type=int, default=14, help="Number of days back to fetch results (default: 14)"
