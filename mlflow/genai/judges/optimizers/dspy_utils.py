@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
+from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils import call_chat_completions
 from mlflow.genai.utils.trace_utils import (
     extract_request_from_trace,
@@ -24,6 +25,23 @@ if TYPE_CHECKING:
     from mlflow.genai.judges.base import Judge
 
 _logger = logging.getLogger(__name__)
+
+
+def construct_dspy_lm(model: str):
+    """
+    Create a dspy.LM instance from a given model.
+
+    Args:
+        model: The model identifier/URI
+
+    Returns:
+        A dspy.LM instance configured for the given model
+    """
+    if model == _DATABRICKS_DEFAULT_JUDGE_MODEL:
+        return AgentEvalLM()
+    else:
+        model_litellm = convert_mlflow_uri_to_litellm(model)
+        return dspy.LM(model=model_litellm)
 
 
 def _to_attrdict(obj):

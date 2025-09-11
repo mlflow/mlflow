@@ -10,6 +10,7 @@ import pytest
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.optimizers.dspy import DSPyAlignmentOptimizer
+from mlflow.genai.judges.optimizers.dspy_utils import AgentEvalLM
 
 from tests.genai.judges.optimizers.conftest import MockDSPyLM, MockJudge
 
@@ -322,62 +323,44 @@ def test_dspy_align_litellm_nonfatal_error_messages_suppressed():
         assert suppression_state_during_call["suppress_debug_info"] is True
 
 
-@pytest.mark.parametrize(
-    ("model", "expected_type"),
-    [
-        ("databricks", "AgentEvalLM"),
-        ("openai:/gpt-4", "dspy.LM"),
-        ("anthropic:/claude-3", "dspy.LM"),
-    ],
-)
-def test_construct_dspy_lm_utility_method(model, expected_type):
-    """Test the construct_dspy_lm utility method with different model types."""
-    from mlflow.genai.judges.optimizers.dspy import construct_dspy_lm
-    from mlflow.genai.judges.optimizers.dspy_utils import AgentEvalLM
-
-    result = construct_dspy_lm(model)
-
-    if expected_type == "AgentEvalLM":
-        assert isinstance(result, AgentEvalLM)
-    elif expected_type == "dspy.LM":
-        assert isinstance(result, dspy.LM)
-        # Ensure MLflow URI format is converted (no :/ in the model)
-        assert ":/" not in result.model
-
-
-def test_align_constructs_dspy_lm(sample_traces_with_assessments):
-    """Test that align method uses construct_dspy_lm utility method."""
-    from tests.genai.judges.optimizers.conftest import MockJudge
-
+def test_align_configures_databricks_lm_in_context(sample_traces_with_assessments):
+    """Test that align method configures AgentEvalLM in dspy.settings when using databricks model"""
     mock_judge = MockJudge(name="mock_judge", model="openai:/gpt-4")
-    optimizer = ConcreteDSPyOptimizer(model="anthropic:/claude-3")
+    optimizer = ConcreteDSPyOptimizer(model="databricks")
+
+    # This is necessary because the LM is set in a specific context within `align`
+    def check_context(*args, **kwargs):
+        assert isinstance(dspy.settings["lm"], AgentEvalLM)
+        return MagicMock()
 
     with (
-        patch("mlflow.genai.judges.optimizers.dspy.construct_dspy_lm") as mock_construct,
-        patch.object(ConcreteDSPyOptimizer, "get_min_traces_required", return_value=5),
+        patch(
+            "mlflow.genai.judges.optimizers.dspy.trace_to_dspy_example", return_value=MagicMock()
+        ),
+        patch("mlflow.genai.judges.optimizers.dspy.make_judge", return_value=MagicMock()),
+        patch.object(optimizer, "_dspy_optimize", side_effect=check_context),
+        patch.object(optimizer, "get_min_traces_required", return_value=0),
     ):
-        mock_construct.return_value = MagicMock()
         optimizer.align(mock_judge, sample_traces_with_assessments)
 
-        assert mock_construct.called
 
-
-def test_align_uses_default_dspy_lm(sample_traces_with_assessments):
-    """Test that align method uses construct_dspy_lm with default model when no model specified."""
-    from tests.genai.judges.optimizers.conftest import MockJudge
-
+def test_align_configures_openai_lm_in_context(sample_traces_with_assessments):
+    """Test that align method configures dspy.LM in dspy.settings when using OpenAI model."""
     mock_judge = MockJudge(name="mock_judge", model="openai:/gpt-4")
+    optimizer = ConcreteDSPyOptimizer(model="openai:/gpt-4")
 
-    with patch("mlflow.genai.judges.optimizers.dspy.get_default_model", return_value="databricks"):
-        optimizer = ConcreteDSPyOptimizer()  # No model specified, should use default
+    # This is necessary because the LM is set in a specific context within `align`
+    def check_context(*args, **kwargs):
+        assert isinstance(dspy.settings["lm"], dspy.LM)
+        assert dspy.settings["lm"].model == "openai/gpt-4"
+        return MagicMock()
 
     with (
-        patch("mlflow.genai.judges.optimizers.dspy.construct_dspy_lm") as mock_construct,
-        patch.object(ConcreteDSPyOptimizer, "get_min_traces_required", return_value=5),
+        patch(
+            "mlflow.genai.judges.optimizers.dspy.trace_to_dspy_example", return_value=MagicMock()
+        ),
+        patch("mlflow.genai.judges.optimizers.dspy.make_judge", return_value=MagicMock()),
+        patch.object(optimizer, "_dspy_optimize", side_effect=check_context),
+        patch.object(optimizer, "get_min_traces_required", return_value=0),
     ):
-        mock_construct.return_value = MagicMock()
         optimizer.align(mock_judge, sample_traces_with_assessments)
-
-        # Should have called utility method with default databricks model
-        call_args = [call[0][0] for call in mock_construct.call_args_list]
-        assert "databricks" in call_args

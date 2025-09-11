@@ -8,11 +8,9 @@ from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.base import AlignmentOptimizer, Judge
-from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.optimizers.dspy_utils import (
-    AgentEvalLM,
     agreement_metric,
-    convert_mlflow_uri_to_litellm,
+    construct_dspy_lm,
     create_dspy_signature,
     trace_to_dspy_example,
 )
@@ -31,23 +29,6 @@ except ImportError:
     )
 
 _logger = logging.getLogger(__name__)
-
-
-def construct_dspy_lm(model: str):
-    """
-    Create a dspy.LM instance from a given model.
-
-    Args:
-        model: The model identifier/URI
-
-    Returns:
-        A dspy.LM instance configured for the given model
-    """
-    if model == _DATABRICKS_DEFAULT_JUDGE_MODEL:
-        return AgentEvalLM()
-    else:
-        model_litellm = convert_mlflow_uri_to_litellm(model)
-        return dspy.LM(model=model_litellm)
 
 
 @experimental(version="3.4.0")
