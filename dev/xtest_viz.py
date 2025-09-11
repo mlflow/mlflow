@@ -2,6 +2,7 @@
 # dependencies = [
 #     "pandas",
 #     "tabulate",
+#     "aiohttp",
 # ]
 # requires-python = ">=3.10"
 # ///
@@ -33,17 +34,24 @@ Where:
 """
 
 import argparse
-import json
+import asyncio
 import os
 import sys
-import urllib.error
-import urllib.parse
-import urllib.request
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
+import aiohttp
 import pandas as pd
+
+
+@dataclass
+class JobResult:
+    """Data class representing a test job result."""
+
+    name: str
+    date: str
+    status: str
 
 
 class XTestViz:
@@ -56,21 +64,15 @@ class XTestViz:
             self.headers["Authorization"] = f"token {self.github_token}"
             self.headers["Accept"] = "application/vnd.github.v3+json"
 
-    def _make_request(self, url: str) -> dict[str, Any]:
-        """Make an HTTP GET request and return JSON response."""
-        req = urllib.request.Request(url, headers=self.headers)
-        try:
-            with urllib.request.urlopen(req) as response:
-                return json.loads(response.read().decode())
-        except urllib.error.HTTPError as e:
-            error_msg = f"HTTP {e.code}: {e.reason}"
-            if e.code == 401:
-                error_msg += " (Check your GitHub token)"
-            elif e.code == 404:
-                error_msg += " (Repository or workflow not found)"
-            raise Exception(error_msg) from e
+    async def _make_request(self, session: aiohttp.ClientSession, url: str) -> dict[str, Any]:
+        """Make an async HTTP GET request and return JSON response."""
+        async with session.get(url, headers=self.headers) as response:
+            response.raise_for_status()
+            return await response.json()
 
-    def get_workflow_runs(self, days_back: int = 30) -> list[dict[str, Any]]:
+    async def get_workflow_runs(
+        self, session: aiohttp.ClientSession, days_back: int = 30
+    ) -> list[dict[str, Any]]:
         """Fetch cross-version test workflow runs from the last N days."""
         since_date = (datetime.now() - timedelta(days=days_back)).isoformat()
 
@@ -81,16 +83,16 @@ class XTestViz:
 
         while True:
             params = {
-                "per_page": self.per_page,
-                "page": page,
+                "per_page": str(self.per_page),
+                "page": str(page),
                 "created": f">={since_date}",
                 "status": "completed",
                 "event": "schedule",  # Only fetch scheduled runs
             }
-            query_string = urllib.parse.urlencode(params)
+            query_string = "&".join(f"{k}={v}" for k, v in params.items())
             url = f"https://api.github.com/repos/{self.repo}/actions/workflows/cross-version-tests.yml/runs?{query_string}"
 
-            data = self._make_request(url)
+            data = await self._make_request(session, url)
             runs = data.get("workflow_runs", [])
 
             if not runs:
@@ -110,17 +112,19 @@ class XTestViz:
 
         return all_runs
 
-    def get_workflow_jobs(self, run_id: int) -> list[dict[str, Any]]:
+    async def get_workflow_jobs(
+        self, session: aiohttp.ClientSession, run_id: int
+    ) -> list[dict[str, Any]]:
         """Get jobs for a specific workflow run."""
         all_jobs: list[dict[str, Any]] = []
         page: int = 1
 
         while True:
-            params = {"per_page": self.per_page, "page": page}
-            query_string = urllib.parse.urlencode(params)
+            params = {"per_page": str(self.per_page), "page": str(page)}
+            query_string = "&".join(f"{k}={v}" for k, v in params.items())
             url = f"https://api.github.com/repos/{self.repo}/actions/runs/{run_id}/jobs?{query_string}"
 
-            data = self._make_request(url)
+            data = await self._make_request(session, url)
             jobs = data.get("jobs", [])
 
             if not jobs:
@@ -136,14 +140,16 @@ class XTestViz:
 
         return all_jobs
 
-    def _fetch_run_jobs(self, run: dict[str, Any]) -> list[dict[str, Any]]:
+    async def _fetch_run_jobs(
+        self, session: aiohttp.ClientSession, run: dict[str, Any]
+    ) -> list[JobResult]:
         """Fetch jobs for a single workflow run."""
         run_id = run["id"]
         run_date = datetime.fromisoformat(run["created_at"].replace("Z", "+00:00")).strftime(
             "%Y-%m-%d"
         )
 
-        jobs = self.get_workflow_jobs(run_id)
+        jobs = await self.get_workflow_jobs(session, run_id)
         data_rows = []
 
         for job in jobs:
@@ -163,49 +169,52 @@ class XTestViz:
             job_url = job["html_url"]
             status_link = f"[{emoji}]({job_url})"
 
-            data_rows.append({"Name": job["name"], "Date": run_date, "Status": status_link})
+            data_rows.append(JobResult(name=job["name"], date=run_date, status=status_link))
 
         return data_rows
 
-    def generate_results_table(self, days_back: int = 30) -> str:
-        """Generate markdown table of cross-version test results."""
-        # Get workflow runs
-        workflow_runs = self.get_workflow_runs(days_back)
+    async def fetch_all_jobs(self, days_back: int = 30) -> list[JobResult]:
+        """Fetch all jobs from workflow runs in the specified time period."""
+        async with aiohttp.ClientSession() as session:
+            # Get workflow runs
+            workflow_runs = await self.get_workflow_runs(session, days_back)
 
-        if not workflow_runs:
-            return "No workflow runs found in the specified time period."
+            if not workflow_runs:
+                return []
 
-        # Collect all data using parallel fetching
-        print(
-            f"Fetching jobs for {len(workflow_runs)} workflow runs in parallel...", file=sys.stderr
-        )
-        data_rows = []
+            # Collect all data using async parallel fetching
+            print(
+                f"Fetching jobs for {len(workflow_runs)} workflow runs concurrently...",
+                file=sys.stderr,
+            )
 
-        with ThreadPoolExecutor(max_workers=8) as executor:
-            # Submit all job fetching tasks
-            future_to_run = {
-                executor.submit(self._fetch_run_jobs, run): run for run in workflow_runs
-            }
+            # Create tasks for all workflow runs
+            tasks = [self._fetch_run_jobs(session, run) for run in workflow_runs]
 
-            # Collect results as they complete
-            for i, future in enumerate(as_completed(future_to_run), 1):
-                run = future_to_run[future]
-                try:
-                    run_data = future.result()
-                    data_rows.extend(run_data)
+            # Execute all tasks concurrently and gather results
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            data_rows = []
+
+            for i, result in enumerate(results, 1):
+                if isinstance(result, Exception):
+                    print(f"  Error fetching jobs for run {i}: {result}", file=sys.stderr)
+                else:
+                    data_rows.extend(result)
                     print(
-                        f"  Completed {i}/{len(workflow_runs)}: run {run['id']} "
-                        f"({len(run_data)} jobs)",
+                        f"  Completed {i}/{len(workflow_runs)} ({len(result)} jobs)",
                         file=sys.stderr,
                     )
-                except Exception as e:
-                    print(f"  Error fetching jobs for run {run['id']}: {e}", file=sys.stderr)
 
-        # Create DataFrame
-        df = pd.DataFrame(data_rows)
+            return data_rows
 
-        if df.empty:
+    def render_results_table(self, data_rows: list[JobResult]) -> str:
+        """Render job data as a markdown table."""
+        if not data_rows:
             return "No test jobs found."
+
+        # Convert dataclass instances to dictionaries for pandas
+        df_data = [{"Name": row.name, "Date": row.date, "Status": row.status} for row in data_rows]
+        df = pd.DataFrame(df_data)
 
         # Pivot table to have dates as columns
         pivot_df = df.pivot_table(
@@ -230,8 +239,19 @@ class XTestViz:
         # Convert to markdown
         return pivot_df.to_markdown(index=False, tablefmt="pipe")
 
+    async def generate_results_table(self, days_back: int = 30) -> str:
+        """Generate markdown table of cross-version test results."""
+        try:
+            data_rows = await self.fetch_all_jobs(days_back)
+            if not data_rows:
+                return "No workflow runs found in the specified time period."
+            return self.render_results_table(data_rows)
+        except Exception as e:
+            print(f"Error during execution: {e}", file=sys.stderr)
+            return "Error fetching workflow data."
 
-def main():
+
+async def main():
     parser = argparse.ArgumentParser(description="Visualize MLflow cross-version test results")
     parser.add_argument(
         "--days", type=int, default=14, help="Number of days back to fetch results (default: 14)"
@@ -256,16 +276,13 @@ def main():
     visualizer = XTestViz(github_token=token, repo=args.repo)
 
     try:
-        output = visualizer.generate_results_table(args.days)
+        output = await visualizer.generate_results_table(args.days)
         print(output)
 
-    except urllib.error.URLError as e:
-        print(f"Error fetching data from GitHub API: {e}", file=sys.stderr)
-        sys.exit(1)
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
