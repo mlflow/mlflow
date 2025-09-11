@@ -1,3 +1,4 @@
+import time
 from collections import defaultdict
 from unittest.mock import call, patch
 
@@ -346,6 +347,9 @@ def test_extra_traces_from_customer_scorer_should_be_cleaned_up(is_in_databricks
     assert result.metrics["my_scorer_2/mean"] == 0.5
 
     # Traces should only be generated for predict_fn
+    # Wait briefly for traces to be fully persisted due to eventual consistency
+    time.sleep(1.0)
+
     traces = get_traces()
     assert len(traces) == 100
     trace_names = [trace.data.spans[0].name for trace in traces]
