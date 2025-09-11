@@ -18,17 +18,17 @@ Usage:
     uv run dev/xtest_viz.py --repo mlflow/mlflow  # Use different repo
 
 Example output (truncated for brevity):
-    | Name                                   | 01/15      | 01/14      | 01/13      |
+    | Name                                   | 2024-01-15 | 2024-01-14 | 2024-01-13 |
     |----------------------------------------|------------|------------|------------|
-    | test1 (sklearn, 1.3.1, autologging...) | [✓](link)  | [✓](link)  | [✗](link)  |
-    | test1 (pytorch, 2.1.0, models...)      | [✓](link)  | [!](link)  | [✓](link)  |
-    | test2 (xgboost, 2.0.0, autologging...) | [✗](link)  | [✓](link)  | —          |
+    | test1 (sklearn, 1.3.1, autologging...) | [✅](link) | [✅](link) | [❌](link) |
+    | test1 (pytorch, 2.1.0, models...)      | [✅](link) | [⚠️](link) | [✅](link) |
+    | test2 (xgboost, 2.0.0, autologging...) | [❌](link) | [✅](link) | —          |
 
 Where:
-    ✓ = success
-    ✗ = failure
-    ! = cancelled
-    ? = unknown status
+    ✅ = success
+    ❌ = failure
+    ⚠️ = cancelled
+    ❓ = unknown status
     — = no data
 """
 
@@ -69,15 +69,15 @@ class XTestViz:
         """
         match status:
             case "success":
-                return "✓"
+                return "✅"
             case "failure":
-                return "✗"
+                return "❌"
             case "cancelled":
-                return "!"
+                return "⚠️"
             case "skipped":
                 return None
             case _:
-                return "?"
+                return "❓"
 
     def parse_job_name(self, job_name: str) -> str:
         """Extract string inside parentheses from job name.
