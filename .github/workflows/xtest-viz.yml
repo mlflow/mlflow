@@ -1,4 +1,4 @@
-name: Cross-Version Test Results Visualization
+name: xtest-viz
 
 on:
   pull_request:
