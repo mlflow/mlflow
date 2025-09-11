@@ -39,6 +39,7 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -135,6 +136,37 @@ class XTestViz:
 
         return all_jobs
 
+    def _fetch_run_jobs(self, run: dict[str, Any]) -> list[dict[str, Any]]:
+        """Fetch jobs for a single workflow run."""
+        run_id = run["id"]
+        run_date = datetime.fromisoformat(run["created_at"].replace("Z", "+00:00")).strftime(
+            "%Y-%m-%d"
+        )
+
+        jobs = self.get_workflow_jobs(run_id)
+        data_rows = []
+
+        for job in jobs:
+            # Determine status emoji and link
+            status = job["conclusion"]
+            if status == "success":
+                emoji = "✅"
+            elif status == "failure":
+                emoji = "❌"
+            elif status == "cancelled":
+                emoji = "⚠️"
+            elif status == "skipped":
+                continue  # Skip skipped jobs
+            else:
+                emoji = "❓"
+
+            job_url = job["html_url"]
+            status_link = f"[{emoji}]({job_url})"
+
+            data_rows.append({"Name": job["name"], "Date": run_date, "Status": status_link})
+
+        return data_rows
+
     def generate_results_table(self, days_back: int = 30) -> str:
         """Generate markdown table of cross-version test results."""
         # Get workflow runs
@@ -143,42 +175,31 @@ class XTestViz:
         if not workflow_runs:
             return "No workflow runs found in the specified time period."
 
-        # Collect all data
+        # Collect all data using parallel fetching
+        print(
+            f"Fetching jobs for {len(workflow_runs)} workflow runs in parallel...", file=sys.stderr
+        )
         data_rows = []
 
-        for i, run in enumerate(workflow_runs, 1):
-            print(
-                f"Processing workflow run {i}/{len(workflow_runs)} (run {run['id']})...",
-                file=sys.stderr,
-            )
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            # Submit all job fetching tasks
+            future_to_run = {
+                executor.submit(self._fetch_run_jobs, run): run for run in workflow_runs
+            }
 
-            run_date = datetime.fromisoformat(run["created_at"].replace("Z", "+00:00")).strftime(
-                "%Y-%m-%d"
-            )
-
-            # Get jobs for this run
-            print(f"  Fetching jobs for run {run['id']}...", file=sys.stderr)
-            jobs = self.get_workflow_jobs(run["id"])
-            print(f"  Found {len(jobs)} jobs for run {run['id']}", file=sys.stderr)
-
-            for job in jobs:
-                # Determine status emoji and link
-                status = job["conclusion"]
-                if status == "success":
-                    emoji = "✅"
-                elif status == "failure":
-                    emoji = "❌"
-                elif status == "cancelled":
-                    emoji = "⚠️"
-                elif status == "skipped":
-                    continue  # Skip skipped jobs
-                else:
-                    emoji = "❓"
-
-                job_url = job["html_url"]
-                status_link = f"[{emoji}]({job_url})"
-
-                data_rows.append({"Name": job["name"], "Date": run_date, "Status": status_link})
+            # Collect results as they complete
+            for i, future in enumerate(as_completed(future_to_run), 1):
+                run = future_to_run[future]
+                try:
+                    run_data = future.result()
+                    data_rows.extend(run_data)
+                    print(
+                        f"  Completed {i}/{len(workflow_runs)}: run {run['id']} "
+                        f"({len(run_data)} jobs)",
+                        file=sys.stderr,
+                    )
+                except Exception as e:
+                    print(f"  Error fetching jobs for run {run['id']}: {e}", file=sys.stderr)
 
         # Create DataFrame
         df = pd.DataFrame(data_rows)
