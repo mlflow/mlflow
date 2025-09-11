@@ -115,8 +115,7 @@ def mlflow_client(store_type: str, tmp_path: Path):
     initialize_backend_stores(backend_uri, default_artifact_root=tmp_path.as_uri())
 
     with ServerThread(app, get_safe_port()) as url:
-        client = MlflowClient(url)
-        yield client
+        yield MlflowClient(url)
 
 
 @pytest.fixture

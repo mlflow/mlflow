@@ -38,9 +38,7 @@ def client(request: pytest.FixtureRequest, tmp_path: Path):
     )
 
     with ServerThread(app, get_safe_port()) as url:
-        client = MlflowClient(url)
-        client._store_type = request.param
-        yield client
+        yield MlflowClient(url)
 
 
 def assert_is_between(start_time, end_time, expected_time):
