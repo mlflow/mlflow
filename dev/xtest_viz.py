@@ -51,9 +51,6 @@ class JobResult:
     """Data class representing a test job result."""
 
     name: str
-    package: str
-    group: str
-    version: str
     date: str
     status: str
 
@@ -68,30 +65,23 @@ class XTestViz:
             self.headers["Authorization"] = f"token {self.github_token}"
             self.headers["Accept"] = "application/vnd.github.v3+json"
 
-    def parse_job_name(self, job_name: str) -> tuple[str, str, str]:
-        """Parse job name to extract package, group, and version.
+    def parse_job_name(self, job_name: str) -> str:
+        """Extract string inside parentheses from job name.
 
-        Expected format: "test<number> (package, group, version)"
         Examples:
-        - "test1 (sklearn, autologging, 1.3.1)"
-        - "test2 (pytorch, models, 2.1.0)"
-        - "test3 (xgboost, autologging, 2.0.0)"
+        - "test1 (sklearn, autologging, 1.3.1)" -> "sklearn, autologging, 1.3.1"
+        - "test2 (pytorch, models, 2.1.0)" -> "pytorch, models, 2.1.0"
 
         Returns:
-            tuple: (package, group, version)
+            str: Content inside parentheses, or original name if no parentheses found
         """
-        # Pattern to match: test<number> (package, group, version)
-        pattern = r"^test\d+\s*\(([^,]+),\s*([^,]+),\s*([^)]+)\)"
-        match = re.match(pattern, job_name.strip())
+        # Pattern to match: anything (content)
+        pattern = r"\(([^)]+)\)"
+        if match := re.search(pattern, job_name.strip()):
+            return match.group(1).strip()
 
-        if match:
-            package = match.group(1).strip()
-            group = match.group(2).strip()
-            version = match.group(3).strip()
-            return package, group, version
-
-        # Fallback: if parsing fails, return the original name and empty values
-        return job_name, "", ""
+        # Fallback: if parsing fails, return the original name
+        return job_name
 
     async def _make_request(self, session: aiohttp.ClientSession, url: str) -> dict[str, Any]:
         """Make an async HTTP GET request and return JSON response."""
@@ -198,15 +188,12 @@ class XTestViz:
             job_url = job["html_url"]
             status_link = f"[{emoji}]({job_url})"
 
-            # Parse job name to extract package, group, and version
-            package, group, version = self.parse_job_name(job["name"])
+            # Parse job name to extract content inside parentheses
+            parsed_name = self.parse_job_name(job["name"])
 
             data_rows.append(
                 JobResult(
-                    name=job["name"],
-                    package=package,
-                    group=group,
-                    version=version,
+                    name=parsed_name,
                     date=run_date,
                     status=status_link,
                 )
@@ -254,24 +241,12 @@ class XTestViz:
             return "No test jobs found."
 
         # Convert dataclass instances to dictionaries for pandas
-        df_data = [
-            {
-                "Package": row.package,
-                "Group": row.group,
-                "Version": row.version,
-                "Date": row.date,
-                "Status": row.status,
-            }
-            for row in data_rows
-        ]
+        df_data = [{"Name": row.name, "Date": row.date, "Status": row.status} for row in data_rows]
         df = pd.DataFrame(df_data)
-
-        # Create a composite key for the index
-        df["Test"] = df["Package"] + " (" + df["Version"] + ", " + df["Group"] + ")"
 
         # Pivot table to have dates as columns
         pivot_df = df.pivot_table(
-            index="Test",
+            index="Name",
             columns="Date",
             values="Status",
             aggfunc="first",  # Use first value if duplicates exist
@@ -286,7 +261,7 @@ class XTestViz:
         # Fill NaN values with em-dash
         pivot_df = pivot_df.fillna("—")
 
-        # Reset index to make Test a regular column
+        # Reset index to make Name a regular column
         pivot_df = pivot_df.reset_index()
 
         # Convert to markdown
