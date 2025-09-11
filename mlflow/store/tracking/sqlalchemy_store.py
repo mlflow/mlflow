@@ -4728,6 +4728,46 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
             job.result = error
             session.add(job)
 
+    def list_jobs(
+        self, 
+        function: str | None = None, 
+        status: JobStatus | None = None,
+        begin_timestamp: int | None = None, 
+        end_timestamp: int | None = None
+    ) -> list[str]:
+        """
+        List jobs based on the provided filters.
+        
+        Args:
+            function: Filter by function name (exact match)
+            status: Filter by job status (PENDING, RUNNING, DONE, FAILED)
+            begin_timestamp: Filter jobs created after this timestamp (inclusive)
+            end_timestamp: Filter jobs created before this timestamp (inclusive)
+            
+        Returns:
+            List of job IDs that match the filters, order by creation time (newest first)
+        """
+        with self.ManagedSessionMaker() as session:
+            # Select both ID and creation_time for ordering, but only return IDs
+            query = session.query(SqlJob.id, SqlJob.creation_time)
+            
+            # Apply filters
+            if function is not None:
+                query = query.filter(SqlJob.function == function)
+            
+            if status is not None:
+                query = query.filter(SqlJob.status == status.to_int())
+            
+            if begin_timestamp is not None:
+                query = query.filter(SqlJob.creation_time >= begin_timestamp)
+            
+            if end_timestamp is not None:
+                query = query.filter(SqlJob.creation_time <= end_timestamp)
+            
+            # Order by creation time (newest first) and return job IDs
+            results = query.order_by(SqlJob.creation_time.desc()).all()
+            return [result[0] for result in results]  # Extract only the ID from each tuple
+
 
 def _get_search_datasets_filter_clauses(parsed_filters, dialect):
     """
