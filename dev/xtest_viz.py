@@ -62,6 +62,23 @@ class XTestViz:
             self.headers["Authorization"] = f"token {self.github_token}"
             self.headers["Accept"] = "application/vnd.github.v3+json"
 
+    def status_to_emoji(self, status: str) -> str | None:
+        """Convert job status to emoji representation.
+
+        Returns None for skipped status to indicate it should be filtered out.
+        """
+        match status:
+            case "success":
+                return "✅"
+            case "failure":
+                return "❌"
+            case "cancelled":
+                return "⚠️"
+            case "skipped":
+                return None
+            case _:
+                return "❓"
+
     def parse_job_name(self, job_name: str) -> str:
         """Extract string inside parentheses from job name.
 
@@ -169,17 +186,9 @@ class XTestViz:
         data_rows = []
 
         for job in jobs:
-            status = job["conclusion"]
-            if status == "success":
-                emoji = "✅"
-            elif status == "failure":
-                emoji = "❌"
-            elif status == "cancelled":
-                emoji = "⚠️"
-            elif status == "skipped":
+            emoji = self.status_to_emoji(job["conclusion"])
+            if emoji is None:  # Skip this job
                 continue
-            else:
-                emoji = "❓"
 
             job_url = job["html_url"]
             status_link = f"[{emoji}]({job_url})"
