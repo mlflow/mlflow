@@ -1,6 +1,7 @@
 # /// script
 # dependencies = [
 #     "pandas",
+#     "tabulate",
 # ]
 # requires-python = ">=3.10"
 # ///
@@ -12,9 +13,9 @@ a markdown table showing the test status for different package versions across
 different dates.
 
 Usage:
-    python xtest_viz.py                      # Fetch last 14 days from mlflow/dev
-    python xtest_viz.py --days 30            # Fetch last 30 days
-    python xtest_viz.py --repo mlflow/mlflow  # Use different repo
+    uv run dev/xtest_viz.py                      # Fetch last 14 days from mlflow/dev
+    uv run dev/xtest_viz.py --days 30            # Fetch last 30 days
+    uv run dev/xtest_viz.py --repo mlflow/mlflow  # Use different repo
 
 Example output (truncated for brevity):
     | Name                                   | 2024-01-15 | 2024-01-14 | 2024-01-13 |
