@@ -48,6 +48,7 @@ import { useRunsHighlightTableRow } from '../../../runs-charts/hooks/useRunsHigh
 import { isEmpty } from 'lodash';
 
 const ROW_BUFFER = 101; // How many rows to keep rendered, even ones not visible
+const LARGE_COLUMN_COUNT_THRESHOLD = 1000; // Threshold to determine if we should optimize column rendering
 
 export interface ExperimentViewRunsTableProps {
   /**
@@ -109,44 +110,47 @@ export const ExperimentViewRunsTable = React.memo(
 
     const isComparingRuns = compareRunsMode !== 'TABLE';
 
-    // Performance optimization: Only extract the keys we actually need based on selectedColumns
-    const { paramKeyList, metricKeyList, tagsList } = useMemo(() => {
-      // If we're comparing runs, we don't need to filter the keys
-      if (isComparingRuns) {
-        return runsData;
-      }
+    // Determine if we should optimize by filtering columns based on count
+    const shouldOptimize = useMemo(() => {
+      const tagKeysCount = Utils.getVisibleTagKeyList(runsData.tagsList).length;
+      const totalCount = runsData.metricKeyList.length + runsData.paramKeyList.length + tagKeysCount;
+      return totalCount > LARGE_COLUMN_COUNT_THRESHOLD; // Only optimize when there are more than certain number of columns
+    }, [runsData]);
 
-      // Filter metric keys based on selected columns
-      const filteredMetricKeys = runsData.metricKeyList.filter((key) =>
-        selectedColumns.includes(makeCanonicalSortKey(COLUMN_TYPES.METRICS, key)),
-      );
+    // Use the original data
+    const { paramKeyList, metricKeyList, tagsList } = runsData;
 
-      // Filter param keys based on selected columns
-      const filteredParamKeys = runsData.paramKeyList.filter((key) =>
-        selectedColumns.includes(makeCanonicalSortKey(COLUMN_TYPES.PARAMS, key)),
-      );
-
-      // Filter tag keys based on selected columns
-      const filteredTags = runsData.tagsList.map((tags) =>
-        Object.fromEntries(
-          Object.entries(tags).filter(([key]) =>
-            selectedColumns.includes(makeCanonicalSortKey(COLUMN_TYPES.TAGS, key)),
+    // Conditionally filter keys only when there are more than 1000 metrics+params+tags
+    const { filteredMetricKeyList, filteredParamKeyList, filteredTagsList } = useMemo(() => {
+      if (shouldOptimize && !isComparingRuns) {
+        return {
+          filteredMetricKeyList: metricKeyList.filter((key) =>
+            selectedColumns.includes(makeCanonicalSortKey(COLUMN_TYPES.METRICS, key)),
           ),
-        ),
-      );
-
+          filteredParamKeyList: paramKeyList.filter((key) =>
+            selectedColumns.includes(makeCanonicalSortKey(COLUMN_TYPES.PARAMS, key)),
+          ),
+          filteredTagsList: tagsList.map((tags) =>
+            Object.fromEntries(
+              Object.entries(tags).filter(([key]) =>
+                selectedColumns.includes(makeCanonicalSortKey(COLUMN_TYPES.TAGS, key)),
+              ),
+            ),
+          ),
+        };
+      }
       return {
-        metricKeyList: filteredMetricKeys,
-        paramKeyList: filteredParamKeys,
-        tagsList: filteredTags,
+        filteredMetricKeyList: metricKeyList,
+        filteredParamKeyList: paramKeyList,
+        filteredTagsList: tagsList,
       };
-    }, [runsData, selectedColumns, isComparingRuns]);
+    }, [runsData, selectedColumns, shouldOptimize, isComparingRuns]);
 
     const [gridApi, setGridApi] = useState<GridApi>();
     const [columnApi, setColumnApi] = useState<ColumnApi>();
     const prevSelectRunUuids = useRef<string[]>([]);
 
-    const filteredTagKeys = useMemo(() => Utils.getVisibleTagKeyList(tagsList), [tagsList]);
+    const filteredTagKeys = useMemo(() => Utils.getVisibleTagKeyList(filteredTagsList), [filteredTagsList]);
 
     const containerElement = useRef<HTMLDivElement>(null);
     // Flag indicating if there are any rows that can be expanded
@@ -199,8 +203,8 @@ export const ExperimentViewRunsTable = React.memo(
       compareExperiments: experiments.length > 1,
       onTogglePin: togglePinnedRow,
       onToggleVisibility: toggleRowVisibility,
-      metricKeyList,
-      paramKeyList,
+      metricKeyList: filteredMetricKeyList,
+      paramKeyList: filteredParamKeyList,
       tagKeyList: filteredTagKeys,
       columnApi,
       isComparingRuns,
