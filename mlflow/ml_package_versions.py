@@ -42,11 +42,11 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "langchain"
         },
         "models": {
-            "minimum": "0.3.0",
+            "minimum": "0.2.16",
             "maximum": "0.3.27"
         },
         "autologging": {
-            "minimum": "0.3.0",
+            "minimum": "0.2.16",
             "maximum": "0.3.27"
         }
     },
@@ -123,7 +123,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.80.0",
-            "maximum": "0.177.0"
+            "maximum": "0.175.0"
         }
     },
     "agno": {
@@ -133,7 +133,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "1.7.0",
-            "maximum": "2.0.2"
+            "maximum": "1.8.1"
         }
     },
     "pydantic_ai": {
@@ -163,7 +163,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "1.4.0",
-            "maximum": "1.7.1"
+            "maximum": "1.6.0"
         }
     },
     "mistral": {
