@@ -971,3 +971,9 @@ _MLFLOW_TELEMETRY_LOGGING = _BooleanEnvironmentVariable("_MLFLOW_TELEMETRY_LOGGI
 #: This should never be set by users or explicitly.
 #: (default: ``None``)
 _MLFLOW_SGI_NAME = _EnvironmentVariable("_MLFLOW_SGI_NAME", str, None)
+
+#: Specifies whether to enforce using stdin scoring server in Spark udf.
+#: (default: ``True``)
+MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF = _BooleanEnvironmentVariable(
+    "MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF", True
+)
