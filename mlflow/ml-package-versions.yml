@@ -96,15 +96,11 @@ tensorflow:
       pip install --pre tf-nightly
 
   models:
-    minimum: "2.13.1"
+    minimum: "2.14.1"
     maximum: "2.20.0"
     requirements:
       # Requirements to run tests for keras
       ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow", "transformers!=4.38.0,!=4.38.1"]
-      # TensorFlow 2.12.1 and 2.13.1 requires typing_extensions < 4.6.0, which is
-      # incompatible with SQLAlchemy 2.0.25 and Pydantic v2 with error
-      # `cannot import name 'TypeAliasType' from 'typing_extensions'`
-      ">= 2.12.1, <= 2.13.1": ["sqlalchemy<2.0.25", "pydantic<2"]
       "== 2.15.1": ["transformers<4.39.0"]
     run: |
       pytest \
@@ -114,14 +110,10 @@ tensorflow:
         tests/tensorflow/test_keras_pyfunc_model_works_with_all_input_types.py
 
   autologging:
-    minimum: "2.13.1"
+    minimum: "2.14.1"
     maximum: "2.20.0"
     requirements:
       "== dev": ["scikit-learn"]
-      # TensorFlow 2.12.1 and 2.13.1 requires typing_extensions < 4.6.0, which is
-      # incompatible with SQLAlchemy 2.0.25 with error
-      # `cannot import name 'TypeAliasType' from 'typing_extensions'`
-      ">= 2.12.1, <= 2.13.1": ["sqlalchemy<2.0.25", "pydantic<2"]
     run: |
       pytest tests/tensorflow/test_tensorflow2_autolog.py
 
