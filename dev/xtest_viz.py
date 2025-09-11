@@ -59,7 +59,7 @@ class XTestViz:
     def __init__(self, github_token: str | None = None, repo: str = "mlflow/dev"):
         self.github_token = github_token or os.getenv("GITHUB_TOKEN")
         self.repo = repo
-        self.per_page = 30  # Items per page for API requests
+        self.per_page = 30
         self.headers: dict[str, str] = {}
         if self.github_token:
             self.headers["Authorization"] = f"token {self.github_token}"
@@ -80,7 +80,6 @@ class XTestViz:
         if match := re.search(pattern, job_name.strip()):
             return match.group(1).strip()
 
-        # Fallback: if parsing fails, return the original name
         return job_name
 
     async def _make_request(self, session: aiohttp.ClientSession, url: str) -> dict[str, Any]:
@@ -106,7 +105,7 @@ class XTestViz:
                 "page": str(page),
                 "created": f">={since_date}",
                 "status": "completed",
-                "event": "schedule",  # Only fetch scheduled runs
+                "event": "schedule",
             }
             query_string = "&".join(f"{k}={v}" for k, v in params.items())
             url = f"https://api.github.com/repos/{self.repo}/actions/workflows/cross-version-tests.yml/runs?{query_string}"
@@ -121,7 +120,6 @@ class XTestViz:
 
             print(f"  Fetched page {page} ({len(runs)} runs)", file=sys.stderr)
 
-            # Check if there are more pages
             if len(runs) < self.per_page:
                 break
 
@@ -151,7 +149,6 @@ class XTestViz:
 
             all_jobs.extend(jobs)
 
-            # Check if there are more pages
             if len(jobs) < self.per_page:
                 break
 
@@ -172,7 +169,6 @@ class XTestViz:
         data_rows = []
 
         for job in jobs:
-            # Determine status emoji and link
             status = job["conclusion"]
             if status == "success":
                 emoji = "✅"
@@ -181,14 +177,13 @@ class XTestViz:
             elif status == "cancelled":
                 emoji = "⚠️"
             elif status == "skipped":
-                continue  # Skip skipped jobs
+                continue
             else:
                 emoji = "❓"
 
             job_url = job["html_url"]
             status_link = f"[{emoji}]({job_url})"
 
-            # Parse job name to extract content inside parentheses
             parsed_name = self.parse_job_name(job["name"])
 
             data_rows.append(
@@ -204,22 +199,18 @@ class XTestViz:
     async def fetch_all_jobs(self, days_back: int = 30) -> list[JobResult]:
         """Fetch all jobs from workflow runs in the specified time period."""
         async with aiohttp.ClientSession() as session:
-            # Get workflow runs
             workflow_runs = await self.get_workflow_runs(session, days_back)
 
             if not workflow_runs:
                 return []
 
-            # Collect all data using async parallel fetching
             print(
                 f"Fetching jobs for {len(workflow_runs)} workflow runs concurrently...",
                 file=sys.stderr,
             )
 
-            # Create tasks for all workflow runs
             tasks = [self._fetch_run_jobs(session, run) for run in workflow_runs]
 
-            # Execute all tasks concurrently and gather results
             results = await asyncio.gather(*tasks, return_exceptions=True)
             data_rows = []
 
@@ -240,31 +231,24 @@ class XTestViz:
         if not data_rows:
             return "No test jobs found."
 
-        # Convert dataclass instances to dictionaries for pandas
         df_data = [{"Name": row.name, "Date": row.date, "Status": row.status} for row in data_rows]
         df = pd.DataFrame(df_data)
 
-        # Pivot table to have dates as columns
         pivot_df = df.pivot_table(
             index="Name",
             columns="Date",
             values="Status",
-            aggfunc="first",  # Use first value if duplicates exist
+            aggfunc="first",
         )
 
-        # Sort columns (dates) in descending order
         pivot_df = pivot_df[sorted(pivot_df.columns, reverse=True)]
 
-        # Sort rows (test names) alphabetically
         pivot_df = pivot_df.sort_index()
 
-        # Fill NaN values with em-dash
         pivot_df = pivot_df.fillna("—")
 
-        # Reset index to make Name a regular column
         pivot_df = pivot_df.reset_index()
 
-        # Convert to markdown
         return pivot_df.to_markdown(index=False, tablefmt="pipe")
 
     async def generate_results_table(self, days_back: int = 30) -> str:
@@ -289,7 +273,6 @@ async def main():
 
     args = parser.parse_args()
 
-    # Check for GitHub token
     token = args.token or os.getenv("GITHUB_TOKEN")
     if not token:
         print(
