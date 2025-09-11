@@ -71,23 +71,23 @@ class XTestViz:
     def parse_job_name(self, job_name: str) -> tuple[str, str, str]:
         """Parse job name to extract package, group, and version.
 
-        Expected format: "package (version, group)" or variations
+        Expected format: "test<number> (package, group, version)"
         Examples:
-        - "sklearn (1.3.1, autologging)"
-        - "pytorch (2.1.0, models)"
-        - "xgboost (2.0.0, autologging)"
+        - "test1 (sklearn, autologging, 1.3.1)"
+        - "test2 (pytorch, models, 2.1.0)"
+        - "test3 (xgboost, autologging, 2.0.0)"
 
         Returns:
             tuple: (package, group, version)
         """
-        # Pattern to match: package_name (version, group)
-        pattern = r"^([^(]+)\s*\(([^,]+),\s*([^)]+)\)"
+        # Pattern to match: test<number> (package, group, version)
+        pattern = r"^test\d+\s*\(([^,]+),\s*([^,]+),\s*([^)]+)\)"
         match = re.match(pattern, job_name.strip())
 
         if match:
             package = match.group(1).strip()
-            version = match.group(2).strip()
-            group = match.group(3).strip()
+            group = match.group(2).strip()
+            version = match.group(3).strip()
             return package, group, version
 
         # Fallback: if parsing fails, return the original name and empty values
