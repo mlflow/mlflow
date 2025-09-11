@@ -78,6 +78,8 @@ uv run pytest tests/test_version.py
 yarn --cwd mlflow/server/js test
 ```
 
+**IMPORTANT**: `uv` may fail initially because the environment has not been set up yet. Follow the instructions to set up the environment and then rerun `uv` as needed.
+
 ### Code Quality
 
 ```bash

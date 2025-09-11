@@ -6,14 +6,19 @@ from mlflow.genai.prompts.utils import format_prompt
 GROUNDEDNESS_FEEDBACK_NAME = "groundedness"
 
 
-GROUNDEDNESS_PROMPT = """\
-Consider the following claim and document. You must determine whether claim is supported by the document. Do not focus on the correctness or completeness of the claim. Do not make assumptions, approximations, or bring in external knowledge.
+GROUNDEDNESS_PROMPT_INSTRUCTIONS = """\
+Consider the following claim and document. You must determine whether claim is supported by the \
+document. Do not focus on the correctness or completeness of the claim. Do not make assumptions, \
+approximations, or bring in external knowledge.
 
 <claim>
   <question>{{input}}</question>
   <answer>{{output}}</answer>
 </claim>
-<document>{{retrieval_context}}</document>
+<document>{{retrieval_context}}</document>\
+"""
+
+GROUNDEDNESS_PROMPT_OUTPUT = """
 
 Please indicate whether each statement in the claim is supported by the document using the json format:
 {
@@ -22,6 +27,8 @@ Please indicate whether each statement in the claim is supported by the document
 }
 Do not output additional lines.\
 """  # noqa: E501
+
+GROUNDEDNESS_PROMPT = GROUNDEDNESS_PROMPT_INSTRUCTIONS + GROUNDEDNESS_PROMPT_OUTPUT
 
 
 def get_prompt(request: str, response: str, context: Any) -> str:
