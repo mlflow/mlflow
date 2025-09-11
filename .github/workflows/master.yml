@@ -64,9 +64,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [1, 2]
+        group: [1, 2, 3]
         include:
-          - splits: 2
+          - splits: 3
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
@@ -98,34 +98,17 @@ jobs:
             --ignore-flavors --ignore=tests/examples --ignore=tests/evaluate \
             --ignore tests/genai tests
 
-  py310:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/untracked
-      - uses: ./.github/actions/setup-python
-      - uses: ./.github/actions/setup-pyenv
-      - uses: ./.github/actions/setup-java
-      - uses: ./.github/actions/cache-pip
-      - name: Install dependencies
+      - name: Run gateway tests with pydantic v1
         run: |
-          source ./dev/install-common-deps.sh
-          # test telemetry events
-          pip install openai
-          pip install .
-      - uses: ./.github/actions/show-versions
-      - name: Run tests
-        run: |
-          python -c "import sys; assert sys.version_info[:2] == (3, 10), sys.version_info"
-          pytest tests/types/test_type_hints.py tests/pyfunc/test_pyfunc_model_with_type_hints.py tests/telemetry
+          source .venv/bin/activate
+          pip install 'pydantic<2.0'
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/gateway
+
       - name: Run databricks-connect related tests
         run: |
-          # this needs to be run in a separate job because installing databricks-connect could break other 
+          # this needs to be run in a separate job because installing databricks-connect could break other
           # tests that uses normal SparkSession instead of remote SparkSession
+          source .venv/bin/activate
           pip install databricks-agents
           pytest tests/utils/test_requirements_utils.py::test_infer_pip_requirements_on_databricks_agents
 
@@ -230,10 +213,8 @@ jobs:
         run: |
           source .venv/bin/activate
           pytest \
-            tests/utils/test_model_utils.py \
             tests/tracking/fluent/test_fluent_autolog.py \
-            tests/autologging \
-            tests/server/auth
+            tests/autologging
 
   # It takes 9 ~ 10 minutes to run tests in `tests/models`. To make CI finish faster,
   # run these tests in a separate job.
@@ -337,27 +318,6 @@ jobs:
           pip install pyspark
           pytest tests/genai/evaluate/test_utils.py
 
-  optuna:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/untracked
-      - uses: ./.github/actions/setup-python
-      - uses: ./.github/actions/setup-pyenv
-      - uses: ./.github/actions/setup-java
-      - name: Install dependencies
-        run: |
-          source ./dev/install-common-deps.sh
-          pip install 'pyspark>=3.5' 'optuna>=4' .
-      - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/pipdeptree
-      - name: Run tests
-        run: |
-          pytest tests/optuna tests/pyspark/optuna
   pyfunc:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
@@ -381,7 +341,6 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh
           pip install tensorflow 'pyspark[connect]'
-          pip install typing_extensions -U
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
@@ -397,26 +356,6 @@ jobs:
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
             tests/types tests/pyfunc/test_pyfunc_model_with_type_hints.py tests/utils/test_pydantic_utils.py
 
-  sagemaker:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
-    runs-on: ubuntu-latest
-    timeout-minutes: 120
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/untracked
-      - uses: ./.github/actions/setup-python
-      - uses: ./.github/actions/setup-java
-      - name: Install dependencies
-        run: |
-          source ./dev/install-common-deps.sh --ml
-      - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/pipdeptree
-      - name: Run tests
-        run: |
-          pytest tests/sagemaker
-
   windows:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: windows-latest
@@ -426,9 +365,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [1, 2]
+        group: [1, 2, 3, 4]
         include:
-          - splits: 2
+          - splits: 4
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
@@ -474,9 +413,14 @@ jobs:
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/evaluate --ignore=tests/optuna \
-            --ignore=tests/pyspark/optuna --ignore=tests/genai --ignore=tests/telemetry tests
-      - name: Run telemetry tests
-        run: |
-          source .venv/Scripts/activate
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/telemetry
+            --ignore-flavors \
+            --ignore=tests/projects \
+            --ignore=tests/examples \
+            --ignore=tests/evaluate \
+            --ignore=tests/optuna \
+            --ignore=tests/pyspark/optuna \
+            --ignore=tests/genai \
+            --ignore=tests/sagemaker \
+            --ignore=tests/gateway \
+            --ignore=tests/server/auth \
+            tests

@@ -5,11 +5,7 @@ import { PageWrapper } from '@databricks/design-system';
  */
 export const ScrollablePageWrapper = ({ children, className }: { children: React.ReactNode; className?: string }) => {
   return (
-    <PageWrapper
-      // Subtract header height
-      css={{ height: 'calc(100% - 60px)' }}
-      className={className}
-    >
+    <PageWrapper css={{ height: '100%' }} className={className}>
       {children}
     </PageWrapper>
   );

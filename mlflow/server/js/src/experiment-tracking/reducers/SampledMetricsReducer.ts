@@ -5,7 +5,7 @@ import {
   GET_SAMPLED_METRIC_HISTORY_API_BULK,
   type GetSampledMetricHistoryBulkAction,
 } from '../sdk/SampledMetricHistoryService';
-import { SampledMetricsByRunUuidState } from '../types';
+import type { SampledMetricsByRunUuidState } from '../types';
 
 export const sampledMetricsByRunUuid = (
   state: SampledMetricsByRunUuidState = {},

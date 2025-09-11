@@ -1,4 +1,5 @@
-import { GraphQLExperimentRun, LoggedModelProto } from '../../types';
+import type { LoggedModelProto } from '../../types';
+import { GraphQLExperimentRun } from '../../types';
 import { Link } from '../../../common/utils/RoutingUtils';
 import { useExperimentLoggedModelRegisteredVersions } from './hooks/useExperimentLoggedModelRegisteredVersions';
 import { isEmpty } from 'lodash';

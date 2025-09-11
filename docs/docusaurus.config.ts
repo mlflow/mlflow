@@ -626,6 +626,12 @@ const config: Config = {
             from: ['/genai/prompt-version-mgmt/version-tracking/compare-app-versions'],
           },
 
+          // ResponsesAgent Redirects
+          {
+            to: '/genai/flavors/responses-agent-intro',
+            from: ['/llms/responses-agent-intro'],
+          },
+
           // Governance and Deployments Redirects
           {
             to: '/genai/governance/ai-gateway',

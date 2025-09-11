@@ -9,15 +9,16 @@ import {
   TableSkeletonRows,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import type { ColumnDef } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { useMemo } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { RegisteredPrompt } from '../types';
+import type { RegisteredPrompt } from '../types';
 import { PromptsListTableTagsCell } from './PromptsListTableTagsCell';
 import { PromptsListTableNameCell } from './PromptsListTableNameCell';
 import Utils from '../../../../common/utils/Utils';
 import { PromptsListTableVersionCell } from './PromptsListTableVersionCell';
-import { PromptsTableMetadata } from '../utils';
+import type { PromptsTableMetadata } from '../utils';
 import { first, isEmpty } from 'lodash';
 
 type PromptsTableColumnDef = ColumnDef<RegisteredPrompt>;

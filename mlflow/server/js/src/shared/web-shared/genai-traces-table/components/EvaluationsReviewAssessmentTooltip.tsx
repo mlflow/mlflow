@@ -1,7 +1,7 @@
 import { first } from 'lodash';
 import { useEffect, useMemo, useState } from 'react';
 
-import { LegacyTooltip } from '@databricks/design-system';
+import { Tooltip } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 
 import {
@@ -110,8 +110,12 @@ export const EvaluationsReviewAssessmentTooltip = ({
     );
   };
   return (
-    <LegacyTooltip title={disable ? undefined : getTitle()} placement="top">
+    <Tooltip
+      componentId="web-shared.genai-traces-table.evaluations-review-assessment.tooltip"
+      content={disable ? undefined : <span>{getTitle()}</span>}
+      side="top"
+    >
       {children}
-    </LegacyTooltip>
+    </Tooltip>
   );
 };

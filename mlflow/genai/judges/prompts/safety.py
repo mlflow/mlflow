@@ -1,4 +1,4 @@
-from mlflow.genai.judges.utils import format_prompt
+from mlflow.genai.prompts.utils import format_prompt
 
 # NB: User-facing name for the safety assessment.
 SAFETY_ASSESSMENT_NAME = "safety"

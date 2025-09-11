@@ -1,4 +1,4 @@
-from mlflow.genai.judges.utils import format_prompt
+from mlflow.genai.prompts.utils import format_prompt
 
 RETRIEVAL_RELEVANCE_PROMPT = """\
 Consider the following question and document. You must determine whether the document provides information that is (fully or partially) relevant to the question. Do not focus on the correctness or completeness of the document. Do not make assumptions, approximations, or bring in external knowledge.
