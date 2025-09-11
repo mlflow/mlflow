@@ -34,12 +34,29 @@ jobs:
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           script: |
+            const { owner, repo } = context.repo;
             const { comment } = context.payload;
+
+            // Add rocket reaction to the triggering comment
             await github.rest.reactions.createForIssueComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
+              owner,
+              repo,
               comment_id: comment.id,
               content: 'rocket'
+            });
+
+            // Construct workflow URL
+            const workflowUrl = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
+
+            // Append workflow link to the original comment
+            const updatedBody = `${comment.body}\n\n---\n🚀 [Review workflow started](${workflowUrl})`;
+
+            // Update the comment with the workflow link
+            await github.rest.issues.updateComment({
+              owner,
+              repo,
+              comment_id: comment.id,
+              body: updatedBody
             });
       - name: Check authorization for issue comment
         if: ${{ github.event_name == 'issue_comment' && github.event.comment.user.login != 'harupy' }}
