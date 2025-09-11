@@ -1968,3 +1968,22 @@ class SqlJob(Base):
 
     def __repr__(self):
         return f"<SqlJob ({self.id}, {self.function}, {self.status})>"
+
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            mlflow.entities.Job.
+        """
+        from mlflow.entities.job import Job
+        from mlflow.entities.job_status import JobStatus
+
+        return Job(
+            job_id=self.id,
+            creation_time=self.creation_time,
+            function=self.function,
+            params=self.params,
+            status=JobStatus.from_int(self.status),
+            result=self.result,
+        )

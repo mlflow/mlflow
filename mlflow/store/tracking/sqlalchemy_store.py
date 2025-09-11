@@ -29,6 +29,7 @@ from mlflow.entities import (
     Expectation,
     Experiment,
     Feedback,
+    Job,
     Run,
     RunInputs,
     RunOutputs,
@@ -4269,6 +4270,151 @@ class SqlAlchemyStore(AbstractStore):
 
             return dataset.to_mlflow_entity()
 
+    def create_job(self, function: str, params: str) -> str:
+        """
+        Create a new job with the specified function and parameters.
+
+        Args:
+            function: The function name to execute
+            params: The job parameters as a string
+
+        Returns:
+            The job ID (UUID4 string)
+        """
+        with self.ManagedSessionMaker() as session:
+            job_id = str(uuid.uuid4())
+            creation_time = get_current_time_millis()
+
+            job = SqlJob(
+                id=job_id,
+                creation_time=creation_time,
+                function=function,
+                params=params,
+                status=JobStatus.PENDING.to_int(),
+                result=None
+            )
+
+            session.add(job)
+            session.flush()
+            return job_id
+
+    def start_job(self, job_id: str) -> None:
+        """
+        Start a job by setting its status to RUNNING.
+
+        Args:
+            job_id: The ID of the job to start
+        """
+        with self.ManagedSessionMaker() as session:
+            job = session.query(SqlJob).filter(SqlJob.id == job_id).one_or_none()
+            if job is None:
+                raise MlflowException(
+                    f"Job with ID {job_id} not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST
+                )
+
+            job.status = JobStatus.RUNNING.to_int()
+
+    def finish_job(self, job_id: str, result: str) -> None:
+        """
+        Finish a job by setting its status to DONE and setting the result.
+
+        Args:
+            job_id: The ID of the job to finish
+            result: The job result as a string
+        """
+        with self.ManagedSessionMaker() as session:
+            job = session.query(SqlJob).filter(SqlJob.id == job_id).one_or_none()
+            if job is None:
+                raise MlflowException(
+                    f"Job with ID {job_id} not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST
+                )
+
+            job.status = JobStatus.DONE.to_int()
+            job.result = result
+
+    def fail_job(self, job_id: str, error: str) -> None:
+        """
+        Fail a job by setting its status to FAILED and setting the error message.
+
+        Args:
+            job_id: The ID of the job to fail
+            error: The error message as a string
+        """
+        with self.ManagedSessionMaker() as session:
+            job = session.query(SqlJob).filter(SqlJob.id == job_id).one_or_none()
+            if job is None:
+                raise MlflowException(
+                    f"Job with ID {job_id} not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST
+                )
+
+            job.status = JobStatus.FAILED.to_int()
+            job.result = error
+
+    def list_jobs(
+            self,
+            function: str | None = None,
+            status: JobStatus | None = None,
+            begin_timestamp: int | None = None,
+            end_timestamp: int | None = None
+    ) -> list[Job]:
+        """
+        List jobs based on the provided filters.
+
+        Args:
+            function: Filter by function name (exact match)
+            status: Filter by job status (PENDING, RUNNING, DONE, FAILED)
+            begin_timestamp: Filter jobs created after this timestamp (inclusive)
+            end_timestamp: Filter jobs created before this timestamp (inclusive)
+
+        Returns:
+            List of Job entities that match the filters, order by creation time (newest first)
+        """
+        with self.ManagedSessionMaker() as session:
+            # Select all columns needed for Job entity
+            query = session.query(SqlJob)
+
+            # Apply filters
+            if function is not None:
+                query = query.filter(SqlJob.function == function)
+
+            if status is not None:
+                query = query.filter(SqlJob.status == status.to_int())
+
+            if begin_timestamp is not None:
+                query = query.filter(SqlJob.creation_time >= begin_timestamp)
+
+            if end_timestamp is not None:
+                query = query.filter(SqlJob.creation_time <= end_timestamp)
+
+            # Order by creation time (newest first) and return Job entities
+            jobs = query.order_by(SqlJob.creation_time.desc()).all()
+            return [job.to_mlflow_entity() for job in jobs]
+
+    def get_job(self, job_id: str) -> Job:
+        """
+        Get a job by its ID.
+
+        Args:
+            job_id: The ID of the job to retrieve
+
+        Returns:
+            Job entity
+
+        Raises:
+            MlflowException: If job with the given ID is not found
+        """
+        with self.ManagedSessionMaker() as session:
+            job = session.query(SqlJob).filter(SqlJob.id == job_id).one_or_none()
+            if job is None:
+                raise MlflowException(
+                    f"Job with ID {job_id} not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST
+                )
+            return job.to_mlflow_entity()
+
 
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
     """
@@ -4641,132 +4787,6 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
             )
 
     return attribute_filters, non_attribute_filters, span_filters, run_id_filter
-
-    def create_job(self, function: str, params: str) -> str:
-        """
-        Create a new job with the specified function and parameters.
-        
-        Args:
-            function: The function name to execute
-            params: The job parameters as a string
-            
-        Returns:
-            The job ID (UUID4 string)
-        """
-        with self.ManagedSessionMaker() as session:
-            job_id = str(uuid.uuid4())
-            creation_time = get_current_time_millis()
-            
-            job = SqlJob(
-                id=job_id,
-                creation_time=creation_time,
-                function=function,
-                params=params,
-                status=JobStatus.PENDING.to_int(),
-                result=None
-            )
-            
-            session.add(job)
-            session.flush()
-            return job_id
-
-    def start_job(self, job_id: str) -> None:
-        """
-        Start a job by setting its status to RUNNING.
-        
-        Args:
-            job_id: The ID of the job to start
-        """
-        with self.ManagedSessionMaker() as session:
-            job = session.query(SqlJob).filter(SqlJob.id == job_id).one_or_none()
-            if job is None:
-                raise MlflowException(
-                    f"Job with ID {job_id} not found",
-                    error_code=RESOURCE_DOES_NOT_EXIST
-                )
-            
-            job.status = JobStatus.RUNNING.to_int()
-            session.add(job)
-
-    def finish_job(self, job_id: str, result: str) -> None:
-        """
-        Finish a job by setting its status to DONE and setting the result.
-        
-        Args:
-            job_id: The ID of the job to finish
-            result: The job result as a string
-        """
-        with self.ManagedSessionMaker() as session:
-            job = session.query(SqlJob).filter(SqlJob.id == job_id).one_or_none()
-            if job is None:
-                raise MlflowException(
-                    f"Job with ID {job_id} not found",
-                    error_code=RESOURCE_DOES_NOT_EXIST
-                )
-            
-            job.status = JobStatus.DONE.to_int()
-            job.result = result
-            session.add(job)
-
-    def fail_job(self, job_id: str, error: str) -> None:
-        """
-        Fail a job by setting its status to FAILED and setting the error message.
-        
-        Args:
-            job_id: The ID of the job to fail
-            error: The error message as a string
-        """
-        with self.ManagedSessionMaker() as session:
-            job = session.query(SqlJob).filter(SqlJob.id == job_id).one_or_none()
-            if job is None:
-                raise MlflowException(
-                    f"Job with ID {job_id} not found",
-                    error_code=RESOURCE_DOES_NOT_EXIST
-                )
-            
-            job.status = JobStatus.FAILED.to_int()
-            job.result = error
-            session.add(job)
-
-    def list_jobs(
-        self, 
-        function: str | None = None, 
-        status: JobStatus | None = None,
-        begin_timestamp: int | None = None, 
-        end_timestamp: int | None = None
-    ) -> list[str]:
-        """
-        List jobs based on the provided filters.
-        
-        Args:
-            function: Filter by function name (exact match)
-            status: Filter by job status (PENDING, RUNNING, DONE, FAILED)
-            begin_timestamp: Filter jobs created after this timestamp (inclusive)
-            end_timestamp: Filter jobs created before this timestamp (inclusive)
-            
-        Returns:
-            List of job IDs that match the filters, order by creation time (newest first)
-        """
-        with self.ManagedSessionMaker() as session:
-            # Select both ID and creation_time for ordering, but only return IDs
-            query = session.query(SqlJob.id, SqlJob.creation_time)
-            
-            # Apply filters
-            if function is not None:
-                query = query.filter(SqlJob.function == function)
-            
-            if status is not None:
-                query = query.filter(SqlJob.status == status.to_int())
-            
-            if begin_timestamp is not None:
-                query = query.filter(SqlJob.creation_time >= begin_timestamp)
-            
-            if end_timestamp is not None:
-                query = query.filter(SqlJob.creation_time <= end_timestamp)
-            
-            # Order by creation time (newest first) and return job IDs
-            results = query.order_by(SqlJob.creation_time.desc()).all()
-            return [result[0] for result in results]  # Extract only the ID from each tuple
 
 
 def _get_search_datasets_filter_clauses(parsed_filters, dialect):
