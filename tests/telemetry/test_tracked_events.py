@@ -700,17 +700,13 @@ def test_invoke_custom_judge_model(
 
 def test_autologging(mock_requests, mock_telemetry_client: TelemetryClient):
     mlflow.openai.autolog()
-    validate_telemetry_record(
-        mock_telemetry_client,
-        mock_requests,
-        AutologgingEvent.name,
-        {"flavor": mlflow.openai.FLAVOR_NAME, "log_traces": True, "disable": False},
-    )
 
     mlflow.autolog()
-    validate_telemetry_record(
-        mock_telemetry_client,
-        mock_requests,
-        AutologgingEvent.name,
-        {"flavor": "all", "log_traces": True, "disable": False},
+    mock_telemetry_client.flush()
+    data = [record["data"] for record in mock_requests]
+    params = [event["params"] for event in data if event["event_name"] == AutologgingEvent.name]
+    assert (
+        json.dumps({"flavor": mlflow.openai.FLAVOR_NAME, "log_traces": True, "disable": False})
+        in params
     )
+    assert json.dumps({"flavor": "all", "log_traces": True, "disable": False}) in params
