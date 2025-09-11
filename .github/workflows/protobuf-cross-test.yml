@@ -67,7 +67,7 @@ jobs:
           # Install Hugging Face datasets to test Hugging Face usage with MLflow dataset tracking
           pip install datasets
           # Install TensorFlow to test TensorFlow dataset usage with MLflow dataset tracking
-          pip install tensorflow
+          pip install tensorflow<2.20
           # Install torch and transformers to test metrics
           pip install torch transformers tf-keras
           pip install -r requirements/test-requirements.txt
@@ -87,5 +87,4 @@ jobs:
             --ignore=tests/genai \
             --ignore=tests/telemetry \
             --ignore=tests/gateway \
-            --ignore=tests/data/test_tensorflow_dataset.py \
             tests
