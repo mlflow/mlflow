@@ -4,7 +4,6 @@
 #     "tabulate",
 #     "aiohttp",
 # ]
-# requires-python = ">=3.10"
 # ///
 """
 Script to visualize cross-version test results for MLflow autologging and models.
@@ -48,8 +47,6 @@ import pandas as pd
 
 @dataclass
 class JobResult:
-    """Data class representing a test job result."""
-
     name: str
     date: str
     status: str
@@ -69,8 +66,8 @@ class XTestViz:
         """Extract string inside parentheses from job name.
 
         Examples:
-        - "test1 (sklearn, autologging, 1.3.1)" -> "sklearn, autologging, 1.3.1"
-        - "test2 (pytorch, models, 2.1.0)" -> "pytorch, models, 2.1.0"
+        - "test1 (sklearn / autologging / 1.3.1)" -> "sklearn, autologging, 1.3.1"
+        - "test2 (pytorch / models / 2.1.0)" -> "pytorch, models, 2.1.0"
 
         Returns:
             str: Content inside parentheses, or original name if no parentheses found
