@@ -4315,6 +4315,23 @@ class SqlAlchemyStore(AbstractStore):
 
             job.status = JobStatus.RUNNING.to_int()
 
+    def reenqueue_job(self, job_id: str) -> None:
+        """
+        Re-enqueue a job by setting its status to PENDING.
+
+        Args:
+            job_id: The ID of the job to re-enqueue.
+        """
+        with self.ManagedSessionMaker() as session:
+            job = session.query(SqlJob).filter(SqlJob.id == job_id).one_or_none()
+            if job is None:
+                raise MlflowException(
+                    f"Job with ID {job_id} not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST
+                )
+
+            job.status = JobStatus.PENDING.to_int()
+
     def finish_job(self, job_id: str, result: str) -> None:
         """
         Finish a job by setting its status to DONE and setting the result.

@@ -2,6 +2,7 @@ import importlib
 import importlib.metadata
 import os
 import shlex
+import shutil
 import sys
 import textwrap
 import types
@@ -41,6 +42,8 @@ ARTIFACTS_DESTINATION_ENV_VAR = "_MLFLOW_SERVER_ARTIFACT_DESTINATION"
 PROMETHEUS_EXPORTER_ENV_VAR = "prometheus_multiproc_dir"
 SERVE_ARTIFACTS_ENV_VAR = "_MLFLOW_SERVER_SERVE_ARTIFACTS"
 ARTIFACTS_ONLY_ENV_VAR = "_MLFLOW_SERVER_ARTIFACTS_ONLY"
+
+MLFLOW_HUEY_STORAGE_PATH = '/tmp/mlflow_huey.db'
 
 REL_STATIC_DIR = "js/build"
 
@@ -320,6 +323,18 @@ def _run_server(
     secret_key = MLFLOW_FLASK_SERVER_SECRET_KEY.get()
     if secret_key:
         env_map[MLFLOW_FLASK_SERVER_SECRET_KEY.name] = secret_key
+
+    # start Mlflow job runner process
+    huey_proc = _exec_cmd(
+        [
+            sys.executable,
+            shutil.which("huey_consumer.py"),
+            "mlflow.server.job.job_runner.huey",
+        ],
+        extra_env=env_map,
+        capture_output=False,
+        synchronous=False,
+    )
 
     # Determine which server we're using (only one should be true)
     using_gunicorn = gunicorn_opts is not None
