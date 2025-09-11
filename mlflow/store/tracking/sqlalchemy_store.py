@@ -2546,12 +2546,11 @@ class SqlAlchemyStore(AbstractStore):
                 db_sql_trace_info = (
                     session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
                 )
-                sql_trace_info.tags.extend(
-                    [
-                        SqlTraceTag(request_id=trace_id, key=tag.key, value=tag.value)
-                        for tag in db_sql_trace_info.tags
-                    ]
-                )
+                for tag in db_sql_trace_info.tags:
+                    if tag.key not in tags:
+                        sql_trace_info.tags.append(
+                            SqlTraceTag(request_id=trace_id, key=tag.key, value=tag.value)
+                        )
                 session.merge(sql_trace_info)
                 session.flush()
 
@@ -3298,7 +3297,10 @@ class SqlAlchemyStore(AbstractStore):
                         .filter(SqlTraceInfo.request_id == trace_id)
                         .one()
                     )
-                    sql_trace_info.tags.extend(tags)
+                    existing_tags = {tag.key for tag in sql_trace_info.tags}
+                    for tag in tags:
+                        if tag.key not in existing_tags:
+                            sql_trace_info.tags.append(tag)
                     session.merge(sql_trace_info)
                     session.flush()
 
