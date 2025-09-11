@@ -14,6 +14,7 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import Judge
+from mlflow.genai.judges.optimizers.simba import SIMBAAlignmentOptimizer
 from mlflow.genai.judges.utils import (
     _MODEL_RESPONSE_FORMAT_CAPABILITIES,
     CategoricalRating,
@@ -23,6 +24,7 @@ from mlflow.genai.judges.utils import (
     add_output_format_instructions,
     call_chat_completions,
     format_prompt,
+    get_default_optimizer,
     invoke_judge_model,
 )
 from mlflow.genai.prompts.utils import format_prompt
@@ -1185,3 +1187,9 @@ def test_call_chat_completions_client_error(mock_check, mock_databricks_rag_eval
     ):
         with pytest.raises(RuntimeError, match="RAG client failed"):
             call_chat_completions("test prompt", "system prompt")
+
+
+def test_get_default_optimizer():
+    """Test that get_default_optimizer returns a SIMBA optimizer."""
+    optimizer = get_default_optimizer()
+    assert isinstance(optimizer, SIMBAAlignmentOptimizer)
