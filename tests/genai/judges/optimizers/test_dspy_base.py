@@ -334,9 +334,6 @@ def test_align_configures_databricks_lm_in_context(sample_traces_with_assessment
         return MagicMock()
 
     with (
-        patch(
-            "mlflow.genai.judges.optimizers.dspy.trace_to_dspy_example", return_value=MagicMock()
-        ),
         patch("mlflow.genai.judges.optimizers.dspy.make_judge", return_value=MagicMock()),
         patch.object(optimizer, "_dspy_optimize", side_effect=check_context),
         patch.object(optimizer, "get_min_traces_required", return_value=0),
@@ -347,12 +344,12 @@ def test_align_configures_databricks_lm_in_context(sample_traces_with_assessment
 def test_align_configures_openai_lm_in_context(sample_traces_with_assessments):
     """Test that align method configures dspy.LM in dspy.settings when using OpenAI model."""
     mock_judge = MockJudge(name="mock_judge", model="openai:/gpt-4")
-    optimizer = ConcreteDSPyOptimizer(model="openai:/gpt-4")
+    optimizer = ConcreteDSPyOptimizer(model="openai:/gpt-4.1")
 
     # This is necessary because the LM is set in a specific context within `align`
     def check_context(*args, **kwargs):
         assert isinstance(dspy.settings["lm"], dspy.LM)
-        assert dspy.settings["lm"].model == "openai/gpt-4"
+        assert dspy.settings["lm"].model == "openai/gpt-4.1"
         return MagicMock()
 
     with (
