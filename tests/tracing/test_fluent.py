@@ -182,7 +182,7 @@ def mock_client():
 def mock_otel_trace_start_time():
     # mock the start time of a trace, ensuring the root span has
     # a smaller start time than child spans.
-    with mock.patch("opentelemetry.sdk.trace.time_ns", return_value=1726145091022155000):
+    with mock.patch("opentelemetry.sdk.trace.time_ns", return_value=0):
         yield
 
 
@@ -307,7 +307,7 @@ def test_trace_stream(wrap_sync_func):
 
     # Spans for the chid 'square' function
     for i in range(3):
-        assert trace.data.spans[i + 1].name == f"square_{i + 1}" if i > 0 else "square"
+        assert trace.data.spans[i + 1].name == f"square_{i + 1}"
         assert trace.data.spans[i + 1].inputs == {"t": i}
         assert trace.data.spans[i + 1].outputs == i**2
         assert trace.data.spans[i + 1].parent_id == root_span.span_id
@@ -541,7 +541,7 @@ def test_trace_handle_exception_during_streaming():
     assert len(spans) == 3
     assert spans[0].name == "predict_stream"
     assert spans[0].status.status_code == SpanStatusCode.ERROR
-    assert spans[1].name == "some_operation_raise_error"
+    assert spans[1].name == "some_operation_raise_error_1"
     assert spans[1].status.status_code == SpanStatusCode.OK
     assert spans[2].name == "some_operation_raise_error_2"
     assert spans[2].status.status_code == SpanStatusCode.ERROR
@@ -722,7 +722,7 @@ def test_start_span_context_manager(async_logging_enabled):
     }
 
     # Span with duplicate name should be renamed to have an index number like "_1", "_2", ...
-    child_span_1 = span_name_to_span["child_span"]
+    child_span_1 = span_name_to_span["child_span_1"]
     assert child_span_1.parent_id == root_span.span_id
     assert child_span_1.attributes == {
         "delta": 2,
@@ -1130,21 +1130,21 @@ def test_search_traces_with_multiple_spans_with_same_name():
 
     df = mlflow.search_traces(
         extract_fields=[
-            "duplicate_name.inputs.x",
             "duplicate_name.inputs.y",
-            "duplicate_name_2.inputs.z",
-            "duplicate_name_1.inputs.y",
+            "duplicate_name.inputs.x",
+            "duplicate_name.inputs.z",
             "duplicate_name_1.inputs.x",
-            "duplicate_name_1.inputs.z",
+            "duplicate_name_1.inputs.y",
+            "duplicate_name_2.inputs.z",
         ]
     )
     # Duplicate spans would all be null
-    assert df["duplicate_name.inputs.x"].tolist() == [2]
-    assert df["duplicate_name.inputs.y"].tolist() == [5]
+    assert df["duplicate_name.inputs.y"].isnull().all()
+    assert df["duplicate_name.inputs.x"].isnull().all()
+    assert df["duplicate_name.inputs.z"].isnull().all()
+    assert df["duplicate_name_1.inputs.x"].tolist() == [2]
+    assert df["duplicate_name_1.inputs.y"].tolist() == [5]
     assert df["duplicate_name_2.inputs.z"].tolist() == [7]
-    assert df["duplicate_name_1.inputs.y"].isnull().all()
-    assert df["duplicate_name_1.inputs.x"].isnull().all()
-    assert df["duplicate_name_1.inputs.z"].isnull().all()
 
 
 # Test a field that doesn't exist for extraction - we shouldn't throw, just return empty column
