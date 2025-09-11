@@ -22,7 +22,7 @@ from mlflow.types.llm import (
     ChatCompletionResponse,
     ChatMessage,
 )
-from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.annotations import deprecated
 
 
 @deprecated("mlflow.langchain.output_parser.ChatCompletionOutputParser")

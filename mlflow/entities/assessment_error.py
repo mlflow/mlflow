@@ -2,7 +2,6 @@ from dataclasses import dataclass
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos.assessments_pb2 import AssessmentError as ProtoAssessmentError
-from mlflow.utils.annotations import experimental
 
 _STACK_TRACE_TRUNCATION_PREFIX = "[Stack trace is truncated]\n...\n"
 _STACK_TRACE_TRUNCATION_LENGTH = 10000

@@ -38,7 +38,6 @@ from mlflow.tracking.fluent import (
     _set_active_model_id,
     _use_logged_model,
 )
-from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
     _construct_databricks_logged_model_url,
     get_databricks_runtime_version,

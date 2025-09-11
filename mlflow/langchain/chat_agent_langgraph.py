@@ -39,7 +39,6 @@ except ImportError as e:
 
 from mlflow.langchain.utils.chat import convert_lc_message_to_chat_message
 from mlflow.types.agent import ChatAgentMessage
-from mlflow.utils.annotations import experimental
 
 
 def _add_agent_messages(

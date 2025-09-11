@@ -1,5 +1,4 @@
 from mlflow.models.resources import Resource, _ResourceBuilder
-from mlflow.utils.annotations import experimental
 
 
 class UserAuthPolicy:

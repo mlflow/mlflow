@@ -40,7 +40,7 @@ from mlflow.tracing.utils import (
 )
 from mlflow.tracing.utils.search import extract_span_inputs_outputs, traces_to_df
 from mlflow.utils import get_results_from_paginated_fn
-from mlflow.utils.annotations import deprecated_parameter, experimental
+from mlflow.utils.annotations import deprecated_parameter
 
 _logger = logging.getLogger(__name__)
 
