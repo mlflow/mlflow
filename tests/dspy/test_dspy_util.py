@@ -41,15 +41,31 @@ def test_log_dspy_module_state_params():
         log_dspy_module_params(program)
 
     run = mlflow.last_active_run()
-    assert run.data.params == {
-        "Predict.signature.fields.0.description": "${question}",
-        "Predict.signature.fields.0.prefix": "Question:",
-        "Predict.signature.fields.1.description": "${answer}",
-        "Predict.signature.fields.1.prefix": "Answer:",
-        "Predict.signature.instructions": "Given the fields `question`, produce the fields `answer`.",  # noqa: E501
-        "Predict.demos.0.answer": "['Tokyo', 'Osaka']",
-        "Predict.demos.0.question": "What are cities in Japan?",
-    }
+
+    # DSPy >= 3.0 changed how list values are flattened in the module state
+    if Version(importlib.metadata.version("dspy")) >= Version("3.0"):
+        expected_params = {
+            "Predict.signature.fields.0.description": "${question}",
+            "Predict.signature.fields.0.prefix": "Question:",
+            "Predict.signature.fields.1.description": "${answer}",
+            "Predict.signature.fields.1.prefix": "Answer:",
+            "Predict.signature.instructions": "Given the fields `question`, produce the fields `answer`.",  # noqa: E501
+            "Predict.demos.0.answer.0": "Tokyo",
+            "Predict.demos.0.answer.1": "Osaka",
+            "Predict.demos.0.question": "What are cities in Japan?",
+        }
+    else:
+        expected_params = {
+            "Predict.signature.fields.0.description": "${question}",
+            "Predict.signature.fields.0.prefix": "Question:",
+            "Predict.signature.fields.1.description": "${answer}",
+            "Predict.signature.fields.1.prefix": "Answer:",
+            "Predict.signature.instructions": "Given the fields `question`, produce the fields `answer`.",  # noqa: E501
+            "Predict.demos.0.answer": "['Tokyo', 'Osaka']",
+            "Predict.demos.0.question": "What are cities in Japan?",
+        }
+
+    assert run.data.params == expected_params
 
 
 def test_log_dataset(tmp_path):
