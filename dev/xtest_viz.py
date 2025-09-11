@@ -36,6 +36,7 @@ Where:
 import argparse
 import asyncio
 import os
+import re
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -50,6 +51,9 @@ class JobResult:
     """Data class representing a test job result."""
 
     name: str
+    package: str
+    group: str
+    version: str
     date: str
     status: str
 
@@ -63,6 +67,31 @@ class XTestViz:
         if self.github_token:
             self.headers["Authorization"] = f"token {self.github_token}"
             self.headers["Accept"] = "application/vnd.github.v3+json"
+
+    def parse_job_name(self, job_name: str) -> tuple[str, str, str]:
+        """Parse job name to extract package, group, and version.
+
+        Expected format: "package (version, group)" or variations
+        Examples:
+        - "sklearn (1.3.1, autologging)"
+        - "pytorch (2.1.0, models)"
+        - "xgboost (2.0.0, autologging)"
+
+        Returns:
+            tuple: (package, group, version)
+        """
+        # Pattern to match: package_name (version, group)
+        pattern = r"^([^(]+)\s*\(([^,]+),\s*([^)]+)\)"
+        match = re.match(pattern, job_name.strip())
+
+        if match:
+            package = match.group(1).strip()
+            version = match.group(2).strip()
+            group = match.group(3).strip()
+            return package, group, version
+
+        # Fallback: if parsing fails, return the original name and empty values
+        return job_name, "", ""
 
     async def _make_request(self, session: aiohttp.ClientSession, url: str) -> dict[str, Any]:
         """Make an async HTTP GET request and return JSON response."""
@@ -169,7 +198,19 @@ class XTestViz:
             job_url = job["html_url"]
             status_link = f"[{emoji}]({job_url})"
 
-            data_rows.append(JobResult(name=job["name"], date=run_date, status=status_link))
+            # Parse job name to extract package, group, and version
+            package, group, version = self.parse_job_name(job["name"])
+
+            data_rows.append(
+                JobResult(
+                    name=job["name"],
+                    package=package,
+                    group=group,
+                    version=version,
+                    date=run_date,
+                    status=status_link,
+                )
+            )
 
         return data_rows
 
@@ -213,12 +254,24 @@ class XTestViz:
             return "No test jobs found."
 
         # Convert dataclass instances to dictionaries for pandas
-        df_data = [{"Name": row.name, "Date": row.date, "Status": row.status} for row in data_rows]
+        df_data = [
+            {
+                "Package": row.package,
+                "Group": row.group,
+                "Version": row.version,
+                "Date": row.date,
+                "Status": row.status,
+            }
+            for row in data_rows
+        ]
         df = pd.DataFrame(df_data)
+
+        # Create a composite key for the index
+        df["Test"] = df["Package"] + " (" + df["Version"] + ", " + df["Group"] + ")"
 
         # Pivot table to have dates as columns
         pivot_df = df.pivot_table(
-            index="Name",
+            index="Test",
             columns="Date",
             values="Status",
             aggfunc="first",  # Use first value if duplicates exist
@@ -233,7 +286,7 @@ class XTestViz:
         # Fill NaN values with em-dash
         pivot_df = pivot_df.fillna("—")
 
-        # Reset index to make Name a regular column
+        # Reset index to make Test a regular column
         pivot_df = pivot_df.reset_index()
 
         # Convert to markdown
