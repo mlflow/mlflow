@@ -42,7 +42,7 @@ def test_log_dspy_module_state_params():
 
     run = mlflow.last_active_run()
 
-    # DSPy >= 3.0 changed how list values are flattened in the module state
+    # DSPy >= 3.0 changed how list values are flattened
     expected_params = {
         "Predict.signature.fields.0.description": "${question}",
         "Predict.signature.fields.0.prefix": "Question:",
