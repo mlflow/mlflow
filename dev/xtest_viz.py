@@ -98,7 +98,7 @@ class XTestViz:
         print(f"Fetching scheduled workflow runs from last {days_back} days...", file=sys.stderr)
 
         all_runs: list[dict[str, Any]] = []
-        page: int = 1
+        page = 1
 
         while True:
             params = {
@@ -136,7 +136,7 @@ class XTestViz:
     ) -> list[dict[str, Any]]:
         """Get jobs for a specific workflow run."""
         all_jobs: list[dict[str, Any]] = []
-        page: int = 1
+        page = 1
 
         while True:
             params = {"per_page": str(self.per_page), "page": str(page)}
