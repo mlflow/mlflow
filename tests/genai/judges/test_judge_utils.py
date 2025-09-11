@@ -14,6 +14,7 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import Judge
+from mlflow.genai.judges.optimizers.simba import SIMBAAlignmentOptimizer
 from mlflow.genai.judges.utils import (
     _MODEL_RESPONSE_FORMAT_CAPABILITIES,
     CategoricalRating,
@@ -21,6 +22,7 @@ from mlflow.genai.judges.utils import (
     _invoke_databricks_model,
     _parse_databricks_model_response,
     add_output_format_instructions,
+    get_default_optimizer,
     invoke_judge_model,
 )
 from mlflow.genai.prompts.utils import format_prompt
@@ -1116,9 +1118,5 @@ def test_invoke_judge_model_databricks_telemetry_error_handling() -> None:
 
 def test_get_default_optimizer():
     """Test that get_default_optimizer returns a SIMBA optimizer."""
-    from mlflow.genai.judges.optimizers.simba import SIMBAAlignmentOptimizer
-    from mlflow.genai.judges.utils import get_default_optimizer
-
     optimizer = get_default_optimizer()
-
     assert isinstance(optimizer, SIMBAAlignmentOptimizer)
