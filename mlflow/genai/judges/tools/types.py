@@ -1,15 +1,8 @@
 """
-<<<<<<< HEAD
-Type definitions for MLflow GenAI judge tools.
-
-This module contains dataclass definitions for results and other types
-used across the judge tools system.
-=======
 Shared types for MLflow GenAI judge tools.
 
 This module provides common data structures and types that can be reused
 across multiple judge tools for consistent data representation.
->>>>>>> origin/judges
 """
 
 from dataclasses import dataclass
