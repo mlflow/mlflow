@@ -1922,3 +1922,49 @@ class SqlScorerVersion(Base):
             serialized_scorer=self.serialized_scorer,
             creation_time=self.creation_time,
         )
+
+
+class SqlJob(Base):
+    """
+    DB model for Job entities. These are recorded in the ``jobs`` table.
+    """
+
+    __tablename__ = "jobs"
+
+    id = Column(String(36), nullable=False)
+    """
+    Job ID: `String` (limit 36 characters). *Primary Key* for ``jobs`` table.
+    """
+
+    creation_time = Column(BigInteger, default=get_current_time_millis)
+    """
+    Creation timestamp: `BigInteger`.
+    """
+
+    function = Column(String(500), nullable=False)
+    """
+    Function name: `String` (limit 500 characters).
+    """
+
+    params = Column(Text, nullable=False)
+    """
+    Job parameters: `Text`.
+    """
+
+    status = Column(Integer, nullable=False)
+    """
+    Job status: `Integer`.
+    """
+
+    result = Column(Text, nullable=True)
+    """
+    Job result: `Text`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="jobs_pk"),
+        Index("index_jobs_function_status_creation_time", "function", "status", "creation_time"),
+    )
+
+    def __repr__(self):
+        return f"<SqlJob ({self.id}, {self.function}, {self.status})>"

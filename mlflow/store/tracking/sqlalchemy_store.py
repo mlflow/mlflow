@@ -39,6 +39,7 @@ from mlflow.entities import (
     ViewType,
     _DatasetSummary,
 )
+from mlflow.entities.job_status import JobStatus
 from mlflow.entities.assessment import ExpectationValue, FeedbackValue
 from mlflow.entities.entity_type import EntityAssociationType
 from mlflow.entities.lifecycle_stage import LifecycleStage
@@ -83,6 +84,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlExperimentTag,
     SqlInput,
     SqlInputTag,
+    SqlJob,
     SqlLatestMetric,
     SqlLoggedModel,
     SqlLoggedModelMetric,
@@ -4639,6 +4641,92 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
             )
 
     return attribute_filters, non_attribute_filters, span_filters, run_id_filter
+
+    def create_job(self, function: str, params: str) -> str:
+        """
+        Create a new job with the specified function and parameters.
+        
+        Args:
+            function: The function name to execute
+            params: The job parameters as a string
+            
+        Returns:
+            The job ID (UUID4 string)
+        """
+        with self.ManagedSessionMaker() as session:
+            job_id = str(uuid.uuid4())
+            creation_time = get_current_time_millis()
+            
+            job = SqlJob(
+                id=job_id,
+                creation_time=creation_time,
+                function=function,
+                params=params,
+                status=JobStatus.PENDING.to_int(),
+                result=None
+            )
+            
+            session.add(job)
+            session.flush()
+            return job_id
+
+    def start_job(self, job_id: str) -> None:
+        """
+        Start a job by setting its status to RUNNING.
+        
+        Args:
+            job_id: The ID of the job to start
+        """
+        with self.ManagedSessionMaker() as session:
+            job = session.query(SqlJob).filter(SqlJob.id == job_id).one_or_none()
+            if job is None:
+                raise MlflowException(
+                    f"Job with ID {job_id} not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST
+                )
+            
+            job.status = JobStatus.RUNNING.to_int()
+            session.add(job)
+
+    def finish_job(self, job_id: str, result: str) -> None:
+        """
+        Finish a job by setting its status to DONE and setting the result.
+        
+        Args:
+            job_id: The ID of the job to finish
+            result: The job result as a string
+        """
+        with self.ManagedSessionMaker() as session:
+            job = session.query(SqlJob).filter(SqlJob.id == job_id).one_or_none()
+            if job is None:
+                raise MlflowException(
+                    f"Job with ID {job_id} not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST
+                )
+            
+            job.status = JobStatus.DONE.to_int()
+            job.result = result
+            session.add(job)
+
+    def fail_job(self, job_id: str, error: str) -> None:
+        """
+        Fail a job by setting its status to FAILED and setting the error message.
+        
+        Args:
+            job_id: The ID of the job to fail
+            error: The error message as a string
+        """
+        with self.ManagedSessionMaker() as session:
+            job = session.query(SqlJob).filter(SqlJob.id == job_id).one_or_none()
+            if job is None:
+                raise MlflowException(
+                    f"Job with ID {job_id} not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST
+                )
+            
+            job.status = JobStatus.FAILED.to_int()
+            job.result = error
+            session.add(job)
 
 
 def _get_search_datasets_filter_clauses(parsed_filters, dialect):
