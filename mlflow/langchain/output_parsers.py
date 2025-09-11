@@ -22,7 +22,7 @@ from mlflow.types.llm import (
     ChatCompletionResponse,
     ChatMessage,
 )
-from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.annotations import deprecated
 
 
 @deprecated("mlflow.langchain.output_parser.ChatCompletionOutputParser")
@@ -103,7 +103,6 @@ class StringResponseOutputParser(BaseTransformOutputParser[dict[str, Any]]):
         return asdict(StringResponse(content=text))
 
 
-@experimental(version="2.21.0")
 class ChatAgentOutputParser(BaseTransformOutputParser[str]):
     """
     OutputParser that wraps the string output into a dictionary representation of a
