@@ -474,7 +474,7 @@ transformers:
           "boto3<1.36",
         ]
       # peft >= 0.14 relies on classes from newer versions of transformers
-      "< 4.44": ["peft<0.14.0"]
+      "< 4.45": ["peft<0.14.0"]
       ">= 4.38.2": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
       "< 4.52.0.dev0": ["accelerate<1"]
     pre_test: |
