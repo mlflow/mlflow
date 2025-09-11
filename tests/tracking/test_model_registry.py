@@ -4,32 +4,43 @@ and ensures we can use the tracking API to communicate with it.
 """
 
 import time
+from pathlib import Path
 
 import pytest
 
 from mlflow import MlflowClient
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.exceptions import MlflowException
+from mlflow.server import handlers
+from mlflow.server.fastapi_app import app
+from mlflow.server.handlers import initialize_backend_stores
 from mlflow.utils.os import is_windows
 from mlflow.utils.time import get_current_time_millis
 
-from tests.tracking.integration_test_utils import _init_server
+from tests.helper_functions import get_safe_port
+from tests.tracking.integration_test_utils import ServerThread
 
 
 @pytest.fixture(params=["file", "sqlalchemy"])
-def client(request, tmp_path):
+def client(request: pytest.FixtureRequest, tmp_path: Path):
+    """Provides an MLflow Tracking API client pointed at the local tracking server."""
     if request.param == "file":
         backend_uri = tmp_path.joinpath("file").as_uri()
     else:
         path = tmp_path.joinpath("sqlalchemy.db").as_uri()
         backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
 
-    with _init_server(
-        backend_uri=backend_uri,
-        root_artifact_uri=tmp_path.joinpath("artifacts").as_uri(),
-        server_type="fastapi",
-    ) as url:
-        yield MlflowClient(url)
+    # Force-reset backend stores before each test
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    initialize_backend_stores(
+        backend_uri, default_artifact_root=tmp_path.joinpath("artifacts").as_uri()
+    )
+
+    with ServerThread(app, get_safe_port()) as url:
+        client = MlflowClient(url)
+        client._store_type = request.param
+        yield client
 
 
 def assert_is_between(start_time, end_time, expected_time):

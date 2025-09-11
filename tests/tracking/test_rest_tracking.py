@@ -15,15 +15,12 @@ import time
 import urllib.parse
 from io import StringIO
 from pathlib import Path
-from threading import Thread
 from unittest import mock
 
 import flask
 import pandas as pd
 import pytest
 import requests
-import uvicorn
-from fastapi import FastAPI
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from packaging.version import Version
 
@@ -87,54 +84,12 @@ from mlflow.utils.time import get_current_time_millis
 from tests.helper_functions import get_safe_port
 from tests.integration.utils import invoke_cli_runner
 from tests.tracking.integration_test_utils import (
+    ServerThread,
     _init_server,
     _send_rest_tracking_post_request,
 )
 
 _logger = logging.getLogger(__name__)
-
-
-class ServerThread(Thread):
-    """Run a FastAPI/uvicorn app in a background thread, usable as a context manager."""
-
-    def __init__(self, app: FastAPI, port: int):
-        super().__init__(name=__file__, daemon=True)
-        self.host = "127.0.0.1"
-        self.port = port
-        self.url = f"http://{self.host}:{port}"
-        self.health_url = f"{self.url}/health"
-        config = uvicorn.Config(app, host=self.host, port=self.port, log_level="debug")
-        self.server = uvicorn.Server(config)
-
-    # Thread target: just let Uvicorn manage its own event loop.
-    def run(self) -> None:
-        self.server.run()
-
-    # Ask Uvicorn to exit; the serving loop checks this flag.
-    def shutdown(self) -> None:
-        self.server.should_exit = True
-
-    # Use as a context manager for tests or short-lived runs.
-    def __enter__(self) -> str:
-        self.start()
-
-        # Quick readiness wait (poll the health endpoint if available).
-        deadline = time.time() + 5.0
-        while time.time() < deadline:
-            try:
-                r = requests.get(self.health_url, timeout=0.2)
-                if r.ok:
-                    break
-            except (requests.ConnectionError, requests.Timeout):
-                pass
-            time.sleep(0.1)
-        return self.url
-
-    def __exit__(self, exc_type, exc, tb) -> bool | None:
-        self.shutdown()
-        # Give the server a moment to wind down.
-        self.join(timeout=5.0)
-        return None
 
 
 @pytest.fixture(params=["file", "sqlalchemy"])
