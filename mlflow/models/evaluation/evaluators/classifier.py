@@ -49,6 +49,13 @@ class ClassifierEvaluator(BuiltInEvaluator):
     ) -> EvaluationResult | None:
         # Get classification config
         self.y_true = self.dataset.labels_data
+        is_multilabel = isinstance(self.y_true, np.ndarray) and self.y_true.ndim == 2
+        if is_multilabel:
+            _logger.info(
+                "The evaluation dataset is inferred as multilabel dataset with %d labels.",
+                self.y_true.shape[1],
+            )
+        
         self.label_list = self.evaluator_config.get("label_list")
         self.pos_label = self.evaluator_config.get("pos_label")
         self.sample_weights = self.evaluator_config.get("sample_weights")
@@ -73,24 +80,44 @@ class ClassifierEvaluator(BuiltInEvaluator):
         self._validate_label_list()
 
         self._compute_builtin_metrics(model)
-        self.evaluate_metrics(extra_metrics, prediction=self.y_pred, target=self.y_true)
+
+        # Make predictions/targets DataFrame-friendly when they are 2-D (multilabel)
+        preds_for_metrics = (
+            self.y_pred.tolist()
+            if isinstance(self.y_pred, np.ndarray) and self.y_pred.ndim == 2
+            else self.y_pred
+        )
+        true_for_metrics = (
+            self.y_true.tolist()
+            if isinstance(self.y_true, np.ndarray) and self.y_true.ndim == 2
+            else self.y_true
+        )
+
+        self.evaluate_metrics(
+            extra_metrics,
+            prediction=preds_for_metrics,
+            target=true_for_metrics,
+        )
+        
         self.evaluate_and_log_custom_artifacts(
-            custom_artifacts, prediction=self.y_pred, target=self.y_true
+            custom_artifacts, prediction=preds_for_metrics, target=true_for_metrics
         )
 
         # Log metrics and artifacts
         self.log_metrics()
-        self.log_eval_table(self.y_pred)
+        self.log_eval_table(preds_for_metrics)
 
-        if len(self.label_list) == 2:
-            self._log_binary_classifier_artifacts()
+        # Multilabel guard: skip multiclass/binary artifacts and confusion matrix
+        if not is_multilabel:
+            if self.label_list is not None and len(self.label_list) == 2:
+                self._log_binary_classifier_artifacts()
+            else:
+                self._log_multiclass_classifier_artifacts()
+            self._log_confusion_matrix()
         else:
-            self._log_multiclass_classifier_artifacts()
-        self._log_confusion_matrix()
-
-        return EvaluationResult(
-            metrics=self.aggregate_metrics, artifacts=self.artifacts, run_id=self.run_id
-        )
+            _logger.info(
+                "Skipping multiclass/binary artifacts and confusion matrix for multilabel data."
+            )
 
     def _generate_model_predictions(self, model, input_df):
         predict_fn, predict_proba_fn = _extract_predict_fn_and_prodict_proba_fn(model)
@@ -357,13 +384,31 @@ class ClassifierEvaluator(BuiltInEvaluator):
         return
 
 
+def _is_multilabel_array(y):
+    """Return True if y is a 2-D multilabel indicator matrix (n_samples, n_labels)."""
+    return isinstance(y, np.ndarray) and y.ndim == 2
+
 def _is_categorical(values):
     """
-    Infer whether input values are categorical on best effort.
-    Return True represent they are categorical, return False represent we cannot determine result.
+    Best-effort check for categorical labels.
+
+    Behavior:
+    - Returns True for 2-D arrays interpreted as multilabel indicator matrices.
+    - For 1-D inputs, returns True when the inferred dtype is categorical, string, or boolean.
+    - Returns False when the category-ness cannot be determined.
+
+    Notes:
+    - This is a heuristic; it does not validate semantic correctness of labels.
+    - Accepts array-like inputs (NumPy arrays, lists, Pandas Series).
     """
-    dtype_name = pd.Series(values).convert_dtypes().dtype.name.lower()
-    return dtype_name in ["category", "string", "boolean"]
+    arr = values if isinstance(values, np.ndarray) else np.asarray(values, dtype=object)
+    if getattr(arr, "ndim", 1) == 2:
+        return True
+    try:
+        dtype_name = pd.Series(arr).convert_dtypes().dtype.name.lower()
+        return dtype_name in ("category", "string", "boolean")
+    except Exception:
+        return False
 
 
 def _is_continuous(values):

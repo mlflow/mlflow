@@ -22,6 +22,23 @@ except ImportError:
 
 _logger = logging.getLogger(__name__)
 
+def _series_of_arrays_to_2d(series):
+    """
+    If `series` is a pandas Series whose elements are arrays/lists of the same length,
+    return a stacked 2-D numpy array (n_samples, n_labels). Otherwise, fall back to
+    series.to_numpy() (the old behavior).
+    """
+    try:
+        if isinstance(series, pd.Series) and series.dtype == object and len(series) > 0:
+            first = series.iloc[0]
+            if isinstance(first, (list, tuple, np.ndarray)):
+                arr = np.asarray(series.tolist())
+                if arr.ndim == 2:
+                    return arr
+    except Exception:
+        pass
+    return series.to_numpy()
+
 
 def _hash_uint64_ndarray_as_bytes(array):
     assert len(array.shape) == 1
@@ -379,11 +396,13 @@ class EvaluationDataset:
                 data = data.limit(EvaluationDataset.SPARK_DATAFRAME_LIMIT).toPandas()
 
             if has_targets:
-                self._labels_data = data[targets].to_numpy()
+                col = data["targets"]
+                self._labels_data = _series_of_arrays_to_2d(col)
                 self._targets_name = targets
 
             if self._has_predictions:
-                self._predictions_data = data[predictions].to_numpy()
+                col = data[predictions]
+                self._predictions_data = _series_of_arrays_to_2d(col)
                 self._predictions_name = predictions
 
             if feature_names is not None:
