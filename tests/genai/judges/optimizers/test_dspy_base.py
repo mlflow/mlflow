@@ -10,6 +10,7 @@ import pytest
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.optimizers.dspy import DSPyAlignmentOptimizer
+from mlflow.genai.judges.optimizers.dspy_utils import AgentEvalLM
 
 from tests.genai.judges.optimizers.conftest import MockDSPyLM, MockJudge
 
@@ -320,3 +321,43 @@ def test_dspy_align_litellm_nonfatal_error_messages_suppressed():
         # Verify suppression was active during the DSPy optimization call
         assert suppression_state_during_call["set_verbose"] is False
         assert suppression_state_during_call["suppress_debug_info"] is True
+
+
+def test_align_configures_databricks_lm_in_context(sample_traces_with_assessments):
+    """Test that align method configures AgentEvalLM in dspy.settings when using databricks model"""
+    mock_judge = MockJudge(name="mock_judge", model="openai:/gpt-4")
+    optimizer = ConcreteDSPyOptimizer(model="databricks")
+
+    # This is necessary because the LM is set in a specific context within `align`
+    def check_context(*args, **kwargs):
+        assert isinstance(dspy.settings["lm"], AgentEvalLM)
+        return MagicMock()
+
+    with (
+        patch("mlflow.genai.judges.optimizers.dspy.make_judge", return_value=MagicMock()),
+        patch.object(optimizer, "_dspy_optimize", side_effect=check_context),
+        patch.object(optimizer, "get_min_traces_required", return_value=0),
+    ):
+        optimizer.align(mock_judge, sample_traces_with_assessments)
+
+
+def test_align_configures_openai_lm_in_context(sample_traces_with_assessments):
+    """Test that align method configures dspy.LM in dspy.settings when using OpenAI model."""
+    mock_judge = MockJudge(name="mock_judge", model="openai:/gpt-4")
+    optimizer = ConcreteDSPyOptimizer(model="openai:/gpt-4.1")
+
+    # This is necessary because the LM is set in a specific context within `align`
+    def check_context(*args, **kwargs):
+        assert isinstance(dspy.settings["lm"], dspy.LM)
+        assert dspy.settings["lm"].model == "openai/gpt-4.1"
+        return MagicMock()
+
+    with (
+        patch(
+            "mlflow.genai.judges.optimizers.dspy.trace_to_dspy_example", return_value=MagicMock()
+        ),
+        patch("mlflow.genai.judges.optimizers.dspy.make_judge", return_value=MagicMock()),
+        patch.object(optimizer, "_dspy_optimize", side_effect=check_context),
+        patch.object(optimizer, "get_min_traces_required", return_value=0),
+    ):
+        optimizer.align(mock_judge, sample_traces_with_assessments)

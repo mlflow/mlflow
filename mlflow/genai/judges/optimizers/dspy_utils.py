@@ -6,11 +6,14 @@ from typing import TYPE_CHECKING, Any, Optional
 from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
+from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
+from mlflow.genai.judges.utils import call_chat_completions
 from mlflow.genai.utils.trace_utils import (
     extract_request_from_trace,
     extract_response_from_trace,
 )
 from mlflow.metrics.genai.model_utils import _parse_model_uri
+from mlflow.utils import AttrDict
 
 # Import dspy - raise exception if not installed
 try:
@@ -22,6 +25,104 @@ if TYPE_CHECKING:
     from mlflow.genai.judges.base import Judge
 
 _logger = logging.getLogger(__name__)
+
+
+def construct_dspy_lm(model: str):
+    """
+    Create a dspy.LM instance from a given model.
+
+    Args:
+        model: The model identifier/URI
+
+    Returns:
+        A dspy.LM instance configured for the given model
+    """
+    if model == _DATABRICKS_DEFAULT_JUDGE_MODEL:
+        return AgentEvalLM()
+    else:
+        model_litellm = convert_mlflow_uri_to_litellm(model)
+        return dspy.LM(model=model_litellm)
+
+
+def _to_attrdict(obj):
+    """Recursively convert nested dicts/lists to AttrDicts."""
+    if isinstance(obj, dict):
+        return AttrDict({k: _to_attrdict(v) for k, v in obj.items()})
+    elif isinstance(obj, list):
+        return [_to_attrdict(item) for item in obj]
+    else:
+        return obj
+
+
+def _process_chat_completions(
+    user_prompt: str, system_prompt: str | None = None
+) -> AttrDict[str, Any]:
+    """Call managed RAG client and return formatted response."""
+    response = call_chat_completions(user_prompt=user_prompt, system_prompt=system_prompt)
+
+    if response.output is not None:
+        result_dict = {
+            "object": "chat.completion",
+            "model": "databricks",
+            "choices": [
+                {
+                    "index": 0,
+                    "finish_reason": "stop",
+                    "message": {"role": "assistant", "content": response.output},
+                }
+            ],
+            "usage": {
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+            },
+            "response_format": "json_object",
+        }
+    else:
+        result_dict = {
+            "object": "response",
+            "error": response.error_message,
+            "usage": {
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+            },
+            "response_format": "json_object",
+        }
+
+    return _to_attrdict(result_dict)
+
+
+class AgentEvalLM(dspy.BaseLM):
+    """Special DSPy LM for Databricks environment using managed RAG client."""
+
+    def __init__(self):
+        super().__init__("databricks")
+
+    def dump_state(self):
+        return {}
+
+    def load_state(self, state):
+        pass
+
+    def forward(
+        self, prompt: str | None = None, messages: list[dict[str, Any]] | None = None, **kwargs
+    ) -> AttrDict[str, Any]:
+        """Forward pass for the language model."""
+        user_prompt = None
+        system_prompt = None
+
+        if messages:
+            for message in messages:
+                if message.get("role") == "user":
+                    user_prompt = message.get("content", "")
+                elif message.get("role") == "system":
+                    system_prompt = message.get("content", "")
+
+        if not user_prompt and prompt:
+            user_prompt = prompt
+
+        return _process_chat_completions(user_prompt, system_prompt)
 
 
 def _sanitize_assessment_name(name: str) -> str:
