@@ -214,18 +214,10 @@ def test_spark_udf(spark, model_path):
 
 
 @pytest.mark.parametrize("sklearn_version", ["1.3.2", "1.4.2"])
-@pytest.mark.parametrize(
-    ("env_manager", "force_stdin_scoring_server"),
-    [("virtualenv", False), ("conda", False), ("uv", False), ("uv", True)],
-)
+@pytest.mark.parametrize("env_manager", ["virtualenv", "conda", "uv"])
 def test_spark_udf_env_manager_can_restore_env(
-    spark, model_path, sklearn_version, env_manager, force_stdin_scoring_server, monkeypatch
+    spark, model_path, sklearn_version, env_manager, monkeypatch
 ):
-    monkeypatch.setenv(
-        "MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF",
-        str(force_stdin_scoring_server),
-    )
-
     class EnvRestoringTestModel(mlflow.pyfunc.PythonModel):
         def __init__(self):
             pass
