@@ -82,6 +82,12 @@
     "editor.formatOnSave": true
   },
 
+  // GitHub Actions workflow formatting
+  "[github-actions-workflow]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+
   // Markdown formatting
   "[markdown]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode",
