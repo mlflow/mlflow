@@ -434,7 +434,13 @@ def invoke_judge_model(
     messages = [ChatMessage(role="user", content=prompt)] if isinstance(prompt, str) else prompt
 
     if _is_litellm_available():
-        response = _invoke_litellm(model_provider, model_name, messages, trace, num_retries)
+        response = _invoke_litellm(
+            provider=model_provider,
+            model_name=model_name,
+            messages=messages,
+            trace=trace,
+            num_retries=num_retries,
+        )
     elif trace is not None:
         raise MlflowException(
             "LiteLLM is required for using traces with judges. "
@@ -724,7 +730,13 @@ def _invoke_judge_model(
         from mlflow.types.llm import ChatMessage
 
         messages = [ChatMessage(role="user", content=prompt)]
-        response = _invoke_litellm(provider, model_name, messages, None, num_retries)
+        response = _invoke_litellm(
+            provider=provider,
+            model_name=model_name,
+            messages=messages,
+            trace=None,
+            num_retries=num_retries,
+        )
     elif provider in _NATIVE_PROVIDERS:
         response = score_model_on_payload(
             model_uri=model_uri,
