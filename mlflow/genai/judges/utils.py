@@ -15,7 +15,7 @@ import requests
 if TYPE_CHECKING:
     import litellm
 
-    from mlflow.genai.judges.base import JudgeField
+    from mlflow.genai.judges.base import AlignmentOptimizer, JudgeField
     from mlflow.types.llm import ChatMessage, ToolCall
 
 import mlflow
@@ -71,6 +71,18 @@ def get_default_model() -> str:
         return _DATABRICKS_DEFAULT_JUDGE_MODEL
     else:
         return "openai:/gpt-4.1-mini"
+
+
+def get_default_optimizer() -> AlignmentOptimizer:
+    """
+    Get the default alignment optimizer.
+
+    Returns:
+        A SIMBA alignment optimizer with no model specified (uses default model).
+    """
+    from mlflow.genai.judges.optimizers.simba import SIMBAAlignmentOptimizer
+
+    return SIMBAAlignmentOptimizer()
 
 
 def _is_litellm_available() -> bool:

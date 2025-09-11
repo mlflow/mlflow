@@ -83,15 +83,19 @@ class Judge(Scorer):
         ]
 
     @experimental(version="3.4.0")
-    def align(self, optimizer: AlignmentOptimizer, traces: list[Trace]) -> Judge:
+    def align(self, optimizer: AlignmentOptimizer | None = None, *, traces: list[Trace]) -> Judge:
         """
         Align this judge with human preferences using the provided optimizer and traces.
 
         Args:
-            optimizer: The alignment optimizer to use
+            optimizer: The alignment optimizer to use. If None, uses the default SIMBA optimizer.
             traces: Training traces for alignment
 
         Returns:
             A new Judge instance that is better aligned with the input traces.
         """
+        if optimizer is None:
+            from mlflow.genai.judges.utils import get_default_optimizer
+
+            optimizer = get_default_optimizer()
         return optimizer.align(self, traces)
