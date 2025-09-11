@@ -16,7 +16,7 @@ completeness of the claim. Do not make assumptions, approximations, or bring in 
 
 CORRECTNESS_PROMPT_OUTPUT = """
 
-Please indicate whether each statement in the claim is supported by the document in the context of the question using the json format:
+Please indicate whether each statement in the claim is supported by the document in the context of the question using only the following json format. Do not use any markdown formatting or output additional lines.
 {
   "rationale": "Reason for the assessment. If the claim is not fully supported by the document in the context of the question, state which parts are not supported. Start each rationale with `Let's think step by step`",
   "result": "yes|no"
