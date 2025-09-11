@@ -1112,3 +1112,13 @@ def test_invoke_judge_model_databricks_telemetry_error_handling() -> None:
 
     assert feedback.value == CategoricalRating.YES
     assert feedback.rationale == "Good"
+
+
+def test_get_default_optimizer():
+    """Test that get_default_optimizer returns a SIMBA optimizer."""
+    from mlflow.genai.judges.optimizers.simba import SIMBAAlignmentOptimizer
+    from mlflow.genai.judges.utils import get_default_optimizer
+
+    optimizer = get_default_optimizer()
+
+    assert isinstance(optimizer, SIMBAAlignmentOptimizer)

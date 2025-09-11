@@ -395,26 +395,6 @@ class InstructionsJudge(Judge):
             trace=trace if is_trace_based else None,
         )
 
-    def _validate_alignment_compatibility(self) -> None:
-        """
-        Validate that this judge is compatible with alignment.
-
-        Alignment only works with judges that use both inputs and outputs variables
-        in their instructions template.
-        """
-        template_vars = self.template_variables
-
-        if (
-            self._TEMPLATE_VARIABLE_INPUTS not in template_vars
-            or self._TEMPLATE_VARIABLE_OUTPUTS not in template_vars
-        ):
-            raise MlflowException(
-                "Alignment only works with judges that use both '{{ inputs }}' and "
-                "'{{ outputs }}' variables in their instructions template. "
-                f"This judge's template variables: {template_vars}",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-
     @property
     def kind(self) -> ScorerKind:
         """Return the kind of scorer this judge represents."""

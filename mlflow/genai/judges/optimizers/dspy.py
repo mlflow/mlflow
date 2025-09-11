@@ -140,9 +140,6 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
-            # Validate that the judge supports alignment (needs inputs and outputs)
-            judge._validate_alignment_compatibility()
-
             self._logger.info(f"Setting up DSPy context with model: {self._model}")
 
             # Configure DSPy to use the optimizer's model
