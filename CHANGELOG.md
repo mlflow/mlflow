@@ -31,7 +31,7 @@ Features:
 - [Tracking] Backend for storing scorers in MLflow experiments (#17090, @WeichenXu123)
 - [Model Registry] Allow cross-workspace copying of model versions between WMR and UC (#17458, @arpitjasa-db)
 - [Models] Add automatic Git-based model versioning for GenAI applications (#17076, @harupy)
-- [Models] Improve WheeledModel._download_wheels safety (#17004, @serena-ruan)
+- [Models] Improve WheeledModel.\_download_wheels safety (#17004, @serena-ruan)
 - [Projects] Support resume run for Optuna hyperparameter optimization (#17191, @lu-wang-dl)
 - [Scoring] Add MLFLOW_DEPLOYMENT_CLIENT_HTTP_REQUEST_TIMEOUT environment variable (#17252, @dbczumar)
 - [UI] Add ability to hide/unhide all finished runs in Chart view (#17143, @joelrobin18)
