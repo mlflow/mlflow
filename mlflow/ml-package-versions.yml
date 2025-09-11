@@ -124,7 +124,7 @@ xgboost:
       pip install git+https://github.com/dmlc/xgboost.git#subdirectory=python-package
 
   models:
-    minimum: "2.0.0"
+    minimum: "2.0.1"
     maximum: "3.0.5"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
@@ -132,7 +132,7 @@ xgboost:
       pytest tests/xgboost/test_xgboost_model_export.py
 
   autologging:
-    minimum: "2.0.0"
+    minimum: "2.0.1"
     maximum: "3.0.5"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
@@ -148,7 +148,7 @@ lightgbm:
       bash build-python.sh install
 
   models:
-    minimum: "4.1.0"
+    minimum: "4.2.0"
     maximum: "4.6.0"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
@@ -157,7 +157,7 @@ lightgbm:
       pytest tests/lightgbm/test_lightgbm_model_export.py
 
   autologging:
-    minimum: "4.1.0"
+    minimum: "4.2.0"
     maximum: "4.6.0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
@@ -527,7 +527,7 @@ openai:
       pip install git+https://github.com/openai/openai-python
   models:
     minimum: "1.45.0"
-    maximum: "1.107.0"
+    maximum: "1.107.1"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -546,7 +546,7 @@ openai:
     test_every_n_versions: 10
   autologging:
     minimum: "1.45.0"
-    maximum: "1.107.0"
+    maximum: "1.107.1"
     requirements:
       ">= 0.0.0": [
           "tiktoken",
@@ -593,7 +593,7 @@ langchain:
       pip install git+https://github.com/langchain-ai/langchain#subdirectory=libs/langchain
   models:
     # Where the large package update was made (langchain-core, community, ...)
-    minimum: "0.2.16"
+    minimum: "0.3.0"
     maximum: "0.3.27"
     requirements:
       ">= 0.0.0": [
@@ -642,7 +642,7 @@ langchain:
         pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
       fi
   autologging:
-    minimum: "0.2.16"
+    minimum: "0.3.0"
     maximum: "0.3.27"
     requirements:
       ">= 0.0.0": [
@@ -818,7 +818,7 @@ gemini:
       pip install git+https://github.com/googleapis/python-genai
   autologging:
     minimum: "1.0.0"
-    maximum: "1.34.0"
+    maximum: "1.35.0"
     requirements:
     run: |
       # Install legacy gemini SDK to ensure the integration works for the legacy SDK
@@ -834,7 +834,7 @@ anthropic:
       pip install git+https://github.com/anthropics/anthropic-sdk-python
   autologging:
     minimum: "0.35.0"
-    maximum: "0.66.0"
+    maximum: "0.67.0"
     requirements:
       "< 0.40.0": ["httpx<0.28.0"]
     run: pytest tests/anthropic
@@ -852,7 +852,7 @@ crewai:
       pip install git+https://github.com/crewAIInc/crewAI
   autologging:
     minimum: "0.80.0"
-    maximum: "0.175.0"
+    maximum: "0.177.0"
     unsupported: ["==0.114.0"]
     requirements:
     run: pytest tests/crewai
@@ -867,7 +867,7 @@ agno:
       pip install git+https://github.com/agno-agi/agno.git#subdirectory=libs/agno
   autologging:
     minimum: "1.7.0"
-    maximum: "1.8.1"
+    maximum: "2.0.2"
     requirements:
       ">= 0.0.0": ["anthropic", "yfinance"]
     run: pytest tests/agno
@@ -928,7 +928,7 @@ strands:
       pip install "git+https://github.com/strands-agents/sdk-python"
   autologging:
     minimum: "1.4.0"
-    maximum: "1.6.0"
+    maximum: "1.8.0"
     run: pytest tests/strands
     test_tracing_sdk: true
 
@@ -1051,7 +1051,7 @@ bedrock:
     module_name: "boto3"
   autologging:
     # BedrockRuntime client is added in boto3 1.33
-    minimum: "1.35.16"
-    maximum: "1.40.27"
+    minimum: "1.35.18"
+    maximum: "1.40.28"
     run: pytest tests/bedrock
     test_tracing_sdk: true
