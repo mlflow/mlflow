@@ -162,7 +162,7 @@ class XTestViz:
         """Fetch jobs for a single workflow run."""
         run_id = run["id"]
         run_date = datetime.fromisoformat(run["created_at"].replace("Z", "+00:00")).strftime(
-            "%Y-%m-%d"
+            "%m/%d"
         )
 
         jobs = await self.get_workflow_jobs(session, run_id)
