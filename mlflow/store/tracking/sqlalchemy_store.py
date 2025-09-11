@@ -2544,14 +2544,17 @@ class SqlAlchemyStore(AbstractStore):
                 # Use merge to update with start_trace() data, preserving any logged spans
                 session.rollback()
                 db_sql_trace_info = (
-                    session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).one()
+                    session.query(SqlTraceInfo)
+                    .filter(SqlTraceInfo.request_id == trace_id)
+                    .one_or_none()
                 )
-                for tag in db_sql_trace_info.tags:
-                    if tag.key not in tags:
-                        sql_trace_info.tags.append(
-                            SqlTraceTag(request_id=trace_id, key=tag.key, value=tag.value)
-                        )
-                session.merge(sql_trace_info)
+                if db_sql_trace_info:
+                    for tag in db_sql_trace_info.tags:
+                        if tag.key not in tags:
+                            sql_trace_info.tags.append(
+                                SqlTraceTag(request_id=trace_id, key=tag.key, value=tag.value)
+                            )
+                    session.merge(sql_trace_info)
                 session.flush()
 
             return sql_trace_info.to_mlflow_entity()
