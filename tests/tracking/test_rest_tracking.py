@@ -15,12 +15,15 @@ import time
 import urllib.parse
 from io import StringIO
 from pathlib import Path
+from threading import Thread
 from unittest import mock
 
 import flask
 import pandas as pd
 import pytest
 import requests
+import uvicorn
+from fastapi import FastAPI
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from packaging.version import Version
 
@@ -58,7 +61,9 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
-from mlflow.server.handlers import _get_sampled_steps_from_steps
+from mlflow.server import handlers
+from mlflow.server.fastapi_app import app
+from mlflow.server.handlers import _get_sampled_steps_from_steps, initialize_backend_stores
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.client import TracingClient
@@ -89,6 +94,49 @@ from tests.tracking.integration_test_utils import (
 _logger = logging.getLogger(__name__)
 
 
+class ServerThread(Thread):
+    """Run a FastAPI/uvicorn app in a background thread, usable as a context manager."""
+
+    def __init__(self, app: FastAPI, port: int):
+        super().__init__(name=__file__, daemon=True)
+        self.host = "127.0.0.1"
+        self.port = port
+        self.url = f"http://{self.host}:{port}"
+        self.health_url = f"{self.url}/health"
+        config = uvicorn.Config(app, host=self.host, port=self.port, log_level="debug")
+        self.server = uvicorn.Server(config)
+
+    # Thread target: just let Uvicorn manage its own event loop.
+    def run(self) -> None:
+        self.server.run()
+
+    # Ask Uvicorn to exit; the serving loop checks this flag.
+    def shutdown(self) -> None:
+        self.server.should_exit = True
+
+    # Use as a context manager for tests or short-lived runs.
+    def __enter__(self) -> str:
+        self.start()
+
+        # Quick readiness wait (poll the health endpoint if available).
+        deadline = time.time() + 5.0
+        while time.time() < deadline:
+            try:
+                r = requests.get(self.health_url, timeout=0.2)
+                if r.ok:
+                    break
+            except (requests.ConnectionError, requests.Timeout):
+                pass
+            time.sleep(0.1)
+        return self.url
+
+    def __exit__(self, exc_type, exc, tb) -> bool | None:
+        self.shutdown()
+        # Give the server a moment to wind down.
+        self.join(timeout=5.0)
+        return None
+
+
 @pytest.fixture(params=["file", "sqlalchemy"])
 def store_type(request):
     """Provides the store type for parameterized tests."""
@@ -96,7 +144,7 @@ def store_type(request):
 
 
 @pytest.fixture
-def mlflow_client(store_type, tmp_path):
+def mlflow_client(store_type: str, tmp_path: Path):
     """Provides an MLflow Tracking API client pointed at the local tracking server."""
     if store_type == "file":
         backend_uri = tmp_path.joinpath("file").as_uri()
@@ -106,9 +154,12 @@ def mlflow_client(store_type, tmp_path):
             len("file://") :
         ]
 
-    with _init_server(
-        backend_uri, root_artifact_uri=tmp_path.as_uri(), server_type="fastapi"
-    ) as url:
+    # Force-reset backend stores before each test.
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    initialize_backend_stores(backend_uri, default_artifact_root=tmp_path.as_uri())
+
+    with ServerThread(app, get_safe_port()) as url:
         client = MlflowClient(url)
         yield client
 
