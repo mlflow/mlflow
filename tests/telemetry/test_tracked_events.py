@@ -18,6 +18,7 @@ from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.pyfunc.model import ResponsesAgent, ResponsesAgentRequest, ResponsesAgentResponse
 from mlflow.telemetry.client import TelemetryClient
 from mlflow.telemetry.events import (
+    AutologgingEvent,
     CreateDatasetEvent,
     CreateExperimentEvent,
     CreateLoggedModelEvent,
@@ -695,3 +696,21 @@ def test_invoke_custom_judge_model(
             InvokeCustomJudgeModelEvent.name,
             expected_params,
         )
+
+
+def test_autologging(mock_requests, mock_telemetry_client: TelemetryClient):
+    mlflow.openai.autolog()
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        AutologgingEvent.name,
+        {"flavor": mlflow.openai.FLAVOR_NAME, "log_traces": True, "disable": False},
+    )
+
+    mlflow.autolog()
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        AutologgingEvent.name,
+        {"flavor": "all", "log_traces": True, "disable": False},
+    )
