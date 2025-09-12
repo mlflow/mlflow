@@ -3267,7 +3267,6 @@ class SqlAlchemyStore(AbstractStore):
 
                 # Create trace info for this new trace. We need to establish the trace
                 # before we can add spans to it, as spans have a foreign key to trace_info.
-                # TODO: request/response_preview is not set here.
                 sql_trace_info = SqlTraceInfo(
                     request_id=trace_id,
                     experiment_id=experiment_id,
