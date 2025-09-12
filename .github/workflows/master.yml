@@ -401,6 +401,7 @@ jobs:
           git clone https://github.com/cdarlint/winutils /tmp/winutils
 
       - run: |
+          source .venv/Scripts/activate
           pytest tests/tracking/_model_registry/test_model_registry_fluent.py::test_register_model_with_unexpected_exception_in_create_registered_model
       - name: Run python tests
         env:
