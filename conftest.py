@@ -96,6 +96,16 @@ def pytest_cmdline_main(config: pytest.Config):
     return None
 
 
+@dataclass
+class TestResult:
+    path: Path
+    test_name: str
+    execution_time: float
+
+
+_test_results: list[TestResult] = []
+
+
 def pytest_sessionstart(session):
     # Clear duration tracking state at the start of each session
     _test_results.clear()
@@ -115,16 +125,6 @@ def pytest_sessionstart(session):
                 fg="red",
             )
         )
-
-
-@dataclass
-class TestResult:
-    path: Path
-    test_name: str
-    execution_time: float
-
-
-_test_results: list[TestResult] = []
 
 
 def generate_duration_stats() -> list[str]:
