@@ -76,12 +76,12 @@ from mlflow.protos.service_pb2 import (
     GetOnlineTraceDetails,
     GetRun,
     GetScorer,
+    GetTrace,
     GetTraceInfo,
     GetTraceInfoV3,
     LinkTracesToRun,
     ListScorers,
     ListScorerVersions,
-    LoadSpans,
     LogBatch,
     LogInputs,
     LogLoggedModelParamsRequest,
@@ -1738,30 +1738,10 @@ class RestStore(AbstractStore):
         """
         return self.log_spans(experiment_id, spans)
 
-    def load_spans(self, trace_id: str) -> list[Span]:
+    def get_trace(self, trace_id: str) -> Trace:
         """
-        Load spans for a given trace ID from the server.
-
-        Args:
-            trace_id: The trace ID for which to load spans.
-
-        Returns:
-            List of Span entities.
+        Get a complete trace with spans for a given trace ID.
         """
-        endpoint = f"/ajax-api/3.0/mlflow/traces/{trace_id}/load-spans"
-
-        response_proto = self._call_endpoint(LoadSpans, endpoint=endpoint, retry_timeout_seconds=1)
-
-        return [Span.from_proto(span) for span in response_proto.spans]
-
-    async def load_spans_async(self, trace_id: str) -> list[Span]:
-        """
-        Async wrapper for load_spans method.
-
-        Args:
-            trace_id: The trace ID for which to load spans.
-
-        Returns:
-            List of Span entities.
-        """
-        return self.load_spans(trace_id)
+        endpoint = f"/ajax-api/3.0/mlflow/traces/{trace_id}/trace"
+        response_proto = self._call_endpoint(GetTrace, endpoint=endpoint)
+        return Trace.from_proto_v3(response_proto.trace)

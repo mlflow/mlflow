@@ -18,7 +18,7 @@ from mlflow.entities import (
 if TYPE_CHECKING:
     from mlflow.entities import EvaluationDataset
 from mlflow.entities.metric import MetricWithRunId
-from mlflow.entities.trace import Span
+from mlflow.entities.trace import Span, Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
@@ -487,6 +487,12 @@ class AbstractStore:
 
         Raises:
             MlflowException: If spans belong to different traces.
+        """
+        raise NotImplementedError
+
+    def get_trace(self, trace_id: str) -> Trace:
+        """
+        Get a complete trace with spans for a given trace ID.
         """
         raise NotImplementedError
 

@@ -50,7 +50,7 @@ from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.metric import Metric, MetricWithRunId
 from mlflow.entities.span_status import SpanStatusCode
-from mlflow.entities.trace import Span
+from mlflow.entities.trace import Span, Trace, TraceData
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
@@ -3402,6 +3402,14 @@ class SqlAlchemyStore(AbstractStore):
                     # UNSET is unexpected in production but we handle it gracefully.
                     return TraceState.OK.value
         return None
+
+    def get_trace(self, trace_id: str) -> Trace:
+        """
+        Get a complete trace with spans for a given trace ID.
+        """
+        trace_info = self.get_trace_info(trace_id)
+        spans = self.load_spans(trace_id)
+        return Trace(info=trace_info, data=TraceData(spans=spans))
 
     def load_spans(self, trace_id: str) -> list[Span]:
         """
