@@ -57,6 +57,7 @@ repos:
         entry: blacken-docs
         language: system
         files: '\.(rst|md|mdx)$'
+        exclude: 'docs/docs/genai/eval-monitor/scorers/llm-judge/make-judge\.mdx'
         stages: [pre-commit]
         require_serial: true
 
