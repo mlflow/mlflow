@@ -28,7 +28,7 @@ import {
 } from '@tanstack/react-table';
 import React from 'react';
 import { parseJSONSafe } from '@mlflow/mlflow/src/common/utils/TagUtils';
-import { ArtifactLogTableImageObject } from '@mlflow/mlflow/src/experiment-tracking/types';
+import type { ArtifactLogTableImageObject } from '@mlflow/mlflow/src/experiment-tracking/types';
 import { LOG_TABLE_IMAGE_COLUMN_TYPE } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { ImagePlot } from '../runs-charts/components/charts/ImageGridPlot.common';
 import { ToggleIconButton } from '../../../common/components/ToggleIconButton';

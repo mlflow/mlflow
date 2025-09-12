@@ -16,7 +16,7 @@ jest.mock('../../../sdk/SampledMetricHistoryService', () => ({
   getSampledMetricHistoryBulkAction: jest.fn(),
 }));
 
-const hookWrapper: React.FC = ({ children }) => (
+const hookWrapper: React.FC<React.PropsWithChildren<unknown>> = ({ children }) => (
   <IntlProvider locale="en">
     <TestApolloProvider>
       <MockedReduxStoreProvider

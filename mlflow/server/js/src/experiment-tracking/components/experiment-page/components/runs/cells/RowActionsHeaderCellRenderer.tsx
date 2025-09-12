@@ -1,5 +1,5 @@
 import { DashIcon, DropdownMenu, Icon, VisibleOffIcon, useDesignSystemTheme } from '@databricks/design-system';
-import { Theme } from '@emotion/react';
+import type { Theme } from '@emotion/react';
 import React, { useEffect } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { RUNS_VISIBILITY_MODE } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/models/ExperimentPageUIState';

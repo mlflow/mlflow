@@ -5,7 +5,7 @@ import {
   getArtifactLocationUrl,
   getLoggedModelArtifactLocationUrl,
 } from '../../../../common/utils/ArtifactUtils';
-import { KeyValueEntity } from '../../../../common/types';
+import type { KeyValueEntity } from '../../../../common/types';
 
 type FetchArtifactParams = {
   experimentId: string;

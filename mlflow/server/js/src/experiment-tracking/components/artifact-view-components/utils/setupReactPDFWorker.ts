@@ -1,5 +1,5 @@
 // eslint-disable-next-line import/no-namespace
-import * as pdfjs from 'pdfjs-dist';
+import type * as pdfjs from 'pdfjs-dist';
 
 export function setupReactPDFWorker(pdfjsInstance: typeof pdfjs) {
   pdfjsInstance.GlobalWorkerOptions.workerSrc = new URL(

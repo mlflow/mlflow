@@ -31,6 +31,7 @@ class InputDatasetColumn:
     RESPONSE = "response"
     OUTPUTS = "outputs"
     EXPECTATIONS = "expectations"
+    TAGS = "tags"
     TRACE = "trace"
 
 
@@ -40,5 +41,6 @@ class ResultDataFrameColumn:
     INPUTS = "inputs"
     OUTPUTS = "outputs"
     EXPECTATIONS = "expectations"
+    TAGS = "tags"
     TRACE = "trace"
     ERROR_MESSAGE = "error_message"

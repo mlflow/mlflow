@@ -100,12 +100,9 @@ jobs:
       # pre-commit
       # ************************************************************************
       - run: |
-          dev/install-taplo.sh
-          dev/install-typos.sh
-          dev/install-conftest.sh
-      - run: |
           pip install -r requirements/lint-requirements.txt
           pre-commit install --install-hooks
+          pre-commit run install-bin -a -v
           pre-commit run --all-files --color=always || true
       # ************************************************************************
       # protos

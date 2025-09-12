@@ -202,6 +202,107 @@ import os
 mlflow.set_registry_uri("databricks-uc://my-databricks-shard1")
 ```
 
+#### Migrating to Databricks Unity Catalog Model Registry from Databricks Workspace Model Registry
+
+To migrate model versions from the Databricks Workspace Model Registry to the Databricks Unity Catalog Model Registry, we
+recommend using the <APILink fn="mlflow.client.MlflowClient.copy_model_version">`copy_model_version()`</APILink> API. The
+source URI would be from your workspace registry, and the destination would be a 3-level UC model name, e.g.
+
+```python
+from mlflow import MlflowClient
+
+# Registry URI must be set to workspace registry
+client = MlflowClient(registry_uri="databricks")
+src_model_uri = f"models:/my_wmr_model/1"
+uc_migrated_copy = client.copy_model_version(
+    src_model_uri, "mycatalog.myschema.my_uc_model"
+)
+```
+
+If the destination UC model doesn't exist, one will be created as part of this API call.
+
+Additionally, models registered to Databricks Unity Catalog require a signature to be set. If the workspace-registered
+model version does not already have a signature set, we recommend following the [Model Signatures](/ml/model/signatures)
+instructions to add one. However, to simplify the migration process, you can also set the environment variable
+`MLFLOW_SKIP_SIGNATURE_CHECK_FOR_UC_REGISTRY_MIGRATION` to `true`. This ONLY works with the
+
+<APILink fn="mlflow.client.MlflowClient.copy_model_version">`copy_model_version()`</APILink> API as indicated above, and
+it allows you to migrate the model to Unity Catalog while bypassing the signature requirement.
+
+Model versions that are registered to Databricks Unity Catalog without signatures have limitations. See the
+[Databricks documentation](https://docs.databricks.com/aws/en/machine-learning/manage-model-lifecycle/#add-signature)
+for a detailed list of the limitations.
+
+```python
+import os
+
+os.environ["MLFLOW_SKIP_SIGNATURE_CHECK_FOR_UC_REGISTRY_MIGRATION"] = "true"
+```
+
+If you want to migrate all of the model versions in your workspace registered model to a destination UC model,
+you can use a script as follows:
+
+```python
+import mlflow
+from mlflow import MlflowClient
+from mlflow.exceptions import MlflowException
+from mlflow.models import ModelSignature
+from mlflow.types.schema import Schema, ColSpec, AnyType
+
+workspace_client = MlflowClient(registry_uri="databricks")
+uc_client = MlflowClient(registry_uri="databricks-uc")
+
+
+# Make a placeholder model that can be used to increment the version number
+def make_placeholder_model() -> str:
+    class _Placeholder(mlflow.pyfunc.PythonModel):
+        def predict(self, ctx, x):
+            return None
+
+    with mlflow.start_run() as run:
+        schema = Schema([ColSpec(AnyType())])
+        model = mlflow.pyfunc.log_model(
+            name="m",
+            python_model=_Placeholder(),
+            signature=ModelSignature(inputs=schema, outputs=schema),
+        )
+        return f"models:/{model.model_id}"
+
+
+# Check if the source model has a particular version number
+def workspace_model_exists(name: str, version: int) -> bool:
+    try:
+        workspace_client.get_model_version(name, str(version))
+        return True
+    except MlflowException as e:
+        if e.error_code == "RESOURCE_DOES_NOT_EXIST":
+            # Convert the RESOURCE_DOES_NOT_EXIST error into False
+            return False
+        # Raise all other exceptions
+        raise e
+
+
+# Copy model versions from a source Databricks workspace-registered model to
+# a destination Databricks Unity Catalog registered model
+def copy_model_versions_to_uc(src: str, dst: str) -> None:
+    latest_versions = workspace_client.get_latest_versions(src)
+    max_version_number = max(int(v.version) for v in latest_versions)
+    placeholder_model = make_placeholder_model()
+
+    for v in range(1, max_version_number + 1):
+        if workspace_model_exists(src, v):
+            workspace_client.copy_model_version(f"models:/{src}/{str(v)}", dst)
+        else:
+            # Create and immediately delete a placeholder model version to increment
+            # the version counter on the UC model, so the version numbers on the UC
+            # model match those on the workspace registered model.
+            mv = uc_client.create_model_version(dst, placeholder_model)
+            uc_client.delete_model_version(dst, mv.version)
+
+
+copy_model_versions_to_uc("my_workspace_model", "mycatalog.myschema.my_uc_model")
+```
+
 ### OSS Unity Catalog Model Registry
 
 To use an [OSS Unity Catalog](https://www.unitycatalog.io/) server as your MLflow model registry, specify the UC server address in the

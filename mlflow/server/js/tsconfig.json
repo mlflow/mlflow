@@ -1,9 +1,6 @@
 {
   "extends": [],
   "compilerOptions": {
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "jsx": "preserve",
     "types": [
       "jest",
       "node",
@@ -26,6 +23,8 @@
       ]
     },
     "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "lib": [
       "ESNext",
       "DOM",
@@ -44,10 +43,14 @@
     "declaration": false,
     "sourceMap": false,
     "declarationMap": false,
+    "jsx": "preserve",
     "isolatedModules": true
   },
   "references": [],
   "include": [
     "./src/**/*"
-  ]
+  ],
+  "ts-node": {
+    "swc": true
+  }
 }

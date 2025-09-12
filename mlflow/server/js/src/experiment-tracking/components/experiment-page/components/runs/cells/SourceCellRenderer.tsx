@@ -1,6 +1,6 @@
 import React from 'react';
 import Utils from '../../../../../../common/utils/Utils';
-import { RunRowType } from '../../../utils/experimentPage.row-types';
+import type { RunRowType } from '../../../utils/experimentPage.row-types';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { ExperimentSourceTypeIcon } from '../../../../ExperimentSourceTypeIcon';
 

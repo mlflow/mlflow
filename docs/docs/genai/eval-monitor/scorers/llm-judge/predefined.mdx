@@ -68,24 +68,35 @@ results = mlflow.genai.evaluate(
 
 ## Available Scorers
 
-| Scorer                                                                                     | What does it evaluate?                                       | Requires ground-truth? |
-| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------ | ---------------------- |
-| <APILink fn="mlflow.genai.scorers.RelevanceToQuery">RelevanceToQuery</APILink>             | Does the app's response directly address the user's input?   | No                     |
-| <APILink fn="mlflow.genai.scorers.Correctness">Correctness</APILink>                       | Is the app's response correct compared to ground-truth?      | Yes                    |
-| <APILink fn="mlflow.genai.scorers.Guidelines">Guidelines</APILink>                         | Does the response adhere to provided guidelines?             | Yes                    |
-| <APILink fn="mlflow.genai.scorers.ExpectationsGuidelines">ExpectationsGuidelines</APILink> | Does the response meet specific expectations and guidelines? | Yes                    |
-| <APILink fn="mlflow.genai.scorers.Safety">Safety</APILink>                                 | Does the app's response avoid harmful or toxic content?      | No                     |
-| <APILink fn="mlflow.genai.scorers.RetrievalGroundedness">RetrievalGroundedness</APILink>   | Is the app's response grounded in retrieved information?     | No                     |
-| <APILink fn="mlflow.genai.scorers.RetrievalRelevance">RetrievalRelevance</APILink>         | Are retrieved documents relevant to the user's request?      | No                     |
-| <APILink fn="mlflow.genai.scorers.RetrievalSufficiency">RetrievalSufficiency</APILink>     | Do retrieved documents contain all necessary information?    | Yes                    |
+| Scorer                                                                                     | What does it evaluate?                                       | Requires ground-truth? | Data Compatibility    |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------ | ---------------------- | --------------------- |
+| <APILink fn="mlflow.genai.scorers.RelevanceToQuery">RelevanceToQuery</APILink>             | Does the app's response directly address the user's input?   | No                     | ✅ Static Data OK     |
+| <APILink fn="mlflow.genai.scorers.Correctness">Correctness</APILink>                       | Is the app's response correct compared to ground-truth?      | Yes                    | ✅ Static Data OK     |
+| <APILink fn="mlflow.genai.scorers.Guidelines">Guidelines</APILink>                         | Does the response adhere to provided guidelines?             | Yes                    | ✅ Static Data OK     |
+| <APILink fn="mlflow.genai.scorers.ExpectationsGuidelines">ExpectationsGuidelines</APILink> | Does the response meet specific expectations and guidelines? | Yes                    | ✅ Static Data OK     |
+| <APILink fn="mlflow.genai.scorers.Safety">Safety</APILink>                                 | Does the app's response avoid harmful or toxic content?      | No                     | ✅ Static Data OK     |
+| <APILink fn="mlflow.genai.scorers.RetrievalGroundedness">RetrievalGroundedness</APILink>   | Is the app's response grounded in retrieved information?     | No                     | ⚠️ **Trace Required** |
+| <APILink fn="mlflow.genai.scorers.RetrievalRelevance">RetrievalRelevance</APILink>         | Are retrieved documents relevant to the user's request?      | No                     | ⚠️ **Trace Required** |
+| <APILink fn="mlflow.genai.scorers.RetrievalSufficiency">RetrievalSufficiency</APILink>     | Do retrieved documents contain all necessary information?    | Yes                    | ⚠️ **Trace Required** |
 
 :::note Availability
 Safety and RetrievalRelevance scorers are currently only available in [Databricks managed MLflow](https://docs.databricks.com/mlflow3/genai/eval-monitor/) and will be open-sourced soon.
 :::
 
-:::tip Evaluating Retrieval
+:::warning[Retrieval Scorers Require Traces]
 
-Built-in scorers for evaluating retrieval (`RetrievalGroundedness`, `RetrievalRelevance`, `RetrievalSufficiency`) require traces to include one or more spans with type `RETRIEVER`. If you are using <ins>[automatic tracing integration](/genai/tracing/app-instrumentation/automatic)</ins>, MLflow will automatically set the type of spans for you.
+**Retrieval scorers will NOT work with static pandas DataFrames** that only contain inputs/outputs/expectations fields.
+
+These scorers require:
+
+1. **Active traces** with spans of type `RETRIEVER`
+2. Either a `predict_fn` that generates traces during evaluation, OR pre-collected traces in your dataset
+
+**Common Error:** If you're trying to use retrieval scorers with a static dataset and getting errors about missing traces or RETRIEVER spans, you need to either:
+
+- Switch to scorers that work with static data (marked with ✅ in the table above)
+- Modify your evaluation to use a `predict_fn` that generates traces
+- Use <ins>[automatic tracing integration](/genai/tracing/app-instrumentation/automatic)</ins> with your application
 
 :::
 

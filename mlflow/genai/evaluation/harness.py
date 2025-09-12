@@ -19,8 +19,10 @@ from mlflow.genai.evaluation import context
 from mlflow.genai.evaluation.entities import EvalItem, EvalResult, EvaluationResult
 from mlflow.genai.evaluation.utils import (
     complete_eval_futures_with_progress_base,
+    is_none_or_nan,
     make_code_type_assessment_source,
     standardize_scorer_value,
+    validate_tags,
 )
 from mlflow.genai.scorers.aggregation import compute_aggregated_metrics
 from mlflow.genai.scorers.base import Scorer
@@ -123,6 +125,16 @@ def _run_single(
     assessments = _compute_eval_scores(eval_item=eval_item, scorers=scorers)
     assessments.extend(eval_item.get_expectation_assessments())
     eval_result = EvalResult(eval_item=eval_item, assessments=assessments)
+
+    tags = eval_item.tags if not is_none_or_nan(eval_item.tags) else {}
+    validate_tags(tags)
+
+    for key, value in tags.items():
+        try:
+            mlflow.set_trace_tag(trace_id=eval_item.trace.info.trace_id, key=key, value=value)
+        except Exception as e:
+            # Failures in logging to MLflow should not fail the entire harness run
+            _logger.warning(f"Failed to log tag {key} to MLflow: {e}")
 
     try:
         logged_trace = _log_assessments(

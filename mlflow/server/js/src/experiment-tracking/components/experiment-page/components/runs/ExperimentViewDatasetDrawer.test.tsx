@@ -1,6 +1,7 @@
 import { IntlProvider } from 'react-intl';
 import { act, render, screen } from '../../../../../common/utils/TestUtils.react18';
-import { DatasetSourceTypes, RunDatasetWithTags } from '../../../../types';
+import type { RunDatasetWithTags } from '../../../../types';
+import { DatasetSourceTypes } from '../../../../types';
 import { ExperimentViewDatasetDrawer } from './ExperimentViewDatasetDrawer';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { MemoryRouter } from '../../../../../common/utils/RoutingUtils';

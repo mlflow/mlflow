@@ -202,6 +202,26 @@ export const MOCK_ASSESSMENT: Assessment = {
   rationale: 'The thought process is sound and follows from the request',
 };
 
+export const MOCK_EXPECTATION: Assessment = {
+  assessment_id: 'a-test-1',
+  assessment_name: 'expected_facts',
+  trace_id: 'tr-test-v3',
+  span_id: '',
+  source: {
+    source_type: 'LLM_JUDGE',
+    source_id: '1',
+  },
+  create_time: '2025-04-19T09:04:07.875Z',
+  last_update_time: '2025-04-19T09:04:07.875Z',
+  expectation: {
+    serialized_value: {
+      value: '["fact 1", "fact 2"]',
+      serialization_format: 'json',
+    },
+  },
+  rationale: 'The thought process is sound and follows from the request',
+};
+
 export const MOCK_TRACE_INFO_V3: ModelTraceInfoV3 = {
   trace_id: 'tr-test-v3',
   trace_location: {

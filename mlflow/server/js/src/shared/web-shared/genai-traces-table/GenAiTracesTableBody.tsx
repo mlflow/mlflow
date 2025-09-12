@@ -79,7 +79,7 @@ export const GenAiTracesTableBody = React.memo(
     rowSelection?: RowSelectionState;
     setRowSelection?: OnChangeFn<RowSelectionState>;
     exportToEvalsInstanceEnabled?: boolean;
-    getTrace?: (requestId?: string, traceId?: string) => Promise<ModelTrace | undefined>;
+    getTrace?: (traceId?: string) => Promise<ModelTrace | undefined>;
     toggleAssessmentFilter: (
       assessmentName: string,
       filterValue: AssessmentValueType,

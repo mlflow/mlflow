@@ -11,7 +11,6 @@ import { GetExperimentsContextProvider } from './contexts/GetExperimentsContext'
 import { ExperimentView } from './ExperimentView';
 import { LegacySkeleton, PageWrapper, useDesignSystemTheme } from '@databricks/design-system';
 import { useNavigateToExperimentPageTab } from './hooks/useNavigateToExperimentPageTab';
-import { shouldEnableExperimentPageHeaderV2 } from '../../../common/utils/FeatureUtils';
 import { useExperimentIds } from './hooks/useExperimentIds';
 
 /**
@@ -45,7 +44,7 @@ const ExperimentPage = () => {
 
   // Check if view mode determines rendering using another route. If true, wait for the redirection and return null.
   const { isLoading: isAutoNavigatingToTab, isEnabled: isAutoNavigateEnabled } = useNavigateToExperimentPageTab({
-    enabled: !isComparingExperiments && shouldEnableExperimentPageHeaderV2(),
+    enabled: !isComparingExperiments,
     experimentId: experimentIds[0],
   });
 

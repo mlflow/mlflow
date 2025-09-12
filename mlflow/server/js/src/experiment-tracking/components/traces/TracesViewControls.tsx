@@ -11,7 +11,7 @@ import {
 import { useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { TracesViewControlsActions } from './TracesViewControlsActions';
-import { ModelTraceInfoWithRunName } from './hooks/useExperimentTraces';
+import type { ModelTraceInfoWithRunName } from './hooks/useExperimentTraces';
 
 const InputTooltip = ({ baseComponentId }: { baseComponentId: string }) => {
   const { theme } = useDesignSystemTheme();

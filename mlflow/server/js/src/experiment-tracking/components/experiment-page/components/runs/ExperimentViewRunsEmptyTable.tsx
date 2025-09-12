@@ -1,5 +1,5 @@
 import { BeakerIcon, Button, Empty, FilterIcon } from '@databricks/design-system';
-import { Theme } from '@emotion/react';
+import type { Theme } from '@emotion/react';
 import { FormattedMessage } from 'react-intl';
 import { LoggingRunsDocUrl } from '../../../../../common/constants';
 
