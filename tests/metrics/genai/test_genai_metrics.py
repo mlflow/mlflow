@@ -1,4 +1,8 @@
+import cProfile
 import inspect
+import io
+import platform
+import pstats
 import re
 from unittest import mock
 
@@ -726,7 +730,7 @@ def test_similarity_metric(parameters, extra_headers, proxy_url):
         )
 
 
-def test_faithfulness_metric():
+def _test_faithfulness_metric():
     faithfulness_metric = faithfulness(model="gateway:/gpt-4o-mini", examples=[])
     input = "What is MLflow?"
 
@@ -786,9 +790,10 @@ def test_faithfulness_metric():
     }
 
     with pytest.raises(
-        MlflowException, match="Failed to find faithfulness metric for version non-existent-version"
+        MlflowException,
+        match="Failed to find faithfulness metric for version non-existent-version",
     ):
-        faithfulness_metric = faithfulness(
+        faithfulness(
             model="gateway:/gpt-4o-mini",
             metric_version="non-existent-version",
             examples=[mlflow_example],
@@ -801,6 +806,30 @@ def test_faithfulness_metric():
         pd.Series([input], index=[1]),
         pd.Series([mlflow_ground_truth], index=[2]),
     )
+
+
+def test_faithfulness_metric():
+    profiler = cProfile.Profile()
+    with profiler:
+        _test_faithfulness_metric()
+
+    # Check performance on Windows
+    if platform.system() == "Windows":
+        s = io.StringIO()
+        ps = pstats.Stats(profiler, stream=s).sort_stats("cumulative")
+        ps.print_stats(50)  # Top 50 time-consuming functions
+
+        total_time = ps.total_tt
+        profile_output = s.getvalue()
+        error_msg = (
+            f"test_faithfulness_metric is slow on Windows "
+            f"(took {total_time:.2f} seconds)\n\n"
+            "Profile Report:\n"
+            "=" * 80 + "\n"
+            f"{profile_output}\n"
+            "=" * 80
+        )
+        raise AssertionError(error_msg)
 
 
 def test_answer_correctness_metric():

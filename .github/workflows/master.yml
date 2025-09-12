@@ -422,7 +422,6 @@ jobs:
           # Run Windows tests
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
             --durations 50 \
-            --junit-xml=test-results-${{ matrix.group }}.xml \
             --ignore-flavors \
             --ignore=tests/projects \
             --ignore=tests/examples \
