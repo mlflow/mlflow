@@ -6,6 +6,9 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
+from collections import defaultdict
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
@@ -94,6 +97,9 @@ def pytest_cmdline_main(config: pytest.Config):
 
 
 def pytest_sessionstart(session):
+    # Clear duration tracking state at the start of each session
+    _test_results.clear()
+
     if IS_TRACING_SDK_ONLY:
         return
 
@@ -109,6 +115,24 @@ def pytest_sessionstart(session):
                 fg="red",
             )
         )
+
+
+@dataclass
+class TestResult:
+    path: Path
+    test_name: str
+    execution_time: float
+
+
+_test_results: list[TestResult] = []
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
+    start = time.perf_counter()
+    yield  # This includes setup + call + teardown
+    duration = time.perf_counter() - start
+    _test_results.append(TestResult(path=item.path, test_name=item.name, execution_time=duration))
 
 
 def pytest_runtest_setup(item):
@@ -249,6 +273,38 @@ def pytest_collection_modifyitems(session, config, items):
 @pytest.hookimpl(hookwrapper=True)
 def pytest_terminal_summary(terminalreporter, exitstatus, config):
     yield
+
+    # Display per-file durations
+    if _test_results:
+        # Group results by file path
+        file_groups = defaultdict(list)
+        for result in _test_results:
+            file_groups[result.path].append(result.execution_time)
+
+        rows = []
+        for path, test_times in file_groups.items():
+            rel_path = str(path.relative_to(Path.cwd()))
+            total_dur = sum(test_times)
+            test_count = len(test_times)
+            if test_times:
+                min_test = min(test_times)
+                max_test = max(test_times)
+                avg_test = sum(test_times) / len(test_times)
+                stats = f"min: {min_test:.3f}s max: {max_test:.3f}s avg: {avg_test:.3f}s"
+            else:
+                stats = "no test data"
+
+            rows.append((rel_path, total_dur, test_count, stats))
+
+        rows.sort(key=lambda r: r[1], reverse=True)
+
+        header = "per-file durations (sorted)"
+        terminalreporter.write_sep("=", header)
+        for idx, (path, dur, count, stats) in enumerate(rows, 1):
+            terminalreporter.write_line(f"{idx:>2}. {dur:7.2f}s  {path}  ({count} tests) [{stats}]")
+        terminalreporter.write("\n")
+
+    # If there are failed tests, display a command to run them
     failed_test_reports = terminalreporter.stats.get("failed", [])
     if failed_test_reports:
         if len(failed_test_reports) <= 30:
