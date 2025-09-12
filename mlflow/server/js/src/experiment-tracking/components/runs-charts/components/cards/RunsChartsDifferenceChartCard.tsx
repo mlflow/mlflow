@@ -7,12 +7,8 @@ import {
   type RunsChartsCardConfig,
   type RunsChartsDifferenceCardConfig,
 } from '../../runs-charts.types';
-import {
-  type RunsChartCardReorderProps,
-  RunsChartCardWrapper,
-  RunsChartsChartsDragGroup,
-  RunsChartCardFullScreenProps,
-} from './ChartCard.common';
+import type { RunsChartCardFullScreenProps } from './ChartCard.common';
+import { type RunsChartCardReorderProps, RunsChartCardWrapper, RunsChartsChartsDragGroup } from './ChartCard.common';
 import { useConfirmChartCardConfigurationFn } from '../../hooks/useRunsChartsUIConfiguration';
 import { useIntl, FormattedMessage } from 'react-intl';
 import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';

@@ -1,11 +1,9 @@
 import { FormattedMessage, useIntl } from 'react-intl';
-import { useSelector } from 'react-redux';
 import { useMemo } from 'react';
 
 import { Button, FileIcon, Spacer, Spinner, Typography, useDesignSystemTheme } from '@databricks/design-system';
 
 import Utils from '../../../common/utils/Utils';
-import type { ReduxState } from '../../../redux-types';
 import { useLocation } from '../../../common/utils/RoutingUtils';
 import { EXPERIMENT_PARENT_ID_TAG } from '../experiment-page/utils/experimentPage.common-utils';
 
@@ -24,6 +22,7 @@ import { RunViewLoggedModelsBox } from './overview/RunViewLoggedModelsBox';
 import { RunViewSourceBox } from './overview/RunViewSourceBox';
 import { DetailsOverviewMetadataTable } from '@mlflow/mlflow/src/experiment-tracking/components/DetailsOverviewMetadataTable';
 import type { LoggedModelProto } from '../../types';
+import { ExperimentKind } from '../../constants';
 import { useExperimentLoggedModelRegisteredVersions } from '../experiment-logged-models/hooks/useExperimentLoggedModelRegisteredVersions';
 import { DetailsOverviewCopyableIdBox } from '../DetailsOverviewCopyableIdBox';
 import type { RunInfoEntity } from '../../types';
@@ -33,12 +32,10 @@ import type {
   UseGetRunQueryResponseRunInfo,
 } from './hooks/useGetRunQuery';
 import type { MetricEntitiesByName, RunDatasetWithTags } from '../../types';
-import { KeyValueEntity } from '../../../common/types';
+import type { KeyValueEntity } from '../../../common/types';
 import { type RunPageModelVersionSummary } from './hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
 import { isEmpty, uniqBy } from 'lodash';
 import { RunViewLoggedModelsTable } from './overview/RunViewLoggedModelsTable';
-import { isRunPageLoggedModelsTableEnabled } from '../../../common/utils/FeatureUtils';
-import { useExperimentTrackingDetailsPageLayoutStyles } from '../../hooks/useExperimentTrackingDetailsPageLayoutStyles';
 import { DetailsPageLayout } from '../../../common/components/details-page-layout/DetailsPageLayout';
 import { useRunDetailsPageOverviewSectionsV2 } from './hooks/useRunDetailsPageOverviewSectionsV2';
 
@@ -58,6 +55,7 @@ export const RunViewOverview = ({
   loggedModelsV3 = [],
   isLoadingLoggedModels = false,
   loggedModelsError,
+  experimentKind,
 }: {
   runUuid: string;
   onRunDataUpdated: () => void | Promise<any>;
@@ -72,16 +70,17 @@ export const RunViewOverview = ({
   loggedModelsV3?: LoggedModelProto[];
   isLoadingLoggedModels?: boolean;
   loggedModelsError?: Error;
+  experimentKind?: ExperimentKind;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const { usingUnifiedDetailsLayout } = useExperimentTrackingDetailsPageLayoutStyles();
   const { search } = useLocation();
   const intl = useIntl();
 
   const loggedModelsFromTags = useMemo(() => Utils.getLoggedModelsFromTags(tags), [tags]);
   const parentRunIdTag = tags[EXPERIMENT_PARENT_ID_TAG];
   const containsLoggedModelsFromInputsOutputs = !isEmpty(runInputs?.modelInputs) || !isEmpty(runOutputs?.modelOutputs);
-  const shouldRenderLoggedModelsBox = !isRunPageLoggedModelsTableEnabled() || !containsLoggedModelsFromInputsOutputs;
+  const shouldRenderLoggedModelsBox = !containsLoggedModelsFromInputsOutputs;
+  const shouldRenderLinkedPromptsTable = experimentKind === ExperimentKind.GENAI_DEVELOPMENT;
 
   // We have two flags for controlling the visibility of the "logged models" section:
   // - `shouldRenderLoggedModelsBox` determines if "logged models" section should be rendered.
@@ -253,11 +252,10 @@ export const RunViewOverview = ({
     shouldRenderLoggedModelsBox,
     registeredModelVersionSummaries,
   });
-  const usingSidebarLayout = usingUnifiedDetailsLayout;
+  const usingSidebarLayout = true;
   return (
     <DetailsPageLayout
       css={{ flex: 1, alignSelf: 'flex-start' }}
-      //
       // Enable sidebar layout based on feature flag
       usingSidebarLayout={usingSidebarLayout}
       secondarySections={detailsSectionsV2}
@@ -281,9 +279,9 @@ export const RunViewOverview = ({
         <RunViewMetricsTable latestMetrics={latestMetrics} runInfo={runInfo} loggedModels={loggedModelsV3} />
         {renderParams()}
       </div>
-      {isRunPageLoggedModelsTableEnabled() && containsLoggedModelsFromInputsOutputs && (
+      {containsLoggedModelsFromInputsOutputs && (
         <>
-          <Spacer />
+          {!usingSidebarLayout && <Spacer />}
           <div css={{ minHeight: 360, maxHeight: 760, overflow: 'hidden', display: 'flex' }}>
             <RunViewLoggedModelsTable
               loggedModelsV3={loggedModelsV3}

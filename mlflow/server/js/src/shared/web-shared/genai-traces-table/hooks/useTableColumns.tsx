@@ -46,10 +46,15 @@ const EXCLUDED_ASSESSMENT_NAMES = [
 ];
 
 const ASSESSMENT_COLUMN_ID_SUFFIX = '_assessment_column';
+const EXPECTATION_COLUMN_ID_SUFFIX = '_expectation_column';
 
 // Add a suffix to the assessment name as the id to make it work for blank names.
 export function createAssessmentColumnId(assessmentName: string) {
   return assessmentName + ASSESSMENT_COLUMN_ID_SUFFIX;
+}
+
+export function createExpectationColumnId(expectationName: string) {
+  return expectationName + EXPECTATION_COLUMN_ID_SUFFIX;
 }
 
 export const useTableColumns = (
@@ -112,6 +117,7 @@ export const useTableColumns = (
       );
 
     let infoCols;
+    const expectationColumns: Record<string, TracesTableColumn> = {};
     if (isTraceInfoV3) {
       infoCols = [
         {
@@ -237,7 +243,7 @@ export const useTableColumns = (
       const allResults = [...currentEvaluationResults, ...(otherEvaluationResults || [])];
       // Populate custom metadata columns
       const customMetadataColumns: Record<string, TracesTableColumn> = {};
-      allResults.forEach((result) => {
+      allResults.forEach((result: RunEvaluationTracesDataEntry) => {
         const traceMetadata = result.traceInfo?.trace_metadata;
         if (traceMetadata) {
           Object.keys(traceMetadata).forEach((key) => {
@@ -247,6 +253,21 @@ export const useTableColumns = (
                 label: key,
                 type: TracesTableColumnType.TRACE_INFO,
                 group: TracesTableColumnGroup.INFO,
+              };
+            }
+          });
+        }
+
+        const expectations = result.targets;
+        if (expectations) {
+          Object.keys(expectations).forEach((expectationName) => {
+            if (!expectationColumns[expectationName]) {
+              expectationColumns[expectationName] = {
+                id: createExpectationColumnId(expectationName),
+                label: expectationName,
+                type: TracesTableColumnType.EXPECTATION,
+                group: TracesTableColumnGroup.EXPECTATION,
+                expectationName,
               };
             }
           });
@@ -289,7 +310,9 @@ export const useTableColumns = (
         : [];
     }
 
-    return [...inputCols, ...infoCols, ...assessmentColumns].filter((col): col is TracesTableColumn => Boolean(col));
+    return [...inputCols, ...infoCols, ...assessmentColumns, ...Object.values(expectationColumns)].filter(
+      (col): col is TracesTableColumn => Boolean(col),
+    );
   }, [currentEvaluationResults, intl, assessmentInfos, runUuid, otherEvaluationResults, isTraceInfoV3Override]);
 
   return allColumns;

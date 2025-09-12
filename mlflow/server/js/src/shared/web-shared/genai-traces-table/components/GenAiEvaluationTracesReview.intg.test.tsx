@@ -13,6 +13,7 @@ import { createTestTrace } from '../test-fixtures/EvaluatedTraceTestUtils';
 import type { RunEvaluationTracesDataEntry } from '../types';
 import { getAssessmentInfos } from '../utils/AggregationUtils';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(120000); // This is quite expensive test
 
 // Mock necessary modules

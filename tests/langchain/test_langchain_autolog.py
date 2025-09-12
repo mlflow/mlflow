@@ -939,7 +939,13 @@ def test_langchain_auto_tracing_work_when_langchain_parent_package_not_installed
     original_import = __import__
 
     def _mock_import(name, *args):
-        if name.startswith("langchain."):
+        # Allow langchain.globals and its dependencies for langchain-core 0.3.76 compatibility
+        allowed_langchain_modules = {
+            "langchain.globals",
+            "langchain._api",
+            "langchain._api.interactive_env",
+        }
+        if name.startswith("langchain.") and name not in allowed_langchain_modules:
             raise ImportError("No module named 'langchain'")
         return original_import(name, *args)
 

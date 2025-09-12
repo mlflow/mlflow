@@ -5,7 +5,7 @@ import promiseMiddleware from 'redux-promise-middleware';
 import thunk from 'redux-thunk';
 
 import { renderWithIntl, act, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
-import { EvaluationDataReduxState } from '../../../reducers/EvaluationDataReducer';
+import type { EvaluationDataReduxState } from '../../../reducers/EvaluationDataReducer';
 import { useEvaluationArtifactWriteBack } from './useEvaluationArtifactWriteBack';
 import {
   WRITE_BACK_EVALUATION_ARTIFACTS,

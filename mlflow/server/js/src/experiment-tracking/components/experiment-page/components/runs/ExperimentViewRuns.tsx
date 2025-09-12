@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useLegacyNotification } from '@databricks/design-system';
-import {
+import type {
   DatasetSummary,
   ExperimentEntity,
   LIFECYCLE_FILTER,
@@ -9,29 +9,28 @@ import {
   RunDatasetWithTags,
   UpdateExperimentViewStateFn,
 } from '../../../../types';
-import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
+import type { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { ExperimentViewRunsControls } from './ExperimentViewRunsControls';
 import { ExperimentViewRunsTable } from './ExperimentViewRunsTable';
 import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
 import Utils from '../../../../../common/utils/Utils';
 import { ATTRIBUTE_COLUMN_SORT_KEY, MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH } from '../../../../constants';
-import { RunRowType } from '../../utils/experimentPage.row-types';
+import type { RunRowType } from '../../utils/experimentPage.row-types';
 import { useExperimentRunRows } from '../../utils/experimentPage.row-utils';
 import { useFetchedRunsNotification } from '../../hooks/useFetchedRunsNotification';
-import { DatasetWithRunType, ExperimentViewDatasetDrawer } from './ExperimentViewDatasetDrawer';
+import type { DatasetWithRunType } from './ExperimentViewDatasetDrawer';
+import { ExperimentViewDatasetDrawer } from './ExperimentViewDatasetDrawer';
 import { useExperimentViewLocalStore } from '../../hooks/useExperimentViewLocalStore';
 import { EvaluationArtifactCompareView } from '../../../evaluation-artifacts-compare/EvaluationArtifactCompareView';
-import {
-  shouldEnableExperimentPageAutoRefresh,
-  shouldUseGetLoggedModelsBatchAPI,
-} from '../../../../../common/utils/FeatureUtils';
+import { shouldUseGetLoggedModelsBatchAPI } from '../../../../../common/utils/FeatureUtils';
 import { CreateNewRunContextProvider } from '../../hooks/useCreateNewRun';
 import { useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
-import { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
+import type { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import { RunsCompare } from '../../../runs-compare/RunsCompare';
-import { ErrorWrapper } from '../../../../../common/utils/ErrorWrapper';
-import { ReduxState, ThunkDispatch } from '../../../../../redux-types';
-import { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
+import type { ErrorWrapper } from '../../../../../common/utils/ErrorWrapper';
+import type { ReduxState } from '../../../../../redux-types';
+import { ThunkDispatch } from '../../../../../redux-types';
+import type { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
 import { useIsTabActive } from '../../../../../common/hooks/useIsTabActive';
 import { ExperimentViewRunsTableResizer } from './ExperimentViewRunsTableResizer';
 import { RunsChartsSetHighlightContextProvider } from '../../../runs-charts/hooks/useRunsChartTraceHighlight';
@@ -235,7 +234,7 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
   }, []);
 
   const isTabActive = useIsTabActive();
-  const autoRefreshEnabled = uiState.autoRefreshEnabled && shouldEnableExperimentPageAutoRefresh() && isTabActive;
+  const autoRefreshEnabled = uiState.autoRefreshEnabled && isTabActive;
   const usingGroupedValuesInCharts = uiState.useGroupedValuesInCharts ?? true;
 
   const tableElement =

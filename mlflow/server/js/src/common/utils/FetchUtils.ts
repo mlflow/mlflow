@@ -8,7 +8,7 @@
 import cookie from 'cookie';
 import JsonBigInt from 'json-bigint';
 import yaml from 'js-yaml';
-import _ from 'lodash';
+import { isNil, pickBy } from 'lodash';
 import { ErrorWrapper } from './ErrorWrapper';
 
 export const HTTPMethods = {
@@ -52,8 +52,7 @@ export const getDefaultHeaders = (cookieStr: any) => {
 };
 
 export const getAjaxUrl = (relativeUrl: any) => {
-  // @ts-expect-error TS(4111): Property 'MLFLOW_USE_ABSOLUTE_AJAX_URLS' comes from an in... Remove this comment to see the full error message
-  if (process.env.MLFLOW_USE_ABSOLUTE_AJAX_URLS === 'true' && !relativeUrl.startsWith('/')) {
+  if (process.env['MLFLOW_USE_ABSOLUTE_AJAX_URLS'] === 'true' && !relativeUrl.startsWith('/')) {
     return '/' + relativeUrl;
   }
   return relativeUrl;
@@ -263,7 +262,7 @@ export const fetchEndpoint = ({
 
 const filterUndefinedFields = (data: any) => {
   if (!Array.isArray(data)) {
-    return _.pickBy(data, (v) => v !== undefined);
+    return pickBy(data, (v) => v !== undefined);
   } else {
     return data.filter((v) => v !== undefined);
   }

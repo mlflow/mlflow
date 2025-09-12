@@ -1,13 +1,12 @@
 import { MlflowService } from '@mlflow/mlflow/src/experiment-tracking/sdk/MlflowService';
 import { getUUID } from '../../common/utils/ActionUtils';
 import type { AsyncAction } from '../../redux-types';
-import {
+import type {
   ModelGatewayQueryPayload,
-  ModelGatewayRoute,
   ModelGatewayRouteLegacy,
-  ModelGatewayService,
   SearchMlflowDeploymentsModelRoutesResponse,
 } from '../sdk/ModelGatewayService';
+import { ModelGatewayRoute, ModelGatewayService } from '../sdk/ModelGatewayService';
 
 const SEARCH_MLFLOW_DEPLOYMENTS_MODEL_ROUTES = 'SEARCH_MLFLOW_DEPLOYMENTS_MODEL_ROUTES';
 

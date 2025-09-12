@@ -42,7 +42,6 @@ from mlflow.tracing.utils.otlp import (
     should_use_otlp_exporter,
 )
 from mlflow.tracing.utils.warning import suppress_warning
-from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
     is_mlflow_tracing_enabled_in_model_serving,
@@ -190,7 +189,6 @@ def detach_span_from_context(token: contextvars.Token):
     context_api.detach(token)
 
 
-@experimental(version="2.21.0")
 def set_destination(destination: TraceDestination, *, context_local: bool = False):
     """
     Set a custom span destination to which MLflow will export the traces.

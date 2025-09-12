@@ -26,6 +26,7 @@ export {
   useSearchMlflowTraces,
   useMlflowTracesTableMetadata,
   invalidateMlflowSearchTracesCache,
+  SEARCH_MLFLOW_TRACES_QUERY_KEY,
 } from './hooks/useMlflowTraces';
 export { getEvalTabTotalTracesLimit } from './utils/FeatureUtils';
 export { GenAITracesTableToolbar } from './GenAITracesTableToolbar';

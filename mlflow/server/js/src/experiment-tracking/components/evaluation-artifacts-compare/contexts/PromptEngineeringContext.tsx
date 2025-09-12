@@ -1,9 +1,9 @@
 import React, { useCallback, useContext, useMemo, useState } from 'react';
-import { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
-import { UseEvaluationArtifactTableDataResult } from '../hooks/useEvaluationArtifactTableData';
+import type { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
+import type { UseEvaluationArtifactTableDataResult } from '../hooks/useEvaluationArtifactTableData';
 import { useDispatch, useSelector } from 'react-redux';
-import { ReduxState, ThunkDispatch } from '../../../../redux-types';
-import { EvaluationDataReduxState } from '../../../reducers/EvaluationDataReducer';
+import type { ReduxState, ThunkDispatch } from '../../../../redux-types';
+import type { EvaluationDataReduxState } from '../../../reducers/EvaluationDataReducer';
 import { evaluatePromptTableValue } from '../../../actions/PromptEngineeringActions';
 import {
   DEFAULT_PROMPTLAB_OUTPUT_COLUMN,
@@ -15,9 +15,9 @@ import {
 import Utils from '../../../../common/utils/Utils';
 import { useEvaluateAllRows } from '../hooks/useEvaluateAllRows';
 import { useIntl } from 'react-intl';
-import { ErrorWrapper } from '../../../../common/utils/ErrorWrapper';
+import type { ErrorWrapper } from '../../../../common/utils/ErrorWrapper';
 import { getPromptEngineeringErrorMessage } from '../utils/PromptEngineeringErrorUtils';
-import { GatewayErrorWrapper } from '../../../utils/LLMGatewayUtils';
+import type { GatewayErrorWrapper } from '../../../utils/LLMGatewayUtils';
 
 export interface PromptEngineeringContextType {
   getMissingParams: (run: RunRowType, rowKey: string) => string[] | null;

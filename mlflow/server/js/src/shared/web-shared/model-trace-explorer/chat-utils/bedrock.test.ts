@@ -1,6 +1,6 @@
 import { normalizeConversation } from '../ModelTraceExplorer.utils';
 
-export const MOCK_BEDROCK_INPUT = {
+const MOCK_BEDROCK_INPUT = {
   messages: [
     {
       role: 'user',
@@ -13,7 +13,7 @@ export const MOCK_BEDROCK_INPUT = {
   ],
 };
 
-export const MOCK_BEDROCK_OUTPUT = {
+const MOCK_BEDROCK_OUTPUT = {
   output: {
     message: {
       role: 'assistant',
@@ -26,7 +26,7 @@ export const MOCK_BEDROCK_OUTPUT = {
   },
 };
 
-export const MOCK_BEDROCK_TOOL_USE_INPUT = {
+const MOCK_BEDROCK_TOOL_USE_INPUT = {
   messages: [
     {
       role: 'user',
@@ -71,7 +71,7 @@ export const MOCK_BEDROCK_TOOL_USE_INPUT = {
   ],
 };
 
-export const MOCK_BEDROCK_TOOL_USE_OUTPUT = {
+const MOCK_BEDROCK_TOOL_USE_OUTPUT = {
   output: {
     message: {
       role: 'assistant',
@@ -94,7 +94,7 @@ export const MOCK_BEDROCK_TOOL_USE_OUTPUT = {
   },
 };
 
-export const MOCK_BEDROCK_IMAGE_INPUT = {
+const MOCK_BEDROCK_IMAGE_INPUT = {
   messages: [
     {
       role: 'user',
@@ -115,7 +115,7 @@ export const MOCK_BEDROCK_IMAGE_INPUT = {
   ],
 };
 
-export const MOCK_BEDROCK_REASONING_OUTPUT = {
+const MOCK_BEDROCK_REASONING_OUTPUT = {
   ResponseMetadata: {
     RequestId: '3be62cb5-d4e6-4af4-985f-3c0f57087dea',
     HTTPStatusCode: 200,

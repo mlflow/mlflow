@@ -14,10 +14,9 @@ import { ErrorCell } from './ErrorCell';
 import { NullCell } from './NullCell';
 import { StackedComponents } from './StackedComponents';
 import type { TraceInfoV3 } from '../types';
-import { makeRequest } from '../utils/FetchUtils';
+import { getAjaxUrl, makeRequest } from '../utils/FetchUtils';
 import MlflowUtils from '../utils/MlflowUtils';
 import { Link } from '../utils/RoutingUtils';
-import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 export const LoggedModelCell = (props: {
   experimentId: string;

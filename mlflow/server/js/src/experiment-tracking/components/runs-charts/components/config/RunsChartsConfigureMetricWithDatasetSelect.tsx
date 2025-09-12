@@ -1,5 +1,5 @@
 import { SimpleSelect, SimpleSelectOption, Tag } from '@databricks/design-system';
-import { RunsChartsMetricByDatasetEntry } from '../../runs-charts.types';
+import type { RunsChartsMetricByDatasetEntry } from '../../runs-charts.types';
 
 export const RunsChartsConfigureMetricWithDatasetSelect = ({
   metricKeysByDataset,

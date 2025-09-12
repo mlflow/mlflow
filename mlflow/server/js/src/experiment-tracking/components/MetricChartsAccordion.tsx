@@ -1,5 +1,6 @@
 import { Accordion, useDesignSystemTheme } from '@databricks/design-system';
-import { CSSObject, css } from '@emotion/react';
+import type { CSSObject } from '@emotion/react';
+import { css } from '@emotion/react';
 import { useMemo } from 'react';
 
 export const METRIC_CHART_SECTION_HEADER_SIZE = 55;
