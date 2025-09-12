@@ -96,9 +96,6 @@ class MlflowV3SpanExporter(SpanExporter):
         spans_by_experiment = {}
 
         for span in spans:
-            if not span._parent:
-                # root span will be logged to mlflow backend in _export_traces
-                continue
             mlflow_trace_id = manager.get_mlflow_trace_id_from_otel_id(span.context.trace_id)
             with manager.get_trace(mlflow_trace_id) as internal_trace:
                 experiment_id = internal_trace.info.experiment_id
@@ -177,10 +174,6 @@ class MlflowV3SpanExporter(SpanExporter):
         """
         try:
             if trace:
-                # log all spans of the trace to mlflow backend to ensure
-                # any changes updated in trace manager or when span ends
-                # are persisted in the backend
-                self._log_spans(trace.info.experiment_id, trace.data.spans)
                 add_size_stats_to_trace_metadata(trace)
                 returned_trace_info = self._client.start_trace(trace.info)
                 self._client._upload_trace_data(returned_trace_info, trace.data)
