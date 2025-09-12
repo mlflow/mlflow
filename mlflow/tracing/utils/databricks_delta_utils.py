@@ -7,6 +7,8 @@ and other common archival operations.
 
 import logging
 import re
+import socket
+import subprocess
 
 from google.protobuf.empty_pb2 import Empty
 
@@ -51,6 +53,159 @@ def _get_host():
     return host
 
 
+def _extract_region_from_host(host_url: str) -> str:
+    """
+    Extract AWS region from workspace hostname via DNS lookup.
+
+    Performs DNS resolution on the workspace hostname to get the load balancer
+    hostname, then extracts the region from patterns like:
+    public-ingress-*.elb.us-east-1.amazonaws.com -> us-east-1
+
+    Args:
+        host_url: The workspace URL (may include protocol and paths)
+
+    Returns:
+        str: The extracted region (e.g., 'us-east-1')
+
+    Raises:
+        MlflowException: If DNS lookup fails or region cannot be extracted
+    """
+    from mlflow.exceptions import MlflowException
+
+    # Clean the hostname - remove protocol and paths
+    hostname = host_url
+    if hostname.startswith(("http://", "https://")):
+        hostname = hostname.split("://", 1)[1]
+    hostname = hostname.split("/")[0].split("?")[0]
+
+    _logger.debug(f"Performing DNS lookup for hostname: {hostname}")
+
+    # Try nslookup first as the default approach
+    try:
+        # Use nslookup command as primary approach
+        result = subprocess.run(["nslookup", hostname], capture_output=True, text=True, timeout=10)
+
+        if result.returncode == 0:
+            # Parse nslookup output for CNAME or canonical name
+            for line in result.stdout.split("\n"):
+                if "canonical name" in line.lower() or "cname" in line.lower():
+                    # Extract the canonical name
+                    parts = line.split()
+                    if len(parts) >= 4:
+                        canonical_name = parts[-1].rstrip(".")
+                        region_match = re.search(r"\.elb\.([^.]+)\.amazonaws\.com$", canonical_name)
+                        if region_match:
+                            region = region_match.group(1)
+                            _logger.debug(
+                                f"Extracted region from nslookup canonical name: {region}"
+                            )
+                            return region
+
+    except (subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError) as e:
+        # nslookup command failed or not available, fall back to socket-based approach
+        _logger.debug(f"nslookup failed ({e}), falling back to socket-based DNS lookup")
+
+    # Fallback to socket-based DNS resolution
+    try:
+        _, _, ip_addresses = socket.gethostbyname_ex(hostname)
+
+        # For workspace hostnames, we need to resolve to get the load balancer info
+        # Try to get canonical name through reverse DNS
+        for ip in ip_addresses:
+            try:
+                reverse_hostname, _, _ = socket.gethostbyaddr(ip)
+                _logger.debug(f"Reverse DNS for {ip}: {reverse_hostname}")
+
+                # Look for AWS ELB pattern: *.elb.<region>.amazonaws.com
+                region_match = re.search(r"\.elb\.([^.]+)\.amazonaws\.com$", reverse_hostname)
+                if region_match:
+                    region = region_match.group(1)
+                    _logger.debug(f"Extracted region from load balancer hostname: {region}")
+                    return region
+
+            except socket.herror:
+                # Reverse DNS failed for this IP, try next one
+                continue
+
+        # If we still haven't found a region, raise an error
+        error_msg = (
+            f"Failed to extract region from workspace hostname '{hostname}'. "
+            f"Could not find AWS load balancer pattern in DNS resolution results."
+        )
+        _logger.error(error_msg)
+        raise MlflowException(error_msg)
+
+    except socket.gaierror as e:
+        error_msg = f"DNS resolution failed for hostname '{hostname}': {e}"
+        _logger.error(error_msg)
+        raise MlflowException(error_msg) from e
+    except Exception as e:
+        error_msg = f"Failed to extract region from hostname '{hostname}': {e}"
+        _logger.error(error_msg)
+        raise MlflowException(error_msg) from e
+
+
+def _extract_domain_from_host(host_url: str) -> str:
+    """
+    Extract the domain from a workspace URL using specific pattern matching.
+
+    Args:
+        host_url: The workspace URL (may include protocol and paths)
+
+    Returns:
+        str: The extracted domain
+
+    Raises:
+        MlflowException: If the host pattern is not recognized
+    """
+    from mlflow.exceptions import MlflowException
+
+    # Clean the hostname - remove protocol and paths
+    hostname = host_url
+    if hostname.startswith(("http://", "https://")):
+        hostname = hostname.split("://", 1)[1]
+    hostname = hostname.split("/")[0].split("?")[0]
+
+    _logger.debug(f"Extracting domain from hostname: {hostname}")
+
+    # AWS patterns - check in order of specificity
+    if re.search(r"\.dev\.databricks\.com$", hostname):
+        domain = "dev.databricks.com"
+        _logger.debug(f"Matched AWS dev pattern, domain: {domain}")
+        return domain
+
+    elif re.search(r"\.staging\.cloud\.databricks\.com$", hostname):
+        domain = "staging.cloud.databricks.com"
+        _logger.debug(f"Matched AWS staging pattern, domain: {domain}")
+        return domain
+
+    elif re.search(r"\.cloud\.databricks\.com$", hostname):
+        domain = "cloud.databricks.com"
+        _logger.debug(f"Matched AWS prod pattern, domain: {domain}")
+        return domain
+
+    # Azure patterns
+    elif re.search(r"\.staging\.azuredatabricks\.net$", hostname):
+        domain = "staging.azuredatabricks.net"
+        _logger.debug(f"Matched Azure staging pattern, domain: {domain}")
+        return domain
+
+    elif re.search(r"\.azuredatabricks\.net$", hostname):
+        domain = "azuredatabricks.net"
+        _logger.debug(f"Matched Azure prod pattern, domain: {domain}")
+        return domain
+
+    else:
+        # Unrecognized pattern
+        error_msg = (
+            f"Failed to extract domain: Unrecognized host pattern '{hostname}'. "
+            f"Supported patterns: *.dev.databricks.com, *.staging.cloud.databricks.com, "
+            f"*.cloud.databricks.com, *.staging.azuredatabricks.net, *.azuredatabricks.net"
+        )
+        _logger.error(error_msg)
+        raise MlflowException(error_msg)
+
+
 def create_archival_zerobus_sdk():
     """
     Create a configured ZerobusSdk instance for trace archival.
@@ -92,35 +247,27 @@ def create_archival_zerobus_sdk():
 
 def _resolve_ingest_url() -> str:
     """
-    Dynamically resolve Databricks ingest URL from workspace host pattern.
+    Resolve Databricks ingest URL using DNS-based region extraction.
 
-    This function automatically determines the appropriate ingest URL based on the
-    workspace host URL pattern and environment (dev/staging/prod) for both AWS and Azure.
+    This function generates ingest URLs in the format:
+    <workspace_id>.zerobus.<region>.<domain>
+
+    The region is extracted by performing DNS lookup on the workspace hostname
+    to find the load balancer hostname pattern (e.g., *.elb.us-east-1.amazonaws.com).
 
     If MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL environment variable is set,
     it will be used as an override and returned immediately.
-
-    TODO: This resolution logic should be part of the zerobus_sdk and not in the client code here
-
-    AWS Patterns:
-    - Dev: *.dev.databricks.com → <workspace_id>.ingest.dev.cloud.databricks.com
-    - Staging: *.staging.cloud.databricks.com → <workspace_id>.ingest.staging.cloud.databricks.com
-    - Prod: *.cloud.databricks.com → <workspace_id>.ingest.cloud.databricks.com
-
-    Azure Patterns:
-    - Staging: *.staging.azuredatabricks.net → <workspace_id>.ingest.staging.azuredatabricks.net
-    - Prod: *.azuredatabricks.net → <workspace_id>.ingest.azuredatabricks.net
 
     Returns:
         str: The resolved ingest URL
 
     Raises:
-        MlflowException: If workspace_id cannot be determined or host pattern is unsupported
+        MlflowException: If workspace_id, region, or domain cannot be determined
 
     Example:
-        >>> ingest_url = resolve_ingest_url()
+        >>> ingest_url = _resolve_ingest_url()
         >>> print(ingest_url)
-        12345.ingest.staging.cloud.databricks.com
+        123.zerobus.us-west-2.cloud.databricks.com
     """
     from mlflow.environment_variables import MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL
     from mlflow.exceptions import MlflowException
@@ -131,71 +278,28 @@ def _resolve_ingest_url() -> str:
         _logger.debug(f"Using ingest URL from environment variable: {override_url}")
         return override_url
 
-    # Get host from Databricks context
-    host_url = _get_host()
-
     try:
+        # Get all required components
         workspace_id = _get_workspace_id()
-
         if not workspace_id:
             raise MlflowException(
                 "Failed to resolve Databricks ingest URL: No workspace ID available. "
-                "Ensure you are running in a Databricks environment or provide workspace_id "
-                "parameter."
+                "Ensure you are running in a Databricks environment."
             )
 
+        host_url = _get_host()
         _logger.debug(f"Resolving ingest URL from host: {host_url}")
 
-        # Remove protocol if present
-        if host_url.startswith(("http://", "https://")):
-            host_url = host_url.split("://", 1)[1]
+        # Extract region via DNS lookup
+        region = _extract_region_from_host(host_url)
 
-        # Remove trailing slash and query parameters
-        host_url = host_url.split("/")[0].split("?")[0]
+        # Extract domain from host URL
+        domain = _extract_domain_from_host(host_url)
 
-        # AWS patterns - check in order of specificity
-        if re.search(r"\.dev\.databricks\.com$", host_url):
-            # AWS Dev: *.dev.databricks.com → workspace_id.ingest.dev.cloud.databricks.com
-            ingest_url = f"{workspace_id}.ingest.dev.cloud.databricks.com"
-            _logger.debug(f"Resolved AWS dev ingest URL: {ingest_url}")
-            return ingest_url
-
-        elif re.search(r"\.staging\.cloud\.databricks\.com$", host_url):
-            # AWS Staging: *.staging.cloud.databricks.com →
-            # workspace_id.ingest.staging.cloud.databricks.com
-            ingest_url = f"{workspace_id}.ingest.staging.cloud.databricks.com"
-            _logger.debug(f"Resolved AWS staging ingest URL: {ingest_url}")
-            return ingest_url
-
-        elif re.search(r"\.cloud\.databricks\.com$", host_url):
-            # AWS Prod: *.cloud.databricks.com → workspace_id.ingest.cloud.databricks.com
-            ingest_url = f"{workspace_id}.ingest.cloud.databricks.com"
-            _logger.debug(f"Resolved AWS prod ingest URL: {ingest_url}")
-            return ingest_url
-
-        # Azure patterns
-        elif re.search(r"\.staging\.azuredatabricks\.net$", host_url):
-            # Azure Staging: *.staging.azuredatabricks.net →
-            # workspace_id.ingest.staging.azuredatabricks.net
-            ingest_url = f"{workspace_id}.ingest.staging.azuredatabricks.net"
-            _logger.debug(f"Resolved Azure staging ingest URL: {ingest_url}")
-            return ingest_url
-
-        elif re.search(r"\.azuredatabricks\.net$", host_url):
-            # Azure Prod: *.azuredatabricks.net → workspace_id.ingest.azuredatabricks.net
-            ingest_url = f"{workspace_id}.ingest.azuredatabricks.net"
-            _logger.debug(f"Resolved Azure prod ingest URL: {ingest_url}")
-            return ingest_url
-
-        else:
-            # Unrecognized pattern
-            error_msg = (
-                f"Failed to resolve Databricks ingest URL: Unrecognized host pattern '{host_url}'. "
-                f"Supported patterns: *.dev.databricks.com, *.staging.cloud.databricks.com, "
-                f"*.cloud.databricks.com, *.staging.azuredatabricks.net, *.azuredatabricks.net"
-            )
-            _logger.error(error_msg)
-            raise MlflowException(error_msg)
+        # Build ingest URL in new format
+        ingest_url = f"{workspace_id}.zerobus.{region}.{domain}"
+        _logger.debug(f"Resolved ingest URL: {ingest_url}")
+        return ingest_url
 
     except MlflowException:
         # Re-raise MlflowExceptions as-is
