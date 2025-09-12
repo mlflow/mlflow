@@ -118,6 +118,10 @@ class ClassifierEvaluator(BuiltInEvaluator):
             _logger.info(
                 "Skipping multiclass/binary artifacts and confusion matrix for multilabel data."
             )
+        
+        return EvaluationResult(
+            metrics=self.aggregate_metrics, artifacts=self.artifacts, run_id=self.run_id
+        )
 
     def _generate_model_predictions(self, model, input_df):
         predict_fn, predict_proba_fn = _extract_predict_fn_and_prodict_proba_fn(model)
