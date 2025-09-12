@@ -324,18 +324,6 @@ def _run_server(
     if secret_key:
         env_map[MLFLOW_FLASK_SERVER_SECRET_KEY.name] = secret_key
 
-    # start Mlflow job runner process
-    huey_proc = _exec_cmd(
-        [
-            sys.executable,
-            shutil.which("huey_consumer.py"),
-            "mlflow.server.job.job_runner.huey",
-        ],
-        extra_env=env_map,
-        capture_output=False,
-        synchronous=False,
-    )
-
     # Determine which server we're using (only one should be true)
     using_gunicorn = gunicorn_opts is not None
     using_waitress = waitress_opts is not None
@@ -393,4 +381,20 @@ def _run_server(
     else:
         # This shouldn't happen given the logic in CLI, but handle it just in case
         raise MlflowException("No server configuration specified.")
-    _exec_cmd(full_command, extra_env=env_map, capture_output=False)
+    server_proc = _exec_cmd(full_command, extra_env=env_map, capture_output=False, synchronous=False)
+    # start Mlflow job runner process
+    _exec_cmd(
+        [
+            sys.executable,
+            shutil.which("huey_consumer.py"),
+            "mlflow.server.job.job_runner.huey",
+        ],
+        capture_output=False,
+        synchronous=False,
+        extra_env={
+            **env_map,
+            "_IS_MLFLOW_JOB_RUNNER": "1",
+            "MLFLOW_SERVER_PID": str(server_proc.pid)
+        },
+    )
+    server_proc.wait()
