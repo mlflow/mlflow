@@ -2387,8 +2387,7 @@ class FileStore(AbstractStore):
         return LoggedModel.from_dictionary(self._get_model_dict(model_id))
 
     def delete_logged_model(self, model_id: str) -> None:
-        model = self._get_logged_model(model_id)
-        model.last_updated_timestamp = get_current_time_millis()
+        model = self.get_logged_model(model_id)
         model_dict = self._make_persisted_model_dict(model)
         model_dict["lifecycle_stage"] = LifecycleStage.DELETED
         model_dir = self._get_model_dir(model.experiment_id, model.model_id)
