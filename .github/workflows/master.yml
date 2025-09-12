@@ -406,6 +406,7 @@ jobs:
           pytest tests/tracking/_model_registry/test_model_registry_fluent.py::test_register_model_with_unexpected_exception_in_create_registered_model
           # profile - sort by cumulative time to show slowest operations first
           python -m cProfile -s cumulative -m pytest tests/tracking/_model_registry/test_model_registry_fluent.py::test_register_model_with_unexpected_exception_in_create_registered_model
+          python -m cProfile -s cumulative -m pytest tests/metrics/genai/test_genai_metrics.py::test_faithfulness_metric
       - name: Run python tests
         env:
           # Starting from SQLAlchemy version 2.0, `QueuePool` is the default connection pool
