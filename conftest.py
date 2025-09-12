@@ -163,7 +163,7 @@ def generate_duration_stats() -> str:
 
     rows = []
     for path, test_times in file_groups.items():
-        rel_path = str(path.relative_to(Path.cwd()))
+        rel_path = path.relative_to(Path.cwd()).as_posix()
         total_dur = sum(test_times)
         if total_dur < 1.0:
             # Ignore files with total duration < 1s
