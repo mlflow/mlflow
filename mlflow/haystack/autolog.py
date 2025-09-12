@@ -125,6 +125,26 @@ class HaystackSpanProcessor(SimpleSpanProcessor):
         comp_type = span.attributes.get("haystack.component.type")
         mlflow_span.set_span_type(_infer_span_type_from_haystack(comp_type, comp_alias, span))
 
+        # - The MLflow span must be created during `on_start`, not `on_end`.
+        #   At `on_end`, the tracing is already finalized and the `ReadableSpan`
+        #   is immutable, which prevents attribute or name mutation.
+        # - Creating the MLflow span on `on_start` ensures we retain a handle
+        #   to the live (mutable) OpenTelemetry span, allowing us to capture
+        #   inputs and outputs once the component finishes.
+        # - However, at `on_start` the propagated values (e.g., component name/type)
+        #   may not yet be available, so setting the span name there has the same
+        #   effect as the original unmodified name.
+        # - Updating the span name at `on_end` is also not possible, since
+        #   `OTelReadableSpan` only exposes read-only fields and supports
+        #   limited attribute access.
+        # - To avoid name overwrites caused by duplicate spans, the correct
+        #   order of operations is:
+        #       1. Update the OpenTelemetry span name.
+        #       2. Construct the MLflow span.
+        #       3. Store it in the in-memory registry.
+        # - This ordering reflects a limitation in the Haystack integration,
+        #   where constructing the MLflow span before renaming leads to
+        #   the span name being overwritten later.
         span_name = comp_type or comp_alias or span.name
         mlflow_span._span._name = span_name
         mlflow_span._original_name = span_name
