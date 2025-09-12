@@ -76,19 +76,6 @@ class AnyInt(int):
         return isinstance(other, int)
 
 
-class TaskNameMatcher:
-    """Matcher that accepts both None (older CrewAI) and description (newer CrewAI)."""
-    
-    def __init__(self, description: str) -> None:
-        self.description = description
-    
-    def __eq__(self, other: Any) -> bool:
-        return other is None or other == self.description
-    
-    def __repr__(self) -> str:
-        return f"TaskNameMatcher({self.description!r})"
-
-
 ANY_INT = AnyInt()
 
 # CrewAI >= 0.175.0 changed behavior: TaskOutput.name falls back to description when None
@@ -96,8 +83,12 @@ ANY_INT = AnyInt()
 _TASK_DESCRIPTION = "Analyze and select the best city for the trip"
 _TASK_DESCRIPTION_2 = "Compile an in-depth guide"
 
-_TASK_NAME = TaskNameMatcher(_TASK_DESCRIPTION)
-_TASK_NAME_2 = TaskNameMatcher(_TASK_DESCRIPTION_2)
+def _get_expected_task_name(description: str) -> str:
+    """Get expected task name based on CrewAI version."""
+    return description if Version(crewai.__version__) >= Version("0.175.0") else None
+
+_TASK_NAME = _get_expected_task_name(_TASK_DESCRIPTION)
+_TASK_NAME_2 = _get_expected_task_name(_TASK_DESCRIPTION_2)
 
 _CREW_OUTPUT = {
     "json_dict": None,
@@ -714,31 +705,17 @@ def test_memory(simple_agent_1, task_1, monkeypatch, autolog):
     assert span_7.span_type == SpanType.MEMORY
     assert span_7.parent_id is span_2.span_id
     # CrewAI changed the memory save input format - agent field was removed in newer versions
-    # Use a flexible matcher that handles both cases
-    class MemoryInputMatcher:
-        def __eq__(self, other: Any) -> bool:
-            if not isinstance(other, dict):
-                return False
+    expected_memory_inputs = {
+        "metadata": {
+            "observation": "Analyze and select the best city for the trip",
+        },
+        "value": f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}",
+    }
+    # Add agent field for older CrewAI versions
+    if Version(crewai.__version__) < Version("0.175.0"):
+        expected_memory_inputs["agent"] = "City Selection Expert"
 
-            expected_base = {
-                "metadata": {
-                    "observation": "Analyze and select the best city for the trip",
-                },
-                "value": f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}",
-            }
-
-            # Check if base fields match
-            for key, value in expected_base.items():
-                if other.get(key) != value:
-                    return False
-
-            # Allow agent field to be present or absent
-            if "agent" in other:
-                return other["agent"] == "City Selection Expert"
-
-            return True
-
-    assert span_7.inputs == MemoryInputMatcher()
+    assert span_7.inputs == expected_memory_inputs
     assert span_7.outputs is None
 
     # Create Long Term Memory
