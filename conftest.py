@@ -134,14 +134,14 @@ def to_md_table(rows: list[list[str]]) -> str:
     rows = [r + [""] * (n - len(r)) for r in rows]
 
     # Calculate column widths
-    widths = [max(len(str(row[i])) for row in rows) for i in range(n)]
+    widths = [max(len(row[i]) for row in rows) for i in range(n)]
 
     def esc(s: str) -> str:
         return s.replace("|", r"\|").replace("\n", "<br>")
 
     # Format rows with proper padding
     def format_row(row: list[str]) -> str:
-        cells = [esc(str(cell)).ljust(widths[i]) for i, cell in enumerate(row)]
+        cells = [esc(cell).ljust(width) for cell, width in zip(row, widths)]
         return "| " + " | ".join(cells) + " |"
 
     header = format_row(rows[0])
