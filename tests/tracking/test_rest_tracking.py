@@ -9,6 +9,7 @@ import math
 import os
 import pathlib
 import posixpath
+import shutil
 import subprocess
 import sys
 import time
@@ -98,16 +99,31 @@ def store_type(request):
     return request.param
 
 
+@pytest.fixture(scope="module")
+def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Create a cached database for SQLite tests to improve performance."""
+    tmp_path = tmp_path_factory.mktemp("sqlite_db")
+    db_path = tmp_path / "mlflow.db"
+    backend_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + str(db_path)
+
+    # Initialize the database by creating and disposing a SqlAlchemyStore
+    from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+
+    store = SqlAlchemyStore(backend_uri, tmp_path.as_uri())
+    store.engine.dispose()
+    return db_path
+
+
 @pytest.fixture
-def mlflow_client(store_type: str, tmp_path: Path):
+def mlflow_client(store_type: str, tmp_path: Path, cached_db: Path):
     """Provides an MLflow Tracking API client pointed at the local tracking server."""
     if store_type == "file":
         backend_uri = tmp_path.joinpath("file").as_uri()
     elif store_type == "sqlalchemy":
-        path = tmp_path.joinpath("sqlalchemy.db").as_uri()
-        backend_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
-            len("file://") :
-        ]
+        # Copy the cached database for this test
+        db_path = tmp_path / "mlflow.db"
+        shutil.copy(cached_db, db_path)
+        backend_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + str(db_path)
 
     # Force-reset backend stores before each test.
     handlers._tracking_store = None
