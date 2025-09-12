@@ -1,0 +1,305 @@
+import Tabs from "@theme/Tabs"
+import TabItem from "@theme/TabItem"
+import { APILink } from "@site/src/components/APILink"
+import FeatureHighlights from "@site/src/components/FeatureHighlights"
+import ConceptOverview from "@site/src/components/ConceptOverview"
+import TilesGrid from "@site/src/components/TilesGrid"
+import TileCard from "@site/src/components/TileCard"
+import DAGLoop from "@site/src/components/DAGLoop"
+import { Brain, RefreshCw, Target, Users, ChartBar, GitBranch, Zap, Shield, Database, Settings } from "lucide-react"
+
+# Judge Alignment: Teaching AI to Match Human Preferences
+
+## Transform Generic Judges into Domain Experts
+
+Judge alignment is the process of refining LLM judges to match human evaluation standards. Through systematic learning from human feedback, judges evolve from generic evaluators to domain-specific experts that understand your unique quality criteria.
+
+## Why Alignment Matters
+
+Even the most sophisticated LLMs need calibration to match your specific evaluation standards. What constitutes "good" customer service varies by industry. Medical accuracy requirements differ from general health advice. Alignment bridges this gap, teaching judges your specific quality standards through example.
+
+<FeatureHighlights features={[
+  {
+    icon: Brain,
+    title: "Learn from Expert Feedback",
+    description: "Judges improve by learning from your domain experts' assessments, capturing nuanced quality criteria that generic prompts miss."
+  },
+  {
+    icon: Target,
+    title: "Consistent Standards at Scale",
+    description: "Once aligned, judges apply your exact quality standards consistently across millions of evaluations."
+  },
+  {
+    icon: RefreshCw,
+    title: "Continuous Improvement",
+    description: "As your standards evolve, judges can be re-aligned with new feedback, maintaining relevance over time."
+  },
+  {
+    icon: Shield,
+    title: "Reduced Evaluation Errors",
+    description: "Aligned judges show 30-50% reduction in false positives/negatives compared to generic evaluation prompts."
+  }
+]} />
+
+## How Judge Alignment Works
+
+<DAGLoop
+  title="Alignment Lifecycle"
+  steps={[
+    {
+      icon: Settings,
+      title: "Create Initial Judge",
+      description: "Define basic criteria",
+      detailedDescription: "Start with a judge that has basic evaluation instructions. This will be refined through the alignment process."
+    },
+    {
+      icon: Users,
+      title: "Collect Human Feedback",
+      description: "Experts assess outputs",
+      detailedDescription: "Domain experts review judge outputs and provide ground truth assessments that capture your specific quality standards."
+    },
+    {
+      icon: Brain,
+      title: "Run Alignment",
+      description: "Learn from patterns",
+      detailedDescription: "The SIMBA optimizer analyzes feedback patterns and automatically refines judge instructions to match human preferences.",
+      isFocus: true
+    },
+    {
+      icon: Target,
+      title: "Validate Accuracy",
+      description: "Test improvements",
+      detailedDescription: "Compare aligned judge against baseline on held-out test data to verify genuine accuracy improvements."
+    },
+    {
+      icon: ChartBar,
+      title: "Monitor & Iterate",
+      description: "Track performance",
+      detailedDescription: "Monitor judge accuracy in production and collect new feedback for continuous improvement."
+    },
+  ]}
+  loopBackIcon={RefreshCw}
+  loopBackText="Continuous Refinement"
+  loopBackDescription="As standards evolve, continue collecting feedback and re-aligning"
+  circleSize={500}
+/>
+
+## Quick Start: Align Your First Judge
+
+:::warning[Critical Requirement for Alignment]
+For alignment to work, each trace must have BOTH judge assessments AND human feedback **with the same assessment name**. The alignment process learns by comparing judge assessments with human feedback on the same traces.
+
+**The assessment name must exactly match the judge name** - if your judge is named "product_quality", both the judge's assessments and human feedback must use the name "product_quality".
+
+The order doesn't matter - humans can provide feedback before or after the judge evaluates.
+:::
+
+```python
+from mlflow.genai.judges import make_judge
+from mlflow.genai.judges.optimizers import SIMBAAlignmentOptimizer
+from mlflow.entities import AssessmentSource, AssessmentSourceType
+import mlflow
+
+# Step 1: Create experiment and initial judge
+experiment_id = mlflow.create_experiment("product-quality-alignment")
+mlflow.set_experiment(experiment_id=experiment_id)
+
+initial_judge = make_judge(
+    name="product_quality",
+    instructions=(
+        "Evaluate if the product description in {{ outputs }} "
+        "is accurate and helpful for the query in {{ inputs }}. "
+        "Rate as: excellent, good, fair, or poor"
+    ),
+    model="anthropic:/claude-3-opus-20240229",
+)
+
+# Step 2: Generate traces from your application (minimum 10 required)
+traces = []
+for i in range(15):  # Generate 15 traces (more than minimum of 10)
+    with mlflow.start_span(f"product_description_{i}") as span:
+        # Your application logic
+        query = f"Product query {i}"
+        description = f"Product description for query {i}"
+        span.set_inputs({"query": query})
+        span.set_outputs({"description": description})
+        traces.append(span.trace_id)
+
+# Step 3: Run the judge on these traces to get initial assessments
+for trace_id in traces:
+    trace = mlflow.get_trace(trace_id)
+
+    # Judge evaluates the trace
+    judge_result = initial_judge(trace=trace)
+    # Judge's assessment is automatically logged when called
+
+# Step 4: Human reviews the JUDGE'S assessments and provides feedback
+# This is the critical step - humans review what the judge decided
+for trace_id in traces[:10]:  # Review at least 10 for alignment
+    trace = mlflow.get_trace(trace_id)
+
+    # Get the judge's assessment
+    assessments = trace.search_assessments(name="product_quality")
+    judge_assessment = next(
+        (a for a in assessments if a.source.source_type == "LLM_JUDGE"), None
+    )
+
+    # Human expert reviews: "Did the judge rate this correctly?"
+    # Example: Judge said "good" but human thinks it should be "excellent"
+    human_rating = "excellent"  # What the human thinks is correct
+
+    # Log human feedback on the same trace
+    mlflow.log_feedback(
+        trace_id=trace_id,
+        name="product_quality",  # Must match judge name
+        value=human_rating,  # Human's ground truth
+        rationale=f"Judge said '{judge_assessment.value}' but should be '{human_rating}'",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN, source_id="product_expert"
+        ),
+    )
+
+# Step 5: Retrieve traces with both judge assessments and human feedback
+traces_for_alignment = mlflow.search_traces(
+    experiment_ids=[experiment_id], max_results=15, return_type="list"
+)
+
+# Step 6: Align the judge using human corrections (minimum 10 traces required)
+if len(traces_for_alignment) >= 10:
+    optimizer = SIMBAAlignmentOptimizer(model="anthropic:/claude-3-opus-20240229")
+    aligned_judge = initial_judge.align(optimizer, traces_for_alignment)
+
+    # Step 7: Register the aligned judge
+    aligned_judge.register(experiment_id)
+    print("Judge aligned successfully with human feedback")
+else:
+    print(f"Need at least 10 traces for alignment, have {len(traces_for_alignment)}")
+```
+
+## The SIMBA Alignment Optimizer
+
+MLflow provides the SIMBA (Simplified Multi-Bootstrap Aggregation) optimizer for aligning judges with human feedback:
+
+```python
+from mlflow.genai.judges.optimizers import SIMBAAlignmentOptimizer
+
+# Create SIMBA optimizer
+optimizer = SIMBAAlignmentOptimizer(
+    model="anthropic:/claude-3-opus-20240229"  # Model used for optimization
+)
+
+# Requirements for alignment:
+# - Minimum 10 traces with BOTH judge assessments and human feedback
+# - Both assessments must use the same name (matching the judge name)
+# - Order doesn't matter - humans can assess before or after judge
+# - Mix of agreements and disagreements between judge and human recommended
+
+aligned_judge = initial_judge.align(optimizer, traces_with_feedback)
+```
+
+**Key Features:**
+
+- Robust to noisy feedback
+- Handles imbalanced datasets well
+- Automatic hyperparameter tuning
+- No separate validation set needed
+
+## Collecting Feedback for Alignment
+
+The quality of alignment depends on the quality and quantity of feedback:
+
+<ConceptOverview concepts={[
+  {
+    icon: Users,
+    title: "Diverse Reviewers",
+    description: "Include feedback from multiple experts to capture different perspectives and reduce individual bias."
+  },
+  {
+    icon: ChartBar,
+    title: "Balanced Examples",
+    description: "Include both positive and negative examples. Aim for at least 30% of each to help the judge learn boundaries."
+  },
+  {
+    icon: Database,
+    title: "Sufficient Volume",
+    description: "Collect at least 10 feedback examples (minimum for SIMBA), but 50-100 examples typically yield better results."
+  },
+  {
+    icon: Target,
+    title: "Consistent Standards",
+    description: "Ensure reviewers use consistent criteria. Provide guidelines or rubrics to standardize assessments."
+  }
+]} />
+
+## Testing Alignment Effectiveness
+
+Validate that alignment improved your judge:
+
+```python
+def test_alignment_improvement(
+    original_judge, aligned_judge, test_traces: list
+) -> dict:
+    """Compare judge performance before and after alignment."""
+
+    original_correct = 0
+    aligned_correct = 0
+
+    for trace in test_traces:
+        # Get human ground truth from trace assessments
+        feedbacks = trace.search_assessments(type="feedback")
+        human_feedback = next(
+            (f for f in feedbacks if f.source.source_type == "HUMAN"), None
+        )
+
+        if not human_feedback:
+            continue
+
+        # Get judge evaluations
+        original_eval = original_judge(trace=trace)
+        aligned_eval = aligned_judge(trace=trace)
+
+        # Check agreement with human
+        if original_eval.value == human_feedback.value:
+            original_correct += 1
+        if aligned_eval.value == human_feedback.value:
+            aligned_correct += 1
+
+    total = len(test_traces)
+    return {
+        "original_accuracy": original_correct / total,
+        "aligned_accuracy": aligned_correct / total,
+        "improvement": (aligned_correct - original_correct) / total,
+    }
+```
+
+## Next Steps
+
+<TilesGrid>
+  <TileCard
+    icon={Brain}
+    iconSize={48}
+    title="Create Custom Judges"
+    description="Learn to create domain-specific judges with make_judge."
+    href="/genai/judges"
+    linkText="Create judges →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={GitBranch}
+    iconSize={48}
+    title="Development Workflow"
+    description="See complete workflow from creation to aligned production judge."
+    href="/genai/judges/workflow"
+    linkText="View workflow →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Database}
+    iconSize={48}
+    title="Dataset Integration"
+    description="Use judges with evaluation datasets for systematic testing."
+    href="/genai/judges/dataset-integration"
+    linkText="Learn integration →"
+    containerHeight={64}
+  />
+</TilesGrid>

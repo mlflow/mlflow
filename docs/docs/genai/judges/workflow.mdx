@@ -1,0 +1,285 @@
+---
+title: End-to-End Judge Workflow
+sidebar_label: End-to-End Workflow
+description: Complete workflow for developing, testing, and deploying custom LLM judges
+---
+
+import Tabs from "@theme/Tabs"
+import TabItem from "@theme/TabItem"
+import { APILink } from "@site/src/components/APILink";
+import ImageBox from "@site/src/components/ImageBox";
+import TabsWrapper from "@site/src/components/TabsWrapper";
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import ConceptOverview from "@site/src/components/ConceptOverview";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import DAGLoop from "@site/src/components/DAGLoop";
+import { Code, Brain, Zap, Target, Shield, ChartBar, FileText, RefreshCw, Users, Activity } from "lucide-react";
+
+# End-to-End Judge Workflow
+
+This guide walks through the complete lifecycle of developing and optimizing custom LLM judges using MLflow's judge APIs.
+
+## Why This Workflow Matters
+
+<FeatureHighlights features={[
+  {
+    icon: Target,
+    title: "Systematic Development",
+    description: "Move from subjective evaluation to data-driven judge development with clear metrics and goals."
+  },
+  {
+    icon: Users,
+    title: "Human-AI Alignment",
+    description: "Ensure your judges reflect human expertise and domain knowledge through structured feedback."
+  },
+  {
+    icon: RefreshCw,
+    title: "Continuous Improvement",
+    description: "Iterate and improve judge accuracy based on real-world performance and changing requirements."
+  },
+  {
+    icon: Shield,
+    title: "Production Ready",
+    description: "Deploy judges with confidence knowing they've been tested and aligned with your quality standards."
+  }
+]} />
+
+## The Development Cycle
+
+<DAGLoop
+  steps={[
+    {
+      icon: Code,
+      title: "Create Judge",
+      description: "Define evaluation criteria",
+      detailedDescription: "Start with clear instructions that capture your domain expertise and evaluation requirements.",
+      isFocus: true
+    },
+    {
+      icon: Users,
+      title: "Collect Feedback",
+      description: "Gather human assessments",
+      detailedDescription: "Run the judge on real traces and collect human feedback to establish ground truth."
+    },
+    {
+      icon: Brain,
+      title: "Align with Humans",
+      description: "Optimize instructions",
+      detailedDescription: "Use SIMBA optimizer to refine judge instructions based on human feedback."
+    },
+    {
+      icon: ChartBar,
+      title: "Test & Register",
+      description: "Validate and deploy",
+      detailedDescription: "Test the aligned judge and register it for production use when accuracy meets requirements."
+    }
+  ]}
+  loopBackIcon={Activity}
+  loopBackText="Iterate"
+  loopBackDescription="Continue refining based on new data and requirements"
+  circleSize={400}
+/>
+
+## Step 1: Create Initial Judge
+
+Start by defining your evaluation criteria:
+
+```python
+import mlflow
+from mlflow.genai.judges import make_judge
+from mlflow.entities import AssessmentSource, AssessmentSourceType
+
+# Create experiment for judge development
+experiment_id = mlflow.create_experiment("support-judge-development")
+mlflow.set_experiment(experiment_id=experiment_id)
+
+# Create a judge for evaluating customer support responses
+support_judge = make_judge(
+    name="support_quality",
+    instructions="""
+    Evaluate the quality of this customer support response.
+
+    Rate as one of: excellent, good, needs_improvement, poor
+
+    Consider:
+    - Does it address the customer's issue?
+    - Is the tone professional and empathetic?
+    - Are next steps clear?
+
+    Focus on {{ outputs }} responding to {{ inputs }}.
+    """,
+    model="anthropic:/claude-3-opus-20240229",
+)
+```
+
+## Step 2: Generate Traces and Collect Feedback
+
+Run your application to generate traces, then collect human feedback:
+
+```python
+# Generate traces from your application
+@mlflow.trace
+def customer_support_app(issue):
+    # Your application logic here
+    return {"response": f"I'll help you with: {issue}"}
+
+
+# Run application to generate traces
+issues = [
+    "Password reset not working",
+    "Billing discrepancy",
+    "Feature request",
+    "Technical error",
+]
+
+trace_ids = []
+for issue in issues:
+    with mlflow.start_run(experiment_id=experiment_id):
+        result = customer_support_app(issue)
+        trace_id = mlflow.get_last_active_trace().info.trace_id
+        trace_ids.append(trace_id)
+
+        # Judge evaluates the trace
+        assessment = support_judge(inputs={"issue": issue}, outputs=result)
+
+        # Log judge's assessment
+        mlflow.log_assessment(trace_id=trace_id, assessment=assessment)
+
+# Collect human feedback on the same traces
+for trace_id in trace_ids:
+    # In production, this would be from your review UI
+    human_rating = "excellent"  # Human expert's assessment
+
+    mlflow.log_feedback(
+        trace_id=trace_id,
+        name="support_quality",  # MUST match judge name
+        value=human_rating,
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN, source_id="expert_reviewer"
+        ),
+    )
+```
+
+## Step 3: Align Judge with Human Feedback
+
+Use the SIMBA optimizer to improve judge accuracy:
+
+```python
+# Retrieve traces with both judge and human assessments
+traces = mlflow.search_traces(experiment_ids=[experiment_id], return_type="list")
+
+# Filter for traces with both assessments
+aligned_traces = []
+for trace in traces:
+    assessments = trace.search_assessments(name="support_quality")
+    has_judge = any(
+        a.source.source_type == AssessmentSourceType.LLM_JUDGE for a in assessments
+    )
+    has_human = any(
+        a.source.source_type == AssessmentSourceType.HUMAN for a in assessments
+    )
+
+    if has_judge and has_human:
+        aligned_traces.append(trace)
+
+print(f"Found {len(aligned_traces)} traces with both assessments")
+
+# Align the judge (requires at least 10 traces)
+if len(aligned_traces) >= 10:
+    aligned_judge = support_judge.align(
+        traces=aligned_traces, optimizer="simba"  # Default optimizer
+    )
+    print("Judge aligned successfully!")
+else:
+    print(f"Need at least 10 traces (have {len(aligned_traces)})")
+```
+
+## Step 4: Test and Register
+
+Test the aligned judge and register it when ready:
+
+```python
+# Test the aligned judge on new data
+test_cases = [
+    {
+        "inputs": {"issue": "Can't log in"},
+        "outputs": {"response": "Let me reset your password for you."},
+    },
+    {
+        "inputs": {"issue": "Refund request"},
+        "outputs": {"response": "I'll process that refund immediately."},
+    },
+]
+
+# Evaluate with aligned judge
+for case in test_cases:
+    assessment = aligned_judge(**case)
+    print(f"Issue: {case['inputs']['issue']}")
+    print(f"Judge rating: {assessment.value}")
+    print(f"Rationale: {assessment.rationale}\n")
+
+# Register the aligned judge for production use
+aligned_judge.register(experiment_id)
+print("Judge registered and ready for deployment!")
+
+# To see improvement, run another evaluation loop
+# comparing the original and aligned judges
+```
+
+## Best Practices
+
+<FeatureHighlights features={[
+  {
+    icon: Target,
+    title: "Clear Instructions",
+    description: "Start with specific, unambiguous evaluation criteria that reflect your domain requirements."
+  },
+  {
+    icon: Users,
+    title: "Quality Feedback",
+    description: "Ensure human feedback comes from domain experts who understand your evaluation standards."
+  },
+  {
+    icon: ChartBar,
+    title: "Sufficient Data",
+    description: "Collect at least 10-15 traces with both assessments for effective alignment."
+  },
+  {
+    icon: RefreshCw,
+    title: "Iterate Often",
+    description: "Regularly re-align judges as your application evolves and new edge cases emerge."
+  }
+]} />
+
+## Next Steps
+
+<TilesGrid>
+  <TileCard
+    icon={Brain}
+    iconSize={48}
+    title="Judge Alignment"
+    description="Deep dive into alignment techniques and optimization"
+    link="/genai/judges/alignment"
+    linkText="Learn alignment →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={FileText}
+    iconSize={48}
+    title="Dataset Integration"
+    description="Use judges with evaluation datasets for systematic testing"
+    link="/genai/judges/dataset-integration"
+    linkText="Explore datasets →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Code}
+    iconSize={48}
+    title="Main Documentation"
+    description="Return to the custom judges overview"
+    link="/genai/judges/"
+    linkText="Back to overview →"
+    containerHeight={64}
+  />
+</TilesGrid>

@@ -255,6 +255,31 @@ const sidebarsGenAI: SidebarsConfig = {
       items: [
         {
           type: 'category',
+          label: 'Custom LLM Judges',
+          items: [
+            {
+              type: 'doc',
+              id: 'judges/dataset-integration',
+              label: 'Dataset Integration',
+            },
+            {
+              type: 'doc',
+              id: 'judges/alignment',
+              label: 'Judge Alignment',
+            },
+            {
+              type: 'doc',
+              id: 'judges/workflow',
+              label: 'End-to-End Workflow',
+            },
+          ],
+          link: {
+            type: 'doc',
+            id: 'judges/index',
+          },
+        },
+        {
+          type: 'category',
           label: 'Evaluation Datasets',
           items: [
             {
@@ -313,6 +338,11 @@ const sidebarsGenAI: SidebarsConfig = {
               type: 'category',
               label: 'LLM-based Scorers',
               items: [
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/make-judge',
+                  label: 'make_judge API',
+                },
                 {
                   type: 'doc',
                   id: 'eval-monitor/scorers/llm-judge/predefined',

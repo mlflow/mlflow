@@ -1,0 +1,563 @@
+import Tabs from "@theme/Tabs"
+import TabItem from "@theme/TabItem"
+import { APILink } from "@site/src/components/APILink"
+import ImageBox from "@site/src/components/ImageBox"
+import TabsWrapper from "@site/src/components/TabsWrapper"
+import FeatureHighlights from "@site/src/components/FeatureHighlights"
+import ConceptOverview from "@site/src/components/ConceptOverview"
+import TilesGrid from "@site/src/components/TilesGrid"
+import TileCard from "@site/src/components/TileCard"
+import DAGLoop from "@site/src/components/DAGLoop"
+import { Database, Layers, TestTube, GitBranch, Users, ChartBar, FileText, Book, Code, Activity, Target, BarChart3, TrendingUp, RefreshCw, Brain, Zap, Settings, MessageSquare, Shield, Sparkles, FlaskConical, UserCheck } from "lucide-react"
+
+# Custom LLM Judges
+
+## Build Intelligent Evaluation Systems Tailored to Your Domain
+
+Transform how you evaluate AI outputs with MLflow's custom judge framework. Create domain-specific evaluation criteria using natural language, align judges with human preferences, and scale your quality assurance from development to production.
+
+## The Power of Custom Judges
+
+Every AI application has unique quality requirements. Off-the-shelf evaluation metrics can't capture the nuances of your specific use case—whether it's medical accuracy, legal compliance, or brand voice consistency. Custom judges give you complete control over evaluation criteria while maintaining the scalability of automated assessment.
+
+<FeatureHighlights features={[
+  {
+    icon: Sparkles,
+    title: "Natural Language Instructions",
+    description: "Define evaluation criteria in plain English. No complex scoring functions or rubrics—just describe what quality looks like in your domain."
+  },
+  {
+    icon: Brain,
+    title: "Human-Aligned Evaluation",
+    description: "Judges learn from your team's feedback, continuously improving to match your specific quality standards and domain expertise."
+  },
+  {
+    icon: GitBranch,
+    title: "Version Control & Collaboration",
+    description: "Track judge iterations, share across teams, and ensure consistent evaluation standards throughout your organization."
+  },
+  {
+    icon: Shield,
+    title: "Production-Ready Scale",
+    description: "Evaluate thousands of outputs per minute with consistent quality standards, enabling real-time monitoring and quality gates."
+  }
+]} />
+
+## Quick Start: Create Your First Judge
+
+<TabsWrapper>
+<Tabs>
+<TabItem value="basic" label="Basic Judge" default>
+
+```python
+from mlflow.genai.judges import make_judge
+
+# Create a domain-specific judge
+product_review_judge = make_judge(
+    name="review_quality",
+    instructions=(
+        "Evaluate if the product review in {{ outputs }} is helpful and informative "
+        "for the product query in {{ inputs }}.\n\n"
+        "A good review should:\n"
+        "- Address the specific product features asked about\n"
+        "- Provide balanced pros and cons\n"
+        "- Include specific examples or use cases\n"
+        "- Be written in a helpful, unbiased tone\n\n"
+        "Rate as: 'excellent', 'good', 'fair', or 'poor'"
+    ),
+    model="anthropic:/claude-3-opus-20240229",
+)
+
+# Use the judge
+query = {"product": "laptop", "aspect": "battery life"}
+review = {
+    "text": "The battery lasts 8-10 hours with normal use, perfect for all-day work."
+}
+
+feedback = product_review_judge(inputs=query, outputs=review)
+
+print(f"Quality: {feedback.value}")
+print(f"Reasoning: {feedback.rationale}")
+```
+
+</TabItem>
+<TabItem value="aligned" label="Human-Aligned Judge">
+
+```python
+from mlflow.genai.judges import make_judge
+from mlflow.genai.judges.optimizers import SIMBAAlignmentOptimizer
+import mlflow
+
+# Start with a basic judge
+initial_judge = make_judge(
+    name="customer_satisfaction",
+    instructions=(
+        "Evaluate if the support response in {{ outputs }} "
+        "satisfies the customer request in {{ inputs }}."
+    ),
+    model="anthropic:/claude-3-opus-20240229",
+)
+
+# Simulate collecting traces with human feedback
+trace_ids = []
+
+# Example support tickets with known quality assessments
+example_tickets = [
+    {"issue": "Password reset", "response": "Reset link sent", "human_rating": "good"},
+    {
+        "issue": "Billing error",
+        "response": "Refund processed",
+        "human_rating": "excellent",
+    },
+    {"issue": "App crash", "response": "Try restarting", "human_rating": "poor"},
+]
+
+for ticket in example_tickets:
+    with mlflow.start_span("support_response") as span:
+        # Your actual support system would process here
+        span.set_inputs({"issue": ticket["issue"]})
+        span.set_outputs({"response": ticket["response"]})
+        trace_ids.append(span.trace_id)
+
+    # Log human feedback (collected from QA team review)
+    mlflow.log_feedback(
+        trace_id=trace_ids[-1],
+        name="customer_satisfaction",
+        value=ticket["human_rating"],
+        rationale=f"QA team assessment for {ticket['issue']}",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN, source_id="qa_team"
+        ),
+    )
+
+# Retrieve traces with feedback attached
+traces_with_feedback = []
+for trace_id in trace_ids:
+    trace = mlflow.get_trace(trace_id)
+    # Verify feedback was attached
+    if trace.search_assessments(type="feedback"):
+        traces_with_feedback.append(trace)
+
+# Align the judge with human feedback
+optimizer = SIMBAAlignmentOptimizer(model="anthropic:/claude-3-opus-20240229")
+aligned_judge = initial_judge.align(optimizer, traces_with_feedback)
+
+# The aligned judge now better matches human preferences
+print(f"Original instructions: {initial_judge.instructions}")
+print(f"Aligned instructions: {aligned_judge.instructions}")
+```
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
+## Core Concepts
+
+<ConceptOverview concepts={[
+  {
+    icon: FileText,
+    title: "Template-Based Instructions",
+    description: "Use template variables ({{ inputs }}, {{ outputs }}, {{ expectations }}, {{ trace }}) to reference evaluation data. Instructions are written in natural language, making them easy to understand and maintain."
+  },
+  {
+    icon: Users,
+    title: "Human-in-the-Loop Alignment",
+    description: "Judges improve through feedback loops. Start with general instructions, collect human assessments, and use alignment optimizers to refine judge accuracy."
+  },
+  {
+    icon: Layers,
+    title: "Field vs Trace Modes",
+    description: "Field mode evaluates specific inputs/outputs. Trace mode transforms the judge into an autonomous agent with MCP tools to explore execution details via MLflow APIs - examining spans, timing, errors, and multi-step workflows."
+  },
+  {
+    icon: Database,
+    title: "Judge Registry",
+    description: "Register judges to MLflow experiments for tracking. Monitor performance over time and ensure reproducible evaluation across deployments."
+  }
+]} />
+
+## Two Judging Modes: Fields vs Traces
+
+MLflow judges operate in two fundamentally different modes, each suited for different evaluation needs:
+
+<FeatureHighlights features={[
+  {
+    icon: FileText,
+    title: "Field-Based Judging",
+    description: "Evaluates specific inputs, outputs, and expectations. Simple and direct - the judge receives exactly the data you provide and evaluates based on those fields alone."
+  },
+  {
+    icon: Activity,
+    title: "Trace-Based Judging",
+    description: "Transforms the judge into an autonomous agent with MCP tools. Can navigate spans, fetch details on-demand, analyze timing, detect errors, and understand complex multi-step workflows."
+  }
+]} />
+
+### Side-by-Side Comparison
+
+<TabsWrapper>
+<Tabs>
+<TabItem value="field" label="Field-Based Mode" default>
+
+**What it does**: Evaluates specific data fields you provide
+
+**Capabilities**:
+
+- Direct evaluation of inputs/outputs
+- Comparison with expectations
+- Simple pass/fail or rating assessments
+- Fast and lightweight
+
+**Best for**:
+
+- Simple quality checks
+- Comparing outputs to ground truth
+- Basic safety/compliance validation
+- Quick regression testing
+
+```python
+# Field-based judge - evaluates provided data
+field_judge = make_judge(
+    name="response_quality",
+    instructions="""
+    Evaluate the response quality:
+    Inputs: {{ inputs }}
+    Outputs: {{ outputs }}
+    Expected: {{ expectations }}
+
+    Rate as: excellent, good, fair, or poor
+    """,
+    model="anthropic:/claude-3-opus-20240229",
+)
+
+# Simple evaluation
+result = field_judge(
+    inputs={"question": "What is MLflow?"},
+    outputs={"answer": "MLflow is an ML platform"},
+    expectations={"quality": "good"},
+)
+```
+
+</TabItem>
+<TabItem value="trace" label="Trace-Based Mode">
+
+**What it does**: Becomes an agent that explores execution traces
+
+**Capabilities** (via MCP tools and MLflow APIs):
+
+- Navigate complex multi-span traces
+- Fetch specific span details on demand
+- Analyze timing and latency patterns
+- Detect error propagation and failures
+- Examine tool usage and API calls
+- Understand multi-agent coordination
+- Identify bottlenecks and inefficiencies
+
+**Best for**:
+
+- Debugging complex workflows
+- Multi-agent system analysis
+- Performance optimization
+- Root cause analysis
+- Understanding execution flow
+
+```python
+# Trace-based judge - autonomous agent with API access
+trace_judge = make_judge(
+    name="workflow_analyzer",
+    instructions="""
+    Analyze the execution trace in {{ trace }}.
+
+    You have MLflow API access to:
+    - Fetch any span's inputs, outputs, attributes
+    - Examine timing and latencies
+    - Identify error patterns and bottlenecks
+    - Analyze agent coordination
+
+    Evaluate:
+    1. Execution efficiency
+    2. Error handling
+    3. Resource utilization
+    4. Goal achievement
+
+    Provide deep insights into what happened.
+    """,
+    model="anthropic:/claude-3-opus-20240229",
+)
+
+# Judge explores trace autonomously
+with mlflow.start_span("complex_workflow") as span:
+    result = multi_agent_pipeline()
+    trace = mlflow.get_trace(span.trace_id)
+
+analysis = trace_judge(trace=trace)
+# Judge fetches spans, analyzes patterns, provides insights
+```
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
+### The Power of Trace Mode
+
+**Key Insight**: In trace mode, judges aren't just receiving a static trace object - they become **autonomous agents** equipped with MCP (Model Context Protocol) tools that interface with MLflow's APIs. This enables them to:
+
+1. **Actively Explore**: Navigate through traces, fetching specific spans as needed
+2. **Analyze Deeply**: Examine timing, errors, and data flow at any level
+3. **Detect Patterns**: Identify bottlenecks, redundancies, and inefficiencies
+4. **Provide Insights**: Uncover issues impossible to see from inputs/outputs alone
+
+This is fundamentally different from field-based evaluation - the judge can investigate your application's behavior like a skilled debugger would, providing insights into not just _what_ happened, but _why_ and _how_ it happened.
+
+## Flexible Data Passing for Convenience
+
+MLflow judges provide flexible ways to pass evaluation data, automatically extracting missing fields from traces when available:
+
+### Automatic Field Extraction from Traces
+
+When you pass a trace to a field-based judge (one that uses `{{ inputs }}`, `{{ outputs }}`, or `{{ expectations }}`), MLflow can automatically extract these fields from the trace if you don't provide them explicitly:
+
+```python
+# Field-based judge that expects inputs, outputs, and expectations
+judge = make_judge(
+    name="quality_checker",
+    instructions="""
+    Check if the response in {{ outputs }} properly addresses the question in {{ inputs }}.
+    Expected quality level: {{ expectations }}
+    """,
+    model="anthropic:/claude-3-opus-20240229",
+)
+
+# Get a trace from your application
+trace = mlflow.get_trace(trace_id)
+
+# Option 1: Let MLflow extract all fields from the trace
+result = judge(trace=trace)
+# Automatically extracts:
+# - inputs: from trace's root span inputs
+# - outputs: from trace's root span outputs
+# - expectations: from human expectation assessments in the trace
+
+# Option 2: Provide some fields explicitly, extract others from trace
+result = judge(
+    trace=trace,  # Still extracts inputs/outputs from trace
+    expectations={"quality": "excellent"},  # Provide expectations explicitly
+)
+
+# Option 3: Provide all fields explicitly (trace not needed for extraction)
+result = judge(
+    inputs={"question": "What is ML?"},
+    outputs={"response": "Machine learning is..."},
+    expectations={"quality": "good"},
+)
+```
+
+### How It Works
+
+<Tabs>
+<TabItem value="field" label="Field-Based Evaluation" default>
+
+When your template uses `{{ inputs }}`, `{{ outputs }}`, or `{{ expectations }}`, the judge performs simple field-based evaluation. If you provide a trace, MLflow conveniently extracts any missing fields:
+
+```python
+# Field-based judge
+field_judge = make_judge(
+    name="simple_check",
+    instructions="Is {{ outputs }} relevant to {{ inputs }}? Expected: {{ expectations }}",
+    model="anthropic:/claude-3-opus-20240229",
+)
+
+# Trace convenience: MLflow extracts missing fields
+result = field_judge(trace=trace)
+# Automatically extracted from trace:
+# - inputs: from root span's inputs
+# - outputs: from root span's outputs
+# - expectations: from human expectation assessments (ground truth only)
+
+# You can still provide fields explicitly when needed
+result = field_judge(
+    trace=trace,  # Still used to extract missing fields
+    expectations={"relevance": "high"},  # Explicitly provided, not extracted
+)
+```
+
+This is purely for convenience - it saves you from manually extracting data from traces when evaluating.
+
+</TabItem>
+<TabItem value="agent" label="Trace Agent Mode">
+
+When your template includes `{{ trace }}`, the judge becomes an agent that actively analyzes span data using MCP tools. You can still include field placeholders to augment the agent's context:
+
+```python
+# Agent judge with additional context via field placeholders
+trace_agent = make_judge(
+    name="deep_analyzer",
+    instructions=(
+        "Analyze this trace: {{ trace }}\n"
+        "Expected outcome: {{ expectations }}\n"  # Added to user message
+        "Consider these inputs: {{ inputs }}"  # Additional context for agent
+    ),
+    model="anthropic:/claude-3-opus-20240229",
+)
+
+# The agent uses tools to fetch span data PLUS has the field context in the user message
+result = trace_agent(
+    trace=trace,
+    expectations={"latency": "<100ms", "accuracy": "high"},
+    inputs={"focus_area": "database_calls"},
+)
+```
+
+The field values (inputs, outputs, expectations) are included in the user message sent to the agent, providing additional context alongside the trace metadata that the agent uses with its tools.
+
+</TabItem>
+<TabItem value="priority" label="Data Priority (Field-Based Only)">
+
+**Note: This priority system only applies to field-based judges.** Trace-based judges (using `{{ trace }}`) always fetch span data through agent tools regardless of what fields you provide.
+
+For field-based judges, when multiple data sources are available:
+
+1. **Explicitly provided values** - Always take highest priority
+2. **Trace extraction** - Used only when fields are missing and trace is provided
+
+```python
+# Field-based judge example
+field_judge = make_judge(
+    name="field_evaluator",
+    instructions="Compare {{ outputs }} to {{ inputs }}. Expected quality: {{ expectations }}",
+    model="anthropic:/claude-3-opus-20240229",
+)
+
+# Trace has inputs={"q": "What is MLflow?"} in root span
+result = field_judge(
+    trace=trace, inputs={"q": "What is OpenAI?"}  # This takes priority over trace data
+)
+# Judge sees inputs={"q": "What is OpenAI?"}
+
+# Partial override - provide only what you need
+result = field_judge(
+    trace=trace,  # Extracts inputs and outputs from trace
+    expectations={"accuracy": "high"},  # Provide expectations explicitly
+)
+```
+
+For trace-based judges (with `{{ trace }}`), the agent always fetches its own span data through tools. Any provided fields are simply added to the user message as additional context - there's no "priority" or override of trace information.
+
+</TabItem>
+</Tabs>
+
+## The make_judge API
+
+The <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API creates evaluation judges:
+
+```python
+from mlflow.genai.judges import make_judge
+
+judge = make_judge(
+    name="your_judge_name",
+    instructions="Your evaluation criteria with {{ template }} variables",
+    model="anthropic:/claude-3-opus-20240229",
+)
+```
+
+### Template Variables
+
+- **`{{ inputs }}`**: The input data to evaluate (extracted from trace root span if trace provided)
+- **`{{ outputs }}`**: The generated response (extracted from trace root span if trace provided)
+- **`{{ expectations }}`**: Ground truth or expected outcomes (extracted from trace's human expectation assessments if trace provided)
+- **`{{ trace }}`**: Transforms judge into an agent with MLflow API access (can be combined with other variables to augment context)
+
+## Judge Development Lifecycle
+
+Build and refine judges through iterative improvement with human feedback:
+
+<DAGLoop
+  title="Judge Optimization Loop"
+  steps={[
+    {
+      icon: Code,
+      title: "Create Judge",
+      description: "Define evaluation criteria",
+      detailedDescription: "Define clear instructions that capture your domain's quality requirements using template variables.",
+      isFocus: true
+    },
+    {
+      icon: Activity,
+      title: "Evaluate Traces",
+      description: "Run judge on traces",
+      detailedDescription: "Apply the judge to evaluate your application traces, generating initial assessments.",
+    },
+    {
+      icon: UserCheck,
+      title: "Add Human Feedback",
+      description: "Provide ground truth",
+      detailedDescription: "Domain experts review the judge's outputs and provide correct assessments as feedback.",
+    },
+    {
+      icon: Brain,
+      title: "Align Judge",
+      description: "Learn from feedback",
+      detailedDescription: "Use SIMBA optimizer (default) to refine instructions based on human feedback. Requires minimum 10 samples.",
+    },
+    {
+      icon: Target,
+      title: "Validate & Register",
+      description: "Test and store",
+      detailedDescription: "Evaluate the aligned judge and register it in MLflow for team use.",
+    },
+  ]}
+  loopBackIcon={RefreshCw}
+  loopBackText="Iterate Until Sufficient Quality"
+  loopBackDescription="Continue refining until judge achieves required accuracy for production use"
+  circleSize={500}
+/>
+
+Ready to implement this workflow? Visit our [**End-to-End Judge Workflow**](/genai/judges/workflow) guide for complete code examples walking through each step, from creating your first judge to deploying it in production.
+
+:::warning[Minimum Requirements for Alignment]
+
+- **At least 10 traces** with both judge and human assessments
+- Both assessments must have **the same name** (e.g., "response_quality")
+- Order doesn't matter - humans can assess before or after the judge
+  :::
+
+## Next Steps
+
+<TilesGrid>
+  <TileCard
+    icon={RefreshCw}
+    iconSize={48}
+    title="Judge Alignment Guide"
+    description="Deep dive into aligning judges with human feedback for improved accuracy."
+    href="/genai/judges/alignment"
+    linkText="Master alignment →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Activity}
+    iconSize={48}
+    title="Development Workflow"
+    description="Step-by-step guide for developing and optimizing judges."
+    href="/genai/judges/workflow"
+    linkText="See workflow →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Database}
+    iconSize={48}
+    title="Dataset Integration"
+    description="Use judges with evaluation datasets for systematic testing."
+    href="/genai/judges/dataset-integration"
+    linkText="Explore integration →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={FileText}
+    iconSize={48}
+    title="Evaluation Datasets"
+    description="Learn about creating and managing evaluation datasets."
+    href="/genai/datasets"
+    linkText="View datasets docs →"
+    containerHeight={64}
+  />
+</TilesGrid>
