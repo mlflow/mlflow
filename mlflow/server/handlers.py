@@ -1862,8 +1862,7 @@ def _create_registered_model():
     response_message = CreateRegisteredModel.Response(registered_model=registered_model.to_proto())
 
     # Determine if this is a prompt based on the tags
-    is_prompt_request = any(tag.key == IS_PROMPT_TAG_KEY for tag in request_message.tags)
-    if is_prompt_request:
+    if _is_prompt_request(request_message):
         # Send prompt creation webhook
         deliver_webhook(
             event=WebhookEvent(WebhookEntity.PROMPT, WebhookAction.CREATED),
