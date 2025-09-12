@@ -128,24 +128,15 @@ def find_duplicates(seq):
     return [item for item, count in counted.items() if count > 1]
 
 
-def write_file_if_changed(file_path: Path, new_content: str) -> bool:
-    """
-    Write content to file only if it's different from existing content.
-
-    Args:
-        file_path: Path to the file to write
-        new_content: The new content to write
-
-    Returns:
-        True if file was written (content changed), False if no write was needed
-    """
+def write_file_if_changed(file_path: Path, new_content: str):
     if file_path.exists():
         existing_content = file_path.read_text()
         if existing_content == new_content:
-            return False
+            print(f"No changes in {file_path}, skipping write.")
+            return
 
+    print(f"Writing changes to {file_path}.")
     file_path.write_text(new_content)
-    return True
 
 
 def format_content_with_taplo(content: str) -> str:
