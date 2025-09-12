@@ -127,7 +127,7 @@ def pytest_sessionstart(session):
         )
 
 
-def to_md(rows: list[list[str]]) -> str:
+def to_md_table(rows: list[list[str]]) -> str:
     if not rows:
         return ""
     n = max(len(r) for r in rows)
@@ -195,7 +195,7 @@ def generate_duration_stats() -> str:
             ]
         )
 
-    return to_md(table_rows)
+    return to_md_table(table_rows)
 
 
 @pytest.hookimpl(hookwrapper=True)
