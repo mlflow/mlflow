@@ -83,9 +83,11 @@ ANY_INT = AnyInt()
 _TASK_DESCRIPTION = "Analyze and select the best city for the trip"
 _TASK_DESCRIPTION_2 = "Compile an in-depth guide"
 
+
 def _get_expected_task_name(description: str) -> str:
     """Get expected task name based on CrewAI version."""
     return description if Version(crewai.__version__) >= Version("0.175.0") else None
+
 
 _TASK_NAME = _get_expected_task_name(_TASK_DESCRIPTION)
 _TASK_NAME_2 = _get_expected_task_name(_TASK_DESCRIPTION_2)
