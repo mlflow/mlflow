@@ -478,7 +478,6 @@ class MlflowClient:
 
     ##### Prompt Registry #####
 
-    @experimental(version="2.21.0")
     @require_prompt_registry
     @translate_prompt_exception
     def register_prompt(
@@ -720,7 +719,6 @@ class MlflowClient:
             page_token=page_token,
         )
 
-    @experimental(version="2.21.0")
     @require_prompt_registry
     @translate_prompt_exception
     def load_prompt(
@@ -776,7 +774,6 @@ class MlflowClient:
                 return None
             raise
 
-    @experimental(version="2.21.0")
     @require_prompt_registry
     @translate_prompt_exception
     def link_prompt_version_to_run(self, run_id: str, prompt: str | PromptVersion) -> None:

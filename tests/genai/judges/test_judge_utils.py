@@ -14,6 +14,7 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import Judge
+from mlflow.genai.judges.optimizers.simba import SIMBAAlignmentOptimizer
 from mlflow.genai.judges.utils import (
     _MODEL_RESPONSE_FORMAT_CAPABILITIES,
     CategoricalRating,
@@ -21,10 +22,14 @@ from mlflow.genai.judges.utils import (
     _invoke_databricks_model,
     _parse_databricks_model_response,
     add_output_format_instructions,
+    call_chat_completions,
+    format_prompt,
+    get_default_optimizer,
     invoke_judge_model,
 )
 from mlflow.genai.prompts.utils import format_prompt
 from mlflow.types.llm import ChatMessage, ToolCall
+from mlflow.utils import AttrDict
 
 
 @pytest.fixture(autouse=True)
@@ -1112,3 +1117,79 @@ def test_invoke_judge_model_databricks_telemetry_error_handling() -> None:
 
     assert feedback.value == CategoricalRating.YES
     assert feedback.rationale == "Good"
+
+
+# Tests for call_chat_completions function
+@pytest.fixture
+def mock_databricks_rag_eval():
+    """Clean fixture for mocking databricks.rag_eval dependencies."""
+    mock_rag_client = mock.MagicMock()
+    mock_rag_client.get_chat_completions_result.return_value = AttrDict(
+        {"output": "test response", "error_message": None}
+    )
+
+    mock_context = mock.MagicMock()
+    mock_context.get_context.return_value.build_managed_rag_client.return_value = mock_rag_client
+    mock_context.eval_context = lambda func: func  # Pass-through decorator
+
+    mock_env_vars = mock.MagicMock()
+
+    mock_module = mock.MagicMock()
+    mock_module.context = mock_context
+    mock_module.env_vars = mock_env_vars
+
+    return {"module": mock_module, "rag_client": mock_rag_client, "env_vars": mock_env_vars}
+
+
+@pytest.mark.parametrize(
+    ("user_prompt", "system_prompt"),
+    [
+        ("test user prompt", "test system prompt"),
+        ("user prompt only", None),
+    ],
+)
+@mock.patch("mlflow.genai.judges.utils._check_databricks_agents_installed")
+def test_call_chat_completions_success(
+    mock_check, user_prompt, system_prompt, mock_databricks_rag_eval
+):
+    """Test successful call to call_chat_completions with different prompt combinations."""
+    with (
+        mock.patch.dict("sys.modules", {"databricks.rag_eval": mock_databricks_rag_eval["module"]}),
+        mock.patch("mlflow.genai.judges.utils.VERSION", "1.0.0"),
+    ):
+        result = call_chat_completions(user_prompt, system_prompt)
+
+        # Verify the client name was set
+        mock_databricks_rag_eval[
+            "env_vars"
+        ].RAG_EVAL_EVAL_SESSION_CLIENT_NAME.set.assert_called_once_with(
+            "mlflow-judge-optimizer-v1.0.0"
+        )
+
+        # Verify the managed RAG client was called with correct parameters
+        mock_databricks_rag_eval["rag_client"].get_chat_completions_result.assert_called_once_with(
+            user_prompt=user_prompt,
+            system_prompt=system_prompt,
+        )
+
+        assert result.output == "test response"
+
+
+@mock.patch("mlflow.genai.judges.utils._check_databricks_agents_installed")
+def test_call_chat_completions_client_error(mock_check, mock_databricks_rag_eval):
+    """Test call_chat_completions when managed RAG client raises an error."""
+    mock_databricks_rag_eval["rag_client"].get_chat_completions_result.side_effect = RuntimeError(
+        "RAG client failed"
+    )
+
+    with mock.patch.dict(
+        "sys.modules", {"databricks.rag_eval": mock_databricks_rag_eval["module"]}
+    ):
+        with pytest.raises(RuntimeError, match="RAG client failed"):
+            call_chat_completions("test prompt", "system prompt")
+
+
+def test_get_default_optimizer():
+    """Test that get_default_optimizer returns a SIMBA optimizer."""
+    optimizer = get_default_optimizer()
+    assert isinstance(optimizer, SIMBAAlignmentOptimizer)
