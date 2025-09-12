@@ -157,13 +157,13 @@ def generate_duration_stats() -> str:
         return ""
 
     # Group results by file path
-    file_groups = defaultdict(list)
+    file_groups: defaultdict[Path, list[float]] = defaultdict(list)
     for result in _test_results:
         file_groups[result.path].append(result.execution_time)
 
     rows = []
     for path, test_times in file_groups.items():
-        rel_path = str(path.relative_to(Path.cwd()))
+        rel_path = path.relative_to(Path.cwd()).as_posix()
         total_dur = sum(test_times)
         if total_dur < 1.0:
             # Ignore files with total duration < 1s
