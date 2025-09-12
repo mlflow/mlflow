@@ -2554,7 +2554,7 @@ class SqlAlchemyStore(AbstractStore):
                             sql_trace_info.tags.append(
                                 SqlTraceTag(request_id=trace_id, key=tag.key, value=tag.value)
                             )
-                    session.merge(sql_trace_info)
+                session.merge(sql_trace_info)
                 session.flush()
 
             return sql_trace_info.to_mlflow_entity()
@@ -3299,12 +3299,6 @@ class SqlAlchemyStore(AbstractStore):
                         .filter(SqlTraceInfo.request_id == trace_id)
                         .one()
                     )
-                    existing_tags = {tag.key for tag in sql_trace_info.tags}
-                    for tag in tags:
-                        if tag.key not in existing_tags:
-                            sql_trace_info.tags.append(tag)
-                    session.merge(sql_trace_info)
-                    session.flush()
 
             # Atomic update of trace time range using SQLAlchemy's case expressions.
             # This is necessary to handle concurrent span additions from multiple processes/threads
@@ -3343,6 +3337,12 @@ class SqlAlchemyStore(AbstractStore):
             session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).update(
                 update_dict,
                 # Skip session synchronization for performance - we don't use the object afterward
+                synchronize_session=False,
+            )
+            session.query(SqlTraceTag).filter(
+                SqlTraceTag.request_id == trace_id, SqlTraceTag.key == TraceTagKey.SPANS_LOCATION
+            ).update(
+                {"value": TRACKING_STORE},
                 synchronize_session=False,
             )
 
