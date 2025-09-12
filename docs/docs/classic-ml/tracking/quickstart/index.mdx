@@ -118,7 +118,7 @@ import pandas as pd
 from sklearn import datasets
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sklearn.metrics import accuracy_score
 
 
 # Load the Iris dataset
@@ -133,7 +133,6 @@ X_train, X_test, y_train, y_test = train_test_split(
 params = {
     "solver": "lbfgs",
     "max_iter": 1000,
-    "multi_class": "auto",
     "random_state": 8888,
 }
 
@@ -199,6 +198,19 @@ with mlflow.start_run():
         model_info.model_id, {"Training Info": "Basic LR model for iris data"}
     )
 ```
+
+:::note Console Output
+When you run the above code, you will see console output that looks something like this:
+
+```text
+2025/09/09 17:22:20 ERROR mlflow.webhooks.delivery: Failed to deliver webhook for event registered_model.created: FileStore does not support list_webhooks_by_event
+Traceback (most recent call last):
+  ...
+NotImplementedError: FileStore does not support list_webhooks_by_event
+```
+
+You can ignore these errors. They will go away in [MLflow 4](https://github.com/mlflow/mlflow/issues/17562#issuecomment-3259679453) and will not be fixed until then.
+:::
 
 ## Step 5 - Load the model as a Python Function (pyfunc) and use it for inference
 
@@ -299,7 +311,7 @@ been highlighted below to show how and where this data is recorded within the UI
   <figcaption>The run view page for our run</figcaption>
 </figure>
 
-Switch to the Models tab in the experiments page to view all the logged models under the Experiment, where you can see an entry for the logged model we just created ("iris_model").
+Switch to the Models tab in the experiments page to view all the logged models under the Experiment, where you can see an entry for the logged model we just created ("tracking-quickstart").
 
 <figure className="center-div" style={{ width: 1024, maxWidth: "100%", textAlign: "center" }}>
   ![MLflow UI Experiment view page models tab](/images/tutorials/introductory/quickstart-tracking/quickstart-our-experiment-models-tab.png)

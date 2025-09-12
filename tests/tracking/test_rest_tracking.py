@@ -58,7 +58,9 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
-from mlflow.server.handlers import _get_sampled_steps_from_steps
+from mlflow.server import handlers
+from mlflow.server.fastapi_app import app
+from mlflow.server.handlers import _get_sampled_steps_from_steps, initialize_backend_stores
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.client import TracingClient
@@ -82,6 +84,7 @@ from mlflow.utils.time import get_current_time_millis
 from tests.helper_functions import get_safe_port
 from tests.integration.utils import invoke_cli_runner
 from tests.tracking.integration_test_utils import (
+    ServerThread,
     _init_server,
     _send_rest_tracking_post_request,
 )
@@ -96,7 +99,7 @@ def store_type(request):
 
 
 @pytest.fixture
-def mlflow_client(store_type, tmp_path):
+def mlflow_client(store_type: str, tmp_path: Path):
     """Provides an MLflow Tracking API client pointed at the local tracking server."""
     if store_type == "file":
         backend_uri = tmp_path.joinpath("file").as_uri()
@@ -106,11 +109,13 @@ def mlflow_client(store_type, tmp_path):
             len("file://") :
         ]
 
-    with _init_server(
-        backend_uri, root_artifact_uri=tmp_path.as_uri(), server_type="fastapi"
-    ) as url:
-        client = MlflowClient(url)
-        yield client
+    # Force-reset backend stores before each test.
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    initialize_backend_stores(backend_uri, default_artifact_root=tmp_path.as_uri())
+
+    with ServerThread(app, get_safe_port()) as url:
+        yield MlflowClient(url)
 
 
 @pytest.fixture

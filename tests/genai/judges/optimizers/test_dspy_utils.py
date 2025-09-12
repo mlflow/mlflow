@@ -176,3 +176,27 @@ def test_convert_mlflow_uri_to_litellm_invalid(invalid_uri):
 
     with pytest.raises(MlflowException, match="Failed to convert MLflow URI"):
         convert_mlflow_uri_to_litellm(invalid_uri)
+
+
+@pytest.mark.parametrize(
+    ("model", "expected_type"),
+    [
+        ("databricks", "AgentEvalLM"),
+        ("openai:/gpt-4", "dspy.LM"),
+        ("anthropic:/claude-3", "dspy.LM"),
+    ],
+)
+def test_construct_dspy_lm_utility_method(model, expected_type):
+    """Test the construct_dspy_lm utility method with different model types."""
+    import dspy
+
+    from mlflow.genai.judges.optimizers.dspy_utils import AgentEvalLM, construct_dspy_lm
+
+    result = construct_dspy_lm(model)
+
+    if expected_type == "AgentEvalLM":
+        assert isinstance(result, AgentEvalLM)
+    elif expected_type == "dspy.LM":
+        assert isinstance(result, dspy.LM)
+        # Ensure MLflow URI format is converted (no :/ in the model)
+        assert ":/" not in result.model
