@@ -13,7 +13,6 @@ from mlflow.data.spark_dataset_source import SparkDatasetSource
 from mlflow.exceptions import MlflowException
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
-from mlflow.utils.os import is_windows
 
 
 @pytest.fixture
@@ -115,10 +114,7 @@ def test_conversion_to_json_delta_dataset_source(spark_session, tmp_path, df):
     # the expected key, but not assert on the exact value.
     profile_data = json.loads(parsed_json["profile"])
     assert "approx_count" in profile_data
-    if is_windows():
-        assert profile_data["approx_count"] in [1, 2, "unknown"]
-    else:
-        assert profile_data["approx_count"] in [2, "unknown"]
+    assert profile_data["approx_count"] in [1, 2, "unknown"]
 
     schema_json = json.dumps(json.loads(parsed_json["schema"])["mlflow_colspec"])
     assert Schema.from_json(schema_json) == dataset.schema
