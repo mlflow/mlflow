@@ -1314,10 +1314,6 @@
     "defaultMessage": "Next",
     "description": "Evaluation review > assessments > next button"
   },
-  "CBsZIr": {
-    "defaultMessage": "Child runs",
-    "description": "Run page > Overview > Child runs section label"
-  },
   "CDOfWP": {
     "defaultMessage": "System Metrics",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > system metrics heading"
@@ -1721,6 +1717,10 @@
   "HUf9qJ": {
     "defaultMessage": "Are you sure you want to delete {modelName}? This cannot be undone.",
     "description": "Confirmation message for delete model modal on model view page"
+  },
+  "HXbUkt": {
+    "defaultMessage": "Child runs",
+    "description": "Run page > Overview > Child runs"
   },
   "HYQHVk": {
     "defaultMessage": "See more",

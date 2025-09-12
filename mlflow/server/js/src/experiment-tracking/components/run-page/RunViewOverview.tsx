@@ -176,15 +176,6 @@ export const RunViewOverview = ({
         <DetailsOverviewMetadataRow
           title={
             <FormattedMessage
-              defaultMessage="Child runs"
-              description="Run page > Overview > Child runs section label"
-            />
-          }
-          value={<RunViewChildRunsBox runUuid={runInfo.runUuid ?? ''} experimentId={runInfo.experimentId ?? ''} />}
-        />
-        <DetailsOverviewMetadataRow
-          title={
-            <FormattedMessage
               defaultMessage="Datasets used"
               description="Run page > Overview > Run datasets section label"
             />
