@@ -86,6 +86,17 @@ def mock_databricks_rag_eval(monkeypatch):
     mock_rag_eval.context = mock_context_module
     monkeypatch.setitem(sys.modules, "databricks.rag_eval.context", mock_context_module)
 
+    # Mock env_vars module needed by call_chat_completions
+    mock_env_vars_module = types.ModuleType("databricks.rag_eval.env_vars")
+
+    class MockEnvVar:
+        def set(self, value):
+            pass
+
+    mock_env_vars_module.RAG_EVAL_EVAL_SESSION_CLIENT_NAME = MockEnvVar()
+    mock_rag_eval.env_vars = mock_env_vars_module
+    monkeypatch.setitem(sys.modules, "databricks.rag_eval.env_vars", mock_env_vars_module)
+
     return mock_context_module
 
 
