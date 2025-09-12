@@ -127,10 +127,34 @@ def pytest_sessionstart(session):
         )
 
 
-def generate_duration_stats() -> list[str]:
-    """Generate per-file duration statistics lines."""
+def to_md(rows: list[list[str]]) -> str:
+    if not rows:
+        return ""
+    n = max(len(r) for r in rows)
+    rows = [r + [""] * (n - len(r)) for r in rows]
+
+    # Calculate column widths
+    widths = [max(len(str(row[i])) for row in rows) for i in range(n)]
+
+    def esc(s: str) -> str:
+        return s.replace("|", r"\|").replace("\n", "<br>")
+
+    # Format rows with proper padding
+    def format_row(row: list[str]) -> str:
+        cells = [esc(str(cell)).ljust(widths[i]) for i, cell in enumerate(row)]
+        return "| " + " | ".join(cells) + " |"
+
+    header = format_row(rows[0])
+    sep = "| " + " | ".join(["-" * w for w in widths]) + " |"
+    body = [format_row(row) for row in rows[1:]]
+
+    return "\n".join([header, sep, *body])
+
+
+def generate_duration_stats() -> str:
+    """Generate per-file duration statistics as markdown table."""
     if not _test_results:
-        return []
+        return ""
 
     # Group results by file path
     file_groups = defaultdict(list)
@@ -148,16 +172,30 @@ def generate_duration_stats() -> list[str]:
         min_test = min(test_times)
         max_test = max(test_times)
         avg_test = sum(test_times) / len(test_times)
-        stats = f"min: {min_test:.3f}s max: {max_test:.3f}s avg: {avg_test:.3f}s"
 
-        rows.append((rel_path, total_dur, test_count, stats))
+        rows.append((rel_path, total_dur, test_count, min_test, max_test, avg_test))
 
     rows.sort(key=lambda r: r[1], reverse=True)
 
-    return [
-        f"{idx:>2}. {dur:7.2f}s  {path}  ({count} tests) [{stats}]"
-        for idx, (path, dur, count, stats) in enumerate(rows, 1)
-    ]
+    if not rows:
+        return ""
+
+    # Prepare data for markdown table (headers + data rows)
+    table_rows = [["Rank", "File", "Duration", "Tests", "Min", "Max", "Avg"]]
+    for idx, (path, dur, count, min_, max_, avg_) in enumerate(rows, 1):
+        table_rows.append(
+            [
+                str(idx),
+                f"`{path}`",
+                f"{dur:.2f}s",
+                str(count),
+                f"{min_:.3f}s",
+                f"{max_:.3f}s",
+                f"{avg_:.3f}s",
+            ]
+        )
+
+    return to_md(table_rows)
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -312,10 +350,9 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         terminalreporter.write("\n")
         header = "per-file durations (sorted)"
         terminalreporter.write_sep("=", header)
-        terminalreporter.write(f"::group::{header}\n")
-        for line in duration_stats:
-            terminalreporter.write_line(line)
-        terminalreporter.write("::endgroup::\n")
+        terminalreporter.write(f"::group::{header}\n\n")
+        terminalreporter.write(duration_stats)
+        terminalreporter.write("\n\n::endgroup::\n")
         terminalreporter.write("\n")
 
     # If there are failed tests, display a command to run them
