@@ -128,7 +128,7 @@ def find_duplicates(seq):
     return [item for item, count in counted.items() if count > 1]
 
 
-def write_file_if_changed(file_path: Path, new_content: str):
+def write_file_if_changed(file_path: Path, new_content: str) -> None:
     if file_path.exists():
         existing_content = file_path.read_text()
         if existing_content == new_content:
