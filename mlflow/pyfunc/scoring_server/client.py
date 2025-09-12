@@ -98,7 +98,12 @@ class StdinScoringServerClient(BaseScoringServerClient):
     def __init__(self, process):
         super().__init__()
         self.process = process
-        self.tmpdir = Path(tempfile.mkdtemp())
+        try:
+            # Use /dev/shm (memory-based filesystem) if possible to make read/write efficient.
+            tmpdir = tempfile.mkdtemp(dir="/dev/shm")
+        except Exception:
+            tmpdir = tempfile.mkdtemp()
+        self.tmpdir = Path(tmpdir)
         self.output_json = self.tmpdir.joinpath("output.json")
 
     def wait_server_ready(self, timeout=30, scoring_server_proc=None):

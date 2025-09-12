@@ -7,6 +7,7 @@ from click.types import BOOL, FLOAT, INT, STRING, UUID
 from fastmcp import FastMCP
 from fastmcp.tools import FunctionTool
 
+from mlflow.ai_commands.ai_command_utils import get_command_body, list_commands
 from mlflow.cli.traces import commands as traces_cli
 
 
@@ -80,11 +81,33 @@ def cmd_to_function_tool(cmd: click.Command) -> FunctionTool:
     )
 
 
+def register_prompts(mcp: FastMCP) -> None:
+    """Register AI commands as MCP prompts."""
+    for command in list_commands():
+        # Convert slash-separated keys to underscores for MCP names
+        mcp_name = command["key"].replace("/", "_")
+
+        # Create a closure to capture the command key
+        def make_prompt(cmd_key: str):
+            @mcp.prompt(name=mcp_name, description=command["description"])
+            def ai_command_prompt() -> str:
+                """Execute an MLflow AI command prompt."""
+                return get_command_body(cmd_key)
+
+            return ai_command_prompt
+
+        # Register the prompt
+        make_prompt(command["key"])
+
+
 def create_mcp() -> FastMCP:
-    return FastMCP(
+    mcp = FastMCP(
         name="Mlflow MCP",
         tools=[cmd_to_function_tool(cmd) for cmd in traces_cli.commands.values()],
     )
+
+    register_prompts(mcp)
+    return mcp
 
 
 def run_server() -> None:

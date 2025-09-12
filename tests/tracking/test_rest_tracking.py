@@ -58,7 +58,9 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
-from mlflow.server.handlers import _get_sampled_steps_from_steps
+from mlflow.server import handlers
+from mlflow.server.fastapi_app import app
+from mlflow.server.handlers import _get_sampled_steps_from_steps, initialize_backend_stores
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.client import TracingClient
@@ -82,6 +84,7 @@ from mlflow.utils.time import get_current_time_millis
 from tests.helper_functions import get_safe_port
 from tests.integration.utils import invoke_cli_runner
 from tests.tracking.integration_test_utils import (
+    ServerThread,
     _init_server,
     _send_rest_tracking_post_request,
 )
@@ -90,22 +93,29 @@ _logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(params=["file", "sqlalchemy"])
-def mlflow_client(request, tmp_path):
+def store_type(request):
+    """Provides the store type for parameterized tests."""
+    return request.param
+
+
+@pytest.fixture
+def mlflow_client(store_type: str, tmp_path: Path):
     """Provides an MLflow Tracking API client pointed at the local tracking server."""
-    if request.param == "file":
+    if store_type == "file":
         backend_uri = tmp_path.joinpath("file").as_uri()
-    elif request.param == "sqlalchemy":
+    elif store_type == "sqlalchemy":
         path = tmp_path.joinpath("sqlalchemy.db").as_uri()
         backend_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
             len("file://") :
         ]
 
-    with _init_server(
-        backend_uri, root_artifact_uri=tmp_path.as_uri(), server_type="fastapi"
-    ) as url:
-        client = MlflowClient(url)
-        client._store_type = request.param
-        yield client
+    # Force-reset backend stores before each test.
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    initialize_backend_stores(backend_uri, default_artifact_root=tmp_path.as_uri())
+
+    with ServerThread(app, get_safe_port()) as url:
+        yield MlflowClient(url)
 
 
 @pytest.fixture
@@ -2680,8 +2690,8 @@ def test_delete_traces(mlflow_client):
     assert _is_trace_exists(request_id_2)
 
 
-def test_calculate_trace_filter_correlation(mlflow_client):
-    if mlflow_client._store_type == "file":
+def test_calculate_trace_filter_correlation(mlflow_client, store_type):
+    if store_type == "file":
         pytest.skip("File store doesn't support calculate_trace_filter_correlation")
 
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
@@ -2798,10 +2808,10 @@ def test_get_trace_artifact_handler(mlflow_client):
     assert trace_data.spans[0].to_dict() == span.to_dict()
 
 
-def test_link_traces_to_run_and_search_traces(mlflow_client):
+def test_link_traces_to_run_and_search_traces(mlflow_client, store_type):
     """Test linking traces to runs and searching traces with run_id filter."""
     # Skip file store because it doesn't support linking traces to runs
-    if mlflow_client._store_type == "file":
+    if store_type == "file":
         pytest.skip("File store doesn't support linking traces to runs")
 
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
@@ -3447,8 +3457,8 @@ def test_graphql_nan_metric_handling(mlflow_client):
     assert nan_metric["step"] == "2"
 
 
-def test_create_and_get_evaluation_dataset(mlflow_client):
-    if mlflow_client._store_type == "file":
+def test_create_and_get_evaluation_dataset(mlflow_client, store_type):
+    if store_type == "file":
         pytest.skip("Evaluation datasets not supported for FileStore")
 
     experiment_id = mlflow_client.create_experiment("eval_dataset_test")
@@ -3471,8 +3481,8 @@ def test_create_and_get_evaluation_dataset(mlflow_client):
     assert retrieved.tags == dataset.tags
 
 
-def test_search_evaluation_datasets(mlflow_client):
-    if mlflow_client._store_type == "file":
+def test_search_evaluation_datasets(mlflow_client, store_type):
+    if store_type == "file":
         pytest.skip("Evaluation datasets not supported for FileStore")
 
     exp1 = mlflow_client.create_experiment("eval_search_exp1")
@@ -3511,8 +3521,8 @@ def test_search_evaluation_datasets(mlflow_client):
     assert names == sorted(names)
 
 
-def test_evaluation_dataset_tag_operations(mlflow_client):
-    if mlflow_client._store_type == "file":
+def test_evaluation_dataset_tag_operations(mlflow_client, store_type):
+    if store_type == "file":
         pytest.skip("Evaluation datasets not supported for FileStore")
 
     experiment_id = mlflow_client.create_experiment("eval_tags_test")
@@ -3537,8 +3547,8 @@ def test_evaluation_dataset_tag_operations(mlflow_client):
     assert final.tags["env"] == "staging"  # Other tags preserved
 
 
-def test_evaluation_dataset_delete(mlflow_client):
-    if mlflow_client._store_type == "file":
+def test_evaluation_dataset_delete(mlflow_client, store_type):
+    if store_type == "file":
         pytest.skip("Evaluation datasets not supported for FileStore")
 
     experiment_id = mlflow_client.create_experiment("eval_delete_test")
@@ -3556,8 +3566,8 @@ def test_evaluation_dataset_delete(mlflow_client):
         mlflow_client.get_dataset(dataset.dataset_id)
 
 
-def test_scorer_CRUD(mlflow_client):
-    if mlflow_client._store_type == "file":
+def test_scorer_CRUD(mlflow_client, store_type):
+    if store_type == "file":
         pytest.skip("File store doesn't support scorer CRUD operations")
 
     """Test all scorer API endpoints end-to-end through RestStore methods."""
@@ -3636,7 +3646,7 @@ def test_scorer_CRUD(mlflow_client):
 
 @pytest.mark.parametrize("use_async", [False, True])
 @pytest.mark.asyncio
-async def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, use_async):
+async def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, store_type, use_async):
     """
     End-to-end test that verifies RestStore can log spans to a running server via OTLP endpoint.
 
@@ -3645,7 +3655,7 @@ async def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, use_async)
     2. Uses RestStore.log_spans or log_spans_async to send them via OTLP protocol
     3. Verifies the spans were stored and can be retrieved
     """
-    if mlflow_client._store_type == "file":
+    if store_type == "file":
         pytest.skip("FileStore does not support OTLP span logging")
 
     # Mock the server version check to return 3.4 if current MLflow version is < 3.4

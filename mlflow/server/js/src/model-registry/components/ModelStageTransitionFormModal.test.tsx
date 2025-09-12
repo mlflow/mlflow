@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { ModelStageTransitionFormModal, ModelStageTransitionFormModalMode } from './ModelStageTransitionFormModal';
-import { ComponentProps } from 'react';
+import type { ComponentProps } from 'react';
 import { Stages } from '../constants';
 import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';

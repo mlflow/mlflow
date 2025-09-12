@@ -149,41 +149,43 @@ export const ModelTraceHeaderDetails = ({ modelTrace }: { modelTrace: ModelTrace
             onCopy={handleCopy}
           />
         )}
-        <div
-          css={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexDirection: 'row',
-            gap: theme.spacing.sm,
-          }}
-        >
-          <Typography.Text size="md" color="secondary">
-            <FormattedMessage defaultMessage="Tags" description="Label for the tags section" />
-          </Typography.Text>
-          <Overflow noMargin>
-            {tags.map(([key, value]) => {
-              const tagKey = `${key}-${value}`;
-              const fullText = `${key}: ${value}`;
+        {tags.length > 0 && (
+          <div
+            css={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexDirection: 'row',
+              gap: theme.spacing.sm,
+            }}
+          >
+            <Typography.Text size="md" color="secondary">
+              <FormattedMessage defaultMessage="Tags" description="Label for the tags section" />
+            </Typography.Text>
+            <Overflow noMargin>
+              {tags.map(([key, value]) => {
+                const tagKey = `${key}-${value}`;
+                const fullText = `${key}: ${value}`;
 
-              return (
-                <Tooltip key={key} componentId={getComponentId(tagKey)} content={fullText}>
-                  <Tag
-                    componentId={getComponentId(tagKey)}
-                    color="teal"
-                    onClick={() => {
-                      handleTagClick(fullText);
-                      handleCopy();
-                    }}
-                    css={{ cursor: 'pointer' }}
-                  >
-                    {getTruncatedLabel(`${key}: ${value}`)}
-                  </Tag>
-                </Tooltip>
-              );
-            })}
-          </Overflow>
-        </div>
+                return (
+                  <Tooltip key={key} componentId={getComponentId(tagKey)} content={fullText}>
+                    <Tag
+                      componentId={getComponentId(tagKey)}
+                      color="teal"
+                      onClick={() => {
+                        handleTagClick(fullText);
+                        handleCopy();
+                      }}
+                      css={{ cursor: 'pointer' }}
+                    >
+                      {getTruncatedLabel(`${key}: ${value}`)}
+                    </Tag>
+                  </Tooltip>
+                );
+              })}
+            </Overflow>
+          </div>
+        )}
       </div>
 
       {showNotification && (

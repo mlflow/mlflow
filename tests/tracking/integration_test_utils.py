@@ -5,7 +5,12 @@ import socket
 import sys
 import time
 from subprocess import Popen
+from threading import Thread
 from typing import Any, Generator, Literal
+
+import requests
+import uvicorn
+from fastapi import FastAPI
 
 import mlflow
 from mlflow.server import ARTIFACT_ROOT_ENV_VAR, BACKEND_STORE_URI_ENV_VAR
@@ -113,3 +118,47 @@ def _send_rest_tracking_post_request(tracking_server_uri, api_path, json_payload
 
     url = tracking_server_uri + api_path
     return requests.post(url, json=json_payload, auth=auth)
+
+
+class ServerThread(Thread):
+    """Run a FastAPI/uvicorn app in a background thread, usable as a context manager."""
+
+    def __init__(self, app: FastAPI, port: int):
+        super().__init__(name="mlflow-tracking-server", daemon=True)
+        self.host = "127.0.0.1"
+        self.port = port
+        self.url = f"http://{self.host}:{port}"
+        self.health_url = f"{self.url}/health"
+        config = uvicorn.Config(app, host=self.host, port=self.port, log_level="error")
+        self.server = uvicorn.Server(config)
+
+    def run(self) -> None:
+        """Thread target: let Uvicorn manage its own event loop."""
+        self.server.run()
+
+    def shutdown(self) -> None:
+        """Ask Uvicorn to exit; the serving loop checks this flag."""
+        self.server.should_exit = True
+
+    def __enter__(self) -> str:
+        """Use as a context manager for tests or short-lived runs."""
+        self.start()
+
+        # Quick readiness wait (poll the health endpoint if available)
+        deadline = time.time() + 5.0
+        while time.time() < deadline:
+            try:
+                r = requests.get(self.health_url, timeout=0.2)
+                if r.ok:
+                    break
+            except (requests.ConnectionError, requests.Timeout):
+                pass
+            time.sleep(0.1)
+        return self.url
+
+    def __exit__(self, exc_type, exc, tb) -> bool | None:
+        """Clean up resources when exiting context."""
+        self.shutdown()
+        # Give the server a moment to wind down
+        self.join(timeout=5.0)
+        return None

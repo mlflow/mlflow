@@ -1,13 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RunsChartsRunData } from '../RunsCharts.common';
-import {
-  type RunsChartCardReorderProps,
-  RunsChartCardWrapper,
-  RunsChartsChartsDragGroup,
-  RunsChartCardFullScreenProps,
-} from './ChartCard.common';
+import type { RunsChartCardFullScreenProps } from './ChartCard.common';
+import { type RunsChartCardReorderProps, RunsChartCardWrapper, RunsChartsChartsDragGroup } from './ChartCard.common';
 import { useConfirmChartCardConfigurationFn } from '../../hooks/useRunsChartsUIConfiguration';
-import { RunsChartsCardConfig, RunsChartsImageCardConfig } from '../../runs-charts.types';
+import type { RunsChartsCardConfig, RunsChartsImageCardConfig } from '../../runs-charts.types';
 import { ImageGridPlot } from '../charts/ImageGridPlot';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { useImageSliderStepMarks } from '../../hooks/useImageSliderStepMarks';
@@ -17,7 +13,7 @@ import {
   NUM_RUNS_TO_SUPPORT_FOR_LOG_IMAGE,
 } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { LineSmoothSlider } from '@mlflow/mlflow/src/experiment-tracking/components/LineSmoothSlider';
-import { RunsGroupByConfig } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/utils/experimentPage.group-row-utils';
+import type { RunsGroupByConfig } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/utils/experimentPage.group-row-utils';
 
 export interface RunsChartsImageChartCardProps extends RunsChartCardReorderProps, RunsChartCardFullScreenProps {
   config: RunsChartsImageCardConfig;

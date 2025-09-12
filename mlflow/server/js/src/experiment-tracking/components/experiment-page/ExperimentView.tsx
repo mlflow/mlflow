@@ -1,9 +1,6 @@
 import { Alert, LegacySkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
-
 import { useEffect, useState } from 'react';
 import { ErrorCodes } from '../../../common/constants';
-import NotFoundPage from '../NotFoundPage';
-import { PermissionDeniedView } from '../PermissionDeniedView';
 import { getExperimentApi } from '../../actions';
 import { ExperimentKind } from '../../constants';
 import { ExperimentViewHeaderCompare } from './components/header/ExperimentViewHeaderCompare';
@@ -16,21 +13,18 @@ import Utils from '../../../common/utils/Utils';
 import { ExperimentPageUIStateContextProvider } from './contexts/ExperimentPageUIStateContext';
 import { first } from 'lodash';
 import {
-  isExperimentEvalResultsMonitoringUIEnabled,
   shouldEnableExperimentKindInference,
-  shouldEnableExperimentPageHeaderV2,
   shouldUsePredefinedErrorsInExperimentTracking,
 } from '../../../common/utils/FeatureUtils';
 import { useExperimentPageSearchFacets } from './hooks/useExperimentPageSearchFacets';
 import { usePersistExperimentPageViewState } from './hooks/usePersistExperimentPageViewState';
 import { useDispatch } from 'react-redux';
-import { ThunkDispatch } from '../../../redux-types';
+import type { ThunkDispatch } from '../../../redux-types';
 import { useExperimentRuns } from './hooks/useExperimentRuns';
-import { ExperimentRunsSelectorResult } from './utils/experimentRuns.selector';
+import type { ExperimentRunsSelectorResult } from './utils/experimentRuns.selector';
 import { useSharedExperimentViewState } from './hooks/useSharedExperimentViewState';
 import { useInitializeUIState } from './hooks/useInitializeUIState';
 import { ExperimentViewDescriptionNotes } from './components/ExperimentViewDescriptionNotes';
-import { ExperimentViewHeader } from './components/header/ExperimentViewHeader';
 import invariant from 'invariant';
 import { useExperimentPageViewMode } from './hooks/useExperimentPageViewMode';
 import { ExperimentViewTraces } from './components/ExperimentViewTraces';
@@ -40,7 +34,7 @@ import { NotFoundError, PermissionError } from '@databricks/web-shared/errors';
 import { ExperimentViewNotFound } from './components/ExperimentViewNotFound';
 import { ExperimentViewNoPermissionsError } from './components/ExperimentViewNoPermissionsError';
 import { ErrorViewV2 } from '../../../common/components/ErrorViewV2';
-import { ExperimentViewHeaderV2 } from './components/header/ExperimentViewHeaderV2';
+import { ExperimentViewHeader } from './components/header/ExperimentViewHeader';
 import { ExperimentViewHeaderKindSelector } from './components/header/ExperimentViewHeaderKindSelector';
 import { getExperimentKindFromTags } from '../../utils/ExperimentKindUtils';
 import { useUpdateExperimentKind } from './hooks/useUpdateExperimentKind';
@@ -201,44 +195,34 @@ export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) 
 
   const renderExperimentHeader = () => (
     <>
-      {shouldEnableExperimentPageHeaderV2() ? (
-        <>
-          <ExperimentViewHeaderV2
-            experiment={firstExperiment}
-            searchFacetsState={searchFacets || undefined}
-            uiState={uiState}
-            setEditing={setEditing}
-            experimentKindSelector={
-              !isComparingExperiments && firstExperimentId ? (
-                <ExperimentViewHeaderKindSelector
-                  value={experimentKind}
-                  inferredExperimentKind={inferredExperimentKind}
-                  onChange={(kind) => updateExperimentKind({ experimentId: firstExperimentId, kind })}
-                  isUpdating={updatingExperimentKind || inferringExperimentType}
-                  key={inferredExperimentKind}
-                  readOnly={!canUpdateExperimentKind}
-                />
-              ) : null
-            }
-          />
-          <div
-            css={{
-              width: '100%',
-              borderTop: `1px solid ${theme.colors.border}`,
-              marginTop: theme.spacing.sm,
-              marginBottom: theme.spacing.sm,
-            }}
-          />
-        </>
-      ) : (
+      <>
         <ExperimentViewHeader
           experiment={firstExperiment}
           searchFacetsState={searchFacets || undefined}
           uiState={uiState}
-          showAddDescriptionButton={showAddDescriptionButton}
           setEditing={setEditing}
+          experimentKindSelector={
+            !isComparingExperiments && firstExperimentId ? (
+              <ExperimentViewHeaderKindSelector
+                value={experimentKind}
+                inferredExperimentKind={inferredExperimentKind}
+                onChange={(kind) => updateExperimentKind({ experimentId: firstExperimentId, kind })}
+                isUpdating={updatingExperimentKind || inferringExperimentType}
+                key={inferredExperimentKind}
+                readOnly={!canUpdateExperimentKind}
+              />
+            ) : null
+          }
         />
-      )}
+        <div
+          css={{
+            width: '100%',
+            borderTop: `1px solid ${theme.colors.border}`,
+            marginTop: theme.spacing.sm,
+            marginBottom: theme.spacing.sm,
+          }}
+        />
+      </>
       <div
         style={{
           maxHeight: isMaximized ? 0 : hideableElementHeight,

@@ -1,4 +1,4 @@
-import { ModelEntity, ModelVersionInfoEntity } from '../../types';
+import type { ModelEntity, ModelVersionInfoEntity } from '../../types';
 
 /**
  * Represents a registered prompt entry. For the time being, it uses

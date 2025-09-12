@@ -202,7 +202,6 @@ def pytest_ignore_collect(collection_path, config):
             "tests/pydantic_ai",
             "tests/pyfunc",
             "tests/pytorch",
-            "tests/sagemaker",
             "tests/strands",
             "tests/haystack",
             "tests/semantic_kernel",
@@ -218,8 +217,6 @@ def pytest_ignore_collect(collection_path, config):
             "tests/xgboost",
             # Lazy loading test.
             "tests/test_mlflow_lazily_imports_ml_packages.py",
-            # Tests of utils.
-            "tests/utils/test_model_utils.py",
             # This test is included here because it imports many big libraries like tf, keras, etc.
             "tests/tracking/fluent/test_fluent_autolog.py",
             # Cross flavor autologging related tests.
@@ -228,9 +225,6 @@ def pytest_ignore_collect(collection_path, config):
             "tests/autologging/test_autologging_behaviors_integration.py",
             "tests/autologging/test_autologging_utils.py",
             "tests/autologging/test_training_session.py",
-            # Opt in authentication feature.
-            "tests/server/auth",
-            "tests/gateway",
         ]
 
         relpath = os.path.relpath(str(collection_path))

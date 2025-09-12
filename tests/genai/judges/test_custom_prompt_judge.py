@@ -143,7 +143,7 @@ def test_custom_prompt_judge_llm_error():
     assert feedback.name == "test"
     assert feedback.value is None
     assert isinstance(feedback.error, AssessmentError)
-    assert "Failed to invoke the judge model via litellm" in feedback.error.error_message
+    assert "Failed to invoke the judge via litellm" in feedback.error.error_message
 
 
 @pytest.mark.parametrize(

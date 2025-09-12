@@ -120,7 +120,7 @@ def retrieve_customer_info(customer_name: str) -> list[Document]:
 
 
 @mlflow.trace(span_type="AGENT")
-def generate_sales_email(customer_name: str, objective: str) -> dict[str, str]:
+def generate_sales_email(customer_name: str, user_instructions: str) -> dict[str, str]:
     """Generate personalized sales email based on customer data & given objective."""
     # Retrieve customer information
     customer_docs = retrieve_customer_info(customer_name)
@@ -132,7 +132,7 @@ def generate_sales_email(customer_name: str, objective: str) -> dict[str, str]:
 
     Customer Information: {context}
 
-    User instructions: {objective}"""
+    User instructions: {user_instructions}"""
 
     response = client.chat.completions.create(
         model="gpt-4o-mini",
