@@ -32,7 +32,7 @@ def submit_job(function, **params: Any):
         The unique job id. You can call `query_job` API by the `job_id` to get
         the job status and result.
     """
-    from mlflow.server.job.job_runner import exec_job
+    from mlflow.server.job.job_runner import huey_task_exec_job
 
     if not (
         isinstance(function, FunctionType) and
@@ -40,11 +40,11 @@ def submit_job(function, **params: Any):
     ):
         raise MlflowException("The job function must be a python global function.")
     serialized_params = json.dumps(params)
-    func_name = function.__name__
-    job_id = _tracking_store.create_job(func_name, serialized_params)
+    func_fullname = f"{function.__module__}.{function.__name__}"
+    job_id = _tracking_store.create_job(func_fullname, serialized_params)
 
     # enqueue job
-    exec_job(job_id, function, params)
+    huey_task_exec_job(job_id, function, params)
 
     return job_id
 

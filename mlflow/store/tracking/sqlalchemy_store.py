@@ -4315,9 +4315,9 @@ class SqlAlchemyStore(AbstractStore):
 
             job.status = JobStatus.RUNNING.to_int()
 
-    def reenqueue_job(self, job_id: str) -> None:
+    def reset_job(self, job_id: str) -> None:
         """
-        Re-enqueue a job by setting its status to PENDING.
+        Reset a job by setting its status to PENDING.
 
         Args:
             job_id: The ID of the job to re-enqueue.

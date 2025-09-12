@@ -1,4 +1,6 @@
 from typing import Any, Callable
+import importlib
+import json
 import os
 import errno
 import sys
@@ -9,14 +11,15 @@ import signal
 from huey import SqliteHuey
 from huey.serializer import Serializer
 import cloudpickle
-from mlflow.server.job import job_functions
+import tempfile
+from mlflow.entities.job import JobStatus
 from mlflow.server.handlers import _get_tracking_store
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.exceptions import MlflowException
 
 
 def _create_huey_instance():
-    from mlflow.server import MLFLOW_HUEY_STORAGE_PATH
+    tmpdir = tempfile.mkdtemp()
 
     class CloudPickleSerializer(Serializer):
         def serialize(self, data):
@@ -26,7 +29,7 @@ def _create_huey_instance():
             return cloudpickle.loads(data)
 
     return SqliteHuey(
-        filename=MLFLOW_HUEY_STORAGE_PATH,
+        filename=os.path.join(tmpdir, "mlflow-huey.db"),
         results=False,
         serializer=CloudPickleSerializer()
     )
@@ -36,7 +39,7 @@ huey = _create_huey_instance()
 
 
 @huey.task()
-def exec_job(job_id: str, function: Callable, params: dict[str, Any]) -> None:
+def huey_task_exec_job(job_id: str, function: Callable, params: dict[str, Any]) -> None:
     tracking_store = _get_tracking_store()
     tracking_store.start_job(job_id)
     try:
@@ -63,7 +66,7 @@ def _is_process_alive(pid: int) -> bool:
         return True
 
 
-def _kill_job_runner_if_mlflow_server_dies(check_interval=1.0):
+def _start_watcher_to_kill_job_runner_if_mlflow_server_dies(check_interval=1.0):
     mlflow_server_pid = int(os.environ["MLFLOW_SERVER_PID"])
 
     def watcher():
@@ -76,5 +79,30 @@ def _kill_job_runner_if_mlflow_server_dies(check_interval=1.0):
     t.start()
 
 
+def _load_function(fullname: str):
+    module_name, func_name = fullname.rsplit(".", 1)
+    module = importlib.import_module(module_name)
+    return getattr(module, func_name)
+
+
+def _enqueue_pending_running_jobs():
+    tracking_store = _get_tracking_store()
+
+    pending_jobs = tracking_store.list_jobs(status=JobStatus.PENDING)
+    running_jobs = tracking_store.list_jobs(status=JobStatus.RUNNING)
+
+    for job in running_jobs:
+        tracking_store.reset_job(job.job_id)  # reset the job status to PENDING
+
+    pending_jobs = pending_jobs + running_jobs
+
+    for job in pending_jobs:
+        params = json.loads(job.params)
+        function = _load_function(job.function)
+        # enqueue job
+        huey_task_exec_job(job.job_id, function, params)
+
+
 if os.environ.get("_IS_MLFLOW_JOB_RUNNER") == "1":
-    _kill_job_runner_if_mlflow_server_dies()
+    _start_watcher_to_kill_job_runner_if_mlflow_server_dies()
+    _enqueue_pending_running_jobs()
