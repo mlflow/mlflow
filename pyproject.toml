@@ -170,6 +170,8 @@ lint = [
   "mypy==1.17.1",
   "pydantic==2.11.7",
   "clint",
+  "pyyaml>=6.0.2",
+  "packaging>=25.0",
   { include-group = "pytest" },
 ]
 pytest = [
