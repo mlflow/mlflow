@@ -18,6 +18,7 @@ from mlflow.entities import (
 if TYPE_CHECKING:
     from mlflow.entities import EvaluationDataset
 from mlflow.entities.metric import MetricWithRunId
+from mlflow.entities.job import Job, JobStatus
 from mlflow.entities.trace import Span
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
@@ -1298,11 +1299,11 @@ class AbstractStore:
         raise NotImplementedError(self.__class__.__name__)
 
     def list_jobs(
-            self,
-            function: str | None = None,
-            status: "JobStatus" | None = None,
-            begin_timestamp: int | None = None,
-            end_timestamp: int | None = None
+        self,
+        function: str | None = None,
+        status: JobStatus | None = None,
+        begin_timestamp: int | None = None,
+        end_timestamp: int | None = None
     ):
         """
         List jobs based on the provided filters.
