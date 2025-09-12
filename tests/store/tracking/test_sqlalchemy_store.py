@@ -4493,8 +4493,7 @@ def _create_trace(
 
 
 @pytest.fixture
-def store_with_traces(tmp_path):
-    store = _get_store(tmp_path)
+def store_with_traces(store):
     exp1 = store.create_experiment("exp1")
     exp2 = store.create_experiment("exp2")
 
@@ -4546,8 +4545,7 @@ def store_with_traces(tmp_path):
         tags={"mlflow.traceName": "ddd", "color": "blue"},
     )
 
-    yield store
-    _cleanup_database(store)
+    return store
 
 
 @pytest.mark.parametrize(
