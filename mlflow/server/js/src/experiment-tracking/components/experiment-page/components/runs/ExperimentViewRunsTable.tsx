@@ -155,7 +155,7 @@ export const ExperimentViewRunsTable = React.memo(
         filteredParamKeyList: paramKeyList,
         filteredTagsList: tagsList,
       };
-    }, [runsData, selectedColumns, shouldOptimize, isComparingRuns, metricKeyList, paramKeyList, tagsList]);
+    }, [selectedColumns, shouldOptimize, isComparingRuns, metricKeyList, paramKeyList, tagsList]);
 
     const [gridApi, setGridApi] = useState<GridApi>();
     const [columnApi, setColumnApi] = useState<ColumnApi>();
