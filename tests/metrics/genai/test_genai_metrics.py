@@ -4,6 +4,7 @@ import io
 import platform
 import pstats
 import re
+import threading
 from unittest import mock
 
 import numpy as np
@@ -821,13 +822,12 @@ def test_faithfulness_metric():
 
         total_time = ps.total_tt
         profile_output = s.getvalue()
+        count = threading.active_count()
         error_msg = (
             f"test_faithfulness_metric is slow on Windows "
+            f"(active threads: {count}). "
             f"(took {total_time:.2f} seconds)\n\n"
-            "Profile Report:\n"
-            "=" * 80 + "\n"
-            f"{profile_output}\n"
-            "=" * 80
+            "Profile Report:\n" + "=" * 80 + "\n" + f"{profile_output}\n" + "=" * 80
         )
         raise AssertionError(error_msg)
 
