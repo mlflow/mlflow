@@ -69,7 +69,7 @@ def test_assessment_source_case_insensitivity():
 
 
 def test_ai_judge_deprecation_warning():
-    with pytest.warns(DeprecationWarning, match="AI_JUDGE is deprecated. Use LLM_JUDGE instead."):
+    with pytest.warns(FutureWarning, match="AI_JUDGE is deprecated. Use LLM_JUDGE instead."):
         source = AssessmentSource(source_type="AI_JUDGE", source_id="ai_1")
 
     assert source.source_type == "LLM_JUDGE"

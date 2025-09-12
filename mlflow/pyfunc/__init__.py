@@ -433,6 +433,7 @@ from mlflow.environment_variables import (
     _MLFLOW_IN_CAPTURE_MODULE_PROCESS,
     _MLFLOW_TESTING,
     MLFLOW_DISABLE_SCHEMA_DETAILS,
+    MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF,
     MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR,
     MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT,
 )
@@ -2583,6 +2584,8 @@ e.g., struct<a:int, b:array<int>>.
 
     tracking_uri = mlflow.get_tracking_uri()
 
+    enforce_stdin_scoring_server = MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF.get()
+
     @pandas_udf(result_type)
     def udf(
         # `pandas_udf` does not support modern type annotations
@@ -2650,7 +2653,7 @@ e.g., struct<a:int, b:array<int>>.
                 else:
                     local_model_path_on_executor = None
 
-                if check_port_connectivity():
+                if not enforce_stdin_scoring_server and check_port_connectivity():
                     # launch scoring server
                     server_port = find_free_port()
                     host = "127.0.0.1"
@@ -3180,7 +3183,6 @@ def save_model(
         )
     elif callable(python_model) or isinstance(python_model, PythonModel):
         model_for_signature_inference = None
-        predict_func = None
         if callable(python_model):
             # first argument is the model input
             type_hints = _extract_type_hints(python_model, input_arg_index=0)
@@ -3197,14 +3199,10 @@ def save_model(
                     color="yellow",
                 )
             model_for_signature_inference = _FunctionPythonModel(python_model)
-            predict_func = python_model
         elif isinstance(python_model, PythonModel):
             type_hints = python_model.predict_type_hints
             model_for_signature_inference = python_model
-            predict_func = python_model.predict
-        # Load context before calling predict to ensure necessary artifacts are available
         context = PythonModelContext(artifacts, model_config)
-        model_for_signature_inference.load_context(context)
         type_hint_from_example = _is_type_hint_from_example(type_hints.input)
         if type_hint_from_example:
             should_infer_signature_from_type_hints = False
@@ -3213,8 +3211,10 @@ def save_model(
                 not _signature_cannot_be_inferred_from_type_hint(type_hints.input)
             )
             if should_infer_signature_from_type_hints:
+                # context is only loaded when input_example exists
                 signature_from_type_hints = _infer_signature_from_type_hints(
-                    func=predict_func,
+                    python_model=python_model,
+                    context=context,
                     type_hints=type_hints,
                     input_example=input_example,
                 )
@@ -3225,9 +3225,10 @@ def save_model(
             if saved_example is not None:
                 _logger.info("Inferring model signature from input example")
                 try:
+                    model_for_signature_inference.load_context(context)
                     mlflow_model.signature = _infer_signature_from_input_example(
                         saved_example,
-                        _PythonModelPyfuncWrapper(model_for_signature_inference, None, None),
+                        _PythonModelPyfuncWrapper(model_for_signature_inference, context, None),
                     )
                 except Exception as e:
                     _logger.warning(
@@ -3600,6 +3601,7 @@ def log_model(
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
     """
+    flavor_name = _get_pyfunc_model_flavor_name(python_model)
     return Model.log(
         artifact_path=artifact_path,
         name=name,
@@ -3628,7 +3630,25 @@ def log_model(
         model_type=model_type,
         step=step,
         model_id=model_id,
+        # only used for checking python model type
+        flavor_name=flavor_name,
     )
+
+
+def _get_pyfunc_model_flavor_name(python_model: Any) -> str:
+    if python_model is None:
+        return "pyfunc"
+    if isinstance(python_model, str):
+        return "pyfunc.ModelFromCode"
+    if IS_RESPONSES_AGENT_AVAILABLE and isinstance(python_model, ResponsesAgent):
+        return "pyfunc.ResponsesAgent"
+    if isinstance(python_model, ChatAgent):
+        return "pyfunc.ChatAgent"
+    if isinstance(python_model, ChatModel):
+        return "pyfunc.ChatModel"
+    if isinstance(python_model, PythonModel):
+        return "pyfunc.CustomPythonModel"
+    return "pyfunc"
 
 
 def _save_model_with_loader_module_and_data_path(

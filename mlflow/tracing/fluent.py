@@ -27,6 +27,7 @@ from mlflow.tracing.constant import (
     STREAM_CHUNK_EVENT_VALUE_KEY,
     SpanAttributeKey,
 )
+from mlflow.tracing.destination import TraceDestination
 from mlflow.tracing.provider import is_tracing_enabled, safe_set_span_in_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
@@ -38,9 +39,8 @@ from mlflow.tracing.utils import (
     get_otel_attribute,
 )
 from mlflow.tracing.utils.search import extract_span_inputs_outputs, traces_to_df
-from mlflow.tracing.utils.warning import request_id_backward_compatible
 from mlflow.utils import get_results_from_paginated_fn
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import deprecated_parameter
 
 _logger = logging.getLogger(__name__)
 
@@ -63,6 +63,7 @@ def trace(
     span_type: str = SpanType.UNKNOWN,
     attributes: dict[str, Any] | None = None,
     output_reducer: Callable[[list[Any]], Any] | None = None,
+    trace_destination: TraceDestination | None = None,
 ) -> Callable[..., Any]:
     """
     A decorator that creates a new span for the decorated function.
@@ -157,6 +158,11 @@ def trace(
         attributes: A dictionary of attributes to set on the span.
         output_reducer: A function that reduces the outputs of the generator function into a
             single value to be set as the span output.
+        trace_destination: The destination to log the trace to, such as MLflow Experiment. If
+            not provided, the destination will be an active MLflow experiment or an destination
+            set by the :py:func:`mlflow.tracing.set_destination` function. This parameter
+            should only be used for root span and setting this for non-root spans will be
+            ignored with a warning.
     """
 
     def decorator(fn):
@@ -175,13 +181,14 @@ def trace(
                 span_type,
                 attributes,
                 output_reducer,
+                trace_destination,
             )
         else:
             if output_reducer is not None:
                 raise MlflowException.invalid_parameter_value(
                     "The output_reducer argument is only supported for generator functions."
                 )
-            wrapped = _wrap_function(original_fn, name, span_type, attributes)
+            wrapped = _wrap_function(original_fn, name, span_type, attributes, trace_destination)
 
         # If the original was a descriptor, wrap the result back as the same type of descriptor
         if is_classmethod:
@@ -199,6 +206,7 @@ def _wrap_function(
     name: str | None = None,
     span_type: str = SpanType.UNKNOWN,
     attributes: dict[str, Any] | None = None,
+    trace_destination: TraceDestination | None = None,
 ) -> Callable[..., Any]:
     class _WrappingContext:
         # define the wrapping logic as a coroutine to avoid code duplication
@@ -207,7 +215,12 @@ def _wrap_function(
         def _wrapping_logic(fn, args, kwargs):
             span_name = name or fn.__name__
 
-            with start_span(name=span_name, span_type=span_type, attributes=attributes) as span:
+            with start_span(
+                name=span_name,
+                span_type=span_type,
+                attributes=attributes,
+                trace_destination=trace_destination,
+            ) as span:
                 span.set_attribute(SpanAttributeKey.FUNCTION_NAME, fn.__name__)
                 inputs = capture_function_input_args(fn, args, kwargs)
                 span.set_inputs(inputs)
@@ -255,6 +268,7 @@ def _wrap_generator(
     span_type: str = SpanType.UNKNOWN,
     attributes: dict[str, Any] | None = None,
     output_reducer: Callable[[list[Any]], Any] | None = None,
+    trace_destination: TraceDestination | None = None,
 ) -> Callable[..., Any]:
     """
     Wrap a generator function to create a span.
@@ -291,6 +305,7 @@ def _wrap_generator(
                 span_type=span_type,
                 attributes=attributes,
                 inputs=inputs,
+                experiment_id=getattr(trace_destination, "experiment_id", None),
             )
         except Exception as e:
             _logger.debug(f"Failed to start stream span: {e}")
@@ -397,6 +412,7 @@ def start_span(
     name: str = "span",
     span_type: str | None = SpanType.UNKNOWN,
     attributes: dict[str, Any] | None = None,
+    trace_destination: TraceDestination | None = None,
 ) -> Generator[LiveSpan, None, None]:
     """
     Context manager to create a new span and start it as the current span in the context.
@@ -448,12 +464,19 @@ def start_span(
         span_type: The type of the span. Can be either a string or
             a :py:class:`SpanType <mlflow.entities.SpanType>` enum value
         attributes: A dictionary of attributes to set on the span.
+        trace_destination: The destination to log the trace to, such as MLflow Experiment. If
+            not provided, the destination will be an active MLflow experiment or an destination
+            set by the :py:func:`mlflow.tracing.set_destination` function. This parameter
+            should only be used for root span and setting this for non-root spans will be
+            ignored with a warning.
 
     Returns:
         Yields an :py:class:`mlflow.entities.Span` that represents the created span.
     """
     try:
-        otel_span = provider.start_span_in_context(name)
+        otel_span = provider.start_span_in_context(
+            name, experiment_id=trace_destination.experiment_id if trace_destination else None
+        )
 
         # Create a new MLflow span and register it to the in-memory trace manager
         request_id = get_otel_attribute(otel_span, SpanAttributeKey.REQUEST_ID)
@@ -583,7 +606,7 @@ def start_span_no_context(
     return NoOpSpan()
 
 
-@request_id_backward_compatible
+@deprecated_parameter("request_id", "trace_id")
 def get_trace(trace_id: str, silent: bool = False) -> Trace | None:
     """
     Get a trace by the given request ID if it exists.
@@ -1113,7 +1136,7 @@ def update_current_trace(
             trace.info.client_request_id = str(client_request_id)
 
 
-@request_id_backward_compatible
+@deprecated_parameter("request_id", "trace_id")
 def set_trace_tag(trace_id: str, key: str, value: str):
     """
     Set a tag on the trace with the given trace ID.
@@ -1140,7 +1163,7 @@ def set_trace_tag(trace_id: str, key: str, value: str):
     TracingClient().set_trace_tag(trace_id, key, value)
 
 
-@request_id_backward_compatible
+@deprecated_parameter("request_id", "trace_id", version="3.0.0")
 def delete_trace_tag(trace_id: str, key: str) -> None:
     """
     Delete a tag on the trace with the given trace ID.
@@ -1282,7 +1305,6 @@ def add_trace(trace: Trace | dict[str, Any], target: LiveSpan | None = None):
         )
 
 
-@experimental(version="2.21.0")
 def log_trace(
     name: str = "Task",
     request: Any | None = None,

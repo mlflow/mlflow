@@ -1,7 +1,7 @@
 import { Button, InfoSmallIcon, PlayIcon, RefreshIcon, LegacyTooltip } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { usePromptEngineeringContext } from '../contexts/PromptEngineeringContext';
-import { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
+import type { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
 import { canEvaluateOnRun } from '../../prompt-engineering/PromptEngineering.utils';
 
 /**

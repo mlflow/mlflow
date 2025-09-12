@@ -12,13 +12,12 @@ import {
 } from '@databricks/design-system';
 import { useIntl } from 'react-intl';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
-import {
+import type { ErrorWrapper } from '../../common/utils/ErrorWrapper';
+import type {
   EntitySearchAutoCompleteEntity,
   EntitySearchAutoCompleteOptionGroup,
-  getEntitySearchEntitiesAndIndices,
-  getFilteredOptionsFromEntityName,
 } from './EntitySearchAutoComplete.utils';
+import { getEntitySearchEntitiesAndIndices, getFilteredOptionsFromEntityName } from './EntitySearchAutoComplete.utils';
 import { shouldEnableMinMaxMetricsOnExperimentPage } from '../../common/utils/FeatureUtils';
 import {
   createQuickRegexpSearchFilter,

@@ -3,12 +3,12 @@ import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
 import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import Utils from '../../../common/utils/Utils';
-import { ReduxState } from '../../../redux-types';
+import type { ReduxState } from '../../../redux-types';
 import { RunViewHeaderRegisterModelButton } from './RunViewHeaderRegisterModelButton';
 import { DesignSystemProvider, DesignSystemThemeProvider } from '@databricks/design-system';
 import userEvent from '@testing-library/user-event';
 import { createModelVersionApi, createRegisteredModelApi } from '../../../model-registry/actions';
-import { KeyValueEntity } from '../../../common/types';
+import type { KeyValueEntity } from '../../../common/types';
 
 jest.mock('../../../model-registry/actions', () => ({
   searchRegisteredModelsApi: jest.fn(() => ({ type: 'MOCKED_ACTION', payload: Promise.resolve() })),
@@ -20,6 +20,7 @@ jest.mock('../../../model-registry/actions', () => ({
 const runUuid = 'testRunUuid';
 const experimentId = 'testExperimentId';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000); // Larger timeout for integration testing
 
 describe('RunViewHeaderRegisterModelButton integration', () => {

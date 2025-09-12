@@ -16,6 +16,20 @@ CREATE TABLE entity_associations (
 )
 
 
+CREATE TABLE evaluation_datasets (
+	dataset_id VARCHAR(36) NOT NULL,
+	name VARCHAR(255) NOT NULL,
+	schema TEXT,
+	profile TEXT,
+	digest VARCHAR(64),
+	created_time BIGINT,
+	last_update_time BIGINT,
+	created_by VARCHAR(255),
+	last_updated_by VARCHAR(255),
+	CONSTRAINT evaluation_datasets_pk PRIMARY KEY (dataset_id)
+)
+
+
 CREATE TABLE experiments (
 	experiment_id INTEGER DEFAULT nextval('experiments_experiment_id_seq'::regclass) NOT NULL,
 	name VARCHAR(256) NOT NULL,
@@ -57,6 +71,20 @@ CREATE TABLE registered_models (
 )
 
 
+CREATE TABLE webhooks (
+	webhook_id VARCHAR(256) NOT NULL,
+	name VARCHAR(256) NOT NULL,
+	description VARCHAR(1000),
+	url VARCHAR(500) NOT NULL,
+	status VARCHAR(20) DEFAULT 'ACTIVE'::character varying NOT NULL,
+	secret VARCHAR(1000),
+	creation_timestamp BIGINT,
+	last_updated_timestamp BIGINT,
+	deleted_timestamp BIGINT,
+	CONSTRAINT webhook_pk PRIMARY KEY (webhook_id)
+)
+
+
 CREATE TABLE datasets (
 	dataset_uuid VARCHAR(36) NOT NULL,
 	experiment_id INTEGER NOT NULL,
@@ -68,6 +96,35 @@ CREATE TABLE datasets (
 	dataset_profile TEXT,
 	CONSTRAINT dataset_pk PRIMARY KEY (experiment_id, name, digest),
 	CONSTRAINT fk_datasets_experiment_id_experiments FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE evaluation_dataset_records (
+	dataset_record_id VARCHAR(36) NOT NULL,
+	dataset_id VARCHAR(36) NOT NULL,
+	inputs JSON NOT NULL,
+	expectations JSON,
+	tags JSON,
+	source JSON,
+	source_id VARCHAR(36),
+	source_type VARCHAR(255),
+	created_time BIGINT,
+	last_update_time BIGINT,
+	created_by VARCHAR(255),
+	last_updated_by VARCHAR(255),
+	input_hash VARCHAR(64) NOT NULL,
+	CONSTRAINT evaluation_dataset_records_pk PRIMARY KEY (dataset_record_id),
+	CONSTRAINT fk_evaluation_dataset_records_dataset_id FOREIGN KEY(dataset_id) REFERENCES evaluation_datasets (dataset_id) ON DELETE CASCADE,
+	CONSTRAINT unique_dataset_input UNIQUE (dataset_id, input_hash)
+)
+
+
+CREATE TABLE evaluation_dataset_tags (
+	dataset_id VARCHAR(36) NOT NULL,
+	key VARCHAR(255) NOT NULL,
+	value VARCHAR(5000),
+	CONSTRAINT evaluation_dataset_tags_pk PRIMARY KEY (dataset_id, key),
+	CONSTRAINT fk_evaluation_dataset_tags_dataset_id FOREIGN KEY(dataset_id) REFERENCES evaluation_datasets (dataset_id) ON DELETE CASCADE
 )
 
 
@@ -158,6 +215,15 @@ CREATE TABLE runs (
 )
 
 
+CREATE TABLE scorers (
+	experiment_id INTEGER NOT NULL,
+	scorer_name VARCHAR(256) NOT NULL,
+	scorer_id VARCHAR(36) NOT NULL,
+	CONSTRAINT scorer_pk PRIMARY KEY (scorer_id),
+	CONSTRAINT fk_scorers_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
+)
+
+
 CREATE TABLE trace_info (
 	request_id VARCHAR(50) NOT NULL,
 	experiment_id INTEGER NOT NULL,
@@ -169,6 +235,15 @@ CREATE TABLE trace_info (
 	response_preview VARCHAR(1000),
 	CONSTRAINT trace_info_pk PRIMARY KEY (request_id),
 	CONSTRAINT fk_trace_info_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+)
+
+
+CREATE TABLE webhook_events (
+	webhook_id VARCHAR(256) NOT NULL,
+	entity VARCHAR(50) NOT NULL,
+	action VARCHAR(50) NOT NULL,
+	CONSTRAINT webhook_event_pk PRIMARY KEY (webhook_id, entity, action),
+	CONSTRAINT webhook_events_webhook_id_fkey FOREIGN KEY(webhook_id) REFERENCES webhooks (webhook_id) ON DELETE CASCADE
 )
 
 
@@ -274,6 +349,16 @@ CREATE TABLE params (
 	run_uuid VARCHAR(32) NOT NULL,
 	CONSTRAINT param_pk PRIMARY KEY (key, run_uuid),
 	CONSTRAINT params_run_uuid_fkey FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
+)
+
+
+CREATE TABLE scorer_versions (
+	scorer_id VARCHAR(36) NOT NULL,
+	scorer_version INTEGER NOT NULL,
+	serialized_scorer TEXT NOT NULL,
+	creation_time BIGINT,
+	CONSTRAINT scorer_version_pk PRIMARY KEY (scorer_id, scorer_version),
+	CONSTRAINT fk_scorer_versions_scorer_id FOREIGN KEY(scorer_id) REFERENCES scorers (scorer_id) ON DELETE CASCADE
 )
 
 

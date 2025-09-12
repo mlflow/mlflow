@@ -4,6 +4,7 @@ import pytest
 
 from mlflow.deployments import get_deploy_client
 from mlflow.deployments.mlflow import MlflowDeploymentClient
+from mlflow.environment_variables import MLFLOW_DEPLOYMENT_CLIENT_HTTP_REQUEST_TIMEOUT
 
 
 def test_get_deploy_client():
@@ -184,3 +185,83 @@ def test_predict():
         }
         ((_, url), _) = mock_request.call_args
         assert url == "http://localhost:5000/endpoints/test/invocations"
+
+
+def test_call_endpoint_uses_default_timeout():
+    client = get_deploy_client("http://localhost:5000")
+
+    with mock.patch("mlflow.deployments.mlflow.http_request") as mock_http_request:
+        mock_http_request.return_value.json.return_value = {"test": "response"}
+        mock_http_request.return_value.status_code = 200
+
+        client._call_endpoint("GET", "/test")
+
+        mock_http_request.assert_called_once()
+        call_args = mock_http_request.call_args
+        assert call_args.kwargs["timeout"] == MLFLOW_DEPLOYMENT_CLIENT_HTTP_REQUEST_TIMEOUT.get()
+
+
+def test_call_endpoint_respects_custom_timeout():
+    client = get_deploy_client("http://localhost:5000")
+    custom_timeout = 600
+
+    with mock.patch("mlflow.deployments.mlflow.http_request") as mock_http_request:
+        mock_http_request.return_value.json.return_value = {"test": "response"}
+        mock_http_request.return_value.status_code = 200
+
+        client._call_endpoint("GET", "/test", timeout=custom_timeout)
+
+        mock_http_request.assert_called_once()
+        call_args = mock_http_request.call_args
+        assert call_args.kwargs["timeout"] == custom_timeout
+
+
+def test_call_endpoint_timeout_with_environment_variable(monkeypatch):
+    custom_timeout = 420
+    monkeypatch.setenv("MLFLOW_DEPLOYMENT_CLIENT_HTTP_REQUEST_TIMEOUT", str(custom_timeout))
+
+    client = get_deploy_client("http://localhost:5000")
+
+    with mock.patch("mlflow.deployments.mlflow.http_request") as mock_http_request:
+        mock_http_request.return_value.json.return_value = {"test": "response"}
+        mock_http_request.return_value.status_code = 200
+
+        client._call_endpoint("GET", "/test")
+
+        mock_http_request.assert_called_once()
+        call_args = mock_http_request.call_args
+        assert call_args.kwargs["timeout"] == custom_timeout
+
+
+def test_get_endpoint_uses_deployment_client_timeout():
+    client = get_deploy_client("http://localhost:5000")
+
+    with mock.patch("mlflow.deployments.mlflow.http_request") as mock_http_request:
+        mock_http_request.return_value.json.return_value = {
+            "model": {"name": "gpt-4", "provider": "openai"},
+            "name": "test",
+            "endpoint_type": "llm/v1/chat",
+            "endpoint_url": "http://localhost:5000/endpoints/test/invocations",
+            "limit": None,
+        }
+        mock_http_request.return_value.status_code = 200
+
+        client.get_endpoint("test")
+
+        mock_http_request.assert_called_once()
+        call_args = mock_http_request.call_args
+        assert call_args.kwargs["timeout"] == MLFLOW_DEPLOYMENT_CLIENT_HTTP_REQUEST_TIMEOUT.get()
+
+
+def test_list_endpoints_uses_deployment_client_timeout():
+    client = get_deploy_client("http://localhost:5000")
+
+    with mock.patch("mlflow.deployments.mlflow.http_request") as mock_http_request:
+        mock_http_request.return_value.json.return_value = {"endpoints": []}
+        mock_http_request.return_value.status_code = 200
+
+        client.list_endpoints()
+
+        mock_http_request.assert_called_once()
+        call_args = mock_http_request.call_args
+        assert call_args.kwargs["timeout"] == MLFLOW_DEPLOYMENT_CLIENT_HTTP_REQUEST_TIMEOUT.get()

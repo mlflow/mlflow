@@ -15,27 +15,24 @@ import {
   useExperimentLoggedModelListPageTableContext,
 } from './ExperimentLoggedModelListPageTableContext';
 import { LoggedModelsListPageSortableColumns } from './hooks/useLoggedModelsListPagePageState';
-import {
-  type ColDef,
-  type ColGroupDef,
-  ColumnApi,
-  IsFullWidthRowParams,
-  type SortChangedEvent,
-} from '@ag-grid-community/core';
+import type { ColumnApi, IsFullWidthRowParams } from '@ag-grid-community/core';
+import { type ColDef, type ColGroupDef, type SortChangedEvent } from '@ag-grid-community/core';
 import { FormattedMessage } from 'react-intl';
 import { useRunsHighlightTableRow } from '../runs-charts/hooks/useRunsHighlightTableRow';
 import { ExperimentLoggedModelListPageTableEmpty } from './ExperimentLoggedModelListPageTableEmpty';
 import { LOGGED_MODEL_LIST_METRIC_COLUMN_PREFIX } from './hooks/useExperimentLoggedModelListPageTableColumns';
 import { first, groupBy, isEmpty, orderBy } from 'lodash';
+import type {
+  LoggedModelDataWithSourceRun,
+  LoggedModelsTableGroupByMode,
+  LoggedModelsTableRow,
+} from './ExperimentLoggedModelListPageTable.utils';
 import {
   getLoggedModelsTableRowID,
-  LoggedModelDataWithSourceRun,
   LoggedModelsTableDataRow,
-  LoggedModelsTableGroupByMode,
   LoggedModelsTableGroupHeaderRowClass,
   LoggedModelsTableGroupingEnabledClass,
   LoggedModelsTableLoadMoreRowSymbol,
-  LoggedModelsTableRow,
   LoggedModelsTableSpecialRowID,
   useLoggedModelTableDataRows,
 } from './ExperimentLoggedModelListPageTable.utils';

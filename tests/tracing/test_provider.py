@@ -6,7 +6,10 @@ from opentelemetry import trace
 
 import mlflow
 import mlflow.tracking._tracking_service
-from mlflow.environment_variables import MLFLOW_TRACE_SAMPLING_RATIO
+from mlflow.environment_variables import (
+    MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
+    MLFLOW_TRACE_SAMPLING_RATIO,
+)
 from mlflow.exceptions import MlflowTracingException
 from mlflow.tracing.destination import Databricks, MlflowExperiment
 from mlflow.tracing.export.inference_table import (
@@ -17,6 +20,7 @@ from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
 from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
+from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.provider import (
     _get_tracer,
     _setup_tracer_provider,
@@ -25,7 +29,7 @@ from mlflow.tracing.provider import (
     trace_disabled,
 )
 
-from tests.tracing.helper import get_traces, purge_traces
+from tests.tracing.helper import get_traces, purge_traces, skip_when_testing_trace_sdk
 
 
 @pytest.fixture
@@ -353,3 +357,94 @@ def test_sampling_ratio(monkeypatch):
     assert 30 <= len(traces) <= 70, (
         f"Expected around 50 traces with 0.5 sampling, got {len(traces)}"
     )
+
+
+def test_otlp_exclusive_vs_dual_export(monkeypatch):
+    """Test OTLP exclusive mode vs dual export mode."""
+    from mlflow.environment_variables import MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT
+    from mlflow.tracing.processor.otel import OtelSpanProcessor
+    from mlflow.tracing.provider import _get_tracer
+
+    # Test 1: OTLP exclusive mode (dual export = false, default)
+    monkeypatch.setenv(MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.name, "false")
+    with mock.patch("mlflow.tracing.provider.should_use_otlp_exporter", return_value=True):
+        with mock.patch("mlflow.tracing.provider.get_otlp_exporter") as mock_get_exporter:
+            mock_get_exporter.return_value = mock.MagicMock()
+
+            mlflow.tracing.reset()
+            tracer = _get_tracer("test")
+
+            from mlflow.tracing.provider import _MLFLOW_TRACER_PROVIDER
+
+            assert _MLFLOW_TRACER_PROVIDER is not None
+            processors = tracer.span_processor._span_processors
+
+            # Should have only OTLP processor as primary
+            assert len(processors) == 1
+            assert isinstance(processors[0], OtelSpanProcessor)
+
+    # Test 2: Dual export mode (both MLflow and OTLP)
+    monkeypatch.setenv(MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.name, "true")
+    with mock.patch("mlflow.tracing.provider.should_use_otlp_exporter", return_value=True):
+        with mock.patch("mlflow.tracing.provider.get_otlp_exporter") as mock_get_exporter:
+            mock_get_exporter.return_value = mock.MagicMock()
+
+            mlflow.tracing.reset()
+            tracer = _get_tracer("test")
+
+            from mlflow.tracing.provider import _MLFLOW_TRACER_PROVIDER
+
+            assert _MLFLOW_TRACER_PROVIDER is not None
+            processors = tracer.span_processor._span_processors
+
+            # Should have both processors
+            assert len(processors) == 2
+            assert isinstance(processors[0], OtelSpanProcessor)
+            assert isinstance(processors[1], MlflowV3SpanProcessor)
+
+
+@skip_when_testing_trace_sdk
+@pytest.mark.parametrize("dual_export", [False, True])
+def test_metrics_export_with_otlp_trace_export(monkeypatch, dual_export):
+    """Test metrics export configuration when OTLP is enabled."""
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://localhost:4317")
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", "http://localhost:9090")
+
+    if dual_export:
+        monkeypatch.setenv(MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.name, "true")
+
+    mlflow.tracing.reset()
+    tracer = _get_tracer("test")
+
+    if dual_export:
+        processors = tracer.span_processor._span_processors
+        assert len(processors) == 2
+        assert isinstance(processors[0], OtelSpanProcessor)
+        assert isinstance(processors[1], MlflowV3SpanProcessor)
+
+        # In dual export, MLflow processor exports metrics, OTLP doesn't
+        assert processors[0]._export_metrics is False
+        assert processors[1]._export_metrics is True
+    else:
+        processors = tracer.span_processor._span_processors
+        assert len(processors) == 1
+        assert isinstance(processors[0], OtelSpanProcessor)
+        assert processors[0]._export_metrics is True
+
+
+@skip_when_testing_trace_sdk
+def test_metrics_export_without_otlp_trace_export(monkeypatch):
+    """Test metrics export configuration when OTLP is disabled."""
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", "http://localhost:9090")
+
+    # No OTLP tracing endpoints set
+    monkeypatch.delenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", raising=False)
+    monkeypatch.delenv("OTEL_EXPORTER_OTLP_ENDPOINT", raising=False)
+
+    mlflow.tracing.reset()
+    tracer = _get_tracer("test")
+
+    processors = tracer.span_processor._span_processors
+    assert len(processors) == 1
+    assert isinstance(processors[0], MlflowV3SpanProcessor)
+    assert processors[0]._export_metrics is True

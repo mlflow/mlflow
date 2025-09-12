@@ -182,6 +182,7 @@ export const KeyValueProperty = ({
   const { theme } = useDesignSystemTheme();
   return (
     <div
+      data-testid={`key-value-${keyValue}`}
       css={{
         display: 'flex',
         alignItems: 'center',

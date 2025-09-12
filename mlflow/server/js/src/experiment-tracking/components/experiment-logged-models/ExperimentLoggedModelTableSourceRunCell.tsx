@@ -1,4 +1,4 @@
-import { GraphQLExperimentRun, LoggedModelProto } from '../../types';
+import type { GraphQLExperimentRun, LoggedModelProto } from '../../types';
 import { Link } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
 

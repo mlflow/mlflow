@@ -16,6 +16,13 @@ from mlflow.entities.model_registry import (
     RegisteredModelTag,
 )
 from mlflow.entities.model_registry.prompt import Prompt
+from mlflow.entities.webhook import (
+    Webhook,
+    WebhookEvent,
+    WebhookEventStr,
+    WebhookStatus,
+    WebhookTestResult,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.registry_utils import (
     add_prompt_filter_string,
@@ -30,9 +37,11 @@ from mlflow.telemetry.events import (
     CreateModelVersionEvent,
     CreatePromptEvent,
     CreateRegisteredModelEvent,
+    CreateWebhookEvent,
 )
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS, utils
+from mlflow.utils.annotations import experimental
 from mlflow.utils.arguments_utils import _get_arg_names
 
 _logger = logging.getLogger(__name__)
@@ -784,3 +793,125 @@ class ModelRegistryClient:
             None
         """
         self.store.delete_prompt_version_tag(name, version, key)
+
+    # Webhook APIs
+    @experimental(version="3.3.0")
+    @record_usage_event(CreateWebhookEvent)
+    def create_webhook(
+        self,
+        name: str,
+        url: str,
+        events: list[WebhookEvent],
+        description: str | None = None,
+        secret: str | None = None,
+        status: WebhookStatus | None = None,
+    ) -> Webhook:
+        """
+        Create a new webhook.
+
+        Args:
+            name: Unique name for the webhook.
+            url: Webhook endpoint URL.
+            events: List of event types that trigger this webhook.
+            description: Optional description of the webhook.
+            secret: Optional secret for HMAC signature verification.
+            status: Webhook status (defaults to ACTIVE).
+
+        Returns:
+            A :py:class:`mlflow.entities.webhook.Webhook` object representing the created webhook.
+        """
+        return self.store.create_webhook(name, url, events, description, secret, status)
+
+    @experimental(version="3.3.0")
+    def get_webhook(self, webhook_id: str) -> Webhook:
+        """
+        Get webhook instance by ID.
+
+        Args:
+            webhook_id: Webhook ID.
+
+        Returns:
+            A :py:class:`mlflow.entities.webhook.Webhook` object.
+        """
+        return self.store.get_webhook(webhook_id)
+
+    @experimental(version="3.3.0")
+    def list_webhooks(
+        self,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[Webhook]:
+        """
+        List webhooks.
+
+        Args:
+            max_results: Maximum number of webhooks to return.
+            page_token: Token specifying the next page of results.
+
+        Returns:
+            A :py:class:`mlflow.store.entities.paged_list.PagedList` of Webhook objects.
+        """
+        return self.store.list_webhooks(max_results, page_token)
+
+    @experimental(version="3.3.0")
+    def update_webhook(
+        self,
+        webhook_id: str,
+        name: str | None = None,
+        description: str | None = None,
+        url: str | None = None,
+        events: list[WebhookEvent] | None = None,
+        secret: str | None = None,
+        status: WebhookStatus | None = None,
+    ) -> Webhook:
+        """
+        Update an existing webhook.
+
+        Args:
+            webhook_id: Webhook ID.
+            name: New webhook name.
+            description: New webhook description.
+            url: New webhook URL.
+            events: New list of event types.
+            secret: New webhook secret.
+            status: New webhook status.
+
+        Returns:
+            A :py:class:`mlflow.entities.webhook.Webhook` object representing the updated webhook.
+        """
+        return self.store.update_webhook(webhook_id, name, description, url, events, secret, status)
+
+    @experimental(version="3.3.0")
+    def delete_webhook(self, webhook_id: str) -> None:
+        """
+        Delete a webhook.
+
+        Args:
+            webhook_id: Webhook ID to delete.
+
+        Returns:
+            None
+        """
+        self.store.delete_webhook(webhook_id)
+
+    @experimental(version="3.3.0")
+    def test_webhook(
+        self, webhook_id: str, event: WebhookEventStr | WebhookEvent | None = None
+    ) -> WebhookTestResult:
+        """
+        Test a webhook by sending a test payload.
+
+        Args:
+            webhook_id: The ID of the webhook to test.
+            event: Optional event type to test. Can be a WebhookEvent object or a string in
+                "entity.action" format (e.g., "model_version.created"). If not specified, uses
+                the first event from webhook.
+
+        Returns:
+            A :py:class:`mlflow.entities.webhook.WebhookTestResult` indicating success/failure and
+            response details.
+        """
+        # Convert string to WebhookEvent if needed
+        if isinstance(event, str):
+            event = WebhookEvent.from_str(event)
+        return self.store.test_webhook(webhook_id, event)

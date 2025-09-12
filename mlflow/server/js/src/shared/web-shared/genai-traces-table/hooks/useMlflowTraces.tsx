@@ -40,7 +40,7 @@ import {
   getMlflowTracesSearchPageSize,
   getEvalTabTotalTracesLimit,
 } from '../utils/FeatureUtils';
-import { fetchFn } from '../utils/FetchUtils';
+import { fetchFn, getAjaxUrl } from '../utils/FetchUtils';
 import MlflowUtils from '../utils/MlflowUtils';
 import { convertTraceInfoV3ToRunEvalEntry, getCustomMetadataKeyFromColumnId } from '../utils/TraceUtils';
 
@@ -61,7 +61,7 @@ interface SearchMlflowLocations {
   };
 }
 
-const SEARCH_MLFLOW_TRACES_QUERY_KEY = 'searchMlflowTraces';
+export const SEARCH_MLFLOW_TRACES_QUERY_KEY = 'searchMlflowTraces';
 
 export const invalidateMlflowSearchTracesCache = ({ queryClient }: { queryClient: QueryClient }) => {
   queryClient.invalidateQueries({ queryKey: [SEARCH_MLFLOW_TRACES_QUERY_KEY] });
@@ -172,12 +172,12 @@ export const useMlflowTracesTableMetadata = ({
       assessmentInfos,
       allColumns,
       totalCount: evaluatedTraces.length,
-      isLoading: isInnerLoading,
+      isLoading: isInnerLoading && !disabled,
       error,
       isEmpty: evaluatedTraces.length === 0,
       tableFilterOptions,
     };
-  }, [assessmentInfos, allColumns, isInnerLoading, error, evaluatedTraces.length, tableFilterOptions]);
+  }, [assessmentInfos, allColumns, isInnerLoading, error, evaluatedTraces.length, tableFilterOptions, disabled]);
 };
 
 const getNetworkAndClientFilters = (
@@ -398,7 +398,7 @@ const useSearchMlflowTracesInner = ({
         if (pageToken) {
           payload.page_token = pageToken;
         }
-        const queryResponse = await fetchFn('/ajax-api/3.0/mlflow/traces/search', {
+        const queryResponse = await fetchFn(getAjaxUrl('ajax-api/3.0/mlflow/traces/search'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

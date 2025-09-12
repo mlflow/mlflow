@@ -3,12 +3,15 @@ import { render, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react1
 import { TabSelectorBar } from './TabSelectorBar';
 import { MemoryRouter, useParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { useExperimentPageViewMode } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/hooks/useExperimentPageViewMode';
-import { ExperimentViewRunsCompareMode } from '@mlflow/mlflow/src/experiment-tracking/types';
+import type { ExperimentViewRunsCompareMode } from '@mlflow/mlflow/src/experiment-tracking/types';
 import { IntlProvider } from 'react-intl';
 import { shouldEnablePromptsTabOnDBPlatform } from '../../../../../../common/utils/FeatureUtils';
 
 import { ExperimentKind } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { DesignSystemProvider } from '@databricks/design-system';
+import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+
+const queryClient = new QueryClient();
 
 // Mock the hooks
 jest.mock('@mlflow/mlflow/src/common/utils/RoutingUtils', () => ({
@@ -22,6 +25,20 @@ jest.mock('@mlflow/mlflow/src/experiment-tracking/components/experiment-page/hoo
   useExperimentPageViewMode: jest.fn(),
 }));
 
+jest.mock(
+  '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/hooks/useExperimentEvaluationRunsData',
+  () => ({
+    useExperimentEvaluationRunsData: jest.fn().mockReturnValue({
+      data: [],
+      trainingRuns: [],
+      isLoading: false,
+      isFetching: false,
+      error: null,
+      refetch: jest.fn(),
+    }),
+  }),
+);
+
 jest.mock('../../../../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../../../../../common/utils/FeatureUtils')>(
     '../../../../../../common/utils/FeatureUtils',
@@ -34,6 +51,20 @@ const mockShouldEnablePromptsTabOnDBPlatform = jest.mocked(shouldEnablePromptsTa
 describe('TabSelectorBar', () => {
   const mockUseParams = jest.mocked(useParams);
   const mockUseExperimentPageViewMode = jest.mocked(useExperimentPageViewMode);
+
+  const renderComponent = (props = {}) => {
+    return render(<TabSelectorBar {...props} />, {
+      wrapper: ({ children }) => (
+        <DesignSystemProvider>
+          <QueryClientProvider client={queryClient}>
+            <MemoryRouter>
+              <IntlProvider locale="en">{children}</IntlProvider>
+            </MemoryRouter>
+          </QueryClientProvider>
+        </DesignSystemProvider>
+      ),
+    });
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -49,15 +80,7 @@ describe('TabSelectorBar', () => {
 
     mockUseExperimentPageViewMode.mockReturnValue(['MODELS' as ExperimentViewRunsCompareMode, jest.fn()]);
 
-    render(<TabSelectorBar />, {
-      wrapper: ({ children }) => (
-        <DesignSystemProvider>
-          <MemoryRouter>
-            <IntlProvider locale="en">{children}</IntlProvider>
-          </MemoryRouter>
-        </DesignSystemProvider>
-      ),
-    });
+    renderComponent();
 
     expect(screen.getByTestId('tab-selector-button-text-models-active')).toBeInTheDocument();
   });
@@ -69,15 +92,7 @@ describe('TabSelectorBar', () => {
       tabName: 'models',
     });
     mockUseExperimentPageViewMode.mockReturnValue(['MODELS' as ExperimentViewRunsCompareMode, jest.fn()]);
-    const { rerender } = render(<TabSelectorBar />, {
-      wrapper: ({ children }) => (
-        <DesignSystemProvider>
-          <MemoryRouter>
-            <IntlProvider locale="en">{children}</IntlProvider>
-          </MemoryRouter>
-        </DesignSystemProvider>
-      ),
-    });
+    const { rerender } = renderComponent();
     const activeButton1 = screen.getByTestId('tab-selector-button-text-models-active');
     expect(activeButton1).toBeInTheDocument();
 

@@ -14,7 +14,7 @@ import { ErrorCell } from './ErrorCell';
 import { NullCell } from './NullCell';
 import { StackedComponents } from './StackedComponents';
 import type { TraceInfoV3 } from '../types';
-import { makeRequest } from '../utils/FetchUtils';
+import { getAjaxUrl, makeRequest } from '../utils/FetchUtils';
 import MlflowUtils from '../utils/MlflowUtils';
 import { Link } from '../utils/RoutingUtils';
 
@@ -122,7 +122,7 @@ const useLoggedModelName = ({ loggedModelId }: { loggedModelId?: string }) => {
     queryKey: ['loggedModelName', loggedModelId],
     queryFn: async () => {
       const res: LoggedModelNameResponse = await makeRequest(
-        `/ajax-api/2.0/mlflow/logged-models/${loggedModelId}`,
+        getAjaxUrl(`ajax-api/2.0/mlflow/logged-models/${loggedModelId}`),
         'GET',
       );
       return res;

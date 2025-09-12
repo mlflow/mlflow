@@ -4,7 +4,7 @@ repos:
     rev: v4.5.0
     hooks:
       - id: trailing-whitespace
-        files: \.mdx
+        files: \.(mdx|ya?ml)$
       - id: end-of-file-fixer
         files: \.(proto|txt|sh|rst)$
         exclude: ^examples/
@@ -16,10 +16,19 @@ repos:
     hooks:
       - id: prettier
         files: '^(?!docs/|mlflow/server/js/|libs/typescript/).+\.(js|ts|md|json|ya?ml)$'
-        args: ["--no-config", "--print-width", "100"]
         require_serial: true
+
   - repo: local
     hooks:
+      - id: normalize-chars
+        name: normalize-chars
+        entry: python dev/normalize_chars.py
+        language: system
+        stages: [pre-commit]
+        types: [text]
+        exclude: '^mlflow/server/js/|^docs/api_reference/source/R-api\.rst$'
+        require_serial: true
+
       - id: ruff
         name: ruff
         entry: python dev/ruff.py
@@ -43,14 +52,6 @@ repos:
         entry: mypy
         require_serial: true
 
-      - id: taplo
-        name: taplo
-        entry: dev/taplo.sh
-        language: system
-        files: '\.toml$'
-        stages: [pre-commit]
-        require_serial: true
-
       - id: blacken-docs
         name: blacken-docs
         entry: blacken-docs
@@ -64,6 +65,22 @@ repos:
         entry: clint
         language: system
         files: '\.(py|ipynb|rst|mdx?)$'
+        stages: [pre-commit]
+        require_serial: true
+
+      - id: install-bin
+        name: install-bin
+        entry: python bin/install.py
+        language: system
+        stages: [pre-commit]
+        require_serial: true
+        pass_filenames: false
+
+      - id: taplo
+        name: taplo
+        entry: bin/taplo format
+        language: system
+        files: '\.toml$'
         stages: [pre-commit]
         require_serial: true
 
@@ -108,7 +125,7 @@ repos:
 
       - id: typos
         name: typos
-        entry: dev/typos.sh
+        entry: bin/typos --format brief --force-exclude --color never
         files: '\.(py$|mdx?$)'
         language: system
         stages: [pre-commit]
@@ -116,7 +133,7 @@ repos:
 
       - id: conftest
         name: conftest
-        entry: conftest test --policy .github/policy.rego
+        entry: bin/conftest test --policy .github/policy.rego
         files: '^\.github/(workflows|actions)/.*\.ya?ml$'
         exclude: '^\.github/workflows/copilot-setup-steps\.yml$'
         language: system

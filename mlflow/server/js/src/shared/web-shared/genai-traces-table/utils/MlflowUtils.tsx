@@ -1,5 +1,5 @@
 /**
- * This file is a subset of functions from mlflow/web/js/src/common/Utils.tsx but does not support OSS.
+ * This file is a subset of functions from mlflow/web/js/src/common/Utils.tsx
  */
 import type { TraceInfoV3 } from '../types';
 
@@ -98,11 +98,11 @@ class MlflowUtils {
   }
 
   static getRunPageRoute(experimentId: string, runUuid: string) {
-    return `/ml/experiments/${experimentId}/runs/${runUuid}`;
+    return `/experiments/${experimentId}/runs/${runUuid}`;
   }
 
   static getLoggedModelPageRoute(experimentId: string, loggedModelId: string) {
-    return `/ml/experiments/${experimentId}/models/${loggedModelId}`;
+    return `/experiments/${experimentId}/models/${loggedModelId}`;
   }
 
   /**

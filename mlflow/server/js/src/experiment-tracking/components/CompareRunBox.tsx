@@ -11,7 +11,7 @@ import {
   FormUI,
 } from '@databricks/design-system';
 import { LazyPlot } from './LazyPlot';
-import { RunInfoEntity } from '../types';
+import type { RunInfoEntity } from '../types';
 
 type Props = {
   runUuids: string[];

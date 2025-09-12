@@ -10,7 +10,7 @@ import {
 } from '@databricks/design-system';
 import { Link } from '../../../../common/utils/RoutingUtils';
 import ExperimentRoutes from '../../../routes';
-import { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
+import type { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
 import { EvaluationRunHeaderModelIndicator } from './EvaluationRunHeaderModelIndicator';
 import { shouldEnablePromptLab } from '../../../../common/utils/FeatureUtils';
 import { EvaluationRunHeaderDatasetIndicator } from './EvaluationRunHeaderDatasetIndicator';

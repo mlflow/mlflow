@@ -1,20 +1,20 @@
 import json
 import logging
+import math
 from typing import TYPE_CHECKING, Any, Callable
 
 from opentelemetry.trace import NoOpTracer
 from pydantic import BaseModel
 
 import mlflow
+from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.entities.span import Span, SpanType
 from mlflow.entities.trace import Trace
-from mlflow.genai.evaluation.utils import is_none_or_nan
 from mlflow.genai.utils.data_validation import check_model_prediction
 from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.utils import TraceJSONEncoder
-from mlflow.tracking.client import MlflowClient
 
 if TYPE_CHECKING:
     from mlflow.genai.evaluation.entities import EvalItem
@@ -25,6 +25,102 @@ _MESSAGE_KEY = "message"
 _MESSAGES_KEY = "messages"
 _CHOICES_KEY = "choices"
 _CONTENT_KEY = "content"
+
+
+def extract_request_from_trace(trace: Trace) -> str | None:
+    """
+    Extract request text from an MLflow trace object.
+
+    Args:
+        trace: MLflow trace object
+
+    Returns:
+        Extracted request text as string, or None if no root span
+    """
+    root_span = trace.data._get_root_span()
+    if root_span is None:
+        return None
+    return parse_inputs_to_str(root_span.inputs)
+
+
+def extract_response_from_trace(trace: Trace) -> str | None:
+    """
+    Extract response text from an MLflow trace object.
+
+    Args:
+        trace: MLflow trace object
+
+    Returns:
+        Extracted response text as string, or None if no root span
+    """
+    root_span = trace.data._get_root_span()
+    if root_span is None:
+        return None
+    return parse_outputs_to_str(root_span.outputs)
+
+
+def extract_inputs_from_trace(trace: Trace) -> Any:
+    """
+    Extract inputs from the root span of an MLflow trace.
+
+    Args:
+        trace: MLflow trace object
+
+    Returns:
+        Inputs from the root span, or None if no root span or inputs
+    """
+    root_span = trace.data._get_root_span()
+    if root_span and root_span.inputs is not None:
+        return root_span.inputs
+    return None
+
+
+def extract_outputs_from_trace(trace: Trace) -> Any:
+    """
+    Extract outputs from the root span of an MLflow trace.
+
+    Args:
+        trace: MLflow trace object
+
+    Returns:
+        Outputs from the root span, or None if no root span or outputs
+    """
+    root_span = trace.data._get_root_span()
+    if root_span and root_span.outputs is not None:
+        return root_span.outputs
+    return None
+
+
+def extract_expectations_from_trace(
+    trace: Trace, source: str | None = None
+) -> dict[str, Any] | None:
+    """
+    Extract expectations from trace assessments.
+
+    Args:
+        trace: MLflow trace object
+        source: If specified, only extract expectations from the given source type.
+                Must be one of the valid AssessmentSourceType values
+                If None, extract all expectations regardless of source.
+
+    Returns:
+        Dictionary of expectations, or None if no expectations found
+    """
+    validated_source = AssessmentSourceType._standardize(source) if source is not None else None
+
+    expectation_assessments = trace.search_assessments(type="expectation")
+
+    if validated_source is not None:
+        expectation_assessments = [
+            exp
+            for exp in expectation_assessments
+            if exp.source and exp.source.source_type == validated_source
+        ]
+
+    if not expectation_assessments:
+        return None
+
+    return {exp.name: exp.expectation.value for exp in expectation_assessments}
 
 
 def convert_predict_fn(predict_fn: Callable[..., Any], sample_input: Any) -> Callable[..., Any]:
@@ -78,6 +174,16 @@ class NoOpTracerPatcher:
 
     def __exit__(self, exc_type, exc_value, traceback):
         NoOpTracer.start_span = self.original
+
+
+def is_none_or_nan(value: Any) -> bool:
+    """
+    Checks whether a value is None or NaN.
+
+    NB: This function does not handle pandas.NA.
+    """
+    # isinstance(value, float) check is needed to ensure that math.isnan is not called on an array.
+    return value is None or (isinstance(value, float) and math.isnan(value))
 
 
 def parse_inputs_to_str(value: Any) -> str:
@@ -280,6 +386,9 @@ def clean_up_extra_traces(run_id: str, start_time_ms: int):
                 f"Found {len(extra_trace_ids)} extra traces generated during evaluation run. "
                 "Deleting them."
             )
+            # Import MlflowClient locally to avoid issues with tracing-only SDK
+            from mlflow.tracking.client import MlflowClient
+
             MlflowClient().delete_traces(
                 experiment_id=_get_experiment_id(), trace_ids=extra_trace_ids
             )
