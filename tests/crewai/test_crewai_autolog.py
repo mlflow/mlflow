@@ -1,4 +1,3 @@
-from typing import Any
 from unittest.mock import patch
 
 import crewai
@@ -20,7 +19,7 @@ _FINAL_ANSWER_KEYWORD = "Final Answer:"
 _LLM_ANSWER = "What about Tokyo?"
 
 
-def create_sample_llm_response(content: str) -> Any:
+def create_sample_llm_response(content):
     from litellm import ModelResponse
 
     return ModelResponse(
@@ -72,7 +71,7 @@ _EMBEDDING = {
 
 
 class AnyInt(int):
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other):
         return isinstance(other, int)
 
 
@@ -80,13 +79,14 @@ ANY_INT = AnyInt()
 
 # CrewAI >= 0.175.0 changed behavior: TaskOutput.name falls back to description when None
 # See: https://github.com/crewAIInc/crewAI/pull/3382
+_CREWAI_VERSION = Version(crewai.__version__)
 _TASK_DESCRIPTION = "Analyze and select the best city for the trip"
 _TASK_DESCRIPTION_2 = "Compile an in-depth guide"
 
 
-def _get_expected_task_name(description: str) -> str:
+def _get_expected_task_name(description: str) -> str | None:
     """Get expected task name based on CrewAI version."""
-    return description if Version(crewai.__version__) >= Version("0.175.0") else None
+    return description if _CREWAI_VERSION >= Version("0.175.0") else None
 
 
 _TASK_NAME = _get_expected_task_name(_TASK_DESCRIPTION)
@@ -714,7 +714,7 @@ def test_memory(simple_agent_1, task_1, monkeypatch, autolog):
         "value": f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}",
     }
     # Add agent field for older CrewAI versions
-    if Version(crewai.__version__) < Version("0.175.0"):
+    if _CREWAI_VERSION < Version("0.175.0"):
         expected_memory_inputs["agent"] = "City Selection Expert"
 
     assert span_7.inputs == expected_memory_inputs
