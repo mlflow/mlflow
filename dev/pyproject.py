@@ -139,70 +139,36 @@ def write_file_if_changed(file_path: Path, new_content: str) -> bool:
     Returns:
         True if file was written (content changed), False if no write was needed
     """
-    try:
-        if file_path.exists():
-            existing_content = file_path.read_text()
-            if existing_content == new_content:
-                return False
-    except (OSError, IOError):
-        # If we can't read the existing file, assume we need to write it
-        pass
+    if file_path.exists():
+        existing_content = file_path.read_text()
+        if existing_content == new_content:
+            return False
 
     file_path.write_text(new_content)
     return True
 
 
 def format_content_with_taplo(content: str) -> str:
-    """
-    Format TOML content using taplo and return the formatted content.
-
-    Args:
-        content: The TOML content to format
-
-    Returns:
-        The formatted content, or original content if taplo is not available
-    """
-    if not (taplo := shutil.which("taplo")):
-        return content
-
-    try:
-        # Use taplo fmt - to read from stdin
-        result = subprocess.run(
-            [taplo, "fmt", "-"],
+    return (
+        subprocess.check_output(
+            ["bin/taplo", "fmt", "-"],
             input=content,
             text=True,
-            capture_output=True,
-            check=True,
-        )
-        return result.stdout
-    except (subprocess.CalledProcessError, OSError, IOError):
-        # If formatting fails, return original content
-        return content
+        ).strip()
+        + "\n"
+    )
 
 
 def write_toml_file_if_changed(
     file_path: Path, description: str, toml_data: dict[str, Any]
-) -> bool:
+) -> None:
     """
     Write a TOML file with description only if content has changed.
     Formats content with taplo before comparison.
-
-    Args:
-        file_path: Path to the TOML file to write
-        description: Description comment to add at the top
-        toml_data: Dictionary to serialize as TOML
-
-    Returns:
-        True if file was written (content changed), False if no write was needed
     """
-    # Generate the new content
     new_content = description + "\n" + toml.dumps(toml_data)
-
-    # Format the new content with taplo to match existing format
     formatted_content = format_content_with_taplo(new_content)
-
-    # Compare with existing content and write only if different
-    return write_file_if_changed(file_path, formatted_content)
+    write_file_if_changed(file_path, formatted_content)
 
 
 class PackageRequirement(BaseModel):
@@ -455,7 +421,6 @@ def build(package_type: PackageType) -> None:
         out_path = Path("libs/skinny/pyproject.toml")
         write_toml_file_if_changed(out_path, package_type.description(), data)
 
-        # Also handle the README_SKINNY.md file
         skinny_readme_path = Path("libs/skinny/README_SKINNY.md")
         new_readme_content = SKINNY_README.lstrip() + Path("README.md").read_text()
         write_file_if_changed(skinny_readme_path, new_readme_content)
@@ -470,14 +435,9 @@ def build(package_type: PackageType) -> None:
         out_path = Path(f"pyproject.{package_type.value}.toml")
         write_toml_file_if_changed(out_path, package_type.description(), data)
     else:
-        # DEV case: merge generated content with existing manual content after SEPARATOR
         out_path = Path("pyproject.toml")
         original_manual_content = out_path.read_text().split(SEPARATOR)[1]
-
-        # Generate the full new content
         generated_part = package_type.description() + "\n" + toml.dumps(data)
-
-        # Format just the generated part with taplo, then combine
         formatted_generated_part = format_content_with_taplo(generated_part)
         formatted_full_content = formatted_generated_part + SEPARATOR + original_manual_content
 
