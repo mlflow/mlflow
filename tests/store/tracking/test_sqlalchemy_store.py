@@ -290,14 +290,30 @@ def test_fail_on_multiple_drivers():
         extract_db_type_from_uri("mysql+pymsql+pyodbc://...")
 
 
+@pytest.fixture(scope="module")
+def cached_db(tmp_path_factory) -> Path:
+    tmp_path = tmp_path_factory.mktemp("sqlite_db")
+    db_path = tmp_path / "mlflow.db"
+    db_uri = f"sqlite:///{db_path}"
+    store = SqlAlchemyStore(db_uri, ARTIFACT_URI)  # initialize database
+    store.engine.dispose()
+    return db_path
+
+
 @pytest.fixture
-def store(tmp_path: Path):
-    db_uri = MLFLOW_TRACKING_URI.get() or f"{DB_URI}{tmp_path / 'temp.db'}"
+def store(tmp_path: Path, cached_db: Path) -> SqlAlchemyStore:
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir(exist_ok=True)
-    store = SqlAlchemyStore(db_uri, artifact_uri.as_uri())
-    yield store
-    _cleanup_database(store)
+    if db_uri_env := MLFLOW_TRACKING_URI.get():
+        s = SqlAlchemyStore(db_uri_env, artifact_uri.as_uri())
+        yield s
+        _cleanup_database(s)
+    else:
+        db_path = tmp_path / "mlflow.db"
+        shutil.copy(cached_db, db_path)
+        db_uri = f"sqlite:///{db_path}"
+        s = SqlAlchemyStore(db_uri, artifact_uri.as_uri())
+        yield s
 
 
 @pytest.fixture
@@ -473,8 +489,10 @@ def test_default_experiment_lifecycle(store: SqlAlchemyStore, tmp_path):
     assert default_experiment.lifecycle_stage == entities.LifecycleStage.DELETED
 
     # destroy SqlStore and make a new one
+    db_uri = store.db_uri
+    artifact_uri = store.artifact_root_uri
     del store
-    store = _get_store(tmp_path)
+    store = SqlAlchemyStore(db_uri, artifact_uri)
 
     # test that default experiment is not reactivated
     default_experiment = store.get_experiment(experiment_id=0)
