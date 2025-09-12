@@ -2338,12 +2338,51 @@ def test_warning_shown_for_explicitly_provided_unused_fields(mock_invoke_judge_m
         model="openai:/gpt-4",
     )
 
-    # Explicitly provide outputs which isn't used in template
     with mock.patch("mlflow.genai.judges.instructions_judge._logger.warning") as mock_warning:
         judge(inputs="What is AI?", outputs="This output is not used by the template")
 
-        # Should warn about outputs being unused
         mock_warning.assert_called_once()
         warning_message = mock_warning.call_args[0][0]
         assert "outputs" in warning_message
         assert "not used by this judge" in warning_message
+
+
+def test_no_warning_for_trace_based_judge_with_extra_fields(mock_invoke_judge_model):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate {{ trace }} for quality",
+        model="openai:/gpt-4",
+    )
+
+    span_mock = Span(
+        OTelReadableSpan(
+            name="test_span",
+            context=build_otel_context(
+                trace_id=12345678,
+                span_id=12345678,
+            ),
+        )
+    )
+    trace = Trace(
+        info=TraceInfo(
+            request_id="test_trace",
+            experiment_id="0",
+            timestamp_ms=0,
+            execution_time_ms=100,
+            status=TraceState.OK,
+            request_metadata={},
+            tags={},
+            trace_location=TraceLocation.create(),
+        ),
+        data=TraceData(spans=[span_mock]),
+    )
+
+    with mock.patch("mlflow.genai.judges.instructions_judge._logger.warning") as mock_warning:
+        judge(
+            trace=trace,
+            inputs="These inputs are extracted from trace",
+            outputs="These outputs are extracted from trace",
+            expectations={"ground_truth": "These expectations are extracted from trace"},
+        )
+
+        mock_warning.assert_not_called()
