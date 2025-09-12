@@ -309,6 +309,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
 
     # Display per-file durations
     if duration_stats := generate_duration_stats():
+        terminalreporter.write("\n")
         header = "per-file durations (sorted)"
         terminalreporter.write_sep("=", header)
         for line in duration_stats:
