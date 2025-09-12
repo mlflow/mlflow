@@ -157,7 +157,7 @@ def generate_duration_stats() -> str:
         return ""
 
     # Group results by file path
-    file_groups = defaultdict(list)
+    file_groups: defaultdict[Path, list[float]] = defaultdict(list)
     for result in _test_results:
         file_groups[result.path].append(result.execution_time)
 
