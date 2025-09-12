@@ -75,6 +75,12 @@ class CreateLoggedModelEvent(Event):
 class GetLoggedModelEvent(Event):
     name: str = "get_logged_model"
 
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {
+            "imports": [pkg for pkg in MODULES_TO_CHECK_IMPORT if pkg in sys.modules],
+        }
+
 
 class CreateRegisteredModelEvent(Event):
     name: str = "create_registered_model"
