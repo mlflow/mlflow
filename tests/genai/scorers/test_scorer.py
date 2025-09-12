@@ -13,13 +13,12 @@ from mlflow.genai.scorers import Correctness, Guidelines, RetrievalGroundedness
 
 from tests.tracing.helper import get_traces, purge_traces
 
-
-@pytest.fixture(autouse=True)
-def increase_db_pool_size(monkeypatch):
-    # Set larger pool size for tests to handle concurrent trace creation
-    monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_POOL_SIZE", "20")
-    monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW", "40")
-    return
+# @pytest.fixture(autouse=True)
+# def increase_db_pool_size(monkeypatch):
+#     # Set larger pool size for tests to handle concurrent trace creation
+#     monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_POOL_SIZE", "20")
+#     monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW", "40")
+#     return
 
 
 def always_yes(inputs, outputs, expectations, trace):
@@ -324,6 +323,7 @@ def test_custom_scorer_does_not_overwrite_feedback_name_when_returning_list():
     assert feedbacks[1].name == "small_question"
 
 
+@pytest.mark.repeat(100)
 def test_extra_traces_from_customer_scorer_should_be_cleaned_up(is_in_databricks):
     @scorer
     def my_scorer_1(inputs, outputs):
