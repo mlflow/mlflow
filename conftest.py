@@ -127,6 +127,39 @@ class TestResult:
 _test_results: list[TestResult] = []
 
 
+def generate_duration_stats() -> list[str]:
+    """Generate per-file duration statistics lines."""
+    if not _test_results:
+        return []
+
+    # Group results by file path
+    file_groups = defaultdict(list)
+    for result in _test_results:
+        file_groups[result.path].append(result.execution_time)
+
+    rows = []
+    for path, test_times in file_groups.items():
+        rel_path = str(path.relative_to(Path.cwd()))
+        total_dur = sum(test_times)
+        test_count = len(test_times)
+        if test_times:
+            min_test = min(test_times)
+            max_test = max(test_times)
+            avg_test = sum(test_times) / len(test_times)
+            stats = f"min: {min_test:.3f}s max: {max_test:.3f}s avg: {avg_test:.3f}s"
+        else:
+            stats = "no test data"
+
+        rows.append((rel_path, total_dur, test_count, stats))
+
+    rows.sort(key=lambda r: r[1], reverse=True)
+
+    return [
+        f"{idx:>2}. {dur:7.2f}s  {path}  ({count} tests) [{stats}]"
+        for idx, (path, dur, count, stats) in enumerate(rows, 1)
+    ]
+
+
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
     start = time.perf_counter()
@@ -275,33 +308,11 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     yield
 
     # Display per-file durations
-    if _test_results:
-        # Group results by file path
-        file_groups = defaultdict(list)
-        for result in _test_results:
-            file_groups[result.path].append(result.execution_time)
-
-        rows = []
-        for path, test_times in file_groups.items():
-            rel_path = str(path.relative_to(Path.cwd()))
-            total_dur = sum(test_times)
-            test_count = len(test_times)
-            if test_times:
-                min_test = min(test_times)
-                max_test = max(test_times)
-                avg_test = sum(test_times) / len(test_times)
-                stats = f"min: {min_test:.3f}s max: {max_test:.3f}s avg: {avg_test:.3f}s"
-            else:
-                stats = "no test data"
-
-            rows.append((rel_path, total_dur, test_count, stats))
-
-        rows.sort(key=lambda r: r[1], reverse=True)
-
+    if duration_stats := generate_duration_stats():
         header = "per-file durations (sorted)"
         terminalreporter.write_sep("=", header)
-        for idx, (path, dur, count, stats) in enumerate(rows, 1):
-            terminalreporter.write_line(f"{idx:>2}. {dur:7.2f}s  {path}  ({count} tests) [{stats}]")
+        for line in duration_stats:
+            terminalreporter.write_line(line)
         terminalreporter.write("\n")
 
     # If there are failed tests, display a command to run them
