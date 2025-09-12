@@ -399,6 +399,9 @@ jobs:
       - name: Download Hadoop winutils for Spark
         run: |
           git clone https://github.com/cdarlint/winutils /tmp/winutils
+
+      - run: |
+          pytest tests/tracking/_model_registry/test_model_registry_fluent.py::test_register_model_with_unexpected_exception_in_create_registered_model
       - name: Run python tests
         env:
           # Starting from SQLAlchemy version 2.0, `QueuePool` is the default connection pool
@@ -413,6 +416,8 @@ jobs:
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+            --durations 50 \
+            --junit-xml=test-results-${{ matrix.group }}.xml \
             --ignore-flavors \
             --ignore=tests/projects \
             --ignore=tests/examples \
@@ -424,3 +429,10 @@ jobs:
             --ignore=tests/gateway \
             --ignore=tests/server/auth \
             tests
+
+      - name: Upload test results
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: test-results-windows-${{ matrix.group }}
+          path: test-results-*.xml
