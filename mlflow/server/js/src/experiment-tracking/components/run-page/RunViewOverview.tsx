@@ -13,7 +13,6 @@ import { DetailsOverviewParamsTable } from '../DetailsOverviewParamsTable';
 import { RunViewMetricsTable } from './overview/RunViewMetricsTable';
 import { RunViewDatasetBox } from './overview/RunViewDatasetBox';
 import { RunViewParentRunBox } from './overview/RunViewParentRunBox';
-import { RunViewChildRunsBox } from './overview/RunViewChildRunsBox';
 import { RunViewTagsBox } from './overview/RunViewTagsBox';
 import { RunViewDescriptionBox } from './overview/RunViewDescriptionBox';
 import { DetailsOverviewMetadataRow } from '../DetailsOverviewMetadataRow';
