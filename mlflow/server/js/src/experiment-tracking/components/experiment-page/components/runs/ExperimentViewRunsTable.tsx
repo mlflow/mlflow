@@ -123,9 +123,9 @@ export const ExperimentViewRunsTable = React.memo(
     // Conditionally filter keys only when there are more than 1000 metrics+params+tags
     const { filteredMetricKeyList, filteredParamKeyList, filteredTagsList } = useMemo(() => {
       if (shouldOptimize && !isComparingRuns) {
-        let filteredMetricKeyList: string[] = [];
-        let filteredParamKeyList: string[] = [];
-        let filteredTagsList: any[] = [];
+        const filteredMetricKeyList: string[] = [];
+        const filteredParamKeyList: string[] = [];
+        const filteredTagsList: any[] = [];
 
         for (const column of selectedColumns) {
           if (column.startsWith(COLUMN_TYPES.METRICS)) {
