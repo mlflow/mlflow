@@ -141,14 +141,14 @@ def generate_duration_stats() -> list[str]:
     for path, test_times in file_groups.items():
         rel_path = str(path.relative_to(Path.cwd()))
         total_dur = sum(test_times)
+        if total_dur < 1.0:
+            # Ignore files with total duration < 1s
+            continue
         test_count = len(test_times)
-        if test_times:
-            min_test = min(test_times)
-            max_test = max(test_times)
-            avg_test = sum(test_times) / len(test_times)
-            stats = f"min: {min_test:.3f}s max: {max_test:.3f}s avg: {avg_test:.3f}s"
-        else:
-            stats = "no test data"
+        min_test = min(test_times)
+        max_test = max(test_times)
+        avg_test = sum(test_times) / len(test_times)
+        stats = f"min: {min_test:.3f}s max: {max_test:.3f}s avg: {avg_test:.3f}s"
 
         rows.append((rel_path, total_dur, test_count, stats))
 
