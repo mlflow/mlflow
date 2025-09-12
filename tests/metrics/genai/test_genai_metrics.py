@@ -731,7 +731,7 @@ def test_similarity_metric(parameters, extra_headers, proxy_url):
 
 
 def _test_faithfulness_metric():
-    faithfulness_metric = faithfulness(model="gateway:/gpt-4o-mini", examples=[])
+    faithfulness_metric = faithfulness(model="gateway:/gpt-4o-mini", examples=[], max_workers=1)
     input = "What is MLflow?"
 
     with mock.patch.object(
