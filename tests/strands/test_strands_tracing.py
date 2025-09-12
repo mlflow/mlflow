@@ -1,4 +1,6 @@
 import json
+from collections.abc import AsyncIterator, Sequence
+from typing import Any
 
 from strands import Agent
 from strands.models.model import Model
@@ -37,7 +39,7 @@ tool = PythonAgentTool(
 
 
 class DummyModel(Model):
-    def __init__(self, response_text, in_tokens=1, out_tokens=1):
+    def __init__(self, response_text: str, in_tokens: int = 1, out_tokens: int = 1):
         self.response_text = response_text
         self.in_tokens = in_tokens
         self.out_tokens = out_tokens
@@ -53,7 +55,13 @@ class DummyModel(Model):
         if False:
             yield {}
 
-    async def stream(self, messages, tool_specs=None, system_prompt=None, **kwargs):
+    async def stream(
+        self,
+        messages: Sequence[dict[str, Any]],
+        tool_specs: Any | None = None,
+        system_prompt: str | None = None,
+        **kwargs: Any,
+    ) -> AsyncIterator[dict[str, Any]]:
         yield {"messageStart": {"role": "assistant"}}
         yield {"contentBlockStart": {"start": {}}}
         yield {"contentBlockDelta": {"delta": {"text": self.response_text}}}
@@ -72,24 +80,41 @@ class DummyModel(Model):
 
 
 class ToolCallingModel(Model):
-    def __init__(self, response_text, tool_input=None, tool_name="sum"):
+    def __init__(
+        self,
+        response_text: str,
+        tool_input: dict[str, Any] | None = None,
+        tool_name: str = "sum",
+    ):
         self.response_text = response_text
         self.tool_input = tool_input or {"a": 1, "b": 2}
         self.tool_name = tool_name
         self.config = {}
         self._call_count = 0
 
-    def update_config(self, **model_config):
+    def update_config(self, **model_config: Any) -> None:
         self.config.update(model_config)
 
-    def get_config(self):
+    def get_config(self) -> dict[str, object]:
         return self.config
 
-    async def structured_output(self, output_model, prompt, system_prompt=None, **kwargs):
+    async def structured_output(
+        self,
+        output_model: Any,
+        prompt: Any,
+        system_prompt: str | None = None,
+        **kwargs: Any,
+    ) -> AsyncIterator[dict[str, Any]]:
         if False:
             yield {}
 
-    async def stream(self, messages, tool_specs=None, system_prompt=None, **kwargs):
+    async def stream(
+        self,
+        messages: Sequence[dict[str, Any]],
+        tool_specs: Any | None = None,
+        system_prompt: str | None = None,
+        **kwargs: Any,
+    ) -> AsyncIterator[dict[str, Any]]:
         if self._call_count == 0:
             self._call_count += 1
             yield {"messageStart": {"role": "assistant"}}
@@ -183,7 +208,10 @@ def test_multiple_agents_single_trace():
 
     agent2 = Agent(model=DummyModel("hi"), name="agent2")
 
-    async def sum_and_call_agent2(tool_use, **_):
+    async def sum_and_call_agent2(
+        tool_use: dict[str, Any],
+        **_: Any,
+    ) -> dict[str, Any]:
         a = tool_use["input"]["a"]
         b = tool_use["input"]["b"]
         await agent2.invoke_async("hello")
