@@ -1601,15 +1601,18 @@ def test_unused_parameters_warning(
     with patch("mlflow.genai.judges.instructions_judge._logger") as mock_logger:
         judge(**provided_params)
 
-        assert mock_logger.warning.called
+        if "{{ trace }}" in instructions:
+            assert not mock_logger.warning.called
+        else:
+            assert mock_logger.warning.called
 
-        warning_call_args = mock_logger.warning.call_args
-        assert warning_call_args is not None
+            warning_call_args = mock_logger.warning.call_args
+            assert warning_call_args is not None
 
-        warning_msg = warning_call_args[0][0]
+            warning_msg = warning_call_args[0][0]
 
-        assert "parameters were provided but are not used" in warning_msg
-        assert expected_warning in warning_msg
+            assert "parameters were provided but are not used" in warning_msg
+            assert expected_warning in warning_msg
 
 
 def test_context_labels_added_to_interpolated_values(mock_invoke_judge_model):
@@ -2365,14 +2368,13 @@ def test_no_warning_for_trace_based_judge_with_extra_fields(mock_invoke_judge_mo
     )
     trace = Trace(
         info=TraceInfo(
-            request_id="test_trace",
-            experiment_id="0",
-            timestamp_ms=0,
-            execution_time_ms=100,
-            status=TraceState.OK,
-            request_metadata={},
+            trace_id="test_trace",
+            trace_location=TraceLocation.from_experiment_id("0"),
+            request_time=1234567890,
+            execution_duration=100,
+            state=TraceState.OK,
+            trace_metadata={},
             tags={},
-            trace_location=TraceLocation.create(),
         ),
         data=TraceData(spans=[span_mock]),
     )
