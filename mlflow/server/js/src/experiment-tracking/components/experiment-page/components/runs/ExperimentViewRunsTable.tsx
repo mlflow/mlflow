@@ -22,7 +22,7 @@ import {
   useRunsColumnDefinitions,
   getAdjustableAttributeColumns,
 } from '../../utils/experimentPage.column-utils';
-import { makeCanonicalSortKey } from '../../utils/experimentPage.common-utils';
+import { makeCanonicalSortKey, extractCanonicalSortKey } from '../../utils/experimentPage.common-utils';
 import { EXPERIMENT_RUNS_TABLE_ROW_HEIGHT } from '../../utils/experimentPage.common-utils';
 import type { RunRowType } from '../../utils/experimentPage.row-types';
 import type { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
@@ -123,20 +123,31 @@ export const ExperimentViewRunsTable = React.memo(
     // Conditionally filter keys only when there are more than 1000 metrics+params+tags
     const { filteredMetricKeyList, filteredParamKeyList, filteredTagsList } = useMemo(() => {
       if (shouldOptimize && !isComparingRuns) {
+        let filteredMetricKeyList: string[] = [];
+        let filteredParamKeyList: string[] = [];
+        let filteredTagsList: any[] = [];
+
+        for (const column of selectedColumns) {
+          if (column.startsWith(COLUMN_TYPES.METRICS)) {
+            filteredMetricKeyList.push(extractCanonicalSortKey(column, COLUMN_TYPES.METRICS));
+          } else if (column.startsWith(COLUMN_TYPES.PARAMS)) {
+            filteredParamKeyList.push(extractCanonicalSortKey(column, COLUMN_TYPES.PARAMS));
+          } else if (column.startsWith(COLUMN_TYPES.TAGS)) {
+            const tagKey = extractCanonicalSortKey(column, COLUMN_TYPES.TAGS);
+            filteredTagsList.push({
+              [tagKey]: {
+                key: tagKey,
+                // value is unused
+                value: null,
+              },
+            });
+          }
+        }
+
         return {
-          filteredMetricKeyList: metricKeyList.filter((key) =>
-            selectedColumns.includes(makeCanonicalSortKey(COLUMN_TYPES.METRICS, key)),
-          ),
-          filteredParamKeyList: paramKeyList.filter((key) =>
-            selectedColumns.includes(makeCanonicalSortKey(COLUMN_TYPES.PARAMS, key)),
-          ),
-          filteredTagsList: tagsList.map((tags) =>
-            Object.fromEntries(
-              Object.entries(tags).filter(([key]) =>
-                selectedColumns.includes(makeCanonicalSortKey(COLUMN_TYPES.TAGS, key)),
-              ),
-            ),
-          ),
+          filteredMetricKeyList,
+          filteredParamKeyList,
+          filteredTagsList,
         };
       }
       return {
@@ -144,7 +155,7 @@ export const ExperimentViewRunsTable = React.memo(
         filteredParamKeyList: paramKeyList,
         filteredTagsList: tagsList,
       };
-    }, [runsData, selectedColumns, shouldOptimize, isComparingRuns]);
+    }, [runsData, selectedColumns, shouldOptimize, isComparingRuns, metricKeyList, paramKeyList, tagsList]);
 
     const [gridApi, setGridApi] = useState<GridApi>();
     const [columnApi, setColumnApi] = useState<ColumnApi>();
