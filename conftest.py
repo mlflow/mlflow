@@ -312,8 +312,10 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         terminalreporter.write("\n")
         header = "per-file durations (sorted)"
         terminalreporter.write_sep("=", header)
+        terminalreporter.write(f"::group::{header}\n")
         for line in duration_stats:
             terminalreporter.write_line(line)
+        terminalreporter.write("::endgroup::\n")
         terminalreporter.write("\n")
 
     # If there are failed tests, display a command to run them
