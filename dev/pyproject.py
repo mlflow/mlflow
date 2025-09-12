@@ -127,6 +127,94 @@ def find_duplicates(seq):
     return [item for item, count in counted.items() if count > 1]
 
 
+def write_file_if_changed(file_path: Path, new_content: str) -> bool:
+    """
+    Write content to file only if it's different from existing content.
+
+    Args:
+        file_path: Path to the file to write
+        new_content: The new content to write
+
+    Returns:
+        True if file was written (content changed), False if no write was needed
+    """
+    try:
+        if file_path.exists():
+            existing_content = file_path.read_text()
+            if existing_content == new_content:
+                return False
+    except (OSError, IOError):
+        # If we can't read the existing file, assume we need to write it
+        pass
+
+    file_path.write_text(new_content)
+    return True
+
+
+def format_content_with_taplo(content: str, temp_file_path: Path) -> str:
+    """
+    Format TOML content using taplo and return the formatted content.
+
+    Args:
+        content: The TOML content to format
+        temp_file_path: A temporary file path to use for formatting
+
+    Returns:
+        The formatted content, or original content if taplo is not available
+    """
+    if not (taplo := shutil.which("taplo")):
+        return content
+
+    try:
+        # Write content to temp file
+        temp_file_path.write_text(content)
+        # Format it with taplo
+        subprocess.check_call(
+            [taplo, "fmt", str(temp_file_path)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        # Read back the formatted content
+        return temp_file_path.read_text()
+    except (subprocess.CalledProcessError, OSError, IOError):
+        # If formatting fails, return original content
+        return content
+    finally:
+        # Clean up temp file
+        try:
+            temp_file_path.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def write_toml_file_if_changed(file_path: Path, description: str, toml_data: dict) -> bool:
+    """
+    Write a TOML file with description only if content has changed.
+    Formats content with taplo before comparison.
+
+    Args:
+        file_path: Path to the TOML file to write
+        description: Description comment to add at the top
+        toml_data: Dictionary to serialize as TOML
+
+    Returns:
+        True if file was written (content changed), False if no write was needed
+    """
+    import tempfile
+
+    # Generate the new content
+    new_content = description + "\n" + toml.dumps(toml_data)
+
+    # Format the new content with taplo to match existing format
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as temp_file:
+        temp_path = Path(temp_file.name)
+
+    formatted_content = format_content_with_taplo(new_content, temp_path)
+
+    # Compare with existing content and write only if different
+    return write_file_if_changed(file_path, formatted_content)
+
+
 class PackageRequirement(BaseModel):
     pip_release: str = Field(..., description="The pip package name")
     max_major_version: int = Field(..., description="Maximum major version allowed")
@@ -371,19 +459,17 @@ def build(package_type: PackageType) -> None:
     }
 
     if package_type == PackageType.TRACING:
-        out_path = "libs/tracing/pyproject.toml"
-        with Path(out_path).open("w") as f:
-            f.write(package_type.description() + "\n")
-            f.write(toml.dumps(data))
+        out_path = Path("libs/tracing/pyproject.toml")
+        write_toml_file_if_changed(out_path, package_type.description(), data)
     elif package_type == PackageType.SKINNY:
-        out_path = "libs/skinny/pyproject.toml"
-        with Path(out_path).open("w") as f:
-            f.write(package_type.description() + "\n")
-            f.write(toml.dumps(data))
+        out_path = Path("libs/skinny/pyproject.toml")
+        write_toml_file_if_changed(out_path, package_type.description(), data)
 
-        Path("libs/skinny/README_SKINNY.md").write_text(
-            SKINNY_README.lstrip() + Path("README.md").read_text()
-        )
+        # Also handle the README_SKINNY.md file
+        skinny_readme_path = Path("libs/skinny/README_SKINNY.md")
+        new_readme_content = SKINNY_README.lstrip() + Path("README.md").read_text()
+        write_file_if_changed(skinny_readme_path, new_readme_content)
+
         for f in ["LICENSE.txt", "MANIFEST.in", "mlflow"]:
             symlink = Path("libs/skinny", f)
             if symlink.exists():
@@ -391,21 +477,26 @@ def build(package_type: PackageType) -> None:
             target = Path("../..", f)
             symlink.symlink_to(target, target_is_directory=target.is_dir())
     elif package_type == PackageType.RELEASE:
-        out_path = f"pyproject.{package_type.value}.toml"
-        with Path(out_path).open("w") as f:
-            f.write(package_type.description() + "\n")
-            f.write(toml.dumps(data))
+        out_path = Path(f"pyproject.{package_type.value}.toml")
+        write_toml_file_if_changed(out_path, package_type.description(), data)
     else:
-        out_path = "pyproject.toml"
-        original = Path(out_path).read_text().split(SEPARATOR)[1]
-        with Path(out_path).open("w") as f:
-            f.write(package_type.description() + "\n")
-            f.write(toml.dumps(data))
-            f.write(SEPARATOR)
-            f.write(original)
+        # DEV case: merge generated content with existing manual content after SEPARATOR
+        out_path = Path("pyproject.toml")
+        original_manual_content = out_path.read_text().split(SEPARATOR)[1]
 
-    if taplo := shutil.which("taplo"):
-        subprocess.check_call([taplo, "fmt", out_path])
+        # Generate the full new content
+        generated_part = package_type.description() + "\n" + toml.dumps(data)
+
+        # Format just the generated part with taplo, then combine
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as temp_file:
+            temp_path = Path(temp_file.name)
+
+        formatted_generated_part = format_content_with_taplo(generated_part, temp_path)
+        formatted_full_content = formatted_generated_part + SEPARATOR + original_manual_content
+
+        write_file_if_changed(out_path, formatted_full_content)
 
 
 def _get_package_data(package_type: PackageType) -> dict[str, list[str]] | None:
