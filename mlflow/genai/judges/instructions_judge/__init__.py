@@ -211,6 +211,11 @@ class InstructionsJudge(Judge):
         trace: Trace | None,
     ) -> None:
         """Warn about parameters that were provided but aren't used."""
+        # Don't warn about unused parameters when using trace-based evaluation
+        # since these parameters may be extracted from the trace for context
+        if self._TEMPLATE_VARIABLE_TRACE in self.template_variables:
+            return
+
         unused_params = []
         if inputs is not None and self._TEMPLATE_VARIABLE_INPUTS not in self.template_variables:
             unused_params.append("inputs")
