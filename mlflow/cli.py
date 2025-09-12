@@ -608,6 +608,10 @@ def gc(
     deleted_run_ids_older_than = backend_store._get_deleted_runs(older_than=time_delta)
     run_ids = run_ids.split(",") if run_ids else deleted_run_ids_older_than
 
+    deleted_logged_model_ids = (
+        backend_store._get_deleted_logged_models() if not skip_logged_models else []
+    )
+
     deleted_logged_model_ids_older_than = (
         backend_store._get_deleted_logged_models(older_than=time_delta)
         if not skip_logged_models
@@ -716,6 +720,11 @@ def gc(
 
     if not skip_logged_models:
         for model_id in set(logged_model_ids):
+            if model_id not in deleted_logged_model_ids:
+                raise MlflowException(
+                    f"Logged model {model_id} is not in `deleted` lifecycle stage. "
+                    "Only logged models in `deleted` lifecycle stage can be deleted."
+                )
             if older_than and model_id not in deleted_logged_model_ids_older_than:
                 raise MlflowException(
                     f"Logged model {model_id} is not older than the required age. "

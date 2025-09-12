@@ -631,6 +631,7 @@ def test_get_deleted_logged_models(store):
     model = store.create_logged_model(experiment_id=exp_id)
     assert store._get_deleted_logged_models() == []
     store.delete_logged_model(model.model_id)
+    assert store._get_deleted_logged_models(older_than=1000000) == []
     assert store._get_deleted_logged_models() == [model.model_id]
 
 

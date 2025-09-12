@@ -2429,7 +2429,7 @@ class FileStore(AbstractStore):
                     continue
                 if (
                     m_dict.get("lifecycle_stage") == LifecycleStage.DELETED
-                    and m_dict.get("last_updated_timestamp_ms", 0) <= current_time - older_than
+                    and m_dict.get("last_updated_timestamp", 0) <= current_time - older_than
                 ):
                     deleted_models.append(m_dict["model_id"])
         return deleted_models

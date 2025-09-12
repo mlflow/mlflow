@@ -792,3 +792,45 @@ def test_mlflow_gc_logged_model(tmp_path):
     )
     model_dir = store._get_model_dir(exp_id, model.model_id)
     assert not os.path.exists(model_dir)
+
+
+@pytest.mark.parametrize("get_store_details", ["file_store", "sqlite_store"])
+def test_mlflow_gc_logged_model_older_than(get_store_details, request, tmp_path):
+    store, uri = request.getfixturevalue(get_store_details)
+    exp_id = store.create_experiment("exp")
+    model = store.create_logged_model(experiment_id=exp_id)
+    artifact_repo = get_artifact_repository(model.artifact_location)
+    artifact_file = tmp_path / "artifact.txt"
+    artifact_file.write_text("content")
+    artifact_repo.log_artifact(str(artifact_file))
+    store.delete_logged_model(model.model_id)
+    CliRunner().invoke(
+        gc, ["--backend-store-uri", uri, "--older-than", "1d"], catch_exceptions=False
+    )
+    artifact_path = url2pathname(unquote(urlparse(model.artifact_location).path))
+    assert os.path.exists(artifact_path)
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_logged_model(model.model_id)
+    assert store._get_logged_model(model.model_id).model_id == model.model_id
+
+
+@pytest.mark.parametrize("get_store_details", ["file_store", "sqlite_store"])
+def test_mlflow_gc_not_deleted_logged_model(get_store_details, request, tmp_path):
+    store, uri = request.getfixturevalue(get_store_details)
+    exp_id = store.create_experiment("exp")
+    run = store.create_run(exp_id, "user", 0, [], "run")
+    model = store.create_logged_model(experiment_id=exp_id, source_run_id=run.info.run_id)
+    artifact_repo = get_artifact_repository(model.artifact_location)
+    artifact_file = tmp_path / "artifact.txt"
+    artifact_file.write_text("content")
+    artifact_repo.log_artifact(str(artifact_file))
+    store.delete_run(run.info.run_id)
+    with pytest.raises(Exception):  # noqa: PT011
+        CliRunner().invoke(
+            gc,
+            ["--backend-store-uri", uri, "--logged-model-ids", model.model_id],
+            catch_exceptions=False,
+        )
+    artifact_path = url2pathname(unquote(urlparse(model.artifact_location).path))
+    assert os.path.exists(artifact_path)
+    store.get_logged_model(model.model_id)
