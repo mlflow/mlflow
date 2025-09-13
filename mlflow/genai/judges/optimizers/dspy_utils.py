@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.entities.trace import Trace
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils import call_chat_completions
 from mlflow.genai.utils.trace_utils import (
@@ -186,7 +186,8 @@ def convert_litellm_to_mlflow_uri(litellm_model: str) -> str:
         if not provider or not model:
             raise MlflowException(
                 f"Invalid LiteLLM model format: '{litellm_model}'. "
-                "Both provider and model name must be non-empty"
+                "Both provider and model name must be non-empty",
+                error_code=INVALID_PARAMETER_VALUE,
             )
         return f"{provider}:/{model}"
     except ValueError as e:

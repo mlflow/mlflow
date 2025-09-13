@@ -226,22 +226,23 @@ def test_convert_litellm_to_mlflow_uri_invalid(invalid_model):
             assert "Expected format: 'provider/model'" in str(exc_info.value)
 
 
-def test_round_trip_conversion():
-    """Test that converting MLflow -> LiteLLM -> MLflow preserves the original format."""
-    test_cases = [
+@pytest.mark.parametrize(
+    "mlflow_uri",
+    [
         "openai:/gpt-4",
         "anthropic:/claude-3.5-sonnet",
         "cohere:/command",
         "databricks:/dbrx",
-    ]
-
-    for mlflow_uri in test_cases:
-        # Convert MLflow -> LiteLLM
-        litellm_format = convert_mlflow_uri_to_litellm(mlflow_uri)
-        # Convert LiteLLM -> MLflow
-        result = convert_litellm_to_mlflow_uri(litellm_format)
-        # Should get back the original
-        assert result == mlflow_uri, f"Round-trip failed for {mlflow_uri}"
+    ],
+)
+def test_mlflow_to_litellm_uri_round_trip_conversion(mlflow_uri):
+    """Test that converting MLflow URI -> LiteLLM URI -> MLflow URI preserves original format."""
+    # Convert MLflow -> LiteLLM
+    litellm_format = convert_mlflow_uri_to_litellm(mlflow_uri)
+    # Convert LiteLLM -> MLflow
+    result = convert_litellm_to_mlflow_uri(litellm_format)
+    # Should get back the original
+    assert result == mlflow_uri, f"Round-trip failed for {mlflow_uri}"
 
 
 @pytest.mark.parametrize(
