@@ -213,12 +213,25 @@ def trace_to_dspy_example(trace: Trace, judge: Judge) -> Optional["dspy.Example"
         DSPy example object or None if conversion fails
     """
     try:
-        # Extract request and response from trace
+        judge_input_fields = judge.get_input_fields()
+        judge_requires_inputs = any(field.name == "inputs" for field in judge_input_fields)
+        judge_requires_outputs = any(field.name == "outputs" for field in judge_input_fields)
+        judge_requires_expectations = any(
+            field.name == "expectations" for field in judge_input_fields
+        )
+
         request = extract_request_from_trace(trace)
         response = extract_response_from_trace(trace)
+        expectations = extract_expectations_from_trace(trace)
 
-        if request is None or response is None:
-            _logger.warning(f"Missing request or response in trace {trace.info.trace_id}")
+        if request is None and judge_requires_inputs:
+            _logger.warning(f"Missing required request in trace {trace.info.trace_id}")
+            return None
+        elif response is None and judge_requires_outputs:
+            _logger.warning(f"Missing required response in trace {trace.info.trace_id}")
+            return None
+        elif expectations is None and judge_requires_expectations:
+            _logger.warning(f"Missing required expectations in trace {trace.info.trace_id}")
             return None
 
         # Find human assessment for this judge
@@ -254,16 +267,20 @@ def trace_to_dspy_example(trace: Trace, judge: Judge) -> Optional["dspy.Example"
             return None
 
         # Create DSPy example
-        judge_input_fields = judge.get_input_fields()
         example_kwargs = {}
+        example_inputs = []
         if any(field.name == "trace" for field in judge_input_fields):
             example_kwargs["trace"] = trace
-        if any(field.name == "inputs" for field in judge_input_fields):
+            example_inputs.append("trace")
+        if judge_requires_inputs:
             example_kwargs["inputs"] = request
-        if any(field.name == "outputs" for field in judge_input_fields):
+            example_inputs.append("inputs")
+        if judge_requires_outputs:
             example_kwargs["outputs"] = response
-        if any(field.name == "expectations" for field in judge_input_fields):
-            example_kwargs["expectations"] = extract_expectations_from_trace(trace)
+            example_inputs.append("outputs")
+        if judge_requires_expectations:
+            example_kwargs["expectations"] = expectations
+            example_inputs.append("expectations")
         example = dspy.Example(
             result=str(expected_result.feedback.value).lower(),
             rationale=expected_result.rationale if expected_result.rationale else "",
@@ -271,7 +288,7 @@ def trace_to_dspy_example(trace: Trace, judge: Judge) -> Optional["dspy.Example"
         )
 
         # Set inputs (what the model should use as input)
-        return example.with_inputs("trace", "inputs", "outputs", "expectations")
+        return example.with_inputs(*example_inputs)
 
     except Exception as e:
         _logger.error(f"Failed to create DSPy example from trace: {e}")
