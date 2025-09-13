@@ -3000,6 +3000,7 @@ def _link_traces_to_run():
 @_disable_if_artifacts_only
 def get_trace_artifact_handler():
     request_id = request.args.get("request_id")
+    path = request.args.get("path")
 
     if not request_id:
         raise MlflowException(
@@ -3008,20 +3009,29 @@ def get_trace_artifact_handler():
         )
 
     trace_info = _get_tracking_store().get_trace_info(request_id)
-    trace_data = _get_trace_artifact_repo(trace_info).download_trace_data()
+    artifact_repo = _get_trace_artifact_repo(trace_info)
 
-    # Write data to a BytesIO buffer instead of needing to save a temp file
-    buf = io.BytesIO()
-    buf.write(json.dumps(trace_data).encode())
-    buf.seek(0)
+    if path:
+        # Validate and sanitize the path
+        path = validate_path_is_safe(path)
+        # Download the specific artifact at the given path
+        return _send_artifact(artifact_repo, path)
+    else:
+        # Default behavior: download trace data
+        trace_data = artifact_repo.download_trace_data()
 
-    file_sender_response = send_file(
-        buf,
-        mimetype="application/octet-stream",
-        as_attachment=True,
-        download_name=TRACE_DATA_FILE_NAME,
-    )
-    return _response_with_file_attachment_headers(TRACE_DATA_FILE_NAME, file_sender_response)
+        # Write data to a BytesIO buffer instead of needing to save a temp file
+        buf = io.BytesIO()
+        buf.write(json.dumps(trace_data).encode())
+        buf.seek(0)
+
+        file_sender_response = send_file(
+            buf,
+            mimetype="application/octet-stream",
+            as_attachment=True,
+            download_name=TRACE_DATA_FILE_NAME,
+        )
+        return _response_with_file_attachment_headers(TRACE_DATA_FILE_NAME, file_sender_response)
 
 
 # Assessments API handlers
