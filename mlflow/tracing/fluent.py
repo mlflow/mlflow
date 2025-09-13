@@ -39,9 +39,8 @@ from mlflow.tracing.utils import (
     get_otel_attribute,
 )
 from mlflow.tracing.utils.search import extract_span_inputs_outputs, traces_to_df
-from mlflow.tracing.utils.warning import request_id_backward_compatible
 from mlflow.utils import get_results_from_paginated_fn
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import deprecated_parameter
 
 _logger = logging.getLogger(__name__)
 
@@ -607,7 +606,7 @@ def start_span_no_context(
     return NoOpSpan()
 
 
-@request_id_backward_compatible
+@deprecated_parameter("request_id", "trace_id")
 def get_trace(trace_id: str, silent: bool = False) -> Trace | None:
     """
     Get a trace by the given request ID if it exists.
@@ -1137,7 +1136,7 @@ def update_current_trace(
             trace.info.client_request_id = str(client_request_id)
 
 
-@request_id_backward_compatible
+@deprecated_parameter("request_id", "trace_id")
 def set_trace_tag(trace_id: str, key: str, value: str):
     """
     Set a tag on the trace with the given trace ID.
@@ -1164,7 +1163,7 @@ def set_trace_tag(trace_id: str, key: str, value: str):
     TracingClient().set_trace_tag(trace_id, key, value)
 
 
-@request_id_backward_compatible
+@deprecated_parameter("request_id", "trace_id", version="3.0.0")
 def delete_trace_tag(trace_id: str, key: str) -> None:
     """
     Delete a tag on the trace with the given trace ID.
@@ -1306,7 +1305,6 @@ def add_trace(trace: Trace | dict[str, Any], target: LiveSpan | None = None):
         )
 
 
-@experimental(version="2.21.0")
 def log_trace(
     name: str = "Task",
     request: Any | None = None,

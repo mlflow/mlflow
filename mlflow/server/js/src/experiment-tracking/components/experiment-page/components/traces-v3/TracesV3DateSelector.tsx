@@ -11,6 +11,10 @@ import {
   Tooltip,
   useDesignSystemTheme,
 } from '@databricks/design-system';
+import {
+  invalidateMlflowSearchTracesCache,
+  SEARCH_MLFLOW_TRACES_QUERY_KEY,
+} from '@databricks/web-shared/genai-traces-table';
 import { useIntl } from '@databricks/i18n';
 import { getNamedDateFilters } from './utils/dateUtils';
 import {
@@ -20,6 +24,7 @@ import {
 import { isNil } from 'lodash';
 import { RangePicker } from '@databricks/design-system/development';
 import { useMonitoringConfig } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringConfig';
+import { useQueryClient, useIsFetching } from '@databricks/web-shared/query-client';
 
 export interface DateRange {
   startDate: string;
@@ -29,6 +34,8 @@ export interface DateRange {
 export const TracesV3DateSelector = React.memo(() => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
+  const queryClient = useQueryClient();
+  const isFetching = useIsFetching({ queryKey: [SEARCH_MLFLOW_TRACES_QUERY_KEY] });
 
   const [monitoringFilters, setMonitoringFilters] = useMonitoringFilters();
 
@@ -148,7 +155,11 @@ export const TracesV3DateSelector = React.memo(() => {
         <Button
           type="link"
           componentId="mlflow.experiment-evaluation-monitoring.refresh-date-button"
-          onClick={() => monitoringConfig.setDateNow(new Date())}
+          disabled={Boolean(isFetching)}
+          onClick={() => {
+            monitoringConfig.refresh();
+            invalidateMlflowSearchTracesCache({ queryClient });
+          }}
         >
           <RefreshIcon />
         </Button>

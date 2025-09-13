@@ -10,7 +10,7 @@ import {
 import { useState } from 'react';
 import { useForm, Controller, FormProvider } from 'react-hook-form';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { RegisteredPrompt, RegisteredPromptVersion } from '../types';
+import type { RegisteredPrompt, RegisteredPromptVersion } from '../types';
 import { useCreateRegisteredPromptMutation } from './useCreateRegisteredPromptMutation';
 import { getPromptContentTagValue, PROMPT_TYPE_CHAT, PROMPT_TYPE_TEXT, PROMPT_TYPE_TAG_KEY } from '../utils';
 import { CollapsibleSection } from '@mlflow/mlflow/src/common/components/CollapsibleSection';

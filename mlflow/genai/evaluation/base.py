@@ -8,10 +8,11 @@ from typing import TYPE_CHECKING, Any, Callable
 import mlflow
 from mlflow.data.dataset import Dataset
 from mlflow.entities.dataset_input import DatasetInput
+from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
 from mlflow.entities.logged_model_input import LoggedModelInput
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.exceptions import MlflowException
-from mlflow.genai.datasets import EvaluationDataset
+from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.genai.evaluation.constant import InputDatasetColumn
 from mlflow.genai.evaluation.utils import (
     _convert_scorer_to_legacy_metric,
@@ -209,6 +210,10 @@ def evaluate(
 
             For list of dictionaries, each dict should follow the above schema.
 
+            Optional columns:
+                - tags (optional): Column containing a dictionary of tags. The tags will be logged
+                                   to the respective traces.
+
         scorers: A list of Scorer objects that produces evaluation scores from
             inputs, outputs, and other additional contexts. MLflow provides pre-defined
             scorers, but you can also define custom ones.
@@ -236,7 +241,7 @@ def evaluate(
         This function is not thread-safe. Please do not use it in multi-threaded
         environments.
     """
-    is_managed_dataset = isinstance(data, EvaluationDataset)
+    is_managed_dataset = isinstance(data, (EvaluationDataset, EntityEvaluationDataset))
 
     scorers = validate_scorers(scorers)
     # convert into a pandas dataframe with expected evaluation set schema
@@ -280,7 +285,7 @@ def evaluate(
 def _evaluate_oss(data, scorers, predict_fn, model_id):
     from mlflow.genai.evaluation import harness
 
-    if isinstance(data, EvaluationDataset):
+    if isinstance(data, (EvaluationDataset, EntityEvaluationDataset)):
         mlflow_dataset = data
         df = data.to_df()
     else:
@@ -293,7 +298,8 @@ def _evaluate_oss(data, scorers, predict_fn, model_id):
                 "response": InputDatasetColumn.OUTPUTS,
             }
         )
-        mlflow_dataset = mlflow.data.from_pandas(df=data)
+        # Use default name for evaluation dataset when converting from DataFrame
+        mlflow_dataset = mlflow.data.from_pandas(df=data, name="dataset")
         df = data
 
     with (
@@ -327,6 +333,7 @@ def _evaluate_dbx(data, scorers, predict_fn, model_id):
     the mlflow.evaluate() function. This is a temporary migration state and we will
     eventually unify this into OSS flow.
     """
+    import pandas as pd
 
     # NB: The "RAG_EVAL_MAX_WORKERS" env var is used in the DBX agent harness, but is
     # deprecated in favor of the new "MLFLOW_GENAI_EVAL_MAX_WORKERS" env var. The old
@@ -338,6 +345,11 @@ def _evaluate_dbx(data, scorers, predict_fn, model_id):
             "The `RAG_EVAL_MAX_WORKERS` environment variable is deprecated. "
             "Please use `MLFLOW_GENAI_EVAL_MAX_WORKERS` instead."
         )
+
+    if isinstance(data, pd.DataFrame):
+        from mlflow.data.evaluation_dataset import convert_data_to_mlflow_dataset
+
+        data = convert_data_to_mlflow_dataset(data=data, name="dataset")
 
     with warnings.catch_warnings():
         warnings.filterwarnings(

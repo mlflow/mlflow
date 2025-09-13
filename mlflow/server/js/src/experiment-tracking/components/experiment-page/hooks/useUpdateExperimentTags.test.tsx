@@ -9,7 +9,7 @@ import {
   renderWithIntl,
 } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { useUpdateExperimentTags } from './useUpdateExperimentTags';
-import { ExperimentEntity } from '../../../types';
+import type { ExperimentEntity } from '../../../types';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { MlflowService } from '../../../sdk/MlflowService';
 import { IntlProvider } from 'react-intl';

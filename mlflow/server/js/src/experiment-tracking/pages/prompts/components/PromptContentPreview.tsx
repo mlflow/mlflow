@@ -8,8 +8,8 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useMemo, useState } from 'react';
-import { RegisteredPrompt, RegisteredPromptVersion } from '../types';
 import { getPromptContentTagValue, PROMPT_TYPE_CHAT, PROMPT_TYPE_TAG_KEY } from '../utils';
+import type { RegisteredPrompt, RegisteredPromptVersion } from '../types';
 import { PromptVersionMetadata } from './PromptVersionMetadata';
 import { FormattedMessage } from 'react-intl';
 import { uniq } from 'lodash';

@@ -1,5 +1,6 @@
 import type { KeyValueEntity } from '@mlflow/mlflow/src/common/types';
 import type { RegisteredPrompt, RegisteredPromptVersion } from './types';
+import { MLFLOW_LINKED_PROMPTS_TAG } from '../../constants';
 
 export const REGISTERED_PROMPT_CONTENT_TAG_KEY = 'mlflow.prompt.text';
 // Tag key used to store the run ID associated with a single prompt version
@@ -13,6 +14,9 @@ export const LINKED_PROMPTS_TAG_KEY = 'mlflow.linkedPrompts';
 export const PROMPT_TYPE_TAG_KEY = '_mlflow_prompt_type';
 export const PROMPT_TYPE_TEXT = 'text';
 export const PROMPT_TYPE_CHAT = 'chat';
+
+// Query parameter name for specifying prompt version in URLs
+export const PROMPT_VERSION_QUERY_PARAM = 'promptVersion';
 
 export type PromptsTableMetadata = { onEditTags: (editedEntity: RegisteredPrompt) => void };
 export type PromptsVersionsTableMetadata = {
@@ -34,7 +38,7 @@ export const getPromptContentTagValue = (promptVersion: RegisteredPromptVersion)
 export const parseLinkedPromptsFromRunTags = (
   tags: Record<string, KeyValueEntity>,
 ): { name: string; version: string }[] => {
-  const linkedPromptsTag = tags[LINKED_PROMPTS_TAG_KEY];
+  const linkedPromptsTag = tags[MLFLOW_LINKED_PROMPTS_TAG];
   if (!linkedPromptsTag || !linkedPromptsTag.value) {
     return [];
   }
@@ -47,7 +51,7 @@ export const parseLinkedPromptsFromRunTags = (
       );
     }
   } catch (error) {
-    console.warn('Failed to parse linked prompts from run tags:', error);
+    // do nothing, just don't display any linked prompts
   }
 
   return [];

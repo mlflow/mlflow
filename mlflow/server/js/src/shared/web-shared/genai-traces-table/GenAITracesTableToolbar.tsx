@@ -72,7 +72,7 @@ interface GenAITracesTableToolbarProps {
   metadataError?: Error | null;
 }
 
-export const GenAITracesTableToolbar: React.FC<GenAITracesTableToolbarProps> = React.memo(
+export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITracesTableToolbarProps>> = React.memo(
   (props: GenAITracesTableToolbarProps) => {
     const {
       searchQuery,

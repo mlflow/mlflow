@@ -1,5 +1,5 @@
 import { createMLflowRoutePath, generatePath } from '../common/utils/RoutingUtils';
-import { ExperimentPageTabName } from './constants';
+import type { ExperimentPageTabName } from './constants';
 
 /**
  * Page identifiers for MLflow experiment tracking pages.

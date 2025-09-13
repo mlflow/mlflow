@@ -470,6 +470,11 @@ def test_parsing_dependency_from_databricks_chat(monkeypatch, use_partner_packag
     if use_partner_package:
         from databricks_langchain import ChatDatabricks
 
+        # in databricks-langchain > 0.7.0, ChatDatabricks instantiates
+        # workspace client in __init__ which requires Databricks creds
+        monkeypatch.setenv("DATABRICKS_HOST", "my-default-host")
+        monkeypatch.setenv("DATABRICKS_TOKEN", "my-default-token")
+
         remove_langchain_community(monkeypatch)
         with pytest.raises(ImportError, match="No module named 'langchain_community"):
             from langchain_community.chat_models import ChatDatabricks
@@ -488,6 +493,11 @@ def test_parsing_dependency_from_databricks(monkeypatch, use_partner_package):
 
     if use_partner_package:
         from databricks_langchain import ChatDatabricks
+
+        # in databricks-langchain > 0.7.0, ChatDatabricks instantiates
+        # workspace client in __init__ which requires Databricks creds
+        monkeypatch.setenv("DATABRICKS_HOST", "my-default-host")
+        monkeypatch.setenv("DATABRICKS_TOKEN", "my-default-token")
 
         remove_langchain_community(monkeypatch)
         with pytest.raises(ImportError, match="No module named 'langchain_community"):

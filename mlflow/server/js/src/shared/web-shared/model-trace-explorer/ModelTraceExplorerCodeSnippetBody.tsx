@@ -22,17 +22,19 @@ export function ModelTraceExplorerCodeSnippetBody({
   activeMatch = null,
   containsActiveMatch = false,
   renderMode = CodeSnippetRenderMode.JSON,
+  initialExpanded = false,
 }: {
   data: string;
   searchFilter?: string;
   activeMatch?: SearchMatch | null;
   containsActiveMatch?: boolean;
   renderMode?: CodeSnippetRenderMode;
+  initialExpanded?: boolean;
 }) {
   const containsMatches = Boolean(searchFilter) && !isNil(activeMatch) && data.toLowerCase().includes(searchFilter);
   const { theme } = useDesignSystemTheme();
   const [isContentLong, setIsContentLong] = useState(renderMode === 'json');
-  const [expanded, setExpanded] = useState(containsMatches);
+  const [expanded, setExpanded] = useState(initialExpanded || containsMatches);
   const snippetRef = useRef<HTMLPreElement>(null);
   // if the data is rendered in text / markdown mode, then
   // we need to parse it so that the newlines are unescaped
@@ -68,7 +70,7 @@ export function ModelTraceExplorerCodeSnippetBody({
     if (snippetRef.current) {
       setIsContentLong(snippetRef.current.scrollWidth > snippetRef.current.clientWidth);
     }
-  }, [data]);
+  }, [renderMode, data]);
 
   // add a ref to the <pre> component within <CodeSnippet>.
   // we use the ref to check whether the <pre>'s content is overflowing

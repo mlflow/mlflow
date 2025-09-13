@@ -138,6 +138,12 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     link: '/genai/tracing/integrations/listing/instructor',
   },
   {
+    id: 'strands',
+    name: 'Strands Agent SDK',
+    logoPath: '/images/logos/strands-logo.png',
+    link: '/genai/tracing/integrations/listing/strands',
+  },
+  {
     id: 'deepseek',
     name: 'DeepSeek',
     logoPath: '/images/logos/deepseek-logo.png',
@@ -148,6 +154,12 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     name: 'txtai',
     logoPath: '/images/logos/txtai-logo.png',
     link: '/genai/tracing/integrations/listing/txtai',
+  },
+  {
+    id: 'claude_code',
+    name: 'Claude Code',
+    logoPath: '/images/logos/claude-code-logo.svg',
+    link: '/genai/tracing/integrations/listing/claude_code',
   },
 ];
 

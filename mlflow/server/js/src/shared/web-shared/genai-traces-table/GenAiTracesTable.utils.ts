@@ -25,6 +25,7 @@ import { getTraceInfoInputs, shouldUseTraceInfoV3 } from './utils/TraceUtils';
 const GROUP_PRIORITY = [
   TracesTableColumnGroup.INFO,
   TracesTableColumnGroup.ASSESSMENT,
+  TracesTableColumnGroup.EXPECTATION,
   TracesTableColumnGroup.TAG,
 ] as const;
 
@@ -83,7 +84,12 @@ export function sortGroupedColumns(columns: TracesTableColumn[], isComparing?: b
       return colA.label.localeCompare(colB.label);
     }
 
-    // 4) Same group: TAG (or any other fallback)
+    // 4) Same group: EXPECTATION
+    if (groupA === TracesTableColumnGroup.EXPECTATION) {
+      return colA.label.localeCompare(colB.label);
+    }
+
+    // 5) Same group: TAG (or any other fallback)
     return colA.label.localeCompare(colB.label);
   });
 }

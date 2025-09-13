@@ -8,32 +8,21 @@ import {
   TableRow,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import {
-  CellContext,
-  ColumnDef,
-  ColumnDefTemplate,
-  flexRender,
-  getCoreRowModel,
-  getExpandedRowModel,
-  Row,
-  useReactTable,
-} from '@tanstack/react-table';
+import type { CellContext, ColumnDef, ColumnDefTemplate, Row } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel, getExpandedRowModel, useReactTable } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
-import {
-  DifferenceCardConfigCompareGroup,
-  RunsChartsCardConfig,
-  RunsChartsDifferenceCardConfig,
-} from '../../runs-charts.types';
+import type { RunsChartsCardConfig, RunsChartsDifferenceCardConfig } from '../../runs-charts.types';
+import { DifferenceCardConfigCompareGroup } from '../../runs-charts.types';
 import {
   DIFFERENCE_PLOT_EXPAND_COLUMN_ID,
   DIFFERENCE_PLOT_HEADING_COLUMN_ID,
   getDifferencePlotJSONRows,
   getDifferenceViewDataGroups,
 } from '../../utils/differenceView';
-import { RunsChartsRunData } from '../RunsCharts.common';
+import type { RunsChartsRunData } from '../RunsCharts.common';
 import { DifferencePlotDataCell } from './difference-view-plot/DifferencePlotDataCell';
 import { DifferencePlotRunHeaderCell } from './difference-view-plot/DifferencePlotRunHeaderCell';
 
