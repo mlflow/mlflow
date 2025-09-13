@@ -154,6 +154,108 @@ def sample_trace_without_assessment():
 
 
 @pytest.fixture
+def trace_without_inputs():
+    """Create a trace without inputs (only outputs)."""
+    # Create a real assessment object
+    assessment = Feedback(
+        name="mock_judge",
+        value="pass",
+        rationale="Output only",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="test_user"),
+    )
+
+    # Create OpenTelemetry span without inputs
+    current_time_ns = int(time.time() * 1e9)
+    otel_span = OTelReadableSpan(
+        name="root_span",
+        context=build_otel_context(12350, 116),
+        parent=None,
+        start_time=current_time_ns,
+        end_time=current_time_ns + 1000000,
+        attributes={
+            "mlflow.traceRequestId": json.dumps("test_trace_no_inputs"),
+            # No mlflow.spanInputs attribute
+            "mlflow.spanOutputs": json.dumps({"outputs": "test output"}),
+            "mlflow.spanType": json.dumps("CHAIN"),
+        },
+    )
+
+    # Create real Span object
+    real_span = Span(otel_span)
+
+    # Create real TraceInfo
+    trace_info = TraceInfo(
+        trace_id="test_trace_no_inputs",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=int(time.time() * 1000),
+        state=TraceState.OK,
+        execution_duration=1000,
+        trace_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
+        tags={},
+        assessments=[assessment],
+        request_preview=None,  # No request preview
+        response_preview='{"outputs": "test output"}',
+    )
+
+    # Create real TraceData
+    trace_data = TraceData(spans=[real_span])
+
+    # Create real Trace object
+    return Trace(info=trace_info, data=trace_data)
+
+
+@pytest.fixture
+def trace_without_outputs():
+    """Create a trace without outputs (only inputs)."""
+    # Create a real assessment object
+    assessment = Feedback(
+        name="mock_judge",
+        value="pass",
+        rationale="Input only",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="test_user"),
+    )
+
+    # Create OpenTelemetry span without outputs
+    current_time_ns = int(time.time() * 1e9)
+    otel_span = OTelReadableSpan(
+        name="root_span",
+        context=build_otel_context(12351, 117),
+        parent=None,
+        start_time=current_time_ns,
+        end_time=current_time_ns + 1000000,
+        attributes={
+            "mlflow.traceRequestId": json.dumps("test_trace_no_outputs"),
+            "mlflow.spanInputs": json.dumps({"inputs": "test input"}),
+            # No mlflow.spanOutputs attribute
+            "mlflow.spanType": json.dumps("CHAIN"),
+        },
+    )
+
+    # Create real Span object
+    real_span = Span(otel_span)
+
+    # Create real TraceInfo
+    trace_info = TraceInfo(
+        trace_id="test_trace_no_outputs",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=int(time.time() * 1000),
+        state=TraceState.OK,
+        execution_duration=1000,
+        trace_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
+        tags={},
+        assessments=[assessment],
+        request_preview='{"inputs": "test input"}',
+        response_preview=None,  # No response preview
+    )
+
+    # Create real TraceData
+    trace_data = TraceData(spans=[real_span])
+
+    # Create real Trace object
+    return Trace(info=trace_info, data=trace_data)
+
+
+@pytest.fixture
 def trace_with_nested_request_response():
     """Create a trace with nested request/response structure."""
     # Create actual trace with real MLflow objects

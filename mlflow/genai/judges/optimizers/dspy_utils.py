@@ -230,13 +230,20 @@ def trace_to_dspy_example(trace: Trace, judge: Judge) -> Optional["dspy.Example"
         response = extract_response_from_trace(trace)
         expectations = extract_expectations_from_trace(trace)
 
-        if request is None and judge_requires_inputs:
+        # Check for missing required fields - treat None or whitespace-only strings as missing
+        if (
+            not request or (isinstance(request, str) and request.strip() == "")
+        ) and judge_requires_inputs:
             _logger.warning(f"Missing required request in trace {trace.info.trace_id}")
             return None
-        elif response is None and judge_requires_outputs:
+        elif (
+            not response or (isinstance(response, str) and response.strip() == "")
+        ) and judge_requires_outputs:
             _logger.warning(f"Missing required response in trace {trace.info.trace_id}")
             return None
-        elif expectations is None and judge_requires_expectations:
+        elif (
+            not expectations or (isinstance(expectations, str) and expectations.strip() == "")
+        ) and judge_requires_expectations:
             _logger.warning(f"Missing required expectations in trace {trace.info.trace_id}")
             return None
 

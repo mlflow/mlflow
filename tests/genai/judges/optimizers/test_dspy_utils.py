@@ -70,29 +70,127 @@ def test_trace_to_dspy_example_human_vs_llm_priority(
     assert result["rationale"] == "Human assessment - should be prioritized"
 
 
-def test_trace_to_dspy_example_success(sample_trace_with_assessment, mock_judge):
-    """Test successful conversion of trace to DSPy example."""
+@pytest.mark.parametrize(
+    ("required_fields", "expected_inputs"),
+    [
+        # Test different combinations of required fields
+        (["inputs"], ["inputs"]),
+        (["outputs"], ["outputs"]),
+        (["inputs", "outputs"], ["inputs", "outputs"]),
+        (["trace", "inputs", "outputs"], ["trace", "inputs", "outputs"]),
+        # Note: expectations will be None for our test trace, so we don't test it here
+    ],
+)
+def test_trace_to_dspy_example_success(
+    sample_trace_with_assessment, required_fields, expected_inputs
+):
+    """Test successful conversion of trace to DSPy example with various field requirements."""
     dspy = pytest.importorskip("dspy", reason="DSPy not installed")
+    from mlflow.genai.judges.base import JudgeField
+
+    # Create a custom judge class for this test
+    class TestJudge(MockJudge):
+        def __init__(self, fields):
+            super().__init__(name="mock_judge")
+            self._fields = fields
+
+        def get_input_fields(self):
+            return [JudgeField(name=field, description=f"Test {field}") for field in self._fields]
+
+    # Create a judge with specific required fields
+    judge = TestJudge(required_fields)
 
     # Use the fixture directly
     trace = sample_trace_with_assessment
 
     # Use real DSPy since we've skipped if it's not available
-    result = trace_to_dspy_example(trace, mock_judge)
+    result = trace_to_dspy_example(trace, judge)
 
     # Assert that the result is an instance of dspy.Example
     assert isinstance(result, dspy.Example)
 
+    # Build expected kwargs based on required fields
+    expected_kwargs = {}
+    if "trace" in required_fields:
+        expected_kwargs["trace"] = trace
+    if "inputs" in required_fields:
+        expected_kwargs["inputs"] = extract_request_from_trace(trace)
+    if "outputs" in required_fields:
+        expected_kwargs["outputs"] = extract_response_from_trace(trace)
+
     # Construct an expected example and assert that the result is the same
     expected_example = dspy.Example(
-        inputs=extract_request_from_trace(trace),
-        outputs=extract_response_from_trace(trace),
         result="pass",
         rationale="This looks good",
-    ).with_inputs("inputs", "outputs")
+        **expected_kwargs,
+    ).with_inputs(*expected_inputs)
 
     # Compare the examples
     assert result == expected_example
+
+
+@pytest.mark.parametrize(
+    ("trace_fixture", "required_fields", "warning_pattern"),
+    [
+        # Test when expectations are required but not present
+        ("sample_trace_with_assessment", ["expectations"], "Missing required expectations"),
+        (
+            "sample_trace_with_assessment",
+            ["inputs", "expectations"],
+            "Missing required expectations",
+        ),
+        (
+            "sample_trace_with_assessment",
+            ["outputs", "expectations"],
+            "Missing required expectations",
+        ),
+        (
+            "sample_trace_with_assessment",
+            ["inputs", "outputs", "expectations"],
+            "Missing required expectations",
+        ),
+        # Test when inputs are required but not present
+        ("trace_without_inputs", ["inputs"], "Missing required request"),
+        ("trace_without_inputs", ["inputs", "outputs"], "Missing required request"),
+        # Test when outputs are required but not present
+        ("trace_without_outputs", ["outputs"], "Missing required response"),
+        ("trace_without_outputs", ["inputs", "outputs"], "Missing required response"),
+        # Test combinations with trace and missing fields
+        (
+            "sample_trace_with_assessment",
+            ["trace", "inputs", "outputs", "expectations"],
+            "Missing required expectations",
+        ),
+        ("trace_without_inputs", ["trace", "inputs"], "Missing required request"),
+        ("trace_without_outputs", ["trace", "outputs"], "Missing required response"),
+    ],
+)
+def test_trace_to_dspy_example_missing_required_fields(
+    request, trace_fixture, required_fields, warning_pattern, caplog
+):
+    """Test that trace_to_dspy_example returns None when required fields are missing."""
+    from mlflow.genai.judges.base import JudgeField
+
+    # Get the trace fixture dynamically
+    trace = request.getfixturevalue(trace_fixture)
+
+    # Create a custom judge class for this test
+    class TestJudge(MockJudge):
+        def __init__(self, fields):
+            super().__init__(name="mock_judge")
+            self._fields = fields
+
+        def get_input_fields(self):
+            return [JudgeField(name=field, description=f"Test {field}") for field in self._fields]
+
+    # Create a judge with specific required fields
+    judge = TestJudge(required_fields)
+
+    # Should return None because required field is missing
+    result = trace_to_dspy_example(trace, judge)
+
+    # The function should return None when required fields are missing
+    assert result is None
 
 
 def test_trace_to_dspy_example_no_assessment(sample_trace_without_assessment, mock_judge):
