@@ -357,9 +357,12 @@ def test_custom_predict_forward_lm_parameter_handling(lm_value, lm_model, expect
     program = optimizer._get_dspy_program_from_judge(mock_judge)
 
     make_judge_calls = []
+    captured_args = {}
 
     def track_make_judge(name, instructions, model):
         make_judge_calls.append(model)
+        captured_args["name"] = name
+        captured_args["instructions"] = instructions
         mock_feedback = MagicMock()
         mock_feedback.value = "pass"
         mock_feedback.rationale = "Test"
@@ -376,3 +379,41 @@ def test_custom_predict_forward_lm_parameter_handling(lm_value, lm_model, expect
 
         assert len(make_judge_calls) == 1
         assert make_judge_calls[0] == expected_judge_model
+        # Verify instructions from judge are passed through
+        assert captured_args["name"] == "test_judge"
+        assert captured_args["instructions"] == mock_judge.instructions
+
+
+def test_custom_predict_uses_optimized_instructions():
+    """Test that CustomPredict uses optimized instructions after DSPy optimization."""
+    original_instructions = "Original judge instructions for evaluation"
+    optimized_instructions = "Optimized instructions after DSPy alignment"
+
+    mock_judge = MockJudge(
+        name="optimization_test_judge", model="openai:/gpt-4", instructions=original_instructions
+    )
+
+    optimizer = ConcreteDSPyOptimizer()
+    program = optimizer._get_dspy_program_from_judge(mock_judge)
+
+    # Verify initial instructions are from the judge
+    assert program.signature.instructions == original_instructions
+
+    # Simulate DSPy optimization updating the signature instructions
+    program.signature.instructions = optimized_instructions
+
+    captured_instructions = None
+
+    def capture_make_judge(name, instructions, model):
+        nonlocal captured_instructions
+        captured_instructions = instructions
+        mock_feedback = MagicMock()
+        mock_feedback.value = "pass"
+        mock_feedback.rationale = "Test"
+        return MagicMock(return_value=mock_feedback)
+
+    with patch("mlflow.genai.judges.optimizers.dspy.make_judge", side_effect=capture_make_judge):
+        program.forward(inputs="test input", outputs="test output")
+
+        # Should use the optimized instructions, not the original
+        assert captured_instructions == optimized_instructions
