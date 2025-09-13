@@ -1,5 +1,7 @@
+import shutil
 import time
 import uuid
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -39,22 +41,41 @@ pytestmark = pytest.mark.notrackingurimock
 GO_MOCK_TIME_TAG = "mock.time.go.testing.tag"
 
 
-@pytest.fixture
-def store(tmp_sqlite_uri):
-    db_uri_from_env_var = MLFLOW_TRACKING_URI.get()
-    store = SqlAlchemyStore(db_uri_from_env_var if db_uri_from_env_var else tmp_sqlite_uri)
-    yield store
+@pytest.fixture(scope="module")
+def cached_db(tmp_path_factory) -> Path:
+    tmp_path = tmp_path_factory.mktemp("sqlite_db")
+    db_path = tmp_path / "mlflow.db"
+    db_uri = f"sqlite:///{db_path}"
+    store = SqlAlchemyStore(db_uri)  # initialize database
+    store.engine.dispose()
+    return db_path
 
-    if db_uri_from_env_var is not None:
-        with store.ManagedSessionMaker() as session:
-            for model in (
-                SqlModelVersionTag,
-                SqlRegisteredModelTag,
-                SqlModelVersion,
-                SqlRegisteredModel,
-                SqlWebhook,
-            ):
-                session.query(model).delete()
+
+@pytest.fixture
+def store(tmp_path: Path, cached_db: Path):
+    if db_uri_env := MLFLOW_TRACKING_URI.get():
+        s = SqlAlchemyStore(db_uri_env)
+        yield s
+        _cleanup_database(s)
+    else:
+        db_path = tmp_path / "mlflow.db"
+        shutil.copy(cached_db, db_path)
+        db_uri = f"sqlite:///{db_path}"
+        s = SqlAlchemyStore(db_uri)
+        yield s
+
+
+def _cleanup_database(store: SqlAlchemyStore):
+    with store.ManagedSessionMaker() as session:
+        # Delete all rows in all tables
+        for model in (
+            SqlModelVersionTag,
+            SqlRegisteredModelTag,
+            SqlModelVersion,
+            SqlRegisteredModel,
+            SqlWebhook,
+        ):
+            session.query(model).delete()
 
 
 def _rm_maker(store, name, tags=None, description=None):
