@@ -349,7 +349,7 @@ def test_align_configures_openai_lm_in_context(sample_traces_with_assessments):
         ("mock_lm", "databricks", "databricks"),
     ],
 )
-def test_custom_predict_forward_lm_parameter_handling(lm_value, lm_model, expected_judge_model):
+def test_dspy_program_forward_lm_parameter_handling(lm_value, lm_model, expected_judge_model):
     original_judge_model = "openai:/gpt-4"
     mock_judge = MockJudge(name="test_judge", model=original_judge_model)
 
@@ -384,7 +384,7 @@ def test_custom_predict_forward_lm_parameter_handling(lm_value, lm_model, expect
         assert captured_args["instructions"] == mock_judge.instructions
 
 
-def test_custom_predict_uses_optimized_instructions(sample_traces_with_assessments):
+def test_dspy_program_uses_make_judge_with_optimized_instructions(sample_traces_with_assessments):
     """Test that CustomPredict uses optimized instructions after DSPy optimization."""
     original_instructions = (
         "Original judge instructions for evaluation of {{inputs}} and {{outputs}}"
