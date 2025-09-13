@@ -1,0 +1,141 @@
+---
+title: Agentic Judges Overview
+sidebar_label: Overview
+description: Understanding how judges become autonomous agents for deep trace analysis
+---
+
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import ConceptOverview from "@site/src/components/ConceptOverview";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { Brain, Search, Activity, GitBranch, Target, Shield, FileText } from "lucide-react";
+
+# Agentic Judges: Autonomous Trace Analysis
+
+Agentic Judges represent a paradigm shift in LLM evaluation. Instead of simply assessing inputs and outputs, these judges act as **autonomous agents** equipped with tools to investigate your application's execution in depth.
+
+## What Makes a Judge "Agentic"?
+
+When you use the `{{ trace }}` template variable in your judge instructions, MLflow transforms your judge from a passive evaluator into an active investigator. The judge gains access to MCP (Model Context Protocol) tools that interface with MLflow's APIs, enabling it to:
+
+<FeatureHighlights features={[
+  {
+    icon: Search,
+    title: "Explore Execution Flows",
+    description: "Navigate through traces, fetching specific spans as needed to understand the application's behavior."
+  },
+  {
+    icon: Activity,
+    title: "Analyze Performance",
+    description: "Examine timing, latency, and resource usage across different components of your application."
+  },
+  {
+    icon: GitBranch,
+    title: "Detect Patterns",
+    description: "Identify bottlenecks, redundancies, circular logic, and inefficient execution paths."
+  },
+  {
+    icon: Shield,
+    title: "Verify Behavior",
+    description: "Check tool usage, error handling, retry logic, and compliance with expected patterns."
+  }
+]} />
+
+## Field-Based vs Agentic Evaluation
+
+<ConceptOverview concepts={[
+  {
+    icon: Target,
+    title: "Field-Based Judges",
+    description: "Evaluate specific inputs and outputs. Perfect for assessing final results, checking correctness, and validating responses against expectations."
+  },
+  {
+    icon: Brain,
+    title: "Agentic Judges",
+    description: "Analyze complete execution traces. Ideal for understanding HOW your application works, not just WHAT it produces."
+  }
+]} />
+
+## When to Use Agentic Judges
+
+Agentic judges excel at evaluating:
+
+- **Multi-step workflows**: Understanding how data flows through your application
+- **Tool usage patterns**: Verifying correct tool selection and sequencing
+- **Error handling**: Checking recovery mechanisms and fallback strategies
+- **Performance issues**: Identifying slow operations and redundant processing
+- **Agent reasoning**: Analyzing decision-making processes and logic chains
+- **Security concerns**: Detecting potential data leaks or inappropriate access patterns
+
+## Creating an Agentic Judge
+
+To create an agentic judge, simply include `{{ trace }}` in your instructions:
+
+```python
+from mlflow.genai.judges import make_judge
+
+# Create an agentic judge for performance analysis
+performance_judge = make_judge(
+    name="performance_analyzer",
+    instructions=(
+        "Analyze the {{ trace }} for performance issues.\n\n"
+        "Check for:\n"
+        "- Operations taking longer than 2 seconds\n"
+        "- Redundant API calls or database queries\n"
+        "- Inefficient data processing patterns\n"
+        "- Proper use of caching mechanisms\n\n"
+        "Rate as: 'optimal', 'acceptable', or 'needs_improvement'"
+    ),
+    model="anthropic:/claude-3-opus-20240229"
+)
+```
+
+When invoked with a trace, this judge will:
+
+1. Use tools to explore the trace structure
+2. Fetch timing information from relevant spans
+3. Identify patterns and bottlenecks
+4. Provide detailed analysis with specific recommendations
+
+## Key Capabilities
+
+Agentic judges can access:
+
+- **Span hierarchy**: Understanding parent-child relationships
+- **Timing data**: Start times, end times, and durations
+- **Input/output data**: What each component received and produced
+- **Attributes**: Custom metadata and tags
+- **Error information**: Exceptions, stack traces, and error messages
+- **Tool calls**: Which tools were used and their results
+
+## Next Steps
+
+<TilesGrid>
+  <TileCard
+    icon={Search}
+    iconSize={48}
+    title="Trace Analysis"
+    description="Learn how judges use tools to investigate traces"
+    href="/genai/eval-monitor/scorers/llm-judge/trace-analysis"
+    linkText="Explore tools →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Activity}
+    iconSize={48}
+    title="Agent Behavior"
+    description="Evaluate complex agent behaviors and workflows"
+    href="/genai/eval-monitor/scorers/llm-judge/agent-behavior-patterns"
+    linkText="Learn patterns →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={FileText}
+    iconSize={48}
+    title="make_judge API"
+    description="See complete examples and API documentation"
+    href="/genai/eval-monitor/scorers/llm-judge/make-judge"
+    linkText="View API →"
+    containerHeight={64}
+  />
+</TilesGrid>

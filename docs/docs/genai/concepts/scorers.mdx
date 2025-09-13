@@ -1,0 +1,220 @@
+import Tabs from "@theme/Tabs"
+import TabItem from "@theme/TabItem"
+import { APILink } from "@site/src/components/APILink";
+import ImageBox from "@site/src/components/ImageBox";
+import TabsWrapper from "@site/src/components/TabsWrapper";
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import ConceptOverview from "@site/src/components/ConceptOverview";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { Brain, Code, Users, Shield, Target, Activity, ChartBar, AlertTriangle, GitBranch } from "lucide-react";
+
+# Scorer Concepts
+
+## What are Scorers?
+
+**Scorers** in MLflow are evaluation functions that assess the quality of your GenAI application outputs. They provide a systematic way to measure performance across different dimensions like correctness, relevance, safety, and adherence to guidelines.
+
+Scorers transform subjective quality assessments into measurable metrics, enabling you to track performance, compare models, and ensure your applications meet quality standards. They range from simple rule-based checks to sophisticated LLM judges that can evaluate nuanced aspects of language generation.
+
+## Use Cases
+
+<FeatureHighlights features={[
+  {
+    icon: Brain,
+    title: "Automated Quality Assessment",
+    description: "Replace manual review processes with automated scoring that can evaluate thousands of outputs consistently and at scale, using either deterministic rules or LLM-based evaluation."
+  },
+  {
+    icon: Shield,
+    title: "Safety & Compliance Validation",
+    description: "Systematically check for harmful content, bias, PII leakage, and regulatory compliance. Ensure your applications meet organizational and legal standards before deployment."
+  },
+  {
+    icon: GitBranch,
+    title: "A/B Testing & Model Comparison",
+    description: "Compare different models, prompts, or configurations using consistent evaluation criteria. Make data-driven decisions about which approach performs best for your use case."
+  },
+  {
+    icon: ChartBar,
+    title: "Continuous Quality Monitoring",
+    description: "Track quality metrics over time in production, detect degradations early, and maintain high standards as your application evolves and scales."
+  }
+]} />
+
+## Types of Scorers
+
+MLflow provides several types of scorers to address different evaluation needs:
+
+<ConceptOverview concepts={[
+  {
+    icon: Brain,
+    title: "LLM-based Scorers (LLM-as-a-Judge)",
+    description: "Use large language models to evaluate subjective qualities like helpfulness, coherence, and style. These scorers can understand context and nuance that rule-based systems miss."
+  },
+  {
+    icon: Code,
+    title: "Code-based Scorers",
+    description: "Custom Python functions for deterministic evaluation. Perfect for metrics that can be calculated algorithmically like ROUGE scores, exact match, or custom business logic."
+  },
+  {
+    icon: Activity,
+    title: "Agentic Judges",
+    description: "Autonomous agents that analyze execution traces to evaluate not just outputs, but the entire process. They can assess tool usage, reasoning chains, and error handling."
+  },
+  {
+    icon: Users,
+    title: "Human-Aligned Judges",
+    description: "LLM judges that have been fine-tuned with human feedback to match your specific quality standards. These provide the consistency of automation with the nuance of human judgment."
+  }
+]} />
+
+## Scorer Output Structure
+
+All scorers in MLflow produce standardized output that integrates seamlessly with the evaluation framework:
+
+| Field       | Type             | Description                                                                |
+| ----------- | ---------------- | -------------------------------------------------------------------------- |
+| `name`      | `str`            | Unique identifier for the scorer (e.g., "correctness", "safety")           |
+| `value`     | `Any`            | The evaluation result - can be numeric, boolean, or categorical            |
+| `rationale` | `Optional[str]`  | Explanation of why this score was given (especially useful for LLM judges) |
+| `metadata`  | `Optional[dict]` | Additional information about the evaluation (confidence, sub-scores, etc.) |
+| `error`     | `Optional[str]`  | Error message if the scorer failed to evaluate                             |
+
+## Common Scorer Patterns
+
+### Binary Classification
+
+```python
+# Simple pass/fail evaluation
+def is_safe(outputs):
+    # Check for harmful content
+    return "harmful" not in outputs.lower()
+```
+
+### Numeric Scoring
+
+```python
+# Score on a scale (e.g., 0-1 or 1-5)
+def relevance_score(inputs, outputs):
+    # Calculate relevance score
+    return calculate_similarity(inputs, outputs)
+```
+
+### Categorical Rating
+
+```python
+# Multi-class evaluation
+def quality_rating(outputs):
+    # Classify into categories
+    if len(outputs) < 50:
+        return "poor"
+    elif len(outputs) < 200:
+        return "good"
+    else:
+        return "excellent"
+```
+
+### LLM Judge
+
+```python
+from mlflow.genai.judges import make_judge
+
+correctness_judge = make_judge(
+    name="correctness",
+    instructions=(
+        "Evaluate if the response in {{ outputs }} "
+        "correctly answers the question in {{ inputs }}."
+    ),
+    model="anthropic:/claude-3-opus-20240229"
+)
+```
+
+## Integration with MLflow Evaluation
+
+Scorers are the building blocks of MLflow's evaluation framework. They integrate seamlessly with `mlflow.genai.evaluate()`:
+
+```python
+import mlflow
+import pandas as pd
+
+# Your test data
+test_data = pd.DataFrame([
+    {"question": "What is MLflow?", "ground_truth": "MLflow is an open-source platform for managing the ML lifecycle"},
+    {"question": "How do I track experiments?", "ground_truth": "Use mlflow.start_run() to track experiments"}
+])
+
+# Your application
+def my_app(question):
+    return generate_answer(question)
+
+# Evaluate with multiple scorers
+results = mlflow.genai.evaluate(
+    data=test_data,
+    predict_fn=my_app,
+    scorers=[
+        correctness_judge,      # LLM judge
+        relevance_score,        # Code-based scorer
+        is_safe,               # Binary classifier
+    ]
+)
+
+# Access evaluation metrics
+print(f"Correctness: {results.metrics['correctness/mean']}")
+print(f"Relevance: {results.metrics['relevance_score/mean']}")
+print(f"Safety Rate: {results.metrics['is_safe/ratio']}")
+```
+
+## Best Practices
+
+1. **Choose the Right Scorer Type**
+   - Use code-based scorers for objective, deterministic metrics
+   - Use LLM judges for subjective qualities requiring understanding
+   - Use agentic judges for evaluating complex multi-step processes
+
+2. **Combine Multiple Scorers**
+   - No single metric captures all aspects of quality
+   - Use a portfolio of scorers to get comprehensive evaluation
+   - Balance efficiency (fast code-based) with depth (LLM judges)
+
+3. **Align with Human Judgment**
+   - Validate that your scorers correlate with human quality assessments
+   - Use human feedback to improve LLM judge instructions
+   - Consider using human-aligned judges for critical evaluations
+
+4. **Monitor Scorer Performance**
+   - Track scorer execution time and costs
+   - Monitor for scorer failures and handle gracefully
+   - Regularly review scorer outputs for consistency
+
+## Next Steps
+
+<TilesGrid>
+  <TileCard
+    icon={Brain}
+    iconSize={48}
+    title="LLM-based Scorers"
+    description="Learn about using LLMs as judges for evaluation"
+    href="/genai/eval-monitor/scorers/llm-judge/"
+    linkText="Explore LLM judges →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Code}
+    iconSize={48}
+    title="Code-based Scorers"
+    description="Create custom Python functions for evaluation"
+    href="/genai/eval-monitor/scorers/custom"
+    linkText="Build custom scorers →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Target}
+    iconSize={48}
+    title="Evaluation Guide"
+    description="Learn how to run comprehensive evaluations"
+    href="/genai/eval-monitor/quickstart"
+    linkText="Start evaluating →"
+    containerHeight={64}
+  />
+</TilesGrid>
