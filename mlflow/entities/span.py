@@ -85,6 +85,9 @@ def create_mlflow_span(
     )
 
 
+from mlflow.tracing.attachments import Attachment
+
+
 class Span:
     """
     A span object. A span represents a unit of work or operation and is the building
@@ -107,6 +110,8 @@ class Span:
         # Since the span is immutable, we can cache the attributes to avoid the redundant
         # deserialization of the attribute values.
         self._attributes = _CachedSpanAttributesRegistry(otel_span)
+
+        self._attachments: dict[str, Attachment] = {}
 
     @property
     @lru_cache(maxsize=1)
@@ -485,6 +490,9 @@ class LiveSpan(Span):
         self._attributes = _SpanAttributesRegistry(otel_span)
         self._attributes.set(SpanAttributeKey.REQUEST_ID, trace_id)
         self._attributes.set(SpanAttributeKey.SPAN_TYPE, span_type)
+        from mlflow.tracing.attachments import Attachment
+
+        self._attachments: dict[str, Attachment] = {}
         # Track the original span name for deduplication purposes during span logging.
         # Why: When traces contain multiple spans with identical names (e.g., multiple "LLM"
         # or "query" spans), it's difficult for users to distinguish between them in the UI
@@ -498,6 +506,20 @@ class LiveSpan(Span):
 
     def set_inputs(self, inputs: Any):
         """Set the input values to the span."""
+        from mlflow.tracing.attachments import Attachment
+
+        print(inputs)
+        print(self)
+
+        if isinstance(inputs, dict):
+            print(inputs)
+            for k in inputs:
+                v = inputs[k]
+                if isinstance(v, Attachment):
+                    ref = v.ref(self._trace_id)
+                    self._attachments[ref] = v
+                    inputs[k] = ref
+        print(self._attachments)
         self.set_attribute(SpanAttributeKey.INPUTS, inputs)
 
     def set_outputs(self, outputs: Any):
@@ -642,7 +664,9 @@ class LiveSpan(Span):
         :meta private:
         """
         # All state of the live span is already persisted in the OpenTelemetry span object.
-        return Span(self._span)
+        s = Span(self._span)
+        s._attachments.update(self._attachments)
+        return s
 
     @classmethod
     def from_immutable_span(
