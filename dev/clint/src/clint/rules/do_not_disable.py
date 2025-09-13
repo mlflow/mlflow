@@ -5,7 +5,8 @@ from clint.rules.base import Rule
 
 class DoNotDisable(Rule):
     RULES = {
-        "B006": "Use None as default and set value in function body instead of mutable defaults"
+        "B006": "Use None as default and set value in function body instead of mutable defaults",
+        "F821": "Use typing.TYPE_CHECKING for forward references to optional dependencies",
     }
 
     def __init__(self, rules: set[str]) -> None:
