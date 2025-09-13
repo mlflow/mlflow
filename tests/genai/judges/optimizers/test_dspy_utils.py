@@ -4,8 +4,12 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
+from mlflow.exceptions import MlflowException
+from mlflow.genai.judges.base import JudgeField
 from mlflow.genai.judges.optimizers.dspy_utils import (
+    AgentEvalLM,
     agreement_metric,
+    construct_dspy_lm,
     convert_litellm_to_mlflow_uri,
     convert_mlflow_uri_to_litellm,
     create_dspy_signature,
@@ -101,7 +105,6 @@ def test_trace_to_dspy_example_human_vs_llm_priority(
 def test_trace_to_dspy_example_success(request, trace_fixture, required_fields, expected_inputs):
     """Test successful conversion of trace to DSPy example with various field requirements."""
     dspy = pytest.importorskip("dspy", reason="DSPy not installed")
-    from mlflow.genai.judges.base import JudgeField
 
     # Get the trace fixture dynamically
     trace = request.getfixturevalue(trace_fixture)
@@ -192,8 +195,6 @@ def test_trace_to_dspy_example_missing_required_fields(
     request, trace_fixture, required_fields, warning_pattern, caplog
 ):
     """Test that trace_to_dspy_example returns None when required fields are missing."""
-    from mlflow.genai.judges.base import JudgeField
-
     # Get the trace fixture dynamically
     trace = request.getfixturevalue(trace_fixture)
 
@@ -300,8 +301,6 @@ def test_convert_mlflow_uri_to_litellm(mlflow_uri, expected_litellm_uri):
 )
 def test_convert_mlflow_uri_to_litellm_invalid(invalid_uri):
     """Test conversion with invalid URIs."""
-    from mlflow.exceptions import MlflowException
-
     with pytest.raises(MlflowException, match="Failed to convert MLflow URI"):
         convert_mlflow_uri_to_litellm(invalid_uri)
 
@@ -336,8 +335,6 @@ def test_convert_litellm_to_mlflow_uri(litellm_model, expected_uri):
 )
 def test_convert_litellm_to_mlflow_uri_invalid(invalid_model):
     """Test conversion with invalid LiteLLM model strings."""
-    from mlflow.exceptions import MlflowException
-
     with pytest.raises(MlflowException, match="LiteLLM|empty|None") as exc_info:
         convert_litellm_to_mlflow_uri(invalid_model)
 
@@ -378,8 +375,6 @@ def test_mlflow_to_litellm_uri_round_trip_conversion(mlflow_uri):
 def test_construct_dspy_lm_utility_method(model, expected_type):
     """Test the construct_dspy_lm utility method with different model types."""
     import dspy
-
-    from mlflow.genai.judges.optimizers.dspy_utils import AgentEvalLM, construct_dspy_lm
 
     result = construct_dspy_lm(model)
 
