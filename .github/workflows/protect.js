@@ -36,7 +36,7 @@ module.exports = async ({ github, context }) => {
         ref,
         filter: "latest",
       })
-    ).filter(({ name }) => name !== "protect");
+    ).filter(({ name }) => name !== "protect" && !name.includes("copilot"));
 
     const latestRuns = {};
     for (const run of checkRuns) {
@@ -74,11 +74,13 @@ module.exports = async ({ github, context }) => {
       }
     }
 
-    const statuses = Object.values(latestStatuses).map(({ context, state }) => ({
-      name: context,
-      status:
-        state === "pending" ? STATE.pending : state === "success" ? STATE.success : STATE.failure,
-    }));
+    const statuses = Object.values(latestStatuses)
+      .filter(({ context }) => !context.includes("copilot"))
+      .map(({ context, state }) => ({
+        name: context,
+        status:
+          state === "pending" ? STATE.pending : state === "success" ? STATE.success : STATE.failure,
+      }));
 
     return [...runs, ...statuses].sort((a, b) => a.name.localeCompare(b.name));
   }
