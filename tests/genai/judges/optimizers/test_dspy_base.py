@@ -9,6 +9,7 @@ import pytest
 
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
+from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.optimizers.dspy import DSPyAlignmentOptimizer
 from mlflow.genai.judges.optimizers.dspy_utils import AgentEvalLM, convert_mlflow_uri_to_litellm
 
@@ -388,36 +389,21 @@ def test_align_configures_openai_lm_in_context(sample_traces_with_assessments):
 
 
 @pytest.mark.parametrize(
-    ("lm_value", "lm_model", "expected_judge_model", "test_description"),
+    ("lm_value", "lm_model", "expected_judge_model"),
     [
-        (None, None, "openai:/gpt-4", "No lm parameter - should use original judge model"),
-        (
-            "mock_lm",
-            "anthropic/claude-3",
-            "anthropic:/claude-3",
-            "Regular model - should convert from LiteLLM to MLflow format",
-        ),
-        (
-            "mock_lm",
-            "databricks",
-            "databricks",
-            "Databricks default - should use directly without conversion",
-        ),
+        (None, None, "openai:/gpt-4"),
+        ("mock_lm", "anthropic/claude-3", "anthropic:/claude-3"),
+        ("mock_lm", "databricks", "databricks"),
     ],
 )
-def test_custom_predict_forward_lm_parameter_handling(
-    lm_value, lm_model, expected_judge_model, test_description
-):
+def test_custom_predict_forward_lm_parameter_handling(lm_value, lm_model, expected_judge_model):
     """Test that CustomPredict.forward handles the lm parameter correctly in all cases.
 
     Args:
         lm_value: Whether to pass an lm parameter (None or "mock_lm")
         lm_model: The model string to set on the mock lm object
         expected_judge_model: The expected model that should be passed to make_judge
-        test_description: Description of what this test case is testing
     """
-    from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
-
     # Ensure databricks constant matches our test expectation
     assert _DATABRICKS_DEFAULT_JUDGE_MODEL == "databricks"
 
@@ -455,5 +441,5 @@ def test_custom_predict_forward_lm_parameter_handling(
             f"Expected 1 call to make_judge, got {len(make_judge_calls)}"
         )
         assert make_judge_calls[0] == expected_judge_model, (
-            f"{test_description}: Expected {expected_judge_model}, got {make_judge_calls[0]}"
+            f"Expected {expected_judge_model}, got {make_judge_calls[0]}"
         )
