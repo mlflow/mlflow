@@ -392,12 +392,9 @@ def test_custom_predict_uses_optimized_instructions(sample_traces_with_assessmen
     optimized_instructions = (
         "Optimized instructions after DSPy alignment for {{inputs}} and {{outputs}}"
     )
-
-    # Use the same judge name as in the fixture assessments
     mock_judge = MockJudge(
         name="mock_judge", model="openai:/gpt-4", instructions=original_instructions
     )
-
     captured_instructions = None
 
     def capture_make_judge(name, instructions, model):
@@ -408,13 +405,10 @@ def test_custom_predict_uses_optimized_instructions(sample_traces_with_assessmen
         mock_feedback.rationale = "Test"
         return MagicMock(return_value=mock_feedback)
 
-    # Override the _dspy_optimize to modify instructions and verify they're used
     class TestOptimizer(ConcreteDSPyOptimizer):
         def _dspy_optimize(self, program, examples, metric_fn):
-            # Simulate DSPy optimization by modifying the program's instructions
             program.signature.instructions = optimized_instructions
 
-            # Call the program to trigger make_judge and capture instructions
             with patch(
                 "mlflow.genai.judges.optimizers.dspy.make_judge", side_effect=capture_make_judge
             ):
@@ -423,13 +417,9 @@ def test_custom_predict_uses_optimized_instructions(sample_traces_with_assessmen
             return program
 
     optimizer = TestOptimizer()
-
     with (
         patch("dspy.LM", MagicMock()),
         patch.object(TestOptimizer, "get_min_traces_required", return_value=5),
     ):
-        # Run align which will call _dspy_optimize internally
         optimizer.align(mock_judge, sample_traces_with_assessments)
-
-        # Verify that the optimized instructions were used
         assert captured_instructions == optimized_instructions
