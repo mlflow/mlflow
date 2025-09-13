@@ -12,7 +12,6 @@ from mlflow.genai.judges.optimizers.dspy_utils import (
     trace_to_dspy_example,
 )
 from mlflow.genai.utils.trace_utils import (
-    extract_expectations_from_trace,
     extract_request_from_trace,
     extract_response_from_trace,
 )
@@ -86,13 +85,11 @@ def test_trace_to_dspy_example_success(sample_trace_with_assessment, mock_judge)
 
     # Construct an expected example and assert that the result is the same
     expected_example = dspy.Example(
-        trace=trace,
         inputs=extract_request_from_trace(trace),
         outputs=extract_response_from_trace(trace),
-        expectations=extract_expectations_from_trace(trace),
         result="pass",
         rationale="This looks good",
-    ).with_inputs("trace", "inputs", "outputs", "expectations")
+    ).with_inputs("inputs", "outputs")
 
     # Compare the examples
     assert result == expected_example

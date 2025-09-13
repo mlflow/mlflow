@@ -46,10 +46,8 @@ class MockJudge(Judge):
     def get_input_fields(self) -> list[JudgeField]:
         """Get the input fields for this mock judge."""
         return [
-            JudgeField(name="trace", description="Test trace"),
             JudgeField(name="inputs", description="Test inputs"),
             JudgeField(name="outputs", description="Test outputs"),
-            JudgeField(name="expectations", description="Test expectations"),
         ]
 
 
