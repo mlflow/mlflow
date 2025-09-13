@@ -24,7 +24,7 @@ jobs:
     if: >
       (
         github.event_name == 'schedule' &&
-        github.repository == 'mlflow/dev'
+        github.repository == 'mlflow/mlflow'
       ) || (
         github.event_name == 'pull_request' &&
         github.event.pull_request.draft == false
@@ -47,4 +47,4 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           uv run dev/xtest_viz.py \
             --days 14 \
-            --repo mlflow/dev >> $GITHUB_STEP_SUMMARY
+            --repo mlflow/mlflow >> $GITHUB_STEP_SUMMARY
