@@ -175,12 +175,16 @@ def convert_litellm_to_mlflow_uri(litellm_model: str) -> str:
         'anthropic:/claude-3'
     """
     if not litellm_model:
-        raise MlflowException("Model string cannot be empty")
+        raise MlflowException(
+            "Model string cannot be empty or None",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
     if "/" not in litellm_model:
         raise MlflowException(
             f"Invalid LiteLLM model format: '{litellm_model}'. "
-            "Expected format: 'provider/model' (e.g., 'openai/gpt-4')"
+            "Expected format: 'provider/model' (e.g., 'openai/gpt-4')",
+            error_code=INVALID_PARAMETER_VALUE,
         )
 
     try:
@@ -214,6 +218,8 @@ def trace_to_dspy_example(trace: Trace, judge: Judge) -> Optional["dspy.Example"
     """
     try:
         judge_input_fields = judge.get_input_fields()
+
+        judge_requires_trace = any(field.name == "trace" for field in judge_input_fields)
         judge_requires_inputs = any(field.name == "inputs" for field in judge_input_fields)
         judge_requires_outputs = any(field.name == "outputs" for field in judge_input_fields)
         judge_requires_expectations = any(
@@ -269,7 +275,7 @@ def trace_to_dspy_example(trace: Trace, judge: Judge) -> Optional["dspy.Example"
         # Create DSPy example
         example_kwargs = {}
         example_inputs = []
-        if any(field.name == "trace" for field in judge_input_fields):
+        if judge_requires_trace:
             example_kwargs["trace"] = trace
             example_inputs.append("trace")
         if judge_requires_inputs:

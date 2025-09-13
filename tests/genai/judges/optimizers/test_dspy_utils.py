@@ -217,19 +217,14 @@ def test_convert_litellm_to_mlflow_uri_invalid(invalid_model):
     """Test conversion with invalid LiteLLM model strings."""
     from mlflow.exceptions import MlflowException
 
-    if invalid_model is None:
-        # Special case for None - will fail on string operations
-        with pytest.raises((MlflowException, TypeError)):
-            convert_litellm_to_mlflow_uri(invalid_model)
-    else:
-        with pytest.raises(MlflowException, match="LiteLLM|empty") as exc_info:
-            convert_litellm_to_mlflow_uri(invalid_model)
+    with pytest.raises(MlflowException, match="LiteLLM|empty|None") as exc_info:
+        convert_litellm_to_mlflow_uri(invalid_model)
 
-        # Check that the error message is informative
-        if invalid_model == "":
-            assert "cannot be empty" in str(exc_info.value)
-        elif "/" not in invalid_model:
-            assert "Expected format: 'provider/model'" in str(exc_info.value)
+    # Check that the error message is informative
+    if invalid_model is None or invalid_model == "":
+        assert "cannot be empty or None" in str(exc_info.value)
+    elif "/" not in invalid_model:
+        assert "Expected format: 'provider/model'" in str(exc_info.value)
 
 
 @pytest.mark.parametrize(
