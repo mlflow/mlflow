@@ -123,10 +123,6 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
                 else:
                     judge_model = self._judge_model
 
-                # Ensure outputs is provided (use empty string if not)
-                if "outputs" not in kwargs:
-                    kwargs["outputs"] = ""
-
                 judge: Judge = make_judge(
                     name=self._judge_name,
                     instructions=self.signature.instructions,

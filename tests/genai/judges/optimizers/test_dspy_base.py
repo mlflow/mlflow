@@ -385,3 +385,75 @@ def test_align_configures_openai_lm_in_context(sample_traces_with_assessments):
         patch.object(optimizer, "get_min_traces_required", return_value=0),
     ):
         optimizer.align(mock_judge, sample_traces_with_assessments)
+
+
+@pytest.mark.parametrize(
+    ("lm_value", "lm_model", "expected_judge_model", "test_description"),
+    [
+        (None, None, "openai:/gpt-4", "No lm parameter - should use original judge model"),
+        (
+            "mock_lm",
+            "anthropic/claude-3",
+            "anthropic:/claude-3",
+            "Regular model - should convert from LiteLLM to MLflow format",
+        ),
+        (
+            "mock_lm",
+            "databricks",
+            "databricks",
+            "Databricks default - should use directly without conversion",
+        ),
+    ],
+)
+def test_custom_predict_forward_lm_parameter_handling(
+    lm_value, lm_model, expected_judge_model, test_description
+):
+    """Test that CustomPredict.forward handles the lm parameter correctly in all cases.
+
+    Args:
+        lm_value: Whether to pass an lm parameter (None or "mock_lm")
+        lm_model: The model string to set on the mock lm object
+        expected_judge_model: The expected model that should be passed to make_judge
+        test_description: Description of what this test case is testing
+    """
+    from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
+
+    # Ensure databricks constant matches our test expectation
+    assert _DATABRICKS_DEFAULT_JUDGE_MODEL == "databricks"
+
+    # Create a mock judge with a default model
+    original_judge_model = "openai:/gpt-4"
+    mock_judge = MockJudge(name="test_judge", model=original_judge_model)
+
+    # Create optimizer and program
+    optimizer = ConcreteDSPyOptimizer()
+    program = optimizer._get_dspy_program_from_judge(mock_judge)
+
+    # Track what models are passed to make_judge
+    make_judge_calls = []
+
+    def track_make_judge(name, instructions, model):
+        make_judge_calls.append(model)
+        mock_feedback = MagicMock()
+        mock_feedback.value = "pass"
+        mock_feedback.rationale = "Test"
+        return MagicMock(return_value=mock_feedback)
+
+    with patch("mlflow.genai.judges.optimizers.dspy.make_judge", side_effect=track_make_judge):
+        # Prepare the lm parameter based on test case
+        kwargs = {"inputs": "test", "outputs": "test"}
+        if lm_value == "mock_lm":
+            mock_lm = MagicMock()
+            mock_lm.model = lm_model
+            kwargs["lm"] = mock_lm
+
+        # Call forward with or without lm parameter
+        program.forward(**kwargs)
+
+        # Verify the correct model was passed to make_judge
+        assert len(make_judge_calls) == 1, (
+            f"Expected 1 call to make_judge, got {len(make_judge_calls)}"
+        )
+        assert make_judge_calls[0] == expected_judge_model, (
+            f"{test_description}: Expected {expected_judge_model}, got {make_judge_calls[0]}"
+        )
