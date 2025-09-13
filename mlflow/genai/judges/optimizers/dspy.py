@@ -175,7 +175,7 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
                 # Convert traces to DSPy format
                 dspy_examples = []
                 for trace in traces:
-                    example = trace_to_dspy_example(trace, judge.name)
+                    example = trace_to_dspy_example(trace, judge)
                     if example is not None:
                         dspy_examples.append(example)
 

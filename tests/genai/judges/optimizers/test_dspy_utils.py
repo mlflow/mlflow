@@ -17,11 +17,14 @@ from mlflow.genai.utils.trace_utils import (
 )
 
 
-def test_sanitize_judge_name(sample_trace_with_assessment):
+def test_sanitize_judge_name(sample_trace_with_assessment, mock_judge):
     """Test judge name sanitization in trace_to_dspy_example."""
     # The sanitization is now done inside trace_to_dspy_example
     # Test that it correctly handles different judge name formats
     from mlflow.genai.judges.optimizers.dspy_utils import trace_to_dspy_example
+
+    # Import MockJudge from conftest
+    from tests.genai.judges.optimizers.conftest import MockJudge
 
     # Mock dspy module
     mock_dspy = MagicMock()
@@ -33,17 +36,20 @@ def test_sanitize_judge_name(sample_trace_with_assessment):
         # Test with different case variations - they should all find the assessment
         # The assessment name in the fixture is "  Mock_JUDGE  " (mixed case + whitespace)
         # These should all match because both assessment name and judge name get sanitized
-        assert trace_to_dspy_example(sample_trace_with_assessment, "  mock_judge  ") is not None
-        assert trace_to_dspy_example(sample_trace_with_assessment, "Mock_Judge") is not None
-        assert trace_to_dspy_example(sample_trace_with_assessment, "MOCK_JUDGE") is not None
+        judge1 = MockJudge(name="  mock_judge  ")
+        judge2 = MockJudge(name="Mock_Judge")
+        judge3 = MockJudge(name="MOCK_JUDGE")
+        assert trace_to_dspy_example(sample_trace_with_assessment, judge1) is not None
+        assert trace_to_dspy_example(sample_trace_with_assessment, judge2) is not None
+        assert trace_to_dspy_example(sample_trace_with_assessment, judge3) is not None
 
 
-def test_trace_to_dspy_example_two_human_assessments(trace_with_two_human_assessments):
+def test_trace_to_dspy_example_two_human_assessments(trace_with_two_human_assessments, mock_judge):
     """Test that most recent HUMAN assessment is used when there are multiple HUMAN assessments."""
     dspy = pytest.importorskip("dspy", reason="DSPy not installed")
 
     trace = trace_with_two_human_assessments
-    result = trace_to_dspy_example(trace, "mock_judge")
+    result = trace_to_dspy_example(trace, mock_judge)
 
     assert isinstance(result, dspy.Example)
     # Should use the newer assessment with value="pass" and specific rationale
@@ -51,12 +57,14 @@ def test_trace_to_dspy_example_two_human_assessments(trace_with_two_human_assess
     assert result["rationale"] == "Second assessment - should be used (more recent)"
 
 
-def test_trace_to_dspy_example_human_vs_llm_priority(trace_with_human_and_llm_assessments):
+def test_trace_to_dspy_example_human_vs_llm_priority(
+    trace_with_human_and_llm_assessments, mock_judge
+):
     """Test that HUMAN assessment is prioritized over LLM_JUDGE even when LLM_JUDGE is newer."""
     dspy = pytest.importorskip("dspy", reason="DSPy not installed")
 
     trace = trace_with_human_and_llm_assessments
-    result = trace_to_dspy_example(trace, "mock_judge")
+    result = trace_to_dspy_example(trace, mock_judge)
 
     assert isinstance(result, dspy.Example)
     # Should use the HUMAN assessment despite being older
@@ -64,7 +72,7 @@ def test_trace_to_dspy_example_human_vs_llm_priority(trace_with_human_and_llm_as
     assert result["rationale"] == "Human assessment - should be prioritized"
 
 
-def test_trace_to_dspy_example_success(sample_trace_with_assessment):
+def test_trace_to_dspy_example_success(sample_trace_with_assessment, mock_judge):
     """Test successful conversion of trace to DSPy example."""
     dspy = pytest.importorskip("dspy", reason="DSPy not installed")
 
@@ -72,30 +80,34 @@ def test_trace_to_dspy_example_success(sample_trace_with_assessment):
     trace = sample_trace_with_assessment
 
     # Use real DSPy since we've skipped if it's not available
-    result = trace_to_dspy_example(trace, "mock_judge")
+    result = trace_to_dspy_example(trace, mock_judge)
 
     # Assert that the result is an instance of dspy.Example
     assert isinstance(result, dspy.Example)
 
     # Construct an expected example and assert that the result is the same
+    from mlflow.genai.utils.trace_utils import extract_expectations_from_trace
+
     expected_example = dspy.Example(
+        trace=trace,
         inputs=extract_request_from_trace(trace),
         outputs=extract_response_from_trace(trace),
+        expectations=extract_expectations_from_trace(trace),
         result="pass",
         rationale="This looks good",
-    ).with_inputs("inputs", "outputs")
+    ).with_inputs("trace", "inputs", "outputs", "expectations")
 
     # Compare the examples
     assert result == expected_example
 
 
-def test_trace_to_dspy_example_no_assessment(sample_trace_without_assessment):
+def test_trace_to_dspy_example_no_assessment(sample_trace_without_assessment, mock_judge):
     """Test trace conversion with no matching assessment."""
     # Use the fixture for trace without assessment
     trace = sample_trace_without_assessment
 
     # This should return None since there's no matching assessment
-    result = trace_to_dspy_example(trace, "mock_judge")
+    result = trace_to_dspy_example(trace, mock_judge)
 
     assert result is None
 

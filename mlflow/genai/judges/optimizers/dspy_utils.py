@@ -195,7 +195,7 @@ def convert_litellm_to_mlflow_uri(litellm_model: str) -> str:
         raise MlflowException(f"Failed to convert LiteLLM format to MLflow URI: {e}")
 
 
-def trace_to_dspy_example(trace: Trace, judge_name: str) -> Optional["dspy.Example"]:
+def trace_to_dspy_example(trace: Trace, judge: "Judge") -> Optional["dspy.Example"]:
     """
     Convert MLflow trace to DSPy example format.
 
@@ -206,7 +206,7 @@ def trace_to_dspy_example(trace: Trace, judge_name: str) -> Optional["dspy.Examp
 
     Args:
         trace: MLflow trace object
-        judge_name: Name of the judge to find assessments for
+        judge: Judge instance to find assessments for
 
     Returns:
         DSPy example object or None if conversion fails
@@ -234,7 +234,7 @@ def trace_to_dspy_example(trace: Trace, judge_name: str) -> Optional["dspy.Examp
             )
             for assessment in sorted_assessments:
                 sanitized_assessment_name = _sanitize_assessment_name(assessment.name)
-                sanitized_judge_name = _sanitize_assessment_name(judge_name)
+                sanitized_judge_name = _sanitize_assessment_name(judge.name)
                 if (
                     sanitized_assessment_name == sanitized_judge_name
                     and assessment.source.source_type == AssessmentSourceType.HUMAN
@@ -244,7 +244,7 @@ def trace_to_dspy_example(trace: Trace, judge_name: str) -> Optional["dspy.Examp
 
         if not expected_result:
             _logger.warning(
-                f"No human assessment found for judge '{judge_name}' in trace {trace.info.trace_id}"
+                f"No human assessment found for judge '{judge.name}' in trace {trace.info.trace_id}"
             )
             return None
 
