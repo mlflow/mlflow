@@ -253,13 +253,20 @@ def trace_to_dspy_example(trace: Trace, judge: "Judge") -> Optional["dspy.Exampl
             return None
 
         # Create DSPy example
+        judge_input_fields = judge.get_input_fields()
+        example_kwargs = {}
+        if any(field.name == "trace" for field in judge_input_fields):
+            example_kwargs["trace"] = trace
+        if any(field.name == "inputs" for field in judge_input_fields):
+            example_kwargs["inputs"] = request
+        if any(field.name == "outputs" for field in judge_input_fields):
+            example_kwargs["outputs"] = response
+        if any(field.name == "expectations" for field in judge_input_fields):
+            example_kwargs["expectations"] = extract_expectations_from_trace(trace)
         example = dspy.Example(
-            trace=trace,
-            inputs=request,
-            outputs=response,
-            expectations=extract_expectations_from_trace(trace),
             result=str(expected_result.feedback.value).lower(),
             rationale=expected_result.rationale if expected_result.rationale else "",
+            **example_kwargs,
         )
 
         # Set inputs (what the model should use as input)
