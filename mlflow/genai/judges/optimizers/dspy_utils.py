@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
+from mlflow.genai.judges.base import Judge
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils import call_chat_completions
 from mlflow.genai.utils.trace_utils import (
@@ -195,7 +196,7 @@ def convert_litellm_to_mlflow_uri(litellm_model: str) -> str:
         raise MlflowException(f"Failed to convert LiteLLM format to MLflow URI: {e}")
 
 
-def trace_to_dspy_example(trace: Trace, judge: "Judge") -> Optional["dspy.Example"]:
+def trace_to_dspy_example(trace: Trace, judge: Judge) -> Optional["dspy.Example"]:
     """
     Convert MLflow trace to DSPy example format.
 

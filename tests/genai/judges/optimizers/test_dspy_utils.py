@@ -12,19 +12,18 @@ from mlflow.genai.judges.optimizers.dspy_utils import (
     trace_to_dspy_example,
 )
 from mlflow.genai.utils.trace_utils import (
+    extract_expectations_from_trace,
     extract_request_from_trace,
     extract_response_from_trace,
 )
+
+from tests.genai.judges.optimizers.conftest import MockJudge
 
 
 def test_sanitize_judge_name(sample_trace_with_assessment, mock_judge):
     """Test judge name sanitization in trace_to_dspy_example."""
     # The sanitization is now done inside trace_to_dspy_example
     # Test that it correctly handles different judge name formats
-    from mlflow.genai.judges.optimizers.dspy_utils import trace_to_dspy_example
-
-    # Import MockJudge from conftest
-    from tests.genai.judges.optimizers.conftest import MockJudge
 
     # Mock dspy module
     mock_dspy = MagicMock()
@@ -86,8 +85,6 @@ def test_trace_to_dspy_example_success(sample_trace_with_assessment, mock_judge)
     assert isinstance(result, dspy.Example)
 
     # Construct an expected example and assert that the result is the same
-    from mlflow.genai.utils.trace_utils import extract_expectations_from_trace
-
     expected_example = dspy.Example(
         trace=trace,
         inputs=extract_request_from_trace(trace),
