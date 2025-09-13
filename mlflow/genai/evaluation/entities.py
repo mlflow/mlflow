@@ -46,7 +46,10 @@ class EvalItem:
         """
         Create an EvalItem from a row of input Pandas Dataframe row.
         """
-        inputs = cls._parse_inputs(row.get(InputDatasetColumn.INPUTS))
+        if inputs := row.get(InputDatasetColumn.INPUTS):
+            inputs = cls._parse_inputs(inputs)
+        else:
+            raise MlflowException.invalid_parameter_value("inputs/request column must not be None")
         outputs = row.get(InputDatasetColumn.OUTPUTS)
 
         # Get the request ID from the row, or generate a new unique ID if not present.

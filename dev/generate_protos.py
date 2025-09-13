@@ -143,6 +143,10 @@ python_gencode_replacements = [
         "import webhooks_pb2 as webhooks__pb2",
         "from . import webhooks_pb2 as webhooks__pb2",
     ),
+    (
+        "import databricks_trace_server_pb2 as databricks__trace__server__pb2",
+        "from . import databricks_trace_server_pb2 as databricks_trace_server__pb2",
+    ),
 ]
 
 

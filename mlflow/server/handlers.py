@@ -125,6 +125,7 @@ from mlflow.protos.service_pb2 import (
     GetMetricHistoryBulkInterval,
     GetRun,
     GetScorer,
+    GetTrace,
     GetTraceInfo,
     GetTraceInfoV3,
     LinkTracesToRun,
@@ -3007,8 +3008,13 @@ def get_trace_artifact_handler():
             error_code=BAD_REQUEST,
         )
 
-    trace_info = _get_tracking_store().get_trace_info(request_id)
-    trace_data = _get_trace_artifact_repo(trace_info).download_trace_data()
+    tracking_store = _get_tracking_store()
+    try:
+        # TODO: UI should invoke get-trace instead of get-trace-artifact
+        trace_data = tracking_store.get_trace(request_id).data.to_dict()
+    except NotImplementedError:
+        trace_info = tracking_store.get_trace_info(request_id)
+        trace_data = _get_trace_artifact_repo(trace_info).download_trace_data()
 
     # Write data to a BytesIO buffer instead of needing to save a temp file
     buf = io.BytesIO()
@@ -3022,6 +3028,20 @@ def get_trace_artifact_handler():
         download_name=TRACE_DATA_FILE_NAME,
     )
     return _response_with_file_attachment_headers(TRACE_DATA_FILE_NAME, file_sender_response)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_trace(trace_id):
+    """
+    A request handler for `GET /ajax-api/3.0/mlflow/traces/{trace_id}`
+    to get a specific trace.
+    """
+    trace = _get_tracking_store().get_trace(trace_id)
+
+    response_message = GetTrace.Response(trace=trace.to_proto_v3())
+
+    return _wrap_response(response_message)
 
 
 # Assessments API handlers
@@ -3950,17 +3970,14 @@ HANDLERS = {
     SetTraceTagV3: _set_trace_tag_v3,
     DeleteTraceTagV3: _delete_trace_tag,
     LinkTracesToRun: _link_traces_to_run,
+    GetTrace: _get_trace,
     # Assessment APIs
     CreateAssessment: _create_assessment,
     GetAssessmentRequest: _get_assessment,
     UpdateAssessment: _update_assessment,
     DeleteAssessment: _delete_assessment,
     # Legacy MLflow Tracing V2 APIs. Kept for backward compatibility but do not use.
-    StartTrace: _deprecated_start_trace_v2,
-    EndTrace: _deprecated_end_trace_v2,
-    GetTraceInfo: _deprecated_get_trace_info_v2,
     SearchTraces: _deprecated_search_traces_v2,
-    DeleteTraces: _delete_traces,
     SetTraceTag: _set_trace_tag,
     DeleteTraceTag: _delete_trace_tag,
     # Logged Models APIs

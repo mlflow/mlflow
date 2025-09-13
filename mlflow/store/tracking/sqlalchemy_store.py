@@ -50,7 +50,7 @@ from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.metric import Metric, MetricWithRunId
 from mlflow.entities.span_status import SpanStatusCode
-from mlflow.entities.trace import Span
+from mlflow.entities.trace import Span, Trace, TraceData
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
@@ -100,7 +100,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceTag,
 )
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import TRACKING_STORE, SpanAttributeKey, TraceMetadataKey, TraceTagKey
 from mlflow.tracing.utils import TraceJSONEncoder, generate_request_id_v2
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.file_utils import local_file_uri_to_path, mkdir
@@ -2523,10 +2523,10 @@ class SqlAlchemyStore(AbstractStore):
                 response_preview=trace_info.response_preview,
             )
 
-            sql_trace_info.tags = [
+            tags = [
                 SqlTraceTag(request_id=trace_id, key=k, value=v) for k, v in trace_info.tags.items()
-            ]
-            sql_trace_info.tags.append(self._get_trace_artifact_location_tag(experiment, trace_id))
+            ] + [self._get_trace_artifact_location_tag(experiment, trace_id)]
+            sql_trace_info.tags = tags
 
             sql_trace_info.request_metadata = [
                 SqlTraceMetadata(request_id=trace_id, key=k, value=v)
@@ -2543,7 +2543,18 @@ class SqlAlchemyStore(AbstractStore):
                 # Trace already exists (likely created by log_spans())
                 # Use merge to update with start_trace() data, preserving any logged spans
                 session.rollback()
-                session.merge(sql_trace_info)
+                db_sql_trace_info = (
+                    session.query(SqlTraceInfo)
+                    .filter(SqlTraceInfo.request_id == trace_id)
+                    .one_or_none()
+                )
+                if db_sql_trace_info:
+                    for tag in db_sql_trace_info.tags:
+                        if tag.key not in tags:
+                            sql_trace_info.tags.append(
+                                SqlTraceTag(request_id=trace_id, key=tag.key, value=tag.value)
+                            )
+                    session.merge(sql_trace_info)
                 session.flush()
 
             return sql_trace_info.to_mlflow_entity()
@@ -3265,7 +3276,15 @@ class SqlAlchemyStore(AbstractStore):
                     client_request_id=None,
                 )
                 # Add the artifact location tag that's required for search_traces to work
-                sql_trace_info.tags = [self._get_trace_artifact_location_tag(experiment, trace_id)]
+                tags = [
+                    SqlTraceTag(
+                        key=TraceTagKey.SPANS_LOCATION,
+                        value=TRACKING_STORE,
+                        request_id=trace_id,
+                    ),
+                    self._get_trace_artifact_location_tag(experiment, trace_id),
+                ]
+                sql_trace_info.tags = tags
                 session.add(sql_trace_info)
                 try:
                     session.flush()
@@ -3280,6 +3299,12 @@ class SqlAlchemyStore(AbstractStore):
                         .filter(SqlTraceInfo.request_id == trace_id)
                         .one()
                     )
+                    existing_tags = {tag.key for tag in sql_trace_info.tags}
+                    for tag in tags:
+                        if tag.key not in existing_tags:
+                            sql_trace_info.tags.append(tag)
+                    session.merge(sql_trace_info)
+                    session.flush()
 
             # Atomic update of trace time range using SQLAlchemy's case expressions.
             # This is necessary to handle concurrent span additions from multiple processes/threads
@@ -3377,6 +3402,52 @@ class SqlAlchemyStore(AbstractStore):
                     # UNSET is unexpected in production but we handle it gracefully.
                     return TraceState.OK.value
         return None
+
+    def get_trace(self, trace_id: str) -> Trace:
+        """
+        Get a complete trace with spans for a given trace ID.
+        """
+        trace_info = self.get_trace_info(trace_id)
+        spans = self.load_spans(trace_id)
+        return Trace(info=trace_info, data=TraceData(spans=spans))
+
+    def load_spans(self, trace_id: str) -> list[Span]:
+        """
+        Load all spans for a given trace from the database.
+
+        Args:
+            trace_id: The trace ID to load spans for.
+
+        Returns:
+            List of Span objects for the given trace, ordered by start time.
+        """
+        with self.ManagedSessionMaker() as session:
+            # Query all spans for the given trace, ordered by start time
+            sql_spans = (
+                session.query(SqlSpan)
+                .filter(SqlSpan.trace_id == trace_id)
+                .order_by(SqlSpan.start_time_unix_nano)
+                .all()
+            )
+
+            if not sql_spans:
+                return []
+
+            # Convert SqlSpan objects to Span objects
+            spans = []
+            for sql_span in sql_spans:
+                span_dict = json.loads(sql_span.content)
+                span = Span.from_dict(span_dict)
+                if span.inputs is None:
+                    span.set_attribute(SpanAttributeKey.INPUTS, _parse_inputs(span))
+                if span.outputs is None:
+                    span.set_attribute(SpanAttributeKey.OUTPUTS, _parse_outputs(span))
+                spans.append(span)
+
+            return spans
+
+    async def load_spans_async(self, trace_id: str) -> list[Span]:
+        return self.load_spans(trace_id)
 
     #######################################################################################
     # Entity Association Methods
@@ -4715,3 +4786,15 @@ def _get_search_datasets_order_by_clauses(order_by):
         order_by_clauses.append((SqlEvaluationDataset.dataset_id, False))
 
     return [col.asc() if ascending else col.desc() for col, ascending in order_by_clauses]
+
+
+def _parse_inputs(span: Span) -> Any:
+    if inputs := span.get_attribute("query.text"):
+        return inputs
+    return None
+
+
+def _parse_outputs(span: Span) -> Any:
+    if outputs := span.get_attribute("result.output"):
+        return outputs
+    return None
