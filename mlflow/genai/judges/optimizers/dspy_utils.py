@@ -151,6 +151,48 @@ def convert_mlflow_uri_to_litellm(model_uri: str) -> str:
         raise MlflowException(f"Failed to convert MLflow URI to LiteLLM format: {e}")
 
 
+def convert_litellm_to_mlflow_uri(litellm_model: str) -> str:
+    """
+    Convert LiteLLM model format to MLflow URI format.
+
+    LiteLLM uses formats like 'openai/gpt-4' while MLflow expects 'openai:/gpt-4'.
+
+    Args:
+        litellm_model: LiteLLM model string (e.g., 'openai/gpt-4')
+
+    Returns:
+        MLflow-compatible model URI (e.g., 'openai:/gpt-4')
+
+    Raises:
+        MlflowException: If the model string is not in the expected format
+
+    Examples:
+        >>> convert_litellm_to_mlflow_uri("openai/gpt-4")
+        'openai:/gpt-4'
+        >>> convert_litellm_to_mlflow_uri("anthropic/claude-3")
+        'anthropic:/claude-3'
+    """
+    if not litellm_model:
+        raise MlflowException("Model string cannot be empty")
+
+    if "/" not in litellm_model:
+        raise MlflowException(
+            f"Invalid LiteLLM model format: '{litellm_model}'. "
+            "Expected format: 'provider/model' (e.g., 'openai/gpt-4')"
+        )
+
+    try:
+        provider, model = litellm_model.split("/", 1)
+        if not provider or not model:
+            raise MlflowException(
+                f"Invalid LiteLLM model format: '{litellm_model}'. "
+                "Both provider and model name must be non-empty"
+            )
+        return f"{provider}:/{model}"
+    except ValueError as e:
+        raise MlflowException(f"Failed to convert LiteLLM format to MLflow URI: {e}")
+
+
 def trace_to_dspy_example(trace: Trace, judge_name: str) -> Optional["dspy.Example"]:
     """
     Convert MLflow trace to DSPy example format.
@@ -210,6 +252,7 @@ def trace_to_dspy_example(trace: Trace, judge_name: str) -> Optional["dspy.Examp
 
         # Create DSPy example
         example = dspy.Example(
+            trace=trace,
             inputs=request,
             outputs=response,
             result=str(expected_result.feedback.value).lower(),
@@ -217,7 +260,7 @@ def trace_to_dspy_example(trace: Trace, judge_name: str) -> Optional["dspy.Examp
         )
 
         # Set inputs (what the model should use as input)
-        return example.with_inputs("inputs", "outputs")
+        return example.with_inputs("trace", "inputs", "outputs")
 
     except Exception as e:
         _logger.error(f"Failed to create DSPy example from trace: {e}")

@@ -4,6 +4,7 @@ import logging
 from abc import abstractmethod
 from typing import Any, Callable, ClassVar, Collection
 
+from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges import make_judge
@@ -104,11 +105,21 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
             def __init__(self, judge):
                 super().__init__(create_dspy_signature(judge))
                 self._lm = construct_dspy_lm(judge.model)
+                self._judge_model = judge.model
+                self._judge_name = judge.name
 
             def forward(self, *args, **kwargs):
-                # If an LM is supplied via kwargs, use that, else use self.lm
-                lm = kwargs.pop("lm", self._lm)
-                return super().forward(*args, lm=lm, **kwargs)
+                # For now, just use the judge's original model
+                judge: Judge = make_judge(
+                    name=self._judge_name,
+                    instructions=self.signature.instructions,
+                    model=self._judge_model,
+                )
+                feedback: Feedback = judge(**kwargs)
+                return dspy.Prediction(
+                    result=feedback.value,
+                    rationale=feedback.rationale,
+                )
 
         return CustomPredict(judge)
 

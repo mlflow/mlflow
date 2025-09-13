@@ -6,6 +6,7 @@ import pytest
 
 from mlflow.genai.judges.optimizers.dspy_utils import (
     agreement_metric,
+    convert_litellm_to_mlflow_uri,
     convert_mlflow_uri_to_litellm,
     create_dspy_signature,
     trace_to_dspy_example,
@@ -176,6 +177,71 @@ def test_convert_mlflow_uri_to_litellm_invalid(invalid_uri):
 
     with pytest.raises(MlflowException, match="Failed to convert MLflow URI"):
         convert_mlflow_uri_to_litellm(invalid_uri)
+
+
+@pytest.mark.parametrize(
+    ("litellm_model", "expected_uri"),
+    [
+        ("openai/gpt-4", "openai:/gpt-4"),
+        ("openai/gpt-3.5-turbo", "openai:/gpt-3.5-turbo"),
+        ("anthropic/claude-3", "anthropic:/claude-3"),
+        ("anthropic/claude-3.5-sonnet", "anthropic:/claude-3.5-sonnet"),
+        ("cohere/command", "cohere:/command"),
+        ("databricks/dbrx", "databricks:/dbrx"),
+    ],
+)
+def test_convert_litellm_to_mlflow_uri(litellm_model, expected_uri):
+    """Test conversion from LiteLLM format to MLflow URI format."""
+    result = convert_litellm_to_mlflow_uri(litellm_model)
+    assert result == expected_uri
+
+
+@pytest.mark.parametrize(
+    "invalid_model",
+    [
+        "openai-gpt-4",  # Missing slash
+        "",  # Empty string
+        None,  # None value
+        "openai/",  # Missing model name
+        "/gpt-4",  # Missing provider
+        "//",  # Empty provider and model
+    ],
+)
+def test_convert_litellm_to_mlflow_uri_invalid(invalid_model):
+    """Test conversion with invalid LiteLLM model strings."""
+    from mlflow.exceptions import MlflowException
+
+    if invalid_model is None:
+        # Special case for None - will fail on string operations
+        with pytest.raises((MlflowException, TypeError)):
+            convert_litellm_to_mlflow_uri(invalid_model)
+    else:
+        with pytest.raises(MlflowException, match="LiteLLM|empty") as exc_info:
+            convert_litellm_to_mlflow_uri(invalid_model)
+
+        # Check that the error message is informative
+        if invalid_model == "":
+            assert "cannot be empty" in str(exc_info.value)
+        elif "/" not in invalid_model:
+            assert "Expected format: 'provider/model'" in str(exc_info.value)
+
+
+def test_round_trip_conversion():
+    """Test that converting MLflow -> LiteLLM -> MLflow preserves the original format."""
+    test_cases = [
+        "openai:/gpt-4",
+        "anthropic:/claude-3.5-sonnet",
+        "cohere:/command",
+        "databricks:/dbrx",
+    ]
+
+    for mlflow_uri in test_cases:
+        # Convert MLflow -> LiteLLM
+        litellm_format = convert_mlflow_uri_to_litellm(mlflow_uri)
+        # Convert LiteLLM -> MLflow
+        result = convert_litellm_to_mlflow_uri(litellm_format)
+        # Should get back the original
+        assert result == mlflow_uri, f"Round-trip failed for {mlflow_uri}"
 
 
 @pytest.mark.parametrize(
