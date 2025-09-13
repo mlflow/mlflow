@@ -15,7 +15,7 @@ from mlflow.genai.judges.optimizers.dspy_utils import AgentEvalLM, convert_mlflo
 from tests.genai.judges.optimizers.conftest import MockDSPyLM, MockJudge
 
 
-def create_mock_make_judge(
+def make_judge_mock_builder(
     expected_model: str | None = None, track_calls: list[str] | None = None
 ) -> Callable[[str, str, str], MagicMock]:
     """Create a mock make_judge function for testing.
@@ -158,7 +158,7 @@ def test_optimizer_and_judge_use_different_models(sample_traces_with_assessments
     judge_lm = MockDSPyLM(convert_mlflow_uri_to_litellm(judge_model))
 
     mock_lm_factory = _create_mock_dspy_lm_factory(optimizer_lm, judge_lm)
-    mock_make_judge = create_mock_make_judge(
+    mock_make_judge = make_judge_mock_builder(
         expected_model=judge_model, track_calls=judge_lm.context_calls
     )
 
@@ -257,7 +257,7 @@ def test_mlflow_to_litellm_uri_conversion_in_judge_program():
     optimizer = ConcreteDSPyOptimizer()
 
     make_judge_calls = []
-    mock_make_judge = create_mock_make_judge(
+    mock_make_judge = make_judge_mock_builder(
         expected_model=mock_judge.model, track_calls=make_judge_calls
     )
 
