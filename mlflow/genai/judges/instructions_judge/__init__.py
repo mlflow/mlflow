@@ -6,6 +6,7 @@ from typing import Any
 from pydantic import PrivateAttr
 
 import mlflow
+from mlflow.entities.assessment import Feedback
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
@@ -336,7 +337,7 @@ class InstructionsJudge(Judge):
         outputs: Any = None,
         expectations: dict[str, Any] | None = None,
         trace: Trace | None = None,
-    ) -> Any:
+    ) -> Feedback:
         """
         Evaluate the provided data using the judge's instructions.
 
