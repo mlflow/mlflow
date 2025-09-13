@@ -47,4 +47,4 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           uv run dev/xtest_viz.py \
             --days 14 \
-            --repo mlflow/mlflow >> $GITHUB_STEP_SUMMARY
+            --repo mlflow/dev >> $GITHUB_STEP_SUMMARY
