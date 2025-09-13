@@ -2,6 +2,7 @@
 
 import json
 import time
+from typing import Any
 from unittest.mock import Mock
 
 import dspy
@@ -52,13 +53,13 @@ class MockJudge(Judge):
 
 
 def _create_trace_helper(
-    trace_id,
-    assessments=None,
-    inputs=None,
-    outputs=None,
-    context_trace_id=12345,
-    context_span_id=111,
-):
+    trace_id: str,
+    assessments: list[Feedback] | None = None,
+    inputs: dict[str, Any] | None = None,
+    outputs: dict[str, Any] | None = None,
+    context_trace_id: int = 12345,
+    context_span_id: int = 111,
+) -> Trace:
     """Helper function to create traces with less duplication."""
     current_time_ns = int(time.time() * 1e9)
 

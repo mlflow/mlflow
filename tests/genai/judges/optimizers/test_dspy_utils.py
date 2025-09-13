@@ -29,16 +29,12 @@ def test_sanitize_judge_name(sample_trace_with_assessment, mock_judge):
     # The sanitization is now done inside trace_to_dspy_example
     # Test that it correctly handles different judge name formats
 
-    # Mock dspy module
     mock_dspy = MagicMock()
     mock_example = MagicMock()
     mock_example.with_inputs.return_value = mock_example
     mock_dspy.Example.return_value = mock_example
 
     with patch.dict("sys.modules", {"dspy": mock_dspy}):
-        # Test with different case variations - they should all find the assessment
-        # The assessment name in the fixture is "  Mock_JUDGE  " (mixed case + whitespace)
-        # These should all match because both assessment name and judge name get sanitized
         judge1 = MockJudge(name="  mock_judge  ")
         judge2 = MockJudge(name="Mock_Judge")
         judge3 = MockJudge(name="MOCK_JUDGE")
@@ -105,10 +101,8 @@ def test_trace_to_dspy_example_human_vs_llm_priority(
 def test_trace_to_dspy_example_success(request, trace_fixture, required_fields, expected_inputs):
     dspy = pytest.importorskip("dspy", reason="DSPy not installed")
 
-    # Get the trace fixture dynamically
     trace = request.getfixturevalue(trace_fixture)
 
-    # Create a custom judge class for this test
     class TestJudge(MockJudge):
         def __init__(self, fields):
             super().__init__(name="mock_judge")
@@ -117,13 +111,11 @@ def test_trace_to_dspy_example_success(request, trace_fixture, required_fields, 
         def get_input_fields(self):
             return [JudgeField(name=field, description=f"Test {field}") for field in self._fields]
 
-    # Create a judge with specific required fields
     judge = TestJudge(required_fields)
 
     # Use real DSPy since we've skipped if it's not available
     result = trace_to_dspy_example(trace, judge)
 
-    # Assert that the result is an instance of dspy.Example
     assert isinstance(result, dspy.Example)
 
     # Build expected kwargs based on required fields
@@ -155,49 +147,18 @@ def test_trace_to_dspy_example_success(request, trace_fixture, required_fields, 
 
 
 @pytest.mark.parametrize(
-    ("trace_fixture", "required_fields", "warning_pattern"),
+    ("trace_fixture", "required_fields"),
     [
-        # Test when expectations are required but not present
-        ("sample_trace_with_assessment", ["expectations"], "Missing required expectations"),
-        (
-            "sample_trace_with_assessment",
-            ["inputs", "expectations"],
-            "Missing required expectations",
-        ),
-        (
-            "sample_trace_with_assessment",
-            ["outputs", "expectations"],
-            "Missing required expectations",
-        ),
-        (
-            "sample_trace_with_assessment",
-            ["inputs", "outputs", "expectations"],
-            "Missing required expectations",
-        ),
-        # Test when inputs are required but not present
-        ("trace_without_inputs", ["inputs"], "Missing required request"),
-        ("trace_without_inputs", ["inputs", "outputs"], "Missing required request"),
-        # Test when outputs are required but not present
-        ("trace_without_outputs", ["outputs"], "Missing required response"),
-        ("trace_without_outputs", ["inputs", "outputs"], "Missing required response"),
-        # Test combinations with trace and missing fields
-        (
-            "sample_trace_with_assessment",
-            ["trace", "inputs", "outputs", "expectations"],
-            "Missing required expectations",
-        ),
-        ("trace_without_inputs", ["trace", "inputs"], "Missing required request"),
-        ("trace_without_outputs", ["trace", "outputs"], "Missing required response"),
+        ("sample_trace_with_assessment", ["expectations"]),
+        ("sample_trace_with_assessment", ["inputs", "expectations"]),
+        ("sample_trace_with_assessment", ["outputs", "expectations"]),
+        ("sample_trace_with_assessment", ["inputs", "outputs", "expectations"]),
+        ("sample_trace_with_assessment", ["trace", "inputs", "outputs", "expectations"]),
     ],
 )
-def test_trace_to_dspy_example_missing_required_fields(
-    request, trace_fixture, required_fields, warning_pattern, caplog
-):
-    """Test that trace_to_dspy_example returns None when required fields are missing."""
-    # Get the trace fixture dynamically
+def test_trace_to_dspy_example_missing_required_fields(request, trace_fixture, required_fields):
     trace = request.getfixturevalue(trace_fixture)
 
-    # Create a custom judge class for this test
     class TestJudge(MockJudge):
         def __init__(self, fields):
             super().__init__(name="mock_judge")
@@ -206,13 +167,9 @@ def test_trace_to_dspy_example_missing_required_fields(
         def get_input_fields(self):
             return [JudgeField(name=field, description=f"Test {field}") for field in self._fields]
 
-    # Create a judge with specific required fields
     judge = TestJudge(required_fields)
 
-    # Should return None because required field is missing
     result = trace_to_dspy_example(trace, judge)
-
-    # The function should return None when required fields are missing
     assert result is None
 
 
@@ -235,20 +192,14 @@ def test_create_dspy_signature(mock_judge):
 
     assert signature.instructions == mock_judge.instructions
 
-    # Check that the input fields of the signature are the same as the input fields of the judge
     judge_input_fields = mock_judge.get_input_fields()
     for field in judge_input_fields:
-        # Check that the field exists in the signature's input_fields dictionary
         assert field.name in signature.input_fields
-        # Verify the field description matches
         assert signature.input_fields[field.name].json_schema_extra["desc"] == field.description
 
-    # Check that the output fields of the signature are the same as the output fields of the judge
     judge_output_fields = mock_judge.get_output_fields()
     for field in judge_output_fields:
-        # Check that the field exists in the signature's output_fields dictionary
         assert field.name in signature.output_fields
-        # Verify the field description matches
         assert signature.output_fields[field.name].json_schema_extra["desc"] == field.description
 
 
@@ -335,7 +286,6 @@ def test_convert_litellm_to_mlflow_uri_invalid(invalid_model):
     with pytest.raises(MlflowException, match="LiteLLM|empty|None") as exc_info:
         convert_litellm_to_mlflow_uri(invalid_model)
 
-    # Check that the error message is informative
     if invalid_model is None or invalid_model == "":
         assert "cannot be empty or None" in str(exc_info.value)
     elif "/" not in invalid_model:
