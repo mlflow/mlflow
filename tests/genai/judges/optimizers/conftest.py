@@ -2,6 +2,7 @@
 
 import json
 import time
+from typing import Any
 from unittest.mock import Mock
 
 import dspy
@@ -47,7 +48,59 @@ class MockJudge(Judge):
         """Get the input fields for this mock judge."""
         return [
             JudgeField(name="inputs", description="Test inputs"),
+            JudgeField(name="outputs", description="Test outputs"),
         ]
+
+
+def _create_trace_helper(
+    trace_id: str,
+    assessments: list[Feedback] | None = None,
+    inputs: dict[str, Any] | None = None,
+    outputs: dict[str, Any] | None = None,
+    context_trace_id: int = 12345,
+    context_span_id: int = 111,
+) -> Trace:
+    """Helper function to create traces with less duplication."""
+    current_time_ns = int(time.time() * 1e9)
+
+    # Build attributes dict
+    attributes = {"mlflow.traceRequestId": json.dumps(trace_id)}
+    if inputs is not None:
+        attributes["mlflow.spanInputs"] = json.dumps(inputs)
+    if outputs is not None:
+        attributes["mlflow.spanOutputs"] = json.dumps(outputs)
+    attributes["mlflow.spanType"] = json.dumps("CHAIN")
+
+    # Create OpenTelemetry span
+    otel_span = OTelReadableSpan(
+        name="root_span",
+        context=build_otel_context(context_trace_id, context_span_id),
+        parent=None,
+        start_time=current_time_ns,
+        end_time=current_time_ns + 1000000,
+        attributes=attributes,
+    )
+
+    # Create real Span object
+    real_span = Span(otel_span)
+
+    # Create real TraceInfo
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=int(time.time() * 1000),
+        state=TraceState.OK,
+        execution_duration=1000,
+        trace_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
+        tags={},
+        assessments=assessments or [],
+        request_preview=json.dumps(inputs) if inputs else None,
+        response_preview=json.dumps(outputs) if outputs else None,
+    )
+
+    # Create real TraceData and Trace
+    trace_data = TraceData(spans=[real_span])
+    return Trace(info=trace_info, data=trace_data)
 
 
 @pytest.fixture
@@ -59,8 +112,6 @@ def mock_judge():
 @pytest.fixture
 def sample_trace_with_assessment():
     """Create a sample trace with human assessment for testing."""
-    # Create actual trace with real MLflow objects instead of mocks
-
     # Create a real assessment object (Feedback) with mixed case/whitespace to test sanitization
     assessment = Feedback(
         name="  Mock_JUDGE  ",
@@ -69,95 +120,109 @@ def sample_trace_with_assessment():
         source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="test_user"),
     )
 
-    # Create OpenTelemetry span with proper attributes
-    current_time_ns = int(time.time() * 1e9)
-    otel_span = OTelReadableSpan(
-        name="root_span",
-        context=build_otel_context(12345, 111),
-        parent=None,
-        start_time=current_time_ns,
-        end_time=current_time_ns + 1000000,
-        attributes={
-            "mlflow.traceRequestId": json.dumps("test_trace_001"),
-            "mlflow.spanInputs": json.dumps({"inputs": "test input"}),
-            "mlflow.spanOutputs": json.dumps({"outputs": "test output"}),
-            "mlflow.spanType": json.dumps("CHAIN"),
-        },
-    )
-
-    # Create real Span object
-    real_span = Span(otel_span)
-
-    # Create real TraceInfo
-    trace_info = TraceInfo(
+    return _create_trace_helper(
         trace_id="test_trace_001",
-        trace_location=TraceLocation.from_experiment_id("0"),
-        request_time=int(time.time() * 1000),
-        state=TraceState.OK,
-        execution_duration=1000,
-        trace_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
-        tags={},
         assessments=[assessment],
-        request_preview='{"inputs": "test input"}',
-        response_preview='{"outputs": "test output"}',
+        inputs={"inputs": "test input"},
+        outputs={"outputs": "test output"},
+        context_trace_id=12345,
+        context_span_id=111,
     )
-
-    # Create real TraceData
-    trace_data = TraceData(spans=[real_span])
-
-    # Create real Trace object
-    return Trace(info=trace_info, data=trace_data)
 
 
 @pytest.fixture
 def sample_trace_without_assessment():
     """Create a sample trace without human assessment for testing."""
-    # Create OpenTelemetry span
-    current_time_ns = int(time.time() * 1e9)
-    otel_span = OTelReadableSpan(
-        name="root_span",
-        context=build_otel_context(12346, 112),
-        parent=None,
-        start_time=current_time_ns,
-        end_time=current_time_ns + 1000000,
-        attributes={
-            "mlflow.traceRequestId": json.dumps("test_trace_001"),
-            "mlflow.spanInputs": json.dumps({"inputs": "test input"}),
-            "mlflow.spanOutputs": json.dumps({"outputs": "test output"}),
-            "mlflow.spanType": json.dumps("CHAIN"),
-        },
-    )
-
-    # Create real Span object
-    real_span = Span(otel_span)
-
-    # Create real TraceInfo without assessments
-    trace_info = TraceInfo(
+    return _create_trace_helper(
         trace_id="test_trace_001",
-        trace_location=TraceLocation.from_experiment_id("0"),
-        request_time=int(time.time() * 1000),
-        state=TraceState.OK,
-        execution_duration=1000,
-        trace_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
-        tags={},
         assessments=[],  # No assessments
-        request_preview='{"inputs": "test input"}',
-        response_preview='{"outputs": "test output"}',
+        inputs={"inputs": "test input"},
+        outputs={"outputs": "test output"},
+        context_trace_id=12346,
+        context_span_id=112,
     )
 
-    # Create real TraceData
-    trace_data = TraceData(spans=[real_span])
 
-    # Create real Trace object
-    return Trace(info=trace_info, data=trace_data)
+@pytest.fixture
+def trace_with_expectations():
+    """Create a trace with expectations."""
+    from mlflow.entities import Expectation
+
+    # Create assessments
+    judge_assessment = Feedback(
+        name="mock_judge",
+        value="pass",
+        rationale="Meets expectations",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="test_user"),
+    )
+
+    expectation1 = Expectation(
+        trace_id="test_trace_with_expectations",
+        name="accuracy",
+        value="Should be at least 90% accurate",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="test_user"),
+    )
+
+    expectation2 = Expectation(
+        trace_id="test_trace_with_expectations",
+        name="format",
+        value="Should return JSON format",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="test_user"),
+    )
+
+    return _create_trace_helper(
+        trace_id="test_trace_with_expectations",
+        assessments=[judge_assessment, expectation1, expectation2],
+        inputs={"inputs": "test input"},
+        outputs={"outputs": "test output"},
+        context_trace_id=12352,
+        context_span_id=118,
+    )
+
+
+@pytest.fixture
+def trace_without_inputs():
+    """Create a trace without inputs (only outputs)."""
+    assessment = Feedback(
+        name="mock_judge",
+        value="pass",
+        rationale="Output only",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="test_user"),
+    )
+
+    return _create_trace_helper(
+        trace_id="test_trace_no_inputs",
+        assessments=[assessment],
+        inputs=None,  # No inputs
+        outputs={"outputs": "test output"},
+        context_trace_id=12350,
+        context_span_id=116,
+    )
+
+
+@pytest.fixture
+def trace_without_outputs():
+    """Create a trace without outputs (only inputs)."""
+    assessment = Feedback(
+        name="mock_judge",
+        value="pass",
+        rationale="Input only",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="test_user"),
+    )
+
+    return _create_trace_helper(
+        trace_id="test_trace_no_outputs",
+        assessments=[assessment],
+        inputs={"inputs": "test input"},
+        outputs=None,  # No outputs
+        context_trace_id=12351,
+        context_span_id=117,
+    )
 
 
 @pytest.fixture
 def trace_with_nested_request_response():
     """Create a trace with nested request/response structure."""
-    # Create actual trace with real MLflow objects
-
-    # Create a real assessment object (Feedback)
     assessment = Feedback(
         name="mock_judge",
         value="pass",
@@ -166,47 +231,17 @@ def trace_with_nested_request_response():
         create_time_ms=int(time.time() * 1000),
     )
 
-    # Create OpenTelemetry span with nested structure
-    current_time_ns = int(time.time() * 1e9)
     nested_inputs = {"query": {"text": "nested input", "context": {"key": "value"}}}
     nested_outputs = {"result": {"answer": "nested output", "metadata": {"score": 0.9}}}
 
-    otel_span = OTelReadableSpan(
-        name="root_span",
-        context=build_otel_context(12347, 113),
-        parent=None,
-        start_time=current_time_ns,
-        end_time=current_time_ns + 1000000,
-        attributes={
-            "mlflow.traceRequestId": json.dumps("test_trace_nested"),
-            "mlflow.spanInputs": json.dumps(nested_inputs),
-            "mlflow.spanOutputs": json.dumps(nested_outputs),
-            "mlflow.spanType": json.dumps("CHAIN"),
-        },
-    )
-
-    # Create real Span object
-    real_span = Span(otel_span)
-
-    # Create real TraceInfo
-    trace_info = TraceInfo(
+    return _create_trace_helper(
         trace_id="test_trace_nested",
-        trace_location=TraceLocation.from_experiment_id("0"),
-        request_time=int(time.time() * 1000),
-        state=TraceState.OK,
-        execution_duration=1000,
-        trace_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
-        tags={},
         assessments=[assessment],
-        request_preview=json.dumps(nested_inputs),
-        response_preview=json.dumps(nested_outputs),
+        inputs=nested_inputs,
+        outputs=nested_outputs,
+        context_trace_id=12347,
+        context_span_id=113,
     )
-
-    # Create real TraceData
-    trace_data = TraceData(spans=[real_span])
-
-    # Create real Trace object
-    return Trace(info=trace_info, data=trace_data)
 
 
 @pytest.fixture
