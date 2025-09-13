@@ -133,31 +133,21 @@ for trace_id in traces:
     judge_result = initial_judge(trace=trace)
     # Judge's assessment is automatically logged when called
 
-# Step 4: Human reviews the JUDGE'S assessments and provides feedback
-# This is the critical step - humans review what the judge decided
-for trace_id in traces[:10]:  # Review at least 10 for alignment
-    trace = mlflow.get_trace(trace_id)
+# Step 4: Collect human feedback through the MLflow UI
+# IMPORTANT: Human feedback is typically provided through the MLflow UI's trace view,
+# not programmatically. The UI provides an intuitive interface for reviewing traces
+# and adding feedback ratings.
 
-    # Get the judge's assessment
-    assessments = trace.search_assessments(name="product_quality")
-    judge_assessment = next(
-        (a for a in assessments if a.source.source_type == "LLM_JUDGE"), None
-    )
+# To provide feedback via UI:
+# 1. Open MLflow UI and navigate to your experiment
+# 2. Click on a trace to view details
+# 3. Review the judge's assessment
+# 4. Click "Add Feedback" to provide your rating
+# 5. Select the same assessment name as the judge uses
+# 6. Provide your ground truth rating
 
-    # Human expert reviews: "Did the judge rate this correctly?"
-    # Example: Judge said "good" but human thinks it should be "excellent"
-    human_rating = "excellent"  # What the human thinks is correct
-
-    # Log human feedback on the same trace
-    mlflow.log_feedback(
-        trace_id=trace_id,
-        name="product_quality",  # Must match judge name
-        value=human_rating,  # Human's ground truth
-        rationale=f"Judge said '{judge_assessment.value}' but should be '{human_rating}'",
-        source=AssessmentSource(
-            source_type=AssessmentSourceType.HUMAN, source_id="product_expert"
-        ),
-    )
+# The API is available but rarely used in practice:
+# mlflow.log_feedback(trace_id, name="product_quality", value="excellent", ...)
 
 # Step 5: Retrieve traces with both judge assessments and human feedback
 traces_for_alignment = mlflow.search_traces(
@@ -196,13 +186,6 @@ optimizer = SIMBAAlignmentOptimizer(
 
 aligned_judge = initial_judge.align(optimizer, traces_with_feedback)
 ```
-
-**Key Features:**
-
-- Robust to noisy feedback
-- Handles imbalanced datasets well
-- Automatic hyperparameter tuning
-- No separate validation set needed
 
 ## Collecting Feedback for Alignment
 
@@ -280,7 +263,7 @@ def test_alignment_improvement(
     iconSize={48}
     title="Create Custom Judges"
     description="Learn to create domain-specific judges with make_judge."
-    href="/genai/judges"
+    href="/genai/eval-monitor/scorers/llm-judge/make-judge"
     linkText="Create judges →"
     containerHeight={64}
   />
@@ -289,7 +272,7 @@ def test_alignment_improvement(
     iconSize={48}
     title="Development Workflow"
     description="See complete workflow from creation to aligned production judge."
-    href="/genai/judges/workflow"
+    href="/genai/eval-monitor/scorers/llm-judge/workflow"
     linkText="View workflow →"
     containerHeight={64}
   />
@@ -298,7 +281,7 @@ def test_alignment_improvement(
     iconSize={48}
     title="Dataset Integration"
     description="Use judges with evaluation datasets for systematic testing."
-    href="/genai/judges/dataset-integration"
+    href="/genai/eval-monitor/scorers/llm-judge/datasets"
     linkText="Learn integration →"
     containerHeight={64}
   />

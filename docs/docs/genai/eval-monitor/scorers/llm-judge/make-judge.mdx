@@ -11,6 +11,10 @@ import { MessageSquare, BookOpen, Target, FileText, Search, Settings, GitBranch,
 
 The <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API is the recommended way to create custom LLM judges in MLflow. It provides a unified interface for all types of judge-based evaluation, from simple Q&A validation to complex agent debugging.
 
+:::note[Version Requirements]
+The `make_judge` API requires **MLflow >= 3.4.0**. For earlier versions, use the legacy judge functions.
+:::
+
 ## Why Use make_judge?
 
 Creating effective LLM judges requires a balance of flexibility, maintainability, and accuracy. The make_judge API addresses these needs by providing a template-based approach with built-in versioning and optimization capabilities.
@@ -535,40 +539,36 @@ perf_judge = make_judge(
     model="anthropic:/claude-3-opus-20240229",
 )
 
-# Collect traces and evaluate them
-evaluation_results = []
-for query in ["What is MLflow?", "How to track?"]:
-    with mlflow.start_span("query") as span:
-        # Your actual agent processing
-        response = f"Response for: {query}"  # my_agent.process(query)
-        trace_id = span.trace_id
+# Prepare test data
+import pandas as pd
 
-    # Retrieve the completed trace
-    trace = mlflow.get_trace(trace_id)
+test_queries = pd.DataFrame([
+    {"query": "What is MLflow?"},
+    {"query": "How to track experiments?"},
+    {"query": "What are MLflow models?"}
+])
 
-    # Evaluate the trace
-    feedback = perf_judge(trace=trace)
+# Define your agent function
+def my_agent(query):
+    # Your actual agent processing
+    with mlflow.start_span("agent_processing") as span:
+        # Simulate some processing
+        response = f"Detailed answer about: {query}"
+        span.set_inputs({"query": query})
+        span.set_outputs({"response": response})
+    return response
 
-    # Log feedback to the trace
-    mlflow.log_feedback(
-        trace_id=trace_id,
-        name="performance",
-        value=feedback.value,
-        rationale=feedback.rationale,
-    )
+# Run evaluation with the performance judge
+results = mlflow.genai.evaluate(
+    data=test_queries,
+    predict_fn=my_agent,
+    scorers=[perf_judge]
+)
 
-    evaluation_results.append(
-        {
-            "query": query,
-            "trace_id": trace_id,
-            "rating": feedback.value,
-            "issues": feedback.rationale,
-        }
-    )
-
-# Log evaluation summary
-with mlflow.start_run():
-    mlflow.log_table(evaluation_results, "trace_evaluations.json")
+# View results - assessments are automatically logged to traces
+print("Performance metrics:", results.metrics)
+print("\nDetailed evaluations:")
+print(results.tables["eval_results_table"])
 ```
 
 ### Combining with Human Feedback
@@ -607,15 +607,10 @@ mlflow.log_feedback(
     ),
 )
 
-# Flag for human review if needed
-if auto_feedback.value in ["poor", "needs improvement"]:
-    # Add to review queue (your system)
-    review_item = {
-        "trace_id": trace_id,
-        "auto_rating": auto_feedback.value,
-        "needs_review": True,
-    }
-    # human_review_queue.add(review_item)
+# View and review traces in the MLflow UI
+# - OSS MLflow: Navigate to the Traces tab in your experiment
+# - Databricks: Use Labeling sessions for structured review
+# Traces are automatically grouped by mlflow.genai.evaluate() runs for easy review
 ```
 
 ## Learn More

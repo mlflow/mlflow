@@ -146,19 +146,31 @@ for issue in issues:
         # Log judge's assessment
         mlflow.log_assessment(trace_id=trace_id, assessment=assessment)
 
-# Collect human feedback on the same traces
-for trace_id in trace_ids:
-    # In production, this would be from your review UI
-    human_rating = "excellent"  # Human expert's assessment
+# Collect human feedback based on your scenario:
 
+# Scenario 1: You have ground truth labels
+ground_truth = {
+    trace_ids[0]: "excellent",  # Known good response
+    trace_ids[1]: "poor",  # Known bad response
+    trace_ids[2]: "good",  # Known acceptable response
+}
+
+for trace_id, truth_value in ground_truth.items():
     mlflow.log_feedback(
         trace_id=trace_id,
         name="support_quality",  # MUST match judge name
-        value=human_rating,
+        value=truth_value,
         source=AssessmentSource(
-            source_type=AssessmentSourceType.HUMAN, source_id="expert_reviewer"
+            source_type=AssessmentSourceType.HUMAN, source_id="ground_truth"
         ),
     )
+
+# Scenario 2 (RECOMMENDED): Use the MLflow UI for feedback collection
+# The MLflow UI provides an intuitive interface for reviewing and rating traces:
+# 1. Navigate to the Traces tab in your experiment
+# 2. Click on individual traces to review inputs/outputs
+# 3. Add feedback ratings directly through the UI
+# 4. The UI automatically logs feedback in the correct format
 ```
 
 ## Step 3: Align Judge with Human Feedback
@@ -222,9 +234,47 @@ for case in test_cases:
 # Register the aligned judge for production use
 aligned_judge.register(experiment_id)
 print("Judge registered and ready for deployment!")
+```
 
-# To see improvement, run another evaluation loop
-# comparing the original and aligned judges
+## Step 5: Use the Registered Judge in Production
+
+Retrieve and use your registered judge with `mlflow.genai.evaluate()`:
+
+```python
+from mlflow.genai.scorers import get_scorer
+import pandas as pd
+
+# Retrieve the registered judge
+production_judge = get_scorer(
+    name="support_quality",
+    experiment_id=experiment_id
+)
+
+# Prepare evaluation data
+eval_data = pd.DataFrame([
+    {
+        "inputs": {"issue": "Can't access my account"},
+        "outputs": {"response": "I'll help you regain access immediately."}
+    },
+    {
+        "inputs": {"issue": "Slow website performance"},
+        "outputs": {"response": "Let me investigate the performance issues."}
+    }
+])
+
+# Run evaluation with the aligned judge
+results = mlflow.genai.evaluate(
+    data=eval_data,
+    scorers=[production_judge]
+)
+
+# View results and metrics
+print("Evaluation metrics:", results.metrics)
+print("\nDetailed results:")
+print(results.tables["eval_results_table"])
+
+# Assessments are automatically logged to the traces
+# You can view them in the MLflow UI Traces tab
 ```
 
 ## Best Practices
@@ -260,7 +310,7 @@ print("Judge registered and ready for deployment!")
     iconSize={48}
     title="Judge Alignment"
     description="Deep dive into alignment techniques and optimization"
-    link="/genai/judges/alignment"
+    link="/genai/eval-monitor/scorers/llm-judge/alignment"
     linkText="Learn alignment →"
     containerHeight={64}
   />
@@ -269,7 +319,7 @@ print("Judge registered and ready for deployment!")
     iconSize={48}
     title="Dataset Integration"
     description="Use judges with evaluation datasets for systematic testing"
-    link="/genai/judges/dataset-integration"
+    link="/genai/eval-monitor/scorers/llm-judge/datasets"
     linkText="Explore datasets →"
     containerHeight={64}
   />
@@ -278,7 +328,7 @@ print("Judge registered and ready for deployment!")
     iconSize={48}
     title="Main Documentation"
     description="Return to the custom judges overview"
-    link="/genai/judges/"
+    link="/genai/eval-monitor/scorers/llm-judge/"
     linkText="Back to overview →"
     containerHeight={64}
   />
