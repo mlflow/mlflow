@@ -29,6 +29,7 @@ from mlflow.types.schema import AnyType, ColSpec, ParamSchema, Schema, convert_d
 from mlflow.types.type_hints import (
     InvalidTypeHintException,
     _get_data_validation_result,
+    _infer_params_schema_from_type_hints,
     _infer_schema_from_list_type_hint,
     _infer_schema_from_type_hint,
     _is_list_type_hint,
@@ -312,12 +313,13 @@ def _get_arg_names(f):
 
 
 class _TypeHints:
-    def __init__(self, input_=None, output=None):
+    def __init__(self, input_=None, output=None, params=None):
         self.input = input_
+        self.params = params
         self.output = output
 
     def __repr__(self):
-        return f"<input: {self.input}, output: {self.output}>"
+        return f"<input: {self.input}, output: {self.output}, params: {self.params}>"
 
 
 def _extract_type_hints(f, input_arg_index):
@@ -360,7 +362,7 @@ def _extract_type_hints(f, input_arg_index):
         # ---
         # Best effort to infer type hints from strings
         hints = {}
-        for arg in [arg_name, "return"]:
+        for arg in [arg_name, "return", "params"]:
             if hint_str := f.__annotations__.get(arg, None):
                 if hint := _infer_hint_from_str(hint_str):
                     hints[arg] = hint
@@ -370,7 +372,7 @@ def _extract_type_hints(f, input_arg_index):
         _logger.warning("Failed to extract type hints from function %s: %s", f.__name__, repr(e))
         return _TypeHints()
 
-    return _TypeHints(hints.get(arg_name), hints.get("return"))
+    return _TypeHints(hints.get(arg_name), hints.get("return"), hints.get("params"))
 
 
 def _is_context_in_predict_function_signature(*, func=None, parameters=None):
@@ -448,7 +450,20 @@ def _infer_signature_from_type_hints(
             output_schema = default_output_schema
     else:
         output_schema = default_output_schema
-    params_schema = _infer_param_schema(params) if params else None
+
+    # Parse param schema
+    params_schema = None
+    if type_hints.params:
+        try:
+            params_schema = _infer_params_schema_from_type_hints(type_hints.params)
+        except Exception as e:
+            _logger.info(
+                f"Failed to infer params type hint, defaulting param schema to None. {e}",
+                stacklevel=2,
+            )
+
+    # Input example override schema
+    params_schema = _infer_param_schema(params) if params else params_schema
 
     if input_example is not None:
         # only validate input example here if pyfunc decorator is not used
