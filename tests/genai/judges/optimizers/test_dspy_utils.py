@@ -12,6 +12,7 @@ from mlflow.genai.judges.optimizers.dspy_utils import (
     trace_to_dspy_example,
 )
 from mlflow.genai.utils.trace_utils import (
+    extract_expectations_from_trace,
     extract_request_from_trace,
     extract_response_from_trace,
 )
@@ -71,22 +72,39 @@ def test_trace_to_dspy_example_human_vs_llm_priority(
 
 
 @pytest.mark.parametrize(
-    ("required_fields", "expected_inputs"),
+    ("trace_fixture", "required_fields", "expected_inputs"),
     [
         # Test different combinations of required fields
-        (["inputs"], ["inputs"]),
-        (["outputs"], ["outputs"]),
-        (["inputs", "outputs"], ["inputs", "outputs"]),
-        (["trace", "inputs", "outputs"], ["trace", "inputs", "outputs"]),
-        # Note: expectations will be None for our test trace, so we don't test it here
+        ("sample_trace_with_assessment", ["inputs"], ["inputs"]),
+        ("sample_trace_with_assessment", ["outputs"], ["outputs"]),
+        ("sample_trace_with_assessment", ["inputs", "outputs"], ["inputs", "outputs"]),
+        (
+            "sample_trace_with_assessment",
+            ["trace", "inputs", "outputs"],
+            ["trace", "inputs", "outputs"],
+        ),
+        ("trace_with_expectations", ["expectations"], ["expectations"]),
+        ("trace_with_expectations", ["inputs", "expectations"], ["inputs", "expectations"]),
+        ("trace_with_expectations", ["outputs", "expectations"], ["outputs", "expectations"]),
+        (
+            "trace_with_expectations",
+            ["inputs", "outputs", "expectations"],
+            ["inputs", "outputs", "expectations"],
+        ),
+        (
+            "trace_with_expectations",
+            ["trace", "inputs", "outputs", "expectations"],
+            ["trace", "inputs", "outputs", "expectations"],
+        ),
     ],
 )
-def test_trace_to_dspy_example_success(
-    sample_trace_with_assessment, required_fields, expected_inputs
-):
+def test_trace_to_dspy_example_success(request, trace_fixture, required_fields, expected_inputs):
     """Test successful conversion of trace to DSPy example with various field requirements."""
     dspy = pytest.importorskip("dspy", reason="DSPy not installed")
     from mlflow.genai.judges.base import JudgeField
+
+    # Get the trace fixture dynamically
+    trace = request.getfixturevalue(trace_fixture)
 
     # Create a custom judge class for this test
     class TestJudge(MockJudge):
@@ -99,9 +117,6 @@ def test_trace_to_dspy_example_success(
 
     # Create a judge with specific required fields
     judge = TestJudge(required_fields)
-
-    # Use the fixture directly
-    trace = sample_trace_with_assessment
 
     # Use real DSPy since we've skipped if it's not available
     result = trace_to_dspy_example(trace, judge)
@@ -117,11 +132,19 @@ def test_trace_to_dspy_example_success(
         expected_kwargs["inputs"] = extract_request_from_trace(trace)
     if "outputs" in required_fields:
         expected_kwargs["outputs"] = extract_response_from_trace(trace)
+    if "expectations" in required_fields:
+        expected_kwargs["expectations"] = extract_expectations_from_trace(trace)
+
+    # Determine expected rationale based on fixture
+    if trace_fixture == "trace_with_expectations":
+        expected_rationale = "Meets expectations"
+    else:
+        expected_rationale = "This looks good"
 
     # Construct an expected example and assert that the result is the same
     expected_example = dspy.Example(
         result="pass",
-        rationale="This looks good",
+        rationale=expected_rationale,
         **expected_kwargs,
     ).with_inputs(*expected_inputs)
 
