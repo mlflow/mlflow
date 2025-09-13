@@ -71,7 +71,7 @@ export const useCompareRunChartSelectedRange = (
     // return undefined for xAxisKey === 'metric' because there isn't
     // necessarily a mapping between value range and step range
     return undefined;
-  }, [xAxisKey, metricKey, xRangeLocal, sampledMetricsByRunUuid, runUuids, offsetTimestamp, scaleType]);
+  }, [xAxisKey, metricKey, xRangeLocal, runUuids, offsetTimestamp, scaleType]);
 
   return {
     /**

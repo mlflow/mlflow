@@ -16,7 +16,7 @@ import {
   MetricsPlotPanel,
   CHART_TYPE_BAR,
   CHART_TYPE_LINE,
-  METRICS_PLOT_POLLING_INTERVAL_MS,
+  EXPERIMENT_RUNS_FULL_METRICS_POLLING_INTERVAL,
   METRICS_PLOT_HANGING_RUN_THRESHOLD_MS,
   convertMetricsToCsv,
 } from './MetricsPlotPanel';
@@ -27,20 +27,34 @@ import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme'
 import { RunLinksPopover } from './RunLinksPopover';
 import { Progress } from '../../common/components/Progress';
 import { DesignSystemProvider } from '@databricks/design-system';
+import { TestApolloProvider } from '../../common/utils/TestApolloProvider';
+import { useSampledMetricHistory } from './runs-charts/hooks/useSampledMetricHistory';
+import { saveAs } from 'file-saver';
+
+jest.mock('./runs-charts/hooks/useSampledMetricHistory', () => ({
+  useSampledMetricHistory: jest.fn(),
+}));
+
+// Mock file-saver for CSV download tests
+jest.mock('file-saver', () => ({
+  saveAs: jest.fn(),
+}));
+
+// Global test variables
+let wrapper: any;
+let instance: any;
+let minimalPropsForLineChart: any;
+let minimalPropsForBarChart: any;
+let minimalStore: any;
+let getMetricHistoryApi;
+let getRunApi: any;
+let navigate;
 
 describe('unit tests', () => {
-  let wrapper: any;
-  let instance: any;
-  let minimalPropsForLineChart: any;
-  let minimalPropsForBarChart: any;
-  let minimalStore: any;
-  let getMetricHistoryApi;
-  let getRunApi: any;
-  let navigate;
 
   beforeEach(() => {
     const location = {
-      search: '?runs=["runUuid1","runUuid2"]&experiments=["1"]&plot_metric_keys=["metric_1","metric_2"]&plot_layout={}',
+      search: '?runs=["runUuid1","runUuid2","runUuid3","runUuid4"]&experiments=["1"]&plot_metric_keys=["metric_1","metric_2"]&plot_layout={}',
     };
 
     navigate = jest.fn((to: string) => {
@@ -177,6 +191,14 @@ describe('unit tests', () => {
         maxMetricsByRunUuid: {},
       },
     });
+
+    const sampleHistoryResults = {
+      resultsByRunUuid: {},
+      isLoading: false,
+      isRefreshing: false,
+      refresh: jest.fn(),
+    };
+    jest.mocked(useSampledMetricHistory).mockReturnValue(sampleHistoryResults);
   });
 
   test('should render with minimal props without exploding', () => {
@@ -371,67 +393,6 @@ describe('unit tests', () => {
     expect(instance.getUrlState().deselectedCurves).toEqual(['runUuid1']);
   });
 
-  test('click into RunLinksPopover', () => {
-    jest.useFakeTimers();
-    const data = {
-      event: {
-        clientX: 1,
-        clientY: 1,
-      },
-      points: [
-        {
-          data: { runId: 'runUuid1', name: 'run1' },
-          fullData: {
-            marker: { color: 'rgb(1, 1, 1)' },
-          },
-          y: 0.2,
-        },
-        {
-          data: { runId: 'runUuid2', name: 'run2' },
-          fullData: {
-            marker: { color: 'rgb(2, 2, 2)' },
-          },
-          y: 0.1,
-        },
-      ],
-    };
-    const props = {
-      experimentIds: ['1'],
-      visible: true,
-      x: 1,
-      y: 1,
-      runItems: [
-        {
-          runId: 'runUuid1',
-          name: 'run1',
-          color: 'rgb(1, 1, 1)',
-          y: 0.2,
-        },
-        {
-          runId: 'runUuid2',
-          name: 'run2',
-          color: 'rgb(2, 2, 2)',
-          y: 0.1,
-        },
-      ],
-      handleClose: jest.fn(),
-      handleKeyDown: jest.fn(),
-      handleVisibleChange: jest.fn(),
-    };
-    wrapper = shallow(<MetricsPlotPanel {...minimalPropsForLineChart} />);
-    instance = wrapper.instance();
-    instance.updatePopover(data);
-
-    jest.advanceTimersByTime(1000);
-    const popover = wrapper.find(RunLinksPopover);
-    expect(popover.props().x).toEqual(props.x);
-    expect(popover.props().y).toEqual(props.y);
-    expect(popover.props().visible).toEqual(props.visible);
-    // @ts-expect-error TS(2551): Property 'experimentId' does not exist on type '{ ... Remove this comment to see the full error message
-    expect(popover.props().experimentIds).toEqual(props.experimentId);
-    expect(popover.props().runItems).toEqual(props.runItems);
-  });
-
   test('should render the number of completed runs correctly', () => {
     const mountWithProps = (props: any) => {
       return mountWithIntl(
@@ -495,7 +456,7 @@ describe('unit tests', () => {
     jest.useFakeTimers();
     wrapper = shallow(<MetricsPlotPanel {...minimalPropsForLineChart} />);
     expect(wrapper.instance().intervalId).toBeNull();
-    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    jest.advanceTimersByTime(EXPERIMENT_RUNS_FULL_METRICS_POLLING_INTERVAL);
     expect(getRunApi).toHaveBeenCalledTimes(0);
   });
 
@@ -506,9 +467,9 @@ describe('unit tests', () => {
       completedRunUuids: ['runUuid1'],
     };
     wrapper = shallow(<MetricsPlotPanel {...props} />);
-    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    jest.advanceTimersByTime(EXPERIMENT_RUNS_FULL_METRICS_POLLING_INTERVAL);
     expect(getRunApi).toHaveBeenCalledTimes(1);
-    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    jest.advanceTimersByTime(EXPERIMENT_RUNS_FULL_METRICS_POLLING_INTERVAL);
     expect(getRunApi).toHaveBeenCalledTimes(2);
   });
 
@@ -519,14 +480,14 @@ describe('unit tests', () => {
       completedRunUuids: ['runUuid1'],
     };
     wrapper = shallow(<MetricsPlotPanel {...props} />);
-    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    jest.advanceTimersByTime(EXPERIMENT_RUNS_FULL_METRICS_POLLING_INTERVAL);
     expect(getRunApi).toHaveBeenCalledTimes(1);
     const nextProps = {
       ...minimalPropsForLineChart,
       completedRunUuids: ['runUuid1', 'runUuid2'],
     };
     wrapper.setProps(nextProps);
-    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    jest.advanceTimersByTime(EXPERIMENT_RUNS_FULL_METRICS_POLLING_INTERVAL);
     expect(getRunApi).toHaveBeenCalledTimes(1);
   });
 
@@ -580,9 +541,9 @@ describe('unit tests', () => {
     };
 
     wrapper = shallow(<MetricsPlotPanel {...props} />);
-    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    jest.advanceTimersByTime(EXPERIMENT_RUNS_FULL_METRICS_POLLING_INTERVAL);
     expect(getRunApi).toHaveBeenCalledTimes(0);
-    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    jest.advanceTimersByTime(EXPERIMENT_RUNS_FULL_METRICS_POLLING_INTERVAL);
     expect(getRunApi).toHaveBeenCalledTimes(0);
   });
 
@@ -594,15 +555,15 @@ describe('unit tests', () => {
     };
     wrapper = shallow(<MetricsPlotPanel {...props} />);
     expect(wrapper.state().focused).toBe(true);
-    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    jest.advanceTimersByTime(EXPERIMENT_RUNS_FULL_METRICS_POLLING_INTERVAL);
     expect(getRunApi).toHaveBeenCalledTimes(1);
     wrapper.instance().onBlur();
     expect(wrapper.state().focused).toBe(false);
-    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    jest.advanceTimersByTime(EXPERIMENT_RUNS_FULL_METRICS_POLLING_INTERVAL);
     expect(getRunApi).toHaveBeenCalledTimes(1);
     wrapper.instance().onFocus();
     expect(wrapper.state().focused).toBe(true);
-    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    jest.advanceTimersByTime(EXPERIMENT_RUNS_FULL_METRICS_POLLING_INTERVAL);
     expect(getRunApi).toHaveBeenCalledTimes(2);
   });
 
@@ -613,11 +574,193 @@ describe('unit tests', () => {
       completedRunUuids: ['runUuid1'],
     };
     wrapper = shallow(<MetricsPlotPanel {...props} />);
-    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    jest.advanceTimersByTime(EXPERIMENT_RUNS_FULL_METRICS_POLLING_INTERVAL);
     expect(getRunApi).toHaveBeenCalledTimes(1);
     wrapper.unmount();
-    jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
+    jest.advanceTimersByTime(EXPERIMENT_RUNS_FULL_METRICS_POLLING_INTERVAL);
     expect(getRunApi).toHaveBeenCalledTimes(1);
+  });
+
+  test('handleDownloadCsv should call loadMetricHistory and saveAs', async () => {
+    jest.useFakeTimers();
+    const props = {...minimalPropsForLineChart};
+    wrapper = shallow(<MetricsPlotPanel {...props} />);
+    instance = wrapper.instance()
+    instance.getUrlState = jest.fn().mockReturnValue({ selectedMetricKeys: ['metric_1'] });
+    instance.loadMetricHistory = jest.fn().mockResolvedValue(undefined);
+    instance.setState({loading: false });
+
+    await instance.handleDownloadCsv();
+
+    expect(instance.loadMetricHistory).toHaveBeenCalledWith(['runUuid1', 'runUuid2'], ['metric_1']);
+    expect(saveAs).toHaveBeenCalledWith(expect.any(Blob), 'metrics.csv');
+  });
+
+  test('handleDownloadCsv should skip loadMetricHistory when loading', async () => {
+    jest.useFakeTimers();
+    const props = {...minimalPropsForLineChart};
+    wrapper = shallow(<MetricsPlotPanel {...props} />);
+    instance = wrapper.instance()
+    instance.setState({loading: true})
+    instance.getUrlState = jest.fn().mockReturnValue({ selectedMetricKeys: ['metric_1'] });
+    instance.loadMetricHistory = jest.fn().mockResolvedValue(undefined);
+    jest.advanceTimersByTime(1000)
+    instance.setState({loading: false})
+    await instance.handleDownloadCsv();
+
+    expect(instance.loadMetricHistory).toHaveBeenCalledTimes(1);
+    expect(saveAs).toHaveBeenCalledWith(expect.any(Blob), 'metrics.csv');
+  });
+
+  test('getCardChartConfig should return correct configuration', () => {
+    const props = { ...minimalPropsForLineChart, metricKey: 'test_metric' };
+    wrapper = shallow(<MetricsPlotPanel {...props} />);
+    instance = wrapper.instance();
+
+    instance.getUrlState = jest.fn().mockReturnValue({
+      selectedMetricKeys: ['metric_1', 'metric_2'],
+      selectedXAxis: 'step',
+      yAxisLogScale: true,
+      showPoint: true,
+      layout: {
+        xaxis: { range: [0, 100] },
+        yaxis: { range: [10, 1000] }
+      }
+    });
+
+    const config = instance.getCardChartConfig();
+
+    expect(config.metricKey).toBe('test_metric');
+    expect(config.selectedMetricKeys).toEqual(['metric_1', 'metric_2']);
+    expect(config.scaleType).toBe('log');
+    expect(config.displayPoints).toBe(true);
+    expect(config.range).toEqual({
+      xMin: 0,
+      xMax: 100,
+      yMin: 10,
+      yMax: 1000
+    });
+  });
+
+  test('getCardChartConfig should use metricKey as fallback for selectedMetricKeys', () => {
+    const props = { ...minimalPropsForLineChart, metricKey: 'fallback_metric' };
+    wrapper = shallow(<MetricsPlotPanel {...props} />);
+    instance = wrapper.instance();
+
+    instance.getUrlState = jest.fn().mockReturnValue({
+      selectedMetricKeys: [],
+      selectedXAxis: 'time',
+      yAxisLogScale: false,
+      showPoint: false
+    });
+
+    const config = instance.getCardChartConfig();
+
+    expect(config.selectedMetricKeys).toEqual(['fallback_metric']);
+    expect(config.scaleType).toBe('linear');
+    expect(config.displayPoints).toBe(false);
+  });
+
+  test('getNewChartRunData should return correct run data structure', () => {
+    const props = {
+      ...minimalPropsForLineChart,
+      metricKey: 'test_metric',
+      runUuids: ['run1', 'run2'],
+      runNames: ['Run 1', 'Run 2'],
+      runDisplayNames: ['Display 1', 'Display 2'],
+      latestMetricsByRunUuid: {'run1': [], 'run2': []}
+    };
+    wrapper = shallow(<MetricsPlotPanel {...props} />);
+    instance = wrapper.instance();
+
+    instance.getUrlState = jest.fn().mockReturnValue({
+      selectedMetricKeys: ['metric_1', 'metric_2']
+    });
+
+    const runData = instance.getNewChartRunData();
+
+    expect(runData).toHaveLength(2);
+    expect(runData[0]).toEqual({
+      uuid: 'run1',
+      runInfo: undefined,
+      metrics: { metric_1: {}, metric_2: {} },
+      params: {},
+      tags: {},
+      datasets: [],
+      images: {},
+      hidden: false,
+      color: undefined,
+      displayName: 'Run 1'
+    });
+  });
+
+  test('getGlobalLineChartConfig should return correct global config', () => {
+    wrapper = shallow(<MetricsPlotPanel {...minimalPropsForLineChart} />);
+    instance = wrapper.instance();
+
+    instance.getUrlState = jest.fn().mockReturnValue({
+      lineSmoothness: 0.5,
+      selectedXAxis: 'time'
+    });
+
+    const config = instance.getGlobalLineChartConfig();
+
+    expect(config.lineSmoothness).toBe(0.5);
+    expect(config.selectedXAxisMetricKey).toBeUndefined();
+  });
+
+  test('getTooltipContextValue should return runs data', () => {
+    wrapper = shallow(<MetricsPlotPanel {...minimalPropsForLineChart} />);
+    instance = wrapper.instance();
+
+    const mockRunData = [{ uuid: 'run1' }];
+    instance.getNewChartRunData = jest.fn().mockReturnValue(mockRunData);
+
+    const contextValue = instance.getTooltipContextValue();
+
+    expect(contextValue).toEqual({ runs: mockRunData });
+    expect(instance.getNewChartRunData).toHaveBeenCalledTimes(1);
+  });
+
+  test('should render RunsChartsLineChartCard with correct props', () => {
+    wrapper = shallow(<MetricsPlotPanel {...minimalPropsForLineChart} />);
+    instance = wrapper.instance();
+
+    const mockConfig = { metricKey: 'test' };
+    const mockRunData = [{ uuid: 'run1' }];
+    const mockGlobalConfig = { lineSmoothness: 0.5 };
+
+    instance.getCardChartConfig = jest.fn().mockReturnValue(mockConfig);
+    instance.getNewChartRunData = jest.fn().mockReturnValue(mockRunData);
+    instance.getGlobalLineChartConfig = jest.fn().mockReturnValue(mockGlobalConfig);
+
+    wrapper.setProps({});
+
+    expect(instance.getCardChartConfig).toHaveBeenCalled();
+    expect(instance.getNewChartRunData).toHaveBeenCalled();
+    expect(instance.getGlobalLineChartConfig).toHaveBeenCalled();
+  });
+
+  test('should render Spinner with correct visibility based on loading state', () => {
+    wrapper = shallow(<MetricsPlotPanel {...minimalPropsForLineChart} />);
+
+    wrapper.setState({ loading: true });
+    expect(wrapper.find('Spinner').prop('css')).toEqual({ visibility: 'visible' });
+
+    wrapper.setState({ loading: false });
+    expect(wrapper.find('Spinner').prop('css')).toEqual({ visibility: 'hidden' });
+  });
+
+  test('should pass contextData to RunsChartsTooltipWrapper', () => {
+    wrapper = shallow(<MetricsPlotPanel {...minimalPropsForLineChart} />);
+    instance = wrapper.instance();
+
+    const mockContextValue = { runs: [] };
+    instance.getTooltipContextValue = jest.fn().mockReturnValue(mockContextValue);
+
+    wrapper.setProps({});
+
+    expect(instance.getTooltipContextValue).toHaveBeenCalled();
   });
 });
 

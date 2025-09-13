@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { RunsChartsRunData } from '../RunsCharts.common';
 import { RunsChartsLineChartXAxisType, removeOutliersFromMetricHistory } from '../RunsCharts.common';
 import { RunsMetricsLinePlot } from '../RunsMetricsLinePlot';
@@ -205,7 +205,7 @@ export const RunsChartsLineChartCard = ({
       let xAxisMax = xRangeLocal?.[1];
 
       const { autorange: yAxisAutorange, range: newYRange } = layout.yaxis || {};
-      const yRangeChanged = !isEqual(yAxisAutorange ? [undefined, undefined] : newYRange, [yAxisMin, yAxisMax]);
+      const yRangeChanged = !isEqual(yAxisAutorange ? undefined : newYRange, yRangeLocal);
 
       if (yRangeChanged) {
         // When user zoomed in/out or changed the Y range manually, hide the tooltip
@@ -221,6 +221,13 @@ export const RunsChartsLineChartCard = ({
       }
 
       const { autorange: xAxisAutorange, range: newXRange } = layout.xaxis || {};
+      const xRangeChanged = !isEqual(xAxisAutorange ? undefined : newXRange, xRangeLocal);
+
+      // Exit early if no actual change to prevent infinite loops
+      if (!xRangeChanged && !yRangeChanged) {
+        return;
+      }
+
       if (xAxisAutorange) {
         // Remove saved range if chart is back to default viewport
         xAxisMin = undefined;

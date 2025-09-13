@@ -60,12 +60,9 @@ export const sampledMetricsByRunUuid = (
           loading: true,
         };
       } else if (updatedState[runUuid][key][rangeKey] && isRefreshing) {
-        return {
-          ...state,
-          [runUuid]: {
-            ...state[runUuid],
-            [key]: { ...state[runUuid][key], [rangeKey]: { ...state[runUuid][key][rangeKey], refreshing: true } },
-          },
+        updatedState[runUuid][key][rangeKey] = {
+          ...updatedState[runUuid][key][rangeKey],
+          refreshing: true,
         };
       }
     }
