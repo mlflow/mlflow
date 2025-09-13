@@ -2,6 +2,7 @@ import importlib
 import importlib.metadata
 import os
 import shlex
+import shutil
 import sys
 import textwrap
 import types
@@ -378,4 +379,20 @@ def _run_server(
     else:
         # This shouldn't happen given the logic in CLI, but handle it just in case
         raise MlflowException("No server configuration specified.")
-    _exec_cmd(full_command, extra_env=env_map, capture_output=False)
+    server_proc = _exec_cmd(full_command, extra_env=env_map, capture_output=False, synchronous=False)
+    # start Mlflow job runner process
+    _exec_cmd(
+        [
+            sys.executable,
+            shutil.which("huey_consumer.py"),
+            "mlflow.server.job.job_runner.huey",
+        ],
+        capture_output=False,
+        synchronous=False,
+        extra_env={
+            **env_map,
+            "_IS_MLFLOW_JOB_RUNNER": "1",
+            "MLFLOW_SERVER_PID": str(server_proc.pid)
+        },
+    )
+    server_proc.wait()
