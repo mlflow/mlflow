@@ -2388,3 +2388,34 @@ def test_no_warning_for_trace_based_judge_with_extra_fields(mock_invoke_judge_mo
         )
 
         mock_warning.assert_not_called()
+
+
+def test_no_duplicate_output_fields_in_system_message():
+    field_judge = make_judge(
+        name="field_judge",
+        instructions="Evaluate {{ inputs }} and {{ outputs }} for quality",
+        model="openai:/gpt-4",
+    )
+
+    field_system_msg = field_judge._build_system_message(is_trace_based=False)
+
+    assert field_system_msg.count('"result"') == 1
+    assert field_system_msg.count('"rationale"') == 1
+
+    assert (
+        field_system_msg.count("Please provide your assessment in the following JSON format") == 1
+    )
+
+    trace_judge = make_judge(
+        name="trace_judge",
+        instructions="Evaluate {{ trace }} for quality",
+        model="openai:/gpt-4",
+    )
+
+    trace_system_msg = trace_judge._build_system_message(is_trace_based=True)
+
+    assert trace_system_msg.count("- result:") == 1
+    assert trace_system_msg.count("- rationale:") == 1
+
+    assert "Please provide your assessment in the following JSON format" not in trace_system_msg
+    assert "You *must* format your evaluation rating as a JSON object" in trace_system_msg
