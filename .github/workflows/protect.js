@@ -39,7 +39,7 @@ module.exports = async ({ github, context }) => {
     )
       .filter(({ name }) => name !== "protect")
       // Ignore Copilot's sessions (https://github.com/mlflow/mlflow/actions/workflows/copilot-swe-agent/copilot)
-      .filter(({ name }) => !name.includes("copilot"));
+      .filter(({ name }) => name !== "copilot";
 
     const latestRuns = {};
     for (const run of checkRuns) {
