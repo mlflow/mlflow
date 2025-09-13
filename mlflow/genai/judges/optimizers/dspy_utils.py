@@ -263,7 +263,7 @@ def trace_to_dspy_example(trace: Trace, judge_name: str) -> Optional["dspy.Examp
         )
 
         # Set inputs (what the model should use as input)
-        return example.with_inputs("trace", "inputs", "outputs")
+        return example.with_inputs("trace", "inputs", "outputs", "expectations")
 
     except Exception as e:
         _logger.error(f"Failed to create DSPy example from trace: {e}")
