@@ -103,7 +103,6 @@ def test_trace_to_dspy_example_human_vs_llm_priority(
     ],
 )
 def test_trace_to_dspy_example_success(request, trace_fixture, required_fields, expected_inputs):
-    """Test successful conversion of trace to DSPy example with various field requirements."""
     dspy = pytest.importorskip("dspy", reason="DSPy not installed")
 
     # Get the trace fixture dynamically
@@ -317,7 +316,6 @@ def test_convert_mlflow_uri_to_litellm_invalid(invalid_uri):
     ],
 )
 def test_convert_litellm_to_mlflow_uri(litellm_model, expected_uri):
-    """Test conversion from LiteLLM format to MLflow URI format."""
     result = convert_litellm_to_mlflow_uri(litellm_model)
     assert result == expected_uri
 
@@ -334,7 +332,6 @@ def test_convert_litellm_to_mlflow_uri(litellm_model, expected_uri):
     ],
 )
 def test_convert_litellm_to_mlflow_uri_invalid(invalid_model):
-    """Test conversion with invalid LiteLLM model strings."""
     with pytest.raises(MlflowException, match="LiteLLM|empty|None") as exc_info:
         convert_litellm_to_mlflow_uri(invalid_model)
 
@@ -355,7 +352,6 @@ def test_convert_litellm_to_mlflow_uri_invalid(invalid_model):
     ],
 )
 def test_mlflow_to_litellm_uri_round_trip_conversion(mlflow_uri):
-    """Test that converting MLflow URI -> LiteLLM URI -> MLflow URI preserves original format."""
     # Convert MLflow -> LiteLLM
     litellm_format = convert_mlflow_uri_to_litellm(mlflow_uri)
     # Convert LiteLLM -> MLflow
