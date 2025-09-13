@@ -1,11 +1,13 @@
+import json
 import time
-from typing import Any
+from typing import Any, AsyncIterable
 
 from mlflow.gateway.config import GeminiConfig, RouteConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
-from mlflow.gateway.providers.utils import rename_payload_keys, send_request
+from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
 from mlflow.gateway.schemas import chat, completions, embeddings
+from mlflow.gateway.utils import handle_incomplete_chunks, strip_sse_prefix
 
 GENERATION_CONFIG_KEY_MAPPING = {
     "stop": "stopSequences",
@@ -163,6 +165,54 @@ class GeminiAdapter(ProviderAdapter):
         )
 
     @classmethod
+    def model_to_chat_streaming(cls, resp: dict[str, Any], config) -> chat.StreamResponsePayload:
+        # Documentation: https://ai.google.dev/api/generate-content#method:-models.streamgeneratecontent
+        #
+        # Example Streaming Chunk:
+        # {
+        #   "candidates": [
+        #     {
+        #       "content": {
+        #         "parts": [
+        #           {
+        #             "text": "Blue is often seen as a calming and soothing color."
+        #           }
+        #         ]
+        #       },
+        #       "finishReason": null
+        #     }
+        #   ],
+        #   "id": "stream-id",
+        #   "object": "chat.completion.chunk",
+        #   "created": 1234567890,
+        #   "model": "gemini-2.0-flash"
+        # }
+        choices = []
+        for idx, cand in enumerate(resp.get("candidates", [])):
+            parts = cand.get("content", {}).get("parts", [])
+            delta_text = parts[0].get("text", "") if parts else ""
+
+            choices.append(
+                chat.StreamChoice(
+                    index=idx,
+                    finish_reason=cand.get("finishReason"),
+                    delta=chat.StreamDelta(
+                        role="assistant",
+                        content=delta_text,
+                    ),
+                )
+            )
+        current_time = int(time.time())
+
+        return chat.StreamResponsePayload(
+            id=f"gemini-chat-stream-{current_time}",
+            object="chat.completion.chunk",
+            created=current_time,
+            model=config.model.name,
+            choices=choices,
+        )
+
+    @classmethod
     def completions_to_model(cls, payload, config):
         # Documentation: https://ai.google.dev/api/generate-content
         # Example payload for the completions API.
@@ -239,6 +289,50 @@ class GeminiAdapter(ProviderAdapter):
                 completion_tokens=usage_metadata.get("candidatesTokenCount", None),
                 total_tokens=usage_metadata.get("totalTokenCount", None),
             ),
+        )
+
+    @classmethod
+    def model_to_completions_streaming(
+        cls, resp: dict[str, Any], config
+    ) -> completions.StreamResponsePayload:
+        # Documentation: https://ai.google.dev/api/generate-content#method:-models.streamgeneratecontent
+
+        # Example SSE chunk for streaming completions:
+        # {
+        #   "candidates": [
+        #     {
+        #       "content": {
+        #         "parts": [
+        #           { "text": "Hello, world!" }
+        #         ]
+        #       },
+        #       "finishReason": "stop"
+        #     }
+        #   ],
+        #   "id": "gemini-completions-stream-1234567890",
+        #   "object": "text_completion.chunk",
+        #   "created": 1234567890,
+        #   "model": "gemini-2.0-flash"
+        # }
+        choices = []
+        for idx, cand in enumerate(resp.get("candidates", [])):
+            parts = cand.get("content", {}).get("parts", [])
+            delta_text = parts[0].get("text", "") if parts else ""
+            choices.append(
+                completions.StreamChoice(
+                    index=idx,
+                    finish_reason=cand.get("finishReason"),
+                    text=delta_text,
+                )
+            )
+        current_time = int(time.time())
+
+        return completions.StreamResponsePayload(
+            id=f"gemini-completions-stream-{current_time}",
+            object="text_completion.chunk",
+            created=current_time,
+            model=config.model.name,
+            choices=choices,
         )
 
     @classmethod
@@ -383,6 +477,32 @@ class GeminiProvider(BaseProvider):
         )
         return self.adapter_class.model_to_embeddings(resp, self.config)
 
+    async def completions_stream(
+        self, payload: completions.RequestPayload
+    ) -> AsyncIterable[completions.StreamResponsePayload]:
+        from fastapi.encoders import jsonable_encoder
+
+        body = jsonable_encoder(payload, exclude_none=True)
+        self.check_for_model_field(body)
+
+        model_payload = self.adapter_class.completions_to_model(body, self.config)
+        path = f"{self.config.model.name}:streamGenerateContent?alt=sse"
+
+        # Documentation: https://ai.google.dev/api/generate-content#method:-models.streamgeneratecontent
+        sse = send_stream_request(
+            headers=self.headers, base_url=self.base_url, path=path, payload=model_payload
+        )
+
+        async for raw in handle_incomplete_chunks(sse):
+            text = raw.decode("utf-8", errors="ignore").strip()
+            if not text.startswith("data:"):
+                continue
+            data = strip_sse_prefix(text)
+            if data == "[DONE]":
+                break
+            resp = json.loads(data)
+            yield self.adapter_class.model_to_completions_streaming(resp, self.config)
+
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
@@ -392,19 +512,40 @@ class GeminiProvider(BaseProvider):
         completions_payload = self.adapter_class.completions_to_model(payload, self.config)
         # Documentation: https://ai.google.dev/api/generate-content
 
-        if payload.get("stream", False):
-            # TODO: Implement streaming for completions
-            raise AIGatewayException(
-                status_code=422,
-                detail="Streaming is not yet supported for completions with Gemini AI Gateway",
-            )
-
         resp = await self._request(
             f"{self.config.model.name}:generateContent",
             completions_payload,
         )
 
         return self.adapter_class.model_to_completions(resp, self.config)
+
+    async def chat_stream(
+        self, payload: chat.RequestPayload
+    ) -> AsyncIterable[chat.StreamResponsePayload]:
+        from fastapi.encoders import jsonable_encoder
+
+        body = jsonable_encoder(payload, exclude_none=True)
+        self.check_for_model_field(body)
+
+        body = self.adapter_class.chat_to_model(body, self.config)
+
+        # Documentation: https://ai.google.dev/api/generate-content#method:-models.streamgeneratecontent
+        sse = send_stream_request(
+            headers=self.headers,
+            base_url=self.base_url,
+            path=f"{self.config.model.name}:streamGenerateContent?alt=sse",
+            payload=body,
+        )
+
+        async for raw in handle_incomplete_chunks(sse):
+            text = raw.decode("utf-8", errors="ignore").strip()
+            if not text.startswith("data:"):
+                continue
+            data = strip_sse_prefix(text)
+            if data == "[DONE]":
+                break
+            resp = json.loads(data)
+            yield self.adapter_class.model_to_chat_streaming(resp, self.config)
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
@@ -414,13 +555,6 @@ class GeminiProvider(BaseProvider):
 
         chat_payload = self.adapter_class.chat_to_model(payload, self.config)
         # Documentation: https://ai.google.dev/api/generate-content
-
-        if payload.get("stream", False):
-            # TODO: Implement streaming for chat completions
-            raise AIGatewayException(
-                status_code=422,
-                detail="Streaming is not yet supported for chat completions with Gemini AI Gateway",
-            )
 
         resp = await self._request(
             f"{self.config.model.name}:generateContent",
