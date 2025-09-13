@@ -9,6 +9,7 @@ from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils import call_chat_completions
 from mlflow.genai.utils.trace_utils import (
+    extract_expectations_from_trace,
     extract_request_from_trace,
     extract_response_from_trace,
 )
@@ -256,6 +257,7 @@ def trace_to_dspy_example(trace: Trace, judge_name: str) -> Optional["dspy.Examp
             trace=trace,
             inputs=request,
             outputs=response,
+            expectations=extract_expectations_from_trace(trace),
             result=str(expected_result.feedback.value).lower(),
             rationale=expected_result.rationale if expected_result.rationale else "",
         )
