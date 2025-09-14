@@ -1,4 +1,3 @@
-import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -59,16 +58,16 @@ class Config:
         """Validate that all paths in the exclude list exist."""
         if not self.exclude:
             return self
-            
+
         non_existing_paths = []
         for path in self.exclude:
-            if not os.path.exists(path):
+            if not Path(path).exists():
                 non_existing_paths.append(path)
-        
+
         if non_existing_paths:
             raise ValueError(
                 f"Non-existing paths found in exclude field: {non_existing_paths}. "
                 f"All paths in the exclude list must exist."
             )
-        
+
         return self
