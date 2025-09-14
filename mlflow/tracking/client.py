@@ -43,7 +43,12 @@ from mlflow.entities import (
     Trace,
     ViewType,
 )
-from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
+from mlflow.entities.model_registry import (
+    ModelVersion,
+    Prompt,
+    PromptVersion,
+    RegisteredModel,
+)
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, NoOpSpan
 from mlflow.entities.trace_status import TraceStatus
@@ -606,7 +611,9 @@ class MlflowClient:
         except MlflowException:
             # Create a new prompt (model) entry
             registry_client.create_registered_model(
-                name, description=commit_message, tags={IS_PROMPT_TAG_KEY: "true", **tags}
+                name,
+                description=commit_message,
+                tags={IS_PROMPT_TAG_KEY: "true", **tags},
             )
             is_new_prompt = True
 
@@ -770,7 +777,10 @@ class MlflowClient:
             else:
                 return registry_client.get_prompt_version(name, version_or_alias)
         except MlflowException as exc:
-            if allow_missing and exc.error_code in ("RESOURCE_DOES_NOT_EXIST", "NOT_FOUND"):
+            if allow_missing and exc.error_code in (
+                "RESOURCE_DOES_NOT_EXIST",
+                "NOT_FOUND",
+            ):
                 return None
             raise
 
@@ -992,11 +1002,13 @@ class MlflowClient:
             pv = registry_client.get_prompt_version(name, version)
             if pv is None:
                 raise MlflowException(
-                    f"Prompt '{name}' version {version} does not exist.", RESOURCE_DOES_NOT_EXIST
+                    f"Prompt '{name}' version {version} does not exist.",
+                    RESOURCE_DOES_NOT_EXIST,
                 )
         except Exception:
             raise MlflowException(
-                f"Prompt '{name}' version {version} does not exist.", RESOURCE_DOES_NOT_EXIST
+                f"Prompt '{name}' version {version} does not exist.",
+                RESOURCE_DOES_NOT_EXIST,
             )
 
     def parse_prompt_uri(self, uri: str) -> tuple[str, str]:
@@ -2750,6 +2762,7 @@ class MlflowClient:
         step: int | None = None,
         timestamp: int | None = None,
         synchronous: bool | None = None,
+        filename_sep: Literal["%", "+"] = "%",
     ) -> None:
         """
         Logs an image in MLflow, supporting two use cases:
@@ -2816,6 +2829,11 @@ class MlflowClient:
                 If False, logs the metric asynchronously and returns a future representing the
                 logging operation. If None, read from environment variable
                 `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
+            filename_sep: The separator used in the image filename. Defaults to "%". This is used to
+                by the frontend to derive step and timestamp information from the filename.
+                For example: `image%step%0%timestamp%1697051234567%uuid.png` or
+                `image+step+0+timestamp+1697051234567+uuid.png`
+
 
         .. code-block:: python
             :caption: Time-stepped image logging numpy example
@@ -2931,10 +2949,23 @@ class MlflowClient:
             # See https://github.com/mlflow/mlflow/issues/14136 for more details.
             # Construct a filename uuid that does not start with hex digits
             filename_uuid = f"{random.choice(string.ascii_lowercase[6:])}{filename_uuid[1:]}"
-            uncompressed_filename = (
-                f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{filename_uuid}"
+            if filename_sep not in ["%", "+"]:
+                logging.warning(
+                    f"Invalid image log file separator '{filename_sep}' specified. \
+                    Defaulting to '%'."
+                )
+                filename_sep = "%"
+            uncompressed_filename = filename_sep.join(
+                [
+                    f"images/{sanitized_key}",
+                    "step",
+                    f"{step}",
+                    "timestamp",
+                    f"{timestamp}",
+                    f"{filename_uuid}",
+                ]
             )
-            compressed_filename = f"{uncompressed_filename}%compressed"
+            compressed_filename = filename_sep.join([uncompressed_filename, "compressed"])
 
             # Save full-resolution image
             image_filepath = f"{uncompressed_filename}.png"
@@ -3291,18 +3322,21 @@ class MlflowClient:
 
             else:
                 raise MlflowException(
-                    f"Artifact {artifact_file} not found for run {run_id}.", RESOURCE_DOES_NOT_EXIST
+                    f"Artifact {artifact_file} not found for run {run_id}.",
+                    RESOURCE_DOES_NOT_EXIST,
                 )
 
             return existing_predictions
 
         if not runs.empty:
             return pd.concat(
-                [get_artifact_data(run) for _, run in runs.iterrows()], ignore_index=True
+                [get_artifact_data(run) for _, run in runs.iterrows()],
+                ignore_index=True,
             )
         else:
             raise MlflowException(
-                "No runs found with the corresponding table artifact.", RESOURCE_DOES_NOT_EXIST
+                "No runs found with the corresponding table artifact.",
+                RESOURCE_DOES_NOT_EXIST,
             )
 
     def _record_logged_model(self, run_id, mlflow_model):
@@ -3624,7 +3658,12 @@ class MlflowClient:
             tags: {'s.release': '1.1.0-RC'}
         """
         return self._tracking_client.search_runs(
-            experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
+            experiment_ids,
+            filter_string,
+            run_view_type,
+            max_results,
+            order_by,
+            page_token,
         )
 
     # Registry API
@@ -3743,7 +3782,10 @@ class MlflowClient:
         self._get_registry_client().rename_registered_model(name, new_name)
 
     def update_registered_model(
-        self, name: str, description: str | None = None, deployment_job_id: str | None = None
+        self,
+        name: str,
+        description: str | None = None,
+        deployment_job_id: str | None = None,
     ) -> RegisteredModel:
         """
         Updates metadata for RegisteredModel entity. Input field ``description`` should be non-None.
@@ -4518,7 +4560,11 @@ class MlflowClient:
 
     @deprecated(since="2.9.0", impact=_STAGES_DEPRECATION_WARNING)
     def transition_model_version_stage(
-        self, name: str, version: str, stage: str, archive_existing_versions: bool = False
+        self,
+        name: str,
+        version: str,
+        stage: str,
+        archive_existing_versions: bool = False,
     ) -> ModelVersion:
         """
         Update model version stage.

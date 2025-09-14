@@ -84,7 +84,9 @@ if not IS_TRACING_SDK_ONLY:
     from mlflow.tracking import _get_artifact_repo, _get_store, artifact_utils
     from mlflow.tracking.client import MlflowClient
     from mlflow.tracking.context import registry as context_registry
-    from mlflow.tracking.default_experiment import registry as default_experiment_registry
+    from mlflow.tracking.default_experiment import (
+        registry as default_experiment_registry,
+    )
 
 
 if TYPE_CHECKING:
@@ -232,7 +234,9 @@ def _set_experiment_primary_metric(
     client = MlflowClient()
     client.set_experiment_tag(experiment_id, MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME, primary_metric)
     client.set_experiment_tag(
-        experiment_id, MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER, str(greater_is_better)
+        experiment_id,
+        MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
+        str(greater_is_better),
     )
 
 
@@ -413,7 +417,10 @@ def start_run(
         # Use previous `end_time` because a value is required for `update_run_info`.
         end_time = active_run_obj.info.end_time
         _get_store().update_run_info(
-            existing_run_id, run_status=RunStatus.RUNNING, end_time=end_time, run_name=None
+            existing_run_id,
+            run_status=RunStatus.RUNNING,
+            end_time=end_time,
+            run_name=None,
         )
         tags = tags or {}
         if description:
@@ -490,7 +497,9 @@ def start_run(
                 "`mlflow.start_run()` or calling `mlflow.disable_system_metrics_logging`."
             )
         try:
-            from mlflow.system_metrics.system_metrics_monitor import SystemMetricsMonitor
+            from mlflow.system_metrics.system_metrics_monitor import (
+                SystemMetricsMonitor,
+            )
 
             system_monitor = SystemMetricsMonitor(
                 active_run_obj.info.run_id,
@@ -1598,6 +1607,7 @@ def log_image(
     step: int | None = None,
     timestamp: int | None = None,
     synchronous: bool | None = False,
+    filename_sep: Literal["%", "+"] = "%",
 ) -> None:
     """
     Logs an image in MLflow, supporting two use cases:
@@ -1659,6 +1669,10 @@ def log_image(
             Defaults to 0.
         timestamp: Time when this image was saved. Defaults to the current system time.
         synchronous: *Experimental* If True, blocks until the image is logged successfully.
+        filename_sep: The separator used in the image filename. Defaults to "%". This is used to
+            by the frontend to derive step and timestamp information from the filename.
+            For example: `image%step%0%timestamp%1697051234567%uuid.png` or
+            `image+step+0+timestamp+1697051234567+uuid.png`
 
     .. code-block:: python
         :caption: Time-stepped image logging numpy example
@@ -1718,7 +1732,9 @@ def log_image(
             mlflow.log_image(image, "image.png")
     """
     run_id = _get_or_start_run().info.run_id
-    MlflowClient().log_image(run_id, image, artifact_file, key, step, timestamp, synchronous)
+    MlflowClient().log_image(
+        run_id, image, artifact_file, key, step, timestamp, synchronous, filename_sep
+    )
 
 
 def log_table(
