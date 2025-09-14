@@ -54,7 +54,7 @@ repos:
 
       - id: blacken-docs
         name: blacken-docs
-        entry: blacken-docs
+        entry: uv run --only-group lint blacken-docs
         language: system
         files: '\.(rst|md|mdx)$'
         stages: [pre-commit]
