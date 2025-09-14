@@ -1671,8 +1671,8 @@ def log_image(
         synchronous: *Experimental* If True, blocks until the image is logged successfully.
         filename_sep: The separator used in the image filename. Defaults to "%". This is used to
             by the frontend to derive step and timestamp information from the filename.
-            For example: `image%step%0%timestamp%1697051234567%uuid.png` or
-            `image+step+0+timestamp+1697051234567+uuid.png`
+            If `key` contains the separator, it will be replaced with a dash (-) to avoid
+            ambiguity.
 
     .. code-block:: python
         :caption: Time-stepped image logging numpy example
