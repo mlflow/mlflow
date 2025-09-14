@@ -20,7 +20,7 @@ def _make_multilabel_df():
 # -----------------------------
 def test_series_of_arrays_to_2d_converts_to_stacked_matrix():
     df = _make_multilabel_df()
-    s = df["targets"]  # Series of arrays
+    s = df["y_true"]  # Series of arrays
     arr = _series_of_arrays_to_2d(s)
     assert isinstance(arr, np.ndarray)
     assert arr.ndim == 2
