@@ -1,6 +1,5 @@
 import inspect
 import logging
-from typing import Any, Optional
 
 import mlflow
 import mlflow.gemini
@@ -8,7 +7,7 @@ from mlflow.entities import SpanType
 from mlflow.gemini.chat import (
     convert_gemini_func_to_mlflow_chat_tool,
 )
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils import construct_full_inputs, set_span_chat_tools
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
@@ -112,6 +111,14 @@ class TracingSession:
         if exc_val:
             self.span.record_exception(exc_val)
 
+        try:
+            if usage := parse_usage(self.output):
+                self.span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
+        except Exception as e:
+            _logger.warning(
+                f"Failed to extract token usage for span {self.span.name}: {e}", exc_info=True
+            )
+
         # need to convert the response of generate_content for better visualization
         outputs = self.output.to_dict() if hasattr(self.output, "to_dict") else self.output
         self.span.end(outputs=outputs)
@@ -146,6 +153,13 @@ def patched_module_call(original, *args, **kwargs):
         span.set_inputs(inputs)
         span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "gemini")
         result = original(*args, **kwargs)
+        try:
+            if usage := parse_usage(result):
+                span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
+        except Exception as e:
+            _logger.warning(
+                f"Failed to extract token usage for span {span.name}: {e}", exc_info=True
+            )
         # need to convert the response of generate_content for better visualization
         outputs = result.to_dict() if hasattr(result, "to_dict") else result
         span.set_outputs(outputs)
@@ -229,22 +243,22 @@ def _construct_full_inputs(func, *args, **kwargs):
     return arguments
 
 
-def _parse_usage(output: Any) -> Optional[dict[str, int]]:
-    try:
-        if usage := getattr(output, "usage_metadata", None):
-            return {
-                TokenUsageKey.INPUT_TOKENS: (
-                    usage.prompt_token_count if usage.prompt_token_count is not None else 0
-                )
-                + (usage.thoughts_token_count if usage.thoughts_token_count is not None else 0)
-                + (
-                    usage.tool_use_prompt_token_count
-                    if usage.tool_use_prompt_token_count is not None
-                    else 0
-                ),
-                TokenUsageKey.OUTPUT_TOKENS: usage.candidates_token_count,
-                TokenUsageKey.TOTAL_TOKENS: usage.total_token_count,
-            }
-    except Exception as e:
-        _logger.debug(f"Failed to parse token usage from output: {e}")
-    return None
+def parse_usage(output):
+    usage = None
+    if hasattr(output, "usage_metadata"):
+        usage = output.usage_metadata
+    elif isinstance(output, dict):
+        usage = output.get("usage_metadata")
+
+    if not usage:
+        return None
+
+    usage_dict = {}
+    if (prompt_tokens := usage.prompt_token_count) is not None:
+        usage_dict[TokenUsageKey.INPUT_TOKENS] = prompt_tokens
+    if (candidate_tokens := usage.candidates_token_count) is not None:
+        usage_dict[TokenUsageKey.OUTPUT_TOKENS] = candidate_tokens
+    if (total_tokens := usage.total_token_count) is not None:
+        usage_dict[TokenUsageKey.TOTAL_TOKENS] = total_tokens
+
+    return usage_dict or None
