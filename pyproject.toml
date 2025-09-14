@@ -224,6 +224,7 @@ select = [
   "N804",    # invalid-first-argument-name-for-class-method
   "PIE790",  # unnecessary-placeholder
   "PLR0402", # manual-from-import
+  "PLR1714", # multiple-comparisons
   "PLE1205", # logging-too-many-args
   "PLW0602", # global-variable-not-assigned
   "PLW1508", # invalid-envvar-default

@@ -157,7 +157,7 @@ def test_universal_autolog_does_not_throw_if_specific_autolog_throws_in_standard
     with mock.patch(mlflow_module.__name__ + ".autolog") as autolog_mock:
         autolog_mock.side_effect = Exception("asdf")
         mlflow.autolog()
-        if library != pyspark and library != pyspark.ml:
+        if library not in (pyspark, pyspark.ml):
             autolog_mock.assert_not_called()
 
         mlflow.utils.import_hooks.notify_module_loaded(library)
