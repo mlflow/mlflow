@@ -72,7 +72,7 @@ describe('GenericInputModal', () => {
     await onValidationPromise;
     // We expect submission to succeed, and for the form fields to be reset and for the form to
     // no longer be submitting
-    expect(resetFieldsMock).toBeCalled();
+    expect(resetFieldsMock).toHaveBeenCalled();
     expect(instance.state.isSubmitting).toEqual(false);
   });
 
@@ -98,8 +98,8 @@ describe('GenericInputModal', () => {
     } catch (e) {
       // For validation errors, the form should not be reset (so that the user can fix the
       // validation error)
-      expect(resetFieldsMock).not.toBeCalled();
-      expect(handleSubmit).not.toBeCalled();
+      expect(resetFieldsMock).not.toHaveBeenCalled();
+      expect(handleSubmit).not.toHaveBeenCalled();
       expect(instance.state.isSubmitting).toEqual(false);
     }
   });
@@ -128,7 +128,7 @@ describe('GenericInputModal', () => {
     await onValidationPromise;
     // For validation errors, the form should not be reset (so that the user can fix the
     // validation error)
-    expect(resetFieldsMock).toBeCalled();
+    expect(resetFieldsMock).toHaveBeenCalled();
     expect(instance.state.isSubmitting).toEqual(false);
   });
 });

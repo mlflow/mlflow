@@ -12,7 +12,7 @@ import os
 import shutil
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
-from typing import Any, Generator, Optional, Union
+from typing import Any, Generator
 
 import cloudpickle
 import pandas as pd
@@ -20,6 +20,7 @@ import yaml
 
 import mlflow.pyfunc
 import mlflow.utils
+from mlflow.entities.span import SpanType
 from mlflow.environment_variables import MLFLOW_LOG_MODEL_COMPRESSION
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -191,7 +192,7 @@ class PythonModel:
             cls.predict._is_pyfunc = True
 
     @abstractmethod
-    def predict(self, context, model_input, params: Optional[dict[str, Any]] = None):
+    def predict(self, context, model_input, params: dict[str, Any] | None = None):
         """
         Evaluates a pyfunc-compatible input and produces a pyfunc-compatible output.
         For more information about the pyfunc input/output API, see the :ref:`pyfunc-inference-api`.
@@ -207,7 +208,7 @@ class PythonModel:
             signature if it's not used. `def predict(self, model_input, params=None)` is valid.
         """
 
-    def predict_stream(self, context, model_input, params: Optional[dict[str, Any]] = None):
+    def predict_stream(self, context, model_input, params: dict[str, Any] | None = None):
         """
         Evaluates a pyfunc-compatible input and produces an iterator of output.
         For more information about the pyfunc input API, see the :ref:`pyfunc-inference-api`.
@@ -250,7 +251,7 @@ class _FunctionPythonModel(PythonModel):
     def predict(
         self,
         model_input,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
     ):
         """
         Args:
@@ -693,8 +694,8 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
     def predict(
         self,
         messages: list[ChatAgentMessage],
-        context: Optional[ChatContext] = None,
-        custom_inputs: Optional[dict[str, Any]] = None,
+        context: ChatContext | None = None,
+        custom_inputs: dict[str, Any] | None = None,
     ) -> ChatAgentResponse:
         """
         Given a ChatAgent input, returns a ChatAgent output. In addition to calling ``predict``
@@ -735,8 +736,8 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
     def predict_stream(
         self,
         messages: list[ChatAgentMessage],
-        context: Optional[ChatContext] = None,
-        custom_inputs: Optional[dict[str, Any]] = None,
+        context: ChatContext | None = None,
+        custom_inputs: dict[str, Any] | None = None,
     ) -> Generator[ChatAgentChunk, None, None]:
         """
         Given a ChatAgent input, returns a generator containing streaming ChatAgent output chunks.
@@ -839,26 +840,60 @@ if IS_PYDANTIC_V2_OR_NEWER:
         methods to help create output items that can be a part of a ResponsesAgentResponse or
         ResponsesAgentStreamEvent.
 
-        See https://www.mlflow.org/docs/latest/llms/responses-agent-intro/ for more details.
+        See https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro for more details.
         """
 
         _skip_type_hint_validation = True
+
+        @staticmethod
+        def responses_agent_output_reducer(
+            chunks: list[ResponsesAgentStreamEvent | dict[str, Any]],
+        ):
+            output_items = []
+            for chunk in chunks:
+                # Handle both dict and pydantic object formats
+                if isinstance(chunk, dict):
+                    chunk_type = chunk.get("type")
+                    if chunk_type == "response.output_item.done":
+                        output_items.append(chunk.get("item"))
+                else:
+                    # Pydantic object (ResponsesAgentStreamEvent)
+                    if hasattr(chunk, "type") and chunk.type == "response.output_item.done":
+                        output_items.append(chunk.item)
+
+            return ResponsesAgentResponse(output=output_items).model_dump(exclude_none=True)
 
         def __init_subclass__(cls, **kwargs) -> None:
             super().__init_subclass__(**kwargs)
             for attr_name in ("predict", "predict_stream"):
                 attr = cls.__dict__.get(attr_name)
                 if callable(attr):
-                    setattr(
-                        cls,
-                        attr_name,
-                        wrap_non_list_predict_pydantic(
-                            attr,
-                            ResponsesAgentRequest,
-                            "Invalid dictionary input for a ResponsesAgent. "
-                            "Expected a dictionary with the ResponsesRequest schema.",
-                        ),
+                    # Only apply trace decorator if it is not already traced with mlflow.trace
+                    if getattr(attr, "__mlflow_traced__", False):
+                        mlflow.pyfunc._logger.warning(
+                            f"You have manually traced {attr_name} with @mlflow.trace, but this is "
+                            "unnecessary with ResponsesAgent subclasses. You can remove the "
+                            "@mlflow.trace decorator and it will be automatically traced."
+                        )
+                        traced_attr = attr
+                    else:
+                        # Apply trace decorator first
+                        if attr_name == "predict_stream":
+                            traced_attr = mlflow.trace(
+                                span_type=SpanType.AGENT,
+                                output_reducer=cls.responses_agent_output_reducer,
+                            )(attr)
+                        else:
+                            traced_attr = mlflow.trace(span_type=SpanType.AGENT)(attr)
+
+                    # Then wrap with pydantic wrapper
+                    wrapped_attr = wrap_non_list_predict_pydantic(
+                        traced_attr,
+                        ResponsesAgentRequest,
+                        "Invalid dictionary input for a ResponsesAgent. "
+                        "Expected a dictionary with the ResponsesRequest schema.",
                     )
+                    setattr(cls, attr_name, wrapped_attr)
 
         @abstractmethod
         def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
@@ -866,8 +901,9 @@ if IS_PYDANTIC_V2_OR_NEWER:
             Given a ResponsesAgentRequest, returns a ResponsesAgentResponse.
 
             You can see example implementations at
-            https://www.mlflow.org/docs/latest/llms/responses-agent-intro#simple-chat-example and
-            https://www.mlflow.org/docs/latest/llms/responses-agent-intro#tool-calling-example.
+            https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#simple-chat-example
+            and
+            https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#tool-calling-example.
             """
 
         def predict_stream(
@@ -877,11 +913,12 @@ if IS_PYDANTIC_V2_OR_NEWER:
             Given a ResponsesAgentRequest, returns a generator of ResponsesAgentStreamEvent objects.
 
             See more details at
-            https://www.mlflow.org/docs/latest/llms/responses-agent-intro#streaming-agent-output.
+            https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#streaming-agent-output.
 
             You can see example implementations at
-            https://www.mlflow.org/docs/latest/llms/responses-agent-intro#simple-chat-example and
-            https://www.mlflow.org/docs/latest/llms/responses-agent-intro#tool-calling-example.
+            https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#simple-chat-example
+            and
+            https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#tool-calling-example.
             """
             raise NotImplementedError(
                 "Streaming implementation not provided. Please override the "
@@ -892,7 +929,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
             """Helper method to create a dictionary conforming to the text delta schema for
             streaming.
 
-            Read more at https://www.mlflow.org/docs/latest/llms/responses-agent-intro/#streaming-agent-output.
+            Read more at https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#streaming-agent-output.
             """
             return {
                 "type": "response.output_text.delta",
@@ -903,7 +940,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
         def create_text_output_item(self, text: str, id: str) -> dict[str, Any]:
             """Helper method to create a dictionary conforming to the text output item schema.
 
-            Read more at https://www.mlflow.org/docs/latest/llms/responses-agent-intro/#creating-agent-output.
+            Read more at https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#creating-agent-output.
 
             Args:
                 text (str): The text to be outputted.
@@ -926,7 +963,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
         ) -> dict[str, Any]:
             """Helper method to create a dictionary conforming to the function call item schema.
 
-            Read more at https://www.mlflow.org/docs/latest/llms/responses-agent-intro/#creating-agent-output.
+            Read more at https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#creating-agent-output.
 
             Args:
                 id (str): The id of the output item.
@@ -946,7 +983,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
             """Helper method to create a dictionary conforming to the function call output item
             schema.
 
-            Read more at https://www.mlflow.org/docs/latest/llms/responses-agent-intro/#creating-agent-output.
+            Read more at https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#creating-agent-output.
 
             Args:
                 call_id (str): The id of the function call.
@@ -959,7 +996,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
             }
 
 
-def _save_model_with_class_artifacts_params(  # noqa: D417
+def _save_model_with_class_artifacts_params(
     path,
     python_model,
     signature=None,
@@ -1183,9 +1220,7 @@ def _save_model_with_class_artifacts_params(  # noqa: D417
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
-def _load_context_model_and_signature(
-    model_path: str, model_config: Optional[dict[str, Any]] = None
-):
+def _load_context_model_and_signature(model_path: str, model_config: dict[str, Any] | None = None):
     pyfunc_config = _get_flavor_configuration(
         model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
     )
@@ -1239,7 +1274,7 @@ def _load_context_model_and_signature(
     return context, python_model, signature
 
 
-def _load_pyfunc(model_path: str, model_config: Optional[dict[str, Any]] = None):
+def _load_pyfunc(model_path: str, model_config: dict[str, Any] | None = None):
     context, python_model, signature = _load_context_model_and_signature(model_path, model_config)
     return _PythonModelPyfuncWrapper(
         python_model=python_model,
@@ -1306,7 +1341,7 @@ class _PythonModelPyfuncWrapper:
                 return _hydrate_dataclass(hints.input, model_input.iloc[0])
         return model_input
 
-    def predict(self, model_input, params: Optional[dict[str, Any]] = None):
+    def predict(self, model_input, params: dict[str, Any] | None = None):
         """
         Args:
             model_input: Model input data as one of dict, str, bool, bytes, float, int, str type.
@@ -1329,7 +1364,7 @@ class _PythonModelPyfuncWrapper:
         else:
             return self.python_model.predict(self._convert_input(model_input), **kwargs)
 
-    def predict_stream(self, model_input, params: Optional[dict[str, Any]] = None):
+    def predict_stream(self, model_input, params: dict[str, Any] | None = None):
         """
         Args:
             model_input: LLM Model single input.
@@ -1372,9 +1407,7 @@ class ModelFromDeploymentEndpoint(PythonModel):
         self.endpoint = endpoint
         self.params = params
 
-    def predict(
-        self, context, model_input: Union[pd.DataFrame, dict[str, Any], list[dict[str, Any]]]
-    ):
+    def predict(self, context, model_input: pd.DataFrame | dict[str, Any] | list[dict[str, Any]]):
         """
         Run prediction on the input data.
 
@@ -1419,7 +1452,7 @@ class ModelFromDeploymentEndpoint(PythonModel):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-    def _predict_single(self, data: Union[str, dict[str, Any]]) -> dict[str, Any]:
+    def _predict_single(self, data: str | dict[str, Any]) -> dict[str, Any]:
         """
         Send a single prediction request to the MLflow Deployments endpoint.
 

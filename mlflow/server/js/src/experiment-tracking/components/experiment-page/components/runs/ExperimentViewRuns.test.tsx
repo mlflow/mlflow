@@ -1,6 +1,7 @@
 import { MockedReduxStoreProvider } from '../../../../../common/utils/TestUtils';
 import { EXPERIMENT_RUNS_MOCK_STORE } from '../../fixtures/experiment-runs.fixtures';
-import { ExperimentViewRuns, ExperimentViewRunsProps } from './ExperimentViewRuns';
+import type { ExperimentViewRunsProps } from './ExperimentViewRuns';
+import { ExperimentViewRuns } from './ExperimentViewRuns';
 import { MemoryRouter } from '../../../../../common/utils/RoutingUtils';
 import { createExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import { createExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
@@ -14,6 +15,7 @@ import { useFetchedRunsNotification } from '../../hooks/useFetchedRunsNotificati
 import { useExperimentRunRows } from '../../utils/experimentPage.row-utils';
 import { DesignSystemProvider } from '@databricks/design-system';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(90000); // Larger timeout for integration testing (table rendering)
 
 // Rendering ag-grid table takes a lot of resources and time, we increase waitFor()'s timeout from default 5000 ms
@@ -136,7 +138,7 @@ describe('ExperimentViewRuns', () => {
     renderTestComponent();
 
     await waitFor(() => {
-      expect(useExperimentRunRows).toBeCalledWith(
+      expect(useExperimentRunRows).toHaveBeenCalledWith(
         expect.objectContaining({
           metricKeyList: ['m1', 'm2', 'm3'],
           paramKeyList: ['p1', 'p2', 'p3'],
@@ -149,15 +151,14 @@ describe('ExperimentViewRuns', () => {
   });
 
   test('should properly react to the new runs data', async () => {
-    // const wrapper = createWrapper();
     const { rerender } = renderTestComponent();
 
     await waitFor(() => {
-      expect(useExperimentRunRows).toBeCalled();
+      expect(useExperimentRunRows).toHaveBeenCalled();
     });
     // Assert that we're not calling for generating columns/rows
     // while having "newparam" parameter
-    expect(useExperimentRunRows).not.toBeCalledWith(
+    expect(useExperimentRunRows).not.toHaveBeenCalledWith(
       expect.objectContaining({
         paramKeyList: ['p1', 'p2', 'p3', 'newparam'],
       }),
@@ -174,7 +175,7 @@ describe('ExperimentViewRuns', () => {
     await waitFor(() => {
       // Assert that "newparam" parameter is being included in calls
       // for new columns and rows
-      expect(useExperimentRunRows).toBeCalledWith(
+      expect(useExperimentRunRows).toHaveBeenCalledWith(
         expect.objectContaining({
           paramKeyList: ['p1', 'p2', 'p3', 'newparam'],
         }),

@@ -2,7 +2,7 @@ import contextlib
 import logging
 import threading
 from dataclasses import dataclass, field
-from typing import Generator, Optional, Sequence
+from typing import Generator, Sequence
 
 from mlflow.entities import LiveSpan, Trace, TraceData, TraceInfo
 from mlflow.entities.model_registry import PromptVersion
@@ -30,7 +30,7 @@ class _Trace:
         set_request_response_preview(self.info, trace_data)
         return Trace(self.info, trace_data)
 
-    def get_root_span(self) -> Optional[LiveSpan]:
+    def get_root_span(self) -> LiveSpan | None:
         for span in self.span_dict.values():
             if span.parent_id is None:
                 return span
@@ -52,7 +52,7 @@ class InMemoryTraceManager:
     Manage spans and traces created by the tracing system in memory.
     """
 
-    _instance_lock = threading.Lock()
+    _instance_lock = threading.RLock()
     _instance = None
 
     @classmethod
@@ -69,7 +69,7 @@ class InMemoryTraceManager:
 
         # Store mapping between OpenTelemetry trace ID and MLflow trace ID
         self._otel_id_to_mlflow_trace_id: dict[int, str] = {}
-        self._lock = threading.Lock()  # Lock for _traces
+        self._lock = threading.RLock()  # Lock for _traces
 
     def register_trace(self, otel_trace_id: int, trace_info: TraceInfo):
         """
@@ -112,7 +112,7 @@ class InMemoryTraceManager:
             self._traces[trace_id].prompts.append(prompt)
 
     @contextlib.contextmanager
-    def get_trace(self, trace_id: str) -> Generator[Optional[_Trace], None, None]:
+    def get_trace(self, trace_id: str) -> Generator[_Trace | None, None, None]:
         """
         Yield the trace info for the given trace ID..
         This is designed to be used as a context manager to ensure the trace info is accessed
@@ -121,7 +121,7 @@ class InMemoryTraceManager:
         with self._lock:
             yield self._traces.get(trace_id)
 
-    def get_span_from_id(self, trace_id: str, span_id: str) -> Optional[LiveSpan]:
+    def get_span_from_id(self, trace_id: str, span_id: str) -> LiveSpan | None:
         """
         Get a span object for the given trace_id and span_id.
         """
@@ -130,7 +130,7 @@ class InMemoryTraceManager:
 
         return trace.span_dict.get(span_id) if trace else None
 
-    def get_root_span_id(self, trace_id) -> Optional[str]:
+    def get_root_span_id(self, trace_id) -> str | None:
         """
         Get the root span ID for the given trace ID.
         """
@@ -144,7 +144,7 @@ class InMemoryTraceManager:
 
         return None
 
-    def get_mlflow_trace_id_from_otel_id(self, otel_trace_id: int) -> Optional[str]:
+    def get_mlflow_trace_id_from_otel_id(self, otel_trace_id: int) -> str | None:
         """
         Get the MLflow trace ID for the given OpenTelemetry trace ID.
         """
@@ -158,7 +158,7 @@ class InMemoryTraceManager:
             if trace:
                 trace.info.trace_metadata[key] = value
 
-    def pop_trace(self, otel_trace_id: int) -> Optional[ManagerTrace]:
+    def pop_trace(self, otel_trace_id: int) -> ManagerTrace | None:
         """
         Pop trace data for the given OpenTelemetry trace ID and
         return it as a ManagerTrace wrapper containing the trace and prompts.

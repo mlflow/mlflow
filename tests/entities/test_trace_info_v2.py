@@ -2,7 +2,7 @@ import pytest
 from google.protobuf.duration_pb2 import Duration
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from mlflow.entities import TraceInfoV2
+from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.protos.service_pb2 import TraceInfo as ProtoTraceInfo
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
@@ -50,6 +50,9 @@ def trace_info_proto():
     request_metadata_2 = ti_proto.request_metadata.add()
     request_metadata_2.key = "k" * 250
     request_metadata_2.value = "v" * 250
+    request_metadata_3 = ti_proto.request_metadata.add()
+    request_metadata_3.key = TRACE_SCHEMA_VERSION_KEY
+    request_metadata_3.value = "2"
     tag_1 = ti_proto.tags.add()
     tag_1.key = "baz"
     tag_1.value = "qux"
@@ -95,6 +98,7 @@ def test_to_dict(trace_info):
         "request_metadata": {
             "foo": "bar",
             "k" * 1000: "v" * 1000,
+            TRACE_SCHEMA_VERSION_KEY: "2",
         },
         "tags": {
             "baz": "qux",
@@ -115,6 +119,7 @@ def test_trace_info_serialization_deserialization(trace_info_proto):
     assert trace_info.request_metadata == {
         "foo": "bar",
         "k" * 250: "v" * 250,
+        TRACE_SCHEMA_VERSION_KEY: "2",
     }
     assert trace_info.tags == {
         "baz": "qux",
@@ -131,6 +136,7 @@ def test_trace_info_serialization_deserialization(trace_info_proto):
         "request_metadata": {
             "foo": "bar",
             "k" * 250: "v" * 250,
+            TRACE_SCHEMA_VERSION_KEY: "2",
         },
         "tags": {
             "baz": "qux",

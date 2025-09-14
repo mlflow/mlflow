@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MockedReduxStoreProvider } from '../../../../common/utils/TestUtils';
 import { renderWithIntl, fastFillInput, act, screen, within } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { setRunTagsBulkApi } from '../../../actions';
-import { KeyValueEntity } from '../../../types';
+import type { KeyValueEntity } from '../../../../common/types';
 import { RunViewTagsBox } from './RunViewTagsBox';
 import { DesignSystemProvider } from '@databricks/design-system';
 
@@ -49,8 +49,12 @@ describe('RunViewTagsBox integration', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Save tags' }));
 
-    expect(setRunTagsBulkApi).toBeCalledWith('test-run-uuid', [], [{ key: 'new_tag_with_value', value: 'tag_value' }]);
-    expect(onTagsUpdated).toBeCalled();
+    expect(setRunTagsBulkApi).toHaveBeenCalledWith(
+      'test-run-uuid',
+      [],
+      [{ key: 'new_tag_with_value', value: 'tag_value' }],
+    );
+    expect(onTagsUpdated).toHaveBeenCalled();
   });
 
   test('should modify already existing tag list', async () => {
@@ -85,7 +89,7 @@ describe('RunViewTagsBox integration', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Save tags' }));
 
-    expect(setRunTagsBulkApi).toBeCalledWith(
+    expect(setRunTagsBulkApi).toHaveBeenCalledWith(
       'test-run-uuid',
       [
         { key: 'existing_tag_1', value: 'val1' },
@@ -96,7 +100,7 @@ describe('RunViewTagsBox integration', () => {
         { key: 'new_tag_with_value', value: 'tag_value' },
       ],
     );
-    expect(onTagsUpdated).toBeCalled();
+    expect(onTagsUpdated).toHaveBeenCalled();
   });
 
   test('should react accordingly when API responds with an error', async () => {
@@ -124,7 +128,11 @@ describe('RunViewTagsBox integration', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Save tags' }));
 
-    expect(setRunTagsBulkApi).toBeCalledWith('test-run-uuid', [], [{ key: 'new_tag_with_value', value: 'tag_value' }]);
+    expect(setRunTagsBulkApi).toHaveBeenCalledWith(
+      'test-run-uuid',
+      [],
+      [{ key: 'new_tag_with_value', value: 'tag_value' }],
+    );
 
     expect(screen.getByText('Some error message')).toBeInTheDocument();
   });

@@ -97,8 +97,8 @@ describe('CompareModelVersionPage', () => {
     };
     const wrapper2 = shallow(<CompareModelVersionsPageImpl {...myProps} />);
     expect(wrapper2.state('requestIds').length).toBe(4);
-    await expect(getRunApi).toBeCalled();
-    await expect(getModelVersionArtifactApi).toBeCalled();
+    await expect(getRunApi).toHaveBeenCalled();
+    await expect(getModelVersionArtifactApi).toHaveBeenCalled();
     expect(wrapper2.state('requestIds').length).toBe(2);
   });
 });

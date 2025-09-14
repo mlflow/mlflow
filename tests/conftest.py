@@ -13,6 +13,8 @@ import requests
 from opentelemetry import trace as trace_api
 
 import mlflow
+import mlflow.telemetry.utils
+from mlflow.telemetry.client import get_telemetry_client
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.export.inference_table import _TRACE_BUFFER
 from mlflow.tracing.fluent import _set_last_active_trace_id
@@ -44,12 +46,14 @@ def remote_backend_for_tracing_sdk_test():
     port = get_safe_port()
     # Start a remote backend to test mlflow-tracing package integration.
     with tempfile.TemporaryDirectory() as temp_dir:
+        mlflow_root = os.path.dirname(os.path.dirname(__file__))
         with subprocess.Popen(
             [
                 "uv",
                 "run",
                 "--with",
-                "mlflow",
+                # Install from the dev version
+                mlflow_root,
                 "--python",
                 # Get current python version
                 f"{sys.version_info.major}.{sys.version_info.minor}",
@@ -288,25 +292,6 @@ def mock_s3_bucket():
         yield bucket_name
 
 
-class ExtendedMonkeyPatch(pytest.MonkeyPatch):  # type: ignore
-    def setenvs(self, envs, prepend=None):
-        for name, value in envs.items():
-            self.setenv(name, value, prepend)
-
-    def delenvs(self, names, raising=True):
-        for name in names:
-            self.delenv(name, raising)
-
-
-@pytest.fixture
-def monkeypatch():
-    """
-    Overrides the default monkeypatch fixture to use `ExtendedMonkeyPatch`.
-    """
-    with ExtendedMonkeyPatch().context() as mp:
-        yield mp
-
-
 @pytest.fixture
 def tmp_sqlite_uri(tmp_path):
     path = tmp_path.joinpath("mlflow.db").as_uri()
@@ -329,4 +314,13 @@ def mock_is_in_databricks(request):
 
 @pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
 def reset_active_model_context():
+    yield
     clear_active_model()
+
+
+@pytest.fixture(autouse=True)
+def clean_up_telemetry_threads():
+    yield
+    client = get_telemetry_client()
+    if client:
+        client._clean_up()

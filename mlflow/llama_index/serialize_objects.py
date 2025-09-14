@@ -62,7 +62,7 @@ def object_to_dict(o: object):
 
 
 def _construct_prompt_template_object(
-    constructor: Callable, kwargs: dict[str, Any]
+    constructor: Callable[..., PromptTemplate], kwargs: dict[str, Any]
 ) -> PromptTemplate:
     """Construct a PromptTemplate object based on the constructor and kwargs.
 

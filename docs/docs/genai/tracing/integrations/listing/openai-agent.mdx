@@ -18,7 +18,6 @@ import mlflow
 mlflow.openai.autolog()
 ```
 
-
 ## Basic Example
 
 The following example demonstrates how to use the OpenAI Agents SDK with MLflow tracing for simple multi-language chat agents. The three agents collaborate to determine the language of the input and handoff to the appropriate sub-agent that speaks the language. MLflow captures how the agents interact with each other and make calls to the OpenAI API.
@@ -63,7 +62,6 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-
 ## Function Calling
 
 OpenAI Agents SDK support defining functions that can be called by the agent. MLflow captures the function calls and display what functions are available to the agent, which of them are called, and the inputs and outputs of the function calls.
@@ -101,7 +99,6 @@ if __name__ == "__main__":
 ```
 
 ![OpenAI Tracing via autolog](/images/llms/tracing/openai-agent-tracing-function-calling.png)
-
 
 ## Guardrails
 

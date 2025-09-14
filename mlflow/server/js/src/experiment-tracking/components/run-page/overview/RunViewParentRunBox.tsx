@@ -1,5 +1,5 @@
 import { useDispatch, useSelector } from 'react-redux';
-import { ReduxState, ThunkDispatch } from '../../../../redux-types';
+import type { ReduxState, ThunkDispatch } from '../../../../redux-types';
 import { useEffect, useMemo } from 'react';
 import { getRunApi } from '../../../actions';
 import { ParagraphSkeleton } from '@databricks/design-system';

@@ -256,6 +256,9 @@ class AttrDict(dict):
     >>> d = AttrDict({"a": 1, "b": {"c": 3, "d": 4}})
     >>> d.b.c
     3
+    >>> d.c = 5
+    >>> d.c
+    5
     """
 
     def __getattr__(self, attr):
@@ -266,6 +269,12 @@ class AttrDict(dict):
         if isinstance(value, dict):
             return AttrDict(value)
         return value
+
+    def __setattr__(self, attr, value):
+        self[attr] = value
+
+    def __delattr__(self, key):
+        del self[key]
 
 
 def get_parent_module(module):

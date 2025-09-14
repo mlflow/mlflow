@@ -1,7 +1,7 @@
 import json
 import os
-from collections import namedtuple
 from pathlib import Path
+from typing import Any, NamedTuple
 from unittest import mock
 
 import numpy as np
@@ -42,7 +42,11 @@ EXTRA_PYFUNC_SERVING_TEST_ARGS = (
     [] if _is_available_on_pypi("xgboost") else ["--env-manager", "local"]
 )
 
-ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe", "inference_dmatrix"])
+
+class ModelWithData(NamedTuple):
+    model: Any
+    inference_dataframe: pd.DataFrame
+    inference_dmatrix: xgb.DMatrix
 
 
 @pytest.fixture(scope="module")

@@ -13,6 +13,7 @@ import mlflow
 from mlflow import MlflowClient, flush_async_logging
 from mlflow.config import enable_async_logging
 from mlflow.entities import (
+    EvaluationDataset,
     ExperimentTag,
     LoggedModel,
     Run,
@@ -23,7 +24,7 @@ from mlflow.entities import (
     SpanStatusCode,
     SpanType,
     Trace,
-    TraceInfoV2,
+    TraceInfo,
     ViewType,
 )
 from mlflow.entities.file_info import FileInfo
@@ -34,16 +35,18 @@ from mlflow.entities.model_registry.model_version_status import ModelVersionStat
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
 from mlflow.entities.param import Param
 from mlflow.entities.trace_data import TraceData
+from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
 from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.sqlalchemy_store import (
     SqlAlchemyStore as SqlAlchemyModelRegistryStore,
 )
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.store.tracking import SEARCH_EVALUATION_DATASETS_MAX_RESULTS, SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as SqlAlchemyTrackingStore
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.provider import _get_tracer, trace_disabled
@@ -63,6 +66,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_SOURCE_TYPE,
     MLFLOW_USER,
 )
+from mlflow.utils.os import is_windows
 
 from tests.tracing.conftest import async_logging_enabled  # noqa: F401
 from tests.tracing.helper import create_test_trace_info, get_traces
@@ -127,26 +131,26 @@ def mock_databricks_tracking_store():
 
 
 @pytest.fixture
-def mock_store_start_trace_v3():
-    def _mock_start_trace_v3(trace):
+def mock_store_start_trace():
+    def _mock_start_trace(trace_info):
         return create_test_trace_info(
             trace_id="tr-123",
-            experiment_id=trace.info.experiment_id,
-            request_time=trace.info.request_time,
-            execution_duration=trace.info.execution_duration,
-            state=trace.info.state,
-            trace_metadata=trace.info.trace_metadata,
+            experiment_id=trace_info.experiment_id,
+            request_time=trace_info.request_time,
+            execution_duration=trace_info.execution_duration,
+            state=trace_info.state,
+            trace_metadata=trace_info.trace_metadata,
             tags={
                 "mlflow.user": "bob",
                 "mlflow.artifactLocation": "test",
-                **trace.info.tags,
+                **trace_info.tags,
             },
         )
 
     with mock.patch(
-        "mlflow.tracing.client.TracingClient.start_trace_v3", side_effect=_mock_start_trace_v3
-    ) as mock_start_trace_v3:
-        yield mock_start_trace_v3
+        "mlflow.tracing.client.TracingClient.start_trace", side_effect=_mock_start_trace
+    ) as mock_start_trace:
+        yield mock_start_trace
 
 
 @pytest.fixture
@@ -201,12 +205,12 @@ def test_client_create_run_with_name(mock_store, mock_time):
 
 
 def test_client_get_trace(mock_store, mock_artifact_repo):
-    mock_store.get_trace_info.return_value = TraceInfoV2(
-        request_id="tr-1234567",
-        experiment_id="0",
-        timestamp_ms=123,
-        execution_time_ms=456,
-        status=TraceStatus.OK,
+    mock_store.get_trace_info.return_value = TraceInfo(
+        trace_id="tr-1234567",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=123,
+        execution_duration=456,
+        state=TraceState.OK,
         tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts"},
     )
     mock_artifact_repo.download_trace_data.return_value = {
@@ -236,7 +240,7 @@ def test_client_get_trace(mock_store, mock_artifact_repo):
         ],
     }
     trace = MlflowClient().get_trace("1234567")
-    mock_store.get_trace_info.assert_called_once_with("1234567", should_query_v3=False)
+    mock_store.get_trace_info.assert_called_once_with("1234567")
     mock_artifact_repo.download_trace_data.assert_called_once()
 
     assert trace.info.trace_id == "tr-1234567"
@@ -258,12 +262,12 @@ def test_client_get_trace(mock_store, mock_artifact_repo):
 
 
 def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_artifact_repo):
-    mock_store.get_trace_info.return_value = TraceInfoV2(
-        request_id="1234567",
-        experiment_id="0",
-        timestamp_ms=123,
-        execution_time_ms=456,
-        status=TraceStatus.OK,
+    mock_store.get_trace_info.return_value = TraceInfo(
+        trace_id="1234567",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=123,
+        execution_duration=456,
+        state=TraceState.OK,
         tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts"},
     )
     mock_artifact_repo.download_trace_data.side_effect = MlflowTraceDataNotFound("1234567")
@@ -285,20 +289,20 @@ def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_
 @pytest.mark.parametrize("include_spans", [True, False])
 def test_client_search_traces(mock_store, mock_artifact_repo, include_spans):
     mock_traces = [
-        TraceInfoV2(
-            request_id="1234567",
-            experiment_id="1",
-            timestamp_ms=123,
-            execution_time_ms=456,
-            status=TraceStatus.OK,
+        TraceInfo(
+            trace_id="1234567",
+            trace_location=TraceLocation.from_experiment_id("1"),
+            request_time=123,
+            execution_duration=456,
+            state=TraceState.OK,
             tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts/1"},
         ),
-        TraceInfoV2(
-            request_id="8910",
-            experiment_id="2",
-            timestamp_ms=456,
-            execution_time_ms=789,
-            status=TraceStatus.OK,
+        TraceInfo(
+            trace_id="8910",
+            trace_location=TraceLocation.from_experiment_id("2"),
+            request_time=456,
+            execution_duration=789,
+            state=TraceState.OK,
             tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts/2"},
         ),
     ]
@@ -348,12 +352,12 @@ def test_client_search_traces_trace_data_download_error(mock_store, include_span
         return_value=CustomArtifactRepository("test"),
     ) as mock_get_artifact_repository:
         mock_traces = [
-            TraceInfoV2(
-                request_id="1234567",
-                experiment_id="1",
-                timestamp_ms=123,
-                execution_time_ms=456,
-                status=TraceStatus.OK,
+            TraceInfo(
+                trace_id="1234567",
+                trace_location=TraceLocation.from_experiment_id("1"),
+                request_time=123,
+                execution_duration=456,
+                state=TraceState.OK,
                 tags={"mlflow.artifactLocation": "test"},
             ),
         ]
@@ -380,12 +384,12 @@ def test_client_delete_traces(mock_store):
         experiment_id="0",
         max_timestamp_millis=1,
         max_traces=2,
-        request_ids=["tr-1234"],
+        trace_ids=["tr-1234"],
     )
 
 
 @pytest.fixture(params=["file", "sqlalchemy"])
-def tracking_uri(request, tmp_path):
+def tracking_uri(request, tmp_path, monkeypatch):
     """Set an MLflow Tracking URI with different type of backend."""
     if "MLFLOW_SKINNY" in os.environ and request.param == "sqlalchemy":
         pytest.skip("SQLAlchemy store is not available in skinny.")
@@ -624,7 +628,7 @@ def test_start_and_end_trace_before_all_span_end(async_logging_enabled):
 
 @mock.patch("mlflow.get_tracking_uri", return_value="databricks")
 def test_log_trace_with_databricks_tracking_uri(
-    databricks_tracking_uri, mock_store_start_trace_v3, monkeypatch
+    databricks_tracking_uri, mock_store_start_trace, monkeypatch
 ):
     monkeypatch.setenv("MLFLOW_EXPERIMENT_NAME", "test")
     monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
@@ -690,7 +694,7 @@ def test_log_trace_with_databricks_tracking_uri(
         model.predict(1, 2)
         mlflow.flush_trace_async_logging(terminate=True)
 
-    mock_store_start_trace_v3.assert_called_once()
+    mock_store_start_trace.assert_called_once()
     mock_upload_trace_data.assert_called_once()
 
 
@@ -836,8 +840,8 @@ def test_log_trace(tracking_uri):
     assert backend_traces[0].info.experiment_id == experiment_id
     assert backend_traces[0].info.status == trace.info.status
     assert backend_traces[0].info.tags["custom_tag"] == "tag_value"
-    assert backend_traces[0].data.request == trace.data.request
-    assert backend_traces[0].data.response == trace.data.response
+    assert backend_traces[0].info.request_preview == trace.info.request_preview
+    assert backend_traces[0].info.response_preview == trace.info.response_preview
     assert len(backend_traces[0].data.spans) == len(trace.data.spans)
     assert backend_traces[0].data.spans[0].name == trace.data.spans[0].name
 
@@ -1708,7 +1712,7 @@ def test_get_trace_throw_if_trace_id_is_online_trace_id():
         client.get_trace(trace_id)
 
     another_client = MlflowClient("mlruns")
-    with pytest.raises(MlflowException, match=r"Trace with request ID '[\w-]+' not found"):
+    with pytest.raises(MlflowException, match=r"Trace with ID '[\w-]+' not found"):
         another_client.get_trace(trace_id)
 
 
@@ -1834,7 +1838,7 @@ def test_create_prompt_error_handling(tracking_uri):
 
     # Exceeds the max length
     with pytest.raises(MlflowException, match=r"Prompt text exceeds max length of"):
-        client.register_prompt(name="prompt_1", template="Hi" * 10000)
+        client.register_prompt(name="prompt_1", template="a" * 100_001)
 
     # When the first version creation fails, RegisteredModel should not be created
     with pytest.raises(MlflowException, match=r"Prompt with name=prompt_1 not found"):
@@ -1845,7 +1849,7 @@ def test_create_prompt_error_handling(tracking_uri):
 
     # When the subsequent version creation fails, RegisteredModel should remain
     with pytest.raises(MlflowException, match=r"Prompt text exceeds max length of"):
-        client.register_prompt(name="prompt_1", template="Hi" * 10000)
+        client.register_prompt(name="prompt_1", template="a" * 100_001)
 
     assert client.load_prompt("prompt_1", version=1) is not None
 
@@ -2354,4 +2358,640 @@ def test_log_batch_link_to_active_model(tracking_uri):
     logged_model = mlflow.get_logged_model(model_id=model.model_id)
     assert logged_model.name == model.name
     assert logged_model.model_id == model.model_id
-    assert {m.key: m.value for m in logged_model.metrics} == {"metric1": 1, "metric2": 2}
+    assert {m.key: m.value for m in logged_model.metrics} == {
+        "metric1": 1,
+        "metric2": 2,
+    }
+
+
+def test_load_prompt_with_alias_uri(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    # Register two versions of a prompt
+    client.register_prompt(name="alias_prompt", template="Hello, world!")
+    client.register_prompt(name="alias_prompt", template="Hello, {{name}}!")
+
+    # Assign alias to version 1
+    client.set_prompt_alias("alias_prompt", alias="production", version=1)
+    prompt = client.load_prompt("prompts:/alias_prompt@production")
+    assert prompt.template == "Hello, world!"
+    assert "production" in prompt.aliases
+
+    # Reassign alias to version 2
+    client.set_prompt_alias("alias_prompt", alias="production", version=2)
+    prompt = client.load_prompt("prompts:/alias_prompt@production")
+    assert prompt.template == "Hello, {{name}}!"
+    assert "production" in prompt.aliases
+
+    # Delete alias and verify loading fails
+    client.delete_prompt_alias("alias_prompt", alias="production")
+    with pytest.raises(
+        MlflowException, match=r"Prompt (.*) does not exist.|Prompt alias (.*) not found."
+    ):
+        client.load_prompt("prompts:/alias_prompt@production")
+
+    # Loading with the 'latest' alias
+    prompt = client.load_prompt("prompts:/alias_prompt@latest")
+    assert prompt.template == "Hello, {{name}}!"
+
+
+def test_create_prompt_chat_format_client_integration():
+    """Test client-level integration with chat prompts."""
+    chat_template = [
+        {"role": "system", "content": "You are a {{style}} assistant."},
+        {"role": "user", "content": "{{question}}"},
+    ]
+
+    response_format = {"type": "string"}
+
+    # Use client to create prompt
+    client = MlflowClient()
+    prompt = client.register_prompt(
+        name="test_chat_client",
+        template=chat_template,
+        response_format=response_format,
+        commit_message="Test chat prompt via client",
+    )
+
+    assert prompt.template == chat_template
+    assert prompt.response_format == response_format
+
+    # Load via client
+    loaded_prompt = client.get_prompt_version("test_chat_client", 1)
+    assert not loaded_prompt.is_text_prompt
+    assert loaded_prompt.template == chat_template
+    assert loaded_prompt.response_format == response_format
+
+
+def test_link_chat_prompt_version_to_run():
+    """Test linking chat prompts to runs via client."""
+    chat_template = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Hello {{name}}!"},
+    ]
+
+    client = MlflowClient()
+    prompt = client.register_prompt(name="test_chat_link", template=chat_template)
+
+    # Create run and link prompt
+    run = client.create_run(client.create_experiment("test_exp"))
+    client.link_prompt_version_to_run(run.info.run_id, prompt)
+
+    # Verify linking
+    run_data = client.get_run(run.info.run_id)
+    linked_prompts_tag = run_data.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    assert linked_prompts_tag is not None
+
+    linked_prompts = json.loads(linked_prompts_tag)
+    assert len(linked_prompts) == 1
+    assert linked_prompts[0]["name"] == "test_chat_link"
+    assert linked_prompts[0]["version"] == "1"
+
+
+def test_create_prompt_with_pydantic_response_format_client():
+    """Test client-level integration with Pydantic response format."""
+    from pydantic import BaseModel
+
+    class ResponseSchema(BaseModel):
+        answer: str
+        confidence: float
+
+    client = MlflowClient()
+    prompt = client.register_prompt(
+        name="test_pydantic_client",
+        template="What is {{question}}?",
+        response_format=ResponseSchema,
+        commit_message="Test Pydantic response format via client",
+    )
+
+    assert prompt.response_format == ResponseSchema.model_json_schema()
+    assert prompt.commit_message == "Test Pydantic response format via client"
+
+    # Load and verify
+    loaded_prompt = client.get_prompt_version("test_pydantic_client", 1)
+    assert loaded_prompt.response_format == ResponseSchema.model_json_schema()
+
+
+def test_create_prompt_with_dict_response_format_client():
+    """Test client-level integration with dictionary response format."""
+    response_format = {
+        "type": "object",
+        "properties": {
+            "summary": {"type": "string"},
+            "key_points": {"type": "array", "items": {"type": "string"}},
+        },
+    }
+
+    client = MlflowClient()
+    prompt = client.register_prompt(
+        name="test_dict_response_client",
+        template="Analyze this: {{text}}",
+        response_format=response_format,
+        tags={"analysis_type": "text"},
+    )
+
+    assert prompt.response_format == response_format
+    assert prompt.tags["analysis_type"] == "text"
+
+    # Load and verify
+    loaded_prompt = client.get_prompt_version("test_dict_response_client", 1)
+    assert loaded_prompt.response_format == response_format
+
+
+def test_create_prompt_text_backward_compatibility_client():
+    """Test that text prompt creation continues to work via client."""
+    client = MlflowClient()
+    prompt = client.register_prompt(
+        name="test_text_backward_client",
+        template="Hello {{name}}!",
+        commit_message="Test backward compatibility via client",
+    )
+
+    assert prompt.is_text_prompt
+    assert prompt.template == "Hello {{name}}!"
+    assert prompt.commit_message == "Test backward compatibility via client"
+
+    # Load and verify
+    loaded_prompt = client.get_prompt_version("test_text_backward_client", 1)
+    assert loaded_prompt.is_text_prompt
+    assert loaded_prompt.template == "Hello {{name}}!"
+
+
+def test_create_prompt_complex_chat_template_client():
+    """Test client-level integration with complex chat templates."""
+    chat_template = [
+        {
+            "role": "system",
+            "content": "You are a {{style}} assistant named {{name}}.",
+        },
+        {"role": "user", "content": "{{greeting}}! {{question}}"},
+        {
+            "role": "assistant",
+            "content": "I understand you're asking about {{topic}}.",
+        },
+    ]
+
+    client = MlflowClient()
+    prompt = client.register_prompt(
+        name="test_complex_chat_client",
+        template=chat_template,
+        tags={"complexity": "high"},
+    )
+
+    assert prompt.template == chat_template
+    assert prompt.tags["complexity"] == "high"
+
+    # Load and verify
+    loaded_prompt = client.get_prompt_version("test_complex_chat_client", 1)
+    assert not loaded_prompt.is_text_prompt
+    assert loaded_prompt.template == chat_template
+
+
+def test_create_prompt_with_none_response_format_client():
+    """Test client-level integration with None response format."""
+    client = MlflowClient()
+    prompt = client.register_prompt(
+        name="test_none_response_client",
+        template="Hello {{name}}!",
+        response_format=None,
+    )
+
+    assert prompt.response_format is None
+
+    # Load and verify
+    loaded_prompt = client.get_prompt_version("test_none_response_client", 1)
+    assert loaded_prompt.response_format is None
+
+
+def test_create_prompt_with_empty_chat_template_client():
+    """Test client-level integration with empty chat template list."""
+    client = MlflowClient()
+    prompt = client.register_prompt(name="test_empty_chat_client", template=[])
+
+    assert prompt.is_text_prompt
+    assert prompt.template == "[]"  # Empty list serialized as string
+
+    # Load and verify
+    loaded_prompt = client.get_prompt_version("test_empty_chat_client", 1)
+    assert loaded_prompt.is_text_prompt
+
+
+def test_create_prompt_with_single_message_chat_client():
+    """Test client-level integration with single message chat template."""
+    chat_template = [{"role": "user", "content": "Hello {{name}}!"}]
+
+    client = MlflowClient()
+    prompt = client.register_prompt(name="test_single_message_client", template=chat_template)
+
+    assert prompt.template == chat_template
+    assert prompt.variables == {"name"}
+
+    # Load and verify
+    loaded_prompt = client.get_prompt_version("test_single_message_client", 1)
+    assert not loaded_prompt.is_text_prompt
+    assert loaded_prompt.template == chat_template
+
+
+def test_create_prompt_with_multiple_variables_in_chat_client():
+    """Test client-level integration with multiple variables in chat messages."""
+    chat_template = [
+        {
+            "role": "system",
+            "content": "You are a {{style}} assistant named {{name}}.",
+        },
+        {"role": "user", "content": "{{greeting}}! {{question}}"},
+        {
+            "role": "assistant",
+            "content": "I understand you're asking about {{topic}}.",
+        },
+    ]
+
+    client = MlflowClient()
+    prompt = client.register_prompt(name="test_multiple_variables_client", template=chat_template)
+
+    expected_variables = {"style", "name", "greeting", "question", "topic"}
+    assert prompt.variables == expected_variables
+
+    # Load and verify
+    loaded_prompt = client.get_prompt_version("test_multiple_variables_client", 1)
+    assert loaded_prompt.variables == expected_variables
+
+
+def test_create_prompt_with_mixed_content_types_client():
+    """Test client-level integration with mixed content types in chat messages."""
+    chat_template = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Hello {{name}}!"},
+        {"role": "assistant", "content": "Hi there! How can I help you today?"},
+    ]
+
+    client = MlflowClient()
+    prompt = client.register_prompt(name="test_mixed_content_client", template=chat_template)
+
+    assert prompt.template == chat_template
+    assert prompt.variables == {"name"}
+
+    # Load and verify
+    loaded_prompt = client.get_prompt_version("test_mixed_content_client", 1)
+    assert not loaded_prompt.is_text_prompt
+    assert loaded_prompt.template == chat_template
+
+
+def test_create_prompt_with_nested_variables_client():
+    """Test client-level integration with nested variable names."""
+    chat_template = [
+        {
+            "role": "system",
+            "content": "You are a {{user.preferences.style}} assistant.",
+        },
+        {
+            "role": "user",
+            "content": "Hello {{user.name}}! {{user.preferences.greeting}}",
+        },
+    ]
+
+    client = MlflowClient()
+    prompt = client.register_prompt(name="test_nested_variables_client", template=chat_template)
+
+    expected_variables = {
+        "user.preferences.style",
+        "user.name",
+        "user.preferences.greeting",
+    }
+    assert prompt.variables == expected_variables
+
+    # Load and verify
+    loaded_prompt = client.get_prompt_version("test_nested_variables_client", 1)
+    assert loaded_prompt.variables == expected_variables
+
+
+def test_link_prompt_with_response_format_to_run():
+    """Test linking prompts with response format to runs via client."""
+    response_format = {
+        "type": "object",
+        "properties": {"answer": {"type": "string"}},
+    }
+    client = MlflowClient()
+    prompt = client.register_prompt(
+        name="test_response_link",
+        template="What is {{question}}?",
+        response_format=response_format,
+    )
+
+    # Create run and link prompt
+    run = client.create_run(client.create_experiment("test_exp"))
+    client.link_prompt_version_to_run(run.info.run_id, prompt)
+
+    # Verify linking
+    run_data = client.get_run(run.info.run_id)
+    linked_prompts_tag = run_data.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    assert linked_prompts_tag is not None
+
+    linked_prompts = json.loads(linked_prompts_tag)
+    assert len(linked_prompts) == 1
+    assert linked_prompts[0]["name"] == "test_response_link"
+    assert linked_prompts[0]["version"] == "1"
+
+
+def test_link_multiple_prompt_types_to_run():
+    """Test linking both text and chat prompts to the same run via client."""
+    client = MlflowClient()
+
+    # Create text prompt
+    text_prompt = client.register_prompt(name="test_text_link", template="Hello {{name}}!")
+
+    # Create chat prompt
+    chat_template = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "{{question}}"},
+    ]
+    chat_prompt = client.register_prompt(name="test_chat_link_multiple", template=chat_template)
+
+    # Create run and link both prompts
+    run = client.create_run(client.create_experiment("test_exp"))
+    client.link_prompt_version_to_run(run.info.run_id, text_prompt)
+    client.link_prompt_version_to_run(run.info.run_id, chat_prompt)
+
+    # Verify linking
+    run_data = client.get_run(run.info.run_id)
+    linked_prompts_tag = run_data.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    assert linked_prompts_tag is not None
+
+    linked_prompts = json.loads(linked_prompts_tag)
+    assert len(linked_prompts) == 2
+
+    expected_prompts = [
+        {"name": "test_text_link", "version": "1"},
+        {"name": "test_chat_link_multiple", "version": "1"},
+    ]
+    for expected_prompt in expected_prompts:
+        assert expected_prompt in linked_prompts
+
+
+def test_mlflow_client_create_dataset(mock_store):
+    created_dataset = EvaluationDataset(
+        dataset_id="test_dataset_id",
+        name="test_dataset",
+        digest="abcdef123456",
+        created_time=1234567890,
+        last_update_time=1234567890,
+        tags={"environment": "production", "version": "1.0"},
+    )
+    created_dataset.experiment_ids = ["exp1", "exp2"]
+    mock_store.create_dataset.return_value = created_dataset
+
+    # Mock context registry to return empty tags so mlflow.user is not auto-added
+    with mock.patch(
+        "mlflow.tracking._tracking_service.client.context_registry.resolve_tags", return_value={}
+    ):
+        dataset = MlflowClient().create_dataset(
+            name="qa_evaluation",
+            experiment_id=["exp1", "exp2"],
+            tags={"environment": "production", "version": "1.0"},
+        )
+
+    assert dataset.dataset_id == "test_dataset_id"
+    assert dataset.name == "test_dataset"
+    assert dataset.tags == {"environment": "production", "version": "1.0"}
+
+    mock_store.create_dataset.assert_called_once_with(
+        name="qa_evaluation",
+        tags={"environment": "production", "version": "1.0"},
+        experiment_ids=["exp1", "exp2"],
+    )
+
+
+def test_mlflow_client_create_evaluation_dataset_minimal(mock_store):
+    created_dataset = EvaluationDataset(
+        dataset_id="test_dataset_id",
+        name="test_dataset",
+        digest="abcdef123456",
+        created_time=1234567890,
+        last_update_time=1234567890,
+    )
+    mock_store.create_dataset.return_value = created_dataset
+
+    # Mock context registry to return empty tags so mlflow.user is not auto-added
+    with mock.patch(
+        "mlflow.tracking._tracking_service.client.context_registry.resolve_tags", return_value={}
+    ):
+        dataset = MlflowClient().create_dataset(name="test_dataset")
+
+    assert dataset.dataset_id == "test_dataset_id"
+    assert dataset.name == "test_dataset"
+
+    mock_store.create_dataset.assert_called_once_with(
+        name="test_dataset",
+        tags=None,
+        experiment_ids=None,
+    )
+
+
+def test_mlflow_client_get_dataset(mock_store):
+    mock_store.get_dataset.return_value = EvaluationDataset(
+        dataset_id="dataset_123",
+        name="test_dataset",
+        digest="abcdef123456",
+        created_time=1234567890,
+        last_update_time=1234567890,
+        tags={"source": "human-annotated"},
+    )
+
+    dataset = MlflowClient().get_dataset("dataset_123")
+
+    assert dataset.dataset_id == "dataset_123"
+    assert dataset.name == "test_dataset"
+    assert dataset.tags == {"source": "human-annotated"}
+
+    mock_store.get_dataset.assert_called_once_with("dataset_123")
+
+
+def test_mlflow_client_delete_dataset(mock_store):
+    MlflowClient().delete_dataset("dataset_123")
+
+    mock_store.delete_dataset.assert_called_once_with("dataset_123")
+
+
+def test_mlflow_client_search_datasets(mock_store):
+    mock_store.search_datasets.return_value = PagedList(
+        [
+            EvaluationDataset(
+                dataset_id="dataset_1",
+                name="dataset_1",
+                digest="digest1",
+                created_time=1234567890,
+                last_update_time=1234567890,
+            ),
+            EvaluationDataset(
+                dataset_id="dataset_2",
+                name="dataset_2",
+                digest="digest2",
+                created_time=1234567890,
+                last_update_time=1234567890,
+            ),
+        ],
+        "next_token",
+    )
+
+    result = MlflowClient().search_datasets(
+        experiment_ids=["exp1", "exp2"],
+        filter_string="name LIKE 'qa_%'",
+        max_results=100,
+        order_by=["created_time DESC"],
+        page_token="page_token_123",
+    )
+
+    assert len(result) == 2
+    assert result[0].dataset_id == "dataset_1"
+    assert result[1].dataset_id == "dataset_2"
+    assert result.token == "next_token"
+
+    mock_store.search_datasets.assert_called_once_with(
+        experiment_ids=["exp1", "exp2"],
+        filter_string="name LIKE 'qa_%'",
+        max_results=100,
+        order_by=["created_time DESC"],
+        page_token="page_token_123",
+    )
+
+
+def test_mlflow_client_search_datasets_empty_results(mock_store):
+    mock_store.search_datasets.return_value = PagedList([], None)
+
+    result = MlflowClient().search_datasets(
+        experiment_ids=["exp1"], filter_string="name = 'nonexistent'"
+    )
+
+    assert len(result) == 0
+    assert result.token is None
+
+
+def test_mlflow_client_search_datasets_defaults(mock_store):
+    mock_store.search_datasets.return_value = PagedList([], None)
+
+    result = MlflowClient().search_datasets()
+
+    assert len(result) == 0
+    assert result.token is None
+
+    mock_store.search_datasets.assert_called_once_with(
+        experiment_ids=None,
+        filter_string=None,
+        max_results=SEARCH_EVALUATION_DATASETS_MAX_RESULTS,
+        order_by=None,
+        page_token=None,
+    )
+
+
+@pytest.mark.skipif(is_windows(), reason="FileStore URI handling issues on Windows")
+def test_mlflow_client_datasets_filestore_not_supported(tmp_path):
+    file_store_uri = str(tmp_path)
+    client = MlflowClient(tracking_uri=file_store_uri)
+
+    with pytest.raises(MlflowException, match="is not supported with FileStore") as exc_info:
+        client.create_dataset(name="test_dataset")
+    assert exc_info.value.error_code == "FEATURE_DISABLED"
+
+    with pytest.raises(MlflowException, match="is not supported with FileStore") as exc_info:
+        client.get_dataset("dataset_123")
+    assert exc_info.value.error_code == "FEATURE_DISABLED"
+
+    with pytest.raises(MlflowException, match="is not supported with FileStore") as exc_info:
+        client.delete_dataset("dataset_123")
+    assert exc_info.value.error_code == "FEATURE_DISABLED"
+
+    with pytest.raises(MlflowException, match="is not supported with FileStore") as exc_info:
+        client.search_datasets()
+    assert exc_info.value.error_code == "FEATURE_DISABLED"
+
+    with pytest.raises(MlflowException, match="is not supported with FileStore") as exc_info:
+        client.set_dataset_tags("dataset_123", {"tag1": "value1"})
+    assert exc_info.value.error_code == "FEATURE_DISABLED"
+
+    with pytest.raises(MlflowException, match="is not supported with FileStore") as exc_info:
+        client.delete_dataset_tag("dataset_123", "tag1")
+    assert exc_info.value.error_code == "FEATURE_DISABLED"
+
+    with pytest.raises(MlflowException, match="is not supported with FileStore") as exc_info:
+        client.add_dataset_to_experiments("dataset_123", ["1", "2"])
+    assert exc_info.value.error_code == "FEATURE_DISABLED"
+
+    with pytest.raises(MlflowException, match="is not supported with FileStore") as exc_info:
+        client.remove_dataset_from_experiments("dataset_123", ["1", "2"])
+    assert exc_info.value.error_code == "FEATURE_DISABLED"
+
+
+def test_mlflow_client_set_dataset_tags(mock_store):
+    MlflowClient().set_dataset_tags(
+        dataset_id="dataset_123",
+        tags={"env": "prod", "version": "2.0"},
+    )
+
+    mock_store.set_dataset_tags.assert_called_once_with(
+        dataset_id="dataset_123",
+        tags={"env": "prod", "version": "2.0"},
+    )
+
+
+def test_mlflow_client_delete_dataset_tag(mock_store):
+    MlflowClient().delete_dataset_tag(
+        dataset_id="dataset_123",
+        key="deprecated",
+    )
+
+    mock_store.delete_dataset_tag.assert_called_once_with(
+        dataset_id="dataset_123",
+        key="deprecated",
+    )
+
+
+def test_mlflow_client_add_dataset_to_experiments(mock_store):
+    mock_dataset = Mock(spec=EvaluationDataset)
+    mock_dataset.dataset_id = "dataset_123"
+    mock_dataset.experiment_ids = ["1", "2", "3"]
+    mock_store.add_dataset_to_experiments.return_value = mock_dataset
+
+    client = MlflowClient()
+    result = client.add_dataset_to_experiments(
+        dataset_id="dataset_123",
+        experiment_ids=["2", "3"],
+    )
+
+    assert result == mock_dataset
+    assert result.experiment_ids == ["1", "2", "3"]
+    mock_store.add_dataset_to_experiments.assert_called_once_with("dataset_123", ["2", "3"])
+
+
+def test_mlflow_client_remove_dataset_from_experiments(mock_store):
+    mock_dataset = Mock(spec=EvaluationDataset)
+    mock_dataset.dataset_id = "dataset_123"
+    mock_dataset.experiment_ids = ["1"]
+    mock_store.remove_dataset_from_experiments.return_value = mock_dataset
+
+    client = MlflowClient()
+    result = client.remove_dataset_from_experiments(
+        dataset_id="dataset_123",
+        experiment_ids=["2", "3"],
+    )
+
+    assert result == mock_dataset
+    assert result.experiment_ids == ["1"]
+    mock_store.remove_dataset_from_experiments.assert_called_once_with("dataset_123", ["2", "3"])
+
+
+def test_mlflow_client_dataset_associations_databricks_blocking(mock_store):
+    with mock.patch("mlflow.utils.databricks_utils.is_databricks_uri") as mock_is_dbx:
+        mock_is_dbx.return_value = True
+        client = MlflowClient(tracking_uri="databricks")
+
+        with pytest.raises(
+            MlflowException, match="not supported when tracking URI is 'databricks'"
+        ) as exc_info:
+            client.add_dataset_to_experiments("dataset_123", ["1", "2"])
+        assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+
+        with pytest.raises(
+            MlflowException, match="not supported when tracking URI is 'databricks'"
+        ) as exc_info:
+            client.remove_dataset_from_experiments("dataset_123", ["1", "2"])
+        assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"

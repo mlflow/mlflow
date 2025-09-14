@@ -1,5 +1,5 @@
-import { RunsChartsRunData } from '../components/RunsCharts.common';
-import { RunsChartsParallelCardConfig } from '../runs-charts.types';
+import type { RunsChartsRunData } from '../components/RunsCharts.common';
+import type { RunsChartsParallelCardConfig } from '../runs-charts.types';
 
 export type ParallelCoordinateDataEntry = Record<string, string | number | null>;
 export const PARALLEL_CHART_MAX_NUMBER_STRINGS = 30;

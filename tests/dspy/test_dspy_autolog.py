@@ -18,7 +18,7 @@ from packaging.version import Version
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.trace import Trace
-from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces, score_in_model_serving, skip_when_testing_trace_sdk
@@ -72,17 +72,6 @@ def test_autolog_lm():
     assert spans[0].attributes["temperature"] == 0.0
     assert spans[0].attributes["max_tokens"] == 1000
 
-    assert spans[0].get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
-        {
-            "role": "user",
-            "content": "test input",
-        },
-        {
-            "role": "assistant",
-            "content": "[[ ## output ## ]]\ntest output",
-        },
-    ]
-
 
 def test_autolog_cot():
     mlflow.dspy.autolog()
@@ -92,6 +81,7 @@ def test_autolog_cot():
     )
 
     cot = dspy.ChainOfThought("question -> answer", n=3)
+
     result = cot(question="How are you?")
     assert result["answer"] == "test output"
     assert result["reasoning"] == "No more responses"
@@ -109,8 +99,10 @@ def test_autolog_cot():
     assert spans[0].status.status_code == "OK"
     assert spans[0].inputs == {"question": "How are you?"}
     assert spans[0].outputs == {"answer": "test output", "reasoning": "No more responses"}
-    assert spans[0].attributes["signature"] == (
-        "question -> answer" if _DSPY_UNDER_2_6 else "question -> reasoning, answer"
+    assert (
+        spans[0].attributes["signature"] == "question -> answer"
+        if _DSPY_UNDER_2_6
+        else "question -> reasoning, answer"
     )
     assert spans[1].name == "Predict.forward"
     assert spans[1].span_type == SpanType.LLM
@@ -136,8 +128,7 @@ def test_autolog_cot():
     for i in range(3):
         assert spans[4 + i].name == f"ChatAdapter.parse_{i + 1}"
         assert spans[4 + i].span_type == SpanType.PARSER
-
-    assert len(spans[3].get_attribute(SpanAttributeKey.CHAT_MESSAGES)) == 5
+        assert "question -> reasoning, answer" in spans[4 + i].inputs["signature"]
 
 
 def test_mlflow_callback_exception():
@@ -180,12 +171,6 @@ def test_mlflow_callback_exception():
     assert spans[2].status.status_code == "OK"
     assert spans[3].name == "ErrorLM.__call__"
     assert spans[3].status.status_code == "ERROR"
-
-    # Chat attribute should capture input message only when an error occurs
-    messages = spans[3].get_attribute(SpanAttributeKey.CHAT_MESSAGES)
-    assert len(messages) == 2
-    assert messages[0]["role"] == "system"
-    assert messages[1]["role"] == "user"
 
 
 @pytest.mark.skipif(
@@ -251,7 +236,6 @@ def test_autolog_react():
     ]
 
     assert spans[3].span_type == SpanType.CHAT_MODEL
-    assert len(spans[3].get_attribute(SpanAttributeKey.CHAT_MESSAGES)) == 3
 
 
 def test_autolog_retriever():
@@ -416,8 +400,9 @@ def test_autolog_tracing_during_evaluation_enabled_by_default():
 
     # Evaluate should generate traces by default
     evaluator = Evaluate(devset=trainset)
-    score = evaluator(program, metric=answer_exact_match)
+    eval_res = evaluator(program, metric=answer_exact_match)
 
+    score = eval_res if isinstance(eval_res, float) else eval_res.score
     assert score == 50.0
     traces = get_traces()
     assert len(traces) == 2
@@ -973,3 +958,61 @@ def test_model_loading_set_active_model_id_without_fetching_logged_model():
     assert len(traces) == 1
     model_id = json.loads(traces[0].data.request)["args"][0]
     assert model_id == traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID]
+
+
+def test_autolog_databricks_rm_retriever():
+    mlflow.dspy.autolog()
+
+    dspy.settings.configure(lm=DummyLM([{"output": "test output"}]))
+
+    class DatabricksRM(dspy.Retrieve):
+        def __init__(self, retrieve_uri):
+            self.retrieve_uri = retrieve_uri
+
+        def forward(self, query) -> list[str]:
+            time.sleep(0.1)
+            return dspy.Prediction(
+                docs=["doc1", "doc2"],
+                doc_ids=["id1", "id2"],
+                doc_uris=["uri1", "uri2"] if self.retrieve_uri else None,
+                extra_columns=[{"author": "Jim"}, {"author": "tom"}],
+            )
+
+    DatabricksRM.__module__ = "dspy.retrieve.databricks_rm"
+
+    for retrieve_uri in [False, True]:
+        retriever = DatabricksRM(retrieve_uri)
+        result = retriever(query="test query")
+        assert isinstance(result, dspy.Prediction)
+
+        trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+        assert trace is not None
+        assert trace.info.status == "OK"
+        assert trace.info.execution_time_ms > 0
+
+        spans = trace.data.spans
+        assert len(spans) == 1
+        assert spans[0].name == "DatabricksRM.forward"
+        assert spans[0].span_type == SpanType.RETRIEVER
+        assert spans[0].status.status_code == "OK"
+        assert spans[0].inputs == {"query": "test query"}
+
+        if retrieve_uri:
+            uri1 = "uri1"
+            uri2 = "uri2"
+        else:
+            uri1 = None
+            uri2 = None
+
+        assert spans[0].outputs == [
+            {
+                "page_content": "doc1",
+                "metadata": {"doc_id": "id1", "doc_uri": uri1, "author": "Jim"},
+                "id": "id1",
+            },
+            {
+                "page_content": "doc2",
+                "metadata": {"doc_id": "id2", "doc_uri": uri2, "author": "tom"},
+                "id": "id2",
+            },
+        ]

@@ -1,33 +1,35 @@
 import { isEmpty, keyBy } from 'lodash';
 import { useEffect, useMemo } from 'react';
 import { useRunDetailsPageDataLegacy } from '../useRunDetailsPageDataLegacy';
-import {
-  type UseGetRunQueryResponseExperiment,
-  useGetRunQuery,
+import type {
   UseGetRunQueryDataApiError,
   UseGetRunQueryResponseDataMetrics,
   UseGetRunQueryResponseDatasetInputs,
-  type UseGetRunQueryResponseInputs,
-  type UseGetRunQueryResponseOutputs,
   UseGetRunQueryResponseRunInfo,
 } from './useGetRunQuery';
 import {
-  KeyValueEntity,
-  RunDatasetWithTags,
+  type UseGetRunQueryResponseExperiment,
+  useGetRunQuery,
+  type UseGetRunQueryResponseInputs,
+  type UseGetRunQueryResponseOutputs,
+} from './useGetRunQuery';
+import type { RunDatasetWithTags } from '../../../types';
+import {
   type ExperimentEntity,
   type MetricEntitiesByName,
   type MetricEntity,
   type RunInfoEntity,
 } from '../../../types';
+import type { KeyValueEntity } from '../../../../common/types';
 import {
   shouldEnableGraphQLModelVersionsForRunDetails,
   shouldEnableGraphQLRunDetailsPage,
 } from '../../../../common/utils/FeatureUtils';
-import { ThunkDispatch } from '../../../../redux-types';
+import type { ThunkDispatch } from '../../../../redux-types';
 import { useDispatch } from 'react-redux';
 import { searchModelVersionsApi } from '../../../../model-registry/actions';
-import { ApolloError } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
-import { ErrorWrapper } from '../../../../common/utils/ErrorWrapper';
+import type { ApolloError } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
+import type { ErrorWrapper } from '../../../../common/utils/ErrorWrapper';
 import { pickBy } from 'lodash';
 import {
   type RunPageModelVersionSummary,
@@ -110,6 +112,8 @@ export const useRunDetailsPageData = ({
   const usingGraphQL = shouldEnableGraphQLRunDetailsPage();
   const dispatch = useDispatch<ThunkDispatch>();
 
+  const enableWorkspaceModelsRegistryCall = true;
+
   // If GraphQL flag is enabled, use the graphQL query to fetch the run data.
   // We can safely disable the eslint rule since feature flag evaluation is stable
   /* eslint-disable react-hooks/rules-of-hooks */
@@ -126,8 +130,10 @@ export const useRunDetailsPageData = ({
       if (shouldEnableGraphQLModelVersionsForRunDetails()) {
         return;
       }
-      dispatch(searchModelVersionsApi({ run_id: runUuid }));
-    }, [dispatch, runUuid]);
+      if (enableWorkspaceModelsRegistryCall) {
+        dispatch(searchModelVersionsApi({ run_id: runUuid }));
+      }
+    }, [dispatch, runUuid, enableWorkspaceModelsRegistryCall]);
 
     const { latestMetrics, tags, params, datasets } = useMemo(() => {
       // Filter out tags, metrics, and params that are entirely whitespace
@@ -173,7 +179,7 @@ export const useRunDetailsPageData = ({
   }
 
   // If GraphQL flag is disabled, use the legacy implementation to fetch the run data.
-  const detailsPageResponse = useRunDetailsPageDataLegacy(runUuid, experimentId);
+  const detailsPageResponse = useRunDetailsPageDataLegacy(runUuid, experimentId, enableWorkspaceModelsRegistryCall);
   const error = detailsPageResponse.errors.runFetchError || detailsPageResponse.errors.experimentFetchError;
 
   const registeredModelVersionSummaries = useUnifiedRegisteredModelVersionsSummariesForRun({

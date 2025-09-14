@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Iterable, Optional, Union
+from typing import TYPE_CHECKING, Any, Iterable, Union
 
 from mlflow.entities import Trace
 
@@ -60,7 +60,7 @@ class LabelingSession:
         return self._session.assigned_users
 
     @property
-    def agent(self) -> Optional[str]:
+    def agent(self) -> str | None:
         """The agent used to generate responses for the items in the session."""
         return self._session.agent
 
@@ -100,12 +100,12 @@ class LabelingSession:
         return self._session.enable_multi_turn_chat
 
     @property
-    def custom_inputs(self) -> Optional[dict[str, Any]]:
+    def custom_inputs(self) -> dict[str, Any] | None:
         """Custom inputs used in the session."""
         return self._session.custom_inputs
 
     def add_dataset(
-        self, dataset_name: str, record_ids: Optional[list[str]] = None
+        self, dataset_name: str, record_ids: list[str] | None = None
     ) -> "LabelingSession":
         """Add a dataset to the labeling session.
 

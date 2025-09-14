@@ -17,10 +17,11 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: Matei Zaharia \email{matei@databricks.com}
+\strong{Maintainer}: Ben Wilson \email{benjamin.wilson@databricks.com}
 
 Authors:
 \itemize{
+  \item Matei Zaharia \email{matei@databricks.com}
   \item Javier Luraschi \email{jluraschi@gmail.com}
   \item Kevin Kuo \email{kevin.kuo@rstudio.com} (\href{https://orcid.org/0000-0001-7803-7901}{ORCID})
 }

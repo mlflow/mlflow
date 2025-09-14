@@ -2,7 +2,7 @@ import importlib
 import inspect
 import logging
 import warnings
-from typing import Any, Generator, Optional
+from typing import Any, Generator
 
 from packaging import version
 
@@ -253,7 +253,7 @@ def _extract_dependency_list_from_lc_model(lc_model) -> Generator[Resource, None
 
 def _traverse_runnable(
     lc_model,
-    visited: Optional[set[int]] = None,
+    visited: set[int] | None = None,
 ) -> Generator[Resource, None, None]:
     """
     This function contains the logic to traverse a langchain_core.runnables.RunnableSerializable

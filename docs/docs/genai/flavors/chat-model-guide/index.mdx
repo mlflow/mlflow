@@ -429,7 +429,7 @@ The implementation below highlights the following key aspects:
     structural issues early, reducing debugging time during deployment.
 - **Models from code**:
   - MLflow recommends using [models from code](/ml/model/models-from-code) when authoring GenAI agents or apps, for robust logging and straightforward
-   deployment of agents containing arbitrary Python code.
+    deployment of agents containing arbitrary Python code.
 
 ```python
 import mlflow
@@ -613,6 +613,7 @@ mlflow.models.set_model(agent)
 ```
 
 The snippet above defines our agent as a subclass of `ChatModel`. With the models from code approach, we call
+
 <APILink fn="mlflow.models.set_model">`mlflow.models.set_model`</APILink>, passing an instance of our `BasicAgent`, to indicate which model object to use for
 inference when our agent is loaded back.
 
@@ -646,7 +647,6 @@ outputs across different configurations systematically.
 The configuration consists of two main sections:
 
 1. **Models**: This section defines agent-specific configurations, such as the `judge` and `oracle` roles in this example. Each agent has:
-
    - An **endpoint**: Specifies the model type or service being used for this agent.
    - An **instruction**: Defines the role and responsibilities of the agent (e.g., answering questions, evaluating responses).
    - **Temperature and Max Tokens**: Controls the generation variability (`temperature`) and token limit for responses.
@@ -715,7 +715,7 @@ By providing an input example, you ensure that your model is tested with real da
 
 :::tip
 When defining your GenAI application using the <APILink fn="mlflow.pyfunc.ChatModel">`mlflow.pyfunc.ChatModel`</APILink>, a default placeholder input example will be used if none is provided.
-If you notice an unfamiliar or generic input example in the MLflow UI’s artifact viewer, it's likely the default placeholder assigned by the system.
+If you notice an unfamiliar or generic input example in the MLflow UI's artifact viewer, it's likely the default placeholder assigned by the system.
 To avoid this, ensure you specify a custom input example when saving your model.
 :::
 

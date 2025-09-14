@@ -4,7 +4,7 @@ function getSleepLength(iterationCount, numPendingJobs) {
     // To minimize the wait time, shorten the polling interval for the first 5 iterations.
     return 5 * 1000; // 5 seconds
   }
-  return (numPendingJobs <= 3 ? 1 : 5) * 60 * 1000; // 1 minute or 5 minutes
+  return (numPendingJobs <= 7 ? 30 : 5 * 60) * 1000; // 30 seconds or 5 minutes
 }
 module.exports = async ({ github, context }) => {
   const {
@@ -34,18 +34,20 @@ module.exports = async ({ github, context }) => {
         owner,
         repo,
         ref,
+        filter: "latest",
       })
     ).filter(({ name }) => name !== "protect");
 
     const latestRuns = {};
     for (const run of checkRuns) {
-      const { name } = run;
-      if (!latestRuns[name] || new Date(run.started_at) > new Date(latestRuns[name].started_at)) {
-        latestRuns[name] = run;
+      const { name, check_suite } = run;
+      const key = `${name}-${check_suite.id}`;
+      if (!latestRuns[key] || new Date(run.started_at) > new Date(latestRuns[key].started_at)) {
+        latestRuns[key] = run;
       }
     }
-    const runs = Object.values(latestRuns).map(({ name, status, conclusion }) => ({
-      name,
+    const runs = Object.values(latestRuns).map(({ name, status, conclusion, check_suite }) => ({
+      name: `${name} (${check_suite.id})`,
       status:
         status !== "completed"
           ? STATE.pending
@@ -78,7 +80,7 @@ module.exports = async ({ github, context }) => {
         state === "pending" ? STATE.pending : state === "success" ? STATE.success : STATE.failure,
     }));
 
-    return [...runs, ...statuses];
+    return [...runs, ...statuses].sort((a, b) => a.name.localeCompare(b.name));
   }
 
   const start = new Date();
@@ -107,6 +109,7 @@ module.exports = async ({ github, context }) => {
     await logRateLimit();
     const pendingJobs = checks.filter(({ status }) => status === STATE.pending);
     const sleepLength = getSleepLength(iterationCount, pendingJobs.length);
+    console.log(`Sleeping for ${sleepLength / 1000} seconds (${pendingJobs.length} pending jobs)`);
     await sleep(sleepLength);
   }
 

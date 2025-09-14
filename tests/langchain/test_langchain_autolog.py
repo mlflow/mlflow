@@ -3,7 +3,7 @@ import random
 import time
 from concurrent.futures import ThreadPoolExecutor
 from operator import itemgetter
-from typing import Any, Optional
+from typing import Any
 from unittest import mock
 
 import langchain
@@ -129,8 +129,8 @@ def create_fake_chat_model():
         def _call(
             self,
             messages: list[BaseMessage],
-            stop: Optional[list[str]] = None,
-            run_manager: Optional[CallbackManagerForLLMRun] = None,
+            stop: list[str] | None = None,
+            run_manager: CallbackManagerForLLMRun | None = None,
             **kwargs: Any,
         ) -> str:
             return TEST_CONTENT
@@ -220,16 +220,6 @@ def test_llmchain_autolog(async_logging_enabled):
         attrs = spans[1].attributes
         assert attrs["invocation_params"]["model_name"] == "gpt-3.5-turbo-instruct"
         assert attrs["invocation_params"]["temperature"] == 0.9
-        assert attrs[SpanAttributeKey.CHAT_MESSAGES] == [
-            {
-                "role": "user",
-                "content": "What is MLflow?",
-            },
-            {
-                "role": "assistant",
-                "content": "What is MLflow?",
-            },
-        ]
 
 
 @skip_when_testing_trace_sdk
@@ -296,39 +286,7 @@ def test_chat_model_autolog():
     assert span.outputs["generations"][0][0]["message"]["content"] == response.content
     assert span.get_attribute("invocation_params")["model"] == "gpt-4o-mini"
     assert span.get_attribute("invocation_params")["temperature"] == 0.9
-    assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
-        {
-            "role": "system",
-            "content": "You are a helpful assistant.",
-        },
-        {
-            "role": "user",
-            "content": "What is the weather in San Francisco?",
-        },
-        {
-            "role": "assistant",
-            "content": "foo",
-            "tool_calls": [
-                {
-                    "function": {
-                        "arguments": '{"location": "San Francisco"}',
-                        "name": "GetWeather",
-                    },
-                    "id": "123",
-                    "type": "function",
-                }
-            ],
-        },
-        {
-            "role": "tool",
-            "content": "Weather in San Francisco is 70F.",
-            "tool_call_id": "123",
-        },
-        {
-            "role": "assistant",
-            "content": response.content,
-        },
-    ]
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "langchain"
 
 
 @pytest.mark.skipif(
@@ -358,16 +316,6 @@ def test_chat_model_bind_tool_autolog():
 
     span = traces[0].data.spans[0]
     assert span.name == "ChatOpenAI"
-    assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
-        {
-            "role": "user",
-            "content": "What is the weather in San Francisco?",
-        },
-        {
-            "content": '[{"role": "user", "content": "What is the weather in San Francisco?"}]',
-            "role": "assistant",
-        },
-    ]
     assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == [
         {
             "type": "function",
@@ -386,6 +334,7 @@ def test_chat_model_bind_tool_autolog():
             },
         }
     ]
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "langchain"
 
 
 @skip_when_testing_trace_sdk
@@ -518,7 +467,7 @@ def _reset_callback_handlers(handlers):
             handler.logs = []
 
 
-def _extract_callback_handlers(config) -> Optional[list[BaseCallbackHandler]]:
+def _extract_callback_handlers(config) -> list[BaseCallbackHandler] | None:
     if isinstance(config, list):
         callbacks = []
         for c in config:
@@ -990,7 +939,13 @@ def test_langchain_auto_tracing_work_when_langchain_parent_package_not_installed
     original_import = __import__
 
     def _mock_import(name, *args):
-        if name.startswith("langchain."):
+        # Allow langchain.globals and its dependencies for langchain-core 0.3.76 compatibility
+        allowed_langchain_modules = {
+            "langchain.globals",
+            "langchain._api",
+            "langchain._api.interactive_env",
+        }
+        if name.startswith("langchain.") and name not in allowed_langchain_modules:
             raise ImportError("No module named 'langchain'")
         return original_import(name, *args)
 

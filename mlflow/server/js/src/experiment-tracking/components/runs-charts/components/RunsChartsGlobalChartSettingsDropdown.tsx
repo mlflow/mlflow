@@ -1,11 +1,11 @@
 import { Button, CheckIcon, DropdownMenu, GearIcon, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
-import { RunsChartsGlobalLineChartConfig } from '../../experiment-page/models/ExperimentPageUIState';
+import type { RunsChartsGlobalLineChartConfig } from '../../experiment-page/models/ExperimentPageUIState';
 import { isUndefined } from 'lodash';
 import { RunsChartsLineChartXAxisType } from './RunsCharts.common';
 import { useCallback } from 'react';
 import { LineSmoothSlider } from '../../LineSmoothSlider';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { RunsChartsUIConfigurationSetter } from '../hooks/useRunsChartsUIConfiguration';
+import type { RunsChartsUIConfigurationSetter } from '../hooks/useRunsChartsUIConfiguration';
 
 export const RunsChartsGlobalChartSettingsDropdown = ({
   globalLineChartConfig,
@@ -50,6 +50,7 @@ export const RunsChartsGlobalChartSettingsDropdown = ({
             componentId="mlflow.charts.controls.global_chart_setup_dropdown"
             icon={<GearIcon />}
             aria-label={label}
+            css={{ flexShrink: 0 }}
           />
         </DropdownMenu.Trigger>
       </Tooltip>

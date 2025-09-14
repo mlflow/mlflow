@@ -10,15 +10,16 @@ import {
   Switch,
   Spinner,
 } from '@databricks/design-system';
-import { Theme } from '@emotion/react';
-import React, { PropsWithChildren, ReactNode, memo, useCallback, forwardRef } from 'react';
+import type { Theme } from '@emotion/react';
+import type { PropsWithChildren, ReactNode } from 'react';
+import React, { memo, useCallback, forwardRef } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { RunsChartsRunData } from '../RunsCharts.common';
 import type { RunsChartsCardConfig } from '../../runs-charts.types';
 import type { ExperimentChartImageDownloadFileFormat } from '../../hooks/useChartImageDownloadHandler';
 import { noop } from 'lodash';
 
-export const DRAGGABLE_CARD_HANDLE_CLASS = 'drag-handle';
+export const DRAGGABLE_CARD_HANDLE_CLASS = 'mlflow-charts-drag-handle';
 export const DRAGGABLE_CARD_TRANSITION_NAME = '--drag-transform';
 export const DRAGGABLE_CARD_TRANSITION_VAR = `var(${DRAGGABLE_CARD_TRANSITION_NAME})`;
 
@@ -163,8 +164,8 @@ const RunsChartCardWrapperRaw = ({
             <Typography.Title
               title={String(title)}
               level={4}
+              withoutMargins
               css={{
-                marginBottom: 0,
                 overflow: 'hidden',
                 whiteSpace: 'nowrap',
                 textOverflow: 'ellipsis',

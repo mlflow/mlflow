@@ -15,7 +15,7 @@ import os
 import posixpath
 import shutil
 from functools import partial
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -136,7 +136,7 @@ def get_default_conda_env():
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="torch"))
 def log_model(
     pytorch_model,
-    artifact_path: Optional[str] = None,
+    artifact_path: str | None = None,
     conda_env=None,
     code_paths=None,
     pickle_module=None,
@@ -148,12 +148,12 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
-    name: Optional[str] = None,
-    params: Optional[dict[str, Any]] = None,
-    tags: Optional[dict[str, Any]] = None,
-    model_type: Optional[str] = None,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
     step: int = 0,
-    model_id: Optional[str] = None,
+    model_id: str | None = None,
     **kwargs,
 ):
     """
@@ -657,7 +657,7 @@ def load_model(model_uri, dst_path=None, **kwargs):
     return _load_model(path=torch_model_artifacts_path, **kwargs)
 
 
-def _load_pyfunc(path, model_config=None, weights_only=False):  # noqa: D417
+def _load_pyfunc(path, model_config=None, weights_only=False):
     """
     Load PyFunc implementation. Called by ``pyfunc.load_model``.
 
@@ -707,7 +707,7 @@ class _PyTorchWrapper:
         """
         return self.pytorch_model
 
-    def predict(self, data, params: Optional[dict[str, Any]] = None):
+    def predict(self, data, params: dict[str, Any] | None = None):
         """
         Args:
             data: Model input data.
@@ -727,7 +727,7 @@ class _PyTorchWrapper:
             )
 
         if isinstance(data, pd.DataFrame):
-            inp_data = data.values.astype(np.float32)
+            inp_data = data.to_numpy(dtype=np.float32)
         elif isinstance(data, np.ndarray):
             inp_data = data
         elif isinstance(data, (list, dict)):
@@ -940,7 +940,7 @@ def autolog(
             the model is considered the "best" model according to the quantity
             monitored and previous checkpoint model is overwritten.
         checkpoint_save_weights_only: In automatic model checkpointing, if True, then
-            only the model’s weights will be saved. Otherwise, the optimizer states,
+            only the model's weights will be saved. Otherwise, the optimizer states,
             lr-scheduler states, etc are added in the checkpoint too.
         checkpoint_save_freq: `"epoch"` or integer. When using `"epoch"`, the callback
             saves the model after each epoch. When using integer, the callback
@@ -1165,7 +1165,7 @@ __all__ = [
 try:
     from mlflow.pytorch._lightning_autolog import MlflowModelCheckpointCallback  # noqa: F401
 
-    __all__.append("MLflowModelCheckpointCallback")
+    __all__.append("MlflowModelCheckpointCallback")
 except ImportError:
     # Swallow exception if pytorch-lightning is not installed.
     pass

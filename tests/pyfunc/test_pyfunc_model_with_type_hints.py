@@ -34,7 +34,6 @@ from mlflow.types.agent import ChatAgentMessage, ChatAgentResponse, ChatContext
 from mlflow.types.llm import ChatMessage, ChatParams
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
 from mlflow.types.type_hints import TypeFromExample
-from mlflow.utils.env_manager import VIRTUALENV
 from mlflow.utils.pydantic_utils import model_dump_compat
 
 from tests.helper_functions import pyfunc_serve_and_score_model
@@ -52,7 +51,8 @@ class CustomExample(pydantic.BaseModel):
     bool_field: bool
     double_field: float
     any_field: Any
-    optional_str: Optional[str] = None
+    optional_str: Optional[str] = None  # noqa: UP045
+    str_or_none: str | None = None
 
 
 class Message(pydantic.BaseModel):
@@ -63,7 +63,8 @@ class Message(pydantic.BaseModel):
 class CustomExample2(pydantic.BaseModel):
     custom_field: dict[str, Any]
     messages: list[Message]
-    optional_int: Optional[int] = None
+    optional_int: Optional[int] = None  # noqa: UP045
+    int_or_none: int | None = None
 
 
 @pytest.mark.parametrize(
@@ -117,7 +118,8 @@ class CustomExample2(pydantic.BaseModel):
             [{"a": ["a", "b"]}],
         ),
         # Union
-        (list[Union[int, str]], Schema([ColSpec(type=AnyType())]), [1, "a", 234]),
+        (list[Union[int, str]], Schema([ColSpec(type=AnyType())]), [1, "a", 234]),  # noqa: UP007
+        (list[int | str], Schema([ColSpec(type=AnyType())]), [1, "a", 234]),
         # Any
         (list[Any], Schema([ColSpec(type=AnyType())]), [1, "a", 234]),
         (list[list[Any]], Schema([ColSpec(type=Array(AnyType()))]), [[True], ["abc"], [123]]),
@@ -137,6 +139,7 @@ class CustomExample2(pydantic.BaseModel):
                                 Property(
                                     name="optional_str", dtype=DataType.string, required=False
                                 ),
+                                Property(name="str_or_none", dtype=DataType.string, required=False),
                             ]
                         )
                     ),
@@ -150,6 +153,7 @@ class CustomExample2(pydantic.BaseModel):
                     "double_field": 1.23,
                     "any_field": ["any", 123],
                     "optional_str": "optional",
+                    "str_or_none": "str_or_none",
                 }
             ],
         ),
@@ -173,6 +177,7 @@ class CustomExample2(pydantic.BaseModel):
                                     ),
                                 ),
                                 Property(name="optional_int", dtype=DataType.long, required=False),
+                                Property(name="int_or_none", dtype=DataType.long, required=False),
                             ]
                         )
                     )
@@ -183,6 +188,7 @@ class CustomExample2(pydantic.BaseModel):
                     "custom_field": {"a": 1},
                     "messages": [{"role": "admin", "content": "hello"}],
                     "optional_int": 123,
+                    "int_or_none": 456,
                 }
             ],
         ),
@@ -255,7 +261,8 @@ def test_pyfunc_model_infer_signature_from_type_hints(
 class CustomExample3(pydantic.BaseModel):
     custom_field: dict[str, list[str]]
     messages: list[Message]
-    optional_int: Optional[int] = None
+    optional_int: Optional[int] = None  # noqa: UP045
+    int_or_none: int | None = None
 
 
 @pytest.mark.parametrize(
@@ -302,6 +309,7 @@ class CustomExample3(pydantic.BaseModel):
                         ),
                     ),
                     StructField("optional_int", IntegerType()),
+                    StructField("int_or_none", IntegerType()),
                 ]
             ),
             [
@@ -312,6 +320,7 @@ class CustomExample3(pydantic.BaseModel):
                         {"role": "user", "content": "hi"},
                     ],
                     "optional_int": 123,
+                    "int_or_none": 456,
                 },
                 {
                     "custom_field": {"a": ["a", "b", "c"]},
@@ -319,6 +328,7 @@ class CustomExample3(pydantic.BaseModel):
                         {"role": "admin", "content": "hello"},
                     ],
                     "optional_int": None,
+                    "int_or_none": None,
                 },
             ],
         ),
@@ -432,26 +442,6 @@ def test_pyfunc_model_infer_signature_from_type_hints_errors(recwarn):
         assert "Failed to infer model signature from input example" in mock_warning.call_args[0][0]
 
 
-@pytest.mark.skipif(sys.version_info < (3, 10), reason="Requires Python 3.10 or higher")
-def test_pyfunc_model_infer_signature_from_type_hints_for_python_3_10():
-    def predict(model_input: list[int | str]) -> list[int | str]:
-        return model_input
-
-    with mlflow.start_run():
-        model_info1 = mlflow.pyfunc.log_model(
-            name="test_model", python_model=predict, input_example=[123]
-        )
-        model_info2 = mlflow.pyfunc.log_model(
-            name="test_model", python_model=predict, input_example=["string"]
-        )
-
-    assert model_info1.signature.inputs == Schema([ColSpec(type=AnyType())])
-    assert model_info2.signature.outputs == Schema([ColSpec(type=AnyType())])
-    assert model_info1.signature == model_info2.signature
-    assert model_info1.signature._is_signature_from_type_hint is True
-    assert model_info2.signature._is_signature_from_type_hint is True
-
-
 def save_model_file_for_code_based_logging(type_hint, tmp_path, model_type, extra_def=""):
     if model_type == "callable":
         model_def = f"""
@@ -503,6 +493,7 @@ class TypeHintExample(NamedTuple):
         TypeHintExample("list[list[str]]", [["a"], ["b"]]),
         TypeHintExample("list[dict[str, int]]", [{"a": 1}]),
         TypeHintExample("list[Union[int, str]]", [123, "abc"]),
+        TypeHintExample("list[int | str]", [123, "abc"]),
         TypeHintExample(
             "list[CustomExample2]",
             [
@@ -612,7 +603,7 @@ def test_python_model_local_testing():
 
 def test_python_model_with_optional_input_local_testing():
     class Model(mlflow.pyfunc.PythonModel):
-        def predict(self, model_input: list[dict[str, Optional[str]]], params=None) -> Any:
+        def predict(self, model_input: list[dict[str, str | None]], params=None) -> Any:
             return [x["key"] if x.get("key") else "default" for x in model_input]
 
     model = Model()
@@ -849,11 +840,7 @@ def test_predict_model_with_type_hints():
     mlflow.models.predict(
         model_uri=model_info.model_uri,
         input_data=["a", "b", "c"],
-        # uv env manager works in local testing but not in CI
-        # because setuptools also exists in https://download.pytorch.org/whl/cpu, but it might
-        # not include the version we need, and uv by default finds the first index that
-        # has the package, this could cause version not found error
-        env_manager=VIRTUALENV,
+        env_manager="uv",
     )
 
 
@@ -1049,7 +1036,7 @@ def test_invalid_type_hint_raise_exception():
     class Message(pydantic.BaseModel):
         role: str
         # this doesn't include default value
-        content: Optional[str]
+        content: str | None
 
     with pytest.raises(MlflowException, match="To disable data validation, remove the type hint"):
 
@@ -1106,7 +1093,7 @@ def test_type_hint_warning_not_shown_for_builtin_subclasses(mock_warning):
 
     # Subclass of ChatModel should not warn (exception to the rule)
     class ChatModelSubclass(ChatModel):
-        def predict(self, model_input: list[ChatMessage], params: Optional[ChatParams] = None):
+        def predict(self, model_input: list[ChatMessage], params: ChatParams | None = None):
             return model_input
 
     assert mock_warning.call_count == 0
@@ -1116,8 +1103,8 @@ def test_type_hint_warning_not_shown_for_builtin_subclasses(mock_warning):
         def predict(
             self,
             messages: list[ChatAgentMessage],
-            context: Optional[ChatContext] = None,
-            custom_inputs: Optional[dict[str, Any]] = None,
+            context: ChatContext | None = None,
+            custom_inputs: dict[str, Any] | None = None,
         ) -> ChatAgentResponse:
             pass
 

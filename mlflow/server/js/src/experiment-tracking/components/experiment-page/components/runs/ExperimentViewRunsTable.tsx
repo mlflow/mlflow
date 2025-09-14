@@ -1,10 +1,11 @@
 import type { CellClickedEvent, ColumnApi, GridApi, GridReadyEvent } from '@ag-grid-community/core';
-import { type CSSObject, Interpolation, Theme } from '@emotion/react';
+import type { Theme } from '@emotion/react';
+import { type CSSObject, Interpolation } from '@emotion/react';
 import cx from 'classnames';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { MLFlowAgGridLoader } from '../../../../../common/components/ag-grid/AgGridLoader';
 import Utils from '../../../../../common/utils/Utils';
-import {
+import type {
   ExperimentEntity,
   UpdateExperimentViewStateFn,
   RunDatasetWithTags,
@@ -12,7 +13,7 @@ import {
 } from '../../../../types';
 
 import { isSearchFacetsFilterUsed } from '../../utils/experimentPage.fetch-utils';
-import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
+import type { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
 import {
   EXPERIMENTS_DEFAULT_COLUMN_SETUP,
   getFrameworkComponents,
@@ -23,8 +24,8 @@ import {
 } from '../../utils/experimentPage.column-utils';
 import { makeCanonicalSortKey } from '../../utils/experimentPage.common-utils';
 import { EXPERIMENT_RUNS_TABLE_ROW_HEIGHT } from '../../utils/experimentPage.common-utils';
-import { RunRowType } from '../../utils/experimentPage.row-types';
-import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
+import type { RunRowType } from '../../utils/experimentPage.row-types';
+import type { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { createLoadMoreRow } from './cells/LoadMoreRowRenderer';
 import { ExperimentViewRunsEmptyTable } from './ExperimentViewRunsEmptyTable';
 import { ExperimentViewRunsTableAddColumnCTA } from './ExperimentViewRunsTableAddColumnCTA';
@@ -35,13 +36,11 @@ import { PreviewSidebar } from '../../../../../common/components/PreviewSidebar'
 import { ATTRIBUTE_COLUMN_LABELS, COLUMN_TYPES } from '../../../../constants';
 import { Empty, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
+import type { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import { useUpdateExperimentViewUIState } from '../../contexts/ExperimentPageUIStateContext';
 import { useUpdateExperimentPageSearchFacets } from '../../hooks/useExperimentPageSearchFacets';
-import {
-  createExperimentPageSearchFacetsState,
-  ExperimentPageSearchFacetsState,
-} from '../../models/ExperimentPageSearchFacetsState';
+import type { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
+import { createExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
 import { useExperimentTableSelectRowHandler } from '../../hooks/useExperimentTableSelectRowHandler';
 import { useToggleRowVisibilityCallback } from '../../hooks/useToggleRowVisibilityCallback';
 import { ExperimentViewRunsTableHeaderContextProvider } from './ExperimentViewRunsTableHeaderContext';
@@ -110,7 +109,38 @@ export const ExperimentViewRunsTable = React.memo(
 
     const isComparingRuns = compareRunsMode !== 'TABLE';
 
-    const { paramKeyList, metricKeyList, tagsList } = runsData;
+    // Performance optimization: Only extract the keys we actually need based on selectedColumns
+    const { paramKeyList, metricKeyList, tagsList } = useMemo(() => {
+      // If we're comparing runs, we don't need to filter the keys
+      if (isComparingRuns) {
+        return runsData;
+      }
+
+      // Filter metric keys based on selected columns
+      const filteredMetricKeys = runsData.metricKeyList.filter((key) =>
+        selectedColumns.includes(makeCanonicalSortKey(COLUMN_TYPES.METRICS, key)),
+      );
+
+      // Filter param keys based on selected columns
+      const filteredParamKeys = runsData.paramKeyList.filter((key) =>
+        selectedColumns.includes(makeCanonicalSortKey(COLUMN_TYPES.PARAMS, key)),
+      );
+
+      // Filter tag keys based on selected columns
+      const filteredTags = runsData.tagsList.map((tags) =>
+        Object.fromEntries(
+          Object.entries(tags).filter(([key]) =>
+            selectedColumns.includes(makeCanonicalSortKey(COLUMN_TYPES.TAGS, key)),
+          ),
+        ),
+      );
+
+      return {
+        metricKeyList: filteredMetricKeys,
+        paramKeyList: filteredParamKeys,
+        tagsList: filteredTags,
+      };
+    }, [runsData, selectedColumns, isComparingRuns]);
 
     const [gridApi, setGridApi] = useState<GridApi>();
     const [columnApi, setColumnApi] = useState<ColumnApi>();
@@ -370,6 +400,13 @@ export const ExperimentViewRunsTable = React.memo(
                 onGridSizeChanged={({ api }) => gridSizeHandler(api)}
                 onCellMouseOver={cellMouseOverHandler}
                 onCellMouseOut={cellMouseOutHandler}
+                maxBlocksInCache={20} // Increased from 10
+                cacheBlockSize={100}
+                maxConcurrentDatasourceRequests={2} // Increased from 1
+                immutableData // Added for better performance
+                getRowNodeId={(data) => data.rowUuid} // Added for better row identification
+                suppressPropertyNamesCheck // Added to reduce overhead
+                suppressAnimationFrame // Added to reduce rendering overhead
               />
             </ExperimentViewRunsTableHeaderContextProvider>
             {displayAddColumnsCTA && (

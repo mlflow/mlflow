@@ -8,7 +8,7 @@ IS_PYDANTIC_V2_OR_NEWER = Version(pydantic.VERSION).major >= 2
 
 
 def field_validator(field: str, mode: str = "before"):
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         if IS_PYDANTIC_V2_OR_NEWER:
             from pydantic import field_validator as pydantic_field_validator
 
@@ -22,15 +22,30 @@ def field_validator(field: str, mode: str = "before"):
 
 
 def model_validator(mode: str, skip_on_failure: bool = False):
-    """A wrapper for Pydantic model validator that is compatible with Pydantic v1 and v2.
+    """
+    A wrapper for Pydantic model validator that is compatible with Pydantic v1 and v2.
     Note that the `skip_on_failure` argument is only available in Pydantic v1.
+
+    To use this decorator, the function must be of below signature:
+    def func(cls, values: Any) -> Any:
+        ...
+    where `cls` is the Pydantic model class and `values` is the dictionary of values.
+
+    For Pydantic v2 BaseModel, import `model_validator` from pydantic directly.
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         if IS_PYDANTIC_V2_OR_NEWER:
             from pydantic import model_validator as pydantic_model_validator
 
-            return pydantic_model_validator(mode=mode)(func)
+            if mode == "after":
+
+                def wrapper(self):
+                    return func(type(self), self)
+
+                return pydantic_model_validator(mode=mode)(wrapper)
+            else:
+                return pydantic_model_validator(mode=mode)(func)
         else:
             from pydantic import root_validator
 

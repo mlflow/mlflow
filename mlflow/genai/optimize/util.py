@@ -1,4 +1,5 @@
-from typing import Any, Union
+import functools
+from typing import Any
 
 from pydantic import BaseModel, create_model
 
@@ -18,10 +19,7 @@ def infer_type_from_value(value: Any, model_name: str = "Output") -> type:
         element_types = set()
         for item in value:
             element_types.add(infer_type_from_value(item))
-        if len(element_types) == 1:
-            return list[element_types.pop()]
-        else:
-            return list[Union[tuple(element_types)]]
+        return list[functools.reduce(lambda x, y: x | y, element_types)]
     elif isinstance(value, dict):
         fields = {k: (infer_type_from_value(v, model_name=k), ...) for k, v in value.items()}
         return create_model(model_name, **fields)

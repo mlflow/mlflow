@@ -45,7 +45,7 @@ concurrency:
 
 defaults:
   run:
-    shell: bash --noprofile --norc -exo pipefail {0}
+    shell: bash
 
 env:
   MLFLOW_HOME: ${{ github.workspace }}
@@ -146,22 +146,24 @@ jobs:
       - uses: ./.github/actions/setup-java
         with:
           java-version: ${{ matrix.java }}
-      # TODO: Remove this step once we remove the pyspark constraint in requirements/constraints.txt
-      - name: Remove pyspark constraint
+      - name: Remove constraints
         run: |
-          if [ "${{ matrix.package }}" = "pyspark" ]; then
-            sed -i '/^pyspark/d' requirements/constraints.txt
+          # Remove any constraints for the current package to prevent installation conflicts
+          sed -i '/^${{ matrix.package }}/d' requirements/constraints.txt
+
+          if ! git diff --exit-code requirements/constraints.txt; then
+            git diff
             git config user.name 'mlflow-app[bot]'
             git config user.email 'mlflow-app[bot]@users.noreply.github.com'
             git add requirements/constraints.txt
-            git commit -m "Remove pyspark constraints for testing"
+            git commit -m "Remove constraints for testing"
           fi
       - name: Install mlflow & test dependencies
         run: |
           pip install -U pip wheel setuptools
           # For tracing SDK test, install the tracing package from the local path and minimal test dependencies
           if [[ "${{ matrix.category }}" == "tracing-sdk" ]]; then
-            pip install packages/tracing
+            pip install libs/tracing
             pip install pytest pytest-asyncio pytest-cov
           # Other two categories of tests (model/autologging)
           else
@@ -210,22 +212,24 @@ jobs:
       - uses: ./.github/actions/setup-java
         with:
           java-version: ${{ matrix.java }}
-      # TODO: Remove this step once we remove the pyspark constraint in requirements/constraints.txt
-      - name: Remove pyspark constraint
+      - name: Remove constraints
         run: |
-          if [ "${{ matrix.package }}" = "pyspark" ]; then
-            sed -i '/^pyspark/d' requirements/constraints.txt
+          # Remove any constraints for the current package to prevent installation conflicts
+          sed -i '/^${{ matrix.package }}/d' requirements/constraints.txt
+
+          if ! git diff --exit-code requirements/constraints.txt; then
+            git diff
             git config user.name 'mlflow-app[bot]'
             git config user.email 'mlflow-app[bot]@users.noreply.github.com'
             git add requirements/constraints.txt
-            git commit -m "Remove pyspark constraints for testing"
+            git commit -m "Remove constraints for testing"
           fi
       - name: Install mlflow & test dependencies
         run: |
           pip install -U pip wheel setuptools
           # For tracing SDK test, install the tracing package from the local path and minimal test dependencies
           if [[ "${{ matrix.category }}" == "tracing-sdk" ]]; then
-            pip install packages/tracing
+            pip install libs/tracing
             pip install pytest pytest-asyncio pytest-cov
           # Other two categories of tests (model/autologging)
           else

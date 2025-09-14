@@ -35,7 +35,8 @@ describe('RestoreRunModal', () => {
     expect(wrapper.find(ConfirmModal).length).toBe(1);
   });
 
-  test('test handleRenameExperiment', (done) => {
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
+  test('handleRenameExperiment', (done) => {
     const promise = wrapper.find(ConfirmModal).prop('handleSubmit')();
     promise.finally(() => {
       expect(mockRestoreRunApi).toHaveBeenCalledTimes(2);
@@ -43,7 +44,8 @@ describe('RestoreRunModal', () => {
     });
   });
 
-  test('test handleRenameExperiment errors correctly', (done) => {
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
+  test('handleRenameExperiment errors correctly', (done) => {
     const mockFailRestoreRunApi = jest.fn(
       () =>
         new Promise((resolve, reject) => {

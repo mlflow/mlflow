@@ -1,4 +1,5 @@
-import { ExperimentEntity, KeyValueEntity } from '../../../types';
+import type { ExperimentEntity } from '../../../types';
+import type { KeyValueEntity } from '../../../../common/types';
 import {
   Button,
   ChevronDownIcon,
@@ -12,8 +13,9 @@ import { useCallback, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { getExperimentTags } from '../../../reducers/Reducers';
 import { NOTE_CONTENT_TAG } from '../../../utils/NoteUtils';
-import { ThunkDispatch } from '../../../../redux-types';
+import type { ThunkDispatch } from '../../../../redux-types';
 import React from 'react';
+import 'react-mde/lib/styles/css/react-mde-all.css';
 import ReactMde, { SvgIcon } from 'react-mde';
 import {
   forceAnchorTagNewTab,
@@ -63,7 +65,8 @@ export const ExperimentViewDescriptionNotes = ({
   });
   setShowAddDescriptionButton(!storedNote);
 
-  const [tmpNote, setTmpNote] = useState(storedNote);
+  const effectiveNote = storedNote || defaultValue;
+  const [tmpNote, setTmpNote] = useState(effectiveNote);
   const [selectedTab, setSelectedTab] = useState<'write' | 'preview' | undefined>('write');
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -89,7 +92,7 @@ export const ExperimentViewDescriptionNotes = ({
 
   return (
     <div>
-      {(tmpNote ?? defaultValue) && (
+      {effectiveNote && (
         <div
           style={{
             whiteSpace: isExpanded ? 'normal' : 'pre-wrap',
@@ -113,7 +116,7 @@ export const ExperimentViewDescriptionNotes = ({
           >
             <div
               // eslint-disable-next-line react/no-danger
-              dangerouslySetInnerHTML={{ __html: getSanitizedHtmlContent(tmpNote ?? defaultValue) }}
+              dangerouslySetInnerHTML={{ __html: getSanitizedHtmlContent(effectiveNote) }}
             />
           </div>
           <Button
@@ -159,7 +162,7 @@ export const ExperimentViewDescriptionNotes = ({
           setEditing(false);
         }}
         onCancel={() => {
-          setTmpNote(storedNote);
+          setTmpNote(effectiveNote);
           setEditing(false);
         }}
       >

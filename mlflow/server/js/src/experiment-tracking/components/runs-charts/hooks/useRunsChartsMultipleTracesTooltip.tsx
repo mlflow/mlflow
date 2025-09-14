@@ -8,7 +8,7 @@ import type {
 } from '../components/RunsMetricsLinePlot';
 import { compact, isNumber, isString, isUndefined, orderBy, throttle, uniq } from 'lodash';
 import type { LegendLabelData } from '../components/RunsMetricsLegend';
-import { RunsChartsLineChartXAxisType } from '../components/RunsCharts.common';
+import type { RunsChartsLineChartXAxisType } from '../components/RunsCharts.common';
 
 // Plotly-specific selectors for finding particular elements of interest in the plot DOM structure
 const PLOTLY_SVG_SELECTOR = '.main-svg';

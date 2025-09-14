@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Any, Optional, Sequence, Union
+from typing import Any, Sequence
 
 from langchain_core.language_models import LanguageModelLike
 from langchain_core.messages import AIMessage, ToolCall
@@ -9,7 +9,7 @@ from langchain_core.runnables import RunnableConfig, RunnableLambda
 from langchain_core.tools import BaseTool, tool
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, StateGraph
-from langgraph.graph.graph import CompiledGraph
+from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import ToolNode
 
 import mlflow
@@ -71,9 +71,9 @@ tools = [uc_tool_format, lc_tool_format]
 
 def create_tool_calling_agent(
     model: LanguageModelLike,
-    tools: Union[ToolNode, Sequence[BaseTool]],
-    agent_prompt: Optional[str] = None,
-) -> CompiledGraph:
+    tools: ToolNode | Sequence[BaseTool],
+    agent_prompt: str | None = None,
+) -> CompiledStateGraph:
     model = model.bind_tools(tools)
 
     def should_continue(state: ChatAgentState):

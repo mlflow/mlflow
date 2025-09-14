@@ -2,7 +2,7 @@
 
 import json
 import os
-from collections import namedtuple
+from typing import Any, NamedTuple
 from unittest import mock
 
 import h2o
@@ -34,7 +34,10 @@ from tests.helper_functions import (
     pyfunc_serve_and_score_model,
 )
 
-ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
+
+class ModelWithData(NamedTuple):
+    model: Any
+    inference_data: Any
 
 
 @pytest.fixture

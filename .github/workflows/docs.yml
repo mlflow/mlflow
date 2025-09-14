@@ -1,0 +1,141 @@
+name: docs
+
+on:
+  # TODO: Support deploying docs on push
+  # push:
+  #   paths:
+  #     - docs/**
+  #     - .github/workflows/docs.yml
+  #   branches:
+  #     - master
+  #     - branch-[0-9]+.[0-9]+
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    paths:
+      - pyproject.toml
+      - mlflow/**
+      - docs/**
+      - .github/workflows/docs.yml
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: docs
+
+jobs:
+  check:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: ./.github/actions/setup-node
+      - name: Install dependencies
+        run: |
+          npm ci
+      - name: Run lint
+        run: |
+          npm run eslint
+      - name: Run prettier
+        run: |
+          npm run prettier:check
+
+  build:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: ./.github/actions/setup-java
+      - uses: ./.github/actions/setup-node
+      - uses: ./.github/actions/setup-python
+      - run: |
+          uv pip install --system pytest pytest-cov plotly -r ../requirements/doc-requirements.txt
+          uv pip install --system -e '..[gateway]'
+      - run: |
+          npm ci
+      - uses: ./.github/actions/show-versions
+      - run: |
+          npm run convert-notebooks
+      - name: Build docs
+        env:
+          GTM_ID: "GTM-TEST"
+          API_REFERENCE_PREFIX: https://pr-${{ github.event.pull_request.number }}--mlflow-docs-preview.netlify.app/docs/
+        run: |
+          npm run build-all -- --no-r --use-npm
+      - name: Check API inventory
+        run: |
+          if [ -n "$(git status --porcelain api_reference/api_inventory.txt)" ]; then
+            echo "The API inventory file 'docs/api_reference/api_inventory.txt' is outdated (see the diff below)."
+            echo "Please update it by running 'make rsthtml' in the 'docs/api_reference' directory."
+            echo "If the new APIs should be marked as experimental, please decorate them with '@experimental'."
+            echo "Diff:"
+            git diff api_reference/api_inventory.txt
+            exit 1
+          fi
+      - name: Test examples
+        working-directory: docs/api_reference
+        run: |
+          make test-examples
+      - name: Check sitemap
+        run: |
+          npm run sitemap -- https://mlflow.org/docs/latest/sitemap.xml ./build/latest/sitemap.xml
+      - name: Move build artifacts
+        run: |
+          mkdir -p /tmp/docs-build/docs
+          mv build/latest /tmp/docs-build/docs/latest
+
+          # Create `docs/versions.json` for the version selector in the API reference
+          VERSION="$(uv version | cut -d' ' -f2)"
+          echo "{\"versions\": [\"$VERSION\"]}" > /tmp/docs-build/docs/versions.json
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: docs-build-${{ github.run_id }}
+          path: /tmp/docs-build
+          retention-days: 1
+          if-no-files-found: error
+
+      # `github.event.workflow_run.pull_requests` is empty when a PR is created from a fork:
+      # https://github.com/orgs/community/discussions/25220#discussioncomment-11001085
+      - name: Save PR number
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo $PR_NUMBER > /tmp/pr_number.txt
+          cat /tmp/pr_number.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: pr_number
+          path: /tmp/pr_number.txt
+          retention-days: 1
+          if-no-files-found: error
+
+  r:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    permissions:
+      contents: read
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Build docs
+        working-directory: docs/api_reference
+        run: |
+          ./build-rdoc.sh
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "The following files have changed:"
+            git status --porcelain
+            exit 1
+          fi

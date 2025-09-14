@@ -13,8 +13,7 @@ import TabItem from "@theme/TabItem";
 
 ![OpenAI Tracing via autolog](/images/llms/gemini/gemini-tracing.png)
 
-
-[MLflow Tracing](../) provides automatic tracing capability for Google Gemini. By enabling auto tracing
+[MLflow Tracing](../../) provides automatic tracing capability for Google Gemini. By enabling auto tracing
 for Gemini by calling the <APILink fn="mlflow.gemini.autolog" /> function, MLflow will capture nested traces and log them to the active MLflow Experiment upon invocation of Gemini Python SDK.
 
 ```python
@@ -32,21 +31,30 @@ However, it may drop support for the legacy package without notice, and it is hi
 
 MLflow trace automatically captures the following information about Gemini calls:
 
-* Prompts and completion responses
-* Latencies
-* Model name
-* Additional metadata such as `temperature`, `max_tokens`, if specified.
-* Function calling if returned in the response
-* Any exception if raised
+- Prompts and completion responses
+- Latencies
+- Model name
+- Additional metadata such as `temperature`, `max_tokens`, if specified.
+- Function calling if returned in the response
+- Any exception if raised
 
-:::note
+## Supported APIs
 
-Currently, MLflow Gemini integration only supports tracing of synchronous calls for text interactions. Async APIs are not traced and full inputs may not be recorded for multi-modal inputs.
+MLflow supports automatic tracing for the following Anthropic APIs:
 
-:::
+| Text Generation | Chat | Function Calling | Streaming |  Async   | Image | Video |
+| :-------------: | :--: | :--------------: | :-------: | :------: | :---: | :---: |
+|       ✅        |  ✅  |        ✅        |     -     | ✅ (\*1) |   -   |   -   |
+
+<div style={{ fontSize: '0.9em', marginTop: '10px' }}>
+
+(\*1) Async support was added in MLflow 3.2.0.
+
+</div>
+
+To request support for additional APIs, please open a [feature request](https://github.com/mlflow/mlflow/issues) on GitHub.
 
 ### Basic Example
-
 
 ```python
 import mlflow
@@ -84,6 +92,20 @@ response = chat.send_message("In one sentence, explain how a computer works to a
 print(response.text)
 response = chat.send_message("Okay, how about a more detailed explanation to a high schooler?")
 print(response.text)
+```
+
+### Async
+
+MLflow Tracing supports asynchronous API of the Gemini SDK since MLflow 3.2.0. The usage is same as the synchronous API.
+
+```python
+# Configure the SDK with your API key.
+client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+
+# Async API is invoked through the `aio` namespace.
+response = await client.aio.models.generate_content(
+    model="gemini-1.5-flash", contents="The opposite of hot is"
+)
 ```
 
 ### Embeddings

@@ -1,6 +1,7 @@
 import subprocess
 import sys
 import tarfile
+import venv
 from pathlib import Path
 from unittest import mock
 
@@ -67,12 +68,17 @@ def test_pack_env_for_databricks_model_serving_pip_requirements(tmp_path, mock_d
         )
     )
 
+    # Create a mock environment directory
+    mock_env_dir = tmp_path / "mock_env"
+    venv.create(mock_env_dir, with_pip=True)
+
     with (
         mock.patch(
             "mlflow.utils.env_pack.download_artifacts",
             return_value=str(mock_artifacts_dir),
         ),
         mock.patch("subprocess.run") as mock_run,
+        mock.patch("sys.prefix", str(mock_env_dir)),
     ):
         # Mock subprocess.run to simulate successful pip install
         mock_run.return_value = mock.Mock(returncode=0)
@@ -87,6 +93,25 @@ def test_pack_env_for_databricks_model_serving_pip_requirements(tmp_path, mock_d
             assert (
                 artifacts_path / env_pack._ARTIFACT_PATH / env_pack._MODEL_ENVIRONMENT_TAR
             ).exists()
+
+            # Verify the environment tar contains our mock files
+            env_tar_path = (
+                artifacts_path / env_pack._ARTIFACT_PATH / env_pack._MODEL_ENVIRONMENT_TAR
+            )
+            with tarfile.open(env_tar_path, "r:tar") as tar:
+                members = tar.getmembers()
+                member_names = {m.name for m in members}
+
+                # Check for pip in site-packages based on platform
+                if sys.platform == "win32":
+                    expected_pip_path = "./Lib/site-packages/pip"
+                else:
+                    expected_pip_path = (
+                        f"./lib/python{sys.version_info.major}.{sys.version_info.minor}"
+                        "/site-packages/pip"
+                    )
+
+                assert expected_pip_path in member_names
 
             # Verify subprocess.run was called with correct arguments
             mock_run.assert_called_once()
@@ -206,8 +231,15 @@ def test_pack_env_for_databricks_model_serving_runtime_version_check(tmp_path, m
         )
     )
 
-    with mock.patch(
-        "mlflow.utils.env_pack.download_artifacts", return_value=str(mock_artifacts_dir)
+    # Create a mock environment directory
+    mock_env_dir = tmp_path / "mock_env"
+    mock_env_dir.mkdir()
+
+    with (
+        mock.patch(
+            "mlflow.utils.env_pack.download_artifacts", return_value=str(mock_artifacts_dir)
+        ),
+        mock.patch("sys.prefix", str(mock_env_dir)),
     ):
         with env_pack.pack_env_for_databricks_model_serving(
             "models:/test-model/1"

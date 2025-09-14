@@ -713,3 +713,45 @@ def test_logged_model_status():
             )
     logged_model = mlflow.last_logged_model()
     assert logged_model.status == "FAILED"
+
+
+def test_model_log_links_prompts_to_logged_model():
+    """Test that Model.log links prompts to the run when prompts are provided."""
+    client = mlflow.MlflowClient()
+
+    # Create actual prompts in the registry
+    client.create_prompt(name="test_prompt_1")
+    prompt_1 = client.create_prompt_version(name="test_prompt_1", template="Hello {{name}}")
+    client.create_prompt(name="test_prompt_2")
+    prompt_2 = client.create_prompt_version(name="test_prompt_2", template="Goodbye {{name}}")
+
+    with mlflow.start_run() as run:
+        model_info = Model.log("model", TestFlavor, prompts=[prompt_1, prompt_2])
+
+    # Verify prompts were linked to the run
+    run_data = client.get_run(run.info.run_id)
+    linked_prompts_tag = run_data.data.tags.get("mlflow.linkedPrompts")
+    assert linked_prompts_tag is not None
+    linked_prompts = json.loads(linked_prompts_tag)
+    assert len(linked_prompts) == 2
+    assert {p["name"] for p in linked_prompts} == {"test_prompt_1", "test_prompt_2"}
+
+    # Verify prompts were linked to the LoggedModel
+    logged_model = client.get_logged_model(model_info.model_id)
+    model_linked_prompts_tag = logged_model.tags.get("mlflow.linkedPrompts")
+    assert model_linked_prompts_tag is not None
+    model_linked_prompts = json.loads(model_linked_prompts_tag)
+    assert len(model_linked_prompts) == 2
+    assert {p["name"] for p in model_linked_prompts} == {"test_prompt_1", "test_prompt_2"}
+
+
+def test_get_model_info_with_logged_model():
+    def model(model_input: list[str]) -> list[str]:
+        return model_input
+
+    model_info_log_model = mlflow.pyfunc.log_model(
+        name="test_model", python_model=model, input_example=["a", "b", "c"]
+    )
+    model_info_get_model_info = mlflow.models.get_model_info(model_info_log_model.model_uri)
+    assert model_info_log_model.model_id == model_info_get_model_info.model_id
+    assert model_info_log_model.name == model_info_get_model_info.name

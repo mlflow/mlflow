@@ -1,0 +1,149 @@
+.workflowContainer {
+  margin: 2rem 0;
+}
+
+.workflowTitle {
+  font-size: 1.25rem;
+  margin-bottom: 2rem;
+  color: var(--ifm-color-emphasis-900);
+  text-align: center;
+  font-weight: 600;
+}
+
+/* Layout containers */
+.workflowStandalone {
+  display: block;
+}
+
+.stepsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.screenshotContainer {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 1.5rem;
+  background: var(--ifm-background-surface-color);
+  border-radius: 12px;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1rem;
+  max-width: 900px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.screenshotImage {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.stepItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  position: relative;
+}
+
+.stepIndicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.stepNumber {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #0194e2;
+  color: white;
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+  z-index: 2;
+  position: relative;
+}
+
+.stepNumberText {
+  line-height: 1;
+}
+
+.stepConnector {
+  width: 2px;
+  height: 3rem;
+  background: #b3e0f7;
+  margin-top: -0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.stepContent {
+  flex: 1;
+  padding-bottom: 2rem;
+}
+
+.stepTitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem 0;
+  color: var(--ifm-color-emphasis-900);
+  line-height: 1.3;
+}
+
+.stepDescription {
+  color: var(--ifm-color-emphasis-700);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Remove connector from last step */
+.stepItem:last-child .stepConnector {
+  display: none;
+}
+
+.stepItem:last-child .stepContent {
+  padding-bottom: 0;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .screenshotContainer {
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .stepsContainer {
+    max-width: 100%;
+    padding: 0 1rem;
+  }
+
+  .stepContent {
+    padding-bottom: 1.5rem;
+  }
+
+  .stepNumber {
+    width: 28px;
+    height: 28px;
+    font-size: 0.85rem;
+  }
+
+  .stepTitle {
+    font-size: 1rem;
+  }
+
+  .stepDescription {
+    font-size: 0.9rem;
+  }
+}

@@ -4,8 +4,9 @@ import logging
 import mlflow
 import mlflow.mistral
 from mlflow.entities import SpanType
-from mlflow.mistral.chat import convert_message_to_mlflow_chat, convert_tool_to_mlflow_chat_tool
-from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
+from mlflow.mistral.chat import convert_tool_to_mlflow_chat_tool
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.tracing.utils import set_span_chat_tools
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
@@ -32,6 +33,7 @@ def patched_class_call(original, self, *args, **kwargs):
         ) as span:
             inputs = _construct_full_inputs(original, self, *args, **kwargs)
             span.set_inputs(inputs)
+            span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "mistral")
 
             if (tools := inputs.get("tools")) is not None:
                 try:
@@ -40,22 +42,20 @@ def patched_class_call(original, self, *args, **kwargs):
                 except Exception as e:
                     _logger.debug(f"Failed to set tools for {span}. Error: {e}")
 
-            try:
-                messages = [convert_message_to_mlflow_chat(m) for m in inputs.get("messages", [])]
-            except Exception as e:
-                _logger.debug(f"Failed to convert chat messages for {span}. Error: {e}")
+            outputs = original(self, *args, **kwargs)
 
             try:
-                outputs = original(self, *args, **kwargs)
                 span.set_outputs(outputs)
-            finally:
-                # Set message attribute once at the end to avoid multiple JSON serialization
-                try:
-                    for choice in getattr(outputs, "choices", []):
-                        choice_message = getattr(choice, "message", {})
-                        messages.append(convert_message_to_mlflow_chat(choice_message))
-                    set_span_chat_messages(span, messages)
-                except Exception as e:
-                    _logger.debug(f"Failed to set chat messages for {span}. Error: {e}")
+                if usage := getattr(outputs, "usage", None):
+                    span.set_attribute(
+                        SpanAttributeKey.CHAT_USAGE,
+                        {
+                            TokenUsageKey.INPUT_TOKENS: usage.prompt_tokens,
+                            TokenUsageKey.OUTPUT_TOKENS: usage.completion_tokens,
+                            TokenUsageKey.TOTAL_TOKENS: usage.total_tokens,
+                        },
+                    )
+            except Exception as e:
+                _logger.debug(f"Failed to process outputs for {span}. Error: {e}")
 
             return outputs

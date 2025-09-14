@@ -1,0 +1,36 @@
+name: Update Release Labels
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: "Target release version (e.g., 3.1.4)"
+        required: true
+        type: string
+
+jobs:
+  update-labels:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - uses: ./.github/actions/setup-node
+
+      - name: Install and build tools
+        working-directory: .github/scripts
+        run: npm ci && npm run build
+
+      - name: Update release labels
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const { updateReleaseLabels } = require('.github/scripts/dist/bundle.js');
+            await updateReleaseLabels({ github, context });

@@ -3,7 +3,6 @@ import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 from unittest import mock
 
 import pytest
@@ -11,6 +10,7 @@ import sklearn
 import sklearn.neighbors
 
 import mlflow
+from mlflow.environment_variables import _MLFLOW_RUN_SLOW_TESTS
 from mlflow.models import Model
 from mlflow.models.docker_utils import build_image_from_context
 from mlflow.models.flavor_backend_registry import get_flavor_backend
@@ -62,8 +62,8 @@ def add_spark_flavor_to_model(model_path):
 @dataclass
 class Param:
     expected_dockerfile: str
-    env_manager: Optional[str] = None
-    mlflow_home: Optional[str] = None
+    env_manager: str | None = None
+    mlflow_home: str | None = None
     install_mlflow: bool = False
     enable_mlserver: bool = False
     # If True, image is built with --model-uri param
@@ -95,17 +95,18 @@ def test_build_image(tmp_path, params):
         content = dockerfile.read_text()
         content = content.replace(VERSION, get_released_mlflow_version())
         dockerfile.write_text(content)
-
         shutil.copytree(context_dir, dst_dir)
-        for _ in range(3):
-            try:
-                # Docker image build is unstable on GitHub Actions, retry up to 3 times
-                build_image_from_context(context_dir, image_name)
-                break
-            except RuntimeError:
-                pass
-        else:
-            raise RuntimeError("Docker image build failed.")
+        # Build the image if the slow-tests flag is enabled
+        if _MLFLOW_RUN_SLOW_TESTS.get():
+            for _ in range(3):
+                try:
+                    # Docker image build is unstable on GitHub Actions, retry up to 3 times
+                    build_image_from_context(context_dir, image_name)
+                    break
+                except RuntimeError:
+                    pass
+            else:
+                raise RuntimeError("Docker image build failed.")
 
     dst_dir = tmp_path / "context"
     with mock.patch(
