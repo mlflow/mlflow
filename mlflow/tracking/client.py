@@ -2831,8 +2831,8 @@ class MlflowClient:
                 `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
             filename_sep: The separator used in the image filename. Defaults to "%". This is used to
                 by the frontend to derive step and timestamp information from the filename.
-                For example: `image%step%0%timestamp%1697051234567%uuid.png` or
-                `image+step+0+timestamp+1697051234567+uuid.png`
+                If `key` contains the separator, it will be replaced with a dash (-) to avoid
+                ambiguity.
 
 
         .. code-block:: python
@@ -2944,6 +2944,7 @@ class MlflowClient:
 
             # Sanitize key to use in filename (replace / with # to avoid subdirectories)
             sanitized_key = re.sub(r"/", "#", key)
+            sanitized_key = re.sub(r"[" + filename_sep + r"]+", "-", sanitized_key)
             filename_uuid = str(uuid.uuid4())
             # TODO: reconsider the separator used here since % has special meaning in URL encoding.
             # See https://github.com/mlflow/mlflow/issues/14136 for more details.
