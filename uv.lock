@@ -3290,17 +3290,11 @@ lint = [
     { name = "packaging" },
     { name = "pre-commit" },
     { name = "pydantic" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "pytest-cov" },
-    { name = "pytest-localserver" },
-    { name = "pytest-repeat" },
-    { name = "pytest-timeout" },
     { name = "pyyaml" },
     { name = "ruff" },
     { name = "toml" },
 ]
-pytest = [
+test = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -3393,17 +3387,11 @@ lint = [
     { name = "packaging", specifier = ">=25.0" },
     { name = "pre-commit", specifier = "==4.0.1" },
     { name = "pydantic", specifier = "==2.11.7" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "pytest-cov" },
-    { name = "pytest-localserver", specifier = "==0.5.0" },
-    { name = "pytest-repeat" },
-    { name = "pytest-timeout" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "ruff", specifier = "==0.12.10" },
     { name = "toml", specifier = "==0.10.2" },
 ]
-pytest = [
+test = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
