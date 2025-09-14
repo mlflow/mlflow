@@ -982,6 +982,9 @@ requires-dist = [
     { name = "typing-extensions" },
 ]
 
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=8.4.2" }]
+
 [[package]]
 name = "cloudpickle"
 version = "3.1.1"
