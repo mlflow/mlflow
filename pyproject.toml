@@ -172,9 +172,8 @@ lint = [
   "clint",
   "pyyaml>=6.0.2",
   "packaging>=25.0",
-  { include-group = "pytest" },
 ]
-pytest = [
+test = [
   "pytest",
   "pytest-asyncio",
   "pytest-repeat",

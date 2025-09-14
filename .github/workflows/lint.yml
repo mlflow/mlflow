@@ -57,7 +57,7 @@ jobs:
           echo "::add-matcher::.github/workflows/matchers/typos.json"
       - name: Install dependencies
         run: |
-          uv sync --only-group lint
+          uv sync --only-group lint --only-group test
       - name: Install pre-commit hooks
         run: |
           uv run --only-group lint pre-commit install --install-hooks
@@ -72,7 +72,7 @@ jobs:
 
       - name: Test clint
         run: |
-          uv run --only-group lint pytest dev/clint
+          uv run --only-group test pytest dev/clint
 
       - run: |
           uv run --no-project dev/check_function_signatures.py
