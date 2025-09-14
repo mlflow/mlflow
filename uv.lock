@@ -8,6 +8,12 @@ resolution-markers = [
     "python_full_version < '3.11'",
 ]
 
+[manifest]
+members = [
+    "clint",
+    "mlflow",
+]
+
 [[package]]
 name = "adal"
 version = "1.2.7"
@@ -970,7 +976,7 @@ wheels = [
 [[package]]
 name = "clint"
 version = "0.1.0"
-source = { directory = "dev/clint" }
+source = { editable = "dev/clint" }
 dependencies = [
     { name = "tomli" },
     { name = "typing-extensions" },
@@ -3382,7 +3388,7 @@ provides-extras = ["extras", "databricks", "mlserver", "gateway", "genai", "sqls
 lint = [
     { name = "black", extras = ["jupyter"], specifier = "==23.7.0" },
     { name = "blacken-docs", specifier = "==1.18.0" },
-    { name = "clint", directory = "dev/clint" },
+    { name = "clint", editable = "dev/clint" },
     { name = "mypy", specifier = "==1.17.1" },
     { name = "packaging", specifier = ">=25.0" },
     { name = "pre-commit", specifier = "==4.0.1" },

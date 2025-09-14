@@ -183,8 +183,11 @@ pytest = [
   "pytest-localserver==0.5.0",
 ]
 
+[tool.uv.workspace]
+members = ["dev/clint"]
+
 [tool.uv.sources]
-clint = { path = "./dev/clint" }
+clint = { workspace = true }
 
 [tool.ruff]
 line-length = 100
