@@ -58,4 +58,11 @@ describe('EditableNote', () => {
     expect(mockSubmit).toHaveBeenCalledTimes(1);
     expect(screen.getByText('Failed to submit')).toBeInTheDocument();
   });
+  test('updates displayed description when defaultMarkdown changes', () => {
+    const { rerender } = renderWithIntl(<EditableNote {...minimalProps} defaultMarkdown="first description" />);
+    expect(screen.getByText('first description')).toBeInTheDocument();
+
+    rerender(<EditableNote {...minimalProps} defaultMarkdown="second description" />);
+    expect(screen.getByText('second description')).toBeInTheDocument();
+  });
 });
