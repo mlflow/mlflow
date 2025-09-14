@@ -4,7 +4,7 @@ import pytest
 from clint.config import Config
 
 
-def test_config_validate_exclude_paths_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def test_config_validate_exclude_paths_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     test_file = tmp_path / "test_file.py"
     test_file.touch()
     test_dir = tmp_path / "test_dir"
@@ -26,7 +26,7 @@ exclude = [
     assert str(test_dir) in config.exclude
 
 
-def test_config_validate_exclude_paths_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def test_config_validate_exclude_paths_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text("""
 [tool.clint]
@@ -45,7 +45,7 @@ exclude = [
     assert "non_existing_dir" in error_msg
 
 
-def test_config_validate_exclude_paths_mixed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def test_config_validate_exclude_paths_mixed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     existing_file = tmp_path / "existing_file.py"
     existing_file.touch()
 
@@ -67,7 +67,7 @@ exclude = [
     assert str(existing_file) not in error_msg
 
 
-def test_config_empty_exclude_list(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def test_config_empty_exclude_list(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text("""
 [tool.clint]
@@ -79,7 +79,7 @@ exclude = []
     assert config.exclude == []
 
 
-def test_config_no_exclude_field(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def test_config_no_exclude_field(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text("""
 [tool.clint]
