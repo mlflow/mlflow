@@ -3282,6 +3282,24 @@ sqlserver = [
 ]
 
 [package.dev-dependencies]
+dev = [
+    { name = "black", extra = ["jupyter"] },
+    { name = "blacken-docs" },
+    { name = "clint" },
+    { name = "mypy" },
+    { name = "packaging" },
+    { name = "pre-commit" },
+    { name = "pydantic" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-cov" },
+    { name = "pytest-localserver" },
+    { name = "pytest-repeat" },
+    { name = "pytest-timeout" },
+    { name = "pyyaml" },
+    { name = "ruff" },
+    { name = "toml" },
+]
 lint = [
     { name = "black", extra = ["jupyter"] },
     { name = "blacken-docs" },
@@ -3379,6 +3397,24 @@ requires-dist = [
 provides-extras = ["extras", "databricks", "mlserver", "gateway", "genai", "sqlserver", "aliyun-oss", "jfrog", "langchain", "auth"]
 
 [package.metadata.requires-dev]
+dev = [
+    { name = "black", extras = ["jupyter"], specifier = "==23.7.0" },
+    { name = "blacken-docs", specifier = "==1.18.0" },
+    { name = "clint", editable = "dev/clint" },
+    { name = "mypy", specifier = "==1.17.1" },
+    { name = "packaging", specifier = ">=25.0" },
+    { name = "pre-commit", specifier = "==4.0.1" },
+    { name = "pydantic", specifier = "==2.11.7" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-cov" },
+    { name = "pytest-localserver", specifier = "==0.5.0" },
+    { name = "pytest-repeat" },
+    { name = "pytest-timeout" },
+    { name = "pyyaml", specifier = ">=6.0.2" },
+    { name = "ruff", specifier = "==0.12.10" },
+    { name = "toml", specifier = "==0.10.2" },
+]
 lint = [
     { name = "black", extras = ["jupyter"], specifier = "==23.7.0" },
     { name = "blacken-docs", specifier = "==1.18.0" },
