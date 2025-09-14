@@ -55,7 +55,7 @@ class ClassifierEvaluator(BuiltInEvaluator):
                 "The evaluation dataset is inferred as multilabel dataset with %d labels.",
                 self.y_true.shape[1],
             )
-        
+
         self.label_list = self.evaluator_config.get("label_list")
         self.pos_label = self.evaluator_config.get("pos_label")
         self.sample_weights = self.evaluator_config.get("sample_weights")
@@ -98,7 +98,7 @@ class ClassifierEvaluator(BuiltInEvaluator):
             prediction=preds_for_metrics,
             target=true_for_metrics,
         )
-        
+
         self.evaluate_and_log_custom_artifacts(
             custom_artifacts, prediction=preds_for_metrics, target=true_for_metrics
         )
@@ -118,7 +118,7 @@ class ClassifierEvaluator(BuiltInEvaluator):
             _logger.info(
                 "Skipping multiclass/binary artifacts and confusion matrix for multilabel data."
             )
-        
+
         return EvaluationResult(
             metrics=self.aggregate_metrics, artifacts=self.artifacts, run_id=self.run_id
         )
@@ -391,6 +391,7 @@ class ClassifierEvaluator(BuiltInEvaluator):
 def _is_multilabel_array(y):
     """Return True if y is a 2-D multilabel indicator matrix (n_samples, n_labels)."""
     return isinstance(y, np.ndarray) and y.ndim == 2
+
 
 def _is_categorical(values):
     """

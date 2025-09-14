@@ -22,6 +22,7 @@ except ImportError:
 
 _logger = logging.getLogger(__name__)
 
+
 def _series_of_arrays_to_2d(series):
     """
     If `series` is a pandas Series whose elements are arrays/lists of the same length,
