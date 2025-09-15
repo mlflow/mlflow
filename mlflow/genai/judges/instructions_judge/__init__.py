@@ -263,21 +263,18 @@ class InstructionsJudge(Judge):
         output_fields = self.get_output_fields()
 
         if is_trace_based:
-            # Trace-based: use trace prompt template
             evaluation_rating_fields = "\n".join(
                 [f"- {field.name}: {field.description}" for field in output_fields]
             )
-            base_prompt = INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE.format(
+            return INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE.format(
                 evaluation_rating_fields=evaluation_rating_fields,
                 instructions=self._instructions,
             )
         else:
-            # Field-based: use standard prompt template
             base_prompt = format_prompt(
                 INSTRUCTIONS_JUDGE_SYSTEM_PROMPT, instructions=self._instructions
             )
-
-        return add_output_format_instructions(base_prompt, output_fields=output_fields)
+            return add_output_format_instructions(base_prompt, output_fields=output_fields)
 
     def _build_user_message(
         self,
