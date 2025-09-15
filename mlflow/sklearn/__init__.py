@@ -272,28 +272,11 @@ def save_model(
     model_data_subpath = _MODEL_DATA_SUBPATH
     model_data_path = os.path.join(path, model_data_subpath)
 
-    # For skops format, detect trusted types before saving
-    trusted_types = []
-    if serialization_format == SERIALIZATION_FORMAT_SKOPS:
-        _save_model(
-            sk_model=sk_model,
-            output_path=model_data_path,
-            serialization_format=serialization_format,
-        )
-
-        # If skops is not installed, _save_model will raise an ImportError
-        import skops.io
-
-        # Get untrusted types from the saved model
-        trusted_types = skops.io.get_untrusted_types(data=sk_model)
-        if trusted_types:
-            _logger.info(f"Detected trusted types for skops model: {trusted_types}")
-    else:
-        _save_model(
-            sk_model=sk_model,
-            output_path=model_data_path,
-            serialization_format=serialization_format,
-        )
+    skops_untrusted_types = _save_model(
+        sk_model=sk_model,
+        output_path=model_data_path,
+        serialization_format=serialization_format,
+    )
 
     # `PyFuncModel` only works for sklearn models that define a predict function
 
@@ -321,8 +304,8 @@ def save_model(
     }
 
     # Add required trusted types for skops to load the model
-    if serialization_format == SERIALIZATION_FORMAT_SKOPS and trusted_types:
-        flavor_config["trusted_types"] = trusted_types
+    if serialization_format == SERIALIZATION_FORMAT_SKOPS:
+        flavor_config["trusted_types"] = skops_untrusted_types
 
     mlflow_model.add_flavor(FLAVOR_NAME, **flavor_config)
     if size := get_total_file_size(path):
@@ -680,34 +663,40 @@ def _save_model(sk_model, output_path, serialization_format):
             the following: ``mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE``,
             ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``, or
             ``mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS``.
+
+    Returns:
+        List of untrusted types detected by `skops`. None if `serialization_format` is not
+        ``mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS``.
     """
-    if serialization_format == SERIALIZATION_FORMAT_SKOPS:
-        try:
-            import skops.io
-        except ImportError as e:
-            raise ImportError(
-                message=(
-                    "Failed to import skops. Make sure skops is installed by running "
-                    "`pip install skops` for instance."
-                ),
-            ) from e
+    # Use existing pickle/cloudpickle logic for other formats
+    with open(output_path, "wb") as out:
+        if serialization_format == SERIALIZATION_FORMAT_PICKLE:
+            _dump_model(pickle, sk_model, out)
+        elif serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE:
+            import cloudpickle
 
-        # Use skops.io.dump for skops format
-        skops.io.dump(sk_model, output_path)
-    else:
-        # Use existing pickle/cloudpickle logic for other formats
-        with open(output_path, "wb") as out:
-            if serialization_format == SERIALIZATION_FORMAT_PICKLE:
-                _dump_model(pickle, sk_model, out)
-            elif serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE:
-                import cloudpickle
+            _dump_model(cloudpickle, sk_model, out)
+        elif serialization_format == SERIALIZATION_FORMAT_SKOPS:
+            try:
+                import skops.io
+            except ImportError as e:
+                raise ImportError(
+                    message=(
+                        "Failed to import skops. Make sure skops is installed by running "
+                        "`pip install skops` for instance."
+                    ),
+                ) from e
 
-                _dump_model(cloudpickle, sk_model, out)
-            else:
-                raise MlflowException(
-                    message=f"Unrecognized serialization format: {serialization_format}",
-                    error_code=INTERNAL_ERROR,
-                )
+            skops.io.dump(sk_model, out, compresslevel=9)
+            untrusted_types = skops.io.get_untrusted_types(data=sk_model)
+            if untrusted_types:
+                _logger.info(f"Detected untrusted types for skops format: {untrusted_types}")
+            return untrusted_types
+        else:
+            raise MlflowException(
+                message=f"Unrecognized serialization format: {serialization_format}",
+                error_code=INTERNAL_ERROR,
+            )
 
 
 def load_model(model_uri, dst_path=None):
