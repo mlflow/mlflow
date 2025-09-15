@@ -52,35 +52,35 @@ message DatasetRecord {
   // Inputs as JSON string
   optional string inputs = 3;
   
-  // Outputs as JSON string
-  optional string outputs = 4;
-  
   // Expectations as JSON string
-  optional string expectations = 5;
+  optional string expectations = 4;
   
   // Tags as JSON string
-  optional string tags = 6;
+  optional string tags = 5;
   
   // Source information as JSON string
-  optional string source = 7;
+  optional string source = 6;
   
   // Source ID for quick lookups (e.g., trace_id)
-  optional string source_id = 8;
+  optional string source_id = 7;
   
   // Source type
-  optional DatasetRecordSource.SourceType source_type = 9;
+  optional DatasetRecordSource.SourceType source_type = 8;
   
   // Creation timestamp in milliseconds
-  optional int64 created_time = 10;
+  optional int64 created_time = 9;
   
   // Last update timestamp in milliseconds
-  optional int64 last_update_time = 11;
+  optional int64 last_update_time = 10;
   
   // User who created the record
-  optional string created_by = 12;
+  optional string created_by = 11;
   
   // User who last updated the record
-  optional string last_updated_by = 13;
+  optional string last_updated_by = 12;
+
+  // Outputs as JSON string
+  optional string outputs = 13;
 }
 
 message DatasetRecordSource {
