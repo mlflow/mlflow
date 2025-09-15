@@ -3250,20 +3250,27 @@ def _generate_large_data(store, nb_runs=1000):
     current_run = 0
 
     run_ids = []
+    runs_list = []
     metrics_list = []
     tags_list = []
     params_list = []
     latest_metrics_list = []
 
     for _ in range(nb_runs):
-        run_id = store.create_run(
-            experiment_id=experiment_id,
-            start_time=current_run,
-            tags=[],
-            user_id="Anderson",
-            run_name="name",
-        ).info.run_id
+        run_id = uuid.uuid4().hex
 
+        # Create run record for direct insertion
+        run_record = {
+            "run_uuid": run_id,
+            "experiment_id": experiment_id,
+            "start_time": current_run,
+            "user_id": "Anderson",
+            "name": "name",
+            "status": "SCHEDULED",
+            "source_type": "LOCAL",
+            "lifecycle_stage": "active",
+        }
+        runs_list.append(run_record)
         run_ids.append(run_id)
 
         for i in range(100):
@@ -3301,6 +3308,7 @@ def _generate_large_data(store, nb_runs=1000):
         current_run += 1
 
     with store.engine.begin() as conn:
+        conn.execute(sqlalchemy.insert(SqlRun), runs_list)
         conn.execute(sqlalchemy.insert(SqlParam), params_list)
         conn.execute(sqlalchemy.insert(SqlMetric), metrics_list)
         conn.execute(sqlalchemy.insert(SqlLatestMetric), latest_metrics_list)
