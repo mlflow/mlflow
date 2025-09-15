@@ -41,7 +41,6 @@ from mlflow.entities import (
     trace_location,
 )
 from mlflow.entities.assessment import ExpectationValue, FeedbackValue
-from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
@@ -3255,28 +3254,14 @@ def _generate_large_data(store, nb_runs=1000):
     params_list = []
     latest_metrics_list = []
 
-    # Generate all run data first
     for _ in range(nb_runs):
-        # Generate run_id using the same logic as create_run
         run_id = uuid.uuid4().hex
         run_ids.append(run_id)
-
-        # Create random file URI instead of using experiment artifact location
-        artifact_location = f"file:///tmp/artifacts/{run_id}"
-
-        # Prepare run data for bulk insert - simplified, removing nullable fields
         run_data = {
             "run_uuid": run_id,
-            "name": "name",
-            "source_type": SourceType.to_string(SourceType.UNKNOWN),
-            "source_name": "",
-            "entry_point_name": "",
             "user_id": "Anderson",
-            "status": RunStatus.to_string(RunStatus.RUNNING),
             "start_time": current_run,
-            "source_version": "",
-            "lifecycle_stage": LifecycleStage.ACTIVE,
-            "artifact_uri": artifact_location,
+            "artifact_uri": f"file:///tmp/artifacts/{run_id}",
             "experiment_id": experiment_id,
         }
         runs_list.append(run_data)
@@ -3317,9 +3302,7 @@ def _generate_large_data(store, nb_runs=1000):
 
     # Bulk insert all data in a single transaction
     with store.engine.begin() as conn:
-        # Insert runs first (required for foreign key constraints)
         conn.execute(sqlalchemy.insert(SqlRun), runs_list)
-        # Insert all related data
         conn.execute(sqlalchemy.insert(SqlParam), params_list)
         conn.execute(sqlalchemy.insert(SqlMetric), metrics_list)
         conn.execute(sqlalchemy.insert(SqlLatestMetric), latest_metrics_list)
