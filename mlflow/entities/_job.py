@@ -1,5 +1,5 @@
 from mlflow.entities._mlflow_object import _MlflowObject
-from mlflow.entities.job_status import JobStatus
+from mlflow.entities._job_status import JobStatus
 
 
 class Job(_MlflowObject):
@@ -38,18 +38,24 @@ class Job(_MlflowObject):
 
     @property
     def function(self) -> str:
-        """String containing the function name."""
+        """
+        String containing the function full name, in the form of `<module_name>.<function_name>`
+        """
         return self._function
 
     @property
     def params(self) -> str:
-        """String containing the job parameters."""
+        """
+        String containing the job serialized parameters in JSON format.
+        e.g. `{'a': 3, 'b': 4}` represents there are 2 params `a` with value 3 and
+        `b` with value 4.
+        """
         return self._params
 
     @property
     def status(self) -> JobStatus:
         """
-        One of the values in :py:class:`mlflow.entities.job_status.JobStatus`
+        One of the values in :py:class:`mlflow.entities._job_status.JobStatus`
         describing the status of the job.
         """
         return self._status
