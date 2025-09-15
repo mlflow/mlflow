@@ -586,6 +586,19 @@ service MlflowService {
     };
   }
 
+  // Get a complete trace with spans for a given trace ID.
+  rpc getTrace (GetTrace) returns (GetTrace.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/traces/{trace_id}/trace",
+        since {major: 3, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Get Trace",
+    };
+  }
+
   // DEPRECATED. Use searchTracesV3 instead.
   rpc searchTraces (SearchTraces) returns (SearchTraces.Response) {
     option (rpc) = {
@@ -708,19 +721,6 @@ service MlflowService {
       }],
       visibility: PUBLIC_UNDOCUMENTED,
       rpc_doc_title: "Calculate Trace Filter Correlation",
-    };
-  }
-
-  // Load spans for a specific trace.
-  rpc loadSpans(LoadSpans) returns (LoadSpans.Response) {
-    option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/traces/{trace_id}/load-spans"
-        since { major: 3, minor: 0 },
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Load Spans",
     };
   }
 
@@ -3134,15 +3134,20 @@ message Scorer {
   optional int64 creation_time = 5;
 }
 
-// Load spans for a given trace ID
-message LoadSpans {
+message TraceV3 {
+  optional TraceInfoV3 trace_info = 1;
+  repeated traceserver.Span spans = 2;
+}
+
+// Get trace for a given trace ID
+message GetTrace {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // The trace ID for which to load spans.
+  // The trace ID for which to get trace.
   optional string trace_id = 1 [(validate_required) = true];
 
   message Response {
-    // List of spans
-    repeated traceserver.Span spans = 1;
+    // The fetched trace information.
+    optional TraceV3 trace = 1;
   }
 }

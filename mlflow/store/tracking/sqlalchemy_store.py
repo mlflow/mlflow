@@ -50,7 +50,7 @@ from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.metric import Metric, MetricWithRunId
 from mlflow.entities.span_status import SpanStatusCode
-from mlflow.entities.trace import Span
+from mlflow.entities.trace import Span, Trace, TraceData
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
@@ -100,7 +100,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceTag,
 )
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
-from mlflow.tracing.constant import TRACKING_STORE, SpanAttributeKey, TraceMetadataKey, TraceTagKey
+from mlflow.tracing.constant import TRACKING_STORE, TraceMetadataKey, TraceTagKey
 from mlflow.tracing.utils import TraceJSONEncoder, generate_request_id_v2
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.file_utils import local_file_uri_to_path, mkdir
@@ -3403,6 +3403,14 @@ class SqlAlchemyStore(AbstractStore):
                     return TraceState.OK.value
         return None
 
+    def get_trace(self, trace_id: str) -> Trace:
+        """
+        Get a complete trace with spans for a given trace ID.
+        """
+        trace_info = self.get_trace_info(trace_id)
+        spans = self.load_spans(trace_id)
+        return Trace(info=trace_info, data=TraceData(spans=spans))
+
     def load_spans(self, trace_id: str) -> list[Span]:
         """
         Load all spans for a given trace from the database.
@@ -3430,10 +3438,6 @@ class SqlAlchemyStore(AbstractStore):
             for sql_span in sql_spans:
                 span_dict = json.loads(sql_span.content)
                 span = Span.from_dict(span_dict)
-                if span.inputs is None:
-                    span.set_attribute(SpanAttributeKey.INPUTS, _parse_inputs(span))
-                if span.outputs is None:
-                    span.set_attribute(SpanAttributeKey.OUTPUTS, _parse_outputs(span))
                 spans.append(span)
 
             return spans
@@ -4778,15 +4782,3 @@ def _get_search_datasets_order_by_clauses(order_by):
         order_by_clauses.append((SqlEvaluationDataset.dataset_id, False))
 
     return [col.asc() if ascending else col.desc() for col, ascending in order_by_clauses]
-
-
-def _parse_inputs(span: Span) -> Any:
-    if inputs := span.get_attribute("query.text"):
-        return inputs
-    return None
-
-
-def _parse_outputs(span: Span) -> Any:
-    if outputs := span.get_attribute("result.output"):
-        return outputs
-    return None

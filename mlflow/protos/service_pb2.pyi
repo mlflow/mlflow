@@ -1575,13 +1575,21 @@ class Scorer(_message.Message):
     creation_time: int
     def __init__(self, experiment_id: _Optional[int] = ..., scorer_name: _Optional[str] = ..., scorer_version: _Optional[int] = ..., serialized_scorer: _Optional[str] = ..., creation_time: _Optional[int] = ...) -> None: ...
 
-class LoadSpans(_message.Message):
+class TraceV3(_message.Message):
+    __slots__ = ("trace_info", "spans")
+    TRACE_INFO_FIELD_NUMBER: _ClassVar[int]
+    SPANS_FIELD_NUMBER: _ClassVar[int]
+    trace_info: TraceInfoV3
+    spans: _containers.RepeatedCompositeFieldContainer[_databricks_trace_server_pb2.Span]
+    def __init__(self, trace_info: _Optional[_Union[TraceInfoV3, _Mapping]] = ..., spans: _Optional[_Iterable[_Union[_databricks_trace_server_pb2.Span, _Mapping]]] = ...) -> None: ...
+
+class GetTrace(_message.Message):
     __slots__ = ("trace_id",)
     class Response(_message.Message):
-        __slots__ = ("spans",)
-        SPANS_FIELD_NUMBER: _ClassVar[int]
-        spans: _containers.RepeatedCompositeFieldContainer[_databricks_trace_server_pb2.Span]
-        def __init__(self, spans: _Optional[_Iterable[_Union[_databricks_trace_server_pb2.Span, _Mapping]]] = ...) -> None: ...
+        __slots__ = ("trace",)
+        TRACE_FIELD_NUMBER: _ClassVar[int]
+        trace: TraceV3
+        def __init__(self, trace: _Optional[_Union[TraceV3, _Mapping]] = ...) -> None: ...
     TRACE_ID_FIELD_NUMBER: _ClassVar[int]
     trace_id: str
     def __init__(self, trace_id: _Optional[str] = ...) -> None: ...
