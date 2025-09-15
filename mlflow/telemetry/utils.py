@@ -32,7 +32,6 @@ def _is_ci_env_or_testing() -> bool:
         "CODEBUILD_BUILD_ARN",  # https://docs.aws.amazon.com/codebuild/latest/userguide/build-env-ref-env-vars.html
         "BUILDKITE",  # https://buildkite.com/docs/pipelines/configure/environment-variables
         "TEAMCITY_VERSION",  # https://www.jetbrains.com/help/teamcity/predefined-build-parameters.html#Predefined+Server+Build+Parameters
-        "BAMBOO_buildKey",  # https://confluence.atlassian.com/bamboo/bamboo-variables-289277087.html
         "CLOUD_RUN_EXECUTION",  # https://cloud.google.com/run/docs/reference/container-contract#env-vars
         # runbots
         "RUNBOT_HOST_URL",
