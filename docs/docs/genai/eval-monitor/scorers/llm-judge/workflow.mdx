@@ -137,7 +137,7 @@ trace_ids = []
 for issue in issues:
     with mlflow.start_run(experiment_id=experiment_id):
         result = customer_support_app(issue)
-        trace_id = mlflow.get_last_active_trace().info.trace_id
+        trace_id = mlflow.get_last_active_trace_id()
         trace_ids.append(trace_id)
 
         # Judge evaluates the trace
@@ -145,10 +145,59 @@ for issue in issues:
 
         # Log judge's assessment
         mlflow.log_assessment(trace_id=trace_id, assessment=assessment)
+```
 
-# Collect human feedback based on your scenario:
+### Collecting Human Feedback
 
-# Scenario 1: You have ground truth labels
+After running your judge on traces, collect human feedback to establish ground truth:
+
+<TabsWrapper>
+<Tabs>
+  <TabItem value="ui" label="MLflow UI (Recommended)" default>
+
+**When to use:** You need to collect human feedback for judge alignment.
+
+The MLflow UI provides the most intuitive way to review traces and add feedback:
+
+### How to Collect Feedback
+
+1. **Open the MLflow UI** and navigate to your experiment
+2. **Go to the Traces tab** to see all generated traces
+3. **Click on individual traces** to review:
+   - Input data (customer issues)
+   - Output responses
+   - Judge's initial assessment
+4. **Add your feedback** by clicking "Add Feedback"
+5. **Select the assessment name** matching your judge (e.g., "support_quality")
+6. **Provide your expert rating** (excellent, good, needs_improvement, or poor)
+
+### Who Should Provide Feedback?
+
+**If you're NOT the domain expert:**
+
+- Ask domain experts or other developers to provide labels through the MLflow UI
+- Distribute traces among team members with relevant expertise
+- Consider organizing feedback sessions where experts can review batches together
+
+**If you ARE the domain expert:**
+
+- Review traces directly in the MLflow UI and add your expert assessments
+- Create a rubric or guidelines document to ensure consistency
+- Document your evaluation criteria for future reference
+
+The UI automatically logs feedback in the correct format for alignment.
+
+<img src="/images/assessments/add_feedback_ui.png" alt="Adding feedback through MLflow UI" style={{maxWidth: '800px', display: 'block', margin: '20px 0'}} />
+
+  </TabItem>
+  <TabItem value="programmatic" label="Programmatic (Existing Labels)">
+
+**When to use:** You already have ground truth labels from your data.
+
+If you have existing ground truth labels, log them programmatically:
+
+```python
+# Example: You have ground truth labels
 ground_truth = {
     trace_ids[0]: "excellent",  # Known good response
     trace_ids[1]: "poor",  # Known bad response
@@ -164,14 +213,11 @@ for trace_id, truth_value in ground_truth.items():
             source_type=AssessmentSourceType.HUMAN, source_id="ground_truth"
         ),
     )
-
-# Scenario 2 (RECOMMENDED): Use the MLflow UI for feedback collection
-# The MLflow UI provides an intuitive interface for reviewing and rating traces:
-# 1. Navigate to the Traces tab in your experiment
-# 2. Click on individual traces to review inputs/outputs
-# 3. Add feedback ratings directly through the UI
-# 4. The UI automatically logs feedback in the correct format
 ```
+
+  </TabItem>
+</Tabs>
+</TabsWrapper>
 
 ## Step 3: Align Judge with Human Feedback
 
@@ -199,9 +245,10 @@ print(f"Found {len(aligned_traces)} traces with both assessments")
 
 # Align the judge (requires at least 10 traces)
 if len(aligned_traces) >= 10:
-    aligned_judge = support_judge.align(
-        traces=aligned_traces, optimizer="simba"  # Default optimizer
-    )
+    from mlflow.genai.judges.optimizers import SIMBAAlignmentOptimizer
+
+    optimizer = SIMBAAlignmentOptimizer(model="anthropic:/claude-3-opus-20240229")
+    aligned_judge = support_judge.align(optimizer, aligned_traces)
     print("Judge aligned successfully!")
 else:
     print(f"Need at least 10 traces (have {len(aligned_traces)})")
@@ -232,7 +279,7 @@ for case in test_cases:
     print(f"Rationale: {assessment.rationale}\n")
 
 # Register the aligned judge for production use
-aligned_judge.register(experiment_id)
+aligned_judge.register(experiment_id=experiment_id)
 print("Judge registered and ready for deployment!")
 ```
 
@@ -245,28 +292,24 @@ from mlflow.genai.scorers import get_scorer
 import pandas as pd
 
 # Retrieve the registered judge
-production_judge = get_scorer(
-    name="support_quality",
-    experiment_id=experiment_id
-)
+production_judge = get_scorer(name="support_quality", experiment_id=experiment_id)
 
 # Prepare evaluation data
-eval_data = pd.DataFrame([
-    {
-        "inputs": {"issue": "Can't access my account"},
-        "outputs": {"response": "I'll help you regain access immediately."}
-    },
-    {
-        "inputs": {"issue": "Slow website performance"},
-        "outputs": {"response": "Let me investigate the performance issues."}
-    }
-])
+eval_data = pd.DataFrame(
+    [
+        {
+            "inputs": {"issue": "Can't access my account"},
+            "outputs": {"response": "I'll help you regain access immediately."},
+        },
+        {
+            "inputs": {"issue": "Slow website performance"},
+            "outputs": {"response": "Let me investigate the performance issues."},
+        },
+    ]
+)
 
 # Run evaluation with the aligned judge
-results = mlflow.genai.evaluate(
-    data=eval_data,
-    scorers=[production_judge]
-)
+results = mlflow.genai.evaluate(data=eval_data, scorers=[production_judge])
 
 # View results and metrics
 print("Evaluation metrics:", results.metrics)

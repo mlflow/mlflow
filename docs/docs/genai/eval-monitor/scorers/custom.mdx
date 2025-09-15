@@ -157,11 +157,11 @@ def comprehensive_check(inputs, outputs):
 
 ## Parsing Traces for Scoring
 
-:::warning[Important: Trace-based Scorers Require Active Traces]
+:::warning[Important: Agentic Scorers Require Active Traces]
 
 Scorers that accept a `trace` parameter **cannot be used with pandas DataFrames**. They require actual execution traces from your application.
 
-If you need to evaluate static data (e.g., a CSV file with pre-generated responses), use scorers that work with `inputs`, `outputs`, and `expectations` parameters only.
+If you need to evaluate static data (e.g., a CSV file with pre-generated responses), use field-based scorers that work with `inputs`, `outputs`, and `expectations` parameters only.
 
 :::
 

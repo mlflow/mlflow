@@ -126,7 +126,7 @@ correctness_judge = make_judge(
         "Evaluate if the response in {{ outputs }} "
         "correctly answers the question in {{ inputs }}."
     ),
-    model="anthropic:/claude-3-opus-20240229"
+    model="anthropic:/claude-3-opus-20240229",
 )
 ```
 
@@ -139,24 +139,34 @@ import mlflow
 import pandas as pd
 
 # Your test data
-test_data = pd.DataFrame([
-    {"question": "What is MLflow?", "ground_truth": "MLflow is an open-source platform for managing the ML lifecycle"},
-    {"question": "How do I track experiments?", "ground_truth": "Use mlflow.start_run() to track experiments"}
-])
+test_data = pd.DataFrame(
+    [
+        {
+            "question": "What is MLflow?",
+            "ground_truth": "MLflow is an open-source platform for managing the ML lifecycle",
+        },
+        {
+            "question": "How do I track experiments?",
+            "ground_truth": "Use mlflow.start_run() to track experiments",
+        },
+    ]
+)
+
 
 # Your application
 def my_app(question):
     return generate_answer(question)
+
 
 # Evaluate with multiple scorers
 results = mlflow.genai.evaluate(
     data=test_data,
     predict_fn=my_app,
     scorers=[
-        correctness_judge,      # LLM judge
-        relevance_score,        # Code-based scorer
-        is_safe,               # Binary classifier
-    ]
+        correctness_judge,  # LLM judge
+        relevance_score,  # Code-based scorer
+        is_safe,  # Binary classifier
+    ],
 )
 
 # Access evaluation metrics

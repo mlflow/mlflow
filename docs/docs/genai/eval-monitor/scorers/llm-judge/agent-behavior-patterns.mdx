@@ -57,7 +57,7 @@ reasoning_judge = make_judge(
         "Identify specific reasoning flaws with span IDs.\n"
         "Score 1-100 for reasoning quality."
     ),
-    model="anthropic:/claude-3-opus-20240229"
+    model="anthropic:/claude-3-opus-20240229",
 )
 ```
 
@@ -76,7 +76,7 @@ tool_optimization_judge = make_judge(
         "Provide specific optimization suggestions.\n"
         "Rate efficiency as: 'optimal', 'good', 'suboptimal', or 'poor'"
     ),
-    model="anthropic:/claude-3-opus-20240229"
+    model="anthropic:/claude-3-opus-20240229",
 )
 ```
 
@@ -95,7 +95,7 @@ loop_detector_judge = make_judge(
         "Report specific span patterns that indicate issues.\n"
         "Classify as: 'clean', 'warning', or 'critical'"
     ),
-    model="anthropic:/claude-3-opus-20240229"
+    model="anthropic:/claude-3-opus-20240229",
 )
 ```
 
@@ -116,8 +116,9 @@ rag_judge = make_judge(
         "3. Are sources properly cited?\n\n"
         "Rate as: 'good', 'acceptable', or 'poor'"
     ),
-    model="anthropic:/claude-3-opus-20240229"
+    model="anthropic:/claude-3-opus-20240229",
 )
+
 
 # Use with your RAG pipeline
 @mlflow.trace
@@ -125,6 +126,7 @@ def rag_pipeline(query):
     docs = retrieve_documents(query)
     response = generate_with_context(query, docs)
     return response
+
 
 result = rag_pipeline("What is MLflow?")
 trace = mlflow.get_last_active_trace()
@@ -140,10 +142,10 @@ import pandas as pd
 import mlflow
 
 # Simple evaluation dataset
-test_data = pd.DataFrame([
-    {"question": "What is MLflow?"},
-    {"question": "How do I track experiments?"}
-])
+test_data = pd.DataFrame(
+    [{"question": "What is MLflow?"}, {"question": "How do I track experiments?"}]
+)
+
 
 # Your application function
 @mlflow.trace
@@ -151,11 +153,12 @@ def my_app(question):
     # Your application logic here
     return generate_response(question)
 
+
 # Run evaluation with agentic judges
 results = mlflow.genai.evaluate(
     data=test_data,
     predict_fn=my_app,
-    scorers=[reasoning_judge, tool_optimization_judge]
+    scorers=[reasoning_judge, tool_optimization_judge],
 )
 ```
 

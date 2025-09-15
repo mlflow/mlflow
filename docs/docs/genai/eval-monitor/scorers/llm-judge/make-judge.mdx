@@ -19,6 +19,36 @@ The `make_judge` API requires **MLflow >= 3.4.0**. For earlier versions, use the
 
 Creating effective LLM judges requires a balance of flexibility, maintainability, and accuracy. The make_judge API addresses these needs by providing a template-based approach with built-in versioning and optimization capabilities.
 
+### Choosing the Right LLM for Your Judge
+
+The choice of LLM model significantly impacts judge performance and cost. Here's guidance based on your development stage and use case:
+
+**Early Development Stage (Inner Loop)**
+
+- **Recommended**: Start with powerful models like GPT-4o or Claude Opus
+- **Why**: When you're beginning your agent development journey, you typically lack:
+  - Use-case-specific grading criteria
+  - Labeled data for optimization
+- **Benefits**: More intelligent models can deeply explore traces, identify patterns, and help you understand common issues in your system
+- **Trade-off**: Higher cost, but lower evaluation volume during development makes this acceptable
+
+**Production & Scaling Stage**
+
+- **Recommended**: Transition to smaller models (GPT-4o-mini, Claude Haiku) with smarter optimizers
+- **Why**: As you move toward production:
+  - You've collected labeled data and established grading criteria
+  - Cost becomes a critical factor at scale
+  - You can align smaller judges using more powerful optimizers
+- **Approach**: Use a smaller judge model paired with a powerful optimizer model (e.g., GPT-4o-mini judge aligned using Claude Opus optimizer)
+
+**General Guidelines**
+
+- **Agent-as-a-judge evaluation**: Requires intelligent LLMs (GPT-4o, Claude Opus) to analyze complex multi-step reasoning
+- **Simple classification tasks**: Can work well with smaller models (GPT-4o-mini, Claude Haiku)
+- **Domain-specific evaluation**: Start with powerful models, then optimize smaller models using your collected feedback
+
+The key insight: You can achieve cost-effective evaluation by aligning "dumber" judges using "smarter" optimizers, allowing you to use less expensive models in production while maintaining accuracy.
+
 <FeatureHighlights features={[
   {
     icon: Target,
@@ -27,13 +57,13 @@ Creating effective LLM judges requires a balance of flexibility, maintainability
   },
   {
     icon: GitBranch,
-    title: "Version Control & Collaboration",
-    description: "Register judges to track versions, share across teams, and ensure reproducible evaluations. Every judge iteration is preserved."
+    title: "Registration & Collaboration",
+    description: "Register judges to share across teams and ensure reproducible evaluations. Organize and manage your evaluation logic in one place."
   },
   {
     icon: Zap,
     title: "Dual Evaluation Modes",
-    description: "Evaluate final outputs with field-based assessment or analyze complete execution flows with trace-based evaluation."
+    description: "Evaluate final outputs with field-based assessment or analyze complete execution flows with agentic evaluation."
   },
   {
     icon: Brain,
@@ -44,7 +74,7 @@ Creating effective LLM judges requires a balance of flexibility, maintainability
 
 ## Evaluation Modes
 
-The make_judge API supports two distinct evaluation modes, each optimized for different scenarios. Choose field-based evaluation for evaluating specific inputs and outputs, or trace-based evaluation for analyzing complete execution flows.
+The make_judge API supports two distinct evaluation modes, each optimized for different scenarios. Choose field-based evaluation for evaluating specific inputs and outputs, or agentic evaluation for analyzing complete execution flows.
 
 <ConceptOverview concepts={[
   {
@@ -54,7 +84,7 @@ The make_judge API supports two distinct evaluation modes, each optimized for di
   },
   {
     icon: Search,
-    title: "Trace-Based Evaluation",
+    title: "Agentic Evaluation",
     description: "Analyze complete execution flows using the trace variable. Inspect intermediate steps, tool usage, and decision-making. Essential for debugging complex AI agents and multi-step workflows."
   }
 ]} />
@@ -92,7 +122,7 @@ When you use template variables in your instructions, MLflow processes them in t
 
 **Direct Interpolation** (`inputs`, `outputs`, `expectations`): These variables are directly interpolated into the prompt as formatted strings. The dictionaries you pass are converted to readable text and inserted into your instruction template. This gives you full control over how the data appears in the evaluation prompt.
 
-**Agent-Based Analysis** (`trace`): The trace variable works differently to handle complexity at scale. Instead of interpolating potentially massive JSON data directly into the prompt, the trace metadata (trace_id, experiment_id, request_id) is passed to an evaluation agent that fetches and analyzes the full trace details. This design enables trace-based judges to handle large, complex execution flows without hitting token limits.
+**Agentic Analysis** (`trace`): The trace variable works differently to handle complexity at scale. Instead of interpolating potentially massive JSON data directly into the prompt, the trace metadata (trace_id, experiment_id, request_id) is passed to an evaluation agent that fetches and analyzes the full trace details. This design enables agentic judges to handle large, complex execution flows without hitting token limits.
 
 :::note[Trace Processing Behavior]
 The `{{ trace }}` variable is NOT interpolated as JSON into the prompt. This is by design - traces can contain thousands of spans with extensive data that would overwhelm token limits. Instead, an intelligent agent fetches and analyzes the trace data, allowing it to focus on relevant aspects based on your evaluation instructions.
@@ -108,14 +138,20 @@ You can only use the four reserved template variables shown above (`inputs`, `ou
 
 <Tabs>
   <TabItem value="field" label="Field-Based (Simple)" default>
-    ```python
-    from mlflow.genai.judges import make_judge
 
+    First, create a simple agent to evaluate:
+
+    ```python
     # Create a toy agent that responds to questions
     def my_agent(question):
         # Simple toy agent that echoes back
         return f"You asked about: {question}"
+    ```
 
+    Then create a judge to evaluate the agent's responses:
+
+    ```python
+    from mlflow.genai.judges import make_judge
 
     # Create a judge that evaluates response quality
     quality_judge = make_judge(
@@ -127,7 +163,11 @@ You can only use the four reserved template variables shown above (`inputs`, `ou
         ),
         model="anthropic:/claude-3-opus-20240229",
     )
+    ```
 
+    Now evaluate the agent's response:
+
+    ```python
     # Get agent response
     question = "What is machine learning?"
     response = my_agent(question)
@@ -143,9 +183,12 @@ You can only use the four reserved template variables shown above (`inputs`, `ou
 
   </TabItem>
   <TabItem value="trace" label="Trace-Based (Advanced)">
+
+    First, create a more complex agent with tracing:
+
     ```python
-    from mlflow.genai.judges import make_judge
     import mlflow
+
 
     # Create a more complex toy agent with tracing
     @mlflow.trace
@@ -163,7 +206,12 @@ You can only use the four reserved template variables shown above (`inputs`, `ou
             gen_span.set_outputs({"response": response})
 
         return response
+    ```
 
+    Create a judge that analyzes execution traces:
+
+    ```python
+    from mlflow.genai.judges import make_judge
 
     # Create a judge that analyzes complete execution flows
     trace_judge = make_judge(
@@ -179,7 +227,11 @@ You can only use the four reserved template variables shown above (`inputs`, `ou
         ),
         model="anthropic:/claude-3-opus-20240229",  # Note: Cannot use 'databricks' model
     )
+    ```
 
+    Execute the agent and evaluate its trace:
+
+    ```python
     # Execute agent and capture trace
     with mlflow.start_span("agent_task") as span:
         response = my_complex_agent("What is MLflow?")
@@ -199,13 +251,15 @@ You can only use the four reserved template variables shown above (`inputs`, `ou
 
 ## Important Limitations
 
-:::warning[Template Variable Restrictions]
+### Template Variable Restrictions
+
+:::warning[Important Limitations]
 The `make_judge` API has strict template variable requirements:
 
 - ✅ **Only reserved variables allowed**: `inputs`, `outputs`, `expectations`, `trace`
 - ❌ **No custom variables**: Variables like `{{ question }}`, `{{ response }}`, etc. are not supported
 - ❌ **Trace isolation**: When using `trace`, cannot use `inputs`, `outputs`, or `expectations`
-- ❌ **Model restrictions**: Cannot use the `databricks` default model with trace-based judges
+- ❌ **Model restrictions**: Cannot use the `databricks` default model with agentic judges
 
 All template variables referenced in instructions must be provided when calling the judge.
 :::
@@ -252,13 +306,13 @@ All template variables referenced in instructions must be provided when calling 
   </TabItem>
   <TabItem value="field-patterns" label="Field Evaluation">
     ```python
-    # Correctness Evaluation
-    correctness_judge = make_judge(
-        name="correctness",
+    # Quality Evaluation
+    quality_judge = make_judge(
+        name="quality",
         instructions=(
-            "Check if the {{ outputs }} correctly answers the question in {{ inputs }}.\n"
-            "Compare against {{ expectations }} for accuracy.\n"
-            "Answer 'yes' or 'no' with reasoning."
+            "Evaluate the quality of {{ outputs }} for the question in {{ inputs }}.\n"
+            "Consider completeness, accuracy, and helpfulness.\n"
+            "Rate as 'excellent', 'good', or 'needs improvement'."
         ),
         model="anthropic:/claude-3-opus-20240229",
     )
@@ -364,11 +418,11 @@ quality_judge = make_judge(
     model="anthropic:/claude-3-opus-20240229",
 )
 
-# Register creates version 1
-registered_judge = quality_judge.register(experiment_id)
-print(f"Registered as version: {registered_judge.version}")
+# Register the judge
+registered_judge = quality_judge.register(experiment_id=experiment_id)
+print("Judge registered successfully")
 
-# Update and register a new version
+# Update and register a new version of the judge
 quality_judge_v2 = make_judge(
     name="response_quality",  # Same name
     instructions=(
@@ -378,8 +432,8 @@ quality_judge_v2 = make_judge(
     model="anthropic:/claude-3.5-sonnet-20241022",  # Updated model
 )
 
-# Creates version 2
-registered_v2 = quality_judge_v2.register(experiment_id)
+# Register the updated judge
+registered_v2 = quality_judge_v2.register(experiment_id=experiment_id)
 ```
 
 ### Retrieving Registered Judges
@@ -390,8 +444,8 @@ from mlflow.genai.scorers import get_scorer, list_scorers
 # Get the latest version
 latest_judge = get_scorer(name="response_quality", experiment_id=experiment_id)
 
-# Get a specific version
-v1_judge = get_scorer(name="response_quality", experiment_id=experiment_id, version=1)
+# Note: Version tracking is currently under development
+# For now, use the latest version retrieval shown above
 
 # List all judges in an experiment
 all_judges = list_scorers(experiment_id=experiment_id)
@@ -542,11 +596,14 @@ perf_judge = make_judge(
 # Prepare test data
 import pandas as pd
 
-test_queries = pd.DataFrame([
-    {"query": "What is MLflow?"},
-    {"query": "How to track experiments?"},
-    {"query": "What are MLflow models?"}
-])
+test_queries = pd.DataFrame(
+    [
+        {"query": "What is MLflow?"},
+        {"query": "How to track experiments?"},
+        {"query": "What are MLflow models?"},
+    ]
+)
+
 
 # Define your agent function
 def my_agent(query):
@@ -558,11 +615,10 @@ def my_agent(query):
         span.set_outputs({"response": response})
     return response
 
+
 # Run evaluation with the performance judge
 results = mlflow.genai.evaluate(
-    data=test_queries,
-    predict_fn=my_agent,
-    scorers=[perf_judge]
+    data=test_queries, predict_fn=my_agent, scorers=[perf_judge]
 )
 
 # View results - assessments are automatically logged to traces

@@ -43,29 +43,32 @@ When you use the `{{ trace }}` template variable in your judge instructions, MLf
 
 ## Field-Based vs Agentic Evaluation
 
-<ConceptOverview concepts={[
-  {
-    icon: Target,
-    title: "Field-Based Judges",
-    description: "Evaluate specific inputs and outputs. Perfect for assessing final results, checking correctness, and validating responses against expectations."
-  },
-  {
-    icon: Brain,
-    title: "Agentic Judges",
-    description: "Analyze complete execution traces. Ideal for understanding HOW your application works, not just WHAT it produces."
-  }
-]} />
+Understanding when to use each approach is critical for effective evaluation:
+
+| **Aspect**               | **Field-Based Judges**                                                                                                    | **Agentic Judges**                                                                                           |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| **What they evaluate**   | Specific inputs and outputs                                                                                               | Complete execution traces                                                                                    |
+| **Focus**                | WHAT your application produces                                                                                            | HOW your application works                                                                                   |
+| **Template variables**   | `{{ inputs }}`, `{{ outputs }}`, `{{ expectations }}`                                                                     | `{{ trace }}`                                                                                                |
+| **Best for**             | • Final result correctness<br/>• Response quality<br/>• Output validation<br/>• Simple pass/fail checks                   | • Multi-step workflows<br/>• Tool usage patterns<br/>• Error handling<br/>• Performance analysis             |
+| **Complexity**           | Simple and fast                                                                                                           | More complex, requires deeper analysis                                                                       |
+| **Use when you need to** | • Check if answers are correct<br/>• Validate formatting<br/>• Compare against ground truth<br/>• Assess response quality | • Understand execution flow<br/>• Find bottlenecks<br/>• Verify agent reasoning<br/>• Detect security issues |
+| **Evaluation goals**     | • Verify answer correctness<br/>• Check output matches expectations<br/>• Validate response quality                       | • Identify failure root causes<br/>• Find inefficient tool usage<br/>• Detect unnecessary API calls          |
+| **Performance**          | Fast execution                                                                                                            | Slower due to trace exploration                                                                              |
+| **Cost**                 | Lower (less context)                                                                                                      | Higher (more context and tool usage)                                                                         |
 
 ## When to Use Agentic Judges
 
-Agentic judges excel at evaluating:
+Choose agentic judges when you need deep insights into your application's behavior:
 
-- **Multi-step workflows**: Understanding how data flows through your application
-- **Tool usage patterns**: Verifying correct tool selection and sequencing
-- **Error handling**: Checking recovery mechanisms and fallback strategies
-- **Performance issues**: Identifying slow operations and redundant processing
+### Ideal Use Cases
+
+- **Multi-step workflows**: Understanding how data flows through complex pipelines
+- **Tool usage patterns**: Verifying correct tool selection, sequencing, and error recovery
+- **Performance optimization**: Identifying slow operations, redundant processing, and inefficiencies
 - **Agent reasoning**: Analyzing decision-making processes and logic chains
-- **Security concerns**: Detecting potential data leaks or inappropriate access patterns
+- **Security auditing**: Detecting potential data leaks, inappropriate access patterns, or unsafe operations
+- **Debugging complex failures**: Understanding why an agent failed despite producing output
 
 ## Creating an Agentic Judge
 
@@ -86,7 +89,7 @@ performance_judge = make_judge(
         "- Proper use of caching mechanisms\n\n"
         "Rate as: 'optimal', 'acceptable', or 'needs_improvement'"
     ),
-    model="anthropic:/claude-3-opus-20240229"
+    model="anthropic:/claude-3-opus-20240229",
 )
 ```
 
