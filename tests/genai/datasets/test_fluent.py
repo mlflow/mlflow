@@ -441,11 +441,13 @@ def test_active_record_pattern_merge_records(tracking_uri, experiments):
     records_batch1 = [
         {
             "inputs": {"question": "What is MLflow?"},
+            "outputs": {"answer": "MLflow is an open source platform for managing the ML lifecycle"},
             "expectations": {"answer": "MLflow is an open source platform"},
             "tags": {"difficulty": "easy"},
         },
         {
             "inputs": {"question": "What is Python?"},
+            "outputs": {"answer": "Python is a versatile programming language"},
             "expectations": {"answer": "Python is a programming language"},
             "tags": {"difficulty": "easy"},
         },
@@ -454,11 +456,13 @@ def test_active_record_pattern_merge_records(tracking_uri, experiments):
     records_batch2 = [
         {
             "inputs": {"question": "What is MLflow?"},
+            "outputs": {"answer": "MLflow is an ML lifecycle platform that helps manage experiments, models, and deployments"},
             "expectations": {"answer": "MLflow is an ML lifecycle platform"},
             "tags": {"category": "ml"},
         },
         {
             "inputs": {"question": "What is Docker?"},
+            "outputs": {"answer": "Docker is a containerization platform that packages applications and their dependencies"},
             "expectations": {"answer": "Docker is a containerization platform"},
             "tags": {"difficulty": "medium"},
         },
@@ -473,6 +477,7 @@ def test_active_record_pattern_merge_records(tracking_uri, experiments):
         0
     ]
     assert mlflow_record["expectations"]["answer"] == "MLflow is an open source platform"
+    assert mlflow_record["outputs"]["answer"] == "MLflow is an open source platform for managing the ML lifecycle"
     assert mlflow_record["tags"]["difficulty"] == "easy"
     assert "category" not in mlflow_record["tags"]
 
@@ -485,8 +490,15 @@ def test_active_record_pattern_merge_records(tracking_uri, experiments):
         df2["inputs"].apply(lambda x: x.get("question") == "What is MLflow?")
     ].iloc[0]
     assert mlflow_record_updated["expectations"]["answer"] == "MLflow is an ML lifecycle platform"
+    assert mlflow_record_updated["outputs"]["answer"] == "MLflow is an ML lifecycle platform that helps manage experiments, models, and deployments"
     assert mlflow_record_updated["tags"]["difficulty"] == "easy"
     assert mlflow_record_updated["tags"]["category"] == "ml"
+    
+    # Verify that the new Docker record also has outputs
+    docker_record = df2[df2["inputs"].apply(lambda x: x.get("question") == "What is Docker?")].iloc[0]
+    assert docker_record["outputs"]["answer"] == "Docker is a containerization platform that packages applications and their dependencies"
+    assert docker_record["expectations"]["answer"] == "Docker is a containerization platform"
+    assert docker_record["tags"]["difficulty"] == "medium"
 
 
 def test_dataset_with_dataframe_records(tracking_uri, experiments):
