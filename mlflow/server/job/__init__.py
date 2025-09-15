@@ -6,16 +6,7 @@ from types import FunctionType
 import json
 from mlflow.entities._job import JobStatus
 from mlflow.server.handlers import _get_tracking_store
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.exceptions import MlflowException
-
-
-_tracking_store = _get_tracking_store()
-if not isinstance(_tracking_store, SqlAlchemyStore):
-    raise MlflowException.invalid_parameter_value(
-        "If enabling MLflow job execution, mlflow server must configure "
-        "--backend-store-uri to a database URI."
-    )
 
 
 def submit_job(function, **params: Any):
@@ -48,6 +39,8 @@ def submit_job(function, **params: Any):
         "." not in function.__qualname__
     ):
         raise MlflowException("The job function must be a python global function.")
+
+    _tracking_store = _get_tracking_store()
     serialized_params = json.dumps(params)
     func_fullname = f"{function.__module__}.{function.__name__}"
     job_id = _tracking_store.create_job(func_fullname, serialized_params)
@@ -72,6 +65,7 @@ def query_job(job_id: str) -> tuple[JobStatus, Any]:
         If status is DONE, result is the job function returned value.
         If status is FAILED, result is the error message.
     """
+    _tracking_store = _get_tracking_store()
     job = _tracking_store.get_job(job_id)
     status = job.status
     result = job.result
@@ -88,7 +82,7 @@ def _start_job_runner(env_map, max_job_parallelism, server_proc_pid):
             sys.executable,
             shutil.which("huey_consumer.py"),
             "mlflow.server.job.job_runner.huey",
-            f"--workers {max_job_parallelism}",
+            f"-w {max_job_parallelism}",
         ],
         capture_output=False,
         synchronous=False,

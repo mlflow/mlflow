@@ -14,7 +14,8 @@ from huey.exceptions import RetryTask
 from huey.serializer import Serializer
 import cloudpickle
 import tempfile
-from mlflow.entities.job import JobStatus
+from mlflow.entities._job import JobStatus
+from mlflow.server import HUEY_STORAGE_PATH_ENV_VAR
 from mlflow.server.handlers import _get_tracking_store
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.exceptions import MlflowException
@@ -29,7 +30,7 @@ def _create_huey_instance():
             return cloudpickle.loads(data)
 
     return SqliteHuey(
-        filename=os.environ["_HUEY_STORAGE_PATH"],
+        filename=os.environ[HUEY_STORAGE_PATH_ENV_VAR],
         results=False,
         serializer=CloudPickleSerializer()
     )

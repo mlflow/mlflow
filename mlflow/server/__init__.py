@@ -50,6 +50,7 @@ ARTIFACTS_DESTINATION_ENV_VAR = "_MLFLOW_SERVER_ARTIFACT_DESTINATION"
 PROMETHEUS_EXPORTER_ENV_VAR = "prometheus_multiproc_dir"
 SERVE_ARTIFACTS_ENV_VAR = "_MLFLOW_SERVER_SERVE_ARTIFACTS"
 ARTIFACTS_ONLY_ENV_VAR = "_MLFLOW_SERVER_ARTIFACTS_ONLY"
+HUEY_STORAGE_PATH_ENV_VAR = "_MLFLOW_HUEY_STORAGE_PATH"
 
 REL_STATIC_DIR = "js/build"
 
@@ -388,8 +389,8 @@ def _run_server(
         # This shouldn't happen given the logic in CLI, but handle it just in case
         raise MlflowException("No server configuration specified.")
 
-    # The `_HUEY_STORAGE_PATH` is used by both Mlflow server handler workers and huey job runner (huey_consumer).
-    env_map["_HUEY_STORAGE_PATH"] = os.path.join(tempfile.mkdtemp(), "mlflow-huey.db")
+    # The `HUEY_STORAGE_PATH_ENV_VAR` is used by both Mlflow server handler workers and huey job runner (huey_consumer).
+    env_map[HUEY_STORAGE_PATH_ENV_VAR] = os.path.join(tempfile.mkdtemp(), "mlflow-huey.db")
     server_proc = _exec_cmd(full_command, extra_env=env_map, capture_output=False, synchronous=False)
     if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
         max_job_parallelism = MLFLOW_SERVER_JOB_MAX_PARALLELISM.get()
