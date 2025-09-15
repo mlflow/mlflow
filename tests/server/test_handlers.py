@@ -5,7 +5,7 @@ from unittest import mock
 import pytest
 
 import mlflow
-from mlflow.entities import ScorerVersion, TraceInfo, TraceState, ViewType
+from mlflow.entities import ScorerVersion, Trace, TraceData, TraceInfo, TraceState, ViewType
 from mlflow.entities.model_registry import (
     ModelVersion,
     ModelVersionTag,
@@ -14,8 +14,13 @@ from mlflow.entities.model_registry import (
 )
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY
 from mlflow.entities.trace_location import TraceLocation as EntityTraceLocation
-from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE, ErrorCode
+from mlflow.exceptions import MlflowException, MlflowTraceSpansNotFound
+from mlflow.protos.databricks_pb2 import (
+    INTERNAL_ERROR,
+    INVALID_PARAMETER_VALUE,
+    NOT_FOUND,
+    ErrorCode,
+)
 from mlflow.protos.model_registry_pb2 import (
     CreateModelVersion,
     CreateRegisteredModel,
@@ -90,6 +95,7 @@ from mlflow.server.handlers import (
     _get_registered_model,
     _get_request_message,
     _get_scorer,
+    _get_trace,
     _get_trace_artifact_repo,
     _list_scorer_versions,
     _list_scorers,
@@ -1900,3 +1906,89 @@ def test_list_webhooks_empty_page_token(mock_get_request_message, mock_model_reg
     call_kwargs = mock_model_registry_store.list_webhooks.call_args.kwargs
     assert call_kwargs.get("page_token") is None
     assert call_kwargs.get("max_results") == 10
+
+
+def test_get_trace_success(mock_tracking_store):
+    trace_id = "trace-123"
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=EntityTraceLocation.from_experiment_id("0"),
+        request_time=1000,
+        execution_duration=500,
+        state=TraceState.OK,
+    )
+    trace_data = TraceData(spans=[])
+    mock_trace = Trace(info=trace_info, data=trace_data)
+
+    mock_tracking_store.get_trace.return_value = mock_trace
+
+    response = _get_trace(trace_id)
+
+    # Verify the store was called with correct trace_id
+    mock_tracking_store.get_trace.assert_called_once_with(trace_id)
+
+    # Verify response structure
+    response_data = json.loads(response.get_data())
+    assert "trace" in response_data
+    assert response_data["trace"]["trace_info"]["trace_id"] == trace_id
+
+
+def test_get_trace_not_found(mock_tracking_store):
+    trace_id = "nonexistent-trace"
+    mock_tracking_store.get_trace.side_effect = MlflowTraceSpansNotFound("not found")
+
+    response = _get_trace(trace_id)
+
+    # Verify the response indicates an error
+    assert response.status_code == 404
+    response_data = json.loads(response.get_data())
+    assert response_data["error_code"] == ErrorCode.Name(NOT_FOUND)
+    assert "not found" in response_data["message"]
+
+    mock_tracking_store.get_trace.assert_called_once_with(trace_id)
+
+
+def test_get_trace_with_tags(mock_tracking_store):
+    trace_id = "trace-with-tags"
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=EntityTraceLocation.from_experiment_id("0"),
+        request_time=1000,
+        execution_duration=500,
+        state=TraceState.OK,
+        tags={"env": "test", "version": "1.0"},
+    )
+    trace_data = TraceData(spans=[])
+    mock_trace = Trace(info=trace_info, data=trace_data)
+
+    mock_tracking_store.get_trace.return_value = mock_trace
+
+    response = _get_trace(trace_id)
+
+    # Verify response structure
+    response_data = json.loads(response.get_data())
+    assert "trace" in response_data
+    assert response_data["trace"]["trace_info"]["trace_id"] == trace_id
+
+    # Verify tags are included
+    assert "tags" in response_data["trace"]["trace_info"]
+    tags = response_data["trace"]["trace_info"]["tags"]
+    assert tags["env"] == "test"
+    assert tags["version"] == "1.0"
+
+
+def test_get_trace_store_error(mock_tracking_store):
+    trace_id = "trace-123"
+    mock_tracking_store.get_trace.side_effect = MlflowException(
+        "Internal server error", error_code=INTERNAL_ERROR
+    )
+
+    response = _get_trace(trace_id)
+
+    # Verify the response indicates an internal error
+    assert response.status_code == 500
+    response_data = json.loads(response.get_data())
+    assert response_data["error_code"] == ErrorCode.Name(INTERNAL_ERROR)
+    assert "Internal server error" in response_data["message"]
+
+    mock_tracking_store.get_trace.assert_called_once_with(trace_id)

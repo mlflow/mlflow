@@ -46,7 +46,11 @@ from mlflow.environment_variables import (
     MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX,
     MLFLOW_DEPLOYMENTS_TARGET,
 )
-from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
+from mlflow.exceptions import (
+    MlflowException,
+    MlflowTraceSpansNotFound,
+    _UnsupportedMultipartUploadException,
+)
 from mlflow.models import Model
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
@@ -125,6 +129,7 @@ from mlflow.protos.service_pb2 import (
     GetMetricHistoryBulkInterval,
     GetRun,
     GetScorer,
+    GetTrace,
     GetTraceInfo,
     GetTraceInfoV3,
     LinkTracesToRun,
@@ -182,7 +187,6 @@ from mlflow.store.model_registry.abstract_store import AbstractStore as Abstract
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
 from mlflow.store.tracking.abstract_store import AbstractStore as AbstractTrackingStore
 from mlflow.store.tracking.rest_store import RestStore
-from mlflow.tracing.constant import TRACKING_STORE, TraceTagKey
 from mlflow.tracing.utils.artifact_utils import (
     TRACE_DATA_FILE_NAME,
     get_artifact_uri_for_trace,
@@ -3008,11 +3012,11 @@ def get_trace_artifact_handler():
             error_code=BAD_REQUEST,
         )
 
-    trace_info = _get_tracking_store().get_trace_info(request_id)
-    if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == TRACKING_STORE:
-        spans = _get_tracking_store().load_spans(request_id)
-        trace_data = {"spans": [span.to_dict() for span in spans]}
-    else:
+    tracking_store = _get_tracking_store()
+    try:
+        trace_data = tracking_store.get_trace(request_id).data.to_dict()
+    except (NotImplementedError, MlflowTraceSpansNotFound):
+        trace_info = tracking_store.get_trace_info(request_id)
         trace_data = _get_trace_artifact_repo(trace_info).download_trace_data()
 
     # Write data to a BytesIO buffer instead of needing to save a temp file
@@ -3027,6 +3031,20 @@ def get_trace_artifact_handler():
         download_name=TRACE_DATA_FILE_NAME,
     )
     return _response_with_file_attachment_headers(TRACE_DATA_FILE_NAME, file_sender_response)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_trace(trace_id):
+    """
+    A request handler for `GET /ajax-api/3.0/mlflow/traces/{trace_id}`
+    to get a specific trace.
+    """
+    trace = _get_tracking_store().get_trace(trace_id)
+
+    response_message = GetTrace.Response(trace=trace.to_proto_v3())
+
+    return _wrap_response(response_message)
 
 
 # Assessments API handlers
@@ -3955,6 +3973,7 @@ HANDLERS = {
     SetTraceTagV3: _set_trace_tag_v3,
     DeleteTraceTagV3: _delete_trace_tag,
     LinkTracesToRun: _link_traces_to_run,
+    GetTrace: _get_trace,
     # Assessment APIs
     CreateAssessment: _create_assessment,
     GetAssessmentRequest: _get_assessment,

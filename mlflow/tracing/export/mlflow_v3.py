@@ -53,6 +53,8 @@ class MlflowV3SpanExporter(SpanExporter):
         """
         manager = InMemoryTraceManager.get_instance()
 
+        # TODO: if the span is not ended, then it's not exported to mlflow backend incrementally
+        # but only exported in _export_traces when the trace is ended
         self._export_spans_incrementally(spans, manager)
         self._export_traces(spans, manager)
 

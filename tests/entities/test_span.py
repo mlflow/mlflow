@@ -3,6 +3,7 @@ from datetime import datetime
 
 import opentelemetry.trace as trace_api
 import pytest
+from google.protobuf.struct_pb2 import Value
 from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
 from opentelemetry.proto.trace.v1.trace_pb2 import Status as OTelProtoStatus
 from opentelemetry.sdk.trace import Event as OTelEvent
@@ -14,6 +15,7 @@ import mlflow
 from mlflow.entities import LiveSpan, Span, SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.entities.span import NoOpSpan, create_mlflow_span
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_trace_server_pb2 import Span as ProtoSpan
 from mlflow.tracing.provider import _get_tracer, trace_disabled
 from mlflow.tracing.utils import build_otel_context, encode_span_id, encode_trace_id
 
@@ -485,6 +487,52 @@ def test_span_from_otel_proto_conversion():
     assert mlflow_span.events[0].name == "test_event"
     assert mlflow_span.events[0].timestamp == 1500000000
     assert mlflow_span.events[0].attributes["event_data"] == "event_value"
+
+
+def test_span_from_proto_conversion():
+    proto_span = ProtoSpan()
+    proto_span.name = "test_span"
+    proto_span.span_id = "span123"
+    proto_span.trace_id = "trace456"
+    proto_span.parent_id = "parent789"
+    proto_span.start_time_ns = 1000000000
+    proto_span.end_time_ns = 2000000000
+
+    proto_span.status.status_code = ProtoSpan.Status.OK
+    proto_span.status.description = "All good"
+
+    proto_span.attributes["mlflow.spanType"] = Value(string_value="LLM")
+    proto_span.attributes["mlflow.spanInputs"] = Value(string_value='{"prompt": "test"}')
+    proto_span.attributes["mlflow.spanOutputs"] = Value(string_value='{"response": "output"}')
+    proto_span.attributes["custom_attr"] = Value(string_value="custom_value")
+
+    event = proto_span.events.add()
+    event.name = "test_event"
+    event.timestamp = 1500000000
+    event.attributes["event_key"] = Value(string_value="event_value")
+
+    mlflow_span = Span.from_proto(proto_span)
+
+    assert mlflow_span.name == "test_span"
+    assert mlflow_span.span_id == "span123"
+    assert mlflow_span.trace_id == "trace456"
+    assert mlflow_span.parent_id == "parent789"
+    assert mlflow_span.start_time_ns == 1000000000
+    assert mlflow_span.end_time_ns == 2000000000
+
+    assert mlflow_span.status.status_code == SpanStatusCode.OK
+    assert mlflow_span.status.description == "All good"
+
+    assert mlflow_span.span_type == "LLM"
+    assert mlflow_span.inputs == {"prompt": "test"}
+    assert mlflow_span.outputs == {"response": "output"}
+
+    assert mlflow_span.get_attribute("custom_attr") == "custom_value"
+
+    assert len(mlflow_span.events) == 1
+    assert mlflow_span.events[0].name == "test_event"
+    assert mlflow_span.events[0].timestamp == 1500000000
+    assert mlflow_span.events[0].attributes["event_key"] == "event_value"
 
 
 def test_otel_roundtrip_conversion(sample_otel_span_for_conversion):
