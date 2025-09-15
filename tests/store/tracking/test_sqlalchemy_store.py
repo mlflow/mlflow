@@ -3243,26 +3243,69 @@ def get_ordered_runs(store, order_clauses, experiment_id):
 
 
 def _generate_large_data(store, nb_runs=1000):
+    import uuid
+
+    from mlflow.entities import RunStatus, SourceType
+    from mlflow.entities.lifecycle_stage import LifecycleStage
+    from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
+    from mlflow.utils.name_utils import _generate_random_name
+    from mlflow.utils.uri import append_to_uri_path
+
     experiment_id = store.create_experiment("test_experiment")
+    experiment = store.get_experiment(experiment_id)
 
     current_run = 0
 
     run_ids = []
+    runs_list = []
     metrics_list = []
     tags_list = []
     params_list = []
     latest_metrics_list = []
 
+    # Generate all run data first
     for _ in range(nb_runs):
-        run_id = store.create_run(
-            experiment_id=experiment_id,
-            start_time=current_run,
-            tags=[],
-            user_id="Anderson",
-            run_name="name",
-        ).info.run_id
-
+        # Generate run_id using the same logic as create_run
+        run_id = uuid.uuid4().hex
         run_ids.append(run_id)
+
+        # Create artifact location using the same logic as create_run
+        artifact_location = append_to_uri_path(
+            experiment.artifact_location,
+            run_id,
+            store.ARTIFACTS_FOLDER_NAME,
+        )
+
+        # Generate run name using the same logic as create_run
+        run_name = _generate_random_name()
+
+        # Prepare run data for bulk insert
+        run_data = {
+            "run_uuid": run_id,
+            "name": run_name,
+            "source_type": SourceType.to_string(SourceType.UNKNOWN),
+            "source_name": "",
+            "entry_point_name": "",
+            "user_id": "Anderson",
+            "status": RunStatus.to_string(RunStatus.RUNNING),
+            "start_time": current_run,
+            "end_time": None,
+            "deleted_time": None,
+            "source_version": "",
+            "lifecycle_stage": LifecycleStage.ACTIVE,
+            "artifact_uri": artifact_location,
+            "experiment_id": experiment_id,
+        }
+        runs_list.append(run_data)
+
+        # Add run name tag (same logic as create_run)
+        tags_list.append(
+            {
+                "key": MLFLOW_RUN_NAME,
+                "value": run_name,
+                "run_uuid": run_id,
+            }
+        )
 
         for i in range(100):
             metric = {
@@ -3298,7 +3341,11 @@ def _generate_large_data(store, nb_runs=1000):
         )
         current_run += 1
 
+    # Bulk insert all data in a single transaction
     with store.engine.begin() as conn:
+        # Insert runs first (required for foreign key constraints)
+        conn.execute(sqlalchemy.insert(SqlRun), runs_list)
+        # Insert all related data
         conn.execute(sqlalchemy.insert(SqlParam), params_list)
         conn.execute(sqlalchemy.insert(SqlMetric), metrics_list)
         conn.execute(sqlalchemy.insert(SqlLatestMetric), latest_metrics_list)
