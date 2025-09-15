@@ -247,9 +247,9 @@ class FileStore(AbstractStore):
 
     def _get_experiment_path(self, experiment_id, view_type=ViewType.ALL, assert_exists=False):
         parents = []
-        if view_type == ViewType.ACTIVE_ONLY or view_type == ViewType.ALL:
+        if view_type in (ViewType.ACTIVE_ONLY, ViewType.ALL):
             parents.append(self.root_directory)
-        if view_type == ViewType.DELETED_ONLY or view_type == ViewType.ALL:
+        if view_type in (ViewType.DELETED_ONLY, ViewType.ALL):
             parents.append(self.trash_folder)
         for parent in parents:
             exp_list = find(parent, experiment_id, full_path=True)
@@ -355,9 +355,9 @@ class FileStore(AbstractStore):
 
         self._check_root_dir()
         experiment_ids = []
-        if view_type == ViewType.ACTIVE_ONLY or view_type == ViewType.ALL:
+        if view_type in (ViewType.ACTIVE_ONLY, ViewType.ALL):
             experiment_ids += self._get_active_experiments(full_path=False)
-        if view_type == ViewType.DELETED_ONLY or view_type == ViewType.ALL:
+        if view_type in (ViewType.DELETED_ONLY, ViewType.ALL):
             experiment_ids += self._get_deleted_experiments(full_path=False)
 
         experiments = []

@@ -374,7 +374,7 @@ class SearchUtils:
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return token.value
-        elif identifier_type == cls._PARAM_IDENTIFIER or identifier_type == cls._TAG_IDENTIFIER:
+        elif identifier_type in (cls._PARAM_IDENTIFIER, cls._TAG_IDENTIFIER):
             if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             raise MlflowException(

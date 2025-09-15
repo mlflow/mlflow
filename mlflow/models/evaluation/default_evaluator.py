@@ -488,13 +488,9 @@ class BuiltInEvaluator(ModelEvaluator):
             for param_name, param in parameters.items():
                 column = self.col_mapping.get(param_name, param_name)
 
-                if (
-                    column == "predictions"
-                    or column == self.predictions
-                    or column == self.dataset.predictions_name
-                ):
+                if column in ("predictions", self.predictions, self.dataset.predictions_name):
                     eval_fn_args.append(eval_df_copy["prediction"])
-                elif column == "targets" or column == self.dataset.targets_name:
+                elif column in ("targets", self.dataset.targets_name):
                     if "target" in eval_df_copy:
                         eval_fn_args.append(eval_df_copy["target"])
                     else:

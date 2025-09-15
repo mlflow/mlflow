@@ -15,8 +15,10 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/setup-node
       - uses: ./.github/actions/setup-python
+      - name: Install dependencies
+        run: |
+          uv sync --only-group lint
       - name: pre-commit setup
         run: |
-          uv pip install --system . -r requirements/lint-requirements.txt
-          pre-commit install --install-hooks
-          pre-commit run install-bin -a -v
+          uv run --only-group lint pre-commit install --install-hooks
+          uv run --only-group lint pre-commit run install-bin -a -v

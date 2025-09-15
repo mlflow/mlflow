@@ -562,10 +562,15 @@ def test_get_logged_model(mock_requests, mock_telemetry_client: TelemetryClient,
     mock_telemetry_client.flush()
 
     mlflow.sklearn.load_model(model_info.model_uri)
-    validate_telemetry_record(mock_telemetry_client, mock_requests, GetLoggedModelEvent.name)
+    data = validate_telemetry_record(
+        mock_telemetry_client, mock_requests, GetLoggedModelEvent.name, check_params=False
+    )
+    assert "sklearn" in json.loads(data["params"])["imports"]
 
     mlflow.pyfunc.load_model(model_info.model_uri)
-    validate_telemetry_record(mock_telemetry_client, mock_requests, GetLoggedModelEvent.name)
+    data = validate_telemetry_record(
+        mock_telemetry_client, mock_requests, GetLoggedModelEvent.name, check_params=False
+    )
 
     model_def = """
 import mlflow
@@ -586,14 +591,18 @@ set_model(TestModel())
     mock_telemetry_client.flush()
 
     mlflow.pyfunc.load_model(model_info.model_uri)
-    validate_telemetry_record(mock_telemetry_client, mock_requests, GetLoggedModelEvent.name)
+    data = validate_telemetry_record(
+        mock_telemetry_client, mock_requests, GetLoggedModelEvent.name, check_params=False
+    )
 
     # test load model after registry
     mlflow.register_model(model_info.model_uri, name="test")
     mock_telemetry_client.flush()
 
     mlflow.pyfunc.load_model("models:/test/1")
-    validate_telemetry_record(mock_telemetry_client, mock_requests, GetLoggedModelEvent.name)
+    data = validate_telemetry_record(
+        mock_telemetry_client, mock_requests, GetLoggedModelEvent.name, check_params=False
+    )
 
 
 def test_mcp_run(mock_requests, mock_telemetry_client: TelemetryClient):
