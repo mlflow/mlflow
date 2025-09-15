@@ -995,3 +995,9 @@ MLFLOW_SERVER_JOB_MAX_PARALLELISM = _EnvironmentVariable("MLFLOW_SERVER_JOB_MAX_
 MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES = _EnvironmentVariable(
     "MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES", int, 3
 )
+
+#: Specifies MLflow server job retry interval seconds for transient errors.
+#: (default: ``10``)
+MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_INTERVAL = _EnvironmentVariable(
+    "MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_INTERVAL", int, 10
+)

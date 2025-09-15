@@ -19,6 +19,7 @@ from mlflow.server import HUEY_STORAGE_PATH_ENV_VAR
 from mlflow.server.handlers import _get_tracking_store
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.exceptions import MlflowException
+from mlflow.environment_variables import MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_INTERVAL
 
 
 def _create_huey_instance():
@@ -58,7 +59,7 @@ def huey_task_exec_job(job_id: str, function: Callable, params: dict[str, Any]) 
         # trigger task retry by raising `RetryTask` exception.
         do_retry = tracking_store.retry_or_fail_job(job_id, repr(e))
         if do_retry:
-            raise RetryTask(delay=10)
+            raise RetryTask(delay=MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_INTERVAL.get())
     except Exception as e:
         tracking_store.fail_job(job_id, repr(e))
 
