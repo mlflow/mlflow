@@ -731,6 +731,10 @@ def serve_wheel(request, tmp_path_factory):
     """
     from tests.helper_functions import get_safe_port
 
+    if "GITHUB_COPILOT_API_TOKEN" in os.environ:
+        yield  # pytest expects a generator fixture to yield
+        return
+
     if not request.config.getoption("--serve-wheel"):
         yield  # pytest expects a generator fixture to yield
         return
