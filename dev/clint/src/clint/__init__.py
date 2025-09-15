@@ -1,7 +1,6 @@
 import argparse
 import itertools
 import json
-import os
 import re
 import sys
 import tempfile
@@ -36,10 +35,8 @@ def main() -> None:
     config = Config.load()
     args = Args.parse()
 
-    # Convert string paths to Path objects for resolve_paths
     input_paths = [Path(f) for f in args.files]
 
-    # Use resolve_paths to get git-tracked files with correct extensions
     resolved_files = resolve_paths(input_paths)
 
     # Apply exclude filtering
