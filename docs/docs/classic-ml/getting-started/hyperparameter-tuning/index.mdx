@@ -416,7 +416,7 @@ response = requests.post(
 )
 
 prediction = response.json()
-print(f"Predicted wine quality: {prediction['predictions'][0]:.2f}")
+print(f"Predicted wine quality: {prediction['predictions'][0][0]:.2f}")
 ```
 
 ## Step 8: Build Production Container
