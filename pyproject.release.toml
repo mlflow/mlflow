@@ -36,6 +36,7 @@ dependencies = [
   "fastmcp<3,>=2.0.0",
   "graphene<4",
   "gunicorn<24; platform_system != 'Windows'",
+  "huey<3,>=2.5.0",
   "matplotlib<4",
   "numpy<3",
   "pandas<3",
