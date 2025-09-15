@@ -828,6 +828,8 @@ def _maybe_decompress_cloudpickle_load(path, compression):
 
 
 if IS_PYDANTIC_V2_OR_NEWER:
+    from pydantic import BaseModel
+
     from mlflow.types.responses import (
         Message,
         OutputItem,
@@ -1077,19 +1079,23 @@ if IS_PYDANTIC_V2_OR_NEWER:
 
         @staticmethod
         def _prep_msgs_for_cc_llm(
-            responses_input: list[Union[Message, OutputItem]],
+            responses_input: list[Union[dict, Message, OutputItem]],
         ) -> list[dict[str, Any]]:
             "Convert from Responses input items to ChatCompletion dictionaries"
             cc_msgs = []
             for msg in responses_input:
-                cc_msgs.extend(ResponsesAgent._responses_to_cc(msg.model_dump()))
+                if isinstance(msg, BaseModel):
+                    cc_msgs.extend(ResponsesAgent._responses_to_cc(msg.model_dump()))
+                else:
+                    cc_msgs.extend(ResponsesAgent._responses_to_cc(msg))
+            return cc_msgs
 
         @staticmethod
         def output_to_responses_items(
             messages: Iterator[dict[str, Any]],
-        ) -> list[Union[Message, OutputItem]]:
+        ) -> list[Union[Message, dict[str, Any]]]:
             """
-            For non-streaming, convert from various message formats to Responses output items.
+            For non-streaming, convert from various message formats to Responses output items in dict format.
             For now, only handle ChatCompletion messages
             """
             responses_output = []
@@ -1099,12 +1105,15 @@ if IS_PYDANTIC_V2_OR_NEWER:
 
         @staticmethod
         def output_to_responses_items_stream(
-            chunks: Iterator[dict[str, Any]],
-        ) -> Generator[Union[ResponsesAgentStreamEvent, list[OutputItem]], None, None]:
+            chunks: Iterator[dict[str, Any]], aggregator: Optional[list[dict[str, Any]]] = None
+        ) -> Generator[Union[ResponsesAgentStreamEvent, list[dict[str, Any]]], None, None]:
             """
-            For streaming, convert from various message formats to Responses output items, returning
-            a generator of ResponsesAgentStreamEvent objects and ending with an array of OutputItem
-            objects. For now, only handle a stream of Chat Completion chunks.
+            For streaming, convert from various message format dicts to Responses output items, returning
+            a generator of ResponsesAgentStreamEvent objects and ending with an array of output item dicts.
+
+            Optionally pass in `aggregator` to keep a copy of the aggregated output items.
+
+            For now, only handle a stream of Chat Completion chunks.
             """
             llm_content = ""
             reasoning_content = ""
@@ -1115,8 +1124,6 @@ if IS_PYDANTIC_V2_OR_NEWER:
                 delta = chunk["choices"][0]["delta"]
                 msg_id = chunk.get("id", None)
                 content = delta.get("content", None)
-                print("content", content)
-                print("content is none", content is None)
                 if tc := delta.get("tool_calls"):
                     if not tool_calls:  # only accomodate for single tool call right now
                         tool_calls = tc
@@ -1128,11 +1135,8 @@ if IS_PYDANTIC_V2_OR_NEWER:
                     if isinstance(content, list):
                         for item in content:
                             if isinstance(item, dict):
-                                print("item", item)
-                                print("item.get('type')", item.get("type"))
                                 if item.get("type") == "reasoning":
                                     reasoning_content += item.get("summary", [])[0].get("text", "")
-                                    print("reasoning_content", reasoning_content)
                                 if item.get("type") == "text" and item.get("text"):
                                     llm_content += item["text"]
                                     yield ResponsesAgentStreamEvent(
@@ -1149,7 +1153,6 @@ if IS_PYDANTIC_V2_OR_NEWER:
                         reasoning_content = ""
 
                     if isinstance(content, str):
-                        print("content down here", content, delta)
                         llm_content += content
                         yield ResponsesAgentStreamEvent(
                             **ResponsesAgent.create_text_delta(content, item_id=msg_id)
@@ -1160,6 +1163,14 @@ if IS_PYDANTIC_V2_OR_NEWER:
                 "content": llm_content,
                 "tool_calls": tool_calls,
             }
+
+            if aggregator is not None:
+                if reasoning_item:
+                    aggregator.extend(
+                        [reasoning_item, *ResponsesAgent._cc_to_responses(aggregated_llm_output)]
+                    )
+                else:
+                    aggregator.extend(ResponsesAgent._cc_to_responses(aggregated_llm_output))
 
             # yield an `output_item.done` `output_text` event that aggregates the stream
             # this enables tracing and payload logging
@@ -1183,10 +1194,6 @@ if IS_PYDANTIC_V2_OR_NEWER:
                             tool_call["function"]["arguments"],
                         ),
                     )
-
-            if reasoning_item:
-                return [reasoning_item, *ResponsesAgent._cc_to_responses(aggregated_llm_output)]
-            return ResponsesAgent._cc_to_responses(aggregated_llm_output)
 
         @staticmethod
         def _cc_to_responses(message: dict[str, Any]) -> list[dict[str, Any]]:
