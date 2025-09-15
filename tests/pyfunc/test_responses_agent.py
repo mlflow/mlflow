@@ -7,7 +7,6 @@ import pytest
 
 from mlflow.entities.span import SpanType
 from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
-
 from tests.tracing.helper import get_traces, purge_traces
 
 if not IS_PYDANTIC_V2_OR_NEWER:
@@ -504,3 +503,520 @@ def test_responses_agent_non_mlflow_decorators():
     assert len(spans_mixed_stream) == 1
     assert spans_mixed_stream[0].name == "predict_stream"
     assert spans_mixed_stream[0].span_type == SpanType.AGENT
+
+
+def test_responses_agent_output_to_responses_items():
+    pass
+
+
+@pytest.mark.parametrize(
+    ("chunks", "expected_output"),
+    [
+        (
+            [
+                {
+                    "id": "chatcmpl_fd04a20f-f348-45e1-af37-68cf3bb08bdb",
+                    "choices": [{"delta": {"content": "", "role": "assistant"}, "index": 0}],
+                    "object": "chat.completion.chunk",
+                },
+                {
+                    "id": "chatcmpl_fd04a20f-f348-45e1-af37-68cf3bb08bdb",
+                    "choices": [
+                        {
+                            "delta": {
+                                "content": [
+                                    {
+                                        "type": "reasoning",
+                                        "summary": [{"type": "summary_text", "text": "We"}],
+                                    }
+                                ]
+                            },
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                {
+                    "id": "chatcmpl_fd04a20f-f348-45e1-af37-68cf3bb08bdb",
+                    "choices": [
+                        {
+                            "delta": {
+                                "content": [
+                                    {
+                                        "type": "reasoning",
+                                        "summary": [{"type": "summary_text", "text": " need"}],
+                                    }
+                                ]
+                            },
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                {
+                    "id": "chatcmpl_fd04a20f-f348-45e1-af37-68cf3bb08bdb",
+                    "choices": [{"delta": {"content": ""}, "index": 0}],
+                    "object": "chat.completion.chunk",
+                },
+                {
+                    "id": "chatcmpl_fd04a20f-f348-45e1-af37-68cf3bb08bdb",
+                    "choices": [{"delta": {"content": "Hello"}, "index": 0}],
+                    "object": "chat.completion.chunk",
+                },
+                {
+                    "id": "chatcmpl_fd04a20f-f348-45e1-af37-68cf3bb08bdb",
+                    "choices": [{"delta": {"content": "!"}, "index": 0}],
+                    "object": "chat.completion.chunk",
+                },
+            ],
+            [
+                ResponsesAgentStreamEvent(
+                    type="response.output_text.delta",
+                    custom_outputs=None,
+                    item_id="chatcmpl_fd04a20f-f348-45e1-af37-68cf3bb08bdb",
+                    delta="",
+                ),
+                ResponsesAgentStreamEvent(
+                    type="reasoning",
+                    custom_outputs=None,
+                    summary=[{"type": "summary_text", "text": "We need"}],
+                    id="chatcmpl_fd04a20f-f348-45e1-af37-68cf3bb08bdb",
+                ),
+                ResponsesAgentStreamEvent(
+                    type="response.output_text.delta",
+                    custom_outputs=None,
+                    item_id="chatcmpl_fd04a20f-f348-45e1-af37-68cf3bb08bdb",
+                    delta="",
+                ),
+                ResponsesAgentStreamEvent(
+                    type="response.output_text.delta",
+                    custom_outputs=None,
+                    item_id="chatcmpl_fd04a20f-f348-45e1-af37-68cf3bb08bdb",
+                    delta="Hello",
+                ),
+                ResponsesAgentStreamEvent(
+                    type="response.output_text.delta",
+                    custom_outputs=None,
+                    item_id="chatcmpl_fd04a20f-f348-45e1-af37-68cf3bb08bdb",
+                    delta="!",
+                ),
+                ResponsesAgentStreamEvent(
+                    type="response.output_item.done",
+                    custom_outputs=None,
+                    item={
+                        "id": "chatcmpl_fd04a20f-f348-45e1-af37-68cf3bb08bdb",
+                        "content": [{"text": "Hello!", "type": "output_text"}],
+                        "role": "assistant",
+                        "type": "message",
+                    },
+                ),
+            ],
+        ),
+        (
+            [
+                {
+                    "id": "chatcmpl_fd04a20f-f348-45e1-af37-68cf3bb08bdb",
+                    "choices": [
+                        {
+                            "delta": {"content": "", "role": "assistant"},
+                            "finish_reason": None,
+                            "index": 0,
+                            "logprobs": None,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                {
+                    "id": "chatcmpl_fd04a20f-f348-45e1-af37-68cf3bb08bdb",
+                    "choices": [
+                        {
+                            "delta": {
+                                "content": [
+                                    {
+                                        "type": "reasoning",
+                                        "summary": [
+                                            {
+                                                "type": "summary_text",
+                                                "text": 'We need to respond. The user just says "hi". We can reply friendly.',
+                                            }
+                                        ],
+                                    },
+                                    {"type": "text", "text": "Hello! How can I help you today?"},
+                                ]
+                            },
+                            "finish_reason": None,
+                            "index": 0,
+                            "logprobs": None,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                {
+                    "id": "chatcmpl_fd04a20f-f348-45e1-af37-68cf3bb08bdb",
+                    "choices": [
+                        {
+                            "delta": {"content": ""},
+                            "finish_reason": "stop",
+                            "index": 0,
+                            "logprobs": None,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+            ],
+            [
+                ResponsesAgentStreamEvent(
+                    type="response.output_text.delta",
+                    custom_outputs=None,
+                    item_id="chatcmpl_fd04a20f-f348-45e1-af37-68cf3bb08bdb",
+                    delta="",
+                ),
+                ResponsesAgentStreamEvent(
+                    type="response.output_text.delta",
+                    custom_outputs=None,
+                    item_id="chatcmpl_fd04a20f-f348-45e1-af37-68cf3bb08bdb",
+                    delta="Hello! How can I help you today?",
+                ),
+                ResponsesAgentStreamEvent(
+                    type="reasoning",
+                    custom_outputs=None,
+                    summary=[
+                        {
+                            "type": "summary_text",
+                            "text": 'We need to respond. The user just says "hi". We can reply friendly.',
+                        }
+                    ],
+                    id="chatcmpl_fd04a20f-f348-45e1-af37-68cf3bb08bdb",
+                ),
+                ResponsesAgentStreamEvent(
+                    type="response.output_text.delta",
+                    custom_outputs=None,
+                    item_id="chatcmpl_fd04a20f-f348-45e1-af37-68cf3bb08bdb",
+                    delta="",
+                ),
+                ResponsesAgentStreamEvent(
+                    type="response.output_item.done",
+                    custom_outputs=None,
+                    item={
+                        "id": "chatcmpl_fd04a20f-f348-45e1-af37-68cf3bb08bdb",
+                        "content": [
+                            {"text": "Hello! How can I help you today?", "type": "output_text"}
+                        ],
+                        "role": "assistant",
+                        "type": "message",
+                    },
+                ),
+            ],
+        ),
+        (
+            [
+                {
+                    "id": "msg_bdrk_016AC1ojH743YLHDfgnf4B7Y",
+                    "choices": [
+                        {
+                            "delta": {"content": "Hello", "role": "assistant"},
+                            "finish_reason": None,
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                {
+                    "id": "msg_bdrk_016AC1ojH743YLHDfgnf4B7Y",
+                    "choices": [
+                        {
+                            "delta": {"content": " there! I'", "role": "assistant"},
+                            "finish_reason": None,
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+            ],
+            [
+                ResponsesAgentStreamEvent(
+                    type="response.output_text.delta",
+                    custom_outputs=None,
+                    item_id="msg_bdrk_016AC1ojH743YLHDfgnf4B7Y",
+                    delta="Hello",
+                ),
+                ResponsesAgentStreamEvent(
+                    type="response.output_text.delta",
+                    custom_outputs=None,
+                    item_id="msg_bdrk_016AC1ojH743YLHDfgnf4B7Y",
+                    delta=" there! I'",
+                ),
+                ResponsesAgentStreamEvent(
+                    type="response.output_item.done",
+                    custom_outputs=None,
+                    item={
+                        "id": "msg_bdrk_016AC1ojH743YLHDfgnf4B7Y",
+                        "content": [{"text": "Hello there! I'", "type": "output_text"}],
+                        "role": "assistant",
+                        "type": "message",
+                    },
+                ),
+            ],
+        ),
+        (
+            [
+                {
+                    "id": "msg_bdrk_015YdA8hjVSHWxpAdecgHqj3",
+                    "choices": [
+                        {
+                            "delta": {"content": "I", "role": "assistant"},
+                            "finish_reason": None,
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                {
+                    "id": "msg_bdrk_015YdA8hjVSHWxpAdecgHqj3",
+                    "choices": [
+                        {
+                            "delta": {"content": " can help you calculate 4*", "role": "assistant"},
+                            "finish_reason": None,
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                {
+                    "id": "msg_bdrk_015YdA8hjVSHWxpAdecgHqj3",
+                    "choices": [
+                        {
+                            "delta": {
+                                "content": None,
+                                "role": "assistant",
+                                "tool_calls": [
+                                    {
+                                        "index": 0,
+                                        "id": "toolu_bdrk_01XKD5j3Ru1dk3jnm69xkXUL",
+                                        "function": {
+                                            "arguments": "",
+                                            "name": "system__ai__python_exec",
+                                        },
+                                        "type": "function",
+                                    }
+                                ],
+                            },
+                            "finish_reason": None,
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                {
+                    "id": "msg_bdrk_015YdA8hjVSHWxpAdecgHqj3",
+                    "choices": [
+                        {
+                            "delta": {
+                                "content": None,
+                                "role": "assistant",
+                                "tool_calls": [{"index": 0, "function": {"arguments": ""}}],
+                            },
+                            "finish_reason": None,
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                {
+                    "id": "msg_bdrk_015YdA8hjVSHWxpAdecgHqj3",
+                    "choices": [
+                        {
+                            "delta": {
+                                "content": None,
+                                "role": "assistant",
+                                "tool_calls": [
+                                    {"index": 0, "function": {"arguments": '{"code": "#'}}
+                                ],
+                            },
+                            "finish_reason": None,
+                            "index": 0,
+                        }
+                    ],
+                    "created": 1757977465,
+                    "model": "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+                    "object": "chat.completion.chunk",
+                },
+                {
+                    "id": "msg_bdrk_015YdA8hjVSHWxpAdecgHqj3",
+                    "choices": [
+                        {
+                            "delta": {
+                                "content": None,
+                                "role": "assistant",
+                                "tool_calls": [{"index": 0, "function": {"arguments": " Calc"}}],
+                            },
+                            "finish_reason": None,
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                {
+                    "id": "msg_bdrk_015YdA8hjVSHWxpAdecgHqj3",
+                    "choices": [
+                        {
+                            "delta": {
+                                "content": None,
+                                "role": "assistant",
+                                "tool_calls": [
+                                    {"index": 0, "function": {"arguments": "ulate 4*3"}}
+                                ],
+                            },
+                            "finish_reason": None,
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                {
+                    "id": "msg_bdrk_015YdA8hjVSHWxpAdecgHqj3",
+                    "choices": [
+                        {
+                            "delta": {"content": "", "role": "assistant"},
+                            "finish_reason": "tool_calls",
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+            ],
+            [
+                ResponsesAgentStreamEvent(
+                    type="response.output_text.delta",
+                    custom_outputs=None,
+                    item_id="msg_bdrk_015YdA8hjVSHWxpAdecgHqj3",
+                    delta="I",
+                ),
+                ResponsesAgentStreamEvent(
+                    type="response.output_text.delta",
+                    custom_outputs=None,
+                    item_id="msg_bdrk_015YdA8hjVSHWxpAdecgHqj3",
+                    delta=" can help you calculate 4*",
+                ),
+                ResponsesAgentStreamEvent(
+                    type="response.output_text.delta",
+                    custom_outputs=None,
+                    item_id="msg_bdrk_015YdA8hjVSHWxpAdecgHqj3",
+                    delta="",
+                ),
+                ResponsesAgentStreamEvent(
+                    type="response.output_item.done",
+                    custom_outputs=None,
+                    item={
+                        "id": "msg_bdrk_015YdA8hjVSHWxpAdecgHqj3",
+                        "content": [{"text": "I can help you calculate 4*", "type": "output_text"}],
+                        "role": "assistant",
+                        "type": "message",
+                    },
+                ),
+                ResponsesAgentStreamEvent(
+                    type="response.output_item.done",
+                    custom_outputs=None,
+                    item={
+                        "type": "function_call",
+                        "id": "msg_bdrk_015YdA8hjVSHWxpAdecgHqj3",
+                        "call_id": "toolu_bdrk_01XKD5j3Ru1dk3jnm69xkXUL",
+                        "name": "system__ai__python_exec",
+                        "arguments": '{"code": "# Calculate 4*3',
+                    },
+                ),
+            ],
+        ),
+        (
+            [
+                {
+                    "id": "chatcmpl_56a443d8-bf71-4f71-aff5-082191c4db1e",
+                    "choices": [
+                        {
+                            "delta": {
+                                "content": None,
+                                "role": "assistant",
+                                "tool_calls": [
+                                    {
+                                        "index": 0,
+                                        "id": "call_39565342-e7d7-4ed5-a3e3-ea115a7f9fc6",
+                                        "function": {
+                                            "arguments": "",
+                                            "name": "system__ai__python_exec",
+                                        },
+                                        "type": "function",
+                                    }
+                                ],
+                            },
+                            "finish_reason": None,
+                            "index": 0,
+                            "logprobs": None,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                {
+                    "id": "chatcmpl_56a443d8-bf71-4f71-aff5-082191c4db1e",
+                    "choices": [
+                        {
+                            "delta": {
+                                "content": None,
+                                "tool_calls": [
+                                    {
+                                        "index": 0,
+                                        "function": {
+                                            "arguments": '{\n  "code": "result = 4 * 3\\nprint(result)"\n}'
+                                        },
+                                    }
+                                ],
+                            },
+                            "finish_reason": None,
+                            "index": 0,
+                            "logprobs": None,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                {
+                    "id": "chatcmpl_56a443d8-bf71-4f71-aff5-082191c4db1e",
+                    "choices": [
+                        {
+                            "delta": {
+                                "content": None,
+                                "tool_calls": [{"index": 0, "function": {"arguments": ""}}],
+                            },
+                            "finish_reason": "tool_calls",
+                            "index": 0,
+                            "logprobs": None,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+            ],
+            [
+                ResponsesAgentStreamEvent(
+                    type="response.output_item.done",
+                    custom_outputs=None,
+                    item={
+                        "type": "function_call",
+                        "id": "chatcmpl_56a443d8-bf71-4f71-aff5-082191c4db1e",
+                        "call_id": "call_39565342-e7d7-4ed5-a3e3-ea115a7f9fc6",
+                        "name": "system__ai__python_exec",
+                        "arguments": '{\n  "code": "result = 4 * 3\\nprint(result)"\n}',
+                    },
+                )
+            ],
+        ),
+    ],
+)
+def test_responses_agent_output_to_responses_items_stream(chunks, expected_output):
+    """
+    In order of the parameters:
+    1. gpt oss with no tools streaming (other models don't differentiate between w/ and w/o tools streaming)
+    2. gpt oss with tools streaming
+    3. claude no tool call streaming
+    4. claude tool call streaming
+    """
+    converted_output = list(ResponsesAgent.output_to_responses_items_stream(chunks))
+    print("content", converted_output)
+    assert converted_output == expected_output

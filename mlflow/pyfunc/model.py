@@ -6,13 +6,14 @@ models with a user-defined ``PythonModel`` subclass.
 import bz2
 import gzip
 import inspect
+import json
 import logging
 import lzma
 import os
 import shutil
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
-from typing import Any, Generator, Union
+from typing import Any, Generator, Iterator, Optional, Union
 from uuid import uuid4
 
 import cloudpickle
@@ -928,7 +929,8 @@ if IS_PYDANTIC_V2_OR_NEWER:
                 "`predict_stream` method on your model to generate streaming predictions"
             )
 
-        def create_text_delta(self, delta: str, item_id: str) -> dict[str, Any]:
+        @staticmethod
+        def create_text_delta(delta: str, item_id: str) -> dict[str, Any]:
             """Helper method to create a dictionary conforming to the text delta schema for
             streaming.
 
@@ -940,8 +942,9 @@ if IS_PYDANTIC_V2_OR_NEWER:
                 "delta": delta,
             }
 
+        @staticmethod
         def create_annotation_added(
-            self, item_id: str, annotation: dict[str, Any], annotation_index: Optional[int] = 0
+            item_id: str, annotation: dict[str, Any], annotation_index: Optional[int] = 0
         ) -> dict[str, Any]:
             return {
                 "type": "response.output_text.annotation.added",
@@ -950,8 +953,9 @@ if IS_PYDANTIC_V2_OR_NEWER:
                 "annotation": annotation,
             }
 
+        @staticmethod
         def create_text_output_item(
-            self, text: str, id: str, annotations: Optional[list[dict]] = None
+            text: str, id: str, annotations: Optional[list[dict]] = None
         ) -> dict[str, Any]:
             """Helper method to create a dictionary conforming to the text output item schema.
 
@@ -975,7 +979,8 @@ if IS_PYDANTIC_V2_OR_NEWER:
                 "type": "message",
             }
 
-        def create_reasoning_item(self, id: str, reasoning_text: str) -> dict[str, Any]:
+        @staticmethod
+        def create_reasoning_item(id: str, reasoning_text: str) -> dict[str, Any]:
             """Helper method to create a dictionary conforming to the reasoning item schema.
 
             Read more at https://www.mlflow.org/docs/latest/llms/responses-agent-intro/#creating-agent-output.
@@ -991,8 +996,9 @@ if IS_PYDANTIC_V2_OR_NEWER:
                 "id": id,
             }
 
+        @staticmethod
         def create_function_call_item(
-            self, id: str, call_id: str, name: str, arguments: str
+            id: str, call_id: str, name: str, arguments: str
         ) -> dict[str, Any]:
             """Helper method to create a dictionary conforming to the function call item schema.
 
@@ -1012,7 +1018,8 @@ if IS_PYDANTIC_V2_OR_NEWER:
                 "arguments": arguments,
             }
 
-        def create_function_call_output_item(self, call_id: str, output: str) -> dict[str, Any]:
+        @staticmethod
+        def create_function_call_output_item(call_id: str, output: str) -> dict[str, Any]:
             """Helper method to create a dictionary conforming to the function call output item
             schema.
 
@@ -1028,14 +1035,15 @@ if IS_PYDANTIC_V2_OR_NEWER:
                 "output": output,
             }
 
-        def _responses_to_cc(self, message: dict[str, Any]) -> list[dict[str, Any]]:
-            """Convert from a Responses API output item to ChatCompletion messages."""
+        @staticmethod
+        def _responses_to_cc(message: dict[str, Any]) -> list[dict[str, Any]]:
+            """Convert from a Responses API output item to  a list of ChatCompletion messages."""
             msg_type = message.get("type")
             if msg_type == "function_call":
                 return [
                     {
                         "role": "assistant",
-                        "content": "tool call",
+                        "content": "tool call",  # empty content is not supported by claude models
                         "tool_calls": [
                             {
                                 "id": message["call_id"],
@@ -1048,11 +1056,13 @@ if IS_PYDANTIC_V2_OR_NEWER:
                         ],
                     }
                 ]
-            elif msg_type == "message" and isinstance(message["content"], list):
+            elif msg_type == "message" and isinstance(message.get("content"), list):
                 return [
                     {"role": message["role"], "content": content["text"]}
                     for content in message["content"]
                 ]
+            elif msg_type == "reasoning":
+                return [{"role": "assistant", "content": json.dumps(message["summary"])}]
             elif msg_type == "function_call_output":
                 return [
                     {
@@ -1062,23 +1072,130 @@ if IS_PYDANTIC_V2_OR_NEWER:
                     }
                 ]
             compatible_keys = ["role", "content", "name", "tool_calls", "tool_call_id"]
-            return [{k: v for k, v in message.items() if k in compatible_keys}]
+            filtered = {k: v for k, v in message.items() if k in compatible_keys}
+            return [filtered] if filtered else []
 
+        @staticmethod
         def _prep_msgs_for_cc_llm(
-            self, responses_input: list[Union[Message, OutputItem]]
+            responses_input: list[Union[Message, OutputItem]],
         ) -> list[dict[str, Any]]:
             "Convert from Responses input items to ChatCompletion dictionaries"
             cc_msgs = []
             for msg in responses_input:
-                cc_msgs.extend(self._responses_to_cc(msg.model_dump()))
+                cc_msgs.extend(ResponsesAgent._responses_to_cc(msg.model_dump()))
 
-        def _cc_to_responses(self, message: dict[str, Any]) -> dict[str, Any]:
+        @staticmethod
+        def output_to_responses_items(
+            messages: Iterator[dict[str, Any]],
+        ) -> list[Union[Message, OutputItem]]:
+            """
+            For non-streaming, convert from various message formats to Responses output items.
+            For now, only handle ChatCompletion messages
+            """
+            responses_output = []
+            for msg in messages:
+                responses_output.extend(ResponsesAgent._cc_to_responses(msg))
+            return responses_output
+
+        @staticmethod
+        def output_to_responses_items_stream(
+            chunks: Iterator[dict[str, Any]],
+        ) -> Generator[Union[ResponsesAgentStreamEvent, list[OutputItem]], None, None]:
+            """
+            For streaming, convert from various message formats to Responses output items, returning
+            a generator of ResponsesAgentStreamEvent objects and ending with an array of OutputItem
+            objects. For now, only handle a stream of Chat Completion chunks.
+            """
+            llm_content = ""
+            reasoning_content = ""
+            tool_calls = []
+            msg_id = None
+            reasoning_item = None
+            for chunk in chunks:
+                delta = chunk["choices"][0]["delta"]
+                msg_id = chunk.get("id", None)
+                content = delta.get("content", None)
+                print("content", content)
+                print("content is none", content is None)
+                if tc := delta.get("tool_calls"):
+                    if not tool_calls:  # only accomodate for single tool call right now
+                        tool_calls = tc
+                    else:
+                        tool_calls[0]["function"]["arguments"] += tc[0]["function"]["arguments"]
+                elif content is not None:
+                    # logic for content item format
+                    # https://docs.databricks.com/aws/en/machine-learning/foundation-model-apis/api-reference#contentitem
+                    if isinstance(content, list):
+                        for item in content:
+                            if isinstance(item, dict):
+                                print("item", item)
+                                print("item.get('type')", item.get("type"))
+                                if item.get("type") == "reasoning":
+                                    reasoning_content += item.get("summary", [])[0].get("text", "")
+                                    print("reasoning_content", reasoning_content)
+                                if item.get("type") == "text" and item.get("text"):
+                                    llm_content += item["text"]
+                                    yield ResponsesAgentStreamEvent(
+                                        **ResponsesAgent.create_text_delta(
+                                            item["text"], item_id=msg_id
+                                        )
+                                    )
+                    elif reasoning_content != "":
+                        # indicates reasoning content is done streaming
+                        reasoning_item = ResponsesAgentStreamEvent(
+                            **ResponsesAgent.create_reasoning_item(msg_id, reasoning_content)
+                        )
+                        yield reasoning_item
+                        reasoning_content = ""
+
+                    if isinstance(content, str):
+                        print("content down here", content, delta)
+                        llm_content += content
+                        yield ResponsesAgentStreamEvent(
+                            **ResponsesAgent.create_text_delta(content, item_id=msg_id)
+                        )
+
+            aggregated_llm_output = {
+                "role": "assistant",
+                "content": llm_content,
+                "tool_calls": tool_calls,
+            }
+
+            # yield an `output_item.done` `output_text` event that aggregates the stream
+            # this enables tracing and payload logging
+            if aggregated_llm_output["content"]:
+                yield ResponsesAgentStreamEvent(
+                    type="response.output_item.done",
+                    item=ResponsesAgent.create_text_output_item(
+                        aggregated_llm_output["content"], msg_id
+                    ),
+                )
+
+            # yield an `output_item.done` `function_call` event for each tool call
+            if tool_calls := aggregated_llm_output.get("tool_calls", None):
+                for tool_call in tool_calls:
+                    yield ResponsesAgentStreamEvent(
+                        type="response.output_item.done",
+                        item=ResponsesAgent.create_function_call_item(
+                            msg_id,
+                            tool_call["id"],
+                            tool_call["function"]["name"],
+                            tool_call["function"]["arguments"],
+                        ),
+                    )
+
+            if reasoning_item:
+                return [reasoning_item, *ResponsesAgent._cc_to_responses(aggregated_llm_output)]
+            return ResponsesAgent._cc_to_responses(aggregated_llm_output)
+
+        @staticmethod
+        def _cc_to_responses(message: dict[str, Any]) -> list[dict[str, Any]]:
             "Convert from ChatCompletion dict to Responses output item dictionaries"
             role = message["role"]
             if role == "assistant":
                 if tool_calls := message.get("tool_calls"):
                     return [
-                        self.create_function_call_item(
+                        ResponsesAgent.create_function_call_item(
                             id=str(uuid4()),
                             call_id=tool_call["id"],
                             name=tool_call["function"]["name"],
@@ -1088,14 +1205,14 @@ if IS_PYDANTIC_V2_OR_NEWER:
                     ]
                 else:
                     return [
-                        self.create_text_output_item(
+                        ResponsesAgent.create_text_output_item(
                             text=message["content"],
                             id=str(uuid4()),
                         )
                     ]
             elif role == "tool":
                 return [
-                    self.create_function_call_output_item(
+                    ResponsesAgent.create_function_call_output_item(
                         call_id=message["tool_call_id"],
                         output=message["content"],
                     )
