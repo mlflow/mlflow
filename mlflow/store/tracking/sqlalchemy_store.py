@@ -3744,7 +3744,7 @@ class SqlAlchemyStore(AbstractStore):
         schema = (
             json.loads(existing_schema_json)
             if existing_schema_json
-            else {"inputs": {}, "expectations": {}, "version": "1.0"}
+            else {"inputs": {}, "outputs": {}, "expectations": {}, "version": "1.0"}
         )
 
         for record in record_dicts:
@@ -3752,6 +3752,11 @@ class SqlAlchemyStore(AbstractStore):
                 for key, value in inputs.items():
                     if key not in schema["inputs"]:
                         schema["inputs"][key] = self._infer_field_type(value)
+
+            if outputs := record.get("outputs"):
+                for key, value in outputs.items():
+                    if key not in schema["outputs"]:
+                        schema["outputs"][key] = self._infer_field_type(value)
 
             if expectations := record.get("expectations"):
                 for key, value in expectations.items():

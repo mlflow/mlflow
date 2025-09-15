@@ -1643,13 +1643,18 @@ class SqlEvaluationDatasetRecord(Base):
         """
         Merge new record data into this existing record.
 
-        Updates expectations and tags by merging new values with existing ones.
+        Updates outputs, expectations and tags by merging new values with existing ones.
         Preserves created_time and created_by from the original record.
 
         Args:
             new_record_dict: Dictionary containing new record data with optional
-                           'expectations' and 'tags' fields to merge.
+                           'outputs', 'expectations' and 'tags' fields to merge.
         """
+        if new_outputs := new_record_dict.get("outputs"):
+            if self.outputs is None:
+                self.outputs = {}
+            self.outputs.update(new_outputs)
+
         if new_expectations := new_record_dict.get("expectations"):
             if self.expectations is None:
                 self.expectations = {}
