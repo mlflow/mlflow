@@ -1622,6 +1622,7 @@ class SqlEvaluationDatasetRecord(Base):
         kwargs = {
             "dataset_id": record.dataset_id,
             "inputs": record.inputs,
+            "outputs": record.outputs,
             "expectations": record.expectations,
             "tags": record.tags,
             "source": source_dict,
