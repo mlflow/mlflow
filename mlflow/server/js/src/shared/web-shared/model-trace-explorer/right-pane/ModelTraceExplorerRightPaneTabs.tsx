@@ -47,6 +47,8 @@ function ModelTraceExplorerRightPaneTabsImpl({
 
   const exceptionCount = getSpanExceptionCount(activeSpan);
   const hasException = exceptionCount > 0;
+  const hasInputsOrOutputs = !isNil(activeSpan?.inputs) || !isNil(activeSpan?.outputs);
+
   const tabContent = (
     <Tabs.Root
       componentId="shared.model-trace-explorer.right-pane-tabs"
@@ -84,12 +86,14 @@ function ModelTraceExplorerRightPaneTabsImpl({
             <FormattedMessage defaultMessage="Chat" description="Label for the chat tab of the model trace explorer." />
           </Tabs.Trigger>
         )}
-        <Tabs.Trigger value="content">
-          <FormattedMessage
-            defaultMessage="Inputs / Outputs"
-            description="Label for the inputs and outputs tab of the model trace explorer."
-          />
-        </Tabs.Trigger>
+        {hasInputsOrOutputs && (
+          <Tabs.Trigger value="content">
+            <FormattedMessage
+              defaultMessage="Inputs / Outputs"
+              description="Label for the inputs and outputs tab of the model trace explorer."
+            />
+          </Tabs.Trigger>
+        )}
         {/* no i18n for attributes and events as these are properties specified by code,
             and it might be confusing for users to have different labels here */}
         <Tabs.Trigger value="attributes">Attributes</Tabs.Trigger>

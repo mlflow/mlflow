@@ -86,8 +86,6 @@ export const ModelTraceExplorerDetailView = ({
 
   const onSelectNode = (node?: ModelTraceSpanNode) => {
     setSelectedNode(node);
-    // Open left most tab when a span is clicked
-    setActiveTab(node?.chatMessages ? 'chat' : 'content');
     if (isString(node?.key)) {
       onSelectSpan?.(node?.key);
     }
