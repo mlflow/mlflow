@@ -38,6 +38,8 @@ import { RunViewEvaluationsTabArtifacts } from './RunViewEvaluationsTabArtifacts
 import { useGetExperimentRunColor } from '../experiment-page/hooks/useExperimentRunColor';
 import { useQueryClient } from '@databricks/web-shared/query-client';
 import { useSearchRunsQuery } from '../run-page/hooks/useSearchRunsQuery';
+import { getContentfulColumns } from '../experiment-page/components/traces-v3/utils/columnUtils';
+import { TRACE_ID_COLUMN_ID } from '@mlflow/mlflow/src/shared/web-shared/genai-traces-table/hooks/useTableColumns';
 
 const RunViewEvaluationsTabInner = ({
   experimentId,
@@ -62,6 +64,8 @@ const RunViewEvaluationsTabInner = ({
     assessmentInfos,
     allColumns,
     totalCount,
+    evaluatedTraces,
+    otherEvaluatedTraces,
     isLoading: isTableMetadataLoading,
     error: tableMetadataError,
     tableFilterOptions,
@@ -78,13 +82,19 @@ const RunViewEvaluationsTabInner = ({
   const queryClient = useQueryClient();
 
   const defaultSelectedColumns = useCallback((columns: TracesTableColumn[]) => {
+    const { responseHasContent, inputHasContent, tokensHasContent } = getContentfulColumns(
+      evaluatedTraces.concat(otherEvaluatedTraces),
+    );
+
     return columns.filter(
       (col) =>
         col.type === TracesTableColumnType.ASSESSMENT ||
         col.type === TracesTableColumnType.EXPECTATION ||
-        col.type === TracesTableColumnType.INPUT ||
+        (inputHasContent && col.type === TracesTableColumnType.INPUT) ||
+        (responseHasContent && col.type === TracesTableColumnType.TRACE_INFO && col.id === RESPONSE_COLUMN_ID) ||
+        (tokensHasContent && col.type === TracesTableColumnType.TRACE_INFO && col.id === TOKENS_COLUMN_ID) ||
         (col.type === TracesTableColumnType.TRACE_INFO &&
-          [EXECUTION_DURATION_COLUMN_ID, RESPONSE_COLUMN_ID, STATE_COLUMN_ID, TOKENS_COLUMN_ID].includes(col.id)),
+          [TRACE_ID_COLUMN_ID, EXECUTION_DURATION_COLUMN_ID, STATE_COLUMN_ID].includes(col.id)),
     );
   }, []);
 
