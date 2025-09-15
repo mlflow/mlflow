@@ -295,7 +295,6 @@ def save_model(
             f"Model was missing function: {pyfunc_predict_fn}. Not logging python_function flavor!"
         )
 
-    # Prepare flavor configuration
     flavor_config = {
         "pickled_model": model_data_subpath,
         "sklearn_version": sklearn.__version__,
@@ -303,7 +302,6 @@ def save_model(
         "code": code_path_subdir,
     }
 
-    # Add required trusted types for skops to load the model
     if serialization_format == SERIALIZATION_FORMAT_SKOPS:
         flavor_config["trusted_types"] = skops_untrusted_types
 
@@ -473,8 +471,7 @@ def _load_model_from_local_file(path, serialization_format, trusted_types=None):
             the following: ``mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE``,
             ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``, or
             ``mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS``.
-        trusted_types: List of trusted types for skops deserialization. If None and using skops,
-            will attempt to auto-detect trusted types.
+        trusted_types: List of types needing to be trusted for skops to load the model.
     """
     # TODO: we could validate the scikit-learn version here
     if serialization_format not in SUPPORTED_SERIALIZATION_FORMATS:
@@ -486,44 +483,19 @@ def _load_model_from_local_file(path, serialization_format, trusted_types=None):
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    if serialization_format == SERIALIZATION_FORMAT_SKOPS:
-        try:
+    with open(path, "rb") as f:
+        # Models serialized with Cloudpickle cannot necessarily be deserialized using Pickle;
+        # That's why we check the serialization format of the model before deserializing
+        if serialization_format == SERIALIZATION_FORMAT_PICKLE:
+            return pickle.load(f)
+        elif serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE:
+            import cloudpickle
+
+            return cloudpickle.load(f)
+        elif serialization_format == SERIALIZATION_FORMAT_SKOPS:
             import skops.io
-        except ImportError as e:
-            raise MlflowException(
-                message=(
-                    "Failed to import skops. Make sure skops is installed by running "
-                    "`pip install skops`."
-                ),
-                error_code=INTERNAL_ERROR,
-            ) from e
 
-        # Handle trusted types for skops
-        if trusted_types is None:
-            # Auto-detect untrusted types and use them as trusted
-            try:
-                untrusted_types = skops.io.get_untrusted_types(file=path)
-                trusted_types = untrusted_types
-                if untrusted_types:
-                    _logger.info(
-                        f"Auto-detected untrusted types for skops model: {untrusted_types}. "
-                        "These will be treated as trusted for loading."
-                    )
-            except Exception as e:
-                _logger.warning(f"Failed to auto-detect trusted types: {e}")
-                trusted_types = []
-
-        return skops.io.load(path, trusted=trusted_types)
-    else:
-        with open(path, "rb") as f:
-            # Models serialized with Cloudpickle cannot necessarily be deserialized using Pickle;
-            # That's why we check the serialization format of the model before deserializing
-            if serialization_format == SERIALIZATION_FORMAT_PICKLE:
-                return pickle.load(f)
-            elif serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE:
-                import cloudpickle
-
-                return cloudpickle.load(f)
+            return skops.io.load(f, trusted=trusted_types)
 
 
 def _load_pyfunc(path):
