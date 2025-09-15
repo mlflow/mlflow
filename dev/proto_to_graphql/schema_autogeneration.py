@@ -172,7 +172,7 @@ def get_graphene_type_for_field(field, is_input):
             return f"graphene.List(graphene.NonNull({referenced_class_name}))"
         else:
             return f"graphene.Field({referenced_class_name})"
-    elif field.type == FieldDescriptor.TYPE_GROUP or field.type == FieldDescriptor.TYPE_MESSAGE:
+    elif field.type in (FieldDescriptor.TYPE_GROUP, FieldDescriptor.TYPE_MESSAGE):
         if is_input:
             referenced_class_name = apply_schema_extension(
                 f"{get_descriptor_full_pascal_name(field.message_type)}Input"
