@@ -482,7 +482,6 @@ def _load_model_from_local_file(path, serialization_format, trusted_types=None):
             ),
             error_code=INVALID_PARAMETER_VALUE,
         )
-
     with open(path, "rb") as f:
         # Models serialized with Cloudpickle cannot necessarily be deserialized using Pickle;
         # That's why we check the serialization format of the model before deserializing
@@ -538,14 +537,11 @@ def _load_pyfunc(path):
         )
         path = os.path.join(path, pyfunc_flavor_conf["model_path"])
 
-    # Extract trusted types from sklearn flavor configuration for skops models
-    trusted_types = None
-    if serialization_format == SERIALIZATION_FORMAT_SKOPS:
-        try:
-            trusted_types = sklearn_flavor_conf.get("trusted_types")
-        except (NameError, AttributeError):
-            # sklearn_flavor_conf might not be defined for older models
-            trusted_types = None
+    trusted_types = (
+        sklearn_flavor_conf.get("trusted_types")
+        if serialization_format == SERIALIZATION_FORMAT_SKOPS
+        else None
+    )
 
     return _SklearnModelWrapper(
         _load_model_from_local_file(
