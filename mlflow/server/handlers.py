@@ -3040,7 +3040,12 @@ def _get_trace(trace_id):
     A request handler for `GET /ajax-api/3.0/mlflow/traces/{trace_id}`
     to get a specific trace.
     """
-    trace = _get_tracking_store().get_trace(trace_id)
+    try:
+        trace = _get_tracking_store().get_trace(trace_id)
+    except NotImplementedError:
+        raise MlflowException(
+            "Get trace not implemented in the tracking store", error_code=RESOURCE_DOES_NOT_EXIST
+        )
 
     response_message = GetTrace.Response(trace=trace.to_proto_v3())
 

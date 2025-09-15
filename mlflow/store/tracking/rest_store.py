@@ -1747,7 +1747,9 @@ class RestStore(AbstractStore):
             response_proto = self._call_endpoint(GetTrace, endpoint=endpoint)
             return Trace.from_proto_v3(response_proto.trace)
         except RestException as e:
-            if e.error_code == databricks_pb2.ErrorCode.Name(databricks_pb2.NOT_FOUND):
+            if e.error_code == databricks_pb2.ErrorCode.Name(
+                databricks_pb2.RESOURCE_DOES_NOT_EXIST
+            ):
                 raise MlflowTraceSpansNotFound(e.message)
             raise
         except MlflowException as e:

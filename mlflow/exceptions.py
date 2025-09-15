@@ -216,4 +216,4 @@ class MlflowTraceSpansNotFound(MlflowException):
     """Exception thrown when trace spans are not found in the tracking store"""
 
     def __init__(self, message: str):
-        super().__init__(message, error_code=NOT_FOUND)
+        super().__init__(message, error_code=RESOURCE_DOES_NOT_EXIST)

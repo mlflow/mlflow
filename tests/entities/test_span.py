@@ -3,7 +3,6 @@ from datetime import datetime
 
 import opentelemetry.trace as trace_api
 import pytest
-from google.protobuf.struct_pb2 import Value
 from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
 from opentelemetry.proto.trace.v1.trace_pb2 import Status as OTelProtoStatus
 from opentelemetry.sdk.trace import Event as OTelEvent
@@ -492,36 +491,39 @@ def test_span_from_otel_proto_conversion():
 def test_span_from_proto_conversion():
     proto_span = ProtoSpan()
     proto_span.name = "test_span"
-    proto_span.span_id = "span123"
-    proto_span.trace_id = "trace456"
-    proto_span.parent_id = "parent789"
-    proto_span.start_time_ns = 1000000000
-    proto_span.end_time_ns = 2000000000
+    proto_span.span_id = bytes.fromhex("12345678901234567890123456789012")
+    proto_span.trace_id = bytes.fromhex("12345678901234567890123456789012")
+    proto_span.parent_span_id = bytes.fromhex("0987654321098765")
+    proto_span.start_time_unix_nano = 1000000000
+    proto_span.end_time_unix_nano = 2000000000
 
-    proto_span.status.status_code = ProtoSpan.Status.OK
-    proto_span.status.description = "All good"
+    proto_span.status.code = ProtoSpan.Status.STATUS_CODE_OK
+    proto_span.status.message = "All good"
 
-    proto_span.attributes["mlflow.spanType"] = Value(string_value="LLM")
-    proto_span.attributes["mlflow.spanInputs"] = Value(string_value='{"prompt": "test"}')
-    proto_span.attributes["mlflow.spanOutputs"] = Value(string_value='{"response": "output"}')
-    proto_span.attributes["custom_attr"] = Value(string_value="custom_value")
+    proto_span.attributes["mlflow.spanType"].string_value = "LLM"
+    proto_span.attributes["mlflow.spanInputs"].string_value = '{"prompt": "test"}'
+    proto_span.attributes["mlflow.spanOutputs"].string_value = '{"response": "output"}'
+    proto_span.attributes[
+        "mlflow.traceRequestId"
+    ].string_value = "tr-12345678901234567890123456789012"
+    proto_span.attributes["custom_attr"].string_value = "custom_value"
 
     event = proto_span.events.add()
     event.name = "test_event"
-    event.timestamp = 1500000000
-    event.attributes["event_key"] = Value(string_value="event_value")
+    event.time_unix_nano = 1500000000
+    event.attributes["event_key"].string_value = "event_value"
 
     mlflow_span = Span.from_proto(proto_span)
 
     assert mlflow_span.name == "test_span"
-    assert mlflow_span.span_id == "span123"
-    assert mlflow_span.trace_id == "trace456"
-    assert mlflow_span.parent_id == "parent789"
+    assert mlflow_span.span_id == "12345678901234567890123456789012"
+    assert mlflow_span.trace_id == "tr-12345678901234567890123456789012"
+    assert mlflow_span.parent_id == "0987654321098765"
     assert mlflow_span.start_time_ns == 1000000000
     assert mlflow_span.end_time_ns == 2000000000
 
     assert mlflow_span.status.status_code == SpanStatusCode.OK
-    assert mlflow_span.status.description == "All good"
+    assert mlflow_span.status.description == ""
 
     assert mlflow_span.span_type == "LLM"
     assert mlflow_span.inputs == {"prompt": "test"}

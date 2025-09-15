@@ -255,7 +255,7 @@ def main() -> None:
     # generate java gencode using pinned protoc 3.19.4 version.
     gen_protos(
         MLFLOW_PROTOS_DIR,
-        basic_proto_files,
+        basic_proto_files + tracing_proto_files,
         "java",
         protoc3194,
         protoc3194_include,
