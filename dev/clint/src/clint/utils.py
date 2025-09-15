@@ -67,7 +67,7 @@ def resolve_paths(paths: list[Path]) -> list[Path]:
     Resolve CLI arguments into a list of tracked files to lint.
 
     - Only git-tracked files
-    - Only includes: .md, .mdx, .py, .ipynb
+    - Only includes: .md, .mdx, .rst, .py, .ipynb
     """
     if not paths:
         paths = [Path(".")]
