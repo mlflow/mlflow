@@ -25,7 +25,11 @@ class Args:
     @classmethod
     def parse(cls) -> Self:
         parser = argparse.ArgumentParser(description="Custom linter for mlflow.")
-        parser.add_argument("files", nargs="+", help="Files to lint.")
+        parser.add_argument(
+            "files",
+            nargs="*",
+            help="Files to lint. If not specified, lints all files in the current directory.",
+        )
         parser.add_argument("--output-format", default="text")
         args, _ = parser.parse_known_args()
         return cls(files=args.files, output_format=args.output_format)
@@ -46,6 +50,10 @@ def main() -> None:
         files = [f for f in resolved_files if not regex.match(str(f))]
     else:
         files = resolved_files
+
+    # Exit early if no files to lint
+    if not files:
+        return
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         # Pickle `SymbolIndex` to avoid expensive serialization overhead when passing

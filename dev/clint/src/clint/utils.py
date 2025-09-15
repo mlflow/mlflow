@@ -43,7 +43,7 @@ def get_ignored_rules_for_file(
     return ignored_rules
 
 
-ALLOWED_EXTS = {".md", ".mdx", ".py", ".ipynb"}
+ALLOWED_EXTS = {".md", ".mdx", ".rst", ".py", ".ipynb"}
 
 
 def _git_ls_files(pathspecs: list[Path]) -> list[Path]:
