@@ -106,14 +106,11 @@ def to_db_uri(db_path: Path) -> str:
 
 @pytest.fixture(scope="module")
 def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """Create a cached database for SQLite tests to improve performance."""
+    """Creates and caches a SQLite database to avoid repeated migrations for each test run."""
     tmp_dir = tmp_path_factory.mktemp("sqlite_db")
     db_path = tmp_dir / "mlflow.db"
     backend_uri = to_db_uri(db_path)
     artifact_uri = (tmp_dir / "artifacts").as_uri()
-
-    # Initialize the database by creating and disposing a SqlAlchemyStore
-    from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
     store = SqlAlchemyStore(backend_uri, artifact_uri)
     store.engine.dispose()
