@@ -1,13 +1,18 @@
+# Profiling context manager
+import cProfile
+import io
 import json
 import math
 import os
 import pathlib
+import pstats
 import random
 import re
 import shutil
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from unittest import mock
@@ -132,6 +137,17 @@ DB_URI = "sqlite:///"
 ARTIFACT_URI = "artifact_folder"
 
 pytestmark = pytest.mark.notrackingurimock
+
+
+@contextmanager
+def profile():
+    with cProfile.Profile() as pr:
+        yield
+        s = io.StringIO()
+        ps = pstats.Stats(pr, stream=s).sort_stats("cumulative")
+        ps.print_stats(30)  # Print top 20 functions
+        profile_output = s.getvalue()
+        raise Exception(f"\n[CPROFILE]:\n{profile_output}")
 
 
 # Helper functions for span tests
@@ -1207,7 +1223,7 @@ def test_log_metric(store: SqlAlchemyStore):
         assert run.data.metrics["NegInf"] == -1.7976931348623157e308
 
 
-def test_log_metric_concurrent_logging_succeeds(store: SqlAlchemyStore):
+def _test_log_metric_concurrent_logging_succeeds(store: SqlAlchemyStore):
     """
     Verifies that concurrent logging succeeds without deadlock, which has been an issue
     in previous MLflow releases
@@ -1264,6 +1280,11 @@ def test_log_metric_concurrent_logging_succeeds(store: SqlAlchemyStore):
             assert (
                 len(store.get_metric_history(run.info.run_id, f"metric_batch_{batch_idx}")) >= 100
             )
+
+
+def test_log_metric_concurrent_logging_succeeds(store: SqlAlchemyStore):
+    with profile():
+        _test_log_metric_concurrent_logging_succeeds(store)
 
 
 def test_record_logged_model(
@@ -3248,20 +3269,27 @@ def _generate_large_data(store, nb_runs=1000):
     current_run = 0
 
     run_ids = []
+    runs_list = []
     metrics_list = []
     tags_list = []
     params_list = []
     latest_metrics_list = []
 
     for _ in range(nb_runs):
-        run_id = store.create_run(
-            experiment_id=experiment_id,
-            start_time=current_run,
-            tags=[],
-            user_id="Anderson",
-            run_name="name",
-        ).info.run_id
+        run_id = uuid.uuid4().hex
 
+        # Create run record for direct insertion
+        run_record = {
+            "run_uuid": run_id,
+            "experiment_id": experiment_id,
+            "start_time": current_run,
+            "user_id": "Anderson",
+            "name": "name",
+            "status": "SCHEDULED",
+            "source_type": "LOCAL",
+            "lifecycle_stage": "active",
+        }
+        runs_list.append(run_record)
         run_ids.append(run_id)
 
         for i in range(100):
@@ -3299,6 +3327,7 @@ def _generate_large_data(store, nb_runs=1000):
         current_run += 1
 
     with store.engine.begin() as conn:
+        conn.execute(sqlalchemy.insert(SqlRun), runs_list)
         conn.execute(sqlalchemy.insert(SqlParam), params_list)
         conn.execute(sqlalchemy.insert(SqlMetric), metrics_list)
         conn.execute(sqlalchemy.insert(SqlLatestMetric), latest_metrics_list)
@@ -3307,9 +3336,7 @@ def _generate_large_data(store, nb_runs=1000):
     return experiment_id, run_ids
 
 
-def test_search_runs_returns_expected_results_with_large_experiment(
-    store: SqlAlchemyStore,
-):
+def _test_search_runs_returns_expected_results_with_large_experiment(store: SqlAlchemyStore):
     """
     This case tests the SQLAlchemyStore implementation of the SearchRuns API to ensure
     that search queries over an experiment containing many runs, each with a large number
@@ -3323,7 +3350,12 @@ def test_search_runs_returns_expected_results_with_large_experiment(
     assert [run.info.run_id for run in run_results] == list(reversed(run_ids[900:]))
 
 
-def test_search_runs_correctly_filters_large_data(store: SqlAlchemyStore):
+def test_search_runs_returns_expected_results_with_large_experiment(store: SqlAlchemyStore):
+    with profile():
+        _test_search_runs_returns_expected_results_with_large_experiment(store)
+
+
+def _test_search_runs_correctly_filters_large_data(store: SqlAlchemyStore):
     experiment_id, _ = _generate_large_data(store, 1000)
 
     run_results = store.search_runs(
@@ -3351,6 +3383,11 @@ def test_search_runs_correctly_filters_large_data(store: SqlAlchemyStore):
         max_results=5,
     )
     assert len(run_results) == 1  # 2 runs on previous request, 1 of which has a 0 pkey_0 value
+
+
+def test_search_runs_correctly_filters_large_data(store: SqlAlchemyStore):
+    with profile():
+        _test_search_runs_correctly_filters_large_data(store)
 
 
 def test_search_runs_keep_all_runs_when_sorting(store: SqlAlchemyStore):
