@@ -16,6 +16,7 @@ from mlflow.environment_variables import (
     _MLFLOW_SGI_NAME,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_SERVER_ENABLE_JOB_EXECUTION,
+    MLFLOW_SERVER_JOB_MAX_CONCURRENCY,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
@@ -389,12 +390,18 @@ def _run_server(
     env_map["_HUEY_STORAGE_PATH"] = os.path.join(tempfile.mkdtemp(), "mlflow-huey.db")
     server_proc = _exec_cmd(full_command, extra_env=env_map, capture_output=False, synchronous=False)
     if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
+        max_job_concurrency = MLFLOW_SERVER_JOB_MAX_CONCURRENCY.get()
+
+        if max_job_concurrency == 0:
+            max_job_concurrency = os.cpu_count()
+
         # start Mlflow job runner process
         _exec_cmd(
             [
                 sys.executable,
                 shutil.which("huey_consumer.py"),
                 "mlflow.server.job.job_runner.huey",
+                f"--workers {max_job_concurrency}",
             ],
             capture_output=False,
             synchronous=False,

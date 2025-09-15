@@ -986,9 +986,9 @@ MLFLOW_SERVER_ENABLE_JOB_EXECUTION = _BooleanEnvironmentVariable(
     "MLFLOW_SERVER_ENABLE_JOB_EXECUTION", False
 )
 
-#: Specifies the mlflow server job max concurrency, ``None`` means to use the number of CPUs
-# as the concurrency number. (default: ``None``)
-MLFLOW_SERVER_JOB_MAX_CONCURRENCY = _EnvironmentVariable("MLFLOW_SERVER_JOB_MAX_CONCURRENCY", int, None)
+#: Specifies the mlflow server job max concurrency, ``0`` means to use the number of CPUs
+# as the concurrency number. (default: ``0``)
+MLFLOW_SERVER_JOB_MAX_CONCURRENCY = _EnvironmentVariable("MLFLOW_SERVER_JOB_MAX_CONCURRENCY", int, 0)
 
 #: Specifies MLflow server job maximum allowed retries for transient errors.
 #: (default: ``3``)
