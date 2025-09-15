@@ -1592,6 +1592,7 @@ class SqlEvaluationDatasetRecord(Base):
             dataset_record_id=self.dataset_record_id,
             dataset_id=self.dataset_id,
             inputs=inputs,
+            outputs=self.outputs,
             expectations=expectations,
             tags=tags,
             source=source,

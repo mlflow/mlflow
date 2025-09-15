@@ -3959,6 +3959,7 @@ class SqlAlchemyStore(AbstractStore):
                         dataset_record_id=None,
                         dataset_id=dataset_id,
                         inputs=record_dict.get("inputs", {}),
+                        outputs=record_dict.get("outputs", {}),
                         created_time=current_time,
                         last_update_time=current_time,
                         expectations=record_dict.get("expectations"),
