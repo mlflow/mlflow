@@ -480,7 +480,7 @@ def _infer_numpy_dtype(dtype) -> DataType:
 
     if dtype.kind == "b":
         return DataType.boolean
-    elif dtype.kind == "i" or dtype.kind == "u":
+    elif dtype.kind in {"i", "u"}:
         if dtype.itemsize < 4 or (dtype.kind == "i" and dtype.itemsize == 4):
             return DataType.integer
         elif dtype.itemsize < 8 or (dtype.kind == "i" and dtype.itemsize == 8):

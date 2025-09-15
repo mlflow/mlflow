@@ -6,6 +6,7 @@ from typing import Any
 from pydantic import PrivateAttr
 
 import mlflow
+from mlflow.entities.assessment import Feedback
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
@@ -211,6 +212,11 @@ class InstructionsJudge(Judge):
         trace: Trace | None,
     ) -> None:
         """Warn about parameters that were provided but aren't used."""
+        # Don't warn about unused parameters when using trace-based evaluation
+        # since these parameters may be extracted from the trace for context
+        if self._TEMPLATE_VARIABLE_TRACE in self.template_variables:
+            return
+
         unused_params = []
         if inputs is not None and self._TEMPLATE_VARIABLE_INPUTS not in self.template_variables:
             unused_params.append("inputs")
@@ -331,7 +337,7 @@ class InstructionsJudge(Judge):
         outputs: Any = None,
         expectations: dict[str, Any] | None = None,
         trace: Trace | None = None,
-    ) -> Any:
+    ) -> Feedback:
         """
         Evaluate the provided data using the judge's instructions.
 

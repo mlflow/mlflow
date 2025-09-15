@@ -5,10 +5,12 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.entities.trace import Trace
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
+from mlflow.genai.judges.base import Judge
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils import call_chat_completions
 from mlflow.genai.utils.trace_utils import (
+    extract_expectations_from_trace,
     extract_request_from_trace,
     extract_response_from_trace,
 )
@@ -151,7 +153,54 @@ def convert_mlflow_uri_to_litellm(model_uri: str) -> str:
         raise MlflowException(f"Failed to convert MLflow URI to LiteLLM format: {e}")
 
 
-def trace_to_dspy_example(trace: Trace, judge_name: str) -> Optional["dspy.Example"]:
+def convert_litellm_to_mlflow_uri(litellm_model: str) -> str:
+    """
+    Convert LiteLLM model format to MLflow URI format.
+
+    LiteLLM uses formats like 'openai/gpt-4' while MLflow expects 'openai:/gpt-4'.
+
+    Args:
+        litellm_model: LiteLLM model string (e.g., 'openai/gpt-4')
+
+    Returns:
+        MLflow-compatible model URI (e.g., 'openai:/gpt-4')
+
+    Raises:
+        MlflowException: If the model string is not in the expected format
+
+    Examples:
+        >>> convert_litellm_to_mlflow_uri("openai/gpt-4")
+        'openai:/gpt-4'
+        >>> convert_litellm_to_mlflow_uri("anthropic/claude-3")
+        'anthropic:/claude-3'
+    """
+    if not litellm_model:
+        raise MlflowException(
+            "Model string cannot be empty or None",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    if "/" not in litellm_model:
+        raise MlflowException(
+            f"Invalid LiteLLM model format: '{litellm_model}'. "
+            "Expected format: 'provider/model' (e.g., 'openai/gpt-4')",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    try:
+        provider, model = litellm_model.split("/", 1)
+        if not provider or not model:
+            raise MlflowException(
+                f"Invalid LiteLLM model format: '{litellm_model}'. "
+                "Both provider and model name must be non-empty",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        return f"{provider}:/{model}"
+    except ValueError as e:
+        raise MlflowException(f"Failed to convert LiteLLM format to MLflow URI: {e}")
+
+
+def trace_to_dspy_example(trace: Trace, judge: Judge) -> Optional["dspy.Example"]:
     """
     Convert MLflow trace to DSPy example format.
 
@@ -162,18 +211,34 @@ def trace_to_dspy_example(trace: Trace, judge_name: str) -> Optional["dspy.Examp
 
     Args:
         trace: MLflow trace object
-        judge_name: Name of the judge to find assessments for
+        judge: Judge instance to find assessments for
 
     Returns:
         DSPy example object or None if conversion fails
     """
     try:
-        # Extract request and response from trace
+        judge_input_fields = judge.get_input_fields()
+
+        judge_requires_trace = any(field.name == "trace" for field in judge_input_fields)
+        judge_requires_inputs = any(field.name == "inputs" for field in judge_input_fields)
+        judge_requires_outputs = any(field.name == "outputs" for field in judge_input_fields)
+        judge_requires_expectations = any(
+            field.name == "expectations" for field in judge_input_fields
+        )
+
         request = extract_request_from_trace(trace)
         response = extract_response_from_trace(trace)
+        expectations = extract_expectations_from_trace(trace)
 
-        if request is None or response is None:
-            _logger.warning(f"Missing request or response in trace {trace.info.trace_id}")
+        # Check for missing required fields
+        if not request and judge_requires_inputs:
+            _logger.warning(f"Missing required request in trace {trace.info.trace_id}")
+            return None
+        elif not response and judge_requires_outputs:
+            _logger.warning(f"Missing required response in trace {trace.info.trace_id}")
+            return None
+        elif not expectations and judge_requires_expectations:
+            _logger.warning(f"Missing required expectations in trace {trace.info.trace_id}")
             return None
 
         # Find human assessment for this judge
@@ -190,7 +255,7 @@ def trace_to_dspy_example(trace: Trace, judge_name: str) -> Optional["dspy.Examp
             )
             for assessment in sorted_assessments:
                 sanitized_assessment_name = _sanitize_assessment_name(assessment.name)
-                sanitized_judge_name = _sanitize_assessment_name(judge_name)
+                sanitized_judge_name = _sanitize_assessment_name(judge.name)
                 if (
                     sanitized_assessment_name == sanitized_judge_name
                     and assessment.source.source_type == AssessmentSourceType.HUMAN
@@ -200,7 +265,7 @@ def trace_to_dspy_example(trace: Trace, judge_name: str) -> Optional["dspy.Examp
 
         if not expected_result:
             _logger.warning(
-                f"No human assessment found for judge '{judge_name}' in trace {trace.info.trace_id}"
+                f"No human assessment found for judge '{judge.name}' in trace {trace.info.trace_id}"
             )
             return None
 
@@ -209,15 +274,28 @@ def trace_to_dspy_example(trace: Trace, judge_name: str) -> Optional["dspy.Examp
             return None
 
         # Create DSPy example
+        example_kwargs = {}
+        example_inputs = []
+        if judge_requires_trace:
+            example_kwargs["trace"] = trace
+            example_inputs.append("trace")
+        if judge_requires_inputs:
+            example_kwargs["inputs"] = request
+            example_inputs.append("inputs")
+        if judge_requires_outputs:
+            example_kwargs["outputs"] = response
+            example_inputs.append("outputs")
+        if judge_requires_expectations:
+            example_kwargs["expectations"] = expectations
+            example_inputs.append("expectations")
         example = dspy.Example(
-            inputs=request,
-            outputs=response,
             result=str(expected_result.feedback.value).lower(),
             rationale=expected_result.rationale if expected_result.rationale else "",
+            **example_kwargs,
         )
 
         # Set inputs (what the model should use as input)
-        return example.with_inputs("inputs", "outputs")
+        return example.with_inputs(*example_inputs)
 
     except Exception as e:
         _logger.error(f"Failed to create DSPy example from trace: {e}")
