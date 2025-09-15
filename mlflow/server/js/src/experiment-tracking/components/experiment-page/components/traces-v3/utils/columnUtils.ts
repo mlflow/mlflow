@@ -4,7 +4,7 @@ import {
   getTraceInfoOutputs,
 } from '@mlflow/mlflow/src/shared/web-shared/genai-traces-table/utils/TraceUtils';
 
-export const getContentfulColumns = (
+export const checkColumnContents = (
   evalRows: RunEvaluationTracesDataEntry[],
 ): { responseHasContent: boolean; inputHasContent: boolean; tokensHasContent: boolean } => {
   let responseHasContent = false;

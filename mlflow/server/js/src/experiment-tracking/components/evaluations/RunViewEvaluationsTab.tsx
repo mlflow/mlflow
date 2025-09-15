@@ -38,7 +38,7 @@ import { RunViewEvaluationsTabArtifacts } from './RunViewEvaluationsTabArtifacts
 import { useGetExperimentRunColor } from '../experiment-page/hooks/useExperimentRunColor';
 import { useQueryClient } from '@databricks/web-shared/query-client';
 import { useSearchRunsQuery } from '../run-page/hooks/useSearchRunsQuery';
-import { getContentfulColumns } from '../experiment-page/components/traces-v3/utils/columnUtils';
+import { checkColumnContents } from '../experiment-page/components/traces-v3/utils/columnUtils';
 import { TRACE_ID_COLUMN_ID } from '@mlflow/mlflow/src/shared/web-shared/genai-traces-table/hooks/useTableColumns';
 
 const RunViewEvaluationsTabInner = ({
@@ -82,7 +82,7 @@ const RunViewEvaluationsTabInner = ({
   const queryClient = useQueryClient();
 
   const defaultSelectedColumns = useCallback((columns: TracesTableColumn[]) => {
-    const { responseHasContent, inputHasContent, tokensHasContent } = getContentfulColumns(
+    const { responseHasContent, inputHasContent, tokensHasContent } = checkColumnContents(
       evaluatedTraces.concat(otherEvaluatedTraces),
     );
 

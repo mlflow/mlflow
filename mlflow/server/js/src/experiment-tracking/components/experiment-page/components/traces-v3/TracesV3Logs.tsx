@@ -31,7 +31,7 @@ import { TracesV3EmptyState } from './TracesV3EmptyState';
 import { useQueryClient } from '@databricks/web-shared/query-client';
 import { useSetInitialTimeFilter } from './hooks/useSetInitialTimeFilter';
 import { TRACE_ID_COLUMN_ID } from '@mlflow/mlflow/src/shared/web-shared/genai-traces-table/hooks/useTableColumns';
-import { getContentfulColumns } from './utils/columnUtils';
+import { checkColumnContents } from './utils/columnUtils';
 
 const TracesV3LogsImpl = React.memo(
   ({
@@ -71,7 +71,7 @@ const TracesV3LogsImpl = React.memo(
     const queryClient = useQueryClient();
 
     const defaultSelectedColumns = useCallback((allColumns: TracesTableColumn[]) => {
-      const { responseHasContent, inputHasContent, tokensHasContent } = getContentfulColumns(evaluatedTraces);
+      const { responseHasContent, inputHasContent, tokensHasContent } = checkColumnContents(evaluatedTraces);
 
       return allColumns.filter(
         (col) =>
