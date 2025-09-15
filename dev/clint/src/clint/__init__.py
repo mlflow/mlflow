@@ -15,6 +15,7 @@ from typing_extensions import Self
 from clint.config import Config
 from clint.index import SymbolIndex
 from clint.linter import lint_file
+from clint.utils import resolve_paths
 
 
 @dataclass
@@ -34,10 +35,20 @@ class Args:
 def main() -> None:
     config = Config.load()
     args = Args.parse()
-    files = args.files
+
+    # Convert string paths to Path objects for resolve_paths
+    input_paths = [Path(f) for f in args.files]
+
+    # Use resolve_paths to get git-tracked files with correct extensions
+    resolved_files = resolve_paths(input_paths)
+
+    # Apply exclude filtering
+    files = []
     if config.exclude:
         regex = re.compile("|".join(map(re.escape, config.exclude)))
-        files = [f for f in files if not regex.match(f) and os.path.exists(f)]
+        files = [f for f in resolved_files if not regex.match(str(f))]
+    else:
+        files = resolved_files
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         # Pickle `SymbolIndex` to avoid expensive serialization overhead when passing
@@ -45,7 +56,7 @@ def main() -> None:
         index_path = Path(tmp_dir) / "symbol_index.pkl"
         SymbolIndex.build().save(index_path)
         with ProcessPoolExecutor() as pool:
-            futures = [pool.submit(lint_file, Path(f), config, index_path) for f in files]
+            futures = [pool.submit(lint_file, f, config, index_path) for f in files]
             violations_iter = itertools.chain.from_iterable(
                 f.result() for f in as_completed(futures)
             )
