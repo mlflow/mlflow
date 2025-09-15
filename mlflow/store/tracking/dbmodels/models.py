@@ -1961,6 +1961,12 @@ class SqlJob(Base):
     Job result: `Text`.
     """
 
+    """
+    Job retry count: `Integer`
+    """
+    retry_count = Column(Integer, default=0)
+
+
     __table_args__ = (
         PrimaryKeyConstraint("id", name="jobs_pk"),
         Index("index_jobs_function_status_creation_time", "function", "status", "creation_time"),
@@ -1974,10 +1980,10 @@ class SqlJob(Base):
         Convert DB model to corresponding MLflow entity.
 
         Returns:
-            mlflow.entities.Job.
+            mlflow.entities._job.Job.
         """
-        from mlflow.entities.job import Job
-        from mlflow.entities.job_status import JobStatus
+        from mlflow.entities._job import Job
+        from mlflow.entities._job_status import JobStatus
 
         return Job(
             job_id=self.id,
@@ -1986,4 +1992,5 @@ class SqlJob(Base):
             params=self.params,
             status=JobStatus.from_int(self.status),
             result=self.result,
+            retry_count=self.retry_count,
         )

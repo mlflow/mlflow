@@ -1,3 +1,4 @@
+import requests
 from typing import Any, Callable
 import importlib
 import json
@@ -9,6 +10,7 @@ import time
 import json
 import signal
 from huey import SqliteHuey
+from huey.exceptions import RetryTask
 from huey.serializer import Serializer
 import cloudpickle
 import tempfile
@@ -36,6 +38,12 @@ def _create_huey_instance():
 huey = _create_huey_instance()
 
 
+_TRANSIENT_ERRORS = (
+    requests.Timeout,
+    requests.ConnectionError,
+)
+
+
 @huey.task()
 def huey_task_exec_job(job_id: str, function: Callable, params: dict[str, Any]) -> None:
     tracking_store = _get_tracking_store()
@@ -44,6 +52,12 @@ def huey_task_exec_job(job_id: str, function: Callable, params: dict[str, Any]) 
         result = function(**params)
         serialized_result = json.dumps(result)
         tracking_store.finish_job(job_id, serialized_result)
+    except _TRANSIENT_ERRORS as e:
+        # For transient errors, if the retry count is less than max allowed count,
+        # trigger task retry by raising `RetryTask` exception.
+        do_retry = tracking_store.retry_or_fail_job(job_id, repr(e))
+        if do_retry:
+            raise RetryTask(delay=10)
     except Exception as e:
         tracking_store.fail_job(job_id, repr(e))
 

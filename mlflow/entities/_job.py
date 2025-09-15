@@ -13,18 +13,18 @@ class Job(_MlflowObject):
         creation_time: int,
         function: str,
         params: str,
-        status: JobStatus | int,
-        result: str | None = None,
+        status: JobStatus,
+        result: str | None,
+        retry_count: int = 0,
     ):
         super().__init__()
         self._job_id = job_id
         self._creation_time = creation_time
         self._function = function
         self._params = params
-        self._status = (
-            status if isinstance(status, JobStatus) else JobStatus.from_int(status)
-        )
+        self._status = status
         self._result = result
+        self._retry_count = retry_count
 
     @property
     def job_id(self) -> str:
@@ -65,17 +65,10 @@ class Job(_MlflowObject):
         """String containing the job result or error message."""
         return self._result
 
-    def __eq__(self, other) -> bool:
-        if not isinstance(other, Job):
-            return False
-        return (
-            self.job_id == other.job_id
-            and self.creation_time == other.creation_time
-            and self.function == other.function
-            and self.params == other.params
-            and self.status == other.status
-            and self.result == other.result
-        )
+    @property
+    def retry_count(self) -> str:
+        """Integer containing the job retry count"""
+        return self._retry_count
 
     def __repr__(self) -> str:
-        return f"<Job({self.job_id}, {self.function}, {self.status.value})>"
+        return f"<Job(job_id={self.job_id}, function={self.function})>"

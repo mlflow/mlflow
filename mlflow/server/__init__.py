@@ -12,7 +12,11 @@ import warnings
 from flask import Flask, Response, send_from_directory
 from packaging.version import Version
 
-from mlflow.environment_variables import _MLFLOW_SGI_NAME, MLFLOW_FLASK_SERVER_SECRET_KEY
+from mlflow.environment_variables import (
+    _MLFLOW_SGI_NAME,
+    MLFLOW_FLASK_SERVER_SECRET_KEY,
+    MLFLOW_SERVER_ENABLE_JOB_EXECUTION,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
 from mlflow.server.handlers import (
@@ -384,19 +388,20 @@ def _run_server(
     # The `_HUEY_STORAGE_PATH` is used by both Mlflow server handler workers and huey job runner (huey_consumer).
     env_map["_HUEY_STORAGE_PATH"] = os.path.join(tempfile.mkdtemp(), "mlflow-huey.db")
     server_proc = _exec_cmd(full_command, extra_env=env_map, capture_output=False, synchronous=False)
-    # start Mlflow job runner process
-    _exec_cmd(
-        [
-            sys.executable,
-            shutil.which("huey_consumer.py"),
-            "mlflow.server.job.job_runner.huey",
-        ],
-        capture_output=False,
-        synchronous=False,
-        extra_env={
-            **env_map,
-            "_IS_MLFLOW_JOB_RUNNER": "1",
-            "MLFLOW_SERVER_PID": str(server_proc.pid)
-        },
-    )
+    if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
+        # start Mlflow job runner process
+        _exec_cmd(
+            [
+                sys.executable,
+                shutil.which("huey_consumer.py"),
+                "mlflow.server.job.job_runner.huey",
+            ],
+            capture_output=False,
+            synchronous=False,
+            extra_env={
+                **env_map,
+                "_IS_MLFLOW_JOB_RUNNER": "1",
+                "MLFLOW_SERVER_PID": str(server_proc.pid)
+            },
+        )
     server_proc.wait()

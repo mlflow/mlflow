@@ -2,7 +2,7 @@ from typing import Any
 from types import FunctionType
 
 import json
-from mlflow.entities.job import JobStatus
+from mlflow.entities._job import JobStatus
 from mlflow.server.handlers import _get_tracking_store
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.exceptions import MlflowException
@@ -32,7 +32,14 @@ def submit_job(function, **params: Any):
         The unique job id. You can call `query_job` API by the `job_id` to get
         the job status and result.
     """
+    from mlflow.environment_variables import MLFLOW_SERVER_ENABLE_JOB_EXECUTION
     from mlflow.server.job.job_runner import huey_task_exec_job
+
+    if not MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
+        raise MlflowException(
+            "Mlflow server job execution feature is not enabled, please set "
+            "environment variable 'MLFLOW_SERVER_ENABLE_JOB_EXECUTION' to 'true' to enable it."
+        )
 
     if not (
         isinstance(function, FunctionType) and

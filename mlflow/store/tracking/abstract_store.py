@@ -18,7 +18,7 @@ from mlflow.entities import (
 if TYPE_CHECKING:
     from mlflow.entities import EvaluationDataset
 from mlflow.entities.metric import MetricWithRunId
-from mlflow.entities.job import Job, JobStatus
+from mlflow.entities._job import Job, JobStatus
 from mlflow.entities.trace import Span
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
@@ -1295,6 +1295,21 @@ class AbstractStore:
         Args:
             job_id: The ID of the job to fail
             error: The error message as a string
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def retry_or_fail_job(self, job_id, error: str) -> bool:
+        """
+        If the job retry_count is less than maximum allowed retry count,
+        increase the retry_count and reset the job to PENDING status,
+        otherwise set the job to FAIL status and fill the job's error field.
+
+        Args:
+            job_id: The ID of the job to fail
+            error: The error message as a string
+
+        Returns:
+            If the job is retried, returns `True` otherwise returns `False`
         """
         raise NotImplementedError(self.__class__.__name__)
 

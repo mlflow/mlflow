@@ -40,7 +40,7 @@ from mlflow.entities import (
     ViewType,
     _DatasetSummary,
 )
-from mlflow.entities.job_status import JobStatus
+from mlflow.entities._job_status import JobStatus
 from mlflow.entities.assessment import ExpectationValue, FeedbackValue
 from mlflow.entities.entity_type import EntityAssociationType
 from mlflow.entities.lifecycle_stage import LifecycleStage
@@ -4369,6 +4369,39 @@ class SqlAlchemyStore(AbstractStore):
 
             job.status = JobStatus.FAILED.to_int()
             job.result = error
+
+    def retry_or_fail_job(self, job_id, error: str) -> None:
+        """
+        If the job retry_count is less than maximum allowed retry count,
+        increase the retry_count and reset the job to PENDING status,
+        otherwise set the job to FAIL status and fill the job's error field.
+
+        Args:
+            job_id: The ID of the job to fail
+            error: The error message as a string
+
+        Returns:
+            If the job is retried, returns `True` otherwise returns `False`
+        """
+        from mlflow.environment_variables import MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES
+
+        max_retries = MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES.get()
+
+        with self.ManagedSessionMaker() as session:
+            job = session.query(SqlJob).filter(SqlJob.id == job_id).one_or_none()
+            if job is None:
+                raise MlflowException(
+                    f"Job with ID {job_id} not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST
+                )
+
+            if job.retry_count >= max_retries:
+                job.status = JobStatus.FAILED.to_int()
+                job.result = error
+                return False
+            job.retry_count += 1
+            job.status = JobStatus.PENDING.to_int()
+            return True
 
     def list_jobs(
             self,
