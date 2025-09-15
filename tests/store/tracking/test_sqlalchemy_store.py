@@ -307,14 +307,22 @@ def store(tmp_path: Path, cached_db: Path) -> SqlAlchemyStore:
     artifact_uri.mkdir(exist_ok=True)
     if db_uri_env := MLFLOW_TRACKING_URI.get():
         s = SqlAlchemyStore(db_uri_env, artifact_uri.as_uri())
-        yield s
-        _cleanup_database(s)
     else:
         db_path = tmp_path / "mlflow.db"
         shutil.copy(cached_db, db_path)
         db_uri = f"sqlite:///{db_path}"
         s = SqlAlchemyStore(db_uri, artifact_uri.as_uri())
-        yield s
+
+    # Configure SQLite for faster operations using WAL mode
+    if s._get_dialect() == "sqlite":
+        with s.engine.begin() as conn:
+            conn.exec_driver_sql("PRAGMA journal_mode=WAL;")
+            conn.exec_driver_sql("PRAGMA synchronous=NORMAL;")
+            conn.exec_driver_sql("PRAGMA busy_timeout=5000;")
+
+    yield s
+    if db_uri_env := MLFLOW_TRACKING_URI.get():
+        _cleanup_database(s)
 
 
 @pytest.fixture
@@ -3302,13 +3310,6 @@ def _generate_large_data(store, nb_runs=1000):
 
     # Bulk insert all data in a single transaction
     with store.engine.begin() as conn:
-        # Configure SQLite for faster bulk operations using WAL mode
-        # WAL (Write-Ahead Logging) provides better performance for concurrent writes
-        if store._get_dialect() == "sqlite":
-            conn.exec_driver_sql("PRAGMA journal_mode=WAL;")
-            conn.exec_driver_sql("PRAGMA synchronous=NORMAL;")
-            conn.exec_driver_sql("PRAGMA busy_timeout=5000;")
-
         conn.execute(sqlalchemy.insert(SqlRun), runs_list)
         conn.execute(sqlalchemy.insert(SqlParam), params_list)
         conn.execute(sqlalchemy.insert(SqlMetric), metrics_list)
@@ -3425,13 +3426,6 @@ def test_get_metric_history_on_non_existent_metric_key(store: SqlAlchemyStore):
 
 def test_insert_large_text_in_dataset_table(store: SqlAlchemyStore):
     with store.engine.begin() as conn:
-        # Configure SQLite for faster large text operations using WAL mode
-        # WAL (Write-Ahead Logging) improves performance for large data insertions
-        if store._get_dialect() == "sqlite":
-            conn.exec_driver_sql("PRAGMA journal_mode=WAL;")
-            conn.exec_driver_sql("PRAGMA synchronous=NORMAL;")
-            conn.exec_driver_sql("PRAGMA busy_timeout=5000;")
-
         # cursor = conn.cursor()
         dataset_source = "a" * 65535  # 65535 is the max size for a TEXT column
         dataset_profile = "a" * 16777215  # 16777215 is the max size for a MEDIUMTEXT column
