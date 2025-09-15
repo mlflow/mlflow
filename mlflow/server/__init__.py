@@ -397,30 +397,18 @@ def _run_server(
         if max_job_parallelism == 0:
             max_job_parallelism = os.cpu_count()
 
-    def _start_job_runner_fn():
-        while True:
-            # start Mlflow job runner process
-            # Put it inside the loop to ensure the job runner process alive
-            job_runner_proc = _exec_cmd(
-                [
-                    sys.executable,
-                    shutil.which("huey_consumer.py"),
-                    "mlflow.server.job.job_runner.huey",
-                    f"--workers {max_job_parallelism}",
-                ],
-                capture_output=False,
-                synchronous=False,
-                extra_env={
-                    **env_map,
-                    "_IS_MLFLOW_JOB_RUNNER": "1",
-                    "MLFLOW_SERVER_PID": str(server_proc.pid)
-                },
-            )
-            job_runner_proc.wait()
+        def _start_job_runner_fn():
+            from mlflow.server.job import _start_job_runner
 
-            time.sleep(1)
+            while True:
+                # start Mlflow job runner process
+                # Put it inside the loop to ensure the job runner process alive
+                job_runner_proc = _start_job_runner(env_map, max_job_parallelism, server_proc.pid)
+                job_runner_proc.wait()
 
+                time.sleep(1)
+
+        # start job runner.
         threading.Thread(target=_start_job_runner_fn, daemon=True).start()
 
     server_proc.wait()
-

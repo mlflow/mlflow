@@ -1,3 +1,5 @@
+import shutil
+import sys
 from typing import Any
 from types import FunctionType
 
@@ -76,3 +78,23 @@ def query_job(job_id: str) -> tuple[JobStatus, Any]:
     if status == JobStatus.DONE:
         result = json.loads(result)
     return status, result
+
+
+def _start_job_runner(env_map, max_job_parallelism, server_proc_pid):
+    from mlflow.utils.process import _exec_cmd
+
+    return _exec_cmd(
+        [
+            sys.executable,
+            shutil.which("huey_consumer.py"),
+            "mlflow.server.job.job_runner.huey",
+            f"--workers {max_job_parallelism}",
+        ],
+        capture_output=False,
+        synchronous=False,
+        extra_env={
+            **env_map,
+            "_IS_MLFLOW_JOB_RUNNER": "1",
+            "MLFLOW_SERVER_PID": str(server_proc_pid)
+        },
+    )
