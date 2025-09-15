@@ -3243,12 +3243,8 @@ def get_ordered_runs(store, order_clauses, experiment_id):
 
 
 def _generate_large_data(store, nb_runs=1000):
-    import uuid
-
     from mlflow.entities import RunStatus, SourceType
     from mlflow.entities.lifecycle_stage import LifecycleStage
-    from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
-    from mlflow.utils.name_utils import _generate_random_name
     from mlflow.utils.uri import append_to_uri_path
 
     experiment_id = store.create_experiment("test_experiment")
@@ -3276,13 +3272,10 @@ def _generate_large_data(store, nb_runs=1000):
             store.ARTIFACTS_FOLDER_NAME,
         )
 
-        # Generate run name using the same logic as create_run
-        run_name = _generate_random_name()
-
-        # Prepare run data for bulk insert
+        # Prepare run data for bulk insert - simplified
         run_data = {
             "run_uuid": run_id,
-            "name": run_name,
+            "name": "name",
             "source_type": SourceType.to_string(SourceType.UNKNOWN),
             "source_name": "",
             "entry_point_name": "",
@@ -3297,15 +3290,6 @@ def _generate_large_data(store, nb_runs=1000):
             "experiment_id": experiment_id,
         }
         runs_list.append(run_data)
-
-        # Add run name tag (same logic as create_run)
-        tags_list.append(
-            {
-                "key": MLFLOW_RUN_NAME,
-                "value": run_name,
-                "run_uuid": run_id,
-            }
-        )
 
         for i in range(100):
             metric = {
