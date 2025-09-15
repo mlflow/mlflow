@@ -3302,6 +3302,12 @@ def _generate_large_data(store, nb_runs=1000):
 
     # Bulk insert all data in a single transaction
     with store.engine.begin() as conn:
+        # Configure SQLite for faster bulk operations
+        if store._get_dialect() == "sqlite":
+            conn.exec_driver_sql("PRAGMA journal_mode=WAL;")
+            conn.exec_driver_sql("PRAGMA synchronous=NORMAL;")
+            conn.exec_driver_sql("PRAGMA busy_timeout=5000;")
+
         conn.execute(sqlalchemy.insert(SqlRun), runs_list)
         conn.execute(sqlalchemy.insert(SqlParam), params_list)
         conn.execute(sqlalchemy.insert(SqlMetric), metrics_list)
@@ -3418,6 +3424,12 @@ def test_get_metric_history_on_non_existent_metric_key(store: SqlAlchemyStore):
 
 def test_insert_large_text_in_dataset_table(store: SqlAlchemyStore):
     with store.engine.begin() as conn:
+        # Configure SQLite for faster large text operations
+        if store._get_dialect() == "sqlite":
+            conn.exec_driver_sql("PRAGMA journal_mode=WAL;")
+            conn.exec_driver_sql("PRAGMA synchronous=NORMAL;")
+            conn.exec_driver_sql("PRAGMA busy_timeout=5000;")
+
         # cursor = conn.cursor()
         dataset_source = "a" * 65535  # 65535 is the max size for a TEXT column
         dataset_profile = "a" * 16777215  # 16777215 is the max size for a MEDIUMTEXT column
