@@ -161,6 +161,7 @@ exclude = ["tests", "tests.*"]
 # Dev tool settings: can be updated manually
 
 [dependency-groups]
+dev = [{ include-group = "lint" }, { include-group = "test" }]
 lint = [
   "ruff==0.12.10",
   "black[jupyter]==23.7.0",
