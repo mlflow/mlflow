@@ -1487,6 +1487,11 @@ class SqlEvaluationDatasetRecord(Base):
     Inputs JSON: `JSON`. *Non null* in table schema.
     """
 
+    outputs = Column(MutableJSON, nullable=True)
+    """
+    Outputs JSON: `JSON`.
+    """
+
     expectations = Column(MutableJSON, nullable=True)
     """
     Expectations JSON: `JSON`.
