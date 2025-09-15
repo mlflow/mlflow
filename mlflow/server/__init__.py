@@ -4,6 +4,7 @@ import os
 import shlex
 import shutil
 import sys
+import tempfile
 import textwrap
 import types
 import warnings
@@ -379,6 +380,9 @@ def _run_server(
     else:
         # This shouldn't happen given the logic in CLI, but handle it just in case
         raise MlflowException("No server configuration specified.")
+
+    # The `_HUEY_STORAGE_PATH` is used by both Mlflow server handler workers and huey job runner (huey_consumer).
+    env_map["_HUEY_STORAGE_PATH"] = os.path.join(tempfile.mkdtemp(), "mlflow-huey.db")
     server_proc = _exec_cmd(full_command, extra_env=env_map, capture_output=False, synchronous=False)
     # start Mlflow job runner process
     _exec_cmd(

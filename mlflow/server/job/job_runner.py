@@ -19,8 +19,6 @@ from mlflow.exceptions import MlflowException
 
 
 def _create_huey_instance():
-    tmpdir = tempfile.mkdtemp()
-
     class CloudPickleSerializer(Serializer):
         def serialize(self, data):
             return cloudpickle.dumps(data)
@@ -29,7 +27,7 @@ def _create_huey_instance():
             return cloudpickle.loads(data)
 
     return SqliteHuey(
-        filename=os.path.join(tmpdir, "mlflow-huey.db"),
+        filename=os.environ["_HUEY_STORAGE_PATH"],
         results=False,
         serializer=CloudPickleSerializer()
     )
