@@ -3302,7 +3302,8 @@ def _generate_large_data(store, nb_runs=1000):
 
     # Bulk insert all data in a single transaction
     with store.engine.begin() as conn:
-        # Configure SQLite for faster bulk operations
+        # Configure SQLite for faster bulk operations using WAL mode
+        # WAL (Write-Ahead Logging) provides better performance for concurrent writes
         if store._get_dialect() == "sqlite":
             conn.exec_driver_sql("PRAGMA journal_mode=WAL;")
             conn.exec_driver_sql("PRAGMA synchronous=NORMAL;")
@@ -3424,7 +3425,8 @@ def test_get_metric_history_on_non_existent_metric_key(store: SqlAlchemyStore):
 
 def test_insert_large_text_in_dataset_table(store: SqlAlchemyStore):
     with store.engine.begin() as conn:
-        # Configure SQLite for faster large text operations
+        # Configure SQLite for faster large text operations using WAL mode
+        # WAL (Write-Ahead Logging) improves performance for large data insertions
         if store._get_dialect() == "sqlite":
             conn.exec_driver_sql("PRAGMA journal_mode=WAL;")
             conn.exec_driver_sql("PRAGMA synchronous=NORMAL;")
