@@ -6,6 +6,8 @@ import shutil
 import sys
 import tempfile
 import textwrap
+import threading
+import time
 import types
 import warnings
 
@@ -16,7 +18,7 @@ from mlflow.environment_variables import (
     _MLFLOW_SGI_NAME,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_SERVER_ENABLE_JOB_EXECUTION,
-    MLFLOW_SERVER_JOB_MAX_CONCURRENCY,
+    MLFLOW_SERVER_JOB_MAX_PARALLELISM,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
@@ -390,25 +392,35 @@ def _run_server(
     env_map["_HUEY_STORAGE_PATH"] = os.path.join(tempfile.mkdtemp(), "mlflow-huey.db")
     server_proc = _exec_cmd(full_command, extra_env=env_map, capture_output=False, synchronous=False)
     if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
-        max_job_concurrency = MLFLOW_SERVER_JOB_MAX_CONCURRENCY.get()
+        max_job_parallelism = MLFLOW_SERVER_JOB_MAX_PARALLELISM.get()
 
-        if max_job_concurrency == 0:
-            max_job_concurrency = os.cpu_count()
+        if max_job_parallelism == 0:
+            max_job_parallelism = os.cpu_count()
 
-        # start Mlflow job runner process
-        _exec_cmd(
-            [
-                sys.executable,
-                shutil.which("huey_consumer.py"),
-                "mlflow.server.job.job_runner.huey",
-                f"--workers {max_job_concurrency}",
-            ],
-            capture_output=False,
-            synchronous=False,
-            extra_env={
-                **env_map,
-                "_IS_MLFLOW_JOB_RUNNER": "1",
-                "MLFLOW_SERVER_PID": str(server_proc.pid)
-            },
-        )
+    def _start_job_runner_fn():
+        while True:
+            # start Mlflow job runner process
+            # Put it inside the loop to ensure the job runner process alive
+            job_runner_proc = _exec_cmd(
+                [
+                    sys.executable,
+                    shutil.which("huey_consumer.py"),
+                    "mlflow.server.job.job_runner.huey",
+                    f"--workers {max_job_parallelism}",
+                ],
+                capture_output=False,
+                synchronous=False,
+                extra_env={
+                    **env_map,
+                    "_IS_MLFLOW_JOB_RUNNER": "1",
+                    "MLFLOW_SERVER_PID": str(server_proc.pid)
+                },
+            )
+            job_runner_proc.wait()
+
+            time.sleep(1)
+
+        threading.Thread(target=_start_job_runner_fn, daemon=True).start()
+
     server_proc.wait()
+
