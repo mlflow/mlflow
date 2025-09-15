@@ -3248,21 +3248,23 @@ def _generate_large_data(store, nb_runs=1000):
     current_run = 0
 
     run_ids = []
+    runs_list = []
     metrics_list = []
     tags_list = []
     params_list = []
     latest_metrics_list = []
 
     for _ in range(nb_runs):
-        run_id = store.create_run(
-            experiment_id=experiment_id,
-            start_time=current_run,
-            tags=[],
-            user_id="Anderson",
-            run_name="name",
-        ).info.run_id
-
+        run_id = uuid.uuid4().hex
         run_ids.append(run_id)
+        run_data = {
+            "run_uuid": run_id,
+            "user_id": "Anderson",
+            "start_time": current_run,
+            "artifact_uri": f"file:///tmp/artifacts/{run_id}",
+            "experiment_id": experiment_id,
+        }
+        runs_list.append(run_data)
 
         for i in range(100):
             metric = {
@@ -3298,7 +3300,9 @@ def _generate_large_data(store, nb_runs=1000):
         )
         current_run += 1
 
+    # Bulk insert all data in a single transaction
     with store.engine.begin() as conn:
+        conn.execute(sqlalchemy.insert(SqlRun), runs_list)
         conn.execute(sqlalchemy.insert(SqlParam), params_list)
         conn.execute(sqlalchemy.insert(SqlMetric), metrics_list)
         conn.execute(sqlalchemy.insert(SqlLatestMetric), latest_metrics_list)
