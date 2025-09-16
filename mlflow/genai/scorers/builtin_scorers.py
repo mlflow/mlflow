@@ -70,18 +70,17 @@ class BuiltInScorer(Judge):
         return asdict(serialized)
 
     @classmethod
-    def model_validate(cls, obj) -> "BuiltInScorer":
+    def model_validate(cls, obj: SerializedScorer | dict[str, Any]) -> "BuiltInScorer":
         """Override model_validate to handle builtin scorer deserialization."""
         from mlflow.genai.scorers import builtin_scorers
-        from mlflow.genai.scorers.base import SerializedScorer
 
         if isinstance(obj, SerializedScorer):
             serialized = obj
         else:
             if not isinstance(obj, dict) or "builtin_scorer_class" not in obj:
                 raise MlflowException.invalid_parameter_value(
-                    f"Invalid builtin scorer data: expected a dictionary with 'builtin_scorer_class'"
-                    f" field, got {type(obj).__name__}."
+                    f"Invalid builtin scorer data: expected a dictionary with "
+                    f"'builtin_scorer_class' field, got {type(obj).__name__}."
                 )
 
             try:
