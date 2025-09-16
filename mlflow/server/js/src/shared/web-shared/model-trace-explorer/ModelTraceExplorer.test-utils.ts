@@ -582,3 +582,65 @@ export const MOCK_TRACE_INFO_V2: ModelTraceInfo = {
   ],
   tags: [],
 };
+
+export const MOCK_OTEL_TRACE: ModelTrace = {
+  data: {
+    spans: [
+      {
+        trace_id: 'tLdfEcjATdf92uVsKMbM/Q==',
+        span_id: 'i8XoH5ibpGc=',
+        trace_state: '',
+        parent_span_id: '',
+        name: 'conversation_turn',
+        start_time_unix_nano: '1757912311704325000',
+        end_time_unix_nano: '1757912313258527000',
+        attributes: {
+          'input.value': 'Now multiply that result by 3',
+          'output.value': 'Multiplying 25 by 3 gives you 75.',
+          'mlflow.traceRequestId': 'tr-b4b75f11c8c04dd7fddae56c28c6ccfd',
+        },
+        status: {
+          code: 'STATUS_CODE_UNSET',
+        },
+      },
+      {
+        trace_id: 'tLdfEcjATdf92uVsKMbM/Q==',
+        span_id: 'yuhZxKf3p8w=',
+        trace_state: '',
+        parent_span_id: 'i8XoH5ibpGc=',
+        name: 'tool_execution',
+        start_time_unix_nano: '1757912312585773000',
+        end_time_unix_nano: '1757912312586234000',
+        attributes: {
+          'tool_call.function.name': 'calculate',
+          'output.value': 'Result: 75',
+          'mlflow.traceRequestId': 'tr-b4b75f11c8c04dd7fddae56c28c6ccfd',
+          'openinference.span.kind': 'TOOL',
+          'tool_call.function.arguments': '{"expression": "25 * 3"}',
+        },
+        status: {
+          code: 'STATUS_CODE_UNSET',
+        },
+      },
+    ],
+  },
+  info: {
+    trace_id: 'tr-b4b75f11c8c04dd7fddae56c28c6ccfd',
+    trace_location: {
+      type: 'MLFLOW_EXPERIMENT',
+      mlflow_experiment: {
+        experiment_id: '1',
+      },
+    },
+    request_time: '2025-09-15T04:58:31.704Z',
+    execution_duration: '1.554s',
+    state: 'OK',
+    trace_metadata: {
+      'mlflow.trace_schema.version': '3',
+    },
+    tags: {
+      'mlflow.artifactLocation': 'mlflow-artifacts:/1/traces/tr-b4b75f11c8c04dd7fddae56c28c6ccfd/artifacts',
+      'mlflow.trace.spansLocation': 'tracking_store',
+    },
+  },
+};
