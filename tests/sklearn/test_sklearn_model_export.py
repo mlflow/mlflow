@@ -435,9 +435,7 @@ def test_log_model_with_pip_requirements(sklearn_knn_model, tmp_path):
     # List of requirements
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
-            sklearn_knn_model.model,
-            name="model",
-            pip_requirements=[f"-r {req_file}", "b"],
+            sklearn_knn_model.model, name="model", pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
             model_info.model_uri, [expected_mlflow_version, "a", "b"], strict=True
@@ -593,8 +591,7 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
 ):
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=model_path)
     _assert_pip_requirements(
-        model_path,
-        mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=True),
+        model_path, mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=True)
     )
 
 
@@ -605,8 +602,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
         model_info = mlflow.sklearn.log_model(sklearn_knn_model.model, name="model")
 
     _assert_pip_requirements(
-        model_info.model_uri,
-        mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=True),
+        model_info.model_uri, mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=True)
     )
 
 
@@ -924,9 +920,7 @@ def test_model_log_with_metadata(sklearn_knn_model):
 
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
-            sklearn_knn_model.model,
-            name=artifact_path,
-            metadata={"metadata_key": "metadata_value"},
+            sklearn_knn_model.model, name=artifact_path, metadata={"metadata_key": "metadata_value"}
         )
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
@@ -996,9 +990,7 @@ def test_pipeline_predict_proba(sklearn_knn_model, model_path):
 def test_get_raw_model(sklearn_knn_model):
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
-            sklearn_knn_model.model,
-            name="model",
-            input_example=sklearn_knn_model.inference_data,
+            sklearn_knn_model.model, name="model", input_example=sklearn_knn_model.inference_data
         )
     pyfunc_model = pyfunc.load_model(model_info.model_uri)
     raw_model = pyfunc_model.get_raw_model()
@@ -1007,12 +999,6 @@ def test_get_raw_model(sklearn_knn_model):
         raw_model.predict(sklearn_knn_model.inference_data),
         sklearn_knn_model.model.predict(sklearn_knn_model.inference_data),
     )
-
-
-# This test has been merged into the parametrized test_model_save_load
-
-
-# This test has been merged into test_model_save_with_format_adds_dependency_to_conda_environment
 
 
 def test_model_save_with_skops_format_stores_trusted_types(sklearn_knn_model, model_path):
@@ -1034,9 +1020,6 @@ def test_model_save_with_skops_format_stores_trusted_types(sklearn_knn_model, mo
     # Check that trusted_types are stored if they exist
     if "trusted_types" in sklearn_conf:
         assert isinstance(sklearn_conf["trusted_types"], list)
-
-
-# This test has been merged into the parametrized test_model_log
 
 
 def test_model_save_with_skops_format_without_skops_installed_raises_exception(
