@@ -51,7 +51,8 @@ class JudgeToolRegistry:
 
         if function_name not in self._tools:
             raise MlflowException(
-                f"Tool '{function_name}' not found in registry", error_code=RESOURCE_DOES_NOT_EXIST
+                f"Tool '{function_name}' not found in registry",
+                error_code=RESOURCE_DOES_NOT_EXIST,
             )
         tool = self._tools[function_name]
 
@@ -126,6 +127,7 @@ def list_judge_tools() -> list[JudgeTool]:
 
 # NB: Tool imports are at the bottom to avoid circular dependencies and ensure
 # the registry is fully defined before tools attempt to register themselves.
+from mlflow.genai.judges.tools.get_historical_traces import GetHistoricalTracesTool
 from mlflow.genai.judges.tools.get_root_span import GetRootSpanTool
 from mlflow.genai.judges.tools.get_span import GetSpanTool
 from mlflow.genai.judges.tools.get_span_performance_and_timing_report import (
@@ -141,3 +143,4 @@ _judge_tool_registry.register(GetSpanTool())
 _judge_tool_registry.register(ListSpansTool())
 _judge_tool_registry.register(SearchTraceRegexTool())
 _judge_tool_registry.register(GetSpanPerformanceAndTimingReportTool())
+_judge_tool_registry.register(GetHistoricalTracesTool())
