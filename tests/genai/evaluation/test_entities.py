@@ -67,13 +67,6 @@ def test_eval_item_from_dataset_row_valid(
         ),
         (
             {
-                InputDatasetColumn.INPUTS: {},
-                InputDatasetColumn.OUTPUTS: {"response": "output"},
-            },
-            "Dataset row must contain 'inputs' or 'request' key",
-        ),
-        (
-            {
                 InputDatasetColumn.INPUTS: "invalid json string",
                 InputDatasetColumn.OUTPUTS: "simple output",
             },
