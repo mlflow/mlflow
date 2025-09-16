@@ -337,7 +337,7 @@ Using the helpers above, we can migrate with a few lines of code to wrap a LangG
 
 LangGraph
 
-````python
+```python
 class WrappedLGAgent(ResponsesAgent):
     def __init__(self, agent: CompiledStateGraph):
         self.agent = agent
@@ -349,7 +349,9 @@ class WrappedLGAgent(ResponsesAgent):
             for event in self.predict_stream(request)
             if event.type == "response.output_item.done"
         ]
-        return ResponsesAgentResponse(output=outputs, custom_outputs=request.custom_inputs)
+        return ResponsesAgentResponse(
+            output=outputs, custom_outputs=request.custom_inputs
+        )
 
     @mlflow.trace(span_type=SpanType.AGENT)
     def predict_stream(
@@ -363,7 +365,9 @@ class WrappedLGAgent(ResponsesAgent):
                 for msg in convert_to_openai_messages(node_data["messages"]):
                     items = self._cc_to_responses(msg)
                     for item in items:
-                        yield ResponsesAgentStreamEvent(type="response.output_item.done", item=item)
+                        yield ResponsesAgentStreamEvent(
+                            type="response.output_item.done", item=item
+                        )
 ```
 
 
@@ -412,7 +416,7 @@ class SimpleResponsesAgent(ResponsesAgent):
 mlflow.openai.autolog()
 agent = SimpleResponsesAgent(model="gpt-4o")
 set_model(agent)
-````
+```
 
 ## Tool Calling Example
 

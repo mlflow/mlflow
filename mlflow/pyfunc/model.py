@@ -13,7 +13,7 @@ import os
 import shutil
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
-from typing import Any, Generator, Iterator, Optional, Union
+from typing import Any, Generator, Iterator
 
 import cloudpickle
 import pandas as pd
@@ -945,7 +945,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
 
         @staticmethod
         def create_annotation_added(
-            item_id: str, annotation: dict[str, Any], annotation_index: Optional[int] = 0
+            item_id: str, annotation: dict[str, Any], annotation_index: int | None = 0
         ) -> dict[str, Any]:
             return {
                 "type": "response.output_text.annotation.added",
@@ -956,7 +956,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
 
         @staticmethod
         def create_text_output_item(
-            text: str, id: str, annotations: Optional[list[dict[str, Any]]] = None
+            text: str, id: str, annotations: list[dict[str, Any]] | None = None
         ) -> dict[str, Any]:
             """Helper method to create a dictionary conforming to the text output item schema.
 
@@ -1078,7 +1078,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
 
         @staticmethod
         def prep_msgs_for_cc_llm(
-            responses_input: list[Union[dict[str, Any], Message, OutputItem]],
+            responses_input: list[dict[str, Any] | Message | OutputItem],
         ) -> list[dict[str, Any]]:
             "Convert from Responses input items to ChatCompletion dictionaries"
             cc_msgs = []
@@ -1091,11 +1091,11 @@ if IS_PYDANTIC_V2_OR_NEWER:
 
         @staticmethod
         def output_to_responses_items_stream(
-            chunks: Iterator[dict[str, Any]], aggregator: Optional[list[dict[str, Any]]] = []
-        ) -> Generator[Union[ResponsesAgentStreamEvent], None, None]:
+            chunks: Iterator[dict[str, Any]], aggregator: list[dict[str, Any]] | None = None
+        ) -> Generator[ResponsesAgentStreamEvent, None, None]:
             """
-            For streaming, convert from various message format dicts to Responses output items, returning
-            a generator of ResponsesAgentStreamEvent objects.
+            For streaming, convert from various message format dicts to Responses output items,
+            returning a generator of ResponsesAgentStreamEvent objects.
 
             If `aggregator` is provided, it will be extended with the aggregated output item dicts.
 
@@ -1134,7 +1134,8 @@ if IS_PYDANTIC_V2_OR_NEWER:
                         reasoning_item = ResponsesAgent.create_reasoning_item(
                             msg_id, reasoning_content
                         )
-                        aggregator.append(reasoning_item)
+                        if aggregator is not None:
+                            aggregator.append(reasoning_item)
                         yield ResponsesAgentStreamEvent(
                             type="response.output_item.done",
                             item=reasoning_item,
@@ -1151,7 +1152,8 @@ if IS_PYDANTIC_V2_OR_NEWER:
             # this enables tracing and payload logging
             if llm_content:
                 text_output_item = ResponsesAgent.create_text_output_item(llm_content, msg_id)
-                aggregator.append(text_output_item)
+                if aggregator is not None:
+                    aggregator.append(text_output_item)
                 yield ResponsesAgentStreamEvent(
                     type="response.output_item.done",
                     item=text_output_item,
@@ -1164,7 +1166,8 @@ if IS_PYDANTIC_V2_OR_NEWER:
                     tool_call["function"]["name"],
                     tool_call["function"]["arguments"],
                 )
-                aggregator.append(function_call_output_item)
+                if aggregator is not None:
+                    aggregator.append(function_call_output_item)
                 yield ResponsesAgentStreamEvent(
                     type="response.output_item.done",
                     item=function_call_output_item,

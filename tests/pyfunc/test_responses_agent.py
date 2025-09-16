@@ -7,6 +7,7 @@ import pytest
 
 from mlflow.entities.span import SpanType
 from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
+
 from tests.tracing.helper import get_traces, purge_traces
 
 if not IS_PYDANTIC_V2_OR_NEWER:
@@ -636,7 +637,8 @@ def test_responses_agent_non_mlflow_decorators():
                                         "summary": [
                                             {
                                                 "type": "summary_text",
-                                                "text": 'We need to respond. The user just says "hi". We can reply friendly.',
+                                                "text": "We need to respond. The user just says "
+                                                '"hi". We can reply friendly.',
                                             }
                                         ],
                                     },
@@ -684,7 +686,8 @@ def test_responses_agent_non_mlflow_decorators():
                         "summary": [
                             {
                                 "type": "summary_text",
-                                "text": 'We need to respond. The user just says "hi". We can reply friendly.',
+                                "text": 'We need to respond. The user just says "hi". '
+                                "We can reply friendly.",
                             }
                         ],
                         "id": "chatcmpl_fd04a20f-f348-45e1-af37-68cf3bb08bdb",
@@ -967,7 +970,8 @@ def test_responses_agent_non_mlflow_decorators():
                                     {
                                         "index": 0,
                                         "function": {
-                                            "arguments": '{\n  "code": "result = 4 * 3\\nprint(result)"\n}'
+                                            "arguments": '{\n  "code": "result = 4 * 3\\n'
+                                            'print(result)"\n}'
                                         },
                                     }
                                 ],
@@ -1014,7 +1018,8 @@ def test_responses_agent_non_mlflow_decorators():
 def test_responses_agent_output_to_responses_items_stream(chunks, expected_output):
     """
     In order of the parameters:
-    1. gpt oss with no tools streaming (other models don't differentiate between w/ and w/o tools streaming)
+    1. gpt oss with no tools streaming
+        - other models don't differentiate between w/ and w/o tools streaming
     2. gpt oss with tools streaming
     3. claude no tool call streaming
     4. claude tool call streaming
