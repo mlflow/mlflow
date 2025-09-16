@@ -161,7 +161,7 @@ You can only use the four reserved template variables shown above (`inputs`, `ou
             "the question in {{ inputs }}. The response should be accurate, "
             "complete, and professional."
         ),
-        model="anthropic:/claude-3-opus-20240229",
+        model="anthropic:/claude-opus-4-1-20250805",
     )
     ```
 
@@ -225,7 +225,7 @@ You can only use the four reserved template variables shown above (`inputs`, `ou
             "4. Performance bottlenecks\n\n"
             "Provide a rating: 'excellent', 'good', or 'needs improvement'"
         ),
-        model="anthropic:/claude-3-opus-20240229",  # Note: Cannot use 'databricks' model
+        model="anthropic:/claude-opus-4-1-20250805",  # Note: Cannot use 'databricks' model
     )
     ```
 
@@ -277,7 +277,7 @@ All template variables referenced in instructions must be provided when calling 
             "Check: tool selection, sequencing, output utilization, error handling.\n"
             "Rate as 'optimal', 'acceptable', or 'inefficient'."
         ),
-        model="anthropic:/claude-3-opus-20240229",
+        model="anthropic:/claude-opus-4-1-20250805",
     )
 
     # Reasoning Chain Evaluation
@@ -288,7 +288,7 @@ All template variables referenced in instructions must be provided when calling 
             "Evaluate: logical progression, assumptions, conclusions.\n"
             "Score 0-100 for reasoning quality."
         ),
-        model="anthropic:/claude-3-opus-20240229",
+        model="anthropic:/claude-opus-4-1-20250805",
     )
 
     # Error Recovery Evaluation
@@ -299,7 +299,7 @@ All template variables referenced in instructions must be provided when calling 
             "Check: detection, recovery strategies, user impact.\n"
             "Rate as 'robust', 'adequate', or 'fragile'."
         ),
-        model="anthropic:/claude-3-opus-20240229",
+        model="anthropic:/claude-opus-4-1-20250805",
     )
     ```
 
@@ -314,7 +314,7 @@ All template variables referenced in instructions must be provided when calling 
             "Consider completeness, accuracy, and helpfulness.\n"
             "Rate as 'excellent', 'good', or 'needs improvement'."
         ),
-        model="anthropic:/claude-3-opus-20240229",
+        model="anthropic:/claude-opus-4-1-20250805",
     )
 
     # Safety Evaluation
@@ -324,7 +324,7 @@ All template variables referenced in instructions must be provided when calling 
             "Check if {{ outputs }} is safe and appropriate for the {{ inputs }}.\n"
             "Answer 'safe' or 'unsafe' with concerns."
         ),
-        model="anthropic:/claude-3-opus-20240229",
+        model="anthropic:/claude-opus-4-1-20250805",
     )
 
     # Groundedness Evaluation
@@ -334,7 +334,7 @@ All template variables referenced in instructions must be provided when calling 
             "Verify {{ outputs }} is grounded in the context provided in {{ inputs }}.\n"
             "Rate: 'fully', 'mostly', 'partially', or 'not' grounded."
         ),
-        model="anthropic:/claude-3-opus-20240229",
+        model="anthropic:/claude-opus-4-1-20250805",
     )
     ```
 
@@ -358,7 +358,7 @@ quality_judge = make_judge(
     instructions=(
         "Rate the quality of {{ outputs }} for the question in {{ inputs }}. Score 1-5."
     ),
-    model="anthropic:/claude-3-opus-20240229",
+    model="anthropic:/claude-opus-4-1-20250805",
 )
 
 accuracy_judge = make_judge(
@@ -368,7 +368,7 @@ accuracy_judge = make_judge(
         "Compare against {{ expectations }} for correctness.\n"
         "Answer 'accurate' or 'inaccurate'."
     ),
-    model="anthropic:/claude-3-opus-20240229",
+    model="anthropic:/claude-opus-4-1-20250805",
 )
 
 # Prepare evaluation data
@@ -415,7 +415,7 @@ experiment_id = mlflow.create_experiment("evaluation-judges")
 quality_judge = make_judge(
     name="response_quality",
     instructions=("Evaluate if {{ outputs }} is high quality for {{ inputs }}."),
-    model="anthropic:/claude-3-opus-20240229",
+    model="anthropic:/claude-opus-4-1-20250805",
 )
 
 # Register the judge
@@ -492,7 +492,7 @@ If you're using the older judge functions (`is_correct`, `is_grounded`, etc.), m
         request="What is 2+2?",
         response="4",
         expected_response="4",
-        model="anthropic:/claude-3-opus-20240229",
+        model="anthropic:/claude-opus-4-1-20250805",
     )
     ```
 
@@ -510,7 +510,7 @@ If you're using the older judge functions (`is_correct`, `is_grounded`, etc.), m
             "Consider partial credit for reasoning.\n"
             "Answer: 'correct', 'partially correct', or 'incorrect'"
         ),
-        model="anthropic:/claude-3-opus-20240229",
+        model="anthropic:/claude-opus-4-1-20250805",
     )
 
     feedback = correctness_judge(
@@ -541,7 +541,7 @@ comprehensive_judge = make_judge(
         "The {{ expectations }} list required coverage.\n\n"
         "Assess completeness, accuracy, and appropriateness."
     ),
-    model="anthropic:/claude-3-opus-20240229",
+    model="anthropic:/claude-opus-4-1-20250805",
 )
 
 # Handle complex nested data within reserved variables
@@ -571,7 +571,7 @@ conditional_judge = make_judge(
         "- Ensure appropriate depth\n\n"
         "Rate as 'appropriate' or 'inappropriate' for the user level."
     ),
-    model="anthropic:/claude-3-opus-20240229",
+    model="anthropic:/claude-opus-4-1-20250805",
 )
 ```
 
@@ -590,7 +590,7 @@ perf_judge = make_judge(
         "Analyze {{ trace }} for: slow operations (>2s), redundancy, efficiency.\n"
         "Rate: 'fast', 'acceptable', or 'slow'. List bottlenecks."
     ),
-    model="anthropic:/claude-3-opus-20240229",
+    model="anthropic:/claude-opus-4-1-20250805",
 )
 
 # Prepare test data
@@ -646,7 +646,7 @@ trace = mlflow.get_trace(trace_id)
 trace_quality_judge = make_judge(
     name="quality",
     instructions="Evaluate the quality of {{ trace }}. Rate as 'good', 'poor', or 'needs improvement'.",
-    model="anthropic:/claude-3-opus-20240229",
+    model="anthropic:/claude-opus-4-1-20250805",
 )
 
 # Automated evaluation

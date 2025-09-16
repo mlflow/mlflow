@@ -53,7 +53,7 @@ latency_judge = make_judge(
         "Provide specific span IDs and timings in your analysis.\n"
         "Rate as: 'fast' (<1s total), 'acceptable' (1-3s), or 'slow' (>3s)"
     ),
-    model="anthropic:/claude-3-opus-20240229",
+    model="anthropic:/claude-opus-4-1-20250805",
 )
 ```
 
@@ -72,7 +72,7 @@ tool_usage_judge = make_judge(
         "List specific issues with span IDs.\n"
         "Rate as: 'optimal', 'suboptimal', or 'incorrect'"
     ),
-    model="anthropic:/claude-3-opus-20240229",
+    model="anthropic:/claude-opus-4-1-20250805",
 )
 ```
 
@@ -91,7 +91,7 @@ error_handling_judge = make_judge(
         "Identify specific error scenarios and how they were handled.\n"
         "Rate as: 'robust', 'adequate', or 'fragile'"
     ),
-    model="anthropic:/claude-3-opus-20240229",
+    model="anthropic:/claude-opus-4-1-20250805",
 )
 ```
 
@@ -120,7 +120,7 @@ comprehensive_judge = make_judge(
         "- Improvement recommendations\n"
         "- Overall quality rating (1-10)"
     ),
-    model="anthropic:/claude-3-opus-20240229",
+    model="anthropic:/claude-opus-4-1-20250805",
 )
 ```
 
@@ -211,7 +211,7 @@ comparison_judge = make_judge(
         "Identify deviations from optimal execution patterns.\n"
         "Suggest specific improvements with examples."
     ),
-    model="anthropic:/claude-3-opus-20240229",
+    model="anthropic:/claude-opus-4-1-20250805",
 )
 ```
 
@@ -229,7 +229,7 @@ security_judge = make_judge(
         "- Identify potential injection points\n"
         "- Validate input sanitization"
     ),
-    model="anthropic:/claude-3-opus-20240229",
+    model="anthropic:/claude-opus-4-1-20250805",
 )
 ```
 

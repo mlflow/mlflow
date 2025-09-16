@@ -104,7 +104,7 @@ performance_judge = make_judge(
         "- Proper use of caching mechanisms\n\n"
         "Rate as: 'optimal', 'acceptable', or 'needs_improvement'"
     ),
-    model="anthropic:/claude-3-opus-20240229",
+    model="anthropic:/claude-opus-4-1-20250805",
 )
 
 
@@ -151,6 +151,39 @@ Analysis: Found critical performance issues:
 3. Total execution time of 4 seconds could be optimized by parallelizing
    the redundant operations or implementing caching
 ```
+
+### Viewing Agent Tool Calls with Debug Logs
+
+To see the actual MCP tool calls that the Agent-as-a-Judge makes while analyzing your trace, enable debug logging:
+
+```python
+import logging
+
+# Enable debug logging to see agent tool calls
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger("mlflow.genai.judges")
+logger.setLevel(logging.DEBUG)
+
+# Now when you run the judge, you'll see detailed tool usage
+feedback = performance_judge(trace=trace)
+```
+
+With debug logging enabled, you'll see output like:
+
+```
+DEBUG:mlflow.genai.judges:Calling tool: GetTraceInfo
+DEBUG:mlflow.genai.judges:Tool response: {"trace_id": "abc123", "duration_ms": 4000, ...}
+DEBUG:mlflow.genai.judges:Calling tool: ListSpans
+DEBUG:mlflow.genai.judges:Tool response: [{"span_id": "def456", "name": "fetch_data", ...}]
+DEBUG:mlflow.genai.judges:Calling tool: GetSpan with span_id=def456
+DEBUG:mlflow.genai.judges:Tool response: {"duration_ms": 2500, "inputs": {"query": "SELECT * FROM users"}, ...}
+```
+
+This visibility helps you understand:
+
+- Which tools the judge uses to investigate your traces
+- What information it extracts at each step
+- How it arrives at its final assessment
 
 When invoked with a trace, this judge will:
 

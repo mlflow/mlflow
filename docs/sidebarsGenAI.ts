@@ -346,7 +346,7 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'category',
-                  label: 'Agentic Judges',
+                  label: 'Agent-based Scorers (Agent-as-a-Judge)',
                   items: [
                     {
                       type: 'doc',

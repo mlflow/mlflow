@@ -49,20 +49,41 @@ Not all scorers work with static datasets. Some scorers are designed specificall
 
 ### Scorer Compatibility Matrix
 
-| Scorer Category              | Static Data Support | Trace Required                | Example Scorers                                                             |
-| ---------------------------- | ------------------- | ----------------------------- | --------------------------------------------------------------------------- |
-| **Field-based Scorers**      | ✅ Yes              | ❌ No                         | `Correctness`, `RelevanceToQuery`, `Safety`, custom scorers using `@scorer` |
-| **Agent-as-a-Judge Scorers** | ❌ No               | ✅ Yes                        | Scorers analyzing execution flow, tool usage patterns, span attributes      |
-| **Retrieval Scorers**        | ❌ No               | ✅ Yes (with RETRIEVER spans) | `RetrievalGroundedness`, `RetrievalRelevance`, `RetrievalSufficiency`       |
-| **Agent-as-a-Judge**         | ❌ No               | ✅ Yes                        | Custom judges analyzing multi-step workflows, agent reasoning, performance  |
+| Scorer Category              | Trace Required                | Example Scorers                                                             |
+| ---------------------------- | ----------------------------- | --------------------------------------------------------------------------- |
+| **Field-based Scorers**      | ❌ No                         | `Correctness`, `RelevanceToQuery`, `Safety`, custom scorers using `@scorer` |
+| **Agent-as-a-Judge Scorers** | ✅ Yes                        | Scorers analyzing execution flow, tool usage patterns, span attributes      |
+| **Retrieval Scorers**        | ✅ Yes (with RETRIEVER spans) | `RetrievalGroundedness`, `RetrievalRelevance`, `RetrievalSufficiency`       |
+| **Agent-as-a-Judge**         | ✅ Yes                        | Custom judges analyzing multi-step workflows, agent reasoning, performance  |
 
-### Key Points:
+### Working with Traces
 
-- **Static datasets** (pandas DataFrames with inputs/outputs/expectations) work only with field-based scorers
-- **Agent-as-a-Judge scorers** require actual execution traces from your application
-- If you see errors about missing traces when using retrieval or Agent-as-a-Judge scorers, you need to:
-  1. Use a `predict_fn` that generates traces, OR
-  2. Include pre-collected traces in your dataset
+If you have static data but need to use trace-based scorers, you can create traces using `mlflow.log_trace()`:
+
+```python
+import mlflow
+from mlflow.entities import Trace, TraceData, TraceInfo
+
+# Create a trace from static data
+trace_data = TraceData(
+    spans=[],  # Add spans if needed
+    request={"question": "What is MLflow?"},
+    response={
+        "answer": "MLflow is an open-source platform for ML lifecycle management."
+    },
+)
+
+trace_info = TraceInfo(request_id="unique_id_123", experiment_id="0")
+
+trace = Trace(trace_info, trace_data)
+
+# Log the trace to MLflow
+mlflow.log_trace(trace)
+
+# Now you can use trace-based scorers with this data
+```
+
+Alternatively, if you're using retrieval or Agent-as-a-Judge scorers, ensure your `predict_fn` generates proper traces during execution.
 
 ## Next Steps
 

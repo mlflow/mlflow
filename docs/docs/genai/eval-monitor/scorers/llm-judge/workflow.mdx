@@ -109,7 +109,7 @@ support_judge = make_judge(
 
     Focus on {{ outputs }} responding to {{ inputs }}.
     """,
-    model="anthropic:/claude-3-opus-20240229",
+    model="anthropic:/claude-opus-4-1-20250805",
 )
 ```
 
@@ -247,7 +247,7 @@ print(f"Found {len(aligned_traces)} traces with both assessments")
 if len(aligned_traces) >= 10:
     from mlflow.genai.judges.optimizers import SIMBAAlignmentOptimizer
 
-    optimizer = SIMBAAlignmentOptimizer(model="anthropic:/claude-3-opus-20240229")
+    optimizer = SIMBAAlignmentOptimizer(model="anthropic:/claude-opus-4-1-20250805")
     aligned_judge = support_judge.align(optimizer, aligned_traces)
     print("Judge aligned successfully!")
 else:

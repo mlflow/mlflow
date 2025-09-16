@@ -119,7 +119,7 @@ initial_judge = make_judge(
         "is accurate and helpful for the query in {{ inputs }}. "
         "Rate as: excellent, good, fair, or poor"
     ),
-    model="anthropic:/claude-3-opus-20240229",
+    model="anthropic:/claude-opus-4-1-20250805",
 )
 
 # Generate traces from your application (minimum 10 required)
@@ -167,7 +167,7 @@ traces_for_alignment = mlflow.search_traces(
 
 # Align the judge using human corrections (minimum 10 traces required)
 if len(traces_for_alignment) >= 10:
-    optimizer = SIMBAAlignmentOptimizer(model="anthropic:/claude-3-opus-20240229")
+    optimizer = SIMBAAlignmentOptimizer(model="anthropic:/claude-opus-4-1-20250805")
     aligned_judge = initial_judge.align(optimizer, traces_for_alignment)
 
     # Register the aligned judge
@@ -186,7 +186,7 @@ from mlflow.genai.judges.optimizers import SIMBAAlignmentOptimizer
 
 # Create SIMBA optimizer
 optimizer = SIMBAAlignmentOptimizer(
-    model="anthropic:/claude-3-opus-20240229"  # Model used for optimization
+    model="anthropic:/claude-opus-4-1-20250805"  # Model used for optimization
 )
 
 # Requirements for alignment:
