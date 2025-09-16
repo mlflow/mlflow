@@ -74,6 +74,6 @@ def resolve_paths(paths: list[Path]) -> list[Path]:
 
     all_files = _git_ls_files(paths)
 
-    filtered = {p for p in all_files if p.suffix.lower() in ALLOWED_EXTS and p.exists()}
+    filtered = {p for p in all_files if p.suffix.lower() in ALLOWED_EXTS}
 
     return sorted(filtered)
