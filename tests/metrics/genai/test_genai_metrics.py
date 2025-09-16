@@ -1,11 +1,13 @@
 import inspect
 import re
+from pathlib import Path
 from unittest import mock
 
 import numpy as np
 import pandas as pd
 import pytest
 
+import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.metrics.genai import EvaluationExample, model_utils
 from mlflow.metrics.genai.genai_metric import (
@@ -726,7 +728,8 @@ def test_similarity_metric(parameters, extra_headers, proxy_url):
         )
 
 
-def test_faithfulness_metric():
+def test_faithfulness_metric(tmp_path: Path):
+    mlflow.set_tracking_uri(tmp_path.as_uri())
     faithfulness_metric = faithfulness(model="gateway:/gpt-4o-mini", examples=[])
     input = "What is MLflow?"
 
