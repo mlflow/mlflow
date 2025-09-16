@@ -74,6 +74,10 @@ uv run pytest tests/
 # Run specific test file
 uv run pytest tests/test_version.py
 
+# Run tests with optional dependencies/extras
+uv run --with transformers pytest tests/transformers
+uv run --extra gateway pytest tests/gateway
+
 # Run JavaScript tests
 yarn --cwd mlflow/server/js test
 ```
@@ -191,7 +195,7 @@ yarn --cwd mlflow/server/js check-all
 
 ### Creating Pull Requests
 
-Follow [the PR template](./.github/pull_request_template.md) when creating pull requests. The template will automatically appear when you create a PR on GitHub.
+Follow [the PR template](./.github/pull_request_template.md) when creating pull requests. Remove any unused checkboxes from the template to keep your PR clean and focused.
 
 ### Checking CI Status
 
