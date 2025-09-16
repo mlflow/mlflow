@@ -526,15 +526,13 @@ def test_raise_duplicate_experiments(store: SqlAlchemyStore):
 
 
 def test_duplicate_experiment_with_artifact_location_returns_resource_already_exists(
-    store: SqlAlchemyStore,
+    store: SqlAlchemyStore, tmp_path: Path
 ):
-    """Test duplicate experiment with artifact_location returns RESOURCE_ALREADY_EXISTS."""
     exp_name = "test_duplicate_with_artifact_location"
-    artifact_location = "/tmp/test_artifacts"
+    artifact_location = str(tmp_path / "test_artifacts")
 
     # First creation should succeed
-    exp_id = store.create_experiment(exp_name, artifact_location=artifact_location)
-    assert exp_id is not None
+    store.create_experiment(exp_name, artifact_location=artifact_location)
 
     # Second creation should raise MlflowException with RESOURCE_ALREADY_EXISTS error code
     with pytest.raises(MlflowException, match="already exists") as exc_info:
