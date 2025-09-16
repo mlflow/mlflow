@@ -161,6 +161,7 @@ exclude = ["tests", "tests.*"]
 # Dev tool settings: can be updated manually
 
 [dependency-groups]
+dev = [{ include-group = "lint" }, { include-group = "test" }]
 lint = [
   "ruff==0.12.10",
   "black[jupyter]==23.7.0",
@@ -172,9 +173,8 @@ lint = [
   "clint",
   "pyyaml>=6.0.2",
   "packaging>=25.0",
-  { include-group = "pytest" },
 ]
-pytest = [
+test = [
   "pytest",
   "pytest-asyncio",
   "pytest-repeat",
@@ -183,8 +183,11 @@ pytest = [
   "pytest-localserver==0.5.0",
 ]
 
+[tool.uv.workspace]
+members = ["dev/clint"]
+
 [tool.uv.sources]
-clint = { path = "./dev/clint" }
+clint = { workspace = true }
 
 [tool.ruff]
 line-length = 100
@@ -221,6 +224,7 @@ select = [
   "N804",    # invalid-first-argument-name-for-class-method
   "PIE790",  # unnecessary-placeholder
   "PLR0402", # manual-from-import
+  "PLR1714", # repeated-equality-comparison
   "PLE1205", # logging-too-many-args
   "PLW0602", # global-variable-not-assigned
   "PLW1508", # invalid-envvar-default
@@ -319,7 +323,6 @@ exclude = [
   "mlflow/genai/labeling/__init__.py",
   "mlflow/genai/label_schemas/__init__.py",
   "tests/protos",
-  "docs/docs/genai/eval-monitor/scorers/llm-judge/custom.mdx",
 ]
 typing-extensions-allowlist = [
   # Docs: https://typing-extensions.readthedocs.io/en/latest/
@@ -404,6 +407,7 @@ extend-ignore-re = [
 
 [tool.pytest.ini_options]
 addopts = "-p no:legacypath --strict-markers --color=yes --durations=10 --showlocals -v"
+pythonpath = ["."]
 filterwarnings = [
   # Prevent deprecated numpy type aliases from being used
   "error:^`np\\.[a-z]+` is a deprecated alias for.+:DeprecationWarning:mlflow",

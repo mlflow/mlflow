@@ -49,12 +49,12 @@ repos:
         name: mypy
         language: system
         files: '^dev/clint/.*\.py$'
-        entry: mypy
+        entry: uv run --only-group lint mypy
         require_serial: true
 
       - id: blacken-docs
         name: blacken-docs
-        entry: blacken-docs
+        entry: uv run --only-group lint blacken-docs
         language: system
         files: '\.(rst|md|mdx)$'
         stages: [pre-commit]
@@ -62,7 +62,7 @@ repos:
 
       - id: clint
         name: clint
-        entry: clint
+        entry: uv run --only-group lint clint
         language: system
         files: '\.(py|ipynb|rst|mdx?)$'
         stages: [pre-commit]

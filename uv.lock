@@ -8,6 +8,12 @@ resolution-markers = [
     "python_full_version < '3.11'",
 ]
 
+[manifest]
+members = [
+    "clint",
+    "mlflow",
+]
+
 [[package]]
 name = "adal"
 version = "1.2.7"
@@ -970,7 +976,7 @@ wheels = [
 [[package]]
 name = "clint"
 version = "0.1.0"
-source = { directory = "dev/clint" }
+source = { editable = "dev/clint" }
 dependencies = [
     { name = "tomli" },
     { name = "typing-extensions" },
@@ -3276,7 +3282,7 @@ sqlserver = [
 ]
 
 [package.dev-dependencies]
-lint = [
+dev = [
     { name = "black", extra = ["jupyter"] },
     { name = "blacken-docs" },
     { name = "clint" },
@@ -3294,7 +3300,19 @@ lint = [
     { name = "ruff" },
     { name = "toml" },
 ]
-pytest = [
+lint = [
+    { name = "black", extra = ["jupyter"] },
+    { name = "blacken-docs" },
+    { name = "clint" },
+    { name = "mypy" },
+    { name = "packaging" },
+    { name = "pre-commit" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+    { name = "ruff" },
+    { name = "toml" },
+]
+test = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -3379,10 +3397,10 @@ requires-dist = [
 provides-extras = ["extras", "databricks", "mlserver", "gateway", "genai", "sqlserver", "aliyun-oss", "jfrog", "langchain", "auth"]
 
 [package.metadata.requires-dev]
-lint = [
+dev = [
     { name = "black", extras = ["jupyter"], specifier = "==23.7.0" },
     { name = "blacken-docs", specifier = "==1.18.0" },
-    { name = "clint", directory = "dev/clint" },
+    { name = "clint", editable = "dev/clint" },
     { name = "mypy", specifier = "==1.17.1" },
     { name = "packaging", specifier = ">=25.0" },
     { name = "pre-commit", specifier = "==4.0.1" },
@@ -3397,7 +3415,19 @@ lint = [
     { name = "ruff", specifier = "==0.12.10" },
     { name = "toml", specifier = "==0.10.2" },
 ]
-pytest = [
+lint = [
+    { name = "black", extras = ["jupyter"], specifier = "==23.7.0" },
+    { name = "blacken-docs", specifier = "==1.18.0" },
+    { name = "clint", editable = "dev/clint" },
+    { name = "mypy", specifier = "==1.17.1" },
+    { name = "packaging", specifier = ">=25.0" },
+    { name = "pre-commit", specifier = "==4.0.1" },
+    { name = "pydantic", specifier = "==2.11.7" },
+    { name = "pyyaml", specifier = ">=6.0.2" },
+    { name = "ruff", specifier = "==0.12.10" },
+    { name = "toml", specifier = "==0.10.2" },
+]
+test = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },

@@ -932,6 +932,19 @@ strands:
     run: pytest tests/strands
     test_tracing_sdk: true
 
+haystack:
+  package_info:
+    pip_release: "haystack-ai"
+    module_name: "haystack"
+    install_dev: |
+      pip install git+https://github.com/deepset-ai/haystack
+  autologging:
+    minimum: "2.0.0"
+    maximum: "2.10.0"
+    requirements:
+    run: pytest tests/haystack
+    test_tracing_sdk: true
+
 mistral:
   package_info:
     genai: true
