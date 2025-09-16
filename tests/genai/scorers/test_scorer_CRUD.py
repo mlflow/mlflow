@@ -34,10 +34,8 @@ def test_mlflow_backend_scorer_operations():
     def test_mlflow_scorer_v2(outputs) -> bool:
         return len(outputs) > 10  # Different logic for v2
 
-    # register scorer into default experiment.
-    registered_scorer_v2 = test_mlflow_scorer_v2.register(
-        name="test_mlflow_scorer"
-    )
+    # Register the scorer in the default experiment.
+    registered_scorer_v2 = test_mlflow_scorer_v2.register(name="test_mlflow_scorer")
     assert registered_scorer_v2.name == "test_mlflow_scorer"
 
     # Test list operation
