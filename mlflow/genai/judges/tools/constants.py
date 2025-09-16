@@ -19,3 +19,4 @@ class ToolNames:
     LIST_SPANS = "list_spans"
     SEARCH_TRACE_REGEX = "search_trace_regex"
     GET_SPAN_PERFORMANCE_AND_TIMING_REPORT = "get_span_performance_and_timing_report"
+    GET_HISTORICAL_TRACES = "get_historical_traces"
