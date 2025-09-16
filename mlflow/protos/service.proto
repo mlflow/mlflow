@@ -585,6 +585,20 @@ service MlflowService {
     };
   }
 
+  // Get Trace (returning a TraceInfoV3). Differences between GetTraceInfoV4 and GetTraceInfoV3
+  // are location in the request path, which describes where the Trace is stored.
+  rpc getTraceInfoV4 (GetTraceInfoV4) returns (GetTraceInfoV4.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/traces/{location}/{trace_id}/info",
+        since {major: 4, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Get TraceInfo v4",
+    };
+  }
+
   // DEPRECATED. Use searchTracesV3 instead.
   rpc searchTraces (SearchTraces) returns (SearchTraces.Response) {
     option (rpc) = {
@@ -2124,6 +2138,25 @@ message GetTraceInfoV3 {
     optional Trace trace = 1;
   }
 }
+
+message GetTraceInfoV4 {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the trace to fetch. Must be provided.
+  optional string trace_id = 1;
+
+  // Location of the trace to fetch from. Must be provided.
+  optional string location = 2;
+
+  // Optional SQL warehouse ID for fetching trace data.
+  optional string sql_warehouse_id = 3;
+
+  message Response {
+    optional Trace trace = 1;
+  }
+
+}
+
 message SearchTraces {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
@@ -2365,7 +2398,8 @@ message TraceLocation {
   enum TraceLocationType {
     TRACE_LOCATION_TYPE_UNSPECIFIED = 0;
     MLFLOW_EXPERIMENT = 1;
-    INFERENCE_TABLE= 2;
+    INFERENCE_TABLE = 2;
+    UC_SCHEMA = 3;
   }
   optional TraceLocationType type = 1;
 
@@ -2379,9 +2413,15 @@ message TraceLocation {
     optional string full_table_name = 1;
   }
 
+  message UCSchemaLocation {
+    optional string catalog_name = 1;
+    optional string schema_name = 2;
+  }
+
   oneof identifier {
     MlflowExperimentLocation mlflow_experiment = 2;
     InferenceTableLocation inference_table = 3;
+    UCSchemaLocation uc_schema = 4;
   }
 }
 

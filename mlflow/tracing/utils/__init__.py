@@ -16,9 +16,10 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
 from packaging.version import Version
 
-from mlflow.exceptions import BAD_REQUEST, MlflowTracingException
+from mlflow.exceptions import BAD_REQUEST, MlflowException, MlflowTracingException
 from mlflow.tracing.constant import (
     ASSESSMENT_ID_PREFIX,
+    TRACE_ID_V4_PREFIX,
     TRACE_REQUEST_ID_PREFIX,
     SpanAttributeKey,
     TokenUsageKey,
@@ -606,3 +607,19 @@ def _bypass_attribute_guard(span: OTelSpan) -> Generator[None, None, None]:
         yield
     finally:
         span._end_time = original_end_time
+
+
+def parse_trace_id_v4(trace_id: str) -> tuple[str | None, str]:
+    """
+    Parse the trace ID into location and trace ID components.
+    """
+    if trace_id.startswith(TRACE_ID_V4_PREFIX):
+        splits = trace_id.removeprefix(TRACE_ID_V4_PREFIX).split("/")
+        if len(splits) != 2 or splits[0] == "" or splits[1] == "":
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid trace ID format: {trace_id}. "
+                f"Expected format: {TRACE_ID_V4_PREFIX}<location>/<trace_id>"
+            )
+        return splits[0], splits[1]
+    else:
+        return None, trace_id
