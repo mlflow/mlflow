@@ -484,6 +484,9 @@ export const MOCK_LLAMA_INDEX_CHAT_OUTPUT = {
   },
 };
 
+export const MOCK_CHAT_MESSAGES = MOCK_OPENAI_CHAT_INPUT.messages as ModelTraceChatMessage[];
+export const MOCK_CHAT_TOOLS = MOCK_OPENAI_CHAT_INPUT.tools as ModelTraceChatTool[];
+
 export const MOCK_CHAT_SPAN: ModelTraceSpanNode = {
   ...commonSpanParts,
   attributes: {},
@@ -493,13 +496,12 @@ export const MOCK_CHAT_SPAN: ModelTraceSpanNode = {
   end: 8.1 * 1e6,
   inputs: MOCK_LANGCHAIN_CHAT_INPUT,
   outputs: MOCK_LANGCHAIN_CHAT_OUTPUT,
+  chatMessages: MOCK_CHAT_MESSAGES,
+  chatTools: MOCK_CHAT_TOOLS,
   type: ModelSpanType.CHAT_MODEL,
   assessments: [],
   traceId: '',
 };
-
-export const MOCK_CHAT_MESSAGES = MOCK_OPENAI_CHAT_INPUT.messages as ModelTraceChatMessage[];
-export const MOCK_CHAT_TOOLS = MOCK_OPENAI_CHAT_INPUT.tools as ModelTraceChatTool[];
 
 export const MOCK_CHAT_TOOL_CALL_SPAN: ModelTraceSpanV2 = {
   ...commonSpanParts,
