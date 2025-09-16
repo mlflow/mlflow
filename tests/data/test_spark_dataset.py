@@ -1,7 +1,6 @@
 import json
 import os
-import tempfile
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 import pytest
@@ -16,45 +15,33 @@ from mlflow.exceptions import MlflowException
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
 
-
-@pytest.fixture(scope="module")
-def spark_session():
+if TYPE_CHECKING:
     from pyspark.sql import SparkSession
 
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        with (
-            SparkSession.builder.master("local[*]")
-            .config("spark.jars.packages", "io.delta:delta-spark_2.12:3.0.0")
-            .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
-            .config(
-                "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"
-            )
-            .config("spark.sql.warehouse.dir", tmp_dir)
-            .getOrCreate()
-        ) as session:
-            yield session
+
+@pytest.fixture(scope="module")
+def spark_session(tmp_path_factory: pytest.TempPathFactory):
+    from pyspark.sql import SparkSession
+
+    tmp_dir = tmp_path_factory.mktemp("spark_tmp")
+    with (
+        SparkSession.builder.master("local[*]")
+        .config("spark.jars.packages", "io.delta:delta-spark_2.12:3.0.0")
+        .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
+        .config(
+            "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"
+        )
+        .config("spark.sql.warehouse.dir", str(tmp_dir))
+        .getOrCreate()
+    ) as session:
+        yield session
 
 
 @pytest.fixture(autouse=True)
-def cleanup_spark_tables(spark_session):
-    """Clean up any tables and views created during tests to prevent conflicts."""
+def drop_tables(spark_session: "SparkSession"):
     yield
-
-    # Clean up temporary views and tables that might conflict between tests
-    try:
-        # Drop common test tables and views that might have been created
-        table_names = ["table", "my_spark_table", "my_delta_table", "my_delta_table_versioned"]
-        for table_name in table_names:
-            try:
-                spark_session.sql(f"DROP TABLE IF EXISTS {table_name}")
-            except Exception:
-                pass  # Ignore errors if table doesn't exist
-            try:
-                spark_session.sql(f"DROP VIEW IF EXISTS {table_name}")
-            except Exception:
-                pass  # Ignore errors if view doesn't exist
-    except Exception:
-        pass  # Ignore cleanup errors to avoid affecting test results
+    for row in spark_session.sql("SHOW TABLES").collect():
+        spark_session.sql(f"DROP TABLE IF EXISTS {row.tableName}")
 
 
 @pytest.fixture
