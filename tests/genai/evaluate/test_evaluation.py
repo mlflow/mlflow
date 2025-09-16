@@ -764,6 +764,21 @@ def test_evaluate_with_tags(tags_data, expected_calls):
             assert expected_call in actual_calls
 
 
+def test_evaluate_with_traces_tags_no_warnings():
+    @mlflow.trace
+    def foo():
+        pass
+
+    foo()
+    traces = mlflow.search_traces()
+    with mock.patch("mlflow.tracing.client._logger.warning") as mock_warning:
+        mlflow.genai.evaluate(
+            data=traces,
+            scorers=[has_trace],
+        )
+        assert mock_warning.call_count == 0
+
+
 def test_evaluate_with_tags_error_handling(is_in_databricks):
     """Test that tag logging errors don't fail the evaluation."""
     data = [
