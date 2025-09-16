@@ -13,8 +13,6 @@ from mlflow.entities.span_status import SpanStatusCode
 from mlflow.exceptions import MlflowException
 from mlflow.openai.constant import FLAVOR_NAME
 from mlflow.openai.utils.chat_schema import set_span_chat_attributes
-from mlflow.telemetry.events import AutologgingEvent
-from mlflow.telemetry.track import _record_event
 from mlflow.tracing.constant import (
     STREAM_CHUNK_EVENT_NAME_FORMAT,
     STREAM_CHUNK_EVENT_VALUE_KEY,
@@ -95,10 +93,6 @@ def autolog(
             remove_mlflow_trace_processor()
     except ImportError:
         pass
-
-    _record_event(
-        AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}
-    )
 
 
 # This is required by mlflow.autolog()
