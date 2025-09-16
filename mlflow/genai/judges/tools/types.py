@@ -8,6 +8,7 @@ across multiple judge tools for consistent data representation.
 from dataclasses import dataclass
 
 from mlflow.entities.span_status import SpanStatus
+from mlflow.entities.trace_info import TraceInfo
 from mlflow.utils.annotations import experimental
 
 
@@ -38,3 +39,18 @@ class SpanInfo:
     status: SpanStatus
     is_root: bool
     attribute_names: list[str]
+
+
+@experimental(version="3.4.0")
+@dataclass
+class HistoricalTrace:
+    """
+    Historical trace containing trace metadata and request/response data.
+
+    Used for multi-turn evaluation to provide judges with conversation history
+    from previous interactions within the same session.
+    """
+
+    trace_info: TraceInfo
+    request: str
+    response: str
