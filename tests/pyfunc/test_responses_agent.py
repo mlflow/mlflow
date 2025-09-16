@@ -7,6 +7,7 @@ import pytest
 
 from mlflow.entities.span import SpanType
 from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
+
 from tests.tracing.helper import get_traces, purge_traces
 
 if not IS_PYDANTIC_V2_OR_NEWER:
