@@ -147,12 +147,12 @@ def _score_model_on_payloads(
         }
 
         as_comp = as_completed(futures)
-        try:
-            from tqdm.auto import tqdm
+        # try:
+        #     from tqdm.auto import tqdm
 
-            as_comp = tqdm(as_comp, total=len(futures))
-        except ImportError:
-            pass
+        #     as_comp = tqdm(as_comp, total=len(futures))
+        # except ImportError:
+        #     pass
 
         for future in as_comp:
             indx = futures[future]
