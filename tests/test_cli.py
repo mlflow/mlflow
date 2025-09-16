@@ -657,18 +657,18 @@ def test_mlflow_tracking_disabled_in_artifacts_only_mode():
     process.kill()
 
 
-def test_mlflow_artifact_list_in_artifacts_only_mode():
+def test_mlflow_artifact_list_in_artifacts_only_mode(tmp_path: Path):
     port = get_safe_port()
     cmd = ["mlflow", "server", "--port", str(port), "--artifacts-only"]
-    process = subprocess.Popen(cmd)
-    try:
-        _await_server_up_or_die(port)
-        resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow-artifacts/artifacts")
-        augmented_raise_for_status(resp)
-        assert resp.status_code == 200
-        assert resp.text == "{}"
-    finally:
-        process.kill()
+    with subprocess.Popen(cmd, cwd=tmp_path) as process:
+        try:
+            _await_server_up_or_die(port)
+            resp = requests.get(f"http://localhost:{port}/api/2.0/mlflow-artifacts/artifacts")
+            augmented_raise_for_status(resp)
+            assert resp.status_code == 200
+            assert resp.text == "{}"
+        finally:
+            process.kill()
 
 
 def test_mlflow_artifact_service_unavailable_when_no_server_artifacts_is_specified():

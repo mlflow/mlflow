@@ -1,7 +1,6 @@
 import argparse
 import itertools
 import json
-import os
 import re
 import sys
 import tempfile
@@ -15,6 +14,7 @@ from typing_extensions import Self
 from clint.config import Config
 from clint.index import SymbolIndex
 from clint.linter import lint_file
+from clint.utils import resolve_paths
 
 
 @dataclass
@@ -25,7 +25,11 @@ class Args:
     @classmethod
     def parse(cls) -> Self:
         parser = argparse.ArgumentParser(description="Custom linter for mlflow.")
-        parser.add_argument("files", nargs="+", help="Files to lint.")
+        parser.add_argument(
+            "files",
+            nargs="*",
+            help="Files to lint. If not specified, lints all files in the current directory.",
+        )
         parser.add_argument("--output-format", default="text")
         args, _ = parser.parse_known_args()
         return cls(files=args.files, output_format=args.output_format)
@@ -34,10 +38,22 @@ class Args:
 def main() -> None:
     config = Config.load()
     args = Args.parse()
-    files = args.files
+
+    input_paths = [Path(f) for f in args.files]
+
+    resolved_files = resolve_paths(input_paths)
+
+    # Apply exclude filtering
+    files = []
     if config.exclude:
         regex = re.compile("|".join(map(re.escape, config.exclude)))
-        files = [f for f in files if not regex.match(f) and os.path.exists(f)]
+        files = [f for f in resolved_files if not regex.match(str(f))]
+    else:
+        files = resolved_files
+
+    # Exit early if no files to lint
+    if not files:
+        return
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         # Pickle `SymbolIndex` to avoid expensive serialization overhead when passing
@@ -45,7 +61,7 @@ def main() -> None:
         index_path = Path(tmp_dir) / "symbol_index.pkl"
         SymbolIndex.build().save(index_path)
         with ProcessPoolExecutor() as pool:
-            futures = [pool.submit(lint_file, Path(f), config, index_path) for f in files]
+            futures = [pool.submit(lint_file, f, config, index_path) for f in files]
             violations_iter = itertools.chain.from_iterable(
                 f.result() for f in as_completed(futures)
             )

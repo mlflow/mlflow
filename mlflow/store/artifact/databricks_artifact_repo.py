@@ -283,9 +283,9 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                     ],
                     is_sync=True,
                 )
-            elif (
-                cred.type == ArtifactCredentialType.AWS_PRESIGNED_URL
-                or cred.type == ArtifactCredentialType.GCP_SIGNED_URL
+            elif cred.type in (
+                ArtifactCredentialType.AWS_PRESIGNED_URL,
+                ArtifactCredentialType.GCP_SIGNED_URL,
             ):
                 self._signed_url_upload_file(cred, temp_file)
 

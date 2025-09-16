@@ -116,6 +116,10 @@
     "mlflow/server/js/build": true
   },
 
+  // Prevent VS Code from following symlinks during searches
+  // This avoids duplicate results from symlinks in libs/ directory
+  "search.followSymlinks": false,
+
   // Editor settings
   "editor.rulers": [100], // Show ruler at 100 chars for Python
 

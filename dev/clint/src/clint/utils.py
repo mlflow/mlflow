@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import ast
 import re
+import subprocess
 from pathlib import Path
 
 
@@ -38,3 +41,39 @@ def get_ignored_rules_for_file(
         if pattern.fullmatch(file_path.as_posix()):
             ignored_rules |= rules
     return ignored_rules
+
+
+ALLOWED_EXTS = {".md", ".mdx", ".rst", ".py", ".ipynb"}
+
+
+def _git_ls_files(pathspecs: list[Path]) -> list[Path]:
+    """
+    Return git-tracked files matching the given pathspecs.
+    Git does not filter by extension; filtering happens in Python.
+    """
+    try:
+        out = subprocess.check_output(
+            ["git", "ls-files", "--", *pathspecs],
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as e:
+        raise RuntimeError("Failed to list git-tracked files") from e
+
+    return [Path(line) for line in out.splitlines() if line]
+
+
+def resolve_paths(paths: list[Path]) -> list[Path]:
+    """
+    Resolve CLI arguments into a list of tracked files to lint.
+
+    - Only git-tracked files
+    - Only includes: .md, .mdx, .rst, .py, .ipynb
+    """
+    if not paths:
+        paths = [Path(".")]
+
+    tracked = _git_ls_files(paths)
+
+    filtered = {p for p in tracked if p.suffix.lower() in ALLOWED_EXTS and p.exists()}
+
+    return sorted(filtered)

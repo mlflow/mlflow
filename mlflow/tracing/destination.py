@@ -29,7 +29,6 @@ class UserTraceDestinationRegistry:
         self._context_local_value.set(None)
 
 
-@experimental(version="2.21.0")
 @dataclass
 class TraceDestination:
     """A configuration object for specifying the destination of trace data."""
@@ -40,7 +39,6 @@ class TraceDestination:
         raise NotImplementedError
 
 
-@experimental(version="2.21.0")
 @dataclass
 class MlflowExperiment(TraceDestination):
     """
