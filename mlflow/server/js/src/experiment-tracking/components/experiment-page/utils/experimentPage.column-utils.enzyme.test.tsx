@@ -35,8 +35,8 @@ describe('ExperimentViewRuns column utils', () => {
       paramKeyList: MOCK_PARAMS,
       tagKeyList: MOCK_TAGS,
       onExpand: jest.fn(),
-      onSortBy: jest.fn(),
       onTogglePin: jest.fn(),
+      onToggleVisibility: jest.fn(),
       selectedColumns: createExperimentPageUIState().selectedColumns,
     });
   });
@@ -168,42 +168,37 @@ describe('ExperimentViewRuns column utils', () => {
 
     // ...but has not for the remaining columns
     expect(setColumnVisibleMock).not.toHaveBeenCalledWith(makeCanonicalSortKey(COLUMN_TYPES.METRICS, 'metric_2'), true);
-
     expect(setColumnVisibleMock).not.toHaveBeenCalledWith(makeCanonicalSortKey(COLUMN_TYPES.PARAMS, 'param_1'), true);
   });
 
-  test('it filters metric, param, and tag columns based on selected columns', () => {
-    // Set up selected columns
+  test('it includes all columns', () => {
     const selectedColumns = [
       makeCanonicalSortKey(COLUMN_TYPES.METRICS, 'metric_1'),
       makeCanonicalSortKey(COLUMN_TYPES.PARAMS, 'param_2'),
       makeCanonicalSortKey(COLUMN_TYPES.TAGS, 'tag_1'),
     ];
 
-    // Get column definitions with selected columns
+    // Get column definitions
     const columnDefinitions = getHookResult({
       ...MOCK_HOOK_PARAMS,
       selectedColumns,
       isComparingRuns: false,
     }) as unknown as ColGroupDef[];
 
-    // Find the metrics column group
+    // Find the metrics column group - should include all metrics
     const metricsGroup = columnDefinitions.find((col) => col.groupId === COLUMN_TYPES.METRICS) as ColGroupDef;
     expect(metricsGroup).toBeDefined();
-    expect(metricsGroup.children?.length).toBe(1);
-    expect((metricsGroup.children?.[0] as ColDef).colId).toBe(makeCanonicalSortKey(COLUMN_TYPES.METRICS, 'metric_1'));
+    expect(metricsGroup.children?.length).toBe(2); // All metrics
 
-    // Find the params column group
+    // Find the params column group - should include all params
     const paramsGroup = columnDefinitions.find((col) => col.groupId === COLUMN_TYPES.PARAMS) as ColGroupDef;
     expect(paramsGroup).toBeDefined();
-    expect(paramsGroup.children?.length).toBe(1);
-    expect((paramsGroup.children?.[0] as ColDef).colId).toBe(makeCanonicalSortKey(COLUMN_TYPES.PARAMS, 'param_2'));
+    expect(paramsGroup.children?.length).toBe(2); // All params
 
-    // Find the tags column group - note that in the implementation, tags use colId instead of groupId
+    // Find the tags column group - should include all tags
     const tagsGroup = columnDefinitions.find((col) => (col as any).colId === COLUMN_TYPES.TAGS) as ColGroupDef;
     expect(tagsGroup).toBeDefined();
-    expect(tagsGroup.children?.length).toBe(1);
-    expect((tagsGroup.children?.[0] as ColDef).colId).toBe(makeCanonicalSortKey(COLUMN_TYPES.TAGS, 'tag_1'));
+    expect(tagsGroup.children?.length).toBe(2); // All tags
   });
 
   test('it includes all columns when comparing runs regardless of selection', () => {

@@ -61,6 +61,11 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'doc',
+          id: 'concepts/scorers',
+          label: 'Scorers',
+        },
+        {
+          type: 'doc',
           id: 'concepts/evaluation-datasets',
           label: 'Evaluation Datasets',
         },
@@ -314,16 +319,72 @@ const sidebarsGenAI: SidebarsConfig = {
               label: 'LLM-based Scorers',
               items: [
                 {
-                  type: 'doc',
-                  id: 'eval-monitor/scorers/llm-judge/predefined',
+                  type: 'category',
+                  label: 'Custom LLM Judges',
+                  items: [
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/make-judge',
+                      label: 'Getting Started with make_judge',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/workflow',
+                      label: 'Development Workflow',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/alignment',
+                      label: 'Human Feedback Alignment',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/datasets',
+                      label: 'Dataset Integration',
+                    },
+                  ],
                 },
                 {
-                  type: 'doc',
-                  id: 'eval-monitor/scorers/llm-judge/guidelines',
+                  type: 'category',
+                  label: 'Agent-based Scorers (Agent-as-a-Judge)',
+                  items: [
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/agentic-overview',
+                      label: 'Overview',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/trace-analysis',
+                      label: 'Trace Analysis with Tools',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/agent-behavior-patterns',
+                      label: 'Evaluating Agent Behavior',
+                    },
+                  ],
                 },
                 {
-                  type: 'doc',
-                  id: 'eval-monitor/scorers/llm-judge/prompt',
+                  type: 'category',
+                  label: 'Other Approaches',
+                  items: [
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/guidelines',
+                      label: 'Guidelines-based',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/predefined',
+                      label: 'Predefined Scorers',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/prompt',
+                      label: 'Custom Prompts',
+                    },
+                  ],
                 },
               ],
               link: {

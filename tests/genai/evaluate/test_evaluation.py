@@ -764,6 +764,22 @@ def test_evaluate_with_tags(tags_data, expected_calls):
             assert expected_call in actual_calls
 
 
+def test_evaluate_with_traces_tags_no_warnings():
+    with mlflow.start_span() as span:
+        span.set_inputs({"question": "Hello?"})
+
+    traces = mlflow.search_traces()
+    with mock.patch("mlflow.tracing.client._logger.warning") as mock_warning:
+        mlflow.genai.evaluate(
+            data=traces,
+            scorers=[has_trace],
+        )
+        assert not any(
+            "immutable and cannot be set on a trace" in call.args[0]
+            for call in mock_warning.call_args_list
+        )
+
+
 def test_evaluate_with_tags_error_handling(is_in_databricks):
     """Test that tag logging errors don't fail the evaluation."""
     data = [

@@ -1,5 +1,6 @@
 import json
 import os
+from typing import Any
 
 import pandas as pd
 import pytest
@@ -45,6 +46,16 @@ def _assert_dataframes_equal(df1, df2):
         assert False
 
 
+def _validate_profile_approx_count(parsed_json: dict[str, Any]) -> None:
+    """Validate approx_count in profile data, handling platform/version differences."""
+    # On Windows with certain PySpark versions, Spark datasets may return "unknown" for approx_count
+    # instead of the actual count. We should check that the profile is valid JSON and contains
+    # the expected key, but not assert on the exact value.
+    profile_data = json.loads(parsed_json["profile"])
+    assert "approx_count" in profile_data
+    assert profile_data["approx_count"] in [1, 2, "unknown"]
+
+
 def _check_spark_dataset(dataset, original_df, df_spark, expected_source_type, expected_name=None):
     assert isinstance(dataset, SparkDataset)
     _assert_dataframes_equal(dataset.df, df_spark)
@@ -82,7 +93,7 @@ def test_conversion_to_json_spark_dataset_source(spark_session, tmp_path, df):
     assert parsed_json["digest"] == dataset.digest
     assert parsed_json["source"] == dataset.source.to_json()
     assert parsed_json["source_type"] == dataset.source._get_source_type()
-    assert parsed_json["profile"] == json.dumps(dataset.profile)
+    _validate_profile_approx_count(parsed_json)
 
     schema_json = json.dumps(json.loads(parsed_json["schema"])["mlflow_colspec"])
     assert Schema.from_json(schema_json) == dataset.schema
@@ -108,13 +119,7 @@ def test_conversion_to_json_delta_dataset_source(spark_session, tmp_path, df):
     assert parsed_json["digest"] == dataset.digest
     assert parsed_json["source"] == dataset.source.to_json()
     assert parsed_json["source_type"] == dataset.source._get_source_type()
-
-    # On Windows with certain PySpark versions, Delta tables may return "unknown" for approx_count
-    # instead of the actual count. We should check that the profile is valid JSON and contains
-    # the expected key, but not assert on the exact value.
-    profile_data = json.loads(parsed_json["profile"])
-    assert "approx_count" in profile_data
-    assert profile_data["approx_count"] in [2, "unknown"]
+    _validate_profile_approx_count(parsed_json)
 
     schema_json = json.dumps(json.loads(parsed_json["schema"])["mlflow_colspec"])
     assert Schema.from_json(schema_json) == dataset.schema
