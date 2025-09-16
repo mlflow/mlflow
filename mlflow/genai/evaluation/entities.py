@@ -46,7 +46,7 @@ class EvalItem:
         """
         Create an EvalItem from a row of input Pandas Dataframe row.
         """
-        if inputs := row.get(InputDatasetColumn.INPUTS):
+        if (inputs := row.get(InputDatasetColumn.INPUTS)) is not None:
             inputs = cls._parse_inputs(inputs)
         else:
             raise MlflowException.invalid_parameter_value(

@@ -407,12 +407,12 @@ def complete_eval_futures_with_progress_base(futures: list[Future]) -> list["Eva
 
 @experimental(version="3.5.0")
 def convert_trace_df_to_eval_dataset(
-    df: pd.DataFrame,
+    df: "pd.DataFrame",
     request_key: str | None = None,
     response_key: str | None = None,
     extract_func: Callable[[dict[str, Any], Literal["request", "response"]], dict[str, Any]]
     | None = None,
-) -> pd.DataFrame:
+) -> "pd.DataFrame":
     """
     Convert a dataframe of traces to the format that mlflow.genai.evaluate() expects.
 
