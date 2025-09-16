@@ -399,6 +399,9 @@ jobs:
       - name: Download Hadoop winutils for Spark
         run: |
           git clone https://github.com/cdarlint/winutils /tmp/winutils
+          # Set Hadoop environment variables required for testing Spark integrations on Windows
+          echo "HADOOP_HOME=/tmp/winutils/hadoop-3.2.2" >> $GITHUB_ENV
+          echo "PATH=$PATH:/tmp/winutils/hadoop-3.2.2/bin" >> $GITHUB_ENV
       - name: Run tests/metrics/genai/test_genai_metrics.py
         env:
           MLFLOW_SQLALCHEMYSTORE_POOLCLASS: "NullPool"
@@ -407,6 +410,7 @@ jobs:
           pytest \
             tests/data \
             tests/metrics/genai/test_genai_metrics.py
+
       - name: Run python tests
         env:
           # Starting from SQLAlchemy version 2.0, `QueuePool` is the default connection pool
@@ -416,9 +420,6 @@ jobs:
           MLFLOW_SQLALCHEMYSTORE_POOLCLASS: "NullPool"
         run: |
           source .venv/Scripts/activate
-          # Set Hadoop environment variables required for testing Spark integrations on Windows
-          export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
-          export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
             --ignore-flavors \
