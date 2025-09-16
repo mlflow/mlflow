@@ -577,10 +577,13 @@ def test_responses_agent_output_to_responses_items():
                     delta="",
                 ),
                 ResponsesAgentStreamEvent(
-                    type="reasoning",
+                    type="response.output_item.done",
                     custom_outputs=None,
-                    summary=[{"type": "summary_text", "text": "We need"}],
-                    id="chatcmpl_fd04a20f-f348-45e1-af37-68cf3bb08bdb",
+                    item={
+                        "type": "reasoning",
+                        "summary": [{"type": "summary_text", "text": "We need"}],
+                        "id": "chatcmpl_fd04a20f-f348-45e1-af37-68cf3bb08bdb",
+                    },
                 ),
                 ResponsesAgentStreamEvent(
                     type="response.output_text.delta",
@@ -678,15 +681,18 @@ def test_responses_agent_output_to_responses_items():
                     delta="Hello! How can I help you today?",
                 ),
                 ResponsesAgentStreamEvent(
-                    type="reasoning",
+                    type="response.output_item.done",
                     custom_outputs=None,
-                    summary=[
-                        {
-                            "type": "summary_text",
-                            "text": 'We need to respond. The user just says "hi". We can reply friendly.',
-                        }
-                    ],
-                    id="chatcmpl_fd04a20f-f348-45e1-af37-68cf3bb08bdb",
+                    item={
+                        "type": "reasoning",
+                        "summary": [
+                            {
+                                "type": "summary_text",
+                                "text": 'We need to respond. The user just says "hi". We can reply friendly.',
+                            }
+                        ],
+                        "id": "chatcmpl_fd04a20f-f348-45e1-af37-68cf3bb08bdb",
+                    },
                 ),
                 ResponsesAgentStreamEvent(
                     type="response.output_text.delta",
@@ -1017,6 +1023,11 @@ def test_responses_agent_output_to_responses_items_stream(chunks, expected_outpu
     3. claude no tool call streaming
     4. claude tool call streaming
     """
-    converted_output = list(ResponsesAgent.output_to_responses_items_stream(chunks))
-    print("content", converted_output)
+    aggregator = []
+    converted_output = list(ResponsesAgent.output_to_responses_items_stream(chunks, aggregator))
+    print("converted_output", converted_output)
     assert converted_output == expected_output
+    expected_aggregator = [
+        event.item for event in expected_output if event.type == "response.output_item.done"
+    ]
+    assert aggregator == expected_aggregator
