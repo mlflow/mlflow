@@ -78,6 +78,61 @@ uv run pytest tests/test_version.py
 yarn --cwd mlflow/server/js test
 ```
 
+### Testing with Optional Dependencies
+
+Use the `--with` flag to install and test with additional packages not included in the base environment:
+
+```bash
+# Run tests with specific optional dependencies
+uv run --with transformers pytest tests/
+
+# Run tests with multiple optional dependencies
+uv run --with scikit-learn --with xgboost pytest tests/
+
+# Run tests with deep learning frameworks
+uv run --with torch pytest tests/
+
+# Run tests with specific versions
+uv run --with "tensorflow>=2.10.0" pytest tests/
+```
+
+### Testing with Project Extras
+
+Use the `--extra` flag to install and test with MLflow's predefined dependency groups:
+
+```bash
+# Run tests with gateway dependencies (for AI Gateway functionality)
+uv run --extra gateway pytest tests/
+
+# Run tests with genai dependencies (for generative AI features)
+uv run --extra genai pytest tests/
+
+# Run tests with all extras
+uv run --all-extras pytest tests/
+
+# Run tests with multiple specific extras
+uv run --extra gateway --extra databricks pytest tests/
+
+# Run tests with langchain dependencies
+uv run --extra langchain pytest tests/
+```
+
+### Examples for Specific Components
+
+```bash
+# Test transformers integration with required dependencies
+uv run --with transformers --with sentencepiece pytest tests/transformers/
+
+# Test gateway functionality with all required dependencies
+uv run --extra gateway pytest tests/gateway/
+
+# Test with both extras and additional packages
+uv run --extra gateway --with openai pytest tests/
+
+# Test MLServer deployment functionality
+uv run --extra mlserver pytest tests/deployments/
+```
+
 **IMPORTANT**: `uv` may fail initially because the environment has not been set up yet. Follow the instructions to set up the environment and then rerun `uv` as needed.
 
 ### Code Quality
