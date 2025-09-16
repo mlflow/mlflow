@@ -2,7 +2,7 @@ import json
 import logging
 import math
 from concurrent.futures import Future, as_completed
-from typing import TYPE_CHECKING, Any, Collection
+from typing import TYPE_CHECKING, Any, Callable, Collection, Literal
 
 from mlflow.entities import Assessment, Trace
 from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME, Feedback
@@ -13,6 +13,7 @@ from mlflow.genai.evaluation.constant import (
 )
 from mlflow.genai.scorers import Scorer
 from mlflow.models import EvaluationMetric
+from mlflow.utils.annotations import experimental
 
 try:
     # `pandas` is not required for `mlflow-skinny`.
@@ -402,3 +403,94 @@ def complete_eval_futures_with_progress_base(futures: list[Future]) -> list["Eva
         pass
 
     return [future.result() for future in futures_as_completed]
+
+
+@experimental(version="3.5.0")
+def convert_trace_df_to_eval_dataset(
+    df: pd.DataFrame,
+    request_key: str | None = None,
+    response_key: str | None = None,
+    extract_func: Callable[[dict[str, Any], Literal["request", "response"]], dict[str, Any]]
+    | None = None,
+) -> pd.DataFrame:
+    """
+    Convert a dataframe of traces to the format that mlflow.genai.evaluate() expects.
+
+    Args:
+        df: A dataframe of traces, with a 'trace' column that contains Trace objects.
+        request_key: The attribute key to extract trace request from the root span.
+        response_key: The attribute key to extract trace response from the root span.
+        extract_func: A function that extracts the request and response from the root span. It must
+            follow the following signature:
+            def extract_func(
+                root_span_attributes: dict[str, Any],
+                key: Literal["request", "response"],
+            ) -> Any:
+                ...
+
+    Returns:
+        A dataframe with the same schema as the input dataframe, but with the 'request' and
+        'response' columns containing the trace request and response, respectively.
+
+    .. code-block:: python
+
+        # 1. If the trace request and response are in the root span attributes, use the following:
+        import mlflow
+        from mlflow.genai.evaluation.utils import convert_trace_df_to_eval_dataset
+
+        trace_df = mlflow.search_traces(model_id="<my-model-id>")
+        # Assuming the trace request is `query.text` and the response is `result.output` field
+        # in the root span attributes.
+        df = convert_trace_df_to_eval_dataset(trace_df, "query.text", "result.output")
+        mlflow.genai.evaluate(df, ...)
+
+
+        # 2. If you need to extract the request and response from the root span in a custom way,
+        # you can provide a function to the `extract_func` argument.
+        def extract_func(
+            root_span_attributes: dict[str, Any], key: Literal["request", "response"]
+        ) -> Any:
+            if key == "request":
+                return json.loads(root_span_attributes.get("traceloop.entity.input")).get(
+                    "inputs"
+                )
+            if key == "response":
+                return json.loads(root_span_attributes.get("traceloop.entity.output")).get(
+                    "outputs"
+                )
+
+
+        df = convert_trace_df_to_eval_dataset(trace_df, extract_func=extract_func)
+        mlflow.genai.evaluate(df, ...)
+    """
+    if "spans" not in df.columns:
+        raise MlflowException.invalid_parameter_value("trace dataframe must contain 'spans' column")
+
+    if extract_func is None:
+        if request_key is None or response_key is None:
+            raise MlflowException.invalid_parameter_value(
+                "request_key and response_key must be provided if extract_func is not provided"
+            )
+
+        _logger.info("Extracting request and response keys from the root span attributes")
+
+        def get_root_span_attribute(root_span_attributes: dict[str, Any], key: str) -> str | None:
+            if field := root_span_attributes.get(key):
+                return field
+            return None
+
+        df["request"] = df["spans"].apply(
+            lambda spans: get_root_span_attribute(spans[0]["attributes"], request_key)
+        )
+        df["response"] = df["spans"].apply(
+            lambda spans: get_root_span_attribute(spans[0]["attributes"], response_key)
+        )
+    else:
+        _logger.info("Extracting request and response using the provided extract function")
+        df["request"] = df["spans"].apply(
+            lambda spans: extract_func(spans[0]["attributes"], "request")
+        )
+        df["response"] = df["spans"].apply(
+            lambda spans: extract_func(spans[0]["attributes"], "response")
+        )
+    return df

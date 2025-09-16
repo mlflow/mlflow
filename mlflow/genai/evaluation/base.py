@@ -89,6 +89,33 @@ def evaluate(
             scorers=[Correctness(), Safety()],
         )
 
+    If you need to extract the request and response from the root span in a custom way,
+    you can use `convert_trace_df_to_eval_dataset` to convert the trace dataframe to an
+    evaluation dataset.
+
+    .. code-block:: python
+
+        from mlflow.genai.evaluation.utils import convert_trace_df_to_eval_dataset
+
+
+        # Define a function to extract the request and response from the root span
+        def extract_func(
+            root_span_attributes: dict[str, Any], key: Literal["request", "response"]
+        ) -> Any:
+            if key == "request":
+                return json.loads(root_span_attributes.get("traceloop.entity.input")).get(
+                    "inputs"
+                )
+            if key == "response":
+                return json.loads(root_span_attributes.get("traceloop.entity.output")).get(
+                    "outputs"
+                )
+
+
+        trace_df = mlflow.search_traces(model_id="<my-model-id>")
+        eval_data = convert_trace_df_to_eval_dataset(trace_df, extract_func=extract_func)
+        mlflow.genai.evaluate(eval_data, scorers=[Correctness(), Safety()])
+
     Built-in scorers will understand the model inputs, outputs, and other intermediate
     information e.g. retrieved context, from the trace object. You can also access to
     the trace object from the custom scorer function by using the `trace` parameter.

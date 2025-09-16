@@ -1,6 +1,7 @@
+import json
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any
+from typing import Any, Literal
 from unittest import mock
 from unittest.mock import ANY, MagicMock, patch
 
@@ -14,6 +15,7 @@ from mlflow.entities.span import SpanType
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import EvaluationDataset, create_dataset
+from mlflow.genai.evaluation.utils import convert_trace_df_to_eval_dataset
 from mlflow.genai.scorers.base import scorer
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.tracing.constant import TraceMetadataKey
@@ -803,3 +805,83 @@ def test_evaluate_with_invalid_tags_type():
             data=data,
             scorers=[exact_match],
         )
+
+
+def test_evaluate_with_convert_trace_df_to_eval_dataset():
+    questions = [
+        "What is MLflow?",
+        "What is Apache Spark?",
+        "What is TensorFlow?",
+    ]
+    answers = [
+        "MLflow is an open-source platform for managing ML lifecycle",
+        "Apache Spark is a fast data processing engine",
+        "I don't know",
+    ]
+    for question, answer in zip(questions, answers):
+        with mlflow.start_span() as span:
+            span.set_attribute("query.text", question)
+            span.set_attribute("result.output", answer)
+
+    trace_df = mlflow.search_traces()
+    trace_df["expectations"] = pd.Series(
+        [{"expected_response": answer, "max_length": 100} for answer in answers]
+    )
+
+    # Use convert_trace_df_to_eval_dataset to prepare data for evaluation
+    eval_data = convert_trace_df_to_eval_dataset(trace_df, "query.text", "result.output")
+
+    result = mlflow.genai.evaluate(
+        data=eval_data,
+        scorers=[is_concise, exact_match, has_trace],
+    )
+
+    assert "is_concise/mean" in result.metrics
+    assert "exact_match/mean" in result.metrics
+    assert "has_trace/mean" in result.metrics
+
+
+def test_evaluate_with_convert_trace_df_to_eval_dataset_custom_func():
+    questions = [
+        "What is MLflow?",
+        "What is Apache Spark?",
+        "What is TensorFlow?",
+    ]
+    answers = [
+        "MLflow is an open-source platform for managing ML lifecycle",
+        "Apache Spark is a fast data processing engine",
+        "I don't know",
+    ]
+    for question, answer in zip(questions, answers):
+        with mlflow.start_span() as span:
+            span.set_attribute(
+                "traceloop.entity.input", {"inputs": {"input": question}, "tags": []}
+            )
+            span.set_attribute(
+                "traceloop.entity.output", {"outputs": {"output": answer}, "tags": []}
+            )
+
+    trace_df = mlflow.search_traces()
+    trace_df["expectations"] = pd.Series(
+        [{"expected_response": answer, "max_length": 100} for answer in answers]
+    )
+
+    def extract_func(
+        root_span_attributes: dict[str, Any], key: Literal["request", "response"]
+    ) -> Any:
+        if key == "request":
+            return json.loads(root_span_attributes.get("traceloop.entity.input")).get("inputs")
+        if key == "response":
+            return json.loads(root_span_attributes.get("traceloop.entity.output")).get("outputs")
+
+    # Use convert_trace_df_to_eval_dataset to prepare data for evaluation
+    eval_data = convert_trace_df_to_eval_dataset(trace_df, extract_func=extract_func)
+
+    result = mlflow.genai.evaluate(
+        data=eval_data,
+        scorers=[is_concise, exact_match, has_trace],
+    )
+
+    assert "is_concise/mean" in result.metrics
+    assert "exact_match/mean" in result.metrics
+    assert "has_trace/mean" in result.metrics

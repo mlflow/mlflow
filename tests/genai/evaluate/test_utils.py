@@ -15,9 +15,11 @@ from mlflow.genai import scorer
 from mlflow.genai.evaluation.utils import (
     _convert_scorer_to_legacy_metric,
     _convert_to_eval_set,
+    convert_trace_df_to_eval_dataset,
     validate_tags,
 )
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.utils.spark_utils import is_spark_connect_mode
 
 from tests.genai.conftest import databricks_only
@@ -536,3 +538,66 @@ def test_validate_tags_valid(tags):
 def test_validate_tags_invalid(tags, expected_error):
     with pytest.raises(MlflowException, match=expected_error):
         validate_tags(tags)
+
+
+def test_convert_trace_df_to_eval_dataset_basic():
+    with mlflow.start_span() as span:
+        span.set_inputs({"question": "What is MLflow?"})
+        span.set_outputs({"answer": "MLflow is an open-source platform"})
+
+    df = mlflow.search_traces()
+    result = convert_trace_df_to_eval_dataset(df, SpanAttributeKey.INPUTS, SpanAttributeKey.OUTPUTS)
+
+    assert "request" in result.columns
+    assert "response" in result.columns
+    assert result["request"].iloc[0] == json.dumps({"question": "What is MLflow?"})
+    assert result["response"].iloc[0] == json.dumps({"answer": "MLflow is an open-source platform"})
+
+
+def test_convert_trace_df_to_eval_dataset_custom_keys():
+    with mlflow.start_span() as span:
+        span.set_attribute("custom.input", {"query": "Test query"})
+        span.set_attribute("custom.output", {"result": "Test result"})
+
+    df = mlflow.search_traces()
+    result = convert_trace_df_to_eval_dataset(df, "custom.input", "custom.output")
+
+    assert "request" in result.columns
+    assert "response" in result.columns
+    assert result["request"].iloc[0] == json.dumps({"query": "Test query"})
+    assert result["response"].iloc[0] == json.dumps({"result": "Test result"})
+
+
+def test_convert_trace_df_to_eval_dataset_no_spans_column():
+    df = pd.DataFrame({"other_column": ["value"]})
+
+    with pytest.raises(MlflowException, match=r"must contain 'spans' column"):
+        convert_trace_df_to_eval_dataset(df, "custom.input", "custom.output")
+
+
+def test_convert_trace_df_to_eval_dataset_custom_extract_func():
+    def extract_func(
+        root_span_attributes: dict[str, Any], key: Literal["request", "response"]
+    ) -> Any:
+        if key == "request":
+            return json.loads(root_span_attributes.get("traceloop.entity.input")).get("inputs")
+        if key == "response":
+            return json.loads(root_span_attributes.get("traceloop.entity.output")).get("outputs")
+
+    for question, answer in [
+        ("First question", "First answer"),
+        ("Second question", "Second answer"),
+    ]:
+        with mlflow.start_span() as span:
+            span.set_attribute("traceloop.entity.input", {"inputs": {"question": question}})
+            span.set_attribute("traceloop.entity.output", {"outputs": {"answer": answer}})
+
+    df = mlflow.search_traces(order_by=["timestamp_ms ASC"])
+
+    result = convert_trace_df_to_eval_dataset(df, extract_func=extract_func)
+
+    assert len(result) == 2
+    assert result["request"].iloc[0] == {"question": "First question"}
+    assert result["response"].iloc[0] == {"answer": "First answer"}
+    assert result["request"].iloc[1] == {"question": "Second question"}
+    assert result["response"].iloc[1] == {"answer": "Second answer"}
