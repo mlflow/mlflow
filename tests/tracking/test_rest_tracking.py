@@ -2893,6 +2893,34 @@ def test_get_trace_info_v4_format(mlflow_client):
         assert trace_info_v4.state == trace_info.state
 
 
+def test_set_trace_tag_v4(mlflow_client):
+    with mlflow.start_span(name="test_span_v4") as span:
+        pass
+
+    location = "catalog.schema"
+    v4_trace_id = f"{TRACE_ID_V4_PREFIX}{location}/{span.trace_id}"
+
+    with mock.patch.object(
+        mlflow_client._tracing_client.store, "set_trace_tag"
+    ) as mock_set_trace_tag:
+        mlflow_client.set_trace_tag(v4_trace_id, "test", "value")
+        mock_set_trace_tag.assert_called_once_with(v4_trace_id, "test", "value")
+
+
+def test_delete_trace_tag_v4(mlflow_client):
+    with mlflow.start_span(name="test_span_v4") as span:
+        mlflow.set_trace_tag(span.trace_id, "test", "value")
+
+    location = "catalog.schema"
+    v4_trace_id = f"{TRACE_ID_V4_PREFIX}{location}/{span.trace_id}"
+
+    with mock.patch.object(
+        mlflow_client._tracing_client.store, "delete_trace_tag"
+    ) as mock_delete_trace_tag:
+        mlflow_client.delete_trace_tag(v4_trace_id, "test")
+        mock_delete_trace_tag.assert_called_once_with(v4_trace_id, "test")
+
+
 def test_get_metric_history_bulk_interval_graphql(mlflow_client):
     name = "GraphqlTest"
     mlflow_client.create_registered_model(name)

@@ -112,6 +112,7 @@ from mlflow.protos.service_pb2 import (
     DeleteTracesV3,
     DeleteTraceTag,
     DeleteTraceTagV3,
+    DeleteTraceTagV4,
     EndTrace,
     FinalizeLoggedModel,
     GetAssessmentRequest,
@@ -158,6 +159,7 @@ from mlflow.protos.service_pb2 import (
     SetTag,
     SetTraceTag,
     SetTraceTagV3,
+    SetTraceTagV4,
     StartTrace,
     StartTraceV3,
     UpdateAssessment,
@@ -2975,6 +2977,26 @@ def _set_trace_tag_v3(trace_id):
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def _set_trace_tag_v4(location: str, trace_id: str) -> Response:
+    """
+    A request handler for `PATCH /mlflow/traces/{location}/{trace_id}/tags` to set tags on a
+    TraceInfo record.
+    """
+    request_message = _get_request_message(
+        SetTraceTagV4(),
+        schema={
+            "key": [_assert_string, _assert_required],
+            "value": [_assert_string],
+        },
+    )
+    _get_tracking_store().set_trace_tag(
+        f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}", request_message.key, request_message.value
+    )
+    return _wrap_response(SetTraceTagV4.Response())
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _delete_trace_tag(request_id):
     """
     A request handler for `DELETE /mlflow/traces/{request_id}/tags` to delete tags from a TraceInfo
@@ -2988,6 +3010,17 @@ def _delete_trace_tag(request_id):
     )
     _get_tracking_store().delete_trace_tag(request_id, request_message.key)
     return _wrap_response(DeleteTraceTag.Response())
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_trace_tag_v4(location: str, trace_id: str, key: str) -> Response:
+    """
+    A request handler for `DELETE /mlflow/traces/{location}/{trace_id}/tags/{key}` to delete tags
+    from a TraceInfo record.
+    """
+    _get_tracking_store().delete_trace_tag(f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}", key)
+    return _wrap_response(DeleteTraceTagV4.Response())
 
 
 @catch_mlflow_exception
@@ -3964,6 +3997,8 @@ HANDLERS = {
     LinkTracesToRun: _link_traces_to_run,
     # MLflow Tracing APIs (V4)
     GetTraceInfoV4: _get_trace_info_v4,
+    SetTraceTagV4: _set_trace_tag_v4,
+    DeleteTraceTagV4: _delete_trace_tag_v4,
     # Assessment APIs
     CreateAssessment: _create_assessment,
     GetAssessmentRequest: _get_assessment,

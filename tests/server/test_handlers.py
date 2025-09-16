@@ -52,6 +52,7 @@ from mlflow.protos.service_pb2 import (
     SearchRuns,
     SearchTraces,
     SearchTracesV3,
+    SetTraceTagV4,
     TraceLocation,
 )
 from mlflow.protos.webhooks_pb2 import ListWebhooks
@@ -79,6 +80,7 @@ from mlflow.server.handlers import (
     _delete_registered_model_alias,
     _delete_registered_model_tag,
     _delete_scorer,
+    _delete_trace_tag_v4,
     _deprecated_search_traces_v2,
     _get_dataset_experiment_ids_handler,
     _get_dataset_handler,
@@ -109,6 +111,7 @@ from mlflow.server.handlers import (
     _set_model_version_tag,
     _set_registered_model_alias,
     _set_registered_model_tag,
+    _set_trace_tag_v4,
     _transition_stage,
     _update_model_version,
     _update_registered_model,
@@ -1926,3 +1929,30 @@ def test_list_webhooks_empty_page_token(mock_get_request_message, mock_model_reg
     call_kwargs = mock_model_registry_store.list_webhooks.call_args.kwargs
     assert call_kwargs.get("page_token") is None
     assert call_kwargs.get("max_results") == 10
+
+
+def test_set_trace_tag_v4_handler(mock_tracking_store, mock_get_request_message):
+    trace_id = "test-trace-123"
+    location = "catalog.schema"
+    full_v4_trace_id = f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}"
+
+    mock_tracking_store.set_trace_tag.return_value = None
+    mock_get_request_message.return_value = SetTraceTagV4(key="test", value="value")
+
+    response = _set_trace_tag_v4(location, trace_id)
+
+    mock_tracking_store.set_trace_tag.assert_called_once_with(full_v4_trace_id, "test", "value")
+    assert response is not None
+
+
+def test_delete_trace_tag_v4_handler(mock_tracking_store):
+    trace_id = "test-trace-123"
+    location = "catalog.schema"
+    full_v4_trace_id = f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}"
+
+    mock_tracking_store.delete_trace_tag.return_value = None
+
+    response = _delete_trace_tag_v4(location, trace_id, "test")
+
+    mock_tracking_store.delete_trace_tag.assert_called_once_with(full_v4_trace_id, "test")
+    assert response is not None
