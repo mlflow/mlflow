@@ -72,21 +72,24 @@ class BuiltInScorer(Judge):
     @classmethod
     def model_validate(cls, obj) -> "BuiltInScorer":
         """Override model_validate to handle builtin scorer deserialization."""
-        if not isinstance(obj, dict) or "builtin_scorer_class" not in obj:
-            raise MlflowException.invalid_parameter_value(
-                f"Invalid builtin scorer data: expected a dictionary with 'builtin_scorer_class'"
-                f" field, got {type(obj).__name__}."
-            )
-
         from mlflow.genai.scorers import builtin_scorers
         from mlflow.genai.scorers.base import SerializedScorer
 
-        try:
-            serialized = SerializedScorer(**obj)
-        except Exception as e:
-            raise MlflowException.invalid_parameter_value(
-                f"Failed to parse serialized scorer data: {e}"
-            )
+        if isinstance(obj, SerializedScorer):
+            serialized = obj
+        else:
+            if not isinstance(obj, dict) or "builtin_scorer_class" not in obj:
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid builtin scorer data: expected a dictionary with 'builtin_scorer_class'"
+                    f" field, got {type(obj).__name__}."
+                )
+
+            try:
+                serialized = SerializedScorer(**obj)
+            except Exception as e:
+                raise MlflowException.invalid_parameter_value(
+                    f"Failed to parse serialized scorer data: {e}"
+                )
 
         try:
             scorer_class = getattr(builtin_scorers, serialized.builtin_scorer_class)
