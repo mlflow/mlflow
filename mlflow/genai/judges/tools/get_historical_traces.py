@@ -73,29 +73,19 @@ class GetHistoricalTracesTool(JudgeTool):
             type="function",
         )
 
-    def invoke(
-        self,
-        trace: Trace,
-        max_results: int = 20,
-        order_by: list[str] | None = None,
-    ) -> list[HistoricalTrace]:
+    def _validate_session_id(self, session_id: str | None) -> str:
         """
-        Retrieve historical traces from the same session.
+        Validate session ID from trace tags.
 
         Args:
-            trace: The current MLflow trace object
-            max_results: Maximum number of historical traces to return
-            order_by: List of order by clauses for sorting results
+            session_id: Session ID from trace tags
 
         Returns:
-            List of HistoricalTrace objects containing trace info, request, and response
+            Validated session ID
 
         Raises:
-            MlflowException: If session ID is not found, trace is not from MLflow experiment,
-                           or search fails
+            MlflowException: If session ID is missing or has invalid format
         """
-        # Extract session ID from trace tags
-        session_id = trace.info.tags.get("session.id")
         if not session_id:
             raise MlflowException(
                 "No session.id found in trace tags. Historical traces require a session ID "
@@ -112,7 +102,21 @@ class GetHistoricalTracesTool(JudgeTool):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        # Extract experiment ID from current trace
+        return session_id
+
+    def _validate_experiment_id(self, trace: Trace) -> str:
+        """
+        Validate and extract experiment ID from trace.
+
+        Args:
+            trace: The MLflow trace object
+
+        Returns:
+            Experiment ID
+
+        Raises:
+            MlflowException: If trace is not from MLflow experiment or has no experiment ID
+        """
         if not trace.info.trace_location:
             raise MlflowException(
                 "Current trace has no trace location. Cannot determine experiment context.",
@@ -136,14 +140,43 @@ class GetHistoricalTracesTool(JudgeTool):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        experiment_ids = [trace.info.trace_location.mlflow_experiment.experiment_id]
+        return trace.info.trace_location.mlflow_experiment.experiment_id
+
+    def invoke(
+        self,
+        trace: Trace,
+        max_results: int = 20,
+        order_by: list[str] | None = None,
+    ) -> list[HistoricalTrace]:
+        """
+        Retrieve historical traces from the same session.
+
+        Args:
+            trace: The current MLflow trace object
+            max_results: Maximum number of historical traces to return
+            order_by: List of order by clauses for sorting results
+
+        Returns:
+            List of HistoricalTrace objects containing trace info, request, and response
+
+        Raises:
+            MlflowException: If session ID is not found, trace is not from MLflow experiment,
+                           or search fails
+        """
+        # Validate session ID and experiment context
+        session_id = self._validate_session_id(trace.info.tags.get("session.id"))
+        experiment_id = self._validate_experiment_id(trace)
+        experiment_ids = [experiment_id]
 
         # Default to chronological order
         if order_by is None:
             order_by = ["timestamp ASC"]
 
-        # Build filter string for session ID
-        filter_string = f"tags.`session.id` = '{session_id}'"
+        # Build filter string for session ID and timestamp
+        # Only get traces that occurred before the current trace
+        filter_string = (
+            f"tags.`session.id` = '{session_id}' AND trace.timestamp < {trace.info.request_time}"
+        )
 
         _logger.debug(
             f"Searching for historical traces with session_id='{session_id}', "
@@ -170,8 +203,8 @@ class GetHistoricalTracesTool(JudgeTool):
                     # Create HistoricalTrace object
                     historical_trace = HistoricalTrace(
                         trace_info=trace_obj.info,
-                        request=row["request"] or "",
-                        response=row["response"] or "",
+                        request=row["request"],
+                        response=row["response"],
                     )
                     historical_traces.append(historical_trace)
 

@@ -52,5 +52,5 @@ class HistoricalTrace:
     """
 
     trace_info: TraceInfo
-    request: str
-    response: str
+    request: str | None
+    response: str | None

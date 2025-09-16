@@ -130,7 +130,7 @@ def test_get_historical_traces_tool_invoke_success(mock_search_traces):
     # Verify search_traces was called with correct parameters
     mock_search_traces.assert_called_once_with(
         experiment_ids=["exp-123"],
-        filter_string="tags.`session.id` = 'session-123'",
+        filter_string="tags.`session.id` = 'session-123' AND trace.timestamp < 1234567890",
         max_results=20,
         order_by=["timestamp ASC"],
         extract_fields=["trace_id", "trace", "request", "response"],
@@ -158,7 +158,7 @@ def test_get_historical_traces_tool_invoke_custom_parameters(mock_search_traces)
     # Verify search_traces was called with custom parameters
     mock_search_traces.assert_called_once_with(
         experiment_ids=["exp-123"],  # Uses current trace's experiment
-        filter_string="tags.`session.id` = 'session-456'",
+        filter_string="tags.`session.id` = 'session-456' AND trace.timestamp < 1234567890",
         max_results=50,
         order_by=["timestamp DESC"],
         extract_fields=["trace_id", "trace", "request", "response"],
@@ -357,7 +357,7 @@ def test_get_historical_traces_tool_invoke_null_request_response(mock_search_tra
     with patch.object(Trace, "from_json", return_value=mock_trace):
         result = tool.invoke(current_trace)
 
-    # Should handle null values gracefully by converting to empty strings
+    # Should handle null values gracefully
     assert len(result) == 1
-    assert result[0].request == ""
-    assert result[0].response == ""
+    assert result[0].request is None
+    assert result[0].response is None
