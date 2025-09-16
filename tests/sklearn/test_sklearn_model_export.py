@@ -1,3 +1,4 @@
+import importlib
 import json
 import os
 import pickle
@@ -137,10 +138,28 @@ def sklearn_custom_env(tmp_path):
     return conda_env
 
 
-def test_model_save_load(sklearn_knn_model, model_path):
+@pytest.mark.parametrize(
+    "serialization_format",
+    [
+        None,  # Test default format
+        mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE,
+        mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
+        pytest.param(
+            mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS,
+            marks=pytest.mark.skipif(
+                not importlib.util.find_spec("skops"),
+                reason="skops is not installed",
+            ),
+        ),
+    ],
+)
+def test_model_save_load(sklearn_knn_model, model_path, serialization_format):
     knn_model = sklearn_knn_model.model
 
-    mlflow.sklearn.save_model(sk_model=knn_model, path=model_path)
+    save_kwargs = (
+        {} if serialization_format is None else {"serialization_format": serialization_format}
+    )
+    mlflow.sklearn.save_model(sk_model=knn_model, path=model_path, **save_kwargs)
     reloaded_knn_model = mlflow.sklearn.load_model(model_uri=model_path)
     reloaded_knn_pyfunc = pyfunc.load_model(model_uri=model_path)
 
@@ -153,6 +172,13 @@ def test_model_save_load(sklearn_knn_model, model_path):
         reloaded_knn_model.predict(sklearn_knn_model.inference_data),
         reloaded_knn_pyfunc.predict(sklearn_knn_model.inference_data),
     )
+
+    # Verify the correct serialization format was used
+    if serialization_format is not None:
+        sklearn_conf = _get_flavor_configuration(
+            model_path=model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME
+        )
+        assert sklearn_conf["serialization_format"] == serialization_format
 
 
 def test_model_save_behavior_with_preexisting_folders(sklearn_knn_model, tmp_path):
@@ -205,7 +231,21 @@ def test_model_load_from_remote_uri_succeeds(sklearn_knn_model, model_path, mock
     )
 
 
-def test_model_log(sklearn_logreg_model, model_path):
+@pytest.mark.parametrize(
+    "serialization_format",
+    [
+        None,  # Test default format
+        mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
+        pytest.param(
+            mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS,
+            marks=pytest.mark.skipif(
+                not importlib.util.find_spec("skops"),
+                reason="skops is not installed",
+            ),
+        ),
+    ],
+)
+def test_model_log(sklearn_logreg_model, model_path, serialization_format):
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
         for should_start_run in [False, True]:
             try:
@@ -216,10 +256,14 @@ def test_model_log(sklearn_logreg_model, model_path):
                 conda_env = os.path.join(tmp.path(), "conda_env.yaml")
                 _mlflow_conda_env(conda_env, additional_pip_deps=["scikit-learn"])
 
+                log_kwargs = {"conda_env": conda_env}
+                if serialization_format is not None:
+                    log_kwargs["serialization_format"] = serialization_format
+
                 model_info = mlflow.sklearn.log_model(
                     sklearn_logreg_model.model,
                     name=artifact_path,
-                    conda_env=conda_env,
+                    **log_kwargs,
                 )
 
                 reloaded_logsklearn_knn_model = mlflow.sklearn.load_model(
@@ -236,6 +280,13 @@ def test_model_log(sklearn_logreg_model, model_path):
                 assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
                 env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]["conda"]
                 assert os.path.exists(os.path.join(model_path, env_path))
+
+                # Verify the correct serialization format was used
+                if serialization_format is not None:
+                    sklearn_conf = _get_flavor_configuration(
+                        model_path=model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME
+                    )
+                    assert sklearn_conf["serialization_format"] == serialization_format
 
             finally:
                 mlflow.end_run()
@@ -319,7 +370,7 @@ def test_custom_transformer_can_be_saved_and_loaded_with_cloudpickle_format(
 ):
     custom_transformer_model = sklearn_custom_transformer_model.model
 
-    # Because the model contains a customer transformer that is not defined at the top level of the
+    # Because the model contains a custom transformer that is not defined at the top level of the
     # current test module, we expect pickle to fail when attempting to serialize it. In contrast,
     # we expect cloudpickle to successfully locate the transformer definition and serialize the
     # model successfully.
@@ -591,20 +642,34 @@ def test_model_log_uses_cloudpickle_serialization_format_by_default(sklearn_knn_
     assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE
 
 
-def test_model_save_with_cloudpickle_format_adds_cloudpickle_to_conda_environment(
-    sklearn_knn_model, model_path
+@pytest.mark.parametrize(
+    ("serialization_format", "expected_dependency"),
+    [
+        (mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE, "cloudpickle"),
+        pytest.param(
+            mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS,
+            "skops",
+            marks=pytest.mark.skipif(
+                not importlib.util.find_spec("skops"),
+                reason="skops is not installed",
+            ),
+        ),
+    ],
+)
+def test_model_save_with_format_adds_dependency_to_conda_environment(
+    sklearn_knn_model, model_path, serialization_format, expected_dependency
 ):
     mlflow.sklearn.save_model(
         sk_model=sklearn_knn_model.model,
         path=model_path,
-        serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
+        serialization_format=serialization_format,
     )
 
     sklearn_conf = _get_flavor_configuration(
         model_path=model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME
     )
     assert "serialization_format" in sklearn_conf
-    assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE
+    assert sklearn_conf["serialization_format"] == serialization_format
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
@@ -618,38 +683,45 @@ def test_model_save_with_cloudpickle_format_adds_cloudpickle_to_conda_environmen
         if type(dependency) == dict and "pip" in dependency
     ]
     assert len(pip_deps) == 1
-    assert any("cloudpickle" in pip_dep for pip_dep in pip_deps[0]["pip"])
+    assert any(expected_dependency in pip_dep for pip_dep in pip_deps[0]["pip"])
 
 
+@pytest.mark.parametrize(
+    "serialization_format",
+    [
+        mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE,
+        pytest.param(
+            mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS,
+            marks=pytest.mark.skipif(
+                not importlib.util.find_spec("skops"),
+                reason="skops is not installed",
+            ),
+        ),
+    ],
+)
 def test_model_save_without_cloudpickle_format_does_not_add_cloudpickle_to_conda_environment(
-    sklearn_knn_model, model_path
+    sklearn_knn_model, model_path, serialization_format
 ):
-    non_cloudpickle_serialization_formats = list(mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS)
-    non_cloudpickle_serialization_formats.remove(mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE)
+    mlflow.sklearn.save_model(
+        sk_model=sklearn_knn_model.model,
+        path=model_path,
+        serialization_format=serialization_format,
+    )
 
-    for serialization_format in non_cloudpickle_serialization_formats:
-        mlflow.sklearn.save_model(
-            sk_model=sklearn_knn_model.model,
-            path=model_path,
-            serialization_format=serialization_format,
-        )
+    sklearn_conf = _get_flavor_configuration(
+        model_path=model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME
+    )
+    assert "serialization_format" in sklearn_conf
+    assert sklearn_conf["serialization_format"] == serialization_format
 
-        sklearn_conf = _get_flavor_configuration(
-            model_path=model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME
-        )
-        assert "serialization_format" in sklearn_conf
-        assert sklearn_conf["serialization_format"] == serialization_format
-
-        pyfunc_conf = _get_flavor_configuration(
-            model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME
-        )
-        saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
-        assert os.path.exists(saved_conda_env_path)
-        with open(saved_conda_env_path) as f:
-            saved_conda_env_parsed = yaml.safe_load(f)
-        assert all(
-            "cloudpickle" not in dependency for dependency in saved_conda_env_parsed["dependencies"]
-        )
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
+    assert os.path.exists(saved_conda_env_path)
+    with open(saved_conda_env_path) as f:
+        saved_conda_env_parsed = yaml.safe_load(f)
+    assert all(
+        "cloudpickle" not in dependency for dependency in saved_conda_env_parsed["dependencies"]
+    )
 
 
 def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(
@@ -947,71 +1019,10 @@ def test_get_raw_model(sklearn_knn_model):
     )
 
 
-@pytest.mark.parametrize("should_start_run", [False, True])
-def test_model_save_load_with_skops_format(sklearn_knn_model, model_path, should_start_run):
-    """Test saving and loading models with skops serialization format."""
-    pytest.importorskip("skops")
-
-    if should_start_run:
-        mlflow.start_run()
-
-    try:
-        mlflow.sklearn.save_model(
-            sk_model=sklearn_knn_model.model,
-            path=model_path,
-            serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS,
-        )
-
-        # Verify the model was saved with skops format
-        sklearn_conf = _get_flavor_configuration(
-            model_path=model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME
-        )
-        assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS
-
-        # Load the model and verify it works
-        loaded_model = mlflow.sklearn.load_model(model_path)
-
-        # Test predictions match
-        test_predictions = sklearn_knn_model.model.predict(sklearn_knn_model.inference_data)
-        loaded_predictions = loaded_model.predict(sklearn_knn_model.inference_data)
-        np.testing.assert_array_equal(test_predictions, loaded_predictions)
-
-    finally:
-        if should_start_run:
-            mlflow.end_run()
+# This test has been merged into the parametrized test_model_save_load
 
 
-def test_model_save_with_skops_format_adds_skops_to_conda_environment(
-    sklearn_knn_model, model_path
-):
-    """Test that skops format adds skops dependency to conda environment."""
-    pytest.importorskip("skops")
-
-    mlflow.sklearn.save_model(
-        sk_model=sklearn_knn_model.model,
-        path=model_path,
-        serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS,
-    )
-
-    sklearn_conf = _get_flavor_configuration(
-        model_path=model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME
-    )
-    assert "serialization_format" in sklearn_conf
-    assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS
-
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
-    assert os.path.exists(saved_conda_env_path)
-    with open(saved_conda_env_path) as f:
-        saved_conda_env_parsed = yaml.safe_load(f)
-
-    pip_deps = [
-        dependency
-        for dependency in saved_conda_env_parsed["dependencies"]
-        if type(dependency) == dict and "pip" in dependency
-    ]
-    assert len(pip_deps) == 1
-    assert any("skops" in pip_dep for pip_dep in pip_deps[0]["pip"])
+# This test has been merged into test_model_save_with_format_adds_dependency_to_conda_environment
 
 
 def test_model_save_with_skops_format_stores_trusted_types(sklearn_knn_model, model_path):
@@ -1035,25 +1046,7 @@ def test_model_save_with_skops_format_stores_trusted_types(sklearn_knn_model, mo
         assert isinstance(sklearn_conf["trusted_types"], list)
 
 
-def test_model_log_with_skops_format(sklearn_knn_model):
-    """Test logging models with skops serialization format."""
-    pytest.importorskip("skops")
-
-    with mlflow.start_run():
-        mlflow.sklearn.log_model(
-            sk_model=sklearn_knn_model.model,
-            name="model",
-            serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS,
-        )
-        model_uri = mlflow.get_artifact_uri("model")
-
-    # Load the model and verify it works
-    loaded_model = mlflow.sklearn.load_model(model_uri)
-
-    # Test predictions match
-    test_predictions = sklearn_knn_model.model.predict(sklearn_knn_model.inference_data)
-    loaded_predictions = loaded_model.predict(sklearn_knn_model.inference_data)
-    np.testing.assert_array_equal(test_predictions, loaded_predictions)
+# This test has been merged into the parametrized test_model_log
 
 
 def test_model_save_with_skops_format_without_skops_installed_raises_exception(

@@ -492,7 +492,16 @@ def _load_model_from_local_file(path, serialization_format, trusted_types=None):
 
             return cloudpickle.load(f)
         elif serialization_format == SERIALIZATION_FORMAT_SKOPS:
-            import skops.io
+            try:
+                import skops.io
+            except ImportError as e:
+                raise MlflowException(
+                    message=(
+                        "Failed to import skops. Make sure skops is installed by running "
+                        "`pip install skops` for instance."
+                    ),
+                    error_code=INVALID_PARAMETER_VALUE,
+                ) from e
 
             return skops.io.load(f, trusted=trusted_types)
 
@@ -648,11 +657,12 @@ def _save_model(sk_model, output_path, serialization_format):
             try:
                 import skops.io
             except ImportError as e:
-                raise ImportError(
+                raise MlflowException(
                     message=(
                         "Failed to import skops. Make sure skops is installed by running "
                         "`pip install skops` for instance."
                     ),
+                    error_code=INTERNAL_ERROR,
                 ) from e
 
             dumped = skops.io.dumps(sk_model, compresslevel=9)
