@@ -262,7 +262,7 @@ MLflow supports opt-out telemetry through either of the following environment va
 Setting either of these will **immediately disable telemetry**, no need to re-import MLflow or restart your session.
 
 :::note
-MLflow automatically disables telemetry in the following CI environments.
+MLflow automatically disables telemetry in [**some CI environments**](https://github.com/mlflow/mlflow/blob/de6c11193ce6a68ffec4b33650f75bd163143178/mlflow/telemetry/utils.py#L22).
 If you'd like support for additional CI environments, please [open an issue on our GitHub repository](https://github.com/mlflow/mlflow/issues).
 
 - CI
@@ -275,6 +275,7 @@ If you'd like support for additional CI environments, please [open an issue on o
 - BitBucket
 - AWS CodeBuild
 - BuildKite
+- ...
   :::
 
 ### Scope of the setting
