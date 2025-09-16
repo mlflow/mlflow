@@ -409,6 +409,7 @@ jobs:
           source .venv/Scripts/activate
           pytest \
             tests/data \
+            tests/deployments \
             tests/metrics/genai/test_genai_metrics.py
 
       - name: Run python tests
