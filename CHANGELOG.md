@@ -1,5 +1,27 @@
 # CHANGELOG
 
+## 3.4.0 (2025-09-16)
+
+MLflow 3.4.0 includes several major features and improvements
+
+Features:
+
+- [Tracing] Haystack Integration (#17371, @joelrobin18)
+
+Bug fixes:
+
+- [Evaluation] Fix output format duplication in agent judge template (#17704, @BenWilson2)
+- [UI] Markdown UI fix (#17725, @joelrobin18)
+
+Documentation updates:
+
+- [Docs] Add docs for make_judge (#17690, @BenWilson2)
+- [Docs] Updated the quickstart guide to match v3.3.2 (#17629, @BrentWilkins)
+
+Small bug fixes and documentation updates:
+
+#17666, @joelrobin18; #17706, #17741, #17685, @BenWilson2; #17692, #17660, #17691, #17687, @serena-ruan; #17703, @dbczumar; #17669, @wangh118
+
 ## 3.4.0rc0 (2025-09-11)
 
 MLflow 3.4.0rc0 includes several major features and improvements
