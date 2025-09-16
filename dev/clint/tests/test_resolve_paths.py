@@ -39,11 +39,14 @@ def test_resolve_paths_with_real_git_repo_tracked_and_untracked(git_repo: Path) 
 
     result = resolve_paths([Path(".")])
 
-    expected_files = {"tracked.py", "tracked.md", "untracked.py", "untracked.rst"}
-    result_files = {f.name for f in result}
-
-    assert result_files == expected_files
-    assert "ignored.py" not in result_files
+    expected_paths = [
+        Path("tracked.md"),
+        Path("tracked.py"),
+        Path("untracked.py"),
+        Path("untracked.rst"),
+    ]
+    assert result == expected_paths
+    assert Path("ignored.py") not in result
 
 
 def test_resolve_paths_with_real_git_repo_specific_pathspecs(git_repo: Path) -> None:
@@ -62,10 +65,10 @@ def test_resolve_paths_with_real_git_repo_specific_pathspecs(git_repo: Path) -> 
     subprocess.check_call(["git", "commit", "-m", "Add root file"])
 
     result = resolve_paths([Path("subdir")])
-    result_names = {f.name for f in result}
 
-    assert result_names == {"sub.py", "sub.md"}
-    assert "root.py" not in result_names
+    expected_paths = [Path("subdir/sub.md"), Path("subdir/sub.py")]
+    assert result == expected_paths
+    assert Path("root.py") not in result
 
 
 def test_resolve_paths_with_real_git_repo_untracked_only(git_repo: Path) -> None:
@@ -76,8 +79,8 @@ def test_resolve_paths_with_real_git_repo_untracked_only(git_repo: Path) -> None
 
     result = resolve_paths([Path(".")])
 
-    result_names = {f.name for f in result}
-    assert result_names == {"untracked1.py", "untracked2.md"}
+    expected_paths = [Path("untracked1.py"), Path("untracked2.md")]
+    assert result == expected_paths
 
 
 def test_resolve_paths_with_real_git_repo_tracked_only(git_repo: Path) -> None:
@@ -91,8 +94,8 @@ def test_resolve_paths_with_real_git_repo_tracked_only(git_repo: Path) -> None:
 
     result = resolve_paths([Path(".")])
 
-    result_names = {f.name for f in result}
-    assert result_names == {"tracked1.py", "tracked2.md"}
+    expected_paths = [Path("tracked1.py"), Path("tracked2.md")]
+    assert result == expected_paths
 
 
 def test_git_ls_files_success() -> None:
