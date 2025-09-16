@@ -3,14 +3,14 @@
 Create Date: 2025-01-16 12:00:00.000000
 
 """
-from alembic import op
+
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import mssql
 
-
 # revision identifiers, used by Alembic.
-revision = '3da73c924c2f'
-down_revision = '71994744cf8e'
+revision = "3da73c924c2f"
+down_revision = "71994744cf8e"
 branch_labels = None
 depends_on = None
 
@@ -30,14 +30,11 @@ def _get_json_type():
 def upgrade():
     """Add outputs column to evaluation_dataset_records table."""
     json_type = _get_json_type()
-    
+
     # Add outputs column to evaluation_dataset_records table
-    op.add_column(
-        'evaluation_dataset_records',
-        sa.Column('outputs', json_type, nullable=True)
-    )
+    op.add_column("evaluation_dataset_records", sa.Column("outputs", json_type, nullable=True))
 
 
 def downgrade():
     """Remove outputs column from evaluation_dataset_records table."""
-    op.drop_column('evaluation_dataset_records', 'outputs')
+    op.drop_column("evaluation_dataset_records", "outputs")

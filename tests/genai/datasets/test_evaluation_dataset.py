@@ -14,8 +14,6 @@ from mlflow.genai.datasets.databricks_evaluation_dataset_source import (
     DatabricksEvaluationDatasetSource,
     DatabricksUCTableDatasetSource,
 )
-from mlflow.entities.dataset_record import DatasetRecord
-from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 
 

@@ -502,13 +502,20 @@ def test_active_record_pattern_merge_records(tracking_uri, experiments):
         df2["inputs"].apply(lambda x: x.get("question") == "What is MLflow?")
     ].iloc[0]
 
-    assert mlflow_record_updated["expectations"] == {'answer': 'MLflow is an ML lifecycle platform', 'key2': 'value2'}
-    assert mlflow_record_updated["outputs"] == {'answer': 'MLflow is a popular ML lifecycle platform'}
+    assert mlflow_record_updated["expectations"] == {
+        "answer": "MLflow is an ML lifecycle platform",
+        "key2": "value2",
+    }
+    assert mlflow_record_updated["outputs"] == {
+        "answer": "MLflow is a popular ML lifecycle platform"
+    }
     assert mlflow_record_updated["tags"]["difficulty"] == "easy"
     assert mlflow_record_updated["tags"]["category"] == "ml"
-    
+
     # Verify that the new Docker record also has outputs
-    docker_record = df2[df2["inputs"].apply(lambda x: x.get("question") == "What is Docker?")].iloc[0]
+    docker_record = df2[df2["inputs"].apply(lambda x: x.get("question") == "What is Docker?")].iloc[
+        0
+    ]
     assert docker_record["outputs"]["answer"] == "Docker is a popular containerization platform"
     assert docker_record["expectations"]["answer"] == "Docker is a containerization platform"
     assert docker_record["tags"]["difficulty"] == "medium"
