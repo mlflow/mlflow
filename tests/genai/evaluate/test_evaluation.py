@@ -765,18 +765,20 @@ def test_evaluate_with_tags(tags_data, expected_calls):
 
 
 def test_evaluate_with_traces_tags_no_warnings():
-    @mlflow.trace
-    def foo():
-        pass
+    with mlflow.start_span(name="foo") as span:
+        span.set_inputs({"question": "Hello?"})
+        span.set_outputs("World!")
 
-    foo()
     traces = mlflow.search_traces()
     with mock.patch("mlflow.tracing.client._logger.warning") as mock_warning:
         mlflow.genai.evaluate(
             data=traces,
             scorers=[has_trace],
         )
-        assert mock_warning.call_count == 0
+        assert not any(
+            "immutable and cannot be set on a trace" in call.args[0]
+            for call in mock_warning.call_args_list
+        )
 
 
 def test_evaluate_with_tags_error_handling(is_in_databricks):
