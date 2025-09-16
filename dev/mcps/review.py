@@ -70,7 +70,9 @@ def filter_python_diff(full_diff: str) -> str:
             # Extract file path from: diff --git a/path/to/file.py b/path/to/file.py
             if match := re.match(r"diff --git a/(.*?) b/(.*?)$", line):
                 file_path = match.group(2)  # Use the 'b/' path (new file path)
-                in_python_file = file_path.endswith(".py")
+                in_python_file = file_path.endswith(".py") and not file_path.startswith(
+                    "mlflow/protos/"
+                )
             else:
                 in_python_file = False
 
