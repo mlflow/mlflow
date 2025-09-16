@@ -765,9 +765,8 @@ def test_evaluate_with_tags(tags_data, expected_calls):
 
 
 def test_evaluate_with_traces_tags_no_warnings():
-    with mlflow.start_span(name="foo") as span:
+    with mlflow.start_span() as span:
         span.set_inputs({"question": "Hello?"})
-        span.set_outputs("World!")
 
     traces = mlflow.search_traces()
     with mock.patch("mlflow.tracing.client._logger.warning") as mock_warning:
