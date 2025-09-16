@@ -14,7 +14,7 @@ Scorers can be considered as **metrics** in the traditional ML sense. However, t
 
 MLflow scorers have two powerful capabilities that distinguish them from traditional metrics:
 
-1. **Agentic Evaluation**: Scorers can act as autonomous agents with tool-calling capabilities, enabling deep analysis of execution traces and multi-step workflows
+1. **Agent-as-a-Judge Evaluation**: Scorers can act as autonomous agents with tool-calling capabilities, enabling deep analysis of execution traces and multi-step workflows
 2. **Human Preference Alignment**: Scorers can be automatically aligned with human feedback to improve their accuracy and match your domain-specific quality standards
 
 ## How scorers work
@@ -41,7 +41,7 @@ Evaluating the quality of your GenAI application can be done in different ways. 
 
 ## Scorer Data Requirements
 
-:::warning[Important: Agentic vs Static Data Compatibility]
+:::warning[Important: Agent-as-a-Judge vs Static Data Compatibility]
 
 Not all scorers work with static datasets. Some scorers are designed specifically to analyze execution traces and **will not function with static pandas DataFrames** that only contain inputs/outputs/expectations.
 
@@ -49,18 +49,18 @@ Not all scorers work with static datasets. Some scorers are designed specificall
 
 ### Scorer Compatibility Matrix
 
-| Scorer Category         | Static Data Support | Trace Required                | Example Scorers                                                             |
-| ----------------------- | ------------------- | ----------------------------- | --------------------------------------------------------------------------- |
-| **Field-based Scorers** | ✅ Yes              | ❌ No                         | `Correctness`, `RelevanceToQuery`, `Safety`, custom scorers using `@scorer` |
-| **Agentic Scorers**     | ❌ No               | ✅ Yes                        | Scorers analyzing execution flow, tool usage patterns, span attributes      |
-| **Retrieval Scorers**   | ❌ No               | ✅ Yes (with RETRIEVER spans) | `RetrievalGroundedness`, `RetrievalRelevance`, `RetrievalSufficiency`       |
-| **Agentic Judges**      | ❌ No               | ✅ Yes                        | Custom judges analyzing multi-step workflows, agent reasoning, performance  |
+| Scorer Category              | Static Data Support | Trace Required                | Example Scorers                                                             |
+| ---------------------------- | ------------------- | ----------------------------- | --------------------------------------------------------------------------- |
+| **Field-based Scorers**      | ✅ Yes              | ❌ No                         | `Correctness`, `RelevanceToQuery`, `Safety`, custom scorers using `@scorer` |
+| **Agent-as-a-Judge Scorers** | ❌ No               | ✅ Yes                        | Scorers analyzing execution flow, tool usage patterns, span attributes      |
+| **Retrieval Scorers**        | ❌ No               | ✅ Yes (with RETRIEVER spans) | `RetrievalGroundedness`, `RetrievalRelevance`, `RetrievalSufficiency`       |
+| **Agent-as-a-Judge**         | ❌ No               | ✅ Yes                        | Custom judges analyzing multi-step workflows, agent reasoning, performance  |
 
 ### Key Points:
 
 - **Static datasets** (pandas DataFrames with inputs/outputs/expectations) work only with field-based scorers
-- **Agentic scorers** require actual execution traces from your application
-- If you see errors about missing traces when using retrieval or agentic scorers, you need to:
+- **Agent-as-a-Judge scorers** require actual execution traces from your application
+- If you see errors about missing traces when using retrieval or Agent-as-a-Judge scorers, you need to:
   1. Use a `predict_fn` that generates traces, OR
   2. Include pre-collected traces in your dataset
 

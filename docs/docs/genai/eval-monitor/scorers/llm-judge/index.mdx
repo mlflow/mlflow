@@ -8,16 +8,7 @@ LLM-as-a-Judge is an evaluation approach that uses Large Language Models to asse
 
 MLflow's LLM scorers operate in two fundamentally different modes:
 
-### 1. Custom Field-Based Judges
-
-Evaluate specific **inputs, outputs, and expectations** to assess the quality of final results. These judges:
-
-- Focus on WHAT your application produces
-- Perfect for correctness, relevance, and quality assessment
-- Use natural language instructions with template variables
-- Can be aligned with human feedback for improved accuracy
-
-### 2. Agentic Judges
+### 1. Agent-as-a-Judge
 
 Act as **autonomous agents** that analyze complete execution traces. These judges:
 
@@ -25,6 +16,15 @@ Act as **autonomous agents** that analyze complete execution traces. These judge
 - Use MCP tools to explore spans, timing, and data flow
 - Perfect for debugging, optimization, and behavior validation
 - Identify issues impossible to detect from outputs alone
+
+### 2. Custom Field-Based Judges
+
+Evaluate specific **inputs, outputs, and expectations** to assess the quality of final results. These judges:
+
+- Focus on WHAT your application produces
+- Perfect for correctness, relevance, and quality assessment
+- Use natural language instructions with template variables
+- Can be aligned with human feedback for improved accuracy
 
 Both paradigms are created using the same `make_judge` API - the difference lies in whether you use the `{{ trace }}` template variable.
 
@@ -37,7 +37,7 @@ MLflow offers different approaches to use LLM-as-a-Judge, with different levels 
 Simplicity: ⭐⭐⭐⭐
 Control: ⭐⭐⭐⭐⭐
 
-- **Best for**: Creating custom judges with natural language instructions, supporting both field-based and agentic (Agent as a Judge) evaluation. Includes built-in versioning and human feedback alignment.
+- **Best for**: Creating custom judges with natural language instructions, supporting both field-based and Agent-as-a-Judge evaluation. Includes built-in versioning and human feedback alignment.
 - **How it works**: Define evaluation criteria using template variables (`inputs`, `outputs`, `trace`) in plain English. Judges can be aligned with human feedback for improved accuracy.
 - **Requires**: MLflow >= 3.4.0
 

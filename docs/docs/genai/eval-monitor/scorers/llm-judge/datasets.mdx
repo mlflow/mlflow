@@ -14,7 +14,7 @@ import { ChartBar, Database, Target, RefreshCw, GitBranch, Activity, Users, Brai
 
 # Judge Dataset Integration
 
-Evaluation datasets enable systematic testing and improvement of your custom LLM judges. By building datasets from production traces and adding ground truth labels, you can measure judge accuracy and identify areas for improvement.
+Evaluation datasets enable systematic testing and improvement of your custom LLM judges. By building datasets from traces and adding ground truth labels, you can measure judge accuracy and identify areas for improvement.
 
 <DAGLoop
   steps={[
@@ -22,7 +22,7 @@ Evaluation datasets enable systematic testing and improvement of your custom LLM
       icon: Database,
       title: "Build Dataset",
       description: "Collect traces & add labels",
-      detailedDescription: "Build evaluation datasets from production traces and add ground truth expectations for judge validation.",
+      detailedDescription: "Build evaluation datasets from traces and add ground truth expectations for judge validation.",
       isFocus: true
     },
     {
@@ -93,7 +93,7 @@ mlflow.set_tracking_uri("sqlite:///mlflow.db")  # Or PostgreSQL/MySQL
 
 ## Complete Example: Build → Evaluate → Improve
 
-Here's how to build a dataset from production traces, evaluate your judge, and improve accuracy:
+Here's how to build a dataset from traces, evaluate your judge, and improve accuracy:
 
 ```python
 import mlflow
@@ -103,21 +103,21 @@ from mlflow.genai.datasets import create_dataset
 # Set up MLflow with SQL backend (required for datasets)
 mlflow.set_tracking_uri("sqlite:///mlflow.db")
 
-# Step 1: Build dataset from production traces
+# Step 1: Build dataset from traces
 dataset = create_dataset(
     name="judge_accuracy_test",
     experiment_id="0",
     tags={"purpose": "judge_validation", "version": "1.0"},
 )
 
-# Get traces from production and add to dataset
+# Get traces from an experiment and add to dataset
 traces_df = mlflow.search_traces(
     experiment_ids=["0"], max_results=100
 )  # Returns DataFrame with trace data
 
 # Add traces directly - MLflow extracts inputs automatically
 dataset.merge_records(traces_df)
-print(f"Added {len(traces_df)} records from production")
+print(f"Added {len(traces_df)} records to evaluation dataset")
 
 # Step 2: Add ground truth expectations for accuracy measurement
 edge_cases = [
@@ -170,7 +170,7 @@ result = mlflow.genai.evaluate(data=dataset, scorers=[quality_judge], predict_fn
 # Create dataset
 dataset = create_dataset(name="my_dataset", experiment_id="0")
 
-# Add production traces
+# Add traces
 traces_df = mlflow.search_traces(experiment_ids=["0"])
 dataset.merge_records(traces_df)
 
@@ -198,7 +198,7 @@ result = mlflow.genai.evaluate(
 
 ## Best Practices
 
-1. **Start with Production Data**: Build datasets from real traces to ensure relevance
+1. **Start with Traces**: Bootstrap datasets using traces from development or QA testing
 2. **Add Edge Cases**: Include problematic inputs to test judge robustness
 3. **Label Strategically**: Focus ground truth labels on critical or ambiguous cases
 4. **Iterate Regularly**: Continuously expand datasets as your application evolves

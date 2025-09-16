@@ -1,7 +1,7 @@
 ---
 title: Evaluating Agent Behavior
 sidebar_label: Evaluating Agent Behavior
-description: Use agentic judges to evaluate complex agent behaviors and multi-step workflows
+description: Use Agent-as-a-Judge to evaluate complex agent behaviors and multi-step workflows
 ---
 
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
@@ -11,7 +11,7 @@ import { Brain, GitBranch, RefreshCw, Target, Shield, Activity, FileText, Users 
 
 # Evaluating Agent Behavior Patterns
 
-Agentic judges excel at evaluating complex agent behaviors that are impossible to assess from inputs and outputs alone. They can understand reasoning chains, tool selection strategies, and decision-making processes.
+Agent-as-a-Judge excels at evaluating complex agent behaviors that are impossible to assess from inputs and outputs alone. They can understand reasoning chains, tool selection strategies, and decision-making processes.
 
 ## Key Agent Behaviors to Evaluate
 
@@ -135,7 +135,7 @@ evaluation = rag_judge(trace=trace)
 
 ## Using with mlflow.genai.evaluate()
 
-Integrate agentic judges into your evaluation workflow:
+Integrate Agent-as-a-Judge into your evaluation workflow:
 
 ```python
 import pandas as pd
@@ -154,7 +154,7 @@ def my_app(question):
     return generate_response(question)
 
 
-# Run evaluation with agentic judges
+# Run evaluation with Agent-as-a-Judge
 results = mlflow.genai.evaluate(
     data=test_data,
     predict_fn=my_app,
@@ -168,7 +168,7 @@ results = mlflow.genai.evaluate(
 2. **Use Multiple Judges**: Different judges can focus on different aspects (reasoning, efficiency, safety)
 3. **Request Actionable Feedback**: Ask judges to provide specific improvement suggestions
 4. **Track Over Time**: Monitor how agent behavior changes with updates
-5. **Combine with Field-Based Evaluation**: Use both agentic and field-based judges for complete coverage
+5. **Combine with Field-Based Evaluation**: Use both Agent-as-a-Judge and field-based judges for complete coverage
 
 ## Next Steps
 

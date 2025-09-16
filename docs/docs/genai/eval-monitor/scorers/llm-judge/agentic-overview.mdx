@@ -1,5 +1,5 @@
 ---
-title: Agentic Judges Overview
+title: Agent-as-a-Judge Overview
 sidebar_label: Overview
 description: Understanding how judges become autonomous agents for deep trace analysis
 ---
@@ -10,11 +10,11 @@ import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import { Brain, Search, Activity, GitBranch, Target, Shield, FileText } from "lucide-react";
 
-# Agentic Judges: Autonomous Trace Analysis
+# Agent-as-a-Judge: Autonomous Trace Analysis
 
-Agentic Judges represent a paradigm shift in LLM evaluation. Instead of simply assessing inputs and outputs, these judges act as **autonomous agents** equipped with tools to investigate your application's execution in depth.
+Agent-as-a-Judge represents a paradigm shift in LLM evaluation. Instead of simply assessing inputs and outputs, these judges act as **autonomous agents** equipped with tools to investigate your application's execution in depth.
 
-## What Makes a Judge "Agentic"?
+## What Is Agent-as-a-Judge in MLflow?
 
 When you use the `{{ trace }}` template variable in your judge instructions, MLflow transforms your judge from a passive evaluator into an active investigator. The judge gains access to MCP (Model Context Protocol) tools that interface with MLflow's APIs, enabling it to:
 
@@ -41,43 +41,58 @@ When you use the `{{ trace }}` template variable in your judge instructions, MLf
   }
 ]} />
 
-## Field-Based vs Agentic Evaluation
+## Field-Based vs Agent-as-a-Judge Evaluation
 
-Understanding when to use each approach is critical for effective evaluation:
+Understanding when to use each approach depends on where you are in your development lifecycle:
 
-| **Aspect**               | **Field-Based Judges**                                                                                                    | **Agentic Judges**                                                                                           |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| **What they evaluate**   | Specific inputs and outputs                                                                                               | Complete execution traces                                                                                    |
-| **Focus**                | WHAT your application produces                                                                                            | HOW your application works                                                                                   |
-| **Template variables**   | `{{ inputs }}`, `{{ outputs }}`, `{{ expectations }}`                                                                     | `{{ trace }}`                                                                                                |
-| **Best for**             | • Final result correctness<br/>• Response quality<br/>• Output validation<br/>• Simple pass/fail checks                   | • Multi-step workflows<br/>• Tool usage patterns<br/>• Error handling<br/>• Performance analysis             |
-| **Complexity**           | Simple and fast                                                                                                           | More complex, requires deeper analysis                                                                       |
-| **Use when you need to** | • Check if answers are correct<br/>• Validate formatting<br/>• Compare against ground truth<br/>• Assess response quality | • Understand execution flow<br/>• Find bottlenecks<br/>• Verify agent reasoning<br/>• Detect security issues |
-| **Evaluation goals**     | • Verify answer correctness<br/>• Check output matches expectations<br/>• Validate response quality                       | • Identify failure root causes<br/>• Find inefficient tool usage<br/>• Detect unnecessary API calls          |
-| **Performance**          | Fast execution                                                                                                            | Slower due to trace exploration                                                                              |
-| **Cost**                 | Lower (less context)                                                                                                      | Higher (more context and tool usage)                                                                         |
+| **Aspect**             | **Agent-as-a-Judge**                                                                                                                                       | **Field-Based Judges (LLM-as-a-Judge)**                                                                                               |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| **Development stage**  | Early development, iteration, and refinement                                                                                                               | Near-production validation and production monitoring                                                                                  |
+| **Primary purpose**    | Investigation and debugging                                                                                                                                | Quality assurance and monitoring                                                                                                      |
+| **Ease of setup**      | Simple - just describe what to investigate                                                                                                                 | Requires careful prompt engineering and refinement                                                                                    |
+| **What they evaluate** | Complete execution traces                                                                                                                                  | Specific inputs and outputs                                                                                                           |
+| **Focus**              | Complete end-to-end trajectory                                                                                                                             | Specific fields in the data                                                                                                           |
+| **Template variables** | `{{ trace }}`                                                                                                                                              | `{{ inputs }}`, `{{ outputs }}`, `{{ expectations }}`                                                                                 |
+| **When to use**        | • Getting started with a new application<br/>• Revising and refining your agent<br/>• Identifying failure patterns<br/>• Understanding unexpected behavior | • Final validation before deployment<br/>• Production monitoring<br/>• Regression testing<br/>• Meeting specific quality expectations |
+| **Capabilities**       | • Deep investigation of execution flow<br/>• Root cause analysis<br/>• Performance bottleneck detection<br/>• Tool usage patterns                          | • Fast pass/fail checks<br/>• Quality scoring<br/>• Output validation<br/>• Compliance verification                                   |
+| **Performance**        | Slower (explores trace in detail)                                                                                                                          | Fast execution                                                                                                                        |
+| **Cost**               | Higher (more context and tool usage)                                                                                                                       | Lower (less context)                                                                                                                  |
 
-## When to Use Agentic Judges
+## When to Use Each Approach
 
-Choose agentic judges when you need deep insights into your application's behavior:
+### Use Agent-as-a-Judge During Development
 
-### Ideal Use Cases
+Agent-as-a-Judge is your investigative tool during the development and refinement phases. It's easier to get started with Agent-as-a-Judge because you can simply describe what you want to investigate without careful prompt engineering:
 
-- **Multi-step workflows**: Understanding how data flows through complex pipelines
-- **Tool usage patterns**: Verifying correct tool selection, sequencing, and error recovery
-- **Performance optimization**: Identifying slow operations, redundant processing, and inefficiencies
-- **Agent reasoning**: Analyzing decision-making processes and logic chains
-- **Security auditing**: Detecting potential data leaks, inappropriate access patterns, or unsafe operations
-- **Debugging complex failures**: Understanding why an agent failed despite producing output
+- **Getting started**: When building a new agent or application and need to understand its behavior
+- **Rapid iteration**: During development cycles when you're making frequent changes
+- **Debugging**: When failures occur and you need to understand root causes
+- **Optimization**: When identifying performance bottlenecks or inefficient patterns
+- **Refinement**: When improving agent reasoning and decision-making logic
 
-## Creating an Agentic Judge
+The higher cost and slower execution are justified by the deep insights you gain during these critical development phases, and the quick setup time means you can start evaluating immediately.
 
-To create an agentic judge, simply include `{{ trace }}` in your instructions:
+### Switch to Field-Based Judges for Production
+
+Field-Based Judges become essential as you approach production:
+
+- **Pre-deployment validation**: Ensure outputs meet quality standards
+- **Regression testing**: Verify that changes don't break existing functionality
+- **Production monitoring**: Continuously assess output quality at scale
+- **SLA compliance**: Verify responses meet defined expectations
+- **A/B testing**: Compare different model versions based on output quality
+
+The fast execution and lower cost make field-based judges ideal for high-volume production evaluation.
+
+## Creating an Agent-as-a-Judge
+
+To create an Agent-as-a-Judge, simply include `{{ trace }}` in your instructions:
 
 ```python
 from mlflow.genai.judges import make_judge
+import mlflow
+import time
 
-# Create an agentic judge for performance analysis
 performance_judge = make_judge(
     name="performance_analyzer",
     instructions=(
@@ -91,18 +106,62 @@ performance_judge = make_judge(
     ),
     model="anthropic:/claude-3-opus-20240229",
 )
+
+
+@mlflow.trace
+def slow_data_processor(query: str):
+    """Example application with performance bottlenecks."""
+    with mlflow.start_span("fetch_data") as span:
+        time.sleep(2.5)
+        span.set_inputs({"query": query})
+        span.set_outputs({"data": ["item1", "item2", "item3"]})
+
+    with mlflow.start_span("process_data") as span:
+        for i in range(3):
+            with mlflow.start_span(f"redundant_api_call_{i}"):
+                time.sleep(0.5)
+        span.set_outputs({"processed": "results"})
+
+    return "Processing complete"
+
+
+result = slow_data_processor("SELECT * FROM users")
+trace_id = mlflow.get_last_active_trace_id()
+trace = mlflow.get_trace(trace_id)
+
+feedback = performance_judge(trace=trace)
+
+print(f"Performance Rating: {feedback.value}")
+print(f"Analysis: {feedback.rationale}")
+```
+
+This example creates an Agent-as-a-Judge that analyzes performance issues, then runs it against a sample application with intentional bottlenecks:
+
+- A database query taking 2.5 seconds (exceeding the 2-second threshold)
+- Three redundant API calls that could be optimized
+
+The judge will output something like:
+
+```
+Performance Rating: needs_improvement
+Analysis: Found critical performance issues:
+1. The 'fetch_data' span took 2.5 seconds, exceeding the 2-second threshold
+2. Detected 3 redundant API calls (redundant_api_call_0, redundant_api_call_1,
+   redundant_api_call_2) that appear to be duplicate operations
+3. Total execution time of 4 seconds could be optimized by parallelizing
+   the redundant operations or implementing caching
 ```
 
 When invoked with a trace, this judge will:
 
-1. Use tools to explore the trace structure
-2. Fetch timing information from relevant spans
-3. Identify patterns and bottlenecks
-4. Provide detailed analysis with specific recommendations
+1. **Explore the trace structure** - Navigate through all spans to understand the execution flow
+2. **Analyze timing data** - Calculate durations and identify operations exceeding thresholds
+3. **Detect patterns** - Identify redundant operations like the repeated API calls
+4. **Provide actionable feedback** - Return specific recommendations for optimization
 
 ## Key Capabilities
 
-Agentic judges can access:
+Agent-as-a-Judge can access:
 
 - **Span hierarchy**: Understanding parent-child relationships
 - **Timing data**: Start times, end times, and durations

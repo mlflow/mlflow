@@ -63,7 +63,7 @@ The key insight: You can achieve cost-effective evaluation by aligning "dumber" 
   {
     icon: Zap,
     title: "Dual Evaluation Modes",
-    description: "Evaluate final outputs with field-based assessment or analyze complete execution flows with agentic evaluation."
+    description: "Evaluate final outputs with field-based assessment or analyze complete execution flows with Agent-as-a-Judge evaluation."
   },
   {
     icon: Brain,
@@ -74,7 +74,7 @@ The key insight: You can achieve cost-effective evaluation by aligning "dumber" 
 
 ## Evaluation Modes
 
-The make_judge API supports two distinct evaluation modes, each optimized for different scenarios. Choose field-based evaluation for evaluating specific inputs and outputs, or agentic evaluation for analyzing complete execution flows.
+The make_judge API supports two distinct evaluation modes, each optimized for different scenarios. Choose field-based evaluation for evaluating specific inputs and outputs, or Agent-as-a-Judge evaluation for analyzing complete execution flows.
 
 <ConceptOverview concepts={[
   {
@@ -84,7 +84,7 @@ The make_judge API supports two distinct evaluation modes, each optimized for di
   },
   {
     icon: Search,
-    title: "Agentic Evaluation",
+    title: "Agent-as-a-Judge Evaluation",
     description: "Analyze complete execution flows using the trace variable. Inspect intermediate steps, tool usage, and decision-making. Essential for debugging complex AI agents and multi-step workflows."
   }
 ]} />
@@ -122,7 +122,7 @@ When you use template variables in your instructions, MLflow processes them in t
 
 **Direct Interpolation** (`inputs`, `outputs`, `expectations`): These variables are directly interpolated into the prompt as formatted strings. The dictionaries you pass are converted to readable text and inserted into your instruction template. This gives you full control over how the data appears in the evaluation prompt.
 
-**Agentic Analysis** (`trace`): The trace variable works differently to handle complexity at scale. Instead of interpolating potentially massive JSON data directly into the prompt, the trace metadata (trace_id, experiment_id, request_id) is passed to an evaluation agent that fetches and analyzes the full trace details. This design enables agentic judges to handle large, complex execution flows without hitting token limits.
+**Agent-as-a-Judge Analysis** (`trace`): The trace variable works differently to handle complexity at scale. Instead of interpolating potentially massive JSON data directly into the prompt, the trace metadata (trace_id, experiment_id, request_id) is passed to an evaluation agent that fetches and analyzes the full trace details. This design enables Agent-as-a-Judge to handle large, complex execution flows without hitting token limits.
 
 :::note[Trace Processing Behavior]
 The `{{ trace }}` variable is NOT interpolated as JSON into the prompt. This is by design - traces can contain thousands of spans with extensive data that would overwhelm token limits. Instead, an intelligent agent fetches and analyzes the trace data, allowing it to focus on relevant aspects based on your evaluation instructions.
@@ -259,7 +259,7 @@ The `make_judge` API has strict template variable requirements:
 - ✅ **Only reserved variables allowed**: `inputs`, `outputs`, `expectations`, `trace`
 - ❌ **No custom variables**: Variables like `{{ question }}`, `{{ response }}`, etc. are not supported
 - ❌ **Trace isolation**: When using `trace`, cannot use `inputs`, `outputs`, or `expectations`
-- ❌ **Model restrictions**: Cannot use the `databricks` default model with agentic judges
+- ❌ **Model restrictions**: Cannot use the `databricks` default model with Agent-as-a-Judge
 
 All template variables referenced in instructions must be provided when calling the judge.
 :::
