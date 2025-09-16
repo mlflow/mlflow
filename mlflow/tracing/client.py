@@ -28,6 +28,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.telemetry.events import LogAssessmentEvent, StartTraceEvent
 from mlflow.telemetry.track import record_usage_event
+from mlflow.tracing.attachments import Attachment
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import TraceJSONEncoder, exclude_immutable_tags
@@ -564,6 +565,18 @@ class TracingClient:
         artifact_repo = self._get_artifact_repo_for_trace(trace_info)
         trace_data_json = json.dumps(trace_data.to_dict(), cls=TraceJSONEncoder, ensure_ascii=False)
         return artifact_repo.upload_trace_data(trace_data_json)
+
+    def _upload_attachments(self, trace_info: TraceInfo, attachments: list[Attachment]) -> None:
+        """
+        Upload attachments to the trace.
+
+        Args:
+            trace_info: The TraceInfo object containing trace metadata.
+            attachments: List of Attachment objects to upload.
+        """
+        artifact_repo = self._get_artifact_repo_for_trace(trace_info)
+        for attachment in attachments:
+            artifact_repo.upload_attachment(attachment)
 
     # TODO: Migrate this to the new association table
     def link_prompt_versions_to_trace(

@@ -22,6 +22,7 @@ from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.databricks_trace_server_pb2 import Span as ProtoSpan
+from mlflow.tracing.attachments import Attachment
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.utils import (
     TraceJSONEncoder,
@@ -107,6 +108,8 @@ class Span:
         # Since the span is immutable, we can cache the attributes to avoid the redundant
         # deserialization of the attribute values.
         self._attributes = _CachedSpanAttributesRegistry(otel_span)
+        # Initialize empty attachments dictionary for immutable spans
+        self._attachments: dict[str, Attachment] = {}
 
     @property
     @lru_cache(maxsize=1)
@@ -491,6 +494,8 @@ class LiveSpan(Span):
         # and logs. As spans are logged, we incrementally add numeric suffixes (_1, _2, etc.) to
         # make each span uniquely identifiable within its trace
         self._original_name = otel_span.name
+        # Initialize attachments dictionary for live spans
+        self._attachments: dict[str, Attachment] = {}
 
     def set_span_type(self, span_type: str):
         """Set the type of the span."""
@@ -498,10 +503,40 @@ class LiveSpan(Span):
 
     def set_inputs(self, inputs: Any):
         """Set the input values to the span."""
+        from mlflow.tracing.attachments import Attachment
+
+        # Process attachments if inputs is a dictionary
+        if isinstance(inputs, dict):
+            processed_inputs = {}
+            for key, value in inputs.items():
+                if isinstance(value, Attachment):
+                    # Generate attachment reference and store the attachment
+                    ref = value.ref(self.trace_id)
+                    self._attachments[ref] = value
+                    processed_inputs[key] = ref
+                else:
+                    processed_inputs[key] = value
+            inputs = processed_inputs
+
         self.set_attribute(SpanAttributeKey.INPUTS, inputs)
 
     def set_outputs(self, outputs: Any):
         """Set the output values to the span."""
+        from mlflow.tracing.attachments import Attachment
+
+        # Process attachments if outputs is a dictionary
+        if isinstance(outputs, dict):
+            processed_outputs = {}
+            for key, value in outputs.items():
+                if isinstance(value, Attachment):
+                    # Generate attachment reference and store the attachment
+                    ref = value.ref(self.trace_id)
+                    self._attachments[ref] = value
+                    processed_outputs[key] = ref
+                else:
+                    processed_outputs[key] = value
+            outputs = processed_outputs
+
         self.set_attribute(SpanAttributeKey.OUTPUTS, outputs)
 
     def set_attributes(self, attributes: dict[str, Any]):
@@ -642,7 +677,10 @@ class LiveSpan(Span):
         :meta private:
         """
         # All state of the live span is already persisted in the OpenTelemetry span object.
-        return Span(self._span)
+        immutable_span = Span(self._span)
+        # Transfer attachments from live span to immutable span
+        immutable_span._attachments.update(self._attachments)
+        return immutable_span
 
     @classmethod
     def from_immutable_span(
