@@ -655,8 +655,9 @@ def _save_model(sk_model, output_path, serialization_format):
                     ),
                 ) from e
 
-            skops.io.dump(sk_model, out, compresslevel=9)
-            untrusted_types = skops.io.get_untrusted_types(data=sk_model)
+            dumped = skops.io.dumps(sk_model, compresslevel=9)
+            untrusted_types = skops.io.get_untrusted_types(data=dumped)
+            out.write(dumped)
             if untrusted_types:
                 _logger.info(f"Detected untrusted types for skops format: {untrusted_types}")
             return untrusted_types

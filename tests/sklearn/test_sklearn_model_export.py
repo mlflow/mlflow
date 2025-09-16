@@ -415,16 +415,32 @@ def test_log_model_with_pip_requirements(sklearn_knn_model, tmp_path):
         )
 
 
-def test_log_model_with_extra_pip_requirements(sklearn_knn_model, tmp_path):
+@pytest.mark.parametrize(
+    "serialization_format",
+    [
+        mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
+        mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS,
+    ],
+)
+def test_log_model_with_extra_pip_requirements(sklearn_knn_model, tmp_path, serialization_format):
     expected_mlflow_version = _mlflow_major_version_string()
-    default_reqs = mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=True)
+    # Get default requirements based on serialization format
+    include_cloudpickle = serialization_format == mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE
+    include_skops = serialization_format == mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS
+    default_reqs = mlflow.sklearn.get_default_pip_requirements(
+        include_cloudpickle=include_cloudpickle,
+        include_skops=include_skops,
+    )
 
     # Path to a requirements file
     req_file = tmp_path.joinpath("requirements.txt")
     req_file.write_text("a")
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
-            sklearn_knn_model.model, name="model", extra_pip_requirements=str(req_file)
+            sklearn_knn_model.model,
+            name="model",
+            extra_pip_requirements=str(req_file),
+            serialization_format=serialization_format,
         )
         _assert_pip_requirements(
             model_info.model_uri, [expected_mlflow_version, *default_reqs, "a"]
@@ -436,6 +452,7 @@ def test_log_model_with_extra_pip_requirements(sklearn_knn_model, tmp_path):
             sklearn_knn_model.model,
             name="model",
             extra_pip_requirements=[f"-r {req_file}", "b"],
+            serialization_format=serialization_format,
         )
         _assert_pip_requirements(
             model_info.model_uri, [expected_mlflow_version, *default_reqs, "a", "b"]
@@ -447,6 +464,7 @@ def test_log_model_with_extra_pip_requirements(sklearn_knn_model, tmp_path):
             sklearn_knn_model.model,
             name="model",
             extra_pip_requirements=[f"-c {req_file}", "b"],
+            serialization_format=serialization_format,
         )
         _assert_pip_requirements(
             model_info.model_uri,
