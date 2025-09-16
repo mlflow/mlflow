@@ -5,8 +5,6 @@ from mlflow.pydantic_ai.autolog import (
     patched_async_class_call,
     patched_class_call,
 )
-from mlflow.telemetry.events import AutologgingEvent
-from mlflow.telemetry.track import _record_event
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
@@ -66,7 +64,3 @@ def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False
                 )
             except AttributeError as e:
                 _logger.error("Error patching %s.%s: %s", cls_path, method, e)
-
-    _record_event(
-        AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}
-    )

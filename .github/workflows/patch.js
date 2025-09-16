@@ -64,10 +64,12 @@ module.exports = async ({ context, github, core }) => {
 
   const patchSection = body.split(marker)[1];
   const yesRegex = /- \[( |x)\] yes/gi;
-  const yesMatch = yesRegex.exec(patchSection);
+  const yesMatches = [...patchSection.matchAll(yesRegex)];
+  const yesMatch = yesMatches.length > 0 ? yesMatches[yesMatches.length - 1] : null;
   const yes = yesMatch ? yesMatch[1].toLowerCase() === "x" : false;
   const noRegex = /- \[( |x)\] no/gi;
-  const noMatch = noRegex.exec(patchSection);
+  const noMatches = [...patchSection.matchAll(noRegex)];
+  const noMatch = noMatches.length > 0 ? noMatches[noMatches.length - 1] : null;
   const no = noMatch ? noMatch[1].toLowerCase() === "x" : false;
 
   if (yes && no) {
