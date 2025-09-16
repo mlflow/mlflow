@@ -874,6 +874,8 @@ def test_faithfulness_metric(tmp_path: Path):
         pd.Series([mlflow_ground_truth], index=[2]),
     )
 
+    assert False
+
 
 def test_answer_relevance_metric():
     answer_relevance_metric = answer_relevance(model="gateway:/gpt-4o-mini", examples=[])
