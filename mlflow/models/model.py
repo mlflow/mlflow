@@ -38,7 +38,6 @@ from mlflow.tracking.fluent import (
     _set_active_model_id,
     _use_logged_model,
 )
-from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
     _construct_databricks_logged_model_url,
     get_databricks_runtime_version,
@@ -644,7 +643,6 @@ class Model:
             serialized_resource = value
         self._resources = serialized_resource
 
-    @experimental(version="2.21.0")
     @property
     def auth_policy(self) -> dict[str, dict[str, Any]]:
         """
@@ -656,7 +654,6 @@ class Model:
         """
         return self._auth_policy
 
-    @experimental(version="2.21.0")
     @auth_policy.setter
     def auth_policy(self, value: dict[str, Any] | AuthPolicy | None) -> None:
         self._auth_policy = value.to_dict() if isinstance(value, AuthPolicy) else value
