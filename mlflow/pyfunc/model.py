@@ -547,7 +547,7 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
 
     Since the landscape of LLM frameworks is constantly evolving and not every flavor can be
     natively supported by MLflow, we recommend the
-    `Models-from-Code <https://mlflow.org/docs/latest/model/models-from-code.html>`_ logging
+    `Models-from-Code <https://mlflow.org/docs/latest/ml/model/models-from-code.html>`_ logging
     approach.
 
     .. code-block:: python
@@ -956,7 +956,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
 
         @staticmethod
         def create_text_output_item(
-            text: str, id: str, annotations: Optional[list[dict]] = None
+            text: str, id: str, annotations: Optional[list[dict[str, Any]]] = None
         ) -> dict[str, Any]:
             """Helper method to create a dictionary conforming to the text output item schema.
 
@@ -1078,7 +1078,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
 
         @staticmethod
         def prep_msgs_for_cc_llm(
-            responses_input: list[Union[dict, Message, OutputItem]],
+            responses_input: list[Union[dict[str, Any], Message, OutputItem]],
         ) -> list[dict[str, Any]]:
             "Convert from Responses input items to ChatCompletion dictionaries"
             cc_msgs = []
@@ -1110,7 +1110,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
                 msg_id = chunk.get("id", None)
                 content = delta.get("content", None)
                 if tc := delta.get("tool_calls"):
-                    if not tool_calls:  # only accomodate for single tool call right now
+                    if not tool_calls:  # only accommodate for single tool call right now
                         tool_calls = tc
                     else:
                         tool_calls[0]["function"]["arguments"] += tc[0]["function"]["arguments"]

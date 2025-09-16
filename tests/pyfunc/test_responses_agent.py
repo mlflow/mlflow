@@ -1021,7 +1021,6 @@ def test_responses_agent_output_to_responses_items_stream(chunks, expected_outpu
     """
     aggregator = []
     converted_output = list(ResponsesAgent.output_to_responses_items_stream(chunks, aggregator))
-    print("converted_output", converted_output)
     assert converted_output == expected_output
     expected_aggregator = [
         event.item for event in expected_output if event.type == "response.output_item.done"
