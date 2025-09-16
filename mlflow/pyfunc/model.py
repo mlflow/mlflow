@@ -1106,12 +1106,12 @@ if IS_PYDANTIC_V2_OR_NEWER:
         @staticmethod
         def output_to_responses_items_stream(
             chunks: Iterator[dict[str, Any]], aggregator: Optional[list[dict[str, Any]]] = None
-        ) -> Generator[Union[ResponsesAgentStreamEvent, list[dict[str, Any]]], None, None]:
+        ) -> Generator[Union[ResponsesAgentStreamEvent], None, None]:
             """
             For streaming, convert from various message format dicts to Responses output items, returning
-            a generator of ResponsesAgentStreamEvent objects and ending with an array of output item dicts.
+            a generator of ResponsesAgentStreamEvent objects.
 
-            Optionally pass in `aggregator` to keep a copy of the aggregated output items.
+            If `aggregator` is provided, it will be extended with the aggregated output item dicts.
 
             For now, only handle a stream of Chat Completion chunks.
             """
@@ -1167,7 +1167,10 @@ if IS_PYDANTIC_V2_OR_NEWER:
             if aggregator is not None:
                 if reasoning_item:
                     aggregator.extend(
-                        [reasoning_item, *ResponsesAgent._cc_to_responses(aggregated_llm_output)]
+                        [
+                            reasoning_item.model_dump(),
+                            *ResponsesAgent._cc_to_responses(aggregated_llm_output),
+                        ]
                     )
                 else:
                     aggregator.extend(ResponsesAgent._cc_to_responses(aggregated_llm_output))
