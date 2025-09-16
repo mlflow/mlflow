@@ -3,8 +3,6 @@ The ``mlflow.groq`` module provides an API for logging and loading Groq models.
 """
 
 from mlflow.groq._groq_autolog import patched_call
-from mlflow.telemetry.events import AutologgingEvent
-from mlflow.telemetry.track import _record_event
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
 FLAVOR_NAME = "groq"
@@ -40,7 +38,3 @@ def autolog(
             "create",
             patched_call,
         )
-
-    _record_event(
-        AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}
-    )

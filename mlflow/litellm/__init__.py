@@ -1,8 +1,6 @@
 import logging
 from typing import Callable
 
-from mlflow.telemetry.events import AutologgingEvent
-from mlflow.telemetry.track import _record_event
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
 FLAVOR_NAME = "litellm"
@@ -55,10 +53,6 @@ def autolog(
         # Callback also needs to be removed from 'callbacks' as litellm adds
         # success/failure callbacks to there as well.
         litellm.callbacks = _remove_mlflow_callbacks(litellm.callbacks)
-
-    _record_event(
-        AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}
-    )
 
 
 # This is required by mlflow.autolog()
