@@ -14,7 +14,6 @@ import shutil
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
 from typing import Any, Generator, Iterator, Optional, Union
-from uuid import uuid4
 
 import cloudpickle
 import pandas as pd
@@ -1078,42 +1077,6 @@ if IS_PYDANTIC_V2_OR_NEWER:
             return [filtered] if filtered else []
 
         @staticmethod
-        def _cc_to_responses(message: dict[str, Any]) -> list[dict[str, Any]]:
-            "Convert from ChatCompletion dict to Responses output item dictionaries"
-            role = message["role"]
-            id = message.get("id", str(uuid4()))
-            responses_output = []
-            if role == "assistant":
-                if message["content"]:
-                    responses_output.append(
-                        ResponsesAgent.create_text_output_item(
-                            text=message["content"],
-                            id=id,
-                        )
-                    )
-                if tool_calls := message.get("tool_calls"):
-                    responses_output.extend(
-                        ResponsesAgent.create_function_call_item(
-                            id=id,
-                            call_id=tool_call["id"],
-                            name=tool_call["function"]["name"],
-                            arguments=tool_call["function"]["arguments"],
-                        )
-                        for tool_call in tool_calls
-                    )
-
-            elif role == "tool":
-                responses_output.append(
-                    ResponsesAgent.create_function_call_output_item(
-                        call_id=message["tool_call_id"],
-                        output=message["content"],
-                    )
-                )
-            elif role == "user":
-                responses_output.append(message)
-            return responses_output
-
-        @staticmethod
         def prep_msgs_for_cc_llm(
             responses_input: list[Union[dict, Message, OutputItem]],
         ) -> list[dict[str, Any]]:
@@ -1125,19 +1088,6 @@ if IS_PYDANTIC_V2_OR_NEWER:
                 else:
                     cc_msgs.extend(ResponsesAgent._responses_to_cc(msg))
             return cc_msgs
-
-        @staticmethod
-        def output_to_responses_items(
-            messages: Iterator[dict[str, Any]],
-        ) -> list[Union[Message, dict[str, Any]]]:
-            """
-            For non-streaming, convert from various message formats to Responses output items in dict format.
-            For now, only handle ChatCompletion messages
-            """
-            responses_output = []
-            for msg in messages:
-                responses_output.extend(ResponsesAgent._cc_to_responses(msg))
-            return responses_output
 
         @staticmethod
         def output_to_responses_items_stream(

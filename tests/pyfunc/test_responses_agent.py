@@ -505,10 +505,6 @@ def test_responses_agent_non_mlflow_decorators():
     assert spans_mixed_stream[0].span_type == SpanType.AGENT
 
 
-def test_responses_agent_output_to_responses_items():
-    pass
-
-
 @pytest.mark.parametrize(
     ("chunks", "expected_output"),
     [
