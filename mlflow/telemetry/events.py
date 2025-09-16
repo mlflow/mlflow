@@ -230,3 +230,7 @@ class InvokeCustomJudgeModelEvent(Event):
 
         model_provider, _ = _parse_model_uri(model_uri)
         return {"model_provider": model_provider}
+
+
+class AutologgingEvent(Event):
+    name: str = "autologging"
