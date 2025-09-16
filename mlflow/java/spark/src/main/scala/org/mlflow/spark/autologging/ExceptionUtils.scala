@@ -20,13 +20,25 @@ private[autologging] object ExceptionUtils {
       s"${ExceptionUtils.serializeException(exc)}"
   }
 
+  def tryAndLogSilently(logger: Logger, errorMsg: String, fn: => Any): Unit = {
+    try {
+      fn
+    } catch {
+      case NonFatal(e) =>
+        if (logger.isTraceEnabled) {
+          logger.trace(s"Skipping operation $errorMsg: ${e.getMessage}")
+        }
+    }
+  }
 
   def tryAndLogUnexpectedError(logger: Logger, errorMsg: String, fn: => Any): Unit = {
     try {
       fn
     } catch {
       case NonFatal(e) =>
-        logger.error(getUnexpectedExceptionMessage(e, errorMsg))
+        if (logger.isTraceEnabled) {
+          logger.trace(getUnexpectedExceptionMessage(e, errorMsg))
+        }
     }
   }
 

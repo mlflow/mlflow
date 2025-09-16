@@ -1,8 +1,9 @@
-import { createContext, useContext, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
 import type { ModelTrace, ModelTraceExplorerTab, ModelTraceSpanNode } from './ModelTrace.types';
-import { parseModelTraceToTree, searchTreeBySpanId } from './ModelTraceExplorer.utils';
+import { getDefaultActiveTab, parseModelTraceToTree, searchTreeBySpanId } from './ModelTraceExplorer.utils';
 import { getTimelineTreeNodesMap } from './timeline-tree/TimelineTree.utils';
+import { isNil } from 'lodash';
 
 export type ModelTraceExplorerViewState = {
   rootNode: ModelTraceSpanNode | null;
@@ -51,7 +52,7 @@ export const ModelTraceExplorerViewStateProvider = ({
   children,
 }: {
   modelTrace: ModelTrace;
-  initialActiveView: 'summary' | 'detail';
+  initialActiveView?: 'summary' | 'detail';
   selectedSpanIdOnRender?: string;
   children: React.ReactNode;
   assessmentsPaneEnabled: boolean;
@@ -61,12 +62,21 @@ export const ModelTraceExplorerViewStateProvider = ({
   const selectedSpanOnRender = searchTreeBySpanId(rootNode, selectedSpanIdOnRender);
   const defaultSelectedNode = selectedSpanOnRender ?? rootNode ?? undefined;
   const hasAssessments = (defaultSelectedNode?.assessments?.length ?? 0) > 0;
+  const hasInputsOrOutputs = !isNil(rootNode?.inputs) || !isNil(rootNode?.outputs);
 
-  const [activeView, setActiveView] = useState<'summary' | 'detail'>(initialActiveView);
+  const [activeView, setActiveView] = useState<'summary' | 'detail'>(
+    initialActiveView ?? (hasInputsOrOutputs ? 'summary' : 'detail'),
+  );
   const [selectedNode, setSelectedNode] = useState<ModelTraceSpanNode | undefined>(defaultSelectedNode);
-  const [activeTab, setActiveTab] = useState<ModelTraceExplorerTab>(selectedNode?.chatMessages ? 'chat' : 'content');
+  const defaultActiveTab = getDefaultActiveTab(selectedNode);
+  const [activeTab, setActiveTab] = useState<ModelTraceExplorerTab>(defaultActiveTab);
   const [showTimelineTreeGantt, setShowTimelineTreeGantt] = useState(false);
   const [assessmentsPaneExpanded, setAssessmentsPaneExpanded] = useState(hasAssessments);
+
+  useEffect(() => {
+    const defaultActiveTab = getDefaultActiveTab(selectedNode);
+    setActiveTab(defaultActiveTab);
+  }, [selectedNode]);
 
   const value = useMemo(
     () => ({

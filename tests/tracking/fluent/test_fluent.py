@@ -203,7 +203,7 @@ def test_get_experiment_id_from_env(monkeypatch):
     exp_id = mlflow.create_experiment(name)
     assert exp_id is not None
     monkeypatch.delenv(MLFLOW_EXPERIMENT_NAME.name, raising=False)
-    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, exp_id)
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, str(exp_id))
     assert _get_experiment_id_from_env() == exp_id
 
     # set only name
@@ -234,7 +234,7 @@ def test_get_experiment_id_from_env(monkeypatch):
     random_id = random.randint(100, 1e6)
     assert exp_id != random_id
     monkeypatch.delenv(MLFLOW_EXPERIMENT_NAME.name, raising=False)
-    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, random_id)
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, str(random_id))
     with pytest.raises(
         MlflowException,
         match=(
@@ -249,7 +249,7 @@ def test_get_experiment_id_from_env(monkeypatch):
     exp_id = mlflow.create_experiment(name)
     random_id = random.randint(100, 1e6)
     assert exp_id != random_id
-    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, random_id)
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, str(random_id))
     monkeypatch.setenv(MLFLOW_EXPERIMENT_NAME.name, name)
     with pytest.raises(
         MlflowException,
@@ -266,7 +266,7 @@ def test_get_experiment_id_from_env(monkeypatch):
     exp_id = mlflow.create_experiment(name)
     assert exp_id is not None
     random_id = random.randint(100, 1e6)
-    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, random_id)
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, str(random_id))
     monkeypatch.setenv(MLFLOW_EXPERIMENT_NAME.name, invalid_name)
     mlflow.set_experiment(experiment_id=exp_id)
     assert _get_experiment_id() == exp_id
@@ -316,7 +316,7 @@ def test_get_experiment_id_in_databricks_with_experiment_defined_in_env_returns_
     exp_id = mlflow.create_experiment(exp_name)
     notebook_id = str(int(exp_id) + 73)
     monkeypatch.delenv(MLFLOW_EXPERIMENT_NAME.name, raising=False)
-    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, exp_id)
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, str(exp_id))
 
     with mock.patch(
         "mlflow.tracking.fluent.default_experiment_registry.get_experiment_id",

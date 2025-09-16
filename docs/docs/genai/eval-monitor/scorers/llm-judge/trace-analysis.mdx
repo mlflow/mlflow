@@ -1,0 +1,266 @@
+---
+title: Trace Analysis with Tools
+sidebar_label: Trace Analysis with Tools
+description: How Agent-as-a-Judge uses tools to deeply analyze execution traces
+---
+
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { Activity, FileText, Users } from "lucide-react";
+
+# Trace Analysis with Tools
+
+Agent-as-a-Judge uses MCP (Model Context Protocol) tools to investigate traces. These tools enable the judge to act like an experienced debugger, systematically exploring your application's execution.
+
+## Available Tools for Judges
+
+When a judge receives a trace, it gains access to these tools:
+
+### GetTraceInfo
+
+Retrieves high-level information about a trace including timing, status, and metadata.
+
+### ListSpans
+
+Lists all spans in a trace with their hierarchy, timing, and basic attributes.
+
+### GetSpan
+
+Fetches detailed information about a specific span including inputs, outputs, and custom attributes.
+
+### SearchTraceRegex
+
+Searches for patterns across all span data using regular expressions.
+
+## Common Analysis Patterns
+
+### Performance Analysis
+
+```python
+from mlflow.genai.judges import make_judge
+
+latency_judge = make_judge(
+    name="latency_analyzer",
+    instructions=(
+        "Analyze the {{ trace }} for latency issues.\n\n"
+        "Use the available tools to:\n"
+        "1. List all spans and their durations\n"
+        "2. Identify the slowest operations\n"
+        "3. Check for sequential operations that could be parallelized\n"
+        "4. Look for repeated similar operations\n\n"
+        "Provide specific span IDs and timings in your analysis.\n"
+        "Rate as: 'fast' (<1s total), 'acceptable' (1-3s), or 'slow' (>3s)"
+    ),
+    model="anthropic:/claude-opus-4-1-20250805",
+)
+```
+
+### Tool Usage Validation
+
+```python
+tool_usage_judge = make_judge(
+    name="tool_validator",
+    instructions=(
+        "Examine the {{ trace }} for proper tool usage.\n\n"
+        "Check:\n"
+        "1. Are the right tools being selected for each task?\n"
+        "2. Is the tool calling sequence logical?\n"
+        "3. Are tool outputs being properly utilized?\n"
+        "4. Are there unnecessary tool calls?\n\n"
+        "List specific issues with span IDs.\n"
+        "Rate as: 'optimal', 'suboptimal', or 'incorrect'"
+    ),
+    model="anthropic:/claude-opus-4-1-20250805",
+)
+```
+
+### Error Handling Assessment
+
+```python
+error_handling_judge = make_judge(
+    name="error_handler_checker",
+    instructions=(
+        "Analyze error handling in the {{ trace }}.\n\n"
+        "Look for:\n"
+        "1. Spans with error status or exceptions\n"
+        "2. Retry attempts and their patterns\n"
+        "3. Fallback mechanisms\n"
+        "4. Error propagation and recovery\n\n"
+        "Identify specific error scenarios and how they were handled.\n"
+        "Rate as: 'robust', 'adequate', or 'fragile'"
+    ),
+    model="anthropic:/claude-opus-4-1-20250805",
+)
+```
+
+## Example: Complete Trace Analysis
+
+Here's how an Agent-as-a-Judge analyzes a complex multi-step workflow:
+
+<Tabs>
+  <TabItem value="code" label="Judge Definition" default>
+
+```python
+comprehensive_judge = make_judge(
+    name="comprehensive_analyzer",
+    instructions=(
+        "Perform a comprehensive analysis of the {{ trace }}.\n\n"
+        "Investigation steps:\n"
+        "1. Get trace overview with GetTraceInfo\n"
+        "2. List all spans to understand the flow\n"
+        "3. Identify critical path operations\n"
+        "4. Check for errors or warnings\n"
+        "5. Analyze data flow between components\n"
+        "6. Verify business logic execution\n\n"
+        "Provide:\n"
+        "- Executive summary\n"
+        "- Key findings with specific span references\n"
+        "- Improvement recommendations\n"
+        "- Overall quality rating (1-10)"
+    ),
+    model="anthropic:/claude-opus-4-1-20250805",
+)
+```
+
+  </TabItem>
+  <TabItem value="usage" label="Usage">
+
+```python
+import mlflow
+
+
+# Your application with tracing
+@mlflow.trace
+def complex_workflow(user_query):
+    with mlflow.start_span("parse_query") as parse_span:
+        parsed = parse_user_input(user_query)
+        parse_span.set_attributes({"query_type": parsed.type})
+
+    with mlflow.start_span("fetch_context") as fetch_span:
+        context = retrieve_relevant_context(parsed)
+        fetch_span.set_attributes({"docs_retrieved": len(context)})
+
+    with mlflow.start_span("generate_response") as gen_span:
+        response = generate_with_llm(parsed, context)
+        gen_span.set_attributes({"model": "gpt-4", "tokens": 500})
+
+    return response
+
+
+# Execute and evaluate
+result = complex_workflow("How do I use MLflow?")
+trace_id = mlflow.get_last_active_trace_id()
+trace = mlflow.get_trace(trace_id)
+
+# Judge analyzes the entire execution
+evaluation = comprehensive_judge(trace=trace)
+print(f"Quality Score: {evaluation.value}/10")
+print(f"Analysis:\n{evaluation.rationale}")
+```
+
+  </TabItem>
+  <TabItem value="output" label="Example Output">
+
+```
+Quality Score: 7/10
+
+Analysis:
+Executive Summary:
+The workflow completed successfully in 2.3s with proper error handling. However, there are optimization opportunities in the context retrieval phase.
+
+Key Findings:
+1. Parse Query (span_id: abc123): Efficient parsing in 50ms ✓
+2. Fetch Context (span_id: def456): Retrieved 15 documents in 1.8s - this is the bottleneck
+   - Sequential database queries could be parallelized
+   - No caching mechanism detected for repeated queries
+3. Generate Response (span_id: ghi789): Clean LLM generation in 450ms ✓
+
+Recommendations:
+- Implement parallel fetching for context retrieval
+- Add caching layer for frequently accessed documents
+- Consider implementing streaming for faster perceived response time
+
+Business Logic: Correctly followed the parse→retrieve→generate pattern
+Error Handling: Proper try-catch blocks in all critical sections
+```
+
+  </TabItem>
+</Tabs>
+
+## Best Practices
+
+1. **Be Specific in Instructions**: Tell the judge exactly what patterns to look for
+2. **Request Evidence**: Ask for specific span IDs and data to support conclusions
+3. **Define Clear Criteria**: Specify what constitutes "good" vs "bad" behavior
+4. **Use Structured Output**: Request ratings and categorized findings for easier processing
+5. **Leverage Search**: Use regex patterns to find specific issues across large traces
+
+## Advanced Techniques
+
+### Comparative Analysis
+
+Compare multiple traces to identify regression or improvements:
+
+```python
+comparison_judge = make_judge(
+    name="trace_comparator",
+    instructions=(
+        "Compare the patterns in {{ trace }} against best practices.\n"
+        "Identify deviations from optimal execution patterns.\n"
+        "Suggest specific improvements with examples."
+    ),
+    model="anthropic:/claude-opus-4-1-20250805",
+)
+```
+
+### Security Auditing
+
+Check for security concerns in execution patterns:
+
+```python
+security_judge = make_judge(
+    name="security_auditor",
+    instructions=(
+        "Audit {{ trace }} for security concerns:\n"
+        "- Check for sensitive data in logs\n"
+        "- Verify proper authentication flows\n"
+        "- Identify potential injection points\n"
+        "- Validate input sanitization"
+    ),
+    model="anthropic:/claude-opus-4-1-20250805",
+)
+```
+
+## Next Steps
+
+<TilesGrid>
+  <TileCard
+    icon={Activity}
+    iconSize={48}
+    title="Agent Behavior Patterns"
+    description="Learn to evaluate complex agent behaviors"
+    href="/genai/eval-monitor/scorers/llm-judge/agent-behavior-patterns"
+    linkText="Explore patterns →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={FileText}
+    iconSize={48}
+    title="make_judge API"
+    description="Complete API reference and examples"
+    href="/genai/eval-monitor/scorers/llm-judge/make-judge"
+    linkText="View API →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Users}
+    iconSize={48}
+    title="Judge Alignment"
+    description="Improve accuracy with human feedback"
+    href="/genai/eval-monitor/scorers/llm-judge/alignment"
+    linkText="Learn alignment →"
+    containerHeight={64}
+  />
+</TilesGrid>

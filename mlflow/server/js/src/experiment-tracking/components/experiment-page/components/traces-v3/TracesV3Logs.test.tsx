@@ -245,6 +245,8 @@ describe('TracesV3Logs', () => {
         error: mockError,
         isEmpty: false,
         tableFilterOptions: { source: [] },
+        evaluatedTraces: [],
+        otherEvaluatedTraces: [],
       });
 
       jest.mocked(useSetInitialTimeFilter).mockReturnValue({
@@ -277,6 +279,8 @@ describe('TracesV3Logs', () => {
         error: mockError,
         isEmpty: false,
         tableFilterOptions: { source: [] },
+        evaluatedTraces: [],
+        otherEvaluatedTraces: [],
       });
 
       jest.mocked(useSetInitialTimeFilter).mockReturnValue({
@@ -361,6 +365,8 @@ describe('TracesV3Logs', () => {
             error: null,
             isEmpty: false,
             tableFilterOptions: { source: [] },
+            evaluatedTraces: [],
+            otherEvaluatedTraces: [],
           });
 
           jest.mocked(useSetInitialTimeFilter).mockReturnValue({

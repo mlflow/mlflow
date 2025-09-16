@@ -14,6 +14,7 @@ MLflow 3.4.0rc0 includes several major features and improvements
 - 🔗 **Databricks Backend for MLflow Server**: MLflow server can now use Databricks as a backend, enabling seamless integration with Databricks workspaces. (#17411, @nsthorat)
 - 🤖 **Claude Autologging**: Automatic tracing support for Claude AI interactions, capturing conversations and model responses. (#17305, @smoorjani)
 - 🌊 **Strands Agent Tracing**: Added comprehensive tracing support for Strands agents, including automatic instrumentation for agent workflows and interactions. (#17151, @joelrobin18)
+- 🧪 **Experiment Types in UI**: MLflow now introduces experiment types, helping reduce clutter between classic ML/DL and GenAI features. MLflow auto-detects the type, but you can easily adjust it via a selector next to the experiment name. (#17605, @daniellok-db)
 
 Features:
 

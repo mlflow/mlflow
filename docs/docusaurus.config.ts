@@ -33,6 +33,7 @@ const config: Config = {
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'throw',
   onBrokenAnchors: 'throw',
+  onDuplicateRoutes: 'throw', // Fail build on duplicate redirects
 
   // Even if you don't use internationalization, you can use this field to set
   // useful metadata like html lang. For example, if your site is Chinese, you
@@ -652,40 +653,6 @@ const config: Config = {
           {
             to: '/genai/governance/unity-catalog',
             from: ['/llms/deployments/uc_integration'],
-          },
-
-          // Data Model Redirects (removed pages redirect to main GenAI landing)
-          {
-            to: '/genai',
-            from: ['/genai/data-model', '/genai/data-model/index'],
-          },
-          {
-            to: '/genai',
-            from: ['/genai/data-model/experiments'],
-          },
-          {
-            to: '/genai',
-            from: ['/genai/data-model/logged-model'],
-          },
-          {
-            to: '/genai',
-            from: ['/genai/data-model/runs'],
-          },
-          {
-            to: '/genai',
-            from: ['/genai/data-model/traces'],
-          },
-          {
-            to: '/genai',
-            from: ['/genai/data-model/prompts'],
-          },
-          {
-            to: '/genai',
-            from: ['/genai/data-model/app-versions'],
-          },
-          {
-            to: '/genai',
-            from: ['/genai/data-model/model-registry'],
           },
 
           // Traditional ML and Core MLflow Redirects

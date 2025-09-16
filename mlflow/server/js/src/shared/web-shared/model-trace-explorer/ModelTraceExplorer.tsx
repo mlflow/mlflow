@@ -104,7 +104,7 @@ const ContextProviders = ({ children }: { traceId: string; children: React.React
 export const ModelTraceExplorerImpl = ({
   modelTrace: initialModelTrace,
   className,
-  initialActiveView = 'summary',
+  initialActiveView,
   selectedSpanId,
   onSelectSpan,
 }: {
