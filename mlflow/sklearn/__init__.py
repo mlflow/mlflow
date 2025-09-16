@@ -471,7 +471,7 @@ def _load_model_from_local_file(path, serialization_format, trusted_types=None):
             the following: ``mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE``,
             ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``, or
             ``mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS``.
-        trusted_types: List of types needing to be trusted for skops to load the model.
+        trusted_types: List of types needed to be trusted for skops to load the model.
     """
     # TODO: we could validate the scikit-learn version here
     if serialization_format not in SUPPORTED_SERIALIZATION_FORMATS:
@@ -645,7 +645,6 @@ def _save_model(sk_model, output_path, serialization_format):
         List of untrusted types detected by `skops`. None if `serialization_format` is not
         ``mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS``.
     """
-    # Use existing pickle/cloudpickle logic for other formats
     with open(output_path, "wb") as out:
         if serialization_format == SERIALIZATION_FORMAT_PICKLE:
             _dump_model(pickle, sk_model, out)
@@ -1033,12 +1032,7 @@ class _AutologgingMetricsManager:
 _AUTOLOGGING_METRICS_MANAGER = _AutologgingMetricsManager()
 
 
-_metric_api_excluding_list = [
-    "check_scoring",
-    "get_scorer",
-    "make_scorer",
-    "get_scorer_names",
-]
+_metric_api_excluding_list = ["check_scoring", "get_scorer", "make_scorer", "get_scorer_names"]
 
 
 def _get_metric_name_list():
@@ -1585,8 +1579,7 @@ def _autolog(
                     )
             except Exception as e:
                 _logger.warning(
-                    "Failed to log training dataset information to MLflow Tracking. Reason: %s",
-                    e,
+                    "Failed to log training dataset information to MLflow Tracking. Reason: %s", e
                 )
 
     def _log_posttraining_metadata(autologging_client, estimator, X, y, sample_weight):
@@ -2020,33 +2013,17 @@ def _autolog(
     if log_post_training_metrics:
         for metric_name in _get_metric_name_list():
             safe_patch(
-                flavor_name,
-                sklearn.metrics,
-                metric_name,
-                patched_metric_api,
-                manage_run=False,
+                flavor_name, sklearn.metrics, metric_name, patched_metric_api, manage_run=False
             )
 
         # `sklearn.metrics.SCORERS` was removed in scikit-learn 1.3
         if hasattr(sklearn.metrics, "get_scorer_names"):
             for scoring in sklearn.metrics.get_scorer_names():
                 scorer = sklearn.metrics.get_scorer(scoring)
-                safe_patch(
-                    flavor_name,
-                    scorer,
-                    "_score_func",
-                    patched_metric_api,
-                    manage_run=False,
-                )
+                safe_patch(flavor_name, scorer, "_score_func", patched_metric_api, manage_run=False)
         else:
             for scorer in sklearn.metrics.SCORERS.values():
-                safe_patch(
-                    flavor_name,
-                    scorer,
-                    "_score_func",
-                    patched_metric_api,
-                    manage_run=False,
-                )
+                safe_patch(flavor_name, scorer, "_score_func", patched_metric_api, manage_run=False)
 
     def patched_fn_with_autolog_disabled(original, *args, **kwargs):
         with disable_autologging():

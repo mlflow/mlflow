@@ -295,11 +295,7 @@ def test_model_log(sklearn_logreg_model, model_path, serialization_format):
 def test_log_model_calls_register_model(sklearn_logreg_model):
     artifact_path = "linear"
     register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
-    with (
-        mlflow.start_run(),
-        register_model_patch,
-        TempDir(chdr=True, remove_on_exit=True) as tmp,
-    ):
+    with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["scikit-learn"])
         model_info = mlflow.sklearn.log_model(
@@ -350,11 +346,7 @@ def test_log_model_call_register_model_to_uc(configure_client_for_uc, sklearn_lo
 def test_log_model_no_registered_model_name(sklearn_logreg_model):
     artifact_path = "model"
     register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
-    with (
-        mlflow.start_run(),
-        register_model_patch,
-        TempDir(chdr=True, remove_on_exit=True) as tmp,
-    ):
+    with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["scikit-learn"])
         mlflow.sklearn.log_model(
@@ -454,9 +446,7 @@ def test_log_model_with_pip_requirements(sklearn_knn_model, tmp_path):
     # Constraints file
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
-            sklearn_knn_model.model,
-            name="model",
-            pip_requirements=[f"-c {req_file}", "b"],
+            sklearn_knn_model.model, name="model", pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
             model_info.model_uri,
