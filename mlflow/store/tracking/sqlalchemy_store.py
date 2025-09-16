@@ -3422,9 +3422,6 @@ class SqlAlchemyStore(AbstractStore):
                 .all()
             )
 
-            if not sql_spans:
-                return []
-
             # Convert SqlSpan objects to Span objects
             spans = []
             for sql_span in sql_spans:
@@ -3433,9 +3430,6 @@ class SqlAlchemyStore(AbstractStore):
                 spans.append(span)
 
             return spans
-
-    async def load_spans_async(self, trace_id: str) -> list[Span]:
-        return self.load_spans(trace_id)
 
     #######################################################################################
     # Entity Association Methods

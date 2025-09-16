@@ -8718,10 +8718,7 @@ def test_calculate_trace_filter_correlation_with_base_filter(store):
     assert result_no_base.joint_count == 5
 
 
-# Tests for load_spans functionality
-@pytest.mark.asyncio
-@pytest.mark.parametrize("is_async", [False, True])
-async def test_load_spans_basic(store: SqlAlchemyStore, is_async: bool) -> None:
+def test_load_spans_basic(store: SqlAlchemyStore) -> None:
     experiment_id = store.create_experiment("test_load_spans")
     trace_id = f"tr-{uuid.uuid4().hex}"
 
@@ -8747,12 +8744,8 @@ async def test_load_spans_basic(store: SqlAlchemyStore, is_async: bool) -> None:
         ),
     ]
 
-    if is_async:
-        await store.log_spans_async(experiment_id, spans)
-        loaded_spans = await store.load_spans_async(trace_id)
-    else:
-        store.log_spans(experiment_id, spans)
-        loaded_spans = store.load_spans(trace_id)
+    store.log_spans(experiment_id, spans)
+    loaded_spans = store.load_spans(trace_id)
 
     assert len(loaded_spans) == 2
 
@@ -8772,22 +8765,13 @@ async def test_load_spans_basic(store: SqlAlchemyStore, is_async: bool) -> None:
     assert child_span.end_time_ns == 1_800_000_000
 
 
-@pytest.mark.asyncio
-@pytest.mark.parametrize("is_async", [False, True])
-async def test_load_spans_empty_trace(store: SqlAlchemyStore, is_async: bool) -> None:
+def test_load_spans_empty_trace(store: SqlAlchemyStore) -> None:
     trace_id = f"tr-{uuid.uuid4().hex}"
-
-    if is_async:
-        loaded_spans = await store.load_spans_async(trace_id)
-    else:
-        loaded_spans = store.load_spans(trace_id)
-
+    loaded_spans = store.load_spans(trace_id)
     assert loaded_spans == []
 
 
-@pytest.mark.asyncio
-@pytest.mark.parametrize("is_async", [False, True])
-async def test_load_spans_ordering(store: SqlAlchemyStore, is_async: bool) -> None:
+def test_load_spans_ordering(store: SqlAlchemyStore) -> None:
     experiment_id = store.create_experiment("test_load_spans_ordering")
     trace_id = f"tr-{uuid.uuid4().hex}"
 
@@ -8818,12 +8802,8 @@ async def test_load_spans_ordering(store: SqlAlchemyStore, is_async: bool) -> No
         ),
     ]
 
-    if is_async:
-        await store.log_spans_async(experiment_id, spans)
-        loaded_spans = await store.load_spans_async(trace_id)
-    else:
-        store.log_spans(experiment_id, spans)
-        loaded_spans = store.load_spans(trace_id)
+    store.log_spans(experiment_id, spans)
+    loaded_spans = store.load_spans(trace_id)
 
     assert len(loaded_spans) == 3
     assert loaded_spans[0].name == "first_span"
@@ -8835,9 +8815,7 @@ async def test_load_spans_ordering(store: SqlAlchemyStore, is_async: bool) -> No
     assert loaded_spans[2].start_time_ns == 3_000_000_000
 
 
-@pytest.mark.asyncio
-@pytest.mark.parametrize("is_async", [False, True])
-async def test_load_spans_with_complex_attributes(store: SqlAlchemyStore, is_async: bool) -> None:
+def test_load_spans_with_complex_attributes(store: SqlAlchemyStore) -> None:
     experiment_id = store.create_experiment("test_load_spans_complex")
     trace_id = f"tr-{uuid.uuid4().hex}"
 
@@ -8862,12 +8840,8 @@ async def test_load_spans_with_complex_attributes(store: SqlAlchemyStore, is_asy
 
     span = create_mlflow_span(otel_span, trace_id, "LLM")
 
-    if is_async:
-        await store.log_spans_async(experiment_id, [span])
-        loaded_spans = await store.load_spans_async(trace_id)
-    else:
-        store.log_spans(experiment_id, [span])
-        loaded_spans = store.load_spans(trace_id)
+    store.log_spans(experiment_id, [span])
+    loaded_spans = store.load_spans(trace_id)
 
     assert len(loaded_spans) == 1
     loaded_span = loaded_spans[0]
@@ -8881,9 +8855,7 @@ async def test_load_spans_with_complex_attributes(store: SqlAlchemyStore, is_asy
     assert loaded_span.attributes.get("custom.key") == "custom_value"
 
 
-@pytest.mark.asyncio
-@pytest.mark.parametrize("is_async", [False, True])
-async def test_load_spans_multiple_traces(store: SqlAlchemyStore, is_async: bool) -> None:
+def test_load_spans_multiple_traces(store: SqlAlchemyStore) -> None:
     experiment_id = store.create_experiment("test_load_spans_multiple")
     trace_id_1 = f"tr-{uuid.uuid4().hex}"
     trace_id_2 = f"tr-{uuid.uuid4().hex}"
@@ -8912,16 +8884,10 @@ async def test_load_spans_multiple_traces(store: SqlAlchemyStore, is_async: bool
         ),
     ]
 
-    if is_async:
-        await store.log_spans_async(experiment_id, spans_trace_1)
-        await store.log_spans_async(experiment_id, spans_trace_2)
-        loaded_spans_1 = await store.load_spans_async(trace_id_1)
-        loaded_spans_2 = await store.load_spans_async(trace_id_2)
-    else:
-        store.log_spans(experiment_id, spans_trace_1)
-        store.log_spans(experiment_id, spans_trace_2)
-        loaded_spans_1 = store.load_spans(trace_id_1)
-        loaded_spans_2 = store.load_spans(trace_id_2)
+    store.log_spans(experiment_id, spans_trace_1)
+    store.log_spans(experiment_id, spans_trace_2)
+    loaded_spans_1 = store.load_spans(trace_id_1)
+    loaded_spans_2 = store.load_spans(trace_id_2)
 
     assert len(loaded_spans_1) == 2
     assert len(loaded_spans_2) == 1
@@ -8933,11 +8899,7 @@ async def test_load_spans_multiple_traces(store: SqlAlchemyStore, is_async: bool
     assert [span.to_dict() for span in loaded_spans_2] == trace_2_spans
 
 
-@pytest.mark.asyncio
-@pytest.mark.parametrize("is_async", [False, True])
-async def test_load_spans_preserves_json_serialization(
-    store: SqlAlchemyStore, is_async: bool
-) -> None:
+def test_load_spans_preserves_json_serialization(store: SqlAlchemyStore) -> None:
     experiment_id = store.create_experiment("test_load_spans_json")
     trace_id = f"tr-{uuid.uuid4().hex}"
 
@@ -8951,12 +8913,8 @@ async def test_load_spans_preserves_json_serialization(
         trace_num=12345,
     )
 
-    if is_async:
-        await store.log_spans_async(experiment_id, [original_span])
-        loaded_spans = await store.load_spans_async(trace_id)
-    else:
-        store.log_spans(experiment_id, [original_span])
-        loaded_spans = store.load_spans(trace_id)
+    store.log_spans(experiment_id, [original_span])
+    loaded_spans = store.load_spans(trace_id)
 
     assert len(loaded_spans) == 1
     loaded_span = loaded_spans[0]

@@ -1431,6 +1431,7 @@ def _merge_trace(
             end_trace=False,
         )
         trace_manager.register_span(cloned_span)
+        # end the cloned span to ensure it's processed by the exporter
         cloned_span.end(end_time_ns=span.end_time_ns)
 
     # Merge the tags and metadata from the child trace to the parent trace.
