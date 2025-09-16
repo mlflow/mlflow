@@ -74,6 +74,10 @@ uv run pytest tests/
 # Run specific test file
 uv run pytest tests/test_version.py
 
+# Run tests with optional dependencies/extras
+uv run --with transformers pytest tests/transformers
+uv run --extra gateway pytest tests/gateway
+
 # Run JavaScript tests
 yarn --cwd mlflow/server/js test
 ```
