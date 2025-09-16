@@ -134,11 +134,9 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
             s"removing it")
           Seq(replId)
         case NonFatal(e) =>
-          if (logger.isTraceEnabled) {
-            val msg = ExceptionUtils.getUnexpectedExceptionMessage(e, "while checking health " +
-              s"of subscriber with repl ID $replId, removing it")
-            logger.trace(msg)
-          }
+          val msg = ExceptionUtils.getUnexpectedExceptionMessage(e, "while checking health " +
+            s"of subscriber with repl ID $replId, removing it")
+          logger.error(msg)
           Seq(replId)
       }
     }
@@ -168,10 +166,8 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
               listener.notify(path, version.getOrElse("unknown"), format.getOrElse("unknown"))
             } catch {
               case NonFatal(e) =>
-                if (logger.isTraceEnabled) {
-                  logger.trace(s"Unable to forward event to listener with repl ID $replId. " +
-                    s"Exception:\n${ExceptionUtils.serializeException(e)}")
-                }
+                logger.error(s"Unable to forward event to listener with repl ID $replId. " +
+                  s"Exception:\n${ExceptionUtils.serializeException(e)}")
             }
           }
         }

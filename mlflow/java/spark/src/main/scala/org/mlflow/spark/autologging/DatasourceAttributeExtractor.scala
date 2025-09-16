@@ -118,6 +118,7 @@ object ReplAwareDatasourceAttributeExtractor extends DatasourceAttributeExtracto
     }
   }
 
+  // Attempts to apply redaction to sensitive data within datasource paths (e.g. S3 keys)
   private def tryRedactString(value: String): String = {
     try {
       val redactor = ReflectionUtils.getScalaObjectByName(
@@ -125,10 +126,10 @@ object ReplAwareDatasourceAttributeExtractor extends DatasourceAttributeExtracto
       ReflectionUtils.callMethod(redactor, "redact", Seq(value)).asInstanceOf[String]
     } catch {
       case NonFatal(e) =>
-        if (logger.isTraceEnabled) {
-          logger.trace(s"Redaction not available, using original value: ${e.getMessage}")
-        }
-        value
+        val msg = ExceptionUtils.getUnexpectedExceptionMessage(e, "while applying redaction to " +
+          "datasource paths")
+        logger.error(msg)
+        throw e
     }
   }
 
