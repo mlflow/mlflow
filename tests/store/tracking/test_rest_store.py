@@ -43,7 +43,7 @@ from mlflow.environment_variables import (
     _MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE,
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
 )
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, RestException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.protos.service_pb2 import (
@@ -66,6 +66,7 @@ from mlflow.protos.service_pb2 import (
     GetExperimentByName,
     GetLoggedModel,
     GetScorer,
+    GetTrace,
     GetTraceInfoV3,
     ListScorers,
     ListScorerVersions,
@@ -1282,8 +1283,52 @@ def test_update_assessment_invalid_update():
         )
 
 
+def test_get_trace():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs({"prompt": "hello"})
+        span.set_outputs({"response": "world"})
+
+    actual_trace = mlflow.get_trace(span.trace_id)
+    proto_trace_v3 = actual_trace.to_proto_v3()
+    mock_response = GetTrace.Response(trace=proto_trace_v3)
+
+    with mock.patch.object(store, "_call_endpoint", return_value=mock_response) as mock_call:
+        result = store.get_trace("test_trace_123")
+
+        mock_call.assert_called_once_with(
+            GetTrace,
+            endpoint="/ajax-api/3.0/mlflow/traces/test_trace_123/trace",
+        )
+
+        assert isinstance(result, Trace)
+        assert result.info.trace_id == actual_trace.info.trace_id
+        assert len(result.data.spans) == 1
+
+        result_span = result.data.spans[0]
+        actual_span = actual_trace.data.spans[0]
+
+        assert result_span.name == actual_span.name
+        assert result_span.span_id == actual_span.span_id
+        assert result_span.inputs == actual_span.inputs
+        assert result_span.outputs == actual_span.outputs
+
+
+def test_get_trace_not_found():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    mock_response = RestException(
+        json={"error_code": "NOT_FOUND", "message": "Not found"},
+    )
+    with mock.patch.object(store, "_call_endpoint", side_effect=mock_response):
+        with pytest.raises(RestException, match="Not found"):
+            store.get_trace("test_trace_123")
+
+
 def test_get_trace_info():
-    # Generate a sample trace in v3 format
     with mlflow.start_span(name="test_span") as span:
         span.set_inputs({"input": "value"})
         span.set_outputs({"output": "value"})

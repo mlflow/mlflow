@@ -50,11 +50,11 @@ from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.metric import Metric, MetricWithRunId
 from mlflow.entities.span_status import SpanStatusCode
-from mlflow.entities.trace import Span
+from mlflow.entities.trace import Span, Trace, TraceData
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, MlflowTraceSpansNotFound
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
@@ -3402,6 +3402,17 @@ class SqlAlchemyStore(AbstractStore):
                     # UNSET is unexpected in production but we handle it gracefully.
                     return TraceState.OK.value
         return None
+
+    def get_trace(self, trace_id: str) -> Trace:
+        """
+        Get a complete trace with spans for a given trace ID.
+        """
+        trace_info = self.get_trace_info(trace_id)
+        # only load spans from tracking store if they are ingested with log_spans
+        if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == TRACKING_STORE:
+            spans = self.load_spans(trace_id)
+            return Trace(info=trace_info, data=TraceData(spans=spans))
+        raise MlflowTraceSpansNotFound("Trace spans are not stored in the tracking store. ")
 
     def load_spans(self, trace_id: str) -> list[Span]:
         """

@@ -36,6 +36,8 @@ from mlflow.entities import (
     RunStatus,
     RunTag,
     SourceType,
+    Trace,
+    TraceData,
     ViewType,
     _DatasetSummary,
     trace_location,
@@ -52,7 +54,7 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
     MLFLOW_TRACKING_URI,
 )
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, MlflowTraceSpansNotFound
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -9011,3 +9013,125 @@ def test_load_spans_integration_with_trace_handler(store: SqlAlchemyStore) -> No
     loaded_spans = store.load_spans(trace_id)
     assert len(loaded_spans) == 1
     assert loaded_spans[0].name == "integration_span"
+
+
+def test_get_trace_with_spans_in_tracking_store(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_get_trace")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    spans = [
+        create_test_span(
+            trace_id=trace_id,
+            name="parent_span",
+            span_id=111,
+            status=trace_api.StatusCode.OK,
+            trace_num=12345,
+        ),
+        create_test_span(
+            trace_id=trace_id,
+            name="child_span",
+            span_id=222,
+            parent_id=111,
+            status=trace_api.StatusCode.OK,
+            trace_num=12346,
+        ),
+    ]
+
+    store.log_spans(experiment_id, spans)
+
+    trace = store.get_trace(trace_id)
+
+    assert isinstance(trace, Trace)
+    assert trace.info.trace_id == trace_id
+    assert isinstance(trace.data, TraceData)
+    assert len(trace.data.spans) == 2
+
+    span_names = [span.name for span in trace.data.spans]
+    assert "parent_span" in span_names
+    assert "child_span" in span_names
+
+    assert trace.info.tags.get(TraceTagKey.SPANS_LOCATION) == TRACKING_STORE
+
+
+def test_get_trace_without_spans_in_tracking_store(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_get_trace_no_spans")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    # Start a trace without logging spans via log_spans
+    # This simulates traces that have spans stored elsewhere
+    trace_info_input = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceState.OK,
+        tags={},  # No SPANS_LOCATION tag
+    )
+    trace_info = store.start_trace(trace_info_input)
+
+    assert trace_info.tags.get(TraceTagKey.SPANS_LOCATION) is None
+
+    with pytest.raises(
+        MlflowTraceSpansNotFound, match="Trace spans are not stored in the tracking store"
+    ):
+        store.get_trace(trace_id)
+
+
+def test_get_trace_nonexistent_trace(store: SqlAlchemyStore) -> None:
+    non_existent_trace_id = f"tr-{uuid.uuid4().hex}"
+
+    with pytest.raises(MlflowException, match=f"Trace with ID '{non_existent_trace_id}' not found"):
+        store.get_trace(non_existent_trace_id)
+
+
+def test_get_trace_empty_spans_in_tracking_store(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_get_trace_empty")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    trace_info_input = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceState.OK,
+        tags={TraceTagKey.SPANS_LOCATION: TRACKING_STORE},
+    )
+    trace_info = store.start_trace(trace_info_input)
+
+    trace = store.get_trace(trace_id)
+
+    assert isinstance(trace, Trace)
+    assert trace.info.request_time == trace_info.request_time
+    assert trace.info.execution_duration == trace_info.execution_duration
+    assert trace.info.state == trace_info.state
+    assert trace.info.tags.get(TraceTagKey.SPANS_LOCATION) == TRACKING_STORE
+    assert isinstance(trace.data, TraceData)
+    assert len(trace.data.spans) == 0
+
+
+def test_get_trace_with_tags_and_metadata(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_get_trace_tags")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    spans = [
+        create_test_span(
+            trace_id=trace_id,
+            name="test_span",
+            span_id=111,
+            status=trace_api.StatusCode.OK,
+            trace_num=12345,
+        ),
+    ]
+
+    store.log_spans(experiment_id, spans)
+
+    store.set_trace_tag(trace_id, "env", "test")
+    store.set_trace_tag(trace_id, "version", "1.0")
+
+    trace = store.get_trace(trace_id)
+
+    assert trace.info.tags["env"] == "test"
+    assert trace.info.tags["version"] == "1.0"
+    assert trace.info.tags.get(TraceTagKey.SPANS_LOCATION) == TRACKING_STORE
+
+    assert trace.info.trace_metadata is not None

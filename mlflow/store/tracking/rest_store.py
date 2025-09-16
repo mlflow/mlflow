@@ -41,7 +41,7 @@ from mlflow.environment_variables import (
     _MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE,
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
 )
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, MlflowTraceSpansNotFound, RestException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
@@ -76,6 +76,7 @@ from mlflow.protos.service_pb2 import (
     GetOnlineTraceDetails,
     GetRun,
     GetScorer,
+    GetTrace,
     GetTraceInfo,
     GetTraceInfoV3,
     LinkTracesToRun,
@@ -1736,3 +1737,22 @@ class RestStore(AbstractStore):
             MlflowException: If spans belong to different traces or the OTel API call fails.
         """
         return self.log_spans(experiment_id, spans)
+
+    def get_trace(self, trace_id: str) -> Trace:
+        """
+        Get a complete trace with spans for a given trace ID.
+        """
+        endpoint = f"/ajax-api/3.0/mlflow/traces/{trace_id}/trace"
+        try:
+            response_proto = self._call_endpoint(GetTrace, endpoint=endpoint)
+            return Trace.from_proto_v3(response_proto.trace)
+        except RestException as e:
+            if e.error_code == databricks_pb2.ErrorCode.Name(
+                databricks_pb2.RESOURCE_DOES_NOT_EXIST
+            ):
+                raise MlflowTraceSpansNotFound(e.message)
+            raise
+        except MlflowException as e:
+            if e.error_code != databricks_pb2.ErrorCode.Name(databricks_pb2.ENDPOINT_NOT_FOUND):
+                raise
+            raise NotImplementedError
