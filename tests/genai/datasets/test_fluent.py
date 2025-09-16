@@ -441,8 +441,14 @@ def test_active_record_pattern_merge_records(tracking_uri, experiments):
     records_batch1 = [
         {
             "inputs": {"question": "What is MLflow?"},
-            "outputs": {"answer": "MLflow is an open source platform for managing the ML lifecycle"},
-            "expectations": {"answer": "MLflow is an open source platform"},
+            "outputs": {
+                "answer": "MLflow is an open source platform for managing the ML lifecycle",
+                "key1": "value1",
+            },
+            "expectations": {
+                "answer": "MLflow is an open source platform",
+                "key2": "value2",
+            },
             "tags": {"difficulty": "easy"},
         },
         {
@@ -476,8 +482,14 @@ def test_active_record_pattern_merge_records(tracking_uri, experiments):
     mlflow_record = df1[df1["inputs"].apply(lambda x: x.get("question") == "What is MLflow?")].iloc[
         0
     ]
-    assert mlflow_record["expectations"]["answer"] == "MLflow is an open source platform"
-    assert mlflow_record["outputs"]["answer"] == "MLflow is an open source platform for managing the ML lifecycle"
+    assert mlflow_record["expectations"] == {
+        "answer": "MLflow is an open source platform",
+        "key2": "value2",
+    }
+    assert mlflow_record["outputs"] == {
+        "answer": "MLflow is an open source platform for managing the ML lifecycle",
+        "key1": "value1",
+    }
     assert mlflow_record["tags"]["difficulty"] == "easy"
     assert "category" not in mlflow_record["tags"]
 
@@ -489,8 +501,9 @@ def test_active_record_pattern_merge_records(tracking_uri, experiments):
     mlflow_record_updated = df2[
         df2["inputs"].apply(lambda x: x.get("question") == "What is MLflow?")
     ].iloc[0]
-    assert mlflow_record_updated["expectations"]["answer"] == "MLflow is an ML lifecycle platform"
-    assert mlflow_record_updated["outputs"]["answer"] == "MLflow is a popular ML lifecycle platform"
+
+    assert mlflow_record_updated["expectations"] == {'answer': 'MLflow is an ML lifecycle platform', 'key2': 'value2'}
+    assert mlflow_record_updated["outputs"] == {'answer': 'MLflow is a popular ML lifecycle platform'}
     assert mlflow_record_updated["tags"]["difficulty"] == "easy"
     assert mlflow_record_updated["tags"]["category"] == "ml"
     
