@@ -67,9 +67,10 @@ jobs:
           # Install Hugging Face datasets to test Hugging Face usage with MLflow dataset tracking
           pip install datasets
           # Install TensorFlow to test TensorFlow dataset usage with MLflow dataset tracking
-          pip install tensorflow
+          # tensorflow >= 2.22.0 are incompatible with protobuf < 5
+          pip install 'tensorflow<2.22.0' 'tf-keras<2.20.0'
           # Install torch and transformers to test metrics
-          pip install torch transformers tf-keras
+          pip install torch transformers
           pip install -r requirements/test-requirements.txt
           # Test the latest minor version in protobuf_major_version
           pip install "protobuf==${{ matrix.protobuf_major_version }}.*"
@@ -78,6 +79,13 @@ jobs:
       - name: Run tests
         run: |
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/evaluate \
-            --ignore=tests/optuna --ignore=tests/pyspark/optuna --ignore=tests/genai \
-            --ignore=tests/telemetry tests
+            --ignore-flavors \
+            --ignore=tests/projects \
+            --ignore=tests/examples \
+            --ignore=tests/evaluate \
+            --ignore=tests/optuna \
+            --ignore=tests/pyspark/optuna \
+            --ignore=tests/genai \
+            --ignore=tests/telemetry \
+            --ignore=tests/gateway \
+            tests

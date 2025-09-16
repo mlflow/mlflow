@@ -399,7 +399,7 @@ def _exclude_unrecognized_kwargs(predict_fn, kwargs):
     filtered_kwargs = {}
     allowed_params = inspect.signature(predict_fn).parameters
     # avoid excluding kwargs when predict function uses args or kwargs
-    if any(p.kind == p.VAR_POSITIONAL or p.kind == p.VAR_KEYWORD for p in allowed_params.values()):
+    if any(p.kind in (p.VAR_POSITIONAL, p.VAR_KEYWORD) for p in allowed_params.values()):
         return kwargs
     invalid_params = set()
     for key, value in kwargs.items():

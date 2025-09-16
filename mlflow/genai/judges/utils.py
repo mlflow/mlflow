@@ -15,7 +15,7 @@ import requests
 if TYPE_CHECKING:
     import litellm
 
-    from mlflow.genai.judges.base import JudgeField
+    from mlflow.genai.judges.base import AlignmentOptimizer, JudgeField
     from mlflow.types.llm import ChatMessage, ToolCall
 
 import mlflow
@@ -30,6 +30,7 @@ from mlflow.telemetry.events import InvokeCustomJudgeModelEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.telemetry.utils import _is_in_databricks
 from mlflow.utils.uri import is_databricks_uri
+from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
 
@@ -71,6 +72,18 @@ def get_default_model() -> str:
         return _DATABRICKS_DEFAULT_JUDGE_MODEL
     else:
         return "openai:/gpt-4.1-mini"
+
+
+def get_default_optimizer() -> AlignmentOptimizer:
+    """
+    Get the default alignment optimizer.
+
+    Returns:
+        A SIMBA alignment optimizer with no model specified (uses default model).
+    """
+    from mlflow.genai.judges.optimizers.simba import SIMBAAlignmentOptimizer
+
+    return SIMBAAlignmentOptimizer()
 
 
 def _is_litellm_available() -> bool:
@@ -251,6 +264,38 @@ def _parse_databricks_judge_response(
     )
 
 
+def call_chat_completions(user_prompt: str, system_prompt: str):
+    """
+    Invokes the Databricks chat completions API using the databricks.agents.evals library.
+
+    Args:
+        user_prompt (str): The user prompt.
+        system_prompt (str): The system prompt.
+
+    Returns:
+        The chat completions result.
+
+    Raises:
+        MlflowException: If databricks-agents is not installed.
+    """
+    _check_databricks_agents_installed()
+
+    from databricks.rag_eval import context, env_vars
+
+    env_vars.RAG_EVAL_EVAL_SESSION_CLIENT_NAME.set(f"mlflow-judge-optimizer-v{VERSION}")
+
+    @context.eval_context
+    def _call_chat_completions(user_prompt: str, system_prompt: str):
+        managed_rag_client = context.get_context().build_managed_rag_client()
+
+        return managed_rag_client.get_chat_completions_result(
+            user_prompt=user_prompt,
+            system_prompt=system_prompt,
+        )
+
+    return _call_chat_completions(user_prompt, system_prompt)
+
+
 def _invoke_databricks_judge(
     prompt: str | list["ChatMessage"],
     assessment_name: str,
@@ -271,10 +316,6 @@ def _invoke_databricks_judge(
     Raises:
         MlflowException: If databricks-agents is not installed.
     """
-    _check_databricks_agents_installed()
-
-    from databricks.rag_eval import context
-
     try:
         if isinstance(prompt, str):
             system_prompt = None
@@ -284,18 +325,8 @@ def _invoke_databricks_judge(
             system_prompt = prompts.system_prompt
             user_prompt = prompts.user_prompt
 
-        @context.eval_context
-        def call_chat_completions():
-            managed_rag_client = context.get_context().build_managed_rag_client()
-
-            llm_result = managed_rag_client.get_chat_completions_result(
-                user_prompt=user_prompt,
-                system_prompt=system_prompt,
-            )
-
-            return _parse_databricks_judge_response(llm_result.output, assessment_name)
-
-        return call_chat_completions()
+        llm_result = call_chat_completions(user_prompt, system_prompt)
+        return _parse_databricks_judge_response(llm_result.output, assessment_name)
 
     except Exception as e:
         _logger.debug(f"Failed to invoke Databricks judge: {e}")
