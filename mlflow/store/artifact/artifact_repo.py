@@ -388,6 +388,44 @@ class ArtifactRepository:
         with write_local_temp_trace_data_file(trace_data) as temp_file:
             self.log_artifact(temp_file)
 
+    def download_trace_attachment(self, path: str) -> bytes:
+        """
+        Download a trace attachment.
+
+        Args:
+            path: The path/filename of the attachment to download.
+
+        Returns:
+            The attachment content as bytes.
+
+        Raises:
+            - `MlflowException`: If the attachment is not found.
+        """
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_file = Path(temp_dir, path)
+            try:
+                self._download_file(posixpath.join("attachments", path), temp_file)
+                return temp_file.read_bytes()
+            except Exception as e:
+                from mlflow.exceptions import MlflowException
+                from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+
+                raise MlflowException(
+                    f"Trace attachment not found: {path}", RESOURCE_DOES_NOT_EXIST
+                ) from e
+
+    def upload_attachment(self, attachment: Any) -> None:
+        """
+        Upload an attachment to the trace.
+
+        Args:
+            attachment: The Attachment object to upload.
+        """
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_file = Path(temp_dir, attachment.id)
+            temp_file.write_bytes(attachment.content_bytes)
+            self.log_artifact(temp_file, artifact_path="attachments")
+
 
 @contextmanager
 def write_local_temp_trace_data_file(trace_data: str):
