@@ -34,7 +34,7 @@ class Status(BaseModel):
             "completed",
             "incomplete",
         }:
-            warnings.warn(
+            raise ValueError(
                 f"Invalid status: {self.status} for {self.__class__.__name__}. "
                 "Must be 'in_progress', 'completed', or 'incomplete'."
             )

@@ -112,7 +112,7 @@ def test_responses_stream_event_validation():
             }
         )
 
-    with pytest.warns(UserWarning, match="Invalid status"):
+    with pytest.raises(ValueError, match="Invalid status"):
         ResponsesAgentStreamEvent(
             **{
                 "type": "response.output_item.done",
