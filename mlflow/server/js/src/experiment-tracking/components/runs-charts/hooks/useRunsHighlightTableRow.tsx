@@ -1,6 +1,6 @@
 import { type RefObject, useCallback, useEffect } from 'react';
 import { ChartsTraceHighlightSource, useRunsChartTraceHighlight } from './useRunsChartTraceHighlight';
-import { CellMouseOverEvent } from '@ag-grid-community/core';
+import type { CellMouseOverEvent } from '@ag-grid-community/core';
 
 const DEFAULT_HIGH_LIGHT_CLASS_NAME = 'is-highlighted';
 

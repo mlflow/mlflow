@@ -124,7 +124,16 @@ export const AssessmentsPane = ({
           </div>
         </>
       )}
-      <AssessmentCreateButton title="Add new assessment" spanId={activeSpanId} traceId={traceId} />
+      <AssessmentCreateButton
+        title={
+          <FormattedMessage
+            defaultMessage="Add new assessment"
+            description="Label for the button to add a new assessment"
+          />
+        }
+        spanId={activeSpanId}
+        traceId={traceId}
+      />
     </div>
   );
 };

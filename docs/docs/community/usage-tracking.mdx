@@ -125,31 +125,41 @@ The below section outlines the data currently collected in this version of MLflo
 #### Tracked Events
 
 **No details about the specific model, code, or weights are collected.** Only the parameters listed under the `Tracked Parameters` column are recorded alongside the event;
-For events with None in the `Tracked Parameters` column, only the event name is recorded.
+For events with None in the `Tracked Parameters` column, only the event name is recorded. If "MLFLOW_EXPERIMENT_ID" environment variable exists, it is tracked as a param.
 
 <Table>
   <thead>
     <tr>
-      <th>Event Name</th>
-      <th>Tracked Parameters</th>
-      <th>Example</th>
+      <th style={{ width: "20%" }}>Event Name</th>
+      <th style={{ width: "40%" }}>Tracked Parameters</th>
+      <th style={{ width: "40%" }}>Example</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>create_experiment</td>
+      <td>import_mlflow</td>
       <td>None</td>
       <td>None</td>
     </tr>
     <tr>
+      <td>create_experiment</td>
+      <td>Created Experiment ID (random uuid or integer)</td>
+      <td>`{"experiment_id": "0"}`</td>
+    </tr>
+    <tr>
       <td>create_run</td>
-      <td>Whether the packages in [PACKAGES_TO_CHECK_IMPORT](https://github.com/mlflow/mlflow/blob/c71fd0d677c1806ba2d5928398435c4de2c25c0e/mlflow/telemetry/constant.py#L19) are imported or not</td>
-      <td>`{"imports": ["sklearn"]}`</td>
+      <td>Whether the packages in [MODULES_TO_CHECK_IMPORT](https://github.com/mlflow/mlflow/blob/c71fd0d677c1806ba2d5928398435c4de2c25c0e/mlflow/telemetry/constant.py#L19) are imported or not; experiment ID used when creating the run</td>
+      <td>`{"imports": ["sklearn"], "experiment_id": "0"}`</td>
     </tr>
     <tr>
       <td>create_logged_model</td>
       <td>Flavor of the model (e.g. langchain, sklearn)</td>
       <td>`{"flavor": "langchain"}`</td>
+    </tr>
+    <tr>
+      <td>get_logged_model</td>
+      <td>None</td>
+      <td>None</td>
     </tr>
     <tr>
       <td>create_registered_model</td>
@@ -182,6 +192,11 @@ For events with None in the `Tracked Parameters` column, only the event name is 
       <td>None</td>
     </tr>
     <tr>
+      <td>create_webhook</td>
+      <td>Entities of the webhook</td>
+      <td>`{"events": ["model_version.created"]}`</td>
+    </tr>
+    <tr>
       <td>genai_evaluate</td>
       <td>Builtin scorers used during GenAI Evaluate</td>
       <td>`{"builtin_scorers": ["relevance_to_query"]}`</td>
@@ -190,6 +205,31 @@ For events with None in the `Tracked Parameters` column, only the event name is 
       <td>prompt_optimization</td>
       <td>None</td>
       <td>None</td>
+    </tr>
+    <tr>
+      <td>log_dataset</td>
+      <td>None</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td>log_metric</td>
+      <td>Whether synchronous mode is on or not</td>
+      <td>`{"synchronous": False}`</td>
+    </tr>
+    <tr>
+      <td>log_param</td>
+      <td>Whether synchronous mode is on or not</td>
+      <td>`{"synchronous": True}`</td>
+    </tr>
+    <tr>
+      <td>log_batch</td>
+      <td>Information on whether metrics, parameters, or tags are logged, and the logging mode</td>
+      <td>`{"metrics": False, "params": True, "tags": False, "synchronous": False}`</td>
+    </tr>
+    <tr>
+      <td>invoke_custom_judge_model</td>
+      <td>Judge model provider</td>
+      <td>`{"model_provider": "databricks"}`</td>
     </tr>
   </tbody>
 </Table>

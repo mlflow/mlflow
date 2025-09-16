@@ -1,4 +1,4 @@
-import { InfoPopover, LegacyTabs, useDesignSystemTheme, Typography } from '@databricks/design-system';
+import { LegacyTabs, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { useNavigate, useParams } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
@@ -33,15 +33,6 @@ export const RunViewModeSwitch = () => {
     navigate(Routes.getRunPageTabRoute(experimentId, runUuid, newTabKey));
   };
 
-  const getLegacyTracesTabLink = () => {
-    return (
-      <LegacyTabs.TabPane
-        tab={<FormattedMessage defaultMessage="Traces" description="Run details page > tab selector > Traces tab" />}
-        key={RunPageTabName.TRACES}
-      />
-    );
-  };
-
   return (
     // @ts-expect-error TS(2322)
     <LegacyTabs activeKey={currentTab} onChange={onTabChanged} tabBarStyle={{ margin: removeTabMargin && '0px' }}>
@@ -70,7 +61,10 @@ export const RunViewModeSwitch = () => {
         }
         key={RunPageTabName.SYSTEM_METRIC_CHARTS}
       />
-      {getLegacyTracesTabLink()}
+      <LegacyTabs.TabPane
+        tab={<FormattedMessage defaultMessage="Traces" description="Run details page > tab selector > Traces tab" />}
+        key={RunPageTabName.EVALUATIONS}
+      />
       <LegacyTabs.TabPane
         tab={
           <FormattedMessage defaultMessage="Artifacts" description="Run details page > tab selector > artifacts tab" />

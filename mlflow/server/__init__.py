@@ -10,12 +10,13 @@ import warnings
 from flask import Flask, Response, send_from_directory
 from packaging.version import Version
 
-from mlflow.environment_variables import MLFLOW_FLASK_SERVER_SECRET_KEY
+from mlflow.environment_variables import _MLFLOW_SGI_NAME, MLFLOW_FLASK_SERVER_SECRET_KEY
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
 from mlflow.server.handlers import (
     STATIC_PREFIX_ENV_VAR,
     _add_static_prefix,
+    _search_datasets_handler,
     create_promptlab_run_handler,
     gateway_proxy_handler,
     get_artifact_handler,
@@ -24,7 +25,6 @@ from mlflow.server.handlers import (
     get_metric_history_bulk_interval_handler,
     get_model_version_artifact_handler,
     get_trace_artifact_handler,
-    search_datasets_handler,
     upload_artifact_handler,
 )
 from mlflow.utils.os import is_windows
@@ -99,7 +99,7 @@ def serve_get_metric_history_bulk_interval():
 # Serve the "experiments/search-datasets" route.
 @app.route(_add_static_prefix("/ajax-api/2.0/mlflow/experiments/search-datasets"), methods=["POST"])
 def serve_search_datasets():
-    return search_datasets_handler()
+    return _search_datasets_handler()
 
 
 # Serve the "runs/create-promptlab-run" route.
@@ -247,10 +247,10 @@ def _build_gunicorn_command(gunicorn_opts, host, port, workers, app_name):
     ]
 
 
-def _build_uvicorn_command(uvicorn_opts, host, port, workers, app_name):
+def _build_uvicorn_command(uvicorn_opts, host, port, workers, app_name, env_file=None):
     """Build command to run uvicorn server."""
     opts = shlex.split(uvicorn_opts) if uvicorn_opts else []
-    return [
+    cmd = [
         sys.executable,
         "-m",
         "uvicorn",
@@ -261,8 +261,11 @@ def _build_uvicorn_command(uvicorn_opts, host, port, workers, app_name):
         str(port),
         "--workers",
         str(workers),
-        app_name,
     ]
+    if env_file:
+        cmd.extend(["--env-file", env_file])
+    cmd.append(app_name)
+    return cmd
 
 
 def _run_server(
@@ -282,6 +285,7 @@ def _run_server(
     expose_prometheus=None,
     app_name=None,
     uvicorn_opts=None,
+    env_file=None,
 ):
     """
     Run the MLflow server, wrapping it in gunicorn, uvicorn, or waitress on windows
@@ -322,6 +326,13 @@ def _run_server(
     using_waitress = waitress_opts is not None
     using_uvicorn = not using_gunicorn and not using_waitress
 
+    if using_uvicorn:
+        env_map[_MLFLOW_SGI_NAME.name] = "uvicorn"
+    elif using_waitress:
+        env_map[_MLFLOW_SGI_NAME.name] = "waitress"
+    elif using_gunicorn:
+        env_map[_MLFLOW_SGI_NAME.name] = "gunicorn"
+
     if app_name is None:
         is_factory = False
         # For uvicorn, use the FastAPI app; for gunicorn/waitress, use the Flask app
@@ -338,7 +349,7 @@ def _run_server(
     # Determine which server to use
     if using_uvicorn:
         # Use uvicorn (default when no specific server options are provided)
-        full_command = _build_uvicorn_command(uvicorn_opts, host, port, workers or 4, app)
+        full_command = _build_uvicorn_command(uvicorn_opts, host, port, workers or 4, app, env_file)
     elif using_waitress:
         # Use waitress if explicitly requested
         warnings.warn(

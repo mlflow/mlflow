@@ -1,7 +1,6 @@
 import warnings
 from typing import Any
 
-from mlflow.data.artifact_dataset_sources import register_artifact_dataset_sources
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.data.http_dataset_source import HTTPDatasetSource
 from mlflow.exceptions import MlflowException
@@ -183,7 +182,12 @@ def get_registered_sources() -> list[DatasetSource]:
 # dataset sources are registered last because externally-defined behavior should take precedence
 # over any internally-defined generic behavior
 _dataset_source_registry = DatasetSourceRegistry()
+
+# Register artifact sources first (they should take lower precedence)
+from mlflow.data.artifact_dataset_sources import register_artifact_dataset_sources
+
 register_artifact_dataset_sources()
+
 _dataset_source_registry.register(HTTPDatasetSource)
 _dataset_source_registry.register_entrypoints()
 
@@ -219,9 +223,9 @@ except ImportError:
     pass
 try:
     from mlflow.genai.datasets.databricks_evaluation_dataset_source import (
-        DatabricksEvaluationDatasetSource,
+        DatabricksUCTableDatasetSource,
     )
 
-    _dataset_source_registry.register(DatabricksEvaluationDatasetSource)
+    _dataset_source_registry.register(DatabricksUCTableDatasetSource)
 except ImportError:
     pass

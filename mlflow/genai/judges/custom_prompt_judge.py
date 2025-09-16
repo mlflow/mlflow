@@ -6,10 +6,10 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.utils import (
-    format_prompt,
     get_default_model,
     invoke_judge_model,
 )
+from mlflow.genai.prompts.utils import format_prompt
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
 

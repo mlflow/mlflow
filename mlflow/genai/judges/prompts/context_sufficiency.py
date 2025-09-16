@@ -1,19 +1,24 @@
 from typing import Any
 
-from mlflow.genai.judges.utils import format_prompt
+from mlflow.genai.prompts.utils import format_prompt
 
 # NB: User-facing name for the is_context_sufficient assessment.
 CONTEXT_SUFFICIENCY_FEEDBACK_NAME = "context_sufficiency"
 
 
-CONTEXT_SUFFICIENCY_PROMPT = """\
-Consider the following claim and document. You must determine whether claim is supported by the document. Do not focus on the correctness or completeness of the claim. Do not make assumptions, approximations, or bring in external knowledge.
+CONTEXT_SUFFICIENCY_PROMPT_INSTRUCTIONS = """\
+Consider the following claim and document. You must determine whether claim is supported by the \
+document. Do not focus on the correctness or completeness of the claim. Do not make assumptions, \
+approximations, or bring in external knowledge.
 
 <claim>
   <question>{{input}}</question>
   <answer>{{ground_truth}}</answer>
 </claim>
-<document>{{retrieval_context}}</document>
+<document>{{retrieval_context}}</document>\
+"""
+
+CONTEXT_SUFFICIENCY_PROMPT_OUTPUT = """
 
 Please indicate whether each statement in the claim is supported by the document using the json format:
 {
@@ -21,6 +26,10 @@ Please indicate whether each statement in the claim is supported by the document
   "result": "yes|no"
 }\
 """  # noqa: E501
+
+CONTEXT_SUFFICIENCY_PROMPT = (
+    CONTEXT_SUFFICIENCY_PROMPT_INSTRUCTIONS + CONTEXT_SUFFICIENCY_PROMPT_OUTPUT
+)
 
 
 def get_prompt(

@@ -28,7 +28,7 @@ const EvaluationsReviewSingleRunHeaderSection = ({
   evaluationResult: RunEvaluationTracesDataEntry;
   exportToEvalsInstanceEnabled?: boolean;
   traceQueryResult: UseQueryResult<ModelTrace | undefined, unknown>;
-  getTrace?: (requestId?: string, traceId?: string) => Promise<ModelTrace | undefined>;
+  getTrace?: (traceId?: string) => Promise<ModelTrace | undefined>;
 }) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();

@@ -250,8 +250,17 @@ def test_spark_udf_env_manager_can_restore_env(
     assert result == sklearn_version
 
 
-@pytest.mark.parametrize("env_manager", ["virtualenv", "conda", "uv"])
-def test_spark_udf_env_manager_predict_sklearn_model(spark, sklearn_model, model_path, env_manager):
+@pytest.mark.parametrize(
+    ("env_manager", "force_stdin_scoring_server"),
+    [("virtualenv", False), ("conda", False), ("uv", False), ("uv", True)],
+)
+def test_spark_udf_env_manager_predict_sklearn_model(
+    spark, sklearn_model, model_path, env_manager, force_stdin_scoring_server, monkeypatch
+):
+    monkeypatch.setenv(
+        "MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF",
+        str(force_stdin_scoring_server),
+    )
     model, inference_data = sklearn_model
 
     mlflow.sklearn.save_model(model, model_path)

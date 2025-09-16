@@ -12,6 +12,7 @@ import { SchemaTable } from './SchemaTable';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import { getByPlaceholderText, renderWithIntl, within } from '../../common/utils/TestUtils.react18';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(60000); // Higher timeout due to testing heavier table
 
 async function clickHeaderRow(container: HTMLElement, name: string | RegExp): Promise<void> {
