@@ -206,9 +206,8 @@ When migrating from `ChatAgent` to `ResponsesAgent`, the primary task involves a
 
 If the LLM provider you are using uses chat completions, you can use and modify the following helper methods to convert the input/output from your ResponsesAgent into chat completions messages to support multi-turn agent chat:
 
-- <APILink fn="mlflow.pyfunc.ResponsesAgent._prep_msgs_for_cc_llm" /> (use for input)
-- <APILink fn="mlflow.pyfunc.ResponsesAgent._responses_to_cc" />
-- <APILink fn="mlflow.pyfunc.ResponsesAgent._cc_to_responses" /> (use for output)
+- <APILink fn="mlflow.pyfunc.ResponsesAgent.prep_msgs_for_cc_llm" /> (use for input)
+- <APILink fn="mlflow.pyfunc.ResponsesAgent.output_to_responses_items_stream" /> (use for output)
 
 The `ResponsesAgent` interface extends all functionality previously available in <APILink fn="mlflow.pyfunc.ChatAgent">`ChatAgent`</APILink>, while introducing new features. Below, we outline the key differences in message representation between the two interfaces for common use cases:
 
@@ -329,45 +328,6 @@ The `ResponsesAgent` interface extends all functionality previously available in
     "strict": true
   }
 }
-```
-
-## Migrating from a LangGraph or LangChain agent
-
-Using the helpers above, we can migrate with a few lines of code to wrap a LangGraph/LangChain agent with ResponsesAgent:
-
-LangGraph
-
-```python
-class WrappedLGAgent(ResponsesAgent):
-    def __init__(self, agent: CompiledStateGraph):
-        self.agent = agent
-
-    @mlflow.trace(span_type=SpanType.AGENT)
-    def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
-        outputs = [
-            event.item
-            for event in self.predict_stream(request)
-            if event.type == "response.output_item.done"
-        ]
-        return ResponsesAgentResponse(
-            output=outputs, custom_outputs=request.custom_inputs
-        )
-
-    @mlflow.trace(span_type=SpanType.AGENT)
-    def predict_stream(
-        self,
-        request: ResponsesAgentRequest,
-    ) -> Generator[ResponsesAgentStreamEvent, None, None]:
-        cc_msgs = self._prep_msgs_for_cc_llm(request.input)
-
-        for event in self.agent.stream({"messages": cc_msgs}, stream_mode="updates"):
-            for node_data in event.values():
-                for msg in convert_to_openai_messages(node_data["messages"]):
-                    items = self._cc_to_responses(msg)
-                    for item in items:
-                        yield ResponsesAgentStreamEvent(
-                            type="response.output_item.done", item=item
-                        )
 ```
 
 ## Simple Chat Example
