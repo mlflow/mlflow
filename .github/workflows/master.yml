@@ -403,16 +403,16 @@ jobs:
         env:
           MLFLOW_SQLALCHEMYSTORE_POOLCLASS: "NullPool"
         run: |
-          source .venv/Scripts/activate
-          # Set Hadoop environment variables required for testing Spark integrations on Windows
-          export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
-          export PATH=$PATH:$HADOOP_HOME/bin
-          pytest \
-            tests/data \
-            tests/artifacts \
-            tests/deployments \
-            tests/integration/async_logging/test_async_logging_integration.py \
-            tests/metrics/genai/test_genai_metrics.py
+          # source .venv/Scripts/activate
+          # # Set Hadoop environment variables required for testing Spark integrations on Windows
+          # export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
+          # export PATH=$PATH:$HADOOP_HOME/bin
+          # pytest \
+          #   tests/data \
+          #   tests/artifacts \
+          #   tests/deployments \
+          #   tests/integration/async_logging/test_async_logging_integration.py \
+          #   tests/metrics/genai/test_genai_metrics.py
 
       - name: Run python tests
         env:

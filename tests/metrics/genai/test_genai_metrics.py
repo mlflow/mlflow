@@ -728,6 +728,75 @@ def test_similarity_metric(parameters, extra_headers, proxy_url):
         )
 
 
+def test_answer_correctness_metric():
+    answer_correctness_metric = answer_correctness()
+    input = "What is MLflow?"
+    examples = "\n".join([str(example) for example in AnswerCorrectnessMetric.default_examples])
+
+    with mock.patch.object(
+        model_utils,
+        "score_model_on_payload",
+        return_value=properly_formatted_openai_response1,
+    ) as mock_predict_function:
+        metric_value = answer_correctness_metric.eval_fn(
+            pd.Series([mlflow_prediction]),
+            {},
+            pd.Series([input]),
+            pd.Series([mlflow_ground_truth]),
+        )
+        assert mock_predict_function.call_count == 1
+        assert mock_predict_function.call_args[0][0] == "openai:/gpt-4"
+        assert mock_predict_function.call_args[0][1] == (
+            "\nTask:\nYou must return the following fields in your response in two "
+            "lines, one below the other:\nscore: Your numerical score for the model's "
+            "answer_correctness "
+            "based on the rubric\njustification: Your reasoning about the model's "
+            "answer_correctness "
+            "score\n\nYou are an impartial judge. You will be given an input that was "
+            "sent to a machine\nlearning model, and you will be given an output that the model "
+            "produced. You\nmay also be given additional information that was used by the model "
+            "to generate the output.\n\nYour task is to determine a numerical score called "
+            "answer_correctness based on the input and output.\nA definition of "
+            "answer_correctness and a grading rubric are provided below.\nYou must use the "
+            "grading rubric to determine your score. You must also justify your score."
+            "\n\nExamples could be included below for reference. Make sure to use them as "
+            "references and to\nunderstand them before completing the task.\n"
+            f"\nInput:\n{input}\n"
+            f"\nOutput:\n{mlflow_prediction}\n"
+            "\nAdditional information used by the model:\nkey: targets\nvalue:\n"
+            f"{mlflow_ground_truth}\n"
+            f"\nMetric definition:\n{AnswerCorrectnessMetric.definition}\n"
+            f"\nGrading rubric:\n{AnswerCorrectnessMetric.grading_prompt}\n"
+            "\nExamples:\n"
+            f"{examples}\n"
+            "\nYou must return the "
+            "following fields in your response in two lines, one below the other:\nscore: Your "
+            "numerical score for the model's answer_correctness based on the rubric\n"
+            "justification: Your "
+            "reasoning about the model's answer_correctness score\n\nDo not add additional new "
+            "lines. Do "
+            "not add any other fields.\n    "
+        )
+        assert mock_predict_function.call_args[0][2] == {
+            **AnswerCorrectnessMetric.parameters,
+        }
+
+    assert metric_value.scores == [3]
+    assert metric_value.justifications == [openai_justification1]
+
+    assert metric_value.aggregate_results == {
+        "mean": 3,
+        "variance": 0,
+        "p90": 3,
+    }
+
+    with pytest.raises(
+        MlflowException,
+        match="Failed to find answer correctness metric for version non-existent-version",
+    ):
+        answer_correctness(metric_version="non-existent-version")
+
+
 def test_faithfulness_metric(tmp_path: Path):
     mlflow.set_tracking_uri(tmp_path.as_uri())
     faithfulness_metric = faithfulness(model="gateway:/gpt-4o-mini", examples=[])
@@ -804,75 +873,6 @@ def test_faithfulness_metric(tmp_path: Path):
         pd.Series([input], index=[1]),
         pd.Series([mlflow_ground_truth], index=[2]),
     )
-
-
-def test_answer_correctness_metric():
-    answer_correctness_metric = answer_correctness()
-    input = "What is MLflow?"
-    examples = "\n".join([str(example) for example in AnswerCorrectnessMetric.default_examples])
-
-    with mock.patch.object(
-        model_utils,
-        "score_model_on_payload",
-        return_value=properly_formatted_openai_response1,
-    ) as mock_predict_function:
-        metric_value = answer_correctness_metric.eval_fn(
-            pd.Series([mlflow_prediction]),
-            {},
-            pd.Series([input]),
-            pd.Series([mlflow_ground_truth]),
-        )
-        assert mock_predict_function.call_count == 1
-        assert mock_predict_function.call_args[0][0] == "openai:/gpt-4"
-        assert mock_predict_function.call_args[0][1] == (
-            "\nTask:\nYou must return the following fields in your response in two "
-            "lines, one below the other:\nscore: Your numerical score for the model's "
-            "answer_correctness "
-            "based on the rubric\njustification: Your reasoning about the model's "
-            "answer_correctness "
-            "score\n\nYou are an impartial judge. You will be given an input that was "
-            "sent to a machine\nlearning model, and you will be given an output that the model "
-            "produced. You\nmay also be given additional information that was used by the model "
-            "to generate the output.\n\nYour task is to determine a numerical score called "
-            "answer_correctness based on the input and output.\nA definition of "
-            "answer_correctness and a grading rubric are provided below.\nYou must use the "
-            "grading rubric to determine your score. You must also justify your score."
-            "\n\nExamples could be included below for reference. Make sure to use them as "
-            "references and to\nunderstand them before completing the task.\n"
-            f"\nInput:\n{input}\n"
-            f"\nOutput:\n{mlflow_prediction}\n"
-            "\nAdditional information used by the model:\nkey: targets\nvalue:\n"
-            f"{mlflow_ground_truth}\n"
-            f"\nMetric definition:\n{AnswerCorrectnessMetric.definition}\n"
-            f"\nGrading rubric:\n{AnswerCorrectnessMetric.grading_prompt}\n"
-            "\nExamples:\n"
-            f"{examples}\n"
-            "\nYou must return the "
-            "following fields in your response in two lines, one below the other:\nscore: Your "
-            "numerical score for the model's answer_correctness based on the rubric\n"
-            "justification: Your "
-            "reasoning about the model's answer_correctness score\n\nDo not add additional new "
-            "lines. Do "
-            "not add any other fields.\n    "
-        )
-        assert mock_predict_function.call_args[0][2] == {
-            **AnswerCorrectnessMetric.parameters,
-        }
-
-    assert metric_value.scores == [3]
-    assert metric_value.justifications == [openai_justification1]
-
-    assert metric_value.aggregate_results == {
-        "mean": 3,
-        "variance": 0,
-        "p90": 3,
-    }
-
-    with pytest.raises(
-        MlflowException,
-        match="Failed to find answer correctness metric for version non-existent-version",
-    ):
-        answer_correctness(metric_version="non-existent-version")
 
 
 def test_answer_relevance_metric():
