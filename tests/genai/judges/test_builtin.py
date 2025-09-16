@@ -378,8 +378,10 @@ def test_is_safe_databricks_with_custom_model():
 
 def test_ser_deser():
     judge = Safety()
-    serialized = SerializedScorer(**judge.model_dump())
-    deserialized = Scorer.model_validate(serialized)
-    assert isinstance(deserialized, Safety)
-    assert deserialized.name == "safety"
-    assert deserialized.required_columns == {"inputs", "outputs"}
+    serialized1 = judge.model_dump()
+    serialized2 = SerializedScorer(**serialized1)
+    for serialized in [serialized1, serialized2]:
+        deserialized = Scorer.model_validate(serialized)
+        assert isinstance(deserialized, Safety)
+        assert deserialized.name == "safety"
+        assert deserialized.required_columns == {"inputs", "outputs"}
