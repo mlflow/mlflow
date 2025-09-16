@@ -71,6 +71,27 @@ export const RunsChartsDraggableCardsGridContextProvider = ({
         }
 
         const indexSource = newChartsOrder.findIndex((c) => c.uuid === sourceChartUuid);
+
+        // Handle "Move to Top" / "Move to Bottom" special uuid
+        if (targetChartUuid === '__TOP__') {
+          if (indexSource < 0) {
+            return current;
+          }
+          const sourceChart = newChartsOrder[indexSource];
+          newChartsOrder.splice(indexSource, 1);
+          newChartsOrder.unshift(sourceChart);
+          return { ...current, compareRunCharts: newChartsOrder };
+        }
+        if (targetChartUuid === '__BOTTOM__') {
+          if (indexSource < 0) {
+            return current;
+          }
+          const sourceChart = newChartsOrder[indexSource];
+          newChartsOrder.splice(indexSource, 1);
+          newChartsOrder.push(sourceChart);
+          return { ...current, compareRunCharts: newChartsOrder };
+        }
+
         const indexTarget = newChartsOrder.findIndex((c) => c.uuid === targetChartUuid);
 
         // If one of the charts is not found, do nothing
