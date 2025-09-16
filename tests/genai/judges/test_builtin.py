@@ -381,5 +381,4 @@ def test_ser_deser():
     deserialized = Scorer.model_validate(serialized)
     assert isinstance(deserialized, Safety)
     assert deserialized.name == "safety"
-    assert deserialized.required_columns == {'inputs', 'outputs'}
-
+    assert deserialized.required_columns == {"inputs", "outputs"}
