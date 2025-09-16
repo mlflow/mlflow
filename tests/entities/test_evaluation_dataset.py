@@ -334,9 +334,7 @@ def test_evaluation_dataset_to_df():
             dataset_record_id="rec456",
             dataset_id="dataset123",
             inputs={"question": "What is Spark?"},
-            outputs={
-                "answer": "Apache Spark is a unified analytics engine for data processing"
-            },
+            outputs={"answer": "Apache Spark is a unified analytics engine for data processing"},
             expectations={"answer": "Spark is a data engine"},
             tags={"source": "automated"},
             source_type="CODE",
