@@ -11,7 +11,6 @@ import Utils from '../../common/utils/Utils';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import { getMetricHistoryApi, getRunApi } from '../actions';
 import { cloneDeep, difference, every as lodashEvery, flatMap as lodashFlatMap, isNumber, negate } from 'lodash';
-import { MetricsPlotView } from './MetricsPlotView';
 import { getRunInfo } from '../reducers/Reducers';
 import { MetricsPlotControls, X_AXIS_WALL, X_AXIS_RELATIVE, X_AXIS_STEP } from './MetricsPlotControls';
 import MetricsSummaryTable from './MetricsSummaryTable';
@@ -280,16 +279,7 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
     );
   };
 
-  getNumTotalMetrics = () => {
-    return this.props.metricsWithRunInfoAndHistory.map(({ history }) => history.length).reduce((a, b) => a + b, 0);
-  };
-
   loadMetricHistory = (runUuids: any, metricKeys: any) => {
-    if (this.getNumTotalMetrics() >= MAXIMUM_METRIC_DATA_POINTS) {
-      Utils.logErrorAndNotifyUser(
-        'The total number of metric data points exceeded 100,000. Performance might be affected.',
-      );
-    }
     this.setState({ loading: true });
     const promises = runUuids
       .flatMap((id: any) =>
@@ -332,11 +322,6 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
       // Ensure we don't set state if component is unmounted
       if (this._isMounted) {
         this.setState({ loading: false });
-      }
-      if (!results.every(({ success }) => success)) {
-        Utils.logErrorAndNotifyUser(
-          'The total number of metric data points exceeded 100,000. Aborted fetching metrics.',
-        );
       }
       return results.flatMap(({ requestIds }) => requestIds);
     });
