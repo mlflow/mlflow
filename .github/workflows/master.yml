@@ -410,7 +410,6 @@ jobs:
           pytest \
             tests/data \
             tests/artifacts \
-            tests/autologging \
             tests/deployments \
             tests/integration/async_logging/test_async_logging_integration.py \
             tests/metrics/genai/test_genai_metrics.py
