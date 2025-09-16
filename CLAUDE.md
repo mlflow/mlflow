@@ -87,6 +87,9 @@ yarn --cwd mlflow/server/js test
 uv run ruff check . --fix         # Lint with auto-fix
 uv run ruff format .              # Format code
 
+# Custom MLflow linting with Clint
+uv run clint .                    # Run MLflow custom linter
+
 # Check for MLflow spelling typos
 uv run bash dev/mlflow-typo.sh .
 
