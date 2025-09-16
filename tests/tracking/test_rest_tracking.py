@@ -62,6 +62,7 @@ from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.server import handlers
 from mlflow.server.fastapi_app import app
 from mlflow.server.handlers import _get_sampled_steps_from_steps, initialize_backend_stores
+from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.client import TracingClient
@@ -2832,62 +2833,50 @@ def test_get_trace_artifact_handler_with_path(mlflow_client: MlflowClient, tmp_p
 
     experiment_id = mlflow_client.create_experiment("get trace artifact with path")
 
-    # Start a trace
     span = mlflow_client.start_trace(name="test", experiment_id=experiment_id)
     request_id = span.request_id
     span.set_attributes({"test": "artifact"})
     mlflow_client.end_trace(request_id=request_id)
 
-    # Get trace info to get artifact location
     trace_info = mlflow_client._tracing_client.get_trace_info(request_id)
 
-    # Create a test artifact file
     test_file = tmp_path / "test_artifact.txt"
     test_content = "This is a test artifact for trace"
     test_file.write_text(test_content)
 
-    # Also create another test file in a subdirectory
     subdir = tmp_path / "subdir"
     subdir.mkdir()
     nested_file = subdir / "nested.txt"
     nested_content = "Nested artifact content"
     nested_file.write_text(nested_content)
 
-    # Log artifacts to the trace's artifact location
-    # This requires using the artifact repository directly
-    from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-
     artifact_location = trace_info.tags.get("mlflow.artifactLocation")
-    if artifact_location:
-        artifact_repo = get_artifact_repository(artifact_location)
-        artifact_repo.log_artifact(str(test_file))
-        artifact_repo.log_artifact(str(nested_file), "subdir")
+    artifact_repo = get_artifact_repository(artifact_location)
+    artifact_repo.log_artifact(str(test_file))
+    artifact_repo.log_artifact(str(nested_file), "subdir")
 
-        # Test downloading the specific artifact with path parameter
-        response = requests.get(
-            f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/get-trace-artifact",
-            params={
-                "request_id": request_id,
-                "path": "test_artifact.txt",
-            },
-        )
+    response = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/get-trace-artifact",
+        params={
+            "request_id": request_id,
+            "path": "test_artifact.txt",
+        },
+    )
 
-        # Verify response for direct file
-        assert response.status_code == 200
-        assert response.headers["Content-Disposition"] == "attachment; filename=test_artifact.txt"
-        assert response.text == test_content
+    assert response.status_code == 200
+    assert response.headers["Content-Disposition"] == "attachment; filename=test_artifact.txt"
+    assert response.text == test_content
 
-        # Test downloading nested artifact
-        response_nested = requests.get(
-            f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/get-trace-artifact",
-            params={
-                "request_id": request_id,
-                "path": "subdir/nested.txt",
-            },
-        )
-        assert response_nested.status_code == 200
-        assert response_nested.headers["Content-Disposition"] == "attachment; filename=nested.txt"
-        assert response_nested.text == nested_content
+    response_nested = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/get-trace-artifact",
+        params={
+            "request_id": request_id,
+            "path": "subdir/nested.txt",
+        },
+    )
+    assert response_nested.status_code == 200
+    assert response_nested.headers["Content-Disposition"] == "attachment; filename=nested.txt"
+    assert response_nested.text == nested_content
 
     # Test that without path parameter, we still get the trace data JSON
     response_no_path = requests.get(
