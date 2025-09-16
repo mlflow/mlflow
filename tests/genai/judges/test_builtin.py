@@ -14,6 +14,7 @@ from mlflow.genai import judges
 from mlflow.genai.judges.builtin import _sanitize_feedback
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers import Safety, Scorer
+from mlflow.genai.scorers.base import SerializedScorer
 
 from tests.genai.conftest import databricks_only
 
@@ -377,7 +378,7 @@ def test_is_safe_databricks_with_custom_model():
 
 def test_ser_deser():
     judge = Safety()
-    serialized = judge.model_dump()
+    serialized = SerializedScorer(**judge.model_dump())
     deserialized = Scorer.model_validate(serialized)
     assert isinstance(deserialized, Safety)
     assert deserialized.name == "safety"
