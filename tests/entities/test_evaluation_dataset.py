@@ -319,7 +319,10 @@ def test_evaluation_dataset_to_df():
             dataset_record_id="rec123",
             dataset_id="dataset123",
             inputs={"question": "What is MLflow?"},
-            outputs={"answer": "MLflow is an ML platform for managing the end-to-end machine learning lifecycle"},
+            outputs={
+                "answer": "MLflow is an ML platform for managing the end-to-end machine learning lifecycle",
+                "key1": "value1",
+            },
             expectations={"answer": "MLflow is an ML platform"},
             tags={"source": "manual"},
             source_type="HUMAN",
@@ -348,7 +351,10 @@ def test_evaluation_dataset_to_df():
 
     # Check that outputs column exists and contains actual values
     assert "outputs" in df.columns
-    assert df["outputs"].iloc[0] == {"answer": "MLflow is an ML platform for managing the end-to-end machine learning lifecycle"}
+    assert df["outputs"].iloc[0] == {
+        "answer": "MLflow is an ML platform for managing the end-to-end machine learning lifecycle",
+        "key1": "value1",
+    }
     assert df["outputs"].iloc[1] == {"answer": "Apache Spark is a unified analytics engine for large-scale data processing"}
 
     # Check other columns have expected values

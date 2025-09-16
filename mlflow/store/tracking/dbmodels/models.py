@@ -1652,9 +1652,7 @@ class SqlEvaluationDatasetRecord(Base):
                            'outputs', 'expectations' and 'tags' fields to merge.
         """
         if new_outputs := new_record_dict.get("outputs"):
-            if self.outputs is None:
-                self.outputs = {}
-            self.outputs.update(new_outputs)
+            self.outputs = new_outputs
 
         if new_expectations := new_record_dict.get("expectations"):
             if self.expectations is None:
