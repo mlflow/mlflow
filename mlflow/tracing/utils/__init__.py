@@ -7,8 +7,9 @@ import logging
 import uuid
 from collections import Counter
 from contextlib import contextmanager
-from dataclasses import asdict, is_dataclass
+from dataclasses import asdict, dataclass, is_dataclass
 from functools import lru_cache
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generator
 
 from opentelemetry import trace as trace_api
@@ -606,3 +607,34 @@ def _bypass_attribute_guard(span: OTelSpan) -> Generator[None, None, None]:
         yield
     finally:
         span._end_time = original_end_time
+
+
+@dataclass
+class FrameLocation:
+    """Represents the location information extracted from a frame."""
+
+    line_number: int
+    file_path: str
+
+
+def capture_location_from_frame(frame) -> FrameLocation:
+    """
+    Capture the line number and file path from a given frame.
+
+    Args:
+        frame: The frame object to extract location information from.
+
+    Returns:
+        A FrameLocation object with line_number and file_path attributes.
+        file_path is relative to cwd if possible.
+    """
+    line_number = frame.f_lineno
+    file_path = frame.f_code.co_filename
+
+    try:
+        relative_path = Path(file_path).resolve().relative_to(Path.cwd())
+        return FrameLocation(line_number=line_number, file_path=str(relative_path))
+    except (ValueError, Exception):
+        # ValueError: file is not under cwd
+        # Exception: any other issue (permissions, etc.)
+        return FrameLocation(line_number=line_number, file_path=file_path)
