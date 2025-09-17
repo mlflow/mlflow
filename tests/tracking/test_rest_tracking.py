@@ -3585,11 +3585,78 @@ def test_evaluation_dataset_delete(mlflow_client, store_type):
         mlflow_client.get_dataset(dataset.dataset_id)
 
 
+def test_evaluation_dataset_upsert_records(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("Evaluation datasets not supported for FileStore")
+
+    import json
+
+    import requests
+
+    experiment_id = mlflow_client.create_experiment("upsert_records_test")
+
+    dataset = mlflow_client.create_dataset(
+        name="test_upsert_dataset",
+        experiment_id=experiment_id,
+        tags={"test": "upsert"},
+    )
+
+    initial_records = [
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "expectations": {"answer": "MLflow is an ML platform"},
+            "tags": {"difficulty": "easy"},
+        },
+        {
+            "inputs": {"question": "What is Python?"},
+            "expectations": {"answer": "Python is a programming language"},
+            "tags": {"difficulty": "easy"},
+        },
+    ]
+
+    # NB: MlflowClient doesn't have upsert_dataset_records method - merge_records() calls
+    # the store directly. We make HTTP requests here to test the REST API handler end-to-end.
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/datasets/{dataset.dataset_id}/records",
+        json={"records": json.dumps(initial_records)},
+    )
+    assert response.status_code == 200
+    result = response.json()
+    assert result["inserted_count"] == 2
+    assert result["updated_count"] == 0
+
+    update_records = [
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "expectations": {"answer": "MLflow is an open-source ML platform"},
+            "tags": {"difficulty": "easy", "updated": "true"},
+        },
+        {
+            "inputs": {"question": "What is Docker?"},
+            "expectations": {"answer": "Docker is a containerization platform"},
+            "tags": {"difficulty": "medium"},
+        },
+    ]
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/datasets/{dataset.dataset_id}/records",
+        json={"records": json.dumps(update_records)},
+    )
+    assert response.status_code == 200
+    result = response.json()
+    assert result["inserted_count"] == 1
+    assert result["updated_count"] == 1
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/datasets/invalid-id/records",
+        json={"records": json.dumps(initial_records)},
+    )
+    assert response.status_code != 200
+
+
 def test_scorer_CRUD(mlflow_client, store_type):
     if store_type == "file":
         pytest.skip("File store doesn't support scorer CRUD operations")
-
-    """Test all scorer API endpoints end-to-end through RestStore methods."""
     experiment_id = mlflow_client.create_experiment("test_scorer_api_experiment")
 
     # Get the RestStore object directly
