@@ -121,12 +121,12 @@ class ModuleSymbolExtractor(ast.NodeVisitor):
 
 
 def extract_symbols_from_file(
-    repo_root: Path, relative_path: Path
+    repo_root: Path, rel_path: Path
 ) -> tuple[dict[str, str], dict[str, FunctionInfo]] | None:
     """Extract function definitions and import mappings from a Python file."""
-    file_path = repo_root / relative_path
+    file_path = repo_root / rel_path
 
-    if not relative_path.parts or relative_path.parts[0] != "mlflow":
+    if not rel_path.parts or rel_path.parts[0] != "mlflow":
         return None
 
     try:
@@ -135,9 +135,9 @@ def extract_symbols_from_file(
         return None
 
     mod_name = (
-        ".".join(relative_path.parts[:-1])
-        if relative_path.name == "__init__.py"
-        else ".".join([*relative_path.parts[:-1], relative_path.stem])
+        ".".join(rel_path.parts[:-1])
+        if rel_path.name == "__init__.py"
+        else ".".join([*rel_path.parts[:-1], rel_path.stem])
     )
 
     extractor = ModuleSymbolExtractor(mod_name)
@@ -169,17 +169,16 @@ class SymbolIndex:
     @classmethod
     def build(cls) -> Self:
         repo_root = get_repo_root()
-        relative_paths = subprocess.check_output(
+        rel_paths = subprocess.check_output(
             ["git", "-C", repo_root, "ls-files", "mlflow/*.py"], text=True
         ).splitlines()
 
         mapping: dict[str, str] = {}
         func_mapping: dict[str, FunctionInfo] = {}
-        max_workers = min(multiprocessing.cpu_count(), len(relative_paths))
+        max_workers = min(multiprocessing.cpu_count(), len(rel_paths))
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
             futures = {
-                executor.submit(extract_symbols_from_file, repo_root, Path(f)): f
-                for f in relative_paths
+                executor.submit(extract_symbols_from_file, repo_root, Path(f)): f for f in rel_paths
             }
             for future in as_completed(futures):
                 if result := future.result():
