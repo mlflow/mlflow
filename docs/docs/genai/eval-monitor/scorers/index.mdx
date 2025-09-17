@@ -10,6 +10,13 @@ import { Bot, GitBranch, Target, Scale } from "lucide-react";
 
 Scorers can be considered as **metrics** in the traditional ML sense. However, they are more flexible and can return more structured quality feedback, not only the scalar values that are typically represented by metrics.
 
+## Key Features of MLflow Scorers
+
+MLflow scorers have two powerful capabilities that distinguish them from traditional metrics:
+
+1. **Agent-as-a-Judge Evaluation**: Scorers can act as autonomous agents with tool-calling capabilities, enabling deep analysis of execution traces and multi-step workflows
+2. **Human Preference Alignment**: Scorers can be automatically aligned with human feedback to improve their accuracy and match your domain-specific quality standards
+
 ## How scorers work
 
 Scorers analyze inputs, outputs, and traces from your GenAI application and produce quality assessments. Here's the flow:
@@ -30,11 +37,11 @@ Evaluating the quality of your GenAI application can be done in different ways. 
 | **Scalability**  | Highly scalable                                      | Scalable                                                   | Limited                                                           |
 | **Consistency**  | Perfect consistency                                  | Somewhat consistent (if prompted well)                     | Variable (inter-annotator agreement)                              |
 | **Flexibility**  | Limited to predefined patterns                       | Highly flexible with custom prompts                        | Maximum flexibility                                               |
-| **MLflow Guide** | [Custom Scorers](custom.mdx)                         | [LLM-based Scorers](/genai/eval-monitor/scorers/llm-judge) | [Collecting Human Feedback](/genai/tracing/collect-user-feedback) |
+| **MLflow Guide** | [Custom Scorers](/genai/eval-monitor/scorers/custom) | [LLM-based Scorers](/genai/eval-monitor/scorers/llm-judge) | [Collecting Human Feedback](/genai/tracing/collect-user-feedback) |
 
 ## Scorer Data Requirements
 
-:::warning[Important: Trace-based vs Static Data Compatibility]
+:::warning[Important: Agent-as-a-Judge vs Static Data Compatibility]
 
 Not all scorers work with static datasets. Some scorers are designed specifically to analyze execution traces and **will not function with static pandas DataFrames** that only contain inputs/outputs/expectations.
 
@@ -42,20 +49,41 @@ Not all scorers work with static datasets. Some scorers are designed specificall
 
 ### Scorer Compatibility Matrix
 
-| Scorer Category            | Static Data Support | Trace Required                | Example Scorers                                                             |
-| -------------------------- | ------------------- | ----------------------------- | --------------------------------------------------------------------------- |
-| **Field-based Scorers**    | ✅ Yes              | ❌ No                         | `Correctness`, `RelevanceToQuery`, `Safety`, custom scorers using `@scorer` |
-| **Trace-based Scorers**    | ❌ No               | ✅ Yes                        | Scorers analyzing execution flow, tool usage patterns, span attributes      |
-| **Retrieval Scorers**      | ❌ No               | ✅ Yes (with RETRIEVER spans) | `RetrievalGroundedness`, `RetrievalRelevance`, `RetrievalSufficiency`       |
-| **Agent Behavior Scorers** | ❌ No               | ✅ Yes                        | Custom scorers analyzing multi-step workflows, tool trajectories            |
+| Scorer Category              | Trace Required                | Example Scorers                                                             |
+| ---------------------------- | ----------------------------- | --------------------------------------------------------------------------- |
+| **Field-based Scorers**      | ❌ No                         | `Correctness`, `RelevanceToQuery`, `Safety`, custom scorers using `@scorer` |
+| **Agent-as-a-Judge Scorers** | ✅ Yes                        | Scorers analyzing execution flow, tool usage patterns, span attributes      |
+| **Retrieval Scorers**        | ✅ Yes (with RETRIEVER spans) | `RetrievalGroundedness`, `RetrievalRelevance`, `RetrievalSufficiency`       |
+| **Agent-as-a-Judge**         | ✅ Yes                        | Custom judges analyzing multi-step workflows, agent reasoning, performance  |
 
-### Key Points:
+### Working with Traces
 
-- **Static datasets** (pandas DataFrames with inputs/outputs/expectations) work only with field-based scorers
-- **Trace-based scorers** require actual execution traces from your application
-- If you see errors about missing traces when using retrieval or agent scorers, you need to:
-  1. Use a `predict_fn` that generates traces, OR
-  2. Include pre-collected traces in your dataset
+If you have static data but need to use trace-based scorers, you can create traces using `mlflow.log_trace()`:
+
+```python
+import mlflow
+from mlflow.entities import Trace, TraceData, TraceInfo
+
+# Create a trace from static data
+trace_data = TraceData(
+    spans=[],  # Add spans if needed
+    request={"question": "What is MLflow?"},
+    response={
+        "answer": "MLflow is an open-source platform for ML lifecycle management."
+    },
+)
+
+trace_info = TraceInfo(request_id="unique_id_123", experiment_id="0")
+
+trace = Trace(trace_info, trace_data)
+
+# Log the trace to MLflow
+mlflow.log_trace(trace)
+
+# Now you can use trace-based scorers with this data
+```
+
+Alternatively, if you're using retrieval or Agent-as-a-Judge scorers, ensure your `predict_fn` generates proper traces during execution.
 
 ## Next Steps
 

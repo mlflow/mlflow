@@ -171,13 +171,24 @@ export const useMlflowTracesTableMetadata = ({
     return {
       assessmentInfos,
       allColumns,
+      evaluatedTraces,
+      otherEvaluatedTraces,
       totalCount: evaluatedTraces.length,
       isLoading: isInnerLoading && !disabled,
       error,
       isEmpty: evaluatedTraces.length === 0,
       tableFilterOptions,
     };
-  }, [assessmentInfos, allColumns, isInnerLoading, error, evaluatedTraces.length, tableFilterOptions, disabled]);
+  }, [
+    assessmentInfos,
+    allColumns,
+    isInnerLoading,
+    error,
+    evaluatedTraces,
+    otherEvaluatedTraces,
+    tableFilterOptions,
+    disabled,
+  ]);
 };
 
 const getNetworkAndClientFilters = (

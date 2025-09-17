@@ -60,6 +60,18 @@ export class EditableNoteImpl extends Component<EditableNoteImplProps, EditableN
 
   converter = getMarkdownConverter();
 
+  componentDidUpdate(prevProps: EditableNoteImplProps) {
+    if (
+      prevProps.defaultMarkdown !== this.props.defaultMarkdown ||
+      prevProps.defaultSelectedTab !== this.props.defaultSelectedTab
+    ) {
+      this.setState({
+        markdown: this.props.defaultMarkdown,
+        selectedTab: this.props.defaultSelectedTab,
+      });
+    }
+  }
+
   handleMdeValueChange = (markdown: any) => {
     this.setState({ markdown });
   };

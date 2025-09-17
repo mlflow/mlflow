@@ -290,14 +290,31 @@ def test_fail_on_multiple_drivers():
         extract_db_type_from_uri("mysql+pymsql+pyodbc://...")
 
 
+@pytest.fixture(scope="module")
+def cached_db(tmp_path_factory) -> Path:
+    """Creates and caches a SQLite database to avoid repeated migrations for each test run."""
+    tmp_path = tmp_path_factory.mktemp("sqlite_db")
+    db_path = tmp_path / "mlflow.db"
+    db_uri = f"sqlite:///{db_path}"
+    store = SqlAlchemyStore(db_uri, ARTIFACT_URI)
+    store.engine.dispose()
+    return db_path
+
+
 @pytest.fixture
-def store(tmp_path: Path):
-    db_uri = MLFLOW_TRACKING_URI.get() or f"{DB_URI}{tmp_path / 'temp.db'}"
+def store(tmp_path: Path, cached_db: Path) -> SqlAlchemyStore:
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir(exist_ok=True)
-    store = SqlAlchemyStore(db_uri, artifact_uri.as_uri())
-    yield store
-    _cleanup_database(store)
+    if db_uri_env := MLFLOW_TRACKING_URI.get():
+        s = SqlAlchemyStore(db_uri_env, artifact_uri.as_uri())
+        yield s
+        _cleanup_database(s)
+    else:
+        db_path = tmp_path / "mlflow.db"
+        shutil.copy(cached_db, db_path)
+        db_uri = f"sqlite:///{db_path}"
+        s = SqlAlchemyStore(db_uri, artifact_uri.as_uri())
+        yield s
 
 
 @pytest.fixture
@@ -473,8 +490,10 @@ def test_default_experiment_lifecycle(store: SqlAlchemyStore, tmp_path):
     assert default_experiment.lifecycle_stage == entities.LifecycleStage.DELETED
 
     # destroy SqlStore and make a new one
+    db_uri = store.db_uri
+    artifact_uri = store.artifact_root_uri
     del store
-    store = _get_store(tmp_path)
+    store = SqlAlchemyStore(db_uri, artifact_uri)
 
     # test that default experiment is not reactivated
     default_experiment = store.get_experiment(experiment_id=0)
@@ -3229,21 +3248,23 @@ def _generate_large_data(store, nb_runs=1000):
     current_run = 0
 
     run_ids = []
+    runs_list = []
     metrics_list = []
     tags_list = []
     params_list = []
     latest_metrics_list = []
 
     for _ in range(nb_runs):
-        run_id = store.create_run(
-            experiment_id=experiment_id,
-            start_time=current_run,
-            tags=[],
-            user_id="Anderson",
-            run_name="name",
-        ).info.run_id
-
+        run_id = uuid.uuid4().hex
         run_ids.append(run_id)
+        run_data = {
+            "run_uuid": run_id,
+            "user_id": "Anderson",
+            "start_time": current_run,
+            "artifact_uri": f"file:///tmp/artifacts/{run_id}",
+            "experiment_id": experiment_id,
+        }
+        runs_list.append(run_data)
 
         for i in range(100):
             metric = {
@@ -3279,7 +3300,9 @@ def _generate_large_data(store, nb_runs=1000):
         )
         current_run += 1
 
+    # Bulk insert all data in a single transaction
     with store.engine.begin() as conn:
+        conn.execute(sqlalchemy.insert(SqlRun), runs_list)
         conn.execute(sqlalchemy.insert(SqlParam), params_list)
         conn.execute(sqlalchemy.insert(SqlMetric), metrics_list)
         conn.execute(sqlalchemy.insert(SqlLatestMetric), latest_metrics_list)
@@ -4475,8 +4498,7 @@ def _create_trace(
 
 
 @pytest.fixture
-def store_with_traces(tmp_path):
-    store = _get_store(tmp_path)
+def store_with_traces(store):
     exp1 = store.create_experiment("exp1")
     exp2 = store.create_experiment("exp2")
 
@@ -4528,8 +4550,7 @@ def store_with_traces(tmp_path):
         tags={"mlflow.traceName": "ddd", "color": "blue"},
     )
 
-    yield store
-    _cleanup_database(store)
+    return store
 
 
 @pytest.mark.parametrize(
