@@ -23,7 +23,6 @@ import pandas as pd
 import pytest
 import requests
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
-from packaging.version import Version
 
 import mlflow.experiments
 import mlflow.pyfunc
@@ -65,7 +64,7 @@ from mlflow.server.handlers import _get_sampled_steps_from_steps, initialize_bac
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.client import TracingClient
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
+from mlflow.tracing.constant import TRACE_ID_V4_PREFIX, TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.utils import build_otel_context
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
@@ -2869,6 +2868,31 @@ def test_link_traces_to_run_and_search_traces(mlflow_client, store_type):
     assert set(linked_trace_ids) == {trace_id_1, trace_id_2}
 
 
+def test_get_trace_info_v4_format(mlflow_client):
+    with mlflow.start_span(name="test_span_v4") as span:
+        span.set_inputs({"input_key": "input_value"})
+        span.set_outputs({"output_key": "output_value"})
+        span.set_attributes({"attr1": "value1"})
+
+    original_trace_id = span.trace_id
+
+    trace_info = mlflow_client.get_trace(original_trace_id).info
+
+    location = "catalog.schema"
+    v4_trace_id = f"{TRACE_ID_V4_PREFIX}{location}/{original_trace_id}"
+
+    with mock.patch.object(
+        mlflow_client._tracing_client.store, "get_trace_info"
+    ) as mock_get_trace_info:
+        mock_get_trace_info.return_value = trace_info
+
+        trace_info_v4 = mlflow_client.get_trace(v4_trace_id).info
+
+        mock_get_trace_info.assert_called_once_with(v4_trace_id)
+        assert trace_info_v4.trace_id == original_trace_id
+        assert trace_info_v4.state == trace_info.state
+
+
 def test_get_metric_history_bulk_interval_graphql(mlflow_client):
     name = "GraphqlTest"
     mlflow_client.create_registered_model(name)
@@ -3677,17 +3701,6 @@ async def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, store_type
     if store_type == "file":
         pytest.skip("FileStore does not support OTLP span logging")
 
-    # Mock the server version check to return 3.4 if current MLflow version is < 3.4
-    # This allows the test to pass on dev MLflow versions before MLflow 3.4 is released.
-    # TODO: Remove this mock once MLflow 3.4 is released
-    if Version(mlflow.__version__) < Version("3.4"):
-        version_mock = mock.patch(
-            "mlflow.store.tracking.rest_store.RestStore._get_server_version",
-            return_value=Version("3.4.0"),
-        )
-    else:
-        pytest.fail(reason="Remove the mock above")
-
     experiment_id = mlflow_client.create_experiment(f"rest_store_otel_test_{use_async}")
     root_span = mlflow_client.start_trace(
         f"rest_store_otel_trace_{use_async}", experiment_id=experiment_id
@@ -3708,17 +3721,16 @@ async def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, store_type
         resource=None,
     )
     mlflow_span_to_log = Span(otel_span)
-    with version_mock:
-        # Call either sync or async version based on parametrization
-        if use_async:
-            # Use await to execute the async method
-            result_spans = await mlflow_client._tracking_client.store.log_spans_async(
-                experiment_id=experiment_id, spans=[mlflow_span_to_log]
-            )
-        else:
-            result_spans = mlflow_client._tracking_client.store.log_spans(
-                experiment_id=experiment_id, spans=[mlflow_span_to_log]
-            )
+    # Call either sync or async version based on parametrization
+    if use_async:
+        # Use await to execute the async method
+        result_spans = await mlflow_client._tracking_client.store.log_spans_async(
+            experiment_id=experiment_id, spans=[mlflow_span_to_log]
+        )
+    else:
+        result_spans = mlflow_client._tracking_client.store.log_spans(
+            experiment_id=experiment_id, spans=[mlflow_span_to_log]
+        )
 
     # Verify the spans were returned (indicates successful logging)
     assert len(result_spans) == 1
