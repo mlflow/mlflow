@@ -7,6 +7,7 @@ import pytest
 
 from mlflow.entities.span import SpanType
 from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
+
 from tests.tracing.helper import get_traces, purge_traces
 
 if not IS_PYDANTIC_V2_OR_NEWER:
@@ -415,8 +416,6 @@ def test_responses_agent_trace(input, outputs):
 
 
 def test_responses_agent_custom_trace_configurations():
-    """Test that custom trace configurations are preserved when functions are already traced."""
-
     # Agent with custom span names and attributes
     class CustomTracedAgent(ResponsesAgent):
         @mlflow.trace(
@@ -462,8 +461,6 @@ def test_responses_agent_custom_trace_configurations():
 
 
 def test_responses_agent_non_mlflow_decorators():
-    """Test that the implementation correctly distinguishes MLflow tracing from other decorators."""
-
     # Create a custom decorator to test with
     def custom_decorator(func):
         @functools.wraps(func)
@@ -1029,13 +1026,10 @@ def test_responses_agent_output_to_responses_items_stream(chunks, expected_outpu
     expected_aggregator = [
         event.item for event in expected_output if event.type == "response.output_item.done"
     ]
-    print("aggregator", aggregator)
-    assert False
     assert aggregator == expected_aggregator
 
 
 def test_create_text_delta():
-    """Test the create_text_delta helper function."""
     result = ResponsesAgent.create_text_delta("Hello", "test-id")
     expected = {
         "type": "response.output_text.delta",
@@ -1046,7 +1040,6 @@ def test_create_text_delta():
 
 
 def test_create_annotation_added():
-    """Test the create_annotation_added helper function."""
     annotation = {"type": "citation", "text": "Reference"}
     result = ResponsesAgent.create_annotation_added("test-id", annotation, 1)
     expected = {
@@ -1069,7 +1062,6 @@ def test_create_annotation_added():
 
 
 def test_create_text_output_item():
-    """Test the create_text_output_item helper function."""
     # Test without annotations
     result = ResponsesAgent.create_text_output_item("Hello world", "test-id")
     expected = {
@@ -1106,7 +1098,6 @@ def test_create_text_output_item():
 
 
 def test_create_reasoning_item():
-    """Test the create_reasoning_item helper function."""
     result = ResponsesAgent.create_reasoning_item("test-id", "This is my reasoning")
     expected = {
         "type": "reasoning",
@@ -1122,7 +1113,6 @@ def test_create_reasoning_item():
 
 
 def test_create_function_call_item():
-    """Test the create_function_call_item helper function."""
     result = ResponsesAgent.create_function_call_item(
         "test-id", "call-123", "get_weather", '{"location": "Boston"}'
     )
@@ -1137,7 +1127,6 @@ def test_create_function_call_item():
 
 
 def test_create_function_call_output_item():
-    """Test the create_function_call_output_item helper function."""
     result = ResponsesAgent.create_function_call_output_item("call-123", "Sunny, 75°F")
     expected = {
         "type": "function_call_output",
