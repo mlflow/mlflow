@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from mlflow import sklearn  # Good - this one is imported
 """
     config = Config(select={LazyModule.name})
-    violations = lint_file(Path("mlflow") / "__init__.py", code, config, index_path)
+    violations = lint_file(Path("mlflow", "__init__.py"), code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, LazyModule) for v in violations)
     assert violations[0].loc == Location(5, 12)  # anthropic LazyLoader

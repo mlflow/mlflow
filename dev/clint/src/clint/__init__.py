@@ -13,12 +13,8 @@ from typing_extensions import Self
 
 from clint.config import Config
 from clint.index import SymbolIndex
-from clint.linter import Violation, lint_file
+from clint.linter import lint_file
 from clint.utils import resolve_paths
-
-
-def _lint_file_wrapper(file_path: Path, config: Config, index_path: Path) -> list[Violation]:
-    return lint_file(file_path, file_path.read_text(), config, index_path)
 
 
 @dataclass
@@ -65,7 +61,7 @@ def main() -> None:
         index_path = Path(tmp_dir) / "symbol_index.pkl"
         SymbolIndex.build().save(index_path)
         with ProcessPoolExecutor() as pool:
-            futures = [pool.submit(_lint_file_wrapper, f, config, index_path) for f in files]
+            futures = [pool.submit(lint_file, f, f.read_text(), config, index_path) for f in files]
             violations_iter = itertools.chain.from_iterable(
                 f.result() for f in as_completed(futures)
             )

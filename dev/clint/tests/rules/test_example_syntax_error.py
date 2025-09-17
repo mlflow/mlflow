@@ -32,16 +32,14 @@ def good():
 
 
 @pytest.mark.parametrize("suffix", [".md", ".mdx"])
-def test_example_syntax_error_markdown(index_path: Path, tmp_path: Path, suffix: str) -> None:
-    tmp_file = (tmp_path / "test").with_suffix(suffix)
+def test_example_syntax_error_markdown(index_path: Path, suffix: str) -> None:
     code = """
 ```python
 def g():
 ```
 """
-    tmp_file.write_text(code)
     config = Config(select={ExampleSyntaxError.name})
-    violations = lint_file(tmp_file, code, config, index_path)
+    violations = lint_file(Path("test").with_suffix(suffix), code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, ExampleSyntaxError) for v in violations)
     assert violations[0].loc == Location(2, 0)

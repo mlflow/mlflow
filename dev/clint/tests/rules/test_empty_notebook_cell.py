@@ -6,8 +6,7 @@ from clint.linter import lint_file
 from clint.rules.empty_notebook_cell import EmptyNotebookCell
 
 
-def test_empty_notebook_cell(index_path: Path, tmp_path: Path) -> None:
-    tmp_file = tmp_path / "test_notebook.ipynb"
+def test_empty_notebook_cell(index_path: Path) -> None:
     notebook_content = {
         "cells": [
             {
@@ -39,9 +38,8 @@ def test_empty_notebook_cell(index_path: Path, tmp_path: Path) -> None:
         "nbformat_minor": 4,
     }
     code = json.dumps(notebook_content)
-    tmp_file.write_text(code)
     config = Config(select={EmptyNotebookCell.name})
-    violations = lint_file(tmp_file, code, config, index_path)
+    violations = lint_file(Path("test_notebook.ipynb"), code, config, index_path)
     assert len(violations) == 2
     assert all(isinstance(v.rule, EmptyNotebookCell) for v in violations)
     assert violations[0].cell == 1

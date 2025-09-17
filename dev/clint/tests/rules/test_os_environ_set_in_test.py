@@ -1,15 +1,11 @@
 from pathlib import Path
 
-import pytest
 from clint.config import Config
 from clint.linter import Location, lint_file
 from clint.rules.os_environ_set_in_test import OsEnvironSetInTest
 
 
-def test_os_environ_set_in_test(
-    index_path: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.chdir(tmp_path)
+def test_os_environ_set_in_test(index_path: Path) -> None:
     code = """
 import os
 
