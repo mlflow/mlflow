@@ -108,6 +108,26 @@ def get_user() -> User:
     return User(name="Alice", age=30, occupation="Engineer")
 ```
 
+## Use `pathlib` Methods Instead of `os` Module Functions
+
+When you have a `pathlib.Path` object, use its built-in methods instead of `os` module functions. This is more readable, type-safe, and follows object-oriented principles.
+
+```python
+from pathlib import Path
+
+path = Path("some/file.txt")
+
+# Bad
+import os
+
+os.path.exists(path)
+os.remove(path)
+
+# Good
+path.exists()
+path.unlink()
+```
+
 ## Use next() to Find First Match Instead of Loop-and-Break
 
 Use the `next()` builtin function with a generator expression to find the first item that matches a condition. This is more concise and functional than manually looping with break statements.

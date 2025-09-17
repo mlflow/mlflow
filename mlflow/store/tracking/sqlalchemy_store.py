@@ -349,13 +349,13 @@ class SqlAlchemyStore(AbstractStore):
                     # this requires a double write. The first one to generate an autoincrement-ed ID
                     eid = session.query(SqlExperiment).filter_by(name=name).first().experiment_id
                     experiment.artifact_location = self._get_artifact_location(eid)
+                session.flush()
             except sqlalchemy.exc.IntegrityError as e:
                 raise MlflowException(
                     f"Experiment(name={name}) already exists. Error: {e}",
                     RESOURCE_ALREADY_EXISTS,
                 )
 
-            session.flush()
             return str(experiment.experiment_id)
 
     def _search_experiments(

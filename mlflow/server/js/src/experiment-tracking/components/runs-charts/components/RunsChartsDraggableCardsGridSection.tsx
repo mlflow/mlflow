@@ -372,9 +372,13 @@ export const RunsChartsDraggableCardsGridSection = memo(
               height={cardHeight}
               canMoveDown={Boolean(array[index + 1])}
               canMoveUp={Boolean(array[index - 1])}
+              canMoveToTop={index > 0}
+              canMoveToBottom={index < array.length - 1}
               previousChartUuid={array[index - 1]?.uuid}
               nextChartUuid={array[index + 1]?.uuid}
               hideEmptyCharts={hideEmptyCharts}
+              firstChartUuid={array[0]?.uuid}
+              lastChartUuid={array[array.length - 1]?.uuid}
               {...cardProps}
             />
           );

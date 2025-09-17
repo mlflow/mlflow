@@ -115,6 +115,103 @@ describe('convertTraceInfoV3ToModelTraceInfo', () => {
 });
 
 describe('applyTraceInfoV3ToEvalEntry', () => {
+  const traceInfoWithExpectations: TraceInfoV3 = {
+    trace_id: 'trace123',
+    trace_location: {
+      type: 'MLFLOW_EXPERIMENT',
+      mlflow_experiment: { experiment_id: 'exp123' },
+    },
+    request_time: '2023-10-01T00:00:00Z',
+    state: 'OK',
+    client_request_id: 'client456',
+    request: '{"messages": [{"content": "Hello"}]}',
+    response: '{"data": "output"}',
+    tags: { key1: 'value1' },
+    assessments: [
+      {
+        assessment_id: 'a-fe16ebce1999476c95d5b73cf78e47f8',
+        assessment_name: 'json_array_expect',
+        trace_id: 'tr-2f6e2efbac5d2eb3f9b46a67e973a533',
+        source: {
+          source_type: 'HUMAN',
+          source_id: 'test',
+        },
+        create_time: '2025-09-17T04:13:36.753Z',
+        last_update_time: '2025-09-17T04:13:36.753Z',
+        expectation: {
+          serialized_value: {
+            serialization_format: 'JSON_FORMAT',
+            value: '["str", 123, {"nested": "obj"}]',
+          },
+        },
+        rationale: '',
+      },
+      {
+        assessment_id: 'a-4eb4ea163a9a4b41935f953a63a36706',
+        assessment_name: 'number_expect',
+        trace_id: 'tr-2f6e2efbac5d2eb3f9b46a67e973a533',
+        source: {
+          source_type: 'HUMAN',
+          source_id: 'test',
+        },
+        create_time: '2025-09-17T04:13:58.740Z',
+        last_update_time: '2025-09-17T04:13:58.740Z',
+        expectation: {
+          value: 1234,
+        },
+        rationale: '',
+      },
+      {
+        assessment_id: 'a-c180c83a996042a99b735540292b30ba',
+        assessment_name: 'json_obj_expect',
+        trace_id: 'tr-2f6e2efbac5d2eb3f9b46a67e973a533',
+        source: {
+          source_type: 'HUMAN',
+          source_id: 'test',
+        },
+        create_time: '2025-09-17T04:13:12.356Z',
+        last_update_time: '2025-09-17T04:13:12.356Z',
+        expectation: {
+          serialized_value: {
+            serialization_format: 'JSON_FORMAT',
+            value: '{"test": "value"}',
+          },
+        },
+        rationale: '',
+      },
+      {
+        assessment_id: 'a-5ebe632dbdd8489ebb1b2c3a3f703632',
+        assessment_name: 'str_expect',
+        trace_id: 'tr-2f6e2efbac5d2eb3f9b46a67e973a533',
+        source: {
+          source_type: 'HUMAN',
+          source_id: 'test',
+        },
+        create_time: '2025-09-17T04:14:11.445Z',
+        last_update_time: '2025-09-17T04:14:11.445Z',
+        expectation: {
+          value: 'test',
+        },
+        rationale: '',
+      },
+      {
+        assessment_id: 'a-2243eda2cc5644109ebbc8c3271266cc',
+        assessment_name: 'bool_expect',
+        trace_id: 'tr-2f6e2efbac5d2eb3f9b46a67e973a533',
+        source: {
+          source_type: 'HUMAN',
+          source_id: 'test',
+        },
+        create_time: '2025-09-17T04:10:11.897Z',
+        last_update_time: '2025-09-17T04:10:11.897Z',
+        expectation: {
+          value: true,
+        },
+        rationale: '',
+      },
+    ],
+  } as TraceInfoV3;
+
   const dummyTraceInfo: TraceInfoV3 = {
     trace_id: 'trace123',
     trace_location: {
@@ -314,6 +411,21 @@ describe('applyTraceInfoV3ToEvalEntry', () => {
     };
 
     expect(result[0]).toEqual(expected);
+  });
+
+  it('should correctly convert TraceInfoV3 expectations', () => {
+    const input: RunEvaluationTracesDataEntry[] = [{ ...baseEvalEntry, traceInfo: traceInfoWithExpectations }];
+    const result = applyTraceInfoV3ToEvalEntry(input);
+
+    expect(result[0].targets).toEqual({
+      // JSON should be parsed
+      json_array_expect: ['str', 123, { nested: 'obj' }],
+      json_obj_expect: { test: 'value' },
+      // primitives should remain as primitives
+      number_expect: 1234,
+      str_expect: 'test',
+      bool_expect: true,
+    });
   });
 });
 
