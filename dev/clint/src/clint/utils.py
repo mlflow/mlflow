@@ -58,6 +58,23 @@ def get_ignored_rules_for_file(
 ALLOWED_EXTS = {".md", ".mdx", ".rst", ".py", ".ipynb"}
 
 
+def _run_git_ls_files(repo_root: Path, pathspecs: list[Path]) -> str:
+    return subprocess.check_output(
+        [
+            "git",
+            "-C",
+            repo_root,
+            "ls-files",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+            "--",
+            *pathspecs,
+        ],
+        text=True,
+    )
+
+
 def _git_ls_files(pathspecs: list[Path]) -> list[Path]:
     """
     Return git-tracked and untracked (but not ignored) files matching the given pathspecs.
@@ -85,20 +102,7 @@ def _git_ls_files(pathspecs: list[Path]) -> list[Path]:
         return []
 
     try:
-        out = subprocess.check_output(
-            [
-                "git",
-                "-C",
-                repo_root,
-                "ls-files",
-                "--cached",
-                "--others",
-                "--exclude-standard",
-                "--",
-                *converted_pathspecs,
-            ],
-            text=True,
-        )
+        out = _run_git_ls_files(repo_root, converted_pathspecs)
     except (OSError, subprocess.CalledProcessError) as e:
         raise RuntimeError("Failed to list git files") from e
 
