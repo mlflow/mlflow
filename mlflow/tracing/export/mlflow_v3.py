@@ -176,13 +176,34 @@ class MlflowV3SpanExporter(SpanExporter):
             if trace:
                 add_size_stats_to_trace_metadata(trace)
                 returned_trace_info = self._client.start_trace(trace.info)
-                self._client._upload_trace_data(returned_trace_info, trace.data)
 
-                # Collect and upload attachments from all spans
+                # Collect attachments from all spans and update their references
                 attachments = []
+                attachment_ref_mapping = {}  # old_ref -> new_ref
+
                 for span in trace.data.spans:
                     if hasattr(span, "_attachments") and span._attachments:
-                        attachments.extend(span._attachments.values())
+                        # Update attachment references with real artifact_uri
+                        from mlflow.tracing.utils import get_artifact_uri_for_trace
+
+                        artifact_uri = get_artifact_uri_for_trace(returned_trace_info)
+
+                        updated_attachments = {}
+                        for old_ref, attachment in span._attachments.items():
+                            # Generate new reference with real artifact_uri
+                            new_ref = attachment.ref(trace.info.trace_id, artifact_uri)
+                            updated_attachments[new_ref] = attachment
+                            attachment_ref_mapping[old_ref] = new_ref
+                            attachments.append(attachment)
+
+                        # Update the span's attachment references
+                        span._attachments = updated_attachments
+
+                # Update attachment references in span inputs and outputs
+                self._update_attachment_refs_in_spans(trace.data.spans, attachment_ref_mapping)
+
+                # Now upload the trace data with updated references
+                self._client._upload_trace_data(returned_trace_info, trace.data)
 
                 if attachments:
                     self._client._upload_attachments(returned_trace_info, attachments)
@@ -204,6 +225,57 @@ class MlflowV3SpanExporter(SpanExporter):
             )
         except Exception as e:
             _logger.warning(f"Failed to link prompts to trace: {e}")
+
+    def _update_attachment_refs_in_spans(self, spans, attachment_ref_mapping):
+        """
+        Update attachment references in span inputs and outputs.
+
+        Args:
+            spans: List of spans to update
+            attachment_ref_mapping: Dict mapping old_ref -> new_ref
+        """
+        if not attachment_ref_mapping:
+            return
+
+        for span in spans:
+            # Update inputs
+            if hasattr(span, "inputs") and span.inputs:
+                span.inputs = self._update_attachment_refs_in_data(
+                    span.inputs, attachment_ref_mapping
+                )
+
+            # Update outputs
+            if hasattr(span, "outputs") and span.outputs:
+                span.outputs = self._update_attachment_refs_in_data(
+                    span.outputs, attachment_ref_mapping
+                )
+
+    def _update_attachment_refs_in_data(self, data, attachment_ref_mapping):
+        """
+        Recursively update attachment references in data structures.
+
+        Args:
+            data: Data to update (dict, list, or primitive)
+            attachment_ref_mapping: Dict mapping old_ref -> new_ref
+
+        Returns:
+            Updated data with new attachment references
+        """
+        if isinstance(data, dict):
+            return {
+                key: self._update_attachment_refs_in_data(value, attachment_ref_mapping)
+                for key, value in data.items()
+            }
+        elif isinstance(data, list):
+            return [
+                self._update_attachment_refs_in_data(item, attachment_ref_mapping) for item in data
+            ]
+        elif isinstance(data, str) and data in attachment_ref_mapping:
+            # This is an attachment reference, update it
+            return attachment_ref_mapping[data]
+        else:
+            # Primitive value, return as-is
+            return data
 
     def _should_enable_async_logging(self) -> bool:
         if (
