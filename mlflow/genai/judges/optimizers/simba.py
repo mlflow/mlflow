@@ -1,5 +1,7 @@
 """SIMBA alignment optimizer implementation."""
 
+import logging
+from contextlib import contextmanager
 from typing import Any, Callable, ClassVar, Collection
 
 from mlflow.exceptions import MlflowException
@@ -16,6 +18,27 @@ except ImportError:
         error_code=INTERNAL_ERROR,
     )
 
+_logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def _suppress_verbose_logging(logger_name: str, threshold_level: int = logging.DEBUG):
+    """
+    Context manager to suppress verbose logging from a specific logger.
+
+    Args:
+        logger_name: Name of the logger to control
+        threshold_level: Only suppress if MLflow logger is above this level
+    """
+    logger = logging.getLogger(logger_name)
+    original_level = logger.level
+    try:
+        if _logger.getEffectiveLevel() > threshold_level:
+            logger.setLevel(logging.WARNING)
+        yield
+    finally:
+        logger.setLevel(original_level)
+
 
 @experimental(version="3.4.0")
 class SIMBAAlignmentOptimizer(DSPyAlignmentOptimizer):
@@ -24,6 +47,16 @@ class SIMBAAlignmentOptimizer(DSPyAlignmentOptimizer):
 
     Uses DSPy's SIMBA algorithm to optimize judge prompts through
     bootstrap aggregation with simplified parametrization.
+
+    Note on Logging:
+        By default, SIMBA optimization suppresses DSPy's verbose output.
+        To see detailed optimization progress from DSPy, set the MLflow logger to DEBUG:
+
+        ```python
+        import logging
+
+        logging.getLogger("mlflow.genai.judges.optimizers.simba").setLevel(logging.DEBUG)
+        ```
     """
 
     # Class constants for default SIMBA parameters
@@ -68,13 +101,21 @@ class SIMBAAlignmentOptimizer(DSPyAlignmentOptimizer):
         Returns:
             Optimized DSPy program
         """
-        # Create SIMBA optimizer
-        optimizer = dspy.SIMBA(metric=metric_fn, bsize=self._get_batch_size())
+        with _suppress_verbose_logging("dspy.teleprompt.simba"):
+            # Create SIMBA optimizer (default max_steps=8)
+            optimizer = dspy.SIMBA(metric=metric_fn, bsize=self._get_batch_size())
 
-        # Compile with SIMBA-specific parameters
-        # SIMBA uses all examples as training data
-        return optimizer.compile(
-            student=program,
-            trainset=examples,
-            seed=self._seed,
-        )
+            _logger.info(
+                f"Starting SIMBA optimization with {len(examples)} examples "
+                f"(set logging to DEBUG for detailed output)"
+            )
+
+            # Compile with SIMBA-specific parameters
+            result = optimizer.compile(
+                student=program,
+                trainset=examples,
+                seed=self._seed,
+            )
+
+            _logger.info("SIMBA optimization completed")
+            return result
