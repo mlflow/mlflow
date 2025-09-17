@@ -98,6 +98,23 @@ def test_resolve_paths_with_real_git_repo_tracked_only(git_repo: Path) -> None:
     assert result == expected_paths
 
 
+def test_resolve_paths_with_real_git_repo_removed_tracked_file(git_repo: Path) -> None:
+    tracked1 = git_repo / "tracked1.py"
+    tracked2 = git_repo / "tracked2.md"
+    tracked1.write_text("# tracked file 1")
+    tracked2.write_text("# tracked file 2")
+
+    subprocess.check_call(["git", "add", "tracked1.py", "tracked2.md"])
+    subprocess.check_call(["git", "commit", "-m", "Add tracked files"])
+
+    tracked1.unlink()
+
+    result = resolve_paths([Path(".")])
+
+    expected_paths = [Path("tracked2.md")]
+    assert result == expected_paths
+
+
 def test_git_ls_files_success() -> None:
     mock_output = "file1.py\ndir/file2.md\nfile3.ipynb\n"
 
@@ -150,7 +167,10 @@ def test_git_ls_files_os_error() -> None:
 def test_resolve_paths_default_current_dir() -> None:
     mock_output = "file1.py\nfile2.md\n"
 
-    with patch("subprocess.check_output", return_value=mock_output) as mock_check_output:
+    with (
+        patch("subprocess.check_output", return_value=mock_output) as mock_check_output,
+        patch("pathlib.Path.exists", return_value=True),
+    ):
         result = resolve_paths([])
 
     mock_check_output.assert_called_once()
@@ -161,7 +181,10 @@ def test_resolve_paths_default_current_dir() -> None:
 def test_resolve_paths_filters_by_extension() -> None:
     mock_output = "file1.py\nfile2.md\nfile3.txt\nfile4.ipynb\nfile5.mdx\nfile6.js\nfile7.rst\n"
 
-    with patch("subprocess.check_output", return_value=mock_output) as mock_check_output:
+    with (
+        patch("subprocess.check_output", return_value=mock_output) as mock_check_output,
+        patch("pathlib.Path.exists", return_value=True),
+    ):
         result = resolve_paths([Path(".")])
 
     mock_check_output.assert_called_once()
@@ -178,7 +201,10 @@ def test_resolve_paths_filters_by_extension() -> None:
 def test_resolve_paths_case_insensitive_extensions() -> None:
     mock_output = "file1.PY\nfile2.MD\nfile3.IPYNB\nfile4.py\nfile5.RST\n"
 
-    with patch("subprocess.check_output", return_value=mock_output) as mock_check_output:
+    with (
+        patch("subprocess.check_output", return_value=mock_output) as mock_check_output,
+        patch("pathlib.Path.exists", return_value=True),
+    ):
         result = resolve_paths([Path(".")])
 
     mock_check_output.assert_called_once()
@@ -195,7 +221,10 @@ def test_resolve_paths_case_insensitive_extensions() -> None:
 def test_resolve_paths_returns_sorted_list() -> None:
     mock_output = "z_file.py\na_file.md\nm_file.ipynb\n"
 
-    with patch("subprocess.check_output", return_value=mock_output) as mock_check_output:
+    with (
+        patch("subprocess.check_output", return_value=mock_output) as mock_check_output,
+        patch("pathlib.Path.exists", return_value=True),
+    ):
         result = resolve_paths([Path(".")])
 
     mock_check_output.assert_called_once()
@@ -206,7 +235,10 @@ def test_resolve_paths_returns_sorted_list() -> None:
 def test_resolve_paths_deduplicates_results() -> None:
     mock_output = "file1.py\nfile1.py\nfile2.md\nfile2.md\n"
 
-    with patch("subprocess.check_output", return_value=mock_output) as mock_check_output:
+    with (
+        patch("subprocess.check_output", return_value=mock_output) as mock_check_output,
+        patch("pathlib.Path.exists", return_value=True),
+    ):
         result = resolve_paths([Path(".")])
 
     mock_check_output.assert_called_once()
@@ -217,7 +249,10 @@ def test_resolve_paths_deduplicates_results() -> None:
 def test_resolve_paths_with_multiple_pathspecs() -> None:
     mock_output = "dir1/file1.py\ndir2/file2.md\nfile3.ipynb\n"
 
-    with patch("subprocess.check_output", return_value=mock_output) as mock_check_output:
+    with (
+        patch("subprocess.check_output", return_value=mock_output) as mock_check_output,
+        patch("pathlib.Path.exists", return_value=True),
+    ):
         result = resolve_paths([Path("dir1"), Path("file3.ipynb")])
 
     mock_check_output.assert_called_once()
@@ -228,7 +263,10 @@ def test_resolve_paths_with_multiple_pathspecs() -> None:
 def test_resolve_paths_includes_rst_files() -> None:
     mock_output = "README.rst\ndocs/index.rst\nsetup.py\n"
 
-    with patch("subprocess.check_output", return_value=mock_output) as mock_check_output:
+    with (
+        patch("subprocess.check_output", return_value=mock_output) as mock_check_output,
+        patch("pathlib.Path.exists", return_value=True),
+    ):
         result = resolve_paths([Path(".")])
 
     mock_check_output.assert_called_once()
