@@ -701,9 +701,18 @@ def test_start_trace(monkeypatch):
     response.status_code = 200
     response.text = json.dumps({})
 
+    def mock_http_request(*args, **kwargs):
+        if kwargs.get("endpoint") == "/api/4.0/mlflow/traces":
+            raise MlflowException(
+                "Endpoint not found", error_code=databricks_pb2.ENDPOINT_NOT_FOUND
+            )
+        return response
+
     expected_request = StartTraceV3(trace=trace.to_proto())
 
-    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request", side_effect=mock_http_request
+    ) as mock_http:
         store.start_trace(trace.info)
         _verify_requests(
             mock_http,

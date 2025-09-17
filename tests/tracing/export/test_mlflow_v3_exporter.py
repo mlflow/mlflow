@@ -62,10 +62,9 @@ def test_export(is_async, monkeypatch):
     def mock_response(credentials, path, method, trace_json, *args, **kwargs):
         nonlocal trace_info
         trace_dict = json.loads(trace_json)
-        trace_proto = ParseDict(trace_dict["trace"], pb.Trace())
-        trace_info_proto = ParseDict(trace_dict["trace"]["trace_info"], pb.TraceInfoV3())
+        trace_info_proto = ParseDict(trace_dict["trace_info"], pb.TraceInfoV3())
         trace_info = TraceInfo.from_proto(trace_info_proto)
-        return pb.StartTraceV3.Response(trace=trace_proto)
+        return pb.CreateTrace.Response(trace_info=trace_info_proto)
 
     with (
         mock.patch(
@@ -86,7 +85,7 @@ def test_export(is_async, monkeypatch):
 
     # Access the trace that was passed to _start_trace
     endpoint = mock_call_endpoint.call_args.args[1]
-    assert endpoint == "/api/3.0/mlflow/traces"
+    assert endpoint == "/api/4.0/mlflow/traces"
     trace_data = mock_upload_trace_data.call_args.args[1]
 
     # Basic validation of the trace object

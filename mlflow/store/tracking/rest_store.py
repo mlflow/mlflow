@@ -124,6 +124,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
+from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
 from mlflow.tracing.utils import parse_trace_id_v4
 from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER, OTLP_TRACES_PATH
 from mlflow.utils.databricks_utils import databricks_api_disabled
@@ -504,12 +505,19 @@ class RestStore(AbstractStore):
         )
         return [Trace.from_proto_v4(proto) for proto in response_proto.traces]
 
-    def _construct_trace_identifier(self, trace_id: str) -> TraceIdentifier:
-        location, trace_id = parse_trace_id_v4(trace_id)
+    def _construct_trace_identifier(self, trace_identifier: str) -> TraceIdentifier:
+        location, trace_id = parse_trace_id_v4(trace_identifier)
+        # location is only None when trace_id does not starts with 'trace:/'
         if location is None or len(location.split(".")) != 2:
-            raise MlflowException.invalid_parameter_value(f"Invalid trace_id: {trace_id}")
+            return TraceIdentifier(trace_id=trace_id)
 
-        catalog, schema = location.split(".")
+        splits = location.split(".")
+        if len(splits) != 2:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid trace_id format: {trace_identifier}, should be in the format of "
+                f"{TRACE_ID_V4_PREFIX}<catalog.schema>/<trace_id>"
+            )
+        catalog, schema = splits
         return TraceIdentifier(
             uc_schema=UCSchemaLocation(catalog_name=catalog, schema_name=schema),
             trace_id=trace_id,

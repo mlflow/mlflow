@@ -14,6 +14,7 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.environment_variables import MLFLOW_SEARCH_TRACES_MAX_THREADS
 from mlflow.exceptions import (
     MlflowException,
+    MlflowNotImplementedException,
     MlflowTraceDataCorrupted,
     MlflowTraceDataException,
     MlflowTraceDataNotFound,
@@ -129,7 +130,7 @@ class TracingClient:
         """
         try:
             return self.store.get_traces([trace_id])[0]
-        except NotImplementedError:
+        except MlflowNotImplementedException:
             pass
         trace_info = self.get_trace_info(trace_id)
         try:
