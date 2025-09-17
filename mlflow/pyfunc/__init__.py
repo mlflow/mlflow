@@ -1917,7 +1917,7 @@ def _download_prebuilt_env_if_needed(prebuilt_env_uri):
     from mlflow.utils.file_utils import get_or_create_tmp_dir
 
     parsed_url = urlparse(prebuilt_env_uri)
-    if parsed_url.scheme == "" or parsed_url.scheme == "file":
+    if parsed_url.scheme in {"", "file"}:
         # local path
         return parsed_url.path
     if parsed_url.scheme == "dbfs":

@@ -625,7 +625,11 @@ export const getEvaluationResultTitle = (evaluation: RunEvaluationTracesDataEntr
     title = stringifyValue(evaluation.inputs);
   }
 
-  return title ?? evaluation.evaluationId;
+  if (isNil(title) || title === '') {
+    title = evaluation.evaluationId;
+  }
+
+  return title;
 };
 
 /**

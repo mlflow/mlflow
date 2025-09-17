@@ -1,4 +1,4 @@
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -97,7 +97,7 @@ def test_judge_align_method():
     optimizer.align = Mock(return_value=MockJudge(name="test_judge_aligned"))
     traces = create_mock_traces()
 
-    optimized = judge.align(optimizer, traces)
+    optimized = judge.align(traces, optimizer=optimizer)
 
     # Verify the result
     assert isinstance(optimized, Judge)
@@ -118,8 +118,26 @@ def test_judge_align_method_delegation():
 
     traces = create_mock_traces()
 
-    result = judge.align(optimizer, traces)
+    result = judge.align(traces, optimizer=optimizer)
 
     # Verify delegation
     optimizer.align.assert_called_once_with(judge, traces)
+    assert result is expected_result
+
+
+def test_judge_align_with_default_optimizer():
+    """Test that Judge.align uses default SIMBA optimizer when optimizer=None."""
+    judge = MockJudge()
+    traces = create_mock_traces()
+
+    # Mock the get_default_optimizer function to return our mock
+    expected_result = MockJudge(name="aligned_with_default")
+    mock_optimizer = Mock(spec=AlignmentOptimizer)
+    mock_optimizer.align.return_value = expected_result
+
+    with patch("mlflow.genai.judges.base.get_default_optimizer", return_value=mock_optimizer):
+        result = judge.align(traces)
+
+    # Verify delegation to default optimizer
+    mock_optimizer.align.assert_called_once_with(judge, traces)
     assert result is expected_result

@@ -12,8 +12,7 @@ try:
     import dspy
 except ImportError:
     raise MlflowException(
-        "DSPy library is required but not installed. "
-        "Please install it with: pip install 'mlflow[genai-dspy]'",
+        "DSPy library is required but not installed. Please install it with: pip install dspy",
         error_code=INTERNAL_ERROR,
     )
 
