@@ -8,11 +8,12 @@ import { APILink } from "@site/src/components/APILink";
 # Optimize Prompts (Experimental)
 
 MLflow allows you to plug your prompts into advanced prompt optimization techniques through MLflow's unified interface using the <APILink fn="mlflow.genai.optimize_prompt" /> API.
-This feature helps you improve your prompts automatically by leveraging evaluation metrics and labeled data. Currently, [DSPy's MIPROv2 algorithm](https://dspy.ai/api/optimizers/MIPROv2/) is supported by this API.
+This feature helps you improve your prompts automatically by leveraging evaluation metrics and labeled data. MLflow provides built-in support for optimization algorithms such as [DSPy's MIPROv2 algorithm](https://dspy.ai/api/optimizers/MIPROv2/). You can also implement custom optimization algorithms by extending MLflow's base optimizer class <APILink fn="mlflow.genai.optimize.BasePromptOptimizer" >BasePromptOptimizer</APILink>.
 
 :::tip Key Benefits
 
 - **Unified Interface**: Access to the state-of-the-art prompt optimization algorithms through a neutral interface.
+- **Extensible**: Create custom optimization algorithms by extending base optimizer classes.
 - **Prompt Management**: Integrate with MLflow Prompt Registry to gain reusability, version control and lineage.
 - **Evaluation**: Evaluate prompt performance comprehensively with MLflow's evaluation features.
 
@@ -22,11 +23,46 @@ This feature helps you improve your prompts automatically by leveraging evaluati
 
 In order to use <APILink fn="mlflow.genai.optimize_prompt" /> API, you need to prepare the following:
 
-| Component                      | Definition                                                                                                                                                                               | Example                                                                                                                                           |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Registered Prompt**          | A prompt registered in MLflow. See [Prompt Management](/genai/prompt-registry/) for how to register a prompt.                                                                            | <pre><code>mlflow.register_prompt(name="qa", template="Answer \{\{question\}\}")</code></pre>                                                     |
-| **Scorer Objects**             | A set of <APILink fn="mlflow.genai.Scorer">Scorer</APILink> objects that evaluate the quality of the prompt. See <APILink fn="mlflow.genai.scorer" /> for how to define a custom scorer. | <pre><code>@scorer<br/>def exact_match(expectations: dict, outputs: dict)<br/> return expectations == outputs</code></pre>                        |
-| **Training(+Validation) Data** | A set of training data and optionally validation data containing inputs and expected outputs.                                                                                            | \[\{"inputs": \{"question": "2+2"\}, "expectations": \{"answer": "4"\}}, \{"inputs": \{"question": "2+3"\}, "expectations": \{"answer": "5"\}\}\] |
+<table style={{ width: "100%" }}>
+  <thead>
+    <tr>
+      <th style={{ width: "30%" }}>Component</th>
+      <th style={{ width: "70%" }}>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Prompt</strong><br/><small>Registered in MLflow</small></td>
+      <td>
+        <pre><code>mlflow.register_prompt(name="qa", template="Answer \{\{question\}\}")</code></pre>
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Scorer</strong><br/><small>Evaluates prompt quality</small></td>
+      <td>
+        <pre><code>@scorer<br/>def exact_match(expectations, outputs):<br/>    return expectations == outputs</code></pre>
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Data</strong><br/><small>Inputs &amp; expectations</small></td>
+      <td>
+        <pre><code>\[<br/>  \{"inputs": \{"question": "2+2"\}, "expectations": \{"answer": "4"\}},<br/>  \{"inputs": \{"question": "2+3"\}, "expectations": \{"answer": "5"\}\}<br/>\]</code></pre>
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Target LLM</strong><br/><small>Model to optimize for</small></td>
+      <td>
+        <pre><code>LLMParams(model_name="openai/gpt-4.1-mini")</code></pre>
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Optimizer Config</strong><br/><small>Optimization settings</small></td>
+      <td>
+        <pre><code>OptimizerConfig(<br/>  algorithm="DSPy/MIPROv2",<br/>  num_instruction_candidates=6,<br/>  max_few_show_examples=2<br/>)</code></pre>
+      </td>
+    </tr>
+  </tbody>
+</table>
 
 ## Getting Started
 
@@ -169,13 +205,123 @@ def predict(question: str, prompt_uri: str) -> str:
 
 You can customize the optimization process using `OptimizerConfig`, which includes the following parameters:
 
+- **algorithm**: The optimization algorithm to use. Can be a string (e.g., "DSPy/MIPROv2") or a custom optimizer class. Default: "DSPy/MIPROv2"
 - **num_instruction_candidates**: The number of candidate instructions to try. Default: 6
 - **max_few_show_examples**: The maximum number of examples to show in few-shot demonstrations. Default: 6
 - **optimizer_llm**: The LLM to use for optimization. Default: None (uses target LLM)
+- **extract_instructions**: Whether to extract instructions from the initial prompt template. Default: True
 - **verbose**: Whether to show optimizer logs during optimization. Default: False
 - **autolog**: Whether to log the optimization parameters, datasets and metrics. If set to True, a MLflow run is automatically created to store them. Default: False
 
 See <APILink fn="mlflow.genai.OptimizerConfig" /> for more details.
+
+## Custom Optimizers
+
+MLflow supports creating custom prompt optimization algorithms by extending the base optimizer classes. This allows you to implement domain-specific optimization strategies or integrate with other optimization libraries.
+
+### BasePromptOptimizer
+
+For custom optimization logic, extend the <APILink fn="mlflow.genai.optimize.BasePromptOptimizer" >BasePromptOptimizer</APILink> class:
+
+```python
+from mlflow.genai.optimize import BasePromptOptimizer, OptimizerConfig, OptimizerOutput
+from mlflow.genai.optimize.types import LLMParams
+from mlflow.entities.model_registry import PromptVersion
+from mlflow.genai.scorers import Scorer
+from typing import Optional, Callable, Any
+import pandas as pd
+
+
+class CustomOptimizer(BasePromptOptimizer):
+    # Inherit the BasePromptOptimizer class and implement the `optimize` method.
+    def optimize(
+        self,
+        prompt: PromptVersion,
+        target_llm_params: LLMParams,
+        train_data: pd.DataFrame,
+        scorers: list[Scorer],
+        objective: Optional[Callable[[dict[str, Any]], float]] = None,
+        eval_data: Optional[pd.DataFrame] = None,
+    ) -> OptimizerOutput:
+        # Implement your custom optimization logic here
+
+        optimized_template = f"Please answer accurately: {prompt.template}"
+
+        return OptimizerOutput(
+            optimized_prompt=optimized_template,
+            optimizer_name="CustomOptimizer",
+            final_eval_score=0.85,
+            initial_eval_score=0.75,
+        )
+
+
+# Use the custom optimizer
+result = mlflow.genai.optimize_prompt(
+    target_llm_params=LLMParams(model_name="openai/gpt-4o-mini"),
+    prompt=prompt,
+    train_data=train_data,
+    scorers=[exact_match],
+    optimizer_config=OptimizerConfig(algorithm=CustomOptimizer),
+)
+```
+
+### DSPyPromptOptimizer
+
+For DSPy-based optimizations, extend the <APILink fn="mlflow.genai.optimize.DSPyPromptOptimizer" >DSPyPromptOptimizer</APILink> class, which provides DSPy integration infrastructure:
+
+```python
+import dspy
+from typing import Callable
+from mlflow.genai.optimize import (
+    DSPyPromptOptimizer,
+    OptimizerOutput,
+    format_dspy_prompt,
+)
+from mlflow.entities.model_registry import PromptVersion
+
+
+class CustomDSPyOptimizer(DSPyPromptOptimizer):
+    # Inherit the DSPyPromptOptimizer class and implement the `run_optimization` method.
+    def run_optimization(
+        self,
+        prompt: PromptVersion,
+        program: dspy.Module,
+        metric: Callable[[dspy.Example], float],
+        train_data: list,
+        eval_data: list,
+    ) -> OptimizerOutput:
+        # Use DSPy's optimization components with your custom logic
+        # Example using DSPy's BootstrapFewShot optimizer
+        optimizer = dspy.BootstrapFewShot(
+            metric=metric,
+            max_bootstrapped_demos=self.optimizer_config.max_few_show_examples,
+        )
+
+        # Compile the program
+        compiled_program = optimizer.compile(
+            student=program,
+            trainset=train_data,
+        )
+
+        return OptimizerOutput(
+            optimized_prompt=format_dspy_prompt(compiled_program),
+            optimizer_name="BootstrapFewShot",
+        )
+
+
+# Use the custom DSPy optimizer
+result = mlflow.genai.optimize_prompt(
+    target_llm_params=LLMParams(model_name="openai/gpt-4o-mini"),
+    prompt=prompt,
+    train_data=train_data,
+    scorers=[exact_match],
+    optimizer_config=OptimizerConfig(algorithm=CustomDSPyOptimizer),
+)
+```
+
+:::note
+When using custom optimizers, ensure they return an `OptimizerOutput` object with the optimized prompt and evaluation scores.
+:::
 
 ## Performance Benchmarks
 
@@ -290,3 +436,12 @@ result = mlflow.genai.optimize_prompt(
     objective=objective,
 )
 ```
+
+### How to create custom optimizers?
+
+MLflow provides two base classes for creating custom optimizers:
+
+1. **<APILink fn="mlflow.genai.optimize.BasePromptOptimizer" >BasePromptOptimizer</APILink>**: For custom optimization logic. In order to customize, you must implement your own `optimize` method.
+2. **<APILink fn="mlflow.genai.optimize.DSPyPromptOptimizer" >DSPyPromptOptimizer</APILink>**: For DSPy-based optimizations. Customization of this optimizer involves building a`run_optimization` method. MLflow will handle the required DSPy setup for utilizing your custom interface.
+
+Choose <APILink fn="mlflow.genai.optimize.BasePromptOptimizer" >BasePromptOptimizer</APILink> when you want complete control over the optimization process, or <APILink fn="mlflow.genai.optimize.DSPyPromptOptimizer" >DSPyPromptOptimizer</APILink> when you want to leverage DSPy's ecosystem while customizing the optimization strategy.

@@ -4,7 +4,7 @@ import { useQuery } from '@databricks/web-shared/query-client';
 
 import { ErrorCell } from './ErrorCell';
 import { NullCell } from './NullCell';
-import { makeRequest } from '../utils/FetchUtils';
+import { getAjaxUrl, makeRequest } from '../utils/FetchUtils';
 import MlflowUtils from '../utils/MlflowUtils';
 import { Link } from '../utils/RoutingUtils';
 
@@ -63,8 +63,9 @@ const useRunName = (experimentId: string, runUuid: string) => {
     refetchOnMount: false,
     queryFn: async () => {
       const filter = `run_id IN ('${runUuid}')`;
+      const url = getAjaxUrl('ajax-api/2.0/mlflow/runs/search');
 
-      const res: RunNameResponse = await makeRequest('/ajax-api/2.0/mlflow/databricks/runs/search', 'POST', {
+      const res: RunNameResponse = await makeRequest(url, 'POST', {
         experiment_ids: [experimentId],
         filter,
       });

@@ -36,6 +36,43 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: 'Concepts',
+      className: 'sidebar-top-level-category',
+      items: [
+        {
+          type: 'doc',
+          id: 'concepts/trace',
+          label: 'Trace',
+        },
+        {
+          type: 'doc',
+          id: 'concepts/span',
+          label: 'Span',
+        },
+        {
+          type: 'doc',
+          id: 'concepts/feedback',
+          label: 'Feedback',
+        },
+        {
+          type: 'doc',
+          id: 'concepts/expectations',
+          label: 'Expectations',
+        },
+        {
+          type: 'doc',
+          id: 'concepts/scorers',
+          label: 'Scorers',
+        },
+        {
+          type: 'doc',
+          id: 'concepts/evaluation-datasets',
+          label: 'Evaluation Datasets',
+        },
+      ],
+    },
+    {
+      type: 'category',
       label: 'Getting Started',
       className: 'sidebar-top-level-category',
       items: [
@@ -49,14 +86,14 @@ const sidebarsGenAI: SidebarsConfig = {
           label: 'Connect to MLflow',
         },
         {
-          type: 'link',
-          href: 'https://docs.databricks.com/aws/en/mlflow3/genai/getting-started/eval.html',
-          label: 'Evaluate your GenAI App',
+          type: 'doc',
+          id: 'eval-monitor/quickstart',
+          label: 'Evaluate LLMs and Agents',
         },
         {
           type: 'link',
           href: '/genai/tracing/quickstart/python-openai',
-          label: 'Tracing',
+          label: 'Tracing GenAI Apps',
         },
       ],
       link: {
@@ -124,32 +161,6 @@ const sidebarsGenAI: SidebarsConfig = {
             type: 'doc',
             id: 'tracing/integrations/index',
           },
-        },
-        {
-          type: 'category',
-          label: 'Concepts',
-          items: [
-            {
-              type: 'doc',
-              id: 'tracing/concepts/trace',
-              label: 'Trace',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/concepts/span',
-              label: 'Span',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/concepts/feedback',
-              label: 'Feedback',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/concepts/expectations',
-              label: 'Expectations',
-            },
-          ],
         },
         {
           type: 'category',
@@ -233,50 +244,175 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Evaluate & Monitor',
+      label: 'MCP',
       className: 'sidebar-top-level-category',
       items: [
         {
           type: 'doc',
+          id: 'mcp/index',
+        },
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Evaluate & Monitor',
+      className: 'sidebar-top-level-category',
+      items: [
+        {
+          type: 'category',
+          label: 'Evaluation Datasets',
+          items: [
+            {
+              type: 'doc',
+              id: 'datasets/end-to-end-workflow',
+              label: 'End-to-End Workflow',
+            },
+            {
+              type: 'doc',
+              id: 'datasets/sdk-guide',
+              label: 'SDK Guide',
+            },
+          ],
+          link: {
+            type: 'doc',
+            id: 'datasets/index',
+          },
+        },
+        {
+          type: 'doc',
+          id: 'eval-monitor/quickstart',
+          label: 'Quickstart',
+        },
+        {
+          type: 'category',
+          label: 'Running Evaluations',
+          items: [
+            {
+              type: 'doc',
+              id: 'eval-monitor/running-evaluation/prompts',
+              label: 'Evaluate Prompts',
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/running-evaluation/agents',
+              label: 'Evaluate Agents',
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/running-evaluation/traces',
+              label: 'Evaluate Traces',
+            },
+          ],
+          collapsed: false,
+        },
+        {
+          type: 'category',
+          label: 'Scorers',
+          items: [
+            {
+              type: 'doc',
+              id: 'eval-monitor/scorers/index',
+              label: 'What is a Scorer?',
+            },
+            {
+              type: 'category',
+              label: 'LLM-based Scorers',
+              items: [
+                {
+                  type: 'category',
+                  label: 'Custom LLM Judges',
+                  items: [
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/make-judge',
+                      label: 'Getting Started with make_judge',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/workflow',
+                      label: 'Development Workflow',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/alignment',
+                      label: 'Human Feedback Alignment',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/datasets',
+                      label: 'Dataset Integration',
+                    },
+                  ],
+                },
+                {
+                  type: 'category',
+                  label: 'Agent-based Scorers (Agent-as-a-Judge)',
+                  items: [
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/agentic-overview',
+                      label: 'Overview',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/trace-analysis',
+                      label: 'Trace Analysis with Tools',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/agent-behavior-patterns',
+                      label: 'Evaluating Agent Behavior',
+                    },
+                  ],
+                },
+                {
+                  type: 'category',
+                  label: 'Other Approaches',
+                  items: [
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/guidelines',
+                      label: 'Guidelines-based',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/predefined',
+                      label: 'Predefined Scorers',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/prompt',
+                      label: 'Custom Prompts',
+                    },
+                  ],
+                },
+              ],
+              link: {
+                type: 'doc',
+                id: 'eval-monitor/scorers/llm-judge/index',
+              },
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/scorers/custom',
+              label: 'Code-based Scorers',
+            },
+          ],
+        },
+        {
+          type: 'doc',
           id: 'assessments/feedback',
-          label: 'Feedback Collection',
+          label: 'Human Feedback',
         },
         {
           type: 'doc',
           id: 'assessments/expectations',
-          label: 'Ground Truth Expectations',
+          label: 'Annotating Ground Truth',
         },
         {
           type: 'doc',
-          id: 'eval-monitor/llm-evaluation',
-          label: 'LLM Evaluation',
-        },
-        {
-          type: 'link',
-          href: 'https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/',
-          label: '🆕 GenAI Evaluation Suite (Managed-Only)',
-        },
-        {
-          type: 'category',
-          label: 'Notebooks',
-          items: [
-            {
-              type: 'doc',
-              id: 'eval-monitor/notebooks/huggingface-evaluation-ipynb',
-            },
-            {
-              type: 'doc',
-              id: 'eval-monitor/notebooks/question-answering-evaluation-ipynb',
-            },
-            {
-              type: 'doc',
-              id: 'eval-monitor/notebooks/rag-evaluation-ipynb',
-            },
-            {
-              type: 'doc',
-              id: 'eval-monitor/notebooks/rag-evaluation-llama2-ipynb',
-            },
-          ],
+          id: 'eval-monitor/legacy-llm-evaluation',
+          label: 'LLM Evaluation (Legacy)',
         },
       ],
       link: {
@@ -608,52 +744,6 @@ const sidebarsGenAI: SidebarsConfig = {
       link: {
         type: 'doc',
         id: 'governance/ai-gateway/index',
-      },
-    },
-    {
-      type: 'category',
-      label: 'Data Model',
-      className: 'sidebar-top-level-category',
-      items: [
-        {
-          type: 'doc',
-          id: 'data-model/experiments',
-          label: 'Experiments',
-        },
-        {
-          type: 'doc',
-          id: 'data-model/logged-model',
-          label: 'Logged Model',
-        },
-        {
-          type: 'doc',
-          id: 'data-model/runs',
-          label: 'Runs',
-        },
-        {
-          type: 'doc',
-          id: 'data-model/traces',
-          label: 'Traces',
-        },
-        {
-          type: 'doc',
-          id: 'data-model/prompts',
-          label: 'Prompts',
-        },
-        {
-          type: 'doc',
-          id: 'data-model/app-versions',
-          label: 'Version Tracking',
-        },
-        {
-          type: 'doc',
-          id: 'data-model/model-registry',
-          label: 'Model Registry',
-        },
-      ],
-      link: {
-        type: 'doc',
-        id: 'data-model/index',
       },
     },
   ],

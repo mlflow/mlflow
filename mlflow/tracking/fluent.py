@@ -45,6 +45,8 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.telemetry.events import AutologgingEvent
+from mlflow.telemetry.track import _record_event
 from mlflow.tracing.provider import _get_trace_exporter
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
@@ -2150,6 +2152,27 @@ def initialize_logged_model(
     Returns:
         A new :py:class:`mlflow.entities.LoggedModel` object with status ``PENDING``.
     """
+    return _initialize_logged_model(
+        name=name,
+        source_run_id=source_run_id,
+        tags=tags,
+        params=params,
+        model_type=model_type,
+        experiment_id=experiment_id,
+        flavor="initialize",
+    )
+
+
+def _initialize_logged_model(
+    name: str | None = None,
+    source_run_id: str | None = None,
+    tags: dict[str, str] | None = None,
+    params: dict[str, str] | None = None,
+    model_type: str | None = None,
+    experiment_id: str | None = None,
+    # this is only for internal logging purpose
+    flavor: str | None = None,
+) -> LoggedModel:
     model = _create_logged_model(
         name=name,
         source_run_id=source_run_id,
@@ -2157,6 +2180,7 @@ def initialize_logged_model(
         params=params,
         model_type=model_type,
         experiment_id=experiment_id,
+        flavor=flavor,
     )
     _last_logged_model_id.set(model.model_id)
     return model
@@ -2221,6 +2245,7 @@ def create_external_model(
         params=params,
         model_type=model_type,
         experiment_id=experiment_id,
+        flavor="external",
     )
 
     # If a model is external, its artifacts (code, weights, etc.) are not stored in MLflow.
@@ -3183,6 +3208,7 @@ def autolog(
 
     GENAI_LIBRARY_TO_AUTOLOG_MODULE = {
         "autogen": "mlflow.ag2",
+        "agno": "mlflow.agno",
         "anthropic": "mlflow.anthropic",
         "autogen_agentchat": "mlflow.autogen",
         "openai": "mlflow.openai",
@@ -3195,6 +3221,8 @@ def autolog(
         "crewai": "mlflow.crewai",
         "smolagents": "mlflow.smolagents",
         "groq": "mlflow.groq",
+        "strands": "mlflow.strands",
+        "haystack": "mlflow.haystack",
         "boto3": "mlflow.bedrock",
         "mistralai": "mlflow.mistral",
         "pydantic_ai": "mlflow.pydantic_ai",
@@ -3290,6 +3318,8 @@ def autolog(
             register_post_import_hook(setup_autologging, "pyspark", overwrite=True)
         if "pyspark.ml" in target_library_and_module:
             register_post_import_hook(setup_autologging, "pyspark.ml", overwrite=True)
+
+    _record_event(AutologgingEvent, {"flavor": "all", "log_traces": log_traces, "disable": disable})
 
 
 _active_model_id_env_lock = threading.Lock()

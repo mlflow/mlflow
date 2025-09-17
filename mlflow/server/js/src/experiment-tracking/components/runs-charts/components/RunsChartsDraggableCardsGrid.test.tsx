@@ -3,27 +3,25 @@ import { RunsChartsDraggableCardsGridSection } from './RunsChartsDraggableCardsG
 import { noop } from 'lodash';
 import { MockedReduxStoreProvider } from '../../../../common/utils/TestUtils';
 import { IntlProvider } from 'react-intl';
-import {
+import type {
   RunsChartsBarCardConfig,
   RunsChartsContourCardConfig,
   RunsChartsLineCardConfig,
   RunsChartsParallelCardConfig,
   RunsChartsScatterCardConfig,
-  RunsChartType,
 } from '../runs-charts.types';
+import { RunsChartType } from '../runs-charts.types';
 import { RunsChartsTooltipWrapper } from '../hooks/useRunsChartsTooltip';
 import { useCallback, useState } from 'react';
-import {
-  createExperimentPageUIState,
+import type {
   ExperimentPageUIState,
   ExperimentRunsChartsUIConfiguration,
 } from '../../experiment-page/models/ExperimentPageUIState';
-import {
-  RunsChartsUIConfigurationContextProvider,
-  RunsChartsUIConfigurationSetter,
-} from '../hooks/useRunsChartsUIConfiguration';
+import { createExperimentPageUIState } from '../../experiment-page/models/ExperimentPageUIState';
+import type { RunsChartsUIConfigurationSetter } from '../hooks/useRunsChartsUIConfiguration';
+import { RunsChartsUIConfigurationContextProvider } from '../hooks/useRunsChartsUIConfiguration';
 import { RunsChartsDraggableCardsGridContextProvider } from './RunsChartsDraggableCardsGridContext';
-import { ChartSectionConfig } from '../../../types';
+import type { ChartSectionConfig } from '../../../types';
 import { Checkbox } from '@databricks/design-system';
 import userEvent from '@testing-library/user-event';
 import { TestApolloProvider } from '../../../../common/utils/TestApolloProvider';
@@ -40,6 +38,7 @@ jest.mock('../hooks/useIsInViewport', () => ({
   useIsInViewport: () => ({ isInViewport: true, setElementRef: jest.fn() }),
 }));
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(60000); // Larger timeout for integration testing (drag and drop simlation)
 
 describe('RunsChartsDraggableCardsGrid', () => {

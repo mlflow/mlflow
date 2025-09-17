@@ -7,11 +7,6 @@ import {
 } from './ExperimentLoggedModelListPageTable.utils';
 import type { LoggedModelDataWithSourceRun } from './ExperimentLoggedModelListPageTable.utils';
 import type { RunEntity } from '../../types';
-import { shouldEnableLoggedModelsGrouping } from '../../../common/utils/FeatureUtils';
-
-jest.mock('../../../common/utils/FeatureUtils', () => ({
-  shouldEnableLoggedModelsGrouping: jest.fn(() => true),
-}));
 
 describe('ExperimentLoggedModelListPageTable.utils', () => {
   describe('useLoggedModelTableDataRows', () => {

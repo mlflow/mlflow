@@ -1,6 +1,7 @@
-import { useQuery, QueryFunctionContext } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import type { QueryFunctionContext } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { useCallback, useRef, useState } from 'react';
-import { RegisteredPromptsListResponse } from '../types';
+import type { RegisteredPromptsListResponse } from '../types';
 import { RegisteredPromptsApi } from '../api';
 
 const queryFn = ({ queryKey }: QueryFunctionContext<PromptsListQueryKey>) => {

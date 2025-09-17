@@ -1,0 +1,8 @@
+FROM python:3.10-slim
+
+WORKDIR /mlflow
+
+# Copy only necessary files to compile protos
+COPY mlflow/protos ./mlflow/protos/
+COPY dev/generate_protos.py ./dev/generate_protos.py
+COPY tests/protos ./tests/protos/

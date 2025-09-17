@@ -6,6 +6,7 @@ import { CardGroup, TitleCard } from "@site/src/components/Card";
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
 import ConceptOverview from "@site/src/components/ConceptOverview";
 import WorkflowSteps from "@site/src/components/WorkflowSteps";
+import CollapsibleSection from "@site/src/components/CollapsibleSection";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import ImageBox from "@site/src/components/ImageBox";
@@ -25,7 +26,7 @@ For complete API documentation and implementation details, see the <APILink fn="
 
 ## What is Feedback?
 
-[Feedback](/genai/tracing/concepts/feedback) captures evaluations of how well your AI performed. It measures the actual quality of what your AI produced across various dimensions like accuracy, relevance, safety, and helpfulness. Unlike [expectations](/genai/assessments/expectations) that define what should happen, feedback tells you what actually happened and how well it met your quality standards.
+[Feedback](/genai/concepts/feedback) captures evaluations of how well your AI performed. It measures the actual quality of what your AI produced across various dimensions like accuracy, relevance, safety, and helpfulness. Unlike [expectations](/genai/assessments/expectations) that define what should happen, feedback tells you what actually happened and how well it met your quality standards.
 
 ## Prerequisites
 
@@ -119,54 +120,59 @@ The MLflow UI provides an intuitive way to add, edit, and manage feedback direct
 
 #### Adding New Feedback
 
-<WorkflowSteps
-  steps={[
-    {
-      icon: MousePointer,
-      title: "Navigate to your experiment",
-      description: "Select the trace containing the AI response you want to evaluate"
-    },
-    {
-      icon: Plus,
-      title: "Click \"Add Assessment\" button",
-      description: "Access the feedback creation form on the trace detail page"
-    },
-    {
-      icon: ListCheck,
-      title: "Select \"Feedback\" from the Assessment Type dropdown",
-      description: "Choose Assessment Type to evaluate quality rather than define expectations"
-    },
-    {
-      icon: Type,
-      title: "Enter a descriptive name",
-      description: "Use clear names like \"response_helpfulness\", \"accuracy_rating\", or \"content_safety\""
-    },
-    {
-      icon: Settings,
-      title: "Choose the appropriate data type",
-      description: "Select Boolean for pass/fail, Number for ratings, String for categories"
-    },
-    {
-      icon: FileInput,
-      title: "Enter your evaluation value",
-      description: "Provide rating from 1-5, True/False, or descriptive assessment text"
-    },
-    {
-      icon: MessageSquare,
-      title: "Add rationale explaining your evaluation reasoning",
-      description: "Document why you gave this assessment for future reference and improvement"
-    },
-    {
-      icon: Target,
-      title: "Click \"Create\" to record your feedback",
-      description: "Save your evaluation to build quality insights over time"
-    }
-  ]}
-  screenshot={{
-    src: AddFeedbackImageUrl,
-    alt: "Add Feedback"
-  }}
-/>
+<CollapsibleSection
+  title="Show Step-by-Step Instructions (8 steps)"
+  defaultExpanded={false}
+>
+  <WorkflowSteps
+    steps={[
+      {
+        icon: MousePointer,
+        title: "Navigate to your experiment",
+        description: "Select the trace containing the AI response you want to evaluate"
+      },
+      {
+        icon: Plus,
+        title: "Click \"Add Assessment\" button",
+        description: "Access the feedback creation form on the trace detail page"
+      },
+      {
+        icon: ListCheck,
+        title: "Select \"Feedback\" from the Assessment Type dropdown",
+        description: "Choose Assessment Type to evaluate quality rather than define expectations"
+      },
+      {
+        icon: Type,
+        title: "Enter a descriptive name",
+        description: "Use clear names like \"response_helpfulness\", \"accuracy_rating\", or \"content_safety\""
+      },
+      {
+        icon: Settings,
+        title: "Choose the appropriate data type",
+        description: "Select Boolean for pass/fail, Number for ratings, String for categories"
+      },
+      {
+        icon: FileInput,
+        title: "Enter your evaluation value",
+        description: "Provide rating from 1-5, True/False, or descriptive assessment text"
+      },
+      {
+        icon: MessageSquare,
+        title: "Add rationale explaining your evaluation reasoning",
+        description: "Document why you gave this assessment for future reference and improvement"
+      },
+      {
+        icon: Target,
+        title: "Click \"Create\" to record your feedback",
+        description: "Save your evaluation to build quality insights over time"
+      }
+    ]}
+    screenshot={{
+      src: AddFeedbackImageUrl,
+      alt: "Add Feedback"
+    }}
+  />
+</CollapsibleSection>
 
 The feedback will be immediately attached to the trace with your user information as the source.
 
@@ -174,72 +180,82 @@ The feedback will be immediately attached to the trace with your user informatio
 
 To refine evaluations or correct mistakes:
 
-<WorkflowSteps
-  steps={[
-    {
-      icon: Search,
-      title: "Locate the feedback entry you want to modify",
-      description: "Find the specific feedback on the trace detail page that needs updating"
-    },
-    {
-      icon: MoreVertical,
-      title: "Click the hamburger menu (⋮) next to the feedback entry",
-      description: "Access the feedback options dropdown menu"
-    },
-    {
-      icon: Edit,
-      title: "Select \"Edit\" from the dropdown menu",
-      description: "Choose the edit option to access the feedback modification form"
-    },
-    {
-      icon: Settings,
-      title: "Modify the value, rationale, or other fields",
-      description: "Update rating, explanation, or other feedback details as needed"
-    },
-    {
-      icon: Save,
-      title: "Click \"Save\" to update the feedback",
-      description: "Save your changes to preserve the updated evaluation, or click \"Cancel\" to discard changes"
-    }
-  ]}
-  screenshot={{
-    src: EditFeedbackImageUrl,
-    alt: "Edit Feedback"
-  }}
-/>
+<CollapsibleSection
+  title="Show Step-by-Step Instructions (5 steps)"
+  defaultExpanded={false}
+>
+  <WorkflowSteps
+    steps={[
+      {
+        icon: Search,
+        title: "Locate the feedback entry you want to modify",
+        description: "Find the specific feedback on the trace detail page that needs updating"
+      },
+      {
+        icon: MoreVertical,
+        title: "Click the hamburger menu (⋮) next to the feedback entry",
+        description: "Access the feedback options dropdown menu"
+      },
+      {
+        icon: Edit,
+        title: "Select \"Edit\" from the dropdown menu",
+        description: "Choose the edit option to access the feedback modification form"
+      },
+      {
+        icon: Settings,
+        title: "Modify the value, rationale, or other fields",
+        description: "Update rating, explanation, or other feedback details as needed"
+      },
+      {
+        icon: Save,
+        title: "Click \"Save\" to update the feedback",
+        description: "Save your changes to preserve the updated evaluation, or click \"Cancel\" to discard changes"
+      }
+    ]}
+    screenshot={{
+      src: EditFeedbackImageUrl,
+      alt: "Edit Feedback"
+    }}
+  />
+</CollapsibleSection>
 
 #### Adding Additional Feedback to Existing Entries
 
 When multiple reviewers want to provide feedback on the same aspect, or when you want to add corrections to automated evaluations:
 
-<WorkflowSteps
-  steps={[
-    {
-      icon: Search,
-      title: "Find the existing feedback name you want to add to",
-      description: "Locate the feedback category where you want to add another perspective"
-    },
-    {
-      icon: Plus,
-      title: "Click the plus (+) icon next to the feedback name",
-      description: "Access the additional feedback form for the same quality aspect"
-    },
-    {
-      icon: FileInput,
-      title: "Enter your additional evaluation with appropriate rationale",
-      description: "Provide your assessment and explanation from your perspective"
-    },
-    {
-      icon: Save,
-      title: "Click \"Create\" to add your feedback alongside existing entries",
-      description: "Your evaluation will be added to the collection of perspectives, or click \"Cancel\" to discard"
-    }
-  ]}
-  screenshot={{
-    src: AdditionalFeedbackImageUrl,
-    alt: "Additional Feedback"
-  }}
-/>
+<CollapsibleSection
+  title="Show Step-by-Step Instructions (4 steps)"
+  defaultExpanded={false}
+>
+  <WorkflowSteps
+    steps={[
+      {
+        icon: Search,
+        title: "Find the existing feedback name you want to add to",
+        description: "Locate the feedback category where you want to add another perspective"
+      },
+      {
+        icon: Plus,
+        title: "Click the plus (+) icon next to the feedback name",
+        description: "Access the additional feedback form for the same quality aspect"
+      },
+      {
+        icon: FileInput,
+        title: "Enter your additional evaluation with appropriate rationale",
+        description: "Provide your assessment and explanation from your perspective"
+      },
+      {
+        icon: Save,
+        title: "Click \"Create\" to add your feedback alongside existing entries",
+        description: "Your evaluation will be added to the collection of perspectives, or click \"Cancel\" to discard"
+      }
+    ]}
+    screenshot={{
+      src: AdditionalFeedbackImageUrl,
+      alt: "Additional Feedback"
+    }}
+  />
+</CollapsibleSection>
 
 This collaborative approach enables multiple perspectives on the same trace aspect, creating richer evaluation datasets and helping identify cases where evaluators disagree.
 
@@ -585,7 +601,7 @@ mlflow.log_feedback(
     iconSize={48}
     title="Feedback Concepts"
     description="Deep dive into feedback architecture and schema"
-    href="/genai/tracing/concepts/feedback"
+    href="/genai/concepts/feedback"
     linkText="Learn concepts →"
     containerHeight={64}
   />
@@ -603,7 +619,7 @@ mlflow.log_feedback(
     iconSize={48}
     title="LLM Evaluation"
     description="Learn how to systematically evaluate and improve your GenAI applications"
-    href="/genai/eval-monitor/llm-evaluation"
+    href="/genai/eval-monitor"
     linkText="Start evaluating →"
     containerHeight={64}
   />

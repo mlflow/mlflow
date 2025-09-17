@@ -1,10 +1,34 @@
+from __future__ import annotations
+
+from contextvars import ContextVar
 from dataclasses import dataclass
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
 
 
-@experimental(version="2.21.0")
+class UserTraceDestinationRegistry:
+    def __init__(self):
+        self._global_value = None
+        self._context_local_value = ContextVar("mlflow_trace_destination", default=None)
+
+    def get(self) -> TraceDestination | None:
+        """First check the context-local value, then the global value."""
+        if local_destination := self._context_local_value.get():
+            return local_destination
+        return self._global_value
+
+    def set(self, value, context_local: bool = False):
+        if context_local:
+            self._context_local_value.set(value)
+        else:
+            self._global_value = value
+
+    def reset(self):
+        self._global_value = None
+        self._context_local_value.set(None)
+
+
 @dataclass
 class TraceDestination:
     """A configuration object for specifying the destination of trace data."""
@@ -15,7 +39,6 @@ class TraceDestination:
         raise NotImplementedError
 
 
-@experimental(version="2.21.0")
 @dataclass
 class MlflowExperiment(TraceDestination):
     """

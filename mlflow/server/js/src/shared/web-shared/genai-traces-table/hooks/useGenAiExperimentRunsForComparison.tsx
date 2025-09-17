@@ -1,7 +1,7 @@
 import type { QueryFunctionContext } from '@databricks/web-shared/query-client';
 import { useQuery } from '@databricks/web-shared/query-client';
 
-import { makeRequest } from '../utils/FetchUtils';
+import { getAjaxUrl, makeRequest } from '../utils/FetchUtils';
 
 type UseExperimentRunsForTraceComparisonQueryKey = ['EXPERIMENT_RUNS_FOR_TRACE_COMPARISON', { experimentId: string }];
 
@@ -22,7 +22,8 @@ type RawSearchRunsResponse = {
 const queryFn = async ({
   queryKey: [, { experimentId }],
 }: QueryFunctionContext<UseExperimentRunsForTraceComparisonQueryKey>): Promise<RawSearchRunsResponse> => {
-  return makeRequest('/ajax-api/2.0/mlflow/databricks/runs/search', 'POST', {
+  const url = getAjaxUrl('ajax-api/2.0/mlflow/runs/search');
+  return makeRequest(url, 'POST', {
     experiment_ids: [experimentId],
   });
 };

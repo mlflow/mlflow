@@ -83,7 +83,9 @@ def _parse_model_uri(model_uri):
     path = parsed.path
     if not path.startswith("/") or len(path) <= 1:
         raise MlflowException(
-            f"Malformed model uri '{model_uri}'", error_code=INVALID_PARAMETER_VALUE
+            f"Malformed model uri '{model_uri}'. The URI must be in the format of "
+            "<provider>:/<model-name>, e.g., 'openai:/gpt-4.1-mini'.",
+            error_code=INVALID_PARAMETER_VALUE,
         )
     path = path.lstrip("/")
     return scheme, path

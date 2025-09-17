@@ -38180,7 +38180,7 @@ public final class ModelRegistry {
     /**
      * <pre>
      * The name of the dataset associated with the metric.
-     * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+     * E.g. "my.uc.table&#64;2" "nyc-taxi-dataset", "fantastic-elk-3"
      * </pre>
      *
      * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
@@ -38190,7 +38190,7 @@ public final class ModelRegistry {
     /**
      * <pre>
      * The name of the dataset associated with the metric.
-     * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+     * E.g. "my.uc.table&#64;2" "nyc-taxi-dataset", "fantastic-elk-3"
      * </pre>
      *
      * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
@@ -38200,7 +38200,7 @@ public final class ModelRegistry {
     /**
      * <pre>
      * The name of the dataset associated with the metric.
-     * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+     * E.g. "my.uc.table&#64;2" "nyc-taxi-dataset", "fantastic-elk-3"
      * </pre>
      *
      * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
@@ -38585,7 +38585,7 @@ public final class ModelRegistry {
     /**
      * <pre>
      * The name of the dataset associated with the metric.
-     * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+     * E.g. "my.uc.table&#64;2" "nyc-taxi-dataset", "fantastic-elk-3"
      * </pre>
      *
      * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
@@ -38598,7 +38598,7 @@ public final class ModelRegistry {
     /**
      * <pre>
      * The name of the dataset associated with the metric.
-     * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+     * E.g. "my.uc.table&#64;2" "nyc-taxi-dataset", "fantastic-elk-3"
      * </pre>
      *
      * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
@@ -38622,7 +38622,7 @@ public final class ModelRegistry {
     /**
      * <pre>
      * The name of the dataset associated with the metric.
-     * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+     * E.g. "my.uc.table&#64;2" "nyc-taxi-dataset", "fantastic-elk-3"
      * </pre>
      *
      * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
@@ -39612,7 +39612,7 @@ public final class ModelRegistry {
       /**
        * <pre>
        * The name of the dataset associated with the metric.
-       * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+       * E.g. "my.uc.table&#64;2" "nyc-taxi-dataset", "fantastic-elk-3"
        * </pre>
        *
        * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
@@ -39624,7 +39624,7 @@ public final class ModelRegistry {
       /**
        * <pre>
        * The name of the dataset associated with the metric.
-       * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+       * E.g. "my.uc.table&#64;2" "nyc-taxi-dataset", "fantastic-elk-3"
        * </pre>
        *
        * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
@@ -39647,7 +39647,7 @@ public final class ModelRegistry {
       /**
        * <pre>
        * The name of the dataset associated with the metric.
-       * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+       * E.g. "my.uc.table&#64;2" "nyc-taxi-dataset", "fantastic-elk-3"
        * </pre>
        *
        * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
@@ -39669,7 +39669,7 @@ public final class ModelRegistry {
       /**
        * <pre>
        * The name of the dataset associated with the metric.
-       * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+       * E.g. "my.uc.table&#64;2" "nyc-taxi-dataset", "fantastic-elk-3"
        * </pre>
        *
        * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
@@ -39689,7 +39689,7 @@ public final class ModelRegistry {
       /**
        * <pre>
        * The name of the dataset associated with the metric.
-       * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+       * E.g. "my.uc.table&#64;2" "nyc-taxi-dataset", "fantastic-elk-3"
        * </pre>
        *
        * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>
@@ -39704,7 +39704,7 @@ public final class ModelRegistry {
       /**
        * <pre>
        * The name of the dataset associated with the metric.
-       * E.g. “my.uc.table&#64;2” “nyc-taxi-dataset”, “fantastic-elk-3”
+       * E.g. "my.uc.table&#64;2" "nyc-taxi-dataset", "fantastic-elk-3"
        * </pre>
        *
        * <code>optional string dataset_name = 5 [(.mlflow.visibility) = PUBLIC_UNDOCUMENTED];</code>

@@ -10,6 +10,8 @@ from packaging.version import Version
 from mlflow.crewai.autolog import (
     patched_class_call,
 )
+from mlflow.telemetry.events import AutologgingEvent
+from mlflow.telemetry.track import _record_event
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
 _logger = logging.getLogger(__name__)
@@ -39,6 +41,8 @@ def autolog(
     # changing drastically. Add patching once it's stabilized
     import crewai
 
+    CREWAI_VERSION = Version(crewai.__version__)
+
     class_method_map = {
         "crewai.Crew": ["kickoff", "kickoff_for_each", "train"],
         "crewai.Agent": ["execute_task"],
@@ -49,17 +53,18 @@ def autolog(
             "_create_long_term_memory"
         ],
     }
-    if Version(crewai.__version__) >= Version("0.83.0"):
+    if CREWAI_VERSION >= Version("0.83.0"):
         # knowledge and memory are not available before 0.83.0
         class_method_map.update(
             {
                 "crewai.memory.ShortTermMemory": ["save", "search"],
                 "crewai.memory.LongTermMemory": ["save", "search"],
-                "crewai.memory.UserMemory": ["save", "search"],
                 "crewai.memory.EntityMemory": ["save", "search"],
                 "crewai.Knowledge": ["query"],
             }
         )
+        if CREWAI_VERSION < Version("0.157.0"):
+            class_method_map.update({"crewai.memory.UserMemory": ["save", "search"]})
     try:
         for class_path, methods in class_method_map.items():
             *module_parts, class_name = class_path.rsplit(".", 1)
@@ -75,3 +80,7 @@ def autolog(
                 )
     except (AttributeError, ModuleNotFoundError) as e:
         _logger.error("An exception happens when applying auto-tracing to crewai. Exception: %s", e)
+
+    _record_event(
+        AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}
+    )

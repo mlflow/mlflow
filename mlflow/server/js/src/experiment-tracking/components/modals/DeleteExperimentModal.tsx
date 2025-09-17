@@ -11,7 +11,7 @@ import { deleteExperimentApi } from '../../actions';
 import Routes from '../../routes';
 import Utils from '../../../common/utils/Utils';
 import { connect } from 'react-redux';
-import { NavigateFunction } from '../../../common/utils/RoutingUtils';
+import type { NavigateFunction } from '../../../common/utils/RoutingUtils';
 import { getUUID } from '../../../common/utils/ActionUtils';
 import { withRouterNext } from '../../../common/utils/withRouterNext';
 

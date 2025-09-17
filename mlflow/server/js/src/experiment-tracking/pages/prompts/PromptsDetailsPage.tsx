@@ -37,7 +37,7 @@ import { first, isEmpty } from 'lodash';
 import { PromptsListTableTagsBox } from './components/PromptDetailsTagsBox';
 import { PromptNotFoundView } from './components/PromptNotFoundView';
 import { useUpdatePromptVersionMetadataModal } from './hooks/useUpdatePromptVersionMetadataModal';
-import { ThunkDispatch } from '../../../redux-types';
+import type { ThunkDispatch } from '../../../redux-types';
 import { setModelVersionAliasesApi } from '../../../model-registry/actions';
 
 const getAliasesModalTitle = (version: string) => (

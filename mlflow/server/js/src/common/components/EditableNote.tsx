@@ -12,7 +12,8 @@ import 'react-mde/lib/styles/css/react-mde-all.css';
 import ReactMde, { SvgIcon } from 'react-mde';
 import { forceAnchorTagNewTab, getMarkdownConverter, sanitizeConvertedHtml } from '../utils/MarkdownUtils';
 import './EditableNote.css';
-import { FormattedMessage, IntlShape, injectIntl } from 'react-intl';
+import type { IntlShape } from 'react-intl';
+import { FormattedMessage, injectIntl } from 'react-intl';
 
 type EditableNoteImplProps = {
   defaultMarkdown?: string;
@@ -58,6 +59,18 @@ export class EditableNoteImpl extends Component<EditableNoteImplProps, EditableN
   };
 
   converter = getMarkdownConverter();
+
+  componentDidUpdate(prevProps: EditableNoteImplProps) {
+    if (
+      prevProps.defaultMarkdown !== this.props.defaultMarkdown ||
+      prevProps.defaultSelectedTab !== this.props.defaultSelectedTab
+    ) {
+      this.setState({
+        markdown: this.props.defaultMarkdown,
+        selectedTab: this.props.defaultSelectedTab,
+      });
+    }
+  }
 
   handleMdeValueChange = (markdown: any) => {
     this.setState({ markdown });

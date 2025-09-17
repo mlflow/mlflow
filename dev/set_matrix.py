@@ -55,8 +55,9 @@ T = TypeVar("T")
 
 
 class Version(OriginalVersion):
-    def __init__(self, version):
+    def __init__(self, version: str, release_date: datetime | None = None):
         self._is_dev = version == DEV_VERSION
+        self._release_date = release_date
         super().__init__(DEV_NUMERIC if self._is_dev else version)
 
     def __str__(self):
@@ -64,7 +65,18 @@ class Version(OriginalVersion):
 
     @classmethod
     def create_dev(cls):
-        return cls(DEV_VERSION)
+        return cls(DEV_VERSION, datetime.now(timezone.utc))
+
+    @property
+    def days_since_release(self) -> int | None:
+        """
+        Compute the number of days since this version was released.
+        Returns None if release date is not available.
+        """
+        if self._release_date is None:
+            return None
+        delta = datetime.now(timezone.utc) - self._release_date
+        return delta.days
 
 
 class PackageInfo(BaseModel):
@@ -73,6 +85,7 @@ class PackageInfo(BaseModel):
     pip_release: str
     install_dev: str | None = None
     module_name: str | None = None
+    genai: bool = False
 
 
 class TestConfig(BaseModel):
@@ -104,6 +117,23 @@ class TestConfig(BaseModel):
     @classmethod
     def validate_unsupported(cls, v):
         return [SpecifierSet(x) for x in v] if v else None
+
+    @field_validator("python", mode="before")
+    @classmethod
+    def validate_python_requirements(cls, v):
+        if v is None:
+            return v
+
+        # Read the minimum Python version from .python-version file
+        python_version_file = Path(".python-version")
+        min_python_version = python_version_file.read_text().strip()
+
+        # Check if any value in the python dict matches the minimum version
+        for version in v.values():
+            if version == min_python_version:
+                raise ValueError(f"Unnecessary Python version requirement: {version}")
+
+        return v
 
 
 class FlavorConfig(BaseModel):
@@ -171,18 +201,19 @@ def uploaded_recently(dist: dict[str, Any]) -> bool:
 def get_released_versions(package_name: str) -> list[Version]:
     data = pypi_json(package_name)
     versions: list[Version] = []
-    for version, distributions in data["releases"].items():
+    for version_str, distributions in data["releases"].items():
         if len(distributions) == 0 or any(d.get("yanked", False) for d in distributions):
             continue
 
-        # Ignore versions that were uploaded recently to avoid testing unstable
-        # versions. Newly released versions often contain undiscovered bugs
-        # (example: https://github.com/huggingface/transformers/issues/34370).
-        if any(map(uploaded_recently, distributions)):
-            continue
+        # Extract the earliest upload time as the release date
+        upload_times = []
+        for dist in distributions:
+            if ut := dist.get("upload_time_iso_8601"):
+                upload_times.append(datetime.fromisoformat(ut.replace("Z", "+00:00")))
 
+        release_date = min(upload_times) if upload_times else None
         try:
-            version = Version(version)
+            version = Version(version_str, release_date)
         except InvalidVersion:
             # Ignore invalid versions such as https://pypi.org/project/pytz/2004d
             continue
@@ -223,13 +254,6 @@ def filter_versions(
     2. Older than or equal to `max_ver.major`.
     3. Not in `unsupported`.
     """
-    # Prevent specifying non-existent versions
-    assert min_ver in versions, (
-        f"Minimum version {min_ver} is not in the list of versions for {flavor}"
-    )
-    assert max_ver in versions or allow_unreleased_max_version, (
-        f"Minimum version {max_ver} is not in the list of versions for {flavor}"
-    )
 
     def _is_supported(v):
         for specified_set in unsupported:
@@ -237,10 +261,15 @@ def filter_versions(
                 return False
         return True
 
-    def _is_older_than_or_equal_to_max_major_version(v):
-        return v.major <= max_ver.major
+    def _check_max(v: Version) -> bool:
+        return v <= max_ver or (
+            # Exclude versions uploaded very recently to avoid testing unstable or potentially
+            # buggy releases. Newly released versions may have unresolved issues
+            # (see: https://github.com/huggingface/transformers/issues/34370).
+            v.major <= max_ver.major and v.days_since_release and v.days_since_release >= 1
+        )
 
-    def _is_newer_than_or_equal_to_min_version(v):
+    def _check_min(v: Version) -> bool:
         return v >= min_ver
 
     return list(
@@ -248,8 +277,8 @@ def filter_versions(
             lambda vers, f: filter(f, vers),
             [
                 _is_supported,
-                _is_older_than_or_equal_to_max_major_version,
-                _is_newer_than_or_equal_to_min_version,
+                _check_max,
+                _check_min,
             ],
             versions,
         )
@@ -581,7 +610,7 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
                 versions = sorted(versions)[:: -cfg.test_every_n_versions][::-1]
 
             # Always test the minimum version
-            if cfg.minimum not in versions:
+            if cfg.minimum not in versions and cfg.minimum in all_versions:
                 versions.append(cfg.minimum)
 
             if not is_ref and cfg.requirements:

@@ -33,6 +33,7 @@ const config: Config = {
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'throw',
   onBrokenAnchors: 'throw',
+  onDuplicateRoutes: 'throw', // Fail build on duplicate redirects
 
   // Even if you don't use internationalization, you can use this field to set
   // useful metadata like html lang. For example, if your site is Chinese, you
@@ -278,6 +279,38 @@ const config: Config = {
               '/ml/getting-started/databricks-trial',
             ],
           },
+          // Redirect deleted data-model pages to GenAI main page
+          {
+            to: '/genai',
+            from: [
+              '/genai/data-model',
+              '/genai/data-model/index',
+              '/genai/data-model/app-versions',
+              '/genai/data-model/experiments',
+              '/genai/data-model/logged-model',
+              '/genai/data-model/model-registry',
+              '/genai/data-model/prompts',
+              '/genai/data-model/runs',
+              '/genai/data-model/traces',
+            ],
+          },
+          // Redirect moved concepts pages from tracing to top-level
+          {
+            to: '/genai/concepts/feedback',
+            from: ['/genai/tracing/concepts/feedback'],
+          },
+          {
+            to: '/genai/concepts/expectations',
+            from: ['/genai/tracing/concepts/expectations'],
+          },
+          {
+            to: '/genai/concepts/span',
+            from: ['/genai/tracing/concepts/span'],
+          },
+          {
+            to: '/genai/concepts/trace',
+            from: ['/genai/tracing/concepts/trace'],
+          },
           // GenAI/LLM Related Redirects
           {
             to: '/genai/tracing',
@@ -288,7 +321,7 @@ const config: Config = {
             from: ['/tracing/faq'],
           },
           {
-            to: '/genai/tracing/concepts/trace',
+            to: '/genai/concepts/trace',
             from: ['/tracing/tracing-schema', '/llms/tracing/tracing-schema'],
           },
           {
@@ -392,10 +425,6 @@ const config: Config = {
             from: ['/tracing/integrations/openai-agent'],
           },
           {
-            to: '/genai/tracing/integrations/listing/swarm',
-            from: ['/tracing/integrations/swarm'],
-          },
-          {
             to: '/genai/tracing/integrations/listing/txtai',
             from: ['/tracing/integrations/txtai'],
           },
@@ -410,7 +439,7 @@ const config: Config = {
 
           // Tracing Redirects
           {
-            to: '/genai/tracing/concepts/trace',
+            to: '/genai/concepts/trace',
             from: ['/genai/tracing/data-model', '/genai/tracing/trace-instrumentation'],
           },
           // LLM Flavors Redirects
@@ -527,11 +556,11 @@ const config: Config = {
 
           // Evaluation and Monitoring Redirects
           {
-            to: '/genai/eval-monitor/llm-evaluation',
+            to: '/genai/eval-monitor',
             from: ['/llms/llm-evaluate'],
           },
           {
-            to: '/genai/eval-monitor/notebooks',
+            to: '/genai/eval-monitor',
             from: [
               '/llms/llm-evaluate/notebooks',
               '/llms/llm-evaluate/notebooks/huggingface-evaluation',
@@ -596,6 +625,12 @@ const config: Config = {
           {
             to: '/genai/version-tracking/compare-app-versions',
             from: ['/genai/prompt-version-mgmt/version-tracking/compare-app-versions'],
+          },
+
+          // ResponsesAgent Redirects
+          {
+            to: '/genai/flavors/responses-agent-intro',
+            from: ['/llms/responses-agent-intro'],
           },
 
           // Governance and Deployments Redirects

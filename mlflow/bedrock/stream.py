@@ -198,7 +198,7 @@ class _ConverseMessageBuilder:
                 self._tool_use["input"] += tool_use["input"]
         elif event_name == "contentBlockStop":
             pass
-        elif event_name == "messageStop" or event_name == "metadata":
+        elif event_name in {"messageStop", "metadata"}:
             self._response.update(event_attr)
         else:
             _logger.debug(f"Unknown event, skipping: {event_name}")

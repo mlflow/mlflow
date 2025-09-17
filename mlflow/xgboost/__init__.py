@@ -45,6 +45,7 @@ from mlflow.sklearn import _SklearnTrainingSession
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.context import registry as context_registry
+from mlflow.tracking.fluent import _initialize_logged_model
 from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.arguments_utils import _get_arg_names
 from mlflow.utils.autologging_utils import (
@@ -398,7 +399,7 @@ def _exclude_unrecognized_kwargs(predict_fn, kwargs):
     filtered_kwargs = {}
     allowed_params = inspect.signature(predict_fn).parameters
     # avoid excluding kwargs when predict function uses args or kwargs
-    if any(p.kind == p.VAR_POSITIONAL or p.kind == p.VAR_KEYWORD for p in allowed_params.values()):
+    if any(p.kind in (p.VAR_POSITIONAL, p.VAR_KEYWORD) for p in allowed_params.values()):
         return kwargs
     invalid_params = set()
     for key, value in kwargs.items():
@@ -714,7 +715,7 @@ def autolog(
 
         model_id = None
         if _log_models:
-            model_id = mlflow.initialize_logged_model("model").model_id
+            model_id = _initialize_logged_model("model", flavor=FLAVOR_NAME).model_id
         with batch_metrics_logger(run_id, model_id=model_id) as metrics_logger:
             callback = record_eval_results(eval_results, metrics_logger)
             if num_pos_args >= callbacks_index + 1:

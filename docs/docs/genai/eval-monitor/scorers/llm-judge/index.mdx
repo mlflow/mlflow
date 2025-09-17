@@ -1,0 +1,105 @@
+import { APILink } from "@site/src/components/APILink";
+
+# LLM-based Scorers (LLM-as-a-Judge)
+
+LLM-as-a-Judge is an evaluation approach that uses Large Language Models to assess the quality of AI-generated responses. LLM judges can evaluate subjective qualities like helpfulness and safety, which are hard to measure with heuristic metrics. On the other hand, LLM-as-a-Judge scorers are more scalable and cost-effective than human evaluation. See the [Evaluation Approach Comparison](/genai/eval-monitor/scorers#evaluation-approaches-comparison) for a more detailed comparison and guides on how to use other approaches in MLflow.
+
+## Two Paradigms of LLM-based Evaluation
+
+MLflow's LLM scorers operate in two fundamentally different modes:
+
+### 1. Agent-as-a-Judge
+
+Act as **autonomous agents** that analyze complete execution traces. These judges:
+
+- Focus on HOW your application works internally
+- Use MCP tools to explore spans, timing, and data flow
+- Perfect for debugging, optimization, and behavior validation
+- Identify issues impossible to detect from outputs alone
+
+### 2. Custom Field-Based Judges
+
+Evaluate specific **inputs, outputs, and expectations** to assess the quality of final results. These judges:
+
+- Focus on WHAT your application produces
+- Perfect for correctness, relevance, and quality assessment
+- Use natural language instructions with template variables
+- Can be aligned with human feedback for improved accuracy
+
+Both paradigms are created using the same `make_judge` API - the difference lies in whether you use the `{{ trace }}` template variable.
+
+## Approaches for Creating LLM Scorers
+
+MLflow offers different approaches to use LLM-as-a-Judge, with different levels of simplicity and control. We recommend starting with a simpler approach and evolving to more complex ones as needed.
+
+### make_judge API (Recommended)
+
+Simplicity: ⭐⭐⭐⭐
+Control: ⭐⭐⭐⭐⭐
+
+- **Best for**: Creating custom judges with natural language instructions, supporting both field-based and Agent-as-a-Judge evaluation. Includes built-in versioning and human feedback alignment.
+- **How it works**: Define evaluation criteria using template variables (`inputs`, `outputs`, `trace`) in plain English. Judges can be aligned with human feedback for improved accuracy.
+- **Requires**: MLflow >= 3.4.0
+
+[Get started with make_judge »](/genai/eval-monitor/scorers/llm-judge/make-judge)
+
+### Guidelines-based scorers
+
+Simplicity: ⭐⭐⭐⭐
+Control: ⭐⭐⭐
+
+- **Best for**: Evaluations based on a clear set of specific, natural language criteria, framed as pass/fail conditions. Ideal for checking compliance with rules, style guides, or information inclusion/exclusion.
+- **How it works**: You provide a set of plain-language rules that refer to specific inputs or outputs from your app, for example "The response must be polite". An LLM then determines if the guideline passes or fails and provides a rationale.
+
+[Get started with guidelines »](/genai/eval-monitor/scorers/llm-judge/guidelines)
+
+### Predefined LLM scorers
+
+Simplicity: ⭐⭐⭐⭐⭐
+Control: ⭐
+
+- **Best for**: Quickly trying MLflow's LLM evaluation capabilities with a few lines of code.
+- **How it works**: Select from a list of built-in classes such as Correctness, RetrievalGroundedness, etc. MLflow constructs inputs for the judge using predefined prompt templates.
+
+[Get started with predefined LLM scorers »](/genai/eval-monitor/scorers/llm-judge/predefined)
+
+### Bring Your Own Prompt
+
+Simplicity: ⭐⭐
+Control: ⭐⭐⭐⭐⭐
+
+- **Best for**: Complex, nuanced evaluations where you need full control over the scorer's prompt or need the scorer to specify multiple output values, for example, "great", "ok", "bad".
+- **How it works**: You provide a prompt template that defines your evaluation criteria and has placeholders for specific fields in your app's trace. You define the output choices the scorer can select. An LLM then selects the appropriate output choice and provides a rationale for its selection.
+
+[Get started with bringing your own prompt »](/genai/eval-monitor/scorers/llm-judge/prompt)
+
+## Selecting Judge Models
+
+By default, MLflow will use **OpenAI's GPT-4o-mini** model as the judge model. You can change the judge model by passing an override to the `model` argument within the scorer definition. The model must be specified in the format of `<provider>:/<model-name>`.
+
+```python
+from mlflow.genai.scorers import Correctness
+
+Correctness(model="openai:/gpt-4o-mini")
+Correctness(model="anthropic:/claude-4-opus")
+Correctness(model="google:/gemini-2.0-flash")
+```
+
+### Supported Models
+
+MLflow supports all major LLM providers:
+
+- OpenAI / Azure OpenAI
+- Anthropic
+- Amazon Bedrock
+- Cohere
+- Together AI
+- Any other providers supported by [LiteLLM](https://docs.litellm.ai/docs/providers), such as Google Gemini, xAI, Mistral, and more.
+
+To use LiteLLM integrated models, install LiteLLM by running `pip install litellm` and specify the provider and model name in the same format as natively supported providers, e.g., `gemini:/gemini-2.0-flash`.
+
+:::info
+
+In Databricks, the default model is set to <ins>[Databricks's research-backed LLM judges](https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/concepts/judges/)</ins>.
+
+:::

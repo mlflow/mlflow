@@ -60,30 +60,6 @@ AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED = "globally_configured"
 # Dict mapping integration name to its config.
 AUTOLOGGING_INTEGRATIONS = {}
 
-# When the library version installed in the user's environment is outside of the supported
-# version range declared in `ml-package-versions.yml`, a warning message is issued to the user.
-# However, some libraries releases versions very frequently, and our configuration (updated on
-# MLflow release) cannot keep up with the pace, resulting in false alarms. Therefore, we
-# suppress warnings for certain libraries that are known to have frequent releases.
-_AUTOLOGGING_SUPPORTED_VERSION_WARNING_SUPPRESS_LIST = [
-    "langchain",
-    "llama_index",
-    "litellm",
-    "openai",
-    "dspy",
-    "autogen",
-    "ag2",
-    "gemini",
-    "anthropic",
-    "crewai",
-    "bedrock",
-    "mistral",
-    "groq",
-    "smolagents",
-    "pydantic_ai",
-    "semantic_kernel",
-]
-
 # Global lock for turning on / off autologging
 # Note "RLock" is required instead of plain lock, for avoid dead-lock
 _autolog_conf_global_lock = threading.RLock()
@@ -378,23 +354,27 @@ def gen_autologging_package_version_requirements_doc(integration_name):
 
 def _check_and_log_warning_for_unsupported_package_versions(integration_name):
     """
-    When autologging is enabled and `disable_for_unsupported_versions=False` for the specified
-    autologging integration, check whether the currently-installed versions of the integration's
-    associated package versions are supported by the specified integration. If the package versions
-    are not supported, log a warning message.
+    If the package version is not supported for autologging, log a warning message.
+
+    Only check the minimum version, not the maximum version. This is because the "maximum" version
+    in the ml-package-versions.yml is only updated per release and it cannot keep up with the pace
+    of the package releases. The cross-version tests in MLflow CI runs tests against the latest
+    available version, not limited to the "maximum" version, so it is safe to assume it supports
+    up to the latest version.
     """
     if (
         integration_name in FLAVOR_TO_MODULE_NAME
-        and integration_name not in _AUTOLOGGING_SUPPORTED_VERSION_WARNING_SUPPRESS_LIST
         and not get_autologging_config(integration_name, "disable", True)
         and not get_autologging_config(integration_name, "disable_for_unsupported_versions", False)
-        and not is_flavor_supported_for_associated_package_versions(integration_name)
+        and not is_flavor_supported_for_associated_package_versions(
+            integration_name, check_max_version=False
+        )
     ):
-        min_var, max_var, pip_release = get_min_max_version_and_pip_release(integration_name)
+        min_var, _, pip_release = get_min_max_version_and_pip_release(integration_name)
         module = importlib.import_module(FLAVOR_TO_MODULE_NAME[integration_name])
         _logger.warning(
             f"MLflow {integration_name} autologging is known to be compatible with "
-            f"{min_var} <= {pip_release} <= {max_var}, but the installed version is "
+            f"{min_var} <= {pip_release}, but the installed version is "
             f"{module.__version__}. If you encounter errors during autologging, try upgrading "
             f"/ downgrading {pip_release} to a compatible version, or try upgrading MLflow.",
         )

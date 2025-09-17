@@ -1,12 +1,13 @@
 import { GenericSkeleton, useDesignSystemTheme } from '@databricks/design-system';
-import { LoggedModelProto, RunEntity } from '../../../types';
+import type { LoggedModelProto, RunEntity } from '../../../types';
 import { useIntl } from 'react-intl';
 import { ExperimentLoggedModelTableDateCell } from '../ExperimentLoggedModelTableDateCell';
 import { ExperimentLoggedModelStatusIndicator } from '../ExperimentLoggedModelStatusIndicator';
 import { DetailsOverviewCopyableIdBox } from '../../DetailsOverviewCopyableIdBox';
 import { Link } from '../../../../common/utils/RoutingUtils';
 import Routes from '../../../routes';
-import { KeyValueProperty, NoneCell, AsideSections } from '@databricks/web-shared/utils';
+import type { AsideSections } from '@databricks/web-shared/utils';
+import { KeyValueProperty, NoneCell } from '@databricks/web-shared/utils';
 import { ExperimentLoggedModelSourceBox } from '../ExperimentLoggedModelSourceBox';
 import { ExperimentLoggedModelAllDatasetsList } from '../ExperimentLoggedModelAllDatasetsList';
 import { ExperimentLoggedModelDetailsModelVersionsList } from '../ExperimentLoggedModelDetailsModelVersionsList';

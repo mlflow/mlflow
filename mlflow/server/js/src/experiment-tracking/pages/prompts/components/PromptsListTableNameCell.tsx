@@ -1,7 +1,7 @@
-import { ColumnDef } from '@tanstack/react-table';
+import type { ColumnDef } from '@tanstack/react-table';
 import { Link } from '../../../../common/utils/RoutingUtils';
 import Routes from '../../../routes';
-import { RegisteredPrompt } from '../types';
+import type { RegisteredPrompt } from '../types';
 
 export const PromptsListTableNameCell: ColumnDef<RegisteredPrompt>['cell'] = ({ row: { original }, getValue }) => {
   const name = getValue<string>();

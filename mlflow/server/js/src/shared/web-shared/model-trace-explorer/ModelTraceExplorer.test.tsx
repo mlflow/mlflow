@@ -8,9 +8,19 @@ import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-c
 
 import type { ModelTrace, ModelTraceInfo, ModelTraceSpanV2 } from './ModelTrace.types';
 import { ModelTraceExplorer } from './ModelTraceExplorer';
-import { MOCK_CHAT_TOOL_CALL_SPAN, MOCK_EVENTS_SPAN, MOCK_TRACE, MOCK_V3_TRACE } from './ModelTraceExplorer.test-utils';
+import {
+  MOCK_ASSESSMENT,
+  MOCK_CHAT_TOOL_CALL_SPAN,
+  MOCK_EVENTS_SPAN,
+  MOCK_EXPECTATION,
+  MOCK_SPAN_ASSESSMENT,
+  MOCK_TRACE,
+  MOCK_V3_TRACE,
+} from './ModelTraceExplorer.test-utils';
+import { AssessmentSchemaContextProvider } from './contexts/AssessmentSchemaContext';
 
 // increase timeout and it's a heavy test
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000);
 
 // mock the scrollIntoView function to prevent errors
@@ -325,5 +335,39 @@ describe('ModelTraceExplorer', () => {
 
     // expect that the assessments pane is open
     expect(screen.getByTestId('assessments-pane')).toBeInTheDocument();
+  });
+
+  it('should render typeahead when creating a new assessment', async () => {
+    const assessments = [MOCK_ASSESSMENT, MOCK_EXPECTATION, MOCK_SPAN_ASSESSMENT];
+
+    render(<TestComponent modelTrace={MOCK_V3_TRACE} />, {
+      wrapper: ({ children }) => (
+        <AssessmentSchemaContextProvider assessments={assessments}>{children}</AssessmentSchemaContextProvider>
+      ),
+    });
+
+    expect(screen.getByTestId('assessments-pane')).toBeInTheDocument();
+
+    const createButton = screen.getByText('Add new assessment');
+    await userEvent.click(createButton);
+
+    // expect that the default assessment input type is boolean
+    expect(screen.getByTestId('assessment-value-boolean-input')).toBeInTheDocument();
+
+    expect(screen.getByTestId('assessment-name-typeahead-input')).toBeInTheDocument();
+    const typeahead = screen.getByTestId('assessment-name-typeahead-input');
+    await userEvent.click(typeahead);
+
+    // expect that the list of assessment names is rendered
+    const assessmentNames = assessments.map((assessment) => assessment.assessment_name);
+    for (const name of assessmentNames) {
+      expect(screen.getByTestId(`assessment-name-typeahead-item-${name}`)).toBeInTheDocument();
+    }
+
+    // when clicking the typeahead item, the input should be updated
+    const factsItem = screen.getByTestId(`assessment-name-typeahead-item-expected_facts`);
+    await userEvent.click(factsItem);
+    expect(typeahead).toHaveValue('expected_facts');
+    expect(screen.getByTestId('assessment-value-json-input')).toBeInTheDocument();
   });
 });

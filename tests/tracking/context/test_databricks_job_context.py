@@ -13,8 +13,6 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_SOURCE_TYPE,
 )
 
-from tests.helper_functions import multi_context
-
 
 def test_databricks_job_run_context_in_context():
     with mock.patch("mlflow.utils.databricks_utils.is_in_databricks_job") as in_job_mock:
@@ -30,6 +28,9 @@ def test_databricks_job_run_context_tags():
         "mlflow.utils.databricks_utils.get_workspace_url",
         return_value="https://dev.databricks.com",
     )
+    patch_workspace_id = mock.patch(
+        "mlflow.utils.databricks_utils.get_workspace_id", return_value="123456"
+    )
     patch_workspace_url_none = mock.patch(
         "mlflow.utils.databricks_utils.get_workspace_url", return_value=None
     )
@@ -38,20 +39,14 @@ def test_databricks_job_run_context_tags():
         return_value=("https://databricks.com", "123456"),
     )
 
-    with multi_context(
-        patch_job_id,
-        patch_job_run_id,
-        patch_job_type,
-        patch_webapp_url,
-        patch_workspace_url,
-        patch_workspace_info,
-    ) as (
-        job_id_mock,
-        job_run_id_mock,
-        job_type_mock,
-        webapp_url_mock,
-        workspace_url_mock,
-        workspace_info_mock,
+    with (
+        patch_job_id as job_id_mock,
+        patch_job_run_id as job_run_id_mock,
+        patch_job_type as job_type_mock,
+        patch_webapp_url as webapp_url_mock,
+        patch_workspace_url as workspace_url_mock,
+        patch_workspace_info as workspace_info_mock,
+        patch_workspace_id as workspace_id_mock,
     ):
         assert DatabricksJobRunContext().tags() == {
             MLFLOW_SOURCE_NAME: (
@@ -63,23 +58,17 @@ def test_databricks_job_run_context_tags():
             MLFLOW_DATABRICKS_JOB_TYPE: job_type_mock.return_value,
             MLFLOW_DATABRICKS_WEBAPP_URL: webapp_url_mock.return_value,
             MLFLOW_DATABRICKS_WORKSPACE_URL: workspace_url_mock.return_value,
-            MLFLOW_DATABRICKS_WORKSPACE_ID: workspace_info_mock.return_value[1],
+            MLFLOW_DATABRICKS_WORKSPACE_ID: workspace_id_mock.return_value,
         }
 
-    with multi_context(
-        patch_job_id,
-        patch_job_run_id,
-        patch_job_type,
-        patch_webapp_url,
-        patch_workspace_url_none,
-        patch_workspace_info,
-    ) as (
-        job_id_mock,
-        job_run_id_mock,
-        job_type_mock,
-        webapp_url_mock,
-        workspace_url_mock,
-        workspace_info_mock,
+    with (
+        patch_job_id as job_id_mock,
+        patch_job_run_id as job_run_id_mock,
+        patch_job_type as job_type_mock,
+        patch_webapp_url as webapp_url_mock,
+        patch_workspace_url_none as workspace_url_mock,
+        patch_workspace_info as workspace_info_mock,
+        patch_workspace_id as workspace_id_mock,
     ):
         assert DatabricksJobRunContext().tags() == {
             MLFLOW_SOURCE_NAME: (
@@ -91,7 +80,7 @@ def test_databricks_job_run_context_tags():
             MLFLOW_DATABRICKS_JOB_TYPE: job_type_mock.return_value,
             MLFLOW_DATABRICKS_WEBAPP_URL: webapp_url_mock.return_value,
             MLFLOW_DATABRICKS_WORKSPACE_URL: workspace_info_mock.return_value[0],  # fallback value
-            MLFLOW_DATABRICKS_WORKSPACE_ID: workspace_info_mock.return_value[1],
+            MLFLOW_DATABRICKS_WORKSPACE_ID: workspace_id_mock.return_value,
         }
 
 

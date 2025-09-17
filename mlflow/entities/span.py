@@ -6,11 +6,15 @@ from typing import Any, Union
 
 from google.protobuf.json_format import MessageToDict, ParseDict
 from google.protobuf.struct_pb2 import Value
+from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
+from opentelemetry.proto.trace.v1.trace_pb2 import Status as OTelProtoStatus
 from opentelemetry.sdk.resources import Resource as _OTelResource
 from opentelemetry.sdk.trace import Event as OTelEvent
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
 from opentelemetry.trace import Span as OTelSpan
+from opentelemetry.trace import Status as OTelStatus
+from opentelemetry.trace import StatusCode as OTelStatusCode
 
 import mlflow
 from mlflow.entities.span_event import SpanEvent
@@ -25,6 +29,12 @@ from mlflow.tracing.utils import (
     decode_id,
     encode_span_id,
     encode_trace_id,
+    generate_mlflow_trace_id_from_otel_trace_id,
+)
+from mlflow.tracing.utils.otlp import (
+    _decode_otel_proto_anyvalue,
+    _otel_proto_bytes_to_id,
+    _set_otel_proto_anyvalue,
 )
 from mlflow.tracing.utils.processor import apply_span_processors
 
@@ -340,6 +350,90 @@ class Span:
             attributes={k: ParseDict(v, Value()) for k, v in self._span.attributes.items()},
         )
 
+    @classmethod
+    def _from_otel_proto(cls, otel_proto_span) -> "Span":
+        """
+        Create a Span from an OpenTelemetry protobuf span.
+        This is an internal method used for receiving spans via OTel protocol.
+        """
+        trace_id = _otel_proto_bytes_to_id(otel_proto_span.trace_id)
+        span_id = _otel_proto_bytes_to_id(otel_proto_span.span_id)
+        parent_id = None
+        if otel_proto_span.parent_span_id:
+            parent_id = _otel_proto_bytes_to_id(otel_proto_span.parent_span_id)
+
+        # Convert OTel proto status code directly to OTel SDK status
+        if otel_proto_span.status.code == OTelProtoStatus.STATUS_CODE_OK:
+            status_code = OTelStatusCode.OK
+        elif otel_proto_span.status.code == OTelProtoStatus.STATUS_CODE_ERROR:
+            status_code = OTelStatusCode.ERROR
+        else:
+            status_code = OTelStatusCode.UNSET
+
+        otel_span = OTelReadableSpan(
+            name=otel_proto_span.name,
+            context=build_otel_context(trace_id, span_id),
+            parent=build_otel_context(trace_id, parent_id) if parent_id else None,
+            start_time=otel_proto_span.start_time_unix_nano,
+            end_time=otel_proto_span.end_time_unix_nano,
+            attributes={
+                **{
+                    attr.key: _decode_otel_proto_anyvalue(attr.value)
+                    for attr in otel_proto_span.attributes
+                },
+                # Include the MLflow trace request ID
+                SpanAttributeKey.REQUEST_ID: generate_mlflow_trace_id_from_otel_trace_id(trace_id),
+            },
+            status=OTelStatus(status_code, otel_proto_span.status.message or None),
+            events=[
+                OTelEvent(
+                    name=event.name,
+                    timestamp=event.time_unix_nano,
+                    attributes={
+                        attr.key: _decode_otel_proto_anyvalue(attr.value)
+                        for attr in event.attributes
+                    },
+                )
+                for event in otel_proto_span.events
+            ],
+            resource=_OTelResource.get_empty(),
+        )
+
+        return cls(otel_span)
+
+    def _to_otel_proto(self) -> OTelProtoSpan:
+        """
+        Convert to OpenTelemetry protobuf span format for OTLP export.
+        This is an internal method used by the REST store for logging spans.
+
+        Returns:
+            An OpenTelemetry protobuf Span message.
+        """
+        otel_span = OTelProtoSpan()
+        otel_span.trace_id = bytes.fromhex(self._trace_id)
+        otel_span.span_id = bytes.fromhex(self.span_id)
+
+        otel_span.name = self.name
+        otel_span.start_time_unix_nano = self.start_time_ns
+        if self.end_time_ns:
+            otel_span.end_time_unix_nano = self.end_time_ns
+
+        if self.parent_id:
+            otel_span.parent_span_id = bytes.fromhex(self.parent_id)
+
+        otel_span.status.CopyFrom(self.status.to_otel_proto_status())
+
+        for key, value in self.attributes.items():
+            attr = otel_span.attributes.add()
+            attr.key = key
+            _set_otel_proto_anyvalue(attr.value, value)
+
+        for event in self.events:
+            otel_event = event._to_otel_proto()
+            otel_span.events.append(otel_event)
+
+        return otel_span
+
 
 def _encode_span_id_to_byte(span_id: int | None) -> bytes:
     # https://github.com/open-telemetry/opentelemetry-python/blob/e01fa0c77a7be0af77d008a888c2b6a707b05c3d/exporter/opentelemetry-exporter-otlp-proto-common/src/opentelemetry/exporter/otlp/proto/common/_internal/__init__.py#L131
@@ -391,6 +485,12 @@ class LiveSpan(Span):
         self._attributes = _SpanAttributesRegistry(otel_span)
         self._attributes.set(SpanAttributeKey.REQUEST_ID, trace_id)
         self._attributes.set(SpanAttributeKey.SPAN_TYPE, span_type)
+        # Track the original span name for deduplication purposes during span logging.
+        # Why: When traces contain multiple spans with identical names (e.g., multiple "LLM"
+        # or "query" spans), it's difficult for users to distinguish between them in the UI
+        # and logs. As spans are logged, we incrementally add numeric suffixes (_1, _2, etc.) to
+        # make each span uniquely identifiable within its trace
+        self._original_name = otel_span.name
 
     def set_span_type(self, span_type: str):
         """Set the type of the span."""

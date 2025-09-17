@@ -12,7 +12,7 @@ in the official policy. See the [`Data Explanation section`](#data-explanation) 
 :::
 
 :::note
-Telemetry is only enabled in **Open Source MLflow**. If you’re using MLflow through a managed service or distribution,
+Telemetry is only enabled in **Open Source MLflow**. If you're using MLflow through a managed service or distribution,
 please consult your vendor to determine whether telemetry is enabled in your environment.
 In all cases, you can choose to opt out by following the guidance provided in our documentation.
 :::
@@ -125,14 +125,14 @@ The below section outlines the data currently collected in this version of MLflo
 #### Tracked Events
 
 **No details about the specific model, code, or weights are collected.** Only the parameters listed under the `Tracked Parameters` column are recorded alongside the event;
-For events with None in the `Tracked Parameters` column, only the event name is recorded.
+For events with None in the `Tracked Parameters` column, only the event name is recorded. If "MLFLOW_EXPERIMENT_ID" environment variable exists, it is tracked as a param.
 
 <Table>
   <thead>
     <tr>
-      <th>Event Name</th>
-      <th>Tracked Parameters</th>
-      <th>Example</th>
+      <th style={{ width: "20%" }}>Event Name</th>
+      <th style={{ width: "40%" }}>Tracked Parameters</th>
+      <th style={{ width: "40%" }}>Example</th>
     </tr>
   </thead>
   <tbody>
@@ -143,18 +143,23 @@ For events with None in the `Tracked Parameters` column, only the event name is 
     </tr>
     <tr>
       <td>create_experiment</td>
-      <td>None</td>
-      <td>None</td>
+      <td>Created Experiment ID (random uuid or integer)</td>
+      <td>`{"experiment_id": "0"}`</td>
     </tr>
     <tr>
       <td>create_run</td>
-      <td>Whether the packages in [PACKAGES_TO_CHECK_IMPORT](https://github.com/mlflow/mlflow/blob/c71fd0d677c1806ba2d5928398435c4de2c25c0e/mlflow/telemetry/constant.py#L19) are imported or not</td>
-      <td>`{"imports": ["sklearn"]}`</td>
+      <td>Imported packages among [MODULES_TO_CHECK_IMPORT](https://github.com/mlflow/mlflow/blob/c71fd0d677c1806ba2d5928398435c4de2c25c0e/mlflow/telemetry/constant.py#L19) are imported or not; experiment ID used when creating the run</td>
+      <td>`{"imports": ["sklearn"], "experiment_id": "0"}`</td>
     </tr>
     <tr>
       <td>create_logged_model</td>
       <td>Flavor of the model (e.g. langchain, sklearn)</td>
       <td>`{"flavor": "langchain"}`</td>
+    </tr>
+    <tr>
+      <td>get_logged_model</td>
+      <td>Imported packages among [MODULES_TO_CHECK_IMPORT](https://github.com/mlflow/mlflow/blob/c71fd0d677c1806ba2d5928398435c4de2c25c0e/mlflow/telemetry/constant.py#L19) are imported or not</td>
+      <td>`{"imports": ["sklearn"]}`</td>
     </tr>
     <tr>
       <td>create_registered_model</td>
@@ -186,6 +191,51 @@ For events with None in the `Tracked Parameters` column, only the event name is 
       <td>None</td>
       <td>None</td>
     </tr>
+    <tr>
+      <td>create_webhook</td>
+      <td>Entities of the webhook</td>
+      <td>`{"events": ["model_version.created"]}`</td>
+    </tr>
+    <tr>
+      <td>genai_evaluate</td>
+      <td>Builtin scorers used during GenAI Evaluate</td>
+      <td>`{"builtin_scorers": ["relevance_to_query"]}`</td>
+    </tr>
+    <tr>
+      <td>prompt_optimization</td>
+      <td>None</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td>log_dataset</td>
+      <td>None</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td>log_metric</td>
+      <td>Whether synchronous mode is on or not</td>
+      <td>`{"synchronous": False}`</td>
+    </tr>
+    <tr>
+      <td>log_param</td>
+      <td>Whether synchronous mode is on or not</td>
+      <td>`{"synchronous": True}`</td>
+    </tr>
+    <tr>
+      <td>log_batch</td>
+      <td>Information on whether metrics, parameters, or tags are logged, and the logging mode</td>
+      <td>`{"metrics": False, "params": True, "tags": False, "synchronous": False}`</td>
+    </tr>
+    <tr>
+      <td>invoke_custom_judge_model</td>
+      <td>Judge model provider</td>
+      <td>`{"model_provider": "databricks"}`</td>
+    </tr>
+    <tr>
+      <td>autologging</td>
+      <td>Flavor and metadata</td>
+      <td>`{"flavor": "openai", "log_traces": True, "disable": False}`</td>
+    </tr>
   </tbody>
 </Table>
 
@@ -212,8 +262,8 @@ MLflow supports opt-out telemetry through either of the following environment va
 Setting either of these will **immediately disable telemetry**, no need to re-import MLflow or restart your session.
 
 :::note
-MLflow automatically disables telemetry in the following CI environments.
-If you’d like support for additional CI environments, please [open an issue on our GitHub repository](https://github.com/mlflow/mlflow/issues).
+MLflow automatically disables telemetry in [**some CI environments**](https://github.com/mlflow/mlflow/blob/de6c11193ce6a68ffec4b33650f75bd163143178/mlflow/telemetry/utils.py#L22).
+If you'd like support for additional CI environments, please [open an issue on our GitHub repository](https://github.com/mlflow/mlflow/issues).
 
 - CI
 - Github Actions
@@ -225,17 +275,18 @@ If you’d like support for additional CI environments, please [open an issue on
 - BitBucket
 - AWS CodeBuild
 - BuildKite
+- ...
   :::
 
 ### Scope of the setting
 
 - The environment variable only takes effect in processes where it is explicitly set or inherited.
-- If you spawn subprocesses from a clean environment, those subprocesses may not inherit your shell’s environment, and telemetry could remain enabled. e.g. `subprocess.run([...], env={})`
+- If you spawn subprocesses from a clean environment, those subprocesses may not inherit your shell's environment, and telemetry could remain enabled. e.g. `subprocess.run([...], env={})`
 
 Recommendations to ensure telemetry is consistently disabled across all environments:
 
 - Add the variable to your shell startup file (~/.bashrc, ~/.zshrc, etc.): `export MLFLOW_DISABLE_TELEMETRY=true`
-- If you’re using subprocesses or isolated environments, use a dotenv manager or explicitly pass the variable when launching.
+- If you're using subprocesses or isolated environments, use a dotenv manager or explicitly pass the variable when launching.
 
 ### How to validate telemetry is disabled?
 
@@ -253,4 +304,4 @@ Organizations can disable telemetry by blocking network access to `https://confi
 
 ## What are we doing with this data?
 
-We aggregate anonymized usage data and plan to share insights with the community through public dashboards. You’ll be able to see how MLflow features are used and help improve them by contributing.
+We aggregate anonymized usage data and plan to share insights with the community through public dashboards. You'll be able to see how MLflow features are used and help improve them by contributing.

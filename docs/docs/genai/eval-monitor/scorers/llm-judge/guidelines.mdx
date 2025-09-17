@@ -1,0 +1,106 @@
+import { APILink } from "@site/src/components/APILink";
+import ImageBox from "@site/src/components/ImageBox";
+import TileCard from '@site/src/components/TileCard';
+import TilesGrid from '@site/src/components/TilesGrid';
+import { Bot, GitBranch, MessageSquare } from "lucide-react";
+
+# Create Custom LLM Scorers
+
+While MLflow's predefined LLM judge scorers offer excellent starting points for common quality dimensions in simpler applications, you'll need to create custom LLM judges as your application becomes more complex and to tune your evaluation criteria to meet the specific, nuanced business requirements of your use case and align with your domain expert's judgment. MLflow provides robust and flexible ways to create **custom LLM judges** tailored to these unique requirements.
+
+## Guidelines (_we suggest starting here_)
+
+<APILink fn="mlflow.genai.scorers.Guidelines">Guidelines</APILink> is a powerful scorer class designed to let you quickly and easily customize evaluation by defining natural language criteria that are framed as pass/fail conditions. It is ideal for checking compliance with rules, style guides, or information inclusion/exclusion.
+
+Guidelines have the distinct advantage of being easy to explain to business stakeholders ("we are evaluating if the app delivers upon this set of rules") and, as such, can often be directly written by domain experts.
+
+### Example usage
+
+First, define the guidelines as a simple string:
+
+```python
+tone = "The response must maintain a courteous, respectful tone throughout.  It must show empathy for customer concerns."
+easy_to_understand = "The response must use clear, concise language and structure responses logically. It must avoid jargon or explain technical terms when used."
+banned_topics = "If the request is a question about product pricing, the response must politely decline to answer and refer the user to the pricing page."
+```
+
+Then pass each guideline to the `Guidelines` class to create a scorer and run evaluation:
+
+```python
+import mlflow
+
+eval_dataset = [
+    {
+        "inputs": {"question": "I'm having trouble with my account.  I can't log in."},
+        "outputs": "I'm sorry to hear that you're having trouble logging in. Please provide me with your username and the specific issue you're experiencing, and I'll be happy to help you resolve it.",
+    },
+    {
+        "inputs": {"question": "How much does a microwave cost?"},
+        "outputs": "The microwave costs $100.",
+    },
+    {
+        "inputs": {"question": "How does a refrigerator work?"},
+        "outputs": "A refrigerator operates via thermodynamic vapor-compression cycles utilizing refrigerant phase transitions. The compressor pressurizes vapor which condenses externally, then expands through evaporator coils to absorb internal heat through endothermic vaporization.",
+    },
+]
+
+mlflow.genai.evaluate(
+    data=eval_dataset,
+    scorers=[
+        # Create a scorer for each guideline
+        Guidelines(name="tone", guidelines=tone),
+        Guidelines(name="easy_to_understand", guidelines=easy_to_understand),
+        Guidelines(name="banned_topics", guidelines=banned_topics),
+    ],
+)
+```
+
+<ImageBox src="/images/mlflow-3/eval-monitor/scorers/guideline-scorers-results.png" alt="Guidelines scorers result" />
+
+## Selecting Judge Models
+
+MLflow supports all major LLM providers, such as OpenAI, Anthropic, Google, xAI, and more.
+
+See [Supported Models](/genai/eval-monitor/scorers/llm-judge#supported-models) for more details.
+
+## Bring Your Own Prompt (full control)
+
+While `Guidelines` scorers have the distinct advantage of being easy to write and maintain, you may need more control or can't write your evaluation criteria as pass/fail guidelines.
+
+:::note[Recommendation: Use make_judge Instead]
+We recommend using the <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API instead of `custom_prompt_judge`. The `make_judge` API provides:
+
+- More flexible template-based instructions
+- Better version control and collaboration features
+- Support for both field-based and Agent-as-a-Judge evaluation
+- Alignment capabilities with human feedback
+
+See the [make_judge documentation](/genai/eval-monitor/scorers/llm-judge/make-judge) for complete details.
+:::
+
+The <APILink fn="mlflow.genai.judges.custom_prompt_judge">custom_prompt_judge</APILink> API allows you to define a full prompt for the judge, while still letting MLflow handle complexities like response parsing.
+
+See [Bring Your Own Prompt](/genai/eval-monitor/scorers/llm-judge/prompt) for more details.
+
+## Next Steps
+
+<TilesGrid>
+  <TileCard
+    icon={Bot}
+    title="Evaluate Agents"
+    description="Learn how to evaluate AI agents with specialized techniques and scorers"
+    href="/genai/eval-monitor/running-evaluation/agents"
+  />
+  <TileCard
+    icon={GitBranch}
+    title="Evaluate Traces"
+    description="Evaluate production traces to understand and improve your AI application's behavior"
+    href="/genai/eval-monitor/running-evaluation/traces"
+  />
+  <TileCard
+    icon={MessageSquare}
+    title="Collect User Feedback"
+    description="Integrate user feedback to continuously improve your evaluation criteria and model performance"
+    href="/genai/assessments/feedback/"
+  />
+</TilesGrid>

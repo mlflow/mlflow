@@ -10,6 +10,8 @@ export type ReactMarkdownComponents = {
   [K in keyof JSX.IntrinsicElements]?: ReactMarkdownComponent<K>;
 };
 
-export type ReactMarkdownComponent<T extends keyof JSX.IntrinsicElements> = ComponentType<ReactMarkdownProps<T>>;
+export type ReactMarkdownComponent<T extends keyof JSX.IntrinsicElements> = ComponentType<
+  React.PropsWithChildren<ReactMarkdownProps<T>>
+>;
 
 export type ReactMarkdownProps<T extends keyof JSX.IntrinsicElements> = ComponentProps<T> & ExtraProps;

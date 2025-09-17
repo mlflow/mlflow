@@ -53,7 +53,7 @@ export const DEFAULT_ASSESSMENTS_SORT_ORDER: string[] = [
 
 export const getJudgeMetricsLink = (asessmentDocLink?: AssessmentLearnMoreLink) => {
   // return OSS docs link
-  return 'https://mlflow.org/docs/latest/genai/eval-monitor/llm-evaluation/#llm-as-a-judge-metrics';
+  return 'https://mlflow.org/docs/latest/genai/eval-monitor/scorers/llm-judge/';
 };
 
 export interface AssessmentLearnMoreLink {
@@ -625,7 +625,11 @@ export const getEvaluationResultTitle = (evaluation: RunEvaluationTracesDataEntr
     title = stringifyValue(evaluation.inputs);
   }
 
-  return title ?? evaluation.evaluationId;
+  if (isNil(title) || title === '') {
+    title = evaluation.evaluationId;
+  }
+
+  return title;
 };
 
 /**

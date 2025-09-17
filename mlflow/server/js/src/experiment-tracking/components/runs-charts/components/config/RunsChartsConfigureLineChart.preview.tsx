@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef } from 'react';
 import { connect } from 'react-redux';
-import { ReduxState } from '../../../../../redux-types';
-import { MetricHistoryByName } from '../../../../types';
+import type { ReduxState } from '../../../../../redux-types';
+import type { MetricHistoryByName } from '../../../../types';
 import {
   RunsChartsLineChartXAxisType,
   removeOutliersFromMetricHistory,
@@ -9,13 +9,14 @@ import {
 } from '../RunsCharts.common';
 import { RunsMetricsLinePlot } from '../RunsMetricsLinePlot';
 import { RunsChartsTooltipMode, useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
-import { RunsChartsLineCardConfig, RunsChartsLineChartYAxisType } from '../../runs-charts.types';
+import type { RunsChartsLineCardConfig } from '../../runs-charts.types';
+import { RunsChartsLineChartYAxisType } from '../../runs-charts.types';
 import { shouldEnableChartExpressions } from '../../../../../common/utils/FeatureUtils';
 import { useSampledMetricHistory } from '../../hooks/useSampledMetricHistory';
 import { compact, isUndefined, uniq } from 'lodash';
 import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
 import { useGroupedChartRunData } from '../../../runs-compare/hooks/useGroupedChartRunData';
-import { RunsChartsGlobalLineChartConfig } from '../../../experiment-page/models/ExperimentPageUIState';
+import type { RunsChartsGlobalLineChartConfig } from '../../../experiment-page/models/ExperimentPageUIState';
 import { useLineChartGlobalConfig } from '../hooks/useLineChartGlobalConfig';
 import { RunsChartCardLoadingPlaceholder } from '../cards/ChartCard.common';
 

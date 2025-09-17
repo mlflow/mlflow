@@ -7,7 +7,8 @@ import {
   TextBoxIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { Link, matchPath, useLocation, Location, useNavigate } from '../utils/RoutingUtils';
+import type { Location } from '../utils/RoutingUtils';
+import { Link, matchPath, useLocation, useNavigate } from '../utils/RoutingUtils';
 import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import { CreateExperimentModal } from '../../experiment-tracking/components/modals/CreateExperimentModal';

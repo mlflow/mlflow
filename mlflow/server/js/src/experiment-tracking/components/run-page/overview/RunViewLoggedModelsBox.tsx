@@ -1,6 +1,6 @@
 import { ModelsIcon, Overflow, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { Link } from '../../../../common/utils/RoutingUtils';
-import { RunInfoEntity } from '../../../types';
+import type { RunInfoEntity } from '../../../types';
 import { type LoggedModelProto } from '../../../types';
 import Routes from '../../../routes';
 import { first } from 'lodash';

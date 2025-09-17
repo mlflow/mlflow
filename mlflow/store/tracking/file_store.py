@@ -61,6 +61,7 @@ from mlflow.store.tracking import (
     SEARCH_MAX_RESULTS_THRESHOLD,
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
+from mlflow.store.tracking._sql_backend_utils import filestore_not_supported
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.tracing.utils import (
     generate_assessment_id,
@@ -246,9 +247,9 @@ class FileStore(AbstractStore):
 
     def _get_experiment_path(self, experiment_id, view_type=ViewType.ALL, assert_exists=False):
         parents = []
-        if view_type == ViewType.ACTIVE_ONLY or view_type == ViewType.ALL:
+        if view_type in (ViewType.ACTIVE_ONLY, ViewType.ALL):
             parents.append(self.root_directory)
-        if view_type == ViewType.DELETED_ONLY or view_type == ViewType.ALL:
+        if view_type in (ViewType.DELETED_ONLY, ViewType.ALL):
             parents.append(self.trash_folder)
         for parent in parents:
             exp_list = find(parent, experiment_id, full_path=True)
@@ -354,9 +355,9 @@ class FileStore(AbstractStore):
 
         self._check_root_dir()
         experiment_ids = []
-        if view_type == ViewType.ACTIVE_ONLY or view_type == ViewType.ALL:
+        if view_type in (ViewType.ACTIVE_ONLY, ViewType.ALL):
             experiment_ids += self._get_active_experiments(full_path=False)
-        if view_type == ViewType.DELETED_ONLY or view_type == ViewType.ALL:
+        if view_type in (ViewType.DELETED_ONLY, ViewType.ALL):
             experiment_ids += self._get_deleted_experiments(full_path=False)
 
         experiments = []
@@ -2724,3 +2725,76 @@ class FileStore(AbstractStore):
         trace_info.tags.update(tags)
         self._save_trace_info(trace_info, trace_dir, overwrite=True)
         return TraceInfoV2.from_v3(trace_info)
+
+    # Evaluation Dataset APIs - Not supported in FileStore
+
+    @filestore_not_supported
+    def create_dataset(
+        self,
+        name: str,
+        tags: dict[str, Any] | None = None,
+        experiment_ids: list[str] | None = None,
+    ):
+        pass
+
+    @filestore_not_supported
+    def get_dataset(self, dataset_id):
+        pass
+
+    @filestore_not_supported
+    def delete_dataset(self, dataset_id):
+        pass
+
+    @filestore_not_supported
+    def search_datasets(
+        self,
+        experiment_ids=None,
+        filter_string=None,
+        max_results=1000,
+        order_by=None,
+        page_token=None,
+    ):
+        pass
+
+    @filestore_not_supported
+    def upsert_dataset_records(self, dataset_id, records, updated_by=None):
+        pass
+
+    @filestore_not_supported
+    def set_dataset_tags(self, dataset_id, tags, updated_by=None):
+        pass
+
+    @filestore_not_supported
+    def get_dataset_experiment_ids(self, dataset_id):
+        pass
+
+    @filestore_not_supported
+    def delete_dataset_tag(self, dataset_id, key):
+        pass
+
+    @filestore_not_supported
+    def add_dataset_to_experiments(self, dataset_id, experiment_ids):
+        pass
+
+    @filestore_not_supported
+    def remove_dataset_from_experiments(self, dataset_id, experiment_ids):
+        pass
+
+    def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
+        """
+        Link multiple traces to a run by creating entity associations.
+
+        Note: This feature is not supported in FileStore.
+
+        Args:
+            trace_ids: List of trace IDs to link to the run.
+            run_id: ID of the run to link traces to.
+
+        Raises:
+            MlflowException: Always raised as this operation is not supported in FileStore.
+        """
+        raise MlflowException(
+            "Linking traces to runs is not supported in FileStore. "
+            "Please use a database-backed store (e.g., SQLAlchemy store) for this feature.",
+            error_code=databricks_pb2.INVALID_PARAMETER_VALUE,
+        )

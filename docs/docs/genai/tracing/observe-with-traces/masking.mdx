@@ -6,7 +6,7 @@ Traces capture powerful insights for debugging and monitoring your application, 
 
 ## How It Works
 
-MLflow allows you to configure a list of post-processing hooks that are applied to each span in a trace. Each span processor is a function that takes a span as input and returns a span.
+MLflow allows you to configure a list of post-processing hooks that are applied to each span in a trace. Each span processor is a function that takes a span as input and updates it in place.
 
 1. Define a custom filtering function and call <APILink fn="mlflow.tracing.configure">`mlflow.tracing.configure`</APILink> to register it.
 2. Whenever a new span is created, the registered filters are applied to it sequentially.

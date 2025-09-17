@@ -452,6 +452,10 @@ class Linter(ast.NodeVisitor):
         if "MLflow" in node.name or "MLFlow" in node.name:
             self._check(Location.from_node(node), rules.MlflowClassName())
 
+    def _no_class_based_tests(self, node: ast.ClassDef) -> None:
+        if rule := rules.NoClassBasedTests.check(node, self.path.name):
+            self._check(Location.from_node(node), rule)
+
     def _is_in_test(self) -> bool:
         if not self.path.name.startswith("test_"):
             return False
@@ -494,6 +498,7 @@ class Linter(ast.NodeVisitor):
         self._no_rst(node)
         self._syntax_error_example(node)
         self._mlflow_class_name(node)
+        self._no_class_based_tests(node)
         self.visit_decorators(node.decorator_list)
         self._markdown_link(node)
         with self.resolver.scope():
@@ -689,6 +694,9 @@ class Linter(ast.NodeVisitor):
         if rules.ForbiddenSetActiveModelUsage.check(node, self.resolver):
             self._check(Location.from_node(node), rules.ForbiddenSetActiveModelUsage())
 
+        if expr := rules.ForbiddenDeprecationWarning.check(node, self.resolver):
+            self._check(Location.from_node(expr), rules.ForbiddenDeprecationWarning())
+
         if rules.UnnamedThread.check(node, self.resolver):
             self._check(Location.from_node(node), rules.UnnamedThread())
 
@@ -747,6 +755,10 @@ class Linter(ast.NodeVisitor):
     def visit_noqa(self, noqa: Noqa) -> None:
         if rule := rules.DoNotDisable.check(noqa.rules):
             self._check(Location.from_noqa(noqa), rule)
+
+    def visit_file_content(self, src: str) -> None:
+        if rules.NoShebang.check(src):
+            self._check(Location(0, 0), rules.NoShebang())
 
 
 def _has_trace_ui_content(output: dict[str, Any]) -> bool:
@@ -860,5 +872,6 @@ def lint_file(path: Path, config: Config, index_path: Path) -> list[Violation]:
         linter = Linter(path=path, config=config, ignore=ignore_map(code), index=index)
         linter.visit(ast.parse(code))
         linter.visit_comments(code)
+        linter.visit_file_content(code)
         linter.post_visit()
         return linter.violations

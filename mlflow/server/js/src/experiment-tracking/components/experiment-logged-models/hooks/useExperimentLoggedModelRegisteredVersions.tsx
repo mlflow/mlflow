@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useQueries } from '../../../../common/utils/reactQueryHooks';
 import type { LoggedModelProto } from '../../../types';
-import { RunPageModelVersionSummary } from '../../run-page/hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
+import type { RunPageModelVersionSummary } from '../../run-page/hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
 import { createMLflowRoutePath } from '../../../../common/utils/RoutingUtils';
 import { isUCModelName } from '../../../utils/IsUCModelName';
 const MODEL_VERSIONS_TAG_NAME = 'mlflow.modelVersions';
@@ -46,7 +46,12 @@ const useModelVersionsAclCheck = (
     const isLoading = queryResults.some((result) => result.isLoading);
     const aclResults: Record<string, boolean> = {};
     return { aclResults, isLoading };
-  }, [queryResults, queries, checkAcl, ucModels.length]);
+  }, [
+    // prettier-ignore
+    queryResults,
+    checkAcl,
+    ucModels.length,
+  ]);
 
   return { aclResults, isLoading };
 };

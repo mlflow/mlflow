@@ -5,7 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
-import { Fulfilled, Pending, Rejected } from '../../redux-types';
+import type { Fulfilled, Pending, Rejected } from '../../redux-types';
 
 export const isPendingApi = (action: any) => {
   return action.type.endsWith('_PENDING');

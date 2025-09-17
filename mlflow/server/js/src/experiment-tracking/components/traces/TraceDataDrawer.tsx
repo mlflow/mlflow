@@ -11,7 +11,11 @@ import {
 } from '@databricks/design-system';
 import { getTraceDisplayName } from './TracesView.utils';
 import { useExperimentTraceData } from './hooks/useExperimentTraceData';
-import { ModelTraceInfo, ModelTraceExplorer } from '@databricks/web-shared/model-trace-explorer';
+import {
+  type ModelTraceInfo,
+  ModelTraceExplorer,
+  ModelTraceExplorerSkeleton,
+} from '@databricks/web-shared/model-trace-explorer';
 import { useMemo } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { useExperimentTraceInfo } from './hooks/useExperimentTraceInfo';
@@ -90,7 +94,7 @@ export const TraceDataDrawer = ({
 
   const renderContent = () => {
     if (loadingTraceData || loadingTraceInfo || loadingInternalTracingInfo) {
-      return <ModelTraceExplorer.Skeleton />;
+      return <ModelTraceExplorerSkeleton />;
     }
     if (traceInfo?.status === 'IN_PROGRESS') {
       return (
