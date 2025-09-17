@@ -2436,12 +2436,14 @@ def test_instructions_judge_repr():
     long_instructions = (
         "This is a very long instruction that will be truncated {{ inputs }} and {{ outputs }}"
     )
-    judge_long = make_judge(name="long_judge", instructions=long_instructions, model="databricks")
+    judge_long = make_judge(
+        name="long_judge", instructions=long_instructions, model="openai:/gpt-4"
+    )
 
     repr_long = repr(judge_long)
     assert "InstructionsJudge" in repr_long
     assert "name='long_judge'" in repr_long
-    assert "model='databricks'" in repr_long
+    assert "model='openai:/gpt-4'" in repr_long
     # Should show first 30 characters + "..."
     assert "instructions='This is a very long instructio..." in repr_long
     assert "template_variables=['inputs', 'outputs']" in repr_long
