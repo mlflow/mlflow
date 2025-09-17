@@ -70,7 +70,7 @@ class AbstractJobStore:
         """
 
     @abstractmethod
-    def retry_or_fail_job(self, job_id, error: str) -> bool:
+    def retry_or_fail_job(self, job_id: str, error: str) -> bool:
         """
         If the job retry_count is less than maximum allowed retry count,
         increase the retry_count and reset the job to PENDING status,

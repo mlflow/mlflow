@@ -978,17 +978,17 @@ MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF = _BooleanEnvironmentVariable(
     "MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF", True
 )
 
-#: Sepecifies whether to enable job execution feature for MLflow server.
-#: This feature requires "huey" package dependency, and requires Mlflow server configures
+#: Specifies whether to enable job execution feature for MLflow server.
+#: This feature requires "huey" package dependency, and requires MLflow server to configure
 #: --backend-store-uri to database URI.
 #: (default: ``False``)
 MLFLOW_SERVER_ENABLE_JOB_EXECUTION = _BooleanEnvironmentVariable(
     "MLFLOW_SERVER_ENABLE_JOB_EXECUTION", False
 )
 
-#: Specifies the mlflow server job maximum parallelism, ``0`` means to use the number of CPUs
+#: Specifies the MLflow server job maximum parallelism, ``0`` means to use the number of CPUs
 # as the parallelism. (default: ``0``)
-MLFLOW_SERVER_JOB_MAX_PARALLELISM = _EnvironmentVariable("MLFLOW_SERVER_JOB_MAX_PARALLELISM", int, 0)
+MLFLOW_SERVER_JOB_MAX_PARALLELISM = _EnvironmentVariable("MLFLOW_SERVER_JOB_MAX_PARALLELISM", int, None)
 
 #: Specifies MLflow server job maximum allowed retries for transient errors.
 #: (default: ``3``)

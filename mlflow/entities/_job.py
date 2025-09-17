@@ -39,7 +39,7 @@ class Job(_MlflowObject):
     @property
     def function(self) -> str:
         """
-        String containing the function full name, in the form of `<module_name>.<function_name>`
+        String containing the fully-qualified function name, in the form of `<module_name>.<function_name>`
         """
         return self._function
 
@@ -47,8 +47,7 @@ class Job(_MlflowObject):
     def params(self) -> str:
         """
         String containing the job serialized parameters in JSON format.
-        e.g. `{'a': 3, 'b': 4}` represents there are 2 params `a` with value 3 and
-        `b` with value 4.
+        For example, `{"a": 3, "b": 4}` represents two params: `a` with value 3 and `b` with value 4.
         """
         return self._params
 
@@ -66,7 +65,7 @@ class Job(_MlflowObject):
         return self._result
 
     @property
-    def retry_count(self) -> str:
+    def retry_count(self) -> int:
         """Integer containing the job retry count"""
         return self._retry_count
 

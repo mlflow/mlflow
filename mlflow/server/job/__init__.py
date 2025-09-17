@@ -1,15 +1,15 @@
 import shutil
 import sys
-from typing import Any
+from typing import Any, Callable
 from types import FunctionType
 
 import json
-from mlflow.entities._job import JobStatus
+from mlflow.entities._job_status import JobStatus
 from mlflow.server.handlers import _get_job_store
 from mlflow.exceptions import MlflowException
 
 
-def submit_job(function, **params: Any):
+def submit_job(function: Callable[..., Any], params: dict[str, Any]):
     """
     Submit a job to the job queue.
     The job is ensured to be scheduled to execute once.
@@ -19,7 +19,7 @@ def submit_job(function, **params: Any):
     Args:
         function: The job funtion, it must be a python global function,
             and all params and return value must be JSON-serializable.
-        **params: The params to be passed to the job function.
+        params: The params to be passed to the job function.
 
     Returns:
         The unique job id. You can call `query_job` API by the `job_id` to get

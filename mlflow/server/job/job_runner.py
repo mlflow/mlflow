@@ -1,10 +1,8 @@
 import requests
 from typing import Any, Callable
 import importlib
-import json
 import os
 import errno
-import sys
 import threading
 import time
 import json
@@ -13,12 +11,9 @@ from huey import SqliteHuey
 from huey.exceptions import RetryTask
 from huey.serializer import Serializer
 import cloudpickle
-import tempfile
-from mlflow.entities._job import JobStatus
+from mlflow.entities._job_status import JobStatus
 from mlflow.server import HUEY_STORAGE_PATH_ENV_VAR
 from mlflow.server.handlers import _get_job_store
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from mlflow.exceptions import MlflowException
 from mlflow.environment_variables import MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_INTERVAL
 
 
@@ -81,7 +76,7 @@ def _is_process_alive(pid: int) -> bool:
 
 
 def _start_watcher_to_kill_job_runner_if_mlflow_server_dies(check_interval=1.0):
-    mlflow_server_pid = int(os.environ["MLFLOW_SERVER_PID"])
+    mlflow_server_pid = int(os.environ.get("MLFLOW_SERVER_PID"))
 
     def watcher():
         while True:
@@ -118,5 +113,10 @@ def _enqueue_pending_running_jobs():
 
 
 if os.environ.get("_IS_MLFLOW_JOB_RUNNER") == "1":
+    # This module is launched as huey consumer by command like
+    # `huey_consumer.py server.job.job_runner`
+    # the huey consumer will automatically poll the queue and schedule tasks
+    # when initializing the huey consumer, we need to set up watcher thread and
+    # enqueue unfinished jobs
     _start_watcher_to_kill_job_runner_if_mlflow_server_dies()
     _enqueue_pending_running_jobs()

@@ -11,7 +11,7 @@ class JobStatus(str, Enum):
     DONE = "DONE"
     FAILED = "FAILED"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.value
 
     @classmethod
@@ -42,7 +42,7 @@ class JobStatus(str, Enum):
         raise MlflowException.invalid_parameter_value(f"Unknown job status: {self}")
 
     @staticmethod
-    def is_finalized(status) -> bool:
+    def is_finalized(status: "JobStatus") -> bool:
         """
         Determines whether or not a JobStatus is a finalized status.
         A finalized status indicates that no further status updates will occur.

@@ -2,7 +2,6 @@ import importlib
 import importlib.metadata
 import os
 import shlex
-import shutil
 import sys
 import tempfile
 import textwrap
@@ -407,10 +406,10 @@ def _run_server(
         else:
             max_job_parallelism = MLFLOW_SERVER_JOB_MAX_PARALLELISM.get()
 
-            if max_job_parallelism == 0:
+            if max_job_parallelism is None:
                 max_job_parallelism = os.cpu_count()
 
-            def _start_job_runner_fn():
+            def _start_job_runner_fn() -> None:
                 from mlflow.server.job import _start_job_runner
 
                 while True:

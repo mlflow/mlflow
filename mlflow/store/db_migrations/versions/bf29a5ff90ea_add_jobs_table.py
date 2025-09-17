@@ -24,7 +24,7 @@ def upgrade():
         sa.Column("params", sa.Text(), nullable=False),
         sa.Column("status", sa.Integer(), nullable=False),
         sa.Column("result", sa.Text(), nullable=True),
-        sa.Column("retry_count", sa.Integer, default=0),
+        sa.Column("retry_count", sa.Integer(), default=0),
         sa.PrimaryKeyConstraint("id", name="jobs_pk"),
     )
     with op.batch_alter_table("jobs", schema=None) as batch_op:
