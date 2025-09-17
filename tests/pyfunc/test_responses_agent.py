@@ -7,7 +7,6 @@ import pytest
 
 from mlflow.entities.span import SpanType
 from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
-
 from tests.tracing.helper import get_traces, purge_traces
 
 if not IS_PYDANTIC_V2_OR_NEWER:
@@ -1030,4 +1029,177 @@ def test_responses_agent_output_to_responses_items_stream(chunks, expected_outpu
     expected_aggregator = [
         event.item for event in expected_output if event.type == "response.output_item.done"
     ]
+    print("aggregator", aggregator)
+    assert False
     assert aggregator == expected_aggregator
+
+
+def test_create_text_delta():
+    """Test the create_text_delta helper function."""
+    result = ResponsesAgent.create_text_delta("Hello", "test-id")
+    expected = {
+        "type": "response.output_text.delta",
+        "item_id": "test-id",
+        "delta": "Hello",
+    }
+    assert result == expected
+
+
+def test_create_annotation_added():
+    """Test the create_annotation_added helper function."""
+    annotation = {"type": "citation", "text": "Reference"}
+    result = ResponsesAgent.create_annotation_added("test-id", annotation, 1)
+    expected = {
+        "type": "response.output_text.annotation.added",
+        "item_id": "test-id",
+        "annotation_index": 1,
+        "annotation": annotation,
+    }
+    assert result == expected
+
+    # Test with default annotation_index
+    result_default = ResponsesAgent.create_annotation_added("test-id", annotation)
+    expected_default = {
+        "type": "response.output_text.annotation.added",
+        "item_id": "test-id",
+        "annotation_index": 0,
+        "annotation": annotation,
+    }
+    assert result_default == expected_default
+
+
+def test_create_text_output_item():
+    """Test the create_text_output_item helper function."""
+    # Test without annotations
+    result = ResponsesAgent.create_text_output_item("Hello world", "test-id")
+    expected = {
+        "id": "test-id",
+        "content": [
+            {
+                "text": "Hello world",
+                "type": "output_text",
+            }
+        ],
+        "role": "assistant",
+        "type": "message",
+    }
+    assert result == expected
+
+    # Test with annotations
+    annotations = [{"type": "citation", "text": "Reference"}]
+    result_with_annotations = ResponsesAgent.create_text_output_item(
+        "Hello world", "test-id", annotations
+    )
+    expected_with_annotations = {
+        "id": "test-id",
+        "content": [
+            {
+                "text": "Hello world",
+                "type": "output_text",
+                "annotations": annotations,
+            }
+        ],
+        "role": "assistant",
+        "type": "message",
+    }
+    assert result_with_annotations == expected_with_annotations
+
+
+def test_create_reasoning_item():
+    """Test the create_reasoning_item helper function."""
+    result = ResponsesAgent.create_reasoning_item("test-id", "This is my reasoning")
+    expected = {
+        "type": "reasoning",
+        "summary": [
+            {
+                "type": "summary_text",
+                "text": "This is my reasoning",
+            }
+        ],
+        "id": "test-id",
+    }
+    assert result == expected
+
+
+def test_create_function_call_item():
+    """Test the create_function_call_item helper function."""
+    result = ResponsesAgent.create_function_call_item(
+        "test-id", "call-123", "get_weather", '{"location": "Boston"}'
+    )
+    expected = {
+        "type": "function_call",
+        "id": "test-id",
+        "call_id": "call-123",
+        "name": "get_weather",
+        "arguments": '{"location": "Boston"}',
+    }
+    assert result == expected
+
+
+def test_create_function_call_output_item():
+    """Test the create_function_call_output_item helper function."""
+    result = ResponsesAgent.create_function_call_output_item("call-123", "Sunny, 75°F")
+    expected = {
+        "type": "function_call_output",
+        "call_id": "call-123",
+        "output": "Sunny, 75°F",
+    }
+    assert result == expected
+
+
+@pytest.mark.parametrize(
+    ("responses_input", "cc_msgs"),
+    [
+        (
+            [
+                {"type": "user", "content": "what is 4*3 in python"},
+                {"type": "reasoning", "summary": "I can help you calculate 4*3"},
+                {
+                    "id": "msg_bdrk_015YdA8hjVSHWxpAdecgHqj3",
+                    "content": [{"text": "I can help you calculate 4*", "type": "output_text"}],
+                    "role": "assistant",
+                    "type": "message",
+                },
+                {
+                    "type": "function_call",
+                    "id": "chatcmpl_56a443d8-bf71-4f71-aff5-082191c4db1e",
+                    "call_id": "call_39565342-e7d7-4ed5-a3e3-ea115a7f9fc6",
+                    "name": "system__ai__python_exec",
+                    "arguments": '{\n  "code": "result = 4 * 3\\nprint(result)"\n}',
+                },
+                {
+                    "type": "function_call_output",
+                    "call_id": "call_39565342-e7d7-4ed5-a3e3-ea115a7f9fc6",
+                    "output": "12\n",
+                },
+            ],
+            [
+                {"content": "what is 4*3 in python"},
+                {"role": "assistant", "content": '"I can help you calculate 4*3"'},
+                {"role": "assistant", "content": "I can help you calculate 4*"},
+                {
+                    "role": "assistant",
+                    "content": "tool call",
+                    "tool_calls": [
+                        {
+                            "id": "call_39565342-e7d7-4ed5-a3e3-ea115a7f9fc6",
+                            "type": "function",
+                            "function": {
+                                "arguments": '{\n  "code": "result = 4 * 3\\nprint(result)"\n}',
+                                "name": "system__ai__python_exec",
+                            },
+                        }
+                    ],
+                },
+                {
+                    "role": "tool",
+                    "content": "12\n",
+                    "tool_call_id": "call_39565342-e7d7-4ed5-a3e3-ea115a7f9fc6",
+                },
+            ],
+        )
+    ],
+)
+def test_prep_msgs_for_cc_llm(responses_input, cc_msgs):
+    result = ResponsesAgent.prep_msgs_for_cc_llm(responses_input)
+    assert result == cc_msgs
