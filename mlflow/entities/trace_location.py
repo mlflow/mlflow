@@ -70,9 +70,7 @@ class UCSchemaLocation(_MlflowObject):
     schema_name: str
 
     def to_proto(self):
-        return pb.TraceLocation.UCSchemaLocation(
-            catalog_name=self.catalog_name, schema_name=self.schema_name
-        )
+        return pb.UCSchemaLocation(catalog_name=self.catalog_name, schema_name=self.schema_name)
 
     @classmethod
     def from_proto(cls, proto) -> "UCSchemaLocation":
@@ -129,9 +127,18 @@ class TraceLocation(_MlflowObject):
     uc_schema: UCSchemaLocation | None = None
 
     def __post_init__(self) -> None:
-        if self.mlflow_experiment is not None and self.inference_table is not None:
+        if (
+            sum(
+                [
+                    self.mlflow_experiment is not None,
+                    self.inference_table is not None,
+                    self.uc_schema is not None,
+                ]
+            )
+            > 1
+        ):
             raise MlflowException.invalid_parameter_value(
-                "Only one of mlflow_experiment or inference_table can be provided."
+                "Only one of mlflow_experiment, inference_table, or uc_schema can be provided."
             )
 
         if (

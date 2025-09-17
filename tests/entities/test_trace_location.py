@@ -5,6 +5,7 @@ from mlflow.entities.trace_location import (
     MlflowExperimentLocation,
     TraceLocation,
     TraceLocationType,
+    UCSchemaLocation,
 )
 from mlflow.exceptions import MlflowException
 
@@ -24,16 +25,26 @@ def test_trace_location():
     assert trace_location.type == TraceLocationType.INFERENCE_TABLE
     assert trace_location.inference_table.full_table_name == "a.b.c"
 
+    trace_location = TraceLocation(
+        type=TraceLocationType.UC_SCHEMA,
+        uc_schema=UCSchemaLocation(catalog_name="a", schema_name="b"),
+    )
+    assert trace_location.type == TraceLocationType.UC_SCHEMA
+    assert trace_location.uc_schema.catalog_name == "a"
+    assert trace_location.uc_schema.schema_name == "b"
+
     from_proto = TraceLocation.from_proto(trace_location.to_proto())
     assert from_proto == trace_location
 
     with pytest.raises(
-        MlflowException, match="Only one of mlflow_experiment or inference_table can be provided"
+        MlflowException,
+        match="Only one of mlflow_experiment, inference_table, or uc_schema can be provided",
     ):
         TraceLocation(
             type=TraceLocationType.TRACE_LOCATION_TYPE_UNSPECIFIED,
             mlflow_experiment=MlflowExperimentLocation(experiment_id="123"),
             inference_table=InferenceTableLocation(full_table_name="a.b.c"),
+            uc_schema=UCSchemaLocation(catalog_name="a", schema_name="b"),
         )
 
 
@@ -52,4 +63,12 @@ def test_trace_location_mismatch():
         TraceLocation(
             type=TraceLocationType.MLFLOW_EXPERIMENT,
             inference_table=InferenceTableLocation(full_table_name="a.b.c"),
+        )
+
+    with pytest.raises(
+        MlflowException, match="Trace location .+ does not match the provided location"
+    ):
+        TraceLocation(
+            type=TraceLocationType.INFERENCE_TABLE,
+            uc_schema=UCSchemaLocation(catalog_name="a", schema_name="b"),
         )

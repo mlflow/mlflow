@@ -169,6 +169,15 @@ class TraceInfo(_MlflowObject):
         self.trace_location.mlflow_experiment.experiment_id = value
 
     @property
+    def uc_schema(self) -> str | None:
+        """
+        The UC schema associated with the trace, if the trace is stored
+        in MLflow tracking server. Otherwise, None.
+        """
+        if uc_schema := self.trace_location.uc_schema:
+            return f"{uc_schema.catalog_name}.{uc_schema.schema_name}"
+
+    @property
     def request_metadata(self) -> dict[str, str]:
         """Deprecated. Use `trace_metadata` instead."""
         return self.trace_metadata

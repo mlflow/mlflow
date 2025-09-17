@@ -127,6 +127,10 @@ class TracingClient:
         Returns:
             The fetched Trace object, of type ``mlflow.entities.Trace``.
         """
+        try:
+            return self.store.get_traces([trace_id])[0]
+        except NotImplementedError:
+            pass
         trace_info = self.get_trace_info(trace_id)
         try:
             trace_data = self._download_trace_data(trace_info)

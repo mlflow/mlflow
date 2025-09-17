@@ -42,9 +42,11 @@ from mlflow.environment_variables import (
     _MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE,
     _MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE,
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
+    MLFLOW_TRACING_SQL_WAREHOUSE_ID,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
+from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.protos.service_pb2 import (
     CalculateTraceFilterCorrelation,
@@ -52,6 +54,7 @@ from mlflow.protos.service_pb2 import (
     CreateDataset,
     CreateLoggedModel,
     CreateRun,
+    CreateTrace,
     DeleteDataset,
     DeleteDatasetTag,
     DeleteExperiment,
@@ -68,6 +71,7 @@ from mlflow.protos.service_pb2 import (
     GetScorer,
     GetTraceInfoV3,
     GetTraceInfoV4,
+    GetTraces,
     ListScorers,
     ListScorerVersions,
     LogBatch,
@@ -197,8 +201,15 @@ def test_response_with_unknown_fields(request):
     assert experiments[0].name == "My experiment"
 
 
-def _args(host_creds, endpoint, method, json_body, use_v3=False, retry_timeout_seconds=None):
-    version = "3.0" if use_v3 else "2.0"
+def _args(
+    host_creds, endpoint, method, json_body, use_v3=False, use_v4=False, retry_timeout_seconds=None
+):
+    if use_v4:
+        version = "4.0"
+    elif use_v3:
+        version = "3.0"
+    else:
+        version = "2.0"
     res = {
         "host_creds": host_creds,
         "endpoint": f"/api/{version}/mlflow/{endpoint}",
@@ -214,7 +225,14 @@ def _args(host_creds, endpoint, method, json_body, use_v3=False, retry_timeout_s
 
 
 def _verify_requests(
-    http_request, host_creds, endpoint, method, json_body, use_v3=False, retry_timeout_seconds=None
+    http_request,
+    host_creds,
+    endpoint,
+    method,
+    json_body,
+    use_v3=False,
+    use_v4=False,
+    retry_timeout_seconds=None,
 ):
     """
     Verify HTTP requests in tests.
@@ -227,10 +245,12 @@ def _verify_requests(
         json_body: The request body as a JSON string
         use_v3: If True, verify using /api/3.0/mlflow/ prefix instead of /api/2.0/mlflow/
                 This is used for trace-related endpoints that use the V3 API.
+        use_v4: If True, verify using /api/4.0/mlflow/ prefix instead of /api/2.0/mlflow/
+                This is used for trace-related endpoints that use the V4 API.
         retry_timeout_seconds: The retry timeout seconds to use for the request
     """
     http_request.assert_any_call(
-        **(_args(host_creds, endpoint, method, json_body, use_v3, retry_timeout_seconds))
+        **(_args(host_creds, endpoint, method, json_body, use_v3, use_v4, retry_timeout_seconds))
     )
 
 
@@ -694,6 +714,84 @@ def test_start_trace(monkeypatch):
             use_v3=True,
             retry_timeout_seconds=1,
         )
+
+
+def test_create_trace_v4_api(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.name, "1")
+    monkeypatch.setenv(MLFLOW_TRACING_SQL_WAREHOUSE_ID.name, "test-warehouse")
+
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    trace_info = TraceInfo(
+        trace_id="tr-123",
+        trace_location=TraceLocation.from_experiment_id("123"),
+        request_time=123,
+        execution_duration=10,
+        state=TraceState.OK,
+        request_preview="",
+        response_preview="",
+        trace_metadata={},
+    )
+
+    # Mock successful v4 response
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps({"trace_info": trace_info.to_dict()})
+
+    expected_request = CreateTrace(
+        trace_info=trace_info.to_proto(),
+        sql_warehouse_id="test-warehouse",
+    )
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        result = store.start_trace(trace_info)
+        _verify_requests(
+            mock_http,
+            creds,
+            "traces",
+            "POST",
+            message_to_json(expected_request),
+            use_v4=True,
+            retry_timeout_seconds=1,
+        )
+        assert result.trace_id == "tr-123"
+
+
+def test_create_trace_v4_fallback_to_v3(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.name, "1")
+    monkeypatch.setenv(MLFLOW_TRACING_SQL_WAREHOUSE_ID.name, "test-warehouse")
+
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    trace_info = TraceInfo(
+        trace_id="tr-456",
+        trace_location=TraceLocation.from_experiment_id("456"),
+        request_time=456,
+        execution_duration=20,
+        state=TraceState.OK,
+        request_preview="preview",
+        response_preview="response",
+        trace_metadata={"key": "value"},
+    )
+
+    trace = Trace(info=trace_info, data=TraceData())
+
+    v4_error = MlflowException("Endpoint not found", error_code=databricks_pb2.ENDPOINT_NOT_FOUND)
+    v3_response = StartTraceV3.Response(trace=trace.to_proto())
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
+        mock_call_endpoint.side_effect = [v4_error, v3_response]
+
+        result = store.start_trace(trace_info)
+
+        assert mock_call_endpoint.call_count == 2
+        first_call = mock_call_endpoint.call_args_list[0]
+        assert first_call[0][0] == CreateTrace
+        second_call = mock_call_endpoint.call_args_list[1]
+        assert second_call[0][0] == StartTraceV3
+        assert result.trace_id == "tr-456"
 
 
 def test_deprecated_end_trace_v2():
@@ -2935,3 +3033,52 @@ def test_server_version_check_caching():
             data=mock.ANY,
             extra_headers=mock.ANY,
         )
+
+
+def test_get_traces(monkeypatch):
+    monkeypatch.setenv(MLFLOW_TRACING_SQL_WAREHOUSE_ID.name, "test-warehouse")
+    with mlflow.start_span(name="test_span_1") as span1:
+        span1.set_inputs({"input": "test_value_1"})
+        span1.set_outputs({"output": "result_1"})
+
+    with mlflow.start_span(name="test_span_2") as span2:
+        span2.set_inputs({"input": "test_value_2"})
+        span2.set_outputs({"output": "result_2"})
+
+    trace1 = mlflow.get_trace(span1.trace_id)
+    trace2 = mlflow.get_trace(span2.trace_id)
+
+    mock_response = GetTraces.Response()
+    mock_response.traces.extend([trace1.to_proto_v4(), trace2.to_proto_v4()])
+
+    store = RestStore(lambda: MlflowHostCreds("https://test"))
+
+    location = "catalog.schema"
+    v4_trace_id_1 = f"{TRACE_ID_V4_PREFIX}{location}/{span1.trace_id}"
+    v4_trace_id_2 = f"{TRACE_ID_V4_PREFIX}{location}/{span2.trace_id}"
+    trace_ids = [v4_trace_id_1, v4_trace_id_2]
+
+    with (
+        mock.patch.object(store, "_call_endpoint", return_value=mock_response) as mock_call,
+    ):
+        result = store.get_traces(trace_ids)
+
+        mock_call.assert_called_once()
+        call_args = mock_call.call_args
+
+        assert call_args[0][0] == GetTraces
+
+        request_body = call_args[0][1]
+        request_data = json.loads(request_body)
+        assert request_data["sql_warehouse_id"] == "test-warehouse"
+        assert "trace_ids" in request_data
+        assert len(request_data["trace_ids"]) == 2
+
+        endpoint = call_args[1]["endpoint"]
+        assert "/mlflow/traces/batch" in endpoint
+
+        assert isinstance(result, list)
+        assert len(result) == 2
+        assert all(isinstance(trace, Trace) for trace in result)
+        assert result[0].info.trace_id == span1.trace_id
+        assert result[1].info.trace_id == span2.trace_id

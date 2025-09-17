@@ -21,6 +21,7 @@ from mlflow.entities import (
     RunStatus,
     RunTag,
     SourceType,
+    Span,
     SpanStatusCode,
     SpanType,
     Trace,
@@ -205,6 +206,71 @@ def test_client_create_run_with_name(mock_store, mock_time):
 
 
 def test_client_get_trace(mock_store, mock_artifact_repo):
+    mock_store.get_traces.return_value = [
+        Trace(
+            TraceInfo(
+                trace_id="tr-1234567",
+                trace_location=TraceLocation.from_uc_schema("catalog", "schema"),
+                request_time=123,
+                execution_duration=456,
+                state=TraceState.OK,
+                tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts"},
+            ),
+            TraceData(
+                spans=[
+                    Span.from_dict(
+                        {
+                            "name": "predict",
+                            "context": {
+                                "trace_id": "0x123456789",
+                                "span_id": "0x12345",
+                            },
+                            "parent_id": None,
+                            "start_time": 123000000,
+                            "end_time": 579000000,
+                            "status_code": "OK",
+                            "status_message": "",
+                            "attributes": {
+                                "mlflow.traceRequestId": '"tr-1234567"',
+                                "mlflow.spanType": '"LLM"',
+                                "mlflow.spanFunctionName": '"predict"',
+                                "mlflow.spanInputs": '{"prompt": "What is the meaning of life?"}',
+                                "mlflow.spanOutputs": '{"answer": 42}',
+                            },
+                            "events": [],
+                        }
+                    )
+                ]
+            ),
+        )
+    ]
+
+    trace_id = "tr-1234567"
+    trace = MlflowClient().get_trace(trace_id)
+    mock_store.get_traces.assert_called_once_with([trace_id])
+    mock_store.get_trace_info.assert_not_called()
+    mock_artifact_repo.download_trace_data.assert_not_called()
+
+    assert trace.info.trace_id == "tr-1234567"
+    assert trace.info.uc_schema == "catalog.schema"
+    assert trace.info.timestamp_ms == 123
+    assert trace.info.execution_time_ms == 456
+    assert trace.info.status == TraceStatus.OK
+    assert trace.info.tags == {"mlflow.artifactLocation": "dbfs:/path/to/artifacts"}
+    assert trace.data.request == '{"prompt": "What is the meaning of life?"}'
+    assert trace.data.response == '{"answer": 42}'
+    assert len(trace.data.spans) == 1
+    assert trace.data.spans[0].name == "predict"
+    assert trace.data.spans[0].trace_id == "tr-1234567"
+    assert trace.data.spans[0].inputs == {"prompt": "What is the meaning of life?"}
+    assert trace.data.spans[0].outputs == {"answer": 42}
+    assert trace.data.spans[0].start_time_ns == 123000000
+    assert trace.data.spans[0].end_time_ns == 579000000
+    assert trace.data.spans[0].status.status_code == SpanStatusCode.OK
+
+
+def test_client_get_trace_fallback(mock_store, mock_artifact_repo):
+    mock_store.get_traces.side_effect = NotImplementedError
     mock_store.get_trace_info.return_value = TraceInfo(
         trace_id="tr-1234567",
         trace_location=TraceLocation.from_experiment_id("0"),
@@ -262,6 +328,7 @@ def test_client_get_trace(mock_store, mock_artifact_repo):
 
 
 def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_artifact_repo):
+    mock_store.get_traces.side_effect = NotImplementedError
     mock_store.get_trace_info.return_value = TraceInfo(
         trace_id="1234567",
         trace_location=TraceLocation.from_experiment_id("0"),

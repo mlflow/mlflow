@@ -98,6 +98,7 @@ from mlflow.protos.service_pb2 import (
     CreateExperiment,
     CreateLoggedModel,
     CreateRun,
+    CreateTrace,
     DeleteAssessment,
     DeleteDataset,
     DeleteDatasetTag,
@@ -128,6 +129,7 @@ from mlflow.protos.service_pb2 import (
     GetTraceInfo,
     GetTraceInfoV3,
     GetTraceInfoV4,
+    GetTraces,
     LinkTracesToRun,
     ListArtifacts,
     ListLoggedModelArtifacts,
@@ -2812,6 +2814,22 @@ def _start_trace_v3():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def _create_trace():
+    """
+    A request handler for `POST /mlflow/traces` to create a new TraceInfo record in tracking store.
+    """
+    request_message = _get_request_message(
+        CreateTrace(),
+        schema={"trace_info": [_assert_required]},
+    )
+    trace_info = TraceInfo.from_proto(request_message.trace_info)
+    trace_info = _get_tracking_store().start_trace(trace_info)
+    response_message = CreateTrace.Response(trace_info=trace_info.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _get_trace_info_v3(trace_id):
     """
     A request handler for `GET /mlflow/traces/{trace_id}/info` to retrieve
@@ -2831,6 +2849,25 @@ def _get_trace_info_v4(location: str, trace_id: str) -> Response:
     """
     trace_info = _get_tracking_store().get_trace_info(f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}")
     response_message = GetTraceInfoV4.Response(trace=ProtoTrace(trace_info=trace_info.to_proto()))
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_traces():
+    """
+    A request handler for `GET /mlflow/traces/batch` to retrieve TraceInfo records from
+    tracking store.
+    """
+    request_message = _get_request_message(
+        GetTraces(),
+        schema={
+            "trace_ids": [_assert_required],
+        },
+    )
+    traces = _get_tracking_store().get_traces(request_message.trace_ids)
+    response_message = GetTraces.Response()
+    response_message.traces.extend([trace.to_proto_v4() for trace in traces])
     return _wrap_response(response_message)
 
 
@@ -3964,6 +4001,8 @@ HANDLERS = {
     LinkTracesToRun: _link_traces_to_run,
     # MLflow Tracing APIs (V4)
     GetTraceInfoV4: _get_trace_info_v4,
+    CreateTrace: _create_trace,
+    GetTraces: _get_traces,
     # Assessment APIs
     CreateAssessment: _create_assessment,
     GetAssessmentRequest: _get_assessment,

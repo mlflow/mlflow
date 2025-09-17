@@ -9,6 +9,7 @@ import "google/protobuf/field_mask.proto";
 import "google/protobuf/timestamp.proto";
 import "assessments.proto";
 import "datasets.proto";
+import "databricks_trace_server.proto";
 
 option java_package = "org.mlflow.api.proto";
 option py_generic_services = true;
@@ -544,6 +545,18 @@ service MlflowService {
     };
   }
 
+  rpc createTrace (CreateTrace) returns (CreateTrace.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/traces"
+        since { major: 4, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Start Trace",
+    };
+  }
+
   // End a trace within an experiment.
   rpc endTrace(EndTrace) returns (EndTrace.Response) {
     option (rpc) = {
@@ -596,6 +609,19 @@ service MlflowService {
       }],
       visibility: PUBLIC_UNDOCUMENTED,
       rpc_doc_title: "Get TraceInfo v4",
+    };
+  }
+
+  // Get complete traces with spans for given trace identifiers.
+  rpc getTraces (GetTraces) returns (GetTraces.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/traces/batch",
+        since {major: 4, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Get Traces",
     };
   }
 
@@ -2157,6 +2183,36 @@ message GetTraceInfoV4 {
 
 }
 
+message TraceIdentifier {
+  // location of the trace.
+  oneof location {
+    UCSchemaLocation uc_schema = 1;
+  }
+
+  // ID of the trace.
+  optional string trace_id = 2 [(validate_required) = true];
+}
+
+message TraceV4 {
+  optional TraceInfoV3 trace_info = 1;
+  repeated traceserver.Span spans = 2;
+}
+
+message GetTraces {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Identifiers of the traces to fetch. Must be provided.
+  repeated TraceIdentifier trace_ids = 1 [(validate_required) = true];
+  
+  // SQL warehouse to use for query.
+  optional string sql_warehouse_id = 2;
+
+  message Response {
+    // The fetched trace information.
+    repeated TraceV4 traces = 1;
+  }
+}
+
 message SearchTraces {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
@@ -2391,6 +2447,10 @@ message Trace {
   optional TraceInfoV3 trace_info = 1;
 }
 
+message UCSchemaLocation {
+  optional string catalog_name = 1;
+  optional string schema_name = 2;
+}
 
 // The location where the traces was stored and produced
 message TraceLocation {
@@ -2411,11 +2471,6 @@ message TraceLocation {
   message InferenceTableLocation {
     // Full inference table name in the form of catalog.schema.table_name
     optional string full_table_name = 1;
-  }
-
-  message UCSchemaLocation {
-    optional string catalog_name = 1;
-    optional string schema_name = 2;
   }
 
   oneof identifier {
@@ -2501,6 +2556,21 @@ message StartTraceV3 {
   message Response {
     // The created trace information.
     optional Trace trace = 1;
+  }
+}
+
+message CreateTrace {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The information for the trace being created.
+  optional TraceInfoV3 trace_info = 1 [(validate_required) = true];
+
+  // Optional SQL warehouse ID for fetching trace data.
+  optional string sql_warehouse_id = 2;
+
+  message Response {
+    // The created trace information.
+    optional TraceInfoV3 trace_info = 1;
   }
 }
 

@@ -14,6 +14,7 @@ from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.service_pb2 import Trace as ProtoTrace
+from mlflow.protos.service_pb2 import TraceV4 as ProtoTraceV4
 
 if TYPE_CHECKING:
     from mlflow.entities.assessment import Assessment
@@ -315,3 +316,16 @@ class Trace(_MlflowObject):
         """
 
         return ProtoTrace(trace_info=self.info.to_proto())
+
+    def to_proto_v4(self):
+        return ProtoTraceV4(
+            trace_info=self.info.to_proto(),
+            spans=[span.to_proto() for span in self.data.spans],
+        )
+
+    @classmethod
+    def from_proto_v4(cls, proto: ProtoTraceV4) -> "Trace":
+        return cls(
+            info=TraceInfo.from_proto(proto.trace_info),
+            data=TraceData(spans=[Span.from_proto(span) for span in proto.spans]),
+        )

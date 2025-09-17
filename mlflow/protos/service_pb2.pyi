@@ -5,6 +5,7 @@ from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 import assessments_pb2 as _assessments_pb2
 import datasets_pb2 as _datasets_pb2
+import databricks_trace_server_pb2 as _databricks_trace_server_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -798,6 +799,35 @@ class GetTraceInfoV4(_message.Message):
     sql_warehouse_id: str
     def __init__(self, trace_id: _Optional[str] = ..., location: _Optional[str] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
 
+class TraceIdentifier(_message.Message):
+    __slots__ = ("uc_schema", "trace_id")
+    UC_SCHEMA_FIELD_NUMBER: _ClassVar[int]
+    TRACE_ID_FIELD_NUMBER: _ClassVar[int]
+    uc_schema: UCSchemaLocation
+    trace_id: str
+    def __init__(self, uc_schema: _Optional[_Union[UCSchemaLocation, _Mapping]] = ..., trace_id: _Optional[str] = ...) -> None: ...
+
+class TraceV4(_message.Message):
+    __slots__ = ("trace_info", "spans")
+    TRACE_INFO_FIELD_NUMBER: _ClassVar[int]
+    SPANS_FIELD_NUMBER: _ClassVar[int]
+    trace_info: TraceInfoV3
+    spans: _containers.RepeatedCompositeFieldContainer[_databricks_trace_server_pb2.Span]
+    def __init__(self, trace_info: _Optional[_Union[TraceInfoV3, _Mapping]] = ..., spans: _Optional[_Iterable[_Union[_databricks_trace_server_pb2.Span, _Mapping]]] = ...) -> None: ...
+
+class GetTraces(_message.Message):
+    __slots__ = ("trace_ids", "sql_warehouse_id")
+    class Response(_message.Message):
+        __slots__ = ("traces",)
+        TRACES_FIELD_NUMBER: _ClassVar[int]
+        traces: _containers.RepeatedCompositeFieldContainer[TraceV4]
+        def __init__(self, traces: _Optional[_Iterable[_Union[TraceV4, _Mapping]]] = ...) -> None: ...
+    TRACE_IDS_FIELD_NUMBER: _ClassVar[int]
+    SQL_WAREHOUSE_ID_FIELD_NUMBER: _ClassVar[int]
+    trace_ids: _containers.RepeatedCompositeFieldContainer[TraceIdentifier]
+    sql_warehouse_id: str
+    def __init__(self, trace_ids: _Optional[_Iterable[_Union[TraceIdentifier, _Mapping]]] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
+
 class SearchTraces(_message.Message):
     __slots__ = ("experiment_ids", "filter", "max_results", "order_by", "page_token")
     class Response(_message.Message):
@@ -976,6 +1006,14 @@ class Trace(_message.Message):
     trace_info: TraceInfoV3
     def __init__(self, trace_info: _Optional[_Union[TraceInfoV3, _Mapping]] = ...) -> None: ...
 
+class UCSchemaLocation(_message.Message):
+    __slots__ = ("catalog_name", "schema_name")
+    CATALOG_NAME_FIELD_NUMBER: _ClassVar[int]
+    SCHEMA_NAME_FIELD_NUMBER: _ClassVar[int]
+    catalog_name: str
+    schema_name: str
+    def __init__(self, catalog_name: _Optional[str] = ..., schema_name: _Optional[str] = ...) -> None: ...
+
 class TraceLocation(_message.Message):
     __slots__ = ("type", "mlflow_experiment", "inference_table", "uc_schema")
     class TraceLocationType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
@@ -998,13 +1036,6 @@ class TraceLocation(_message.Message):
         FULL_TABLE_NAME_FIELD_NUMBER: _ClassVar[int]
         full_table_name: str
         def __init__(self, full_table_name: _Optional[str] = ...) -> None: ...
-    class UCSchemaLocation(_message.Message):
-        __slots__ = ("catalog_name", "schema_name")
-        CATALOG_NAME_FIELD_NUMBER: _ClassVar[int]
-        SCHEMA_NAME_FIELD_NUMBER: _ClassVar[int]
-        catalog_name: str
-        schema_name: str
-        def __init__(self, catalog_name: _Optional[str] = ..., schema_name: _Optional[str] = ...) -> None: ...
     TYPE_FIELD_NUMBER: _ClassVar[int]
     MLFLOW_EXPERIMENT_FIELD_NUMBER: _ClassVar[int]
     INFERENCE_TABLE_FIELD_NUMBER: _ClassVar[int]
@@ -1012,8 +1043,8 @@ class TraceLocation(_message.Message):
     type: TraceLocation.TraceLocationType
     mlflow_experiment: TraceLocation.MlflowExperimentLocation
     inference_table: TraceLocation.InferenceTableLocation
-    uc_schema: TraceLocation.UCSchemaLocation
-    def __init__(self, type: _Optional[_Union[TraceLocation.TraceLocationType, str]] = ..., mlflow_experiment: _Optional[_Union[TraceLocation.MlflowExperimentLocation, _Mapping]] = ..., inference_table: _Optional[_Union[TraceLocation.InferenceTableLocation, _Mapping]] = ..., uc_schema: _Optional[_Union[TraceLocation.UCSchemaLocation, _Mapping]] = ...) -> None: ...
+    uc_schema: UCSchemaLocation
+    def __init__(self, type: _Optional[_Union[TraceLocation.TraceLocationType, str]] = ..., mlflow_experiment: _Optional[_Union[TraceLocation.MlflowExperimentLocation, _Mapping]] = ..., inference_table: _Optional[_Union[TraceLocation.InferenceTableLocation, _Mapping]] = ..., uc_schema: _Optional[_Union[UCSchemaLocation, _Mapping]] = ...) -> None: ...
 
 class TraceInfoV3(_message.Message):
     __slots__ = ("trace_id", "client_request_id", "trace_location", "request", "response", "request_preview", "response_preview", "request_time", "execution_duration", "state", "trace_metadata", "assessments", "tags")
@@ -1079,6 +1110,19 @@ class StartTraceV3(_message.Message):
     TRACE_FIELD_NUMBER: _ClassVar[int]
     trace: Trace
     def __init__(self, trace: _Optional[_Union[Trace, _Mapping]] = ...) -> None: ...
+
+class CreateTrace(_message.Message):
+    __slots__ = ("trace_info", "sql_warehouse_id")
+    class Response(_message.Message):
+        __slots__ = ("trace_info",)
+        TRACE_INFO_FIELD_NUMBER: _ClassVar[int]
+        trace_info: TraceInfoV3
+        def __init__(self, trace_info: _Optional[_Union[TraceInfoV3, _Mapping]] = ...) -> None: ...
+    TRACE_INFO_FIELD_NUMBER: _ClassVar[int]
+    SQL_WAREHOUSE_ID_FIELD_NUMBER: _ClassVar[int]
+    trace_info: TraceInfoV3
+    sql_warehouse_id: str
+    def __init__(self, trace_info: _Optional[_Union[TraceInfoV3, _Mapping]] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
 
 class LinkTracesToRun(_message.Message):
     __slots__ = ("trace_ids", "run_id")

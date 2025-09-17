@@ -52,6 +52,7 @@ from mlflow.protos.service_pb2 import (
     CreateExperiment,
     CreateLoggedModel,
     CreateRun,
+    CreateTrace,
     DeleteAssessment,
     DeleteDataset,
     DeleteDatasetTag,
@@ -80,6 +81,7 @@ from mlflow.protos.service_pb2 import (
     GetTraceInfo,
     GetTraceInfoV3,
     GetTraceInfoV4,
+    GetTraces,
     LinkTracesToRun,
     ListScorers,
     ListScorerVersions,
@@ -109,8 +111,10 @@ from mlflow.protos.service_pb2 import (
     SetTraceTag,
     StartTrace,
     StartTraceV3,
+    TraceIdentifier,
     TraceRequestMetadata,
     TraceTag,
+    UCSchemaLocation,
     UpdateAssessment,
     UpdateExperiment,
     UpdateRun,
@@ -127,6 +131,7 @@ from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
     _V3_TRACE_REST_API_PATH_PREFIX,
+    _V4_TRACE_REST_API_PATH_PREFIX,
     MlflowHostCreds,
     call_endpoint,
     extract_api_info_for_service,
@@ -354,6 +359,27 @@ class RestStore(AbstractStore):
         Returns:
             The returned TraceInfo object from the backend.
         """
+        try:
+            sql_warehouse_id = MLFLOW_TRACING_SQL_WAREHOUSE_ID.get()
+            req_body = message_to_json(
+                CreateTrace(trace_info=trace_info.to_proto(), sql_warehouse_id=sql_warehouse_id)
+            )
+            response_proto = self._call_endpoint(
+                CreateTrace,
+                req_body,
+                endpoint=_V4_TRACE_REST_API_PATH_PREFIX,
+                retry_timeout_seconds=MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.get(),
+            )
+            return TraceInfo.from_proto(response_proto.trace_info)
+        except MlflowException as e:
+            if e.error_code == databricks_pb2.ErrorCode.Name(databricks_pb2.ENDPOINT_NOT_FOUND):
+                _logger.debug(
+                    "Server does not support CreateTrace API yet. Falling back to V3 API."
+                )
+                return self._create_trace_v3(trace_info)
+            raise
+
+    def _create_trace_v3(self, trace_info: TraceInfo) -> TraceInfo:
         # NB: The Databricks backend expects a Trace object, not a TraceInfo object, although
         # it doesn't use the data field at all. Trace data increases the payload size significantly,
         # so we create a Trace object with an empty data field here.
@@ -457,6 +483,37 @@ class RestStore(AbstractStore):
         endpoint = get_single_trace_endpoint(trace_id, use_v3=False)
         response_proto = self._call_endpoint(GetTraceInfo, req_body, endpoint=endpoint)
         return TraceInfoV2.from_proto(response_proto.trace_info).to_v3()
+
+    def get_traces(self, trace_ids: list[str]) -> list[Trace]:
+        """
+        Get complete traces with spans for given trace ids.
+
+        Args:
+            trace_ids: List of trace IDs to fetch.
+
+        Returns:
+            List of Trace objects.
+        """
+        sql_warehouse_id = MLFLOW_TRACING_SQL_WAREHOUSE_ID.get()
+        trace_identifiers = [self._construct_trace_identifier(trace_id) for trace_id in trace_ids]
+        req_body = message_to_json(
+            GetTraces(trace_ids=trace_identifiers, sql_warehouse_id=sql_warehouse_id)
+        )
+        response_proto = self._call_endpoint(
+            GetTraces, req_body, endpoint=f"{_V4_TRACE_REST_API_PATH_PREFIX}/batch"
+        )
+        return [Trace.from_proto_v4(proto) for proto in response_proto.traces]
+
+    def _construct_trace_identifier(self, trace_id: str) -> TraceIdentifier:
+        location, trace_id = parse_trace_id_v4(trace_id)
+        if location is None or len(location.split(".")) != 2:
+            raise MlflowException.invalid_parameter_value(f"Invalid trace_id: {trace_id}")
+
+        catalog, schema = location.split(".")
+        return TraceIdentifier(
+            uc_schema=UCSchemaLocation(catalog_name=catalog, schema_name=schema),
+            trace_id=trace_id,
+        )
 
     def get_online_trace_details(
         self,
