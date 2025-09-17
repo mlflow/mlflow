@@ -61,7 +61,7 @@ def main() -> None:
         index_path = Path(tmp_dir) / "symbol_index.pkl"
         SymbolIndex.build().save(index_path)
         with ProcessPoolExecutor() as pool:
-            futures = [pool.submit(lint_file, f, config, index_path) for f in files]
+            futures = [pool.submit(lint_file, f, f.read_text(), config, index_path) for f in files]
             violations_iter = itertools.chain.from_iterable(
                 f.result() for f in as_completed(futures)
             )
