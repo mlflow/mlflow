@@ -3,14 +3,15 @@
 Create Date: 2025-09-11 17:39:31.569736
 
 """
-import time
-from alembic import op
-import sqlalchemy as sa
 
+import time
+
+import sqlalchemy as sa
+from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = 'bf29a5ff90ea'
-down_revision = '71994744cf8e'
+revision = "bf29a5ff90ea"
+down_revision = "71994744cf8e"
 branch_labels = None
 depends_on = None
 

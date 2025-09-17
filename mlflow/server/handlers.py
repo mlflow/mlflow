@@ -472,18 +472,18 @@ def _get_model_registry_store(registry_store_uri: str | None = None) -> Abstract
 def _get_job_store(backend_store_uri: str | None = None):
     """
     Get a job store instance based on the backend store URI.
-    
+
     Args:
-        backend_store_uri: Optional backend store URI. If not provided, 
+        backend_store_uri: Optional backend store URI. If not provided,
                           uses environment variable.
-    
+
     Returns:
         An instance of AbstractJobStore
     """
     from mlflow.server import BACKEND_STORE_URI_ENV_VAR
     from mlflow.store.job.sqlalchemy_store import SqlAlchemyJobStore
     from mlflow.utils.uri import extract_db_type_from_uri
-    
+
     global _job_store
     if _job_store is None:
         store_uri = backend_store_uri or os.environ.get(BACKEND_STORE_URI_ENV_VAR, None)

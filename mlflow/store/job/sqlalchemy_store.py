@@ -1,4 +1,5 @@
 import uuid
+
 import sqlalchemy
 
 import mlflow.store.db.utils
@@ -8,7 +9,6 @@ from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.job.abstract_store import AbstractJobStore
 from mlflow.store.tracking.dbmodels.models import SqlJob
 from mlflow.utils.time import get_current_time_millis
-
 
 sqlalchemy.orm.configure_mappers()
 
@@ -32,6 +32,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
         if not mlflow.store.db.utils._all_tables_exist(self.engine):
             mlflow.store.db.utils._initialize_tables(self.engine)
         import sqlalchemy.orm
+
         SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
         self.ManagedSessionMaker = mlflow.store.db.utils._get_managed_session_maker(
             SessionMaker, self.engine.dialect.name
@@ -58,7 +59,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
                 function=function,
                 params=params,
                 status=JobStatus.PENDING.to_int(),
-                result=None
+                result=None,
             )
 
             session.add(job)
@@ -76,8 +77,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
             job = session.query(SqlJob).filter(SqlJob.id == job_id).one_or_none()
             if job is None:
                 raise MlflowException(
-                    f"Job with ID {job_id} not found",
-                    error_code=RESOURCE_DOES_NOT_EXIST
+                    f"Job with ID {job_id} not found", error_code=RESOURCE_DOES_NOT_EXIST
                 )
 
             job.status = JobStatus.RUNNING.to_int()
@@ -93,8 +93,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
             job = session.query(SqlJob).filter(SqlJob.id == job_id).one_or_none()
             if job is None:
                 raise MlflowException(
-                    f"Job with ID {job_id} not found",
-                    error_code=RESOURCE_DOES_NOT_EXIST
+                    f"Job with ID {job_id} not found", error_code=RESOURCE_DOES_NOT_EXIST
                 )
 
             job.status = JobStatus.PENDING.to_int()
@@ -111,8 +110,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
             job = session.query(SqlJob).filter(SqlJob.id == job_id).one_or_none()
             if job is None:
                 raise MlflowException(
-                    f"Job with ID {job_id} not found",
-                    error_code=RESOURCE_DOES_NOT_EXIST
+                    f"Job with ID {job_id} not found", error_code=RESOURCE_DOES_NOT_EXIST
                 )
 
             job.status = JobStatus.DONE.to_int()
@@ -130,8 +128,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
             job = session.query(SqlJob).filter(SqlJob.id == job_id).one_or_none()
             if job is None:
                 raise MlflowException(
-                    f"Job with ID {job_id} not found",
-                    error_code=RESOURCE_DOES_NOT_EXIST
+                    f"Job with ID {job_id} not found", error_code=RESOURCE_DOES_NOT_EXIST
                 )
 
             job.status = JobStatus.FAILED.to_int()
@@ -158,8 +155,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
             job = session.query(SqlJob).filter(SqlJob.id == job_id).one_or_none()
             if job is None:
                 raise MlflowException(
-                    f"Job with ID {job_id} not found",
-                    error_code=RESOURCE_DOES_NOT_EXIST
+                    f"Job with ID {job_id} not found", error_code=RESOURCE_DOES_NOT_EXIST
                 )
 
             if job.retry_count >= max_retries:
@@ -171,11 +167,11 @@ class SqlAlchemyJobStore(AbstractJobStore):
             return True
 
     def list_jobs(
-            self,
-            function: str | None = None,
-            status: JobStatus | None = None,
-            begin_timestamp: int | None = None,
-            end_timestamp: int | None = None
+        self,
+        function: str | None = None,
+        status: JobStatus | None = None,
+        begin_timestamp: int | None = None,
+        end_timestamp: int | None = None,
     ) -> list[Job]:
         """
         List jobs based on the provided filters.
@@ -227,7 +223,6 @@ class SqlAlchemyJobStore(AbstractJobStore):
             job = session.query(SqlJob).filter(SqlJob.id == job_id).one_or_none()
             if job is None:
                 raise MlflowException(
-                    f"Job with ID {job_id} not found",
-                    error_code=RESOURCE_DOES_NOT_EXIST
+                    f"Job with ID {job_id} not found", error_code=RESOURCE_DOES_NOT_EXIST
                 )
             return job.to_mlflow_entity()

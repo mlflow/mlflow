@@ -2,15 +2,20 @@ import os
 import tempfile
 import time
 import uuid
+from contextlib import contextmanager
 from multiprocessing import Pool as MultiProcPool
 from os.path import dirname
-from contextlib import contextmanager
+
 import requests
 
-from mlflow.server import BACKEND_STORE_URI_ENV_VAR, HUEY_STORAGE_PATH_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
-from mlflow.server.job import _start_job_runner, submit_job, query_job
 from mlflow.entities._job_status import JobStatus
+from mlflow.server import (
+    ARTIFACT_ROOT_ENV_VAR,
+    BACKEND_STORE_URI_ENV_VAR,
+    HUEY_STORAGE_PATH_ENV_VAR,
+)
 from mlflow.server.handlers import _get_job_store
+from mlflow.server.job import _start_job_runner, query_job, submit_job
 
 
 def _start_job_runner_for_test(max_job_parallelism):
@@ -57,6 +62,7 @@ def test_basic_job(monkeypatch):
         assert result == 7
 
         from mlflow.server.handlers import _get_job_store
+
         store = _get_job_store()
         job = store.get_job(job_id)
 
@@ -64,7 +70,7 @@ def test_basic_job(monkeypatch):
         assert job.job_id == job_id
         assert job.function == "test_job.basic_job_fun"
         assert job.params == '{"x": 3, "y": 4}'
-        assert job.result == '7'
+        assert job.result == "7"
         assert job.status == JobStatus.DONE
         assert job.retry_count == 0
 
@@ -72,18 +78,19 @@ def test_basic_job(monkeypatch):
 def json_in_out_fun(data):
     x = data["x"]
     y = data["y"]
-    return {'res': x + y}
+    return {"res": x + y}
 
 
 def test_job_json_input_output(monkeypatch):
     with _setup_job_queue(1, monkeypatch):
-        job_id = submit_job(json_in_out_fun, {"data": {'x': 3, 'y': 4}})
+        job_id = submit_job(json_in_out_fun, {"data": {"x": 3, "y": 4}})
         time.sleep(0.5)
         status, result = query_job(job_id)
         assert status == JobStatus.DONE
-        assert result == {'res': 7}
+        assert result == {"res": 7}
 
         from mlflow.server.handlers import _get_job_store
+
         store = _get_job_store()
         job = store.get_job(job_id)
 
@@ -109,6 +116,7 @@ def test_error_job(monkeypatch):
         assert result == "RuntimeError()"
 
         from mlflow.server.handlers import _get_job_store
+
         store = _get_job_store()
         job = store.get_job(job_id)
 
@@ -116,7 +124,7 @@ def test_error_job(monkeypatch):
         assert job.job_id == job_id
         assert job.function == "test_job.err_fun"
         assert job.params == '{"data": null}'
-        assert job.result == 'RuntimeError()'
+        assert job.result == "RuntimeError()"
         assert job.status == JobStatus.FAILED
         assert job.retry_count == 0
 
@@ -148,10 +156,7 @@ def test_job_resume(monkeypatch):
 def test_job_queue_parallelism(monkeypatch):
     # test job queue parallelism=2 and each job consumes 2 seconds.
     with _setup_job_queue(2, monkeypatch):
-        job_ids = [
-            submit_job(basic_job_fun, {"x": x, "y": 1, "sleep_secs": 2})
-            for x in range(4)
-        ]
+        job_ids = [submit_job(basic_job_fun, {"x": x, "y": 1, "sleep_secs": 2}) for x in range(4)]
         time.sleep(2.5)
 
         # assert that job1 and job2 are done, and job3 and job4 are running
@@ -198,7 +203,7 @@ def test_job_retry_on_transient_error(monkeypatch):
             assert query_job(job2_id) == (JobStatus.DONE, 100)
             job2 = store.get_job(job2_id)
             assert job2.status == JobStatus.DONE
-            assert job2.result == '100'
+            assert job2.result == "100"
             assert job2.retry_count == 1
 
 
@@ -209,13 +214,14 @@ def test_job_retry_on_transient_error(monkeypatch):
 def test_submit_jobs_from_multi_processes(monkeypatch):
     with _setup_job_queue(4, monkeypatch), MultiProcPool() as pool:
         async_res_list = [
-            pool.apply_async(submit_job, args=(basic_job_fun,), kwds={"params": {"x": x, "y": 1, "sleep_secs": 2}})
+            pool.apply_async(
+                submit_job,
+                args=(basic_job_fun,),
+                kwds={"params": {"x": x, "y": 1, "sleep_secs": 2}},
+            )
             for x in range(4)
         ]
-        job_ids = [
-            async_res.get()
-            for async_res in async_res_list
-        ]
+        job_ids = [async_res.get() for async_res in async_res_list]
         time.sleep(3)
         for x in range(4):
             assert query_job(job_ids[x]) == (JobStatus.DONE, x + 1)

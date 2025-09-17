@@ -1,12 +1,12 @@
+import json
 import shutil
 import sys
-from typing import Any, Callable
 from types import FunctionType
+from typing import Any, Callable
 
-import json
 from mlflow.entities._job_status import JobStatus
-from mlflow.server.handlers import _get_job_store
 from mlflow.exceptions import MlflowException
+from mlflow.server.handlers import _get_job_store
 
 
 def submit_job(function: Callable[..., Any], params: dict[str, Any]):
@@ -34,10 +34,7 @@ def submit_job(function: Callable[..., Any], params: dict[str, Any]):
             "environment variable 'MLFLOW_SERVER_ENABLE_JOB_EXECUTION' to 'true' to enable it."
         )
 
-    if not (
-        isinstance(function, FunctionType) and
-        "." not in function.__qualname__
-    ):
+    if not (isinstance(function, FunctionType) and "." not in function.__qualname__):
         raise MlflowException("The job function must be a python global function.")
 
     job_store = _get_job_store()
@@ -89,6 +86,6 @@ def _start_job_runner(env_map, max_job_parallelism, server_proc_pid):
         extra_env={
             **env_map,
             "_IS_MLFLOW_JOB_RUNNER": "1",
-            "MLFLOW_SERVER_PID": str(server_proc_pid)
+            "MLFLOW_SERVER_PID": str(server_proc_pid),
         },
     )

@@ -1966,7 +1966,6 @@ class SqlJob(Base):
     """
     retry_count = Column(Integer, default=0)
 
-
     __table_args__ = (
         PrimaryKeyConstraint("id", name="jobs_pk"),
         Index("index_jobs_function_status_creation_time", "function", "status", "creation_time"),

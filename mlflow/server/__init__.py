@@ -1,5 +1,6 @@
 import importlib
 import importlib.metadata
+import logging
 import os
 import shlex
 import sys
@@ -8,7 +9,6 @@ import textwrap
 import threading
 import time
 import types
-import logging
 import warnings
 
 _logger = logging.getLogger("mlflow.server")
@@ -393,7 +393,9 @@ def _run_server(
 
     # The `HUEY_STORAGE_PATH_ENV_VAR` is used by both Mlflow server handler workers and huey job runner (huey_consumer).
     env_map[HUEY_STORAGE_PATH_ENV_VAR] = os.path.join(tempfile.mkdtemp(), "mlflow-huey.db")
-    server_proc = _exec_cmd(full_command, extra_env=env_map, capture_output=False, synchronous=False)
+    server_proc = _exec_cmd(
+        full_command, extra_env=env_map, capture_output=False, synchronous=False
+    )
 
     if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
         from mlflow.utils.uri import extract_db_type_from_uri
@@ -415,7 +417,9 @@ def _run_server(
                 while True:
                     # start Mlflow job runner process
                     # Put it inside the loop to ensure the job runner process alive
-                    job_runner_proc = _start_job_runner(env_map, max_job_parallelism, server_proc.pid)
+                    job_runner_proc = _start_job_runner(
+                        env_map, max_job_parallelism, server_proc.pid
+                    )
                     job_runner_proc.wait()
 
                     time.sleep(1)

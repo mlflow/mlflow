@@ -1,20 +1,22 @@
-import requests
-from typing import Any, Callable
-import importlib
-import os
 import errno
+import importlib
+import json
+import os
+import signal
 import threading
 import time
-import json
-import signal
+from typing import Any, Callable
+
+import cloudpickle
+import requests
 from huey import SqliteHuey
 from huey.exceptions import RetryTask
 from huey.serializer import Serializer
-import cloudpickle
+
 from mlflow.entities._job_status import JobStatus
+from mlflow.environment_variables import MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_INTERVAL
 from mlflow.server import HUEY_STORAGE_PATH_ENV_VAR
 from mlflow.server.handlers import _get_job_store
-from mlflow.environment_variables import MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_INTERVAL
 
 
 def _create_huey_instance():
@@ -28,7 +30,7 @@ def _create_huey_instance():
     return SqliteHuey(
         filename=os.environ[HUEY_STORAGE_PATH_ENV_VAR],
         results=False,
-        serializer=CloudPickleSerializer()
+        serializer=CloudPickleSerializer(),
     )
 
 

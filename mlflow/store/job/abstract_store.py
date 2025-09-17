@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
 
-from mlflow.entities._job import Job, JobStatus
+from mlflow.entities._job import JobStatus
 from mlflow.utils.annotations import developer_stable
 
 
@@ -90,7 +90,7 @@ class AbstractJobStore:
         function: str | None = None,
         status: JobStatus | None = None,
         begin_timestamp: int | None = None,
-        end_timestamp: int | None = None
+        end_timestamp: int | None = None,
     ):
         """
         List jobs based on the provided filters.

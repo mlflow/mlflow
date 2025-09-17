@@ -1,5 +1,5 @@
-from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities._job_status import JobStatus
+from mlflow.entities._mlflow_object import _MlflowObject
 
 
 class Job(_MlflowObject):
