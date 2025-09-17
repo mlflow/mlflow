@@ -35,17 +35,28 @@ def normalize_evidence(
 
         elif isinstance(entry, dict):
             try:
+                if "trace_id" not in entry:
+                    raise MlflowException.invalid_parameter_value(
+                        "Evidence entry must include 'trace_id' - trace IDs are required to link "
+                        "evidence to specific MLflow traces"
+                    )
+                if "rationale" not in entry:
+                    raise MlflowException.invalid_parameter_value(
+                        "Evidence entry must include 'rationale' - explanation is required for "
+                        "why this trace is relevant"
+                    )
+
                 if for_issue:
                     validated_entries.append(
                         EvidenceEntry.for_issue(
-                            trace_id=entry.get("trace_id", ""), rationale=entry.get("rationale", "")
+                            trace_id=entry["trace_id"], rationale=entry["rationale"]
                         )
                     )
                 else:
                     validated_entries.append(
                         EvidenceEntry.for_hypothesis(
-                            trace_id=entry.get("trace_id", ""),
-                            rationale=entry.get("rationale", ""),
+                            trace_id=entry["trace_id"],
+                            rationale=entry["rationale"],
                             supports=entry.get("supports", True),
                         )
                     )
@@ -71,10 +82,4 @@ def extract_trace_ids(evidence: list[EvidenceEntry]) -> list[str]:
     Returns:
         List of unique trace IDs preserving order of first occurrence
     """
-    seen = set()
-    unique_ids = []
-    for entry in evidence:
-        if entry.trace_id not in seen:
-            seen.add(entry.trace_id)
-            unique_ids.append(entry.trace_id)
-    return unique_ids
+    return list(dict.fromkeys(entry.trace_id for entry in evidence))
