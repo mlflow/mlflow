@@ -9,7 +9,10 @@ import textwrap
 import threading
 import time
 import types
+import logging
 import warnings
+
+_logger = logging.getLogger("mlflow.server")
 
 from flask import Flask, Response, send_from_directory
 from packaging.version import Version
@@ -392,24 +395,33 @@ def _run_server(
     # The `HUEY_STORAGE_PATH_ENV_VAR` is used by both Mlflow server handler workers and huey job runner (huey_consumer).
     env_map[HUEY_STORAGE_PATH_ENV_VAR] = os.path.join(tempfile.mkdtemp(), "mlflow-huey.db")
     server_proc = _exec_cmd(full_command, extra_env=env_map, capture_output=False, synchronous=False)
+
     if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
-        max_job_parallelism = MLFLOW_SERVER_JOB_MAX_PARALLELISM.get()
+        from mlflow.utils.uri import extract_db_type_from_uri
 
-        if max_job_parallelism == 0:
-            max_job_parallelism = os.cpu_count()
+        if extract_db_type_from_uri(file_store_path) is None:
+            _logger.warning(
+                f"Job store requires a database backend store URI but got {file_store_path}, "
+                "skip launching the job scheduler."
+            )
+        else:
+            max_job_parallelism = MLFLOW_SERVER_JOB_MAX_PARALLELISM.get()
 
-        def _start_job_runner_fn():
-            from mlflow.server.job import _start_job_runner
+            if max_job_parallelism == 0:
+                max_job_parallelism = os.cpu_count()
 
-            while True:
-                # start Mlflow job runner process
-                # Put it inside the loop to ensure the job runner process alive
-                job_runner_proc = _start_job_runner(env_map, max_job_parallelism, server_proc.pid)
-                job_runner_proc.wait()
+            def _start_job_runner_fn():
+                from mlflow.server.job import _start_job_runner
 
-                time.sleep(1)
+                while True:
+                    # start Mlflow job runner process
+                    # Put it inside the loop to ensure the job runner process alive
+                    job_runner_proc = _start_job_runner(env_map, max_job_parallelism, server_proc.pid)
+                    job_runner_proc.wait()
 
-        # start job runner.
-        threading.Thread(target=_start_job_runner_fn, daemon=True).start()
+                    time.sleep(1)
+
+            # start job runner.
+            threading.Thread(target=_start_job_runner_fn, daemon=True).start()
 
     server_proc.wait()

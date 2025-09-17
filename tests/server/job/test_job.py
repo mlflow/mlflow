@@ -9,6 +9,7 @@ from contextlib import contextmanager
 
 import requests
 
+import mlflow.server.handlers
 from mlflow.server import BACKEND_STORE_URI_ENV_VAR, HUEY_STORAGE_PATH_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
 from mlflow.server.job import _start_job_runner, submit_job, query_job
 from mlflow.entities._job_status import JobStatus
@@ -29,6 +30,7 @@ def _start_job_runner_for_test(max_job_parallelism):
 def _setup_job_queue(max_job_parallelism, monkeypatch):
     with tempfile.TemporaryDirectory() as tmp_dir:
         backend_store_uri = f"sqlite:///{os.path.join(tmp_dir, 'mlflow.db')}"
+        print("DBG:::" + backend_store_uri)
         huey_store_path = os.path.join(tmp_dir, "huey.db")
         default_artifact_root = os.path.join(tmp_dir, "artifacts")
         try:
@@ -39,7 +41,8 @@ def _setup_job_queue(max_job_parallelism, monkeypatch):
             job_runner_proc = _start_job_runner_for_test(max_job_parallelism)
             yield job_runner_proc
         finally:
-            job_runner_proc.terminate()
+            job_runner_proc.kill()
+            time.sleep(1)
 
 
 def basic_job_fun(x, y, sleep_secs=0):
@@ -56,7 +59,8 @@ def test_basic_job(monkeypatch):
         assert status == JobStatus.DONE
         assert result == 7
 
-        store = _get_tracking_store()
+        from mlflow.server.handlers import _get_job_store
+        store = _get_job_store()
         job = store.get_job(job_id)
 
         # check database record correctness.
@@ -82,7 +86,8 @@ def test_job_json_input_output(monkeypatch):
         assert status == JobStatus.DONE
         assert result == {'res': 7}
 
-        store = _get_tracking_store()
+        from mlflow.server.handlers import _get_job_store
+        store = _get_job_store()
         job = store.get_job(job_id)
 
         # check database record correctness.
@@ -106,7 +111,8 @@ def test_error_job(monkeypatch):
         assert status == JobStatus.FAILED
         assert result == "RuntimeError()"
 
-        store = _get_tracking_store()
+        from mlflow.server.handlers import _get_job_store
+        store = _get_job_store()
         job = store.get_job(job_id)
 
         # check database record correctness.

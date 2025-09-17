@@ -16,7 +16,7 @@ import cloudpickle
 import tempfile
 from mlflow.entities._job import JobStatus
 from mlflow.server import HUEY_STORAGE_PATH_ENV_VAR
-from mlflow.server.handlers import _get_tracking_store
+from mlflow.server.handlers import _get_job_store
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.exceptions import MlflowException
 from mlflow.environment_variables import MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_INTERVAL
@@ -48,20 +48,20 @@ _TRANSIENT_ERRORS = (
 
 @huey.task()
 def huey_task_exec_job(job_id: str, function: Callable, params: dict[str, Any]) -> None:
-    tracking_store = _get_tracking_store()
-    tracking_store.start_job(job_id)
+    job_store = _get_job_store()
+    job_store.start_job(job_id)
     try:
         result = function(**params)
         serialized_result = json.dumps(result)
-        tracking_store.finish_job(job_id, serialized_result)
+        job_store.finish_job(job_id, serialized_result)
     except _TRANSIENT_ERRORS as e:
         # For transient errors, if the retry count is less than max allowed count,
         # trigger task retry by raising `RetryTask` exception.
-        do_retry = tracking_store.retry_or_fail_job(job_id, repr(e))
+        do_retry = job_store.retry_or_fail_job(job_id, repr(e))
         if do_retry:
             raise RetryTask(delay=MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_INTERVAL.get())
     except Exception as e:
-        tracking_store.fail_job(job_id, repr(e))
+        job_store.fail_job(job_id, repr(e))
 
 
 def _is_process_alive(pid: int) -> bool:
@@ -100,13 +100,13 @@ def _load_function(fullname: str):
 
 
 def _enqueue_pending_running_jobs():
-    tracking_store = _get_tracking_store()
+    job_store = _get_job_store()
 
-    pending_jobs = tracking_store.list_jobs(status=JobStatus.PENDING)
-    running_jobs = tracking_store.list_jobs(status=JobStatus.RUNNING)
+    pending_jobs = job_store.list_jobs(status=JobStatus.PENDING)
+    running_jobs = job_store.list_jobs(status=JobStatus.RUNNING)
 
     for job in running_jobs:
-        tracking_store.reset_job(job.job_id)  # reset the job status to PENDING
+        job_store.reset_job(job.job_id)  # reset the job status to PENDING
 
     pending_jobs = pending_jobs + running_jobs
 

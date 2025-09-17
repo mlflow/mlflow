@@ -5,7 +5,7 @@ from types import FunctionType
 
 import json
 from mlflow.entities._job import JobStatus
-from mlflow.server.handlers import _get_tracking_store
+from mlflow.server.handlers import _get_job_store
 from mlflow.exceptions import MlflowException
 
 
@@ -40,10 +40,10 @@ def submit_job(function, **params: Any):
     ):
         raise MlflowException("The job function must be a python global function.")
 
-    _tracking_store = _get_tracking_store()
+    job_store = _get_job_store()
     serialized_params = json.dumps(params)
     func_fullname = f"{function.__module__}.{function.__name__}"
-    job_id = _tracking_store.create_job(func_fullname, serialized_params)
+    job_id = job_store.create_job(func_fullname, serialized_params)
 
     # enqueue job
     huey_task_exec_job(job_id, function, params)
@@ -65,8 +65,8 @@ def query_job(job_id: str) -> tuple[JobStatus, Any]:
         If status is DONE, result is the job function returned value.
         If status is FAILED, result is the error message.
     """
-    _tracking_store = _get_tracking_store()
-    job = _tracking_store.get_job(job_id)
+    job_store = _get_job_store()
+    job = job_store.get_job(job_id)
     status = job.status
     result = job.result
     if status == JobStatus.DONE:

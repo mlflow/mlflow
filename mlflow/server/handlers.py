@@ -216,6 +216,7 @@ from mlflow.webhooks.types import (
 _logger = logging.getLogger(__name__)
 _tracking_store = None
 _model_registry_store = None
+_job_store = None
 _artifact_repo = None
 STATIC_PREFIX_ENV_VAR = "_MLFLOW_STATIC_PREFIX"
 MAX_RUNS_GET_METRIC_HISTORY_BULK = 100
@@ -464,6 +465,32 @@ def _get_model_registry_store(registry_store_uri: str | None = None) -> Abstract
         _model_registry_store = _model_registry_store_registry.get_store(store_uri)
         registry_utils.set_registry_uri(store_uri)
     return _model_registry_store
+
+
+def _get_job_store(backend_store_uri: str | None = None):
+    """
+    Get a job store instance based on the backend store URI.
+    
+    Args:
+        backend_store_uri: Optional backend store URI. If not provided, 
+                          uses environment variable.
+    
+    Returns:
+        An instance of AbstractJobStore
+    """
+    from mlflow.server import BACKEND_STORE_URI_ENV_VAR
+    from mlflow.store.job.sqlalchemy_store import SqlAlchemyJobStore
+    from mlflow.utils.uri import extract_db_type_from_uri
+    
+    global _job_store
+    if _job_store is None:
+        store_uri = backend_store_uri or os.environ.get(BACKEND_STORE_URI_ENV_VAR, None)
+        if store_uri is None or extract_db_type_from_uri(store_uri) is None:
+            # Default to file-based storage for now (could be enhanced later)
+            raise ValueError("Job store requires a database backend URI")
+        else:
+            _job_store = SqlAlchemyJobStore(store_uri)
+    return _job_store
 
 
 def initialize_backend_stores(
