@@ -1173,7 +1173,6 @@ def test_upsert_dataset_records(mock_tracking_store):
     mock_tracking_store.upsert_dataset_records.assert_called_once_with(
         dataset_id=dataset_id,
         records=records,
-        updated_by=None,
     )
 
     response_data = json.loads(resp.get_data())
