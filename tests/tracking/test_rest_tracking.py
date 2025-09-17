@@ -23,7 +23,6 @@ import pandas as pd
 import pytest
 import requests
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
-from packaging.version import Version
 
 import mlflow.experiments
 import mlflow.pyfunc
@@ -3677,17 +3676,6 @@ async def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, store_type
     if store_type == "file":
         pytest.skip("FileStore does not support OTLP span logging")
 
-    # Mock the server version check to return 3.4 if current MLflow version is < 3.4
-    # This allows the test to pass on dev MLflow versions before MLflow 3.4 is released.
-    # TODO: Remove this mock once MLflow 3.4 is released
-    if Version(mlflow.__version__) < Version("3.4"):
-        version_mock = mock.patch(
-            "mlflow.store.tracking.rest_store.RestStore._get_server_version",
-            return_value=Version("3.4.0"),
-        )
-    else:
-        pytest.fail(reason="Remove the mock above")
-
     experiment_id = mlflow_client.create_experiment(f"rest_store_otel_test_{use_async}")
     root_span = mlflow_client.start_trace(
         f"rest_store_otel_trace_{use_async}", experiment_id=experiment_id
@@ -3708,17 +3696,16 @@ async def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, store_type
         resource=None,
     )
     mlflow_span_to_log = Span(otel_span)
-    with version_mock:
-        # Call either sync or async version based on parametrization
-        if use_async:
-            # Use await to execute the async method
-            result_spans = await mlflow_client._tracking_client.store.log_spans_async(
-                experiment_id=experiment_id, spans=[mlflow_span_to_log]
-            )
-        else:
-            result_spans = mlflow_client._tracking_client.store.log_spans(
-                experiment_id=experiment_id, spans=[mlflow_span_to_log]
-            )
+    # Call either sync or async version based on parametrization
+    if use_async:
+        # Use await to execute the async method
+        result_spans = await mlflow_client._tracking_client.store.log_spans_async(
+            experiment_id=experiment_id, spans=[mlflow_span_to_log]
+        )
+    else:
+        result_spans = mlflow_client._tracking_client.store.log_spans(
+            experiment_id=experiment_id, spans=[mlflow_span_to_log]
+        )
 
     # Verify the spans were returned (indicates successful logging)
     assert len(result_spans) == 1
