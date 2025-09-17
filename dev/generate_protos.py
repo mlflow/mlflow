@@ -143,6 +143,10 @@ python_gencode_replacements = [
         "import webhooks_pb2 as webhooks__pb2",
         "from . import webhooks_pb2 as webhooks__pb2",
     ),
+    (
+        "import databricks_trace_server_pb2 as databricks__trace__server__pb2",
+        "from . import databricks_trace_server_pb2 as databricks_trace_server__pb2",
+    ),
 ]
 
 
@@ -251,7 +255,7 @@ def main() -> None:
     # generate java gencode using pinned protoc 3.19.4 version.
     gen_protos(
         MLFLOW_PROTOS_DIR,
-        basic_proto_files,
+        basic_proto_files + tracing_proto_files,
         "java",
         protoc3194,
         protoc3194_include,

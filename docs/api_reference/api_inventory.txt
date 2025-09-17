@@ -463,6 +463,7 @@ mlflow.entities.SourceType.to_string
 mlflow.entities.Span
 mlflow.entities.Span.from_dict
 mlflow.entities.Span.from_dict_v2
+mlflow.entities.Span.from_proto
 mlflow.entities.Span.get_attribute
 mlflow.entities.Span.to_dict
 mlflow.entities.Span.to_proto
@@ -477,6 +478,7 @@ mlflow.entities.SpanType
 mlflow.entities.Trace
 mlflow.entities.Trace.from_dict
 mlflow.entities.Trace.from_json
+mlflow.entities.Trace.from_proto_v3
 mlflow.entities.Trace.pandas_dataframe_columns
 mlflow.entities.Trace.search_assessments
 mlflow.entities.Trace.search_spans
@@ -484,6 +486,7 @@ mlflow.entities.Trace.to_dict
 mlflow.entities.Trace.to_json
 mlflow.entities.Trace.to_pandas_dataframe_row
 mlflow.entities.Trace.to_proto
+mlflow.entities.Trace.to_proto_v3
 mlflow.entities.TraceData
 mlflow.entities.TraceData.from_dict
 mlflow.entities.TraceData.to_dict

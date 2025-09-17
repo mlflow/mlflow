@@ -99,6 +99,7 @@ def test_json_deserialization(monkeypatch):
             "tags": {
                 "mlflow.traceName": "predict",
                 "mlflow.artifactLocation": trace.info.tags[MLFLOW_ARTIFACT_LOCATION],
+                "mlflow.trace.spansLocation": mock.ANY,
             },
         },
         "data": {
@@ -269,13 +270,13 @@ def test_trace_pandas_dataframe_columns():
 @pytest.mark.parametrize(
     ("span_type", "name", "expected"),
     [
-        (None, None, ["run", "add_one_1", "add_one_2", "add_two", "multiply_by_two"]),
+        (None, None, ["run", "add_one", "add_one_2", "add_two", "multiply_by_two"]),
         (SpanType.CHAIN, None, ["run"]),
         (None, "add_two", ["add_two"]),
-        (None, re.compile(r"add.*"), ["add_one_1", "add_one_2", "add_two"]),
-        (None, re.compile(r"^add"), ["add_one_1", "add_one_2", "add_two"]),
+        (None, re.compile(r"add.*"), ["add_one", "add_one_2", "add_two"]),
+        (None, re.compile(r"^add"), ["add_one", "add_one_2", "add_two"]),
         (None, re.compile(r"_two$"), ["add_two", "multiply_by_two"]),
-        (None, re.compile(r".*ONE", re.IGNORECASE), ["add_one_1", "add_one_2"]),
+        (None, re.compile(r".*ONE", re.IGNORECASE), ["add_one", "add_one_2"]),
         (SpanType.TOOL, "multiply_by_two", ["multiply_by_two"]),
         (SpanType.AGENT, None, []),
         (None, "non_existent", []),
@@ -454,3 +455,33 @@ def test_search_assessments():
     assert trace.search_assessments(span_id="123") == [assessments[2], assessments[3]]
     assert trace.search_assessments(span_id="123", name="relevance") == [assessments[2]]
     assert trace.search_assessments(type="expectation") == [assessments[3]]
+
+
+def test_trace_to_proto_v3_and_from_proto_v3():
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs({"prompt": "hello"})
+        span.set_outputs({"response": "world"})
+        span.set_attribute("custom", "value")
+
+    trace = mlflow.get_trace(span.trace_id)
+
+    proto_trace_v3 = trace.to_proto_v3()
+
+    assert proto_trace_v3.trace_info.trace_id == trace.info.trace_id
+    assert len(proto_trace_v3.spans) == len(trace.data.spans)
+
+    reconstructed_trace = Trace.from_proto_v3(proto_trace_v3)
+
+    assert reconstructed_trace.info.trace_id == trace.info.trace_id
+    assert reconstructed_trace.info.experiment_id == trace.info.experiment_id
+    assert len(reconstructed_trace.data.spans) == len(trace.data.spans)
+
+    original_span = trace.data.spans[0]
+    reconstructed_span = reconstructed_trace.data.spans[0]
+
+    assert reconstructed_span.name == original_span.name
+    assert reconstructed_span.span_id == original_span.span_id
+    assert reconstructed_span.trace_id == original_span.trace_id
+    assert reconstructed_span.inputs == original_span.inputs
+    assert reconstructed_span.outputs == original_span.outputs
+    assert reconstructed_span.get_attribute("custom") == original_span.get_attribute("custom")

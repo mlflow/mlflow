@@ -17,6 +17,7 @@ from mlflow.exceptions import (
     MlflowTraceDataCorrupted,
     MlflowTraceDataException,
     MlflowTraceDataNotFound,
+    MlflowTraceSpansNotFound,
 )
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -127,26 +128,32 @@ class TracingClient:
         Returns:
             The fetched Trace object, of type ``mlflow.entities.Trace``.
         """
-        trace_info = self.get_trace_info(trace_id)
         try:
-            trace_data = self._download_trace_data(trace_info)
+            return self.store.get_trace(trace_id)
+        except (NotImplementedError, MlflowTraceSpansNotFound):
+            trace_info = self.get_trace_info(trace_id)
+            trace_data = self._get_trace_data(trace_info)
+            return Trace(trace_info, trace_data)
+
+    def _get_trace_data(self, trace_info: TraceInfo) -> TraceData:
+        try:
+            return self._download_trace_data(trace_info)
         except MlflowTraceDataNotFound:
             raise MlflowException(
                 message=(
-                    f"Trace with ID {trace_id} cannot be loaded because it is missing span data."
-                    " Please try creating or loading another trace."
+                    f"Trace with ID {trace_info.trace_id} cannot be loaded because it is "
+                    "missing span data. Please try creating or loading another trace."
                 ),
                 error_code=BAD_REQUEST,
             ) from None  # Ensure the original spammy exception is not included in the traceback
         except MlflowTraceDataCorrupted:
             raise MlflowException(
                 message=(
-                    f"Trace with ID {trace_id} cannot be loaded because its span data"
-                    " is corrupted. Please try creating or loading another trace."
+                    f"Trace with ID {trace_info.trace_id} cannot be loaded because its span "
+                    "data is corrupted. Please try creating or loading another trace."
                 ),
                 error_code=BAD_REQUEST,
             ) from None  # Ensure the original spammy exception is not included in the traceback
-        return Trace(trace_info, trace_data)
 
     def get_online_trace_details(
         self,
@@ -290,8 +297,10 @@ class TracingClient:
                     )
                     trace_data = TraceData.from_dict(json.loads(trace_data))
                 else:
-                    # For offline traces, download data from artifact storage
-                    trace_data = self._download_trace_data(trace_info)
+                    try:
+                        trace_data = self.store.get_trace(trace_info.trace_id).data
+                    except (NotImplementedError, MlflowTraceSpansNotFound):
+                        trace_data = self._download_trace_data(trace_info)
             except MlflowTraceDataException as e:
                 _logger.warning(
                     (

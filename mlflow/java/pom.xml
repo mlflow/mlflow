@@ -211,7 +211,7 @@
                     </module>
                   </module>
                 </checkstyleRules>
-                <excludes>com/databricks/**,org/mlflow/api/proto/**,org/mlflow/scalapb_interface/**</excludes>
+                <excludes>com/databricks/**,org/mlflow/api/proto/**,org/mlflow/scalapb_interface/**,mlflow/traceserver/**</excludes>
               </configuration>
             </execution>
           </executions>
