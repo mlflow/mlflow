@@ -8,10 +8,12 @@ from pathlib import Path
 
 
 @functools.lru_cache(maxsize=1)
-def get_repo_root() -> str:
+def get_repo_root() -> Path:
     """Get git repository root path, cached for performance."""
     try:
-        return subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True).strip()
+        return Path(
+            subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True).strip()
+        )
     except (OSError, subprocess.CalledProcessError) as e:
         raise RuntimeError("Not in a git repository") from e
 
@@ -62,27 +64,22 @@ def _git_ls_files(pathspecs: list[Path]) -> list[Path]:
     Git does not filter by extension; filtering happens in Python.
     """
     repo_root = get_repo_root()
-    repo_root_path = Path(repo_root)
 
     # Convert pathspecs to be relative to repository root
     converted_pathspecs = []
     for pathspec in pathspecs:
         if pathspec.is_absolute():
-            try:
-                rel_path = pathspec.relative_to(repo_root_path)
+            if pathspec.is_relative_to(repo_root):
+                rel_path = pathspec.relative_to(repo_root)
                 converted_pathspecs.append(str(rel_path))
-            except ValueError:
-                # Path is outside repository, skip it
-                continue
+            # Skip paths outside repository
         else:
             # Convert relative path from current working directory to relative to repo root
             abs_path = Path.cwd() / pathspec
-            try:
-                rel_path = abs_path.relative_to(repo_root_path)
+            if abs_path.is_relative_to(repo_root):
+                rel_path = abs_path.relative_to(repo_root)
                 converted_pathspecs.append(str(rel_path))
-            except ValueError:
-                # Path is outside repository, skip it
-                continue
+            # Skip paths outside repository
 
     if not converted_pathspecs:
         return []
@@ -92,7 +89,7 @@ def _git_ls_files(pathspecs: list[Path]) -> list[Path]:
             [
                 "git",
                 "-C",
-                repo_root,
+                str(repo_root),
                 "ls-files",
                 "--cached",
                 "--others",

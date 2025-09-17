@@ -128,26 +128,23 @@ def extract_symbols_from_file(
 
     # Make the path relative to find the mlflow part
     # If it's absolute, we need to find the part that starts with mlflow
-    try:
-        if p.is_absolute():
-            # Find the last occurrence of mlflow directory in the path
-            # This handles cases like /path/to/mlflow/mlflow/mlflow/module.py
-            parts = p.parts
-            mlflow_index = None
-            for i in range(len(parts) - 1, -1, -1):  # Search backwards
-                if parts[i] == "mlflow" and i < len(parts) - 1:  # Not the last part (filename)
-                    mlflow_index = i
-                    break
-            if mlflow_index is None:
-                return None
-            # Take parts from mlflow onwards
-            relative_parts = parts[mlflow_index:]
-        else:
-            relative_parts = p.parts
-
-        if not relative_parts or relative_parts[0] != "mlflow":
+    if p.is_absolute():
+        # Find the last occurrence of mlflow directory in the path
+        # This handles cases like /path/to/mlflow/mlflow/mlflow/module.py
+        parts = p.parts
+        mlflow_index = None
+        for i in range(len(parts) - 1, -1, -1):  # Search backwards
+            if parts[i] == "mlflow" and i < len(parts) - 1:  # Not the last part (filename)
+                mlflow_index = i
+                break
+        if mlflow_index is None:
             return None
-    except Exception:
+        # Take parts from mlflow onwards
+        relative_parts = parts[mlflow_index:]
+    else:
+        relative_parts = p.parts
+
+    if not relative_parts or relative_parts[0] != "mlflow":
         return None
 
     try:
@@ -191,16 +188,15 @@ class SymbolIndex:
     def build(cls) -> Self:
         repo_root = get_repo_root()
         py_files = subprocess.check_output(
-            ["git", "-C", repo_root, "ls-files", "mlflow/*.py"], text=True
+            ["git", "-C", str(repo_root), "ls-files", "mlflow/*.py"], text=True
         ).splitlines()
 
         mapping: dict[str, str] = {}
         func_mapping: dict[str, FunctionInfo] = {}
         max_workers = min(multiprocessing.cpu_count(), len(py_files))
-        repo_root_path = Path(repo_root)
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
             futures = {
-                executor.submit(extract_symbols_from_file, repo_root_path / f): f
+                executor.submit(extract_symbols_from_file, repo_root / f): f
                 for f in map(Path, py_files)
             }
             for future in as_completed(futures):

@@ -123,9 +123,11 @@ def test_resolve_paths_with_real_git_repo_removed_tracked_file(git_repo: Path) -
 def test_git_ls_files_success() -> None:
     mock_output = "file1.py\ndir/file2.md\nfile3.ipynb\n"
 
-    with patch("clint.utils.get_repo_root", return_value="/home/runner/work/mlflow/mlflow"):
-        with patch("subprocess.check_output", return_value=mock_output) as mock_check_output:
-            result = _git_ls_files([Path(".")])
+    with (
+        patch("clint.utils.get_repo_root", return_value=Path("/home/runner/work/mlflow/mlflow")),
+        patch("subprocess.check_output", return_value=mock_output) as mock_check_output,
+    ):
+        result = _git_ls_files([Path(".")])
 
     mock_check_output.assert_called_once()
     expected = [Path("file1.py"), Path("dir/file2.md"), Path("file3.ipynb")]
@@ -133,9 +135,11 @@ def test_git_ls_files_success() -> None:
 
 
 def test_git_ls_files_empty_output() -> None:
-    with patch("clint.utils.get_repo_root", return_value="/home/runner/work/mlflow/mlflow"):
-        with patch("subprocess.check_output", return_value="") as mock_check_output:
-            result = _git_ls_files([Path(".")])
+    with (
+        patch("clint.utils.get_repo_root", return_value=Path("/home/runner/work/mlflow/mlflow")),
+        patch("subprocess.check_output", return_value="") as mock_check_output,
+    ):
+        result = _git_ls_files([Path(".")])
 
     mock_check_output.assert_called_once()
     assert result == []
@@ -144,32 +148,36 @@ def test_git_ls_files_empty_output() -> None:
 def test_git_ls_files_with_pathspecs() -> None:
     mock_output = "file1.py\n"
 
-    with patch("clint.utils.get_repo_root", return_value="/home/runner/work/mlflow/mlflow"):
-        with patch("subprocess.check_output", return_value=mock_output) as mock_check_output:
-            result = _git_ls_files([Path("dir1"), Path("file.py")])
+    with (
+        patch("clint.utils.get_repo_root", return_value=Path("/home/runner/work/mlflow/mlflow")),
+        patch("subprocess.check_output", return_value=mock_output) as mock_check_output,
+    ):
+        result = _git_ls_files([Path("dir1"), Path("file.py")])
 
     mock_check_output.assert_called_once()
     assert result == [Path("file1.py")]
 
 
 def test_git_ls_files_subprocess_error() -> None:
-    with patch("clint.utils.get_repo_root", return_value="/home/runner/work/mlflow/mlflow"):
-        with patch(
+    with (
+        patch("clint.utils.get_repo_root", return_value=Path("/home/runner/work/mlflow/mlflow")),
+        patch(
             "subprocess.check_output", side_effect=subprocess.CalledProcessError(1, "git")
-        ) as mock_check_output:
-            with pytest.raises(RuntimeError, match="Failed to list git files"):
-                _git_ls_files([Path(".")])
+        ) as mock_check_output,
+    ):
+        with pytest.raises(RuntimeError, match="Failed to list git files"):
+            _git_ls_files([Path(".")])
 
     mock_check_output.assert_called_once()
 
 
 def test_git_ls_files_os_error() -> None:
-    with patch("clint.utils.get_repo_root", return_value="/home/runner/work/mlflow/mlflow"):
-        with patch(
-            "subprocess.check_output", side_effect=OSError("git not found")
-        ) as mock_check_output:
-            with pytest.raises(RuntimeError, match="Failed to list git files"):
-                _git_ls_files([Path(".")])
+    with (
+        patch("clint.utils.get_repo_root", return_value=Path("/home/runner/work/mlflow/mlflow")),
+        patch("subprocess.check_output", side_effect=OSError("git not found")) as mock_check_output,
+    ):
+        with pytest.raises(RuntimeError, match="Failed to list git files"):
+            _git_ls_files([Path(".")])
 
     mock_check_output.assert_called_once()
 
@@ -178,7 +186,7 @@ def test_resolve_paths_default_current_dir() -> None:
     mock_output = "file1.py\nfile2.md\n"
 
     with (
-        patch("clint.utils.get_repo_root", return_value="/home/runner/work/mlflow/mlflow"),
+        patch("clint.utils.get_repo_root", return_value=Path("/home/runner/work/mlflow/mlflow")),
         patch("subprocess.check_output", return_value=mock_output) as mock_check_output,
         patch("pathlib.Path.exists", return_value=True),
     ):
@@ -193,7 +201,7 @@ def test_resolve_paths_filters_by_extension() -> None:
     mock_output = "file1.py\nfile2.md\nfile3.txt\nfile4.ipynb\nfile5.mdx\nfile6.js\nfile7.rst\n"
 
     with (
-        patch("clint.utils.get_repo_root", return_value="/home/runner/work/mlflow/mlflow"),
+        patch("clint.utils.get_repo_root", return_value=Path("/home/runner/work/mlflow/mlflow")),
         patch("subprocess.check_output", return_value=mock_output) as mock_check_output,
         patch("pathlib.Path.exists", return_value=True),
     ):
@@ -214,7 +222,7 @@ def test_resolve_paths_case_insensitive_extensions() -> None:
     mock_output = "file1.PY\nfile2.MD\nfile3.IPYNB\nfile4.py\nfile5.RST\n"
 
     with (
-        patch("clint.utils.get_repo_root", return_value="/home/runner/work/mlflow/mlflow"),
+        patch("clint.utils.get_repo_root", return_value=Path("/home/runner/work/mlflow/mlflow")),
         patch("subprocess.check_output", return_value=mock_output) as mock_check_output,
         patch("pathlib.Path.exists", return_value=True),
     ):
@@ -235,7 +243,7 @@ def test_resolve_paths_returns_sorted_list() -> None:
     mock_output = "z_file.py\na_file.md\nm_file.ipynb\n"
 
     with (
-        patch("clint.utils.get_repo_root", return_value="/home/runner/work/mlflow/mlflow"),
+        patch("clint.utils.get_repo_root", return_value=Path("/home/runner/work/mlflow/mlflow")),
         patch("subprocess.check_output", return_value=mock_output) as mock_check_output,
         patch("pathlib.Path.exists", return_value=True),
     ):
@@ -250,7 +258,7 @@ def test_resolve_paths_deduplicates_results() -> None:
     mock_output = "file1.py\nfile1.py\nfile2.md\nfile2.md\n"
 
     with (
-        patch("clint.utils.get_repo_root", return_value="/home/runner/work/mlflow/mlflow"),
+        patch("clint.utils.get_repo_root", return_value=Path("/home/runner/work/mlflow/mlflow")),
         patch("subprocess.check_output", return_value=mock_output) as mock_check_output,
         patch("pathlib.Path.exists", return_value=True),
     ):
@@ -265,7 +273,7 @@ def test_resolve_paths_with_multiple_pathspecs() -> None:
     mock_output = "dir1/file1.py\ndir2/file2.md\nfile3.ipynb\n"
 
     with (
-        patch("clint.utils.get_repo_root", return_value="/home/runner/work/mlflow/mlflow"),
+        patch("clint.utils.get_repo_root", return_value=Path("/home/runner/work/mlflow/mlflow")),
         patch("subprocess.check_output", return_value=mock_output) as mock_check_output,
         patch("pathlib.Path.exists", return_value=True),
     ):
@@ -280,7 +288,7 @@ def test_resolve_paths_includes_rst_files() -> None:
     mock_output = "README.rst\ndocs/index.rst\nsetup.py\n"
 
     with (
-        patch("clint.utils.get_repo_root", return_value="/home/runner/work/mlflow/mlflow"),
+        patch("clint.utils.get_repo_root", return_value=Path("/home/runner/work/mlflow/mlflow")),
         patch("subprocess.check_output", return_value=mock_output) as mock_check_output,
         patch("pathlib.Path.exists", return_value=True),
     ):
