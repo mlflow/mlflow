@@ -1,9 +1,19 @@
 from __future__ import annotations
 
 import ast
+import functools
 import re
 import subprocess
 from pathlib import Path
+
+
+@functools.lru_cache(maxsize=1)
+def get_repo_root() -> str:
+    """Get git repository root path, cached for performance."""
+    try:
+        return subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True).strip()
+    except (OSError, subprocess.CalledProcessError) as e:
+        raise RuntimeError("Not in a git repository") from e
 
 
 def resolve_expr(expr: ast.expr) -> list[str] | None:
@@ -51,9 +61,45 @@ def _git_ls_files(pathspecs: list[Path]) -> list[Path]:
     Return git-tracked and untracked (but not ignored) files matching the given pathspecs.
     Git does not filter by extension; filtering happens in Python.
     """
+    repo_root = get_repo_root()
+    repo_root_path = Path(repo_root)
+
+    # Convert pathspecs to be relative to repository root
+    converted_pathspecs = []
+    for pathspec in pathspecs:
+        if pathspec.is_absolute():
+            try:
+                rel_path = pathspec.relative_to(repo_root_path)
+                converted_pathspecs.append(str(rel_path))
+            except ValueError:
+                # Path is outside repository, skip it
+                continue
+        else:
+            # Convert relative path from current working directory to relative to repo root
+            abs_path = Path.cwd() / pathspec
+            try:
+                rel_path = abs_path.relative_to(repo_root_path)
+                converted_pathspecs.append(str(rel_path))
+            except ValueError:
+                # Path is outside repository, skip it
+                continue
+
+    if not converted_pathspecs:
+        return []
+
     try:
         out = subprocess.check_output(
-            ["git", "ls-files", "--cached", "--others", "--exclude-standard", "--", *pathspecs],
+            [
+                "git",
+                "-C",
+                repo_root,
+                "ls-files",
+                "--cached",
+                "--others",
+                "--exclude-standard",
+                "--",
+                *converted_pathspecs,
+            ],
             text=True,
         )
     except (OSError, subprocess.CalledProcessError) as e:
