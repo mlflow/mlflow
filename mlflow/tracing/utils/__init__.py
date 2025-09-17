@@ -203,8 +203,8 @@ def deduplicate_span_names_in_place(spans: list[LiveSpan]):
     are modified in place to avoid unnecessary copying.
 
     E.g.
-        ["red", "red"] -> ["red_1", "red_2"]
-        ["red", "red", "blue"] -> ["red_1", "red_2", "blue"]
+        ["red", "red"] -> ["red", "red_2"]
+        ["red", "red", "blue"] -> ["red", "red_2", "blue"]
 
     Args:
         spans: A list of spans to deduplicate.
@@ -217,7 +217,11 @@ def deduplicate_span_names_in_place(spans: list[LiveSpan]):
     for span in spans:
         if count := span_name_counter.get(span._original_name):
             span_name_counter[span._original_name] += 1
-            span._span._name = f"{span._original_name}_{count}"
+            # only rename the span starting from the second occurrence
+            # because we export the spans incrementally and the first span itself has
+            # no duplicates when it's exported.
+            if count > 1:
+                span._span._name = f"{span._original_name}_{count}"
 
 
 def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:

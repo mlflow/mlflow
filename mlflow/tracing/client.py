@@ -36,7 +36,12 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.telemetry.events import LogAssessmentEvent, StartTraceEvent
 from mlflow.telemetry.track import record_usage_event
-from mlflow.tracing.constant import GET_TRACE_V4_RETRY_TIMEOUT_SECONDS, TraceMetadataKey
+from mlflow.tracing.constant import (
+    GET_TRACE_V4_RETRY_TIMEOUT_SECONDS,
+    TRACKING_STORE,
+    TraceMetadataKey,
+    TraceTagKey,
+)
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import TraceJSONEncoder, exclude_immutable_tags, parse_trace_id_v4
 from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
@@ -171,7 +176,10 @@ class TracingClient:
             # V3 trace, load spans from artifact repository.
             try:
                 trace_info = self.get_trace_info(trace_id)
-                trace_data = self._download_trace_data(trace_info)
+                if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == TRACKING_STORE:
+                    trace_data = TraceData(spans=self.store.load_spans(trace_info.trace_id))
+                else:
+                    trace_data = self._download_trace_data(trace_info)
             except MlflowTraceDataNotFound:
                 raise MlflowException(
                     message=(

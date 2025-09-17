@@ -103,6 +103,7 @@ def test_json_deserialization(monkeypatch):
             "tags": {
                 "mlflow.traceName": "predict",
                 "mlflow.artifactLocation": trace.info.tags[MLFLOW_ARTIFACT_LOCATION],
+                "mlflow.trace.spansLocation": mock.ANY,
             },
         },
         "data": {
@@ -279,13 +280,13 @@ def test_trace_pandas_dataframe_columns():
 @pytest.mark.parametrize(
     ("span_type", "name", "expected"),
     [
-        (None, None, ["run", "add_one_1", "add_one_2", "add_two", "multiply_by_two"]),
+        (None, None, ["run", "add_one", "add_one_2", "add_two", "multiply_by_two"]),
         (SpanType.CHAIN, None, ["run"]),
         (None, "add_two", ["add_two"]),
-        (None, re.compile(r"add.*"), ["add_one_1", "add_one_2", "add_two"]),
-        (None, re.compile(r"^add"), ["add_one_1", "add_one_2", "add_two"]),
+        (None, re.compile(r"add.*"), ["add_one", "add_one_2", "add_two"]),
+        (None, re.compile(r"^add"), ["add_one", "add_one_2", "add_two"]),
         (None, re.compile(r"_two$"), ["add_two", "multiply_by_two"]),
-        (None, re.compile(r".*ONE", re.IGNORECASE), ["add_one_1", "add_one_2"]),
+        (None, re.compile(r".*ONE", re.IGNORECASE), ["add_one", "add_one_2"]),
         (SpanType.TOOL, "multiply_by_two", ["multiply_by_two"]),
         (SpanType.AGENT, None, []),
         (None, "non_existent", []),

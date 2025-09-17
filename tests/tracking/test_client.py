@@ -3,11 +3,14 @@ import os
 import pickle
 import sys
 import time
+import uuid
 from pathlib import Path
 from unittest import mock
 from unittest.mock import Mock, patch
 
 import pytest
+from opentelemetry import trace as trace_api
+from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
 import mlflow
 from mlflow import MlflowClient, flush_async_logging
@@ -35,6 +38,7 @@ from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
 from mlflow.entities.param import Param
+from mlflow.entities.span import create_mlflow_span
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_location import TraceLocation, TraceLocationType, UCSchemaLocation
 from mlflow.entities.trace_state import TraceState
@@ -53,8 +57,9 @@ from mlflow.store.model_registry.sqlalchemy_store import (
 )
 from mlflow.store.tracking import SEARCH_EVALUATION_DATASETS_MAX_RESULTS, SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as SqlAlchemyTrackingStore
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import TRACKING_STORE, TraceMetadataKey, TraceTagKey
 from mlflow.tracing.provider import _get_tracer, trace_disabled
+from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.tracking import set_registry_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._model_registry.utils import (
@@ -3340,3 +3345,107 @@ def test_mlflow_client_dataset_associations_databricks_blocking(mock_store):
         ) as exc_info:
             client.remove_dataset_from_experiments("dataset_123", ["1", "2"])
         assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+def test_log_spans_and_get_trace_with_sqlalchemy_store(tmp_path: Path) -> None:
+    tracking_uri = f"sqlite:///{tmp_path}/test.db"
+
+    with _use_tracking_uri(tracking_uri):
+        client = MlflowClient()
+
+        assert isinstance(client._tracking_client.store, SqlAlchemyTrackingStore)
+
+        experiment_id = client.create_experiment("test_log_spans_get_trace")
+        trace_id = f"tr-{uuid.uuid4().hex}"
+
+        # Create test spans using OpenTelemetry format
+        otel_span1 = OTelReadableSpan(
+            name="parent_span",
+            context=trace_api.SpanContext(
+                trace_id=12345,
+                span_id=111,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={
+                "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+                "llm.model_name": "test-model",
+                "custom.attribute": "parent-value",
+            },
+            start_time=1_000_000_000,
+            end_time=2_000_000_000,
+            resource=None,
+        )
+
+        otel_span2 = OTelReadableSpan(
+            name="child_span",
+            context=trace_api.SpanContext(
+                trace_id=12345,
+                span_id=222,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=trace_api.SpanContext(
+                trace_id=12345,
+                span_id=111,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            attributes={
+                "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+                "operation.type": "database_query",
+                "custom.attribute": "child-value",
+            },
+            start_time=1_200_000_000,
+            end_time=1_800_000_000,
+            resource=None,
+        )
+
+        # Convert to MLflow spans
+        mlflow_spans = [
+            create_mlflow_span(otel_span1, trace_id, "LLM"),
+            create_mlflow_span(otel_span2, trace_id, "LLM"),
+        ]
+
+        # Log spans directly to the store (simulating OTLP endpoint)
+        store = client._tracking_client.store
+        logged_spans = store.log_spans(experiment_id, mlflow_spans)
+
+        # Verify spans were logged
+        assert len(logged_spans) == 2
+
+        # Verify the trace has the spans location tag set
+        trace_info = store.get_trace_info(trace_id)
+        assert trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == TRACKING_STORE
+
+        # Now test that mlflow.get_trace() works and loads spans from the database
+        trace = mlflow.get_trace(trace_id)
+
+        # Verify trace structure
+        assert trace.info.trace_id == trace_id
+        assert trace.info.tags.get(TraceTagKey.SPANS_LOCATION) == TRACKING_STORE
+
+        # Verify spans were loaded from database
+        assert len(trace.data.spans) == 2
+
+        # Sort spans by start time for consistent testing
+        spans_by_start_time = sorted(trace.data.spans, key=lambda s: s.start_time_ns)
+
+        # Verify parent span
+        parent_span = spans_by_start_time[0]
+        assert parent_span.name == "parent_span"
+        assert parent_span.trace_id == trace_id
+        assert parent_span.start_time_ns == 1_000_000_000
+        assert parent_span.end_time_ns == 2_000_000_000
+        assert parent_span.attributes.get("llm.model_name") == "test-model"
+        assert parent_span.attributes.get("custom.attribute") == "parent-value"
+
+        # Verify child span
+        child_span = spans_by_start_time[1]
+        assert child_span.name == "child_span"
+        assert child_span.trace_id == trace_id
+        assert child_span.start_time_ns == 1_200_000_000
+        assert child_span.end_time_ns == 1_800_000_000
+        assert child_span.attributes.get("operation.type") == "database_query"
+        assert child_span.attributes.get("custom.attribute") == "child-value"

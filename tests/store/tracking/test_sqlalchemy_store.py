@@ -99,7 +99,9 @@ from mlflow.store.tracking.dbmodels.models import (
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
+    TRACKING_STORE,
     TraceMetadataKey,
+    TraceTagKey,
 )
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.utils import mlflow_tags
@@ -8846,3 +8848,235 @@ def test_calculate_trace_filter_correlation_with_base_filter(store):
     assert result_no_base.filter1_count == 9
     assert result_no_base.filter2_count == 7
     assert result_no_base.joint_count == 5
+
+
+def test_load_spans_basic(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_load_spans")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    spans = [
+        create_test_span(
+            trace_id=trace_id,
+            name="root_span",
+            span_id=111,
+            status=trace_api.StatusCode.OK,
+            start_ns=1_000_000_000,
+            end_ns=2_000_000_000,
+            trace_num=12345,
+        ),
+        create_test_span(
+            trace_id=trace_id,
+            name="child_span",
+            span_id=222,
+            parent_id=111,
+            status=trace_api.StatusCode.UNSET,
+            start_ns=1_500_000_000,
+            end_ns=1_800_000_000,
+            trace_num=12345,
+        ),
+    ]
+
+    store.log_spans(experiment_id, spans)
+    loaded_spans = store.load_spans(trace_id)
+
+    assert len(loaded_spans) == 2
+
+    root_span = next(s for s in loaded_spans if s.name == "root_span")
+    child_span = next(s for s in loaded_spans if s.name == "child_span")
+
+    assert root_span.trace_id == trace_id
+    assert root_span.span_id == "000000000000006f"
+    assert root_span.parent_id is None
+    assert root_span.start_time_ns == 1_000_000_000
+    assert root_span.end_time_ns == 2_000_000_000
+
+    assert child_span.trace_id == trace_id
+    assert child_span.span_id == "00000000000000de"
+    assert child_span.parent_id == "000000000000006f"
+    assert child_span.start_time_ns == 1_500_000_000
+    assert child_span.end_time_ns == 1_800_000_000
+
+
+def test_load_spans_empty_trace(store: SqlAlchemyStore) -> None:
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    loaded_spans = store.load_spans(trace_id)
+    assert loaded_spans == []
+
+
+def test_load_spans_ordering(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_load_spans_ordering")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    spans = [
+        create_test_span(
+            trace_id=trace_id,
+            name="second_span",
+            span_id=222,
+            start_ns=2_000_000_000,
+            end_ns=3_000_000_000,
+            trace_num=12345,
+        ),
+        create_test_span(
+            trace_id=trace_id,
+            name="first_span",
+            span_id=111,
+            start_ns=1_000_000_000,
+            end_ns=2_000_000_000,
+            trace_num=12345,
+        ),
+        create_test_span(
+            trace_id=trace_id,
+            name="third_span",
+            span_id=333,
+            start_ns=3_000_000_000,
+            end_ns=4_000_000_000,
+            trace_num=12345,
+        ),
+    ]
+
+    store.log_spans(experiment_id, spans)
+    loaded_spans = store.load_spans(trace_id)
+
+    assert len(loaded_spans) == 3
+    assert loaded_spans[0].name == "first_span"
+    assert loaded_spans[1].name == "second_span"
+    assert loaded_spans[2].name == "third_span"
+
+    assert loaded_spans[0].start_time_ns == 1_000_000_000
+    assert loaded_spans[1].start_time_ns == 2_000_000_000
+    assert loaded_spans[2].start_time_ns == 3_000_000_000
+
+
+def test_load_spans_with_complex_attributes(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_load_spans_complex")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    otel_span = create_test_otel_span(
+        trace_id=trace_id,
+        name="complex_span",
+        status_code=trace_api.StatusCode.ERROR,
+        status_description="Test error",
+        start_time=1_000_000_000,
+        end_time=2_000_000_000,
+        trace_id_num=12345,
+        span_id_num=111,
+    )
+
+    otel_span._attributes = {
+        "llm.model_name": "gpt-4",
+        "llm.input_tokens": 100,
+        "llm.output_tokens": 50,
+        "custom.key": "custom_value",
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+    }
+
+    span = create_mlflow_span(otel_span, trace_id, "LLM")
+
+    store.log_spans(experiment_id, [span])
+    loaded_spans = store.load_spans(trace_id)
+
+    assert len(loaded_spans) == 1
+    loaded_span = loaded_spans[0]
+
+    assert loaded_span.status.status_code == "ERROR"
+    assert loaded_span.status.description == "Test error"
+
+    assert loaded_span.attributes.get("llm.model_name") == "gpt-4"
+    assert loaded_span.attributes.get("llm.input_tokens") == 100
+    assert loaded_span.attributes.get("llm.output_tokens") == 50
+    assert loaded_span.attributes.get("custom.key") == "custom_value"
+
+
+def test_load_spans_multiple_traces(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_load_spans_multiple")
+    trace_id_1 = f"tr-{uuid.uuid4().hex}"
+    trace_id_2 = f"tr-{uuid.uuid4().hex}"
+
+    spans_trace_1 = [
+        create_test_span(
+            trace_id=trace_id_1,
+            name="trace1_span1",
+            span_id=111,
+            trace_num=12345,
+        ),
+        create_test_span(
+            trace_id=trace_id_1,
+            name="trace1_span2",
+            span_id=112,
+            trace_num=12345,
+        ),
+    ]
+
+    spans_trace_2 = [
+        create_test_span(
+            trace_id=trace_id_2,
+            name="trace2_span1",
+            span_id=221,
+            trace_num=67890,
+        ),
+    ]
+
+    store.log_spans(experiment_id, spans_trace_1)
+    store.log_spans(experiment_id, spans_trace_2)
+    loaded_spans_1 = store.load_spans(trace_id_1)
+    loaded_spans_2 = store.load_spans(trace_id_2)
+
+    assert len(loaded_spans_1) == 2
+    assert len(loaded_spans_2) == 1
+
+    trace_1_spans = [span.to_dict() for span in loaded_spans_1]
+    trace_2_spans = [span.to_dict() for span in loaded_spans_2]
+
+    assert [span.to_dict() for span in loaded_spans_1] == trace_1_spans
+    assert [span.to_dict() for span in loaded_spans_2] == trace_2_spans
+
+
+def test_load_spans_preserves_json_serialization(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_load_spans_json")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    original_span = create_test_span(
+        trace_id=trace_id,
+        name="json_test_span",
+        span_id=111,
+        status=trace_api.StatusCode.OK,
+        start_ns=1_000_000_000,
+        end_ns=2_000_000_000,
+        trace_num=12345,
+    )
+
+    store.log_spans(experiment_id, [original_span])
+    loaded_spans = store.load_spans(trace_id)
+
+    assert len(loaded_spans) == 1
+    loaded_span = loaded_spans[0]
+
+    assert loaded_span.name == original_span.name
+    assert loaded_span.trace_id == original_span.trace_id
+    assert loaded_span.span_id == original_span.span_id
+    assert loaded_span.start_time_ns == original_span.start_time_ns
+    assert loaded_span.end_time_ns == original_span.end_time_ns
+
+
+def test_load_spans_integration_with_trace_handler(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_integration")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    spans = [
+        create_test_span(
+            trace_id=trace_id,
+            name="integration_span",
+            span_id=111,
+            status=trace_api.StatusCode.OK,
+            trace_num=12345,
+        ),
+    ]
+
+    store.log_spans(experiment_id, spans)
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == TRACKING_STORE
+
+    loaded_spans = store.load_spans(trace_id)
+    assert len(loaded_spans) == 1
+    assert loaded_spans[0].name == "integration_span"
