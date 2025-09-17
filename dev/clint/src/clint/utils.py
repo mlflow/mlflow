@@ -3,7 +3,26 @@ from __future__ import annotations
 import ast
 import re
 import subprocess
+from functools import lru_cache
 from pathlib import Path
+
+
+@lru_cache(maxsize=1)
+def get_repo_root() -> Path:
+    """
+    Find the git repository root directory with caching.
+
+    Returns:
+        Path to the git repository root directory
+
+    Raises:
+        RuntimeError: If not in a git repository or git command fails
+    """
+    try:
+        result = subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True).strip()
+        return Path(result)
+    except (OSError, subprocess.CalledProcessError) as e:
+        raise RuntimeError("Failed to find git repository root") from e
 
 
 def resolve_expr(expr: ast.expr) -> list[str] | None:
