@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { listArtifactsApi } from '../../../actions';
-import { ArtifactListFilesResponse } from '../../../types';
+import type { ArtifactListFilesResponse } from '../../../types';
 
 /**
  * Fetches artifacts given a list of run UUIDs

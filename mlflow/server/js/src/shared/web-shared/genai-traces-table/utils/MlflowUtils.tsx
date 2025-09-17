@@ -1,5 +1,5 @@
 /**
- * This file is a subset of functions from mlflow/web/js/src/common/Utils.tsx but does not support OSS.
+ * This file is a subset of functions from mlflow/web/js/src/common/Utils.tsx
  */
 import type { TraceInfoV3 } from '../types';
 

@@ -1,13 +1,6 @@
 import { compact, get, has, isArray, isNil, isObject, isString } from 'lodash';
-import { ModelTraceChatMessage } from '../ModelTrace.types';
-import {
-  isModelTraceChatResponse,
-  isModelTraceChoices,
-  isRawModelTraceChatMessage,
-  prettyPrintChatMessage,
-  prettyPrintToolCall,
-} from '../ModelTraceExplorer.utils';
-import {
+
+import type {
   OpenAIResponsesInput,
   OpenAIResponsesInputFile,
   OpenAIResponsesInputImage,
@@ -15,7 +8,15 @@ import {
   OpenAIResponsesInputMessageRole,
   OpenAIResponsesInputText,
   OpenAIResponsesOutputItem,
-} from '../chat-utils/openai.types';
+} from './openai.types';
+import type { ModelTraceChatMessage } from '../ModelTrace.types';
+import {
+  isModelTraceChatResponse,
+  isModelTraceChoices,
+  isRawModelTraceChatMessage,
+  prettyPrintChatMessage,
+  prettyPrintToolCall,
+} from '../ModelTraceExplorer.utils';
 
 // normalize the OpenAI chat input format (object with 'messages' or 'input' key)
 export const normalizeOpenAIChatInput = (obj: any): ModelTraceChatMessage[] | null => {

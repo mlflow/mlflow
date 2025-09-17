@@ -93,7 +93,7 @@ mlflow.genai.register_prompt(
 
 ### Step 2: Create evaluation dataset
 
-The evaluation dataset is defined as a list of dictionaries, each with an `inputs` and `expectations` field.
+The evaluation dataset is defined as a list of dictionaries, each with an `inputs`, `expectations`, and an optional `tags` field.
 
 ```python
 eval_dataset = [
@@ -102,16 +102,19 @@ eval_dataset = [
         "expectations": {
             "key_concepts": ["evaporation", "condensation", "precipitation"]
         },
+        "tags": {"topic": "weather"},
     },
     {
         "inputs": {"question": "Explain the difference between AI and ML"},
         "expectations": {
             "key_concepts": ["artificial intelligence", "machine learning", "subset"]
         },
+        "tags": {"topic": "technology"},
     },
     {
         "inputs": {"question": "How do vaccines work?"},
         "expectations": {"key_concepts": ["immune", "antibodies", "protection"]},
+        "tags": {"topic": "medicine"},
     },
 ]
 ```

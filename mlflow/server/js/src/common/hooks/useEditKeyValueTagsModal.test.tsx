@@ -1,7 +1,7 @@
 import userEvent from '@testing-library/user-event';
 
 import { useEditKeyValueTagsModal } from './useEditKeyValueTagsModal';
-import { KeyValueEntity } from '../types';
+import type { KeyValueEntity } from '../types';
 import {
   act,
   fireEvent,

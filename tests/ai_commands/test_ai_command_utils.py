@@ -5,7 +5,7 @@ from unittest import mock
 
 import pytest
 
-from mlflow.ai_commands import get_command, list_commands, parse_frontmatter
+from mlflow.ai_commands import get_command, get_command_body, list_commands, parse_frontmatter
 
 
 def test_parse_frontmatter_with_metadata():
@@ -231,3 +231,56 @@ def test_list_commands_sorted():
     if len(commands) > 1:
         keys = [cmd["key"] for cmd in commands]
         assert keys == sorted(keys)
+
+
+def test_get_command_body(tmp_path):
+    """Strips frontmatter from command content and returns body only."""
+    genai_dir = tmp_path / "commands" / "genai"
+    genai_dir.mkdir(parents=True)
+
+    # Test with frontmatter
+    content_with_frontmatter = """---
+namespace: genai
+description: Test command
+---
+
+# Test Command
+This is the body content."""
+
+    test_cmd = genai_dir / "analyze.md"
+    test_cmd.write_text(content_with_frontmatter)
+
+    # Test without frontmatter - should return entire content
+    content_no_frontmatter = """# Simple Command
+This is just markdown content."""
+
+    simple_cmd = genai_dir / "simple.md"
+    simple_cmd.write_text(content_no_frontmatter)
+
+    with mock.patch("mlflow.ai_commands.ai_command_utils.Path") as mock_path:
+        mock_path.return_value.parent = tmp_path / "commands"
+
+        # Test with frontmatter
+        body = get_command_body("genai/analyze")
+
+        # Should strip frontmatter and return only body
+        assert "namespace: genai" not in body
+        assert "description: Test command" not in body
+        assert "# Test Command" in body
+        assert "This is the body content." in body
+
+        # Test without frontmatter
+        body_no_frontmatter = get_command_body("genai/simple")
+        assert body_no_frontmatter == content_no_frontmatter
+
+
+def test_get_command_body_not_found(tmp_path):
+    """Raises FileNotFoundError for non-existent commands."""
+    commands_dir = tmp_path / "commands"
+    commands_dir.mkdir()
+
+    with mock.patch("mlflow.ai_commands.ai_command_utils.Path") as mock_path:
+        mock_path.return_value.parent = commands_dir
+
+        with pytest.raises(FileNotFoundError, match="Command 'nonexistent/command' not found"):
+            get_command_body("nonexistent/command")

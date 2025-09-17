@@ -31,6 +31,8 @@ def _is_ci_env_or_testing() -> bool:
         "BITBUCKET_BUILD_NUMBER",  # https://support.atlassian.com/bitbucket-cloud/docs/variables-and-secrets/
         "CODEBUILD_BUILD_ARN",  # https://docs.aws.amazon.com/codebuild/latest/userguide/build-env-ref-env-vars.html
         "BUILDKITE",  # https://buildkite.com/docs/pipelines/configure/environment-variables
+        "TEAMCITY_VERSION",  # https://www.jetbrains.com/help/teamcity/predefined-build-parameters.html#Predefined+Server+Build+Parameters
+        "CLOUD_RUN_EXECUTION",  # https://cloud.google.com/run/docs/reference/container-contract#env-vars
         # runbots
         "RUNBOT_HOST_URL",
         "RUNBOT_BUILD_NAME",

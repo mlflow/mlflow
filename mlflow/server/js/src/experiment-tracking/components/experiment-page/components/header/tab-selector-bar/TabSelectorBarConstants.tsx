@@ -8,10 +8,11 @@ import {
   PlusMinusSquareIcon,
   UserIcon,
   TextBoxIcon,
+  SparkleIcon,
 } from '@databricks/design-system';
 import { ExperimentPageTabName } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { FormattedMessage } from 'react-intl';
-import { ExperimentViewRunsCompareMode } from '@mlflow/mlflow/src/experiment-tracking/types';
+import type { ExperimentViewRunsCompareMode } from '@mlflow/mlflow/src/experiment-tracking/types';
 
 export type TabConfig = {
   label: React.ReactNode;
@@ -37,6 +38,18 @@ const TracesTabConfig = {
   getRoute: (experimentId: string) => Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Traces),
 };
 
+const EvaluationsTabConfig = {
+  label: (
+    <FormattedMessage
+      defaultMessage="Evaluations"
+      description="Label for the evaluations tab in the MLflow experiment navbar"
+    />
+  ),
+  icon: <PlusMinusSquareIcon />,
+  getRoute: (experimentId: string) =>
+    Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.EvaluationRuns),
+};
+
 const ModelsTabConfig = {
   label: (
     <FormattedMessage
@@ -48,12 +61,28 @@ const ModelsTabConfig = {
   getRoute: (experimentId: string) => Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Models),
 };
 
-export const GenAIExperimentTabConfigMap: TabConfigMap = {
-  [ExperimentPageTabName.Traces]: TracesTabConfig,
-  [ExperimentPageTabName.Models]: ModelsTabConfig,
+export type GenAIExperimentTabConfigMapProps = {
+  includeRunsTab?: boolean;
 };
 
-export const GenAIExperimentWithPromptsTabConfigMap = GenAIExperimentTabConfigMap;
+export const getGenAIExperimentTabConfigMap = ({
+  includeRunsTab = false,
+}: GenAIExperimentTabConfigMapProps = {}): TabConfigMap => ({
+  ...(includeRunsTab && { [ExperimentPageTabName.Runs]: RunsTabConfig }),
+  [ExperimentPageTabName.Traces]: TracesTabConfig,
+  [ExperimentPageTabName.EvaluationRuns]: EvaluationsTabConfig,
+  [ExperimentPageTabName.Models]: ModelsTabConfig,
+});
+
+export const getGenAIExperimentWithPromptsTabConfigMap = ({
+  includeRunsTab = false,
+}: GenAIExperimentTabConfigMapProps = {}): TabConfigMap => ({
+  ...(includeRunsTab && { [ExperimentPageTabName.Runs]: RunsTabConfig }),
+  [ExperimentPageTabName.Traces]: TracesTabConfig,
+  [ExperimentPageTabName.Models]: ModelsTabConfig,
+});
+
+export const GenAIExperimentWithPromptsTabConfigMap = getGenAIExperimentTabConfigMap();
 
 export const CustomExperimentTabConfigMap: TabConfigMap = {
   [ExperimentPageTabName.Runs]: RunsTabConfig,

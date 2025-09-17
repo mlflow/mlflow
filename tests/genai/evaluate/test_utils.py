@@ -1,6 +1,7 @@
 import json
+import sys
 from typing import Any, Literal
-from unittest.mock import patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pandas as pd
 import pytest
@@ -14,6 +15,7 @@ from mlflow.genai import scorer
 from mlflow.genai.evaluation.utils import (
     _convert_scorer_to_legacy_metric,
     _convert_to_eval_set,
+    validate_tags,
 )
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.utils.spark_utils import is_spark_connect_mode
@@ -52,6 +54,7 @@ def sample_dict_data_single():
             "inputs": {"question": "What is Spark?"},
             "outputs": "actual response for first question",
             "expectations": {"expected_response": "expected response for first question"},
+            "tags": {"sample_tag": "value"},
         },
     ]
 
@@ -63,17 +66,20 @@ def sample_dict_data_multiple():
             "inputs": {"question": "What is Spark?"},
             "outputs": "actual response for first question",
             "expectations": {"expected_response": "expected response for first question"},
+            "tags": {"category": "spark"},
         },
         {
             "inputs": {"question": "How can you minimize data shuffling in Spark?"},
             "outputs": "actual response for second question",
             "expectations": {"expected_response": "expected response for second question"},
+            "tags": {"category": "spark", "topic": "optimization"},
         },
-        # Some records might not have expectations
+        # Some records might not have expectations or tags
         {
             "inputs": {"question": "What is MLflow?"},
             "outputs": "actual response for third question",
             "expectations": {},
+            "tags": {},
         },
     ]
 
@@ -415,6 +421,33 @@ def test_predict_fn_receives_correct_data(data_fixture, request, is_in_databrick
     assert set(received_args) == set(expected_contents)
 
 
+def test_convert_scorer_to_legacy_metric_aggregations_attribute(monkeypatch):
+    mock_metric_instance = MagicMock()
+
+    # NB: Mocking the behavior of databricks-agents, which does not have the aggregations
+    # argument for the evaluation interface for a metric.
+    def mock_metric_decorator(**kwargs):
+        if "aggregations" in kwargs:
+            raise TypeError("metric() got an unexpected keyword argument 'aggregations'")
+        assert set(kwargs.keys()) <= {"eval_fn", "name"}
+        return mock_metric_instance
+
+    mock_evals = Mock(metric=mock_metric_decorator)
+    mock_evals.judges = Mock()  # Add the judges submodule to prevent AttributeError
+
+    monkeypatch.setitem(sys.modules, "databricks.agents.evals", mock_evals)
+    monkeypatch.setitem(sys.modules, "databricks.agents.evals.judges", mock_evals.judges)
+
+    mock_scorer = Mock()
+    mock_scorer.name = "test_scorer"
+    mock_scorer.aggregations = ["mean", "max", "p90"]
+    mock_scorer.run = Mock(return_value={"score": 1.0})
+
+    result = _convert_scorer_to_legacy_metric(mock_scorer)
+
+    assert result.aggregations == ["mean", "max", "p90"]
+
+
 @databricks_only
 def test_convert_scorer_to_legacy_metric():
     """Test that _convert_scorer_to_legacy_metric correctly sets _is_builtin_scorer attribute."""
@@ -463,3 +496,43 @@ def test_scorer_pass_through_aggregations(aggregations):
     legacy_metric_builtin = _convert_scorer_to_legacy_metric(builtin_scorer)
     assert legacy_metric_builtin.name == "relevance_to_query"
     assert legacy_metric_builtin.aggregations == builtin_scorer.aggregations
+
+
+@pytest.mark.parametrize(
+    "tags",
+    [
+        None,
+        {},
+        {"key": "value"},
+        {"env": "test", "model": "v1.0"},
+        {"key": 123},  # Values can be any type
+        {"key1": "value1", "key2": None},  # Values can be any type
+    ],
+)
+def test_validate_tags_valid(tags):
+    validate_tags(tags)
+
+
+@pytest.mark.parametrize(
+    ("tags", "expected_error"),
+    [
+        ("invalid", "Tags must be a dictionary, got str"),
+        (123, "Tags must be a dictionary, got int"),
+        ([1, 2, 3], "Tags must be a dictionary, got list"),
+        ({123: "value"}, "Invalid tags:\n  - Key 123 has type int; expected str."),
+        (
+            {"key1": "value1", 123: "value2"},
+            "Invalid tags:\n  - Key 123 has type int; expected str.",
+        ),
+        (
+            {123: "value1", 456: "value2"},
+            (
+                "Invalid tags:\n  - Key 123 has type int; expected str."
+                "\n  - Key 456 has type int; expected str."
+            ),
+        ),
+    ],
+)
+def test_validate_tags_invalid(tags, expected_error):
+    with pytest.raises(MlflowException, match=expected_error):
+        validate_tags(tags)

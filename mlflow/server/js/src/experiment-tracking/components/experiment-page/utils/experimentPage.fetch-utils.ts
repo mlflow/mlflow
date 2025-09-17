@@ -1,6 +1,6 @@
 import { chunk, isEqual } from 'lodash';
 import { AnyAction } from 'redux';
-import { searchModelVersionsApi } from '../../../../model-registry/actions';
+import type { searchModelVersionsApi } from '../../../../model-registry/actions';
 import { MAX_RUNS_IN_SEARCH_MODEL_VERSIONS_FILTER } from '../../../../model-registry/constants';
 import {
   ATTRIBUTE_COLUMN_SORT_KEY,
@@ -10,9 +10,9 @@ import {
 } from '../../../constants';
 import { ViewType } from '../../../sdk/MlflowEnums';
 import { LIFECYCLE_FILTER } from '../../../types';
-import { KeyValueEntity } from '../../../../common/types';
+import type { KeyValueEntity } from '../../../../common/types';
 import { EXPERIMENT_LOG_MODEL_HISTORY_TAG } from './experimentPage.common-utils';
-import { ThunkDispatch } from '../../../../redux-types';
+import type { ThunkDispatch } from '../../../../redux-types';
 import type { ExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
 import { RUNS_SEARCH_MAX_RESULTS } from '../../../actions';
 import { getUUID } from '../../../../common/utils/ActionUtils';

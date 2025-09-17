@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
-import { UseEvaluationArtifactTableDataResult } from './useEvaluationArtifactTableData';
+import type { UseEvaluationArtifactTableDataResult } from './useEvaluationArtifactTableData';
 import { useDispatch } from 'react-redux';
-import { ThunkDispatch } from '../../../../redux-types';
+import type { ThunkDispatch } from '../../../../redux-types';
 import {
   compilePromptInputText,
   extractEvaluationPrerequisitesForRun,
   extractPromptInputVariables,
 } from '../../prompt-engineering/PromptEngineering.utils';
-import { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
+import type { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
 import { evaluatePromptTableValue } from '../../../actions/PromptEngineeringActions';
 import Utils from '../../../../common/utils/Utils';
 import { getPromptEngineeringErrorMessage } from '../utils/PromptEngineeringErrorUtils';

@@ -37,7 +37,6 @@ wheels/
 MANIFEST
 node_modules
 yarn-error.log
-uv.lock
 .docusaurus
 *-ipynb.mdx
 docs/src/api_modules.json

@@ -11,6 +11,7 @@ import { createTestTraceInfoV3, createTestAssessmentInfo, createTestColumns } fr
 import type { TraceInfoV3, TableFilter, EvaluationsOverviewTableSort, TraceActions } from './types';
 import { TracesTableColumnType, TracesTableColumnGroup, FilterOperator } from './types';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000);
 
 // Mock necessary modules

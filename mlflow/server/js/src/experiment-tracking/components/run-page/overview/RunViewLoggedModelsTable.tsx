@@ -7,18 +7,18 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { Theme } from '@emotion/react';
+import type { Theme } from '@emotion/react';
 import { useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { useCombinedRunInputsOutputsModels } from '../../../hooks/logged-models/useCombinedRunInputsOutputsModels';
-import { LoggedModelProto, RunInfoEntity } from '../../../types';
+import type { LoggedModelProto, RunInfoEntity } from '../../../types';
 import { ExperimentLoggedModelListPageTable } from '../../experiment-logged-models/ExperimentLoggedModelListPageTable';
 import {
   ExperimentLoggedModelListPageKnownColumns,
   useExperimentLoggedModelListPageTableColumns,
 } from '../../experiment-logged-models/hooks/useExperimentLoggedModelListPageTableColumns';
 import { ExperimentLoggedModelOpenDatasetDetailsContextProvider } from '../../experiment-logged-models/hooks/useExperimentLoggedModelOpenDatasetDetails';
-import {
+import type {
   UseGetRunQueryResponseInputs,
   UseGetRunQueryResponseOutputs,
   UseGetRunQueryResponseRunInfo,

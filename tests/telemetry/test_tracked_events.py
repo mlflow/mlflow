@@ -18,6 +18,7 @@ from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.pyfunc.model import ResponsesAgent, ResponsesAgentRequest, ResponsesAgentResponse
 from mlflow.telemetry.client import TelemetryClient
 from mlflow.telemetry.events import (
+    AutologgingEvent,
     CreateDatasetEvent,
     CreateExperimentEvent,
     CreateLoggedModelEvent,
@@ -561,10 +562,15 @@ def test_get_logged_model(mock_requests, mock_telemetry_client: TelemetryClient,
     mock_telemetry_client.flush()
 
     mlflow.sklearn.load_model(model_info.model_uri)
-    validate_telemetry_record(mock_telemetry_client, mock_requests, GetLoggedModelEvent.name)
+    data = validate_telemetry_record(
+        mock_telemetry_client, mock_requests, GetLoggedModelEvent.name, check_params=False
+    )
+    assert "sklearn" in json.loads(data["params"])["imports"]
 
     mlflow.pyfunc.load_model(model_info.model_uri)
-    validate_telemetry_record(mock_telemetry_client, mock_requests, GetLoggedModelEvent.name)
+    data = validate_telemetry_record(
+        mock_telemetry_client, mock_requests, GetLoggedModelEvent.name, check_params=False
+    )
 
     model_def = """
 import mlflow
@@ -585,14 +591,18 @@ set_model(TestModel())
     mock_telemetry_client.flush()
 
     mlflow.pyfunc.load_model(model_info.model_uri)
-    validate_telemetry_record(mock_telemetry_client, mock_requests, GetLoggedModelEvent.name)
+    data = validate_telemetry_record(
+        mock_telemetry_client, mock_requests, GetLoggedModelEvent.name, check_params=False
+    )
 
     # test load model after registry
     mlflow.register_model(model_info.model_uri, name="test")
     mock_telemetry_client.flush()
 
     mlflow.pyfunc.load_model("models:/test/1")
-    validate_telemetry_record(mock_telemetry_client, mock_requests, GetLoggedModelEvent.name)
+    data = validate_telemetry_record(
+        mock_telemetry_client, mock_requests, GetLoggedModelEvent.name, check_params=False
+    )
 
 
 def test_mcp_run(mock_requests, mock_telemetry_client: TelemetryClient):
@@ -635,11 +645,20 @@ def test_invoke_custom_judge_model(
     use_native_provider,
 ):
     from mlflow.genai.judges.utils import invoke_judge_model
+    from mlflow.utils.rest_utils import MlflowHostCreds
 
     mock_response = json.dumps({"result": 0.8, "rationale": "Test rationale"})
 
-    with mock.patch(
-        "mlflow.genai.judges.utils._is_litellm_available", return_value=litellm_available
+    # Mock Databricks credentials for databricks:// URIs
+    mock_creds = MlflowHostCreds(host="https://test.databricks.com", token="test-token")
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.utils._is_litellm_available", return_value=litellm_available
+        ),
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_databricks_host_creds", return_value=mock_creds
+        ),
     ):
         if use_native_provider:
             with mock.patch.object(
@@ -658,9 +677,21 @@ def test_invoke_custom_judge_model(
                         assessment_name="test_assessment",
                     )
         else:
-            with mock.patch(
-                "mlflow.genai.judges.utils._invoke_litellm", return_value=mock_response
+            with (
+                mock.patch("mlflow.genai.judges.utils._invoke_litellm", return_value=mock_response),
+                mock.patch("mlflow.genai.judges.utils._invoke_databricks_model") as mock_databricks,
             ):
+                # For databricks provider, mock the databricks model invocation
+                if expected_provider == "databricks":
+                    from mlflow.genai.judges.utils import InvokeDatabricksModelOutput
+
+                    mock_databricks.return_value = InvokeDatabricksModelOutput(
+                        response=mock_response,
+                        request_id="test-request-id",
+                        num_prompt_tokens=10,
+                        num_completion_tokens=20,
+                    )
+
                 invoke_judge_model(
                     model_uri=model_uri,
                     prompt="Test prompt",
@@ -674,3 +705,17 @@ def test_invoke_custom_judge_model(
             InvokeCustomJudgeModelEvent.name,
             expected_params,
         )
+
+
+def test_autologging(mock_requests, mock_telemetry_client: TelemetryClient):
+    mlflow.openai.autolog()
+
+    mlflow.autolog()
+    mock_telemetry_client.flush()
+    data = [record["data"] for record in mock_requests]
+    params = [event["params"] for event in data if event["event_name"] == AutologgingEvent.name]
+    assert (
+        json.dumps({"flavor": mlflow.openai.FLAVOR_NAME, "log_traces": True, "disable": False})
+        in params
+    )
+    assert json.dumps({"flavor": "all", "log_traces": True, "disable": False}) in params

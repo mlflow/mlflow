@@ -5,9 +5,9 @@ import { useDesignSystemTheme } from '@databricks/design-system';
 import { useCompareToRunUuid } from './hooks/useCompareToRunUuid';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 import { EvaluationRunCompareSelector } from './EvaluationRunCompareSelector';
-import { MlflowService } from '../../sdk/MlflowService';
-import { ModelTrace } from '@databricks/web-shared/model-trace-explorer';
 import { getEvalTabTotalTracesLimit } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { getTrace } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
+import type { TracesTableColumn, TraceActions, TraceInfoV3 } from '@databricks/web-shared/genai-traces-table';
 import {
   EXECUTION_DURATION_COLUMN_ID,
   GenAiTracesMarkdownConverterProvider,
@@ -16,16 +16,13 @@ import {
   getTracesTagKeys,
   STATE_COLUMN_ID,
   RESPONSE_COLUMN_ID,
-  TracesTableColumn,
   TracesTableColumnType,
   useMlflowTracesTableMetadata,
   useSelectedColumns,
   useSearchMlflowTraces,
-  TraceActions,
   GenAITracesTableToolbar,
   GenAITracesTableProvider,
   GenAITracesTableBodyContainer,
-  TraceInfoV3,
   useGenAiTraceEvaluationArtifacts,
   useFilters,
   useTableSort,
@@ -34,29 +31,15 @@ import {
 } from '@databricks/web-shared/genai-traces-table';
 import { useRunLoggedTraceTableArtifacts } from './hooks/useRunLoggedTraceTableArtifacts';
 import { useMarkdownConverter } from '../../../common/utils/MarkdownUtils';
-import { useSearchRunsQuery } from '../run-page/hooks/useSearchRunsQuery';
 import { useEditExperimentTraceTags } from '../traces/hooks/useEditExperimentTraceTags';
 import { useCallback, useMemo, useState } from 'react';
 import { useDeleteTracesMutation } from './hooks/useDeleteTraces';
 import { RunViewEvaluationsTabArtifacts } from './RunViewEvaluationsTabArtifacts';
 import { useGetExperimentRunColor } from '../experiment-page/hooks/useExperimentRunColor';
 import { useQueryClient } from '@databricks/web-shared/query-client';
-
-async function getTrace(requestId?: string, traceId?: string): Promise<ModelTrace | undefined> {
-  const [traceInfo, traceData] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    MlflowService.getExperimentTraceInfoV3(requestId!).then((response) => response.trace?.trace_info || {}),
-    // get-trace-artifact is only currently supported in mlflow 2.0 apis
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    MlflowService.getExperimentTraceData(requestId!),
-  ]);
-  return traceData
-    ? {
-        info: traceInfo,
-        data: traceData,
-      }
-    : undefined;
-}
+import { useSearchRunsQuery } from '../run-page/hooks/useSearchRunsQuery';
+import { checkColumnContents } from '../experiment-page/components/traces-v3/utils/columnUtils';
+import { TRACE_ID_COLUMN_ID } from '@mlflow/mlflow/src/shared/web-shared/genai-traces-table/hooks/useTableColumns';
 
 const RunViewEvaluationsTabInner = ({
   experimentId,
@@ -81,6 +64,8 @@ const RunViewEvaluationsTabInner = ({
     assessmentInfos,
     allColumns,
     totalCount,
+    evaluatedTraces,
+    otherEvaluatedTraces,
     isLoading: isTableMetadataLoading,
     error: tableMetadataError,
     tableFilterOptions,
@@ -97,12 +82,19 @@ const RunViewEvaluationsTabInner = ({
   const queryClient = useQueryClient();
 
   const defaultSelectedColumns = useCallback((columns: TracesTableColumn[]) => {
+    const { responseHasContent, inputHasContent, tokensHasContent } = checkColumnContents(
+      evaluatedTraces.concat(otherEvaluatedTraces),
+    );
+
     return columns.filter(
       (col) =>
         col.type === TracesTableColumnType.ASSESSMENT ||
-        col.type === TracesTableColumnType.INPUT ||
+        col.type === TracesTableColumnType.EXPECTATION ||
+        (inputHasContent && col.type === TracesTableColumnType.INPUT) ||
+        (responseHasContent && col.type === TracesTableColumnType.TRACE_INFO && col.id === RESPONSE_COLUMN_ID) ||
+        (tokensHasContent && col.type === TracesTableColumnType.TRACE_INFO && col.id === TOKENS_COLUMN_ID) ||
         (col.type === TracesTableColumnType.TRACE_INFO &&
-          [EXECUTION_DURATION_COLUMN_ID, RESPONSE_COLUMN_ID, STATE_COLUMN_ID, TOKENS_COLUMN_ID].includes(col.id)),
+          [TRACE_ID_COLUMN_ID, EXECUTION_DURATION_COLUMN_ID, STATE_COLUMN_ID].includes(col.id)),
     );
   }, []);
 
