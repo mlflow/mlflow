@@ -6,8 +6,7 @@ from clint.linter import Location, lint_file
 from clint.rules.example_syntax_error import ExampleSyntaxError
 
 
-def test_example_syntax_error(index_path: Path, tmp_path: Path) -> None:
-    tmp_file = tmp_path / "test.py"
+def test_example_syntax_error(index_path: Path) -> None:
     code = '''
 def bad():
     """
