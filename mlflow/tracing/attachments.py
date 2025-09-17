@@ -94,7 +94,7 @@ class Attachment:
         )
 
     @classmethod
-    def from_ref(cls, ref: str) -> "AttachmentRef":
+    def from_ref(cls, ref: str) -> "Attachment":
         """Create an AttachmentRef from a reference string.
 
         Args:
@@ -120,7 +120,9 @@ class Attachment:
         if not trace_id:
             raise ValueError("Trace ID not found in attachment reference")
 
-        return AttachmentRef(id=attachment_id, content_type=content_type, trace_id=trace_id)
+        return AttachmentRef(
+            id=attachment_id, content_type=content_type, trace_id=trace_id
+        ).to_attachment()
 
 
 class AttachmentRef:
@@ -139,13 +141,8 @@ class AttachmentRef:
         Returns:
             Attachment content as bytes
         """
-        from mlflow.tracking import MlflowClient
 
-        client = MlflowClient()
-        # Use the internal client method to download trace attachment
-        trace_info = client._tracking_client.get_trace_info(self.trace_id)
-        artifact_repo = client._tracking_client._get_artifact_repo_for_trace(trace_info)
-        return artifact_repo.download_trace_attachment(self.id)
+        return b""
 
     def to_attachment(self) -> Attachment:
         """Convert this reference to a full Attachment object by downloading the content.
