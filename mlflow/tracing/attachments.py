@@ -1,7 +1,10 @@
+import base64
+import hashlib
+import json
 import mimetypes
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
 
 
 class Attachment:
@@ -12,10 +15,18 @@ class Attachment:
     2. A reference to this attachment is created and can be used to retrieve the file later.
     """
 
-    def __init__(self, *, content_type: str, content_bytes: bytes):
+    def __init__(self, *, content_type: str, content_bytes: bytes, filename: str | None = None):
         self.id = str(uuid.uuid4())
         self.content_bytes = content_bytes
         self.content_type = content_type
+        self.filename = filename
+        self.created_at = datetime.now(timezone.utc).isoformat()
+
+    def __repr__(self) -> str:
+        return (
+            f"Attachment(id={self.id}, content_type={self.content_type}, "
+            f"size={len(self.content_bytes)} bytes)"
+        )
 
     @classmethod
     def from_file(cls, file: str | Path, content_type: str | None = None) -> "Attachment":
@@ -29,17 +40,16 @@ class Attachment:
         Returns:
             Attachment object
         """
+        path = Path(file)
         return cls(
             content_type=content_type or cls._infer_content_type(file),
-            content_bytes=Path(file).read_bytes(),
+            content_bytes=path.read_bytes(),
+            filename=path.name,
         )
 
     @staticmethod
     def _infer_content_type(file: str | Path) -> str:
         """Infer content type from file extension."""
-        if isinstance(file, Path):
-            file = str(file)
-
         # Use mimetypes module for more comprehensive type detection
         content_type, _ = mimetypes.guess_type(file)
         if content_type:
@@ -79,76 +89,95 @@ class Attachment:
             return "video/x-msvideo"
         return "application/octet-stream"
 
-    def ref(self, trace_id: str) -> str:
+    def ref(self, trace_id: str, artifact_uri: str | None = None) -> str:
         """
         A string representation of the attachment reference.
 
         Args:
             trace_id: The trace ID this attachment belongs to
+            artifact_uri: The artifact URI where the trace is stored.
+                If None, uses a default placeholder.
 
         Returns:
-            Reference string in the format: mlflow-attachments://{id}?content_type={type}&trace_id={trace_id}
+            JSON-based reference string encoded in base64 for URL safety
         """
-        return (
-            f"mlflow-attachments://{self.id}?content_type={self.content_type}&trace_id={trace_id}"
-        )
+        metadata = {
+            "attachment_id": self.id,
+            "trace_id": trace_id,
+            "artifact_uri": artifact_uri or "mlflow-artifacts:/",
+            "content_type": self.content_type,
+            "size": len(self.content_bytes),
+            "checksum": hashlib.sha256(self.content_bytes).hexdigest(),
+            "created_at": self.created_at,
+        }
+        # Add optional fields if present
+        if self.filename:
+            metadata["filename"] = self.filename
+        # Use compact JSON encoding (no spaces) for efficiency
+        json_str = json.dumps(metadata, separators=(",", ":"))
+        # Base64 encode for URL safety
+        encoded = base64.urlsafe_b64encode(json_str.encode()).decode()
+        return f"mlflow-attachment:{encoded}"
 
     @classmethod
     def from_ref(cls, ref: str) -> "Attachment":
-        """Create an AttachmentRef from a reference string.
+        """Create an Attachment from a reference string.
 
         Args:
-            ref: Reference string in the format: mlflow-attachments://{id}?content_type={type}&trace_id={trace_id}
-
-        Returns:
-            AttachmentRef object that can be used to retrieve the attachment
-        """
-        parsed = urlparse(ref)
-        if parsed.scheme != "mlflow-attachments":
-            raise ValueError(f"Invalid attachment reference scheme: {parsed.scheme}")
-
-        attachment_id = parsed.netloc
-        if not attachment_id:
-            raise ValueError("Attachment ID not found in reference")
-
-        params = parse_qs(parsed.query)
-        content_type = params.get("content_type", [None])[0]
-        trace_id = params.get("trace_id", [None])[0]
-
-        if not content_type:
-            raise ValueError("Content type not found in attachment reference")
-        if not trace_id:
-            raise ValueError("Trace ID not found in attachment reference")
-
-        return AttachmentRef(
-            id=attachment_id, content_type=content_type, trace_id=trace_id
-        ).to_attachment()
-
-
-class AttachmentRef:
-    """
-    Reference to an attachment that can be used to retrieve attachment data.
-    """
-
-    def __init__(self, id: str, content_type: str, trace_id: str):
-        self.id = id
-        self.content_type = content_type
-        self.trace_id = trace_id
-
-    def download(self) -> bytes:
-        """Download the attachment content from the MLflow server.
-
-        Returns:
-            Attachment content as bytes
-        """
-
-        return b""
-
-    def to_attachment(self) -> Attachment:
-        """Convert this reference to a full Attachment object by downloading the content.
+            ref: JSON-based reference string
 
         Returns:
             Attachment object with downloaded content
         """
-        content_bytes = self.download()
-        return Attachment(content_type=self.content_type, content_bytes=content_bytes)
+        if not ref.startswith("mlflow-attachment:"):
+            raise ValueError(f"Invalid attachment reference format: {ref}")
+
+        encoded_json = ref[len("mlflow-attachment:") :]
+        try:
+            json_str = base64.urlsafe_b64decode(encoded_json).decode()
+            metadata = json.loads(json_str)
+
+            attachment_id = metadata["attachment_id"]  # noqa: F841
+            trace_id = metadata["trace_id"]  # noqa: F841
+            artifact_uri = metadata["artifact_uri"]  # noqa: F841
+            content_type = metadata["content_type"]
+            size = metadata.get("size")  # noqa: F841
+            checksum = metadata.get("checksum")  # noqa: F841
+            created_at = metadata.get("created_at")
+            filename = metadata.get("filename")
+
+        except (json.JSONDecodeError, KeyError, Exception) as e:
+            raise ValueError(f"Invalid attachment reference: {e}")
+
+        # TODO: Implement actual download logic using artifact_uri directly
+        # The variables above will be used to:
+        # 1. Download attachment from artifact_uri
+        # 2. Verify checksum for data integrity
+        # 3. Validate size matches expected
+        content_bytes = b""
+
+        attachment = cls(content_type=content_type, content_bytes=content_bytes, filename=filename)
+        # Preserve the original created_at timestamp if available
+        if created_at:
+            attachment.created_at = created_at
+        return attachment
+
+    @staticmethod
+    def parse_ref(ref: str) -> dict[str, str | int | None]:
+        """Parse an attachment reference string to extract metadata.
+
+        Args:
+            ref: JSON-based reference string
+
+        Returns:
+            Dictionary containing: artifact_uri, trace_id, attachment_id, content_type, size
+        """
+        if not ref.startswith("mlflow-attachment:"):
+            raise ValueError(f"Invalid attachment reference format: {ref}")
+
+        encoded_json = ref[len("mlflow-attachment:") :]
+        try:
+            json_str = base64.urlsafe_b64decode(encoded_json).decode()
+            return json.loads(json_str)
+        except (json.JSONDecodeError, Exception) as e:
+            raise ValueError(f"Invalid attachment reference: {e}")
