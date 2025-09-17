@@ -76,6 +76,7 @@ from mlflow.protos.service_pb2 import (
     GetOnlineTraceDetails,
     GetRun,
     GetScorer,
+    GetTrace,
     GetTraceInfo,
     GetTraceInfoV3,
     LinkTracesToRun,
@@ -1736,3 +1737,11 @@ class RestStore(AbstractStore):
             MlflowException: If spans belong to different traces or the OTel API call fails.
         """
         return self.log_spans(experiment_id, spans)
+
+    def get_trace(self, trace_id: str) -> Trace:
+        """
+        Get a complete trace with spans for a given trace ID.
+        """
+        endpoint = f"/ajax-api/3.0/mlflow/traces/{trace_id}/trace"
+        response_proto = self._call_endpoint(GetTrace, endpoint=endpoint)
+        return Trace.from_proto_v3(response_proto.trace)
