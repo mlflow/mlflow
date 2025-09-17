@@ -121,10 +121,10 @@ class ModuleSymbolExtractor(ast.NodeVisitor):
 
 
 def extract_symbols_from_file(
-    py_file_path: str, content: str
+    rel_path: str, content: str
 ) -> tuple[dict[str, str], dict[str, FunctionInfo]] | None:
     """Extract function definitions and import mappings from a Python file."""
-    p = Path(py_file_path)
+    p = Path(rel_path)
     if not p.parts or p.parts[0] != "mlflow":
         return None
 
@@ -175,15 +175,13 @@ class SymbolIndex:
 
         # Ensure at least 1 worker to avoid ProcessPoolExecutor ValueError
         max_workers = max(1, min(multiprocessing.cpu_count(), len(py_files)))
-
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
-            # Read file contents and submit jobs with absolute paths
             futures = {}
             for py_file in py_files:
                 abs_file_path = repo_root / py_file
                 content = abs_file_path.read_text()
-                future = executor.submit(extract_symbols_from_file, py_file, content)
-                futures[future] = py_file
+                f = executor.submit(extract_symbols_from_file, py_file, content)
+                futures[f] = py_file
 
             for future in as_completed(futures):
                 if result := future.result():
