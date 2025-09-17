@@ -7,8 +7,7 @@ from clint.rules.forbidden_set_active_model_usage import ForbiddenSetActiveModel
 
 def test_forbidden_set_active_model_usage(index_path: Path, tmp_path: Path) -> None:
     tmp_file = tmp_path / "test.py"
-    tmp_file.write_text(
-        """
+    code = """
 import mlflow
 
 # Bad
@@ -25,10 +24,10 @@ set_active_model("model_name")
 from mlflow import _set_active_model
 _set_active_model("model_name")
 """
-    )
+    tmp_file.write_text(code)
 
     config = Config(select={ForbiddenSetActiveModelUsage.name})
-    violations = lint_file(tmp_file, config, index_path)
+    violations = lint_file(tmp_file, code, config, index_path)
     assert len(violations) == 3
     assert all(isinstance(v.rule, ForbiddenSetActiveModelUsage) for v in violations)
     assert violations[0].loc == Location(4, 0)  # mlflow.set_active_model call

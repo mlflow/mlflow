@@ -7,20 +7,19 @@ from clint.rules.typing_extensions import TypingExtensions
 
 def test_typing_extensions(index_path: Path, tmp_path: Path) -> None:
     tmp_file = tmp_path / "test.py"
-    tmp_file.write_text(
-        """
+    code = """
 # Bad
 from typing_extensions import ParamSpec
 
 # Good
 from typing_extensions import Self
 """
-    )
+    tmp_file.write_text(code)
 
     config = Config(
         select={TypingExtensions.name}, typing_extensions_allowlist=["typing_extensions.Self"]
     )
-    violations = lint_file(tmp_file, config, index_path)
+    violations = lint_file(tmp_file, code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, TypingExtensions) for v in violations)
     assert violations[0].loc == Location(2, 0)

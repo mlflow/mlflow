@@ -8,8 +8,7 @@ from clint.rules.example_syntax_error import ExampleSyntaxError
 
 def test_example_syntax_error(index_path: Path, tmp_path: Path) -> None:
     tmp_file = tmp_path / "test.py"
-    tmp_file.write_text(
-        '''
+    code = '''
 def bad():
     """
     .. code-block:: python
@@ -26,9 +25,9 @@ def good():
             return "This is a good example"
     """
 '''
-    )
+    tmp_file.write_text(code)
     config = Config(select={ExampleSyntaxError.name})
-    violations = lint_file(tmp_file, config, index_path)
+    violations = lint_file(tmp_file, code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, ExampleSyntaxError) for v in violations)
     assert violations[0].loc == Location(5, 8)
@@ -37,15 +36,14 @@ def good():
 @pytest.mark.parametrize("suffix", [".md", ".mdx"])
 def test_example_syntax_error_markdown(index_path: Path, tmp_path: Path, suffix: str) -> None:
     tmp_file = (tmp_path / "test").with_suffix(suffix)
-    tmp_file.write_text(
-        """
+    code = """
 ```python
 def g():
 ```
 """
-    )
+    tmp_file.write_text(code)
     config = Config(select={ExampleSyntaxError.name})
-    violations = lint_file(tmp_file, config, index_path)
+    violations = lint_file(tmp_file, code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, ExampleSyntaxError) for v in violations)
     assert violations[0].loc == Location(2, 0)

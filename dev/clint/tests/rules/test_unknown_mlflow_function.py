@@ -8,8 +8,7 @@ from clint.rules.unknown_mlflow_function import UnknownMlflowFunction
 
 def test_unknown_mlflow_function(index_path: Path, tmp_path: Path) -> None:
     tmp_file = tmp_path / "test.py"
-    tmp_file.write_text(
-        '''
+    code = '''
 def bad():
     """
     .. code-block:: python
@@ -32,9 +31,9 @@ def good():
 
     """
 '''
-    )
+    tmp_file.write_text(code)
     config = Config(select={UnknownMlflowFunction.name}, example_rules=[UnknownMlflowFunction.name])
-    violations = lint_file(tmp_file, config, index_path)
+    violations = lint_file(tmp_file, code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, UnknownMlflowFunction) for v in violations)
     assert violations[0].loc == Location(7, 8)
@@ -43,8 +42,7 @@ def good():
 @pytest.mark.parametrize("suffix", [".md", ".mdx"])
 def test_unknown_mlflow_function_markdown(index_path: Path, tmp_path: Path, suffix: str) -> None:
     tmp_file = (tmp_path / "test").with_suffix(suffix)
-    tmp_file.write_text(
-        """
+    code = """
 # Bad
 
 ```python
@@ -62,12 +60,12 @@ mlflow.log_param("k", "v")
 ```
 
 """
-    )
+    tmp_file.write_text(code)
     config = Config(
         select={UnknownMlflowFunction.name},
         example_rules=[UnknownMlflowFunction.name],
     )
-    violations = lint_file(tmp_file, config, index_path)
+    violations = lint_file(tmp_file, code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, UnknownMlflowFunction) for v in violations)
     assert violations[0].loc == Location(6, 0)

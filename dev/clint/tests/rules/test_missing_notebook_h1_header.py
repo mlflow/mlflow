@@ -20,9 +20,10 @@ def test_missing_notebook_h1_header(index_path: Path, tmp_path: Path) -> None:
         ]
     }
     tmp_file = tmp_path / "test.ipynb"
-    tmp_file.write_text(json.dumps(notebook))
+    code = json.dumps(notebook)
+    tmp_file.write_text(code)
     config = Config(select={MissingNotebookH1Header.name})
-    results = lint_file(tmp_file, config, index_path)
+    results = lint_file(tmp_file, code, config, index_path)
     assert len(results) == 1
     assert isinstance(results[0].rule, MissingNotebookH1Header)
 
@@ -41,7 +42,8 @@ def test_missing_notebook_h1_header_positive(index_path: Path, tmp_path: Path) -
         ]
     }
     tmp_file = tmp_path / "test_positive.ipynb"
-    tmp_file.write_text(json.dumps(notebook))
+    code = json.dumps(notebook)
+    tmp_file.write_text(code)
     config = Config(select={MissingNotebookH1Header.name})
-    results = lint_file(tmp_file, config, index_path)
+    results = lint_file(tmp_file, code, config, index_path)
     assert len(results) == 0

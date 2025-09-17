@@ -7,8 +7,7 @@ from clint.rules.mlflow_class_name import MlflowClassName
 
 def test_mlflow_class_name(index_path: Path, tmp_path: Path) -> None:
     tmp_file = tmp_path / "test.py"
-    tmp_file.write_text(
-        """
+    code = """
 # Bad - using MLflow
 class MLflowClient:
     pass
@@ -33,10 +32,10 @@ class MlflowModel:
 class DataHandler:
     pass
 """
-    )
+    tmp_file.write_text(code)
 
     config = Config(select={MlflowClassName.name})
-    violations = lint_file(tmp_file, config, index_path)
+    violations = lint_file(tmp_file, code, config, index_path)
     assert len(violations) == 4
     assert all(isinstance(v.rule, MlflowClassName) for v in violations)
     assert violations[0].loc == Location(2, 0)  # MLflowClient

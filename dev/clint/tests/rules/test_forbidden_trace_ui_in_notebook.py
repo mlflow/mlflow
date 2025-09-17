@@ -59,9 +59,10 @@ def test_forbidden_trace_ui_in_notebook(index_path: Path, tmp_path: Path) -> Non
  "nbformat_minor": 4
 }
 """
-    tmp_file.write_text(notebook_content)
+    code = notebook_content
+    tmp_file.write_text(code)
     config = Config(select={ForbiddenTraceUIInNotebook.name})
-    violations = lint_file(tmp_file, config, index_path)
+    violations = lint_file(tmp_file, code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, ForbiddenTraceUIInNotebook) for v in violations)
     assert violations[0].cell == 2

@@ -7,8 +7,7 @@ from clint.rules.missing_docstring_param import MissingDocstringParam
 
 def test_missing_docstring_param(index_path: Path, tmp_path: Path) -> None:
     tmp_file = tmp_path / "test.py"
-    tmp_file.write_text(
-        '''
+    code = '''
 def bad_function(param1: str, param2: int, param3: bool) -> None:
     """
     Example function with missing parameters in docstring.
@@ -26,10 +25,10 @@ def good_function(param1: str, param2: int) -> None:
         param2: Second parameter
     """
 '''
-    )
+    tmp_file.write_text(code)
 
     config = Config(select={MissingDocstringParam.name})
-    violations = lint_file(tmp_file, config, index_path)
+    violations = lint_file(tmp_file, code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, MissingDocstringParam) for v in violations)
     assert violations[0].loc == Location(1, 0)

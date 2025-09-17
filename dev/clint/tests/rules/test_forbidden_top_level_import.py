@@ -7,8 +7,7 @@ from clint.rules.forbidden_top_level_import import ForbiddenTopLevelImport
 
 def test_forbidden_top_level_import(index_path: Path, tmp_path: Path) -> None:
     tmp_file = tmp_path / "test.py"
-    tmp_file.write_text(
-        """
+    code = """
 # Bad
 import foo
 from foo import bar
@@ -16,12 +15,12 @@ from foo import bar
 # Good
 import baz
 """
-    )
+    tmp_file.write_text(code)
     config = Config(
         select={ForbiddenTopLevelImport.name},
         forbidden_top_level_imports={"*": ["foo"]},
     )
-    violations = lint_file(tmp_file, config, index_path)
+    violations = lint_file(tmp_file, code, config, index_path)
     assert len(violations) == 2
     assert all(isinstance(v.rule, ForbiddenTopLevelImport) for v in violations)
     assert violations[0].loc == Location(2, 0)

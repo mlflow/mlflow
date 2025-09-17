@@ -17,6 +17,12 @@ from clint.linter import lint_file
 from clint.utils import resolve_paths
 
 
+def _lint_file_wrapper(file_path: Path, config: Config, index_path: Path):
+    """Wrapper function to read file content and call lint_file with new signature."""
+    code = file_path.read_text()
+    return lint_file(file_path, code, config, index_path)
+
+
 @dataclass
 class Args:
     files: list[str]
@@ -61,7 +67,7 @@ def main() -> None:
         index_path = Path(tmp_dir) / "symbol_index.pkl"
         SymbolIndex.build().save(index_path)
         with ProcessPoolExecutor() as pool:
-            futures = [pool.submit(lint_file, f, config, index_path) for f in files]
+            futures = [pool.submit(_lint_file_wrapper, f, config, index_path) for f in files]
             violations_iter = itertools.chain.from_iterable(
                 f.result() for f in as_completed(futures)
             )

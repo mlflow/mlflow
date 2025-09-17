@@ -7,8 +7,7 @@ from clint.rules.no_class_based_tests import NoClassBasedTests
 
 def test_no_class_based_tests(index_path: Path, tmp_path: Path) -> None:
     tmp_file = tmp_path / "test_something.py"
-    tmp_file.write_text(
-        """import pytest
+    code = """import pytest
 
 # Bad - class-based test with test methods
 class TestSomething:
@@ -45,10 +44,10 @@ def test_valid_function():
 def helper_function():
     return 42
 """
-    )
+    tmp_file.write_text(code)
 
     config = Config(select={NoClassBasedTests.name})
-    violations = lint_file(tmp_file, config, index_path)
+    violations = lint_file(tmp_file, code, config, index_path)
     assert len(violations) == 2
     assert all(isinstance(v.rule, NoClassBasedTests) for v in violations)
     assert violations[0].loc == Location(3, 0)  # TestSomething class
@@ -58,16 +57,15 @@ def helper_function():
 def test_no_class_based_tests_non_test_file(index_path: Path, tmp_path: Path) -> None:
     """Test that the rule doesn't apply to non-test files"""
     tmp_file = tmp_path / "regular_file.py"
-    tmp_file.write_text(
-        """import pytest
+    code = """import pytest
 
 # This should not be flagged because it's not in a test file
 class TestSomething:
     def test_feature_a(self):
         assert True
 """
-    )
+    tmp_file.write_text(code)
 
     config = Config(select={NoClassBasedTests.name})
-    violations = lint_file(tmp_file, config, index_path)
+    violations = lint_file(tmp_file, code, config, index_path)
     assert len(violations) == 0

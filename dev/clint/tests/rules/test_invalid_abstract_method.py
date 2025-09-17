@@ -7,8 +7,7 @@ from clint.rules.invalid_abstract_method import InvalidAbstractMethod
 
 def test_invalid_abstract_method(index_path: Path, tmp_path: Path) -> None:
     tmp_file = tmp_path / "test.py"
-    tmp_file.write_text(
-        """
+    code = """
 import abc
 
 class AbstractExample(abc.ABC):
@@ -33,10 +32,10 @@ class AbstractExample(abc.ABC):
     def good_abstract_method_docstring(self) -> None:
         '''This is a valid docstring'''
 """
-    )
+    tmp_file.write_text(code)
 
     config = Config(select={InvalidAbstractMethod.name})
-    violations = lint_file(tmp_file, config, index_path)
+    violations = lint_file(tmp_file, code, config, index_path)
     assert len(violations) == 2
     assert all(isinstance(v.rule, InvalidAbstractMethod) for v in violations)
     assert violations[0].loc == Location(5, 4)
