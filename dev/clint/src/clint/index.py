@@ -175,7 +175,7 @@ class SymbolIndex:
 
         mapping: dict[str, str] = {}
         func_mapping: dict[str, FunctionInfo] = {}
-        max_workers = min(multiprocessing.cpu_count(), len(rel_paths))
+        max_workers = min(multiprocessing.cpu_count(), len(rel_paths)) or 1
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
             futures = {
                 executor.submit(extract_symbols_from_file, repo_root, Path(f)): f for f in rel_paths
