@@ -1972,6 +1972,10 @@ def test_get_traces_handler(mock_get_request_message, mock_tracking_store):
 
     get_traces_proto = GetTraces()
     get_traces_proto.trace_ids.extend([trace_identifier_1, trace_identifier_2])
+    trace_ids = [
+        f"{TRACE_ID_V4_PREFIX}catalog.schema/{trace_id_1}",
+        f"{TRACE_ID_V4_PREFIX}catalog.schema/{trace_id_2}",
+    ]
 
     mock_get_request_message.return_value = get_traces_proto
 
@@ -2008,7 +2012,7 @@ def test_get_traces_handler(mock_get_request_message, mock_tracking_store):
     response = _get_traces()
 
     # Verify the store was called with the correct trace IDs
-    mock_tracking_store.get_traces.assert_called_once_with([trace_identifier_1, trace_identifier_2])
+    mock_tracking_store.get_traces.assert_called_once_with(trace_ids)
 
     # Verify response was created
     assert response is not None

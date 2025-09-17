@@ -2865,7 +2865,16 @@ def _get_traces():
             "trace_ids": [_assert_required],
         },
     )
-    traces = _get_tracking_store().get_traces(request_message.trace_ids)
+    trace_ids = []
+    for trace_id in request_message.trace_ids:
+        if trace_id.uc_schema:
+            trace_ids.append(
+                f"{TRACE_ID_V4_PREFIX}{trace_id.uc_schema.catalog_name}.{trace_id.uc_schema.schema_name}/{trace_id.trace_id}"
+            )
+        else:
+            trace_ids.append(trace_id)
+
+    traces = _get_tracking_store().get_traces(trace_ids)
     response_message = GetTraces.Response()
     response_message.traces.extend([trace.to_proto_v4() for trace in traces])
     return _wrap_response(response_message)
