@@ -10,7 +10,6 @@ def test_os_environ_set_in_test(
     index_path: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    tmp_file = tmp_path / "test_file.py"
     code = """
 import os
 
@@ -22,9 +21,8 @@ def test_func():
 def non_test_func():
     os.environ["MY_VAR"] = "value"
 """
-    tmp_file.write_text(code)
     config = Config(select={OsEnvironSetInTest.name})
-    violations = lint_file(tmp_file.relative_to(tmp_path), code, config, index_path)
+    violations = lint_file(Path("test_file.py"), code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, OsEnvironSetInTest) for v in violations)
     assert violations[0].loc == Location(5, 4)

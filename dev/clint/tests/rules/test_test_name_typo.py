@@ -5,8 +5,7 @@ from clint.linter import Location, lint_file
 from clint.rules.test_name_typo import TestNameTypo
 
 
-def test_test_name_typo(index_path: Path, tmp_path: Path) -> None:
-    tmp_file = tmp_path / "test_something.py"
+def test_test_name_typo(index_path: Path) -> None:
     code = """import pytest
 
 # Bad - starts with 'test' but missing underscore
@@ -29,10 +28,8 @@ def helper_function():
 def tset_something():
     pass
 """
-    tmp_file.write_text(code)
-
     config = Config(select={TestNameTypo.name})
-    violations = lint_file(tmp_file, code, config, index_path)
+    violations = lint_file(Path("test_something.py"), code, config, index_path)
     assert len(violations) == 2
     assert all(isinstance(v.rule, TestNameTypo) for v in violations)
     assert violations[0].loc == Location(3, 0)

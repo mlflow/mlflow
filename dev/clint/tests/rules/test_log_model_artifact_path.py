@@ -5,8 +5,7 @@ from clint.linter import Location, lint_file
 from clint.rules.log_model_artifact_path import LogModelArtifactPath
 
 
-def test_log_model_artifact_path(index_path: Path, tmp_path: Path) -> None:
-    tmp_file = tmp_path / "test.py"
+def test_log_model_artifact_path(index_path: Path) -> None:
     code = """
 import mlflow
 
@@ -25,10 +24,8 @@ mlflow.spark.log_model(spark_model, "spark_model")
 # Bad - another flavor with artifact_path
 mlflow.pytorch.log_model(model, artifact_path="pytorch_model")
 """
-    tmp_file.write_text(code)
-
     config = Config(select={LogModelArtifactPath.name})
-    violations = lint_file(tmp_file, code, config, index_path)
+    violations = lint_file(Path("test.py"), code, config, index_path)
     assert len(violations) == 3
     assert all(isinstance(v.rule, LogModelArtifactPath) for v in violations)
     assert violations[0].loc == Location(4, 0)
