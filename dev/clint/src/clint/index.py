@@ -121,41 +121,23 @@ class ModuleSymbolExtractor(ast.NodeVisitor):
 
 
 def extract_symbols_from_file(
-    py_file: Path,
+    repo_root: Path, relative_path: Path
 ) -> tuple[dict[str, str], dict[str, FunctionInfo]] | None:
     """Extract function definitions and import mappings from a Python file."""
-    p = Path(py_file)
+    file_path = repo_root / relative_path
 
-    # Make the path relative to find the mlflow part
-    # If it's absolute, we need to find the part that starts with mlflow
-    if p.is_absolute():
-        # Find the last occurrence of mlflow directory in the path
-        # This handles cases like /path/to/mlflow/mlflow/mlflow/module.py
-        parts = p.parts
-        mlflow_index = None
-        for i in range(len(parts) - 1, -1, -1):  # Search backwards
-            if parts[i] == "mlflow" and i < len(parts) - 1:  # Not the last part (filename)
-                mlflow_index = i
-                break
-        if mlflow_index is None:
-            return None
-        # Take parts from mlflow onwards
-        relative_parts = parts[mlflow_index:]
-    else:
-        relative_parts = p.parts
-
-    if not relative_parts or relative_parts[0] != "mlflow":
+    if not relative_path.parts or relative_path.parts[0] != "mlflow":
         return None
 
     try:
-        tree = ast.parse(p.read_text())
+        tree = ast.parse(file_path.read_text())
     except (SyntaxError, UnicodeDecodeError):
         return None
 
     mod_name = (
-        ".".join(relative_parts[:-1])
-        if p.name == "__init__.py"
-        else ".".join([*relative_parts[:-1], p.stem])
+        ".".join(relative_path.parts[:-1])
+        if relative_path.name == "__init__.py"
+        else ".".join([*relative_path.parts[:-1], relative_path.stem])
     )
 
     extractor = ModuleSymbolExtractor(mod_name)
@@ -187,17 +169,17 @@ class SymbolIndex:
     @classmethod
     def build(cls) -> Self:
         repo_root = get_repo_root()
-        py_files = subprocess.check_output(
-            ["git", "-C", str(repo_root), "ls-files", "mlflow/*.py"], text=True
+        relative_paths = subprocess.check_output(
+            ["git", "-C", repo_root, "ls-files", "mlflow/*.py"], text=True
         ).splitlines()
 
         mapping: dict[str, str] = {}
         func_mapping: dict[str, FunctionInfo] = {}
-        max_workers = min(multiprocessing.cpu_count(), len(py_files))
+        max_workers = min(multiprocessing.cpu_count(), len(relative_paths))
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
             futures = {
-                executor.submit(extract_symbols_from_file, repo_root / f): f
-                for f in map(Path, py_files)
+                executor.submit(extract_symbols_from_file, repo_root, Path(f)): f
+                for f in relative_paths
             }
             for future in as_completed(futures):
                 if result := future.result():

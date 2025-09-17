@@ -66,19 +66,19 @@ def _git_ls_files(pathspecs: list[Path]) -> list[Path]:
     repo_root = get_repo_root()
 
     # Convert pathspecs to be relative to repository root
-    converted_pathspecs = []
+    converted_pathspecs: list[Path] = []
     for pathspec in pathspecs:
         if pathspec.is_absolute():
             if pathspec.is_relative_to(repo_root):
                 rel_path = pathspec.relative_to(repo_root)
-                converted_pathspecs.append(str(rel_path))
+                converted_pathspecs.append(rel_path)
             # Skip paths outside repository
         else:
             # Convert relative path from current working directory to relative to repo root
             abs_path = Path.cwd() / pathspec
             if abs_path.is_relative_to(repo_root):
                 rel_path = abs_path.relative_to(repo_root)
-                converted_pathspecs.append(str(rel_path))
+                converted_pathspecs.append(rel_path)
             # Skip paths outside repository
 
     if not converted_pathspecs:
@@ -89,7 +89,7 @@ def _git_ls_files(pathspecs: list[Path]) -> list[Path]:
             [
                 "git",
                 "-C",
-                str(repo_root),
+                repo_root,
                 "ls-files",
                 "--cached",
                 "--others",
