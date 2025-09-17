@@ -2824,7 +2824,7 @@ def _get_trace_info_v3(trace_id):
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _get_trace_info_v4(location, trace_id):
+def _get_trace_info_v4(location: str, trace_id: str) -> Response:
     """
     A request handler for `GET /mlflow/traces/{location}/{trace_id}/info` to retrieve
     an existing TraceInfo record from tracking store.

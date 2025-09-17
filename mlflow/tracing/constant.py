@@ -91,6 +91,7 @@ TRACE_ID_V4_PREFIX = "trace:/"
 TRACE_SCHEMA_VERSION = 3
 
 # Key for the trace schema version in the trace. This key is also used in
+# Databricks model serving to be careful when modifying it.
 TRACE_SCHEMA_VERSION_KEY = "mlflow.trace_schema.version"
 
 

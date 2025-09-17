@@ -614,12 +614,12 @@ def parse_trace_id_v4(trace_id: str) -> tuple[str | None, str]:
     Parse the trace ID into location and trace ID components.
     """
     if trace_id.startswith(TRACE_ID_V4_PREFIX):
-        splits = trace_id.removeprefix(TRACE_ID_V4_PREFIX).split("/")
-        if len(splits) != 2 or splits[0] == "" or splits[1] == "":
-            raise MlflowException.invalid_parameter_value(
-                f"Invalid trace ID format: {trace_id}. "
-                f"Expected format: {TRACE_ID_V4_PREFIX}<location>/<trace_id>"
-            )
-        return splits[0], splits[1]
-    else:
-        return None, trace_id
+        match trace_id.removeprefix(TRACE_ID_V4_PREFIX).split("/"):
+            case [location, tid] if location and tid:
+                return location, tid
+            case _:
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid trace ID format: {trace_id}. "
+                    f"Expected format: {TRACE_ID_V4_PREFIX}<location>/<trace_id>"
+                )
+    return None, trace_id

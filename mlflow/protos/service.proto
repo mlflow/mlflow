@@ -2143,10 +2143,10 @@ message GetTraceInfoV4 {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // ID of the trace to fetch. Must be provided.
-  optional string trace_id = 1;
+  optional string trace_id = 1 [(validate_required) = true];
 
   // Location of the trace to fetch from. Must be provided.
-  optional string location = 2;
+  optional string location = 2 [(validate_required) = true];
 
   // Optional SQL warehouse ID for fetching trace data.
   optional string sql_warehouse_id = 3;
