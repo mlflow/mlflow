@@ -112,7 +112,7 @@ class TracingSession:
             self.span.record_exception(exc_val)
 
         try:
-            if usage := parse_usage(self.output):
+            if usage := _parse_usage(self.output):
                 self.span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
         except Exception as e:
             _logger.warning(
@@ -154,7 +154,7 @@ def patched_module_call(original, *args, **kwargs):
         span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "gemini")
         result = original(*args, **kwargs)
         try:
-            if usage := parse_usage(result):
+            if usage := _parse_usage(result):
                 span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
         except Exception as e:
             _logger.warning(
@@ -243,14 +243,13 @@ def _construct_full_inputs(func, *args, **kwargs):
     return arguments
 
 
-def parse_usage(output):
+def _parse_usage(output):
     usage = None
     if hasattr(output, "usage_metadata"):
         usage = output.usage_metadata
     elif isinstance(output, dict):
         usage = output.get("usage_metadata")
-
-    if not usage:
+    else:
         return None
 
     usage_dict = {}

@@ -26,7 +26,7 @@ _CONTENT = {"parts": [{"text": "test answer"}], "role": "model"}
 _USER_METADATA = {
     "prompt_token_count": 6,
     "candidates_token_count": 6,
-    "total_token_count": 6,
+    "total_token_count": 12,
     "cached_content_token_count": 0,
 }
 
@@ -179,13 +179,13 @@ def test_generate_content_enable_disable_autolog(is_async):
         assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
             TokenUsageKey.INPUT_TOKENS: 6,
             TokenUsageKey.OUTPUT_TOKENS: 6,
-            TokenUsageKey.TOTAL_TOKENS: 6,
+            TokenUsageKey.TOTAL_TOKENS: 12,
         }
 
         assert traces[0].info.token_usage == {
             "input_tokens": 6,
             "output_tokens": 6,
-            "total_tokens": 6,
+            "total_tokens": 12,
         }
 
         mlflow.gemini.autolog(disable=True)
@@ -271,13 +271,13 @@ def test_generate_content_image_autolog():
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         TokenUsageKey.INPUT_TOKENS: 6,
         TokenUsageKey.OUTPUT_TOKENS: 6,
-        TokenUsageKey.TOTAL_TOKENS: 6,
+        TokenUsageKey.TOTAL_TOKENS: 12,
     }
 
     assert traces[0].info.token_usage == {
         "input_tokens": 6,
         "output_tokens": 6,
-        "total_tokens": 6,
+        "total_tokens": 12,
     }
 
 
@@ -350,13 +350,13 @@ def test_generate_content_tool_calling_autolog(is_async):
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         TokenUsageKey.INPUT_TOKENS: 6,
         TokenUsageKey.OUTPUT_TOKENS: 6,
-        TokenUsageKey.TOTAL_TOKENS: 6,
+        TokenUsageKey.TOTAL_TOKENS: 12,
     }
 
     assert traces[0].info.token_usage == {
         "input_tokens": 6,
         "output_tokens": 6,
-        "total_tokens": 6,
+        "total_tokens": 12,
     }
 
 
@@ -465,13 +465,13 @@ def test_generate_content_tool_calling_chat_history_autolog(is_async):
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         TokenUsageKey.INPUT_TOKENS: 6,
         TokenUsageKey.OUTPUT_TOKENS: 6,
-        TokenUsageKey.TOTAL_TOKENS: 6,
+        TokenUsageKey.TOTAL_TOKENS: 12,
     }
 
     assert traces[0].info.token_usage == {
         "input_tokens": 6,
         "output_tokens": 6,
-        "total_tokens": 6,
+        "total_tokens": 12,
     }
 
 
