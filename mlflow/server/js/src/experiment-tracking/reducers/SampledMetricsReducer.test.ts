@@ -211,7 +211,7 @@ describe('SampledMetricsReducer', () => {
   it('handles refreshing state correctly with multiple run IDs', () => {
     const multipleRunIds = ['run_1', 'run_2', 'run_3'];
     const testMetricsHistory = [{ run_id: 'run_1', key: testMetricKey, value: 123, step: 0, timestamp: 1 }] as any;
-    
+
     const initialState = {
       run_1: {
         test_metric_key: {

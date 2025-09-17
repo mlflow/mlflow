@@ -642,7 +642,8 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
     const { metricKey } = this.props;
     const urlState = this.getUrlState();
     const config = new RunsChartsLineCardConfig(false, getUUID());
-    const selectedMetricKeys = urlState.selectedMetricKeys && urlState.selectedMetricKeys.length > 0 ? urlState.selectedMetricKeys : [metricKey];
+    const selectedMetricKeys =
+      urlState.selectedMetricKeys && urlState.selectedMetricKeys.length > 0 ? urlState.selectedMetricKeys : [metricKey];
 
     Object.assign(config, {
       metricKey,
@@ -668,7 +669,8 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
   getNewChartRunData = () => {
     const { runUuids, metricKey, runInfos, runNames, runDisplayNames } = this.props;
     const urlState = this.getUrlState();
-    const selectedMetricKeys = urlState.selectedMetricKeys && urlState.selectedMetricKeys.length > 0 ? urlState.selectedMetricKeys : [metricKey];
+    const selectedMetricKeys =
+      urlState.selectedMetricKeys && urlState.selectedMetricKeys.length > 0 ? urlState.selectedMetricKeys : [metricKey];
     const metrics = selectedMetricKeys.reduce((acc: Record<string, any>, key: string) => {
       acc[key] = {}; // Empty object indicates metric exists but data will be fetched
       return acc;

@@ -107,7 +107,7 @@ export class MetricViewImpl extends Component<MetricViewImplProps> {
     return (
       <div>
         <PageHeader title={title} breadcrumbs={breadcrumbs} hideSpacer />
-        <MetricsPlotPanel 
+        <MetricsPlotPanel
           experimentIds={experimentIds}
           runUuids={runUuids}
           metricKey={metricKey}

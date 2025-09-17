@@ -51,10 +51,10 @@ let getRunApi: any;
 let navigate;
 
 describe('unit tests', () => {
-
   beforeEach(() => {
     const location = {
-      search: '?runs=["runUuid1","runUuid2","runUuid3","runUuid4"]&experiments=["1"]&plot_metric_keys=["metric_1","metric_2"]&plot_layout={}',
+      search:
+        '?runs=["runUuid1","runUuid2","runUuid3","runUuid4"]&experiments=["1"]&plot_metric_keys=["metric_1","metric_2"]&plot_layout={}',
     };
 
     navigate = jest.fn((to: string) => {
@@ -583,12 +583,12 @@ describe('unit tests', () => {
 
   test('handleDownloadCsv should call loadMetricHistory and saveAs', async () => {
     jest.useFakeTimers();
-    const props = {...minimalPropsForLineChart};
+    const props = { ...minimalPropsForLineChart };
     wrapper = shallow(<MetricsPlotPanel {...props} />);
-    instance = wrapper.instance()
+    instance = wrapper.instance();
     instance.getUrlState = jest.fn().mockReturnValue({ selectedMetricKeys: ['metric_1'] });
     instance.loadMetricHistory = jest.fn().mockResolvedValue(undefined);
-    instance.setState({loading: false });
+    instance.setState({ loading: false });
 
     await instance.handleDownloadCsv();
 
@@ -598,14 +598,14 @@ describe('unit tests', () => {
 
   test('handleDownloadCsv should skip loadMetricHistory when loading', async () => {
     jest.useFakeTimers();
-    const props = {...minimalPropsForLineChart};
+    const props = { ...minimalPropsForLineChart };
     wrapper = shallow(<MetricsPlotPanel {...props} />);
-    instance = wrapper.instance()
-    instance.setState({loading: true})
+    instance = wrapper.instance();
+    instance.setState({ loading: true });
     instance.getUrlState = jest.fn().mockReturnValue({ selectedMetricKeys: ['metric_1'] });
     instance.loadMetricHistory = jest.fn().mockResolvedValue(undefined);
-    jest.advanceTimersByTime(1000)
-    instance.setState({loading: false})
+    jest.advanceTimersByTime(1000);
+    instance.setState({ loading: false });
     await instance.handleDownloadCsv();
 
     expect(instance.loadMetricHistory).toHaveBeenCalledTimes(1);
@@ -624,8 +624,8 @@ describe('unit tests', () => {
       showPoint: true,
       layout: {
         xaxis: { range: [0, 100] },
-        yaxis: { range: [10, 1000] }
-      }
+        yaxis: { range: [10, 1000] },
+      },
     });
 
     const config = instance.getCardChartConfig();
@@ -638,7 +638,7 @@ describe('unit tests', () => {
       xMin: 0,
       xMax: 100,
       yMin: 10,
-      yMax: 1000
+      yMax: 1000,
     });
   });
 
@@ -651,7 +651,7 @@ describe('unit tests', () => {
       selectedMetricKeys: [],
       selectedXAxis: 'time',
       yAxisLogScale: false,
-      showPoint: false
+      showPoint: false,
     });
 
     const config = instance.getCardChartConfig();
@@ -668,13 +668,13 @@ describe('unit tests', () => {
       runUuids: ['run1', 'run2'],
       runNames: ['Run 1', 'Run 2'],
       runDisplayNames: ['Display 1', 'Display 2'],
-      latestMetricsByRunUuid: {'run1': [], 'run2': []}
+      latestMetricsByRunUuid: { run1: [], run2: [] },
     };
     wrapper = shallow(<MetricsPlotPanel {...props} />);
     instance = wrapper.instance();
 
     instance.getUrlState = jest.fn().mockReturnValue({
-      selectedMetricKeys: ['metric_1', 'metric_2']
+      selectedMetricKeys: ['metric_1', 'metric_2'],
     });
 
     const runData = instance.getNewChartRunData();
@@ -690,7 +690,7 @@ describe('unit tests', () => {
       images: {},
       hidden: false,
       color: undefined,
-      displayName: 'Run 1'
+      displayName: 'Run 1',
     });
   });
 
@@ -700,7 +700,7 @@ describe('unit tests', () => {
 
     instance.getUrlState = jest.fn().mockReturnValue({
       lineSmoothness: 0.5,
-      selectedXAxis: 'time'
+      selectedXAxis: 'time',
     });
 
     const config = instance.getGlobalLineChartConfig();
