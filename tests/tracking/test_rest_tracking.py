@@ -3589,10 +3589,6 @@ def test_evaluation_dataset_upsert_records(mlflow_client, store_type):
     if store_type == "file":
         pytest.skip("Evaluation datasets not supported for FileStore")
 
-    import json
-
-    import requests
-
     experiment_id = mlflow_client.create_experiment("upsert_records_test")
 
     dataset = mlflow_client.create_dataset(
