@@ -50,13 +50,11 @@ class SIMBAAlignmentOptimizer(DSPyAlignmentOptimizer):
 
     Note on Logging:
         By default, SIMBA optimization suppresses DSPy's verbose output.
-        To see detailed optimization progress from DSPy, set the MLflow logger to DEBUG:
+        To see detailed optimization progress from DSPy, set the MLflow logger to DEBUG::
 
-        ```python
-        import logging
+            import logging
 
-        logging.getLogger("mlflow.genai.judges.optimizers.simba").setLevel(logging.DEBUG)
-        ```
+            logging.getLogger("mlflow.genai.judges.optimizers.simba").setLevel(logging.DEBUG)
     """
 
     # Class constants for default SIMBA parameters
