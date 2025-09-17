@@ -9,15 +9,7 @@ from pathlib import Path
 
 @lru_cache(maxsize=1)
 def get_repo_root() -> Path:
-    """
-    Find the git repository root directory with caching.
-
-    Returns:
-        Path to the git repository root directory
-
-    Raises:
-        RuntimeError: If not in a git repository or git command fails
-    """
+    """Find the git repository root directory with caching."""
     try:
         result = subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True).strip()
         return Path(result)

@@ -167,7 +167,7 @@ class SymbolIndex:
     def build(cls) -> Self:
         repo_root = get_repo_root()
         py_files = subprocess.check_output(
-            ["git", "-C", str(repo_root), "ls-files", "mlflow/*.py"], text=True
+            ["git", "-C", repo_root, "ls-files", "mlflow/*.py"], text=True
         ).splitlines()
 
         mapping: dict[str, str] = {}
@@ -181,13 +181,9 @@ class SymbolIndex:
             futures = {}
             for py_file in py_files:
                 abs_file_path = repo_root / py_file
-                try:
-                    content = abs_file_path.read_text()
-                    future = executor.submit(extract_symbols_from_file, py_file, content)
-                    futures[future] = py_file
-                except (OSError, UnicodeDecodeError):
-                    # Skip files that can't be read
-                    continue
+                content = abs_file_path.read_text()
+                future = executor.submit(extract_symbols_from_file, py_file, content)
+                futures[future] = py_file
 
             for future in as_completed(futures):
                 if result := future.result():
