@@ -2757,7 +2757,7 @@ class FileStore(AbstractStore):
         pass
 
     @filestore_not_supported
-    def upsert_dataset_records(self, dataset_id, records, updated_by=None):
+    def upsert_dataset_records(self, dataset_id, records):
         pass
 
     @filestore_not_supported
