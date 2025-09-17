@@ -19,6 +19,7 @@ export type ModelTraceExplorerViewState = {
   assessmentsPaneExpanded: boolean;
   setAssessmentsPaneExpanded: (expanded: boolean) => void;
   assessmentsPaneEnabled: boolean;
+  isInComparisonView: boolean;
 };
 
 export const ModelTraceExplorerViewStateContext = createContext<ModelTraceExplorerViewState>({
@@ -35,6 +36,7 @@ export const ModelTraceExplorerViewStateContext = createContext<ModelTraceExplor
   assessmentsPaneExpanded: false,
   setAssessmentsPaneExpanded: () => {},
   assessmentsPaneEnabled: true,
+  isInComparisonView: false,
 });
 
 export const useModelTraceExplorerViewState = () => {
@@ -50,12 +52,14 @@ export const ModelTraceExplorerViewStateProvider = ({
   // (i.e. if the traceinfo fetch fails)
   assessmentsPaneEnabled,
   children,
+  isInComparisonView = false,
 }: {
   modelTrace: ModelTrace;
   initialActiveView?: 'summary' | 'detail';
   selectedSpanIdOnRender?: string;
   children: React.ReactNode;
   assessmentsPaneEnabled: boolean;
+  isInComparisonView: boolean;
 }) => {
   const rootNode = useMemo(() => parseModelTraceToTree(modelTrace), [modelTrace]);
   const nodeMap = useMemo(() => (rootNode ? getTimelineTreeNodesMap([rootNode]) : {}), [rootNode]);
@@ -93,6 +97,7 @@ export const ModelTraceExplorerViewStateProvider = ({
       assessmentsPaneExpanded,
       setAssessmentsPaneExpanded,
       assessmentsPaneEnabled,
+      isInComparisonView,
     }),
     [
       activeView,
@@ -105,6 +110,7 @@ export const ModelTraceExplorerViewStateProvider = ({
       assessmentsPaneExpanded,
       setAssessmentsPaneExpanded,
       assessmentsPaneEnabled,
+      isInComparisonView,
     ],
   );
 

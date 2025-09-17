@@ -39,8 +39,7 @@ function ModelTraceExplorerRightPaneTabsImpl({
   const { theme } = useDesignSystemTheme();
   const [paneWidth, setPaneWidth] = useState(500);
   const contentStyle: Interpolation<Theme> = { flex: 1, marginTop: -theme.spacing.md, overflowY: 'auto' };
-  const { assessmentsPaneExpanded, assessmentsPaneEnabled } = useModelTraceExplorerViewState();
-
+  const { assessmentsPaneExpanded, assessmentsPaneEnabled, isInComparisonView } = useModelTraceExplorerViewState();
   if (isNil(activeSpan)) {
     return <Empty description="Please select a span to view more information" />;
   }
@@ -49,29 +48,31 @@ function ModelTraceExplorerRightPaneTabsImpl({
   const hasException = exceptionCount > 0;
   const hasInputsOrOutputs = !isNil(activeSpan?.inputs) || !isNil(activeSpan?.outputs);
 
-  const tabContent = (
+  const showTopAssessments = isInComparisonView && assessmentsPaneEnabled;
+  const tabs = (
     <Tabs.Root
       componentId="shared.model-trace-explorer.right-pane-tabs"
       css={{
         display: 'flex',
         flexDirection: 'column',
-        flex: 1,
-        borderLeft: `1px solid ${theme.colors.border}`,
-        minWidth: 200,
+        flex: 3,
+        ...(showTopAssessments ? {} : { borderLeft: `1px solid ${theme.colors.border}` }),
         position: 'relative',
       }}
       value={activeTab}
       onValueChange={(tab: string) => setActiveTab(tab as ModelTraceExplorerTab)}
     >
-      <div
-        css={{
-          position: 'absolute',
-          right: assessmentsPaneExpanded ? theme.spacing.xs : theme.spacing.md,
-          top: theme.spacing.xs,
-        }}
-      >
-        <AssessmentPaneToggle />
-      </div>
+      {!isInComparisonView && (
+        <div
+          css={{
+            position: 'absolute',
+            right: assessmentsPaneExpanded ? theme.spacing.xs : theme.spacing.md,
+            top: theme.spacing.xs,
+          }}
+        >
+          <AssessmentPaneToggle />
+        </div>
+      )}
       <Tabs.List
         css={{
           padding: 0,
@@ -122,7 +123,27 @@ function ModelTraceExplorerRightPaneTabsImpl({
     </Tabs.Root>
   );
 
-  return assessmentsPaneEnabled && assessmentsPaneExpanded ? (
+  const tabContent = showTopAssessments ? (
+    <div
+      css={{
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 2,
+        borderLeft: `1px solid ${theme.colors.border}`,
+      }}
+    >
+      <AssessmentsPane
+        assessments={activeSpan.assessments}
+        traceId={activeSpan.traceId}
+        activeSpanId={activeSpan.parentId ? String(activeSpan.key) : undefined}
+      />
+      {tabs}
+    </div>
+  ) : (
+    tabs
+  );
+
+  return !isInComparisonView && assessmentsPaneEnabled && assessmentsPaneExpanded ? (
     <ModelTraceExplorerResizablePane
       initialRatio={DEFAULT_SPLIT_RATIO}
       paneWidth={paneWidth}
@@ -130,11 +151,22 @@ function ModelTraceExplorerRightPaneTabsImpl({
       leftChild={tabContent}
       leftMinWidth={CONTENT_PANE_MIN_WIDTH}
       rightChild={
-        <AssessmentsPane
-          assessments={activeSpan.assessments}
-          traceId={activeSpan.traceId}
-          activeSpanId={activeSpan.parentId ? String(activeSpan.key) : undefined}
-        />
+        <div
+          css={{
+            height: '100%',
+            borderLeft: `1px solid ${theme.colors.border}`,
+            overflowY: 'scroll',
+            minWidth: ASSESSMENT_PANE_MIN_WIDTH,
+            width: '100%',
+            boxSizing: 'border-box',
+          }}
+        >
+          <AssessmentsPane
+            assessments={activeSpan.assessments}
+            traceId={activeSpan.traceId}
+            activeSpanId={activeSpan.parentId ? String(activeSpan.key) : undefined}
+          />
+        </div>
       }
       rightMinWidth={ASSESSMENT_PANE_MIN_WIDTH}
     />

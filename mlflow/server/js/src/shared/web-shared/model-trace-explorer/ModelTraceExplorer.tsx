@@ -107,12 +107,14 @@ export const ModelTraceExplorerImpl = ({
   initialActiveView,
   selectedSpanId,
   onSelectSpan,
+  isInComparisonView = false,
 }: {
   modelTrace: ModelTrace;
   className?: string;
   initialActiveView?: 'summary' | 'detail';
   selectedSpanId?: string;
   onSelectSpan?: (selectedSpanId?: string) => void;
+  isInComparisonView?: boolean;
 }) => {
   const [modelTrace, setModelTrace] = useState(initialModelTrace);
   const [forceDisplay, setForceDisplay] = useState(false);
@@ -147,6 +149,7 @@ export const ModelTraceExplorerImpl = ({
         initialActiveView={initialActiveView}
         selectedSpanIdOnRender={selectedSpanId}
         assessmentsPaneEnabled={assessmentsPaneEnabled}
+        isInComparisonView={isInComparisonView}
       >
         <ModelTraceExplorerContent
           modelTrace={modelTrace}

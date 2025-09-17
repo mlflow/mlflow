@@ -34,8 +34,8 @@ const isNodeImportant = (node: ModelTraceSpanNode) => {
 export const ModelTraceExplorerSummaryView = ({ modelTrace }: { modelTrace: ModelTrace }) => {
   const { theme } = useDesignSystemTheme();
   const [paneWidth, setPaneWidth] = useState(500);
-  const { rootNode, nodeMap, assessmentsPaneEnabled, assessmentsPaneExpanded } = useModelTraceExplorerViewState();
-
+  const { rootNode, nodeMap, assessmentsPaneEnabled, assessmentsPaneExpanded, isInComparisonView } =
+    useModelTraceExplorerViewState();
   const allAssessments = useMemo(() => Object.values(nodeMap).flatMap((node) => node.assessments), [nodeMap]);
 
   const intermediateNodes = useMemo(() => {
@@ -67,13 +67,39 @@ export const ModelTraceExplorerSummaryView = ({ modelTrace }: { modelTrace: Mode
     );
   }
 
+  if (isInComparisonView) {
+    return (
+      <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        {assessmentsPaneEnabled && (
+          <div css={{ borderBottom: `1px solid ${theme.colors.border}` }}>
+            <AssessmentsPane assessments={allAssessments} traceId={rootNode.traceId} activeSpanId={undefined} />
+          </div>
+        )}
+        <ModelTraceExplorerSummarySpans rootNode={rootNode} intermediateNodes={intermediateNodes} />
+      </div>
+    );
+  }
+
   return assessmentsPaneEnabled && assessmentsPaneExpanded ? (
     <ModelTraceExplorerResizablePane
       initialRatio={0.75}
       paneWidth={paneWidth}
       setPaneWidth={setPaneWidth}
       leftChild={<ModelTraceExplorerSummarySpans rootNode={rootNode} intermediateNodes={intermediateNodes} />}
-      rightChild={<AssessmentsPane assessments={allAssessments} traceId={rootNode.traceId} activeSpanId={undefined} />}
+      rightChild={
+        <div
+          css={{
+            height: '100%',
+            borderLeft: `1px solid ${theme.colors.border}`,
+            overflowY: 'scroll',
+            minWidth: ASSESSMENT_PANE_MIN_WIDTH,
+            width: '100%',
+            boxSizing: 'border-box',
+          }}
+        >
+          <AssessmentsPane assessments={allAssessments} traceId={rootNode.traceId} activeSpanId={undefined} />
+        </div>
+      }
       leftMinWidth={SUMMARY_SPANS_MIN_WIDTH}
       rightMinWidth={ASSESSMENT_PANE_MIN_WIDTH}
     />

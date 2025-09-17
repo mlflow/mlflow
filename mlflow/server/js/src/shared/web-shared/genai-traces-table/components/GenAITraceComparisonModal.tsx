@@ -1,7 +1,6 @@
-import { ModelTraceExplorerSummaryView } from '../../model-trace-explorer/summary-view/ModelTraceExplorerSummaryView';
-import { ModelTraceExplorerViewStateProvider } from '../../model-trace-explorer/ModelTraceExplorerViewStateContext';
+import { ModelTraceExplorer } from '../../model-trace-explorer';
 import type { ModelTrace } from '../../model-trace-explorer';
-import type { RunEvaluationTracesDataEntry, TraceActions, TraceInfoV3 } from './../types';
+import type { RunEvaluationTracesDataEntry } from './../types';
 import { useState, useEffect } from 'react';
 
 import { Modal, Typography, useDesignSystemTheme } from '@databricks/design-system';
@@ -48,7 +47,7 @@ export const TraceComparisonModal = ({
       size="wide"
       verticalSizing="maxed_out"
       footer={null}
-      css={{ width: '100% !important' }}
+      dangerouslySetAntdProps={{ width: '95%' }}
     >
       <div css={{ display: 'flex', gap: theme.spacing.lg, overflow: 'auto', height: '100%' }}>
         {modelTraces.length === 0 ? (
@@ -58,13 +57,7 @@ export const TraceComparisonModal = ({
         ) : (
           modelTraces.map((modelTrace, index) => (
             <div key={traces[index].evaluationId} css={{ flex: 1, minWidth: 400, height: '100%', overflow: 'auto' }}>
-              <ModelTraceExplorerViewStateProvider
-                modelTrace={modelTrace}
-                initialActiveView="summary"
-                assessmentsPaneEnabled
-              >
-                <ModelTraceExplorerSummaryView modelTrace={modelTrace} />
-              </ModelTraceExplorerViewStateProvider>
+              <ModelTraceExplorer modelTrace={modelTrace} initialActiveView="summary" isInComparisonView />
             </div>
           ))
         )}
