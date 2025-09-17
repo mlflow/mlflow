@@ -3763,7 +3763,6 @@ def _upsert_dataset_records_handler(dataset_id):
         UpsertDatasetRecords(),
         schema={
             "records": [_assert_required, _assert_string],
-            "updated_by": [_assert_string],
         },
     )
 
@@ -3772,7 +3771,6 @@ def _upsert_dataset_records_handler(dataset_id):
     result = _get_tracking_store().upsert_dataset_records(
         dataset_id=dataset_id,
         records=records,
-        updated_by=request_message.updated_by if request_message.updated_by else None,
     )
 
     response_message = UpsertDatasetRecords.Response()
