@@ -1086,12 +1086,16 @@ mlflow.pyfunc.PythonModel.predict
 mlflow.pyfunc.PythonModel.predict_stream
 mlflow.pyfunc.PythonModelContext
 mlflow.pyfunc.ResponsesAgent
+mlflow.pyfunc.ResponsesAgent.create_annotation_added
 mlflow.pyfunc.ResponsesAgent.create_function_call_item
 mlflow.pyfunc.ResponsesAgent.create_function_call_output_item
+mlflow.pyfunc.ResponsesAgent.create_reasoning_item
 mlflow.pyfunc.ResponsesAgent.create_text_delta
 mlflow.pyfunc.ResponsesAgent.create_text_output_item
+mlflow.pyfunc.ResponsesAgent.output_to_responses_items_stream
 mlflow.pyfunc.ResponsesAgent.predict
 mlflow.pyfunc.ResponsesAgent.predict_stream
+mlflow.pyfunc.ResponsesAgent.prep_msgs_for_cc_llm
 mlflow.pyfunc.ResponsesAgent.responses_agent_output_reducer
 mlflow.pyfunc.add_to_model
 mlflow.pyfunc.build_model_env

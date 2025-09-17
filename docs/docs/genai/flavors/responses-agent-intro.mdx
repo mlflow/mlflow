@@ -26,10 +26,12 @@ If you want to return outputs that don't fit into the standard interface, you ca
 
 Below are some helper methods you can use to create common outputs within the ResponsesAgent interface:
 
+- <APILink fn="mlflow.pyfunc.ResponsesAgent.create_reasoning_item" />
 - <APILink fn="mlflow.pyfunc.ResponsesAgent.create_text_output_item" />
 - <APILink fn="mlflow.pyfunc.ResponsesAgent.create_function_call_item" />
 - <APILink fn="mlflow.pyfunc.ResponsesAgent.create_function_call_output_item" />
 - <APILink fn="mlflow.pyfunc.ResponsesAgent.create_text_delta" /> (only for streaming)
+- <APILink fn="mlflow.pyfunc.ResponsesAgent.create_annotation_added" /> (only for streaming)
 
 Here's an example of a complete tool calling sequence using `ResponsesAgentResponse` with a custom output:
 
@@ -204,45 +206,10 @@ When migrating from `ChatAgent` to `ResponsesAgent`, the primary task involves a
 - [Responses vs Chat Completions](https://platform.openai.com/docs/guides/responses-vs-chat-completions)
 - [Responses API Docs](https://platform.openai.com/docs/api-reference/responses)
 
-If the LLM provider you are using uses chat completions, you can modify the below helper function to convert the output from your ResponsesAgent into chat completions messages to support multi-turn agent chat:
+If the LLM provider you are using uses chat completions, you can use and modify the following helper methods to convert the input/output from your ResponsesAgent into chat completions messages to support multi-turn agent chat:
 
-```python
-def convert_to_chat_completion_format(message: dict[str, Any]) -> list[dict[str, Any]]:
-    """Convert from ResponsesAgent output to a ChatCompletions compatible list of messages"""
-    msg_type = message.get("type", None)
-    if msg_type == "function_call":
-        return [
-            {
-                "role": "assistant",
-                "content": None,
-                "tool_calls": [
-                    {
-                        "id": message["call_id"],
-                        "type": "function",
-                        "function": {
-                            "arguments": message["arguments"],
-                            "name": message["name"],
-                        },
-                    }
-                ],
-            }
-        ]
-    elif msg_type == "message" and isinstance(message["content"], list):
-        return [
-            {"role": message["role"], "content": content["text"]}
-            for content in message["content"]
-        ]
-    elif msg_type == "function_call_output":
-        return [
-            {
-                "role": "tool",
-                "content": message["output"],
-                "tool_call_id": message["call_id"],
-            }
-        ]
-    compatible_keys = ["role", "content", "name", "tool_calls", "tool_call_id"]
-    return [{k: v for k, v in message.items() if k in compatible_keys}]
-```
+- <APILink fn="mlflow.pyfunc.ResponsesAgent.prep_msgs_for_cc_llm" /> (use for input)
+- <APILink fn="mlflow.pyfunc.ResponsesAgent.output_to_responses_items_stream" /> (use for output)
 
 The `ResponsesAgent` interface extends all functionality previously available in <APILink fn="mlflow.pyfunc.ChatAgent">`ChatAgent`</APILink>, while introducing new features. Below, we outline the key differences in message representation between the two interfaces for common use cases:
 
@@ -264,7 +231,6 @@ The `ResponsesAgent` interface extends all functionality previously available in
   "role": "assistant",
   "status": "completed"
 }
-
 ```
 
 #### ChatAgent
