@@ -467,10 +467,12 @@ mlflow.entities.Span.from_proto
 mlflow.entities.Span.get_attribute
 mlflow.entities.Span.to_dict
 mlflow.entities.Span.to_proto
+mlflow.entities.Span.to_proto_span
 mlflow.entities.SpanEvent
 mlflow.entities.SpanEvent.from_exception
 mlflow.entities.SpanEvent.json
 mlflow.entities.SpanEvent.to_proto
+mlflow.entities.SpanEvent.to_proto_v4
 mlflow.entities.SpanStatus
 mlflow.entities.SpanStatusCode
 mlflow.entities.SpanStatusCode.from_proto_status_code
@@ -493,8 +495,10 @@ mlflow.entities.TraceData.to_dict
 mlflow.entities.TraceInfo
 mlflow.entities.TraceInfo.from_dict
 mlflow.entities.TraceInfo.from_proto
+mlflow.entities.TraceInfo.from_proto_v4
 mlflow.entities.TraceInfo.to_dict
 mlflow.entities.TraceInfo.to_proto
+mlflow.entities.TraceInfo.to_proto_v4
 mlflow.entities.TraceLocation
 mlflow.entities.TraceLocation.from_dict
 mlflow.entities.TraceLocation.from_experiment_id

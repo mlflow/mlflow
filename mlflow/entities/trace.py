@@ -319,13 +319,13 @@ class Trace(_MlflowObject):
 
     def to_proto_v4(self):
         return ProtoTraceV4(
-            trace_info=self.info.to_proto(),
-            spans=[span.to_proto() for span in self.data.spans],
+            trace_info=self.info.to_proto_v4(),
+            spans=[span.to_proto_span() for span in self.data.spans],
         )
 
     @classmethod
     def from_proto_v4(cls, proto: ProtoTraceV4) -> "Trace":
         return cls(
-            info=TraceInfo.from_proto(proto.trace_info),
+            info=TraceInfo.from_proto_v4(proto.trace_info),
             data=TraceData(spans=[Span.from_proto(span) for span in proto.spans]),
         )

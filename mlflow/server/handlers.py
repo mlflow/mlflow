@@ -2822,9 +2822,9 @@ def _create_trace():
         CreateTrace(),
         schema={"trace_info": [_assert_required]},
     )
-    trace_info = TraceInfo.from_proto(request_message.trace_info)
+    trace_info = TraceInfo.from_proto_v4(request_message.trace_info)
     trace_info = _get_tracking_store().start_trace(trace_info)
-    response_message = CreateTrace.Response(trace_info=trace_info.to_proto())
+    response_message = CreateTrace.Response(trace_info=trace_info.to_proto_v4())
     return _wrap_response(response_message)
 
 

@@ -363,7 +363,7 @@ class RestStore(AbstractStore):
         try:
             sql_warehouse_id = MLFLOW_TRACING_SQL_WAREHOUSE_ID.get()
             req_body = message_to_json(
-                CreateTrace(trace_info=trace_info.to_proto(), sql_warehouse_id=sql_warehouse_id)
+                CreateTrace(trace_info=trace_info.to_proto_v4(), sql_warehouse_id=sql_warehouse_id)
             )
             response_proto = self._call_endpoint(
                 CreateTrace,
@@ -371,7 +371,7 @@ class RestStore(AbstractStore):
                 endpoint=_V4_TRACE_REST_API_PATH_PREFIX,
                 retry_timeout_seconds=MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.get(),
             )
-            return TraceInfo.from_proto(response_proto.trace_info)
+            return TraceInfo.from_proto_v4(response_proto.trace_info)
         except MlflowException as e:
             if e.error_code == databricks_pb2.ErrorCode.Name(databricks_pb2.ENDPOINT_NOT_FOUND):
                 _logger.debug(
@@ -508,20 +508,19 @@ class RestStore(AbstractStore):
     def _construct_trace_identifier(self, trace_identifier: str) -> TraceIdentifier:
         location, trace_id = parse_trace_id_v4(trace_identifier)
         # location is only None when trace_id does not starts with 'trace:/'
-        if location is None or len(location.split(".")) != 2:
+        if location is None:
             return TraceIdentifier(trace_id=trace_id)
-
-        splits = location.split(".")
-        if len(splits) != 2:
-            raise MlflowException.invalid_parameter_value(
-                f"Invalid trace_id format: {trace_identifier}, should be in the format of "
-                f"{TRACE_ID_V4_PREFIX}<catalog.schema>/<trace_id>"
-            )
-        catalog, schema = splits
-        return TraceIdentifier(
-            uc_schema=UCSchemaLocation(catalog_name=catalog, schema_name=schema),
-            trace_id=trace_id,
-        )
+        match location.split("."):
+            case [catalog, schema]:
+                return TraceIdentifier(
+                    uc_schema=UCSchemaLocation(catalog_name=catalog, schema_name=schema),
+                    trace_id=trace_id,
+                )
+            case _:
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid trace_id format: {trace_identifier}, should be in the format of "
+                    f"{TRACE_ID_V4_PREFIX}<catalog.schema>/<trace_id>"
+                )
 
     def get_online_trace_details(
         self,

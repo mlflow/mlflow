@@ -23,6 +23,7 @@ from mlflow.exceptions import (
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INVALID_PARAMETER_VALUE,
+    NOT_FOUND,
     NOT_IMPLEMENTED,
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
@@ -132,7 +133,13 @@ class TracingClient:
             The fetched Trace object, of type ``mlflow.entities.Trace``.
         """
         try:
-            return self.store.get_traces([trace_id])[0]
+            if traces := self.store.get_traces([trace_id]):
+                return traces[0]
+            else:
+                raise MlflowException(
+                    f"Trace with ID {trace_id} not found.",
+                    error_code=NOT_FOUND,
+                )
         except MlflowNotImplementedException:
             pass
         # if the rest store routes to the store that doesn't support get_traces,

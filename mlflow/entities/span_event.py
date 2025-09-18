@@ -9,7 +9,8 @@ from google.protobuf.struct_pb2 import Value
 from opentelemetry.util.types import AttributeValue
 
 from mlflow.entities._mlflow_object import _MlflowObject
-from mlflow.protos.databricks_trace_server_pb2 import Span as ProtoSpan
+from mlflow.protos.databricks_trace_server_pb2 import Span as TraceServerProtoSpan
+from mlflow.protos.service_pb2 import Span as ProtoSpan
 from mlflow.tracing.utils.otlp import _set_otel_proto_anyvalue
 
 
@@ -70,6 +71,14 @@ class SpanEvent(_MlflowObject):
 
     def to_proto(self):
         """Convert into OTLP compatible proto object to sent to the Databricks Trace Server."""
+        return TraceServerProtoSpan.Event(
+            name=self.name,
+            time_unix_nano=self.timestamp,
+            attributes={k: ParseDict(v, Value()) for k, v in self.attributes.items()},
+        )
+
+    def to_proto_v4(self):
+        """Convert into proto object to sent to the MLflow Server."""
         return ProtoSpan.Event(
             name=self.name,
             time_unix_nano=self.timestamp,

@@ -6,7 +6,7 @@ from typing import Any, Union
 
 from google.protobuf.json_format import MessageToDict, ParseDict
 from google.protobuf.struct_pb2 import Value
-from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
+from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelTraceServerProtoSpan
 from opentelemetry.proto.trace.v1.trace_pb2 import Status as OTelProtoStatus
 from opentelemetry.sdk.resources import Resource as _OTelResource
 from opentelemetry.sdk.trace import Event as OTelEvent
@@ -21,7 +21,8 @@ from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.protos.databricks_trace_server_pb2 import Span as ProtoSpan
+from mlflow.protos.databricks_trace_server_pb2 import Span as TraceServerProtoSpan
+from mlflow.protos.service_pb2 import Span as ProtoSpan
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.utils import (
     TraceJSONEncoder,
@@ -327,6 +328,31 @@ class Span:
     def to_proto(self):
         """Convert into OTLP compatible proto object to sent to the Databricks Trace Server."""
         otel_status = self._span.status
+        status = TraceServerProtoSpan.Status(
+            code=otel_status.status_code.value,
+            message=otel_status.description,
+        )
+        parent = _encode_span_id_to_byte(self._span.parent.span_id) if self._span.parent else b""
+
+        # NB: This is a workaround that some DBX internal code pass float timestamp
+        start_time_unix_nano = int(self._span.start_time) if self._span.start_time else None
+        end_time_unix_nano = int(self._span.end_time) if self._span.end_time else None
+
+        return TraceServerProtoSpan(
+            trace_id=_encode_trace_id_to_byte(self._span.context.trace_id),
+            span_id=_encode_span_id_to_byte(self._span.context.span_id),
+            trace_state=self._span.context.trace_state or "",
+            parent_span_id=parent,
+            name=self.name,
+            start_time_unix_nano=start_time_unix_nano,
+            end_time_unix_nano=end_time_unix_nano,
+            events=[event.to_proto() for event in self.events],
+            status=status,
+            attributes={k: ParseDict(v, Value()) for k, v in self._span.attributes.items()},
+        )
+
+    def to_proto_span(self) -> ProtoSpan:
+        otel_status = self._span.status
         status = ProtoSpan.Status(
             code=otel_status.status_code.value,
             message=otel_status.description,
@@ -345,7 +371,7 @@ class Span:
             name=self.name,
             start_time_unix_nano=start_time_unix_nano,
             end_time_unix_nano=end_time_unix_nano,
-            events=[event.to_proto() for event in self.events],
+            events=[event.to_proto_v4() for event in self.events],
             status=status,
             attributes={k: ParseDict(v, Value()) for k, v in self._span.attributes.items()},
         )
@@ -405,7 +431,7 @@ class Span:
 
         return cls(otel_span)
 
-    def _to_otel_proto(self) -> OTelProtoSpan:
+    def _to_otel_proto(self) -> OTelTraceServerProtoSpan:
         """
         Convert to OpenTelemetry protobuf span format for OTLP export.
         This is an internal method used by the REST store for logging spans.
@@ -413,7 +439,7 @@ class Span:
         Returns:
             An OpenTelemetry protobuf Span message.
         """
-        otel_span = OTelProtoSpan()
+        otel_span = OTelTraceServerProtoSpan()
         otel_span.trace_id = bytes.fromhex(self._trace_id)
         otel_span.span_id = bytes.fromhex(self.span_id)
 

@@ -275,6 +275,12 @@ def test_client_get_trace(mock_store, mock_artifact_repo):
     assert trace.data.spans[0].status.status_code == SpanStatusCode.OK
 
 
+def test_client_get_trace_empty_result(mock_store, mock_artifact_repo):
+    mock_store.get_traces.return_value = []
+    with pytest.raises(MlflowException, match="Trace with ID tr-1234567 not found."):
+        MlflowClient().get_trace("tr-1234567")
+
+
 def test_client_get_trace_fallback(mock_store, mock_artifact_repo):
     mock_store.get_traces.side_effect = MlflowNotImplementedException()
     mock_store.get_trace_info.return_value = TraceInfo(

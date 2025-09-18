@@ -8,6 +8,7 @@ from mlflow.entities.trace_location import (
     UCSchemaLocation,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.protos.service_pb2 import UCSchemaLocation as UCSchemaLocationProto
 
 
 def test_trace_location():
@@ -72,3 +73,21 @@ def test_trace_location_mismatch():
             type=TraceLocationType.INFERENCE_TABLE,
             uc_schema=UCSchemaLocation(catalog_name="a", schema_name="b"),
         )
+
+
+def test_ucschema_location_from_and_to_proto():
+    proto = UCSchemaLocationProto(catalog_name="a", schema_name="b")
+    location = UCSchemaLocation.from_proto(proto)
+    assert location.catalog_name == "a"
+    assert location.schema_name == "b"
+    assert location.to_proto() == proto
+
+    proto = UCSchemaLocationProto(
+        catalog_name="a", schema_name="b", otel_spans_table_name="c", otel_logs_table_name="d"
+    )
+    location = UCSchemaLocation.from_proto(proto)
+    assert location.catalog_name == "a"
+    assert location.schema_name == "b"
+    assert location.otel_spans_table_name == "c"
+    assert location.otel_logs_table_name == "d"
+    assert location.to_proto() == proto

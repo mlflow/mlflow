@@ -201,15 +201,7 @@ def test_response_with_unknown_fields(request):
     assert experiments[0].name == "My experiment"
 
 
-def _args(
-    host_creds, endpoint, method, json_body, use_v3=False, use_v4=False, retry_timeout_seconds=None
-):
-    if use_v4:
-        version = "4.0"
-    elif use_v3:
-        version = "3.0"
-    else:
-        version = "2.0"
+def _args(host_creds, endpoint, method, json_body, version="2.0", retry_timeout_seconds=None):
     res = {
         "host_creds": host_creds,
         "endpoint": f"/api/{version}/mlflow/{endpoint}",
@@ -230,8 +222,7 @@ def _verify_requests(
     endpoint,
     method,
     json_body,
-    use_v3=False,
-    use_v4=False,
+    version="2.0",
     retry_timeout_seconds=None,
 ):
     """
@@ -243,14 +234,11 @@ def _verify_requests(
         endpoint: The endpoint being called (e.g., "traces/123")
         method: The HTTP method (e.g., "GET", "POST")
         json_body: The request body as a JSON string
-        use_v3: If True, verify using /api/3.0/mlflow/ prefix instead of /api/2.0/mlflow/
-                This is used for trace-related endpoints that use the V3 API.
-        use_v4: If True, verify using /api/4.0/mlflow/ prefix instead of /api/2.0/mlflow/
-                This is used for trace-related endpoints that use the V4 API.
+        version: The version of the API to use (e.g., "2.0", "3.0", "4.0")
         retry_timeout_seconds: The retry timeout seconds to use for the request
     """
     http_request.assert_any_call(
-        **(_args(host_creds, endpoint, method, json_body, use_v3, use_v4, retry_timeout_seconds))
+        **(_args(host_creds, endpoint, method, json_body, version, retry_timeout_seconds))
     )
 
 
@@ -467,7 +455,7 @@ def test_requestor():
             "traces/tr-123",
             "GET",
             message_to_json(v3_expected_message),
-            use_v3=True,
+            version="3.0",
         )
 
 
@@ -720,7 +708,7 @@ def test_start_trace(monkeypatch):
             "traces",
             "POST",
             message_to_json(expected_request),
-            use_v3=True,
+            version="3.0",
             retry_timeout_seconds=1,
         )
 
@@ -749,7 +737,7 @@ def test_create_trace_v4_api(monkeypatch):
     response.text = json.dumps({"trace_info": trace_info.to_dict()})
 
     expected_request = CreateTrace(
-        trace_info=trace_info.to_proto(),
+        trace_info=trace_info.to_proto_v4(),
         sql_warehouse_id="test-warehouse",
     )
 
@@ -761,7 +749,7 @@ def test_create_trace_v4_api(monkeypatch):
             "traces",
             "POST",
             message_to_json(expected_request),
-            use_v4=True,
+            version="4.0",
             retry_timeout_seconds=1,
         )
         assert result.trace_id == "tr-123"
@@ -850,7 +838,7 @@ def test_deprecated_end_trace_v2():
             f"traces/{request_id}",
             "PATCH",
             message_to_json(expected_request),
-            use_v3=False,
+            version="2.0",
         )
         assert isinstance(res, TraceInfoV2)
         assert res.request_id == request_id
@@ -1097,7 +1085,7 @@ def test_set_trace_tag():
             f"traces/{trace_id}/tags",
             "PATCH",
             message_to_json(request),
-            use_v3=False,
+            version="2.0",
         )
         assert res is None
 
@@ -1153,7 +1141,7 @@ def test_log_assessment_feedback(is_databricks):
             "traces/tr-1234/assessments",
             "POST",
             message_to_json(request),
-            use_v3=True,
+            version="3.0",
         )
         assert isinstance(res, Feedback)
         assert res.assessment_id is not None
@@ -1210,7 +1198,7 @@ def test_log_assessment_expectation(is_databricks):
             "traces/tr-1234/assessments",
             "POST",
             message_to_json(request),
-            use_v3=True,
+            version="3.0",
         )
         assert isinstance(res, Expectation)
         assert res.assessment_id is not None
@@ -1301,7 +1289,7 @@ def test_update_assessment(updates, expected_request_json, is_databricks):
             "traces/tr-1234/assessments/1234",
             "PATCH",
             json.dumps(expected_request_json),
-            use_v3=True,
+            version="3.0",
         )
         assert isinstance(res, Assessment)
 
@@ -1343,7 +1331,7 @@ def test_get_assessment(is_databricks):
         "traces/tr-1234/assessments/1234",
         "GET",
         json.dumps(expected_request_json),
-        use_v3=True,
+        version="3.0",
     )
 
     assert isinstance(res, Feedback)
@@ -1373,7 +1361,7 @@ def test_delete_assessment(is_databricks):
         "traces/tr-1234/assessments/1234",
         "DELETE",
         json.dumps(expected_request_json),
-        use_v3=True,
+        version="3.0",
     )
 
 
@@ -1853,7 +1841,7 @@ def test_search_evaluation_datasets():
                     page_token="token123",
                 )
             ),
-            use_v3=True,
+            version="3.0",
         )
 
 
@@ -2276,7 +2264,7 @@ def test_evaluation_dataset_pagination():
                     page_token=None,
                 )
             ),
-            use_v3=True,
+            version="3.0",
         )
 
     with mock_http_request() as mock_http:
@@ -2295,7 +2283,7 @@ def test_evaluation_dataset_pagination():
                     page_token="page2",
                 )
             ),
-            use_v3=True,
+            version="3.0",
         )
 
 

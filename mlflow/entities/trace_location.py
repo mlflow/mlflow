@@ -68,20 +68,46 @@ class UCSchemaLocation(_MlflowObject):
 
     catalog_name: str
     schema_name: str
+    otel_spans_table_name: str | None = None
+    otel_logs_table_name: str | None = None
 
     def to_proto(self):
-        return pb.UCSchemaLocation(catalog_name=self.catalog_name, schema_name=self.schema_name)
+        return pb.UCSchemaLocation(
+            catalog_name=self.catalog_name,
+            schema_name=self.schema_name,
+            otel_spans_table_name=self.otel_spans_table_name,
+            otel_logs_table_name=self.otel_logs_table_name,
+        )
 
     @classmethod
     def from_proto(cls, proto) -> "UCSchemaLocation":
-        return cls(catalog_name=proto.catalog_name, schema_name=proto.schema_name)
+        return cls(
+            catalog_name=proto.catalog_name,
+            schema_name=proto.schema_name,
+            otel_spans_table_name=proto.otel_spans_table_name
+            if proto.HasField("otel_spans_table_name")
+            else None,
+            otel_logs_table_name=proto.otel_logs_table_name
+            if proto.HasField("otel_logs_table_name")
+            else None,
+        )
 
     def to_dict(self) -> dict[str, Any]:
-        return {"catalog_name": self.catalog_name, "schema_name": self.schema_name}
+        return {
+            "catalog_name": self.catalog_name,
+            "schema_name": self.schema_name,
+            "otel_spans_table_name": self.otel_spans_table_name,
+            "otel_logs_table_name": self.otel_logs_table_name,
+        }
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "UCSchemaLocation":
-        return cls(catalog_name=d["catalog_name"], schema_name=d["schema_name"])
+        return cls(
+            catalog_name=d["catalog_name"],
+            schema_name=d["schema_name"],
+            otel_spans_table_name=d.get("otel_spans_table_name"),
+            otel_logs_table_name=d.get("otel_logs_table_name"),
+        )
 
 
 class TraceLocationType(str, Enum):
@@ -222,8 +248,19 @@ class TraceLocation(_MlflowObject):
         )
 
     @classmethod
-    def from_uc_schema(cls, catalog_name: str, schema_name: str) -> "TraceLocation":
+    def from_uc_schema(
+        cls,
+        catalog_name: str,
+        schema_name: str,
+        otel_spans_table_name: str | None = None,
+        otel_logs_table_name: str | None = None,
+    ) -> "TraceLocation":
         return cls(
             type=TraceLocationType.UC_SCHEMA,
-            uc_schema=UCSchemaLocation(catalog_name=catalog_name, schema_name=schema_name),
+            uc_schema=UCSchemaLocation(
+                catalog_name=catalog_name,
+                schema_name=schema_name,
+                otel_spans_table_name=otel_spans_table_name,
+                otel_logs_table_name=otel_logs_table_name,
+            ),
         )

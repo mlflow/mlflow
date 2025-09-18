@@ -12,6 +12,7 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.protos.service_pb2 import TraceInfoV3 as ProtoTraceInfoV3
+from mlflow.protos.service_pb2 import TraceInfoV4 as ProtoTraceInfoV4
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, TraceMetadataKey
 
 
@@ -127,6 +128,52 @@ class TraceInfo(_MlflowObject):
 
             return TraceInfoV2.from_proto(proto).to_v3()
 
+        return cls(
+            trace_id=proto.trace_id,
+            client_request_id=(
+                proto.client_request_id if proto.HasField("client_request_id") else None
+            ),
+            trace_location=TraceLocation.from_proto(proto.trace_location),
+            request_preview=proto.request_preview if proto.HasField("request_preview") else None,
+            response_preview=proto.response_preview if proto.HasField("response_preview") else None,
+            request_time=proto.request_time.ToMilliseconds(),
+            execution_duration=(
+                proto.execution_duration.ToMilliseconds()
+                if proto.HasField("execution_duration")
+                else None
+            ),
+            state=TraceState.from_proto(proto.state),
+            trace_metadata=dict(proto.trace_metadata),
+            tags=dict(proto.tags),
+            assessments=[Assessment.from_proto(a) for a in proto.assessments],
+        )
+
+    def to_proto_v4(self) -> "ProtoTraceInfoV4":
+        from mlflow.entities.trace_info_v2 import _truncate_request_metadata, _truncate_tags
+
+        request_time = Timestamp()
+        request_time.FromMilliseconds(self.request_time)
+        execution_duration = None
+        if self.execution_duration is not None:
+            execution_duration = Duration()
+            execution_duration.FromMilliseconds(self.execution_duration)
+
+        return ProtoTraceInfoV4(
+            trace_id=self.trace_id,
+            client_request_id=self.client_request_id,
+            trace_location=self.trace_location.to_proto(),
+            request_preview=self.request_preview,
+            response_preview=self.response_preview,
+            request_time=request_time,
+            execution_duration=execution_duration,
+            state=self.state.to_proto(),
+            trace_metadata=_truncate_request_metadata(self.trace_metadata),
+            tags=_truncate_tags(self.tags),
+            assessments=[a.to_proto() for a in self.assessments],
+        )
+
+    @classmethod
+    def from_proto_v4(cls, proto: "ProtoTraceInfoV4") -> "TraceInfo":
         return cls(
             trace_id=proto.trace_id,
             client_request_id=(
