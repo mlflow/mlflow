@@ -720,6 +720,15 @@ def enable_mlflow_testing():
         yield
 
 
+def check(name: str):
+    from mlflow.version import _is_package_installed
+
+    print(name.center(60, "-"))  # noqa: T201
+
+    for p in ("mlflow", "mlflow-skinny"):
+        _is_package_installed(p)
+
+
 @pytest.fixture(scope="session", autouse=not IS_TRACING_SDK_ONLY)
 def serve_wheel(request, tmp_path_factory):
     """
@@ -730,6 +739,8 @@ def serve_wheel(request, tmp_path_factory):
     `PIP_EXTRA_INDEX_URL` environment variable to make the wheel available to pip.
     """
     from tests.helper_functions import get_safe_port
+
+    check("pre build")
 
     if "COPILOT_AGENT_ACTION" in os.environ:
         yield  # pytest expects a generator fixture to yield
@@ -757,6 +768,7 @@ def serve_wheel(request, tmp_path_factory):
         # In this case, assume we're in the root of the repo.
         repo_root = "."
 
+    check("pre build")
     subprocess.run(
         [
             sys.executable,
@@ -770,6 +782,7 @@ def serve_wheel(request, tmp_path_factory):
         ],
         check=True,
     )
+    check("post build")
     with subprocess.Popen(
         [
             sys.executable,
