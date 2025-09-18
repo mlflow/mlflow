@@ -667,7 +667,7 @@ langchain:
       pip uninstall -y databricks-connect
       pip install --no-deps --force-reinstall pyspark
     run: |
-      pytest tests/langchain/test_langchain_autolog.py
+      pytest tests/langchain/test_langchain_autolog.py -s
       # test both pydantic v1 and v2
       PYDANTIC_VERSION=$(python -c "import pydantic; print(pydantic.__version__)")
       if [[ $PYDANTIC_VERSION == 1.* ]]; then
@@ -682,7 +682,7 @@ langchain:
 
       echo foo
       # TODO: an unexpected issue happens when autolog test and evaluation test are run together, which need investigations
-      pytest tests/langchain/test_langchain_autolog.py
+      pytest tests/langchain/test_langchain_autolog.py -s
     test_tracing_sdk: true
 
 langgraph:
