@@ -703,6 +703,9 @@ class Linter(ast.NodeVisitor):
         if rules.ThreadPoolExecutorWithoutThreadNamePrefix.check(node, self.resolver):
             self._check(Location.from_node(node), rules.ThreadPoolExecutorWithoutThreadNamePrefix())
 
+        if self._is_in_test() and rules.OsChdirInTest.check(node, self.resolver):
+            self._check(Location.from_node(node), rules.OsChdirInTest())
+
         self.generic_visit(node)
 
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
