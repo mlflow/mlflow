@@ -34,36 +34,31 @@ def normalize_evidence(
             validated_entries.append(entry)
 
         elif isinstance(entry, dict):
-            try:
-                if "trace_id" not in entry:
-                    raise MlflowException.invalid_parameter_value(
-                        "Evidence entry must include 'trace_id' - trace IDs are required to link "
-                        "evidence to specific MLflow traces"
-                    )
-                if "rationale" not in entry:
-                    raise MlflowException.invalid_parameter_value(
-                        "Evidence entry must include 'rationale' - explanation is required for "
-                        "why this trace is relevant"
-                    )
+            if "trace_id" not in entry:
+                raise MlflowException.invalid_parameter_value(
+                    "Evidence entry must include 'trace_id' - trace IDs are required to link "
+                    "evidence to specific MLflow traces"
+                )
+            if "rationale" not in entry:
+                raise MlflowException.invalid_parameter_value(
+                    "Evidence entry must include 'rationale' - explanation is required for "
+                    "why this trace is relevant"
+                )
 
-                if for_issue:
-                    validated_entries.append(
-                        EvidenceEntry.for_issue(
-                            trace_id=entry["trace_id"], rationale=entry["rationale"]
-                        )
+            if for_issue:
+                validated_entries.append(
+                    EvidenceEntry.for_issue(
+                        trace_id=entry["trace_id"], rationale=entry["rationale"]
                     )
-                else:
-                    validated_entries.append(
-                        EvidenceEntry.for_hypothesis(
-                            trace_id=entry["trace_id"],
-                            rationale=entry["rationale"],
-                            supports=entry.get("supports", True),
-                        )
+                )
+            else:
+                validated_entries.append(
+                    EvidenceEntry.for_hypothesis(
+                        trace_id=entry["trace_id"],
+                        rationale=entry["rationale"],
+                        supports=entry.get("supports", True),
                     )
-            except Exception as e:
-                if isinstance(e, MlflowException):
-                    raise
-                raise MlflowException.invalid_parameter_value("Invalid evidence entry") from e
+                )
         else:
             raise MlflowException.invalid_parameter_value(
                 f"Evidence must be a dict or EvidenceEntry, got {type(entry).__name__}"
