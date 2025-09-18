@@ -62,7 +62,7 @@ def test_export(is_async, monkeypatch):
     def mock_response(credentials, path, method, trace_json, *args, **kwargs):
         nonlocal trace_info
         trace_dict = json.loads(trace_json)
-        trace_info_proto = ParseDict(trace_dict["trace_info"], pb.TraceInfoV3())
+        trace_info_proto = ParseDict(trace_dict["trace_info"], pb.TraceInfoV4())
         trace_info = TraceInfo.from_proto(trace_info_proto)
         return pb.CreateTrace.Response(trace_info=trace_info_proto)
 
