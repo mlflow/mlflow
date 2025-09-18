@@ -24,6 +24,7 @@ with mlflow.start_span() as span:
 
 
 trace = mlflow.get_trace(span.trace_id)
+print(trace)
 image_ref = trace.data.spans[0].inputs["image"]
 print(image_ref)  # mlflow-attachments://<id>?content_type=image/png&trace_id=tr-xxx
 

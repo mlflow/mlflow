@@ -184,7 +184,7 @@ class MlflowV3SpanExporter(SpanExporter):
                 for span in trace.data.spans:
                     if hasattr(span, "_attachments") and span._attachments:
                         # Update attachment references with real artifact_uri
-                        from mlflow.tracing.utils import get_artifact_uri_for_trace
+                        from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
 
                         artifact_uri = get_artifact_uri_for_trace(returned_trace_info)
 
