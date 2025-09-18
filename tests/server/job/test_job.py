@@ -68,8 +68,9 @@ def test_basic_job(monkeypatch):
 
         # check database record correctness.
         assert job.job_id == job_id
-        assert job.function == "test_job.basic_job_fun"
+        assert job.function_fullname == "test_job.basic_job_fun"
         assert job.params == '{"x": 3, "y": 4}'
+        assert job.timeout is None
         assert job.result == "7"
         assert job.status == JobStatus.DONE
         assert job.retry_count == 0
@@ -94,7 +95,7 @@ def test_job_json_input_output(monkeypatch):
 
         # check database record correctness.
         assert job.job_id == job_id
-        assert job.function == "test_job.json_in_out_fun"
+        assert job.function_fullname == "test_job.json_in_out_fun"
         assert job.params == '{"data": {"x": 3, "y": 4}}'
         assert job.result == '{"res": 7}'
         assert job.status == JobStatus.DONE
@@ -118,7 +119,7 @@ def test_error_job(monkeypatch):
 
         # check database record correctness.
         assert job.job_id == job_id
-        assert job.function == "test_job.err_fun"
+        assert job.function_fullname == "test_job.err_fun"
         assert job.params == '{"data": null}'
         assert job.result == "RuntimeError()"
         assert job.status == JobStatus.FAILED
@@ -221,3 +222,24 @@ def test_submit_jobs_from_multi_processes(monkeypatch):
         time.sleep(3)
         for x in range(4):
             assert query_job(job_ids[x]) == (JobStatus.DONE, x + 1)
+
+
+def test_job_timeout(monkeypatch):
+    with _setup_job_queue(1, monkeypatch):
+        job_id = submit_job(basic_job_fun, {"x": 3, "y": 4, "sleep_secs": 5}, timeout=2)
+        time.sleep(0.5)
+        status, result = query_job(job_id)
+        assert status == JobStatus.DONE
+        assert result == 7
+
+        store = _get_job_store()
+        job = store.get_job(job_id)
+
+        # check database record correctness.
+        assert job.job_id == job_id
+        assert job.function_fullname == "test_job.basic_job_fun"
+        assert job.params == '{"x": 3, "y": 4}'
+        assert job.timeout is None
+        assert job.result == "7"
+        assert job.status == JobStatus.DONE
+        assert job.retry_count == 0

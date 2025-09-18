@@ -21,8 +21,9 @@ def upgrade():
         "jobs",
         sa.Column("id", sa.String(length=36), nullable=False),
         sa.Column("creation_time", sa.BigInteger(), default=lambda: int(time.time() * 1000)),
-        sa.Column("function", sa.String(length=500), nullable=False),
+        sa.Column("function_fullname", sa.String(length=500), nullable=False),
         sa.Column("params", sa.Text(), nullable=False),
+        sa.Column("timeout", sa.Integer(), nullable=True),
         sa.Column("status", sa.Integer(), nullable=False),
         sa.Column("result", sa.Text(), nullable=True),
         sa.Column("retry_count", sa.Integer(), default=0),
@@ -31,7 +32,7 @@ def upgrade():
     with op.batch_alter_table("jobs", schema=None) as batch_op:
         batch_op.create_index(
             "index_jobs_function_status_creation_time",
-            ["function", "status", "creation_time"],
+            ["function_fullname", "status", "creation_time"],
             unique=False,
         )
 

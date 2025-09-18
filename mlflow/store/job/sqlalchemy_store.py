@@ -40,13 +40,14 @@ class SqlAlchemyJobStore(AbstractJobStore):
             SessionMaker, self.db_type
         )
 
-    def create_job(self, function: str, params: str) -> str:
+    def create_job(self, function_fullname: str, params: str, timeout: int | None = None) -> str:
         """
         Create a new job with the specified function and parameters.
 
         Args:
-            function: The function name to execute
+            function_fullname: The full name of the function to execute
             params: The job parameters as a string
+            timeout: The job execution timeout in seconds
 
         Returns:
             The job ID (UUID4 string)
@@ -58,8 +59,9 @@ class SqlAlchemyJobStore(AbstractJobStore):
             job = SqlJob(
                 id=job_id,
                 creation_time=creation_time,
-                function=function,
+                function_fullname=function_fullname,
                 params=params,
+                timeout=timeout,
                 status=JobStatus.PENDING.to_int(),
                 result=None,
             )
@@ -171,8 +173,8 @@ class SqlAlchemyJobStore(AbstractJobStore):
 
     def list_jobs(
         self,
-        function: str | None = None,
-        status: JobStatus | None = None,
+        function_fullname: str | None = None,
+        status_list: list[JobStatus] | None = None,
         begin_timestamp: int | None = None,
         end_timestamp: int | None = None,
     ) -> list[Job]:
@@ -180,8 +182,8 @@ class SqlAlchemyJobStore(AbstractJobStore):
         List jobs based on the provided filters.
 
         Args:
-            function: Filter by function name (exact match)
-            status: Filter by job status (PENDING, RUNNING, DONE, FAILED)
+            function_fullname: Filter by function full name (exact match)
+            status_list: Filter by a list of job status (PENDING, RUNNING, DONE, FAILED)
             begin_timestamp: Filter jobs created after this timestamp (inclusive)
             end_timestamp: Filter jobs created before this timestamp (inclusive)
 
@@ -193,11 +195,13 @@ class SqlAlchemyJobStore(AbstractJobStore):
             query = session.query(SqlJob)
 
             # Apply filters
-            if function is not None:
-                query = query.filter(SqlJob.function == function)
+            if function_fullname is not None:
+                query = query.filter(SqlJob.function_fullname == function_fullname)
 
-            if status is not None:
-                query = query.filter(SqlJob.status == status.to_int())
+            if status_list:
+                query = query.filter(
+                    SqlJob.status.in_([status.to_int() for status in status_list])
+                )
 
             if begin_timestamp is not None:
                 query = query.filter(SqlJob.creation_time >= begin_timestamp)

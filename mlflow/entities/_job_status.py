@@ -10,6 +10,7 @@ class JobStatus(str, Enum):
     RUNNING = "RUNNING"
     DONE = "DONE"
     FAILED = "FAILED"
+    TIMEOUT = "TIMEOUT"
 
     def __str__(self) -> str:
         return self.value
@@ -25,6 +26,8 @@ class JobStatus(str, Enum):
             return cls.DONE
         elif status_int == 3:
             return cls.FAILED
+        elif status_int == 4:
+            return cls.TIMEOUT
 
         raise MlflowException.invalid_parameter_value(f"Unknown job status: {status_int}")
 
@@ -38,6 +41,8 @@ class JobStatus(str, Enum):
             return 2
         elif self == JobStatus.FAILED:
             return 3
+        elif self == JobStatus.TIMEOUT:
+            return 4
 
         raise MlflowException.invalid_parameter_value(f"Unknown job status: {self}")
 
@@ -47,4 +52,4 @@ class JobStatus(str, Enum):
         Determines whether or not a JobStatus is a finalized status.
         A finalized status indicates that no further status updates will occur.
         """
-        return status in [JobStatus.DONE, JobStatus.FAILED]
+        return status in [JobStatus.DONE, JobStatus.FAILED, JobStatus.TIMEOUT]

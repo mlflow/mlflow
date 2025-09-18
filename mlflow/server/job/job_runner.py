@@ -35,7 +35,7 @@ def _exponential_backoff_retry(retry_count: int) -> None:
     raise RetryTask(delay=delay)
 
 
-def _exec_job(job_id: str, function: Callable, params: dict[str, Any]) -> None:
+def _exec_job(job_id: str, function: Callable, params: dict[str, Any], timeout: int | None) -> None:
     job_store = _get_job_store()
     job_store.start_job(job_id)
     try:
@@ -111,11 +111,11 @@ def _load_function(fullname: str):
     return getattr(module, func_name)
 
 
-def _enqueue_pending_running_jobs():
+def _enqueue_unfinished_jobs():
     job_store = _get_job_store()
 
-    pending_jobs = job_store.list_jobs(status=JobStatus.PENDING)
-    running_jobs = job_store.list_jobs(status=JobStatus.RUNNING)
+    pending_jobs = job_store.list_jobs(status_list=[JobStatus.PENDING])
+    running_jobs = job_store.list_jobs(status_list=[JobStatus.RUNNING])
 
     for job in running_jobs:
         job_store.reset_job(job.job_id)  # reset the job status to PENDING
@@ -124,9 +124,10 @@ def _enqueue_pending_running_jobs():
 
     for job in pending_jobs:
         params = json.loads(job.params)
-        function = _load_function(job.function)
+        function = _load_function(job.function_fullname)
+        timeout = job.timeout
         # enqueue job
-        huey_task_exec_job(job.job_id, function, params)
+        huey_task_exec_job(job.job_id, function, params, timeout)
 
 
 if os.environ.get("_IS_MLFLOW_JOB_RUNNER") == "1":
@@ -136,4 +137,4 @@ if os.environ.get("_IS_MLFLOW_JOB_RUNNER") == "1":
     # when initializing the huey consumer, we need to set up watcher thread and
     # enqueue unfinished jobs
     _start_watcher_to_kill_job_runner_if_mlflow_server_dies()
-    _enqueue_pending_running_jobs()
+    _enqueue_unfinished_jobs()

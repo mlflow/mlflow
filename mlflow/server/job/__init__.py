@@ -9,7 +9,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.server.handlers import _get_job_store
 
 
-def submit_job(function: Callable[..., Any], params: dict[str, Any]):
+def submit_job(function: Callable[..., Any], params: dict[str, Any], timeout: int | None = None) -> str:
     """
     Submit a job to the job queue.
     The job is ensured to be scheduled to execute once.
@@ -20,6 +20,7 @@ def submit_job(function: Callable[..., Any], params: dict[str, Any]):
         function: The job funtion, it must be a python global function,
             and all params and return value must be JSON-serializable.
         params: The params to be passed to the job function.
+        timeout: (optional) the job execution timeout, default None (no timeout)
 
     Returns:
         The unique job id. You can call `query_job` API by the `job_id` to get
@@ -40,10 +41,10 @@ def submit_job(function: Callable[..., Any], params: dict[str, Any]):
     job_store = _get_job_store()
     serialized_params = json.dumps(params)
     func_fullname = f"{function.__module__}.{function.__name__}"
-    job_id = job_store.create_job(func_fullname, serialized_params)
+    job_id = job_store.create_job(func_fullname, serialized_params, timeout)
 
     # enqueue job
-    huey_task_exec_job(job_id, function, params)
+    huey_task_exec_job(job_id, function, params, timeout)
 
     return job_id
 

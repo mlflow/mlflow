@@ -19,13 +19,14 @@ class AbstractJobStore:
         """
 
     @abstractmethod
-    def create_job(self, function: str, params: str) -> str:
+    def create_job(self, function_fullname: str, params: str, timeout: int | None = None) -> str:
         """
         Create a new job with the specified function and parameters.
 
         Args:
-            function: The function name to execute
+            function_fullname: The full name of the function to execute
             params: The job parameters as a string
+            timeout: The job execution timeout in seconds
 
         Returns:
             The job ID (UUID4 string)
@@ -88,8 +89,8 @@ class AbstractJobStore:
     @abstractmethod
     def list_jobs(
         self,
-        function: str | None = None,
-        status: JobStatus | None = None,
+        function_fullname: str | None = None,
+        status_list: list[JobStatus] | None = None,
         begin_timestamp: int | None = None,
         end_timestamp: int | None = None,
     ):
@@ -97,8 +98,8 @@ class AbstractJobStore:
         List jobs based on the provided filters.
 
         Args:
-            function: Filter by function name (exact match)
-            status: Filter by job status (PENDING, RUNNING, DONE, FAILED)
+            function_fullname: Filter by function full name (exact match)
+            status_list: Filter by a list of job status (PENDING, RUNNING, DONE, FAILED)
             begin_timestamp: Filter jobs created after this timestamp (inclusive)
             end_timestamp: Filter jobs created before this timestamp (inclusive)
 

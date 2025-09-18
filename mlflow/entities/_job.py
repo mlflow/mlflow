@@ -11,8 +11,9 @@ class Job(_MlflowObject):
         self,
         job_id: str,
         creation_time: int,
-        function: str,
+        function_fullname: str,
         params: str,
+        timeout: int | None,
         status: JobStatus,
         result: str | None,
         retry_count: int = 0,
@@ -20,8 +21,9 @@ class Job(_MlflowObject):
         super().__init__()
         self._job_id = job_id
         self._creation_time = creation_time
-        self._function = function
+        self._function_fullname = function_fullname
         self._params = params
+        self._timeout = timeout
         self._status = status
         self._result = result
         self._retry_count = retry_count
@@ -37,11 +39,11 @@ class Job(_MlflowObject):
         return self._creation_time
 
     @property
-    def function(self) -> str:
+    def function_fullname(self) -> str:
         """
         String containing the fully-qualified function name, in the form of `<module_name>.<function_name>`
         """
-        return self._function
+        return self._function_fullname
 
     @property
     def params(self) -> str:
@@ -50,6 +52,13 @@ class Job(_MlflowObject):
         For example, `{"a": 3, "b": 4}` represents two params: `a` with value 3 and `b` with value 4.
         """
         return self._params
+
+    @property
+    def timeout(self) -> int | None:
+        """
+        Job execution timeout in seconds.
+        """
+        return self._timeout
 
     @property
     def status(self) -> JobStatus:
