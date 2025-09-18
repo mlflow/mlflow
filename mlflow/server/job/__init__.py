@@ -89,3 +89,9 @@ def _start_job_runner(env_map, max_job_parallelism, server_proc_pid):
             "MLFLOW_SERVER_PID": str(server_proc_pid),
         },
     )
+
+
+def _reinit_huey_queue():
+    from mlflow.server.job.job_runner import _init_huey_queue
+
+    _init_huey_queue()

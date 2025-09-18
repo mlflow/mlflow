@@ -19,22 +19,7 @@ from mlflow.server import HUEY_STORAGE_PATH_ENV_VAR
 from mlflow.server.handlers import _get_job_store
 
 
-def _create_huey_instance():
-    class CloudPickleSerializer(Serializer):
-        def serialize(self, data):
-            return cloudpickle.dumps(data)
-
-        def deserialize(self, data):
-            return cloudpickle.loads(data)
-
-    return SqliteHuey(
-        filename=os.environ[HUEY_STORAGE_PATH_ENV_VAR],
-        results=False,
-        serializer=CloudPickleSerializer(),
-    )
-
-
-huey = _create_huey_instance()
+huey = None
 
 
 _TRANSIENT_ERRORS = (
@@ -43,8 +28,7 @@ _TRANSIENT_ERRORS = (
 )
 
 
-@huey.task()
-def huey_task_exec_job(job_id: str, function: Callable, params: dict[str, Any]) -> None:
+def _exec_job(job_id: str, function: Callable, params: dict[str, Any]) -> None:
     job_store = _get_job_store()
     job_store.start_job(job_id)
     try:
@@ -59,6 +43,30 @@ def huey_task_exec_job(job_id: str, function: Callable, params: dict[str, Any]) 
             raise RetryTask(delay=MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_INTERVAL.get())
     except Exception as e:
         job_store.fail_job(job_id, repr(e))
+
+
+huey_task_exec_job = None
+
+
+def _init_huey_queue():
+    global huey, huey_task_exec_job
+
+    class CloudPickleSerializer(Serializer):
+        def serialize(self, data):
+            return cloudpickle.dumps(data)
+
+        def deserialize(self, data):
+            return cloudpickle.loads(data)
+
+    huey = SqliteHuey(
+        filename=os.environ[HUEY_STORAGE_PATH_ENV_VAR],
+        results=False,
+        serializer=CloudPickleSerializer(),
+    )
+    huey_task_exec_job = huey.task()(_exec_job)
+
+
+_init_huey_queue()
 
 
 def _is_process_alive(pid: int) -> bool:

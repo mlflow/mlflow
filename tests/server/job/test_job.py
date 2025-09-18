@@ -14,8 +14,9 @@ from mlflow.server import (
     BACKEND_STORE_URI_ENV_VAR,
     HUEY_STORAGE_PATH_ENV_VAR,
 )
+import mlflow.server.handlers
 from mlflow.server.handlers import _get_job_store
-from mlflow.server.job import _start_job_runner, query_job, submit_job
+from mlflow.server.job import _start_job_runner, query_job, submit_job, _reinit_huey_queue
 
 
 def _start_job_runner_for_test(max_job_parallelism):
@@ -32,7 +33,6 @@ def _start_job_runner_for_test(max_job_parallelism):
 def _setup_job_queue(max_job_parallelism, monkeypatch):
     with tempfile.TemporaryDirectory() as tmp_dir:
         backend_store_uri = f"sqlite:///{os.path.join(tmp_dir, 'mlflow.db')}"
-        print("DBG:::" + backend_store_uri)
         huey_store_path = os.path.join(tmp_dir, "huey.db")
         default_artifact_root = os.path.join(tmp_dir, "artifacts")
         try:
@@ -41,8 +41,10 @@ def _setup_job_queue(max_job_parallelism, monkeypatch):
             monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, default_artifact_root)
             monkeypatch.setenv(HUEY_STORAGE_PATH_ENV_VAR, huey_store_path)
             job_runner_proc = _start_job_runner_for_test(max_job_parallelism)
+            _reinit_huey_queue()
             yield job_runner_proc
         finally:
+            mlflow.server.handlers._job_store = None
             job_runner_proc.kill()
             time.sleep(1)
 
@@ -60,8 +62,6 @@ def test_basic_job(monkeypatch):
         status, result = query_job(job_id)
         assert status == JobStatus.DONE
         assert result == 7
-
-        from mlflow.server.handlers import _get_job_store
 
         store = _get_job_store()
         job = store.get_job(job_id)
@@ -89,8 +89,6 @@ def test_job_json_input_output(monkeypatch):
         assert status == JobStatus.DONE
         assert result == {"res": 7}
 
-        from mlflow.server.handlers import _get_job_store
-
         store = _get_job_store()
         job = store.get_job(job_id)
 
@@ -114,8 +112,6 @@ def test_error_job(monkeypatch):
         status, result = query_job(job_id)
         assert status == JobStatus.FAILED
         assert result == "RuntimeError()"
-
-        from mlflow.server.handlers import _get_job_store
 
         store = _get_job_store()
         job = store.get_job(job_id)

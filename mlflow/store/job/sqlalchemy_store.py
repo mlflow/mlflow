@@ -9,6 +9,8 @@ from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.job.abstract_store import AbstractJobStore
 from mlflow.store.tracking.dbmodels.models import SqlJob
 from mlflow.utils.time import get_current_time_millis
+from mlflow.utils.uri import extract_db_type_from_uri
+
 
 sqlalchemy.orm.configure_mappers()
 
@@ -28,14 +30,14 @@ class SqlAlchemyJobStore(AbstractJobStore):
         """
         super().__init__()
         self.db_uri = db_uri
+        self.db_type = extract_db_type_from_uri(db_uri)
         self.engine = mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(db_uri)
         if not mlflow.store.db.utils._all_tables_exist(self.engine):
             mlflow.store.db.utils._initialize_tables(self.engine)
-        import sqlalchemy.orm
 
         SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
         self.ManagedSessionMaker = mlflow.store.db.utils._get_managed_session_maker(
-            SessionMaker, self.engine.dialect.name
+            SessionMaker, self.db_type
         )
 
     def create_job(self, function: str, params: str) -> str:
