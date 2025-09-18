@@ -1487,6 +1487,11 @@ class SqlEvaluationDatasetRecord(Base):
     Inputs JSON: `JSON`. *Non null* in table schema.
     """
 
+    outputs = Column(MutableJSON, nullable=True)
+    """
+    Outputs JSON: `JSON`.
+    """
+
     expectations = Column(MutableJSON, nullable=True)
     """
     Expectations JSON: `JSON`.
@@ -1587,6 +1592,7 @@ class SqlEvaluationDatasetRecord(Base):
             dataset_record_id=self.dataset_record_id,
             dataset_id=self.dataset_id,
             inputs=inputs,
+            outputs=self.outputs,
             expectations=expectations,
             tags=tags,
             source=source,
@@ -1616,6 +1622,7 @@ class SqlEvaluationDatasetRecord(Base):
         kwargs = {
             "dataset_id": record.dataset_id,
             "inputs": record.inputs,
+            "outputs": record.outputs,
             "expectations": record.expectations,
             "tags": record.tags,
             "source": source_dict,
@@ -1637,13 +1644,16 @@ class SqlEvaluationDatasetRecord(Base):
         """
         Merge new record data into this existing record.
 
-        Updates expectations and tags by merging new values with existing ones.
+        Updates outputs, expectations and tags by merging new values with existing ones.
         Preserves created_time and created_by from the original record.
 
         Args:
             new_record_dict: Dictionary containing new record data with optional
-                           'expectations' and 'tags' fields to merge.
+                           'outputs', 'expectations' and 'tags' fields to merge.
         """
+        if new_outputs := new_record_dict.get("outputs"):
+            self.outputs = new_outputs
+
         if new_expectations := new_record_dict.get("expectations"):
             if self.expectations is None:
                 self.expectations = {}

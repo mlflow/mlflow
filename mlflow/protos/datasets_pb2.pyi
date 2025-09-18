@@ -33,7 +33,7 @@ class Dataset(_message.Message):
     def __init__(self, dataset_id: _Optional[str] = ..., name: _Optional[str] = ..., tags: _Optional[str] = ..., schema: _Optional[str] = ..., profile: _Optional[str] = ..., digest: _Optional[str] = ..., created_time: _Optional[int] = ..., last_update_time: _Optional[int] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ..., experiment_ids: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class DatasetRecord(_message.Message):
-    __slots__ = ("dataset_record_id", "dataset_id", "inputs", "expectations", "tags", "source", "source_id", "source_type", "created_time", "last_update_time", "created_by", "last_updated_by")
+    __slots__ = ("dataset_record_id", "dataset_id", "inputs", "expectations", "tags", "source", "source_id", "source_type", "created_time", "last_update_time", "created_by", "last_updated_by", "outputs")
     DATASET_RECORD_ID_FIELD_NUMBER: _ClassVar[int]
     DATASET_ID_FIELD_NUMBER: _ClassVar[int]
     INPUTS_FIELD_NUMBER: _ClassVar[int]
@@ -46,6 +46,7 @@ class DatasetRecord(_message.Message):
     LAST_UPDATE_TIME_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     LAST_UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
+    OUTPUTS_FIELD_NUMBER: _ClassVar[int]
     dataset_record_id: str
     dataset_id: str
     inputs: str
@@ -58,7 +59,8 @@ class DatasetRecord(_message.Message):
     last_update_time: int
     created_by: str
     last_updated_by: str
-    def __init__(self, dataset_record_id: _Optional[str] = ..., dataset_id: _Optional[str] = ..., inputs: _Optional[str] = ..., expectations: _Optional[str] = ..., tags: _Optional[str] = ..., source: _Optional[str] = ..., source_id: _Optional[str] = ..., source_type: _Optional[_Union[DatasetRecordSource.SourceType, str]] = ..., created_time: _Optional[int] = ..., last_update_time: _Optional[int] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ...) -> None: ...
+    outputs: str
+    def __init__(self, dataset_record_id: _Optional[str] = ..., dataset_id: _Optional[str] = ..., inputs: _Optional[str] = ..., expectations: _Optional[str] = ..., tags: _Optional[str] = ..., source: _Optional[str] = ..., source_id: _Optional[str] = ..., source_type: _Optional[_Union[DatasetRecordSource.SourceType, str]] = ..., created_time: _Optional[int] = ..., last_update_time: _Optional[int] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ..., outputs: _Optional[str] = ...) -> None: ...
 
 class DatasetRecordSource(_message.Message):
     __slots__ = ("source_type", "source_data")
