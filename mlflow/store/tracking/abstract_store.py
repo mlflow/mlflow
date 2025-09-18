@@ -327,6 +327,8 @@ class AbstractStore:
         """
         Get complete traces with spans for given trace ids.
         """
+        # raise MlflowException so this can be captured by the handlers
+        # instead of default internal server error and retry
         raise MlflowNotImplementedException()
 
     def get_online_trace_details(

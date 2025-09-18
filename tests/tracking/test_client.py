@@ -40,7 +40,12 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
-from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
+from mlflow.exceptions import (
+    MlflowException,
+    MlflowNotImplementedException,
+    MlflowTraceDataCorrupted,
+    MlflowTraceDataNotFound,
+)
 from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.entities.paged_list import PagedList
@@ -270,7 +275,7 @@ def test_client_get_trace(mock_store, mock_artifact_repo):
 
 
 def test_client_get_trace_fallback(mock_store, mock_artifact_repo):
-    mock_store.get_traces.side_effect = NotImplementedError
+    mock_store.get_traces.side_effect = MlflowNotImplementedException()
     mock_store.get_trace_info.return_value = TraceInfo(
         trace_id="tr-1234567",
         trace_location=TraceLocation.from_experiment_id("0"),
@@ -328,7 +333,7 @@ def test_client_get_trace_fallback(mock_store, mock_artifact_repo):
 
 
 def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_artifact_repo):
-    mock_store.get_traces.side_effect = NotImplementedError
+    mock_store.get_traces.side_effect = MlflowNotImplementedException()
     mock_store.get_trace_info.return_value = TraceInfo(
         trace_id="1234567",
         trace_location=TraceLocation.from_experiment_id("0"),
