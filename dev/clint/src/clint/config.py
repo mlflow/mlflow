@@ -1,11 +1,11 @@
 import re
 from dataclasses import dataclass, field
-from pathlib import Path
 
 import tomli
 from typing_extensions import Self
 
 from clint.rules import ALL_RULES
+from clint.utils import get_repo_root
 
 
 def _validate_exclude_paths(exclude_paths: list[str]) -> None:
@@ -20,7 +20,8 @@ def _validate_exclude_paths(exclude_paths: list[str]) -> None:
     if not exclude_paths:
         return
 
-    non_existing_paths = [path for path in exclude_paths if not Path(path).exists()]
+    repo_root = get_repo_root()
+    non_existing_paths = [path for path in exclude_paths if not (repo_root / path).exists()]
 
     if non_existing_paths:
         raise ValueError(
@@ -42,7 +43,7 @@ class Config:
 
     @classmethod
     def load(cls) -> Self:
-        pyproject = Path("pyproject.toml")
+        pyproject = get_repo_root() / "pyproject.toml"
         if not pyproject.exists():
             return cls()
 

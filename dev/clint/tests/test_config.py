@@ -1,4 +1,5 @@
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from clint.config import Config
@@ -21,8 +22,8 @@ exclude = [
 ]
 """)
 
-    monkeypatch.chdir(tmp_path)
-    config = Config.load()
+    with patch("clint.config.get_repo_root", return_value=tmp_path):
+        config = Config.load()
     assert len(config.exclude) == 2
     assert str(test_file) in config.exclude
     assert str(test_dir) in config.exclude
@@ -40,9 +41,11 @@ exclude = [
 ]
 """)
 
-    monkeypatch.chdir(tmp_path)
-    with pytest.raises(ValueError, match="Non-existing paths found in exclude field") as exc_info:
-        Config.load()
+    with patch("clint.config.get_repo_root", return_value=tmp_path):
+        with pytest.raises(
+            ValueError, match="Non-existing paths found in exclude field"
+        ) as exc_info:
+            Config.load()
 
     error_msg = str(exc_info.value)
     assert "non_existing_file.py" in error_msg
@@ -64,9 +67,11 @@ exclude = [
 ]
 """)
 
-    monkeypatch.chdir(tmp_path)
-    with pytest.raises(ValueError, match="Non-existing paths found in exclude field") as exc_info:
-        Config.load()
+    with patch("clint.config.get_repo_root", return_value=tmp_path):
+        with pytest.raises(
+            ValueError, match="Non-existing paths found in exclude field"
+        ) as exc_info:
+            Config.load()
 
     error_msg = str(exc_info.value)
     assert "non_existing_file.py" in error_msg
@@ -80,8 +85,8 @@ def test_config_empty_exclude_list(tmp_path: Path, monkeypatch: pytest.MonkeyPat
 exclude = []
 """)
 
-    monkeypatch.chdir(tmp_path)
-    config = Config.load()
+    with patch("clint.config.get_repo_root", return_value=tmp_path):
+        config = Config.load()
     assert config.exclude == []
 
 
@@ -92,6 +97,35 @@ def test_config_no_exclude_field(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 select = ["do-not-disable"]
 """)
 
-    monkeypatch.chdir(tmp_path)
-    config = Config.load()
+    with patch("clint.config.get_repo_root", return_value=tmp_path):
+        config = Config.load()
     assert config.exclude == []
+
+
+def test_config_loads_from_repo_root_regardless_of_cwd(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test that config is loaded from repo root, not current working directory."""
+    # Setup repo root with pyproject.toml
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+
+    pyproject = repo_root / "pyproject.toml"
+    pyproject.write_text("""
+[tool.clint]
+select = ["do-not-disable"]
+""")
+
+    # Create a subdirectory within the repo
+    subdir = repo_root / "subdir"
+    subdir.mkdir()
+
+    # Change working directory to the subdirectory
+    monkeypatch.chdir(subdir)
+
+    # Config should still load from repo root, not the subdirectory
+    with patch("clint.config.get_repo_root", return_value=repo_root):
+        config = Config.load()
+
+    # Verify the config was loaded
+    assert "do-not-disable" in config.select
