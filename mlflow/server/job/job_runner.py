@@ -14,7 +14,7 @@ from huey.exceptions import RetryTask
 from huey.serializer import Serializer
 
 from mlflow.entities._job_status import JobStatus
-from mlflow.environment_variables import MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_INTERVAL
+from mlflow.environment_variables import MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY
 from mlflow.server import HUEY_STORAGE_PATH_ENV_VAR
 from mlflow.server.handlers import _get_job_store
 
@@ -28,9 +28,11 @@ _TRANSIENT_ERRORS = (
 )
 
 
-def _raise_retry(retry_count: int) -> None:
+def _exponential_backoff_retry(retry_count: int) -> None:
     # We can support more retry strategies (e.g. exponential backoff) in future
-    raise RetryTask(delay=MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_INTERVAL.get())
+    base_delay = MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY.get()
+    delay = base_delay * (2 ** (retry_count - 1))
+    raise RetryTask(delay=delay)
 
 
 def _exec_job(job_id: str, function: Callable, params: dict[str, Any]) -> None:
@@ -45,7 +47,7 @@ def _exec_job(job_id: str, function: Callable, params: dict[str, Any]) -> None:
         # trigger task retry by raising `RetryTask` exception.
         retry_count = job_store.retry_or_fail_job(job_id, repr(e))
         if retry_count is not None:
-            _raise_retry(retry_count)
+            _exponential_backoff_retry(retry_count)
     except Exception as e:
         job_store.fail_job(job_id, repr(e))
 

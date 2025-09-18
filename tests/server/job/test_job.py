@@ -181,12 +181,12 @@ def timeout_err_fun(tmp_dir, succeed_on_nth_run):
 
 
 def test_job_retry_on_transient_error(monkeypatch):
-    monkeypatch.setenv("MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_INTERVAL", "1")
+    monkeypatch.setenv("MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY", "1")
     with _setup_job_queue(1, monkeypatch):
         store = _get_job_store()
         with tempfile.TemporaryDirectory() as tmp_dir:
             job1_id = submit_job(timeout_err_fun, {"tmp_dir": tmp_dir, "succeed_on_nth_run": 4})
-            time.sleep(10)
+            time.sleep(15)
             assert query_job(job1_id) == (JobStatus.FAILED, "Timeout()")
             job1 = store.get_job(job1_id)
             assert job1.status == JobStatus.FAILED
