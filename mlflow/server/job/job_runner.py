@@ -28,6 +28,11 @@ _TRANSIENT_ERRORS = (
 )
 
 
+def _raise_retry(retry_count: int) -> None:
+    # We can support more retry strategies (e.g. exponential backoff) in future
+    raise RetryTask(delay=MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_INTERVAL.get())
+
+
 def _exec_job(job_id: str, function: Callable, params: dict[str, Any]) -> None:
     job_store = _get_job_store()
     job_store.start_job(job_id)
@@ -38,9 +43,9 @@ def _exec_job(job_id: str, function: Callable, params: dict[str, Any]) -> None:
     except _TRANSIENT_ERRORS as e:
         # For transient errors, if the retry count is less than max allowed count,
         # trigger task retry by raising `RetryTask` exception.
-        do_retry = job_store.retry_or_fail_job(job_id, repr(e))
-        if do_retry:
-            raise RetryTask(delay=MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_INTERVAL.get())
+        retry_count = job_store.retry_or_fail_job(job_id, repr(e))
+        if retry_count is not None:
+            _raise_retry(retry_count)
     except Exception as e:
         job_store.fail_job(job_id, repr(e))
 

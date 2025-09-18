@@ -136,7 +136,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
             job.status = JobStatus.FAILED.to_int()
             job.result = error
 
-    def retry_or_fail_job(self, job_id: str, error: str) -> bool:
+    def retry_or_fail_job(self, job_id: str, error: str) -> int | None:
         """
         If the job retry_count is less than maximum allowed retry count,
         increase the retry_count and reset the job to PENDING status,
@@ -147,7 +147,8 @@ class SqlAlchemyJobStore(AbstractJobStore):
             error: The error message as a string
 
         Returns:
-            If the job is retried, returns `True` otherwise returns `False`
+            If the job is allowed to retry, returns the retry count,
+            otherwise returns None.
         """
         from mlflow.environment_variables import MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES
 
@@ -163,10 +164,10 @@ class SqlAlchemyJobStore(AbstractJobStore):
             if job.retry_count >= max_retries:
                 job.status = JobStatus.FAILED.to_int()
                 job.result = error
-                return False
+                return None
             job.retry_count += 1
             job.status = JobStatus.PENDING.to_int()
-            return True
+            return job.retry_count
 
     def list_jobs(
         self,
