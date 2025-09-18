@@ -320,6 +320,7 @@ def test_client_search_traces(mock_store, mock_artifact_repo, include_spans):
         page_token=None,
         model_id=None,
         sql_warehouse_id=None,
+        uc_schemas=None,
     )
     assert len(results) == 2
     if include_spans:
