@@ -53,7 +53,7 @@ def execute_function_with_timeout(
 ) -> JobResult:
     """
     Run `func(**kwargs)` in a spawned subprocess.
-    Returns (True, result) or (False, exception).
+    Returns an instance of `JobResult`.
     Raises:
       - TimeoutError if not finished within `timeout`
     """
