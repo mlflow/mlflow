@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from multiprocessing import Pool as MultiProcPool
 from os.path import dirname
 
+import pytest
 import requests
 
 import mlflow.server.handlers
@@ -17,6 +18,10 @@ from mlflow.server import (
 )
 from mlflow.server.handlers import _get_job_store
 from mlflow.server.job import _reinit_huey_queue, _start_job_runner, query_job, submit_job
+
+pytestmark = pytest.mark.skipif(
+    os.name == "nt", reason="MLflow job execution is not supported on Windows"
+)
 
 
 def _start_job_runner_for_test(max_job_parallelism):
