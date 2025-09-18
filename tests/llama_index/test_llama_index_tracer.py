@@ -35,7 +35,11 @@ llama_core_version = Version(importlib_metadata.version("llama-index-core"))
 llama_oai_version = Version(importlib_metadata.version("llama-index-llms-openai"))
 
 # Detect llama-index-workflows version to handle API changes
-llama_workflows_version = Version(importlib_metadata.version("llama-index-workflows"))
+try:
+    llama_workflows_version = Version(importlib_metadata.version("llama-index-workflows"))
+except importlib_metadata.PackageNotFoundError:
+    # Fallback for older installations where workflows might be part of core
+    llama_workflows_version = Version("1.0.0")  # Assume old API
 
 
 @pytest.fixture(autouse=True)
