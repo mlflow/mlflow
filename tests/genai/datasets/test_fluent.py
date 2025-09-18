@@ -1,7 +1,6 @@
 import json
 import os
 import sys
-import tempfile
 import warnings
 from unittest import mock
 
@@ -1296,20 +1295,20 @@ def test_dataset_experiment_associations(tracking_uri, experiments):
     assert len(idempotent.experiment_ids) == 1
 
 
-def test_dataset_associations_filestore_blocking():
+def test_dataset_associations_filestore_blocking(tmp_path):
     from mlflow.genai.datasets import (
         add_dataset_to_experiments,
         remove_dataset_from_experiments,
     )
 
-    with tempfile.TemporaryDirectory() as temp_dir:
-        mlflow.set_tracking_uri(f"file://{temp_dir}")
+    temp_dir = str(tmp_path)
+    mlflow.set_tracking_uri(f"file://{temp_dir}")
 
-        with pytest.raises(NotImplementedError, match="not supported with FileStore"):
-            add_dataset_to_experiments(dataset_id="d-test123", experiment_ids=["1", "2"])
+    with pytest.raises(NotImplementedError, match="not supported with FileStore"):
+        add_dataset_to_experiments(dataset_id="d-test123", experiment_ids=["1", "2"])
 
-        with pytest.raises(NotImplementedError, match="not supported with FileStore"):
-            remove_dataset_from_experiments(dataset_id="d-test123", experiment_ids=["1"])
+    with pytest.raises(NotImplementedError, match="not supported with FileStore"):
+        remove_dataset_from_experiments(dataset_id="d-test123", experiment_ids=["1"])
 
 
 def test_evaluation_dataset_tags_crud_workflow(tracking_uri, experiments):
