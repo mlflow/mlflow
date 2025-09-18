@@ -48,7 +48,7 @@ def setup_data():
     )
 
     config = Config(select={NoDocstringInTests.name})
-    violations = lint_file(tmp_file, config, index_path)
+    violations = lint_file(tmp_file, tmp_file.read_text(), config, index_path)
     assert len(violations) == 3
     assert all(isinstance(v.rule, NoDocstringInTests) for v in violations)
     assert violations[0].loc == Location(3, 0)  # test_feature_a
@@ -90,7 +90,7 @@ class HelperClass:
     )
 
     config = Config(select={NoDocstringInTests.name})
-    violations = lint_file(tmp_file, config, index_path)
+    violations = lint_file(tmp_file, tmp_file.read_text(), config, index_path)
     assert len(violations) == 2
     assert all(isinstance(v.rule, NoDocstringInTests) for v in violations)
     assert violations[0].loc == Location(3, 0)  # TestFeature class
@@ -115,7 +115,7 @@ class TestClass:
     )
 
     config = Config(select={NoDocstringInTests.name})
-    violations = lint_file(tmp_file, config, index_path)
+    violations = lint_file(tmp_file, tmp_file.read_text(), config, index_path)
     assert len(violations) == 0
 
 
@@ -140,7 +140,7 @@ def test_helper():
     )
 
     config = Config(select={NoDocstringInTests.name})
-    violations = lint_file(tmp_file, config, index_path)
+    violations = lint_file(tmp_file, tmp_file.read_text(), config, index_path)
     assert len(violations) == 0
 
 
@@ -160,7 +160,7 @@ def test_another():
     )
 
     config = Config(select={NoDocstringInTests.name})
-    violations = lint_file(tmp_file, config, index_path)
+    violations = lint_file(tmp_file, tmp_file.read_text(), config, index_path)
     assert len(violations) == 1
     assert isinstance(violations[0].rule, NoDocstringInTests)
     assert violations[0].loc == Location(0, 0)  # test_something
@@ -194,7 +194,7 @@ def test_another_case():
     )
 
     config = Config(select={NoDocstringInTests.name})
-    violations = lint_file(tmp_file, config, index_path)
+    violations = lint_file(tmp_file, tmp_file.read_text(), config, index_path)
     # Should have no violations - comments are fine, docstrings are not
     assert len(violations) == 0
 
@@ -239,7 +239,7 @@ def test_formatted_string():
     )
 
     config = Config(select={NoDocstringInTests.name})
-    violations = lint_file(tmp_file, config, index_path)
+    violations = lint_file(tmp_file, tmp_file.read_text(), config, index_path)
     # Should flag: test_empty_with_docstring, test_only_docstring,
     # TestNested class, test_nested_method
     assert len(violations) == 4
@@ -274,7 +274,7 @@ def test_without_docstring(value):
     )
 
     config = Config(select={NoDocstringInTests.name})
-    violations = lint_file(tmp_file, config, index_path)
+    violations = lint_file(tmp_file, tmp_file.read_text(), config, index_path)
     assert len(violations) == 1
     assert violations[0].loc.lineno == 7  # test_double_with_docstring
 
@@ -293,7 +293,7 @@ class TestClass:
     )
 
     config = Config(select={NoDocstringInTests.name})
-    violations = lint_file(tmp_file, config, index_path)
+    violations = lint_file(tmp_file, tmp_file.read_text(), config, index_path)
     assert len(violations) == 2
 
     # Check error messages
