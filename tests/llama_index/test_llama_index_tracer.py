@@ -34,6 +34,13 @@ from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
 llama_core_version = Version(importlib_metadata.version("llama-index-core"))
 llama_oai_version = Version(importlib_metadata.version("llama-index-llms-openai"))
 
+# Detect llama-index-workflows version to handle API changes
+try:
+    llama_workflows_version = Version(importlib_metadata.version("llama-index-workflows"))
+except importlib_metadata.PackageNotFoundError:
+    # Fallback for older installations where workflows might be part of core
+    llama_workflows_version = Version("1.0.0")  # Assume old API
+
 
 @pytest.fixture(autouse=True)
 def set_handlers():
@@ -621,6 +628,33 @@ def test_tracer_handle_tracking_uri_update(tmp_path):
         assert len(get_traces()) == 1
 
 
+# Helper functions for handling workflows API changes between versions
+async def context_set(ctx, key, value):
+    """
+    Set a value in the workflow context, handling API differences between versions.
+
+    In workflows < 2.0: await ctx.set(key, value)
+    In workflows >= 2.0: await ctx.store.set(key, value)
+    """
+    if llama_workflows_version >= Version("2.0.0"):
+        await ctx.store.set(key, value)
+    else:
+        await ctx.set(key, value)
+
+
+async def context_get(ctx, key):
+    """
+    Get a value from the workflow context, handling API differences between versions.
+
+    In workflows < 2.0: await ctx.get(key)
+    In workflows >= 2.0: await ctx.store.get(key)
+    """
+    if llama_workflows_version >= Version("2.0.0"):
+        return await ctx.store.get(key)
+    else:
+        return await ctx.get(key)
+
+
 @pytest.mark.skipif(
     llama_core_version < Version("0.11.0"),
     reason="Workflow was introduced in 0.11.0",
@@ -667,7 +701,7 @@ async def test_tracer_parallel_workflow():
     class ParallelWorkflow(Workflow):
         @step
         async def start(self, ctx: Context, ev: StartEvent) -> ProcessEvent:
-            await ctx.set("num_to_collect", len(ev.inputs))
+            await context_set(ctx, "num_to_collect", len(ev.inputs))
             for item in ev.inputs:
                 ctx.send_event(ProcessEvent(data=item))
             return None
@@ -680,7 +714,7 @@ async def test_tracer_parallel_workflow():
 
         @step
         async def combine_results(self, ctx: Context, ev: ResultEvent) -> StopEvent:
-            num_to_collect = await ctx.get("num_to_collect")
+            num_to_collect = await context_get(ctx, "num_to_collect")
             results = ctx.collect_events(ev, [ResultEvent] * num_to_collect)
             if results is None:
                 return None
@@ -727,7 +761,7 @@ async def test_tracer_parallel_workflow_with_custom_spans():
     class ParallelWorkflow(Workflow):
         @step
         async def start(self, ctx: Context, ev: StartEvent) -> ProcessEvent:
-            await ctx.set("num_to_collect", len(ev.inputs))
+            await context_set(ctx, "num_to_collect", len(ev.inputs))
             for item in ev.inputs:
                 ctx.send_event(ProcessEvent(data=item))
             return None
@@ -742,7 +776,7 @@ async def test_tracer_parallel_workflow_with_custom_spans():
 
         @step
         async def combine_results(self, ctx: Context, ev: ResultEvent) -> StopEvent:
-            num_to_collect = await ctx.get("num_to_collect")
+            num_to_collect = await context_get(ctx, "num_to_collect")
             results = ctx.collect_events(ev, [ResultEvent] * num_to_collect)
             if results is None:
                 return None
