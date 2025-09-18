@@ -35,11 +35,7 @@ llama_core_version = Version(importlib_metadata.version("llama-index-core"))
 llama_oai_version = Version(importlib_metadata.version("llama-index-llms-openai"))
 
 # Detect llama-index-workflows version to handle API changes
-try:
-    llama_workflows_version = Version(importlib_metadata.version("llama-index-workflows"))
-except importlib_metadata.PackageNotFoundError:
-    # Fallback for older installations where workflows might be part of core
-    llama_workflows_version = Version("1.0.0")  # Assume old API
+llama_workflows_version = Version(importlib_metadata.version("llama-index-workflows"))
 
 
 @pytest.fixture(autouse=True)
@@ -629,27 +625,31 @@ def test_tracer_handle_tracking_uri_update(tmp_path):
 
 
 # Helper functions for handling workflows API changes between versions
-async def context_set(ctx, key, value):
+async def context_set(ctx, key: str, value) -> None:
     """
     Set a value in the workflow context, handling API differences between versions.
 
     In workflows < 2.0: await ctx.set(key, value)
     In workflows >= 2.0: await ctx.store.set(key, value)
+
+    Reference: https://github.com/run-llama/workflows-py/pull/55
     """
-    if llama_workflows_version >= Version("2.0.0"):
+    if llama_workflows_version.major >= 2:
         await ctx.store.set(key, value)
     else:
         await ctx.set(key, value)
 
 
-async def context_get(ctx, key):
+async def context_get(ctx, key: str):
     """
     Get a value from the workflow context, handling API differences between versions.
 
     In workflows < 2.0: await ctx.get(key)
     In workflows >= 2.0: await ctx.store.get(key)
+
+    Reference: https://github.com/run-llama/workflows-py/pull/55
     """
-    if llama_workflows_version >= Version("2.0.0"):
+    if llama_workflows_version.major >= 2:
         return await ctx.store.get(key)
     else:
         return await ctx.get(key)
