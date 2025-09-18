@@ -977,3 +977,7 @@ _MLFLOW_SGI_NAME = _EnvironmentVariable("_MLFLOW_SGI_NAME", str, None)
 MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF = _BooleanEnvironmentVariable(
     "MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF", True
 )
+
+#: Specifies the SQL warehouse ID to use for tracing with Databricks backend.
+#: (default: ``None``)
+MLFLOW_TRACING_SQL_WAREHOUSE_ID = _EnvironmentVariable("MLFLOW_TRACING_SQL_WAREHOUSE_ID", str, None)

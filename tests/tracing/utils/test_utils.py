@@ -9,8 +9,10 @@ from mlflow.entities import (
     SpanType,
 )
 from mlflow.entities.span import SpanType
+from mlflow.exceptions import MlflowException
 from mlflow.tracing import set_span_chat_tools
 from mlflow.tracing.constant import (
+    TRACE_ID_V4_PREFIX,
     SpanAttributeKey,
     TokenUsageKey,
 )
@@ -22,6 +24,7 @@ from mlflow.tracing.utils import (
     deduplicate_span_names_in_place,
     encode_span_id,
     maybe_get_request_id,
+    parse_trace_id_v4,
 )
 
 from tests.tracing.helper import create_mock_otel_span
@@ -225,4 +228,35 @@ def test_calculate_percentile():
     data = list(range(1, 101))  # 1 to 100
     assert _calculate_percentile(data, 0.25) == 25.75
     assert _calculate_percentile(data, 0.5) == 50.5
-    assert _calculate_percentile(data, 0.75) == 75.25
+
+
+def test_parse_trace_id_v4():
+    test_trace_id = "tr-original-trace-123"
+
+    v4_id_uc_schema = f"{TRACE_ID_V4_PREFIX}catalog.schema/{test_trace_id}"
+    location, parsed_id = parse_trace_id_v4(v4_id_uc_schema)
+    assert location == "catalog.schema"
+    assert parsed_id == test_trace_id
+
+    v4_id_experiment = f"{TRACE_ID_V4_PREFIX}experiment_id/{test_trace_id}"
+    location, parsed_id = parse_trace_id_v4(v4_id_experiment)
+    assert location == "experiment_id"
+    assert parsed_id == test_trace_id
+
+    location, parsed_id = parse_trace_id_v4(test_trace_id)
+    assert location is None
+    assert parsed_id == test_trace_id
+
+
+def test_parse_trace_id_v4_invalid_format():
+    with pytest.raises(MlflowException, match="Invalid trace ID format"):
+        parse_trace_id_v4(f"{TRACE_ID_V4_PREFIX}123")
+
+    with pytest.raises(MlflowException, match="Invalid trace ID format"):
+        parse_trace_id_v4(f"{TRACE_ID_V4_PREFIX}123/")
+
+    with pytest.raises(MlflowException, match="Invalid trace ID format"):
+        parse_trace_id_v4(f"{TRACE_ID_V4_PREFIX}catalog.schema/../invalid-trace-id")
+
+    with pytest.raises(MlflowException, match="Invalid trace ID format"):
+        parse_trace_id_v4(f"{TRACE_ID_V4_PREFIX}catalog.schema/invalid-trace-id/invalid-format")

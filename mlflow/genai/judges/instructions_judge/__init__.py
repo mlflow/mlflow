@@ -32,7 +32,7 @@ from mlflow.genai.utils.trace_utils import (
     extract_inputs_from_trace,
     extract_outputs_from_trace,
 )
-from mlflow.prompt.constants import PROMPT_TEMPLATE_VARIABLE_PATTERN
+from mlflow.prompt.constants import PROMPT_TEMPLATE_VARIABLE_PATTERN, PROMPT_TEXT_DISPLAY_LIMIT
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
 
@@ -427,6 +427,19 @@ class InstructionsJudge(Judge):
                 "{{ outputs }}, {{ trace }}, or {{ expectations }}).",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+
+    def __repr__(self) -> str:
+        """Return string representation of the InstructionsJudge."""
+        instructions_preview = (
+            self._instructions[:PROMPT_TEXT_DISPLAY_LIMIT] + "..."
+            if len(self._instructions) > PROMPT_TEXT_DISPLAY_LIMIT
+            else self._instructions
+        )
+        return (
+            f"InstructionsJudge(name='{self.name}', model='{self._model}', "
+            f"instructions='{instructions_preview}', "
+            f"template_variables={sorted(self.template_variables)})"
+        )
 
     def model_dump(self, **kwargs) -> dict[str, Any]:
         """Override model_dump to serialize as a SerializedScorer."""
