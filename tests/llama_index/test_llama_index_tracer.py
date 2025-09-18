@@ -629,12 +629,12 @@ def test_tracer_handle_tracking_uri_update(tmp_path):
         assert len(get_traces()) == 1
 
 
-# set/get a value in the workflow context, handling API differences between versions.
+# Utility functions to set/get a value in the workflow context, handling API differences:
 #
-# In workflows < 2.0: await ctx.set(key, value)
-# In workflows >= 2.0: await ctx.store.set(key, value)
+# - For llama-index-workflows < 2.0: ctx.set(key, value) and ctx.get(key)
+# - For llama-index-workflows >= 2.0: ctx.store.set(key, value) and ctx.store.get(key)
 #
-# Reference: https://github.com/run-llama/workflows-py/pull/55
+# See: https://github.com/run-llama/workflows-py/pull/55
 async def context_set(ctx: Context, key: str, value: Any) -> None:
     if llama_workflows_version and llama_workflows_version.major >= 2:
         await ctx.store.set(key, value)
