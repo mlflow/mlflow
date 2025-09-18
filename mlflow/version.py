@@ -15,6 +15,7 @@ def _is_package_installed(package_name: str) -> bool:
         print("_is_package_installed", package_name, ver)  # noqa: T201
         return True
     except importlib.metadata.PackageNotFoundError:
+        print("_is_package_installed", package_name, "not found")  # noqa: T201
         return False
 
 
