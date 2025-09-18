@@ -1944,7 +1944,7 @@ def test_create_trace_handler(mock_tracking_store, mock_get_request_message):
         execution_duration=5000,
         state=TraceState.OK,
     )
-    mock_get_request_message.return_value = CreateTrace(trace_info=trace_info.to_proto())
+    mock_get_request_message.return_value = CreateTrace(trace_info=trace_info.to_proto_v4())
 
     mock_tracking_store.start_trace.return_value = trace_info
 
