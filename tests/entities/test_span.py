@@ -366,7 +366,6 @@ def sample_otel_span_for_conversion():
     ],
 )
 def test_otel_attribute_conversion(attributes):
-    """Test attribute conversion with various data types."""
     from opentelemetry.proto.common.v1.common_pb2 import KeyValue
 
     from mlflow.tracing.utils.otlp import _decode_otel_proto_anyvalue, _set_otel_proto_anyvalue
@@ -388,7 +387,6 @@ def test_otel_attribute_conversion(attributes):
 
 
 def test_span_to_otel_proto_conversion(sample_otel_span_for_conversion):
-    """Test converting MLflow Span to OTel protobuf."""
     # Create MLflow span from OTel span
     mlflow_span = Span(sample_otel_span_for_conversion)
 
@@ -423,7 +421,6 @@ def test_span_to_otel_proto_conversion(sample_otel_span_for_conversion):
 
 
 def test_span_from_otel_proto_conversion():
-    """Test converting OTel protobuf to MLflow Span."""
     # Create OTel proto span
     otel_proto = OTelProtoSpan()
     otel_proto.trace_id = bytes.fromhex("12345678901234567890123456789012")
@@ -488,7 +485,6 @@ def test_span_from_otel_proto_conversion():
 
 
 def test_otel_roundtrip_conversion(sample_otel_span_for_conversion):
-    """Test that conversion roundtrip preserves data."""
     # Start with OTel span -> MLflow span
     mlflow_span = Span(sample_otel_span_for_conversion)
 

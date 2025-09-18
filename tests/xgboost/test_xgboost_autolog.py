@@ -659,11 +659,6 @@ def test_xgb_autolog_log_models_configuration(bst_params, log_models):
     reason="XGBoost > 2.0.3 does not support `None` data",
 )
 def test_xgb_autolog_does_not_break_dmatrix_instantiation_with_data_none():
-    """
-    This test verifies that `xgboost.DMatrix(None)` doesn't fail after patching.
-    XGBoost internally calls `xgboost.DMatrix(None)` to create a blank `DMatrix` object.
-    Example: https://github.com/dmlc/xgboost/blob/v1.2.1/python-package/xgboost/core.py#L701
-    """
     mlflow.xgboost.autolog()
     xgb.DMatrix(None)
 

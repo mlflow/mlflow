@@ -44,12 +44,6 @@ def mlflow_server(tmp_path):
 
 
 def test_otel_client_sends_spans_to_mlflow_database(mlflow_server: str, monkeypatch):
-    """
-    Test end-to-end: OpenTelemetry client sends spans via experiment ID header to MLflow.
-
-    Note: This test verifies that spans are successfully accepted by the server.
-    Without artifact upload, traces won't be retrievable via search_traces.
-    """
     # Enable synchronous trace logging to ensure traces are immediately available
     monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING", "false")
 
@@ -129,9 +123,6 @@ def test_otel_client_sends_spans_to_mlflow_database(mlflow_server: str, monkeypa
 
 
 def test_otel_endpoint_requires_experiment_id_header(mlflow_server: str):
-    """
-    Test that the OTel endpoint requires experiment ID header.
-    """
     # Create protobuf request
     span = OTelProtoSpan()
     span.trace_id = bytes.fromhex("0000000000000002" + "0" * 16)
@@ -164,9 +155,6 @@ def test_otel_endpoint_requires_experiment_id_header(mlflow_server: str):
 
 
 def test_invalid_otel_span_format_returns_400(mlflow_server: str):
-    """
-    Test that invalid OpenTelemetry protobuf format returns HTTP 400.
-    """
     # Send completely invalid protobuf data
     invalid_protobuf_data = b"this is not valid protobuf data at all"
 
@@ -184,9 +172,6 @@ def test_invalid_otel_span_format_returns_400(mlflow_server: str):
 
 
 def test_missing_required_span_fields_returns_422(mlflow_server: str):
-    """
-    Test that spans that fail MLflow conversion return HTTP 422.
-    """
     # Create protobuf request with missing trace_id (this should cause MLflow conversion to fail)
     span = OTelProtoSpan()
     # Don't set trace_id - this should cause _from_otel_proto to fail
@@ -222,9 +207,6 @@ def test_missing_required_span_fields_returns_422(mlflow_server: str):
 
 
 def test_missing_experiment_id_header_returns_422(mlflow_server: str):
-    """
-    Test that missing experiment ID header returns HTTP 422 (FastAPI validation error).
-    """
     # Create valid protobuf request
     span = OTelProtoSpan()
     span.trace_id = bytes.fromhex("0000000000000003" + "0" * 16)
@@ -257,9 +239,6 @@ def test_missing_experiment_id_header_returns_422(mlflow_server: str):
 
 
 def test_invalid_content_type_returns_400(mlflow_server: str):
-    """
-    Test that invalid Content-Type header returns HTTP 400.
-    """
     # Create a valid OTLP request
     span = OTelProtoSpan()
     span.trace_id = b"1234567890123456"

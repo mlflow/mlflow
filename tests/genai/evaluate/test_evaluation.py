@@ -308,7 +308,6 @@ def test_evaluate_with_traces(pass_full_dataframe):
 
 
 def test_evaluate_with_managed_dataset(is_in_databricks):
-    """Test evaluation with both managed (Databricks) and OSS datasets."""
     if is_in_databricks:
         # Databricks path: Use managed dataset with mocks
         class MockDatasetClient:
@@ -538,11 +537,9 @@ def test_no_scorers(mock_get_tracking_uri):
 
 @pytest.mark.parametrize("pass_full_dataframe", [True, False])
 def test_trace_input_can_contain_string_input(pass_full_dataframe, is_in_databricks):
-    """
-    The `inputs` column must be a dictionary when a static dataset is provided.
-    However, when a trace is provided, it doesn't need to be validated and the
-    harness can handle it nicely.
-    """
+    # NB: The `inputs` column must be a dictionary when a static dataset is provided.
+    # However, when a trace is provided, it doesn't need to be validated and the
+    # harness can handle it nicely.
     if not is_in_databricks:
         pytest.skip("OSS genai evaluator doesn't support trace input yet")
     with mlflow.start_span() as span:
@@ -737,7 +734,6 @@ def test_evaluate_with_managed_dataset_preserves_name():
     ],
 )
 def test_evaluate_with_tags(tags_data, expected_calls):
-    """Test that tags from evaluation data are logged to MLflow runs."""
     data = []
     for i, tags in enumerate(tags_data):
         item = {
@@ -781,7 +777,6 @@ def test_evaluate_with_traces_tags_no_warnings():
 
 
 def test_evaluate_with_tags_error_handling(is_in_databricks):
-    """Test that tag logging errors don't fail the evaluation."""
     data = [
         {
             "inputs": {"question": "What is MLflow?"},
@@ -804,7 +799,6 @@ def test_evaluate_with_tags_error_handling(is_in_databricks):
 
 
 def test_evaluate_with_invalid_tags_type():
-    """Test that invalid tag types raise appropriate validation errors."""
     data = [
         {
             "inputs": {"question": "What is MLflow?"},

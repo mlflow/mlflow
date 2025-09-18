@@ -4376,7 +4376,6 @@ def test_regressor_returning_pandas_object(model_output, predictions):
 def test_classifier_evaluation_scenarios(
     data, evaluator_config, expected_metrics, expected_artifacts, description
 ):
-    """Test various classifier evaluation scenarios with different data types and configurations."""
     result = mlflow.evaluate(
         data=data,
         targets="target",
@@ -4479,7 +4478,6 @@ def test_classifier_evaluation_scenarios(
 def test_classifier_evaluation_error_conditions(
     data, evaluator_config, expected_error, error_message_pattern, description
 ):
-    """Test error conditions in classifier evaluation."""
     with pytest.raises(expected_error, match=error_message_pattern):
         mlflow.evaluate(
             data=data,
@@ -4528,7 +4526,6 @@ def test_classifier_evaluation_error_conditions(
 def test_label_validation_and_classification_type(
     data, evaluator_config, expected_binary_metrics, expected_classes, description
 ):
-    """Test label validation and binary vs multiclass classification detection."""
     result = mlflow.evaluate(
         data=data,
         targets="target",
@@ -4561,12 +4558,6 @@ def test_label_validation_and_classification_type(
 
 
 def test_multiclass_per_class_metrics_with_missing_class_failure():
-    """
-    Critical test demonstrating why labels=[0,1] is essential in per-class metrics.
-
-    This test validates that the hardcoded labels=[0,1] in per-class metrics calculation
-    prevents crashes when classes are missing from evaluation data.
-    """
     # Create multiclass data where class 'C' is completely missing from evaluation
     data = pd.DataFrame(
         {

@@ -79,10 +79,6 @@ def test_download_artifacts(local_artifact_repo, dst_path):
 
 
 def test_download_artifacts_does_not_copy(local_artifact_repo):
-    """
-    The LocalArtifactRepository.download_artifact function should not copy the artifact if
-    the ``dst_path`` argument is None.
-    """
     artifact_rel_path = "test.txt"
     artifact_text = "hello world!"
     with TempDir(chdr=True) as local_dir:

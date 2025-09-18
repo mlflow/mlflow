@@ -126,7 +126,6 @@ def test_digest_property_has_expected_value(source: SampleDatasetSource) -> None
 
 
 def test_digest_consistent(source: SampleDatasetSource) -> None:
-    """Row order does not affect digest."""
     dataset1 = PolarsDataset(
         df=pl.DataFrame({"numbers": [1, 2, 3], "strs": ["a", "b", "c"]}), source=source
     )
@@ -138,7 +137,6 @@ def test_digest_consistent(source: SampleDatasetSource) -> None:
 
 
 def test_digest_change(source: SampleDatasetSource) -> None:
-    """Different rows produce different digests."""
     dataset1 = PolarsDataset(
         df=pl.DataFrame({"numbers": [1, 2, 3], "strs": ["a", "b", "c"]}), source=source
     )

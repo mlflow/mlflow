@@ -80,9 +80,6 @@ def test_create_endpoint_config_only():
 
 
 def test_create_endpoint_name_match():
-    """Test when name is provided both in config and as named arg with matching values.
-    Should emit a deprecation warning about using name parameter.
-    """
     client = get_deploy_client("databricks")
     mock_resp = mock.Mock()
     mock_resp.json.return_value = {"name": "test"}
@@ -120,9 +117,6 @@ def test_create_endpoint_name_match():
 
 
 def test_create_endpoint_name_mismatch():
-    """Test when name is provided both in config and as named arg with different values.
-    Should raise an MlflowException.
-    """
     client = get_deploy_client("databricks")
     mock_resp = mock.Mock()
     mock_resp.json.return_value = {"name": "test"}
@@ -161,9 +155,6 @@ def test_create_endpoint_name_mismatch():
 
 
 def test_create_endpoint_route_optimized_match():
-    """Test when route_optimized is provided both in config and as named arg with matching values.
-    Should emit a deprecation warning.
-    """
     client = get_deploy_client("databricks")
     mock_resp = mock.Mock()
     mock_resp.json.return_value = {"name": "test"}
@@ -204,9 +195,6 @@ def test_create_endpoint_route_optimized_match():
 
 
 def test_create_endpoint_route_optimized_mismatch():
-    """Test when route_optimized is provided both in config and as named arg with different values.
-    Should raise an MlflowException.
-    """
     client = get_deploy_client("databricks")
     mock_resp = mock.Mock()
     mock_resp.json.return_value = {"name": "test"}
@@ -247,9 +235,6 @@ def test_create_endpoint_route_optimized_mismatch():
 
 
 def test_create_endpoint_named_name():
-    """Test using the legacy format with separate parameters instead of full API payload.
-    Should emit a deprecation warning about the old format.
-    """
     client = get_deploy_client("databricks")
     mock_resp = mock.Mock()
     mock_resp.json.return_value = {"name": "test"}
@@ -286,9 +271,6 @@ def test_create_endpoint_named_name():
 
 
 def test_create_endpoint_named_route_optimized():
-    """Test using the legacy format with route_optimized parameter.
-    Should emit a deprecation warning about the old format.
-    """
     client = get_deploy_client("databricks")
     mock_resp = mock.Mock()
     mock_resp.json.return_value = {"name": "test"}

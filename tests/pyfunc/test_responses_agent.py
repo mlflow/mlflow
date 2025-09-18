@@ -416,8 +416,6 @@ def test_responses_agent_trace(input, outputs):
 
 
 def test_responses_agent_custom_trace_configurations():
-    """Test that custom trace configurations are preserved when functions are already traced."""
-
     # Agent with custom span names and attributes
     class CustomTracedAgent(ResponsesAgent):
         @mlflow.trace(
@@ -463,8 +461,6 @@ def test_responses_agent_custom_trace_configurations():
 
 
 def test_responses_agent_non_mlflow_decorators():
-    """Test that the implementation correctly distinguishes MLflow tracing from other decorators."""
-
     # Create a custom decorator to test with
     def custom_decorator(func):
         @functools.wraps(func)

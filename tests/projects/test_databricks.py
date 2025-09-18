@@ -217,9 +217,6 @@ def test_run_databricks_validations(
     dbfs_mocks,
     set_tag_mock,
 ):
-    """
-    Tests that running on Databricks fails before making any API requests if validations fail.
-    """
     monkeypatch.setenv("DATABRICKS_HOST", "test-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "foo")
     with mock.patch(
@@ -272,7 +269,6 @@ def test_run_databricks(
     databricks_cluster_mlflow_run_cmd_mock,
     monkeypatch,
 ):
-    """Test running on Databricks with mocks."""
     monkeypatch.setenv("DATABRICKS_HOST", "https://test-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "foo")
     mlflow.set_tracking_uri("databricks")
@@ -440,8 +436,6 @@ class MockProfileConfigProvider:
 
 @mock.patch("requests.Session.request")
 def test_databricks_http_request_integration(request):
-    """Confirms that the databricks http request params can in fact be used as an HTTP request"""
-
     def confirm_request_params(*args, **kwargs):
         headers = DefaultRequestHeaderProvider().request_headers()
         headers["Authorization"] = "Basic dXNlcjpwYXNz"

@@ -167,9 +167,6 @@ def test_export_to_otel_collector(otel_collector, monkeypatch):
 
 @pytest.mark.skipif(is_windows(), reason="Otel collector docker image does not support Windows")
 def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
-    """
-    Test that dual export mode sends traces to both MLflow and OTLP collector.
-    """
     _, _, port = otel_collector
     monkeypatch.setenv(MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.name, "true")
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", f"http://127.0.0.1:{port}/v1/traces")

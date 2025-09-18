@@ -56,7 +56,6 @@ def helper_function():
 
 
 def test_no_class_based_tests_non_test_file(index_path: Path, tmp_path: Path) -> None:
-    """Test that the rule doesn't apply to non-test files"""
     tmp_file = tmp_path / "regular_file.py"
     tmp_file.write_text(
         """import pytest

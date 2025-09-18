@@ -36,10 +36,6 @@ from tests.pyfunc.test_spark import spark  # noqa: F401
 
 
 def test_no_throw():
-    """
-    Outside of Databricks the databricks_utils methods should never throw and should only return
-    None.
-    """
     assert not databricks_utils.is_in_databricks_notebook()
     assert not databricks_utils.is_in_databricks_repo_notebook()
     assert not databricks_utils.is_in_databricks_job()
@@ -720,7 +716,6 @@ def test_databricks_runtime_version_parse(
     expected_major,
     expected_minor,
 ):
-    """Test that DatabricksRuntimeVersion.parse() correctly parses version strings."""
     version = DatabricksRuntimeVersion.parse(version_str)
     assert version.is_client_image == expected_is_client
     assert version.major == expected_major
@@ -741,7 +736,6 @@ def test_databricks_runtime_version_parse_default(
     expected_major,
     expected_minor,
 ):
-    """Test that DatabricksRuntimeVersion.parse() works without arguments."""
     monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", env_version)
     version = DatabricksRuntimeVersion.parse()
     assert version.is_client_image == expected_is_client
@@ -750,9 +744,6 @@ def test_databricks_runtime_version_parse_default(
 
 
 def test_databricks_runtime_version_parse_default_no_env(monkeypatch):
-    """Test that DatabricksRuntimeVersion.parse() raises error when no environment variable is
-    set.
-    """
     monkeypatch.delenv("DATABRICKS_RUNTIME_VERSION", raising=False)
     with pytest.raises(Exception, match="Failed to parse databricks runtime version"):
         DatabricksRuntimeVersion.parse()
@@ -768,6 +759,5 @@ def test_databricks_runtime_version_parse_default_no_env(monkeypatch):
     ],
 )
 def test_databricks_runtime_version_parse_invalid(invalid_version):
-    """Test that DatabricksRuntimeVersion.parse() raises error for invalid version strings."""
     with pytest.raises(Exception, match="Failed to parse databricks runtime version"):
         DatabricksRuntimeVersion.parse(invalid_version)

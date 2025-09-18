@@ -94,10 +94,6 @@ def test_runs_artifact_repo_init_with_real_run():
 
 
 def test_runs_artifact_repo_uses_repo_download_artifacts():
-    """
-    The RunsArtifactRepo should delegate `download_artifacts` to it's self.repo.download_artifacts
-    function
-    """
     artifact_location = "s3://blah_bucket/"
     experiment_id = mlflow.create_experiment("expr_abcd", artifact_location)
     with mlflow.start_run(experiment_id=experiment_id):
@@ -109,11 +105,6 @@ def test_runs_artifact_repo_uses_repo_download_artifacts():
 
 
 def test_runs_artifact_repo_tracking_uri_passed_as_keyword():
-    """
-    Test that tracking_uri is passed as keyword argument to get_artifact_repository.
-    This verifies the fix for issue #16873 where tracking_uri was incorrectly passed
-    as a positional argument, causing it to be interpreted as access_key_id in S3.
-    """
     with mock.patch(
         "mlflow.tracking.artifact_utils.get_artifact_uri",
         return_value="s3://test-bucket/some-run-id/artifacts/path/to/model",

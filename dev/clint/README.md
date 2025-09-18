@@ -52,3 +52,46 @@ exclude = [
 ```bash
 pytest dev/clint
 ```
+
+## Rules
+
+### no-docstring-in-tests
+
+Test functions and classes should have self-documenting names instead of docstrings.
+
+**Rationale:** Well-named test functions make docstrings redundant. The test name should clearly describe what is being tested.
+
+**Good:**
+
+```python
+def test_user_authentication_fails_with_invalid_password():
+    # Test implementation
+    pass
+```
+
+**Bad:**
+
+```python
+def test_auth():
+    """Test that user authentication fails with invalid password."""
+    pass
+```
+
+**Using NB Comments for Critical Documentation:**
+
+When you need to document something unusual or critical in a test, use NB (nota bene) comments:
+
+```python
+def test_complex_edge_case():
+    # NB: This test uses a workaround for issue #12345 because
+    # the standard approach fails due to timing constraints.
+    # We mock the database connection instead of using a real one.
+    with mock.patch("db.connect") as mock_conn:
+        result = process_with_timeout()
+
+    # NB: We expect 42 here, not 41, because of the special rounding
+    # behavior documented in RFC-789. This is intentional and correct.
+    assert result == 42
+```
+
+The NB comment convention makes it clear that the comment contains important information that future maintainers need to know, distinguishing it from regular explanatory comments.

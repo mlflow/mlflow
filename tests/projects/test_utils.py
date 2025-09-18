@@ -164,10 +164,6 @@ def test_parse_subdirectory():
 
 
 def test_storage_dir(tmp_path):
-    """
-    Test that we correctly handle the `storage_dir` argument, which specifies where to download
-    distributed artifacts passed to arguments of type `path`.
-    """
     assert os.path.dirname(_get_storage_dir(tmp_path)) == str(tmp_path)
     assert os.path.dirname(_get_storage_dir(None)) == tempfile.gettempdir()
 

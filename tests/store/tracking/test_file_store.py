@@ -1900,9 +1900,6 @@ def test_unicode_tag(store):
 
 
 def test_get_deleted_run(store):
-    """
-    Getting metrics/tags/params/run info should be allowed on deleted runs.
-    """
     experiments, exp_data, _ = _create_root(store)
     exp_id = experiments[random_int(0, len(experiments) - 1)]
     run_id = exp_data[exp_id]["runs"][0]
@@ -1911,9 +1908,6 @@ def test_get_deleted_run(store):
 
 
 def test_set_deleted_run(store):
-    """
-    Setting metrics/tags/params/updating run info should not be allowed on deleted runs.
-    """
     experiments, exp_data, _ = _create_root(store)
     exp_id = experiments[random_int(0, len(experiments) - 1)]
     run_id = exp_data[exp_id]["runs"][0]
@@ -2745,15 +2739,6 @@ def test_log_input_multiple_times_does_not_overwrite_tags_or_dataset(store):
 
 
 def test_log_inputs_uses_expected_input_and_dataset_ids_for_storage(store):
-    """
-    This test verifies that the FileStore uses expected IDs as folder names to represent datasets
-    and run inputs. This is very important because the IDs are used to deduplicate inputs and
-    datasets if the same dataset is logged to multiple runs or the same dataset is logged
-    multiple times as an input to the same run with different tags.
-
-    **If this test fails, be very careful before removing or changing asserts. Unintended changes
-    could result in user-visible duplication of datasets and run inputs.**
-    """
     exp_id = store.create_experiment("dataset_expected_ids")
 
     run1 = store.create_run(

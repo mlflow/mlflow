@@ -75,10 +75,6 @@ def test_virtualenv_project_execution_without_env_manager(create_virtualenv_spy)
 
 @spy_on_create_virtualenv
 def test_virtualenv_project_execution_no_python_env(create_virtualenv_spy):
-    """
-    When an MLproject file doesn't contain a `python_env` key but python_env.yaml exists,
-    virtualenv should be used as an environment manager.
-    """
     submitted_run = mlflow.projects.run(TEST_VIRTUALENV_NO_PYTHON_ENV, entry_point="test")
     submitted_run.wait()
     create_virtualenv_spy.assert_called_once()
@@ -109,10 +105,6 @@ def test_virtualenv_project_execution_conda():
 
 @spy_on_create_virtualenv
 def test_virtualenv_project_no_env_file(create_virtualenv_spy, tmp_path):
-    """
-    When neither python_env.yaml nor conda.yaml is present, virtualenv should be used as an
-    environment manager.
-    """
     ml_project_file = tmp_path.joinpath("MLproject")
     ml_project_file.write_text(
         """

@@ -105,10 +105,6 @@ def test_check_model_prediction_no_args():
 
 
 def test_check_model_prediction_variable_args():
-    """
-    If the function has variable positional arguments (*args), it is not supported.
-    """
-
     def fn(*args):
         return "response"
 

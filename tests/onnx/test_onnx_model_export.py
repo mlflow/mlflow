@@ -408,15 +408,6 @@ def test_model_save_load_evaluate_pyfunc_format_multiple_inputs(
 def test_pyfunc_representation_of_float32_model_casts_and_evaluates_float64_inputs(
     onnx_model_multiple_inputs_float32, model_path, data_multiple_inputs, predicted_multiple_inputs
 ):
-    """
-    The ``python_function`` representation of an MLflow model with the ONNX flavor
-    casts 64-bit floats to 32-bit floats automatically before evaluating, as opposed
-    to throwing an unexpected type exception. This behavior is implemented due
-    to the issue described in https://github.com/mlflow/mlflow/issues/1286 where
-    the JSON representation of a Pandas DataFrame does not always preserve float
-    precision (e.g., 32-bit floats may be converted to 64-bit floats when persisting a
-    DataFrame as JSON).
-    """
     mlflow.onnx.save_model(onnx_model_multiple_inputs_float32, model_path)
 
     # Loading pyfunc model
@@ -680,12 +671,6 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 
 
 def test_pyfunc_predict_supports_models_with_list_outputs(onnx_sklearn_model, model_path, data):
-    """
-    https://github.com/mlflow/mlflow/issues/2499
-    User encountered issue where an sklearn model, converted to onnx, would return a list response.
-    The issue resulted in an error because MLflow assumed it would be a numpy array. Therefore,
-    the this test validates the service does not receive that error when using such a model.
-    """
     x = data[0]
     mlflow.onnx.save_model(onnx_sklearn_model, model_path)
     wrapper = mlflow.pyfunc.load_model(model_path)

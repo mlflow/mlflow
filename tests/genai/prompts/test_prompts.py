@@ -43,7 +43,6 @@ def test_prompt_api_migration_warning():
 
 
 def test_register_chat_prompt_with_messages():
-    """Test registering chat prompts with list of message dictionaries."""
     chat_template = [
         {"role": "system", "content": "You are a {{style}} assistant."},
         {"role": "user", "content": "{{question}}"},
@@ -59,8 +58,6 @@ def test_register_chat_prompt_with_messages():
 
 
 def test_register_prompt_with_pydantic_response_format():
-    """Test registering prompts with Pydantic response format."""
-
     class ResponseSchema(BaseModel):
         answer: str
         confidence: float
@@ -76,7 +73,6 @@ def test_register_prompt_with_pydantic_response_format():
 
 
 def test_register_prompt_with_dict_response_format():
-    """Test registering prompts with dictionary response format."""
     response_format = {
         "type": "object",
         "properties": {
@@ -95,7 +91,6 @@ def test_register_prompt_with_dict_response_format():
 
 
 def test_register_prompt_error_handling_invalid_chat_format():
-    """Test error handling for invalid chat message formats."""
     invalid_template = [{"content": "Hello"}]  # Missing role
 
     with pytest.raises(ValueError, match="Template must be a list of dicts with role and content"):
@@ -103,7 +98,6 @@ def test_register_prompt_error_handling_invalid_chat_format():
 
 
 def test_register_and_load_chat_prompt_integration():
-    """Test that registered chat prompts can be loaded and formatted correctly."""
     chat_template = [
         {"role": "system", "content": "You are a {{style}} assistant."},
         {"role": "user", "content": "{{question}}"},
@@ -126,7 +120,6 @@ def test_register_and_load_chat_prompt_integration():
 
 
 def test_register_text_prompt_backward_compatibility():
-    """Test that text prompt registration continues to work as before."""
     prompt = mlflow.genai.register_prompt(
         name="test_text_backward",
         template="Hello {{name}}!",
@@ -139,7 +132,6 @@ def test_register_text_prompt_backward_compatibility():
 
 
 def test_register_prompt_with_tags():
-    """Test registering prompts with custom tags."""
     chat_template = [
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "{{question}}"},
@@ -156,8 +148,6 @@ def test_register_prompt_with_tags():
 
 
 def test_register_prompt_with_complex_response_format():
-    """Test registering prompts with complex Pydantic response format."""
-
     class ComplexResponse(BaseModel):
         summary: str
         key_points: list[str]
@@ -185,7 +175,6 @@ def test_register_prompt_with_complex_response_format():
 
 
 def test_register_prompt_with_none_response_format():
-    """Test registering prompts with None response format."""
     prompt = mlflow.genai.register_prompt(
         name="test_none_response", template="Hello {{name}}!", response_format=None
     )
@@ -194,7 +183,6 @@ def test_register_prompt_with_none_response_format():
 
 
 def test_register_prompt_with_empty_chat_template():
-    """Test registering prompts with empty chat template list."""
     # Empty list should be treated as text prompt
     prompt = mlflow.genai.register_prompt(name="test_empty_chat", template=[])
 
@@ -203,7 +191,6 @@ def test_register_prompt_with_empty_chat_template():
 
 
 def test_register_prompt_with_single_message_chat():
-    """Test registering prompts with single message chat template."""
     chat_template = [{"role": "user", "content": "Hello {{name}}!"}]
 
     prompt = mlflow.genai.register_prompt(name="test_single_message", template=chat_template)
@@ -213,7 +200,6 @@ def test_register_prompt_with_single_message_chat():
 
 
 def test_register_prompt_with_multiple_variables_in_chat():
-    """Test registering prompts with multiple variables in chat messages."""
     chat_template = [
         {
             "role": "system",
@@ -233,7 +219,6 @@ def test_register_prompt_with_multiple_variables_in_chat():
 
 
 def test_register_prompt_with_mixed_content_types():
-    """Test registering prompts with mixed content types in chat messages."""
     chat_template = [
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Hello {{name}}!"},
@@ -247,7 +232,6 @@ def test_register_prompt_with_mixed_content_types():
 
 
 def test_register_prompt_with_nested_variables():
-    """Test registering prompts with nested variable names."""
     chat_template = [
         {
             "role": "system",
@@ -295,6 +279,5 @@ def test_register_prompt_with_nested_variables():
 def test_format_prompt_with_backslashes(
     prompt_template: str, values: dict[str, str], expected: str
 ):
-    """Test that format_prompt correctly handles values containing backslashes."""
     result = format_prompt(prompt_template, **values)
     assert result == expected

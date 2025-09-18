@@ -120,10 +120,6 @@ def test_to_predict_fn_does_not_return_trace(
 def test_to_predict_fn_pass_tracing_check(
     sample_rag_trace, mock_deploy_client, mock_tracing_client
 ):
-    """
-    The function produced by to_predict_fn() is guaranteed to create a trace.
-    Therefore it should not be wrapped by @mlflow.trace by convert_predict_fn().
-    """
     mock_deploy_client.predict.side_effect = lambda **kwargs: {
         **_DUMMY_CHAT_RESPONSE,
         "databricks_output": {"trace": sample_rag_trace.to_dict()},

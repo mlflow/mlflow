@@ -374,7 +374,6 @@ def mock_dbr_version():
 
 
 def test_register_model_with_env_pack(tmp_path, mock_dbr_version):
-    """Test that register_model correctly integrates with environment packing functionality."""
     # Mock download_artifacts to return a path
     mock_artifacts_dir = tmp_path / "artifacts"
     mock_artifacts_dir.mkdir()
@@ -428,7 +427,6 @@ def test_register_model_with_env_pack(tmp_path, mock_dbr_version):
 
 
 def test_register_model_with_env_pack_staging_failure(tmp_path, mock_dbr_version):
-    """Test that register_model handles staging failure gracefully."""
     # Mock download_artifacts to return a path
     mock_artifacts_dir = tmp_path / "artifacts"
     mock_artifacts_dir.mkdir()
@@ -491,8 +489,6 @@ def test_register_model_with_env_pack_staging_failure(tmp_path, mock_dbr_version
 
 
 def test_load_prompt_with_link_to_model_disabled():
-    """Test load_prompt with link_to_model=False does not attempt linking."""
-
     # Register a prompt
     mlflow.register_prompt(name="test_prompt", template="Hello, {{name}}!")
 
@@ -526,8 +522,6 @@ def test_load_prompt_with_link_to_model_disabled():
 
 
 def test_load_prompt_with_explicit_model_id():
-    """Test load_prompt with explicit model_id parameter."""
-
     # Register a prompt
     mlflow.register_prompt(name="test_prompt", template="Hello, {{name}}!")
 
@@ -566,8 +560,6 @@ def test_load_prompt_with_explicit_model_id():
 
 
 def test_load_prompt_with_active_model_integration():
-    """Test load_prompt with active model integration using get_active_model_id."""
-
     # Register a prompt
     mlflow.register_prompt(name="test_prompt", template="Hello, {{name}}!")
 
@@ -605,8 +597,6 @@ def test_load_prompt_with_active_model_integration():
 
 
 def test_load_prompt_with_no_active_model():
-    """Test load_prompt when no active model is available."""
-
     # Register a prompt
     mlflow.register_prompt(name="test_prompt", template="Hello, {{name}}!")
 
@@ -624,8 +614,6 @@ def test_load_prompt_with_no_active_model():
 
 
 def test_load_prompt_linking_error_handling():
-    """Test load_prompt error handling when linking fails."""
-
     # Register a prompt
     mlflow.register_prompt(name="test_prompt", template="Hello, {{name}}!")
 
@@ -644,8 +632,6 @@ def test_load_prompt_linking_error_handling():
 
 
 def test_load_prompt_explicit_model_id_overrides_active_model():
-    """Test that explicit model_id parameter overrides active model ID."""
-
     # Register a prompt
     mlflow.register_prompt(name="test_prompt", template="Hello, {{name}}!")
 
@@ -695,8 +681,6 @@ def test_load_prompt_explicit_model_id_overrides_active_model():
 
 
 def test_load_prompt_with_tracing_single_prompt():
-    """Test that load_prompt properly links a single prompt to an active trace."""
-
     # Register a prompt
     mlflow.register_prompt(name="test_prompt", template="Hello, {{name}}!")
 
@@ -737,8 +721,6 @@ def test_load_prompt_with_tracing_single_prompt():
 
 
 def test_load_prompt_with_tracing_multiple_prompts():
-    """Test that load_prompt properly links multiple versions of the same prompt to one trace."""
-
     # Register one prompt with multiple versions
     mlflow.register_prompt(name="my_prompt", template="Hello, {{name}}!")
     mlflow.register_prompt(name="my_prompt", template="Hi there, {{name}}! How are you?")
@@ -802,8 +784,6 @@ def test_load_prompt_with_tracing_multiple_prompts():
 
 
 def test_load_prompt_with_tracing_no_active_trace():
-    """Test that load_prompt works correctly when there's no active trace."""
-
     # Register a prompt
     mlflow.register_prompt(name="no_trace_prompt", template="Hello, {{name}}!")
 
@@ -821,8 +801,6 @@ def test_load_prompt_with_tracing_no_active_trace():
 
 
 def test_load_prompt_with_tracing_nested_spans():
-    """Test that load_prompt links prompts to the same trace when using nested spans."""
-
     # Register prompts
     mlflow.register_prompt(name="outer_prompt", template="Outer: {{msg}}")
     mlflow.register_prompt(name="inner_prompt", template="Inner: {{msg}}")
@@ -883,7 +861,6 @@ def test_load_prompt_with_tracing_nested_spans():
 
 
 def test_load_prompt_caching_works():
-    """Test that prompt caching works and improves performance."""
     # Mock the client load_prompt method to count calls
     with mock.patch("mlflow.MlflowClient.load_prompt") as mock_client_load:
         # Configure mock to return a prompt
@@ -918,7 +895,6 @@ def test_load_prompt_caching_works():
 
 
 def test_load_prompt_caching_respects_env_var():
-    """Test that prompt caching respects the MLFLOW_PROMPT_CACHE_MAX_SIZE environment variable."""
     # Test with a small cache size
     original_value = MLFLOW_PROMPT_CACHE_MAX_SIZE.get()
     try:
@@ -977,7 +953,6 @@ def test_load_prompt_caching_respects_env_var():
 
 
 def test_load_prompt_skip_cache_for_allow_missing_none():
-    """Test that we skip cache if allow_missing=True and the result is None."""
     # Mock the client load_prompt method to return None (prompt not found)
     with mock.patch("mlflow.MlflowClient.load_prompt") as mock_client_load:
         mock_client_load.return_value = None  # Simulate prompt not found
@@ -1025,7 +1000,6 @@ def test_load_prompt_skip_cache_for_allow_missing_none():
 
 
 def test_load_prompt_missing_then_created_then_found():
-    """Test loading a prompt that doesn't exist, then creating it, then loading again."""
     # First try to load a prompt that doesn't exist
     result1 = mlflow.load_prompt(
         "will_be_created", version=1, allow_missing=True, link_to_model=False
@@ -1055,7 +1029,6 @@ def test_load_prompt_missing_then_created_then_found():
 
 
 def test_load_prompt_none_result_no_linking():
-    """Test that if prompt version is None and allow_missing=True, we don't attempt any linking."""
     # Mock only the client load_prompt method and linking methods
     with (
         mock.patch("mlflow.MlflowClient.load_prompt") as mock_client_load,
@@ -1078,7 +1051,6 @@ def test_load_prompt_none_result_no_linking():
 
 
 def test_load_prompt_caching_with_different_parameters():
-    """Test that caching works correctly with different parameter combinations."""
     # Register a prompt
     mlflow.register_prompt(name="param_test", template="Hello, {{name}}!")
 
@@ -1116,7 +1088,6 @@ def test_load_prompt_caching_with_different_parameters():
 
 
 def test_register_prompt_chat_format_integration():
-    """Test full integration of registering and using chat prompts."""
     chat_template = [
         {"role": "system", "content": "You are a {{style}} assistant."},
         {"role": "user", "content": "{{question}}"},
@@ -1156,7 +1127,6 @@ def test_register_prompt_chat_format_integration():
 
 
 def test_prompt_associate_with_run_chat_format():
-    """Test chat prompts associate with runs correctly."""
     chat_template = [
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Hello!"},
@@ -1180,7 +1150,6 @@ def test_prompt_associate_with_run_chat_format():
 
 
 def test_register_prompt_with_pydantic_response_format():
-    """Test registering prompts with Pydantic response format."""
     from pydantic import BaseModel
 
     class ResponseSchema(BaseModel):
@@ -1202,7 +1171,6 @@ def test_register_prompt_with_pydantic_response_format():
 
 
 def test_register_prompt_with_dict_response_format():
-    """Test registering prompts with dictionary response format."""
     response_format = {
         "type": "object",
         "properties": {
@@ -1226,7 +1194,6 @@ def test_register_prompt_with_dict_response_format():
 
 
 def test_register_prompt_text_backward_compatibility():
-    """Test that text prompt registration continues to work as before."""
     # Register text prompt
     mlflow.register_prompt(
         name="test_text_backward",
@@ -1246,7 +1213,6 @@ def test_register_prompt_text_backward_compatibility():
 
 
 def test_register_prompt_complex_chat_template():
-    """Test registering prompts with complex chat templates."""
     chat_template = [
         {
             "role": "system",
@@ -1292,7 +1258,6 @@ def test_register_prompt_complex_chat_template():
 
 
 def test_register_prompt_with_none_response_format():
-    """Test registering prompts with None response format."""
     # Register prompt with None response format
     mlflow.register_prompt(
         name="test_none_response", template="Hello {{name}}!", response_format=None
@@ -1304,7 +1269,6 @@ def test_register_prompt_with_none_response_format():
 
 
 def test_register_prompt_with_empty_chat_template():
-    """Test registering prompts with empty chat template list."""
     # Empty list should be treated as text prompt
     mlflow.register_prompt(name="test_empty_chat", template=[])
 
@@ -1315,7 +1279,6 @@ def test_register_prompt_with_empty_chat_template():
 
 
 def test_register_prompt_with_single_message_chat():
-    """Test registering prompts with single message chat template."""
     chat_template = [{"role": "user", "content": "Hello {{name}}!"}]
 
     # Register single message chat prompt
@@ -1329,7 +1292,6 @@ def test_register_prompt_with_single_message_chat():
 
 
 def test_register_prompt_with_multiple_variables_in_chat():
-    """Test registering prompts with multiple variables in chat messages."""
     chat_template = [
         {
             "role": "system",
@@ -1352,7 +1314,6 @@ def test_register_prompt_with_multiple_variables_in_chat():
 
 
 def test_register_prompt_with_mixed_content_types():
-    """Test registering prompts with mixed content types in chat messages."""
     chat_template = [
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Hello {{name}}!"},
@@ -1370,7 +1331,6 @@ def test_register_prompt_with_mixed_content_types():
 
 
 def test_register_prompt_with_nested_variables():
-    """Test registering prompts with nested variable names."""
     chat_template = [
         {
             "role": "system",

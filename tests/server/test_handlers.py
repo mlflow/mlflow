@@ -333,9 +333,6 @@ def test_can_block_post_request_with_missing_content_type():
 
 
 def test_search_runs_default_view_type(mock_get_request_message, mock_tracking_store):
-    """
-    Search Runs default view type is filled in as ViewType.ACTIVE_ONLY
-    """
     mock_get_request_message.return_value = SearchRuns(experiment_ids=["0"])
     mock_tracking_store.search_runs.return_value = PagedList([], None)
     _search_runs()
@@ -344,9 +341,6 @@ def test_search_runs_default_view_type(mock_get_request_message, mock_tracking_s
 
 
 def test_search_runs_empty_page_token(mock_get_request_message, mock_tracking_store):
-    """
-    Test that empty page_token from protobuf is converted to None before calling store
-    """
     # Create proto without setting page_token
     search_runs_proto = SearchRuns()
     search_runs_proto.experiment_ids.append("0")
@@ -390,7 +384,6 @@ def test_catch_mlflow_exception():
 
 
 def test_mlflow_server_with_installed_plugin(tmp_path, monkeypatch):
-    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
     from mlflow_test_plugin.file_store import PluginFileStore
 
     monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, f"file-plugin:{tmp_path}")
@@ -1363,7 +1356,6 @@ def test_get_dataset_records_pagination(mock_tracking_store):
 
 
 def test_register_scorer(mock_get_request_message, mock_tracking_store):
-    """Test register_scorer handler."""
     experiment_id = "123"
     name = "accuracy_scorer"
     serialized_scorer = "serialized_scorer_data"
@@ -1387,7 +1379,6 @@ def test_register_scorer(mock_get_request_message, mock_tracking_store):
 
 
 def test_list_scorers(mock_get_request_message, mock_tracking_store):
-    """Test list_scorers handler."""
     experiment_id = "123"
 
     mock_get_request_message.return_value = ListScorers(experiment_id=experiment_id)
@@ -1429,7 +1420,6 @@ def test_list_scorers(mock_get_request_message, mock_tracking_store):
 
 
 def test_list_scorer_versions(mock_get_request_message, mock_tracking_store):
-    """Test list_scorer_versions handler."""
     experiment_id = "123"
     name = "accuracy_scorer"
 
@@ -1472,7 +1462,6 @@ def test_list_scorer_versions(mock_get_request_message, mock_tracking_store):
 
 
 def test_get_scorer_with_version(mock_get_request_message, mock_tracking_store):
-    """Test get_scorer handler with specific version."""
     experiment_id = "123"
     name = "accuracy_scorer"
     version = 2
@@ -1506,7 +1495,6 @@ def test_get_scorer_with_version(mock_get_request_message, mock_tracking_store):
 
 
 def test_get_scorer_without_version(mock_get_request_message, mock_tracking_store):
-    """Test get_scorer handler without version (should return latest)."""
     experiment_id = "123"
     name = "accuracy_scorer"
 
@@ -1537,7 +1525,6 @@ def test_get_scorer_without_version(mock_get_request_message, mock_tracking_stor
 
 
 def test_delete_scorer_with_version(mock_get_request_message, mock_tracking_store):
-    """Test delete_scorer handler with specific version."""
     experiment_id = "123"
     name = "accuracy_scorer"
     version = 2
@@ -1557,7 +1544,6 @@ def test_delete_scorer_with_version(mock_get_request_message, mock_tracking_stor
 
 
 def test_delete_scorer_without_version(mock_get_request_message, mock_tracking_store):
-    """Test delete_scorer handler without version (should delete all versions)."""
     experiment_id = "123"
     name = "accuracy_scorer"
 
@@ -1700,7 +1686,6 @@ def test_calculate_trace_filter_correlation_with_nan_npmi(
 
 
 def test_databricks_tracking_store_registration():
-    """Test that Databricks tracking store is properly registered."""
     registry = TrackingStoreRegistryWrapper()
 
     # Test that the correct store type is returned for databricks scheme
@@ -1715,7 +1700,6 @@ def test_databricks_tracking_store_registration():
 
 
 def test_databricks_model_registry_store_registration():
-    """Test that Databricks model registry stores are properly registered."""
     registry = ModelRegistryStoreRegistryWrapper()
 
     # Test that the correct store type is returned for databricks
@@ -1746,7 +1730,6 @@ def test_databricks_model_registry_store_registration():
 
 
 def test_search_experiments_empty_page_token(mock_get_request_message, mock_tracking_store):
-    """Test that _search_experiments converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string
     search_experiments_proto = SearchExperiments()
     search_experiments_proto.max_results = 10
@@ -1769,7 +1752,6 @@ def test_search_experiments_empty_page_token(mock_get_request_message, mock_trac
 def test_search_registered_models_empty_page_token(
     mock_get_request_message, mock_model_registry_store
 ):
-    """Test that _search_registered_models converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string
     search_registered_models_proto = SearchRegisteredModels()
     search_registered_models_proto.max_results = 10
@@ -1792,7 +1774,6 @@ def test_search_registered_models_empty_page_token(
 def test_search_model_versions_empty_page_token(
     mock_get_request_message, mock_model_registry_store
 ):
-    """Test that _search_model_versions converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string
     search_model_versions_proto = SearchModelVersions()
     search_model_versions_proto.max_results = 10
@@ -1813,7 +1794,6 @@ def test_search_model_versions_empty_page_token(
 
 
 def test_search_traces_v3_empty_page_token(mock_get_request_message, mock_tracking_store):
-    """Test that _search_traces_v3 converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string
     # SearchTracesV3 requires locations field
     search_traces_proto = SearchTracesV3()
@@ -1840,7 +1820,6 @@ def test_search_traces_v3_empty_page_token(mock_get_request_message, mock_tracki
 def test_deprecated_search_traces_v2_empty_page_token(
     mock_get_request_message, mock_tracking_store
 ):
-    """Test that _deprecated_search_traces_v2 converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string
     search_traces_proto = SearchTraces()
     search_traces_proto.max_results = 10
@@ -1861,7 +1840,6 @@ def test_deprecated_search_traces_v2_empty_page_token(
 
 
 def test_search_logged_models_empty_page_token(mock_get_request_message, mock_tracking_store):
-    """Test that _search_logged_models converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string
     search_logged_models_proto = SearchLoggedModels()
     search_logged_models_proto.max_results = 10
@@ -1882,7 +1860,6 @@ def test_search_logged_models_empty_page_token(mock_get_request_message, mock_tr
 
 
 def test_list_webhooks_empty_page_token(mock_get_request_message, mock_model_registry_store):
-    """Test that _list_webhooks converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string
     list_webhooks_proto = ListWebhooks()
     list_webhooks_proto.max_results = 10

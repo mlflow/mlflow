@@ -37,7 +37,6 @@ other_function("message", category=DeprecationWarning)  # not warnings.warn
 
 
 def test_forbidden_deprecation_warning_import_variants(index_path: Path, tmp_path: Path) -> None:
-    """Test detection with different import styles."""
     tmp_file = tmp_path / "test.py"
     tmp_file.write_text(
         """
@@ -59,7 +58,6 @@ w.warn("message", category=DeprecationWarning)
 
 
 def test_forbidden_deprecation_warning_parameter_order(index_path: Path, tmp_path: Path) -> None:
-    """Test detection regardless of parameter order."""
     tmp_file = tmp_path / "test.py"
     tmp_file.write_text(
         """
@@ -78,7 +76,6 @@ warnings.warn(category=DeprecationWarning, message="test")
 
 
 def test_forbidden_deprecation_warning_positional_args(index_path: Path, tmp_path: Path) -> None:
-    """Test detection with positional arguments."""
     tmp_file = tmp_path / "test.py"
     tmp_file.write_text(
         """

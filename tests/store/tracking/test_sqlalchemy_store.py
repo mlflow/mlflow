@@ -1208,10 +1208,8 @@ def test_log_metric(store: SqlAlchemyStore):
 
 
 def test_log_metric_concurrent_logging_succeeds(store: SqlAlchemyStore):
-    """
-    Verifies that concurrent logging succeeds without deadlock, which has been an issue
-    in previous MLflow releases
-    """
+    # NB: Verifies that concurrent logging succeeds without deadlock, which has been an issue
+    # in previous MLflow releases
     experiment_id = _create_experiments(store, "concurrency_exp")
     run_config = _get_run_configs(experiment_id=experiment_id)
     run1 = _run_factory(store, run_config)
@@ -2925,13 +2923,9 @@ def test_log_batch_param_overwrite_disallowed(store: SqlAlchemyStore):
 
 
 def test_log_batch_with_unchanged_and_new_params(store: SqlAlchemyStore):
-    """
-    Test case to ensure the following code works:
-    ---------------------------------------------
-    mlflow.log_params({"a": 0, "b": 1})
-    mlflow.log_params({"a": 0, "c": 2})
-    ---------------------------------------------
-    """
+    # NB: Test case to ensure the following code works:
+    # mlflow.log_params({"a": 0, "b": 1})
+    # mlflow.log_params({"a": 0, "c": 2})
     run = _run_factory(store)
     store.log_batch(
         run.info.run_id,
@@ -3166,44 +3160,11 @@ def test_upgrade_cli_idempotence(store: SqlAlchemyStore):
 def test_metrics_materialization_upgrade_succeeds_and_produces_expected_latest_metric_values(
     store: SqlAlchemyStore, tmp_path
 ):
-    """
-    Tests the ``89d4b8295536_create_latest_metrics_table`` migration by migrating and querying
-    the MLflow Tracking SQLite database located at
-    /mlflow/tests/resources/db/db_version_7ac759974ad8_with_metrics.sql. This database contains
-    metric entries populated by the following metrics generation script:
-    https://gist.github.com/dbczumar/343173c6b8982a0cc9735ff19b5571d9.
-
-    First, the database is upgraded from its HEAD revision of
-    ``7ac755974ad8_update_run_tags_with_larger_limit`` to the latest revision via
-    ``mlflow db upgrade``.
-
-    Then, the test confirms that the metric entries returned by calls
-    to ``SqlAlchemyStore.get_run()`` are consistent between the latest revision and the
-    ``7ac755974ad8_update_run_tags_with_larger_limit`` revision. This is confirmed by
-    invoking ``SqlAlchemyStore.get_run()`` for each run id that is present in the upgraded
-    database and comparing the resulting runs' metric entries to a JSON dump taken from the
-    SQLite database prior to the upgrade (located at
-    mlflow/tests/resources/db/db_version_7ac759974ad8_with_metrics_expected_values.json).
-    This JSON dump can be replicated by installing MLflow version 1.2.0 and executing the
-    following code from the directory containing this test suite:
-
-    .. code-block:: python
-
-        import json
-        import mlflow
-        from mlflow import MlflowClient
-
-        mlflow.set_tracking_uri(
-            "sqlite:///../../resources/db/db_version_7ac759974ad8_with_metrics.sql"
-        )
-        client = MlflowClient()
-        summary_metrics = {
-            run.info.run_id: run.data.metrics for run in client.search_runs(experiment_ids="0")
-        }
-        with open("dump.json", "w") as dump_file:
-            json.dump(summary_metrics, dump_file, indent=4)
-
-    """
+    # NB: Tests the 89d4b8295536_create_latest_metrics_table migration by migrating and querying
+    # the MLflow Tracking SQLite database. Confirms metric entries are consistent between
+    # the latest revision and 7ac755974ad8_update_run_tags_with_larger_limit revision
+    # by comparing to JSON dump at
+    # mlflow/tests/resources/db/db_version_7ac759974ad8_with_metrics_expected_values.json
     current_dir = os.path.dirname(os.path.abspath(__file__))
     db_resources_path = os.path.normpath(
         os.path.join(current_dir, os.pardir, os.pardir, "resources", "db")
@@ -3314,11 +3275,6 @@ def _generate_large_data(store, nb_runs=1000):
 def test_search_runs_returns_expected_results_with_large_experiment(
     store: SqlAlchemyStore,
 ):
-    """
-    This case tests the SQLAlchemyStore implementation of the SearchRuns API to ensure
-    that search queries over an experiment containing many runs, each with a large number
-    of metrics, parameters, and tags, are performant and return the expected results.
-    """
     experiment_id, run_ids = _generate_large_data(store)
 
     run_results = store.search_runs([experiment_id], None, ViewType.ALL, max_results=100)
@@ -4723,7 +4679,6 @@ def test_search_traces_pagination_tie_breaker(store):
 
 
 def test_search_traces_with_run_id_filter(store: SqlAlchemyStore):
-    """Test that search_traces returns traces linked to a run via entity associations."""
     # Create experiment and run
     exp_id = store.create_experiment("test_run_filter")
     run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test_run")
@@ -4778,7 +4733,6 @@ def test_search_traces_with_run_id_filter(store: SqlAlchemyStore):
 
 
 def test_search_traces_with_run_id_and_other_filters(store: SqlAlchemyStore):
-    """Test that search_traces with run_id filter works correctly with other filters."""
     # Create experiment and run
     exp_id = store.create_experiment("test_combined_filters")
     run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test_run")
@@ -5057,8 +5011,6 @@ def test_delete_traces_raises_error(store):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("is_async", [False, True])
 async def test_log_spans(store: SqlAlchemyStore, is_async: bool):
-    """Test the log_spans and log_spans_async methods."""
-
     # Create an experiment and trace first
     experiment_id = store.create_experiment("test_span_experiment")
     trace_info = TraceInfo(
@@ -5156,7 +5108,6 @@ async def test_log_spans(store: SqlAlchemyStore, is_async: bool):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("is_async", [False, True])
 async def test_log_spans_different_traces_raises_error(store: SqlAlchemyStore, is_async: bool):
-    """Test that logging spans from different traces raises an error."""
     # Create two different traces
     experiment_id = store.create_experiment("test_multi_trace_experiment")
     trace_info1 = TraceInfo(
@@ -5229,7 +5180,6 @@ async def test_log_spans_different_traces_raises_error(store: SqlAlchemyStore, i
 @pytest.mark.asyncio
 @pytest.mark.parametrize("is_async", [False, True])
 async def test_log_spans_creates_trace_if_not_exists(store: SqlAlchemyStore, is_async: bool):
-    """Test that log_spans creates a trace if it doesn't exist."""
     # Create an experiment but no trace
     experiment_id = store.create_experiment("test_auto_trace_experiment")
 
@@ -5281,7 +5231,6 @@ async def test_log_spans_creates_trace_if_not_exists(store: SqlAlchemyStore, is_
 @pytest.mark.asyncio
 @pytest.mark.parametrize("is_async", [False, True])
 async def test_log_spans_empty_list(store: SqlAlchemyStore, is_async: bool):
-    """Test logging an empty list of spans."""
     experiment_id = store.create_experiment("test_empty_experiment")
 
     if is_async:
@@ -5294,7 +5243,6 @@ async def test_log_spans_empty_list(store: SqlAlchemyStore, is_async: bool):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("is_async", [False, True])
 async def test_log_spans_concurrent_trace_creation(store: SqlAlchemyStore, is_async: bool):
-    """Test that concurrent trace creation is handled correctly."""
     # Create an experiment
     experiment_id = store.create_experiment("test_concurrent_trace")
     trace_id = "tr-concurrent-test"
@@ -5366,7 +5314,6 @@ async def test_log_spans_concurrent_trace_creation(store: SqlAlchemyStore, is_as
 @pytest.mark.asyncio
 @pytest.mark.parametrize("is_async", [False, True])
 async def test_log_spans_updates_trace_time_range(store: SqlAlchemyStore, is_async: bool):
-    """Test that log_spans updates trace time range when new spans extend it."""
     experiment_id = _create_experiments(store, "test_log_spans_updates_trace")
     trace_id = "tr-time-update-test-123"
 
@@ -5467,7 +5414,6 @@ async def test_log_spans_updates_trace_time_range(store: SqlAlchemyStore, is_asy
 @pytest.mark.asyncio
 @pytest.mark.parametrize("is_async", [False, True])
 async def test_log_spans_no_end_time(store: SqlAlchemyStore, is_async: bool):
-    """Test that log_spans with spans that have no end time results in None execution_time."""
     experiment_id = _create_experiments(store, "test_log_spans_no_end_time")
     trace_id = "tr-no-end-time-test-123"
 
@@ -7164,7 +7110,6 @@ def test_dataset_search_comprehensive(store):
 
 
 def test_dataset_schema_and_profile_computation(store):
-    """Test that schema and profile are computed when records are added."""
     test_prefix = "test_schema_profile_"
     exp_ids = _create_experiments(store, [f"{test_prefix}exp"])
 
@@ -7774,7 +7719,6 @@ def test_sql_dataset_record_merge():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("is_async", [False, True])
 async def test_log_spans_default_trace_status_in_progress(store: SqlAlchemyStore, is_async: bool):
-    """Test that trace status defaults to IN_PROGRESS when no root span is present."""
     experiment_id = store.create_experiment("test_default_in_progress")
     # Generate a proper MLflow trace ID in the format "tr-<32-char-hex>"
     trace_id = f"tr-{uuid.uuid4().hex}"
@@ -7836,7 +7780,6 @@ async def test_log_spans_sets_trace_status_from_root_span(
     span_status_code: trace_api.StatusCode,
     expected_trace_status: str,
 ):
-    """Test that trace status is correctly set from root span status."""
     experiment_id = store.create_experiment("test_trace_status_from_root")
     # Generate a proper MLflow trace ID in the format "tr-<32-char-hex>"
     trace_id = f"tr-{uuid.uuid4().hex}"
@@ -7874,7 +7817,6 @@ async def test_log_spans_sets_trace_status_from_root_span(
 async def test_log_spans_unset_root_span_status_defaults_to_ok(
     store: SqlAlchemyStore, is_async: bool
 ):
-    """Test that UNSET root span status (unexpected) defaults to OK trace status."""
     experiment_id = store.create_experiment("test_unset_root_span")
     # Generate a proper MLflow trace ID in the format "tr-<32-char-hex>"
     trace_id = f"tr-{uuid.uuid4().hex}"
@@ -7907,7 +7849,6 @@ async def test_log_spans_unset_root_span_status_defaults_to_ok(
 async def test_log_spans_updates_in_progress_trace_status_from_root_span(
     store: SqlAlchemyStore, is_async: bool
 ):
-    """Test that IN_PROGRESS trace status is updated from root span on subsequent logs."""
     experiment_id = store.create_experiment("test_trace_status_update")
     # Generate a proper MLflow trace ID in the format "tr-<32-char-hex>"
     trace_id = f"tr-{uuid.uuid4().hex}"
@@ -7965,7 +7906,6 @@ async def test_log_spans_updates_in_progress_trace_status_from_root_span(
 async def test_log_spans_updates_state_unspecified_trace_status_from_root_span(
     store: SqlAlchemyStore, is_async: bool
 ):
-    """Test that trace status is updated from root span on subsequent logs."""
     experiment_id = store.create_experiment("test_unspecified_update")
     # Generate a proper MLflow trace ID in the format "tr-<32-char-hex>"
     trace_id = f"tr-{uuid.uuid4().hex}"
@@ -8015,7 +7955,6 @@ async def test_log_spans_updates_state_unspecified_trace_status_from_root_span(
 async def test_log_spans_does_not_update_finalized_trace_status(
     store: SqlAlchemyStore, is_async: bool
 ):
-    """Test that finalized trace statuses (OK, ERROR) are not updated by root span."""
     experiment_id = store.create_experiment("test_no_update_finalized")
 
     # Test that OK status is not updated
@@ -8111,17 +8050,6 @@ def test_link_traces_to_run_100_limit(store: SqlAlchemyStore):
 
 
 def test_scorer_operations(store: SqlAlchemyStore):
-    """
-    Test the scorer operations: register_scorer, list_scorers, get_scorer, and delete_scorer.
-
-    This test covers:
-    1. Registering multiple scorers with different names
-    2. Registering multiple versions of the same scorer
-    3. Listing scorers (should return latest version for each name)
-    4. Getting specific scorer versions
-    5. Getting latest scorer version when version is not specified
-    6. Deleting scorers and verifying they are deleted
-    """
     # Create an experiment for testing
     experiment_id = store.create_experiment("test_scorer_experiment")
 

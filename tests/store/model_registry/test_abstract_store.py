@@ -102,7 +102,6 @@ def mock_tracing_client():
 
 
 def test_link_prompt_version_to_model_success(store, mock_tracking_store):
-    """Test successful linking of prompt version to model."""
     # Setup
     store.add_prompt_version("test_prompt", "1")
     model_id = "model_123"
@@ -138,7 +137,6 @@ def test_link_prompt_version_to_model_success(store, mock_tracking_store):
 
 
 def test_link_prompt_version_to_model_append_to_existing(store, mock_tracking_store):
-    """Test linking prompt version when other prompts are already linked."""
     # Setup
     store.add_prompt_version("test_prompt", "1")
     model_id = "model_123"
@@ -172,7 +170,6 @@ def test_link_prompt_version_to_model_append_to_existing(store, mock_tracking_st
 
 
 def test_link_prompt_version_to_model_no_model_found(store, mock_tracking_store):
-    """Test error when model is not found."""
     # Setup
     store.add_prompt_version("test_prompt", "1")
     mock_tracking_store.get_logged_model.return_value = None
@@ -183,7 +180,6 @@ def test_link_prompt_version_to_model_no_model_found(store, mock_tracking_store)
 
 
 def test_link_prompt_version_to_model_prompt_not_found(store, mock_tracking_store):
-    """Test error when prompt version is not found."""
     # Setup
     model_id = "model_123"
     logged_model = LoggedModel(
@@ -205,7 +201,6 @@ def test_link_prompt_version_to_model_prompt_not_found(store, mock_tracking_stor
 
 
 def test_link_prompt_version_to_model_invalid_json_tag(store, mock_tracking_store):
-    """Test error when existing linked prompts tag has invalid JSON."""
     # Setup
     store.add_prompt_version("test_prompt", "1")
     model_id = "model_123"
@@ -227,7 +222,6 @@ def test_link_prompt_version_to_model_invalid_json_tag(store, mock_tracking_stor
 
 
 def test_link_prompt_version_to_model_invalid_format_tag(store, mock_tracking_store):
-    """Test error when existing linked prompts tag has invalid format (not a list)."""
     # Setup
     store.add_prompt_version("test_prompt", "1")
     model_id = "model_123"
@@ -249,7 +243,6 @@ def test_link_prompt_version_to_model_invalid_format_tag(store, mock_tracking_st
 
 
 def test_link_prompt_version_to_model_duplicate_prevention(store, mock_tracking_store):
-    """Test that linking the same prompt version twice doesn't create duplicates."""
     # Setup
     store.add_prompt_version("test_prompt", "1")
     model_id = "model_123"
@@ -289,7 +282,6 @@ def test_link_prompt_version_to_model_duplicate_prevention(store, mock_tracking_
 
 
 def test_link_prompt_version_to_model_thread_safety(store, mock_tracking_store):
-    """Test thread safety of linking prompt versions to models."""
     # Setup
     store.add_prompt_version("test_prompt_1", "1")
     store.add_prompt_version("test_prompt_2", "1")
@@ -354,7 +346,6 @@ def test_link_prompt_version_to_model_thread_safety(store, mock_tracking_store):
 
 
 def test_link_prompts_to_trace_success(store, mock_tracing_client):
-    """Test successful linking of prompt versions to a trace."""
     # Setup
     store.add_prompt_version("test_prompt", "1")
     trace_id = "trace_123"
@@ -380,7 +371,6 @@ def test_link_prompts_to_trace_success(store, mock_tracing_client):
 
 
 def test_link_prompts_to_trace_append_to_existing(store, mock_tracing_client):
-    """Test linking prompt versions when other prompts are already linked to the trace."""
     # Setup
     store.add_prompt_version("test_prompt", "1")
     trace_id = "trace_123"
@@ -408,7 +398,6 @@ def test_link_prompts_to_trace_append_to_existing(store, mock_tracing_client):
 
 
 def test_link_prompts_to_trace_nonexistent_trace(store, mock_tracing_client):
-    """Test error handling when trace is not found."""
     # Setup
     store.add_prompt_version("test_prompt", "1")
     mock_tracing_client.get_trace_info.return_value = None
@@ -424,7 +413,6 @@ def test_link_prompts_to_trace_nonexistent_trace(store, mock_tracing_client):
 
 
 def test_link_prompts_to_trace_invalid_json_tag(store, mock_tracing_client):
-    """Test error when existing linked prompts tag has invalid JSON."""
     # Setup
     store.add_prompt_version("test_prompt", "1")
     trace_id = "trace_123"
@@ -441,7 +429,6 @@ def test_link_prompts_to_trace_invalid_json_tag(store, mock_tracing_client):
 
 
 def test_link_prompts_to_trace_invalid_format_tag(store, mock_tracing_client):
-    """Test error when existing linked prompts tag has invalid format (not a list)."""
     # Setup
     store.add_prompt_version("test_prompt", "1")
     trace_id = "trace_123"
@@ -458,7 +445,6 @@ def test_link_prompts_to_trace_invalid_format_tag(store, mock_tracing_client):
 
 
 def test_link_prompts_to_trace_duplicate_prevention(store, mock_tracing_client):
-    """Test that linking the same prompt version twice doesn't create duplicates."""
     # Setup
     store.add_prompt_version("test_prompt", "1")
     trace_id = "trace_123"
@@ -491,7 +477,6 @@ def test_link_prompts_to_trace_duplicate_prevention(store, mock_tracing_client):
 
 
 def test_link_prompts_to_trace_multiple_prompts(store, mock_tracing_client):
-    """Test linking multiple prompt versions to a trace at once."""
     # Setup
     store.add_prompt_version("test_prompt_1", "v1")
     store.add_prompt_version("test_prompt_2", "v2")
@@ -522,7 +507,6 @@ def test_link_prompts_to_trace_multiple_prompts(store, mock_tracing_client):
 
 
 def test_link_prompts_to_trace_thread_safety(store, mock_tracing_client):
-    """Test thread safety of linking prompt versions to traces."""
     # Setup
     store.add_prompt_version("test_prompt_1", "1")
     store.add_prompt_version("test_prompt_2", "1")
@@ -579,7 +563,6 @@ def test_link_prompts_to_trace_thread_safety(store, mock_tracing_client):
 
 
 def test_link_prompts_to_trace_no_change_optimization(store, mock_tracing_client):
-    """Test that tag is not updated when no change is needed."""
     # Setup
     store.add_prompt_version("test_prompt", "1")
     trace_id = "trace_123"
@@ -602,7 +585,6 @@ def test_link_prompts_to_trace_no_change_optimization(store, mock_tracing_client
 
 
 def test_link_prompt_version_to_run_success(store, mock_tracking_store):
-    """Test successful linking of prompt version to run."""
     # Setup
     store.add_prompt_version("test_prompt", "1")
     run_id = "run_123"
@@ -638,7 +620,6 @@ def test_link_prompt_version_to_run_success(store, mock_tracking_store):
 
 
 def test_link_prompt_version_to_run_append_to_existing(store, mock_tracking_store):
-    """Test linking prompt version when other prompts are already linked to the run."""
     # Setup
     store.add_prompt_version("test_prompt_1", "1")
     store.add_prompt_version("test_prompt_2", "1")
@@ -681,7 +662,6 @@ def test_link_prompt_version_to_run_append_to_existing(store, mock_tracking_stor
 
 
 def test_link_prompt_version_to_run_no_run_found(store, mock_tracking_store):
-    """Test error when run is not found."""
     # Setup
     store.add_prompt_version("test_prompt", "1")  # Use "1" instead of "v1"
     run_id = "nonexistent_run"
@@ -694,7 +674,6 @@ def test_link_prompt_version_to_run_no_run_found(store, mock_tracking_store):
 
 
 def test_link_prompt_version_to_run_prompt_not_found(store, mock_tracking_store):
-    """Test error when prompt version is not found."""
     # Setup
     run_id = "run_123"
 
@@ -717,7 +696,6 @@ def test_link_prompt_version_to_run_prompt_not_found(store, mock_tracking_store)
 
 
 def test_link_prompt_version_to_run_duplicate_prevention(store, mock_tracking_store):
-    """Test that duplicate prompt linkings are prevented."""
     # Setup
     store.add_prompt_version("test_prompt", "1")
     run_id = "run_123"
@@ -747,7 +725,6 @@ def test_link_prompt_version_to_run_duplicate_prevention(store, mock_tracking_st
 
 
 def test_link_prompt_version_to_run_thread_safety(store, mock_tracking_store):
-    """Test thread safety of linking prompt versions to runs."""
     # Setup
     store.add_prompt_version("test_prompt_1", "1")
     store.add_prompt_version("test_prompt_2", "1")
@@ -803,7 +780,6 @@ def test_link_prompt_version_to_run_thread_safety(store, mock_tracking_store):
 
 
 def test_link_chat_prompt_to_model(store, mock_tracking_store):
-    """Test linking chat prompts to models works correctly."""
     # Create chat prompt
     chat_template = [
         {"role": "system", "content": "You are a helpful assistant."},
@@ -840,7 +816,6 @@ def test_link_chat_prompt_to_model(store, mock_tracking_store):
 
 
 def test_link_prompt_with_response_format_to_model(store, mock_tracking_store):
-    """Test linking prompts with response format to models."""
     response_format = {"type": "string", "description": "A response"}
     prompt_version = PromptVersion(
         "test_response", 1, "Hello {{name}}!", response_format=response_format
@@ -874,7 +849,6 @@ def test_link_prompt_with_response_format_to_model(store, mock_tracking_store):
 
 
 def test_link_chat_prompt_to_run(store, mock_tracking_store):
-    """Test linking chat prompts to runs works correctly."""
     chat_template = [
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Hello {{name}}!"},
@@ -911,7 +885,6 @@ def test_link_chat_prompt_to_run(store, mock_tracking_store):
 
 
 def test_link_prompt_with_response_format_to_run(store, mock_tracking_store):
-    """Test linking prompts with response format to runs."""
     response_format = {
         "type": "object",
         "properties": {"answer": {"type": "string"}},
@@ -950,7 +923,6 @@ def test_link_prompt_with_response_format_to_run(store, mock_tracking_store):
 
 
 def test_link_multiple_prompt_types_to_model(store, mock_tracking_store):
-    """Test linking both text and chat prompts to the same model."""
     # Create text prompt
     text_prompt = PromptVersion("test_text", 1, "Hello {{name}}!")
 

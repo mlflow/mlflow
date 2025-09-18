@@ -755,7 +755,7 @@ def test_deprecated_end_trace_v2():
 
 
 def test_search_traces():
-    """Test the search_traces method with default behavior using SearchTracesV3Request."""
+    # NB: Test the search_traces method with default behavior using SearchTracesV3Request.
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)
     response = mock.MagicMock()
@@ -831,7 +831,7 @@ def test_search_traces():
 
 
 def test_search_unified_traces():
-    """Test the search_traces method when using SearchUnifiedTraces with sql_warehouse_id."""
+    # NB: Test the search_traces method when using SearchUnifiedTraces with sql_warehouse_id.
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)
     response = mock.MagicMock()
@@ -897,7 +897,7 @@ def test_search_unified_traces():
 
 
 def test_get_artifact_uri_for_trace_compatibility():
-    """Test that get_artifact_uri_for_trace works with both TraceInfo and TraceInfoV3 objects."""
+    # NB: Test that get_artifact_uri_for_trace works with both TraceInfo and TraceInfoV3 objects.
     from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
 
     # Create a TraceInfo (v2) object
@@ -1413,7 +1413,6 @@ def test_log_logged_model_params():
 def test_create_logged_models_with_params(
     monkeypatch, params_count, expected_call_count, create_batch_size, log_batch_size
 ):
-    """Test creating logged models with parameters."""
     # Set environment variables using monkeypatch
     monkeypatch.setenv(_MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE.name, str(create_batch_size))
     monkeypatch.setenv(_MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE.name, str(log_batch_size))
@@ -2358,7 +2357,6 @@ def test_evaluation_dataset_user_tracking_search():
 
 
 def test_register_scorer():
-    """Test register_scorer method."""
     store = RestStore(lambda: None)
 
     with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
@@ -2390,7 +2388,6 @@ def test_register_scorer():
 
 
 def test_list_scorers():
-    """Test list_scorers method."""
     store = RestStore(lambda: None)
 
     with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
@@ -2434,7 +2431,6 @@ def test_list_scorers():
 
 
 def test_list_scorer_versions():
-    """Test list_scorer_versions method."""
     store = RestStore(lambda: None)
 
     with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
@@ -2477,7 +2473,6 @@ def test_list_scorer_versions():
 
 
 def test_get_scorer_with_version():
-    """Test get_scorer method with specific version."""
     store = RestStore(lambda: None)
 
     with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
@@ -2513,7 +2508,7 @@ def test_get_scorer_with_version():
 
 
 def test_get_scorer_without_version():
-    """Test get_scorer method without version (should return latest)."""
+    # NB: Test get_scorer method without version (should return latest).
     store = RestStore(lambda: None)
 
     with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
@@ -2548,7 +2543,6 @@ def test_get_scorer_without_version():
 
 
 def test_delete_scorer_with_version():
-    """Test delete_scorer method with specific version."""
     store = RestStore(lambda: None)
 
     with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
@@ -2572,7 +2566,7 @@ def test_delete_scorer_with_version():
 
 
 def test_delete_scorer_without_version():
-    """Test delete_scorer method without version (should delete all versions)."""
+    # NB: Test delete_scorer method without version (should delete all versions).
     store = RestStore(lambda: None)
 
     with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
@@ -2704,7 +2698,7 @@ def _create_test_spans() -> list[LiveSpan]:
 
 
 def test_log_spans_with_version_check():
-    """Test that log_spans raises NotImplementedError for old server versions."""
+    # NB: Test that log_spans raises NotImplementedError for old server versions.
     spans = _create_test_spans()
     experiment_id = "exp-123"
 
@@ -2771,7 +2765,7 @@ def test_log_spans_with_version_check():
 
 
 def test_server_version_check_caching():
-    """Test that server version is cached and not fetched multiple times."""
+    # NB: Test that server version is cached and not fetched multiple times.
     spans = _create_test_spans()
     experiment_id = "exp-123"
 

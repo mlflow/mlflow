@@ -226,10 +226,6 @@ def test_log_image_with_timestamp():
 
 
 def test_duplicated_log_image_with_step():
-    """
-    MLflow will save both files if there are multiple calls to log_image
-    with the same key and step.
-    """
     import numpy as np
 
     image1 = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
@@ -247,10 +243,6 @@ def test_duplicated_log_image_with_step():
 
 
 def test_duplicated_log_image_with_timestamp():
-    """
-    MLflow will save both files if there are multiple calls to log_image
-    with the same key, step, and timestamp.
-    """
     import numpy as np
 
     image1 = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)

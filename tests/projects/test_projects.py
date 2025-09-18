@@ -79,7 +79,6 @@ def test_resolve_experiment_id_should_not_allow_both_name_and_id_in_use():
 
 
 def test_invalid_run_mode():
-    """Verify that we raise an exception given an invalid run mode"""
     with pytest.raises(
         ExecutionException, match="Got unsupported execution mode some unsupported mode"
     ):
@@ -215,7 +214,6 @@ def test_run(use_start_run):
 
 
 def test_run_with_parent():
-    """Verify that if we are in a nested run, mlflow.projects.run() will have a parent_run_id."""
     with mlflow.start_run():
         parent_run_id = mlflow.active_run().info.run_id
         submitted_run = mlflow.projects.run(
@@ -287,7 +285,6 @@ def test_run_async():
     ],
 )
 def test_conda_path(mock_env, expected_conda, expected_activate, monkeypatch):
-    """Verify that we correctly determine the path to conda executables"""
     for name in [CONDA_EXE, MLFLOW_CONDA_HOME.name]:
         monkeypatch.delenv(name, raising=False)
     for name, value in mock_env.items():
@@ -318,10 +315,6 @@ def test_conda_path(mock_env, expected_conda, expected_activate, monkeypatch):
     ],
 )
 def test_find_conda_executables(mock_env, expected_conda_env_create_path, monkeypatch):
-    """
-    Verify that we correctly determine the path to executables to be used to
-    create environments (for example, it could be mamba instead of conda)
-    """
     monkeypatch.delenv(CONDA_EXE, raising=False)
     monkeypatch.delenv(MLFLOW_CONDA_HOME.name, raising=False)
     monkeypatch.delenv(MLFLOW_CONDA_CREATE_ENV_CMD.name, raising=False)
@@ -332,12 +325,6 @@ def test_find_conda_executables(mock_env, expected_conda_env_create_path, monkey
 
 
 def test_create_env_with_mamba(monkeypatch):
-    """
-    Test that mamba is called when set, and that we fail when mamba is not available or is
-    not working. We mock the calls so we do not actually execute mamba (which is not
-    installed in the test environment anyway)
-    """
-
     def exec_cmd_mock(cmd, *args, **kwargs):
         if cmd[-1] == "--json":
             # We are supposed to list environments in JSON format

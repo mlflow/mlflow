@@ -363,10 +363,6 @@ def test_add_output_format_instructions():
 def test_invoke_judge_model_retries_without_response_format_on_bad_request(
     mock_response, error_type, error_class
 ):
-    """
-    Test that when BadRequestError or UnsupportedParamsError occurs, we retry
-    without response_format.
-    """
     error = error_class(
         message="response_format not supported", model="openai/gpt-4", llm_provider="openai"
     )
@@ -395,7 +391,6 @@ def test_invoke_judge_model_retries_without_response_format_on_bad_request(
 
 
 def test_invoke_judge_model_stops_trying_response_format_after_failure():
-    """Test that after BadRequestError, subsequent tool calls don't try response_format."""
     bad_request_error = litellm.BadRequestError(
         message="response_format not supported", model="openai/gpt-4", llm_provider="openai"
     )
@@ -461,7 +456,6 @@ def test_invoke_judge_model_stops_trying_response_format_after_failure():
 
 
 def test_invoke_judge_model_caches_capabilities_globally():
-    """Test that model capabilities are cached globally across function calls."""
     from mlflow.genai.judges.utils import _MODEL_RESPONSE_FORMAT_CAPABILITIES
 
     bad_request_error = litellm.BadRequestError(
@@ -508,15 +502,6 @@ def test_invoke_judge_model_caches_capabilities_globally():
 
 
 def test_unsupported_response_format_handling_supports_multiple_threads():
-    """
-    When an LLM is invoked with structured outputs and returns a BadRequestsError,
-    we cache the lack of support for structured outputs ("response_format") in a
-    "model capability cache" to avoid retrying with structured outputs again.
-
-    This test simulates a race condition where another thread modifies the
-    model capability cache between the initial check and the exception handler,
-    ensuring that we still retry correctly without response_format.
-    """
     model_key = "openai/gpt-4-race-bug"
     _MODEL_RESPONSE_FORMAT_CAPABILITIES.clear()
 
@@ -569,7 +554,6 @@ def test_unsupported_response_format_handling_supports_multiple_threads():
 
 
 def test_litellm_nonfatal_error_messages_suppressed():
-    """Test that LiteLLM nonfatal error messages are suppressed during judge execution."""
     suppression_state_during_call = {}
 
     def mock_completion(**kwargs):
@@ -623,7 +607,6 @@ def test_litellm_nonfatal_error_messages_suppressed():
 def test_format_prompt_with_backslashes(
     prompt_template: str, values: dict[str, str], expected: str
 ) -> None:
-    """Test that format_prompt correctly handles values containing backslashes."""
     result = format_prompt(prompt_template, **values)
     assert result == expected
 
@@ -741,7 +724,6 @@ def test_invoke_databricks_model_successful_invocation() -> None:
 
 @pytest.mark.parametrize("status_code", [400, 401, 403, 404])
 def test_invoke_databricks_model_bad_request_error_no_retry(status_code: int) -> None:
-    """Test that 400/401/403/404 errors are not retried."""
     mock_creds = mock.Mock()
     mock_creds.host = "https://test.databricks.com"
     mock_creds.token = "test-token"
@@ -1152,7 +1134,6 @@ def mock_databricks_rag_eval():
 def test_call_chat_completions_success(
     mock_check, user_prompt, system_prompt, mock_databricks_rag_eval
 ):
-    """Test successful call to call_chat_completions with different prompt combinations."""
     with (
         mock.patch.dict("sys.modules", {"databricks.rag_eval": mock_databricks_rag_eval["module"]}),
         mock.patch("mlflow.genai.judges.utils.VERSION", "1.0.0"),
@@ -1177,7 +1158,6 @@ def test_call_chat_completions_success(
 
 @mock.patch("mlflow.genai.judges.utils._check_databricks_agents_installed")
 def test_call_chat_completions_client_error(mock_check, mock_databricks_rag_eval):
-    """Test call_chat_completions when managed RAG client raises an error."""
     mock_databricks_rag_eval["rag_client"].get_chat_completions_result.side_effect = RuntimeError(
         "RAG client failed"
     )
@@ -1190,6 +1170,5 @@ def test_call_chat_completions_client_error(mock_check, mock_databricks_rag_eval
 
 
 def test_get_default_optimizer():
-    """Test that get_default_optimizer returns a SIMBA optimizer."""
     optimizer = get_default_optimizer()
     assert isinstance(optimizer, SIMBAAlignmentOptimizer)

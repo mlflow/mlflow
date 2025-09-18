@@ -8,7 +8,6 @@ from mlflow.claude_code.tracing import (
 
 
 def test_parse_timestamp_to_ns_iso_string():
-    """Test parsing ISO timestamp string to nanoseconds."""
     iso_timestamp = "2024-01-15T10:30:45.123456Z"
     result = parse_timestamp_to_ns(iso_timestamp)
 
@@ -18,7 +17,6 @@ def test_parse_timestamp_to_ns_iso_string():
 
 
 def test_parse_timestamp_to_ns_unix_seconds():
-    """Test parsing Unix timestamp (seconds) to nanoseconds."""
     unix_timestamp = 1705312245.123456
     result = parse_timestamp_to_ns(unix_timestamp)
 
@@ -28,7 +26,6 @@ def test_parse_timestamp_to_ns_unix_seconds():
 
 
 def test_parse_timestamp_to_ns_large_number():
-    """Test parsing large timestamp numbers."""
     large_timestamp = 1705312245123
     result = parse_timestamp_to_ns(large_timestamp)
 
@@ -39,7 +36,6 @@ def test_parse_timestamp_to_ns_large_number():
 
 
 def test_setup_logging_creates_logger(monkeypatch, tmp_path):
-    """Test that setup_logging returns a logger."""
     monkeypatch.chdir(tmp_path)
     logger = setup_logging()
 

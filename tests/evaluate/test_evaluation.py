@@ -1046,9 +1046,6 @@ def test_evaluate_with_multi_evaluators(
 
 
 def test_custom_evaluators_no_model_or_preds(multiclass_logistic_regressor_model_uri, iris_dataset):
-    """
-    Tests that custom evaluators are called correctly when no model or predictions are provided
-    """
     with mock.patch.object(
         _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvaluator1}
     ):
@@ -2226,9 +2223,6 @@ def test_evaluate_with_model_id(iris_dataset):
 
 
 def test_evaluate_model_id_consistency_check(multiclass_logistic_regressor_model_uri, iris_dataset):
-    """
-    Test that an error is thrown when the specified model_id contradicts the model's associated ID.
-    """
     # Create a model with a known model ID
     with mlflow.start_run():
         model = sklearn.linear_model.LogisticRegression()

@@ -12,8 +12,6 @@ from mlflow.genai.scorers.registry import (
 
 
 def test_mlflow_backend_scorer_operations():
-    """Test all scorer operations with MLflow backend"""
-
     experiment_id = mlflow.create_experiment("test_scorer_mlflow_backend_experiment")
     mlflow.set_experiment(experiment_id=experiment_id)
 
@@ -87,8 +85,6 @@ def test_mlflow_backend_scorer_operations():
 @patch("mlflow.genai.scorers.registry.DatabricksStore.get_scheduled_scorer")
 @patch("mlflow.genai.scorers.registry.DatabricksStore.delete_scheduled_scorer")
 def test_databricks_backend_scorer_operations(mock_delete, mock_get, mock_list, mock_add, _):
-    """Test all scorer operations with Databricks backend"""
-
     # Mock the scheduled scorer responses
     mock_scheduled_scorer = Mock()
     mock_scheduled_scorer.scorer = Mock(spec=Scorer)

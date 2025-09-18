@@ -30,14 +30,12 @@ if not IS_DBX_AGENTS_INSTALLED:
 
 # InputCategorical tests
 def test_input_categorical_init():
-    """Test InputCategorical initialization."""
     options = ["yes", "no", "maybe"]
     input_cat = InputCategorical(options=options)
     assert input_cat.options == options
 
 
 def test_input_categorical_to_databricks_input():
-    """Test conversion to Databricks input type."""
     options = ["good", "bad", "neutral"]
     input_cat = InputCategorical(options=options)
 
@@ -53,7 +51,6 @@ def test_input_categorical_to_databricks_input():
 
 
 def test_input_categorical_from_databricks_input():
-    """Test creation from Databricks input type."""
     options = ["excellent", "good", "poor"]
     mock_databricks_input = MagicMock()
     mock_databricks_input.options = options
@@ -65,27 +62,23 @@ def test_input_categorical_from_databricks_input():
 
 
 def test_input_categorical_empty_options():
-    """Test InputCategorical with empty options."""
     input_cat = InputCategorical(options=[])
     assert input_cat.options == []
 
 
 def test_input_categorical_single_option():
-    """Test InputCategorical with single option."""
     input_cat = InputCategorical(options=["only_option"])
     assert input_cat.options == ["only_option"]
 
 
 # InputCategoricalList tests
 def test_input_categorical_list_init():
-    """Test InputCategoricalList initialization."""
     options = ["red", "green", "blue"]
     input_cat_list = InputCategoricalList(options=options)
     assert input_cat_list.options == options
 
 
 def test_input_categorical_list_to_databricks_input():
-    """Test conversion to Databricks input type."""
     options = ["python", "java", "javascript"]
     input_cat_list = InputCategoricalList(options=options)
 
@@ -101,7 +94,6 @@ def test_input_categorical_list_to_databricks_input():
 
 
 def test_input_categorical_list_from_databricks_input():
-    """Test creation from Databricks input type."""
     options = ["feature1", "feature2", "feature3"]
     mock_databricks_input = MagicMock()
     mock_databricks_input.options = options
@@ -114,19 +106,16 @@ def test_input_categorical_list_from_databricks_input():
 
 # InputText tests
 def test_input_text_init_with_max_length():
-    """Test InputText initialization with max_length."""
     input_text = InputText(max_length=100)
     assert input_text.max_length == 100
 
 
 def test_input_text_init_without_max_length():
-    """Test InputText initialization without max_length."""
     input_text = InputText()
     assert input_text.max_length is None
 
 
 def test_input_text_to_databricks_input():
-    """Test conversion to Databricks input type."""
     max_length = 500
     input_text = InputText(max_length=max_length)
 
@@ -142,7 +131,6 @@ def test_input_text_to_databricks_input():
 
 
 def test_input_text_from_databricks_input():
-    """Test creation from Databricks input type."""
     max_length = 250
     mock_databricks_input = MagicMock()
     mock_databricks_input.max_length = max_length
@@ -154,7 +142,6 @@ def test_input_text_from_databricks_input():
 
 
 def test_input_text_from_databricks_input_none_max_length():
-    """Test creation from Databricks input type with None max_length."""
     mock_databricks_input = MagicMock()
     mock_databricks_input.max_length = None
 
@@ -166,28 +153,24 @@ def test_input_text_from_databricks_input_none_max_length():
 
 # InputTextList tests
 def test_input_text_list_init_with_all_params():
-    """Test InputTextList initialization with all parameters."""
     input_text_list = InputTextList(max_length_each=50, max_count=5)
     assert input_text_list.max_length_each == 50
     assert input_text_list.max_count == 5
 
 
 def test_input_text_list_init_with_partial_params():
-    """Test InputTextList initialization with partial parameters."""
     input_text_list = InputTextList(max_count=3)
     assert input_text_list.max_length_each is None
     assert input_text_list.max_count == 3
 
 
 def test_input_text_list_init_with_no_params():
-    """Test InputTextList initialization with no parameters."""
     input_text_list = InputTextList()
     assert input_text_list.max_length_each is None
     assert input_text_list.max_count is None
 
 
 def test_input_text_list_to_databricks_input():
-    """Test conversion to Databricks input type."""
     max_length_each = 100
     max_count = 10
     input_text_list = InputTextList(max_length_each=max_length_each, max_count=max_count)
@@ -204,7 +187,6 @@ def test_input_text_list_to_databricks_input():
 
 
 def test_input_text_list_from_databricks_input():
-    """Test creation from Databricks input type."""
     max_length_each = 75
     max_count = 8
     mock_databricks_input = MagicMock()
@@ -220,28 +202,24 @@ def test_input_text_list_from_databricks_input():
 
 # InputNumeric tests
 def test_input_numeric_init_with_all_params():
-    """Test InputNumeric initialization with all parameters."""
     input_numeric = InputNumeric(min_value=0.0, max_value=10.0)
     assert input_numeric.min_value == 0.0
     assert input_numeric.max_value == 10.0
 
 
 def test_input_numeric_init_with_partial_params():
-    """Test InputNumeric initialization with partial parameters."""
     input_numeric = InputNumeric(min_value=5.0)
     assert input_numeric.min_value == 5.0
     assert input_numeric.max_value is None
 
 
 def test_input_numeric_init_with_no_params():
-    """Test InputNumeric initialization with no parameters."""
     input_numeric = InputNumeric()
     assert input_numeric.min_value is None
     assert input_numeric.max_value is None
 
 
 def test_input_numeric_to_databricks_input():
-    """Test conversion to Databricks input type."""
     min_value = 1.5
     max_value = 9.5
     input_numeric = InputNumeric(min_value=min_value, max_value=max_value)
@@ -258,7 +236,6 @@ def test_input_numeric_to_databricks_input():
 
 
 def test_input_numeric_from_databricks_input():
-    """Test creation from Databricks input type."""
     min_value = -5.0
     max_value = 15.0
     mock_databricks_input = MagicMock()
@@ -273,14 +250,12 @@ def test_input_numeric_from_databricks_input():
 
 
 def test_input_numeric_negative_values():
-    """Test InputNumeric with negative values."""
     input_numeric = InputNumeric(min_value=-100.0, max_value=-10.0)
     assert input_numeric.min_value == -100.0
     assert input_numeric.max_value == -10.0
 
 
 def test_input_numeric_integer_values():
-    """Test InputNumeric with integer values."""
     input_numeric = InputNumeric(min_value=1, max_value=100)
     assert input_numeric.min_value == 1
     assert input_numeric.max_value == 100
@@ -288,7 +263,6 @@ def test_input_numeric_integer_values():
 
 # InputType tests
 def test_input_type_abstract_methods():
-    """Test that InputType is abstract and requires implementation."""
     with pytest.raises(TypeError, match="Can't instantiate abstract class InputType"):
         InputType()
 
@@ -304,7 +278,6 @@ def test_input_type_abstract_methods():
     ],
 )
 def test_input_type_all_inputs_inherit_from_input_type(input_class):
-    """Test that all input classes inherit from InputType."""
     assert issubclass(input_class, InputType)
 
 
@@ -319,7 +292,6 @@ def test_input_type_all_inputs_inherit_from_input_type(input_class):
     ],
 )
 def test_input_type_all_inputs_implement_required_methods(input_obj):
-    """Test that all input classes implement required abstract methods."""
     assert hasattr(input_obj, "_to_databricks_input")
     assert callable(getattr(input_obj, "_to_databricks_input"))
     assert hasattr(input_obj.__class__, "_from_databricks_input")
@@ -335,7 +307,6 @@ def test_input_type_all_inputs_implement_required_methods(input_obj):
     ],
 )
 def test_label_schema_type_enum_values(enum_member, expected_value):
-    """Test LabelSchemaType enum values."""
     assert enum_member == expected_value
 
 
@@ -350,7 +321,6 @@ def test_label_schema_type_enum_values(enum_member, expected_value):
     ],
 )
 def test_label_schema_type_enum_membership(value, should_be_member):
-    """Test enum membership."""
     if should_be_member:
         assert value in LabelSchemaType
     else:
@@ -359,7 +329,6 @@ def test_label_schema_type_enum_membership(value, should_be_member):
 
 # LabelSchema tests
 def test_label_schema_init_with_categorical_input():
-    """Test LabelSchema initialization with categorical input."""
     input_cat = InputCategorical(options=["good", "bad"])
     schema = LabelSchema(
         name="quality",
@@ -377,7 +346,6 @@ def test_label_schema_init_with_categorical_input():
 
 
 def test_label_schema_init_with_all_params():
-    """Test LabelSchema initialization with all parameters."""
     input_text = InputText(max_length=200)
     schema = LabelSchema(
         name="feedback_schema",
@@ -397,7 +365,6 @@ def test_label_schema_init_with_all_params():
 
 
 def test_label_schema_init_with_numeric_input():
-    """Test LabelSchema initialization with numeric input."""
     input_numeric = InputNumeric(min_value=1.0, max_value=5.0)
     schema = LabelSchema(
         name="rating",
@@ -410,7 +377,6 @@ def test_label_schema_init_with_numeric_input():
 
 
 def test_label_schema_init_with_text_list_input():
-    """Test LabelSchema initialization with text list input."""
     input_text_list = InputTextList(max_length_each=50, max_count=3)
     schema = LabelSchema(
         name="suggestions",
@@ -423,7 +389,6 @@ def test_label_schema_init_with_text_list_input():
 
 
 def test_label_schema_init_with_categorical_list_input():
-    """Test LabelSchema initialization with categorical list input."""
     input_cat_list = InputCategoricalList(options=["tag1", "tag2", "tag3"])
     schema = LabelSchema(
         name="tags",
@@ -436,7 +401,6 @@ def test_label_schema_init_with_categorical_list_input():
 
 
 def test_label_schema_frozen_dataclass():
-    """Test that LabelSchema is frozen (immutable)."""
     input_cat = InputCategorical(options=["test"])
     schema = LabelSchema(
         name="test",
@@ -450,7 +414,6 @@ def test_label_schema_frozen_dataclass():
 
 
 def test_label_schema_from_databricks_label_schema():
-    """Test creation from Databricks label schema."""
     # Create a mock databricks input object
     mock_databricks_input = MagicMock()
 
@@ -485,8 +448,6 @@ def test_label_schema_from_databricks_label_schema():
 
 
 def test_convert_databricks_input():
-    """Test _convert_databricks_input converts Databricks input types to MLflow types."""
-
     # Create a simple mock that can be used as dict key
     class MockInputTextList:
         pass
@@ -507,7 +468,6 @@ def test_convert_databricks_input():
 
 
 def test_convert_databricks_input_unknown_type():
-    """Test _convert_databricks_input raises ValueError for unknown types."""
     with patch("databricks.agents.review_app.label_schemas"):
         unknown_input = MagicMock()
         unknown_input.__class__ = MagicMock()  # Unknown type
@@ -517,7 +477,6 @@ def test_convert_databricks_input_unknown_type():
 
 
 def test_from_databricks_label_schema_uses_convert_input():
-    """Test _from_databricks_label_schema properly converts input via _convert_databricks_input."""
     mock_schema = MagicMock()
     mock_schema.name = "test"
     mock_schema.type = LabelSchemaType.FEEDBACK
@@ -535,7 +494,6 @@ def test_from_databricks_label_schema_uses_convert_input():
 
 # Integration tests
 def test_integration_complete_workflow_categorical():
-    """Test complete workflow with categorical input."""
     # Create InputCategorical
     options = ["excellent", "good", "fair", "poor"]
     input_cat = InputCategorical(options=options)
@@ -557,7 +515,6 @@ def test_integration_complete_workflow_categorical():
 
 
 def test_integration_complete_workflow_numeric():
-    """Test complete workflow with numeric input."""
     # Create InputNumeric
     min_val = 0.0
     max_val = 10.0
@@ -592,7 +549,6 @@ def test_integration_complete_workflow_numeric():
     ],
 )
 def test_integration_label_schema_with_different_input_types(input_type, schema_name):
-    """Test LabelSchema works with all input types."""
     schema = LabelSchema(
         name=schema_name,
         type=LabelSchemaType.FEEDBACK,
@@ -606,7 +562,6 @@ def test_integration_label_schema_with_different_input_types(input_type, schema_
 
 # Edge case tests
 def test_edge_cases_empty_string_values():
-    """Test handling of empty string values."""
     schema = LabelSchema(
         name="",
         type=LabelSchemaType.FEEDBACK,
@@ -631,20 +586,17 @@ def test_edge_cases_empty_string_values():
     ],
 )
 def test_edge_cases_numeric_value_ranges(min_value, max_value, description):
-    """Test handling of various numeric value ranges."""
     input_numeric = InputNumeric(min_value=min_value, max_value=max_value)
     assert input_numeric.min_value == min_value
     assert input_numeric.max_value == max_value
 
 
 def test_edge_cases_zero_max_length_text():
-    """Test handling of zero max_length for text."""
     input_text = InputText(max_length=0)
     assert input_text.max_length == 0
 
 
 def test_edge_cases_zero_max_count_text_list():
-    """Test handling of zero max_count for text list."""
     input_text_list = InputTextList(max_count=0)
     assert input_text_list.max_count == 0
 
@@ -664,14 +616,12 @@ def test_edge_cases_zero_max_count_text_list():
     ],
 )
 def test_edge_cases_special_and_unicode_characters_in_options(options):
-    """Test handling of special characters and unicode in categorical options."""
     input_cat = InputCategorical(options=options)
     assert input_cat.options == options
 
 
 # API integration tests
 def test_create_label_schema_calls_to_databricks_input():
-    """Test that create_label_schema calls _to_databricks_input on the input."""
     input_cat = InputCategorical(options=["good", "bad"])
 
     # Mock the databricks modules and review app
@@ -710,7 +660,6 @@ def test_create_label_schema_calls_to_databricks_input():
 
 
 def test_get_label_schema_calls_from_databricks_label_schema():
-    """Test that get_label_schema calls _from_databricks_label_schema."""
     # Mock databricks label schema
     mock_databricks_schema = MagicMock()
     mock_databricks_schema.name = "test_schema"
@@ -748,7 +697,6 @@ def test_get_label_schema_calls_from_databricks_label_schema():
     ],
 )
 def test_api_integration_with_all_input_types(input_type, schema_name):
-    """Test that API integration works with all input types."""
     # Mock the databricks modules and review app
     with patch("databricks.agents.review_app.get_review_app") as mock_get_app:
         mock_app = MagicMock()
@@ -776,7 +724,6 @@ def test_api_integration_with_all_input_types(input_type, schema_name):
 
 # Import tests
 def test_databricks_label_schemas_is_importable():
-    """Test that all constants, classes, and functions are importable."""
     # Test constants
     assert label_schemas.EXPECTED_FACTS == EXPECTED_FACTS
     assert label_schemas.GUIDELINES == GUIDELINES

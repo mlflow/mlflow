@@ -149,7 +149,6 @@ def test_list_artifacts():
     ],
 )
 def test_constructor_with_valid_uri(valid_uri: str):
-    """Test that the constructor works with valid run URIs."""
     with (
         mock.patch(
             "mlflow.store.artifact.databricks_sdk_artifact_repo.DatabricksSdkArtifactRepository"
@@ -171,7 +170,6 @@ def test_constructor_with_valid_uri(valid_uri: str):
     ],
 )
 def test_constructor_with_invalid_uri(invalid_uri: str):
-    """Test that the constructor raises an error with invalid URIs."""
     with pytest.raises(
         Exception,  # The exact exception type depends on the parent class
         match="Invalid artifact URI",
@@ -195,7 +193,6 @@ def test_constructor_with_invalid_uri(invalid_uri: str):
     ],
 )
 def test_is_run_uri(uri: str, expected_result: bool):
-    """Test the is_run_uri static method."""
     result = DatabricksRunArtifactRepository.is_run_uri(uri)
     assert result == expected_result
 
@@ -213,7 +210,6 @@ def test_uri_parsing(
     expected_run_id: str,
     expected_relative_path: str | None,
 ):
-    """Test that URI components are correctly parsed."""
     with (
         mock.patch(
             "mlflow.store.artifact.databricks_sdk_artifact_repo.DatabricksSdkArtifactRepository"
@@ -246,7 +242,6 @@ def test_uri_parsing(
     ],
 )
 def test_build_root_path(uri: str, expected_root_path: str):
-    """Test that the root path is built correctly."""
     with (
         mock.patch(
             "mlflow.store.artifact.databricks_sdk_artifact_repo.DatabricksSdkArtifactRepository"
@@ -269,7 +264,6 @@ def test_build_root_path(uri: str, expected_root_path: str):
 
 
 def test_expected_uri_format():
-    """Test that the expected URI format is correct."""
     with (
         mock.patch(
             "mlflow.store.artifact.databricks_sdk_artifact_repo.DatabricksSdkArtifactRepository"

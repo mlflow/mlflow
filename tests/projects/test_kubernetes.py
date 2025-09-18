@@ -11,9 +11,6 @@ from mlflow.projects import kubernetes as kb
 
 
 def test_run_command_creation():
-    """
-    Tests command creation.
-    """
     command = [
         "python train.py --alpha 0.5 --l1-ratio 0.1",
         "--comment 'foo bar'",
@@ -35,9 +32,6 @@ def test_run_command_creation():
 
 
 def test_valid_kubernetes_job_spec():
-    """
-    Tests job specification for Kubernetes.
-    """
     custom_template = yaml.safe_load(
         "apiVersion: batch/v1\n"
         "kind: Job\n"

@@ -55,7 +55,6 @@ def test_otel_status_conversion(status_code, otel_status_code):
 def test_otel_status_to_mlflow_status_conversion(
     status_code, status_desc, expected_code, expected_desc
 ):
-    """Test conversion from OTel SDK status to MLflow SpanStatus."""
     # Create OTel status
     otel_status = OTelStatus(status_code, status_desc)
 
@@ -81,7 +80,6 @@ def test_otel_status_to_mlflow_status_conversion(
     ],
 )
 def test_otel_proto_status_to_mlflow_status_conversion(proto_code, expected_mlflow_code):
-    """Test conversion from OTel protobuf status to MLflow SpanStatus."""
     # Create proto status
     proto_status = OTelProtoStatus()
     proto_status.code = proto_code
@@ -104,7 +102,6 @@ def test_otel_proto_status_to_mlflow_status_conversion(proto_code, expected_mlfl
 def test_mlflow_status_to_otel_proto_status_conversion(
     mlflow_code, description, expected_proto_code
 ):
-    """Test conversion from MLflow SpanStatus to OTel protobuf status."""
     # Create MLflow status
     mlflow_status = SpanStatus(mlflow_code, description)
 
