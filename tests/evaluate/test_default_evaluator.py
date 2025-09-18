@@ -1445,7 +1445,7 @@ def test_custom_metric_produced_multiple_artifacts_with_same_name_throw_exceptio
         )
 
 
-def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_dataset, tmp_path):
+def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_dataset):
     def true_count(predictions, targets=None, metrics=None):
         true_negatives = metrics["true_negatives"].aggregate_results["true_negatives"]
         true_positives = metrics["true_positives"].aggregate_results["true_positives"]
@@ -1514,7 +1514,7 @@ def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_
 
 
 def test_custom_metric_logs_artifacts_from_paths(
-    binary_logistic_regressor_model_uri, breast_cancer_dataset
+    binary_logistic_regressor_model_uri, breast_cancer_dataset, tmp_path
 ):
     fig_x = 8.0
     fig_y = 5.0
