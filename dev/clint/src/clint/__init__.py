@@ -44,19 +44,16 @@ def main() -> None:
     resolved_files = resolve_paths(input_paths)
 
     # Apply exclude filtering
-    files = []
+    files: list[Path] = []
     if config.exclude:
         repo_root = get_repo_root()
         cwd = Path.cwd()
         regex = re.compile("|".join(map(re.escape, config.exclude)))
-
-        filtered_files = []
         for f in resolved_files:
             # Convert file path to be relative to repo root for exclude pattern matching
             repo_relative_path = (cwd / f).resolve().relative_to(repo_root)
-            if not regex.match(str(repo_relative_path)):
-                filtered_files.append(f)
-        files = filtered_files
+            if not regex.match(repo_relative_path.as_posix()):
+                files.append(f)
     else:
         files = resolved_files
 
