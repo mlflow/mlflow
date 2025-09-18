@@ -16,7 +16,26 @@ def copy_trace_to_experiment(trace_dict: dict[str, Any], experiment_id: str | No
             This can be either V2 or V3 trace.
         experiment_id: The ID of the experiment to copy the trace to.
             If not provided, the trace will be copied to the current experiment.
+
+    Returns:
+        str: The trace identifier. For V2 traces, returns the request_id.
+             For V3 traces, returns the trace_id. If copying is needed,
+             returns the new trace_id.
     """
+    # Check if the trace is already in the target experiment
+    if info_dict := trace_dict.get("info"):
+        # V2 trace: experiment_id is directly accessible
+        if "experiment_id" in info_dict and info_dict["experiment_id"] == experiment_id:
+            return info_dict["request_id"]
+        # V3 trace: experiment_id is nested in trace_location
+        elif (
+            (trace_location := info_dict.get("trace_location"))
+            and trace_location.get("type") == "MLFLOW_EXPERIMENT"
+            and (mlflow_exp := trace_location.get("mlflow_experiment"))
+            and mlflow_exp.get("experiment_id") == experiment_id
+        ):
+            return info_dict["trace_id"]
+
     new_trace_id = None
     new_root_span = None
     trace_manager = InMemoryTraceManager.get_instance()
