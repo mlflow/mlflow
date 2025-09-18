@@ -35,6 +35,7 @@ MLflow trace automatically captures the following information about Gemini calls
 - Latencies
 - Model name
 - Additional metadata such as `temperature`, `max_tokens`, if specified.
+- Token usage (input, output, and total tokens)
 - Function calling if returned in the response
 - Any exception if raised
 
@@ -114,6 +115,61 @@ MLflow Tracing for Gemini SDK supports embeddings API:
 
 ```python
 result = client.models.embed_content(model="text-embedding-004", contents="Hello world")
+```
+
+## Token usage
+
+MLflow >= 3.4.0 supports token usage tracking for Gemini. The token usage for each LLM call will be logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace will be
+available in the `token_usage` field of the trace info object.
+
+```python
+import json
+import mlflow
+
+mlflow.gemini.autolog()
+
+client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+
+# Use the generate_content method to generate responses to your prompts.
+response = client.models.generate_content(
+    model="gemini-1.5-flash", contents="The opposite of hot is"
+)
+
+# Get the trace object just created
+trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+# Print the token usage
+total_usage = trace.info.token_usage
+print("== Total token usage: ==")
+print(f"  Input tokens: {total_usage['input_tokens']}")
+print(f"  Output tokens: {total_usage['output_tokens']}")
+print(f"  Total tokens: {total_usage['total_tokens']}")
+
+# Print the token usage for each LLM call
+print("\n== Detailed usage for each LLM call: ==")
+for span in trace.data.spans:
+    if usage := span.get_attribute("mlflow.chat.tokenUsage"):
+        print(f"{span.name}:")
+        print(f"  Input tokens: {usage['input_tokens']}")
+        print(f"  Output tokens: {usage['output_tokens']}")
+        print(f"  Total tokens: {usage['total_tokens']}")
+```
+
+```bash
+== Total token usage: ==
+  Input tokens: 5
+  Output tokens: 2
+  Total tokens: 7
+
+== Detailed usage for each LLM call: ==
+Models.generate_content:
+  Input tokens: 5
+  Output tokens: 2
+  Total tokens: 7
+Models._generate_content:
+  Input tokens: 5
+  Output tokens: 2
+  Total tokens: 7
 ```
 
 ### Disable auto-tracing
