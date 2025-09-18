@@ -778,6 +778,7 @@ def serve_wheel(request, tmp_path_factory):
             "--wheel-dir",
             mlflow_dir,
             "--no-deps",
+            "--no-cache-dir",
             repo_root,
         ],
         check=True,
