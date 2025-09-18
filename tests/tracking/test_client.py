@@ -45,6 +45,7 @@ from mlflow.exceptions import (
     MlflowNotImplementedException,
     MlflowTraceDataCorrupted,
     MlflowTraceDataNotFound,
+    RestException,
 )
 from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
@@ -330,6 +331,79 @@ def test_client_get_trace_fallback(mock_store, mock_artifact_repo):
     assert trace.data.spans[0].start_time_ns == 123000000
     assert trace.data.spans[0].end_time_ns == 579000000
     assert trace.data.spans[0].status.status_code == SpanStatusCode.OK
+
+
+def test_client_get_trace_rest_exception_not_implemented_fallback(mock_store, mock_artifact_repo):
+    mock_store.get_traces.side_effect = RestException(
+        {"error_code": "NOT_IMPLEMENTED", "message": "Method not implemented"}
+    )
+    mock_store.get_trace_info.return_value = TraceInfo(
+        trace_id="tr-rest-1234",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=123,
+        execution_duration=456,
+        state=TraceState.OK,
+        tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts"},
+    )
+    mock_artifact_repo.download_trace_data.return_value = {
+        "request": '{"prompt": "Test REST fallback"}',
+        "response": '{"answer": "Works!"}',
+        "spans": [
+            {
+                "name": "rest_test",
+                "context": {
+                    "trace_id": "0x987654321",
+                    "span_id": "0x54321",
+                },
+                "parent_id": None,
+                "start_time": 111000000,
+                "end_time": 222000000,
+                "status_code": "OK",
+                "status_message": "",
+                "attributes": {
+                    "mlflow.traceRequestId": '"tr-rest-1234"',
+                    "mlflow.spanType": '"LLM"',
+                    "mlflow.spanFunctionName": '"rest_test"',
+                    "mlflow.spanInputs": '{"prompt": "Test REST fallback"}',
+                    "mlflow.spanOutputs": '{"answer": "Works!"}',
+                },
+                "events": [],
+            }
+        ],
+    }
+
+    trace = MlflowClient().get_trace("tr-rest-1234")
+
+    # Verify fallback was triggered
+    mock_store.get_traces.assert_called_once_with(["tr-rest-1234"])
+    mock_store.get_trace_info.assert_called_once_with("tr-rest-1234")
+    mock_artifact_repo.download_trace_data.assert_called_once()
+
+    # Verify trace data is correct
+    assert trace.info.trace_id == "tr-rest-1234"
+    assert trace.data.request == '{"prompt": "Test REST fallback"}'
+    assert trace.data.response == '{"answer": "Works!"}'
+    assert len(trace.data.spans) == 1
+    assert trace.data.spans[0].name == "rest_test"
+    assert trace.data.spans[0].inputs == {"prompt": "Test REST fallback"}
+    assert trace.data.spans[0].outputs == {"answer": "Works!"}
+
+
+@pytest.mark.parametrize("error_code", ["BAD_REQUEST", "RESOURCE_DOES_NOT_EXIST"])
+def test_client_get_trace_rest_exception_other_error_codes(
+    mock_store, mock_artifact_repo, error_code
+):
+    mock_store.get_traces.side_effect = RestException(
+        {"error_code": error_code, "message": "Invalid request parameters"}
+    )
+
+    with pytest.raises(RestException, match=error_code) as exc_info:
+        MlflowClient().get_trace("test-trace-123")
+
+    assert exc_info.value.error_code == error_code
+    # Verify fallback was NOT triggered
+    mock_store.get_trace_info.assert_not_called()
+    mock_artifact_repo.download_trace_data.assert_not_called()
 
 
 def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_artifact_repo):

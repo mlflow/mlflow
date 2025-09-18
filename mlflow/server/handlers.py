@@ -2867,12 +2867,12 @@ def _get_traces():
     )
     trace_ids = []
     for trace_id in request_message.trace_ids:
-        if trace_id.uc_schema:
+        if trace_id.HasField("uc_schema"):
             trace_ids.append(
                 f"{TRACE_ID_V4_PREFIX}{trace_id.uc_schema.catalog_name}.{trace_id.uc_schema.schema_name}/{trace_id.trace_id}"
             )
         else:
-            trace_ids.append(trace_id)
+            trace_ids.append(trace_id.trace_id)
 
     traces = _get_tracking_store().get_traces(trace_ids)
     response_message = GetTraces.Response()

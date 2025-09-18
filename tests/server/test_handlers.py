@@ -2032,3 +2032,27 @@ def test_get_traces_handler_empty_list(mock_get_request_message, mock_tracking_s
     # Verify response was created
     assert response is not None
     assert response.status_code == 200
+
+
+def test_get_traces_handler_without_uc_schema(mock_get_request_message, mock_tracking_store):
+    trace_id_1 = "simple-trace-1"
+    trace_id_2 = "simple-trace-2"
+
+    trace_identifier_1 = TraceIdentifier(trace_id=trace_id_1)
+    trace_identifier_2 = TraceIdentifier(trace_id=trace_id_2)
+
+    get_traces_proto = GetTraces()
+    get_traces_proto.trace_ids.extend([trace_identifier_1, trace_identifier_2])
+
+    expected_trace_ids = [trace_id_1, trace_id_2]
+
+    mock_get_request_message.return_value = get_traces_proto
+
+    mock_tracking_store.get_traces.return_value = mock.MagicMock()
+
+    response = _get_traces()
+
+    mock_tracking_store.get_traces.assert_called_once_with(expected_trace_ids)
+
+    assert response is not None
+    assert response.status_code == 200
