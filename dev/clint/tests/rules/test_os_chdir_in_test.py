@@ -71,10 +71,8 @@ def test_func():
 
 
 def test_os_chdir_in_test_nested_functions_not_caught(index_path: Path) -> None:
-    """
-    Nested functions are not considered to be "in test" - this matches
-    the behavior of other test-specific rules like os.environ.
-    """
+    # NB: Nested functions are not considered to be "in test" - this matches
+    # the behavior of other test-specific rules like os.environ.
     code = """
 import os
 
