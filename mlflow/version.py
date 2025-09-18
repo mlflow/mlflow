@@ -11,7 +11,8 @@ def is_release_version():
 
 def _is_package_installed(package_name: str) -> bool:
     try:
-        importlib.metadata.version(package_name)
+        ver = importlib.metadata.version(package_name)
+        print("_is_package_installed", package_name, ver)  # noqa: T201
         return True
     except importlib.metadata.PackageNotFoundError:
         return False
