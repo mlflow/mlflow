@@ -11,7 +11,6 @@ from mlflow.store.tracking.dbmodels.models import SqlJob
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import extract_db_type_from_uri
 
-
 sqlalchemy.orm.configure_mappers()
 
 
@@ -215,9 +214,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
                 query = query.filter(SqlJob.function_fullname == function_fullname)
 
             if status_list:
-                query = query.filter(
-                    SqlJob.status.in_([status.to_int() for status in status_list])
-                )
+                query = query.filter(SqlJob.status.in_([status.to_int() for status in status_list]))
 
             if begin_timestamp is not None:
                 query = query.filter(SqlJob.creation_time >= begin_timestamp)

@@ -1,9 +1,10 @@
-from typing import Any, Callable
+import json
 import multiprocessing
 import os
 import signal
 from dataclasses import dataclass
-import json
+from typing import Any, Callable
+
 from mlflow.utils import _get_fully_qualified_class_name
 
 
@@ -24,18 +25,22 @@ def _job_subproc_entry(
 
     try:
         value = func(**kwargs)
-        result_queue.put(JobResult(
-            succeeded=True,
-            result=json.dumps(value),
-        ))
+        result_queue.put(
+            JobResult(
+                succeeded=True,
+                result=json.dumps(value),
+            )
+        )
     except Exception as e:
         # multiprocess uses pickle which can't serialize any kind of python objects.
         # so serialize exception class to string before putting it to result queue.
-        result_queue.put(JobResult(
-            succeeded=False,
-            error_class=_get_fully_qualified_class_name(e),
-            error=str(e),
-        ))
+        result_queue.put(
+            JobResult(
+                succeeded=False,
+                error_class=_get_fully_qualified_class_name(e),
+                error=str(e),
+            )
+        )
 
 
 def _hard_kill(proc) -> None:
@@ -54,6 +59,7 @@ def execute_function_with_timeout(
     """
     Run `func(**kwargs)` in a spawned subprocess.
     Returns an instance of `JobResult`.
+
     Raises:
       - TimeoutError if not finished within `timeout`
     """
@@ -78,10 +84,7 @@ def execute_function_with_timeout(
 
     try:
         raw_result = func(**kwargs)
-        return JobResult(
-            succeeded=True,
-            result=json.dumps(raw_result)
-        )
+        return JobResult(succeeded=True, result=json.dumps(raw_result))
     except Exception as e:
         return JobResult(
             succeeded=False,

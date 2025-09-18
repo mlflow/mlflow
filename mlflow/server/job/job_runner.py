@@ -8,24 +8,21 @@ import time
 from typing import Any, Callable
 
 import cloudpickle
-import requests
 from huey import SqliteHuey
 from huey.exceptions import RetryTask
 from huey.serializer import Serializer
-
 
 from mlflow.entities._job_status import JobStatus
 from mlflow.environment_variables import MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY
 from mlflow.server import HUEY_STORAGE_PATH_ENV_VAR
 from mlflow.server.handlers import _get_job_store
 
-
 huey = None
 
 
 _TRANSIENT_ERRORS = (
-    'requests.exceptions.Timeout',
-    'requests.exceptions.ConnectionError',
+    "requests.exceptions.Timeout",
+    "requests.exceptions.ConnectionError",
 )
 
 

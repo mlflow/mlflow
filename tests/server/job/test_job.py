@@ -8,15 +8,15 @@ from os.path import dirname
 
 import requests
 
+import mlflow.server.handlers
 from mlflow.entities._job_status import JobStatus
 from mlflow.server import (
     ARTIFACT_ROOT_ENV_VAR,
     BACKEND_STORE_URI_ENV_VAR,
     HUEY_STORAGE_PATH_ENV_VAR,
 )
-import mlflow.server.handlers
 from mlflow.server.handlers import _get_job_store
-from mlflow.server.job import _start_job_runner, query_job, submit_job, _reinit_huey_queue
+from mlflow.server.job import _reinit_huey_queue, _start_job_runner, query_job, submit_job
 
 
 def _start_job_runner_for_test(max_job_parallelism):

@@ -1983,7 +1983,12 @@ class SqlJob(Base):
 
     __table_args__ = (
         PrimaryKeyConstraint("id", name="jobs_pk"),
-        Index("index_jobs_function_status_creation_time", "function_fullname", "status", "creation_time"),
+        Index(
+            "index_jobs_function_status_creation_time",
+            "function_fullname",
+            "status",
+            "creation_time",
+        ),
     )
 
     def __repr__(self):

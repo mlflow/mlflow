@@ -9,7 +9,9 @@ from mlflow.exceptions import MlflowException
 from mlflow.server.handlers import _get_job_store
 
 
-def submit_job(function: Callable[..., Any], params: dict[str, Any], timeout: int | None = None) -> str:
+def submit_job(
+    function: Callable[..., Any], params: dict[str, Any], timeout: int | None = None
+) -> str:
     """
     Submit a job to the job queue.
     The job is ensured to be scheduled to execute once.
