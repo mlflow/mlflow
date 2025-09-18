@@ -4,36 +4,51 @@ import pytest
 from clint.config import Config
 
 
+@pytest.fixture(scope="module")
+def temp_git_repo(tmp_path_factory):
+    """Create a temporary git repository for testing."""
+    tmp_path = tmp_path_factory.mktemp("git_repo")
+
+    # Initialize a git repository
+    import subprocess
+
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
+    subprocess.run(["git", "config", "user.name", "Test User"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True)
+
+    return tmp_path
+
+
 def test_config_validate_exclude_paths_success(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    temp_git_repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    test_file = tmp_path / "test_file.py"
+    test_file = temp_git_repo / "test_file.py"
     test_file.touch()
-    test_dir = tmp_path / "test_dir"
+    test_dir = temp_git_repo / "test_dir"
     test_dir.mkdir()
 
-    pyproject = tmp_path / "pyproject.toml"
+    pyproject = temp_git_repo / "pyproject.toml"
     pyproject.write_text(f"""
 [tool.clint]
 exclude = [
-    "{test_file}",
-    "{test_dir}"
+    "{test_file.name}",
+    "{test_dir.name}"
 ]
 """)
 
-    # Mock get_repo_root to return the tmp_path for this test
-    monkeypatch.setattr("clint.config.get_repo_root", lambda: tmp_path)
+    # Mock get_repo_root to return the temp_git_repo
+    monkeypatch.setattr("clint.config.get_repo_root", lambda: temp_git_repo)
 
     config = Config.load()
     assert len(config.exclude) == 2
-    assert str(test_file) in config.exclude
-    assert str(test_dir) in config.exclude
+    assert test_file.name in config.exclude
+    assert test_dir.name in config.exclude
 
 
 def test_config_validate_exclude_paths_failure(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    temp_git_repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    pyproject = tmp_path / "pyproject.toml"
+    pyproject = temp_git_repo / "pyproject.toml"
     pyproject.write_text("""
 [tool.clint]
 exclude = [
@@ -42,8 +57,8 @@ exclude = [
 ]
 """)
 
-    # Mock get_repo_root to return the tmp_path for this test
-    monkeypatch.setattr("clint.config.get_repo_root", lambda: tmp_path)
+    # Mock get_repo_root to return the temp_git_repo
+    monkeypatch.setattr("clint.config.get_repo_root", lambda: temp_git_repo)
 
     with pytest.raises(ValueError, match="Non-existing paths found in exclude field") as exc_info:
         Config.load()
@@ -54,69 +69,68 @@ exclude = [
 
 
 def test_config_validate_exclude_paths_mixed(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    temp_git_repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    existing_file = tmp_path / "existing_file.py"
+    existing_file = temp_git_repo / "existing_file.py"
     existing_file.touch()
 
-    pyproject = tmp_path / "pyproject.toml"
+    pyproject = temp_git_repo / "pyproject.toml"
     pyproject.write_text(f"""
 [tool.clint]
 exclude = [
-    "{existing_file}",
+    "{existing_file.name}",
     "non_existing_file.py"
 ]
 """)
 
-    # Mock get_repo_root to return the tmp_path for this test
-    monkeypatch.setattr("clint.config.get_repo_root", lambda: tmp_path)
+    # Mock get_repo_root to return the temp_git_repo
+    monkeypatch.setattr("clint.config.get_repo_root", lambda: temp_git_repo)
 
     with pytest.raises(ValueError, match="Non-existing paths found in exclude field") as exc_info:
         Config.load()
 
     error_msg = str(exc_info.value)
     assert "non_existing_file.py" in error_msg
-    assert str(existing_file) not in error_msg
+    # Check that only non_existing_file.py is in the error list, not existing_file.py
+    assert "['non_existing_file.py']" in error_msg
 
 
-def test_config_empty_exclude_list(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    pyproject = tmp_path / "pyproject.toml"
+def test_config_empty_exclude_list(temp_git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    pyproject = temp_git_repo / "pyproject.toml"
     pyproject.write_text("""
 [tool.clint]
 exclude = []
 """)
 
-    # Mock get_repo_root to return the tmp_path for this test
-    monkeypatch.setattr("clint.config.get_repo_root", lambda: tmp_path)
+    # Mock get_repo_root to return the temp_git_repo
+    monkeypatch.setattr("clint.config.get_repo_root", lambda: temp_git_repo)
 
     config = Config.load()
     assert config.exclude == []
 
 
-def test_config_no_exclude_field(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    pyproject = tmp_path / "pyproject.toml"
+def test_config_no_exclude_field(temp_git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    pyproject = temp_git_repo / "pyproject.toml"
     pyproject.write_text("""
 [tool.clint]
 select = ["do-not-disable"]
 """)
 
-    # Mock get_repo_root to return the tmp_path for this test
-    monkeypatch.setattr("clint.config.get_repo_root", lambda: tmp_path)
+    # Mock get_repo_root to return the temp_git_repo
+    monkeypatch.setattr("clint.config.get_repo_root", lambda: temp_git_repo)
 
     config = Config.load()
     assert config.exclude == []
 
 
-def test_config_loads_from_repo_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_config_loads_from_repo_root(temp_git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that config is loaded from repository root regardless of current working directory."""
-    # Create a mock repository structure
-    repo_root = tmp_path / "repo"
-    repo_root.mkdir()
-    subdir = repo_root / "subdir"
+    # Create a subdirectory within the git repo
+    subdir = temp_git_repo / "subdir"
     subdir.mkdir()
 
     # Create pyproject.toml in repo root
-    pyproject = repo_root / "pyproject.toml"
+    pyproject = temp_git_repo / "pyproject.toml"
     pyproject.write_text("""
 [tool.clint]
 select = ["do-not-disable"]
@@ -124,21 +138,16 @@ exclude = ["excluded_path"]
 """)
 
     # Create the excluded path so validation passes
-    excluded_path = repo_root / "excluded_path"
+    excluded_path = temp_git_repo / "excluded_path"
     excluded_path.mkdir()
 
-    # Mock get_repo_root to return the repo_root
-    monkeypatch.setattr("clint.config.get_repo_root", lambda: repo_root)
+    # Mock get_repo_root to return the temp_git_repo
+    monkeypatch.setattr("clint.config.get_repo_root", lambda: temp_git_repo)
 
     # Change to subdirectory - config should still be loaded from repo root
-    original_cwd = tmp_path.cwd()
-    try:
-        monkeypatch.chdir(subdir)
-        config = Config.load()
+    monkeypatch.chdir(subdir)
+    config = Config.load()
 
-        # Verify config was loaded correctly from repo root, not current directory
-        assert "excluded_path" in config.exclude
-        assert "do-not-disable" in config.select
-
-    finally:
-        monkeypatch.chdir(original_cwd)
+    # Verify config was loaded correctly from repo root, not current directory
+    assert "excluded_path" in config.exclude
+    assert "do-not-disable" in config.select
