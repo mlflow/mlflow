@@ -4,6 +4,7 @@ import inspect
 import random
 from dataclasses import asdict
 from pathlib import Path
+from typing import Any
 from unittest.mock import ANY
 
 import importlib_metadata
@@ -16,6 +17,7 @@ from llama_index.core.llms import ChatMessage, ChatResponse
 from llama_index.core.llms.callbacks import llm_chat_callback
 from llama_index.core.retrievers import VectorIndexRetriever
 from llama_index.core.tools import FunctionTool
+from llama_index.core.workflow import Context
 from llama_index.llms.openai import OpenAI
 from openai.types.chat import ChatCompletionMessageToolCall
 from packaging.version import Version
@@ -38,8 +40,7 @@ llama_oai_version = Version(importlib_metadata.version("llama-index-llms-openai"
 try:
     llama_workflows_version = Version(importlib_metadata.version("llama-index-workflows"))
 except importlib_metadata.PackageNotFoundError:
-    # Fallback for older installations where workflows might be part of core
-    llama_workflows_version = Version("1.0.0")  # Assume old API
+    llama_workflows_version = None
 
 
 @pytest.fixture(autouse=True)
@@ -628,32 +629,21 @@ def test_tracer_handle_tracking_uri_update(tmp_path):
         assert len(get_traces()) == 1
 
 
-# Helper functions for handling workflows API changes between versions
-async def context_set(ctx, key: str, value) -> None:
-    """
-    Set a value in the workflow context, handling API differences between versions.
-
-    In workflows < 2.0: await ctx.set(key, value)
-    In workflows >= 2.0: await ctx.store.set(key, value)
-
-    Reference: https://github.com/run-llama/workflows-py/pull/55
-    """
-    if llama_workflows_version.major >= 2:
+# set/get a value in the workflow context, handling API differences between versions.
+#
+# In workflows < 2.0: await ctx.set(key, value)
+# In workflows >= 2.0: await ctx.store.set(key, value)
+#
+# Reference: https://github.com/run-llama/workflows-py/pull/55
+async def context_set(ctx: Context, key: str, value: Any) -> None:
+    if llama_workflows_version and llama_workflows_version.major >= 2:
         await ctx.store.set(key, value)
     else:
         await ctx.set(key, value)
 
 
-async def context_get(ctx, key: str):
-    """
-    Get a value from the workflow context, handling API differences between versions.
-
-    In workflows < 2.0: await ctx.get(key)
-    In workflows >= 2.0: await ctx.store.get(key)
-
-    Reference: https://github.com/run-llama/workflows-py/pull/55
-    """
-    if llama_workflows_version.major >= 2:
+async def context_get(ctx: Context, key: str) -> Any:
+    if llama_workflows_version and llama_workflows_version.major >= 2:
         return await ctx.store.get(key)
     else:
         return await ctx.get(key)
