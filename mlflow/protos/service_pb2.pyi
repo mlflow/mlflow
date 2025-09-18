@@ -949,7 +949,7 @@ class SetTraceTagV3(_message.Message):
     def __init__(self, trace_id: _Optional[str] = ..., key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
 class SetTraceTagV4(_message.Message):
-    __slots__ = ("trace_id", "location", "key", "value", "sql_warehouse_id")
+    __slots__ = ("trace_id", "location", "key", "value")
     class Response(_message.Message):
         __slots__ = ()
         def __init__(self) -> None: ...
@@ -957,13 +957,11 @@ class SetTraceTagV4(_message.Message):
     LOCATION_FIELD_NUMBER: _ClassVar[int]
     KEY_FIELD_NUMBER: _ClassVar[int]
     VALUE_FIELD_NUMBER: _ClassVar[int]
-    SQL_WAREHOUSE_ID_FIELD_NUMBER: _ClassVar[int]
     trace_id: str
     location: str
     key: str
     value: str
-    sql_warehouse_id: str
-    def __init__(self, trace_id: _Optional[str] = ..., location: _Optional[str] = ..., key: _Optional[str] = ..., value: _Optional[str] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
+    def __init__(self, trace_id: _Optional[str] = ..., location: _Optional[str] = ..., key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
 class DeleteTraceTag(_message.Message):
     __slots__ = ("trace_id", "key")

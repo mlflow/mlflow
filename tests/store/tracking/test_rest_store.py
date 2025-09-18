@@ -997,22 +997,19 @@ def test_set_trace_tag():
         assert res is None
 
 
-def test_set_trace_tag_v4(monkeypatch):
+def test_set_trace_tag_v4():
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)
     response = mock.MagicMock()
     response.status_code = 200
     location = "catalog.schema"
     trace_id = "tr-1234"
-    sql_warehouse_id = "warehouse_456"
     request = SetTraceTagV4(
         key="k",
         value="v",
-        sql_warehouse_id=sql_warehouse_id,
     )
     response.text = "{}"
 
-    monkeypatch.setenv("MLFLOW_TRACING_SQL_WAREHOUSE_ID", sql_warehouse_id)
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
         res = store.set_trace_tag(
             trace_id=f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}",
@@ -1022,7 +1019,6 @@ def test_set_trace_tag_v4(monkeypatch):
         expected_json = {
             "key": request.key,
             "value": request.value,
-            "sql_warehouse_id": sql_warehouse_id,
         }
         mock_http.assert_called_once_with(
             host_creds=creds,

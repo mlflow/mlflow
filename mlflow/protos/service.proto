@@ -307,7 +307,7 @@ service MlflowService {
         since { major: 4, minor: 0 },
       }],
       visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Set Trace Tag V3",
+      rpc_doc_title: "Set Trace Tag V4",
     };
   }
 
@@ -346,7 +346,7 @@ service MlflowService {
         since { major: 4, minor: 0 },
       }],
       visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Delete Trace Tag V3",
+      rpc_doc_title: "Delete Trace Tag V4",
     };
   }
 
@@ -2400,9 +2400,6 @@ message SetTraceTagV4 {
   // String value of the tag being logged. Maximum size depends on storage backend.
   // All storage backends are guaranteed to support key values up to 250 bytes in size.
   optional string value = 4;
-
-  // Optional SQL warehouse ID for setting trace tag.
-  optional string sql_warehouse_id = 5;
 
   message Response {
   }
