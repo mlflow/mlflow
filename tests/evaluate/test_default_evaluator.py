@@ -6,7 +6,6 @@ import os
 import re
 from os.path import join as path_join
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from unittest import mock
 
 import numpy as np
@@ -1515,7 +1514,7 @@ def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_
 
 
 def test_custom_metric_logs_artifacts_from_paths(
-    binary_logistic_regressor_model_uri, breast_cancer_dataset
+    binary_logistic_regressor_model_uri, breast_cancer_dataset, tmp_path
 ):
     fig_x = 8.0
     fig_y = 5.0
@@ -1566,25 +1565,24 @@ def test_custom_metric_logs_artifacts_from_paths(
         custom_artifacts=[example_custom_artifact],
     )
 
-    with TemporaryDirectory() as tmp_dir:
-        for img_ext in img_formats:
-            assert f"test_{img_ext}_artifact" in result.artifacts
-            assert f"test_{img_ext}_artifact.{img_ext}" in artifacts
-            assert isinstance(result.artifacts[f"test_{img_ext}_artifact"], ImageEvaluationArtifact)
+    for img_ext in img_formats:
+        assert f"test_{img_ext}_artifact" in result.artifacts
+        assert f"test_{img_ext}_artifact.{img_ext}" in artifacts
+        assert isinstance(result.artifacts[f"test_{img_ext}_artifact"], ImageEvaluationArtifact)
 
-            fig = Figure(figsize=(fig_x, fig_y), dpi=fig_dpi)
-            ax = fig.subplots()
-            ax.plot([1, 2, 3])
-            fig.savefig(path_join(tmp_dir, f"test.{img_ext}"), format=img_ext)
+        fig = Figure(figsize=(fig_x, fig_y), dpi=fig_dpi)
+        ax = fig.subplots()
+        ax.plot([1, 2, 3])
+        fig.savefig(path_join(tmp_path, f"test.{img_ext}"), format=img_ext)
 
-            saved_img = Image.open(path_join(tmp_dir, f"test.{img_ext}"))
-            result_img = result.artifacts[f"test_{img_ext}_artifact"].content
+        saved_img = Image.open(path_join(tmp_path, f"test.{img_ext}"))
+        result_img = result.artifacts[f"test_{img_ext}_artifact"].content
 
-            for img in (saved_img, result_img):
-                img_ext_qualified = "jpeg" if img_ext == "jpg" else img_ext
-                assert img.format.lower() == img_ext_qualified
-                assert img.size == (fig_x * fig_dpi, fig_y * fig_dpi)
-                assert pytest.approx(img.info.get("dpi"), 0.001) == (fig_dpi, fig_dpi)
+        for img in (saved_img, result_img):
+            img_ext_qualified = "jpeg" if img_ext == "jpg" else img_ext
+            assert img.format.lower() == img_ext_qualified
+            assert img.size == (fig_x * fig_dpi, fig_y * fig_dpi)
+            assert pytest.approx(img.info.get("dpi"), 0.001) == (fig_dpi, fig_dpi)
 
     assert "test_json_artifact" in result.artifacts
     assert "test_json_artifact.json" in artifacts

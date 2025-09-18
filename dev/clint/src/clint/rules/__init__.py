@@ -25,9 +25,11 @@ from clint.rules.no_class_based_tests import NoClassBasedTests
 from clint.rules.no_docstring_in_tests import NoDocstringInTests
 from clint.rules.no_rst import NoRst
 from clint.rules.no_shebang import NoShebang
+from clint.rules.os_chdir_in_test import OsChdirInTest
 from clint.rules.os_environ_delete_in_test import OsEnvironDeleteInTest
 from clint.rules.os_environ_set_in_test import OsEnvironSetInTest
 from clint.rules.pytest_mark_repeat import PytestMarkRepeat
+from clint.rules.temp_dir_in_test import TempDirInTest
 from clint.rules.test_name_typo import TestNameTypo
 from clint.rules.thread_pool_executor_without_thread_name_prefix import (
     ThreadPoolExecutorWithoutThreadNamePrefix,
@@ -70,9 +72,11 @@ __all__ = [
     "NoDocstringInTests",
     "NoRst",
     "NoShebang",
+    "OsChdirInTest",
     "OsEnvironDeleteInTest",
     "OsEnvironSetInTest",
     "PytestMarkRepeat",
+    "TempDirInTest",
     "TestNameTypo",
     "ThreadPoolExecutorWithoutThreadNamePrefix",
     "TypingExtensions",
