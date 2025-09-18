@@ -1,11 +1,7 @@
-"""
-Utility functions for MLflow Insights.
-"""
-
 from typing import Any
 
 from mlflow.exceptions import MlflowException
-from mlflow.insights.models.base import EvidenceEntry, extract_trace_ids
+from mlflow.insights.models.base import EvidenceEntry
 
 
 def normalize_evidence(
@@ -69,7 +65,3 @@ def normalize_evidence(
             )
 
     return validated_entries
-
-
-# Re-export for backwards compatibility
-__all__ = ["normalize_evidence", "extract_trace_ids"]
