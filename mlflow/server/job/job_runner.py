@@ -13,6 +13,7 @@ from huey import SqliteHuey
 from huey.exceptions import RetryTask
 from huey.serializer import Serializer
 
+
 from mlflow.entities._job_status import JobStatus
 from mlflow.environment_variables import MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY
 from mlflow.server import HUEY_STORAGE_PATH_ENV_VAR
@@ -23,8 +24,8 @@ huey = None
 
 
 _TRANSIENT_ERRORS = (
-    requests.Timeout,
-    requests.ConnectionError,
+    'requests.exceptions.Timeout',
+    'requests.exceptions.ConnectionError',
 )
 
 
@@ -36,20 +37,27 @@ def _exponential_backoff_retry(retry_count: int) -> None:
 
 
 def _exec_job(job_id: str, function: Callable, params: dict[str, Any], timeout: int | None) -> None:
+    from mlflow.server.job.util import execute_function_with_timeout
+
     job_store = _get_job_store()
     job_store.start_job(job_id)
+
     try:
-        result = function(**params)
-        serialized_result = json.dumps(result)
-        job_store.finish_job(job_id, serialized_result)
-    except _TRANSIENT_ERRORS as e:
-        # For transient errors, if the retry count is less than max allowed count,
-        # trigger task retry by raising `RetryTask` exception.
-        retry_count = job_store.retry_or_fail_job(job_id, repr(e))
-        if retry_count is not None:
-            _exponential_backoff_retry(retry_count)
-    except Exception as e:
-        job_store.fail_job(job_id, repr(e))
+        job_result = execute_function_with_timeout(function, params, timeout)
+
+        if job_result.succeeded:
+            job_store.finish_job(job_id, job_result.result)
+        else:
+            if job_result.error_class in _TRANSIENT_ERRORS:
+                # For transient errors, if the retry count is less than max allowed count,
+                # trigger task retry by raising `RetryTask` exception.
+                retry_count = job_store.retry_or_fail_job(job_id, job_result.error)
+                if retry_count is not None:
+                    _exponential_backoff_retry(retry_count)
+            else:
+                job_store.fail_job(job_id, job_result.error)
+    except TimeoutError:
+        job_store.set_job_timeout(job_id)
 
 
 huey_task_exec_job = None

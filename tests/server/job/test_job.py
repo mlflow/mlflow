@@ -224,13 +224,19 @@ def test_submit_jobs_from_multi_processes(monkeypatch):
             assert query_job(job_ids[x]) == (JobStatus.DONE, x + 1)
 
 
+def func01(x, y, sleep):
+    time.sleep(sleep)
+
+    return {"x": x, "y": y + 1}
+
+
 def test_job_timeout(monkeypatch):
     with _setup_job_queue(1, monkeypatch):
-        job_id = submit_job(basic_job_fun, {"x": 3, "y": 4, "sleep_secs": 5}, timeout=2)
-        time.sleep(0.5)
+        job_id = submit_job(basic_job_fun, {"x": 3, "y": 4, "sleep_secs": 10}, timeout=5)
+        time.sleep(6)
         status, result = query_job(job_id)
-        assert status == JobStatus.DONE
-        assert result == 7
+        assert status == JobStatus.TIMEOUT
+        assert result is None
 
         store = _get_job_store()
         job = store.get_job(job_id)
@@ -238,8 +244,8 @@ def test_job_timeout(monkeypatch):
         # check database record correctness.
         assert job.job_id == job_id
         assert job.function_fullname == "test_job.basic_job_fun"
-        assert job.params == '{"x": 3, "y": 4}'
-        assert job.timeout is None
-        assert job.result == "7"
-        assert job.status == JobStatus.DONE
+        assert job.params == '{"x": 3, "y": 4, "sleep_secs": 10}'
+        assert job.timeout == 5
+        assert job.result is None
+        assert job.status == JobStatus.TIMEOUT
         assert job.retry_count == 0

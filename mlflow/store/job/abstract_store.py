@@ -61,6 +61,15 @@ class AbstractJobStore:
         """
 
     @abstractmethod
+    def set_job_timeout(self, job_id: str) -> None:
+        """
+        Set a job status to Timeout.
+
+        Args:
+            job_id: The ID of the job
+        """
+
+    @abstractmethod
     def fail_job(self, job_id: str, error: str) -> None:
         """
         Fail a job by setting its status to FAILED and setting the error message.

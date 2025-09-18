@@ -138,6 +138,22 @@ class SqlAlchemyJobStore(AbstractJobStore):
             job.status = JobStatus.FAILED.to_int()
             job.result = error
 
+    def set_job_timeout(self, job_id: str) -> None:
+        """
+        Set a job status to Timeout.
+
+        Args:
+            job_id: The ID of the job
+        """
+        with self.ManagedSessionMaker() as session:
+            job = session.query(SqlJob).filter(SqlJob.id == job_id).one_or_none()
+            if job is None:
+                raise MlflowException(
+                    f"Job with ID {job_id} not found", error_code=RESOURCE_DOES_NOT_EXIST
+                )
+
+            job.status = JobStatus.TIMEOUT.to_int()
+
     def retry_or_fail_job(self, job_id: str, error: str) -> int | None:
         """
         If the job retry_count is less than maximum allowed retry count,
