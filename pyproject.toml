@@ -407,7 +407,6 @@ extend-ignore-re = [
 
 [tool.pytest.ini_options]
 addopts = "-p no:legacypath --strict-markers --color=yes --durations=10 --showlocals -v"
-pythonpath = ["."]
 filterwarnings = [
   # Prevent deprecated numpy type aliases from being used
   "error:^`np\\.[a-z]+` is a deprecated alias for.+:DeprecationWarning:mlflow",
