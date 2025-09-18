@@ -3275,6 +3275,9 @@ def _generate_large_data(store, nb_runs=1000):
 def test_search_runs_returns_expected_results_with_large_experiment(
     store: SqlAlchemyStore,
 ):
+    # NB: This case tests the SQLAlchemyStore implementation of the SearchRuns API to ensure
+    # that search queries over an experiment containing many runs, each with a large number
+    # of metrics, parameters, and tags, are performant and return the expected results
     experiment_id, run_ids = _generate_large_data(store)
 
     run_results = store.search_runs([experiment_id], None, ViewType.ALL, max_results=100)

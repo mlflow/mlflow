@@ -4558,6 +4558,10 @@ def test_label_validation_and_classification_type(
 
 
 def test_multiclass_per_class_metrics_with_missing_class_failure():
+    # NB: Critical test demonstrating why labels=[0,1] is essential in per-class metrics.
+    # This test validates that the hardcoded labels=[0,1] in per-class metrics calculation
+    # prevents crashes when classes are missing from evaluation data.
+
     # Create multiclass data where class 'C' is completely missing from evaluation
     data = pd.DataFrame(
         {

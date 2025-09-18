@@ -222,6 +222,8 @@ def test_log_explanation_with_numpy_array(regressor):
 
 
 def test_log_explanation_with_small_features():
+    # NB: Verifies that `log_explanation` does not fail even when `features` has less records than
+    # `_MAXIMUM_BACKGROUND_DATA_SIZE`.
     num_rows = 50
     assert num_rows < mlflow.shap._MAXIMUM_BACKGROUND_DATA_SIZE
 

@@ -1736,6 +1736,20 @@ def test_enforce_schema_in_python_model_serving(sample_params_basic):
 
 
 def test_python_model_serving_compatible(tmp_path):
+    # NB: Code for logging the model in mlflow 2.4.0
+    # import mlflow
+    # from mlflow.models import infer_signature
+    #
+    # class MyModel(mlflow.pyfunc.PythonModel):
+    #     def predict(self, context, model_input):
+    #         return model_input
+    #
+    # with mlflow.start_run():
+    #     model_info = mlflow.pyfunc.log_model(
+    #                 python_model = MyModel(),
+    #                 artifact_path = "test_model",
+    #                 signature = infer_signature(["input"]),
+    #                 registered_model_name="model")
     tmp_path.joinpath("MLmodel").write_text(
         """
 artifact_path: test_model
@@ -1807,6 +1821,20 @@ cloudpickle==2.2.1
 
 
 def test_function_python_model_serving_compatible(tmp_path):
+    # NB: Code for logging the model in mlflow 2.4.0
+    # import mlflow
+    # from mlflow.models import infer_signature
+    #
+    # def my_model(model_input):
+    #     return model_input
+    #
+    # with mlflow.start_run():
+    #     model_info = mlflow.pyfunc.log_model(
+    #                 python_model = my_model,
+    #                 artifact_path = "test_model",
+    #                 signature = infer_signature(["input"]),
+    #                 registered_model_name="model",
+    #                 input_example=["input"])
     tmp_path.joinpath("MLmodel").write_text(
         """
 artifact_path: test_model

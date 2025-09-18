@@ -1567,6 +1567,9 @@ def test_update_current_trace_with_metadata():
 
 @skip_when_testing_trace_sdk
 def test_update_current_trace_should_not_raise_during_model_logging():
+    # NB: Tracing is disabled while model logging. When the model includes
+    # update_current_trace call, it should be no-op.
+
     class MyModel(mlflow.pyfunc.PythonModel):
         @mlflow.trace
         def predict(self, model_inputs):
@@ -1603,6 +1606,7 @@ def test_update_current_trace_should_not_raise_during_model_logging():
 
 
 def test_update_current_trace_with_state():
+    # NB: Test the state parameter in update_current_trace.
     from mlflow.tracing.trace_manager import InMemoryTraceManager
 
     # Test with TraceState enum

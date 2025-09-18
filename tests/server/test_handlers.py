@@ -341,6 +341,7 @@ def test_search_runs_default_view_type(mock_get_request_message, mock_tracking_s
 
 
 def test_search_runs_empty_page_token(mock_get_request_message, mock_tracking_store):
+    # NB: Test that empty page_token from protobuf is converted to None before calling store
     # Create proto without setting page_token
     search_runs_proto = SearchRuns()
     search_runs_proto.experiment_ids.append("0")
@@ -384,6 +385,7 @@ def test_catch_mlflow_exception():
 
 
 def test_mlflow_server_with_installed_plugin(tmp_path, monkeypatch):
+    # NB: This test requires the package in tests/resources/mlflow-test-plugin to be installed
     from mlflow_test_plugin.file_store import PluginFileStore
 
     monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, f"file-plugin:{tmp_path}")
@@ -1730,6 +1732,7 @@ def test_databricks_model_registry_store_registration():
 
 
 def test_search_experiments_empty_page_token(mock_get_request_message, mock_tracking_store):
+    # NB: Test that _search_experiments converts empty page_token to None.
     # Create proto without setting page_token - it defaults to empty string
     search_experiments_proto = SearchExperiments()
     search_experiments_proto.max_results = 10
@@ -1752,6 +1755,7 @@ def test_search_experiments_empty_page_token(mock_get_request_message, mock_trac
 def test_search_registered_models_empty_page_token(
     mock_get_request_message, mock_model_registry_store
 ):
+    # NB: Test that _search_registered_models converts empty page_token to None.
     # Create proto without setting page_token - it defaults to empty string
     search_registered_models_proto = SearchRegisteredModels()
     search_registered_models_proto.max_results = 10
@@ -1774,6 +1778,7 @@ def test_search_registered_models_empty_page_token(
 def test_search_model_versions_empty_page_token(
     mock_get_request_message, mock_model_registry_store
 ):
+    # NB: Test that _search_model_versions converts empty page_token to None.
     # Create proto without setting page_token - it defaults to empty string
     search_model_versions_proto = SearchModelVersions()
     search_model_versions_proto.max_results = 10

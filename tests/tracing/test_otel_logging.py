@@ -44,6 +44,9 @@ def mlflow_server(tmp_path):
 
 
 def test_otel_client_sends_spans_to_mlflow_database(mlflow_server: str, monkeypatch):
+    # NB: Test end-to-end: OpenTelemetry client sends spans via experiment ID header to MLflow.
+    # Note: This test verifies that spans are successfully accepted by the server.
+    # Without artifact upload, traces won't be retrievable via search_traces.
     # Enable synchronous trace logging to ensure traces are immediately available
     monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING", "false")
 
@@ -123,6 +126,7 @@ def test_otel_client_sends_spans_to_mlflow_database(mlflow_server: str, monkeypa
 
 
 def test_otel_endpoint_requires_experiment_id_header(mlflow_server: str):
+    # NB: Test that the OTel endpoint requires experiment ID header.
     # Create protobuf request
     span = OTelProtoSpan()
     span.trace_id = bytes.fromhex("0000000000000002" + "0" * 16)

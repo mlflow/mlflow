@@ -1900,6 +1900,7 @@ def test_unicode_tag(store):
 
 
 def test_get_deleted_run(store):
+    # NB: Tests that we cannot get a deleted run.
     experiments, exp_data, _ = _create_root(store)
     exp_id = experiments[random_int(0, len(experiments) - 1)]
     run_id = exp_data[exp_id]["runs"][0]
@@ -1908,6 +1909,7 @@ def test_get_deleted_run(store):
 
 
 def test_set_deleted_run(store):
+    # NB: Tests that we cannot update a deleted run.
     experiments, exp_data, _ = _create_root(store)
     exp_id = experiments[random_int(0, len(experiments) - 1)]
     run_id = exp_data[exp_id]["runs"][0]
@@ -2739,6 +2741,12 @@ def test_log_input_multiple_times_does_not_overwrite_tags_or_dataset(store):
 
 
 def test_log_inputs_uses_expected_input_and_dataset_ids_for_storage(store):
+    # NB: Validates that inputs are stored using their specific input IDs and dataset IDs.
+    # Since dataset ID can be none, the test covers storage behavior for three scenarios:
+    # - specific input_id with specific dataset_id
+    # - specific input_id without dataset (None dataset_id)
+    # - auto-generated IDs when neither is specified
+    # This ensures backward compatibility and proper storage structure.
     exp_id = store.create_experiment("dataset_expected_ids")
 
     run1 = store.create_run(

@@ -502,6 +502,13 @@ def test_invoke_judge_model_caches_capabilities_globally():
 
 
 def test_unsupported_response_format_handling_supports_multiple_threads():
+    # NB: When an LLM is invoked with structured outputs and returns a BadRequestsError,
+    # we cache the lack of support for structured outputs ("response_format") in a
+    # "model capability cache" to avoid retrying with structured outputs again.
+    #
+    # This test simulates a race condition where another thread modifies the
+    # model capability cache between the initial check and the exception handler,
+    # ensuring that we still retry correctly without response_format.
     model_key = "openai/gpt-4-race-bug"
     _MODEL_RESPONSE_FORMAT_CAPABILITIES.clear()
 
@@ -554,6 +561,7 @@ def test_unsupported_response_format_handling_supports_multiple_threads():
 
 
 def test_litellm_nonfatal_error_messages_suppressed():
+    # NB: Test that LiteLLM nonfatal error messages are suppressed during judge execution.
     suppression_state_during_call = {}
 
     def mock_completion(**kwargs):

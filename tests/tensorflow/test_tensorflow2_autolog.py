@@ -680,6 +680,11 @@ def test_tf_keras_autolog_records_metrics_for_last_epoch(random_train_data, rand
 def test_tf_keras_autolog_logs_metrics_for_single_epoch_training(
     random_train_data, random_one_hot_labels
 ):
+    # NB: tf.Keras exhibits inconsistent epoch indexing behavior in comparison with other
+    # TF2 APIs (e.g., tf.Estimator). tf.Keras uses zero-indexing for epochs,
+    # while other APIs use one-indexing. Accordingly, this test verifies that metrics are
+    # produced in the boundary case where a model is trained for a single epoch, ensuring
+    # that we don't miss the zero index in the tf.Keras case.
     mlflow.tensorflow.autolog()
 
     model = create_tf_keras_model()
@@ -910,6 +915,10 @@ def test_tf_keras_autolog_non_early_stop_callback_no_log(tf_keras_random_data_ru
 def test_tf_keras_autolog_does_not_mutate_original_callbacks_list(
     tmp_path, random_train_data, random_one_hot_labels, positional
 ):
+    # NB: TensorFlow autologging passes new callbacks to the fit() / fit_generator() function. If
+    # preexisting user-defined callbacks already exist, these new callbacks are added to the
+    # user-specified ones. This test verifies that the new callbacks are added without
+    # permanently mutating the original list of callbacks.
     mlflow.tensorflow.autolog()
 
     tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=tmp_path)
@@ -1014,6 +1023,7 @@ def get_text_vec_model(train_samples):
     ),
 )
 def test_autolog_text_vec_model(tmp_path):
+    # NB: Verifies autolog successfully saves a model that can't be saved in the H5 format
     mlflow.tensorflow.autolog()
 
     train_samples = tf.convert_to_tensor(["this is an example", "another example"])
@@ -1041,6 +1051,9 @@ def test_tf_keras_model_autolog_registering_model(random_train_data, random_one_
 def test_fluent_autolog_with_tf_keras_logs_expected_content(
     random_train_data, random_one_hot_labels
 ):
+    # NB: Guards against previously-exhibited issues where using the fluent mlflow.autolog() API
+    # with tf.keras Models did not work due to conflicting patches set by both the
+    # mlflow.tensorflow.autolog() and the mlflow.keras.autolog() APIs.
     mlflow.autolog()
 
     model = create_tf_keras_model()

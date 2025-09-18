@@ -15,6 +15,7 @@ def mock_exec_cmd():
 
 
 def test_find_app_custom_app_plugin():
+    # NB: This test requires the package in tests/resources/mlflow-test-plugin to be installed
     assert server._find_app("custom_app") == "mlflow_test_plugin.app:custom_app"
 
 

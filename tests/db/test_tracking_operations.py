@@ -35,6 +35,9 @@ def test_search_runs():
 
 
 def test_set_run_status_to_killed():
+    # NB: This test ensures the following migration scripts work correctly:
+    # - cfd24bdc0731_update_run_status_constraint_with_killed.py
+    # - 0a8213491aaa_drop_duplicate_killed_constraint.py
     with mlflow.start_run() as run:
         pass
     client = MlflowClient()

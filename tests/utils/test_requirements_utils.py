@@ -81,6 +81,8 @@ def test_join_continued_lines():
 
 
 def test_parse_requirements(tmp_path, monkeypatch):
+    # NB: Ensures `_parse_requirements` returns the same result as
+    # `pip._internal.req.parse_requirements`
     from pip._internal.network.session import PipSession  # noqa: TID251
     from pip._internal.req import (  # noqa: TID251
         parse_requirements as pip_parse_requirements,

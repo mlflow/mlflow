@@ -616,6 +616,10 @@ def test_model_save_without_cloudpickle_format_does_not_add_cloudpickle_to_conda
 def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(
     sklearn_knn_model, model_path
 ):
+    # NB: This test verifies that scikit-learn models saved in older versions of MLflow are
+    # loaded successfully by mlflow.pyfunc.load_model. These older models specify a pyfunc
+    # "data" field referring directly to a serialized scikit-learn model file. In contrast,
+    # newer models omit the "data" field.
     mlflow.sklearn.save_model(
         sk_model=sklearn_knn_model.model,
         path=model_path,

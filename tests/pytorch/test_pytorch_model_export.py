@@ -741,6 +741,10 @@ def test_load_model_loads_torch_model_using_pickle_module_specified_at_save_time
 def test_load_pyfunc_succeeds_when_data_is_model_file_instead_of_directory(
     module_scoped_subclassed_model, model_path, data
 ):
+    # NB: This test verifies that PyTorch models saved in older versions of MLflow are loaded
+    # successfully by mlflow.pytorch.load_model. The "data" path associated with these older
+    # models is a serialized PyTorch model file, as opposed to the current format: a directory
+    # containing a serialized model file and pickle module information.
     mlflow.pytorch.save_model(path=model_path, pytorch_model=module_scoped_subclassed_model)
 
     model_conf_path = os.path.join(model_path, "MLmodel")
@@ -767,6 +771,10 @@ def test_load_pyfunc_succeeds_when_data_is_model_file_instead_of_directory(
 def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
     module_scoped_subclassed_model, model_path, data
 ):
+    # NB: This test verifies that PyTorch models saved in older versions of MLflow are loaded
+    # successfully by mlflow.pytorch.load_model. The "data" path associated with these older
+    # models is a serialized PyTorch model file, as opposed to the current format: a directory
+    # containing a serialized model file and pickle module information.
     artifact_path = "pytorch_model"
     with mlflow.start_run():
         model_info = mlflow.pytorch.log_model(module_scoped_subclassed_model, name=artifact_path)
@@ -1026,6 +1034,10 @@ def test_save_state_dict(sequential_model, model_path, data):
 
 
 def test_save_state_dict_can_save_nested_state_dict(model_path):
+    # NB: This test ensures that save_state_dict supports a use case described in the page below
+    # where a user bundles multiple objects (e.g., model, optimizer, learning-rate scheduler)
+    # into a single nested state_dict and loads it back later for inference or re-training:
+    # https://pytorch.org/tutorials/recipes/recipes/saving_and_loading_a_general_checkpoint.html
     model = get_sequential_model()
     optim = torch.optim.Adam(model.parameters())
     state_dict = {"model": model.state_dict(), "optim": optim.state_dict()}
