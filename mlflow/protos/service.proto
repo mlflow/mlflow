@@ -897,6 +897,58 @@ service MlflowService {
     };
   }
 
+  // Create an assessment associated with a trace.
+  rpc createAssessmentV4 (CreateAssessmentV4) returns (CreateAssessmentV4.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/traces/{location}/{trace_id}/assessment"
+        since {major: 4, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Create Assessment V4",
+    };
+  }
+
+  // Get an assessment.
+  rpc getAssessmentV4 (GetAssessmentV4) returns (GetAssessmentV4.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/traces/{location}/{trace_id}/assessment/{assessment_id}"
+        since {major: 4, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Get Assessment V4",
+    };
+  }
+
+  // Update an assessment.
+  rpc updateAssessmentV4 (UpdateAssessmentV4) returns (UpdateAssessmentV4.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "PATCH",
+        path: "/mlflow/traces/{location}/{trace_id}/assessment/{assessment_id}"
+        since {major: 4, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Update Assessment V4",
+    };
+  }
+
+  // Delete an assessment.
+  rpc deleteAssessmentV4 (DeleteAssessmentV4) returns (DeleteAssessmentV4.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/traces/{location}/{trace_id}/assessment/{assessment_id}"
+        since {major: 4, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Delete Assessment V4",
+    };
+  }
+
   // Evaluation Dataset RPCs
 
   // Create an evaluation dataset
@@ -2015,6 +2067,85 @@ message GetAssessmentRequest {
     // The requested assessment.
     optional assessments.Assessment assessment = 1;
   }
+}
+
+// ========== Assessment V4 Messages ==========
+
+// Create an assessment.
+message CreateAssessmentV4 {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Location identifier (experiment_id or catalog.schema).
+  optional string location = 1 [(validate_required) = true];
+  // The ID of the trace.
+  optional string trace_id = 2 [(validate_required) = true];
+  // The assessment to create.
+  optional assessments.Assessment assessment = 3 [(validate_required) = true];
+  // Optional SQL warehouse ID.
+  optional string sql_warehouse_id = 4;
+
+  message Response {
+    // The created assessment.
+    optional assessments.Assessment assessment = 1;
+  }
+}
+
+// Get an assessment.
+message GetAssessmentV4 {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Location identifier (experiment_id or catalog.schema).
+  optional string location = 1 [(validate_required) = true];
+  // The ID of the trace.
+  optional string trace_id = 2 [(validate_required) = true];
+  // The ID of the assessment.
+  optional string assessment_id = 3 [(validate_required) = true];
+  // Optional SQL warehouse ID.
+  optional string sql_warehouse_id = 4;
+
+  message Response {
+    // The requested assessment.
+    optional assessments.Assessment assessment = 1;
+  }
+}
+
+// Update an assessment.
+message UpdateAssessmentV4 {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Location identifier (experiment_id or catalog.schema).
+  optional string location = 1 [(validate_required) = true];
+  // The ID of the trace.
+  optional string trace_id = 2 [(validate_required) = true];
+  // The ID of the assessment.
+  optional string assessment_id = 3 [(validate_required) = true];
+  // The assessment containing the fields which should be updated.
+  optional assessments.Assessment assessment = 4 [(validate_required) = true];
+  // The list of the assessment fields to update.
+  optional google.protobuf.FieldMask update_mask = 5 [(validate_required) = true];
+  // Optional SQL warehouse ID.
+  optional string sql_warehouse_id = 6;
+
+  message Response {
+    // The assessment after the update.
+    optional assessments.Assessment assessment = 1;
+  }
+}
+
+// Delete an assessment.
+message DeleteAssessmentV4{
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Location identifier (experiment_id or catalog.schema).
+  optional string location = 1 [(validate_required) = true];
+  // The ID of the trace.
+  optional string trace_id = 2 [(validate_required) = true];
+  // The ID of the assessment.
+  optional string assessment_id = 3 [(validate_required) = true];
+  // Optional SQL warehouse ID.
+  optional string sql_warehouse_id = 4;
+
+  message Response {}
 }
 
 

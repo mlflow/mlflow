@@ -691,6 +691,76 @@ class GetAssessmentRequest(_message.Message):
     assessment_id: str
     def __init__(self, trace_id: _Optional[str] = ..., assessment_id: _Optional[str] = ...) -> None: ...
 
+class CreateAssessmentV4(_message.Message):
+    __slots__ = ("location", "trace_id", "assessment", "sql_warehouse_id")
+    class Response(_message.Message):
+        __slots__ = ("assessment",)
+        ASSESSMENT_FIELD_NUMBER: _ClassVar[int]
+        assessment: _assessments_pb2.Assessment
+        def __init__(self, assessment: _Optional[_Union[_assessments_pb2.Assessment, _Mapping]] = ...) -> None: ...
+    LOCATION_FIELD_NUMBER: _ClassVar[int]
+    TRACE_ID_FIELD_NUMBER: _ClassVar[int]
+    ASSESSMENT_FIELD_NUMBER: _ClassVar[int]
+    SQL_WAREHOUSE_ID_FIELD_NUMBER: _ClassVar[int]
+    location: str
+    trace_id: str
+    assessment: _assessments_pb2.Assessment
+    sql_warehouse_id: str
+    def __init__(self, location: _Optional[str] = ..., trace_id: _Optional[str] = ..., assessment: _Optional[_Union[_assessments_pb2.Assessment, _Mapping]] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
+
+class GetAssessmentV4(_message.Message):
+    __slots__ = ("location", "trace_id", "assessment_id", "sql_warehouse_id")
+    class Response(_message.Message):
+        __slots__ = ("assessment",)
+        ASSESSMENT_FIELD_NUMBER: _ClassVar[int]
+        assessment: _assessments_pb2.Assessment
+        def __init__(self, assessment: _Optional[_Union[_assessments_pb2.Assessment, _Mapping]] = ...) -> None: ...
+    LOCATION_FIELD_NUMBER: _ClassVar[int]
+    TRACE_ID_FIELD_NUMBER: _ClassVar[int]
+    ASSESSMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    SQL_WAREHOUSE_ID_FIELD_NUMBER: _ClassVar[int]
+    location: str
+    trace_id: str
+    assessment_id: str
+    sql_warehouse_id: str
+    def __init__(self, location: _Optional[str] = ..., trace_id: _Optional[str] = ..., assessment_id: _Optional[str] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
+
+class UpdateAssessmentV4(_message.Message):
+    __slots__ = ("location", "trace_id", "assessment_id", "assessment", "update_mask", "sql_warehouse_id")
+    class Response(_message.Message):
+        __slots__ = ("assessment",)
+        ASSESSMENT_FIELD_NUMBER: _ClassVar[int]
+        assessment: _assessments_pb2.Assessment
+        def __init__(self, assessment: _Optional[_Union[_assessments_pb2.Assessment, _Mapping]] = ...) -> None: ...
+    LOCATION_FIELD_NUMBER: _ClassVar[int]
+    TRACE_ID_FIELD_NUMBER: _ClassVar[int]
+    ASSESSMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    ASSESSMENT_FIELD_NUMBER: _ClassVar[int]
+    UPDATE_MASK_FIELD_NUMBER: _ClassVar[int]
+    SQL_WAREHOUSE_ID_FIELD_NUMBER: _ClassVar[int]
+    location: str
+    trace_id: str
+    assessment_id: str
+    assessment: _assessments_pb2.Assessment
+    update_mask: _field_mask_pb2.FieldMask
+    sql_warehouse_id: str
+    def __init__(self, location: _Optional[str] = ..., trace_id: _Optional[str] = ..., assessment_id: _Optional[str] = ..., assessment: _Optional[_Union[_assessments_pb2.Assessment, _Mapping]] = ..., update_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
+
+class DeleteAssessmentV4(_message.Message):
+    __slots__ = ("location", "trace_id", "assessment_id", "sql_warehouse_id")
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    LOCATION_FIELD_NUMBER: _ClassVar[int]
+    TRACE_ID_FIELD_NUMBER: _ClassVar[int]
+    ASSESSMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    SQL_WAREHOUSE_ID_FIELD_NUMBER: _ClassVar[int]
+    location: str
+    trace_id: str
+    assessment_id: str
+    sql_warehouse_id: str
+    def __init__(self, location: _Optional[str] = ..., trace_id: _Optional[str] = ..., assessment_id: _Optional[str] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
+
 class TraceInfo(_message.Message):
     __slots__ = ("request_id", "experiment_id", "timestamp_ms", "execution_time_ms", "status", "request_metadata", "tags")
     REQUEST_ID_FIELD_NUMBER: _ClassVar[int]

@@ -28,7 +28,7 @@ from mlflow.entities import (
 # Constants for Databricks API disabled decorator
 _DATABRICKS_DATASET_API_NAME = "Evaluation dataset APIs"
 _DATABRICKS_DATASET_ALTERNATIVE = "Use the databricks-agents library for dataset operations."
-from mlflow.entities.assessment import Assessment, Expectation, Feedback
+from mlflow.entities.assessment import Assessment, ExpectationValue, FeedbackValue
 from mlflow.entities.span import Span
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
@@ -48,11 +48,13 @@ from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
     CalculateTraceFilterCorrelation,
     CreateAssessment,
+    CreateAssessmentV4,
     CreateDataset,
     CreateExperiment,
     CreateLoggedModel,
     CreateRun,
     DeleteAssessment,
+    DeleteAssessmentV4,
     DeleteDataset,
     DeleteDatasetTag,
     DeleteExperiment,
@@ -67,6 +69,7 @@ from mlflow.protos.service_pb2 import (
     EndTrace,
     FinalizeLoggedModel,
     GetAssessmentRequest,
+    GetAssessmentV4,
     GetDataset,
     GetDatasetExperimentIds,
     GetDatasetRecords,
@@ -112,6 +115,7 @@ from mlflow.protos.service_pb2 import (
     TraceRequestMetadata,
     TraceTag,
     UpdateAssessment,
+    UpdateAssessmentV4,
     UpdateExperiment,
     UpdateRun,
     UpsertDatasetRecords,
@@ -132,6 +136,7 @@ from mlflow.utils.rest_utils import (
     extract_api_info_for_service,
     get_logged_model_endpoint,
     get_single_assessment_endpoint,
+    get_single_assessment_endpoint_v4,
     get_single_trace_endpoint,
     get_single_trace_endpoint_v4,
     get_trace_tag_endpoint,
@@ -619,6 +624,22 @@ class RestStore(AbstractStore):
         """
         Get an assessment entity from the backend store.
         """
+
+        location, trace_id = parse_trace_id_v4(trace_id)
+        if location is not None:
+            req_body = message_to_json(
+                GetAssessmentV4(
+                    sql_warehouse_id=MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+                )
+            )
+            endpoint = get_single_assessment_endpoint_v4(location, trace_id, assessment_id)
+            response_proto = self._call_endpoint(
+                GetAssessmentV4,
+                req_body,
+                endpoint=endpoint,
+            )
+            return Assessment.from_proto(response_proto.assessment)
+
         req_body = message_to_json(
             GetAssessmentRequest(trace_id=trace_id, assessment_id=assessment_id)
         )
@@ -639,6 +660,23 @@ class RestStore(AbstractStore):
         Returns:
             The created Assessment object.
         """
+        sql_warehouse_id = MLFLOW_TRACING_SQL_WAREHOUSE_ID.get()
+        location, trace_id = parse_trace_id_v4(assessment.trace_id)
+        if location is not None:
+            req_body = message_to_json(
+                CreateAssessmentV4(
+                    assessment=assessment.to_proto(),
+                    sql_warehouse_id=sql_warehouse_id,
+                )
+            )
+            endpoint = f"{get_single_trace_endpoint_v4(location, trace_id)}/assessment"
+            response_proto = self._call_endpoint(
+                CreateAssessmentV4,
+                req_body,
+                endpoint=endpoint,
+            )
+            return Assessment.from_proto(response_proto.assessment)
+
         req_body = message_to_json(CreateAssessment(assessment=assessment.to_proto()))
         response_proto = self._call_endpoint(
             CreateAssessment,
@@ -652,8 +690,8 @@ class RestStore(AbstractStore):
         trace_id: str,
         assessment_id: str,
         name: str | None = None,
-        expectation: Expectation | None = None,
-        feedback: Feedback | None = None,
+        expectation: ExpectationValue | None = None,
+        feedback: FeedbackValue | None = None,
         rationale: str | None = None,
         metadata: dict[str, str] | None = None,
     ) -> Assessment:
@@ -674,7 +712,15 @@ class RestStore(AbstractStore):
                 "Exactly one of `expectation` or `feedback` should be specified."
             )
 
-        update = UpdateAssessment()
+        location, parsed_trace_id = parse_trace_id_v4(trace_id)
+        if location is not None:
+            update = UpdateAssessmentV4(
+                sql_warehouse_id=MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+            )
+            endpoint = get_single_assessment_endpoint_v4(location, parsed_trace_id, assessment_id)
+        else:
+            update = UpdateAssessment()
+            endpoint = get_single_assessment_endpoint(trace_id, assessment_id)
 
         # The assessment object to be sent to the backend (only contains fields to update and IDs)
         assessment = update.assessment
@@ -704,7 +750,7 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(
             UpdateAssessment,
             req_body,
-            endpoint=get_single_assessment_endpoint(trace_id, assessment_id),
+            endpoint=endpoint,
         )
         return Assessment.from_proto(response_proto.assessment)
 
@@ -716,12 +762,28 @@ class RestStore(AbstractStore):
             trace_id: String ID of the trace.
             assessment_id: String ID of the assessment to delete.
         """
-        req_body = message_to_json(DeleteAssessment(trace_id=trace_id, assessment_id=assessment_id))
-        self._call_endpoint(
-            DeleteAssessment,
-            req_body,
-            endpoint=get_single_assessment_endpoint(trace_id, assessment_id),
-        )
+        location, trace_id = parse_trace_id_v4(trace_id)
+        if location is not None:
+            req_body = message_to_json(
+                DeleteAssessmentV4(
+                    sql_warehouse_id=MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+                )
+            )
+            endpoint = get_single_assessment_endpoint_v4(location, trace_id, assessment_id)
+            self._call_endpoint(
+                DeleteAssessmentV4,
+                req_body,
+                endpoint=endpoint,
+            )
+        else:
+            req_body = message_to_json(
+                DeleteAssessment(trace_id=trace_id, assessment_id=assessment_id)
+            )
+            self._call_endpoint(
+                DeleteAssessment,
+                req_body,
+                endpoint=get_single_assessment_endpoint(trace_id, assessment_id),
+            )
 
     def log_metric(self, run_id: str, metric: Metric):
         """
