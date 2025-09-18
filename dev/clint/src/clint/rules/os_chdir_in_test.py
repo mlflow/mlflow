@@ -13,5 +13,4 @@ class OsChdirInTest(Rule):
         """
         Returns True if the call is to os.chdir().
         """
-        resolved = resolver.resolve(node)
-        return resolved == ["os", "chdir"]
+        return resolver.resolve(node) == ["os", "chdir"]
