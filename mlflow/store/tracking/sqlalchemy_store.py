@@ -2575,13 +2575,14 @@ class SqlAlchemyStore(AbstractStore):
 
     def search_traces(
         self,
-        experiment_ids: list[str],
+        experiment_ids: list[str] | None = None,
         filter_string: str | None = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: list[str] | None = None,
         page_token: str | None = None,
         model_id: str | None = None,
         sql_warehouse_id: str | None = None,
+        uc_schemas: list[str] | None = None,
     ) -> tuple[list[TraceInfo], str | None]:
         """
         Return traces that match the given list of search expressions within the experiments.
@@ -2596,11 +2597,17 @@ class SqlAlchemyStore(AbstractStore):
             model_id: If specified, search traces associated with the given model ID.
             sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
                 searching traces in inference tables.
+            uc_schemas: Only used in Databricks. A list of UC schemas `<catalog_name>.<schema_name>`
+                to search over.
 
         Returns:
             A tuple of a list of :py:class:`TraceInfo <mlflow.entities.TraceInfo>` objects that
             satisfy the search expressions and a pagination token for the next page of results.
         """
+        if uc_schemas:
+            raise MlflowException.invalid_parameter_value(
+                "Searching traces by UC schema is not supported in SQLAlchemyStore",
+            )
         self._validate_max_results_param(max_results)
 
         with self.ManagedSessionMaker() as session:

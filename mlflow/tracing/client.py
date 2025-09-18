@@ -164,13 +164,14 @@ class TracingClient:
 
     def _search_traces(
         self,
-        experiment_ids: list[str],
+        experiment_ids: list[str] | None = None,
         filter_string: str | None = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: list[str] | None = None,
         page_token: str | None = None,
         model_id: str | None = None,
         sql_warehouse_id: str | None = None,
+        uc_schemas: list[str] | None = None,
     ):
         return self.store.search_traces(
             experiment_ids=experiment_ids,
@@ -180,11 +181,12 @@ class TracingClient:
             page_token=page_token,
             model_id=model_id,
             sql_warehouse_id=sql_warehouse_id,
+            uc_schemas=uc_schemas,
         )
 
     def search_traces(
         self,
-        experiment_ids: list[str],
+        experiment_ids: list[str] | None = None,
         filter_string: str | None = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: list[str] | None = None,
@@ -193,6 +195,7 @@ class TracingClient:
         include_spans: bool = True,
         model_id: str | None = None,
         sql_warehouse_id: str | None = None,
+        uc_schemas: list[str] | None = None,
     ) -> PagedList[Trace]:
         """
         Return traces that match the given list of search expressions within the experiments.
@@ -213,7 +216,8 @@ class TracingClient:
             model_id: If specified, return traces associated with the model ID.
             sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
                 searching traces in inference tables.
-
+            uc_schemas: Only used in Databricks. A list of UC schemas `<catalog_name>.<schema_name>`
+                to search over.
 
         Returns:
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
@@ -324,9 +328,11 @@ class TracingClient:
                     page_token=next_token,
                     model_id=model_id,
                     sql_warehouse_id=sql_warehouse_id,
+                    uc_schemas=uc_schemas,
                 )
 
                 if include_spans:
+                    # TODO: use get_traces if possible
                     traces.extend(
                         t for t in executor.map(download_trace_extra_fields, trace_infos) if t
                     )

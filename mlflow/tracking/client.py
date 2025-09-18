@@ -1122,7 +1122,7 @@ class MlflowClient:
 
     def search_traces(
         self,
-        experiment_ids: list[str],
+        experiment_ids: list[str] | None = None,
         filter_string: str | None = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: list[str] | None = None,
@@ -1131,6 +1131,7 @@ class MlflowClient:
         include_spans: bool = True,
         model_id: str | None = None,
         sql_warehouse_id: str | None = None,
+        uc_schemas: list[str] | None = None,
     ) -> PagedList[Trace]:
         """
         Return traces that match the given list of search expressions within the experiments.
@@ -1151,7 +1152,7 @@ class MlflowClient:
             model_id: If specified, return traces associated with the model ID.
             sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
                 searching traces in inference tables.
-
+            uc_schemas: Only used in Unity Catalog. The list of UC schemas to search traces in.
 
         Returns:
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
@@ -1171,6 +1172,7 @@ class MlflowClient:
             include_spans=include_spans,
             model_id=model_id,
             sql_warehouse_id=sql_warehouse_id,
+            uc_schemas=uc_schemas,
         )
 
     def start_trace(

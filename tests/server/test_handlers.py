@@ -52,6 +52,7 @@ from mlflow.protos.service_pb2 import (
     SearchRuns,
     SearchTraces,
     SearchTracesV3,
+    SearchTracesV4,
     TraceLocation,
 )
 from mlflow.protos.webhooks_pb2 import ListWebhooks
@@ -105,6 +106,7 @@ from mlflow.server.handlers import (
     _search_registered_models,
     _search_runs,
     _search_traces_v3,
+    _search_traces_v4,
     _set_dataset_tags_handler,
     _set_model_version_tag,
     _set_registered_model_alias,
@@ -1859,6 +1861,80 @@ def test_deprecated_search_traces_v2_empty_page_token(
     call_kwargs = mock_tracking_store.search_traces.call_args.kwargs
     assert call_kwargs.get("page_token") is None
     assert call_kwargs.get("max_results") == 10
+
+
+def test_search_traces_v4_empty_page_token(mock_get_request_message, mock_tracking_store):
+    search_traces_proto = SearchTracesV4()
+    location = TraceLocation()
+    location.type = TraceLocation.TraceLocationType.MLFLOW_EXPERIMENT
+    location.mlflow_experiment.experiment_id = "123"
+    search_traces_proto.locations.append(location)
+    search_traces_proto.max_results = 10
+
+    # Protobuf defaults to empty string for page_token
+    assert search_traces_proto.page_token == ""
+
+    mock_get_request_message.return_value = search_traces_proto
+    mock_tracking_store.search_traces.return_value = ([], None)
+
+    _search_traces_v4()
+
+    # Verify that search_traces was called with page_token=None (not empty string)
+    mock_tracking_store.search_traces.assert_called_once()
+    call_kwargs = mock_tracking_store.search_traces.call_args.kwargs
+    assert call_kwargs.get("page_token") is None
+    assert call_kwargs.get("max_results") == 10
+
+
+def test_search_traces_v4_with_uc_schemas(mock_get_request_message, mock_tracking_store):
+    search_traces_proto = SearchTracesV4()
+
+    # Add UC schema location
+    location = TraceLocation()
+    location.type = TraceLocation.TraceLocationType.UC_SCHEMA
+    location.uc_schema.catalog_name = "test_catalog"
+    location.uc_schema.schema_name = "test_schema"
+    search_traces_proto.locations.append(location)
+
+    search_traces_proto.filter = "state = 'OK'"
+    search_traces_proto.max_results = 50
+
+    mock_get_request_message.return_value = search_traces_proto
+    mock_tracking_store.search_traces.return_value = ([], None)
+
+    _search_traces_v4()
+
+    # Verify that search_traces was called with uc_schemas
+    mock_tracking_store.search_traces.assert_called_once()
+    call_kwargs = mock_tracking_store.search_traces.call_args.kwargs
+    assert call_kwargs.get("uc_schemas") == ["test_catalog.test_schema"]
+    assert call_kwargs.get("experiment_ids") == []  # V4 handler passes empty list
+    assert call_kwargs.get("filter_string") == "state = 'OK'"
+    assert call_kwargs.get("max_results") == 50
+
+
+def test_search_traces_v4_with_experiment_ids(mock_get_request_message, mock_tracking_store):
+    search_traces_proto = SearchTracesV4()
+
+    for exp_id in ["exp1", "exp2"]:
+        location = TraceLocation()
+        location.type = TraceLocation.TraceLocationType.MLFLOW_EXPERIMENT
+        location.mlflow_experiment.experiment_id = exp_id
+        search_traces_proto.locations.append(location)
+
+    search_traces_proto.sql_warehouse_id = "warehouse123"
+
+    mock_get_request_message.return_value = search_traces_proto
+    mock_tracking_store.search_traces.return_value = ([], None)
+
+    _search_traces_v4()
+
+    # Verify that search_traces was called with experiment_ids
+    mock_tracking_store.search_traces.assert_called_once()
+    call_kwargs = mock_tracking_store.search_traces.call_args.kwargs
+    assert set(call_kwargs.get("experiment_ids")) == {"exp1", "exp2"}
+    assert call_kwargs.get("uc_schemas") == []  # V4 handler passes empty list
+    assert call_kwargs.get("sql_warehouse_id") == "warehouse123"
 
 
 def test_get_trace_info_v4_handler(mock_tracking_store):

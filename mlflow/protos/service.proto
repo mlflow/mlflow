@@ -629,6 +629,21 @@ service MlflowService {
     };
   }
 
+  rpc searchTracesV4 (SearchTracesV4) returns (SearchTracesV4.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST",
+          path: "/mlflow/traces/search"
+          since { major: 4, minor: 0 },
+        }
+      ],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Search Traces V4",
+    };
+  }
+
+
   // Create a trace using the V3 API format
   rpc startTraceV3 (StartTraceV3) returns (StartTraceV3.Response) {
     option (rpc) = {
@@ -2852,6 +2867,36 @@ message SearchTracesV3 {
 
   // Token indicating the page of traces to fetch.
   optional string page_token = 5;
+
+  message Response {
+    // Information about traces that match the search criteria.
+    repeated TraceInfoV3 traces = 1;
+    optional string next_page_token = 2;
+  }
+}
+
+message SearchTracesV4 {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // A list of trace locations to search over.
+  repeated TraceLocation locations = 1;
+
+  // A filter expression over trace attributes and tags that allows returning a subset of
+  // traces. The syntax is a subset of SQL that supports ANDing together binary operations
+  // Example: ``trace.status = 'OK' and trace.timestamp_ms > 1711089570679``.
+  optional string filter = 2;
+
+  // Maximum number of traces desired. Max threshold is 500.
+  optional int32 max_results = 3 [default = 100];
+
+  // List of columns for ordering the results, e.g. ``["timestamp_ms DESC"]``.
+  repeated string order_by = 4;
+
+  // Token indicating the page of traces to fetch.
+  optional string page_token = 5;
+
+  // Optional SQL warehouse ID for searching traces.
+  optional string sql_warehouse_id = 6;
 
   message Response {
     // Information about traces that match the search criteria.
