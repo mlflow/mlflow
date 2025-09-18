@@ -1301,8 +1301,7 @@ def test_dataset_associations_filestore_blocking(tmp_path):
         remove_dataset_from_experiments,
     )
 
-    temp_dir = str(tmp_path)
-    mlflow.set_tracking_uri(f"file://{temp_dir}")
+    mlflow.set_tracking_uri(tmp_path.as_uri())
 
     with pytest.raises(NotImplementedError, match="not supported with FileStore"):
         add_dataset_to_experiments(dataset_id="d-test123", experiment_ids=["1", "2"])

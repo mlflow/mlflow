@@ -1565,7 +1565,6 @@ def test_custom_metric_logs_artifacts_from_paths(
         custom_artifacts=[example_custom_artifact],
     )
 
-    tmp_dir = str(tmp_path)
     for img_ext in img_formats:
         assert f"test_{img_ext}_artifact" in result.artifacts
         assert f"test_{img_ext}_artifact.{img_ext}" in artifacts
@@ -1574,9 +1573,9 @@ def test_custom_metric_logs_artifacts_from_paths(
         fig = Figure(figsize=(fig_x, fig_y), dpi=fig_dpi)
         ax = fig.subplots()
         ax.plot([1, 2, 3])
-        fig.savefig(path_join(tmp_dir, f"test.{img_ext}"), format=img_ext)
+        fig.savefig(path_join(tmp_path, f"test.{img_ext}"), format=img_ext)
 
-        saved_img = Image.open(path_join(tmp_dir, f"test.{img_ext}"))
+        saved_img = Image.open(path_join(tmp_path, f"test.{img_ext}"))
         result_img = result.artifacts[f"test_{img_ext}_artifact"].content
 
         for img in (saved_img, result_img):
