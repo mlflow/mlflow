@@ -1,7 +1,11 @@
+"""
+Utility functions for MLflow Insights.
+"""
+
 from typing import Any
 
 from mlflow.exceptions import MlflowException
-from mlflow.insights.models import EvidenceEntry
+from mlflow.insights.models.base import EvidenceEntry, extract_trace_ids
 
 
 def normalize_evidence(
@@ -67,14 +71,5 @@ def normalize_evidence(
     return validated_entries
 
 
-def extract_trace_ids(evidence: list[EvidenceEntry]) -> list[str]:
-    """
-    Extract unique trace IDs from evidence entries.
-
-    Args:
-        evidence: List of EvidenceEntry objects
-
-    Returns:
-        List of unique trace IDs preserving order of first occurrence
-    """
-    return list(dict.fromkeys(entry.trace_id for entry in evidence))
+# Re-export for backwards compatibility
+__all__ = ["normalize_evidence", "extract_trace_ids"]

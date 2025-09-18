@@ -5,14 +5,6 @@ This module provides structured models for tracking analyses, hypotheses,
 and issues discovered during ML model experimentation and investigation.
 """
 
-from mlflow.insights.analysis import (
-    Analysis,
-    AnalysisSummary,
-    Hypothesis,
-    HypothesisSummary,
-    Issue,
-    IssueSummary,
-)
 from mlflow.insights.constants import (
     INSIGHTS_ANALYSIS_FILE_NAME,
     INSIGHTS_RUN_TAG_NAME_KEY,
@@ -21,7 +13,15 @@ from mlflow.insights.constants import (
     IssueSeverity,
     IssueStatus,
 )
-from mlflow.insights.models import EvidenceEntry
+from mlflow.insights.models import (
+    Analysis,
+    AnalysisSummary,
+    EvidenceEntry,
+    Hypothesis,
+    HypothesisSummary,
+    Issue,
+    IssueSummary,
+)
 from mlflow.insights.utils import extract_trace_ids, normalize_evidence
 
 __all__ = [
