@@ -2390,7 +2390,7 @@ message SetTraceTagV4 {
   // ID of the trace on which to set a tag.
   optional string trace_id = 1 [(validate_required) = true];
 
-  // Location of the trace.
+  // Location of the trace. experiment_id or catalog.schema
   optional string location = 2 [(validate_required) = true];
 
   // Name of the tag. Maximum size depends on storage backend.
