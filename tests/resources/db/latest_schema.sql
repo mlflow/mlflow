@@ -86,6 +86,39 @@ CREATE TABLE datasets (
 )
 
 
+<<<<<<< HEAD
+=======
+CREATE TABLE evaluation_dataset_records (
+	dataset_record_id VARCHAR(36) NOT NULL,
+	dataset_id VARCHAR(36) NOT NULL,
+	inputs JSON NOT NULL,
+	expectations JSON,
+	tags JSON,
+	source JSON,
+	source_id VARCHAR(36),
+	source_type VARCHAR(255),
+	created_time BIGINT,
+	last_update_time BIGINT,
+	created_by VARCHAR(255),
+	last_updated_by VARCHAR(255),
+	input_hash VARCHAR(64) NOT NULL,
+	outputs JSON,
+	CONSTRAINT evaluation_dataset_records_pk PRIMARY KEY (dataset_record_id),
+	CONSTRAINT fk_evaluation_dataset_records_dataset_id FOREIGN KEY(dataset_id) REFERENCES evaluation_datasets (dataset_id) ON DELETE CASCADE,
+	CONSTRAINT unique_dataset_input UNIQUE (dataset_id, input_hash)
+)
+
+
+CREATE TABLE evaluation_dataset_tags (
+	dataset_id VARCHAR(36) NOT NULL,
+	key VARCHAR(255) NOT NULL,
+	value VARCHAR(5000),
+	CONSTRAINT evaluation_dataset_tags_pk PRIMARY KEY (dataset_id, key),
+	CONSTRAINT fk_evaluation_dataset_tags_dataset_id FOREIGN KEY(dataset_id) REFERENCES evaluation_datasets (dataset_id) ON DELETE CASCADE
+)
+
+
+>>>>>>> master
 CREATE TABLE experiment_tags (
 	key VARCHAR(250) NOT NULL,
 	value VARCHAR(5000),

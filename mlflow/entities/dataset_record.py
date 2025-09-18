@@ -26,6 +26,7 @@ class DatasetRecord(_MlflowObject):
     dataset_record_id: str
     created_time: int
     last_update_time: int
+    outputs: dict[str, Any] | None = None
     expectations: dict[str, Any] | None = None
     tags: dict[str, str] | None = None
     source: DatasetRecordSource | None = None
@@ -58,6 +59,8 @@ class DatasetRecord(_MlflowObject):
         proto.inputs = json.dumps(self.inputs)
         proto.created_time = self.created_time
         proto.last_update_time = self.last_update_time
+        if self.outputs is not None:
+            proto.outputs = json.dumps(self.outputs)
         if self.expectations is not None:
             proto.expectations = json.dumps(self.expectations)
         if self.tags is not None:
@@ -78,6 +81,7 @@ class DatasetRecord(_MlflowObject):
     @classmethod
     def from_proto(cls, proto: ProtoDatasetRecord) -> "DatasetRecord":
         inputs = json.loads(proto.inputs) if proto.HasField("inputs") else {}
+        outputs = json.loads(proto.outputs) if proto.HasField("outputs") else None
         expectations = json.loads(proto.expectations) if proto.HasField("expectations") else None
         tags = json.loads(proto.tags) if proto.HasField("tags") else None
 
@@ -92,6 +96,7 @@ class DatasetRecord(_MlflowObject):
             dataset_record_id=proto.dataset_record_id,
             created_time=proto.created_time,
             last_update_time=proto.last_update_time,
+            outputs=outputs,
             expectations=expectations,
             tags=tags,
             source=source,
@@ -109,6 +114,8 @@ class DatasetRecord(_MlflowObject):
             preserving_proto_field_name=True,
         )
         d["inputs"] = json.loads(d["inputs"])
+        if "outputs" in d:
+            d["outputs"] = json.loads(d["outputs"])
         if "expectations" in d:
             d["expectations"] = json.loads(d["expectations"])
         if "tags" in d:
@@ -143,6 +150,7 @@ class DatasetRecord(_MlflowObject):
             dataset_record_id=data["dataset_record_id"],
             created_time=data["created_time"],
             last_update_time=data["last_update_time"],
+            outputs=data.get("outputs"),
             expectations=data.get("expectations"),
             tags=data.get("tags"),
             source=source,
@@ -159,6 +167,7 @@ class DatasetRecord(_MlflowObject):
             self.dataset_record_id == other.dataset_record_id
             and self.dataset_id == other.dataset_id
             and self.inputs == other.inputs
+            and self.outputs == other.outputs
             and self.expectations == other.expectations
             and self.tags == other.tags
             and self.source == other.source
