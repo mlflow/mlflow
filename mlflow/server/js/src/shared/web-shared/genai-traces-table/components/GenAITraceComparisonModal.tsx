@@ -56,7 +56,7 @@ export const TraceComparisonModal = ({
           </Typography.Text>
         ) : (
           modelTraces.map((modelTrace, index) => (
-            <div key={traces[index].evaluationId} css={{ flex: 1, minWidth: 400, height: '100%', overflow: 'auto' }}>
+            <div key={traces[index].evaluationId} css={{ flex: 1, height: '100%', overflow: 'auto' }}>
               <ModelTraceExplorer modelTrace={modelTrace} initialActiveView="summary" isInComparisonView />
             </div>
           ))

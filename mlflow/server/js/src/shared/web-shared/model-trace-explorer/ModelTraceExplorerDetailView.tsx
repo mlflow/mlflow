@@ -9,6 +9,7 @@ import ModelTraceExplorerResizablePane from './ModelTraceExplorerResizablePane';
 import ModelTraceExplorerSearchBox from './ModelTraceExplorerSearchBox';
 import { useModelTraceExplorerViewState } from './ModelTraceExplorerViewStateContext';
 import { useModelTraceSearch } from './hooks/useModelTraceSearch';
+import { AssessmentsPane } from './assessments-pane/AssessmentsPane';
 import { ModelTraceExplorerRightPaneTabs, RIGHT_PANE_MIN_WIDTH } from './right-pane/ModelTraceExplorerRightPaneTabs';
 import { TimelineTree } from './timeline-tree';
 import {
@@ -58,6 +59,9 @@ export const ModelTraceExplorerDetailView = ({
     setSelectedNode,
     activeTab,
     setActiveTab,
+    assessmentsPaneExpanded,
+    assessmentsPaneEnabled,
+    isInComparisonView,
   } = useModelTraceExplorerViewState();
 
   const { expandedKeys, setExpandedKeys } = useTimelineTreeExpandedNodes({
@@ -107,6 +111,12 @@ export const ModelTraceExplorerDetailView = ({
     return Math.max(LEFT_PANE_HEADER_MIN_WIDTH_PX, minWidthForSpans);
   }, [filteredTreeNodes, theme.spacing.lg]);
 
+  const showTopAssessments = isInComparisonView && assessmentsPaneEnabled && assessmentsPaneExpanded;
+  const assessments = selectedNode?.assessments ?? [];
+  const traceIdForAssessments =
+    selectedNode?.traceId ?? ('trace_id' in modelTrace.info ? modelTrace.info.trace_id ?? '' : '');
+  const activeSpanId = selectedNode?.parentId ? String(selectedNode?.key) : undefined;
+
   return (
     <div
       css={{
@@ -117,6 +127,11 @@ export const ModelTraceExplorerDetailView = ({
       }}
       className={className}
     >
+      {showTopAssessments && (
+        <div>
+          <AssessmentsPane assessments={assessments} traceId={traceIdForAssessments} activeSpanId={activeSpanId} />
+        </div>
+      )}
       <div
         css={{
           padding: theme.spacing.xs,

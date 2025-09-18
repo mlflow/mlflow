@@ -69,13 +69,15 @@ export const ModelTraceExplorerSummaryView = ({ modelTrace }: { modelTrace: Mode
 
   if (isInComparisonView) {
     return (
-      <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-        {assessmentsPaneEnabled && (
-          <div css={{ borderBottom: `1px solid ${theme.colors.border}` }}>
+      <div css={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+        {assessmentsPaneEnabled && assessmentsPaneExpanded && (
+          <div css={{ borderBottom: `1px solid ${theme.colors.border}`, maxHeight: '50%', overflowY: 'auto' }}>
             <AssessmentsPane assessments={allAssessments} traceId={rootNode.traceId} activeSpanId={undefined} />
           </div>
         )}
-        <ModelTraceExplorerSummarySpans rootNode={rootNode} intermediateNodes={intermediateNodes} />
+        <div css={{ flex: '1 1 0%', minHeight: 0, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+          <ModelTraceExplorerSummarySpans rootNode={rootNode} intermediateNodes={intermediateNodes} />
+        </div>
       </div>
     );
   }
@@ -86,20 +88,7 @@ export const ModelTraceExplorerSummaryView = ({ modelTrace }: { modelTrace: Mode
       paneWidth={paneWidth}
       setPaneWidth={setPaneWidth}
       leftChild={<ModelTraceExplorerSummarySpans rootNode={rootNode} intermediateNodes={intermediateNodes} />}
-      rightChild={
-        <div
-          css={{
-            height: '100%',
-            borderLeft: `1px solid ${theme.colors.border}`,
-            overflowY: 'scroll',
-            minWidth: ASSESSMENT_PANE_MIN_WIDTH,
-            width: '100%',
-            boxSizing: 'border-box',
-          }}
-        >
-          <AssessmentsPane assessments={allAssessments} traceId={rootNode.traceId} activeSpanId={undefined} />
-        </div>
-      }
+      rightChild={<AssessmentsPane assessments={allAssessments} traceId={rootNode.traceId} activeSpanId={undefined} />}
       leftMinWidth={SUMMARY_SPANS_MIN_WIDTH}
       rightMinWidth={ASSESSMENT_PANE_MIN_WIDTH}
     />

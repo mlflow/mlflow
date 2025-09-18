@@ -48,15 +48,15 @@ function ModelTraceExplorerRightPaneTabsImpl({
   const hasException = exceptionCount > 0;
   const hasInputsOrOutputs = !isNil(activeSpan?.inputs) || !isNil(activeSpan?.outputs);
 
-  const showTopAssessments = isInComparisonView && assessmentsPaneEnabled;
-  const tabs = (
+  const tabContent = (
     <Tabs.Root
       componentId="shared.model-trace-explorer.right-pane-tabs"
       css={{
         display: 'flex',
         flexDirection: 'column',
-        flex: 3,
-        ...(showTopAssessments ? {} : { borderLeft: `1px solid ${theme.colors.border}` }),
+        flex: 1,
+        borderLeft: `1px solid ${theme.colors.border}`,
+        minWidth: 200,
         position: 'relative',
       }}
       value={activeTab}
@@ -123,26 +123,6 @@ function ModelTraceExplorerRightPaneTabsImpl({
     </Tabs.Root>
   );
 
-  const tabContent = showTopAssessments ? (
-    <div
-      css={{
-        display: 'flex',
-        flexDirection: 'column',
-        flex: 2,
-        borderLeft: `1px solid ${theme.colors.border}`,
-      }}
-    >
-      <AssessmentsPane
-        assessments={activeSpan.assessments}
-        traceId={activeSpan.traceId}
-        activeSpanId={activeSpan.parentId ? String(activeSpan.key) : undefined}
-      />
-      {tabs}
-    </div>
-  ) : (
-    tabs
-  );
-
   return !isInComparisonView && assessmentsPaneEnabled && assessmentsPaneExpanded ? (
     <ModelTraceExplorerResizablePane
       initialRatio={DEFAULT_SPLIT_RATIO}
@@ -151,22 +131,11 @@ function ModelTraceExplorerRightPaneTabsImpl({
       leftChild={tabContent}
       leftMinWidth={CONTENT_PANE_MIN_WIDTH}
       rightChild={
-        <div
-          css={{
-            height: '100%',
-            borderLeft: `1px solid ${theme.colors.border}`,
-            overflowY: 'scroll',
-            minWidth: ASSESSMENT_PANE_MIN_WIDTH,
-            width: '100%',
-            boxSizing: 'border-box',
-          }}
-        >
-          <AssessmentsPane
-            assessments={activeSpan.assessments}
-            traceId={activeSpan.traceId}
-            activeSpanId={activeSpan.parentId ? String(activeSpan.key) : undefined}
-          />
-        </div>
+        <AssessmentsPane
+          assessments={activeSpan.assessments}
+          traceId={activeSpan.traceId}
+          activeSpanId={activeSpan.parentId ? String(activeSpan.key) : undefined}
+        />
       }
       rightMinWidth={ASSESSMENT_PANE_MIN_WIDTH}
     />

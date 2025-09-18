@@ -72,6 +72,10 @@ export const AssessmentsPane = ({
         flexDirection: 'column',
         padding: theme.spacing.sm,
         paddingTop: theme.spacing.xs,
+        height: '100%',
+        borderLeft: `1px solid ${theme.colors.border}`,
+        overflowY: 'scroll',
+        minWidth: ASSESSMENT_PANE_MIN_WIDTH,
         width: '100%',
         boxSizing: 'border-box',
       }}

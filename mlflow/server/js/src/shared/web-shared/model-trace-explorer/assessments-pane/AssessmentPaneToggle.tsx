@@ -3,11 +3,11 @@ import { FormattedMessage } from '@databricks/i18n';
 
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 
-export const AssessmentPaneToggle = () => {
+export const AssessmentPaneToggle = ({ allowInComparisonView = false }: { allowInComparisonView?: boolean }) => {
   const { assessmentsPaneExpanded, setAssessmentsPaneExpanded, assessmentsPaneEnabled, isInComparisonView } =
     useModelTraceExplorerViewState();
 
-  if (isInComparisonView) {
+  if (isInComparisonView && !allowInComparisonView) {
     return null;
   }
 
@@ -31,7 +31,7 @@ export const AssessmentPaneToggle = () => {
           },
         }}
       >
-        {!isInComparisonView && assessmentsPaneExpanded && (
+        {(!isInComparisonView || allowInComparisonView) && assessmentsPaneExpanded && (
           <FormattedMessage
             defaultMessage="Assessments"
             description="Label for the assessments pane of the model trace explorer."

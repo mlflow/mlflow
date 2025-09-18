@@ -16,8 +16,9 @@ import {
   useModelTraceExplorerViewState,
 } from './ModelTraceExplorerViewStateContext';
 import { useGetModelTraceInfoV3 } from './hooks/useGetModelTraceInfoV3';
-import { ModelTraceExplorerSummaryView } from './summary-view/ModelTraceExplorerSummaryView';
 import { ModelTraceHeaderDetails } from './ModelTraceHeaderDetails';
+import { AssessmentPaneToggle } from './assessments-pane/AssessmentPaneToggle';
+import { ModelTraceExplorerSummaryView } from './summary-view/ModelTraceExplorerSummaryView';
 
 const ModelTraceExplorerContent = ({
   modelTrace,
@@ -31,7 +32,8 @@ const ModelTraceExplorerContent = ({
   onSelectSpan?: (selectedSpanId?: string) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const { activeView, setActiveView } = useModelTraceExplorerViewState();
+  const { activeView, setActiveView, assessmentsPaneEnabled, isInComparisonView } = useModelTraceExplorerViewState();
+  const showTopAssessmentsToggle = isInComparisonView && assessmentsPaneEnabled;
 
   return (
     <Tabs.Root
@@ -65,6 +67,11 @@ const ModelTraceExplorerContent = ({
             description="Label for the details & timeline view tab in the model trace explorer"
           />
         </Tabs.Trigger>
+        {showTopAssessmentsToggle && (
+          <div css={{ marginLeft: 'auto' }}>
+            <AssessmentPaneToggle allowInComparisonView />
+          </div>
+        )}
       </Tabs.List>
       <Tabs.Content
         value="summary"
