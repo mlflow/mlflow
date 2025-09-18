@@ -16,6 +16,20 @@ CREATE TABLE entity_associations (
 )
 
 
+CREATE TABLE evaluation_datasets (
+	dataset_id VARCHAR(36) NOT NULL,
+	name VARCHAR(255) NOT NULL,
+	schema TEXT,
+	profile TEXT,
+	digest VARCHAR(64),
+	created_time BIGINT,
+	last_update_time BIGINT,
+	created_by VARCHAR(255),
+	last_updated_by VARCHAR(255),
+	CONSTRAINT evaluation_datasets_pk PRIMARY KEY (dataset_id)
+)
+
+
 CREATE TABLE experiments (
 	experiment_id INTEGER NOT NULL,
 	name VARCHAR(256) NOT NULL,
@@ -45,6 +59,18 @@ CREATE TABLE inputs (
 	destination_id VARCHAR(36) NOT NULL,
 	step BIGINT DEFAULT '0' NOT NULL,
 	CONSTRAINT inputs_pk PRIMARY KEY (source_type, source_id, destination_type, destination_id)
+)
+
+
+CREATE TABLE jobs (
+	id VARCHAR(36) NOT NULL,
+	creation_time BIGINT,
+	function VARCHAR(500) NOT NULL,
+	params TEXT NOT NULL,
+	status INTEGER NOT NULL,
+	result TEXT,
+	retry_count INTEGER,
+	CONSTRAINT jobs_pk PRIMARY KEY (id)
 )
 
 
@@ -86,8 +112,6 @@ CREATE TABLE datasets (
 )
 
 
-<<<<<<< HEAD
-=======
 CREATE TABLE evaluation_dataset_records (
 	dataset_record_id VARCHAR(36) NOT NULL,
 	dataset_id VARCHAR(36) NOT NULL,
@@ -118,7 +142,6 @@ CREATE TABLE evaluation_dataset_tags (
 )
 
 
->>>>>>> master
 CREATE TABLE experiment_tags (
 	key VARCHAR(250) NOT NULL,
 	value VARCHAR(5000),
@@ -203,6 +226,15 @@ CREATE TABLE runs (
 	CONSTRAINT runs_lifecycle_stage CHECK (lifecycle_stage IN ('active', 'deleted')),
 	CONSTRAINT source_type CHECK (source_type IN ('NOTEBOOK', 'JOB', 'LOCAL', 'UNKNOWN', 'PROJECT')),
 	CHECK (status IN ('SCHEDULED', 'FAILED', 'FINISHED', 'RUNNING', 'KILLED'))
+)
+
+
+CREATE TABLE scorers (
+	experiment_id INTEGER NOT NULL,
+	scorer_name VARCHAR(256) NOT NULL,
+	scorer_id VARCHAR(36) NOT NULL,
+	CONSTRAINT scorer_pk PRIMARY KEY (scorer_id),
+	CONSTRAINT fk_scorers_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
 )
 
 
@@ -333,6 +365,16 @@ CREATE TABLE params (
 	run_uuid VARCHAR(32) NOT NULL,
 	CONSTRAINT param_pk PRIMARY KEY (key, run_uuid),
 	FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
+)
+
+
+CREATE TABLE scorer_versions (
+	scorer_id VARCHAR(36) NOT NULL,
+	scorer_version INTEGER NOT NULL,
+	serialized_scorer TEXT NOT NULL,
+	creation_time BIGINT,
+	CONSTRAINT scorer_version_pk PRIMARY KEY (scorer_id, scorer_version),
+	CONSTRAINT fk_scorer_versions_scorer_id FOREIGN KEY(scorer_id) REFERENCES scorers (scorer_id) ON DELETE CASCADE
 )
 
 
