@@ -1,6 +1,8 @@
-from unittest.mock import patch
+import json
+from unittest.mock import Mock, patch
 
 import pytest
+from opentelemetry import trace as trace_api
 from pydantic import ValidationError
 
 import mlflow
@@ -23,6 +25,7 @@ from mlflow.tracing.utils import (
     construct_full_inputs,
     deduplicate_span_names_in_place,
     encode_span_id,
+    get_otel_attribute,
     maybe_get_request_id,
     parse_trace_id_v4,
 )
@@ -261,3 +264,81 @@ def test_parse_trace_id_v4_invalid_format():
 
     with pytest.raises(MlflowException, match="Invalid trace ID format"):
         parse_trace_id_v4(f"{TRACE_ID_V4_PREFIX}catalog.schema/invalid-trace-id/invalid-format")
+
+
+def test_get_otel_attribute_existing_attribute():
+    # Create a mock span with attributes
+    span = Mock(spec=trace_api.Span)
+    span.attributes = {
+        "test_key": json.dumps({"data": "value"}),
+        "string_key": json.dumps("simple_string"),
+        "number_key": json.dumps(42),
+        "boolean_key": json.dumps(True),
+        "list_key": json.dumps([1, 2, 3]),
+    }
+
+    # Test various data types
+    result = get_otel_attribute(span, "test_key")
+    assert result == {"data": "value"}
+
+    result = get_otel_attribute(span, "string_key")
+    assert result == "simple_string"
+
+    result = get_otel_attribute(span, "number_key")
+    assert result == 42
+
+    result = get_otel_attribute(span, "boolean_key")
+    assert result is True
+
+    result = get_otel_attribute(span, "list_key")
+    assert result == [1, 2, 3]
+
+
+def test_get_otel_attribute_missing_attribute():
+    # Create a mock span with empty attributes
+    span = Mock(spec=trace_api.Span)
+    span.attributes = {}
+
+    result = get_otel_attribute(span, "nonexistent_key")
+    assert result is None
+
+
+def test_get_otel_attribute_none_attribute():
+    # Create a mock span where attributes.get() returns None
+    span = Mock(spec=trace_api.Span)
+    span.attributes = Mock()
+    span.attributes.get.return_value = None
+
+    result = get_otel_attribute(span, "any_key")
+    assert result is None
+
+
+def test_get_otel_attribute_invalid_json():
+    # Create a mock span with invalid JSON
+    span = Mock(spec=trace_api.Span)
+    span.attributes = {
+        "invalid_json": "not valid json {",
+        "empty_string": "",
+    }
+
+    result = get_otel_attribute(span, "invalid_json")
+    assert result is None
+
+    result = get_otel_attribute(span, "empty_string")
+    assert result is None
+
+
+def test_get_otel_attribute_non_string_attribute():
+    # In some edge cases, attributes might contain non-string values
+    span = Mock(spec=trace_api.Span)
+    span.attributes = {
+        "number_value": 123,  # Not a JSON string
+        "boolean_value": True,  # Not a JSON string
+    }
+
+    # These should fail gracefully and return None
+    result = get_otel_attribute(span, "number_value")
+    assert result is None
+
+    result = get_otel_attribute(span, "boolean_value")
+    assert result is None
