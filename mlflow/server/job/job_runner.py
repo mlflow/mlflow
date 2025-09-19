@@ -13,7 +13,10 @@ from huey.exceptions import RetryTask
 from huey.serializer import Serializer
 
 from mlflow.entities._job_status import JobStatus
-from mlflow.environment_variables import MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY
+from mlflow.environment_variables import (
+    MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY,
+    MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY,
+)
 from mlflow.server import HUEY_STORAGE_PATH_ENV_VAR
 from mlflow.server.handlers import _get_job_store
 
@@ -23,7 +26,8 @@ huey = None
 def _exponential_backoff_retry(retry_count: int) -> None:
     # We can support more retry strategies (e.g. exponential backoff) in future
     base_delay = MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY.get()
-    delay = base_delay * (2 ** (retry_count - 1))
+    max_delay = MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY.get()
+    delay = min(base_delay * (2 ** (retry_count - 1)), max_delay)
     raise RetryTask(delay=delay)
 
 

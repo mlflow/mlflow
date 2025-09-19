@@ -1004,8 +1004,16 @@ MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES = _EnvironmentVariable(
 
 #: Specifies MLflow server job retry base delay in seconds for transient errors.
 #: The retry uses exponential backoff strategy, retry delay is computed by
-#: `delay = base_delay * (2 ** (retry_count - 1))`
+#: `delay = min(base_delay * (2 ** (retry_count - 1)), max_delay)`
 #: (default: ``15``)
 MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY = _EnvironmentVariable(
     "MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY", int, 15
+)
+
+#: Specifies MLflow server job retry maximum delay in seconds for transient errors.
+#: The retry uses exponential backoff strategy, retry delay is computed by
+#: `delay = min(base_delay * (2 ** (retry_count - 1)), max_delay)`
+#: (default: ``60``)
+MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY = _EnvironmentVariable(
+    "MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY", int, 60
 )

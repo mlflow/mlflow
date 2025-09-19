@@ -398,34 +398,8 @@ def _run_server(
     )
 
     if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
-        from mlflow.utils.uri import extract_db_type_from_uri
+        from mlflow.server.job import _launch_job_backend
 
-        if extract_db_type_from_uri(file_store_path) is None:
-            _logger.warning(
-                f"Job store requires a database backend store URI but got {file_store_path}, "
-                "skip launching the job scheduler."
-            )
-        else:
-            max_job_parallelism = MLFLOW_SERVER_JOB_MAX_PARALLELISM.get()
-
-            if not max_job_parallelism:
-                max_job_parallelism = os.cpu_count() or 1
-
-            def _start_job_runner_fn() -> None:
-                from mlflow.server.job import _start_job_runner
-
-                start_new_runner = True
-                while True:
-                    # start Mlflow job runner process
-                    # Put it inside the loop to ensure the job runner process alive
-                    job_runner_proc = _start_job_runner(
-                        env_map, max_job_parallelism, server_proc.pid, start_new_runner
-                    )
-                    job_runner_proc.wait()
-                    start_new_runner = False
-                    time.sleep(1)
-
-            # start job runner.
-            threading.Thread(target=_start_job_runner_fn, daemon=True).start()
+        _launch_job_backend(file_store_path, env_map, server_proc.pid)
 
     server_proc.wait()

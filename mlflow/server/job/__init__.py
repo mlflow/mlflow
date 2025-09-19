@@ -1,6 +1,10 @@
 import json
+import logging
+import os
 import shutil
 import sys
+import threading
+import time
 from types import FunctionType
 from typing import Any, Callable
 
@@ -8,6 +12,10 @@ from mlflow.entities._job import Job
 from mlflow.entities._job_status import JobStatus
 from mlflow.exceptions import MlflowException
 from mlflow.server.handlers import _get_job_store
+from mlflow.environment_variables import MLFLOW_SERVER_JOB_MAX_PARALLELISM
+
+
+_logger = logging.getLogger(__name__)
 
 
 class TransientError(RuntimeError):
@@ -128,3 +136,34 @@ def _reinit_huey_queue():
     from mlflow.server.job.job_runner import _init_huey_queue
 
     _init_huey_queue()
+
+
+def _launch_job_backend(backend_store_uri, env_map, server_proc_pid):
+    from mlflow.utils.uri import extract_db_type_from_uri
+
+    if extract_db_type_from_uri(backend_store_uri) is None:
+        _logger.warning(
+            f"Job store requires a database backend store URI but got {backend_store_uri}, "
+            "skip launching the job scheduler."
+        )
+        return
+
+    max_job_parallelism = MLFLOW_SERVER_JOB_MAX_PARALLELISM.get()
+
+    if not max_job_parallelism:
+        max_job_parallelism = os.cpu_count() or 1
+
+    def _start_job_runner_fn() -> None:
+        start_new_runner = True
+        while True:
+            # start Mlflow job runner process
+            # Put it inside the loop to ensure the job runner process alive
+            job_runner_proc = _start_job_runner(
+                env_map, max_job_parallelism, server_proc_pid, start_new_runner
+            )
+            job_runner_proc.wait()
+            start_new_runner = False
+            time.sleep(1)
+
+    # start job runner.
+    threading.Thread(target=_start_job_runner_fn, daemon=True).start()
