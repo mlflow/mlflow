@@ -164,6 +164,55 @@ tp = dspy.MIPROv2(metric=metric, auto="medium", num_threads=24)
 optimized = tp.compile(cot, trainset=trainset)
 ```
 
+### Token usage
+
+MLflow >= 3.5.0 supports token usage tracking for dspy. The token usage call will be logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace will be
+available in the `token_usage` field of the trace info object.
+
+```python
+import dspy
+import mlflow
+
+mlflow.dspy.autolog()
+
+dspy.settings.configure(lm=dspy.LM("openai/gpt-4o-mini"))
+
+task = dspy.Predict("instruction -> response")
+result = task(instruction="Translate 'hello' to French.")
+
+last_trace_id = mlflow.get_last_active_trace_id()
+trace = mlflow.get_trace(trace_id=last_trace_id)
+
+# Print the token usage
+total_usage = trace.info.token_usage
+print("== Total token usage: ==")
+print(f"  Input tokens: {total_usage['input_tokens']}")
+print(f"  Output tokens: {total_usage['output_tokens']}")
+print(f"  Total tokens: {total_usage['total_tokens']}")
+
+# Print the token usage for each LLM call
+print("\n== Detailed usage for each LLM call: ==")
+for span in trace.data.spans:
+    if usage := span.get_attribute("mlflow.chat.tokenUsage"):
+        print(f"{span.name}:")
+        print(f"  Input tokens: {usage['input_tokens']}")
+        print(f"  Output tokens: {usage['output_tokens']}")
+        print(f"  Total tokens: {usage['total_tokens']}")
+```
+
+```bash
+== Total token usage: ==
+  Input tokens: 143
+  Output tokens: 12
+  Total tokens: 155
+
+== Detailed usage for each LLM call: ==
+LM.__call__:
+  Input tokens: 143
+  Output tokens: 12
+  Total tokens: 155
+```
+
 ### Disable auto-tracing
 
 Auto tracing for DSPy can be disabled globally by calling `mlflow.dspy.autolog(disable=True)` or `mlflow.autolog(disable=True)`.

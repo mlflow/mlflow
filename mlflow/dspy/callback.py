@@ -14,7 +14,7 @@ from mlflow.entities import SpanStatusCode, SpanType
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.span_event import SpanEvent
 from mlflow.exceptions import MlflowException
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils import maybe_set_prediction_context
@@ -96,6 +96,7 @@ class MlflowCallback(BaseCallback):
     @skip_if_trace_disabled
     def on_module_end(self, call_id: str, outputs: Any | None, exception: Exception | None = None):
         instance = self._call_id_to_module.pop(call_id)
+        attributes = {}
 
         if _get_fully_qualified_class_name(instance) == "dspy.retrieve.databricks_rm.DatabricksRM":
             from mlflow.entities.document import Document
@@ -127,9 +128,22 @@ class MlflowCallback(BaseCallback):
             # is not easy to read on UI. Therefore, we unpack it to a dictionary.
             # https://github.com/stanfordnlp/dspy/blob/6fe693528323c9c10c82d90cb26711a985e18b29/dspy/primitives/prediction.py#L21-L28
             if isinstance(outputs, dspy.Prediction):
+                usage_by_model = (
+                    outputs.get_lm_usage() if hasattr(outputs, "get_lm_usage") else None
+                )
                 outputs = outputs.toDict()
-
-        self._end_span(call_id, outputs, exception)
+                if usage_by_model:
+                    usage_data = {
+                        TokenUsageKey.INPUT_TOKENS: 0,
+                        TokenUsageKey.OUTPUT_TOKENS: 0,
+                        TokenUsageKey.TOTAL_TOKENS: 0,
+                    }
+                    for usage in usage_by_model.values():
+                        usage_data[TokenUsageKey.INPUT_TOKENS] += usage.get("prompt_tokens", 0)
+                        usage_data[TokenUsageKey.OUTPUT_TOKENS] += usage.get("completion_tokens", 0)
+                        usage_data[TokenUsageKey.TOTAL_TOKENS] += usage.get("total_tokens", 0)
+                    attributes[SpanAttributeKey.CHAT_USAGE] = usage_data
+        self._end_span(call_id, outputs, exception, attributes)
 
     @skip_if_trace_disabled
     def on_lm_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
@@ -339,6 +353,7 @@ class MlflowCallback(BaseCallback):
         call_id: str,
         outputs: Any | None,
         exception: Exception | None = None,
+        attributes: dict[str, Any] | None = None,
     ):
         st = self._call_id_to_span.pop(call_id, None)
 
@@ -350,6 +365,9 @@ class MlflowCallback(BaseCallback):
 
         if exception:
             st.span.add_event(SpanEvent.from_exception(exception))
+
+        if attributes:
+            st.span.set_attributes(attributes)
 
         try:
             st.span.end(outputs=outputs, status=status)
