@@ -82,7 +82,7 @@ jobs:
           version: 0.7.8
       - name: Install codex
         run: |
-          curl -L -o codex.tar.gz https://github.com/openai/codex/releases/download/rust-v0.25.0/codex-x86_64-unknown-linux-musl.tar.gz
+          curl -L -o codex.tar.gz https://github.com/openai/codex/releases/download/rust-v0.39.0/codex-x86_64-unknown-linux-musl.tar.gz
           tar -xzf codex.tar.gz
           mv codex-x86_64-unknown-linux-musl codex
           chmod +x codex
