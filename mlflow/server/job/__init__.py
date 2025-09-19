@@ -33,7 +33,7 @@ def submit_job(
     when the Mlflow server restarts, the job will be scheduled again.
 
     Args:
-        function: The job funtion, it must be a python global function,
+        function: The job funtion, it must be a python module-level function,
             and all params and return value must be JSON-serializable.
             The function can raise `TransientError` in order to trigger
             job retry, you can set `MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES`

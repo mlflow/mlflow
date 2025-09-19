@@ -1,50 +1,23 @@
 from enum import Enum
 
-from mlflow.exceptions import MlflowException
 
-
-class JobStatus(str, Enum):
+class JobStatus(Enum):
     """Enum for status of a Job."""
 
-    PENDING = "PENDING"
-    RUNNING = "RUNNING"
-    DONE = "DONE"
-    FAILED = "FAILED"
-    TIMEOUT = "TIMEOUT"
-
-    def __str__(self) -> str:
-        return self.value
+    PENDING = 0
+    RUNNING = 1
+    DONE = 2
+    FAILED = 3
+    TIMEOUT = 4
 
     @classmethod
     def from_int(cls, status_int: int) -> "JobStatus":
         """Convert integer status to JobStatus enum."""
-        if status_int == 0:
-            return cls.PENDING
-        elif status_int == 1:
-            return cls.RUNNING
-        elif status_int == 2:
-            return cls.DONE
-        elif status_int == 3:
-            return cls.FAILED
-        elif status_int == 4:
-            return cls.TIMEOUT
-
-        raise MlflowException.invalid_parameter_value(f"Unknown job status: {status_int}")
+        return JobStatus(status_int)
 
     def to_int(self) -> int:
         """Convert JobStatus enum to integer."""
-        if self == JobStatus.PENDING:
-            return 0
-        elif self == JobStatus.RUNNING:
-            return 1
-        elif self == JobStatus.DONE:
-            return 2
-        elif self == JobStatus.FAILED:
-            return 3
-        elif self == JobStatus.TIMEOUT:
-            return 4
-
-        raise MlflowException.invalid_parameter_value(f"Unknown job status: {self}")
+        return self.value
 
     @staticmethod
     def is_finalized(status: "JobStatus") -> bool:
