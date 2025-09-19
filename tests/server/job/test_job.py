@@ -7,7 +7,7 @@ from multiprocessing import Pool as MultiProcPool
 from os.path import dirname
 
 import pytest
-import requests
+from pathlib import Path
 
 import mlflow.server.handlers
 from mlflow.entities._job_status import JobStatus
@@ -36,7 +36,7 @@ def _start_job_runner_for_test(max_job_parallelism, start_new_runner):
 
 
 @contextmanager
-def _setup_job_queue(max_job_parallelism, monkeypatch, backend_store_uri=None):
+def _setup_job_runner(max_job_parallelism, monkeypatch, backend_store_uri=None):
     with tempfile.TemporaryDirectory() as tmp_dir:
         backend_store_uri = backend_store_uri or f"sqlite:///{os.path.join(tmp_dir, 'mlflow.db')}"
         huey_store_path = os.path.join(tmp_dir, "huey.db")
@@ -62,9 +62,9 @@ def basic_job_fun(x, y, sleep_secs=0):
 
 
 def test_basic_job(monkeypatch):
-    with _setup_job_queue(1, monkeypatch):
+    with _setup_job_runner(1, monkeypatch):
         job_id = submit_job(basic_job_fun, {"x": 3, "y": 4})
-        time.sleep(0.5)
+        time.sleep(1)
         status, result = query_job(job_id)
         assert status == JobStatus.DONE
         assert result == 7
@@ -89,9 +89,9 @@ def json_in_out_fun(data):
 
 
 def test_job_json_input_output(monkeypatch):
-    with _setup_job_queue(1, monkeypatch):
+    with _setup_job_runner(1, monkeypatch):
         job_id = submit_job(json_in_out_fun, {"data": {"x": 3, "y": 4}})
-        time.sleep(0.5)
+        time.sleep(1)
         status, result = query_job(job_id)
         assert status == JobStatus.DONE
         assert result == {"res": 7}
@@ -113,7 +113,7 @@ def err_fun(data):
 
 
 def test_error_job(monkeypatch):
-    with _setup_job_queue(1, monkeypatch):
+    with _setup_job_runner(1, monkeypatch):
         job_id = submit_job(err_fun, {"data": None})
         time.sleep(0.5)
         status, result = query_job(job_id)
@@ -133,7 +133,7 @@ def test_error_job(monkeypatch):
 
 
 def test_job_resume_on_job_runner_restart(monkeypatch):
-    with _setup_job_queue(1, monkeypatch) as job_runner_proc:
+    with _setup_job_runner(1, monkeypatch) as job_runner_proc:
         job1_id = submit_job(basic_job_fun, {"x": 3, "y": 4, "sleep_secs": 0})
         job2_id = submit_job(basic_job_fun, {"x": 5, "y": 6, "sleep_secs": 2})
         job3_id = submit_job(basic_job_fun, {"x": 7, "y": 8, "sleep_secs": 0})
@@ -160,7 +160,7 @@ def test_job_resume_on_new_job_runner(monkeypatch):
     with tempfile.TemporaryDirectory() as tmp_dir:
         backend_store_uri = f"sqlite:///{os.path.join(tmp_dir, 'mlflow.db')}"
 
-        with _setup_job_queue(1, monkeypatch, backend_store_uri) as job_runner_proc:
+        with _setup_job_runner(1, monkeypatch, backend_store_uri) as job_runner_proc:
             job1_id = submit_job(basic_job_fun, {"x": 3, "y": 4, "sleep_secs": 0})
             job2_id = submit_job(basic_job_fun, {"x": 5, "y": 6, "sleep_secs": 10})
             job3_id = submit_job(basic_job_fun, {"x": 7, "y": 8, "sleep_secs": 0})
@@ -169,7 +169,7 @@ def test_job_resume_on_new_job_runner(monkeypatch):
         # ensure the job runner process is killed.
         job_runner_proc.wait()
 
-        with _setup_job_queue(1, monkeypatch, backend_store_uri):
+        with _setup_job_runner(1, monkeypatch, backend_store_uri):
             # assert that job1 has done, job2 is running, and job3 is pending.
             assert query_job(job1_id) == (JobStatus.DONE, 7)
             assert query_job(job2_id) == (JobStatus.RUNNING, None)
@@ -183,7 +183,7 @@ def test_job_resume_on_new_job_runner(monkeypatch):
 
 def test_job_queue_parallelism(monkeypatch):
     # test job queue parallelism=2 and each job consumes 2 seconds.
-    with _setup_job_queue(2, monkeypatch):
+    with _setup_job_runner(2, monkeypatch):
         job_ids = [submit_job(basic_job_fun, {"x": x, "y": 1, "sleep_secs": 2}) for x in range(4)]
         time.sleep(2.5)
 
@@ -215,7 +215,7 @@ def transient_err_fun(tmp_dir, succeed_on_nth_run):
 
 def test_job_retry_on_transient_error(monkeypatch):
     monkeypatch.setenv("MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY", "1")
-    with _setup_job_queue(1, monkeypatch):
+    with _setup_job_runner(1, monkeypatch):
         store = _get_job_store()
         with tempfile.TemporaryDirectory() as tmp_dir:
             job1_id = submit_job(transient_err_fun, {"tmp_dir": tmp_dir, "succeed_on_nth_run": 4})
@@ -241,7 +241,7 @@ def test_job_retry_on_transient_error(monkeypatch):
 # so that we need a test to cover the case that executes `submit_job` in
 # multi-processes case.
 def test_submit_jobs_from_multi_processes(monkeypatch):
-    with _setup_job_queue(4, monkeypatch), MultiProcPool() as pool:
+    with _setup_job_runner(4, monkeypatch), MultiProcPool() as pool:
         async_res_list = [
             pool.apply_async(
                 submit_job,
@@ -256,10 +256,22 @@ def test_submit_jobs_from_multi_processes(monkeypatch):
             assert query_job(job_ids[x]) == (JobStatus.DONE, x + 1)
 
 
+def sleep_fun(sleep_secs, tmp_dir):
+    (Path(tmp_dir) / "pid").write_text(str(os.getpid()))
+    time.sleep(sleep_secs)
+
+
 def test_job_timeout(monkeypatch):
-    with _setup_job_queue(1, monkeypatch):
-        job_id = submit_job(basic_job_fun, {"x": 3, "y": 4, "sleep_secs": 10}, timeout=5)
+    from mlflow.server.job.util import is_process_alive
+
+    with _setup_job_runner(1, monkeypatch) as job_runner_proc, \
+            tempfile.TemporaryDirectory() as tmp_dir:
+        job_id = submit_job(sleep_fun, {"sleep_secs": 10, "tmp_dir": tmp_dir}, timeout=5)
         time.sleep(6)
+        pid = int((Path(tmp_dir) / "pid").read_text())
+        # assert timeout job process is killed.
+        assert not is_process_alive(pid)
+
         status, result = query_job(job_id)
         assert status == JobStatus.TIMEOUT
         assert result is None
@@ -269,9 +281,18 @@ def test_job_timeout(monkeypatch):
 
         # check database record correctness.
         assert job.job_id == job_id
-        assert job.function_fullname == "test_job.basic_job_fun"
-        assert job.params == '{"x": 3, "y": 4, "sleep_secs": 10}'
+        assert job.function_fullname == "test_job.sleep_fun"
         assert job.timeout == 5
         assert job.result is None
         assert job.status == JobStatus.TIMEOUT
         assert job.retry_count == 0
+
+        submit_job(sleep_fun, {"sleep_secs": 10, "tmp_dir": tmp_dir}, timeout=15)
+        time.sleep(5)
+        pid = int((Path(tmp_dir) / "pid").read_text())
+        assert is_process_alive(pid)
+        job_runner_proc.kill()
+        time.sleep(2)
+        # assert the job process is killed after job runner process is killed.
+        assert not is_process_alive(pid)
+

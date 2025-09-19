@@ -1,3 +1,4 @@
+import errno
 import json
 import multiprocessing
 import os
@@ -63,14 +64,6 @@ def _job_subproc_entry(
         result_queue.put(JobResult.from_error(e))
 
 
-def _hard_kill(proc) -> None:
-    """Try hard-kill on Unix if terminate() didn't end it."""
-    try:
-        os.kill(proc.pid, signal.SIGKILL)
-    except Exception:
-        pass
-
-
 def execute_function_with_timeout(
     func: Callable[..., Any],
     kwargs: dict[str, Any],
@@ -99,7 +92,8 @@ def execute_function_with_timeout(
             return result_queue.get()
 
         # timeout case
-        _hard_kill(subproc)
+        subproc.kill()
+        subproc.join()
         raise TimeoutError()
 
     try:
@@ -107,3 +101,19 @@ def execute_function_with_timeout(
         return JobResult(succeeded=True, result=json.dumps(raw_result))
     except Exception as e:
         return JobResult.from_error(e)
+
+
+def is_process_alive(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)  # doesn't actually kill
+    except OSError as e:
+        if e.errno == errno.ESRCH:  # No such process
+            return False
+        elif e.errno == errno.EPERM:  # Process exists, but no permission
+            return True
+        else:
+            raise
+    else:
+        return True

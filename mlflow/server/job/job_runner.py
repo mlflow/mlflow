@@ -75,28 +75,14 @@ def _init_huey_queue():
 _init_huey_queue()
 
 
-def _is_process_alive(pid: int) -> bool:
-    if pid <= 0:
-        return False
-    try:
-        os.kill(pid, 0)  # doesn't actually kill
-    except OSError as e:
-        if e.errno == errno.ESRCH:  # No such process
-            return False
-        elif e.errno == errno.EPERM:  # Process exists, but no permission
-            return True
-        else:
-            raise
-    else:
-        return True
-
-
 def _start_watcher_to_kill_job_runner_if_mlflow_server_dies(check_interval=1.0):
+    from mlflow.server.job.util import is_process_alive
+
     mlflow_server_pid = int(os.environ.get("MLFLOW_SERVER_PID"))
 
     def watcher():
         while True:
-            if not _is_process_alive(mlflow_server_pid):
+            if not is_process_alive(mlflow_server_pid):
                 os.kill(os.getpid(), signal.SIGTERM)
             time.sleep(check_interval)
 
