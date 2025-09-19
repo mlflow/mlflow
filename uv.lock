@@ -3355,7 +3355,7 @@ requires-dist = [
     { name = "gunicorn", marker = "sys_platform != 'win32'", specifier = "<24" },
     { name = "importlib-metadata", specifier = ">=3.7.0,!=4.7.0,<9" },
     { name = "kubernetes", marker = "extra == 'extras'" },
-    { name = "langchain", marker = "extra == 'langchain'", specifier = ">=0.2.16,<=0.3.27" },
+    { name = "langchain", marker = "extra == 'langchain'", specifier = ">=0.3.0,<=0.3.27" },
     { name = "matplotlib", specifier = "<4" },
     { name = "mlflow-dbstore", marker = "extra == 'sqlserver'" },
     { name = "mlflow-jfrog-plugin", marker = "extra == 'jfrog'" },
