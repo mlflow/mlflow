@@ -91,6 +91,7 @@ jobs:
           # https://github.com/openai/codex/blob/main/docs/config.md
           mkdir -p ~/.codex
           cat <<'EOF' > ~/.codex/config.toml
+          model = "gpt-5-codex"
           # TODO: Use github models if gpt-5 supports higher input/output token limits
           # https://github.com/marketplace/models/azure-openai/gpt-5
           # model = "openai/gpt-5"
