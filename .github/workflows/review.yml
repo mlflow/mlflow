@@ -160,9 +160,9 @@ jobs:
 
       - name: Run codex
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.issue.pull_request.html_url || github.event.pull_request.html_url}}
         run: |
+          ./codex login --api-key "${{ secrets.OPENAI_API_KEY }}"
           # Use timeout in case codex hangs
           timeout 5m ./codex exec --skip-git-repo-check "Can you review $PR_URL?" || true
