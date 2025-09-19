@@ -12,8 +12,24 @@ from mlflow.utils import _get_fully_qualified_class_name
 class JobResult:
     succeeded: bool
     result: str | None = None  # serialized JSON string
-    error_class: str | None = None
+    is_transient_error: bool | None = None
     error: str | None = None
+
+    @classmethod
+    def from_error(cls, e):
+        from mlflow.server.job import TransientError
+
+        if isinstance(e, TransientError):
+            return JobResult(
+                succeeded=False,
+                is_transient_error=True,
+                error=repr(e.origin_error)
+            )
+        return JobResult(
+            succeeded=False,
+            is_transient_error=False,
+            error=repr(e),
+        )
 
 
 def _job_subproc_entry(
@@ -22,6 +38,7 @@ def _job_subproc_entry(
     result_queue,
 ) -> None:
     """Child process entrypoint: run func and put result or exception into queue."""
+    from mlflow.server.job import TransientError
 
     try:
         value = func(**kwargs)
@@ -33,14 +50,8 @@ def _job_subproc_entry(
         )
     except Exception as e:
         # multiprocess uses pickle which can't serialize any kind of python objects.
-        # so serialize exception class to string before putting it to result queue.
-        result_queue.put(
-            JobResult(
-                succeeded=False,
-                error_class=_get_fully_qualified_class_name(e),
-                error=str(e),
-            )
-        )
+        # so serialize exception class to serializable JobResult before putting it to result queue.
+        result_queue.put(JobResult.from_error(e))
 
 
 def _hard_kill(proc) -> None:
@@ -86,8 +97,4 @@ def execute_function_with_timeout(
         raw_result = func(**kwargs)
         return JobResult(succeeded=True, result=json.dumps(raw_result))
     except Exception as e:
-        return JobResult(
-            succeeded=False,
-            error_class=_get_fully_qualified_class_name(e),
-            error=repr(e),
-        )
+        return JobResult.from_error(e)

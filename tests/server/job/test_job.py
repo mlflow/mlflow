@@ -172,18 +172,19 @@ def test_job_queue_parallelism(monkeypatch):
         assert query_job(job_ids[3]) == (JobStatus.DONE, 4)
 
 
-def timeout_err_fun(tmp_dir, succeed_on_nth_run):
+def transient_err_fun(tmp_dir, succeed_on_nth_run):
     """
     This function will raise `Timeout` exception on the first (`succeed_on_nth_run` -1) runs.
     and return 100 on the `succeed_on_nth_run` run.
     the `tmp_dir` is for recording the function run status.
     """
+    from mlflow.server.job import TransientError
 
     if len(os.listdir(tmp_dir)) == succeed_on_nth_run:
         return 100
     with open(os.path.join(tmp_dir, uuid.uuid4().hex), "w") as f:
         f.close()
-    raise requests.Timeout()
+    raise TransientError(RuntimeError("test transient error."))
 
 
 def test_job_retry_on_transient_error(monkeypatch):
@@ -191,16 +192,16 @@ def test_job_retry_on_transient_error(monkeypatch):
     with _setup_job_queue(1, monkeypatch):
         store = _get_job_store()
         with tempfile.TemporaryDirectory() as tmp_dir:
-            job1_id = submit_job(timeout_err_fun, {"tmp_dir": tmp_dir, "succeed_on_nth_run": 4})
+            job1_id = submit_job(transient_err_fun, {"tmp_dir": tmp_dir, "succeed_on_nth_run": 4})
             time.sleep(15)
-            assert query_job(job1_id) == (JobStatus.FAILED, "Timeout()")
+            assert query_job(job1_id) == (JobStatus.FAILED, "RuntimeError('test transient error.')")
             job1 = store.get_job(job1_id)
             assert job1.status == JobStatus.FAILED
-            assert job1.result == "Timeout()"
+            assert job1.result == "RuntimeError('test transient error.')"
             assert job1.retry_count == 3
 
         with tempfile.TemporaryDirectory() as tmp_dir:
-            job2_id = submit_job(timeout_err_fun, {"tmp_dir": tmp_dir, "succeed_on_nth_run": 1})
+            job2_id = submit_job(transient_err_fun, {"tmp_dir": tmp_dir, "succeed_on_nth_run": 1})
             time.sleep(3)
             assert query_job(job2_id) == (JobStatus.DONE, 100)
             job2 = store.get_job(job2_id)
@@ -227,12 +228,6 @@ def test_submit_jobs_from_multi_processes(monkeypatch):
         time.sleep(3)
         for x in range(4):
             assert query_job(job_ids[x]) == (JobStatus.DONE, x + 1)
-
-
-def func01(x, y, sleep):
-    time.sleep(sleep)
-
-    return {"x": x, "y": y + 1}
 
 
 def test_job_timeout(monkeypatch):

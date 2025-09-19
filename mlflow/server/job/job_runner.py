@@ -20,12 +20,6 @@ from mlflow.server.handlers import _get_job_store
 huey = None
 
 
-_TRANSIENT_ERRORS = (
-    "requests.exceptions.Timeout",
-    "requests.exceptions.ConnectionError",
-)
-
-
 def _exponential_backoff_retry(retry_count: int) -> None:
     # We can support more retry strategies (e.g. exponential backoff) in future
     base_delay = MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY.get()
@@ -45,7 +39,7 @@ def _exec_job(job_id: str, function: Callable, params: dict[str, Any], timeout: 
         if job_result.succeeded:
             job_store.finish_job(job_id, job_result.result)
         else:
-            if job_result.error_class in _TRANSIENT_ERRORS:
+            if job_result.is_transient_error:
                 # For transient errors, if the retry count is less than max allowed count,
                 # trigger task retry by raising `RetryTask` exception.
                 retry_count = job_store.retry_or_fail_job(job_id, job_result.error)
@@ -119,7 +113,21 @@ def _load_function(fullname: str):
 def _enqueue_unfinished_jobs():
     job_store = _get_job_store()
 
-    pending_jobs = job_store.list_jobs(status_list=[JobStatus.PENDING])
+    if os.environ.get("_START_NEW_MLFLOW_JOB_RUNNER") == "1":
+        # If `_START_NEW_MLFLOW_JOB_RUNNER` is `1`,
+        # it is the case that a new MLflow server instance is launched,
+        # and a new mlflow job runner process is launched,
+        # so that queue is empty,
+        # we need to enqueue all pending / running jobs that are recorded
+        # in MLflow job store.
+        pending_jobs = job_store.list_jobs(status_list=[JobStatus.PENDING])
+    else:
+        # If `_START_NEW_MLFLOW_JOB_RUNNER` is `0`,
+        # it is the case that mlflow job runner process crashes and restarts,
+        # in the case the pending jobs are already in the job queue
+        # (they are loaded from the job queue persisted storage),
+        # we only need to enqueue the lost running jobs.
+        pending_jobs = []
     running_jobs = job_store.list_jobs(status_list=[JobStatus.RUNNING])
 
     for job in running_jobs:

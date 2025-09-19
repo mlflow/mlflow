@@ -9,6 +9,20 @@ from mlflow.exceptions import MlflowException
 from mlflow.server.handlers import _get_job_store
 
 
+class TransientError(RuntimeError):
+    """
+    Raise `TransientError` in a job to trigger job retry
+    """
+
+    def __init__(self, origin_error):
+        super().__init__()
+        self._origin_error = origin_error
+
+    @property
+    def origin_error(self):
+        return self._origin_error
+
+
 def submit_job(
     function: Callable[..., Any], params: dict[str, Any], timeout: int | None = None
 ) -> str:
@@ -21,6 +35,11 @@ def submit_job(
     Args:
         function: The job funtion, it must be a python global function,
             and all params and return value must be JSON-serializable.
+            The function can raise `TransientError` in order to trigger
+            job retry, you can set `MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES`
+            to configure maximum allowed retries for transient errors
+            and set `MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY` to
+            configure base retry delay in seconds.
         params: The params to be passed to the job function.
         timeout: (optional) the job execution timeout, default None (no timeout)
 
