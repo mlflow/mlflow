@@ -63,7 +63,8 @@ def basic_job_fun(x, y, sleep_secs=0):
 
 def test_basic_job(monkeypatch):
     with _setup_job_runner(1, monkeypatch):
-        job_id = submit_job(basic_job_fun, {"x": 3, "y": 4})
+        job = submit_job(basic_job_fun, {"x": 3, "y": 4})
+        job_id = job.job_id
         time.sleep(1)
         status, result = query_job(job_id)
         assert status == JobStatus.DONE
@@ -90,7 +91,8 @@ def json_in_out_fun(data):
 
 def test_job_json_input_output(monkeypatch):
     with _setup_job_runner(1, monkeypatch):
-        job_id = submit_job(json_in_out_fun, {"data": {"x": 3, "y": 4}})
+        job = submit_job(json_in_out_fun, {"data": {"x": 3, "y": 4}})
+        job_id = job.job_id
         time.sleep(1)
         status, result = query_job(job_id)
         assert status == JobStatus.DONE
@@ -114,7 +116,8 @@ def err_fun(data):
 
 def test_error_job(monkeypatch):
     with _setup_job_runner(1, monkeypatch):
-        job_id = submit_job(err_fun, {"data": None})
+        job = submit_job(err_fun, {"data": None})
+        job_id = job.job_id
         time.sleep(0.5)
         status, result = query_job(job_id)
         assert status == JobStatus.FAILED
@@ -134,9 +137,9 @@ def test_error_job(monkeypatch):
 
 def test_job_resume_on_job_runner_restart(monkeypatch):
     with _setup_job_runner(1, monkeypatch) as job_runner_proc:
-        job1_id = submit_job(basic_job_fun, {"x": 3, "y": 4, "sleep_secs": 0})
-        job2_id = submit_job(basic_job_fun, {"x": 5, "y": 6, "sleep_secs": 2})
-        job3_id = submit_job(basic_job_fun, {"x": 7, "y": 8, "sleep_secs": 0})
+        job1_id = submit_job(basic_job_fun, {"x": 3, "y": 4, "sleep_secs": 0}).job_id
+        job2_id = submit_job(basic_job_fun, {"x": 5, "y": 6, "sleep_secs": 2}).job_id
+        job3_id = submit_job(basic_job_fun, {"x": 7, "y": 8, "sleep_secs": 0}).job_id
         time.sleep(1)
         job_runner_proc.kill()
         job_runner_proc.wait()  # ensure the job runner process is killed.
@@ -161,9 +164,9 @@ def test_job_resume_on_new_job_runner(monkeypatch):
         backend_store_uri = f"sqlite:///{os.path.join(tmp_dir, 'mlflow.db')}"
 
         with _setup_job_runner(1, monkeypatch, backend_store_uri) as job_runner_proc:
-            job1_id = submit_job(basic_job_fun, {"x": 3, "y": 4, "sleep_secs": 0})
-            job2_id = submit_job(basic_job_fun, {"x": 5, "y": 6, "sleep_secs": 10})
-            job3_id = submit_job(basic_job_fun, {"x": 7, "y": 8, "sleep_secs": 0})
+            job1_id = submit_job(basic_job_fun, {"x": 3, "y": 4, "sleep_secs": 0}).job_id
+            job2_id = submit_job(basic_job_fun, {"x": 5, "y": 6, "sleep_secs": 10}).job_id
+            job3_id = submit_job(basic_job_fun, {"x": 7, "y": 8, "sleep_secs": 0}).job_id
             time.sleep(1)
 
         # ensure the job runner process is killed.
@@ -184,7 +187,7 @@ def test_job_resume_on_new_job_runner(monkeypatch):
 def test_job_queue_parallelism(monkeypatch):
     # test job queue parallelism=2 and each job consumes 2 seconds.
     with _setup_job_runner(2, monkeypatch):
-        job_ids = [submit_job(basic_job_fun, {"x": x, "y": 1, "sleep_secs": 2}) for x in range(4)]
+        job_ids = [submit_job(basic_job_fun, {"x": x, "y": 1, "sleep_secs": 2}).job_id for x in range(4)]
         time.sleep(2.5)
 
         # assert that job1 and job2 are done, and job3 and job4 are running
@@ -218,7 +221,7 @@ def test_job_retry_on_transient_error(monkeypatch):
     with _setup_job_runner(1, monkeypatch):
         store = _get_job_store()
         with tempfile.TemporaryDirectory() as tmp_dir:
-            job1_id = submit_job(transient_err_fun, {"tmp_dir": tmp_dir, "succeed_on_nth_run": 4})
+            job1_id = submit_job(transient_err_fun, {"tmp_dir": tmp_dir, "succeed_on_nth_run": 4}).job_id
             time.sleep(15)
             assert query_job(job1_id) == (JobStatus.FAILED, "RuntimeError('test transient error.')")
             job1 = store.get_job(job1_id)
@@ -227,7 +230,7 @@ def test_job_retry_on_transient_error(monkeypatch):
             assert job1.retry_count == 3
 
         with tempfile.TemporaryDirectory() as tmp_dir:
-            job2_id = submit_job(transient_err_fun, {"tmp_dir": tmp_dir, "succeed_on_nth_run": 1})
+            job2_id = submit_job(transient_err_fun, {"tmp_dir": tmp_dir, "succeed_on_nth_run": 1}).job_id
             time.sleep(3)
             assert query_job(job2_id) == (JobStatus.DONE, 100)
             job2 = store.get_job(job2_id)
@@ -250,7 +253,7 @@ def test_submit_jobs_from_multi_processes(monkeypatch):
             )
             for x in range(4)
         ]
-        job_ids = [async_res.get() for async_res in async_res_list]
+        job_ids = [async_res.get().job_id for async_res in async_res_list]
         time.sleep(3)
         for x in range(4):
             assert query_job(job_ids[x]) == (JobStatus.DONE, x + 1)
@@ -266,7 +269,7 @@ def test_job_timeout(monkeypatch):
 
     with _setup_job_runner(1, monkeypatch) as job_runner_proc, \
             tempfile.TemporaryDirectory() as tmp_dir:
-        job_id = submit_job(sleep_fun, {"sleep_secs": 10, "tmp_dir": tmp_dir}, timeout=5)
+        job_id = submit_job(sleep_fun, {"sleep_secs": 10, "tmp_dir": tmp_dir}, timeout=5).job_id
         time.sleep(6)
         pid = int((Path(tmp_dir) / "pid").read_text())
         # assert timeout job process is killed.
@@ -301,7 +304,7 @@ def test_list_job_pagination(monkeypatch):
     with _setup_job_runner(1, monkeypatch):
         job_ids = []
         for x in range(10):
-            job_id = submit_job(basic_job_fun, {"x": x, "y": 4})
+            job_id = submit_job(basic_job_fun, {"x": x, "y": 4}).job_id
             job_ids.append(job_id)
 
         listed_jobs = _get_job_store().list_jobs(page_size=3)

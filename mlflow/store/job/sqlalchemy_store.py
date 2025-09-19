@@ -40,7 +40,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
             SessionMaker, self.db_type
         )
 
-    def create_job(self, function_fullname: str, params: str, timeout: int | None = None) -> str:
+    def create_job(self, function_fullname: str, params: str, timeout: int | None = None) -> Job:
         """
         Create a new job with the specified function and parameters.
 
@@ -50,7 +50,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
             timeout: The job execution timeout in seconds
 
         Returns:
-            The job ID (UUID4 string)
+            Job entity instance
         """
         with self.ManagedSessionMaker() as session:
             job_id = str(uuid.uuid4())
@@ -68,7 +68,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
 
             session.add(job)
             session.flush()
-            return job_id
+            return job.to_mlflow_entity()
 
     def start_job(self, job_id: str) -> None:
         """

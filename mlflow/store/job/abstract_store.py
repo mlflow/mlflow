@@ -20,7 +20,7 @@ class AbstractJobStore:
         """
 
     @abstractmethod
-    def create_job(self, function_fullname: str, params: str, timeout: int | None = None) -> str:
+    def create_job(self, function_fullname: str, params: str, timeout: int | None = None) -> Job:
         """
         Create a new job with the specified function and parameters.
 
@@ -30,7 +30,7 @@ class AbstractJobStore:
             timeout: The job execution timeout in seconds
 
         Returns:
-            The job ID (UUID4 string)
+            Job entity instance
         """
 
     @abstractmethod

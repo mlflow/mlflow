@@ -4,6 +4,7 @@ import sys
 from types import FunctionType
 from typing import Any, Callable
 
+from mlflow.entities._job import Job
 from mlflow.entities._job_status import JobStatus
 from mlflow.exceptions import MlflowException
 from mlflow.server.handlers import _get_job_store
@@ -25,7 +26,7 @@ class TransientError(RuntimeError):
 
 def submit_job(
     function: Callable[..., Any], params: dict[str, Any], timeout: int | None = None
-) -> str:
+) -> Job:
     """
     Submit a job to the job queue.
     The job is ensured to be scheduled to execute once.
@@ -48,7 +49,7 @@ def submit_job(
         timeout: (optional) the job execution timeout, default None (no timeout)
 
     Returns:
-        The unique job id. You can call `query_job` API by the `job_id` to get
+        The Job entity. You can call `query_job` API by the `job.job_id` to get
         the job status and result.
     """
     from mlflow.environment_variables import MLFLOW_SERVER_ENABLE_JOB_EXECUTION
@@ -66,12 +67,12 @@ def submit_job(
     job_store = _get_job_store()
     serialized_params = json.dumps(params)
     func_fullname = f"{function.__module__}.{function.__name__}"
-    job_id = job_store.create_job(func_fullname, serialized_params, timeout)
+    job = job_store.create_job(func_fullname, serialized_params, timeout)
 
     # enqueue job
-    huey_task_exec_job(job_id, function, params, timeout)
+    huey_task_exec_job(job.job_id, function, params, timeout)
 
-    return job_id
+    return job
 
 
 def query_job(job_id: str) -> tuple[JobStatus, Any]:
