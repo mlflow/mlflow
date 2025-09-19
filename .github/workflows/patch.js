@@ -53,7 +53,7 @@ module.exports = async ({ context, github, core }) => {
 
   // Skip running this check if PR is filed by a bot
   if (pr.data.user?.type?.toLowerCase() === "bot") {
-    core.info(`Skipping processing because the PR is filed by a bot: ${pr.data.user.login}`);
+    core.info(`Skipping processing because the PR is filed by a bot: ${pr.data.user?.login || 'unknown'}`);
     return;
   }
 
