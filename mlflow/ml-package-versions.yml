@@ -370,8 +370,6 @@ pmdarima:
           # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200
           "holidays!=0.25",
           "numpy<2",
-          # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
-          "boto3<1.36",
         ]
     run: |
       pytest tests/pmdarima/test_pmdarima_model_export.py
@@ -388,13 +386,7 @@ diviner:
     requirements:
       # https://github.com/alan-turing-institute/sktime/issues/2898
       # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200
-      ">= 0.0": [
-          "cmdstanpy!=1.0.2",
-          "holidays!=0.25",
-          "numpy<2",
-          # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
-          "boto3<1.36",
-        ]
+      ">= 0.0": ["cmdstanpy!=1.0.2", "holidays!=0.25", "numpy<2"]
       # Diviner <= 0.1.1 isn't compatible with pandas>=2
       "<= 0.1.1": ["pandas<2"]
       # As of Jun 7, 2023, Diviner dev isn't compatible with pandas>=2
@@ -470,8 +462,6 @@ transformers:
           "sentencepiece", # required for transformers text2text generation pipeline
           "protobuf<=3.20.3", # fix error `Couldn't build proto file into descriptor pool: duplicate file name sentencepiece_model.proto`
           "typing_extensions>=4.6.0", # fix error for SqlAlchemy == 2.0.25 cannot import name 'TypeAliasType' from 'typing_extensions'
-          # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
-          "boto3<1.36",
         ]
       # peft >= 0.14 relies on classes from newer versions of transformers
       "< 4.45": ["peft<0.14.0"]
@@ -505,8 +495,6 @@ transformers:
           "tensorflow",
           "setfit",
           "optuna",
-          # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
-          "boto3<1.36",
         ]
       ">= 4.38.2": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
       # hf_hub>=0.24.0 is broken with setfit<=1.0.3. the incompatibility was fixed in setfit>=1.1, but
@@ -980,8 +968,6 @@ sentence_transformers:
           "hf_transfer",
           # Required by a test model (nomic-ai/nomic-embed-text-v1.5)
           "einops",
-          # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
-          "boto3<1.36",
           # Fix for https://github.com/huggingface/transformers/issues/37326
           "accelerate",
         ]
