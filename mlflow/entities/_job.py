@@ -79,4 +79,4 @@ class Job(_MlflowObject):
         return self._retry_count
 
     def __repr__(self) -> str:
-        return f"<Job(job_id={self.job_id}, function={self.function})>"
+        return f"<Job(job_id={self.job_id}, function_fullname={self.function_fullname})>"

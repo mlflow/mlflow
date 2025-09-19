@@ -1976,10 +1976,10 @@ class SqlJob(Base):
     Job result: `Text`.
     """
 
+    retry_count = Column(Integer, default=0)
     """
     Job retry count: `Integer`
     """
-    retry_count = Column(Integer, default=0)
 
     __table_args__ = (
         PrimaryKeyConstraint("id", name="jobs_pk"),

@@ -408,8 +408,8 @@ def _run_server(
         else:
             max_job_parallelism = MLFLOW_SERVER_JOB_MAX_PARALLELISM.get()
 
-            if max_job_parallelism is None:
-                max_job_parallelism = os.cpu_count()
+            if not max_job_parallelism:
+                max_job_parallelism = os.cpu_count() or 1
 
             def _start_job_runner_fn() -> None:
                 from mlflow.server.job import _start_job_runner

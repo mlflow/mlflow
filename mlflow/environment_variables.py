@@ -990,8 +990,8 @@ MLFLOW_SERVER_ENABLE_JOB_EXECUTION = _BooleanEnvironmentVariable(
     "MLFLOW_SERVER_ENABLE_JOB_EXECUTION", False
 )
 
-#: Specifies the MLflow server job maximum parallelism, ``0`` means to use the number of CPUs
-# as the parallelism. (default: ``0``)
+#: Specifies the MLflow server job maximum parallelism, ``None`` means to use the number of CPUs
+# as the parallelism. (default: ``None``)
 MLFLOW_SERVER_JOB_MAX_PARALLELISM = _EnvironmentVariable(
     "MLFLOW_SERVER_JOB_MAX_PARALLELISM", int, None
 )
@@ -1004,7 +1004,7 @@ MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES = _EnvironmentVariable(
 
 #: Specifies MLflow server job retry base delay in seconds for transient errors.
 #: The retry uses exponential backoff strategy, retry delay is computed by
-#: `delay = base_delay * 2 ^ (retry_count - 1)`
+#: `delay = base_delay * (2 ** (retry_count - 1))`
 #: (default: ``15``)
 MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY = _EnvironmentVariable(
     "MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY", int, 15

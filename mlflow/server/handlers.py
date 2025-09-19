@@ -469,7 +469,7 @@ def _get_model_registry_store(registry_store_uri: str | None = None) -> Abstract
     return _model_registry_store
 
 
-def _get_job_store(backend_store_uri: str | None = None):
+def _get_job_store(backend_store_uri: str | None = None) -> "SqlAlchemyJobStore":
     """
     Get a job store instance based on the backend store URI.
 

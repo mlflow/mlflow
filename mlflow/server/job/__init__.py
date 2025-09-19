@@ -32,8 +32,12 @@ def submit_job(
     If Mlflow server crashes when the job is in pending / running status,
     when the Mlflow server restarts, the job will be scheduled again.
 
+    Note:
+        This is a server-side API, and it requires MLflow server configures
+        backend store URI to database URI.
+
     Args:
-        function: The job funtion, it must be a python module-level function,
+        function: The job function, it must be a python module-level function,
             and all params and return value must be JSON-serializable.
             The function can raise `TransientError` in order to trigger
             job retry, you can set `MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES`
@@ -74,6 +78,10 @@ def query_job(job_id: str) -> tuple[JobStatus, Any]:
     """
     Query the job status and result by the job id.
 
+    Note:
+        This is a server-side API, and it requires MLflow server configures
+        backend store URI to database URI.
+
     Args:
         job_id: The job id.
 
@@ -101,7 +109,8 @@ def _start_job_runner(env_map, max_job_parallelism, server_proc_pid, start_new_r
             sys.executable,
             shutil.which("huey_consumer.py"),
             "mlflow.server.job.job_runner.huey",
-            f"-w {max_job_parallelism}",
+            "-w",
+            str(max_job_parallelism),
         ],
         capture_output=False,
         synchronous=False,
