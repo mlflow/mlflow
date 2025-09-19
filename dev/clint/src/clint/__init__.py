@@ -72,11 +72,14 @@ def main() -> None:
                 f.result() for f in as_completed(futures)
             )
             if violations := list(violations_iter):
+                print(f"Found {len(violations)} violations")
                 if args.output_format == "json":
                     sys.stdout.write(json.dumps([v.json() for v in violations]))
                 elif args.output_format == "text":
                     sys.stderr.write("\n".join(map(str, violations)) + "\n")
                 sys.exit(1)
+            else:
+                print("No violations found!")
 
 
 if __name__ == "__main__":
