@@ -80,17 +80,17 @@ def log_dspy_lm_state():
 
         lm_attributes = {
             key: value
-            for key, value in getattr(lm, 'kwargs', {}).items()
+            for key, value in getattr(lm, "kwargs", {}).items()
             if key not in {"api_key", "api_base"}
         }
 
-        for attr in ['model', 'model_type', 'cache', 'temperature', 'max_tokens']:
+        for attr in ["model", "model_type", "cache", "temperature", "max_tokens"]:
             value = getattr(lm, attr, None)
             if value is not None:
                 lm_attributes[attr] = value
 
         if lm_attributes:
-            mlflow.log_param('lm_params', json.dumps(lm_attributes, sort_keys=True))
+            mlflow.log_param("lm_params", json.dumps(lm_attributes, sort_keys=True))
 
     except Exception as e:
         _logger.warning(f"Failed to log DSPy LM state: {e}")
