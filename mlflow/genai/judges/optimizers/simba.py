@@ -2,7 +2,7 @@
 
 import logging
 from contextlib import contextmanager
-from typing import Any, Callable, ClassVar, Collection
+from typing import Any, Callable, ClassVar, Collection, Iterator
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.optimizers.dspy import DSPyAlignmentOptimizer
@@ -22,7 +22,9 @@ _logger = logging.getLogger(__name__)
 
 
 @contextmanager
-def _suppress_verbose_logging(logger_name: str, threshold_level: int = logging.DEBUG):
+def _suppress_verbose_logging(
+    logger_name: str, threshold_level: int = logging.DEBUG
+) -> Iterator[None]:
     """
     Context manager to suppress verbose logging from a specific logger.
 
