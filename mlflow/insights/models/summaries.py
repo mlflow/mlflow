@@ -27,8 +27,7 @@ class BaseSummary(BaseModel, ABC):
     updated_at: datetime = Field(description="Last update timestamp in UTC")
 
     @abstractmethod
-    def get_id(self) -> str:
-        """Get the unique identifier for this summary."""
+    def get_id(self) -> str: ...
 
 
 class AnalysisSummary(BaseSummary):

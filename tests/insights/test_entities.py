@@ -1,4 +1,5 @@
 from datetime import datetime
+from pathlib import Path
 from time import sleep
 from uuid import UUID
 
@@ -25,24 +26,24 @@ from mlflow.insights.models import (
 
 
 @pytest.fixture
-def analysis():
+def analysis() -> Analysis:
     return Analysis(name="Test", description="Test")
 
 
 @pytest.fixture
-def hypothesis():
+def hypothesis() -> Hypothesis:
     return Hypothesis(statement="Test", testing_plan="Test")
 
 
 @pytest.fixture
-def issue():
+def issue() -> Issue:
     return Issue(
         source_run_id="run123", title="Test", description="Test", severity=IssueSeverity.HIGH
     )
 
 
 @pytest.fixture
-def yaml_file(tmp_path):
+def yaml_file(tmp_path: Path) -> Path:
     return tmp_path / "entity.yaml"
 
 
@@ -118,7 +119,7 @@ def test_evidence_entry_empty_rationale_raises(invalid_rationale):
         EvidenceEntry(trace_id="valid_trace", rationale=invalid_rationale)
 
 
-def test_analysis_creation_with_defaults(analysis):
+def test_analysis_creation_with_defaults(analysis: Analysis):
     assert analysis.name == "Test"
     assert analysis.description == "Test"
     assert analysis.status == AnalysisStatus.ACTIVE
@@ -162,7 +163,7 @@ def test_analysis_strips_whitespace(input_name, input_desc, expected_name, expec
         ),
     ],
 )
-def test_analysis_status_transitions(analysis, transitions, expected_statuses):
+def test_analysis_status_transitions(analysis: Analysis, transitions, expected_statuses):
     assert analysis.status == AnalysisStatus.ACTIVE
     previous_timestamp = analysis.updated_at
 
@@ -181,7 +182,7 @@ def test_analysis_status_transitions(analysis, transitions, expected_statuses):
         ("Something went wrong", True),
     ],
 )
-def test_analysis_mark_error(analysis, error_message, should_have_message):
+def test_analysis_mark_error(analysis: Analysis, error_message, should_have_message):
     analysis.mark_error(error_message)
     assert analysis.status == AnalysisStatus.ERROR
     if should_have_message:
@@ -198,7 +199,7 @@ def test_analysis_metadata_validation():
         Analysis(name="Test", description="Test", metadata="not a dict")
 
 
-def test_hypothesis_creation_with_defaults(hypothesis):
+def test_hypothesis_creation_with_defaults(hypothesis: Hypothesis):
     assert hypothesis.statement == "Test"
     assert hypothesis.testing_plan == "Test"
     assert hypothesis.status == HypothesisStatus.TESTING
@@ -261,7 +262,7 @@ def test_hypothesis_evidence_counts():
     assert hyp.refutes_count == 1
 
 
-def test_hypothesis_add_evidence(hypothesis):
+def test_hypothesis_add_evidence(hypothesis: Hypothesis):
     assert hypothesis.evidence_count == 0
     initial_timestamp = hypothesis.updated_at
 
@@ -286,7 +287,7 @@ def test_hypothesis_add_evidence(hypothesis):
         ),
     ],
 )
-def test_hypothesis_status_transitions(hypothesis, transitions, expected_statuses):
+def test_hypothesis_status_transitions(hypothesis: Hypothesis, transitions, expected_statuses):
     assert hypothesis.status == HypothesisStatus.TESTING
     previous_timestamp = hypothesis.updated_at
 
@@ -298,7 +299,7 @@ def test_hypothesis_status_transitions(hypothesis, transitions, expected_statuse
         previous_timestamp = hypothesis.updated_at
 
 
-def test_hypothesis_mark_error(hypothesis):
+def test_hypothesis_mark_error(hypothesis: Hypothesis):
     hypothesis.mark_error("Testing failed due to data issue")
     assert hypothesis.status == HypothesisStatus.ERROR
     assert hypothesis.metadata["error_message"] == "Testing failed due to data issue"
@@ -315,7 +316,7 @@ def test_hypothesis_metrics():
         Hypothesis(statement="Test", testing_plan="Test", metrics="not a dict")
 
 
-def test_issue_creation_with_defaults(issue):
+def test_issue_creation_with_defaults(issue: Issue):
     assert issue.source_run_id == "run123"
     assert issue.title == "Test"
     assert issue.description == "Test"
@@ -394,7 +395,7 @@ def test_issue_evidence_normalization():
     assert all(e.supports is None for e in issue.evidence)
 
 
-def test_issue_add_evidence(issue):
+def test_issue_add_evidence(issue: Issue):
     initial_timestamp = issue.updated_at
 
     sleep(0.001)
@@ -458,19 +459,19 @@ def test_issue_status_transitions(
             assert issue.resolution is None
 
 
-def test_issue_mark_error(issue):
+def test_issue_mark_error(issue: Issue):
     issue.mark_error("Failed to process issue")
     assert issue.status == IssueStatus.ERROR
     assert issue.metadata["error_message"] == "Failed to process issue"
 
 
 @pytest.mark.parametrize("resolution", ["", "   "])
-def test_issue_resolve_validation(issue, resolution):
+def test_issue_resolve_validation(issue: Issue, resolution):
     with pytest.raises(MlflowException, match="Resolution description cannot be empty"):
         issue.resolve(resolution)
 
 
-def test_analysis_summary_from_analysis(analysis):
+def test_analysis_summary_from_analysis(analysis: Analysis):
     hypotheses = [
         Hypothesis(statement=f"Hyp {i}", testing_plan="Test", status=status)
         for i, status in enumerate(
@@ -558,7 +559,7 @@ def test_all_transitions_update_timestamp(request, entity_fixture, transitions):
         previous_timestamp = entity.updated_at
 
 
-def test_created_at_never_changes(analysis):
+def test_created_at_never_changes(analysis: Analysis):
     initial_created = analysis.created_at
 
     sleep(0.001)
@@ -570,7 +571,7 @@ def test_created_at_never_changes(analysis):
     assert analysis.created_at == initial_created
 
 
-def test_analysis_serialization_lifecycle(yaml_file, analysis):
+def test_analysis_serialization_lifecycle(yaml_file: Path, analysis: Analysis):
     initial_created = analysis.created_at
     initial_updated = analysis.updated_at
 
@@ -601,7 +602,7 @@ def test_analysis_serialization_lifecycle(yaml_file, analysis):
     assert final.updated_at == loaded.updated_at
 
 
-def test_hypothesis_serialization_with_evidence(yaml_file, hypothesis):
+def test_hypothesis_serialization_with_evidence(yaml_file: Path, hypothesis: Hypothesis):
     hypothesis_id = hypothesis.hypothesis_id
 
     hypothesis.add_evidence("trace1", "Evidence 1", supports=True)
@@ -621,7 +622,7 @@ def test_hypothesis_serialization_with_evidence(yaml_file, hypothesis):
     assert all(isinstance(e, EvidenceEntry) for e in loaded.evidence)
 
 
-def test_issue_serialization_full_lifecycle(yaml_file, issue):
+def test_issue_serialization_full_lifecycle(yaml_file: Path, issue: Issue):
     issue_id = issue.issue_id
 
     issue.start_progress()
@@ -671,7 +672,7 @@ def test_issue_serialization_full_lifecycle(yaml_file, issue):
         ),
     ],
 )
-def test_serialization_preserves_timestamps(yaml_file, entity_class, init_args):
+def test_serialization_preserves_timestamps(yaml_file: Path, entity_class, init_args):
     entity = entity_class(**init_args)
     original_created = entity.created_at
     original_updated = entity.updated_at
