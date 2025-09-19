@@ -70,7 +70,7 @@ def autolog(
     if not disable:
         if not any(isinstance(c, MlflowCallback) for c in dspy.settings.callbacks):
             dspy.settings.configure(callbacks=[*dspy.settings.callbacks, MlflowCallback()])
-        # DSPy token tracking has an issue before 3.0.4
+        # DSPy token tracking has an issue before 3.0.4: https://github.com/stanfordnlp/dspy/pull/8831
         if Version(importlib.metadata.version("dspy")) >= Version("3.0.4"):
             dspy.settings.configure(track_usage=True)
 
