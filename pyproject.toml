@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "3.3.3.dev0"
+version = "3.4.1.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.md"
 keywords = ["mlflow", "ai", "databricks"]
@@ -182,6 +182,9 @@ test = [
   "pytest-timeout",
   "pytest-localserver==0.5.0",
 ]
+
+[tool.uv]
+required-version = "==0.8.18"
 
 [tool.uv.workspace]
 members = ["dev/clint"]
@@ -407,7 +410,6 @@ extend-ignore-re = [
 
 [tool.pytest.ini_options]
 addopts = "-p no:legacypath --strict-markers --color=yes --durations=10 --showlocals -v"
-pythonpath = ["."]
 filterwarnings = [
   # Prevent deprecated numpy type aliases from being used
   "error:^`np\\.[a-z]+` is a deprecated alias for.+:DeprecationWarning:mlflow",

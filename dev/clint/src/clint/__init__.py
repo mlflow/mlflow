@@ -14,7 +14,7 @@ from typing_extensions import Self
 from clint.config import Config
 from clint.index import SymbolIndex
 from clint.linter import lint_file
-from clint.utils import resolve_paths
+from clint.utils import get_repo_root, resolve_paths
 
 
 @dataclass
@@ -44,10 +44,16 @@ def main() -> None:
     resolved_files = resolve_paths(input_paths)
 
     # Apply exclude filtering
-    files = []
+    files: list[Path] = []
     if config.exclude:
+        repo_root = get_repo_root()
+        cwd = Path.cwd()
         regex = re.compile("|".join(map(re.escape, config.exclude)))
-        files = [f for f in resolved_files if not regex.match(str(f))]
+        for f in resolved_files:
+            # Convert file path to be relative to repo root for exclude pattern matching
+            repo_relative_path = (cwd / f).resolve().relative_to(repo_root)
+            if not regex.match(repo_relative_path.as_posix()):
+                files.append(f)
     else:
         files = resolved_files
 
@@ -61,7 +67,7 @@ def main() -> None:
         index_path = Path(tmp_dir) / "symbol_index.pkl"
         SymbolIndex.build().save(index_path)
         with ProcessPoolExecutor() as pool:
-            futures = [pool.submit(lint_file, f, config, index_path) for f in files]
+            futures = [pool.submit(lint_file, f, f.read_text(), config, index_path) for f in files]
             violations_iter = itertools.chain.from_iterable(
                 f.result() for f in as_completed(futures)
             )
@@ -70,7 +76,12 @@ def main() -> None:
                     sys.stdout.write(json.dumps([v.json() for v in violations]))
                 elif args.output_format == "text":
                     sys.stderr.write("\n".join(map(str, violations)) + "\n")
+                count = len(violations)
+                label = "error" if count == 1 else "errors"
+                print(f"Found {count} {label}", file=sys.stderr)
                 sys.exit(1)
+            else:
+                print("No errors found!", file=sys.stderr)
 
 
 if __name__ == "__main__":

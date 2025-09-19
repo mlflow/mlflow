@@ -51,24 +51,26 @@ module.exports = async ({ context, github, core }) => {
   });
   const { body } = pr.data;
 
+  // Skip running this check if PR is filed by a bot
+  if (pr.data.user?.type?.toLowerCase() === "bot") {
+    core.info(
+      `Skipping processing because the PR is filed by a bot: ${pr.data.user?.login || "unknown"}`
+    );
+    return;
+  }
+
   // Skip running this check on CD automation PRs
-  if (!body) {
+  if (!body || body.trim() === "") {
     core.info("Skipping processing because the PR has no body.");
     return;
   }
 
-  const marker = "<!-- patch -->";
-  if (body && !body.includes(marker)) {
-    return;
-  }
-
-  const patchSection = body.split(marker)[1];
   const yesRegex = /- \[( |x)\] yes/gi;
-  const yesMatches = [...patchSection.matchAll(yesRegex)];
+  const yesMatches = [...body.matchAll(yesRegex)];
   const yesMatch = yesMatches.length > 0 ? yesMatches[yesMatches.length - 1] : null;
   const yes = yesMatch ? yesMatch[1].toLowerCase() === "x" : false;
   const noRegex = /- \[( |x)\] no/gi;
-  const noMatches = [...patchSection.matchAll(noRegex)];
+  const noMatches = [...body.matchAll(noRegex)];
   const noMatch = noMatches.length > 0 ? noMatches[noMatches.length - 1] : null;
   const no = noMatch ? noMatch[1].toLowerCase() === "x" : false;
 

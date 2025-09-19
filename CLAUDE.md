@@ -74,6 +74,9 @@ uv run pytest tests/
 # Run specific test file
 uv run pytest tests/test_version.py
 
+# Run tests with specific package versions
+uv run --with abc==1.2.3 --with xyz==4.5.6 pytest tests/test_version.py
+
 # Run tests with optional dependencies/extras
 uv run --with transformers pytest tests/transformers
 uv run --extra gateway pytest tests/gateway
