@@ -2,7 +2,8 @@ import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.insights.models import EvidenceEntry
-from mlflow.insights.utils import extract_trace_ids, normalize_evidence
+from mlflow.insights.models.base import extract_trace_ids
+from mlflow.insights.utils import normalize_evidence
 
 
 @pytest.mark.parametrize(

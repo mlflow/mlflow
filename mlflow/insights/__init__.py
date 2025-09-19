@@ -22,7 +22,8 @@ from mlflow.insights.models import (
     Issue,
     IssueSummary,
 )
-from mlflow.insights.utils import extract_trace_ids, normalize_evidence
+from mlflow.insights.models.base import extract_trace_ids
+from mlflow.insights.utils import normalize_evidence
 
 __all__ = [
     # Core models
