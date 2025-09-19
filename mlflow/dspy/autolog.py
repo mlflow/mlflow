@@ -64,7 +64,7 @@ def autolog(
     import dspy
 
     from mlflow.dspy.callback import MlflowCallback
-    from mlflow.dspy.util import log_dspy_dataset, save_dspy_module_state
+    from mlflow.dspy.util import log_dspy_dataset, log_dspy_lm_state, save_dspy_module_state
 
     # Enable tracing by setting the MlflowCallback
     if not disable:
@@ -122,6 +122,9 @@ def autolog(
             mlflow.log_params(
                 {k: v for k, v in inputs.items() if isinstance(v, (int, float, str, bool))}
             )
+
+            # Log the current DSPy LM state
+            log_dspy_lm_state()
 
             if trainset := inputs.get("trainset"):
                 log_dspy_dataset(trainset, "trainset.json")
