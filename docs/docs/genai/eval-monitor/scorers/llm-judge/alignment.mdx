@@ -169,7 +169,7 @@ traces_for_alignment = mlflow.search_traces(
     experiment_ids=[experiment_id], max_results=15, return_type="list"
 )
 
-# Align the judge using human corrections (minimum 10 traces required)
+# Align the judge using human corrections (minimum 10 traces recommended)
 if len(traces_for_alignment) >= 10:
     # Use default optimizer - SIMBA is used automatically
     aligned_judge = initial_judge.align(traces_for_alignment)
@@ -192,7 +192,7 @@ traces_for_alignment = mlflow.search_traces(
     experiment_ids=[experiment_id], max_results=15, return_type="list"
 )
 
-# Align the judge using human corrections (minimum 10 traces required)
+# Align the judge using human corrections (minimum 10 traces recommended)
 if len(traces_for_alignment) >= 10:
     # Explicitly specify SIMBA with custom model configuration
     optimizer = SIMBAAlignmentOptimizer(model="anthropic:/claude-opus-4-1-20250805")
@@ -211,7 +211,7 @@ else:
 
 ## The SIMBA Alignment Optimizer
 
-MLflow provides the SIMBA (Simplified Multi-Bootstrap Aggregation) optimizer as the **default optimizer** for aligning judges with human feedback. When you call `align()` without specifying an optimizer, SIMBA is used automatically:
+MLflow provides the **default alignment optimizer** using [DSPy's implementation of SIMBA](https://dspy.ai/api/optimizers/SIMBA/) (Simplified Multi-Bootstrap Aggregation). When you call `align()` without specifying an optimizer, the SIMBA optimizer is used automatically:
 
 ```python
 # Default: Uses SIMBA optimizer automatically
@@ -233,7 +233,7 @@ aligned_judge = initial_judge.align(traces_with_feedback, optimizer)
 ```
 
 :::tip[Default Optimizer Behavior]
-When using `align()` without an optimizer parameter, MLflow automatically uses the SIMBA optimizer with its default configuration. This simplifies the alignment process while still allowing customization when needed.
+When using `align()` without an optimizer parameter, MLflow automatically uses the SIMBA optimizer. This simplifies the alignment process while still allowing customization when needed.
 :::
 
 ## Collecting Feedback for Alignment
@@ -404,7 +404,7 @@ aligned_judge = initial_judge.align(traces_with_feedback, custom_optimizer)
 
 MLflow currently provides:
 
-- **SIMBAAlignmentOptimizer** (default): Uses Simplified Multi-Bootstrap Aggregation for robust alignment
+- **SIMBAAlignmentOptimizer** (default): Uses [DSPy's Simplified Multi-Bootstrap Aggregation](https://dspy.ai/api/optimizers/SIMBA/) for robust alignment
 - **Custom optimizers**: Extend `AlignmentOptimizer` to implement your own strategies
 
 The plugin architecture ensures that new optimization strategies can be added without modifying the core judge system, promoting extensibility and experimentation with different alignment approaches.

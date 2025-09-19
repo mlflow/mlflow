@@ -287,7 +287,7 @@ traces_with_feedback = mlflow.search_traces(
     experiment_ids=[experiment_id], max_results=20  # Minimum 10 required for alignment
 )
 
-# Align the judge with human preferences (uses default SIMBA optimizer)
+# Align the judge with human preferences (uses default DSPy-SIMBA optimizer)
 aligned_judge = quality_judge.align(traces_with_feedback)
 
 # The aligned judge now better matches your team's quality standards
