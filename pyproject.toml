@@ -183,6 +183,9 @@ test = [
   "pytest-localserver==0.5.0",
 ]
 
+[tool.uv]
+required-version = "==0.8.18"
+
 [tool.uv.workspace]
 members = ["dev/clint"]
 
