@@ -35,7 +35,7 @@ from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v2 import TraceInfoV2
-from mlflow.entities.trace_location import TraceLocation, TraceLocationType
+from mlflow.entities.trace_location import TraceLocation, TraceLocationType, UCSchemaLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
@@ -55,6 +55,7 @@ from mlflow.protos.service_pb2 import (
     CreateLoggedModel,
     CreateRun,
     CreateTrace,
+    CreateTraceUCStorageLocation,
     DeleteDataset,
     DeleteDatasetTag,
     DeleteExperiment,
@@ -72,6 +73,7 @@ from mlflow.protos.service_pb2 import (
     GetTraceInfoV3,
     GetTraceInfoV4,
     GetTraces,
+    LinkExperimentToUCTraceLocation,
     ListScorers,
     ListScorerVersions,
     LogBatch,
@@ -92,11 +94,15 @@ from mlflow.protos.service_pb2 import (
     SetTraceTag,
     StartTrace,
     StartTraceV3,
+    UnLinkExperimentToUCTraceLocation,
     UpsertDatasetRecords,
 )
 from mlflow.protos.service_pb2 import RunTag as ProtoRunTag
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
+from mlflow.protos.service_pb2 import (
+    UCSchemaLocation as ProtoUCSchemaLocation,
+)
 from mlflow.store.tracking.rest_store import _METHOD_TO_INFO, RestStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.constant import TRACE_ID_V4_PREFIX, TRACE_SCHEMA_VERSION_KEY
@@ -3079,3 +3085,117 @@ def test_get_traces(monkeypatch):
         assert all(isinstance(trace, Trace) for trace in result)
         assert result[0].info.trace_id == span1.trace_id
         assert result[1].info.trace_id == span2.trace_id
+
+
+def test_set_experiment_storage_location():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    experiment_id = "123"
+    uc_schema = UCSchemaLocation(catalog_name="test_catalog", schema_name="test_schema")
+    sql_warehouse_id = "test-warehouse-id"
+
+    # Mock response for CreateTraceUCStorageLocation
+    create_location_response = mock.MagicMock()
+    create_location_response.uc_schema = ProtoUCSchemaLocation(
+        catalog_name="test_catalog",
+        schema_name="test_schema",
+        otel_spans_table_name="test_spans",
+        otel_logs_table_name="test_logs",
+    )
+
+    # Mock response for LinkExperimentToUCTraceLocation
+    link_response = mock.MagicMock()
+    link_response.status_code = 200
+    link_response.text = "{}"
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        mock_call.side_effect = [create_location_response, link_response]
+
+        result = store._set_experiment_storage_location(
+            uc_schema=uc_schema,
+            experiment_id=experiment_id,
+            sql_warehouse_id=sql_warehouse_id,
+        )
+
+        assert mock_call.call_count == 2
+
+        # Verify CreateTraceUCStorageLocation call
+        first_call = mock_call.call_args_list[0]
+        assert first_call[0][0] == CreateTraceUCStorageLocation
+        create_request_body = json.loads(first_call[0][1])
+        assert create_request_body["uc_schema"]["catalog_name"] == "test_catalog"
+        assert create_request_body["uc_schema"]["schema_name"] == "test_schema"
+        assert create_request_body["sql_warehouse_id"] == sql_warehouse_id
+        assert first_call[1]["endpoint"] == "/api/4.0/mlflow/traces/location"
+
+        # Verify LinkExperimentToUCTraceLocation call
+        second_call = mock_call.call_args_list[1]
+        assert second_call[0][0] == LinkExperimentToUCTraceLocation
+        link_request_body = json.loads(second_call[0][1])
+        assert link_request_body["experiment_id"] == experiment_id
+        assert link_request_body["uc_schema"]["catalog_name"] == "test_catalog"
+        assert link_request_body["uc_schema"]["schema_name"] == "test_schema"
+        assert link_request_body["uc_schema"]["otel_spans_table_name"] == "test_spans"
+        assert link_request_body["uc_schema"]["otel_logs_table_name"] == "test_logs"
+        assert second_call[1]["endpoint"] == f"/api/4.0/mlflow/traces/location/{experiment_id}"
+
+        assert isinstance(result, UCSchemaLocation)
+        assert result.catalog_name == "test_catalog"
+        assert result.schema_name == "test_schema"
+        assert result.otel_spans_table_name == "test_spans"
+        assert result.otel_logs_table_name == "test_logs"
+
+
+def test_clear_experiment_storage_location():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    experiment_id = "123"
+
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = "{}"
+
+    with mock.patch.object(store, "_call_endpoint", return_value=response) as mock_call:
+        store._clear_experiment_storage_location(experiment_id=experiment_id)
+
+        mock_call.assert_called_once()
+        call_args = mock_call.call_args
+
+        assert call_args[0][0] == UnLinkExperimentToUCTraceLocation
+        request_body = json.loads(call_args[0][1])
+        assert request_body["experiment_id"] == experiment_id
+        assert "uc_schema" not in request_body  # Should not be set when uc_schema is None
+        assert call_args[1]["endpoint"] == f"/api/4.0/mlflow/traces/location/{experiment_id}"
+
+
+def test_clear_experiment_storage_location_with_uc_schema():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    experiment_id = "123"
+    uc_schema = UCSchemaLocation(catalog_name="test_catalog", schema_name="test_schema")
+
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = "{}"
+
+    with mock.patch.object(store, "_call_endpoint", return_value=response) as mock_call:
+        store._clear_experiment_storage_location(
+            experiment_id=experiment_id,
+            uc_schema=uc_schema,
+        )
+
+        mock_call.assert_called_once()
+        call_args = mock_call.call_args
+
+        assert call_args[0][0] == UnLinkExperimentToUCTraceLocation
+        request_body = json.loads(call_args[0][1])
+        assert request_body["experiment_id"] == experiment_id
+        assert request_body["uc_schema"]["catalog_name"] == "test_catalog"
+        assert request_body["uc_schema"]["schema_name"] == "test_schema"
+        expected_endpoint = (
+            f"/api/4.0/mlflow/traces/location/{experiment_id}/test_catalog.test_schema"
+        )
+        assert call_args[1]["endpoint"] == expected_endpoint

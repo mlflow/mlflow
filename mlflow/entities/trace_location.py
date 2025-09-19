@@ -71,6 +71,16 @@ class UCSchemaLocation(_MlflowObject):
     otel_spans_table_name: str | None = None
     otel_logs_table_name: str | None = None
 
+    @property
+    def full_otel_spans_table_name(self) -> str | None:
+        if self.otel_spans_table_name:
+            return f"{self.catalog_name}.{self.schema_name}.{self.otel_spans_table_name}"
+
+    @property
+    def full_otel_logs_table_name(self) -> str | None:
+        if self.otel_logs_table_name:
+            return f"{self.catalog_name}.{self.schema_name}.{self.otel_logs_table_name}"
+
     def to_proto(self):
         return pb.UCSchemaLocation(
             catalog_name=self.catalog_name,

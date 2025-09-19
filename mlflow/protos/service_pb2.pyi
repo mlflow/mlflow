@@ -1810,6 +1810,41 @@ class Scorer(_message.Message):
     creation_time: int
     def __init__(self, experiment_id: _Optional[int] = ..., scorer_name: _Optional[str] = ..., scorer_version: _Optional[int] = ..., serialized_scorer: _Optional[str] = ..., creation_time: _Optional[int] = ...) -> None: ...
 
+class CreateTraceUCStorageLocation(_message.Message):
+    __slots__ = ("uc_schema", "sql_warehouse_id")
+    class Response(_message.Message):
+        __slots__ = ("uc_schema",)
+        UC_SCHEMA_FIELD_NUMBER: _ClassVar[int]
+        uc_schema: UCSchemaLocation
+        def __init__(self, uc_schema: _Optional[_Union[UCSchemaLocation, _Mapping]] = ...) -> None: ...
+    UC_SCHEMA_FIELD_NUMBER: _ClassVar[int]
+    SQL_WAREHOUSE_ID_FIELD_NUMBER: _ClassVar[int]
+    uc_schema: UCSchemaLocation
+    sql_warehouse_id: str
+    def __init__(self, uc_schema: _Optional[_Union[UCSchemaLocation, _Mapping]] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
+
+class LinkExperimentToUCTraceLocation(_message.Message):
+    __slots__ = ("experiment_id", "uc_schema")
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    UC_SCHEMA_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: str
+    uc_schema: UCSchemaLocation
+    def __init__(self, experiment_id: _Optional[str] = ..., uc_schema: _Optional[_Union[UCSchemaLocation, _Mapping]] = ...) -> None: ...
+
+class UnLinkExperimentToUCTraceLocation(_message.Message):
+    __slots__ = ("experiment_id", "uc_schema")
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    UC_SCHEMA_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: str
+    uc_schema: UCSchemaLocation
+    def __init__(self, experiment_id: _Optional[str] = ..., uc_schema: _Optional[_Union[UCSchemaLocation, _Mapping]] = ...) -> None: ...
+
 class MlflowService(_service.service): ...
 
 class MlflowService_Stub(MlflowService): ...
