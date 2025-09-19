@@ -31,7 +31,7 @@ _DSPY_VERSION = Version(importlib.metadata.version("dspy"))
 
 _DSPY_UNDER_2_6 = _DSPY_VERSION < Version("2.6.0rc1")
 
-_DSPY_UNDER_3_0_4 = _DSPY_VERSION < Version("3.0.4")
+_DSPY_3_0_4_OR_NEWER = _DSPY_VERSION >= Version("3.0.4")
 
 
 # Test module
@@ -50,7 +50,9 @@ class CoT(dspy.Module):
 
 
 class DummyLMWithUsage(DummyLM):
-    if not _DSPY_UNDER_3_0_4:
+    # Usage tracking had an issue before3.0.4
+    # and DummyLM.__call__ cannot be overridden in 2.5.x
+    if _DSPY_3_0_4_OR_NEWER:
 
         def __call__(self, prompt=None, messages=None, **kwargs):
             if dspy.settings.usage_tracker:
@@ -112,7 +114,7 @@ def test_autolog_cot():
     assert traces[0] is not None
     assert traces[0].info.status == "OK"
     assert traces[0].info.execution_time_ms > 0
-    if not _DSPY_UNDER_3_0_4:
+    if _DSPY_3_0_4_OR_NEWER:
         assert traces[0].info.token_usage == {
             TokenUsageKey.INPUT_TOKENS: 5,
             TokenUsageKey.OUTPUT_TOKENS: 7,
@@ -131,7 +133,7 @@ def test_autolog_cot():
         if _DSPY_UNDER_2_6
         else "question -> reasoning, answer"
     )
-    if not _DSPY_UNDER_3_0_4:
+    if _DSPY_3_0_4_OR_NEWER:
         assert spans[0].attributes[SpanAttributeKey.CHAT_USAGE] == {
             TokenUsageKey.INPUT_TOKENS: 5,
             TokenUsageKey.OUTPUT_TOKENS: 7,
@@ -247,7 +249,7 @@ def test_autolog_react():
     assert trace is not None
     assert trace.info.status == "OK"
     assert trace.info.execution_time_ms > 0
-    if not _DSPY_UNDER_3_0_4:
+    if _DSPY_3_0_4_OR_NEWER:
         assert trace.info.token_usage == {
             TokenUsageKey.INPUT_TOKENS: 15,
             TokenUsageKey.OUTPUT_TOKENS: 21,
@@ -360,7 +362,7 @@ def test_autolog_custom_module():
     assert traces[0] is not None
     assert traces[0].info.status == "OK"
     assert traces[0].info.execution_time_ms > 0
-    if not _DSPY_UNDER_3_0_4:
+    if _DSPY_3_0_4_OR_NEWER:
         assert traces[0].info.token_usage == {
             TokenUsageKey.INPUT_TOKENS: 5,
             TokenUsageKey.OUTPUT_TOKENS: 7,
