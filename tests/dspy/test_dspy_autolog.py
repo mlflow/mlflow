@@ -572,7 +572,19 @@ def test_autolog_log_compile(log_compiles):
     if log_compiles:
         run = mlflow.last_active_run()
         assert run is not None
-        assert run.data.params == {"kwarg1": "1", "kwarg2": "2"}
+        assert run.data.params == {
+            "kwarg1": "1",
+            "kwarg2": "2",
+            "lm_params": json.dumps(
+                {
+                    "cache": True,
+                    "max_tokens": 1000,
+                    "model": "dummy",
+                    "model_type": "chat",
+                    "temperature": 0.0,
+                }
+            ),
+        }
         client = MlflowClient()
         artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
         assert "best_model.json" in artifacts
