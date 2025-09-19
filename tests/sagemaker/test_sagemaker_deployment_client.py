@@ -100,13 +100,10 @@ def get_sagemaker_backend(region_name):
 
 
 def mock_sagemaker_aws_services(fn):
-    from moto import mock_ecr, mock_iam, mock_s3, mock_sts
+    from moto import mock_aws
 
-    @mock_ecr
-    @mock_iam
-    @mock_s3
+    @mock_aws
     @mock_sagemaker
-    @mock_sts
     @wraps(fn)
     def mock_wrapper(*args, **kwargs):
         # Create an ECR repository for the `mlflow-pyfunc` SageMaker docker image
