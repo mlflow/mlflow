@@ -5,6 +5,7 @@ from typing import Any, NamedTuple
 
 from moto.core import DEFAULT_ACCOUNT_ID
 from moto.core.base_backend import BackendDict, BaseBackend
+from moto.core.common_models import BaseModel
 from moto.core.models import MockAWS
 from moto.core.responses import BaseResponse
 
@@ -671,7 +672,7 @@ class SageMakerBackend(BaseBackend):
         return summaries
 
 
-class TimestampedResource:
+class TimestampedResource(BaseModel):
     TIMESTAMP_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
     def __init__(self):
