@@ -1103,16 +1103,21 @@ class TransformJobDescription:
 sagemaker_backends = BackendDict(SageMakerBackend, "sagemaker")
 
 
-# Create a mock decorator for SageMaker using the new moto 5.x pattern
-def mock_sagemaker(func=None):
-    def decorator(f):
-        def wrapper(*args, **kwargs):
-            with MockAWS():
-                # Register SageMaker backends
-                return f(*args, **kwargs)
+# Create a base_decorator function for moto 5.x compatibility
+def base_decorator(backends):
+    def decorator(func=None):
+        def wrapper(f):
+            def inner(*args, **kwargs):
+                with MockAWS():
+                    return f(*args, **kwargs)
 
+            return inner
+
+        if func:
+            return wrapper(func)
         return wrapper
 
-    if func:
-        return decorator(func)
     return decorator
+
+
+mock_sagemaker = base_decorator(sagemaker_backends)
