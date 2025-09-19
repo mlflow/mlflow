@@ -236,7 +236,7 @@ class MlflowCallback(BaseCallback):
         if callback_metadata := inputs.get("callback_metadata"):
             if "metric_key" in callback_metadata:
                 key = callback_metadata["metric_key"]
-            if callback_metadata.get("disable"):
+            if callback_metadata.get("disable_logging"):
                 self._disabled_eval_call_ids.add(call_id)
                 return
         if self.optimizer_stack_level > 0:

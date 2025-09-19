@@ -756,7 +756,7 @@ def test_autolog_log_evals_disable_by_caller():
     evaluator = Evaluate(devset=examples, metric=answer_exact_match)
     program = Predict("question -> answer")
     with dspy.context(lm=DummyLM([{"answer": "2"}])):
-        evaluator(program, devset=examples, callback_metadata={"disable": True})
+        evaluator(program, devset=examples, callback_metadata={"disable_logging": True})
 
     assert mlflow.last_active_run() is None
 
