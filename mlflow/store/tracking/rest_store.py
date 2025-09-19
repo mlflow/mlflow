@@ -488,32 +488,25 @@ class RestStore(AbstractStore):
         sql_warehouse_id: str | None = None,
         uc_schemas: list[str] | None = None,
     ) -> tuple[list[TraceInfo], str | None]:
-        if experiment_ids and uc_schemas:
-            raise MlflowException.invalid_parameter_value(
-                "Only one of `experiment_ids` or `uc_schemas` can be specified."
-            )
         if not experiment_ids and not uc_schemas:
             raise MlflowException.invalid_parameter_value(
                 "At least one of `experiment_ids` or `uc_schemas` must be specified."
             )
         if model_id is None:
-            trace_locations = []
-            if uc_schemas:
-                for uc_schema in uc_schemas:
-                    match uc_schema.split("."):
-                        case [catalog, schema]:
-                            trace_locations.append(
-                                TraceLocation.from_uc_schema(catalog, schema).to_proto()
-                            )
-                        case _:
-                            raise MlflowException.invalid_parameter_value(
-                                f"Invalid UC schema format: {uc_schema}. "
-                                "Expected format: `<catalog_name>.<schema_name>`"
-                            )
-            else:
-                trace_locations = [
-                    TraceLocation.from_experiment_id(exp_id).to_proto() for exp_id in experiment_ids
-                ]
+            trace_locations = [
+                TraceLocation.from_experiment_id(exp_id).to_proto() for exp_id in experiment_ids
+            ]
+            for uc_schema in uc_schemas:
+                match uc_schema.split("."):
+                    case [catalog, schema]:
+                        trace_locations.append(
+                            TraceLocation.from_uc_schema(catalog, schema).to_proto()
+                        )
+                    case _:
+                        raise MlflowException.invalid_parameter_value(
+                            f"Invalid UC schema format: {uc_schema}. "
+                            "Expected format: `<catalog_name>.<schema_name>`"
+                        )
 
             request = SearchTracesV4(
                 locations=trace_locations,

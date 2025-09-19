@@ -2892,11 +2892,11 @@ message SearchTracesV4 {
   // List of columns for ordering the results, e.g. ``["timestamp_ms DESC"]``.
   repeated string order_by = 4;
 
-  // Token indicating the page of traces to fetch.
-  optional string page_token = 5;
-
   // Optional SQL warehouse ID for searching traces.
-  optional string sql_warehouse_id = 6;
+  optional string sql_warehouse_id = 5;
+
+  // Token indicating the page of traces to fetch.
+  optional string page_token = 6;
 
   message Response {
     // Information about traces that match the search criteria.
