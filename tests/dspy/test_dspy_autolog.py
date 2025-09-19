@@ -748,6 +748,21 @@ def test_autolog_log_evals(
 
 @skip_when_testing_trace_sdk
 @skip_if_evaluate_callback_unavailable
+def test_autolog_log_evals_disable_by_caller():
+    mlflow.dspy.autolog(log_evals=True)
+    examples = [
+        Example(question="What is 1 + 1?", answer="2").with_inputs("question"),
+    ]
+    evaluator = Evaluate(devset=examples, metric=answer_exact_match)
+    program = Predict("question -> answer")
+    with dspy.context(lm=DummyLM([{"answer": "2"}])):
+        evaluator(program, devset=examples, callback_metadata={"disable_logging": True})
+
+    assert mlflow.last_active_run() is None
+
+
+@skip_when_testing_trace_sdk
+@skip_if_evaluate_callback_unavailable
 def test_autolog_nested_evals():
     lm = DummyLM(
         {
