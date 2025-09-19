@@ -5,7 +5,6 @@ from functools import wraps
 from typing import Any
 
 import dspy
-from dspy.dsp.utils import settings as dsp_settings
 from dspy.utils.callback import BaseCallback
 
 import mlflow
@@ -96,6 +95,7 @@ class MlflowCallback(BaseCallback):
     @skip_if_trace_disabled
     def on_module_end(self, call_id: str, outputs: Any | None, exception: Exception | None = None):
         instance = self._call_id_to_module.pop(call_id)
+        attributes = {}
 
         if _get_fully_qualified_class_name(instance) == "dspy.retrieve.databricks_rm.DatabricksRM":
             from mlflow.entities.document import Document
@@ -127,31 +127,22 @@ class MlflowCallback(BaseCallback):
             # is not easy to read on UI. Therefore, we unpack it to a dictionary.
             # https://github.com/stanfordnlp/dspy/blob/6fe693528323c9c10c82d90cb26711a985e18b29/dspy/primitives/prediction.py#L21-L28
             if isinstance(outputs, dspy.Prediction):
-                outputs = outputs.toDict()
-
-    def on_module_end(self, call_id: str, outputs: Any | None, exception: Exception | None = None):
-        # NB: DSPy's Prediction object is a customized dictionary-like object, but its repr
-        # is not easy to read on UI. Therefore, we unpack it to a dictionary.
-        # https://github.com/stanfordnlp/dspy/blob/6fe693528323c9c10c82d90cb26711a985e18b29/dspy/primitives/prediction.py#L21-L28
-        if isinstance(outputs, dspy.Prediction):
-            outputs = outputs.toDict()
-        st = self._call_id_to_span.get(call_id)
-        try:
-            tracker = getattr(dsp_settings, "usage_tracker", None)
-            if tracker:
-                usage_by_model = tracker.get_total_tokens()
-            for lm_name, usage in usage_by_model.items():
-                st.span.set_attribute(
-                    SpanAttributeKey.CHAT_USAGE,
-                    {
-                        TokenUsageKey.INPUT_TOKENS: usage.get("prompt_tokens", 0),
-                        TokenUsageKey.OUTPUT_TOKENS: usage.get("completion_tokens", 0),
-                        TokenUsageKey.TOTAL_TOKENS: usage.get("total_tokens", 0),
-                    },
+                usage_by_model = (
+                    outputs.get_lm_usage() if hasattr(outputs, "get_lm_usage") else None
                 )
-        except Exception as e:
-            _logger.debug(f"Failed to extract token usage for {call_id}: {e}")
-        self._end_span(call_id, outputs, exception)
+                outputs = outputs.toDict()
+                if usage_by_model:
+                    usage_data = {
+                        TokenUsageKey.INPUT_TOKENS: 0,
+                        TokenUsageKey.OUTPUT_TOKENS: 0,
+                        TokenUsageKey.TOTAL_TOKENS: 0,
+                    }
+                    for usage in usage_by_model.values():
+                        usage_data[TokenUsageKey.INPUT_TOKENS] += usage.get("prompt_tokens", 0)
+                        usage_data[TokenUsageKey.OUTPUT_TOKENS] += usage.get("completion_tokens", 0)
+                        usage_data[TokenUsageKey.TOTAL_TOKENS] += usage.get("total_tokens", 0)
+                    attributes[SpanAttributeKey.CHAT_USAGE] = usage_data
+        self._end_span(call_id, outputs, exception, attributes)
 
     @skip_if_trace_disabled
     def on_lm_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
@@ -164,7 +155,6 @@ class MlflowCallback(BaseCallback):
             for key, value in instance.kwargs.items()
             if key not in {"api_key", "api_base"}
         }
-        self._call_id_to_instance = {call_id: instance}
         attributes = {
             **filtered_kwargs,
             "model": instance.model,
@@ -185,22 +175,6 @@ class MlflowCallback(BaseCallback):
 
     @skip_if_trace_disabled
     def on_lm_end(self, call_id: str, outputs: Any | None, exception: Exception | None = None):
-        st = self._call_id_to_span.get(call_id)
-        lm = self._call_id_to_instance.get(call_id)
-        try:
-            if history := getattr(lm, "history"):
-                for hist in history:
-                    usage = hist.get("usage")
-                    st.span.set_attribute(
-                        SpanAttributeKey.CHAT_USAGE,
-                        {
-                            TokenUsageKey.INPUT_TOKENS: usage.get("prompt_tokens", 0),
-                            TokenUsageKey.OUTPUT_TOKENS: usage.get("completion_tokens", 0),
-                            TokenUsageKey.TOTAL_TOKENS: usage.get("total_tokens", 0),
-                        },
-                    )
-        except Exception as e:
-            _logger.debug(f"Failed to extract token usage for {call_id}: {e}")
         self._end_span(call_id, outputs, exception)
 
     @skip_if_trace_disabled
@@ -372,6 +346,7 @@ class MlflowCallback(BaseCallback):
         call_id: str,
         outputs: Any | None,
         exception: Exception | None = None,
+        attributes: dict[str, Any] | None = None,
     ):
         st = self._call_id_to_span.pop(call_id, None)
 
@@ -383,6 +358,9 @@ class MlflowCallback(BaseCallback):
 
         if exception:
             st.span.add_event(SpanEvent.from_exception(exception))
+
+        if attributes:
+            st.span.set_attributes(attributes)
 
         try:
             st.span.end(outputs=outputs, status=status)
