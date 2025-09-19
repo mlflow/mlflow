@@ -179,6 +179,8 @@ class SymbolIndex:
             futures = {}
             for py_file in py_files:
                 abs_file_path = repo_root / py_file
+                if not abs_file_path.exists():
+                    continue
                 content = abs_file_path.read_text()
                 f = executor.submit(extract_symbols_from_file, py_file, content)
                 futures[f] = py_file
