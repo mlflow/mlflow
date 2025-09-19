@@ -1,4 +1,5 @@
 import uuid
+from typing import Iterator
 
 import sqlalchemy
 
@@ -192,7 +193,8 @@ class SqlAlchemyJobStore(AbstractJobStore):
         status_list: list[JobStatus] | None = None,
         begin_timestamp: int | None = None,
         end_timestamp: int | None = None,
-    ) -> list[Job]:
+        page_size: int = 1000,
+    ) -> Iterator[Job]:
         """
         List jobs based on the provided filters.
 
@@ -201,30 +203,53 @@ class SqlAlchemyJobStore(AbstractJobStore):
             status_list: Filter by a list of job status (PENDING, RUNNING, DONE, FAILED)
             begin_timestamp: Filter jobs created after this timestamp (inclusive)
             end_timestamp: Filter jobs created before this timestamp (inclusive)
+            page_size: Number of jobs to return per page (default: 1000)
 
         Returns:
-            List of Job entities that match the filters, order by creation time (oldest first)
+            Iterator of Job entities that match the filters, ordered by creation time (oldest first)
         """
-        with self.ManagedSessionMaker() as session:
-            # Select all columns needed for Job entity
-            query = session.query(SqlJob)
+        offset = 0
+        
+        while True:
+            with self.ManagedSessionMaker() as session:
+                # Select all columns needed for Job entity
+                query = session.query(SqlJob)
 
-            # Apply filters
-            if function_fullname is not None:
-                query = query.filter(SqlJob.function_fullname == function_fullname)
+                # Apply filters
+                if function_fullname is not None:
+                    query = query.filter(SqlJob.function_fullname == function_fullname)
 
-            if status_list:
-                query = query.filter(SqlJob.status.in_([status.to_int() for status in status_list]))
+                if status_list:
+                    query = query.filter(SqlJob.status.in_([status.to_int() for status in status_list]))
 
-            if begin_timestamp is not None:
-                query = query.filter(SqlJob.creation_time >= begin_timestamp)
+                if begin_timestamp is not None:
+                    query = query.filter(SqlJob.creation_time >= begin_timestamp)
 
-            if end_timestamp is not None:
-                query = query.filter(SqlJob.creation_time <= end_timestamp)
+                if end_timestamp is not None:
+                    query = query.filter(SqlJob.creation_time <= end_timestamp)
 
-            # Order by creation time (oldest first) and return Job entities
-            jobs = query.order_by(SqlJob.creation_time).all()
-            return [job.to_mlflow_entity() for job in jobs]
+                # Order by creation time (oldest first) and apply pagination
+                jobs = (
+                    query.order_by(SqlJob.creation_time)
+                    .offset(offset)
+                    .limit(page_size)
+                    .all()
+                )
+
+                # If no jobs returned, we've reached the end
+                if not jobs:
+                    break
+
+                # Yield each job
+                for job in jobs:
+                    yield job.to_mlflow_entity()
+
+                # If we got fewer jobs than page_size, we've reached the end
+                if len(jobs) < page_size:
+                    break
+
+                # Move to next page
+                offset += page_size
 
     def get_job(self, job_id: str) -> Job:
         """

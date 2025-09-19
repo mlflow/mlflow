@@ -1,6 +1,7 @@
 from abc import ABCMeta, abstractmethod
+from typing import Iterator
 
-from mlflow.entities._job import JobStatus
+from mlflow.entities._job import Job, JobStatus
 from mlflow.utils.annotations import developer_stable
 
 
@@ -102,7 +103,8 @@ class AbstractJobStore:
         status_list: list[JobStatus] | None = None,
         begin_timestamp: int | None = None,
         end_timestamp: int | None = None,
-    ):
+        page_size: int = 1000,
+    ) -> Iterator[Job]:
         """
         List jobs based on the provided filters.
 
@@ -111,9 +113,10 @@ class AbstractJobStore:
             status_list: Filter by a list of job status (PENDING, RUNNING, DONE, FAILED)
             begin_timestamp: Filter jobs created after this timestamp (inclusive)
             end_timestamp: Filter jobs created before this timestamp (inclusive)
+            page_size: Number of jobs to return per page (default: 1000)
 
         Returns:
-            List of Job entities that match the filters, order by creation time (oldest first)
+            Iterator of Job entities that match the filters, ordered by creation time (oldest first)
         """
 
     @abstractmethod

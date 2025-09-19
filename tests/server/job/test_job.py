@@ -296,3 +296,13 @@ def test_job_timeout(monkeypatch):
         # assert the job process is killed after job runner process is killed.
         assert not is_process_alive(pid)
 
+
+def test_list_job_pagination(monkeypatch):
+    with _setup_job_runner(1, monkeypatch):
+        job_ids = []
+        for x in range(10):
+            job_id = submit_job(basic_job_fun, {"x": x, "y": 4})
+            job_ids.append(job_id)
+
+        listed_jobs = _get_job_store().list_jobs(page_size=3)
+        assert [job.job_id for job in listed_jobs] == job_ids
