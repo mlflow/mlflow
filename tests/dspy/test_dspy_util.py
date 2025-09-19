@@ -113,11 +113,14 @@ def test_log_dspy_lm_state():
         lm_params = json.loads(run.data.params["lm_params"])
 
         # Verify expected attributes are present
-        assert lm_params["model"] == "openai/gpt-4o-mini"
-        assert lm_params["cache"] is True
-        assert lm_params["temperature"] == 0.7
-        assert lm_params["max_tokens"] == 1000
-        assert lm_params["top_p"] == 0.9
+        assert lm_params == {
+            "model": "openai/gpt-4o-mini",
+            "cache": True,
+            "model_type": "chat",
+            "temperature": 0.7,
+            "max_tokens": 1000,
+            "top_p": 0.9,
+        }
 
         # Verify sensitive attributes are filtered out
         assert "api_key" not in lm_params
