@@ -3147,6 +3147,35 @@ public final class Datasets {
      */
     com.google.protobuf.ByteString
         getLastUpdatedByBytes();
+
+    /**
+     * <pre>
+     * Outputs as JSON string
+     * </pre>
+     *
+     * <code>optional string outputs = 13;</code>
+     * @return Whether the outputs field is set.
+     */
+    boolean hasOutputs();
+    /**
+     * <pre>
+     * Outputs as JSON string
+     * </pre>
+     *
+     * <code>optional string outputs = 13;</code>
+     * @return The outputs.
+     */
+    java.lang.String getOutputs();
+    /**
+     * <pre>
+     * Outputs as JSON string
+     * </pre>
+     *
+     * <code>optional string outputs = 13;</code>
+     * @return The bytes for outputs.
+     */
+    com.google.protobuf.ByteString
+        getOutputsBytes();
   }
   /**
    * Protobuf type {@code mlflow.datasets.DatasetRecord}
@@ -3171,6 +3200,7 @@ public final class Datasets {
       sourceType_ = 0;
       createdBy_ = "";
       lastUpdatedBy_ = "";
+      outputs_ = "";
     }
 
     @java.lang.Override
@@ -3278,6 +3308,12 @@ public final class Datasets {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000800;
               lastUpdatedBy_ = bs;
+              break;
+            }
+            case 106: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00001000;
+              outputs_ = bs;
               break;
             }
             default: {
@@ -3934,6 +3970,66 @@ public final class Datasets {
       }
     }
 
+    public static final int OUTPUTS_FIELD_NUMBER = 13;
+    private volatile java.lang.Object outputs_;
+    /**
+     * <pre>
+     * Outputs as JSON string
+     * </pre>
+     *
+     * <code>optional string outputs = 13;</code>
+     * @return Whether the outputs field is set.
+     */
+    @java.lang.Override
+    public boolean hasOutputs() {
+      return ((bitField0_ & 0x00001000) != 0);
+    }
+    /**
+     * <pre>
+     * Outputs as JSON string
+     * </pre>
+     *
+     * <code>optional string outputs = 13;</code>
+     * @return The outputs.
+     */
+    @java.lang.Override
+    public java.lang.String getOutputs() {
+      java.lang.Object ref = outputs_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          outputs_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Outputs as JSON string
+     * </pre>
+     *
+     * <code>optional string outputs = 13;</code>
+     * @return The bytes for outputs.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getOutputsBytes() {
+      java.lang.Object ref = outputs_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        outputs_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -3984,6 +4080,9 @@ public final class Datasets {
       if (((bitField0_ & 0x00000800) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 12, lastUpdatedBy_);
       }
+      if (((bitField0_ & 0x00001000) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 13, outputs_);
+      }
       unknownFields.writeTo(output);
     }
 
@@ -4031,6 +4130,9 @@ public final class Datasets {
       }
       if (((bitField0_ & 0x00000800) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(12, lastUpdatedBy_);
+      }
+      if (((bitField0_ & 0x00001000) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(13, outputs_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -4106,6 +4208,11 @@ public final class Datasets {
         if (!getLastUpdatedBy()
             .equals(other.getLastUpdatedBy())) return false;
       }
+      if (hasOutputs() != other.hasOutputs()) return false;
+      if (hasOutputs()) {
+        if (!getOutputs()
+            .equals(other.getOutputs())) return false;
+      }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -4166,6 +4273,10 @@ public final class Datasets {
       if (hasLastUpdatedBy()) {
         hash = (37 * hash) + LAST_UPDATED_BY_FIELD_NUMBER;
         hash = (53 * hash) + getLastUpdatedBy().hashCode();
+      }
+      if (hasOutputs()) {
+        hash = (37 * hash) + OUTPUTS_FIELD_NUMBER;
+        hash = (53 * hash) + getOutputs().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -4324,6 +4435,8 @@ public final class Datasets {
         bitField0_ = (bitField0_ & ~0x00000400);
         lastUpdatedBy_ = "";
         bitField0_ = (bitField0_ & ~0x00000800);
+        outputs_ = "";
+        bitField0_ = (bitField0_ & ~0x00001000);
         return this;
       }
 
@@ -4400,6 +4513,10 @@ public final class Datasets {
           to_bitField0_ |= 0x00000800;
         }
         result.lastUpdatedBy_ = lastUpdatedBy_;
+        if (((from_bitField0_ & 0x00001000) != 0)) {
+          to_bitField0_ |= 0x00001000;
+        }
+        result.outputs_ = outputs_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -4501,6 +4618,11 @@ public final class Datasets {
         if (other.hasLastUpdatedBy()) {
           bitField0_ |= 0x00000800;
           lastUpdatedBy_ = other.lastUpdatedBy_;
+          onChanged();
+        }
+        if (other.hasOutputs()) {
+          bitField0_ |= 0x00001000;
+          outputs_ = other.outputs_;
           onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
@@ -5673,6 +5795,114 @@ public final class Datasets {
         onChanged();
         return this;
       }
+
+      private java.lang.Object outputs_ = "";
+      /**
+       * <pre>
+       * Outputs as JSON string
+       * </pre>
+       *
+       * <code>optional string outputs = 13;</code>
+       * @return Whether the outputs field is set.
+       */
+      public boolean hasOutputs() {
+        return ((bitField0_ & 0x00001000) != 0);
+      }
+      /**
+       * <pre>
+       * Outputs as JSON string
+       * </pre>
+       *
+       * <code>optional string outputs = 13;</code>
+       * @return The outputs.
+       */
+      public java.lang.String getOutputs() {
+        java.lang.Object ref = outputs_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            outputs_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Outputs as JSON string
+       * </pre>
+       *
+       * <code>optional string outputs = 13;</code>
+       * @return The bytes for outputs.
+       */
+      public com.google.protobuf.ByteString
+          getOutputsBytes() {
+        java.lang.Object ref = outputs_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          outputs_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Outputs as JSON string
+       * </pre>
+       *
+       * <code>optional string outputs = 13;</code>
+       * @param value The outputs to set.
+       * @return This builder for chaining.
+       */
+      public Builder setOutputs(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00001000;
+        outputs_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Outputs as JSON string
+       * </pre>
+       *
+       * <code>optional string outputs = 13;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearOutputs() {
+        bitField0_ = (bitField0_ & ~0x00001000);
+        outputs_ = getDefaultInstance().getOutputs();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Outputs as JSON string
+       * </pre>
+       *
+       * <code>optional string outputs = 13;</code>
+       * @param value The bytes for outputs to set.
+       * @return This builder for chaining.
+       */
+      public Builder setOutputsBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00001000;
+        outputs_ = value;
+        onChanged();
+        return this;
+      }
       @java.lang.Override
       public final Builder setUnknownFields(
           final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -6711,7 +6941,7 @@ public final class Datasets {
       "\030\005 \001(\t\022\016\n\006digest\030\006 \001(\t\022\024\n\014created_time\030\007" +
       " \001(\003\022\030\n\020last_update_time\030\010 \001(\003\022\022\n\ncreate" +
       "d_by\030\t \001(\t\022\027\n\017last_updated_by\030\n \001(\t\022\026\n\016e" +
-      "xperiment_ids\030\013 \003(\t\"\270\002\n\rDatasetRecord\022\031\n" +
+      "xperiment_ids\030\013 \003(\t\"\311\002\n\rDatasetRecord\022\031\n" +
       "\021dataset_record_id\030\001 \001(\t\022\022\n\ndataset_id\030\002" +
       " \001(\t\022\016\n\006inputs\030\003 \001(\t\022\024\n\014expectations\030\004 \001" +
       "(\t\022\014\n\004tags\030\005 \001(\t\022\016\n\006source\030\006 \001(\t\022\021\n\tsour" +
@@ -6719,13 +6949,13 @@ public final class Datasets {
       "w.datasets.DatasetRecordSource.SourceTyp" +
       "e\022\024\n\014created_time\030\t \001(\003\022\030\n\020last_update_t" +
       "ime\030\n \001(\003\022\022\n\ncreated_by\030\013 \001(\t\022\027\n\017last_up" +
-      "dated_by\030\014 \001(\t\"\311\001\n\023DatasetRecordSource\022D" +
-      "\n\013source_type\030\001 \001(\0162/.mlflow.datasets.Da" +
-      "tasetRecordSource.SourceType\022\023\n\013source_d" +
-      "ata\030\002 \001(\t\"W\n\nSourceType\022\033\n\027SOURCE_TYPE_U" +
-      "NSPECIFIED\020\000\022\t\n\005TRACE\020\001\022\t\n\005HUMAN\020\002\022\014\n\010DO" +
-      "CUMENT\020\003\022\010\n\004CODE\020\004B\031\n\024org.mlflow.api.pro" +
-      "to\220\001\001"
+      "dated_by\030\014 \001(\t\022\017\n\007outputs\030\r \001(\t\"\311\001\n\023Data" +
+      "setRecordSource\022D\n\013source_type\030\001 \001(\0162/.m" +
+      "lflow.datasets.DatasetRecordSource.Sourc" +
+      "eType\022\023\n\013source_data\030\002 \001(\t\"W\n\nSourceType" +
+      "\022\033\n\027SOURCE_TYPE_UNSPECIFIED\020\000\022\t\n\005TRACE\020\001" +
+      "\022\t\n\005HUMAN\020\002\022\014\n\010DOCUMENT\020\003\022\010\n\004CODE\020\004B\031\n\024o" +
+      "rg.mlflow.api.proto\220\001\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -6742,7 +6972,7 @@ public final class Datasets {
     internal_static_mlflow_datasets_DatasetRecord_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_datasets_DatasetRecord_descriptor,
-        new java.lang.String[] { "DatasetRecordId", "DatasetId", "Inputs", "Expectations", "Tags", "Source", "SourceId", "SourceType", "CreatedTime", "LastUpdateTime", "CreatedBy", "LastUpdatedBy", });
+        new java.lang.String[] { "DatasetRecordId", "DatasetId", "Inputs", "Expectations", "Tags", "Source", "SourceId", "SourceType", "CreatedTime", "LastUpdateTime", "CreatedBy", "LastUpdatedBy", "Outputs", });
     internal_static_mlflow_datasets_DatasetRecordSource_descriptor =
       getDescriptor().getMessageTypes().get(2);
     internal_static_mlflow_datasets_DatasetRecordSource_fieldAccessorTable = new
