@@ -69,9 +69,7 @@ def autolog(
     # Enable tracing by setting the MlflowCallback
     if not disable:
         if not any(isinstance(c, MlflowCallback) for c in dspy.settings.callbacks):
-            dspy.settings.configure(
-                callbacks=[*dspy.settings.callbacks, MlflowCallback()], track_usage=True
-            )
+            dspy.settings.configure(callbacks=[*dspy.settings.callbacks, MlflowCallback()])
         # DSPy token tracking has an issue before 3.0.4
         if Version(importlib.metadata.version("dspy")) >= Version("3.0.4"):
             dspy.settings.configure(track_usage=True)
