@@ -72,7 +72,9 @@ def main() -> None:
                 f.result() for f in as_completed(futures)
             )
             if violations := list(violations_iter):
-                print(f"Found {len(violations)} issues", file=sys.stderr)
+                count = len(violations)
+                label = "issue" if count == 1 else "issues"
+                print(f"Found {count} {label}", file=sys.stderr)
                 if args.output_format == "json":
                     sys.stdout.write(json.dumps([v.json() for v in violations]))
                 elif args.output_format == "text":
