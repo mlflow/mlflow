@@ -169,7 +169,6 @@ optimized = tp.compile(cot, trainset=trainset)
 MLflow >= 3.5.0 supports token usage tracking for dspy. The token usage call will be logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace will be
 available in the `token_usage` field of the trace info object.
 
-
 ```python
 import dspy
 import mlflow
@@ -200,6 +199,7 @@ for span in trace.data.spans:
         print(f"  Output tokens: {usage['output_tokens']}")
         print(f"  Total tokens: {usage['total_tokens']}")
 ```
+
 ```bash
 == Total token usage: ==
   Input tokens: 143
