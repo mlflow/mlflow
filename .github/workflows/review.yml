@@ -19,7 +19,7 @@ jobs:
       contents: read
       models: read
       pull-requests: write
-    timeout-minutes: 10
+    timeout-minutes: 20
     # Run on pull_request events from mlflow/mlflow (not forks) or when anyone comments '/review' on a pull request
     if: >
       (github.event_name == 'pull_request' &&
@@ -165,4 +165,4 @@ jobs:
         run: |
           ./codex login --api-key "${{ secrets.OPENAI_API_KEY }}"
           # Use timeout in case codex hangs
-          timeout 5m ./codex exec --skip-git-repo-check "Can you review $PR_URL?" || true
+          timeout 10m ./codex exec --skip-git-repo-check "Can you review $PR_URL?" || true
