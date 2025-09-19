@@ -38,12 +38,12 @@ def foo(s: str) -> int:
 **Test functions:** The `-> None` return type can be omitted for test functions since they implicitly return `None` and the return value is not used. However, **parameter type hints are still required** for all test function parameters.
 
 ```python
-# Good - parameter type hints required, return type hint optional
+# Good - has parameter type hints but no return type hint
 def test_foo(s: str):
     ...
 
 
-# Also acceptable - return type hint included but not required
+# Good - has both parameter and return type hints
 def test_foo(s: str) -> None:
     ...
 
