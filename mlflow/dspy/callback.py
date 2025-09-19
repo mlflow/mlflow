@@ -63,6 +63,7 @@ class MlflowCallback(BaseCallback):
         # call_id: (key, step)
         self._call_id_to_metric_key: dict[str, tuple[str, int]] = {}
         self._evaluation_counter = defaultdict(int)
+        self._disabled_eval_call_ids = set()
 
     def set_dependencies_schema(self, dependencies_schema: dict[str, Any]):
         if self._dependencies_schema:
@@ -235,6 +236,9 @@ class MlflowCallback(BaseCallback):
         if callback_metadata := inputs.get("callback_metadata"):
             if "metric_key" in callback_metadata:
                 key = callback_metadata["metric_key"]
+            if callback_metadata.get("disable"):
+                self._disabled_eval_call_ids.add(call_id)
+                return
         if self.optimizer_stack_level > 0:
             with _lock:
                 # we may want to include optimizer_stack_level in the key
@@ -261,6 +265,9 @@ class MlflowCallback(BaseCallback):
         and add eval metric to the parent run if called inside optimization.
         """
         if not get_autologging_config(FLAVOR_NAME, "log_evals"):
+            return
+        if call_id in self._disabled_eval_call_ids:
+            self._disabled_eval_call_ids.remove(call_id)
             return
         if exception:
             mlflow.end_run(status=RunStatus.to_string(RunStatus.FAILED))
