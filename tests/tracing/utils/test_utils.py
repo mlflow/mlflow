@@ -267,7 +267,6 @@ def test_parse_trace_id_v4_invalid_format():
 
 
 def test_get_otel_attribute_existing_attribute():
-    """Test that get_otel_attribute returns parsed JSON for existing attributes."""
     # Create a mock span with attributes
     span = Mock(spec=trace_api.Span)
     span.attributes = {
@@ -296,7 +295,6 @@ def test_get_otel_attribute_existing_attribute():
 
 
 def test_get_otel_attribute_missing_attribute():
-    """Test that get_otel_attribute returns None for missing attributes."""
     # Create a mock span with empty attributes
     span = Mock(spec=trace_api.Span)
     span.attributes = {}
@@ -306,7 +304,6 @@ def test_get_otel_attribute_missing_attribute():
 
 
 def test_get_otel_attribute_none_attribute():
-    """Test that get_otel_attribute returns None when attribute value is None."""
     # Create a mock span where attributes.get() returns None
     span = Mock(spec=trace_api.Span)
     span.attributes = Mock()
@@ -317,7 +314,6 @@ def test_get_otel_attribute_none_attribute():
 
 
 def test_get_otel_attribute_invalid_json():
-    """Test that get_otel_attribute returns None for invalid JSON."""
     # Create a mock span with invalid JSON
     span = Mock(spec=trace_api.Span)
     span.attributes = {
@@ -333,7 +329,6 @@ def test_get_otel_attribute_invalid_json():
 
 
 def test_get_otel_attribute_non_string_attribute():
-    """Test that get_otel_attribute handles non-string attribute values gracefully."""
     # In some edge cases, attributes might contain non-string values
     span = Mock(spec=trace_api.Span)
     span.attributes = {
