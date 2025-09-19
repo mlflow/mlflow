@@ -1,7 +1,6 @@
 """Tests for mlflow.claude_code.config module."""
 
 import json
-import os
 
 import pytest
 
@@ -91,13 +90,9 @@ def test_get_env_var_from_claude_settings_fallback(tmp_path, monkeypatch):
         json.dump(config_data, f)
 
     # Change to the temp directory so .claude/settings.json is found
-    original_cwd = os.getcwd()
-    try:
-        os.chdir(str(tmp_path))
-        result = get_env_var(MLFLOW_TRACING_ENABLED, "default")
-        assert result == "claude_value"
-    finally:
-        os.chdir(original_cwd)
+    monkeypatch.chdir(tmp_path)
+    result = get_env_var(MLFLOW_TRACING_ENABLED, "default")
+    assert result == "claude_value"
 
 
 def test_get_env_var_default_when_not_found(tmp_path, monkeypatch):
@@ -112,13 +107,9 @@ def test_get_env_var_default_when_not_found(tmp_path, monkeypatch):
         json.dump({}, f)
 
     # Change to temp directory so .claude/settings.json is found
-    original_cwd = os.getcwd()
-    try:
-        os.chdir(str(tmp_path))
-        result = get_env_var(MLFLOW_TRACING_ENABLED, "default_value")
-        assert result == "default_value"
-    finally:
-        os.chdir(original_cwd)
+    monkeypatch.chdir(tmp_path)
+    result = get_env_var(MLFLOW_TRACING_ENABLED, "default_value")
+    assert result == "default_value"
 
 
 def test_get_tracing_status_enabled(temp_settings_path):
