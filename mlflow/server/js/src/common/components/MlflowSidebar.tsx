@@ -2,6 +2,7 @@ import {
   BeakerIcon,
   Button,
   DropdownMenu,
+  HomeIcon,
   ModelsIcon,
   PlusIcon,
   TextBoxIcon,
@@ -22,6 +23,9 @@ import {
 import Routes from '../../experiment-tracking/routes';
 import { FormattedMessage } from 'react-intl';
 
+const isHomeActive = (location: Location) =>
+  matchPath({ path: '/', end: true }, location.pathname);
+
 const isExperimentsActive = (location: Location) =>
   matchPath('/experiments/*', location.pathname) || matchPath('/compare-experiments/*', location.pathname);
 const isModelsActive = (location: Location) => matchPath('/models/*', location.pathname);
@@ -39,6 +43,18 @@ export function MlflowSidebar() {
     mode: CreatePromptModalMode.CreatePrompt,
     onSuccess: ({ promptName }) => navigate(Routes.getPromptDetailsPageRoute(promptName)),
   });
+
+  const homeNavItem = {
+    key: 'home',
+    icon: <HomeIcon />,
+    linkProps: {
+      to: ExperimentTrackingRoutes.rootRoute,
+      isActive: isHomeActive,
+      children: (
+        <FormattedMessage defaultMessage="Home" description="Sidebar link for home page" />
+      ),
+    },
+  };
 
   const menuItems = [
     {
@@ -100,6 +116,8 @@ export function MlflowSidebar() {
     },
   ];
 
+  const navigationItems = [homeNavItem, ...menuItems];
+
   return (
     <aside
       css={{
@@ -137,28 +155,45 @@ export function MlflowSidebar() {
             listStyleType: 'none',
             padding: 0,
             margin: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: theme.spacing.xs,
           }}
         >
-          {menuItems.map(({ key, icon, linkProps }) => (
+          {navigationItems.map(({ key, icon, linkProps }) => (
             <li key={key}>
               <Link
                 to={linkProps.to}
                 aria-current={linkProps.isActive(location) ? 'page' : undefined}
                 css={{
+                  position: 'relative',
                   display: 'flex',
                   alignItems: 'center',
                   gap: theme.spacing.sm,
-                  color: theme.colors.textPrimary,
-                  paddingInline: theme.spacing.md,
-                  paddingBlock: theme.spacing.xs,
-                  borderRadius: theme.borders.borderRadiusSm,
+                  color: theme.colors.textSecondary,
+                  paddingBlock: theme.spacing.sm,
+                  paddingInline: theme.spacing.lg,
+                  borderRadius: theme.borders.borderRadiusMd,
                   '&:hover': {
-                    color: theme.colors.actionLinkHover,
+                    color: theme.colors.actionPrimaryTextDefault,
+                  },
+                  '&::before': {
+                    content: '""',
+                    position: 'absolute',
+                    left: theme.spacing.xs / 2,
+                    top: theme.spacing.xs,
+                    bottom: theme.spacing.xs,
+                    width: 3,
+                    borderRadius: theme.borders.borderRadiusSm,
+                    backgroundColor: 'transparent',
                   },
                   '&[aria-current="page"]': {
-                    backgroundColor: theme.colors.actionDefaultBackgroundPress,
-                    color: theme.isDarkMode ? theme.colors.blue300 : theme.colors.blue700,
+                    backgroundColor: theme.colors.backgroundSecondary,
+                    color: theme.isDarkMode ? theme.colors.blue200 : theme.colors.blue700,
                     fontWeight: theme.typography.typographyBoldFontWeight,
+                    '&::before': {
+                      backgroundColor: theme.colors.actionPrimaryBackgroundDefault,
+                    },
                   },
                 }}
               >

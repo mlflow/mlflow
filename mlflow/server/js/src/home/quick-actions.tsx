@@ -1,0 +1,120 @@
+import React from 'react';
+import { BeakerIcon, ModelsIcon, NotebookIcon, WorkflowsIcon } from '@databricks/design-system';
+import { FormattedMessage } from 'react-intl';
+import ExperimentTrackingRoutes from '../experiment-tracking/routes';
+import type { HomeQuickActionDefinition } from './types';
+
+export const homeQuickActions: HomeQuickActionDefinition[] = [
+  {
+    id: 'log-traces',
+    icon: WorkflowsIcon,
+    componentId: 'mlflow.home.quick_action.log_traces',
+    title: (
+      <FormattedMessage
+        defaultMessage="Log traces"
+        description="Home page quick action title for logging traces"
+      />
+    ),
+    description: (
+      <FormattedMessage
+        defaultMessage="Trace the internal states of LLM or agentic applications for debugging and monitoring."
+        description="Home page quick action description for logging traces"
+      />
+    ),
+    ctaLabel: (
+      <FormattedMessage
+        defaultMessage="Open tracing"
+        description="Home page quick action button label for logging traces"
+      />
+    ),
+    link: {
+      type: 'external',
+      href: 'https://mlflow.org/docs/latest/llms/tracing/index.html',
+      target: '_blank',
+      rel: 'noopener noreferrer',
+    },
+  },
+  {
+    id: 'run-evaluation',
+    icon: BeakerIcon,
+    componentId: 'mlflow.home.quick_action.run_evaluation',
+    title: (
+      <FormattedMessage
+        defaultMessage="Run evaluation"
+        description="Home page quick action title for running evaluations"
+      />
+    ),
+    description: (
+      <FormattedMessage
+        defaultMessage="Iterate on quality with offline evaluations and comparisons."
+        description="Home page quick action description for running evaluations"
+      />
+    ),
+    ctaLabel: (
+      <FormattedMessage
+        defaultMessage="View evaluations"
+        description="Home page quick action button label for running evaluations"
+      />
+    ),
+    link: {
+      type: 'external',
+      href: 'https://mlflow.org/docs/latest/llms/llm-evaluate/index.html',
+      target: '_blank',
+      rel: 'noopener noreferrer',
+    },
+  },
+  {
+    id: 'train-models',
+    icon: NotebookIcon,
+    componentId: 'mlflow.home.quick_action.train_models',
+    title: (
+      <FormattedMessage
+        defaultMessage="Train models"
+        description="Home page quick action title for training models"
+      />
+    ),
+    description: (
+      <FormattedMessage
+        defaultMessage="Track experiments, parameters, and metrics throughout training."
+        description="Home page quick action description for training models"
+      />
+    ),
+    ctaLabel: (
+      <FormattedMessage
+        defaultMessage="Browse training guides"
+        description="Home page quick action button label for training models"
+      />
+    ),
+    link: {
+      type: 'internal',
+      to: ExperimentTrackingRoutes.experimentsObservatoryRoute,
+    },
+  },
+  {
+    id: 'register-prompts',
+    icon: ModelsIcon,
+    componentId: 'mlflow.home.quick_action.register_prompts',
+    title: (
+      <FormattedMessage
+        defaultMessage="Register prompts"
+        description="Home page quick action title for registering prompts"
+      />
+    ),
+    description: (
+      <FormattedMessage
+        defaultMessage="Manage prompt updates and collaborate across teams."
+        description="Home page quick action description for registering prompts"
+      />
+    ),
+    ctaLabel: (
+      <FormattedMessage
+        defaultMessage="Go to prompts"
+        description="Home page quick action button label for registering prompts"
+      />
+    ),
+    link: {
+      type: 'internal',
+      to: ExperimentTrackingRoutes.promptsPageRoute,
+    },
+  },
+];
