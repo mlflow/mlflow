@@ -93,7 +93,7 @@ def query_job(job_id: str) -> tuple[JobStatus, Any]:
     return status, result
 
 
-def _start_job_runner(env_map, max_job_parallelism, server_proc_pid):
+def _start_job_runner(env_map, max_job_parallelism, server_proc_pid, start_new_runner):
     from mlflow.utils.process import _exec_cmd
 
     return _exec_cmd(
@@ -109,6 +109,7 @@ def _start_job_runner(env_map, max_job_parallelism, server_proc_pid):
             **env_map,
             "_IS_MLFLOW_JOB_RUNNER": "1",
             "MLFLOW_SERVER_PID": str(server_proc_pid),
+            "_START_NEW_MLFLOW_JOB_RUNNER": ("1" if start_new_runner else "0"),
         },
     )
 

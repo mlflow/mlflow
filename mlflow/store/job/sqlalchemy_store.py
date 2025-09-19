@@ -203,7 +203,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
             end_timestamp: Filter jobs created before this timestamp (inclusive)
 
         Returns:
-            List of Job entities that match the filters, order by creation time (newest first)
+            List of Job entities that match the filters, order by creation time (oldest first)
         """
         with self.ManagedSessionMaker() as session:
             # Select all columns needed for Job entity
@@ -222,8 +222,8 @@ class SqlAlchemyJobStore(AbstractJobStore):
             if end_timestamp is not None:
                 query = query.filter(SqlJob.creation_time <= end_timestamp)
 
-            # Order by creation time (newest first) and return Job entities
-            jobs = query.order_by(SqlJob.creation_time.desc()).all()
+            # Order by creation time (oldest first) and return Job entities
+            jobs = query.order_by(SqlJob.creation_time).all()
             return [job.to_mlflow_entity() for job in jobs]
 
     def get_job(self, job_id: str) -> Job:

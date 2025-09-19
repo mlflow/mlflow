@@ -120,22 +120,21 @@ def _enqueue_unfinished_jobs():
         # so that queue is empty,
         # we need to enqueue all pending / running jobs that are recorded
         # in MLflow job store.
-        pending_jobs = job_store.list_jobs(status_list=[JobStatus.PENDING])
+        status_list = [JobStatus.PENDING, JobStatus.RUNNING]
     else:
         # If `_START_NEW_MLFLOW_JOB_RUNNER` is `0`,
         # it is the case that mlflow job runner process crashes and restarts,
         # in the case the pending jobs are already in the job queue
         # (they are loaded from the job queue persisted storage),
         # we only need to enqueue the lost running jobs.
-        pending_jobs = []
-    running_jobs = job_store.list_jobs(status_list=[JobStatus.RUNNING])
+        status_list = [JobStatus.RUNNING]
 
-    for job in running_jobs:
-        job_store.reset_job(job.job_id)  # reset the job status to PENDING
+    unfinished_jobs = job_store.list_jobs(status_list=status_list)
 
-    pending_jobs = pending_jobs + running_jobs
+    for job in unfinished_jobs:
+        if job.status == JobStatus.RUNNING:
+            job_store.reset_job(job.job_id)  # reset the job status to PENDING
 
-    for job in pending_jobs:
         params = json.loads(job.params)
         function = _load_function(job.function_fullname)
         timeout = job.timeout

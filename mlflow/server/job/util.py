@@ -2,10 +2,10 @@ import json
 import multiprocessing
 import os
 import signal
+import time
+import threading
 from dataclasses import dataclass
 from typing import Any, Callable
-
-from mlflow.utils import _get_fully_qualified_class_name
 
 
 @dataclass
@@ -32,13 +32,22 @@ class JobResult:
         )
 
 
+def _exit_when_orphaned(poll_interval=1):
+    while True:
+        if os.getppid() == 1:
+            os._exit(1)
+        time.sleep(poll_interval)
+
+
 def _job_subproc_entry(
     func: Callable[..., Any],
     kwargs: dict[str, Any],
     result_queue,
 ) -> None:
     """Child process entrypoint: run func and put result or exception into queue."""
-    from mlflow.server.job import TransientError
+
+    # ensure the subprocess is killed when parent process dies.
+    threading.Thread(target=_exit_when_orphaned, daemon=True).start()
 
     try:
         value = func(**kwargs)

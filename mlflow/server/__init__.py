@@ -414,14 +414,15 @@ def _run_server(
             def _start_job_runner_fn() -> None:
                 from mlflow.server.job import _start_job_runner
 
+                start_new_runner = True
                 while True:
                     # start Mlflow job runner process
                     # Put it inside the loop to ensure the job runner process alive
                     job_runner_proc = _start_job_runner(
-                        env_map, max_job_parallelism, server_proc.pid
+                        env_map, max_job_parallelism, server_proc.pid, start_new_runner
                     )
                     job_runner_proc.wait()
-
+                    start_new_runner = False
                     time.sleep(1)
 
             # start job runner.

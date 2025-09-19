@@ -113,7 +113,7 @@ class AbstractJobStore:
             end_timestamp: Filter jobs created before this timestamp (inclusive)
 
         Returns:
-            List of Job entities that match the filters, order by creation time (newest first)
+            List of Job entities that match the filters, order by creation time (oldest first)
         """
 
     @abstractmethod

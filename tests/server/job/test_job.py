@@ -24,20 +24,21 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def _start_job_runner_for_test(max_job_parallelism):
+def _start_job_runner_for_test(max_job_parallelism, start_new_runner):
     proc = _start_job_runner(
         {"PYTHONPATH": dirname(__file__)},
         max_job_parallelism,
         os.getpid(),
+        start_new_runner,
     )
     time.sleep(5)  # wait for huey consumer to spin up.
     return proc
 
 
 @contextmanager
-def _setup_job_queue(max_job_parallelism, monkeypatch):
+def _setup_job_queue(max_job_parallelism, monkeypatch, backend_store_uri=None):
     with tempfile.TemporaryDirectory() as tmp_dir:
-        backend_store_uri = f"sqlite:///{os.path.join(tmp_dir, 'mlflow.db')}"
+        backend_store_uri = backend_store_uri or f"sqlite:///{os.path.join(tmp_dir, 'mlflow.db')}"
         huey_store_path = os.path.join(tmp_dir, "huey.db")
         default_artifact_root = os.path.join(tmp_dir, "artifacts")
         try:
@@ -45,7 +46,7 @@ def _setup_job_queue(max_job_parallelism, monkeypatch):
             monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, backend_store_uri)
             monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, default_artifact_root)
             monkeypatch.setenv(HUEY_STORAGE_PATH_ENV_VAR, huey_store_path)
-            job_runner_proc = _start_job_runner_for_test(max_job_parallelism)
+            job_runner_proc = _start_job_runner_for_test(max_job_parallelism, True)
             _reinit_huey_queue()
             yield job_runner_proc
         finally:
@@ -131,7 +132,7 @@ def test_error_job(monkeypatch):
         assert job.retry_count == 0
 
 
-def test_job_resume(monkeypatch):
+def test_job_resume_on_job_runner_restart(monkeypatch):
     with _setup_job_queue(1, monkeypatch) as job_runner_proc:
         job1_id = submit_job(basic_job_fun, {"x": 3, "y": 4, "sleep_secs": 0})
         job2_id = submit_job(basic_job_fun, {"x": 5, "y": 6, "sleep_secs": 2})
@@ -146,13 +147,38 @@ def test_job_resume(monkeypatch):
         assert query_job(job3_id) == (JobStatus.PENDING, None)
 
         # restart the job runner, and verify it resumes unfinished jobs (job2 and job3)
-        _start_job_runner_for_test(1)
+        _start_job_runner_for_test(1, False)
         time.sleep(2.5)
 
         # assert all jobs are done.
         assert query_job(job1_id) == (JobStatus.DONE, 7)
         assert query_job(job2_id) == (JobStatus.DONE, 11)
         assert query_job(job3_id) == (JobStatus.DONE, 15)
+
+
+def test_job_resume_on_new_job_runner(monkeypatch):
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        backend_store_uri = f"sqlite:///{os.path.join(tmp_dir, 'mlflow.db')}"
+
+        with _setup_job_queue(1, monkeypatch, backend_store_uri) as job_runner_proc:
+            job1_id = submit_job(basic_job_fun, {"x": 3, "y": 4, "sleep_secs": 0})
+            job2_id = submit_job(basic_job_fun, {"x": 5, "y": 6, "sleep_secs": 10})
+            job3_id = submit_job(basic_job_fun, {"x": 7, "y": 8, "sleep_secs": 0})
+            time.sleep(1)
+
+        # ensure the job runner process is killed.
+        job_runner_proc.wait()
+
+        with _setup_job_queue(1, monkeypatch, backend_store_uri):
+            # assert that job1 has done, job2 is running, and job3 is pending.
+            assert query_job(job1_id) == (JobStatus.DONE, 7)
+            assert query_job(job2_id) == (JobStatus.RUNNING, None)
+            assert query_job(job3_id) == (JobStatus.PENDING, None)
+            time.sleep(10)
+            # assert all jobs are done.
+            assert query_job(job1_id) == (JobStatus.DONE, 7)
+            assert query_job(job2_id) == (JobStatus.DONE, 11)
+            assert query_job(job3_id) == (JobStatus.DONE, 15)
 
 
 def test_job_queue_parallelism(monkeypatch):
