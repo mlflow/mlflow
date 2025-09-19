@@ -52,7 +52,7 @@ module.exports = async ({ context, github, core }) => {
   const { body } = pr.data;
 
   // Skip running this check on CD automation PRs
-  if (!body) {
+  if (!body || body.trim() === "") {
     core.info("Skipping processing because the PR has no body.");
     return;
   }
