@@ -267,7 +267,7 @@ class MlflowCallback(BaseCallback):
         if not get_autologging_config(FLAVOR_NAME, "log_evals"):
             return
         if call_id in self._disabled_eval_call_ids:
-            self._disabled_eval_call_ids.remove(call_id)
+            self._disabled_eval_call_ids.discard(call_id)
             return
         if exception:
             mlflow.end_run(status=RunStatus.to_string(RunStatus.FAILED))
