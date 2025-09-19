@@ -69,7 +69,10 @@ def autolog(
     # Enable tracing by setting the MlflowCallback
     if not disable:
         if not any(isinstance(c, MlflowCallback) for c in dspy.settings.callbacks):
-            dspy.settings.configure(callbacks=[*dspy.settings.callbacks, MlflowCallback()])
+            dspy.settings.configure(
+                callbacks=[*dspy.settings.callbacks, MlflowCallback()], track_usage=True
+            )
+
     else:
         dspy.settings.configure(
             callbacks=[c for c in dspy.settings.callbacks if not isinstance(c, MlflowCallback)]

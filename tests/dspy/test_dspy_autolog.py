@@ -1,15 +1,18 @@
 import importlib
 import json
 import time
+from typing import Any
 from unittest import mock
 
 import dspy
 import dspy.teleprompt
 import pytest
+from dspy.adapters.chat_adapter import ChatAdapter, FieldInfoWithName
 from dspy.evaluate import Evaluate
 from dspy.evaluate.metrics import answer_exact_match
 from dspy.predict import Predict
 from dspy.primitives.example import Example
+from dspy.signatures.field import OutputField
 from dspy.teleprompt import BootstrapFewShot
 from dspy.utils.callback import BaseCallback, with_callbacks
 from dspy.utils.dummies import DummyLM
@@ -18,7 +21,7 @@ from packaging.version import Version
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.trace import Trace
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey, TraceMetadataKey
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces, score_in_model_serving, skip_when_testing_trace_sdk
@@ -47,10 +50,64 @@ class CoT(dspy.Module):
         return self.prog(question=question)
 
 
+class DummyLMWithUsage(DummyLM):
+    @with_callbacks
+    def __call__(self, prompt=None, messages=None, **kwargs):
+        def format_answer_fields(field_names_and_values: dict[str, Any]):
+            return ChatAdapter().format_field_with_value(
+                fields_with_values={
+                    FieldInfoWithName(name=field_name, info=OutputField()): value
+                    for field_name, value in field_names_and_values.items()
+                }
+            )
+
+        # Build the request.
+        outputs = []
+        for _ in range(kwargs.get("n", 1)):
+            messages = messages or [{"role": "user", "content": prompt}]
+            kwargs = {**self.kwargs, **kwargs}
+
+            if self.follow_examples:
+                outputs.append(self._use_example(messages))
+            elif isinstance(self.answers, dict):
+                outputs.append(
+                    next(
+                        (
+                            format_answer_fields(v)
+                            for k, v in self.answers.items()
+                            if k in messages[-1]["content"]
+                        ),
+                        "No more responses",
+                    )
+                )
+            else:
+                outputs.append(
+                    format_answer_fields(next(self.answers, {"answer": "No more responses"}))
+                )
+
+            # Logging, with removed api key & where `cost` is None on cache hit.
+            kwargs = {k: v for k, v in kwargs.items() if not k.startswith("api_")}
+            entry = {"prompt": prompt, "messages": messages, "kwargs": kwargs}
+            entry = {
+                **entry,
+                "outputs": outputs,
+                "usage": {
+                    "prompt_tokens": 5,
+                    "completion_tokens": 7,
+                    "total_tokens": 12,
+                },
+            }
+            entry = {**entry, "cost": 0}
+            self.history.append(entry)
+            self.update_global_history(entry)
+
+        return outputs
+
+
 def test_autolog_lm():
     mlflow.dspy.autolog()
 
-    lm = DummyLM([{"output": "test output"}])
+    lm = DummyLMWithUsage([{"output": "test output"}])
     result = lm("test input")
     assert result == ["[[ ## output ## ]]\ntest output"]
 
@@ -59,10 +116,15 @@ def test_autolog_lm():
     assert trace.info.status == "OK"
     # Latency of LM is too small to get > 0 milliseconds difference
     assert trace.info.execution_time_ms is not None
+    assert trace.info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 5,
+        TokenUsageKey.OUTPUT_TOKENS: 7,
+        TokenUsageKey.TOTAL_TOKENS: 12,
+    }
 
     spans = trace.data.spans
     assert len(spans) == 1
-    assert spans[0].name == "DummyLM.__call__"
+    assert spans[0].name == "DummyLMWithUsage.__call__"
     assert spans[0].span_type == SpanType.CHAT_MODEL
     assert spans[0].status.status_code == "OK"
     assert spans[0].inputs["prompt"] == "test input"
@@ -72,12 +134,21 @@ def test_autolog_lm():
     assert spans[0].attributes["temperature"] == 0.0
     assert spans[0].attributes["max_tokens"] == 1000
 
+    usage = spans[0].get_attribute(SpanAttributeKey.CHAT_USAGE)
+    assert usage == {
+        TokenUsageKey.INPUT_TOKENS: 5,
+        TokenUsageKey.OUTPUT_TOKENS: 7,
+        TokenUsageKey.TOTAL_TOKENS: 12,
+    }
+
 
 def test_autolog_cot():
     mlflow.dspy.autolog()
 
     dspy.settings.configure(
-        lm=DummyLM({"How are you?": {"answer": "test output", "reasoning": "No more responses"}})
+        lm=DummyLMWithUsage(
+            {"How are you?": {"answer": "test output", "reasoning": "No more responses"}}
+        )
     )
 
     cot = dspy.ChainOfThought("question -> answer", n=3)
@@ -91,6 +162,11 @@ def test_autolog_cot():
     assert traces[0] is not None
     assert traces[0].info.status == "OK"
     assert traces[0].info.execution_time_ms > 0
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 5,
+        TokenUsageKey.OUTPUT_TOKENS: 7,
+        TokenUsageKey.TOTAL_TOKENS: 12,
+    }
 
     spans = traces[0].data.spans
     assert len(spans) == 7
@@ -115,7 +191,7 @@ def test_autolog_cot():
         "demos": mock.ANY,
         "signature": mock.ANY,
     }
-    assert spans[3].name == "DummyLM.__call__"
+    assert spans[3].name == "DummyLMWithUsage.__call__"
     assert spans[3].span_type == SpanType.CHAT_MODEL
     assert spans[3].inputs == {
         "prompt": None,
@@ -129,6 +205,13 @@ def test_autolog_cot():
         assert spans[4 + i].name == f"ChatAdapter.parse_{i + 1}"
         assert spans[4 + i].span_type == SpanType.PARSER
         assert "question -> reasoning, answer" in spans[4 + i].inputs["signature"]
+
+    usage = spans[3].get_attribute(SpanAttributeKey.CHAT_USAGE)
+    assert usage == {
+        TokenUsageKey.INPUT_TOKENS: 5,
+        TokenUsageKey.OUTPUT_TOKENS: 7,
+        TokenUsageKey.TOTAL_TOKENS: 12,
+    }
 
 
 def test_mlflow_callback_exception():
@@ -181,7 +264,7 @@ def test_autolog_react():
     mlflow.dspy.autolog()
 
     dspy.settings.configure(
-        lm=DummyLM(
+        lm=DummyLMWithUsage(
             [
                 {
                     "next_thought": "I need to search for the highest mountain in the world",
@@ -214,6 +297,11 @@ def test_autolog_react():
     assert trace is not None
     assert trace.info.status == "OK"
     assert trace.info.execution_time_ms > 0
+    assert trace.info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 15,
+        TokenUsageKey.OUTPUT_TOKENS: 21,
+        TokenUsageKey.TOTAL_TOKENS: 36,
+    }
 
     spans = trace.data.spans
     assert len(spans) == 15
@@ -221,21 +309,27 @@ def test_autolog_react():
         "ReAct.forward",
         "Predict.forward_1",
         "ChatAdapter.format_1",
-        "DummyLM.__call___1",
+        "DummyLMWithUsage.__call___1",
         "ChatAdapter.parse_1",
         "Tool.search",
         "Predict.forward_2",
         "ChatAdapter.format_2",
-        "DummyLM.__call___2",
+        "DummyLMWithUsage.__call___2",
         "ChatAdapter.parse_2",
         "ChainOfThought.forward",
         "Predict.forward_3",
         "ChatAdapter.format_3",
-        "DummyLM.__call___3",
+        "DummyLMWithUsage.__call___3",
         "ChatAdapter.parse_3",
     ]
 
     assert spans[3].span_type == SpanType.CHAT_MODEL
+    usage = spans[3].get_attribute(SpanAttributeKey.CHAT_USAGE)
+    assert usage == {
+        TokenUsageKey.INPUT_TOKENS: 5,
+        TokenUsageKey.OUTPUT_TOKENS: 7,
+        TokenUsageKey.TOTAL_TOKENS: 12,
+    }
 
 
 def test_autolog_retriever():
@@ -302,7 +396,7 @@ def test_autolog_custom_module():
     mlflow.dspy.autolog()
 
     dspy.settings.configure(
-        lm=DummyLM(
+        lm=DummyLMWithUsage(
             [
                 {
                     "answer": "test output",
@@ -321,6 +415,11 @@ def test_autolog_custom_module():
     assert traces[0] is not None
     assert traces[0].info.status == "OK"
     assert traces[0].info.execution_time_ms > 0
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 5,
+        TokenUsageKey.OUTPUT_TOKENS: 7,
+        TokenUsageKey.TOTAL_TOKENS: 12,
+    }
 
     spans = traces[0].data.spans
     assert len(spans) == 8
@@ -331,9 +430,15 @@ def test_autolog_custom_module():
         "ChainOfThought.forward",
         "Predict.forward",
         "ChatAdapter.format",
-        "DummyLM.__call__",
+        "DummyLMWithUsage.__call__",
         "ChatAdapter.parse",
     ]
+    usage = spans[-2].get_attribute(SpanAttributeKey.CHAT_USAGE)
+    assert usage == {
+        TokenUsageKey.INPUT_TOKENS: 5,
+        TokenUsageKey.OUTPUT_TOKENS: 7,
+        TokenUsageKey.TOTAL_TOKENS: 12,
+    }
 
 
 def test_autolog_tracing_during_compilation_disabled_by_default():
