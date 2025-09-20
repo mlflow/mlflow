@@ -14,14 +14,19 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.environment_variables import MLFLOW_SEARCH_TRACES_MAX_THREADS
 from mlflow.exceptions import (
     MlflowException,
+    MlflowNotImplementedException,
     MlflowTraceDataCorrupted,
     MlflowTraceDataException,
     MlflowTraceDataNotFound,
+    RestException,
 )
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INVALID_PARAMETER_VALUE,
+    NOT_FOUND,
+    NOT_IMPLEMENTED,
     RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
 )
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.entities.paged_list import PagedList
@@ -127,6 +132,21 @@ class TracingClient:
         Returns:
             The fetched Trace object, of type ``mlflow.entities.Trace``.
         """
+        try:
+            if traces := self.store.get_traces([trace_id]):
+                return traces[0]
+            else:
+                raise MlflowException(
+                    f"Trace with ID {trace_id} not found.",
+                    error_code=NOT_FOUND,
+                )
+        except MlflowNotImplementedException:
+            pass
+        # if the rest store routes to the store that doesn't support get_traces,
+        # fallback to get_trace_info and download trace data from artifact repo
+        except RestException as e:
+            if e.error_code != ErrorCode.Name(NOT_IMPLEMENTED):
+                raise
         trace_info = self.get_trace_info(trace_id)
         try:
             trace_data = self._download_trace_data(trace_info)
