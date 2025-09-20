@@ -12,7 +12,8 @@ torch>=1.11.0
 torchvision>=0.12.0
 lightning>=1.8.1
 scrapy
-ipywidgets>=8.1.1
+# ipywidgets and tqdm with notebook extra for jupyter widgets
+tqdm[notebook]
 # incremental==24.7.0 requires setuptools>=61.0, which causes https://github.com/mlflow/mlflow/issues/8635
 incremental<24.7.0
 # this is an extra dependency for the auth app which
