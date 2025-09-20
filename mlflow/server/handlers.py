@@ -152,6 +152,7 @@ from mlflow.protos.service_pb2 import (
     SearchRuns,
     SearchTraces,
     SearchTracesV3,
+    SearchTracesV4,
     SetDatasetTags,
     SetExperimentTag,
     SetLoggedModelTags,
@@ -2874,6 +2875,50 @@ def _search_traces_v3():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def _search_traces_v4():
+    """
+    A request handler for `GET /mlflow/traces` to search for TraceInfo records in tracking store.
+    """
+    request_message = _get_request_message(
+        SearchTracesV4(),
+        schema={
+            "locations": [_assert_array, _assert_required],
+            "filter": [_assert_string],
+            "max_results": [
+                _assert_intlike,
+                lambda x: _assert_less_than_or_equal(int(x), 500),
+            ],
+            "order_by": [_assert_array, _assert_item_type_string],
+            "page_token": [_assert_string],
+            "sql_warehouse_id": [_assert_string],
+        },
+    )
+    experiment_ids = []
+    uc_schemas = []
+    for location in request_message.locations:
+        if location.HasField("mlflow_experiment"):
+            experiment_ids.append(location.mlflow_experiment.experiment_id)
+        elif location.HasField("uc_schema"):
+            uc_schemas.append(f"{location.uc_schema.catalog_name}.{location.uc_schema.schema_name}")
+
+    trace_infos, token = _get_tracking_store().search_traces(
+        experiment_ids=experiment_ids,
+        filter_string=request_message.filter,
+        max_results=request_message.max_results,
+        order_by=request_message.order_by,
+        page_token=request_message.page_token or None,
+        sql_warehouse_id=request_message.sql_warehouse_id or None,
+        uc_schemas=uc_schemas,
+    )
+    response_message = SearchTracesV4.Response()
+    response_message.traces.extend([e.to_proto() for e in trace_infos])
+    if token:
+        response_message.next_page_token = token
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _delete_traces():
     """
     A request handler for `POST /mlflow/traces/delete-traces` to delete TraceInfo records
@@ -3964,6 +4009,7 @@ HANDLERS = {
     LinkTracesToRun: _link_traces_to_run,
     # MLflow Tracing APIs (V4)
     GetTraceInfoV4: _get_trace_info_v4,
+    SearchTracesV4: _search_traces_v4,
     # Assessment APIs
     CreateAssessment: _create_assessment,
     GetAssessmentRequest: _get_assessment,

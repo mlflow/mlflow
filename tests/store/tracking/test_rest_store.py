@@ -45,7 +45,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, RESOURCE_DOES_NOT_EXIST
 from mlflow.protos.service_pb2 import (
     CalculateTraceFilterCorrelation,
     CreateAssessment,
@@ -82,6 +82,7 @@ from mlflow.protos.service_pb2 import (
     SearchEvaluationDatasets,
     SearchExperiments,
     SearchRuns,
+    SearchTracesV4,
     SetDatasetTags,
     SetExperimentTag,
     SetTag,
@@ -103,6 +104,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _V3_TRACE_REST_API_PATH_PREFIX,
+    _V4_TRACE_REST_API_PATH_PREFIX,
     MlflowHostCreds,
     get_logged_model_endpoint,
 )
@@ -197,8 +199,7 @@ def test_response_with_unknown_fields(request):
     assert experiments[0].name == "My experiment"
 
 
-def _args(host_creds, endpoint, method, json_body, use_v3=False, retry_timeout_seconds=None):
-    version = "3.0" if use_v3 else "2.0"
+def _args(host_creds, endpoint, method, json_body, version="2.0", retry_timeout_seconds=None):
     res = {
         "host_creds": host_creds,
         "endpoint": f"/api/{version}/mlflow/{endpoint}",
@@ -214,7 +215,7 @@ def _args(host_creds, endpoint, method, json_body, use_v3=False, retry_timeout_s
 
 
 def _verify_requests(
-    http_request, host_creds, endpoint, method, json_body, use_v3=False, retry_timeout_seconds=None
+    http_request, host_creds, endpoint, method, json_body, version="2.0", retry_timeout_seconds=None
 ):
     """
     Verify HTTP requests in tests.
@@ -230,7 +231,7 @@ def _verify_requests(
         retry_timeout_seconds: The retry timeout seconds to use for the request
     """
     http_request.assert_any_call(
-        **(_args(host_creds, endpoint, method, json_body, use_v3, retry_timeout_seconds))
+        **(_args(host_creds, endpoint, method, json_body, version, retry_timeout_seconds))
     )
 
 
@@ -447,7 +448,7 @@ def test_requestor():
             "traces/tr-123",
             "GET",
             message_to_json(v3_expected_message),
-            use_v3=True,
+            version="3.0",
         )
 
 
@@ -691,7 +692,7 @@ def test_start_trace(monkeypatch):
             "traces",
             "POST",
             message_to_json(expected_request),
-            use_v3=True,
+            version="3.0",
             retry_timeout_seconds=1,
         )
 
@@ -743,7 +744,6 @@ def test_deprecated_end_trace_v2():
             f"traces/{request_id}",
             "PATCH",
             message_to_json(expected_request),
-            use_v3=False,
         )
         assert isinstance(res, TraceInfoV2)
         assert res.request_id == request_id
@@ -756,6 +756,183 @@ def test_deprecated_end_trace_v2():
 
 
 def test_search_traces():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+
+    # Format the response
+    response.text = json.dumps(
+        {
+            "traces": [
+                {
+                    "trace_id": "tr-1234",
+                    "trace_location": {
+                        "type": "MLFLOW_EXPERIMENT",
+                        "mlflow_experiment": {"experiment_id": "1234"},
+                    },
+                    "request_time": "1970-01-01T00:00:00.123Z",
+                    "execution_duration_ms": 456,
+                    "state": "OK",
+                    "trace_metadata": {"key": "value"},
+                    "tags": {"k": "v"},
+                }
+            ],
+            "next_page_token": "token",
+        }
+    )
+
+    # Parameters for search_traces
+    filter_string = "state = 'OK'"
+    max_results = 10
+    order_by = ["request_time DESC"]
+    page_token = "12345abcde"
+    uc_schemas = ["catalog.schema"]
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        trace_infos, token = store.search_traces(
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+            uc_schemas=uc_schemas,
+        )
+
+        # Verify the correct endpoint was called (now V4 by default)
+        call_args = mock_http.call_args[1]
+        assert call_args["endpoint"] == f"{_V4_TRACE_REST_API_PATH_PREFIX}/search"
+
+        # Verify the correct parameters were passed
+        json_body = call_args["json"]
+        # The field name should now be 'locations' instead of 'trace_locations'
+        assert "locations" in json_body
+        # The experiment_ids are converted to trace_locations
+        assert len(json_body["locations"]) == 1
+        assert json_body["locations"][0]["uc_schema"]["catalog_name"] == "catalog"
+        assert json_body["locations"][0]["uc_schema"]["schema_name"] == "schema"
+        assert json_body["filter"] == filter_string
+        assert json_body["max_results"] == max_results
+        assert json_body["order_by"] == order_by
+        assert json_body["page_token"] == page_token
+
+    # Verify the correct parameters were passed and the correct trace info objects were returned
+    # for either endpoint
+    assert len(trace_infos) == 1
+    assert isinstance(trace_infos[0], TraceInfo)
+    assert trace_infos[0].trace_id == "tr-1234"
+    assert trace_infos[0].experiment_id == "1234"
+    assert trace_infos[0].request_time == 123
+    # V3's state maps to V2's status
+    assert trace_infos[0].state == TraceStatus.OK.to_state()
+    # This is correct because TraceInfoV3.from_proto converts the repeated field tags to a dict
+    assert trace_infos[0].tags == {"k": "v"}
+    assert trace_infos[0].trace_metadata == {"key": "value", "mlflow.trace_schema.version": "3"}
+    assert token == "token"
+
+
+def test_search_traces_experiments_and_uc_schemas():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+
+    # Format the response
+    response.text = json.dumps(
+        {
+            "traces": [
+                {
+                    "trace_id": "tr-1234",
+                    "trace_location": {
+                        "type": "MLFLOW_EXPERIMENT",
+                        "mlflow_experiment": {"experiment_id": "1234"},
+                    },
+                    "request_time": "1970-01-01T00:00:00.123Z",
+                    "execution_duration_ms": 456,
+                    "state": "OK",
+                    "trace_metadata": {"key": "value"},
+                    "tags": {"k": "v"},
+                },
+            ],
+            "next_page_token": "token",
+        }
+    )
+
+    # Parameters for search_traces
+    experiment_ids = ["1234"]
+    filter_string = "state = 'OK'"
+    max_results = 10
+    order_by = ["request_time DESC"]
+    page_token = "12345abcde"
+    uc_schemas = ["catalog.schema"]
+    trace_locations = [
+        TraceLocation.from_experiment_id(exp_id).to_proto() for exp_id in experiment_ids
+    ]
+    for uc_schema in uc_schemas:
+        catalog, schema = uc_schema.split(".")
+        trace_locations.append(TraceLocation.from_uc_schema(catalog, schema).to_proto())
+
+    expected_request = SearchTracesV4(
+        locations=trace_locations,
+        filter=filter_string,
+        max_results=max_results,
+        order_by=order_by,
+        page_token=page_token,
+    )
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        trace_infos, token = store.search_traces(
+            experiment_ids=experiment_ids,
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+            uc_schemas=uc_schemas,
+        )
+
+        _verify_requests(
+            mock_http,
+            creds,
+            "traces/search",
+            "POST",
+            message_to_json(expected_request),
+            version="4.0",
+        )
+
+    # Verify the correct parameters were passed and the correct trace info objects were returned
+    # for either endpoint
+    assert len(trace_infos) == 1
+    assert isinstance(trace_infos[0], TraceInfo)
+    assert trace_infos[0].trace_id == "tr-1234"
+    assert trace_infos[0].experiment_id == "1234"
+    assert trace_infos[0].request_time == 123
+    # V3's state maps to V2's status
+    assert trace_infos[0].state == TraceStatus.OK.to_state()
+    # This is correct because TraceInfoV3.from_proto converts the repeated field tags to a dict
+    assert trace_infos[0].tags == {"k": "v"}
+    assert trace_infos[0].trace_metadata == {"key": "value", "mlflow.trace_schema.version": "3"}
+    assert token == "token"
+
+
+def test_search_traces_errors():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    def mock_http_request(*args, **kwargs):
+        if kwargs.get("endpoint") == f"{_V4_TRACE_REST_API_PATH_PREFIX}/search":
+            raise MlflowException("V4 endpoint not supported", error_code=ENDPOINT_NOT_FOUND)
+        return mock.MagicMock()
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", side_effect=mock_http_request):
+        with pytest.raises(
+            MlflowException,
+            match="Server does not support searching traces by UC schema.",
+        ):
+            store.search_traces(
+                uc_schemas=["catalog.schema"],
+            )
+
+
+def test_search_traces_fallback_to_v3():
     """Test the search_traces method with default behavior using SearchTracesV3Request."""
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)
@@ -790,8 +967,15 @@ def test_search_traces():
     order_by = ["request_time DESC"]
     page_token = "12345abcde"
 
+    def mock_http_request(*args, **kwargs):
+        if kwargs.get("endpoint") == f"{_V4_TRACE_REST_API_PATH_PREFIX}/search":
+            raise MlflowException("V4 endpoint not supported", error_code=ENDPOINT_NOT_FOUND)
+        return response
+
     # Test with databricks tracking URI (using v3 endpoint)
-    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request", side_effect=mock_http_request
+    ) as mock_http:
         trace_infos, token = store.search_traces(
             experiment_ids=experiment_ids,
             filter_string=filter_string,
@@ -990,7 +1174,6 @@ def test_set_trace_tag():
             f"traces/{trace_id}/tags",
             "PATCH",
             message_to_json(request),
-            use_v3=False,
         )
         assert res is None
 
@@ -1046,7 +1229,7 @@ def test_log_assessment_feedback(is_databricks):
             "traces/tr-1234/assessments",
             "POST",
             message_to_json(request),
-            use_v3=True,
+            version="3.0",
         )
         assert isinstance(res, Feedback)
         assert res.assessment_id is not None
@@ -1103,7 +1286,7 @@ def test_log_assessment_expectation(is_databricks):
             "traces/tr-1234/assessments",
             "POST",
             message_to_json(request),
-            use_v3=True,
+            version="3.0",
         )
         assert isinstance(res, Expectation)
         assert res.assessment_id is not None
@@ -1194,7 +1377,7 @@ def test_update_assessment(updates, expected_request_json, is_databricks):
             "traces/tr-1234/assessments/1234",
             "PATCH",
             json.dumps(expected_request_json),
-            use_v3=True,
+            version="3.0",
         )
         assert isinstance(res, Assessment)
 
@@ -1236,7 +1419,7 @@ def test_get_assessment(is_databricks):
         "traces/tr-1234/assessments/1234",
         "GET",
         json.dumps(expected_request_json),
-        use_v3=True,
+        version="3.0",
     )
 
     assert isinstance(res, Feedback)
@@ -1266,7 +1449,7 @@ def test_delete_assessment(is_databricks):
         "traces/tr-1234/assessments/1234",
         "DELETE",
         json.dumps(expected_request_json),
-        use_v3=True,
+        version="3.0",
     )
 
 
@@ -1746,7 +1929,7 @@ def test_search_evaluation_datasets():
                     page_token="token123",
                 )
             ),
-            use_v3=True,
+            version="3.0",
         )
 
 
@@ -2169,7 +2352,7 @@ def test_evaluation_dataset_pagination():
                     page_token=None,
                 )
             ),
-            use_v3=True,
+            version="3.0",
         )
 
     with mock_http_request() as mock_http:
@@ -2188,7 +2371,7 @@ def test_evaluation_dataset_pagination():
                     page_token="page2",
                 )
             ),
-            use_v3=True,
+            version="3.0",
         )
 
 
