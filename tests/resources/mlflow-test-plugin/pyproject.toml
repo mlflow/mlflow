@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mlflow-test-plugin"
+version = "0.0.1"
+description = "Test plugin for MLflow"
+requires-python = ">=3.10"
+dependencies = ["mlflow"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["mlflow_test_plugin", "mlflow_test_plugin.*"]
+
+[project.entry-points."mlflow.tracking_store"]
+file-plugin = "mlflow_test_plugin.file_store:PluginFileStore"
+
+[project.entry-points."mlflow.artifact_repository"]
+file-plugin = "mlflow_test_plugin.local_artifact:PluginLocalArtifactRepository"
+
+[project.entry-points."mlflow.run_context_provider"]
+unused = "mlflow_test_plugin.run_context_provider:PluginRunContextProvider"
+
+[project.entry-points."mlflow.default_experiment_provider"]
+unused = "mlflow_test_plugin.default_experiment_provider:PluginDefaultExperimentProvider"
+
+[project.entry-points."mlflow.request_header_provider"]
+unused = "mlflow_test_plugin.request_header_provider:PluginRequestHeaderProvider"
+
+[project.entry-points."mlflow.request_auth_provider"]
+unused = "mlflow_test_plugin.request_auth_provider:PluginRequestAuthProvider"
+
+[project.entry-points."mlflow.model_registry_store"]
+file-plugin = "mlflow_test_plugin.sqlalchemy_store:PluginRegistrySqlAlchemyStore"
+
+[project.entry-points."mlflow.project_backend"]
+dummy-backend = "mlflow_test_plugin.dummy_backend:PluginDummyProjectBackend"
+
+[project.entry-points."mlflow.deployments"]
+faketarget = "mlflow_test_plugin.fake_deployment_plugin"
+
+[project.entry-points."mlflow.model_evaluator"]
+dummy_evaluator = "mlflow_test_plugin.dummy_evaluator:DummyEvaluator"
+
+[project.entry-points."mlflow.app"]
+custom_app = "mlflow_test_plugin.app:custom_app"
+
+[project.entry-points."mlflow.dataset_source"]
+dummy_source = "mlflow_test_plugin.dummy_dataset_source:DummyDatasetSource"
+
+[project.entry-points."mlflow.dataset_constructor"]
+from_dummy = "mlflow_test_plugin.dummy_dataset:from_dummy"
