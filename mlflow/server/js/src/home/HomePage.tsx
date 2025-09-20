@@ -319,19 +319,13 @@ const HomePage = () => {
           maxWidth: 1120,
           display: 'flex',
           flexDirection: 'column',
-          gap: theme.spacing.xxl,
+          gap: theme.spacing.lg,
         }}
       >
         <section css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
           <Typography.Title level={1} css={{ margin: 0 }}>
             <FormattedMessage defaultMessage="Welcome to MLflow" description="Home page hero title" />
           </Typography.Title>
-          <Typography.Paragraph css={{ margin: 0, color: theme.colors.textSecondary }}>
-            <FormattedMessage
-              defaultMessage="Get started with experiment tracking, evaluations, tracing, and prompt management."
-              description="Home page hero subtitle"
-            />
-          </Typography.Paragraph>
         </section>
 
         <section css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>

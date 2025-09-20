@@ -155,9 +155,6 @@ export function MlflowSidebar() {
             listStyleType: 'none',
             padding: 0,
             margin: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: theme.spacing.xs,
           }}
         >
           {navigationItems.map(({ key, icon, linkProps }) => (
@@ -166,34 +163,20 @@ export function MlflowSidebar() {
                 to={linkProps.to}
                 aria-current={linkProps.isActive(location) ? 'page' : undefined}
                 css={{
-                  position: 'relative',
                   display: 'flex',
                   alignItems: 'center',
                   gap: theme.spacing.sm,
-                  color: theme.colors.textSecondary,
-                  paddingBlock: theme.spacing.sm,
-                  paddingInline: theme.spacing.lg,
-                  borderRadius: theme.borders.borderRadiusMd,
+                  color: theme.colors.textPrimary,
+                  paddingInline: theme.spacing.md,
+                  paddingBlock: theme.spacing.xs,
+                  borderRadius: theme.borders.borderRadiusSm,
                   '&:hover': {
-                    color: theme.colors.actionPrimaryTextDefault,
-                  },
-                  '&::before': {
-                    content: '""',
-                    position: 'absolute',
-                    left: theme.spacing.xs / 2,
-                    top: theme.spacing.xs,
-                    bottom: theme.spacing.xs,
-                    width: 3,
-                    borderRadius: theme.borders.borderRadiusSm,
-                    backgroundColor: 'transparent',
+                    color: theme.colors.actionLinkHover,
                   },
                   '&[aria-current="page"]': {
-                    backgroundColor: theme.colors.backgroundSecondary,
-                    color: theme.isDarkMode ? theme.colors.blue200 : theme.colors.blue700,
+                    backgroundColor: theme.colors.actionDefaultBackgroundPress,
+                    color: theme.isDarkMode ? theme.colors.blue300 : theme.colors.blue700,
                     fontWeight: theme.typography.typographyBoldFontWeight,
-                    '&::before': {
-                      backgroundColor: theme.colors.actionPrimaryBackgroundDefault,
-                    },
                   },
                 }}
               >
