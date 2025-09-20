@@ -680,7 +680,17 @@ class Model:
         model metadata.
         """
         if logged_model is None and self.model_id is not None:
-            logged_model = mlflow.get_logged_model(model_id=self.model_id)
+            try:
+                logged_model = mlflow.get_logged_model(model_id=self.model_id)
+            except Exception as e:
+                _logger.warning(
+                    "Fetching logged model with model_id=%s failed. "
+                    "Returning ModelInfo without logged model metadata. "
+                    "Exception: %s",
+                    self.model_id,
+                    e,
+                )
+                logged_model = None
         return ModelInfo(
             artifact_path=self.artifact_path,
             flavors=self.flavors,
