@@ -3293,7 +3293,6 @@ dev = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
-    { name = "pytest-localserver" },
     { name = "pytest-repeat" },
     { name = "pytest-timeout" },
     { name = "pyyaml" },
@@ -3316,7 +3315,6 @@ test = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
-    { name = "pytest-localserver" },
     { name = "pytest-repeat" },
     { name = "pytest-timeout" },
 ]
@@ -3408,7 +3406,6 @@ dev = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
-    { name = "pytest-localserver", specifier = "==0.5.0" },
     { name = "pytest-repeat" },
     { name = "pytest-timeout" },
     { name = "pyyaml", specifier = ">=6.0.2" },
@@ -3431,7 +3428,6 @@ test = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
-    { name = "pytest-localserver", specifier = "==0.5.0" },
     { name = "pytest-repeat" },
     { name = "pytest-timeout" },
 ]
@@ -5109,15 +5105,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/5e/f7/c933acc76f5208b3b
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ee/49/1377b49de7d0c1ce41292161ea0f721913fa8722c19fb9c1e3aa0367eecb/pytest_cov-7.0.0-py3-none-any.whl", hash = "sha256:3b8e9558b16cc1479da72058bdecf8073661c7f57f7d3c5f22a1c23507f2d861", size = 22424, upload-time = "2025-09-09T10:57:00.695Z" },
 ]
-
-[[package]]
-name = "pytest-localserver"
-version = "0.5.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "werkzeug" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/6c/b3/db8f8700718fbefaa2e8b2ef690fec147e560ce92e2300cdb3ff462d313c/pytest-localserver-0.5.0.tar.gz", hash = "sha256:3a5427909d1dfda10772c1bae4b9803679c0a8f04adb66c338ac607773bfefc2", size = 20409, upload-time = "2018-11-14T10:57:46.365Z" }
 
 [[package]]
 name = "pytest-repeat"

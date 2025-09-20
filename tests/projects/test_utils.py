@@ -1,6 +1,8 @@
 import os
 import tempfile
+import threading
 import zipfile
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest import mock
 
 import git
@@ -22,6 +24,7 @@ from mlflow.projects.utils import (
 )
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_SOURCE_NAME
 
+from tests.helper_functions import get_safe_port
 from tests.projects.utils import (
     GIT_PROJECT_BRANCH,
     GIT_PROJECT_URI,
@@ -29,6 +32,76 @@ from tests.projects.utils import (
     TEST_PROJECT_NAME,
     assert_dirs_equal,
 )
+
+
+class ContentHandler(BaseHTTPRequestHandler):
+    """HTTP request handler that serves content set on the server."""
+
+    def do_GET(self):
+        # Get content from the server instance
+        content = getattr(self.server, "content", b"")
+        code = getattr(self.server, "code", 200)
+        headers = getattr(self.server, "headers", {})
+
+        self.send_response(code)
+        for key, value in headers.items():
+            self.send_header(key, value)
+        self.end_headers()
+
+        if isinstance(content, str):
+            content = content.encode("utf-8")
+        self.wfile.write(content)
+
+    def log_message(self, format, *args):
+        # Suppress log messages during tests
+        pass
+
+
+class CustomHTTPServer:
+    """Simple HTTP server for testing that mimics pytest-localserver's httpserver."""
+
+    def __init__(self):
+        self.port = get_safe_port()
+        self.host = "127.0.0.1"
+        self.httpd = HTTPServer((self.host, self.port), ContentHandler)
+        self.content = b""
+        self.code = 200
+        self.headers = {}
+        self.thread = None
+
+    def start(self):
+        """Start the HTTP server in a background thread."""
+        self.thread = threading.Thread(target=self.httpd.serve_forever)
+        self.thread.daemon = True
+        self.thread.start()
+
+    def stop(self):
+        """Stop the HTTP server."""
+        if self.httpd:
+            self.httpd.shutdown()
+            self.httpd.server_close()
+        if self.thread:
+            self.thread.join(timeout=1)
+
+    def serve_content(self, content, code=200, headers=None):
+        """Set content to be served by the HTTP server."""
+        self.httpd.content = content
+        self.httpd.code = code
+        self.httpd.headers = headers or {}
+
+    @property
+    def url(self):
+        """Get the URL of the HTTP server."""
+        return f"http://{self.host}:{self.port}"
+
+
+@pytest.fixture
+def httpserver():
+    """Custom HTTP server fixture to replace pytest-localserver."""
+    server = CustomHTTPServer()
+    server.start()
+    yield server
+    server.stop()
 
 
 def _build_uri(base_uri, subdirectory):
