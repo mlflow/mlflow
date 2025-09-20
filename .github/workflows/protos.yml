@@ -43,10 +43,10 @@ jobs:
         with:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/setup-python
       - name: Install dependencies
         run: |
-          pip install --upgrade pip
-          pip install .
+          uv pip install --system -e .
       - name: Run tests
         run: |
           ./dev/test-generate-protos.sh
