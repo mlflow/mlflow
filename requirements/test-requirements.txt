@@ -1,6 +1,4 @@
 ## Dependencies required to run tests
-# Required for testing utilities for parsing pip requirements
-pip>=20.1
 ## Test-only dependencies
 pytest
 pytest-asyncio
