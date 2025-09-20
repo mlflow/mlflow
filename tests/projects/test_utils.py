@@ -3,6 +3,7 @@ import tempfile
 import threading
 import zipfile
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from typing import Any, Generator
 from unittest import mock
 
 import git
@@ -34,74 +35,56 @@ from tests.projects.utils import (
 )
 
 
-class ContentHandler(BaseHTTPRequestHandler):
-    """HTTP request handler that serves content set on the server."""
-
-    def do_GET(self):
-        # Get content from the server instance
-        content = getattr(self.server, "content", b"")
-        code = getattr(self.server, "code", 200)
-        headers = getattr(self.server, "headers", {})
-
-        self.send_response(code)
-        for key, value in headers.items():
-            self.send_header(key, value)
-        self.end_headers()
-
-        if isinstance(content, str):
-            content = content.encode("utf-8")
-        self.wfile.write(content)
-
-    def log_message(self, format, *args):
-        # Suppress log messages during tests
-        pass
-
-
-class CustomHTTPServer:
-    """Simple HTTP server for testing that mimics pytest-localserver's httpserver."""
-
-    def __init__(self):
-        self.port = get_safe_port()
-        self.host = "127.0.0.1"
-        self.httpd = HTTPServer((self.host, self.port), ContentHandler)
+class _SimpleHTTPServer(HTTPServer):
+    def __init__(self, port: int) -> None:
+        super().__init__(("127.0.0.1", port), self.RequestHandler)
         self.content = b""
         self.code = 200
         self.headers = {}
-        self.thread = None
+        self._thread = None
 
-    def start(self):
-        """Start the HTTP server in a background thread."""
-        self.thread = threading.Thread(target=self.httpd.serve_forever)
-        self.thread.daemon = True
-        self.thread.start()
+    class RequestHandler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            self.send_response(self.server.code)
+            for key, value in self.server.headers.items():
+                self.send_header(key, value)
+            self.end_headers()
 
-    def stop(self):
-        """Stop the HTTP server."""
-        if self.httpd:
-            self.httpd.shutdown()
-            self.httpd.server_close()
-        if self.thread:
-            self.thread.join(timeout=1)
+            content = self.server.content
+            if isinstance(content, str):
+                content = content.encode("utf-8")
+            self.wfile.write(content)
 
-    def serve_content(self, content, code=200, headers=None):
-        """Set content to be served by the HTTP server."""
-        self.httpd.content = content
-        self.httpd.code = code
-        self.httpd.headers = headers or {}
+        def log_message(self, format: str, *args: Any) -> None:
+            pass  # Suppress logs during tests
+
+    def serve_content(
+        self, content: bytes | str, code: int = 200, headers: dict[str, str] | None = None
+    ) -> None:
+        self.content = content
+        self.code = code
+        self.headers = headers or {}
 
     @property
-    def url(self):
-        """Get the URL of the HTTP server."""
-        return f"http://{self.host}:{self.port}"
+    def url(self) -> str:
+        return f"http://{self.server_address[0]}:{self.server_address[1]}"
+
+    def __enter__(self) -> "_SimpleHTTPServer":
+        self._thread = threading.Thread(target=self.serve_forever, daemon=True)
+        self._thread.start()
+        return self
+
+    def __exit__(self, *exc_info: Any) -> None:
+        self.shutdown()
+        self.server_close()
+        if self._thread:
+            self._thread.join(timeout=1)
 
 
 @pytest.fixture
-def httpserver():
-    """Custom HTTP server fixture to replace pytest-localserver."""
-    server = CustomHTTPServer()
-    server.start()
-    yield server
-    server.stop()
+def httpserver() -> Generator[_SimpleHTTPServer, None, None]:
+    with _SimpleHTTPServer(get_safe_port()) as server:
+        yield server
 
 
 def _build_uri(base_uri, subdirectory):
