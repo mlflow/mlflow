@@ -77,8 +77,6 @@ def _currently_registered_request_auth_provider_classes():
 
 
 def test_run_context_provider_registry_with_installed_plugin():
-    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
-
     reload(mlflow.tracking.request_auth.registry)
 
     from mlflow_test_plugin.request_auth_provider import PluginRequestAuthProvider

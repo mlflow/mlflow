@@ -12,9 +12,6 @@ from tests.projects.utils import TEST_PROJECT_DIR, load_project
 
 
 def test_entry_point_compute_params():
-    """
-    Tests that EntryPoint correctly computes a final set of parameters to use when running a project
-    """
     project = load_project()
     entry_point = project.get_entry_point("greeter")
     # Pass extra "excitement" param, use default value for `greeting` param
@@ -38,9 +35,6 @@ def test_entry_point_compute_params():
 
 
 def test_entry_point_compute_command():
-    """
-    Tests that EntryPoint correctly computes the command to execute in order to run the entry point.
-    """
     project = load_project()
     entry_point = project.get_entry_point("greeter")
     with TempDir() as tmp:
@@ -58,9 +52,6 @@ def test_entry_point_compute_command():
 
 
 def test_path_parameter():
-    """
-    Tests that MLflow file-download APIs get called when necessary for arguments of type `path`.
-    """
     project = load_project()
     entry_point = project.get_entry_point("line_count")
     with mock.patch(
@@ -108,7 +99,6 @@ def test_path_parameter():
 
 
 def test_uri_parameter():
-    """Tests parameter resolution for parameters of type `uri`."""
     project = load_project()
     entry_point = project.get_entry_point("download_uri")
     with (

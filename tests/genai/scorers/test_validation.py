@@ -113,7 +113,6 @@ def test_validate_data(mock_logger, sample_rag_trace):
 
 
 def test_validate_data_with_expectations(mock_logger, sample_rag_trace):
-    """Test that expectations are unwrapped and validated properly"""
     data = pd.DataFrame(
         {
             "inputs": [{"question": "input1"}, {"question": "input2"}],
@@ -139,7 +138,6 @@ def test_validate_data_with_expectations(mock_logger, sample_rag_trace):
 
 
 def test_global_guidelines_do_not_require_expectations(mock_logger):
-    """Test that expectations are unwrapped and validated properly"""
     data = pd.DataFrame(
         {
             "inputs": [{"question": "input1"}, {"question": "input2"}],
@@ -162,7 +160,6 @@ def test_global_guidelines_do_not_require_expectations(mock_logger):
     ],
 )
 def test_validate_data_with_correctness(expectations, mock_logger):
-    """Correctness scorer requires one of expected_facts or expected_response"""
     data = pd.DataFrame(
         {
             "inputs": [{"question": "input1"}, {"question": "input2"}],

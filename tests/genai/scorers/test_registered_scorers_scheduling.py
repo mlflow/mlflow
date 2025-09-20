@@ -24,7 +24,6 @@ def serialization_scorer(outputs) -> bool:
 @patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
 @patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer")
 def test_scorer_register(mock_add, mock_get_tracking_uri):
-    """Test registering a scorer."""
     # Test decorator scorer
     my_scorer = length_check
     registered = my_scorer.register(name="my_length_check")
@@ -52,7 +51,6 @@ def test_scorer_register(mock_add, mock_get_tracking_uri):
 @patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
 @patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer")
 def test_scorer_register_default_name(mock_add, _):
-    """Test registering with default name."""
     my_scorer = length_check
     registered = my_scorer.register()
 
@@ -64,7 +62,6 @@ def test_scorer_register_default_name(mock_add, _):
 @patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
 @patch("mlflow.genai.scorers.registry.DatabricksStore.update_registered_scorer")
 def test_scorer_start(mock_update, mock_get_tracking_uri):
-    """Test starting a scorer."""
     my_scorer = length_check
     my_scorer = my_scorer._create_copy()
     my_scorer.name = "my_length_check"
@@ -109,7 +106,6 @@ def test_scorer_start_with_zero_sample_rate_raises_error(_, sample_rate):
 
 @patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
 def test_scorer_start_not_registered(_):
-    """Test starting a scorer that isn't registered."""
     my_scorer = length_check
 
     # Should work fine - start doesn't require pre-registration
@@ -124,7 +120,6 @@ def test_scorer_start_not_registered(_):
 @patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
 @patch("mlflow.genai.scorers.registry.DatabricksStore.update_registered_scorer")
 def test_scorer_update(mock_update, mock_get_tracking_uri):
-    """Test updating a scorer."""
     my_scorer = length_check
     my_scorer = my_scorer._create_copy()
     my_scorer.name = "my_length_check"
@@ -157,7 +152,6 @@ def test_scorer_update(mock_update, mock_get_tracking_uri):
 @patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
 @patch("mlflow.genai.scorers.registry.DatabricksStore.update_registered_scorer")
 def test_scorer_stop(mock_update, _):
-    """Test stopping a scorer."""
     my_scorer = length_check
     my_scorer = my_scorer._create_copy()
     my_scorer.name = "my_length_check"
@@ -177,7 +171,6 @@ def test_scorer_stop(mock_update, _):
 @patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
 @patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer")
 def test_scorer_register_with_experiment_id(mock_add, _):
-    """Test registering a scorer with experiment_id."""
     my_scorer = length_check
     my_scorer.register(name="test_scorer", experiment_id="exp123")
 
@@ -190,7 +183,6 @@ def test_scorer_register_with_experiment_id(mock_add, _):
 @patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
 @patch("mlflow.genai.scorers.registry.DatabricksStore.update_registered_scorer")
 def test_scorer_start_with_name_param(mock_update, _):
-    """Test starting a scorer using name parameter."""
     my_scorer = length_check
     # Scorer doesn't need name modification
 
@@ -213,7 +205,6 @@ def test_scorer_start_with_name_param(mock_update, _):
 @patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
 @patch("mlflow.genai.scorers.registry.DatabricksStore.update_registered_scorer")
 def test_scorer_update_with_all_params(mock_update, _):
-    """Test updating with all parameters."""
     my_scorer = length_check
     my_scorer = my_scorer._create_copy()
     my_scorer.name = "original_name"
@@ -240,7 +231,6 @@ def test_scorer_update_with_all_params(mock_update, _):
 @patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
 @patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer")
 def test_builtin_scorer_register(mock_add, _):
-    """Test registering a builtin scorer with custom name."""
     guidelines_scorer = Guidelines(guidelines="Be helpful")
 
     # Verify original serialization
@@ -270,7 +260,6 @@ def test_builtin_scorer_register(mock_add, _):
 @patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
 @patch("mlflow.genai.scorers.registry.DatabricksStore.update_registered_scorer")
 def test_builtin_scorer_update(mock_update, _):
-    """Test updating a builtin scorer."""
     guidelines_scorer = Guidelines(guidelines="Be helpful")
     guidelines_scorer = guidelines_scorer._create_copy()
     guidelines_scorer.name = "my_guidelines"
@@ -288,7 +277,6 @@ def test_builtin_scorer_update(mock_update, _):
 
 @patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
 def test_all_methods_are_immutable(_):
-    """Test that all methods return new instances and don't modify the original."""
     original = length_check
 
     # Set up some state
@@ -334,8 +322,6 @@ def test_all_methods_are_immutable(_):
 
 @patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
 def test_class_scorer_cannot_be_registered(_):
-    """Test that class-based scorers cannot be registered."""
-
     class CustomScorer(Scorer):
         name: str = "custom"
 
@@ -360,7 +346,6 @@ def test_class_scorer_cannot_be_registered(_):
 
 @patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
 def test_register_with_custom_name_updates_serialization(_):
-    """Test that registering with a custom name properly updates serialization data."""
     # Use the pre-defined scorer to avoid source extraction issues
     test_scorer = serialization_scorer
 

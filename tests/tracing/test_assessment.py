@@ -215,7 +215,6 @@ def test_log_feedback_with_error(trace_id, legacy_api):
 
 @pytest.mark.parametrize("legacy_api", [True, False])
 def test_log_feedback_with_exception_object(trace_id, legacy_api):
-    """Test that log_feedback correctly accepts Exception objects."""
     test_exception = ValueError("Test exception message")
 
     if legacy_api:
@@ -537,7 +536,6 @@ def test_log_assessment_on_in_progress_trace_works_when_tracing_is_disabled():
 
 
 def test_get_assessment(trace_id):
-    """Test get_assessment calls store correctly"""
     assessment_id = mlflow.log_feedback(
         trace_id=trace_id,
         name="faithfulness",

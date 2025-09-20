@@ -185,10 +185,6 @@ def test_trace_info_proto(client_request_id, assessments):
 
 
 def test_from_proto_excludes_undefined_fields():
-    """
-    Test that undefined fields (client_request_id, execution_duration) are excluded when
-    constructing a TraceInfo from a protobuf message instance that does not define these fields.
-    """
     # Manually create a protobuf without setting client_request_id or execution_duration fields
     request_time = Timestamp()
     request_time.FromMilliseconds(1234567890)
@@ -225,7 +221,6 @@ def test_from_proto_excludes_undefined_fields():
 
 
 def test_trace_info_from_proto_updates_schema_version():
-    """Test that TraceInfo.from_proto updates schema version when it exists and is outdated."""
     # Create a proto with old schema version in metadata
     request_time = Timestamp()
     request_time.FromMilliseconds(1234567890)
@@ -259,7 +254,6 @@ def test_trace_info_from_proto_updates_schema_version():
 
 
 def test_trace_info_from_proto_adds_missing_schema_version():
-    """Test that TraceInfo.from_proto adds schema version when it doesn't exist."""
     # Create a proto without schema version in metadata
     request_time = Timestamp()
     request_time.FromMilliseconds(1234567890)
@@ -288,7 +282,6 @@ def test_trace_info_from_proto_adds_missing_schema_version():
 
 
 def test_trace_info_from_proto_preserves_current_schema_version():
-    """Test that TraceInfo.from_proto preserves current schema version."""
     # Create a proto with current schema version in metadata
     request_time = Timestamp()
     request_time.FromMilliseconds(1234567890)

@@ -15,7 +15,7 @@ def mock_exec_cmd():
 
 
 def test_find_app_custom_app_plugin():
-    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
+    # NB: This test requires the package in tests/resources/mlflow-test-plugin to be installed
     assert server._find_app("custom_app") == "mlflow_test_plugin.app:custom_app"
 
 
@@ -102,7 +102,6 @@ def test_build_uvicorn_command():
 
 
 def test_build_uvicorn_command_with_env_file():
-    """Test that uvicorn command includes --env-file when provided."""
     cmd = server._build_uvicorn_command(
         uvicorn_opts=None,
         host="localhost",
@@ -124,7 +123,6 @@ def test_build_uvicorn_command_with_env_file():
 
 
 def test_run_server(mock_exec_cmd):
-    """Make sure this runs."""
     with mock.patch("sys.platform", return_value="linux"):
         server._run_server(
             file_store_path="",
@@ -140,7 +138,6 @@ def test_run_server(mock_exec_cmd):
 
 
 def test_run_server_win32(mock_exec_cmd):
-    """Make sure this runs."""
     with mock.patch("sys.platform", return_value="win32"):
         server._run_server(
             file_store_path="",
@@ -156,7 +153,6 @@ def test_run_server_win32(mock_exec_cmd):
 
 
 def test_run_server_with_uvicorn(mock_exec_cmd):
-    """Test running server with uvicorn."""
     with mock.patch("sys.platform", return_value="linux"):
         server._run_server(
             file_store_path="",

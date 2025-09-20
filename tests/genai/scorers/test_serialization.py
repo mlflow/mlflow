@@ -14,8 +14,6 @@ from mlflow.genai.scorers.builtin_scorers import Guidelines
 
 
 def test_decorator_scorer_serialization_format():
-    """Test that decorator scorers serialize with correct format."""
-
     @scorer(name="test_scorer", aggregations=["mean"])
     def test_scorer(outputs):
         return outputs == "correct"
@@ -41,7 +39,6 @@ def test_decorator_scorer_serialization_format():
 
 
 def test_builtin_scorer_serialization_format():
-    """Test that builtin scorers serialize with correct format."""
     from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 
     serialized = RelevanceToQuery().model_dump()
@@ -73,8 +70,6 @@ def test_builtin_scorer_serialization_format():
 
 
 def test_simple_scorer_round_trip():
-    """Test basic round-trip serialization and execution."""
-
     @scorer
     def simple_scorer(outputs):
         return outputs == "correct"
@@ -94,8 +89,6 @@ def test_simple_scorer_round_trip():
 
 
 def test_custom_name_and_aggregations_round_trip():
-    """Test round-trip with custom name and aggregations."""
-
     @scorer(name="length_check", aggregations=["mean", "max"])
     def my_scorer(inputs, outputs):
         return len(outputs) > len(inputs)
@@ -116,8 +109,6 @@ def test_custom_name_and_aggregations_round_trip():
 
 
 def test_multiple_parameters_round_trip():
-    """Test round-trip with multiple parameters."""
-
     @scorer
     def multi_param_scorer(inputs, outputs, expectations):
         return outputs.startswith(inputs) and len(outputs) > expectations.get("min_length", 0)
@@ -142,8 +133,6 @@ def test_multiple_parameters_round_trip():
 
 
 def test_complex_logic_round_trip():
-    """Test round-trip with complex control flow and logic."""
-
     @scorer
     def complex_scorer(outputs):
         if not outputs:
@@ -180,8 +169,6 @@ def test_complex_logic_round_trip():
 
 
 def test_imports_and_feedback_round_trip():
-    """Test round-trip with imports and Feedback return."""
-
     @scorer
     def feedback_scorer(outputs):
         import re  # clint: disable=lazy-builtin-import
@@ -208,8 +195,6 @@ def test_imports_and_feedback_round_trip():
 
 
 def test_default_parameters_round_trip():
-    """Test round-trip with default parameter values."""
-
     @scorer
     def default_scorer(outputs, threshold=5):
         return len(outputs) > threshold
@@ -229,8 +214,6 @@ def test_default_parameters_round_trip():
 
 
 def test_json_workflow_round_trip():
-    """Test complete JSON serialization workflow."""
-
     @scorer(name="json_test", aggregations=["mean"])
     def json_scorer(outputs):
         return len(outputs.split()) > 3
@@ -253,8 +236,6 @@ def test_json_workflow_round_trip():
 
 
 def test_end_to_end_complex_round_trip():
-    """Test complex end-to-end scenario with all features."""
-
     @scorer(name="complete_test", aggregations=["mean", "max"])
     def complete_scorer(inputs, outputs, expectations):
         input_words = len(inputs.split())
@@ -286,8 +267,6 @@ def test_end_to_end_complex_round_trip():
 
 
 def test_deserialized_scorer_runs_without_global_context():
-    """Test that deserialized scorer can run without access to original global context."""
-
     # Create a simple scorer that only uses built-in functions and parameters
     @scorer(name="isolated_test")
     def simple_scorer(outputs):
@@ -338,7 +317,6 @@ test_results = {
 
 
 def test_builtin_scorer_round_trip():
-    """Test builtin scorer serialization and execution with mocking."""
     # from mlflow.genai.scorers import relevance_to_query
     from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 
@@ -383,7 +361,6 @@ def test_builtin_scorer_round_trip():
 
 
 def test_builtin_scorer_with_parameters_round_trip():
-    """Test builtin scorer with custom parameters (like Guidelines with guidelines)."""
     from mlflow.genai.scorers.builtin_scorers import Guidelines
 
     # Create scorer with custom parameters
@@ -455,8 +432,6 @@ def test_builtin_scorer_with_parameters_round_trip():
 
 
 def test_direct_subclass_scorer_rejected():
-    """Test that direct subclassing of Scorer is rejected during serialization."""
-
     class DirectSubclassScorer(Scorer):
         """An unsupported direct subclass of Scorer."""
 
@@ -489,7 +464,6 @@ def test_direct_subclass_scorer_rejected():
 
 
 def test_builtin_scorer_with_aggregations_round_trip():
-    """Test builtin scorer with aggregations serialization and execution."""
     from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 
     scorer_with_aggs = RelevanceToQuery(name="relevance_with_aggs", aggregations=["mean", "max"])
@@ -539,7 +513,6 @@ def test_builtin_scorer_with_aggregations_round_trip():
 
 
 def test_builtin_scorer_with_custom_name_compatibility():
-    """Test builtin scorer with custom name from fixed serialized string."""
     # Fixed serialized string for Guidelines scorer with custom name and parameters
     fixed_serialized_data = {
         "name": "custom_guidelines",
@@ -578,7 +551,6 @@ def test_builtin_scorer_with_custom_name_compatibility():
 
 
 def test_custom_scorer_compatibility_from_fixed_string():
-    """Test that custom scorers can be deserialized from a fixed serialized string."""
     # Fixed serialized string representing a simple custom scorer
     fixed_serialized_data = {
         "name": "word_count_scorer",
@@ -606,7 +578,6 @@ def test_custom_scorer_compatibility_from_fixed_string():
 
 
 def test_complex_custom_scorer_compatibility():
-    """Test complex custom scorer with multiple parameters from fixed string."""
     # Fixed serialized string for a more complex custom scorer
     fixed_serialized_data = {
         "name": "length_comparison",
@@ -645,8 +616,6 @@ def test_complex_custom_scorer_compatibility():
 
 
 def test_decorator_scorer_multiple_serialization_round_trips():
-    """Test that decorator scorers can be serialized multiple times after deserialization."""
-
     @scorer
     def multi_round_scorer(outputs):
         return len(outputs) > 5

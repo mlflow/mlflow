@@ -1239,7 +1239,6 @@ STREAM_TOKEN_USAGE_EDGE_CASES = [
     ids=[c["name"] for c in STREAM_TOKEN_USAGE_EDGE_CASES],
 )
 def test_bedrock_autolog_stream_token_usage_edge_cases(test_case):
-    """Test streaming token usage edge cases."""
     mlflow.bedrock.autolog()
 
     client = boto3.client("bedrock-runtime", region_name="us-west-2")
@@ -1276,7 +1275,6 @@ def test_bedrock_autolog_stream_token_usage_edge_cases(test_case):
     ids=[c["name"] for c in CONVERSE_TOKEN_USAGE_EDGE_CASES],
 )
 def test_bedrock_autolog_converse_token_usage_edge_cases(test_case):
-    """Test converse token usage edge cases."""
     mlflow.bedrock.autolog()
 
     client = boto3.client("bedrock-runtime", region_name="us-west-2")
@@ -1342,7 +1340,6 @@ CONVERSE_STREAM_TOKEN_USAGE_EDGE_CASES = [
     ids=[c["name"] for c in CONVERSE_STREAM_TOKEN_USAGE_EDGE_CASES],
 )
 def test_bedrock_autolog_converse_stream_token_usage_edge_cases(test_case):
-    """Test converse stream token usage edge cases."""
     mlflow.bedrock.autolog()
 
     client = boto3.client("bedrock-runtime", region_name="us-west-2")

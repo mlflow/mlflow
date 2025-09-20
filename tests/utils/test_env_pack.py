@@ -27,7 +27,6 @@ def mock_dbr_version():
 
 
 def test_tar_function_path_handling(tmp_path):
-    """Test that _tar function correctly handles Path objects."""
     # Create test files
     root_dir = tmp_path / "root"
     root_dir.mkdir()
@@ -49,9 +48,6 @@ def test_tar_function_path_handling(tmp_path):
 
 
 def test_pack_env_for_databricks_model_serving_pip_requirements(tmp_path, mock_dbr_version):
-    """Test that pack_env_for_databricks_model_serving correctly handles pip requirements
-    installation.
-    """
     # Mock download_artifacts to return a path
     mock_artifacts_dir = tmp_path / "artifacts"
     mock_artifacts_dir.mkdir()
@@ -131,7 +127,6 @@ def test_pack_env_for_databricks_model_serving_pip_requirements(tmp_path, mock_d
 
 
 def test_pack_env_for_databricks_model_serving_pip_requirements_error(tmp_path, mock_dbr_version):
-    """Test that pack_env_for_databricks_model_serving correctly handles pip install errors."""
     # Mock download_artifacts to return a path
     mock_artifacts_dir = tmp_path / "artifacts"
     mock_artifacts_dir.mkdir()
@@ -177,7 +172,6 @@ def test_pack_env_for_databricks_model_serving_pip_requirements_error(tmp_path, 
 
 
 def test_pack_env_for_databricks_model_serving_unsupported_version():
-    """Test that pack_env_for_databricks_model_serving raises error for non-client image."""
     with mock.patch.object(
         DatabricksRuntimeVersion,
         "parse",
@@ -193,9 +187,6 @@ def test_pack_env_for_databricks_model_serving_unsupported_version():
 
 
 def test_pack_env_for_databricks_model_serving_runtime_version_check(tmp_path, monkeypatch):
-    """Test that pack_env_for_databricks_model_serving correctly checks runtime version
-    compatibility.
-    """
     # Mock download_artifacts to return a path
     mock_artifacts_dir = tmp_path / "artifacts"
     mock_artifacts_dir.mkdir()
@@ -248,7 +239,6 @@ def test_pack_env_for_databricks_model_serving_runtime_version_check(tmp_path, m
 
 
 def test_pack_env_for_databricks_model_serving_missing_runtime_version(tmp_path, mock_dbr_version):
-    """Test that pack_env_for_databricks_model_serving requires databricks_runtime field."""
     # Mock download_artifacts to return a path
     mock_artifacts_dir = tmp_path / "artifacts"
     mock_artifacts_dir.mkdir()

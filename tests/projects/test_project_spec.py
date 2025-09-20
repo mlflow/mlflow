@@ -10,7 +10,6 @@ from tests.projects.utils import load_project
 
 
 def test_project_get_entry_point():
-    """Test that `Project` correctly parses entry point information from an MLproject file."""
     project = load_project()
     entry_point = project.get_entry_point("greeter")
     assert entry_point.name == "greeter"
@@ -26,7 +25,6 @@ def test_project_get_entry_point():
 
 
 def test_project_get_unspecified_entry_point():
-    """Test that `Project` can run Python & bash scripts directly as entry points"""
     project = load_project()
     entry_point = project.get_entry_point("my_script.py")
     assert entry_point.name == "my_script.py"
@@ -58,9 +56,6 @@ def test_project_get_unspecified_entry_point():
     ],
 )
 def test_load_project(tmp_path, mlproject, conda_env_path, conda_env_contents, mlproject_path):
-    """
-    Test that we can load a project with various combinations of an MLproject / conda.yaml file
-    """
     if mlproject:
         tmp_path.joinpath(mlproject_path).write_text(mlproject)
     if conda_env_path:

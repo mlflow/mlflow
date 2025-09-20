@@ -164,11 +164,6 @@ def test_download_artifacts_handles_empty_dir(base_uri, download_arg, list_retur
     ],
 )
 def test_download_artifacts_awaits_download_completion(base_uri, download_arg, list_return_val):
-    """
-    Verifies that all asynchronous artifact downloads are joined before `download_artifacts()`
-    returns a result to the caller
-    """
-
     def list_artifacts(path):
         fullpath = posixpath.join(base_uri, path)
         if fullpath.endswith(_MODEL_DIR) or fullpath.endswith(_MODEL_DIR + "/"):

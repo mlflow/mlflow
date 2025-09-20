@@ -40,10 +40,6 @@ def get_housing_data():
 
 
 def test_sklearn_log_explainer():
-    """
-    Tests mlflow.shap log_explainer with mlflow serialization of the underlying model
-    """
-
     with mlflow.start_run() as run:
         run_id = run.info.run_id
 
@@ -76,10 +72,6 @@ def test_sklearn_log_explainer():
 
 
 def test_sklearn_log_explainer_self_serialization():
-    """
-    Tests mlflow.shap log_explainer with SHAP internal serialization of the underlying model
-    """
-
     with mlflow.start_run() as run:
         run_id = run.info.run_id
 
@@ -114,11 +106,6 @@ def test_sklearn_log_explainer_self_serialization():
 
 
 def test_sklearn_log_explainer_pyfunc():
-    """
-    Tests mlflow.shap log_explainer with mlflow
-    serialization of the underlying model using pyfunc flavor
-    """
-
     with mlflow.start_run() as run:
         run_id = run.info.run_id
 

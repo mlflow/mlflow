@@ -10,7 +10,6 @@ from mlflow.genai.judges.optimizers import SIMBAAlignmentOptimizer
 
 
 def test_dspy_optimize_no_dspy():
-    """Test that SIMBAAlignmentOptimizer raises error when DSPy is not available."""
     # Since dspy import is now at module level, we need to test this differently
     # The error should be raised when importing the module, not when calling methods
 
@@ -25,7 +24,6 @@ def test_dspy_optimize_no_dspy():
 
 
 def test_full_alignment_workflow(mock_judge, sample_traces_with_assessments):
-    """Test complete alignment workflow with SIMBA."""
     mock_simba = MagicMock()
     mock_compiled_program = MagicMock()
     mock_compiled_program.signature = MagicMock()

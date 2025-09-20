@@ -1005,9 +1005,7 @@ def test_search_runs_data():
 
 
 def test_search_runs_no_arguments(search_runs_output_format):
-    """
-    When no experiment ID is specified, it should try to get the implicit one.
-    """
+    # NB: When no experiment ID is specified, it should try to get the implicit one.
     mock_experiment_id = mock.Mock()
     experiment_id_patch = mock.patch(
         "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
@@ -1022,9 +1020,7 @@ def test_search_runs_no_arguments(search_runs_output_format):
 
 
 def test_search_runs_all_experiments(search_runs_output_format):
-    """
-    When no experiment ID is specified but flag is passed, it should search all experiments.
-    """
+    # NB: When no experiment ID is specified but flag is passed, it should search all experiments.
     from mlflow.entities import Experiment
 
     mock_experiment_id = mock.Mock()
@@ -1063,25 +1059,19 @@ def test_search_runs_by_experiment_name():
 
 
 def test_search_runs_by_non_existing_experiment_name():
-    """When invalid experiment names are used (including None), it should return an empty
-    collection.
-    """
+    # NB: When invalid experiment names are used (including None),
+    # it should return an empty collection.
     for name in [None, f"Random {random.randint(1, 1e6)}"]:
         assert search_runs(experiment_names=[name], output_format="list") == []
 
 
 def test_search_runs_by_experiment_id_and_name():
-    """When both experiment_ids and experiment_names are used, it should throw an exception"""
     err_msg = "Only experiment_ids or experiment_names can be used, but not both"
     with pytest.raises(MlflowException, match=err_msg):
         search_runs(experiment_ids=["id"], experiment_names=["name"])
 
 
 def test_paginate_lt_maxresults_onepage():
-    """
-    Number of runs is less than max_results and fits on one page,
-    so we only need to fetch one page.
-    """
     runs = [create_run() for _ in range(5)]
     tokenized_runs = PagedList(runs, "")
     max_results = 50
@@ -1094,9 +1084,6 @@ def test_paginate_lt_maxresults_onepage():
 
 
 def test_paginate_lt_maxresults_multipage():
-    """
-    Number of runs is less than max_results, but multiple pages are necessary to get all runs
-    """
     tokenized_runs = PagedList([create_run() for _ in range(10)], "token")
     no_token_runs = PagedList([create_run()], "")
     max_results = 50
@@ -1109,10 +1096,7 @@ def test_paginate_lt_maxresults_multipage():
 
 
 def test_paginate_lt_maxresults_onepage_nonetoken():
-    """
-    Number of runs is less than max_results and fits on one page.
-    The token passed back on the last page is None, not the emptystring
-    """
+    # NB: The token passed back on the last page is None, not the empty string
     runs = [create_run() for _ in range(5)]
     tokenized_runs = PagedList(runs, None)
     max_results = 50
@@ -1125,12 +1109,9 @@ def test_paginate_lt_maxresults_onepage_nonetoken():
 
 
 def test_paginate_eq_maxresults_blanktoken():
-    """
-    Runs returned are equal to max_results which are equal to a full number of pages.
-    The server might send a token back, or they might not (depending on if they know if
-    more runs exist). In this example, no token is sent back.
-    Expected behavior is to NOT query for more pages.
-    """
+    # NB: The server might send a token back, or they might not (depending on if they know if
+    # more runs exist). In this example, no token is sent back.
+    # Expected behavior is to NOT query for more pages.
     # runs returned equal to max_results, blank token
     runs = [create_run() for _ in range(10)]
     tokenized_runs = PagedList(runs, "")
@@ -1145,12 +1126,9 @@ def test_paginate_eq_maxresults_blanktoken():
 
 
 def test_paginate_eq_maxresults_token():
-    """
-    Runs returned are equal to max_results which are equal to a full number of pages.
-    The server might send a token back, or they might not (depending on if they know if
-    more runs exist). In this example, a token IS sent back.
-    Expected behavior is to NOT query for more pages.
-    """
+    # NB: The server might send a token back, or they might not (depending on if they know if
+    # more runs exist). In this example, a token IS sent back.
+    # Expected behavior is to NOT query for more pages.
     runs = [create_run() for _ in range(10)]
     tokenized_runs = PagedList(runs, "abc")
     blank_runs = PagedList([], "")
@@ -1164,10 +1142,6 @@ def test_paginate_eq_maxresults_token():
 
 
 def test_paginate_gt_maxresults_multipage():
-    """
-    Number of runs that fit search criteria is greater than max_results. Multiple pages expected.
-    Expected to only get max_results number of results back.
-    """
     # should ask for and return the correct number of max_results
     full_page_runs = PagedList([create_run() for _ in range(8)], "abc")
     partial_page = PagedList([create_run() for _ in range(4)], "def")
@@ -1182,10 +1156,6 @@ def test_paginate_gt_maxresults_multipage():
 
 
 def test_paginate_gt_maxresults_onepage():
-    """
-    Number of runs that fit search criteria is greater than max_results. Only one page expected.
-    Expected to only get max_results number of results back.
-    """
     runs = [create_run() for _ in range(10)]
     tokenized_runs = PagedList(runs, "abc")
     max_results = 10
@@ -1198,9 +1168,6 @@ def test_paginate_gt_maxresults_onepage():
 
 
 def test_delete_tag():
-    """
-    Confirm that fluent API delete tags actually works.
-    """
     mlflow.set_tag("a", "b")
     run = MlflowClient().get_run(mlflow.active_run().info.run_id)
     assert "a" in run.data.tags
@@ -2103,7 +2070,6 @@ def test_set_active_model_env_var(monkeypatch):
 
 @pytest.mark.parametrize("is_in_databricks_serving", [False, True])
 def test_set_active_model_public_env_var(monkeypatch, is_in_databricks_serving):
-    """Test that MLFLOW_ACTIVE_MODEL_ID (public env var) works correctly."""
     with mock.patch(
         "mlflow.tracking.fluent.is_in_databricks_model_serving_environment",
         return_value=is_in_databricks_serving,
@@ -2134,7 +2100,7 @@ def test_set_active_model_public_env_var(monkeypatch, is_in_databricks_serving):
 
 
 def test_set_active_model_env_var_precedence(monkeypatch):
-    """Test that MLFLOW_ACTIVE_MODEL_ID takes precedence over _MLFLOW_ACTIVE_MODEL_ID."""
+    # NB: Test that MLFLOW_ACTIVE_MODEL_ID takes precedence over _MLFLOW_ACTIVE_MODEL_ID.
     # Set both environment variables
     monkeypatch.setenv(_MLFLOW_ACTIVE_MODEL_ID.name, "legacy-model-id")
     monkeypatch.setenv(MLFLOW_ACTIVE_MODEL_ID.name, "public-model-id")
@@ -2157,7 +2123,6 @@ def test_set_active_model_env_var_precedence(monkeypatch):
 
 
 def test_clear_active_model_clears_env_vars(monkeypatch):
-    """Test that clear_active_model() properly clears environment variables."""
     # Set both environment variables
     monkeypatch.setenv(_MLFLOW_ACTIVE_MODEL_ID.name, "legacy-model-id")
     monkeypatch.setenv(MLFLOW_ACTIVE_MODEL_ID.name, "public-model-id")

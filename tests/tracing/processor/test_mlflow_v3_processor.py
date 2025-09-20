@@ -88,7 +88,6 @@ def test_on_start_during_run(monkeypatch):
 
 
 def test_incremental_span_name_deduplication():
-    """Test that span names are deduplicated incrementally as spans end."""
     InMemoryTraceManager.reset()
     trace_manager = InMemoryTraceManager.get_instance()
 
