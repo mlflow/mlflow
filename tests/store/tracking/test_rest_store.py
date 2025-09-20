@@ -59,6 +59,7 @@ from mlflow.protos.service_pb2 import (
     DeleteScorer,
     DeleteTag,
     DeleteTraces,
+    DeleteTraceTagV4,
     EndTrace,
     GetDataset,
     GetDatasetExperimentIds,
@@ -86,6 +87,7 @@ from mlflow.protos.service_pb2 import (
     SetExperimentTag,
     SetTag,
     SetTraceTag,
+    SetTraceTagV4,
     StartTrace,
     StartTraceV3,
     UpsertDatasetRecords,
@@ -991,6 +993,71 @@ def test_set_trace_tag():
             "PATCH",
             message_to_json(request),
             use_v3=False,
+        )
+        assert res is None
+
+
+def test_set_trace_tag_v4():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    location = "catalog.schema"
+    trace_id = "tr-1234"
+    request = SetTraceTagV4(
+        key="k",
+        value="v",
+    )
+    response.text = "{}"
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        res = store.set_trace_tag(
+            trace_id=f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}",
+            key=request.key,
+            value=request.value,
+        )
+        expected_json = {
+            "key": request.key,
+            "value": request.value,
+        }
+        mock_http.assert_called_once_with(
+            host_creds=creds,
+            endpoint=f"/api/4.0/mlflow/traces/{location}/{trace_id}/tags",
+            method="PATCH",
+            json=expected_json,
+        )
+        assert res is None
+
+
+def test_delete_trace_tag_v4(monkeypatch):
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    location = "catalog.schema"
+    trace_id = "tr-1234"
+    sql_warehouse_id = "warehouse_456"
+    request = DeleteTraceTagV4(
+        trace_id=trace_id,
+        location=location,
+        key="k",
+    )
+    response.text = "{}"
+
+    monkeypatch.setenv("MLFLOW_TRACING_SQL_WAREHOUSE_ID", sql_warehouse_id)
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        res = store.delete_trace_tag(
+            trace_id=f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}",
+            key=request.key,
+        )
+        expected_json = {
+            "sql_warehouse_id": sql_warehouse_id,
+        }
+        mock_http.assert_called_once_with(
+            host_creds=creds,
+            endpoint=f"/api/4.0/mlflow/traces/{location}/{trace_id}/tags/{request.key}",
+            method="DELETE",
+            json=expected_json,
         )
         assert res is None
 
