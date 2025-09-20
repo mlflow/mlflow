@@ -31,8 +31,6 @@ tqdm
 openai
 # Required for showing pytest stats
 psutil
-# SQLAlchemy == 2.0.25 requires typing_extensions >= 4.6.0
-typing_extensions>=4.6.0
 # Required for importing boto3 ClientError directly for testing
 botocore>=1.34
 pyspark
