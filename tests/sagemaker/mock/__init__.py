@@ -3,8 +3,10 @@ import time
 from datetime import datetime
 from typing import Any, NamedTuple
 
-from moto.core import DEFAULT_ACCOUNT_ID, BackendDict, BaseBackend, BaseModel
-from moto.core.models import base_decorator
+from moto.core import DEFAULT_ACCOUNT_ID
+from moto.core.base_backend import BackendDict, BaseBackend
+from moto.core.common_models import BaseModel
+from moto.core.models import MockAWS
 from moto.core.responses import BaseResponse
 
 
@@ -1099,5 +1101,23 @@ class TransformJobDescription:
 
 # Create a SageMaker backend for EC2 region: "us-west-2"
 sagemaker_backends = BackendDict(SageMakerBackend, "sagemaker")
+
+
+# Create a base_decorator function for moto 5.x compatibility
+def base_decorator(backends):
+    def decorator(func=None):
+        def wrapper(f):
+            def inner(*args, **kwargs):
+                with MockAWS():
+                    return f(*args, **kwargs)
+
+            return inner
+
+        if func:
+            return wrapper(func)
+        return wrapper
+
+    return decorator
+
 
 mock_sagemaker = base_decorator(sagemaker_backends)

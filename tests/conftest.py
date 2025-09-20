@@ -803,7 +803,7 @@ def mock_s3_bucket():
     import boto3
     import moto
 
-    with moto.mock_s3():
+    with moto.mock_aws():
         bucket_name = "mock-bucket"
         s3_client = boto3.client("s3")
         s3_client.create_bucket(Bucket=bucket_name)

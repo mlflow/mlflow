@@ -47,7 +47,7 @@ def mock_s3_bucket():
     -------
     string with name of mock S3 bucket
     """
-    with moto.mock_s3():
+    with moto.mock_aws():
         bucket_name = "mock-bucket"
         my_config = Config(region_name="us-east-1")
         s3_client = boto3.client("s3", config=my_config)
