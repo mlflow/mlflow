@@ -180,7 +180,6 @@ test = [
   "pytest-repeat",
   "pytest-cov",
   "pytest-timeout",
-  "pytest-localserver==0.5.0",
 ]
 
 [tool.uv]
