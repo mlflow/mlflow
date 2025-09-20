@@ -8,6 +8,7 @@ from mlflow.environment_variables import (
     MLFLOW_TRACKING_AUTH,
     MLFLOW_TRACKING_AWS_SIGV4,
     MLFLOW_TRACKING_CLIENT_CERT_PATH,
+    MLFLOW_TRACKING_CLIENT_KEY_PATH,
     MLFLOW_TRACKING_INSECURE_TLS,
     MLFLOW_TRACKING_PASSWORD,
     MLFLOW_TRACKING_SERVER_CERT_PATH,
@@ -69,6 +70,7 @@ def get_default_host_creds(store_uri):
         auth=MLFLOW_TRACKING_AUTH.get(),
         ignore_tls_verification=MLFLOW_TRACKING_INSECURE_TLS.get(),
         client_cert_path=MLFLOW_TRACKING_CLIENT_CERT_PATH.get(),
+        client_key_path=MLFLOW_TRACKING_CLIENT_KEY_PATH.get(),
         server_cert_path=MLFLOW_TRACKING_SERVER_CERT_PATH.get(),
     )
 
