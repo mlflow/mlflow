@@ -9,6 +9,11 @@ export const REGISTERED_PROMPT_SOURCE_RUN_ID = 'mlflow.prompt.run_id';
 export const REGISTERED_PROMPT_SOURCE_RUN_IDS = 'mlflow.prompt.run_ids';
 export const IS_PROMPT_TAG_NAME = 'mlflow.prompt.is_prompt';
 export const IS_PROMPT_TAG_VALUE = 'true';
+// Key used to store a list of prompt versions associated with a run
+export const LINKED_PROMPTS_TAG_KEY = 'mlflow.linkedPrompts';
+export const PROMPT_TYPE_TAG_KEY = '_mlflow_prompt_type';
+export const PROMPT_TYPE_TEXT = 'text';
+export const PROMPT_TYPE_CHAT = 'chat';
 
 // Query parameter name for specifying prompt version in URLs
 export const PROMPT_VERSION_QUERY_PARAM = 'promptVersion';
