@@ -3,7 +3,7 @@ import tempfile
 import threading
 import zipfile
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from typing import Any, Generator
+from typing import Generator
 from unittest import mock
 
 import git
@@ -39,31 +39,16 @@ class _SimpleHTTPServer(HTTPServer):
     def __init__(self, port: int) -> None:
         super().__init__(("127.0.0.1", port), self.RequestHandler)
         self.content = b""
-        self.code = 200
-        self.headers = {}
         self._thread = None
 
     class RequestHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
-            self.send_response(self.server.code)
-            for key, value in self.server.headers.items():
-                self.send_header(key, value)
+            self.send_response(200)
             self.end_headers()
+            self.wfile.write(self.server.content)
 
-            content = self.server.content
-            if isinstance(content, str):
-                content = content.encode("utf-8")
-            self.wfile.write(content)
-
-        def log_message(self, format: str, *args: Any) -> None:
-            pass  # Suppress logs during tests
-
-    def serve_content(
-        self, content: bytes | str, code: int = 200, headers: dict[str, str] | None = None
-    ) -> None:
+    def serve_content(self, content: bytes) -> None:
         self.content = content
-        self.code = code
-        self.headers = headers or {}
 
     @property
     def url(self) -> str:
@@ -74,7 +59,7 @@ class _SimpleHTTPServer(HTTPServer):
         self._thread.start()
         return self
 
-    def __exit__(self, *exc_info: Any) -> None:
+    def __exit__(self, *_) -> None:
         self.shutdown()
         self.server_close()
         if self._thread:
