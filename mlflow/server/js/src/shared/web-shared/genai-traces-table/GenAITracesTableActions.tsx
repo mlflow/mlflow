@@ -10,6 +10,7 @@ import { GenAiDeleteTraceModal } from './components/GenAiDeleteTraceModal';
 import type { RunEvaluationTracesDataEntry, TraceActions, TraceInfoV3 } from './types';
 import { shouldEnableTagGrouping } from './utils/FeatureUtils';
 import { applyTraceInfoV3ToEvalEntry, convertTraceInfoV3ToModelTraceInfo, getRowIdFromTrace } from './utils/TraceUtils';
+import { TraceComparisonModal } from './components/GenAITraceComparisonModal';
 
 interface GenAITracesTableActionsProps {
   experimentId: string;
@@ -25,6 +26,8 @@ export const GenAITracesTableActions = (props: GenAITracesTableActionsProps) => 
   const { traceActions, experimentId, selectedTraces: selectedTracesFromProps, traceInfos, setRowSelection } = props;
 
   const { table, selectedRowIds } = useContext(GenAITracesTableContext);
+  const intl = useIntl();
+  const [showCompareModal, setShowCompareModal] = useState(false);
 
   const selectedTracesFromContext: RunEvaluationTracesDataEntry[] | undefined = useMemo(
     () =>
@@ -55,13 +58,33 @@ export const GenAITracesTableActions = (props: GenAITracesTableActionsProps) => 
 
   const selectedTraces: RunEvaluationTracesDataEntry[] = selectedTracesFromProps || selectedTracesFromContext;
 
+  const handleOpenCompare = useCallback(() => setShowCompareModal(true), []);
+  const handleCloseCompare = useCallback(() => setShowCompareModal(false), []);
+
   return (
-    <TraceActionsDropdown
-      experimentId={experimentId}
-      selectedTraces={selectedTraces}
-      traceActions={traceActions}
-      setRowSelection={setRowSelection ?? table?.setRowSelection}
-    />
+    <>
+      <Button
+        componentId="mlflow.genai-traces-table.compare-traces"
+        disabled={selectedTraces.length < 2}
+        onClick={handleOpenCompare}
+        css={{ marginRight: 8 }}
+      >
+        {intl.formatMessage({ defaultMessage: 'Compare', description: 'Compare traces button' })}
+      </Button>
+      <TraceActionsDropdown
+        experimentId={experimentId}
+        selectedTraces={selectedTraces}
+        traceActions={traceActions}
+        setRowSelection={setRowSelection ?? table?.setRowSelection}
+      />
+      {showCompareModal && (
+        <TraceComparisonModal
+          traces={selectedTraces}
+          onClose={handleCloseCompare}
+          getTrace={traceActions?.exportToEvals?.getTrace}
+        />
+      )}
+    </>
   );
 };
 
