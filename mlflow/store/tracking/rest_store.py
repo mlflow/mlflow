@@ -35,6 +35,7 @@ from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_location import UCSchemaLocation as UCSchemaLocationEntity
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
     _MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE,
@@ -52,6 +53,8 @@ from mlflow.protos.service_pb2 import (
     CreateExperiment,
     CreateLoggedModel,
     CreateRun,
+    CreateTrace,
+    CreateTraceUCStorageLocation,
     DeleteAssessment,
     DeleteDataset,
     DeleteDatasetTag,
@@ -80,6 +83,8 @@ from mlflow.protos.service_pb2 import (
     GetTraceInfo,
     GetTraceInfoV3,
     GetTraceInfoV4,
+    GetTraces,
+    LinkExperimentToUCTraceLocation,
     LinkTracesToRun,
     ListScorers,
     ListScorerVersions,
@@ -109,8 +114,11 @@ from mlflow.protos.service_pb2 import (
     SetTraceTag,
     StartTrace,
     StartTraceV3,
+    TraceIdentifier,
     TraceRequestMetadata,
     TraceTag,
+    UCSchemaLocation,
+    UnLinkExperimentToUCTraceLocation,
     UpdateAssessment,
     UpdateExperiment,
     UpdateRun,
@@ -120,6 +128,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
+from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
 from mlflow.tracing.utils import parse_trace_id_v4
 from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER, OTLP_TRACES_PATH
 from mlflow.utils.databricks_utils import databricks_api_disabled
@@ -127,6 +136,7 @@ from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
     _V3_TRACE_REST_API_PATH_PREFIX,
+    _V4_TRACE_REST_API_PATH_PREFIX,
     MlflowHostCreds,
     call_endpoint,
     extract_api_info_for_service,
@@ -354,6 +364,27 @@ class RestStore(AbstractStore):
         Returns:
             The returned TraceInfo object from the backend.
         """
+        try:
+            sql_warehouse_id = MLFLOW_TRACING_SQL_WAREHOUSE_ID.get()
+            req_body = message_to_json(
+                CreateTrace(trace_info=trace_info.to_proto_v4(), sql_warehouse_id=sql_warehouse_id)
+            )
+            response_proto = self._call_endpoint(
+                CreateTrace,
+                req_body,
+                endpoint=_V4_TRACE_REST_API_PATH_PREFIX,
+                retry_timeout_seconds=MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.get(),
+            )
+            return TraceInfo.from_proto_v4(response_proto.trace_info)
+        except MlflowException as e:
+            if e.error_code == databricks_pb2.ErrorCode.Name(databricks_pb2.ENDPOINT_NOT_FOUND):
+                _logger.debug(
+                    "Server does not support CreateTrace API yet. Falling back to V3 API."
+                )
+                return self._create_trace_v3(trace_info)
+            raise
+
+    def _create_trace_v3(self, trace_info: TraceInfo) -> TraceInfo:
         # NB: The Databricks backend expects a Trace object, not a TraceInfo object, although
         # it doesn't use the data field at all. Trace data increases the payload size significantly,
         # so we create a Trace object with an empty data field here.
@@ -457,6 +488,43 @@ class RestStore(AbstractStore):
         endpoint = get_single_trace_endpoint(trace_id, use_v3=False)
         response_proto = self._call_endpoint(GetTraceInfo, req_body, endpoint=endpoint)
         return TraceInfoV2.from_proto(response_proto.trace_info).to_v3()
+
+    def get_traces(self, trace_ids: list[str]) -> list[Trace]:
+        """
+        Get complete traces with spans for given trace ids.
+
+        Args:
+            trace_ids: List of trace IDs to fetch.
+
+        Returns:
+            List of Trace objects.
+        """
+        sql_warehouse_id = MLFLOW_TRACING_SQL_WAREHOUSE_ID.get()
+        trace_identifiers = [self._construct_trace_identifier(trace_id) for trace_id in trace_ids]
+        req_body = message_to_json(
+            GetTraces(trace_ids=trace_identifiers, sql_warehouse_id=sql_warehouse_id)
+        )
+        response_proto = self._call_endpoint(
+            GetTraces, req_body, endpoint=f"{_V4_TRACE_REST_API_PATH_PREFIX}/batch"
+        )
+        return [Trace.from_proto_v4(proto) for proto in response_proto.traces]
+
+    def _construct_trace_identifier(self, trace_identifier: str) -> TraceIdentifier:
+        location, trace_id = parse_trace_id_v4(trace_identifier)
+        # location is only None when trace_id does not starts with 'trace:/'
+        if location is None:
+            return TraceIdentifier(trace_id=trace_id)
+        match location.split("."):
+            case [catalog, schema]:
+                return TraceIdentifier(
+                    uc_schema=UCSchemaLocation(catalog_name=catalog, schema_name=schema),
+                    trace_id=trace_id,
+                )
+            case _:
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid trace_id format: {trace_identifier}, should be in the format of "
+                    f"{TRACE_ID_V4_PREFIX}<catalog.schema>/<trace_id>"
+                )
 
     def get_online_trace_details(
         self,
@@ -1754,3 +1822,68 @@ class RestStore(AbstractStore):
             MlflowException: If spans belong to different traces or the OTel API call fails.
         """
         return self.log_spans(experiment_id, spans)
+
+    def _set_experiment_storage_location(
+        self,
+        uc_schema: UCSchemaLocationEntity,
+        experiment_id: str,
+        sql_warehouse_id: str | None = None,
+    ) -> UCSchemaLocationEntity:
+        req_body = message_to_json(
+            CreateTraceUCStorageLocation(
+                uc_schema=uc_schema.to_proto(),
+                sql_warehouse_id=sql_warehouse_id or MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+            )
+        )
+        try:
+            response = self._call_endpoint(
+                CreateTraceUCStorageLocation,
+                req_body,
+                endpoint=f"{_V4_TRACE_REST_API_PATH_PREFIX}/location",
+            )
+            uc_schema = UCSchemaLocationEntity.from_proto(response.uc_schema)
+        except MlflowException as e:
+            if e.error_code == databricks_pb2.ALREADY_EXISTS:
+                _logger.debug(f"Trace UC storage location already exists: {uc_schema}")
+            else:
+                raise
+        _logger.debug(f"Created trace UC storage location: {uc_schema}")
+
+        # link experiment to uc trace location
+        req_body = message_to_json(
+            LinkExperimentToUCTraceLocation(
+                experiment_id=experiment_id,
+                uc_schema=uc_schema.to_proto(),
+            )
+        )
+
+        self._call_endpoint(
+            LinkExperimentToUCTraceLocation,
+            req_body,
+            endpoint=f"{_V4_TRACE_REST_API_PATH_PREFIX}/location/{experiment_id}",
+        )
+        _logger.debug(f"Linked experiment {experiment_id} to UC trace location: {uc_schema}")
+        return uc_schema
+
+    def _clear_experiment_storage_location(
+        self, experiment_id: str, uc_schema: UCSchemaLocationEntity | None = None
+    ) -> None:
+        if uc_schema:
+            request = UnLinkExperimentToUCTraceLocation(
+                experiment_id=experiment_id,
+                uc_schema=uc_schema.to_proto(),
+            )
+            endpoint = (
+                f"{_V4_TRACE_REST_API_PATH_PREFIX}/location/{experiment_id}/"
+                f"{uc_schema.catalog_name}.{uc_schema.schema_name}"
+            )
+        else:
+            request = UnLinkExperimentToUCTraceLocation(experiment_id=experiment_id)
+            endpoint = f"{_V4_TRACE_REST_API_PATH_PREFIX}/location/{experiment_id}"
+        req_body = message_to_json(request)
+        self._call_endpoint(
+            UnLinkExperimentToUCTraceLocation,
+            req_body,
+            endpoint=endpoint,
+        )
+        _logger.debug(f"Unlinked experiment {experiment_id} from UC trace location: {uc_schema}")

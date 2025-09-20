@@ -11,17 +11,23 @@ from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, Span
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_location import UCSchemaLocation
 from mlflow.environment_variables import MLFLOW_SEARCH_TRACES_MAX_THREADS
 from mlflow.exceptions import (
     MlflowException,
+    MlflowNotImplementedException,
     MlflowTraceDataCorrupted,
     MlflowTraceDataException,
     MlflowTraceDataNotFound,
+    RestException,
 )
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INVALID_PARAMETER_VALUE,
+    NOT_FOUND,
+    NOT_IMPLEMENTED,
     RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
 )
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.entities.paged_list import PagedList
@@ -127,6 +133,21 @@ class TracingClient:
         Returns:
             The fetched Trace object, of type ``mlflow.entities.Trace``.
         """
+        try:
+            if traces := self.store.get_traces([trace_id]):
+                return traces[0]
+            else:
+                raise MlflowException(
+                    f"Trace with ID {trace_id} not found.",
+                    error_code=NOT_FOUND,
+                )
+        except MlflowNotImplementedException:
+            pass
+        # if the rest store routes to the store that doesn't support get_traces,
+        # fallback to get_trace_info and download trace data from artifact repo
+        except RestException as e:
+            if e.error_code != ErrorCode.Name(NOT_IMPLEMENTED):
+                raise
         trace_info = self.get_trace_info(trace_id)
         try:
             trace_data = self._download_trace_data(trace_info)
@@ -580,3 +601,29 @@ class TracingClient:
 
         registry_store = _get_model_registry_store()
         registry_store.link_prompts_to_trace(prompt_versions=prompts, trace_id=trace_id)
+
+    def _set_experiment_storage_location(
+        self,
+        uc_schema: UCSchemaLocation,
+        experiment_id: str,
+        sql_warehouse_id: str | None = None,
+    ) -> UCSchemaLocation:
+        if is_databricks_uri(self.tracking_uri):
+            return self.store._set_experiment_storage_location(
+                experiment_id=experiment_id,
+                uc_schema=uc_schema,
+                sql_warehouse_id=sql_warehouse_id,
+            )
+        raise MlflowException(
+            "Setting storage location is not supported on non-Databricks backends."
+        )
+
+    def _clear_experiment_storage_location(
+        self, experiment_id: str, uc_schema: UCSchemaLocation | None = None
+    ) -> None:
+        if is_databricks_uri(self.tracking_uri):
+            self.store._clear_experiment_storage_location(experiment_id, uc_schema)
+        else:
+            raise MlflowException(
+                "Clearing storage location is not supported on non-Databricks backends."
+            )
