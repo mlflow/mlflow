@@ -23,8 +23,7 @@ rouge_score
 textstat
 tiktoken
 # Required by progress bar tests
-ipywidgets
-tqdm
+tqdm[notebook]
 # Required for LLM eval in `mlflow.evaluate`
 openai
 # Required for showing pytest stats
