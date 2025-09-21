@@ -391,8 +391,10 @@ def _run_server(
         # This shouldn't happen given the logic in CLI, but handle it just in case
         raise MlflowException("No server configuration specified.")
 
-    # The `HUEY_STORAGE_PATH_ENV_VAR` is used by both Mlflow server handler workers and huey job runner (huey_consumer).
-    env_map[HUEY_STORAGE_PATH_ENV_VAR] = os.path.join(tempfile.mkdtemp(), "mlflow-huey.db")
+    if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
+        # The `HUEY_STORAGE_PATH_ENV_VAR` is used by both Mlflow server handler workers and
+        # huey job runner (huey_consumer).
+        env_map[HUEY_STORAGE_PATH_ENV_VAR] = os.path.join(tempfile.mkdtemp(), "mlflow-huey.db")
     server_proc = _exec_cmd(
         full_command, extra_env=env_map, capture_output=False, synchronous=False
     )
