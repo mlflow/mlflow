@@ -475,11 +475,10 @@ def _check_skinny_tracing_mismatch(*, skinny_reqs: list[str], tracing_reqs: list
 
 
 def main() -> None:
-    taplo_path = Path("bin/taplo")
-    if not taplo_path.exists():
+    if not Path("bin/taplo").exists():
         print("taplo is required to generate pyproject.toml.")
-        print("Installing taplo using bin/install.py...")
-        subprocess.check_call([sys.executable, "bin/install.py"])
+        print("Please run 'python bin/install.py' to install it.")
+        sys.exit(1)
 
     for package_type in PackageType:
         build(package_type)
