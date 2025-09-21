@@ -297,6 +297,127 @@ def _find_tool_results(transcript: list[dict[str, Any]], start_idx: int) -> dict
     return tool_results
 
 
+def _reconstruct_conversation_messages(
+    transcript: list[dict[str, Any]], end_idx: int
+) -> list[dict[str, Any]]:
+    """Reconstruct conversation messages in OpenAI format for LLM span inputs.
+
+    This function builds the message array that represents what was sent to the LLM.
+    It processes the transcript up to (but not including) end_idx to build the context.
+
+    Args:
+        transcript: List of conversation entries from Claude Code transcript
+        end_idx: Index to stop at (exclusive) - typically the current assistant response
+
+    Returns:
+        List of messages in format [{"role": "system"|"user"|"assistant"|"tool", "content": "..."}]
+    """
+    messages = []
+
+    for i in range(end_idx):
+        entry = transcript[i]
+        entry_type = entry.get(MESSAGE_FIELD_TYPE)
+        msg = entry.get(MESSAGE_FIELD_MESSAGE, {})
+
+        # Check for system role explicitly
+        if msg.get("role") == "system":
+            _process_system_entry(msg, messages)
+        elif entry_type == MESSAGE_TYPE_USER:
+            _process_user_entry(entry, msg, messages)
+        elif entry_type == MESSAGE_TYPE_ASSISTANT:
+            _process_assistant_entry(msg, messages)
+
+    return messages
+
+
+def _process_system_entry(msg: dict[str, Any], messages: list[dict[str, Any]]) -> None:
+    """Process a system entry from the transcript.
+
+    Args:
+        msg: The message object from the entry
+        messages: The messages list to append to
+    """
+    content = msg.get(MESSAGE_FIELD_CONTENT, [])
+    text_content = extract_text_content(content)
+
+    if text_content.strip():
+        messages.append({"role": "system", "content": text_content})
+
+
+def _process_user_entry(
+    entry: dict[str, Any], msg: dict[str, Any], messages: list[dict[str, Any]]
+) -> None:
+    """Process a user entry from the transcript and add appropriate messages.
+
+    User entries can contain:
+    - Regular user messages (text)
+    - Tool results from previous tool calls
+
+    Args:
+        entry: The transcript entry
+        msg: The message object from the entry
+        messages: The messages list to append to
+    """
+    content = msg.get(MESSAGE_FIELD_CONTENT, [])
+
+    # Handle list content (typical structure)
+    if isinstance(content, list):
+        text_parts = []
+
+        for part in content:
+            if not isinstance(part, dict):
+                continue
+
+            part_type = part.get(MESSAGE_FIELD_TYPE)
+
+            if part_type == CONTENT_TYPE_TOOL_RESULT:
+                # Extract tool result information
+                tool_id = part.get("tool_use_id")
+                result_content = part.get("content")
+
+                # Add tool results with proper "tool" role
+                if result_content:
+                    tool_msg = {
+                        "role": "tool",
+                        "content": result_content,
+                    }
+                    if tool_id:
+                        tool_msg["tool_use_id"] = tool_id
+                    messages.append(tool_msg)
+
+            elif part_type == CONTENT_TYPE_TEXT:
+                # Regular text content
+                text = part.get(CONTENT_TYPE_TEXT)
+                if text:
+                    text_parts.append(text)
+
+        # Add regular text content as user message
+        if text_parts:
+            combined_text = "\n".join(text_parts).strip()
+            if combined_text:
+                messages.append({"role": "user", "content": combined_text})
+
+    # Handle string content (simpler format)
+    elif isinstance(content, str) and content.strip():
+        messages.append({"role": "user", "content": content})
+
+
+def _process_assistant_entry(msg: dict[str, Any], messages: list[dict[str, Any]]) -> None:
+    """Process an assistant entry from the transcript and add to messages.
+
+    Assistant entries represent previous LLM responses that are part of the conversation context.
+
+    Args:
+        msg: The message object from the entry
+        messages: The messages list to append to
+    """
+    content = msg.get(MESSAGE_FIELD_CONTENT, [])
+    text_content = extract_text_content(content)
+
+    if text_content.strip():
+        messages.append({"role": "assistant", "content": text_content})
+
+
 def _create_llm_and_tool_spans(
     client, trace, transcript: list[dict[str, Any]], start_idx: int
 ) -> None:
@@ -329,13 +450,18 @@ def _create_llm_and_tool_spans(
         llm_span = None
         if text_content and text_content.strip() and not tool_uses:
             llm_call_num += 1
+            conversation_messages = _reconstruct_conversation_messages(transcript, i)
+
             llm_span = client.start_span(
                 name=f"llm_call_{llm_call_num}",
                 trace_id=trace.trace_id,
                 parent_id=trace.span_id,
                 span_type=SpanType.LLM,
                 start_time_ns=timestamp_ns,
-                inputs={"model": msg.get("model", "unknown")},
+                inputs={
+                    "model": msg.get("model", "unknown"),
+                    "messages": conversation_messages,
+                },
                 attributes={
                     "model": msg.get("model", "unknown"),
                     "input_tokens": usage.get("input_tokens", 0),
