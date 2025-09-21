@@ -151,6 +151,8 @@ _STAGES_DEPRECATION_WARNING = (
     "latest/model-registry.html#migrating-from-stages"
 )
 
+_ALLOWED_FILENAME_SEPARATORS = {"%", "+"}
+
 
 def _model_not_found(name: str) -> MlflowException:
     return MlflowException(
@@ -2950,7 +2952,7 @@ class MlflowClient:
             # See https://github.com/mlflow/mlflow/issues/14136 for more details.
             # Construct a filename uuid that does not start with hex digits
             filename_uuid = f"{random.choice(string.ascii_lowercase[6:])}{filename_uuid[1:]}"
-            if filename_sep not in ["%", "+"]:
+            if filename_sep not in _ALLOWED_FILENAME_SEPARATORS:
                 logging.warning(
                     f"Invalid image log file separator '{filename_sep}' specified. \
                     Defaulting to '%'."
