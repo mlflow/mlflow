@@ -168,7 +168,7 @@ def test_job_resume_on_new_job_runner(monkeypatch, tmp_path):
 
     backend_store_uri = f"sqlite:///{str(db_tmp_path / 'mlflow.db')}"
 
-    with _setup_job_runner(1, monkeypatch, backend_store_uri, runner1_tmp_path) as job_runner_proc:
+    with _setup_job_runner(1, monkeypatch, runner1_tmp_path, backend_store_uri) as job_runner_proc:
         job1_id = submit_job(basic_job_fun, {"x": 3, "y": 4, "sleep_secs": 0}).job_id
         job2_id = submit_job(basic_job_fun, {"x": 5, "y": 6, "sleep_secs": 10}).job_id
         job3_id = submit_job(basic_job_fun, {"x": 7, "y": 8, "sleep_secs": 0}).job_id
@@ -177,7 +177,7 @@ def test_job_resume_on_new_job_runner(monkeypatch, tmp_path):
     # ensure the job runner process is killed.
     job_runner_proc.wait()
 
-    with _setup_job_runner(1, monkeypatch, backend_store_uri, runner2_tmp_path):
+    with _setup_job_runner(1, monkeypatch, runner2_tmp_path, backend_store_uri):
         # assert that job1 has done, job2 is running, and job3 is pending.
         assert query_job(job1_id) == (JobStatus.DONE, 7)
         assert query_job(job2_id) == (JobStatus.RUNNING, None)
