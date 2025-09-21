@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import re
-import shutil
 import subprocess
+import sys
 from collections import Counter
 from enum import Enum
 from pathlib import Path
@@ -475,13 +475,11 @@ def _check_skinny_tracing_mismatch(*, skinny_reqs: list[str], tracing_reqs: list
 
 
 def main() -> None:
-    if shutil.which("taplo") is None:
-        print(
-            "taplo is required to generate pyproject.toml. "
-            "Please install it by following the instructions at "
-            "https://taplo.tamasfe.dev/cli/introduction.html."
-        )
-        return
+    taplo_path = Path("bin/taplo")
+    if not taplo_path.exists():
+        print("taplo is required to generate pyproject.toml.")
+        print("Installing taplo using bin/install.py...")
+        subprocess.check_call([sys.executable, "bin/install.py"])
 
     for package_type in PackageType:
         build(package_type)
