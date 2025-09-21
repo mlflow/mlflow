@@ -184,5 +184,8 @@ def test_run_server_with_uvicorn(mock_exec_cmd, monkeypatch):
         "mlflow.server.fastapi_app:app",
     ]
     mock_exec_cmd.assert_called_once_with(
-        expected_command, extra_env={_MLFLOW_SGI_NAME.name: "uvicorn"}, capture_output=False
+        expected_command,
+        extra_env={_MLFLOW_SGI_NAME.name: "uvicorn"},
+        capture_output=False,
+        synchronous=False,
     )
