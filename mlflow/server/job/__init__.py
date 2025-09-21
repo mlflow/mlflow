@@ -34,7 +34,7 @@ class TransientError(RuntimeError):
 
 def submit_job(
     function: Callable[..., Any], params: dict[str, Any], timeout: int | None = None
-) -> Job:
+) -> str:
     """
     Submit a job to the job queue. The job is executed at most once.
     If the MLflow server crashes while the job is pending or running,
@@ -60,7 +60,7 @@ def submit_job(
         timeout: (optional) the job execution timeout, default None (no timeout)
 
     Returns:
-        The Job entity. You can call `query_job` API by the `job.job_id` to get
+        The job id. You can call `query_job` API by the job id to get
         the job status and result.
     """
     from mlflow.environment_variables import MLFLOW_SERVER_ENABLE_JOB_EXECUTION
@@ -83,7 +83,7 @@ def submit_job(
     # enqueue job
     huey_task_exec_job(job.job_id, function, params, timeout)
 
-    return job
+    return job.job_id
 
 
 def query_job(job_id: str) -> tuple[JobStatus, Any]:

@@ -985,9 +985,9 @@ MLFLOW_TRACING_SQL_WAREHOUSE_ID = _EnvironmentVariable("MLFLOW_TRACING_SQL_WAREH
 #: Specifies whether to enable job execution feature for MLflow server.
 #: This feature requires "huey" package dependency, and requires MLflow server to configure
 #: --backend-store-uri to database URI.
-#: (default: ``False``)
+#: (default: ``True``)
 MLFLOW_SERVER_ENABLE_JOB_EXECUTION = _BooleanEnvironmentVariable(
-    "MLFLOW_SERVER_ENABLE_JOB_EXECUTION", False
+    "MLFLOW_SERVER_ENABLE_JOB_EXECUTION", True
 )
 
 #: Specifies the MLflow server job maximum parallelism, ``None`` means to use the number of CPUs
