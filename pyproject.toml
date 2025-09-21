@@ -155,6 +155,7 @@ mlflow = [
 where = ["."]
 include = ["mlflow", "mlflow.*"]
 exclude = ["tests", "tests.*"]
+namespaces = false
 
 # Package metadata: can't be updated manually, use dev/pyproject.py
 # -----------------------------------------------------------------
