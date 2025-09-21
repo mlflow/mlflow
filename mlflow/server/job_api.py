@@ -1,16 +1,23 @@
 """
 Internal job APIs for UI invocation
 """
-
+import os
 from typing import Any
-import json
 
-from fastapi import APIRouter
-from mlflow.server.handlers import _get_job_store
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, HTTPException, status as http_status
+from pydantic import BaseModel
 
 
 job_api_router = APIRouter(prefix="/ajax-api/3.0/job", tags=["Job"])
+
+
+_JOB_FUNCTION_ALLOW_LIST = [
+    # Add builtin job functions here
+]
+
+if extra_fun_allow_list_env := os.environ.get("_MLFLOW_JOB_FUNCTION_EXTRA_ALLOW_LIST"):
+    # this is for injecting allow listed job functions in test
+    _JOB_FUNCTION_ALLOW_LIST += extra_fun_allow_list_env.split(",")
 
 
 class QueryJobResponse(BaseModel):
@@ -50,13 +57,13 @@ def submit_job(payload: SubmitJobPayload) -> SubmitJobResponse:
     from mlflow.server.job import submit_job
     from mlflow.server.job.job_runner import _load_function
 
-    function = _load_function(payload.function_fullname)
-    job = submit_job(function, payload.params, payload.timeout)
-    return SubmitJobResponse(job_id=job.job_id)
+    function_fullname = payload.function_fullname
+    if function_fullname not in _JOB_FUNCTION_ALLOW_LIST:
+        raise HTTPException(
+            status_code=http_status.HTTP_403_FORBIDDEN,
+            detail=f"The job function {function_fullname} is not in the allowed list.",
+        )
 
-
-def _test_fun1(x, y):
-    return {
-        "a": x + y,
-        "b": x - y,
-    }
+    function = _load_function(function_fullname)
+    job_id = submit_job(function, payload.params, payload.timeout)
+    return SubmitJobResponse(job_id=job_id)
