@@ -402,6 +402,15 @@ def _run_server(
     if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
         from mlflow.server.job import _launch_job_backend
 
+        try:
+            import huey
+        except ImportError:
+            _logger.warning(
+                "MLflow job backend requires 'huey<3,>=2.5.0' package but it is not installed. "
+                "Skip launching the job runner."
+            )
+            return
+
         _launch_job_backend(file_store_path, env_map, server_proc.pid)
 
     server_proc.wait()
