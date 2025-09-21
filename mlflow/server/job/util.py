@@ -17,7 +17,7 @@ class JobResult:
     error: str | None = None
 
     @classmethod
-    def from_error(cls, e):
+    def from_error(cls, e: Exception) -> "JobResult":
         from mlflow.server.job import TransientError
 
         if isinstance(e, TransientError):
@@ -33,7 +33,7 @@ class JobResult:
         )
 
 
-def _exit_when_orphaned(poll_interval=1):
+def _exit_when_orphaned(poll_interval: float = 1) -> None:
     while True:
         if os.getppid() == 1:
             os._exit(1)
@@ -43,7 +43,7 @@ def _exit_when_orphaned(poll_interval=1):
 def _job_subproc_entry(
     func: Callable[..., Any],
     kwargs: dict[str, Any],
-    result_queue,
+    result_queue: multiprocessing.Queue,
 ) -> None:
     """Child process entrypoint: run func and put result or exception into queue."""
 

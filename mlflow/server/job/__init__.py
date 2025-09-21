@@ -23,12 +23,12 @@ class TransientError(RuntimeError):
     Raise `TransientError` in a job to trigger job retry
     """
 
-    def __init__(self, origin_error):
+    def __init__(self, origin_error: Exception):
         super().__init__()
         self._origin_error = origin_error
 
     @property
-    def origin_error(self):
+    def origin_error(self) -> Exception:
         return self._origin_error
 
 
@@ -36,10 +36,13 @@ def submit_job(
     function: Callable[..., Any], params: dict[str, Any], timeout: int | None = None
 ) -> Job:
     """
-    Submit a job to the job queue.
-    The job is ensured to be scheduled to execute once.
-    If Mlflow server crashes when the job is in pending / running status,
-    when the Mlflow server restarts, the job will be scheduled again.
+    Submit a job to the job queue. The job is executed at most once.
+    If the MLflow server crashes while the job is pending or running,
+    it is rescheduled on restart.
+
+    Note:
+        This is a server-side API and requires the MLflow server to configure
+        the backend store URI to a database URI.
 
     Note:
         This is a server-side API, and it requires MLflow server configures
@@ -110,7 +113,12 @@ def query_job(job_id: str) -> tuple[JobStatus, Any]:
     return status, result
 
 
-def _start_job_runner(env_map, max_job_parallelism, server_proc_pid, start_new_runner):
+def _start_job_runner(
+    env_map: dict[str, str],
+    max_job_parallelism: int,
+    server_proc_pid: int,
+    start_new_runner: bool,
+) -> "subprocess.Popen":
     from mlflow.utils.process import _exec_cmd
 
     return _exec_cmd(
@@ -132,13 +140,17 @@ def _start_job_runner(env_map, max_job_parallelism, server_proc_pid, start_new_r
     )
 
 
-def _reinit_huey_queue():
+def _reinit_huey_queue() -> None:
     from mlflow.server.job.job_runner import _init_huey_queue
 
     _init_huey_queue()
 
 
-def _launch_job_backend(backend_store_uri, env_map, server_proc_pid):
+def _launch_job_backend(
+    backend_store_uri: str,
+    env_map: dict[str, str],
+    server_proc_pid: int,
+) -> None:
     from mlflow.utils.uri import extract_db_type_from_uri
 
     if extract_db_type_from_uri(backend_store_uri) is None:

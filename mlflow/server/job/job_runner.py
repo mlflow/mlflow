@@ -79,7 +79,9 @@ def _init_huey_queue():
 _init_huey_queue()
 
 
-def _start_watcher_to_kill_job_runner_if_mlflow_server_dies(check_interval=1.0):
+def _start_watcher_to_kill_job_runner_if_mlflow_server_dies(
+    check_interval: float = 1.0
+) -> None:
     from mlflow.server.job.util import is_process_alive
 
     mlflow_server_pid = int(os.environ.get("MLFLOW_SERVER_PID"))
@@ -94,13 +96,17 @@ def _start_watcher_to_kill_job_runner_if_mlflow_server_dies(check_interval=1.0):
     t.start()
 
 
-def _load_function(fullname: str):
-    module_name, func_name = fullname.rsplit(".", 1)
+def _load_function(fullname: str) -> Callable[..., Any]:
+    match fullname.split("."):
+        case [*module_parts, func_name] if module_parts:
+            module_name = ".".join(module_parts)
+        case _:
+            raise ValueError(f"Invalid function fullname: {fullname!r}")
     module = importlib.import_module(module_name)
     return getattr(module, func_name)
 
 
-def _enqueue_unfinished_jobs():
+def _enqueue_unfinished_jobs() -> None:
     job_store = _get_job_store()
 
     if os.environ.get("_START_NEW_MLFLOW_JOB_RUNNER") == "1":

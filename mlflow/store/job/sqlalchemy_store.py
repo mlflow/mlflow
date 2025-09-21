@@ -4,7 +4,8 @@ from typing import Iterator
 import sqlalchemy
 
 import mlflow.store.db.utils
-from mlflow.entities._job import Job, JobStatus
+from mlflow.entities._job import Job
+from mlflow.entities._job_status import JobStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.job.abstract_store import AbstractJobStore
@@ -158,7 +159,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
         """
         If the job retry_count is less than maximum allowed retry count,
         increase the retry_count and reset the job to PENDING status,
-        otherwise set the job to FAIL status and fill the job's error field.
+        otherwise set the job to FAILED status and fill the job's error field.
 
         Args:
             job_id: The ID of the job to fail
@@ -200,7 +201,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
 
         Args:
             function_fullname: Filter by function full name (exact match)
-            status_list: Filter by a list of job status (PENDING, RUNNING, DONE, FAILED)
+            status_list: Filter by a list of job status (PENDING, RUNNING, DONE, FAILED, TIMEOUT)
             begin_timestamp: Filter jobs created after this timestamp (inclusive)
             end_timestamp: Filter jobs created before this timestamp (inclusive)
             page_size: Number of jobs to return per page (default: 1000)
