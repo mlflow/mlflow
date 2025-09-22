@@ -399,6 +399,7 @@ def build(package_type: PackageType) -> None:
                         "exclude": ["tests", "tests.*"]
                         if package_type != PackageType.TRACING
                         else TRACING_EXCLUDE_FILES,
+                        "namespaces": False,
                     }
                 },
                 "package-data": _get_package_data(package_type),

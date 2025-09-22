@@ -136,3 +136,4 @@ mlflow = [
 where = ["."]
 include = ["mlflow", "mlflow.*"]
 exclude = ["tests", "tests.*"]
+namespaces = false
