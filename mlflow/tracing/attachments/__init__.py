@@ -55,47 +55,33 @@ class Attachment:
             return content_type
 
         # Fallback to manual mapping for common types
-        file_lower = str(file).lower()
+        CONTENT_TYPE_MAPPING = {
+            # Image formats
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".gif": "image/gif",
+            ".webp": "image/webp",
+            # Document formats
+            ".pdf": "application/pdf",
+            # Audio formats
+            ".mp3": "audio/mpeg",
+            ".wav": "audio/wav",
+            ".ogg": "audio/ogg",
+            ".m4a": "audio/mp4",
+            ".aac": "audio/aac",
+            ".flac": "audio/flac",
+            ".webm": "audio/webm",
+            # Video formats
+            ".mp4": "video/mp4",
+            ".mov": "video/quicktime",
+            ".avi": "video/x-msvideo",
+        }
 
-        # Image formats
-        if file_lower.endswith((".png",)):
-            return "image/png"
-        elif file_lower.endswith((".jpg", ".jpeg")):
-            return "image/jpeg"
-        elif file_lower.endswith((".gif",)):
-            return "image/gif"
-        elif file_lower.endswith((".webp",)):
-            return "image/webp"
+        path = Path(file) if not isinstance(file, Path) else file
+        suffix_lower = path.suffix.lower()
 
-        # Document formats
-        elif file_lower.endswith((".pdf",)):
-            return "application/pdf"
-
-        # Audio formats
-        elif file_lower.endswith((".mp3",)):
-            return "audio/mpeg"
-        elif file_lower.endswith((".wav",)):
-            return "audio/wav"
-        elif file_lower.endswith((".ogg",)):
-            return "audio/ogg"
-        elif file_lower.endswith((".m4a",)):
-            return "audio/mp4"
-        elif file_lower.endswith((".aac",)):
-            return "audio/aac"
-        elif file_lower.endswith((".flac",)):
-            return "audio/flac"
-        elif file_lower.endswith((".webm",)):
-            return "audio/webm"
-
-        # Video formats
-        elif file_lower.endswith((".mp4",)):
-            return "video/mp4"
-        elif file_lower.endswith((".mov",)):
-            return "video/quicktime"
-        elif file_lower.endswith((".avi",)):
-            return "video/x-msvideo"
-
-        return "application/octet-stream"
+        return CONTENT_TYPE_MAPPING.get(suffix_lower, "application/octet-stream")
 
     def ref(self, trace_id: str, span_id: str) -> str:
         """
