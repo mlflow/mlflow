@@ -41,16 +41,16 @@ class Attachment:
         """
         path = Path(file)
         return cls(
-            content_type=content_type or cls._infer_content_type(file),
+            content_type=content_type or cls._infer_content_type(path),
             content_bytes=path.read_bytes(),
             filename=path.name,
         )
 
     @staticmethod
-    def _infer_content_type(file: str | Path) -> str:
+    def _infer_content_type(path: Path) -> str:
         """Infer content type from file extension."""
         # Use mimetypes module for more comprehensive type detection
-        content_type, _ = mimetypes.guess_type(file)
+        content_type, _ = mimetypes.guess_type(path)
         if content_type:
             return content_type
 
@@ -78,7 +78,6 @@ class Attachment:
             ".avi": "video/x-msvideo",
         }
 
-        path = Path(file)
         suffix_lower = path.suffix.lower()
 
         return CONTENT_TYPE_MAPPING.get(suffix_lower, "application/octet-stream")
