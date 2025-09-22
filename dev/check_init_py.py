@@ -24,7 +24,7 @@ def get_tracked_python_files() -> list[Path]:
             ["git", "ls-files", "mlflow/**/*.py"],
             text=True,
         )
-        return [Path(f) for f in result.strip().split("\n") if f]
+        return [Path(f) for f in result.splitlines() if f]
     except subprocess.CalledProcessError as e:
         print(f"Error running git ls-files: {e}", file=sys.stderr)
         sys.exit(1)
