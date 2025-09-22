@@ -407,9 +407,6 @@ class ArtifactRepository:
                 self._download_file(posixpath.join("attachments", path), temp_file)
                 return temp_file.read_bytes()
             except Exception as e:
-                from mlflow.exceptions import MlflowException
-                from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
-
                 raise MlflowException(
                     f"Trace attachment not found: {path}", RESOURCE_DOES_NOT_EXIST
                 ) from e
