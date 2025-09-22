@@ -1,13 +1,12 @@
 import os
-import tempfile
 import time
 import uuid
 from contextlib import contextmanager
 from multiprocessing import Pool as MultiProcPool
 from os.path import dirname
+from pathlib import Path
 
 import pytest
-from pathlib import Path
 
 import mlflow.server.handlers
 from mlflow.entities._job_status import JobStatus
@@ -41,7 +40,7 @@ def _start_job_runner_for_test(max_job_parallelism, start_new_runner):
 
 @contextmanager
 def _setup_job_runner(max_job_parallelism, monkeypatch, tmp_path, backend_store_uri=None):
-    backend_store_uri = backend_store_uri or f"sqlite:///{str(tmp_path / 'mlflow.db')}"
+    backend_store_uri = backend_store_uri or f"sqlite:///{tmp_path / 'mlflow.db'!s}"
     huey_store_path = str(tmp_path / "huey.db")
     default_artifact_root = str(tmp_path / "artifacts")
     try:
@@ -157,7 +156,7 @@ def test_job_resume_on_new_job_runner(monkeypatch, tmp_path):
     runner2_tmp_path = tmp_path / "runner2"
     runner2_tmp_path.mkdir()
 
-    backend_store_uri = f"sqlite:///{str(db_tmp_path / 'mlflow.db')}"
+    backend_store_uri = f"sqlite:///{db_tmp_path / 'mlflow.db'!s}"
 
     with _setup_job_runner(1, monkeypatch, runner1_tmp_path, backend_store_uri) as job_runner_proc:
         job1_id = submit_job(basic_job_fun, {"x": 3, "y": 4, "sleep_secs": 0}).job_id
@@ -184,8 +183,7 @@ def test_job_queue_parallelism(monkeypatch, tmp_path):
     # test job queue parallelism=2 and each job consumes 2 seconds.
     with _setup_job_runner(2, monkeypatch, tmp_path):
         job_ids = [
-            submit_job(basic_job_fun, {"x": x, "y": 1, "sleep_secs": 2}).job_id
-            for x in range(4)
+            submit_job(basic_job_fun, {"x": x, "y": 1, "sleep_secs": 2}).job_id for x in range(4)
         ]
         time.sleep(2.5)
 

@@ -67,7 +67,7 @@ CREATE TABLE jobs (
 	creation_time BIGINT,
 	function_fullname VARCHAR(500) NOT NULL,
 	params TEXT NOT NULL,
-	timeout INTEGER,
+	timeout DOUBLE PRECISION,
 	status INTEGER NOT NULL,
 	result TEXT,
 	retry_count INTEGER,

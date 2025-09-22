@@ -210,7 +210,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
             Iterator of Job entities that match the filters, ordered by creation time (oldest first)
         """
         offset = 0
-        
+
         while True:
             with self.ManagedSessionMaker() as session:
                 # Select all columns needed for Job entity
@@ -221,7 +221,9 @@ class SqlAlchemyJobStore(AbstractJobStore):
                     query = query.filter(SqlJob.function_fullname == function_fullname)
 
                 if statuses:
-                    query = query.filter(SqlJob.status.in_([status.to_int() for status in statuses]))
+                    query = query.filter(
+                        SqlJob.status.in_([status.to_int() for status in statuses])
+                    )
 
                 if begin_timestamp is not None:
                     query = query.filter(SqlJob.creation_time >= begin_timestamp)
@@ -230,12 +232,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
                     query = query.filter(SqlJob.creation_time <= end_timestamp)
 
                 # Order by creation time (oldest first) and apply pagination
-                jobs = (
-                    query.order_by(SqlJob.creation_time)
-                    .offset(offset)
-                    .limit(page_size)
-                    .all()
-                )
+                jobs = query.order_by(SqlJob.creation_time).offset(offset).limit(page_size).all()
 
                 # If no jobs returned, we've reached the end
                 if not jobs:

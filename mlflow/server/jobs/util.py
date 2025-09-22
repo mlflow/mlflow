@@ -2,9 +2,8 @@ import errno
 import json
 import multiprocessing
 import os
-import signal
-import time
 import threading
+import time
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -21,11 +20,7 @@ class JobResult:
         from mlflow.server.jobs import TransientError
 
         if isinstance(e, TransientError):
-            return JobResult(
-                succeeded=False,
-                is_transient_error=True,
-                error=repr(e.origin_error)
-            )
+            return JobResult(succeeded=False, is_transient_error=True, error=repr(e.origin_error))
         return JobResult(
             succeeded=False,
             is_transient_error=False,

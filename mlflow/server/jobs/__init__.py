@@ -11,10 +11,9 @@ from typing import Any, Callable
 
 from mlflow.entities._job import Job
 from mlflow.entities._job_status import JobStatus
+from mlflow.environment_variables import MLFLOW_SERVER_JOB_MAX_PARALLELISM
 from mlflow.exceptions import MlflowException
 from mlflow.server.handlers import _get_job_store
-from mlflow.environment_variables import MLFLOW_SERVER_JOB_MAX_PARALLELISM
-
 
 _logger = logging.getLogger(__name__)
 

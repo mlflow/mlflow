@@ -65,7 +65,7 @@ CREATE TABLE jobs (
 	creation_time BIGINT,
 	function_fullname VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	params VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	timeout INTEGER,
+	timeout FLOAT,
 	status INTEGER NOT NULL,
 	result VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	retry_count INTEGER,

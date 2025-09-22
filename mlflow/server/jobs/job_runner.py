@@ -1,4 +1,3 @@
-import errno
 import importlib
 import json
 import os
@@ -31,7 +30,9 @@ def _exponential_backoff_retry(retry_count: int) -> None:
     raise RetryTask(delay=delay)
 
 
-def _exec_job(job_id: str, function: Callable, params: dict[str, Any], timeout: float | None) -> None:
+def _exec_job(
+    job_id: str, function: Callable, params: dict[str, Any], timeout: float | None
+) -> None:
     from mlflow.server.jobs.util import execute_function_with_timeout
 
     job_store = _get_job_store()
@@ -79,9 +80,7 @@ def _init_huey_queue():
 _init_huey_queue()
 
 
-def _start_watcher_to_kill_job_runner_if_mlflow_server_dies(
-    check_interval: float = 1.0
-) -> None:
+def _start_watcher_to_kill_job_runner_if_mlflow_server_dies(check_interval: float = 1.0) -> None:
     from mlflow.server.jobs.util import is_process_alive
 
     mlflow_server_pid = int(os.environ.get("MLFLOW_SERVER_PID"))
