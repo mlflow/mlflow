@@ -1,152 +1,137 @@
 import subprocess
 import sys
 from pathlib import Path
-from unittest import mock
-
-import pytest
-
-# Import the module we're testing
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from dev.check_init_py import (
-    check_missing_init_files,
-    get_python_directories,
-    get_tracked_python_files,
-    main,
-)
 
 
-def test_get_python_directories():
-    """Test extraction of directories from Python file paths."""
-    python_files = [
-        "mlflow/__init__.py",
-        "mlflow/tracking/client.py",
-        "mlflow/models/model.py",
-        "mlflow/utils/file_utils.py",
-        "mlflow/utils/logging_utils.py",
-    ]
+def test_check_init_py_no_missing_files(tmp_path, monkeypatch):
+    """Test that the script exits with 0 when all directories have __init__.py files."""
+    # Create test directory structure with proper __init__.py files
+    mlflow_dir = tmp_path / "mlflow"
+    test_package_dir = mlflow_dir / "test_package"
+    test_package_dir.mkdir(parents=True)
 
-    directories = get_python_directories(python_files)
-    expected = {
-        "mlflow/tracking",
-        "mlflow/models",
-        "mlflow/utils",
-    }
+    # Create __init__.py files
+    (mlflow_dir / "__init__.py").touch()
+    (test_package_dir / "__init__.py").touch()
 
-    assert directories == expected
+    # Create a test Python file
+    (test_package_dir / "test_module.py").touch()
 
+    # Initialize git repo and add files
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.name", "Test User"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-m", "Initial commit"], cwd=tmp_path, check=True)
 
-def test_get_python_directories_excludes_root():
-    """Test that root mlflow directory is excluded."""
-    python_files = ["mlflow/__init__.py", "mlflow/client.py"]
-    directories = get_python_directories(python_files)
-
-    # Should not include "mlflow" directory itself
-    assert "mlflow" not in directories
-    assert len(directories) == 0
-
-
-def test_check_missing_init_files(tmp_path, monkeypatch):
-    """Test detection of missing __init__.py files."""
-    # Create test directory structure
-    test_dir1 = tmp_path / "mlflow" / "test_package1"
-    test_dir2 = tmp_path / "mlflow" / "test_package2"
-    test_dir1.mkdir(parents=True)
-    test_dir2.mkdir(parents=True)
-
-    # Create __init__.py in one directory but not the other
-    (test_dir1 / "__init__.py").touch()
-    # test_dir2 intentionally missing __init__.py
-
-    # Change to tmpdir to test relative paths
+    # Change to test directory
     monkeypatch.chdir(tmp_path)
 
-    directories = {"mlflow/test_package1", "mlflow/test_package2"}
-    missing = check_missing_init_files(directories)
+    # Run the script - get absolute path from test file location
+    script_path = Path(__file__).resolve().parents[2] / "dev" / "check_init_py.py"
+    result = subprocess.run([sys.executable, str(script_path)], capture_output=True, text=True)
 
-    assert missing == ["mlflow/test_package2"]
+    assert result.returncode == 0
+    assert result.stdout == ""
 
 
-def test_check_missing_init_files_all_present(tmp_path, monkeypatch):
-    """Test that no missing files are reported when all __init__.py files exist."""
-    # Create test directory structure
-    test_dir1 = tmp_path / "mlflow" / "test_package1"
-    test_dir2 = tmp_path / "mlflow" / "test_package2"
-    test_dir1.mkdir(parents=True)
-    test_dir2.mkdir(parents=True)
+def test_check_init_py_missing_files(tmp_path, monkeypatch):
+    """Test that the script exits with 1 when directories are missing __init__.py files."""
+    # Create test directory structure without __init__.py files
+    mlflow_dir = tmp_path / "mlflow"
+    test_package_dir = mlflow_dir / "test_package"
+    test_package_dir.mkdir(parents=True)
 
-    # Create __init__.py in both directories
-    (test_dir1 / "__init__.py").touch()
-    (test_dir2 / "__init__.py").touch()
+    # Create a test Python file but no __init__.py files
+    (test_package_dir / "test_module.py").touch()
 
+    # Initialize git repo and add files
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.name", "Test User"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-m", "Initial commit"], cwd=tmp_path, check=True)
+
+    # Change to test directory
     monkeypatch.chdir(tmp_path)
 
-    directories = {"mlflow/test_package1", "mlflow/test_package2"}
-    missing = check_missing_init_files(directories)
+    # Run the script
+    script_path = Path(__file__).resolve().parents[2] / "dev" / "check_init_py.py"
+    result = subprocess.run([sys.executable, str(script_path)], capture_output=True, text=True)
 
-    assert missing == []
-
-
-@mock.patch("dev.check_init_py.subprocess.run")
-def test_get_tracked_python_files(mock_run):
-    """Test getting tracked Python files via git ls-files."""
-    # Mock git ls-files output
-    mock_run.return_value = mock.Mock(
-        returncode=0,
-        stdout="mlflow/__init__.py\nmlflow/client.py\nmlflow/utils/file_utils.py\nmlflow/server/js/main.js\n",
+    assert result.returncode == 1
+    assert (
+        "Error: The following directories contain Python files but lack __init__.py:"
+        in result.stdout
     )
+    assert "mlflow" in result.stdout
+    assert "mlflow/test_package" in result.stdout
 
-    files = get_tracked_python_files()
-    expected = [
-        "mlflow/__init__.py",
-        "mlflow/client.py",
-        "mlflow/utils/file_utils.py",
-        # Note: JS file should be filtered out
-    ]
 
-    assert files == expected
-    mock_run.assert_called_once_with(
-        ["git", "ls-files", "mlflow/"],
-        capture_output=True,
-        text=True,
-        check=True,
+def test_check_init_py_no_python_files(tmp_path, monkeypatch):
+    """Test that the script exits with 0 when no Python files are found."""
+    # Create test directory structure with no Python files
+    mlflow_dir = tmp_path / "mlflow"
+    js_dir = mlflow_dir / "server" / "js"
+    js_dir.mkdir(parents=True)
+
+    # Create a non-Python file
+    (js_dir / "main.js").touch()
+
+    # Initialize git repo and add files
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.name", "Test User"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-m", "Initial commit"], cwd=tmp_path, check=True)
+
+    # Change to test directory
+    monkeypatch.chdir(tmp_path)
+
+    # Run the script
+    script_path = Path(__file__).resolve().parents[2] / "dev" / "check_init_py.py"
+    result = subprocess.run([sys.executable, str(script_path)], capture_output=True, text=True)
+
+    assert result.returncode == 0
+    assert result.stdout == ""
+
+
+def test_check_init_py_partial_missing(tmp_path, monkeypatch):
+    """Test that the script correctly identifies only the directories missing __init__.py."""
+    # Create test directory structure
+    mlflow_dir = tmp_path / "mlflow"
+    package1_dir = mlflow_dir / "package1"
+    package2_dir = mlflow_dir / "package2"
+    package1_dir.mkdir(parents=True)
+    package2_dir.mkdir(parents=True)
+
+    # Create __init__.py for mlflow and package1, but not package2
+    (mlflow_dir / "__init__.py").touch()
+    (package1_dir / "__init__.py").touch()
+    # package2 intentionally missing __init__.py
+
+    # Create Python files in both packages
+    (package1_dir / "module1.py").touch()
+    (package2_dir / "module2.py").touch()
+
+    # Initialize git repo and add files
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.name", "Test User"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-m", "Initial commit"], cwd=tmp_path, check=True)
+
+    # Change to test directory
+    monkeypatch.chdir(tmp_path)
+
+    # Run the script
+    script_path = Path(__file__).resolve().parents[2] / "dev" / "check_init_py.py"
+    result = subprocess.run([sys.executable, str(script_path)], capture_output=True, text=True)
+
+    assert result.returncode == 1
+    assert (
+        "Error: The following directories contain Python files but lack __init__.py:"
+        in result.stdout
     )
-
-
-@mock.patch("dev.check_init_py.subprocess.run")
-def test_get_tracked_python_files_git_error(mock_run):
-    """Test handling of git command errors."""
-    mock_run.side_effect = subprocess.CalledProcessError(1, "git")
-
-    with pytest.raises(SystemExit, match="1"):
-        get_tracked_python_files()
-
-
-@mock.patch("dev.check_init_py.get_tracked_python_files")
-@mock.patch("dev.check_init_py.check_missing_init_files")
-def test_main_success(mock_check_missing, mock_get_files):
-    """Test main function when no missing files are found."""
-    mock_get_files.return_value = ["mlflow/utils/file_utils.py"]
-    mock_check_missing.return_value = []
-
-    exit_code = main()
-    assert exit_code == 0
-
-
-@mock.patch("dev.check_init_py.get_tracked_python_files")
-@mock.patch("dev.check_init_py.check_missing_init_files")
-def test_main_failure(mock_check_missing, mock_get_files):
-    """Test main function when missing files are found."""
-    mock_get_files.return_value = ["mlflow/test_package/test_module.py"]
-    mock_check_missing.return_value = ["mlflow/test_package"]
-
-    exit_code = main()
-    assert exit_code == 1
-
-
-@mock.patch("dev.check_init_py.get_tracked_python_files")
-def test_main_no_python_files(mock_get_files):
-    """Test main function when no Python files are found."""
-    mock_get_files.return_value = []
-
-    exit_code = main()
-    assert exit_code == 0
+    assert "mlflow/package2" in result.stdout
+    assert "mlflow/package1" not in result.stdout  # This should not be listed as it has __init__.py

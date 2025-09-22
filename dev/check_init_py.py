@@ -19,30 +19,26 @@ import sys
 from pathlib import Path
 
 
-def get_tracked_python_files() -> list[str]:
+def get_tracked_python_files() -> list[Path]:
     """Get all tracked Python files under the mlflow directory using git ls-files."""
     try:
-        result = subprocess.run(
-            ["git", "ls-files", "mlflow/"],
-            capture_output=True,
+        result = subprocess.check_output(
+            ["git", "ls-files", "mlflow/**/*.py"],
             text=True,
-            check=True,
         )
-        return [f for f in result.stdout.strip().split("\n") if f.endswith(".py")]
+        return [Path(f) for f in result.strip().split("\n") if f]
     except subprocess.CalledProcessError as e:
         print(f"Error running git ls-files: {e}", file=sys.stderr)
         sys.exit(1)
 
 
-def get_python_directories(python_files: list[str]) -> set[str]:
+def get_python_directories(python_files: list[Path]) -> set[str]:
     """Extract all directories that contain Python files."""
     directories = set()
     for file_path in python_files:
-        if file_path:  # Skip empty strings
-            parent_dir = str(Path(file_path).parent)
-            # Only add directories that are not the root mlflow directory
-            if parent_dir != "mlflow":
-                directories.add(parent_dir)
+        parent_dir = str(file_path.parent)
+        # Include all directories, including the root mlflow directory
+        directories.add(parent_dir)
     return directories
 
 
