@@ -24,6 +24,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+@contextmanager
 def _start_job_runner_for_test(max_job_parallelism, start_new_runner):
     proc = _start_job_runner(
         {"PYTHONPATH": dirname(__file__)},
@@ -31,8 +32,11 @@ def _start_job_runner_for_test(max_job_parallelism, start_new_runner):
         os.getpid(),
         start_new_runner,
     )
-    time.sleep(5)  # wait for huey consumer to spin up.
-    return proc
+    time.sleep(6)  # wait for huey consumer to spin up.
+    try:
+        yield proc
+    finally:
+        proc.kill()
 
 
 @contextmanager
@@ -45,12 +49,12 @@ def _setup_job_runner(max_job_parallelism, monkeypatch, tmp_path, backend_store_
         monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, backend_store_uri)
         monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, default_artifact_root)
         monkeypatch.setenv(HUEY_STORAGE_PATH_ENV_VAR, huey_store_path)
-        job_runner_proc = _start_job_runner_for_test(max_job_parallelism, True)
-        _reinit_huey_queue()
-        yield job_runner_proc
+
+        with _start_job_runner_for_test(max_job_parallelism, True) as job_runner_proc:
+            _reinit_huey_queue()
+            yield job_runner_proc
     finally:
         mlflow.server.handlers._job_store = None
-        job_runner_proc.kill()
         time.sleep(1)
 
 
@@ -136,13 +140,13 @@ def test_job_resume_on_job_runner_restart(monkeypatch, tmp_path):
         assert_job_result(job3_id, JobStatus.PENDING, None)
 
         # restart the job runner, and verify it resumes unfinished jobs (job2 and job3)
-        _start_job_runner_for_test(1, False)
-        time.sleep(2.5)
+        with _start_job_runner_for_test(1, False):
+            time.sleep(3)
 
-        # assert all jobs are done.
-        assert_job_result(job1_id, JobStatus.SUCCEEDED, 7)
-        assert_job_result(job2_id, JobStatus.SUCCEEDED, 11)
-        assert_job_result(job3_id, JobStatus.SUCCEEDED, 15)
+            # assert all jobs are done.
+            assert_job_result(job1_id, JobStatus.SUCCEEDED, 7)
+            assert_job_result(job2_id, JobStatus.SUCCEEDED, 11)
+            assert_job_result(job3_id, JobStatus.SUCCEEDED, 15)
 
 
 def test_job_resume_on_new_job_runner(monkeypatch, tmp_path):
