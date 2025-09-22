@@ -78,8 +78,13 @@ def yaml_file(tmp_path: Path) -> Path:
     ],
 )
 def test_evidence_entry_creation(
-    trace_id, rationale, supports, expected_trace, expected_rationale, expected_supports
-):
+    trace_id: str,
+    rationale: str,
+    supports: bool | None,
+    expected_trace: str,
+    expected_rationale: str,
+    expected_supports: bool | None,
+) -> None:
     entry = EvidenceEntry(trace_id=trace_id, rationale=rationale, supports=supports)
     assert entry.trace_id == expected_trace
     assert entry.rationale == expected_rationale
@@ -94,16 +99,28 @@ def test_evidence_entry_creation(
         ("for_issue", ("issue_trace", "Issue evidence"), None),
     ],
 )
-def test_evidence_entry_factory_methods(method, args, expected_supports):
-    factory_method = getattr(EvidenceEntry, method)
-    entry = factory_method(*args)
+def test_evidence_entry_factory_methods(
+    method: str,
+    args: tuple[str, str] | tuple[str, str, bool],
+    expected_supports: bool | None,
+) -> None:
+    if method == "for_hypothesis":
+        if len(args) == 3:
+            entry = EvidenceEntry.for_hypothesis(args[0], args[1], args[2])
+        else:
+            entry = EvidenceEntry.for_hypothesis(args[0], args[1])
+    elif method == "for_issue":
+        entry = EvidenceEntry.for_issue(args[0], args[1])
+    else:
+        raise ValueError(f"Unknown method: {method}")
+
     assert entry.trace_id == args[0]
     assert entry.rationale == args[1]
     assert entry.supports == expected_supports
 
 
 @pytest.mark.parametrize("invalid_trace_id", ["", "   ", None])
-def test_evidence_entry_empty_trace_id_raises(invalid_trace_id):
+def test_evidence_entry_empty_trace_id_raises(invalid_trace_id: str | None) -> None:
     with pytest.raises(
         (MlflowException, ValueError), match="trace_id|cannot be empty|none is not an allowed value"
     ):
@@ -111,7 +128,7 @@ def test_evidence_entry_empty_trace_id_raises(invalid_trace_id):
 
 
 @pytest.mark.parametrize("invalid_rationale", ["", "   ", None])
-def test_evidence_entry_empty_rationale_raises(invalid_rationale):
+def test_evidence_entry_empty_rationale_raises(invalid_rationale: str | None) -> None:
     with pytest.raises(
         (MlflowException, ValueError),
         match="rationale|cannot be empty|none is not an allowed value",
@@ -163,7 +180,11 @@ def test_analysis_strips_whitespace(input_name, input_desc, expected_name, expec
         ),
     ],
 )
-def test_analysis_status_transitions(analysis: Analysis, transitions, expected_statuses):
+def test_analysis_status_transitions(
+    analysis: Analysis,
+    transitions: list[str],
+    expected_statuses: list[AnalysisStatus],
+) -> None:
     assert analysis.status == AnalysisStatus.ACTIVE
     previous_timestamp = analysis.updated_at
 
@@ -287,7 +308,11 @@ def test_hypothesis_add_evidence(hypothesis: Hypothesis):
         ),
     ],
 )
-def test_hypothesis_status_transitions(hypothesis: Hypothesis, transitions, expected_statuses):
+def test_hypothesis_status_transitions(
+    hypothesis: Hypothesis,
+    transitions: list[str],
+    expected_statuses: list[HypothesisStatus],
+) -> None:
     assert hypothesis.status == HypothesisStatus.TESTING
     previous_timestamp = hypothesis.updated_at
 
