@@ -826,32 +826,26 @@ def test_autolog_nested_evals():
     evaluator = Evaluate(devset=examples, metric=answer_exact_match)
 
     mlflow.dspy.autolog(log_evals=True)
-    with mlflow.start_run() as run:
+    with mlflow.start_run() as active_run:
         evaluator(program, devset=examples[:1])
         evaluator(program, devset=examples[1:])
 
-    # children runs
     client = MlflowClient()
+    run = client.get_run(active_run.info.run_id)
+    assert run.data.metrics == {"eval": 0.0}
+
+    artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
+    assert "model.json" in artifacts
+
+    metric_history = client.get_metric_history(run.info.run_id, "eval")
+    assert [metric.value for metric in metric_history] == [100.0, 0.0]
+
     child_runs = client.search_runs(
         run.info.experiment_id,
         filter_string=f"tags.mlflow.parentRunId = '{run.info.run_id}'",
         order_by=["attributes.start_time ASC"],
     )
-    assert len(child_runs) == 2
-    for i, run in enumerate(child_runs):
-        if i == 0:
-            assert run.data.metrics == {"eval": 100.0}
-        else:
-            assert run.data.metrics == {"eval": 0}
-        assert run.data.params == {
-            "Predict.signature.fields.0.description": "${question}",
-            "Predict.signature.fields.0.prefix": "Question:",
-            "Predict.signature.fields.1.description": "${answer}",
-            "Predict.signature.fields.1.prefix": "Answer:",
-            "Predict.signature.instructions": "Given the fields `question`, produce the fields `answer`.",  # noqa: E501
-        }
-        artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
-        assert "model.json" in artifacts
+    assert len(child_runs) == 0
 
 
 @skip_when_testing_trace_sdk
