@@ -249,21 +249,17 @@ class AlignJudgeEvent(Event):
 
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
-        traces = arguments.get("traces")
-        optimizer = arguments.get("optimizer")
-
         result = {}
 
-        if traces is not None:
+        if (traces := arguments.get("traces")) is not None:
             try:
                 result["trace_count"] = len(traces)
             except TypeError:
                 result["trace_count"] = None
 
-        if optimizer:
-            optimizer_type = type(optimizer).__name__ if optimizer else None
-            result["optimizer_type"] = optimizer_type
+        if optimizer := arguments.get("optimizer"):
+            result["optimizer_type"] = type(optimizer).__name__
         else:
             result["optimizer_type"] = "default"
 
-        return result if result else None
+        return result
