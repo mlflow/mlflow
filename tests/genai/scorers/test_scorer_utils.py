@@ -305,7 +305,14 @@ from mlflow.entities.assessment_source import AssessmentSourceType
 source_obj = AssessmentSourceType.CODE  # Use the default source type
 # Test that Trace is available
 from mlflow.entities import TraceInfo, TraceState, TraceData
-from mlflow.entities.trace_location import TraceLocation, TraceLocationType, MlflowExperimentLocation
+from mlflow.entities.trace_location import (
+    TraceLocation,
+    TraceLocationType,
+    MlflowExperimentLocation,
+)
+from mlflow.entities.trace import Trace
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_state import TraceState
 mlflow_exp_location = MlflowExperimentLocation(experiment_id="0")
 trace_location = TraceLocation(
     type=TraceLocationType.MLFLOW_EXPERIMENT,
