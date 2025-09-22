@@ -1,3 +1,5 @@
+import json
+from typing import Any
 from mlflow.entities._job_status import JobStatus
 from mlflow.entities._mlflow_object import _MlflowObject
 
@@ -72,6 +74,19 @@ class Job(_MlflowObject):
     def result(self) -> str | None:
         """String containing the job result or error message."""
         return self._result
+
+    @property
+    def parsed_result(self) -> Any:
+        """
+        Return the parsed result.
+        If job status is SUCCEEDED, the parsed result is the
+        job function returned value
+        If job status is FAILED, the parsed result is the error string.
+        Otherwise, the parsed result is None.
+        """
+        if self.status == JobStatus.SUCCEEDED:
+            return json.loads(self.result)
+        return self.result
 
     @property
     def retry_count(self) -> int:

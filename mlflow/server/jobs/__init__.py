@@ -9,6 +9,7 @@ import time
 from types import FunctionType
 from typing import Any, Callable
 
+from mlflow.entities._job import Job
 from mlflow.entities._job_status import JobStatus
 from mlflow.exceptions import MlflowException
 from mlflow.server.handlers import _get_job_store
@@ -56,8 +57,8 @@ def submit_job(
         timeout: (optional) the job execution timeout, default None (no timeout)
 
     Returns:
-        The job id. You can call `query_job` API by the job id to get
-        the job status and result.
+        The job entity. You can call `query_job` API by the job id to get
+        the updated job entity.
     """
     from mlflow.environment_variables import MLFLOW_SERVER_ENABLE_JOB_EXECUTION
     from mlflow.server.jobs.job_runner import huey_task_exec_job
@@ -79,12 +80,12 @@ def submit_job(
     # enqueue job
     huey_task_exec_job(job.job_id, function, params, timeout)
 
-    return job.job_id
+    return job
 
 
-def query_job(job_id: str) -> tuple[JobStatus, Any]:
+def query_job(job_id: str) -> Job:
     """
-    Query the job status and result by the job id.
+    Query the job entity by the job id.
 
     Note:
         This is a server-side API, and it requires MLflow server configures
@@ -94,19 +95,10 @@ def query_job(job_id: str) -> tuple[JobStatus, Any]:
         job_id: The job id.
 
     Returns:
-        A tuple of (status, result)
-        status value is one of PENDING / RUNNING / DONE / FAILED.
-        If status is PENDING / RUNNING, result is None.
-        If status is DONE, result is the job function returned value.
-        If status is FAILED, result is the error message.
+        The job entity. If the job does not exist, error is raised.
     """
     job_store = _get_job_store()
-    job = job_store.get_job(job_id)
-    if job.status == JobStatus.SUCCEEDED:
-        result = json.loads(job.result)
-    else:
-        result = job.result
-    return job.status, result
+    return job_store.get_job(job_id)
 
 
 def _start_job_runner(

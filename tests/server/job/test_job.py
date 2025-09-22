@@ -62,21 +62,15 @@ def basic_job_fun(x, y, sleep_secs=0):
 
 def test_basic_job(monkeypatch, tmp_path):
     with _setup_job_runner(1, monkeypatch, tmp_path):
-        job_id = submit_job(basic_job_fun, {"x": 3, "y": 4})
+        submitted_job = submit_job(basic_job_fun, {"x": 3, "y": 4})
         time.sleep(1)
-        status, result = query_job(job_id)
-        assert status == JobStatus.SUCCEEDED
-        assert result == 7
-
-        store = _get_job_store()
-        job = store.get_job(job_id)
-
-        # check database record correctness.
-        assert job.job_id == job_id
+        job = query_job(submitted_job.job_id)
+        assert job.job_id == submitted_job.job_id
         assert job.function_fullname == "test_job.basic_job_fun"
         assert job.params == '{"x": 3, "y": 4}'
         assert job.timeout is None
         assert job.result == "7"
+        assert job.parsed_result == 7
         assert job.status == JobStatus.SUCCEEDED
         assert job.retry_count == 0
 
@@ -89,20 +83,14 @@ def json_in_out_fun(data):
 
 def test_job_json_input_output(monkeypatch, tmp_path):
     with _setup_job_runner(1, monkeypatch, tmp_path):
-        job_id = submit_job(json_in_out_fun, {"data": {"x": 3, "y": 4}})
+        submitted_job = submit_job(json_in_out_fun, {"data": {"x": 3, "y": 4}})
         time.sleep(1)
-        status, result = query_job(job_id)
-        assert status == JobStatus.SUCCEEDED
-        assert result == {"res": 7}
-
-        store = _get_job_store()
-        job = store.get_job(job_id)
-
-        # check database record correctness.
-        assert job.job_id == job_id
+        job = query_job(submitted_job.job_id)
+        assert job.job_id == submitted_job.job_id
         assert job.function_fullname == "test_job.json_in_out_fun"
         assert job.params == '{"data": {"x": 3, "y": 4}}'
         assert job.result == '{"res": 7}'
+        assert job.parsed_result == {"res": 7}
         assert job.status == JobStatus.SUCCEEDED
         assert job.retry_count == 0
 
@@ -113,46 +101,48 @@ def err_fun(data):
 
 def test_error_job(monkeypatch, tmp_path):
     with _setup_job_runner(1, monkeypatch, tmp_path):
-        job_id = submit_job(err_fun, {"data": None})
+        submitted_job = submit_job(err_fun, {"data": None})
         time.sleep(0.5)
-        status, result = query_job(job_id)
-        assert status == JobStatus.FAILED
-        assert result == "RuntimeError()"
-
-        store = _get_job_store()
-        job = store.get_job(job_id)
+        job = query_job(submitted_job.job_id)
 
         # check database record correctness.
-        assert job.job_id == job_id
+        assert job.job_id == submitted_job.job_id
         assert job.function_fullname == "test_job.err_fun"
         assert job.params == '{"data": null}'
         assert job.result == "RuntimeError()"
+        assert job.parsed_result == "RuntimeError()"
         assert job.status == JobStatus.FAILED
         assert job.retry_count == 0
 
 
+def assert_job_result(job_id, expected_status, expected_result):
+    job = query_job(job_id)
+    assert job.status == expected_status
+    assert job.parsed_result == expected_result
+
+
 def test_job_resume_on_job_runner_restart(monkeypatch, tmp_path):
     with _setup_job_runner(1, monkeypatch, tmp_path) as job_runner_proc:
-        job1_id = submit_job(basic_job_fun, {"x": 3, "y": 4, "sleep_secs": 0})
-        job2_id = submit_job(basic_job_fun, {"x": 5, "y": 6, "sleep_secs": 2})
-        job3_id = submit_job(basic_job_fun, {"x": 7, "y": 8, "sleep_secs": 0})
+        job1_id = submit_job(basic_job_fun, {"x": 3, "y": 4, "sleep_secs": 0}).job_id
+        job2_id = submit_job(basic_job_fun, {"x": 5, "y": 6, "sleep_secs": 2}).job_id
+        job3_id = submit_job(basic_job_fun, {"x": 7, "y": 8, "sleep_secs": 0}).job_id
         time.sleep(1)
         job_runner_proc.kill()
         job_runner_proc.wait()  # ensure the job runner process is killed.
 
         # assert that job1 has done, job2 is running, and job3 is pending.
-        assert query_job(job1_id) == (JobStatus.SUCCEEDED, 7)
-        assert query_job(job2_id) == (JobStatus.RUNNING, None)
-        assert query_job(job3_id) == (JobStatus.PENDING, None)
+        assert_job_result(job1_id, JobStatus.SUCCEEDED, 7)
+        assert_job_result(job2_id, JobStatus.RUNNING, None)
+        assert_job_result(job3_id, JobStatus.PENDING, None)
 
         # restart the job runner, and verify it resumes unfinished jobs (job2 and job3)
         _start_job_runner_for_test(1, False)
         time.sleep(2.5)
 
         # assert all jobs are done.
-        assert query_job(job1_id) == (JobStatus.SUCCEEDED, 7)
-        assert query_job(job2_id) == (JobStatus.SUCCEEDED, 11)
-        assert query_job(job3_id) == (JobStatus.SUCCEEDED, 15)
+        assert_job_result(job1_id, JobStatus.SUCCEEDED, 7)
+        assert_job_result(job2_id, JobStatus.SUCCEEDED, 11)
+        assert_job_result(job3_id, JobStatus.SUCCEEDED, 15)
 
 
 def test_job_resume_on_new_job_runner(monkeypatch, tmp_path):
@@ -166,9 +156,9 @@ def test_job_resume_on_new_job_runner(monkeypatch, tmp_path):
     backend_store_uri = f"sqlite:///{str(db_tmp_path / 'mlflow.db')}"
 
     with _setup_job_runner(1, monkeypatch, runner1_tmp_path, backend_store_uri) as job_runner_proc:
-        job1_id = submit_job(basic_job_fun, {"x": 3, "y": 4, "sleep_secs": 0})
-        job2_id = submit_job(basic_job_fun, {"x": 5, "y": 6, "sleep_secs": 10})
-        job3_id = submit_job(basic_job_fun, {"x": 7, "y": 8, "sleep_secs": 0})
+        job1_id = submit_job(basic_job_fun, {"x": 3, "y": 4, "sleep_secs": 0}).job_id
+        job2_id = submit_job(basic_job_fun, {"x": 5, "y": 6, "sleep_secs": 10}).job_id
+        job3_id = submit_job(basic_job_fun, {"x": 7, "y": 8, "sleep_secs": 0}).job_id
         time.sleep(1)
 
     # ensure the job runner process is killed.
@@ -176,31 +166,34 @@ def test_job_resume_on_new_job_runner(monkeypatch, tmp_path):
 
     with _setup_job_runner(1, monkeypatch, runner2_tmp_path, backend_store_uri):
         # assert that job1 has done, job2 is running, and job3 is pending.
-        assert query_job(job1_id) == (JobStatus.SUCCEEDED, 7)
-        assert query_job(job2_id) == (JobStatus.RUNNING, None)
-        assert query_job(job3_id) == (JobStatus.PENDING, None)
+        assert_job_result(job1_id, JobStatus.SUCCEEDED, 7)
+        assert_job_result(job2_id, JobStatus.RUNNING, None)
+        assert_job_result(job3_id, JobStatus.PENDING, None)
         time.sleep(10)
         # assert all jobs are done.
-        assert query_job(job1_id) == (JobStatus.SUCCEEDED, 7)
-        assert query_job(job2_id) == (JobStatus.SUCCEEDED, 11)
-        assert query_job(job3_id) == (JobStatus.SUCCEEDED, 15)
+        assert_job_result(job1_id, JobStatus.SUCCEEDED, 7)
+        assert_job_result(job2_id, JobStatus.SUCCEEDED, 11)
+        assert_job_result(job3_id, JobStatus.SUCCEEDED, 15)
 
 
 def test_job_queue_parallelism(monkeypatch, tmp_path):
     # test job queue parallelism=2 and each job consumes 2 seconds.
     with _setup_job_runner(2, monkeypatch, tmp_path):
-        job_ids = [submit_job(basic_job_fun, {"x": x, "y": 1, "sleep_secs": 2}) for x in range(4)]
+        job_ids = [
+            submit_job(basic_job_fun, {"x": x, "y": 1, "sleep_secs": 2}).job_id
+            for x in range(4)
+        ]
         time.sleep(2.5)
 
         # assert that job1 and job2 are done, and job3 and job4 are running
-        assert query_job(job_ids[0]) == (JobStatus.SUCCEEDED, 1)
-        assert query_job(job_ids[1]) == (JobStatus.SUCCEEDED, 2)
-        assert query_job(job_ids[2]) == (JobStatus.RUNNING, None)
-        assert query_job(job_ids[3]) == (JobStatus.RUNNING, None)
+        assert_job_result(job_ids[0], JobStatus.SUCCEEDED, 1)
+        assert_job_result(job_ids[1], JobStatus.SUCCEEDED, 2)
+        assert_job_result(job_ids[2], JobStatus.RUNNING, None)
+        assert_job_result(job_ids[3], JobStatus.RUNNING, None)
 
         time.sleep(2.5)
-        assert query_job(job_ids[2]) == (JobStatus.SUCCEEDED, 3)
-        assert query_job(job_ids[3]) == (JobStatus.SUCCEEDED, 4)
+        assert_job_result(job_ids[2], JobStatus.SUCCEEDED, 3)
+        assert_job_result(job_ids[3], JobStatus.SUCCEEDED, 4)
 
 
 def transient_err_fun(tmp_dir: str, succeed_on_nth_run: int):
@@ -227,9 +220,9 @@ def test_job_retry_on_transient_error(monkeypatch, tmp_path):
 
         job1_id = submit_job(
             transient_err_fun, {"tmp_dir": str(job1_tmp_path), "succeed_on_nth_run": 4}
-        )
+        ).job_id
         time.sleep(15)
-        assert query_job(job1_id) == (JobStatus.FAILED, "RuntimeError('test transient error.')")
+        assert_job_result(job1_id, JobStatus.FAILED, "RuntimeError('test transient error.')")
         job1 = store.get_job(job1_id)
         assert job1.status == JobStatus.FAILED
         assert job1.result == "RuntimeError('test transient error.')"
@@ -238,9 +231,11 @@ def test_job_retry_on_transient_error(monkeypatch, tmp_path):
         job2_tmp_path = tmp_path / "job2"
         job2_tmp_path.mkdir()
 
-        job2_id = submit_job(transient_err_fun, {"tmp_dir": str(job2_tmp_path), "succeed_on_nth_run": 1})
+        job2_id = submit_job(
+            transient_err_fun, {"tmp_dir": str(job2_tmp_path), "succeed_on_nth_run": 1}
+        ).job_id
         time.sleep(3)
-        assert query_job(job2_id) == (JobStatus.SUCCEEDED, 100)
+        assert_job_result(job2_id, JobStatus.SUCCEEDED, 100)
         job2 = store.get_job(job2_id)
         assert job2.status == JobStatus.SUCCEEDED
         assert job2.result == "100"
@@ -261,10 +256,10 @@ def test_submit_jobs_from_multi_processes(monkeypatch, tmp_path):
             )
             for x in range(4)
         ]
-        job_ids = [async_res.get() for async_res in async_res_list]
+        job_ids = [async_res.get().job_id for async_res in async_res_list]
         time.sleep(3)
         for x in range(4):
-            assert query_job(job_ids[x]) == (JobStatus.SUCCEEDED, x + 1)
+            assert_job_result(job_ids[x], JobStatus.SUCCEEDED, x + 1)
 
 
 def sleep_fun(sleep_secs, tmp_dir):
@@ -280,15 +275,13 @@ def test_job_timeout(monkeypatch, tmp_path):
         job_tmp_path.mkdir()
         job_id = submit_job(
             sleep_fun, {"sleep_secs": 10, "tmp_dir": str(job_tmp_path)}, timeout=5
-        )
+        ).job_id
         time.sleep(6)
         pid = int((job_tmp_path / "pid").read_text())
         # assert timeout job process is killed.
         assert not is_process_alive(pid)
 
-        status, result = query_job(job_id)
-        assert status == JobStatus.TIMEOUT
-        assert result is None
+        assert_job_result(job_id, JobStatus.TIMEOUT, None)
 
         store = _get_job_store()
         job = store.get_job(job_id)
@@ -315,7 +308,7 @@ def test_list_job_pagination(monkeypatch, tmp_path):
     with _setup_job_runner(1, monkeypatch, tmp_path):
         job_ids = []
         for x in range(10):
-            job_id = submit_job(basic_job_fun, {"x": x, "y": 4})
+            job_id = submit_job(basic_job_fun, {"x": x, "y": 4}).job_id
             job_ids.append(job_id)
 
         listed_jobs = _get_job_store().list_jobs(page_size=3)
