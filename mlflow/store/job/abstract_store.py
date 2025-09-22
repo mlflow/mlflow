@@ -1,4 +1,4 @@
-from abc import ABCMeta, abstractmethod
+from abc import ABC, abstractmethod
 from typing import Iterator
 
 from mlflow.entities._job import Job
@@ -7,18 +7,10 @@ from mlflow.utils.annotations import developer_stable
 
 
 @developer_stable
-class AbstractJobStore:
+class AbstractJobStore(ABC):
     """
     Abstract class that defines API interfaces for storing Job metadata.
     """
-
-    __metaclass__ = ABCMeta
-
-    def __init__(self):
-        """
-        Empty constructor. This is deliberately not marked as abstract, else every derived class
-        would be forced to create one.
-        """
 
     @abstractmethod
     def create_job(self, function_fullname: str, params: str, timeout: int | None = None) -> Job:
@@ -27,7 +19,7 @@ class AbstractJobStore:
 
         Args:
             function_fullname: The full name of the function to execute
-            params: The job parameters as a string
+            params: The job parameters that are serialized as a JSON string
             timeout: The job execution timeout in seconds
 
         Returns:
@@ -63,7 +55,7 @@ class AbstractJobStore:
         """
 
     @abstractmethod
-    def set_job_timeout(self, job_id: str) -> None:
+    def mark_job_timed_out(self, job_id: str) -> None:
         """
         Set a job status to Timeout.
 
@@ -85,7 +77,7 @@ class AbstractJobStore:
     def retry_or_fail_job(self, job_id: str, error: str) -> int | None:
         """
         If the job retry_count is less than maximum allowed retry count,
-        increase the retry_count and reset the job to PENDING status,
+        increment the retry_count and reset the job to PENDING status,
         otherwise set the job to FAILED status and fill the job's error field.
 
         Args:
@@ -101,7 +93,7 @@ class AbstractJobStore:
     def list_jobs(
         self,
         function_fullname: str | None = None,
-        status_list: list[JobStatus] | None = None,
+        statuses: list[JobStatus] | None = None,
         begin_timestamp: int | None = None,
         end_timestamp: int | None = None,
         page_size: int = 1000,
@@ -111,7 +103,7 @@ class AbstractJobStore:
 
         Args:
             function_fullname: Filter by function full name (exact match)
-            status_list: Filter by a list of job status (PENDING, RUNNING, DONE, FAILED, TIMEOUT)
+            statuses: Filter by a list of job status (PENDING, RUNNING, DONE, FAILED, TIMEOUT)
             begin_timestamp: Filter jobs created after this timestamp (inclusive)
             end_timestamp: Filter jobs created before this timestamp (inclusive)
             page_size: Number of jobs to return per page (default: 1000)
@@ -121,7 +113,7 @@ class AbstractJobStore:
         """
 
     @abstractmethod
-    def get_job(self, job_id: str):
+    def get_job(self, job_id: str) -> Job:
         """
         Get a job by its ID.
 

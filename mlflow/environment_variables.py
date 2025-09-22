@@ -991,7 +991,7 @@ MLFLOW_SERVER_ENABLE_JOB_EXECUTION = _BooleanEnvironmentVariable(
 )
 
 #: Specifies the MLflow server job maximum parallelism, ``None`` means to use the number of CPUs
-# as the parallelism. (default: ``None``)
+#: as the parallelism. (default: ``None``)
 MLFLOW_SERVER_JOB_MAX_PARALLELISM = _EnvironmentVariable(
     "MLFLOW_SERVER_JOB_MAX_PARALLELISM", int, None
 )

@@ -20,7 +20,7 @@ from mlflow.environment_variables import (
 from mlflow.server import HUEY_STORAGE_PATH_ENV_VAR
 from mlflow.server.handlers import _get_job_store
 
-huey = None
+huey_instance = None
 
 
 def _exponential_backoff_retry(retry_count: int) -> None:
@@ -52,14 +52,14 @@ def _exec_job(job_id: str, function: Callable, params: dict[str, Any], timeout: 
             else:
                 job_store.fail_job(job_id, job_result.error)
     except TimeoutError:
-        job_store.set_job_timeout(job_id)
+        job_store.mark_job_timed_out(job_id)
 
 
 huey_task_exec_job = None
 
 
 def _init_huey_queue():
-    global huey, huey_task_exec_job
+    global huey_instance, huey_task_exec_job
 
     class CloudPickleSerializer(Serializer):
         def serialize(self, data):
@@ -68,12 +68,12 @@ def _init_huey_queue():
         def deserialize(self, data):
             return cloudpickle.loads(data)
 
-    huey = SqliteHuey(
+    huey_instance = SqliteHuey(
         filename=os.environ[HUEY_STORAGE_PATH_ENV_VAR],
         results=False,
         serializer=CloudPickleSerializer(),
     )
-    huey_task_exec_job = huey.task()(_exec_job)
+    huey_task_exec_job = huey_instance.task()(_exec_job)
 
 
 _init_huey_queue()
@@ -125,7 +125,7 @@ def _enqueue_unfinished_jobs() -> None:
         # we only need to enqueue the lost running jobs.
         status_list = [JobStatus.RUNNING]
 
-    unfinished_jobs = job_store.list_jobs(status_list=status_list)
+    unfinished_jobs = job_store.list_jobs(statuses=status_list)
 
     for job in unfinished_jobs:
         if job.status == JobStatus.RUNNING:

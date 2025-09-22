@@ -2,13 +2,13 @@ import json
 import logging
 import os
 import shutil
+import subprocess
 import sys
 import threading
 import time
 from types import FunctionType
 from typing import Any, Callable
 
-from mlflow.entities._job import Job
 from mlflow.entities._job_status import JobStatus
 from mlflow.exceptions import MlflowException
 from mlflow.server.handlers import _get_job_store
@@ -43,10 +43,6 @@ def submit_job(
     Note:
         This is a server-side API and requires the MLflow server to configure
         the backend store URI to a database URI.
-
-    Note:
-        This is a server-side API, and it requires MLflow server configures
-        backend store URI to database URI.
 
     Args:
         function: The job function, it must be a python module-level function,
@@ -106,11 +102,11 @@ def query_job(job_id: str) -> tuple[JobStatus, Any]:
     """
     job_store = _get_job_store()
     job = job_store.get_job(job_id)
-    status = job.status
-    result = job.result
-    if status == JobStatus.DONE:
-        result = json.loads(result)
-    return status, result
+    if job.status == JobStatus.DONE:
+        result = json.loads(job.result)
+    else:
+        result = job.result
+    return job.status, result
 
 
 def _start_job_runner(
@@ -118,14 +114,14 @@ def _start_job_runner(
     max_job_parallelism: int,
     server_proc_pid: int,
     start_new_runner: bool,
-) -> "subprocess.Popen":
+) -> subprocess.Popen:
     from mlflow.utils.process import _exec_cmd
 
     return _exec_cmd(
         [
             sys.executable,
             shutil.which("huey_consumer.py"),
-            "mlflow.server.job.job_runner.huey",
+            "mlflow.server.job.job_runner.huey_instance",
             "-w",
             str(max_job_parallelism),
         ],
@@ -153,17 +149,16 @@ def _launch_job_backend(
 ) -> None:
     from mlflow.utils.uri import extract_db_type_from_uri
 
-    if extract_db_type_from_uri(backend_store_uri) is None:
+    try:
+        extract_db_type_from_uri(backend_store_uri)
+    except MlflowException:
         _logger.warning(
             f"Job store requires a database backend store URI but got {backend_store_uri}, "
-            "skip launching the job scheduler."
+            "skip launching the job runner."
         )
         return
 
-    max_job_parallelism = MLFLOW_SERVER_JOB_MAX_PARALLELISM.get()
-
-    if not max_job_parallelism:
-        max_job_parallelism = os.cpu_count() or 1
+    max_job_parallelism = MLFLOW_SERVER_JOB_MAX_PARALLELISM.get() or os.cpu_count() or 1
 
     def _start_job_runner_fn() -> None:
         start_new_runner = True

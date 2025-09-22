@@ -469,7 +469,7 @@ def _get_model_registry_store(registry_store_uri: str | None = None) -> Abstract
     return _model_registry_store
 
 
-def _get_job_store(backend_store_uri: str | None = None) -> "SqlAlchemyJobStore":
+def _get_job_store(backend_store_uri: str | None = None) -> "AbstractJobStore":
     """
     Get a job store instance based on the backend store URI.
 
@@ -487,11 +487,13 @@ def _get_job_store(backend_store_uri: str | None = None) -> "SqlAlchemyJobStore"
     global _job_store
     if _job_store is None:
         store_uri = backend_store_uri or os.environ.get(BACKEND_STORE_URI_ENV_VAR, None)
-        if store_uri is None or extract_db_type_from_uri(store_uri) is None:
-            # Default to file-based storage for now (could be enhanced later)
+        try:
+            extract_db_type_from_uri(store_uri)
+        except MlflowException:
+            # Require a database backend URI for the job store
             raise ValueError("Job store requires a database backend URI")
-        else:
-            _job_store = SqlAlchemyJobStore(store_uri)
+
+        _job_store = SqlAlchemyJobStore(store_uri)
     return _job_store
 
 

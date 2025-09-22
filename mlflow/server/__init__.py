@@ -6,8 +6,6 @@ import shlex
 import sys
 import tempfile
 import textwrap
-import threading
-import time
 import types
 import warnings
 
@@ -20,7 +18,6 @@ from mlflow.environment_variables import (
     _MLFLOW_SGI_NAME,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_SERVER_ENABLE_JOB_EXECUTION,
-    MLFLOW_SERVER_JOB_MAX_PARALLELISM,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
@@ -400,8 +397,6 @@ def _run_server(
     )
 
     if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
-        from mlflow.server.job import _launch_job_backend
-
         try:
             import huey
         except ImportError:
@@ -410,6 +405,8 @@ def _run_server(
                 "Skip launching the job runner."
             )
             return
+
+        from mlflow.server.job import _launch_job_backend
 
         _launch_job_backend(file_store_path, env_map, server_proc.pid)
 
