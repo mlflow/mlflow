@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-from mlflow.entities import Assessment, Feedback
+from mlflow.entities import Assessment, Feedback, Trace
 from mlflow.genai.scorers.scorer_utils import recreate_function
 
 # ============================================================================
@@ -303,7 +303,11 @@ feedback = Feedback(value=True, rationale="test")
 # AssessmentSource should be available too
 from mlflow.entities.assessment_source import AssessmentSourceType
 source_obj = AssessmentSourceType.CODE  # Use the default source type
-return {"feedback": feedback, "source": source_obj}"""
+# Test that Trace is available
+from mlflow.entities import TraceInfo
+trace_info = TraceInfo(request_id="test", experiment_id="0", timestamp_ms=0, execution_time_ms=100)
+trace = Trace(info=trace_info, data=None)
+return {"feedback": feedback, "source": source_obj, "trace": trace}"""
     signature = "()"
     func_name = "test_mlflow_imports"
 
@@ -316,6 +320,8 @@ return {"feedback": feedback, "source": source_obj}"""
     # AssessmentSourceType should be available (it's an enum/class)
     assert result["source"] is not None
     assert result["source"] == "CODE"
+    # Check that Trace is available and can be instantiated
+    assert isinstance(result["trace"], Trace)
 
 
 def test_function_name_in_namespace():
