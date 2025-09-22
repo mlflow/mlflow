@@ -27,6 +27,7 @@ from mlflow.server.handlers import (
     get_trace_artifact_handler,
     upload_artifact_handler,
 )
+from mlflow.server.security import init_security_middleware
 from mlflow.utils.os import is_windows
 from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.process import _exec_cmd
@@ -47,6 +48,8 @@ REL_STATIC_DIR = "js/build"
 app = Flask(__name__, static_folder=REL_STATIC_DIR)
 IS_FLASK_V1 = Version(importlib.metadata.version("flask")) < Version("2.0")
 
+# Initialize security middleware
+init_security_middleware(app)
 
 for http_path, handler, methods in handlers.get_endpoints():
     app.add_url_rule(http_path, handler.__name__, handler, methods=methods)

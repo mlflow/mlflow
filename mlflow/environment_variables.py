@@ -773,6 +773,18 @@ _MLFLOW_IS_IN_SERVING_ENVIRONMENT = _BooleanEnvironmentVariable(
 #: in the UI signup page when running the app with basic authentication enabled
 MLFLOW_FLASK_SERVER_SECRET_KEY = _EnvironmentVariable("MLFLOW_FLASK_SERVER_SECRET_KEY", str, None)
 
+#: Comma-separated list of allowed CORS origins for the MLflow server.
+#: Example: "http://localhost:3000,https://app.example.com"
+MLFLOW_CORS_ALLOWED_ORIGINS = _EnvironmentVariable("MLFLOW_CORS_ALLOWED_ORIGINS", str, None)
+
+#: Allow insecure CORS (accepts all origins). DANGEROUS - only use for development!
+#: Set to "true" to enable. Defaults to False.
+MLFLOW_ALLOW_INSECURE_CORS = _EnvironmentVariable("MLFLOW_ALLOW_INSECURE_CORS", str, "false")
+
+#: Enable host header validation to prevent DNS rebinding attacks.
+#: Set to "false" to disable (not recommended). Defaults to True.
+MLFLOW_HOST_HEADER_VALIDATION = _EnvironmentVariable("MLFLOW_HOST_HEADER_VALIDATION", str, "true")
+
 #: Specifies the max length (in chars) of an experiment's artifact location.
 #: The default is 2048.
 MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH = _EnvironmentVariable(
