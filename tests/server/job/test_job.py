@@ -17,7 +17,7 @@ from mlflow.server import (
     HUEY_STORAGE_PATH_ENV_VAR,
 )
 from mlflow.server.handlers import _get_job_store
-from mlflow.server.job import _reinit_huey_queue, _start_job_runner, query_job, submit_job
+from mlflow.server.jobs import _reinit_huey_queue, _start_job_runner, query_job, submit_job
 
 pytestmark = pytest.mark.skipif(
     os.name == "nt", reason="MLflow job execution is not supported on Windows"
@@ -203,12 +203,12 @@ def test_job_queue_parallelism(monkeypatch, tmp_path):
         assert query_job(job_ids[3]) == (JobStatus.DONE, 4)
 
 
-def transient_err_fun(tmp_dir, succeed_on_nth_run):
+def transient_err_fun(tmp_dir: str, succeed_on_nth_run: int):
     """
     This function will raise `TransientError` on the first (`succeed_on_nth_run` - 1) runs,
     then return 100 on the `succeed_on_nth_run` run. The `tmp_dir` records the run state.
     """
-    from mlflow.server.job import TransientError
+    from mlflow.server.jobs import TransientError
 
     if len(os.listdir(tmp_dir)) == succeed_on_nth_run:
         return 100
@@ -273,7 +273,7 @@ def sleep_fun(sleep_secs, tmp_dir):
 
 
 def test_job_timeout(monkeypatch, tmp_path):
-    from mlflow.server.job.util import is_process_alive
+    from mlflow.server.jobs.util import is_process_alive
 
     with _setup_job_runner(1, monkeypatch, tmp_path) as job_runner_proc:
         job_tmp_path = tmp_path / "job"

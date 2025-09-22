@@ -406,7 +406,7 @@ def _run_server(
             )
             return
 
-        from mlflow.server.job import _launch_job_backend
+        from mlflow.server.jobs import _launch_job_backend
 
         _launch_job_backend(file_store_path, env_map, server_proc.pid)
 

@@ -8,7 +8,7 @@ from mlflow.entities._job import Job
 from mlflow.entities._job_status import JobStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
-from mlflow.store.job.abstract_store import AbstractJobStore
+from mlflow.store.jobs.abstract_store import AbstractJobStore
 from mlflow.store.tracking.dbmodels.models import SqlJob
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import extract_db_type_from_uri

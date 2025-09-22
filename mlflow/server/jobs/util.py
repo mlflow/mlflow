@@ -18,7 +18,7 @@ class JobResult:
 
     @classmethod
     def from_error(cls, e: Exception) -> "JobResult":
-        from mlflow.server.job import TransientError
+        from mlflow.server.jobs import TransientError
 
         if isinstance(e, TransientError):
             return JobResult(

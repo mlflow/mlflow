@@ -60,7 +60,7 @@ def submit_job(
         the job status and result.
     """
     from mlflow.environment_variables import MLFLOW_SERVER_ENABLE_JOB_EXECUTION
-    from mlflow.server.job.job_runner import huey_task_exec_job
+    from mlflow.server.jobs.job_runner import huey_task_exec_job
 
     if not MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
         raise MlflowException(
@@ -121,7 +121,7 @@ def _start_job_runner(
         [
             sys.executable,
             shutil.which("huey_consumer.py"),
-            "mlflow.server.job.job_runner.huey_instance",
+            "mlflow.server.jobs.job_runner.huey_instance",
             "-w",
             str(max_job_parallelism),
         ],
@@ -137,7 +137,7 @@ def _start_job_runner(
 
 
 def _reinit_huey_queue() -> None:
-    from mlflow.server.job.job_runner import _init_huey_queue
+    from mlflow.server.jobs.job_runner import _init_huey_queue
 
     _init_huey_queue()
 

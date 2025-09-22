@@ -481,7 +481,7 @@ def _get_job_store(backend_store_uri: str | None = None) -> "AbstractJobStore":
         An instance of AbstractJobStore
     """
     from mlflow.server import BACKEND_STORE_URI_ENV_VAR
-    from mlflow.store.job.sqlalchemy_store import SqlAlchemyJobStore
+    from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
     from mlflow.utils.uri import extract_db_type_from_uri
 
     global _job_store
