@@ -688,12 +688,16 @@ class Model:
                     (
                         "Failed to fetch logged model metadata for model_id %s. "
                         "Returning model info without logged model metadata. "
+                        "Set logging level to DEBUG via "
+                        '`logging.getLogger("mlflow").setLevel(logging.DEBUG)` '
+                        "to see the full traceback. "
                         "Tracking URI: %s. "
                         "Exception: %s"
                     ),
                     self.model_id,
                     mlflow.get_tracking_uri(),
                     e,
+                    exc_info=_logger.isEnabledFor(logging.DEBUG),
                 )
                 logged_model = None
         return ModelInfo(
