@@ -456,10 +456,10 @@ class Linter(ast.NodeVisitor):
         if rule := rules.NoClassBasedTests.check(node, self.path.name):
             self._check(Location.from_node(node), rule)
 
-    def _no_docstring_in_tests(
+    def _redundant_test_docstring(
         self, node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef
     ) -> None:
-        if rule := rules.NoDocstringInTests.check(node, self.path.name):
+        if rule := rules.RedundantTestDocstring.check(node, self.path.name):
             self._check(Location.from_node(node), rule)
 
     def _is_in_test(self) -> bool:
@@ -505,7 +505,7 @@ class Linter(ast.NodeVisitor):
         self._syntax_error_example(node)
         self._mlflow_class_name(node)
         self._no_class_based_tests(node)
-        self._no_docstring_in_tests(node)
+        self._redundant_test_docstring(node)
         self.visit_decorators(node.decorator_list)
         self._markdown_link(node)
         with self.resolver.scope():
@@ -570,7 +570,7 @@ class Linter(ast.NodeVisitor):
         self._param_mismatch(node)
         self._markdown_link(node)
         self._invalid_abstract_method(node)
-        self._no_docstring_in_tests(node)
+        self._redundant_test_docstring(node)
         self._pytest_mark_repeat(node)
 
         for arg in node.args.args + node.args.kwonlyargs + node.args.posonlyargs:
@@ -593,7 +593,7 @@ class Linter(ast.NodeVisitor):
         self._param_mismatch(node)
         self._markdown_link(node)
         self._invalid_abstract_method(node)
-        self._no_docstring_in_tests(node)
+        self._redundant_test_docstring(node)
         self._pytest_mark_repeat(node)
         self.stack.append(node)
         self._no_rst(node)

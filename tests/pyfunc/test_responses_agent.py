@@ -1012,12 +1012,16 @@ def test_responses_agent_non_mlflow_decorators():
     ],
 )
 def test_responses_agent_output_to_responses_items_stream(chunks, expected_output):
-    # NB: In order of the parameters:
-    # 1. gpt oss with no tools streaming
-    #    - other models don't differentiate between w/ and w/o tools streaming
-    # 2. gpt oss with tools streaming
-    # 3. claude no tool call streaming
-    # 4. claude tool call streaming
+    """
+    Tests the output_to_responses_items_stream method with different model configurations.
+
+    In order of the parameters:
+    1. gpt oss with no tools streaming
+       - other models don't differentiate between w/ and w/o tools streaming
+    2. gpt oss with tools streaming
+    3. claude no tool call streaming
+    4. claude tool call streaming
+    """
     aggregator = []
     converted_output = list(ResponsesAgent.output_to_responses_items_stream(chunks, aggregator))
     assert converted_output == expected_output

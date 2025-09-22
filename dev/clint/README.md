@@ -55,16 +55,28 @@ pytest dev/clint
 
 ## Rules
 
-### no-docstring-in-tests
+### redundant-test-docstring
 
-Test functions and classes should have self-documenting names instead of docstrings.
+Test functions and classes should avoid single-line docstrings that are typically redundant.
+Multi-line docstrings that provide substantial documentation are allowed.
 
-**Rationale:** Well-named test functions make docstrings redundant. The test name should clearly describe what is being tested.
+**Rationale:** Single-line docstrings in tests like "Test X" or "Tests for Y" are typically low-value and redundant with the test name. However, multi-line docstrings that explain complex test scenarios, backwards compatibility requirements, or critical behaviors are valuable and should be preserved.
 
 **Good:**
 
 ```python
 def test_user_authentication_fails_with_invalid_password():
+    # Test implementation
+    pass
+
+
+def test_backwards_compatibility_with_v1_api():
+    """
+    This test ensures that the v2 API maintains backwards compatibility
+    with v1 client libraries by accepting both old and new parameter formats.
+
+    The test specifically validates edge cases documented in RFC-123.
+    """
     # Test implementation
     pass
 ```
@@ -74,6 +86,11 @@ def test_user_authentication_fails_with_invalid_password():
 ```python
 def test_auth():
     """Test that user authentication fails with invalid password."""
+    pass
+
+
+def test_database_connection():
+    """Tests database connection."""
     pass
 ```
 

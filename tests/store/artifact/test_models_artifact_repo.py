@@ -159,8 +159,10 @@ def test_models_artifact_repo_init_with_stage_uri_and_not_using_databricks_regis
 
 
 def test_models_artifact_repo_uses_repo_download_artifacts(tmp_path):
-    # NB: ModelsArtifactRepository should delegate `download_artifacts` to its
-    # self.repo.download_artifacts function.
+    """
+    ModelsArtifactRepository should delegate `download_artifacts` to its
+    self.repo.download_artifacts function.
+    """
     artifact_location = "s3://blah_bucket/"
     dummy_file = tmp_path / "dummy_file.txt"
     dummy_file.touch()

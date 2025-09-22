@@ -1,8 +1,10 @@
-"""Rule to enforce self-documenting test function names without docstrings.
+"""Rule to prevent single-line docstrings in test functions and classes.
 
-This rule ensures that test functions and classes use descriptive names
-instead of docstrings. For critical documentation within tests, use
-NB (nota bene) comments:
+This rule ensures that test functions and classes don't have single-line docstrings,
+which are typically low-value like "Test X" or "Tests for Y". Multi-line docstrings
+that provide substantial documentation are allowed.
+
+For critical inline documentation, NB (nota bene) comments are encouraged:
 
     def test_complex_edge_case():
         # NB: This test uses a workaround for issue #12345 because
@@ -18,7 +20,7 @@ from typing_extensions import Self
 from clint.rules.base import Rule
 
 
-class NoDocstringInTests(Rule):
+class RedundantTestDocstring(Rule):
     def __init__(self, function_name: str, has_class_docstring: bool = False) -> None:
         self.function_name = function_name
         self.has_class_docstring = has_class_docstring
@@ -42,7 +44,8 @@ class NoDocstringInTests(Rule):
                 return None
 
             # Check if the function has a docstring
-            if ast.get_docstring(node):
+            docstring = ast.get_docstring(node)
+            if docstring and cls._is_single_line_docstring(docstring):
                 return cls(node.name)
 
         elif isinstance(node, ast.ClassDef):
@@ -51,20 +54,29 @@ class NoDocstringInTests(Rule):
                 return None
 
             # Check if the class has a docstring
-            if ast.get_docstring(node):
+            docstring = ast.get_docstring(node)
+            if docstring and cls._is_single_line_docstring(docstring):
                 return cls(node.name, has_class_docstring=True)
 
         return None
 
+    @staticmethod
+    def _is_single_line_docstring(docstring: str) -> bool:
+        """Check if a docstring is a single line (after stripping whitespace)."""
+        # Strip leading/trailing whitespace and check if it's single-line
+        lines = docstring.strip().split("\n")
+        # A single-line docstring has only one line after stripping
+        return len(lines) == 1
+
     def _message(self) -> str:
         if self.has_class_docstring:
             return (
-                f"Test class '{self.function_name}' should not have a docstring. "
-                f"Test class names should be self-documenting. "
-                f"Use NB comments for critical documentation."
+                f"Test class '{self.function_name}' has a single-line docstring. "
+                f"Single-line docstrings in tests are typically low-value. "
+                f"Either remove it or expand to a meaningful multi-line docstring."
             )
         return (
-            f"Test function '{self.function_name}' should not have a docstring. "
-            f"Test function names should be self-documenting. "
-            f"Use NB comments for critical documentation."
+            f"Test function '{self.function_name}' has a single-line docstring. "
+            f"Single-line docstrings in tests are typically low-value. "
+            f"Either remove it or expand to a meaningful multi-line docstring."
         )

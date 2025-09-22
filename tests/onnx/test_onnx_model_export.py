@@ -408,13 +408,15 @@ def test_model_save_load_evaluate_pyfunc_format_multiple_inputs(
 def test_pyfunc_representation_of_float32_model_casts_and_evaluates_float64_inputs(
     onnx_model_multiple_inputs_float32, model_path, data_multiple_inputs, predicted_multiple_inputs
 ):
-    # NB: The python_function representation of an MLflow model with the ONNX flavor
-    # casts 64-bit floats to 32-bit floats automatically before evaluating, as opposed
-    # to throwing an unexpected type exception. This behavior is implemented due
-    # to the issue described in https://github.com/mlflow/mlflow/issues/1286 where
-    # the JSON representation of a Pandas DataFrame does not always preserve float
-    # precision (e.g., 32-bit floats may be converted to 64-bit floats when persisting a
-    # DataFrame as JSON).
+    """
+    The python_function representation of an MLflow model with the ONNX flavor
+    casts 64-bit floats to 32-bit floats automatically before evaluating, as opposed
+    to throwing an unexpected type exception. This behavior is implemented due
+    to the issue described in https://github.com/mlflow/mlflow/issues/1286 where
+    the JSON representation of a Pandas DataFrame does not always preserve float
+    precision (e.g., 32-bit floats may be converted to 64-bit floats when persisting a
+    DataFrame as JSON).
+    """
     mlflow.onnx.save_model(onnx_model_multiple_inputs_float32, model_path)
 
     # Loading pyfunc model
@@ -473,6 +475,10 @@ def test_log_model_no_registered_model_name(onnx_model, onnx_custom_env):
 
 
 def test_model_log_evaluate_pyfunc_format(onnx_model, data, predicted):
+    """
+    Test logging and evaluating ONNX model in pyfunc format.
+    Tests that ONNX wrapper returns a dictionary for non-dataframe inputs.
+    """
     x = data[0]
 
     with mlflow.start_run():
@@ -487,8 +493,6 @@ def test_model_log_evaluate_pyfunc_format(onnx_model, data, predicted):
         # test with a single numpy array
         np_ary = x.values
 
-        # NB: Onnx wrapper returns a dictionary for non-dataframe inputs, we want to get the
-        # numpy array belonging to the first (and only) model output.
         def get_ary_output(args):
             return next(iter(pyfunc_loaded.predict(args).values())).flatten()
 

@@ -90,7 +90,12 @@ def test_register_constructor_function_performs_validation():
 
 
 def test_register_constructor_from_entrypoints_and_call(dataset_registry, tmp_path):
-    # NB: This test requires the package in tests/resources/mlflow-test-plugin to be installed
+    """
+    This test requires the package in tests/resources/mlflow-test-plugin to be installed.
+
+    It verifies that dataset constructors can be registered via entrypoints and that
+    the registered constructors work correctly when called.
+    """
 
     from mlflow_test_plugin.dummy_dataset import DummyDataset
 

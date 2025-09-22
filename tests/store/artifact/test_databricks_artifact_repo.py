@@ -772,9 +772,11 @@ def test_list_artifacts_handles_pagination(databricks_artifact_repo):
 
 
 def test_get_read_credential_infos_handles_pagination(databricks_artifact_repo):
-    # NB: Verifies that the get_read_credential_infos method, which is used to resolve read access
-    # credentials for a collection of artifacts, handles paginated responses properly, issuing
-    # incremental requests until all pages have been consumed
+    """
+    Verifies that the get_read_credential_infos method, which is used to resolve read access
+    credentials for a collection of artifacts, handles paginated responses properly, issuing
+    incremental requests until all pages have been consumed.
+    """
     credential_infos_mock_1 = [
         ArtifactCredentialInfo(
             signed_uri="http://mock_url_1", type=ArtifactCredentialType.AWS_PRESIGNED_URL
@@ -826,9 +828,11 @@ def test_get_read_credential_infos_handles_pagination(databricks_artifact_repo):
 
 
 def test_get_read_credential_infos_respects_max_request_size(databricks_artifact_repo):
-    # NB: Verifies that the _get_read_credential_infos method, which is used to resolve read access
-    # credentials for a collection of artifacts, handles paginated responses properly, issuing
-    # incremental requests until all pages have been consumed
+    """
+    Verifies that the _get_read_credential_infos method, which is used to resolve read access
+    credentials for a collection of artifacts, handles paginated responses properly, issuing
+    incremental requests until all pages have been consumed.
+    """
     assert _MAX_CREDENTIALS_REQUEST_SIZE == 2000, (
         "The maximum request size configured by the client should be consistent with the"
         " Databricks backend. Only update this value of the backend limit has changed."
@@ -886,9 +890,11 @@ def test_get_read_credential_infos_respects_max_request_size(databricks_artifact
 
 
 def test_get_write_credential_infos_handles_pagination(databricks_artifact_repo):
-    # NB: Verifies that the _get_write_credential_infos method, which is used to resolve write
-    # access credentials for a collection of artifacts, handles paginated responses properly,
-    # issuing incremental requests until all pages have been consumed
+    """
+    Verifies that the _get_write_credential_infos method, which is used to resolve write
+    access credentials for a collection of artifacts, handles paginated responses properly,
+    issuing incremental requests until all pages have been consumed.
+    """
     credential_infos_mock_1 = [
         ArtifactCredentialInfo(
             signed_uri="http://mock_url_1", type=ArtifactCredentialType.AWS_PRESIGNED_URL
@@ -940,13 +946,16 @@ def test_get_write_credential_infos_handles_pagination(databricks_artifact_repo)
 
 
 def test_get_write_credential_infos_respects_max_request_size(databricks_artifact_repo):
-    # NB: Verifies that the _get_write_credential_infos method, which is used to resolve write
-    # access credentials for a collection of artifacts, batches requests according to a maximum
-    # request size configured by the backend
-    # Create 3 chunks of paths, two of which have the maximum request size and one of which
-    # is smaller than the maximum chunk size. Aggregate and pass these to
-    # `_get_write_credential_infos`, validating that this method decomposes the aggregate
-    # list into these expected chunks and makes 3 separate requests
+    """
+    Verifies that the _get_write_credential_infos method, which is used to resolve write
+    access credentials for a collection of artifacts, batches requests according to a maximum
+    request size configured by the backend.
+
+    Create 3 chunks of paths, two of which have the maximum request size and one of which
+    is smaller than the maximum chunk size. Aggregate and pass these to
+    `_get_write_credential_infos`, validating that this method decomposes the aggregate
+    list into these expected chunks and makes 3 separate requests.
+    """
     paths_chunk_1 = ["path1"] * 2000
     paths_chunk_2 = ["path2"] * 2000
     paths_chunk_3 = ["path3"] * 5
@@ -1100,8 +1109,11 @@ def test_databricks_download_file_get_request_fail(databricks_artifact_repo, tes
 
 
 def test_download_artifacts_awaits_download_completion(databricks_artifact_repo, tmp_path):
-    # NB: Verifies that all asynchronous artifact downloads are joined before download_artifacts()
-    # returns a result to the caller
+    """
+    Verifies that all asynchronous artifact downloads are joined before download_artifacts()
+    returns a result to the caller.
+    """
+
     def mock_download_from_cloud(
         cloud_credential_info,
         dst_local_file_path,
@@ -1142,8 +1154,10 @@ def test_download_artifacts_awaits_download_completion(databricks_artifact_repo,
 
 
 def test_artifact_logging(databricks_artifact_repo, tmp_path):
-    # NB: Verifies that log_artifact() and log_artifacts() initiate all expected asynchronous
-    # artifact uploads and await their completion before returning results to the caller
+    """
+    Verifies that log_artifact() and log_artifacts() initiate all expected asynchronous
+    artifact uploads and await their completion before returning results to the caller.
+    """
     src_dir = tmp_path.joinpath("src")
     src_dir.mkdir()
     src_file1_path = src_dir.joinpath("file_1.txt")
@@ -1201,7 +1215,12 @@ def test_artifact_logging(databricks_artifact_repo, tmp_path):
 
 
 def test_artifact_logging_chunks_upload_list(databricks_artifact_repo, tmp_path):
-    # NB: Verifies that write credentials are fetched in chunks rather than all at once
+    """
+    Verifies that write credentials are fetched in chunks rather than all at once.
+
+    This test ensures that when logging many artifacts, the system properly batches
+    credential requests to avoid overwhelming the server with a single large request.
+    """
     src_dir = tmp_path.joinpath("src")
     src_dir.mkdir()
     for i in range(10):

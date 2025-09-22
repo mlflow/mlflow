@@ -715,9 +715,11 @@ def test_lgb_autolog_log_models_configuration(bst_params, log_models):
 
 
 def test_lgb_autolog_does_not_break_dataset_instantiation_with_data_none():
-    # NB: This test verifies that `lightgbm.Dataset(None)` doesn't fail after patching.
-    # LightGBM internally calls `lightgbm.Dataset(None)` to create a subset of `Dataset`:
-    # https://github.com/microsoft/LightGBM/blob/v3.0.0/python-package/lightgbm/basic.py#L1381
+    """
+    This test verifies that `lightgbm.Dataset(None)` doesn't fail after patching.
+    LightGBM internally calls `lightgbm.Dataset(None)` to create a subset of `Dataset`:
+    https://github.com/microsoft/LightGBM/blob/v3.0.0/python-package/lightgbm/basic.py#L1381
+    """
     mlflow.lightgbm.autolog()
     lgb.Dataset(None)
 

@@ -147,9 +147,11 @@ def test_model_log(h2o_iris_model):
 def test_model_load_succeeds_with_missing_data_key_when_data_exists_at_default_path(
     h2o_iris_model, model_path
 ):
-    # NB: This is a backwards compatibility test to ensure that models saved in MLflow version
-    # <= 0.7.0 can be loaded successfully. These models are missing the `data` flavor
-    # configuration key.
+    """
+    This is a backwards compatibility test to ensure that models saved in MLflow version
+    <= 0.7.0 can be loaded successfully. These models are missing the `data` flavor
+    configuration key.
+    """
     h2o_model = h2o_iris_model.model
     mlflow.h2o.save_model(h2o_model=h2o_model, path=model_path)
 

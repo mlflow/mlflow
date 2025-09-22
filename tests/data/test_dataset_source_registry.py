@@ -10,7 +10,12 @@ from tests.resources.data.dataset_source import SampleDatasetSource
 
 
 def test_register_entrypoints_and_resolve(tmp_path):
-    # NB: This test requires the package in tests/resources/mlflow-test-plugin to be installed
+    """
+    This test requires the package in tests/resources/mlflow-test-plugin to be installed.
+
+    It verifies that dataset sources can be registered via entrypoints and properly
+    resolved when requested.
+    """
 
     from mlflow_test_plugin.dummy_dataset_source import DummyDatasetSource
 
@@ -95,7 +100,12 @@ def test_load_from_json_throws_for_unrecognized_source_type(tmp_path):
 
 
 def test_resolve_dataset_source_maintains_consistent_order_and_uses_last_registered_match(tmp_path):
-    # NB: This test requires the package in tests/resources/mlflow-test-plugin to be installed
+    """
+    This test requires the package in tests/resources/mlflow-test-plugin to be installed.
+
+    It verifies that when multiple dataset sources match a URI, the last registered source
+    takes precedence, maintaining a consistent and predictable resolution order.
+    """
 
     from mlflow_test_plugin.dummy_dataset_source import DummyDatasetSource
 

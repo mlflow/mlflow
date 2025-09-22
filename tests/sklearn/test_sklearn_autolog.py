@@ -689,7 +689,12 @@ def test_autolog_emits_warning_message_when_score_fails():
 
 
 def test_autolog_emits_warning_message_when_metric_fails():
-    # NB: Take precision_score metric from SVC as an example to test metric logging failure
+    """
+    Take precision_score metric from SVC as an example to test metric logging failure.
+
+    This test verifies that autolog properly handles and warns about metric computation
+    failures without breaking the overall logging flow.
+    """
     mlflow.sklearn.autolog()
 
     model = sklearn.svm.SVC()
@@ -713,10 +718,12 @@ def test_autolog_emits_warning_message_when_metric_fails():
 
 
 def test_autolog_emits_warning_message_when_model_prediction_fails():
-    # NB: Take GridSearchCV as an example, whose base class is "classifier" and will go
-    # through classifier's metric logging. When refit=False, the model will never get
-    # refitted, while during the metric logging what ".predict()" expects is a fitted model.
-    # Thus, a warning will be logged.
+    """
+    Take GridSearchCV as an example, whose base class is "classifier" and will go
+    through classifier's metric logging. When refit=False, the model will never get
+    refitted, while during the metric logging what ".predict()" expects is a fitted model.
+    Thus, a warning will be logged.
+    """
     from sklearn.exceptions import NotFittedError
 
     mlflow.sklearn.autolog()
@@ -1235,9 +1242,11 @@ def test_sklearn_autolog_log_datasets_without_explicit_run():
 
 
 def test_autolog_does_not_capture_runs_for_preprocessing_or_feature_manipulation_estimators():
-    # NB: Verifies that preprocessing and feature manipulation estimators, which represent data
-    # manipulation steps (e.g., normalization, label encoding) rather than ML models, do not
-    # produce runs when their fit_* operations are invoked independently of an ML pipeline
+    """
+    Verifies that preprocessing and feature manipulation estimators, which represent data
+    manipulation steps (e.g., normalization, label encoding) rather than ML models, do not
+    produce runs when their fit_* operations are invoked independently of an ML pipeline.
+    """
     mlflow.sklearn.autolog()
 
     # Create a run using the MLflow client, which will be resumed via the fluent API,
@@ -1274,15 +1283,17 @@ def test_autolog_does_not_capture_runs_for_preprocessing_or_feature_manipulation
 
 
 def test_autolog_produces_expected_results_for_estimator_when_parent_also_defines_fit():
-    # NB: Test to prevent recurrences of https://github.com/mlflow/mlflow/issues/3574
-    mlflow.sklearn.autolog()
+    """
+    Test to prevent recurrences of https://github.com/mlflow/mlflow/issues/3574.
 
-    # Construct two mock models - `ParentMod` and `ChildMod`, where ChildMod's fit() function
-    # calls ParentMod().fit() and mutates a predefined, constant prediction value set by
-    # ParentMod().fit(). We will then test that ChildMod.fit() completes and produces the
-    # expected constant prediction value, guarding against regressions of
-    # https://github.com/mlflow/mlflow/issues/3574 where ChildMod.fit() would either infinitely
-    # recurse or yield the incorrect prediction result set by ParentMod.fit()
+    Construct two mock models - `ParentMod` and `ChildMod`, where ChildMod's fit() function
+    calls ParentMod().fit() and mutates a predefined, constant prediction value set by
+    ParentMod().fit(). We will then test that ChildMod.fit() completes and produces the
+    expected constant prediction value, guarding against regressions of
+    https://github.com/mlflow/mlflow/issues/3574 where ChildMod.fit() would either infinitely
+    recurse or yield the incorrect prediction result set by ParentMod.fit().
+    """
+    mlflow.sklearn.autolog()
 
     class ParentMod(sklearn.base.BaseEstimator):
         def __init__(self):
@@ -1318,9 +1329,11 @@ def test_autolog_produces_expected_results_for_estimator_when_parent_also_define
 
 
 def test_metric_computation_handles_absent_labels():
-    # NB: Verifies that autologging metric computation does not fail for models that do not
-    # require labels as inputs to training, such as clustering models and other unsupervised
-    # techniques.
+    """
+    Verifies that autologging metric computation does not fail for models that do not
+    require labels as inputs to training, such as clustering models and other unsupervised
+    techniques.
+    """
     mlflow.sklearn.autolog()
 
     model = sklearn.cluster.KMeans()

@@ -123,9 +123,12 @@ def test_init_model(model_type):
     reason="catboost < 0.26.0 does not support CatBoostRanker",
 )
 def test_log_catboost_ranker():
-    # NB: This is a separate test for the CatBoostRanker model.
-    # It is separate since the ranking task requires a group_id column which makes
-    # the code different.
+    """
+    This is a separate test for the CatBoostRanker model.
+
+    It is separate since the ranking task requires a group_id column which makes
+    the code different.
+    """
     # the ranking task requires setting a group_id
     # we are creating a dummy group_id here that doesn't make any sense for the Iris dataset,
     # but is ok for testing if the code is running correctly
