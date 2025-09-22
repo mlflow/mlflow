@@ -58,3 +58,8 @@ sequenceDiagram
 ## Storage Location
 
 Attachments are stored at: `{artifact_uri}/attachments/{attachment_id}`
+
+## API Methods
+
+- `upload_trace_attachment(attachment)` - Upload attachment to artifact repository
+- `download_trace_attachment(attachment_id)` - Download attachment by ID

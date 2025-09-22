@@ -413,7 +413,7 @@ class ArtifactRepository:
                     f"Trace attachment not found: {path}", RESOURCE_DOES_NOT_EXIST
                 ) from e
 
-    def upload_attachment(self, attachment: Attachment) -> None:
+    def upload_trace_attachment(self, attachment: Attachment) -> None:
         """
         Upload an attachment to the trace.
 

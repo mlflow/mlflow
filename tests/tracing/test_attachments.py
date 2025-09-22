@@ -314,11 +314,11 @@ def test_live_span_to_immutable_span_transfers_attachments():
         mock_registry.assert_called()
 
 
-def test_upload_attachment():
+def test_upload_trace_attachment():
     mock_repo = Mock(spec=ArtifactRepository)
     attachment = Attachment(content_type="text/plain", content_bytes=b"test content")
 
-    ArtifactRepository.upload_attachment(mock_repo, attachment)
+    ArtifactRepository.upload_trace_attachment(mock_repo, attachment)
 
     mock_repo.log_artifact.assert_called_once()
     call_args = mock_repo.log_artifact.call_args
