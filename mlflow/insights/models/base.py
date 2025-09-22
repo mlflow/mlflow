@@ -14,6 +14,28 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from mlflow.exceptions import MlflowException
 
 
+class DatetimeFieldsMixin:
+    """Mixin providing datetime parsing utilities.
+
+    Classes using this mixin can call the parse_datetime class method
+    in their field validators to convert string timestamps to datetime objects.
+    """
+
+    @classmethod
+    def parse_datetime(cls, v: str | datetime) -> datetime:
+        """Convert string to datetime if needed.
+
+        Args:
+            v: Either a string in ISO format or a datetime object
+
+        Returns:
+            datetime object
+        """
+        if isinstance(v, str):
+            return datetime.fromisoformat(v)
+        return v
+
+
 class EvidenceEntry(BaseModel):
     """Evidence entry for hypotheses and issues."""
 

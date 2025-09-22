@@ -12,7 +12,7 @@ from mlflow.insights.models.base import (
     TimestampedModel,
     extract_trace_ids,
 )
-from mlflow.insights.models.entities import Analysis, Hypothesis, Issue
+from mlflow.insights.models.entities import Analysis, Census, Hypothesis, Issue
 from mlflow.insights.models.summaries import AnalysisSummary, HypothesisSummary, IssueSummary
 
 __all__ = [
@@ -26,6 +26,7 @@ __all__ = [
     "Analysis",
     "Hypothesis",
     "Issue",
+    "Census",
     # Summaries
     "AnalysisSummary",
     "HypothesisSummary",

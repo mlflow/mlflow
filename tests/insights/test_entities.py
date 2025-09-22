@@ -17,6 +17,7 @@ from mlflow.insights.constants import (
 from mlflow.insights.models import (
     Analysis,
     AnalysisSummary,
+    Census,
     EvidenceEntry,
     Hypothesis,
     HypothesisSummary,
@@ -686,3 +687,335 @@ def test_serialization_preserves_timestamps(yaml_file: Path, entity_class, init_
 
     assert loaded.created_at == original_created
     assert loaded.updated_at == original_updated
+
+
+# Census model tests
+
+
+@pytest.fixture
+def operational_metrics():
+    """Create sample operational metrics."""
+    from mlflow.insights.models.entities import (
+        ErrorSpan,
+        OperationalMetrics,
+        SlowTool,
+        TimeBucket,
+    )
+
+    return OperationalMetrics(
+        total_traces=1000,
+        ok_count=950,
+        error_count=50,
+        error_rate=5.0,
+        first_trace_timestamp="2025-09-17T17:42:06.078000",
+        last_trace_timestamp="2025-09-18T15:54:01.653000",
+        max_latency_ms=20000.0,
+        p50_latency_ms=7500.0,
+        p90_latency_ms=10000.0,
+        p95_latency_ms=11000.0,
+        p99_latency_ms=12500.0,
+        time_buckets=[
+            TimeBucket(
+                time_bucket="2025-09-17T17:00:00",
+                total_traces=100,
+                ok_count=95,
+                error_count=5,
+                error_rate=5.0,
+                p95_latency_ms=10500.0,
+            ),
+            TimeBucket(
+                time_bucket="2025-09-17T18:00:00",
+                total_traces=200,
+                ok_count=190,
+                error_count=10,
+                error_rate=5.0,
+                p95_latency_ms=11000.0,
+            ),
+        ],
+        top_error_spans=[
+            ErrorSpan(
+                error_span_name="database_query",
+                count=25,
+                pct_of_errors=50.0,
+                sample_trace_ids=["tr-001", "tr-002"],
+            ),
+            ErrorSpan(
+                error_span_name="api_call",
+                count=15,
+                pct_of_errors=30.0,
+                sample_trace_ids=["tr-003", "tr-004"],
+            ),
+        ],
+        top_slow_tools=[
+            SlowTool(
+                tool_span_name="process_data",
+                count=500,
+                median_latency_ms=8000.0,
+                p95_latency_ms=11000.0,
+                sample_trace_ids=["tr-005", "tr-006"],
+            ),
+            SlowTool(
+                tool_span_name="generate_report",
+                count=300,
+                median_latency_ms=3000.0,
+                p95_latency_ms=4000.0,
+                sample_trace_ids=["tr-007", "tr-008"],
+            ),
+        ],
+        error_sample_trace_ids=["tr-001", "tr-003"],
+    )
+
+
+@pytest.fixture
+def quality_metrics():
+    """Create sample quality metrics."""
+    from mlflow.insights.models.entities import QualityMetric, QualityMetrics
+
+    return QualityMetrics(
+        minimal_responses=QualityMetric(
+            value=2.5,
+            description="Percentage of responses shorter than 50 characters",
+            sample_trace_ids=["tr-009", "tr-010"],
+        ),
+        response_quality_issues=QualityMetric(
+            value=8.3,
+            description="Percentage of responses with quality problems",
+            sample_trace_ids=["tr-011", "tr-012"],
+        ),
+        rushed_processing=QualityMetric(
+            value=12.1,
+            description="Percentage of complex requests processed too quickly",
+            sample_trace_ids=["tr-013", "tr-014"],
+        ),
+        verbosity=QualityMetric(
+            value=6.7,
+            description="Percentage of overly verbose responses",
+            sample_trace_ids=["tr-015", "tr-016"],
+        ),
+    )
+
+
+@pytest.fixture
+def census(operational_metrics, quality_metrics):
+    """Create a census instance."""
+    from mlflow.insights.models.entities import Census
+
+    return Census.create(
+        table_name="test_table",
+        operational_metrics=operational_metrics,
+        quality_metrics=quality_metrics,
+        additional_metadata={"environment": "test", "version": "1.0"},
+    )
+
+
+def test_census_creation(census: Census):
+    assert census.metadata.table_name == "test_table"
+    assert census.metadata.additional_metadata == {"environment": "test", "version": "1.0"}
+    assert census.operational_metrics.total_traces == 1000
+    assert census.operational_metrics.error_rate == 5.0
+    assert census.quality_metrics.minimal_responses.value == 2.5
+
+
+def test_census_error_summary(census: Census):
+    summary = census.get_error_summary()
+
+    assert summary.total_errors == 50
+    assert summary.error_rate == 5.0
+    assert len(summary.top_error_spans) == 2
+    assert summary.top_error_spans[0].span == "database_query"
+    assert summary.top_error_spans[0].count == 25
+    assert summary.top_error_spans[1].span == "api_call"
+    assert summary.top_error_spans[1].count == 15
+
+
+def test_census_performance_summary(census: Census):
+    summary = census.get_performance_summary()
+
+    assert summary.total_traces == 1000
+    assert summary.p50_latency_ms == 7500.0
+    assert summary.p95_latency_ms == 11000.0
+    assert summary.p99_latency_ms == 12500.0
+    assert len(summary.slowest_tools) == 2
+    assert summary.slowest_tools[0].tool == "process_data"
+    assert summary.slowest_tools[0].p95_ms == 11000.0
+
+
+def test_census_quality_summary(census: Census):
+    summary = census.get_quality_summary()
+
+    assert summary.minimal_responses == 2.5
+    assert summary.response_quality_issues == 8.3
+    assert summary.rushed_processing == 12.1
+    assert summary.verbosity == 6.7
+
+
+def test_census_has_quality_issues(census: Census):
+    # With default threshold (10.0)
+    assert census.has_quality_issues() is True  # rushed_processing is 12.1
+
+    # With higher threshold
+    assert census.has_quality_issues(threshold=15.0) is False
+
+    # With lower threshold
+    assert census.has_quality_issues(threshold=5.0) is True
+
+
+def test_census_get_time_range(census: Census):
+    time_range = census.get_time_range()
+    assert time_range.start == datetime.fromisoformat("2025-09-17T17:42:06.078000")
+    assert time_range.end == datetime.fromisoformat("2025-09-18T15:54:01.653000")
+
+
+def test_time_bucket_model():
+    from mlflow.insights.models.entities import TimeBucket
+
+    bucket = TimeBucket(
+        time_bucket="2025-09-17T17:00:00",
+        total_traces=100,
+        ok_count=95,
+        error_count=5,
+        error_rate=5.0,
+        p95_latency_ms=10500.0,
+    )
+
+    assert bucket.time_bucket == datetime.fromisoformat("2025-09-17T17:00:00")
+    assert bucket.total_traces == 100
+    assert bucket.error_rate == 5.0
+
+
+def test_error_span_model():
+    from mlflow.insights.models.entities import ErrorSpan
+
+    span = ErrorSpan(
+        error_span_name="database_query",
+        count=25,
+        pct_of_errors=50.0,
+        sample_trace_ids=["tr-001", "tr-002"],
+    )
+
+    assert span.error_span_name == "database_query"
+    assert span.count == 25
+    assert span.pct_of_errors == 50.0
+    assert len(span.sample_trace_ids) == 2
+
+
+def test_slow_tool_model():
+    from mlflow.insights.models.entities import SlowTool
+
+    tool = SlowTool(
+        tool_span_name="process_data",
+        count=500,
+        median_latency_ms=8000.0,
+        p95_latency_ms=11000.0,
+        sample_trace_ids=["tr-005", "tr-006"],
+    )
+
+    assert tool.tool_span_name == "process_data"
+    assert tool.count == 500
+    assert tool.median_latency_ms == 8000.0
+    assert tool.p95_latency_ms == 11000.0
+
+
+def test_quality_metric_model():
+    from mlflow.insights.models.entities import QualityMetric
+
+    metric = QualityMetric(
+        value=2.5,
+        description="Test metric",
+        sample_trace_ids=["tr-001", "tr-002"],
+    )
+
+    assert metric.value == 2.5
+    assert metric.description == "Test metric"
+    assert len(metric.sample_trace_ids) == 2
+
+
+def test_census_yaml_serialization(census: Census, tmp_path: Path):
+    from mlflow.insights.models.entities import Census
+
+    yaml_file = tmp_path / "census.yaml"
+
+    # Write to YAML
+    yaml_content = census.to_yaml()
+    yaml_file.write_text(yaml_content)
+
+    # Read back and verify
+    loaded_census = Census.from_yaml(yaml_content)
+
+    assert loaded_census.metadata.table_name == census.metadata.table_name
+    assert loaded_census.operational_metrics.total_traces == census.operational_metrics.total_traces
+    assert loaded_census.operational_metrics.error_rate == census.operational_metrics.error_rate
+    assert (
+        loaded_census.quality_metrics.minimal_responses.value
+        == census.quality_metrics.minimal_responses.value
+    )
+
+    # Verify time buckets
+    assert len(loaded_census.operational_metrics.time_buckets) == 2
+    assert loaded_census.operational_metrics.time_buckets[0].time_bucket == datetime.fromisoformat(
+        "2025-09-17T17:00:00"
+    )
+
+    # Verify error spans
+    assert len(loaded_census.operational_metrics.top_error_spans) == 2
+    assert loaded_census.operational_metrics.top_error_spans[0].error_span_name == "database_query"
+
+
+def test_census_empty_lists():
+    from mlflow.insights.models.entities import (
+        Census,
+        OperationalMetrics,
+        QualityMetric,
+        QualityMetrics,
+    )
+
+    metrics = OperationalMetrics(
+        total_traces=100,
+        ok_count=100,
+        error_count=0,
+        error_rate=0.0,
+        first_trace_timestamp="2025-09-17T17:00:00",
+        last_trace_timestamp="2025-09-17T18:00:00",
+        max_latency_ms=1000.0,
+        p50_latency_ms=500.0,
+        p90_latency_ms=800.0,
+        p95_latency_ms=900.0,
+        p99_latency_ms=950.0,
+        time_buckets=[],
+        top_error_spans=[],
+        top_slow_tools=[],
+        error_sample_trace_ids=[],
+    )
+
+    quality = QualityMetrics(
+        minimal_responses=QualityMetric(
+            value=0.0,
+            description="No issues",
+            sample_trace_ids=[],
+        ),
+        response_quality_issues=QualityMetric(
+            value=0.0,
+            description="No issues",
+            sample_trace_ids=[],
+        ),
+        rushed_processing=QualityMetric(
+            value=0.0,
+            description="No issues",
+            sample_trace_ids=[],
+        ),
+        verbosity=QualityMetric(
+            value=0.0,
+            description="No issues",
+            sample_trace_ids=[],
+        ),
+    )
+
+    census = Census.create(
+        table_name="test_table",
+        operational_metrics=metrics,
+        quality_metrics=quality,
+    )
+
+    assert census.has_quality_issues() is False
+    assert census.get_error_summary().total_errors == 0
+    assert len(census.get_error_summary().top_error_spans) == 0

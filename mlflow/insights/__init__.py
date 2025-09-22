@@ -16,6 +16,7 @@ from mlflow.insights.constants import (
 from mlflow.insights.models import (
     Analysis,
     AnalysisSummary,
+    Census,
     EvidenceEntry,
     Hypothesis,
     HypothesisSummary,
@@ -30,6 +31,7 @@ __all__ = [
     "Analysis",
     "Hypothesis",
     "Issue",
+    "Census",
     "EvidenceEntry",
     # Summary models
     "AnalysisSummary",
