@@ -97,6 +97,15 @@ class Judge(Scorer):
 
         Returns:
             A new Judge instance that is better aligned with the input traces.
+
+        Note on Logging:
+            By default, alignment optimization shows minimal progress information.
+            To see detailed optimization output, set the optimizer's logger to DEBUG::
+
+                import logging
+
+                # For SIMBA optimizer (default)
+                logging.getLogger("mlflow.genai.judges.optimizers.simba").setLevel(logging.DEBUG)
         """
         if optimizer is None:
             optimizer = get_default_optimizer()

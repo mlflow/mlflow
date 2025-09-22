@@ -78,6 +78,13 @@ def make_judge(
             for trace in traces:
                 feedback = trace_judge(trace=trace)
                 print(f"Trace {trace.info.trace_id}: {feedback.value} - {feedback.rationale}")
+
+            # Align a judge with human feedback
+            aligned_judge = quality_judge.align(traces)
+
+            # To see detailed optimization output during alignment, enable DEBUG logging:
+            # import logging
+            # logging.getLogger("mlflow.genai.judges.optimizers.simba").setLevel(logging.DEBUG)
     """
 
     return InstructionsJudge(name=name, instructions=instructions, model=model)
