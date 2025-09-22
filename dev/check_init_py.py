@@ -40,7 +40,7 @@ def main() -> int:
     if missing_init_files:
         print("Error: The following directories contain Python files but lack __init__.py:")
         for d in sorted(missing_init_files):
-            print(f"  {d}/")
+            print(f"  {d.as_posix()}/")
         print("Please add __init__.py files to the directories listed above.")
         return 1
 
