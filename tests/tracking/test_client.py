@@ -1496,8 +1496,11 @@ def _default_model_version():
 
 
 def test_client_can_be_serialized_with_pickle(tmp_path):
-    # NB: Verifies that instances of MlflowClient can be serialized using pickle, even if the
-    # underlying Tracking and Model Registry stores used by the client are not serializable
+    """
+    Verifies that instances of `MlflowClient` can be serialized using pickle, even if the underlying
+    Tracking and Model Registry stores used by the client are not serializable using pickle
+    """
+
     class MockUnpickleableTrackingStore(SqlAlchemyTrackingStore):
         pass
 

@@ -682,11 +682,12 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 
 
 def test_pyfunc_predict_supports_models_with_list_outputs(onnx_sklearn_model, model_path, data):
-    # NB: https://github.com/mlflow/mlflow/issues/2499
-    # User encountered issue where an sklearn model, converted to onnx, would return a list
-    # response. The issue resulted in an error because MLflow assumed it would be a numpy array.
-    # Therefore, this test validates the service does not receive that error when using such a
-    # model.
+    """
+    https://github.com/mlflow/mlflow/issues/2499
+    User encountered issue where an sklearn model, converted to onnx, would return a list response.
+    The issue resulted in an error because MLflow assumed it would be a numpy array. Therefore,
+    the this test validates the service does not receive that error when using such a model.
+    """
     x = data[0]
     mlflow.onnx.save_model(onnx_sklearn_model, model_path)
     wrapper = mlflow.pyfunc.load_model(model_path)

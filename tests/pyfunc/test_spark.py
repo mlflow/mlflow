@@ -1204,29 +1204,20 @@ def test_spark_udf_with_params_with_errors(spark):
 
 
 def test_spark_udf_compatible_with_mlflow_2_4_0(tmp_path, spark):
-    # NB: Code for logging the model in mlflow 2.4.0
-    # import mlflow
-    #
-    # class TestModel(mlflow.pyfunc.PythonModel):
-    #     def predict(self, context, model_input):
-    #         return ["string"] * len(model_input)
-    #
-    # signature = mlflow.models.infer_signature(["input"])
-    # with mlflow.start_run() as run:
-    # NB: Code for logging the model in mlflow 2.4.0
-    # import mlflow
-    #
-    # class TestModel(mlflow.pyfunc.PythonModel):
-    #     def predict(self, context, model_input):
-    #         return ["string"] * len(model_input)
-    #
-    # signature = mlflow.models.infer_signature(["input"])
-    # with mlflow.start_run() as run:
-    #     mlflow.pyfunc.log_model(
-    #         "model",
-    #         python_model=TestModel(),
-    #         signature=signature,
-    #     )
+    """
+    # Code for logging the model in mlflow 2.4.0
+    import mlflow
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return ["string"] * len(model_input)
+    signature = mlflow.models.infer_signature(["input"])
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(
+            "model",
+            python_model=TestModel(),
+            signature=signature,
+        )
+    """
     tmp_path.joinpath("MLmodel").write_text(
         """
 artifact_path: model

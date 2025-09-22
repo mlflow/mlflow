@@ -1225,8 +1225,10 @@ def test_log_metric(store: SqlAlchemyStore):
 
 
 def test_log_metric_concurrent_logging_succeeds(store: SqlAlchemyStore):
-    # NB: Verifies that concurrent logging succeeds without deadlock, which has been an issue
-    # in previous MLflow releases
+    """
+    Verifies that concurrent logging succeeds without deadlock, which has been an issue
+    in previous MLflow releases
+    """
     experiment_id = _create_experiments(store, "concurrency_exp")
     run_config = _get_run_configs(experiment_id=experiment_id)
     run1 = _run_factory(store, run_config)
@@ -2940,9 +2942,13 @@ def test_log_batch_param_overwrite_disallowed(store: SqlAlchemyStore):
 
 
 def test_log_batch_with_unchanged_and_new_params(store: SqlAlchemyStore):
-    # NB: Test case to ensure the following code works:
-    # mlflow.log_params({"a": 0, "b": 1})
-    # mlflow.log_params({"a": 0, "c": 2})
+    """
+    Test case to ensure the following code works:
+    ---------------------------------------------
+    mlflow.log_params({"a": 0, "b": 1})
+    mlflow.log_params({"a": 0, "c": 2})
+    ---------------------------------------------
+    """
     run = _run_factory(store)
     store.log_batch(
         run.info.run_id,
@@ -3177,11 +3183,39 @@ def test_upgrade_cli_idempotence(store: SqlAlchemyStore):
 def test_metrics_materialization_upgrade_succeeds_and_produces_expected_latest_metric_values(
     store: SqlAlchemyStore, tmp_path
 ):
-    # NB: Tests the 89d4b8295536_create_latest_metrics_table migration by migrating and querying
-    # the MLflow Tracking SQLite database. Confirms metric entries are consistent between
-    # the latest revision and 7ac755974ad8_update_run_tags_with_larger_limit revision
-    # by comparing to JSON dump at
-    # mlflow/tests/resources/db/db_version_7ac759974ad8_with_metrics_expected_values.json
+    """
+    Tests the ``89d4b8295536_create_latest_metrics_table`` migration by migrating and querying
+    the MLflow Tracking SQLite database located at
+    /mlflow/tests/resources/db/db_version_7ac759974ad8_with_metrics.sql. This database contains
+    metric entries populated by the following metrics generation script:
+    https://gist.github.com/dbczumar/343173c6b8982a0cc9735ff19b5571d9.
+    First, the database is upgraded from its HEAD revision of
+    ``7ac755974ad8_update_run_tags_with_larger_limit`` to the latest revision via
+    ``mlflow db upgrade``.
+    Then, the test confirms that the metric entries returned by calls
+    to ``SqlAlchemyStore.get_run()`` are consistent between the latest revision and the
+    ``7ac755974ad8_update_run_tags_with_larger_limit`` revision. This is confirmed by
+    invoking ``SqlAlchemyStore.get_run()`` for each run id that is present in the upgraded
+    database and comparing the resulting runs' metric entries to a JSON dump taken from the
+    SQLite database prior to the upgrade (located at
+    mlflow/tests/resources/db/db_version_7ac759974ad8_with_metrics_expected_values.json).
+    This JSON dump can be replicated by installing MLflow version 1.2.0 and executing the
+    following code from the directory containing this test suite:
+    .. code-block:: python
+        import json
+        import mlflow
+        from mlflow import MlflowClient
+
+        mlflow.set_tracking_uri(
+            "sqlite:///../../resources/db/db_version_7ac759974ad8_with_metrics.sql"
+        )
+        client = MlflowClient()
+        summary_metrics = {
+            run.info.run_id: run.data.metrics for run in client.search_runs(experiment_ids="0")
+        }
+        with open("dump.json", "w") as dump_file:
+            json.dump(summary_metrics, dump_file, indent=4)
+    """
     current_dir = os.path.dirname(os.path.abspath(__file__))
     db_resources_path = os.path.normpath(
         os.path.join(current_dir, os.pardir, os.pardir, "resources", "db")
@@ -3292,9 +3326,11 @@ def _generate_large_data(store, nb_runs=1000):
 def test_search_runs_returns_expected_results_with_large_experiment(
     store: SqlAlchemyStore,
 ):
-    # NB: This case tests the SQLAlchemyStore implementation of the SearchRuns API to ensure
-    # that search queries over an experiment containing many runs, each with a large number
-    # of metrics, parameters, and tags, are performant and return the expected results
+    """
+    This case tests the SQLAlchemyStore implementation of the SearchRuns API to ensure
+    that search queries over an experiment containing many runs, each with a large number
+    of metrics, parameters, and tags, are performant and return the expected results.
+    """
     experiment_id, run_ids = _generate_large_data(store)
 
     run_results = store.search_runs([experiment_id], None, ViewType.ALL, max_results=100)

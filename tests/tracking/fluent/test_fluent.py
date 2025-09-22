@@ -1096,7 +1096,10 @@ def test_paginate_lt_maxresults_multipage():
 
 
 def test_paginate_lt_maxresults_onepage_nonetoken():
-    # NB: The token passed back on the last page is None, not the empty string
+    """
+    Number of runs is less than max_results and fits on one page.
+    The token passed back on the last page is None, not the emptystring
+    """
     runs = [create_run() for _ in range(5)]
     tokenized_runs = PagedList(runs, None)
     max_results = 50
@@ -1109,10 +1112,12 @@ def test_paginate_lt_maxresults_onepage_nonetoken():
 
 
 def test_paginate_eq_maxresults_blanktoken():
-    # NB: The server might send a token back, or they might not (depending on if they know if
-    # more runs exist). In this example, no token is sent back.
-    # Expected behavior is to NOT query for more pages.
-    # runs returned equal to max_results, blank token
+    """
+    Runs returned are equal to max_results which are equal to a full number of pages.
+    The server might send a token back, or they might not (depending on if they know if
+    more runs exist). In this example, no token is sent back.
+    Expected behavior is to NOT query for more pages.
+    """
     runs = [create_run() for _ in range(10)]
     tokenized_runs = PagedList(runs, "")
     no_token_runs = PagedList([], "")
@@ -1126,9 +1131,12 @@ def test_paginate_eq_maxresults_blanktoken():
 
 
 def test_paginate_eq_maxresults_token():
-    # NB: The server might send a token back, or they might not (depending on if they know if
-    # more runs exist). In this example, a token IS sent back.
-    # Expected behavior is to NOT query for more pages.
+    """
+    Runs returned are equal to max_results which are equal to a full number of pages.
+    The server might send a token back, or they might not (depending on if they know if
+    more runs exist). In this example, a token IS sent back.
+    Expected behavior is to NOT query for more pages.
+    """
     runs = [create_run() for _ in range(10)]
     tokenized_runs = PagedList(runs, "abc")
     blank_runs = PagedList([], "")

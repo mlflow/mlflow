@@ -535,9 +535,10 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 def test_model_load_succeeds_with_missing_data_key_when_data_exists_at_default_path(
     tf_keras_model, model_path, data
 ):
-    # NB: This is a backwards compatibility test to ensure that models saved in MLflow version
-    # <= 0.8.0 can be loaded successfully. These models are missing the `data` flavor
-    # configuration key.
+    """
+    This is a backwards compatibility test to ensure that models saved in MLflow version <= 0.8.0
+    can be loaded successfully. These models are missing the `data` flavor configuration key.
+    """
     mlflow.tensorflow.save_model(
         tf_keras_model, path=model_path, keras_model_kwargs={"save_format": "h5"}
     )
@@ -555,9 +556,10 @@ def test_model_load_succeeds_with_missing_data_key_when_data_exists_at_default_p
 
 @pytest.mark.allow_infer_pip_requirements_fallback
 def test_save_model_with_tf_save_format(model_path):
-    # NB: Ensures that Keras models can be saved with SavedModel format.
-    # Using SavedModel format (save_format="tf") requires that the file extension
-    # is _not_ "h5".
+    """Ensures that Keras models can be saved with SavedModel format.
+    Using SavedModel format (save_format="tf") requires that the file extension
+    is _not_ "h5".
+    """
     keras_model = mock.Mock(spec=tf.keras.Model)
     mlflow.tensorflow.save_model(
         keras_model, path=model_path, keras_model_kwargs={"save_format": "tf"}

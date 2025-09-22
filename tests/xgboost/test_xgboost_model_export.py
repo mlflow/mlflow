@@ -487,10 +487,12 @@ def test_pyfunc_serve_and_score_sklearn(model):
 
 
 def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(xgb_model, model_path):
-    # NB: This test verifies that xgboost models saved in older versions of MLflow are loaded
-    # successfully by mlflow.pyfunc.load_model. These older models specify a pyfunc "data"
-    # field referring directly to a XGBoost model file. Newer models also have the
-    # "model_class" in XGBoost flavor.
+    """
+    This test verifies that xgboost models saved in older versions of MLflow are loaded
+    successfully by ``mlflow.pyfunc.load_model``. These older models specify a pyfunc ``data``
+    field referring directly to a XGBoost model file. Newer models also have the
+    ``model_class`` in XGBoost flavor.
+    """
     model = xgb_model.model
     mlflow.xgboost.save_model(xgb_model=model, path=model_path)
 

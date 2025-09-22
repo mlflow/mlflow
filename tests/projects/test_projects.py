@@ -315,8 +315,10 @@ def test_conda_path(mock_env, expected_conda, expected_activate, monkeypatch):
     ],
 )
 def test_find_conda_executables(mock_env, expected_conda_env_create_path, monkeypatch):
-    # NB: Verify that we correctly determine the path to executables to be used to
-    # create environments (for example, it could be mamba instead of conda)
+    """
+    Verify that we correctly determine the path to executables to be used to
+    create environments (for example, it could be mamba instead of conda)
+    """
     monkeypatch.delenv(CONDA_EXE, raising=False)
     monkeypatch.delenv(MLFLOW_CONDA_HOME.name, raising=False)
     monkeypatch.delenv(MLFLOW_CONDA_CREATE_ENV_CMD.name, raising=False)
@@ -327,9 +329,11 @@ def test_find_conda_executables(mock_env, expected_conda_env_create_path, monkey
 
 
 def test_create_env_with_mamba(monkeypatch):
-    # NB: Test that mamba is called when set, and that we fail when mamba is not available or is
-    # not working. We mock the calls so we do not actually execute mamba (which is not
-    # installed in the test environment anyway)
+    """
+    Test that mamba is called when set, and that we fail when mamba is not available or is
+    not working. We mock the calls so we do not actually execute mamba (which is not
+    installed in the test environment anyway)
+    """
 
     def exec_cmd_mock(cmd, *args, **kwargs):
         if cmd[-1] == "--json":

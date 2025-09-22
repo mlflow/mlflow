@@ -93,6 +93,10 @@ def test_registry_instance_loads_entrypoints():
 
 
 def test_run_context_provider_registry_with_installed_plugin(tmp_path, monkeypatch):
+    """
+    This test requires the package in tests/resources/mlflow-test-plugin to be installed.
+    Ensure that it is installed in your local environment if you are manually running this test.
+    """
     monkeypatch.chdir(tmp_path)
 
     reload(mlflow.tracking.context.registry)

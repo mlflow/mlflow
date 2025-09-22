@@ -3751,10 +3751,14 @@ def test_scorer_CRUD(mlflow_client, store_type):
 @pytest.mark.parametrize("use_async", [False, True])
 @pytest.mark.asyncio
 async def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, store_type, use_async):
-    # NB: End-to-end test that verifies RestStore can log spans via OTLP endpoint:
-    # 1. Creates spans using MLflow's span entities
-    # 2. Uses RestStore.log_spans or log_spans_async to send them via OTLP protocol
-    # 3. Verifies the spans were stored and can be retrieved
+    """
+    End-to-end test that verifies RestStore can log spans to a running server via OTLP endpoint.
+
+    This test:
+    1. Creates spans using MLflow's span entities
+    2. Uses RestStore.log_spans or log_spans_async to send them via OTLP protocol
+    3. Verifies the spans were stored and can be retrieved
+    """
     if store_type == "file":
         pytest.skip("FileStore does not support OTLP span logging")
 

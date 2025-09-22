@@ -29,33 +29,26 @@ class RedundantTestDocstring(Rule):
     def check(
         cls, node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef, path_name: str
     ) -> Self | None:
-        # Only check test files
         if not path_name.startswith("test_") and not path_name.endswith("_test.py"):
             return None
 
-        # Skip conftest.py files as they often have utility functions with docstrings
         if path_name == "conftest.py":
             return None
 
-        # Check if this is a test function or test class
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            # Check if it's a test function
             if not node.name.startswith("test_"):
                 return None
 
-            # Check if the function has a docstring
             docstring = ast.get_docstring(node)
-            if docstring and cls._is_single_line_docstring(docstring):
+            if docstring is not None and cls._is_single_line_docstring(docstring):
                 return cls(node.name)
 
         elif isinstance(node, ast.ClassDef):
-            # Check if it's a test class
             if not node.name.startswith("Test"):
                 return None
 
-            # Check if the class has a docstring
             docstring = ast.get_docstring(node)
-            if docstring and cls._is_single_line_docstring(docstring):
+            if docstring is not None and cls._is_single_line_docstring(docstring):
                 return cls(node.name, has_class_docstring=True)
 
         return None
@@ -63,20 +56,12 @@ class RedundantTestDocstring(Rule):
     @staticmethod
     def _is_single_line_docstring(docstring: str) -> bool:
         """Check if a docstring is a single line (after stripping whitespace)."""
-        # Strip leading/trailing whitespace and check if it's single-line
-        lines = docstring.strip().split("\n")
-        # A single-line docstring has only one line after stripping
-        return len(lines) == 1
+        return docstring.strip().count("\n") == 0
 
     def _message(self) -> str:
-        if self.has_class_docstring:
-            return (
-                f"Test class '{self.function_name}' has a single-line docstring. "
-                f"Single-line docstrings in tests are typically low-value. "
-                f"Either remove it or expand to a meaningful multi-line docstring."
-            )
+        entity_type = "Test class" if self.has_class_docstring else "Test function"
         return (
-            f"Test function '{self.function_name}' has a single-line docstring. "
+            f"{entity_type} '{self.function_name}' has a single-line docstring. "
             f"Single-line docstrings in tests are typically low-value. "
-            f"Either remove it or expand to a meaningful multi-line docstring."
+            f"Either remove it or update the test name to be more descriptive."
         )
