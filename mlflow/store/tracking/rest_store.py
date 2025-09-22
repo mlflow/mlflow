@@ -65,6 +65,7 @@ from mlflow.protos.service_pb2 import (
     DeleteTag,
     DeleteTraces,
     DeleteTraceTag,
+    DeleteTraceTagV4,
     EndTrace,
     FinalizeLoggedModel,
     GetAssessmentRequest,
@@ -109,6 +110,7 @@ from mlflow.protos.service_pb2 import (
     SetLoggedModelTags,
     SetTag,
     SetTraceTag,
+    SetTraceTagV4,
     StartTrace,
     StartTraceV3,
     TraceIdentifier,
@@ -663,6 +665,17 @@ class RestStore(AbstractStore):
             key: The string key of the tag.
             value: The string value of the tag.
         """
+        location, trace_id = parse_trace_id_v4(trace_id)
+        if location is not None:
+            endpoint = f"{get_single_trace_endpoint_v4(location, trace_id)}/tags"
+            req_body = message_to_json(
+                SetTraceTagV4(
+                    key=key,
+                    value=value,
+                )
+            )
+            self._call_endpoint(SetTraceTagV4, req_body, endpoint=endpoint)
+            return
         # Always use v2 endpoint
         req_body = message_to_json(SetTraceTag(key=key, value=value))
         self._call_endpoint(SetTraceTag, req_body, endpoint=get_trace_tag_endpoint(trace_id))
@@ -675,6 +688,14 @@ class RestStore(AbstractStore):
             trace_id: The ID of the trace.
             key: The string key of the tag.
         """
+        location, trace_id = parse_trace_id_v4(trace_id)
+        if location is not None:
+            sql_warehouse_id = MLFLOW_TRACING_SQL_WAREHOUSE_ID.get()
+            endpoint = f"{get_single_trace_endpoint_v4(location, trace_id)}/tags/{key}"
+            req_body = message_to_json(DeleteTraceTagV4(sql_warehouse_id=sql_warehouse_id))
+            self._call_endpoint(DeleteTraceTagV4, req_body, endpoint=endpoint)
+            return
+
         # Always use v2 endpoint
         req_body = message_to_json(DeleteTraceTag(key=key))
         self._call_endpoint(DeleteTraceTag, req_body, endpoint=get_trace_tag_endpoint(trace_id))
