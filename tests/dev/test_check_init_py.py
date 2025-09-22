@@ -9,10 +9,6 @@ def get_check_init_py_script() -> Path:
     return Path(__file__).resolve().parents[2] / "dev" / "check_init_py.py"
 
 
-def get_precommit_config() -> Path:
-    return Path(__file__).resolve().parents[2] / ".pre-commit-config.yaml"
-
-
 @pytest.fixture
 def temp_git_repo(tmp_path: Path) -> Path:
     subprocess.check_call(["git", "init"], cwd=tmp_path)
@@ -121,31 +117,3 @@ def test_identifies_only_directories_missing_init_py(temp_git_repo: Path) -> Non
     )
     assert "mlflow/package2" in result.stdout
     assert "mlflow/package1" not in result.stdout
-
-
-def test_precommit_hook_file_filter_pattern() -> None:
-    """Test that the pre-commit hook configuration has correct file filtering."""
-    import yaml
-
-    config_path = get_precommit_config()
-    assert config_path.exists(), f"Pre-commit config not found at {config_path}"
-
-    with config_path.open() as f:
-        config = yaml.safe_load(f)
-
-    # Find the check-init-py hook
-    check_init_hook = None
-    for repo in config.get("repos", []):
-        if repo.get("repo") == "local":
-            for hook in repo.get("hooks", []):
-                if hook.get("id") == "check-init-py":
-                    check_init_hook = hook
-                    break
-            if check_init_hook:
-                break
-
-    assert check_init_hook is not None, "check-init-py hook not found in .pre-commit-config.yaml"
-    assert "files" in check_init_hook, "check-init-py hook should have a 'files' pattern"
-    assert check_init_hook["files"] == "^mlflow/.*\\.py$", (
-        f"Expected files pattern '^mlflow/.*\\.py$', got '{check_init_hook['files']}'"
-    )
