@@ -56,6 +56,8 @@ class Attachment:
 
         # Fallback to manual mapping for common types
         file_lower = str(file).lower()
+
+        # Image formats
         if file_lower.endswith((".png",)):
             return "image/png"
         elif file_lower.endswith((".jpg", ".jpeg")):
@@ -64,8 +66,12 @@ class Attachment:
             return "image/gif"
         elif file_lower.endswith((".webp",)):
             return "image/webp"
+
+        # Document formats
         elif file_lower.endswith((".pdf",)):
             return "application/pdf"
+
+        # Audio formats
         elif file_lower.endswith((".mp3",)):
             return "audio/mpeg"
         elif file_lower.endswith((".wav",)):
@@ -80,12 +86,15 @@ class Attachment:
             return "audio/flac"
         elif file_lower.endswith((".webm",)):
             return "audio/webm"
+
+        # Video formats
         elif file_lower.endswith((".mp4",)):
             return "video/mp4"
         elif file_lower.endswith((".mov",)):
             return "video/quicktime"
         elif file_lower.endswith((".avi",)):
             return "video/x-msvideo"
+
         return "application/octet-stream"
 
     def ref(self, trace_id: str, span_id: str) -> str:
