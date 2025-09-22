@@ -3,7 +3,6 @@ import sys
 from pathlib import Path
 
 import pytest
-from _pytest.monkeypatch import MonkeyPatch
 
 
 def get_check_init_py_script() -> Path:
@@ -11,12 +10,10 @@ def get_check_init_py_script() -> Path:
 
 
 @pytest.fixture
-def temp_git_repo(tmp_path: Path, monkeypatch: MonkeyPatch) -> Path:
+def temp_git_repo(tmp_path: Path) -> Path:
     subprocess.check_call(["git", "init"], cwd=tmp_path)
     subprocess.check_call(["git", "config", "user.email", "test@example.com"], cwd=tmp_path)
     subprocess.check_call(["git", "config", "user.name", "Test User"], cwd=tmp_path)
-    monkeypatch.chdir(tmp_path)
-
     return tmp_path
 
 
@@ -33,7 +30,10 @@ def test_exits_with_0_when_all_directories_have_init_py(temp_git_repo: Path) -> 
     subprocess.check_call(["git", "commit", "-m", "Initial commit"], cwd=temp_git_repo)
 
     result = subprocess.run(
-        [sys.executable, get_check_init_py_script()], capture_output=True, text=True
+        [sys.executable, get_check_init_py_script()],
+        capture_output=True,
+        text=True,
+        cwd=temp_git_repo,
     )
 
     assert result.returncode == 0
@@ -51,7 +51,10 @@ def test_exits_with_1_when_directories_missing_init_py(temp_git_repo: Path) -> N
     subprocess.check_call(["git", "commit", "-m", "Initial commit"], cwd=temp_git_repo)
 
     result = subprocess.run(
-        [sys.executable, get_check_init_py_script()], capture_output=True, text=True
+        [sys.executable, get_check_init_py_script()],
+        capture_output=True,
+        text=True,
+        cwd=temp_git_repo,
     )
 
     assert result.returncode == 1
@@ -74,7 +77,10 @@ def test_exits_with_0_when_no_python_files_exist(temp_git_repo: Path) -> None:
     subprocess.check_call(["git", "commit", "-m", "Initial commit"], cwd=temp_git_repo)
 
     result = subprocess.run(
-        [sys.executable, get_check_init_py_script()], capture_output=True, text=True
+        [sys.executable, get_check_init_py_script()],
+        capture_output=True,
+        text=True,
+        cwd=temp_git_repo,
     )
 
     assert result.returncode == 0
@@ -98,7 +104,10 @@ def test_identifies_only_directories_missing_init_py(temp_git_repo: Path) -> Non
     subprocess.check_call(["git", "commit", "-m", "Initial commit"], cwd=temp_git_repo)
 
     result = subprocess.run(
-        [sys.executable, get_check_init_py_script()], capture_output=True, text=True
+        [sys.executable, get_check_init_py_script()],
+        capture_output=True,
+        text=True,
+        cwd=temp_git_repo,
     )
 
     assert result.returncode == 1
