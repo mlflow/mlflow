@@ -304,9 +304,20 @@ feedback = Feedback(value=True, rationale="test")
 from mlflow.entities.assessment_source import AssessmentSourceType
 source_obj = AssessmentSourceType.CODE  # Use the default source type
 # Test that Trace is available
-from mlflow.entities import TraceInfo
-trace_info = TraceInfo(request_id="test", experiment_id="0", timestamp_ms=0, execution_time_ms=100)
-trace = Trace(info=trace_info, data=None)
+from mlflow.entities import TraceInfo, TraceState, TraceData
+from mlflow.entities.trace_location import TraceLocation, TraceLocationType, MlflowExperimentLocation
+mlflow_exp_location = MlflowExperimentLocation(experiment_id="0")
+trace_location = TraceLocation(
+    type=TraceLocationType.MLFLOW_EXPERIMENT,
+    mlflow_experiment=mlflow_exp_location
+)
+trace_info = TraceInfo(
+    trace_id="test_trace_id",
+    trace_location=trace_location,
+    request_time=1000,
+    state=TraceState.OK
+)
+trace = Trace(info=trace_info, data=TraceData())
 return {"feedback": feedback, "source": source_obj, "trace": trace}"""
     signature = "()"
     func_name = "test_mlflow_imports"
