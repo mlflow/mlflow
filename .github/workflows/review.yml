@@ -150,7 +150,6 @@ jobs:
           - Never comment on unchanged context lines or pre-existing code
           - **For repetitive issues**: When the same issue appears on many lines (e.g., missing type hints, consistent style violations), leave a representative comment or group similar issues rather than flagging every instance. This avoids overwhelming PR authors with repetitive feedback.
           - Prefer GitHub suggestion code blocks for simple fixes (typos, imports, formatting) using ```suggestion format so maintainers can apply with one click.
-
           - Comment parameters:
             - Single-line: Set `subject_type` to `LINE`, specify `line`
             - Multi-line: Set `subject_type` to `LINE`, specify both `start_line` and `line`
