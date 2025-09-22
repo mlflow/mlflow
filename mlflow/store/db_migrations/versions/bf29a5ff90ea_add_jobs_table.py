@@ -23,7 +23,7 @@ def upgrade():
         sa.Column("creation_time", sa.BigInteger(), default=lambda: int(time.time() * 1000)),
         sa.Column("function_fullname", sa.String(length=500), nullable=False),
         sa.Column("params", sa.Text(), nullable=False),
-        sa.Column("timeout", sa.Integer(), nullable=True),
+        sa.Column("timeout", sa.Float(precision=53), nullable=True),
         sa.Column("status", sa.Integer(), nullable=False),
         sa.Column("result", sa.Text(), nullable=True),
         sa.Column("retry_count", sa.Integer(), default=0),

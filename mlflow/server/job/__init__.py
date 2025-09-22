@@ -33,7 +33,7 @@ class TransientError(RuntimeError):
 
 
 def submit_job(
-    function: Callable[..., Any], params: dict[str, Any], timeout: int | None = None
+    function: Callable[..., Any], params: dict[str, Any], timeout: float | None = None
 ) -> str:
     """
     Submit a job to the job queue. The job is executed at most once.

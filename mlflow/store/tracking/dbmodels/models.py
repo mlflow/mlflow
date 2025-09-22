@@ -1961,9 +1961,9 @@ class SqlJob(Base):
     Job parameters: `Text`.
     """
 
-    timeout = Column(Integer, nullable=True)
+    timeout = Column(sa.types.Float(precision=53), nullable=True)
     """
-    Job execution timeout in seconds: `Integer`
+    Job execution timeout in seconds: `Float`
     """
 
     status = Column(Integer, nullable=False)

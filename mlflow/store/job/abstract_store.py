@@ -13,7 +13,7 @@ class AbstractJobStore(ABC):
     """
 
     @abstractmethod
-    def create_job(self, function_fullname: str, params: str, timeout: int | None = None) -> Job:
+    def create_job(self, function_fullname: str, params: str, timeout: float | None = None) -> Job:
         """
         Create a new job with the specified function and parameters.
 

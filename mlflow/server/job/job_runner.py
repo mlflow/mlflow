@@ -31,7 +31,7 @@ def _exponential_backoff_retry(retry_count: int) -> None:
     raise RetryTask(delay=delay)
 
 
-def _exec_job(job_id: str, function: Callable, params: dict[str, Any], timeout: int | None) -> None:
+def _exec_job(job_id: str, function: Callable, params: dict[str, Any], timeout: float | None) -> None:
     from mlflow.server.job.util import execute_function_with_timeout
 
     job_store = _get_job_store()
