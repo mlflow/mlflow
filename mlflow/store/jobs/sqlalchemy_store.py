@@ -118,7 +118,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
                     f"Job with ID {job_id} not found", error_code=RESOURCE_DOES_NOT_EXIST
                 )
 
-            job.status = JobStatus.DONE.to_int()
+            job.status = JobStatus.SUCCEEDED.to_int()
             job.result = result
 
     def fail_job(self, job_id: str, error: str) -> None:

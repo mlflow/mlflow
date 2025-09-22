@@ -102,7 +102,7 @@ def query_job(job_id: str) -> tuple[JobStatus, Any]:
     """
     job_store = _get_job_store()
     job = job_store.get_job(job_id)
-    if job.status == JobStatus.DONE:
+    if job.status == JobStatus.SUCCEEDED:
         result = json.loads(job.result)
     else:
         result = job.result

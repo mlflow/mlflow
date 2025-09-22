@@ -65,7 +65,7 @@ def test_basic_job(monkeypatch, tmp_path):
         job_id = submit_job(basic_job_fun, {"x": 3, "y": 4})
         time.sleep(1)
         status, result = query_job(job_id)
-        assert status == JobStatus.DONE
+        assert status == JobStatus.SUCCEEDED
         assert result == 7
 
         store = _get_job_store()
@@ -77,7 +77,7 @@ def test_basic_job(monkeypatch, tmp_path):
         assert job.params == '{"x": 3, "y": 4}'
         assert job.timeout is None
         assert job.result == "7"
-        assert job.status == JobStatus.DONE
+        assert job.status == JobStatus.SUCCEEDED
         assert job.retry_count == 0
 
 
@@ -92,7 +92,7 @@ def test_job_json_input_output(monkeypatch, tmp_path):
         job_id = submit_job(json_in_out_fun, {"data": {"x": 3, "y": 4}})
         time.sleep(1)
         status, result = query_job(job_id)
-        assert status == JobStatus.DONE
+        assert status == JobStatus.SUCCEEDED
         assert result == {"res": 7}
 
         store = _get_job_store()
@@ -103,7 +103,7 @@ def test_job_json_input_output(monkeypatch, tmp_path):
         assert job.function_fullname == "test_job.json_in_out_fun"
         assert job.params == '{"data": {"x": 3, "y": 4}}'
         assert job.result == '{"res": 7}'
-        assert job.status == JobStatus.DONE
+        assert job.status == JobStatus.SUCCEEDED
         assert job.retry_count == 0
 
 
@@ -141,7 +141,7 @@ def test_job_resume_on_job_runner_restart(monkeypatch, tmp_path):
         job_runner_proc.wait()  # ensure the job runner process is killed.
 
         # assert that job1 has done, job2 is running, and job3 is pending.
-        assert query_job(job1_id) == (JobStatus.DONE, 7)
+        assert query_job(job1_id) == (JobStatus.SUCCEEDED, 7)
         assert query_job(job2_id) == (JobStatus.RUNNING, None)
         assert query_job(job3_id) == (JobStatus.PENDING, None)
 
@@ -150,9 +150,9 @@ def test_job_resume_on_job_runner_restart(monkeypatch, tmp_path):
         time.sleep(2.5)
 
         # assert all jobs are done.
-        assert query_job(job1_id) == (JobStatus.DONE, 7)
-        assert query_job(job2_id) == (JobStatus.DONE, 11)
-        assert query_job(job3_id) == (JobStatus.DONE, 15)
+        assert query_job(job1_id) == (JobStatus.SUCCEEDED, 7)
+        assert query_job(job2_id) == (JobStatus.SUCCEEDED, 11)
+        assert query_job(job3_id) == (JobStatus.SUCCEEDED, 15)
 
 
 def test_job_resume_on_new_job_runner(monkeypatch, tmp_path):
@@ -176,14 +176,14 @@ def test_job_resume_on_new_job_runner(monkeypatch, tmp_path):
 
     with _setup_job_runner(1, monkeypatch, runner2_tmp_path, backend_store_uri):
         # assert that job1 has done, job2 is running, and job3 is pending.
-        assert query_job(job1_id) == (JobStatus.DONE, 7)
+        assert query_job(job1_id) == (JobStatus.SUCCEEDED, 7)
         assert query_job(job2_id) == (JobStatus.RUNNING, None)
         assert query_job(job3_id) == (JobStatus.PENDING, None)
         time.sleep(10)
         # assert all jobs are done.
-        assert query_job(job1_id) == (JobStatus.DONE, 7)
-        assert query_job(job2_id) == (JobStatus.DONE, 11)
-        assert query_job(job3_id) == (JobStatus.DONE, 15)
+        assert query_job(job1_id) == (JobStatus.SUCCEEDED, 7)
+        assert query_job(job2_id) == (JobStatus.SUCCEEDED, 11)
+        assert query_job(job3_id) == (JobStatus.SUCCEEDED, 15)
 
 
 def test_job_queue_parallelism(monkeypatch, tmp_path):
@@ -193,14 +193,14 @@ def test_job_queue_parallelism(monkeypatch, tmp_path):
         time.sleep(2.5)
 
         # assert that job1 and job2 are done, and job3 and job4 are running
-        assert query_job(job_ids[0]) == (JobStatus.DONE, 1)
-        assert query_job(job_ids[1]) == (JobStatus.DONE, 2)
+        assert query_job(job_ids[0]) == (JobStatus.SUCCEEDED, 1)
+        assert query_job(job_ids[1]) == (JobStatus.SUCCEEDED, 2)
         assert query_job(job_ids[2]) == (JobStatus.RUNNING, None)
         assert query_job(job_ids[3]) == (JobStatus.RUNNING, None)
 
         time.sleep(2.5)
-        assert query_job(job_ids[2]) == (JobStatus.DONE, 3)
-        assert query_job(job_ids[3]) == (JobStatus.DONE, 4)
+        assert query_job(job_ids[2]) == (JobStatus.SUCCEEDED, 3)
+        assert query_job(job_ids[3]) == (JobStatus.SUCCEEDED, 4)
 
 
 def transient_err_fun(tmp_dir: str, succeed_on_nth_run: int):
@@ -240,9 +240,9 @@ def test_job_retry_on_transient_error(monkeypatch, tmp_path):
 
         job2_id = submit_job(transient_err_fun, {"tmp_dir": str(job2_tmp_path), "succeed_on_nth_run": 1})
         time.sleep(3)
-        assert query_job(job2_id) == (JobStatus.DONE, 100)
+        assert query_job(job2_id) == (JobStatus.SUCCEEDED, 100)
         job2 = store.get_job(job2_id)
-        assert job2.status == JobStatus.DONE
+        assert job2.status == JobStatus.SUCCEEDED
         assert job2.result == "100"
         assert job2.retry_count == 1
 
@@ -264,7 +264,7 @@ def test_submit_jobs_from_multi_processes(monkeypatch, tmp_path):
         job_ids = [async_res.get() for async_res in async_res_list]
         time.sleep(3)
         for x in range(4):
-            assert query_job(job_ids[x]) == (JobStatus.DONE, x + 1)
+            assert query_job(job_ids[x]) == (JobStatus.SUCCEEDED, x + 1)
 
 
 def sleep_fun(sleep_secs, tmp_dir):
