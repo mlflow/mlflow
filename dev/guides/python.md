@@ -35,16 +35,21 @@ def foo(s: str) -> int:
 
 ### Exceptions
 
-**Test functions:** The `-> None` return type can be omitted for test functions since they implicitly return `None` and the return value is not used.
+**Test functions:** The `-> None` return type can be omitted for test functions since they implicitly return `None` and the return value is not used. However, **parameter type hints are still required** for all test function parameters.
 
 ```python
-# Acceptable
+# Good - has parameter type hints but no return type hint
 def test_foo(s: str):
     ...
 
 
-# Also acceptable (but not required)
+# Good - has both parameter and return type hints
 def test_foo(s: str) -> None:
+    ...
+
+
+# Bad - missing parameter type hints
+def test_foo(s):
     ...
 ```
 
@@ -126,6 +131,23 @@ os.remove(path)
 # Good
 path.exists()
 path.unlink()
+```
+
+## Pass `pathlib.Path` Objects Directly to `subprocess`
+
+Avoid converting `pathlib.Path` objects to strings when passing them to `subprocess` functions. Modern Python (3.8+) accepts Path objects directly, making the code cleaner and more type-safe.
+
+```python
+import subprocess
+from pathlib import Path
+
+path = Path("some/script.py")
+
+# Bad
+subprocess.check_call(["foo", "bar", str(path)])
+
+# Good
+subprocess.check_call(["foo", "bar", path])
 ```
 
 ## Use next() to Find First Match Instead of Loop-and-Break
