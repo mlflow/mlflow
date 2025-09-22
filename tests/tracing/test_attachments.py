@@ -86,9 +86,8 @@ def test_content_type_inference(filename, expected_type):
 def test_attachment_reference_generation():
     attachment = Attachment(content_type="text/plain", content_bytes=b"test")
     trace_id = "test-trace-123"
-    artifact_uri = "s3://bucket/path"
 
-    ref = attachment.ref(trace_id, artifact_uri)
+    ref = attachment.ref(trace_id)
 
     assert ref.startswith("mlflow-attachment:")
     assert not ref.startswith("mlflow-attachment://")  # JSON format, not URI
@@ -97,7 +96,6 @@ def test_attachment_reference_generation():
     metadata = Attachment.parse_ref(ref)
     assert metadata["attachment_id"] == attachment.id
     assert metadata["trace_id"] == trace_id
-    assert metadata["artifact_uri"] == artifact_uri
     assert metadata["content_type"] == "text/plain"
     assert metadata["size"] == 4
     assert "checksum" in metadata
@@ -108,13 +106,11 @@ def test_attachment_from_ref():
     attachment_id = str(uuid.uuid4())
     content_type = "text/plain"
     trace_id = "test-trace-123"
-    artifact_uri = "s3://bucket/path"
 
     # Create a JSON-based reference
     metadata = {
         "attachment_id": attachment_id,
         "trace_id": trace_id,
-        "artifact_uri": artifact_uri,
         "content_type": content_type,
         "size": 100,
         "checksum": "abc123",
@@ -144,7 +140,6 @@ def test_attachment_from_ref_missing_params():
     metadata = {
         "attachment_id": "test-id",
         "trace_id": "trace-123",
-        "artifact_uri": "s3://bucket",
         # Missing content_type
     }
     json_str = json.dumps(metadata)
@@ -164,13 +159,11 @@ def test_attachment_parse_ref():
     attachment_id = "test-id"
     content_type = "text/plain"
     trace_id = "test-trace"
-    artifact_uri = "s3://bucket/path"
 
     # Create a JSON-based reference
     metadata = {
         "attachment_id": attachment_id,
         "trace_id": trace_id,
-        "artifact_uri": artifact_uri,
         "content_type": content_type,
         "size": 42,
         "checksum": "checksum123",
@@ -183,7 +176,6 @@ def test_attachment_parse_ref():
 
     assert parsed["attachment_id"] == attachment_id
     assert parsed["trace_id"] == trace_id
-    assert parsed["artifact_uri"] == artifact_uri
     assert parsed["content_type"] == content_type
     assert parsed["size"] == 42
 
@@ -206,7 +198,7 @@ def test_attachment_metadata_fields():
     datetime.fromisoformat(attachment.created_at.replace("Z", "+00:00"))
 
     # Check that checksum is included in reference
-    ref = attachment.ref("trace-123", "s3://bucket")
+    ref = attachment.ref("trace-123")
     metadata = Attachment.parse_ref(ref)
 
     expected_checksum = hashlib.sha256(content).hexdigest()
@@ -316,7 +308,7 @@ def test_live_span_to_immutable_span_transfers_attachments():
         live_span = LiveSpan(mock_otel_span, "test-trace-123", "TEST")
 
         attachment = Attachment(content_type="text/plain", content_bytes=b"test")
-        ref = attachment.ref("test-trace-123", "s3://bucket/path")
+        ref = attachment.ref("test-trace-123")
         live_span._attachments[ref] = attachment
 
         immutable_span = live_span.to_immutable_span()

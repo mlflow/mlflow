@@ -89,14 +89,12 @@ class Attachment:
             return "video/x-msvideo"
         return "application/octet-stream"
 
-    def ref(self, trace_id: str, artifact_uri: str | None = None) -> str:
+    def ref(self, trace_id: str) -> str:
         """
         A string representation of the attachment reference.
 
         Args:
             trace_id: The trace ID this attachment belongs to
-            artifact_uri: The artifact URI where the trace is stored.
-                If None, uses a default placeholder.
 
         Returns:
             JSON-based reference string encoded in base64 for URL safety
@@ -104,7 +102,6 @@ class Attachment:
         metadata = {
             "attachment_id": self.id,
             "trace_id": trace_id,
-            "artifact_uri": artifact_uri or "mlflow-artifacts:/",
             "content_type": self.content_type,
             "size": len(self.content_bytes),
             "checksum": hashlib.sha256(self.content_bytes).hexdigest(),
@@ -139,7 +136,6 @@ class Attachment:
 
             attachment_id = metadata["attachment_id"]  # noqa: F841
             trace_id = metadata["trace_id"]  # noqa: F841
-            artifact_uri = metadata["artifact_uri"]  # noqa: F841
             content_type = metadata["content_type"]
             size = metadata.get("size")  # noqa: F841
             checksum = metadata.get("checksum")  # noqa: F841
@@ -149,9 +145,9 @@ class Attachment:
         except (json.JSONDecodeError, KeyError, Exception) as e:
             raise ValueError(f"Invalid attachment reference: {e}")
 
-        # TODO: Implement actual download logic using artifact_uri directly
+        # TODO: Implement actual download logic
         # The variables above will be used to:
-        # 1. Download attachment from artifact_uri
+        # 1. Download attachment using trace_id
         # 2. Verify checksum for data integrity
         # 3. Validate size matches expected
         content_bytes = b""
@@ -170,7 +166,7 @@ class Attachment:
             ref: JSON-based reference string
 
         Returns:
-            Dictionary containing: artifact_uri, trace_id, attachment_id, content_type, size
+            Dictionary containing: trace_id, attachment_id, content_type, size
         """
         if not ref.startswith("mlflow-attachment:"):
             raise ValueError(f"Invalid attachment reference format: {ref}")
