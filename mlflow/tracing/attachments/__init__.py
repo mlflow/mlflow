@@ -78,7 +78,7 @@ class Attachment:
             ".avi": "video/x-msvideo",
         }
 
-        path = Path(file) if not isinstance(file, Path) else file
+        path = Path(file)
         suffix_lower = path.suffix.lower()
 
         return CONTENT_TYPE_MAPPING.get(suffix_lower, "application/octet-stream")
