@@ -298,6 +298,19 @@ service MlflowService {
     };
   }
 
+  // Set a tag on a trace. Tags are mutable and can be updated as desired.
+  rpc setTraceTagV4(SetTraceTagV4) returns (SetTraceTagV4.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "PATCH",
+        path: "/mlflow/traces/{location}/{trace_id}/tags"
+        since { major: 4, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Set Trace Tag V4",
+    };
+  }
+
   // DEPRECATED. Use deleteTraceTagV3 instead.
   rpc deleteTraceTag(DeleteTraceTag) returns (DeleteTraceTag.Response) {
     option (rpc) = {
@@ -321,6 +334,19 @@ service MlflowService {
       }],
       visibility: PUBLIC_UNDOCUMENTED,
       rpc_doc_title: "Delete Trace Tag V3",
+    };
+  }
+
+  // Delete a tag from a trace.
+  rpc deleteTraceTagV4(DeleteTraceTagV4) returns (DeleteTraceTagV4.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/traces/{location}/{trace_id}/tags"
+        since { major: 4, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Delete Trace Tag V4",
     };
   }
 
@@ -2358,6 +2384,27 @@ message SetTraceTagV3 {
   reserved 1;reserved "request_id";
 }
 
+message SetTraceTagV4 {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the trace on which to set a tag.
+  optional string trace_id = 1 [(validate_required) = true];
+
+  // Location of the trace. experiment_id or catalog.schema
+  optional string location = 2 [(validate_required) = true];
+
+  // Name of the tag. Maximum size depends on storage backend.
+  // All storage backends are guaranteed to support key values up to 250 bytes in size.
+  optional string key = 3 [(validate_required) = true];
+
+  // String value of the tag being logged. Maximum size depends on storage backend.
+  // All storage backends are guaranteed to support key values up to 250 bytes in size.
+  optional string value = 4;
+
+  message Response {
+  }
+}
+
 message DeleteTraceTag {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
@@ -2382,6 +2429,25 @@ message DeleteTraceTagV3 {
 
   // Name of the tag to delete.
   optional string key = 2;
+
+  message Response {
+  }
+}
+
+message DeleteTraceTagV4 {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the trace on which to set a tag.
+  optional string trace_id = 1 [(validate_required) = true];
+
+  // Location of the trace.
+  optional string location = 2 [(validate_required) = true];
+
+  // Name of the tag to delete.
+  optional string key = 3 [(validate_required) = true];
+
+  // Optional SQL warehouse ID for setting trace tag.
+  optional string sql_warehouse_id = 4;
 
   message Response {
   }
