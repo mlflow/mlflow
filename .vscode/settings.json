@@ -135,7 +135,6 @@
   // File associations
   "files.associations": {
     "*.mdx": "markdown",
-    "*.ipynb": "jupyter",
     "*.prompt.md": "prompt"
   }
 }
