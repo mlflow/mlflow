@@ -24,6 +24,14 @@ from mlflow.insights.models import (
     Issue,
     IssueSummary,
 )
+from mlflow.insights.models.entities import (
+    ErrorSpan,
+    OperationalMetrics,
+    QualityMetric,
+    QualityMetrics,
+    SlowTool,
+    TimeBucket,
+)
 
 
 @pytest.fixture
@@ -689,18 +697,9 @@ def test_serialization_preserves_timestamps(yaml_file: Path, entity_class, init_
     assert loaded.updated_at == original_updated
 
 
-# Census model tests
-
-
 @pytest.fixture
 def operational_metrics():
     """Create sample operational metrics."""
-    from mlflow.insights.models.entities import (
-        ErrorSpan,
-        OperationalMetrics,
-        SlowTool,
-        TimeBucket,
-    )
 
     return OperationalMetrics(
         total_traces=1000,
@@ -769,7 +768,6 @@ def operational_metrics():
 @pytest.fixture
 def quality_metrics():
     """Create sample quality metrics."""
-    from mlflow.insights.models.entities import QualityMetric, QualityMetrics
 
     return QualityMetrics(
         minimal_responses=QualityMetric(
@@ -798,7 +796,6 @@ def quality_metrics():
 @pytest.fixture
 def census(operational_metrics, quality_metrics):
     """Create a census instance."""
-    from mlflow.insights.models.entities import Census
 
     return Census.create(
         table_name="test_table",
@@ -867,8 +864,6 @@ def test_census_get_time_range(census: Census):
 
 
 def test_time_bucket_model():
-    from mlflow.insights.models.entities import TimeBucket
-
     bucket = TimeBucket(
         time_bucket="2025-09-17T17:00:00",
         total_traces=100,
@@ -884,8 +879,6 @@ def test_time_bucket_model():
 
 
 def test_error_span_model():
-    from mlflow.insights.models.entities import ErrorSpan
-
     span = ErrorSpan(
         error_span_name="database_query",
         count=25,
@@ -900,8 +893,6 @@ def test_error_span_model():
 
 
 def test_slow_tool_model():
-    from mlflow.insights.models.entities import SlowTool
-
     tool = SlowTool(
         tool_span_name="process_data",
         count=500,
@@ -917,8 +908,6 @@ def test_slow_tool_model():
 
 
 def test_quality_metric_model():
-    from mlflow.insights.models.entities import QualityMetric
-
     metric = QualityMetric(
         value=2.5,
         description="Test metric",
@@ -931,15 +920,11 @@ def test_quality_metric_model():
 
 
 def test_census_yaml_serialization(census: Census, tmp_path: Path):
-    from mlflow.insights.models.entities import Census
-
     yaml_file = tmp_path / "census.yaml"
 
-    # Write to YAML
     yaml_content = census.to_yaml()
     yaml_file.write_text(yaml_content)
 
-    # Read back and verify
     loaded_census = Census.from_yaml(yaml_content)
 
     assert loaded_census.metadata.table_name == census.metadata.table_name
@@ -950,25 +935,16 @@ def test_census_yaml_serialization(census: Census, tmp_path: Path):
         == census.quality_metrics.minimal_responses.value
     )
 
-    # Verify time buckets
     assert len(loaded_census.operational_metrics.time_buckets) == 2
     assert loaded_census.operational_metrics.time_buckets[0].time_bucket == datetime.fromisoformat(
         "2025-09-17T17:00:00"
     )
 
-    # Verify error spans
     assert len(loaded_census.operational_metrics.top_error_spans) == 2
     assert loaded_census.operational_metrics.top_error_spans[0].error_span_name == "database_query"
 
 
 def test_census_empty_lists():
-    from mlflow.insights.models.entities import (
-        Census,
-        OperationalMetrics,
-        QualityMetric,
-        QualityMetrics,
-    )
-
     metrics = OperationalMetrics(
         total_traces=100,
         ok_count=100,
