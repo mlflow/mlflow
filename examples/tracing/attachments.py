@@ -1,4 +1,5 @@
 import mlflow
+from mlflow.entities import Trace
 from mlflow.tracing.attachments import Attachment
 
 with mlflow.start_span() as span:
@@ -23,14 +24,14 @@ with mlflow.start_span() as span:
     )
 
 
-trace = mlflow.get_trace(span.trace_id)
+trace: Trace = mlflow.get_trace(span.trace_id)
 print(trace)
-image_ref = trace.data.spans[0].inputs["image"]
-print(image_ref)  # mlflow-attachments://<id>?content_type=image/png&trace_id=tr-xxx
+image_ref: str = trace.data.spans[0].inputs["image"]
+print(image_ref)  # mlflow-attachment:{base64_encoded_json}
 
 # Download attachment
-image_attachment = Attachment.from_ref(image_ref)
-image_data = image_attachment.content_bytes
-image_type = image_attachment.content_type
+image_attachment: Attachment = Attachment.from_ref(image_ref)
+image_data: bytes = image_attachment.content_bytes
+image_type: str = image_attachment.content_type
 
 print(image_data[:20])
