@@ -13,7 +13,9 @@ class Attachment:
     2. A reference to this attachment is created and can be used to retrieve the file later.
     """
 
-    def __init__(self, *, content_type: str, content_bytes: bytes, filename: str | None = None):
+    def __init__(
+        self, *, content_type: str, content_bytes: bytes, filename: str | None = None
+    ) -> None:
         self.id = str(uuid.uuid4())
         self.content_bytes = content_bytes
         self.content_type = content_type
@@ -53,7 +55,7 @@ class Attachment:
             return content_type
 
         # Fallback to manual mapping for common types
-        file_lower = file.lower()
+        file_lower = str(file).lower()
         if file_lower.endswith((".png",)):
             return "image/png"
         elif file_lower.endswith((".jpg", ".jpeg")):
