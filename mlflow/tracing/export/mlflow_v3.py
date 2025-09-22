@@ -186,7 +186,7 @@ class MlflowV3SpanExporter(SpanExporter):
                         updated_attachments = {}
                         for old_ref, attachment in span._attachments.items():
                             # Generate new reference
-                            new_ref = attachment.ref(trace.info.trace_id)
+                            new_ref = attachment.ref(trace.info.trace_id, span.span_id)
                             updated_attachments[new_ref] = attachment
                             attachment_ref_mapping[old_ref] = new_ref
                             attachments.append(attachment)

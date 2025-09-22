@@ -82,8 +82,9 @@ def test_content_type_inference(filename, expected_type):
 def test_attachment_reference_generation():
     attachment = Attachment(content_type="text/plain", content_bytes=b"test")
     trace_id = "test-trace-123"
+    span_id = "span-456"
 
-    ref = attachment.ref(trace_id)
+    ref = attachment.ref(trace_id, span_id)
 
     assert ref.startswith("mlflow-attachment:")
     assert not ref.startswith("mlflow-attachment://")  # JSON format, not URI
@@ -92,6 +93,7 @@ def test_attachment_reference_generation():
     metadata = Attachment.parse_ref(ref)
     assert metadata["attachment_id"] == attachment.id
     assert metadata["trace_id"] == trace_id
+    assert metadata["span_id"] == span_id
     assert metadata["content_type"] == "text/plain"
     assert metadata["size"] == 4
 
@@ -100,11 +102,13 @@ def test_attachment_from_ref():
     attachment_id = str(uuid.uuid4())
     content_type = "text/plain"
     trace_id = "test-trace-123"
+    span_id = "span-456"
 
     # Create a JSON-based reference
     metadata = {
         "attachment_id": attachment_id,
         "trace_id": trace_id,
+        "span_id": span_id,
         "content_type": content_type,
         "size": 100,
     }
@@ -132,6 +136,7 @@ def test_attachment_from_ref_missing_params():
     metadata = {
         "attachment_id": "test-id",
         "trace_id": "trace-123",
+        "span_id": "span-456",
         # Missing content_type
     }
     json_str = json.dumps(metadata)
@@ -151,11 +156,13 @@ def test_attachment_parse_ref():
     attachment_id = "test-id"
     content_type = "text/plain"
     trace_id = "test-trace"
+    span_id = "span-456"
 
     # Create a JSON-based reference
     metadata = {
         "attachment_id": attachment_id,
         "trace_id": trace_id,
+        "span_id": span_id,
         "content_type": content_type,
         "size": 42,
     }
@@ -167,6 +174,7 @@ def test_attachment_parse_ref():
 
     assert parsed["attachment_id"] == attachment_id
     assert parsed["trace_id"] == trace_id
+    assert parsed["span_id"] == span_id
     assert parsed["content_type"] == content_type
     assert parsed["size"] == 42
 
@@ -186,7 +194,7 @@ def test_attachment_metadata_fields():
     assert attachment.filename == filename
 
     # Check that filename is included in reference
-    ref = attachment.ref("trace-123")
+    ref = attachment.ref("trace-123", "span-456")
     metadata = Attachment.parse_ref(ref)
 
     assert metadata["filename"] == filename
@@ -234,7 +242,7 @@ def test_live_span_set_inputs_with_attachments():
 
         attachment = Attachment(content_type="text/plain", content_bytes=b"test")
 
-        # Mock the ref method to work with LiveSpan's single argument call
+        # Mock the ref method to work with LiveSpan's two argument call
         with patch.object(attachment, "ref") as mock_ref:
             mock_ref.return_value = "mlflow-attachment:mocked_ref"
             inputs = {"text_param": "hello", "file_attachment": attachment}
@@ -268,7 +276,7 @@ def test_live_span_set_outputs_with_attachments():
 
         attachment = Attachment(content_type="image/png", content_bytes=b"fake-png-data")
 
-        # Mock the ref method to work with LiveSpan's single argument call
+        # Mock the ref method to work with LiveSpan's two argument call
         with patch.object(attachment, "ref") as mock_ref:
             mock_ref.return_value = "mlflow-attachment:mocked_output_ref"
             outputs = {"result": "success", "generated_image": attachment}
@@ -293,7 +301,7 @@ def test_live_span_to_immutable_span_transfers_attachments():
         live_span = LiveSpan(mock_otel_span, "test-trace-123", "TEST")
 
         attachment = Attachment(content_type="text/plain", content_bytes=b"test")
-        ref = attachment.ref("test-trace-123")
+        ref = attachment.ref("test-trace-123", "test-span-456")
         live_span._attachments[ref] = attachment
 
         immutable_span = live_span.to_immutable_span()

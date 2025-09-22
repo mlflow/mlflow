@@ -86,12 +86,13 @@ class Attachment:
             return "video/x-msvideo"
         return "application/octet-stream"
 
-    def ref(self, trace_id: str) -> str:
+    def ref(self, trace_id: str, span_id: str) -> str:
         """
         A string representation of the attachment reference.
 
         Args:
             trace_id: The trace ID this attachment belongs to
+            span_id: The span ID this attachment belongs to
 
         Returns:
             JSON-based reference string encoded in base64 for URL safety
@@ -99,6 +100,7 @@ class Attachment:
         metadata = {
             "attachment_id": self.id,
             "trace_id": trace_id,
+            "span_id": span_id,
             "content_type": self.content_type,
             "size": len(self.content_bytes),
         }
@@ -131,6 +133,7 @@ class Attachment:
 
             attachment_id = metadata["attachment_id"]  # noqa: F841
             trace_id = metadata["trace_id"]  # noqa: F841
+            span_id = metadata["span_id"]  # noqa: F841
             content_type = metadata["content_type"]
             size = metadata.get("size")  # noqa: F841
             filename = metadata.get("filename")
@@ -154,7 +157,7 @@ class Attachment:
             ref: JSON-based reference string
 
         Returns:
-            Dictionary containing: trace_id, attachment_id, content_type, size
+            Dictionary containing: trace_id, span_id, attachment_id, content_type, size
         """
         if not ref.startswith("mlflow-attachment:"):
             raise ValueError(f"Invalid attachment reference format: {ref}")

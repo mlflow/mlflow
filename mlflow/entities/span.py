@@ -512,7 +512,7 @@ class LiveSpan(Span):
                 if isinstance(value, Attachment):
                     # Generate attachment reference and store the attachment
                     # artifact_uri will be updated during trace export
-                    ref = value.ref(self.trace_id)
+                    ref = value.ref(self.trace_id, self.span_id)
                     self._attachments[ref] = value
                     processed_inputs[key] = ref
                 else:
@@ -532,7 +532,7 @@ class LiveSpan(Span):
                 if isinstance(value, Attachment):
                     # Generate attachment reference and store the attachment
                     # artifact_uri will be updated during trace export
-                    ref = value.ref(self.trace_id)
+                    ref = value.ref(self.trace_id, self.span_id)
                     self._attachments[ref] = value
                     processed_outputs[key] = ref
                 else:
