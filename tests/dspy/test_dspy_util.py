@@ -6,7 +6,12 @@ import pytest
 from packaging.version import Version
 
 import mlflow
-from mlflow.dspy.util import log_dspy_dataset, log_dspy_module_params, save_dspy_module_state
+from mlflow.dspy.util import (
+    log_dspy_dataset,
+    log_dspy_lm_state,
+    log_dspy_module_params,
+    save_dspy_module_state,
+)
 from mlflow.tracking import MlflowClient
 
 
@@ -86,3 +91,37 @@ def test_log_dataset(tmp_path):
             ["What is 2 + 2?", "4"],
         ],
     }
+
+
+def test_log_dspy_lm_state():
+    lm = dspy.LM(
+        model="openai/gpt-4o-mini",
+        temperature=0.7,
+        max_tokens=1000,
+        cache=True,
+        top_p=0.9,
+        api_key="secret-key",
+        api_base="https://api.openai.com",
+    )
+    with dspy.context(lm=lm):
+        with mlflow.start_run():
+            log_dspy_lm_state()
+
+        run = mlflow.last_active_run()
+        assert "lm_params" in run.data.params
+
+        lm_params = json.loads(run.data.params["lm_params"])
+
+        # Verify expected attributes are present
+        assert lm_params == {
+            "model": "openai/gpt-4o-mini",
+            "cache": True,
+            "model_type": "chat",
+            "temperature": 0.7,
+            "max_tokens": 1000,
+            "top_p": 0.9,
+        }
+
+        # Verify sensitive attributes are filtered out
+        assert "api_key" not in lm_params
+        assert "api_base" not in lm_params

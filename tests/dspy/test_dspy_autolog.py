@@ -619,7 +619,19 @@ def test_autolog_log_compile(log_compiles):
     if log_compiles:
         run = mlflow.last_active_run()
         assert run is not None
-        assert run.data.params == {"kwarg1": "1", "kwarg2": "2"}
+        assert run.data.params == {
+            "kwarg1": "1",
+            "kwarg2": "2",
+            "lm_params": json.dumps(
+                {
+                    "cache": True,
+                    "max_tokens": 1000,
+                    "model": "dummy",
+                    "model_type": "chat",
+                    "temperature": 0.0,
+                }
+            ),
+        }
         client = MlflowClient()
         artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
         assert "best_model.json" in artifacts
@@ -755,18 +767,18 @@ is_2_7_or_newer = Version(importlib.metadata.version("dspy")) >= Version("2.7.0"
 def test_autolog_log_evals(
     tmp_path, log_evals, return_outputs, lm, examples, expected_result_table
 ):
-    dspy.settings.configure(lm=lm)
-    program = Predict("question -> answer")
-    if is_2_7_or_newer:
-        evaluator = Evaluate(devset=examples, metric=answer_exact_match)
-    else:
-        # return_outputs arg does not exist after 2.7
-        evaluator = Evaluate(
-            devset=examples, metric=answer_exact_match, return_outputs=return_outputs
-        )
-
     mlflow.dspy.autolog(log_evals=log_evals)
-    evaluator(program, devset=examples)
+
+    with dspy.context(lm=lm):
+        program = Predict("question -> answer")
+        if is_2_7_or_newer:
+            evaluator = Evaluate(devset=examples, metric=answer_exact_match)
+        else:
+            # return_outputs arg does not exist after 2.7
+            evaluator = Evaluate(
+                devset=examples, metric=answer_exact_match, return_outputs=return_outputs
+            )
+        evaluator(program, devset=examples)
 
     run = mlflow.last_active_run()
     if log_evals:
@@ -778,6 +790,15 @@ def test_autolog_log_evals(
             "Predict.signature.fields.1.description": "${answer}",
             "Predict.signature.fields.1.prefix": "Answer:",
             "Predict.signature.instructions": "Given the fields `question`, produce the fields `answer`.",  # noqa: E501
+            "lm_params": json.dumps(
+                {
+                    "cache": True,
+                    "max_tokens": 1000,
+                    "model": "dummy",
+                    "model_type": "chat",
+                    "temperature": 0.0,
+                }
+            ),
         }
         client = MlflowClient()
         artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
@@ -849,6 +870,15 @@ def test_autolog_nested_evals():
             "Predict.signature.fields.1.description": "${answer}",
             "Predict.signature.fields.1.prefix": "Answer:",
             "Predict.signature.instructions": "Given the fields `question`, produce the fields `answer`.",  # noqa: E501
+            "lm_params": json.dumps(
+                {
+                    "cache": True,
+                    "max_tokens": 1000,
+                    "model": "dummy",
+                    "model_type": "chat",
+                    "temperature": 0.0,
+                }
+            ),
         }
         artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
         assert "model.json" in artifacts
@@ -924,6 +954,15 @@ def test_autolog_log_compile_with_evals():
             "Predict.signature.fields.1.description": "${answer}",
             "Predict.signature.fields.1.prefix": "Answer:",
             "Predict.signature.instructions": "Given the fields `question`, produce the fields `answer`.",  # noqa: E501
+            "lm_params": json.dumps(
+                {
+                    "cache": True,
+                    "max_tokens": 1000,
+                    "model": "dummy",
+                    "model_type": "chat",
+                    "temperature": 0.0,
+                }
+            ),
         }
 
 
