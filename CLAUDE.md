@@ -117,9 +117,6 @@ yarn --cwd mlflow/server/js check-all
 ```bash
 # Run tests with minimal dependencies (skinny client)
 uv run bash dev/run-python-skinny-tests.sh
-
-# Test in Docker container
-uv run bash dev/run-test-container.sh
 ```
 
 ### Documentation

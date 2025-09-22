@@ -155,6 +155,7 @@ mlflow = [
 where = ["."]
 include = ["mlflow", "mlflow.*"]
 exclude = ["tests", "tests.*"]
+namespaces = false
 
 # Package metadata: can't be updated manually, use dev/pyproject.py
 # -----------------------------------------------------------------
@@ -164,7 +165,7 @@ exclude = ["tests", "tests.*"]
 dev = [{ include-group = "lint" }, { include-group = "test" }]
 lint = [
   "ruff==0.12.10",
-  "black[jupyter]==23.7.0",
+  "black==23.7.0",
   "blacken-docs==1.18.0",
   "pre-commit==4.0.1",
   "toml==0.10.2",
@@ -180,8 +181,10 @@ test = [
   "pytest-repeat",
   "pytest-cov",
   "pytest-timeout",
-  "pytest-localserver==0.5.0",
 ]
+
+[tool.uv]
+required-version = "==0.8.18"
 
 [tool.uv.workspace]
 members = ["dev/clint"]

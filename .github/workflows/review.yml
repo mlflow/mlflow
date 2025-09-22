@@ -19,7 +19,7 @@ jobs:
       contents: read
       models: read
       pull-requests: write
-    timeout-minutes: 10
+    timeout-minutes: 20
     # Run on pull_request events from mlflow/mlflow (not forks) or when anyone comments '/review' on a pull request
     if: >
       (github.event_name == 'pull_request' &&
@@ -78,11 +78,9 @@ jobs:
           sparse-checkout: |
             dev
       - uses: astral-sh/setup-uv@f0ec1fc3b38f5e7cd731bb6ce540c5af426746bb # v6.1.0
-        with:
-          version: 0.7.8
       - name: Install codex
         run: |
-          curl -L -o codex.tar.gz https://github.com/openai/codex/releases/download/rust-v0.25.0/codex-x86_64-unknown-linux-musl.tar.gz
+          curl -L -o codex.tar.gz https://github.com/openai/codex/releases/download/rust-v0.39.0/codex-x86_64-unknown-linux-musl.tar.gz
           tar -xzf codex.tar.gz
           mv codex-x86_64-unknown-linux-musl codex
           chmod +x codex
@@ -162,9 +160,9 @@ jobs:
 
       - name: Run codex
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.issue.pull_request.html_url || github.event.pull_request.html_url}}
         run: |
+          ./codex login --api-key "${{ secrets.OPENAI_API_KEY }}"
           # Use timeout in case codex hangs
-          timeout 5m ./codex exec --skip-git-repo-check "Can you review $PR_URL?" || true
+          timeout 10m ./codex exec --skip-git-repo-check "Can you review $PR_URL?" || true

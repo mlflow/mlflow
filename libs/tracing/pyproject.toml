@@ -94,3 +94,4 @@ exclude = [
   "tests",
   "tests.*",
 ]
+namespaces = false
