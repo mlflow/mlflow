@@ -2750,6 +2750,7 @@ class MlflowClient:
         step: int | None = None,
         timestamp: int | None = None,
         synchronous: bool | None = None,
+        **kwargs,
     ) -> None:
         """
         Logs an image in MLflow, supporting two use cases:
@@ -2817,8 +2818,18 @@ class MlflowClient:
                 logging operation. If None, read from environment variable
                 `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
 
+        Other Parameters
+        ----------------
+        **kwargs
+            Additional keyword arguments to be passed to `PIL.Image.save
+            <https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image.save>`_.
+            This can be used to control image quality and format. For example, to save a
+            JPEG image with 80% quality, you would pass `artifact_file="image.jpg", quality=80`.
+            To save a time-stepped image as a JPEG, you would pass `key="img", format="jpeg",
+            quality=80`. Supported arguments depend on the image format.
+
         .. code-block:: python
-            :caption: Time-stepped image logging numpy example
+            :caption: Legacy artifact file image logging with quality control
 
             import mlflow
             import numpy as np
@@ -2826,54 +2837,8 @@ class MlflowClient:
             image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
             with mlflow.start_run() as run:
                 client = mlflow.MlflowClient()
-                client.log_image(run.info.run_id, image, key="dogs", step=3)
-
-        .. code-block:: python
-            :caption: Time-stepped image logging pillow example
-
-            import mlflow
-            from PIL import Image
-
-            image = Image.new("RGB", (100, 100))
-            with mlflow.start_run() as run:
-                client = mlflow.MlflowClient()
-                client.log_image(run.info.run_id, image, key="dogs", step=3)
-
-        .. code-block:: python
-            :caption: Time-stepped image logging with mlflow.Image example
-
-            import mlflow
-            from PIL import Image
-
-            # Saving an image to retrieve later.
-            Image.new("RGB", (100, 100)).save("image.png")
-
-            image = mlflow.Image("image.png")
-            with mlflow.start_run() as run:
-                client = mlflow.MlflowClient()
-                client.log_image(run.info.run_id, image, key="dogs", step=3)
-
-        .. code-block:: python
-            :caption: Legacy artifact file image logging numpy example
-
-            import mlflow
-            import numpy as np
-
-            image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
-            with mlflow.start_run() as run:
-                client = mlflow.MlflowClient()
-                client.log_image(run.info.run_id, image, "image.png")
-
-        .. code-block:: python
-            :caption: Legacy artifact file image logging pillow example
-
-            import mlflow
-            from PIL import Image
-
-            image = Image.new("RGB", (100, 100))
-            with mlflow.start_run() as run:
-                client = mlflow.MlflowClient()
-                client.log_image(run.info.run_id, image, "image.png")
+                # Log as a JPEG with 85% quality
+                client.log_image(run.info.run_id, image, "image.jpg", quality=85)
         """
         synchronous = (
             synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
@@ -2910,7 +2875,8 @@ class MlflowClient:
 
         if artifact_file is not None:
             with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
-                image.save(tmp_path)
+                # CHANGED: Pass kwargs directly to the save method
+                image.save(tmp_path, **kwargs)
 
         elif key is not None:
             # Check image key for invalid characters
@@ -2929,15 +2895,18 @@ class MlflowClient:
             filename_uuid = str(uuid.uuid4())
             # TODO: reconsider the separator used here since % has special meaning in URL encoding.
             # See https://github.com/mlflow/mlflow/issues/14136 for more details.
-            # Construct a filename uuid that does not start with hex digits
             filename_uuid = f"{random.choice(string.ascii_lowercase[6:])}{filename_uuid[1:]}"
             uncompressed_filename = (
                 f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{filename_uuid}"
             )
             compressed_filename = f"{uncompressed_filename}%compressed"
 
+            # NEW: Determine file format from kwargs, defaulting to
+            #  'png' for backward compatibility
+            file_format = kwargs.get("format", "png").lower()
+
             # Save full-resolution image
-            image_filepath = f"{uncompressed_filename}.png"
+            image_filepath = f"{uncompressed_filename}.{file_format}"
             compressed_image_filepath = f"{compressed_filename}.webp"
 
             # Need to make a resize copy before running thread for thread safety
@@ -2946,12 +2915,15 @@ class MlflowClient:
 
             if synchronous:
                 with self._log_artifact_helper(run_id, image_filepath) as tmp_path:
-                    image.save(tmp_path)
+                    # CHANGED: Pass kwargs to the save call for the full-resolution image
+                    image.save(tmp_path, **kwargs)
             else:
                 self._log_artifact_async_helper(run_id, image_filepath, image)
 
             if synchronous:
                 with self._log_artifact_helper(run_id, compressed_image_filepath) as tmp_path:
+                    # NOTE: The compressed thumbnail is an internal optimization.
+                    # We do not pass user kwargs here to ensure it remains a small WEBP file.
                     compressed_image.save(tmp_path)
             else:
                 self._log_artifact_async_helper(run_id, compressed_image_filepath, compressed_image)

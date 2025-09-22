@@ -314,3 +314,49 @@ def test_async_log_image_flush():
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         files = os.listdir(run_artifact_dir)
         assert len(files) == 100 * 2
+
+
+def test_log_image_with_pil_options():
+    """Test that extra kwargs are passed to PIL.Image.save."""
+    import numpy as np
+    from PIL import Image
+
+    image_data = np.random.randint(0, 256, size=(32, 32, 3), dtype=np.uint8)
+    artifact_path = "images"
+
+    with mlflow.start_run() as run:
+        # Test artifact_file mode
+        mlflow.log_image(
+            image_data,
+            artifact_file=f"{artifact_path}/test_quality.jpg",
+            quality=85,
+            optimize=True,
+        )
+
+        # Test key/step mode
+        mlflow.log_image(
+            image_data,
+            key="my_jpeg_image",
+            step=1,
+            format="jpeg",
+            quality=90,
+        )
+
+    # Download and verify the artifact_file image
+    downloaded_path = mlflow.artifacts.download_artifacts(
+        run_id=run.info.run_id, artifact_path=f"{artifact_path}/test_quality.jpg"
+    )
+    with Image.open(downloaded_path) as img:
+        assert img.format == "JPEG"
+
+    # Download and verify the key/step image
+    client = mlflow.MlflowClient()
+    artifacts = client.list_artifacts(run.info.run_id, path="images")
+    jpeg_artifact = next((a for a in artifacts if a.path.endswith(".jpeg")), None)
+    assert jpeg_artifact is not None
+
+    downloaded_key_path = mlflow.artifacts.download_artifacts(
+        run_id=run.info.run_id, artifact_path=jpeg_artifact.path
+    )
+    with Image.open(downloaded_key_path) as img:
+        assert img.format == "JPEG"
