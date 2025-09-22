@@ -19,7 +19,6 @@ const GetStartedCard = ({ action }: { action: QuickAction }) => {
   const containerStyles = getStartedCardContainerStyles(theme);
   const contentStyles = getStartedCardContentStyles(theme);
   const iconWrapperStyles = getStartedIconWrapperStyles(theme);
-  const ctaStyles = cardCtaStyles(theme);
 
   const card = (
     <div css={containerStyles}>

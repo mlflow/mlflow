@@ -1,11 +1,20 @@
-import { ArrowRightIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import type { ComponentType, ReactNode } from 'react';
+import { Spacer, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { Link } from '../../common/utils/RoutingUtils';
 import { homeNewsItems } from '../news-items';
-import { cardBaseStyles, cardCtaStyles, sectionHeaderStyles } from './cardStyles';
+import { sectionHeaderStyles, discoverNewsCardContainerStyles, getStartedCardLinkStyles } from './cardStyles';
 
-const NewsThumbnail = ({ gradient, label }: { gradient: string; label: React.ReactNode }) => {
+type NewsThumbnailProps = {
+  gradient: string;
+  title: ReactNode;
+  description: ReactNode;
+  icon?: ComponentType<{ className?: string; css?: any }>;
+};
+
+const NewsThumbnail = ({ gradient, title, description, icon: IconComponent }: NewsThumbnailProps) => {
   const { theme } = useDesignSystemTheme();
+
   return (
     <div
       css={{
@@ -13,13 +22,26 @@ const NewsThumbnail = ({ gradient, label }: { gradient: string; label: React.Rea
         aspectRatio: '16 / 9',
         background: gradient,
         display: 'flex',
-        alignItems: 'flex-end',
+        flexDirection: 'column',
         padding: theme.spacing.md,
-        color: theme.colors.textSecondary,
-        fontWeight: theme.typography.typographyMediumFontWeight,
+        gap: theme.spacing.md,
       }}
     >
-      <span>{label}</span>
+      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+        <Typography.Text strong color="primary">
+          {title}
+        </Typography.Text>
+        {description ? (
+          <Typography.Text color="secondary">{description}</Typography.Text>
+        ) : (
+          <Spacer size="sm" />
+        )}
+      </div>
+      {IconComponent && (
+        <div css={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', flex: 1 }}>
+          <IconComponent css={{ color: theme.colors.white, fontSize: 24 }} />
+        </div>
+      )}
     </div>
   );
 };
@@ -27,33 +49,29 @@ const NewsThumbnail = ({ gradient, label }: { gradient: string; label: React.Rea
 const DiscoverNewsCard = ({
   title,
   description,
-  ctaLabel,
   link,
   componentId,
   thumbnail,
 }: (typeof homeNewsItems)[number]) => {
   const { theme } = useDesignSystemTheme();
-  const baseStyles = cardBaseStyles(theme);
-  const ctaStyles = cardCtaStyles(theme);
+  const linkStyles = getStartedCardLinkStyles(theme);
+  const containerStyles = discoverNewsCardContainerStyles(theme);
 
-  const content = (
-    <>
-      <NewsThumbnail gradient={thumbnail.gradient} label={thumbnail.label} />
-      <Typography.Title level={4} css={{ margin: 0 }}>
-        {title}
-      </Typography.Title>
-      <Typography.Text css={{ color: theme.colors.textSecondary }}>{description}</Typography.Text>
-      <span css={{ ...ctaStyles, marginTop: 'auto' }}>
-        {ctaLabel}
-        <ArrowRightIcon css={{ width: 16, height: 16 }} />
-      </span>
-    </>
+  const card = (
+    <div css={containerStyles}>
+      <NewsThumbnail
+        gradient={thumbnail.gradient}
+        title={title}
+        description={description}
+        icon={thumbnail.icon}
+      />
+    </div>
   );
 
   if (link.type === 'internal') {
     return (
-      <Link to={link.to} css={baseStyles} data-component-id={componentId}>
-        {content}
+      <Link to={link.to} css={linkStyles} data-component-id={componentId}>
+        {card}
       </Link>
     );
   }
@@ -63,10 +81,10 @@ const DiscoverNewsCard = ({
       href={link.href}
       target={link.target ?? '_blank'}
       rel={link.rel ?? 'noopener noreferrer'}
-      css={baseStyles}
+      css={linkStyles}
       data-component-id={componentId}
     >
-      {content}
+      {card}
     </a>
   );
 };
@@ -77,19 +95,22 @@ export const DiscoverNews = () => {
   return (
     <section css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
       <Typography.Title level={3} css={sectionHeaderStyles}>
-        <FormattedMessage defaultMessage="Explore news" description="Home page news section title" />
+        <FormattedMessage defaultMessage="Discover new features" description="Home page news section title" />
       </Typography.Title>
-      <div
-        css={{
-          display: 'grid',
-          gap: theme.spacing.lg,
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-        }}
-      >
-        {homeNewsItems.map((item) => (
-          <DiscoverNewsCard key={item.id} {...item} />
-        ))}
-      </div>
+      <section css={{ width: '100%', minWidth: 0 }}>
+        <div
+          css={{
+            width: '100%',
+            display: 'flex',
+            gap: theme.spacing.sm + theme.spacing.xs,
+            flexWrap: 'wrap',
+          }}
+        >
+          {homeNewsItems.map((item) => (
+            <DiscoverNewsCard key={item.id} {...item} />
+          ))}
+        </div>
+      </section>
       <Typography.Link
         componentId="mlflow.home.news.view_more"
         href="https://mlflow.org/blog/"

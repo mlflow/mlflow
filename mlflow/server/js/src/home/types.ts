@@ -9,7 +9,6 @@ export interface HomeQuickActionDefinition {
   icon: ComponentType<{ className?: string; css?: any }>;
   title: ReactNode;
   description: ReactNode;
-  ctaLabel: ReactNode;
   link: HomeNavigationLink;
   componentId: string;
 }
@@ -18,12 +17,12 @@ export interface HomeNewsItemDefinition {
   id: string;
   title: ReactNode;
   description: ReactNode;
-  ctaLabel: ReactNode;
   link: HomeNavigationLink;
   componentId: string;
   thumbnail: {
-    label: ReactNode;
     gradient: string;
+    label?: ReactNode;
+    icon?: ComponentType<{ className?: string; css?: any }>;
   };
 }
 

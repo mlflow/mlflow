@@ -21,12 +21,6 @@ export const homeQuickActions: HomeQuickActionDefinition[] = [
         description="Home page quick action description for logging traces"
       />
     ),
-    ctaLabel: (
-      <FormattedMessage
-        defaultMessage="Open tracing"
-        description="Home page quick action button label for logging traces"
-      />
-    ),
     link: {
       type: 'external',
       href: 'https://mlflow.org/docs/latest/llms/tracing/index.html',
@@ -48,12 +42,6 @@ export const homeQuickActions: HomeQuickActionDefinition[] = [
       <FormattedMessage
         defaultMessage="Iterate on quality with offline evaluations and comparisons."
         description="Home page quick action description for running evaluations"
-      />
-    ),
-    ctaLabel: (
-      <FormattedMessage
-        defaultMessage="View evaluations"
-        description="Home page quick action button label for running evaluations"
       />
     ),
     link: {
@@ -79,12 +67,6 @@ export const homeQuickActions: HomeQuickActionDefinition[] = [
         description="Home page quick action description for training models"
       />
     ),
-    ctaLabel: (
-      <FormattedMessage
-        defaultMessage="Browse training guides"
-        description="Home page quick action button label for training models"
-      />
-    ),
     link: {
       type: 'internal',
       to: ExperimentTrackingRoutes.experimentsObservatoryRoute,
@@ -104,12 +86,6 @@ export const homeQuickActions: HomeQuickActionDefinition[] = [
       <FormattedMessage
         defaultMessage="Manage prompt updates and collaborate across teams."
         description="Home page quick action description for registering prompts"
-      />
-    ),
-    ctaLabel: (
-      <FormattedMessage
-        defaultMessage="Go to prompts"
-        description="Home page quick action button label for registering prompts"
       />
     ),
     link: {

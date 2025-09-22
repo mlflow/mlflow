@@ -80,3 +80,27 @@ export const getStartedCardContentStyles = (theme: DesignSystemTheme) => ({
   gap: theme.spacing.xs,
   flex: 1,
 });
+
+export const discoverNewsCardContainerStyles = (theme: DesignSystemTheme) => ({
+  overflow: 'hidden',
+  border: `1px solid ${theme.colors.actionDefaultBorderDefault}`,
+  borderRadius: theme.borders.borderRadiusMd,
+  background: theme.colors.backgroundPrimary,
+  padding: theme.spacing.sm + theme.spacing.xs,
+  display: 'flex',
+  flexDirection: 'column' as const,
+  gap: theme.spacing.sm,
+  boxSizing: 'border-box' as const,
+  boxShadow: theme.shadows.sm,
+  cursor: 'pointer',
+  transition: 'background 150ms ease',
+  height: '100%',
+  width: 320,
+  minWidth: 320,
+  '&:hover': {
+    background: theme.colors.actionDefaultBackgroundHover,
+  },
+  '&:active': {
+    background: theme.colors.actionDefaultBackgroundPress,
+  },
+});
