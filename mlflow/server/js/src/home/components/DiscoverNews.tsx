@@ -77,7 +77,7 @@ export const DiscoverNews = () => {
   return (
     <section css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
       <Typography.Title level={3} css={sectionHeaderStyles}>
-        <FormattedMessage defaultMessage="What's new" description="Home page news section title" />
+        <FormattedMessage defaultMessage="Explore news" description="Home page news section title" />
       </Typography.Title>
       <div
         css={{
@@ -95,7 +95,7 @@ export const DiscoverNews = () => {
         href="https://mlflow.org/blog/"
         target="_blank"
         rel="noopener noreferrer"
-        css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}
+        css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs, alignSelf: 'flex-end' }}
       >
         <span>{'>>>'}</span>
         <FormattedMessage defaultMessage="See more announcements" description="Home page news section view more link" />

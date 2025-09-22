@@ -34,3 +34,49 @@ export const cardCtaStyles = (theme: DesignSystemTheme) => ({
 });
 
 export const sectionHeaderStyles = { margin: 0 } as const;
+
+export const getStartedCardLinkStyles = (theme: DesignSystemTheme) => ({
+  textDecoration: 'none',
+  color: theme.colors.textPrimary,
+  display: 'block',
+});
+
+export const getStartedCardContainerStyles = (theme: DesignSystemTheme) => ({
+  overflow: 'hidden',
+  border: `1px solid ${theme.colors.actionDefaultBorderDefault}`,
+  borderRadius: theme.borders.borderRadiusMd,
+  background: theme.colors.backgroundPrimary,
+  padding: theme.spacing.sm + theme.spacing.xs,
+  display: 'flex',
+  gap: theme.spacing.sm,
+  width: 320,
+  minWidth: 320,
+  boxSizing: 'border-box' as const,
+  boxShadow: theme.shadows.sm,
+  cursor: 'pointer',
+  transition: 'background 150ms ease',
+  '&:hover': {
+    background: theme.colors.actionDefaultBackgroundHover,
+  },
+  '&:active': {
+    background: theme.colors.actionDefaultBackgroundPress,
+  },
+});
+
+export const getStartedIconWrapperStyles = (theme: DesignSystemTheme) => ({
+  borderRadius: theme.borders.borderRadiusSm,
+  background: theme.colors.actionDefaultBackgroundHover,
+  padding: theme.spacing.xs,
+  color: theme.colors.blue500,
+  height: 'min-content',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+});
+
+export const getStartedCardContentStyles = (theme: DesignSystemTheme) => ({
+  display: 'flex',
+  flexDirection: 'column' as const,
+  gap: theme.spacing.xs,
+  flex: 1,
+});

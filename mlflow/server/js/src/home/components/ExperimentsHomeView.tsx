@@ -104,7 +104,7 @@ export const ExperimentsHomeView = ({ experiments, isLoading, error, onCreateExp
         componentId="mlflow.home.experiments.view_all"
         to={Routes.experimentsObservatoryRoute}
         as={Link}
-        css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}
+        css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs, alignSelf: 'flex-end' }}
       >
         <span>{'>>>'}</span>
         <FormattedMessage defaultMessage="See all experiments" description="Home page experiments view all link" />

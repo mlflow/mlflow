@@ -2,33 +2,43 @@ import { ArrowRightIcon, Typography, useDesignSystemTheme } from '@databricks/de
 import { FormattedMessage } from 'react-intl';
 import { Link } from '../../common/utils/RoutingUtils';
 import { homeQuickActions } from '../quick-actions';
-import { cardBaseStyles, cardCtaStyles, sectionHeaderStyles } from './cardStyles';
+import {
+  cardCtaStyles,
+  sectionHeaderStyles,
+  getStartedCardContainerStyles,
+  getStartedCardContentStyles,
+  getStartedCardLinkStyles,
+  getStartedIconWrapperStyles,
+} from './cardStyles';
 
 type QuickAction = (typeof homeQuickActions)[number];
 
 const GetStartedCard = ({ action }: { action: QuickAction }) => {
   const { theme } = useDesignSystemTheme();
-  const baseStyles = cardBaseStyles(theme);
+  const linkStyles = getStartedCardLinkStyles(theme);
+  const containerStyles = getStartedCardContainerStyles(theme);
+  const contentStyles = getStartedCardContentStyles(theme);
+  const iconWrapperStyles = getStartedIconWrapperStyles(theme);
   const ctaStyles = cardCtaStyles(theme);
 
-  const content = (
-    <>
-      <action.icon css={{ width: 36, height: 36 }} />
-      <Typography.Title level={4} css={{ margin: 0 }}>
-        {action.title}
-      </Typography.Title>
-      <Typography.Text css={{ color: theme.colors.textSecondary }}>{action.description}</Typography.Text>
-      <span css={{ ...ctaStyles, marginTop: 'auto' }}>
-        {action.ctaLabel}
-        <ArrowRightIcon css={{ width: 16, height: 16 }} />
-      </span>
-    </>
+  const card = (
+    <div css={containerStyles}>
+      <div css={iconWrapperStyles}>
+        <action.icon css={{ width: 20, height: 20 }} />
+      </div>
+      <div css={contentStyles}>
+        <span role="heading" aria-level={2}>
+          <Typography.Text strong>{action.title}</Typography.Text>
+        </span>
+        <Typography.Text color="secondary">{action.description}</Typography.Text>
+      </div>
+    </div>
   );
 
   if (action.link.type === 'internal') {
     return (
-      <Link to={action.link.to} css={baseStyles} data-component-id={action.componentId}>
-        {content}
+      <Link to={action.link.to} css={linkStyles} data-component-id={action.componentId}>
+        {card}
       </Link>
     );
   }
@@ -38,10 +48,10 @@ const GetStartedCard = ({ action }: { action: QuickAction }) => {
       href={action.link.href}
       target={action.link.target ?? '_blank'}
       rel={action.link.rel ?? 'noopener noreferrer'}
-      css={baseStyles}
+      css={linkStyles}
       data-component-id={action.componentId}
     >
-      {content}
+      {card}
     </a>
   );
 };
@@ -54,17 +64,20 @@ export const GetStarted = () => {
       <Typography.Title level={3} css={sectionHeaderStyles}>
         <FormattedMessage defaultMessage="Get started" description="Home page quick action section title" />
       </Typography.Title>
-      <div
-        css={{
-          display: 'grid',
-          gap: theme.spacing.lg,
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-        }}
-      >
-        {homeQuickActions.map((action) => (
-          <GetStartedCard key={action.id} action={action} />
-        ))}
-      </div>
+      <section css={{ marginBottom: 20, width: '100%', minWidth: 0 }}>
+        <div
+          css={{
+            width: '100%',
+            display: 'flex',
+            gap: theme.spacing.sm + theme.spacing.xs,
+            flexWrap: 'wrap',
+          }}
+        >
+          {homeQuickActions.map((action) => (
+            <GetStartedCard key={action.id} action={action} />
+          ))}
+        </div>
+      </section>
     </section>
   );
 };

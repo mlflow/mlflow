@@ -17,7 +17,7 @@ export const homeQuickActions: HomeQuickActionDefinition[] = [
     ),
     description: (
       <FormattedMessage
-        defaultMessage="Trace the internal states of LLM or agentic applications for debugging and monitoring."
+        defaultMessage="Trace LLM applications for debugging and monitoring."
         description="Home page quick action description for logging traces"
       />
     ),
