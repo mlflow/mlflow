@@ -11,6 +11,7 @@ import mlflow
 from mlflow.dspy.constant import FLAVOR_NAME
 from mlflow.dspy.util import log_dspy_module_params, save_dspy_module_state
 from mlflow.entities import SpanStatusCode, SpanType
+from mlflow.entities.run_status import RunStatus
 from mlflow.entities.span_event import SpanEvent
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
@@ -290,10 +291,11 @@ class MlflowCallback(BaseCallback):
             self._disabled_eval_call_ids.discard(call_id)
             return
         run_started = call_id in self._eval_runs_started
-        if run_started:
-            self._eval_runs_started.discard(call_id)
-        if self.optimizer_stack_level > 0:
-            self._call_id_to_metric_key.pop(call_id, None)
+        if exception:
+            if run_started:
+                mlflow.end_run(status=RunStatus.to_string(RunStatus.FAILED))
+                self._eval_runs_started.discard(call_id)
+            return
         score = None
         if isinstance(outputs, float):
             score = outputs
