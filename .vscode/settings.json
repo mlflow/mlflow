@@ -134,6 +134,7 @@
 
   // File associations
   "files.associations": {
-    "*.mdx": "markdown"
+    "*.mdx": "markdown",
+    "*.ipynb": "jupyter"
   }
 }
