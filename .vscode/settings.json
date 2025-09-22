@@ -134,7 +134,6 @@
 
   // File associations
   "files.associations": {
-    "*.mdx": "markdown",
-    "*.prompt.md": "prompt"
+    "*.mdx": "markdown"
   }
 }
