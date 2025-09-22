@@ -24,6 +24,7 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
 )
+from mlflow.tracing.constant import TRACE_ATTACHMENTS_DIR
 from mlflow.tracing.utils.artifact_utils import TRACE_DATA_FILE_NAME
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.async_logging.async_artifacts_logging_queue import (
@@ -404,7 +405,7 @@ class ArtifactRepository:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_file = Path(temp_dir, path)
             try:
-                self._download_file(posixpath.join("attachments", path), temp_file)
+                self._download_file(posixpath.join(TRACE_ATTACHMENTS_DIR, path), temp_file)
                 return temp_file.read_bytes()
             except Exception as e:
                 raise MlflowException(
@@ -421,7 +422,7 @@ class ArtifactRepository:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_file = Path(temp_dir, attachment.id)
             temp_file.write_bytes(attachment.content_bytes)
-            self.log_artifact(temp_file, artifact_path="attachments")
+            self.log_artifact(temp_file, artifact_path=TRACE_ATTACHMENTS_DIR)
 
 
 @contextmanager
