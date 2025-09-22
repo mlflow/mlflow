@@ -1,9 +1,7 @@
 import base64
-import hashlib
 import json
 import mimetypes
 import uuid
-from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -20,7 +18,6 @@ class Attachment:
         self.content_bytes = content_bytes
         self.content_type = content_type
         self.filename = filename
-        self.created_at = datetime.now(timezone.utc).isoformat()
 
     def __repr__(self) -> str:
         return (
@@ -104,8 +101,6 @@ class Attachment:
             "trace_id": trace_id,
             "content_type": self.content_type,
             "size": len(self.content_bytes),
-            "checksum": hashlib.sha256(self.content_bytes).hexdigest(),
-            "created_at": self.created_at,
         }
         # Add optional fields if present
         if self.filename:
@@ -138,8 +133,6 @@ class Attachment:
             trace_id = metadata["trace_id"]  # noqa: F841
             content_type = metadata["content_type"]
             size = metadata.get("size")  # noqa: F841
-            checksum = metadata.get("checksum")  # noqa: F841
-            created_at = metadata.get("created_at")
             filename = metadata.get("filename")
 
         except (json.JSONDecodeError, KeyError, Exception) as e:
@@ -148,15 +141,10 @@ class Attachment:
         # TODO: Implement actual download logic
         # The variables above will be used to:
         # 1. Download attachment using trace_id
-        # 2. Verify checksum for data integrity
-        # 3. Validate size matches expected
+        # 2. Validate size matches expected
         content_bytes = b""
 
-        attachment = cls(content_type=content_type, content_bytes=content_bytes, filename=filename)
-        # Preserve the original created_at timestamp if available
-        if created_at:
-            attachment.created_at = created_at
-        return attachment
+        return cls(content_type=content_type, content_bytes=content_bytes, filename=filename)
 
     @staticmethod
     def parse_ref(ref: str) -> dict[str, str | int | None]:

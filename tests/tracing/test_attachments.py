@@ -1,8 +1,6 @@
 import base64
-import hashlib
 import json
 import uuid
-from datetime import datetime
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -25,7 +23,6 @@ def test_attachment_creation_with_content():
     assert attachment.id is not None
     assert isinstance(attachment.id, str)
     assert attachment.filename is None
-    assert attachment.created_at is not None  # ISO format timestamp
 
 
 def test_attachment_from_file(tmp_path: Path):
@@ -39,7 +36,6 @@ def test_attachment_from_file(tmp_path: Path):
     assert attachment.content_type == "text/plain"
     assert attachment.id is not None
     assert attachment.filename == "test.txt"  # Filename preserved
-    assert attachment.created_at is not None
 
 
 def test_attachment_from_file_with_custom_content_type(tmp_path: Path):
@@ -98,8 +94,6 @@ def test_attachment_reference_generation():
     assert metadata["trace_id"] == trace_id
     assert metadata["content_type"] == "text/plain"
     assert metadata["size"] == 4
-    assert "checksum" in metadata
-    assert "created_at" in metadata
 
 
 def test_attachment_from_ref():
@@ -113,8 +107,6 @@ def test_attachment_from_ref():
         "trace_id": trace_id,
         "content_type": content_type,
         "size": 100,
-        "checksum": "abc123",
-        "created_at": "2025-01-01T00:00:00Z",
     }
     json_str = json.dumps(metadata)
     encoded = base64.urlsafe_b64encode(json_str.encode()).decode()
@@ -166,7 +158,6 @@ def test_attachment_parse_ref():
         "trace_id": trace_id,
         "content_type": content_type,
         "size": 42,
-        "checksum": "checksum123",
     }
     json_str = json.dumps(metadata)
     encoded = base64.urlsafe_b64encode(json_str.encode()).decode()
@@ -193,18 +184,12 @@ def test_attachment_metadata_fields():
 
     # Check all metadata fields
     assert attachment.filename == filename
-    assert attachment.created_at is not None
-    # Verify timestamp format is ISO
-    datetime.fromisoformat(attachment.created_at.replace("Z", "+00:00"))
 
-    # Check that checksum is included in reference
+    # Check that filename is included in reference
     ref = attachment.ref("trace-123")
     metadata = Attachment.parse_ref(ref)
 
-    expected_checksum = hashlib.sha256(content).hexdigest()
-    assert metadata["checksum"] == expected_checksum
     assert metadata["filename"] == filename
-    assert metadata["created_at"] == attachment.created_at
 
 
 def create_mock_otel_span():
