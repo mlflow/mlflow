@@ -10,6 +10,7 @@ from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
 )
+from mlflow.tracing.attachments import Attachment
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.display import get_display_handler
@@ -141,12 +142,14 @@ class MlflowV3SpanExporter(SpanExporter):
                 self._async_queue.put(
                     task=Task(
                         handler=self._log_trace,
-                        args=(trace, manager_trace.prompts),
+                        args=(trace, manager_trace.prompts, manager_trace.attachments),
                         error_msg="Failed to log trace to the trace server.",
                     )
                 )
             else:
-                self._log_trace(trace, prompts=manager_trace.prompts)
+                self._log_trace(
+                    trace, prompts=manager_trace.prompts, attachments=manager_trace.attachments
+                )
 
     def _log_spans(self, experiment_id: str, spans: list[Span]) -> None:
         """
@@ -165,41 +168,29 @@ class MlflowV3SpanExporter(SpanExporter):
         except Exception as e:
             _logger.warning(f"Failed to log span to MLflow backend: {e}")
 
-    def _log_trace(self, trace: Trace, prompts: Sequence[PromptVersion]) -> None:
+    def _log_trace(
+        self,
+        trace: Trace,
+        prompts: Sequence[PromptVersion],
+        attachments: Sequence[Attachment] | None = None,
+    ) -> None:
         """
         Handles exporting a trace to MLflow using the V3 API and blob storage.
         Steps:
         1. Create the trace in MLflow
         2. Upload the trace data to blob storage using the returned trace info.
         """
+        if attachments is None:
+            attachments = []
         try:
             if trace:
                 add_size_stats_to_trace_metadata(trace)
                 returned_trace_info = self._client.start_trace(trace.info)
 
-                # Collect attachments from all spans and update their references
-                attachments = []
-                attachment_ref_mapping = {}  # old_ref -> new_ref
-
-                for span in trace.data.spans:
-                    if hasattr(span, "_attachments") and span._attachments:
-                        updated_attachments = {}
-                        for old_ref, attachment in span._attachments.items():
-                            # Generate new reference
-                            new_ref = attachment.ref(trace.info.trace_id, span.span_id)
-                            updated_attachments[new_ref] = attachment
-                            attachment_ref_mapping[old_ref] = new_ref
-                            attachments.append(attachment)
-
-                        # Update the span's attachment references
-                        span._attachments = updated_attachments
-
-                # Update attachment references in span inputs and outputs
-                self._update_attachment_refs_in_spans(trace.data.spans, attachment_ref_mapping)
-
-                # Now upload the trace data with updated references
+                # Upload the trace data
                 self._client._upload_trace_data(returned_trace_info, trace.data)
 
+                # Upload attachments if any
                 if attachments:
                     self._client._upload_attachments(returned_trace_info, attachments)
             else:
@@ -220,57 +211,6 @@ class MlflowV3SpanExporter(SpanExporter):
             )
         except Exception as e:
             _logger.warning(f"Failed to link prompts to trace: {e}")
-
-    def _update_attachment_refs_in_spans(self, spans, attachment_ref_mapping):
-        """
-        Update attachment references in span inputs and outputs.
-
-        Args:
-            spans: List of spans to update
-            attachment_ref_mapping: Dict mapping old_ref -> new_ref
-        """
-        if not attachment_ref_mapping:
-            return
-
-        for span in spans:
-            # Update inputs
-            if hasattr(span, "inputs") and span.inputs:
-                span.inputs = self._update_attachment_refs_in_data(
-                    span.inputs, attachment_ref_mapping
-                )
-
-            # Update outputs
-            if hasattr(span, "outputs") and span.outputs:
-                span.outputs = self._update_attachment_refs_in_data(
-                    span.outputs, attachment_ref_mapping
-                )
-
-    def _update_attachment_refs_in_data(self, data, attachment_ref_mapping):
-        """
-        Recursively update attachment references in data structures.
-
-        Args:
-            data: Data to update (dict, list, or primitive)
-            attachment_ref_mapping: Dict mapping old_ref -> new_ref
-
-        Returns:
-            Updated data with new attachment references
-        """
-        if isinstance(data, dict):
-            return {
-                key: self._update_attachment_refs_in_data(value, attachment_ref_mapping)
-                for key, value in data.items()
-            }
-        elif isinstance(data, list):
-            return [
-                self._update_attachment_refs_in_data(item, attachment_ref_mapping) for item in data
-            ]
-        elif isinstance(data, str) and data in attachment_ref_mapping:
-            # This is an attachment reference, update it
-            return attachment_ref_mapping[data]
-        else:
-            # Primitive value, return as-is
-            return data
 
     def _should_enable_async_logging(self) -> bool:
         if (

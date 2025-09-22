@@ -24,6 +24,7 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
 )
+from mlflow.tracing.attachments import Attachment
 from mlflow.tracing.constant import TRACE_ATTACHMENTS_DIR
 from mlflow.tracing.utils.artifact_utils import TRACE_DATA_FILE_NAME
 from mlflow.utils.annotations import developer_stable
@@ -412,7 +413,7 @@ class ArtifactRepository:
                     f"Trace attachment not found: {path}", RESOURCE_DOES_NOT_EXIST
                 ) from e
 
-    def upload_attachment(self, attachment: Any) -> None:
+    def upload_attachment(self, attachment: Attachment) -> None:
         """
         Upload an attachment to the trace.
 

@@ -7,6 +7,7 @@ from typing import Generator, Sequence
 from mlflow.entities import LiveSpan, Trace, TraceData, TraceInfo
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.environment_variables import MLFLOW_TRACE_TIMEOUT_SECONDS
+from mlflow.tracing.attachments import Attachment
 from mlflow.tracing.utils.timeout import get_trace_cache_with_timeout
 from mlflow.tracing.utils.truncation import set_request_response_preview
 
@@ -20,10 +21,18 @@ class _Trace:
     info: TraceInfo
     span_dict: dict[str, LiveSpan] = field(default_factory=dict)
     prompts: list[PromptVersion] = field(default_factory=list)
+    # Store attachments for this trace
+    _attachments: list[Attachment] = field(default_factory=list)
 
     def to_mlflow_trace(self) -> Trace:
         trace_data = TraceData()
+
+        # Collect attachments from all spans and convert spans to immutable
         for span in self.span_dict.values():
+            # Collect attachments from this span
+            if span._attachments:
+                self._attachments.extend(span._attachments.values())
+
             # Convert LiveSpan, mutable objects, into immutable Span objects before persisting.
             trace_data.spans.append(span.to_immutable_span())
 
@@ -40,11 +49,12 @@ class _Trace:
 @dataclass
 class ManagerTrace:
     """
-    Wrapper around a trace and its associated prompts.
+    Wrapper around a trace and its associated prompts and attachments.
     """
 
     trace: Trace
     prompts: Sequence[PromptVersion]
+    attachments: Sequence[Attachment] = field(default_factory=list)
 
 
 class InMemoryTraceManager:
@@ -97,8 +107,8 @@ class InMemoryTraceManager:
             return
 
         with self._lock:
-            trace_data_dict = self._traces[span.request_id].span_dict
-            trace_data_dict[span.span_id] = span
+            trace = self._traces[span.request_id]
+            trace.span_dict[span.span_id] = span
 
     def register_prompt(self, trace_id: str, prompt: PromptVersion):
         """
@@ -169,7 +179,9 @@ class InMemoryTraceManager:
             if internal_trace is None:
                 return None
             return ManagerTrace(
-                trace=internal_trace.to_mlflow_trace(), prompts=internal_trace.prompts
+                trace=internal_trace.to_mlflow_trace(),
+                prompts=internal_trace.prompts,
+                attachments=internal_trace._attachments,
             )
 
     def _check_timeout_update(self):
