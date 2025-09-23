@@ -393,9 +393,7 @@ class Span:
                     name=event.name,
                     timestamp=event.time_unix_nano,
                     attributes={
-                        attr.key: _dump_span_attribute_value(
-                            _decode_otel_proto_anyvalue(attr.value)
-                        )
+                        attr.key: _decode_otel_proto_anyvalue(attr.value)
                         for attr in event.attributes
                     },
                 )
