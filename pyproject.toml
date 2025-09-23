@@ -196,6 +196,11 @@ members = ["dev/clint", "tests/resources/mlflow-test-plugin"]
 [tool.uv.sources]
 clint = { workspace = true }
 mlflow-test-plugin = { workspace = true }
+torch = { index = "pytorch" }
+
+[[tool.uv.index]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cpu"
 
 [tool.ruff]
 line-length = 100
