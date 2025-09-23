@@ -311,8 +311,6 @@ from mlflow.entities.trace_location import (
     MlflowExperimentLocation,
 )
 from mlflow.entities.trace import Trace
-from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_state import TraceState
 mlflow_exp_location = MlflowExperimentLocation(experiment_id="0")
 trace_location = TraceLocation(
     type=TraceLocationType.MLFLOW_EXPERIMENT,
