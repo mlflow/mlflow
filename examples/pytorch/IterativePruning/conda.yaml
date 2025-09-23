@@ -27,6 +27,5 @@ dependencies:
       # ax-platform 0.2.x is not yet compatible with SQLAlchemy 2.x
       # TODO: Remove this requirement once ax-platform achieves compatibility with SQLAlchemy 2.x
       - sqlalchemy<2
-      - pydan
       - pydantic<1
 
