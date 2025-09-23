@@ -70,9 +70,7 @@ class UCSchemaLocation(_MlflowObject):
     schema_name: str
 
     def to_proto(self):
-        return pb.TraceLocation.UCSchemaLocation(
-            catalog_name=self.catalog_name, schema_name=self.schema_name
-        )
+        return pb.UCSchemaLocation(catalog_name=self.catalog_name, schema_name=self.schema_name)
 
     @classmethod
     def from_proto(cls, proto) -> "UCSchemaLocation":
