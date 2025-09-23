@@ -15,6 +15,8 @@ from mlflow.utils.uri import extract_db_type_from_uri
 
 sqlalchemy.orm.configure_mappers()
 
+_LIST_JOB_PAGE_SIZE = 100
+
 
 class SqlAlchemyJobStore(AbstractJobStore):
     """
@@ -170,7 +172,6 @@ class SqlAlchemyJobStore(AbstractJobStore):
         statuses: list[JobStatus] | None = None,
         begin_timestamp: int | None = None,
         end_timestamp: int | None = None,
-        page_size: int = 1000,
     ) -> Iterator[Job]:
         """
         List jobs based on the provided filters.
@@ -180,7 +181,6 @@ class SqlAlchemyJobStore(AbstractJobStore):
             statuses: Filter by a list of job status (PENDING, RUNNING, DONE, FAILED, TIMEOUT)
             begin_timestamp: Filter jobs created after this timestamp (inclusive)
             end_timestamp: Filter jobs created before this timestamp (inclusive)
-            page_size: Number of jobs to return per page (default: 1000)
 
         Returns:
             Iterator of Job entities that match the filters, ordered by creation time (oldest first)
@@ -208,7 +208,10 @@ class SqlAlchemyJobStore(AbstractJobStore):
                     query = query.filter(SqlJob.creation_time <= end_timestamp)
 
                 # Order by creation time (oldest first) and apply pagination
-                jobs = query.order_by(SqlJob.creation_time).offset(offset).limit(page_size).all()
+                jobs = (
+                    query.order_by(SqlJob.creation_time)
+                    .offset(offset).limit(_LIST_JOB_PAGE_SIZE).all()
+                )
 
                 # If no jobs returned, we've reached the end
                 if not jobs:
@@ -219,11 +222,11 @@ class SqlAlchemyJobStore(AbstractJobStore):
                     yield job.to_mlflow_entity()
 
                 # If we got fewer jobs than page_size, we've reached the end
-                if len(jobs) < page_size:
+                if len(jobs) < _LIST_JOB_PAGE_SIZE:
                     break
 
                 # Move to next page
-                offset += page_size
+                offset += _LIST_JOB_PAGE_SIZE
 
     def _get_sql_job(self, session, job_id) -> SqlJob:
         job = session.query(SqlJob).filter(SqlJob.id == job_id).one_or_none()

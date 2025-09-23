@@ -96,7 +96,6 @@ class AbstractJobStore(ABC):
         statuses: list[JobStatus] | None = None,
         begin_timestamp: int | None = None,
         end_timestamp: int | None = None,
-        page_size: int = 1000,
     ) -> Iterator[Job]:
         """
         List jobs based on the provided filters.
@@ -106,7 +105,6 @@ class AbstractJobStore(ABC):
             statuses: Filter by a list of job status (PENDING, RUNNING, DONE, FAILED, TIMEOUT)
             begin_timestamp: Filter jobs created after this timestamp (inclusive)
             end_timestamp: Filter jobs created before this timestamp (inclusive)
-            page_size: Number of jobs to return per page (default: 1000)
 
         Returns:
             Iterator of Job entities that match the filters, ordered by creation time (oldest first)

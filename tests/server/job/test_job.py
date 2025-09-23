@@ -316,11 +316,13 @@ def test_job_timeout(monkeypatch, tmp_path):
 
 
 def test_list_job_pagination(monkeypatch, tmp_path):
+    import mlflow.store.jobs.sqlalchemy_store
+    monkeypatch.setattr(mlflow.store.jobs.sqlalchemy_store, "_LIST_JOB_PAGE_SIZE", 3)
     with _setup_job_runner(1, monkeypatch, tmp_path):
         job_ids = []
         for x in range(10):
             job_id = submit_job(basic_job_fun, {"x": x, "y": 4}).job_id
             job_ids.append(job_id)
 
-        listed_jobs = _get_job_store().list_jobs(page_size=3)
+        listed_jobs = _get_job_store().list_jobs()
         assert [job.job_id for job in listed_jobs] == job_ids
