@@ -1598,7 +1598,8 @@ def log_image(
     step: int | None = None,
     timestamp: int | None = None,
     synchronous: bool | None = False,
-    **kwargs,
+    *,
+    image_options: dict | None = None,
 ) -> None:
     """
     Logs an image in MLflow, supporting two use cases:
@@ -1660,16 +1661,13 @@ def log_image(
             Defaults to 0.
         timestamp: Time when this image was saved. Defaults to the current system time.
         synchronous: *Experimental* If True, blocks until the image is logged successfully.
-
-    Other Parameters
-    ----------------
-    **kwargs
-        Additional keyword arguments to be passed to `PIL.Image.save
-        <https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image.save>`_.
-        This can be used to control image quality and format. For example, to save a
-        JPEG image with 80% quality, you would pass `artifact_file="image.jpg", quality=80`.
-        To save a time-stepped image as a JPEG, you would pass `key="img", format="jpeg",
-        quality=80`. Supported arguments depend on the image format.
+        image_options: A dictionary of options to pass to `PIL.Image.save
+            <https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image.save>`_.
+            This can be used to control image quality and format. For example, to save a
+            JPEG image with 80% quality, pass `artifact_file="image.jpg",
+            image_options={"quality": 80}`. To save a time-stepped image as a JPEG,
+            pass `key="img", image_options={"format": "jpeg", "quality": 80}`.
+            Supported arguments depend on the image format.
 
     .. code-block:: python
         :caption: Legacy artifact file image logging with quality control
@@ -1680,13 +1678,27 @@ def log_image(
         image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
 
         with mlflow.start_run():
-            mlflow.log_image(image, "image.jpg", quality=85)
+            mlflow.log_image(image, "image.jpg", image_options={"quality": 85})
     """
     run_id = _get_or_start_run().info.run_id
-    # CHANGED: Pass kwargs through to the client method
     MlflowClient().log_image(
-        run_id, image, artifact_file, key, step, timestamp, synchronous, **kwargs
+        run_id=run_id,
+        image=image,
+        artifact_file=artifact_file,
+        key=key,
+        step=step,
+        timestamp=timestamp,
+        synchronous=synchronous,
+        image_options=image_options,
     )
+
+
+def flush_image_async_logging():
+    """
+    Waits for all pending asynchronous image logging operations to complete.
+    This function is a no-op if no images have been logged asynchronously.
+    """
+    MlflowClient().flush_image_async_logging()
 
 
 def log_table(

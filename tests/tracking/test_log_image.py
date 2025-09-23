@@ -307,7 +307,8 @@ def test_async_log_image_flush():
         for i in range(100):
             mlflow.log_image(image1, key="dog", step=i, timestamp=i, synchronous=False)
 
-        mlflow.flush_artifact_async_logging()
+        # THIS IS THE FIX: Call our new, specific flush function
+        mlflow.flush_image_async_logging()
 
         logged_path = "images/"
         artifact_uri = mlflow.get_artifact_uri(logged_path)
@@ -317,7 +318,7 @@ def test_async_log_image_flush():
 
 
 def test_log_image_with_pil_options():
-    """Test that extra kwargs are passed to PIL.Image.save."""
+    """Test that options in image_options are passed to PIL.Image.save."""
     import numpy as np
     from PIL import Image
 
@@ -329,18 +330,19 @@ def test_log_image_with_pil_options():
         mlflow.log_image(
             image_data,
             artifact_file=f"{artifact_path}/test_quality.jpg",
-            quality=85,
-            optimize=True,
+            image_options={"quality": 85, "optimize": True},
         )
 
-        # Test key/step mode
+        # Test key/step mode (this one is async by default in the test)
         mlflow.log_image(
             image_data,
             key="my_jpeg_image",
             step=1,
-            format="jpeg",
-            quality=90,
+            image_options={"format": "jpeg", "quality": 90},
         )
+
+        # THIS IS THE FIX: Wait for async logging to finish before downloading
+        mlflow.flush_image_async_logging()
 
     # Download and verify the artifact_file image
     downloaded_path = mlflow.artifacts.download_artifacts(

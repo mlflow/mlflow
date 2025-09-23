@@ -18,6 +18,7 @@ import tempfile
 import urllib
 import uuid
 import warnings
+from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any, Literal, Sequence, Union
 
 import yaml
@@ -80,6 +81,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
+from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.utils.models import (
     _parse_model_uri,
     get_model_name_and_version,
@@ -115,6 +117,7 @@ from mlflow.utils.databricks_utils import (
     get_databricks_run_url,
     is_in_databricks_runtime,
 )
+from mlflow.utils.file_utils import TempDir
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.mlflow_tags import (
     MLFLOW_LOGGED_ARTIFACTS,
@@ -145,6 +148,33 @@ _STAGES_DEPRECATION_WARNING = (
     "deprecation of model registry stages, see our migration guide here: https://mlflow.org/docs/"
     "latest/model-registry.html#migrating-from-stages"
 )
+
+
+def _log_image_async_task(artifact_repo, path, artifact, pil_save_options=None):
+    """
+    Asynchronously saves an in-memory image artifact to a temporary file and logs it.
+    This is a specialized helper for log_image's async path.
+    """
+    try:
+        import PIL.Image
+
+        if isinstance(artifact, PIL.Image.Image):
+            with TempDir() as tmp_dir:
+                # THIS IS THE FIX: We correctly separate the destination directory and filename.
+                destination_dir = posixpath.dirname(path)
+                destination_filename = posixpath.basename(path)
+
+                # Create the temporary file with the correct final name.
+                tmp_path = tmp_dir.path(destination_filename)
+
+                artifact.save(tmp_path, **(pil_save_options or {}))
+
+                # Log the temporary file to the correct destination directory.
+                artifact_repo.log_artifact(tmp_path, artifact_path=destination_dir)
+        else:
+            artifact_repo.log_artifact(artifact, path)
+    except Exception as e:
+        _logger.error(f"Failed to log artifact asynchronously: {e}")
 
 
 def _model_not_found(name: str) -> MlflowException:
@@ -199,6 +229,52 @@ class MlflowClient:
     thin wrapper around TrackingServiceClient and RegistryClient so there is a unified API but we
     can keep the implementation of the tracking and registry clients independent from each other.
     """
+
+    _image_logging_queue = None
+
+    class _ImageAsyncLoggingQueue:
+        def __init__(self):
+            self._executor = ThreadPoolExecutor(
+                max_workers=1, thread_name_prefix="MlflowAsyncImage"
+            )
+
+        def submit_task(self, artifact_repo, path, artifact, pil_save_options=None):
+            return self._executor.submit(
+                _log_image_async_task, artifact_repo, path, artifact, pil_save_options
+            )
+
+        def __del__(self):
+            if hasattr(self, "_executor") and self._executor:
+                self._executor.shutdown(wait=True)
+
+        def flush(self):
+            if hasattr(self, "_executor") and self._executor:
+                self._executor.shutdown(wait=True)
+                # Re-create the executor so we can log more images after a flush
+                self._executor = ThreadPoolExecutor(
+                    max_workers=1, thread_name_prefix="MlflowAsyncImage"
+                )
+
+    def _queue_image_logging_task(self, run_id, path, artifact, pil_save_options=None):
+        """Helper to queue async logging of an in-memory image artifact."""
+        # Use the class-level queue
+        if MlflowClient._image_logging_queue is None:
+            MlflowClient._image_logging_queue = self._ImageAsyncLoggingQueue()
+
+        artifact_uri = self._tracking_client.get_run(run_id).info.artifact_uri
+        artifact_repo = get_artifact_repository(artifact_uri)
+
+        MlflowClient._image_logging_queue.submit_task(
+            artifact_repo, path, artifact, pil_save_options
+        )
+
+    def flush_image_async_logging(self):
+        """
+        Waits for all pending image logging operations to complete.
+        This is a specific flush for the image queue.
+        """
+        if MlflowClient._image_logging_queue is not None:
+            MlflowClient._image_logging_queue.flush()
 
     def __init__(self, tracking_uri: str | None = None, registry_uri: str | None = None):
         """
@@ -2750,7 +2826,8 @@ class MlflowClient:
         step: int | None = None,
         timestamp: int | None = None,
         synchronous: bool | None = None,
-        **kwargs,
+        *,
+        image_options: dict | None = None,
     ) -> None:
         """
         Logs an image in MLflow, supporting two use cases:
@@ -2817,16 +2894,13 @@ class MlflowClient:
                 If False, logs the metric asynchronously and returns a future representing the
                 logging operation. If None, read from environment variable
                 `MLFLOW_ENABLE_ASYNC_LOGGING`, which defaults to False if not set.
-
-        Other Parameters
-        ----------------
-        **kwargs
-            Additional keyword arguments to be passed to `PIL.Image.save
-            <https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image.save>`_.
-            This can be used to control image quality and format. For example, to save a
-            JPEG image with 80% quality, you would pass `artifact_file="image.jpg", quality=80`.
-            To save a time-stepped image as a JPEG, you would pass `key="img", format="jpeg",
-            quality=80`. Supported arguments depend on the image format.
+            image_options: A dictionary of options to pass to `PIL.Image.save
+                <https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image.save>`_.
+                This can be used to control image quality and format. For example, to save a
+                JPEG image with 80% quality, pass `artifact_file="image.jpg",
+                image_options={"quality": 80}`. To save a time-stepped image as a JPEG,
+                pass `key="img", image_options={"format": "jpeg", "quality": 80}`.
+                Supported arguments depend on the image format.
 
         .. code-block:: python
             :caption: Legacy artifact file image logging with quality control
@@ -2838,7 +2912,7 @@ class MlflowClient:
             with mlflow.start_run() as run:
                 client = mlflow.MlflowClient()
                 # Log as a JPEG with 85% quality
-                client.log_image(run.info.run_id, image, "image.jpg", quality=85)
+                client.log_image(run.info.run_id, image, "image.jpg", image_options={"quality": 85})
         """
         synchronous = (
             synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
@@ -2873,10 +2947,11 @@ class MlflowClient:
                     "PIL.Image.Image, and mlflow.Image."
                 )
 
+        pil_save_options = image_options or {}
+
         if artifact_file is not None:
             with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
-                # CHANGED: Pass kwargs directly to the save method
-                image.save(tmp_path, **kwargs)
+                image.save(tmp_path, **pil_save_options)
 
         elif key is not None:
             # Check image key for invalid characters
@@ -2901,9 +2976,9 @@ class MlflowClient:
             )
             compressed_filename = f"{uncompressed_filename}%compressed"
 
-            # NEW: Determine file format from kwargs, defaulting to
-            #  'png' for backward compatibility
-            file_format = kwargs.get("format", "png").lower()
+            # Determine file format from image_options, defaulting to
+            # 'png' for backward compatibility
+            file_format = pil_save_options.get("format", "png").lower()
 
             # Save full-resolution image
             image_filepath = f"{uncompressed_filename}.{file_format}"
@@ -2915,42 +2990,22 @@ class MlflowClient:
 
             if synchronous:
                 with self._log_artifact_helper(run_id, image_filepath) as tmp_path:
-                    # CHANGED: Pass kwargs to the save call for the full-resolution image
-                    image.save(tmp_path, **kwargs)
+                    image.save(tmp_path, **pil_save_options)
             else:
-                self._log_artifact_async_helper(run_id, image_filepath, image)
+                self._queue_image_logging_task(run_id, image_filepath, image, pil_save_options)
 
             if synchronous:
                 with self._log_artifact_helper(run_id, compressed_image_filepath) as tmp_path:
                     # NOTE: The compressed thumbnail is an internal optimization.
-                    # We do not pass user kwargs here to ensure it remains a small WEBP file.
+                    # We do not pass user options here to ensure it remains a small WEBP file.
                     compressed_image.save(tmp_path)
             else:
-                self._log_artifact_async_helper(run_id, compressed_image_filepath, compressed_image)
+                self._queue_image_logging_task(
+                    run_id, compressed_image_filepath, compressed_image, None
+                )
 
             # Log tag indicating that the run includes logged image
             self.set_tag(run_id, MLFLOW_LOGGED_IMAGES, True, synchronous)
-
-    def _check_artifact_file_string(self, artifact_file: str):
-        """Check if the artifact_file contains any forbidden characters.
-
-        Args:
-            artifact_file: The run-relative artifact file path in posixpath format to which
-                the table is saved (e.g. "dir/file.json").
-        """
-        characters_to_check = ['"', "'", ",", ":", "[", "]", "{", "}"]
-        for char in characters_to_check:
-            if char in artifact_file:
-                raise ValueError(f"The artifact_file contains forbidden character: {char}")
-
-    def _read_from_file(self, artifact_path):
-        import pandas as pd
-
-        if artifact_path.endswith(".json"):
-            return pd.read_json(artifact_path, orient="split")
-        if artifact_path.endswith(".parquet"):
-            return pd.read_parquet(artifact_path)
-        raise ValueError(f"Unsupported file type in {artifact_path}. Expected .json or .parquet")
 
     def log_table(
         self,
