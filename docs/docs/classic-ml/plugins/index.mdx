@@ -12,15 +12,10 @@ MLflow's plugin architecture enables seamless integration with third-party tools
 Try the built-in test plugin to see how plugins work:
 
 ```bash
-# Clone MLflow and ensure MLflow is installed
+# Clone MLflow and install example plugin
 git clone https://github.com/mlflow/mlflow
 cd mlflow
-
-# Install MLflow first (required dependency)
-pip install -e .
-
-# Install the test plugin
-pip install -e tests/resources/mlflow-test-plugin
+pip install -e . tests/resources/mlflow-test-plugin
 ```
 
 ```bash
