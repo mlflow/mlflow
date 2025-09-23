@@ -65,7 +65,7 @@ def basic_job_fun(x, y, sleep_secs=0):
 def test_basic_job(monkeypatch, tmp_path):
     with _setup_job_runner(1, monkeypatch, tmp_path):
         submitted_job = submit_job(basic_job_fun, {"x": 3, "y": 4})
-        time.sleep(1)
+        wait_job_finalize(submitted_job.job_id, timeout=2)
         job = query_job(submitted_job.job_id)
         assert job.job_id == submitted_job.job_id
         assert job.function_fullname == "test_job.basic_job_fun"
@@ -86,7 +86,7 @@ def json_in_out_fun(data):
 def test_job_json_input_output(monkeypatch, tmp_path):
     with _setup_job_runner(1, monkeypatch, tmp_path):
         submitted_job = submit_job(json_in_out_fun, {"data": {"x": 3, "y": 4}})
-        time.sleep(1)
+        wait_job_finalize(submitted_job.job_id, timeout=2)
         job = query_job(submitted_job.job_id)
         assert job.job_id == submitted_job.job_id
         assert job.function_fullname == "test_job.json_in_out_fun"
@@ -104,7 +104,7 @@ def err_fun(data):
 def test_error_job(monkeypatch, tmp_path):
     with _setup_job_runner(1, monkeypatch, tmp_path):
         submitted_job = submit_job(err_fun, {"data": None})
-        time.sleep(0.5)
+        wait_job_finalize(submitted_job.job_id, timeout=2)
         job = query_job(submitted_job.job_id)
 
         # check database record correctness.
@@ -182,9 +182,10 @@ def test_job_queue_parallelism(monkeypatch, tmp_path):
     # test job queue parallelism=2 and each job consumes 2 seconds.
     with _setup_job_runner(2, monkeypatch, tmp_path):
         job_ids = [
-            submit_job(basic_job_fun, {"x": x, "y": 1, "sleep_secs": 2}).job_id for x in range(4)
+            submit_job(basic_job_fun, {"x": x, "y": 1, "sleep_secs": 3}).job_id for x in range(4)
         ]
-        time.sleep(2.5)
+        wait_job_finalize(job_ids[0], timeout=4)
+        wait_job_finalize(job_ids[1], timeout=4)
 
         # assert that job1 and job2 are done, and job3 and job4 are running
         assert_job_result(job_ids[0], JobStatus.SUCCEEDED, 1)
@@ -192,7 +193,8 @@ def test_job_queue_parallelism(monkeypatch, tmp_path):
         assert_job_result(job_ids[2], JobStatus.RUNNING, None)
         assert_job_result(job_ids[3], JobStatus.RUNNING, None)
 
-        time.sleep(2.5)
+        wait_job_finalize(job_ids[2], timeout=4)
+        wait_job_finalize(job_ids[3], timeout=4)
         assert_job_result(job_ids[2], JobStatus.SUCCEEDED, 3)
         assert_job_result(job_ids[3], JobStatus.SUCCEEDED, 4)
 
