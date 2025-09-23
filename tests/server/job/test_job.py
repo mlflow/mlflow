@@ -40,7 +40,7 @@ def _start_job_runner_for_test(max_job_parallelism, start_new_runner):
 
 @contextmanager
 def _setup_job_runner(max_job_parallelism, monkeypatch, tmp_path, backend_store_uri=None):
-    backend_store_uri = backend_store_uri or f"sqlite:///{tmp_path / 'mlflow.db'!s}"
+    backend_store_uri = backend_store_uri or f"sqlite:///{tmp_path / 'mlflow.db'}"
     huey_store_path = str(tmp_path / "huey.db")
     default_artifact_root = str(tmp_path / "artifacts")
     try:
@@ -54,7 +54,6 @@ def _setup_job_runner(max_job_parallelism, monkeypatch, tmp_path, backend_store_
             yield job_runner_proc
     finally:
         mlflow.server.handlers._job_store = None
-        time.sleep(1)
 
 
 def basic_job_fun(x, y, sleep_secs=0):
@@ -212,6 +211,16 @@ def transient_err_fun(tmp_dir: str, succeed_on_nth_run: int):
     raise TransientError(RuntimeError("test transient error."))
 
 
+def wait_job_finalize(job_id, timeout):
+    beg_time = time.time()
+    while time.time() - beg_time <= timeout:
+        job = query_job(job_id)
+        if JobStatus.is_finalized(job.status):
+            return
+        time.sleep(0.1)
+    raise TimeoutError("The job is not finalized within the timeout.")
+
+
 def test_job_retry_on_transient_error(monkeypatch, tmp_path):
     monkeypatch.setenv("MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY", "1")
     with _setup_job_runner(1, monkeypatch, tmp_path):
@@ -223,7 +232,7 @@ def test_job_retry_on_transient_error(monkeypatch, tmp_path):
         job1_id = submit_job(
             transient_err_fun, {"tmp_dir": str(job1_tmp_path), "succeed_on_nth_run": 4}
         ).job_id
-        time.sleep(15)
+        wait_job_finalize(job1_id, timeout=15)
         assert_job_result(job1_id, JobStatus.FAILED, "RuntimeError('test transient error.')")
         job1 = store.get_job(job1_id)
         assert job1.status == JobStatus.FAILED
@@ -278,7 +287,7 @@ def test_job_timeout(monkeypatch, tmp_path):
         job_id = submit_job(
             sleep_fun, {"sleep_secs": 10, "tmp_dir": str(job_tmp_path)}, timeout=5
         ).job_id
-        time.sleep(6)
+        wait_job_finalize(job_id, timeout=6)
         pid = int((job_tmp_path / "pid").read_text())
         # assert timeout job process is killed.
         assert not is_process_alive(pid)

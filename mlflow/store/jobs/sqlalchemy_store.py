@@ -80,10 +80,6 @@ class SqlAlchemyJobStore(AbstractJobStore):
         """
         with self.ManagedSessionMaker() as session:
             job = self._get_sql_job(session, job_id)
-            if job is None:
-                raise MlflowException(
-                    f"Job with ID {job_id} not found", error_code=RESOURCE_DOES_NOT_EXIST
-                )
 
             job.status = JobStatus.RUNNING.to_int()
 
@@ -96,10 +92,6 @@ class SqlAlchemyJobStore(AbstractJobStore):
         """
         with self.ManagedSessionMaker() as session:
             job = self._get_sql_job(session, job_id)
-            if job is None:
-                raise MlflowException(
-                    f"Job with ID {job_id} not found", error_code=RESOURCE_DOES_NOT_EXIST
-                )
 
             job.status = JobStatus.PENDING.to_int()
 
@@ -113,10 +105,6 @@ class SqlAlchemyJobStore(AbstractJobStore):
         """
         with self.ManagedSessionMaker() as session:
             job = self._get_sql_job(session, job_id)
-            if job is None:
-                raise MlflowException(
-                    f"Job with ID {job_id} not found", error_code=RESOURCE_DOES_NOT_EXIST
-                )
 
             job.status = JobStatus.SUCCEEDED.to_int()
             job.result = result
@@ -131,10 +119,6 @@ class SqlAlchemyJobStore(AbstractJobStore):
         """
         with self.ManagedSessionMaker() as session:
             job = self._get_sql_job(session, job_id)
-            if job is None:
-                raise MlflowException(
-                    f"Job with ID {job_id} not found", error_code=RESOURCE_DOES_NOT_EXIST
-                )
 
             job.status = JobStatus.FAILED.to_int()
             job.result = error
@@ -148,10 +132,6 @@ class SqlAlchemyJobStore(AbstractJobStore):
         """
         with self.ManagedSessionMaker() as session:
             job = self._get_sql_job(session, job_id)
-            if job is None:
-                raise MlflowException(
-                    f"Job with ID {job_id} not found", error_code=RESOURCE_DOES_NOT_EXIST
-                )
 
             job.status = JobStatus.TIMEOUT.to_int()
 
@@ -175,10 +155,6 @@ class SqlAlchemyJobStore(AbstractJobStore):
 
         with self.ManagedSessionMaker() as session:
             job = self._get_sql_job(session, job_id)
-            if job is None:
-                raise MlflowException(
-                    f"Job with ID {job_id} not found", error_code=RESOURCE_DOES_NOT_EXIST
-                )
 
             if job.retry_count >= max_retries:
                 job.status = JobStatus.FAILED.to_int()
@@ -250,7 +226,12 @@ class SqlAlchemyJobStore(AbstractJobStore):
                 offset += page_size
 
     def _get_sql_job(self, session, job_id) -> SqlJob:
-        return session.query(SqlJob).filter(SqlJob.id == job_id).one_or_none()
+        job = session.query(SqlJob).filter(SqlJob.id == job_id).one_or_none()
+        if job is None:
+            raise MlflowException(
+                f"Job with ID {job_id} not found", error_code=RESOURCE_DOES_NOT_EXIST
+            )
+        return job
 
     def get_job(self, job_id: str) -> Job:
         """

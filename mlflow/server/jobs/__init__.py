@@ -10,7 +10,6 @@ from types import FunctionType
 from typing import Any, Callable
 
 from mlflow.entities._job import Job
-from mlflow.entities._job_status import JobStatus
 from mlflow.environment_variables import MLFLOW_SERVER_JOB_MAX_PARALLELISM
 from mlflow.exceptions import MlflowException
 from mlflow.server.handlers import _get_job_store
@@ -34,7 +33,7 @@ class TransientError(RuntimeError):
 
 def submit_job(
     function: Callable[..., Any], params: dict[str, Any], timeout: float | None = None
-) -> str:
+) -> Job:
     """
     Submit a job to the job queue. The job is executed at most once.
     If the MLflow server crashes while the job is pending or running,
