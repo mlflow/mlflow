@@ -1,5 +1,4 @@
 from datetime import datetime
-from pathlib import Path
 from time import sleep
 from uuid import UUID
 
@@ -40,11 +39,6 @@ def issue() -> Issue:
     return Issue(
         source_run_id="run123", title="Test", description="Test", severity=IssueSeverity.HIGH
     )
-
-
-@pytest.fixture
-def yaml_file(tmp_path: Path) -> Path:
-    return tmp_path / "entity.yaml"
 
 
 @pytest.mark.parametrize(
@@ -91,32 +85,25 @@ def test_evidence_entry_creation(
     assert entry.supports == expected_supports
 
 
-@pytest.mark.parametrize(
-    ("method", "args", "expected_supports"),
-    [
-        ("for_hypothesis", ("trace789", "Supporting evidence", True), True),
-        ("for_hypothesis", ("trace999", "Default support"), True),
-        ("for_issue", ("issue_trace", "Issue evidence"), None),
-    ],
-)
-def test_evidence_entry_factory_methods(
-    method: str,
-    args: tuple[str, str] | tuple[str, str, bool],
-    expected_supports: bool | None,
-) -> None:
-    if method == "for_hypothesis":
-        if len(args) == 3:
-            entry = EvidenceEntry.for_hypothesis(args[0], args[1], args[2])
-        else:
-            entry = EvidenceEntry.for_hypothesis(args[0], args[1])
-    elif method == "for_issue":
-        entry = EvidenceEntry.for_issue(args[0], args[1])
-    else:
-        raise ValueError(f"Unknown method: {method}")
+def test_evidence_entry_for_hypothesis_with_supports():
+    entry = EvidenceEntry.for_hypothesis("trace789", "Supporting evidence", True)
+    assert entry.trace_id == "trace789"
+    assert entry.rationale == "Supporting evidence"
+    assert entry.supports is True
 
-    assert entry.trace_id == args[0]
-    assert entry.rationale == args[1]
-    assert entry.supports == expected_supports
+
+def test_evidence_entry_for_hypothesis_default_supports():
+    entry = EvidenceEntry.for_hypothesis("trace999", "Default support")
+    assert entry.trace_id == "trace999"
+    assert entry.rationale == "Default support"
+    assert entry.supports is True
+
+
+def test_evidence_entry_for_issue():
+    entry = EvidenceEntry.for_issue("issue_trace", "Issue evidence")
+    assert entry.trace_id == "issue_trace"
+    assert entry.rationale == "Issue evidence"
+    assert entry.supports is None
 
 
 @pytest.mark.parametrize("invalid_trace_id", ["", "   ", None])
@@ -596,15 +583,12 @@ def test_created_at_never_changes(analysis: Analysis):
     assert analysis.created_at == initial_created
 
 
-def test_analysis_serialization_lifecycle(yaml_file: Path, analysis: Analysis):
+def test_analysis_serialization_lifecycle(analysis: Analysis):
     initial_created = analysis.created_at
     initial_updated = analysis.updated_at
 
-    with open(yaml_file, "w") as f:
-        f.write(analysis.to_yaml())
-
-    with open(yaml_file) as f:
-        data = yaml.safe_load(f)
+    yaml_str = analysis.to_yaml()
+    data = yaml.safe_load(yaml_str)
     loaded = Analysis(**data)
     assert loaded.status == AnalysisStatus.ACTIVE
     assert loaded.created_at == initial_created
@@ -616,28 +600,22 @@ def test_analysis_serialization_lifecycle(yaml_file: Path, analysis: Analysis):
     assert loaded.updated_at > initial_updated
     assert loaded.created_at == initial_created
 
-    with open(yaml_file, "w") as f:
-        f.write(loaded.to_yaml())
-
-    with open(yaml_file) as f:
-        data = yaml.safe_load(f)
+    yaml_str = loaded.to_yaml()
+    data = yaml.safe_load(yaml_str)
     final = Analysis(**data)
     assert final.status == AnalysisStatus.COMPLETED
     assert final.created_at == initial_created
     assert final.updated_at == loaded.updated_at
 
 
-def test_hypothesis_serialization_with_evidence(yaml_file: Path, hypothesis: Hypothesis):
+def test_hypothesis_serialization_with_evidence(hypothesis: Hypothesis):
     hypothesis_id = hypothesis.hypothesis_id
 
     hypothesis.add_evidence("trace1", "Evidence 1", supports=True)
     hypothesis.add_evidence("trace2", "Evidence 2", supports=False)
 
-    with open(yaml_file, "w") as f:
-        f.write(hypothesis.to_yaml())
-
-    with open(yaml_file) as f:
-        data = yaml.safe_load(f)
+    yaml_str = hypothesis.to_yaml()
+    data = yaml.safe_load(yaml_str)
     loaded = Hypothesis(**data)
 
     assert loaded.hypothesis_id == hypothesis_id
@@ -647,18 +625,15 @@ def test_hypothesis_serialization_with_evidence(yaml_file: Path, hypothesis: Hyp
     assert all(isinstance(e, EvidenceEntry) for e in loaded.evidence)
 
 
-def test_issue_serialization_full_lifecycle(yaml_file: Path, issue: Issue):
+def test_issue_serialization_full_lifecycle(issue: Issue):
     issue_id = issue.issue_id
 
     issue.start_progress()
     issue.add_evidence("trace1", "Shows issue")
     issue.add_assessment("assessment1")
 
-    with open(yaml_file, "w") as f:
-        f.write(issue.to_yaml())
-
-    with open(yaml_file) as f:
-        data = yaml.safe_load(f)
+    yaml_str = issue.to_yaml()
+    data = yaml.safe_load(yaml_str)
     loaded = Issue(**data)
 
     assert loaded.issue_id == issue_id
@@ -671,11 +646,8 @@ def test_issue_serialization_full_lifecycle(yaml_file: Path, issue: Issue):
     assert loaded.status == IssueStatus.RESOLVED
     assert loaded.resolution == "Fixed"
 
-    with open(yaml_file, "w") as f:
-        f.write(loaded.to_yaml())
-
-    with open(yaml_file) as f:
-        data = yaml.safe_load(f)
+    yaml_str = loaded.to_yaml()
+    data = yaml.safe_load(yaml_str)
     final = Issue(**data)
     assert final.status == IssueStatus.RESOLVED
     assert final.resolution == "Fixed"
@@ -697,16 +669,13 @@ def test_issue_serialization_full_lifecycle(yaml_file: Path, issue: Issue):
         ),
     ],
 )
-def test_serialization_preserves_timestamps(yaml_file: Path, entity_class, init_args):
+def test_serialization_preserves_timestamps(entity_class, init_args):
     entity = entity_class(**init_args)
     original_created = entity.created_at
     original_updated = entity.updated_at
 
-    with open(yaml_file, "w") as f:
-        f.write(entity.to_yaml())
-
-    with open(yaml_file) as f:
-        data = yaml.safe_load(f)
+    yaml_str = entity.to_yaml()
+    data = yaml.safe_load(yaml_str)
     loaded = entity_class(**data)
 
     assert loaded.created_at == original_created

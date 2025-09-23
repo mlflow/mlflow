@@ -7,10 +7,18 @@ This module contains the foundational components used by the main entity models.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+if TYPE_CHECKING:
+    from typing_extensions import Self
+else:
+    try:
+        from typing import Self
+    except ImportError:
+        from typing_extensions import Self
 
 from mlflow.exceptions import MlflowException
 
@@ -106,7 +114,7 @@ class SerializableModel(BaseModel):
         return yaml.safe_dump(self.to_dict(), default_flow_style=False)
 
     @classmethod
-    def from_yaml(cls, yaml_str: str) -> "SerializableModel":
+    def from_yaml(cls, yaml_str: str) -> Self:
         """Create instance from YAML string.
 
         Args:
