@@ -12,9 +12,14 @@ MLflow's plugin architecture enables seamless integration with third-party tools
 Try the built-in test plugin to see how plugins work:
 
 ```bash
-# Clone MLflow and install example plugin
+# Clone MLflow and ensure MLflow is installed
 git clone https://github.com/mlflow/mlflow
 cd mlflow
+
+# Install MLflow first (required dependency)
+pip install -e .
+
+# Install the test plugin
 pip install -e tests/resources/mlflow-test-plugin
 ```
 
@@ -25,6 +30,10 @@ MLFLOW_TRACKING_URI=file-plugin:$(PWD)/mlruns python examples/quickstart/mlflow_
 # Launch MLflow UI to view results
 mlflow server --backend-store-uri ./mlruns
 ```
+
+:::tip Plugin Dependencies
+The test plugin intentionally omits MLflow from its dependency list to avoid overwriting editable MLflow installations during development. Always ensure MLflow is installed in your environment before installing any MLflow plugins.
+:::
 
 Open http://localhost:5000 to see your tracked experiment:
 
