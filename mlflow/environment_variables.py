@@ -773,17 +773,26 @@ _MLFLOW_IS_IN_SERVING_ENVIRONMENT = _BooleanEnvironmentVariable(
 #: in the UI signup page when running the app with basic authentication enabled
 MLFLOW_FLASK_SERVER_SECRET_KEY = _EnvironmentVariable("MLFLOW_FLASK_SERVER_SECRET_KEY", str, None)
 
-#: Comma-separated list of allowed CORS origins for the MLflow server.
+#: (MLflow 3.5.0+) Comma-separated list of allowed CORS origins for the MLflow server.
 #: Example: "http://localhost:3000,https://app.example.com"
+#: (default: ``None`` - localhost origins only)
 MLFLOW_CORS_ALLOWED_ORIGINS = _EnvironmentVariable("MLFLOW_CORS_ALLOWED_ORIGINS", str, None)
 
-#: Allow insecure CORS (accepts all origins). DANGEROUS - only use for development!
-#: Set to "true" to enable. Defaults to False.
+#: (MLflow 3.5.0+) Allow insecure CORS (accepts all origins). DANGEROUS - only use for development!
+#: Set to "true" to enable.
+#: (default: ``"false"``)
 MLFLOW_ALLOW_INSECURE_CORS = _EnvironmentVariable("MLFLOW_ALLOW_INSECURE_CORS", str, "false")
 
-#: Enable host header validation to prevent DNS rebinding attacks.
-#: Set to "false" to disable (not recommended). Defaults to True.
+#: (MLflow 3.5.0+) Enable host header validation to prevent DNS rebinding attacks.
+#: Set to "false" to disable (not recommended).
+#: (default: ``"true"``)
 MLFLOW_HOST_HEADER_VALIDATION = _EnvironmentVariable("MLFLOW_HOST_HEADER_VALIDATION", str, "true")
+
+#: (MLflow 3.5.0+) Comma-separated list of allowed Host headers for the MLflow server.
+#: Example: "mlflow.company.com,mlflow.internal:5000"
+#: If not set, defaults to localhost variants (localhost, 127.0.0.1, [::1], etc.)
+#: (default: ``None`` - localhost variants only)
+MLFLOW_ALLOWED_HOSTS = _EnvironmentVariable("MLFLOW_ALLOWED_HOSTS", str, None)
 
 #: Specifies the max length (in chars) of an experiment's artifact location.
 #: The default is 2048.

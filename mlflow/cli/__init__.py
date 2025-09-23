@@ -431,12 +431,76 @@ def server(
     uvicorn_opts,
 ):
     """
-    Run the MLflow tracking server.
+    Run the MLflow tracking server with built-in security middleware.
 
     The server listens on http://localhost:5000 by default and only accepts connections
     from the local machine. To let the server accept connections from other machines, you will need
     to pass ``--host 0.0.0.0`` to listen on all network interfaces
     (or a specific interface address).
+
+    **Security Features (Available in MLflow 3.5.0+):**
+
+    Starting with MLflow 3.5.0, the server includes security middleware that protects against:
+    - DNS rebinding attacks
+    - Cross-Origin Resource Sharing (CORS) attacks
+    - Host header injection
+    - Clickjacking
+
+    **Security Configuration via Environment Variables:**
+
+    - ``MLFLOW_CORS_ALLOWED_ORIGINS``: Comma-separated list of allowed CORS origins
+      (e.g., "https://app1.com,https://app2.com"). Default: localhost origins only.
+
+    - ``MLFLOW_ALLOWED_HOSTS``: Comma-separated list of allowed Host headers
+      (e.g., "mlflow.company.com,mlflow.internal:5000"). Default: localhost variants.
+
+    - ``MLFLOW_HOST_HEADER_VALIDATION``: Set to "false" to disable Host header validation
+      (NOT recommended for production). Default: "true".
+
+    - ``MLFLOW_ALLOW_INSECURE_CORS``: Set to "true" to allow ALL origins (DANGEROUS -
+      development only!). Default: "false".
+
+    **Example Configurations:**
+
+    1. Basic localhost development (default - no configuration needed)::
+
+        mlflow server
+
+    2. Production server with specific allowed origins::
+
+        export MLFLOW_CORS_ALLOWED_ORIGINS="https://app.company.com,https://dashboard.company.com"
+        export MLFLOW_ALLOWED_HOSTS="mlflow.company.com"
+        mlflow server --host 0.0.0.0
+
+    3. Development with insecure CORS (WARNING: Never use in production!)::
+
+        export MLFLOW_ALLOW_INSECURE_CORS="true"
+        mlflow server --host 0.0.0.0
+
+    4. Disable security if using external reverse proxy with its own security::
+
+        export MLFLOW_HOST_HEADER_VALIDATION="false"
+        export MLFLOW_ALLOW_INSECURE_CORS="true"
+        mlflow server --host 127.0.0.1
+
+    **Security Best Practices:**
+
+    1. Always use HTTPS in production (configure via reverse proxy like nginx/Apache)
+    2. Explicitly whitelist trusted origins via MLFLOW_CORS_ALLOWED_ORIGINS
+    3. Use specific host names in MLFLOW_ALLOWED_HOSTS
+    4. Keep HOST_HEADER_VALIDATION enabled unless you have alternative protections
+    5. Never use MLFLOW_ALLOW_INSECURE_CORS in production
+
+    **Troubleshooting Access Issues:**
+
+    If clients cannot access your MLflow server:
+
+    1. Check Host header: Ensure the client's Host header matches MLFLOW_ALLOWED_HOSTS
+    2. Check Origin header: For web apps, ensure origin is in MLFLOW_CORS_ALLOWED_ORIGINS
+    3. For 403 "Invalid Host header" errors: Add the host to MLFLOW_ALLOWED_HOSTS
+    4. For 403 "Cross-origin request blocked" errors: Add origin to MLFLOW_CORS_ALLOWED_ORIGINS
+
+    See https://mlflow.org/docs/latest/tracking/server-security.html for detailed documentation.
     """
     from mlflow.server import _run_server
     from mlflow.server.handlers import initialize_backend_stores

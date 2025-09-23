@@ -534,6 +534,11 @@ const sidebarsClassicML: SidebarsConfig = {
               items: [
                 {
                   type: 'doc',
+                  id: 'tracking/server-security',
+                  label: 'Server Security',
+                },
+                {
+                  type: 'doc',
                   id: 'tracking/artifact-stores/index',
                   label: 'Artifact Store',
                 },

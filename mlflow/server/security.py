@@ -5,7 +5,6 @@ and other vulnerabilities.
 
 import ipaddress
 import logging
-import os
 import socket
 from urllib.parse import urlparse
 
@@ -13,6 +12,7 @@ from flask import Flask, Request, Response, request
 
 from mlflow.environment_variables import (
     MLFLOW_ALLOW_INSECURE_CORS,
+    MLFLOW_ALLOWED_HOSTS,
     MLFLOW_CORS_ALLOWED_ORIGINS,
     MLFLOW_HOST_HEADER_VALIDATION,
 )
@@ -47,20 +47,11 @@ class SecurityMiddleware:
         self.allow_insecure_cors = allow_insecure_cors
         self.enable_host_validation = enable_host_validation
 
-        # Initialize allowed hosts
-        if allowed_hosts is None:
-            # Default to localhost and common local addresses
-            self.allowed_hosts = self._get_default_allowed_hosts()
-        else:
-            self.allowed_hosts = set(allowed_hosts)
+        self.allowed_hosts = (
+            self._get_default_allowed_hosts() if allowed_hosts is None else set(allowed_hosts)
+        )
+        self.allowed_origins = set() if allowed_origins is None else set(allowed_origins)
 
-        # Initialize allowed origins
-        if allowed_origins is None:
-            self.allowed_origins = set()
-        else:
-            self.allowed_origins = set(allowed_origins)
-
-        # Add localhost variants to allowed origins if not in insecure mode
         if not allow_insecure_cors:
             self._add_localhost_origins()
 
@@ -75,30 +66,17 @@ class SecurityMiddleware:
             "0.0.0.0",
         }
 
-        # Add common port variations
         common_ports = ["5000", "3000", "8080", "8000"]
         localhost_variants = ["localhost", "127.0.0.1", "[::1]", "0.0.0.0"]
 
-        for host in localhost_variants:
-            for port in common_ports:
-                if host.startswith("["):  # IPv6
-                    hosts.add(f"{host}:{port}")
-                else:
-                    hosts.add(f"{host}:{port}")
+        hosts.update(f"{host}:{port}" for host in localhost_variants for port in common_ports)
 
-        # Try to add the actual hostname
         try:
-            hostname = socket.gethostname()
-            hosts.add(hostname)
-            hosts.add(f"{hostname}:5000")
-            hosts.add(f"{hostname}:3000")
+            if hostname := socket.gethostname():
+                hosts.update([hostname, f"{hostname}:5000", f"{hostname}:3000"])
 
-            # Also add the FQDN
-            fqdn = socket.getfqdn()
-            if fqdn != hostname:
-                hosts.add(fqdn)
-                hosts.add(f"{fqdn}:5000")
-                hosts.add(f"{fqdn}:3000")
+                if (fqdn := socket.getfqdn()) != hostname:
+                    hosts.update([fqdn, f"{fqdn}:5000", f"{fqdn}:3000"])
         except Exception as e:
             _logger.debug(f"Could not determine hostname: {e}")
 
@@ -119,43 +97,29 @@ class SecurityMiddleware:
     def _is_private_ip(self, hostname: str) -> bool:
         """Check if a hostname resolves to a private IP address."""
         try:
-            # Remove port if present
             if ":" in hostname and not hostname.startswith("["):
-                # Check if this might be an IPv6 address without brackets
-                # IPv6 addresses have multiple colons
-                if hostname.count(":") > 1:
-                    # This is likely an IPv6 address
-                    pass
-                else:
-                    # IPv4 with port
-                    hostname = hostname.split(":")[0]
+                # NB: IPv6 addresses have multiple colons, IPv4 has max one
+                hostname = hostname if hostname.count(":") > 1 else hostname.split(":")[0]
             elif hostname.startswith("[") and "]:" in hostname:
-                # IPv6 with port
                 hostname = hostname[1 : hostname.index("]")]
             elif hostname.startswith("[") and hostname.endswith("]"):
-                # IPv6 without port but with brackets
                 hostname = hostname[1:-1]
 
-            # Try to parse as IP address directly
             try:
                 ip = ipaddress.ip_address(hostname)
                 return ip.is_private or ip.is_loopback or ip.is_link_local
             except ValueError:
-                # Not an IP address, try to resolve
                 pass
 
-            # Resolve hostname to IP
-            addr_info = socket.getaddrinfo(hostname, None)
-            for addr in addr_info:
-                ip_str = addr[4][0]
-                ip = ipaddress.ip_address(ip_str)
-                if ip.is_private or ip.is_loopback or ip.is_link_local:
-                    return True
-            return False
+            return any(
+                (ip := ipaddress.ip_address(addr[4][0])).is_private
+                or ip.is_loopback
+                or ip.is_link_local
+                for addr in socket.getaddrinfo(hostname, None)
+            )
         except Exception as e:
             _logger.debug(f"Could not determine if {hostname} is private: {e}")
-            # Be conservative and deny if we can't determine
-            return False
+            return False  # NB: Conservative denial if determination fails
 
     def _validate_host_header(self, request: Request) -> bool:
         """
@@ -167,16 +131,13 @@ class SecurityMiddleware:
         if not self.enable_host_validation:
             return True
 
-        host = request.headers.get("Host")
-        if not host:
+        if not (host := request.headers.get("Host")):
             _logger.warning("Request missing Host header")
             return False
 
-        # Check against allowed hosts
         if host in self.allowed_hosts:
             return True
 
-        # Check if it's a private IP/hostname
         if self._is_private_ip(host):
             _logger.debug(f"Allowing private host: {host}")
             return True
@@ -191,23 +152,18 @@ class SecurityMiddleware:
         Returns:
             True if the origin is valid or not present, False otherwise.
         """
-        origin = request.headers.get("Origin")
-        if not origin:
-            # No Origin header means it's likely a same-origin request or direct API call
+        if not (origin := request.headers.get("Origin")):
             return True
 
         if self.allow_insecure_cors:
             _logger.debug("Allowing all origins due to insecure CORS mode")
             return True
 
-        # Check against allowed origins
         if origin in self.allowed_origins:
             return True
 
-        # Check if origin is from a private/local address
         try:
-            parsed = urlparse(origin)
-            if parsed.hostname and self._is_private_ip(parsed.hostname):
+            if (parsed := urlparse(origin)).hostname and self._is_private_ip(parsed.hostname):
                 _logger.debug(f"Allowing private origin: {origin}")
                 return True
         except Exception as e:
@@ -218,22 +174,15 @@ class SecurityMiddleware:
 
     def _add_security_headers(self, response: Response, request: Request) -> None:
         """Add security headers to the response."""
-        # Add X-Content-Type-Options to prevent MIME sniffing
         response.headers["X-Content-Type-Options"] = "nosniff"
-
-        # Add X-Frame-Options to prevent clickjacking
         response.headers["X-Frame-Options"] = "SAMEORIGIN"
 
-        # Handle CORS headers
-        origin = request.headers.get("Origin")
-        if origin:
+        if origin := request.headers.get("Origin"):
             if self.allow_insecure_cors:
-                # Insecure mode - allow all origins (only for development!)
                 response.headers["Access-Control-Allow-Origin"] = "*"
                 response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
                 response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-            elif origin in self.allowed_origins or (self._is_origin_allowed_private(origin)):
-                # Set specific origin instead of wildcard for security
+            elif origin in self.allowed_origins or self._is_origin_allowed_private(origin):
                 response.headers["Access-Control-Allow-Origin"] = origin
                 response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
                 response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
@@ -255,11 +204,9 @@ class SecurityMiddleware:
         Returns:
             Response object if request should be blocked, None otherwise.
         """
-        # Skip validation for health check and version endpoints
         if request.path in ["/health", "/version"]:
             return None
 
-        # Validate Host header
         if not self._validate_host_header(request):
             return Response(
                 "Invalid Host header - possible DNS rebinding attack detected",
@@ -267,7 +214,6 @@ class SecurityMiddleware:
                 mimetype="text/plain",
             )
 
-        # Validate Origin header for state-changing requests
         if request.method in ["POST", "PUT", "DELETE", "PATCH"]:
             if not self._validate_origin(request):
                 return Response(
@@ -276,10 +222,8 @@ class SecurityMiddleware:
                     mimetype="text/plain",
                 )
 
-        # Handle preflight OPTIONS requests
-        if request.method == "OPTIONS":
-            origin = request.headers.get("Origin")
-            if origin and (
+        if request.method == "OPTIONS" and (origin := request.headers.get("Origin")):
+            if (
                 self.allow_insecure_cors
                 or origin in self.allowed_origins
                 or self._is_origin_allowed_private(origin)
@@ -311,23 +255,21 @@ def init_security_middleware(app: Flask) -> SecurityMiddleware:
     Returns:
         Configured SecurityMiddleware instance.
     """
-    # Get configuration from environment variables
     allow_insecure_cors = MLFLOW_ALLOW_INSECURE_CORS.get() == "true"
     enable_host_validation = MLFLOW_HOST_HEADER_VALIDATION.get() != "false"
 
-    # Parse allowed origins from environment
-    allowed_origins_env = MLFLOW_CORS_ALLOWED_ORIGINS.get()
-    allowed_origins = None
-    if allowed_origins_env:
-        allowed_origins = [origin.strip() for origin in allowed_origins_env.split(",")]
+    allowed_origins = (
+        [origin.strip() for origin in origins.split(",")]
+        if (origins := MLFLOW_CORS_ALLOWED_ORIGINS.get())
+        else None
+    )
 
-    # Parse allowed hosts from environment
-    allowed_hosts_env = os.environ.get("MLFLOW_ALLOWED_HOSTS")
-    allowed_hosts = None
-    if allowed_hosts_env:
-        allowed_hosts = [host.strip() for host in allowed_hosts_env.split(",")]
+    allowed_hosts = (
+        [host.strip() for host in hosts.split(",")]
+        if (hosts := MLFLOW_ALLOWED_HOSTS.get())
+        else None
+    )
 
-    # Create middleware instance
     middleware = SecurityMiddleware(
         allowed_hosts=allowed_hosts,
         allowed_origins=allowed_origins,
@@ -335,12 +277,10 @@ def init_security_middleware(app: Flask) -> SecurityMiddleware:
         enable_host_validation=enable_host_validation,
     )
 
-    # Register middleware with Flask
     @app.before_request
     def before_request():
         """Process request through security middleware."""
-        response = middleware.process_request(request)
-        if response:
+        if response := middleware.process_request(request):
             return response
 
     @app.after_request
@@ -351,7 +291,7 @@ def init_security_middleware(app: Flask) -> SecurityMiddleware:
     if allow_insecure_cors:
         _logger.warning(
             "Running MLflow server with INSECURE CORS mode enabled. "
-            "This should only be used for development and testing!"
+            "This should only be used for development and testing."
         )
 
     return middleware
