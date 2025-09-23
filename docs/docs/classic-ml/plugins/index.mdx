@@ -26,10 +26,6 @@ MLFLOW_TRACKING_URI=file-plugin:$(PWD)/mlruns python examples/quickstart/mlflow_
 mlflow server --backend-store-uri ./mlruns
 ```
 
-:::tip Plugin Dependencies
-The test plugin intentionally omits MLflow from its dependency list to avoid overwriting editable MLflow installations during development. Always ensure MLflow is installed in your environment before installing any MLflow plugins.
-:::
-
 Open http://localhost:5000 to see your tracked experiment:
 
 ![Quickstart UI](/images/quickstart/quickstart_ui_screenshot.png)
