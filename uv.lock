@@ -12,6 +12,7 @@ resolution-markers = [
 members = [
     "clint",
     "mlflow",
+    "mlflow-test-plugin",
 ]
 
 [[package]]
@@ -3164,6 +3165,7 @@ dev = [
     { name = "black" },
     { name = "blacken-docs" },
     { name = "clint" },
+    { name = "mlflow-test-plugin" },
     { name = "mypy" },
     { name = "packaging" },
     { name = "pre-commit" },
@@ -3277,6 +3279,7 @@ dev = [
     { name = "black", specifier = "==23.7.0" },
     { name = "blacken-docs", specifier = "==1.18.0" },
     { name = "clint", editable = "dev/clint" },
+    { name = "mlflow-test-plugin", editable = "tests/resources/mlflow-test-plugin" },
     { name = "mypy", specifier = "==1.17.1" },
     { name = "packaging", specifier = ">=25.0" },
     { name = "pre-commit", specifier = "==4.0.1" },
@@ -3362,6 +3365,11 @@ sdist = { url = "https://files.pythonhosted.org/packages/39/ef/94ce1a8db3ae3f94a
 wheels = [
     { url = "https://files.pythonhosted.org/packages/fb/06/805b94473d6222249b87fa415d047b34db1e6eb24385783b6d1bc89f6ea8/mlflow_skinny-3.3.2-py3-none-any.whl", hash = "sha256:e565b08de309b9716d4f89362e0a9217d82a3c28d8d553988e0eaad6cbfe4eea", size = 2024570, upload-time = "2025-08-27T12:34:52.563Z" },
 ]
+
+[[package]]
+name = "mlflow-test-plugin"
+version = "0.0.1"
+source = { editable = "tests/resources/mlflow-test-plugin" }
 
 [[package]]
 name = "mlserver"

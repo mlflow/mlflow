@@ -162,7 +162,11 @@ namespaces = false
 # Dev tool settings: can be updated manually
 
 [dependency-groups]
-dev = [{ include-group = "lint" }, { include-group = "test" }]
+dev = [
+  { include-group = "lint" },
+  { include-group = "test" },
+  "mlflow-test-plugin",
+]
 lint = [
   "ruff==0.12.10",
   "black==23.7.0",
@@ -187,10 +191,16 @@ test = [
 required-version = "==0.8.18"
 
 [tool.uv.workspace]
-members = ["dev/clint"]
+members = ["dev/clint", "tests/resources/mlflow-test-plugin"]
 
 [tool.uv.sources]
 clint = { workspace = true }
+mlflow-test-plugin = { workspace = true }
+torch = { index = "pytorch" }
+
+[[tool.uv.index]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cpu"
 
 [tool.ruff]
 line-length = 100
