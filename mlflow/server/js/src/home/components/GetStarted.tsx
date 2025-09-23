@@ -4,7 +4,7 @@ import { homeQuickActions } from '../quick-actions';
 
 type QuickAction = typeof homeQuickActions[number];
 
-const GetStartedCard = ({ action }: { action: QuickAction }) => {
+const GetStartedCard = ({ action, onLogTracesClick }: { action: QuickAction; onLogTracesClick?: () => void }) => {
   const { theme } = useDesignSystemTheme();
   const linkStyles = {
     textDecoration: 'none',
@@ -63,6 +63,27 @@ const GetStartedCard = ({ action }: { action: QuickAction }) => {
     </div>
   );
 
+  if (action.id === 'log-traces' && onLogTracesClick) {
+    return (
+      <button
+        type="button"
+        onClick={onLogTracesClick}
+        css={{
+          ...linkStyles,
+          border: 0,
+          padding: 0,
+          background: 'transparent',
+          cursor: 'pointer',
+          font: 'inherit',
+          textAlign: 'left',
+        }}
+        data-component-id={action.componentId}
+      >
+        {card}
+      </button>
+    );
+  }
+
   return (
     <a href={action.link} target="_blank" rel="noopener noreferrer" css={linkStyles}>
       {card}
@@ -70,7 +91,7 @@ const GetStartedCard = ({ action }: { action: QuickAction }) => {
   );
 };
 
-export const GetStarted = () => {
+export const GetStarted = ({ onLogTracesClick }: { onLogTracesClick?: () => void }) => {
   const { theme } = useDesignSystemTheme();
 
   return (
