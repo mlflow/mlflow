@@ -7,9 +7,18 @@ This module contains the foundational components used by the main entity models.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+if TYPE_CHECKING:
+    from typing_extensions import Self
+else:
+    try:
+        from typing import Self
+    except ImportError:
+        from typing_extensions import Self
 
 from mlflow.exceptions import MlflowException
 
@@ -124,12 +133,10 @@ class SerializableModel(BaseModel):
 
     def to_yaml(self) -> str:
         """Convert to YAML string."""
-        import yaml
-
         return yaml.safe_dump(self.to_dict(), default_flow_style=False)
 
     @classmethod
-    def from_yaml(cls, yaml_str: str) -> "SerializableModel":
+    def from_yaml(cls, yaml_str: str) -> Self:
         """Create instance from YAML string.
 
         Args:
@@ -138,8 +145,6 @@ class SerializableModel(BaseModel):
         Returns:
             Instance of the model class
         """
-        import yaml
-
         data = yaml.safe_load(yaml_str)
         return cls(**data)
 
@@ -172,16 +177,6 @@ class ExtensibleModel(BaseModel):
         default_factory=dict,
         description="Extensible dictionary for custom fields and future extensions",
     )
-
-    @field_validator("metadata")
-    @classmethod
-    def validate_metadata(cls, v: dict[str, Any]) -> dict[str, Any]:
-        """Ensure metadata is a dictionary."""
-        if not isinstance(v, dict):
-            raise MlflowException.invalid_parameter_value(
-                f"metadata must be a dictionary, got {type(v).__name__}"
-            )
-        return v
 
 
 class EvidencedModel(BaseModel):

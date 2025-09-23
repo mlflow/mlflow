@@ -9,10 +9,10 @@ with hypotheses, evidence collection, and issue tracking.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import AfterValidator, BaseModel, Field, field_validator
 
 from mlflow.exceptions import MlflowException
 from mlflow.insights.constants import AnalysisStatus, HypothesisStatus, IssueSeverity, IssueStatus
@@ -27,6 +27,58 @@ from mlflow.insights.models.base import (
 from mlflow.insights.utils import normalize_evidence
 
 
+def validate_non_empty_string(v: str, field_name: str) -> str:
+    """Validate that a string field is not empty or whitespace only."""
+    if not v or not v.strip():
+        raise MlflowException.invalid_parameter_value(f"{field_name} cannot be empty")
+    return v.strip()
+
+
+def validate_analysis_name(v: str) -> str:
+    """Validate Analysis name is not empty."""
+    return validate_non_empty_string(v, "Analysis name")
+
+
+def validate_analysis_description(v: str) -> str:
+    """Validate Analysis description is not empty."""
+    return validate_non_empty_string(v, "Analysis description")
+
+
+def validate_hypothesis_statement(v: str) -> str:
+    """Validate Hypothesis statement is not empty."""
+    return validate_non_empty_string(v, "Hypothesis statement")
+
+
+def validate_hypothesis_testing_plan(v: str) -> str:
+    """Validate Hypothesis testing plan is not empty."""
+    return validate_non_empty_string(v, "Hypothesis testing plan")
+
+
+def validate_issue_source_run_id(v: str) -> str:
+    """Validate Issue source_run_id is not empty."""
+    return validate_non_empty_string(v, "Issue source_run_id")
+
+
+def validate_issue_title(v: str) -> str:
+    """Validate Issue title is not empty."""
+    return validate_non_empty_string(v, "Issue title")
+
+
+def validate_issue_description(v: str) -> str:
+    """Validate Issue description is not empty."""
+    return validate_non_empty_string(v, "Issue description")
+
+
+# Type aliases for validated strings
+NonEmptyAnalysisName = Annotated[str, AfterValidator(validate_analysis_name)]
+NonEmptyAnalysisDescription = Annotated[str, AfterValidator(validate_analysis_description)]
+NonEmptyHypothesisStatement = Annotated[str, AfterValidator(validate_hypothesis_statement)]
+NonEmptyHypothesisTestingPlan = Annotated[str, AfterValidator(validate_hypothesis_testing_plan)]
+NonEmptyIssueSourceRunId = Annotated[str, AfterValidator(validate_issue_source_run_id)]
+NonEmptyIssueTitle = Annotated[str, AfterValidator(validate_issue_title)]
+NonEmptyIssueDescription = Annotated[str, AfterValidator(validate_issue_description)]
+
+
 class Analysis(SerializableModel, TimestampedModel, ExtensibleModel):
     """
     Investigation run for analyzing MLflow traces for issues.
@@ -38,29 +90,13 @@ class Analysis(SerializableModel, TimestampedModel, ExtensibleModel):
     Stored as 'analysis.yaml' in the MLflow run artifacts.
     """
 
-    name: str = Field(description="Human-readable name for the investigation")
-    description: str = Field(
+    name: NonEmptyAnalysisName = Field(description="Human-readable name for the investigation")
+    description: NonEmptyAnalysisDescription = Field(
         description="Description of investigation focus areas and guidance provided by the user"
     )
     status: AnalysisStatus = Field(
         default=AnalysisStatus.ACTIVE, description="Current status of the analysis"
     )
-
-    @field_validator("name")
-    @classmethod
-    def validate_name(cls, v: str) -> str:
-        """Validate name is not empty."""
-        if not v or not v.strip():
-            raise MlflowException.invalid_parameter_value("Analysis name cannot be empty")
-        return v.strip()
-
-    @field_validator("description")
-    @classmethod
-    def validate_description(cls, v: str) -> str:
-        """Validate description is not empty."""
-        if not v or not v.strip():
-            raise MlflowException.invalid_parameter_value("Analysis description cannot be empty")
-        return v.strip()
 
     def complete(self) -> None:
         """Mark the analysis as completed."""
@@ -105,11 +141,11 @@ class Hypothesis(SerializableModel, TimestampedModel, ExtensibleModel, Evidenced
         default_factory=lambda: str(uuid4()),
         description="Unique identifier (UUID) for this hypothesis",
     )
-    statement: str = Field(
+    statement: NonEmptyHypothesisStatement = Field(
         description="The hypothesis being tested "
         "(e.g., 'The agent exhibits high latency when the query_sql tool is used')"
     )
-    testing_plan: str = Field(
+    testing_plan: NonEmptyHypothesisTestingPlan = Field(
         description="Plan for testing the hypothesis, "
         "including how to validate/refute it by analyzing traces"
     )
@@ -125,22 +161,6 @@ class Hypothesis(SerializableModel, TimestampedModel, ExtensibleModel, Evidenced
     def normalize_evidence_field(cls, v: Any) -> list[EvidenceEntry]:
         """Normalize evidence to list of EvidenceEntry objects for hypotheses."""
         return normalize_evidence(v, for_issue=False)
-
-    @field_validator("statement")
-    @classmethod
-    def validate_statement(cls, v: str) -> str:
-        """Validate statement is not empty."""
-        if not v or not v.strip():
-            raise MlflowException.invalid_parameter_value("Hypothesis statement cannot be empty")
-        return v.strip()
-
-    @field_validator("testing_plan")
-    @classmethod
-    def validate_testing_plan(cls, v: str) -> str:
-        """Validate testing plan is not empty."""
-        if not v or not v.strip():
-            raise MlflowException.invalid_parameter_value("Hypothesis testing plan cannot be empty")
-        return v.strip()
 
     @field_validator("metrics")
     @classmethod
@@ -223,13 +243,17 @@ class Issue(SerializableModel, TimestampedModel, ExtensibleModel, EvidencedModel
     issue_id: str = Field(
         default_factory=lambda: str(uuid4()), description="Unique identifier (UUID) for this issue"
     )
-    source_run_id: str = Field(description="MLflow analysis run ID where this issue was discovered")
+    source_run_id: NonEmptyIssueSourceRunId = Field(
+        description="MLflow analysis run ID where this issue was discovered"
+    )
     hypothesis_id: str | None = Field(
         default=None,
         description="Source hypothesis ID if this issue was derived from a validated hypothesis",
     )
-    title: str = Field(description="Brief, descriptive title for the issue")
-    description: str = Field(description="Detailed description of the problem and its impact")
+    title: NonEmptyIssueTitle = Field(description="Brief, descriptive title for the issue")
+    description: NonEmptyIssueDescription = Field(
+        description="Detailed description of the problem and its impact"
+    )
     severity: IssueSeverity = Field(description="Severity level of the issue")
     status: IssueStatus = Field(default=IssueStatus.OPEN, description="Current issue status")
     assessments: list[str] = Field(
@@ -244,30 +268,6 @@ class Issue(SerializableModel, TimestampedModel, ExtensibleModel, EvidencedModel
     def normalize_evidence_field(cls, v: Any) -> list[EvidenceEntry]:
         """Normalize evidence to list of EvidenceEntry objects for issues."""
         return normalize_evidence(v, for_issue=True)
-
-    @field_validator("source_run_id")
-    @classmethod
-    def validate_source_run_id(cls, v: str) -> str:
-        """Validate source_run_id is not empty."""
-        if not v or not v.strip():
-            raise MlflowException.invalid_parameter_value("Issue source_run_id cannot be empty")
-        return v.strip()
-
-    @field_validator("title")
-    @classmethod
-    def validate_title(cls, v: str) -> str:
-        """Validate title is not empty."""
-        if not v or not v.strip():
-            raise MlflowException.invalid_parameter_value("Issue title cannot be empty")
-        return v.strip()
-
-    @field_validator("description")
-    @classmethod
-    def validate_description(cls, v: str) -> str:
-        """Validate description is not empty."""
-        if not v or not v.strip():
-            raise MlflowException.invalid_parameter_value("Issue description cannot be empty")
-        return v.strip()
 
     @field_validator("assessments")
     @classmethod
