@@ -65,18 +65,12 @@ module.exports = async ({ context, github, core }) => {
     return;
   }
 
-  // Extract the patch release section from the PR body
-  const patchSectionMatch = body.match(
-    /Should this PR be included in the next patch release\?[\s\S]*/
-  );
-  const patchSection = patchSectionMatch ? patchSectionMatch[0] : "";
-
-  const yesRegex = /- \[( |x)\] yes/gi;
-  const yesMatches = [...patchSection.matchAll(yesRegex)];
+  const yesRegex = /- \[( |x)\] yes \(this PR will be/gi;
+  const yesMatches = [...body.matchAll(yesRegex)];
   const yesMatch = yesMatches.length > 0 ? yesMatches[yesMatches.length - 1] : null;
   const yes = yesMatch ? yesMatch[1].toLowerCase() === "x" : false;
-  const noRegex = /- \[( |x)\] no/gi;
-  const noMatches = [...patchSection.matchAll(noRegex)];
+  const noRegex = /- \[( |x)\] no \(this PR will be/gi;
+  const noMatches = [...body.matchAll(noRegex)];
   const noMatch = noMatches.length > 0 ? noMatches[noMatches.length - 1] : null;
   const no = noMatch ? noMatch[1].toLowerCase() === "x" : false;
 
