@@ -125,6 +125,13 @@ const config: Config = {
         {
           type: 'docSidebar',
           position: 'left',
+          sidebarId: 'selfHostingSidebar',
+          label: 'Self-Hosting',
+          docsPluginId: 'self-hosting',
+        },
+        {
+          type: 'docSidebar',
+          position: 'left',
           sidebarId: 'communitySidebar',
           label: 'Community',
           docsPluginId: 'community',
@@ -250,6 +257,16 @@ const config: Config = {
         sidebarPath: './communitySidebar.ts',
       },
     ],
+    // Self Hosting docs plugin
+    [
+      '@docusaurus/plugin-content-docs',
+      {
+        id: 'self-hosting',
+        path: 'docs/self-hosting',
+        routeBasePath: 'self-hosting',
+        sidebarPath: './sidebarsSelfHosting.ts',
+      },
+    ],
     [
       '@docusaurus/plugin-client-redirects',
       {
@@ -257,6 +274,23 @@ const config: Config = {
           {
             to: '/',
             from: ['/new-features'],
+          },
+          // Redirect to the new self-hosting guide
+          {
+            to: '/self-hosting/architecture/tracking-server',
+            from: ['/ml/tracking/server'],
+          },
+          {
+            to: '/self-hosting/architecture/artifact-store',
+            from: ['/ml/tracking/artifact-stores'],
+          },
+          {
+            to: '/self-hosting/architecture/backend-store',
+            from: ['/ml/tracking/backend-stores'],
+          },
+          {
+            to: '/self-hosting/authentication/basic-http-auth',
+            from: ['/ml/auth'],
           },
           // Redirect mlflow 3 pages
           {
