@@ -69,6 +69,21 @@ def validate_issue_description(v: str) -> str:
     return validate_non_empty_string(v, "Issue description")
 
 
+def validate_error_span_name(v: str) -> str:
+    """Validate ErrorSpan name is not empty."""
+    return validate_non_empty_string(v, "ErrorSpan name")
+
+
+def validate_tool_span_name(v: str) -> str:
+    """Validate SlowTool name is not empty."""
+    return validate_non_empty_string(v, "SlowTool name")
+
+
+def validate_metric_description(v: str) -> str:
+    """Validate QualityMetric description is not empty."""
+    return validate_non_empty_string(v, "QualityMetric description")
+
+
 # Type aliases for validated strings
 NonEmptyAnalysisName = Annotated[str, AfterValidator(validate_analysis_name)]
 NonEmptyAnalysisDescription = Annotated[str, AfterValidator(validate_analysis_description)]
@@ -77,6 +92,9 @@ NonEmptyHypothesisTestingPlan = Annotated[str, AfterValidator(validate_hypothesi
 NonEmptyIssueSourceRunId = Annotated[str, AfterValidator(validate_issue_source_run_id)]
 NonEmptyIssueTitle = Annotated[str, AfterValidator(validate_issue_title)]
 NonEmptyIssueDescription = Annotated[str, AfterValidator(validate_issue_description)]
+NonEmptyErrorSpanName = Annotated[str, AfterValidator(validate_error_span_name)]
+NonEmptyToolSpanName = Annotated[str, AfterValidator(validate_tool_span_name)]
+NonEmptyMetricDescription = Annotated[str, AfterValidator(validate_metric_description)]
 
 
 class Analysis(SerializableModel, TimestampedModel, ExtensibleModel):
@@ -442,7 +460,7 @@ class TimeBucket(BaseModel, DatetimeFieldsMixin):
 class ErrorSpan(BaseModel, DatetimeFieldsMixin):
     """Error span statistics with sample traces."""
 
-    error_span_name: str = Field(description="Name of the span with errors")
+    error_span_name: NonEmptyErrorSpanName = Field(description="Name of the span with errors")
     count: int = Field(description="Number of errors for this span")
     pct_of_errors: float = Field(description="Percentage of total errors")
     sample_trace_ids: list[str] = Field(
@@ -453,7 +471,7 @@ class ErrorSpan(BaseModel, DatetimeFieldsMixin):
 class SlowTool(BaseModel, DatetimeFieldsMixin):
     """Tool performance statistics."""
 
-    tool_span_name: str = Field(description="Name of the tool span")
+    tool_span_name: NonEmptyToolSpanName = Field(description="Name of the tool span")
     count: int = Field(description="Number of invocations")
     median_latency_ms: float = Field(description="Median latency in milliseconds")
     p95_latency_ms: float = Field(description="95th percentile latency in milliseconds")
@@ -500,7 +518,9 @@ class QualityMetric(BaseModel, DatetimeFieldsMixin):
     """Individual quality metric with samples."""
 
     value: float = Field(description="Metric value as percentage")
-    description: str = Field(description="Description of what this metric measures")
+    description: NonEmptyMetricDescription = Field(
+        description="Description of what this metric measures"
+    )
     sample_trace_ids: list[str] = Field(
         default_factory=list, description="Sample trace IDs exhibiting this quality issue"
     )
@@ -523,7 +543,9 @@ class CensusMetadata(BaseModel, DatetimeFieldsMixin):
     """Metadata about the census analysis."""
 
     created_at: datetime = Field(description="Timestamp when census was created")
-    table_name: str = Field(description="Source table name")
+    table_name: str | None = Field(
+        default=None, description="Source table name (Databricks-specific)"
+    )
     additional_metadata: dict[str, Any] = Field(
         default_factory=dict, description="Additional custom metadata"
     )
@@ -531,7 +553,6 @@ class CensusMetadata(BaseModel, DatetimeFieldsMixin):
     @field_validator("created_at", mode="before")
     @classmethod
     def validate_created_at(cls, v):
-        """Convert string to datetime if needed."""
         return cls.parse_datetime(v)
 
 
@@ -552,18 +573,18 @@ class Census(SerializableModel, DatetimeFieldsMixin):
     @classmethod
     def create(
         cls,
-        table_name: str,
         operational_metrics: OperationalMetrics,
         quality_metrics: QualityMetrics,
+        table_name: str | None = None,
         additional_metadata: dict[str, Any] | None = None,
     ) -> Census:
         """
         Create a new census with current timestamp.
 
         Args:
-            table_name: Source table name
             operational_metrics: Operational performance metrics
             quality_metrics: Response quality metrics
+            table_name: Optional source table name (Databricks-specific)
             additional_metadata: Optional additional metadata
 
         Returns:

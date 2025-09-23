@@ -693,8 +693,6 @@ def test_serialization_preserves_timestamps(entity_class, init_args):
 
 @pytest.fixture
 def operational_metrics():
-    """Create sample operational metrics."""
-
     return OperationalMetrics(
         total_traces=1000,
         ok_count=950,
@@ -761,8 +759,6 @@ def operational_metrics():
 
 @pytest.fixture
 def quality_metrics():
-    """Create sample quality metrics."""
-
     return QualityMetrics(
         minimal_responses=QualityMetric(
             value=2.5,
@@ -789,12 +785,10 @@ def quality_metrics():
 
 @pytest.fixture
 def census(operational_metrics, quality_metrics):
-    """Create a census instance."""
-
     return Census.create(
-        table_name="test_table",
         operational_metrics=operational_metrics,
         quality_metrics=quality_metrics,
+        table_name="test_table",
         additional_metadata={"environment": "test", "version": "1.0"},
     )
 
@@ -913,12 +907,8 @@ def test_quality_metric_model():
     assert len(metric.sample_trace_ids) == 2
 
 
-def test_census_yaml_serialization(census: Census, tmp_path: Path):
-    yaml_file = tmp_path / "census.yaml"
-
+def test_census_yaml_serialization(census: Census):
     yaml_content = census.to_yaml()
-    yaml_file.write_text(yaml_content)
-
     loaded_census = Census.from_yaml(yaml_content)
 
     assert loaded_census.metadata.table_name == census.metadata.table_name
@@ -981,7 +971,6 @@ def test_census_empty_lists():
     )
 
     census = Census.create(
-        table_name="test_table",
         operational_metrics=metrics,
         quality_metrics=quality,
     )
@@ -989,3 +978,19 @@ def test_census_empty_lists():
     assert census.has_quality_issues() is False
     assert census.get_error_summary().total_errors == 0
     assert len(census.get_error_summary().top_error_spans) == 0
+    assert census.metadata.table_name is None
+
+
+def test_census_with_optional_table_name(operational_metrics, quality_metrics):
+    census_without_table = Census.create(
+        operational_metrics=operational_metrics,
+        quality_metrics=quality_metrics,
+    )
+    assert census_without_table.metadata.table_name is None
+
+    census_with_table = Census.create(
+        operational_metrics=operational_metrics,
+        quality_metrics=quality_metrics,
+        table_name="databricks_table",
+    )
+    assert census_with_table.metadata.table_name == "databricks_table"
