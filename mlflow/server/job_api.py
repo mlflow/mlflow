@@ -1,14 +1,16 @@
 """
 Internal job APIs for UI invocation
 """
-import os
+
 import json
+import os
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, status as http_status
+from fastapi import APIRouter, HTTPException
+from fastapi import status as http_status
 from pydantic import BaseModel
-from mlflow.entities._job import Job as JobEntity
 
+from mlflow.entities._job import Job as JobEntity
 
 job_api_router = APIRouter(prefix="/ajax-api/3.0/jobs", tags=["Job"])
 
@@ -26,6 +28,7 @@ class Job(BaseModel):
     """
     Pydantic model for job query response.
     """
+
     job_id: str
     creation_time: int
     function_fullname: str
@@ -67,6 +70,7 @@ class SubmitJobResponse(BaseModel):
     """
     Pydantic model for submitting job response.
     """
+
     job_id: str
 
 

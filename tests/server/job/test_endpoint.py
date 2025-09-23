@@ -1,11 +1,12 @@
 import os
-import pytest
-import requests
 import signal
 import subprocess
+import sys
 import time
 from typing import Any
 
+import pytest
+import requests
 
 pytestmark = pytest.mark.skipif(
     os.name == "nt", reason="MLflow job execution is not supported on Windows"
@@ -22,16 +23,22 @@ def simple_job_fun(x: int, y: int) -> dict[str, Any]:
 @pytest.fixture(scope="module")
 def server_url(tmp_path_factory):
     tmp_path = tmp_path_factory.mktemp("server_mod")
-    backend_store_uri = f"sqlite:///{str(tmp_path / 'mlflow.db')}"
+    backend_store_uri = f"sqlite:///{tmp_path / 'mlflow.db'!s}"
 
     server_proc = None
     try:
         server_proc = subprocess.Popen(
             [
-                "mlflow", "server",
-                "-h", "127.0.0.1",
-                "-p", "6677",
-                "--backend-store-uri", backend_store_uri,
+                sys.executable,
+                "-m",
+                "mlflow",
+                "server",
+                "-h",
+                "127.0.0.1",
+                "-p",
+                "6677",
+                "--backend-store-uri",
+                backend_store_uri,
             ],
             env={
                 **os.environ,
@@ -72,11 +79,11 @@ def test_job_endpoint(server_url: str):
     job_json = response2.json()
     job_json.pop("creation_time")
     assert job_json == {
-        'job_id': job_id,
-        'function_fullname': 'test_endpoint.simple_job_fun',
-        'params': {'x': 3, 'y': 4},
-        'timeout': None,
-        'status': 'SUCCEEDED',
-        'result': {'a': 7, 'b': 12},
-        'retry_count': 0
+        "job_id": job_id,
+        "function_fullname": "test_endpoint.simple_job_fun",
+        "params": {"x": 3, "y": 4},
+        "timeout": None,
+        "status": "SUCCEEDED",
+        "result": {"a": 7, "b": 12},
+        "retry_count": 0,
     }
