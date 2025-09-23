@@ -165,6 +165,7 @@ namespaces = false
 dev = [
   { include-group = "lint" },
   { include-group = "test" },
+  { include-group = "build" },
   "mlflow-test-plugin",
 ]
 lint = [
@@ -186,6 +187,7 @@ test = [
   "pytest-cov",
   "pytest-timeout",
 ]
+build = ["pip", "setuptools", "wheel", "build"]
 
 [tool.uv]
 required-version = "==0.8.18"
