@@ -1,11 +1,5 @@
 # CHANGELOG
 
-## Unreleased
-
-Developer Experience:
-
-- [Testing] Removed MLflow dependency from test plugin (`tests/resources/mlflow-test-plugin`) to prevent overwriting editable MLflow installations during development. MLflow must now be installed separately before installing the test plugin. Development scripts updated to use plain editable installs instead of `--no-dependencies`.
-
 ## 3.4.0rc0 (2025-09-11)
 
 MLflow 3.4.0rc0 includes several major features and improvements

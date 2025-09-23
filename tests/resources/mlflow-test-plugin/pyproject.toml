@@ -7,9 +7,9 @@ name = "mlflow-test-plugin"
 version = "0.0.1"
 description = "Test plugin for MLflow"
 requires-python = ">=3.10"
-# MLflow is intentionally not listed as a dependency to avoid overriding editable installs.
-# MLflow must already be installed in the environment before installing this plugin.
-dependencies = []
+# MLflow is commented out to avoid overriding editable installs during development.
+# Uncomment the line below if you need MLflow to be automatically installed with this plugin.
+# dependencies = ["mlflow"]
 
 [tool.setuptools.packages.find]
 where = ["."]

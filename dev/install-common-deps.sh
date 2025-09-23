@@ -69,8 +69,8 @@ if [[ ! -z $req_files ]]; then
   retry-with-backoff pip install $req_files
 fi
 
-# Install `mlflow-test-plugin` in editable mode
-pip install -e tests/resources/mlflow-test-plugin
+# Install `mlflow-test-plugin`
+pip install tests/resources/mlflow-test-plugin
 
 # Print current environment info
 pip install aiohttp
