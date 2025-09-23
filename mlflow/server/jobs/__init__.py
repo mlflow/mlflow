@@ -153,7 +153,7 @@ def _launch_job_backend(
     def _start_job_runner_fn() -> None:
         start_new_runner = True
         while True:
-            # start Mlflow job runner process
+            # start MLflow job runner process
             # Put it inside the loop to ensure the job runner process alive
             job_runner_proc = _start_job_runner(
                 env_map, max_job_parallelism, server_proc_pid, start_new_runner
@@ -163,4 +163,8 @@ def _launch_job_backend(
             time.sleep(1)
 
     # start job runner.
-    threading.Thread(target=_start_job_runner_fn, daemon=True).start()
+    threading.Thread(
+        target=_start_job_runner_fn,
+        name="MLflow-job-runner",
+        daemon=True,
+    ).start()

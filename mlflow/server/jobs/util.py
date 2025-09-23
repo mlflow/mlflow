@@ -43,7 +43,11 @@ def _job_subproc_entry(
     """Child process entrypoint: run func and put result or exception into queue."""
 
     # ensure the subprocess is killed when parent process dies.
-    threading.Thread(target=_exit_when_orphaned, daemon=True).start()
+    threading.Thread(
+        target=_exit_when_orphaned,
+        name="exit_when_orphaned",
+        daemon=True,
+    ).start()
 
     try:
         value = func(**kwargs)

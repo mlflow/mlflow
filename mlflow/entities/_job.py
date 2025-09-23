@@ -44,7 +44,8 @@ class Job(_MlflowObject):
     @property
     def function_fullname(self) -> str:
         """
-        String containing the fully-qualified function name, in the form of `<module_name>.<function_name>`
+        String containing the fully-qualified function name,
+        in the form of `<module_name>.<function_name>`
         """
         return self._function_fullname
 
@@ -52,7 +53,8 @@ class Job(_MlflowObject):
     def params(self) -> str:
         """
         String containing the job serialized parameters in JSON format.
-        For example, `{"a": 3, "b": 4}` represents two params: `a` with value 3 and `b` with value 4.
+        For example, `{"a": 3, "b": 4}` represents two params:
+        `a` with value 3 and `b` with value 4.
         """
         return self._params
 

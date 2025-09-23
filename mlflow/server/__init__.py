@@ -389,7 +389,7 @@ def _run_server(
         raise MlflowException("No server configuration specified.")
 
     if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
-        # The `HUEY_STORAGE_PATH_ENV_VAR` is used by both Mlflow server handler workers and
+        # The `HUEY_STORAGE_PATH_ENV_VAR` is used by both MLflow server handler workers and
         # huey job runner (huey_consumer).
         env_map[HUEY_STORAGE_PATH_ENV_VAR] = os.path.join(tempfile.mkdtemp(), "mlflow-huey.db")
     server_proc = _exec_cmd(
@@ -398,7 +398,7 @@ def _run_server(
 
     if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
         try:
-            import huey
+            import huey  # noqa: F401
         except ImportError:
             _logger.warning(
                 "MLflow job backend requires 'huey<3,>=2.5.0' package but it is not installed. "

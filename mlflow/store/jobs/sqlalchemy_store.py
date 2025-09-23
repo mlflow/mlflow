@@ -21,7 +21,8 @@ _LIST_JOB_PAGE_SIZE = 100
 class SqlAlchemyJobStore(AbstractJobStore):
     """
     SQLAlchemy compliant backend store for storing Job metadata.
-    This store interacts with SQL store using SQLAlchemy abstractions defined for MLflow Job entities.
+    This store interacts with SQL store using SQLAlchemy abstractions defined
+    for MLflow Job entities.
     """
 
     def __init__(self, db_uri):
@@ -210,7 +211,9 @@ class SqlAlchemyJobStore(AbstractJobStore):
                 # Order by creation time (oldest first) and apply pagination
                 jobs = (
                     query.order_by(SqlJob.creation_time)
-                    .offset(offset).limit(_LIST_JOB_PAGE_SIZE).all()
+                    .offset(offset)
+                    .limit(_LIST_JOB_PAGE_SIZE)
+                    .all()
                 )
 
                 # If no jobs returned, we've reached the end

@@ -31,7 +31,7 @@ def _exponential_backoff_retry(retry_count: int) -> None:
 
 
 def _exec_job(
-    job_id: str, function: Callable, params: dict[str, Any], timeout: float | None
+    job_id: str, function: Callable[..., Any], params: dict[str, Any], timeout: float | None
 ) -> None:
     from mlflow.server.jobs.util import execute_function_with_timeout
 
@@ -91,7 +91,7 @@ def _start_watcher_to_kill_job_runner_if_mlflow_server_dies(check_interval: floa
                 os.kill(os.getpid(), signal.SIGTERM)
             time.sleep(check_interval)
 
-    t = threading.Thread(target=watcher, daemon=True)
+    t = threading.Thread(target=watcher, daemon=True, name="job-runner-watcher")
     t.start()
 
 

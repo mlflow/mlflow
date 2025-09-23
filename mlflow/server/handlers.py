@@ -179,6 +179,7 @@ from mlflow.server.validation import _validate_content_type
 from mlflow.store.artifact.artifact_repo import MultipartUploadMixin
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import DATABASE_ENGINES
+from mlflow.store.jobs.abstract_store import AbstractJobStore
 from mlflow.store.model_registry.abstract_store import AbstractStore as AbstractModelRegistryStore
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
 from mlflow.store.tracking.abstract_store import AbstractStore as AbstractTrackingStore
@@ -469,7 +470,7 @@ def _get_model_registry_store(registry_store_uri: str | None = None) -> Abstract
     return _model_registry_store
 
 
-def _get_job_store(backend_store_uri: str | None = None) -> "AbstractJobStore":
+def _get_job_store(backend_store_uri: str | None = None) -> AbstractJobStore:
     """
     Get a job store instance based on the backend store URI.
 
