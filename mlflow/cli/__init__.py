@@ -449,10 +449,12 @@ def server(
     **Security Configuration via Environment Variables:**
 
     - ``MLFLOW_CORS_ALLOWED_ORIGINS``: Comma-separated list of allowed CORS origins
-      (e.g., "https://app1.com,https://app2.com"). Default: localhost origins only.
+      (e.g., "https://app1.com,https://app2.com"). Default: localhost ports (3000, 5000, 8000,
+      8080).
 
     - ``MLFLOW_ALLOWED_HOSTS``: Comma-separated list of allowed Host headers
-      (e.g., "mlflow.company.com,mlflow.internal:5000"). Default: localhost variants.
+      (e.g., "mlflow.company.com,mlflow.internal:5000"). Default: localhost and private IP ranges
+      (192.168.*, 10.*, 172.16-31.*) for internal network access.
 
     - ``MLFLOW_HOST_HEADER_VALIDATION``: Set to "false" to disable Host header validation
       (NOT recommended for production). Default: "true".

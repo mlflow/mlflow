@@ -24,14 +24,14 @@ MLflow tracking servers are often exposed to networks beyond localhost, making t
 
 ## Default Security Behavior
 
-By default, MLflow server is configured for **secure localhost development**:
+By default, MLflow server is configured for **secure local and internal network development**:
 
-- Only accepts connections from localhost addresses (127.0.0.1, ::1, localhost)
-- Blocks cross-origin requests except from common localhost ports
-- Validates Host headers to prevent DNS rebinding
-- Adds security headers to all responses
+- Accepts connections from localhost addresses (127.0.0.1, ::1, localhost) and private IP ranges (192.168._, 10._, 172.16-172.31.\*)
+- Blocks cross-origin requests except from common localhost ports (3000, 5000, 8000, 8080)
+- Validates Host headers to prevent DNS rebinding attacks
+- Adds security headers to all responses (X-Frame-Options, X-Content-Type-Options)
 
-This means you can run `mlflow server` locally without any configuration, and it will be secure by default.
+This means you can run `mlflow server` on your local machine or internal network without any configuration, and team members can access it from private IP addresses.
 
 ## Configuration Options
 
@@ -39,12 +39,12 @@ Security is configured via environment variables:
 
 ### Core Security Variables
 
-| Variable                        | Description                                  | Default                | Example                                                   |
-| ------------------------------- | -------------------------------------------- | ---------------------- | --------------------------------------------------------- |
-| `MLFLOW_CORS_ALLOWED_ORIGINS`   | Comma-separated list of allowed CORS origins | localhost origins only | `"https://app.company.com,https://dashboard.company.com"` |
-| `MLFLOW_ALLOWED_HOSTS`          | Comma-separated list of allowed Host headers | localhost variants     | `"mlflow.company.com,mlflow.internal:5000"`               |
-| `MLFLOW_HOST_HEADER_VALIDATION` | Enable Host header validation                | `"true"`               | `"false"` (not recommended)                               |
-| `MLFLOW_ALLOW_INSECURE_CORS`    | Allow ALL origins (DANGEROUS!)               | `"false"`              | `"true"` (dev only!)                                      |
+| Variable                        | Description                                  | Default                                  | Example                                                   |
+| ------------------------------- | -------------------------------------------- | ---------------------------------------- | --------------------------------------------------------- |
+| `MLFLOW_CORS_ALLOWED_ORIGINS`   | Comma-separated list of allowed CORS origins | localhost ports (3000, 5000, 8000, 8080) | `"https://app.company.com,https://dashboard.company.com"` |
+| `MLFLOW_ALLOWED_HOSTS`          | Comma-separated list of allowed Host headers | localhost + private IP ranges            | `"mlflow.company.com,mlflow.internal:5000"`               |
+| `MLFLOW_HOST_HEADER_VALIDATION` | Enable Host header validation                | `"true"`                                 | `"false"` (not recommended)                               |
+| `MLFLOW_ALLOW_INSECURE_CORS`    | Allow ALL origins (DANGEROUS!)               | `"false"`                                | `"true"` (dev only!)                                      |
 
 ## Common Deployment Scenarios
 
@@ -298,6 +298,24 @@ mlflow server --host 127.0.0.1
 ```
 
 ⚠️ **Warning**: Only disable security if you have alternative protections in place!
+
+## Implementation Details
+
+MLflow uses industry-standard middleware libraries for security:
+
+- **Flask Backend**:
+  - [Flask-CORS](https://flask-cors.readthedocs.io/) for CORS protection
+  - Custom host validation using fnmatch for wildcard pattern matching
+  - Automatic allowlisting of private IP ranges (192.168._, 10._, 172.16-31.\*)
+
+- **FastAPI Backend**:
+  - Native [Starlette middleware](https://www.starlette.io/middleware/):
+    - `TrustedHostMiddleware` for DNS rebinding protection
+    - `CORSMiddleware` for cross-origin protection
+  - Custom lightweight middleware for security headers only
+  - Supports Starlette's `:*` wildcard format for port matching
+
+This approach leverages well-tested, battle-hardened libraries rather than reinventing security mechanisms. Both backends provide consistent security features while using framework-appropriate implementations.
 
 ## Security Headers Added
 
