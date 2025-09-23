@@ -50,15 +50,33 @@ def server_url(tmp_path_factory):
             os.killpg(server_proc.pid, signal.SIGTERM)
 
 
-def test_job_endpoint(server_url):
+def wait_job_finalize(server_url, job_id, timeout):
+    beg_time = time.time()
+    while time.time() - beg_time <= timeout:
+        job_json = requests.get(f"{server_url}/ajax-api/3.0/jobs/{job_id}").json()
+        if job_json["status"] in ["SUCCEEDED", "FAILED", "TIMEOUT"]:
+            return
+        time.sleep(0.5)
+    raise TimeoutError("The job is not finalized within the timeout.")
+
+
+def test_job_endpoint(server_url: str):
     payload = {
         "function_fullname": "test_endpoint.simple_job_fun",
         "params": {"x": 3, "y": 4},
     }
-    response = requests.post(f"{server_url}/ajax-api/3.0/job/submit", json=payload)
+    response = requests.post(f"{server_url}/ajax-api/3.0/jobs/", json=payload)
     job_id = response.json()["job_id"]
-    time.sleep(1)  # wait for job completion
-    response2 = requests.get(f"{server_url}/ajax-api/3.0/job/query/{job_id}")
-    assert response2.json() == {'status': 'JobStatus.DONE', 'result': {'a': 7, 'b': 12}}
-
-
+    wait_job_finalize(server_url, job_id, 2)
+    response2 = requests.get(f"{server_url}/ajax-api/3.0/jobs/{job_id}")
+    job_json = response2.json()
+    job_json.pop("creation_time")
+    assert job_json == {
+        'job_id': job_id,
+        'function_fullname': 'test_endpoint.simple_job_fun',
+        'params': {'x': 3, 'y': 4},
+        'timeout': None,
+        'status': 'SUCCEEDED',
+        'result': {'a': 7, 'b': 12},
+        'retry_count': 0
+    }
