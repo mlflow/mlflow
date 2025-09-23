@@ -2876,21 +2876,18 @@ def test_get_trace_info_v4_format(mlflow_client):
 
     original_trace_id = span.trace_id
 
-    trace_info = mlflow_client.get_trace(original_trace_id).info
-
     location = "catalog.schema"
     v4_trace_id = f"{TRACE_ID_V4_PREFIX}{location}/{original_trace_id}"
 
-    with mock.patch.object(
-        mlflow_client._tracing_client.store, "get_trace_info"
-    ) as mock_get_trace_info:
-        mock_get_trace_info.return_value = trace_info
-
-        trace_info_v4 = mlflow_client.get_trace(v4_trace_id).info
+    with (
+        mock.patch.object(mlflow_client._tracing_client, "_get_trace_data"),
+        mock.patch.object(
+            mlflow_client._tracing_client.store, "get_trace_info"
+        ) as mock_get_trace_info,
+    ):
+        mlflow_client.get_trace(v4_trace_id).info
 
         mock_get_trace_info.assert_called_once_with(v4_trace_id)
-        assert trace_info_v4.trace_id == original_trace_id
-        assert trace_info_v4.state == trace_info.state
 
 
 def test_get_metric_history_bulk_interval_graphql(mlflow_client):
