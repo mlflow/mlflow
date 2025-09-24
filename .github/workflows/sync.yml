@@ -43,8 +43,9 @@ jobs:
             }
 
             // Validate author permissions
-            if (!sync.isAuthorAllowed({ author_association: comment.author_association })) {
-              const message = `❌ **Sync failed**: Only repository owners, members, or collaborators can use the /sync command. @${comment.user.login} (${comment.author_association}) does not have sufficient permissions.`;
+            const { author_association } = comment;
+            if (!sync.isAuthorAllowed({ author_association })) {
+              const message = `❌ **Sync failed**: Only repository owners, members, or collaborators can use the /sync command. @${comment.user.login} (${author_association}) does not have sufficient permissions.`;
               await sync.updateTriggerComment(context, github, comment.id, message);
               core.setFailed(`User ${comment.user.login} does not have sufficient permissions`);
               return { shouldSync: false };
@@ -88,7 +89,7 @@ jobs:
           script: |
             const sync = require('./.github/workflows/sync.js');
             const pullInfo = {
-              pull_number: process.env.PULL_NUMBER,
+              pull_number: parseInt(process.env.PULL_NUMBER, 10),
               head_sha: process.env.HEAD_SHA,
             };
             await sync.performSync(context, github, pullInfo, null);
