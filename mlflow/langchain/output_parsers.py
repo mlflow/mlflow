@@ -1,5 +1,5 @@
 from dataclasses import asdict
-from typing import Any, Iterator
+from typing import Any, AsyncIterator, Iterator
 from uuid import uuid4
 
 from langchain_core.messages.base import BaseMessage
@@ -77,6 +77,17 @@ class ChatCompletionOutputParser(BaseTransformOutputParser[str]):
     def transform(self, input: Iterator[BaseMessage], config, **kwargs) -> Iterator[dict[str, Any]]:
         """Returns a generator of ChatCompletionChunk objects"""
         for chunk in input:
+            yield ChatCompletionChunk(
+                choices=[ChatChunkChoice(delta=ChatChoiceDelta(content=chunk.content))]
+            ).to_dict()
+
+    async def atransform(
+        self,
+        input: AsyncIterator[BaseMessage],
+        config: Any,
+        **kwargs: Any,
+    ) -> AsyncIterator[ChatCompletionChunk]:
+        async for chunk in input:
             yield ChatCompletionChunk(
                 choices=[ChatChunkChoice(delta=ChatChoiceDelta(content=chunk.content))]
             ).to_dict()

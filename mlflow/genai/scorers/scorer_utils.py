@@ -109,6 +109,7 @@ def recreate_function(source: str, signature: str, func_name: str) -> Callable[.
                 AssessmentSource,
                 AssessmentSourceType,
                 Feedback,
+                Trace,
             )
             from mlflow.genai.judges import CategoricalRating
 
@@ -119,6 +120,7 @@ def recreate_function(source: str, signature: str, func_name: str) -> Callable[.
                     "AssessmentSource": AssessmentSource,
                     "AssessmentError": AssessmentError,
                     "AssessmentSourceType": AssessmentSourceType,
+                    "Trace": Trace,
                     "CategoricalRating": CategoricalRating,
                 }
             )
