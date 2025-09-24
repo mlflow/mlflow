@@ -38,6 +38,7 @@ from mlflow.entities import (
     RunInputs,
     RunTag,
     Span,
+    SpanEvent,
     ViewType,
 )
 from mlflow.entities.logged_model_input import LoggedModelInput
@@ -2791,6 +2792,7 @@ def test_get_trace_artifact_handler(mlflow_client):
     span = mlflow_client.start_trace(name="test", experiment_id=experiment_id)
     request_id = span.request_id
     span.set_attributes({"fruit": "apple"})
+    span.add_event(SpanEvent("test_event", timestamp=99999, attributes={"foo": "bar"}))
     mlflow_client.end_trace(request_id=request_id)
 
     response = requests.get(
