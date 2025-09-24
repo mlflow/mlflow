@@ -359,6 +359,10 @@ def _validate_static_prefix(ctx, param, value):
 @cli_args.HOST
 @cli_args.PORT
 @cli_args.WORKERS
+@cli_args.ALLOWED_HOSTS
+@cli_args.CORS_ALLOWED_ORIGINS
+@cli_args.ALLOW_INSECURE_CORS
+@cli_args.HOST_HEADER_VALIDATION
 @click.option(
     "--static-prefix",
     envvar="MLFLOW_STATIC_PREFIX",
@@ -422,6 +426,10 @@ def server(
     host,
     port,
     workers,
+    allowed_hosts,
+    cors_allowed_origins,
+    allow_insecure_cors,
+    no_host_validation,
     static_prefix,
     gunicorn_opts,
     waitress_opts,
@@ -532,6 +540,36 @@ def server(
         waitress_opts=waitress_opts,
         uvicorn_opts=uvicorn_opts,
     )
+
+    # Set security environment variables if provided via CLI
+    # These will override any existing env vars since click's envvar processing happens first
+    # Note: os is already imported at the top of the file
+    if allowed_hosts:
+        os.environ["MLFLOW_ALLOWED_HOSTS"] = allowed_hosts
+        _logger.info(f"Host validation configured with: {allowed_hosts}")
+
+    if cors_allowed_origins:
+        os.environ["MLFLOW_CORS_ALLOWED_ORIGINS"] = cors_allowed_origins
+        _logger.info(f"CORS allowed origins configured with: {cors_allowed_origins}")
+
+    if allow_insecure_cors:
+        os.environ["MLFLOW_ALLOW_INSECURE_CORS"] = "true"
+        _logger.warning(
+            "WARNING: Running with --allow-insecure-cors. "
+            "This allows ANY website to access your MLflow data. "
+            "Only use for development!"
+        )
+
+    if no_host_validation:
+        os.environ["MLFLOW_HOST_HEADER_VALIDATION"] = "false"
+        _logger.warning(
+            "WARNING: Host header validation disabled. "
+            "Ensure you have alternative security measures in place."
+        )
+
+    # Log security configuration summary
+    if not allow_insecure_cors and not no_host_validation:
+        _logger.info("Security middleware enabled. Use --help to see security options.")
 
     # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
     if not backend_store_uri:

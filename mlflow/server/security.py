@@ -6,91 +6,37 @@ common web vulnerabilities. For FastAPI applications, use fastapi_security.py
 which leverages native Starlette middleware.
 """
 
-import fnmatch
 import logging
+from http import HTTPStatus
 
 from flask import Flask, Response, request
 from flask_cors import CORS
 
-from mlflow.environment_variables import (
-    MLFLOW_ALLOW_INSECURE_CORS,
-    MLFLOW_ALLOWED_HOSTS,
-    MLFLOW_CORS_ALLOWED_ORIGINS,
-    MLFLOW_HOST_HEADER_VALIDATION,
+from mlflow.environment_variables import MLFLOW_ALLOW_INSECURE_CORS, MLFLOW_HOST_HEADER_VALIDATION
+from mlflow.server.security_utils import (
+    CORS_BLOCKED_MSG,
+    HEALTH_ENDPOINTS,
+    INVALID_HOST_MSG,
+    LOCALHOST_ORIGIN_PATTERNS,
+    get_allowed_hosts_from_env,
+    get_allowed_origins_from_env,
+    get_default_allowed_hosts,
+    is_api_endpoint,
+    should_block_cors_request,
+    validate_host_header,
 )
 
 _logger = logging.getLogger(__name__)
 
 
 def get_allowed_hosts() -> list[str]:
-    """
-    Get list of allowed hosts from environment or defaults.
-
-    Returns:
-        List of allowed host patterns.
-    """
-    if allowed_hosts_env := MLFLOW_ALLOWED_HOSTS.get():
-        return [host.strip() for host in allowed_hosts_env.split(",")]
-
-    localhost_variants = ["localhost", "127.0.0.1", "[::1]", "0.0.0.0"]
-    common_ports = ["3000", "5000", "8000", "8080"]
-
-    hosts = localhost_variants + [
-        f"{host}:{port}" for host in localhost_variants for port in common_ports
-    ]
-
-    hosts.extend(
-        [
-            "192.168.*",
-            "10.*",
-            *[f"172.{i}.*" for i in range(16, 32)],
-        ]
-    )
-
-    return hosts
+    """Get list of allowed hosts from environment or defaults."""
+    return get_allowed_hosts_from_env() or get_default_allowed_hosts()
 
 
 def get_allowed_origins() -> list[str]:
-    """
-    Get list of allowed CORS origins from environment or defaults.
-
-    Returns:
-        List of allowed origins.
-    """
-    origins = (
-        [origin.strip() for origin in allowed_origins_env.split(",")]
-        if (allowed_origins_env := MLFLOW_CORS_ALLOWED_ORIGINS.get())
-        else []
-    )
-
-    localhost_origins = [
-        f"http://{host}:{port}"
-        for host in ["localhost", "127.0.0.1", "[::1]"]
-        for port in ["3000", "5000", "8000", "8080"]
-    ]
-
-    origins.extend(origin for origin in localhost_origins if origin not in origins)
-    return origins
-
-
-def validate_host_header(allowed_hosts: list[str], host: str) -> bool:
-    """
-    Validate if the host header matches allowed patterns.
-
-    Args:
-        allowed_hosts: List of allowed host patterns (supports * wildcard).
-        host: Host header value to validate.
-
-    Returns:
-        True if host is allowed, False otherwise.
-    """
-    if not host:
-        return False
-
-    return any(
-        fnmatch.fnmatch(host, allowed) if "*" in allowed else host == allowed
-        for allowed in allowed_hosts
-    )
+    """Get list of allowed CORS origins from environment or defaults."""
+    return get_allowed_origins_from_env() or []
 
 
 def init_security_middleware(app: Flask) -> None:
@@ -108,6 +54,8 @@ def init_security_middleware(app: Flask) -> None:
     allow_insecure_cors = MLFLOW_ALLOW_INSECURE_CORS.get() == "true"
     enable_host_validation = MLFLOW_HOST_HEADER_VALIDATION.get() != "false"
 
+    allowed_origins = get_allowed_origins()
+
     if allow_insecure_cors:
         _logger.warning(
             "Running MLflow server with INSECURE CORS mode enabled. "
@@ -115,11 +63,12 @@ def init_security_middleware(app: Flask) -> None:
         )
         CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
     else:
-        origins = get_allowed_origins()
-        _logger.info(f"CORS configured with origins: {origins[:5]}...")
+        cors_origins = (allowed_origins or []) + LOCALHOST_ORIGIN_PATTERNS
+        origins_display = allowed_origins[:5] if allowed_origins else ["localhost (any port)"]
+        _logger.info(f"CORS configured with origins: {origins_display}...")
         CORS(
             app,
-            resources={r"/*": {"origins": origins}},
+            resources={r"/*": {"origins": cors_origins}},
             supports_credentials=True,
             methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
         )
@@ -130,16 +79,13 @@ def init_security_middleware(app: Flask) -> None:
 
         @app.before_request
         def validate_host():
-            """Validate Host header to prevent DNS rebinding attacks."""
-            if request.path in ["/health", "/version"]:
+            if request.path in HEALTH_ENDPOINTS:
                 return None
 
             if not validate_host_header(allowed_hosts, host := request.headers.get("Host")):
                 _logger.warning(f"Rejected request with invalid Host header: {host}")
                 return Response(
-                    "Invalid Host header - possible DNS rebinding attack detected",
-                    status=403,
-                    mimetype="text/plain",
+                    INVALID_HOST_MSG, status=HTTPStatus.FORBIDDEN, mimetype="text/plain"
                 )
             return None
     else:
@@ -148,11 +94,34 @@ def init_security_middleware(app: Flask) -> None:
             "This may leave the server vulnerable to DNS rebinding attacks."
         )
 
+    if not allow_insecure_cors:
+
+        @app.before_request
+        def block_cross_origin_state_changes():
+            if not is_api_endpoint(request.path):
+                return None
+
+            origin = request.headers.get("Origin")
+            if should_block_cors_request(origin, request.method, allowed_origins):
+                _logger.warning(f"Blocked cross-origin request from {origin}")
+                return Response(
+                    CORS_BLOCKED_MSG, status=HTTPStatus.FORBIDDEN, mimetype="text/plain"
+                )
+            return None
+
     @app.after_request
     def add_security_headers(response: Response) -> Response:
-        """Add security headers to all responses."""
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "SAMEORIGIN"
+
+        if (
+            request.method == "OPTIONS"
+            and response.status_code == 200
+            and is_api_endpoint(request.path)
+        ):
+            response.status_code = HTTPStatus.NO_CONTENT
+            response.data = b""
+
         return response
 
     _logger.info("Flask security middleware initialized successfully")

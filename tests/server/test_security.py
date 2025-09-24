@@ -4,26 +4,24 @@ from unittest import mock
 import pytest
 from werkzeug.test import Client
 
-from mlflow.server.security import (
-    get_allowed_hosts,
-    get_allowed_origins,
-    init_security_middleware,
-    validate_host_header,
-)
+from mlflow.server import security
 
 
 def test_default_allowed_hosts():
-    hosts = get_allowed_hosts()
+    hosts = security.get_allowed_hosts()
     assert "localhost" in hosts
     assert "127.0.0.1" in hosts
     assert "[::1]" in hosts
-    assert "localhost:5000" in hosts
-    assert "127.0.0.1:5000" in hosts
+    assert "localhost:*" in hosts
+    assert "127.0.0.1:*" in hosts
+    assert "[[]::1]:*" in hosts
+    assert "192.168.*" in hosts
+    assert "10.*" in hosts
 
 
 def test_custom_allowed_hosts():
     with mock.patch.dict(os.environ, {"MLFLOW_ALLOWED_HOSTS": "example.com,app.example.com"}):
-        hosts = get_allowed_hosts()
+        hosts = security.get_allowed_hosts()
         assert "example.com" in hosts
         assert "app.example.com" in hosts
 
@@ -38,7 +36,7 @@ def test_custom_allowed_hosts():
 )
 def test_dns_rebinding_protection(test_app, host_header, expected_status, expected_error):
     with mock.patch.dict(os.environ, {"MLFLOW_ALLOWED_HOSTS": "localhost,127.0.0.1"}):
-        init_security_middleware(test_app)
+        security.init_security_middleware(test_app)
         client = Client(test_app)
 
         response = client.get("/test", headers={"Host": host_header})
@@ -60,7 +58,7 @@ def test_cors_protection(test_app, method, origin, expected_cors_header):
     with mock.patch.dict(
         os.environ, {"MLFLOW_CORS_ALLOWED_ORIGINS": "http://localhost:3000,https://app.example.com"}
     ):
-        init_security_middleware(test_app)
+        security.init_security_middleware(test_app)
         client = Client(test_app)
 
         headers = {"Origin": origin} if origin else {}
@@ -73,7 +71,7 @@ def test_cors_protection(test_app, method, origin, expected_cors_header):
 
 def test_insecure_cors_mode(test_app):
     with mock.patch.dict(os.environ, {"MLFLOW_ALLOW_INSECURE_CORS": "true"}):
-        init_security_middleware(test_app)
+        security.init_security_middleware(test_app)
         client = Client(test_app)
 
         response = client.post("/api/test", headers={"Origin": "http://evil.com"})
@@ -91,7 +89,7 @@ def test_insecure_cors_mode(test_app):
 )
 def test_preflight_options_request(test_app, origin, expected_cors_header):
     with mock.patch.dict(os.environ, {"MLFLOW_CORS_ALLOWED_ORIGINS": "http://localhost:3000"}):
-        init_security_middleware(test_app)
+        security.init_security_middleware(test_app)
         client = Client(test_app)
 
         # For preflight, we need to send proper CORS preflight headers
@@ -110,7 +108,7 @@ def test_preflight_options_request(test_app, origin, expected_cors_header):
 
 
 def test_security_headers(test_app):
-    init_security_middleware(test_app)
+    security.init_security_middleware(test_app)
     client = Client(test_app)
 
     response = client.get("/test")
@@ -127,7 +125,7 @@ def test_security_headers(test_app):
 )
 def test_endpoint_security_bypass(test_app, endpoint, host_header, expected_status):
     with mock.patch.dict(os.environ, {"MLFLOW_ALLOWED_HOSTS": "localhost"}):
-        init_security_middleware(test_app)
+        security.init_security_middleware(test_app)
         client = Client(test_app)
 
         response = client.get(endpoint, headers={"Host": host_header})
@@ -149,8 +147,8 @@ def test_endpoint_security_bypass(test_app, endpoint, host_header, expected_stat
     ],
 )
 def test_host_validation(hostname, expected_valid):
-    hosts = get_allowed_hosts()
-    assert validate_host_header(hosts, hostname) == expected_valid
+    hosts = security.get_allowed_hosts()
+    assert security.validate_host_header(hosts, hostname) == expected_valid
 
 
 @pytest.mark.parametrize(
@@ -167,18 +165,18 @@ def test_host_validation(hostname, expected_valid):
 def test_environment_variable_configuration(env_var, env_value, expected_result):
     with mock.patch.dict(os.environ, {env_var: env_value}):
         if "ORIGINS" in env_var:
-            result = get_allowed_origins()
+            result = security.get_allowed_origins()
             for expected in expected_result:
                 assert expected in result
         else:
-            result = get_allowed_hosts()
+            result = security.get_allowed_hosts()
             for expected in expected_result:
                 assert expected in result
 
 
 def test_insecure_cors_flag(test_app):
     with mock.patch.dict(os.environ, {"MLFLOW_ALLOW_INSECURE_CORS": "true"}):
-        init_security_middleware(test_app)
+        security.init_security_middleware(test_app)
         client = Client(test_app)
         response = client.get("/test", headers={"Origin": "http://any.site.com"})
         # Flask-CORS returns the origin even in insecure mode, not '*'
@@ -187,7 +185,7 @@ def test_insecure_cors_flag(test_app):
 
 def test_host_validation_disabled(test_app):
     with mock.patch.dict(os.environ, {"MLFLOW_HOST_HEADER_VALIDATION": "false"}):
-        init_security_middleware(test_app)
+        security.init_security_middleware(test_app)
         client = Client(test_app)
         response = client.get("/test", headers={"Host": "evil.com"})
         assert response.status_code == 200

@@ -163,9 +163,11 @@ HOST = click.option(
     envvar="MLFLOW_HOST",
     metavar="HOST",
     default="127.0.0.1",
-    help="The network address to listen on (default: 127.0.0.1). "
-    "Use 0.0.0.0 to bind to all addresses if you want to access the tracking "
-    "server from other machines.",
+    help="The network interface to bind the server to (default: 127.0.0.1). "
+    "This controls which network interfaces accept connections. "
+    "Use '127.0.0.1' for local-only access, or '0.0.0.0' to allow connections from any network. "
+    "NOTE: This is NOT a security setting - it only controls network binding. "
+    "To restrict which clients can connect, use --allowed-hosts.",
 )
 
 PORT = click.option(
@@ -255,4 +257,55 @@ INSTALL_JAVA = click.option(
     "Java, such as Spark, enable this automatically. "
     "Note: This option only works with the UBUNTU base image; "
     "Python base images do not support Java installation.",
+)
+
+# Security-related options for MLflow server
+ALLOWED_HOSTS = click.option(
+    "--allowed-hosts",
+    envvar="MLFLOW_ALLOWED_HOSTS",
+    default=None,
+    help="Comma-separated list of allowed Host headers to prevent DNS rebinding attacks "
+    "(default: localhost + private IPs). "
+    "DNS rebinding allows attackers to trick your browser into accessing internal services. "
+    "Examples: 'mlflow.company.com,10.0.0.100:5000'. "
+    "Supports wildcards: 'mlflow.company.com,192.168.*,app-*.internal.com'. "
+    "Default allows: localhost (all ports), private IPs (10.*, 192.168.*, 172.16-31.*). "
+    "Set this when exposing MLflow beyond localhost to prevent host header attacks.",
+)
+
+CORS_ALLOWED_ORIGINS = click.option(
+    "--cors-allowed-origins",
+    envvar="MLFLOW_CORS_ALLOWED_ORIGINS",
+    default=None,
+    help="Comma-separated list of allowed CORS origins to prevent cross-site request attacks "
+    "(default: localhost origins on any port). "
+    "CORS attacks allow malicious websites to make requests to your MLflow server using your "
+    "credentials. Examples: 'https://app.company.com,https://notebook.company.com'. "
+    "Default allows: http://localhost:* (any port), http://127.0.0.1:*, http://[::1]:*. "
+    "Set this when you have web applications on different domains that need to access MLflow. "
+    "WARNING: Never use '*' or allow untrusted origins as this exposes your data to any website.",
+)
+
+ALLOW_INSECURE_CORS = click.option(
+    "--allow-insecure-cors",
+    envvar="MLFLOW_ALLOW_INSECURE_CORS",
+    is_flag=True,
+    default=False,
+    help="DANGEROUS: Allow ALL origins to make requests to your MLflow server. "
+    "This completely disables CORS protection and allows any website to access your data. "
+    "Only use this for local development when you fully understand the risks. "
+    "When enabled, any website you visit can read/write your MLflow experiments and models. "
+    "Instead, prefer setting --cors-allowed-origins with specific trusted domains.",
+)
+
+HOST_HEADER_VALIDATION = click.option(
+    "--no-host-validation",
+    "no_host_validation",
+    is_flag=True,
+    default=False,
+    help="Disable Host header validation (not recommended). "
+    "Host header validation prevents DNS rebinding attacks where attackers redirect your "
+    "MLflow domain to internal IP addresses to access private services. "
+    "Only disable this if you have your own reverse proxy (nginx/Apache) handling validation. "
+    "When disabled, ensure your proxy validates Host headers before forwarding requests.",
 )

@@ -3,6 +3,7 @@ import json
 from unittest import mock
 
 import pytest
+from werkzeug.test import Client
 
 import mlflow.server
 
@@ -60,8 +61,6 @@ def test_cors_for_state_changing_requests(mlflow_app_client, origin, endpoint, e
 
 @mock.patch.dict("os.environ", {"MLFLOW_CORS_ALLOWED_ORIGINS": "https://trusted-app.com"})
 def test_cors_with_configured_origins():
-    from werkzeug.test import Client
-
     importlib.reload(mlflow.server)
     client = Client(mlflow.server.app)
 

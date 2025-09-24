@@ -26,25 +26,57 @@ MLflow tracking servers are often exposed to networks beyond localhost, making t
 
 By default, MLflow server is configured for **secure local and internal network development**:
 
-- Accepts connections from localhost addresses (127.0.0.1, ::1, localhost) and private IP ranges (192.168._, 10._, 172.16-172.31.\*)
-- Blocks cross-origin requests except from common localhost ports (3000, 5000, 8000, 8080)
+- Accepts connections from localhost addresses (127.0.0.1, ::1, localhost) on any port, and private IP ranges (192.168._, 10._, 172.16-172.31.\*)
+- Allows cross-origin requests from any localhost port (e.g., http://localhost:3000, http://localhost:8080, etc.)
 - Validates Host headers to prevent DNS rebinding attacks
 - Adds security headers to all responses (X-Frame-Options, X-Content-Type-Options)
+- Blocks cross-origin state-changing requests (POST, PUT, DELETE, PATCH) from non-localhost origins unless explicitly configured
 
 This means you can run `mlflow server` on your local machine or internal network without any configuration, and team members can access it from private IP addresses.
 
 ## Configuration Options
 
-Security is configured via environment variables:
+Security can be configured via CLI options or environment variables. CLI options take precedence over environment variables.
 
-### Core Security Variables
+### Security Configuration
 
-| Variable                        | Description                                  | Default                                  | Example                                                   |
-| ------------------------------- | -------------------------------------------- | ---------------------------------------- | --------------------------------------------------------- |
-| `MLFLOW_CORS_ALLOWED_ORIGINS`   | Comma-separated list of allowed CORS origins | localhost ports (3000, 5000, 8000, 8080) | `"https://app.company.com,https://dashboard.company.com"` |
-| `MLFLOW_ALLOWED_HOSTS`          | Comma-separated list of allowed Host headers | localhost + private IP ranges            | `"mlflow.company.com,mlflow.internal:5000"`               |
-| `MLFLOW_HOST_HEADER_VALIDATION` | Enable Host header validation                | `"true"`                                 | `"false"` (not recommended)                               |
-| `MLFLOW_ALLOW_INSECURE_CORS`    | Allow ALL origins (DANGEROUS!)               | `"false"`                                | `"true"` (dev only!)                                      |
+| CLI Option               | Environment Variable            | Description                                  | Default                       |
+| ------------------------ | ------------------------------- | -------------------------------------------- | ----------------------------- |
+| `--cors-allowed-origins` | `MLFLOW_CORS_ALLOWED_ORIGINS`   | Comma-separated list of allowed CORS origins | localhost on any port         |
+| `--allowed-hosts`        | `MLFLOW_ALLOWED_HOSTS`          | Comma-separated list of allowed Host headers | localhost + private IP ranges |
+| `--no-host-validation`   | `MLFLOW_HOST_HEADER_VALIDATION` | Disable Host header validation               | Validation enabled            |
+| `--allow-insecure-cors`  | `MLFLOW_ALLOW_INSECURE_CORS`    | Allow ALL origins (DANGEROUS!)               | Disabled                      |
+
+**Examples:**
+
+```bash
+# Using CLI options
+mlflow server --allowed-hosts "mlflow.company.com,10.0.0.100:5000" \
+              --cors-allowed-origins "https://app.company.com"
+
+# Using environment variables
+export MLFLOW_ALLOWED_HOSTS="mlflow.company.com,10.0.0.100:5000"
+export MLFLOW_CORS_ALLOWED_ORIGINS="https://app.company.com"
+mlflow server
+```
+
+## Understanding --host vs --allowed-hosts
+
+These two options serve completely different purposes:
+
+- **`--host`**: Controls which network interface the server binds to (networking configuration)
+  - `127.0.0.1` = Only accessible from the same machine
+  - `0.0.0.0` = Accessible from any network interface
+
+- **`--allowed-hosts`**: Controls which Host headers are accepted (security configuration)
+  - Prevents DNS rebinding attacks
+  - Validates the Host header in incoming requests
+  - Has nothing to do with network binding
+
+Example: You might run `mlflow server --host 0.0.0.0 --allowed-hosts mlflow.company.com` to:
+
+- Bind to all network interfaces (accept connections from anywhere)
+- But only accept requests with `Host: mlflow.company.com` header
 
 ## Common Deployment Scenarios
 
@@ -58,8 +90,8 @@ mlflow server
 
 The server will:
 
-- Accept connections only from localhost
-- Allow CORS from localhost origins (ports 3000, 5000, etc.)
+- Accept connections from localhost and private IP ranges
+- Allow CORS from any localhost origin (http://localhost:_, http://127.0.0.1:_, http://[::1]:\*)
 - Be protected against external attacks
 
 ### 2. Team Development Server
@@ -67,10 +99,14 @@ The server will:
 For a shared development server on your internal network:
 
 ```bash
-# Allow team members to access from their browsers
+# Option 1: Using CLI options
+mlflow server --host 0.0.0.0 \
+  --allowed-hosts "dev-server:5000,192.168.1.100:5000" \
+  --cors-allowed-origins "http://dev-server:5000,http://192.168.1.100:5000"
+
+# Option 2: Using environment variables
 export MLFLOW_CORS_ALLOWED_ORIGINS="http://dev-server:5000,http://192.168.1.100:5000"
 export MLFLOW_ALLOWED_HOSTS="dev-server:5000,192.168.1.100:5000"
-
 mlflow server --host 0.0.0.0
 ```
 
@@ -80,10 +116,13 @@ For production with known client applications:
 
 ```bash
 # Only allow your specific applications
+mlflow server --host 127.0.0.1 --port 5000 \
+  --allowed-hosts "mlflow.company.com" \
+  --cors-allowed-origins "https://ml-dashboard.company.com,https://notebook.company.com"
+
+# Or use environment variables for configuration management
 export MLFLOW_CORS_ALLOWED_ORIGINS="https://ml-dashboard.company.com,https://notebook.company.com"
 export MLFLOW_ALLOWED_HOSTS="mlflow.company.com"
-
-# Run behind a reverse proxy that handles HTTPS
 mlflow server --host 127.0.0.1 --port 5000
 ```
 
@@ -272,17 +311,20 @@ Test your security configuration:
 2. **Test CORS protection**:
 
    ```bash
-   # Should fail with 403 if origin not allowed
+   # Should fail with 403 for state-changing requests from non-allowed origins
    curl -X POST -H "Origin: http://evil.com" \
         http://your-mlflow-server:5000/api/2.0/mlflow/experiments/create
    ```
 
 3. **Test from allowed origin**:
+
    ```bash
    # Should succeed
    curl -H "Origin: https://yourapp.com" \
         http://your-mlflow-server:5000/api/2.0/mlflow/experiments/search
    ```
+
+   Note: Security applies to all API versions (2.0, 3.0, and future versions) at `/api/*` endpoints.
 
 ## Disabling Security (Not Recommended)
 
@@ -304,16 +346,22 @@ mlflow server --host 127.0.0.1
 MLflow uses industry-standard middleware libraries for security:
 
 - **Flask Backend**:
-  - [Flask-CORS](https://flask-cors.readthedocs.io/) for CORS protection
+  - [Flask-CORS](https://flask-cors.readthedocs.io/) for CORS protection with regex patterns
   - Custom host validation using fnmatch for wildcard pattern matching
-  - Automatic allowlisting of private IP ranges (192.168._, 10._, 172.16-31.\*)
+  - Active CORS blocking for state-changing requests to API endpoints
+  - Automatic allowlisting of private IP ranges per RFC 1918 (192.168._, 10._, 172.16-31.\*)
 
 - **FastAPI Backend**:
-  - Native [Starlette middleware](https://www.starlette.io/middleware/):
-    - `TrustedHostMiddleware` for DNS rebinding protection
-    - `CORSMiddleware` for cross-origin protection
-  - Custom lightweight middleware for security headers only
-  - Supports Starlette's `:*` wildcard format for port matching
+  - Native [Starlette CORSMiddleware](https://www.starlette.io/middleware/) for cross-origin protection
+  - Custom host validation middleware supporting wildcard patterns (like Flask)
+  - Custom lightweight middleware for security headers and CORS blocking
+  - Consistent behavior with Flask implementation
+
+- **Shared Security Logic**:
+  - Centralized security utilities prevent code duplication
+  - API endpoints (all `/api/*` paths) receive special CORS handling
+  - OPTIONS preflight requests return 204 No Content for API endpoints
+  - Localhost origins are automatically allowed on any port
 
 This approach leverages well-tested, battle-hardened libraries rather than reinventing security mechanisms. Both backends provide consistent security features while using framework-appropriate implementations.
 
