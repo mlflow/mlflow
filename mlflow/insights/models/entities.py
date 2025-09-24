@@ -550,15 +550,19 @@ class Census(SerializableModel, DatetimeFieldsMixin):
     quality_metrics: QualityMetrics = Field(description="Response quality analysis")
 
     @classmethod
-    def create(
+    def create_with_timestamp(
         cls,
         table_name: str,
         operational_metrics: OperationalMetrics,
         quality_metrics: QualityMetrics,
         additional_metadata: dict[str, Any] | None = None,
-    ) -> Census:
+    ) -> "Census":
         """
-        Create a new census with current timestamp.
+        Create a new census with automatically set current timestamp.
+
+        This is a convenience factory method that sets the creation timestamp
+        to the current time and properly structures the metadata. Use the standard
+        Pydantic constructor if you need to specify a different timestamp.
 
         Args:
             table_name: Source table name
@@ -567,7 +571,14 @@ class Census(SerializableModel, DatetimeFieldsMixin):
             additional_metadata: Optional additional metadata
 
         Returns:
-            New Census instance
+            New Census instance with current timestamp
+
+        Example:
+            >>> census = Census.create_with_timestamp(
+            ...     table_name="traces_table",
+            ...     operational_metrics=op_metrics,
+            ...     quality_metrics=qual_metrics,
+            ... )
         """
         return cls(
             metadata=CensusMetadata(

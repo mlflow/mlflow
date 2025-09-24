@@ -797,7 +797,7 @@ def quality_metrics():
 def census(operational_metrics, quality_metrics):
     """Create a census instance."""
 
-    return Census.create(
+    return Census.create_with_timestamp(
         table_name="test_table",
         operational_metrics=operational_metrics,
         quality_metrics=quality_metrics,
@@ -986,7 +986,7 @@ def test_census_empty_lists():
         ),
     )
 
-    census = Census.create(
+    census = Census.create_with_timestamp(
         table_name="test_table",
         operational_metrics=metrics,
         quality_metrics=quality,
