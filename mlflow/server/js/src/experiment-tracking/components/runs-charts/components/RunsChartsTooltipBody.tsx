@@ -107,17 +107,17 @@ const createContourChartValuesBox = (cardConfig: RunsChartsContourCardConfig, ac
 
   return (
     <>
-      {xValue && (
+      {!isNil(xValue) && (
         <div css={styles.value}>
           <strong>X ({xKey}):</strong> {xValue}
         </div>
       )}
-      {yValue && (
+      {!isNil(yValue) && (
         <div css={styles.value}>
           <strong>Y ({yKey}):</strong> {yValue}
         </div>
       )}
-      {zValue && (
+      {!isNil(zValue) && (
         <div css={styles.value}>
           <strong>Z ({zKey}):</strong> {zValue}
         </div>
