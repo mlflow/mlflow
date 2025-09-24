@@ -116,6 +116,8 @@ class ChatMessage(BaseModel):
 
 
 AllowedType = Literal["string", "number", "integer", "object", "array", "boolean", "null"]
+
+
 class ParamType(BaseModel):
     type: AllowedType | list[AllowedType] | None = None
 
