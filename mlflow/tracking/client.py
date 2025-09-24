@@ -18,7 +18,6 @@ import tempfile
 import urllib
 import uuid
 import warnings
-from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any, Literal, Sequence, Union
 
 import yaml
@@ -81,7 +80,6 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
-from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.utils.models import (
     _parse_model_uri,
     get_model_name_and_version,
@@ -117,7 +115,6 @@ from mlflow.utils.databricks_utils import (
     get_databricks_run_url,
     is_in_databricks_runtime,
 )
-from mlflow.utils.file_utils import TempDir
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.mlflow_tags import (
     MLFLOW_LOGGED_ARTIFACTS,
@@ -148,33 +145,6 @@ _STAGES_DEPRECATION_WARNING = (
     "deprecation of model registry stages, see our migration guide here: https://mlflow.org/docs/"
     "latest/model-registry.html#migrating-from-stages"
 )
-
-
-def _log_image_async_task(artifact_repo, path, artifact, pil_save_options=None):
-    """
-    Asynchronously saves an in-memory image artifact to a temporary file and logs it.
-    This is a specialized helper for log_image's async path.
-    """
-    try:
-        import PIL.Image
-
-        if isinstance(artifact, PIL.Image.Image):
-            with TempDir() as tmp_dir:
-                # THIS IS THE FIX: We correctly separate the destination directory and filename.
-                destination_dir = posixpath.dirname(path)
-                destination_filename = posixpath.basename(path)
-
-                # Create the temporary file with the correct final name.
-                tmp_path = tmp_dir.path(destination_filename)
-
-                artifact.save(tmp_path, **(pil_save_options or {}))
-
-                # Log the temporary file to the correct destination directory.
-                artifact_repo.log_artifact(tmp_path, artifact_path=destination_dir)
-        else:
-            artifact_repo.log_artifact(artifact, path)
-    except Exception as e:
-        _logger.error(f"Failed to log artifact asynchronously: {e}")
 
 
 def _model_not_found(name: str) -> MlflowException:
@@ -229,52 +199,6 @@ class MlflowClient:
     thin wrapper around TrackingServiceClient and RegistryClient so there is a unified API but we
     can keep the implementation of the tracking and registry clients independent from each other.
     """
-
-    _image_logging_queue = None
-
-    class _ImageAsyncLoggingQueue:
-        def __init__(self):
-            self._executor = ThreadPoolExecutor(
-                max_workers=1, thread_name_prefix="MlflowAsyncImage"
-            )
-
-        def submit_task(self, artifact_repo, path, artifact, pil_save_options=None):
-            return self._executor.submit(
-                _log_image_async_task, artifact_repo, path, artifact, pil_save_options
-            )
-
-        def __del__(self):
-            if hasattr(self, "_executor") and self._executor:
-                self._executor.shutdown(wait=True)
-
-        def flush(self):
-            if hasattr(self, "_executor") and self._executor:
-                self._executor.shutdown(wait=True)
-                # Re-create the executor so we can log more images after a flush
-                self._executor = ThreadPoolExecutor(
-                    max_workers=1, thread_name_prefix="MlflowAsyncImage"
-                )
-
-    def _queue_image_logging_task(self, run_id, path, artifact, pil_save_options=None):
-        """Helper to queue async logging of an in-memory image artifact."""
-        # Use the class-level queue
-        if MlflowClient._image_logging_queue is None:
-            MlflowClient._image_logging_queue = self._ImageAsyncLoggingQueue()
-
-        artifact_uri = self._tracking_client.get_run(run_id).info.artifact_uri
-        artifact_repo = get_artifact_repository(artifact_uri)
-
-        MlflowClient._image_logging_queue.submit_task(
-            artifact_repo, path, artifact, pil_save_options
-        )
-
-    def flush_image_async_logging(self):
-        """
-        Waits for all pending image logging operations to complete.
-        This is a specific flush for the image queue.
-        """
-        if MlflowClient._image_logging_queue is not None:
-            MlflowClient._image_logging_queue.flush()
 
     def __init__(self, tracking_uri: str | None = None, registry_uri: str | None = None):
         """
@@ -2640,7 +2564,7 @@ class MlflowClient:
             yield tmp_path
             self.log_artifact(run_id, tmp_path, artifact_dir)
 
-    def _log_artifact_async_helper(self, run_id, artifact_file, artifact):
+    def _log_artifact_async_helper(self, run_id, artifact_file, artifact, pil_save_options=None):
         """Log artifact asynchronously.
 
         Args:
@@ -2650,12 +2574,15 @@ class MlflowClient:
                 The path should be in POSIX format, using forward slashes (/) as directory
                 separators.
             artifact: The artifact to be logged.
+            pil_save_options: A dictionary of options to pass to `PIL.Image.save`.
         """
         norm_path = posixpath.normpath(artifact_file)
         filename = posixpath.basename(norm_path)
         artifact_dir = posixpath.dirname(norm_path)
         artifact_dir = None if artifact_dir == "" else artifact_dir
-        self._tracking_client._log_artifact_async(run_id, filename, artifact_dir, artifact)
+        self._tracking_client._log_artifact_async(
+            run_id, filename, artifact_dir, artifact, pil_save_options
+        )
 
     def log_text(self, run_id: str, text: str, artifact_file: str) -> None:
         """Log text as an artifact.
@@ -2991,17 +2918,16 @@ class MlflowClient:
             if synchronous:
                 with self._log_artifact_helper(run_id, image_filepath) as tmp_path:
                     image.save(tmp_path, **pil_save_options)
-            else:
-                self._queue_image_logging_task(run_id, image_filepath, image, pil_save_options)
-
-            if synchronous:
                 with self._log_artifact_helper(run_id, compressed_image_filepath) as tmp_path:
                     # NOTE: The compressed thumbnail is an internal optimization.
                     # We do not pass user options here to ensure it remains a small WEBP file.
                     compressed_image.save(tmp_path)
             else:
-                self._queue_image_logging_task(
-                    run_id, compressed_image_filepath, compressed_image, None
+                self._log_artifact_async_helper(
+                    run_id, image_filepath, image, pil_save_options=pil_save_options
+                )
+                self._log_artifact_async_helper(
+                    run_id, compressed_image_filepath, compressed_image, pil_save_options=None
                 )
 
             # Log tag indicating that the run includes logged image

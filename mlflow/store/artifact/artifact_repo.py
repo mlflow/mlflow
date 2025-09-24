@@ -86,7 +86,9 @@ class ArtifactRepository:
         # system (whichever is smaller)
         self.thread_pool = self._create_thread_pool()
 
-        def log_artifact_handler(filename, artifact_path=None, artifact=None):
+        def log_artifact_handler(
+            filename, artifact_path=None, artifact=None, pil_save_options=None
+        ):
             with tempfile.TemporaryDirectory() as tmp_dir:
                 tmp_path = os.path.join(tmp_dir, filename)
                 if artifact is not None:
@@ -94,10 +96,15 @@ class ArtifactRepository:
                     from PIL import Image
 
                     if isinstance(artifact, Image.Image):
-                        artifact.save(tmp_path)
+                        # Use the new save options here
+                        artifact.save(tmp_path, **(pil_save_options or {}))
                 self.log_artifact(tmp_path, artifact_path)
 
-        self._async_logging_queue = AsyncArtifactsLoggingQueue(log_artifact_handler)
+        # The queue needs to know which arguments to pass to the handler
+        self._async_logging_queue = AsyncArtifactsLoggingQueue(
+            log_artifact_handler,
+            task_args=["filename", "artifact_path", "artifact", "pil_save_options"],
+        )
 
     def __repr__(self) -> str:
         return (
@@ -133,7 +140,9 @@ class ArtifactRepository:
                 artifact.
         """
 
-    def _log_artifact_async(self, filename, artifact_path=None, artifact=None):
+    def _log_artifact_async(
+        self, filename, artifact_path=None, artifact=None, pil_save_options=None
+    ):
         """
         Asynchronously log a local file as an artifact, optionally taking an ``artifact_path`` to
         place it within the run's artifacts. Run artifacts can be organized into directory, so you
@@ -156,7 +165,10 @@ class ArtifactRepository:
             self._async_logging_queue.activate()
 
         return self._async_logging_queue.log_artifacts_async(
-            filename=filename, artifact_path=artifact_path, artifact=artifact
+            filename=filename,
+            artifact_path=artifact_path,
+            artifact=artifact,
+            pil_save_options=pil_save_options,  # <-- Pass it to the queue
         )
 
     @abstractmethod

@@ -1693,14 +1693,6 @@ def log_image(
     )
 
 
-def flush_image_async_logging():
-    """
-    Waits for all pending asynchronous image logging operations to complete.
-    This function is a no-op if no images have been logged asynchronously.
-    """
-    MlflowClient().flush_image_async_logging()
-
-
 def log_table(
     data: Union[dict[str, Any], "pandas.DataFrame"],
     artifact_file: str,
