@@ -62,6 +62,19 @@ CREATE TABLE inputs (
 )
 
 
+CREATE TABLE jobs (
+	id VARCHAR(36) NOT NULL,
+	creation_time BIGINT,
+	function_fullname VARCHAR(500) NOT NULL,
+	params TEXT NOT NULL,
+	timeout FLOAT,
+	status INTEGER NOT NULL,
+	result TEXT,
+	retry_count INTEGER,
+	CONSTRAINT jobs_pk PRIMARY KEY (id)
+)
+
+
 CREATE TABLE registered_models (
 	name VARCHAR(256) NOT NULL,
 	creation_time BIGINT,
