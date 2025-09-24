@@ -1,7 +1,14 @@
+"""
+Utility functions for MLflow Insights.
+
+This module provides common validation and normalization functions used across
+the Insights system for data integrity and consistency.
+"""
+
 from typing import Any
 
 from mlflow.exceptions import MlflowException
-from mlflow.insights.models import EvidenceEntry
+from mlflow.insights.models.base import EvidenceEntry
 
 
 def normalize_evidence(
@@ -67,14 +74,19 @@ def normalize_evidence(
     return validated_entries
 
 
-def extract_trace_ids(evidence: list[EvidenceEntry]) -> list[str]:
-    """
-    Extract unique trace IDs from evidence entries.
+def validate_non_empty_string(v: str, field_name: str) -> str:
+    """Validate that a string field is not empty or whitespace only.
 
     Args:
-        evidence: List of EvidenceEntry objects
+        v: The string value to validate
+        field_name: Name of the field for error messages
 
     Returns:
-        List of unique trace IDs preserving order of first occurrence
+        The stripped string value
+
+    Raises:
+        MlflowException: If the string is empty or whitespace only
     """
-    return list(dict.fromkeys(entry.trace_id for entry in evidence))
+    if not v or not v.strip():
+        raise MlflowException.invalid_parameter_value(f"{field_name} cannot be empty")
+    return v.strip()
