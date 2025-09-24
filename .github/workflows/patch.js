@@ -65,11 +65,11 @@ module.exports = async ({ context, github, core }) => {
     return;
   }
 
-  const yesRegex = /- \[( |x)\] yes/gi;
+  const yesRegex = /- \[( |x)\] yes \(this PR will be/gi;
   const yesMatches = [...body.matchAll(yesRegex)];
   const yesMatch = yesMatches.length > 0 ? yesMatches[yesMatches.length - 1] : null;
   const yes = yesMatch ? yesMatch[1].toLowerCase() === "x" : false;
-  const noRegex = /- \[( |x)\] no/gi;
+  const noRegex = /- \[( |x)\] no \(this PR will be/gi;
   const noMatches = [...body.matchAll(noRegex)];
   const noMatch = noMatches.length > 0 ? noMatches[noMatches.length - 1] : null;
   const no = noMatch ? noMatch[1].toLowerCase() === "x" : false;
