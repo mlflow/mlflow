@@ -95,7 +95,7 @@ from mlflow.protos.service_pb2 import (
 from mlflow.protos.service_pb2 import RunTag as ProtoRunTag
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
-from mlflow.store.tracking.rest_store import _METHOD_TO_INFO, RestStore
+from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.constant import TRACE_ID_V4_PREFIX, TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracking.request_header.default_request_header_provider import (
@@ -1532,7 +1532,7 @@ def test_log_logged_model_params():
             _, endpoint, method, json_body, response_proto = call.args
 
             # Verify endpoint and method are correct
-            assert endpoint, method == _METHOD_TO_INFO[LogLoggedModelParamsRequest]
+            assert endpoint, method == RestStore._METHOD_TO_INFO[LogLoggedModelParamsRequest]
             assert json_body == batches[i]
 
 

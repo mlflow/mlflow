@@ -126,7 +126,7 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
-from mlflow.store.tracking.rest_store import RestStore
+from mlflow.store.tracking.databricks_rest_store import DatabricksRestStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.proto_json_utils import message_to_json
@@ -1704,7 +1704,7 @@ def test_databricks_tracking_store_registration():
 
     # Test that the correct store type is returned for databricks scheme
     store = registry.get_store("databricks", artifact_uri=None)
-    assert isinstance(store, RestStore)
+    assert isinstance(store, DatabricksRestStore)
 
     # Verify that the store was created with the right get_host_creds function
     # The RestStore should have a get_host_creds attribute that is a partial function
