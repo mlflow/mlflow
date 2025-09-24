@@ -10,7 +10,7 @@ from mlflow.insights.models.base import (
     ExtensibleModel,
     SerializableModel,
     TimestampedModel,
-    extract_trace_ids,
+    extract_unique_trace_ids,
 )
 from mlflow.insights.models.entities import Analysis, Hypothesis, Issue
 from mlflow.insights.models.summaries import AnalysisSummary, HypothesisSummary, IssueSummary
@@ -31,5 +31,5 @@ __all__ = [
     "HypothesisSummary",
     "IssueSummary",
     # Utils
-    "extract_trace_ids",
+    "extract_unique_trace_ids",
 ]

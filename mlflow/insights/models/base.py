@@ -2,23 +2,53 @@
 Base models and mixins for MLflow Insights.
 
 This module contains the foundational components used by the main entity models.
+
+Developer Primer:
+=================
+
+The MLflow Insights system is an AI-guided investigation framework that analyzes
+MLflow traces to discover operational and quality issues in AI agents. It follows
+a scientific method approach:
+
+1. **Analysis** - A user-initiated investigation run that examines existing traces
+2. **Hypothesis** - Testable theories about potential problems discovered during analysis
+3. **Evidence** - Trace-based proof that supports or refutes hypotheses
+4. **Issue** - Confirmed problems derived from validated hypotheses
+
+Key Components:
+---------------
+- **EvidenceEntry**: Links specific traces to hypotheses/issues with explanatory rationale
+- **SerializableModel**: Provides YAML serialization for artifact storage
+- **TimestampedModel**: Tracks creation and modification timestamps
+- **ExtensibleModel**: Supports metadata for future extensions
+- **EvidencedModel**: Base for entities that collect trace evidence
+
+Evidence Handling:
+------------------
+Multiple evidence entries can reference the same trace_id. This is intentional and
+encouraged as it allows capturing different aspects or insights from the same trace,
+providing richer context for the investigation.
+
+Storage Pattern:
+----------------
+- Analysis: Stored as 'analysis.yaml' in MLflow run artifacts
+- Hypotheses: Stored as 'hypothesis_<id>.yaml' in MLflow run artifacts
+- Issues: Filed against the experiment (not the run) for visibility across runs
+
+Integration:
+------------
+Issues can be consumed by coding agents (via CLI/MCP) to automatically fix discovered
+problems, enabling a complete feedback loop from issue discovery to resolution.
 """
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-
-if TYPE_CHECKING:
-    from typing_extensions import Self
-else:
-    try:
-        from typing import Self
-    except ImportError:
-        from typing_extensions import Self
+from typing_extensions import Self
 
 from mlflow.exceptions import MlflowException
 
@@ -40,7 +70,6 @@ class EvidenceEntry(BaseModel):
     @field_validator("trace_id")
     @classmethod
     def validate_trace_id(cls, v: str) -> str:
-        """Validate trace_id is not empty."""
         if not v or not v.strip():
             raise MlflowException.invalid_parameter_value("Evidence entry trace_id cannot be empty")
         return v.strip()
@@ -48,7 +77,6 @@ class EvidenceEntry(BaseModel):
     @field_validator("rationale")
     @classmethod
     def validate_rationale(cls, v: str) -> str:
-        """Validate rationale is not empty."""
         if not v or not v.strip():
             raise MlflowException.invalid_parameter_value(
                 "Evidence entry rationale cannot be empty"
@@ -87,7 +115,7 @@ class EvidenceEntry(BaseModel):
         return cls(trace_id=trace_id, rationale=rationale, supports=None)
 
 
-def extract_trace_ids(evidence: list[EvidenceEntry]) -> list[str]:
+def extract_unique_trace_ids(evidence: list[EvidenceEntry]) -> list[str]:
     """
     Extract unique trace IDs from evidence entries.
 
@@ -174,7 +202,7 @@ class EvidencedModel(BaseModel):
     @property
     def trace_count(self) -> int:
         """Get the number of unique traces associated with this model."""
-        return len(extract_trace_ids(self.evidence))
+        return len(extract_unique_trace_ids(self.evidence))
 
     @property
     def evidence_count(self) -> int:
@@ -183,4 +211,4 @@ class EvidencedModel(BaseModel):
 
     def get_trace_ids(self) -> list[str]:
         """Get list of unique trace IDs from evidence."""
-        return extract_trace_ids(self.evidence)
+        return extract_unique_trace_ids(self.evidence)

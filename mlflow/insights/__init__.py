@@ -22,7 +22,7 @@ from mlflow.insights.models import (
     Issue,
     IssueSummary,
 )
-from mlflow.insights.models.base import extract_trace_ids
+from mlflow.insights.models.base import extract_unique_trace_ids
 from mlflow.insights.utils import normalize_evidence
 
 __all__ = [
@@ -44,6 +44,6 @@ __all__ = [
     "INSIGHTS_ANALYSIS_FILE_NAME",
     "INSIGHTS_RUN_TAG_NAME_KEY",
     # Utilities
-    "extract_trace_ids",
+    "extract_unique_trace_ids",
     "normalize_evidence",
 ]

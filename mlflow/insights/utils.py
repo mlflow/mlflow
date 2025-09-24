@@ -1,3 +1,10 @@
+"""
+Utility functions for MLflow Insights.
+
+This module provides common validation and normalization functions used across
+the Insights system for data integrity and consistency.
+"""
+
 from typing import Any
 
 from mlflow.exceptions import MlflowException
@@ -65,3 +72,21 @@ def normalize_evidence(
             )
 
     return validated_entries
+
+
+def validate_non_empty_string(v: str, field_name: str) -> str:
+    """Validate that a string field is not empty or whitespace only.
+
+    Args:
+        v: The string value to validate
+        field_name: Name of the field for error messages
+
+    Returns:
+        The stripped string value
+
+    Raises:
+        MlflowException: If the string is empty or whitespace only
+    """
+    if not v or not v.strip():
+        raise MlflowException.invalid_parameter_value(f"{field_name} cannot be empty")
+    return v.strip()

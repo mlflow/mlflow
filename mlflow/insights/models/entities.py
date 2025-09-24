@@ -4,6 +4,57 @@ MLflow Insights entities.
 Main entity models for the MLflow Insights agent that analyzes traces to discover
 and document issues with AI agents. Supports AI-guided investigation workflows
 with hypotheses, evidence collection, and issue tracking.
+
+Entity Architecture:
+====================
+
+This module defines the three core entities of the Insights system:
+
+1. **Analysis**: The top-level investigation container
+   - Represents a user-initiated investigation session
+   - Tracks the overall investigation status and metadata
+   - Contains focus areas and guidance from the user
+   - Stored as 'analysis.yaml' in the MLflow run artifacts
+
+2. **Hypothesis**: Testable theories about agent problems
+   - Generated during analysis to explore potential issues
+   - Can be validated or rejected based on evidence
+   - Tracks supporting and refuting evidence from traces
+   - Stored as 'hypothesis_<id>.yaml' in the MLflow run artifacts
+
+3. **Issue**: Confirmed problems requiring attention
+   - Created from validated hypotheses
+   - Filed against the experiment for cross-run visibility
+   - Can be consumed by external tools (CLI/MCP) for automated fixes
+   - Tracks resolution status and related assessments
+   - Stored as 'issue_<id>.yaml' in the experiment artifacts
+
+Validation Strategy:
+--------------------
+All required string fields use Pydantic's AfterValidator with type aliases to ensure:
+- Non-empty values (no whitespace-only strings)
+- Consistent trimming of leading/trailing whitespace
+- Clear error messages identifying the specific field
+
+Evidence Model:
+---------------
+Both Hypotheses and Issues collect evidence from traces:
+- Hypotheses track whether evidence supports or refutes the theory
+- Issues only track demonstrative evidence (no support/refute concept)
+- Multiple evidence entries can reference the same trace for different insights
+
+Status Workflow:
+----------------
+- Analysis: ACTIVE -> COMPLETED/ARCHIVED/ERROR
+- Hypothesis: TESTING -> VALIDATED/REJECTED/ERROR
+- Issue: OPEN -> IN_PROGRESS -> RESOLVED/REJECTED/ERROR
+
+Integration Points:
+-------------------
+- Storage: YAML files in MLflow artifacts for portability
+- Discovery: Issues filed at experiment level for visibility
+- Automation: Issues consumable by coding agents for fixes
+- Extensibility: Metadata fields for future enhancements
 """
 
 from __future__ import annotations
@@ -22,59 +73,29 @@ from mlflow.insights.models.base import (
     SerializableModel,
     TimestampedModel,
 )
-from mlflow.insights.utils import normalize_evidence
+from mlflow.insights.utils import normalize_evidence, validate_non_empty_string
 
-
-def validate_non_empty_string(v: str, field_name: str) -> str:
-    """Validate that a string field is not empty or whitespace only."""
-    if not v or not v.strip():
-        raise MlflowException.invalid_parameter_value(f"{field_name} cannot be empty")
-    return v.strip()
-
-
-def validate_analysis_name(v: str) -> str:
-    """Validate Analysis name is not empty."""
-    return validate_non_empty_string(v, "Analysis name")
-
-
-def validate_analysis_description(v: str) -> str:
-    """Validate Analysis description is not empty."""
-    return validate_non_empty_string(v, "Analysis description")
-
-
-def validate_hypothesis_statement(v: str) -> str:
-    """Validate Hypothesis statement is not empty."""
-    return validate_non_empty_string(v, "Hypothesis statement")
-
-
-def validate_hypothesis_testing_plan(v: str) -> str:
-    """Validate Hypothesis testing plan is not empty."""
-    return validate_non_empty_string(v, "Hypothesis testing plan")
-
-
-def validate_issue_source_run_id(v: str) -> str:
-    """Validate Issue source_run_id is not empty."""
-    return validate_non_empty_string(v, "Issue source_run_id")
-
-
-def validate_issue_title(v: str) -> str:
-    """Validate Issue title is not empty."""
-    return validate_non_empty_string(v, "Issue title")
-
-
-def validate_issue_description(v: str) -> str:
-    """Validate Issue description is not empty."""
-    return validate_non_empty_string(v, "Issue description")
-
-
-# Type aliases for validated strings
-NonEmptyAnalysisName = Annotated[str, AfterValidator(validate_analysis_name)]
-NonEmptyAnalysisDescription = Annotated[str, AfterValidator(validate_analysis_description)]
-NonEmptyHypothesisStatement = Annotated[str, AfterValidator(validate_hypothesis_statement)]
-NonEmptyHypothesisTestingPlan = Annotated[str, AfterValidator(validate_hypothesis_testing_plan)]
-NonEmptyIssueSourceRunId = Annotated[str, AfterValidator(validate_issue_source_run_id)]
-NonEmptyIssueTitle = Annotated[str, AfterValidator(validate_issue_title)]
-NonEmptyIssueDescription = Annotated[str, AfterValidator(validate_issue_description)]
+NonEmptyAnalysisName = Annotated[
+    str, AfterValidator(lambda v: validate_non_empty_string(v, "Analysis name"))
+]
+NonEmptyAnalysisDescription = Annotated[
+    str, AfterValidator(lambda v: validate_non_empty_string(v, "Analysis description"))
+]
+NonEmptyHypothesisStatement = Annotated[
+    str, AfterValidator(lambda v: validate_non_empty_string(v, "Hypothesis statement"))
+]
+NonEmptyHypothesisTestingPlan = Annotated[
+    str, AfterValidator(lambda v: validate_non_empty_string(v, "Hypothesis testing plan"))
+]
+NonEmptyIssueSourceRunId = Annotated[
+    str, AfterValidator(lambda v: validate_non_empty_string(v, "Issue source_run_id"))
+]
+NonEmptyIssueTitle = Annotated[
+    str, AfterValidator(lambda v: validate_non_empty_string(v, "Issue title"))
+]
+NonEmptyIssueDescription = Annotated[
+    str, AfterValidator(lambda v: validate_non_empty_string(v, "Issue description"))
+]
 
 
 class Analysis(SerializableModel, TimestampedModel, ExtensibleModel):
@@ -281,8 +302,7 @@ class Issue(SerializableModel, TimestampedModel, ExtensibleModel, EvidencedModel
                 raise MlflowException.invalid_parameter_value(
                     f"assessment items must be strings, got {type(item).__name__}"
                 )
-            stripped = item.strip()
-            if stripped:
+            if stripped := item.strip():
                 cleaned.append(stripped)
         return cleaned
 
@@ -305,10 +325,9 @@ class Issue(SerializableModel, TimestampedModel, ExtensibleModel, EvidencedModel
         Args:
             assessment_name: Name/ID of the related assessment
         """
-        if not assessment_name or not assessment_name.strip():
+        if not (cleaned := assessment_name.strip() if assessment_name else ""):
             raise MlflowException.invalid_parameter_value("Assessment name cannot be empty")
 
-        cleaned = assessment_name.strip()
         if cleaned not in self.assessments:
             self.assessments.append(cleaned)
             self.update_timestamp()
@@ -326,11 +345,11 @@ class Issue(SerializableModel, TimestampedModel, ExtensibleModel, EvidencedModel
         Args:
             resolution: Description of how the issue was resolved
         """
-        if not resolution or not resolution.strip():
+        if not (stripped_resolution := resolution.strip() if resolution else ""):
             raise MlflowException.invalid_parameter_value("Resolution description cannot be empty")
 
         self.status = IssueStatus.RESOLVED
-        self.resolution = resolution.strip()
+        self.resolution = stripped_resolution
         self.update_timestamp()
 
     def reject(self, reason: str | None = None) -> None:
@@ -341,8 +360,8 @@ class Issue(SerializableModel, TimestampedModel, ExtensibleModel, EvidencedModel
             reason: Optional explanation for rejection
         """
         self.status = IssueStatus.REJECTED
-        if reason:
-            self.resolution = f"Rejected: {reason.strip()}"
+        if reason and (stripped_reason := reason.strip()):
+            self.resolution = f"Rejected: {stripped_reason}"
         self.update_timestamp()
 
     def reopen(self) -> None:

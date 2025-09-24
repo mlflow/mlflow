@@ -2,7 +2,7 @@ import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.insights.models import EvidenceEntry
-from mlflow.insights.models.base import extract_trace_ids
+from mlflow.insights.models.base import extract_unique_trace_ids
 from mlflow.insights.utils import normalize_evidence
 
 
@@ -94,6 +94,6 @@ def test_normalize_evidence_invalid(invalid_evidence, error_pattern):
         ([], []),
     ],
 )
-def test_extract_trace_ids(evidence_data, expected_ids):
+def test_extract_unique_trace_ids(evidence_data, expected_ids):
     evidence = [EvidenceEntry(trace_id=tid, rationale=rat) for tid, rat in evidence_data]
-    assert extract_trace_ids(evidence) == expected_ids
+    assert extract_unique_trace_ids(evidence) == expected_ids
