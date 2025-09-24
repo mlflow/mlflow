@@ -858,3 +858,19 @@ def test_evaluate_without_inputs_in_eval_dataset():
         scorers=[input_exist],
     )
     assert result.metrics["input_exist/mean"] == 0.0
+
+
+def test_evaluate_with_only_trace_in_eval_dataset():
+    for _ in range(3):
+        with mlflow.start_span():
+            pass
+
+    trace_df = mlflow.search_traces()
+    trace_df = trace_df[["trace"]]
+
+    result = mlflow.genai.evaluate(
+        data=trace_df,
+        scorers=[has_trace],
+    )
+
+    assert result.metrics["has_trace/mean"] == 1.0
