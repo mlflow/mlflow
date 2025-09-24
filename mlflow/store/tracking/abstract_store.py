@@ -498,15 +498,6 @@ class AbstractStore:
         """
         raise NotImplementedError
 
-    def load_spans(self, trace_id: str) -> list[Span]:
-        """
-        Load spans for a given trace ID.
-
-        Returns:
-            List of Span entities.
-        """
-        raise NotImplementedError
-
     def log_metric(self, run_id, metric):
         """
         Log a metric for the specified run

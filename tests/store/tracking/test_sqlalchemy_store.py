@@ -8784,7 +8784,10 @@ def test_load_spans_basic(store: SqlAlchemyStore) -> None:
     ]
 
     store.log_spans(experiment_id, spans)
-    loaded_spans = store.load_spans(trace_id)
+    traces = store.get_traces([trace_id])
+
+    assert len(traces) == 1
+    loaded_spans = traces[0].data.spans
 
     assert len(loaded_spans) == 2
 
@@ -8806,8 +8809,8 @@ def test_load_spans_basic(store: SqlAlchemyStore) -> None:
 
 def test_load_spans_empty_trace(store: SqlAlchemyStore) -> None:
     trace_id = f"tr-{uuid.uuid4().hex}"
-    loaded_spans = store.load_spans(trace_id)
-    assert loaded_spans == []
+    traces = store.get_traces([trace_id])
+    assert traces == []
 
 
 def test_load_spans_ordering(store: SqlAlchemyStore) -> None:
@@ -8842,7 +8845,10 @@ def test_load_spans_ordering(store: SqlAlchemyStore) -> None:
     ]
 
     store.log_spans(experiment_id, spans)
-    loaded_spans = store.load_spans(trace_id)
+    traces = store.get_traces([trace_id])
+
+    assert len(traces) == 1
+    loaded_spans = traces[0].data.spans
 
     assert len(loaded_spans) == 3
     assert loaded_spans[0].name == "first_span"
@@ -8880,7 +8886,10 @@ def test_load_spans_with_complex_attributes(store: SqlAlchemyStore) -> None:
     span = create_mlflow_span(otel_span, trace_id, "LLM")
 
     store.log_spans(experiment_id, [span])
-    loaded_spans = store.load_spans(trace_id)
+    traces = store.get_traces([trace_id])
+
+    assert len(traces) == 1
+    loaded_spans = traces[0].data.spans
 
     assert len(loaded_spans) == 1
     loaded_span = loaded_spans[0]
@@ -8925,8 +8934,16 @@ def test_load_spans_multiple_traces(store: SqlAlchemyStore) -> None:
 
     store.log_spans(experiment_id, spans_trace_1)
     store.log_spans(experiment_id, spans_trace_2)
-    loaded_spans_1 = store.load_spans(trace_id_1)
-    loaded_spans_2 = store.load_spans(trace_id_2)
+    traces = store.get_traces([trace_id_1, trace_id_2])
+
+    assert len(traces) == 2
+
+    # Find traces by ID since order might not be guaranteed
+    trace_1 = next(t for t in traces if t.info.trace_id == trace_id_1)
+    trace_2 = next(t for t in traces if t.info.trace_id == trace_id_2)
+
+    loaded_spans_1 = trace_1.data.spans
+    loaded_spans_2 = trace_2.data.spans
 
     assert len(loaded_spans_1) == 2
     assert len(loaded_spans_2) == 1
@@ -8953,7 +8970,10 @@ def test_load_spans_preserves_json_serialization(store: SqlAlchemyStore) -> None
     )
 
     store.log_spans(experiment_id, [original_span])
-    loaded_spans = store.load_spans(trace_id)
+    traces = store.get_traces([trace_id])
+
+    assert len(traces) == 1
+    loaded_spans = traces[0].data.spans
 
     assert len(loaded_spans) == 1
     loaded_span = loaded_spans[0]
@@ -8984,6 +9004,8 @@ def test_load_spans_integration_with_trace_handler(store: SqlAlchemyStore) -> No
     trace_info = store.get_trace_info(trace_id)
     assert trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == TRACKING_STORE
 
-    loaded_spans = store.load_spans(trace_id)
+    traces = store.get_traces([trace_id])
+    assert len(traces) == 1
+    loaded_spans = traces[0].data.spans
     assert len(loaded_spans) == 1
     assert loaded_spans[0].name == "integration_span"

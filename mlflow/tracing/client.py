@@ -33,7 +33,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.telemetry.events import LogAssessmentEvent, StartTraceEvent
 from mlflow.telemetry.track import record_usage_event
-from mlflow.tracing.constant import TRACKING_STORE, TraceMetadataKey, TraceTagKey
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import TraceJSONEncoder, exclude_immutable_tags
 from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
@@ -139,8 +139,6 @@ class TracingClient:
         return Trace(trace_info, trace_data)
 
     def _get_trace_data(self, trace_info: TraceInfo) -> TraceData:
-        if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == TRACKING_STORE:
-            return TraceData(spans=self.store.load_spans(trace_info.trace_id))
         try:
             return self._download_trace_data(trace_info)
         except MlflowTraceDataNotFound:
@@ -161,6 +159,10 @@ class TracingClient:
             ) from None  # Ensure the original spammy exception is not included in the traceback
 
     def _get_traces(self, trace_ids: list[str]) -> list[Trace]:
+        if any(trace_id is None for trace_id in trace_ids):
+            raise MlflowException.invalid_parameter_value(
+                "Trace IDs cannot be None.",
+            )
         try:
             if traces := self.store.get_traces(trace_ids):
                 return traces
@@ -355,7 +357,7 @@ class TracingClient:
                     sql_warehouse_id=sql_warehouse_id,
                 )
 
-                if include_spans:
+                if include_spans and trace_infos:
                     trace_ids = [trace_info.trace_id for trace_info in trace_infos]
                     if not any(is_uuid(trace_id) for trace_id in trace_ids) and (
                         fetched_traces := self._get_traces(trace_ids)

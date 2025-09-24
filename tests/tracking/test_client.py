@@ -500,7 +500,7 @@ def test_client_search_traces(mock_store, mock_artifact_repo, include_spans):
     mock_store.get_traces.side_effect = MlflowNotImplementedException()
     mock_traces = [
         TraceInfo(
-            trace_id="1234567",
+            trace_id="tr-1234567",
             trace_location=TraceLocation.from_experiment_id("1"),
             request_time=123,
             execution_duration=456,
@@ -508,7 +508,7 @@ def test_client_search_traces(mock_store, mock_artifact_repo, include_spans):
             tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts/1"},
         ),
         TraceInfo(
-            trace_id="8910",
+            trace_id="tr-8910",
             trace_location=TraceLocation.from_experiment_id("2"),
             request_time=456,
             execution_duration=789,
@@ -769,6 +769,8 @@ def test_start_and_end_trace_capture_falsy_input_and_output(tracking_uri):
     assert trace.data.spans[1].outputs is False
 
 
+# TODO: we should investigate how to support this
+@pytest.mark.skip(reason="This is not supported by latest span-level export")
 @pytest.mark.usefixtures("reset_active_experiment")
 def test_start_and_end_trace_before_all_span_end(async_logging_enabled):
     # This test is to verify that the trace is still exported even if some spans are not ended

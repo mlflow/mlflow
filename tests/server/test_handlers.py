@@ -5,7 +5,7 @@ from unittest import mock
 import pytest
 
 import mlflow
-from mlflow.entities import ScorerVersion, TraceInfo, TraceState, ViewType
+from mlflow.entities import ScorerVersion, Trace, TraceData, TraceInfo, TraceState, ViewType
 from mlflow.entities.model_registry import (
     ModelVersion,
     ModelVersionTag,
@@ -44,6 +44,7 @@ from mlflow.protos.service_pb2 import (
     CreateExperiment,
     DeleteScorer,
     GetScorer,
+    GetTraces,
     ListScorers,
     ListScorerVersions,
     RegisterScorer,
@@ -91,6 +92,7 @@ from mlflow.server.handlers import (
     _get_request_message,
     _get_scorer,
     _get_trace_artifact_repo,
+    _get_traces,
     _list_scorer_versions,
     _list_scorers,
     _list_webhooks,
@@ -1925,3 +1927,62 @@ def test_list_webhooks_empty_page_token(mock_get_request_message, mock_model_reg
     call_kwargs = mock_model_registry_store.list_webhooks.call_args.kwargs
     assert call_kwargs.get("page_token") is None
     assert call_kwargs.get("max_results") == 10
+
+
+def test_get_traces_handler(mock_get_request_message, mock_tracking_store):
+    trace_id_1 = "test-trace-123"
+    trace_id_2 = "test-trace-456"
+
+    get_traces_proto = GetTraces(trace_ids=[trace_id_1, trace_id_2])
+
+    mock_get_request_message.return_value = get_traces_proto
+
+    # Create mock traces to return
+    mock_trace_1 = Trace(
+        info=TraceInfo(
+            trace_id=trace_id_1,
+            trace_location=EntityTraceLocation.from_experiment_id("1"),
+            request_time=1234567890,
+            execution_duration=5000,
+            state=TraceState.OK,
+        ),
+        data=TraceData(spans=[]),
+    )
+
+    mock_trace_2 = Trace(
+        info=TraceInfo(
+            trace_id=trace_id_2,
+            trace_location=EntityTraceLocation.from_experiment_id("1"),
+            request_time=1234567890,
+            execution_duration=3000,
+            state=TraceState.OK,
+        ),
+        data=TraceData(spans=[]),
+    )
+
+    mock_tracking_store.get_traces.return_value = [mock_trace_1, mock_trace_2]
+
+    # Call the handler
+    response = _get_traces()
+
+    # Verify the store was called with the correct trace IDs
+    mock_tracking_store.get_traces.assert_called_once_with([trace_id_1, trace_id_2])
+
+    # Verify response was created
+    assert response is not None
+    assert response.status_code == 200
+
+
+def test_get_traces_handler_empty_list(mock_get_request_message, mock_tracking_store):
+    get_traces_proto = GetTraces()
+
+    mock_get_request_message.return_value = get_traces_proto
+    mock_tracking_store.get_traces.return_value = []
+
+    response = _get_traces()
+
+    mock_tracking_store.get_traces.assert_called_once_with([])
+
+    # Verify response was created
+    assert response is not None
+    assert response.status_code == 200

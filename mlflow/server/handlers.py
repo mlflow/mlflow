@@ -46,7 +46,11 @@ from mlflow.environment_variables import (
     MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX,
     MLFLOW_DEPLOYMENTS_TARGET,
 )
-from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
+from mlflow.exceptions import (
+    MlflowException,
+    MlflowNotImplementedException,
+    _UnsupportedMultipartUploadException,
+)
 from mlflow.models import Model
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
@@ -128,6 +132,7 @@ from mlflow.protos.service_pb2 import (
     GetTraceInfo,
     GetTraceInfoV3,
     GetTraceInfoV4,
+    GetTraces,
     LinkTracesToRun,
     ListArtifacts,
     ListLoggedModelArtifacts,
@@ -183,7 +188,7 @@ from mlflow.store.model_registry.abstract_store import AbstractStore as Abstract
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
 from mlflow.store.tracking.abstract_store import AbstractStore as AbstractTrackingStore
 from mlflow.store.tracking.databricks_rest_store import DatabricksRestStore
-from mlflow.tracing.constant import TRACE_ID_V4_PREFIX, TRACKING_STORE, TraceTagKey
+from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
 from mlflow.tracing.utils.artifact_utils import (
     TRACE_DATA_FILE_NAME,
     get_artifact_uri_for_trace,
@@ -2836,6 +2841,23 @@ def _get_trace_info_v4(location: str, trace_id: str) -> Response:
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def _get_traces() -> Response:
+    """
+    A request handler for `GET /mlflow/traces` to retrieve
+    an existing TraceInfo record from tracking store.
+    """
+    request_message = _get_request_message(
+        GetTraces(),
+        schema={"trace_ids": [_assert_array, _assert_required, _assert_item_type_string]},
+    )
+    traces = _get_tracking_store().get_traces(request_message.trace_ids)
+    response_message = GetTraces.Response()
+    response_message.traces.extend([e.to_proto() for e in traces])
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _search_traces_v3():
     """
     A request handler for `GET /mlflow/traces` to search for TraceInfo records in tracking store.
@@ -3021,12 +3043,15 @@ def get_trace_artifact_handler():
             error_code=BAD_REQUEST,
         )
 
-    trace_info = _get_tracking_store().get_trace_info(request_id)
-    # TODO: update after getTraces API is implemented
-    if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == TRACKING_STORE:
-        spans = _get_tracking_store().load_spans(request_id)
-        trace_data = {"spans": [span.to_dict() for span in spans]}
-    else:
+    try:
+        traces = _get_tracking_store().get_traces([request_id])
+        if len(traces) != 1:
+            raise MlflowException(
+                "Failed to get trace data from tracking store. Please check the request_id."
+            )
+        trace_data = traces[0].data.to_dict()
+    except MlflowNotImplementedException:
+        trace_info = _get_tracking_store().get_trace_info(request_id)
         trace_data = _get_trace_artifact_repo(trace_info).download_trace_data()
 
     # Write data to a BytesIO buffer instead of needing to save a temp file
@@ -3967,6 +3992,7 @@ HANDLERS = {
     SetTraceTagV3: _set_trace_tag_v3,
     DeleteTraceTagV3: _delete_trace_tag,
     LinkTracesToRun: _link_traces_to_run,
+    GetTraces: _get_traces,
     # MLflow Tracing APIs (V4)
     GetTraceInfoV4: _get_trace_info_v4,
     # Assessment APIs

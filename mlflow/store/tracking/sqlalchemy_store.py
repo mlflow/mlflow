@@ -17,7 +17,7 @@ import sqlalchemy.sql.expression as sql
 from sqlalchemy import and_, case, exists, func, or_, sql, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.future import select
-from sqlalchemy.orm import aliased
+from sqlalchemy.orm import aliased, joinedload
 
 import mlflow.store.db.utils
 from mlflow.entities import (
@@ -35,6 +35,8 @@ from mlflow.entities import (
     RunStatus,
     RunTag,
     SourceType,
+    Trace,
+    TraceData,
     TraceInfo,
     ViewType,
     _DatasetSummary,
@@ -54,7 +56,7 @@ from mlflow.entities.trace import Span
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
@@ -100,7 +102,12 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceTag,
 )
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
-from mlflow.tracing.constant import TRACKING_STORE, TraceMetadataKey, TraceTagKey
+from mlflow.tracing.constant import (
+    TRACE_REQUEST_ID_PREFIX,
+    TRACKING_STORE,
+    TraceMetadataKey,
+    TraceTagKey,
+)
 from mlflow.tracing.utils import TraceJSONEncoder, generate_request_id_v2
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.file_utils import local_file_uri_to_path, mkdir
@@ -3403,33 +3410,64 @@ class SqlAlchemyStore(AbstractStore):
                     return TraceState.OK.value
         return None
 
-    def load_spans(self, trace_id: str) -> list[Span]:
+    def get_traces(self, trace_ids: list[str]) -> list[Trace]:
         """
-        Load all spans for a given trace from the database.
+        Get complete traces with spans for given trace ids.
 
         Args:
-            trace_id: The trace ID to load spans for.
+            trace_ids: The trace IDs to get.
 
         Returns:
-            List of Span objects for the given trace, ordered by start time.
+            List of Trace objects for the given trace IDs.
         """
+        if not all(trace_id.startswith(TRACE_REQUEST_ID_PREFIX) for trace_id in trace_ids):
+            raise MlflowException.invalid_parameter_value(
+                "Invalid trace IDs for the tracking store. Expected format: "
+                f"{TRACE_REQUEST_ID_PREFIX}<trace_id>"
+            )
+
+        if not trace_ids:
+            return []
+
+        traces = []
+        order_case = case(
+            {trace_id: idx for idx, trace_id in enumerate(trace_ids)},
+            value=SqlTraceInfo.request_id,
+        )
         with self.ManagedSessionMaker() as session:
-            # Query all spans for the given trace, ordered by start time
-            sql_spans = (
-                session.query(SqlSpan)
-                .filter(SqlSpan.trace_id == trace_id)
-                .order_by(SqlSpan.start_time_unix_nano)
+            # Load traces and their spans in one go
+            sql_trace_infos = (
+                session.query(SqlTraceInfo)
+                .options(joinedload(SqlTraceInfo.spans))
+                .filter(SqlTraceInfo.request_id.in_(trace_ids))
+                .order_by(order_case)
                 .all()
             )
 
-            # Convert SqlSpan objects to Span objects
-            spans = []
-            for sql_span in sql_spans:
-                span_dict = json.loads(sql_span.content)
-                span = Span.from_dict(span_dict)
-                spans.append(span)
+            traces = []
+            for sql_trace_info in sql_trace_infos:
+                trace_info = sql_trace_info.to_mlflow_entity()
+                # if the tag doesn't exist then the trace is not stored in the tracking store,
+                # we should rely on the artifact repo to get the trace data
+                if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) != TRACKING_STORE:
+                    # TODO: raise a better exception
+                    raise MlflowNotImplementedException()
+                spans = [
+                    Span.from_dict(json.loads(sql_span.content))
+                    for sql_span in sorted(
+                        sql_trace_info.spans,
+                        key=lambda s: (
+                            # Root spans come first, then sort by start time
+                            0 if s.parent_span_id is None else 1,
+                            s.start_time_unix_nano,
+                        ),
+                    )
+                ]
+                # TODO: extract inputs/outputs if not existing
+                trace = Trace(info=trace_info, data=TraceData(spans=spans))
+                traces.append(trace)
 
-            return spans
+            return traces
 
     #######################################################################################
     # Entity Association Methods

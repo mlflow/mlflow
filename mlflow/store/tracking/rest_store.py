@@ -81,6 +81,7 @@ from mlflow.protos.service_pb2 import (
     GetTraceInfo,
     GetTraceInfoV3,
     GetTraceInfoV4,
+    GetTraces,
     LinkTracesToRun,
     ListScorers,
     ListScorerVersions,
@@ -477,6 +478,22 @@ class RestStore(AbstractStore):
         req_body = message_to_json(req)
         response_proto = self._call_endpoint(GetOnlineTraceDetails, req_body)
         return response_proto.trace_data
+
+    def get_traces(self, trace_ids: list[str]) -> list[Trace]:
+        """
+        Get complete traces with spans for given trace ids.
+
+        Args:
+            trace_ids: List of trace IDs to fetch.
+
+        Returns:
+            List of Trace objects.
+        """
+        req_body = message_to_json(GetTraces(trace_ids=trace_ids))
+        response_proto = self._call_endpoint(
+            GetTraces, req_body, endpoint=f"{_V3_TRACE_REST_API_PATH_PREFIX}/batch"
+        )
+        return [Trace.from_proto(proto) for proto in response_proto.traces]
 
     def search_traces(
         self,
