@@ -181,6 +181,26 @@
   width: 100%;
 }
 
+.TitleCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.TitleCardHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ifm-font-color-base);
+}
+
+/* Ensure right header keeps neutral color even when the card link applies hover styles */
+.Link .TitleCardHeaderRight,
+.Link:hover .TitleCardHeaderRight {
+  color: var(--ifm-font-color-base);
+}
+
 .TitleCardTitle {
   font-size: 1.2rem;
   color: var(--ifm-heading-color);

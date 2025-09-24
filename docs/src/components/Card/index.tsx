@@ -114,14 +114,23 @@ export const NewFeatureCard = ({ children, description, name, releaseVersion, le
   </Card>
 );
 
-export const TitleCard = ({ title, description, link = '' }): JSX.Element => (
+export const TitleCard = ({ title, description, link = '', headerRight = undefined, children = undefined }): JSX.Element => (
   <Card link={link}>
     <div className={styles.TitleCardContent}>
-      <div className={clsx(styles.TitleCardTitle)} style={{ textAlign: 'left', fontWeight: 'bold' }}>
-        {title}
+      <div className={clsx(styles.TitleCardHeader)}>
+        <div className={clsx(styles.TitleCardTitle)} style={{ textAlign: 'left', fontWeight: 'bold' }}>
+          {title}
+        </div>
+        <div className={styles.TitleCardHeaderRight}>
+          {headerRight}
+        </div>
       </div>
       <hr className={clsx(styles.TitleCardSeparator)} style={{ margin: '12px 0' }} />
-      <p className={clsx(styles.TextColor)}>{description}</p>
+      {children ? (
+        <div className={clsx(styles.TextColor)}>{children}</div>
+      ) : (
+        <p className={clsx(styles.TextColor)} dangerouslySetInnerHTML={{ __html: description }} />
+      )}
     </div>
   </Card>
 );
