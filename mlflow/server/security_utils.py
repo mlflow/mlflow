@@ -5,7 +5,7 @@ This module contains common functions used by both Flask and FastAPI
 security implementations.
 """
 
-from http import HTTPStatus
+import fnmatch
 from urllib.parse import urlparse
 
 from mlflow.environment_variables import MLFLOW_ALLOWED_HOSTS, MLFLOW_CORS_ALLOWED_ORIGINS
@@ -40,7 +40,6 @@ LOCALHOST_ORIGIN_PATTERNS = [
     r"^http://127\.0\.0\.1(:[0-9]+)?$",
     r"^http://\[::1\](:[0-9]+)?$",
 ]
-
 
 
 def get_localhost_addresses() -> list[str]:
@@ -121,8 +120,6 @@ def is_api_endpoint(path: str) -> bool:
 
 def validate_host_header(allowed_hosts: list[str], host: str) -> bool:
     """Validate if the host header matches allowed patterns."""
-    import fnmatch
-
     if not host:
         return False
 
