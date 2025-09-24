@@ -47,7 +47,7 @@ class MosaicMLProvider(BaseProvider):
         """
         prompt = "<s>"  # Always start with an opening <s> tag
         for m in messages:
-            if m.role == "system" or m.role == "user":
+            if m.role in {"system", "user"}:
                 inst = m.content
 
                 # Wrap system messages in <<SYS>> tags

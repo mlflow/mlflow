@@ -41,7 +41,7 @@ class AbstractScorerStore(metaclass=ABCMeta):
     """
 
     @abstractmethod
-    def register_scorer(self, experiment_id: str, scorer: Scorer) -> int | None:
+    def register_scorer(self, experiment_id: str | None, scorer: Scorer) -> int | None:
         """
         Register a scorer for an experiment.
 
@@ -189,8 +189,9 @@ class MlflowTrackingStore(AbstractScorerStore):
     def __init__(self, tracking_uri=None):
         self._tracking_store = _get_store(tracking_uri)
 
-    def register_scorer(self, experiment_id: str, scorer: Scorer) -> int | None:
+    def register_scorer(self, experiment_id: str | None, scorer: Scorer) -> int | None:
         serialized_scorer = json.dumps(scorer.model_dump())
+        experiment_id = experiment_id or _get_experiment_id()
         return self._tracking_store.register_scorer(experiment_id, scorer.name, serialized_scorer)
 
     def list_scorers(self, experiment_id) -> list["Scorer"]:
@@ -349,7 +350,7 @@ class DatabricksStore(AbstractScorerStore):
         )
         return DatabricksStore._scheduled_scorer_to_scorer(scheduled_scorer)
 
-    def register_scorer(self, experiment_id: str, scorer: Scorer) -> int | None:
+    def register_scorer(self, experiment_id: str | None, scorer: Scorer) -> int | None:
         # Add the scorer to the server with sample_rate=0 (not actively sampling)
         DatabricksStore.add_registered_scorer(
             name=scorer.name,
