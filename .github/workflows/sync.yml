@@ -1,0 +1,102 @@
+name: Sync PR
+
+on:
+  issue_comment:
+    types: [created]
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/sync') }}
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          sparse-checkout: |
+            .github
+
+      - name: Initial validation and reaction
+        id: validate
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            core.debug(JSON.stringify(context, null, 2));
+            const sync = require('./.github/workflows/sync.js');
+
+            // Validate comment is exactly "/sync"
+            const { comment } = context.payload;
+            if (!sync.shouldSync(comment)) {
+              core.setFailed('Invalid sync command. Use exactly "/sync"');
+              return { shouldSync: false };
+            }
+
+            // Add initial reaction and workflow link
+            const workflowCommentId = await sync.createInitialReaction(context, github);
+
+            // Get PR info
+            const pullInfo = await sync.getPullInfo(context, github);
+            return { ...pullInfo, shouldSync: true, workflowCommentId };
+
+      - name: Validate author permissions
+        if: ${{ fromJSON(steps.validate.outputs.result).shouldSync }}
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const sync = require('./.github/workflows/sync.js');
+            await sync.validateAuthorPermissions(context, github, core);
+
+      - name: Validate PR conditions
+        if: ${{ fromJSON(steps.validate.outputs.result).shouldSync }}
+        id: pr_checks
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const sync = require('./.github/workflows/sync.js');
+            const pullInfo = ${{ steps.validate.outputs.result }};
+            await sync.validatePRConditions(context, github, pullInfo);
+
+      - name: Setup bot token
+        if: ${{ fromJSON(steps.validate.outputs.result).shouldSync }}
+        id: app-token
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1.12.0
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Checkout PR head
+        if: ${{ fromJSON(steps.validate.outputs.result).shouldSync }}
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ fromJSON(steps.validate.outputs.result).repository }}
+          ref: ${{ fromJSON(steps.validate.outputs.result).head_ref }}
+          fetch-depth: 300
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Sync PR
+        if: ${{ fromJSON(steps.validate.outputs.result).shouldSync }}
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        env:
+          BOT_TOKEN: ${{ steps.app-token.outputs.token }}
+        with:
+          script: |
+            const sync = require('./.github/workflows/sync.js');
+            const pullInfo = ${{ steps.validate.outputs.result }};
+            await sync.performSync(context, github, pullInfo, process.env.BOT_TOKEN);
+
+      - name: Update comment status
+        if: always() && fromJSON(steps.validate.outputs.result).shouldSync
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const sync = require('./.github/workflows/sync.js');
+            const success = '${{ job.status }}' === 'success';
+            const workflowCommentId = ${{ fromJSON(steps.validate.outputs.result).workflowCommentId }};
+            await sync.updateCommentStatus(context, github, success, workflowCommentId);
