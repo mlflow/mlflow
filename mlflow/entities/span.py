@@ -329,6 +329,8 @@ class Span:
         otel_status = self._span.status
         status = ProtoSpan.Status(
             code=otel_status.status_code.value,
+            # set default value to empty string to ensure span dictionary
+            # format is consistent between serialization and deserialization
             message=otel_status.description or "",
         )
         parent = _encode_span_id_to_byte(self._span.parent.span_id) if self._span.parent else b""
