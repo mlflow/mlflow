@@ -183,7 +183,7 @@ from mlflow.store.model_registry.abstract_store import AbstractStore as Abstract
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
 from mlflow.store.tracking.abstract_store import AbstractStore as AbstractTrackingStore
 from mlflow.store.tracking.rest_store import RestStore
-from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
+from mlflow.tracing.constant import TRACE_ID_V4_PREFIX, TRACKING_STORE, TraceTagKey
 from mlflow.tracing.utils.artifact_utils import (
     TRACE_DATA_FILE_NAME,
     get_artifact_uri_for_trace,
@@ -3022,7 +3022,12 @@ def get_trace_artifact_handler():
         )
 
     trace_info = _get_tracking_store().get_trace_info(request_id)
-    trace_data = _get_trace_artifact_repo(trace_info).download_trace_data()
+    # TODO: update after getTraces API is implemented
+    if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == TRACKING_STORE:
+        spans = _get_tracking_store().load_spans(request_id)
+        trace_data = {"spans": [span.to_dict() for span in spans]}
+    else:
+        trace_data = _get_trace_artifact_repo(trace_info).download_trace_data()
 
     # Write data to a BytesIO buffer instead of needing to save a temp file
     buf = io.BytesIO()
