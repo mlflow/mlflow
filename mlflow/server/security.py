@@ -51,7 +51,6 @@ def init_security_middleware(app: Flask) -> None:
     Args:
         app: Flask application instance.
     """
-    # Check if security middleware should be completely disabled
     if MLFLOW_DISABLE_SECURITY_MIDDLEWARE.get() == "true":
         _logger.warning(
             "Security middleware is DISABLED. "
@@ -63,7 +62,6 @@ def init_security_middleware(app: Flask) -> None:
     allowed_hosts = get_allowed_hosts()
     x_frame_options = MLFLOW_X_FRAME_OPTIONS.get()
 
-    # Configure CORS
     if allowed_origins and "*" in allowed_origins:
         _logger.warning(
             "Running MLflow server with CORS allowing ALL origins. "
@@ -81,7 +79,6 @@ def init_security_middleware(app: Flask) -> None:
             methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
         )
 
-    # Configure Host header validation
     if allowed_hosts and "*" not in allowed_hosts:
         _logger.info(f"Host validation enabled with hosts: {allowed_hosts[:5]}...")
 
@@ -103,7 +100,6 @@ def init_security_middleware(app: Flask) -> None:
                 "This may leave the server vulnerable to DNS rebinding attacks."
             )
 
-    # Block cross-origin state changes if not allowing all origins
     if not (allowed_origins and "*" in allowed_origins):
 
         @app.before_request
@@ -123,7 +119,6 @@ def init_security_middleware(app: Flask) -> None:
     def add_security_headers(response: Response) -> Response:
         response.headers["X-Content-Type-Options"] = "nosniff"
 
-        # Only add X-Frame-Options if not set to "NONE"
         if x_frame_options and x_frame_options.upper() != "NONE":
             response.headers["X-Frame-Options"] = x_frame_options.upper()
 
