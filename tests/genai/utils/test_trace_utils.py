@@ -487,6 +487,29 @@ def test_parse_outputs_to_str(output_data, expected):
     assert parse_outputs_to_str(output_data) == expected
 
 
+def test_parse_outputs_to_str_with_non_dict_after_to_dict():
+    class CustomObject:
+        def to_dict(self):
+            return ["list", "not", "dict"]
+
+    result = parse_outputs_to_str(CustomObject())
+    assert result == '["list", "not", "dict"]'
+
+    class AnotherObject:
+        def to_dict(self):
+            return 42
+
+    result = parse_outputs_to_str(AnotherObject())
+    assert result == "42"
+
+    class StringObject:
+        def to_dict(self):
+            return "just a string"
+
+    result = parse_outputs_to_str(StringObject())
+    assert result == '"just a string"'
+
+
 @pytest.mark.parametrize(
     ("input_value", "expected"),
     [
