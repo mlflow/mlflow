@@ -637,3 +637,10 @@ def parse_trace_id_v4(trace_id: str) -> tuple[str | None, str]:
                     f"Expected format: {TRACE_ID_V4_PREFIX}<location>/<trace_id>"
                 )
     return None, trace_id
+
+
+def construct_trace_id_v4(location: str, trace_id: str) -> str:
+    """
+    Construct a trace ID for the given location and trace ID.
+    """
+    return f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}"
