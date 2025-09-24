@@ -1,5 +1,5 @@
 from mlflow.entities.trace_location import TraceLocation, TraceLocationType, UCSchemaLocation
-from mlflow.protos import databricks_service_pb2 as pb
+from mlflow.protos import databricks_tracing_pb2 as pb
 
 
 def uc_schema_location_to_proto(uc_schema_location: UCSchemaLocation) -> pb.UCSchemaLocation:

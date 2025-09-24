@@ -1460,7 +1460,7 @@ def test_get_trace_info_v4_fallback_to_v3():
         assert result.trace_id == span.trace_id
 
 
-# TODO: add back after moving GetTraceInfoV4 to databricks_service.proto
+# TODO: add back after moving GetTraceInfoV4 to databricks_tracing.proto
 # def test_get_trace_info_v4_different_location_formats():
 #     with mlflow.start_span(name="test_span") as span:
 #         span.set_inputs({"input": "value"})
