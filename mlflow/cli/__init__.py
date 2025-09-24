@@ -361,8 +361,8 @@ def _validate_static_prefix(ctx, param, value):
 @cli_args.WORKERS
 @cli_args.ALLOWED_HOSTS
 @cli_args.CORS_ALLOWED_ORIGINS
-@cli_args.ALLOW_INSECURE_CORS
-@cli_args.HOST_HEADER_VALIDATION
+@cli_args.DISABLE_SECURITY_MIDDLEWARE
+@cli_args.X_FRAME_OPTIONS
 @click.option(
     "--static-prefix",
     envvar="MLFLOW_STATIC_PREFIX",
@@ -428,8 +428,8 @@ def server(
     workers,
     allowed_hosts,
     cors_allowed_origins,
-    allow_insecure_cors,
-    no_host_validation,
+    disable_security_middleware,
+    x_frame_options,
     static_prefix,
     gunicorn_opts,
     waitress_opts,
@@ -461,14 +461,16 @@ def server(
       8080).
 
     - ``MLFLOW_ALLOWED_HOSTS``: Comma-separated list of allowed Host headers
-      (e.g., "mlflow.company.com,mlflow.internal:5000"). Default: localhost and private IP ranges
-      (192.168.*, 10.*, 172.16-31.*) for internal network access.
+      (e.g., "mlflow.company.com,mlflow.internal:5000"). Use "*" to allow all hosts.
+      Default: localhost and private IP ranges (192.168.*, 10.*, 172.16-31.*) for internal
+      network access.
 
-    - ``MLFLOW_HOST_HEADER_VALIDATION``: Set to "false" to disable Host header validation
-      (NOT recommended for production). Default: "true".
+    - ``MLFLOW_X_FRAME_OPTIONS``: X-Frame-Options header value. Options: "SAMEORIGIN" (default),
+      "DENY", or "NONE" (disable). Set to "NONE" to allow embedding in iframes from different
+      origins.
 
-    - ``MLFLOW_ALLOW_INSECURE_CORS``: Set to "true" to allow ALL origins (DANGEROUS -
-      development only!). Default: "false".
+    - ``MLFLOW_DISABLE_SECURITY_MIDDLEWARE``: Set to "true" to disable all security middleware
+      (DANGEROUS - testing only!). Default: "false".
 
     **Example Configurations:**
 
@@ -482,15 +484,19 @@ def server(
         export MLFLOW_ALLOWED_HOSTS="mlflow.company.com"
         mlflow server --host 0.0.0.0
 
-    3. Development with insecure CORS (WARNING: Never use in production!)::
+    3. Development with all origins allowed (WARNING: Never use in production!)::
 
-        export MLFLOW_ALLOW_INSECURE_CORS="true"
+        export MLFLOW_CORS_ALLOWED_ORIGINS="*"
         mlflow server --host 0.0.0.0
 
-    4. Disable security if using external reverse proxy with its own security::
+    4. Allow embedding in iframes from different origins::
 
-        export MLFLOW_HOST_HEADER_VALIDATION="false"
-        export MLFLOW_ALLOW_INSECURE_CORS="true"
+        export MLFLOW_X_FRAME_OPTIONS="NONE"
+        mlflow server --host 0.0.0.0
+
+    5. Disable security if using external reverse proxy with its own security::
+
+        export MLFLOW_DISABLE_SECURITY_MIDDLEWARE="true"
         mlflow server --host 127.0.0.1
 
     **Security Best Practices:**
@@ -498,8 +504,8 @@ def server(
     1. Always use HTTPS in production (configure via reverse proxy like nginx/Apache)
     2. Explicitly whitelist trusted origins via MLFLOW_CORS_ALLOWED_ORIGINS
     3. Use specific host names in MLFLOW_ALLOWED_HOSTS
-    4. Keep HOST_HEADER_VALIDATION enabled unless you have alternative protections
-    5. Never use MLFLOW_ALLOW_INSECURE_CORS in production
+    4. Keep security middleware enabled unless you have alternative protections
+    5. Never use wildcard "*" for origins or hosts in production
 
     **Troubleshooting Access Issues:**
 
@@ -544,31 +550,44 @@ def server(
     # Set security environment variables if provided via CLI
     # These will override any existing env vars since click's envvar processing happens first
     # Note: os is already imported at the top of the file
-    if allowed_hosts:
-        os.environ["MLFLOW_ALLOWED_HOSTS"] = allowed_hosts
-        _logger.info(f"Host validation configured with: {allowed_hosts}")
 
-    if cors_allowed_origins:
-        os.environ["MLFLOW_CORS_ALLOWED_ORIGINS"] = cors_allowed_origins
-        _logger.info(f"CORS allowed origins configured with: {cors_allowed_origins}")
-
-    if allow_insecure_cors:
-        os.environ["MLFLOW_ALLOW_INSECURE_CORS"] = "true"
+    # Configure security settings
+    if disable_security_middleware:
+        os.environ["MLFLOW_DISABLE_SECURITY_MIDDLEWARE"] = "true"
         _logger.warning(
-            "WARNING: Running with --allow-insecure-cors. "
-            "This allows ANY website to access your MLflow data. "
-            "Only use for development!"
+            "WARNING: Security middleware is DISABLED. "
+            "Your MLflow server is vulnerable to various attacks."
         )
+    else:
+        if allowed_hosts:
+            os.environ["MLFLOW_ALLOWED_HOSTS"] = allowed_hosts
+            if allowed_hosts == "*":
+                _logger.warning(
+                    "WARNING: Accepting ALL hosts. "
+                    "This may leave the server vulnerable to DNS rebinding attacks."
+                )
+            else:
+                _logger.info(f"Host validation configured with: {allowed_hosts}")
 
-    if no_host_validation:
-        os.environ["MLFLOW_HOST_HEADER_VALIDATION"] = "false"
-        _logger.warning(
-            "WARNING: Host header validation disabled. "
-            "Ensure you have alternative security measures in place."
-        )
+        if cors_allowed_origins:
+            os.environ["MLFLOW_CORS_ALLOWED_ORIGINS"] = cors_allowed_origins
+            if cors_allowed_origins == "*":
+                _logger.warning(
+                    "WARNING: Allowing ALL origins for CORS. "
+                    "This allows ANY website to access your MLflow data. "
+                    "Only use for development!"
+                )
+            else:
+                _logger.info(f"CORS allowed origins configured with: {cors_allowed_origins}")
 
-    # Log security configuration summary
-    if not allow_insecure_cors and not no_host_validation:
+        if x_frame_options:
+            os.environ["MLFLOW_X_FRAME_OPTIONS"] = x_frame_options
+            if x_frame_options.upper() == "NONE":
+                _logger.info("X-Frame-Options disabled - MLflow UI can be embedded in iframes")
+            else:
+                _logger.info(f"X-Frame-Options set to: {x_frame_options}")
+
+        # Log security configuration summary
         _logger.info("Security middleware enabled. Use --help to see security options.")
 
     # Ensure that both backend_store_uri and default_artifact_uri are set correctly.

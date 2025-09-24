@@ -7,19 +7,17 @@ from http import HTTPStatus
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from starlette.types import ASGIApp
 
-from mlflow.environment_variables import MLFLOW_ALLOW_INSECURE_CORS, MLFLOW_HOST_HEADER_VALIDATION
+from mlflow.environment_variables import MLFLOW_DISABLE_SECURITY_MIDDLEWARE, MLFLOW_X_FRAME_OPTIONS
 from mlflow.server.security_utils import (
     CORS_BLOCKED_MSG,
-    HEALTH_ENDPOINTS,
-    INVALID_HOST_MSG,
     get_allowed_hosts_from_env,
     get_allowed_origins_from_env,
     get_default_allowed_hosts,
     is_api_endpoint,
     should_block_cors_request,
-    validate_host_header,
 )
 
 _logger = logging.getLogger(__name__)
@@ -30,6 +28,7 @@ class SecurityHeadersMiddleware:
 
     def __init__(self, app: ASGIApp):
         self.app = app
+        self.x_frame_options = MLFLOW_X_FRAME_OPTIONS.get()
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
@@ -39,7 +38,10 @@ class SecurityHeadersMiddleware:
             if message["type"] == "http.response.start":
                 headers = dict(message.get("headers", []))
                 headers[b"x-content-type-options"] = b"nosniff"
-                headers[b"x-frame-options"] = b"SAMEORIGIN"
+
+                # Only add X-Frame-Options if not set to "NONE"
+                if self.x_frame_options and self.x_frame_options.upper() != "NONE":
+                    headers[b"x-frame-options"] = self.x_frame_options.upper().encode()
 
                 if (
                     scope["method"] == "OPTIONS"
@@ -52,46 +54,6 @@ class SecurityHeadersMiddleware:
             await send(message)
 
         await self.app(scope, receive, send_wrapper)
-
-
-class HostValidationMiddleware:
-    """Middleware to validate Host headers and prevent DNS rebinding attacks."""
-
-    def __init__(self, app: ASGIApp, allowed_hosts: list[str]):
-        self.app = app
-        self.allowed_hosts = allowed_hosts
-
-    async def __call__(self, scope, receive, send):
-        if scope["type"] != "http":
-            return await self.app(scope, receive, send)
-
-        # Check if this is a health endpoint that bypasses validation
-        path = scope["path"]
-        if path in HEALTH_ENDPOINTS:
-            return await self.app(scope, receive, send)
-
-        # Extract and validate host header
-        headers = dict(scope["headers"])
-        host = headers.get(b"host", b"").decode("utf-8")
-
-        if not validate_host_header(self.allowed_hosts, host):
-            _logger.warning(f"Rejected request with invalid Host header: {host}")
-            await send(
-                {
-                    "type": "http.response.start",
-                    "status": HTTPStatus.FORBIDDEN,
-                    "headers": [[b"content-type", b"text/plain"]],
-                }
-            )
-            await send(
-                {
-                    "type": "http.response.body",
-                    "body": INVALID_HOST_MSG.encode(),
-                }
-            )
-            return
-
-        await self.app(scope, receive, send)
 
 
 class CORSBlockingMiddleware:
@@ -147,24 +109,31 @@ def init_fastapi_security(app: FastAPI) -> None:
     Initialize security middleware for FastAPI application.
 
     This configures:
-    - Host header validation (DNS rebinding protection) via custom middleware
+    - Host header validation (DNS rebinding protection) via TrustedHostMiddleware
     - CORS protection via CORSMiddleware
     - Security headers via custom middleware
 
     Args:
         app: FastAPI application instance.
     """
-    allow_insecure_cors = MLFLOW_ALLOW_INSECURE_CORS.get() == "true"
-    enable_host_validation = MLFLOW_HOST_HEADER_VALIDATION.get() != "false"
+    # Check if security middleware should be completely disabled
+    if MLFLOW_DISABLE_SECURITY_MIDDLEWARE.get() == "true":
+        _logger.warning(
+            "Security middleware is DISABLED. "
+            "This may leave the server vulnerable to various attacks."
+        )
+        return
 
-    allowed_origins = get_allowed_origins()
-
+    # Add security headers middleware
     app.add_middleware(SecurityHeadersMiddleware)
 
-    if allow_insecure_cors:
+    # Configure CORS
+    allowed_origins = get_allowed_origins()
+
+    if allowed_origins and "*" in allowed_origins:
         _logger.warning(
-            "Running MLflow server with INSECURE CORS mode enabled. "
-            "This allows ALL origins and should only be used for development!"
+            "Running MLflow server with CORS allowing ALL origins. "
+            "This should only be used for development!"
         )
         app.add_middleware(
             CORSMiddleware,
@@ -187,14 +156,17 @@ def init_fastapi_security(app: FastAPI) -> None:
             expose_headers=["*"],
         )
 
-    if enable_host_validation:
-        allowed_hosts = get_allowed_hosts()
+    # Configure Host header validation
+    allowed_hosts = get_allowed_hosts()
+
+    if allowed_hosts and "*" not in allowed_hosts:
         _logger.info(f"Host validation enabled with hosts: {allowed_hosts[:5]}...")
-        app.add_middleware(HostValidationMiddleware, allowed_hosts=allowed_hosts)
+        app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
     else:
-        _logger.warning(
-            "Host header validation is DISABLED. "
-            "This may leave the server vulnerable to DNS rebinding attacks."
-        )
+        if "*" in allowed_hosts:
+            _logger.warning(
+                "Host header validation accepts ALL hosts. "
+                "This may leave the server vulnerable to DNS rebinding attacks."
+            )
 
     _logger.info("FastAPI security middleware initialized successfully")

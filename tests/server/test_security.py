@@ -70,13 +70,14 @@ def test_cors_protection(test_app, method, origin, expected_cors_header):
 
 
 def test_insecure_cors_mode(test_app):
-    with mock.patch.dict(os.environ, {"MLFLOW_ALLOW_INSECURE_CORS": "true"}):
+    # Test the new wildcard approach
+    with mock.patch.dict(os.environ, {"MLFLOW_CORS_ALLOWED_ORIGINS": "*"}):
         security.init_security_middleware(test_app)
         client = Client(test_app)
 
         response = client.post("/api/test", headers={"Origin": "http://evil.com"})
         assert response.status_code == 200
-        # In insecure mode, Flask-CORS returns the requested origin
+        # With wildcard origins, Flask-CORS returns the requested origin
         assert response.headers.get("Access-Control-Allow-Origin") == "http://evil.com"
 
 
@@ -114,6 +115,64 @@ def test_security_headers(test_app):
     response = client.get("/test")
     assert response.headers.get("X-Content-Type-Options") == "nosniff"
     assert response.headers.get("X-Frame-Options") == "SAMEORIGIN"
+
+
+def test_disable_security_middleware(test_app):
+    """Test that security middleware can be completely disabled."""
+    with mock.patch.dict(os.environ, {"MLFLOW_DISABLE_SECURITY_MIDDLEWARE": "true"}):
+        security.init_security_middleware(test_app)
+        client = Client(test_app)
+
+        # Security headers should not be added
+        response = client.get("/test")
+        assert "X-Content-Type-Options" not in response.headers
+        assert "X-Frame-Options" not in response.headers
+
+        # Host validation should not occur
+        response = client.get("/test", headers={"Host": "evil.com"})
+        assert response.status_code == 200
+
+
+def test_x_frame_options_configuration():
+    """Test X-Frame-Options configuration."""
+    from flask import Flask
+
+    # Test with DENY
+    app = Flask(__name__)
+
+    @app.route("/test")
+    def test():
+        return "OK"
+
+    with mock.patch.dict(os.environ, {"MLFLOW_X_FRAME_OPTIONS": "DENY"}):
+        security.init_security_middleware(app)
+        client = Client(app)
+        response = client.get("/test")
+        assert response.headers.get("X-Frame-Options") == "DENY"
+
+    # Test with NONE (disabled)
+    app2 = Flask(__name__)
+
+    @app2.route("/test")
+    def test2():
+        return "OK"
+
+    with mock.patch.dict(os.environ, {"MLFLOW_X_FRAME_OPTIONS": "NONE"}):
+        security.init_security_middleware(app2)
+        client = Client(app2)
+        response = client.get("/test")
+        assert "X-Frame-Options" not in response.headers
+
+
+def test_wildcard_hosts(test_app):
+    """Test that wildcard hosts allow all."""
+    with mock.patch.dict(os.environ, {"MLFLOW_ALLOWED_HOSTS": "*"}):
+        security.init_security_middleware(test_app)
+        client = Client(test_app)
+
+        # Any host should be allowed
+        response = client.get("/test", headers={"Host": "any.domain.com"})
+        assert response.status_code == 200
 
 
 @pytest.mark.parametrize(
@@ -172,20 +231,3 @@ def test_environment_variable_configuration(env_var, env_value, expected_result)
             result = security.get_allowed_hosts()
             for expected in expected_result:
                 assert expected in result
-
-
-def test_insecure_cors_flag(test_app):
-    with mock.patch.dict(os.environ, {"MLFLOW_ALLOW_INSECURE_CORS": "true"}):
-        security.init_security_middleware(test_app)
-        client = Client(test_app)
-        response = client.get("/test", headers={"Origin": "http://any.site.com"})
-        # Flask-CORS returns the origin even in insecure mode, not '*'
-        assert response.headers.get("Access-Control-Allow-Origin") == "http://any.site.com"
-
-
-def test_host_validation_disabled(test_app):
-    with mock.patch.dict(os.environ, {"MLFLOW_HOST_HEADER_VALIDATION": "false"}):
-        security.init_security_middleware(test_app)
-        client = Client(test_app)
-        response = client.get("/test", headers={"Host": "evil.com"})
-        assert response.status_code == 200

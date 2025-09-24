@@ -1,0 +1,491 @@
+---
+sidebar_label: Best Practices
+---
+
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from '@site/src/components/TabsWrapper';
+
+# Security Best Practices
+
+This guide provides security recommendations and best practices for deploying MLflow tracking servers in production.
+
+## Core Security Principles
+
+### 1. Defense in Depth
+
+Never rely on a single security layer. Combine multiple protections:
+
+- **Network security**: Firewalls, VPNs, private networks
+- **Application security**: MLflow's built-in middleware
+- **Infrastructure security**: Reverse proxies, load balancers
+- **Access control**: Authentication and authorization
+
+### 2. Principle of Least Privilege
+
+Grant only the minimum access necessary:
+
+```bash
+# Good: Specific origins
+export MLFLOW_CORS_ALLOWED_ORIGINS="https://app.company.com,https://notebook.company.com"
+
+# Bad: Wildcard in production
+export MLFLOW_CORS_ALLOWED_ORIGINS="*"  # Never in production!
+```
+
+### 3. Explicit Configuration
+
+Be explicit about security settings in production:
+
+```bash
+# Good: Explicit configuration
+export MLFLOW_ALLOWED_HOSTS="mlflow.company.com"
+export MLFLOW_CORS_ALLOWED_ORIGINS="https://app.company.com"
+export MLFLOW_X_FRAME_OPTIONS="DENY"  # No embedding allowed
+
+# Bad: Relying on defaults
+mlflow server --host 0.0.0.0  # Defaults may change
+```
+
+## Production Deployment Guide
+
+### Always Use HTTPS
+
+MLflow doesn't handle HTTPS directly, so you'll need to use a reverse proxy for TLS termination. This is a security best practice that provides encryption in transit and enables additional security features. Here are production-ready configurations for popular reverse proxies:
+
+<TabsWrapper>
+<Tabs>
+<TabItem value="nginx" label="nginx" default>
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name mlflow.company.com;
+
+    ssl_certificate /path/to/cert.pem;
+    ssl_certificate_key /path/to/key.pem;
+
+    # Security headers
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+
+    location / {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+# Redirect HTTP to HTTPS
+server {
+    listen 80;
+    server_name mlflow.company.com;
+    return 301 https://$server_name$request_uri;
+}
+```
+
+</TabItem>
+<TabItem value="apache" label="Apache">
+
+```apache
+<VirtualHost *:443>
+    ServerName mlflow.company.com
+
+    SSLEngine on
+    SSLCertificateFile /path/to/cert.pem
+    SSLCertificateKeyFile /path/to/key.pem
+
+    # Security headers
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "DENY"
+    Header always set X-XSS-Protection "1; mode=block"
+
+    ProxyPass / http://127.0.0.1:5000/
+    ProxyPassReverse / http://127.0.0.1:5000/
+    ProxyPreserveHost On
+</VirtualHost>
+
+# Redirect HTTP to HTTPS
+<VirtualHost *:80>
+    ServerName mlflow.company.com
+    Redirect permanent / https://mlflow.company.com/
+</VirtualHost>
+```
+
+</TabItem>
+<TabItem value="caddy" label="Caddy">
+
+```caddyfile
+mlflow.company.com {
+    # Automatic HTTPS with Let's Encrypt
+    reverse_proxy localhost:5000
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        X-XSS-Protection "1; mode=block"
+    }
+}
+```
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
+### Network Architecture
+
+#### Recommended Setup
+
+```
+Internet → Firewall → Load Balancer (HTTPS) → MLflow Servers (HTTP) → Database
+                ↓
+            Web Application
+```
+
+#### Configuration by Tier
+
+Different deployment environments require different security configurations. These examples show how to adapt your MLflow security settings based on your infrastructure tier, from public internet exposure to private cloud deployments:
+
+<TabsWrapper>
+<Tabs>
+<TabItem value="public" label="Public Internet" default>
+
+```bash
+# MLflow behind reverse proxy
+mlflow server \
+  --host 127.0.0.1 \
+  --backend-store-uri postgresql://user:pass@db-host/mlflow \
+  --default-artifact-root s3://bucket/path
+
+# Reverse proxy handles:
+# - HTTPS termination
+# - Rate limiting
+# - DDoS protection
+# - Authentication
+```
+
+</TabItem>
+<TabItem value="internal" label="Internal Network">
+
+```bash
+# Internal network with known clients
+export MLFLOW_ALLOWED_HOSTS="mlflow.internal.company.com"
+export MLFLOW_CORS_ALLOWED_ORIGINS="https://*.internal.company.com"
+
+mlflow server \
+  --host 0.0.0.0 \
+  --backend-store-uri postgresql://user:pass@db-host/mlflow
+```
+
+</TabItem>
+<TabItem value="vpc" label="Cloud VPC">
+
+```bash
+# Within cloud VPC/VNet
+export MLFLOW_ALLOWED_HOSTS="*"  # Trust VPC network isolation
+export MLFLOW_CORS_ALLOWED_ORIGINS="https://*.vpc.internal"
+
+mlflow server \
+  --host 0.0.0.0 \
+  --backend-store-uri ${CLOUD_SQL_CONNECTION}
+```
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
+## Authentication and Authorization
+
+MLflow supports built-in authentication. Always enable it for production:
+
+```bash
+# Enable MLflow authentication
+mlflow server \
+  --app-name basic-auth \
+  --host 127.0.0.1
+```
+
+For advanced requirements, use reverse proxy authentication. These configurations show how to integrate MLflow with enterprise authentication systems including OAuth/OIDC, basic authentication, and LDAP. Choose the method that aligns with your organization's identity management infrastructure:
+
+<TabsWrapper>
+<Tabs>
+<TabItem value="oauth" label="OAuth/OIDC" default>
+
+```nginx
+# nginx with OAuth2 proxy
+location / {
+    auth_request /oauth2/auth;
+    error_page 401 = /oauth2/sign_in;
+
+    auth_request_set $user $upstream_http_x_auth_request_user;
+    proxy_set_header X-User $user;
+
+    proxy_pass http://127.0.0.1:5000;
+}
+
+location /oauth2/ {
+    proxy_pass http://127.0.0.1:4180;  # OAuth2 proxy
+}
+```
+
+</TabItem>
+<TabItem value="basic" label="Basic Auth">
+
+```nginx
+# nginx with basic auth
+location / {
+    auth_basic "MLflow Access";
+    auth_basic_user_file /etc/nginx/.htpasswd;
+
+    proxy_pass http://127.0.0.1:5000;
+}
+```
+
+</TabItem>
+<TabItem value="ldap" label="LDAP">
+
+```apache
+# Apache with LDAP
+<Location />
+    AuthType Basic
+    AuthName "MLflow LDAP Login"
+    AuthBasicProvider ldap
+    AuthLDAPURL "ldap://ldap.company.com/ou=users,dc=company,dc=com?uid"
+    Require valid-user
+</Location>
+```
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
+## Monitoring and Logging
+
+### Enable Comprehensive Logging
+
+```bash
+# Development: verbose logging
+mlflow server --dev
+
+# Production: structured logging
+mlflow server 2>&1 | tee -a /var/log/mlflow/server.log
+```
+
+### Monitor for Security Events
+
+Watch for:
+
+- Repeated 403 errors (potential attack)
+- Unusual Host headers
+- High request rates
+- Failed authentication attempts
+
+### Log Analysis Example
+
+```bash
+# Find rejected Host headers
+grep "Invalid Host header" /var/log/mlflow/server.log | \
+  awk '{print $NF}' | sort | uniq -c | sort -rn
+
+# Find CORS rejections
+grep "CORS" /var/log/mlflow/server.log | \
+  grep -E "403|blocked" | tail -20
+```
+
+## Secure Configuration Examples
+
+### High-Security Production Setup
+
+```bash
+#!/bin/bash
+# High-security MLflow configuration
+
+# Strict security settings
+export MLFLOW_ALLOWED_HOSTS="mlflow.company.com"
+export MLFLOW_CORS_ALLOWED_ORIGINS="https://app.company.com"
+export MLFLOW_X_FRAME_OPTIONS="DENY"
+
+# Database with SSL
+export BACKEND_STORE_URI="postgresql://user:pass@db:5432/mlflow?sslmode=require"
+
+# S3 with encryption
+export ARTIFACT_ROOT="s3://mlflow-artifacts/prod"
+export AWS_DEFAULT_REGION="us-west-2"
+
+# Run behind reverse proxy only
+mlflow server \
+  --host 127.0.0.1 \
+  --port 5000 \
+  --backend-store-uri $BACKEND_STORE_URI \
+  --default-artifact-root $ARTIFACT_ROOT \
+  --serve-artifacts \
+  --app-name basic-auth
+```
+
+### Multi-Environment Setup
+
+Managing MLflow across development, staging, and production environments requires different security configurations. These examples show how to progressively tighten security as you move from development to production, ensuring both developer productivity and production security:
+
+<TabsWrapper>
+<Tabs>
+<TabItem value="dev" label="Development" default>
+
+```bash
+# development.sh
+export MLFLOW_ALLOWED_HOSTS="*"
+export MLFLOW_CORS_ALLOWED_ORIGINS="*"
+export MLFLOW_X_FRAME_OPTIONS="NONE"
+
+mlflow server --host 0.0.0.0 --port 5000
+```
+
+</TabItem>
+<TabItem value="staging" label="Staging">
+
+```bash
+# staging.sh
+export MLFLOW_ALLOWED_HOSTS="mlflow-staging.company.com"
+export MLFLOW_CORS_ALLOWED_ORIGINS="https://*.staging.company.com"
+export MLFLOW_X_FRAME_OPTIONS="SAMEORIGIN"
+
+mlflow server \
+  --host 0.0.0.0 \
+  --port 5000 \
+  --backend-store-uri postgresql://staging_db/mlflow
+```
+
+</TabItem>
+<TabItem value="prod" label="Production">
+
+```bash
+# production.sh
+export MLFLOW_ALLOWED_HOSTS="mlflow.company.com"
+export MLFLOW_CORS_ALLOWED_ORIGINS="https://app.company.com,https://notebook.company.com"
+export MLFLOW_X_FRAME_OPTIONS="DENY"
+
+mlflow server \
+  --host 127.0.0.1 \
+  --port 5000 \
+  --backend-store-uri postgresql://prod_db/mlflow \
+  --app-name basic-auth
+```
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
+## Security Checklist
+
+### Pre-Production Checklist
+
+- [ ] HTTPS enabled via reverse proxy
+- [ ] Authentication configured
+- [ ] Specific allowed hosts configured
+- [ ] Explicit CORS origins set
+- [ ] X-Frame-Options configured appropriately
+- [ ] Database using SSL/TLS
+- [ ] Artifacts stored securely (S3 with encryption)
+- [ ] Monitoring and logging enabled
+- [ ] Regular security updates planned
+- [ ] Backup and recovery tested
+
+### Regular Security Tasks
+
+- **Weekly**: Review access logs for anomalies
+- **Monthly**: Update MLflow and dependencies
+- **Quarterly**: Security audit and penetration testing
+- **Annually**: Review and update security policies
+
+## Common Anti-Patterns to Avoid
+
+### 1. Wildcards in Production
+
+```bash
+# ❌ BAD: Never do this in production
+export MLFLOW_ALLOWED_HOSTS="*"
+export MLFLOW_CORS_ALLOWED_ORIGINS="*"
+```
+
+### 2. Exposing Directly to Internet
+
+```bash
+# ❌ BAD: Direct internet exposure
+mlflow server --host 0.0.0.0  # No reverse proxy
+```
+
+### 3. Mixing Security Levels
+
+```bash
+# ❌ BAD: Inconsistent security
+export MLFLOW_X_FRAME_OPTIONS="NONE"  # Allow embedding
+export MLFLOW_CORS_ALLOWED_ORIGINS="https://secure.company.com"  # But restrict CORS?
+```
+
+### 4. Ignoring Security Headers
+
+```bash
+# ❌ BAD: Disabling security in production
+export MLFLOW_DISABLE_SECURITY_MIDDLEWARE="true"
+```
+
+## Migration Guide
+
+### From Insecure to Secure
+
+1. **Audit current setup**: Identify all clients
+2. **Configure gradually**:
+
+   ```bash
+   # Step 1: Add monitoring
+   mlflow server --dev  # Log all security decisions
+
+   # Step 2: Configure allowed hosts
+   export MLFLOW_ALLOWED_HOSTS="current.domain,new.domain"
+
+   # Step 3: Configure CORS
+   export MLFLOW_CORS_ALLOWED_ORIGINS="https://app1.com,https://app2.com"
+
+   # Step 4: Restrict iframe if not needed
+   export MLFLOW_X_FRAME_OPTIONS="DENY"
+   ```
+
+3. **Test thoroughly**: Verify all clients still work
+4. **Monitor closely**: Watch for 403 errors
+
+## Additional Resources
+
+### Security Standards
+
+- [OWASP Top 10](https://owasp.org/www-project-top-ten/)
+- [CWE/SANS Top 25](https://cwe.mitre.org/top25/)
+- [NIST Cybersecurity Framework](https://www.nist.gov/cyberframework)
+
+### MLflow Resources
+
+- [MLflow Security Documentation](https://mlflow.org/docs/latest/security.html)
+- [MLflow GitHub Issues](https://github.com/mlflow/mlflow/issues)
+- [MLflow Community Slack](https://mlflow.org/slack)
+
+## Summary
+
+Key takeaways for production security:
+
+1. **Always use HTTPS** via reverse proxy
+2. **Configure explicitly** - don't rely on defaults
+3. **Enable authentication** - built-in or via proxy
+4. **Monitor continuously** - logs and metrics
+5. **Update regularly** - stay current with patches
+6. **Test security** - verify configurations work
+7. **Document everything** - maintain security runbooks
+
+## Next Steps
+
+- [Configuration Reference](/ml/tracking/server/security/configuration)
+- [Troubleshooting Guide](/ml/tracking/server/security/troubleshooting)
+- [UI Access Guide](/ml/tracking/server/security/ui-access)

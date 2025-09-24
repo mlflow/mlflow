@@ -107,8 +107,12 @@ def should_block_cors_request(origin: str, method: str, allowed_origins: list[st
     if is_localhost_origin(origin):
         return False
 
-    if allowed_origins and origin in allowed_origins:
-        return False
+    if allowed_origins:
+        # If wildcard "*" is in the list, allow all origins
+        if "*" in allowed_origins:
+            return False
+        if origin in allowed_origins:
+            return False
 
     return True
 
@@ -122,6 +126,10 @@ def validate_host_header(allowed_hosts: list[str], host: str) -> bool:
     """Validate if the host header matches allowed patterns."""
     if not host:
         return False
+
+    # If wildcard "*" is in the list, allow all hosts
+    if "*" in allowed_hosts:
+        return True
 
     return any(
         fnmatch.fnmatch(host, allowed) if "*" in allowed else host == allowed

@@ -775,24 +775,29 @@ MLFLOW_FLASK_SERVER_SECRET_KEY = _EnvironmentVariable("MLFLOW_FLASK_SERVER_SECRE
 
 #: (MLflow 3.5.0+) Comma-separated list of allowed CORS origins for the MLflow server.
 #: Example: "http://localhost:3000,https://app.example.com"
+#: Use "*" to allow ALL origins (DANGEROUS - only use for development!).
 #: (default: ``None`` - localhost origins only)
 MLFLOW_CORS_ALLOWED_ORIGINS = _EnvironmentVariable("MLFLOW_CORS_ALLOWED_ORIGINS", str, None)
 
-#: (MLflow 3.5.0+) Allow insecure CORS (accepts all origins). DANGEROUS - only use for development!
-#: Set to "true" to enable.
-#: (default: ``"false"``)
-MLFLOW_ALLOW_INSECURE_CORS = _EnvironmentVariable("MLFLOW_ALLOW_INSECURE_CORS", str, "false")
-
-#: (MLflow 3.5.0+) Enable host header validation to prevent DNS rebinding attacks.
-#: Set to "false" to disable (not recommended).
-#: (default: ``"true"``)
-MLFLOW_HOST_HEADER_VALIDATION = _EnvironmentVariable("MLFLOW_HOST_HEADER_VALIDATION", str, "true")
-
 #: (MLflow 3.5.0+) Comma-separated list of allowed Host headers for the MLflow server.
 #: Example: "mlflow.company.com,mlflow.internal:5000"
-#: If not set, defaults to localhost variants (localhost, 127.0.0.1, [::1], etc.)
-#: (default: ``None`` - localhost variants only)
+#: Use "*" to allow ALL hosts (not recommended for production).
+#: If not set, defaults to localhost variants and private IP ranges.
+#: (default: ``None`` - localhost and private IP ranges)
 MLFLOW_ALLOWED_HOSTS = _EnvironmentVariable("MLFLOW_ALLOWED_HOSTS", str, None)
+
+#: (MLflow 3.5.0+) Disable all security middleware (DANGEROUS - only use for testing!).
+#: Set to "true" to disable security headers, CORS protection, and host validation.
+#: (default: ``"false"``)
+MLFLOW_DISABLE_SECURITY_MIDDLEWARE = _EnvironmentVariable(
+    "MLFLOW_DISABLE_SECURITY_MIDDLEWARE", str, "false"
+)
+
+#: (MLflow 3.5.0+) X-Frame-Options header value for clickjacking protection.
+#: Options: "SAMEORIGIN" (default), "DENY", or "NONE" (disable).
+#: Set to "NONE" to allow embedding MLflow UI in iframes from different origins.
+#: (default: ``"SAMEORIGIN"``)
+MLFLOW_X_FRAME_OPTIONS = _EnvironmentVariable("MLFLOW_X_FRAME_OPTIONS", str, "SAMEORIGIN")
 
 #: Specifies the max length (in chars) of an experiment's artifact location.
 #: The default is 2048.

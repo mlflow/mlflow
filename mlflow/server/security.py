@@ -12,7 +12,7 @@ from http import HTTPStatus
 from flask import Flask, Response, request
 from flask_cors import CORS
 
-from mlflow.environment_variables import MLFLOW_ALLOW_INSECURE_CORS, MLFLOW_HOST_HEADER_VALIDATION
+from mlflow.environment_variables import MLFLOW_DISABLE_SECURITY_MIDDLEWARE, MLFLOW_X_FRAME_OPTIONS
 from mlflow.server.security_utils import (
     CORS_BLOCKED_MSG,
     HEALTH_ENDPOINTS,
@@ -51,15 +51,23 @@ def init_security_middleware(app: Flask) -> None:
     Args:
         app: Flask application instance.
     """
-    allow_insecure_cors = MLFLOW_ALLOW_INSECURE_CORS.get() == "true"
-    enable_host_validation = MLFLOW_HOST_HEADER_VALIDATION.get() != "false"
+    # Check if security middleware should be completely disabled
+    if MLFLOW_DISABLE_SECURITY_MIDDLEWARE.get() == "true":
+        _logger.warning(
+            "Security middleware is DISABLED. "
+            "This may leave the server vulnerable to various attacks."
+        )
+        return
 
     allowed_origins = get_allowed_origins()
+    allowed_hosts = get_allowed_hosts()
+    x_frame_options = MLFLOW_X_FRAME_OPTIONS.get()
 
-    if allow_insecure_cors:
+    # Configure CORS
+    if allowed_origins and "*" in allowed_origins:
         _logger.warning(
-            "Running MLflow server with INSECURE CORS mode enabled. "
-            "This allows ALL origins and should only be used for development!"
+            "Running MLflow server with CORS allowing ALL origins. "
+            "This should only be used for development!"
         )
         CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
     else:
@@ -73,8 +81,8 @@ def init_security_middleware(app: Flask) -> None:
             methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
         )
 
-    if enable_host_validation:
-        allowed_hosts = get_allowed_hosts()
+    # Configure Host header validation
+    if allowed_hosts and "*" not in allowed_hosts:
         _logger.info(f"Host validation enabled with hosts: {allowed_hosts[:5]}...")
 
         @app.before_request
@@ -89,12 +97,14 @@ def init_security_middleware(app: Flask) -> None:
                 )
             return None
     else:
-        _logger.warning(
-            "Host header validation is DISABLED. "
-            "This may leave the server vulnerable to DNS rebinding attacks."
-        )
+        if "*" in allowed_hosts:
+            _logger.warning(
+                "Host header validation accepts ALL hosts. "
+                "This may leave the server vulnerable to DNS rebinding attacks."
+            )
 
-    if not allow_insecure_cors:
+    # Block cross-origin state changes if not allowing all origins
+    if not (allowed_origins and "*" in allowed_origins):
 
         @app.before_request
         def block_cross_origin_state_changes():
@@ -112,7 +122,10 @@ def init_security_middleware(app: Flask) -> None:
     @app.after_request
     def add_security_headers(response: Response) -> Response:
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "SAMEORIGIN"
+
+        # Only add X-Frame-Options if not set to "NONE"
+        if x_frame_options and x_frame_options.upper() != "NONE":
+            response.headers["X-Frame-Options"] = x_frame_options.upper()
 
         if (
             request.method == "OPTIONS"

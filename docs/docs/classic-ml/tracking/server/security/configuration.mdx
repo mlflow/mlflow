@@ -1,0 +1,372 @@
+---
+sidebar_label: Configuration Guide
+---
+
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from '@site/src/components/TabsWrapper';
+
+# Security Configuration Guide
+
+This guide covers all security configuration options for the MLflow tracking server, including environment variables, CLI options, and deployment scenarios.
+
+## Configuration Options
+
+### Available Settings
+
+| Setting              | Environment Variable                 | CLI Option                      | Default                | Description                                        |
+| -------------------- | ------------------------------------ | ------------------------------- | ---------------------- | -------------------------------------------------- |
+| **CORS Origins**     | `MLFLOW_CORS_ALLOWED_ORIGINS`        | `--cors-allowed-origins`        | localhost:\*           | Comma-separated list of allowed origins            |
+| **Allowed Hosts**    | `MLFLOW_ALLOWED_HOSTS`               | `--allowed-hosts`               | localhost, private IPs | Comma-separated list of allowed Host headers       |
+| **X-Frame-Options**  | `MLFLOW_X_FRAME_OPTIONS`             | `--x-frame-options`             | SAMEORIGIN             | Controls iframe embedding (SAMEORIGIN, DENY, NONE) |
+| **Disable Security** | `MLFLOW_DISABLE_SECURITY_MIDDLEWARE` | `--disable-security-middleware` | false                  | Disable all security middleware                    |
+
+:::tip Precedence
+CLI options take precedence over environment variables. If both are set, the CLI option value will be used.
+:::
+
+## Understanding --host vs --allowed-hosts
+
+These two options serve completely different purposes and are often confused:
+
+### --host: Network Binding (Where to Listen)
+
+Controls which network interfaces the server listens on:
+
+- `127.0.0.1` (default): Only accessible from the same machine
+- `0.0.0.0`: Accessible from any network interface
+- Specific IP: Only accessible via that IP address
+
+### --allowed-hosts: Security Validation (Who to Trust)
+
+Controls which Host headers the server accepts to prevent DNS rebinding attacks:
+
+- Validates the Host header in incoming HTTP requests
+- Rejects requests with unexpected Host headers (403 error)
+- Works regardless of network binding
+
+### Why Both Matter
+
+DNS rebinding attacks can bypass network restrictions:
+
+1. Attacker tricks your browser to visit `evil.com`
+2. `evil.com` serves JavaScript that makes requests to your internal MLflow server
+3. Attacker changes DNS so `evil.com` now points to `192.168.1.100` (your MLflow server)
+4. Your browser's same-origin policy is bypassed because it still thinks it's talking to `evil.com`
+5. Without `--allowed-hosts`, your MLflow server accepts these requests!
+
+### Real-World Analogy
+
+Think of a building with security:
+
+- **`--host`** is like choosing which doors to unlock:
+  - `127.0.0.1` = Only the internal employee entrance is open
+  - `0.0.0.0` = All doors (main entrance, side doors, loading dock) are open
+
+- **`--allowed-hosts`** is like the security guard checking IDs:
+  - Even if you can walk through the door (network access)
+  - You still need proper identification (correct Host header)
+  - The guard rejects anyone claiming to be someone they're not
+
+## Deployment Scenarios
+
+Different deployment scenarios require different security configurations. This section provides ready-to-use configurations for common deployment patterns, from local development to production environments. Each scenario includes both CLI and environment variable approaches, allowing you to choose the method that best fits your infrastructure:
+
+### Local Development (Default)
+
+The default configuration is optimized for local development, providing security without requiring any configuration. MLflow automatically accepts connections from localhost and private IP ranges while blocking external access:
+
+<TabsWrapper>
+<Tabs>
+<TabItem value="cli" label="CLI" default>
+
+```bash
+# No configuration needed - secure by default
+mlflow server
+```
+
+</TabItem>
+<TabItem value="env" label="Environment Variables">
+
+```bash
+# No configuration needed - secure by default
+mlflow server
+```
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
+Automatically allows:
+
+- Connections from localhost and private IP ranges
+- CORS from any localhost origin
+- Protection against external attacks
+
+### Team Development Server
+
+For a shared development server on your internal network, you'll need to explicitly configure allowed hosts and CORS origins. This configuration enables team members to access the server from their machines while maintaining security boundaries:
+
+<TabsWrapper>
+<Tabs>
+<TabItem value="cli" label="CLI" default>
+
+```bash
+mlflow server --host 0.0.0.0 \
+  --allowed-hosts "dev-server:5000,192.168.1.100:5000" \
+  --cors-allowed-origins "http://dev-server:5000,http://192.168.1.100:5000"
+```
+
+</TabItem>
+<TabItem value="env" label="Environment Variables">
+
+```bash
+export MLFLOW_ALLOWED_HOSTS="dev-server:5000,192.168.1.100:5000"
+export MLFLOW_CORS_ALLOWED_ORIGINS="http://dev-server:5000,http://192.168.1.100:5000"
+mlflow server --host 0.0.0.0
+```
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
+### Production with Specific Applications
+
+Production deployments require the most restrictive configuration to ensure security. This setup explicitly defines which applications can access your MLflow server, providing defense against unauthorized access while enabling your production applications to function properly:
+
+<TabsWrapper>
+<Tabs>
+<TabItem value="cli" label="CLI" default>
+
+```bash
+mlflow server --host 127.0.0.1 \
+  --allowed-hosts "mlflow.company.com" \
+  --cors-allowed-origins "https://app.company.com,https://notebook.company.com"
+```
+
+</TabItem>
+<TabItem value="env" label="Environment Variables">
+
+```bash
+export MLFLOW_ALLOWED_HOSTS="mlflow.company.com"
+export MLFLOW_CORS_ALLOWED_ORIGINS="https://app.company.com,https://notebook.company.com"
+mlflow server --host 127.0.0.1  # Behind reverse proxy
+```
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
+### Behind a Reverse Proxy
+
+When running MLflow behind a reverse proxy like nginx, Apache, or a cloud load balancer, you have flexibility in how to handle security. You can either let the proxy handle all security (and disable MLflow's middleware) or keep both layers for defense in depth. Here are the recommended configurations:
+
+<TabsWrapper>
+<Tabs>
+<TabItem value="mlflow" label="MLflow Configuration" default>
+
+```bash
+# Option 1: Disable MLflow security (proxy handles it)
+mlflow server --host 127.0.0.1 --disable-security-middleware
+
+# Option 2: Keep MLflow security with wildcard
+mlflow server --host 127.0.0.1 \
+  --allowed-hosts "*" \
+  --cors-allowed-origins "*"
+```
+
+</TabItem>
+<TabItem value="nginx" label="nginx Example">
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name mlflow.company.com;
+
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN";
+    add_header X-Content-Type-Options "nosniff";
+
+    # CORS headers
+    add_header Access-Control-Allow-Origin "https://app.company.com";
+
+    location / {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
+## CORS Configuration
+
+### Understanding CORS Origins
+
+CORS (Cross-Origin Resource Sharing) controls which web applications can access your MLflow API from browsers.
+
+#### When You Need CORS Configuration
+
+- ✅ Web applications making API calls from browsers
+- ✅ Jupyter notebooks on different domains
+- ✅ Frontend dashboards accessing MLflow
+- ❌ Python SDK (doesn't use browser, no CORS needed)
+- ❌ Backend services (server-to-server, no CORS needed)
+
+### Wildcard Configuration
+
+For development or internal networks:
+
+```bash
+# Allow all origins (development only!)
+export MLFLOW_CORS_ALLOWED_ORIGINS="*"
+mlflow server --host 0.0.0.0
+```
+
+⚠️ **Warning**: Never use wildcard origins on public-facing servers!
+
+### Pattern Matching
+
+MLflow supports glob patterns for origins:
+
+```bash
+# Allow all subdomains
+export MLFLOW_CORS_ALLOWED_ORIGINS="https://*.company.com"
+
+# Allow multiple ports
+export MLFLOW_CORS_ALLOWED_ORIGINS="http://localhost:*"
+```
+
+## iframe Embedding Configuration
+
+### X-Frame-Options Values
+
+Control where your MLflow UI can be embedded:
+
+| Value        | Effect                     | Use Case                      |
+| ------------ | -------------------------- | ----------------------------- |
+| `SAMEORIGIN` | Only same origin can embed | Default, secure for most uses |
+| `DENY`       | No embedding allowed       | Maximum security              |
+| `NONE`       | Any site can embed         | Dashboards, notebooks         |
+
+### Configure for Different Scenarios
+
+The X-Frame-Options header requires different values depending on your use case. Below are configurations for common scenarios, showing how to balance security with functionality. Choose the configuration that matches your embedding requirements:
+
+<TabsWrapper>
+<Tabs>
+<TabItem value="notebooks" label="Jupyter Notebooks" default>
+
+```bash
+# Allow embedding in cross-origin notebooks
+export MLFLOW_X_FRAME_OPTIONS="NONE"
+export MLFLOW_CORS_ALLOWED_ORIGINS="https://jupyter.company.com"
+mlflow server --host 0.0.0.0
+```
+
+</TabItem>
+<TabItem value="dashboard" label="Internal Dashboard">
+
+```bash
+# Allow embedding in internal tools
+export MLFLOW_X_FRAME_OPTIONS="NONE"
+export MLFLOW_ALLOWED_HOSTS="mlflow.internal.company.com"
+export MLFLOW_CORS_ALLOWED_ORIGINS="https://*.internal.company.com"
+mlflow server --host 0.0.0.0
+```
+
+</TabItem>
+<TabItem value="csp" label="Using CSP Instead">
+
+If using a reverse proxy, you can use Content-Security-Policy instead:
+
+```nginx
+# Remove MLflow's X-Frame-Options
+proxy_hide_header X-Frame-Options;
+
+# Use CSP for fine-grained control
+add_header Content-Security-Policy "frame-ancestors https://app.company.com https://dashboard.company.com";
+```
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
+## Disabling Security Middleware
+
+In some cases, you may want to disable MLflow's security middleware:
+
+- Your reverse proxy handles all security
+- You're running in a fully trusted, isolated environment
+- You have custom security requirements
+
+```bash
+# Disable all security middleware
+export MLFLOW_DISABLE_SECURITY_MIDDLEWARE="true"
+mlflow server --host 127.0.0.1
+```
+
+⚠️ **Warning**: Only disable security if you have alternative protections in place!
+
+## Configuration Matrix
+
+Quick reference for different access patterns:
+
+| Use Case                         | MLFLOW_ALLOWED_HOSTS       | MLFLOW_CORS_ALLOWED_ORIGINS | MLFLOW_X_FRAME_OPTIONS |
+| -------------------------------- | -------------------------- | --------------------------- | ---------------------- |
+| SDK only (no UI)                 | Your server domain/IP      | Not needed                  | Not needed             |
+| SDK + Web UI (same origin)       | Your server domain         | Not needed                  | SAMEORIGIN (default)   |
+| SDK + Web UI (different origins) | Your server domain         | Web app origins             | SAMEORIGIN (default)   |
+| SDK + Embedded iframe            | Your server domain         | iframe host origins         | NONE                   |
+| Development (localhost)          | Not needed (default works) | Not needed (default works)  | As needed              |
+| Behind reverse proxy             | \* (or specific)           | \* (or specific)            | As needed              |
+
+## Implementation Details
+
+MLflow uses industry-standard middleware libraries to provide consistent security across different backend implementations. Understanding these implementation details can help you debug issues and make informed configuration decisions. Both Flask and FastAPI backends provide equivalent security features while using framework-appropriate libraries:
+
+<TabsWrapper>
+<Tabs>
+<TabItem value="flask" label="Flask Backend" default>
+
+### Flask Security Stack
+
+- **[Flask-CORS](https://flask-cors.readthedocs.io/)**: Handles CORS with regex pattern support
+- **Custom host validation**: Uses fnmatch for wildcard patterns
+- **Active CORS blocking**: Prevents state-changing requests from non-allowed origins
+- **Automatic allowlisting**: Private IP ranges per RFC 1918
+
+</TabItem>
+<TabItem value="fastapi" label="FastAPI Backend">
+
+### FastAPI Security Stack
+
+- **[TrustedHostMiddleware](https://www.starlette.io/middleware/#trustedhostmiddleware)**: Native host validation
+- **[CORSMiddleware](https://www.starlette.io/middleware/#corsmiddleware)**: Native CORS protection
+- **Custom SecurityHeadersMiddleware**: Adds X-Frame-Options and other headers
+- **Consistent validation**: Same wildcard pattern support as Flask
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
+## Security Headers
+
+MLflow automatically adds these headers to all responses:
+
+| Header                             | Value        | Purpose                     |
+| ---------------------------------- | ------------ | --------------------------- |
+| `X-Content-Type-Options`           | `nosniff`    | Prevents MIME type sniffing |
+| `X-Frame-Options`                  | Configurable | Controls iframe embedding   |
+| `Access-Control-Allow-Origin`      | Varies       | CORS access control         |
+| `Access-Control-Allow-Credentials` | `true`       | Allows credentials in CORS  |
+| `Vary`                             | `Origin`     | Prevents cache poisoning    |
+
+## Next Steps
+
+- [Setup UI Access and Notebooks](/ml/tracking/server/security/ui-access)
+- [Troubleshoot Common Issues](/ml/tracking/server/security/troubleshooting)
+- [Learn Best Practices](/ml/tracking/server/security/best-practices)
