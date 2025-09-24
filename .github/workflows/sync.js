@@ -6,12 +6,7 @@ const getPullInfo = async (context, github) => {
   const { owner, repo } = context.repo;
   const pull_number = context.issue.number;
   const pr = await github.rest.pulls.get({ owner, repo, pull_number });
-  const {
-    sha: head_sha,
-    ref: head_ref,
-    repo: { full_name },
-  } = pr.data.head;
-  const { sha: base_sha, ref: base_ref, repo: base_repo } = pr.data.base;
+  const { sha: head_sha } = pr.data.head;
   return {
     pull_number,
     head_sha,
@@ -44,23 +39,9 @@ const isAuthorAllowed = ({ author_association }) => {
   return ["owner", "member", "collaborator"].includes(author_association.toLowerCase());
 };
 
-const validateAuthorPermissions = async (context, github, core, triggerCommentId) => {
-  const { comment } = context.payload;
-
-  if (
-    !isAuthorAllowed({
-      author_association: comment.author_association,
-    })
-  ) {
-    const message = `❌ **Sync failed**: Only repository owners, members, or collaborators can use the /sync command. @${comment.user.login} (${comment.author_association}) does not have sufficient permissions.`;
-
-    await updateTriggerComment(context, github, triggerCommentId, message);
-    core.setFailed(`User ${comment.user.login} does not have sufficient permissions`);
-  }
-};
-
-const performSync = async (context, github, pullInfo, botToken, triggerCommentId) => {
+const performSync = async (context, github, pullInfo, botToken) => {
   const { owner, repo } = context.repo;
+  const { comment } = context.payload;
 
   try {
     console.log(`Attempting to update PR branch using GitHub API`);
@@ -76,7 +57,7 @@ const performSync = async (context, github, pullInfo, botToken, triggerCommentId
 
     // Update with success message
     const successMessage = `✅ **Sync completed**: The PR branch has been successfully updated with the latest changes from the base branch.`;
-    await updateTriggerComment(context, github, triggerCommentId, successMessage);
+    await updateTriggerComment(context, github, comment.id, successMessage);
   } catch (error) {
     console.error("Sync failed:", error.message);
 
@@ -84,7 +65,7 @@ const performSync = async (context, github, pullInfo, botToken, triggerCommentId
 
 Error: \`${error.message}\``;
 
-    await updateTriggerComment(context, github, triggerCommentId, message);
+    await updateTriggerComment(context, github, comment.id, message);
     throw error;
   }
 };
@@ -93,6 +74,6 @@ module.exports = {
   shouldSync,
   getPullInfo,
   updateTriggerComment,
-  validateAuthorPermissions,
+  isAuthorAllowed,
   performSync,
 };

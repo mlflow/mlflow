@@ -20,7 +20,6 @@ jobs:
       should_sync: ${{ fromJSON(steps.validate.outputs.result).shouldSync }}
       head_sha: ${{ fromJSON(steps.validate.outputs.result).head_sha }}
       pull_number: ${{ fromJSON(steps.validate.outputs.result).pull_number }}
-      trigger_comment_id: ${{ fromJSON(steps.validate.outputs.result).triggerCommentId }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -43,6 +42,14 @@ jobs:
               return { shouldSync: false };
             }
 
+            // Validate author permissions
+            if (!sync.isAuthorAllowed({ author_association: comment.author_association })) {
+              const message = `❌ **Sync failed**: Only repository owners, members, or collaborators can use the /sync command. @${comment.user.login} (${comment.author_association}) does not have sufficient permissions.`;
+              await sync.updateTriggerComment(context, github, comment.id, message);
+              core.setFailed(`User ${comment.user.login} does not have sufficient permissions`);
+              return { shouldSync: false };
+            }
+
             // Add rocket reaction
             await github.rest.reactions.createForIssueComment({
               owner: context.repo.owner,
@@ -52,23 +59,11 @@ jobs:
             });
 
             // Update trigger comment with workflow link
-            const workflowRunUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            await sync.updateTriggerComment(context, github, comment.id, `⏳ [Sync workflow started](${workflowRunUrl})`);
+            await sync.updateTriggerComment(context, github, comment.id, `⏳ Sync workflow started`);
 
             // Get PR info
             const pullInfo = await sync.getPullInfo(context, github);
-            return { ...pullInfo, shouldSync: true, triggerCommentId: comment.id };
-
-      - name: Validate author permissions
-        if: ${{ fromJSON(steps.validate.outputs.result).shouldSync }}
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
-        env:
-          TRIGGER_COMMENT_ID: ${{ fromJSON(steps.validate.outputs.result).triggerCommentId }}
-        with:
-          script: |
-            const sync = require('./.github/workflows/sync.js');
-            const triggerCommentId = process.env.TRIGGER_COMMENT_ID;
-            await sync.validateAuthorPermissions(context, github, core, triggerCommentId);
+            return { ...pullInfo, shouldSync: true };
 
   sync:
     runs-on: ubuntu-latest
@@ -89,7 +84,6 @@ jobs:
         env:
           PULL_NUMBER: ${{ needs.validate.outputs.pull_number }}
           HEAD_SHA: ${{ needs.validate.outputs.head_sha }}
-          TRIGGER_COMMENT_ID: ${{ needs.validate.outputs.trigger_comment_id }}
         with:
           script: |
             const sync = require('./.github/workflows/sync.js');
@@ -97,5 +91,4 @@ jobs:
               pull_number: process.env.PULL_NUMBER,
               head_sha: process.env.HEAD_SHA,
             };
-            const triggerCommentId = process.env.TRIGGER_COMMENT_ID;
-            await sync.performSync(context, github, pullInfo, null, triggerCommentId);
+            await sync.performSync(context, github, pullInfo, null);
