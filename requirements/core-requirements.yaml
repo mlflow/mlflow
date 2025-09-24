@@ -72,3 +72,4 @@ fastmcp:
   pip_release: fastmcp
   minimum: "2.0.0"
   max_major_version: 2
+
