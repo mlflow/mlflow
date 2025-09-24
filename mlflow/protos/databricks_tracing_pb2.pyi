@@ -1,0 +1,155 @@
+import assessments_pb2 as _assessments_pb2
+import databricks_pb2 as _databricks_pb2
+from scalapb import scalapb_pb2 as _scalapb_pb2
+from google.protobuf import duration_pb2 as _duration_pb2
+from google.protobuf import struct_pb2 as _struct_pb2
+from google.protobuf import timestamp_pb2 as _timestamp_pb2
+from opentelemetry.proto.trace.v1 import trace_pb2 as _trace_pb2
+from google.protobuf.internal import containers as _containers
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
+from google.protobuf import descriptor as _descriptor
+from google.protobuf import message as _message
+from google.protobuf import service as _service
+from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Mapping, Optional as _Optional, Union as _Union
+
+DESCRIPTOR: _descriptor.FileDescriptor
+
+class UCSchemaLocation(_message.Message):
+    __slots__ = ("catalog_name", "schema_name", "otel_spans_table_name", "otel_logs_table_name")
+    CATALOG_NAME_FIELD_NUMBER: _ClassVar[int]
+    SCHEMA_NAME_FIELD_NUMBER: _ClassVar[int]
+    OTEL_SPANS_TABLE_NAME_FIELD_NUMBER: _ClassVar[int]
+    OTEL_LOGS_TABLE_NAME_FIELD_NUMBER: _ClassVar[int]
+    catalog_name: str
+    schema_name: str
+    otel_spans_table_name: str
+    otel_logs_table_name: str
+    def __init__(self, catalog_name: _Optional[str] = ..., schema_name: _Optional[str] = ..., otel_spans_table_name: _Optional[str] = ..., otel_logs_table_name: _Optional[str] = ...) -> None: ...
+
+class TraceLocation(_message.Message):
+    __slots__ = ("type", "mlflow_experiment", "inference_table", "uc_schema")
+    class TraceLocationType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+        __slots__ = ()
+        TRACE_LOCATION_TYPE_UNSPECIFIED: _ClassVar[TraceLocation.TraceLocationType]
+        MLFLOW_EXPERIMENT: _ClassVar[TraceLocation.TraceLocationType]
+        INFERENCE_TABLE: _ClassVar[TraceLocation.TraceLocationType]
+        UC_SCHEMA: _ClassVar[TraceLocation.TraceLocationType]
+    TRACE_LOCATION_TYPE_UNSPECIFIED: TraceLocation.TraceLocationType
+    MLFLOW_EXPERIMENT: TraceLocation.TraceLocationType
+    INFERENCE_TABLE: TraceLocation.TraceLocationType
+    UC_SCHEMA: TraceLocation.TraceLocationType
+    class MlflowExperimentLocation(_message.Message):
+        __slots__ = ("experiment_id",)
+        EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+        experiment_id: str
+        def __init__(self, experiment_id: _Optional[str] = ...) -> None: ...
+    class InferenceTableLocation(_message.Message):
+        __slots__ = ("full_table_name",)
+        FULL_TABLE_NAME_FIELD_NUMBER: _ClassVar[int]
+        full_table_name: str
+        def __init__(self, full_table_name: _Optional[str] = ...) -> None: ...
+    TYPE_FIELD_NUMBER: _ClassVar[int]
+    MLFLOW_EXPERIMENT_FIELD_NUMBER: _ClassVar[int]
+    INFERENCE_TABLE_FIELD_NUMBER: _ClassVar[int]
+    UC_SCHEMA_FIELD_NUMBER: _ClassVar[int]
+    type: TraceLocation.TraceLocationType
+    mlflow_experiment: TraceLocation.MlflowExperimentLocation
+    inference_table: TraceLocation.InferenceTableLocation
+    uc_schema: UCSchemaLocation
+    def __init__(self, type: _Optional[_Union[TraceLocation.TraceLocationType, str]] = ..., mlflow_experiment: _Optional[_Union[TraceLocation.MlflowExperimentLocation, _Mapping]] = ..., inference_table: _Optional[_Union[TraceLocation.InferenceTableLocation, _Mapping]] = ..., uc_schema: _Optional[_Union[UCSchemaLocation, _Mapping]] = ...) -> None: ...
+
+class TraceInfo(_message.Message):
+    __slots__ = ("trace_id", "client_request_id", "trace_location", "request_preview", "response_preview", "request_time", "execution_duration", "state", "trace_metadata", "assessments", "tags")
+    class State(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+        __slots__ = ()
+        STATE_UNSPECIFIED: _ClassVar[TraceInfo.State]
+        OK: _ClassVar[TraceInfo.State]
+        ERROR: _ClassVar[TraceInfo.State]
+        IN_PROGRESS: _ClassVar[TraceInfo.State]
+    STATE_UNSPECIFIED: TraceInfo.State
+    OK: TraceInfo.State
+    ERROR: TraceInfo.State
+    IN_PROGRESS: TraceInfo.State
+    class TraceMetadataEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    class TagsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    TRACE_ID_FIELD_NUMBER: _ClassVar[int]
+    CLIENT_REQUEST_ID_FIELD_NUMBER: _ClassVar[int]
+    TRACE_LOCATION_FIELD_NUMBER: _ClassVar[int]
+    REQUEST_PREVIEW_FIELD_NUMBER: _ClassVar[int]
+    RESPONSE_PREVIEW_FIELD_NUMBER: _ClassVar[int]
+    REQUEST_TIME_FIELD_NUMBER: _ClassVar[int]
+    EXECUTION_DURATION_FIELD_NUMBER: _ClassVar[int]
+    STATE_FIELD_NUMBER: _ClassVar[int]
+    TRACE_METADATA_FIELD_NUMBER: _ClassVar[int]
+    ASSESSMENTS_FIELD_NUMBER: _ClassVar[int]
+    TAGS_FIELD_NUMBER: _ClassVar[int]
+    trace_id: str
+    client_request_id: str
+    trace_location: TraceLocation
+    request_preview: str
+    response_preview: str
+    request_time: _timestamp_pb2.Timestamp
+    execution_duration: _duration_pb2.Duration
+    state: TraceInfo.State
+    trace_metadata: _containers.ScalarMap[str, str]
+    assessments: _containers.RepeatedCompositeFieldContainer[_assessments_pb2.Assessment]
+    tags: _containers.ScalarMap[str, str]
+    def __init__(self, trace_id: _Optional[str] = ..., client_request_id: _Optional[str] = ..., trace_location: _Optional[_Union[TraceLocation, _Mapping]] = ..., request_preview: _Optional[str] = ..., response_preview: _Optional[str] = ..., request_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., execution_duration: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., state: _Optional[_Union[TraceInfo.State, str]] = ..., trace_metadata: _Optional[_Mapping[str, str]] = ..., assessments: _Optional[_Iterable[_Union[_assessments_pb2.Assessment, _Mapping]]] = ..., tags: _Optional[_Mapping[str, str]] = ...) -> None: ...
+
+class CreateTrace(_message.Message):
+    __slots__ = ("trace_info", "sql_warehouse_id")
+    class Response(_message.Message):
+        __slots__ = ("trace_info",)
+        TRACE_INFO_FIELD_NUMBER: _ClassVar[int]
+        trace_info: TraceInfo
+        def __init__(self, trace_info: _Optional[_Union[TraceInfo, _Mapping]] = ...) -> None: ...
+    TRACE_INFO_FIELD_NUMBER: _ClassVar[int]
+    SQL_WAREHOUSE_ID_FIELD_NUMBER: _ClassVar[int]
+    trace_info: TraceInfo
+    sql_warehouse_id: str
+    def __init__(self, trace_info: _Optional[_Union[TraceInfo, _Mapping]] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
+
+class TraceIdentifier(_message.Message):
+    __slots__ = ("uc_schema", "trace_id")
+    UC_SCHEMA_FIELD_NUMBER: _ClassVar[int]
+    TRACE_ID_FIELD_NUMBER: _ClassVar[int]
+    uc_schema: UCSchemaLocation
+    trace_id: str
+    def __init__(self, uc_schema: _Optional[_Union[UCSchemaLocation, _Mapping]] = ..., trace_id: _Optional[str] = ...) -> None: ...
+
+class Trace(_message.Message):
+    __slots__ = ("trace_info", "spans")
+    TRACE_INFO_FIELD_NUMBER: _ClassVar[int]
+    SPANS_FIELD_NUMBER: _ClassVar[int]
+    trace_info: TraceInfo
+    spans: _containers.RepeatedCompositeFieldContainer[_trace_pb2.Span]
+    def __init__(self, trace_info: _Optional[_Union[TraceInfo, _Mapping]] = ..., spans: _Optional[_Iterable[_Union[_trace_pb2.Span, _Mapping]]] = ...) -> None: ...
+
+class GetTraces(_message.Message):
+    __slots__ = ("trace_ids", "sql_warehouse_id")
+    class Response(_message.Message):
+        __slots__ = ("traces",)
+        TRACES_FIELD_NUMBER: _ClassVar[int]
+        traces: _containers.RepeatedCompositeFieldContainer[Trace]
+        def __init__(self, traces: _Optional[_Iterable[_Union[Trace, _Mapping]]] = ...) -> None: ...
+    TRACE_IDS_FIELD_NUMBER: _ClassVar[int]
+    SQL_WAREHOUSE_ID_FIELD_NUMBER: _ClassVar[int]
+    trace_ids: _containers.RepeatedCompositeFieldContainer[TraceIdentifier]
+    sql_warehouse_id: str
+    def __init__(self, trace_ids: _Optional[_Iterable[_Union[TraceIdentifier, _Mapping]]] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
+
+class DatabricksTrackingService(_service.service): ...
+
+class DatabricksTrackingService_Stub(DatabricksTrackingService): ...

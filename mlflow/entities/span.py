@@ -24,7 +24,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.databricks_trace_server_pb2 import Span as ProtoSpan
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.utils import (
-    TraceJSONEncoder,
+    _dump_span_attribute_value,
     build_otel_context,
     decode_id,
     encode_span_id,
@@ -268,7 +268,7 @@ class Span:
                 attributes=data["attributes"],
                 status=SpanStatus(
                     status_code=SpanStatusCode.from_proto_status_code(data["status"]["code"]),
-                    description=data["status"].get("message"),
+                    description=data["status"].get("message", ""),
                 ).to_otel_status(),
                 # Setting an empty resource explicitly. Otherwise OTel create a new Resource by
                 # Resource.create(), which introduces a significant overhead in some environments.
@@ -329,7 +329,9 @@ class Span:
         otel_status = self._span.status
         status = ProtoSpan.Status(
             code=otel_status.status_code.value,
-            message=otel_status.description,
+            # set default value to empty string to ensure span dictionary
+            # format is consistent between serialization and deserialization
+            message=otel_status.description or "",
         )
         parent = _encode_span_id_to_byte(self._span.parent.span_id) if self._span.parent else b""
 
@@ -351,7 +353,7 @@ class Span:
         )
 
     @classmethod
-    def _from_otel_proto(cls, otel_proto_span) -> "Span":
+    def from_otel_proto(cls, otel_proto_span) -> "Span":
         """
         Create a Span from an OpenTelemetry protobuf span.
         This is an internal method used for receiving spans via OTel protocol.
@@ -376,13 +378,17 @@ class Span:
             parent=build_otel_context(trace_id, parent_id) if parent_id else None,
             start_time=otel_proto_span.start_time_unix_nano,
             end_time=otel_proto_span.end_time_unix_nano,
+            # we need to dump the attribute value to be consistent with span.set_attribute behavior
             attributes={
+                # Include the MLflow trace request ID only if it's not already present in attributes
+                # TODO: support trace:/ format
+                SpanAttributeKey.REQUEST_ID: _dump_span_attribute_value(
+                    generate_mlflow_trace_id_from_otel_trace_id(trace_id)
+                ),
                 **{
-                    attr.key: _decode_otel_proto_anyvalue(attr.value)
+                    attr.key: _dump_span_attribute_value(_decode_otel_proto_anyvalue(attr.value))
                     for attr in otel_proto_span.attributes
                 },
-                # Include the MLflow trace request ID
-                SpanAttributeKey.REQUEST_ID: generate_mlflow_trace_id_from_otel_trace_id(trace_id),
             },
             status=OTelStatus(status_code, otel_proto_span.status.message or None),
             events=[
@@ -401,7 +407,7 @@ class Span:
 
         return cls(otel_span)
 
-    def _to_otel_proto(self) -> OTelProtoSpan:
+    def to_otel_proto(self) -> OTelProtoSpan:
         """
         Convert to OpenTelemetry protobuf span format for OTLP export.
         This is an internal method used by the REST store for logging spans.
@@ -429,7 +435,7 @@ class Span:
             _set_otel_proto_anyvalue(attr.value, value)
 
         for event in self.events:
-            otel_event = event._to_otel_proto()
+            otel_event = event.to_otel_proto()
             otel_span.events.append(otel_event)
 
         return otel_span
@@ -857,7 +863,7 @@ class _SpanAttributesRegistry:
         # NB: OpenTelemetry attribute can store not only string but also a few primitives like
         #   int, float, bool, and list of them. However, we serialize all into JSON string here
         #   for the simplicity in deserialization process.
-        self._span.set_attribute(key, json.dumps(value, cls=TraceJSONEncoder, ensure_ascii=False))
+        self._span.set_attribute(key, _dump_span_attribute_value(value))
 
 
 class _CachedSpanAttributesRegistry(_SpanAttributesRegistry):

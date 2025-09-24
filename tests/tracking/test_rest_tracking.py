@@ -38,6 +38,8 @@ from mlflow.entities import (
     RunInputs,
     RunTag,
     Span,
+    SpanEvent,
+    SpanStatusCode,
     ViewType,
 )
 from mlflow.entities.logged_model_input import LoggedModelInput
@@ -64,7 +66,7 @@ from mlflow.server.handlers import _get_sampled_steps_from_steps, initialize_bac
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.client import TracingClient
-from mlflow.tracing.constant import TRACE_ID_V4_PREFIX, TRACE_SCHEMA_VERSION_KEY
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.utils import build_otel_context
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
@@ -2610,6 +2612,22 @@ def test_start_trace(mlflow_client):
     assert trace_info == client.get_trace_info(trace_info.trace_id)
 
 
+def test_get_trace(mlflow_client):
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+    experiment_id = mlflow_client.create_experiment("get trace")
+    span = mlflow_client.start_trace(name="test", experiment_id=experiment_id)
+    mlflow_client.end_trace(request_id=span.request_id, status=TraceStatus.OK)
+    trace = mlflow_client.get_trace(span.request_id)
+    assert trace is not None
+    assert trace.info.request_id == span.request_id
+    assert trace.info.experiment_id == experiment_id
+    assert trace.info.state == TraceState.OK
+    assert len(trace.data.spans) == 1
+    assert trace.data.spans[0].name == "test"
+    assert trace.data.spans[0].status.status_code == SpanStatusCode.OK
+    assert trace.data.spans[0].status.description == ""
+
+
 def test_search_traces(mlflow_client):
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
     experiment_id = mlflow_client.create_experiment("search traces")
@@ -2812,6 +2830,7 @@ def test_get_trace_artifact_handler(mlflow_client):
     span = mlflow_client.start_trace(name="test", experiment_id=experiment_id)
     request_id = span.request_id
     span.set_attributes({"fruit": "apple"})
+    span.add_event(SpanEvent("test_event", timestamp=99999, attributes={"foo": "bar"}))
     mlflow_client.end_trace(request_id=request_id)
 
     response = requests.get(
@@ -2866,31 +2885,6 @@ def test_link_traces_to_run_and_search_traces(mlflow_client, store_type):
     linked_trace_ids = [t.info.trace_id for t in linked_traces]
     assert len(linked_trace_ids) == 2
     assert set(linked_trace_ids) == {trace_id_1, trace_id_2}
-
-
-def test_get_trace_info_v4_format(mlflow_client):
-    with mlflow.start_span(name="test_span_v4") as span:
-        span.set_inputs({"input_key": "input_value"})
-        span.set_outputs({"output_key": "output_value"})
-        span.set_attributes({"attr1": "value1"})
-
-    original_trace_id = span.trace_id
-
-    trace_info = mlflow_client.get_trace(original_trace_id).info
-
-    location = "catalog.schema"
-    v4_trace_id = f"{TRACE_ID_V4_PREFIX}{location}/{original_trace_id}"
-
-    with mock.patch.object(
-        mlflow_client._tracing_client.store, "get_trace_info"
-    ) as mock_get_trace_info:
-        mock_get_trace_info.return_value = trace_info
-
-        trace_info_v4 = mlflow_client.get_trace(v4_trace_id).info
-
-        mock_get_trace_info.assert_called_once_with(v4_trace_id)
-        assert trace_info_v4.trace_id == original_trace_id
-        assert trace_info_v4.state == trace_info.state
 
 
 def test_get_metric_history_bulk_interval_graphql(mlflow_client):

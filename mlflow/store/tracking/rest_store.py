@@ -81,6 +81,7 @@ from mlflow.protos.service_pb2 import (
     GetTraceInfo,
     GetTraceInfoV3,
     GetTraceInfoV4,
+    GetTraces,
     LinkTracesToRun,
     ListScorers,
     ListScorerVersions,
@@ -141,7 +142,6 @@ from mlflow.utils.rest_utils import (
     verify_rest_response,
 )
 
-_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
 _logger = logging.getLogger(__name__)
 
 
@@ -154,6 +154,8 @@ class RestStore(AbstractStore):
             :py:class:`mlflow.rest_utils.MlflowHostCreds` for the request. Note that this
             is a function so that we can obtain fresh credentials in the case of expiry.
     """
+
+    _METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
 
     def __init__(self, get_host_creds):
         super().__init__()
@@ -199,9 +201,9 @@ class RestStore(AbstractStore):
         if endpoint:
             # Allow customizing the endpoint for compatibility with dynamic endpoints, such as
             # /mlflow/traces/{trace_id}/info.
-            _, method = _METHOD_TO_INFO[api]
+            _, method = self._METHOD_TO_INFO[api]
         else:
-            endpoint, method = _METHOD_TO_INFO[api]
+            endpoint, method = self._METHOD_TO_INFO[api]
         response_proto = api.Response()
         return call_endpoint(
             self.get_host_creds(),
@@ -476,6 +478,22 @@ class RestStore(AbstractStore):
         req_body = message_to_json(req)
         response_proto = self._call_endpoint(GetOnlineTraceDetails, req_body)
         return response_proto.trace_data
+
+    def get_traces(self, trace_ids: list[str]) -> list[Trace]:
+        """
+        Get complete traces with spans for given trace ids.
+
+        Args:
+            trace_ids: List of trace IDs to fetch.
+
+        Returns:
+            List of Trace objects.
+        """
+        req_body = message_to_json(GetTraces(trace_ids=trace_ids))
+        response_proto = self._call_endpoint(
+            GetTraces, req_body, endpoint=f"{_V3_TRACE_REST_API_PATH_PREFIX}/batch"
+        )
+        return [Trace.from_proto(proto) for proto in response_proto.traces]
 
     def search_traces(
         self,
@@ -1744,7 +1762,7 @@ class RestStore(AbstractStore):
         request = ExportTraceServiceRequest()
         resource_spans = request.resource_spans.add()
         scope_spans = resource_spans.scope_spans.add()
-        scope_spans.spans.extend(span._to_otel_proto() for span in spans)
+        scope_spans.spans.extend(span.to_otel_proto() for span in spans)
 
         response = http_request(
             host_creds=self.get_host_creds(),
