@@ -112,18 +112,18 @@
   display: flex;
   justify-content: center;
   align-self: stretch;
+}
 
-  span {
-    font-size: 1.25rem;
-    align-items: center;
-    display: flex;
-    max-width: 80%;
+.LogoCardImage span {
+  font-size: 1.25rem;
+  align-items: center;
+  display: flex;
+  max-width: 80%;
+}
 
-    img {
-      max-height: 100%;
-      object-fit: contain;
-    }
-  }
+.LogoCardImage span img {
+  max-height: 100%;
+  object-fit: contain;
 }
 
 .SmallLogoCardContent {

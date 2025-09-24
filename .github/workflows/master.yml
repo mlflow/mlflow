@@ -208,8 +208,6 @@ jobs:
           source ./dev/install-common-deps.sh --ml
           # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
           pip install tf-keras uvicorn
-          # Required by mlflow.litellm. Temporarily update the version here due to version conflict with dspy.
-          pip install "litellm>=1.52.9"
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
@@ -383,7 +381,7 @@ jobs:
           python -m venv .venv
           source .venv/Scripts/activate
           python -m pip install -U pip setuptools wheel
-          pip install --no-dependencies tests/resources/mlflow-test-plugin
+          pip install tests/resources/mlflow-test-plugin
           pip install '.[extras,genai]'
           pip install pyspark
           # Install Hugging Face datasets to test Hugging Face usage with MLflow dataset tracking

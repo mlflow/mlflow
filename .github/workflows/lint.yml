@@ -74,5 +74,7 @@ jobs:
         run: |
           uv run --only-group test pytest dev/clint
 
-      - run: |
+      - name: Check function signatures
+        if: matrix.os == 'ubuntu-latest'
+        run: |
           uv run --no-project dev/check_function_signatures.py
