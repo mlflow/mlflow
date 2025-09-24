@@ -35,7 +35,7 @@ from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v2 import TraceInfoV2
-from mlflow.entities.trace_location import TraceLocation, TraceLocationType
+from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
@@ -1460,35 +1460,36 @@ def test_get_trace_info_v4_fallback_to_v3():
         assert result.trace_id == span.trace_id
 
 
-def test_get_trace_info_v4_different_location_formats():
-    with mlflow.start_span(name="test_span") as span:
-        span.set_inputs({"input": "value"})
+# TODO: add back after moving GetTraceInfoV4 to databricks_service.proto
+# def test_get_trace_info_v4_different_location_formats():
+#     with mlflow.start_span(name="test_span") as span:
+#         span.set_inputs({"input": "value"})
 
-    trace = mlflow.get_trace(span.trace_id)
-    trace.info.trace_location = TraceLocation.from_uc_schema("catalog", "schema")
-    mock_response = GetTraceInfoV4.Response(trace=trace.to_proto())
-    store = RestStore(lambda: MlflowHostCreds("https://test"))
+#     trace = mlflow.get_trace(span.trace_id)
+#     trace.info.trace_location = TraceLocation.from_uc_schema("catalog", "schema")
+#     mock_response = GetTraceInfoV4.Response(trace=trace.to_proto())
+#     store = RestStore(lambda: MlflowHostCreds("https://test"))
 
-    test_locations = ["experiment123", "catalog.schema"]
+#     test_locations = ["experiment123", "catalog.schema"]
 
-    for location in test_locations:
-        v4_trace_id = f"{TRACE_ID_V4_PREFIX}{location}/{span.trace_id}"
+#     for location in test_locations:
+#         v4_trace_id = f"{TRACE_ID_V4_PREFIX}{location}/{span.trace_id}"
 
-        with mock.patch.object(store, "_call_endpoint", return_value=mock_response) as mock_call:
-            result = store.get_trace_info(v4_trace_id)
+#         with mock.patch.object(store, "_call_endpoint", return_value=mock_response) as mock_call:
+#             result = store.get_trace_info(v4_trace_id)
 
-            call_args = mock_call.call_args
-            request_data = json.loads(call_args[0][1])
-            assert request_data["location"] == location
-            assert request_data["trace_id"] == span.trace_id
+#             call_args = mock_call.call_args
+#             request_data = json.loads(call_args[0][1])
+#             assert request_data["location"] == location
+#             assert request_data["trace_id"] == span.trace_id
 
-            endpoint = call_args[1]["endpoint"]
-            assert f"/traces/{location}/{span.trace_id}/info" in endpoint
+#             endpoint = call_args[1]["endpoint"]
+#             assert f"/traces/{location}/{span.trace_id}/info" in endpoint
 
-            assert isinstance(result, TraceInfo)
-            assert result.trace_location.type == TraceLocationType.UC_SCHEMA
-            assert result.trace_location.uc_schema.catalog_name == "catalog"
-            assert result.trace_location.uc_schema.schema_name == "schema"
+#             assert isinstance(result, TraceInfo)
+#             assert result.trace_location.type == TraceLocationType.UC_SCHEMA
+#             assert result.trace_location.uc_schema.catalog_name == "catalog"
+#             assert result.trace_location.uc_schema.schema_name == "schema"
 
 
 def test_log_logged_model_params():
