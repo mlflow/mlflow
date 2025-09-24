@@ -29,6 +29,27 @@ const getPullInfo = async (context, github) => {
   };
 };
 
+const updateTriggerComment = async (context, github, commentId, message) => {
+  const { owner, repo } = context.repo;
+  const { runId } = context;
+  const workflowRunUrl = `https://github.com/${owner}/${repo}/actions/runs/${runId}`;
+
+  const updatedBody = `/sync
+
+---
+
+${message}
+
+**Details:** [View workflow run](${workflowRunUrl})`;
+
+  await github.rest.issues.updateComment({
+    owner,
+    repo,
+    comment_id: commentId,
+    body: updatedBody,
+  });
+};
+
 const createInitialReaction = async (context, github) => {
   const { owner, repo } = context.repo;
   const { id: comment_id } = context.payload.comment;
@@ -42,18 +63,20 @@ const createInitialReaction = async (context, github) => {
     content: "rocket",
   });
 
-  // Add workflow run link with pending emoji
+  // Update the trigger comment with workflow link
   const workflowRunUrl = `https://github.com/${owner}/${repo}/actions/runs/${runId}`;
-  const body = `⏳ [Sync workflow started](${workflowRunUrl})`;
+  const updatedBody = `/sync
 
-  const response = await github.rest.issues.createComment({
+---
+
+⏳ [Sync workflow started](${workflowRunUrl})`;
+
+  await github.rest.issues.updateComment({
     owner,
     repo,
-    issue_number: context.issue.number,
-    body,
+    comment_id,
+    body: updatedBody,
   });
-
-  return response.data.id;
 };
 
 const isAuthorAllowed = ({ author_association, user }) => {
@@ -66,10 +89,8 @@ const isAuthorAllowed = ({ author_association, user }) => {
   );
 };
 
-const validateAuthorPermissions = async (context, github, core) => {
+const validateAuthorPermissions = async (context, github, core, triggerCommentId) => {
   const { comment } = context.payload;
-  const { owner, repo } = context.repo;
-  const { runId } = context;
 
   if (
     !isAuthorAllowed({
@@ -77,27 +98,14 @@ const validateAuthorPermissions = async (context, github, core) => {
       user: comment.user,
     })
   ) {
-    const workflowRunUrl = `https://github.com/${owner}/${repo}/actions/runs/${runId}`;
-    const message = `❌ **Sync failed**: Only repository owners, members, or collaborators can use the /sync command. @${comment.user.login} (${comment.author_association}) does not have sufficient permissions.
+    const message = `❌ **Sync failed**: Only repository owners, members, or collaborators can use the /sync command. @${comment.user.login} (${comment.author_association}) does not have sufficient permissions.`;
 
-**Details:** [View workflow run](${workflowRunUrl})`;
-
-    await github.rest.issues.createComment({
-      owner,
-      repo,
-      issue_number: context.issue.number,
-      body: message,
-    });
-
+    await updateTriggerComment(context, github, triggerCommentId, message);
     core.setFailed(`User ${comment.user.login} does not have sufficient permissions`);
   }
 };
 
-const validatePRConditions = async (context, github, pullInfo) => {
-  const { owner, repo } = context.repo;
-  const { runId } = context;
-  const workflowRunUrl = `https://github.com/${owner}/${repo}/actions/runs/${runId}`;
-
+const validatePRConditions = async (context, github, pullInfo, triggerCommentId) => {
   // Check if it's a fork PR
   const isForkPR = pullInfo.repository !== pullInfo.base_repo;
 
@@ -107,17 +115,9 @@ const validatePRConditions = async (context, github, pullInfo) => {
 
 Please:
 1. Check the "Allow edits and access to secrets by maintainers" checkbox on this pull request
-2. Comment \`/sync\` again
+2. Comment \`/sync\` again`;
 
-**Details:** [View workflow run](${workflowRunUrl})`;
-
-    await github.rest.issues.createComment({
-      owner,
-      repo,
-      issue_number: context.issue.number,
-      body: message,
-    });
-
+    await updateTriggerComment(context, github, triggerCommentId, message);
     throw new Error("Fork PR does not allow maintainer edits");
   }
 
@@ -125,17 +125,9 @@ Please:
   if (pullInfo.mergeable === false) {
     const message = `❌ **Sync failed**: This PR has merge conflicts that must be resolved before syncing.
 
-Please resolve the conflicts and then comment \`/sync\` again.
+Please resolve the conflicts and then comment \`/sync\` again.`;
 
-**Details:** [View workflow run](${workflowRunUrl})`;
-
-    await github.rest.issues.createComment({
-      owner,
-      repo,
-      issue_number: context.issue.number,
-      body: message,
-    });
-
+    await updateTriggerComment(context, github, triggerCommentId, message);
     throw new Error("PR has merge conflicts");
   }
 
@@ -144,6 +136,7 @@ Please resolve the conflicts and then comment \`/sync\` again.
     // Wait a bit and check again
     await new Promise((resolve) => setTimeout(resolve, 5000));
 
+    const { owner, repo } = context.repo;
     const updatedPR = await github.rest.pulls.get({
       owner,
       repo,
@@ -153,25 +146,20 @@ Please resolve the conflicts and then comment \`/sync\` again.
     if (updatedPR.data.mergeable === false) {
       const message = `❌ **Sync failed**: This PR has merge conflicts that must be resolved before syncing.
 
-Please resolve the conflicts and then comment \`/sync\` again.
+Please resolve the conflicts and then comment \`/sync\` again.`;
 
-**Details:** [View workflow run](${workflowRunUrl})`;
-
-      await github.rest.issues.createComment({
-        owner,
-        repo,
-        issue_number: context.issue.number,
-        body: message,
-      });
-
+      await updateTriggerComment(context, github, triggerCommentId, message);
       throw new Error("PR has merge conflicts");
     }
   }
 };
 
-const performSync = async (context, github, pullInfo, botToken) => {
-  const { owner, repo } = context.repo;
+const generateRandomRemoteName = (prefix) => {
+  const randomSuffix = Math.random().toString(36).substring(2, 8);
+  return `${prefix}-${randomSuffix}`;
+};
 
+const performSync = async (context, github, pullInfo, botToken, triggerCommentId) => {
   try {
     // Configure git
     execSync('git config user.name "mlflow-app[bot]"');
@@ -182,88 +170,49 @@ const performSync = async (context, github, pullInfo, botToken) => {
 
     console.log(`Setting up base remote and fetching base branch`);
 
-    // Clean up any existing remote
-    try {
-      execSync("git remote remove base", { stdio: "ignore" });
-    } catch (e) {
-      /* ignore */
-    }
+    // Use random remote name to avoid conflicts
+    const baseRemoteName = generateRandomRemoteName("base");
 
-    execSync(`git remote add base ${baseRepoUrl}`);
-    execSync(`git fetch base ${pullInfo.base_ref}`);
+    execSync(`git remote add ${baseRemoteName} ${baseRepoUrl}`);
+    execSync(`git fetch ${baseRemoteName} ${pullInfo.base_ref}`);
 
     console.log(`Merging base branch: ${pullInfo.base_ref}`);
-    execSync(`git merge base/${pullInfo.base_ref} --no-edit`);
+    execSync(`git merge ${baseRemoteName}/${pullInfo.base_ref} --no-edit`);
 
     console.log(`Pushing updated branch`);
     execSync(`git push origin HEAD`);
 
     console.log("Sync completed successfully");
+
+    // Clean up the remote
+    execSync(`git remote remove ${baseRemoteName}`);
   } catch (error) {
     console.error("Sync failed:", error.message);
 
-    const { runId } = context;
-    const workflowRunUrl = `https://github.com/${owner}/${repo}/actions/runs/${runId}`;
     const message = `❌ **Sync failed**: An error occurred during the sync process.
 
-Error: \`${error.message}\`
+Error: \`${error.message}\``;
 
-**Details:** [View workflow run](${workflowRunUrl})`;
-
-    await github.rest.issues.createComment({
-      owner,
-      repo,
-      issue_number: context.issue.number,
-      body: message,
-    });
-
+    await updateTriggerComment(context, github, triggerCommentId, message);
     throw error;
   }
 };
 
-const updateCommentStatus = async (context, github, success, workflowCommentId) => {
-  const { owner, repo } = context.repo;
-  const { runId } = context;
-  const workflowRunUrl = `https://github.com/${owner}/${repo}/actions/runs/${runId}`;
-
-  if (workflowCommentId) {
-    const emoji = success ? "✅" : "❌";
-    const status = success ? "completed successfully" : "failed";
-    const updatedBody = `${emoji} [Sync workflow ${status}](${workflowRunUrl})`;
-
-    try {
-      await github.rest.issues.updateComment({
-        owner,
-        repo,
-        comment_id: workflowCommentId,
-        body: updatedBody,
-      });
-    } catch (error) {
-      console.error("Failed to update workflow comment:", error.message);
-    }
-  }
-
-  // If successful, add a success message
+const updateFinalStatus = async (context, github, success, triggerCommentId) => {
   if (success) {
-    const message = `✅ **Sync completed**: The PR branch has been successfully updated with the latest changes from the base branch.
-
-**Details:** [View workflow run](${workflowRunUrl})`;
-
-    await github.rest.issues.createComment({
-      owner,
-      repo,
-      issue_number: context.issue.number,
-      body: message,
-    });
+    const message = `✅ **Sync completed**: The PR branch has been successfully updated with the latest changes from the base branch.`;
+    await updateTriggerComment(context, github, triggerCommentId, message);
   }
+  // For failures, the error message should already be updated in performSync
 };
 
 module.exports = {
   shouldSync,
   getPullInfo,
+  updateTriggerComment,
   createInitialReaction,
   validateAuthorPermissions,
   validatePRConditions,
   performSync,
-  updateCommentStatus,
+  updateFinalStatus,
 };
