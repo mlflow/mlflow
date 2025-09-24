@@ -144,9 +144,7 @@ To apply the scorer to a batch of traces, use the <APILink fn="mlflow.genai.eval
 import mlflow
 
 # Retrieve traces from MLflow
-traces = mlflow.search_traces(
-    filter_string="timestamp > 1727174400000"
-)
+traces = mlflow.search_traces(filter_string="timestamp > 1727174400000")
 
 # Run evaluation with Agent-as-a-Judge
 results = mlflow.genai.evaluate(
@@ -233,12 +231,14 @@ rag_judge = make_judge(
     model="anthropic:/claude-opus-4-1-20250805",
 )
 
+
 # Use with your RAG pipeline
 @mlflow.trace
 def rag_pipeline(query):
     docs = retrieve_documents(query)
     response = generate_with_context(query, docs)
     return response
+
 
 result = rag_pipeline("What is MLflow?")
 trace = mlflow.get_last_active_trace()
