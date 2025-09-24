@@ -111,6 +111,7 @@ class AsyncArtifactsLoggingQueue:
                     filename=run_artifact.filename,
                     artifact_path=run_artifact.artifact_path,
                     artifact=run_artifact.artifact,
+                    pil_save_options=run_artifact.pil_save_options,
                 )
 
                 # Signal the artifact processing is done.
@@ -181,7 +182,9 @@ class AsyncArtifactsLoggingQueue:
         self._artifact_status_check_threadpool = None
         self._stop_data_logging_thread_event = threading.Event()
 
-    def log_artifacts_async(self, filename, artifact_path, artifact) -> RunOperations:
+    def log_artifacts_async(
+        self, filename, artifact_path, artifact, pil_save_options=None
+    ) -> RunOperations:
         """Asynchronously logs runs artifacts.
 
         Args:
@@ -206,6 +209,7 @@ class AsyncArtifactsLoggingQueue:
             artifact_path=artifact_path,
             artifact=artifact,
             completion_event=threading.Event(),
+            pil_save_options=pil_save_options,
         )
         self._queue.put(artifact)
         operation_future = self._artifact_status_check_threadpool.submit(

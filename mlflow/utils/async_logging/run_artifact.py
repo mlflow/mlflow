@@ -1,5 +1,5 @@
 import threading
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Union
 
 if TYPE_CHECKING:
     import PIL
@@ -12,6 +12,7 @@ class RunArtifact:
         artifact_path: str,
         artifact: Union["PIL.Image.Image"],
         completion_event: threading.Event,
+        pil_save_options: dict[str, Any] | None = None,
     ) -> None:
         """Initializes an instance of `RunArtifacts`.
 
@@ -21,11 +22,13 @@ class RunArtifact:
                 artifact.
             artifact: The artifact to be logged.
             completion_event: A threading.Event object.
+            pil_save_options: Optional dictionary of options to pass to `PIL.Image.save`.
         """
         self.filename = filename
         self.artifact_path = artifact_path
         self.artifact = artifact
         self.completion_event = completion_event
+        self.pil_save_options = pil_save_options
         self._exception = None
 
     @property

@@ -81,10 +81,10 @@ class ArtifactRepository:
     def __init__(self, artifact_uri: str, tracking_uri: str | None = None) -> None:
         self.artifact_uri = artifact_uri
         self.tracking_uri = tracking_uri
+        self.thread_pool = self._create_thread_pool()
         # Limit the number of threads used for artifact uploads/downloads. Use at most
         # constants._NUM_MAX_THREADS threads or 2 * the number of CPU cores available on the
         # system (whichever is smaller)
-        self.thread_pool = self._create_thread_pool()
 
         def log_artifact_handler(
             filename, artifact_path=None, artifact=None, pil_save_options=None
@@ -100,11 +100,8 @@ class ArtifactRepository:
                         artifact.save(tmp_path, **(pil_save_options or {}))
                 self.log_artifact(tmp_path, artifact_path)
 
-        # The queue needs to know which arguments to pass to the handler
-        self._async_logging_queue = AsyncArtifactsLoggingQueue(
-            log_artifact_handler,
-            task_args=["filename", "artifact_path", "artifact", "pil_save_options"],
-        )
+        # CORRECT INITIALIZATION: The queue's constructor only takes the handler function.
+        self._async_logging_queue = AsyncArtifactsLoggingQueue(log_artifact_handler)
 
     def __repr__(self) -> str:
         return (
@@ -168,7 +165,7 @@ class ArtifactRepository:
             filename=filename,
             artifact_path=artifact_path,
             artifact=artifact,
-            pil_save_options=pil_save_options,  # <-- Pass it to the queue
+            pil_save_options=pil_save_options,
         )
 
     @abstractmethod

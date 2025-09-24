@@ -673,7 +673,9 @@ class TrackingServiceClient:
         else:
             artifact_repo.log_artifact(local_path, artifact_path)
 
-    def _log_artifact_async(self, run_id, filename, artifact_path=None, artifact=None):
+    def _log_artifact_async(
+        self, run_id, filename, artifact_path=None, artifact=None, pil_save_options=None
+    ):
         """
         Write an artifact to the remote ``artifact_uri`` asynchronously.
 
@@ -682,9 +684,13 @@ class TrackingServiceClient:
             filename: Filename of the artifact to be logged.
             artifact_path: If provided, the directory in ``artifact_uri`` to write to.
             artifact: The artifact to be logged.
+            pil_save_options: PIL save options for image artifacts.
         """
         artifact_repo = self._get_artifact_repo(run_id)
-        artifact_repo._log_artifact_async(filename, artifact_path, artifact)
+        # Pass the new parameter to the next function in the chain
+        artifact_repo._log_artifact_async(
+            filename, artifact_path, artifact, pil_save_options=pil_save_options
+        )
 
     def log_artifacts(self, run_id, local_dir, artifact_path=None):
         """Write a directory of files to the remote ``artifact_uri``.
