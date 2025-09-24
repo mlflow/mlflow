@@ -78,8 +78,8 @@ import os
 import mlflow
 
 # Configure proxy if needed
-os.environ['HTTP_PROXY'] = 'http://proxy.company.com:8080'
-os.environ['HTTPS_PROXY'] = 'http://proxy.company.com:8080'
+os.environ["HTTP_PROXY"] = "http://proxy.company.com:8080"
+os.environ["HTTPS_PROXY"] = "http://proxy.company.com:8080"
 
 # Connect through proxy
 mlflow.set_tracking_uri("https://mlflow.company.com")
