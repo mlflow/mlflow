@@ -64,23 +64,12 @@ jobs:
             const triggerCommentId = ${{ fromJSON(steps.validate.outputs.result).triggerCommentId }};
             await sync.validateAuthorPermissions(context, github, core, triggerCommentId);
 
-      - name: Validate PR conditions
-        if: ${{ fromJSON(steps.validate.outputs.result).shouldSync }}
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
-        with:
-          script: |
-            const sync = require('./.github/workflows/sync.js');
-            const pullInfo = ${{ steps.validate.outputs.result }};
-            const triggerCommentId = ${{ fromJSON(steps.validate.outputs.result).triggerCommentId }};
-            await sync.validatePRConditions(context, github, pullInfo, triggerCommentId);
-
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     needs: validate
     if: ${{ needs.validate.outputs.should_sync == 'true' }}
     permissions:
-      contents: read
       pull-requests: write
       issues: write
     steps:
@@ -89,25 +78,8 @@ jobs:
           sparse-checkout: |
             .github
 
-      - name: Setup bot token
-        id: app-token
-        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1.12.0
-        with:
-          app-id: ${{ secrets.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
-
-      - name: Checkout PR head
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          repository: ${{ needs.validate.outputs.repository }}
-          ref: ${{ needs.validate.outputs.head_ref }}
-          fetch-depth: 300
-          token: ${{ steps.app-token.outputs.token }}
-
       - name: Perform sync
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
-        env:
-          BOT_TOKEN: ${{ steps.app-token.outputs.token }}
         with:
           script: |
             const sync = require('./.github/workflows/sync.js');
@@ -115,11 +87,12 @@ jobs:
               repository: '${{ needs.validate.outputs.repository }}',
               pull_number: '${{ needs.validate.outputs.pull_number }}',
               head_ref: '${{ needs.validate.outputs.head_ref }}',
+              head_sha: '${{ needs.validate.outputs.head_sha }}',
               base_ref: '${{ needs.validate.outputs.base_ref }}',
               base_repo: '${{ needs.validate.outputs.base_repo }}'
             };
             const triggerCommentId = '${{ needs.validate.outputs.trigger_comment_id }}';
-            await sync.performSync(context, github, pullInfo, process.env.BOT_TOKEN, triggerCommentId);
+            await sync.performSync(context, github, pullInfo, null, triggerCommentId);
 
       - name: Update comment status
         if: always()

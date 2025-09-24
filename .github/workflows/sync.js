@@ -1,5 +1,3 @@
-const { execSync } = require("child_process");
-
 const shouldSync = (comment) => {
   return comment.body.trim() === "/sync";
 };
@@ -80,13 +78,7 @@ const createInitialReaction = async (context, github) => {
 };
 
 const isAuthorAllowed = ({ author_association, user }) => {
-  return (
-    ["owner", "member", "collaborator"].includes(author_association.toLowerCase()) ||
-    // Allow Copilot and mlflow-app bot to run this workflow
-    (user &&
-      user.type.toLowerCase() === "bot" &&
-      ["copilot", "mlflow-app[bot]"].includes(user.login.toLowerCase()))
-  );
+  return ["owner", "member", "collaborator"].includes(author_association.toLowerCase());
 };
 
 const validateAuthorPermissions = async (context, github, core, triggerCommentId) => {
@@ -105,93 +97,35 @@ const validateAuthorPermissions = async (context, github, core, triggerCommentId
   }
 };
 
-const validatePRConditions = async (context, github, pullInfo, triggerCommentId) => {
-  // Check if it's a fork PR
-  const isForkPR = pullInfo.repository !== pullInfo.base_repo;
+const performSync = async (context, github, pullInfo, botToken, triggerCommentId) => {
+  const { owner, repo } = context.repo;
 
-  // For fork PRs, check if maintainers can modify
-  if (isForkPR && !pullInfo.maintainer_can_modify) {
-    const message = `❌ **Sync failed**: For fork PRs, the "Allow edits and access to secrets by maintainers" checkbox must be checked.
+  try {
+    console.log(`Attempting to update PR branch using GitHub API`);
 
-Please:
-1. Check the "Allow edits and access to secrets by maintainers" checkbox on this pull request
-2. Comment \`/sync\` again`;
-
-    await updateTriggerComment(context, github, triggerCommentId, message);
-    throw new Error("Fork PR does not allow maintainer edits");
-  }
-
-  // Check for merge conflicts
-  if (pullInfo.mergeable === false) {
-    const message = `❌ **Sync failed**: This PR has merge conflicts that must be resolved before syncing.
-
-Please resolve the conflicts and then comment \`/sync\` again.`;
-
-    await updateTriggerComment(context, github, triggerCommentId, message);
-    throw new Error("PR has merge conflicts");
-  }
-
-  // Check if mergeable state is unknown (GitHub is still computing)
-  if (pullInfo.mergeable === null) {
-    // Wait a bit and check again
-    await new Promise((resolve) => setTimeout(resolve, 5000));
-
-    const { owner, repo } = context.repo;
-    const updatedPR = await github.rest.pulls.get({
+    await github.rest.pulls.updateBranch({
       owner,
       repo,
       pull_number: pullInfo.pull_number,
+      expected_head_sha: pullInfo.head_sha,
     });
 
-    if (updatedPR.data.mergeable === false) {
-      const message = `❌ **Sync failed**: This PR has merge conflicts that must be resolved before syncing.
-
-Please resolve the conflicts and then comment \`/sync\` again.`;
-
-      await updateTriggerComment(context, github, triggerCommentId, message);
-      throw new Error("PR has merge conflicts");
-    }
-  }
-};
-
-const generateRandomRemoteName = (prefix) => {
-  const randomSuffix = Math.random().toString(36).substring(2, 8);
-  return `${prefix}-${randomSuffix}`;
-};
-
-const performSync = async (context, github, pullInfo, botToken, triggerCommentId) => {
-  try {
-    // Configure git
-    execSync('git config user.name "mlflow-app[bot]"');
-    execSync('git config user.email "mlflow-app[bot]@users.noreply.github.com"');
-
-    // We're already on the PR head branch, just need to fetch and merge base
-    const baseRepoUrl = `https://github.com/${pullInfo.base_repo}.git`;
-
-    console.log(`Setting up base remote and fetching base branch`);
-
-    // Use random remote name to avoid conflicts
-    const baseRemoteName = generateRandomRemoteName("base");
-
-    execSync(`git remote add ${baseRemoteName} ${baseRepoUrl}`);
-    execSync(`git fetch ${baseRemoteName} ${pullInfo.base_ref}`);
-
-    console.log(`Merging base branch: ${pullInfo.base_ref}`);
-    execSync(`git merge ${baseRemoteName}/${pullInfo.base_ref} --no-edit`);
-
-    console.log(`Pushing updated branch`);
-    execSync(`git push origin HEAD`);
-
     console.log("Sync completed successfully");
-
-    // Clean up the remote
-    execSync(`git remote remove ${baseRemoteName}`);
   } catch (error) {
     console.error("Sync failed:", error.message);
 
-    const message = `❌ **Sync failed**: An error occurred during the sync process.
+    let message = `❌ **Sync failed**: Unable to update PR branch.`;
 
-Error: \`${error.message}\``;
+    // Provide specific error messages based on common failure scenarios
+    if (error.message.includes("merge conflict") || error.message.includes("conflict")) {
+      message += `\n\nThis PR has merge conflicts that must be resolved before syncing. Please resolve the conflicts and try again.`;
+    } else if (error.message.includes("not fast-forward") || error.message.includes("behind")) {
+      message += `\n\nThe PR branch cannot be fast-forwarded. This typically happens when there are conflicting changes.`;
+    } else if (error.message.includes("expected_head_sha")) {
+      message += `\n\nThe PR branch has been updated since the sync started. Please try the \`/sync\` command again.`;
+    } else {
+      message += `\n\nError: \`${error.message}\``;
+    }
 
     await updateTriggerComment(context, github, triggerCommentId, message);
     throw error;
@@ -212,7 +146,6 @@ module.exports = {
   updateTriggerComment,
   createInitialReaction,
   validateAuthorPermissions,
-  validatePRConditions,
   performSync,
   updateFinalStatus,
 };
