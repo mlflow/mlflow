@@ -18,12 +18,7 @@ jobs:
       issues: write
     outputs:
       should_sync: ${{ fromJSON(steps.validate.outputs.result).shouldSync }}
-      repository: ${{ fromJSON(steps.validate.outputs.result).repository }}
-      head_ref: ${{ fromJSON(steps.validate.outputs.result).head_ref }}
       head_sha: ${{ fromJSON(steps.validate.outputs.result).head_sha }}
-      base_ref: ${{ fromJSON(steps.validate.outputs.result).base_ref }}
-      base_sha: ${{ fromJSON(steps.validate.outputs.result).base_sha }}
-      base_repo: ${{ fromJSON(steps.validate.outputs.result).base_repo }}
       pull_number: ${{ fromJSON(steps.validate.outputs.result).pull_number }}
       trigger_comment_id: ${{ fromJSON(steps.validate.outputs.result).triggerCommentId }}
     steps:
@@ -48,8 +43,17 @@ jobs:
               return { shouldSync: false };
             }
 
-            // Add initial reaction and workflow link
-            await sync.createInitialReaction(context, github);
+            // Add rocket reaction
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: comment.id,
+              content: "rocket",
+            });
+
+            // Update trigger comment with workflow link
+            const workflowRunUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await sync.updateTriggerComment(context, github, comment.id, `⏳ [Sync workflow started](${workflowRunUrl})`);
 
             // Get PR info
             const pullInfo = await sync.getPullInfo(context, github);
@@ -58,10 +62,12 @@ jobs:
       - name: Validate author permissions
         if: ${{ fromJSON(steps.validate.outputs.result).shouldSync }}
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        env:
+          TRIGGER_COMMENT_ID: ${{ fromJSON(steps.validate.outputs.result).triggerCommentId }}
         with:
           script: |
             const sync = require('./.github/workflows/sync.js');
-            const triggerCommentId = ${{ fromJSON(steps.validate.outputs.result).triggerCommentId }};
+            const triggerCommentId = process.env.TRIGGER_COMMENT_ID;
             await sync.validateAuthorPermissions(context, github, core, triggerCommentId);
 
   sync:
@@ -80,26 +86,16 @@ jobs:
 
       - name: Perform sync
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        env:
+          PULL_NUMBER: ${{ needs.validate.outputs.pull_number }}
+          HEAD_SHA: ${{ needs.validate.outputs.head_sha }}
+          TRIGGER_COMMENT_ID: ${{ needs.validate.outputs.trigger_comment_id }}
         with:
           script: |
             const sync = require('./.github/workflows/sync.js');
             const pullInfo = {
-              repository: '${{ needs.validate.outputs.repository }}',
-              pull_number: '${{ needs.validate.outputs.pull_number }}',
-              head_ref: '${{ needs.validate.outputs.head_ref }}',
-              head_sha: '${{ needs.validate.outputs.head_sha }}',
-              base_ref: '${{ needs.validate.outputs.base_ref }}',
-              base_repo: '${{ needs.validate.outputs.base_repo }}'
+              pull_number: process.env.PULL_NUMBER,
+              head_sha: process.env.HEAD_SHA,
             };
-            const triggerCommentId = '${{ needs.validate.outputs.trigger_comment_id }}';
+            const triggerCommentId = process.env.TRIGGER_COMMENT_ID;
             await sync.performSync(context, github, pullInfo, null, triggerCommentId);
-
-      - name: Update comment status
-        if: always()
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
-        with:
-          script: |
-            const sync = require('./.github/workflows/sync.js');
-            const success = '${{ job.status }}' === 'success';
-            const triggerCommentId = '${{ needs.validate.outputs.trigger_comment_id }}';
-            await sync.updateFinalStatus(context, github, success, triggerCommentId);
