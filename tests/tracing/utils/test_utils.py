@@ -97,6 +97,56 @@ def test_aggregate_usage_from_spans():
     }
 
 
+def test_aggregate_usage_from_spans_skips_descendant_usage():
+    spans = [
+        LiveSpan(create_mock_otel_span("trace_id", span_id=1, name="root"), trace_id="tr-123"),
+        LiveSpan(
+            create_mock_otel_span("trace_id", span_id=2, name="child", parent_id=1),
+            trace_id="tr-123",
+        ),
+        LiveSpan(
+            create_mock_otel_span("trace_id", span_id=3, name="grandchild", parent_id=2),
+            trace_id="tr-123",
+        ),
+        LiveSpan(create_mock_otel_span("trace_id", span_id=4, name="independent"), trace_id="tr-123"),
+    ]
+
+    spans[0].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 10,
+            TokenUsageKey.OUTPUT_TOKENS: 20,
+            TokenUsageKey.TOTAL_TOKENS: 30,
+        },
+    )
+
+    spans[2].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 5,
+            TokenUsageKey.OUTPUT_TOKENS: 10,
+            TokenUsageKey.TOTAL_TOKENS: 15,
+        },
+    )
+
+    spans[3].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 3,
+            TokenUsageKey.OUTPUT_TOKENS: 6,
+            TokenUsageKey.TOTAL_TOKENS: 9,
+        },
+    )
+
+    usage = aggregate_usage_from_spans(spans)
+
+    assert usage == {
+        TokenUsageKey.INPUT_TOKENS: 13,
+        TokenUsageKey.OUTPUT_TOKENS: 26,
+        TokenUsageKey.TOTAL_TOKENS: 39,
+    }
+
+
 def test_maybe_get_request_id():
     assert maybe_get_request_id(is_evaluate=True) is None
 
