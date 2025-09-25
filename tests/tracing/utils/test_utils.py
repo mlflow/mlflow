@@ -108,7 +108,9 @@ def test_aggregate_usage_from_spans_skips_descendant_usage():
             create_mock_otel_span("trace_id", span_id=3, name="grandchild", parent_id=2),
             trace_id="tr-123",
         ),
-        LiveSpan(create_mock_otel_span("trace_id", span_id=4, name="independent"), trace_id="tr-123"),
+        LiveSpan(
+            create_mock_otel_span("trace_id", span_id=4, name="independent"), trace_id="tr-123"
+        ),
     ]
 
     spans[0].set_attribute(
