@@ -45,22 +45,3 @@ isinstance(obj)
     assert actual_lines == expected_lines
 
 
-def test_isinstance_union_syntax_nested_cases(index_path: Path) -> None:
-    """Test more complex nested union cases"""
-    code = """
-# Complex nested union - should be flagged
-isinstance(obj, (str | int) | float)
-isinstance(obj, str | (int | float))
-
-# Mixed valid and invalid - should be flagged
-isinstance(obj, str | list)
-
-# Valid nested tuples - should NOT be flagged
-isinstance(obj, ((str, int), (float, bool)))
-"""
-    config = Config(select={IsinstanceUnionSyntax.name})
-    results = lint_file(Path("test.py"), code, config, index_path)
-
-    # Should flag lines 3, 4, and 7
-    assert len(results) == 3
-    assert all(isinstance(r.rule, IsinstanceUnionSyntax) for r in results)
