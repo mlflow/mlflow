@@ -1,13 +1,36 @@
-const { execSync } = require("child_process");
+const { spawnSync } = require("child_process");
 
-function exec(cmd) {
-  console.log(`> ${cmd}`);
-  return execSync(cmd, { stdio: "inherit" });
+function exec(cmd, args) {
+  console.log(`> ${cmd} ${args.join(" ")}`);
+
+  const result = spawnSync(cmd, args, {
+    stdio: "inherit",
+  });
+
+  if (result.status !== 0) {
+    throw new Error(`Command failed with exit code ${result.status}: ${cmd} ${args.join(" ")}`);
+  }
+
+  return result;
 }
 
-function execWithOutput(cmd) {
-  console.log(`> ${cmd}`);
-  return execSync(cmd, { encoding: "utf8" });
+function execWithOutput(cmd, args) {
+  console.log(`> ${cmd} ${args.join(" ")}`);
+
+  const result = spawnSync(cmd, args, {
+    encoding: "utf8",
+    stdio: ["pipe", "pipe", 1], // stdin, stdout, stderr->stdout
+  });
+
+  if (result.status !== 0) {
+    throw new Error(
+      `Command failed with exit code ${result.status}: ${cmd} ${args.join(" ")}\nOutput: ${
+        result.stdout
+      }`
+    );
+  }
+
+  return result.stdout;
 }
 
 function getDaysAgo(days) {
@@ -24,25 +47,22 @@ module.exports = async ({ github, context }) => {
   // Note: We intentionally avoid early exits to maximize test coverage on PRs
   // This allows testing the entire workflow except git push and PR creation
 
-  // Run uv lock with --exclude-newer flag to avoid potentially unstable releases
-  const uvOutput = execWithOutput(`uv lock --upgrade --exclude-newer "${getDaysAgo(3)}"`);
-
-  const { repo, owner } = context.repo;
-  const PR_TITLE = "Update `uv.lock`";
-
-  // Configure git user before any git operations
-  exec("git config user.name 'mlflow-app[bot]'");
-  exec("git config user.email 'mlflow-app[bot]@users.noreply.github.com'");
+  // `--exclude-newer` to avoid potentially unstable releases
+  const uvOutput = execWithOutput("uv", ["lock", "--upgrade", "--exclude-newer", getDaysAgo(3)]);
 
   const branchName = `uv-lock-update-${getTimestamp()}`;
-  exec(`git checkout -b ${branchName}`);
-  exec("git add uv.lock");
+  exec("git", ["config", "user.name", "mlflow-app[bot]"]);
+  exec("git", ["config", "user.email", "mlflow-app[bot]@users.noreply.github.com"]);
+  exec("git", ["checkout", "-b", branchName]);
+  exec("git", ["add", "uv.lock"]);
   // `--allow-empty` in case `uv.lock` is unchanged
-  exec('git commit -s --allow-empty -m "Update uv.lock"');
+  exec("git", ["commit", "-s", "--allow-empty", "-m", "Update uv.lock"]);
   // `--dry-run` to avoid actual push but verify it would succeed
-  exec(`git push --dry-run origin ${branchName}`);
+  exec("git", ["push", "--dry-run", "origin", branchName]);
 
   // Search for existing PR
+  const PR_TITLE = "Update `uv.lock`";
+  const { repo, owner } = context.repo;
   const { data: searchResults } = await github.rest.search.issuesAndPullRequests({
     q: `repo:${owner}/${repo} is:pr is:open base:master "${PR_TITLE}" in:title`,
     per_page: 1,
@@ -57,7 +77,7 @@ module.exports = async ({ github, context }) => {
   }
 
   // Push branch and create PR
-  exec(`git push origin ${branchName}`);
+  exec("git", ["push", "origin", branchName]);
   const runUrl = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
   const { data: pr } = await github.rest.pulls.create({
     owner,
