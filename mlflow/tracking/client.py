@@ -2564,7 +2564,7 @@ class MlflowClient:
             yield tmp_path
             self.log_artifact(run_id, tmp_path, artifact_dir)
 
-    def _log_artifact_async_helper(self, run_id, artifact_file, artifact, pil_save_options=None):
+    def _log_artifact_async_helper(self, run_id, artifact_file, artifact, save_options=None):
         """Log artifact asynchronously.
 
         Args:
@@ -2574,14 +2574,14 @@ class MlflowClient:
                 The path should be in POSIX format, using forward slashes (/) as directory
                 separators.
             artifact: The artifact to be logged.
-            pil_save_options: A dictionary of options to pass to `PIL.Image.save`.
+            save_options: A dictionary of options to pass to `PIL.Image.save`.
         """
         norm_path = posixpath.normpath(artifact_file)
         filename = posixpath.basename(norm_path)
         artifact_dir = posixpath.dirname(norm_path)
         artifact_dir = None if artifact_dir == "" else artifact_dir
         self._tracking_client._log_artifact_async(
-            run_id, filename, artifact_dir, artifact, pil_save_options
+            run_id, filename, artifact_dir, artifact, save_options
         )
 
     def log_text(self, run_id: str, text: str, artifact_file: str) -> None:
@@ -2924,10 +2924,10 @@ class MlflowClient:
                     compressed_image.save(tmp_path)
             else:
                 self._log_artifact_async_helper(
-                    run_id, image_filepath, image, pil_save_options=pil_save_options
+                    run_id, image_filepath, image, save_options=pil_save_options
                 )
                 self._log_artifact_async_helper(
-                    run_id, compressed_image_filepath, compressed_image, pil_save_options=None
+                    run_id, compressed_image_filepath, compressed_image, save_options=None
                 )
 
             # Log tag indicating that the run includes logged image
