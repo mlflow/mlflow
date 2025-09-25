@@ -2,16 +2,17 @@ from mlflow.genai.prompts.utils import format_prompt
 
 GUIDELINES_FEEDBACK_NAME = "guidelines"
 
-
-GUIDELINES_PROMPT_INSTRUCTIONS = """\
+GUIDELINES_BASE_INSTRUCTIONS = """\
 Given the following set of guidelines and some inputs, please assess whether the inputs fully \
 comply with all the provided guidelines. Only focus on the provided guidelines and not the \
-correctness, relevance, or effectiveness of the inputs.
+correctness, relevance, or effectiveness of the inputs."""
+
+GUIDELINES_PROMPT_INSTRUCTIONS = f"""{GUIDELINES_BASE_INSTRUCTIONS}
 
 <guidelines>
-{{guidelines}}
+{{{{guidelines}}}}
 </guidelines>
-{{guidelines_context}}\
+{{{{guidelines_context}}}}\
 """
 
 GUIDELINES_PROMPT_OUTPUT = """
@@ -24,6 +25,21 @@ Please provide your assessment using only the following json format. Do not use 
 """  # noqa: E501
 
 GUIDELINES_PROMPT = GUIDELINES_PROMPT_INSTRUCTIONS + GUIDELINES_PROMPT_OUTPUT
+
+# Trace-based fallback template when extraction fails
+GUIDELINES_TRACE_FALLBACK_TEMPLATE = (
+    GUIDELINES_BASE_INSTRUCTIONS
+    + """
+
+Guidelines:
+{guidelines}
+
+Extract the request and response from the following trace and evaluate against the guidelines:
+<trace>
+{{{{trace}}}}
+</trace>
+"""
+)
 
 
 def get_prompt(
@@ -48,3 +64,15 @@ def _render_guidelines(guidelines: list[str]) -> str:
 def _render_guidelines_context(guidelines_context: dict[str, str]) -> str:
     lines = [f"<{key}>{value}</{key}>" for key, value in guidelines_context.items()]
     return "\n".join(lines)
+
+
+def get_trace_fallback_prompt(guidelines: str | list[str]) -> str:
+    """Format the trace-based fallback prompt with the given guidelines."""
+    if isinstance(guidelines, str):
+        guidelines = [guidelines]
+
+    formatted_guidelines = "\n".join([f"- {g}" for g in guidelines])
+    return (
+        GUIDELINES_TRACE_FALLBACK_TEMPLATE.format(guidelines=formatted_guidelines)
+        + GUIDELINES_PROMPT_OUTPUT
+    )

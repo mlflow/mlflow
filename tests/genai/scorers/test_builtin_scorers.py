@@ -24,6 +24,27 @@ from mlflow.utils.uri import is_databricks_uri
 from tests.genai.conftest import databricks_only
 
 
+@pytest.fixture
+def trace_without_inputs_outputs():
+    with mlflow.start_span(name="empty_span") as span:
+        pass
+    return mlflow.get_trace(span.trace_id)
+
+
+@pytest.fixture
+def trace_with_only_inputs():
+    with mlflow.start_span(name="inputs_only_span") as span:
+        span.set_inputs({"question": "Test question"})
+    return mlflow.get_trace(span.trace_id)
+
+
+@pytest.fixture
+def trace_with_only_outputs():
+    with mlflow.start_span(name="outputs_only_span") as span:
+        span.set_outputs({"response": "Test response"})
+    return mlflow.get_trace(span.trace_id)
+
+
 @patch("mlflow.genai.judges.is_grounded")
 def test_retrieval_groundedness(mock_is_grounded, sample_rag_trace):
     mock_is_grounded.side_effect = lambda *args, **kwargs: Feedback(
@@ -464,7 +485,6 @@ def test_safety_with_custom_model_and_name(monkeypatch: pytest.MonkeyPatch):
 
 @patch("mlflow.genai.judges.is_correct")
 def test_correctness(mock_is_correct):
-    # 1. Test with expected_facts
     Correctness()(
         inputs={"question": "query"},
         outputs="answer",
@@ -481,7 +501,6 @@ def test_correctness(mock_is_correct):
     )
     mock_is_correct.reset_mock()
 
-    # 2. Test with custom model parameter
     correctness_custom = Correctness(
         name="custom_correctness",
         model="openai:/gpt-4.1-mini",
@@ -571,3 +590,419 @@ def test_correctness_get_input_fields():
     correctness = Correctness(name="test")
     field_names = [field.name for field in correctness.get_input_fields()]
     assert field_names == ["inputs", "outputs", "expectations"]
+
+
+def create_simple_trace(inputs=None, outputs=None):
+    @mlflow.trace(name="test_span", span_type=SpanType.CHAIN)
+    def _create(question):
+        return outputs or "MLflow is an open-source platform for ML lifecycle."
+
+    input_dict = inputs or {"question": "What is MLflow?"}
+    _create(**input_dict)
+    return mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+
+def test_correctness_with_trace():
+    with patch("mlflow.genai.judges.is_correct") as mock_is_correct:
+        mock_is_correct.return_value = Feedback(
+            name="correctness", value=True, rationale="Correct answer"
+        )
+
+        trace = create_simple_trace()
+        scorer = Correctness()
+        result = scorer(trace=trace, expectations={"expected_response": "Expected answer"})
+
+        assert result.name == "correctness"
+        assert result.value is True
+        mock_is_correct.assert_called_once()
+
+
+def test_guidelines_with_trace():
+    with patch("mlflow.genai.judges.meets_guidelines") as mock_meets_guidelines:
+        mock_meets_guidelines.return_value = Feedback(
+            name="guidelines", value=True, rationale="Follows guidelines"
+        )
+
+        trace = create_simple_trace()
+        scorer = Guidelines(guidelines=["Be helpful"])
+        result = scorer(trace=trace)
+
+        assert result.name == "guidelines"
+        assert result.value is True
+        mock_meets_guidelines.assert_called_once()
+
+
+def test_relevance_to_query_with_trace():
+    with patch("mlflow.genai.judges.is_context_relevant") as mock_is_context_relevant:
+        mock_is_context_relevant.return_value = Feedback(
+            name="relevance_to_query", value="yes", rationale="Relevant"
+        )
+
+        trace = create_simple_trace()
+        scorer = RelevanceToQuery()
+        result = scorer(trace=trace)
+
+        assert result.name == "relevance_to_query"
+        assert result.value == "yes"
+        mock_is_context_relevant.assert_called_once()
+
+
+@databricks_only
+def test_safety_with_trace():
+    with patch("databricks.agents.evals.judges.safety") as mock_safety:
+        mock_safety.return_value = Feedback(name="safety", value="yes", rationale="Safe content")
+
+        try:
+            trace = create_simple_trace()
+            if trace is None:
+                pytest.skip("Could not create trace in test environment")
+        except Exception:
+            pytest.skip("Could not create trace in test environment")
+
+        scorer = Safety()
+        result = scorer(trace=trace)
+
+        assert result.name == "safety"
+        assert result.value == "yes"
+        mock_safety.assert_called_once()
+
+
+def test_correctness_fallback_with_expectations(trace_without_inputs_outputs):
+    with patch("mlflow.genai.scorers.builtin_scorers.invoke_judge_model") as mock_invoke_judge:
+        mock_invoke_judge.return_value = Feedback(
+            name="correctness", value=True, rationale="Correct answer"
+        )
+
+        mlflow.log_expectation(
+            trace_id=trace_without_inputs_outputs.info.trace_id,
+            name="expected_response",
+            value="Expected answer",
+        )
+
+        trace_with_expectations = mlflow.get_trace(trace_without_inputs_outputs.info.trace_id)
+
+        scorer = Correctness()
+        result = scorer(trace=trace_with_expectations)
+
+        assert result.name == "correctness"
+        assert result.value is True
+        mock_invoke_judge.assert_called_once()
+
+        call_args = mock_invoke_judge.call_args
+        prompt_text = call_args[1]["prompt"]
+        assert "Expected answer" in prompt_text
+
+
+def test_scorer_fallback_to_make_judge(trace_without_inputs_outputs):
+    with patch("mlflow.genai.scorers.builtin_scorers.invoke_judge_model") as mock_invoke_judge:
+        mock_invoke_judge.return_value = Feedback(
+            name="guidelines", value=True, rationale="Follows guidelines"
+        )
+
+        scorer = Guidelines(guidelines=["Be helpful"])
+        result = scorer(trace=trace_without_inputs_outputs)
+
+        assert result.name == "guidelines"
+        assert result.value is True
+        mock_invoke_judge.assert_called_once()
+
+        call_args = mock_invoke_judge.call_args
+        prompt_text = call_args[1]["prompt"]
+        assert "trace" in prompt_text.lower()
+
+
+def test_correctness_extraction_from_simple_trace():
+    trace = create_simple_trace()
+
+    mlflow.log_expectation(
+        trace_id=trace.info.trace_id,
+        name="expected_response",
+        value="MLflow is an open-source platform",
+    )
+
+    trace_with_expectations = mlflow.get_trace(trace.info.trace_id)
+
+    with patch("mlflow.genai.judges.is_correct") as mock_is_correct:
+        mock_is_correct.return_value = Feedback(name="correctness", value=True, rationale="Correct")
+
+        scorer = Correctness()
+        scorer(trace=trace_with_expectations)
+
+        mock_is_correct.assert_called_once()
+        call_args = mock_is_correct.call_args
+        assert call_args[1]["request"] == "{'question': 'What is MLflow?'}"
+        assert call_args[1]["response"] == "MLflow is an open-source platform for ML lifecycle."
+        assert call_args[1]["expected_response"] == "MLflow is an open-source platform"
+
+
+def test_correctness_with_override_outputs():
+    with patch("mlflow.genai.judges.is_correct") as mock_is_correct:
+        mock_is_correct.return_value = Feedback(name="correctness", value=True, rationale="Correct")
+
+        trace = create_simple_trace()
+        scorer = Correctness()
+
+        result = scorer(
+            trace=trace,
+            inputs={"question": "Custom question"},
+            outputs="Custom answer",
+            expectations={"expected_response": "Custom expected"},
+        )
+
+        assert result.name == "correctness"
+        assert result.value is True
+        mock_is_correct.assert_called_once()
+        call_args = mock_is_correct.call_args
+        assert call_args[1]["request"] == "{'question': 'Custom question'}"
+        assert call_args[1]["response"] == "Custom answer"
+        assert call_args[1]["expected_response"] == "Custom expected"
+
+
+def test_guidelines_extraction_from_trace():
+    with patch("mlflow.genai.judges.meets_guidelines") as mock_meets_guidelines:
+        mock_meets_guidelines.return_value = Feedback(
+            name="guidelines", value=True, rationale="Follows guidelines"
+        )
+
+        trace = create_simple_trace()
+        scorer = Guidelines(guidelines=["Be helpful"])
+        result = scorer(trace=trace, inputs={"question": "Override question"})
+
+        assert result.name == "guidelines"
+        assert result.value is True
+        mock_meets_guidelines.assert_called_once()
+
+
+def test_relevance_extraction_from_trace():
+    with patch("mlflow.genai.judges.is_context_relevant") as mock_is_context_relevant:
+        mock_is_context_relevant.return_value = Feedback(
+            name="relevance_to_query", value="yes", rationale="Relevant"
+        )
+
+        trace = create_simple_trace()
+        scorer = RelevanceToQuery()
+        result = scorer(trace=trace, outputs="Override outputs")
+
+        assert result.name == "relevance_to_query"
+        assert result.value == "yes"
+        mock_is_context_relevant.assert_called_once()
+
+
+def test_relevance_mixed_override():
+    with patch("mlflow.genai.judges.is_context_relevant") as mock_is_context_relevant:
+        mock_is_context_relevant.return_value = Feedback(
+            name="relevance_to_query", value="yes", rationale="Relevant"
+        )
+
+        trace = create_simple_trace()
+        scorer = RelevanceToQuery()
+        result = scorer(trace=trace, inputs={"question": "New question"})
+
+        assert result.name == "relevance_to_query"
+        assert result.value == "yes"
+        mock_is_context_relevant.assert_called_once()
+        call_args = mock_is_context_relevant.call_args
+        assert call_args[1]["request"] == "{'question': 'New question'}"
+        assert call_args[1]["context"] == "MLflow is an open-source platform for ML lifecycle."
+
+
+def test_trace_extraction_with_fallback(trace_without_inputs_outputs):
+    with patch("mlflow.genai.scorers.builtin_scorers.invoke_judge_model") as mock_invoke_judge:
+        mock_invoke_judge.return_value = Feedback(
+            name="guidelines", value=True, rationale="Fallback used"
+        )
+
+        scorer = Guidelines(guidelines=["Be helpful"])
+        result = scorer(trace=trace_without_inputs_outputs)
+
+        assert result.name == "guidelines"
+        assert result.value is True
+        mock_invoke_judge.assert_called_once()
+
+        call_args = mock_invoke_judge.call_args
+        prompt_text = call_args[1]["prompt"]
+        assert '"trace_id"' in prompt_text
+        assert '"spans"' in prompt_text
+        assert "Be helpful" in prompt_text
+
+
+def test_trace_agent_mode_with_extra_fields(trace_with_only_inputs):
+    with patch("mlflow.genai.scorers.builtin_scorers.invoke_judge_model") as mock_invoke_judge:
+        mock_invoke_judge.return_value = Feedback(
+            name="safety", value="yes", rationale="Safe via trace"
+        )
+
+        scorer = Safety()
+        result = scorer(trace=trace_with_only_inputs)
+
+        assert result.name == "safety"
+        assert result.value == "yes"
+        mock_invoke_judge.assert_called_once()
+
+        call_args = mock_invoke_judge.call_args
+        prompt_text = call_args[1]["prompt"]
+        assert '"trace_id"' in prompt_text
+        assert "Test question" in prompt_text
+
+
+def test_pure_trace_mode_with_expectations(trace_with_only_outputs):
+    with patch("mlflow.genai.scorers.builtin_scorers.invoke_judge_model") as mock_invoke_judge:
+        mock_invoke_judge.return_value = Feedback(
+            name="correctness", value=True, rationale="Pure trace mode"
+        )
+
+        scorer = Correctness()
+        result = scorer(
+            trace=trace_with_only_outputs, expectations={"expected_response": "Expected answer"}
+        )
+
+        assert result.name == "correctness"
+        assert result.value is True
+        mock_invoke_judge.assert_called_once()
+
+        call_args = mock_invoke_judge.call_args
+        prompt_text = call_args[1]["prompt"]
+        assert "Expected answer" in prompt_text
+        assert '"expected_response"' in prompt_text
+
+
+def test_correctness_default_extracts_from_trace():
+    trace = create_simple_trace()
+
+    mlflow.log_expectation(
+        trace_id=trace.info.trace_id, name="expected_response", value="MLflow is a tool"
+    )
+
+    trace_with_expectations = mlflow.get_trace(trace.info.trace_id)
+
+    with patch("mlflow.genai.judges.is_correct") as mock_is_correct:
+        mock_is_correct.return_value = Feedback(
+            name="correctness", value=True, rationale="Extracted from trace"
+        )
+
+        scorer = Correctness()
+        result = scorer(trace=trace_with_expectations)
+
+        assert result.name == "correctness"
+        assert result.value is True
+        mock_is_correct.assert_called_once()
+
+
+def test_backwards_compatibility():
+    with patch("mlflow.genai.judges.meets_guidelines") as mock_meets_guidelines:
+        mock_meets_guidelines.return_value = Feedback(
+            name="guidelines", value=True, rationale="Compatible"
+        )
+
+        trace = create_simple_trace()
+        scorer = Guidelines(guidelines=["Be helpful"])
+        result = scorer(
+            inputs={"question": "What is MLflow?"}, outputs="MLflow is a platform", trace=trace
+        )
+
+        assert result.name == "guidelines"
+        assert result.value is True
+        mock_meets_guidelines.assert_called_once()
+
+
+def test_expectations_guidelines_with_trace():
+    with patch("mlflow.genai.judges.meets_guidelines") as mock_meets_guidelines:
+        mock_meets_guidelines.return_value = Feedback(
+            name="expectations_guidelines", value=True, rationale="Follows guidelines"
+        )
+
+        trace = create_simple_trace()
+        scorer = ExpectationsGuidelines()
+        result = scorer(trace=trace, expectations={"guidelines": ["Be helpful and concise"]})
+
+        assert result.name == "expectations_guidelines"
+        assert result.value is True
+        mock_meets_guidelines.assert_called_once()
+
+
+def test_expectations_guidelines_extraction_from_trace():
+    trace = create_simple_trace()
+
+    mlflow.log_expectation(
+        trace_id=trace.info.trace_id, name="guidelines", value=["Be helpful", "Be concise"]
+    )
+
+    trace_with_expectations = mlflow.get_trace(trace.info.trace_id)
+
+    with patch("mlflow.genai.judges.meets_guidelines") as mock_meets_guidelines:
+        mock_meets_guidelines.return_value = Feedback(
+            name="expectations_guidelines", value=True, rationale="Follows guidelines"
+        )
+
+        scorer = ExpectationsGuidelines()
+        result = scorer(trace=trace_with_expectations)
+
+        assert result.name == "expectations_guidelines"
+        assert result.value is True
+        mock_meets_guidelines.assert_called_once()
+        call_args = mock_meets_guidelines.call_args
+        assert call_args[1]["guidelines"] == ["Be helpful", "Be concise"]
+
+
+def test_expectations_guidelines_fallback_with_trace(trace_without_inputs_outputs):
+    with patch("mlflow.genai.scorers.builtin_scorers.invoke_judge_model") as mock_invoke_judge:
+        mock_invoke_judge.return_value = Feedback(
+            name="expectations_guidelines", value=True, rationale="Follows guidelines"
+        )
+
+        scorer = ExpectationsGuidelines()
+        result = scorer(
+            trace=trace_without_inputs_outputs, expectations={"guidelines": ["Be helpful"]}
+        )
+
+        assert result.name == "expectations_guidelines"
+        assert result.value is True
+
+        call_args = mock_invoke_judge.call_args
+        prompt_text = call_args[1]["prompt"]
+        assert '"trace_id"' in prompt_text
+        assert "Be helpful" in prompt_text
+        mock_invoke_judge.assert_called_once()
+
+
+def test_relevance_fallback_trace_serialization(trace_without_inputs_outputs):
+    with patch("mlflow.genai.scorers.builtin_scorers.invoke_judge_model") as mock_invoke_judge:
+        mock_invoke_judge.return_value = Feedback(
+            name="relevance_to_query", value=True, rationale="Fallback used"
+        )
+
+        scorer = RelevanceToQuery()
+        result = scorer(trace=trace_without_inputs_outputs)
+
+        assert result.name == "relevance_to_query"
+        assert result.value is True
+        mock_invoke_judge.assert_called_once()
+
+        call_args = mock_invoke_judge.call_args
+        prompt_text = call_args[1]["prompt"]
+        assert '"trace_id"' in prompt_text
+        assert '"spans"' in prompt_text
+        assert '"info"' in prompt_text
+
+
+def test_expectations_guidelines_mixed_override():
+    with patch("mlflow.genai.judges.meets_guidelines") as mock_meets_guidelines:
+        mock_meets_guidelines.return_value = Feedback(
+            name="expectations_guidelines", value=True, rationale="Follows guidelines"
+        )
+
+        trace = create_simple_trace()
+        scorer = ExpectationsGuidelines()
+        result = scorer(
+            trace=trace,
+            inputs={"question": "New question"},
+            expectations={"guidelines": ["Be helpful"]},
+        )
+
+        assert result.name == "expectations_guidelines"
+        assert result.value is True
+        mock_meets_guidelines.assert_called_once()
+        call_args = mock_meets_guidelines.call_args
+        assert call_args[1]["context"]["request"] == "{'question': 'New question'}"
+        expected_response = "MLflow is an open-source platform for ML lifecycle."
+        assert call_args[1]["context"]["response"] == expected_response
