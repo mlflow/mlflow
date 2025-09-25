@@ -13,7 +13,7 @@ function execWithOutput(cmd) {
 function getDaysAgo(days) {
   const date = new Date();
   date.setDate(date.getDate() - days);
-  return date.toISOString().replace(/\.\d{3}Z$/, "Z");
+  return date.toISOString().split("T")[0];
 }
 
 function getTimestamp() {
