@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import json
 import logging
 import os
@@ -31,6 +32,31 @@ class TransientError(RuntimeError):
         return self._origin_error
 
 
+@dataclass
+class JobFunctionMetadata:
+    fn_fullname: str
+    max_workers: int
+
+
+def job_function(max_workers: int):
+    """
+    The decorator for the custom job function.
+
+    Args:
+        max_workers: The maximum number of workers that are allowed to run the jobs
+            using this job function.
+    """
+
+    def decorator(fn):
+        fn._job_fn_metadata = JobFunctionMetadata(
+            fn_fullname=f"{fn.__module__}.{fn.__name__}",
+            max_workers=max_workers,
+        )
+        return fn
+
+    return decorator
+
+
 def submit_job(
     function: Callable[..., Any], params: dict[str, Any], timeout: float | None = None
 ) -> Job:
@@ -51,6 +77,8 @@ def submit_job(
             to configure maximum allowed retries for transient errors
             and set `MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY` to
             configure base retry delay in seconds.
+
+            The function must be decorated by `mlflow.server.jobs.job_function` decorator.
         params: The params to be passed to the job function.
         timeout: (optional) the job execution timeout, default None (no timeout)
 
