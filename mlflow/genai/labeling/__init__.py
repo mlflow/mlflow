@@ -8,13 +8,9 @@ The API docs can be found here:
 
 from typing import Any
 
+from mlflow.genai.labeling.constants import _ERROR_MSG
 from mlflow.genai.labeling.labeling import Agent, LabelingSession, ReviewApp
 from mlflow.genai.labeling.stores import _get_labeling_store
-
-_ERROR_MSG = (
-    "The `databricks-agents` package is required to use `mlflow.genai.labeling`. "
-    "Please install it with `pip install databricks-agents`."
-)
 
 
 def get_review_app(experiment_id: str | None = None) -> "ReviewApp":
