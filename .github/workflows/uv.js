@@ -68,7 +68,9 @@ module.exports = async ({ github, context }) => {
   // `--allow-empty` in case `uv.lock` is unchanged
   exec("git", ["commit", "-s", "--allow-empty", "-m", "Update uv.lock"]);
   // `--dry-run` to avoid actual push but verify it would succeed
-  exec("git", ["push", "--dry-run", "origin", branchName]);
+  const isPr = context.eventName === "pull_request";
+  const args = isPr ? ["--dry-run"] : [];
+  exec("git", ["push", ...args, "origin", branchName]);
 
   // Search for existing PR
   const PR_TITLE = "Update `uv.lock`";
@@ -78,7 +80,7 @@ module.exports = async ({ github, context }) => {
     per_page: 1,
   });
 
-  if (context.eventName === "pull_request") {
+  if (isPr) {
     console.log("In pull request mode, not pushing changes or creating a new PR");
     return;
   } else if (searchResults.total_count > 0) {
@@ -89,8 +91,7 @@ module.exports = async ({ github, context }) => {
     return;
   }
 
-  // Push branch and create PR
-  exec("git", ["push", "origin", branchName]);
+  // Create PR
   const runUrl = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
   const { data: pr } = await github.rest.pulls.create({
     owner,
