@@ -417,3 +417,102 @@ def create_minimal_trace(eval_item: "EvalItem") -> Trace:
             root_span.set_inputs(eval_item.inputs)
             root_span.set_outputs(eval_item.outputs)
         return mlflow.get_trace(root_span.trace_id)
+
+
+def safe_json_dumps(value: Any) -> str:
+    """Safely serialize a value to JSON, falling back to str() if JSON serialization fails."""
+    try:
+        return json.dumps(value, default=str, indent=2)
+    except Exception:
+        return str(value)
+
+
+def resolve_inputs_from_trace(inputs: Any | None, trace: Trace) -> Any | None:
+    """Extract inputs from trace if not provided."""
+    if inputs is None and trace is not None:
+        try:
+            return extract_inputs_from_trace(trace)
+        except Exception as e:
+            _logger.debug(f"Could not extract inputs from trace: {e}")
+    return inputs
+
+
+def resolve_outputs_from_trace(outputs: Any | None, trace: Trace) -> Any | None:
+    """Extract outputs from trace if not provided."""
+    if outputs is None and trace is not None:
+        try:
+            return extract_outputs_from_trace(trace)
+        except Exception as e:
+            _logger.debug(f"Could not extract outputs from trace: {e}")
+    return outputs
+
+
+def resolve_expectations_from_trace(
+    expectations: dict[str, Any] | None,
+    trace: Trace,
+    source: AssessmentSourceType = AssessmentSourceType.HUMAN,
+) -> dict[str, Any] | None:
+    """Extract expectations from trace if not provided."""
+    if expectations is None and trace is not None:
+        try:
+            return extract_expectations_from_trace(trace, source=source)
+        except Exception as e:
+            _logger.debug(f"Could not extract expectations from trace: {e}")
+    return expectations
+
+
+def extract_fields_from_trace_if_needed(
+    trace: Trace | None,
+    inputs: Any | None,
+    outputs: Any | None,
+    expectations: dict[str, Any] | None,
+) -> tuple[Any | None, Any | None, dict[str, Any] | None]:
+    """Extract missing field values from trace if provided."""
+    if trace is None:
+        return inputs, outputs, expectations
+
+    inputs = resolve_inputs_from_trace(inputs, trace)
+    outputs = resolve_outputs_from_trace(outputs, trace)
+    expectations = resolve_expectations_from_trace(expectations, trace)
+
+    return inputs, outputs, expectations
+
+
+def is_trace_based_evaluation(
+    trace: Trace | None = None,
+    inputs: Any | None = None,
+    outputs: Any | None = None,
+    expectations: dict[str, Any] | None = None,
+) -> bool:
+    """
+    Determine if trace-based evaluation should be used.
+
+    Returns True only if trace is provided and no other fields are provided.
+    This ensures that empty values (empty dict, empty string) trigger field-based mode.
+    """
+    return trace is not None and inputs is None and outputs is None and expectations is None
+
+
+def build_user_message_from_fields(
+    inputs: Any | None = None,
+    outputs: Any | None = None,
+    expectations: dict[str, Any] | None = None,
+    **kwargs,
+) -> str:
+    """Build user message from field values for trace or field-based evaluation."""
+    user_message_parts = []
+
+    if inputs is not None:
+        user_message_parts.append(f"inputs: {safe_json_dumps(inputs)}")
+
+    if outputs is not None:
+        user_message_parts.append(f"outputs: {safe_json_dumps(outputs)}")
+
+    if expectations is not None:
+        user_message_parts.append(f"expectations: {safe_json_dumps(expectations)}")
+
+    for key, value in kwargs.items():
+        if value is not None:
+            user_message_parts.append(f"{key}: {safe_json_dumps(value)}")
+
+    return "\n".join(user_message_parts) if user_message_parts else ""

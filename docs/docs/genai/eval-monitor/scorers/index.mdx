@@ -12,10 +12,11 @@ Scorers can be considered as **metrics** in the traditional ML sense. However, t
 
 ## Key Features of MLflow Scorers
 
-MLflow scorers have two powerful capabilities that distinguish them from traditional metrics:
+MLflow scorers have powerful capabilities that distinguish them from traditional metrics:
 
 1. **Agent-as-a-Judge Evaluation**: Scorers can act as autonomous agents with tool-calling capabilities, enabling deep analysis of execution traces and multi-step workflows
 2. **Human Preference Alignment**: Scorers can be automatically aligned with human feedback to improve their accuracy and match your domain-specific quality standards
+3. **Universal Trace Support** (MLflow >= 3.5.0): All predefined scorers support trace-based evaluation with automatic field extraction or agent-based analysis modes
 
 ## How scorers work
 
@@ -49,12 +50,12 @@ Not all scorers work with static datasets. Some scorers are designed specificall
 
 ### Scorer Compatibility Matrix
 
-| Scorer Category              | Trace Required                | Example Scorers                                                             |
-| ---------------------------- | ----------------------------- | --------------------------------------------------------------------------- |
-| **Field-based Scorers**      | ❌ No                         | `Correctness`, `RelevanceToQuery`, `Safety`, custom scorers using `@scorer` |
-| **Agent-as-a-Judge Scorers** | ✅ Yes                        | Scorers analyzing execution flow, tool usage patterns, span attributes      |
-| **Retrieval Scorers**        | ✅ Yes (with RETRIEVER spans) | `RetrievalGroundedness`, `RetrievalRelevance`, `RetrievalSufficiency`       |
-| **Agent-as-a-Judge**         | ✅ Yes                        | Custom judges analyzing multi-step workflows, agent reasoning, performance  |
+| Scorer Category                    | Trace Required                | Example Scorers                                                             | MLflow >= 3.5.0 Enhancement                     |
+| ---------------------------------- | ----------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------- |
+| **Field-based Scorers**            | ❌ No                         | `Correctness`, `RelevanceToQuery`, `Safety`, custom scorers using `@scorer` | ✅ Now support trace field extraction           |
+| **Predefined Scorers with Traces** | 🔄 Optional                   | All predefined scorers with automatic mode detection                        | ✅ Automatic field extraction or trace analysis |
+| **Retrieval Scorers**              | ✅ Yes (with RETRIEVER spans) | `RetrievalGroundedness`, `RetrievalRelevance`, `RetrievalSufficiency`       | Require RETRIEVER spans                         |
+| **Custom Agent-as-a-Judge**        | ✅ Yes                        | Custom judges analyzing multi-step workflows, agent reasoning, performance  | Use `make_judge()` with trace template variable |
 
 ### Working with Traces
 

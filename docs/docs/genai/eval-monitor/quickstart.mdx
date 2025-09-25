@@ -87,7 +87,9 @@ The dataset can be a list of dictionaries, a pandas DataFrame, a spark DataFrame
 
 :::note[Static Data vs Traces]
 
-This quickstart uses static evaluation data. Some advanced scorers (like retrieval or agent behavior scorers) require execution traces and won't work with static datasets. See the [Scorer Data Requirements](/genai/eval-monitor/scorers#scorer-data-requirements) for details.
+This quickstart uses static evaluation data. Some advanced scorers (like retrieval or agent behavior scorers) require execution traces and won't work with static datasets.
+
+**MLflow >= 3.5.0:** All predefined scorers support trace-based evaluation with automatic mode detection! Scorers automatically choose between field extraction and deep trace analysis based on the arguments you provide. See [Trace Support](/genai/eval-monitor/scorers/llm-judge/predefined#trace-support) for details.
 
 :::
 

@@ -8,6 +8,10 @@ import { Hammer, Bot, GitBranch } from "lucide-react";
 
 MLflow provides several pre-configured LLM judge scorers optimized for common evaluation scenarios.
 
+:::info Trace Support Available
+In MLflow >= 3.5.0, all predefined scorers support trace-based evaluation! You can pass traces directly to scorers for automatic field extraction or enable agent-based analysis for deeper insights. See [Trace Support](#trace-support) below.
+:::
+
 :::tip
 
 Typically, you can get started with evaluation using predefined scorers. However, every AI application is unique and has domain-specific quality criteria. At some point, you'll need to create your own custom LLM scorers.
@@ -82,6 +86,55 @@ results = mlflow.genai.evaluate(
 :::note Availability
 Safety and RetrievalRelevance scorers are currently only available in [Databricks managed MLflow](https://docs.databricks.com/mlflow3/genai/eval-monitor/) and will be open-sourced soon.
 :::
+
+## Trace Support
+
+**Available in MLflow >= 3.5.0:** All predefined scorers support enhanced trace-based evaluation with two modes:
+
+The behavior automatically adapts based on what you provide:
+
+### Field Extraction Mode
+
+When you provide a trace along with other fields, or when fields can be extracted:
+
+```python
+from mlflow.genai.scorers import Correctness
+
+# Mixed: trace + explicit expectations
+scorer = Correctness()
+trace = mlflow.get_trace("<your-trace-id>")
+result = scorer(
+    trace=trace, expectations={"expected_facts": ["fact1", "fact2"]}
+)  # Extracts inputs/outputs from trace, uses provided expectations
+
+# Pure field-based (traditional approach)
+result = scorer(
+    inputs={"question": "What is 2+2?"},
+    outputs="4",
+    expectations={"expected_response": "4"},
+)
+```
+
+### Trace-Based Analysis Mode
+
+When you provide only a trace (no other fields), uses deep trace analysis:
+
+```python
+from mlflow.genai.scorers import Correctness
+
+# Pure trace-based evaluation
+scorer = Correctness()
+trace = mlflow.get_trace("<your-trace-id>")
+result = scorer(trace=trace)  # Uses judge with trace analysis tools
+```
+
+:::info Automatic Mode Detection
+The scorer automatically determines the evaluation approach:
+
+- **Pure trace**: `scorer(trace=my_trace)` → Uses trace-based judge with analysis tools
+- **Mixed**: `scorer(trace=my_trace, expectations=...)` → Extracts fields from trace, uses field-based evaluation
+- **Traditional**: `scorer(inputs=..., outputs=..., expectations=...)` → Standard field-based evaluation
+  :::
 
 :::warning[Retrieval Scorers Require Traces]
 

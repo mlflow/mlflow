@@ -13,6 +13,16 @@ import ServerSetup from "@site/src/content/setup_server.mdx";
 
 [Traces](/genai/tracing) are the core data of MLflow. They capture the complete execution flow of your LLM applications. Evaluating traces is a powerful way to understand the performance of your LLM applications and get insights for quality improvement.
 
+:::info Enhanced Trace Support
+In MLflow >= 3.5.0, all predefined scorers support enhanced trace evaluation! You can:
+
+- **Pass traces directly** to any scorer for automatic field extraction from root spans
+- **Enable agent mode** (`enable_trace_agent=True`) for deep analysis of intermediate spans
+- **Combine traces with static data** for hybrid evaluation workflows
+
+See the examples below for how to leverage these capabilities.
+:::
+
 Evaluating traces is also a useful trick for offline evaluation. Instead of running prediction on every evaluation run, you can generate traces at once and re-use them for multiple evaluation runs, to reduce the computation and LLM costs.
 
 <ImageBox src="/images/mlflow-3/eval-monitor/trace-evaluation-hero.png" alt="Evaluate traces overview" width="95%"/>
@@ -232,6 +242,40 @@ email_scorers = [
     ),
 ]
 ```
+
+#### Advanced: Deep Trace Analysis (MLflow >= 3.5.0)
+
+For comprehensive trace analysis, use scorers with only traces (no other fields) to enable deep analysis:
+
+```python
+from mlflow.genai.scorers import Correctness, RelevanceToQuery
+
+# Pure trace-based evaluation - uses judge with analysis tools
+trace_scorers = [
+    Correctness(),  # Will use deep trace analysis when called with trace only
+    RelevanceToQuery(),  # Same automatic behavior
+]
+
+# In evaluation, pass traces without other fields for deep analysis
+results = mlflow.genai.evaluate(
+    data=traces,  # DataFrame with trace column
+    scorers=trace_scorers,  # Will automatically use trace analysis mode
+)
+
+# Or manually trigger trace analysis mode:
+trace = mlflow.get_trace("your-trace-id")
+result = Correctness()(
+    trace=trace
+)  # Pure trace analysis - no inputs/outputs/expectations
+```
+
+:::info Automatic Mode Selection
+Scorers automatically choose the evaluation approach:
+
+- **Deep trace analysis**: When only trace is provided
+- **Field extraction**: When trace + other fields are provided
+- **Traditional**: When inputs/outputs/expectations are provided without trace
+  :::
 
 :::tip Scoring Intermediate Information in Traces
 

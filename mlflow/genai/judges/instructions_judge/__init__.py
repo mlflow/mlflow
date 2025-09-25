@@ -1,4 +1,3 @@
-import json
 import logging
 from dataclasses import asdict
 from typing import Any
@@ -28,9 +27,10 @@ from mlflow.genai.scorers.base import (
     SerializedScorer,
 )
 from mlflow.genai.utils.trace_utils import (
-    extract_expectations_from_trace,
-    extract_inputs_from_trace,
-    extract_outputs_from_trace,
+    resolve_expectations_from_trace,
+    resolve_inputs_from_trace,
+    resolve_outputs_from_trace,
+    safe_json_dumps,
 )
 from mlflow.prompt.constants import PROMPT_TEMPLATE_VARIABLE_PATTERN, PROMPT_TEXT_DISPLAY_LIMIT
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -238,24 +238,26 @@ class InstructionsJudge(Judge):
 
     def _resolve_inputs_from_trace(self, inputs: Any | None, trace: Trace) -> Any | None:
         """Extract inputs from trace if not provided and template requires it."""
-        if inputs is None and self._TEMPLATE_VARIABLE_INPUTS in self.template_variables:
-            return extract_inputs_from_trace(trace)
+        if self._TEMPLATE_VARIABLE_INPUTS in self.template_variables:
+            return resolve_inputs_from_trace(inputs, trace)
         return inputs
 
     def _resolve_outputs_from_trace(self, outputs: Any | None, trace: Trace) -> Any | None:
         """Extract outputs from trace if not provided and template requires it."""
-        if outputs is None and self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables:
-            return extract_outputs_from_trace(trace)
+        if self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables:
+            return resolve_outputs_from_trace(outputs, trace)
         return outputs
 
     def _resolve_expectations_from_trace(
         self, expectations: dict[str, Any] | None, trace: Trace
     ) -> dict[str, Any] | None:
         """Extract human expectations from trace if not provided and template requires it."""
-        if expectations is None and self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables:
+        if self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables:
             from mlflow.entities.assessment_source import AssessmentSourceType
 
-            return extract_expectations_from_trace(trace, source=AssessmentSourceType.HUMAN)
+            return resolve_expectations_from_trace(
+                expectations, trace, source=AssessmentSourceType.HUMAN
+            )
         return expectations
 
     def _build_system_message(self, is_trace_based: bool) -> str:
@@ -305,27 +307,18 @@ class InstructionsJudge(Judge):
         template_values = {}
 
         if inputs is not None and self._TEMPLATE_VARIABLE_INPUTS in self.template_variables:
-            template_values[self._TEMPLATE_VARIABLE_INPUTS] = self._safe_json_dumps(inputs)
+            template_values[self._TEMPLATE_VARIABLE_INPUTS] = safe_json_dumps(inputs)
 
         if outputs is not None and self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables:
-            template_values[self._TEMPLATE_VARIABLE_OUTPUTS] = self._safe_json_dumps(outputs)
+            template_values[self._TEMPLATE_VARIABLE_OUTPUTS] = safe_json_dumps(outputs)
 
         if (
             expectations is not None
             and self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables
         ):
-            template_values[self._TEMPLATE_VARIABLE_EXPECTATIONS] = self._safe_json_dumps(
-                expectations
-            )
+            template_values[self._TEMPLATE_VARIABLE_EXPECTATIONS] = safe_json_dumps(expectations)
 
         return template_values
-
-    def _safe_json_dumps(self, value: Any) -> str:
-        """Safely serialize a value to JSON, falling back to str() if JSON serialization fails."""
-        try:
-            return json.dumps(value, default=str, indent=2)
-        except Exception:
-            return str(value)
 
     def __call__(
         self,
@@ -339,26 +332,27 @@ class InstructionsJudge(Judge):
         Evaluate the provided data using the judge's instructions.
 
         Args:
-            inputs: Input data to evaluate. If not provided and a trace is given,
-                will be extracted from the trace's root span inputs.
-            outputs: Output data to evaluate. If not provided and a trace is given,
-                will be extracted from the trace's root span outputs.
-            expectations: Expected outcomes or ground truth. If not provided and a trace is given,
+            inputs: Input data to evaluate. If provided, this value is used. If not provided
+                but trace is given and template requires {{ inputs }}, will be extracted from
+                the trace's root span inputs.
+            outputs: Output data to evaluate. If provided, this value is used. If not provided
+                but trace is given and template requires {{ outputs }}, will be extracted from
+                the trace's root span outputs.
+            expectations: Expected outcomes or ground truth. If provided, this value is used.
+                If not provided but trace is given and template requires {{ expectations }},
                 will be extracted from the trace's expectation assessments.
-            trace: Trace object for evaluation. When the template uses {{ inputs }}, {{ outputs }},
-                or {{ expectations }}, the values will be extracted from the trace.
+            trace: Trace object for evaluation. Serves as a fallback source for missing fields
+                that are required by the template variables.
 
         Returns:
             Evaluation results
 
         **Note on Trace Behavior**:
         - If template uses {{ trace }}: The trace metadata is used by an agent-based judge that uses
-          tools to fetch aspects of the trace's span data. If inputs/outputs/expectations are also
-          provided, they can augment the agent's context if the template has corresponding
-          placeholders ({{ inputs }}/{{ outputs }}/{{ expectations }}). The agent will still use
-          tools to fetch span data but will have this additional context in the user prompt.
+          tools to fetch aspects of the trace's span data. Any provided inputs/outputs/expectations
+          augment the agent's context if the template has corresponding placeholders.
         - If template uses {{ inputs }}/{{ outputs }}/{{ expectations }} without {{ trace }}:
-          Values are extracted from the trace, if specified, as follows:
+          Missing values are extracted from the trace (if provided) as follows:
           - inputs/outputs: From the trace's root span
           - expectations: From the trace's human-set expectation assessments (ground truth only)
 
