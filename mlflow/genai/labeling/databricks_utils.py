@@ -8,7 +8,7 @@ _ERROR_MSG = (
 )
 
 
-def get_review_app(experiment_id: str | None = None):
+def get_databricks_review_app(experiment_id: str | None = None):
     """Import databricks.agents.review_app and return a review app instance."""
     try:
         from databricks.agents import review_app
