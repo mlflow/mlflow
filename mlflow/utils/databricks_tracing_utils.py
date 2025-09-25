@@ -1,7 +1,7 @@
 from google.protobuf.duration_pb2 import Duration
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from mlflow.entities import Span, Trace, TraceData, TraceInfo, TraceState
+from mlflow.entities import Span, Trace, TraceData, TraceInfo
 from mlflow.entities.trace_info_v2 import _truncate_request_metadata, _truncate_tags
 from mlflow.entities.trace_location import (
     InferenceTableLocation,
@@ -93,10 +93,6 @@ def trace_location_from_proto(proto: pb.TraceLocation) -> TraceLocation:
         return TraceLocation(type=type_)
 
 
-def trace_state_to_proto(trace_state: TraceState) -> pb.TraceInfo.State:
-    return pb.TraceInfo.State.Value(trace_state)
-
-
 def trace_info_to_proto(trace_info: TraceInfo) -> pb.TraceInfo:
     request_time = Timestamp()
     request_time.FromMilliseconds(trace_info.request_time)
@@ -118,7 +114,7 @@ def trace_info_to_proto(trace_info: TraceInfo) -> pb.TraceInfo:
         response_preview=trace_info.response_preview,
         request_time=request_time,
         execution_duration=execution_duration,
-        state=trace_state_to_proto(trace_info.state),
+        state=pb.TraceInfo.State.Value(trace_info.state),
         trace_metadata=_truncate_request_metadata(trace_info.trace_metadata),
         tags=_truncate_tags(trace_info.tags),
         # TODO: update once assessment proto is updated

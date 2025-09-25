@@ -19,7 +19,6 @@ from mlflow.utils.databricks_tracing_utils import (
     trace_location_from_databricks_uc_schema,
     trace_location_from_proto,
     trace_location_to_proto,
-    trace_state_to_proto,
     trace_to_proto,
     uc_schema_location_to_proto,
 )
@@ -130,11 +129,6 @@ def test_trace_location_from_proto_inference_table():
     assert trace_location.inference_table.full_table_name == "test_catalog.test_schema.test_table"
 
 
-def test_trace_state_to_proto():
-    proto = trace_state_to_proto(TraceState.OK)
-    assert proto == pb.TraceInfo.State.OK
-
-
 def test_trace_info_to_proto():
     otel_trace_id = "2efb31387ff19263f92b2c0a61b0a8bc"
     trace_id = f"trace:/catalog.schema/{otel_trace_id}"
@@ -159,7 +153,7 @@ def test_trace_info_to_proto():
     assert proto_trace_info.response_preview == "response"
     assert proto_trace_info.client_request_id == "client_request_id"
     assert proto_trace_info.tags == {"key": "value"}
-    assert proto_trace_info.assessments == []
+    assert len(proto_trace_info.assessments) == 0
 
     trace_info_from_proto = TraceInfo.from_proto(proto_trace_info)
     assert trace_info_from_proto == trace_info

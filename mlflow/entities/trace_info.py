@@ -127,6 +127,8 @@ class TraceInfo(_MlflowObject):
 
             return TraceInfoV2.from_proto(proto).to_v3()
 
+        # import inside the function to avoid introducing top-level dependency on
+        # mlflow.tracing.utils in entities module
         from mlflow.tracing.utils import construct_trace_id_v4
 
         trace_location = TraceLocation.from_proto(proto.trace_location)
