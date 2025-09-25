@@ -69,11 +69,6 @@ class UCSchemaLocation(_MlflowObject):
     catalog_name: str
     schema_name: str
 
-    def to_proto(self):
-        return pb.TraceLocation.UCSchemaLocation(
-            catalog_name=self.catalog_name, schema_name=self.schema_name
-        )
-
     @classmethod
     def from_proto(cls, proto) -> "UCSchemaLocation":
         return cls(catalog_name=proto.catalog_name, schema_name=proto.schema_name)
@@ -167,7 +162,7 @@ class TraceLocation(_MlflowObject):
             uc_schema=(UCSchemaLocation.from_dict(v) if (v := d.get("uc_schema")) else None),
         )
 
-    def to_proto(self):
+    def to_proto(self) -> pb.TraceLocation:
         if self.mlflow_experiment:
             return pb.TraceLocation(
                 type=self.type.to_proto(),
@@ -178,11 +173,8 @@ class TraceLocation(_MlflowObject):
                 type=self.type.to_proto(),
                 inference_table=self.inference_table.to_proto(),
             )
-        elif self.uc_schema:
-            return pb.TraceLocation(
-                type=self.type.to_proto(),
-                uc_schema=self.uc_schema.to_proto(),
-            )
+        # uc schema is not supported in to_proto since it's databricks specific, should use
+        # databricks_service_utils to convert to proto
         else:
             return pb.TraceLocation(type=self.type.to_proto())
 

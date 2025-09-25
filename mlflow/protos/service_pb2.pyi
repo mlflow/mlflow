@@ -2,6 +2,7 @@ from scalapb import scalapb_pb2 as _scalapb_pb2
 import databricks_pb2 as _databricks_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
+from google.protobuf import struct_pb2 as _struct_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 import assessments_pb2 as _assessments_pb2
 import datasets_pb2 as _datasets_pb2
@@ -1007,17 +1008,15 @@ class Trace(_message.Message):
     def __init__(self, trace_info: _Optional[_Union[TraceInfoV3, _Mapping]] = ...) -> None: ...
 
 class TraceLocation(_message.Message):
-    __slots__ = ("type", "mlflow_experiment", "inference_table", "uc_schema")
+    __slots__ = ("type", "mlflow_experiment", "inference_table")
     class TraceLocationType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         TRACE_LOCATION_TYPE_UNSPECIFIED: _ClassVar[TraceLocation.TraceLocationType]
         MLFLOW_EXPERIMENT: _ClassVar[TraceLocation.TraceLocationType]
         INFERENCE_TABLE: _ClassVar[TraceLocation.TraceLocationType]
-        UC_SCHEMA: _ClassVar[TraceLocation.TraceLocationType]
     TRACE_LOCATION_TYPE_UNSPECIFIED: TraceLocation.TraceLocationType
     MLFLOW_EXPERIMENT: TraceLocation.TraceLocationType
     INFERENCE_TABLE: TraceLocation.TraceLocationType
-    UC_SCHEMA: TraceLocation.TraceLocationType
     class MlflowExperimentLocation(_message.Message):
         __slots__ = ("experiment_id",)
         EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -1028,22 +1027,13 @@ class TraceLocation(_message.Message):
         FULL_TABLE_NAME_FIELD_NUMBER: _ClassVar[int]
         full_table_name: str
         def __init__(self, full_table_name: _Optional[str] = ...) -> None: ...
-    class UCSchemaLocation(_message.Message):
-        __slots__ = ("catalog_name", "schema_name")
-        CATALOG_NAME_FIELD_NUMBER: _ClassVar[int]
-        SCHEMA_NAME_FIELD_NUMBER: _ClassVar[int]
-        catalog_name: str
-        schema_name: str
-        def __init__(self, catalog_name: _Optional[str] = ..., schema_name: _Optional[str] = ...) -> None: ...
     TYPE_FIELD_NUMBER: _ClassVar[int]
     MLFLOW_EXPERIMENT_FIELD_NUMBER: _ClassVar[int]
     INFERENCE_TABLE_FIELD_NUMBER: _ClassVar[int]
-    UC_SCHEMA_FIELD_NUMBER: _ClassVar[int]
     type: TraceLocation.TraceLocationType
     mlflow_experiment: TraceLocation.MlflowExperimentLocation
     inference_table: TraceLocation.InferenceTableLocation
-    uc_schema: TraceLocation.UCSchemaLocation
-    def __init__(self, type: _Optional[_Union[TraceLocation.TraceLocationType, str]] = ..., mlflow_experiment: _Optional[_Union[TraceLocation.MlflowExperimentLocation, _Mapping]] = ..., inference_table: _Optional[_Union[TraceLocation.InferenceTableLocation, _Mapping]] = ..., uc_schema: _Optional[_Union[TraceLocation.UCSchemaLocation, _Mapping]] = ...) -> None: ...
+    def __init__(self, type: _Optional[_Union[TraceLocation.TraceLocationType, str]] = ..., mlflow_experiment: _Optional[_Union[TraceLocation.MlflowExperimentLocation, _Mapping]] = ..., inference_table: _Optional[_Union[TraceLocation.InferenceTableLocation, _Mapping]] = ...) -> None: ...
 
 class TraceInfoV3(_message.Message):
     __slots__ = ("trace_id", "client_request_id", "trace_location", "request", "response", "request_preview", "response_preview", "request_time", "execution_duration", "state", "trace_metadata", "assessments", "tags")

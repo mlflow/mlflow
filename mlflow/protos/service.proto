@@ -6,6 +6,7 @@ import "scalapb/scalapb.proto";
 import "databricks.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/field_mask.proto";
+import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 import "assessments.proto";
 import "datasets.proto";
@@ -624,6 +625,7 @@ service MlflowService {
       rpc_doc_title: "Get TraceInfo v4",
     };
   }
+
 
   // DEPRECATED. Use searchTracesV3 instead.
   rpc searchTraces (SearchTraces) returns (SearchTraces.Response) {
@@ -2183,6 +2185,7 @@ message GetTraceInfoV4 {
 
 }
 
+
 message SearchTraces {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
@@ -2465,7 +2468,6 @@ message TraceLocation {
     TRACE_LOCATION_TYPE_UNSPECIFIED = 0;
     MLFLOW_EXPERIMENT = 1;
     INFERENCE_TABLE = 2;
-    UC_SCHEMA = 3;
   }
   optional TraceLocationType type = 1;
 
@@ -2479,15 +2481,9 @@ message TraceLocation {
     optional string full_table_name = 1;
   }
 
-  message UCSchemaLocation {
-    optional string catalog_name = 1;
-    optional string schema_name = 2;
-  }
-
   oneof identifier {
     MlflowExperimentLocation mlflow_experiment = 2;
     InferenceTableLocation inference_table = 3;
-    UCSchemaLocation uc_schema = 4;
   }
 }
 
@@ -2569,6 +2565,7 @@ message StartTraceV3 {
     optional Trace trace = 1;
   }
 }
+
 
 message LinkTracesToRun {
   // IDs of the traces to link to the run.
