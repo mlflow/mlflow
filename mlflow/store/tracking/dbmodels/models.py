@@ -2069,6 +2069,22 @@ class SqlLabelingSession(Base):
         Convert DB model to corresponding MLflow entity.
 
         Returns:
-            Placeholder for future LabelingSession entity implementation.
+            mlflow.genai.labeling.labeling.LabelingSession: The MLflow LabelingSession entity.
         """
-        # Placeholder for future implementation when LabelingSession entity is created
+        from mlflow.genai.labeling.labeling import LabelingSession
+
+        # Fields not stored in DB yet: assigned_users, agent, label_schemas,
+        # review_app_id, url, enable_multi_turn_chat, custom_inputs
+        return LabelingSession(
+            name=self.name,
+            assigned_users=[],
+            agent=None,
+            label_schemas=[],
+            labeling_session_id=self.labeling_session_id,
+            mlflow_run_id=self.mlflow_run_id,
+            review_app_id=None,
+            experiment_id=str(self.experiment_id) if self.experiment_id else None,
+            url=None,
+            enable_multi_turn_chat=False,
+            custom_inputs=None,
+        )
