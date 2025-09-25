@@ -2032,14 +2032,14 @@ class SqlLabelingSession(Base):
     Labeling Session name: `String` (limit 500 characters).
     """
     mlflow_run_id = Column(
-        String(32), ForeignKey("runs.run_uuid", onupdate="cascade"), nullable=True
+        String(32), ForeignKey("runs.run_uuid", onupdate="cascade"), nullable=False
     )
     """
     MLflow Run ID associated with this labeling session: `String` (limit 32 characters).
     Foreign key to ``runs.run_uuid``.
     """
     experiment_id = Column(
-        Integer, ForeignKey("experiments.experiment_id", onupdate="cascade"), nullable=True
+        Integer, ForeignKey("experiments.experiment_id", onupdate="cascade"), nullable=False
     )
     """
     Experiment ID associated with this labeling session: `Integer`.
@@ -2083,7 +2083,7 @@ class SqlLabelingSession(Base):
             labeling_session_id=self.labeling_session_id,
             mlflow_run_id=self.mlflow_run_id,
             review_app_id=None,
-            experiment_id=str(self.experiment_id) if self.experiment_id else None,
+            experiment_id=str(self.experiment_id),
             url=None,
             enable_multi_turn_chat=False,
             custom_inputs=None,
