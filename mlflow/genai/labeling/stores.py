@@ -154,6 +154,66 @@ class AbstractLabelingStore(metaclass=ABCMeta):
             name: The name of the label schema to delete.
         """
 
+    @abstractmethod
+    def add_dataset_to_session(
+        self,
+        labeling_session: LabelingSession,
+        dataset_name: str,
+        record_ids: list[str] | None = None,
+    ) -> LabelingSession:
+        """
+        Add a dataset to a labeling session.
+
+        Args:
+            labeling_session: The labeling session to add the dataset to.
+            dataset_name: The name of the dataset.
+            record_ids: Optional. The individual record ids to be added to the session.
+
+        Returns:
+            LabelingSession: The updated labeling session.
+        """
+
+    @abstractmethod
+    def add_traces_to_session(
+        self, labeling_session: LabelingSession, traces: Any
+    ) -> LabelingSession:
+        """
+        Add traces to a labeling session.
+
+        Args:
+            labeling_session: The labeling session to add traces to.
+            traces: Can be either a pandas DataFrame, iterable of Trace objects,
+                or iterable of strings.
+
+        Returns:
+            LabelingSession: The updated labeling session.
+        """
+
+    @abstractmethod
+    def sync_session_expectations(self, labeling_session: LabelingSession, to_dataset: str) -> None:
+        """
+        Sync traces and expectations from a labeling session to a dataset.
+
+        Args:
+            labeling_session: The labeling session to sync.
+            to_dataset: The name of the dataset to sync traces and expectations to.
+        """
+
+    @abstractmethod
+    def set_session_assigned_users(
+        self, labeling_session: LabelingSession, assigned_users: list[str]
+    ) -> LabelingSession:
+        """
+        Set the assigned users for a labeling session.
+
+        Args:
+            labeling_session: The labeling session to update.
+            assigned_users: The list of users to assign to the session.
+
+        Returns:
+            LabelingSession: The updated labeling session.
+        """
+
 
 class LabelingStoreRegistry:
     """
@@ -253,7 +313,7 @@ class DatabricksLabelingStore(AbstractLabelingStore):
             raise ImportError(_ERROR_MSG) from e
 
         sessions = _get_review_app(experiment_id).get_labeling_sessions()
-        return [LabelingSession(session) for session in sessions]
+        return [LabelingSession._from_backend_session(session) for session in sessions]
 
     def create_labeling_session(
         self,
@@ -272,16 +332,15 @@ class DatabricksLabelingStore(AbstractLabelingStore):
         except ImportError as e:
             raise ImportError(_ERROR_MSG) from e
 
-        return LabelingSession(
-            _get_review_app(experiment_id).create_labeling_session(
-                name=name,
-                assigned_users=assigned_users or [],
-                agent=agent,
-                label_schemas=label_schemas or [],
-                enable_multi_turn_chat=enable_multi_turn_chat,
-                custom_inputs=custom_inputs,
-            )
+        backend_session = _get_review_app(experiment_id).create_labeling_session(
+            name=name,
+            assigned_users=assigned_users or [],
+            agent=agent,
+            label_schemas=label_schemas or [],
+            enable_multi_turn_chat=enable_multi_turn_chat,
+            custom_inputs=custom_inputs,
         )
+        return LabelingSession._from_backend_session(backend_session)
 
     def delete_labeling_session(self, labeling_session: LabelingSession) -> None:
         """Delete a labeling session."""
@@ -290,7 +349,10 @@ class DatabricksLabelingStore(AbstractLabelingStore):
         except ImportError as e:
             raise ImportError(_ERROR_MSG) from e
 
-        _get_review_app().delete_labeling_session(labeling_session._session)
+        if labeling_session._backend_session is None:
+            raise RuntimeError("Backend session is not available for this operation")
+
+        _get_review_app().delete_labeling_session(labeling_session._backend_session)
 
     def get_label_schema(self, name: str) -> LabelSchema:
         """Get a label schema by name."""
@@ -345,6 +407,46 @@ class DatabricksLabelingStore(AbstractLabelingStore):
 
         app = review_app.get_review_app()
         app.delete_label_schema(name)
+
+    def add_dataset_to_session(
+        self,
+        labeling_session: LabelingSession,
+        dataset_name: str,
+        record_ids: list[str] | None = None,
+    ) -> LabelingSession:
+        """Add a dataset to a labeling session."""
+        if labeling_session._backend_session is None:
+            raise RuntimeError("Backend session is not available for this operation")
+
+        updated_session = labeling_session._backend_session.add_dataset(dataset_name, record_ids)
+        return LabelingSession._from_backend_session(updated_session)
+
+    def add_traces_to_session(
+        self, labeling_session: LabelingSession, traces: Any
+    ) -> LabelingSession:
+        """Add traces to a labeling session."""
+        if labeling_session._backend_session is None:
+            raise RuntimeError("Backend session is not available for this operation")
+
+        updated_session = labeling_session._backend_session.add_traces(traces)
+        return LabelingSession._from_backend_session(updated_session)
+
+    def sync_session_expectations(self, labeling_session: LabelingSession, to_dataset: str) -> None:
+        """Sync traces and expectations from a labeling session to a dataset."""
+        if labeling_session._backend_session is None:
+            raise RuntimeError("Backend session is not available for this operation")
+
+        labeling_session._backend_session.sync_expectations(to_dataset)
+
+    def set_session_assigned_users(
+        self, labeling_session: LabelingSession, assigned_users: list[str]
+    ) -> LabelingSession:
+        """Set the assigned users for a labeling session."""
+        if labeling_session._backend_session is None:
+            raise RuntimeError("Backend session is not available for this operation")
+
+        updated_session = labeling_session._backend_session.set_assigned_users(assigned_users)
+        return LabelingSession._from_backend_session(updated_session)
 
 
 # Create the global labeling store registry instance

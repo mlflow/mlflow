@@ -5,9 +5,6 @@ from mlflow.entities import Trace
 if TYPE_CHECKING:
     import pandas as pd
     from databricks.agents.review_app import (
-        LabelingSession as _LabelingSession,
-    )
-    from databricks.agents.review_app import (
         LabelSchema as _LabelSchema,
     )
     from databricks.agents.review_app import (
@@ -46,63 +43,90 @@ class LabelingSession:
         `pip install mlflow[databricks]` to use it.
     """
 
-    def __init__(self, session: "_LabelingSession"):
-        self._session = session
+    def __init__(
+        self,
+        *,
+        name: str,
+        assigned_users: list[str],
+        agent: str | None,
+        label_schemas: list[str],
+        labeling_session_id: str,
+        mlflow_run_id: str,
+        review_app_id: str,
+        experiment_id: str,
+        url: str,
+        enable_multi_turn_chat: bool,
+        custom_inputs: dict[str, Any] | None,
+        _backend_session: Any = None,
+    ):
+        self._name = name
+        self._assigned_users = assigned_users
+        self._agent = agent
+        self._label_schemas = label_schemas
+        self._labeling_session_id = labeling_session_id
+        self._mlflow_run_id = mlflow_run_id
+        self._review_app_id = review_app_id
+        self._experiment_id = experiment_id
+        self._url = url
+        self._enable_multi_turn_chat = enable_multi_turn_chat
+        self._custom_inputs = custom_inputs
+        # Store backend session for operations that require it (temporarily)
+        self._backend_session = _backend_session
 
     @property
     def name(self) -> str:
         """The name of the labeling session."""
-        return self._session.name
+        return self._name
 
     @property
     def assigned_users(self) -> list[str]:
         """The users assigned to label items in the session."""
-        return self._session.assigned_users
+        return self._assigned_users
 
     @property
     def agent(self) -> str | None:
         """The agent used to generate responses for the items in the session."""
-        return self._session.agent
+        return self._agent
 
     @property
     def label_schemas(self) -> list[str]:
         """The label schemas used in the session."""
-        return self._session.label_schemas
+        return self._label_schemas
 
     @property
     def labeling_session_id(self) -> str:
         """The unique identifier of the labeling session."""
-        return self._session.labeling_session_id
+        return self._labeling_session_id
 
     @property
     def mlflow_run_id(self) -> str:
         """The MLflow run ID associated with the session."""
-        return self._session.mlflow_run_id
+        return self._mlflow_run_id
 
     @property
     def review_app_id(self) -> str:
         """The review app ID associated with the session."""
-        return self._session.review_app_id
+        return self._review_app_id
 
     @property
     def experiment_id(self) -> str:
         """The experiment ID associated with the session."""
-        return self._session.experiment_id
+        return self._experiment_id
 
     @property
     def url(self) -> str:
         """The URL of the labeling session in the review app."""
-        return self._session.url
+        return self._url
 
     @property
     def enable_multi_turn_chat(self) -> bool:
         """Whether multi-turn chat is enabled for the session."""
-        return self._session.enable_multi_turn_chat
+        return self._enable_multi_turn_chat
 
     @property
     def custom_inputs(self) -> dict[str, Any] | None:
         """Custom inputs used in the session."""
-        return self._session.custom_inputs
+        return self._custom_inputs
 
     def add_dataset(
         self, dataset_name: str, record_ids: list[str] | None = None
@@ -121,7 +145,10 @@ class LabelingSession:
         Returns:
             LabelingSession: The updated labeling session.
         """
-        return LabelingSession(self._session.add_dataset(dataset_name, record_ids))
+        from mlflow.genai.labeling.stores import _get_labeling_store
+
+        store = _get_labeling_store()
+        return store.add_dataset_to_session(self, dataset_name, record_ids)
 
     def add_traces(
         self,
@@ -143,7 +170,10 @@ class LabelingSession:
         Returns:
             LabelingSession: The updated labeling session.
         """
-        return LabelingSession(self._session.add_traces(traces))
+        from mlflow.genai.labeling.stores import _get_labeling_store
+
+        store = _get_labeling_store()
+        return store.add_traces_to_session(self, traces)
 
     def sync(self, to_dataset: str) -> None:
         """Sync the traces and expectations from the labeling session to a dataset.
@@ -155,7 +185,10 @@ class LabelingSession:
         Args:
             to_dataset: The name of the dataset to sync traces and expectations to.
         """
-        self._session.sync_expectations(to_dataset)
+        from mlflow.genai.labeling.stores import _get_labeling_store
+
+        store = _get_labeling_store()
+        return store.sync_session_expectations(self, to_dataset)
 
     def set_assigned_users(self, assigned_users: list[str]) -> "LabelingSession":
         """Set the assigned users for the labeling session.
@@ -170,7 +203,28 @@ class LabelingSession:
         Returns:
             LabelingSession: The updated labeling session.
         """
-        return LabelingSession(self._session.set_assigned_users(assigned_users))
+        from mlflow.genai.labeling.stores import _get_labeling_store
+
+        store = _get_labeling_store()
+        return store.set_session_assigned_users(self, assigned_users)
+
+    @classmethod
+    def _from_backend_session(cls, backend_session) -> "LabelingSession":
+        """Create a LabelingSession from a backend session object."""
+        return cls(
+            name=backend_session.name,
+            assigned_users=backend_session.assigned_users,
+            agent=backend_session.agent,
+            label_schemas=backend_session.label_schemas,
+            labeling_session_id=backend_session.labeling_session_id,
+            mlflow_run_id=backend_session.mlflow_run_id,
+            review_app_id=backend_session.review_app_id,
+            experiment_id=backend_session.experiment_id,
+            url=backend_session.url,
+            enable_multi_turn_chat=backend_session.enable_multi_turn_chat,
+            custom_inputs=backend_session.custom_inputs,
+            _backend_session=backend_session,
+        )
 
 
 class ReviewApp:
