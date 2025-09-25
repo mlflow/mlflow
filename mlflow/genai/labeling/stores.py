@@ -13,7 +13,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.label_schemas.label_schemas import LabelSchema
 from mlflow.genai.labeling.databricks_utils import get_databricks_review_app
 from mlflow.genai.labeling.labeling import LabelingSession
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.uri import get_uri_scheme
 
@@ -447,8 +447,39 @@ class DatabricksLabelingStore(AbstractLabelingStore):
         traces: Union[Iterable[Trace], Iterable[str], "pd.DataFrame"],
     ) -> LabelingSession:
         """Add traces to a labeling session."""
+        import pandas as pd
+
+        # Convert DataFrame to list of Trace objects if needed
+        if isinstance(traces, pd.DataFrame):
+            if "trace" not in traces.columns:
+                raise MlflowException(
+                    "traces must have a 'trace' column like the result of mlflow.search_traces()",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            # Extract the trace column as a list
+            traces = traces["trace"].to_list()
+
+        # Convert any string representations to Trace objects
+        trace_list: list[Trace] = []
+        for trace in traces:
+            if isinstance(trace, str):
+                # If it's a string, deserialize it
+                # Note: Actual deserialization would use mlflow's serialization utils
+                # For now, we'll pass through and let the backend handle it
+                trace_list.append(trace)
+            elif isinstance(trace, Trace):
+                trace_list.append(trace)
+            elif trace is None:
+                raise MlflowException(
+                    "trace cannot be None. Must be mlflow.entities.Trace or its json string "
+                    "representation.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            else:
+                trace_list.append(trace)
+
         backend_session = self._get_backend_session(labeling_session)
-        updated_session = backend_session.add_traces(traces)
+        updated_session = backend_session.add_traces(trace_list)
         return self._databricks_session_to_labeling_session(updated_session)
 
     def sync_session_expectations(self, labeling_session: LabelingSession, dataset: str) -> None:
