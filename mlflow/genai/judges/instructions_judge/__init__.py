@@ -300,7 +300,7 @@ class InstructionsJudge(Judge):
         return (
             "\n".join(user_message_parts)
             if user_message_parts
-            else "Follow the instructions from the previous message"
+            else "Follow the instructions from the first message"
         )
 
     def _build_template_values(

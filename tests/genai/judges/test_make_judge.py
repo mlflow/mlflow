@@ -2306,7 +2306,7 @@ def test_trace_only_template_uses_two_messages_with_empty_user(mock_invoke_judge
     user_msg = prompt[1]
     assert user_msg.role == "user"
     assert (
-        user_msg.content == "Follow the instructions from the previous message"
+        user_msg.content == "Follow the instructions from the first message"
     )  # Placeholder user message for trace-only
 
 
