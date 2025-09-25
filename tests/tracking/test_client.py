@@ -36,7 +36,7 @@ from mlflow.entities.model_registry.model_version_status import ModelVersionStat
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
 from mlflow.entities.param import Param
 from mlflow.entities.trace_data import TraceData
-from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_location import TraceLocation, TraceLocationType, UCSchemaLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
@@ -217,7 +217,10 @@ def test_client_get_trace(mock_store, mock_artifact_repo):
         Trace(
             TraceInfo(
                 trace_id=trace_id,
-                trace_location=TraceLocation.from_uc_schema("catalog", "schema"),
+                trace_location=TraceLocation(
+                    type=TraceLocationType.UC_SCHEMA,
+                    uc_schema=UCSchemaLocation(catalog_name="catalog", schema_name="schema"),
+                ),
                 request_time=123,
                 execution_duration=456,
                 state=TraceState.OK,
