@@ -506,11 +506,6 @@ def _get_labeling_store(tracking_uri=None):
     return _labeling_store_registry.get_store(tracking_uri)
 
 
-def _get_store():
-    """Convenience function for getting a labeling store with default tracking URI"""
-    return _get_labeling_store()
-
-
 _ERROR_MSG = (
     "The `databricks-agents` package is required to use labeling functionality. "
     "Please install it with `pip install databricks-agents`."

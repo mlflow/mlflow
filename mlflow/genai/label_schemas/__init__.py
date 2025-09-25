@@ -19,14 +19,6 @@ from mlflow.genai.label_schemas.label_schemas import (
 )
 from mlflow.genai.labeling import ReviewApp
 
-
-# Import the store getter to avoid duplication
-def _get_store():
-    from mlflow.genai.labeling.stores import _get_store as _get_labeling_store_func
-
-    return _get_labeling_store_func()
-
-
 if TYPE_CHECKING:
     from databricks.agents.review_app import ReviewApp
 
@@ -71,7 +63,9 @@ def create_label_schema(
     Returns:
         LabelSchema: The created label schema.
     """
-    store = _get_store()
+    from mlflow.genai.labeling.stores import _get_labeling_store
+
+    store = _get_labeling_store()
     return store.create_label_schema(
         name=name,
         type=type,
@@ -96,7 +90,9 @@ def get_label_schema(name: str) -> LabelSchema:
     Returns:
         LabelSchema: The label schema.
     """
-    store = _get_store()
+    from mlflow.genai.labeling.stores import _get_labeling_store
+
+    store = _get_labeling_store()
     return store.get_label_schema(name)
 
 
@@ -110,7 +106,9 @@ def delete_label_schema(name: str):
     Args:
         name: The name of the label schema to delete.
     """
-    store = _get_store()
+    from mlflow.genai.labeling.stores import _get_labeling_store
+
+    store = _get_labeling_store()
     store.delete_label_schema(name)
 
     # For backwards compatibility, return a ReviewApp instance only if using Databricks store
