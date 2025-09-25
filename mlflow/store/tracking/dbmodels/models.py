@@ -2014,3 +2014,61 @@ class SqlJob(Base):
             result=self.result,
             retry_count=self.retry_count,
         )
+
+
+class SqlLabelingSession(Base):
+    """
+    DB model for LabelingSession entities. These are recorded in the ``labeling_sessions`` table.
+    """
+
+    __tablename__ = "labeling_sessions"
+    labeling_session_id = Column(String(36), nullable=False)
+    """
+    Labeling Session ID: `String` (limit 36 characters).
+    *Primary Key* for ``labeling_sessions`` table.
+    """
+    name = Column(String(500), nullable=False)
+    """
+    Labeling Session name: `String` (limit 500 characters).
+    """
+    mlflow_run_id = Column(
+        String(32), ForeignKey("runs.run_uuid", onupdate="cascade"), nullable=True
+    )
+    """
+    MLflow Run ID associated with this labeling session: `String` (limit 32 characters).
+    Foreign key to ``runs.run_uuid``.
+    """
+    experiment_id = Column(
+        Integer, ForeignKey("experiments.experiment_id", onupdate="cascade"), nullable=True
+    )
+    """
+    Experiment ID associated with this labeling session: `Integer`.
+    Foreign key to ``experiments.experiment_id``.
+    """
+    creation_time = Column(BigInteger, default=get_current_time_millis)
+    """
+    Creation timestamp: `BigInteger`.
+    """
+    last_updated_time = Column(BigInteger, default=get_current_time_millis)
+    """
+    Last updated timestamp: `BigInteger`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("labeling_session_id", name="labeling_sessions_pk"),
+        Index("index_labeling_sessions_experiment_id", "experiment_id"),
+        Index("index_labeling_sessions_mlflow_run_id", "mlflow_run_id"),
+        Index("index_labeling_sessions_creation_time", "creation_time"),
+    )
+
+    def __repr__(self):
+        return f"<SqlLabelingSession ({self.labeling_session_id}, {self.name})>"
+
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            Placeholder for future LabelingSession entity implementation.
+        """
+        # Placeholder for future implementation when LabelingSession entity is created
