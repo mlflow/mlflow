@@ -107,7 +107,7 @@ def get_labeling_session(run_id: str) -> LabelingSession:
     return store.get_labeling_session(run_id)
 
 
-def delete_labeling_session(labeling_session: LabelingSession) -> "ReviewApp":
+def delete_labeling_session(labeling_session: LabelingSession):
     """Delete a labeling session from the review app.
 
     .. note::
@@ -116,9 +116,6 @@ def delete_labeling_session(labeling_session: LabelingSession) -> "ReviewApp":
 
     Args:
         labeling_session: The labeling session to delete.
-
-    Returns:
-        ReviewApp: The review app.
     """
     store = _get_labeling_store()
     store.delete_labeling_session(labeling_session)

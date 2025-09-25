@@ -290,6 +290,35 @@ class DatabricksLabelingStore(AbstractLabelingStore):
     def __init__(self, tracking_uri=None):
         pass
 
+    def _get_backend_session(self, labeling_session: LabelingSession):
+        """
+        Get the backend session for a labeling session.
+
+        Note: We have to list all sessions and match by ID because the Databricks
+        agents API doesn't provide a direct get/fetch API for individual labeling sessions.
+        """
+        try:
+            from databricks.agents.review_app import get_review_app as _get_review_app
+        except ImportError as e:
+            raise ImportError(_ERROR_MSG) from e
+
+        app = _get_review_app(labeling_session.experiment_id)
+        backend_sessions = app.get_labeling_sessions()
+        backend_session = next(
+            (
+                session
+                for session in backend_sessions
+                if session.labeling_session_id == labeling_session.labeling_session_id
+            ),
+            None,
+        )
+        if backend_session is None:
+            raise MlflowException(
+                f"Labeling session {labeling_session.labeling_session_id} not found",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+        return backend_session
+
     def get_labeling_session(self, run_id: str) -> LabelingSession:
         """Get a labeling session by MLflow run ID."""
         labeling_sessions = self.get_labeling_sessions()
@@ -349,23 +378,8 @@ class DatabricksLabelingStore(AbstractLabelingStore):
         except ImportError as e:
             raise ImportError(_ERROR_MSG) from e
 
-        # Get the backend session by fetching from Databricks API
+        backend_session = self._get_backend_session(labeling_session)
         app = _get_review_app(labeling_session.experiment_id)
-        backend_sessions = app.get_labeling_sessions()
-        backend_session = next(
-            (
-                session
-                for session in backend_sessions
-                if session.labeling_session_id == labeling_session.labeling_session_id
-            ),
-            None,
-        )
-        if backend_session is None:
-            raise MlflowException(
-                f"Labeling session {labeling_session.labeling_session_id} not found",
-                error_code=RESOURCE_DOES_NOT_EXIST,
-            )
-
         app.delete_labeling_session(backend_session)
 
     def get_label_schema(self, name: str) -> LabelSchema:
@@ -429,28 +443,7 @@ class DatabricksLabelingStore(AbstractLabelingStore):
         record_ids: list[str] | None = None,
     ) -> LabelingSession:
         """Add a dataset to a labeling session."""
-        try:
-            from databricks.agents.review_app import get_review_app as _get_review_app
-        except ImportError as e:
-            raise ImportError(_ERROR_MSG) from e
-
-        # Get the backend session by fetching from Databricks API
-        app = _get_review_app(labeling_session.experiment_id)
-        backend_sessions = app.get_labeling_sessions()
-        backend_session = next(
-            (
-                session
-                for session in backend_sessions
-                if session.labeling_session_id == labeling_session.labeling_session_id
-            ),
-            None,
-        )
-        if backend_session is None:
-            raise MlflowException(
-                f"Labeling session {labeling_session.labeling_session_id} not found",
-                error_code=RESOURCE_DOES_NOT_EXIST,
-            )
-
+        backend_session = self._get_backend_session(labeling_session)
         updated_session = backend_session.add_dataset(dataset_name, record_ids)
         return LabelingSession._from_backend_session(updated_session)
 
@@ -458,83 +451,20 @@ class DatabricksLabelingStore(AbstractLabelingStore):
         self, labeling_session: LabelingSession, traces: Any
     ) -> LabelingSession:
         """Add traces to a labeling session."""
-        try:
-            from databricks.agents.review_app import get_review_app as _get_review_app
-        except ImportError as e:
-            raise ImportError(_ERROR_MSG) from e
-
-        # Get the backend session by fetching from Databricks API
-        app = _get_review_app(labeling_session.experiment_id)
-        backend_sessions = app.get_labeling_sessions()
-        backend_session = next(
-            (
-                session
-                for session in backend_sessions
-                if session.labeling_session_id == labeling_session.labeling_session_id
-            ),
-            None,
-        )
-        if backend_session is None:
-            raise MlflowException(
-                f"Labeling session {labeling_session.labeling_session_id} not found",
-                error_code=RESOURCE_DOES_NOT_EXIST,
-            )
-
+        backend_session = self._get_backend_session(labeling_session)
         updated_session = backend_session.add_traces(traces)
         return LabelingSession._from_backend_session(updated_session)
 
     def sync_session_expectations(self, labeling_session: LabelingSession, to_dataset: str) -> None:
         """Sync traces and expectations from a labeling session to a dataset."""
-        try:
-            from databricks.agents.review_app import get_review_app as _get_review_app
-        except ImportError as e:
-            raise ImportError(_ERROR_MSG) from e
-
-        # Get the backend session by fetching from Databricks API
-        app = _get_review_app(labeling_session.experiment_id)
-        backend_sessions = app.get_labeling_sessions()
-        backend_session = next(
-            (
-                session
-                for session in backend_sessions
-                if session.labeling_session_id == labeling_session.labeling_session_id
-            ),
-            None,
-        )
-        if backend_session is None:
-            raise MlflowException(
-                f"Labeling session {labeling_session.labeling_session_id} not found",
-                error_code=RESOURCE_DOES_NOT_EXIST,
-            )
-
+        backend_session = self._get_backend_session(labeling_session)
         backend_session.sync_expectations(to_dataset)
 
     def set_session_assigned_users(
         self, labeling_session: LabelingSession, assigned_users: list[str]
     ) -> LabelingSession:
         """Set the assigned users for a labeling session."""
-        try:
-            from databricks.agents.review_app import get_review_app as _get_review_app
-        except ImportError as e:
-            raise ImportError(_ERROR_MSG) from e
-
-        # Get the backend session by fetching from Databricks API
-        app = _get_review_app(labeling_session.experiment_id)
-        backend_sessions = app.get_labeling_sessions()
-        backend_session = next(
-            (
-                session
-                for session in backend_sessions
-                if session.labeling_session_id == labeling_session.labeling_session_id
-            ),
-            None,
-        )
-        if backend_session is None:
-            raise MlflowException(
-                f"Labeling session {labeling_session.labeling_session_id} not found",
-                error_code=RESOURCE_DOES_NOT_EXIST,
-            )
-
+        backend_session = self._get_backend_session(labeling_session)
         updated_session = backend_session.set_assigned_users(assigned_users)
         return LabelingSession._from_backend_session(updated_session)
 

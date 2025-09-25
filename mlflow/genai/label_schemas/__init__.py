@@ -100,7 +100,7 @@ def get_label_schema(name: str) -> LabelSchema:
     return store.get_label_schema(name)
 
 
-def delete_label_schema(name: str) -> "ReviewApp":
+def delete_label_schema(name: str):
     """Delete a label schema from the review app.
 
     .. note::
@@ -109,9 +109,6 @@ def delete_label_schema(name: str) -> "ReviewApp":
 
     Args:
         name: The name of the label schema to delete.
-
-    Returns:
-        ReviewApp: The review app.
     """
     store = _get_store()
     store.delete_label_schema(name)
