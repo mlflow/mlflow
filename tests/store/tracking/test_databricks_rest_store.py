@@ -17,7 +17,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_tracing_pb2 import CreateTrace, GetTraces
 from mlflow.protos.service_pb2 import StartTraceV3
-from mlflow.store.tracking.databricks_rest_store import DatabricksRestStore
+from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
 from mlflow.utils.databricks_tracing_utils import (
     trace_info_to_proto,
@@ -74,7 +74,7 @@ def test_create_trace_v4_uc_location(monkeypatch):
     monkeypatch.setenv(MLFLOW_TRACING_SQL_WAREHOUSE_ID.name, "test-warehouse")
 
     creds = MlflowHostCreds("https://hello")
-    store = DatabricksRestStore(lambda: creds)
+    store = DatabricksTracingRestStore(lambda: creds)
 
     trace_info = TraceInfo(
         trace_id="trace:/catalog.schema/123",
@@ -121,7 +121,7 @@ def test_create_trace_v4_experiment_location(monkeypatch):
     monkeypatch.setenv(MLFLOW_TRACING_SQL_WAREHOUSE_ID.name, "test-warehouse")
 
     creds = MlflowHostCreds("https://hello")
-    store = DatabricksRestStore(lambda: creds)
+    store = DatabricksTracingRestStore(lambda: creds)
 
     trace_info = TraceInfo(
         trace_id="tr-123",
@@ -163,7 +163,7 @@ def test_create_trace_v4_fallback_to_v3(monkeypatch):
     monkeypatch.setenv(MLFLOW_TRACING_SQL_WAREHOUSE_ID.name, "test-warehouse")
 
     creds = MlflowHostCreds("https://hello")
-    store = DatabricksRestStore(lambda: creds)
+    store = DatabricksTracingRestStore(lambda: creds)
 
     trace_info = TraceInfo(
         trace_id="tr-456",
@@ -210,7 +210,7 @@ def test_get_traces(monkeypatch):
     mock_response = GetTraces.Response()
     mock_response.traces.extend([trace_to_proto(trace1), trace_to_proto(trace2)])
 
-    store = DatabricksRestStore(lambda: MlflowHostCreds("https://test"))
+    store = DatabricksTracingRestStore(lambda: MlflowHostCreds("https://test"))
 
     location = "catalog.schema"
     v4_trace_id_1 = f"{TRACE_ID_V4_PREFIX}{location}/{span1.trace_id}"

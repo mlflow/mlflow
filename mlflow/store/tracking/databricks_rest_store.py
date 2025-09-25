@@ -28,9 +28,11 @@ from mlflow.utils.rest_utils import (
 _logger = logging.getLogger(__name__)
 
 
-class DatabricksRestStore(RestStore):
+class DatabricksTracingRestStore(RestStore):
     """
-    Client for a databricks tracking server accessed via REST API calls
+    Client for a databricks tracking server accessed via REST API calls.
+    This is only used for Databricks-specific tracing APIs, all other APIs including
+    runs, experiments, models etc. should be implemented in the RestStore.
 
     Args
         get_host_creds: Method to be invoked prior to every REST request to get the
@@ -47,13 +49,12 @@ class DatabricksRestStore(RestStore):
 
     def start_trace(self, trace_info: TraceInfo) -> TraceInfo:
         """
-        Create a new trace using the V3 API format.
-
-        NB: The backend API is named "StartTraceV3" for some internal reason, but actually
-        it is supposed to be called at the end of the trace.
+        Create a new trace using the V4 API format.
 
         Args:
-            trace_info: The TraceInfo object to create in the backend.
+            trace_info: The TraceInfo object to create in the backend. Currently, this
+                only supports trace_location with uc_schema, or mlflow_experiment that's
+                linked to a UC table.
 
         Returns:
             The returned TraceInfo object from the backend.
