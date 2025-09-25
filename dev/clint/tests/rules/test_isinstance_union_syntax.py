@@ -43,5 +43,3 @@ isinstance(obj)
     expected_lines = [2, 3, 6]  # Lines 3, 4, 7 in 1-based indexing
     actual_lines = sorted(r.loc.lineno for r in results)
     assert actual_lines == expected_lines
-
-
