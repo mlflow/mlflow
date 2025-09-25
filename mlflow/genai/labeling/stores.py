@@ -48,9 +48,7 @@ class AbstractLabelingStore(metaclass=ABCMeta):
         Initialize the labeling store.
 
         Args:
-            tracking_uri: The tracking URI for the store. This is passed by the registry
-                         for polymorphic instantiation. Subclasses may choose to store
-                         or ignore this value depending on their implementation needs.
+            tracking_uri: The tracking URI for the store.
         """
 
     @abstractmethod
