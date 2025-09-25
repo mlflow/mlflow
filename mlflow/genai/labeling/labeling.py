@@ -180,21 +180,17 @@ class LabelingSession:
         from mlflow.exceptions import MlflowException
         from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
-        # Convert DataFrame to list of Trace objects if needed
         if isinstance(traces, pd.DataFrame):
             if "trace" not in traces.columns:
                 raise MlflowException(
                     "traces must have a 'trace' column like the result of mlflow.search_traces()",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
-            # Extract the trace column as a list
             traces = traces["trace"].to_list()
 
-        # Convert to list of Trace objects
         trace_list: list[Trace] = []
         for trace in traces:
             if isinstance(trace, str):
-                # Deserialize JSON string to Trace object
                 trace_list.append(Trace.from_json(trace))
             elif isinstance(trace, Trace):
                 trace_list.append(trace)
