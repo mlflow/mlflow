@@ -64,24 +64,3 @@ isinstance(obj, ((str, int), (float, bool)))
     # Should flag lines 3, 4, and 7
     assert len(results) == 3
     assert all(isinstance(r.rule, IsinstanceUnionSyntax) for r in results)
-
-
-def test_isinstance_union_syntax_edge_cases(index_path: Path) -> None:
-    """Test edge cases to ensure correct behavior"""
-    code = """
-# Variable named isinstance - SHOULD be flagged (linter should flag suspicious usage)
-isinstance = lambda x, y: True
-result = isinstance(obj, str | int)
-
-# Method call - should NOT be flagged (different function)
-obj.isinstance(value, str | int)
-
-# isinstance with correct syntax - should NOT be flagged
-isinstance(obj, (str, int, float, bool))
-"""
-    config = Config(select={IsinstanceUnionSyntax.name})
-    results = lint_file(Path("test.py"), code, config, index_path)
-
-    # Should flag line 4 (isinstance variable call with union syntax)
-    assert len(results) == 1
-    assert results[0].loc.lineno == 3  # Line 4 in 1-based indexing

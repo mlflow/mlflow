@@ -23,20 +23,18 @@ class IsinstanceUnionSyntax(Rule):
         Examples that should NOT be flagged:
         - isinstance(obj, (str, int))
         - isinstance(obj, str)
-        - isinstance(obj, Union[str, int])
         - other_func(obj, str | int)
         """
         # Check if this is an isinstance call
         if not (isinstance(node.func, ast.Name) and node.func.id == "isinstance"):
             return False
 
-        # isinstance must have at least 2 arguments
-        if len(node.args) < 2:
-            return False
-
         # Check if the second argument uses union syntax (X | Y)
-        type_arg = node.args[1]
-        return IsinstanceUnionSyntax._has_union_syntax(type_arg)
+        match node.args:
+            case [_, type_arg, *_]:
+                return IsinstanceUnionSyntax._has_union_syntax(type_arg)
+            case _:
+                return False
 
     @staticmethod
     def _has_union_syntax(node: ast.expr) -> bool:
