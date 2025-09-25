@@ -42,10 +42,8 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import (
     MlflowException,
-    MlflowNotImplementedException,
     MlflowTraceDataCorrupted,
     MlflowTraceDataNotFound,
-    RestException,
 )
 from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
@@ -255,10 +253,14 @@ def test_client_get_trace(mock_store, mock_artifact_repo):
         )
     ]
 
-    trace = MlflowClient().get_trace(trace_id)
-    mock_store.get_traces.assert_called_once_with([trace_id])
-    mock_store.get_trace_info.assert_not_called()
-    mock_artifact_repo.download_trace_data.assert_not_called()
+    with mock.patch(
+        "mlflow.tracing.client.TracingClient._should_get_trace_from_tracking_store",
+        return_value=True,
+    ):
+        trace = MlflowClient().get_trace(trace_id)
+        mock_store.get_traces.assert_called_once_with([trace_id])
+        mock_store.get_trace_info.assert_called_once_with(trace_id)
+        mock_artifact_repo.download_trace_data.assert_not_called()
 
     assert trace.info.trace_id == trace_id
     assert trace.info.trace_location.uc_schema.catalog_name == "catalog"
@@ -285,8 +287,7 @@ def test_client_get_trace_empty_result(mock_store):
         MlflowClient().get_trace("trace:/catalog.schema/123")
 
 
-def test_client_get_trace_fallback(mock_store, mock_artifact_repo):
-    mock_store.get_traces.side_effect = MlflowNotImplementedException()
+def test_client_get_trace_from_artifact_repo(mock_store, mock_artifact_repo):
     mock_store.get_trace_info.return_value = TraceInfo(
         trace_id="tr-1234567",
         trace_location=TraceLocation.from_experiment_id("0"),
@@ -343,81 +344,7 @@ def test_client_get_trace_fallback(mock_store, mock_artifact_repo):
     assert trace.data.spans[0].status.status_code == SpanStatusCode.OK
 
 
-def test_client_get_trace_rest_exception_not_implemented_fallback(mock_store, mock_artifact_repo):
-    mock_store.get_traces.side_effect = RestException(
-        {"error_code": "NOT_IMPLEMENTED", "message": "Method not implemented"}
-    )
-    mock_store.get_trace_info.return_value = TraceInfo(
-        trace_id="tr-rest-1234",
-        trace_location=TraceLocation.from_experiment_id("0"),
-        request_time=123,
-        execution_duration=456,
-        state=TraceState.OK,
-        tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts"},
-    )
-    mock_artifact_repo.download_trace_data.return_value = {
-        "request": '{"prompt": "Test REST fallback"}',
-        "response": '{"answer": "Works!"}',
-        "spans": [
-            {
-                "name": "rest_test",
-                "context": {
-                    "trace_id": "0x987654321",
-                    "span_id": "0x54321",
-                },
-                "parent_id": None,
-                "start_time": 111000000,
-                "end_time": 222000000,
-                "status_code": "OK",
-                "status_message": "",
-                "attributes": {
-                    "mlflow.traceRequestId": '"tr-rest-1234"',
-                    "mlflow.spanType": '"LLM"',
-                    "mlflow.spanFunctionName": '"rest_test"',
-                    "mlflow.spanInputs": '{"prompt": "Test REST fallback"}',
-                    "mlflow.spanOutputs": '{"answer": "Works!"}',
-                },
-                "events": [],
-            }
-        ],
-    }
-
-    trace = MlflowClient().get_trace("tr-rest-1234")
-
-    # Verify fallback was triggered
-    mock_store.get_traces.assert_called_once_with(["tr-rest-1234"])
-    mock_store.get_trace_info.assert_called_once_with("tr-rest-1234")
-    mock_artifact_repo.download_trace_data.assert_called_once()
-
-    # Verify trace data is correct
-    assert trace.info.trace_id == "tr-rest-1234"
-    assert trace.data.request == '{"prompt": "Test REST fallback"}'
-    assert trace.data.response == '{"answer": "Works!"}'
-    assert len(trace.data.spans) == 1
-    assert trace.data.spans[0].name == "rest_test"
-    assert trace.data.spans[0].inputs == {"prompt": "Test REST fallback"}
-    assert trace.data.spans[0].outputs == {"answer": "Works!"}
-
-
-@pytest.mark.parametrize("error_code", ["BAD_REQUEST", "RESOURCE_DOES_NOT_EXIST"])
-def test_client_get_trace_rest_exception_other_error_codes(
-    mock_store, mock_artifact_repo, error_code
-):
-    mock_store.get_traces.side_effect = RestException(
-        {"error_code": error_code, "message": "Invalid request parameters"}
-    )
-
-    with pytest.raises(RestException, match=error_code) as exc_info:
-        MlflowClient().get_trace("test-trace-123")
-
-    assert exc_info.value.error_code == error_code
-    # Verify fallback was NOT triggered
-    mock_store.get_trace_info.assert_not_called()
-    mock_artifact_repo.download_trace_data.assert_not_called()
-
-
 def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_artifact_repo):
-    mock_store.get_traces.side_effect = MlflowNotImplementedException()
     mock_store.get_trace_info.return_value = TraceInfo(
         trace_id="1234567",
         trace_location=TraceLocation.from_experiment_id("0"),
@@ -447,7 +374,10 @@ def test_client_search_traces_with_get_traces(mock_store, mock_artifact_repo, in
     mock_trace_infos = [
         TraceInfo(
             trace_id="tr-1234567",
-            trace_location=TraceLocation.from_experiment_id("1"),
+            trace_location=TraceLocation(
+                type=TraceLocationType.UC_SCHEMA,
+                uc_schema=UCSchemaLocation(catalog_name="catalog", schema_name="schema"),
+            ),
             request_time=123,
             execution_duration=456,
             state=TraceState.OK,
@@ -455,7 +385,10 @@ def test_client_search_traces_with_get_traces(mock_store, mock_artifact_repo, in
         ),
         TraceInfo(
             trace_id="tr-8910",
-            trace_location=TraceLocation.from_experiment_id("2"),
+            trace_location=TraceLocation(
+                type=TraceLocationType.UC_SCHEMA,
+                uc_schema=UCSchemaLocation(catalog_name="catalog", schema_name="schema"),
+            ),
             request_time=456,
             execution_duration=789,
             state=TraceState.OK,
@@ -466,7 +399,8 @@ def test_client_search_traces_with_get_traces(mock_store, mock_artifact_repo, in
 
     mock_traces = [Trace(info=info, data=TraceData(spans=[])) for info in mock_trace_infos]
     with mock.patch(
-        "mlflow.tracing.client.TracingClient._get_traces", return_value=mock_traces
+        "mlflow.tracing.client.TracingClient._get_traces_from_tracking_store",
+        return_value=mock_traces,
     ) as mock_get_traces:
         results = MlflowClient().search_traces(
             experiment_ids=["1", "2", "3"], include_spans=include_spans
@@ -494,8 +428,55 @@ def test_client_search_traces_with_get_traces(mock_store, mock_artifact_repo, in
 
 
 @pytest.mark.parametrize("include_spans", [True, False])
-def test_client_search_traces(mock_store, mock_artifact_repo, include_spans):
-    mock_store.get_traces.side_effect = MlflowNotImplementedException()
+def test_client_search_traces_mixed(mock_store, mock_artifact_repo, include_spans):
+    mock_traces = [
+        TraceInfo(
+            trace_id="1234567",
+            trace_location=TraceLocation(
+                type=TraceLocationType.UC_SCHEMA,
+                uc_schema=UCSchemaLocation(catalog_name="catalog", schema_name="schema"),
+            ),
+            request_time=123,
+            execution_duration=456,
+            state=TraceState.OK,
+            tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts/1"},
+        ),
+        TraceInfo(
+            trace_id="8910",
+            trace_location=TraceLocation.from_experiment_id("1"),
+            request_time=456,
+            execution_duration=789,
+            state=TraceState.OK,
+            tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts/2"},
+        ),
+    ]
+    mock_store.search_traces.return_value = (mock_traces, None)
+    mock_store.get_traces.return_value = [Trace(info=mock_traces[0], data=TraceData(spans=[]))]
+    mock_artifact_repo.download_trace_data.return_value = {}
+    results = MlflowClient().search_traces(
+        experiment_ids=["1", "2", "3"], include_spans=include_spans
+    )
+
+    mock_store.search_traces.assert_called_once_with(
+        experiment_ids=["1", "2", "3"],
+        filter_string=None,
+        max_results=100,
+        order_by=None,
+        page_token=None,
+        model_id=None,
+        sql_warehouse_id=None,
+    )
+    assert len(results) == 2
+    if include_spans:
+        mock_store.get_traces.assert_called_once_with(["1234567"])
+        mock_artifact_repo.download_trace_data.assert_called()
+    else:
+        mock_store.get_traces.assert_not_called()
+        mock_artifact_repo.download_trace_data.assert_not_called()
+
+
+@pytest.mark.parametrize("include_spans", [True, False])
+def test_client_search_traces_with_artifact_repo(mock_store, mock_artifact_repo, include_spans):
     mock_traces = [
         TraceInfo(
             trace_id="1234567",
@@ -542,8 +523,6 @@ def test_client_search_traces(mock_store, mock_artifact_repo, include_spans):
 
 @pytest.mark.parametrize("include_spans", [True, False])
 def test_client_search_traces_trace_data_download_error(mock_store, include_spans):
-    mock_store.get_traces.side_effect = MlflowNotImplementedException()
-
     class CustomArtifactRepository(ArtifactRepository):
         def log_artifact(self, local_file, artifact_path=None):
             raise NotImplementedError("Should not be called")

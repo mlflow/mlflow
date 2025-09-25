@@ -14,19 +14,15 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.environment_variables import MLFLOW_SEARCH_TRACES_MAX_THREADS
 from mlflow.exceptions import (
     MlflowException,
-    MlflowNotImplementedException,
     MlflowTraceDataCorrupted,
     MlflowTraceDataException,
     MlflowTraceDataNotFound,
-    RestException,
 )
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INVALID_PARAMETER_VALUE,
     NOT_FOUND,
-    NOT_IMPLEMENTED,
     RESOURCE_DOES_NOT_EXIST,
-    ErrorCode,
 )
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.entities.paged_list import PagedList
@@ -132,9 +128,9 @@ class TracingClient:
         Returns:
             The fetched Trace object, of type ``mlflow.entities.Trace``.
         """
-        if traces := self._get_traces([trace_id]):
-            return traces[0]
         trace_info = self.get_trace_info(trace_id)
+        if self._should_get_trace_from_tracking_store(trace_info):
+            return self._get_traces_from_tracking_store([trace_id])[0]
         try:
             trace_data = self._download_trace_data(trace_info)
         except MlflowTraceDataNotFound:
@@ -155,22 +151,16 @@ class TracingClient:
             ) from None  # Ensure the original spammy exception is not included in the traceback
         return Trace(trace_info, trace_data)
 
-    def _get_traces(self, trace_ids: list[str]) -> list[Trace]:
-        try:
-            if traces := self.store.get_traces(trace_ids):
-                return traces
-            else:
-                raise MlflowException(
-                    f"Traces with IDs {trace_ids} not found.",
-                    error_code=NOT_FOUND,
-                )
-        except MlflowNotImplementedException:
-            pass
-        # if the rest store routes to the store that doesn't support get_traces,
-        # fallback to get_trace_info and download trace data from artifact repo
-        except RestException as e:
-            if e.error_code != ErrorCode.Name(NOT_IMPLEMENTED):
-                raise
+    def _get_traces_from_tracking_store(self, trace_ids: list[str]) -> list[Trace]:
+        if not trace_ids:
+            return []
+        if traces := self.store.get_traces(trace_ids):
+            return traces
+        else:
+            raise MlflowException(
+                f"Traces with IDs {trace_ids} not found.",
+                error_code=NOT_FOUND,
+            )
 
     def get_online_trace_details(
         self,
@@ -351,15 +341,22 @@ class TracingClient:
                 )
 
                 if include_spans:
-                    trace_ids = [trace_info.trace_id for trace_info in trace_infos]
-                    if not any(is_uuid(trace_id) for trace_id in trace_ids) and (
-                        fetched_traces := self._get_traces(trace_ids)
-                    ):
-                        traces.extend(fetched_traces)
-                    else:
-                        traces.extend(
-                            t for t in executor.map(download_trace_extra_fields, trace_infos) if t
+                    tracking_store_trace_infos, artifact_repo_trace_infos = (
+                        self._split_trace_infos_by_trace_data_location(trace_infos)
+                    )
+                    traces.extend(
+                        self._get_traces_from_tracking_store(
+                            [t.trace_id for t in tracking_store_trace_infos]
                         )
+                    )
+
+                    traces.extend(
+                        t
+                        for t in executor.map(
+                            download_trace_extra_fields, artifact_repo_trace_infos
+                        )
+                        if t
+                    )
                 else:
                     traces.extend(
                         Trace(trace_info, TraceData(spans=[])) for trace_info in trace_infos
@@ -371,6 +368,28 @@ class TracingClient:
                 next_max_results = max_results - len(traces)
 
         return PagedList(traces, next_token)
+
+    def _split_trace_infos_by_trace_data_location(
+        self, trace_infos: list[TraceInfo]
+    ) -> tuple[list[TraceInfo], list[TraceInfo]]:
+        """
+        Split the trace infos where the trace data is stored.
+        """
+        tracking_store_trace_infos = []
+        artifact_repo_trace_infos = []
+        for trace_info in trace_infos:
+            if self._should_get_trace_from_tracking_store(trace_info):
+                tracking_store_trace_infos.append(trace_info)
+            else:
+                artifact_repo_trace_infos.append(trace_info)
+        return tracking_store_trace_infos, artifact_repo_trace_infos
+
+    def _should_get_trace_from_tracking_store(self, trace_info: TraceInfo) -> bool:
+        """
+        Determine if the trace should be fetched from the tracking store.
+        """
+        # TODO: this should be extended to support OSS tracking store
+        return trace_info.trace_location.uc_schema is not None
 
     def calculate_trace_filter_correlation(
         self,
