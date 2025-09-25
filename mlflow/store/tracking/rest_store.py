@@ -1744,7 +1744,7 @@ class RestStore(AbstractStore):
         request = ExportTraceServiceRequest()
         resource_spans = request.resource_spans.add()
         scope_spans = resource_spans.scope_spans.add()
-        scope_spans.spans.extend(span._to_otel_proto() for span in spans)
+        scope_spans.spans.extend(span.to_otel_proto() for span in spans)
 
         response = http_request(
             host_creds=self.get_host_creds(),

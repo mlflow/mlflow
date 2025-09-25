@@ -189,7 +189,7 @@ def test_missing_required_span_fields_returns_422(mlflow_server: str):
     """
     # Create protobuf request with missing trace_id (this should cause MLflow conversion to fail)
     span = OTelProtoSpan()
-    # Don't set trace_id - this should cause _from_otel_proto to fail
+    # Don't set trace_id - this should cause from_otel_proto to fail
     span.span_id = bytes.fromhex("00000001" + "0" * 8)
     span.name = "incomplete-span"
 
