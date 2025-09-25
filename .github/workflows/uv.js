@@ -48,7 +48,7 @@ module.exports = async ({ github, context }) => {
 
   // `--exclude-newer` to avoid potentially unstable releases
   const uvOutput = execWithOutput("uv", ["lock", "--upgrade", "--exclude-newer", getDaysAgo(3)]);
-  console.log("uv lock output:\n", uvOutput);
+  console.log(`uv lock output:\n${uvOutput}`);
 
   const branchName = `uv-lock-update-${getTimestamp()}`;
   exec("git", ["config", "user.name", "mlflow-app[bot]"]);
