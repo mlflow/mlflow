@@ -480,53 +480,30 @@ class RestStore(AbstractStore):
 
     def search_traces(
         self,
-        experiment_ids: list[str],
+        experiment_ids: list[str] | None = None,
         filter_string: str | None = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: list[str] | None = None,
         page_token: str | None = None,
         model_id: str | None = None,
         sql_warehouse_id: str | None = None,
+        uc_schemas: list[str] | None = None,
     ):
-        if sql_warehouse_id is None:
-            # Create trace_locations from experiment_ids for the V3 API
-            trace_locations = []
-            for exp_id in experiment_ids:
-                try:
-                    location = TraceLocation.from_experiment_id(exp_id)
-                    proto_location = location.to_proto()
-                    trace_locations.append(proto_location)
-                except Exception as e:
-                    raise MlflowException(
-                        f"Invalid experiment ID format: {exp_id}. Error: {e!s}"
-                    ) from e
+        if uc_schemas:
+            raise MlflowException.invalid_parameter_value(
+                "Searching traces by UC schema is only supported by Databricks backend",
+            )
 
-            # Create V3 request message using protobuf
-            request = SearchTracesV3(
-                locations=trace_locations,
-                filter=filter_string,
+        if sql_warehouse_id is None:
+            return self._search_traces(
+                experiment_ids=experiment_ids,
+                filter_string=filter_string,
                 max_results=max_results,
                 order_by=order_by,
                 page_token=page_token,
             )
-
-            req_body = message_to_json(request)
-            v3_endpoint = f"{_V3_TRACE_REST_API_PATH_PREFIX}/search"
-
-            try:
-                response_proto = self._call_endpoint(SearchTracesV3, req_body, v3_endpoint)
-            except MlflowException as e:
-                if e.error_code == databricks_pb2.ErrorCode.Name(databricks_pb2.ENDPOINT_NOT_FOUND):
-                    _logger.debug(
-                        "Server does not support SearchTracesV3 API yet. Falling back to V2 API."
-                    )
-                    response_proto = self._call_endpoint(SearchTraces, req_body)
-                else:
-                    raise
-
-            trace_infos = [TraceInfo.from_proto(t) for t in response_proto.traces]
         else:
-            response_proto = self._search_unified_traces(
+            return self._search_unified_traces(
                 model_id=model_id,
                 sql_warehouse_id=sql_warehouse_id,
                 experiment_ids=experiment_ids,
@@ -535,8 +512,51 @@ class RestStore(AbstractStore):
                 order_by=order_by,
                 page_token=page_token,
             )
-            # Convert TraceInfo (v2) objects to TraceInfoV3 objects for consistency
-            trace_infos = [TraceInfo.from_proto(t) for t in response_proto.traces]
+
+    def _search_traces(
+        self,
+        experiment_ids: list[str],
+        filter_string: str | None = None,
+        max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+    ) -> tuple[list[TraceInfo], str | None]:
+        # Create trace_locations from experiment_ids for the V3 API
+        trace_locations = []
+        for exp_id in experiment_ids:
+            try:
+                location = TraceLocation.from_experiment_id(exp_id)
+                proto_location = location.to_proto()
+                trace_locations.append(proto_location)
+            except Exception as e:
+                raise MlflowException(
+                    f"Invalid experiment ID format: {exp_id}. Error: {e!s}"
+                ) from e
+
+        # Create V3 request message using protobuf
+        request = SearchTracesV3(
+            locations=trace_locations,
+            filter=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
+
+        req_body = message_to_json(request)
+        v3_endpoint = f"{_V3_TRACE_REST_API_PATH_PREFIX}/search"
+
+        try:
+            response_proto = self._call_endpoint(SearchTracesV3, req_body, v3_endpoint)
+        except MlflowException as e:
+            if e.error_code == databricks_pb2.ErrorCode.Name(databricks_pb2.ENDPOINT_NOT_FOUND):
+                _logger.debug(
+                    "Server does not support SearchTracesV3 API yet. Falling back to V2 API."
+                )
+                response_proto = self._call_endpoint(SearchTraces, req_body)
+            else:
+                raise
+
+        trace_infos = [TraceInfo.from_proto(t) for t in response_proto.traces]
         return trace_infos, response_proto.next_page_token or None
 
     def _search_unified_traces(
@@ -548,7 +568,7 @@ class RestStore(AbstractStore):
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: list[str] | None = None,
         page_token: str | None = None,
-    ):
+    ) -> tuple[list[TraceInfo], str | None]:
         request = SearchUnifiedTraces(
             model_id=model_id,
             sql_warehouse_id=sql_warehouse_id,
@@ -559,7 +579,10 @@ class RestStore(AbstractStore):
             page_token=page_token,
         )
         req_body = message_to_json(request)
-        return self._call_endpoint(SearchUnifiedTraces, req_body)
+        response_proto = self._call_endpoint(SearchUnifiedTraces, req_body)
+        # Convert TraceInfo (v2) objects to TraceInfoV3 objects for consistency
+        trace_infos = [TraceInfo.from_proto(t) for t in response_proto.traces]
+        return trace_infos, response_proto.next_page_token or None
 
     def calculate_trace_filter_correlation(
         self,

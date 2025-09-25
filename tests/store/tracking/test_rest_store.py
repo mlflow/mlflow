@@ -833,6 +833,16 @@ def test_search_traces():
     assert token == "token"
 
 
+def test_search_traces_with_uc_schema_errors():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    with pytest.raises(
+        MlflowException,
+        match="Searching traces by UC schema is only supported by Databricks backend",
+    ):
+        store.search_traces(uc_schemas=["catalog.schema"])
+
+
 def test_search_unified_traces():
     """Test the search_traces method when using SearchUnifiedTraces with sql_warehouse_id."""
     creds = MlflowHostCreds("https://hello")

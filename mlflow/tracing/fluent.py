@@ -662,6 +662,7 @@ def search_traces(
     model_id: str | None = None,
     sql_warehouse_id: str | None = None,
     include_spans: bool = True,
+    uc_schemas: list[str] | None = None,
 ) -> "pandas.DataFrame" | list[Trace]:
     """
     Return traces that match the given list of search expressions within the experiments.
@@ -673,8 +674,9 @@ def search_traces(
         function returns all results in memory and may not be suitable for large result sets.
 
     Args:
-        experiment_ids: List of experiment ids to scope the search. If not provided, the search
-            will be performed across the current active experiment.
+        experiment_ids: List of experiment ids to scope the search. If neither this nor
+            `uc_schemas` is provided, the search will be performed across the current active
+            experiment.
         filter_string: A search filter string.
         max_results: Maximum number of traces desired. If None, all traces matching the search
             expressions will be returned.
@@ -722,11 +724,14 @@ def search_traces(
 
         model_id: If specified, search traces associated with the given model ID.
         sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
-            searching traces in inference tables.
+            searching traces in inference tables or UC tables.
 
         include_spans: If ``True``, include spans in the returned traces. Otherwise, only
             the trace metadata is returned, e.g., trace ID, start time, end time, etc,
             without any spans. Default to ``True``.
+
+        uc_schemas: Only used in Databricks. A list of UC schemas `<catalog_name>.<schema_name>`
+            to search over.
 
     Returns:
         Traces that satisfy the search expressions. Either as a list of
@@ -810,7 +815,8 @@ def search_traces(
                 ),
             )
 
-    if not experiment_ids:
+    if not experiment_ids and not uc_schemas:
+        _logger.debug("Searching traces in the current active experiment")
         if experiment_id := _get_experiment_id():
             experiment_ids = [experiment_id]
         else:
@@ -830,6 +836,7 @@ def search_traces(
             model_id=model_id,
             sql_warehouse_id=sql_warehouse_id,
             include_spans=include_spans,
+            uc_schemas=uc_schemas,
         )
 
     results = get_results_from_paginated_fn(
