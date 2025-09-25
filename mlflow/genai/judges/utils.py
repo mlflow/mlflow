@@ -957,12 +957,10 @@ def _invoke_litellm(
 
     include_response_format = _MODEL_RESPONSE_FORMAT_CAPABILITIES.get(litellm_model_uri, True)
 
-    # Get configurable completion iteration limit from environment variable
     max_iterations = MLFLOW_JUDGE_MAX_ITERATIONS.get()
     iteration_count = 0
 
     while True:
-        # Increment iteration counter and check limit
         iteration_count += 1
         if iteration_count > max_iterations:
             raise MlflowException(
