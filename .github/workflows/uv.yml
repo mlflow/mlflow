@@ -21,7 +21,7 @@ defaults:
     shell: bash
 
 jobs:
-  uv-lock-update:
+  uv:
     # Skip scheduled runs on forks
     if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
     runs-on: ubuntu-latest
