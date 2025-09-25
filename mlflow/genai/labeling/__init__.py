@@ -9,6 +9,7 @@ The API docs can be found here:
 from typing import Any
 
 from mlflow.genai.labeling.labeling import Agent, LabelingSession, ReviewApp
+from mlflow.genai.labeling.stores import _get_labeling_store
 
 _ERROR_MSG = (
     "The `databricks-agents` package is required to use `mlflow.genai.labeling`. "
@@ -64,8 +65,6 @@ def create_labeling_session(
     Returns:
         LabelingSession: The created labeling session.
     """
-    from mlflow.genai.labeling.stores import _get_labeling_store
-
     store = _get_labeling_store()
     return store.create_labeling_session(
         name=name,
@@ -87,8 +86,6 @@ def get_labeling_sessions() -> list[LabelingSession]:
     Returns:
         list[LabelingSession]: The list of labeling sessions.
     """
-    from mlflow.genai.labeling.stores import _get_labeling_store
-
     store = _get_labeling_store()
     return store.get_labeling_sessions()
 
@@ -106,8 +103,6 @@ def get_labeling_session(run_id: str) -> LabelingSession:
     Returns:
         LabelingSession: The labeling session.
     """
-    from mlflow.genai.labeling.stores import _get_labeling_store
-
     store = _get_labeling_store()
     return store.get_labeling_session(run_id)
 
@@ -125,18 +120,22 @@ def delete_labeling_session(labeling_session: LabelingSession) -> "ReviewApp":
     Returns:
         ReviewApp: The review app.
     """
-    from mlflow.genai.labeling.stores import _get_labeling_store
-
     store = _get_labeling_store()
     store.delete_labeling_session(labeling_session)
 
-    # For backwards compatibility, return a ReviewApp instance
-    try:
-        from databricks.agents.review_app import get_review_app as _get_review_app
-    except ImportError:
-        raise ImportError(_ERROR_MSG) from None
+    # For backwards compatibility, return a ReviewApp instance only if using Databricks store
+    from mlflow.genai.labeling.stores import DatabricksLabelingStore
 
-    return ReviewApp(_get_review_app())
+    if isinstance(store, DatabricksLabelingStore):
+        try:
+            from databricks.agents.review_app import get_review_app as _get_review_app
+        except ImportError:
+            raise ImportError(_ERROR_MSG) from None
+
+        return ReviewApp(_get_review_app())
+    else:
+        # For non-Databricks stores, we can't return a meaningful ReviewApp
+        return None
 
 
 __all__ = [

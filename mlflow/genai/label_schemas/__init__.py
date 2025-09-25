@@ -19,6 +19,14 @@ from mlflow.genai.label_schemas.label_schemas import (
 )
 from mlflow.genai.labeling import ReviewApp
 
+
+# Lazy import to avoid circular import issues
+def _get_store():
+    from mlflow.genai.labeling.stores import _get_labeling_store
+
+    return _get_labeling_store()
+
+
 if TYPE_CHECKING:
     from databricks.agents.review_app import ReviewApp
 
@@ -63,9 +71,7 @@ def create_label_schema(
     Returns:
         LabelSchema: The created label schema.
     """
-    from mlflow.genai.labeling.stores import _get_labeling_store
-
-    store = _get_labeling_store()
+    store = _get_store()
     return store.create_label_schema(
         name=name,
         type=type,
@@ -90,9 +96,7 @@ def get_label_schema(name: str) -> LabelSchema:
     Returns:
         LabelSchema: The label schema.
     """
-    from mlflow.genai.labeling.stores import _get_labeling_store
-
-    store = _get_labeling_store()
+    store = _get_store()
     return store.get_label_schema(name)
 
 
@@ -109,18 +113,23 @@ def delete_label_schema(name: str) -> "ReviewApp":
     Returns:
         ReviewApp: The review app.
     """
-    from mlflow.genai.labeling.stores import _get_labeling_store
-
-    store = _get_labeling_store()
+    store = _get_store()
     store.delete_label_schema(name)
-    # For backwards compatibility, return a ReviewApp instance
-    try:
-        from databricks.agents import review_app
-    except ImportError:
-        raise ImportError(_ERROR_MSG) from None
 
-    app = review_app.get_review_app()
-    return ReviewApp(app)
+    # For backwards compatibility, return a ReviewApp instance only if using Databricks store
+    from mlflow.genai.labeling.stores import DatabricksLabelingStore
+
+    if isinstance(store, DatabricksLabelingStore):
+        try:
+            from databricks.agents import review_app
+        except ImportError:
+            raise ImportError(_ERROR_MSG) from None
+
+        app = review_app.get_review_app()
+        return ReviewApp(app)
+    else:
+        # For non-Databricks stores, we can't return a meaningful ReviewApp
+        return None
 
 
 __all__ = [

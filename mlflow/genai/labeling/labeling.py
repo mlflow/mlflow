@@ -65,7 +65,6 @@ class LabelingSession:
         url: str,
         enable_multi_turn_chat: bool,
         custom_inputs: dict[str, Any] | None,
-        _backend_session: Any = None,
     ):
         self._name = name
         self._assigned_users = assigned_users
@@ -78,8 +77,6 @@ class LabelingSession:
         self._url = url
         self._enable_multi_turn_chat = enable_multi_turn_chat
         self._custom_inputs = custom_inputs
-        # Store backend session for operations that require it (temporarily)
-        self._backend_session = _backend_session
 
     @property
     def name(self) -> str:
@@ -223,7 +220,6 @@ class LabelingSession:
             url=backend_session.url,
             enable_multi_turn_chat=backend_session.enable_multi_turn_chat,
             custom_inputs=backend_session.custom_inputs,
-            _backend_session=backend_session,
         )
 
 
