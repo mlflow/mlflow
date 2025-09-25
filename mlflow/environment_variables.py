@@ -1018,10 +1018,8 @@ MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY = _EnvironmentVariable(
     "MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY", int, 60
 )
 
-#: Specifies the maximum number of tool call iterations allowed when invoking
-#: judge models with traces. This prevents infinite loops in case of complex
-#: traces or issues with the judge's reasoning.
+#: Specifies the maximum number of completion iterations allowed when invoking
+#: judge models. This prevents infinite loops in case of complex traces or
+#: issues with the judge's reasoning.
 #: (default: ``30``)
-MLFLOW_JUDGE_MAX_TOOL_CALL_ITERATIONS = _EnvironmentVariable(
-    "MLFLOW_JUDGE_MAX_TOOL_CALL_ITERATIONS", int, 30
-)
+MLFLOW_JUDGE_MAX_ITERATIONS = _EnvironmentVariable("MLFLOW_JUDGE_MAX_ITERATIONS", int, 30)

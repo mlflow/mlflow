@@ -1196,14 +1196,14 @@ def test_get_default_optimizer():
 
 
 @pytest.mark.parametrize("env_var_value", ["3", None])
-def test_invoke_judge_model_tool_call_iteration_limit(mock_trace, monkeypatch, env_var_value):
-    """Test that tool call iteration limit is enforced."""
+def test_invoke_judge_model_completion_iteration_limit(mock_trace, monkeypatch, env_var_value):
+    """Test that completion iteration limit is enforced."""
     # Set environment variable for test
     if env_var_value is not None:
-        monkeypatch.setenv("MLFLOW_JUDGE_MAX_TOOL_CALL_ITERATIONS", env_var_value)
+        monkeypatch.setenv("MLFLOW_JUDGE_MAX_ITERATIONS", env_var_value)
         expected_limit = int(env_var_value)
     else:
-        monkeypatch.delenv("MLFLOW_JUDGE_MAX_TOOL_CALL_ITERATIONS", raising=False)
+        monkeypatch.delenv("MLFLOW_JUDGE_MAX_ITERATIONS", raising=False)
         expected_limit = 30  # default value
 
     # Mock responses that always return tool calls
@@ -1238,7 +1238,7 @@ def test_invoke_judge_model_tool_call_iteration_limit(mock_trace, monkeypatch, e
 
         # Should raise MlflowException due to iteration limit
         with pytest.raises(
-            MlflowException, match="Tool call iteration limit.*exceeded"
+            MlflowException, match="Completion iteration limit.*exceeded"
         ) as exc_info:
             invoke_judge_model(
                 model_uri="openai:/gpt-4",
@@ -1249,7 +1249,6 @@ def test_invoke_judge_model_tool_call_iteration_limit(mock_trace, monkeypatch, e
 
         # Verify the error message and call count
         error_msg = str(exc_info.value)
-        assert f"Tool call iteration limit of {expected_limit} exceeded" in error_msg
+        assert f"Completion iteration limit of {expected_limit} exceeded" in error_msg
         assert "model is not powerful enough" in error_msg
         assert mock_litellm.call_count == expected_limit
-        assert mock_invoke_tool.call_count == expected_limit
