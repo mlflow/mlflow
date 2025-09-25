@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, Callable, Iterable, Union
 from mlflow.entities import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.label_schemas.label_schemas import LabelSchema
-from mlflow.genai.labeling.constants import _ERROR_MSG
+from mlflow.genai.labeling.databricks_utils import get_review_app
 from mlflow.genai.labeling.labeling import LabelingSession
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.plugins import get_entry_points
@@ -306,12 +306,7 @@ class DatabricksLabelingStore(AbstractLabelingStore):
         Note: We have to list all sessions and match by ID because the Databricks
         agents API doesn't provide a direct get/fetch API for individual labeling sessions.
         """
-        try:
-            from databricks.agents.review_app import get_review_app as _get_review_app
-        except ImportError as e:
-            raise ImportError(_ERROR_MSG) from e
-
-        app = _get_review_app(labeling_session.experiment_id)
+        app = get_review_app(labeling_session.experiment_id)
         backend_sessions = app.get_labeling_sessions()
         backend_session = next(
             (
@@ -363,12 +358,8 @@ class DatabricksLabelingStore(AbstractLabelingStore):
 
     def get_labeling_sessions(self, experiment_id: str | None = None) -> list[LabelingSession]:
         """Get all labeling sessions for an experiment."""
-        try:
-            from databricks.agents.review_app import get_review_app as _get_review_app
-        except ImportError as e:
-            raise ImportError(_ERROR_MSG) from e
-
-        sessions = _get_review_app(experiment_id).get_labeling_sessions()
+        app = get_review_app(experiment_id)
+        sessions = app.get_labeling_sessions()
         return [self._databricks_session_to_labeling_session(session) for session in sessions]
 
     def create_labeling_session(
@@ -383,12 +374,8 @@ class DatabricksLabelingStore(AbstractLabelingStore):
         experiment_id: str | None = None,
     ) -> LabelingSession:
         """Create a new labeling session."""
-        try:
-            from databricks.agents.review_app import get_review_app as _get_review_app
-        except ImportError as e:
-            raise ImportError(_ERROR_MSG) from e
-
-        backend_session = _get_review_app(experiment_id).create_labeling_session(
+        app = get_review_app(experiment_id)
+        backend_session = app.create_labeling_session(
             name=name,
             assigned_users=assigned_users or [],
             agent=agent,
@@ -400,23 +387,13 @@ class DatabricksLabelingStore(AbstractLabelingStore):
 
     def delete_labeling_session(self, labeling_session: LabelingSession) -> None:
         """Delete a labeling session."""
-        try:
-            from databricks.agents.review_app import get_review_app as _get_review_app
-        except ImportError as e:
-            raise ImportError(_ERROR_MSG) from e
-
         backend_session = self._get_backend_session(labeling_session)
-        app = _get_review_app(labeling_session.experiment_id)
+        app = get_review_app(labeling_session.experiment_id)
         app.delete_labeling_session(backend_session)
 
     def get_label_schema(self, name: str) -> LabelSchema:
         """Get a label schema by name."""
-        try:
-            from databricks.agents import review_app
-        except ImportError as e:
-            raise ImportError(_ERROR_MSG) from e
-
-        app = review_app.get_review_app()
+        app = get_review_app()
         label_schema = next(
             (label_schema for label_schema in app.label_schemas if label_schema.name == name),
             None,
@@ -437,12 +414,7 @@ class DatabricksLabelingStore(AbstractLabelingStore):
         overwrite: bool = False,
     ) -> LabelSchema:
         """Create a new label schema."""
-        try:
-            from databricks.agents import review_app
-        except ImportError as e:
-            raise ImportError(_ERROR_MSG) from e
-
-        app = review_app.get_review_app()
+        app = get_review_app()
         return app.create_label_schema(
             name=name,
             type=type,
@@ -455,12 +427,7 @@ class DatabricksLabelingStore(AbstractLabelingStore):
 
     def delete_label_schema(self, name: str) -> None:
         """Delete a label schema."""
-        try:
-            from databricks.agents import review_app
-        except ImportError as e:
-            raise ImportError(_ERROR_MSG) from e
-
-        app = review_app.get_review_app()
+        app = get_review_app()
         app.delete_label_schema(name)
 
     def add_dataset_to_session(

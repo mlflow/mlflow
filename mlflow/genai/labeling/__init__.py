@@ -8,7 +8,7 @@ The API docs can be found here:
 
 from typing import Any
 
-from mlflow.genai.labeling.constants import _ERROR_MSG
+from mlflow.genai.labeling.databricks_utils import get_review_app as _get_databricks_review_app
 from mlflow.genai.labeling.labeling import Agent, LabelingSession, ReviewApp
 from mlflow.genai.labeling.stores import _get_labeling_store
 
@@ -27,12 +27,7 @@ def get_review_app(experiment_id: str | None = None) -> "ReviewApp":
     Returns:
         ReviewApp: The review app.
     """
-    try:
-        from databricks.agents.review_app import get_review_app as _get_review_app
-    except ImportError:
-        raise ImportError(_ERROR_MSG) from None
-
-    return ReviewApp(_get_review_app(experiment_id))
+    return ReviewApp(_get_databricks_review_app(experiment_id))
 
 
 def create_labeling_session(
@@ -120,12 +115,7 @@ def delete_labeling_session(labeling_session: LabelingSession):
     from mlflow.genai.labeling.stores import DatabricksLabelingStore
 
     if isinstance(store, DatabricksLabelingStore):
-        try:
-            from databricks.agents.review_app import get_review_app as _get_review_app
-        except ImportError:
-            raise ImportError(_ERROR_MSG) from None
-
-        return ReviewApp(_get_review_app())
+        return ReviewApp(_get_databricks_review_app())
     else:
         # For non-Databricks stores, we can't return a meaningful ReviewApp
         return None
