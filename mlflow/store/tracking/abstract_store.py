@@ -329,6 +329,7 @@ class AbstractStore:
         """
         # raise MlflowException so this can be captured by the handlers
         # instead of default internal server error and retry
+        # TODO: ensure NotImplementedError can be translated to 501 error code in mlflow server
         raise MlflowNotImplementedException()
 
     def get_online_trace_details(
