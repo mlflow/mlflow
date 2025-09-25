@@ -319,6 +319,22 @@ class DatabricksLabelingStore(AbstractLabelingStore):
             )
         return backend_session
 
+    def _from_backend_session(self, backend_session) -> LabelingSession:
+        """Create a LabelingSession from a Databricks backend session object."""
+        return LabelingSession(
+            name=backend_session.name,
+            assigned_users=backend_session.assigned_users,
+            agent=backend_session.agent,
+            label_schemas=backend_session.label_schemas,
+            labeling_session_id=backend_session.labeling_session_id,
+            mlflow_run_id=backend_session.mlflow_run_id,
+            review_app_id=backend_session.review_app_id,
+            experiment_id=backend_session.experiment_id,
+            url=backend_session.url,
+            enable_multi_turn_chat=backend_session.enable_multi_turn_chat,
+            custom_inputs=backend_session.custom_inputs,
+        )
+
     def get_labeling_session(self, run_id: str) -> LabelingSession:
         """Get a labeling session by MLflow run ID."""
         labeling_sessions = self.get_labeling_sessions()
@@ -342,7 +358,7 @@ class DatabricksLabelingStore(AbstractLabelingStore):
             raise ImportError(_ERROR_MSG) from e
 
         sessions = _get_review_app(experiment_id).get_labeling_sessions()
-        return [LabelingSession._from_backend_session(session) for session in sessions]
+        return [self._from_backend_session(session) for session in sessions]
 
     def create_labeling_session(
         self,
@@ -369,7 +385,7 @@ class DatabricksLabelingStore(AbstractLabelingStore):
             enable_multi_turn_chat=enable_multi_turn_chat,
             custom_inputs=custom_inputs,
         )
-        return LabelingSession._from_backend_session(backend_session)
+        return self._from_backend_session(backend_session)
 
     def delete_labeling_session(self, labeling_session: LabelingSession) -> None:
         """Delete a labeling session."""
@@ -445,7 +461,7 @@ class DatabricksLabelingStore(AbstractLabelingStore):
         """Add a dataset to a labeling session."""
         backend_session = self._get_backend_session(labeling_session)
         updated_session = backend_session.add_dataset(dataset_name, record_ids)
-        return LabelingSession._from_backend_session(updated_session)
+        return self._from_backend_session(updated_session)
 
     def add_traces_to_session(
         self, labeling_session: LabelingSession, traces: Any
@@ -453,7 +469,7 @@ class DatabricksLabelingStore(AbstractLabelingStore):
         """Add traces to a labeling session."""
         backend_session = self._get_backend_session(labeling_session)
         updated_session = backend_session.add_traces(traces)
-        return LabelingSession._from_backend_session(updated_session)
+        return self._from_backend_session(updated_session)
 
     def sync_session_expectations(self, labeling_session: LabelingSession, to_dataset: str) -> None:
         """Sync traces and expectations from a labeling session to a dataset."""
@@ -466,7 +482,7 @@ class DatabricksLabelingStore(AbstractLabelingStore):
         """Set the assigned users for a labeling session."""
         backend_session = self._get_backend_session(labeling_session)
         updated_session = backend_session.set_assigned_users(assigned_users)
-        return LabelingSession._from_backend_session(updated_session)
+        return self._from_backend_session(updated_session)
 
 
 # Create the global labeling store registry instance

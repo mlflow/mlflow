@@ -205,23 +205,6 @@ class LabelingSession:
         store = _get_store()
         return store.set_session_assigned_users(self, assigned_users)
 
-    @classmethod
-    def _from_backend_session(cls, backend_session) -> "LabelingSession":
-        """Create a LabelingSession from a backend session object."""
-        return cls(
-            name=backend_session.name,
-            assigned_users=backend_session.assigned_users,
-            agent=backend_session.agent,
-            label_schemas=backend_session.label_schemas,
-            labeling_session_id=backend_session.labeling_session_id,
-            mlflow_run_id=backend_session.mlflow_run_id,
-            review_app_id=backend_session.review_app_id,
-            experiment_id=backend_session.experiment_id,
-            url=backend_session.url,
-            enable_multi_turn_chat=backend_session.enable_multi_turn_chat,
-            custom_inputs=backend_session.custom_inputs,
-        )
-
 
 class ReviewApp:
     """A review app is used to collect feedback from stakeholders for a given experiment.
