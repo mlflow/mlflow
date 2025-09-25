@@ -47,8 +47,13 @@ module.exports = async ({ github, context }) => {
   // This allows testing the entire workflow except git push and PR creation
 
   // `--exclude-newer` to avoid potentially unstable releases
-  const uvOutput = execWithOutput("uv", ["lock", "--upgrade", "--exclude-newer", getDaysAgo(3)]);
-  console.log(`uv lock output:\n${uvOutput}`);
+  const uvLockOutput = execWithOutput("uv", [
+    "lock",
+    "--upgrade",
+    "--exclude-newer",
+    getDaysAgo(3),
+  ]);
+  console.log(`uv lock output:\n${uvLockOutput}`);
 
   // Check if uv.lock has changes
   const gitStatus = execWithOutput("git", ["status", "--porcelain", "uv.lock"]);
@@ -98,7 +103,7 @@ module.exports = async ({ github, context }) => {
 ### \`uv lock\` output
 
 \`\`\`
-${uvOutput.trim()}
+${uvLockOutput.trim()}
 \`\`\`
 
 Created by: ${runUrl}
