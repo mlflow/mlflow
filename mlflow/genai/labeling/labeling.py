@@ -3,11 +3,11 @@ from typing import TYPE_CHECKING, Any, Iterable, Union
 from mlflow.entities import Trace
 
 
-# Lazy import to avoid circular import issues
+# Import the store getter to avoid duplication
 def _get_store():
-    from mlflow.genai.labeling.stores import _get_labeling_store
+    from mlflow.genai.labeling.stores import _get_store as _get_labeling_store_func
 
-    return _get_labeling_store()
+    return _get_labeling_store_func()
 
 
 if TYPE_CHECKING:

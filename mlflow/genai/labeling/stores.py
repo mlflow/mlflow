@@ -2,7 +2,6 @@
 Labeling store functionality for MLflow GenAI.
 
 This module provides store implementations to manage labeling sessions and schemas
-in MLflow experiments, similar to how scorer stores work.
 """
 
 import warnings
@@ -505,6 +504,11 @@ _register_labeling_stores()
 def _get_labeling_store(tracking_uri=None):
     """Get a labeling store from the registry"""
     return _labeling_store_registry.get_store(tracking_uri)
+
+
+def _get_store():
+    """Convenience function for getting a labeling store with default tracking URI"""
+    return _get_labeling_store()
 
 
 _ERROR_MSG = (
