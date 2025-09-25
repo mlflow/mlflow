@@ -22,10 +22,15 @@ import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.trace import Trace
+from mlflow.environment_variables import MLFLOW_JUDGE_MAX_TOOL_CALL_ITERATIONS
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.utils.enum_utils import StrEnum
-from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_pb2 import (
+    BAD_REQUEST,
+    INVALID_PARAMETER_VALUE,
+    REQUEST_LIMIT_EXCEEDED,
+)
 from mlflow.telemetry.events import InvokeCustomJudgeModelEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.telemetry.utils import _is_in_databricks
@@ -951,6 +956,11 @@ def _invoke_litellm(
         )
 
     include_response_format = _MODEL_RESPONSE_FORMAT_CAPABILITIES.get(litellm_model_uri, True)
+
+    # Get configurable tool call iteration limit from environment variable
+    max_tool_call_iterations = MLFLOW_JUDGE_MAX_TOOL_CALL_ITERATIONS.get()
+    tool_call_iteration_count = 0
+
     while True:
         try:
             try:
@@ -1019,6 +1029,22 @@ def _invoke_litellm(
                             content=result_json,
                         )
                     )
+
+            # Increment tool call iteration counter and check limit
+            tool_call_iteration_count += 1
+            if tool_call_iteration_count >= max_tool_call_iterations:
+                raise MlflowException(
+                    f"Tool call iteration limit of {max_tool_call_iterations} exceeded. "
+                    f"This usually indicates the model is not powerful enough to effectively "
+                    f"analyze the trace. Consider using a more intelligent/powerful model. "
+                    f"In rare cases, for very complex traces where a large number of tool calls "
+                    f"might be required, you can increase the number of iterations by modifying "
+                    f"the {MLFLOW_JUDGE_MAX_TOOL_CALL_ITERATIONS.name} environment variable.",
+                    error_code=REQUEST_LIMIT_EXCEEDED,
+                )
+        except MlflowException:
+            # Re-raise MlflowExceptions without wrapping
+            raise
         except Exception as e:
             raise MlflowException(f"Failed to invoke the judge via litellm: {e}") from e
 

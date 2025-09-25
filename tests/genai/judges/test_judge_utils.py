@@ -1193,3 +1193,70 @@ def test_get_default_optimizer():
     """Test that get_default_optimizer returns a SIMBA optimizer."""
     optimizer = get_default_optimizer()
     assert isinstance(optimizer, SIMBAAlignmentOptimizer)
+
+
+@pytest.mark.parametrize("env_var_value", ["3", None])
+def test_invoke_judge_model_tool_call_iteration_limit(mock_trace, env_var_value):
+    """Test that tool call iteration limit is enforced."""
+    from mlflow.environment_variables import MLFLOW_JUDGE_MAX_TOOL_CALL_ITERATIONS
+
+    # Set environment variable for test
+    original_limit = MLFLOW_JUDGE_MAX_TOOL_CALL_ITERATIONS.get()
+    if env_var_value is not None:
+        MLFLOW_JUDGE_MAX_TOOL_CALL_ITERATIONS.set(env_var_value)
+        expected_limit = int(env_var_value)
+    else:
+        expected_limit = 30  # default value
+
+    # Mock responses that always return tool calls
+    mock_tool_call_response = ModelResponse(
+        choices=[
+            {
+                "message": {
+                    "tool_calls": [
+                        {
+                            "id": "call_123",
+                            "function": {"name": "get_trace_info", "arguments": "{}"},
+                        }
+                    ],
+                    "content": None,
+                }
+            }
+        ]
+    )
+
+    try:
+        with (
+            mock.patch("litellm.completion", return_value=mock_tool_call_response) as mock_litellm,
+            mock.patch("mlflow.genai.judges.tools.list_judge_tools") as mock_list_tools,
+            mock.patch(
+                "mlflow.genai.judges.tools.registry._judge_tool_registry.invoke"
+            ) as mock_invoke_tool,
+        ):
+            mock_tool = mock.Mock()
+            mock_tool.name = "get_trace_info"
+            mock_tool.get_definition.return_value.to_dict.return_value = {"name": "get_trace_info"}
+            mock_list_tools.return_value = [mock_tool]
+            mock_invoke_tool.return_value = {"trace_id": "test-trace", "state": "OK"}
+
+            # Should raise MlflowException due to iteration limit
+            with pytest.raises(
+                MlflowException, match="Tool call iteration limit.*exceeded"
+            ) as exc_info:
+                invoke_judge_model(
+                    model_uri="openai:/gpt-4",
+                    prompt="Evaluate this response",
+                    assessment_name="quality_check",
+                    trace=mock_trace,
+                )
+
+            # Verify the error message and call count
+            error_msg = str(exc_info.value)
+            assert f"Tool call iteration limit of {expected_limit} exceeded" in error_msg
+            assert "model is not powerful enough" in error_msg
+            assert mock_litellm.call_count == expected_limit
+            assert mock_invoke_tool.call_count == expected_limit
+
+    finally:
+        # Reset to original limit
+        MLFLOW_JUDGE_MAX_TOOL_CALL_ITERATIONS.set(str(original_limit))
