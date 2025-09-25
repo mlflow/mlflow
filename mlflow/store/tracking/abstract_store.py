@@ -1216,6 +1216,24 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
+    def update_scorer(self, experiment_id, name, sample_rate=None, filter_string=None):
+        """
+        Update a scorer's sampling configuration.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: The scorer name.
+            sample_rate: The new sample rate (0.0 to 1.0). If None, keeps current value.
+            filter_string: The new filter string. If None, keeps current value.
+
+        Returns:
+            A ScorerVersion entity object with updated configuration.
+
+        Raises:
+            MlflowException: If scorer is not found.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
     def list_scorer_versions(self, experiment_id, name):
         """
         List all versions of a specific scorer for an experiment.

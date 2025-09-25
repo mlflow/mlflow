@@ -1901,6 +1901,10 @@ class SqlScorerVersion(Base):
     """
     Creation time of scorer version: `BigInteger`. Automatically set to current time when created.
     """
+    sample_rate = Column(sa.types.Float(precision=53), nullable=False, default=0.0)
+    """
+    Sample rate: `Float`. Default value is 0.0. Represents the fraction of data to sample.
+    """
 
     # Relationship to the parent scorer
     scorer = relationship("SqlScorer", backref=backref("scorer_versions", cascade="all"))
@@ -1931,6 +1935,7 @@ class SqlScorerVersion(Base):
             scorer_version=self.scorer_version,
             serialized_scorer=self.serialized_scorer,
             creation_time=self.creation_time,
+            sample_rate=self.sample_rate,
         )
 
 

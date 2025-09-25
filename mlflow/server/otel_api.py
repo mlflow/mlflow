@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 
 from mlflow.entities.span import Span
 from mlflow.server.handlers import _get_tracking_store
+from mlflow.server.utils import check_and_submit_scorers_for_trace
 from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER, OTLP_TRACES_PATH
 
 # Create FastAPI router for OTel endpoints
@@ -123,5 +124,9 @@ async def export_traces(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"Cannot store OpenTelemetry spans: {e}",
             )
+
+        # After spans are logged, check if the trace is complete and run scorers if so
+        trace_id = mlflow_spans[0].trace_id
+        check_and_submit_scorers_for_trace(trace_id, x_mlflow_experiment_id)
 
     return OTelExportTraceServiceResponse()
