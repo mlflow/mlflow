@@ -13,7 +13,7 @@ import { MessageSquare, Users, Brain, Wrench } from "lucide-react";
 The <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API is the recommended way to create custom LLM judges in MLflow. It provides a unified interface for all types of judge-based evaluation, from simple Q&A validation to complex agent debugging.
 
 :::note[Version Requirements]
-The `make_judge` API requires **MLflow >= 3.4.0**. For earlier versions, use the <ins>[legacy judge functions](#bring-your-own-prompt-deprecated)</ins>.
+The `make_judge` API requires **MLflow >= 3.4.0**. For earlier versions, use the deprecated <APILink fn="mlflow.genai.judges.custom_prompt_judge">custom_prompt_judge</APILink> instead.
 :::
 
 ## Quick Start
