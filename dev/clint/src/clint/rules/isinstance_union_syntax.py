@@ -45,8 +45,8 @@ class IsinstanceUnionSyntax(Rule):
         match node:
             case ast.BinOp(op=ast.BitOr()):
                 return True
-            case ast.Tuple(elts=elements):
+            case ast.Tuple(elts=elts):
                 # Check if any element in the tuple has union syntax
-                return any(IsinstanceUnionSyntax._has_union_syntax(elt) for elt in elements)
+                return any(map(IsinstanceUnionSyntax._has_union_syntax, elts))
             case _:
                 return False
