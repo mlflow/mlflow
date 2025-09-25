@@ -2,6 +2,14 @@ from typing import TYPE_CHECKING, Any, Iterable, Union
 
 from mlflow.entities import Trace
 
+
+# Lazy import to avoid circular import issues
+def _get_store():
+    from mlflow.genai.labeling.stores import _get_labeling_store
+
+    return _get_labeling_store()
+
+
 if TYPE_CHECKING:
     import pandas as pd
     from databricks.agents.review_app import (
@@ -145,9 +153,7 @@ class LabelingSession:
         Returns:
             LabelingSession: The updated labeling session.
         """
-        from mlflow.genai.labeling.stores import _get_labeling_store
-
-        store = _get_labeling_store()
+        store = _get_store()
         return store.add_dataset_to_session(self, dataset_name, record_ids)
 
     def add_traces(
@@ -170,9 +176,7 @@ class LabelingSession:
         Returns:
             LabelingSession: The updated labeling session.
         """
-        from mlflow.genai.labeling.stores import _get_labeling_store
-
-        store = _get_labeling_store()
+        store = _get_store()
         return store.add_traces_to_session(self, traces)
 
     def sync(self, to_dataset: str) -> None:
@@ -185,9 +189,7 @@ class LabelingSession:
         Args:
             to_dataset: The name of the dataset to sync traces and expectations to.
         """
-        from mlflow.genai.labeling.stores import _get_labeling_store
-
-        store = _get_labeling_store()
+        store = _get_store()
         return store.sync_session_expectations(self, to_dataset)
 
     def set_assigned_users(self, assigned_users: list[str]) -> "LabelingSession":
@@ -203,9 +205,7 @@ class LabelingSession:
         Returns:
             LabelingSession: The updated labeling session.
         """
-        from mlflow.genai.labeling.stores import _get_labeling_store
-
-        store = _get_labeling_store()
+        store = _get_store()
         return store.set_session_assigned_users(self, assigned_users)
 
     @classmethod

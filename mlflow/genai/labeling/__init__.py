@@ -9,18 +9,6 @@ The API docs can be found here:
 from typing import Any
 
 from mlflow.genai.labeling.labeling import Agent, LabelingSession, ReviewApp
-from mlflow.genai.labeling.stores import (
-    create_labeling_session as _store_create_labeling_session,
-)
-from mlflow.genai.labeling.stores import (
-    delete_labeling_session as _store_delete_labeling_session,
-)
-from mlflow.genai.labeling.stores import (
-    get_labeling_session as _store_get_labeling_session,
-)
-from mlflow.genai.labeling.stores import (
-    get_labeling_sessions as _store_get_labeling_sessions,
-)
 
 _ERROR_MSG = (
     "The `databricks-agents` package is required to use `mlflow.genai.labeling`. "
@@ -76,7 +64,10 @@ def create_labeling_session(
     Returns:
         LabelingSession: The created labeling session.
     """
-    return _store_create_labeling_session(
+    from mlflow.genai.labeling.stores import _get_labeling_store
+
+    store = _get_labeling_store()
+    return store.create_labeling_session(
         name=name,
         assigned_users=assigned_users,
         agent=agent,
@@ -96,7 +87,10 @@ def get_labeling_sessions() -> list[LabelingSession]:
     Returns:
         list[LabelingSession]: The list of labeling sessions.
     """
-    return _store_get_labeling_sessions()
+    from mlflow.genai.labeling.stores import _get_labeling_store
+
+    store = _get_labeling_store()
+    return store.get_labeling_sessions()
 
 
 def get_labeling_session(run_id: str) -> LabelingSession:
@@ -112,7 +106,10 @@ def get_labeling_session(run_id: str) -> LabelingSession:
     Returns:
         LabelingSession: The labeling session.
     """
-    return _store_get_labeling_session(run_id)
+    from mlflow.genai.labeling.stores import _get_labeling_store
+
+    store = _get_labeling_store()
+    return store.get_labeling_session(run_id)
 
 
 def delete_labeling_session(labeling_session: LabelingSession) -> "ReviewApp":
@@ -128,7 +125,11 @@ def delete_labeling_session(labeling_session: LabelingSession) -> "ReviewApp":
     Returns:
         ReviewApp: The review app.
     """
-    _store_delete_labeling_session(labeling_session)
+    from mlflow.genai.labeling.stores import _get_labeling_store
+
+    store = _get_labeling_store()
+    store.delete_labeling_session(labeling_session)
+
     # For backwards compatibility, return a ReviewApp instance
     try:
         from databricks.agents.review_app import get_review_app as _get_review_app
