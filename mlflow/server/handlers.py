@@ -182,7 +182,7 @@ from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.model_registry.abstract_store import AbstractStore as AbstractModelRegistryStore
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
 from mlflow.store.tracking.abstract_store import AbstractStore as AbstractTrackingStore
-from mlflow.store.tracking.rest_store import RestStore
+from mlflow.store.tracking.databricks_rest_store import DatabricksRestStore
 from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
 from mlflow.tracing.utils.artifact_utils import (
     TRACE_DATA_FILE_NAME,
@@ -250,7 +250,7 @@ class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
 
     @classmethod
     def _get_databricks_rest_store(cls, store_uri, artifact_uri):
-        return RestStore(partial(get_databricks_host_creds, store_uri))
+        return DatabricksRestStore(partial(get_databricks_host_creds, store_uri))
 
 
 class ModelRegistryStoreRegistryWrapper(ModelRegistryStoreRegistry):
