@@ -5,7 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
-import React from 'react';
+import React, { type ReactNode } from 'react';
 import { connect } from 'react-redux';
 import Utils from '../../common/utils/Utils';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
@@ -25,11 +25,18 @@ import {
   EXPERIMENT_RUNS_SAMPLE_METRIC_AUTO_REFRESH_INTERVAL,
 } from '../utils/MetricsUtils';
 import type { Location, NavigateFunction } from '../../common/utils/RoutingUtils';
-import { RunsChartsLineChartCard } from './runs-charts/components/cards/RunsChartsLineChartCard';
-import { RunsChartsLineCardConfig, RunsChartsLineChartYAxisType } from './runs-charts/runs-charts.types';
+import { RunsChartsCard } from './runs-charts/components/cards/RunsChartsCard';
+import {
+  RunsChartsCardConfig,
+  RunsChartsLineCardConfig,
+  RunsChartsLineChartYAxisType,
+  RunsChartType,
+} from './runs-charts/runs-charts.types';
 import { RunsChartsRunData, RunsChartsLineChartXAxisType } from './runs-charts/components/RunsCharts.common';
 import { RunsChartsTooltipWrapper } from './runs-charts/hooks/useRunsChartsTooltip';
 import { RunsChartsTooltipBody } from './runs-charts/components/RunsChartsTooltipBody';
+import { RunsChartsFullScreenModal } from './runs-charts/components/RunsChartsFullScreenModal';
+import { getStableColorForRun } from '../utils/RunNameUtils';
 
 export const CHART_TYPE_LINE = 'line';
 export const CHART_TYPE_BAR = 'bar';
@@ -38,7 +45,6 @@ export const EXPERIMENT_RUNS_FULL_METRICS_POLLING_INTERVAL = EXPERIMENT_RUNS_SAM
 // A run is considered as 'hanging' if its status is 'RUNNING' but its latest metric was logged
 // prior to this threshold. The metrics plot doesn't automatically update hanging runs.
 export const METRICS_PLOT_HANGING_RUN_THRESHOLD_MS = 3600 * 24 * 7 * 1000; // 1 week
-const MAXIMUM_METRIC_DATA_POINTS = 100_000;
 const GET_METRIC_HISTORY_MAX_RESULTS = 25000;
 
 // Convert X-axis type from URL to chart config
@@ -90,9 +96,7 @@ type OwnMetricsPlotPanelProps = {
 
 type MetricsPlotPanelState = any;
 
-type MetricsPlotPanelProps = OwnMetricsPlotPanelProps & {
-  containsInfinities: boolean;
-};
+type MetricsPlotPanelProps = OwnMetricsPlotPanelProps & typeof MetricsPlotPanel.defaultProps;
 
 export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, MetricsPlotPanelState> {
   _isMounted = false;
@@ -103,42 +107,21 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
 
   intervalId: any;
 
-  // The fields below are exposed as instance attributes rather than component state so that they
-  // can be updated without triggering a rerender.
-  //
-  // ID of Javascript future (created via setTimeout()) used to trigger legend-click events after a
-  // delay, to allow time for double-click events to occur
-  legendClickTimeout = null;
-  // Time (millis after Unix epoch) since last legend click - if two clicks occur in short
-  // succession, we trigger a double-click event & cancel the pending single-click.
-  prevLegendClickTime = (Math as any).inf;
-
-  // Last curve ID clicked in the legend, used to determine if we're double-clicking on a specific
-  // legend curve
-  lastClickedLegendCurveId = null;
-
-  // Max time interval (in milliseconds) between two successive clicks on the metric plot legend
-  // that constitutes a double-click
-  MAX_DOUBLE_CLICK_INTERVAL_MS = 300;
-
-  // Delay (in ms) between when a user clicks on the metric plot legend & when event-handler logic
-  // (to toggle display of the selected curve on or off) actually fires. Set to a larger value than
-  // MAX_DOUBLE_CLICK_INTERVAL_MS to allow time for the double-click handler to fire before firing
-  // a single-click event.
-  SINGLE_CLICK_EVENT_DELAY_MS = this.MAX_DOUBLE_CLICK_INTERVAL_MS + 10;
-
   constructor(props: MetricsPlotPanelProps) {
     super(props);
     this.state = {
       historyRequestIds: [],
       focused: true,
       loading: false,
+      fullScreenChart: undefined as
+        | {
+            config: RunsChartsCardConfig;
+            title: string | ReactNode;
+            subtitle: ReactNode;
+          }
+        | undefined,
     };
     this.intervalId = null;
-  }
-
-  hasMultipleExperiments() {
-    return this.props.experimentIds && this.props.experimentIds.length > 1;
   }
 
   onFocus = () => {
@@ -232,11 +215,11 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
     return CHART_TYPE_LINE;
   }
 
-  static isComparing(search: any) {
-    const params = qs.parse(search);
-    const runs = params && params['?runs'];
-    // @ts-expect-error TS(2345): Argument of type 'string | string[] | ParsedQs | P... Remove this comment to see the full error message
-    return runs ? JSON.parse(runs).length > 1 : false;
+  static predictRunChartsCardChartType(metrics: any) {
+    if (MetricsPlotPanel.predictChartType(metrics) === CHART_TYPE_BAR) {
+      return RunsChartType.BAR;
+    }
+    return RunsChartType.LINE;
   }
 
   // Update page URL from component state. Intended to be called after React applies component
@@ -376,7 +359,7 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
         type: 'linear',
         range: (state as any).lastLinearYAxisRange,
       };
-      this.updateUrlState({ layout: newLayout, lastLinearYAxisRange: [] });
+      this.updateUrlState({ layout: newLayout, lastLinearYAxisRange: [], yAxisLogScale });
       return;
     }
 
@@ -388,7 +371,7 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
         autorange: true,
         ...(newAxisType === 'log' ? { exponentformat: 'e' } : {}),
       };
-      this.updateUrlState({ layout: newLayout, lastLinearYAxisRange: [] });
+      this.updateUrlState({ layout: newLayout, lastLinearYAxisRange: [], yAxisLogScale });
       return;
     }
 
@@ -465,75 +448,6 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
     return state.layout && state.layout.yaxis && state.layout.yaxis.type === 'log' ? 'log' : 'linear';
   }
 
-  /**
-   * Handle changes to metric plot layout (x & y axis ranges), e.g. specifically if the user
-   * zooms in or out on the plot.
-   *
-   * @param newLayout: Object containing the new Plot layout. See
-   * https://plot.ly/javascript/plotlyjs-events/#update-data for details on the object's fields
-   * and schema.
-   */
-  handleLayoutChange = (newLayout: any) => {
-    const state = this.getUrlState();
-    // Unfortunately, we need to parse out the x & y axis range changes from the onLayout event...
-    // see https://plot.ly/javascript/plotlyjs-events/#update-data
-    const {
-      'xaxis.range[0]': newXRange0,
-      'xaxis.range[1]': newXRange1,
-      'yaxis.range[0]': newYRange0,
-      'yaxis.range[1]': newYRange1,
-      'xaxis.autorange': xAxisAutorange,
-      'yaxis.autorange': yAxisAutorange,
-      'yaxis.showspikes': yAxisShowSpikes,
-      'xaxis.showspikes': xAxisShowSpikes,
-      ...restFields
-    } = newLayout;
-
-    let mergedLayout = {
-      ...state.layout,
-      ...restFields,
-    };
-    let lastLinearYAxisRange = [...(state as any).lastLinearYAxisRange];
-
-    // Set fields for x axis
-    const newXAxis = mergedLayout.xaxis || {};
-    if (newXRange0 !== undefined && newXRange1 !== undefined) {
-      newXAxis.range = [newXRange0, newXRange1];
-      newXAxis.autorange = false;
-    }
-    if (xAxisShowSpikes) {
-      newXAxis.showspikes = true;
-    }
-    if (xAxisAutorange) {
-      newXAxis.autorange = true;
-    }
-    // Set fields for y axis
-    const newYAxis = mergedLayout.yaxis || {};
-    if (newYRange0 !== undefined && newYRange1 !== undefined) {
-      newYAxis.range = [newYRange0, newYRange1];
-      newYAxis.autorange = false;
-    }
-    if (yAxisShowSpikes) {
-      newYAxis.showspikes = true;
-    }
-    if (yAxisAutorange) {
-      lastLinearYAxisRange = [];
-      const axisType = state.layout && state.layout.yaxis && state.layout.yaxis.type === 'log' ? 'log' : 'linear';
-      newYAxis.autorange = true;
-      newYAxis.type = axisType;
-    }
-    if (newYAxis.type === 'log') {
-      newYAxis.exponentformat = 'e';
-    }
-    // Merge new X & Y axis info into layout
-    mergedLayout = {
-      ...mergedLayout,
-      xaxis: newXAxis,
-      yaxis: newYAxis,
-    };
-    this.updateUrlState({ layout: mergedLayout, lastLinearYAxisRange });
-  };
-
   handleDownloadCsv = async () => {
     if (!this.state['loading']) {
       const state = this.getUrlState();
@@ -556,71 +470,6 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
     saveAs(blob, 'metrics.csv');
   };
 
-  // Return unique key identifying the curve or bar chart corresponding to the specified
-  // Plotly plot data element
-  static getCurveKey(plotDataElem: any) {
-    // In bar charts, each legend item consists of a single run ID (all bars for that run are
-    // associated with & toggled by that legend item)
-    if (plotDataElem.type === 'bar') {
-      return plotDataElem.runId;
-    } else {
-      // In line charts, each (run, metricKey) tuple has its own legend item, so construct
-      // a unique legend item identifier by concatenating the run id & metric key
-      return Utils.getCurveKey(plotDataElem.runId, plotDataElem.metricName);
-    }
-  }
-
-  /**
-   * Handle clicking on a single curve within the plot legend in order to toggle its display
-   * on/off.
-   */
-  handleLegendClick = ({ curveNumber, data }: any) => {
-    // If two clicks in short succession, trigger double-click event
-    const state = this.getUrlState();
-    const currentTime = Date.now();
-    if (
-      currentTime - this.prevLegendClickTime < this.MAX_DOUBLE_CLICK_INTERVAL_MS &&
-      curveNumber === this.lastClickedLegendCurveId
-    ) {
-      this.handleLegendDoubleClick({ curveNumber, data });
-      this.prevLegendClickTime = (Math as any).inf;
-    } else {
-      // Otherwise, record time of current click & trigger click event
-      // Wait full double-click window to trigger setting state, and only if there was no
-      // double-click do we run the single-click logic (we wait a little extra to be safe)
-      const curveKey = MetricsPlotPanel.getCurveKey(data[curveNumber]);
-      // @ts-expect-error TS(2322): Type 'number' is not assignable to type 'null'.
-      this.legendClickTimeout = window.setTimeout(() => {
-        const existingDeselectedCurves = new Set((state as any).deselectedCurves);
-        if (existingDeselectedCurves.has(curveKey)) {
-          existingDeselectedCurves.delete(curveKey);
-        } else {
-          existingDeselectedCurves.add(curveKey);
-        }
-        this.updateUrlState({ deselectedCurves: Array.from(existingDeselectedCurves) });
-      }, this.SINGLE_CLICK_EVENT_DELAY_MS);
-      this.prevLegendClickTime = currentTime;
-    }
-    this.lastClickedLegendCurveId = curveNumber;
-    // Return false to disable plotly event handler
-    return false;
-  };
-
-  /**
-   * Handle double-clicking on a single curve within the plot legend in order to toggle display
-   * of the selected curve on (and disable display of all other curves).
-   */
-  handleLegendDoubleClick = ({ curveNumber, data }: any) => {
-    // @ts-expect-error TS(2769): No overload matches this call.
-    window.clearTimeout(this.legendClickTimeout);
-    // Exclude everything besides the current curve key
-    const curveKey = MetricsPlotPanel.getCurveKey(data[curveNumber]);
-    const allCurveKeys = data.map((elem: any) => MetricsPlotPanel.getCurveKey(elem));
-    const newDeselectedCurves = allCurveKeys.filter((curvePair: any) => curvePair !== curveKey);
-    this.updateUrlState({ deselectedCurves: newDeselectedCurves });
-    return false;
-  };
-
   handleMetricsSelectChange = (metricKeys: any) => {
     const existingMetricKeys = this.getUrlState().selectedMetricKeys || [];
     const newMetricKeys = metricKeys.filter((k: any) => !existingMetricKeys.includes(k));
@@ -637,11 +486,13 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
 
   handleLineSmoothChange = (lineSmoothness: any) => this.updateUrlState({ lineSmoothness });
 
-  // New chart system methods
-  getCardChartConfig = () => {
+  getCardConfig = () => {
     const { metricKey } = this.props;
     const urlState = this.getUrlState();
-    const config = new RunsChartsLineCardConfig(false, getUUID());
+    const metrics = this.getMetrics();
+    const chartType = MetricsPlotPanel.predictRunChartsCardChartType(metrics);
+
+    const config = RunsChartsCardConfig.getEmptyChartCardByType(chartType, false, getUUID());
     const selectedMetricKeys =
       urlState.selectedMetricKeys && urlState.selectedMetricKeys.length > 0 ? urlState.selectedMetricKeys : [metricKey];
 
@@ -652,10 +503,11 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
       yAxisKey: RunsChartsLineChartYAxisType.METRIC,
       scaleType: urlState.yAxisLogScale ? 'log' : 'linear',
       displayPoints: urlState.showPoint,
+      lineSmoothness: urlState.lineSmoothness,
     });
 
-    if (urlState.layout && Object.keys(urlState.layout).length > 0) {
-      config.range = {
+    if (chartType === RunsChartType.LINE && urlState.layout && Object.keys(urlState.layout).length > 0) {
+      (config as RunsChartsLineCardConfig).range = {
         xMin: urlState.layout.xaxis?.range?.[0],
         xMax: urlState.layout.xaxis?.range?.[1],
         yMin: urlState.layout.yaxis?.range?.[0],
@@ -666,7 +518,7 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
     return config;
   };
 
-  getNewChartRunData = () => {
+  getChartRunData = () => {
     const { runUuids, metricKey, runInfos, runNames, runDisplayNames } = this.props;
     const urlState = this.getUrlState();
     const selectedMetricKeys =
@@ -687,7 +539,7 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
           datasets: [],
           images: {},
           hidden: false,
-          color: undefined,
+          color: getStableColorForRun(runUuid),
           displayName: runNames?.[index] || runDisplayNames?.[index] || runUuid,
         } as RunsChartsRunData),
     );
@@ -704,16 +556,22 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
 
   getTooltipContextValue = () => {
     return {
-      runs: this.getNewChartRunData(),
+      runs: this.getChartRunData(),
     };
   };
 
+  setFullScreenChart = (chart: any) => {
+    this.setState({ fullScreenChart: chart });
+  };
+
   render() {
-    const { experimentIds, runUuids, runDisplayNames, distinctMetricKeys, location } = this.props;
+    const { runUuids, runDisplayNames, distinctMetricKeys } = this.props;
     const { loading, historyRequestIds } = this.state;
     const state = this.getUrlState();
     const { showPoint, selectedXAxis, selectedMetricKeys, lineSmoothness } = state;
     const yAxisLogScale = this.getAxisType() === 'log';
+    const metrics = this.getMetrics();
+    const chartType = MetricsPlotPanel.predictChartType(metrics);
 
     return (
       <div className="mlflow-metrics-plot-container">
@@ -729,7 +587,7 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
           handleShowPointChange={this.handleShowPointChange}
           handleYAxisLogScaleChange={this.handleYAxisLogScaleChange}
           handleLineSmoothChange={this.handleLineSmoothChange}
-          chartType={CHART_TYPE_LINE}
+          chartType={chartType}
           lineSmoothness={lineSmoothness}
           yAxisLogScale={yAxisLogScale}
           showPoint={showPoint}
@@ -746,12 +604,13 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
           >
             <Spinner size="large" css={{ visibility: loading ? 'visible' : 'hidden' }} />
             <RunsChartsTooltipWrapper contextData={this.getTooltipContextValue()} component={RunsChartsTooltipBody}>
-              <RunsChartsLineChartCard
-                config={this.getCardChartConfig()}
-                chartRunData={this.getNewChartRunData()}
-                onEdit={() => {}}
-                onDelete={() => {}}
+              <RunsChartsCard
+                cardConfig={this.getCardConfig()}
+                chartRunData={this.getChartRunData()}
+                onStartEditChart={() => {}}
+                onRemoveChart={() => {}}
                 onDownloadFullMetricHistoryCsv={() => {}}
+                index={0}
                 groupBy={null}
                 fullScreen={false}
                 autoRefreshEnabled={this.shouldPoll()}
@@ -759,12 +618,21 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
                 globalLineChartConfig={this.getGlobalLineChartConfig()}
                 isInViewport
                 isInViewportDeferred
-                positionInSection={0}
+                setFullScreenChart={this.setFullScreenChart}
                 onReorderWith={() => {}}
                 canMoveUp={false}
                 canMoveDown={false}
               />
             </RunsChartsTooltipWrapper>
+            <RunsChartsFullScreenModal
+              fullScreenChart={this.state['fullScreenChart']}
+              onCancel={() => this.setFullScreenChart(undefined)}
+              chartData={this.getChartRunData()}
+              tooltipContextValue={this.getTooltipContextValue()}
+              tooltipComponent={RunsChartsTooltipBody}
+              autoRefreshEnabled={this.shouldPoll()}
+              groupBy={null}
+            />
             <MetricsSummaryTable
               runUuids={runUuids}
               runDisplayNames={runDisplayNames}

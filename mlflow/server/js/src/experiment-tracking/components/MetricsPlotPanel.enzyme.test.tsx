@@ -24,11 +24,10 @@ import MetricsSummaryTable from './MetricsSummaryTable';
 import { X_AXIS_RELATIVE, X_AXIS_STEP, X_AXIS_WALL } from './MetricsPlotControls';
 import Utils from '../../common/utils/Utils';
 import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
-import { RunLinksPopover } from './RunLinksPopover';
 import { Progress } from '../../common/components/Progress';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { TestApolloProvider } from '../../common/utils/TestApolloProvider';
 import { useSampledMetricHistory } from './runs-charts/hooks/useSampledMetricHistory';
+import { getStableColorForRun } from '../utils/RunNameUtils';
 import { saveAs } from 'file-saver';
 
 jest.mock('./runs-charts/hooks/useSampledMetricHistory', () => ({
@@ -38,6 +37,10 @@ jest.mock('./runs-charts/hooks/useSampledMetricHistory', () => ({
 // Mock file-saver for CSV download tests
 jest.mock('file-saver', () => ({
   saveAs: jest.fn(),
+}));
+
+jest.mock('../utils/RunNameUtils', () => ({
+  getStableColorForRun: jest.fn(),
 }));
 
 // Global test variables
@@ -199,6 +202,7 @@ describe('unit tests', () => {
       refresh: jest.fn(),
     };
     jest.mocked(useSampledMetricHistory).mockReturnValue(sampleHistoryResults);
+    jest.mocked(getStableColorForRun).mockImplementation((uuid) => `color-${uuid}`);
   });
 
   test('should render with minimal props without exploding', () => {
@@ -215,13 +219,6 @@ describe('unit tests', () => {
     expect(MetricsPlotPanel.predictChartType(minimalPropsForBarChart.metricsWithRunInfoAndHistory)).toBe(
       CHART_TYPE_BAR,
     );
-  });
-
-  test('isComparing()', () => {
-    const s1 = '?runs=["runUuid1","runUuid2"]&plot_metric_keys=["metric_1","metric_2"]';
-    const s2 = '?runs=["runUuid1"]&plot_metric_keys=["metric_1","metric_2"]';
-    expect(MetricsPlotPanel.isComparing(s1)).toBe(true);
-    expect(MetricsPlotPanel.isComparing(s2)).toBe(false);
   });
 
   test('getMetrics() should sort the history by timestamp for `Time (Relative)` x-axis', () => {
@@ -252,145 +249,6 @@ describe('unit tests', () => {
     const metrics = minimalPropsForLineChart.metricsWithRunInfoAndHistory;
     metrics[0].history.sort(Utils.compareByStepAndTimestamp); // sort in place before comparison
     expect(instance.getMetrics()).toEqual(metrics);
-  });
-
-  test('handleYAxisLogScale properly converts layout between log and linear scales', () => {
-    const props = {
-      ...minimalPropsForLineChart,
-    };
-    wrapper = shallow(<MetricsPlotPanel {...props} />);
-    instance = wrapper.instance();
-    // Test converting to & from log scale for an empty layout (e.g. a layout without any
-    // user-specified zoom)
-    instance.handleYAxisLogScaleChange(true);
-    expect(instance.getUrlState().layout).toEqual({
-      yaxis: { type: 'log', autorange: true, exponentformat: 'e' },
-    });
-    instance.handleYAxisLogScaleChange(false);
-    expect(instance.getUrlState().layout).toEqual({ yaxis: { type: 'linear', autorange: true } });
-    // Test converting to & from log scale for a layout with specified y axis range bounds
-    instance.handleLayoutChange({
-      'xaxis.range[0]': 2,
-      'xaxis.range[1]': 4,
-      'yaxis.range[0]': 1,
-      'yaxis.range[1]': 100,
-    });
-    instance.handleYAxisLogScaleChange(true);
-    expect(instance.getUrlState().layout).toEqual({
-      xaxis: { range: [2, 4], autorange: false },
-      yaxis: { range: [0, 2], type: 'log', exponentformat: 'e' },
-    });
-    instance.handleYAxisLogScaleChange(false);
-    expect(instance.getUrlState().layout).toEqual({
-      xaxis: { range: [2, 4], autorange: false },
-      yaxis: { range: [1, 100], type: 'linear' },
-    });
-    // Test converting to & from log scale for a layout with negative Y axis
-    instance.handleLayoutChange({
-      'xaxis.range[0]': -5,
-      'xaxis.range[1]': 5,
-      'yaxis.range[0]': -3,
-      'yaxis.range[1]': 6,
-    });
-    instance.handleYAxisLogScaleChange(true);
-    expect(instance.getUrlState().layout).toEqual({
-      xaxis: { range: [-5, 5], autorange: false },
-      yaxis: { autorange: true, type: 'log', exponentformat: 'e' },
-    });
-    instance.handleYAxisLogScaleChange(false);
-    expect(instance.getUrlState().layout).toEqual({
-      xaxis: { range: [-5, 5], autorange: false },
-      yaxis: { range: [-3, 6], type: 'linear' },
-    });
-    // Test converting to & from log scale for a layout with zero-valued Y axis bound
-    instance.handleLayoutChange({ 'yaxis.range[0]': 0, 'yaxis.range[1]': 6 });
-    instance.handleYAxisLogScaleChange(true);
-    expect(instance.getUrlState().layout).toEqual({
-      xaxis: { range: [-5, 5], autorange: false },
-      yaxis: { autorange: true, type: 'log', exponentformat: 'e' },
-    });
-    instance.handleYAxisLogScaleChange(false);
-    expect(instance.getUrlState().layout).toEqual({
-      xaxis: { range: [-5, 5], autorange: false },
-      yaxis: { range: [0, 6], type: 'linear' },
-    });
-  });
-
-  test('single-click handler in metric comparison plot - line chart', () => {
-    jest.useFakeTimers();
-    const props = {
-      ...minimalPropsForLineChart,
-    };
-    wrapper = shallow(<MetricsPlotPanel {...props} />);
-    instance = wrapper.instance();
-    // Verify that clicking doesn't immediately update the run state
-    expect(instance.getUrlState().deselectedCurves).toEqual([]);
-    instance.handleLegendClick({
-      curveNumber: 0,
-      data: [{ runId: 'runUuid2', metricName: 'metric_1' }],
-    });
-    expect(instance.getUrlState().deselectedCurves).toEqual([]);
-    // Wait a second, verify first run was deselected
-    jest.advanceTimersByTime(1000);
-    expect(instance.getUrlState().deselectedCurves).toEqual(['runUuid2-metric_1']);
-  });
-
-  test('single-click handler in metric comparison plot - bar chart', () => {
-    jest.useFakeTimers();
-    const props = {
-      ...minimalPropsForBarChart,
-    };
-    wrapper = shallow(<MetricsPlotPanel {...props} />);
-    instance = wrapper.instance();
-    // Verify that clicking doesn't immediately update the run state
-    expect(instance.getUrlState().deselectedCurves).toEqual([]);
-    instance.handleLegendClick({ curveNumber: 0, data: [{ runId: 'runUuid2', type: 'bar' }] });
-    expect(instance.getUrlState().deselectedCurves).toEqual([]);
-    // Wait a second, verify first run was deselected
-    jest.advanceTimersByTime(1000);
-    expect(instance.getUrlState().deselectedCurves).toEqual(['runUuid2']);
-  });
-
-  test('double-click handler in metric comparison plot - line chart', () => {
-    jest.useFakeTimers();
-    const props = {
-      ...minimalPropsForLineChart,
-    };
-    wrapper = shallow(<MetricsPlotPanel {...props} />);
-    instance = wrapper.instance();
-    const data = [
-      { runId: 'runUuid1', metricName: 'metric_1' },
-      { runId: 'runUuid2', metricName: 'metric_2' },
-    ];
-    // Verify that clicking doesn't immediately update the run state
-    expect(instance.getUrlState().deselectedCurves).toEqual([]);
-    instance.handleLegendClick({ curveNumber: 1, data: data });
-    expect(instance.getUrlState().deselectedCurves).toEqual([]);
-    // Double-click, verify that only the clicked run is selected (that the other one is deselected)
-    instance.handleLegendClick({ curveNumber: 1, data: data });
-    jest.advanceTimersByTime(1000);
-    expect(instance.getUrlState().deselectedCurves).toEqual(['runUuid1-metric_1']);
-  });
-
-  test('double-click handler in metric comparison plot - bar chart', () => {
-    jest.useFakeTimers();
-    const props = {
-      ...minimalPropsForBarChart,
-    };
-    wrapper = shallow(<MetricsPlotPanel {...props} />);
-    instance = wrapper.instance();
-    const data = [
-      { runId: 'runUuid1', type: 'bar' },
-      { runId: 'runUuid2', type: 'bar' },
-    ];
-    // Verify that clicking doesn't immediately update the run state
-    expect(instance.getUrlState().deselectedCurves).toEqual([]);
-    instance.handleLegendClick({ curveNumber: 1, data: data });
-    expect(instance.getUrlState().deselectedCurves).toEqual([]);
-    // Double-click, verify that only the clicked run is selected (that the other one is deselected)
-    instance.handleLegendClick({ curveNumber: 1, data: data });
-    jest.advanceTimersByTime(1000);
-    expect(instance.getUrlState().deselectedCurves).toEqual(['runUuid1']);
   });
 
   test('should render the number of completed runs correctly', () => {
@@ -617,6 +475,7 @@ describe('unit tests', () => {
     wrapper = shallow(<MetricsPlotPanel {...props} />);
     instance = wrapper.instance();
 
+    instance.predictChartType = jest.fn().mockReturnValue(CHART_TYPE_LINE);
     instance.getUrlState = jest.fn().mockReturnValue({
       selectedMetricKeys: ['metric_1', 'metric_2'],
       selectedXAxis: 'step',
@@ -628,7 +487,7 @@ describe('unit tests', () => {
       },
     });
 
-    const config = instance.getCardChartConfig();
+    const config = instance.getCardConfig();
 
     expect(config.metricKey).toBe('test_metric');
     expect(config.selectedMetricKeys).toEqual(['metric_1', 'metric_2']);
@@ -642,7 +501,7 @@ describe('unit tests', () => {
     });
   });
 
-  test('getCardChartConfig should use metricKey as fallback for selectedMetricKeys', () => {
+  test('getCardConfig should use metricKey as fallback for selectedMetricKeys', () => {
     const props = { ...minimalPropsForLineChart, metricKey: 'fallback_metric' };
     wrapper = shallow(<MetricsPlotPanel {...props} />);
     instance = wrapper.instance();
@@ -654,14 +513,14 @@ describe('unit tests', () => {
       showPoint: false,
     });
 
-    const config = instance.getCardChartConfig();
+    const config = instance.getCardConfig();
 
     expect(config.selectedMetricKeys).toEqual(['fallback_metric']);
     expect(config.scaleType).toBe('linear');
     expect(config.displayPoints).toBe(false);
   });
 
-  test('getNewChartRunData should return correct run data structure', () => {
+  test('getChartRunData should return correct run data structure', () => {
     const props = {
       ...minimalPropsForLineChart,
       metricKey: 'test_metric',
@@ -677,7 +536,7 @@ describe('unit tests', () => {
       selectedMetricKeys: ['metric_1', 'metric_2'],
     });
 
-    const runData = instance.getNewChartRunData();
+    const runData = instance.getChartRunData();
 
     expect(runData).toHaveLength(2);
     expect(runData[0]).toEqual({
@@ -689,9 +548,10 @@ describe('unit tests', () => {
       datasets: [],
       images: {},
       hidden: false,
-      color: undefined,
+      color: `color-run1`,
       displayName: 'Run 1',
     });
+    expect(getStableColorForRun).toHaveBeenCalledWith('run1');
   });
 
   test('getGlobalLineChartConfig should return correct global config', () => {
@@ -714,15 +574,15 @@ describe('unit tests', () => {
     instance = wrapper.instance();
 
     const mockRunData = [{ uuid: 'run1' }];
-    instance.getNewChartRunData = jest.fn().mockReturnValue(mockRunData);
+    instance.getChartRunData = jest.fn().mockReturnValue(mockRunData);
 
     const contextValue = instance.getTooltipContextValue();
 
     expect(contextValue).toEqual({ runs: mockRunData });
-    expect(instance.getNewChartRunData).toHaveBeenCalledTimes(1);
+    expect(instance.getChartRunData).toHaveBeenCalledTimes(1);
   });
 
-  test('should render RunsChartsLineChartCard with correct props', () => {
+  test('should render RunsChartsCard with correct props', () => {
     wrapper = shallow(<MetricsPlotPanel {...minimalPropsForLineChart} />);
     instance = wrapper.instance();
 
@@ -730,14 +590,15 @@ describe('unit tests', () => {
     const mockRunData = [{ uuid: 'run1' }];
     const mockGlobalConfig = { lineSmoothness: 0.5 };
 
-    instance.getCardChartConfig = jest.fn().mockReturnValue(mockConfig);
-    instance.getNewChartRunData = jest.fn().mockReturnValue(mockRunData);
+    instance.predictChartType = jest.fn().mockReturnValue(CHART_TYPE_LINE);
+    instance.getCardConfig = jest.fn().mockReturnValue(mockConfig);
+    instance.getChartRunData = jest.fn().mockReturnValue(mockRunData);
     instance.getGlobalLineChartConfig = jest.fn().mockReturnValue(mockGlobalConfig);
 
     wrapper.setProps({});
 
-    expect(instance.getCardChartConfig).toHaveBeenCalled();
-    expect(instance.getNewChartRunData).toHaveBeenCalled();
+    expect(instance.getCardConfig).toHaveBeenCalled();
+    expect(instance.getChartRunData).toHaveBeenCalled();
     expect(instance.getGlobalLineChartConfig).toHaveBeenCalled();
   });
 
