@@ -6,7 +6,7 @@ This module provides store implementations to manage labeling sessions and schem
 
 import warnings
 from abc import ABCMeta, abstractmethod
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.label_schemas.label_schemas import LabelSchema
@@ -15,11 +15,14 @@ from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.uri import get_uri_scheme
 
+if TYPE_CHECKING:
+    from databricks.agents.review_app.labeling import LabelingSession as _DatabricksLabelingSession
+
 
 class UnsupportedLabelingStoreURIException(MlflowException):
     """Exception thrown when building a labeling store with an unsupported URI"""
 
-    def __init__(self, unsupported_uri, supported_uri_schemes):
+    def __init__(self, unsupported_uri: str, supported_uri_schemes: list[str]) -> None:
         message = (
             f"Labeling functionality is unavailable; got unsupported URI"
             f" '{unsupported_uri}' for labeling data storage. Supported URI schemes are:"
@@ -289,7 +292,9 @@ class DatabricksLabelingStore(AbstractLabelingStore):
     def __init__(self, tracking_uri: str | None = None) -> None:
         pass
 
-    def _get_backend_session(self, labeling_session: LabelingSession) -> Any:
+    def _get_backend_session(
+        self, labeling_session: LabelingSession
+    ) -> "_DatabricksLabelingSession":
         """
         Get the backend session for a labeling session.
 
@@ -318,7 +323,9 @@ class DatabricksLabelingStore(AbstractLabelingStore):
             )
         return backend_session
 
-    def _from_backend_session(self, backend_session: Any) -> LabelingSession:
+    def _from_backend_session(
+        self, backend_session: "_DatabricksLabelingSession"
+    ) -> LabelingSession:
         """Create a LabelingSession from a Databricks backend session object."""
         return LabelingSession(
             name=backend_session.name,
@@ -488,7 +495,7 @@ class DatabricksLabelingStore(AbstractLabelingStore):
 _labeling_store_registry = LabelingStoreRegistry()
 
 
-def _register_labeling_stores():
+def _register_labeling_stores() -> None:
     """Register the default labeling store implementations"""
     # Register Databricks store
     _labeling_store_registry.register("databricks", DatabricksLabelingStore)
