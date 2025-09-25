@@ -95,7 +95,6 @@ ${uvOutput.trim()}
 
 Created by: ${runUrl}
 `,
-    labels: ["team-review"],
   });
   console.log(`Created PR: ${pr.html_url}`);
 };
