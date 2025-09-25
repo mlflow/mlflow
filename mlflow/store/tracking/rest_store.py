@@ -141,7 +141,6 @@ from mlflow.utils.rest_utils import (
     verify_rest_response,
 )
 
-_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
 _logger = logging.getLogger(__name__)
 
 
@@ -154,6 +153,8 @@ class RestStore(AbstractStore):
             :py:class:`mlflow.rest_utils.MlflowHostCreds` for the request. Note that this
             is a function so that we can obtain fresh credentials in the case of expiry.
     """
+
+    _METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
 
     def __init__(self, get_host_creds):
         super().__init__()
@@ -199,9 +200,9 @@ class RestStore(AbstractStore):
         if endpoint:
             # Allow customizing the endpoint for compatibility with dynamic endpoints, such as
             # /mlflow/traces/{trace_id}/info.
-            _, method = _METHOD_TO_INFO[api]
+            _, method = self._METHOD_TO_INFO[api]
         else:
-            endpoint, method = _METHOD_TO_INFO[api]
+            endpoint, method = self._METHOD_TO_INFO[api]
         response_proto = api.Response()
         return call_endpoint(
             self.get_host_creds(),

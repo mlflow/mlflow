@@ -19,6 +19,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import DATABASE_ENGINES
+from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -205,7 +206,7 @@ def test_get_store_databricks(monkeypatch):
     }.items():
         monkeypatch.setenv(k, v)
     store = _get_store()
-    assert isinstance(store, RestStore)
+    assert isinstance(store, DatabricksTracingRestStore)
     assert store.get_host_creds().use_databricks_sdk
     assert _get_tracking_scheme() == "databricks"
 
@@ -215,7 +216,7 @@ def test_get_store_databricks_profile(monkeypatch):
     # It's kind of annoying to setup a profile, and we're not really trying to test
     # that anyway, so just check if we raise a relevant exception.
     store = _get_store()
-    assert isinstance(store, RestStore)
+    assert isinstance(store, DatabricksTracingRestStore)
     with pytest.raises(MlflowException, match="mycoolprofile"):
         store.get_host_creds()
 
