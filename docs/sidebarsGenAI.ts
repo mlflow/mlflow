@@ -297,7 +297,7 @@ const sidebarsGenAI: SidebarsConfig = {
               type: 'doc',
               id: 'eval-monitor/scorers/versioning',
               label: 'Versioning Scorers',
-            }
+            },
           ],
         },
         {
