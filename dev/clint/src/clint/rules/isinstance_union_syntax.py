@@ -6,7 +6,7 @@ from clint.rules.base import Rule
 class IsinstanceUnionSyntax(Rule):
     def _message(self) -> str:
         return (
-            "Use `isinstance(obj, (X, Y))` instead of `isinstance(obj, X | Y)` for better performance. "
+            "Use `isinstance(obj, (X, Y))` instead of `isinstance(obj, X | Y)`. "
             "The union syntax with `|` is slower than using a tuple of types."
         )
 
