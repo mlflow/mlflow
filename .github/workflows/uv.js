@@ -50,10 +50,15 @@ module.exports = async ({ github, context }) => {
   const uvOutput = execWithOutput("uv", ["lock", "--upgrade", "--exclude-newer", getDaysAgo(3)]);
   console.log(`uv lock output:\n${uvOutput}`);
 
+  // Check if uv.lock has changes
+  const gitStatus = execWithOutput("git", ["status", "--porcelain", "uv.lock"]);
+  const hasChanges = gitStatus.trim() !== "";
+
   const branchName = `uv-lock-update-${getTimestamp()}`;
   exec("git", ["config", "user.name", "mlflow-app[bot]"]);
   exec("git", ["config", "user.email", "mlflow-app[bot]@users.noreply.github.com"]);
   exec("git", ["checkout", "-b", branchName]);
+  // `git add` succeeds even if there are no changes
   exec("git", ["add", "uv.lock"]);
   // `--allow-empty` in case `uv.lock` is unchanged
   exec("git", ["commit", "-s", "--allow-empty", "-m", "Update uv.lock"]);
@@ -73,6 +78,9 @@ module.exports = async ({ github, context }) => {
     return;
   } else if (searchResults.total_count > 0) {
     console.log(`An open PR already exists: ${searchResults.items[0].html_url}`);
+    return;
+  } else if (!hasChanges) {
+    console.log("No changes to uv.lock, not creating a PR");
     return;
   }
 
