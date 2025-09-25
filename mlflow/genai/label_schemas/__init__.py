@@ -58,7 +58,7 @@ def create_label_schema(
     Returns:
         LabelSchema: The created label schema.
     """
-    from mlflow.genai.labeling.stores import _get_labeling_store
+    from mlflow.genai.labeling.stores import _get_labeling_store  # Nested to avoid circular import
 
     store = _get_labeling_store()
     return store.create_label_schema(
@@ -85,7 +85,7 @@ def get_label_schema(name: str) -> LabelSchema:
     Returns:
         LabelSchema: The label schema.
     """
-    from mlflow.genai.labeling.stores import _get_labeling_store
+    from mlflow.genai.labeling.stores import _get_labeling_store  # Nested to avoid circular import
 
     store = _get_labeling_store()
     return store.get_label_schema(name)
@@ -101,14 +101,16 @@ def delete_label_schema(name: str):
     Args:
         name: The name of the label schema to delete.
     """
-    from mlflow.genai.labeling.stores import _get_labeling_store
+    from mlflow.genai.labeling.stores import _get_labeling_store  # Nested to avoid circular import
 
     store = _get_labeling_store()
     store.delete_label_schema(name)
 
     # For backwards compatibility, return a ReviewApp instance only if using Databricks store
     from mlflow.genai.labeling.databricks_utils import get_databricks_review_app
-    from mlflow.genai.labeling.stores import DatabricksLabelingStore
+    from mlflow.genai.labeling.stores import (
+        DatabricksLabelingStore,  # Nested to avoid circular import
+    )
 
     if isinstance(store, DatabricksLabelingStore):
         return ReviewApp(get_databricks_review_app())
