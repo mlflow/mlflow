@@ -799,38 +799,31 @@ def test_get_label_schema_calls_from_databricks_label_schema(mock_databricks_lab
         (InputNumeric(min_value=1, max_value=10), "numeric_api_test"),
     ],
 )
-def test_api_integration_with_all_input_types(input_type, schema_name):
+def test_api_integration_with_all_input_types(
+    input_type, schema_name, mock_databricks_labeling_store
+):
     """Test that API integration works with all input types."""
-    # Mock the labeling store to return a DatabricksLabelingStore
-    with patch("mlflow.genai.labeling.stores._get_labeling_store") as mock_get_store:
-        from mlflow.genai.labeling.stores import DatabricksLabelingStore
+    with mock_databricks_labeling_store() as mocks:
+        # Configure the mock app for this test
+        mocks["app"].create_label_schema.return_value = MagicMock()
 
-        mock_store = DatabricksLabelingStore()
-        mock_get_store.return_value = mock_store
+        # Mock the _to_databricks_input method
+        with patch.object(input_type, "_to_databricks_input") as mock_to_databricks:
+            mock_databricks_input = MagicMock()
+            mock_to_databricks.return_value = mock_databricks_input
 
-        # Mock the databricks modules and review app
-        with patch("databricks.agents.review_app.get_review_app") as mock_get_app:
-            mock_app = MagicMock()
-            mock_app.create_label_schema.return_value = MagicMock()
-            mock_get_app.return_value = mock_app
+            # Import here to avoid early import errors
+            from mlflow.genai.label_schemas import create_label_schema
 
-            # Mock the _to_databricks_input method
-            with patch.object(input_type, "_to_databricks_input") as mock_to_databricks:
-                mock_databricks_input = MagicMock()
-                mock_to_databricks.return_value = mock_databricks_input
+            create_label_schema(
+                name=schema_name,
+                type="feedback",
+                title=f"Test Schema for {schema_name}",
+                input=input_type,
+            )
 
-                # Import here to avoid early import errors
-                from mlflow.genai.label_schemas import create_label_schema
-
-                create_label_schema(
-                    name=schema_name,
-                    type="feedback",
-                    title=f"Test Schema for {schema_name}",
-                    input=input_type,
-                )
-
-                # Verify _to_databricks_input was called for each type
-                mock_to_databricks.assert_called_once()
+            # Verify _to_databricks_input was called for each type
+            mock_to_databricks.assert_called_once()
 
 
 # Import tests
