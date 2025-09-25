@@ -133,6 +133,23 @@ path.exists()
 path.unlink()
 ```
 
+## Pass `pathlib.Path` Objects Directly to `subprocess`
+
+Avoid converting `pathlib.Path` objects to strings when passing them to `subprocess` functions. Modern Python (3.8+) accepts Path objects directly, making the code cleaner and more type-safe.
+
+```python
+import subprocess
+from pathlib import Path
+
+path = Path("some/script.py")
+
+# Bad
+subprocess.check_call(["foo", "bar", str(path)])
+
+# Good
+subprocess.check_call(["foo", "bar", path])
+```
+
 ## Use next() to Find First Match Instead of Loop-and-Break
 
 Use the `next()` builtin function with a generator expression to find the first item that matches a condition. This is more concise and functional than manually looping with break statements.
