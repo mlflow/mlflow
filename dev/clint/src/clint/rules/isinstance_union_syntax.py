@@ -31,7 +31,7 @@ class IsinstanceUnionSyntax(Rule):
 
         # Check if the second argument uses union syntax (X | Y)
         match node.args:
-            case [_, type_arg, *_]:
+            case [_, type_arg]:
                 return IsinstanceUnionSyntax._has_union_syntax(type_arg)
             case _:
                 return False
