@@ -675,7 +675,7 @@ def test_create_label_schema_calls_to_databricks_input():
     input_cat = InputCategorical(options=["good", "bad"])
 
     # Mock the labeling store to return a DatabricksLabelingStore
-    with patch("mlflow.genai.label_schemas._get_store") as mock_get_store:
+    with patch("mlflow.genai.labeling.stores._get_labeling_store") as mock_get_store:
         from mlflow.genai.labeling.stores import DatabricksLabelingStore
 
         mock_store = DatabricksLabelingStore()
@@ -723,7 +723,7 @@ def test_get_label_schema_calls_from_databricks_label_schema():
     mock_databricks_schema.name = "test_schema"
 
     # Mock the labeling store to return a DatabricksLabelingStore
-    with patch("mlflow.genai.label_schemas._get_store") as mock_get_store:
+    with patch("mlflow.genai.labeling.stores._get_labeling_store") as mock_get_store:
         from mlflow.genai.labeling.stores import DatabricksLabelingStore
 
         mock_store = DatabricksLabelingStore()
@@ -764,7 +764,7 @@ def test_get_label_schema_calls_from_databricks_label_schema():
 def test_api_integration_with_all_input_types(input_type, schema_name):
     """Test that API integration works with all input types."""
     # Mock the labeling store to return a DatabricksLabelingStore
-    with patch("mlflow.genai.label_schemas._get_store") as mock_get_store:
+    with patch("mlflow.genai.labeling.stores._get_labeling_store") as mock_get_store:
         from mlflow.genai.labeling.stores import DatabricksLabelingStore
 
         mock_store = DatabricksLabelingStore()
