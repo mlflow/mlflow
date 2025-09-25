@@ -509,6 +509,10 @@ mlflow.entities.TraceState
 mlflow.entities.TraceState.from_otel_status
 mlflow.entities.TraceState.from_proto
 mlflow.entities.TraceState.to_proto
+mlflow.entities.UCSchemaLocation
+mlflow.entities.UCSchemaLocation.from_dict
+mlflow.entities.UCSchemaLocation.from_proto
+mlflow.entities.UCSchemaLocation.to_dict
 mlflow.entities.ViewType
 mlflow.entities.ViewType.from_proto
 mlflow.entities.ViewType.from_string
@@ -620,6 +624,7 @@ mlflow.entities.trace_location.InferenceTableLocation
 mlflow.entities.trace_location.MlflowExperimentLocation
 mlflow.entities.trace_location.TraceLocation
 mlflow.entities.trace_location.TraceLocationType
+mlflow.entities.trace_location.UCSchemaLocation
 mlflow.entities.trace_state.TraceState
 mlflow.entities.view_type.ViewType
 mlflow.entities.webhook.Webhook

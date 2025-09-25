@@ -1,23 +1,31 @@
 import logging
 
 from mlflow.entities import Trace, TraceInfo
+from mlflow.entities.trace_location import UCSchemaLocation as UCSchemaLocationEntity
 from mlflow.environment_variables import (
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
     MLFLOW_TRACING_SQL_WAREHOUSE_ID,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, ErrorCode
+from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, ENDPOINT_NOT_FOUND, ErrorCode
 from mlflow.protos.databricks_tracing_pb2 import (
     CreateTrace,
+    CreateTraceUCStorageLocation,
     DatabricksTrackingService,
     GetTraces,
+    LinkExperimentToUCTraceLocation,
     TraceIdentifier,
     UCSchemaLocation,
+    UnLinkExperimentToUCTraceLocation,
 )
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
 from mlflow.tracing.utils import parse_trace_id_v4
-from mlflow.utils.databricks_tracing_utils import trace_from_proto, trace_info_to_proto
+from mlflow.utils.databricks_tracing_utils import (
+    trace_from_proto,
+    trace_info_to_proto,
+    uc_schema_location_to_proto,
+)
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _V4_REST_API_PATH_PREFIX,
@@ -129,3 +137,59 @@ class DatabricksTracingRestStore(RestStore):
                     f"Invalid trace_id format: {trace_identifier}, should be in the format of "
                     f"{TRACE_ID_V4_PREFIX}<catalog.schema>/<trace_id>"
                 )
+
+    def set_experiment_storage_location(
+        self,
+        uc_schema: UCSchemaLocationEntity,
+        experiment_id: str,
+        sql_warehouse_id: str | None = None,
+    ) -> UCSchemaLocationEntity:
+        req_body = message_to_json(
+            CreateTraceUCStorageLocation(
+                uc_schema=uc_schema_location_to_proto(uc_schema),
+                sql_warehouse_id=sql_warehouse_id or MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+            )
+        )
+        try:
+            response = self._call_endpoint(
+                CreateTraceUCStorageLocation,
+                req_body,
+                endpoint=f"{_V4_TRACE_REST_API_PATH_PREFIX}/location",
+            )
+            uc_schema = UCSchemaLocationEntity.from_proto(response.uc_schema)
+        except MlflowException as e:
+            if e.error_code == ErrorCode.Name(ALREADY_EXISTS):
+                _logger.debug(f"Trace UC storage location already exists: {uc_schema}")
+            else:
+                raise
+        _logger.debug(f"Created trace UC storage location: {uc_schema}")
+
+        # link experiment to uc trace location
+        req_body = message_to_json(
+            LinkExperimentToUCTraceLocation(
+                experiment_id=experiment_id,
+                uc_schema=uc_schema_location_to_proto(uc_schema),
+            )
+        )
+
+        self._call_endpoint(
+            LinkExperimentToUCTraceLocation,
+            req_body,
+            endpoint=f"{_V4_TRACE_REST_API_PATH_PREFIX}/location/{experiment_id}",
+        )
+        _logger.debug(f"Linked experiment {experiment_id} to UC trace location: {uc_schema}")
+        return uc_schema
+
+    def clear_experiment_storage_location(self, experiment_id: str, location: str) -> None:
+        request = UnLinkExperimentToUCTraceLocation(
+            experiment_id=experiment_id,
+            location=location,
+        )
+        endpoint = f"{_V4_TRACE_REST_API_PATH_PREFIX}/location/{experiment_id}/{location}"
+        req_body = message_to_json(request)
+        self._call_endpoint(
+            UnLinkExperimentToUCTraceLocation,
+            req_body,
+            endpoint=endpoint,
+        )
+        _logger.debug(f"Unlinked experiment {experiment_id} from trace location: {location}")
