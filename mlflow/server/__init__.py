@@ -391,7 +391,7 @@ def _run_server(
     if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
         # The `HUEY_STORAGE_PATH_ENV_VAR` is used by both MLflow server handler workers and
         # huey job runner (huey_consumer).
-        env_map[HUEY_STORAGE_PATH_ENV_VAR] = os.path.join(tempfile.mkdtemp(), "mlflow-huey.db")
+        env_map[HUEY_STORAGE_PATH_ENV_VAR] = tempfile.mkdtemp()
     server_proc = _exec_cmd(
         full_command, extra_env=env_map, capture_output=False, synchronous=False
     )
@@ -406,8 +406,8 @@ def _run_server(
             )
             return
 
-        from mlflow.server.jobs import _launch_job_backend
+        from mlflow.server.jobs.util import _launch_job_runner
 
-        _launch_job_backend(file_store_path, env_map, server_proc.pid)
+        _launch_job_runner(env_map, server_proc.pid)
 
     server_proc.wait()

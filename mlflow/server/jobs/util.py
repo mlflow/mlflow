@@ -1,11 +1,41 @@
 import errno
+import importlib
 import json
+import logging
 import multiprocessing
 import os
+import shutil
+import signal
+import subprocess
+import sys
 import threading
 import time
 from dataclasses import dataclass
 from typing import Any, Callable
+
+import cloudpickle
+from huey import SqliteHuey
+from huey.exceptions import RetryTask
+from huey.serializer import Serializer
+
+from mlflow.entities._job_status import JobStatus
+from mlflow.exceptions import MlflowException
+from mlflow.environment_variables import (
+    MLFLOW_SERVER_JOB_MAX_PARALLELISM,
+    MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY,
+    MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY,
+)
+from mlflow.server import HUEY_STORAGE_PATH_ENV_VAR
+
+_logger = logging.getLogger(__name__)
+
+
+def _exponential_backoff_retry(retry_count: int) -> None:
+    # We can support more retry strategies (e.g. exponential backoff) in future
+    base_delay = MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY.get()
+    max_delay = MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY.get()
+    delay = min(base_delay * (2 ** (retry_count - 1)), max_delay)
+    raise RetryTask(delay=delay)
 
 
 @dataclass
@@ -116,3 +146,218 @@ def is_process_alive(pid: int) -> bool:
             raise
     else:
         return True
+
+
+def _start_huey_consumer_proc(
+    huey_instance_key: str,
+    max_job_parallelism: int,
+):
+    from mlflow.utils.process import _exec_cmd
+
+    return _exec_cmd(
+        [
+            sys.executable,
+            shutil.which("huey_consumer.py"),
+            "mlflow.server.jobs._huey_consumer.huey_instance",
+            "-w",
+            str(max_job_parallelism),
+        ],
+        capture_output=False,
+        synchronous=False,
+        extra_env={
+            "_MLFLOW_HUEY_INSTANCE_KEY": huey_instance_key,
+        },
+    )
+
+
+def _start_job_runner(
+    env_map: dict[str, str],
+    server_proc_pid: int,
+    start_new_runner: bool,
+) -> subprocess.Popen:
+    from mlflow.utils.process import _exec_cmd
+
+    return _exec_cmd(
+        [
+            sys.executable,
+            "mlflow.server.jobs.job_runner",
+        ],
+        capture_output=False,
+        synchronous=False,
+        extra_env={
+            **env_map,
+            "_IS_MLFLOW_JOB_RUNNER": "1",
+            "MLFLOW_SERVER_PID": str(server_proc_pid),
+            "_START_NEW_MLFLOW_JOB_RUNNER": ("1" if start_new_runner else "0"),
+        },
+    )
+
+
+def _exec_job(
+    job_id: str, function: Callable[..., Any], params: dict[str, Any], timeout: float | None
+) -> None:
+    from mlflow.server.jobs.util import execute_function_with_timeout
+    from mlflow.server.handlers import _get_job_store
+
+    job_store = _get_job_store()
+    job_store.start_job(job_id)
+
+    try:
+        job_result = execute_function_with_timeout(function, params, timeout)
+
+        if job_result.succeeded:
+            job_store.finish_job(job_id, job_result.result)
+        else:
+            if job_result.is_transient_error:
+                # For transient errors, if the retry count is less than max allowed count,
+                # trigger task retry by raising `RetryTask` exception.
+                retry_count = job_store.retry_or_fail_job(job_id, job_result.error)
+                if retry_count is not None:
+                    _exponential_backoff_retry(retry_count)
+            else:
+                job_store.fail_job(job_id, job_result.error)
+    except TimeoutError:
+        job_store.mark_job_timed_out(job_id)
+
+
+@dataclass
+class HueyInstance:
+    instance: SqliteHuey
+    submit_task: Callable[..., Any]
+
+
+_huey_instance_map: dict[str, HueyInstance] = dict()
+_huey_instance_map_lock = threading.RLock()
+
+
+def _get_or_init_huey_instance(instance_key: str):
+    class CloudPickleSerializer(Serializer):
+        def serialize(self, data):
+            return cloudpickle.dumps(data)
+
+        def deserialize(self, data):
+            return cloudpickle.loads(data)
+
+    with _huey_instance_map_lock:
+        if instance_key not in _huey_instance_map:
+            huey_store_file = os.path.join(
+                os.environ[HUEY_STORAGE_PATH_ENV_VAR],
+                f"mlflow-huey-store.{instance_key}"
+            )
+            huey_instance = SqliteHuey(
+                filename=huey_store_file,
+                results=False,
+                serializer=CloudPickleSerializer(),
+            )
+            huey_submit_task_fn = huey_instance.task()(_exec_job)
+            _huey_instance_map[instance_key] = HueyInstance(
+                instance=huey_instance,
+                submit_task=huey_submit_task_fn,
+            )
+        return _huey_instance_map[instance_key]
+
+
+def _launch_huey_consumer(
+    job_fn_fullname: str,
+) -> None:
+
+    job_fn = _load_function(job_fn_fullname)
+
+    if not hasattr(job_fn, "_job_fn_metadata"):
+        raise MlflowException(
+            f"The job function {job_fn_fullname} is not decorated by 'mlflow.server.jobs.job_function'."
+        )
+
+    max_job_parallelism = job_fn._job_fn_metadata.max_workers
+
+    def _start_job_runner_fn() -> None:
+        while True:
+            # start MLflow job runner process
+            # Put it inside the loop to ensure the job runner process alive
+            job_runner_proc = _start_huey_consumer_proc(
+                job_fn_fullname, max_job_parallelism,
+            )
+            job_runner_proc.wait()
+            time.sleep(1)
+
+    # start job runner.
+    threading.Thread(
+        target=_start_job_runner_fn,
+        name=f"MLflow-huey-consumer-{job_fn_fullname}-watcher",
+        daemon=True,
+    ).start()
+
+
+def _launch_job_runner(env_map,  server_proc_pid):
+    from mlflow.utils.uri import extract_db_type_from_uri
+    from mlflow.utils.process import _exec_cmd
+    from mlflow.server import BACKEND_STORE_URI_ENV_VAR
+    from mlflow.exceptions import MlflowException
+
+    try:
+        backend_store_uri = os.environ.get(BACKEND_STORE_URI_ENV_VAR, None)
+        extract_db_type_from_uri(backend_store_uri)
+    except MlflowException:
+        _logger.warning(
+            f"Job store requires a database backend store URI but got {backend_store_uri}, "
+            "skip launching the job runner."
+        )
+        return
+
+    return _exec_cmd(
+        [
+            sys.executable,
+            "mlflow.server._jobs.job_runner",
+        ],
+        capture_output=False,
+        synchronous=False,
+        extra_env={
+            **env_map,
+            "MLFLOW_SERVER_PID": str(server_proc_pid)
+        }
+    )
+
+
+def _start_watcher_to_kill_job_runner_if_mlflow_server_dies(check_interval: float = 1.0) -> None:
+    from mlflow.server.jobs.util import is_process_alive
+
+    mlflow_server_pid = int(os.environ.get("MLFLOW_SERVER_PID"))
+
+    def watcher():
+        while True:
+            if not is_process_alive(mlflow_server_pid):
+                os.kill(os.getpid(), signal.SIGTERM)
+            time.sleep(check_interval)
+
+    t = threading.Thread(target=watcher, daemon=True, name="job-runner-watcher")
+    t.start()
+
+
+def _load_function(fullname: str) -> Callable[..., Any]:
+    match fullname.split("."):
+        case [*module_parts, func_name] if module_parts:
+            module_name = ".".join(module_parts)
+        case _:
+            raise ValueError(f"Invalid function fullname: {fullname!r}")
+    module = importlib.import_module(module_name)
+    return getattr(module, func_name)
+
+
+def _enqueue_unfinished_jobs() -> None:
+    from mlflow.server.handlers import _get_job_store
+
+    job_store = _get_job_store()
+
+    unfinished_jobs = job_store.list_jobs(statuses=[JobStatus.PENDING, JobStatus.RUNNING])
+
+    for job in unfinished_jobs:
+        if job.status == JobStatus.RUNNING:
+            job_store.reset_job(job.job_id)  # reset the job status to PENDING
+
+        params = json.loads(job.params)
+        function = _load_function(job.function_fullname)
+        timeout = job.timeout
+        # enqueue job
+        _get_or_init_huey_instance(job.function_fullname).submit_task(
+            job.job_id, function, params, timeout
+        )
