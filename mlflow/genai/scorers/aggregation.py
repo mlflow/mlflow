@@ -80,7 +80,7 @@ def _cast_assessment_value_to_float(assessment: Feedback) -> float | None:
         return float(assessment.value)
     elif (
         isinstance(assessment.value, str)
-        and CategorcalRating(assessment.value.lower()) != CategoricalRating.UNKNOWN
+        and CategoricalRating(assessment.value.lower()) != CategoricalRating.UNKNOWN
     ):
         return float(assessment.value.lower() == CategoricalRating.YES)
 
