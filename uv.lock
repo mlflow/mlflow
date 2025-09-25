@@ -991,16 +991,12 @@ name = "clint"
 version = "0.1.0"
 source = { editable = "dev/clint" }
 dependencies = [
-    { name = "packaging" },
-    { name = "pytest" },
     { name = "tomli" },
     { name = "typing-extensions" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "packaging", specifier = ">=25.0" },
-    { name = "pytest", specifier = ">=8.4.2" },
     { name = "tomli" },
     { name = "typing-extensions" },
 ]

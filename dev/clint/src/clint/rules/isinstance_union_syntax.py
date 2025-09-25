@@ -44,12 +44,11 @@ class IsinstanceUnionSyntax(Rule):
         Returns True if the node contains union syntax with BitOr operator.
         This handles nested cases like (A | B) | C.
         """
-        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
-            return True
-
-        # Check for parenthesized expressions that contain union syntax
-        if isinstance(node, ast.Tuple):
-            # Check if any element in the tuple has union syntax
-            return any(IsinstanceUnionSyntax._has_union_syntax(elt) for elt in node.elts)
-
-        return False
+        match node:
+            case ast.BinOp(op=ast.BitOr()):
+                return True
+            case ast.Tuple(elts=elements):
+                # Check if any element in the tuple has union syntax
+                return any(IsinstanceUnionSyntax._has_union_syntax(elt) for elt in elements)
+            case _:
+                return False
