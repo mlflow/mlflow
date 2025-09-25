@@ -126,7 +126,11 @@ class LabelingSession:
         return self._custom_inputs
 
     def _get_store(self):
-        """Get a labeling store instance. Private method to avoid circular imports."""
+        """
+        Get a labeling store instance.
+
+        This method is defined in order to avoid circular imports.
+        """
         from mlflow.genai.labeling.stores import _get_labeling_store
 
         return _get_labeling_store()

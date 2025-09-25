@@ -6,7 +6,7 @@ This module provides store implementations to manage labeling sessions and schem
 
 import warnings
 from abc import ABCMeta, abstractmethod
-from typing import Any
+from typing import Any, Callable
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.label_schemas.label_schemas import LabelSchema
@@ -230,14 +230,14 @@ class LabelingStoreRegistry:
     arguments passed to the `get_store` method.
     """
 
-    def __init__(self):
-        self._registry = {}
+    def __init__(self) -> None:
+        self._registry: dict[str, Callable[..., AbstractLabelingStore]] = {}
         self.group_name = "mlflow.labeling_store"
 
-    def register(self, scheme, store_builder):
+    def register(self, scheme: str, store_builder: Callable[..., AbstractLabelingStore]) -> None:
         self._registry[scheme] = store_builder
 
-    def register_entrypoints(self):
+    def register_entrypoints(self) -> None:
         """Register labeling stores provided by other packages"""
         for entrypoint in get_entry_points(self.group_name):
             try:
@@ -250,7 +250,7 @@ class LabelingStoreRegistry:
                     stacklevel=2,
                 )
 
-    def get_store_builder(self, store_uri):
+    def get_store_builder(self, store_uri: str) -> Callable[..., AbstractLabelingStore]:
         """Get a store from the registry based on the scheme of store_uri
 
         Args:
@@ -272,7 +272,7 @@ class LabelingStoreRegistry:
             )
         return store_builder
 
-    def get_store(self, tracking_uri=None):
+    def get_store(self, tracking_uri: str | None = None) -> AbstractLabelingStore:
         from mlflow.tracking._tracking_service import utils
 
         resolved_store_uri = utils._resolve_tracking_uri(tracking_uri)
@@ -286,10 +286,10 @@ class DatabricksLabelingStore(AbstractLabelingStore):
     This store delegates all labeling operations to the Databricks agents API.
     """
 
-    def __init__(self, tracking_uri=None):
+    def __init__(self, tracking_uri: str | None = None) -> None:
         pass
 
-    def _get_backend_session(self, labeling_session: LabelingSession):
+    def _get_backend_session(self, labeling_session: LabelingSession) -> Any:
         """
         Get the backend session for a labeling session.
 
@@ -318,7 +318,7 @@ class DatabricksLabelingStore(AbstractLabelingStore):
             )
         return backend_session
 
-    def _from_backend_session(self, backend_session) -> LabelingSession:
+    def _from_backend_session(self, backend_session: Any) -> LabelingSession:
         """Create a LabelingSession from a Databricks backend session object."""
         return LabelingSession(
             name=backend_session.name,
@@ -501,7 +501,7 @@ def _register_labeling_stores():
 _register_labeling_stores()
 
 
-def _get_labeling_store(tracking_uri=None):
+def _get_labeling_store(tracking_uri: str | None = None) -> AbstractLabelingStore:
     """Get a labeling store from the registry"""
     return _labeling_store_registry.get_store(tracking_uri)
 
