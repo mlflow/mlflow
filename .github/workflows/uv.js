@@ -37,8 +37,10 @@ module.exports = async ({ github, context }) => {
   const branchName = `uv-lock-update-${getTimestamp()}`;
   exec(`git checkout -b ${branchName}`);
   exec("git add uv.lock");
-  exec('git commit -s --allow-empty -m "Update uv.lock"'); // --allow-empty in case uv.lock is unchanged
-  exec(`git push --dry-run origin ${branchName}`); // Dry run to verify push would succeed
+  // `--allow-empty` in case `uv.lock` is unchanged
+  exec('git commit -s --allow-empty -m "Update uv.lock"');
+  // `--dry-run` to avoid actual push but verify it would succeed
+  exec(`git push --dry-run origin ${branchName}`);
 
   // Search for existing PR
   const { data: searchResults } = await github.rest.search.issuesAndPullRequests({
