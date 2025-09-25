@@ -19,18 +19,17 @@ function execWithOutput(cmd, args) {
 
   const result = spawnSync(cmd, args, {
     encoding: "utf8",
-    stdio: ["pipe", "pipe", 1], // stdin, stdout, stderr->stdout
+    stdio: ["pipe", "pipe", "pipe"],
   });
 
+  const output = (result.stdout || "") + (result.stderr || "");
   if (result.status !== 0) {
     throw new Error(
-      `Command failed with exit code ${result.status}: ${cmd} ${args.join(" ")}\nOutput: ${
-        result.stdout
-      }`
+      `Command failed with exit code ${result.status}: ${cmd} ${args.join(" ")}\nOutput: ${output}`
     );
   }
 
-  return result.stdout;
+  return output;
 }
 
 function getDaysAgo(days) {
