@@ -254,8 +254,8 @@ def test_client_get_trace(mock_store, mock_artifact_repo):
     ]
 
     with mock.patch(
-        "mlflow.tracing.client.TracingClient._should_get_trace_from_tracking_store",
-        return_value=True,
+        "mlflow.tracing.client.TracingClient._should_load_spans_from_artifact",
+        return_value=False,
     ):
         trace = MlflowClient().get_trace(trace_id)
         mock_store.get_traces.assert_called_once_with([trace_id])
