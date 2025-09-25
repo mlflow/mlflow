@@ -1,6 +1,8 @@
 from typing import TYPE_CHECKING, Any, Iterable, Union
 
 from mlflow.entities import Trace
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -176,9 +178,6 @@ class LabelingSession:
             LabelingSession: The updated labeling session.
         """
         import pandas as pd
-
-        from mlflow.exceptions import MlflowException
-        from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
         if isinstance(traces, pd.DataFrame):
             if "trace" not in traces.columns:

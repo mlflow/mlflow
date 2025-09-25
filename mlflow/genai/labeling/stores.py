@@ -14,6 +14,7 @@ from mlflow.genai.label_schemas.label_schemas import LabelSchema
 from mlflow.genai.labeling.databricks_utils import get_databricks_review_app
 from mlflow.genai.labeling.labeling import LabelingSession
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.tracking._tracking_service import utils as tracking_utils
 from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.uri import get_uri_scheme
 
@@ -279,9 +280,7 @@ class LabelingStoreRegistry:
         return store_builder
 
     def get_store(self, tracking_uri: str | None = None) -> AbstractLabelingStore:
-        from mlflow.tracking._tracking_service import utils
-
-        resolved_store_uri = utils._resolve_tracking_uri(tracking_uri)
+        resolved_store_uri = tracking_utils._resolve_tracking_uri(tracking_uri)
         builder = self.get_store_builder(resolved_store_uri)
         return builder(tracking_uri=resolved_store_uri)
 
@@ -293,7 +292,15 @@ class DatabricksLabelingStore(AbstractLabelingStore):
     """
 
     def __init__(self, tracking_uri: str | None = None) -> None:
-        pass
+        """
+        Initialize the DatabricksLabelingStore.
+
+        Note: This is a no-op constructor by design. The store uses a builder pattern
+        where the registry passes the tracking URI to the constructor for polymorphic
+        instantiation, but the DatabricksLabelingStore doesn't need to store it since
+        all operations are delegated to the Databricks API based on the current
+        tracking context.
+        """
 
     def _get_backend_session(
         self, labeling_session: LabelingSession
