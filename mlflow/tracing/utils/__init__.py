@@ -257,11 +257,6 @@ def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
     for root in roots:
         dfs(root, False)
 
-    # Handle spans that were not reachable due to missing parents or cycles.
-    for span in spans:
-        if span.span_id not in visited:
-            dfs(span, False)
-
     # If none of the spans have token usage data, we shouldn't log token usage metadata.
     if not has_usage_data:
         return None
