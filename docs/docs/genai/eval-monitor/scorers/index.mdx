@@ -1,4 +1,5 @@
 import { APILink } from "@site/src/components/APILink";
+import Link from "@docusaurus/Link";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 import TileCard from '@site/src/components/TileCard';
 import TilesGrid from '@site/src/components/TilesGrid';
@@ -59,23 +60,23 @@ The general metrics such as 'Hallucination' or 'Toxicity' rarely work in practic
   steps={[
     {
       title: "Generate traces or collect them from production",
-      description: <div>Start with generating <a href="/genai/tracing">traces</a> from a set of realistic input samples. If you already have production traces, that is even better.</div>
+      description: <div>Start with generating <Link href="/genai/tracing">traces</Link> from a set of realistic input samples. If you already have production traces, that is even better.</div>
     },
     {
       title: "Gather human feedback",
-      description: <div>Collect feedback from domain experts or users. MLflow provides <a href="/genai/assessments/feedback">a UI and SDK</a> for collecting feedback on traces.</div>
+      description: <div>Collect feedback from domain experts or users. MLflow provides <Link href="/genai/assessments/feedback">a UI and SDK</Link> for collecting feedback on traces.</div>
     },
     {
       title: "Error analysis",
-      description: <div>Analyze the common failure modes (error categories) from the feedback.<br/>To organize traces into error categories, use <a href="/genai/tracing/attach-tags">Trace Tag</a> to label and filter traces.</div>
+      description: <div>Analyze the common failure modes (error categories) from the feedback.<br/>To organize traces into error categories, use <Link href="/genai/tracing/attach-tags">Trace Tag</Link> to label and filter traces.</div>
     },
     {
       title: "Translate failure modes into Scorers",
-      description: <div>Define scorers that checks for the common failure modes.For example, if the answer is in incorrect format, you may define an <a href="/genai/eval-monitor/scorers/llm-judge">LLM-as-a-Judge scorer</a> that checks if the format is correct. We recommend starting with a simple instruction and then iteratively refine it.</div>
+      description: <div>Define scorers that checks for the common failure modes.For example, if the answer is in incorrect format, you may define an <Link href="/genai/eval-monitor/scorers/llm-judge">LLM-as-a-Judge scorer</Link> that checks if the format is correct. We recommend starting with a simple instruction and then iteratively refine it.</div>
     },
     {
       title: "Align scorers with human feedback.",
-      description: <div>LLM-as-a-Judge has natural biases. Relying on biased evaluation will lead to incorrect decision making. Therefore, it is important to refine the scorer to align with human feedback. You can manually iterate on prompts or instructions, or use <a href='/genai/eval-monitor/scorers/llm-judge/alignment'>Automatic Judge Alignment</a> feature of MLflow to optimize the instruction with the state-of-the-art algorithm powered by <a href='https://dspy.ai/'>DSPy</a>.</div>
+      description: <div>LLM-as-a-Judge has natural biases. Relying on biased evaluation will lead to incorrect decision making. Therefore, it is important to refine the scorer to align with human feedback. You can manually iterate on prompts or instructions, or use <Link href='/genai/eval-monitor/scorers/llm-judge/alignment'>Automatic Judge Alignment</Link> feature of MLflow to optimize the instruction with the state-of-the-art algorithm powered by <Link href='https://dspy.ai/'>DSPy</Link>.</div>
     }
   ]}
 />
