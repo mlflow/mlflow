@@ -1,4 +1,5 @@
 import dataclasses
+from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -26,6 +27,61 @@ from mlflow.genai.scorers.validation import IS_DBX_AGENTS_INSTALLED
 
 if not IS_DBX_AGENTS_INSTALLED:
     pytest.skip("Skipping Databricks only test.", allow_module_level=True)
+
+
+@pytest.fixture
+def mock_databricks_labeling_store():
+    """
+    Fixture providing a fully mocked Databricks labeling store environment.
+
+    Returns:
+        A context manager that provides mocked store, review app, and databricks modules.
+    """
+
+    @contextmanager
+    def _mock_context():
+        with patch("mlflow.genai.labeling.stores._get_labeling_store") as mock_get_store:
+            from mlflow.genai.labeling.stores import DatabricksLabelingStore
+
+            mock_store = DatabricksLabelingStore()
+            mock_get_store.return_value = mock_store
+
+            # Mock the databricks modules and review app
+            with patch("databricks.agents.review_app.get_review_app") as mock_get_app:
+                mock_app = MagicMock()
+                mock_get_app.return_value = mock_app
+
+                yield {
+                    "store": mock_store,
+                    "get_store": mock_get_store,
+                    "app": mock_app,
+                    "get_app": mock_get_app,
+                }
+
+    return _mock_context
+
+
+@pytest.fixture
+def mock_review_app():
+    """
+    Fixture providing just the review app mock for simpler test cases.
+
+    Returns:
+        A context manager that provides a mocked review app.
+    """
+
+    @contextmanager
+    def _mock_context():
+        with patch("databricks.agents.review_app.get_review_app") as mock_get_app:
+            mock_app = MagicMock()
+            mock_get_app.return_value = mock_app
+
+            yield {
+                "app": mock_app,
+                "get_app": mock_get_app,
+            }
+
+    return _mock_context
 
 
 # InputCategorical tests
@@ -670,85 +726,67 @@ def test_edge_cases_special_and_unicode_characters_in_options(options):
 
 
 # API integration tests
-def test_create_label_schema_calls_to_databricks_input():
+def test_create_label_schema_calls_to_databricks_input(mock_databricks_labeling_store):
     """Test that create_label_schema calls _to_databricks_input on the input."""
     input_cat = InputCategorical(options=["good", "bad"])
 
-    # Mock the labeling store to return a DatabricksLabelingStore
-    with patch("mlflow.genai.labeling.stores._get_labeling_store") as mock_get_store:
-        from mlflow.genai.labeling.stores import DatabricksLabelingStore
+    with mock_databricks_labeling_store() as mocks:
+        # Configure the mock app for this test
+        mocks["app"].create_label_schema.return_value = MagicMock()
 
-        mock_store = DatabricksLabelingStore()
-        mock_get_store.return_value = mock_store
+        # Mock the _to_databricks_input method
+        with patch.object(input_cat, "_to_databricks_input") as mock_to_databricks:
+            mock_databricks_input = MagicMock()
+            mock_to_databricks.return_value = mock_databricks_input
 
-        # Mock the databricks modules and review app
-        with patch("databricks.agents.review_app.get_review_app") as mock_get_app:
-            mock_app = MagicMock()
-            mock_app.create_label_schema.return_value = MagicMock()
-            mock_get_app.return_value = mock_app
+            # Import here to avoid early import errors
+            from mlflow.genai.label_schemas import create_label_schema
 
-            # Mock the _to_databricks_input method
-            with patch.object(input_cat, "_to_databricks_input") as mock_to_databricks:
-                mock_databricks_input = MagicMock()
-                mock_to_databricks.return_value = mock_databricks_input
+            create_label_schema(
+                name="test_schema",
+                type="feedback",
+                title="Test Schema",
+                input=input_cat,
+            )
 
-                # Import here to avoid early import errors
-                from mlflow.genai.label_schemas import create_label_schema
-
-                create_label_schema(
-                    name="test_schema",
-                    type="feedback",
-                    title="Test Schema",
-                    input=input_cat,
-                )
-
-                # Verify _to_databricks_input was called
-                mock_to_databricks.assert_called_once()
-                # Verify the result was passed to create_label_schema
-                mock_app.create_label_schema.assert_called_once_with(
-                    name="test_schema",
-                    type="feedback",
-                    title="Test Schema",
-                    input=mock_databricks_input,
-                    instruction=None,
-                    enable_comment=False,
-                    overwrite=False,
-                )
+            # Verify _to_databricks_input was called
+            mock_to_databricks.assert_called_once()
+            # Verify the result was passed to create_label_schema
+            mocks["app"].create_label_schema.assert_called_once_with(
+                name="test_schema",
+                type="feedback",
+                title="Test Schema",
+                input=mock_databricks_input,
+                instruction=None,
+                enable_comment=False,
+                overwrite=False,
+            )
 
 
-def test_get_label_schema_calls_from_databricks_label_schema():
+def test_get_label_schema_calls_from_databricks_label_schema(mock_databricks_labeling_store):
     """Test that get_label_schema calls _from_databricks_label_schema."""
     # Mock databricks label schema
     mock_databricks_schema = MagicMock()
     mock_databricks_schema.name = "test_schema"
 
-    # Mock the labeling store to return a DatabricksLabelingStore
-    with patch("mlflow.genai.labeling.stores._get_labeling_store") as mock_get_store:
-        from mlflow.genai.labeling.stores import DatabricksLabelingStore
+    with mock_databricks_labeling_store() as mocks:
+        # Configure the mock app for this test
+        mocks["app"].label_schemas = [mock_databricks_schema]
 
-        mock_store = DatabricksLabelingStore()
-        mock_get_store.return_value = mock_store
+        # Mock the _from_databricks_label_schema method
+        with patch.object(LabelSchema, "_from_databricks_label_schema") as mock_from_databricks:
+            mock_label_schema = MagicMock()
+            mock_from_databricks.return_value = mock_label_schema
 
-        # Mock the databricks modules and review app
-        with patch("databricks.agents.review_app.get_review_app") as mock_get_app:
-            mock_app = MagicMock()
-            mock_app.label_schemas = [mock_databricks_schema]
-            mock_get_app.return_value = mock_app
+            # Import here to avoid early import errors
+            from mlflow.genai.label_schemas import get_label_schema
 
-            # Mock the _from_databricks_label_schema method
-            with patch.object(LabelSchema, "_from_databricks_label_schema") as mock_from_databricks:
-                mock_label_schema = MagicMock()
-                mock_from_databricks.return_value = mock_label_schema
+            result = get_label_schema("test_schema")
 
-                # Import here to avoid early import errors
-                from mlflow.genai.label_schemas import get_label_schema
-
-                result = get_label_schema("test_schema")
-
-                # Verify _from_databricks_label_schema was called
-                mock_from_databricks.assert_called_once_with(mock_databricks_schema)
-                # Verify the result was returned
-                assert result == mock_label_schema
+            # Verify _from_databricks_label_schema was called
+            mock_from_databricks.assert_called_once_with(mock_databricks_schema)
+            # Verify the result was returned
+            assert result == mock_label_schema
 
 
 @pytest.mark.parametrize(
