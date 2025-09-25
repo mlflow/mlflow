@@ -197,13 +197,13 @@ class AbstractLabelingStore(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def sync_session_expectations(self, labeling_session: LabelingSession, to_dataset: str) -> None:
+    def sync_session_expectations(self, labeling_session: LabelingSession, dataset: str) -> None:
         """
         Sync traces and expectations from a labeling session to a dataset.
 
         Args:
             labeling_session: The labeling session to sync.
-            to_dataset: The name of the dataset to sync traces and expectations to.
+            dataset: The name of the dataset to sync traces and expectations to.
         """
 
     @abstractmethod
@@ -451,10 +451,10 @@ class DatabricksLabelingStore(AbstractLabelingStore):
         updated_session = backend_session.add_traces(traces)
         return self._databricks_session_to_labeling_session(updated_session)
 
-    def sync_session_expectations(self, labeling_session: LabelingSession, to_dataset: str) -> None:
+    def sync_session_expectations(self, labeling_session: LabelingSession, dataset: str) -> None:
         """Sync traces and expectations from a labeling session to a dataset."""
         backend_session = self._get_backend_session(labeling_session)
-        backend_session.sync_expectations(to_dataset)
+        backend_session.sync_expectations(dataset)
 
     def set_session_assigned_users(
         self, labeling_session: LabelingSession, assigned_users: list[str]
