@@ -80,14 +80,14 @@ class DatabricksTracingRestStore(RestStore):
                 retry_timeout_seconds=MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.get(),
             )
             return TraceInfo.from_proto(response_proto.trace_info)
-        # at initial stage we capture all exceptions and fallback to v3 if the trace location is not
-        # uc, but once the endpoint is up we should only capture ENDPOINT_NOT_FOUND error
+        # Temporarily we capture all exceptions and fallback to v3 if the trace location is not uc
+        # TODO: remove this once the endpoint is fully rolled out
         except Exception as e:
             if isinstance(e, MlflowException) and e.error_code == ErrorCode.Name(
                 ENDPOINT_NOT_FOUND
             ):
                 _logger.debug("Server does not support CreateTrace API yet.")
-            if trace_info.trace_location.uc_schema is None:
+            if trace_info.trace_location.mlflow_experiment is not None:
                 _logger.debug("Falling back to V3 API.")
                 return super().start_trace(trace_info)
             else:
