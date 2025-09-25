@@ -1,11 +1,14 @@
 from mlflow.entities.trace_location import (
     InferenceTableLocation,
+    MlflowExperimentLocation,
     TraceLocation,
     TraceLocationType,
     UCSchemaLocation,
 )
 from mlflow.protos import databricks_tracing_pb2 as pb
 from mlflow.utils.databricks_tracing_utils import (
+    inference_table_location_to_proto,
+    mlflow_experiment_location_to_proto,
     trace_location_to_proto,
     uc_schema_location_to_proto,
 )
@@ -40,8 +43,20 @@ def test_trace_location_to_proto_inference_table():
     assert proto.inference_table.full_table_name == "test_catalog.test_schema.test_table"
 
 
-def test_schema_location_to_proto():
+def test_uc_schema_location_to_proto():
     schema_location = UCSchemaLocation(catalog_name="test_catalog", schema_name="test_schema")
     proto = uc_schema_location_to_proto(schema_location)
     assert proto.catalog_name == "test_catalog"
     assert proto.schema_name == "test_schema"
+
+
+def test_inference_table_location_to_proto():
+    table_location = InferenceTableLocation(full_table_name="test_catalog.test_schema.test_table")
+    proto = inference_table_location_to_proto(table_location)
+    assert proto.full_table_name == "test_catalog.test_schema.test_table"
+
+
+def test_mlflow_experiment_location_to_proto():
+    experiment_location = MlflowExperimentLocation(experiment_id="1234")
+    proto = mlflow_experiment_location_to_proto(experiment_location)
+    assert proto.experiment_id == "1234"

@@ -50,6 +50,16 @@ message UCSchemaLocation {
   optional string otel_logs_table_name = 4;
 }
 
+message MlflowExperimentLocation {
+  // MLflow experiment ID which is the ACL container holding the trace.
+  optional string experiment_id = 1;
+}
+
+message InferenceTableLocation {
+  // Full inference table name in the form of catalog.schema.table_name
+  optional string full_table_name = 1;
+}
+
 // The location where the traces was stored and produced
 message TraceLocation {
 
@@ -60,16 +70,6 @@ message TraceLocation {
     UC_SCHEMA = 3;
   }
   optional TraceLocationType type = 1;
-
-  message MlflowExperimentLocation {
-    // MLflow experiment ID which is the ACL container holding the trace.
-    optional string experiment_id = 1;
-  }
-
-  message InferenceTableLocation {
-    // Full inference table name in the form of catalog.schema.table_name
-    optional string full_table_name = 1;
-  }
 
   oneof identifier {
     MlflowExperimentLocation mlflow_experiment = 2;

@@ -162,7 +162,7 @@ class TraceLocation(_MlflowObject):
             uc_schema=(UCSchemaLocation.from_dict(v) if (v := d.get("uc_schema")) else None),
         )
 
-    def to_proto(self):
+    def to_proto(self) -> pb.TraceLocation:
         if self.mlflow_experiment:
             return pb.TraceLocation(
                 type=self.type.to_proto(),

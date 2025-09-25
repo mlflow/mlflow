@@ -1859,32 +1859,6 @@ def test_deprecated_search_traces_v2_empty_page_token(
     assert call_kwargs.get("max_results") == 10
 
 
-# TODO: add back after moving getTraceInfoV4 to DatabricksRestStore
-# def test_get_trace_info_v4_handler(mock_tracking_store):
-#     trace_id = "test-trace-123"
-#     location = "catalog.schema"
-#     full_v4_trace_id = f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}"
-
-#     mock_trace_info = TraceInfo(
-#         trace_id=trace_id,
-#         trace_location=EntityTraceLocation.from_uc_schema(
-#             catalog_name="catalog", schema_name="schema"
-#         ),
-#         request_time=1234567890,
-#         execution_duration=5000,
-#         state=TraceState.OK,
-#         trace_metadata={"test": "metadata"},
-#         tags={"test": "tag"},
-#     )
-
-#     mock_tracking_store.get_trace_info.return_value = mock_trace_info
-
-#     response = _get_trace_info_v4(location, trace_id)
-
-#     mock_tracking_store.get_trace_info.assert_called_once_with(full_v4_trace_id)
-#     assert response is not None
-
-
 def test_search_logged_models_empty_page_token(mock_get_request_message, mock_tracking_store):
     """Test that _search_logged_models converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string

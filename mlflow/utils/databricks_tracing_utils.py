@@ -1,4 +1,10 @@
-from mlflow.entities.trace_location import TraceLocation, TraceLocationType, UCSchemaLocation
+from mlflow.entities.trace_location import (
+    InferenceTableLocation,
+    MlflowExperimentLocation,
+    TraceLocation,
+    TraceLocationType,
+    UCSchemaLocation,
+)
 from mlflow.protos import databricks_tracing_pb2 as pb
 
 
@@ -7,6 +13,18 @@ def uc_schema_location_to_proto(uc_schema_location: UCSchemaLocation) -> pb.UCSc
         catalog_name=uc_schema_location.catalog_name,
         schema_name=uc_schema_location.schema_name,
     )
+
+
+def inference_table_location_to_proto(
+    inference_table_location: InferenceTableLocation,
+) -> pb.InferenceTableLocation:
+    return pb.InferenceTableLocation(full_table_name=inference_table_location.full_table_name)
+
+
+def mlflow_experiment_location_to_proto(
+    mlflow_experiment_location: MlflowExperimentLocation,
+) -> pb.MlflowExperimentLocation:
+    return pb.MlflowExperimentLocation(experiment_id=mlflow_experiment_location.experiment_id)
 
 
 def trace_location_to_proto(trace_location: TraceLocation) -> pb.TraceLocation:
@@ -18,16 +36,12 @@ def trace_location_to_proto(trace_location: TraceLocation) -> pb.TraceLocation:
     elif trace_location.type == TraceLocationType.MLFLOW_EXPERIMENT:
         return pb.TraceLocation(
             type=pb.TraceLocation.TraceLocationType.MLFLOW_EXPERIMENT,
-            mlflow_experiment=pb.TraceLocation.MlflowExperimentLocation(
-                experiment_id=trace_location.mlflow_experiment.experiment_id
-            ),
+            mlflow_experiment=mlflow_experiment_location_to_proto(trace_location.mlflow_experiment),
         )
     elif trace_location.type == TraceLocationType.INFERENCE_TABLE:
         return pb.TraceLocation(
             type=pb.TraceLocation.TraceLocationType.INFERENCE_TABLE,
-            inference_table=pb.TraceLocation.InferenceTableLocation(
-                full_table_name=trace_location.inference_table.full_table_name
-            ),
+            inference_table=inference_table_location_to_proto(trace_location.inference_table),
         )
     else:
         raise ValueError(f"Unsupported trace location type: {trace_location.type}")
