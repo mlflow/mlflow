@@ -22,11 +22,6 @@ from mlflow.genai.labeling import ReviewApp
 if TYPE_CHECKING:
     from databricks.agents.review_app import ReviewApp
 
-_ERROR_MSG = (
-    "The `databricks-agents` package is required to use `mlflow.genai.label_schemas`. "
-    "Please install it with `pip install databricks-agents`."
-)
-
 EXPECTED_FACTS = "expected_facts"
 GUIDELINES = "guidelines"
 EXPECTED_RESPONSE = "expected_response"
@@ -112,16 +107,11 @@ def delete_label_schema(name: str):
     store.delete_label_schema(name)
 
     # For backwards compatibility, return a ReviewApp instance only if using Databricks store
+    from mlflow.genai.labeling.databricks_utils import get_databricks_review_app
     from mlflow.genai.labeling.stores import DatabricksLabelingStore
 
     if isinstance(store, DatabricksLabelingStore):
-        try:
-            from databricks.agents import review_app
-        except ImportError:
-            raise ImportError(_ERROR_MSG) from None
-
-        app = review_app.get_review_app()
-        return ReviewApp(app)
+        return ReviewApp(get_databricks_review_app())
     else:
         # For non-Databricks stores, we can't return a meaningful ReviewApp
         return None
