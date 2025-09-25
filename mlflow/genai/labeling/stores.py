@@ -43,6 +43,16 @@ class AbstractLabelingStore(metaclass=ABCMeta):
     by different backend stores (e.g., MLflow tracking store, Databricks API).
     """
 
+    def __init__(self, tracking_uri: str | None = None) -> None:
+        """
+        Initialize the labeling store.
+
+        Args:
+            tracking_uri: The tracking URI for the store. This is passed by the registry
+                         for polymorphic instantiation. Subclasses may choose to store
+                         or ignore this value depending on their implementation needs.
+        """
+
     @abstractmethod
     def get_labeling_session(self, run_id: str) -> LabelingSession:
         """
@@ -290,17 +300,6 @@ class DatabricksLabelingStore(AbstractLabelingStore):
     Databricks store that provides labeling functionality through the Databricks API.
     This store delegates all labeling operations to the Databricks agents API.
     """
-
-    def __init__(self, tracking_uri: str | None = None) -> None:
-        """
-        Initialize the DatabricksLabelingStore.
-
-        Note: This is a no-op constructor by design. The store uses a builder pattern
-        where the registry passes the tracking URI to the constructor for polymorphic
-        instantiation, but the DatabricksLabelingStore doesn't need to store it since
-        all operations are delegated to the Databricks API based on the current
-        tracking context.
-        """
 
     def _get_backend_session(
         self, labeling_session: LabelingSession
