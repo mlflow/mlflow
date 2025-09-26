@@ -55,17 +55,7 @@ Full integration with MLflow's ecosystem including:
 
 #### Getting started
 
-To create your own agent, subclass `mlflow.pyfunc.ResponsesAgent` and implement your agent logic in the `predict` method. The implementation is framework-agnostic, allowing you to use any agent authoring framework. Note that `pydantic>=2` is required to use ResponsesAgent. For example implementations, see the [simple chat agent](#simple-chat-example) and the [tool calling agent](#tool-calling-example) below.
-
-### Streaming from an LLM
-
-If the LLM provider you are using uses chat completions, you can use and modify the following helper methods to convert the input/output from your ResponsesAgent into chat completions messages to support multi-turn agent chat:
-
-- <APILink fn="mlflow.types.responses_utils.prep_msgs_for_cc_llm" /> (use for input)
-- <APILink fn="mlflow.types.responses_utils.output_to_responses_items_stream" /> (use for output)
-  - Can be used to parse and aggregate:
-      - a Chat Completion stream into a Responses Stream
-      - a LangChain message stream (from a LangChain or LangGraph agent) into a ResponsesAgent Stream
+To create your own agent, subclass `mlflow.pyfunc.ResponsesAgent` and implement your agent logic in the `predict` method. The implementation is framework-agnostic, allowing you to use any agent authoring framework. Note that `pydantic>=2` is required to use ResponsesAgent. For example implementations of calling a Chat Completions LLM, Responses API LLM, wrapping a LangGraph agent, and tool calling agent, see the [code snippets](#examples) below.
 
 #### Creating agent output
 
@@ -237,9 +227,51 @@ To serve the model, refer to the [`serving options`](#serving-options) for detai
 
 ## Examples
 
-### Simple Chat Example
+### Simple Chat Example with a ChatCompletions LLM
 
-Here's an example of an agent that calls OpenAI's gpt-4o model with a simple tool:
+Here's an example of an agent that calls OpenAI's gpt-5 model with the ChatCompletions API:
+
+```python
+import mlflow
+from mlflow.models import set_model
+from mlflow.pyfunc import ResponsesAgent
+from mlflow.types.responses import ResponsesAgentRequest, ResponsesAgentResponse
+from mlflow.types.responses_utils import output_to_responses_items_stream, prep_msgs_for_cc_llm
+from openai import OpenAI
+
+client = OpenAI()
+
+
+class SimpleResponsesAgent(ResponsesAgent):
+    def call_llm(self, messages):
+        for chunk in client.chat.completions.create(
+            model="gpt-5",
+            messages=messages,
+            stream=True,
+        ):
+            yield chunk.to_dict()
+
+    def predict(self, request: ResponsesAgentRequest):
+        outputs = [
+            event.item
+            for event in self.predict_stream(request)
+            if event.type == "response.output_item.done"
+        ]
+        return ResponsesAgentResponse(output=outputs, custom_outputs=request.custom_inputs)
+
+    def predict_stream(self, request: ResponsesAgentRequest):
+        messages = prep_msgs_for_cc_llm([i.model_dump() for i in request.input])
+
+        yield from output_to_responses_items_stream(self.call_llm(messages))
+
+mlflow.openai.autolog()
+agent = SimpleResponsesAgent()
+set_model(agent)
+```
+
+### Simple Chat Example with a Responses API LLM
+
+Here's an example of an agent that calls OpenAI's gpt-4o model with the Responses API:
 
 ```python
 # uncomment below if running inside a jupyter notebook
@@ -281,6 +313,54 @@ class SimpleResponsesAgent(ResponsesAgent):
 
 mlflow.openai.autolog()
 agent = SimpleResponsesAgent(model="gpt-4o")
+set_model(agent)
+```
+
+### Wrapping a LangGraph Agent
+
+Here's an example of wrapping a LangGraph agent in a ResponsesAgent:
+
+```python
+from typing import Generator
+
+import mlflow
+from langgraph.graph.state import CompiledStateGraph
+from mlflow.models import set_model
+from mlflow.pyfunc import ResponsesAgent
+from mlflow.types.responses import (
+    ResponsesAgentRequest,
+    ResponsesAgentResponse,
+    ResponsesAgentStreamEvent,
+)
+from mlflow.types.responses_utils import output_to_responses_items_stream, prep_msgs_for_cc_llm
+
+
+class LangGraphResponsesAgent(ResponsesAgent):
+    def __init__(self, agent: CompiledStateGraph):
+        self.agent = agent
+
+    def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
+        outputs = [
+            event.item
+            for event in self.predict_stream(request)
+            if event.type == "response.output_item.done"
+        ]
+        return ResponsesAgentResponse(output=outputs, custom_outputs=request.custom_inputs)
+
+    def predict_stream(
+        self,
+        request: ResponsesAgentRequest,
+    ) -> Generator[ResponsesAgentStreamEvent, None, None]:
+        cc_msgs = prep_msgs_for_cc_llm([i.model_dump() for i in request.input])
+
+        for _, events in self.agent.stream({"messages": cc_msgs}, stream_mode=["updates"]):
+            for node_data in events.values():
+                yield from output_to_responses_items_stream(node_data["messages"])
+
+
+mlflow.langchain.autolog()
+graph = None  # TODO: replace with your compiled LangGraph agent
+agent = LangGraphResponsesAgent(graph)
 set_model(agent)
 ```
 
