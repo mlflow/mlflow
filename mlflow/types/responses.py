@@ -313,7 +313,7 @@ def responses_to_cc(message: dict[str, Any]) -> list[dict[str, Any]]:
     return [filtered] if filtered else []
 
 
-def prep_msgs_for_cc_llm(
+def to_chat_completions_input(
     responses_input: list[dict[str, Any] | Message | OutputItem],
 ) -> list[dict[str, Any]]:
     """Convert from Responses input items to ChatCompletion dictionaries."""

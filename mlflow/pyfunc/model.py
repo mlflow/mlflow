@@ -839,9 +839,9 @@ if IS_PYDANTIC_V2_OR_NEWER:
         create_text_delta,
         create_text_output_item,
         output_to_responses_items_stream,
-        prep_msgs_for_cc_llm,
         responses_agent_output_reducer,
         responses_to_cc,
+        to_chat_completions_input,
     )
 
     @experimental(version="3.0.0")
@@ -1002,7 +1002,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
             responses_input: list[dict[str, Any] | Message | OutputItem],
         ) -> list[dict[str, Any]]:
             "Convert from Responses input items to ChatCompletion dictionaries"
-            return prep_msgs_for_cc_llm(responses_input)
+            return to_chat_completions_input(responses_input)
 
         @staticmethod
         def output_to_responses_items_stream(

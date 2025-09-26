@@ -239,7 +239,7 @@ from mlflow.types.responses import (
     ResponsesAgentRequest,
     ResponsesAgentResponse,
     output_to_responses_items_stream,
-    prep_msgs_for_cc_llm,
+    to_chat_completions_input,
 )
 from openai import OpenAI
 
@@ -266,7 +266,7 @@ class SimpleResponsesAgent(ResponsesAgent):
         )
 
     def predict_stream(self, request: ResponsesAgentRequest):
-        messages = prep_msgs_for_cc_llm([i.model_dump() for i in request.input])
+        messages = to_chat_completions_input([i.model_dump() for i in request.input])
 
         yield from output_to_responses_items_stream(self.call_llm(messages))
 
@@ -339,7 +339,7 @@ from mlflow.types.responses import (
     ResponsesAgentResponse,
     ResponsesAgentStreamEvent,
     output_to_responses_items_stream,
-    prep_msgs_for_cc_llm,
+    to_chat_completions_input,
 )
 
 
@@ -361,7 +361,7 @@ class LangGraphResponsesAgent(ResponsesAgent):
         self,
         request: ResponsesAgentRequest,
     ) -> Generator[ResponsesAgentStreamEvent, None, None]:
-        cc_msgs = prep_msgs_for_cc_llm([i.model_dump() for i in request.input])
+        cc_msgs = to_chat_completions_input([i.model_dump() for i in request.input])
 
         for _, events in self.agent.stream(
             {"messages": cc_msgs}, stream_mode=["updates"]
