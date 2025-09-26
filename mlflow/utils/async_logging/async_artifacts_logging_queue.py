@@ -192,6 +192,7 @@ class AsyncArtifactsLoggingQueue:
             artifact_path: Directory within the run's artifact directory in which to log the
                 artifact.
             artifact: The artifact to be logged.
+            save_options: Options for saving the artifact.
 
         Returns:
             mlflow.utils.async_utils.RunOperations: An object that encapsulates the

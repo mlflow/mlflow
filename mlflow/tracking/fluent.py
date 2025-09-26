@@ -1599,7 +1599,7 @@ def log_image(
     timestamp: int | None = None,
     synchronous: bool | None = False,
     *,
-    image_options: dict | None = None,
+    image_options: dict[str, Any] | None = None,
 ) -> None:
     """
     Logs an image in MLflow, supporting two use cases:

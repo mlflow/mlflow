@@ -26,7 +26,7 @@ class RunArtifacts:
             throw_exception_on_artifact_number if throw_exception_on_artifact_number else []
         )
 
-    def consume_queue_data(self, filename, artifact_path, artifact):
+    def consume_queue_data(self, filename, artifact_path, artifact, save_options=None):
         self.artifact_count += 1
         if self.artifact_count in self.throw_exception_on_artifact_number:
             raise MlflowException("Failed to log run data")
@@ -194,7 +194,7 @@ class Consumer:
         self.artifact_paths = []
         self.artifacts = []
 
-    def consume_queue_data(self, filename, artifact_path, artifact):
+    def consume_queue_data(self, filename, artifact_path, artifact, save_options=None):
         time.sleep(0.5)
         self.filenames.append(filename)
         self.artifact_paths.append(artifact_path)
