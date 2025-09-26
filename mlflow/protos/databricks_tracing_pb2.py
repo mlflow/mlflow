@@ -20,12 +20,13 @@ if Version(google.protobuf.__version__).major >= 5:
   from . import databricks_pb2 as databricks__pb2
   from .scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2
   from google.protobuf import duration_pb2 as google_dot_protobuf_dot_duration__pb2
+  from google.protobuf import field_mask_pb2 as google_dot_protobuf_dot_field__mask__pb2
   from google.protobuf import struct_pb2 as google_dot_protobuf_dot_struct__pb2
   from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
   from opentelemetry.proto.trace.v1 import trace_pb2 as opentelemetry_dot_proto_dot_trace_dot_v1_dot_trace__pb2
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x18\x64\x61tabricks_tracing.proto\x12\x11mlflow.databricks\x1a\x11\x61ssessments.proto\x1a\x10\x64\x61tabricks.proto\x1a\x15scalapb/scalapb.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a(opentelemetry/proto/trace/v1/trace.proto\"z\n\x10UCSchemaLocation\x12\x14\n\x0c\x63\x61talog_name\x18\x01 \x01(\t\x12\x13\n\x0bschema_name\x18\x02 \x01(\t\x12\x1d\n\x15otel_spans_table_name\x18\x03 \x01(\t\x12\x1c\n\x14otel_logs_table_name\x18\x04 \x01(\t\"1\n\x18MlflowExperimentLocation\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\"1\n\x16InferenceTableLocation\x12\x17\n\x0f\x66ull_table_name\x18\x01 \x01(\t\"\x9e\x03\n\rTraceLocation\x12@\n\x04type\x18\x01 \x01(\x0e\x32\x32.mlflow.databricks.TraceLocation.TraceLocationType\x12H\n\x11mlflow_experiment\x18\x02 \x01(\x0b\x32+.mlflow.databricks.MlflowExperimentLocationH\x00\x12\x44\n\x0finference_table\x18\x03 \x01(\x0b\x32).mlflow.databricks.InferenceTableLocationH\x00\x12\x38\n\tuc_schema\x18\x04 \x01(\x0b\x32#.mlflow.databricks.UCSchemaLocationH\x00\"s\n\x11TraceLocationType\x12#\n\x1fTRACE_LOCATION_TYPE_UNSPECIFIED\x10\x00\x12\x15\n\x11MLFLOW_EXPERIMENT\x10\x01\x12\x13\n\x0fINFERENCE_TABLE\x10\x02\x12\r\n\tUC_SCHEMA\x10\x03\x42\x0c\n\nidentifier\"\x9c\x05\n\tTraceInfo\x12\x10\n\x08trace_id\x18\x01 \x01(\t\x12\x19\n\x11\x63lient_request_id\x18\x02 \x01(\t\x12\x38\n\x0etrace_location\x18\x03 \x01(\x0b\x32 .mlflow.databricks.TraceLocation\x12\x17\n\x0frequest_preview\x18\x04 \x01(\t\x12\x18\n\x10response_preview\x18\x05 \x01(\t\x12\x30\n\x0crequest_time\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x35\n\x12\x65xecution_duration\x18\x07 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x31\n\x05state\x18\x08 \x01(\x0e\x32\".mlflow.databricks.TraceInfo.State\x12G\n\x0etrace_metadata\x18\t \x03(\x0b\x32/.mlflow.databricks.TraceInfo.TraceMetadataEntry\x12\x33\n\x0b\x61ssessments\x18\n \x03(\x0b\x32\x1e.mlflow.assessments.Assessment\x12\x34\n\x04tags\x18\x0b \x03(\x0b\x32&.mlflow.databricks.TraceInfo.TagsEntry\x1a\x34\n\x12TraceMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a+\n\tTagsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"B\n\x05State\x12\x15\n\x11STATE_UNSPECIFIED\x10\x00\x12\x06\n\x02OK\x10\x01\x12\t\n\x05\x45RROR\x10\x02\x12\x0f\n\x0bIN_PROGRESS\x10\x03\"\xca\x01\n\x0b\x43reateTrace\x12\x36\n\ntrace_info\x18\x01 \x01(\x0b\x32\x1c.mlflow.databricks.TraceInfoB\x04\xf8\x86\x19\x01\x12\x18\n\x10sql_warehouse_id\x18\x02 \x01(\t\x1a<\n\x08Response\x12\x30\n\ntrace_info\x18\x01 \x01(\x0b\x32\x1c.mlflow.databricks.TraceInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"o\n\x0fTraceIdentifier\x12\x38\n\tuc_schema\x18\x01 \x01(\x0b\x32#.mlflow.databricks.UCSchemaLocationH\x00\x12\x16\n\x08trace_id\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x42\n\n\x08location\"l\n\x05Trace\x12\x30\n\ntrace_info\x18\x01 \x01(\x0b\x32\x1c.mlflow.databricks.TraceInfo\x12\x31\n\x05spans\x18\x02 \x03(\x0b\x32\".opentelemetry.proto.trace.v1.Span\"\xc5\x01\n\tGetTraces\x12;\n\ttrace_ids\x18\x01 \x03(\x0b\x32\".mlflow.databricks.TraceIdentifierB\x04\xf8\x86\x19\x01\x12\x18\n\x10sql_warehouse_id\x18\x02 \x01(\t\x1a\x34\n\x08Response\x12(\n\x06traces\x18\x01 \x03(\x0b\x32\x18.mlflow.databricks.Trace:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]2\xbe\x02\n\x19\x44\x61tabricksTrackingService\x12\x95\x01\n\x0b\x63reateTrace\x12\x1e.mlflow.databricks.CreateTrace\x1a\'.mlflow.databricks.CreateTrace.Response\"=\xf2\x86\x19\x39\n\'\n\x04POST\x12\x19/mlflow/traces/{location}\x1a\x04\x08\x04\x10\x00\x10\x03*\x0c\x43reate Trace\x12\x88\x01\n\tgetTraces\x12\x1c.mlflow.databricks.GetTraces\x1a%.mlflow.databricks.GetTraces.Response\"6\xf2\x86\x19\x32\n\"\n\x04POST\x12\x14/mlflow/traces/batch\x1a\x04\x08\x04\x10\x00\x10\x03*\nGet TracesB\x03\x90\x01\x01')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x18\x64\x61tabricks_tracing.proto\x12\x11mlflow.databricks\x1a\x11\x61ssessments.proto\x1a\x10\x64\x61tabricks.proto\x1a\x15scalapb/scalapb.proto\x1a\x1egoogle/protobuf/duration.proto\x1a google/protobuf/field_mask.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a(opentelemetry/proto/trace/v1/trace.proto\"z\n\x10UCSchemaLocation\x12\x14\n\x0c\x63\x61talog_name\x18\x01 \x01(\t\x12\x13\n\x0bschema_name\x18\x02 \x01(\t\x12\x1d\n\x15otel_spans_table_name\x18\x03 \x01(\t\x12\x1c\n\x14otel_logs_table_name\x18\x04 \x01(\t\"1\n\x18MlflowExperimentLocation\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\"1\n\x16InferenceTableLocation\x12\x17\n\x0f\x66ull_table_name\x18\x01 \x01(\t\"\x9e\x03\n\rTraceLocation\x12@\n\x04type\x18\x01 \x01(\x0e\x32\x32.mlflow.databricks.TraceLocation.TraceLocationType\x12H\n\x11mlflow_experiment\x18\x02 \x01(\x0b\x32+.mlflow.databricks.MlflowExperimentLocationH\x00\x12\x44\n\x0finference_table\x18\x03 \x01(\x0b\x32).mlflow.databricks.InferenceTableLocationH\x00\x12\x38\n\tuc_schema\x18\x04 \x01(\x0b\x32#.mlflow.databricks.UCSchemaLocationH\x00\"s\n\x11TraceLocationType\x12#\n\x1fTRACE_LOCATION_TYPE_UNSPECIFIED\x10\x00\x12\x15\n\x11MLFLOW_EXPERIMENT\x10\x01\x12\x13\n\x0fINFERENCE_TABLE\x10\x02\x12\r\n\tUC_SCHEMA\x10\x03\x42\x0c\n\nidentifier\"\x9b\x05\n\tTraceInfo\x12\x10\n\x08trace_id\x18\x01 \x01(\t\x12\x19\n\x11\x63lient_request_id\x18\x02 \x01(\t\x12\x38\n\x0etrace_location\x18\x03 \x01(\x0b\x32 .mlflow.databricks.TraceLocation\x12\x17\n\x0frequest_preview\x18\x04 \x01(\t\x12\x18\n\x10response_preview\x18\x05 \x01(\t\x12\x30\n\x0crequest_time\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x35\n\x12\x65xecution_duration\x18\x07 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x31\n\x05state\x18\x08 \x01(\x0e\x32\".mlflow.databricks.TraceInfo.State\x12G\n\x0etrace_metadata\x18\t \x03(\x0b\x32/.mlflow.databricks.TraceInfo.TraceMetadataEntry\x12\x32\n\x0b\x61ssessments\x18\n \x03(\x0b\x32\x1d.mlflow.databricks.Assessment\x12\x34\n\x04tags\x18\x0b \x03(\x0b\x32&.mlflow.databricks.TraceInfo.TagsEntry\x1a\x34\n\x12TraceMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a+\n\tTagsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"B\n\x05State\x12\x15\n\x11STATE_UNSPECIFIED\x10\x00\x12\x06\n\x02OK\x10\x01\x12\t\n\x05\x45RROR\x10\x02\x12\x0f\n\x0bIN_PROGRESS\x10\x03\"\xca\x01\n\x0b\x43reateTrace\x12\x36\n\ntrace_info\x18\x01 \x01(\x0b\x32\x1c.mlflow.databricks.TraceInfoB\x04\xf8\x86\x19\x01\x12\x18\n\x10sql_warehouse_id\x18\x02 \x01(\t\x1a<\n\x08Response\x12\x30\n\ntrace_info\x18\x01 \x01(\x0b\x32\x1c.mlflow.databricks.TraceInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"i\n\x0fTraceIdentifier\x12>\n\x0etrace_location\x18\x01 \x01(\x0b\x32 .mlflow.databricks.TraceLocationB\x04\xf8\x86\x19\x01\x12\x16\n\x08trace_id\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\"l\n\x05Trace\x12\x30\n\ntrace_info\x18\x01 \x01(\x0b\x32\x1c.mlflow.databricks.TraceInfo\x12\x31\n\x05spans\x18\x02 \x03(\x0b\x32\".opentelemetry.proto.trace.v1.Span\"\xc5\x01\n\tGetTraces\x12;\n\ttrace_ids\x18\x01 \x03(\x0b\x32\".mlflow.databricks.TraceIdentifierB\x04\xf8\x86\x19\x01\x12\x18\n\x10sql_warehouse_id\x18\x02 \x01(\t\x1a\x34\n\x08Response\x12(\n\x06traces\x18\x01 \x03(\x0b\x32\x18.mlflow.databricks.Trace:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xcc\x04\n\nAssessment\x12\x15\n\rassessment_id\x18\x01 \x01(\t\x12\x1d\n\x0f\x61ssessment_name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12<\n\x10trace_identifier\x18\x03 \x01(\x0b\x32\".mlflow.databricks.TraceIdentifier\x12\x0f\n\x07span_id\x18\x04 \x01(\t\x12\x34\n\x06source\x18\x05 \x01(\x0b\x32$.mlflow.assessments.AssessmentSource\x12/\n\x0b\x63reate_time\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x34\n\x10last_update_time\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x30\n\x08\x66\x65\x65\x64\x62\x61\x63k\x18\x08 \x01(\x0b\x32\x1c.mlflow.assessments.FeedbackH\x00\x12\x36\n\x0b\x65xpectation\x18\t \x01(\x0b\x32\x1f.mlflow.assessments.ExpectationH\x00\x12\x11\n\trationale\x18\n \x01(\t\x12=\n\x08metadata\x18\x0b \x03(\x0b\x32+.mlflow.databricks.Assessment.MetadataEntry\x12\x11\n\toverrides\x18\x0c \x01(\t\x12\x13\n\x05valid\x18\r \x01(\x08:\x04true\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x07\n\x05value\"\xe9\x01\n\x10\x43reateAssessment\x12\x16\n\x08location\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x37\n\nassessment\x18\x02 \x01(\x0b\x32\x1d.mlflow.databricks.AssessmentB\x04\xf8\x86\x19\x01\x12\x18\n\x10sql_warehouse_id\x18\x03 \x01(\t\x1a=\n\x08Response\x12\x31\n\nassessment\x18\x01 \x01(\x0b\x32\x1d.mlflow.databricks.Assessment:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xe2\x01\n\rGetAssessment\x12\x16\n\x08location\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x16\n\x08trace_id\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x1b\n\rassessment_id\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\x18\n\x10sql_warehouse_id\x18\x04 \x01(\t\x1a=\n\x08Response\x12\x31\n\nassessment\x18\x01 \x01(\x0b\x32\x1d.mlflow.databricks.Assessment:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xa0\x02\n\x10UpdateAssessment\x12\x16\n\x08location\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x37\n\nassessment\x18\x02 \x01(\x0b\x32\x1d.mlflow.databricks.AssessmentB\x04\xf8\x86\x19\x01\x12\x35\n\x0bupdate_mask\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskB\x04\xf8\x86\x19\x01\x12\x18\n\x10sql_warehouse_id\x18\x04 \x01(\t\x1a=\n\x08Response\x12\x31\n\nassessment\x18\x01 \x01(\x0b\x32\x1d.mlflow.databricks.Assessment:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb2\x01\n\x10\x44\x65leteAssessment\x12\x16\n\x08location\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x16\n\x08trace_id\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x1b\n\rassessment_id\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\x18\n\x10sql_warehouse_id\x18\x04 \x01(\t\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]2\xec\x08\n\x19\x44\x61tabricksTrackingService\x12\x95\x01\n\x0b\x63reateTrace\x12\x1e.mlflow.databricks.CreateTrace\x1a\'.mlflow.databricks.CreateTrace.Response\"=\xf2\x86\x19\x39\n\'\n\x04POST\x12\x19/mlflow/traces/{location}\x1a\x04\x08\x04\x10\x00\x10\x03*\x0c\x43reate Trace\x12\x88\x01\n\tgetTraces\x12\x1c.mlflow.databricks.GetTraces\x1a%.mlflow.databricks.GetTraces.Response\"6\xf2\x86\x19\x32\n\"\n\x04POST\x12\x14/mlflow/traces/batch\x1a\x04\x08\x04\x10\x00\x10\x03*\nGet Traces\x12\xbf\x01\n\x10\x63reateAssessment\x12#.mlflow.databricks.CreateAssessment\x1a,.mlflow.databricks.CreateAssessment.Response\"X\xf2\x86\x19T\n=\n\x04POST\x12//mlflow/traces/{location}/{trace_id}/assessment\x1a\x04\x08\x04\x10\x00\x10\x03*\x11\x43reate Assessment\x12\xc2\x01\n\rgetAssessment\x12 .mlflow.databricks.GetAssessment\x1a).mlflow.databricks.GetAssessment.Response\"d\xf2\x86\x19`\nL\n\x03GET\x12?/mlflow/traces/{location}/{trace_id}/assessment/{assessment_id}\x1a\x04\x08\x04\x10\x00\x10\x03*\x0eGet Assessment\x12\xd0\x01\n\x10updateAssessment\x12#.mlflow.databricks.UpdateAssessment\x1a,.mlflow.databricks.UpdateAssessment.Response\"i\xf2\x86\x19\x65\nN\n\x05PATCH\x12?/mlflow/traces/{location}/{trace_id}/assessment/{assessment_id}\x1a\x04\x08\x04\x10\x00\x10\x03*\x11Update Assessment\x12\xd1\x01\n\x10\x64\x65leteAssessment\x12#.mlflow.databricks.DeleteAssessment\x1a,.mlflow.databricks.DeleteAssessment.Response\"j\xf2\x86\x19\x66\nO\n\x06\x44\x45LETE\x12?/mlflow/traces/{location}/{trace_id}/assessment/{assessment_id}\x1a\x04\x08\x04\x10\x00\x10\x03*\x11\x44\x65lete AssessmentB\x03\x90\x01\x01')
 
   _globals = globals()
   _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -41,48 +42,112 @@ if Version(google.protobuf.__version__).major >= 5:
     _globals['_CREATETRACE'].fields_by_name['trace_info']._serialized_options = b'\370\206\031\001'
     _globals['_CREATETRACE']._loaded_options = None
     _globals['_CREATETRACE']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_TRACEIDENTIFIER'].fields_by_name['trace_location']._loaded_options = None
+    _globals['_TRACEIDENTIFIER'].fields_by_name['trace_location']._serialized_options = b'\370\206\031\001'
     _globals['_TRACEIDENTIFIER'].fields_by_name['trace_id']._loaded_options = None
     _globals['_TRACEIDENTIFIER'].fields_by_name['trace_id']._serialized_options = b'\370\206\031\001'
     _globals['_GETTRACES'].fields_by_name['trace_ids']._loaded_options = None
     _globals['_GETTRACES'].fields_by_name['trace_ids']._serialized_options = b'\370\206\031\001'
     _globals['_GETTRACES']._loaded_options = None
     _globals['_GETTRACES']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_ASSESSMENT_METADATAENTRY']._loaded_options = None
+    _globals['_ASSESSMENT_METADATAENTRY']._serialized_options = b'8\001'
+    _globals['_ASSESSMENT'].fields_by_name['assessment_name']._loaded_options = None
+    _globals['_ASSESSMENT'].fields_by_name['assessment_name']._serialized_options = b'\370\206\031\001'
+    _globals['_CREATEASSESSMENT'].fields_by_name['location']._loaded_options = None
+    _globals['_CREATEASSESSMENT'].fields_by_name['location']._serialized_options = b'\370\206\031\001'
+    _globals['_CREATEASSESSMENT'].fields_by_name['assessment']._loaded_options = None
+    _globals['_CREATEASSESSMENT'].fields_by_name['assessment']._serialized_options = b'\370\206\031\001'
+    _globals['_CREATEASSESSMENT']._loaded_options = None
+    _globals['_CREATEASSESSMENT']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_GETASSESSMENT'].fields_by_name['location']._loaded_options = None
+    _globals['_GETASSESSMENT'].fields_by_name['location']._serialized_options = b'\370\206\031\001'
+    _globals['_GETASSESSMENT'].fields_by_name['trace_id']._loaded_options = None
+    _globals['_GETASSESSMENT'].fields_by_name['trace_id']._serialized_options = b'\370\206\031\001'
+    _globals['_GETASSESSMENT'].fields_by_name['assessment_id']._loaded_options = None
+    _globals['_GETASSESSMENT'].fields_by_name['assessment_id']._serialized_options = b'\370\206\031\001'
+    _globals['_GETASSESSMENT']._loaded_options = None
+    _globals['_GETASSESSMENT']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_UPDATEASSESSMENT'].fields_by_name['location']._loaded_options = None
+    _globals['_UPDATEASSESSMENT'].fields_by_name['location']._serialized_options = b'\370\206\031\001'
+    _globals['_UPDATEASSESSMENT'].fields_by_name['assessment']._loaded_options = None
+    _globals['_UPDATEASSESSMENT'].fields_by_name['assessment']._serialized_options = b'\370\206\031\001'
+    _globals['_UPDATEASSESSMENT'].fields_by_name['update_mask']._loaded_options = None
+    _globals['_UPDATEASSESSMENT'].fields_by_name['update_mask']._serialized_options = b'\370\206\031\001'
+    _globals['_UPDATEASSESSMENT']._loaded_options = None
+    _globals['_UPDATEASSESSMENT']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_DELETEASSESSMENT'].fields_by_name['location']._loaded_options = None
+    _globals['_DELETEASSESSMENT'].fields_by_name['location']._serialized_options = b'\370\206\031\001'
+    _globals['_DELETEASSESSMENT'].fields_by_name['trace_id']._loaded_options = None
+    _globals['_DELETEASSESSMENT'].fields_by_name['trace_id']._serialized_options = b'\370\206\031\001'
+    _globals['_DELETEASSESSMENT'].fields_by_name['assessment_id']._loaded_options = None
+    _globals['_DELETEASSESSMENT'].fields_by_name['assessment_id']._serialized_options = b'\370\206\031\001'
+    _globals['_DELETEASSESSMENT']._loaded_options = None
+    _globals['_DELETEASSESSMENT']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
     _globals['_DATABRICKSTRACKINGSERVICE'].methods_by_name['createTrace']._loaded_options = None
     _globals['_DATABRICKSTRACKINGSERVICE'].methods_by_name['createTrace']._serialized_options = b'\362\206\0319\n\'\n\004POST\022\031/mlflow/traces/{location}\032\004\010\004\020\000\020\003*\014Create Trace'
     _globals['_DATABRICKSTRACKINGSERVICE'].methods_by_name['getTraces']._loaded_options = None
     _globals['_DATABRICKSTRACKINGSERVICE'].methods_by_name['getTraces']._serialized_options = b'\362\206\0312\n\"\n\004POST\022\024/mlflow/traces/batch\032\004\010\004\020\000\020\003*\nGet Traces'
-    _globals['_UCSCHEMALOCATION']._serialized_start=244
-    _globals['_UCSCHEMALOCATION']._serialized_end=366
-    _globals['_MLFLOWEXPERIMENTLOCATION']._serialized_start=368
-    _globals['_MLFLOWEXPERIMENTLOCATION']._serialized_end=417
-    _globals['_INFERENCETABLELOCATION']._serialized_start=419
-    _globals['_INFERENCETABLELOCATION']._serialized_end=468
-    _globals['_TRACELOCATION']._serialized_start=471
-    _globals['_TRACELOCATION']._serialized_end=885
-    _globals['_TRACELOCATION_TRACELOCATIONTYPE']._serialized_start=756
-    _globals['_TRACELOCATION_TRACELOCATIONTYPE']._serialized_end=871
-    _globals['_TRACEINFO']._serialized_start=888
-    _globals['_TRACEINFO']._serialized_end=1556
-    _globals['_TRACEINFO_TRACEMETADATAENTRY']._serialized_start=1391
-    _globals['_TRACEINFO_TRACEMETADATAENTRY']._serialized_end=1443
-    _globals['_TRACEINFO_TAGSENTRY']._serialized_start=1445
-    _globals['_TRACEINFO_TAGSENTRY']._serialized_end=1488
-    _globals['_TRACEINFO_STATE']._serialized_start=1490
-    _globals['_TRACEINFO_STATE']._serialized_end=1556
-    _globals['_CREATETRACE']._serialized_start=1559
-    _globals['_CREATETRACE']._serialized_end=1761
-    _globals['_CREATETRACE_RESPONSE']._serialized_start=1656
-    _globals['_CREATETRACE_RESPONSE']._serialized_end=1716
-    _globals['_TRACEIDENTIFIER']._serialized_start=1763
-    _globals['_TRACEIDENTIFIER']._serialized_end=1874
-    _globals['_TRACE']._serialized_start=1876
-    _globals['_TRACE']._serialized_end=1984
-    _globals['_GETTRACES']._serialized_start=1987
-    _globals['_GETTRACES']._serialized_end=2184
-    _globals['_GETTRACES_RESPONSE']._serialized_start=2087
-    _globals['_GETTRACES_RESPONSE']._serialized_end=2139
-    _globals['_DATABRICKSTRACKINGSERVICE']._serialized_start=2187
-    _globals['_DATABRICKSTRACKINGSERVICE']._serialized_end=2505
+    _globals['_DATABRICKSTRACKINGSERVICE'].methods_by_name['createAssessment']._loaded_options = None
+    _globals['_DATABRICKSTRACKINGSERVICE'].methods_by_name['createAssessment']._serialized_options = b'\362\206\031T\n=\n\004POST\022//mlflow/traces/{location}/{trace_id}/assessment\032\004\010\004\020\000\020\003*\021Create Assessment'
+    _globals['_DATABRICKSTRACKINGSERVICE'].methods_by_name['getAssessment']._loaded_options = None
+    _globals['_DATABRICKSTRACKINGSERVICE'].methods_by_name['getAssessment']._serialized_options = b'\362\206\031`\nL\n\003GET\022?/mlflow/traces/{location}/{trace_id}/assessment/{assessment_id}\032\004\010\004\020\000\020\003*\016Get Assessment'
+    _globals['_DATABRICKSTRACKINGSERVICE'].methods_by_name['updateAssessment']._loaded_options = None
+    _globals['_DATABRICKSTRACKINGSERVICE'].methods_by_name['updateAssessment']._serialized_options = b'\362\206\031e\nN\n\005PATCH\022?/mlflow/traces/{location}/{trace_id}/assessment/{assessment_id}\032\004\010\004\020\000\020\003*\021Update Assessment'
+    _globals['_DATABRICKSTRACKINGSERVICE'].methods_by_name['deleteAssessment']._loaded_options = None
+    _globals['_DATABRICKSTRACKINGSERVICE'].methods_by_name['deleteAssessment']._serialized_options = b'\362\206\031f\nO\n\006DELETE\022?/mlflow/traces/{location}/{trace_id}/assessment/{assessment_id}\032\004\010\004\020\000\020\003*\021Delete Assessment'
+    _globals['_UCSCHEMALOCATION']._serialized_start=278
+    _globals['_UCSCHEMALOCATION']._serialized_end=400
+    _globals['_MLFLOWEXPERIMENTLOCATION']._serialized_start=402
+    _globals['_MLFLOWEXPERIMENTLOCATION']._serialized_end=451
+    _globals['_INFERENCETABLELOCATION']._serialized_start=453
+    _globals['_INFERENCETABLELOCATION']._serialized_end=502
+    _globals['_TRACELOCATION']._serialized_start=505
+    _globals['_TRACELOCATION']._serialized_end=919
+    _globals['_TRACELOCATION_TRACELOCATIONTYPE']._serialized_start=790
+    _globals['_TRACELOCATION_TRACELOCATIONTYPE']._serialized_end=905
+    _globals['_TRACEINFO']._serialized_start=922
+    _globals['_TRACEINFO']._serialized_end=1589
+    _globals['_TRACEINFO_TRACEMETADATAENTRY']._serialized_start=1424
+    _globals['_TRACEINFO_TRACEMETADATAENTRY']._serialized_end=1476
+    _globals['_TRACEINFO_TAGSENTRY']._serialized_start=1478
+    _globals['_TRACEINFO_TAGSENTRY']._serialized_end=1521
+    _globals['_TRACEINFO_STATE']._serialized_start=1523
+    _globals['_TRACEINFO_STATE']._serialized_end=1589
+    _globals['_CREATETRACE']._serialized_start=1592
+    _globals['_CREATETRACE']._serialized_end=1794
+    _globals['_CREATETRACE_RESPONSE']._serialized_start=1689
+    _globals['_CREATETRACE_RESPONSE']._serialized_end=1749
+    _globals['_TRACEIDENTIFIER']._serialized_start=1796
+    _globals['_TRACEIDENTIFIER']._serialized_end=1901
+    _globals['_TRACE']._serialized_start=1903
+    _globals['_TRACE']._serialized_end=2011
+    _globals['_GETTRACES']._serialized_start=2014
+    _globals['_GETTRACES']._serialized_end=2211
+    _globals['_GETTRACES_RESPONSE']._serialized_start=2114
+    _globals['_GETTRACES_RESPONSE']._serialized_end=2166
+    _globals['_ASSESSMENT']._serialized_start=2214
+    _globals['_ASSESSMENT']._serialized_end=2802
+    _globals['_ASSESSMENT_METADATAENTRY']._serialized_start=2746
+    _globals['_ASSESSMENT_METADATAENTRY']._serialized_end=2793
+    _globals['_CREATEASSESSMENT']._serialized_start=2805
+    _globals['_CREATEASSESSMENT']._serialized_end=3038
+    _globals['_CREATEASSESSMENT_RESPONSE']._serialized_start=2932
+    _globals['_CREATEASSESSMENT_RESPONSE']._serialized_end=2993
+    _globals['_GETASSESSMENT']._serialized_start=3041
+    _globals['_GETASSESSMENT']._serialized_end=3267
+    _globals['_GETASSESSMENT_RESPONSE']._serialized_start=2932
+    _globals['_GETASSESSMENT_RESPONSE']._serialized_end=2993
+    _globals['_UPDATEASSESSMENT']._serialized_start=3270
+    _globals['_UPDATEASSESSMENT']._serialized_end=3558
+    _globals['_UPDATEASSESSMENT_RESPONSE']._serialized_start=2932
+    _globals['_UPDATEASSESSMENT_RESPONSE']._serialized_end=2993
+    _globals['_DELETEASSESSMENT']._serialized_start=3561
+    _globals['_DELETEASSESSMENT']._serialized_end=3739
+    _globals['_DELETEASSESSMENT_RESPONSE']._serialized_start=1689
+    _globals['_DELETEASSESSMENT_RESPONSE']._serialized_end=1699
+    _globals['_DATABRICKSTRACKINGSERVICE']._serialized_start=3742
+    _globals['_DATABRICKSTRACKINGSERVICE']._serialized_end=4874
   _builder.BuildServices(DESCRIPTOR, 'databricks_tracing_pb2', _globals)
   # @@protoc_insertion_point(module_scope)
 
@@ -107,12 +172,13 @@ else:
   from . import databricks_pb2 as databricks__pb2
   from .scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2
   from google.protobuf import duration_pb2 as google_dot_protobuf_dot_duration__pb2
+  from google.protobuf import field_mask_pb2 as google_dot_protobuf_dot_field__mask__pb2
   from google.protobuf import struct_pb2 as google_dot_protobuf_dot_struct__pb2
   from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
   from opentelemetry.proto.trace.v1 import trace_pb2 as opentelemetry_dot_proto_dot_trace_dot_v1_dot_trace__pb2
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x18\x64\x61tabricks_tracing.proto\x12\x11mlflow.databricks\x1a\x11\x61ssessments.proto\x1a\x10\x64\x61tabricks.proto\x1a\x15scalapb/scalapb.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a(opentelemetry/proto/trace/v1/trace.proto\"z\n\x10UCSchemaLocation\x12\x14\n\x0c\x63\x61talog_name\x18\x01 \x01(\t\x12\x13\n\x0bschema_name\x18\x02 \x01(\t\x12\x1d\n\x15otel_spans_table_name\x18\x03 \x01(\t\x12\x1c\n\x14otel_logs_table_name\x18\x04 \x01(\t\"1\n\x18MlflowExperimentLocation\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\"1\n\x16InferenceTableLocation\x12\x17\n\x0f\x66ull_table_name\x18\x01 \x01(\t\"\x9e\x03\n\rTraceLocation\x12@\n\x04type\x18\x01 \x01(\x0e\x32\x32.mlflow.databricks.TraceLocation.TraceLocationType\x12H\n\x11mlflow_experiment\x18\x02 \x01(\x0b\x32+.mlflow.databricks.MlflowExperimentLocationH\x00\x12\x44\n\x0finference_table\x18\x03 \x01(\x0b\x32).mlflow.databricks.InferenceTableLocationH\x00\x12\x38\n\tuc_schema\x18\x04 \x01(\x0b\x32#.mlflow.databricks.UCSchemaLocationH\x00\"s\n\x11TraceLocationType\x12#\n\x1fTRACE_LOCATION_TYPE_UNSPECIFIED\x10\x00\x12\x15\n\x11MLFLOW_EXPERIMENT\x10\x01\x12\x13\n\x0fINFERENCE_TABLE\x10\x02\x12\r\n\tUC_SCHEMA\x10\x03\x42\x0c\n\nidentifier\"\x9c\x05\n\tTraceInfo\x12\x10\n\x08trace_id\x18\x01 \x01(\t\x12\x19\n\x11\x63lient_request_id\x18\x02 \x01(\t\x12\x38\n\x0etrace_location\x18\x03 \x01(\x0b\x32 .mlflow.databricks.TraceLocation\x12\x17\n\x0frequest_preview\x18\x04 \x01(\t\x12\x18\n\x10response_preview\x18\x05 \x01(\t\x12\x30\n\x0crequest_time\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x35\n\x12\x65xecution_duration\x18\x07 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x31\n\x05state\x18\x08 \x01(\x0e\x32\".mlflow.databricks.TraceInfo.State\x12G\n\x0etrace_metadata\x18\t \x03(\x0b\x32/.mlflow.databricks.TraceInfo.TraceMetadataEntry\x12\x33\n\x0b\x61ssessments\x18\n \x03(\x0b\x32\x1e.mlflow.assessments.Assessment\x12\x34\n\x04tags\x18\x0b \x03(\x0b\x32&.mlflow.databricks.TraceInfo.TagsEntry\x1a\x34\n\x12TraceMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a+\n\tTagsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"B\n\x05State\x12\x15\n\x11STATE_UNSPECIFIED\x10\x00\x12\x06\n\x02OK\x10\x01\x12\t\n\x05\x45RROR\x10\x02\x12\x0f\n\x0bIN_PROGRESS\x10\x03\"\xca\x01\n\x0b\x43reateTrace\x12\x36\n\ntrace_info\x18\x01 \x01(\x0b\x32\x1c.mlflow.databricks.TraceInfoB\x04\xf8\x86\x19\x01\x12\x18\n\x10sql_warehouse_id\x18\x02 \x01(\t\x1a<\n\x08Response\x12\x30\n\ntrace_info\x18\x01 \x01(\x0b\x32\x1c.mlflow.databricks.TraceInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"o\n\x0fTraceIdentifier\x12\x38\n\tuc_schema\x18\x01 \x01(\x0b\x32#.mlflow.databricks.UCSchemaLocationH\x00\x12\x16\n\x08trace_id\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x42\n\n\x08location\"l\n\x05Trace\x12\x30\n\ntrace_info\x18\x01 \x01(\x0b\x32\x1c.mlflow.databricks.TraceInfo\x12\x31\n\x05spans\x18\x02 \x03(\x0b\x32\".opentelemetry.proto.trace.v1.Span\"\xc5\x01\n\tGetTraces\x12;\n\ttrace_ids\x18\x01 \x03(\x0b\x32\".mlflow.databricks.TraceIdentifierB\x04\xf8\x86\x19\x01\x12\x18\n\x10sql_warehouse_id\x18\x02 \x01(\t\x1a\x34\n\x08Response\x12(\n\x06traces\x18\x01 \x03(\x0b\x32\x18.mlflow.databricks.Trace:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]2\xbe\x02\n\x19\x44\x61tabricksTrackingService\x12\x95\x01\n\x0b\x63reateTrace\x12\x1e.mlflow.databricks.CreateTrace\x1a\'.mlflow.databricks.CreateTrace.Response\"=\xf2\x86\x19\x39\n\'\n\x04POST\x12\x19/mlflow/traces/{location}\x1a\x04\x08\x04\x10\x00\x10\x03*\x0c\x43reate Trace\x12\x88\x01\n\tgetTraces\x12\x1c.mlflow.databricks.GetTraces\x1a%.mlflow.databricks.GetTraces.Response\"6\xf2\x86\x19\x32\n\"\n\x04POST\x12\x14/mlflow/traces/batch\x1a\x04\x08\x04\x10\x00\x10\x03*\nGet TracesB\x03\x90\x01\x01')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x18\x64\x61tabricks_tracing.proto\x12\x11mlflow.databricks\x1a\x11\x61ssessments.proto\x1a\x10\x64\x61tabricks.proto\x1a\x15scalapb/scalapb.proto\x1a\x1egoogle/protobuf/duration.proto\x1a google/protobuf/field_mask.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a(opentelemetry/proto/trace/v1/trace.proto\"z\n\x10UCSchemaLocation\x12\x14\n\x0c\x63\x61talog_name\x18\x01 \x01(\t\x12\x13\n\x0bschema_name\x18\x02 \x01(\t\x12\x1d\n\x15otel_spans_table_name\x18\x03 \x01(\t\x12\x1c\n\x14otel_logs_table_name\x18\x04 \x01(\t\"1\n\x18MlflowExperimentLocation\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\"1\n\x16InferenceTableLocation\x12\x17\n\x0f\x66ull_table_name\x18\x01 \x01(\t\"\x9e\x03\n\rTraceLocation\x12@\n\x04type\x18\x01 \x01(\x0e\x32\x32.mlflow.databricks.TraceLocation.TraceLocationType\x12H\n\x11mlflow_experiment\x18\x02 \x01(\x0b\x32+.mlflow.databricks.MlflowExperimentLocationH\x00\x12\x44\n\x0finference_table\x18\x03 \x01(\x0b\x32).mlflow.databricks.InferenceTableLocationH\x00\x12\x38\n\tuc_schema\x18\x04 \x01(\x0b\x32#.mlflow.databricks.UCSchemaLocationH\x00\"s\n\x11TraceLocationType\x12#\n\x1fTRACE_LOCATION_TYPE_UNSPECIFIED\x10\x00\x12\x15\n\x11MLFLOW_EXPERIMENT\x10\x01\x12\x13\n\x0fINFERENCE_TABLE\x10\x02\x12\r\n\tUC_SCHEMA\x10\x03\x42\x0c\n\nidentifier\"\x9b\x05\n\tTraceInfo\x12\x10\n\x08trace_id\x18\x01 \x01(\t\x12\x19\n\x11\x63lient_request_id\x18\x02 \x01(\t\x12\x38\n\x0etrace_location\x18\x03 \x01(\x0b\x32 .mlflow.databricks.TraceLocation\x12\x17\n\x0frequest_preview\x18\x04 \x01(\t\x12\x18\n\x10response_preview\x18\x05 \x01(\t\x12\x30\n\x0crequest_time\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x35\n\x12\x65xecution_duration\x18\x07 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x31\n\x05state\x18\x08 \x01(\x0e\x32\".mlflow.databricks.TraceInfo.State\x12G\n\x0etrace_metadata\x18\t \x03(\x0b\x32/.mlflow.databricks.TraceInfo.TraceMetadataEntry\x12\x32\n\x0b\x61ssessments\x18\n \x03(\x0b\x32\x1d.mlflow.databricks.Assessment\x12\x34\n\x04tags\x18\x0b \x03(\x0b\x32&.mlflow.databricks.TraceInfo.TagsEntry\x1a\x34\n\x12TraceMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a+\n\tTagsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"B\n\x05State\x12\x15\n\x11STATE_UNSPECIFIED\x10\x00\x12\x06\n\x02OK\x10\x01\x12\t\n\x05\x45RROR\x10\x02\x12\x0f\n\x0bIN_PROGRESS\x10\x03\"\xca\x01\n\x0b\x43reateTrace\x12\x36\n\ntrace_info\x18\x01 \x01(\x0b\x32\x1c.mlflow.databricks.TraceInfoB\x04\xf8\x86\x19\x01\x12\x18\n\x10sql_warehouse_id\x18\x02 \x01(\t\x1a<\n\x08Response\x12\x30\n\ntrace_info\x18\x01 \x01(\x0b\x32\x1c.mlflow.databricks.TraceInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"i\n\x0fTraceIdentifier\x12>\n\x0etrace_location\x18\x01 \x01(\x0b\x32 .mlflow.databricks.TraceLocationB\x04\xf8\x86\x19\x01\x12\x16\n\x08trace_id\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\"l\n\x05Trace\x12\x30\n\ntrace_info\x18\x01 \x01(\x0b\x32\x1c.mlflow.databricks.TraceInfo\x12\x31\n\x05spans\x18\x02 \x03(\x0b\x32\".opentelemetry.proto.trace.v1.Span\"\xc5\x01\n\tGetTraces\x12;\n\ttrace_ids\x18\x01 \x03(\x0b\x32\".mlflow.databricks.TraceIdentifierB\x04\xf8\x86\x19\x01\x12\x18\n\x10sql_warehouse_id\x18\x02 \x01(\t\x1a\x34\n\x08Response\x12(\n\x06traces\x18\x01 \x03(\x0b\x32\x18.mlflow.databricks.Trace:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xcc\x04\n\nAssessment\x12\x15\n\rassessment_id\x18\x01 \x01(\t\x12\x1d\n\x0f\x61ssessment_name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12<\n\x10trace_identifier\x18\x03 \x01(\x0b\x32\".mlflow.databricks.TraceIdentifier\x12\x0f\n\x07span_id\x18\x04 \x01(\t\x12\x34\n\x06source\x18\x05 \x01(\x0b\x32$.mlflow.assessments.AssessmentSource\x12/\n\x0b\x63reate_time\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x34\n\x10last_update_time\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x30\n\x08\x66\x65\x65\x64\x62\x61\x63k\x18\x08 \x01(\x0b\x32\x1c.mlflow.assessments.FeedbackH\x00\x12\x36\n\x0b\x65xpectation\x18\t \x01(\x0b\x32\x1f.mlflow.assessments.ExpectationH\x00\x12\x11\n\trationale\x18\n \x01(\t\x12=\n\x08metadata\x18\x0b \x03(\x0b\x32+.mlflow.databricks.Assessment.MetadataEntry\x12\x11\n\toverrides\x18\x0c \x01(\t\x12\x13\n\x05valid\x18\r \x01(\x08:\x04true\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x07\n\x05value\"\xe9\x01\n\x10\x43reateAssessment\x12\x16\n\x08location\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x37\n\nassessment\x18\x02 \x01(\x0b\x32\x1d.mlflow.databricks.AssessmentB\x04\xf8\x86\x19\x01\x12\x18\n\x10sql_warehouse_id\x18\x03 \x01(\t\x1a=\n\x08Response\x12\x31\n\nassessment\x18\x01 \x01(\x0b\x32\x1d.mlflow.databricks.Assessment:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xe2\x01\n\rGetAssessment\x12\x16\n\x08location\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x16\n\x08trace_id\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x1b\n\rassessment_id\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\x18\n\x10sql_warehouse_id\x18\x04 \x01(\t\x1a=\n\x08Response\x12\x31\n\nassessment\x18\x01 \x01(\x0b\x32\x1d.mlflow.databricks.Assessment:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xa0\x02\n\x10UpdateAssessment\x12\x16\n\x08location\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x37\n\nassessment\x18\x02 \x01(\x0b\x32\x1d.mlflow.databricks.AssessmentB\x04\xf8\x86\x19\x01\x12\x35\n\x0bupdate_mask\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskB\x04\xf8\x86\x19\x01\x12\x18\n\x10sql_warehouse_id\x18\x04 \x01(\t\x1a=\n\x08Response\x12\x31\n\nassessment\x18\x01 \x01(\x0b\x32\x1d.mlflow.databricks.Assessment:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb2\x01\n\x10\x44\x65leteAssessment\x12\x16\n\x08location\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x16\n\x08trace_id\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x1b\n\rassessment_id\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\x18\n\x10sql_warehouse_id\x18\x04 \x01(\t\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]2\xec\x08\n\x19\x44\x61tabricksTrackingService\x12\x95\x01\n\x0b\x63reateTrace\x12\x1e.mlflow.databricks.CreateTrace\x1a\'.mlflow.databricks.CreateTrace.Response\"=\xf2\x86\x19\x39\n\'\n\x04POST\x12\x19/mlflow/traces/{location}\x1a\x04\x08\x04\x10\x00\x10\x03*\x0c\x43reate Trace\x12\x88\x01\n\tgetTraces\x12\x1c.mlflow.databricks.GetTraces\x1a%.mlflow.databricks.GetTraces.Response\"6\xf2\x86\x19\x32\n\"\n\x04POST\x12\x14/mlflow/traces/batch\x1a\x04\x08\x04\x10\x00\x10\x03*\nGet Traces\x12\xbf\x01\n\x10\x63reateAssessment\x12#.mlflow.databricks.CreateAssessment\x1a,.mlflow.databricks.CreateAssessment.Response\"X\xf2\x86\x19T\n=\n\x04POST\x12//mlflow/traces/{location}/{trace_id}/assessment\x1a\x04\x08\x04\x10\x00\x10\x03*\x11\x43reate Assessment\x12\xc2\x01\n\rgetAssessment\x12 .mlflow.databricks.GetAssessment\x1a).mlflow.databricks.GetAssessment.Response\"d\xf2\x86\x19`\nL\n\x03GET\x12?/mlflow/traces/{location}/{trace_id}/assessment/{assessment_id}\x1a\x04\x08\x04\x10\x00\x10\x03*\x0eGet Assessment\x12\xd0\x01\n\x10updateAssessment\x12#.mlflow.databricks.UpdateAssessment\x1a,.mlflow.databricks.UpdateAssessment.Response\"i\xf2\x86\x19\x65\nN\n\x05PATCH\x12?/mlflow/traces/{location}/{trace_id}/assessment/{assessment_id}\x1a\x04\x08\x04\x10\x00\x10\x03*\x11Update Assessment\x12\xd1\x01\n\x10\x64\x65leteAssessment\x12#.mlflow.databricks.DeleteAssessment\x1a,.mlflow.databricks.DeleteAssessment.Response\"j\xf2\x86\x19\x66\nO\n\x06\x44\x45LETE\x12?/mlflow/traces/{location}/{trace_id}/assessment/{assessment_id}\x1a\x04\x08\x04\x10\x00\x10\x03*\x11\x44\x65lete AssessmentB\x03\x90\x01\x01')
 
 
 
@@ -129,6 +195,16 @@ else:
   _TRACE = DESCRIPTOR.message_types_by_name['Trace']
   _GETTRACES = DESCRIPTOR.message_types_by_name['GetTraces']
   _GETTRACES_RESPONSE = _GETTRACES.nested_types_by_name['Response']
+  _ASSESSMENT = DESCRIPTOR.message_types_by_name['Assessment']
+  _ASSESSMENT_METADATAENTRY = _ASSESSMENT.nested_types_by_name['MetadataEntry']
+  _CREATEASSESSMENT = DESCRIPTOR.message_types_by_name['CreateAssessment']
+  _CREATEASSESSMENT_RESPONSE = _CREATEASSESSMENT.nested_types_by_name['Response']
+  _GETASSESSMENT = DESCRIPTOR.message_types_by_name['GetAssessment']
+  _GETASSESSMENT_RESPONSE = _GETASSESSMENT.nested_types_by_name['Response']
+  _UPDATEASSESSMENT = DESCRIPTOR.message_types_by_name['UpdateAssessment']
+  _UPDATEASSESSMENT_RESPONSE = _UPDATEASSESSMENT.nested_types_by_name['Response']
+  _DELETEASSESSMENT = DESCRIPTOR.message_types_by_name['DeleteAssessment']
+  _DELETEASSESSMENT_RESPONSE = _DELETEASSESSMENT.nested_types_by_name['Response']
   _TRACELOCATION_TRACELOCATIONTYPE = _TRACELOCATION.enum_types_by_name['TraceLocationType']
   _TRACEINFO_STATE = _TRACEINFO.enum_types_by_name['State']
   UCSchemaLocation = _reflection.GeneratedProtocolMessageType('UCSchemaLocation', (_message.Message,), {
@@ -226,6 +302,81 @@ else:
   _sym_db.RegisterMessage(GetTraces)
   _sym_db.RegisterMessage(GetTraces.Response)
 
+  Assessment = _reflection.GeneratedProtocolMessageType('Assessment', (_message.Message,), {
+
+    'MetadataEntry' : _reflection.GeneratedProtocolMessageType('MetadataEntry', (_message.Message,), {
+      'DESCRIPTOR' : _ASSESSMENT_METADATAENTRY,
+      '__module__' : 'databricks_tracing_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.databricks.Assessment.MetadataEntry)
+      })
+    ,
+    'DESCRIPTOR' : _ASSESSMENT,
+    '__module__' : 'databricks_tracing_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.databricks.Assessment)
+    })
+  _sym_db.RegisterMessage(Assessment)
+  _sym_db.RegisterMessage(Assessment.MetadataEntry)
+
+  CreateAssessment = _reflection.GeneratedProtocolMessageType('CreateAssessment', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _CREATEASSESSMENT_RESPONSE,
+      '__module__' : 'databricks_tracing_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.databricks.CreateAssessment.Response)
+      })
+    ,
+    'DESCRIPTOR' : _CREATEASSESSMENT,
+    '__module__' : 'databricks_tracing_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.databricks.CreateAssessment)
+    })
+  _sym_db.RegisterMessage(CreateAssessment)
+  _sym_db.RegisterMessage(CreateAssessment.Response)
+
+  GetAssessment = _reflection.GeneratedProtocolMessageType('GetAssessment', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _GETASSESSMENT_RESPONSE,
+      '__module__' : 'databricks_tracing_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.databricks.GetAssessment.Response)
+      })
+    ,
+    'DESCRIPTOR' : _GETASSESSMENT,
+    '__module__' : 'databricks_tracing_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.databricks.GetAssessment)
+    })
+  _sym_db.RegisterMessage(GetAssessment)
+  _sym_db.RegisterMessage(GetAssessment.Response)
+
+  UpdateAssessment = _reflection.GeneratedProtocolMessageType('UpdateAssessment', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _UPDATEASSESSMENT_RESPONSE,
+      '__module__' : 'databricks_tracing_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.databricks.UpdateAssessment.Response)
+      })
+    ,
+    'DESCRIPTOR' : _UPDATEASSESSMENT,
+    '__module__' : 'databricks_tracing_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.databricks.UpdateAssessment)
+    })
+  _sym_db.RegisterMessage(UpdateAssessment)
+  _sym_db.RegisterMessage(UpdateAssessment.Response)
+
+  DeleteAssessment = _reflection.GeneratedProtocolMessageType('DeleteAssessment', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _DELETEASSESSMENT_RESPONSE,
+      '__module__' : 'databricks_tracing_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.databricks.DeleteAssessment.Response)
+      })
+    ,
+    'DESCRIPTOR' : _DELETEASSESSMENT,
+    '__module__' : 'databricks_tracing_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.databricks.DeleteAssessment)
+    })
+  _sym_db.RegisterMessage(DeleteAssessment)
+  _sym_db.RegisterMessage(DeleteAssessment.Response)
+
   _DATABRICKSTRACKINGSERVICE = DESCRIPTOR.services_by_name['DatabricksTrackingService']
   if _descriptor._USE_C_DESCRIPTORS == False:
 
@@ -239,48 +390,112 @@ else:
     _CREATETRACE.fields_by_name['trace_info']._serialized_options = b'\370\206\031\001'
     _CREATETRACE._options = None
     _CREATETRACE._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _TRACEIDENTIFIER.fields_by_name['trace_location']._options = None
+    _TRACEIDENTIFIER.fields_by_name['trace_location']._serialized_options = b'\370\206\031\001'
     _TRACEIDENTIFIER.fields_by_name['trace_id']._options = None
     _TRACEIDENTIFIER.fields_by_name['trace_id']._serialized_options = b'\370\206\031\001'
     _GETTRACES.fields_by_name['trace_ids']._options = None
     _GETTRACES.fields_by_name['trace_ids']._serialized_options = b'\370\206\031\001'
     _GETTRACES._options = None
     _GETTRACES._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _ASSESSMENT_METADATAENTRY._options = None
+    _ASSESSMENT_METADATAENTRY._serialized_options = b'8\001'
+    _ASSESSMENT.fields_by_name['assessment_name']._options = None
+    _ASSESSMENT.fields_by_name['assessment_name']._serialized_options = b'\370\206\031\001'
+    _CREATEASSESSMENT.fields_by_name['location']._options = None
+    _CREATEASSESSMENT.fields_by_name['location']._serialized_options = b'\370\206\031\001'
+    _CREATEASSESSMENT.fields_by_name['assessment']._options = None
+    _CREATEASSESSMENT.fields_by_name['assessment']._serialized_options = b'\370\206\031\001'
+    _CREATEASSESSMENT._options = None
+    _CREATEASSESSMENT._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _GETASSESSMENT.fields_by_name['location']._options = None
+    _GETASSESSMENT.fields_by_name['location']._serialized_options = b'\370\206\031\001'
+    _GETASSESSMENT.fields_by_name['trace_id']._options = None
+    _GETASSESSMENT.fields_by_name['trace_id']._serialized_options = b'\370\206\031\001'
+    _GETASSESSMENT.fields_by_name['assessment_id']._options = None
+    _GETASSESSMENT.fields_by_name['assessment_id']._serialized_options = b'\370\206\031\001'
+    _GETASSESSMENT._options = None
+    _GETASSESSMENT._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _UPDATEASSESSMENT.fields_by_name['location']._options = None
+    _UPDATEASSESSMENT.fields_by_name['location']._serialized_options = b'\370\206\031\001'
+    _UPDATEASSESSMENT.fields_by_name['assessment']._options = None
+    _UPDATEASSESSMENT.fields_by_name['assessment']._serialized_options = b'\370\206\031\001'
+    _UPDATEASSESSMENT.fields_by_name['update_mask']._options = None
+    _UPDATEASSESSMENT.fields_by_name['update_mask']._serialized_options = b'\370\206\031\001'
+    _UPDATEASSESSMENT._options = None
+    _UPDATEASSESSMENT._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _DELETEASSESSMENT.fields_by_name['location']._options = None
+    _DELETEASSESSMENT.fields_by_name['location']._serialized_options = b'\370\206\031\001'
+    _DELETEASSESSMENT.fields_by_name['trace_id']._options = None
+    _DELETEASSESSMENT.fields_by_name['trace_id']._serialized_options = b'\370\206\031\001'
+    _DELETEASSESSMENT.fields_by_name['assessment_id']._options = None
+    _DELETEASSESSMENT.fields_by_name['assessment_id']._serialized_options = b'\370\206\031\001'
+    _DELETEASSESSMENT._options = None
+    _DELETEASSESSMENT._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
     _DATABRICKSTRACKINGSERVICE.methods_by_name['createTrace']._options = None
     _DATABRICKSTRACKINGSERVICE.methods_by_name['createTrace']._serialized_options = b'\362\206\0319\n\'\n\004POST\022\031/mlflow/traces/{location}\032\004\010\004\020\000\020\003*\014Create Trace'
     _DATABRICKSTRACKINGSERVICE.methods_by_name['getTraces']._options = None
     _DATABRICKSTRACKINGSERVICE.methods_by_name['getTraces']._serialized_options = b'\362\206\0312\n\"\n\004POST\022\024/mlflow/traces/batch\032\004\010\004\020\000\020\003*\nGet Traces'
-    _UCSCHEMALOCATION._serialized_start=244
-    _UCSCHEMALOCATION._serialized_end=366
-    _MLFLOWEXPERIMENTLOCATION._serialized_start=368
-    _MLFLOWEXPERIMENTLOCATION._serialized_end=417
-    _INFERENCETABLELOCATION._serialized_start=419
-    _INFERENCETABLELOCATION._serialized_end=468
-    _TRACELOCATION._serialized_start=471
-    _TRACELOCATION._serialized_end=885
-    _TRACELOCATION_TRACELOCATIONTYPE._serialized_start=756
-    _TRACELOCATION_TRACELOCATIONTYPE._serialized_end=871
-    _TRACEINFO._serialized_start=888
-    _TRACEINFO._serialized_end=1556
-    _TRACEINFO_TRACEMETADATAENTRY._serialized_start=1391
-    _TRACEINFO_TRACEMETADATAENTRY._serialized_end=1443
-    _TRACEINFO_TAGSENTRY._serialized_start=1445
-    _TRACEINFO_TAGSENTRY._serialized_end=1488
-    _TRACEINFO_STATE._serialized_start=1490
-    _TRACEINFO_STATE._serialized_end=1556
-    _CREATETRACE._serialized_start=1559
-    _CREATETRACE._serialized_end=1761
-    _CREATETRACE_RESPONSE._serialized_start=1656
-    _CREATETRACE_RESPONSE._serialized_end=1716
-    _TRACEIDENTIFIER._serialized_start=1763
-    _TRACEIDENTIFIER._serialized_end=1874
-    _TRACE._serialized_start=1876
-    _TRACE._serialized_end=1984
-    _GETTRACES._serialized_start=1987
-    _GETTRACES._serialized_end=2184
-    _GETTRACES_RESPONSE._serialized_start=2087
-    _GETTRACES_RESPONSE._serialized_end=2139
-    _DATABRICKSTRACKINGSERVICE._serialized_start=2187
-    _DATABRICKSTRACKINGSERVICE._serialized_end=2505
+    _DATABRICKSTRACKINGSERVICE.methods_by_name['createAssessment']._options = None
+    _DATABRICKSTRACKINGSERVICE.methods_by_name['createAssessment']._serialized_options = b'\362\206\031T\n=\n\004POST\022//mlflow/traces/{location}/{trace_id}/assessment\032\004\010\004\020\000\020\003*\021Create Assessment'
+    _DATABRICKSTRACKINGSERVICE.methods_by_name['getAssessment']._options = None
+    _DATABRICKSTRACKINGSERVICE.methods_by_name['getAssessment']._serialized_options = b'\362\206\031`\nL\n\003GET\022?/mlflow/traces/{location}/{trace_id}/assessment/{assessment_id}\032\004\010\004\020\000\020\003*\016Get Assessment'
+    _DATABRICKSTRACKINGSERVICE.methods_by_name['updateAssessment']._options = None
+    _DATABRICKSTRACKINGSERVICE.methods_by_name['updateAssessment']._serialized_options = b'\362\206\031e\nN\n\005PATCH\022?/mlflow/traces/{location}/{trace_id}/assessment/{assessment_id}\032\004\010\004\020\000\020\003*\021Update Assessment'
+    _DATABRICKSTRACKINGSERVICE.methods_by_name['deleteAssessment']._options = None
+    _DATABRICKSTRACKINGSERVICE.methods_by_name['deleteAssessment']._serialized_options = b'\362\206\031f\nO\n\006DELETE\022?/mlflow/traces/{location}/{trace_id}/assessment/{assessment_id}\032\004\010\004\020\000\020\003*\021Delete Assessment'
+    _UCSCHEMALOCATION._serialized_start=278
+    _UCSCHEMALOCATION._serialized_end=400
+    _MLFLOWEXPERIMENTLOCATION._serialized_start=402
+    _MLFLOWEXPERIMENTLOCATION._serialized_end=451
+    _INFERENCETABLELOCATION._serialized_start=453
+    _INFERENCETABLELOCATION._serialized_end=502
+    _TRACELOCATION._serialized_start=505
+    _TRACELOCATION._serialized_end=919
+    _TRACELOCATION_TRACELOCATIONTYPE._serialized_start=790
+    _TRACELOCATION_TRACELOCATIONTYPE._serialized_end=905
+    _TRACEINFO._serialized_start=922
+    _TRACEINFO._serialized_end=1589
+    _TRACEINFO_TRACEMETADATAENTRY._serialized_start=1424
+    _TRACEINFO_TRACEMETADATAENTRY._serialized_end=1476
+    _TRACEINFO_TAGSENTRY._serialized_start=1478
+    _TRACEINFO_TAGSENTRY._serialized_end=1521
+    _TRACEINFO_STATE._serialized_start=1523
+    _TRACEINFO_STATE._serialized_end=1589
+    _CREATETRACE._serialized_start=1592
+    _CREATETRACE._serialized_end=1794
+    _CREATETRACE_RESPONSE._serialized_start=1689
+    _CREATETRACE_RESPONSE._serialized_end=1749
+    _TRACEIDENTIFIER._serialized_start=1796
+    _TRACEIDENTIFIER._serialized_end=1901
+    _TRACE._serialized_start=1903
+    _TRACE._serialized_end=2011
+    _GETTRACES._serialized_start=2014
+    _GETTRACES._serialized_end=2211
+    _GETTRACES_RESPONSE._serialized_start=2114
+    _GETTRACES_RESPONSE._serialized_end=2166
+    _ASSESSMENT._serialized_start=2214
+    _ASSESSMENT._serialized_end=2802
+    _ASSESSMENT_METADATAENTRY._serialized_start=2746
+    _ASSESSMENT_METADATAENTRY._serialized_end=2793
+    _CREATEASSESSMENT._serialized_start=2805
+    _CREATEASSESSMENT._serialized_end=3038
+    _CREATEASSESSMENT_RESPONSE._serialized_start=2932
+    _CREATEASSESSMENT_RESPONSE._serialized_end=2993
+    _GETASSESSMENT._serialized_start=3041
+    _GETASSESSMENT._serialized_end=3267
+    _GETASSESSMENT_RESPONSE._serialized_start=2932
+    _GETASSESSMENT_RESPONSE._serialized_end=2993
+    _UPDATEASSESSMENT._serialized_start=3270
+    _UPDATEASSESSMENT._serialized_end=3558
+    _UPDATEASSESSMENT_RESPONSE._serialized_start=2932
+    _UPDATEASSESSMENT_RESPONSE._serialized_end=2993
+    _DELETEASSESSMENT._serialized_start=3561
+    _DELETEASSESSMENT._serialized_end=3739
+    _DELETEASSESSMENT_RESPONSE._serialized_start=1689
+    _DELETEASSESSMENT_RESPONSE._serialized_end=1699
+    _DATABRICKSTRACKINGSERVICE._serialized_start=3742
+    _DATABRICKSTRACKINGSERVICE._serialized_end=4874
   DatabricksTrackingService = service_reflection.GeneratedServiceType('DatabricksTrackingService', (_service.Service,), dict(
     DESCRIPTOR = _DATABRICKSTRACKINGSERVICE,
     __module__ = 'databricks_tracing_pb2'

@@ -285,11 +285,24 @@ class Feedback(Assessment):
 
     @classmethod
     def from_proto(cls, proto):
+        from mlflow.tracing.utils import construct_trace_id_v4
+
+        if "trace_identifier" in proto.DESCRIPTOR.fields_by_name:
+            trace_identifier = proto.trace_identifier
+            if trace_identifier.trace_location.HasField("uc_schema"):
+                trace_id = construct_trace_id_v4(
+                    f"{trace_identifier.trace_location.uc_schema.catalog_name}.{trace_identifier.trace_location.uc_schema.schema_name}",
+                    trace_identifier.trace_id,
+                )
+            else:
+                trace_id = trace_identifier.trace_id
+        else:
+            trace_id = proto.trace_id
         # Convert ScalarMapContainer to a normal Python dict
         metadata = dict(proto.metadata) if proto.metadata else None
         feedback_value = FeedbackValue.from_proto(proto.feedback)
         feedback = cls(
-            trace_id=proto.trace_id,
+            trace_id=trace_id,
             name=proto.assessment_name,
             source=AssessmentSource.from_proto(proto.source),
             create_time_ms=proto.create_time.ToMilliseconds(),
@@ -421,11 +434,25 @@ class Expectation(Assessment):
 
     @classmethod
     def from_proto(cls, proto) -> "Expectation":
+        from mlflow.tracing.utils import construct_trace_id_v4
+
+        if "trace_identifier" in proto.DESCRIPTOR.fields_by_name:
+            trace_identifier = proto.trace_identifier
+            if trace_identifier.trace_location.HasField("uc_schema"):
+                trace_id = construct_trace_id_v4(
+                    f"{trace_identifier.trace_location.uc_schema.catalog_name}.{trace_identifier.trace_location.uc_schema.schema_name}",
+                    trace_identifier.trace_id,
+                )
+            else:
+                trace_id = trace_identifier.trace_id
+        else:
+            trace_id = proto.trace_id
+
         # Convert ScalarMapContainer to a normal Python dict
         metadata = dict(proto.metadata) if proto.metadata else None
         expectation_value = ExpectationValue.from_proto(proto.expectation)
         expectation = cls(
-            trace_id=proto.trace_id,
+            trace_id=trace_id,
             name=proto.assessment_name,
             source=AssessmentSource.from_proto(proto.source),
             create_time_ms=proto.create_time.ToMilliseconds(),
