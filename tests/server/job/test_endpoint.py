@@ -21,7 +21,7 @@ def simple_job_fun(x: int, y: int) -> dict[str, Any]:
 
 
 @pytest.fixture(scope="module")
-def server_url(tmp_path_factory):
+def server_url(tmp_path_factory: pytest.TempPathFactory) -> str:
     tmp_path = tmp_path_factory.mktemp("server_mod")
     backend_store_uri = f"sqlite:///{tmp_path / 'mlflow.db'!s}"
 
@@ -57,7 +57,7 @@ def server_url(tmp_path_factory):
             os.killpg(server_proc.pid, signal.SIGTERM)
 
 
-def wait_job_finalize(server_url, job_id, timeout):
+def wait_job_finalize(server_url: str, job_id: str, timeout: float) -> None:
     beg_time = time.time()
     while time.time() - beg_time <= timeout:
         job_json = requests.get(f"{server_url}/ajax-api/3.0/jobs/{job_id}").json()
