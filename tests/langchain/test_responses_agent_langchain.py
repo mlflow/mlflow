@@ -1,22 +1,13 @@
-import pytest
-
-from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
-
-if not IS_PYDANTIC_V2_OR_NEWER:
-    pytest.skip(
-        "ResponsesAgent and its pydantic classes are not supported in pydantic v1. Skipping test.",
-        allow_module_level=True,
-    )
-
 import langchain
+import pytest
 from packaging.version import Version
 
 from mlflow.types.responses import ResponsesAgentStreamEvent, output_to_responses_items_stream
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="BaseMessage is not supported prior to langchain 0.2.0",
+    Version(langchain.__version__) < Version("0.3.0"),
+    reason="Langchain messages are not pydantic v2 prior to langchain 0.3.0",
 )
 def test_output_to_responses_items_stream_langchain():
     """
