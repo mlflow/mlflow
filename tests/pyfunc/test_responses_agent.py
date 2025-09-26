@@ -1208,7 +1208,7 @@ def test_prep_msgs_for_cc_llm(responses_input, cc_msgs):
         (
             [
                 AIMessage(
-                    content="|    | name       |\n|---:|:-----------|\n|  0 | Amazon     |\n|  1 | Google     |\n|  2 | Apple      |\n|  3 | Microsoft  |\n|  4 | Facebook   |\n|  5 | Tesla      |\n|  6 | Nike       |\n|  7 | Coca-Cola  |\n|  8 | Disney     |\n|  9 | McDonald's |",
+                    content="test text0",
                     additional_kwargs={},
                     response_metadata={},
                     name="query_result",
@@ -1242,7 +1242,7 @@ def test_prep_msgs_for_cc_llm(responses_input, cc_msgs):
                     id="43d0cf0a-d687-4302-8562-4f2e09603473",
                 ),
                 AIMessage(
-                    content="I'll help you find out which companies you have revenue data for. Let me check with the revenue-genie agent who specializes in this information.",
+                    content="I'll help you",
                     additional_kwargs={
                         "tool_calls": [
                             {
@@ -1286,7 +1286,7 @@ def test_prep_msgs_for_cc_llm(responses_input, cc_msgs):
                     tool_call_id="toolu_bdrk_01FtmRmzFm89zDtwYu3xdFkh",
                 ),
                 AIMessage(
-                    content="|    | name       |\n|---:|:-----------|\n|  0 | Amazon     |\n|  1 | Google     |\n|  2 | Apple      |\n|  3 | Microsoft  |\n|  4 | Facebook   |\n|  5 | Tesla      |\n|  6 | Nike       |\n|  7 | Coca-Cola  |\n|  8 | Disney     |\n|  9 | McDonald's |",
+                    content="test text1",
                     additional_kwargs={},
                     response_metadata={},
                     name="query_result",
@@ -1314,7 +1314,7 @@ def test_prep_msgs_for_cc_llm(responses_input, cc_msgs):
                     tool_call_id="543a6b6b-dc73-463c-9b6e-5d5a941b7669",
                 ),
                 AIMessage(
-                    content="Based on the information from the revenue-genie agent, you have revenue data for the following 10 companies:\n\n1. Amazon\n2. Google\n3. Apple\n4. Microsoft\n5. Facebook\n6. Tesla\n7. Nike\n8. Coca-Cola\n9. Disney\n10. McDonald's\n\nThese represent some of the top companies in the S&P 500. You can ask more specific questions about the revenue data for any of these companies if you'd like.",
+                    content="test text2",
                     additional_kwargs={},
                     response_metadata={
                         "usage": {
@@ -1339,12 +1339,7 @@ def test_prep_msgs_for_cc_llm(responses_input, cc_msgs):
                     custom_outputs=None,
                     item={
                         "id": "e0eafab0-f008-49d4-ac0d-f17a70096fe1",
-                        "content": [
-                            {
-                                "text": "|    | name       |\n|---:|:-----------|\n|  0 | Amazon     |\n|  1 | Google     |\n|  2 | Apple      |\n|  3 | Microsoft  |\n|  4 | Facebook   |\n|  5 | Tesla      |\n|  6 | Nike       |\n|  7 | Coca-Cola  |\n|  8 | Disney     |\n|  9 | McDonald's |",
-                                "type": "output_text",
-                            }
-                        ],
+                        "content": [{"text": "test text0", "type": "output_text"}],
                         "role": "assistant",
                         "type": "message",
                     },
@@ -1386,12 +1381,7 @@ def test_prep_msgs_for_cc_llm(responses_input, cc_msgs):
                     custom_outputs=None,
                     item={
                         "id": "run--e112332b-ed6d-4e10-b17c-adf637fb67eb-0",
-                        "content": [
-                            {
-                                "text": "I'll help you find out which companies you have revenue data for. Let me check with the revenue-genie agent who specializes in this information.",
-                                "type": "output_text",
-                            }
-                        ],
+                        "content": [{"text": "I'll help you", "type": "output_text"}],
                         "role": "assistant",
                         "type": "message",
                     },
@@ -1421,12 +1411,7 @@ def test_prep_msgs_for_cc_llm(responses_input, cc_msgs):
                     custom_outputs=None,
                     item={
                         "id": "e0eafab0-f008-49d4-ac0d-f17a70096fe1",
-                        "content": [
-                            {
-                                "text": "|    | name       |\n|---:|:-----------|\n|  0 | Amazon     |\n|  1 | Google     |\n|  2 | Apple      |\n|  3 | Microsoft  |\n|  4 | Facebook   |\n|  5 | Tesla      |\n|  6 | Nike       |\n|  7 | Coca-Cola  |\n|  8 | Disney     |\n|  9 | McDonald's |",
-                                "type": "output_text",
-                            }
-                        ],
+                        "content": [{"text": "test text1", "type": "output_text"}],
                         "role": "assistant",
                         "type": "message",
                     },
@@ -1468,12 +1453,7 @@ def test_prep_msgs_for_cc_llm(responses_input, cc_msgs):
                     custom_outputs=None,
                     item={
                         "id": "run--2622edf9-37b6-4e25-9e97-6351d145b198-0",
-                        "content": [
-                            {
-                                "text": "Based on the information from the revenue-genie agent, you have revenue data for the following 10 companies:\n\n1. Amazon\n2. Google\n3. Apple\n4. Microsoft\n5. Facebook\n6. Tesla\n7. Nike\n8. Coca-Cola\n9. Disney\n10. McDonald's\n\nThese represent some of the top companies in the S&P 500. You can ask more specific questions about the revenue data for any of these companies if you'd like.",
-                                "type": "output_text",
-                            }
-                        ],
+                        "content": [{"text": "test text2", "type": "output_text"}],
                         "role": "assistant",
                         "type": "message",
                     },
