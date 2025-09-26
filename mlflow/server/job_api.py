@@ -55,14 +55,6 @@ class SubmitJobPayload(BaseModel):
     timeout: float | None = None
 
 
-class SubmitJobResponse(BaseModel):
-    """
-    Pydantic model for submitting job response.
-    """
-
-    job_id: str
-
-
 @job_api_router.post("/", response_model=Job)
 def submit_job(payload: SubmitJobPayload) -> Job:
     from mlflow.server.jobs import submit_job
