@@ -431,4 +431,9 @@ jobs:
             --ignore=tests/sagemaker \
             --ignore=tests/gateway \
             --ignore=tests/server/auth \
+            --ignore=tests/telemetry \
             tests
+      - name: Run telemetry tests
+        run: |
+          source .venv/Scripts/activate
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/telemetry
