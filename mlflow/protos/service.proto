@@ -1,6 +1,7 @@
 syntax = "proto2";
 
 package mlflow;
+// Temporary comment to trigger CI - will be removed
 
 import "scalapb/scalapb.proto";
 import "databricks.proto";
