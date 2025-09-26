@@ -27,9 +27,7 @@ def server_url(tmp_path_factory):
     tmp_path = tmp_path_factory.mktemp("server_mod")
     backend_store_uri = f"sqlite:///{tmp_path / 'mlflow.db'!s}"
 
-    # Get a dynamic port instead of using hardcoded 6677
     port = get_safe_port()
-
     server_proc = None
     try:
         server_proc = subprocess.Popen(
