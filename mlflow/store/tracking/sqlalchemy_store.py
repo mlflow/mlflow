@@ -348,13 +348,13 @@ class SqlAlchemyStore(AbstractStore):
                     # this requires a double write. The first one to generate an autoincrement-ed ID
                     eid = session.query(SqlExperiment).filter_by(name=name).first().experiment_id
                     experiment.artifact_location = self._get_artifact_location(eid)
+                session.flush()
             except sqlalchemy.exc.IntegrityError as e:
                 raise MlflowException(
                     f"Experiment(name={name}) already exists. Error: {e}",
                     RESOURCE_ALREADY_EXISTS,
                 )
 
-            session.flush()
             return str(experiment.experiment_id)
 
     def _search_experiments(
@@ -3773,7 +3773,7 @@ class SqlAlchemyStore(AbstractStore):
         schema = (
             json.loads(existing_schema_json)
             if existing_schema_json
-            else {"inputs": {}, "expectations": {}, "version": "1.0"}
+            else {"inputs": {}, "outputs": {}, "expectations": {}, "version": "1.0"}
         )
 
         for record in record_dicts:
@@ -3781,6 +3781,11 @@ class SqlAlchemyStore(AbstractStore):
                 for key, value in inputs.items():
                     if key not in schema["inputs"]:
                         schema["inputs"][key] = self._infer_field_type(value)
+
+            if outputs := record.get("outputs"):
+                for key, value in outputs.items():
+                    if key not in schema["outputs"]:
+                        schema["outputs"][key] = self._infer_field_type(value)
 
             if expectations := record.get("expectations"):
                 for key, value in expectations.items():
@@ -3988,6 +3993,7 @@ class SqlAlchemyStore(AbstractStore):
                         dataset_record_id=None,
                         dataset_id=dataset_id,
                         inputs=record_dict.get("inputs", {}),
+                        outputs=record_dict.get("outputs", {}),
                         created_time=current_time,
                         last_update_time=current_time,
                         expectations=record_dict.get("expectations"),

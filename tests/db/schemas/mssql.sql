@@ -60,6 +60,19 @@ CREATE TABLE inputs (
 )
 
 
+CREATE TABLE jobs (
+	id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	creation_time BIGINT,
+	function_fullname VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	params VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	timeout FLOAT,
+	status INTEGER NOT NULL,
+	result VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	retry_count INTEGER,
+	CONSTRAINT jobs_pk PRIMARY KEY (id)
+)
+
+
 CREATE TABLE registered_models (
 	name VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	creation_time BIGINT,
@@ -111,6 +124,7 @@ CREATE TABLE evaluation_dataset_records (
 	created_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	last_updated_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	input_hash VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	outputs NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT evaluation_dataset_records_pk PRIMARY KEY (dataset_record_id),
 	CONSTRAINT fk_evaluation_dataset_records_dataset_id FOREIGN KEY(dataset_id) REFERENCES evaluation_datasets (dataset_id) ON DELETE CASCADE
 )

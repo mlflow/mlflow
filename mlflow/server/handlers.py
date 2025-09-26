@@ -127,6 +127,7 @@ from mlflow.protos.service_pb2 import (
     GetScorer,
     GetTraceInfo,
     GetTraceInfoV3,
+    GetTraceInfoV4,
     LinkTracesToRun,
     ListArtifacts,
     ListLoggedModelArtifacts,
@@ -178,10 +179,12 @@ from mlflow.server.validation import _validate_content_type
 from mlflow.store.artifact.artifact_repo import MultipartUploadMixin
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import DATABASE_ENGINES
+from mlflow.store.jobs.abstract_store import AbstractJobStore
 from mlflow.store.model_registry.abstract_store import AbstractStore as AbstractModelRegistryStore
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
 from mlflow.store.tracking.abstract_store import AbstractStore as AbstractTrackingStore
 from mlflow.store.tracking.rest_store import RestStore
+from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
 from mlflow.tracing.utils.artifact_utils import (
     TRACE_DATA_FILE_NAME,
     get_artifact_uri_for_trace,
@@ -216,6 +219,7 @@ from mlflow.webhooks.types import (
 _logger = logging.getLogger(__name__)
 _tracking_store = None
 _model_registry_store = None
+_job_store = None
 _artifact_repo = None
 STATIC_PREFIX_ENV_VAR = "_MLFLOW_STATIC_PREFIX"
 MAX_RUNS_GET_METRIC_HISTORY_BULK = 100
@@ -464,6 +468,34 @@ def _get_model_registry_store(registry_store_uri: str | None = None) -> Abstract
         _model_registry_store = _model_registry_store_registry.get_store(store_uri)
         registry_utils.set_registry_uri(store_uri)
     return _model_registry_store
+
+
+def _get_job_store(backend_store_uri: str | None = None) -> AbstractJobStore:
+    """
+    Get a job store instance based on the backend store URI.
+
+    Args:
+        backend_store_uri: Optional backend store URI. If not provided,
+                          uses environment variable.
+
+    Returns:
+        An instance of AbstractJobStore
+    """
+    from mlflow.server import BACKEND_STORE_URI_ENV_VAR
+    from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
+    from mlflow.utils.uri import extract_db_type_from_uri
+
+    global _job_store
+    if _job_store is None:
+        store_uri = backend_store_uri or os.environ.get(BACKEND_STORE_URI_ENV_VAR, None)
+        try:
+            extract_db_type_from_uri(store_uri)
+        except MlflowException:
+            # Require a database backend URI for the job store
+            raise ValueError("Job store requires a database backend URI")
+
+        _job_store = SqlAlchemyJobStore(store_uri)
+    return _job_store
 
 
 def initialize_backend_stores(
@@ -2822,6 +2854,18 @@ def _get_trace_info_v3(trace_id):
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def _get_trace_info_v4(location: str, trace_id: str) -> Response:
+    """
+    A request handler for `GET /mlflow/traces/{location}/{trace_id}/info` to retrieve
+    an existing TraceInfo record from tracking store.
+    """
+    trace_info = _get_tracking_store().get_trace_info(f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}")
+    response_message = GetTraceInfoV4.Response(trace=ProtoTrace(trace_info=trace_info.to_proto()))
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _search_traces_v3():
     """
     A request handler for `GET /mlflow/traces` to search for TraceInfo records in tracking store.
@@ -3763,7 +3807,6 @@ def _upsert_dataset_records_handler(dataset_id):
         UpsertDatasetRecords(),
         schema={
             "records": [_assert_required, _assert_string],
-            "updated_by": [_assert_string],
         },
     )
 
@@ -3772,7 +3815,6 @@ def _upsert_dataset_records_handler(dataset_id):
     result = _get_tracking_store().upsert_dataset_records(
         dataset_id=dataset_id,
         records=records,
-        updated_by=request_message.updated_by if request_message.updated_by else None,
     )
 
     response_message = UpsertDatasetRecords.Response()
@@ -3950,6 +3992,8 @@ HANDLERS = {
     SetTraceTagV3: _set_trace_tag_v3,
     DeleteTraceTagV3: _delete_trace_tag,
     LinkTracesToRun: _link_traces_to_run,
+    # MLflow Tracing APIs (V4)
+    GetTraceInfoV4: _get_trace_info_v4,
     # Assessment APIs
     CreateAssessment: _create_assessment,
     GetAssessmentRequest: _get_assessment,
