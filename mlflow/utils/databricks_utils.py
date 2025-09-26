@@ -841,6 +841,18 @@ def get_databricks_host_creds(server_uri=None):
     )
 
 
+def get_databricks_workspace_client_config(server_uri: str):
+    from databricks.sdk import WorkspaceClient
+
+    profile, key_prefix = get_db_info_from_uri(server_uri)
+    profile = profile or os.environ.get("DATABRICKS_CONFIG_PROFILE")
+    if key_prefix is not None:
+        config = TrackingURIConfigProvider(server_uri).get_config()
+        return WorkspaceClient(host=config.host, token=config.token).config
+
+    return WorkspaceClient(profile=profile).config
+
+
 @_use_repl_context_if_available("mlflowGitRepoUrl")
 def get_git_repo_url():
     try:

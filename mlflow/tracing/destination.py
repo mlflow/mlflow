@@ -98,3 +98,28 @@ class Databricks(TraceDestination):
     @property
     def type(self) -> str:
         return "databricks"
+
+
+@experimental(version="3.5.0")
+@dataclass
+class DatabricksUnityCatalog(TraceDestination):
+    """
+    A destination representing a Databricks Unity Catalog table.
+
+    Attributes:
+        catalog_name: The catalog name.
+        schema_name: The schema name.
+        spans_table_name: The spans table name.
+    """
+
+    catalog_name: str
+    schema_name: str
+    spans_table_name: str
+
+    @property
+    def full_spans_table_name(self) -> str:
+        return f"{self.catalog_name}.{self.schema_name}.{self.spans_table_name}"
+
+    @property
+    def type(self) -> str:
+        return "databricks_unity_catalog"
