@@ -43,7 +43,6 @@ def server_url(tmp_path_factory):
             env={
                 **os.environ,
                 "PYTHONPATH": os.path.dirname(__file__),
-                "_MLFLOW_JOB_FUNCTION_EXTRA_ALLOW_LIST": "test_endpoint.simple_job_fun",
             },
             start_new_session=True,  # new session & process group
         )
@@ -60,7 +59,9 @@ def server_url(tmp_path_factory):
 def wait_job_finalize(server_url, job_id, timeout):
     beg_time = time.time()
     while time.time() - beg_time <= timeout:
-        job_json = requests.get(f"{server_url}/ajax-api/3.0/jobs/{job_id}").json()
+        response = requests.get(f"{server_url}/ajax-api/3.0/jobs/{job_id}")
+        response.raise_for_status()
+        job_json = response.json()
         if job_json["status"] in ["SUCCEEDED", "FAILED", "TIMEOUT"]:
             return
         time.sleep(0.5)
@@ -73,9 +74,11 @@ def test_job_endpoint(server_url: str):
         "params": {"x": 3, "y": 4},
     }
     response = requests.post(f"{server_url}/ajax-api/3.0/jobs/", json=payload)
+    response.raise_for_status()
     job_id = response.json()["job_id"]
     wait_job_finalize(server_url, job_id, 2)
     response2 = requests.get(f"{server_url}/ajax-api/3.0/jobs/{job_id}")
+    response2.raise_for_status()
     job_json = response2.json()
     job_json.pop("creation_time")
     assert job_json == {
