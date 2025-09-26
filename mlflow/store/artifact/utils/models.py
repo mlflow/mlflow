@@ -14,7 +14,11 @@ _MODELS_URI_SUFFIX_LATEST = "latest"
 
 
 def is_using_databricks_registry(uri, registry_uri: str | None = None):
-    profile_uri = get_databricks_profile_uri_from_artifact_uri(uri) or registry_uri or mlflow.get_registry_uri()
+    profile_uri = (
+        get_databricks_profile_uri_from_artifact_uri(uri)
+        or registry_uri
+        or mlflow.get_registry_uri()
+    )
     return is_databricks_uri(profile_uri)
 
 
