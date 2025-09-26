@@ -16,7 +16,7 @@ from mlflow.server import (
     HUEY_STORAGE_PATH_ENV_VAR,
 )
 from mlflow.server.handlers import _get_job_store
-from mlflow.server.jobs import _reinit_huey_queue, _start_job_runner, query_job, submit_job
+from mlflow.server.jobs import _reinit_huey_queue, _start_job_runner, get_query, submit_job
 
 pytestmark = pytest.mark.skipif(
     os.name == "nt", reason="MLflow job execution is not supported on Windows"
@@ -66,7 +66,7 @@ def test_basic_job(monkeypatch, tmp_path):
     with _setup_job_runner(1, monkeypatch, tmp_path):
         submitted_job = submit_job(basic_job_fun, {"x": 3, "y": 4})
         wait_job_finalize(submitted_job.job_id, timeout=2)
-        job = query_job(submitted_job.job_id)
+        job = get_query(submitted_job.job_id)
         assert job.job_id == submitted_job.job_id
         assert job.function_fullname == "test_job.basic_job_fun"
         assert job.params == '{"x": 3, "y": 4}'
@@ -87,7 +87,7 @@ def test_job_json_input_output(monkeypatch, tmp_path):
     with _setup_job_runner(1, monkeypatch, tmp_path):
         submitted_job = submit_job(json_in_out_fun, {"data": {"x": 3, "y": 4}})
         wait_job_finalize(submitted_job.job_id, timeout=2)
-        job = query_job(submitted_job.job_id)
+        job = get_query(submitted_job.job_id)
         assert job.job_id == submitted_job.job_id
         assert job.function_fullname == "test_job.json_in_out_fun"
         assert job.params == '{"data": {"x": 3, "y": 4}}'
@@ -105,7 +105,7 @@ def test_error_job(monkeypatch, tmp_path):
     with _setup_job_runner(1, monkeypatch, tmp_path):
         submitted_job = submit_job(err_fun, {"data": None})
         wait_job_finalize(submitted_job.job_id, timeout=2)
-        job = query_job(submitted_job.job_id)
+        job = get_query(submitted_job.job_id)
 
         # check database record correctness.
         assert job.job_id == submitted_job.job_id
@@ -118,7 +118,7 @@ def test_error_job(monkeypatch, tmp_path):
 
 
 def assert_job_result(job_id, expected_status, expected_result):
-    job = query_job(job_id)
+    job = get_query(job_id)
     assert job.status == expected_status
     assert job.parsed_result == expected_result
 
@@ -216,7 +216,7 @@ def transient_err_fun(tmp_dir: str, succeed_on_nth_run: int):
 def wait_job_finalize(job_id, timeout):
     beg_time = time.time()
     while time.time() - beg_time <= timeout:
-        job = query_job(job_id)
+        job = get_query(job_id)
         if JobStatus.is_finalized(job.status):
             return
         time.sleep(0.1)
