@@ -117,20 +117,11 @@ class DatabricksWorkspaceModelRegistryRestStore(RestStore):
         """
         if dst_name.count(".") == 2:
             source_uri = f"models:/{src_mv.name}/{src_mv.version}"
-            try:
-                local_model_dir = mlflow.artifacts.download_artifacts(
-                    artifact_uri=source_uri,
-                    tracking_uri=self.tracking_uri,
-                    registry_uri="databricks",
-                )
-            except Exception as e:
-                raise MlflowException(
-                    f"Unable to download model {src_mv.name} version {src_mv.version} "
-                    f"artifacts from Databricks workspace registry in order to migrate "
-                    f"them to Unity Catalog. Please ensure the model version artifacts "
-                    f"exist and that you can download them via "
-                    f"mlflow.artifacts.download_artifacts()"
-                ) from e
+            local_model_dir = mlflow.artifacts.download_artifacts(
+                artifact_uri=source_uri,
+                tracking_uri=self.tracking_uri,
+                registry_uri="databricks",
+            )
             uc_store = UcModelRegistryStore(
                 store_uri=_DATABRICKS_UNITY_CATALOG_SCHEME,
                 tracking_uri=self.tracking_uri,
