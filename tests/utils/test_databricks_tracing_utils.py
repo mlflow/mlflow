@@ -1,3 +1,5 @@
+from unittest import mock
+
 from google.protobuf.timestamp_pb2 import Timestamp
 
 import mlflow
@@ -11,10 +13,13 @@ from mlflow.entities.trace_location import (
 )
 from mlflow.protos import databricks_tracing_pb2 as pb
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
+from mlflow.tracing.utils import TraceMetadataKey
 from mlflow.utils.databricks_tracing_utils import (
+    add_size_stats_to_trace_metadata_v4,
     inference_table_location_to_proto,
     mlflow_experiment_location_to_proto,
     trace_from_proto,
+    trace_info_to_dict,
     trace_info_to_proto,
     trace_location_from_databricks_uc_schema,
     trace_location_from_proto,
@@ -248,3 +253,64 @@ def test_trace_info_from_proto_handles_uc_schema_location():
     assert trace_info.trace_metadata[TRACE_SCHEMA_VERSION_KEY] == str(TRACE_SCHEMA_VERSION)
     assert trace_info.trace_metadata["other_key"] == "other_value"
     assert trace_info.tags == {"test_tag": "test_value"}
+
+
+def test_trace_info_to_dict():
+    trace_info = TraceInfo(
+        trace_id="test_trace_id",
+        trace_location=trace_location_from_databricks_uc_schema(
+            catalog_name="catalog", schema_name="schema"
+        ),
+        request_time=0,
+        state=TraceState.OK,
+        request_preview="request",
+        response_preview="response",
+        client_request_id="client_request_id",
+        tags={"key": "value"},
+    )
+    assert trace_info_to_dict(trace_info) == {
+        "trace_id": "test_trace_id",
+        "trace_location": {
+            "type": "UC_SCHEMA",
+            "uc_schema": {
+                "catalog_name": "catalog",
+                "schema_name": "schema",
+            },
+        },
+        "request_time": mock.ANY,
+        "state": "OK",
+        "request_preview": "request",
+        "response_preview": "response",
+        "client_request_id": "client_request_id",
+        "tags": {"key": "value"},
+        "trace_metadata": {
+            TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
+        },
+    }
+
+
+def test_add_size_stats_to_trace_metadata_v4():
+    with mlflow.start_span() as span:
+        otel_trace_id = span.trace_id.removeprefix("tr-")
+        uc_schema = "catalog.schema"
+        trace_id = f"trace:/{uc_schema}/{otel_trace_id}"
+        span.set_attribute(SpanAttributeKey.REQUEST_ID, trace_id)
+        mlflow_span = span.to_immutable_span()
+
+    trace = Trace(
+        info=TraceInfo(
+            trace_id="test_trace_id",
+            trace_location=trace_location_from_databricks_uc_schema(
+                catalog_name="catalog", schema_name="schema"
+            ),
+            request_time=0,
+            state=TraceState.OK,
+            request_preview="request",
+            response_preview="response",
+            client_request_id="client_request_id",
+            tags={"key": "value"},
+        ),
+        data=TraceData(spans=[mlflow_span]),
+    )
+    add_size_stats_to_trace_metadata_v4(trace)
+    assert TraceMetadataKey.SIZE_STATS in trace.info.trace_metadata

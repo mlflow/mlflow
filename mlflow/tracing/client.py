@@ -94,6 +94,31 @@ class TracingClient:
         """
         return self.store.log_spans(experiment_id=experiment_id, spans=spans)
 
+    def _log_spans_to_uc_table(self, spans_table_name: str, spans: list[Span]) -> None:
+        """
+        Helper method to log spans to a Unity Catalog table.
+
+        Args:
+            spans_table_name: The name of the Unity Catalog table to log spans to.
+            spans: List of Span objects to log.
+        """
+        if is_databricks_uri(self.tracking_uri):
+            try:
+                return self.store._log_spans_to_uc_table(
+                    spans_table_name=spans_table_name,
+                    spans=spans,
+                    tracking_uri=self.tracking_uri,
+                )
+            except Exception as e:
+                _logger.warning(
+                    f"Failed to log span to Unity Catalog table: {e}",
+                    exc_info=_logger.isEnabledFor(logging.DEBUG),
+                )
+        else:
+            _logger.warning(
+                "Logging spans to Unity Catalog is not supported on the current tracking server."
+            )
+
     def delete_traces(
         self,
         experiment_id: str,

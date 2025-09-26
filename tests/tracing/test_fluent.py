@@ -318,12 +318,18 @@ def test_trace_with_databricks_tracking_uri(databricks_tracking_uri, monkeypatch
 
     model = DefaultTestModel()
 
+    mock_trace_info = mock.MagicMock()
+    mock_trace_info.trace_id = "123"
+    mock_trace_info.trace_location = mock.MagicMock()
+    mock_trace_info.trace_location.uc_schema = None
+
     with (
         mock.patch(
             "mlflow.tracing.client.TracingClient._upload_trace_data"
         ) as mock_upload_trace_data,
         mock.patch("mlflow.tracing.client._get_store") as mock_get_store,
     ):
+        mock_get_store().start_trace.return_value = mock_trace_info
         model.predict(2, 5)
         mlflow.flush_trace_async_logging(terminate=True)
 

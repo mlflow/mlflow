@@ -1,4 +1,9 @@
+import json
+import logging
+from typing import Any
+
 from google.protobuf.duration_pb2 import Duration
+from google.protobuf.json_format import MessageToDict
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from mlflow.entities import Span, Trace, TraceData, TraceInfo
@@ -11,7 +16,15 @@ from mlflow.entities.trace_location import (
     UCSchemaLocation,
 )
 from mlflow.protos import databricks_tracing_pb2 as pb
-from mlflow.tracing.utils import parse_trace_id_v4
+from mlflow.tracing.utils import (
+    TraceJSONEncoder,
+    TraceMetadataKey,
+    TraceSizeStatsKey,
+    _calculate_percentile,
+    parse_trace_id_v4,
+)
+
+_logger = logging.getLogger(__name__)
 
 
 def uc_schema_location_to_proto(uc_schema_location: UCSchemaLocation) -> pb.UCSchemaLocation:
@@ -135,6 +148,16 @@ def trace_info_to_proto(trace_info: TraceInfo) -> pb.TraceInfo:
     )
 
 
+def trace_info_to_dict(trace_info: TraceInfo) -> dict[str, Any]:
+    trace_info_dict = MessageToDict(
+        trace_info_to_proto(trace_info), preserving_proto_field_name=True
+    )
+    if trace_info.execution_duration is not None:
+        trace_info_dict.pop("execution_duration", None)
+        trace_info_dict["execution_duration_ms"] = trace_info.execution_duration
+    return trace_info_dict
+
+
 def trace_to_proto(trace: Trace) -> pb.Trace:
     return pb.Trace(
         trace_info=trace_info_to_proto(trace.info),
@@ -147,3 +170,62 @@ def trace_from_proto(proto: pb.Trace) -> Trace:
         info=TraceInfo.from_proto(proto.trace_info),
         data=TraceData(spans=[Span.from_otel_proto(span) for span in proto.spans]),
     )
+
+
+def trace_to_json(trace: Trace) -> str:
+    trace_dict = {"info": trace_info_to_dict(trace.info), "data": trace.data.to_dict()}
+    return json.dumps(trace_dict, cls=TraceJSONEncoder, indent=2)
+
+
+def add_size_stats_to_trace_metadata_v4(trace: Trace):
+    """
+    Calculate the stats of trace and span sizes and add it as a metadata to the trace.
+
+    This method modifies the trace object in place by adding a new tag.
+
+    Note: For simplicity, we calculate the size without considering the size metadata itself.
+    This provides a close approximation without requiring complex calculations.
+
+    This function must not throw an exception.
+    """
+    from mlflow.entities import Trace, TraceData
+
+    try:
+        span_sizes = []
+        for span in trace.data.spans:
+            span_json = json.dumps(span.to_dict(), cls=TraceJSONEncoder)
+            span_sizes.append(len(span_json.encode("utf-8")))
+
+        # NB: To compute the size of the total trace, we need to include the size of the
+        # the trace info and the parent dicts for the spans. To avoid serializing spans
+        # again (which can be expensive), we compute the size of the trace without spans
+        # and combine it with the total size of the spans.
+        empty_trace = Trace(info=trace.info, data=TraceData(spans=[]))
+        metadata_size = len(trace_to_json(empty_trace).encode("utf-8"))
+
+        # NB: the third term is the size of comma separators between spans (", ").
+        trace_size_bytes = sum(span_sizes) + metadata_size + (len(span_sizes) - 1) * 2
+
+        # Sort span sizes for percentile calculation
+        sorted_span_sizes = sorted(span_sizes)
+
+        size_stats = {
+            TraceSizeStatsKey.TOTAL_SIZE_BYTES: trace_size_bytes,
+            TraceSizeStatsKey.NUM_SPANS: len(span_sizes),
+            TraceSizeStatsKey.MAX_SPAN_SIZE_BYTES: max(span_sizes),
+            TraceSizeStatsKey.P25_SPAN_SIZE_BYTES: int(
+                _calculate_percentile(sorted_span_sizes, 0.25)
+            ),
+            TraceSizeStatsKey.P50_SPAN_SIZE_BYTES: int(
+                _calculate_percentile(sorted_span_sizes, 0.50)
+            ),
+            TraceSizeStatsKey.P75_SPAN_SIZE_BYTES: int(
+                _calculate_percentile(sorted_span_sizes, 0.75)
+            ),
+        }
+
+        trace.info.trace_metadata[TraceMetadataKey.SIZE_STATS] = json.dumps(size_stats)
+        # Keep the total size as a separate metadata for backward compatibility
+        trace.info.trace_metadata[TraceMetadataKey.SIZE_BYTES] = str(trace_size_bytes)
+    except Exception:
+        _logger.warning("Failed to add size stats to trace metadata.", exc_info=True)

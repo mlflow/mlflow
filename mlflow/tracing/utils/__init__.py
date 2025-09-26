@@ -342,6 +342,21 @@ def generate_mlflow_trace_id_from_otel_trace_id(otel_trace_id: int) -> str:
     return TRACE_REQUEST_ID_PREFIX + encode_trace_id(otel_trace_id)
 
 
+def generate_trace_id_v4(span: OTelSpan, uc_schema: str) -> str:
+    """
+    Generate a trace ID for the given span.
+
+    Args:
+        span: The OpenTelemetry span object.
+        uc_schema: The Unity Catalog schema name.
+
+    Returns:
+        If uc_schema is None, the format will be "tr-<hex_trace_id>".
+        Otherwise, the format will be "trace:/<uc_schema>/<hex_trace_id>".
+    """
+    return construct_trace_id_v4(uc_schema, encode_trace_id(span.context.trace_id))
+
+
 def generate_trace_id_v3(span: OTelSpan) -> str:
     """
     Generate a trace ID for the given span (V3 trace schema).
@@ -592,6 +607,20 @@ def get_experiment_id_for_trace(span: OTelReadableSpan) -> str:
         return run.info.experiment_id
 
     return _get_experiment_id()
+
+
+def get_spans_table_name_for_trace(span: OTelReadableSpan) -> str | None:
+    """
+    Determine the Unity Catalog spans table name to associate with the trace.
+    """
+    from mlflow.tracing.destination import DatabricksUnityCatalog
+    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
+
+    if destination := _MLFLOW_TRACE_USER_DESTINATION.get():
+        if isinstance(destination, DatabricksUnityCatalog):
+            return destination.full_spans_table_name
+
+    return None
 
 
 def generate_assessment_id() -> str:

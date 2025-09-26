@@ -1,6 +1,8 @@
 import logging
 
-from mlflow.entities import Trace, TraceInfo, TraceLocation
+from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
+
+from mlflow.entities import Span, Trace, TraceInfo, TraceLocation
 from mlflow.entities.trace_location import UCSchemaLocation as UCSchemaLocationEntity
 from mlflow.environment_variables import (
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
@@ -24,6 +26,7 @@ from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
 from mlflow.tracing.utils import parse_trace_id_v4
+from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH
 from mlflow.utils.databricks_tracing_utils import (
     trace_from_proto,
     trace_info_to_proto,
@@ -32,13 +35,18 @@ from mlflow.utils.databricks_tracing_utils import (
     uc_schema_location_from_proto,
     uc_schema_location_to_proto,
 )
+from mlflow.utils.databricks_utils import get_databricks_workspace_client_config
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
     _V4_REST_API_PATH_PREFIX,
     _V4_TRACE_REST_API_PATH_PREFIX,
     extract_api_info_for_service,
+    http_request,
+    verify_rest_response,
 )
+
+DATABRICKS_UC_TABLE_HEADER = "X-Databricks-UC-Table-Name"
 
 _logger = logging.getLogger(__name__)
 
@@ -319,3 +327,45 @@ class DatabricksTracingRestStore(RestStore):
             endpoint=endpoint,
         )
         _logger.debug(f"Unlinked experiment {experiment_id} from trace location: {location}")
+
+    def _log_spans_to_uc_table(
+        self, spans_table_name: str, spans: list[Span], tracking_uri: str
+    ) -> None:
+        if not spans:
+            return []
+
+        # TODO: check server version
+
+        trace_ids = {span.trace_id for span in spans}
+        if len(trace_ids) > 1:
+            raise MlflowException.invalid_parameter_value(
+                f"All spans must belong to the same trace. Found trace IDs: {trace_ids}",
+            )
+
+        endpoint = f"/api/2.0/tracing/otel{OTLP_TRACES_PATH}"
+        try:
+            config = get_databricks_workspace_client_config(tracking_uri)
+        except Exception as e:
+            raise MlflowException(
+                "Failed to log spans to UC table: could not identify Databricks workspace "
+                "configuration"
+            ) from e
+
+        request = ExportTraceServiceRequest()
+        resource_spans = request.resource_spans.add()
+        scope_spans = resource_spans.scope_spans.add()
+        scope_spans.spans.extend(span.to_otel_proto() for span in spans)
+
+        response = http_request(
+            host_creds=self.get_host_creds(),
+            endpoint=endpoint,
+            method="POST",
+            data=request.SerializeToString(),
+            extra_headers={
+                "Content-Type": "application/x-protobuf",
+                DATABRICKS_UC_TABLE_HEADER: spans_table_name,
+                **config.authenticate(),
+            },
+        )
+
+        verify_rest_response(response, endpoint)
