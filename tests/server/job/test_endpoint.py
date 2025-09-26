@@ -1,6 +1,5 @@
 import os
 import signal
-import socket
 import subprocess
 import sys
 import time
@@ -21,23 +20,6 @@ def simple_job_fun(x: int, y: int) -> dict[str, Any]:
     }
 
 
-def _wait_for_server_ready(port: int, timeout: int = 30) -> None:
-    """Wait for the MLflow server to be ready to accept connections."""
-    start_time = time.time()
-    while time.time() - start_time < timeout:
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                sock.settimeout(2)
-                if sock.connect_ex(("127.0.0.1", port)) == 0:
-                    # Server is accepting connections, give it a moment to fully initialize
-                    time.sleep(1)
-                    return
-        except Exception:
-            pass
-        time.sleep(0.5)
-    raise TimeoutError(f"Server failed to start on port {port} within {timeout} seconds")
-
-
 @pytest.fixture(scope="module")
 def server_url(tmp_path_factory):
     from tests.helper_functions import get_safe_port
@@ -50,13 +32,6 @@ def server_url(tmp_path_factory):
 
     server_proc = None
     try:
-        # Construct PYTHONPATH to include both the test directory and the project root
-        current_dir = os.path.dirname(__file__)
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
-        pythonpath = f"{current_dir}:{project_root}"
-        if "PYTHONPATH" in os.environ:
-            pythonpath = f"{pythonpath}:{os.environ['PYTHONPATH']}"
-
         server_proc = subprocess.Popen(
             [
                 sys.executable,
@@ -72,15 +47,15 @@ def server_url(tmp_path_factory):
             ],
             env={
                 **os.environ,
-                "PYTHONPATH": pythonpath,
+                "PYTHONPATH": (
+                    f"{os.path.dirname(__file__)}:"
+                    f"{os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))}"
+                ),
                 "_MLFLOW_JOB_FUNCTION_EXTRA_ALLOW_LIST": "test_endpoint.simple_job_fun",
             },
             start_new_session=True,  # new session & process group
         )
-
-        # Wait for server to be ready instead of fixed sleep
-        _wait_for_server_ready(port)
-
+        time.sleep(10)  # wait for server to spin up
         yield f"http://127.0.0.1:{port}"
     finally:
         if server_proc is not None:
