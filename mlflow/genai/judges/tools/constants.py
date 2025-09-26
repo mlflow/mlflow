@@ -18,3 +18,4 @@ class ToolNames:
     GET_SPAN = "get_span"
     LIST_SPANS = "list_spans"
     SEARCH_TRACE_REGEX = "search_trace_regex"
+    GET_SPAN_TIMING_REPORT = "get_span_timing_report"
