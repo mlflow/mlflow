@@ -15,15 +15,6 @@ from mlflow.entities._job import Job as JobEntity
 job_api_router = APIRouter(prefix="/ajax-api/3.0/jobs", tags=["Job"])
 
 
-_JOB_FUNCTION_ALLOW_LIST = [
-    # Add built-in job functions here
-]
-
-if extra_fun_allow_list_env := os.environ.get("_MLFLOW_JOB_FUNCTION_EXTRA_ALLOW_LIST"):
-    # This is for injecting allowlisted job functions in tests
-    _JOB_FUNCTION_ALLOW_LIST += extra_fun_allow_list_env.split(",")
-
-
 class Job(BaseModel):
     """
     Pydantic model for job query response.
@@ -80,12 +71,6 @@ def submit_job(payload: SubmitJobPayload) -> Job:
     from mlflow.server.jobs.job_runner import _load_function
 
     function_fullname = payload.function_fullname
-    if function_fullname not in _JOB_FUNCTION_ALLOW_LIST:
-        raise HTTPException(
-            status_code=http_status.HTTP_403_FORBIDDEN,
-            detail=f"The job function {function_fullname} is not in the allowed list.",
-        )
-
     function = _load_function(function_fullname)
     job = submit_job(function, payload.params, payload.timeout)
     return Job.from_job_entity(job)
