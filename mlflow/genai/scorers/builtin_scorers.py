@@ -10,6 +10,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai import judges
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
+from mlflow.genai.judges.constants import _AFFIRMATIVE_VALUES, _NEGATIVE_VALUES
 from mlflow.genai.judges.prompts.context_sufficiency import CONTEXT_SUFFICIENCY_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.correctness import (
     CORRECTNESS_PROMPT_INSTRUCTIONS,
@@ -36,7 +37,7 @@ from mlflow.genai.judges.prompts.safety import (
 from mlflow.genai.judges.prompts.safety import (
     get_trace_fallback_prompt as get_safety_trace_fallback_prompt,
 )
-from mlflow.genai.judges.utils import get_default_model, invoke_judge_model
+from mlflow.genai.judges.utils import CategoricalRating, get_default_model, invoke_judge_model
 from mlflow.genai.scorers.base import (
     _SERIALIZATION_VERSION,
     ScorerKind,
@@ -113,6 +114,25 @@ def _raise_missing_correctness_expectations_error(trace: Any) -> None:
         )
     else:
         raise MlflowException(base_msg)
+
+
+def _sanitize_scorer_feedback(feedback: Feedback) -> Feedback:
+    """Sanitize feedback values from LLM judges to ensure YES/NO consistency."""
+    if feedback.value:
+        if isinstance(feedback.value, CategoricalRating):
+            return feedback
+
+        if isinstance(feedback.value, str):
+            value_str = feedback.value.strip().lower()
+
+            if value_str in _AFFIRMATIVE_VALUES:
+                feedback.value = CategoricalRating.YES
+            elif value_str in _NEGATIVE_VALUES:
+                feedback.value = CategoricalRating.NO
+            else:
+                feedback.value = CategoricalRating(value_str)
+
+    return feedback
 
 
 class BuiltInScorer(Judge):
@@ -298,7 +318,8 @@ class RetrievalRelevance(BuiltInScorer):
             for chunk in chunks:
                 prompt = get_prompt(request=request, context=chunk["content"])
                 feedback = invoke_judge_model(model, prompt, assessment_name=self.name)
-                chunk_feedbacks.append(feedback)
+                sanitized_feedback = _sanitize_scorer_feedback(feedback)
+                chunk_feedbacks.append(sanitized_feedback)
 
         for feedback in chunk_feedbacks:
             feedback.span_id = span_id
@@ -671,7 +692,7 @@ class Guidelines(BuiltInScorer):
         if inputs is None or outputs is None:
             _raise_missing_fields_error("Guidelines", ["inputs", "outputs"])
 
-        return judges.meets_guidelines(
+        feedback = judges.meets_guidelines(
             guidelines=self.guidelines,
             context={
                 "request": parse_inputs_to_str(inputs),
@@ -680,6 +701,7 @@ class Guidelines(BuiltInScorer):
             name=self.name,
             model=self.model,
         )
+        return _sanitize_scorer_feedback(feedback)
 
 
 @format_docstring(_MODEL_API_DOC)
@@ -830,7 +852,7 @@ class ExpectationsGuidelines(BuiltInScorer):
         if not guidelines:
             _raise_missing_guidelines_error(trace)
 
-        return judges.meets_guidelines(
+        feedback = judges.meets_guidelines(
             guidelines=guidelines,
             context={
                 "request": parse_inputs_to_str(inputs),
@@ -839,6 +861,7 @@ class ExpectationsGuidelines(BuiltInScorer):
             name=self.name,
             model=self.model,
         )
+        return _sanitize_scorer_feedback(feedback)
 
 
 @format_docstring(_MODEL_API_DOC)
@@ -958,9 +981,10 @@ class RelevanceToQuery(BuiltInScorer):
             _raise_missing_fields_error("RelevanceToQuery", ["inputs", "outputs"])
 
         request = parse_inputs_to_str(inputs)
-        return judges.is_context_relevant(
+        feedback = judges.is_context_relevant(
             request=request, context=outputs, name=self.name, model=self.model
         )
+        return _sanitize_scorer_feedback(feedback)
 
 
 @format_docstring(_MODEL_API_DOC)
@@ -1067,11 +1091,12 @@ class Safety(BuiltInScorer):
         if outputs is None:
             _raise_missing_fields_error("Safety", ["outputs"])
 
-        return judges.is_safe(
+        feedback = judges.is_safe(
             content=parse_outputs_to_str(outputs),
             name=self.name,
             model=self.model,
         )
+        return _sanitize_scorer_feedback(feedback)
 
 
 @format_docstring(_MODEL_API_DOC)
@@ -1283,7 +1308,7 @@ class Correctness(BuiltInScorer):
         expected_facts = expectations.get("expected_facts")
         expected_response = expectations.get("expected_response")
 
-        return judges.is_correct(
+        feedback = judges.is_correct(
             request=request,
             response=response,
             expected_response=expected_response,
@@ -1291,6 +1316,7 @@ class Correctness(BuiltInScorer):
             name=self.name,
             model=self.model,
         )
+        return _sanitize_scorer_feedback(feedback)
 
 
 @experimental(version="3.0.0")
