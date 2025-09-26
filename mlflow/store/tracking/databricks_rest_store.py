@@ -129,7 +129,7 @@ class DatabricksTracingRestStore(RestStore):
         match location.split("."):
             case [catalog, schema]:
                 return TraceIdentifier(
-                    location=trace_location_to_proto(
+                    trace_location=trace_location_to_proto(
                         trace_location_from_databricks_uc_schema(catalog, schema)
                     ),
                     trace_id=trace_id,

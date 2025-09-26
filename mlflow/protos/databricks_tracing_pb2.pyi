@@ -124,12 +124,12 @@ class CreateTrace(_message.Message):
     def __init__(self, trace_info: _Optional[_Union[TraceInfo, _Mapping]] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
 
 class TraceIdentifier(_message.Message):
-    __slots__ = ("location", "trace_id")
-    LOCATION_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("trace_location", "trace_id")
+    TRACE_LOCATION_FIELD_NUMBER: _ClassVar[int]
     TRACE_ID_FIELD_NUMBER: _ClassVar[int]
-    location: TraceLocation
+    trace_location: TraceLocation
     trace_id: str
-    def __init__(self, location: _Optional[_Union[TraceLocation, _Mapping]] = ..., trace_id: _Optional[str] = ...) -> None: ...
+    def __init__(self, trace_location: _Optional[_Union[TraceLocation, _Mapping]] = ..., trace_id: _Optional[str] = ...) -> None: ...
 
 class Trace(_message.Message):
     __slots__ = ("trace_info", "spans")

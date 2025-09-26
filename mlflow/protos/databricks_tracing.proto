@@ -193,7 +193,7 @@ message CreateTrace {
 
 message TraceIdentifier {
   // location of the trace
-  optional TraceLocation location = 1 [(validate_required) = true];
+  optional TraceLocation trace_location = 1 [(validate_required) = true];
 
   // ID of the trace.
   optional string trace_id = 2 [(validate_required) = true];
