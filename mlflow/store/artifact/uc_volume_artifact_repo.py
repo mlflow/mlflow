@@ -45,6 +45,7 @@ def uc_volume_artifact_repo_factory(
     Args:
         artifact_uri: Volume root artifact URI.
         tracking_uri: The tracking URI.
+        registry_uri: The registry URI.
 
     Returns:
         Subclass of ArtifactRepository capable of storing artifacts on DBFS.
