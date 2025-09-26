@@ -51,7 +51,7 @@ const sidebarsSelfHosting: SidebarsConfig = {
           type: 'doc',
           id: 'authentication/custom',
           label: 'Custom Authentication',
-        }
+        },
       ],
     },
     {

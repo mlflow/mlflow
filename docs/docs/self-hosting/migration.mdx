@@ -42,22 +42,24 @@ Schema migrations can be slow and are not guaranteed to be transactional. Always
 MLflow uses [semantic versioning](https://semver.org/) to manage versions and provide clear risk level for users when upgrading MLflow. More specifically, we use the following rules:
 
 The following changes requires a **major version bump**:
-  * Architecture changes
-  * Removal of [Public APIs](https://mlflow.org/docs/latest/api_reference/python_api/index.html), except those explicitly declared as experimental.
-  * Removal/renaming of existing parameters from Public APIs in the breaking manner.
+
+- Architecture changes
+- Removal of [Public APIs](https://mlflow.org/docs/latest/api_reference/python_api/index.html), except those explicitly declared as experimental.
+- Removal/renaming of existing parameters from Public APIs in the breaking manner.
 
 The following changes **do not require a major version bump** and released within a minor version update:
-  * Database schema changes.
-  * Adding new APIs.
-  * Adding new optional parameters to Public APIs.
-  * Removing experimental APIs or removing/renaming parameters of them.
+
+- Database schema changes.
+- Adding new APIs.
+- Adding new optional parameters to Public APIs.
+- Removing experimental APIs or removing/renaming parameters of them.
 
 ## Compatibility between MLflow SDK and the Server
 
 MLflow SDK and the server works best if they are in the same version. However, in practice, you may need to deal with a mismatch between the client and server versions. MLflow offers best-effort compatibility between the SDK and the server.
 
-* MLflow tracking server works with the **older** version of the SDK, up to one major version difference (e.g., 2.x to 3.x).
-* MLflow tracking server may not work with the **newer** version of the SDK.
+- MLflow tracking server works with the **older** version of the SDK, up to one major version difference (e.g., 2.x to 3.x).
+- MLflow tracking server may not work with the **newer** version of the SDK.
 
 For example, you can use MLflow 2.x client SDK to log models to the MLflow 3.x server, because the server is backward compatible. On the other hand, if you upgrade the client SDK to 2.15 to use MLflow Tracing, the server also needs to be newer than 2.15, otherwise the tracing endpoints do not exist.
 
