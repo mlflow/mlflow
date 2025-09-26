@@ -55,7 +55,7 @@ def submit_job(
         timeout: (optional) the job execution timeout, default None (no timeout)
 
     Returns:
-        The job entity. You can call `get_query` API by the job id to get
+        The job entity. You can call `get_job` API by the job id to get
         the updated job entity.
     """
     from mlflow.environment_variables import MLFLOW_SERVER_ENABLE_JOB_EXECUTION
@@ -81,7 +81,7 @@ def submit_job(
     return job
 
 
-def get_query(job_id: str) -> Job:
+def get_job(job_id: str) -> Job:
     """
     Get the job entity by the job id.
 

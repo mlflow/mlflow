@@ -42,10 +42,10 @@ class Job(BaseModel):
 
 
 @job_api_router.get("/{job_id}", response_model=Job)
-def get_query(job_id: str) -> Job:
-    from mlflow.server.jobs import get_query
+def get_job(job_id: str) -> Job:
+    from mlflow.server.jobs import get_job
 
-    job = get_query(job_id)
+    job = get_job(job_id)
     return Job.from_job_entity(job)
 
 
