@@ -52,6 +52,7 @@ class ModelsArtifactRepository(ArtifactRepository):
         _logger.error(f"Registry URI: {registry_uri}")
         self.is_logged_model_uri = self._is_logged_model_uri(artifact_uri)
         if is_databricks_unity_catalog_uri(uri=registry_uri) and not self.is_logged_model_uri:
+            _logger.error(f"Creating UnityCatalogModelsArtifactRepository")
             self.repo = UnityCatalogModelsArtifactRepository(
                 artifact_uri=artifact_uri,
                 registry_uri=registry_uri,
@@ -60,6 +61,7 @@ class ModelsArtifactRepository(ArtifactRepository):
             self.model_name = self.repo.model_name
             self.model_version = self.repo.model_version
         elif is_oss_unity_catalog_uri(uri=registry_uri) and not self.is_logged_model_uri:
+            _logger.error(f"Creating UnityCatalogOSSModelsArtifactRepository")
             self.repo = UnityCatalogOSSModelsArtifactRepository(
                 artifact_uri=artifact_uri,
                 registry_uri=registry_uri,
@@ -69,6 +71,7 @@ class ModelsArtifactRepository(ArtifactRepository):
             self.model_version = self.repo.model_version
         elif is_using_databricks_registry(artifact_uri) and not self.is_logged_model_uri:
             # Use the DatabricksModelsArtifactRepository if a databricks profile is being used.
+            _logger.error(f"Creating DatabricksModelsArtifactRepository")
             self.repo = DatabricksModelsArtifactRepository(
                 artifact_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
             )
@@ -80,6 +83,7 @@ class ModelsArtifactRepository(ArtifactRepository):
                 self.model_version,
                 underlying_uri,
             ) = ModelsArtifactRepository._get_model_uri_infos(artifact_uri)
+            _logger.error(f"Creating get_artifact_repository")
             self.repo = get_artifact_repository(
                 underlying_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
             )

@@ -125,11 +125,12 @@ class DatabricksWorkspaceModelRegistryRestStore(RestStore):
                 tracking_uri=self.tracking_uri,
                 registry_uri="databricks",
             )
-            raise Exception(f"Local model dir: {local_model_dir}")
+            _logger.error(f"Local model dir: {local_model_dir}")
             uc_store = UcModelRegistryStore(
                 store_uri=_DATABRICKS_UNITY_CATALOG_SCHEME,
                 tracking_uri=self.tracking_uri,
             )
+            _logger.error(f"Creating UC store")
             try:
                 create_model_response = uc_store.create_registered_model(dst_name)
                 eprint(f"Successfully registered model '{create_model_response.name}'.")
