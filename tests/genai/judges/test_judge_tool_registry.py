@@ -1,3 +1,4 @@
+import inspect
 import json
 
 import pytest
@@ -8,13 +9,13 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.tools import (
-    GetTraceInfoTool,
     JudgeToolRegistry,
     invoke_judge_tool,
     list_judge_tools,
     register_judge_tool,
 )
 from mlflow.genai.judges.tools.base import JudgeTool
+from mlflow.genai.judges.tools.constants import ToolNames
 from mlflow.types.llm import FunctionToolCallArguments, ToolCall, ToolDefinition
 
 
@@ -175,12 +176,16 @@ def test_global_functions_work():
     assert result == "mock_result_with_0_args"
 
 
-def test_builtin_registration():
+def test_builtin_tools_are_properly_registered():
     tools = list_judge_tools()
-    tool_names = [t.name for t in tools]
+    registered_tool_names = {t.name for t in tools if not isinstance(t, MockTool)}
 
-    assert "get_trace_info" in tool_names
+    all_tool_constants = {
+        value for name, value in inspect.getmembers(ToolNames) if not name.startswith("_")
+    }
 
-    get_trace_info_tools = [t for t in tools if t.name == "get_trace_info"]
-    assert len(get_trace_info_tools) == 1
-    assert isinstance(get_trace_info_tools[0], GetTraceInfoTool)
+    assert all_tool_constants == registered_tool_names
+
+    for tool in tools:
+        if tool.name in all_tool_constants:
+            assert isinstance(tool, JudgeTool)
