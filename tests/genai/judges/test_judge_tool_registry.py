@@ -151,28 +151,35 @@ def test_registry_invoke_tool_invalid_arguments():
 
 
 def test_global_functions_work():
-    mock_tool = MockTool()
-    register_judge_tool(mock_tool)
+    from mlflow.genai.judges.tools.registry import _judge_tool_registry
 
-    tools = list_judge_tools()
-    tool_names = [t.name for t in tools]
-    assert "mock_tool" in tool_names
+    original_tools = _judge_tool_registry._tools.copy()
 
-    trace_info = TraceInfo(
-        trace_id="test-trace-id",
-        trace_location=TraceLocation.from_experiment_id("0"),
-        request_time=1234567890,
-        state=TraceState.OK,
-        execution_duration=100,
-    )
-    trace = Trace(info=trace_info, data=None)
+    try:
+        mock_tool = MockTool()
+        register_judge_tool(mock_tool)
 
-    tool_call = ToolCall(
-        function=FunctionToolCallArguments(name="mock_tool", arguments=json.dumps({}))
-    )
+        tools = list_judge_tools()
+        tool_names = [t.name for t in tools]
+        assert "mock_tool" in tool_names
 
-    result = invoke_judge_tool(tool_call, trace)
-    assert result == "mock_result_with_0_args"
+        trace_info = TraceInfo(
+            trace_id="test-trace-id",
+            trace_location=TraceLocation.from_experiment_id("0"),
+            request_time=1234567890,
+            state=TraceState.OK,
+            execution_duration=100,
+        )
+        trace = Trace(info=trace_info, data=None)
+
+        tool_call = ToolCall(
+            function=FunctionToolCallArguments(name="mock_tool", arguments=json.dumps({}))
+        )
+
+        result = invoke_judge_tool(tool_call, trace)
+        assert result == "mock_result_with_0_args"
+    finally:
+        _judge_tool_registry._tools = original_tools
 
 
 def test_builtin_registration():
@@ -180,6 +187,7 @@ def test_builtin_registration():
     tool_names = [t.name for t in tools]
 
     assert "get_trace_info" in tool_names
+    assert "mock_tool" not in tool_names
 
     get_trace_info_tools = [t for t in tools if t.name == "get_trace_info"]
     assert len(get_trace_info_tools) == 1
