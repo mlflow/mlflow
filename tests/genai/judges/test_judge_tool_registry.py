@@ -178,7 +178,7 @@ def test_global_functions_work():
 
 def test_builtin_tools_are_properly_registered():
     tools = list_judge_tools()
-    registered_tool_names = {t.name for t in tools}
+    registered_tool_names = {t.name for t in tools if not isinstance(t, MockTool)}
 
     all_tool_constants = {
         value for name, value in inspect.getmembers(ToolNames) if not name.startswith("_")
