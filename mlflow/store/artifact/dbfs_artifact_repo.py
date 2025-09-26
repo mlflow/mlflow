@@ -50,7 +50,9 @@ class DbfsRestArtifactRepository(ArtifactRepository):
     together with the RestStore.
     """
 
-    def __init__(self, artifact_uri: str, tracking_uri: str | None = None) -> None:
+    def __init__(
+        self, artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
+    ) -> None:
         if not is_valid_dbfs_uri(artifact_uri):
             raise MlflowException(
                 message="DBFS URI must be of the form dbfs:/<path> or "
@@ -61,7 +63,9 @@ class DbfsRestArtifactRepository(ArtifactRepository):
         # The dbfs:/ path ultimately used for artifact operations should not contain the
         # Databricks profile info, so strip it before setting ``artifact_uri``.
         super().__init__(
-            remove_databricks_profile_info_from_artifact_uri(artifact_uri), tracking_uri
+            remove_databricks_profile_info_from_artifact_uri(artifact_uri),
+            tracking_uri,
+            registry_uri,
         )
 
         databricks_profile_uri = get_databricks_profile_uri_from_artifact_uri(artifact_uri)

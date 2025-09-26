@@ -191,12 +191,14 @@ def test_copy_model_version_unity_catalog_success(store, sample_model_version):
 
         # Verify UcModelRegistryStore was created with correct parameters
         mock_uc_store_class.assert_called_once_with(
-            store_uri="databricks-uc", tracking_uri="databricks"
+            store_uri="databricks-uc", tracking_uri="databricks", registry_uri="databricks"
         )
 
         # Verify download_artifacts was called with correct parameters
         mock_download.assert_called_once_with(
-            artifact_uri="models:/test_model/1", tracking_uri="databricks"
+            artifact_uri="models:/test_model/1",
+            tracking_uri="databricks",
+            registry_uri="databricks",
         )
 
         # Verify create_registered_model was called
@@ -231,7 +233,9 @@ def test_copy_model_version_unity_catalog_migration_download_failure(store, samp
 
         # Verify download_artifacts was called
         mock_download.assert_called_once_with(
-            artifact_uri="models:/test_model/1", tracking_uri="databricks"
+            artifact_uri="models:/test_model/1",
+            tracking_uri="databricks",
+            registry_uri="databricks",
         )
 
 
@@ -280,12 +284,14 @@ def test_copy_model_version_unity_catalog_registered_model_already_exists(
 
         # Verify UcModelRegistryStore was created with correct parameters
         mock_uc_store_class.assert_called_once_with(
-            store_uri="databricks-uc", tracking_uri="databricks"
+            store_uri="databricks-uc", tracking_uri="databricks", registry_uri="databricks"
         )
 
         # Verify download_artifacts was called with correct parameters
         mock_download.assert_called_once_with(
-            artifact_uri="models:/test_model/1", tracking_uri="databricks"
+            artifact_uri="models:/test_model/1",
+            tracking_uri="databricks",
+            registry_uri="databricks",
         )
 
         # Verify create_registered_model was called
@@ -334,12 +340,14 @@ def test_copy_model_version_unity_catalog_registered_model_creation_failure(
 
         # Verify UcModelRegistryStore was created with correct parameters
         mock_uc_store_class.assert_called_once_with(
-            store_uri="databricks-uc", tracking_uri="databricks"
+            store_uri="databricks-uc", tracking_uri="databricks", registry_uri="databricks"
         )
 
         # Verify download_artifacts was called with correct parameters
         mock_download.assert_called_once_with(
-            artifact_uri="models:/test_model/1", tracking_uri="databricks"
+            artifact_uri="models:/test_model/1",
+            tracking_uri="databricks",
+            registry_uri="databricks",
         )
 
         # Verify create_registered_model was called

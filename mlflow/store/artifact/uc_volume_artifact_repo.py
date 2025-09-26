@@ -18,7 +18,9 @@ class UCVolumesArtifactRepository(DatabricksSdkArtifactRepository):
     Stores artifacts on UC Volumes using the Files REST API.
     """
 
-    def __init__(self, artifact_uri: str, tracking_uri: str | None = None) -> None:
+    def __init__(
+        self, artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
+    ) -> None:
         if not is_valid_uc_volumes_uri(artifact_uri):
             raise MlflowException(
                 message=(
@@ -28,7 +30,7 @@ class UCVolumesArtifactRepository(DatabricksSdkArtifactRepository):
                 error_code=INVALID_PARAMETER_VALUE,
             )
         uri = remove_databricks_profile_info_from_artifact_uri(artifact_uri)
-        super().__init__("/" + strip_scheme(uri).strip("/"), tracking_uri)
+        super().__init__("/" + strip_scheme(uri).strip("/"), tracking_uri, registry_uri)
 
 
 def uc_volume_artifact_repo_factory(artifact_uri: str, tracking_uri: str | None = None):

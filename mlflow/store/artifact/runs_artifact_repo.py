@@ -29,10 +29,12 @@ class RunsArtifactRepository(ArtifactRepository):
     users should take special care when constructing the URI.
     """
 
-    def __init__(self, artifact_uri: str, tracking_uri: str | None = None) -> None:
+    def __init__(
+        self, artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
+    ) -> None:
         from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 
-        super().__init__(artifact_uri, tracking_uri)
+        super().__init__(artifact_uri, tracking_uri, registry_uri)
         uri = RunsArtifactRepository.get_underlying_uri(artifact_uri, tracking_uri)
         self.repo = get_artifact_repository(uri, tracking_uri=self.tracking_uri)
 
