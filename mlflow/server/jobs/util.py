@@ -170,29 +170,6 @@ def _start_huey_consumer_proc(
     )
 
 
-def _start_job_runner(
-    env_map: dict[str, str],
-    server_proc_pid: int,
-    start_new_runner: bool,
-) -> subprocess.Popen:
-    from mlflow.utils.process import _exec_cmd
-
-    return _exec_cmd(
-        [
-            sys.executable,
-            "mlflow.server.jobs.job_runner",
-        ],
-        capture_output=False,
-        synchronous=False,
-        extra_env={
-            **env_map,
-            "_IS_MLFLOW_JOB_RUNNER": "1",
-            "MLFLOW_SERVER_PID": str(server_proc_pid),
-            "_START_NEW_MLFLOW_JOB_RUNNER": ("1" if start_new_runner else "0"),
-        },
-    )
-
-
 def _exec_job(
     job_id: str, function: Callable[..., Any], params: dict[str, Any], timeout: float | None
 ) -> None:
@@ -240,6 +217,7 @@ def _get_or_init_huey_instance(instance_key: str):
 
     with _huey_instance_map_lock:
         if instance_key not in _huey_instance_map:
+            _logger.info(f"Creating huey instance for {instance_key}")
             huey_store_file = os.path.join(
                 os.environ[HUEY_STORAGE_PATH_ENV_VAR],
                 f"mlflow-huey-store.{instance_key}"
@@ -260,7 +238,7 @@ def _get_or_init_huey_instance(instance_key: str):
 def _launch_huey_consumer(
     job_fn_fullname: str,
 ) -> None:
-
+    _logger.info(f"Starting huey consumer for job function {job_fn_fullname}")
     job_fn = _load_function(job_fn_fullname)
 
     if not hasattr(job_fn, "_job_fn_metadata"):
@@ -270,7 +248,7 @@ def _launch_huey_consumer(
 
     max_job_parallelism = job_fn._job_fn_metadata.max_workers
 
-    def _start_job_runner_fn() -> None:
+    def _huey_consumer_thread() -> None:
         while True:
             # start MLflow job runner process
             # Put it inside the loop to ensure the job runner process alive
@@ -282,7 +260,7 @@ def _launch_huey_consumer(
 
     # start job runner.
     threading.Thread(
-        target=_start_job_runner_fn,
+        target=_huey_consumer_thread,
         name=f"MLflow-huey-consumer-{job_fn_fullname}-watcher",
         daemon=True,
     ).start()
@@ -306,8 +284,8 @@ def _launch_job_runner(env_map,  server_proc_pid):
 
     return _exec_cmd(
         [
-            sys.executable,
-            "mlflow.server._jobs.job_runner",
+            sys.executable, "-m",
+            "mlflow.server.jobs._job_runner",
         ],
         capture_output=False,
         synchronous=False,

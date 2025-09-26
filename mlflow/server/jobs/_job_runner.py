@@ -27,7 +27,7 @@ if __name__ == "__main__":
 
     huey_store_path = os.environ[HUEY_STORAGE_PATH_ENV_VAR]
 
-    seen_huey_files = set(os.listdir(huey_store_path))
+    seen_huey_files = set()
     huey_file_prefix = "mlflow-huey-store."
 
     while True:
