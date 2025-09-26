@@ -351,8 +351,7 @@ def generate_trace_id_v4(span: OTelSpan, uc_schema: str) -> str:
         uc_schema: The Unity Catalog schema name.
 
     Returns:
-        If uc_schema is None, the format will be "tr-<hex_trace_id>".
-        Otherwise, the format will be "trace:/<uc_schema>/<hex_trace_id>".
+        Trace ID with format "trace:/<uc_schema>/<hex_trace_id>".
     """
     return construct_trace_id_v4(uc_schema, encode_trace_id(span.context.trace_id))
 
@@ -611,7 +610,7 @@ def get_experiment_id_for_trace(span: OTelReadableSpan) -> str:
 
 def get_spans_table_name_for_trace(span: OTelReadableSpan) -> str | None:
     """
-    Determine the Unity Catalog spans table name to associate with the trace.
+    Get the Unity Catalog spans table name to associate with the trace.
     """
     from mlflow.tracing.destination import DatabricksUnityCatalog
     from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
