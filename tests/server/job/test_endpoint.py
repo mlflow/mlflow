@@ -52,23 +52,15 @@ def server_url(tmp_path_factory):
             # NOTE that we need to kill subprocesses
             # (uvicorn server / huey task runner)
             # so `killpg` is needed.
-            try:
-                os.killpg(server_proc.pid, signal.SIGTERM)
-                # Wait for the process to actually be terminated
-                server_proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                # If process doesn't terminate within timeout, force kill
-                os.killpg(server_proc.pid, signal.SIGKILL)
-                server_proc.wait()
-            except ProcessLookupError:
-                # Process group may have already been terminated
-                pass
+            os.killpg(server_proc.pid, signal.SIGKILL)
 
 
 def wait_job_finalize(server_url, job_id, timeout):
     beg_time = time.time()
     while time.time() - beg_time <= timeout:
-        job_json = requests.get(f"{server_url}/ajax-api/3.0/jobs/{job_id}").json()
+        response = requests.get(f"{server_url}/ajax-api/3.0/jobs/{job_id}")
+        response.raise_for_status()
+        job_json = response.json()
         if job_json["status"] in ["SUCCEEDED", "FAILED", "TIMEOUT"]:
             return
         time.sleep(0.5)
@@ -81,9 +73,11 @@ def test_job_endpoint(server_url: str):
         "params": {"x": 3, "y": 4},
     }
     response = requests.post(f"{server_url}/ajax-api/3.0/jobs/", json=payload)
+    response.raise_for_status()
     job_id = response.json()["job_id"]
     wait_job_finalize(server_url, job_id, 2)
     response2 = requests.get(f"{server_url}/ajax-api/3.0/jobs/{job_id}")
+    response.raise_for_status()
     job_json = response2.json()
     job_json.pop("creation_time")
     assert job_json == {
