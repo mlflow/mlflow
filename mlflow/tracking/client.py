@@ -2543,6 +2543,54 @@ class MlflowClient:
         """
         self._tracking_client.log_artifacts(run_id, local_dir, artifact_path)
 
+    def _check_artifact_file_string(self, artifact_file: str) -> None:
+        """Validate that artifact_file is a non-empty string.
+
+        Args:
+            artifact_file: The artifact file path to validate.
+
+        Raises:
+            MlflowException: If artifact_file is not a valid non-empty string.
+        """
+        from mlflow.utils.string_utils import is_string_type
+
+        if not is_string_type(artifact_file):
+            raise MlflowException(
+                f"artifact_file must be a string, got {type(artifact_file).__name__!r}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        if not artifact_file.strip():
+            raise MlflowException(
+                "artifact_file must be a non-empty string",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+    def _read_from_file(self, file_path: str):
+        """Read table data from a JSON or Parquet file.
+
+        Args:
+            file_path: Path to the file to read.
+
+        Returns:
+            pandas.DataFrame: The loaded table data.
+
+        Raises:
+            MlflowException: If the file format is not supported or reading fails.
+        """
+        import pandas as pd
+
+        if file_path.endswith(".json"):
+            return pd.read_json(file_path, orient="split")
+        elif file_path.endswith(".parquet"):
+            return pd.read_parquet(file_path)
+        else:
+            raise MlflowException(
+                f"Unsupported file format for reading table: {file_path}. "
+                "Supported formats are .json and .parquet",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
     @contextlib.contextmanager
     def _log_artifact_helper(self, run_id, artifact_file):
         """Yields a temporary path to store a file, and then calls `log_artifact` against that path.
