@@ -77,7 +77,7 @@ def test_job_endpoint(server_url: str):
     job_id = response.json()["job_id"]
     wait_job_finalize(server_url, job_id, 2)
     response2 = requests.get(f"{server_url}/ajax-api/3.0/jobs/{job_id}")
-    response.raise_for_status()
+    response2.raise_for_status()
     job_json = response2.json()
     job_json.pop("creation_time")
     assert job_json == {
