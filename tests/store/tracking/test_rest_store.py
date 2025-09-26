@@ -59,7 +59,6 @@ from mlflow.protos.service_pb2 import (
     DeleteScorer,
     DeleteTag,
     DeleteTraces,
-    DeleteTraceTagV4,
     EndTrace,
     GetDataset,
     GetDatasetExperimentIds,
@@ -68,7 +67,6 @@ from mlflow.protos.service_pb2 import (
     GetLoggedModel,
     GetScorer,
     GetTraceInfoV3,
-    GetTraceInfoV4,
     ListScorers,
     ListScorerVersions,
     LogBatch,
@@ -87,7 +85,6 @@ from mlflow.protos.service_pb2 import (
     SetExperimentTag,
     SetTag,
     SetTraceTag,
-    SetTraceTagV4,
     StartTrace,
     StartTraceV3,
     UpsertDatasetRecords,
@@ -97,7 +94,7 @@ from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestM
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
-from mlflow.tracing.constant import TRACE_ID_V4_PREFIX, TRACE_SCHEMA_VERSION_KEY
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracking.request_header.default_request_header_provider import (
     DefaultRequestHeaderProvider,
 )
@@ -997,71 +994,6 @@ def test_set_trace_tag():
         assert res is None
 
 
-def test_set_trace_tag_v4():
-    creds = MlflowHostCreds("https://hello")
-    store = RestStore(lambda: creds)
-    response = mock.MagicMock()
-    response.status_code = 200
-    location = "catalog.schema"
-    trace_id = "tr-1234"
-    request = SetTraceTagV4(
-        key="k",
-        value="v",
-    )
-    response.text = "{}"
-
-    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
-        res = store.set_trace_tag(
-            trace_id=f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}",
-            key=request.key,
-            value=request.value,
-        )
-        expected_json = {
-            "key": request.key,
-            "value": request.value,
-        }
-        mock_http.assert_called_once_with(
-            host_creds=creds,
-            endpoint=f"/api/4.0/mlflow/traces/{location}/{trace_id}/tags",
-            method="PATCH",
-            json=expected_json,
-        )
-        assert res is None
-
-
-def test_delete_trace_tag_v4(monkeypatch):
-    creds = MlflowHostCreds("https://hello")
-    store = RestStore(lambda: creds)
-    response = mock.MagicMock()
-    response.status_code = 200
-    location = "catalog.schema"
-    trace_id = "tr-1234"
-    sql_warehouse_id = "warehouse_456"
-    request = DeleteTraceTagV4(
-        trace_id=trace_id,
-        location=location,
-        key="k",
-    )
-    response.text = "{}"
-
-    monkeypatch.setenv("MLFLOW_TRACING_SQL_WAREHOUSE_ID", sql_warehouse_id)
-    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
-        res = store.delete_trace_tag(
-            trace_id=f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}",
-            key=request.key,
-        )
-        expected_json = {
-            "sql_warehouse_id": sql_warehouse_id,
-        }
-        mock_http.assert_called_once_with(
-            host_creds=creds,
-            endpoint=f"/api/4.0/mlflow/traces/{location}/{trace_id}/tags/{request.key}",
-            method="DELETE",
-            json=expected_json,
-        )
-        assert res is None
-
-
 @pytest.mark.parametrize("is_databricks", [True, False])
 def test_log_assessment_feedback(is_databricks):
     creds = MlflowHostCreds("https://hello")
@@ -1397,67 +1329,6 @@ def test_get_trace_info():
         assert result.assessments[1].name == "feedback_error"
         assert result.assessments[2].name == "expectation"
         assert result.assessments[3].name == "complex_expectation"
-
-
-def test_get_trace_info_v4_format(monkeypatch):
-    with mlflow.start_span(name="test_span_v4") as span:
-        span.set_inputs({"input": "test_value"})
-        span.set_outputs({"output": "result"})
-
-    trace = mlflow.get_trace(span.trace_id)
-    trace_proto = trace.to_proto()
-    mock_v4_response = GetTraceInfoV4.Response(trace=trace_proto)
-
-    store = RestStore(lambda: MlflowHostCreds("https://test"))
-
-    location = "catalog.schema"
-    v4_trace_id = f"{TRACE_ID_V4_PREFIX}{location}/{span.trace_id}"
-
-    monkeypatch.setenv("MLFLOW_TRACING_SQL_WAREHOUSE_ID", "test-warehouse")
-    with mock.patch.object(store, "_call_endpoint", return_value=mock_v4_response) as mock_call:
-        result = store.get_trace_info(v4_trace_id)
-
-        mock_call.assert_called_once()
-        call_args = mock_call.call_args
-
-        assert call_args[0][0] == GetTraceInfoV4
-
-        request_body = call_args[0][1]
-        request_data = json.loads(request_body)
-        assert request_data["trace_id"] == span.trace_id
-        assert request_data["location"] == location
-        assert request_data["sql_warehouse_id"] == "test-warehouse"
-
-        endpoint = call_args[1]["endpoint"]
-        assert f"/traces/{location}/{span.trace_id}/info" in endpoint
-
-        assert isinstance(result, TraceInfo)
-        assert result.trace_id == span.trace_id
-
-
-def test_get_trace_info_v4_fallback_to_v3():
-    with mlflow.start_span(name="test_span_v3") as span:
-        span.set_inputs({"input": "test_value"})
-
-    trace = mlflow.get_trace(span.trace_id)
-    trace_proto = trace.to_proto()
-    mock_v3_response = GetTraceInfoV3.Response(trace=trace_proto)
-
-    store = RestStore(lambda: MlflowHostCreds("https://test"))
-
-    with mock.patch.object(store, "_call_endpoint", return_value=mock_v3_response) as mock_call:
-        result = store.get_trace_info(span.trace_id)
-
-        mock_call.assert_called_once()
-        call_args = mock_call.call_args
-        assert call_args[0][0] == GetTraceInfoV3
-
-        request_body = call_args[0][1]
-        request_data = json.loads(request_body)
-        assert request_data["trace_id"] == span.trace_id
-
-        assert isinstance(result, TraceInfo)
-        assert result.trace_id == span.trace_id
 
 
 def test_log_logged_model_params():

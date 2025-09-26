@@ -127,7 +127,6 @@ from mlflow.protos.service_pb2 import (
     GetScorer,
     GetTraceInfo,
     GetTraceInfoV3,
-    GetTraceInfoV4,
     LinkTracesToRun,
     ListArtifacts,
     ListLoggedModelArtifacts,
@@ -183,7 +182,6 @@ from mlflow.store.model_registry.abstract_store import AbstractStore as Abstract
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
 from mlflow.store.tracking.abstract_store import AbstractStore as AbstractTrackingStore
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
-from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
 from mlflow.tracing.utils.artifact_utils import (
     TRACE_DATA_FILE_NAME,
     get_artifact_uri_for_trace,
@@ -2824,18 +2822,6 @@ def _get_trace_info_v3(trace_id):
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _get_trace_info_v4(location: str, trace_id: str) -> Response:
-    """
-    A request handler for `GET /mlflow/traces/{location}/{trace_id}/info` to retrieve
-    an existing TraceInfo record from tracking store.
-    """
-    trace_info = _get_tracking_store().get_trace_info(f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}")
-    response_message = GetTraceInfoV4.Response(trace=ProtoTrace(trace_info=trace_info.to_proto()))
-    return _wrap_response(response_message)
-
-
-@catch_mlflow_exception
-@_disable_if_artifacts_only
 def _search_traces_v3():
     """
     A request handler for `GET /mlflow/traces` to search for TraceInfo records in tracking store.
@@ -3962,8 +3948,6 @@ HANDLERS = {
     SetTraceTagV3: _set_trace_tag_v3,
     DeleteTraceTagV3: _delete_trace_tag,
     LinkTracesToRun: _link_traces_to_run,
-    # MLflow Tracing APIs (V4)
-    GetTraceInfoV4: _get_trace_info_v4,
     # Assessment APIs
     CreateAssessment: _create_assessment,
     GetAssessmentRequest: _get_assessment,
