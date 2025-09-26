@@ -17,8 +17,8 @@ from mlflow.server import (
     HUEY_STORAGE_PATH_ENV_VAR,
 )
 from mlflow.server.handlers import _get_job_store
-from mlflow.server.job_api import _validate_function_parameters
 from mlflow.server.jobs import _reinit_huey_queue, _start_job_runner, query_job, submit_job
+from mlflow.server.jobs.util import _validate_function_parameters
 
 pytestmark = pytest.mark.skipif(
     os.name == "nt", reason="MLflow job execution is not supported on Windows"

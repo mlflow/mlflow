@@ -60,6 +60,7 @@ def submit_job(
     """
     from mlflow.environment_variables import MLFLOW_SERVER_ENABLE_JOB_EXECUTION
     from mlflow.server.jobs.job_runner import huey_task_exec_job
+    from mlflow.server.jobs.util import _validate_function_parameters
 
     if not MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
         raise MlflowException(
@@ -69,6 +70,9 @@ def submit_job(
 
     if not (isinstance(function, FunctionType) and "." not in function.__qualname__):
         raise MlflowException("The job function must be a python global function.")
+
+    # Validate that required parameters are provided
+    _validate_function_parameters(function, params)
 
     job_store = _get_job_store()
     serialized_params = json.dumps(params)
