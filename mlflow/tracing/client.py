@@ -2,7 +2,7 @@ import json
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
-from typing import Sequence
+from typing import NamedTuple, Sequence
 
 import mlflow
 from mlflow.entities.assessment import Assessment
@@ -21,6 +21,7 @@ from mlflow.exceptions import (
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INVALID_PARAMETER_VALUE,
+    NOT_FOUND,
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -38,6 +39,11 @@ from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, is_databricks_uri
 
 _logger = logging.getLogger(__name__)
+
+
+class TraceInfoGroups(NamedTuple):
+    tracking_store_trace_infos: list[TraceInfo]
+    artifact_repo_trace_infos: list[TraceInfo]
 
 
 class TracingClient:
@@ -128,25 +134,42 @@ class TracingClient:
             The fetched Trace object, of type ``mlflow.entities.Trace``.
         """
         trace_info = self.get_trace_info(trace_id)
-        try:
-            trace_data = self._download_trace_data(trace_info)
-        except MlflowTraceDataNotFound:
+        if self._should_load_spans_from_artifact(trace_info):
+            try:
+                trace_data = self._download_trace_data(trace_info)
+            except MlflowTraceDataNotFound:
+                raise MlflowException(
+                    message=(
+                        f"Trace with ID {trace_id} cannot be loaded because it is missing span "
+                        "data. Please try creating or loading another trace."
+                    ),
+                    error_code=BAD_REQUEST,
+                ) from None  # Ensure the original spammy exception is not included in the traceback
+            except MlflowTraceDataCorrupted:
+                raise MlflowException(
+                    message=(
+                        f"Trace with ID {trace_id} cannot be loaded because its span data"
+                        " is corrupted. Please try creating or loading another trace."
+                    ),
+                    error_code=BAD_REQUEST,
+                ) from None  # Ensure the original spammy exception is not included in the traceback
+            return Trace(trace_info, trace_data)
+        else:
+            return self._get_traces_from_tracking_store([trace_id])[0]
+
+    def _get_traces_from_tracking_store(self, trace_ids: list[str]) -> list[Trace]:
+        if not trace_ids:
+            return []
+        if traces := self.store.get_traces(trace_ids):
+            return traces
+        else:
+            trace_ids_str = ", ".join(trace_ids)
+            if len(trace_ids_str) > 20:
+                trace_ids_str = trace_ids_str[:20] + "..."
             raise MlflowException(
-                message=(
-                    f"Trace with ID {trace_id} cannot be loaded because it is missing span data."
-                    " Please try creating or loading another trace."
-                ),
-                error_code=BAD_REQUEST,
-            ) from None  # Ensure the original spammy exception is not included in the traceback
-        except MlflowTraceDataCorrupted:
-            raise MlflowException(
-                message=(
-                    f"Trace with ID {trace_id} cannot be loaded because its span data"
-                    " is corrupted. Please try creating or loading another trace."
-                ),
-                error_code=BAD_REQUEST,
-            ) from None  # Ensure the original spammy exception is not included in the traceback
-        return Trace(trace_info, trace_data)
+                f"Traces with IDs {trace_ids_str} not found.",
+                error_code=NOT_FOUND,
+            )
 
     def get_online_trace_details(
         self,
@@ -265,7 +288,7 @@ class TracingClient:
 
         is_databricks = is_databricks_uri(self.tracking_uri)
 
-        def download_trace_extra_fields(trace_info: TraceInfo) -> Trace | None:
+        def download_trace_extra_fields_from_artifact_repo(trace_info: TraceInfo) -> Trace | None:
             """
             Download trace data and assessments for the given trace_info and returns a Trace object.
             If the download fails (e.g., the trace data is missing or corrupted), returns None.
@@ -327,8 +350,20 @@ class TracingClient:
                 )
 
                 if include_spans:
+                    trace_info_groups = self._group_trace_infos_by_storage(trace_infos)
                     traces.extend(
-                        t for t in executor.map(download_trace_extra_fields, trace_infos) if t
+                        self._get_traces_from_tracking_store(
+                            [t.trace_id for t in trace_info_groups.tracking_store_trace_infos]
+                        )
+                    )
+
+                    traces.extend(
+                        t
+                        for t in executor.map(
+                            download_trace_extra_fields_from_artifact_repo,
+                            trace_info_groups.artifact_repo_trace_infos,
+                        )
+                        if t
                     )
                 else:
                     traces.extend(
@@ -341,6 +376,36 @@ class TracingClient:
                 next_max_results = max_results - len(traces)
 
         return PagedList(traces, next_token)
+
+    def _group_trace_infos_by_storage(self, trace_infos: list[TraceInfo]) -> TraceInfoGroups:
+        """
+        Group the trace infos based on where the trace data is stored.
+
+        Returns:
+            A named tuple containing two lists of trace infos:
+            - tracking_store_trace_infos: List of trace infos where the trace data is stored in the
+              database or UC table.
+            - artifact_repo_trace_infos: List of trace infos where the trace data is stored in the
+              artifact repository.
+        """
+        tracking_store_trace_infos = []
+        artifact_repo_trace_infos = []
+        for trace_info in trace_infos:
+            if self._should_load_spans_from_artifact(trace_info):
+                artifact_repo_trace_infos.append(trace_info)
+            else:
+                tracking_store_trace_infos.append(trace_info)
+        return TraceInfoGroups(
+            tracking_store_trace_infos=tracking_store_trace_infos,
+            artifact_repo_trace_infos=artifact_repo_trace_infos,
+        )
+
+    def _should_load_spans_from_artifact(self, trace_info: TraceInfo) -> bool:
+        """
+        Determine if the spans should be loaded from the artifact repository.
+        """
+        # TODO: this should be extended to support OSS tracking store
+        return trace_info.trace_location.uc_schema is None
 
     def calculate_trace_filter_correlation(
         self,
