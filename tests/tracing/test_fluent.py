@@ -916,7 +916,7 @@ def test_search_traces(return_type, mock_client):
 
     assert len(traces) == 10
     mock_client.search_traces.assert_called_once_with(
-        experiment_ids=["1"],
+        experiment_ids=None,
         run_id=None,
         filter_string="name = 'foo'",
         max_results=10,
@@ -925,6 +925,7 @@ def test_search_traces(return_type, mock_client):
         model_id=None,
         sql_warehouse_id=None,
         include_spans=True,
+        locations=["1"],
     )
 
 
@@ -955,7 +956,7 @@ def test_search_traces_with_pagination(mock_client):
 
     assert len(traces) == 30
     common_args = {
-        "experiment_ids": ["1"],
+        "experiment_ids": None,
         "run_id": None,
         "max_results": SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         "filter_string": None,
@@ -963,6 +964,7 @@ def test_search_traces_with_pagination(mock_client):
         "include_spans": True,
         "model_id": None,
         "sql_warehouse_id": None,
+        "locations": ["1"],
     }
     mock_client.search_traces.assert_has_calls(
         [
@@ -979,7 +981,7 @@ def test_search_traces_with_default_experiment_id(mock_client):
         mlflow.search_traces()
 
     mock_client.search_traces.assert_called_once_with(
-        experiment_ids=["123"],
+        experiment_ids=None,
         run_id=None,
         filter_string=None,
         max_results=SEARCH_TRACES_DEFAULT_MAX_RESULTS,
@@ -988,6 +990,7 @@ def test_search_traces_with_default_experiment_id(mock_client):
         model_id=None,
         sql_warehouse_id=None,
         include_spans=True,
+        locations=["123"],
     )
 
 
@@ -2181,6 +2184,46 @@ def test_search_traces_with_run_id_validates_store_filter_string(is_databricks):
         call_args = mock_store.search_traces.call_args
         actual_filter_string = call_args[1]["filter_string"]
         assert actual_filter_string == expected_filter_string
+
+
+def test_search_traces_with_locations(mock_client):
+    mock_client.search_traces.return_value = PagedList([], token=None)
+
+    # Test with locations
+    mlflow.search_traces(locations=["catalog1.schema1", "catalog2.schema2"])
+
+    # Verify that search_traces was called with locations
+    mock_client.search_traces.assert_called_once()
+    call_kwargs = mock_client.search_traces.call_args.kwargs
+    assert call_kwargs["locations"] == ["catalog1.schema1", "catalog2.schema2"]
+    assert call_kwargs.get("experiment_ids") is None
+
+
+def test_search_traces_experiment_ids_deprecation_warning(mock_client):
+    mock_client.search_traces.return_value = PagedList([], token=None)
+
+    # Test that using experiment_ids shows a deprecation warning
+    with pytest.warns(FutureWarning, match="experiment_ids.*deprecated.*use.*locations"):
+        mlflow.search_traces(experiment_ids=["123"])
+
+    # Verify that search_traces was called and experiment_ids was converted to locations
+    mock_client.search_traces.assert_called_once()
+    call_kwargs = mock_client.search_traces.call_args.kwargs
+    assert call_kwargs["locations"] == ["123"]
+    assert call_kwargs["experiment_ids"] is None
+
+
+def test_search_traces_with_sql_warehouse_id(mock_client):
+    mock_client.search_traces.return_value = PagedList([], token=None)
+
+    # Test with sql_warehouse_id
+    mlflow.search_traces(locations=["123"], sql_warehouse_id="warehouse456")
+
+    # Verify that search_traces was called with sql_warehouse_id
+    mock_client.search_traces.assert_called_once()
+    call_kwargs = mock_client.search_traces.call_args.kwargs
+    assert call_kwargs["sql_warehouse_id"] == "warehouse456"
+    assert call_kwargs["locations"] == ["123"]
 
 
 @skip_when_testing_trace_sdk

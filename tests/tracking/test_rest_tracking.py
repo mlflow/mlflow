@@ -2654,6 +2654,14 @@ def test_search_traces(mlflow_client):
     assert traces.token is None
 
 
+def test_search_traces_parameter_validation(mlflow_client):
+    with pytest.raises(
+        MlflowException,
+        match="Locations must be a list of experiment IDs",
+    ):
+        mlflow_client.search_traces(locations=["catalog.schema"])
+
+
 def test_delete_traces(mlflow_client):
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
     experiment_id = mlflow_client.create_experiment("delete traces")

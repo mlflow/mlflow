@@ -137,7 +137,7 @@ def create_test_trace_info(
 def get_traces(experiment_id=None) -> list[Trace]:
     # Get all traces from the backend
     return TracingClient().search_traces(
-        experiment_ids=[experiment_id or _get_experiment_id()],
+        locations=[experiment_id or _get_experiment_id()],
     )
 
 
