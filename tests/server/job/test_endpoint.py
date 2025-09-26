@@ -22,9 +22,12 @@ def simple_job_fun(x: int, y: int) -> dict[str, Any]:
 
 @pytest.fixture(scope="module")
 def server_url(tmp_path_factory):
+    from tests.helper_functions import get_safe_port
+
     tmp_path = tmp_path_factory.mktemp("server_mod")
     backend_store_uri = f"sqlite:///{tmp_path / 'mlflow.db'!s}"
 
+    port = get_safe_port()
     server_proc = None
     try:
         server_proc = subprocess.Popen(
@@ -36,7 +39,7 @@ def server_url(tmp_path_factory):
                 "-h",
                 "127.0.0.1",
                 "-p",
-                "6677",
+                str(port),
                 "--backend-store-uri",
                 backend_store_uri,
             ],
@@ -47,7 +50,7 @@ def server_url(tmp_path_factory):
             start_new_session=True,  # new session & process group
         )
         time.sleep(10)  # wait for server to spin up
-        yield "http://127.0.0.1:6677"
+        yield f"http://127.0.0.1:{port}"
     finally:
         if server_proc is not None:
             # NOTE that we need to kill subprocesses
