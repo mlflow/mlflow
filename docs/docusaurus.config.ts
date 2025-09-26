@@ -574,13 +574,11 @@ const config: Config = {
             from: [
               '/genai/eval-monitor/scorers/llm-judge/trace-analysis',
               '/genai/eval-monitor/scorers/llm-judge/agent-behavior-patterns',
-            ]
+            ],
           },
           {
             to: '/genai/eval-monitor/datasets',
-            from: [
-              '/genai/eval-monitor/scorers/llm-judge/dataset',
-            ]
+            from: ['/genai/eval-monitor/scorers/llm-judge/dataset'],
           },
           // Prompt Management Redirects
           {
