@@ -2657,7 +2657,7 @@ def test_search_traces(mlflow_client):
 def test_search_traces_parameter_validation(mlflow_client):
     with pytest.raises(
         MlflowException,
-        match="Searching traces by UC schema is only supported by Databricks backend",
+        match="Searching traces by UC schema is not supported on the current tracking server",
     ):
         mlflow_client.search_traces(uc_schemas=["catalog.schema"])
 

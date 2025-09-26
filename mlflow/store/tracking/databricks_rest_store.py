@@ -15,7 +15,7 @@ from mlflow.protos.databricks_tracing_pb2 import (
     TraceIdentifier,
     UCSchemaLocation,
 )
-from mlflow.protos.service_pb2 import MlflowService
+from mlflow.protos.service_pb2 import MlflowService, SearchUnifiedTraces
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
@@ -197,8 +197,8 @@ class DatabricksTracingRestStore(RestStore):
                     )
                     if uc_schemas:
                         raise MlflowException(
-                            "Server does not support searching traces by UC schema. "
-                            "Please use experiment_ids instead.",
+                            "Searching traces by UC schema is not supported on the current "
+                            "tracking server. Please use experiment_ids instead."
                         )
                     # fallback to v3 API
                     return self._search_traces(
@@ -217,10 +217,35 @@ class DatabricksTracingRestStore(RestStore):
         else:
             return self._search_unified_traces(
                 model_id=model_id,
-                sql_warehouse_id=sql_warehouse_id,
                 experiment_ids=experiment_ids,
+                sql_warehouse_id=sql_warehouse_id or MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
                 filter_string=filter_string,
                 max_results=max_results,
                 order_by=order_by,
                 page_token=page_token,
             )
+
+    def _search_unified_traces(
+        self,
+        model_id: str,
+        experiment_ids: list[str],
+        sql_warehouse_id: str | None = None,
+        filter_string: str | None = None,
+        max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+    ) -> tuple[list[TraceInfo], str | None]:
+        request = SearchUnifiedTraces(
+            model_id=model_id,
+            sql_warehouse_id=sql_warehouse_id,
+            experiment_ids=experiment_ids,
+            filter=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
+        req_body = message_to_json(request)
+        response_proto = self._call_endpoint(SearchUnifiedTraces, req_body)
+        # Convert TraceInfo (v2) objects to TraceInfoV3 objects for consistency
+        trace_infos = [TraceInfo.from_proto(t) for t in response_proto.traces]
+        return trace_infos, response_proto.next_page_token or None

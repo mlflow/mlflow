@@ -428,7 +428,7 @@ def test_search_traces_errors():
     with mock.patch("mlflow.utils.rest_utils.http_request", side_effect=mock_http_request):
         with pytest.raises(
             MlflowException,
-            match="Server does not support searching traces by UC schema.",
+            match="Searching traces by UC schema is not supported",
         ):
             store.search_traces(
                 uc_schemas=["catalog.schema"],
@@ -516,3 +516,68 @@ def test_search_traces_fallback_to_v3():
     assert trace_infos[0].tags == {"k": "v"}
     assert trace_infos[0].trace_metadata == {"key": "value", "mlflow.trace_schema.version": "3"}
     assert token == "token"
+
+
+def test_search_unified_traces():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+
+    # Format the response (using TraceInfo format for online path)
+    response.text = json.dumps(
+        {
+            "traces": [
+                {
+                    "request_id": "tr-1234",
+                    "experiment_id": "1234",
+                    "timestamp_ms": 123,
+                    "execution_time_ms": 456,
+                    "status": "OK",
+                    "tags": [
+                        {"key": "k", "value": "v"},
+                    ],
+                    "request_metadata": [
+                        {"key": "key", "value": "value"},
+                    ],
+                }
+            ],
+            "next_page_token": "token",
+        }
+    )
+
+    # Parameters for search_traces
+    experiment_ids = ["1234"]
+    filter_string = "status = 'OK'"
+    max_results = 10
+    order_by = ["timestamp_ms DESC"]
+    page_token = "12345abcde"
+    sql_warehouse_id = "warehouse123"
+    model_id = "model123"
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        trace_infos, token = store.search_traces(
+            experiment_ids=experiment_ids,
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+            sql_warehouse_id=sql_warehouse_id,
+            model_id=model_id,
+        )
+
+        # Verify the correct endpoint was called
+        call_args = mock_http.call_args[1]
+        assert call_args["endpoint"] == "/api/2.0/mlflow/unified-traces"
+
+        # Verify the correct trace info objects were returned
+        assert len(trace_infos) == 1
+        assert isinstance(trace_infos[0], TraceInfo)
+        assert trace_infos[0].trace_id == "tr-1234"
+        assert trace_infos[0].experiment_id == "1234"
+        assert trace_infos[0].request_time == 123
+        # V3's state maps to V2's status
+        assert trace_infos[0].state == TraceStatus.OK.to_state()
+        assert trace_infos[0].tags == {"k": "v"}
+        assert trace_infos[0].trace_metadata == {"key": "value", "mlflow.trace_schema.version": "3"}
+        assert token == "token"
