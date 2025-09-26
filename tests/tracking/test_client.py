@@ -414,6 +414,7 @@ def test_client_search_traces_with_get_traces(mock_store, mock_artifact_repo, in
         page_token=None,
         model_id=None,
         sql_warehouse_id=None,
+        uc_schemas=None,
     )
     assert len(results) == 2
     if include_spans:
@@ -454,17 +455,18 @@ def test_client_search_traces_mixed(mock_store, mock_artifact_repo, include_span
     mock_store.get_traces.return_value = [Trace(info=mock_traces[0], data=TraceData(spans=[]))]
     mock_artifact_repo.download_trace_data.return_value = {}
     results = MlflowClient().search_traces(
-        experiment_ids=["1", "2", "3"], include_spans=include_spans
+        experiment_ids=["1"], include_spans=include_spans, uc_schemas=["catalog.schema"]
     )
 
     mock_store.search_traces.assert_called_once_with(
-        experiment_ids=["1", "2", "3"],
+        experiment_ids=["1"],
         filter_string=None,
         max_results=100,
         order_by=None,
         page_token=None,
         model_id=None,
         sql_warehouse_id=None,
+        uc_schemas=["catalog.schema"],
     )
     assert len(results) == 2
     if include_spans:
