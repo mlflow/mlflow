@@ -7540,6 +7540,7 @@ def test_dataset_associations_and_lazy_loading(store):
 
         assert list(df.columns) == [
             "inputs",
+            "outputs",
             "expectations",
             "tags",
             "source_type",

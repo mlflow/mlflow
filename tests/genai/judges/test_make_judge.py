@@ -2305,7 +2305,9 @@ def test_trace_only_template_uses_two_messages_with_empty_user(mock_invoke_judge
 
     user_msg = prompt[1]
     assert user_msg.role == "user"
-    assert user_msg.content == ""  # Empty user message for trace-only
+    assert (
+        user_msg.content == "Follow the instructions from the first message"
+    )  # Placeholder user message for trace-only
 
 
 def test_no_warning_when_extracting_fields_from_trace(mock_invoke_judge_model):
@@ -2418,4 +2420,32 @@ def test_no_duplicate_output_fields_in_system_message():
     assert trace_system_msg.count("- rationale:") == 1
 
     assert "Please provide your assessment in the following JSON format" not in trace_system_msg
-    assert "You *must* format your evaluation rating as a JSON object" in trace_system_msg
+
+
+def test_instructions_judge_repr():
+    # Test short instructions that fit within display limit
+    short_instructions = "Check {{ outputs }}"
+    judge = make_judge(name="test_judge", instructions=short_instructions, model="openai:/gpt-4")
+
+    repr_str = repr(judge)
+    assert "InstructionsJudge" in repr_str
+    assert "name='test_judge'" in repr_str
+    assert "model='openai:/gpt-4'" in repr_str
+    assert f"instructions='{short_instructions}'" in repr_str
+    assert "template_variables=['outputs']" in repr_str
+
+    # Test long instructions that exceed PROMPT_TEXT_DISPLAY_LIMIT (30 chars)
+    long_instructions = (
+        "This is a very long instruction that will be truncated {{ inputs }} and {{ outputs }}"
+    )
+    judge_long = make_judge(
+        name="long_judge", instructions=long_instructions, model="openai:/gpt-4"
+    )
+
+    repr_long = repr(judge_long)
+    assert "InstructionsJudge" in repr_long
+    assert "name='long_judge'" in repr_long
+    assert "model='openai:/gpt-4'" in repr_long
+    # Should show first 30 characters + "..."
+    assert "instructions='This is a very long instructio..." in repr_long
+    assert "template_variables=['inputs', 'outputs']" in repr_long

@@ -1,3 +1,5 @@
+import pandas as pd
+
 from mlflow.entities.dataset_record import DatasetRecord
 from mlflow.entities.evaluation_dataset import EvaluationDataset
 
@@ -283,3 +285,90 @@ def test_evaluation_dataset_complex_tags():
     data = dataset.to_dict()
     dataset3 = EvaluationDataset.from_dict(data)
     assert dataset3.tags == complex_tags
+
+
+def test_evaluation_dataset_to_df():
+    """Test that to_df method returns a DataFrame with outputs column."""
+    dataset = EvaluationDataset(
+        dataset_id="dataset123",
+        name="test_dataset",
+        digest="digest123",
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+
+    # Test empty dataset
+    df_empty = dataset.to_df()
+    assert isinstance(df_empty, pd.DataFrame)
+    expected_columns = [
+        "inputs",
+        "outputs",
+        "expectations",
+        "tags",
+        "source_type",
+        "source_id",
+        "created_time",
+        "dataset_record_id",
+    ]
+    assert list(df_empty.columns) == expected_columns
+    assert len(df_empty) == 0
+
+    # Test dataset with records
+    dataset._records = [
+        DatasetRecord(
+            dataset_record_id="rec123",
+            dataset_id="dataset123",
+            inputs={"question": "What is MLflow?"},
+            outputs={
+                "answer": "MLflow is an ML platform for managing machine learning lifecycle",
+                "key1": "value1",
+            },
+            expectations={"answer": "MLflow is an ML platform"},
+            tags={"source": "manual"},
+            source_type="HUMAN",
+            source_id="user123",
+            created_time=123456789,
+            last_update_time=123456789,
+        ),
+        DatasetRecord(
+            dataset_record_id="rec456",
+            dataset_id="dataset123",
+            inputs={"question": "What is Spark?"},
+            outputs={"answer": "Apache Spark is a unified analytics engine for data processing"},
+            expectations={"answer": "Spark is a data engine"},
+            tags={"source": "automated"},
+            source_type="CODE",
+            source_id="script456",
+            created_time=123456790,
+            last_update_time=123456790,
+        ),
+    ]
+
+    df = dataset.to_df()
+    assert isinstance(df, pd.DataFrame)
+    assert list(df.columns) == expected_columns
+    assert len(df) == 2
+
+    # Check that outputs column exists and contains actual values
+    assert "outputs" in df.columns
+    assert df["outputs"].iloc[0] == {
+        "answer": "MLflow is an ML platform for managing machine learning lifecycle",
+        "key1": "value1",
+    }
+    assert df["outputs"].iloc[1] == {
+        "answer": "Apache Spark is a unified analytics engine for data processing"
+    }
+
+    # Check other columns have expected values
+    assert df["inputs"].iloc[0] == {"question": "What is MLflow?"}
+    assert df["inputs"].iloc[1] == {"question": "What is Spark?"}
+    assert df["expectations"].iloc[0] == {"answer": "MLflow is an ML platform"}
+    assert df["expectations"].iloc[1] == {"answer": "Spark is a data engine"}
+    assert df["tags"].iloc[0] == {"source": "manual"}
+    assert df["tags"].iloc[1] == {"source": "automated"}
+    assert df["source_type"].iloc[0] == "HUMAN"
+    assert df["source_type"].iloc[1] == "CODE"
+    assert df["source_id"].iloc[0] == "user123"
+    assert df["source_id"].iloc[1] == "script456"
+    assert df["dataset_record_id"].iloc[0] == "rec123"
+    assert df["dataset_record_id"].iloc[1] == "rec456"
