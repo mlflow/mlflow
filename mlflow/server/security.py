@@ -1,11 +1,3 @@
-"""
-Flask security middleware for MLflow server.
-
-This module provides security middleware for Flask applications to prevent
-common web vulnerabilities. For FastAPI applications, use fastapi_security.py
-which leverages native Starlette middleware.
-"""
-
 import logging
 from http import HTTPStatus
 
@@ -21,9 +13,9 @@ from mlflow.server.security_utils import (
     get_allowed_hosts_from_env,
     get_allowed_origins_from_env,
     get_default_allowed_hosts,
+    is_allowed_host_header,
     is_api_endpoint,
     should_block_cors_request,
-    validate_host_header,
 )
 
 _logger = logging.getLogger(__name__)
@@ -52,10 +44,6 @@ def init_security_middleware(app: Flask) -> None:
         app: Flask application instance.
     """
     if MLFLOW_DISABLE_SECURITY_MIDDLEWARE.get() == "true":
-        _logger.warning(
-            "Security middleware is DISABLED. "
-            "This may leave the server vulnerable to various attacks."
-        )
         return
 
     allowed_origins = get_allowed_origins()
@@ -63,15 +51,9 @@ def init_security_middleware(app: Flask) -> None:
     x_frame_options = MLFLOW_X_FRAME_OPTIONS.get()
 
     if allowed_origins and "*" in allowed_origins:
-        _logger.warning(
-            "Running MLflow server with CORS allowing ALL origins. "
-            "This should only be used for development!"
-        )
         CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
     else:
         cors_origins = (allowed_origins or []) + LOCALHOST_ORIGIN_PATTERNS
-        origins_display = allowed_origins[:5] if allowed_origins else ["localhost (any port)"]
-        _logger.info(f"CORS configured with origins: {origins_display}...")
         CORS(
             app,
             resources={r"/*": {"origins": cors_origins}},
@@ -80,25 +62,18 @@ def init_security_middleware(app: Flask) -> None:
         )
 
     if allowed_hosts and "*" not in allowed_hosts:
-        _logger.info(f"Host validation enabled with hosts: {allowed_hosts[:5]}...")
 
         @app.before_request
         def validate_host():
             if request.path in HEALTH_ENDPOINTS:
                 return None
 
-            if not validate_host_header(allowed_hosts, host := request.headers.get("Host")):
+            if not is_allowed_host_header(allowed_hosts, host := request.headers.get("Host")):
                 _logger.warning(f"Rejected request with invalid Host header: {host}")
                 return Response(
                     INVALID_HOST_MSG, status=HTTPStatus.FORBIDDEN, mimetype="text/plain"
                 )
             return None
-    else:
-        if "*" in allowed_hosts:
-            _logger.warning(
-                "Host header validation accepts ALL hosts. "
-                "This may leave the server vulnerable to DNS rebinding attacks."
-            )
 
     if not (allowed_origins and "*" in allowed_origins):
 
@@ -131,5 +106,3 @@ def init_security_middleware(app: Flask) -> None:
             response.data = b""
 
         return response
-
-    _logger.info("Flask security middleware initialized successfully")

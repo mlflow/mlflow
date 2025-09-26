@@ -28,7 +28,7 @@ TEST_ENDPOINTS = ["/test", "/api/test"]
 
 # Localhost addresses
 LOCALHOST_VARIANTS = ["localhost", "127.0.0.1", "[::1]", "0.0.0.0"]
-CORS_LOCALHOST_HOSTS = ["localhost", "127.0.0.1", "[::1]"]  # Exclude 0.0.0.0 for CORS
+CORS_LOCALHOST_HOSTS = ["localhost", "127.0.0.1", "[::1]", "::1"]  # Exclude 0.0.0.0 for CORS
 
 # Private IP range start values for 172.16.0.0/12
 PRIVATE_172_RANGE_START = 16
@@ -94,7 +94,7 @@ def is_localhost_origin(origin: str) -> bool:
     try:
         parsed = urlparse(origin)
         hostname = parsed.hostname
-        return hostname in CORS_LOCALHOST_HOSTS or hostname == "::1"
+        return hostname in CORS_LOCALHOST_HOSTS
     except Exception:
         return False
 
@@ -122,7 +122,7 @@ def is_api_endpoint(path: str) -> bool:
     return path.startswith(API_PATH_PREFIX) and path not in TEST_ENDPOINTS
 
 
-def validate_host_header(allowed_hosts: list[str], host: str) -> bool:
+def is_allowed_host_header(allowed_hosts: list[str], host: str) -> bool:
     """Validate if the host header matches allowed patterns."""
     if not host:
         return False

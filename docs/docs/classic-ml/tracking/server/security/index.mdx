@@ -2,200 +2,91 @@
 sidebar_label: Server Security
 ---
 
-import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
-import { APILink } from "@site/src/components/APILink";
-import TabsWrapper from '@site/src/components/TabsWrapper';
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
-import ConceptOverview from "@site/src/components/ConceptOverview";
-import { Shield, Lock, Globe, Monitor, Settings, AlertTriangle, BookOpen, Wrench } from "lucide-react";
+import { Shield, Settings, Monitor, Wrench } from "lucide-react";
 
 # MLflow Tracking Server Security
 
-## Protect Your ML Infrastructure with Built-in Security Features
+MLflow 3.5.0+ includes security middleware to protect against DNS rebinding, CORS attacks, and clickjacking.
 
-MLflow 3.5.0+ includes comprehensive security middleware to protect your tracking server against common web vulnerabilities. These features work automatically for localhost development while providing full configurability for production deployments.
+## Quick Start
 
-:::important Version Requirement
-Security middleware features require **MLflow 3.5.0 or later**. Earlier versions do not include these protections.
-:::
-
-## Quick Start: Secure Your Server
-
-Getting started with MLflow server security is straightforward. The default configuration provides strong security for local development, while production deployments can be configured with just a few environment variables or command-line options. Choose the configuration below that matches your deployment scenario:
-
-<TabsWrapper>
-<Tabs>
-<TabItem value="development" label="Local Development" default>
+Configure security based on your deployment scenario:
 
 ```bash
-# Development is secure by default - just run:
+# Local development (secure by default)
 mlflow server
 
-# Server automatically:
-# ✅ Accepts localhost connections only
-# ✅ Allows CORS from any localhost origin
-# ✅ Protects against DNS rebinding attacks
-```
-
-</TabItem>
-<TabItem value="team" label="Team Server">
-
-```bash
-# Configure for internal team access
+# Team server
 mlflow server --host 0.0.0.0 \
   --allowed-hosts "mlflow.internal:5000" \
-  --cors-allowed-origins "https://notebook.internal,https://dashboard.internal"
-```
+  --cors-allowed-origins "https://notebook.internal"
 
-</TabItem>
-<TabItem value="production" label="Production">
-
-```bash
-# Production with specific allowed applications
+# Production
 export MLFLOW_ALLOWED_HOSTS="mlflow.company.com"
-export MLFLOW_CORS_ALLOWED_ORIGINS="https://app.company.com,https://jupyter.company.com"
-export MLFLOW_X_FRAME_OPTIONS="SAMEORIGIN"
-
-mlflow server --host 127.0.0.1  # Behind reverse proxy
+export MLFLOW_CORS_ALLOWED_ORIGINS="https://app.company.com"
+mlflow server --host 127.0.0.1
 ```
 
-</TabItem>
-</Tabs>
-</TabsWrapper>
+## Security Features
 
-## Security Features Overview
+The tracking server includes these built-in protections:
 
-MLflow's security middleware provides multiple layers of protection against common web vulnerabilities. These features work together to create a comprehensive security framework that adapts to your deployment needs. Each protection mechanism is designed to be non-intrusive for legitimate users while effectively blocking potential attacks:
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+  <div className="border rounded-lg p-4">
+    <Shield className="w-8 h-8 mb-2 text-blue-600" />
+    <h3 className="font-semibold mb-2">DNS Rebinding Protection</h3>
+    <p className="text-sm text-gray-600">Validates Host headers to prevent attacks on internal services</p>
+  </div>
+  <div className="border rounded-lg p-4">
+    <Shield className="w-8 h-8 mb-2 text-blue-600" />
+    <h3 className="font-semibold mb-2">CORS Protection</h3>
+    <p className="text-sm text-gray-600">Controls which web apps can access your MLflow API</p>
+  </div>
+  <div className="border rounded-lg p-4">
+    <Shield className="w-8 h-8 mb-2 text-blue-600" />
+    <h3 className="font-semibold mb-2">Clickjacking Prevention</h3>
+    <p className="text-sm text-gray-600">X-Frame-Options header controls iframe embedding</p>
+  </div>
+  <div className="border rounded-lg p-4">
+    <Shield className="w-8 h-8 mb-2 text-blue-600" />
+    <h3 className="font-semibold mb-2">Security Headers</h3>
+    <p className="text-sm text-gray-600">Automatic headers prevent MIME sniffing and XSS</p>
+  </div>
+</div>
 
-<ConceptOverview concepts={[
-  {
-    icon: Shield,
-    title: "DNS Rebinding Protection",
-    description: "Validates Host headers to prevent attackers from tricking browsers into accessing internal services. Automatically allows private IP ranges while blocking external threats."
-  },
-  {
-    icon: Globe,
-    title: "CORS Protection",
-    description: "Controls which web applications can access your MLflow API. Prevents unauthorized websites from making requests on behalf of users."
-  },
-  {
-    icon: Monitor,
-    title: "iframe Embedding Control",
-    description: "Manages X-Frame-Options to control where your MLflow UI can be embedded. Essential for notebooks and dashboards while preventing clickjacking."
-  },
-  {
-    icon: Lock,
-    title: "Security Headers",
-    description: "Automatically adds X-Content-Type-Options and other headers to prevent common attacks like MIME sniffing and XSS."
-  }
-]} />
+## Documentation
 
-## Documentation Sections
-
-Explore our comprehensive security documentation organized by topic. Each guide provides detailed information, practical examples, and best practices for securing your MLflow deployment. Whether you're configuring your first server or optimizing a production deployment, these resources will help you implement robust security:
+Learn how to configure and use security features:
 
 <TilesGrid>
   <TileCard
     icon={Settings}
     iconSize={48}
-    title="Configuration Guide"
-    description="Learn how to configure security settings for different deployment scenarios"
+    title="Configuration"
+    description="Configure security settings"
     href="/ml/tracking/server/security/configuration"
-    linkText="Configure security →"
+    linkText="Configure →"
     containerHeight={64}
   />
   <TileCard
     icon={Monitor}
     iconSize={48}
-    title="UI Access & Notebooks"
-    description="Enable remote access, iframe embedding, and Jupyter notebook integration"
+    title="UI Access"
+    description="Enable remote access and iframe embedding"
     href="/ml/tracking/server/security/ui-access"
-    linkText="Setup UI access →"
-    containerHeight={64}
-  />
-  <TileCard
-    icon={Wrench}
-    iconSize={48}
-    title="Troubleshooting"
-    description="Debug common issues like 403 errors, CORS problems, and access failures"
-    href="/ml/tracking/server/security/troubleshooting"
-    linkText="Fix issues →"
-    containerHeight={64}
-  />
-  <TileCard
-    icon={BookOpen}
-    iconSize={48}
-    title="Best Practices"
-    description="Security recommendations and production deployment guidelines"
-    href="/ml/tracking/server/security/best-practices"
-    linkText="Learn best practices →"
+    linkText="Setup access →"
     containerHeight={64}
   />
 </TilesGrid>
 
-## Common Use Cases
+## Default Behavior
 
-### Remote Python SDK Access
+Security defaults are designed to be safe for local development while requiring explicit configuration for production:
 
-```python
-import mlflow
-
-# Connect to remote MLflow server
-mlflow.set_tracking_uri("http://mlflow.company.com:5000")
-
-# SDK automatically handles Host headers
-with mlflow.start_run():
-    mlflow.log_param("alpha", 0.5)
-    mlflow.log_metric("rmse", 0.1)
-```
-
-The Python SDK works seamlessly with security features - no special configuration needed for SDK-only access.
-
-### Jupyter Notebook Integration
-
-MLflow traces automatically display as embedded iframes in notebooks:
-
-```python
-import mlflow
-
-mlflow.set_tracking_uri("http://mlflow.company.com:5000")
-
-# This will display an interactive UI in the notebook
-trace = mlflow.get_trace("your-trace-id")
-```
-
-For cross-origin notebooks, see the [UI Access Guide](/ml/tracking/server/security/ui-access).
-
-### Dashboard Embedding
-
-```html
-<!-- Embed MLflow UI in your dashboard -->
-<iframe src="http://mlflow.internal:5000"
-        style="width: 100%; height: 800px;">
-</iframe>
-```
-
-Requires proper [X-Frame-Options configuration](/ml/tracking/server/security/configuration#iframe-embedding-configuration).
-
-## Security at a Glance
-
-| Feature              | Default (Localhost)           | Production Recommendation    |
-| -------------------- | ----------------------------- | ---------------------------- |
-| **Host Validation**  | Allows localhost, private IPs | Configure specific domains   |
-| **CORS Origins**     | Any localhost origin          | Explicit application origins |
-| **iframe Embedding** | SAMEORIGIN                    | SAMEORIGIN or CSP headers    |
-| **Security Headers** | Always enabled                | Keep enabled                 |
-
-## Need Help?
-
-- **Getting 403 errors?** Check the [Troubleshooting Guide](/ml/tracking/server/security/troubleshooting)
-- **Setting up production?** Follow [Best Practices](/ml/tracking/server/security/best-practices)
-- **Embedding in apps?** See [UI Access Guide](/ml/tracking/server/security/ui-access)
-
-## Additional Resources
-
-- [DNS Rebinding Attacks Explained](https://en.wikipedia.org/wiki/DNS_rebinding)
-- [MDN on CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)
-- [OWASP Security Headers](https://owasp.org/www-project-secure-headers/)
+| Feature              | Default                 | Production                   |
+| -------------------- | ----------------------- | ---------------------------- |
+| **Host Validation**  | Localhost + private IPs | Configure specific domains   |
+| **CORS Origins**     | Any localhost origin    | Specific application origins |
+| **iframe Embedding** | SAMEORIGIN              | SAMEORIGIN or CSP            |

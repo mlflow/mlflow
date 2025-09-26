@@ -2,9 +2,11 @@ import os
 from unittest import mock
 
 import pytest
+from flask import Flask
 from werkzeug.test import Client
 
 from mlflow.server import security
+from mlflow.server.security_utils import is_allowed_host_header
 
 
 def test_default_allowed_hosts():
@@ -70,14 +72,12 @@ def test_cors_protection(test_app, method, origin, expected_cors_header):
 
 
 def test_insecure_cors_mode(test_app):
-    # Test the new wildcard approach
     with mock.patch.dict(os.environ, {"MLFLOW_CORS_ALLOWED_ORIGINS": "*"}):
         security.init_security_middleware(test_app)
         client = Client(test_app)
 
         response = client.post("/api/test", headers={"Origin": "http://evil.com"})
         assert response.status_code == 200
-        # With wildcard origins, Flask-CORS returns the requested origin
         assert response.headers.get("Access-Control-Allow-Origin") == "http://evil.com"
 
 
@@ -93,7 +93,6 @@ def test_preflight_options_request(test_app, origin, expected_cors_header):
         security.init_security_middleware(test_app)
         client = Client(test_app)
 
-        # For preflight, we need to send proper CORS preflight headers
         response = client.options(
             "/api/test",
             headers={
@@ -118,26 +117,19 @@ def test_security_headers(test_app):
 
 
 def test_disable_security_middleware(test_app):
-    """Test that security middleware can be completely disabled."""
     with mock.patch.dict(os.environ, {"MLFLOW_DISABLE_SECURITY_MIDDLEWARE": "true"}):
         security.init_security_middleware(test_app)
         client = Client(test_app)
 
-        # Security headers should not be added
         response = client.get("/test")
         assert "X-Content-Type-Options" not in response.headers
         assert "X-Frame-Options" not in response.headers
 
-        # Host validation should not occur
         response = client.get("/test", headers={"Host": "evil.com"})
         assert response.status_code == 200
 
 
 def test_x_frame_options_configuration():
-    """Test X-Frame-Options configuration."""
-    from flask import Flask
-
-    # Test with DENY
     app = Flask(__name__)
 
     @app.route("/test")
@@ -150,7 +142,6 @@ def test_x_frame_options_configuration():
         response = client.get("/test")
         assert response.headers.get("X-Frame-Options") == "DENY"
 
-    # Test with NONE (disabled)
     app2 = Flask(__name__)
 
     @app2.route("/test")
@@ -170,7 +161,6 @@ def test_wildcard_hosts(test_app):
         security.init_security_middleware(test_app)
         client = Client(test_app)
 
-        # Any host should be allowed
         response = client.get("/test", headers={"Host": "any.domain.com"})
         assert response.status_code == 200
 
@@ -207,7 +197,7 @@ def test_endpoint_security_bypass(test_app, endpoint, host_header, expected_stat
 )
 def test_host_validation(hostname, expected_valid):
     hosts = security.get_allowed_hosts()
-    assert security.validate_host_header(hosts, hostname) == expected_valid
+    assert is_allowed_host_header(hosts, hostname) == expected_valid
 
 
 @pytest.mark.parametrize(

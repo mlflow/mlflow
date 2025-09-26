@@ -2,17 +2,11 @@
 sidebar_label: UI Access & Notebooks
 ---
 
-import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
-import TabsWrapper from '@site/src/components/TabsWrapper';
-
 # UI Access & Notebook Integration
-
-This guide covers how to enable remote UI access, embed MLflow in applications, and integrate with Jupyter notebooks.
 
 ## Remote SDK Access
 
-The MLflow Python SDK connects seamlessly to remote tracking servers without special security configuration:
+The MLflow Python SDK connects to remote tracking servers without special configuration:
 
 ```python
 import mlflow
@@ -20,348 +14,68 @@ import mlflow
 # Connect to remote server
 mlflow.set_tracking_uri("http://mlflow.company.com:5000")
 
-# SDK automatically handles Host headers
 with mlflow.start_run():
     mlflow.log_param("alpha", 0.5)
     mlflow.log_metric("rmse", 0.1)
 ```
 
-### Key Points About SDK Access
-
-1. **No CORS configuration needed**: The SDK doesn't use a browser
-2. **Host header handled automatically**: The SDK sets the correct Host header
-3. **No iframe configuration needed**: The SDK doesn't embed UI components
-4. **Works through firewalls**: Standard HTTP/HTTPS traffic
-
-### SDK Connection Examples
-
-The following examples demonstrate different ways to connect the MLflow Python SDK to a remote tracking server. Each scenario addresses specific networking or authentication requirements you might encounter in your deployment:
-
-<TabsWrapper>
-<Tabs>
-<TabItem value="basic" label="Basic Connection" default>
-
-```python
-import mlflow
-
-# Connect to MLflow server
-mlflow.set_tracking_uri("http://192.168.1.100:5000")
-
-# All tracking calls now go to the remote server
-experiment = mlflow.set_experiment("my-experiment")
-```
-
-</TabItem>
-<TabItem value="auth" label="With Authentication">
-
-```python
-import mlflow
-from mlflow import MlflowClient
-
-# If using MLflow authentication
-mlflow.set_tracking_uri("https://mlflow.company.com")
-
-# Create client with credentials
-client = MlflowClient(
-    tracking_uri="https://mlflow.company.com",
-    # Credentials handled via environment variables:
-    # MLFLOW_TRACKING_USERNAME
-    # MLFLOW_TRACKING_PASSWORD
-)
-```
-
-</TabItem>
-<TabItem value="proxy" label="Behind Proxy">
-
-```python
-import os
-import mlflow
-
-# Configure proxy if needed
-os.environ["HTTP_PROXY"] = "http://proxy.company.com:8080"
-os.environ["HTTPS_PROXY"] = "http://proxy.company.com:8080"
-
-# Connect through proxy
-mlflow.set_tracking_uri("https://mlflow.company.com")
-```
-
-</TabItem>
-</Tabs>
-</TabsWrapper>
-
 ## Jupyter Notebook Integration
 
-### Automatic Trace Display
+Jupyter notebooks can embed MLflow UI components using iframes.
 
-MLflow traces automatically display as embedded iframes in Jupyter notebooks when using a tracking server:
+### Cross-Origin Notebooks
 
-```python
-import mlflow
-
-# Set tracking URI to remote server
-mlflow.set_tracking_uri("http://mlflow.company.com:5000")
-
-# Traces will automatically display as iframes in notebook cells
-trace = mlflow.get_trace("your-trace-id")
-# This displays an embedded iframe from the tracking server
-```
-
-### Configuration for Notebooks
-
-Jupyter notebooks require specific configuration depending on whether they're running on the same domain as your MLflow server or on a different domain. The configuration determines whether the interactive trace display will work properly. Here are the configurations for common notebook deployment scenarios:
-
-<TabsWrapper>
-<Tabs>
-<TabItem value="same-origin" label="Same Origin" default>
-
-If your notebook and MLflow server are on the same domain:
-
-```bash
-# No special configuration needed
-mlflow server --host 0.0.0.0
-```
-
-The default `X-Frame-Options: SAMEORIGIN` allows embedding.
-
-</TabItem>
-<TabItem value="cross-origin" label="Cross-Origin Notebooks">
-
-For notebooks on different domains (e.g., JupyterHub):
+When notebooks run on a different domain than your MLflow server, configure CORS and frame options:
 
 ```bash
 # Allow embedding from notebook domain
-export MLFLOW_X_FRAME_OPTIONS="NONE"
-export MLFLOW_CORS_ALLOWED_ORIGINS="https://jupyter.company.com"
-mlflow server --host 0.0.0.0
+mlflow server --host 0.0.0.0 \
+  --x-frame-options NONE \
+  --cors-allowed-origins "https://jupyter.company.com"
 ```
-
-</TabItem>
-<TabItem value="cloud" label="Cloud Notebooks">
-
-For cloud-hosted notebooks (Colab, Databricks, SageMaker):
-
-```bash
-# Allow embedding from cloud providers
-export MLFLOW_X_FRAME_OPTIONS="NONE"
-export MLFLOW_CORS_ALLOWED_ORIGINS="https://*.notebooks.azure.com,https://*.databricks.com"
-mlflow server --host 0.0.0.0
-```
-
-</TabItem>
-</Tabs>
-</TabsWrapper>
 
 ### Manual iframe Embedding
 
-You can also manually embed the MLflow UI in notebooks:
+Embed specific MLflow views directly in notebook cells:
 
 ```python
 from IPython.display import IFrame
 
-# Embed entire MLflow UI
+# Embed MLflow UI
 IFrame(src="http://mlflow.company.com:5000", width=1000, height=600)
-
-# Embed specific experiment
-IFrame(src="http://mlflow.company.com:5000/experiments/1", width=1000, height=600)
-
-# Embed specific run
-IFrame(src="http://mlflow.company.com:5000/runs/abc123", width=1000, height=600)
 ```
 
 ## Embedding in Web Applications
 
-### React Applications
+Web applications can embed the MLflow UI using iframes.
 
-Embedding MLflow UI in React applications requires proper CORS and X-Frame-Options configuration. The following examples show how to integrate MLflow into your React components, from simple static embedding to dynamic, interactive integrations:
+### React Application
 
-<TabsWrapper>
-<Tabs>
-<TabItem value="component" label="React Component" default>
+Create a component to display MLflow content:
 
 ```jsx
 function MLflowDashboard() {
   return (
-    <div className="mlflow-container">
-      <h2>Model Performance Dashboard</h2>
-      <iframe
-        src="http://mlflow.company.com:5000/experiments/1"
-        style={{
-          width: '100%',
-          height: '800px',
-          border: '1px solid #ddd',
-          borderRadius: '4px'
-        }}
-        title="MLflow Experiment Tracking"
-      />
-    </div>
+    <iframe
+      src="http://mlflow.company.com:5000/experiments/1"
+      style={{ width: '100%', height: '800px' }}
+      title="MLflow"
+    />
   );
 }
 ```
 
-</TabItem>
-<TabItem value="config" label="Server Configuration">
+Configure the MLflow server to accept requests from your React app:
 
 ```bash
-# Configure MLflow to accept the React app
-export MLFLOW_X_FRAME_OPTIONS="NONE"
-export MLFLOW_CORS_ALLOWED_ORIGINS="http://localhost:3000,https://app.company.com"
-mlflow server --host 0.0.0.0
+mlflow server --host 0.0.0.0 \
+  --x-frame-options NONE \
+  --cors-allowed-origins "http://localhost:3000,https://app.company.com"
 ```
-
-</TabItem>
-<TabItem value="advanced" label="Advanced Integration">
-
-```jsx
-import { useState, useEffect } from 'react';
-
-function MLflowIntegration() {
-  const [experimentId, setExperimentId] = useState('1');
-  const mlflowUrl = process.env.REACT_APP_MLFLOW_URL || 'http://localhost:5000';
-
-  // Dynamic iframe URL based on user selection
-  const iframeSrc = `${mlflowUrl}/experiments/${experimentId}`;
-
-  return (
-    <div>
-      <select onChange={(e) => setExperimentId(e.target.value)}>
-        <option value="1">Experiment 1</option>
-        <option value="2">Experiment 2</option>
-      </select>
-
-      <iframe
-        key={experimentId}  // Force reload on change
-        src={iframeSrc}
-        style={{ width: '100%', height: '600px' }}
-        title="MLflow Tracking"
-      />
-    </div>
-  );
-}
-```
-
-</TabItem>
-</Tabs>
-</TabsWrapper>
-
-### Internal Dashboards
-
-Internal dashboards often need to embed multiple MLflow views to provide comprehensive monitoring. These configurations show how to set up MLflow for embedding in internal tools while maintaining security. The examples cover both simple HTML dashboards and more complex monitoring solutions:
-
-<TabsWrapper>
-<Tabs>
-<TabItem value="html" label="HTML Dashboard" default>
-
-```html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>ML Operations Dashboard</title>
-    <style>
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            padding: 20px;
-        }
-        .mlflow-frame {
-            width: 100%;
-            height: 500px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-        }
-    </style>
-</head>
-<body>
-    <h1>ML Operations Dashboard</h1>
-    <div class="dashboard-grid">
-        <div>
-            <h2>Production Models</h2>
-            <iframe
-                src="http://mlflow.internal:5000/models"
-                class="mlflow-frame">
-            </iframe>
-        </div>
-        <div>
-            <h2>Recent Experiments</h2>
-            <iframe
-                src="http://mlflow.internal:5000/experiments"
-                class="mlflow-frame">
-            </iframe>
-        </div>
-    </div>
-</body>
-</html>
-```
-
-</TabItem>
-<TabItem value="config" label="Server Configuration">
-
-```bash
-# Allow embedding in internal tools
-export MLFLOW_X_FRAME_OPTIONS="NONE"
-export MLFLOW_ALLOWED_HOSTS="mlflow.internal:5000"
-export MLFLOW_CORS_ALLOWED_ORIGINS="https://*.internal.company.com"
-mlflow server --host 0.0.0.0
-```
-
-</TabItem>
-</Tabs>
-</TabsWrapper>
-
-## Security Considerations for iframe Embedding
-
-### Best Practices
-
-1. **Never use `X-Frame-Options: NONE` on public servers** without additional protections
-2. **Use Content-Security-Policy** for fine-grained control when possible
-3. **Limit CORS origins** even when allowing iframe embedding
-4. **Monitor access logs** for unexpected embedding sources
-5. **Use HTTPS** in production to prevent man-in-the-middle attacks
-
-### Using CSP Instead of X-Frame-Options
-
-Content-Security-Policy provides more granular control over iframe embedding than X-Frame-Options. When you need to allow specific domains while blocking others, CSP offers the flexibility you need. Here's how to configure CSP headers with popular reverse proxies:
-
-<TabsWrapper>
-<Tabs>
-<TabItem value="nginx" label="nginx" default>
-
-```nginx
-location / {
-    proxy_pass http://localhost:5000;
-
-    # Remove MLflow's X-Frame-Options
-    proxy_hide_header X-Frame-Options;
-
-    # Use CSP for specific control
-    add_header Content-Security-Policy "frame-ancestors https://app.company.com https://dashboard.company.com";
-}
-```
-
-</TabItem>
-<TabItem value="apache" label="Apache">
-
-```apache
-ProxyPass / http://localhost:5000/
-ProxyPassReverse / http://localhost:5000/
-
-# Remove MLflow's header
-Header always unset X-Frame-Options
-
-# Add CSP
-Header always set Content-Security-Policy "frame-ancestors https://app.company.com https://dashboard.company.com"
-```
-
-</TabItem>
-</Tabs>
-</TabsWrapper>
 
 ## Testing iframe Embedding
 
-### Quick Test Page
-
-Create this HTML file to test your iframe configuration:
+Use this HTML file to verify iframe configuration works correctly:
 
 ```html
 <!DOCTYPE html>
@@ -371,73 +85,13 @@ Create this HTML file to test your iframe configuration:
 </head>
 <body>
     <h1>MLflow Embedding Test</h1>
-
-    <div id="status">Loading...</div>
-
     <iframe
-        id="mlflow-frame"
         src="http://localhost:5000"
         style="width: 100%; height: 600px; border: 1px solid #ccc;"
-        onload="document.getElementById('status').innerHTML = '✅ iframe loaded successfully'"
-        onerror="document.getElementById('status').innerHTML = '❌ iframe failed to load'">
+        onload="document.getElementById('status').innerHTML = '✅ Loaded'"
+        onerror="document.getElementById('status').innerHTML = '❌ Failed'">
     </iframe>
-
-    <script>
-        // Check for console errors
-        window.addEventListener('message', function(e) {
-            console.log('Message from iframe:', e.data);
-        });
-    </script>
+    <div id="status">Loading...</div>
 </body>
 </html>
 ```
-
-Save as `test-iframe.html` and open in your browser. Check:
-
-1. Browser console for errors
-2. Network tab for failed requests
-3. Response headers for X-Frame-Options
-
-## Common Issues and Solutions
-
-### Trace Display Not Working
-
-**Problem**: Traces show as text instead of interactive UI
-
-**Solution**: Ensure you're using a tracking server:
-
-```python
-import mlflow
-from mlflow.utils.uri import is_http_uri
-
-# Verify using tracking server
-print(f"Using tracking server: {is_http_uri(mlflow.get_tracking_uri())}")
-```
-
-### CORS Errors in Browser Console
-
-**Problem**: "Access blocked by CORS policy"
-
-**Solution**: Add your application's origin:
-
-```bash
-export MLFLOW_CORS_ALLOWED_ORIGINS="https://your-app.com"
-```
-
-### iframe Shows Blank
-
-**Problem**: iframe appears but is empty
-
-**Common causes**:
-
-1. HTTPS page embedding HTTP iframe (mixed content)
-2. X-Frame-Options blocking
-3. CSP policy blocking
-
-**Solution**: Check browser console and adjust configuration accordingly.
-
-## Next Steps
-
-- [Troubleshoot Common Issues](/ml/tracking/server/security/troubleshooting)
-- [Security Best Practices](/ml/tracking/server/security/best-practices)
-- [Configuration Reference](/ml/tracking/server/security/configuration)

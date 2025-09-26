@@ -446,77 +446,8 @@ def server(
     to pass ``--host 0.0.0.0`` to listen on all network interfaces
     (or a specific interface address).
 
-    **Security Features (Available in MLflow 3.5.0+):**
-
-    Starting with MLflow 3.5.0, the server includes security middleware that protects against:
-    - DNS rebinding attacks
-    - Cross-Origin Resource Sharing (CORS) attacks
-    - Host header injection
-    - Clickjacking
-
-    **Security Configuration via Environment Variables:**
-
-    - ``MLFLOW_CORS_ALLOWED_ORIGINS``: Comma-separated list of allowed CORS origins
-      (e.g., "https://app1.com,https://app2.com"). Default: localhost ports (3000, 5000, 8000,
-      8080).
-
-    - ``MLFLOW_ALLOWED_HOSTS``: Comma-separated list of allowed Host headers
-      (e.g., "mlflow.company.com,mlflow.internal:5000"). Use "*" to allow all hosts.
-      Default: localhost and private IP ranges (192.168.*, 10.*, 172.16-31.*) for internal
-      network access.
-
-    - ``MLFLOW_X_FRAME_OPTIONS``: X-Frame-Options header value. Options: "SAMEORIGIN" (default),
-      "DENY", or "NONE" (disable). Set to "NONE" to allow embedding in iframes from different
-      origins.
-
-    - ``MLFLOW_DISABLE_SECURITY_MIDDLEWARE``: Set to "true" to disable all security middleware
-      (DANGEROUS - testing only!). Default: "false".
-
-    **Example Configurations:**
-
-    1. Basic localhost development (default - no configuration needed)::
-
-        mlflow server
-
-    2. Production server with specific allowed origins::
-
-        export MLFLOW_CORS_ALLOWED_ORIGINS="https://app.company.com,https://dashboard.company.com"
-        export MLFLOW_ALLOWED_HOSTS="mlflow.company.com"
-        mlflow server --host 0.0.0.0
-
-    3. Development with all origins allowed (WARNING: Never use in production!)::
-
-        export MLFLOW_CORS_ALLOWED_ORIGINS="*"
-        mlflow server --host 0.0.0.0
-
-    4. Allow embedding in iframes from different origins::
-
-        export MLFLOW_X_FRAME_OPTIONS="NONE"
-        mlflow server --host 0.0.0.0
-
-    5. Disable security if using external reverse proxy with its own security::
-
-        export MLFLOW_DISABLE_SECURITY_MIDDLEWARE="true"
-        mlflow server --host 127.0.0.1
-
-    **Security Best Practices:**
-
-    1. Always use HTTPS in production (configure via reverse proxy like nginx/Apache)
-    2. Explicitly whitelist trusted origins via MLFLOW_CORS_ALLOWED_ORIGINS
-    3. Use specific host names in MLFLOW_ALLOWED_HOSTS
-    4. Keep security middleware enabled unless you have alternative protections
-    5. Never use wildcard "*" for origins or hosts in production
-
-    **Troubleshooting Access Issues:**
-
-    If clients cannot access your MLflow server:
-
-    1. Check Host header: Ensure the client's Host header matches MLFLOW_ALLOWED_HOSTS
-    2. Check Origin header: For web apps, ensure origin is in MLFLOW_CORS_ALLOWED_ORIGINS
-    3. For 403 "Invalid Host header" errors: Add the host to MLFLOW_ALLOWED_HOSTS
-    4. For 403 "Cross-origin request blocked" errors: Add origin to MLFLOW_CORS_ALLOWED_ORIGINS
-
-    See https://mlflow.org/docs/latest/tracking/server-security.html for detailed documentation.
+    See https://mlflow.org/docs/latest/tracking/server-security.html for detailed documentation
+    and guidance on security configurations for the MLflow tracking server.
     """
     from mlflow.server import _run_server
     from mlflow.server.handlers import initialize_backend_stores
@@ -547,48 +478,28 @@ def server(
         uvicorn_opts=uvicorn_opts,
     )
 
-    # Set security environment variables if provided via CLI
-    # These will override any existing env vars since click's envvar processing happens first
-    # Note: os is already imported at the top of the file
-
-    # Configure security settings
     if disable_security_middleware:
         os.environ["MLFLOW_DISABLE_SECURITY_MIDDLEWARE"] = "true"
-        _logger.warning(
-            "WARNING: Security middleware is DISABLED. "
-            "Your MLflow server is vulnerable to various attacks."
-        )
     else:
         if allowed_hosts:
             os.environ["MLFLOW_ALLOWED_HOSTS"] = allowed_hosts
             if allowed_hosts == "*":
-                _logger.warning(
+                click.echo(
                     "WARNING: Accepting ALL hosts. "
                     "This may leave the server vulnerable to DNS rebinding attacks."
                 )
-            else:
-                _logger.info(f"Host validation configured with: {allowed_hosts}")
 
         if cors_allowed_origins:
             os.environ["MLFLOW_CORS_ALLOWED_ORIGINS"] = cors_allowed_origins
             if cors_allowed_origins == "*":
-                _logger.warning(
+                click.echo(
                     "WARNING: Allowing ALL origins for CORS. "
                     "This allows ANY website to access your MLflow data. "
-                    "Only use for development!"
+                    "This configuration is only recommended for local development."
                 )
-            else:
-                _logger.info(f"CORS allowed origins configured with: {cors_allowed_origins}")
 
         if x_frame_options:
             os.environ["MLFLOW_X_FRAME_OPTIONS"] = x_frame_options
-            if x_frame_options.upper() == "NONE":
-                _logger.info("X-Frame-Options disabled - MLflow UI can be embedded in iframes")
-            else:
-                _logger.info(f"X-Frame-Options set to: {x_frame_options}")
-
-        # Log security configuration summary
-        _logger.info("Security middleware enabled. Use --help to see security options.")
 
     # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
     if not backend_store_uri:
@@ -609,6 +520,33 @@ def server(
         _logger.error("Error initializing backend store")
         _logger.exception(e)
         sys.exit(1)
+
+    if disable_security_middleware:
+        click.echo(
+            "[MLflow] WARNING: Security middleware is DISABLED. "
+            "Your MLflow server is vulnerable to various attacks.",
+            err=True,
+        )
+    elif not allowed_hosts and not cors_allowed_origins:
+        click.echo(
+            "[MLflow] Security middleware enabled with default settings (localhost-only). "
+            "To allow connections from other hosts, use --host 0.0.0.0 and configure "
+            "--allowed-hosts and --cors-allowed-origins.",
+            err=True,
+        )
+    else:
+        parts = ["[MLflow] Security middleware enabled"]
+        if allowed_hosts:
+            hosts_list = allowed_hosts.split(",")[:3]
+            if len(allowed_hosts.split(",")) > 3:
+                hosts_list.append(f"and {len(allowed_hosts.split(',')) - 3} more")
+            parts.append(f"Allowed hosts: {', '.join(hosts_list)}")
+        if cors_allowed_origins:
+            origins_list = cors_allowed_origins.split(",")[:3]
+            if len(cors_allowed_origins.split(",")) > 3:
+                origins_list.append(f"and {len(cors_allowed_origins.split(',')) - 3} more")
+            parts.append(f"CORS origins: {', '.join(origins_list)}")
+        click.echo(". ".join(parts) + ".", err=True)
 
     try:
         _run_server(
