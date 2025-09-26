@@ -339,6 +339,17 @@ const sidebarsGenAI: SidebarsConfig = {
           ],
         },
         {
+          type: 'category',
+          label: 'Insights',
+          items: [
+            {
+              type: 'doc',
+              id: 'eval-monitor/insights/analyze-experiment',
+              label: 'Analyze Experiment',
+            },
+          ],
+        },
+        {
           type: 'doc',
           id: 'assessments/feedback',
           label: 'Human Feedback',
