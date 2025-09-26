@@ -634,13 +634,6 @@ langchain:
       pip install './libs/skinny'
       # Run all langchain tests except autologging
       pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
-      # test both pydantic v1 and v2
-      PYDANTIC_VERSION=$(python -c "import pydantic; print(pydantic.__version__)")
-      if [[ $PYDANTIC_VERSION == 1.* ]]; then
-        pip install 'pydantic>=2' 'fastapi>=0.100.0'
-        echo "Testing langchain model export with pydantic v2"
-        pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
-      fi
   autologging:
     minimum: "0.2.16"
     maximum: "0.3.27"
@@ -668,13 +661,6 @@ langchain:
       pip install --no-deps --force-reinstall pyspark
     run: |
       pytest tests/langchain/test_langchain_autolog.py
-      # test both pydantic v1 and v2
-      PYDANTIC_VERSION=$(python -c "import pydantic; print(pydantic.__version__)")
-      if [[ $PYDANTIC_VERSION == 1.* ]]; then
-        pip install 'pydantic>=2' 'fastapi>=0.100.0'
-        echo "Testing langchain autolog with pydantic v2"
-        pytest tests/langchain/test_langchain_autolog.py
-      fi
 
       echo "Testing langchain autolog and evaluation with langchain-community"
       # Install with 'langchain' to ensure the compatible version is installed

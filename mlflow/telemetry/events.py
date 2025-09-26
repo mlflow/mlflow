@@ -232,5 +232,34 @@ class InvokeCustomJudgeModelEvent(Event):
         return {"model_provider": model_provider}
 
 
-class AutologgingEvent(Event):
-    name: str = "autologging"
+class MakeJudgeEvent(Event):
+    name: str = "make_judge"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        model = arguments.get("model")
+        if model and isinstance(model, str):
+            model_provider = model.split(":")[0] if ":" in model else None
+            return {"model_provider": model_provider}
+        return {"model_provider": None}
+
+
+class AlignJudgeEvent(Event):
+    name: str = "align_judge"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        result = {}
+
+        if (traces := arguments.get("traces")) is not None:
+            try:
+                result["trace_count"] = len(traces)
+            except TypeError:
+                result["trace_count"] = None
+
+        if optimizer := arguments.get("optimizer"):
+            result["optimizer_type"] = type(optimizer).__name__
+        else:
+            result["optimizer_type"] = "default"
+
+        return result

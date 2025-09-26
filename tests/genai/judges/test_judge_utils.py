@@ -1193,3 +1193,57 @@ def test_get_default_optimizer():
     """Test that get_default_optimizer returns a SIMBA optimizer."""
     optimizer = get_default_optimizer()
     assert isinstance(optimizer, SIMBAAlignmentOptimizer)
+
+
+@pytest.mark.parametrize("env_var_value", ["3", None])
+def test_invoke_judge_model_completion_iteration_limit(mock_trace, monkeypatch, env_var_value):
+    """Test that completion iteration limit is enforced."""
+    if env_var_value is not None:
+        monkeypatch.setenv("MLFLOW_JUDGE_MAX_ITERATIONS", env_var_value)
+        expected_limit = int(env_var_value)
+    else:
+        monkeypatch.delenv("MLFLOW_JUDGE_MAX_ITERATIONS", raising=False)
+        expected_limit = 30
+    mock_tool_call_response = ModelResponse(
+        choices=[
+            {
+                "message": {
+                    "tool_calls": [
+                        {
+                            "id": "call_123",
+                            "function": {"name": "get_trace_info", "arguments": "{}"},
+                        }
+                    ],
+                    "content": None,
+                }
+            }
+        ]
+    )
+
+    with (
+        mock.patch("litellm.completion", return_value=mock_tool_call_response) as mock_litellm,
+        mock.patch("mlflow.genai.judges.tools.list_judge_tools") as mock_list_tools,
+        mock.patch(
+            "mlflow.genai.judges.tools.registry._judge_tool_registry.invoke"
+        ) as mock_invoke_tool,
+    ):
+        mock_tool = mock.Mock()
+        mock_tool.name = "get_trace_info"
+        mock_tool.get_definition.return_value.to_dict.return_value = {"name": "get_trace_info"}
+        mock_list_tools.return_value = [mock_tool]
+        mock_invoke_tool.return_value = {"trace_id": "test-trace", "state": "OK"}
+
+        with pytest.raises(
+            MlflowException, match="Completion iteration limit.*exceeded"
+        ) as exc_info:
+            invoke_judge_model(
+                model_uri="openai:/gpt-4",
+                prompt="Evaluate this response",
+                assessment_name="quality_check",
+                trace=mock_trace,
+            )
+
+        error_msg = str(exc_info.value)
+        assert f"Completion iteration limit of {expected_limit} exceeded" in error_msg
+        assert "model is not powerful enough" in error_msg
+        assert mock_litellm.call_count == expected_limit

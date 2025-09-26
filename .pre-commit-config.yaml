@@ -139,3 +139,21 @@ repos:
         language: system
         stages: [pre-commit]
         require_serial: true
+
+      - id: check-init-py
+        name: check-init-py
+        entry: uv run --only-group lint dev/check_init_py.py
+        language: system
+        files: '^mlflow/.*\.py$'
+        stages: [pre-commit]
+        require_serial: true
+        pass_filenames: false
+
+      - id: uv-lock
+        name: uv-lock
+        entry: uv lock
+        language: system
+        files: '^pyproject\.toml$'
+        stages: [pre-commit]
+        require_serial: true
+        pass_filenames: false

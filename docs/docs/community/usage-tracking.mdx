@@ -232,9 +232,14 @@ For events with None in the `Tracked Parameters` column, only the event name is 
       <td>`{"model_provider": "databricks"}`</td>
     </tr>
     <tr>
-      <td>autologging</td>
-      <td>Flavor and metadata</td>
-      <td>`{"flavor": "openai", "log_traces": True, "disable": False}`</td>
+      <td>make_judge</td>
+      <td>Model provider (extracted from model string if format is provider:model)</td>
+      <td>`{"model_provider": "openai"}`</td>
+    </tr>
+    <tr>
+      <td>align_judge</td>
+      <td>Number of traces provided and optimizer type</td>
+      <td>`{"trace_count": 100, "optimizer_type": "AlignmentOptimizer"}`</td>
     </tr>
   </tbody>
 </Table>

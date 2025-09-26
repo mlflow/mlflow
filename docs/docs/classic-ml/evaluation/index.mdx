@@ -3,6 +3,19 @@ import { CardGroup, PageCard } from "@site/src/components/Card";
 
 # MLflow Evaluation
 
+:::warning Classic ML Evaluation System
+
+This documentation covers MLflow's **classic evaluation system** (`mlflow.evaluate`) which uses `EvaluationMetric` and `make_metric` for custom metrics.
+
+**For GenAI/LLM evaluation**, please use the system at [GenAI Evaluation](/genai/eval-monitor) which uses:
+
+- `mlflow.genai.evaluate()` instead of `mlflow.evaluate()`
+- `Scorer` objects instead of `EvaluationMetric`
+- Built-in LLM judges and scorers
+
+**Important**: These two systems are **not interoperable**. `EvaluationMetric` objects cannot be used with `mlflow.genai.evaluate()`, and `Scorer` objects cannot be used with `mlflow.evaluate()`.
+:::
+
 ## Introduction
 
 **Model evaluation** is the cornerstone of reliable machine learning, transforming trained models into trustworthy, production-ready systems. MLflow's comprehensive evaluation framework goes beyond simple accuracy metrics, providing deep insights into model behavior, performance characteristics, and real-world readiness through automated testing, visualization, and validation pipelines.

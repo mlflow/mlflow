@@ -10,15 +10,18 @@ from click.testing import CliRunner
 import mlflow
 from mlflow import MlflowClient
 from mlflow.entities import EvaluationDataset, Feedback, Metric, Param, RunTag
+from mlflow.entities.trace import Trace
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 from mlflow.genai.datasets import create_dataset
+from mlflow.genai.judges import make_judge
+from mlflow.genai.judges.base import AlignmentOptimizer
 from mlflow.genai.optimize.types import LLMParams, OptimizerOutput
 from mlflow.genai.scorers import scorer
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.pyfunc.model import ResponsesAgent, ResponsesAgentRequest, ResponsesAgentResponse
 from mlflow.telemetry.client import TelemetryClient
 from mlflow.telemetry.events import (
-    AutologgingEvent,
+    AlignJudgeEvent,
     CreateDatasetEvent,
     CreateExperimentEvent,
     CreateLoggedModelEvent,
@@ -37,6 +40,7 @@ from mlflow.telemetry.events import (
     LogDatasetEvent,
     LogMetricEvent,
     LogParamEvent,
+    MakeJudgeEvent,
     McpRunEvent,
     MergeRecordsEvent,
     PromptOptimizationEvent,
@@ -707,15 +711,47 @@ def test_invoke_custom_judge_model(
         )
 
 
-def test_autologging(mock_requests, mock_telemetry_client: TelemetryClient):
-    mlflow.openai.autolog()
-
-    mlflow.autolog()
-    mock_telemetry_client.flush()
-    data = [record["data"] for record in mock_requests]
-    params = [event["params"] for event in data if event["event_name"] == AutologgingEvent.name]
-    assert (
-        json.dumps({"flavor": mlflow.openai.FLAVOR_NAME, "log_traces": True, "disable": False})
-        in params
+def test_make_judge(mock_requests, mock_telemetry_client: TelemetryClient):
+    make_judge(
+        name="test_judge",
+        instructions="Evaluate the {{ inputs }} and {{ outputs }}",
+        model="openai:/gpt-4",
     )
-    assert json.dumps({"flavor": "all", "log_traces": True, "disable": False}) in params
+    expected_params = {"model_provider": "openai"}
+    validate_telemetry_record(
+        mock_telemetry_client, mock_requests, MakeJudgeEvent.name, expected_params
+    )
+
+    make_judge(
+        name="test_judge",
+        instructions="Evaluate the {{ inputs }} and {{ outputs }}",
+    )
+    expected_params = {"model_provider": None}
+    validate_telemetry_record(
+        mock_telemetry_client, mock_requests, MakeJudgeEvent.name, expected_params
+    )
+
+
+def test_align_judge(mock_requests, mock_telemetry_client: TelemetryClient):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate the {{ inputs }} and {{ outputs }}",
+        model="openai:/gpt-4",
+    )
+
+    traces = [
+        mock.MagicMock(spec=Trace),
+        mock.MagicMock(spec=Trace),
+    ]
+
+    class MockOptimizer(AlignmentOptimizer):
+        def align(self, judge, traces):
+            return judge
+
+    custom_optimizer = MockOptimizer()
+    judge.align(traces, optimizer=custom_optimizer)
+
+    expected_params = {"trace_count": 2, "optimizer_type": "MockOptimizer"}
+    validate_telemetry_record(
+        mock_telemetry_client, mock_requests, AlignJudgeEvent.name, expected_params
+    )

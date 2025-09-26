@@ -245,10 +245,14 @@ print(f"Found {len(aligned_traces)} traces with both assessments")
 
 # Align the judge (requires at least 10 traces)
 if len(aligned_traces) >= 10:
-    from mlflow.genai.judges.optimizers import SIMBAAlignmentOptimizer
+    # Option 1: Use default optimizer (recommended for simplicity)
+    aligned_judge = support_judge.align(aligned_traces)
 
-    optimizer = SIMBAAlignmentOptimizer(model="anthropic:/claude-opus-4-1-20250805")
-    aligned_judge = support_judge.align(optimizer, aligned_traces)
+    # Option 2: Explicitly specify optimizer with custom model
+    # from mlflow.genai.judges.optimizers import SIMBAAlignmentOptimizer
+    # optimizer = SIMBAAlignmentOptimizer(model="anthropic:/claude-opus-4-1-20250805")
+    # aligned_judge = support_judge.align(aligned_traces, optimizer)
+
     print("Judge aligned successfully!")
 else:
     print(f"Need at least 10 traces (have {len(aligned_traces)})")
