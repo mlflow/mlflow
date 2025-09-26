@@ -39,19 +39,18 @@ from mlflow.genai.judges.base import Judge, JudgeField
 def _sanitize_scorer_feedback(feedback: Feedback) -> Feedback:
     """Sanitize feedback values from LLM judges to ensure YES/NO consistency."""
     if feedback.value:
-        # If already a CategoricalRating, keep it as is
         if isinstance(feedback.value, CategoricalRating):
             return feedback
 
-        value_str = str(feedback.value).strip().lower()
+        if isinstance(feedback.value, str):
+            value_str = feedback.value.strip().lower()
 
-        if value_str in _AFFIRMATIVE_VALUES:
-            feedback.value = CategoricalRating.YES
-        elif value_str in _NEGATIVE_VALUES:
-            feedback.value = CategoricalRating.NO
-        else:
-            # Try to convert to CategoricalRating (handles yes/no/unknown)
-            feedback.value = CategoricalRating(value_str)
+            if value_str in _AFFIRMATIVE_VALUES:
+                feedback.value = CategoricalRating.YES
+            elif value_str in _NEGATIVE_VALUES:
+                feedback.value = CategoricalRating.NO
+            else:
+                feedback.value = CategoricalRating(value_str)
 
     return feedback
 
