@@ -231,15 +231,8 @@ def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
         else:
             roots.append(span)
 
-    visited: set[str] = set()
-
     def dfs(span: LiveSpan, ancestor_has_usage: bool) -> None:
         nonlocal input_tokens, output_tokens, total_tokens, has_usage_data
-
-        if span.span_id in visited:
-            return
-
-        visited.add(span.span_id)
 
         usage = span.get_attribute(SpanAttributeKey.CHAT_USAGE)
         span_has_usage = usage is not None
