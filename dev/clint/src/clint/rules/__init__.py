@@ -13,6 +13,7 @@ from clint.rules.implicit_optional import ImplicitOptional
 from clint.rules.incorrect_type_annotation import IncorrectTypeAnnotation
 from clint.rules.invalid_abstract_method import InvalidAbstractMethod
 from clint.rules.invalid_experimental_decorator import InvalidExperimentalDecorator
+from clint.rules.isinstance_union_syntax import IsinstanceUnionSyntax
 from clint.rules.lazy_builtin_import import LazyBuiltinImport
 from clint.rules.lazy_module import LazyModule
 from clint.rules.log_model_artifact_path import LogModelArtifactPath
@@ -58,6 +59,7 @@ __all__ = [
     "ForbiddenTraceUIInNotebook",
     "ImplicitOptional",
     "IncorrectTypeAnnotation",
+    "IsinstanceUnionSyntax",
     "InvalidAbstractMethod",
     "InvalidExperimentalDecorator",
     "LazyBuiltinImport",
