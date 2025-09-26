@@ -87,3 +87,39 @@ def test_job_endpoint(server_url: str):
         "result": {"a": 7, "b": 12},
         "retry_count": 0,
     }
+
+
+def test_job_endpoint_invalid_function_format(server_url: str):
+    """Test that invalid function fullname format returns proper error"""
+    payload = {
+        "function_fullname": "invalid_format_no_module",
+        "params": {"x": 3, "y": 4},
+    }
+    response = requests.post(f"{server_url}/ajax-api/3.0/jobs/", json=payload)
+    assert response.status_code == 400
+    error_json = response.json()
+    assert "Invalid function fullname format" in error_json["message"]
+
+
+def test_job_endpoint_module_not_found(server_url: str):
+    """Test that non-existent module returns proper error"""
+    payload = {
+        "function_fullname": "non_existent_module.some_function",
+        "params": {"x": 3, "y": 4},
+    }
+    response = requests.post(f"{server_url}/ajax-api/3.0/jobs/", json=payload)
+    assert response.status_code == 400
+    error_json = response.json()
+    assert "Module not found" in error_json["message"]
+
+
+def test_job_endpoint_function_not_found(server_url: str):
+    """Test that non-existent function in existing module returns proper error"""
+    payload = {
+        "function_fullname": "os.non_existent_function",
+        "params": {"x": 3, "y": 4},
+    }
+    response = requests.post(f"{server_url}/ajax-api/3.0/jobs/", json=payload)
+    assert response.status_code == 400
+    error_json = response.json()
+    assert "Function not found" in error_json["message"]
