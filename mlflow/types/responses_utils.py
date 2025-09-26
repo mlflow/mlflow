@@ -279,7 +279,10 @@ def _cc_stream_to_responses_stream(
     chunks: Iterator[dict[str, Any]],
     aggregator: list[dict[str, Any]] | None = None,
 ) -> Generator[ResponsesAgentStreamEvent, None, None]:
-    """Convert from a stream of ChatCompletion chunks to a stream of ResponsesAgentStreamEvent objects."""
+    """
+    Convert from stream of ChatCompletion chunks to a stream of
+    ResponsesAgentStreamEvent objects.
+    """
     llm_content = ""
     reasoning_content = ""
     tool_calls = []

@@ -57,6 +57,16 @@ Full integration with MLflow's ecosystem including:
 
 To create your own agent, subclass `mlflow.pyfunc.ResponsesAgent` and implement your agent logic in the `predict` method. The implementation is framework-agnostic, allowing you to use any agent authoring framework. Note that `pydantic>=2` is required to use ResponsesAgent. For example implementations, see the [simple chat agent](#simple-chat-example) and the [tool calling agent](#tool-calling-example) below.
 
+### Streaming from an LLM
+
+If the LLM provider you are using uses chat completions, you can use and modify the following helper methods to convert the input/output from your ResponsesAgent into chat completions messages to support multi-turn agent chat:
+
+- <APILink fn="mlflow.types.responses_utils.prep_msgs_for_cc_llm" /> (use for input)
+- <APILink fn="mlflow.types.responses_utils.output_to_responses_items_stream" /> (use for output)
+  - Can be used to parse and aggregate:
+      - a Chat Completion stream into a Responses Stream
+      - a LangChain message stream (from a LangChain or LangGraph agent) into a ResponsesAgent Stream
+
 #### Creating agent output
 
 When implementing your agent, you'll work with two main output types: <APILink fn="mlflow.types.responses.ResponsesAgentResponse">`ResponsesAgentResponse`</APILink> and <APILink fn="mlflow.types.responses.ResponsesAgentResponse">`ResponsesAgentStreamEvent`</APILink>. These are the only pydantic objects you should create directly. The remaining classes in `mlflow.types.responses_helpers` are only for validating dictionaries.
