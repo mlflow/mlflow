@@ -49,7 +49,8 @@ If you are still not sure about which scorer to use, you can ask to the Ask AI (
 
 ## How to Write a Good Scorer?
 
-The general metrics such as 'Hallucination' or 'Toxicity' rarely work in practice. The most successful teams identify the domain specific failure mode from the real data and define custom evaluation criteria bottom-up. Here is the general workflow of define a good scorer and iterate on it with MLflow.
+The general metrics such as 'Hallucination' or 'Toxicity' rarely work in practice. Successful practitioners
+analyze real data to uncover domain-specific failure modes and then define custom evaluation criteria from the ground up. Here is the general workflow of how to define a good scorer and iterate on it with MLflow.
 
 <WorkflowSteps
   width="wide"
@@ -68,11 +69,11 @@ The general metrics such as 'Hallucination' or 'Toxicity' rarely work in practic
     },
     {
       title: "Translate failure modes into Scorers",
-      description: <div>Define scorers that checks for the common failure modes.For example, if the answer is in incorrect format, you may define an <Link href="/genai/eval-monitor/scorers/llm-judge">LLM-as-a-Judge scorer</Link> that checks if the format is correct. We recommend starting with a simple instruction and then iteratively refine it.</div>
+      description: <div>Define scorers that check for the common failure modes.For example, if the answer is in an incorrect format, you may define an <Link href="/genai/eval-monitor/scorers/llm-judge">LLM-as-a-Judge scorer</Link> that checks if the format is correct. We recommend starting with a simple instruction and then iteratively refine it.</div>
     },
     {
       title: "Align scorers with human feedback.",
-      description: <div>LLM-as-a-Judge has natural biases. Relying on biased evaluation will lead to incorrect decision making. Therefore, it is important to refine the scorer to align with human feedback. You can manually iterate on prompts or instructions, or use <Link href='/genai/eval-monitor/scorers/llm-judge/alignment'>Automatic Judge Alignment</Link> feature of MLflow to optimize the instruction with the state-of-the-art algorithm powered by <Link href='https://dspy.ai/'>DSPy</Link>.</div>
+      description: <div>LLM-as-a-Judge has natural biases. Relying on biased evaluation will lead to incorrect decision making. Therefore, it is important to refine the scorer to align with human feedback. You can manually iterate on prompts or instructions, or use the <Link href='/genai/eval-monitor/scorers/llm-judge/alignment'>Automatic Judge Alignment</Link> feature of MLflow to optimize the instruction with a state-of-the-art algorithm powered by <Link href='https://dspy.ai/'>DSPy</Link>.</div>
     }
   ]}
 />

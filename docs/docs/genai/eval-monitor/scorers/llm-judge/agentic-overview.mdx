@@ -6,6 +6,7 @@ description: Understanding how judges become autonomous agents for deep trace an
 import { APILink } from "@site/src/components/APILink";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
+import ImageBox from "@site/src/components/ImageBox";
 import TabsWrapper from "@site/src/components/TabsWrapper";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
@@ -15,11 +16,11 @@ import { Brain, Wrench, Users } from "lucide-react";
 
 Agent-as-a-Judge represents a paradigm shift in LLM evaluation. Instead of simply assessing inputs and outputs, these judges act as **autonomous agents** equipped with tools to investigate your application's execution in depth.
 
-#### TODO: Add visual of code-based vs llm vs agent
-
 ## How it works
 
-Agent-as-a-Judge uses MCP (Model Context Protocol) tools to investigate traces logged to the MLflow backend. These tools enable the judge to act like an experienced debugger, systematically exploring your application's execution.
+![](/images/mlflow-3/eval-monitor/scorers/llm-judge-vs-agent-judge.png)
+
+Agent-as-a-Judge uses the following tools to investigate traces logged to the MLflow backend. These tools enable the judge to act like an experienced debugger, systematically exploring your application's execution.
 
 | Tool               | Description                                                                                          |
 | ------------------ | ---------------------------------------------------------------------------------------------------- |
@@ -83,7 +84,8 @@ performance_judge = make_judge(
         "- Proper use of caching mechanisms\n\n"
         "Rate as: 'optimal', 'acceptable', or 'needs_improvement'"
     ),
-    model="anthropic:/claude-opus-4-1-20250805",
+    model="openai:/gpt-5",
+    # model="anthropic:/claude-opus-4-1-20250805",
 )
 ```
 
@@ -133,6 +135,9 @@ Analysis: Found critical performance issues:
    the redundant operations or implementing caching
 ```
 
+
+<ImageBox src="/images/mlflow-3/eval-monitor/scorers/agentic-judge-result.png" alt="Agent-as-a-Judge Evaluation Results" />
+
 ## Running the Judge against Batch Traces
 
 To apply the scorer to a batch of traces, use the <APILink fn="mlflow.genai.evaluate">mlflow.genai.evaluate</APILink> API.
@@ -150,13 +155,12 @@ results = mlflow.genai.evaluate(
 )
 ```
 
-### TODO: Add screenshot once this works example works
-
 ## Advanced Examples
 
 <TabsWrapper>
   <Tabs>
   <TabItem value="tool_usage" label="Tool Usage Analysis">
+
 ```python
 tool_optimization_judge = make_judge(
     name="tool_optimizer",
@@ -173,8 +177,10 @@ tool_optimization_judge = make_judge(
     model="anthropic:/claude-opus-4-1-20250805",
 )
 ```
+
   </TabItem>
   <TabItem value="loop_detection" label="Loop Detection">
+
 ```python
 loop_detector_judge = make_judge(
     name="loop_detector",
@@ -191,27 +197,27 @@ loop_detector_judge = make_judge(
     model="anthropic:/claude-opus-4-1-20250805",
 )
 ```
+
   </TabItem>
   <TabItem value="reasoning_chain" label="Reasoning Analysis">
+
 ```python
-from mlflow.genai.judges import make_judge
-
 reasoning_judge = make_judge(
-name="reasoning_validator",
-instructions=(
-"Evaluate the reasoning chain in {{ trace }}.\n\n"
-"Analysis criteria:\n"
-"1. Logical Progression: Does each step follow logically from the previous?\n"
-"2. Assumption Validity: Are assumptions reasonable and stated?\n"
-"3. Evidence Usage: Is evidence properly cited and used?\n"
-"4. Conclusion Soundness: Does the conclusion follow from the premises?\n\n"
-"Identify specific reasoning flaws with span IDs.\n"
-"Score 1-100 for reasoning quality."
-),
-model="anthropic:/claude-opus-4-1-20250805",
+    name="reasoning_validator",
+    instructions=(
+        "Evaluate the reasoning chain in {{ trace }}.\n\n"
+        "Analysis criteria:\n"
+        "1. Logical Progression: Does each step follow logically from the previous?\n"
+        "2. Assumption Validity: Are assumptions reasonable and stated?\n"
+        "3. Evidence Usage: Is evidence properly cited and used?\n"
+        "4. Conclusion Soundness: Does the conclusion follow from the premises?\n\n"
+        "Identify specific reasoning flaws with span IDs.\n"
+        "Score 1-100 for reasoning quality."
+    ),
+    model="anthropic:/claude-opus-4-1-20250805",
 )
+```
 
-````
   </TabItem>
   <TabItem value="rag" label="RAG Agent Evaluation">
 
