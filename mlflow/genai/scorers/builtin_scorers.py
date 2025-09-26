@@ -62,6 +62,59 @@ GENAI_CONFIG_NAME = "databricks-agent"
 from mlflow.genai.judges.base import Judge, JudgeField
 
 
+def _raise_missing_fields_error(scorer_name: str, required_fields: list[str]) -> None:
+    """
+    Raise an exception when required fields are missing for a scorer.
+
+    Args:
+        scorer_name: Name of the scorer (e.g., "Guidelines", "Correctness")
+        required_fields: List of required field names (e.g., ["inputs", "outputs"])
+    """
+    fields_str = " and ".join(required_fields)
+    raise MlflowException(
+        f"{scorer_name} scorer requires either:\n"
+        f"1. A trace (for field extraction and evaluation), OR\n"
+        f"2. {fields_str.capitalize()} (for direct evaluation)"
+    )
+
+
+def _raise_missing_guidelines_error(trace: Any) -> None:
+    """
+    Raise an exception when guidelines are missing from expectations.
+
+    Args:
+        trace: The trace object, if provided (used to customize error message)
+    """
+    if trace:
+        raise MlflowException(
+            "ExpectationsGuidelines scorer requires guidelines to be provided either:\n"
+            "1. In the expectations parameter, OR\n"
+            "2. As assessments in the trace"
+        )
+    else:
+        raise MlflowException("Guidelines must be specified in the `expectations` parameter.")
+
+
+def _raise_missing_correctness_expectations_error(trace: Any) -> None:
+    """
+    Raise an exception when correctness expectations are missing.
+
+    Args:
+        trace: The trace object, if provided (used to customize error message)
+    """
+    base_msg = (
+        "Correctness scorer requires expectations with either "
+        "'expected_response' or 'expected_facts'."
+    )
+    if trace:
+        raise MlflowException(
+            f"{base_msg} When using a trace, you can annotate it with "
+            "human assessments for these fields."
+        )
+    else:
+        raise MlflowException(base_msg)
+
+
 class BuiltInScorer(Judge):
     """
     Abstract base class for built-in scorers that share a common implementation.
@@ -616,11 +669,7 @@ class Guidelines(BuiltInScorer):
                 return judge(trace=trace)
 
         if inputs is None or outputs is None:
-            raise MlflowException(
-                "Guidelines scorer requires either:\n"
-                "1. A trace (for field extraction and evaluation), OR\n"
-                "2. Both inputs and outputs (for direct evaluation)"
-            )
+            _raise_missing_fields_error("Guidelines", ["inputs", "outputs"])
 
         return judges.meets_guidelines(
             guidelines=self.guidelines,
@@ -764,11 +813,7 @@ class ExpectationsGuidelines(BuiltInScorer):
             if inputs is None or outputs is None:
                 guidelines = (expectations or {}).get("guidelines")
                 if not guidelines:
-                    raise MlflowException(
-                        "ExpectationsGuidelines scorer requires guidelines to be provided either:\n"
-                        "1. In the expectations parameter, OR\n"
-                        "2. As assessments in the trace"
-                    )
+                    _raise_missing_guidelines_error(trace)
 
                 prompt = get_guidelines_trace_fallback_prompt(guidelines)
                 judge = make_judge(
@@ -779,19 +824,11 @@ class ExpectationsGuidelines(BuiltInScorer):
                 return judge(trace=trace)
 
         if inputs is None or outputs is None:
-            raise MlflowException(
-                "ExpectationsGuidelines scorer requires either:\n"
-                "1. A trace (for automatic extraction and evaluation), OR\n"
-                "2. Both inputs and outputs (for direct evaluation)"
-            )
+            _raise_missing_fields_error("ExpectationsGuidelines", ["inputs", "outputs"])
 
         guidelines = (expectations or {}).get("guidelines")
         if not guidelines:
-            raise MlflowException(
-                "Guidelines must be specified in the `expectations` parameter"
-                + (" or must be present in the trace" if trace else "")
-                + "."
-            )
+            _raise_missing_guidelines_error(trace)
 
         return judges.meets_guidelines(
             guidelines=guidelines,
@@ -918,11 +955,7 @@ class RelevanceToQuery(BuiltInScorer):
                 return judge(trace=trace)
 
         if inputs is None or outputs is None:
-            raise MlflowException(
-                "RelevanceToQuery scorer requires either:\n"
-                "1. A trace (for field extraction and evaluation), OR\n"
-                "2. Both inputs and outputs (for direct evaluation)"
-            )
+            _raise_missing_fields_error("RelevanceToQuery", ["inputs", "outputs"])
 
         request = parse_inputs_to_str(inputs)
         return judges.is_context_relevant(
@@ -1032,11 +1065,7 @@ class Safety(BuiltInScorer):
                 return judge(trace=trace)
 
         if outputs is None:
-            raise MlflowException(
-                "Safety scorer requires either:\n"
-                "1. A trace (for output extraction and evaluation), OR\n"
-                "2. Outputs (for direct evaluation)"
-            )
+            _raise_missing_fields_error("Safety", ["outputs"])
 
         return judges.is_safe(
             content=parse_outputs_to_str(outputs),
@@ -1238,28 +1267,16 @@ class Correctness(BuiltInScorer):
                 expectations.get("expected_response") is None
                 and expectations.get("expected_facts") is None
             ):
-                raise MlflowException(
-                    "Correctness scorer requires expectations with either "
-                    "'expected_response' or 'expected_facts'. "
-                    "When using a trace, these should be present as assessments in the trace."
-                )
+                _raise_missing_correctness_expectations_error(trace)
 
         if inputs is None or outputs is None:
-            raise MlflowException(
-                "Correctness scorer requires either:\n"
-                "1. A trace (for field extraction and evaluation), OR\n"
-                "2. Both inputs and outputs (for direct evaluation)"
-            )
+            _raise_missing_fields_error("Correctness", ["inputs", "outputs"])
 
         if not expectations or (
             expectations.get("expected_response") is None
             and expectations.get("expected_facts") is None
         ):
-            raise MlflowException(
-                "Correctness scorer requires expectations with either "
-                "'expected_response' or 'expected_facts'. When using a trace, "
-                "you can annotate it with human assessments for these fields."
-            )
+            _raise_missing_correctness_expectations_error(trace)
 
         request = parse_inputs_to_str(inputs)
         response = parse_outputs_to_str(outputs)
