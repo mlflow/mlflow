@@ -10,7 +10,7 @@ huey_consumer.py mlflow.server.jobs.huey_consumer.huey_instance -w {max_workers}
 ```
 
 It launches the Huey consumer that polls tasks from the huey storage file path
-`{huey_store_dir}/mlflow-huey-store.{huey_instance_key}`
+`{huey_store_dir}/{huey_instance_key}.mlflow-huey-store`
 and schedules the job execution continuously.
 """
 

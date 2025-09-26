@@ -220,7 +220,7 @@ def _get_or_init_huey_instance(instance_key: str):
             _logger.info(f"Creating huey instance for {instance_key}")
             huey_store_file = os.path.join(
                 os.environ[HUEY_STORAGE_PATH_ENV_VAR],
-                f"mlflow-huey-store.{instance_key}"
+                f"{instance_key}.mlflow-huey-store"
             )
             huey_instance = SqliteHuey(
                 filename=huey_store_file,

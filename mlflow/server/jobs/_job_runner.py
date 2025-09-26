@@ -4,7 +4,7 @@ This module is used for launching the job runner process.
 The job runner will:
 * enqueue all unfinished huey tasks when MLflow server is down last time.
 * Watch the `_MLFLOW_HUEY_STORAGE_PATH` path,
-  if new files (named like `mlflow-huey-store.XXX`) are created,
+  if new files (named like `XXX.mlflow-huey-store`) are created,
   it means a new Huey queue is created, then the job runner
   launches an individual Huey consumer process for each Huey queue.
   See module `mlflow/server/jobs/_huey_consumer.py` for details of Huey consumer.
@@ -28,7 +28,7 @@ if __name__ == "__main__":
     huey_store_path = os.environ[HUEY_STORAGE_PATH_ENV_VAR]
 
     seen_huey_files = set()
-    huey_file_prefix = "mlflow-huey-store."
+    huey_file_suffix = ".mlflow-huey-store"
 
     while True:
         time.sleep(0.5)
@@ -36,8 +36,8 @@ if __name__ == "__main__":
         new_huey_files = current_huey_files - seen_huey_files
 
         for huey_file in new_huey_files:
-            if huey_file.startswith(huey_file_prefix):
-                job_fn_fullname = huey_file[len(huey_file_prefix):]
+            if huey_file.endswith(huey_file_suffix):
+                job_fn_fullname = huey_file[:-len(huey_file_suffix)]
                 _launch_huey_consumer(job_fn_fullname)
 
         seen_huey_files = current_huey_files
