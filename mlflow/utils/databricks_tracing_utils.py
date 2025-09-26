@@ -1,7 +1,7 @@
 from google.protobuf.duration_pb2 import Duration
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from mlflow.entities import Span, Trace, TraceData, TraceInfo
+from mlflow.entities import Assessment, Span, Trace, TraceData, TraceInfo
 from mlflow.entities.trace_info_v2 import _truncate_request_metadata, _truncate_tags
 from mlflow.entities.trace_location import (
     InferenceTableLocation,
@@ -10,6 +10,7 @@ from mlflow.entities.trace_location import (
     TraceLocationType,
     UCSchemaLocation,
 )
+from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_tracing_pb2 as pb
 from mlflow.tracing.utils import parse_trace_id_v4
 
@@ -130,8 +131,7 @@ def trace_info_to_proto(trace_info: TraceInfo) -> pb.TraceInfo:
         state=pb.TraceInfo.State.Value(trace_info.state),
         trace_metadata=_truncate_request_metadata(trace_info.trace_metadata),
         tags=_truncate_tags(trace_info.tags),
-        # TODO: update once assessment proto is updated
-        assessments=[a.to_proto() for a in trace_info.assessments],
+        assessments=[assessment_to_proto(a) for a in trace_info.assessments],
     )
 
 
@@ -147,3 +147,51 @@ def trace_from_proto(proto: pb.Trace) -> Trace:
         info=TraceInfo.from_proto(proto.trace_info),
         data=TraceData(spans=[Span.from_otel_proto(span) for span in proto.spans]),
     )
+
+
+def assessment_to_proto(assessment: Assessment) -> pb.Assessment:
+    assessment_proto = pb.Assessment()
+    assessment_proto.assessment_name = assessment.name
+    location, trace_id = parse_trace_id_v4(assessment.trace_id)
+    if location:
+        catalog, schema = location.split(".")
+        assessment_proto.trace_location.CopyFrom(
+            pb.TraceLocation(
+                type=pb.TraceLocation.TraceLocationType.UC_SCHEMA,
+                uc_schema=pb.UCSchemaLocation(catalog_name=catalog, schema_name=schema),
+            )
+        )
+    else:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid trace ID: {assessment.trace_id}. "
+            "Expected format: trace:/<catalog>.<schema>/<trace_id>"
+        )
+    assessment_proto.trace_id = trace_id
+
+    assessment_proto.source.CopyFrom(assessment.source.to_proto())
+
+    # Convert time in milliseconds to protobuf Timestamp
+    assessment_proto.create_time.FromMilliseconds(assessment.create_time_ms)
+    assessment_proto.last_update_time.FromMilliseconds(assessment.last_update_time_ms)
+
+    if assessment.span_id is not None:
+        assessment_proto.span_id = assessment.span_id
+    if assessment.rationale is not None:
+        assessment_proto.rationale = assessment.rationale
+    if assessment.assessment_id is not None:
+        assessment_proto.assessment_id = assessment.assessment_id
+
+    if assessment.expectation is not None:
+        assessment_proto.expectation.CopyFrom(assessment.expectation.to_proto())
+    elif assessment.feedback is not None:
+        assessment_proto.feedback.CopyFrom(assessment.feedback.to_proto())
+
+    if assessment.metadata:
+        for key, value in assessment.metadata.items():
+            assessment_proto.metadata[key] = str(value)
+    if assessment.overrides:
+        assessment_proto.overrides = assessment.overrides
+    if assessment.valid is not None:
+        assessment_proto.valid = assessment.valid
+
+    return assessment_proto

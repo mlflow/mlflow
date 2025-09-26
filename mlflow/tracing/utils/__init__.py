@@ -623,10 +623,12 @@ def _bypass_attribute_guard(span: OTelSpan) -> Generator[None, None, None]:
         span._end_time = original_end_time
 
 
-def parse_trace_id_v4(trace_id: str) -> tuple[str | None, str]:
+def parse_trace_id_v4(trace_id: str | None) -> tuple[str | None, str | None]:
     """
     Parse the trace ID into location and trace ID components.
     """
+    if trace_id is None:
+        return None, None
     if trace_id.startswith(TRACE_ID_V4_PREFIX):
         match trace_id.removeprefix(TRACE_ID_V4_PREFIX).split("/"):
             case [location, tid] if location and tid:

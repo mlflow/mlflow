@@ -8,6 +8,7 @@ import "assessments.proto";
 import "databricks.proto";
 import "scalapb/scalapb.proto";
 import "google/protobuf/duration.proto";
+import "google/protobuf/field_mask.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 import "opentelemetry/proto/trace/v1/trace.proto";
@@ -133,6 +134,62 @@ service DatabricksTrackingService {
       rpc_doc_title: "Unlink Experiment to UC Trace Location",
     };
   }
+
+  // =============================================================================
+  // Assessment RPCs
+  // =============================================================================
+
+  // Create an assessment associated with a trace.
+  rpc createAssessment (CreateAssessment) returns (CreateAssessment.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/traces/{location}/{trace_id}/assessment"
+        since {major: 4, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Create Assessment",
+    };
+  }
+
+  // Get an assessment.
+  rpc getAssessment (GetAssessment) returns (GetAssessment.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/traces/{location}/{trace_id}/assessment/{assessment_id}"
+        since {major: 4, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Get Assessment",
+    };
+  }
+
+  // Update an assessment.
+  rpc updateAssessment (UpdateAssessment) returns (UpdateAssessment.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "PATCH",
+        path: "/mlflow/traces/{location}/{trace_id}/assessment/{assessment_id}"
+        since {major: 4, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Update Assessment",
+    };
+  }
+
+  // Delete an assessment.
+  rpc deleteAssessment (DeleteAssessment) returns (DeleteAssessment.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/traces/{location}/{trace_id}/assessment/{assessment_id}"
+        since {major: 4, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Delete Assessment",
+    };
+  }
 }
 
 message UCSchemaLocation {
@@ -223,8 +280,7 @@ message TraceInfo {
   // - session_id: The ID of the session (e.g. chat conversation) where the request came from
   map<string, string> trace_metadata = 9;
 
-  // TODO: update to new Assessment proto
-  repeated assessments.Assessment assessments = 10;
+  repeated Assessment assessments = 10;
 
   // Mutable, user-defined tags for the trace, e.g. "question_topic": "DBSQL"
   map<string, string> tags = 11;
@@ -403,6 +459,136 @@ message UnLinkExperimentToUCTraceLocation {
   
   // Location to unlink. should be <catalog.schema>
   optional string location = 2;
+
+  message Response {}
+}
+
+// =============================================================================
+// Assessment API Messages
+// =============================================================================
+
+// Data and metadata for an assessment of a trace.
+message Assessment {
+  // Unique ID of the assessment.
+  // NB: This is not marked as required field via "validate_required", because the message is
+  //  used in the context of creating a new assessment, where the ID is not known.
+  optional string assessment_id = 1;
+
+  // Name of the assessment. The name must not contain ".".
+  optional string assessment_name = 2 [(validate_required) = true];
+
+  // ID of the trace this assessment is associated with.
+  optional string trace_id = 3;
+
+  // Location of the trace this assessment is associated with.
+  optional TraceLocation trace_location = 4;
+
+  // ID of the span if the assessment is for a particular span (optional).
+  optional string span_id = 5;
+
+  // The source this assessment came from.
+  optional assessments.AssessmentSource source = 6;
+
+  // The creation time of this assessment.
+  optional google.protobuf.Timestamp create_time = 7;
+
+  // The last update time of this assessment.
+  optional google.protobuf.Timestamp last_update_time = 8;
+
+  // An Assessment can either be human/code/judge Feedback, human-generated Expectation, or an error.
+  // The name of the Feedback or Expectation must be the same with the assessment_name.
+  oneof value {
+    // The feedback on the trace from this assessment.
+    assessments.Feedback feedback = 9;
+    // A representation of the guidelines and/or expected response from the agent.
+    assessments.Expectation expectation = 10;
+  }
+
+  // Justification for the assessment.
+  optional string rationale = 11;
+
+  // Additional metadata describing the assessment and store additional information,
+  // such as the chunk relevance chunk_index. This metadata is required to be JSON-serializable.
+  map<string, string> metadata = 12;
+
+  // The ID of the assessment which this assessment overrides.
+  optional string overrides = 13;
+
+  // Whether this assessment is valid (i.e. has not been superseded)
+  // defaults to true, and is set to false if a new superseding assessment
+  // is created.
+  optional bool valid = 14 [
+    default = true
+  ];
+}
+
+// Create an assessment.
+message CreateAssessment {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Location identifier (experiment_id or catalog.schema).
+  optional string location = 1 [(validate_required) = true];
+  // The assessment to create.
+  optional Assessment assessment = 2 [(validate_required) = true];
+  // Optional SQL warehouse ID.
+  optional string sql_warehouse_id = 3;
+
+  message Response {
+    // The created assessment.
+    optional Assessment assessment = 1;
+  }
+}
+
+// Get an assessment.
+message GetAssessment {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Location identifier (experiment_id or catalog.schema).
+  optional string location = 1 [(validate_required) = true];
+  // The ID of the trace.
+  optional string trace_id = 2 [(validate_required) = true];
+  // The ID of the assessment.
+  optional string assessment_id = 3 [(validate_required) = true];
+  // Optional SQL warehouse ID.
+  optional string sql_warehouse_id = 4;
+
+  message Response {
+    // The requested assessment.
+    optional Assessment assessment = 1;
+  }
+}
+
+// Update an assessment.
+message UpdateAssessment {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Location identifier (experiment_id or catalog.schema).
+  optional string location = 1 [(validate_required) = true];
+  // The assessment containing the fields which should be updated.
+  optional Assessment assessment = 2 [(validate_required) = true];
+  // The list of the assessment fields to update.
+  optional google.protobuf.FieldMask update_mask = 3 [(validate_required) = true];
+  // Optional SQL warehouse ID.
+  optional string sql_warehouse_id = 4;
+
+  message Response {
+    // The assessment after the update.
+    optional Assessment assessment = 1;
+  }
+}
+
+// Delete an assessment.
+message DeleteAssessment{
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Location identifier (experiment_id or catalog.schema).
+  optional string location = 1 [(validate_required) = true];
+  // The ID of the trace.
+  optional string trace_id = 2 [(validate_required) = true];
+  // The ID of the assessment.
+  optional string assessment_id = 3 [(validate_required) = true];
+  // Optional SQL warehouse ID.
+  optional string sql_warehouse_id = 4;
 
   message Response {}
 }
