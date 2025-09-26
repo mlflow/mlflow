@@ -25,35 +25,34 @@ def server_url(tmp_path_factory):
     tmp_path = tmp_path_factory.mktemp("server_mod")
     backend_store_uri = f"sqlite:///{tmp_path / 'mlflow.db'!s}"
 
-    server_proc = None
-    try:
-        server_proc = subprocess.Popen(
-            [
-                sys.executable,
-                "-m",
-                "mlflow",
-                "server",
-                "-h",
-                "127.0.0.1",
-                "-p",
-                "6677",
-                "--backend-store-uri",
-                backend_store_uri,
-            ],
-            env={
-                **os.environ,
-                "PYTHONPATH": os.path.dirname(__file__),
-            },
-            start_new_session=True,  # new session & process group
-        )
-        time.sleep(10)  # wait for server to spin up
-        yield "http://127.0.0.1:6677"
-    finally:
-        if server_proc is not None:
+    with subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "server",
+            "-h",
+            "127.0.0.1",
+            "-p",
+            "6677",
+            "--backend-store-uri",
+            backend_store_uri,
+        ],
+        env={
+            **os.environ,
+            "PYTHONPATH": os.path.dirname(__file__),
+            "_MLFLOW_JOB_FUNCTION_EXTRA_ALLOW_LIST": "test_endpoint.simple_job_fun",
+        },
+        start_new_session=True,  # new session & process group
+    ) as server_proc:
+        try:
+            time.sleep(10)  # wait for server to spin up
+            yield "http://127.0.0.1:6677"
+        finally:
             # NOTE that we need to kill subprocesses
             # (uvicorn server / huey task runner)
             # so `killpg` is needed.
-            os.killpg(server_proc.pid, signal.SIGTERM)
+            os.killpg(server_proc.pid, signal.SIGKILL)
 
 
 def wait_job_finalize(server_url, job_id, timeout):
