@@ -6,6 +6,8 @@ from pydantic import BaseModel
 import mlflow
 from mlflow.autogen.chat import log_tools
 from mlflow.entities import SpanType
+from mlflow.telemetry.events import AutologgingEvent
+from mlflow.telemetry.track import _record_event
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.utils import construct_full_inputs
 from mlflow.utils.autologging_utils import (
@@ -103,6 +105,10 @@ def autolog(
 
     for cls in _get_all_subclasses(ChatCompletionClient):
         safe_patch(FLAVOR_NAME, cls, "create", patched_completion)
+
+    _record_event(
+        AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}
+    )
 
 
 def _convert_value_to_dict(value):

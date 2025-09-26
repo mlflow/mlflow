@@ -7,6 +7,8 @@ from mlflow.gemini.autolog import (
     patched_class_call,
     patched_module_call,
 )
+from mlflow.telemetry.events import AutologgingEvent
+from mlflow.telemetry.track import _record_event
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
 FLAVOR_NAME = "gemini"
@@ -90,3 +92,7 @@ def autolog(
         )
     except ImportError:
         pass
+
+    _record_event(
+        AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}
+    )
