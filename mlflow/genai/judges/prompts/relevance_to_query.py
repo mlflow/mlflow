@@ -29,12 +29,9 @@ RELEVANCE_TO_QUERY_PROMPT = (
 )
 
 # Trace-based fallback template when extraction fails
-RELEVANCE_TO_QUERY_TRACE_FALLBACK = f"""{RELEVANCE_TO_QUERY_BASE_INSTRUCTIONS}
+RELEVANCE_TO_QUERY_TRACE_FALLBACK_INSTRUCTIONS = f"""{RELEVANCE_TO_QUERY_BASE_INSTRUCTIONS}
 
-Extract the question and answer from the following trace and evaluate relevance:
-<trace>
-{{{{trace}}}}
-</trace>
+Extract the question and answer from the trace {{{{{{ trace }}}}}} and evaluate relevance.
 """
 
 
@@ -48,4 +45,4 @@ def get_prompt(request: str, context: str) -> str:
 
 def get_trace_fallback_prompt() -> str:
     """Get the trace-based fallback prompt for relevance evaluation."""
-    return RELEVANCE_TO_QUERY_TRACE_FALLBACK + RELEVANCE_TO_QUERY_PROMPT_OUTPUT
+    return RELEVANCE_TO_QUERY_TRACE_FALLBACK_INSTRUCTIONS + RELEVANCE_TO_QUERY_PROMPT_OUTPUT

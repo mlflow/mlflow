@@ -32,13 +32,10 @@ CORRECTNESS_PROMPT_SUFFIX = """
 
 If the claim is fully supported by the document in the context of the question, you must say "The response is correct" in the rationale. If the claim is not fully supported by the document in the context of the question, you must say "The response is not correct"."""  # noqa: E501
 
-CORRECTNESS_TRACE_FALLBACK = f"""{CORRECTNESS_BASE_INSTRUCTIONS}
+CORRECTNESS_TRACE_FALLBACK_INSTRUCTIONS = f"""{CORRECTNESS_BASE_INSTRUCTIONS}
 
-Extract the question, expected response/facts, and actual response from the following trace and \
-evaluate correctness:
-<trace>
-{{{{trace}}}}
-</trace>
+Extract the question, claim, and document from the trace {{{{{{ trace }}}}}} and \
+evaluate correctness.
 """
 
 
@@ -86,4 +83,8 @@ def get_trace_fallback_prompt() -> str:
     Returns:
         Complete prompt for trace-based correctness evaluation with trace placeholder.
     """
-    return CORRECTNESS_TRACE_FALLBACK + CORRECTNESS_PROMPT_OUTPUT
+    return (
+        CORRECTNESS_TRACE_FALLBACK_INSTRUCTIONS
+        + CORRECTNESS_PROMPT_OUTPUT
+        + CORRECTNESS_PROMPT_SUFFIX
+    )

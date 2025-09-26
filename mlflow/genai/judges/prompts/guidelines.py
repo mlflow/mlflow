@@ -27,19 +27,14 @@ Please provide your assessment using only the following json format. Do not use 
 GUIDELINES_PROMPT = GUIDELINES_PROMPT_INSTRUCTIONS + GUIDELINES_PROMPT_OUTPUT
 
 # Trace-based fallback template when extraction fails
-GUIDELINES_TRACE_FALLBACK_TEMPLATE = (
-    GUIDELINES_BASE_INSTRUCTIONS
-    + """
+GUIDELINES_TRACE_FALLBACK_INSTRUCTIONS = f"""{GUIDELINES_BASE_INSTRUCTIONS}
 
 Guidelines:
-{guidelines}
+{{guidelines}}
 
-Extract the request and response from the following trace and evaluate against the guidelines:
-<trace>
-{{{{trace}}}}
-</trace>
+First, extract the request and response from the trace {{{{{{ trace }}}}}}. These extracted \
+values should be treated as the inputs to evaluate against the guidelines.
 """
-)
 
 
 def get_prompt(
@@ -72,7 +67,6 @@ def get_trace_fallback_prompt(guidelines: str | list[str]) -> str:
         guidelines = [guidelines]
 
     formatted_guidelines = "\n".join([f"- {g}" for g in guidelines])
-    return (
-        GUIDELINES_TRACE_FALLBACK_TEMPLATE.format(guidelines=formatted_guidelines)
-        + GUIDELINES_PROMPT_OUTPUT
-    )
+    # Replace the guidelines placeholder while preserving {{ trace }}
+    prompt = GUIDELINES_TRACE_FALLBACK_INSTRUCTIONS.replace("{guidelines}", formatted_guidelines)
+    return prompt + GUIDELINES_PROMPT_OUTPUT

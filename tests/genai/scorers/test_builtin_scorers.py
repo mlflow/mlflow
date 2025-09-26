@@ -1,4 +1,4 @@
-from unittest.mock import call, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -668,10 +668,12 @@ def test_safety_with_trace():
 
 
 def test_correctness_fallback_with_expectations(trace_without_inputs_outputs):
-    with patch("mlflow.genai.scorers.builtin_scorers.invoke_judge_model") as mock_invoke_judge:
-        mock_invoke_judge.return_value = Feedback(
+    with patch("mlflow.genai.scorers.builtin_scorers.make_judge") as mock_make_judge:
+        mock_judge_instance = MagicMock()
+        mock_judge_instance.return_value = Feedback(
             name="correctness", value=True, rationale="Correct answer"
         )
+        mock_make_judge.return_value = mock_judge_instance
 
         mlflow.log_expectation(
             trace_id=trace_without_inputs_outputs.info.trace_id,
@@ -686,29 +688,72 @@ def test_correctness_fallback_with_expectations(trace_without_inputs_outputs):
 
         assert result.name == "correctness"
         assert result.value is True
-        mock_invoke_judge.assert_called_once()
 
-        call_args = mock_invoke_judge.call_args
-        prompt_text = call_args[1]["prompt"]
-        assert "Expected answer" in prompt_text
+        mock_make_judge.assert_called_once()
+        call_args = mock_make_judge.call_args
+
+        instructions = call_args[1]["instructions"]
+        assert "{{ trace }}" in instructions
+        assert "question, claim, and document" in instructions
+
+        mock_judge_instance.assert_called_once_with(trace=trace_with_expectations)
 
 
 def test_scorer_fallback_to_make_judge(trace_without_inputs_outputs):
-    with patch("mlflow.genai.scorers.builtin_scorers.invoke_judge_model") as mock_invoke_judge:
-        mock_invoke_judge.return_value = Feedback(
+    with patch("mlflow.genai.scorers.builtin_scorers.make_judge") as mock_make_judge:
+        mock_judge_instance = MagicMock()
+        mock_judge_instance.return_value = Feedback(
             name="guidelines", value=True, rationale="Follows guidelines"
         )
+        mock_make_judge.return_value = mock_judge_instance
 
         scorer = Guidelines(guidelines=["Be helpful"])
         result = scorer(trace=trace_without_inputs_outputs)
 
         assert result.name == "guidelines"
         assert result.value is True
-        mock_invoke_judge.assert_called_once()
 
-        call_args = mock_invoke_judge.call_args
-        prompt_text = call_args[1]["prompt"]
-        assert "trace" in prompt_text.lower()
+        mock_make_judge.assert_called_once()
+        call_args = mock_make_judge.call_args
+
+        instructions = call_args[1]["instructions"]
+        assert "{{ trace }}" in instructions
+        assert "Be helpful" in instructions
+
+        mock_judge_instance.assert_called_once_with(trace=trace_without_inputs_outputs)
+
+
+@pytest.mark.parametrize(
+    ("scorer_factory", "expected_name"),
+    [
+        (lambda: Guidelines(guidelines=["Be concise"]), "guidelines"),
+        (lambda: RelevanceToQuery(), "relevance_to_context"),
+        (lambda: Safety(), "safety"),
+    ],
+)
+def test_trace_not_formatted_into_prompt_for_fallback(
+    scorer_factory, expected_name, trace_without_inputs_outputs
+):
+    with patch("mlflow.genai.scorers.builtin_scorers.make_judge") as mock_make_judge:
+        mock_judge_instance = MagicMock()
+        mock_judge_instance.return_value = Feedback(
+            name=expected_name, value=True, rationale="Test passed"
+        )
+        mock_make_judge.return_value = mock_judge_instance
+
+        scorer = scorer_factory()
+        result = scorer(trace=trace_without_inputs_outputs)
+        assert result.name == expected_name
+
+        call_args = mock_make_judge.call_args
+        instructions = call_args[1]["instructions"]
+
+        trace_json = trace_without_inputs_outputs.to_json()
+        assert trace_json not in instructions
+
+        assert "{{ trace }}" in instructions
+
+        mock_judge_instance.assert_called_once_with(trace=trace_without_inputs_outputs)
 
 
 def test_correctness_extraction_from_simple_trace():
@@ -807,49 +852,54 @@ def test_relevance_mixed_override():
 
 
 def test_trace_extraction_with_fallback(trace_without_inputs_outputs):
-    with patch("mlflow.genai.scorers.builtin_scorers.invoke_judge_model") as mock_invoke_judge:
-        mock_invoke_judge.return_value = Feedback(
+    with patch("mlflow.genai.scorers.builtin_scorers.make_judge") as mock_make_judge:
+        mock_judge_instance = MagicMock()
+        mock_judge_instance.return_value = Feedback(
             name="guidelines", value=True, rationale="Fallback used"
         )
+        mock_make_judge.return_value = mock_judge_instance
 
         scorer = Guidelines(guidelines=["Be helpful"])
         result = scorer(trace=trace_without_inputs_outputs)
 
         assert result.name == "guidelines"
         assert result.value is True
-        mock_invoke_judge.assert_called_once()
 
-        call_args = mock_invoke_judge.call_args
-        prompt_text = call_args[1]["prompt"]
-        assert '"trace_id"' in prompt_text
-        assert '"spans"' in prompt_text
-        assert "Be helpful" in prompt_text
+        mock_make_judge.assert_called_once()
+        call_args = mock_make_judge.call_args
+        instructions = call_args[1]["instructions"]
+        assert "{{ trace }}" in instructions
+        assert "Be helpful" in instructions
 
 
 def test_trace_agent_mode_with_extra_fields(trace_with_only_inputs):
-    with patch("mlflow.genai.scorers.builtin_scorers.invoke_judge_model") as mock_invoke_judge:
-        mock_invoke_judge.return_value = Feedback(
+    with patch("mlflow.genai.scorers.builtin_scorers.make_judge") as mock_make_judge:
+        mock_judge_instance = MagicMock()
+        mock_judge_instance.return_value = Feedback(
             name="safety", value="yes", rationale="Safe via trace"
         )
+        mock_make_judge.return_value = mock_judge_instance
 
         scorer = Safety()
         result = scorer(trace=trace_with_only_inputs)
 
         assert result.name == "safety"
         assert result.value == "yes"
-        mock_invoke_judge.assert_called_once()
 
-        call_args = mock_invoke_judge.call_args
-        prompt_text = call_args[1]["prompt"]
-        assert '"trace_id"' in prompt_text
-        assert "Test question" in prompt_text
+        mock_make_judge.assert_called_once()
+        call_args = mock_make_judge.call_args
+        instructions = call_args[1]["instructions"]
+        assert "{{ trace }}" in instructions
+        assert "safety" in instructions.lower()
 
 
 def test_pure_trace_mode_with_expectations(trace_with_only_outputs):
-    with patch("mlflow.genai.scorers.builtin_scorers.invoke_judge_model") as mock_invoke_judge:
-        mock_invoke_judge.return_value = Feedback(
+    with patch("mlflow.genai.scorers.builtin_scorers.make_judge") as mock_make_judge:
+        mock_judge_instance = MagicMock()
+        mock_judge_instance.return_value = Feedback(
             name="correctness", value=True, rationale="Pure trace mode"
         )
+        mock_make_judge.return_value = mock_judge_instance
 
         scorer = Correctness()
         result = scorer(
@@ -858,12 +908,12 @@ def test_pure_trace_mode_with_expectations(trace_with_only_outputs):
 
         assert result.name == "correctness"
         assert result.value is True
-        mock_invoke_judge.assert_called_once()
 
-        call_args = mock_invoke_judge.call_args
-        prompt_text = call_args[1]["prompt"]
-        assert "Expected answer" in prompt_text
-        assert '"expected_response"' in prompt_text
+        mock_make_judge.assert_called_once()
+        call_args = mock_make_judge.call_args
+        instructions = call_args[1]["instructions"]
+        assert "{{ trace }}" in instructions
+        assert "correctness" in instructions.lower()
 
 
 def test_correctness_default_extracts_from_trace():
@@ -945,10 +995,12 @@ def test_expectations_guidelines_extraction_from_trace():
 
 
 def test_expectations_guidelines_fallback_with_trace(trace_without_inputs_outputs):
-    with patch("mlflow.genai.scorers.builtin_scorers.invoke_judge_model") as mock_invoke_judge:
-        mock_invoke_judge.return_value = Feedback(
+    with patch("mlflow.genai.scorers.builtin_scorers.make_judge") as mock_make_judge:
+        mock_judge_instance = MagicMock()
+        mock_judge_instance.return_value = Feedback(
             name="expectations_guidelines", value=True, rationale="Follows guidelines"
         )
+        mock_make_judge.return_value = mock_judge_instance
 
         scorer = ExpectationsGuidelines()
         result = scorer(
@@ -958,31 +1010,36 @@ def test_expectations_guidelines_fallback_with_trace(trace_without_inputs_output
         assert result.name == "expectations_guidelines"
         assert result.value is True
 
-        call_args = mock_invoke_judge.call_args
-        prompt_text = call_args[1]["prompt"]
-        assert '"trace_id"' in prompt_text
-        assert "Be helpful" in prompt_text
-        mock_invoke_judge.assert_called_once()
+        mock_make_judge.assert_called_once()
+        call_args = mock_make_judge.call_args
+        instructions = call_args[1]["instructions"]
+        assert "{{ trace }}" in instructions
+        assert "Be helpful" in instructions
+
+        mock_judge_instance.assert_called_once_with(trace=trace_without_inputs_outputs)
 
 
 def test_relevance_fallback_trace_serialization(trace_without_inputs_outputs):
-    with patch("mlflow.genai.scorers.builtin_scorers.invoke_judge_model") as mock_invoke_judge:
-        mock_invoke_judge.return_value = Feedback(
+    with patch("mlflow.genai.scorers.builtin_scorers.make_judge") as mock_make_judge:
+        mock_judge_instance = MagicMock()
+        mock_judge_instance.return_value = Feedback(
             name="relevance_to_query", value=True, rationale="Fallback used"
         )
+        mock_make_judge.return_value = mock_judge_instance
 
         scorer = RelevanceToQuery()
         result = scorer(trace=trace_without_inputs_outputs)
 
         assert result.name == "relevance_to_query"
         assert result.value is True
-        mock_invoke_judge.assert_called_once()
 
-        call_args = mock_invoke_judge.call_args
-        prompt_text = call_args[1]["prompt"]
-        assert '"trace_id"' in prompt_text
-        assert '"spans"' in prompt_text
-        assert '"info"' in prompt_text
+        mock_make_judge.assert_called_once()
+        call_args = mock_make_judge.call_args
+        instructions = call_args[1]["instructions"]
+        assert "{{ trace }}" in instructions
+        assert "question and answer" in instructions
+
+        mock_judge_instance.assert_called_once_with(trace=trace_without_inputs_outputs)
 
 
 def test_expectations_guidelines_mixed_override():

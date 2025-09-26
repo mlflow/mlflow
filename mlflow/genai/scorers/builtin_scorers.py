@@ -8,6 +8,7 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai import judges
+from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.prompts.context_sufficiency import CONTEXT_SUFFICIENCY_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.correctness import (
@@ -30,12 +31,12 @@ from mlflow.genai.judges.prompts.relevance_to_query import (
     get_trace_fallback_prompt as get_relevance_trace_fallback_prompt,
 )
 from mlflow.genai.judges.prompts.safety import (
-    SAFETY_PROMPT_INSTRUCTIONS,
+    SAFETY_BASE_INSTRUCTIONS,
 )
 from mlflow.genai.judges.prompts.safety import (
     get_trace_fallback_prompt as get_safety_trace_fallback_prompt,
 )
-from mlflow.genai.judges.utils import format_prompt, get_default_model, invoke_judge_model
+from mlflow.genai.judges.utils import get_default_model, invoke_judge_model
 from mlflow.genai.scorers.base import (
     _SERIALIZATION_VERSION,
     ScorerKind,
@@ -607,14 +608,12 @@ class Guidelines(BuiltInScorer):
 
             if inputs is None or outputs is None:
                 prompt = get_guidelines_trace_fallback_prompt(self.guidelines)
-                trace_json = trace.to_json(pretty=True)
-                prompt = format_prompt(prompt, trace=trace_json)
-                return invoke_judge_model(
-                    model_uri=self.model or get_default_model(),
-                    prompt=prompt,
-                    assessment_name=self.name,
-                    trace=trace,
+                judge = make_judge(
+                    name=self.name,
+                    instructions=prompt,
+                    model=self.model or get_default_model(),
                 )
+                return judge(trace=trace)
 
         if inputs is None or outputs is None:
             raise MlflowException(
@@ -772,14 +771,12 @@ class ExpectationsGuidelines(BuiltInScorer):
                     )
 
                 prompt = get_guidelines_trace_fallback_prompt(guidelines)
-                trace_json = trace.to_json(pretty=True)
-                prompt = format_prompt(prompt, trace=trace_json)
-                return invoke_judge_model(
-                    model_uri=self.model or get_default_model(),
-                    prompt=prompt,
-                    assessment_name=self.name,
-                    trace=trace,
+                judge = make_judge(
+                    name=self.name,
+                    instructions=prompt,
+                    model=self.model or get_default_model(),
                 )
+                return judge(trace=trace)
 
         if inputs is None or outputs is None:
             raise MlflowException(
@@ -791,8 +788,9 @@ class ExpectationsGuidelines(BuiltInScorer):
         guidelines = (expectations or {}).get("guidelines")
         if not guidelines:
             raise MlflowException(
-                "Guidelines must be specified in the `expectations` parameter or "
-                "must be present in the trace."
+                "Guidelines must be specified in the `expectations` parameter"
+                + (" or must be present in the trace" if trace else "")
+                + "."
             )
 
         return judges.meets_guidelines(
@@ -912,14 +910,12 @@ class RelevanceToQuery(BuiltInScorer):
 
             if inputs is None or outputs is None:
                 prompt = get_relevance_trace_fallback_prompt()
-                trace_json = trace.to_json(pretty=True)
-                prompt = format_prompt(prompt, trace=trace_json)
-                return invoke_judge_model(
-                    model_uri=self.model or get_default_model(),
-                    prompt=prompt,
-                    assessment_name=self.name,
-                    trace=trace,
+                judge = make_judge(
+                    name=self.name,
+                    instructions=prompt,
+                    model=self.model or get_default_model(),
                 )
+                return judge(trace=trace)
 
         if inputs is None or outputs is None:
             raise MlflowException(
@@ -980,7 +976,7 @@ class Safety(BuiltInScorer):
     @property
     def instructions(self) -> str:
         """Get the instructions of what this scorer evaluates."""
-        return SAFETY_PROMPT_INSTRUCTIONS
+        return SAFETY_BASE_INSTRUCTIONS
 
     def get_input_fields(self) -> list[JudgeField]:
         """
@@ -1028,14 +1024,12 @@ class Safety(BuiltInScorer):
 
             if outputs is None:
                 prompt = get_safety_trace_fallback_prompt()
-                trace_json = trace.to_json(pretty=True)
-                prompt = format_prompt(prompt, trace=trace_json)
-                return invoke_judge_model(
-                    model_uri=self.model or get_default_model(),
-                    prompt=prompt,
-                    assessment_name=self.name,
-                    trace=trace,
+                judge = make_judge(
+                    name=self.name,
+                    instructions=prompt,
+                    model=self.model or get_default_model(),
                 )
+                return judge(trace=trace)
 
         if outputs is None:
             raise MlflowException(
@@ -1233,14 +1227,12 @@ class Correctness(BuiltInScorer):
 
                     trace = Trace.from_dict(trace_dict)
 
-                trace_json = trace.to_json(pretty=True)
-                prompt = format_prompt(prompt, trace=trace_json)
-                return invoke_judge_model(
-                    model_uri=self.model or get_default_model(),
-                    prompt=prompt,
-                    assessment_name=self.name,
-                    trace=trace,
+                judge = make_judge(
+                    name=self.name,
+                    instructions=prompt,
+                    model=self.model or get_default_model(),
                 )
+                return judge(trace=trace)
 
             if not expectations or (
                 expectations.get("expected_response") is None

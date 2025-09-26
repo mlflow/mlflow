@@ -87,7 +87,7 @@ Safety and RetrievalRelevance scorers are currently only available in [Databrick
 
 ## Using Traces with Built-in Scorers
 
-The Guidelines, RelevanceToQuery, Safety, Correctness, and ExpectationsGuidelines scorers can extract inputs and outputs directly from traces:
+All built-in scorers, such as Guidelines, RelevanceToQuery, Safety, Correctness, and ExpectationsGuidelines, can extract inputs and outputs directly from traces:
 
 ```python
 from mlflow.genai.scorers import Correctness
@@ -104,9 +104,9 @@ result = scorer(trace=trace, expectations={"expected_facts": ["Custom fact"]})
 
 ### Automatic Fallback for Complex Traces
 
-When the scorer cannot extract the required fields from a trace (e.g., complex multi-step workflows), it automatically falls back to submitting the serialized trace info to an LLM judge. This ensures evaluation can still proceed even with traces that don't follow the standard input/output pattern.
+When the scorer cannot extract the required fields from a trace (e.g., complex multi-step workflows), it automatically uses tool calling to provide the trace information to an LLM judge. This ensures evaluation can still proceed even with traces that don't follow the standard input/output pattern.
 
-The LLM judge receives the same evaluation instructions along with the trace info JSON (metadata, inputs, outputs, but not individual spans), allowing it to make a best-effort evaluation by analyzing the available execution context.
+The LLM judge receives the same evaluation instructions and uses tool calling to extract relevant information from the trace (metadata, inputs, outputs, but not individual spans), allowing it to make a best-effort evaluation by analyzing the available execution context.
 
 :::warning[Retrieval Scorers Require Traces]
 
