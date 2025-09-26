@@ -284,7 +284,7 @@ def search_traces(
     order_by_list = order_by.split(",") if order_by else None
 
     traces = client.search_traces(
-        experiment_ids=[experiment_id],
+        locations=[experiment_id],
         filter_string=filter_string,
         max_results=max_results,
         order_by=order_by_list,

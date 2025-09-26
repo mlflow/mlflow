@@ -732,6 +732,7 @@ def search_traces(
         locations: A list of locations to search over. To search over experiments, provide
             a list of experiment IDs. To search over UC tables on databricks, provide
             a list of locations in the format `<catalog_name>.<schema_name>`.
+            If not provided, the search will be performed across the current active experiment.
 
     Returns:
         Traces that satisfy the search expressions. Either as a list of
@@ -822,7 +823,7 @@ def search_traces(
         else:
             raise MlflowException(
                 "No active experiment found. Set an experiment using `mlflow.set_experiment`, "
-                "or specify the list of experiment IDs in the `experiment_ids` parameter."
+                "or specify the list of experiment IDs in the `locations` parameter."
             )
 
     def pagination_wrapper_func(number_to_get, next_page_token):

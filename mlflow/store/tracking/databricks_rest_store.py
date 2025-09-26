@@ -152,11 +152,9 @@ class DatabricksTracingRestStore(RestStore):
     ) -> tuple[list[TraceInfo], str | None]:
         # This API is not client-facing, so we should always use `locations`.
         if experiment_ids is not None:
-            raise MlflowException.invalid_parameter_value(
-                "`experiment_ids` is deprecated, use `locations` instead."
-            )
+            raise MlflowException("`experiment_ids` is deprecated, use `locations` instead.")
         if not locations:
-            raise MlflowException.invalid_parameter_value(
+            raise MlflowException(
                 "`locations` must be specified for searching traces in Databricks."
             )
 

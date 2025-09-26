@@ -2598,8 +2598,8 @@ class SqlAlchemyStore(AbstractStore):
             model_id: If specified, search traces associated with the given model ID.
             sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
                 searching traces in inference tables.
-            locations: Only used in Databricks. A list of UC schemas `<catalog_name>.<schema_name>`
-                to search over.
+            locations: A list of locations to search over. To search over experiments, provide
+                a list of experiment IDs.
 
         Returns:
             A tuple of a list of :py:class:`TraceInfo <mlflow.entities.TraceInfo>` objects that
