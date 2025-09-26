@@ -3,11 +3,9 @@ Internal job APIs for UI invocation
 """
 
 import json
-import os
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
-from fastapi import status as http_status
+from fastapi import APIRouter
 from pydantic import BaseModel
 
 from mlflow.entities._job import Job as JobEntity
