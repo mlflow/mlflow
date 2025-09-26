@@ -27,9 +27,9 @@ class Job(BaseModel):
     result: Any
     retry_count: int
 
-    @staticmethod
-    def from_job_entity(job: JobEntity):
-        return Job(
+    @classmethod
+    def from_job_entity(cls, job: JobEntity):
+        return cls(
             job_id=job.job_id,
             creation_time=job.creation_time,
             function_fullname=job.function_fullname,
@@ -53,14 +53,6 @@ class SubmitJobPayload(BaseModel):
     function_fullname: str
     params: dict[str, Any]
     timeout: float | None = None
-
-
-class SubmitJobResponse(BaseModel):
-    """
-    Pydantic model for submitting job response.
-    """
-
-    job_id: str
 
 
 @job_api_router.post("/", response_model=Job)
