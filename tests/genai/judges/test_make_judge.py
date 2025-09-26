@@ -2305,7 +2305,9 @@ def test_trace_only_template_uses_two_messages_with_empty_user(mock_invoke_judge
 
     user_msg = prompt[1]
     assert user_msg.role == "user"
-    assert user_msg.content == ""  # Empty user message for trace-only
+    assert (
+        user_msg.content == "Follow the instructions from the first message"
+    )  # Placeholder user message for trace-only
 
 
 def test_no_warning_when_extracting_fields_from_trace(mock_invoke_judge_model):

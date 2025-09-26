@@ -9,7 +9,7 @@ from dspy.utils.callback import BaseCallback
 
 import mlflow
 from mlflow.dspy.constant import FLAVOR_NAME
-from mlflow.dspy.util import log_dspy_module_params, save_dspy_module_state
+from mlflow.dspy.util import log_dspy_lm_state, log_dspy_module_params, save_dspy_module_state
 from mlflow.entities import SpanStatusCode, SpanType
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.span_event import SpanEvent
@@ -64,6 +64,7 @@ class MlflowCallback(BaseCallback):
         self._call_id_to_metric_key: dict[str, tuple[str, int]] = {}
         self._evaluation_counter = defaultdict(int)
         self._disabled_eval_call_ids = set()
+        self._eval_runs_started: set[str] = set()
 
     def set_dependencies_schema(self, dependencies_schema: dict[str, Any]):
         if self._dependencies_schema:
@@ -253,6 +254,7 @@ class MlflowCallback(BaseCallback):
             if callback_metadata.get("disable_logging"):
                 self._disabled_eval_call_ids.add(call_id)
                 return
+        started_run = False
         if self.optimizer_stack_level > 0:
             with _lock:
                 # we may want to include optimizer_stack_level in the key
@@ -261,11 +263,19 @@ class MlflowCallback(BaseCallback):
                 self._evaluation_counter[key] += 1
             self._call_id_to_metric_key[call_id] = (key, step)
             mlflow.start_run(run_name=f"{key}_{step}", nested=True)
-        else:
+            started_run = True
+        elif mlflow.active_run() is None:
             mlflow.start_run(run_name=key, nested=True)
+            started_run = True
+
+        if started_run:
+            self._eval_runs_started.add(call_id)
         if program := inputs.get("program"):
             save_dspy_module_state(program, "model.json")
             log_dspy_module_params(program)
+
+        # Log the current DSPy LM state
+        log_dspy_lm_state()
 
     def on_evaluate_end(
         self,
@@ -283,8 +293,11 @@ class MlflowCallback(BaseCallback):
         if call_id in self._disabled_eval_call_ids:
             self._disabled_eval_call_ids.discard(call_id)
             return
+        run_started = call_id in self._eval_runs_started
         if exception:
-            mlflow.end_run(status=RunStatus.to_string(RunStatus.FAILED))
+            if run_started:
+                mlflow.end_run(status=RunStatus.to_string(RunStatus.FAILED))
+                self._eval_runs_started.discard(call_id)
             return
         score = None
         if isinstance(outputs, float):
@@ -300,7 +313,9 @@ class MlflowCallback(BaseCallback):
         if score is not None:
             mlflow.log_metric("eval", score)
 
-        mlflow.end_run()
+        if run_started:
+            mlflow.end_run()
+            self._eval_runs_started.discard(call_id)
         # Log the evaluation score to the parent run if called inside optimization
         if self.optimizer_stack_level > 0 and mlflow.active_run() is not None:
             if call_id not in self._call_id_to_metric_key:
@@ -316,6 +331,7 @@ class MlflowCallback(BaseCallback):
     def reset(self):
         self._call_id_to_metric_key: dict[str, tuple[str, int]] = {}
         self._evaluation_counter = defaultdict(int)
+        self._eval_runs_started = set()
 
     def _start_span(
         self,

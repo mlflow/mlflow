@@ -148,3 +148,12 @@ repos:
         stages: [pre-commit]
         require_serial: true
         pass_filenames: false
+
+      - id: uv-lock
+        name: uv-lock
+        entry: uv lock
+        language: system
+        files: '^pyproject\.toml$'
+        stages: [pre-commit]
+        require_serial: true
+        pass_filenames: false
