@@ -6,7 +6,6 @@ models with a user-defined ``PythonModel`` subclass.
 import bz2
 import gzip
 import inspect
-import json
 import logging
 import lzma
 import os
@@ -827,14 +826,22 @@ def _maybe_decompress_cloudpickle_load(path, compression):
 
 
 if IS_PYDANTIC_V2_OR_NEWER:
-    from pydantic import BaseModel
-
     from mlflow.types.responses import (
         Message,
         OutputItem,
         ResponsesAgentRequest,
         ResponsesAgentResponse,
         ResponsesAgentStreamEvent,
+        create_annotation_added,
+        create_function_call_item,
+        create_function_call_output_item,
+        create_reasoning_item,
+        create_text_delta,
+        create_text_output_item,
+        output_to_responses_items_stream,
+        responses_agent_output_reducer,
+        responses_to_cc,
+        to_chat_completions_input,
     )
 
     @experimental(version="3.0.0")
@@ -854,19 +861,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
         def responses_agent_output_reducer(
             chunks: list[ResponsesAgentStreamEvent | dict[str, Any]],
         ):
-            output_items = []
-            for chunk in chunks:
-                # Handle both dict and pydantic object formats
-                if isinstance(chunk, dict):
-                    chunk_type = chunk.get("type")
-                    if chunk_type == "response.output_item.done":
-                        output_items.append(chunk.get("item"))
-                else:
-                    # Pydantic object (ResponsesAgentStreamEvent)
-                    if hasattr(chunk, "type") and chunk.type == "response.output_item.done":
-                        output_items.append(chunk.item)
-
-            return ResponsesAgentResponse(output=output_items).model_dump(exclude_none=True)
+            return responses_agent_output_reducer(chunks)
 
         def __init_subclass__(cls, **kwargs) -> None:
             super().__init_subclass__(**kwargs)
@@ -937,22 +932,13 @@ if IS_PYDANTIC_V2_OR_NEWER:
 
             Read more at https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#streaming-agent-output.
             """
-            return {
-                "type": "response.output_text.delta",
-                "item_id": item_id,
-                "delta": delta,
-            }
+            return create_text_delta(delta, item_id)
 
         @staticmethod
         def create_annotation_added(
             item_id: str, annotation: dict[str, Any], annotation_index: int | None = 0
         ) -> dict[str, Any]:
-            return {
-                "type": "response.output_text.annotation.added",
-                "item_id": item_id,
-                "annotation_index": annotation_index,
-                "annotation": annotation,
-            }
+            return create_annotation_added(item_id, annotation, annotation_index)
 
         @staticmethod
         def create_text_output_item(
@@ -967,18 +953,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
                 id (str): The id of the output item.
                 annotations (Optional[list[dict]]): The annotations of the output item.
             """
-            content_item = {
-                "text": text,
-                "type": "output_text",
-            }
-            if annotations is not None:
-                content_item["annotations"] = annotations
-            return {
-                "id": id,
-                "content": [content_item],
-                "role": "assistant",
-                "type": "message",
-            }
+            return create_text_output_item(text, id, annotations)
 
         @staticmethod
         def create_reasoning_item(id: str, reasoning_text: str) -> dict[str, Any]:
@@ -986,16 +961,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
 
             Read more at https://www.mlflow.org/docs/latest/llms/responses-agent-intro/#creating-agent-output.
             """
-            return {
-                "type": "reasoning",
-                "summary": [
-                    {
-                        "type": "summary_text",
-                        "text": reasoning_text,
-                    }
-                ],
-                "id": id,
-            }
+            return create_reasoning_item(id, reasoning_text)
 
         @staticmethod
         def create_function_call_item(
@@ -1011,13 +977,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
                 name (str): The name of the function to be called.
                 arguments (str): The arguments to be passed to the function.
             """
-            return {
-                "type": "function_call",
-                "id": id,
-                "call_id": call_id,
-                "name": name,
-                "arguments": arguments,
-            }
+            return create_function_call_item(id, call_id, name, arguments)
 
         @staticmethod
         def create_function_call_output_item(call_id: str, output: str) -> dict[str, Any]:
@@ -1030,64 +990,19 @@ if IS_PYDANTIC_V2_OR_NEWER:
                 call_id (str): The id of the function call.
                 output (str): The output of the function call.
             """
-            return {
-                "type": "function_call_output",
-                "call_id": call_id,
-                "output": output,
-            }
+            return create_function_call_output_item(call_id, output)
 
         @staticmethod
         def _responses_to_cc(message: dict[str, Any]) -> list[dict[str, Any]]:
             """Convert from a Responses API output item to  a list of ChatCompletion messages."""
-            msg_type = message.get("type")
-            if msg_type == "function_call":
-                return [
-                    {
-                        "role": "assistant",
-                        "content": "tool call",  # empty content is not supported by claude models
-                        "tool_calls": [
-                            {
-                                "id": message["call_id"],
-                                "type": "function",
-                                "function": {
-                                    "arguments": message["arguments"],
-                                    "name": message["name"],
-                                },
-                            }
-                        ],
-                    }
-                ]
-            elif msg_type == "message" and isinstance(message.get("content"), list):
-                return [
-                    {"role": message["role"], "content": content["text"]}
-                    for content in message["content"]
-                ]
-            elif msg_type == "reasoning":
-                return [{"role": "assistant", "content": json.dumps(message["summary"])}]
-            elif msg_type == "function_call_output":
-                return [
-                    {
-                        "role": "tool",
-                        "content": message["output"],
-                        "tool_call_id": message["call_id"],
-                    }
-                ]
-            compatible_keys = ["role", "content", "name", "tool_calls", "tool_call_id"]
-            filtered = {k: v for k, v in message.items() if k in compatible_keys}
-            return [filtered] if filtered else []
+            return responses_to_cc(message)
 
         @staticmethod
         def prep_msgs_for_cc_llm(
             responses_input: list[dict[str, Any] | Message | OutputItem],
         ) -> list[dict[str, Any]]:
             "Convert from Responses input items to ChatCompletion dictionaries"
-            cc_msgs = []
-            for msg in responses_input:
-                if isinstance(msg, BaseModel):
-                    cc_msgs.extend(ResponsesAgent._responses_to_cc(msg.model_dump()))
-                else:
-                    cc_msgs.extend(ResponsesAgent._responses_to_cc(msg))
-            return cc_msgs
+            return to_chat_completions_input(responses_input)
 
         @staticmethod
         def output_to_responses_items_stream(
@@ -1101,77 +1016,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
 
             For now, only handle a stream of Chat Completion chunks.
             """
-            llm_content = ""
-            reasoning_content = ""
-            tool_calls = []
-            msg_id = None
-            for chunk in chunks:
-                delta = chunk["choices"][0]["delta"]
-                msg_id = chunk.get("id", None)
-                content = delta.get("content", None)
-                if tc := delta.get("tool_calls"):
-                    if not tool_calls:  # only accommodate for single tool call right now
-                        tool_calls = tc
-                    else:
-                        tool_calls[0]["function"]["arguments"] += tc[0]["function"]["arguments"]
-                elif content is not None:
-                    # logic for content item format
-                    # https://docs.databricks.com/aws/en/machine-learning/foundation-model-apis/api-reference#contentitem
-                    if isinstance(content, list):
-                        for item in content:
-                            if isinstance(item, dict):
-                                if item.get("type") == "reasoning":
-                                    reasoning_content += item.get("summary", [])[0].get("text", "")
-                                if item.get("type") == "text" and item.get("text"):
-                                    llm_content += item["text"]
-                                    yield ResponsesAgentStreamEvent(
-                                        **ResponsesAgent.create_text_delta(
-                                            item["text"], item_id=msg_id
-                                        )
-                                    )
-                    elif reasoning_content != "":
-                        # reasoning content is done streaming
-                        reasoning_item = ResponsesAgent.create_reasoning_item(
-                            msg_id, reasoning_content
-                        )
-                        if aggregator is not None:
-                            aggregator.append(reasoning_item)
-                        yield ResponsesAgentStreamEvent(
-                            type="response.output_item.done",
-                            item=reasoning_item,
-                        )
-                        reasoning_content = ""
-
-                    if isinstance(content, str):
-                        llm_content += content
-                        yield ResponsesAgentStreamEvent(
-                            **ResponsesAgent.create_text_delta(content, item_id=msg_id)
-                        )
-
-            # yield an `output_item.done` `output_text` event that aggregates the stream
-            # this enables tracing and payload logging
-            if llm_content:
-                text_output_item = ResponsesAgent.create_text_output_item(llm_content, msg_id)
-                if aggregator is not None:
-                    aggregator.append(text_output_item)
-                yield ResponsesAgentStreamEvent(
-                    type="response.output_item.done",
-                    item=text_output_item,
-                )
-
-            for tool_call in tool_calls:
-                function_call_output_item = ResponsesAgent.create_function_call_item(
-                    msg_id,
-                    tool_call["id"],
-                    tool_call["function"]["name"],
-                    tool_call["function"]["arguments"],
-                )
-                if aggregator is not None:
-                    aggregator.append(function_call_output_item)
-                yield ResponsesAgentStreamEvent(
-                    type="response.output_item.done",
-                    item=function_call_output_item,
-                )
+            yield from output_to_responses_items_stream(chunks, aggregator)
 
 
 def _save_model_with_class_artifacts_params(
