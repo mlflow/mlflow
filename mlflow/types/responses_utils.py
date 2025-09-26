@@ -1,3 +1,6 @@
+from itertools import tee
+from uuid import uuid4
+
 from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
 
 if not IS_PYDANTIC_V2_OR_NEWER:
@@ -16,6 +19,13 @@ from mlflow.types.responses import (
     ResponsesAgentResponse,
     ResponsesAgentStreamEvent,
 )
+
+try:
+    from langchain_core.messages import BaseMessage
+
+    _HAS_LANGCHAIN_BASE_MESSAGE = True
+except ImportError:
+    _HAS_LANGCHAIN_BASE_MESSAGE = False
 
 
 def responses_agent_output_reducer(
@@ -195,7 +205,8 @@ def prep_msgs_for_cc_llm(
 
 
 def output_to_responses_items_stream(
-    chunks: Iterator[dict[str, Any]], aggregator: list[dict[str, Any]] | None = None
+    chunks: Iterator[dict[str, Any]],
+    aggregator: list[dict[str, Any]] | None = None,
 ) -> Generator[ResponsesAgentStreamEvent, None, None]:
     """
     For streaming, convert from various message format dicts to Responses output items,
@@ -203,8 +214,74 @@ def output_to_responses_items_stream(
 
     If `aggregator` is provided, it will be extended with the aggregated output item dicts.
 
-    For now, only handle a stream of Chat Completion chunks.
+    Handles an iterator of ChatCompletion chunks or LangChain BaseMessage objects.
     """
+    peeking_iter, chunks = tee(chunks)
+    first_chunk = next(peeking_iter)
+    if _HAS_LANGCHAIN_BASE_MESSAGE and isinstance(first_chunk, BaseMessage):
+        yield from _langchain_message_stream_to_responses_stream(chunks, aggregator)
+    else:
+        yield from _cc_stream_to_responses_stream(chunks, aggregator)
+
+
+if _HAS_LANGCHAIN_BASE_MESSAGE:
+
+    def _langchain_message_stream_to_responses_stream(
+        chunks: Iterator[BaseMessage],
+        aggregator: list[dict[str, Any]] | None = None,
+    ) -> Generator[ResponsesAgentStreamEvent, None, None]:
+        """Convert from a stream of LangChain BaseMessage objects to a stream of
+        ResponsesAgentStreamEvent objects. Skips user or human messages.
+        """
+        for chunk in chunks:
+            message = chunk.model_dump()
+            role = message["type"]
+            if role == "ai":
+                if message.get("content"):
+                    text_output_item = create_text_output_item(
+                        text=message["content"],
+                        id=message.get("id") or str(uuid4()),
+                    )
+                    if aggregator is not None:
+                        aggregator.append(text_output_item)
+                    yield ResponsesAgentStreamEvent(
+                        type="response.output_item.done", item=text_output_item
+                    )
+                if tool_calls := message.get("tool_calls"):
+                    for tool_call in tool_calls:
+                        function_call_item = (
+                            create_function_call_item(
+                                id=message.get("id") or str(uuid4()),
+                                call_id=tool_call["id"],
+                                name=tool_call["name"],
+                                arguments=json.dumps(tool_call["args"]),
+                            ),
+                        )
+                        if aggregator is not None:
+                            aggregator.append(function_call_item)
+                        yield ResponsesAgentStreamEvent(
+                            type="response.output_item.done", item=function_call_item
+                        )
+
+            elif role == "tool":
+                function_call_output_item = create_function_call_output_item(
+                    call_id=message["tool_call_id"],
+                    output=message["content"],
+                )
+                if aggregator is not None:
+                    aggregator.append(function_call_output_item)
+                yield ResponsesAgentStreamEvent(
+                    type="response.output_item.done", item=function_call_output_item
+                )
+            elif role == "user" or "human":
+                continue
+
+
+def _cc_stream_to_responses_stream(
+    chunks: Iterator[dict[str, Any]],
+    aggregator: list[dict[str, Any]] | None = None,
+) -> Generator[ResponsesAgentStreamEvent, None, None]:
+    """Convert from a stream of ChatCompletion chunks to a stream of ResponsesAgentStreamEvent objects."""
     llm_content = ""
     reasoning_content = ""
     tool_calls = []

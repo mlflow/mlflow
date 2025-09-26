@@ -31,6 +31,10 @@ from mlflow.types.responses import (
     ResponsesAgentResponse,
     ResponsesAgentStreamEvent,
 )
+from mlflow.types.responses_utils import (
+    _HAS_LANGCHAIN_BASE_MESSAGE,
+    output_to_responses_items_stream,
+)
 from mlflow.types.schema import ColSpec, DataType, Schema
 
 
@@ -1192,3 +1196,8 @@ def test_create_function_call_output_item():
 def test_prep_msgs_for_cc_llm(responses_input, cc_msgs):
     result = ResponsesAgent.prep_msgs_for_cc_llm(responses_input)
     assert result == cc_msgs
+
+
+@pytest.mark.skipif(not _HAS_LANGCHAIN_BASE_MESSAGE, reason="LangChain is not installed")
+def test_output_to_responses_items_stream_langchain():
+    result = output_to_responses_items_stream([BaseMessage(content="Hello")])
