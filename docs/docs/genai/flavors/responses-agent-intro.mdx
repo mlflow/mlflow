@@ -337,8 +337,12 @@ Here's an example of an agent that calls OpenAI's gpt-5 model with the ChatCompl
 import mlflow
 from mlflow.models import set_model
 from mlflow.pyfunc import ResponsesAgent
-from mlflow.types.responses import ResponsesAgentRequest, ResponsesAgentResponse
-from mlflow.types.responses_utils import output_to_responses_items_stream, prep_msgs_for_cc_llm
+from mlflow.types.responses import (
+    ResponsesAgentRequest,
+    ResponsesAgentResponse,
+    output_to_responses_items_stream,
+    prep_msgs_for_cc_llm,
+)
 from openai import OpenAI
 
 client = OpenAI()
@@ -359,12 +363,15 @@ class SimpleResponsesAgent(ResponsesAgent):
             for event in self.predict_stream(request)
             if event.type == "response.output_item.done"
         ]
-        return ResponsesAgentResponse(output=outputs, custom_outputs=request.custom_inputs)
+        return ResponsesAgentResponse(
+            output=outputs, custom_outputs=request.custom_inputs
+        )
 
     def predict_stream(self, request: ResponsesAgentRequest):
         messages = prep_msgs_for_cc_llm([i.model_dump() for i in request.input])
 
         yield from output_to_responses_items_stream(self.call_llm(messages))
+
 
 mlflow.openai.autolog()
 agent = SimpleResponsesAgent()
@@ -433,8 +440,9 @@ from mlflow.types.responses import (
     ResponsesAgentRequest,
     ResponsesAgentResponse,
     ResponsesAgentStreamEvent,
+    output_to_responses_items_stream,
+    prep_msgs_for_cc_llm,
 )
-from mlflow.types.responses_utils import output_to_responses_items_stream, prep_msgs_for_cc_llm
 
 
 class LangGraphResponsesAgent(ResponsesAgent):
@@ -447,7 +455,9 @@ class LangGraphResponsesAgent(ResponsesAgent):
             for event in self.predict_stream(request)
             if event.type == "response.output_item.done"
         ]
-        return ResponsesAgentResponse(output=outputs, custom_outputs=request.custom_inputs)
+        return ResponsesAgentResponse(
+            output=outputs, custom_outputs=request.custom_inputs
+        )
 
     def predict_stream(
         self,
@@ -455,7 +465,9 @@ class LangGraphResponsesAgent(ResponsesAgent):
     ) -> Generator[ResponsesAgentStreamEvent, None, None]:
         cc_msgs = prep_msgs_for_cc_llm([i.model_dump() for i in request.input])
 
-        for _, events in self.agent.stream({"messages": cc_msgs}, stream_mode=["updates"]):
+        for _, events in self.agent.stream(
+            {"messages": cc_msgs}, stream_mode=["updates"]
+        ):
             for node_data in events.values():
                 yield from output_to_responses_items_stream(node_data["messages"])
 

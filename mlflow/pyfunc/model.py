@@ -55,7 +55,6 @@ from mlflow.types.llm import (
     ChatMessage,
     ChatParams,
 )
-from mlflow.types.responses_utils import output_to_responses_items_stream
 from mlflow.types.utils import _is_list_dict_str, _is_list_str
 from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.databricks_utils import (
@@ -833,14 +832,13 @@ if IS_PYDANTIC_V2_OR_NEWER:
         ResponsesAgentRequest,
         ResponsesAgentResponse,
         ResponsesAgentStreamEvent,
-    )
-    from mlflow.types.responses_utils import (
         create_annotation_added,
         create_function_call_item,
         create_function_call_output_item,
         create_reasoning_item,
         create_text_delta,
         create_text_output_item,
+        output_to_responses_items_stream,
         prep_msgs_for_cc_llm,
         responses_agent_output_reducer,
         responses_to_cc,

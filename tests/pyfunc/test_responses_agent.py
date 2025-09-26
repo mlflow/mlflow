@@ -24,15 +24,13 @@ from mlflow.models.signature import ModelSignature
 from mlflow.pyfunc.loaders.responses_agent import _ResponsesAgentPyfuncWrapper
 from mlflow.pyfunc.model import _DEFAULT_RESPONSES_AGENT_METADATA_TASK, ResponsesAgent
 from mlflow.types.responses import (
+    _HAS_LANGCHAIN_BASE_MESSAGE,
     RESPONSES_AGENT_INPUT_EXAMPLE,
     RESPONSES_AGENT_INPUT_SCHEMA,
     RESPONSES_AGENT_OUTPUT_SCHEMA,
     ResponsesAgentRequest,
     ResponsesAgentResponse,
     ResponsesAgentStreamEvent,
-)
-from mlflow.types.responses_utils import (
-    _HAS_LANGCHAIN_BASE_MESSAGE,
     output_to_responses_items_stream,
 )
 

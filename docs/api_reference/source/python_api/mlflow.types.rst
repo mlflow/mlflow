@@ -11,9 +11,6 @@ mlflow.types
 .. automodule:: mlflow.types.responses_helpers
     :members:
 
-.. automodule:: mlflow.types.responses_utils
-    :members:
-
 .. automodule:: mlflow.types.agent
     :members:
 
