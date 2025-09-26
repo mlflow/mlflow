@@ -795,7 +795,7 @@ def test_search_traces():
     # Test with databricks tracking URI (using v3 endpoint)
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
         trace_infos, token = store.search_traces(
-            experiment_ids=experiment_ids,
+            locations=experiment_ids,
             filter_string=filter_string,
             max_results=max_results,
             order_by=order_by,
@@ -838,9 +838,9 @@ def test_search_traces_errors():
     store = RestStore(lambda: creds)
     with pytest.raises(
         MlflowException,
-        match="Searching traces by UC schema is not supported on the current tracking server",
+        match="Locations must be a list of experiment IDs",
     ):
-        store.search_traces(uc_schemas=["catalog.schema"])
+        store.search_traces(locations=["catalog.schema"])
 
     with pytest.raises(
         MlflowException,

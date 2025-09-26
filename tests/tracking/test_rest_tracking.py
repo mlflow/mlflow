@@ -2657,9 +2657,9 @@ def test_search_traces(mlflow_client):
 def test_search_traces_parameter_validation(mlflow_client):
     with pytest.raises(
         MlflowException,
-        match="Searching traces by UC schema is not supported on the current tracking server",
+        match="Locations must be a list of experiment IDs",
     ):
-        mlflow_client.search_traces(uc_schemas=["catalog.schema"])
+        mlflow_client.search_traces(locations=["catalog.schema"])
 
 
 def test_delete_traces(mlflow_client):

@@ -285,7 +285,7 @@ def test_search_traces():
     max_results = 10
     order_by = ["request_time DESC"]
     page_token = "12345abcde"
-    uc_schemas = ["catalog.schema"]
+    locations = ["catalog.schema"]
 
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
         trace_infos, token = store.search_traces(
@@ -293,7 +293,7 @@ def test_search_traces():
             max_results=max_results,
             order_by=order_by,
             page_token=page_token,
-            uc_schemas=uc_schemas,
+            locations=locations,
         )
 
         # Verify the correct endpoint was called (now V4 by default)
@@ -328,7 +328,7 @@ def test_search_traces():
     assert token == "token"
 
 
-def test_search_traces_experiments_and_uc_schemas():
+def test_search_traces_with_mixed_locations():
     creds = MlflowHostCreds("https://hello")
     store = DatabricksTracingRestStore(lambda: creds)
     response = mock.MagicMock()
@@ -358,21 +358,22 @@ def test_search_traces_experiments_and_uc_schemas():
     )
 
     # Parameters for search_traces
-    experiment_ids = ["1234"]
     filter_string = "state = 'OK'"
     max_results = 10
     order_by = ["request_time DESC"]
     page_token = "12345abcde"
-    uc_schemas = ["catalog.schema"]
-    trace_locations = [
-        trace_location_to_proto(TraceLocation.from_experiment_id(exp_id))
-        for exp_id in experiment_ids
-    ]
-    for uc_schema in uc_schemas:
-        catalog, schema = uc_schema.split(".")
-        trace_locations.append(
-            trace_location_to_proto(trace_location_from_databricks_uc_schema(catalog, schema))
-        )
+    locations = ["1234", "catalog.schema"]
+    trace_locations = []
+    for location in locations:
+        if "." not in location:
+            trace_locations.append(
+                trace_location_to_proto(TraceLocation.from_experiment_id(location))
+            )
+        else:
+            catalog, schema = location.split(".")
+            trace_locations.append(
+                trace_location_to_proto(trace_location_from_databricks_uc_schema(catalog, schema))
+            )
 
     expected_request = SearchTraces(
         locations=trace_locations,
@@ -384,12 +385,11 @@ def test_search_traces_experiments_and_uc_schemas():
 
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
         trace_infos, token = store.search_traces(
-            experiment_ids=experiment_ids,
             filter_string=filter_string,
             max_results=max_results,
             order_by=order_by,
             page_token=page_token,
-            uc_schemas=uc_schemas,
+            locations=locations,
         )
 
         _verify_requests(
@@ -428,11 +428,25 @@ def test_search_traces_errors():
     with mock.patch("mlflow.utils.rest_utils.http_request", side_effect=mock_http_request):
         with pytest.raises(
             MlflowException,
-            match="Searching traces by UC schema is not supported",
+            match="Searching traces by locations including UC schemas is not supported",
         ):
             store.search_traces(
-                uc_schemas=["catalog.schema"],
+                locations=["catalog.schema"],
             )
+
+
+def test_search_traces_experiment_ids_deprecated():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+
+    # Test that using experiment_ids raises error saying it's deprecated
+    with pytest.raises(
+        MlflowException,
+        match="experiment_ids.*deprecated.*use.*locations",
+    ):
+        store.search_traces(
+            experiment_ids=["123"],
+        )
 
 
 def test_search_traces_fallback_to_v3():
@@ -480,7 +494,7 @@ def test_search_traces_fallback_to_v3():
         "mlflow.utils.rest_utils.http_request", side_effect=mock_http_request
     ) as mock_http:
         trace_infos, token = store.search_traces(
-            experiment_ids=experiment_ids,
+            locations=experiment_ids,
             filter_string=filter_string,
             max_results=max_results,
             order_by=order_by,
@@ -557,7 +571,7 @@ def test_search_unified_traces():
 
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
         trace_infos, token = store.search_traces(
-            experiment_ids=experiment_ids,
+            locations=experiment_ids,
             filter_string=filter_string,
             max_results=max_results,
             order_by=order_by,

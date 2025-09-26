@@ -194,7 +194,7 @@ class TracingClient:
         page_token: str | None = None,
         model_id: str | None = None,
         sql_warehouse_id: str | None = None,
-        uc_schemas: list[str] | None = None,
+        locations: list[str] | None = None,
     ):
         return self.store.search_traces(
             experiment_ids=experiment_ids,
@@ -204,7 +204,7 @@ class TracingClient:
             page_token=page_token,
             model_id=model_id,
             sql_warehouse_id=sql_warehouse_id,
-            uc_schemas=uc_schemas,
+            locations=locations,
         )
 
     def search_traces(
@@ -218,13 +218,14 @@ class TracingClient:
         include_spans: bool = True,
         model_id: str | None = None,
         sql_warehouse_id: str | None = None,
-        uc_schemas: list[str] | None = None,
+        locations: list[str] | None = None,
     ) -> PagedList[Trace]:
         """
         Return traces that match the given list of search expressions within the experiments.
 
         Args:
-            experiment_ids: List of experiment ids to scope the search.
+            experiment_ids: List of experiment ids to scope the search. Deprecated,
+                use `locations` instead.
             filter_string: A search filter string.
             max_results: Maximum number of traces desired.
             order_by: List of order_by clauses.
@@ -239,8 +240,7 @@ class TracingClient:
             model_id: If specified, return traces associated with the model ID.
             sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
                 searching traces in inference tables.
-            uc_schemas: Only used in Databricks. A list of UC schemas `<catalog_name>.<schema_name>`
-                to search over.
+            locations: A list of locations to search over.
 
         Returns:
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
@@ -268,11 +268,11 @@ class TracingClient:
 
         if run_id:
             run = self.store.get_run(run_id)
-            if run.info.experiment_id not in experiment_ids:
+            if run.info.experiment_id not in locations:
                 raise MlflowException(
                     f"Run {run_id} belongs to experiment {run.info.experiment_id}, which is not "
-                    f"in the list of experiment IDs provided: {experiment_ids}. Please include "
-                    f"experiment {run.info.experiment_id} in the `experiment_ids` parameter to "
+                    f"in the list of locations provided: {locations}. Please include "
+                    f"experiment {run.info.experiment_id} in the `locations` parameter to "
                     "search for traces from this run.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
@@ -351,7 +351,7 @@ class TracingClient:
                     page_token=next_token,
                     model_id=model_id,
                     sql_warehouse_id=sql_warehouse_id,
-                    uc_schemas=uc_schemas,
+                    locations=locations,
                 )
 
                 if include_spans:

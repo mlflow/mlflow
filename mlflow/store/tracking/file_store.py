@@ -106,6 +106,7 @@ from mlflow.utils.uri import (
     resolve_uri_if_local,
 )
 from mlflow.utils.validation import (
+    _resolve_experiment_ids_and_locations,
     _validate_batch_log_data,
     _validate_batch_log_limits,
     _validate_experiment_artifact_location_length,
@@ -2152,7 +2153,7 @@ class FileStore(AbstractStore):
         page_token: str | None = None,
         model_id: str | None = None,
         sql_warehouse_id: str | None = None,
-        uc_schemas: list[str] | None = None,
+        locations: list[str] | None = None,
     ) -> tuple[list[TraceInfo], str | None]:
         """
         Return traces that match the given list of search expressions within the experiments.
@@ -2169,8 +2170,7 @@ class FileStore(AbstractStore):
             model_id: If specified, return traces associated with the model ID.
             sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
                 searching traces in inference tables.
-            uc_schemas: Only used in Databricks. A list of UC schemas `<catalog_name>.<schema_name>`
-                to search over.
+            locations: A list of locations to search over.
 
         Returns:
             A tuple of a list of :py:class:`TraceInfo <mlflow.entities.TraceInfo>` objects that
@@ -2180,10 +2180,7 @@ class FileStore(AbstractStore):
             some store implementations may not support pagination and thus the returned token would
             not be meaningful in such cases.
         """
-        if uc_schemas:
-            raise MlflowException.invalid_parameter_value(
-                "Searching traces by UC schema is not supported in FileStore",
-            )
+        locations = _resolve_experiment_ids_and_locations(experiment_ids, locations)
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException(
                 "Invalid value for request parameter max_results. It must be at "
@@ -2191,7 +2188,7 @@ class FileStore(AbstractStore):
                 INVALID_PARAMETER_VALUE,
             )
         traces = []
-        for experiment_id in experiment_ids:
+        for experiment_id in locations:
             trace_infos = self._list_trace_infos(experiment_id)
             traces.extend(trace_infos)
         filtered = SearchTraceUtils.filter(traces, filter_string)

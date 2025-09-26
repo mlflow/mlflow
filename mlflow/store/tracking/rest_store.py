@@ -139,6 +139,7 @@ from mlflow.utils.rest_utils import (
     http_request,
     verify_rest_response,
 )
+from mlflow.utils.validation import _resolve_experiment_ids_and_locations
 
 _logger = logging.getLogger(__name__)
 
@@ -486,12 +487,9 @@ class RestStore(AbstractStore):
         page_token: str | None = None,
         model_id: str | None = None,
         sql_warehouse_id: str | None = None,
-        uc_schemas: list[str] | None = None,
+        locations: list[str] | None = None,
     ):
-        if uc_schemas:
-            raise MlflowException.invalid_parameter_value(
-                "Searching traces by UC schema is not supported on the current tracking server.",
-            )
+        locations = _resolve_experiment_ids_and_locations(experiment_ids, locations)
 
         if model_id is not None:
             raise MlflowException.invalid_parameter_value(
@@ -499,7 +497,7 @@ class RestStore(AbstractStore):
             )
 
         return self._search_traces(
-            experiment_ids=experiment_ids,
+            locations=locations,
             filter_string=filter_string,
             max_results=max_results,
             order_by=order_by,
@@ -508,7 +506,7 @@ class RestStore(AbstractStore):
 
     def _search_traces(
         self,
-        experiment_ids: list[str],
+        locations: list[str],
         filter_string: str | None = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: list[str] | None = None,
@@ -516,7 +514,7 @@ class RestStore(AbstractStore):
     ) -> tuple[list[TraceInfo], str | None]:
         # Create trace_locations from experiment_ids for the V3 API
         trace_locations = []
-        for exp_id in experiment_ids:
+        for exp_id in locations:
             try:
                 location = TraceLocation.from_experiment_id(exp_id)
                 proto_location = location.to_proto()

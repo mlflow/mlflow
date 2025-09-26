@@ -148,32 +148,41 @@ class DatabricksTracingRestStore(RestStore):
         page_token: str | None = None,
         model_id: str | None = None,
         sql_warehouse_id: str | None = None,
-        uc_schemas: list[str] | None = None,
+        locations: list[str] | None = None,
     ) -> tuple[list[TraceInfo], str | None]:
-        if not experiment_ids and not uc_schemas:
+        # This API is not client-facing, so we should always use `locations`.
+        if experiment_ids is not None:
             raise MlflowException.invalid_parameter_value(
-                "At least one of `experiment_ids` or `uc_schemas` must be specified."
+                "`experiment_ids` is deprecated, use `locations` instead."
             )
-        experiment_ids = experiment_ids or []
-        uc_schemas = uc_schemas or []
+        if not locations:
+            raise MlflowException.invalid_parameter_value(
+                "`locations` must be specified for searching traces in Databricks."
+            )
+
+        contain_uc_schemas = False
+        trace_locations = []
+        # model_id is only supported by V3 API
         if model_id is None:
-            trace_locations = [
-                trace_location_to_proto(TraceLocation.from_experiment_id(exp_id))
-                for exp_id in experiment_ids
-            ]
-            for uc_schema in uc_schemas:
-                match uc_schema.split("."):
-                    case [catalog, schema]:
-                        trace_locations.append(
-                            trace_location_to_proto(
-                                trace_location_from_databricks_uc_schema(catalog, schema)
+            for location in locations:
+                if "." not in location:
+                    trace_locations.append(
+                        trace_location_to_proto(TraceLocation.from_experiment_id(location))
+                    )
+                else:
+                    match location.split("."):
+                        case [catalog, schema]:
+                            trace_locations.append(
+                                trace_location_to_proto(
+                                    trace_location_from_databricks_uc_schema(catalog, schema)
+                                )
                             )
-                        )
-                    case _:
-                        raise MlflowException.invalid_parameter_value(
-                            f"Invalid UC schema format: {uc_schema}. "
-                            "Expected format: `<catalog_name>.<schema_name>`"
-                        )
+                            contain_uc_schemas = True
+                        case _:
+                            raise MlflowException.invalid_parameter_value(
+                                f"Invalid location format: {location}. Expected format: "
+                                "`<catalog_name>.<schema_name>` or `<experiment_id>`."
+                            )
 
             request = SearchTraces(
                 locations=trace_locations,
@@ -195,14 +204,15 @@ class DatabricksTracingRestStore(RestStore):
                     _logger.debug(
                         "Server does not support SearchTracesV4 API yet. Falling back to V3 API."
                     )
-                    if uc_schemas:
+                    if contain_uc_schemas:
                         raise MlflowException(
-                            "Searching traces by UC schema is not supported on the current "
-                            "tracking server. Please use experiment_ids instead."
+                            "Searching traces by locations including UC schemas is not supported "
+                            "on the current tracking server. Only locations with experiment IDs "
+                            "are supported."
                         )
                     # fallback to v3 API
                     return self._search_traces(
-                        experiment_ids=experiment_ids,
+                        locations=locations,
                         filter_string=filter_string,
                         max_results=max_results,
                         order_by=order_by,
@@ -217,7 +227,7 @@ class DatabricksTracingRestStore(RestStore):
         else:
             return self._search_unified_traces(
                 model_id=model_id,
-                experiment_ids=experiment_ids,
+                locations=locations,
                 sql_warehouse_id=sql_warehouse_id or MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
                 filter_string=filter_string,
                 max_results=max_results,
@@ -228,7 +238,7 @@ class DatabricksTracingRestStore(RestStore):
     def _search_unified_traces(
         self,
         model_id: str,
-        experiment_ids: list[str],
+        locations: list[str],
         sql_warehouse_id: str | None = None,
         filter_string: str | None = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
@@ -238,7 +248,7 @@ class DatabricksTracingRestStore(RestStore):
         request = SearchUnifiedTraces(
             model_id=model_id,
             sql_warehouse_id=sql_warehouse_id,
-            experiment_ids=experiment_ids,
+            experiment_ids=locations,
             filter=filter_string,
             max_results=max_results,
             order_by=order_by,

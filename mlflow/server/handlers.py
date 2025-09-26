@@ -2859,7 +2859,7 @@ def _search_traces_v3():
             experiment_ids.append(location.mlflow_experiment.experiment_id)
 
     traces, token = _get_tracking_store().search_traces(
-        experiment_ids=experiment_ids,
+        locations=experiment_ids,
         filter_string=request_message.filter,
         max_results=request_message.max_results,
         order_by=request_message.order_by,

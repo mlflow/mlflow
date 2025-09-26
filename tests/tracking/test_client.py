@@ -407,14 +407,14 @@ def test_client_search_traces_with_get_traces(mock_store, mock_artifact_repo, in
         )
 
     mock_store.search_traces.assert_called_once_with(
-        experiment_ids=["1", "2", "3"],
+        experiment_ids=None,
         filter_string=None,
         max_results=100,
         order_by=None,
         page_token=None,
         model_id=None,
         sql_warehouse_id=None,
-        uc_schemas=None,
+        locations=["1", "2", "3"],
     )
     assert len(results) == 2
     if include_spans:
@@ -455,18 +455,18 @@ def test_client_search_traces_mixed(mock_store, mock_artifact_repo, include_span
     mock_store.get_traces.return_value = [Trace(info=mock_traces[0], data=TraceData(spans=[]))]
     mock_artifact_repo.download_trace_data.return_value = {}
     results = MlflowClient().search_traces(
-        experiment_ids=["1"], include_spans=include_spans, uc_schemas=["catalog.schema"]
+        locations=["1", "catalog.schema"], include_spans=include_spans
     )
 
     mock_store.search_traces.assert_called_once_with(
-        experiment_ids=["1"],
+        experiment_ids=None,
         filter_string=None,
         max_results=100,
         order_by=None,
         page_token=None,
         model_id=None,
         sql_warehouse_id=None,
-        uc_schemas=["catalog.schema"],
+        locations=["1", "catalog.schema"],
     )
     assert len(results) == 2
     if include_spans:
@@ -499,19 +499,17 @@ def test_client_search_traces_with_artifact_repo(mock_store, mock_artifact_repo,
     ]
     mock_store.search_traces.return_value = (mock_traces, None)
     mock_artifact_repo.download_trace_data.return_value = {}
-    results = MlflowClient().search_traces(
-        experiment_ids=["1", "2", "3"], include_spans=include_spans
-    )
+    results = MlflowClient().search_traces(locations=["1", "2", "3"], include_spans=include_spans)
 
     mock_store.search_traces.assert_called_once_with(
-        experiment_ids=["1", "2", "3"],
+        experiment_ids=None,
         filter_string=None,
         max_results=100,
         order_by=None,
         page_token=None,
         model_id=None,
         sql_warehouse_id=None,
-        uc_schemas=None,
+        locations=["1", "2", "3"],
     )
     assert len(results) == 2
     if include_spans:
@@ -1042,6 +1040,16 @@ def test_log_trace(tracking_uri):
     new_trace_id = client._log_trace(trace)
     backend_traces = client.search_traces(experiment_ids=[DEFAULT_EXPERIMENT_ID])
     assert len(backend_traces) == 1
+
+
+def test_search_traces_experiment_ids_deprecation_warning():
+    client = MlflowClient()
+    exp_id = mlflow.set_experiment("test_experiment_deprecation").experiment_id
+
+    # Test that using experiment_ids shows a deprecation warning
+    with pytest.warns(FutureWarning, match="experiment_ids.*deprecated.*use.*locations"):
+        result = client.search_traces(experiment_ids=[exp_id])
+    assert isinstance(result, list)
 
 
 def test_ignore_exception_from_tracing_logic(monkeypatch, async_logging_enabled):

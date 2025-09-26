@@ -352,7 +352,7 @@ class AbstractStore:
         page_token: str | None = None,
         model_id: str | None = None,
         sql_warehouse_id: str | None = None,
-        uc_schemas: list[str] | None = None,
+        locations: list[str] | None = None,
     ) -> tuple[list[TraceInfo], str | None]:
         """
         Return traces that match the given list of search expressions within the experiments.
@@ -367,8 +367,7 @@ class AbstractStore:
             model_id: If specified, return traces associated with the model ID.
             sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
                 searching traces in inference tables.
-            uc_schemas: Only used in Databricks. A list of UC schemas `<catalog_name>.<schema_name>`
-                to search over.
+            locations: A list of locations to search over.
 
         Returns:
             A tuple of a list of :py:class:`TraceInfo <mlflow.entities.TraceInfo>` objects that
