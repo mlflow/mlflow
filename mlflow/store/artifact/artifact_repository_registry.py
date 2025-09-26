@@ -93,12 +93,12 @@ class ArtifactRepositoryRegistry:
 
 
 def _dbfs_artifact_repo_factory(
-    artifact_uri: str, tracking_uri: str | None = None
+    artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
 ) -> ArtifactRepository:
     return (
-        uc_volume_artifact_repo_factory(artifact_uri, tracking_uri)
+        uc_volume_artifact_repo_factory(artifact_uri, tracking_uri, registry_uri)
         if is_uc_volumes_uri(artifact_uri)
-        else dbfs_artifact_repo_factory(artifact_uri, tracking_uri)
+        else dbfs_artifact_repo_factory(artifact_uri, tracking_uri, registry_uri)
     )
 
 

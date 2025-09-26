@@ -191,7 +191,7 @@ def test_copy_model_version_unity_catalog_success(store, sample_model_version):
 
         # Verify UcModelRegistryStore was created with correct parameters
         mock_uc_store_class.assert_called_once_with(
-            store_uri="databricks-uc", tracking_uri="databricks", registry_uri="databricks"
+            store_uri="databricks-uc", tracking_uri="databricks"
         )
 
         # Verify download_artifacts was called with correct parameters
@@ -284,7 +284,7 @@ def test_copy_model_version_unity_catalog_registered_model_already_exists(
 
         # Verify UcModelRegistryStore was created with correct parameters
         mock_uc_store_class.assert_called_once_with(
-            store_uri="databricks-uc", tracking_uri="databricks", registry_uri="databricks"
+            store_uri="databricks-uc", tracking_uri="databricks"
         )
 
         # Verify download_artifacts was called with correct parameters
@@ -340,7 +340,7 @@ def test_copy_model_version_unity_catalog_registered_model_creation_failure(
 
         # Verify UcModelRegistryStore was created with correct parameters
         mock_uc_store_class.assert_called_once_with(
-            store_uri="databricks-uc", tracking_uri="databricks", registry_uri="databricks"
+            store_uri="databricks-uc", tracking_uri="databricks"
         )
 
         # Verify download_artifacts was called with correct parameters

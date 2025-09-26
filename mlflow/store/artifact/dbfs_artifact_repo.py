@@ -197,7 +197,9 @@ def _get_host_creds_from_default_store():
     return store.get_host_creds
 
 
-def dbfs_artifact_repo_factory(artifact_uri: str, tracking_uri: str | None = None):
+def dbfs_artifact_repo_factory(
+    artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
+):
     """
     Returns an ArtifactRepository subclass for storing artifacts on DBFS.
 
@@ -228,14 +230,18 @@ def dbfs_artifact_repo_factory(artifact_uri: str, tracking_uri: str | None = Non
     if is_databricks_acled_artifacts_uri(artifact_uri):
         if DatabricksLoggedModelArtifactRepository.is_logged_model_uri(artifact_uri):
             return DatabricksLoggedModelArtifactRepository(
-                cleaned_artifact_uri, tracking_uri=tracking_uri
+                cleaned_artifact_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
             )
         elif (
             not MLFLOW_DISABLE_DATABRICKS_SDK_FOR_RUN_ARTIFACTS.get()
             and DatabricksRunArtifactRepository.is_run_uri(artifact_uri)
         ):
-            return DatabricksRunArtifactRepository(cleaned_artifact_uri, tracking_uri=tracking_uri)
-        return DatabricksArtifactRepository(cleaned_artifact_uri, tracking_uri=tracking_uri)
+            return DatabricksRunArtifactRepository(
+                cleaned_artifact_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
+            )
+        return DatabricksArtifactRepository(
+            cleaned_artifact_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
+        )
     elif (
         mlflow.utils.databricks_utils.is_dbfs_fuse_available()
         and MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO.get()
@@ -250,5 +256,9 @@ def dbfs_artifact_repo_factory(artifact_uri: str, tracking_uri: str | None = Non
         # workspace's DBFS should still work; it just may be slower.
         final_artifact_uri = remove_databricks_profile_info_from_artifact_uri(cleaned_artifact_uri)
         file_uri = "file:///dbfs/{}".format(strip_prefix(final_artifact_uri, "dbfs:/"))
-        return LocalArtifactRepository(file_uri, tracking_uri=tracking_uri)
-    return DbfsRestArtifactRepository(cleaned_artifact_uri, tracking_uri=tracking_uri)
+        return LocalArtifactRepository(
+            file_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
+        )
+    return DbfsRestArtifactRepository(
+        cleaned_artifact_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
+    )

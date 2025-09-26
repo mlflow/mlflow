@@ -33,7 +33,9 @@ class UCVolumesArtifactRepository(DatabricksSdkArtifactRepository):
         super().__init__("/" + strip_scheme(uri).strip("/"), tracking_uri, registry_uri)
 
 
-def uc_volume_artifact_repo_factory(artifact_uri: str, tracking_uri: str | None = None):
+def uc_volume_artifact_repo_factory(
+    artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
+):
     """
     Returns an ArtifactRepository subclass for storing artifacts on Volumes.
 
@@ -73,4 +75,6 @@ def uc_volume_artifact_repo_factory(artifact_uri: str, tracking_uri: str | None 
         uri_without_profile = remove_databricks_profile_info_from_artifact_uri(artifact_uri)
         path = strip_scheme(uri_without_profile).lstrip("/")
         return LocalArtifactRepository(f"file:///{path}", tracking_uri=tracking_uri)
-    return UCVolumesArtifactRepository(artifact_uri, tracking_uri=tracking_uri)
+    return UCVolumesArtifactRepository(
+        artifact_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
+    )
