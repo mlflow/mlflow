@@ -49,7 +49,7 @@ class ModelsArtifactRepository(ArtifactRepository):
         super().__init__(artifact_uri, tracking_uri, registry_uri)
         _logger.error(f"Parameter Registry URI: {registry_uri}")
         registry_uri = registry_uri or mlflow.get_registry_uri()
-        _logger.error(f"Registry URI: {registry_uri}")
+        _logger.error(f"Registry 2 URI: {registry_uri}")
         self.is_logged_model_uri = self._is_logged_model_uri(artifact_uri)
         if is_databricks_unity_catalog_uri(uri=registry_uri) and not self.is_logged_model_uri:
             _logger.error(f"Creating UnityCatalogModelsArtifactRepository")
