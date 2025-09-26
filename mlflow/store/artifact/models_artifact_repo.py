@@ -53,6 +53,9 @@ class ModelsArtifactRepository(ArtifactRepository):
         _logger.error(f"Artifact URI: {artifact_uri}")
         self.is_logged_model_uri = self._is_logged_model_uri(artifact_uri)
         _logger.error(f"Is logged model URI: {self.is_logged_model_uri}")
+        _logger.error(f"Is databricks unity catalog URI: {is_databricks_unity_catalog_uri(uri=registry_uri)}")
+        _logger.error(f"Is oss unity catalog URI: {is_oss_unity_catalog_uri(uri=registry_uri)}")
+        _logger.error(f"Is using databricks registry: {is_using_databricks_registry(artifact_uri)}")
         if is_databricks_unity_catalog_uri(uri=registry_uri) and not self.is_logged_model_uri:
             _logger.error(f"Creating UnityCatalogModelsArtifactRepository")
             self.repo = UnityCatalogModelsArtifactRepository(
@@ -129,14 +132,14 @@ class ModelsArtifactRepository(ArtifactRepository):
         return is_models_uri(uri) and _parse_model_uri(uri).model_id is not None
 
     @staticmethod
-    def _get_model_uri_infos(uri):
+    def _get_model_uri_infos(uri, registry_uri = None):
         # Note: to support a registry URI that is different from the tracking URI here,
         # we'll need to add setting of registry URIs via environment variables.
 
         from mlflow import MlflowClient
 
         databricks_profile_uri = (
-            get_databricks_profile_uri_from_artifact_uri(uri) or mlflow.get_registry_uri()
+            get_databricks_profile_uri_from_artifact_uri(uri) or registry_uri or mlflow.get_registry_uri()
         )
         client = MlflowClient(registry_uri=databricks_profile_uri)
         name_and_version_or_id = get_model_name_and_version(client, uri)
