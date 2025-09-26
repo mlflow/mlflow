@@ -29,8 +29,6 @@ pip install mlflow-oidc-auth[full]
 mlflow server --app-name oidc-auth --host 0.0.0.0 --port 8080
 ```
 
-### TODO: Add the plugin UI
-
 ## Reverse proxy pattern
 
 Another common approach is to place MLflow behind a proxy that handles SSO and forwards authenticated requests. The most popular way is to use [oauth2-proxy](https://github.com/oauth2-proxy/oauth2-proxy) reverse proxy.

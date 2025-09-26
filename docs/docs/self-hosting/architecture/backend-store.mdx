@@ -7,14 +7,28 @@ import { Table } from "@site/src/components/Table";
 The backend store is a core component in MLflow that stores metadata for
 Runs, models, traces, and experiments such as:
 
-- Model ID
 - Run ID
-- Trace metadata
+- Model ID
+- Trace ID
+- Tags
 - Start & end time
 - Parameters
 - Metrics
 
-Note that large model artifacts such as model weight files are stored in [artifact store](artifact-stores).
+Large model artifacts such as model weight files are stored in [artifact store](artifact-stores).
+
+## Type of Backend Stores
+
+### Local File System
+
+By default, MLflow stores metadata in local files in the `./mlruns` directory. This is for the pure sake of simplicity.
+For better performance and reliability, we always recommend using a database backend.
+
+### Relational Database (**Recommended**)
+
+MLflow supports different databases through SQLAlchemy, including `sqlite`, `postgresql`, `mysql`, `mssql`. This option provides better performance through indexing and easy to scale horizontally.
+
+SQLite is the easiest way to use to database backend. You just need to add `--backend-store-uri sqlite:///my.db`, then MLflow will create a database file and store the metadata there.
 
 ## Configure Backend Store
 
@@ -138,3 +152,9 @@ After installing LibYAML, you need to reinstall PyYAML:
 # Reinstall PyYAML
 pip --no-cache-dir install --force-reinstall -I pyyaml
 ```
+
+:::note
+
+We generally recommend using a database backend to get better performance.
+
+:::

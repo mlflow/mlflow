@@ -14,6 +14,11 @@ const sidebarsSelfHosting: SidebarsConfig = {
       items: [
         {
           type: 'doc',
+          id: 'architecture/overview',
+          label: 'Overview',
+        },
+        {
+          type: 'doc',
           id: 'architecture/tracking-server',
           label: 'Tracking Server',
         },
@@ -28,10 +33,6 @@ const sidebarsSelfHosting: SidebarsConfig = {
           label: 'Artifact Store',
         },
       ],
-      link: {
-        type: 'doc',
-        id: 'architecture/index',
-      },
     },
     {
       type: 'category',

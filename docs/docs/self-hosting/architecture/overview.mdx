@@ -16,21 +16,20 @@ MLflow's architecture is simple yet flexible. From the local solo development to
 
 ### MLflow SDK
 
-MLflow provides client SDKs in multiple languages (Python, TypeScript, Java, R) to interact with the Tracking Server.
+MLflow provides client SDKs in multiple languages (Python, TypeScript, Java, R) with which users interact with the backend.
 
 ### Backend Store
 
-A database (or file system that mimics it) that stores the metadata of the experiments, runs, traces, etc. MLflow supports many different databases that are supported by SQLAlchemy, including `postgresql`, `mysql`, `sqlite`, `mssql`. See [Backend Stores](/self-hosting/architecture/backend-store) for more configurations of the backend store.
+A database (or file system that emulates it) that stores the metadata of the experiments, runs, traces, etc. MLflow supports different databases through SQLAlchemy, including `postgresql`, `mysql`, `sqlite`, `mssql`. See [Backend Stores](/self-hosting/architecture/backend-store) for more configurations of the backend store.
 
 ### Artifact Store
 
 Artifact store persists (typically large) artifacts for each run, such as model weights (e.g. a pickled scikit-learn model),
-images (e.g. PNGs), model and data files (e.g. [Parquet](https://parquet.apache.org) file). MLflow stores artifacts ina a
-local file (`mlruns`) by default, but also supports different storage options such as Amazon S3 and Azure Blob Storage. See [Artifact Stores](/self-hosting/architecture/artifact-store) for different storage options and low-level configurations.
+images (e.g. PNGs), model and data files (e.g. [Parquet](https://parquet.apache.org) file). These files are too large to be stored in database but often less frequently accessed than metadata, so suitable for cheap object storage such as Amazon S3. See [Artifact Stores](/self-hosting/architecture/artifact-store) for supported storage options and low-level configurations.
 
 ### Tracking Server
 
-MLflow Tracking Server is a FastAPI server that serves REST APIs for accessing backend and/or artifact store, as well as hosting the MLflow UI. This is optional for local development since MLflow SDK can directly interact with the local database and file system. However, the server is essential for team development and provides features such as access control. Read [Tracking Server](/self-hosting/architecture/tracking-server) for more details about how to configure the server.
+MLflow Tracking Server is a FastAPI server that serves REST APIs for accessing backend and/or artifact store, as well as hosting the MLflow UI. This is optional for local development since MLflow SDK can directly interact with the local database and file system. However, the server is essential for team development and provides features such as access control. Read [Tracking Server](/self-hosting/architecture/tracking-server) for how to configure the server.
 
 ## Common Setups
 

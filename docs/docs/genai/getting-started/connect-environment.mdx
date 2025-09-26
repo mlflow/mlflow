@@ -47,7 +47,7 @@ This guide shows you how to connect your development environment to an MLflow Ex
 
         MLflow supports different backend for tracking your experiment data. Choose one of the following options to get started. Refer to the [Self Hosting Guide](/self-hosting) for detailed setup and configurations.
 
-        **Option A: Local Database (Recommended)**
+        **Option A: Database (Recommended)**
 
         Set tracking URI to the local database URI (e.g., `sqlite:///mlflow.db`). This is recommended option for local development to get better performance and reliability.
 
@@ -58,7 +58,7 @@ This guide shows you how to connect your development environment to an MLflow Ex
         mlflow.set_experiment("my-genai-experiment")
         ```
 
-        **Option B: Local File Storage**
+        **Option B: File System**
 
         MLflow will automatically use local file storage if no tracking URI is specified:
 

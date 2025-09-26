@@ -2,11 +2,7 @@ import Link from "@docusaurus/Link";
 import TOCInline from "@theme/TOCInline";
 import { APILink } from "@site/src/components/APILink";
 
-# MLflow Authentication
-
-:::note
-This feature is still experimental and may change in a future release without warning.
-:::
+# Authentication with Username and Password
 
 MLflow supports basic HTTP authentication to enable access control over experiments and registered models.
 Once enabled, any visitor will be required to login before they can view any resource from the Tracking Server.
@@ -14,13 +10,11 @@ Once enabled, any visitor will be required to login before they can view any res
 MLflow Authentication provides Python and REST API for managing users and permissions.
 
 - <APILink fn="mlflow.server.auth">MLflow Authentication Python API</APILink>
-- <Link to="/api_reference/rest-api.html" target="_blank">
-  <span>MLflow Authentication REST API</span>
-</Link>
+- <Link to="/api_reference/rest-api.html" target="_blank"><span>MLflow Authentication REST API</span></Link>
+
+![](/images/auth_signup_form.png)
 
 ## Overview
-
-### Installation
 
 First, install all dependencies required for the basic auth app:
 

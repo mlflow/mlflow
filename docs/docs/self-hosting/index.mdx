@@ -9,9 +9,9 @@ sidebar_position: 1
 
 MLflow is fully open-source. Thousands of users and organizations run their own MLflow instances to meet their specific needs. Being open-source and trusted by the popular cloud providers, MLflow is the best choice for teams/organizations that worry about vendor lock-in.
 
-## The Quickest Path: Running `mlflow` Command
+## The Quickest Path: Run `mlflow` Command
 
-The easiest way to start self-hosted MLflow is to run the `mlflow` command in your terminal. This is suitable for personal use or small teams.
+The easiest way to start MLflow server is to run the `mlflow` CLI command in your terminal. This is suitable for personal use or small teams.
 
 First, install MLflow with:
 
@@ -33,11 +33,12 @@ import mlflow
 mlflow.set_tracking_uri("http://localhost:5000")
 
 # Start tracking!
+# Open http://localhost:5000 in your browser to view the UI.
 ```
 
 :::tip
 
-The `--backend-store-uri` option is added here to use a database backend. MLflow by default uses a local filesystem for storing the metadata, but a database backend provides much better performance and reliability in general. The file backend works perfectly fine for small use cases, but if you plan to log >1000 runs, metrics, traces, etc, we highly recommend using a database. For different database options such as PostgreSQL, check out <ins>[Backend Store](./architecture/backend-store)</ins>.
+The `--backend-store-uri` option is not mandatory, but highly recommended for better performance and reliability. Check out <ins>[Backend Store](./architecture/backend-store)</ins>.
 
 :::
 
@@ -84,7 +85,7 @@ To learn more about the architecture and available backend options, see [Archite
 
 ## Access Control
 
-MLflow support [basic username/password login](./authentication/basic-http-auth) via HTTP authentication, [SSO (Single Sign-On)](./authentication/sso), and [custom authentication functions](./authentication/custom).
+MLflow support [username/password login](./authentication/basic-http-auth) via basic HTTP authentication, [SSO (Single Sign-On)](./authentication/sso), and [custom authentication plugins](./authentication/custom).
 
 ## FAQs
 
