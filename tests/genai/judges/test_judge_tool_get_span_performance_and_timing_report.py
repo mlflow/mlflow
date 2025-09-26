@@ -4,23 +4,25 @@ from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
-from mlflow.genai.judges.tools.get_span_timing_report import GetSpanTimingReportTool
+from mlflow.genai.judges.tools.get_span_performance_and_timing_report import (
+    GetSpanPerformanceAndTimingReportTool,
+)
 from mlflow.types.llm import ToolDefinition
 
 from tests.tracing.helper import create_mock_otel_span
 
 
 def test_get_span_timing_report_tool_name():
-    tool = GetSpanTimingReportTool()
-    assert tool.name == "get_span_timing_report"
+    tool = GetSpanPerformanceAndTimingReportTool()
+    assert tool.name == "get_span_performance_and_timing_report"
 
 
 def test_get_span_timing_report_tool_get_definition():
-    tool = GetSpanTimingReportTool()
+    tool = GetSpanPerformanceAndTimingReportTool()
     definition = tool.get_definition()
 
     assert isinstance(definition, ToolDefinition)
-    assert definition.function.name == "get_span_timing_report"
+    assert definition.function.name == "get_span_performance_and_timing_report"
     assert "Generate a comprehensive span timing report" in definition.function.description
     assert definition.function.parameters.type == "object"
     assert definition.function.parameters.required == []
@@ -28,7 +30,7 @@ def test_get_span_timing_report_tool_get_definition():
 
 
 def test_get_span_timing_report_tool_invoke_success():
-    tool = GetSpanTimingReportTool()
+    tool = GetSpanPerformanceAndTimingReportTool()
 
     root_otel_span = create_mock_otel_span(
         trace_id=12345,
@@ -75,7 +77,7 @@ def test_get_span_timing_report_tool_invoke_success():
 
 
 def test_get_span_timing_report_tool_invoke_no_spans():
-    tool = GetSpanTimingReportTool()
+    tool = GetSpanPerformanceAndTimingReportTool()
 
     trace_data = TraceData(spans=[])
     trace_info = TraceInfo(
@@ -93,7 +95,7 @@ def test_get_span_timing_report_tool_invoke_no_spans():
 
 
 def test_get_span_timing_report_tool_invoke_none_trace():
-    tool = GetSpanTimingReportTool()
+    tool = GetSpanPerformanceAndTimingReportTool()
 
     result = tool.invoke(None)
 
@@ -101,7 +103,7 @@ def test_get_span_timing_report_tool_invoke_none_trace():
 
 
 def test_get_span_timing_report_tool_invoke_complex_hierarchy():
-    tool = GetSpanTimingReportTool()
+    tool = GetSpanPerformanceAndTimingReportTool()
 
     root_otel_span = create_mock_otel_span(
         trace_id=12345,
@@ -166,7 +168,7 @@ def test_get_span_timing_report_tool_invoke_complex_hierarchy():
 
 
 def test_get_span_timing_report_tool_invoke_concurrent_operations():
-    tool = GetSpanTimingReportTool()
+    tool = GetSpanPerformanceAndTimingReportTool()
 
     root_otel_span = create_mock_otel_span(
         trace_id=12345,
@@ -217,7 +219,7 @@ def test_get_span_timing_report_tool_invoke_concurrent_operations():
 
 
 def test_get_span_timing_report_tool_invoke_span_types():
-    tool = GetSpanTimingReportTool()
+    tool = GetSpanPerformanceAndTimingReportTool()
 
     llm_otel_span = create_mock_otel_span(
         trace_id=12345,
@@ -273,7 +275,7 @@ def test_get_span_timing_report_tool_invoke_span_types():
 
 
 def test_get_span_timing_report_tool_invoke_top_spans_ranking():
-    tool = GetSpanTimingReportTool()
+    tool = GetSpanPerformanceAndTimingReportTool()
 
     quick_otel_span = create_mock_otel_span(
         trace_id=12345,
@@ -324,7 +326,7 @@ def test_get_span_timing_report_tool_invoke_top_spans_ranking():
 
 
 def test_get_span_timing_report_tool_invoke_long_span_names():
-    tool = GetSpanTimingReportTool()
+    tool = GetSpanPerformanceAndTimingReportTool()
 
     long_name_otel_span = create_mock_otel_span(
         trace_id=12345,
@@ -353,7 +355,7 @@ def test_get_span_timing_report_tool_invoke_long_span_names():
 
 
 def test_get_span_timing_report_tool_self_duration_calculation():
-    tool = GetSpanTimingReportTool()
+    tool = GetSpanPerformanceAndTimingReportTool()
 
     parent_otel_span = create_mock_otel_span(
         trace_id=12345,
@@ -410,7 +412,7 @@ def test_get_span_timing_report_tool_self_duration_calculation():
 
 
 def test_get_span_timing_report_tool_empty_trace_data():
-    tool = GetSpanTimingReportTool()
+    tool = GetSpanPerformanceAndTimingReportTool()
 
     trace = Trace(info=None, data=None)
     result = tool.invoke(trace)
@@ -419,7 +421,7 @@ def test_get_span_timing_report_tool_empty_trace_data():
 
 
 def test_get_span_timing_report_tool_concurrent_pairs_limit():
-    tool = GetSpanTimingReportTool()
+    tool = GetSpanPerformanceAndTimingReportTool()
 
     root_otel_span = create_mock_otel_span(
         trace_id=12345,
@@ -460,7 +462,7 @@ def test_get_span_timing_report_tool_concurrent_pairs_limit():
 
 
 def test_truncate_name_method_directly():
-    tool = GetSpanTimingReportTool()
+    tool = GetSpanPerformanceAndTimingReportTool()
 
     test_cases = [
         ("short", "short"),
@@ -479,7 +481,7 @@ def test_truncate_name_method_directly():
 
 
 def test_truncation_in_multiple_report_sections():
-    tool = GetSpanTimingReportTool()
+    tool = GetSpanPerformanceAndTimingReportTool()
 
     spans = []
     test_names = [
@@ -523,7 +525,7 @@ def test_truncation_in_multiple_report_sections():
 
 
 def test_truncation_edge_cases():
-    tool = GetSpanTimingReportTool()
+    tool = GetSpanPerformanceAndTimingReportTool()
 
     unicode_name = "测试" + "很" * 30
     result = tool._truncate_name(unicode_name)
@@ -549,7 +551,7 @@ def test_truncation_edge_cases():
 
 
 def test_truncation_preserves_table_formatting():
-    tool = GetSpanTimingReportTool()
+    tool = GetSpanPerformanceAndTimingReportTool()
 
     spans = []
     for i in range(5):
@@ -595,7 +597,7 @@ def test_truncation_preserves_table_formatting():
 
 
 def test_max_name_length_constant_usage():
-    tool = GetSpanTimingReportTool()
+    tool = GetSpanPerformanceAndTimingReportTool()
 
     assert hasattr(tool, "MAX_NAME_LENGTH")
     assert tool.MAX_NAME_LENGTH == 30
@@ -607,7 +609,7 @@ def test_max_name_length_constant_usage():
 
 
 def test_truncation_in_concurrent_spans_section():
-    tool = GetSpanTimingReportTool()
+    tool = GetSpanPerformanceAndTimingReportTool()
 
     root_otel_span = create_mock_otel_span(
         trace_id=12345,
@@ -663,7 +665,7 @@ def test_truncation_in_concurrent_spans_section():
 
 
 def test_min_overlap_threshold_enforcement():
-    tool = GetSpanTimingReportTool()
+    tool = GetSpanPerformanceAndTimingReportTool()
 
     root_otel_span = create_mock_otel_span(
         trace_id=12345,
@@ -751,7 +753,7 @@ def test_min_overlap_threshold_enforcement():
 
 
 def test_top_spans_count_limit():
-    tool = GetSpanTimingReportTool()
+    tool = GetSpanPerformanceAndTimingReportTool()
 
     spans = []
     for i in range(15):
@@ -799,7 +801,7 @@ def test_top_spans_count_limit():
 
 
 def test_max_concurrent_pairs_exact_limit():
-    tool = GetSpanTimingReportTool()
+    tool = GetSpanPerformanceAndTimingReportTool()
 
     root_otel_span = create_mock_otel_span(
         trace_id=12345,
@@ -857,7 +859,7 @@ def test_max_concurrent_pairs_exact_limit():
 
 
 def test_all_constants_exist_and_have_expected_values():
-    tool = GetSpanTimingReportTool()
+    tool = GetSpanPerformanceAndTimingReportTool()
 
     assert hasattr(tool, "MAX_NAME_LENGTH")
     assert hasattr(tool, "MIN_OVERLAP_THRESHOLD_S")

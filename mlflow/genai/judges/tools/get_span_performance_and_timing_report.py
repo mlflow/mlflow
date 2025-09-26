@@ -45,7 +45,7 @@ class ConcurrentPair:
 
 
 @experimental(version="3.5.0")
-class GetSpanTimingReportTool(JudgeTool):
+class GetSpanPerformanceAndTimingReportTool(JudgeTool):
     """
     A tool that generates a span timing report for a trace.
 
@@ -65,7 +65,7 @@ class GetSpanTimingReportTool(JudgeTool):
         Returns:
             The tool name constant for the span timing report tool.
         """
-        return ToolNames.GET_SPAN_TIMING_REPORT
+        return ToolNames.GET_SPAN_PERFORMANCE_AND_TIMING_REPORT
 
     def get_definition(self) -> ToolDefinition:
         """Get the tool definition for LiteLLM/OpenAI function calling.
@@ -75,7 +75,7 @@ class GetSpanTimingReportTool(JudgeTool):
         """
         return ToolDefinition(
             function=FunctionToolDefinition(
-                name=ToolNames.GET_SPAN_TIMING_REPORT,
+                name=ToolNames.GET_SPAN_PERFORMANCE_AND_TIMING_REPORT,
                 description=(
                     "Generate a comprehensive span timing report for the trace, showing "
                     "latencies, execution order, hierarchy, duration statistics, longest "
