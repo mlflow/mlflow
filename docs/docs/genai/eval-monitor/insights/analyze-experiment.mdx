@@ -1,0 +1,127 @@
+import Tabs from "@theme/Tabs"
+import TabItem from "@theme/TabItem"
+import { MessageSquare, Target, BarChart3, ExternalLink, Bot, Users, CheckCircle, TrendingUp, Database, Book, Rocket, Scale } from "lucide-react";
+
+# Analyze Experiment
+
+Automatically analyze traces in your MLflow experiments to identify operational issues, quality problems, and performance patterns. The Analyze Experiment tool uses hypothesis-driven analysis to systematically examine your GenAI application's behavior and generate comprehensive markdown reports.
+
+## Overview
+
+The Analyze Experiment command examines traces logged in an MLflow experiment to automatically discover:
+
+- **Operational Issues**: Errors, timeouts, rate limiting, authentication failures, and performance bottlenecks
+- **Quality Issues**: Overly verbose responses, inconsistent outputs, repetitive content, and inappropriate response formats
+- **Success Patterns**: What's working well, effective tool usage, and high-quality interactions
+- **Performance Metrics**: Latency distributions, success rates, and error patterns
+
+The tool generates a detailed markdown report with specific trace examples, quantitative evidence, and actionable recommendations for improvement.
+
+## Usage
+
+The Analyze Experiment functionality is available through two methods:
+
+<Tabs>
+<TabItem value="mcp" label="MCP" default>
+
+### Using MCP
+
+If you have MLflow's MCP server configured, you can simply run:
+
+```
+/analyze-experiment
+```
+
+### Prerequisites
+- MLflow MCP server (see [MCP setup guide](/genai/mcp/))
+- A coding agent with MCP support (e.g., Claude Code, Cursor, Windsurf, etc.) configured to connect to MLflow MCP server
+- MLflow experiment with logged traces
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+### Using CLI
+
+Run the analyze experiment command directly:
+
+```bash
+mlflow ai-commands genai/analyze-experiment
+```
+
+### Prerequisites
+- A coding agent with MCP support (e.g., Claude Code, Cursor, Windsurf, etc.)
+- MLflow 3.4 or later: `pip install mlflow>=3.4`
+- Access to MLflow tracking server with logged traces
+
+</TabItem>
+</Tabs>
+
+## Analysis Workflow
+
+### 1. Setup and Authentication
+
+The tool will ask you to configure authentication:
+
+- **Databricks**: Provide workspace URL and personal access token, or use a Databricks CLI profile
+- **Local MLflow**: Specify tracking URI (SQLite, PostgreSQL, MySQL, or file store)
+- **Environment Variables**: Use existing MLflow environment configuration
+
+### 2. Experiment Selection
+
+- Browse available experiments or search by name
+- Select the experiment containing traces to analyze
+- Verify trace availability and data structure
+
+### 3. Agent Purpose Identification
+
+The tool examines trace inputs and outputs to understand:
+- What your agent's job is (e.g., "a customer service agent that helps users with billing questions")
+- What data sources and tools the agent has access to
+- Common patterns in user interactions
+
+You'll be asked to confirm or correct this understanding before analysis continues.
+
+### 4. Hypothesis-Driven Analysis
+
+The tool systematically tests hypotheses about potential issues:
+
+**Operational Issues**:
+- Error patterns (authentication failures, timeouts, API failures)
+- Performance bottlenecks (slow tool calls, sequential vs parallel execution)
+- Rate limiting and resource contention
+
+**Quality Issues**:
+- Content problems (verbosity, repetition, inconsistency)
+- Response appropriateness for query types
+- Context handling and conversation flow
+
+### 5. Report Generation
+
+The tool generates a comprehensive markdown report containing:
+- **Summary Statistics**: Success rates, latency metrics, error distributions
+- **Confirmed Issues**: Detailed analysis with specific trace examples and root causes
+- **Strengths**: What's working well in your application
+- **Recommendations**: Actionable improvements based on findings
+
+## Report Content
+
+Each generated report includes:
+
+### Quantitative Metrics
+- Total traces analyzed
+- Success rate (OK vs ERROR percentage)
+- Latency statistics (average, median, P95)
+- Error rate distribution
+
+### Issue Analysis
+For each confirmed issue:
+- Clear problem statement
+- Supporting trace examples with inputs and outputs
+- Root cause analysis
+- Frequency and impact assessment
+- Specific trace IDs for follow-up investigation
+
+### Recommendations
+- Prioritized improvement suggestions
+- Implementation guidance
+- Expected impact of changes
