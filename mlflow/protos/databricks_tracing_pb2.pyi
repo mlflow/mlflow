@@ -175,6 +175,41 @@ class SearchTraces(_message.Message):
     page_token: str
     def __init__(self, locations: _Optional[_Iterable[_Union[TraceLocation, _Mapping]]] = ..., filter: _Optional[str] = ..., max_results: _Optional[int] = ..., order_by: _Optional[_Iterable[str]] = ..., sql_warehouse_id: _Optional[str] = ..., page_token: _Optional[str] = ...) -> None: ...
 
+class CreateTraceUCStorageLocation(_message.Message):
+    __slots__ = ("uc_schema", "sql_warehouse_id")
+    class Response(_message.Message):
+        __slots__ = ("uc_schema",)
+        UC_SCHEMA_FIELD_NUMBER: _ClassVar[int]
+        uc_schema: UCSchemaLocation
+        def __init__(self, uc_schema: _Optional[_Union[UCSchemaLocation, _Mapping]] = ...) -> None: ...
+    UC_SCHEMA_FIELD_NUMBER: _ClassVar[int]
+    SQL_WAREHOUSE_ID_FIELD_NUMBER: _ClassVar[int]
+    uc_schema: UCSchemaLocation
+    sql_warehouse_id: str
+    def __init__(self, uc_schema: _Optional[_Union[UCSchemaLocation, _Mapping]] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
+
+class LinkExperimentToUCTraceLocation(_message.Message):
+    __slots__ = ("experiment_id", "uc_schema")
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    UC_SCHEMA_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: str
+    uc_schema: UCSchemaLocation
+    def __init__(self, experiment_id: _Optional[str] = ..., uc_schema: _Optional[_Union[UCSchemaLocation, _Mapping]] = ...) -> None: ...
+
+class UnLinkExperimentToUCTraceLocation(_message.Message):
+    __slots__ = ("experiment_id", "location")
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    LOCATION_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: str
+    location: str
+    def __init__(self, experiment_id: _Optional[str] = ..., location: _Optional[str] = ...) -> None: ...
+
 class DatabricksTrackingService(_service.service): ...
 
 class DatabricksTrackingService_Stub(DatabricksTrackingService): ...

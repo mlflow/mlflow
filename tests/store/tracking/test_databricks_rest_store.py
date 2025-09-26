@@ -8,7 +8,7 @@ import mlflow
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_location import TraceLocation, UCSchemaLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
@@ -18,7 +18,15 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND
-from mlflow.protos.databricks_tracing_pb2 import CreateTrace, GetTraces, SearchTraces
+from mlflow.protos.databricks_tracing_pb2 import (
+    CreateTrace,
+    CreateTraceUCStorageLocation,
+    GetTraces,
+    LinkExperimentToUCTraceLocation,
+    SearchTraces,
+    UnLinkExperimentToUCTraceLocation,
+)
+from mlflow.protos.databricks_tracing_pb2 import UCSchemaLocation as ProtoUCSchemaLocation
 from mlflow.protos.service_pb2 import StartTraceV3
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
@@ -242,7 +250,7 @@ def test_get_traces(monkeypatch):
         assert len(request_data["trace_ids"]) == 2
 
         endpoint = call_args[1]["endpoint"]
-        assert "/mlflow/traces/batch" in endpoint
+        assert endpoint == f"{_V4_TRACE_REST_API_PATH_PREFIX}/batch"
 
         assert isinstance(result, list)
         assert len(result) == 2
@@ -595,3 +603,149 @@ def test_search_unified_traces():
         assert trace_infos[0].tags == {"k": "v"}
         assert trace_infos[0].trace_metadata == {"key": "value", "mlflow.trace_schema.version": "3"}
         assert token == "token"
+
+
+def test_set_experiment_trace_location():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+
+    experiment_id = "123"
+    uc_schema = UCSchemaLocation(catalog_name="test_catalog", schema_name="test_schema")
+    sql_warehouse_id = "test-warehouse-id"
+
+    # Mock response for CreateTraceUCStorageLocation
+    create_location_response = mock.MagicMock()
+    create_location_response.uc_schema = ProtoUCSchemaLocation(
+        catalog_name="test_catalog",
+        schema_name="test_schema",
+        otel_spans_table_name="test_spans",
+        otel_logs_table_name="test_logs",
+    )
+
+    # Mock response for LinkExperimentToUCTraceLocation
+    link_response = mock.MagicMock()
+    link_response.status_code = 200
+    link_response.text = "{}"
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        mock_call.side_effect = [create_location_response, link_response]
+
+        result = store.set_experiment_trace_location(
+            uc_schema=uc_schema,
+            experiment_id=experiment_id,
+            sql_warehouse_id=sql_warehouse_id,
+        )
+
+        assert mock_call.call_count == 2
+
+        # Verify CreateTraceUCStorageLocation call
+        first_call = mock_call.call_args_list[0]
+        assert first_call[0][0] == CreateTraceUCStorageLocation
+        create_request_body = json.loads(first_call[0][1])
+        assert create_request_body["uc_schema"]["catalog_name"] == "test_catalog"
+        assert create_request_body["uc_schema"]["schema_name"] == "test_schema"
+        assert create_request_body["sql_warehouse_id"] == sql_warehouse_id
+        assert first_call[1]["endpoint"] == f"{_V4_TRACE_REST_API_PATH_PREFIX}/location"
+
+        # Verify LinkExperimentToUCTraceLocation call
+        second_call = mock_call.call_args_list[1]
+        assert second_call[0][0] == LinkExperimentToUCTraceLocation
+        link_request_body = json.loads(second_call[0][1])
+        assert link_request_body["experiment_id"] == experiment_id
+        assert link_request_body["uc_schema"]["catalog_name"] == "test_catalog"
+        assert link_request_body["uc_schema"]["schema_name"] == "test_schema"
+        assert link_request_body["uc_schema"]["otel_spans_table_name"] == "test_spans"
+        assert link_request_body["uc_schema"]["otel_logs_table_name"] == "test_logs"
+        assert (
+            second_call[1]["endpoint"]
+            == f"{_V4_TRACE_REST_API_PATH_PREFIX}/location/{experiment_id}"
+        )
+
+        assert isinstance(result, UCSchemaLocation)
+        assert result.catalog_name == "test_catalog"
+        assert result.schema_name == "test_schema"
+        assert result.otel_spans_table_name == "test_spans"
+        assert result.otel_logs_table_name == "test_logs"
+
+
+def test_set_experiment_trace_location_with_existing_location():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+
+    experiment_id = "123"
+    uc_schema = UCSchemaLocation(catalog_name="test_catalog", schema_name="test_schema")
+    sql_warehouse_id = "test-warehouse-id"
+
+    create_location_response = MlflowException(
+        "Location already exists", error_code=databricks_pb2.ALREADY_EXISTS
+    )
+
+    # Mock response for LinkExperimentToUCTraceLocation
+    link_response = mock.MagicMock()
+    link_response.status_code = 200
+    link_response.text = "{}"
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        mock_call.side_effect = [create_location_response, link_response]
+
+        result = store.set_experiment_trace_location(
+            uc_schema=uc_schema,
+            experiment_id=experiment_id,
+            sql_warehouse_id=sql_warehouse_id,
+        )
+
+        assert mock_call.call_count == 2
+
+        # Verify CreateTraceUCStorageLocation call
+        first_call = mock_call.call_args_list[0]
+        assert first_call[0][0] == CreateTraceUCStorageLocation
+        create_request_body = json.loads(first_call[0][1])
+        assert create_request_body["uc_schema"]["catalog_name"] == "test_catalog"
+        assert create_request_body["uc_schema"]["schema_name"] == "test_schema"
+        assert create_request_body["sql_warehouse_id"] == sql_warehouse_id
+        assert first_call[1]["endpoint"] == f"{_V4_TRACE_REST_API_PATH_PREFIX}/location"
+
+        # Verify LinkExperimentToUCTraceLocation call
+        second_call = mock_call.call_args_list[1]
+        assert second_call[0][0] == LinkExperimentToUCTraceLocation
+        link_request_body = json.loads(second_call[0][1])
+        assert link_request_body["experiment_id"] == experiment_id
+        assert link_request_body["uc_schema"]["catalog_name"] == "test_catalog"
+        assert link_request_body["uc_schema"]["schema_name"] == "test_schema"
+        assert (
+            second_call[1]["endpoint"]
+            == f"{_V4_TRACE_REST_API_PATH_PREFIX}/location/{experiment_id}"
+        )
+
+        assert isinstance(result, UCSchemaLocation)
+        assert result.catalog_name == "test_catalog"
+        assert result.schema_name == "test_schema"
+
+
+def test_unset_experiment_trace_location_with_uc_schema():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+
+    experiment_id = "123"
+
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = "{}"
+
+    with mock.patch.object(store, "_call_endpoint", return_value=response) as mock_call:
+        store.unset_experiment_trace_location(
+            experiment_id=experiment_id,
+            location="test_catalog.test_schema",
+        )
+
+        mock_call.assert_called_once()
+        call_args = mock_call.call_args
+
+        assert call_args[0][0] == UnLinkExperimentToUCTraceLocation
+        request_body = json.loads(call_args[0][1])
+        assert request_body["experiment_id"] == experiment_id
+        assert request_body["location"] == "test_catalog.test_schema"
+        expected_endpoint = (
+            f"{_V4_TRACE_REST_API_PATH_PREFIX}/location/{experiment_id}/test_catalog.test_schema"
+        )
+        assert call_args[1]["endpoint"] == expected_endpoint

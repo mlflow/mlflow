@@ -52,6 +52,46 @@ service DatabricksTrackingService {
       ],
       visibility: PUBLIC_UNDOCUMENTED,
       rpc_doc_title: "Search Traces",
+      };
+  }
+
+  // =============================================================================
+  // Enablement RPCs
+  // =============================================================================
+
+  rpc createTraceUCStorageLocation (CreateTraceUCStorageLocation) returns (CreateTraceUCStorageLocation.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/traces/location"
+        since { major: 4, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Create Trace UC Storage Location",
+    };
+  }
+
+  rpc linkExperimentToUCTraceLocation (LinkExperimentToUCTraceLocation) returns (LinkExperimentToUCTraceLocation.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/traces/location/{experiment_id}"
+        since { major: 4, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Link Experiment to UC Trace Location",
+    };
+  }
+
+  rpc unlinkExperimentToUCTraceLocation (UnLinkExperimentToUCTraceLocation) returns (UnLinkExperimentToUCTraceLocation.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/traces/location/{experiment_id}/{location}"
+        since { major: 4, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Unlink Experiment to UC Trace Location",
     };
   }
 }
@@ -225,4 +265,50 @@ message SearchTraces {
     repeated Trace traces = 1;
     optional string next_page_token = 2;
   }
+}
+
+
+// =============================================================================
+// Enablement API Messages
+// =============================================================================
+
+message CreateTraceUCStorageLocation {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  oneof location {
+    UCSchemaLocation uc_schema = 1;
+  }
+
+  // SQL warehouse ID for creating views and querying
+  optional string sql_warehouse_id = 2 [(validate_required) = true];
+
+  message Response {
+    optional UCSchemaLocation uc_schema = 1;
+  }
+}
+
+message LinkExperimentToUCTraceLocation {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The experiment ID to link the location
+  optional string experiment_id = 1 [(validate_required) = true];
+  
+  // Location to unlink
+  oneof location {
+    UCSchemaLocation uc_schema = 2;
+  }
+
+  message Response {}
+}
+
+message UnLinkExperimentToUCTraceLocation {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Experiment ID to unlink from
+  optional string experiment_id = 1 [(validate_required) = true];
+  
+  // Location to unlink. should be <catalog.schema>
+  optional string location = 2;
+
+  message Response {}
 }

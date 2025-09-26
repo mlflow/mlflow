@@ -11,6 +11,7 @@ from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, Span
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_location import UCSchemaLocation
 from mlflow.environment_variables import MLFLOW_SEARCH_TRACES_MAX_THREADS
 from mlflow.exceptions import (
     MlflowException,
@@ -652,3 +653,27 @@ class TracingClient:
 
         registry_store = _get_model_registry_store()
         registry_store.link_prompts_to_trace(prompt_versions=prompts, trace_id=trace_id)
+
+    def _set_experiment_trace_location(
+        self,
+        uc_schema: UCSchemaLocation,
+        experiment_id: str,
+        sql_warehouse_id: str | None = None,
+    ) -> UCSchemaLocation:
+        if is_databricks_uri(self.tracking_uri):
+            return self.store.set_experiment_trace_location(
+                experiment_id=experiment_id,
+                uc_schema=uc_schema,
+                sql_warehouse_id=sql_warehouse_id,
+            )
+        raise MlflowException(
+            "Setting storage location is not supported on non-Databricks backends."
+        )
+
+    def _unset_experiment_trace_location(self, experiment_id: str, location: str) -> None:
+        if is_databricks_uri(self.tracking_uri):
+            self.store.unset_experiment_trace_location(experiment_id, location)
+        else:
+            raise MlflowException(
+                "Clearing storage location is not supported on non-Databricks backends."
+            )
