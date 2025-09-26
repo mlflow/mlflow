@@ -85,6 +85,7 @@ jobs:
         if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.check-diff.outputs.examples_changed == 'true' }}
         env:
           SPARK_LOCAL_IP: localhost
+          MLFLOW_DISABLE_SECURITY_MIDDLEWARE: "true"
         run: |
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --serve-wheel tests/examples --durations=30
 
