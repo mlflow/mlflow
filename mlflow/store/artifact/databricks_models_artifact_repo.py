@@ -56,7 +56,7 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
     def __init__(
         self, artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
     ) -> None:
-        if not is_using_databricks_registry(artifact_uri):
+        if not is_using_databricks_registry(artifact_uri, registry_uri):
             raise MlflowException(
                 message="A valid databricks profile is required to instantiate this repository",
                 error_code=INVALID_PARAMETER_VALUE,
