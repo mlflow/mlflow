@@ -1492,5 +1492,4 @@ def test_output_to_responses_items_stream_langchain(messages, expected):
     - Message
     """
     result = list(output_to_responses_items_stream(messages))
-    print(result)
     assert result == expected
