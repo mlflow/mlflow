@@ -577,7 +577,7 @@ const config: Config = {
             ],
           },
           {
-            to: '/genai/eval-monitor/datasets',
+            to: '/genai/datasets',
             from: ['/genai/eval-monitor/scorers/llm-judge/dataset'],
           },
           // Prompt Management Redirects
