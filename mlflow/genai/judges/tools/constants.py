@@ -18,3 +18,4 @@ class ToolNames:
     GET_SPAN = "get_span"
     LIST_SPANS = "list_spans"
     SEARCH_TRACE_REGEX = "search_trace_regex"
+    GET_HISTORICAL_TRACES = "get_historical_traces"
