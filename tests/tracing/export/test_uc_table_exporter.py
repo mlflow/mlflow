@@ -85,7 +85,7 @@ def test_log_trace_no_upload_data_for_uc_schema():
     exporter = DatabricksUCTableSpanExporter()
     exporter._client = mock_client
 
-    with mock.patch("mlflow.tracing.export.mlflow_v3.add_size_stats_to_trace_metadata"):
+    with mock.patch("mlflow.tracing.export.uc_table.add_size_stats_to_trace_metadata_v4"):
         exporter._log_trace(mock_trace, mock_prompts)
 
         # Verify start_trace was called but _upload_trace_data was not
@@ -110,7 +110,7 @@ def test_log_trace_no_log_spans_to_uc_table_if_no_uc_schema():
     exporter = DatabricksUCTableSpanExporter()
     exporter._client = mock_client
 
-    with mock.patch("mlflow.tracing.export.uc_table.add_size_stats_to_trace_metadata"):
+    with mock.patch("mlflow.tracing.export.uc_table.add_size_stats_to_trace_metadata_v4"):
         exporter._log_trace(mock_trace, mock_prompts)
 
         # Verify both start_trace and _upload_trace_data were called

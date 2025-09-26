@@ -1265,6 +1265,7 @@ mlflow.tensorflow.save_model
 mlflow.trace
 mlflow.tracing.configure
 mlflow.tracing.destination.Databricks
+mlflow.tracing.destination.DatabricksUnityCatalog
 mlflow.tracing.destination.MlflowExperiment
 mlflow.tracing.destination.TraceDestination
 mlflow.tracing.disable
