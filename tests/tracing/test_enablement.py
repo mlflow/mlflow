@@ -9,12 +9,18 @@ import pytest
 from mlflow.entities.trace_location import UCSchemaLocation
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.enablement import (
-    clear_experiment_storage_location,
     set_experiment_storage_location,
+    unset_experiment_storage_location,
 )
 
 
-def test_set_experiment_storage_location():
+@pytest.fixture
+def mock_databricks_tracking_uri():
+    with mock.patch("mlflow.tracing.enablement.get_tracking_uri", return_value="databricks"):
+        yield
+
+
+def test_set_experiment_storage_location(mock_databricks_tracking_uri):
     experiment_id = "123"
     location = UCSchemaLocation(catalog_name="test_catalog", schema_name="test_schema")
     sql_warehouse_id = "test-warehouse-id"
@@ -51,7 +57,7 @@ def test_set_experiment_storage_location():
         assert result == expected_location
 
 
-def test_set_experiment_storage_location_with_default_experiment():
+def test_set_experiment_storage_location_with_default_experiment(mock_databricks_tracking_uri):
     location = UCSchemaLocation(catalog_name="test_catalog", schema_name="test_schema")
     default_experiment_id = "456"
 
@@ -81,7 +87,7 @@ def test_set_experiment_storage_location_with_default_experiment():
         assert result == expected_location
 
 
-def test_set_experiment_storage_location_no_experiment():
+def test_set_experiment_storage_location_no_experiment(mock_databricks_tracking_uri):
     location = UCSchemaLocation(catalog_name="test_catalog", schema_name="test_schema")
 
     # Mock _get_experiment_id to return None
@@ -90,7 +96,7 @@ def test_set_experiment_storage_location_no_experiment():
             set_experiment_storage_location(location=location)
 
 
-def test_clear_experiment_storage_location():
+def test_unset_experiment_storage_location(mock_databricks_tracking_uri):
     experiment_id = "123"
     location = UCSchemaLocation(catalog_name="test_catalog", schema_name="test_schema")
 
@@ -100,30 +106,30 @@ def test_clear_experiment_storage_location():
         mock_client_class.return_value = mock_client
 
         # Test with explicit experiment ID and location
-        clear_experiment_storage_location(
+        unset_experiment_storage_location(
             location=location,
             experiment_id=experiment_id,
         )
 
         # Verify the correct method was called with correct arguments
-        mock_client._clear_experiment_storage_location.assert_called_once_with(
+        mock_client._unset_experiment_storage_location.assert_called_once_with(
             experiment_id,
             location.schema_location,
         )
 
 
-def test_clear_experiment_storage_location_errors():
+def test_unset_experiment_storage_location_errors(mock_databricks_tracking_uri):
     with pytest.raises(MlflowException, match="must be an instance of"):
-        clear_experiment_storage_location(location="test_catalog.test_schema")
+        unset_experiment_storage_location(location="test_catalog.test_schema")
 
     with mock.patch("mlflow.tracing.enablement._get_experiment_id", return_value=None):
         with pytest.raises(MlflowException, match="Experiment ID is required"):
-            clear_experiment_storage_location(
+            unset_experiment_storage_location(
                 location=UCSchemaLocation("test_catalog", "test_schema")
             )
 
 
-def test_clear_experiment_storage_location_with_default_experiment():
+def test_unset_experiment_storage_location_with_default_experiment(mock_databricks_tracking_uri):
     default_experiment_id = "456"
 
     # Mock the TracingClient and _get_experiment_id
@@ -138,10 +144,24 @@ def test_clear_experiment_storage_location_with_default_experiment():
 
         location = UCSchemaLocation(catalog_name="test_catalog", schema_name="test_schema")
         # Test without explicit experiment ID (uses default)
-        clear_experiment_storage_location(location)
+        unset_experiment_storage_location(location)
 
         # Verify the method was called with the default experiment ID
-        mock_client._clear_experiment_storage_location.assert_called_once_with(
+        mock_client._unset_experiment_storage_location.assert_called_once_with(
             default_experiment_id,
             location.schema_location,
         )
+
+
+def test_non_databricks_tracking_uri_errors():
+    with pytest.raises(
+        MlflowException,
+        match="Setting storage location is only supported on Databricks Tracking Server.",
+    ):
+        set_experiment_storage_location(location=UCSchemaLocation("test_catalog", "test_schema"))
+
+    with pytest.raises(
+        MlflowException,
+        match="Clearing storage location is only supported on Databricks Tracking Server.",
+    ):
+        unset_experiment_storage_location(location=UCSchemaLocation("test_catalog", "test_schema"))

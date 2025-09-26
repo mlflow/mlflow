@@ -367,7 +367,7 @@ def test_set_experiment_storage_location_with_existing_location():
         assert result.schema_name == "test_schema"
 
 
-def test_clear_experiment_storage_location_with_uc_schema():
+def test_unset_experiment_storage_location_with_uc_schema():
     creds = MlflowHostCreds("https://hello")
     store = DatabricksTracingRestStore(lambda: creds)
 
@@ -378,7 +378,7 @@ def test_clear_experiment_storage_location_with_uc_schema():
     response.text = "{}"
 
     with mock.patch.object(store, "_call_endpoint", return_value=response) as mock_call:
-        store.clear_experiment_storage_location(
+        store.unset_experiment_storage_location(
             experiment_id=experiment_id,
             location="test_catalog.test_schema",
         )
