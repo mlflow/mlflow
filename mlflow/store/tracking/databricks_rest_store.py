@@ -139,7 +139,7 @@ class DatabricksTracingRestStore(RestStore):
                     f"{TRACE_ID_V4_PREFIX}<catalog.schema>/<trace_id>"
                 )
 
-    def set_experiment_storage_location(
+    def set_experiment_trace_location(
         self,
         uc_schema: UCSchemaLocationEntity,
         experiment_id: str,
@@ -181,7 +181,7 @@ class DatabricksTracingRestStore(RestStore):
         _logger.debug(f"Linked experiment {experiment_id} to UC trace location: {uc_schema}")
         return uc_schema
 
-    def unset_experiment_storage_location(self, experiment_id: str, location: str) -> None:
+    def unset_experiment_trace_location(self, experiment_id: str, location: str) -> None:
         request = UnLinkExperimentToUCTraceLocation(
             experiment_id=experiment_id,
             location=location,

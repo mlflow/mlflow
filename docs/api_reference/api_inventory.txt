@@ -511,7 +511,6 @@ mlflow.entities.TraceState.from_proto
 mlflow.entities.TraceState.to_proto
 mlflow.entities.UCSchemaLocation
 mlflow.entities.UCSchemaLocation.from_dict
-mlflow.entities.UCSchemaLocation.from_proto
 mlflow.entities.UCSchemaLocation.to_dict
 mlflow.entities.ViewType
 mlflow.entities.ViewType.from_proto

@@ -250,7 +250,7 @@ def test_get_traces(monkeypatch):
         assert result[1].info.trace_id == span2.trace_id
 
 
-def test_set_experiment_storage_location():
+def test_set_experiment_trace_location():
     creds = MlflowHostCreds("https://hello")
     store = DatabricksTracingRestStore(lambda: creds)
 
@@ -275,7 +275,7 @@ def test_set_experiment_storage_location():
     with mock.patch.object(store, "_call_endpoint") as mock_call:
         mock_call.side_effect = [create_location_response, link_response]
 
-        result = store.set_experiment_storage_location(
+        result = store.set_experiment_trace_location(
             uc_schema=uc_schema,
             experiment_id=experiment_id,
             sql_warehouse_id=sql_warehouse_id,
@@ -313,7 +313,7 @@ def test_set_experiment_storage_location():
         assert result.otel_logs_table_name == "test_logs"
 
 
-def test_set_experiment_storage_location_with_existing_location():
+def test_set_experiment_trace_location_with_existing_location():
     creds = MlflowHostCreds("https://hello")
     store = DatabricksTracingRestStore(lambda: creds)
 
@@ -333,7 +333,7 @@ def test_set_experiment_storage_location_with_existing_location():
     with mock.patch.object(store, "_call_endpoint") as mock_call:
         mock_call.side_effect = [create_location_response, link_response]
 
-        result = store.set_experiment_storage_location(
+        result = store.set_experiment_trace_location(
             uc_schema=uc_schema,
             experiment_id=experiment_id,
             sql_warehouse_id=sql_warehouse_id,
@@ -367,7 +367,7 @@ def test_set_experiment_storage_location_with_existing_location():
         assert result.schema_name == "test_schema"
 
 
-def test_unset_experiment_storage_location_with_uc_schema():
+def test_unset_experiment_trace_location_with_uc_schema():
     creds = MlflowHostCreds("https://hello")
     store = DatabricksTracingRestStore(lambda: creds)
 
@@ -378,7 +378,7 @@ def test_unset_experiment_storage_location_with_uc_schema():
     response.text = "{}"
 
     with mock.patch.object(store, "_call_endpoint", return_value=response) as mock_call:
-        store.unset_experiment_storage_location(
+        store.unset_experiment_trace_location(
             experiment_id=experiment_id,
             location="test_catalog.test_schema",
         )

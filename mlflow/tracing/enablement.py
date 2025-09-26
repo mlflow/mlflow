@@ -16,7 +16,7 @@ _logger = logging.getLogger(__name__)
 
 
 @experimental(version="3.5.0")
-def set_experiment_storage_location(
+def set_experiment_trace_location(
     location: UCSchemaLocation,
     experiment_id: str | None = None,
     sql_warehouse_id: str | None = None,
@@ -29,7 +29,7 @@ def set_experiment_storage_location(
     stored in the provided Unity Catalog schema.
 
     Note: If the experiment is already linked to a storage location, this will raise an error.
-    Use `mlflow.tracing.enablement.unset_experiment_storage_location` to remove the existing
+    Use `mlflow.tracing.enablement.unset_experiment_trace_location` to remove the existing
     storage location first and then set a new one.
 
     Args:
@@ -49,11 +49,11 @@ def set_experiment_storage_location(
 
         import mlflow
         from mlflow.entities import UCSchemaLocation
-        from mlflow.tracing.enablement import set_experiment_storage_location
+        from mlflow.tracing.enablement import set_experiment_trace_location
 
         location = UCSchemaLocation(catalog_name="my_catalog", schema_name="my_schema")
 
-        result = set_experiment_storage_location(
+        result = set_experiment_trace_location(
             location=location,
             experiment_id="12345",
         )
@@ -80,7 +80,7 @@ def set_experiment_storage_location(
             "use `mlflow.set_experiment` to set the current experiment."
         )
 
-    uc_schema_location = TracingClient()._set_experiment_storage_location(
+    uc_schema_location = TracingClient()._set_experiment_trace_location(
         uc_schema=location,
         experiment_id=experiment_id,
         sql_warehouse_id=sql_warehouse_id,
@@ -95,7 +95,7 @@ def set_experiment_storage_location(
 
 
 @experimental(version="3.5.0")
-def unset_experiment_storage_location(
+def unset_experiment_trace_location(
     location: UCSchemaLocation,
     experiment_id: str | None = None,
 ) -> None:
@@ -115,9 +115,9 @@ def unset_experiment_storage_location(
 
         import mlflow
         from mlflow.entities import UCSchemaLocation
-        from mlflow.tracing.enablement import unset_experiment_storage_location
+        from mlflow.tracing.enablement import unset_experiment_trace_location
 
-        unset_experiment_storage_location(
+        unset_experiment_trace_location(
             location=UCSchemaLocation(catalog_name="my_catalog", schema_name="my_schema"),
             experiment_id="12345",
         )
@@ -137,5 +137,5 @@ def unset_experiment_storage_location(
             "Experiment ID is required to clear storage location, either pass it as an argument or "
             "use `mlflow.set_experiment` to set the current experiment."
         )
-    TracingClient()._unset_experiment_storage_location(experiment_id, location.schema_location)
+    TracingClient()._unset_experiment_trace_location(experiment_id, location.schema_location)
     _logger.info(f"Successfully cleared storage location for experiment `{experiment_id}`")
