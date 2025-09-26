@@ -24,6 +24,7 @@ from mlflow.tracing.utils import parse_trace_id_v4
 from mlflow.utils.databricks_tracing_utils import (
     trace_from_proto,
     trace_info_to_proto,
+    uc_schema_location_from_proto,
     uc_schema_location_to_proto,
 )
 from mlflow.utils.proto_json_utils import message_to_json
@@ -156,7 +157,7 @@ class DatabricksTracingRestStore(RestStore):
                 req_body,
                 endpoint=f"{_V4_TRACE_REST_API_PATH_PREFIX}/location",
             )
-            uc_schema = UCSchemaLocationEntity.from_proto(response.uc_schema)
+            uc_schema = uc_schema_location_from_proto(response.uc_schema)
         except MlflowException as e:
             if e.error_code == ErrorCode.Name(ALREADY_EXISTS):
                 _logger.debug(f"Trace UC storage location already exists: {uc_schema}")

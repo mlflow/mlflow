@@ -28,6 +28,10 @@ def set_experiment_storage_location(
     When tracing is enabled, all traces for the specified experiment will be
     stored in the provided Unity Catalog schema.
 
+    Note: If the experiment is already linked to a storage location, this will raise an error.
+    Use `mlflow.tracing.enablement.unset_experiment_storage_location` to remove the existing
+    storage location first and then set a new one.
+
     Args:
         location: The storage location for experiment traces in Unity Catalog.
         experiment_id: The MLflow experiment ID to set the storage location for.
