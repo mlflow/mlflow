@@ -47,10 +47,7 @@ def server_url(tmp_path_factory):
             ],
             env={
                 **os.environ,
-                "PYTHONPATH": (
-                    f"{os.path.dirname(__file__)}:"
-                    f"{os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))}"
-                ),
+                "PYTHONPATH": os.path.dirname(__file__),
                 "_MLFLOW_JOB_FUNCTION_EXTRA_ALLOW_LIST": "test_endpoint.simple_job_fun",
             },
             start_new_session=True,  # new session & process group
