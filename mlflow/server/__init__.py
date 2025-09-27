@@ -20,7 +20,7 @@ from mlflow.environment_variables import (
     MLFLOW_SERVER_ENABLE_JOB_EXECUTION,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.server import handlers
+from mlflow.server import handlers, security
 from mlflow.server.handlers import (
     STATIC_PREFIX_ENV_VAR,
     _add_static_prefix,
@@ -35,7 +35,6 @@ from mlflow.server.handlers import (
     get_trace_artifact_handler,
     upload_artifact_handler,
 )
-from mlflow.server.security import init_security_middleware
 from mlflow.utils.os import is_windows
 from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.process import _exec_cmd
@@ -57,8 +56,17 @@ REL_STATIC_DIR = "js/build"
 app = Flask(__name__, static_folder=REL_STATIC_DIR)
 IS_FLASK_V1 = Version(importlib.metadata.version("flask")) < Version("2.0")
 
-# Initialize security middleware
-init_security_middleware(app)
+is_running_as_server = (
+    "gunicorn" in sys.modules
+    or "uvicorn" in sys.modules
+    or "waitress" in sys.modules
+    or os.getenv("_MLFLOW_SERVER_RUNNING")
+    or os.getenv(BACKEND_STORE_URI_ENV_VAR)
+    or os.getenv(SERVE_ARTIFACTS_ENV_VAR)
+)
+
+if is_running_as_server:
+    security.init_security_middleware(app)
 
 for http_path, handler, methods in handlers.get_endpoints():
     app.add_url_rule(http_path, handler.__name__, handler, methods=methods)
@@ -311,6 +319,7 @@ def _run_server(
         None
     """
     env_map = {}
+    env_map["_MLFLOW_SERVER_RUNNING"] = "true"
     if file_store_path:
         env_map[BACKEND_STORE_URI_ENV_VAR] = file_store_path
     if registry_store_uri:

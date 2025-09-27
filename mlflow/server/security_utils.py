@@ -28,7 +28,7 @@ TEST_ENDPOINTS = ["/test", "/api/test"]
 
 # Localhost addresses
 LOCALHOST_VARIANTS = ["localhost", "127.0.0.1", "[::1]", "0.0.0.0"]
-CORS_LOCALHOST_HOSTS = ["localhost", "127.0.0.1", "[::1]", "::1"]  # Exclude 0.0.0.0 for CORS
+CORS_LOCALHOST_HOSTS = ["localhost", "127.0.0.1", "[::1]", "::1"]
 
 # Private IP range start values for 172.16.0.0/12
 PRIVATE_172_RANGE_START = 16
