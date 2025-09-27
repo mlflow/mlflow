@@ -4,6 +4,8 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.dspy.constant import FLAVOR_NAME
+from mlflow.telemetry.events import AutologgingEvent
+from mlflow.telemetry.track import _record_event
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracing.utils import construct_full_inputs
 from mlflow.utils.autologging_utils import (
@@ -173,6 +175,10 @@ def autolog(
             call_patch,
             patch_fn,
         )
+
+    _record_event(
+        AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}
+    )
 
 
 # This is required by mlflow.autolog()
