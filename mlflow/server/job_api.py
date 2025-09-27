@@ -65,12 +65,10 @@ def submit_job(payload: SubmitJobPayload) -> Job:
     function_fullname = payload.function_fullname
     try:
         function = _load_function(function_fullname)
+        job = submit_job(function, payload.params, payload.timeout)
+        return Job.from_job_entity(job)
     except MlflowException as e:
-        # Invalid function fullname format
         raise HTTPException(
-            status_code=http_status.HTTP_400_BAD_REQUEST,
+            status_code=e.get_http_status_code(),
             detail=e.message,
         )
-
-    job = submit_job(function, payload.params, payload.timeout)
-    return Job.from_job_entity(job)
