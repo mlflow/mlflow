@@ -37,7 +37,6 @@ def test_input_categorical_init():
 
 
 def test_input_categorical_to_databricks_input():
-    """Test conversion to Databricks input type."""
     options = ["good", "bad", "neutral"]
     input_cat = InputCategorical(options=options)
 
@@ -53,7 +52,6 @@ def test_input_categorical_to_databricks_input():
 
 
 def test_input_categorical_from_databricks_input():
-    """Test creation from Databricks input type."""
     options = ["excellent", "good", "poor"]
     mock_databricks_input = MagicMock()
     mock_databricks_input.options = options
@@ -85,7 +83,6 @@ def test_input_categorical_list_init():
 
 
 def test_input_categorical_list_to_databricks_input():
-    """Test conversion to Databricks input type."""
     options = ["python", "java", "javascript"]
     input_cat_list = InputCategoricalList(options=options)
 
@@ -101,7 +98,6 @@ def test_input_categorical_list_to_databricks_input():
 
 
 def test_input_categorical_list_from_databricks_input():
-    """Test creation from Databricks input type."""
     options = ["feature1", "feature2", "feature3"]
     mock_databricks_input = MagicMock()
     mock_databricks_input.options = options
@@ -204,7 +200,6 @@ def test_input_text_list_to_databricks_input():
 
 
 def test_input_text_list_from_databricks_input():
-    """Test creation from Databricks input type."""
     max_length_each = 75
     max_count = 8
     mock_databricks_input = MagicMock()
@@ -450,7 +445,6 @@ def test_label_schema_frozen_dataclass():
 
 
 def test_label_schema_from_databricks_label_schema():
-    """Test creation from Databricks label schema."""
     # Create a mock databricks input object
     mock_databricks_input = MagicMock()
 
@@ -535,7 +529,6 @@ def test_from_databricks_label_schema_uses_convert_input():
 
 # Integration tests
 def test_integration_complete_workflow_categorical():
-    """Test complete workflow with categorical input."""
     # Create InputCategorical
     options = ["excellent", "good", "fair", "poor"]
     input_cat = InputCategorical(options=options)
@@ -557,7 +550,6 @@ def test_integration_complete_workflow_categorical():
 
 
 def test_integration_complete_workflow_numeric():
-    """Test complete workflow with numeric input."""
     # Create InputNumeric
     min_val = 0.0
     max_val = 10.0
