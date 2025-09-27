@@ -251,30 +251,22 @@ export const useCreatePromptModal = ({
 
   const openModal = () => {
     errorsReset();
-    if (mode === CreatePromptModalMode.CreatePromptVersion && latestVersion) {
-      const tagValue = getPromptContentTagValue(latestVersion) ?? '';
-      const parsedMessages = getChatPromptMessagesFromValue(tagValue);
-      const isChatPrompt = !!parsedMessages;
-      form.reset({
-        commitMessage: '',
-        draftName: '',
-        draftValue: isChatPrompt ? '' : tagValue,
-        chatMessages: isChatPrompt
-          ? parsedMessages.map((message: any) => ({ ...message }))
-          : [{ role: 'user', content: '' }],
-        tags: [],
-        promptType: isChatPrompt ? PROMPT_TYPE_CHAT : PROMPT_TYPE_TEXT,
-      });
-    } else {
-      form.reset({
-        commitMessage: '',
-        draftName: '',
-        draftValue: '',
-        chatMessages: [{ role: 'user', content: '' }],
-        tags: [],
-        promptType: PROMPT_TYPE_TEXT,
-      });
-    }
+    const tagValue =
+      mode === CreatePromptModalMode.CreatePromptVersion && latestVersion
+        ? getPromptContentTagValue(latestVersion) ?? ''
+        : '';
+    const parsedMessages = getChatPromptMessagesFromValue(tagValue);
+
+    form.reset({
+      commitMessage: '',
+      draftName: '',
+      draftValue: parsedMessages ? '' : tagValue,
+      chatMessages: parsedMessages
+        ? parsedMessages.map((message) => ({ ...message }))
+        : [{ role: 'user', content: '' }],
+      tags: [],
+      promptType: parsedMessages ? PROMPT_TYPE_CHAT : PROMPT_TYPE_TEXT,
+    });
     setOpen(true);
   };
 
