@@ -1577,6 +1577,8 @@ class SearchTraceUtils(SearchUtils):
         "timestamp_ms",
         "execution_time",
         "execution_time_ms",
+        "end_time",
+        "end_time_ms",
         "status",
         # The following keys are mapped to tags or metadata
         "name",
@@ -1588,6 +1590,8 @@ class SearchTraceUtils(SearchUtils):
         "timestamp_ms",
         "execution_time",
         "execution_time_ms",
+        "end_time",
+        "end_time_ms",
         "status",
         "request_id",
         # The following keys are mapped to tags or metadata
@@ -1600,6 +1604,8 @@ class SearchTraceUtils(SearchUtils):
         "timestamp",
         "execution_time_ms",
         "execution_time",
+        "end_time_ms",
+        "end_time",
     }
 
     # For now, don't support LIKE/ILIKE operators for trace search because it may
@@ -1613,6 +1619,8 @@ class SearchTraceUtils(SearchUtils):
     _TAG_IDENTIFIER = "tag"
     _ATTRIBUTE_IDENTIFIER = "attribute"
     _SPAN_IDENTIFIER = "span"
+    _FEEDBACK_IDENTIFIER = "feedback"
+    _EXPECTATION_IDENTIFIER = "expectation"
 
     # These are aliases for the base identifiers
     # e.g. trace.status is equivalent to attribute.status
@@ -1627,11 +1635,13 @@ class SearchTraceUtils(SearchUtils):
         _REQUEST_METADATA_IDENTIFIER,
         _ATTRIBUTE_IDENTIFIER,
         _SPAN_IDENTIFIER,
+        _FEEDBACK_IDENTIFIER,
+        _EXPECTATION_IDENTIFIER,
     }
     _VALID_IDENTIFIERS = _IDENTIFIERS | set(_ALTERNATE_IDENTIFIERS.keys())
 
     # Supported span attributes
-    _SUPPORTED_SPAN_ATTRIBUTES = {"name"}
+    _SUPPORTED_SPAN_ATTRIBUTES = {"name", "type", "status", "content"}
 
     SUPPORT_IN_COMPARISON_ATTRIBUTE_KEYS = {"name", "status", "request_id", "run_id"}
 
@@ -1647,6 +1657,7 @@ class SearchTraceUtils(SearchUtils):
     SEARCH_KEY_TO_ATTRIBUTE = {
         "timestamp": "timestamp_ms",
         "execution_time": "execution_time_ms",
+        "end_time": "end_time_ms",
     }
 
     @classmethod
@@ -1677,6 +1688,18 @@ class SearchTraceUtils(SearchUtils):
         elif cls.is_span(type_, key, comparator):
             raise MlflowException(
                 "Span filtering requires database support and cannot be performed "
+                "on in-memory trace data.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        elif cls.is_feedback(type_, key, comparator):
+            raise MlflowException(
+                "Feedback filtering requires database support and cannot be performed "
+                "on in-memory trace data.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        elif cls.is_expectation(type_, key, comparator):
+            raise MlflowException(
+                "Expectation filtering requires database support and cannot be performed "
                 "on in-memory trace data.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
@@ -1743,7 +1766,22 @@ class SearchTraceUtils(SearchUtils):
     @classmethod
     def is_span(cls, key_type, key_name, comparator):
         if key_type == cls._SPAN_IDENTIFIER:
-            if key_name in cls._SUPPORTED_SPAN_ATTRIBUTES:
+            # Support span.attributes.<attribute> format
+            if key_name.startswith("attributes."):
+                # Extract the actual attribute name after "attributes."
+                attr_name = key_name[len("attributes.") :]
+                if not attr_name:
+                    raise MlflowException(
+                        "Span attribute name cannot be empty after 'attributes.'",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                if comparator not in cls.VALID_SPAN_ATTRIBUTE_COMPARATORS:
+                    raise MlflowException(
+                        f"span.{key_name} comparator '{comparator}' not one of "
+                        f"'{cls.VALID_SPAN_ATTRIBUTE_COMPARATORS}'",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+            elif key_name in cls._SUPPORTED_SPAN_ATTRIBUTES:
                 if comparator not in cls.VALID_SPAN_ATTRIBUTE_COMPARATORS:
                     raise MlflowException(
                         f"span.{key_name} comparator '{comparator}' not one of "
@@ -1754,7 +1792,41 @@ class SearchTraceUtils(SearchUtils):
                 supported_attrs = ", ".join(sorted(cls._SUPPORTED_SPAN_ATTRIBUTES))
                 raise MlflowException(
                     f"Invalid span attribute '{key_name}'. "
-                    f"Supported attributes: {supported_attrs}.",
+                    f"Supported attributes: {supported_attrs}, attributes.<attribute_name>.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            return True
+        return False
+
+    @classmethod
+    def is_feedback(cls, key_type, key_name, comparator):
+        if key_type == cls._FEEDBACK_IDENTIFIER:
+            if not key_name:
+                raise MlflowException(
+                    "Feedback field name cannot be empty",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            if comparator not in cls.VALID_STRING_ATTRIBUTE_COMPARATORS:
+                raise MlflowException(
+                    f"feedback.{key_name} comparator '{comparator}' not one of "
+                    f"'{cls.VALID_STRING_ATTRIBUTE_COMPARATORS}'",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            return True
+        return False
+
+    @classmethod
+    def is_expectation(cls, key_type, key_name, comparator):
+        if key_type == cls._EXPECTATION_IDENTIFIER:
+            if not key_name:
+                raise MlflowException(
+                    "Expectation field name cannot be empty",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            if comparator not in cls.VALID_STRING_ATTRIBUTE_COMPARATORS:
+                raise MlflowException(
+                    f"expectation.{key_name} comparator '{comparator}' not one of "
+                    f"'{cls.VALID_STRING_ATTRIBUTE_COMPARATORS}'",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
@@ -1849,6 +1921,17 @@ class SearchTraceUtils(SearchUtils):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             elif isinstance(token, Parenthesis):
                 return cls._parse_attribute_lists(token)
+            else:
+                raise MlflowException(
+                    "Expected a quoted string value for "
+                    f"{identifier_type} (e.g. 'my-value'). Got value "
+                    f"{token.value}",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        elif identifier_type in (cls._FEEDBACK_IDENTIFIER, cls._EXPECTATION_IDENTIFIER):
+            # Feedback and expectation values are stored as JSON, so we expect string values
+            if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
+                return cls._strip_quotes(token.value, expect_quoted_value=True)
             else:
                 raise MlflowException(
                     "Expected a quoted string value for "
