@@ -21,7 +21,7 @@ def simple_job_fun(x: int, y: int) -> dict[str, Any]:
 
 
 @pytest.fixture(scope="module")
-def server_url(tmp_path_factory):
+def server_url(tmp_path_factory: pytest.TempPathFactory) -> str:
     from tests.helper_functions import get_safe_port
 
     tmp_path = tmp_path_factory.mktemp("server_mod")
@@ -59,7 +59,7 @@ def server_url(tmp_path_factory):
             os.killpg(server_proc.pid, signal.SIGTERM)
 
 
-def wait_job_finalize(server_url, job_id, timeout):
+def wait_job_finalize(server_url: str, job_id: str, timeout: float) -> None:
     beg_time = time.time()
     while time.time() - beg_time <= timeout:
         response = requests.get(f"{server_url}/ajax-api/3.0/jobs/{job_id}")
@@ -129,3 +129,19 @@ def test_job_endpoint_function_not_found(server_url: str):
     assert response.status_code == 400
     error_json = response.json()
     assert "Function not found" in error_json["detail"]
+
+
+def test_job_endpoint_missing_parameters(server_url: str):
+    """Test that proper error is returned when required function parameters are missing."""
+    payload = {
+        "function_fullname": "test_endpoint.simple_job_fun",
+        "params": {"x": 3},  # Missing required parameter 'y'
+    }
+    response = requests.post(f"{server_url}/ajax-api/3.0/jobs/", json=payload)
+
+    # Should return a 400 error with information about missing parameters
+    assert response.status_code == 400
+    assert response.json()["detail"] == (
+        "Missing required parameters for function 'simple_job_fun': ['y']. "
+        + "Expected parameters: ['x', 'y']"
+    )

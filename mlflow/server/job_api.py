@@ -29,7 +29,7 @@ class Job(BaseModel):
     retry_count: int
 
     @classmethod
-    def from_job_entity(cls, job: JobEntity):
+    def from_job_entity(cls, job: JobEntity) -> "Job":
         return cls(
             job_id=job.job_id,
             creation_time=job.creation_time,
