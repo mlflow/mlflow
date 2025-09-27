@@ -54,7 +54,7 @@ export const AssessmentsPane = ({
   activeSpanId?: string;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const { setAssessmentsPaneExpanded } = useModelTraceExplorerViewState();
+  const { setAssessmentsPaneExpanded, isInComparisonView } = useModelTraceExplorerViewState();
   const [feedbacks, expectations] = useMemo(
     () => partition(assessments, (assessment) => 'feedback' in assessment),
     [assessments],
@@ -84,7 +84,7 @@ export const AssessmentsPane = ({
         <Typography.Text css={{ marginBottom: theme.spacing.sm }} bold>
           <FormattedMessage defaultMessage="Assessments" description="Label for the assessments pane" />
         </Typography.Text>
-        {setAssessmentsPaneExpanded && (
+        {!isInComparisonView && setAssessmentsPaneExpanded && (
           <Tooltip
             componentId="shared.model-trace-explorer.close-assessments-pane-tooltip"
             content={
