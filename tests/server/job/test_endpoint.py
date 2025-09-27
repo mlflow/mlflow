@@ -105,9 +105,7 @@ def test_job_endpoint_missing_parameters(server_url: str):
 
     # Should return a 400 error with information about missing parameters
     assert response.status_code == 400
-    error_data = response.json()
-    assert "error_code" in error_data
-    assert "message" in error_data
-    assert (
-        "Missing required parameters for function 'simple_job_fun': ['y']" in error_data["message"]
+    assert response.json()["detail"] == (
+        "Missing required parameters for function 'simple_job_fun': ['y']. "
+        + "Expected parameters: ['x', 'y']"
     )

@@ -5,10 +5,11 @@ Internal job APIs for UI invocation
 import json
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from mlflow.entities._job import Job as JobEntity
+from mlflow.exceptions import MlflowException
 
 job_api_router = APIRouter(prefix="/ajax-api/3.0/jobs", tags=["Job"])
 
@@ -63,5 +64,12 @@ def submit_job(payload: SubmitJobPayload) -> Job:
     function_fullname = payload.function_fullname
     function = _load_function(function_fullname)
 
-    job = submit_job(function, payload.params, payload.timeout)
-    return Job.from_job_entity(job)
+    try:
+        job = submit_job(function, payload.params, payload.timeout)
+        return Job.from_job_entity(job)
+    except MlflowException as e:
+        # Invalid function fullname format
+        raise HTTPException(
+            status_code=e.get_http_status_code(),
+            detail=e.message,
+        )
