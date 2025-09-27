@@ -102,6 +102,7 @@ def save_model(
     onnx_session_options=None,
     metadata=None,
     save_as_external_data=True,
+    **kwargs,  # pylint: disable=unused-argument
 ):
     """
     Save an ONNX model to a path on the local file system.
@@ -149,6 +150,7 @@ def save_model(
             https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
         metadata: {{ metadata }}
         save_as_external_data: Save tensors to external file(s).
+        kwargs: {{ kwargs }}
     """
     import onnx
 
