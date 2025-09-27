@@ -55,11 +55,12 @@ def submit_job(
         timeout: (optional) the job execution timeout, default None (no timeout)
 
     Returns:
-        The job entity. You can call `query_job` API by the job id to get
+        The job entity. You can call `get_job` API by the job id to get
         the updated job entity.
     """
     from mlflow.environment_variables import MLFLOW_SERVER_ENABLE_JOB_EXECUTION
     from mlflow.server.jobs.job_runner import huey_task_exec_job
+    from mlflow.server.jobs.util import _validate_function_parameters
 
     if not MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
         raise MlflowException(
@@ -69,6 +70,9 @@ def submit_job(
 
     if not (isinstance(function, FunctionType) and "." not in function.__qualname__):
         raise MlflowException("The job function must be a python global function.")
+
+    # Validate that required parameters are provided
+    _validate_function_parameters(function, params)
 
     job_store = _get_job_store()
     serialized_params = json.dumps(params)
@@ -81,9 +85,9 @@ def submit_job(
     return job
 
 
-def query_job(job_id: str) -> Job:
+def get_job(job_id: str) -> Job:
     """
-    Query the job entity by the job id.
+    Get the job entity by the job id.
 
     Note:
         This is a server-side API, and it requires MLflow server configures
