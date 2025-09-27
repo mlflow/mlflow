@@ -39,6 +39,11 @@ class WebhookEntity(str, Enum):
     MODEL_VERSION = "model_version"
     MODEL_VERSION_TAG = "model_version_tag"
     MODEL_VERSION_ALIAS = "model_version_alias"
+    PROMPT = "prompt"
+    PROMPT_VERSION = "prompt_version"
+    PROMPT_TAG = "prompt_tag"
+    PROMPT_VERSION_TAG = "prompt_version_tag"
+    PROMPT_ALIAS = "prompt_alias"
 
     def __str__(self) -> str:
         return self.value
@@ -86,6 +91,14 @@ WebhookEventStr: TypeAlias = Literal[
     "model_version_tag.deleted",
     "model_version_alias.created",
     "model_version_alias.deleted",
+    "prompt.created",
+    "prompt_version.created",
+    "prompt_tag.set",
+    "prompt_tag.deleted",
+    "prompt_version_tag.set",
+    "prompt_version_tag.deleted",
+    "prompt_alias.created",
+    "prompt_alias.deleted",
 ]
 
 # Valid actions for each entity type
@@ -101,6 +114,24 @@ VALID_ENTITY_ACTIONS: dict[WebhookEntity, set[WebhookAction]] = {
         WebhookAction.DELETED,
     },
     WebhookEntity.MODEL_VERSION_ALIAS: {
+        WebhookAction.CREATED,
+        WebhookAction.DELETED,
+    },
+    WebhookEntity.PROMPT: {
+        WebhookAction.CREATED,
+    },
+    WebhookEntity.PROMPT_VERSION: {
+        WebhookAction.CREATED,
+    },
+    WebhookEntity.PROMPT_TAG: {
+        WebhookAction.SET,
+        WebhookAction.DELETED,
+    },
+    WebhookEntity.PROMPT_VERSION_TAG: {
+        WebhookAction.SET,
+        WebhookAction.DELETED,
+    },
+    WebhookEntity.PROMPT_ALIAS: {
         WebhookAction.CREATED,
         WebhookAction.DELETED,
     },
