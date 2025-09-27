@@ -1009,6 +1009,9 @@ class FileStore(AbstractStore):
                     str(rnfe),
                     exc_info=True,
                 )
+            except AttributeError as ae:
+                r_id = os.path.basename(r_dir)
+                logging.warning("Malformed run '%s'. %s", r_id, str(ae), exc_info=True)
         return run_infos
 
     def _search_runs(
