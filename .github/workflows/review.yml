@@ -81,9 +81,9 @@ jobs:
         run: |
           curl -L -o ripgrep.tar.gz https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-x86_64-unknown-linux-musl.tar.gz
           tar -xzf ripgrep.tar.gz
-          mv ripgrep-14.1.1-x86_64-unknown-linux-musl/rg ./rg
-          chmod +x rg
-          ./rg --version
+          sudo mv ripgrep-14.1.1-x86_64-unknown-linux-musl/rg /usr/local/bin/rg
+          sudo chmod +x /usr/local/bin/rg
+          rg --version
           rm -rf ripgrep.tar.gz ripgrep-14.1.1-x86_64-unknown-linux-musl/
 
       - name: Install codex
