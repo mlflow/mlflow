@@ -28,18 +28,12 @@ describe('PromptContentCompare', () => {
     const baseline = {
       name: 'p',
       version: '1',
-      tags: [
-        { key: 'mlflow.prompt.text', value: JSON.stringify([{ role: 'user', content: 'Hi' }]) },
-        { key: '_mlflow_prompt_type', value: 'chat' },
-      ],
+      tags: [{ key: 'mlflow.prompt.text', value: JSON.stringify([{ role: 'user', content: 'Hi' }]) }],
     };
     const compared = {
       name: 'p',
       version: '2',
-      tags: [
-        { key: 'mlflow.prompt.text', value: JSON.stringify([{ role: 'user', content: 'Hi there' }]) },
-        { key: '_mlflow_prompt_type', value: 'chat' },
-      ],
+      tags: [{ key: 'mlflow.prompt.text', value: JSON.stringify([{ role: 'user', content: 'Hi there' }]) }],
     };
     renderComponent(baseline, compared);
     expect(screen.getAllByText('user: Hi').length).toBeGreaterThan(0);

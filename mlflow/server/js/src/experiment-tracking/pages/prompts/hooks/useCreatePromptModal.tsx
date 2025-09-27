@@ -12,7 +12,7 @@ import { useForm, Controller, FormProvider } from 'react-hook-form';
 import { FormattedMessage, useIntl } from 'react-intl';
 import type { RegisteredPrompt, RegisteredPromptVersion } from '../types';
 import { useCreateRegisteredPromptMutation } from './useCreateRegisteredPromptMutation';
-import { getPromptContentTagValue, PROMPT_TYPE_CHAT, PROMPT_TYPE_TEXT, PROMPT_TYPE_TAG_KEY } from '../utils';
+import { getChatPromptMessagesFromValue, getPromptContentTagValue, PROMPT_TYPE_CHAT, PROMPT_TYPE_TEXT } from '../utils';
 import { CollapsibleSection } from '@mlflow/mlflow/src/common/components/CollapsibleSection';
 import { EditableTagsTableView } from '@mlflow/mlflow/src/common/components/EditableTagsTableView';
 import { ChatPromptMessage } from '../types';
@@ -91,8 +91,8 @@ export const useCreatePromptModal = ({
             isCreatingPromptVersion && registeredPrompt?.name ? registeredPrompt?.name : values.draftName;
 
           if (values.promptType === PROMPT_TYPE_CHAT) {
-            const hasContent = values.chatMessages.some((m) => m.content && m.content.trim());
-            if (!hasContent) {
+            const hasEmptyMessage = values.chatMessages.some((m) => !m.content || !m.content.trim());
+            if (hasEmptyMessage) {
               form.setError('chatMessages', {
                 type: 'required',
                 message: intl.formatMessage({
@@ -104,14 +104,18 @@ export const useCreatePromptModal = ({
             }
           }
 
+          const chatMessages = values.chatMessages.map((message) => ({
+            ...message,
+            content: message.content.trim(),
+          }));
+
           mutateCreateVersion(
             {
               createPromptEntity: isCreatingNewPrompt,
-              content: values.promptType === PROMPT_TYPE_CHAT ? JSON.stringify(values.chatMessages) : values.draftValue,
+              content: values.promptType === PROMPT_TYPE_CHAT ? JSON.stringify(chatMessages) : values.draftValue,
               commitMessage: values.commitMessage,
               promptName,
               tags: values.tags,
-              promptType: values.promptType,
             },
             {
               onSuccess: (data) => {
@@ -248,25 +252,18 @@ export const useCreatePromptModal = ({
   const openModal = () => {
     errorsReset();
     if (mode === CreatePromptModalMode.CreatePromptVersion && latestVersion) {
-      const latestPromptType =
-        latestVersion.tags?.find((tag) => tag.key === PROMPT_TYPE_TAG_KEY)?.value || PROMPT_TYPE_TEXT;
+      const tagValue = getPromptContentTagValue(latestVersion) ?? '';
+      const parsedMessages = getChatPromptMessagesFromValue(tagValue);
+      const isChatPrompt = !!parsedMessages;
       form.reset({
         commitMessage: '',
         draftName: '',
-        draftValue: getPromptContentTagValue(latestVersion) ?? '',
-        chatMessages:
-          latestPromptType === PROMPT_TYPE_CHAT
-            ? (() => {
-                try {
-                  const parsed = JSON.parse(getPromptContentTagValue(latestVersion) ?? '');
-                  return Array.isArray(parsed) ? parsed : [{ role: 'user', content: '' }];
-                } catch {
-                  return [{ role: 'user', content: '' }];
-                }
-              })()
-            : [{ role: 'user', content: '' }],
+        draftValue: isChatPrompt ? '' : tagValue,
+        chatMessages: isChatPrompt
+          ? parsedMessages.map((message: any) => ({ ...message }))
+          : [{ role: 'user', content: '' }],
         tags: [],
-        promptType: latestPromptType,
+        promptType: isChatPrompt ? PROMPT_TYPE_CHAT : PROMPT_TYPE_TEXT,
       });
     } else {
       form.reset({

@@ -8,13 +8,15 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useMemo, useState } from 'react';
-import { getPromptContentTagValue, PROMPT_TYPE_CHAT, PROMPT_TYPE_TAG_KEY } from '../utils';
+import { getChatPromptMessagesFromValue, getPromptContentTagValue, PROMPT_TYPE_CHAT, PROMPT_TYPE_TEXT } from '../utils';
 import type { RegisteredPrompt, RegisteredPromptVersion } from '../types';
 import { PromptVersionMetadata } from './PromptVersionMetadata';
 import { FormattedMessage } from 'react-intl';
 import { uniq } from 'lodash';
 import { useDeletePromptVersionModal } from '../hooks/useDeletePromptVersionModal';
 import { ShowArtifactCodeSnippet } from '../../../components/artifact-view-components/ShowArtifactCodeSnippet';
+import { ModelTraceExplorerChatMessage } from '@mlflow/mlflow/src/shared/web-shared/model-trace-explorer/right-pane/ModelTraceExplorerChatMessage';
+import type { ModelTraceChatMessage } from '@mlflow/mlflow/src/shared/web-shared/model-trace-explorer/ModelTrace.types';
 
 const PROMPT_VARIABLE_REGEX = /\{\{\s*(.*?)\s*\}\}/g;
 
@@ -36,22 +38,8 @@ export const PromptContentPreview = ({
   showEditPromptVersionMetadataModal: (promptVersion: RegisteredPromptVersion) => void;
 }) => {
   const value = useMemo(() => (promptVersion ? getPromptContentTagValue(promptVersion) : ''), [promptVersion]);
-  const promptType = useMemo(
-    () => promptVersion?.tags?.find((tag) => tag.key === PROMPT_TYPE_TAG_KEY)?.value,
-    [promptVersion],
-  );
-
-  const parsedMessages = useMemo(() => {
-    if (promptType === PROMPT_TYPE_CHAT && value) {
-      try {
-        const result = JSON.parse(value);
-        return Array.isArray(result) ? result : undefined;
-      } catch {
-        return undefined;
-      }
-    }
-    return undefined;
-  }, [promptType, value]);
+  const parsedMessages = useMemo(() => getChatPromptMessagesFromValue(value), [value]);
+  const isChatPrompt = !!parsedMessages;
 
   const { DeletePromptModal, openModal: openDeleteModal } = useDeletePromptVersionModal({
     promptVersion,
@@ -67,8 +55,7 @@ export const PromptContentPreview = ({
     }
 
     const variables: string[] = [];
-    const source =
-      promptType === PROMPT_TYPE_CHAT ? parsedMessages?.map((m: any) => m.content).join('\n') || '' : value;
+    const source = isChatPrompt ? parsedMessages?.map((m) => m.content).join('\n') || '' : value;
 
     let match;
     while ((match = PROMPT_VARIABLE_REGEX.exec(source)) !== null) {
@@ -82,8 +69,12 @@ export const PromptContentPreview = ({
     }
 
     return uniq(variables);
-  }, [value, promptType, parsedMessages]);
-  const codeSnippetContent = buildCodeSnippetContent(promptVersion, variableNames, promptType);
+  }, [value, isChatPrompt, parsedMessages]);
+  const codeSnippetContent = buildCodeSnippetContent(
+    promptVersion,
+    variableNames,
+    isChatPrompt ? PROMPT_TYPE_CHAT : undefined,
+  );
 
   const { theme } = useDesignSystemTheme();
   return (
@@ -136,17 +127,25 @@ export const PromptContentPreview = ({
       <Spacer shrinks={false} />
       <div
         css={{
-          backgroundColor: theme.colors.backgroundSecondary,
+          backgroundColor: isChatPrompt ? undefined : theme.colors.backgroundSecondary,
           padding: theme.spacing.md,
           overflow: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: theme.spacing.sm,
         }}
       >
-        {promptType === PROMPT_TYPE_CHAT && parsedMessages ? (
+        {isChatPrompt && parsedMessages ? (
           parsedMessages.map((msg: any, index: number) => (
-            <div key={index} css={{ marginBottom: theme.spacing.sm }}>
-              <Typography.Text>{msg.role}:</Typography.Text>{' '}
-              <Typography.Text css={{ whiteSpace: 'pre-wrap' }}>{msg.content}</Typography.Text>
-            </div>
+            <ModelTraceExplorerChatMessage
+              key={index}
+              message={
+                {
+                  ...msg,
+                  content: msg.content,
+                } as ModelTraceChatMessage
+              }
+            />
           ))
         ) : (
           <Typography.Text
@@ -175,7 +174,9 @@ export const PromptContentPreview = ({
           />
         }
       >
-        <ShowArtifactCodeSnippet code={buildCodeSnippetContent(promptVersion, variableNames, promptType)} />
+        <ShowArtifactCodeSnippet
+          code={buildCodeSnippetContent(promptVersion, variableNames, isChatPrompt ? PROMPT_TYPE_CHAT : undefined)}
+        />{' '}
       </Modal>
       {DeletePromptModal}
     </div>
@@ -185,7 +186,7 @@ export const PromptContentPreview = ({
 const buildCodeSnippetContent = (
   promptVersion: RegisteredPromptVersion | undefined,
   variables: string[] | null,
-  promptType?: string,
+  promptType: string = PROMPT_TYPE_TEXT,
 ) => {
   let codeSnippetContent = `from openai import OpenAI
 import mlflow

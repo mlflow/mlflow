@@ -208,18 +208,21 @@ describe('PromptsDetailsPage', () => {
     ];
 
     await waitFor(() => {
-      expect(createVersionSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          name: 'prompt1',
-          description: 'commit message',
-          tags: expect.arrayContaining([
-            { key: 'mlflow.prompt.is_prompt', value: 'true' },
-            { key: 'mlflow.prompt.text', value: JSON.stringify(expectedMessages) },
-            { key: '_mlflow_prompt_type', value: 'chat' },
-          ]),
-        }),
-      );
+      expect(createVersionSpy).toHaveBeenCalled();
     });
+
+    const payload = createVersionSpy.mock.calls[0][0];
+    expect(payload).toMatchObject({
+      name: 'prompt1',
+      description: 'commit message',
+    });
+    expect(payload.tags).toEqual(
+      expect.arrayContaining([
+        { key: 'mlflow.prompt.is_prompt', value: 'true' },
+        { key: 'mlflow.prompt.text', value: JSON.stringify(expectedMessages) },
+      ]),
+    );
+    expect(payload.tags).not.toEqual(expect.arrayContaining([{ key: '_mlflow_prompt_type', value: 'chat' }]));
   });
 
   it('should display table and react to change page mode', async () => {

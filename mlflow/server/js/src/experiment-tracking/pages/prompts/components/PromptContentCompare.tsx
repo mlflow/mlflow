@@ -1,6 +1,6 @@
 import { Button, ExpandMoreIcon, Spacer, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { useMemo } from 'react';
-import { getPromptContentTagValue, PROMPT_TYPE_TAG_KEY, PROMPT_TYPE_CHAT } from '../utils';
+import { getChatPromptMessagesFromValue, getPromptContentTagValue } from '../utils';
 import type { RegisteredPrompt, RegisteredPromptVersion } from '../types';
 import { PromptVersionMetadata } from './PromptVersionMetadata';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -35,30 +35,18 @@ export const PromptContentCompare = ({
     [comparedVersion],
   );
 
-  const baselineType = useMemo(
-    () => baselineVersion?.tags?.find((t) => t.key === PROMPT_TYPE_TAG_KEY)?.value,
-    [baselineVersion],
-  );
-  const comparedType = useMemo(
-    () => comparedVersion?.tags?.find((t) => t.key === PROMPT_TYPE_TAG_KEY)?.value,
-    [comparedVersion],
-  );
+  const baselineMessages = useMemo(() => getChatPromptMessagesFromValue(baselineValue), [baselineValue]);
+  const comparedMessages = useMemo(() => getChatPromptMessagesFromValue(comparedValue), [comparedValue]);
 
-  const stringifyChat = (value: string | undefined) => {
-    if (!value) {
-      return '';
+  const stringifyChat = (messages: ReturnType<typeof getChatPromptMessagesFromValue>, fallback?: string) => {
+    if (messages) {
+      return messages.map((m: any) => `${m.role}: ${m.content}`).join('\n');
     }
-    try {
-      const parsed = JSON.parse(value);
-      if (Array.isArray(parsed)) {
-        return parsed.map((m: any) => `${m.role}: ${m.content}`).join('\n');
-      }
-    } catch {}
-    return value;
+    return fallback ?? '';
   };
 
-  const baselineDisplay = baselineType === PROMPT_TYPE_CHAT ? stringifyChat(baselineValue) : baselineValue;
-  const comparedDisplay = comparedType === PROMPT_TYPE_CHAT ? stringifyChat(comparedValue) : comparedValue;
+  const baselineDisplay = stringifyChat(baselineMessages, baselineValue);
+  const comparedDisplay = stringifyChat(comparedMessages, comparedValue);
 
   const diff = useMemo(
     () => diffWords(baselineDisplay ?? '', comparedDisplay ?? '') ?? [],
