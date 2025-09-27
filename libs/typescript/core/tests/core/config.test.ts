@@ -5,6 +5,41 @@ import { init, getConfig, readDatabricksConfig } from '../../src/core/config';
 
 describe('Config', () => {
   describe('init and getConfig', () => {
+    describe('environment variable resolution', () => {
+      afterEach(() => {
+        delete process.env.MLFLOW_TRACKING_URI;
+        delete process.env.MLFLOW_EXPERIMENT_ID;
+      });
+
+      it('should read tracking configuration from environment variables when not provided', () => {
+        process.env.MLFLOW_TRACKING_URI = 'http://env-tracking-host:5000';
+        process.env.MLFLOW_EXPERIMENT_ID = 'env-experiment-id';
+
+        init({});
+
+        const result = getConfig();
+        expect(result.trackingUri).toBe('http://env-tracking-host:5000');
+        expect(result.experimentId).toBe('env-experiment-id');
+        expect(result.host).toBe('http://env-tracking-host:5000');
+      });
+
+      it('should throw an error when trackingUri is missing from both config and environment', () => {
+        process.env.MLFLOW_EXPERIMENT_ID = 'env-experiment-id';
+
+        expect(() => init({ experimentId: 'config-experiment-id' })).toThrow(
+          'trackingUri is required in configuration'
+        );
+      });
+
+      it('should throw an error when experimentId is missing from both config and environment', () => {
+        process.env.MLFLOW_TRACKING_URI = 'http://env-tracking-host:5000';
+
+        expect(() => init({ trackingUri: 'http://explicit-host:5000' })).toThrow(
+          'experimentId is required in configuration'
+        );
+      });
+    });
+    
     it('should initialize with MLflow tracking server configuration', () => {
       const config = {
         trackingUri: 'http://localhost:5000',

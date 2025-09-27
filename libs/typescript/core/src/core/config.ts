@@ -162,23 +162,20 @@ export function init(config: MLflowTracingInitOptions = {}): void {
     throw new Error('experimentId is required in configuration');
   }
 
+  const databricksConfigPath = config.databricksConfigPath ?? path.join(os.homedir(), '.databrickscfg');
+
   const effectiveConfig: MLflowTracingConfig = {
+    ...config,
     trackingUri: trackingUriFromConfig,
     experimentId: experimentIdFromConfig,
-    databricksConfigPath: config.databricksConfigPath ?? path.join(os.homedir(), '.databrickscfg'),
-    host: config.host,
-    databricksToken: config.databricksToken,
-    trackingServerUsername: config.trackingServerUsername,
-    trackingServerPassword: config.trackingServerPassword
+    databricksConfigPath
   };
 
   if (
     effectiveConfig.trackingUri === 'databricks' ||
     effectiveConfig.trackingUri.startsWith('databricks://')
   ) {
-    const configPathToUse =
-      effectiveConfig.databricksConfigPath ?? path.join(os.homedir(), '.databrickscfg');
-    effectiveConfig.databricksConfigPath = configPathToUse;
+    const configPathToUse = effectiveConfig.databricksConfigPath;
 
     if (!effectiveConfig.host || !effectiveConfig.databricksToken) {
       const envHost = process.env.DATABRICKS_HOST;
@@ -203,7 +200,7 @@ export function init(config: MLflowTracingInitOptions = {}): void {
         }
 
         try {
-          const { host, token } = readDatabricksConfig(configPathToUse, profile);
+          const { host, token } = readDatabricksConfig(configPathToUse ?? '', profile);
           if (!effectiveConfig.host) {
             effectiveConfig.host = host;
           }
