@@ -10,6 +10,7 @@ import pytest
 
 import mlflow.server.handlers
 from mlflow.entities._job_status import JobStatus
+from mlflow.exceptions import MlflowException
 from mlflow.server import (
     ARTIFACT_ROOT_ENV_VAR,
     BACKEND_STORE_URI_ENV_VAR,
@@ -17,6 +18,7 @@ from mlflow.server import (
 )
 from mlflow.server.handlers import _get_job_store
 from mlflow.server.jobs import _reinit_huey_queue, _start_job_runner, get_job, submit_job
+from mlflow.server.jobs.util import _validate_function_parameters
 
 pytestmark = pytest.mark.skipif(
     os.name == "nt", reason="MLflow job execution is not supported on Windows"
@@ -60,6 +62,55 @@ def basic_job_fun(x, y, sleep_secs=0):
     if sleep_secs > 0:
         time.sleep(sleep_secs)
     return x + y
+
+
+def test_validate_function_parameters():
+    """Test the parameter validation function directly."""
+
+    def test_func(a, b, c=None):
+        return a + b + (c or 0)
+
+    # Test with all required parameters present
+    _validate_function_parameters(test_func, {"a": 1, "b": 2})
+    _validate_function_parameters(test_func, {"a": 1, "b": 2, "c": 3})
+
+    # Test with missing required parameters
+    with pytest.raises(MlflowException, match=r"Missing required parameters.*\['b'\]"):
+        _validate_function_parameters(test_func, {"a": 1})
+
+    assert True  # If we get here, the exception was properly raised
+
+    # Test with multiple missing required parameters
+    with pytest.raises(MlflowException, match=r"Missing required parameters.*\['a', 'b'\]"):
+        _validate_function_parameters(test_func, {})
+
+
+def test_validate_function_parameters_with_varargs():
+    """Test parameter validation with functions that have **kwargs."""
+
+    def test_func_with_kwargs(a, **kwargs):
+        return a
+
+    # Should not raise error even with extra parameters due to **kwargs
+    _validate_function_parameters(test_func_with_kwargs, {"a": 1, "extra": 2})
+
+    # Should still raise error for missing required parameters
+    with pytest.raises(MlflowException, match=r"Missing required parameters.*\['a'\]"):
+        _validate_function_parameters(test_func_with_kwargs, {"extra": 2})
+
+
+def test_validate_function_parameters_with_positional_args():
+    """Test parameter validation with functions that have *args."""
+
+    def test_func_with_args(a, *args):
+        return a
+
+    # Should work fine with just required parameter
+    _validate_function_parameters(test_func_with_args, {"a": 1})
+
+    # Should still raise error for missing required parameters
+    with pytest.raises(MlflowException, match=r"Missing required parameters.*\['a'\]"):
+        _validate_function_parameters(test_func_with_args, {})
 
 
 def test_basic_job(monkeypatch, tmp_path):

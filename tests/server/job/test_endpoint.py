@@ -93,3 +93,19 @@ def test_job_endpoint(server_url: str):
         "result": {"a": 7, "b": 12},
         "retry_count": 0,
     }
+
+
+def test_job_endpoint_missing_parameters(server_url: str):
+    """Test that proper error is returned when required function parameters are missing."""
+    payload = {
+        "function_fullname": "test_endpoint.simple_job_fun",
+        "params": {"x": 3},  # Missing required parameter 'y'
+    }
+    response = requests.post(f"{server_url}/ajax-api/3.0/jobs/", json=payload)
+
+    # Should return a 400 error with information about missing parameters
+    assert response.status_code == 400
+    assert response.json()["detail"] == (
+        "Missing required parameters for function 'simple_job_fun': ['y']. "
+        + "Expected parameters: ['x', 'y']"
+    )
