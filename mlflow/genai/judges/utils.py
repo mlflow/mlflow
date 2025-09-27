@@ -430,6 +430,7 @@ def invoke_judge_model(
                 num_retries=num_retries,
             )
             feedback = output.feedback
+            feedback.trace_id = trace.info.trace_id if trace is not None else None
 
             # Record success telemetry only when in Databricks
             if in_databricks:
@@ -499,6 +500,7 @@ def invoke_judge_model(
         value=response_dict["result"],
         rationale=_sanitize_justification(response_dict.get("rationale", "")),
         source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id=model_uri),
+        trace_id=trace.info.trace_id if trace is not None else None,
     )
 
     if "error" in response_dict:
