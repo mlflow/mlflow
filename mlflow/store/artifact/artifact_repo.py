@@ -391,10 +391,19 @@ class ArtifactRepository:
 
 @contextmanager
 def write_local_temp_trace_data_file(trace_data: str):
-    with tempfile.TemporaryDirectory() as temp_dir:
-        temp_file = Path(temp_dir, TRACE_DATA_FILE_NAME)
-        temp_file.write_text(trace_data, encoding="utf-8")
-        yield temp_file
+    try:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_file = Path(temp_dir, TRACE_DATA_FILE_NAME)
+            temp_file.write_text(trace_data, encoding="utf-8")
+            yield temp_file
+    except OSError as e:
+        if e.errno == 24:  # Too many open files
+            raise MlflowException(
+                "Too many traces are exported at the same time, switch to "
+                "async trace logging by setting `MLFLOW_ENABLE_ASYNC_TRACE_LOGGING=true` "
+                "or increase the OS file descriptor limit (e.g. ulimit -n 2560)"
+            )
+        raise
 
 
 def try_read_trace_data(trace_data_path):
