@@ -640,11 +640,6 @@ class MlflowHostCreds:
         client_secret=None,
         use_secret_scope_token=False,
     ):
-        if not host:
-            raise MlflowException(
-                message="host is a required parameter for MlflowHostCreds",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
         if ignore_tls_verification and (server_cert_path is not None):
             raise MlflowException(
                 message=(
