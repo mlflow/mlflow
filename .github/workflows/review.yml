@@ -83,8 +83,8 @@ jobs:
           tar -xzf ripgrep.tar.gz
           sudo mv ripgrep-14.1.1-x86_64-unknown-linux-musl/rg /usr/local/bin/rg
           sudo chmod +x /usr/local/bin/rg
-          rg --version
           rm -rf ripgrep.tar.gz ripgrep-14.1.1-x86_64-unknown-linux-musl/
+          rg --version
 
       - name: Install codex
         run: |
