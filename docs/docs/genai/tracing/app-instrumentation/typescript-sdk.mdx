@@ -91,6 +91,24 @@ mlflow.init({
     experimentId: "<your-experiment-id>",
 });
 
+```
+
+:::tip Configure with environment variables
+Set `MLFLOW_TRACKING_URI` and `MLFLOW_EXPERIMENT_ID` before starting your
+application to let `mlflow.init()` pick them up automatically:
+
+```bash
+export MLFLOW_TRACKING_URI=http://localhost:5000
+export MLFLOW_EXPERIMENT_ID=123456789
+```
+
+```typescript
+mlflow.init();
+```
+
+:::
+
+```typescript
 import { OpenAI } from "openai";
 import { tracedOpenAI } from "mlflow-openai";
 
