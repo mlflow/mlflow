@@ -59,6 +59,24 @@ mlflow.init({
 });
 ```
 
+### Configure with environment variables
+
+The SDK can also read configuration from environment variables so you can avoid
+hard-coding connection details. If `MLFLOW_TRACKING_URI` and
+`MLFLOW_EXPERIMENT_ID` are set, you can initialize the client without passing
+any arguments:
+
+```bash
+export MLFLOW_TRACKING_URI=http://localhost:5000
+export MLFLOW_EXPERIMENT_ID=123456789
+```
+
+```typescript
+import * as mlflow from 'mlflow-tracing';
+
+mlflow.init(); // Uses the values from the environment
+```
+
 Create a trace:
 
 ```typescript
