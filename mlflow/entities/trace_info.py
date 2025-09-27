@@ -96,7 +96,7 @@ class TraceInfo(_MlflowObject):
 
         return cls(**d)
 
-    def to_proto(self):
+    def to_proto(self) -> ProtoTraceInfoV3:
         from mlflow.entities.trace_info_v2 import _truncate_request_metadata, _truncate_tags
 
         request_time = Timestamp()
@@ -127,12 +127,25 @@ class TraceInfo(_MlflowObject):
 
             return TraceInfoV2.from_proto(proto).to_v3()
 
+        # import inside the function to avoid introducing top-level dependency on
+        # mlflow.tracing.utils in entities module
+        from mlflow.tracing.utils import construct_trace_id_v4
+
+        trace_location = TraceLocation.from_proto(proto.trace_location)
+        if trace_location.uc_schema:
+            trace_id = construct_trace_id_v4(
+                location=f"{trace_location.uc_schema.catalog_name}.{trace_location.uc_schema.schema_name}",
+                trace_id=proto.trace_id,
+            )
+        else:
+            trace_id = proto.trace_id
+
         return cls(
-            trace_id=proto.trace_id,
+            trace_id=trace_id,
             client_request_id=(
                 proto.client_request_id if proto.HasField("client_request_id") else None
             ),
-            trace_location=TraceLocation.from_proto(proto.trace_location),
+            trace_location=trace_location,
             request_preview=proto.request_preview if proto.HasField("request_preview") else None,
             response_preview=proto.response_preview if proto.HasField("response_preview") else None,
             request_time=proto.request_time.ToMilliseconds(),

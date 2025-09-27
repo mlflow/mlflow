@@ -393,7 +393,7 @@ def test_span_to_otel_proto_conversion(sample_otel_span_for_conversion):
     mlflow_span = Span(sample_otel_span_for_conversion)
 
     # Convert to OTel proto
-    otel_proto = mlflow_span._to_otel_proto()
+    otel_proto = mlflow_span.to_otel_proto()
 
     # Verify basic fields
     assert otel_proto.name == "test_span"
@@ -461,7 +461,7 @@ def test_span_from_otel_proto_conversion():
     _set_otel_proto_anyvalue(event_attr.value, "event_value")
 
     # Convert to MLflow span
-    mlflow_span = Span._from_otel_proto(otel_proto)
+    mlflow_span = Span.from_otel_proto(otel_proto)
 
     # Verify basic fields
     assert mlflow_span.name == "proto_span"
@@ -493,10 +493,10 @@ def test_otel_roundtrip_conversion(sample_otel_span_for_conversion):
     mlflow_span = Span(sample_otel_span_for_conversion)
 
     # Convert to OTel proto
-    otel_proto = mlflow_span._to_otel_proto()
+    otel_proto = mlflow_span.to_otel_proto()
 
     # Convert back to MLflow span
-    roundtrip_span = Span._from_otel_proto(otel_proto)
+    roundtrip_span = Span.from_otel_proto(otel_proto)
 
     # Verify key fields are preserved
     assert roundtrip_span.name == mlflow_span.name

@@ -21,6 +21,7 @@ from mlflow.entities import (
     RunStatus,
     RunTag,
     SourceType,
+    Span,
     SpanStatusCode,
     SpanType,
     Trace,
@@ -35,11 +36,15 @@ from mlflow.entities.model_registry.model_version_status import ModelVersionStat
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
 from mlflow.entities.param import Param
 from mlflow.entities.trace_data import TraceData
-from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_location import TraceLocation, TraceLocationType, UCSchemaLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
-from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
+from mlflow.exceptions import (
+    MlflowException,
+    MlflowTraceDataCorrupted,
+    MlflowTraceDataNotFound,
+)
 from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.entities.paged_list import PagedList
@@ -205,6 +210,84 @@ def test_client_create_run_with_name(mock_store, mock_time):
 
 
 def test_client_get_trace(mock_store, mock_artifact_repo):
+    trace_id = "trace:/catalog.schema/123"
+    mock_store.get_traces.return_value = [
+        Trace(
+            TraceInfo(
+                trace_id=trace_id,
+                trace_location=TraceLocation(
+                    type=TraceLocationType.UC_SCHEMA,
+                    uc_schema=UCSchemaLocation(catalog_name="catalog", schema_name="schema"),
+                ),
+                request_time=123,
+                execution_duration=456,
+                state=TraceState.OK,
+                tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts"},
+            ),
+            TraceData(
+                spans=[
+                    Span.from_dict(
+                        {
+                            "name": "predict",
+                            "context": {
+                                "trace_id": "0x123456789",
+                                "span_id": "0x12345",
+                            },
+                            "parent_id": None,
+                            "start_time": 123000000,
+                            "end_time": 579000000,
+                            "status_code": "OK",
+                            "status_message": "",
+                            "attributes": {
+                                "mlflow.traceRequestId": f'"{trace_id}"',
+                                "mlflow.spanType": '"LLM"',
+                                "mlflow.spanFunctionName": '"predict"',
+                                "mlflow.spanInputs": '{"prompt": "What is the meaning of life?"}',
+                                "mlflow.spanOutputs": '{"answer": 42}',
+                            },
+                            "events": [],
+                        }
+                    )
+                ]
+            ),
+        )
+    ]
+
+    with mock.patch(
+        "mlflow.tracing.client.TracingClient._should_load_spans_from_artifact",
+        return_value=False,
+    ):
+        trace = MlflowClient().get_trace(trace_id)
+        mock_store.get_traces.assert_called_once_with([trace_id])
+        mock_store.get_trace_info.assert_called_once_with(trace_id)
+        mock_artifact_repo.download_trace_data.assert_not_called()
+
+    assert trace.info.trace_id == trace_id
+    assert trace.info.trace_location.uc_schema.catalog_name == "catalog"
+    assert trace.info.trace_location.uc_schema.schema_name == "schema"
+    assert trace.info.timestamp_ms == 123
+    assert trace.info.execution_time_ms == 456
+    assert trace.info.status == TraceStatus.OK
+    assert trace.info.tags == {"mlflow.artifactLocation": "dbfs:/path/to/artifacts"}
+    assert trace.data.request == '{"prompt": "What is the meaning of life?"}'
+    assert trace.data.response == '{"answer": 42}'
+    assert len(trace.data.spans) == 1
+    assert trace.data.spans[0].name == "predict"
+    assert trace.data.spans[0].trace_id == trace_id
+    assert trace.data.spans[0].inputs == {"prompt": "What is the meaning of life?"}
+    assert trace.data.spans[0].outputs == {"answer": 42}
+    assert trace.data.spans[0].start_time_ns == 123000000
+    assert trace.data.spans[0].end_time_ns == 579000000
+    assert trace.data.spans[0].status.status_code == SpanStatusCode.OK
+
+
+def test_client_get_trace_empty_result(mock_store):
+    mock_store.get_traces.return_value = []
+    with pytest.raises(MlflowException, match="not found"):
+        MlflowClient().get_trace("trace:/catalog.schema/123")
+
+
+def test_client_get_trace_from_artifact_repo(mock_store, mock_artifact_repo):
     mock_store.get_trace_info.return_value = TraceInfo(
         trace_id="tr-1234567",
         trace_location=TraceLocation.from_experiment_id("0"),
@@ -287,7 +370,113 @@ def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_
 
 
 @pytest.mark.parametrize("include_spans", [True, False])
-def test_client_search_traces(mock_store, mock_artifact_repo, include_spans):
+def test_client_search_traces_with_get_traces(mock_store, mock_artifact_repo, include_spans):
+    mock_trace_infos = [
+        TraceInfo(
+            trace_id="tr-1234567",
+            trace_location=TraceLocation(
+                type=TraceLocationType.UC_SCHEMA,
+                uc_schema=UCSchemaLocation(catalog_name="catalog", schema_name="schema"),
+            ),
+            request_time=123,
+            execution_duration=456,
+            state=TraceState.OK,
+            tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts/1"},
+        ),
+        TraceInfo(
+            trace_id="tr-8910",
+            trace_location=TraceLocation(
+                type=TraceLocationType.UC_SCHEMA,
+                uc_schema=UCSchemaLocation(catalog_name="catalog", schema_name="schema"),
+            ),
+            request_time=456,
+            execution_duration=789,
+            state=TraceState.OK,
+            tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts/2"},
+        ),
+    ]
+    mock_store.search_traces.return_value = (mock_trace_infos, None)
+
+    mock_traces = [Trace(info=info, data=TraceData(spans=[])) for info in mock_trace_infos]
+    with mock.patch(
+        "mlflow.tracing.client.TracingClient._get_traces_from_tracking_store",
+        return_value=mock_traces,
+    ) as mock_get_traces:
+        results = MlflowClient().search_traces(
+            experiment_ids=["1", "2", "3"], include_spans=include_spans
+        )
+
+    mock_store.search_traces.assert_called_once_with(
+        experiment_ids=["1", "2", "3"],
+        filter_string=None,
+        max_results=100,
+        order_by=None,
+        page_token=None,
+        model_id=None,
+        sql_warehouse_id=None,
+    )
+    assert len(results) == 2
+    if include_spans:
+        mock_get_traces.assert_called_once_with(["tr-1234567", "tr-8910"])
+    else:
+        mock_get_traces.assert_not_called()
+    mock_artifact_repo.download_trace_data.assert_not_called()
+
+    # The TraceInfo is already fetched prior to the upload_trace_data call,
+    # so we should not call _get_trace_info again
+    mock_store.get_trace_info.assert_not_called()
+
+
+@pytest.mark.parametrize("include_spans", [True, False])
+def test_client_search_traces_mixed(mock_store, mock_artifact_repo, include_spans):
+    mock_traces = [
+        TraceInfo(
+            trace_id="1234567",
+            trace_location=TraceLocation(
+                type=TraceLocationType.UC_SCHEMA,
+                uc_schema=UCSchemaLocation(catalog_name="catalog", schema_name="schema"),
+            ),
+            request_time=123,
+            execution_duration=456,
+            state=TraceState.OK,
+            tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts/1"},
+        ),
+        TraceInfo(
+            trace_id="8910",
+            trace_location=TraceLocation.from_experiment_id("1"),
+            request_time=456,
+            execution_duration=789,
+            state=TraceState.OK,
+            tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts/2"},
+        ),
+    ]
+    mock_store.search_traces.return_value = (mock_traces, None)
+    mock_store.get_traces.return_value = [Trace(info=mock_traces[0], data=TraceData(spans=[]))]
+    mock_artifact_repo.download_trace_data.return_value = {}
+    results = MlflowClient().search_traces(
+        experiment_ids=["1", "2", "3"], include_spans=include_spans
+    )
+
+    mock_store.search_traces.assert_called_once_with(
+        experiment_ids=["1", "2", "3"],
+        filter_string=None,
+        max_results=100,
+        order_by=None,
+        page_token=None,
+        model_id=None,
+        sql_warehouse_id=None,
+    )
+    assert len(results) == 2
+    if include_spans:
+        mock_store.get_traces.assert_called_once_with(["1234567"])
+        mock_artifact_repo.download_trace_data.assert_called()
+    else:
+        mock_store.get_traces.assert_not_called()
+        mock_artifact_repo.download_trace_data.assert_not_called()
+
+
+@pytest.mark.parametrize("include_spans", [True, False])
+def test_client_search_traces_with_artifact_repo(mock_store, mock_artifact_repo, include_spans):
     mock_traces = [
         TraceInfo(
             trace_id="1234567",

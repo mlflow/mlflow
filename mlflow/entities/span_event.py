@@ -76,7 +76,7 @@ class SpanEvent(_MlflowObject):
             attributes={k: ParseDict(v, Value()) for k, v in self.attributes.items()},
         )
 
-    def _to_otel_proto(self):
+    def to_otel_proto(self):
         """
         Convert to OpenTelemetry protobuf event format for OTLP export.
         This is an internal method used for logging spans via OTel protocol.

@@ -6,6 +6,7 @@ import "scalapb/scalapb.proto";
 import "databricks.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/field_mask.proto";
+import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 import "assessments.proto";
 import "datasets.proto";
@@ -298,6 +299,19 @@ service MlflowService {
     };
   }
 
+  // Set a tag on a trace. Tags are mutable and can be updated as desired.
+  rpc setTraceTagV4(SetTraceTagV4) returns (SetTraceTagV4.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "PATCH",
+        path: "/mlflow/traces/{location}/{trace_id}/tags"
+        since { major: 4, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Set Trace Tag V4",
+    };
+  }
+
   // DEPRECATED. Use deleteTraceTagV3 instead.
   rpc deleteTraceTag(DeleteTraceTag) returns (DeleteTraceTag.Response) {
     option (rpc) = {
@@ -321,6 +335,19 @@ service MlflowService {
       }],
       visibility: PUBLIC_UNDOCUMENTED,
       rpc_doc_title: "Delete Trace Tag V3",
+    };
+  }
+
+  // Delete a tag from a trace.
+  rpc deleteTraceTagV4(DeleteTraceTagV4) returns (DeleteTraceTagV4.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/traces/{location}/{trace_id}/tags"
+        since { major: 4, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Delete Trace Tag V4",
     };
   }
 
@@ -598,6 +625,7 @@ service MlflowService {
       rpc_doc_title: "Get TraceInfo v4",
     };
   }
+
 
   // DEPRECATED. Use searchTracesV3 instead.
   rpc searchTraces (SearchTraces) returns (SearchTraces.Response) {
@@ -2157,6 +2185,7 @@ message GetTraceInfoV4 {
 
 }
 
+
 message SearchTraces {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
@@ -2358,6 +2387,27 @@ message SetTraceTagV3 {
   reserved 1;reserved "request_id";
 }
 
+message SetTraceTagV4 {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the trace on which to set a tag.
+  optional string trace_id = 1 [(validate_required) = true];
+
+  // Location of the trace. experiment_id or catalog.schema
+  optional string location = 2 [(validate_required) = true];
+
+  // Name of the tag. Maximum size depends on storage backend.
+  // All storage backends are guaranteed to support key values up to 250 bytes in size.
+  optional string key = 3 [(validate_required) = true];
+
+  // String value of the tag being logged. Maximum size depends on storage backend.
+  // All storage backends are guaranteed to support key values up to 250 bytes in size.
+  optional string value = 4;
+
+  message Response {
+  }
+}
+
 message DeleteTraceTag {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
@@ -2387,6 +2437,25 @@ message DeleteTraceTagV3 {
   }
 }
 
+message DeleteTraceTagV4 {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the trace on which to set a tag.
+  optional string trace_id = 1 [(validate_required) = true];
+
+  // Location of the trace.
+  optional string location = 2 [(validate_required) = true];
+
+  // Name of the tag to delete.
+  optional string key = 3 [(validate_required) = true];
+
+  // Optional SQL warehouse ID for setting trace tag.
+  optional string sql_warehouse_id = 4;
+
+  message Response {
+  }
+}
+
 message Trace {
   optional TraceInfoV3 trace_info = 1;
 }
@@ -2399,7 +2468,6 @@ message TraceLocation {
     TRACE_LOCATION_TYPE_UNSPECIFIED = 0;
     MLFLOW_EXPERIMENT = 1;
     INFERENCE_TABLE = 2;
-    UC_SCHEMA = 3;
   }
   optional TraceLocationType type = 1;
 
@@ -2413,15 +2481,9 @@ message TraceLocation {
     optional string full_table_name = 1;
   }
 
-  message UCSchemaLocation {
-    optional string catalog_name = 1;
-    optional string schema_name = 2;
-  }
-
   oneof identifier {
     MlflowExperimentLocation mlflow_experiment = 2;
     InferenceTableLocation inference_table = 3;
-    UCSchemaLocation uc_schema = 4;
   }
 }
 
@@ -2503,6 +2565,7 @@ message StartTraceV3 {
     optional Trace trace = 1;
   }
 }
+
 
 message LinkTracesToRun {
   // IDs of the traces to link to the run.

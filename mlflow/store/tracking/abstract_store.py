@@ -18,9 +18,9 @@ from mlflow.entities import (
 if TYPE_CHECKING:
     from mlflow.entities import EvaluationDataset
 from mlflow.entities.metric import MetricWithRunId
-from mlflow.entities.trace import Span
+from mlflow.entities.trace import Span, Trace
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
@@ -322,6 +322,15 @@ class AbstractStore:
             The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
         """
         raise NotImplementedError
+
+    def get_traces(self, trace_ids: list[str]) -> list[Trace]:
+        """
+        Get complete traces with spans for given trace ids.
+        """
+        # raise MlflowException so this can be captured by the handlers
+        # instead of default internal server error and retry
+        # TODO: ensure NotImplementedError can be translated to 501 error code in mlflow server
+        raise MlflowNotImplementedException()
 
     def get_online_trace_details(
         self,
