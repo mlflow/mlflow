@@ -29,9 +29,9 @@ class Job(BaseModel):
     result: Any
     retry_count: int
 
-    @staticmethod
-    def from_job_entity(job: JobEntity):
-        return Job(
+    @classmethod
+    def from_job_entity(cls, job: JobEntity):
+        return cls(
             job_id=job.job_id,
             creation_time=job.creation_time,
             function_fullname=job.function_fullname,
@@ -44,10 +44,10 @@ class Job(BaseModel):
 
 
 @job_api_router.get("/{job_id}", response_model=Job)
-def query_job(job_id: str) -> Job:
-    from mlflow.server.jobs import query_job
+def get_job(job_id: str) -> Job:
+    from mlflow.server.jobs import get_job
 
-    job = query_job(job_id)
+    job = get_job(job_id)
     return Job.from_job_entity(job)
 
 
@@ -55,14 +55,6 @@ class SubmitJobPayload(BaseModel):
     function_fullname: str
     params: dict[str, Any]
     timeout: float | None = None
-
-
-class SubmitJobResponse(BaseModel):
-    """
-    Pydantic model for submitting job response.
-    """
-
-    job_id: str
 
 
 @job_api_router.post("/", response_model=Job)
