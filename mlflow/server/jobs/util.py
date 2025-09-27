@@ -1,12 +1,12 @@
 import errno
 import importlib
+import inspect
 import json
 import logging
 import multiprocessing
 import os
 import shutil
 import signal
-import subprocess
 import sys
 import threading
 import time
@@ -21,7 +21,6 @@ from huey.serializer import Serializer
 from mlflow.entities._job_status import JobStatus
 from mlflow.exceptions import MlflowException
 from mlflow.environment_variables import (
-    MLFLOW_SERVER_JOB_MAX_PARALLELISM,
     MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY,
     MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY,
 )
@@ -338,4 +337,34 @@ def _enqueue_unfinished_jobs() -> None:
         # enqueue job
         _get_or_init_huey_instance(job.function_fullname).submit_task(
             job.job_id, function, params, timeout
+
+
+def _validate_function_parameters(function: Callable[..., Any], params: dict[str, Any]) -> None:
+    """Validate that the provided parameters match the function's required arguments.
+
+    Args:
+        function: The function to validate parameters against
+        params: Dictionary of parameters provided for the function
+
+    Raises:
+        MlflowException: If required parameters are missing
+    """
+    sig = inspect.signature(function)
+
+    # Get all required parameters (no default value)
+    # Exclude VAR_POSITIONAL (*args) and VAR_KEYWORD (**kwargs) parameters
+    required_params = [
+        name
+        for name, param in sig.parameters.items()
+        if param.default is inspect.Parameter.empty
+        and param.kind not in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
+    ]
+
+    # Check for missing required parameters
+    missing_params = [param for param in required_params if param not in params]
+
+    if missing_params:
+        raise MlflowException.invalid_parameter_value(
+            f"Missing required parameters for function '{function.__name__}': {missing_params}. "
+            f"Expected parameters: {list(sig.parameters.keys())}"
         )

@@ -569,7 +569,17 @@ const config: Config = {
               '/llms/llm-evaluate/notebooks/rag-evaluation-llama2',
             ],
           },
-
+          {
+            to: '/genai/eval-monitor/scorers/llm-judge/agentic-overview',
+            from: [
+              '/genai/eval-monitor/scorers/llm-judge/trace-analysis',
+              '/genai/eval-monitor/scorers/llm-judge/agent-behavior-patterns',
+            ],
+          },
+          {
+            to: '/genai/datasets',
+            from: ['/genai/eval-monitor/scorers/llm-judge/dataset'],
+          },
           // Prompt Management Redirects
           {
             to: '/genai/prompt-registry/prompt-engineering',
