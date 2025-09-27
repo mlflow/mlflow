@@ -278,24 +278,15 @@ const config: Config = {
           // Redirect to the new self-hosting guide
           {
             to: '/self-hosting/architecture/tracking-server',
-            from: [
-              '/ml/tracking/server',
-              '/tracking/server',
-            ],
+            from: ['/ml/tracking/server', '/tracking/server'],
           },
           {
             to: '/self-hosting/architecture/artifact-store',
-            from: [
-              '/ml/tracking/artifact-stores',
-              '/tracking/artifact-stores'
-            ],
+            from: ['/ml/tracking/artifact-stores', '/tracking/artifact-stores'],
           },
           {
             to: '/self-hosting/architecture/backend-store',
-            from: [
-              '/ml/tracking/backend-stores',
-              '/tracking/backend-stores',
-            ],
+            from: ['/ml/tracking/backend-stores', '/tracking/backend-stores'],
           },
           {
             to: '/self-hosting/authentication/basic-http-auth',

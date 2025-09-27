@@ -76,7 +76,7 @@ MLflow APIs like <APILink fn="mlflow.start_run" />, <APILink fn="mlflow.log_para
         mlflow.log_metric("b", 2)
 
     # Logging a trace
-    with mlflow.start_trace(name="test_trace") as span:
+    with mlflow.start_span(name="test_trace") as span:
         span.set_inputs({"x": 1, "y": 2})
         span.set_outputs(3)
     ```
@@ -99,6 +99,7 @@ MLflow APIs like <APILink fn="mlflow.start_run" />, <APILink fn="mlflow.log_para
     )
     myFunc(1, 2);
     ```
+
   </TabItem>
   <TabItem label="R" value="r">
     ```r
@@ -364,7 +365,6 @@ import mlflow
 response = requests.get("http://<mlflow-host>:<mlflow-port>/version")
 assert response.text == mlflow.__version__  # Checking for a strict version match
 ```
-
 
 ## Handling timeout when uploading/downloading large artifacts
 

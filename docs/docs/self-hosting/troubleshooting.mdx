@@ -26,13 +26,11 @@ Moreover, if the logging SDK calls are slow (e.g., `mlflow.log_metric`), you can
 
 MLflow uses logical deletion for the Runs and Models to avoid accidental deletion of data. To completely clean up the deleted runs and models, use the [mlflow gc](https://mlflow.org/docs/latest/api_reference/cli.html#mlflow-gc) command.
 
-
 ## Should I use the same MLflow version for the client and the server?
 
 Not necessarily. SDK and the server within the same major version are expected to work together. Also most of APIs are backward compatible between v2 and v3, to make the migration smoother.
 
 That being said, the general recommendation is to keep the client and the server up-to-date to get the latest features and bug fixes.
-
 
 ## Support
 
