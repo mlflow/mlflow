@@ -391,7 +391,11 @@ def _run_server(
     if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
         # The `HUEY_STORAGE_PATH_ENV_VAR` is used by both MLflow server handler workers and
         # huey job runner (huey_consumer).
-        env_map[HUEY_STORAGE_PATH_ENV_VAR] = tempfile.mkdtemp()
+        env_map[HUEY_STORAGE_PATH_ENV_VAR] = (
+            tempfile.mkdtemp(prefix="/dev/shm")  # Use in-memory file system if possible
+            if os.path.exists("/dev/shm")
+            else tempfile.mkdtemp()
+        )
     server_proc = _exec_cmd(
         full_command, extra_env=env_map, capture_output=False, synchronous=False
     )
@@ -402,6 +406,13 @@ def _run_server(
         except ImportError:
             _logger.warning(
                 "MLflow job backend requires 'huey<3,>=2.5.0' package but it is not installed. "
+                "Skip launching the job runner."
+            )
+            return
+
+        if os.name == "nt":
+            _logger.warning(
+                "MLflow job backend does not support Windows system. "
                 "Skip launching the job runner."
             )
             return

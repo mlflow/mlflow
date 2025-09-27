@@ -10,6 +10,7 @@ import signal
 import sys
 import threading
 import time
+from dataclasses import asdict
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -55,6 +56,15 @@ class JobResult:
             is_transient_error=False,
             error=repr(e),
         )
+
+    def dump(self, path: str) -> None:
+        with open(path, "w") as fp:
+            json.dump(asdict(self), fp)
+
+    @classmethod
+    def load(cls, path: str) -> "JobResult":
+        with open(path, "r") as fp:
+            return JobResult(**json.load(fp))
 
 
 def _exit_when_orphaned(poll_interval: float = 1) -> None:

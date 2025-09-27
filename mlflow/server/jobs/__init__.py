@@ -92,12 +92,19 @@ def submit_job(
     if not (isinstance(function, FunctionType) and "." not in function.__qualname__):
         raise MlflowException("The job function must be a python global function.")
 
+    func_fullname = f"{function.__module__}.{function.__name__}"
+
+    if not hasattr(function, "_job_fn_metadata"):
+        raise MlflowException(
+            f"The job function {func_fullname} is not decorated by "
+            "'mlflow.server.jobs.job_function'."
+        )
+
     # Validate that required parameters are provided
     _validate_function_parameters(function, params)
 
     job_store = _get_job_store()
     serialized_params = json.dumps(params)
-    func_fullname = f"{function.__module__}.{function.__name__}"
     job = job_store.create_job(func_fullname, serialized_params, timeout)
 
     # enqueue job
