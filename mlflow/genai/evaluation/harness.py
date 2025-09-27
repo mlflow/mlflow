@@ -11,6 +11,7 @@ from typing import Any, Callable
 import pandas as pd
 
 import mlflow
+from mlflow.entities import SpanType
 from mlflow.entities.assessment import Assessment, Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.trace import Trace
@@ -25,7 +26,7 @@ from mlflow.genai.evaluation.utils import (
     validate_tags,
 )
 from mlflow.genai.scorers.aggregation import compute_aggregated_metrics
-from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.base import Scorer, ScorerKind
 from mlflow.genai.utils.trace_utils import _does_store_support_trace_linking, create_minimal_trace
 from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.tracing.constant import AssessmentMetadataKey
@@ -172,25 +173,47 @@ def _compute_eval_scores(
         return []
 
     def run_scorer(scorer):
+        is_builtin_scorer = getattr(scorer, "kind", None) == ScorerKind.BUILTIN
+
         try:
-            value = scorer.run(
+            scorer_func = scorer.run
+            # Automatically enable tracing for builtin scorers to record judge
+            # cost and token counts. Custom scorers are opt-in.
+            if is_builtin_scorer:
+                scorer_func = mlflow.trace(
+                    name=scorer.name,
+                    span_type=SpanType.CHAIN,
+                )(scorer_func)
+
+            value = scorer_func(
                 inputs=eval_item.inputs,
                 outputs=eval_item.outputs,
                 expectations=eval_item.expectations,
                 trace=eval_item.trace,
             )
-            return standardize_scorer_value(scorer.name, value)
+            feedbacks = standardize_scorer_value(scorer.name, value)
+
         except Exception as e:
-            error_assessment = Feedback(
-                name=scorer.name,
-                source=make_code_type_assessment_source(scorer.name),
-                error=AssessmentError(
-                    error_code="SCORER_ERROR",
-                    error_message=str(e),
-                    stack_trace=traceback.format_exc(),
-                ),
-            )
-            return [error_assessment]
+            feedbacks = [
+                Feedback(
+                    name=scorer.name,
+                    source=make_code_type_assessment_source(scorer.name),
+                    error=AssessmentError(
+                        error_code="SCORER_ERROR",
+                        error_message=str(e),
+                        stack_trace=traceback.format_exc(),
+                    ),
+                )
+            ]
+
+        # Record the trace ID for the scorer function call.
+        if trace_id := mlflow.get_last_active_trace_id(thread_local=True):
+            for feedback in feedbacks:
+                feedback.metadata = {
+                    **(feedback.metadata or {}),
+                    AssessmentMetadataKey.SOURCE_TRACE_ID: trace_id,
+                }
+        return feedbacks
 
     # Use a thread pool to run scorers in parallel
     with ThreadPoolExecutor(
