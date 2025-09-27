@@ -19,12 +19,18 @@ class DatabricksSDKModelsArtifactRepository(CloudArtifactRepository):
     that stores the model artifacts.
     """
 
-    def __init__(self, model_name, model_version):
+    def __init__(
+        self,
+        model_name,
+        model_version,
+        tracking_uri: str | None = None,
+        registry_uri: str | None = None,
+    ):
         self.model_name = model_name
         self.model_version = model_version
         self.model_base_path = f"/Models/{model_name.replace('.', '/')}/{model_version}"
         self.client = _get_databricks_workspace_client()
-        super().__init__(self.model_base_path)
+        super().__init__(self.model_base_path, tracking_uri, registry_uri)
 
     def list_artifacts(self, path: str | None = None) -> list[FileInfo]:
         dest_path = self.model_base_path

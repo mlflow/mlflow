@@ -26,8 +26,10 @@ class HdfsArtifactRepository(ArtifactRepository):
     together with the RestStore.
     """
 
-    def __init__(self, artifact_uri: str, tracking_uri: str | None = None) -> None:
-        super().__init__(artifact_uri, tracking_uri)
+    def __init__(
+        self, artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
+    ) -> None:
+        super().__init__(artifact_uri, tracking_uri, registry_uri)
         self.scheme, self.host, self.port, self.path = _resolve_connection_params(artifact_uri)
 
     def log_artifact(self, local_file, artifact_path=None):

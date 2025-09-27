@@ -35,11 +35,18 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
     Stores and retrieves model artifacts using presigned URLs.
     """
 
-    def __init__(self, db_creds, model_full_name, model_version):
+    def __init__(
+        self,
+        db_creds,
+        model_full_name,
+        model_version,
+        tracking_uri: str | None = None,
+        registry_uri: str | None = None,
+    ):
         artifact_uri = posixpath.join(
             "/Models", model_full_name.replace(".", "/"), str(model_version)
         )
-        super().__init__(artifact_uri)
+        super().__init__(artifact_uri, tracking_uri, registry_uri)
         self.db_creds = db_creds
 
     def log_artifact(self, local_file, artifact_path=None):
