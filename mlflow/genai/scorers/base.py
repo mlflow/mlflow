@@ -585,15 +585,6 @@ class Scorer(BaseModel):
                     )
                 )
         """
-        from mlflow.genai.scorers.registry import DatabricksStore
-        from mlflow.tracking._tracking_service.utils import get_tracking_uri
-        from mlflow.utils.uri import is_databricks_uri
-
-        if not is_databricks_uri(get_tracking_uri()):
-            raise MlflowException(
-                "Scheduling scorers is only supported by Databricks tracking URI."
-            )
-
         self._check_can_be_registered()
 
         if sampling_config.sample_rate is not None and sampling_config.sample_rate <= 0:
@@ -604,7 +595,10 @@ class Scorer(BaseModel):
         scorer_name = name or self.name
 
         # Update the scorer on the server
-        return DatabricksStore.update_registered_scorer(
+        from mlflow.genai.scorers.registry import _get_scorer_store
+
+        store = _get_scorer_store()
+        return store.update_registered_scorer(
             name=scorer_name,
             scorer=self,
             sample_rate=sampling_config.sample_rate,
@@ -664,21 +658,15 @@ class Scorer(BaseModel):
                 )
                 print(f"Added filter: {filtered_scorer.filter_string}")
         """
-        from mlflow.genai.scorers.registry import DatabricksStore
-        from mlflow.tracking._tracking_service.utils import get_tracking_uri
-        from mlflow.utils.uri import is_databricks_uri
-
-        if not is_databricks_uri(get_tracking_uri()):
-            raise MlflowException(
-                "Updating scheduled scorers is only supported by Databricks tracking URI."
-            )
-
         self._check_can_be_registered()
 
         scorer_name = name or self.name
 
         # Update the scorer on the server
-        return DatabricksStore.update_registered_scorer(
+        from mlflow.genai.scorers.registry import _get_scorer_store
+
+        store = _get_scorer_store()
+        return store.update_registered_scorer(
             name=scorer_name,
             scorer=self,
             sample_rate=sampling_config.sample_rate,
@@ -725,14 +713,6 @@ class Scorer(BaseModel):
                     sampling_config=ScorerSamplingConfig(sample_rate=0.3)
                 )
         """
-        from mlflow.tracking._tracking_service.utils import get_tracking_uri
-        from mlflow.utils.uri import is_databricks_uri
-
-        if not is_databricks_uri(get_tracking_uri()):
-            raise MlflowException(
-                "Stopping scheduled scorers is only supported by Databricks tracking URI."
-            )
-
         self._check_can_be_registered()
 
         scorer_name = name or self.name

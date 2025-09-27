@@ -48,6 +48,8 @@ class EvalItem:
         """
         if (inputs := row.get(InputDatasetColumn.INPUTS)) is not None:
             inputs = cls._parse_inputs(inputs)
+        else:
+            inputs = None
         outputs = row.get(InputDatasetColumn.OUTPUTS)
 
         # Extract trace column from the dataset.
