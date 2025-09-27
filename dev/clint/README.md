@@ -50,5 +50,5 @@ exclude = [
 ## Testing
 
 ```bash
-pytest --confcutdir dev/clint dev/clint
+pytest dev/clint
 ```

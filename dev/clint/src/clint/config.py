@@ -1,11 +1,33 @@
 import re
 from dataclasses import dataclass, field
-from pathlib import Path
 
 import tomli
 from typing_extensions import Self
 
 from clint.rules import ALL_RULES
+from clint.utils import get_repo_root
+
+
+def _validate_exclude_paths(exclude_paths: list[str]) -> None:
+    """Validate that all paths in the exclude list exist.
+
+    Args:
+        exclude_paths: List of file/directory paths to validate (relative to repo root)
+
+    Raises:
+        ValueError: If any path in the exclude list does not exist
+    """
+    if not exclude_paths:
+        return
+
+    repo_root = get_repo_root()
+    non_existing_paths = [path for path in exclude_paths if not (repo_root / path).exists()]
+
+    if non_existing_paths:
+        raise ValueError(
+            f"Non-existing paths found in exclude field: {non_existing_paths}. "
+            f"All paths in the exclude list must exist."
+        )
 
 
 @dataclass
@@ -21,7 +43,8 @@ class Config:
 
     @classmethod
     def load(cls) -> Self:
-        pyproject = Path("pyproject.toml")
+        repo_root = get_repo_root()
+        pyproject = repo_root / "pyproject.toml"
         if not pyproject.exists():
             return cls()
 
@@ -45,9 +68,12 @@ class Config:
                 raise ValueError(f"Unknown rules in 'select': {unknown_rules}")
             select = set(select)
 
+        exclude_paths = clint.get("exclude", [])
+        _validate_exclude_paths(exclude_paths)
+
         return cls(
             select=select,
-            exclude=clint.get("exclude", []),
+            exclude=exclude_paths,
             forbidden_top_level_imports=clint.get("forbidden-top-level-imports", {}),
             typing_extensions_allowlist=clint.get("typing-extensions-allowlist", []),
             example_rules=clint.get("example-rules", []),

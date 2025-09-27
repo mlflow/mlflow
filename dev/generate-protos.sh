@@ -44,6 +44,6 @@ docker cp "$CONTAINER_NAME:/mlflow/tests/protos/." "tests/protos/"
 docker cp "$CONTAINER_NAME:/mlflow/mlflow/java/client/src/main/java/." "mlflow/java/client/src/main/java/"
 
 echo "Generating GraphQL schema from Protobuf files..."
-python ./dev/proto_to_graphql/code_generator.py
+uv run ./dev/proto_to_graphql/code_generator.py
 
 echo "Done!"

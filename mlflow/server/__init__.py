@@ -1,16 +1,24 @@
 import importlib
 import importlib.metadata
+import logging
 import os
 import shlex
 import sys
+import tempfile
 import textwrap
 import types
 import warnings
 
+_logger = logging.getLogger("mlflow.server")
+
 from flask import Flask, Response, send_from_directory
 from packaging.version import Version
 
-from mlflow.environment_variables import _MLFLOW_SGI_NAME, MLFLOW_FLASK_SERVER_SECRET_KEY
+from mlflow.environment_variables import (
+    _MLFLOW_SGI_NAME,
+    MLFLOW_FLASK_SERVER_SECRET_KEY,
+    MLFLOW_SERVER_ENABLE_JOB_EXECUTION,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
 from mlflow.server.handlers import (
@@ -41,6 +49,7 @@ ARTIFACTS_DESTINATION_ENV_VAR = "_MLFLOW_SERVER_ARTIFACT_DESTINATION"
 PROMETHEUS_EXPORTER_ENV_VAR = "prometheus_multiproc_dir"
 SERVE_ARTIFACTS_ENV_VAR = "_MLFLOW_SERVER_SERVE_ARTIFACTS"
 ARTIFACTS_ONLY_ENV_VAR = "_MLFLOW_SERVER_ARTIFACTS_ONLY"
+HUEY_STORAGE_PATH_ENV_VAR = "_MLFLOW_HUEY_STORAGE_PATH"
 
 REL_STATIC_DIR = "js/build"
 
@@ -378,4 +387,27 @@ def _run_server(
     else:
         # This shouldn't happen given the logic in CLI, but handle it just in case
         raise MlflowException("No server configuration specified.")
-    _exec_cmd(full_command, extra_env=env_map, capture_output=False)
+
+    if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
+        # The `HUEY_STORAGE_PATH_ENV_VAR` is used by both MLflow server handler workers and
+        # huey job runner (huey_consumer).
+        env_map[HUEY_STORAGE_PATH_ENV_VAR] = os.path.join(tempfile.mkdtemp(), "mlflow-huey.db")
+    server_proc = _exec_cmd(
+        full_command, extra_env=env_map, capture_output=False, synchronous=False
+    )
+
+    if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
+        try:
+            import huey  # noqa: F401
+        except ImportError:
+            _logger.warning(
+                "MLflow job backend requires 'huey<3,>=2.5.0' package but it is not installed. "
+                "Skip launching the job runner."
+            )
+            return
+
+        from mlflow.server.jobs import _launch_job_backend
+
+        _launch_job_backend(file_store_path, env_map, server_proc.pid)
+
+    server_proc.wait()

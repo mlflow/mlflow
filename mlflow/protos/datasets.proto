@@ -78,6 +78,9 @@ message DatasetRecord {
   
   // User who last updated the record
   optional string last_updated_by = 12;
+
+  // Outputs as JSON string
+  optional string outputs = 13;
 }
 
 message DatasetRecordSource {

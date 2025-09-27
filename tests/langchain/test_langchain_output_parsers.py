@@ -10,6 +10,7 @@ from mlflow.langchain.output_parsers import (
     ChatCompletionsOutputParser,
     StringResponseOutputParser,
 )
+from mlflow.types.llm import ChatCompletionChunk
 
 
 def test_chatcompletions_output_parser_parse_response():
@@ -101,3 +102,29 @@ def test_chat_agent_output_parser_parse_response():
         assert chunk == {
             "delta": {"content": streaming_messages[i], "role": "assistant", "id": "1"}
         }
+
+
+async def async_message_generator(messages):
+    for message in messages:
+        yield message
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="Test requires langchain >= 0.2.0 for availability of BaseMessage",
+)
+@pytest.mark.asyncio
+async def test_chatcompletion_output_parser_atransform():
+    parser = ChatCompletionOutputParser()
+    streaming_messages = ["The ", "weather ", "today ", "is"]
+    base_messages = [BaseMessage(content=m, type="test") for m in streaming_messages]
+
+    async_chunks = parser.atransform(async_message_generator(base_messages), RunnableConfig())
+
+    chunks = [chunk async for chunk in async_chunks]
+
+    assert len(chunks) == len(streaming_messages)
+
+    for i, chunk in enumerate(chunks):
+        parsed_chunk = ChatCompletionChunk.from_dict(chunk)
+        assert parsed_chunk.choices[0].delta.content == streaming_messages[i]
