@@ -337,6 +337,7 @@ def _enqueue_unfinished_jobs() -> None:
         # enqueue job
         _get_or_init_huey_instance(job.function_fullname).submit_task(
             job.job_id, function, params, timeout
+        )
 
 
 def _validate_function_parameters(function: Callable[..., Any], params: dict[str, Any]) -> None:

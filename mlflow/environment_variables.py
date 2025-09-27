@@ -990,12 +990,6 @@ MLFLOW_SERVER_ENABLE_JOB_EXECUTION = _BooleanEnvironmentVariable(
     "MLFLOW_SERVER_ENABLE_JOB_EXECUTION", True
 )
 
-#: Specifies the MLflow server job maximum parallelism, ``None`` means to use the number of CPUs
-#: as the parallelism. (default: ``None``)
-MLFLOW_SERVER_JOB_MAX_PARALLELISM = _EnvironmentVariable(
-    "MLFLOW_SERVER_JOB_MAX_PARALLELISM", int, None
-)
-
 #: Specifies MLflow server job maximum allowed retries for transient errors.
 #: (default: ``3``)
 MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES = _EnvironmentVariable(
