@@ -1,6 +1,5 @@
 import {
   Button,
-  CopyIcon,
   Modal,
   PlayIcon,
   Spacer,
@@ -9,13 +8,15 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useMemo, useState } from 'react';
+import { getChatPromptMessagesFromValue, getPromptContentTagValue, PROMPT_TYPE_CHAT, PROMPT_TYPE_TEXT } from '../utils';
 import type { RegisteredPrompt, RegisteredPromptVersion } from '../types';
-import { getPromptContentTagValue } from '../utils';
 import { PromptVersionMetadata } from './PromptVersionMetadata';
 import { FormattedMessage } from 'react-intl';
 import { uniq } from 'lodash';
 import { useDeletePromptVersionModal } from '../hooks/useDeletePromptVersionModal';
 import { ShowArtifactCodeSnippet } from '../../../components/artifact-view-components/ShowArtifactCodeSnippet';
+import { ModelTraceExplorerChatMessage } from '@mlflow/mlflow/src/shared/web-shared/model-trace-explorer/right-pane/ModelTraceExplorerChatMessage';
+import type { ModelTraceChatMessage } from '@mlflow/mlflow/src/shared/web-shared/model-trace-explorer/ModelTrace.types';
 
 const PROMPT_VARIABLE_REGEX = /\{\{\s*(.*?)\s*\}\}/g;
 
@@ -37,6 +38,8 @@ export const PromptContentPreview = ({
   showEditPromptVersionMetadataModal: (promptVersion: RegisteredPromptVersion) => void;
 }) => {
   const value = useMemo(() => (promptVersion ? getPromptContentTagValue(promptVersion) : ''), [promptVersion]);
+  const parsedMessages = useMemo(() => getChatPromptMessagesFromValue(value), [value]);
+  const isChatPrompt = !!parsedMessages;
 
   const { DeletePromptModal, openModal: openDeleteModal } = useDeletePromptVersionModal({
     promptVersion,
@@ -52,9 +55,10 @@ export const PromptContentPreview = ({
     }
 
     const variables: string[] = [];
-    let match;
+    const source = isChatPrompt ? parsedMessages?.map((m) => m.content).join('\n') || '' : value;
 
-    while ((match = PROMPT_VARIABLE_REGEX.exec(value)) !== null) {
+    let match;
+    while ((match = PROMPT_VARIABLE_REGEX.exec(source)) !== null) {
       variables.push(match[1]);
     }
 
@@ -65,8 +69,12 @@ export const PromptContentPreview = ({
     }
 
     return uniq(variables);
-  }, [value]);
-  const codeSnippetContent = buildCodeSnippetContent(promptVersion, variableNames);
+  }, [value, isChatPrompt, parsedMessages]);
+  const codeSnippetContent = buildCodeSnippetContent(
+    promptVersion,
+    variableNames,
+    isChatPrompt ? PROMPT_TYPE_CHAT : undefined,
+  );
 
   const { theme } = useDesignSystemTheme();
   return (
@@ -119,18 +127,35 @@ export const PromptContentPreview = ({
       <Spacer shrinks={false} />
       <div
         css={{
-          backgroundColor: theme.colors.backgroundSecondary,
+          backgroundColor: isChatPrompt ? undefined : theme.colors.backgroundSecondary,
           padding: theme.spacing.md,
           overflow: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: theme.spacing.sm,
         }}
       >
-        <Typography.Text
-          css={{
-            whiteSpace: 'pre-wrap',
-          }}
-        >
-          {value || 'Empty'}
-        </Typography.Text>
+        {isChatPrompt && parsedMessages ? (
+          parsedMessages.map((msg: any, index: number) => (
+            <ModelTraceExplorerChatMessage
+              key={index}
+              message={
+                {
+                  ...msg,
+                  content: msg.content,
+                } as ModelTraceChatMessage
+              }
+            />
+          ))
+        ) : (
+          <Typography.Text
+            css={{
+              whiteSpace: 'pre-wrap',
+            }}
+          >
+            {value || 'Empty'}
+          </Typography.Text>
+        )}
       </div>
       <Modal
         componentId="mlflow.prompts.details.preview.usage_example_modal"
@@ -149,14 +174,20 @@ export const PromptContentPreview = ({
           />
         }
       >
-        <ShowArtifactCodeSnippet code={buildCodeSnippetContent(promptVersion, variableNames)} />
+        <ShowArtifactCodeSnippet
+          code={buildCodeSnippetContent(promptVersion, variableNames, isChatPrompt ? PROMPT_TYPE_CHAT : undefined)}
+        />{' '}
       </Modal>
       {DeletePromptModal}
     </div>
   );
 };
 
-const buildCodeSnippetContent = (promptVersion: RegisteredPromptVersion | undefined, variables: string[] | null) => {
+const buildCodeSnippetContent = (
+  promptVersion: RegisteredPromptVersion | undefined,
+  variables: string[] | null,
+  promptType: string = PROMPT_TYPE_TEXT,
+) => {
   let codeSnippetContent = `from openai import OpenAI
 import mlflow
 client = OpenAI(api_key="<YOUR_API_KEY>")
@@ -169,7 +200,22 @@ prompt = mlflow.genai.load_prompt("prompts:/${promptVersion?.name}/${promptVersi
 
   // Null variables mean that there was a parsing error
   if (variables === null) {
-    codeSnippetContent += `
+    if (promptType === PROMPT_TYPE_CHAT) {
+      codeSnippetContent += `
+
+# Replace the variables with the actual values
+variables = {
+   "key": "value",
+   ...
+}
+
+messages = prompt.format_messages(**variables)
+response = client.chat.completions.create(
+    messages=messages,
+    model="gpt-4o-mini",
+)`;
+    } else {
+      codeSnippetContent += `
 
 # Replace the variables with the actual values
 variables = {
@@ -182,6 +228,14 @@ response = client.chat.completions.create(
         "role": "user",
         "content": prompt.format(**variables),
     }],
+    model="gpt-4o-mini",
+)`;
+    }
+  } else if (promptType === PROMPT_TYPE_CHAT) {
+    codeSnippetContent += `
+messages = prompt.format_messages(${variables.map((name) => `${name}="<${name}>"`).join(', ')})
+response = client.chat.completions.create(
+    messages=messages,
     model="gpt-4o-mini",
 )`;
   } else {
