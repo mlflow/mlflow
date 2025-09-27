@@ -1197,7 +1197,6 @@ def test_get_default_optimizer():
 
 @pytest.mark.parametrize("env_var_value", ["3", None])
 def test_invoke_judge_model_completion_iteration_limit(mock_trace, monkeypatch, env_var_value):
-    """Test that completion iteration limit is enforced."""
     if env_var_value is not None:
         monkeypatch.setenv("MLFLOW_JUDGE_MAX_ITERATIONS", env_var_value)
         expected_limit = int(env_var_value)
