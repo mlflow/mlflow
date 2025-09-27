@@ -104,7 +104,7 @@ def test_job_endpoint_invalid_function_format(server_url: str):
     response = requests.post(f"{server_url}/ajax-api/3.0/jobs/", json=payload)
     assert response.status_code == 400
     error_json = response.json()
-    assert "Invalid function fullname format" in error_json["message"]
+    assert "Invalid function fullname format" in error_json["detail"]
 
 
 def test_job_endpoint_module_not_found(server_url: str):
@@ -116,7 +116,7 @@ def test_job_endpoint_module_not_found(server_url: str):
     response = requests.post(f"{server_url}/ajax-api/3.0/jobs/", json=payload)
     assert response.status_code == 400
     error_json = response.json()
-    assert "Module not found" in error_json["message"]
+    assert "Module not found" in error_json["detail"]
 
 
 def test_job_endpoint_function_not_found(server_url: str):
@@ -128,4 +128,4 @@ def test_job_endpoint_function_not_found(server_url: str):
     response = requests.post(f"{server_url}/ajax-api/3.0/jobs/", json=payload)
     assert response.status_code == 400
     error_json = response.json()
-    assert "Function not found" in error_json["message"]
+    assert "Function not found" in error_json["detail"]

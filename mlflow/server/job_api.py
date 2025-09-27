@@ -5,12 +5,12 @@ Internal job APIs for UI invocation
 import json
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
+from fastapi import status as http_status
 from pydantic import BaseModel
 
 from mlflow.entities._job import Job as JobEntity
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 job_api_router = APIRouter(prefix="/ajax-api/3.0/jobs", tags=["Job"])
 
@@ -65,22 +65,11 @@ def submit_job(payload: SubmitJobPayload) -> Job:
     function_fullname = payload.function_fullname
     try:
         function = _load_function(function_fullname)
-    except ValueError as e:
+    except MlflowException as e:
         # Invalid function fullname format
-        raise MlflowException(
-            f"Invalid function fullname format: {e!s}", error_code=INVALID_PARAMETER_VALUE
-        )
-    except ModuleNotFoundError as e:
-        # Module doesn't exist
-        raise MlflowException(
-            f"Module not found for function '{function_fullname}': {e!s}",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-    except AttributeError as e:
-        # Function doesn't exist in the module
-        raise MlflowException(
-            f"Function not found in module for '{function_fullname}': {e!s}",
-            error_code=INVALID_PARAMETER_VALUE,
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail=e.message,
         )
 
     job = submit_job(function, payload.params, payload.timeout)
