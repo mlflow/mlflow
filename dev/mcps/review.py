@@ -78,7 +78,7 @@ def should_exclude_file(file_path: str) -> bool:
     path = Path(file_path)
 
     # Check if it's a Python file in mlflow/protos/
-    if path.suffix in {".py", ".pyi"} and str(path).startswith("mlflow/protos/"):
+    if path.suffix in {".py", ".pyi"} and path.is_relative_to(Path("mlflow", "protos")):
         return True
 
     # Check for auto-generated lock files
