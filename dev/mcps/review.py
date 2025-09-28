@@ -161,7 +161,8 @@ def fetch_diff(
     pull_number: Annotated[int, "Pull request number"],
 ) -> str:
     """
-    Fetch the diff of a pull request, excluding certain file types, and display it with line numbers.
+    Fetch the diff of a pull request, excluding certain file types,
+    and display it with line numbers.
 
     Example output:
 
