@@ -61,6 +61,19 @@ def fetch_pr_diff(owner: str, repo: str, pull_number: int) -> str:
     return github_api_request(url, accept_header="application/vnd.github.v3.diff")
 
 
+def has_python_files(full_diff: str) -> bool:
+    """Check if the diff contains any Python file changes."""
+    lines = full_diff.split("\n")
+    for line in lines:
+        if line.startswith("diff --git"):
+            # Extract file path from: diff --git a/path/to/file.py b/path/to/file.py
+            if match := re.match(r"diff --git a/(.*?) b/(.*?)$", line):
+                file_path = match.group(2)  # Use the 'b/' path (new file path)
+                if file_path.endswith(".py") and not file_path.startswith("mlflow/protos/"):
+                    return True
+    return False
+
+
 def filter_python_diff(full_diff: str) -> str:
     lines = full_diff.split("\n")
     python_diff: list[str] = []
@@ -119,6 +132,22 @@ def filter_python_diff(full_diff: str) -> str:
 
 
 mcp = FastMCP("Review MCP")
+
+
+@mcp.tool
+def check_python_files_in_diff(
+    owner: Annotated[str, "Repository owner"],
+    repo: Annotated[str, "Repository name"],
+    pull_number: Annotated[int, "Pull request number"],
+) -> bool:
+    """
+    Check if the pull request diff contains any Python file changes.
+
+    Returns True if there are Python files in the diff, False otherwise.
+    This can be used to conditionally apply Python-specific review guidelines.
+    """
+    full_diff = fetch_pr_diff(owner, repo, pull_number)
+    return has_python_files(full_diff)
 
 
 @mcp.tool
