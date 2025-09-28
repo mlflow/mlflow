@@ -1,12 +1,19 @@
+import os
 from dataclasses import dataclass
 import json
 import logging
+from packaging import version
 from types import FunctionType
 from typing import Any, Callable
 
 from mlflow.entities._job import Job
 from mlflow.exceptions import MlflowException
 from mlflow.server.handlers import _get_job_store
+
+from mlflow.utils.environment import _PythonEnv
+from mlflow.utils.requirements_utils import _parse_requirements, _Requirement
+from packaging.version import Version
+
 
 _logger = logging.getLogger(__name__)
 
@@ -29,21 +36,58 @@ class TransientError(RuntimeError):
 class JobFunctionMetadata:
     fn_fullname: str
     max_workers: int
+    python_env: _PythonEnv | None
 
 
-def job_function(max_workers: int):
+def job_function(
+    max_workers: int,
+    python_version: str | None = None,
+    pip_requirements: list[str] | None = None,
+):
     """
     The decorator for the custom job function.
 
     Args:
         max_workers: The maximum number of workers that are allowed to run the jobs
             using this job function.
+        python_version: (optional) The required python version to run the job function
+        pip_requirements: (optional) The required pip requirements to run the job function,
+            relative file references such as "-r requirements.txt" are not supported.
     """
+    from mlflow.utils import PYTHON_VERSION
+    from mlflow.version import VERSION
+
+    if not python_version and not pip_requirements:
+        python_env = None
+
+    else:
+        python_version = python_version or PYTHON_VERSION
+        try:
+            pip_requirements = [
+                req.req_str
+                for req in _parse_requirements(pip_requirements, is_constraint=False)
+            ]
+        except Exception as e:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid pip_requirements for job function: {pip_requirements}, "
+                f"parsing error: {repr(e)}"
+            )
+        if mlflow_home := os.environ.get("MLFLOW_HOME"):
+            # Append MLFlow dev version dependency (for testing)
+            pip_requirements += [mlflow_home]
+        else:
+            pip_requirements += [f"mlflow=={VERSION}"]
+
+        python_env = _PythonEnv(
+            python=python_version,
+            dependencies=pip_requirements,
+        )
 
     def decorator(fn):
         fn._job_fn_metadata = JobFunctionMetadata(
             fn_fullname=f"{fn.__module__}.{fn.__name__}",
             max_workers=max_workers,
+            python_env=python_env,
         )
         return fn
 

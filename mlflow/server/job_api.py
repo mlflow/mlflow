@@ -46,8 +46,14 @@ class Job(BaseModel):
 def get_job(job_id: str) -> Job:
     from mlflow.server.jobs import get_job
 
-    job = get_job(job_id)
-    return Job.from_job_entity(job)
+    try:
+        job = get_job(job_id)
+        return Job.from_job_entity(job)
+    except MlflowException as e:
+        raise HTTPException(
+            status_code=e.get_http_status_code(),
+            detail=e.message,
+        )
 
 
 class SubmitJobPayload(BaseModel):
@@ -59,7 +65,7 @@ class SubmitJobPayload(BaseModel):
 @job_api_router.post("/", response_model=Job)
 def submit_job(payload: SubmitJobPayload) -> Job:
     from mlflow.server.jobs import submit_job
-    from mlflow.server.jobs.job_runner import _load_function
+    from mlflow.server.jobs.util import _load_function
 
     function_fullname = payload.function_fullname
     try:
