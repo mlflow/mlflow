@@ -1,0 +1,23 @@
+name: Test Devcontainer
+
+on:
+  push:
+    branches:
+      - "master"
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  devcontainer-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Test in Dev Container
+        uses: devcontainers/ci@v0.3.1900000417
+        with:
+          runCmd: |
+            python -c "import mlflow, sys; print('MLflow', mlflow.__version__); sys.exit(0)"
+            mlflow ui --host 0.0.0.0 --port 5000
