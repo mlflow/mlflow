@@ -68,7 +68,10 @@ def should_exclude_file(file_path: str) -> bool:
 
     Excludes:
     - .py and .pyi files in mlflow/protos/
-    - Auto-generated lock files (uv.lock, yarn.lock, package-lock.json)
+    - Auto-generated lock files
+      - uv.lock
+      - yarn.lock
+      - package-lock.json
     - .java files
     - .ipynb files
     """
@@ -159,12 +162,6 @@ def fetch_diff(
 ) -> str:
     """
     Fetch the diff of a pull request, excluding certain file types, and display it with line numbers.
-
-    Excludes:
-    - .py and .pyi files in mlflow/protos/ (auto-generated)
-    - Lock files: uv.lock, yarn.lock, package-lock.json
-    - .java files
-    - .ipynb files
 
     Example output:
 
