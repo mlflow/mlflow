@@ -95,7 +95,10 @@ def job_function(
 
 
 def submit_job(
-    function: Callable[..., Any], params: dict[str, Any], timeout: float | None = None
+    function: Callable[..., Any],
+    params: dict[str, Any],
+    timeout: float | None = None,
+    env_vars: dict[str, str] | None = None,
 ) -> Job:
     """
     Submit a job to the job queue. The job is executed at most once.
@@ -117,7 +120,8 @@ def submit_job(
 
             The function must be decorated by `mlflow.server.jobs.job_function` decorator.
         params: The params to be passed to the job function.
-        timeout: (optional) the job execution timeout, default None (no timeout)
+        timeout: (optional) The job execution timeout, default None (no timeout)
+        env_vars: (optional) The extra environment variables for the job execution.
 
     Returns:
         The job entity. You can call `get_job` API by the job id to get
@@ -153,7 +157,7 @@ def submit_job(
 
     # enqueue job
     _get_or_init_huey_instance(func_fullname).submit_task(
-        job.job_id, function, params, timeout
+        job.job_id, function, params, timeout, env_vars,
     )
 
     return job

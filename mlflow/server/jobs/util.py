@@ -382,7 +382,7 @@ def _enqueue_unfinished_jobs() -> None:
         timeout = job.timeout
         # enqueue job
         _get_or_init_huey_instance(job.function_fullname).submit_task(
-            job.job_id, function, params, timeout
+            job.job_id, function, params, timeout, env_vars
         )
 
 
