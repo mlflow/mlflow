@@ -408,16 +408,9 @@ def _run_server(
                 "MLflow job backend requires 'huey<3,>=2.5.0' package but it is not installed. "
                 "Skip launching the job runner."
             )
-            return
+        else:
+            from mlflow.server.jobs.util import _launch_job_runner
 
-        if os.name == "nt":
-            _logger.warning(
-                "MLflow job backend does not support Windows system. Skip launching the job runner."
-            )
-            return
-
-        from mlflow.server.jobs.util import _launch_job_runner
-
-        _launch_job_runner(file_store_path, env_map, server_proc.pid)
+            _launch_job_runner(file_store_path, env_map, server_proc.pid)
 
     server_proc.wait()

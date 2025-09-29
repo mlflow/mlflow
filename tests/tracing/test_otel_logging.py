@@ -101,10 +101,6 @@ def test_otel_client_sends_spans_to_mlflow_database(mlflow_server: str, monkeypa
         assert span.get_span_context().is_valid, "Span context is not valid"
         assert otel_trace_id != 0, "Trace ID is zero"
 
-    # SimpleSpanProcessor sends spans immediately, so no need to flush
-    # But we still shutdown to ensure cleanup
-    span_processor.shutdown()
-
     # Add a small delay to ensure the server has processed the spans
     time.sleep(0.5)
 
