@@ -25,7 +25,7 @@ def server_url(tmp_path_factory: pytest.TempPathFactory) -> str:
     from tests.helper_functions import get_safe_port
 
     tmp_path = tmp_path_factory.mktemp("server_mod")
-    backend_store_uri = f"sqlite:///{tmp_path / 'mlflow.db'!s}"
+    backend_store_uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
 
     port = get_safe_port()
     with subprocess.Popen(
