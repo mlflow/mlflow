@@ -340,12 +340,12 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'category',
-          label: 'Insights',
+          label: 'AI Insights',
           items: [
             {
               type: 'doc',
-              id: 'eval-monitor/insights/analyze-experiment',
-              label: 'Analyze Experiment',
+              id: 'eval-monitor/ai-insights/ai-issue-discovery',
+              label: 'AI Issue Discovery',
             },
           ],
         },
