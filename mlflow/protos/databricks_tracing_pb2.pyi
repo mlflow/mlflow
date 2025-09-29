@@ -124,12 +124,12 @@ class CreateTrace(_message.Message):
     def __init__(self, trace_info: _Optional[_Union[TraceInfo, _Mapping]] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
 
 class TraceIdentifier(_message.Message):
-    __slots__ = ("uc_schema", "trace_id")
-    UC_SCHEMA_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("trace_location", "trace_id")
+    TRACE_LOCATION_FIELD_NUMBER: _ClassVar[int]
     TRACE_ID_FIELD_NUMBER: _ClassVar[int]
-    uc_schema: UCSchemaLocation
+    trace_location: TraceLocation
     trace_id: str
-    def __init__(self, uc_schema: _Optional[_Union[UCSchemaLocation, _Mapping]] = ..., trace_id: _Optional[str] = ...) -> None: ...
+    def __init__(self, trace_location: _Optional[_Union[TraceLocation, _Mapping]] = ..., trace_id: _Optional[str] = ...) -> None: ...
 
 class Trace(_message.Message):
     __slots__ = ("trace_info", "spans")
@@ -151,6 +151,51 @@ class GetTraces(_message.Message):
     trace_ids: _containers.RepeatedCompositeFieldContainer[TraceIdentifier]
     sql_warehouse_id: str
     def __init__(self, trace_ids: _Optional[_Iterable[_Union[TraceIdentifier, _Mapping]]] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
+
+class GetTraceInfo(_message.Message):
+    __slots__ = ("trace_id", "location", "sql_warehouse_id")
+    class Response(_message.Message):
+        __slots__ = ("trace",)
+        TRACE_FIELD_NUMBER: _ClassVar[int]
+        trace: Trace
+        def __init__(self, trace: _Optional[_Union[Trace, _Mapping]] = ...) -> None: ...
+    TRACE_ID_FIELD_NUMBER: _ClassVar[int]
+    LOCATION_FIELD_NUMBER: _ClassVar[int]
+    SQL_WAREHOUSE_ID_FIELD_NUMBER: _ClassVar[int]
+    trace_id: str
+    location: str
+    sql_warehouse_id: str
+    def __init__(self, trace_id: _Optional[str] = ..., location: _Optional[str] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
+
+class SetTraceTag(_message.Message):
+    __slots__ = ("trace_id", "location", "key", "value")
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    TRACE_ID_FIELD_NUMBER: _ClassVar[int]
+    LOCATION_FIELD_NUMBER: _ClassVar[int]
+    KEY_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    trace_id: str
+    location: str
+    key: str
+    value: str
+    def __init__(self, trace_id: _Optional[str] = ..., location: _Optional[str] = ..., key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+class DeleteTraceTag(_message.Message):
+    __slots__ = ("trace_id", "location", "key", "sql_warehouse_id")
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    TRACE_ID_FIELD_NUMBER: _ClassVar[int]
+    LOCATION_FIELD_NUMBER: _ClassVar[int]
+    KEY_FIELD_NUMBER: _ClassVar[int]
+    SQL_WAREHOUSE_ID_FIELD_NUMBER: _ClassVar[int]
+    trace_id: str
+    location: str
+    key: str
+    sql_warehouse_id: str
+    def __init__(self, trace_id: _Optional[str] = ..., location: _Optional[str] = ..., key: _Optional[str] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
 
 class SearchTraces(_message.Message):
     __slots__ = ("locations", "filter", "max_results", "order_by", "sql_warehouse_id", "page_token")
