@@ -79,6 +79,60 @@ service DatabricksTrackingService {
     };
   }
 
+  // Search traces
+  rpc searchTraces (SearchTraces) returns (SearchTraces.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST",
+          path: "/mlflow/traces/search"
+          since { major: 4, minor: 0 },
+        }
+      ],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Search Traces",
+      };
+  }
+
+  // =============================================================================
+  // Enablement RPCs
+  // =============================================================================
+
+  rpc createTraceUCStorageLocation (CreateTraceUCStorageLocation) returns (CreateTraceUCStorageLocation.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/traces/location"
+        since { major: 4, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Create Trace UC Storage Location",
+    };
+  }
+
+  rpc linkExperimentToUCTraceLocation (LinkExperimentToUCTraceLocation) returns (LinkExperimentToUCTraceLocation.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/traces/location/{experiment_id}"
+        since { major: 4, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Link Experiment to UC Trace Location",
+    };
+  }
+
+  rpc unlinkExperimentToUCTraceLocation (UnLinkExperimentToUCTraceLocation) returns (UnLinkExperimentToUCTraceLocation.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/traces/location/{experiment_id}/{location}"
+        since { major: 4, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Unlink Experiment to UC Trace Location",
+    };
+  }
 }
 
 message UCSchemaLocation {
@@ -275,4 +329,80 @@ message DeleteTraceTag {
 
   message Response {
   }
+}
+
+message SearchTraces {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // A list of trace locations to search over.
+  repeated TraceLocation locations = 1;
+
+  // A filter expression over trace attributes and tags that allows returning a subset of
+  // traces. The syntax is a subset of SQL that supports ANDing together binary operations
+  // Example: ``trace.status = 'OK' and trace.timestamp_ms > 1711089570679``.
+  optional string filter = 2;
+
+  // Maximum number of traces desired. Max threshold is 500.
+  optional int32 max_results = 3 [default = 100];
+
+  // List of columns for ordering the results, e.g. ``["timestamp_ms DESC"]``.
+  repeated string order_by = 4;
+
+  // Optional SQL warehouse ID for searching traces.
+  optional string sql_warehouse_id = 5;
+
+  // Token indicating the page of traces to fetch.
+  optional string page_token = 6;
+
+  message Response {
+    // Information about traces that match the search criteria.
+    repeated TraceInfo trace_infos = 1;
+    optional string next_page_token = 2;
+  }
+}
+
+
+// =============================================================================
+// Enablement API Messages
+// =============================================================================
+
+message CreateTraceUCStorageLocation {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  oneof location {
+    UCSchemaLocation uc_schema = 1;
+  }
+
+  // SQL warehouse ID for creating views and querying
+  optional string sql_warehouse_id = 2 [(validate_required) = true];
+
+  message Response {
+    optional UCSchemaLocation uc_schema = 1;
+  }
+}
+
+message LinkExperimentToUCTraceLocation {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The experiment ID to link the location
+  optional string experiment_id = 1 [(validate_required) = true];
+  
+  // Location to unlink
+  oneof location {
+    UCSchemaLocation uc_schema = 2;
+  }
+
+  message Response {}
+}
+
+message UnLinkExperimentToUCTraceLocation {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Experiment ID to unlink from
+  optional string experiment_id = 1 [(validate_required) = true];
+  
+  // Location to unlink. should be <catalog.schema>
+  optional string location = 2;
+
+  message Response {}
 }

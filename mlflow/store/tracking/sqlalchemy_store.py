@@ -129,6 +129,7 @@ from mlflow.utils.uri import (
     resolve_uri_if_local,
 )
 from mlflow.utils.validation import (
+    _resolve_experiment_ids_and_locations,
     _validate_batch_log_data,
     _validate_batch_log_limits,
     _validate_dataset_inputs,
@@ -2575,13 +2576,14 @@ class SqlAlchemyStore(AbstractStore):
 
     def search_traces(
         self,
-        experiment_ids: list[str],
+        experiment_ids: list[str] | None = None,
         filter_string: str | None = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: list[str] | None = None,
         page_token: str | None = None,
         model_id: str | None = None,
         sql_warehouse_id: str | None = None,
+        locations: list[str] | None = None,
     ) -> tuple[list[TraceInfo], str | None]:
         """
         Return traces that match the given list of search expressions within the experiments.
@@ -2596,11 +2598,14 @@ class SqlAlchemyStore(AbstractStore):
             model_id: If specified, search traces associated with the given model ID.
             sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
                 searching traces in inference tables.
+            locations: A list of locations to search over. To search over experiments, provide
+                a list of experiment IDs.
 
         Returns:
             A tuple of a list of :py:class:`TraceInfo <mlflow.entities.TraceInfo>` objects that
             satisfy the search expressions and a pagination token for the next page of results.
         """
+        locations = _resolve_experiment_ids_and_locations(experiment_ids, locations)
         self._validate_max_results_param(max_results)
 
         with self.ManagedSessionMaker() as session:
@@ -2645,11 +2650,11 @@ class SqlAlchemyStore(AbstractStore):
                 stmt = stmt.outerjoin(j)
 
             offset = SearchTraceUtils.parse_start_offset_from_page_token(page_token)
-            experiment_ids = [int(e) for e in experiment_ids]
+            locations = [int(e) for e in locations]
 
             # Build the filter conditions
             filter_conditions = [
-                SqlTraceInfo.experiment_id.in_(experiment_ids),
+                SqlTraceInfo.experiment_id.in_(locations),
                 *attribute_filters,
             ]
 

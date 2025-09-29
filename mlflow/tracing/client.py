@@ -11,6 +11,7 @@ from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, Span
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_location import UCSchemaLocation
 from mlflow.environment_variables import MLFLOW_SEARCH_TRACES_MAX_THREADS
 from mlflow.exceptions import (
     MlflowException,
@@ -187,13 +188,14 @@ class TracingClient:
 
     def _search_traces(
         self,
-        experiment_ids: list[str],
+        experiment_ids: list[str] | None = None,
         filter_string: str | None = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: list[str] | None = None,
         page_token: str | None = None,
         model_id: str | None = None,
         sql_warehouse_id: str | None = None,
+        locations: list[str] | None = None,
     ):
         return self.store.search_traces(
             experiment_ids=experiment_ids,
@@ -203,11 +205,12 @@ class TracingClient:
             page_token=page_token,
             model_id=model_id,
             sql_warehouse_id=sql_warehouse_id,
+            locations=locations,
         )
 
     def search_traces(
         self,
-        experiment_ids: list[str],
+        experiment_ids: list[str] | None = None,
         filter_string: str | None = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: list[str] | None = None,
@@ -216,12 +219,14 @@ class TracingClient:
         include_spans: bool = True,
         model_id: str | None = None,
         sql_warehouse_id: str | None = None,
+        locations: list[str] | None = None,
     ) -> PagedList[Trace]:
         """
         Return traces that match the given list of search expressions within the experiments.
 
         Args:
-            experiment_ids: List of experiment ids to scope the search.
+            experiment_ids: List of experiment ids to scope the search. Deprecated,
+                use `locations` instead.
             filter_string: A search filter string.
             max_results: Maximum number of traces desired.
             order_by: List of order_by clauses.
@@ -236,7 +241,9 @@ class TracingClient:
             model_id: If specified, return traces associated with the model ID.
             sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
                 searching traces in inference tables.
-
+            locations: A list of locations to search over. To search over experiments, provide
+                a list of experiment IDs. To search over UC tables on databricks, provide
+                a list of locations in the format `<catalog_name>.<schema_name>`.
 
         Returns:
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
@@ -264,11 +271,11 @@ class TracingClient:
 
         if run_id:
             run = self.store.get_run(run_id)
-            if run.info.experiment_id not in experiment_ids:
+            if run.info.experiment_id not in locations:
                 raise MlflowException(
                     f"Run {run_id} belongs to experiment {run.info.experiment_id}, which is not "
-                    f"in the list of experiment IDs provided: {experiment_ids}. Please include "
-                    f"experiment {run.info.experiment_id} in the `experiment_ids` parameter to "
+                    f"in the list of locations provided: {locations}. Please include "
+                    f"experiment {run.info.experiment_id} in the `locations` parameter to "
                     "search for traces from this run.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
@@ -347,6 +354,7 @@ class TracingClient:
                     page_token=next_token,
                     model_id=model_id,
                     sql_warehouse_id=sql_warehouse_id,
+                    locations=locations,
                 )
 
                 if include_spans:
@@ -645,3 +653,27 @@ class TracingClient:
 
         registry_store = _get_model_registry_store()
         registry_store.link_prompts_to_trace(prompt_versions=prompts, trace_id=trace_id)
+
+    def _set_experiment_trace_location(
+        self,
+        uc_schema: UCSchemaLocation,
+        experiment_id: str,
+        sql_warehouse_id: str | None = None,
+    ) -> UCSchemaLocation:
+        if is_databricks_uri(self.tracking_uri):
+            return self.store.set_experiment_trace_location(
+                experiment_id=experiment_id,
+                uc_schema=uc_schema,
+                sql_warehouse_id=sql_warehouse_id,
+            )
+        raise MlflowException(
+            "Setting storage location is not supported on non-Databricks backends."
+        )
+
+    def _unset_experiment_trace_location(self, experiment_id: str, location: str) -> None:
+        if is_databricks_uri(self.tracking_uri):
+            self.store.unset_experiment_trace_location(experiment_id, location)
+        else:
+            raise MlflowException(
+                "Clearing storage location is not supported on non-Databricks backends."
+            )

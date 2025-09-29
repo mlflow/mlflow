@@ -981,3 +981,45 @@ MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF = _BooleanEnvironmentVariable(
 #: Specifies the SQL warehouse ID to use for tracing with Databricks backend.
 #: (default: ``None``)
 MLFLOW_TRACING_SQL_WAREHOUSE_ID = _EnvironmentVariable("MLFLOW_TRACING_SQL_WAREHOUSE_ID", str, None)
+
+#: Specifies whether to enable job execution feature for MLflow server.
+#: This feature requires "huey" package dependency, and requires MLflow server to configure
+#: --backend-store-uri to database URI.
+#: (default: ``True``)
+MLFLOW_SERVER_ENABLE_JOB_EXECUTION = _BooleanEnvironmentVariable(
+    "MLFLOW_SERVER_ENABLE_JOB_EXECUTION", True
+)
+
+#: Specifies the MLflow server job maximum parallelism, ``None`` means to use the number of CPUs
+#: as the parallelism. (default: ``None``)
+MLFLOW_SERVER_JOB_MAX_PARALLELISM = _EnvironmentVariable(
+    "MLFLOW_SERVER_JOB_MAX_PARALLELISM", int, None
+)
+
+#: Specifies MLflow server job maximum allowed retries for transient errors.
+#: (default: ``3``)
+MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES = _EnvironmentVariable(
+    "MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES", int, 3
+)
+
+#: Specifies MLflow server job retry base delay in seconds for transient errors.
+#: The retry uses exponential backoff strategy, retry delay is computed by
+#: `delay = min(base_delay * (2 ** (retry_count - 1)), max_delay)`
+#: (default: ``15``)
+MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY = _EnvironmentVariable(
+    "MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY", int, 15
+)
+
+#: Specifies MLflow server job retry maximum delay in seconds for transient errors.
+#: The retry uses exponential backoff strategy, retry delay is computed by
+#: `delay = min(base_delay * (2 ** (retry_count - 1)), max_delay)`
+#: (default: ``60``)
+MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY = _EnvironmentVariable(
+    "MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY", int, 60
+)
+
+#: Specifies the maximum number of completion iterations allowed when invoking
+#: judge models. This prevents infinite loops in case of complex traces or
+#: issues with the judge's reasoning.
+#: (default: ``30``)
+MLFLOW_JUDGE_MAX_ITERATIONS = _EnvironmentVariable("MLFLOW_JUDGE_MAX_ITERATIONS", int, 30)

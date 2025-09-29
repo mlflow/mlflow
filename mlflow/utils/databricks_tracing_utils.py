@@ -23,6 +23,19 @@ def uc_schema_location_to_proto(uc_schema_location: UCSchemaLocation) -> pb.UCSc
     )
 
 
+def uc_schema_location_from_proto(proto: pb.UCSchemaLocation) -> UCSchemaLocation:
+    return UCSchemaLocation(
+        catalog_name=proto.catalog_name,
+        schema_name=proto.schema_name,
+        otel_spans_table_name=proto.otel_spans_table_name
+        if proto.HasField("otel_spans_table_name")
+        else None,
+        otel_logs_table_name=proto.otel_logs_table_name
+        if proto.HasField("otel_logs_table_name")
+        else None,
+    )
+
+
 def inference_table_location_to_proto(
     inference_table_location: InferenceTableLocation,
 ) -> pb.InferenceTableLocation:
@@ -79,7 +92,7 @@ def trace_location_type_from_proto(proto: pb.TraceLocation.TraceLocationType) ->
 def trace_location_from_proto(proto: pb.TraceLocation) -> TraceLocation:
     type_ = trace_location_type_from_proto(proto.type)
     if proto.WhichOneof("identifier") == "uc_schema":
-        return TraceLocation(type=type_, uc_schema=UCSchemaLocation.from_proto(proto.uc_schema))
+        return TraceLocation(type=type_, uc_schema=uc_schema_location_from_proto(proto.uc_schema))
     elif proto.WhichOneof("identifier") == "mlflow_experiment":
         return TraceLocation(
             type=type_,

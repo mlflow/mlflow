@@ -71,18 +71,19 @@ class UCSchemaLocation(_MlflowObject):
     otel_spans_table_name: str | None = None
     otel_logs_table_name: str | None = None
 
-    @classmethod
-    def from_proto(cls, proto) -> "UCSchemaLocation":
-        return cls(
-            catalog_name=proto.catalog_name,
-            schema_name=proto.schema_name,
-            otel_spans_table_name=proto.otel_spans_table_name
-            if proto.HasField("otel_spans_table_name")
-            else None,
-            otel_logs_table_name=proto.otel_logs_table_name
-            if proto.HasField("otel_logs_table_name")
-            else None,
-        )
+    @property
+    def schema_location(self) -> str:
+        return f"{self.catalog_name}.{self.schema_name}"
+
+    @property
+    def full_otel_spans_table_name(self) -> str | None:
+        if self.otel_spans_table_name:
+            return f"{self.catalog_name}.{self.schema_name}.{self.otel_spans_table_name}"
+
+    @property
+    def full_otel_logs_table_name(self) -> str | None:
+        if self.otel_logs_table_name:
+            return f"{self.catalog_name}.{self.schema_name}.{self.otel_logs_table_name}"
 
     def to_dict(self) -> dict[str, Any]:
         return {

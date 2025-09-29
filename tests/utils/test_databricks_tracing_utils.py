@@ -20,6 +20,7 @@ from mlflow.utils.databricks_tracing_utils import (
     trace_location_from_proto,
     trace_location_to_proto,
     trace_to_proto,
+    uc_schema_location_from_proto,
     uc_schema_location_to_proto,
 )
 
@@ -58,6 +59,20 @@ def test_uc_schema_location_to_proto():
     proto = uc_schema_location_to_proto(schema_location)
     assert proto.catalog_name == "test_catalog"
     assert proto.schema_name == "test_schema"
+
+
+def test_uc_schema_location_from_proto():
+    proto = pb.UCSchemaLocation(
+        catalog_name="test_catalog",
+        schema_name="test_schema",
+        otel_spans_table_name="test_catalog.test_schema.test_spans",
+        otel_logs_table_name="test_catalog.test_schema.test_logs",
+    )
+    schema_location = uc_schema_location_from_proto(proto)
+    assert schema_location.catalog_name == "test_catalog"
+    assert schema_location.schema_name == "test_schema"
+    assert schema_location.otel_spans_table_name == "test_catalog.test_schema.test_spans"
+    assert schema_location.otel_logs_table_name == "test_catalog.test_schema.test_logs"
 
 
 def test_inference_table_location_to_proto():

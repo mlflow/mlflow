@@ -197,6 +197,64 @@ class DeleteTraceTag(_message.Message):
     sql_warehouse_id: str
     def __init__(self, trace_id: _Optional[str] = ..., location: _Optional[str] = ..., key: _Optional[str] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
 
+class SearchTraces(_message.Message):
+    __slots__ = ("locations", "filter", "max_results", "order_by", "sql_warehouse_id", "page_token")
+    class Response(_message.Message):
+        __slots__ = ("trace_infos", "next_page_token")
+        TRACE_INFOS_FIELD_NUMBER: _ClassVar[int]
+        NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+        trace_infos: _containers.RepeatedCompositeFieldContainer[TraceInfo]
+        next_page_token: str
+        def __init__(self, trace_infos: _Optional[_Iterable[_Union[TraceInfo, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
+    LOCATIONS_FIELD_NUMBER: _ClassVar[int]
+    FILTER_FIELD_NUMBER: _ClassVar[int]
+    MAX_RESULTS_FIELD_NUMBER: _ClassVar[int]
+    ORDER_BY_FIELD_NUMBER: _ClassVar[int]
+    SQL_WAREHOUSE_ID_FIELD_NUMBER: _ClassVar[int]
+    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    locations: _containers.RepeatedCompositeFieldContainer[TraceLocation]
+    filter: str
+    max_results: int
+    order_by: _containers.RepeatedScalarFieldContainer[str]
+    sql_warehouse_id: str
+    page_token: str
+    def __init__(self, locations: _Optional[_Iterable[_Union[TraceLocation, _Mapping]]] = ..., filter: _Optional[str] = ..., max_results: _Optional[int] = ..., order_by: _Optional[_Iterable[str]] = ..., sql_warehouse_id: _Optional[str] = ..., page_token: _Optional[str] = ...) -> None: ...
+
+class CreateTraceUCStorageLocation(_message.Message):
+    __slots__ = ("uc_schema", "sql_warehouse_id")
+    class Response(_message.Message):
+        __slots__ = ("uc_schema",)
+        UC_SCHEMA_FIELD_NUMBER: _ClassVar[int]
+        uc_schema: UCSchemaLocation
+        def __init__(self, uc_schema: _Optional[_Union[UCSchemaLocation, _Mapping]] = ...) -> None: ...
+    UC_SCHEMA_FIELD_NUMBER: _ClassVar[int]
+    SQL_WAREHOUSE_ID_FIELD_NUMBER: _ClassVar[int]
+    uc_schema: UCSchemaLocation
+    sql_warehouse_id: str
+    def __init__(self, uc_schema: _Optional[_Union[UCSchemaLocation, _Mapping]] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
+
+class LinkExperimentToUCTraceLocation(_message.Message):
+    __slots__ = ("experiment_id", "uc_schema")
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    UC_SCHEMA_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: str
+    uc_schema: UCSchemaLocation
+    def __init__(self, experiment_id: _Optional[str] = ..., uc_schema: _Optional[_Union[UCSchemaLocation, _Mapping]] = ...) -> None: ...
+
+class UnLinkExperimentToUCTraceLocation(_message.Message):
+    __slots__ = ("experiment_id", "location")
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    LOCATION_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: str
+    location: str
+    def __init__(self, experiment_id: _Optional[str] = ..., location: _Optional[str] = ...) -> None: ...
+
 class DatabricksTrackingService(_service.service): ...
 
 class DatabricksTrackingService_Stub(DatabricksTrackingService): ...
