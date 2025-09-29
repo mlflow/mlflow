@@ -7,7 +7,6 @@ from typing import Any, Callable
 from mlflow.entities._job import Job
 from mlflow.exceptions import MlflowException
 from mlflow.server.handlers import _get_job_store
-from mlflow.utils.environment import _PythonEnv
 
 _logger = logging.getLogger(__name__)
 
