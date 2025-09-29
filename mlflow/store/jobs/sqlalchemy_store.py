@@ -68,7 +68,6 @@ class SqlAlchemyJobStore(AbstractJobStore):
                 timeout=timeout,
                 status=JobStatus.PENDING.to_int(),
                 result=None,
-                env_vars=env_vars,
             )
 
             session.add(job)

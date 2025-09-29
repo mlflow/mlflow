@@ -1,6 +1,5 @@
 import json
 import logging
-import os
 from dataclasses import dataclass
 from types import FunctionType
 from typing import Any, Callable
@@ -9,7 +8,6 @@ from mlflow.entities._job import Job
 from mlflow.exceptions import MlflowException
 from mlflow.server.handlers import _get_job_store
 from mlflow.utils.environment import _PythonEnv
-from mlflow.utils.requirements_utils import _parse_requirements
 
 _logger = logging.getLogger(__name__)
 
