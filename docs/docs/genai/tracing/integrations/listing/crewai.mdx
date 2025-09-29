@@ -195,7 +195,7 @@ result = trip_crew.run()
 
 ## Token usage
 
-MLflow >= 3.2.0 supports token usage tracking for CrewAI. The token usage for each LLM call will be logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace will be
+MLflow >= 3.5.0 supports token usage tracking for CrewAI. The token usage for each LLM call will be logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace will be
 available in the `token_usage` field of the trace info object.
 
 ```python
@@ -222,9 +222,25 @@ print(f"  Total tokens: {total_usage['total_tokens']}")
 
 ```bash
 == Total token usage: ==
-  Input tokens: 73358
-  Output tokens: 1977
-  Total tokens: 75335
+  Input tokens: 32870
+  Output tokens: 1826
+  Total tokens: 34696
+
+== Detailed usage for each LLM call: ==
+LLM.call_1:
+  Input tokens: 295
+  Output tokens: 63
+  Total tokens: 358
+LLM.call_2:
+  Input tokens: 465
+  Output tokens: 65
+  Total tokens: 530
+LLM.call_3:
+  Input tokens: 4445
+  Output tokens: 76
+  Total tokens: 4521
+
+... (other modules)
 ```
 
 ### Disable auto-tracing
