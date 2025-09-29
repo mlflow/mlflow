@@ -126,8 +126,8 @@ service DatabricksTrackingService {
   rpc unlinkExperimentToUCTraceLocation (UnLinkExperimentToUCTraceLocation) returns (UnLinkExperimentToUCTraceLocation.Response) {
     option (rpc) = {
       endpoints: [{
-        method: "DELETE",
-        path: "/mlflow/traces/{{experiment_id}/location-location"
+        method: "POST",
+        path: "/mlflow/traces/{experiment_id}/unlink-location"
         since { major: 4, minor: 0 },
       }],
       visibility: PUBLIC_UNDOCUMENTED,
