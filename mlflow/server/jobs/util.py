@@ -7,12 +7,10 @@ import multiprocessing
 import os
 import shutil
 import signal
-import subprocess
 import sys
 import threading
 import time
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, Callable
 
 import cloudpickle
