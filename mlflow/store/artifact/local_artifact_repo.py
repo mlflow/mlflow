@@ -22,8 +22,10 @@ from mlflow.utils.uri import validate_path_is_safe
 class LocalArtifactRepository(ArtifactRepository):
     """Stores artifacts as files in a local directory."""
 
-    def __init__(self, artifact_uri: str, tracking_uri: str | None = None) -> None:
-        super().__init__(artifact_uri, tracking_uri)
+    def __init__(
+        self, artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
+    ) -> None:
+        super().__init__(artifact_uri, tracking_uri, registry_uri)
         self._artifact_dir = local_file_uri_to_path(self.artifact_uri)
 
     @property
