@@ -306,7 +306,7 @@ def _validate_server_args(
         [
             allowed_hosts is not None,
             cors_allowed_origins is not None,
-            x_frame_options is not None,
+            x_frame_options != "SAMEORIGIN" or "MLFLOW_X_FRAME_OPTIONS" in os.environ,
             disable_security_middleware is True,
         ]
     )
