@@ -123,7 +123,7 @@ def _exec_job_in_subproc(
     tmpdir: str,
 ) -> JobResult | None:
     """
-    Executes the job function in a subproces,
+    Executes the job function in a subprocess,
     If the job execution time exceeds timeout, the subprocess is killed and return None,
     otherwise return `JobResult` instance,
     """
