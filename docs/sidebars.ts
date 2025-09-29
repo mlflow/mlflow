@@ -364,14 +364,6 @@ const sidebars: SidebarsConfig = {
                       type: 'doc',
                       id: 'tracking/server/security/ui-access',
                     },
-                    {
-                      type: 'doc',
-                      id: 'tracking/server/security/troubleshooting',
-                    },
-                    {
-                      type: 'doc',
-                      id: 'tracking/server/security/best-practices',
-                    },
                   ],
                 },
                 {

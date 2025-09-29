@@ -4,6 +4,10 @@ sidebar_label: Configuration
 
 # Security Configuration
 
+## Requirements
+
+Security middleware features require the FastAPI-based tracking server (uvicorn), which is the default server in MLflow 3.5.0+. These features are not available when using `--gunicorn-opts` or `--waitress-opts`.
+
 ## Configuration Options
 
 Security settings can be configured through CLI options or environment variables:

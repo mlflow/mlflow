@@ -276,14 +276,22 @@ def _user_args_to_dict(arguments, argument_type="P"):
     return user_dict
 
 
-def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None, uvicorn_opts=None):
+def _validate_server_args(
+    gunicorn_opts=None,
+    workers=None,
+    waitress_opts=None,
+    uvicorn_opts=None,
+    allowed_hosts=None,
+    cors_allowed_origins=None,
+    x_frame_options=None,
+    disable_security_middleware=None,
+):
     if sys.platform == "win32":
         if gunicorn_opts is not None:
             raise NotImplementedError(
                 "gunicorn is not supported on Windows, cannot specify --gunicorn-opts"
             )
 
-    # Check for conflicting options
     num_server_opts_specified = sum(
         1 for opt in [gunicorn_opts, waitress_opts, uvicorn_opts] if opt is not None
     )
@@ -291,6 +299,25 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None, 
         raise click.UsageError(
             "Cannot specify multiple server options. Choose one of: "
             "'--gunicorn-opts', '--waitress-opts', or '--uvicorn-opts'."
+        )
+
+    using_flask_only = gunicorn_opts is not None or waitress_opts is not None
+    security_params_specified = any(
+        [
+            allowed_hosts is not None,
+            cors_allowed_origins is not None,
+            x_frame_options is not None,
+            disable_security_middleware is True,
+        ]
+    )
+
+    if using_flask_only and security_params_specified:
+        raise click.UsageError(
+            "Security middleware parameters (--allowed-hosts, --cors-allowed-origins, "
+            "--x-frame-options, --disable-security-middleware) are only supported with "
+            "the default uvicorn server. They cannot be used with --gunicorn-opts or "
+            "--waitress-opts. To use security features, run without specifying a server "
+            "option (uses uvicorn by default) or explicitly use --uvicorn-opts."
         )
 
 
@@ -468,7 +495,6 @@ def server(
                 "is only supported for the default MLflow tracking server."
             )
 
-        # In dev mode, use uvicorn with reload and debug logging
         uvicorn_opts = "--reload --log-level debug"
 
     _validate_server_args(
@@ -476,6 +502,10 @@ def server(
         workers=workers,
         waitress_opts=waitress_opts,
         uvicorn_opts=uvicorn_opts,
+        allowed_hosts=allowed_hosts,
+        cors_allowed_origins=cors_allowed_origins,
+        x_frame_options=x_frame_options,
+        disable_security_middleware=disable_security_middleware,
     )
 
     if disable_security_middleware:
