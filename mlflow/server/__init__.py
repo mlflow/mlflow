@@ -1,21 +1,30 @@
 import importlib
 import importlib.metadata
+import logging
 import os
 import shlex
 import sys
+import tempfile
 import textwrap
 import types
 import warnings
 
+_logger = logging.getLogger("mlflow.server")
+
 from flask import Flask, Response, send_from_directory
 from packaging.version import Version
 
-from mlflow.environment_variables import MLFLOW_FLASK_SERVER_SECRET_KEY
+from mlflow.environment_variables import (
+    _MLFLOW_SGI_NAME,
+    MLFLOW_FLASK_SERVER_SECRET_KEY,
+    MLFLOW_SERVER_ENABLE_JOB_EXECUTION,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
 from mlflow.server.handlers import (
     STATIC_PREFIX_ENV_VAR,
     _add_static_prefix,
+    _search_datasets_handler,
     create_promptlab_run_handler,
     gateway_proxy_handler,
     get_artifact_handler,
@@ -24,7 +33,6 @@ from mlflow.server.handlers import (
     get_metric_history_bulk_interval_handler,
     get_model_version_artifact_handler,
     get_trace_artifact_handler,
-    search_datasets_handler,
     upload_artifact_handler,
 )
 from mlflow.utils.os import is_windows
@@ -41,6 +49,7 @@ ARTIFACTS_DESTINATION_ENV_VAR = "_MLFLOW_SERVER_ARTIFACT_DESTINATION"
 PROMETHEUS_EXPORTER_ENV_VAR = "prometheus_multiproc_dir"
 SERVE_ARTIFACTS_ENV_VAR = "_MLFLOW_SERVER_SERVE_ARTIFACTS"
 ARTIFACTS_ONLY_ENV_VAR = "_MLFLOW_SERVER_ARTIFACTS_ONLY"
+HUEY_STORAGE_PATH_ENV_VAR = "_MLFLOW_HUEY_STORAGE_PATH"
 
 REL_STATIC_DIR = "js/build"
 
@@ -99,7 +108,7 @@ def serve_get_metric_history_bulk_interval():
 # Serve the "experiments/search-datasets" route.
 @app.route(_add_static_prefix("/ajax-api/2.0/mlflow/experiments/search-datasets"), methods=["POST"])
 def serve_search_datasets():
-    return search_datasets_handler()
+    return _search_datasets_handler()
 
 
 # Serve the "runs/create-promptlab-run" route.
@@ -247,10 +256,10 @@ def _build_gunicorn_command(gunicorn_opts, host, port, workers, app_name):
     ]
 
 
-def _build_uvicorn_command(uvicorn_opts, host, port, workers, app_name):
+def _build_uvicorn_command(uvicorn_opts, host, port, workers, app_name, env_file=None):
     """Build command to run uvicorn server."""
     opts = shlex.split(uvicorn_opts) if uvicorn_opts else []
-    return [
+    cmd = [
         sys.executable,
         "-m",
         "uvicorn",
@@ -261,8 +270,11 @@ def _build_uvicorn_command(uvicorn_opts, host, port, workers, app_name):
         str(port),
         "--workers",
         str(workers),
-        app_name,
     ]
+    if env_file:
+        cmd.extend(["--env-file", env_file])
+    cmd.append(app_name)
+    return cmd
 
 
 def _run_server(
@@ -282,6 +294,7 @@ def _run_server(
     expose_prometheus=None,
     app_name=None,
     uvicorn_opts=None,
+    env_file=None,
 ):
     """
     Run the MLflow server, wrapping it in gunicorn, uvicorn, or waitress on windows
@@ -322,6 +335,13 @@ def _run_server(
     using_waitress = waitress_opts is not None
     using_uvicorn = not using_gunicorn and not using_waitress
 
+    if using_uvicorn:
+        env_map[_MLFLOW_SGI_NAME.name] = "uvicorn"
+    elif using_waitress:
+        env_map[_MLFLOW_SGI_NAME.name] = "waitress"
+    elif using_gunicorn:
+        env_map[_MLFLOW_SGI_NAME.name] = "gunicorn"
+
     if app_name is None:
         is_factory = False
         # For uvicorn, use the FastAPI app; for gunicorn/waitress, use the Flask app
@@ -338,7 +358,7 @@ def _run_server(
     # Determine which server to use
     if using_uvicorn:
         # Use uvicorn (default when no specific server options are provided)
-        full_command = _build_uvicorn_command(uvicorn_opts, host, port, workers or 4, app)
+        full_command = _build_uvicorn_command(uvicorn_opts, host, port, workers or 4, app, env_file)
     elif using_waitress:
         # Use waitress if explicitly requested
         warnings.warn(
@@ -367,4 +387,27 @@ def _run_server(
     else:
         # This shouldn't happen given the logic in CLI, but handle it just in case
         raise MlflowException("No server configuration specified.")
-    _exec_cmd(full_command, extra_env=env_map, capture_output=False)
+
+    if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
+        # The `HUEY_STORAGE_PATH_ENV_VAR` is used by both MLflow server handler workers and
+        # huey job runner (huey_consumer).
+        env_map[HUEY_STORAGE_PATH_ENV_VAR] = os.path.join(tempfile.mkdtemp(), "mlflow-huey.db")
+    server_proc = _exec_cmd(
+        full_command, extra_env=env_map, capture_output=False, synchronous=False
+    )
+
+    if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
+        try:
+            import huey  # noqa: F401
+        except ImportError:
+            _logger.warning(
+                "MLflow job backend requires 'huey<3,>=2.5.0' package but it is not installed. "
+                "Skip launching the job runner."
+            )
+            return
+
+        from mlflow.server.jobs import _launch_job_backend
+
+        _launch_job_backend(file_store_path, env_map, server_proc.pid)
+
+    server_proc.wait()

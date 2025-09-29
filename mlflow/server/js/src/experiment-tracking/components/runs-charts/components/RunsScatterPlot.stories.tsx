@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { RunInfoEntity } from '../../../types';
+import type { RunInfoEntity } from '../../../types';
 import {
   chartColors,
   ChartStoryWrapper,
@@ -7,7 +7,8 @@ import {
   stableNormalRandom,
   useControls,
 } from './RunsCharts.stories-common';
-import { RunsScatterPlot, RunsScatterPlotProps } from './RunsScatterPlot';
+import type { RunsScatterPlotProps } from './RunsScatterPlot';
+import { RunsScatterPlot } from './RunsScatterPlot';
 
 export default {
   title: 'Runs charts/Scatter plot',

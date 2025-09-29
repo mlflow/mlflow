@@ -7,12 +7,7 @@ import Utils from '../../../../common/utils/Utils';
 import { RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIState';
 import { RunGroupingAggregateFunction, RunGroupingMode, RunRowVisibilityControl } from './experimentPage.row-types';
 import {
-  EXPERIMENT_FIELD_PREFIX_METRIC,
-  EXPERIMENT_FIELD_PREFIX_PARAM,
-  EXPERIMENT_FIELD_PREFIX_TAG,
-} from './experimentPage.common-utils';
-import {
-  SingleRunData,
+  type SingleRunData,
   prepareRunsGridData,
   useExperimentRunRows,
   extractRunRowParam,
@@ -549,6 +544,42 @@ describe.each([
         expect(runsGridData.length).toBe(50);
 
         expect(runsGridData.every((r) => r.hidden)).toBe(false);
+      });
+
+      test('it hides finished runs when runsHiddenMode is HIDE_FINISHED_RUNS', () => {
+        const runsWithStatuses: SingleRunData[] = [
+          {
+            runInfo: { experimentId: '1', runUuid: 'run_active', status: 'RUNNING' } as any,
+            datasets: [],
+            metrics: [],
+            params: [],
+            tags: {},
+          },
+          {
+            runInfo: { experimentId: '1', runUuid: 'run_finished', status: 'FINISHED' } as any,
+            datasets: [],
+            metrics: [],
+            params: [],
+            tags: {},
+          },
+          {
+            runInfo: { experimentId: '1', runUuid: 'run_failed', status: 'FAILED' } as any,
+            datasets: [],
+            metrics: [],
+            params: [],
+            tags: {},
+          },
+        ];
+
+        const runsGridData = prepareRunsGridData({
+          ...commonPrepareRunsGridDataParams,
+          runsHiddenMode: RUNS_VISIBILITY_MODE.HIDE_FINISHED_RUNS,
+          runData: runsWithStatuses,
+          runUuidsMatchingFilter: runsWithStatuses.map((r) => r.runInfo.runUuid),
+        });
+
+        const visibleRunUuids = runsGridData.filter((r) => !r.hidden).map((r) => r.runUuid);
+        expect(visibleRunUuids).toEqual(['run_active']);
       });
     });
   },

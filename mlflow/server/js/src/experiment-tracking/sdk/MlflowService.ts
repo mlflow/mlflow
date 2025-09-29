@@ -13,7 +13,7 @@
  *   Aug 1, 2018 3:42:41 PM. We will update the generation pipeline to actually
  *   place these generated objects in the correct location shortly.
  */
-import { ModelTraceInfo, ModelTraceData } from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTraceInfo, ModelTraceData } from '@databricks/web-shared/model-trace-explorer';
 import { type ParsedQs, stringify as queryStringStringify } from 'qs';
 import {
   defaultResponseParser,
@@ -26,7 +26,7 @@ import {
   postBigIntJson,
   postJson,
 } from '../../common/utils/FetchUtils';
-import { RunInfoEntity } from '../types';
+import type { RunInfoEntity } from '../types';
 import {
   transformGetExperimentResponse,
   transformGetRunResponse,

@@ -8,10 +8,12 @@ export const useGetModelTraceInfoV3 = ({
   traceId,
   setModelTrace,
   setAssessmentsPaneEnabled,
+  enabled = true,
 }: {
   traceId: string;
   setModelTrace: React.Dispatch<React.SetStateAction<ModelTrace>>;
   setAssessmentsPaneEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+  enabled?: boolean;
 }) => {
   const queryKey = [FETCH_TRACE_INFO_QUERY_KEY, traceId];
 
@@ -28,5 +30,6 @@ export const useGetModelTraceInfoV3 = ({
     onError: () => {
       setAssessmentsPaneEnabled(false);
     },
+    enabled,
   });
 };

@@ -6,7 +6,6 @@ import remarkGfm from 'remark-gfm-4';
 import { TableCell, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import type { CodeSnippetLanguage } from '@databricks/web-shared/snippet';
 import { CodeSnippet, SnippetCopyAction } from '@databricks/web-shared/snippet';
-
 import { TableRenderer, VirtualizedTableCell, VirtualizedTableRow } from './TableRenderer';
 import type { ReactMarkdownComponent, ReactMarkdownComponents, ReactMarkdownProps } from './types';
 
@@ -94,7 +93,7 @@ const RemarkPlugins: Options['remarkPlugins'] = [remarkGfm];
 // This also allows callees to override the default renderers separately
 type ExtededCodeRenderers = {
   codeInline?: ReactMarkdownComponent<'code'>;
-  codeBlock?: ComponentType<Omit<ReactMarkdownProps<'code'>, 'ref'> & { language?: string }>;
+  codeBlock?: ComponentType<React.PropsWithChildren<Omit<ReactMarkdownProps<'code'>, 'ref'> & { language?: string }>>;
 };
 
 type ExtendedComponents = Omit<ReactMarkdownComponents, 'code'> & ExtededCodeRenderers;

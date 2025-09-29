@@ -1,5 +1,5 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 /**
  * Generic table component for displaying metadata in the details overview section (used in runs, logged models etc.)

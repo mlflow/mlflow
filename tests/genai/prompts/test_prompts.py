@@ -5,6 +5,7 @@ import pytest
 from pydantic import BaseModel
 
 import mlflow
+from mlflow.genai.prompts.utils import format_prompt
 
 
 @contextmanager
@@ -284,3 +285,33 @@ def test_set_and_delete_prompt_tag_genai():
     assert "env" not in mlflow.genai.get_prompt_tags("tag_prompt")
     mlflow.genai.delete_prompt_version_tag("tag_prompt", 1, "env")
     assert "env" not in mlflow.genai.get_prompt_version_tags("tag_prompt", 1)
+    
+@pytest.mark.parametrize(
+    ("prompt_template", "values", "expected"),
+    [
+        # Test with Unicode escape-like sequences
+        (
+            "User input: {{ user_text }}",
+            {"user_text": r"Path is C:\users\john"},
+            r"User input: Path is C:\users\john",
+        ),
+        # Test with newlines and tabs
+        (
+            "Data: {{ data }}",
+            {"data": "Line1\\nLine2\\tTabbed"},
+            "Data: Line1\\nLine2\\tTabbed",
+        ),
+        # Test with multiple variables
+        (
+            "Path: {{ path }}, Command: {{ cmd }}",
+            {"path": r"C:\temp", "cmd": r"echo \u0041"},
+            r"Path: C:\temp, Command: echo \u0041",
+        ),
+    ],
+)
+def test_format_prompt_with_backslashes(
+    prompt_template: str, values: dict[str, str], expected: str
+):
+    """Test that format_prompt correctly handles values containing backslashes."""
+    result = format_prompt(prompt_template, **values)
+    assert result == expected

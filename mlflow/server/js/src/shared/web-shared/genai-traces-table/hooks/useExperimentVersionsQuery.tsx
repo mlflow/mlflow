@@ -1,6 +1,6 @@
 import { useQuery } from '@databricks/web-shared/query-client';
 
-import { makeRequest } from '../utils/FetchUtils';
+import { getAjaxUrl, makeRequest } from '../utils/FetchUtils';
 
 interface LoggedModel {
   info: {
@@ -43,7 +43,7 @@ export const useExperimentVersionsQuery = (
         experiment_ids: [experimentId],
       };
 
-      return makeRequest('/ajax-api/2.0/mlflow/logged-models/search', 'POST', requestBody);
+      return makeRequest(getAjaxUrl('ajax-api/2.0/mlflow/logged-models/search'), 'POST', requestBody);
     },
     staleTime: Infinity,
     cacheTime: Infinity,

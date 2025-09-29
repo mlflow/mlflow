@@ -1,0 +1,180 @@
+name: review
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request:
+    paths:
+      - .github/workflows/review.yml
+      - dev/mcps/review.py
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      models: read
+      pull-requests: write
+    timeout-minutes: 20
+    # Run on pull_request events from mlflow/mlflow (not forks) or when anyone comments '/review' on a pull request
+    if: >
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == 'mlflow/mlflow')
+      ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       startsWith(github.event.comment.body, '/review'))
+    steps:
+      - name: React to comment
+        if: ${{ github.event_name == 'issue_comment' }}
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const { comment } = context.payload;
+
+            // Add rocket reaction to the triggering comment
+            await github.rest.reactions.createForIssueComment({
+              owner,
+              repo,
+              comment_id: comment.id,
+              content: 'rocket'
+            });
+
+            // Construct workflow URL
+            const workflowUrl = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
+
+            // Append workflow link to the original comment
+            const updatedBody = `${comment.body}\n\n---\n🚀 [Review workflow started](${workflowUrl})`;
+
+            // Update the comment with the workflow link
+            await github.rest.issues.updateComment({
+              owner,
+              repo,
+              comment_id: comment.id,
+              body: updatedBody
+            });
+      - name: Check authorization for issue comment
+        if: ${{ github.event_name == 'issue_comment' && github.event.comment.user.login != 'harupy' }}
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            // Leave a comment indicating only 'harupy' is allowed to trigger the workflow
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: "⚠️ Only **harupy** is authorized to trigger this workflow via comments. Your request has been ignored."
+            });
+
+            // Fail the workflow to abort further execution
+            throw new Error("Unauthorized user attempted to trigger workflow: " + context.payload.comment.user.login);
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: refs/pull/${{ github.event.pull_request.number || github.event.issue.number }}/merge
+      - uses: astral-sh/setup-uv@f0ec1fc3b38f5e7cd731bb6ce540c5af426746bb # v6.1.0
+      - name: Install ripgrep
+        run: |
+          curl -L -o ripgrep.tar.gz https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-x86_64-unknown-linux-musl.tar.gz
+          tar -xzf ripgrep.tar.gz
+          sudo mv ripgrep-14.1.1-x86_64-unknown-linux-musl/rg /usr/local/bin/rg
+          sudo chmod +x /usr/local/bin/rg
+          rm -rf ripgrep.tar.gz ripgrep-14.1.1-x86_64-unknown-linux-musl/
+          rg --version
+
+      - name: Install codex
+        run: |
+          curl -L -o codex.tar.gz https://github.com/openai/codex/releases/download/rust-v0.40.0/codex-x86_64-unknown-linux-musl.tar.gz
+          tar -xzf codex.tar.gz
+          mv codex-x86_64-unknown-linux-musl codex
+          chmod +x codex
+          ./codex --version
+
+      - name: Set up config
+        run: |
+          # https://github.com/openai/codex/blob/main/docs/config.md
+          mkdir -p ~/.codex
+          cat <<'EOF' > ~/.codex/config.toml
+          # TODO: Use github models if gpt-5 supports higher input/output token limits
+          # https://github.com/marketplace/models/azure-openai/gpt-5
+          # model = "openai/gpt-5"
+          # model_provider = "github-models"
+          model_verbosity = "high"
+          approval_policy = "never"
+          sandbox_mode = "workspace-write"
+
+          [sandbox_workspace_write]
+          network_access = true
+
+          [model_providers.github-models]
+          # https://docs.github.com/en/github-models/use-github-models/prototyping-with-ai-models#rate-limits
+          name = "GitHub Models"
+          base_url = "https://models.github.ai/inference"
+          env_key = "GITHUB_TOKEN"
+          wire_api = "chat"
+
+          [mcp_servers.github]
+          # https://github.com/github/github-mcp-server
+          command = "uv"
+          args = [
+            "run",
+            "--no-project",
+            "dev/mcps/review.py"
+          ]
+          env = { "GITHUB_TOKEN" = "${{ secrets.GITHUB_TOKEN }}" }
+          EOF
+
+      - name: Prompt
+        run: |
+          cat <<'EOF' > AGENTS.md
+          You're a helpful assistant to review PRs. Your task is to follow the instructions below and review the given PR.
+
+          # Instructions
+
+          ## 1. Prepare for Review
+          - Use `fetch_diff` tool to fetch the PR diff
+          - If the diff includes changes to .py files, read `dev/guides/python.md` thoroughly
+
+          ## 2. Review Changed Lines Only
+          - Carefully examine ONLY the changed lines (added or modified) in the diff
+          - Check for style guide violations ONLY in these changed lines
+          - Check for obvious mistakes including:
+            - Typos in variable names, function names, class names, comments, and docstrings
+            - Grammatical errors in comments and documentation
+            - Common coding mistakes (e.g., wrong variable references, logic errors)
+          - Ignore unchanged/context lines and pre-existing code
+
+          ## 3. Decision Point
+          - If NO issues found -> Skip remaining steps
+          - If issues found -> Continue to step 4
+
+          ## 4. Add Review Comments
+          - Use `add_pr_review_comment` tool for each issue found
+          - ONLY comment on lines that are marked as added (+) or modified in the diff
+          - Never comment on unchanged context lines or pre-existing code
+          - **For repetitive issues**: When the same issue appears on many lines (e.g., missing type hints, consistent style violations), leave a representative comment or group similar issues rather than flagging every instance. This avoids overwhelming PR authors with repetitive feedback.
+          - Prefer GitHub suggestion code blocks for simple fixes (typos, imports, formatting) using ```suggestion format so maintainers can apply with one click.
+          - Keep indentation: In ```suggestion blocks, copy the original leading spaces/tabs exactly (only change them if that's the actual fix). Avoid extra blank lines and include only the lines you intend to modify.
+          - Comment parameters:
+            - Single-line: Set `subject_type` to `LINE`, specify `line`
+            - Multi-line: Set `subject_type` to `LINE`, specify both `start_line` and `line`
+          - Comment format:
+            - Use ```suggestion blocks for direct fixes (preferred when possible) or triple backticks (```) for code examples
+            - Be specific about the violation and why the change is needed
+            - For typos, clearly indicate the correct spelling (e.g., "Typo: 'varabel' should be 'variable'")
+            - For grouped issues, mention how many instances were found (e.g., "This function and 3 others are missing type hints")
+            - Include `🤖 Generated by Codex` at the end of each comment
+          EOF
+
+      - name: Run codex
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.issue.pull_request.html_url || github.event.pull_request.html_url}}
+        run: |
+          ./codex login --api-key "${{ secrets.OPENAI_API_KEY }}"
+          # Use timeout in case codex hangs
+          timeout 10m ./codex exec --skip-git-repo-check "Can you review $PR_URL?" || true

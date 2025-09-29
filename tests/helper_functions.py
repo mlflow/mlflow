@@ -11,7 +11,7 @@ import sys
 import tempfile
 import time
 import uuid
-from contextlib import ExitStack, contextmanager
+from contextlib import contextmanager
 from functools import wraps
 from pathlib import Path
 from typing import Iterator
@@ -552,12 +552,6 @@ def mock_method_chain(mock_obj, methods, return_value=None, side_effect=None):
         else:
             mock_obj.return_value = return_value
             mock_obj.side_effect = side_effect
-
-
-@contextmanager
-def multi_context(*cms):
-    with ExitStack() as stack:
-        yield list(map(stack.enter_context, cms))
 
 
 class StartsWithMatcher:

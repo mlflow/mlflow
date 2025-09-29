@@ -1,7 +1,7 @@
 import userEventGlobal, { PointerEventsCheckLevel } from '@testing-library/user-event';
 
 import { useEditAliasesModal } from './useEditAliasesModal';
-import { ModelEntity } from '../../experiment-tracking/types';
+import type { ModelEntity } from '../../experiment-tracking/types';
 import {
   fastFillInput,
   findAntdOptionContaining,

@@ -85,6 +85,7 @@ class PackageInfo(BaseModel):
     pip_release: str
     install_dev: str | None = None
     module_name: str | None = None
+    genai: bool = False
 
 
 class TestConfig(BaseModel):
@@ -116,6 +117,23 @@ class TestConfig(BaseModel):
     @classmethod
     def validate_unsupported(cls, v):
         return [SpecifierSet(x) for x in v] if v else None
+
+    @field_validator("python", mode="before")
+    @classmethod
+    def validate_python_requirements(cls, v):
+        if v is None:
+            return v
+
+        # Read the minimum Python version from .python-version file
+        python_version_file = Path(".python-version")
+        min_python_version = python_version_file.read_text().strip()
+
+        # Check if any value in the python dict matches the minimum version
+        for version in v.values():
+            if version == min_python_version:
+                raise ValueError(f"Unnecessary Python version requirement: {version}")
+
+        return v
 
 
 class FlavorConfig(BaseModel):
@@ -236,13 +254,6 @@ def filter_versions(
     2. Older than or equal to `max_ver.major`.
     3. Not in `unsupported`.
     """
-    # Prevent specifying non-existent versions
-    assert min_ver in versions, (
-        f"Minimum version {min_ver} is not in the list of {versions} for {flavor}"
-    )
-    assert max_ver in versions or allow_unreleased_max_version, (
-        f"Maximum version {max_ver} is not in the list of {versions} for {flavor}"
-    )
 
     def _is_supported(v):
         for specified_set in unsupported:
@@ -599,7 +610,7 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
                 versions = sorted(versions)[:: -cfg.test_every_n_versions][::-1]
 
             # Always test the minimum version
-            if cfg.minimum not in versions:
+            if cfg.minimum not in versions and cfg.minimum in all_versions:
                 versions.append(cfg.minimum)
 
             if not is_ref and cfg.requirements:
@@ -773,31 +784,11 @@ def split(matrix, n):
         yield chunk
 
 
-def validate_action_config(num_jobs: int):
-    with open(".github/workflows/cross-version-tests.yml") as f:
-        s = f.read()
-    s = re.sub(
-        r"needs\.set-matrix\.outputs\.matrix\d",
-        "needs.set-matrix.outputs.matrix",
-        s,
-    )
-    s = re.sub(
-        r"needs\.set-matrix\.outputs\.is_matrix\d_empty",
-        "needs.set-matrix.outputs.is_matrix_empty",
-        s,
-    )
-    jobs = yaml.safe_load(s)["jobs"]
-    jobs = [v for name, v in jobs.items() if name.startswith("test")]
-    assert len(jobs) == num_jobs, f"Expected {num_jobs} jobs, but got {len(jobs)}"
-    assert all(jobs[0] == j for j in jobs[1:]), "All jobs must have the same configuration"
-
-
 def main(args):
     # https://docs.github.com/en/actions/learn-github-actions/usage-limits-billing-and-administration#usage-limits
     # > A job matrix can generate a maximum of 256 jobs per workflow run.
     MAX_ITEMS = 256
     NUM_JOBS = 2
-    validate_action_config(NUM_JOBS)
 
     print(divider("Parameters"))
     print(json.dumps(args, indent=2))

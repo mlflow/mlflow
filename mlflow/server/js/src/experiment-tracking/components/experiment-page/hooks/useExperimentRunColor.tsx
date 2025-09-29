@@ -1,6 +1,6 @@
 import { useDispatch, useSelector } from 'react-redux';
 import { MLFLOW_RUN_COLOR_TAG } from '../../../constants';
-import { ReduxState, ThunkDispatch } from '../../../../redux-types';
+import type { ReduxState, ThunkDispatch } from '../../../../redux-types';
 import { setTagApi } from '../../../actions';
 import { useCallback, useEffect, useMemo } from 'react';
 import { getStableColorForRun } from '../../../utils/RunNameUtils';

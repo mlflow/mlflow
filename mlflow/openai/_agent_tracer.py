@@ -6,22 +6,29 @@ from typing import Any
 
 import agents.tracing as oai
 from agents import add_trace_processor
-from agents._run_impl import TraceCtxManager
 from agents.tracing.setup import GLOBAL_TRACE_PROVIDER
 
-from mlflow.entities.span import LiveSpan, SpanType
+from mlflow.entities.span import SpanType
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
-from mlflow.openai import FLAVOR_NAME
 from mlflow.tracing.constant import SpanAttributeKey
-from mlflow.tracing.fluent import start_span_no_context
+from mlflow.tracing.fluent import (
+    get_current_active_span,
+    start_span,
+    start_span_no_context,
+)
+from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
+from mlflow.tracing.utils import construct_full_inputs
+from mlflow.tracing.utils.token import SpanWithToken
 from mlflow.types.chat import (
     ChatTool,
     FunctionToolDefinition,
 )
-from mlflow.utils.autologging_utils.safety import safe_patch
 
 _logger = logging.getLogger(__name__)
+
+
+_AGENT_RUN_SPAN_NAME = "AgentRunner.run"
 
 
 class OpenAISpanType:
@@ -72,32 +79,17 @@ class MlflowOpenAgentTracingProcessor(oai.TracingProcessor):
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
-        self._span_id_to_mlflow_span: dict[str, LiveSpan] = {}
-        self._project_name = project_name
-
-        # Patch TraceCtxManager to handle exceptions from the agent properly
-        # The original implementation does not propagate exception to the root span,
-        # resulting in the trace to have status OK even if there is an exception.
-        def _patched_exit(original, instance, exc_type, exc_val, exc_tb):
-            try:
-                if exc_val and instance.trace:
-                    span = self._span_id_to_mlflow_span.get(instance.trace.trace_id)
-                    span.add_event(SpanEvent.from_exception(exc_val))
-                    span.set_status(SpanStatusCode.ERROR)
-            except Exception:
-                _logger.debug("Failed to handle exception in MLflow trace", exc_info=True)
-
-            return original(instance, exc_type, exc_val, exc_tb)
-
-        safe_patch(
-            FLAVOR_NAME,
-            TraceCtxManager,
-            "__exit__",
-            _patched_exit,
-        )
+        self._span_id_to_mlflow_span: dict[str, SpanWithToken] = {}
 
     def on_trace_start(self, trace: oai.Trace) -> None:
-        try:
+        if (active_span := get_current_active_span()) and active_span.name == _AGENT_RUN_SPAN_NAME:
+            # The root span is already started by the _patched_agent_run
+            mlflow_span = active_span
+            token = None
+        else:
+            # Users create a trace using `agents.trace` in OpenAI Agent SDK
+            # Ref: ...
+            # We need to create a corresponding MLflow span to track the trace
             mlflow_span = start_span_no_context(
                 name=trace.name,
                 span_type=SpanType.AGENT,
@@ -105,47 +97,31 @@ class MlflowOpenAgentTracingProcessor(oai.TracingProcessor):
                 inputs="",
                 attributes=trace.metadata,
             )
-            # NB: Trace ID has different prefix as span ID so will not conflict
-            self._span_id_to_mlflow_span[trace.trace_id] = mlflow_span
+            token = set_span_in_context(mlflow_span)
 
-            if trace.group_id:
-                # Group ID is used for grouping multiple agent executions together
-                mlflow_span.set_tag("group_id", trace.group_id)
+        # NB: Trace ID has different prefix as span ID so will not conflict
+        self._span_id_to_mlflow_span[trace.trace_id] = SpanWithToken(mlflow_span, token)
 
-            original_exit = trace.__exit__
-
-            # Patch __exit__ method to handle exception properly
-            def _patched_exit(self, exc_type, exc_val, exc_tb):
-                if exc_val:
-                    mlflow_span.add_event(SpanEvent.from_exception(exc_val))
-                    mlflow_span.set_status(SpanStatusCode.ERROR)
-
-                original_exit(exc_type, exc_val, exc_tb)
-
-            safe_patch(
-                FLAVOR_NAME,
-                trace.__class__,
-                "__exit__",
-                _patched_exit,
-            )
-
-        except Exception:
-            _logger.debug("Failed to start MLflow trace", exc_info=True)
+        if trace.group_id:
+            # Group ID is used for grouping multiple agent executions together
+            mlflow_span.set_tag("group_id", trace.group_id)
 
     def on_trace_end(self, trace: oai.Trace) -> None:
         try:
-            mlflow_span = self._span_id_to_mlflow_span.pop(trace.trace_id, None)
-            mlflow_span.end(status=mlflow_span.status, outputs="")
+            st = self._span_id_to_mlflow_span.pop(trace.trace_id, None)
+            if st and st.token:
+                detach_span_from_context(st.token)
+                st.span.end(status=st.span.status, outputs="")
         except Exception:
             _logger.debug("Failed to end MLflow trace", exc_info=True)
 
     def on_span_start(self, span: oai.Span[Any]) -> None:
         try:
-            parent_mlflow_span = self._span_id_to_mlflow_span.get(span.parent_id)
+            parent_st: SpanWithToken | None = self._span_id_to_mlflow_span.get(span.parent_id, None)
 
             # Parent might be a trace
-            if not parent_mlflow_span:
-                parent_mlflow_span = self._span_id_to_mlflow_span.get(span.trace_id)
+            if not parent_st:
+                parent_st = self._span_id_to_mlflow_span.get(span.trace_id, None)
 
             inputs, _, attributes = _parse_span_data(span.span_data)
             span_type = _SPAN_TYPE_MAP.get(span.span_data.type, SpanType.CHAIN)
@@ -153,22 +129,25 @@ class MlflowOpenAgentTracingProcessor(oai.TracingProcessor):
             mlflow_span = start_span_no_context(
                 name=_get_span_name(span.span_data),
                 span_type=span_type,
-                parent_span=parent_mlflow_span,
+                parent_span=parent_st.span if parent_st else None,
                 inputs=inputs,
                 attributes=attributes,
             )
+            token = set_span_in_context(mlflow_span)
 
             if span_type == SpanType.CHAT_MODEL:
                 mlflow_span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "openai-agent")
 
-            self._span_id_to_mlflow_span[span.span_id] = mlflow_span
+            self._span_id_to_mlflow_span[span.span_id] = SpanWithToken(mlflow_span, token)
         except Exception:
             _logger.debug("Failed to start MLflow span", exc_info=True)
 
     def on_span_end(self, span: oai.Span[Any]) -> None:
         try:
             # parsed_span_data = parse_spandata(span.span_data)
-            mlflow_span = self._span_id_to_mlflow_span.pop(span.span_id, None)
+            st: SpanWithToken | None = self._span_id_to_mlflow_span.pop(span.span_id, None)
+            detach_span_from_context(st.token)
+            mlflow_span = st.span
 
             inputs, outputs, attributes = _parse_span_data(span.span_data)
 
@@ -292,3 +271,19 @@ def _parse_response_span_data(span_data: oai.ResponseSpanData) -> tuple[Any, Any
         attributes[SpanAttributeKey.CHAT_TOOLS] = chat_tools
 
     return inputs, outputs, attributes
+
+
+async def _patched_agent_run(original, self, *args, **kwargs):
+    inputs = construct_full_inputs(original, self, *args, **kwargs)
+    attributes = {k: v for k, v in inputs.items() if k not in ("starting_agent", "input")}
+
+    with start_span(
+        name=_AGENT_RUN_SPAN_NAME,
+        span_type=SpanType.AGENT,
+        attributes=attributes,
+    ) as span:
+        span.set_inputs(inputs.get("input"))
+        result = await original(self, *args, **kwargs)
+        span.set_outputs(result.final_output)
+
+    return result

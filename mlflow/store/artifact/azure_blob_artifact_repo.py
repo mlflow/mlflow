@@ -4,6 +4,7 @@ import os
 import posixpath
 import re
 import urllib.parse
+from datetime import timezone
 
 from mlflow.entities import FileInfo
 from mlflow.entities.multipart_upload import (
@@ -231,7 +232,7 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             blob_name=dest_path,
             account_key=self.client.credential.account_key,
             permission=BlobSasPermissions(read=True, write=True),
-            expiry=datetime.datetime.utcnow() + datetime.timedelta(hours=1),
+            expiry=datetime.datetime.now(timezone.utc) + datetime.timedelta(hours=1),
         )
         credentials = []
         for i in range(1, num_parts + 1):

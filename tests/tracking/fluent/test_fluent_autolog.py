@@ -120,6 +120,8 @@ def reset_global_states():
     mlflow.utils.import_hooks._post_import_hooks.pop("autogen_agentchat", None)
     mlflow.utils.import_hooks._post_import_hooks.pop("semantic_kernel", None)
     mlflow.utils.import_hooks._post_import_hooks.pop("agno", None)
+    mlflow.utils.import_hooks._post_import_hooks.pop("strands", None)
+    mlflow.utils.import_hooks._post_import_hooks.pop("haystack", None)
     # TODO: Remove this line when we stop supporting google.generativeai
     mlflow.utils.import_hooks._post_import_hooks.pop("google.generativeai", None)
 
@@ -155,7 +157,7 @@ def test_universal_autolog_does_not_throw_if_specific_autolog_throws_in_standard
     with mock.patch(mlflow_module.__name__ + ".autolog") as autolog_mock:
         autolog_mock.side_effect = Exception("asdf")
         mlflow.autolog()
-        if library != pyspark and library != pyspark.ml:
+        if library not in (pyspark, pyspark.ml):
             autolog_mock.assert_not_called()
 
         mlflow.utils.import_hooks.notify_module_loaded(library)
@@ -415,12 +417,8 @@ def test_autolog_excluded_flavors(library, mlflow_module):
 @pytest.fixture
 def mock_openai(monkeypatch):
     with start_mock_openai_server() as base_url:
-        monkeypatch.setenvs(
-            {
-                "OPENAI_API_KEY": "test",
-                "OPENAI_API_BASE": base_url,
-            }
-        )
+        monkeypatch.setenv("OPENAI_API_KEY", "test")
+        monkeypatch.setenv("OPENAI_API_BASE", base_url)
         yield base_url
 
 
@@ -495,6 +493,8 @@ def test_autolog_genai_import(disable, flavor_and_module):
         "autogen",
         "semantic_kernel",
         "agno",
+        "strands",
+        "haystack",
     }:
         return
 

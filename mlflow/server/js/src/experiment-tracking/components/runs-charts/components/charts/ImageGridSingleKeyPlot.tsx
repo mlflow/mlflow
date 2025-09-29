@@ -1,9 +1,9 @@
 import { Tooltip, useDesignSystemTheme } from '@databricks/design-system';
 import { RunColorPill } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/components/RunColorPill';
-import { RunsChartsImageCardConfig, RunsChartsCardConfig } from '../../runs-charts.types';
-import { RunsChartsRunData } from '../RunsCharts.common';
+import type { RunsChartsImageCardConfig, RunsChartsCardConfig } from '../../runs-charts.types';
+import type { RunsChartsRunData } from '../RunsCharts.common';
 import { EmptyImageGridPlot, ImagePlotWithHistory } from './ImageGridPlot.common';
-import { ImageEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
+import type { ImageEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
 
 export const ImageGridSingleKeyPlot = ({
   previewData,

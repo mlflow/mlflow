@@ -4,6 +4,7 @@ from unittest import mock
 import pytest
 
 from mlflow import server
+from mlflow.environment_variables import _MLFLOW_SGI_NAME
 from mlflow.exceptions import MlflowException
 
 
@@ -100,6 +101,28 @@ def test_build_uvicorn_command():
     ]
 
 
+def test_build_uvicorn_command_with_env_file():
+    """Test that uvicorn command includes --env-file when provided."""
+    cmd = server._build_uvicorn_command(
+        uvicorn_opts=None,
+        host="localhost",
+        port=5000,
+        workers=4,
+        app_name="app:app",
+        env_file="/path/to/.env",
+    )
+
+    assert "--env-file" in cmd
+    assert "/path/to/.env" in cmd
+    # Verify the order - env-file should come before the app name
+    env_file_idx = cmd.index("--env-file")
+    env_file_path_idx = cmd.index("/path/to/.env")
+    app_name_idx = cmd.index("app:app")
+    assert env_file_idx < app_name_idx
+    assert env_file_path_idx == env_file_idx + 1
+    assert env_file_path_idx < app_name_idx
+
+
 def test_run_server(mock_exec_cmd):
     """Make sure this runs."""
     with mock.patch("sys.platform", return_value="linux"):
@@ -132,8 +155,9 @@ def test_run_server_win32(mock_exec_cmd):
     mock_exec_cmd.assert_called_once()
 
 
-def test_run_server_with_uvicorn(mock_exec_cmd):
+def test_run_server_with_uvicorn(mock_exec_cmd, monkeypatch):
     """Test running server with uvicorn."""
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
     with mock.patch("sys.platform", return_value="linux"):
         server._run_server(
             file_store_path="",
@@ -159,4 +183,9 @@ def test_run_server_with_uvicorn(mock_exec_cmd):
         "4",
         "mlflow.server.fastapi_app:app",
     ]
-    mock_exec_cmd.assert_called_once_with(expected_command, extra_env={}, capture_output=False)
+    mock_exec_cmd.assert_called_once_with(
+        expected_command,
+        extra_env={_MLFLOW_SGI_NAME.name: "uvicorn"},
+        capture_output=False,
+        synchronous=False,
+    )

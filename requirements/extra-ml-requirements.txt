@@ -89,3 +89,7 @@ autogen-agentchat
 semantic-kernel
 # Required by mlflow.agno
 agno
+# Required by mlflow.strands
+strands-agents
+# Required by mlflow.haystack
+haystack-ai

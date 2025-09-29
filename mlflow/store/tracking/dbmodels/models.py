@@ -1,7 +1,10 @@
 import json
+import uuid
+from typing import Any
 
 import sqlalchemy as sa
 from sqlalchemy import (
+    JSON,
     BigInteger,
     Boolean,
     CheckConstraint,
@@ -15,7 +18,10 @@ from sqlalchemy import (
     String,
     Text,
     UnicodeText,
+    UniqueConstraint,
 )
+from sqlalchemy.ext.mutable import MutableDict
+from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import backref, relationship
 
 from mlflow.entities import (
@@ -23,6 +29,9 @@ from mlflow.entities import (
     AssessmentError,
     AssessmentSource,
     Dataset,
+    DatasetRecord,
+    DatasetRecordSource,
+    EvaluationDataset,
     Expectation,
     Experiment,
     ExperimentTag,
@@ -49,7 +58,7 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.store.db.base_sql_model import Base
 from mlflow.tracing.utils import generate_assessment_id
-from mlflow.utils.mlflow_tags import _get_run_name_from_tags
+from mlflow.utils.mlflow_tags import MLFLOW_USER, _get_run_name_from_tags
 from mlflow.utils.time import get_current_time_millis
 
 SourceTypes = [
@@ -67,6 +76,10 @@ RunStatusTypes = [
     RunStatus.to_string(RunStatus.RUNNING),
     RunStatus.to_string(RunStatus.KILLED),
 ]
+
+
+# Create MutableJSON type for tracking mutations in JSON columns
+MutableJSON = MutableDict.as_mutable(JSON)
 
 
 class SqlExperiment(Base):
@@ -1274,6 +1287,391 @@ class SqlLoggedModelTag(Base):
         return LoggedModelTag(key=self.tag_key, value=self.tag_value)
 
 
+class SqlEvaluationDataset(Base):
+    """
+    DB model for evaluation datasets.
+    """
+
+    __tablename__ = "evaluation_datasets"
+
+    dataset_id = Column(String(36), primary_key=True)
+    """
+    Dataset ID: `String` (limit 36 characters).
+    *Primary Key* for ``evaluation_datasets`` table.
+    """
+
+    name = Column(String(255), nullable=False)
+    """
+    Dataset name: `String` (limit 255 characters). *Non null* in table schema.
+    """
+
+    schema = Column(Text, nullable=True)
+    """
+    Schema information: `Text`.
+    """
+
+    profile = Column(Text, nullable=True)
+    """
+    Profile information: `Text`.
+    """
+
+    digest = Column(String(64), nullable=True)
+    """
+    Dataset digest: `String` (limit 64 characters).
+    """
+
+    created_time = Column(BigInteger, default=get_current_time_millis)
+    """
+    Creation time: `BigInteger`.
+    """
+
+    last_update_time = Column(BigInteger, default=get_current_time_millis)
+    """
+    Last update time: `BigInteger`.
+    """
+
+    created_by = Column(String(255), nullable=True)
+    """
+    Creator user ID: `String` (limit 255 characters).
+    """
+
+    last_updated_by = Column(String(255), nullable=True)
+    """
+    Last updater user ID: `String` (limit 255 characters).
+    """
+
+    records = relationship(
+        "SqlEvaluationDatasetRecord", back_populates="dataset", cascade="all, delete-orphan"
+    )
+
+    tags = relationship(
+        "SqlEvaluationDatasetTag",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint("dataset_id", name="evaluation_datasets_pk"),
+        Index("index_evaluation_datasets_name", "name"),
+        Index("index_evaluation_datasets_created_time", "created_time"),
+    )
+
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            :py:class:`mlflow.entities.EvaluationDataset`.
+        """
+        records = None
+        # NB: Using SQLAlchemy's inspect module to determine if the field is loaded
+        # or not as calling .records on the EvaluationDataset object will trigger
+        # lazy-loading of the records.
+        state = inspect(self)
+        if "records" in state.dict:
+            records = [record.to_mlflow_entity() for record in self.records]
+
+        # Convert tags from relationship to dict
+        # Since we use lazy="selectin", tags are always loaded
+        # Return empty dict if no tags exist
+        tags_dict = {tag.key: tag.value for tag in self.tags}
+
+        dataset = EvaluationDataset(
+            dataset_id=self.dataset_id,
+            name=self.name,
+            tags=tags_dict,
+            schema=self.schema,
+            profile=self.profile,
+            digest=self.digest,
+            created_time=self.created_time,
+            last_update_time=self.last_update_time,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+            # experiment_ids will be loaded lazily when accessed
+        )
+
+        if records is not None:
+            dataset._records = records
+
+        return dataset
+
+    @classmethod
+    def from_mlflow_entity(cls, dataset: EvaluationDataset):
+        """
+        Create SqlEvaluationDataset from EvaluationDataset entity.
+
+        Args:
+            dataset: EvaluationDataset entity
+
+        Returns:
+            SqlEvaluationDataset instance
+        """
+        # Note: tags are not set here - they are handled as
+        # SqlEvaluationDatasetTag objects
+        return cls(
+            dataset_id=dataset.dataset_id,
+            name=dataset.name,
+            schema=dataset.schema,
+            profile=dataset.profile,
+            digest=dataset.digest,
+            created_time=dataset.created_time or get_current_time_millis(),
+            last_update_time=dataset.last_update_time or get_current_time_millis(),
+            created_by=dataset.created_by,
+            last_updated_by=dataset.last_updated_by,
+        )
+
+
+class SqlEvaluationDatasetTag(Base):
+    """
+    DB model for evaluation dataset tags.
+    """
+
+    __tablename__ = "evaluation_dataset_tags"
+
+    dataset_id = Column(
+        String(36),
+        ForeignKey("evaluation_datasets.dataset_id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    """
+    Dataset ID: `String` (limit 36 characters). Foreign key to evaluation_datasets.
+    *Primary Key* for ``evaluation_dataset_tags`` table.
+    """
+
+    key = Column(String(255), primary_key=True)
+    """
+    Tag key: `String` (limit 255 characters).
+    *Primary Key* for ``evaluation_dataset_tags`` table.
+    """
+
+    value = Column(String(5000), nullable=True)
+    """
+    Tag value: `String` (limit 5000 characters).
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("dataset_id", "key", name="evaluation_dataset_tags_pk"),
+        ForeignKeyConstraint(
+            ["dataset_id"],
+            ["evaluation_datasets.dataset_id"],
+            name="fk_evaluation_dataset_tags_dataset_id",
+            ondelete="CASCADE",
+        ),
+        Index("index_evaluation_dataset_tags_dataset_id", "dataset_id"),
+    )
+
+
+class SqlEvaluationDatasetRecord(Base):
+    """
+    DB model for evaluation dataset records.
+    """
+
+    __tablename__ = "evaluation_dataset_records"
+    RECORD_ID_PREFIX = "dr-"
+
+    dataset_record_id = Column(String(36), primary_key=True)
+    """
+    Dataset record ID: `String` (limit 36 characters).
+    *Primary Key* for ``evaluation_dataset_records`` table.
+    """
+
+    dataset_id = Column(
+        String(36), ForeignKey("evaluation_datasets.dataset_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Dataset ID: `String` (limit 36 characters). Foreign key to evaluation_datasets.
+    """
+
+    inputs = Column(MutableJSON, nullable=False)
+    """
+    Inputs JSON: `JSON`. *Non null* in table schema.
+    """
+
+    outputs = Column(MutableJSON, nullable=True)
+    """
+    Outputs JSON: `JSON`.
+    """
+
+    expectations = Column(MutableJSON, nullable=True)
+    """
+    Expectations JSON: `JSON`.
+    """
+
+    tags = Column(MutableJSON, nullable=True)
+    """
+    Tags JSON: `JSON`.
+    """
+
+    source = Column(MutableJSON, nullable=True)
+    """
+    Source JSON: `JSON`.
+    """
+
+    source_id = Column(String(36), nullable=True)
+    """
+    Source ID for lookups: `String` (limit 36 characters).
+    """
+
+    source_type = Column(String(255), nullable=True)
+    """
+    Source type: `Text`.
+    """
+
+    created_time = Column(BigInteger, default=get_current_time_millis)
+    """
+    Creation time: `BigInteger`.
+    """
+
+    last_update_time = Column(BigInteger, default=get_current_time_millis)
+    """
+    Last update time: `BigInteger`.
+    """
+
+    created_by = Column(String(255), nullable=True)
+    """
+    Creator user ID: `String` (limit 255 characters).
+    """
+
+    last_updated_by = Column(String(255), nullable=True)
+    """
+    Last updater user ID: `String` (limit 255 characters).
+    """
+
+    input_hash = Column(String(64), nullable=False)
+    """
+    Hash of inputs for deduplication: `String` (limit 64 characters).
+    """
+
+    dataset = relationship("SqlEvaluationDataset", back_populates="records")
+
+    __table_args__ = (
+        PrimaryKeyConstraint("dataset_record_id", name="evaluation_dataset_records_pk"),
+        Index("index_evaluation_dataset_records_dataset_id", "dataset_id"),
+        UniqueConstraint("dataset_id", "input_hash", name="unique_dataset_input"),
+        ForeignKeyConstraint(
+            ["dataset_id"],
+            ["evaluation_datasets.dataset_id"],
+            name="fk_evaluation_dataset_records_dataset_id",
+            ondelete="CASCADE",
+        ),
+    )
+
+    def __init__(self, **kwargs):
+        """Initialize a new dataset record with auto-generated ID if not provided."""
+        if "dataset_record_id" not in kwargs:
+            kwargs["dataset_record_id"] = self.generate_record_id()
+        super().__init__(**kwargs)
+
+    @staticmethod
+    def generate_record_id() -> str:
+        """
+        Generate a unique ID for dataset records.
+
+        Returns:
+            A unique record ID with the format "dr-<uuid_hex>".
+        """
+        return f"{SqlEvaluationDatasetRecord.RECORD_ID_PREFIX}{uuid.uuid4().hex}"
+
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            :py:class:`mlflow.entities.DatasetRecord`.
+        """
+
+        inputs = self.inputs
+        expectations = self.expectations
+        tags = self.tags
+
+        source = None
+        if self.source:
+            source = DatasetRecordSource.from_dict(self.source)
+
+        return DatasetRecord(
+            dataset_record_id=self.dataset_record_id,
+            dataset_id=self.dataset_id,
+            inputs=inputs,
+            outputs=self.outputs,
+            expectations=expectations,
+            tags=tags,
+            source=source,
+            source_id=self.source_id,
+            created_time=self.created_time,
+            last_update_time=self.last_update_time,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+        )
+
+    @classmethod
+    def from_mlflow_entity(cls, record: DatasetRecord, input_hash: str):
+        """
+        Create SqlEvaluationDatasetRecord from DatasetRecord entity.
+
+        Args:
+            record: DatasetRecord entity
+            input_hash: SHA256 hash of inputs for deduplication
+
+        Returns:
+            SqlEvaluationDatasetRecord instance
+        """
+        source_dict = None
+        if record.source:
+            source_dict = record.source.to_dict()
+
+        kwargs = {
+            "dataset_id": record.dataset_id,
+            "inputs": record.inputs,
+            "outputs": record.outputs,
+            "expectations": record.expectations,
+            "tags": record.tags,
+            "source": source_dict,
+            "source_id": record.source_id,
+            "source_type": record.source.source_type if record.source else None,
+            "created_time": record.created_time or get_current_time_millis(),
+            "last_update_time": record.last_update_time or get_current_time_millis(),
+            "created_by": record.created_by,
+            "last_updated_by": record.last_updated_by,
+            "input_hash": input_hash,
+        }
+
+        if record.dataset_record_id:
+            kwargs["dataset_record_id"] = record.dataset_record_id
+
+        return cls(**kwargs)
+
+    def merge(self, new_record_dict: dict[str, Any]) -> None:
+        """
+        Merge new record data into this existing record.
+
+        Updates outputs, expectations and tags by merging new values with existing ones.
+        Preserves created_time and created_by from the original record.
+
+        Args:
+            new_record_dict: Dictionary containing new record data with optional
+                           'outputs', 'expectations' and 'tags' fields to merge.
+        """
+        if new_outputs := new_record_dict.get("outputs"):
+            self.outputs = new_outputs
+
+        if new_expectations := new_record_dict.get("expectations"):
+            if self.expectations is None:
+                self.expectations = {}
+            self.expectations.update(new_expectations)
+
+        if new_tags := new_record_dict.get("tags"):
+            if self.tags is None:
+                self.tags = {}
+            self.tags.update(new_tags)
+
+        self.last_update_time = get_current_time_millis()
+
+        # Update last_updated_by if mlflow.user tag is present
+        # Otherwise keep the existing last_updated_by (don't change it to None)
+        if new_tags and MLFLOW_USER in new_tags:
+            self.last_updated_by = new_tags[MLFLOW_USER]
+
+
 class SqlSpan(Base):
     __tablename__ = "spans"
 
@@ -1369,6 +1767,7 @@ class SqlEntityAssociation(Base):
     """
 
     __tablename__ = "entity_associations"
+    ASSOCIATION_ID_PREFIX = "a-"
 
     association_id = Column(String(36), nullable=False)
     """
@@ -1417,3 +1816,201 @@ class SqlEntityAssociation(Base):
             "source_id",
         ),
     )
+
+    def __init__(self, **kwargs):
+        """Initialize a new entity association with auto-generated ID if not provided."""
+        if "association_id" not in kwargs:
+            kwargs["association_id"] = self.generate_association_id()
+        super().__init__(**kwargs)
+
+    @staticmethod
+    def generate_association_id() -> str:
+        """
+        Generate a unique ID for entity associations.
+
+        Returns:
+            A unique association ID with the format "a-<uuid_hex>".
+        """
+        return f"{SqlEntityAssociation.ASSOCIATION_ID_PREFIX}{uuid.uuid4().hex}"
+
+
+class SqlScorer(Base):
+    """
+    DB model for storing scorer information. These are recorded in ``scorers`` table.
+    """
+
+    __tablename__ = "scorers"
+
+    experiment_id = Column(
+        Integer, ForeignKey("experiments.experiment_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Experiment ID to which this scorer belongs: *Foreign Key* into ``experiments`` table.
+    """
+    scorer_name = Column(String(256), nullable=False)
+    """
+    Scorer name: `String` (limit 256 characters). Part of *Primary Key* for ``scorers`` table.
+    """
+    scorer_id = Column(String(36), nullable=False)
+    """
+    Scorer ID: `String` (limit 36 characters). Unique identifier for the scorer.
+    """
+
+    experiment = relationship("SqlExperiment", backref=backref("scorers", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlExperiment`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("scorer_id", name="scorer_pk"),
+        Index(
+            f"index_{__tablename__}_experiment_id_scorer_name",
+            "experiment_id",
+            "scorer_name",
+            unique=True,
+        ),
+    )
+
+    def __repr__(self):
+        return f"<SqlScorer ({self.experiment_id}, {self.scorer_name}, {self.scorer_id})>"
+
+
+class SqlScorerVersion(Base):
+    """
+    DB model for storing scorer version information. These are recorded in
+    ``scorer_versions`` table.
+    """
+
+    __tablename__ = "scorer_versions"
+
+    scorer_id = Column(
+        String(36), ForeignKey("scorers.scorer_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Scorer ID: `String` (limit 36 characters). *Foreign Key* into ``scorers`` table.
+    """
+    scorer_version = Column(Integer, nullable=False)
+    """
+    Scorer version: `Integer`. Part of *Primary Key* for ``scorer_versions`` table.
+    """
+    serialized_scorer = Column(Text, nullable=False)
+    """
+    Serialized scorer data: `Text`. Contains the serialized scorer object.
+    """
+    creation_time = Column(BigInteger(), default=get_current_time_millis)
+    """
+    Creation time of scorer version: `BigInteger`. Automatically set to current time when created.
+    """
+
+    # Relationship to the parent scorer
+    scorer = relationship("SqlScorer", backref=backref("scorer_versions", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlScorer`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("scorer_id", "scorer_version", name="scorer_version_pk"),
+        Index(f"index_{__tablename__}_scorer_id", "scorer_id"),
+    )
+
+    def __repr__(self):
+        return f"<SqlScorerVersion ({self.scorer_id}, {self.scorer_version})>"
+
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            mlflow.entities.ScorerVersion.
+        """
+        from mlflow.entities.scorer import ScorerVersion
+
+        return ScorerVersion(
+            experiment_id=self.scorer.experiment_id,
+            scorer_name=self.scorer.scorer_name,
+            scorer_version=self.scorer_version,
+            serialized_scorer=self.serialized_scorer,
+            creation_time=self.creation_time,
+        )
+
+
+class SqlJob(Base):
+    """
+    DB model for Job entities. These are recorded in the ``jobs`` table.
+    """
+
+    __tablename__ = "jobs"
+
+    id = Column(String(36), nullable=False)
+    """
+    Job ID: `String` (limit 36 characters). *Primary Key* for ``jobs`` table.
+    """
+
+    creation_time = Column(BigInteger, default=get_current_time_millis)
+    """
+    Creation timestamp: `BigInteger`.
+    """
+
+    function_fullname = Column(String(500), nullable=False)
+    """
+    Function fullname: `String` (limit 500 characters).
+    """
+
+    params = Column(Text, nullable=False)
+    """
+    Job parameters: `Text`.
+    """
+
+    timeout = Column(sa.types.Float(precision=53), nullable=True)
+    """
+    Job execution timeout in seconds: `Float`
+    """
+
+    status = Column(Integer, nullable=False)
+    """
+    Job status: `Integer`.
+    """
+
+    result = Column(Text, nullable=True)
+    """
+    Job result: `Text`.
+    """
+
+    retry_count = Column(Integer, default=0)
+    """
+    Job retry count: `Integer`
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="jobs_pk"),
+        Index(
+            "index_jobs_function_status_creation_time",
+            "function_fullname",
+            "status",
+            "creation_time",
+        ),
+    )
+
+    def __repr__(self):
+        return f"<SqlJob ({self.id}, {self.function_fullname}, {self.status})>"
+
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            mlflow.entities._job.Job.
+        """
+        from mlflow.entities._job import Job
+        from mlflow.entities._job_status import JobStatus
+
+        return Job(
+            job_id=self.id,
+            creation_time=self.creation_time,
+            function_fullname=self.function_fullname,
+            params=self.params,
+            timeout=self.timeout,
+            status=JobStatus.from_int(self.status),
+            result=self.result,
+            retry_count=self.retry_count,
+        )

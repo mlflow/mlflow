@@ -8,20 +8,19 @@ import type {
   RunDatasetWithTags,
   MetricEntity,
 } from '../../../types';
-import { KeyValueEntity } from '../../../../common/types';
+import type { KeyValueEntity } from '../../../../common/types';
 import type { LoggedModelProto } from '../../../types';
-import {
+import type {
   RowGroupRenderMetadata,
   RowRenderMetadata,
   RunGroupParentInfo,
-  RunGroupingAggregateFunction,
-  RunGroupingMode,
   RunRowDateAndNestInfo,
   RunRowModelsInfo,
   RunRowType,
   RunRowVersionInfo,
 } from './experimentPage.row-types';
-import { ExperimentRunsSelectorResult } from './experimentRuns.selector';
+import { RunGroupingAggregateFunction, RunGroupingMode } from './experimentPage.row-types';
+import type { ExperimentRunsSelectorResult } from './experimentRuns.selector';
 import {
   EXPERIMENT_FIELD_PREFIX_METRIC,
   EXPERIMENT_FIELD_PREFIX_PARAM,
@@ -364,6 +363,7 @@ export const prepareRunsGridData = ({
       duration,
       user,
       runName,
+      runStatus: runInfo.status,
       tags,
       models,
       params,
@@ -504,7 +504,14 @@ const determineVisibleRuns = (
 
     const rowWithHiddenFlag = {
       ...runRow,
-      hidden: determineIfRowIsHidden(runsHiddenMode, runsHidden, runUuidToToggle, visibleRowCounter, runsVisibilityMap),
+      hidden: determineIfRowIsHidden(
+        runsHiddenMode,
+        runsHidden,
+        runUuidToToggle,
+        visibleRowCounter,
+        runsVisibilityMap,
+        runRow.runStatus,
+      ),
     };
 
     const isGroupContainingRuns = runRow.groupParentInfo && !runRow.groupParentInfo.isRemainingRunsGroup;

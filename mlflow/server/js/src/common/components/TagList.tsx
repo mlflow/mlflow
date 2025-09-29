@@ -1,7 +1,8 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { Tag, Button, PencilIcon } from '@databricks/design-system';
-import { KeyValueEntity } from '../types';
+import type { KeyValueEntity } from '../types';
 import { FormattedMessage } from 'react-intl';
+import { KeyValueTag } from './KeyValueTag';
 
 interface Props {
   tags: KeyValueEntity[];
@@ -24,14 +25,7 @@ export const TagList = ({ tags, onEdit }: Props) => {
       }}
     >
       {tags?.map((tag) => (
-        <Tag key={tag.key} componentId={tag.key}>
-          <strong>
-            {tag.key}
-            {tag.value ? ':' : null}
-          </strong>
-          &nbsp;
-          {tag.value}
-        </Tag>
+        <KeyValueTag key={tag.key} tag={tag} />
       ))}
       <Button
         componentId="databricks-experiment-tracking-prompt-edit-tags-button"

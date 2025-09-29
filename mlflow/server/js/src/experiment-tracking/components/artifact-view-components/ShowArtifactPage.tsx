@@ -36,7 +36,7 @@ import { Empty, Spacer } from '@databricks/design-system';
 import { LazyShowArtifactAudioView } from './LazyShowArtifactAudioView';
 import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
 import { LazyShowArtifactVideoView } from './LazyShowArtifactVideoView';
-import { KeyValueEntity } from '../../../common/types';
+import type { KeyValueEntity } from '../../../common/types';
 
 const MAX_PREVIEW_ARTIFACT_SIZE_MB = 50;
 

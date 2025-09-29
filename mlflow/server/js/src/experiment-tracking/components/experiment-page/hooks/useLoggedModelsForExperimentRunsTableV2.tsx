@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { LoggedModelProto, RunInfoEntity, RunInputsType, RunOutputsType } from '../../../types';
+import type { LoggedModelProto, RunInfoEntity, RunInputsType, RunOutputsType } from '../../../types';
 import { useGetLoggedModelsQuery } from '../../../hooks/logged-models/useGetLoggedModelsQuery';
 import { uniq } from 'lodash';
 
