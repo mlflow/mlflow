@@ -63,7 +63,7 @@ def test_exec_job_in_subproc_with_python_env(monkeypatch, tmp_path):
         },
         python_env=_PythonEnv(python="3.11.9", dependencies=[
             "openai==1.108.2",
-            "pytest",
+            "pytest<9",
             dirname(dirname(dirname(dirname(__file__)))),  # mlflow repo home
         ]),
         timeout=None,

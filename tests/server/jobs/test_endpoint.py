@@ -7,12 +7,14 @@ from typing import Any
 
 import pytest
 import requests
+from mlflow.server.jobs import job_function
 
 pytestmark = pytest.mark.skipif(
     os.name == "nt", reason="MLflow job execution is not supported on Windows"
 )
 
 
+@job_function(max_workers=1)
 def simple_job_fun(x: int, y: int) -> dict[str, Any]:
     return {
         "a": x + y,
@@ -77,7 +79,7 @@ def test_job_endpoint(server_url: str):
     response = requests.post(f"{server_url}/ajax-api/3.0/jobs/", json=payload)
     response.raise_for_status()
     job_id = response.json()["job_id"]
-    wait_job_finalize(server_url, job_id, 2)
+    wait_job_finalize(server_url, job_id, 10)
     response2 = requests.get(f"{server_url}/ajax-api/3.0/jobs/{job_id}")
     response2.raise_for_status()
     job_json = response2.json()

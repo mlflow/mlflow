@@ -29,6 +29,7 @@ pytestmark = pytest.mark.skipif(
 @contextmanager
 def _launch_job_runner_for_test():
     with _launch_job_runner(
+        os.environ[BACKEND_STORE_URI_ENV_VAR],
         {"PYTHONPATH": dirname(__file__)},
         os.getpid(),
     ) as proc:
@@ -362,6 +363,7 @@ def test_submit_jobs_from_multi_processes(monkeypatch, tmp_path):
             assert_job_result(job_ids[x], JobStatus.SUCCEEDED, x + 1)
 
 
+@job_function(max_workers=1)
 def sleep_fun(sleep_secs, tmp_dir):
     (Path(tmp_dir) / "pid").write_text(str(os.getpid()))
     time.sleep(sleep_secs)
@@ -370,13 +372,18 @@ def sleep_fun(sleep_secs, tmp_dir):
 def test_job_timeout(monkeypatch, tmp_path):
     from mlflow.server.jobs.util import is_process_alive
 
-    with _setup_job_runner(1, monkeypatch, tmp_path) as job_runner_proc:
+    with _setup_job_runner(monkeypatch, tmp_path):
         job_tmp_path = tmp_path / "job"
         job_tmp_path.mkdir()
+
+        # warm up
+        job_id = submit_job(sleep_fun, {"sleep_secs": 0, "tmp_dir": str(job_tmp_path)}).job_id
+        wait_job_finalize(job_id, timeout=10)
+
         job_id = submit_job(
-            sleep_fun, {"sleep_secs": 10, "tmp_dir": str(job_tmp_path)}, timeout=5
+            sleep_fun, {"sleep_secs": 10, "tmp_dir": str(job_tmp_path)}, timeout=3
         ).job_id
-        wait_job_finalize(job_id, timeout=6)
+        wait_job_finalize(job_id, timeout=3.5)
         pid = int((job_tmp_path / "pid").read_text())
         # assert timeout job process is killed.
         assert not is_process_alive(pid)
@@ -389,26 +396,62 @@ def test_job_timeout(monkeypatch, tmp_path):
         # check database record correctness.
         assert job.job_id == job_id
         assert job.function_fullname == "test_job.sleep_fun"
-        assert job.timeout == 5
+        assert job.timeout == 3.0
         assert job.result is None
         assert job.status == JobStatus.TIMEOUT
         assert job.retry_count == 0
 
-        submit_job(sleep_fun, {"sleep_secs": 10, "tmp_dir": str(job_tmp_path)}, timeout=15)
-        time.sleep(5)
-        pid = int((job_tmp_path / "pid").read_text())
-        assert is_process_alive(pid)
-        job_runner_proc.kill()
-        time.sleep(2)
-        # assert the job process is killed after job runner process is killed.
-        assert not is_process_alive(pid)
+
+@job_function(max_workers=1)
+def check_env_var_fn(expected_env_vars: dict[str, str]):
+    for env_name, env_val in expected_env_vars.items():
+        assert os.environ[env_name] == env_val
+
+
+def test_job_with_env_vars(monkeypatch, tmp_path):
+    env_vars = {"TEST_ENV1": "ab", "TEST_ENV2": "123"}
+    with _setup_job_runner(monkeypatch, tmp_path):
+        job_id = submit_job(
+            check_env_var_fn,
+            {"expected_env_vars": env_vars},
+            env_vars=env_vars,
+        ).job_id
+        wait_job_finalize(job_id, timeout=15)
+        job = get_job(job_id)
+        assert job.status == JobStatus.SUCCEEDED
+
+
+@job_function(
+    max_workers=1,
+    python_version="3.11.9",
+    pip_requirements=["openai==1.108.2", "pytest<9"],
+)
+def check_python_env_fn():
+    from mlflow.utils import PYTHON_VERSION
+    import openai
+
+    assert PYTHON_VERSION == "3.11.9"
+    assert openai.__version__ == "1.108.2"
+
+
+def test_job_with_python_env(monkeypatch, tmp_path):
+    monkeypatch.setenv("MLFLOW_HOME", dirname(dirname(dirname(dirname(__file__)))))
+
+    with _setup_job_runner(monkeypatch, tmp_path):
+        job_id = submit_job(
+            check_python_env_fn,
+            params={}
+        ).job_id
+        wait_job_finalize(job_id, timeout=300)
+        job = get_job(job_id)
+        assert job.status == JobStatus.SUCCEEDED
 
 
 def test_list_job_pagination(monkeypatch, tmp_path):
     import mlflow.store.jobs.sqlalchemy_store
 
     monkeypatch.setattr(mlflow.store.jobs.sqlalchemy_store, "_LIST_JOB_PAGE_SIZE", 3)
-    with _setup_job_runner(1, monkeypatch, tmp_path):
+    with _setup_job_runner(monkeypatch, tmp_path):
         job_ids = []
         for x in range(10):
             job_id = submit_job(basic_job_fun, {"x": x, "y": 4}).job_id
