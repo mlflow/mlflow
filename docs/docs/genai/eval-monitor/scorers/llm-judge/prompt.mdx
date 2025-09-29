@@ -6,6 +6,17 @@ import { Bot, BookOpen, MessageSquare } from "lucide-react";
 
 # Bring Your Own Prompts
 
+:::note[Recommendation: Use make_judge Instead]
+The `custom_prompt_judge` API is being phased out. We strongly recommend using the <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API instead, which provides:
+
+- More flexible template-based instructions
+- Better version control and collaboration features
+- Support for both field-based and Agent-as-a-Judge evaluation
+- Alignment capabilities with human feedback
+
+See the [make_judge documentation](/genai/eval-monitor/scorers/llm-judge/make-judge) for migration guidance.
+:::
+
 The <APILink fn="mlflow.genai.judges.custom_prompt_judge">custom_prompt_judge</APILink> API is designed to help you quickly and easily create LLM scorers when you need full control over the judge's prompt or need to return multiple output values beyond "pass" / "fail", for example, "great", "ok", "bad".
 
 You provide a prompt template that has placeholders for specific fields in your app's trace and define the output choices the judge can select. The LLM judge model uses these inputs to select the best output choice and provides a rationale for its selection.

@@ -764,6 +764,22 @@ def test_evaluate_with_tags(tags_data, expected_calls):
             assert expected_call in actual_calls
 
 
+def test_evaluate_with_traces_tags_no_warnings():
+    with mlflow.start_span() as span:
+        span.set_inputs({"question": "Hello?"})
+
+    traces = mlflow.search_traces()
+    with mock.patch("mlflow.tracing.client._logger.warning") as mock_warning:
+        mlflow.genai.evaluate(
+            data=traces,
+            scorers=[has_trace],
+        )
+        assert not any(
+            "immutable and cannot be set on a trace" in call.args[0]
+            for call in mock_warning.call_args_list
+        )
+
+
 def test_evaluate_with_tags_error_handling(is_in_databricks):
     """Test that tag logging errors don't fail the evaluation."""
     data = [
@@ -803,3 +819,58 @@ def test_evaluate_with_invalid_tags_type():
             data=data,
             scorers=[exact_match],
         )
+
+
+def test_evaluate_without_inputs_in_eval_dataset():
+    answers = [
+        "MLflow is an open-source platform for managing ML lifecycle",
+        "Apache Spark is a fast data processing engine",
+        "I don't know",
+    ]
+    for answer in answers:
+        with mlflow.start_span() as span:
+            span.set_outputs(answer)
+
+    trace_df = mlflow.search_traces()
+    trace_df["inputs"] = None
+    trace_df["expectations"] = pd.Series(
+        [{"expected_response": answer, "max_length": 100} for answer in answers]
+    )
+
+    result = mlflow.genai.evaluate(
+        data=trace_df,
+        scorers=[is_concise, exact_match, has_trace],
+    )
+
+    assert "is_concise/mean" in result.metrics
+    assert "exact_match/mean" in result.metrics
+    assert "has_trace/mean" in result.metrics
+
+    @scorer
+    def input_exist(inputs):
+        if inputs is None:
+            return False
+        return True
+
+    trace_df["outputs"] = None
+    result = mlflow.genai.evaluate(
+        data=trace_df,
+        scorers=[input_exist],
+    )
+    assert result.metrics["input_exist/mean"] == 0.0
+
+
+def test_evaluate_with_only_trace_in_eval_dataset():
+    for _ in range(3):
+        with mlflow.start_span():
+            pass
+
+    trace_df = mlflow.search_traces()
+    trace_df = trace_df[["trace"]]
+
+    result = mlflow.genai.evaluate(
+        data=trace_df,
+        scorers=[has_trace],
+    )
+
+    assert result.metrics["has_trace/mean"] == 1.0

@@ -703,6 +703,15 @@ class Linter(ast.NodeVisitor):
         if rules.ThreadPoolExecutorWithoutThreadNamePrefix.check(node, self.resolver):
             self._check(Location.from_node(node), rules.ThreadPoolExecutorWithoutThreadNamePrefix())
 
+        if rules.IsinstanceUnionSyntax.check(node):
+            self._check(Location.from_node(node), rules.IsinstanceUnionSyntax())
+
+        if self._is_in_test() and rules.OsChdirInTest.check(node, self.resolver):
+            self._check(Location.from_node(node), rules.OsChdirInTest())
+
+        if self._is_in_test() and rules.TempDirInTest.check(node, self.resolver):
+            self._check(Location.from_node(node), rules.TempDirInTest())
+
         self.generic_visit(node)
 
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
@@ -835,8 +844,9 @@ def _has_h1_header(cells: list[dict[str, Any]]) -> bool:
     )
 
 
-def lint_file(path: Path, config: Config, index_path: Path) -> list[Violation]:
-    code = path.read_text()
+def lint_file(path: Path, code: str, config: Config, index_path: Path) -> list[Violation]:
+    if path.is_absolute():
+        raise ValueError(f"Path must be relative: {path}")
     index = SymbolIndex.load(index_path)
     if path.suffix == ".ipynb":
         violations = []

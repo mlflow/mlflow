@@ -14,6 +14,16 @@ from mlflow.genai.scorers import Correctness, Guidelines, RetrievalGroundedness
 from tests.tracing.helper import get_traces, purge_traces
 
 
+@pytest.fixture(autouse=True)
+def increase_db_pool_size(monkeypatch):
+    # Set larger pool size for tests to handle concurrent trace creation
+    # test_extra_traces_from_customer_scorer_should_be_cleaned_up test requires this
+    # to reduce flakiness
+    monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_POOL_SIZE", "20")
+    monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW", "40")
+    return
+
+
 def always_yes(inputs, outputs, expectations, trace):
     return "yes"
 

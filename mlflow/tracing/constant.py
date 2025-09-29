@@ -84,6 +84,8 @@ TRACE_REQUEST_RESPONSE_PREVIEW_MAX_LENGTH_OSS = 1000
 
 # Trace request ID must have the prefix "tr-" appended to the OpenTelemetry trace ID
 TRACE_REQUEST_ID_PREFIX = "tr-"
+# Trace ID V4 format starts with "trace:/" in the format of "trace:/<location>/<trace_id>"
+TRACE_ID_V4_PREFIX = "trace:/"
 
 # Schema version of traces and spans.
 TRACE_SCHEMA_VERSION = 3

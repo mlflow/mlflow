@@ -1048,3 +1048,22 @@ export const prettyPrintChatMessage = (message: RawModelTraceChatMessage): Model
     tool_calls: message.tool_calls?.map(prettyPrintToolCall),
   };
 };
+
+export const getDefaultActiveTab = (
+  selectedNode: ModelTraceSpanNode | undefined,
+): 'chat' | 'content' | 'attributes' | 'events' => {
+  if (isNil(selectedNode)) {
+    return 'content';
+  }
+
+  if (selectedNode.chatMessages) {
+    return 'chat';
+  }
+
+  const hasInputsOrOutputs = !isNil(selectedNode.inputs) || !isNil(selectedNode.outputs);
+  if (hasInputsOrOutputs) {
+    return 'content';
+  }
+
+  return 'attributes';
+};

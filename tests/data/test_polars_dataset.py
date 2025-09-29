@@ -251,6 +251,8 @@ def test_to_evaluation_dataset(source: SampleDatasetSource) -> None:
     dataset = PolarsDataset(df=df, source=source, targets="c", name="testname")
     evaluation_dataset = dataset.to_evaluation_dataset()
 
+    assert evaluation_dataset.name is not None
+    assert evaluation_dataset.digest is not None
     assert isinstance(evaluation_dataset, EvaluationDataset)
     assert isinstance(evaluation_dataset.features_data, pd.DataFrame)
     assert evaluation_dataset.features_data.equals(df.drop("c").to_pandas())

@@ -36,7 +36,10 @@ module.exports = async ({ github, context }) => {
         ref,
         filter: "latest",
       })
-    ).filter(({ name }) => name !== "protect");
+    )
+      .filter(({ name }) => name !== "protect")
+      // Ignore Copilot's sessions (https://github.com/mlflow/mlflow/actions/workflows/copilot-swe-agent/copilot)
+      .filter(({ name }) => name !== "copilot");
 
     const latestRuns = {};
     for (const run of checkRuns) {

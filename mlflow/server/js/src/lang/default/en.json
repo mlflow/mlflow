@@ -858,6 +858,10 @@
     "defaultMessage": "Context sufficient",
     "description": "Evaluation results > context sufficiency assessment > positive value label. Displayed if retrieved context is sufficient to generate the expected response."
   },
+  "7Uj0KJ": {
+    "defaultMessage": "Move to bottom",
+    "description": "Experiment page > compare runs tab > chart header > move to bottom option"
+  },
   "7WkP1e": {
     "defaultMessage": "Delete",
     "description": "Menu item to delete an experiment run"
@@ -1866,10 +1870,6 @@
     "defaultMessage": "Filters{numFilters}",
     "description": "Evaluation review > evaluations list > filter dropdown button"
   },
-  "JCOE3Q": {
-    "defaultMessage": "View all child runs in the experiment page",
-    "description": "Run page > Overview > Child runs link"
-  },
   "JCboZ7": {
     "defaultMessage": "Path copied",
     "description": "Tooltip displayed after experiment path was successfully copied to clipboard"
@@ -2085,6 +2085,10 @@
   "LTe7m4": {
     "defaultMessage": "No traces found with the current filter query. <button>Reset filters</button> to see all traces.",
     "description": "Experiment page > traces table > no traces recorded"
+  },
+  "LajLDb": {
+    "defaultMessage": "Move to top",
+    "description": "Experiment page > compare runs tab > chart header > move to top option"
   },
   "LhxSrc": {
     "defaultMessage": "Incorrect",
@@ -5394,6 +5398,10 @@
   "wrNl6F": {
     "defaultMessage": "Preview",
     "description": "Label for the preview mode on the registered prompt details page"
+  },
+  "wtpLvY": {
+    "defaultMessage": "Load more",
+    "description": "Run page > Overview > Child runs load more"
   },
   "wusz4l": {
     "defaultMessage": "Input",
