@@ -48,7 +48,7 @@ def test_set_experiment_trace_location(mock_databricks_tracking_uri):
 
         # Verify the correct method was called with correct arguments
         mock_client._set_experiment_trace_location.assert_called_once_with(
-            uc_schema=location,
+            location=location,
             experiment_id=experiment_id,
             sql_warehouse_id=sql_warehouse_id,
         )
@@ -79,7 +79,7 @@ def test_set_experiment_trace_location_with_default_experiment(mock_databricks_t
 
         # Verify the method was called with the default experiment ID
         mock_client._set_experiment_trace_location.assert_called_once_with(
-            uc_schema=location,
+            location=location,
             experiment_id=default_experiment_id,
             sql_warehouse_id=None,
         )
@@ -114,7 +114,7 @@ def test_unset_experiment_trace_location(mock_databricks_tracking_uri):
         # Verify the correct method was called with correct arguments
         mock_client._unset_experiment_trace_location.assert_called_once_with(
             experiment_id,
-            location.schema_location,
+            location,
         )
 
 
@@ -149,7 +149,7 @@ def test_unset_experiment_trace_location_with_default_experiment(mock_databricks
         # Verify the method was called with the default experiment ID
         mock_client._unset_experiment_trace_location.assert_called_once_with(
             default_experiment_id,
-            location.schema_location,
+            location,
         )
 
 
