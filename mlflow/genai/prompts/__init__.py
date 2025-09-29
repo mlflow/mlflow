@@ -9,6 +9,7 @@ from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.prompt.registry_utils import require_prompt_registry
 from mlflow.store.entities.paged_list import PagedList
+from mlflow.tracking.client import MlflowClient
 from mlflow.utils.annotations import experimental
 
 
@@ -237,7 +238,7 @@ def get_prompt_tags(name: str) -> Prompt:
         name: The name of the prompt.
     """
     with suppress_genai_migration_warning():
-        return registry_api.get_prompt(name=name).tags
+        return MlflowClient().get_prompt(name=name).tags
 
 
 @experimental(version="3.5.0")
@@ -251,7 +252,8 @@ def set_prompt_tag(name: str, key: str, value: str) -> None:
         value: The value of the tag for the key
     """
     with suppress_genai_migration_warning():
-        return registry_api.set_prompt_tag(name=name, key=key, value=value)
+        MlflowClient().set_prompt_tag(name=name, key=key, value=value)
+        registry_api._load_prompt_cached.cache_clear()
 
 
 @experimental(version="3.5.0")
@@ -264,7 +266,8 @@ def delete_prompt_tag(name: str, key: str) -> None:
         key: The key of the tag
     """
     with suppress_genai_migration_warning():
-        return registry_api.delete_prompt_tag(name=name, key=key)
+        MlflowClient().delete_prompt_tag(name=name, key=key)
+        registry_api._load_prompt_cached.cache_clear()
 
 
 @experimental(version="3.5.0")
@@ -279,7 +282,8 @@ def set_prompt_version_tag(name: str, version: str | int, key: str, value: str) 
         value: The value of the tag for the key
     """
     with suppress_genai_migration_warning():
-        return registry_api.set_prompt_version_tag(name=name, version=version, key=key, value=value)
+        MlflowClient().set_prompt_version_tag(name=name, version=version, key=key, value=value)
+        registry_api._load_prompt_cached.cache_clear()
 
 
 @experimental(version="3.5.0")
@@ -293,4 +297,5 @@ def delete_prompt_version_tag(name: str, version: str | int, key: str) -> None:
         key: The key of the tag
     """
     with suppress_genai_migration_warning():
-        return registry_api.delete_prompt_version_tag(name=name, version=version, key=key)
+        MlflowClient().delete_prompt_version_tag(name=name, version=version, key=key)
+        registry_api._load_prompt_cached.cache_clear()
