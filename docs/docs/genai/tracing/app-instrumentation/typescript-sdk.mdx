@@ -285,35 +285,7 @@ Many real-world applications use sessions to maintain multi-turn user interactio
 
 ## Developing the TypeScript SDK
 
-The TypeScript SDK is implemented as an npm workspace that contains the core tracing package and opt-in integrations. Use the following guidance when you extend or iterate on the SDK locally.
-
-### Adding New Integrations
-
-The [`integrations/`](https://github.com/mlflow/mlflow/tree/master/libs/typescript/integrations) directory hosts auto-instrumentation packages. To add another provider integration:
-
-1. Scaffold a new workspace (for example, `integrations/<provider>`) modeled after the [OpenAI integration](https://github.com/mlflow/mlflow/tree/master/libs/typescript/integrations/openai).
-2. Implement the instrumentation entry points in `src/`, exporting a `register()` helper or other utilities that configure tracing for the target client library.
-3. Add package metadata (`package.json`, `tsconfig.json`, and a `README.md`) so the integration can be built and published.
-4. Create unit and/or integration tests under `tests/` that exercise the new instrumentation.
-5. Update the root [`package.json`](https://github.com/mlflow/mlflow/blob/master/libs/typescript/package.json), `build:integrations` and `test:integrations` scripts if the new package requires custom build or test commands.
-
-When the package is ready, run the local workflow below and open a pull request describing the new integration.
-
-### Contributing to the SDK
-
-Before sending changes, review the repository-wide [contribution guidelines](https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md) and [Code of Conduct](https://github.com/mlflow/mlflow/blob/master/CODE_OF_CONDUCT.rst). Discuss larger proposals in a GitHub issue or community channel, then iterate on a feature branch with clear, well-documented commits. Include documentation and test updates that cover your changes so reviewers can validate the impact.
-
-### Running the SDK After Changes
-
-From the [`libs/typescript`](https://github.com/mlflow/mlflow/tree/master/libs/typescript) directory, install dependencies and execute the workspace build and test scripts:
-
-```bash
-npm install        # Install or update workspace dependencies
-npm run build      # Build the core package and all integrations
-npm run test       # Execute the SDK and integration test suites
-```
-
-You can run package-specific scripts from their respective directories (for example, `cd core && npm run test`) when iterating on a particular feature. Rebuild before consuming the SDK from another project so the latest TypeScript output is emitted to `dist/`.
+Looking to contribute new integrations or iterate on the workspace? Follow [Step 5 of the tracing integration guide](/genai/tracing/integrations/contribute#step-5-begin-implementation) for detailed instructions on scaffolding packages, running builds, and preparing pull requests.
 
 ## FAQ
 
