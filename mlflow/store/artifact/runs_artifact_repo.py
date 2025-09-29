@@ -36,7 +36,9 @@ class RunsArtifactRepository(ArtifactRepository):
 
         super().__init__(artifact_uri, tracking_uri, registry_uri)
         uri = RunsArtifactRepository.get_underlying_uri(artifact_uri, tracking_uri)
-        self.repo = get_artifact_repository(uri, tracking_uri=self.tracking_uri)
+        self.repo = get_artifact_repository(
+            uri, tracking_uri=self.tracking_uri, registry_uri=self.registry_uri
+        )
 
     @staticmethod
     def is_runs_uri(uri):
