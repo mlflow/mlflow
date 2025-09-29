@@ -48,6 +48,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
 from mlflow.models import Model
+from mlflow.prompt.constants import PROMPT_TEXT_TAG_KEY, PROMPT_TYPE_TAG_KEY
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -213,6 +214,14 @@ from mlflow.webhooks.types import (
     ModelVersionCreatedPayload,
     ModelVersionTagDeletedPayload,
     ModelVersionTagSetPayload,
+    PromptAliasCreatedPayload,
+    PromptAliasDeletedPayload,
+    PromptCreatedPayload,
+    PromptTagDeletedPayload,
+    PromptTagSetPayload,
+    PromptVersionCreatedPayload,
+    PromptVersionTagDeletedPayload,
+    PromptVersionTagSetPayload,
     RegisteredModelCreatedPayload,
 )
 
@@ -1885,15 +1894,33 @@ def _create_registered_model():
     )
     response_message = CreateRegisteredModel.Response(registered_model=registered_model.to_proto())
 
-    deliver_webhook(
-        event=WebhookEvent(WebhookEntity.REGISTERED_MODEL, WebhookAction.CREATED),
-        payload=RegisteredModelCreatedPayload(
-            name=request_message.name,
-            tags={t.key: t.value for t in request_message.tags},
-            description=request_message.description,
-        ),
-        store=store,
-    )
+    # Determine if this is a prompt based on the tags
+    if _is_prompt_request(request_message):
+        # Send prompt creation webhook
+        deliver_webhook(
+            event=WebhookEvent(WebhookEntity.PROMPT, WebhookAction.CREATED),
+            payload=PromptCreatedPayload(
+                name=request_message.name,
+                tags={
+                    t.key: t.value
+                    for t in request_message.tags
+                    if t.key not in {IS_PROMPT_TAG_KEY, PROMPT_TYPE_TAG_KEY}
+                },
+                description=request_message.description,
+            ),
+            store=store,
+        )
+    else:
+        # Send regular model creation webhook
+        deliver_webhook(
+            event=WebhookEvent(WebhookEntity.REGISTERED_MODEL, WebhookAction.CREATED),
+            payload=RegisteredModelCreatedPayload(
+                name=request_message.name,
+                tags={t.key: t.value for t in request_message.tags},
+                description=request_message.description,
+            ),
+            store=store,
+        )
 
     return _wrap_response(response_message)
 
@@ -2016,7 +2043,21 @@ def _set_registered_model_tag():
         },
     )
     tag = RegisteredModelTag(key=request_message.key, value=request_message.value)
-    _get_model_registry_store().set_registered_model_tag(name=request_message.name, tag=tag)
+    store = _get_model_registry_store()
+    store.set_registered_model_tag(name=request_message.name, tag=tag)
+
+    if _is_prompt(request_message.name):
+        # Send prompt tag set webhook
+        deliver_webhook(
+            event=WebhookEvent(WebhookEntity.PROMPT_TAG, WebhookAction.SET),
+            payload=PromptTagSetPayload(
+                name=request_message.name,
+                key=request_message.key,
+                value=request_message.value,
+            ),
+            store=store,
+        )
+
     return _wrap_response(SetRegisteredModelTag.Response())
 
 
@@ -2030,9 +2071,20 @@ def _delete_registered_model_tag():
             "key": [_assert_string, _assert_required],
         },
     )
-    _get_model_registry_store().delete_registered_model_tag(
-        name=request_message.name, key=request_message.key
-    )
+    store = _get_model_registry_store()
+    store.delete_registered_model_tag(name=request_message.name, key=request_message.key)
+
+    if _is_prompt(request_message.name):
+        # Send prompt tag deleted webhook
+        deliver_webhook(
+            event=WebhookEvent(WebhookEntity.PROMPT_TAG, WebhookAction.DELETED),
+            payload=PromptTagDeletedPayload(
+                name=request_message.name,
+                key=request_message.key,
+            ),
+            store=store,
+        )
+
     return _wrap_response(DeleteRegisteredModelTag.Response())
 
 
@@ -2176,7 +2228,28 @@ def _create_model_version():
         )
     response_message = CreateModelVersion.Response(model_version=model_version.to_proto())
 
-    if not is_prompt:
+    if is_prompt:
+        # Convert tags to dict and extract template text efficiently
+        tags_dict = {t.key: t.value for t in request_message.tags}
+        template_text = tags_dict.pop(PROMPT_TEXT_TAG_KEY, None)
+        # Remove internal prompt identification and type tags
+        tags_dict.pop(IS_PROMPT_TAG_KEY, None)
+        tags_dict.pop(PROMPT_TYPE_TAG_KEY, None)
+
+        # Send prompt version creation webhook
+        deliver_webhook(
+            event=WebhookEvent(WebhookEntity.PROMPT_VERSION, WebhookAction.CREATED),
+            payload=PromptVersionCreatedPayload(
+                name=request_message.name,
+                version=str(model_version.version),
+                template=template_text,
+                tags=tags_dict,
+                description=request_message.description or None,
+            ),
+            store=store,
+        )
+    else:
+        # Send regular model version creation webhook
         deliver_webhook(
             event=WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED),
             payload=ModelVersionCreatedPayload(
@@ -2363,7 +2436,20 @@ def _set_model_version_tag():
     store = _get_model_registry_store()
     store.set_model_version_tag(name=request_message.name, version=request_message.version, tag=tag)
 
-    if not _is_prompt(request_message.name):
+    if _is_prompt(request_message.name):
+        # Send prompt version tag set webhook
+        deliver_webhook(
+            event=WebhookEvent(WebhookEntity.PROMPT_VERSION_TAG, WebhookAction.SET),
+            payload=PromptVersionTagSetPayload(
+                name=request_message.name,
+                version=request_message.version,
+                key=request_message.key,
+                value=request_message.value,
+            ),
+            store=store,
+        )
+    else:
+        # Send regular model version tag set webhook
         deliver_webhook(
             event=WebhookEvent(WebhookEntity.MODEL_VERSION_TAG, WebhookAction.SET),
             payload=ModelVersionTagSetPayload(
@@ -2396,7 +2482,19 @@ def _delete_model_version_tag():
         key=request_message.key,
     )
 
-    if not _is_prompt(request_message.name):
+    if _is_prompt(request_message.name):
+        # Send prompt version tag deleted webhook
+        deliver_webhook(
+            event=WebhookEvent(WebhookEntity.PROMPT_VERSION_TAG, WebhookAction.DELETED),
+            payload=PromptVersionTagDeletedPayload(
+                name=request_message.name,
+                version=request_message.version,
+                key=request_message.key,
+            ),
+            store=store,
+        )
+    else:
+        # Send regular model version tag deleted webhook
         deliver_webhook(
             event=WebhookEvent(WebhookEntity.MODEL_VERSION_TAG, WebhookAction.DELETED),
             payload=ModelVersionTagDeletedPayload(
@@ -2428,7 +2526,19 @@ def _set_registered_model_alias():
         version=request_message.version,
     )
 
-    if not _is_prompt(request_message.name):
+    if _is_prompt(request_message.name):
+        # Send prompt alias created webhook
+        deliver_webhook(
+            event=WebhookEvent(WebhookEntity.PROMPT_ALIAS, WebhookAction.CREATED),
+            payload=PromptAliasCreatedPayload(
+                name=request_message.name,
+                alias=request_message.alias,
+                version=request_message.version,
+            ),
+            store=store,
+        )
+    else:
+        # Send regular model version alias created webhook
         deliver_webhook(
             event=WebhookEvent(WebhookEntity.MODEL_VERSION_ALIAS, WebhookAction.CREATED),
             payload=ModelVersionAliasCreatedPayload(
@@ -2455,7 +2565,18 @@ def _delete_registered_model_alias():
     store = _get_model_registry_store()
     store.delete_registered_model_alias(name=request_message.name, alias=request_message.alias)
 
-    if not _is_prompt(request_message.name):
+    if _is_prompt(request_message.name):
+        # Send prompt alias deleted webhook
+        deliver_webhook(
+            event=WebhookEvent(WebhookEntity.PROMPT_ALIAS, WebhookAction.DELETED),
+            payload=PromptAliasDeletedPayload(
+                name=request_message.name,
+                alias=request_message.alias,
+            ),
+            store=store,
+        )
+    else:
+        # Send regular model version alias deleted webhook
         deliver_webhook(
             event=WebhookEvent(WebhookEntity.MODEL_VERSION_ALIAS, WebhookAction.DELETED),
             payload=ModelVersionAliasDeletedPayload(
