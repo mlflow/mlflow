@@ -294,16 +294,3 @@ def delete_prompt_version_tag(name: str, version: str | int, key: str) -> None:
     """
     with suppress_genai_migration_warning():
         return registry_api.delete_prompt_version_tag(name=name, version=version, key=key)
-
-
-@experimental(version="3.0.0")
-@require_prompt_registry
-def get_prompt_version_tags(name: str, version: str | int) -> str:
-    """Get a tag from a prompt version in the MLflow Prompt Registry.
-
-    Args:
-        name: The name of the prompt.
-        version: The version of the prompt.
-    """
-    with suppress_genai_migration_warning():
-        return registry_api.get_prompt_version_tags(name=name, version=version)

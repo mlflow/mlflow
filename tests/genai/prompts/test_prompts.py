@@ -27,7 +27,7 @@ def test_suppress_prompt_api_migration_warning():
         mlflow.genai.get_prompt_tags("test_prompt")
         mlflow.genai.delete_prompt_tag("test_prompt", "key")
         mlflow.genai.set_prompt_version_tag("test_prompt", 1, "key", "value")
-        mlflow.genai.get_prompt_version_tags("test_prompt", 1)
+        mlflow.genai.load_prompt("test_prompt", version=1).tags
         mlflow.genai.delete_prompt_version_tag("test_prompt", 1, "key")
 
 
@@ -280,12 +280,13 @@ def test_set_and_delete_prompt_tag_genai():
     mlflow.genai.set_prompt_tag("tag_prompt", "env", "prod")
     mlflow.genai.set_prompt_version_tag("tag_prompt", 1, "env", "prod")
     assert mlflow.genai.get_prompt_tags("tag_prompt") == {"env": "prod"}
-    assert mlflow.genai.get_prompt_version_tags("tag_prompt", 1) == {"env": "prod"}
+    assert mlflow.genai.load_prompt("tag_prompt", version=1).tags == {"env": "prod"}
     mlflow.genai.delete_prompt_tag("tag_prompt", "env")
     assert "env" not in mlflow.genai.get_prompt_tags("tag_prompt")
     mlflow.genai.delete_prompt_version_tag("tag_prompt", 1, "env")
-    assert "env" not in mlflow.genai.get_prompt_version_tags("tag_prompt", 1)
-    
+    assert "env" not in mlflow.genai.load_prompt("tag_prompt", version=1).tags
+
+
 @pytest.mark.parametrize(
     ("prompt_template", "values", "expected"),
     [

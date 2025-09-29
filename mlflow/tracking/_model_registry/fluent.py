@@ -922,6 +922,9 @@ def set_prompt_tag(name: str, key: str, value: str) -> None:
     )
 
     MlflowClient().set_prompt_tag(name=name, key=key, value=value)
+    # Clear the prompt cache so subsequent mlflow.load_prompt(...).tags calls see the
+    # updated metadata within this process.
+    _load_prompt_cached.cache_clear()
 
 
 @require_prompt_registry
@@ -939,6 +942,7 @@ def delete_prompt_tag(name: str, key: str) -> None:
     )
 
     MlflowClient().delete_prompt_tag(name=name, key=key)
+    _load_prompt_cached.cache_clear()
 
 
 @require_prompt_registry
@@ -958,6 +962,7 @@ def set_prompt_version_tag(name: str, version: int, key: str, value: str) -> Non
     )
 
     MlflowClient().set_prompt_version_tag(name=name, version=version, key=key, value=value)
+    _load_prompt_cached.cache_clear()
 
 
 @require_prompt_registry
@@ -976,20 +981,4 @@ def delete_prompt_version_tag(name: str, version: int, key: str) -> None:
     )
 
     MlflowClient().delete_prompt_version_tag(name=name, version=version, key=key)
-
-
-@require_prompt_registry
-def get_prompt_version_tags(name: str, version: int) -> str:
-    """Get a tag from a prompt version in the MLflow Prompt Registry.
-
-    Args:
-        name: The name of the prompt.
-        version: The version of the prompt.
-    """
-    warnings.warn(
-        PROMPT_API_MIGRATION_MSG.format(func_name="get_prompt_version_tag"),
-        category=FutureWarning,
-        stacklevel=3,
-    )
-
-    return MlflowClient().get_prompt_version_tags(name=name, version=version)
+    _load_prompt_cached.cache_clear()

@@ -5805,36 +5805,6 @@ class MlflowClient:
         registry_client = self._get_registry_client()
         return registry_client.get_prompt_version(name, version)
 
-    @experimental(version="3.3.0")
-    @require_prompt_registry
-    @translate_prompt_exception
-    def get_prompt_version_tags(self, name: str, version: str | int) -> dict[str, str]:
-        """
-        Get a specific prompt version tags.
-
-        This method delegates directly to the store, providing full Unity Catalog support
-        when used with Unity Catalog registries.
-
-        Args:
-            name: Name of the prompt.
-            version: Version of the prompt (number or alias).
-
-        Returns:
-            A dictionary of tags for the specific version.
-
-        Example:
-
-        .. code-block:: python
-
-            from mlflow import MlflowClient
-
-            client = MlflowClient()
-            tags = client.get_prompt_version_tags("my_prompt", "1")
-            print(tags)
-        """
-        registry_client = self._get_registry_client()
-        return registry_client.get_prompt_version(name, version).tags
-
     @experimental(version="3.0.0")
     @require_prompt_registry
     @translate_prompt_exception
