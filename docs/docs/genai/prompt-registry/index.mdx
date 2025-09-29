@@ -303,12 +303,12 @@ import mlflow
 
 # Prompt-level tag operations
 mlflow.genai.set_prompt_tag("summarization-prompt", "language", "en")
-mlflow.genai.get_prompt_tag("summarization-prompt", "language")
+mlflow.genai.get_prompt_tags("summarization-prompt")
 mlflow.genai.delete_prompt_tag("summarization-prompt", "language")
 
 # Prompt-version tag operations
 mlflow.genai.set_prompt_version_tag("summarization-prompt", 1, "author", "alice")
-mlflow.genai.get_prompt_version_tag("summarization-prompt", 1, "author")
+mlflow.genai.load_prompt("prompts:/summarization-prompt/1").tags
 mlflow.genai.delete_prompt_version_tag("summarization-prompt", 1, "author")
 ```
 

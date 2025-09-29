@@ -228,7 +228,7 @@ def delete_prompt_alias(name: str, alias: str) -> None:
         return registry_api.delete_prompt_alias(name=name, alias=alias)
 
 
-@experimental(version="3.0.0")
+@experimental(version="3.5.0")
 @require_prompt_registry
 def get_prompt_tags(name: str) -> Prompt:
     """Get a prompt's metadata from the MLflow Prompt Registry.
@@ -240,7 +240,7 @@ def get_prompt_tags(name: str) -> Prompt:
         return registry_api.get_prompt(name=name).tags
 
 
-@experimental(version="3.0.0")
+@experimental(version="3.5.0")
 @require_prompt_registry
 def set_prompt_tag(name: str, key: str, value: str) -> None:
     """Set a tag on a prompt in the MLflow Prompt Registry.
@@ -254,7 +254,7 @@ def set_prompt_tag(name: str, key: str, value: str) -> None:
         return registry_api.set_prompt_tag(name=name, key=key, value=value)
 
 
-@experimental(version="3.0.0")
+@experimental(version="3.5.0")
 @require_prompt_registry
 def delete_prompt_tag(name: str, key: str) -> None:
     """Delete a tag from a prompt in the MLflow Prompt Registry.
@@ -267,7 +267,7 @@ def delete_prompt_tag(name: str, key: str) -> None:
         return registry_api.delete_prompt_tag(name=name, key=key)
 
 
-@experimental(version="3.0.0")
+@experimental(version="3.5.0")
 @require_prompt_registry
 def set_prompt_version_tag(name: str, version: str | int, key: str, value: str) -> None:
     """Set a tag on a prompt version in the MLflow Prompt Registry.
@@ -282,7 +282,7 @@ def set_prompt_version_tag(name: str, version: str | int, key: str, value: str) 
         return registry_api.set_prompt_version_tag(name=name, version=version, key=key, value=value)
 
 
-@experimental(version="3.0.0")
+@experimental(version="3.5.0")
 @require_prompt_registry
 def delete_prompt_version_tag(name: str, version: str | int, key: str) -> None:
     """Delete a tag from a prompt version in the MLflow Prompt Registry.
