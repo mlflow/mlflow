@@ -44,13 +44,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
             SessionMaker, self.db_type
         )
 
-    def create_job(
-        self,
-        function_fullname: str,
-        params: str,
-        timeout: float | None = None,
-        env_vars: str | None = None,
-    ) -> Job:
+    def create_job(self, function_fullname: str, params: str, timeout: float | None = None) -> Job:
         """
         Create a new job with the specified function and parameters.
 
@@ -58,7 +52,6 @@ class SqlAlchemyJobStore(AbstractJobStore):
             function_fullname: The full name of the function to execute
             params: The job parameters that are serialized as a JSON string
             timeout: The job execution timeout in seconds
-            env_vars: The job environment variables that are serialized as a JSON string
 
         Returns:
             Job entity instance

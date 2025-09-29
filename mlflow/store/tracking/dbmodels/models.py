@@ -1981,11 +1981,6 @@ class SqlJob(Base):
     Job retry count: `Integer`
     """
 
-    env_vars = Column(Text, nullable=True)
-    """
-    Job environment variables: `Text`.
-    """
-
     __table_args__ = (
         PrimaryKeyConstraint("id", name="jobs_pk"),
         Index(
@@ -2018,5 +2013,4 @@ class SqlJob(Base):
             status=JobStatus.from_int(self.status),
             result=self.result,
             retry_count=self.retry_count,
-            env_vars=self.env_vars,
         )

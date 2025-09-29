@@ -35,54 +35,19 @@ class JobFunctionMetadata:
     python_env: _PythonEnv | None
 
 
-def job_function(
-    max_workers: int,
-    python_version: str | None = None,
-    pip_requirements: list[str] | None = None,
-):
+def job_function(max_workers: int):
     """
-    The decorator for the custom job function.
+    The decorator for the custom job function for setting max parallel workers that
+    the job function can use.
 
     Args:
         max_workers: The maximum number of workers that are allowed to run the jobs
             using this job function.
-        python_version: (optional) The required python version to run the job function
-        pip_requirements: (optional) The required pip requirements to run the job function,
-            relative file references such as "-r requirements.txt" are not supported.
     """
-    from mlflow.utils import PYTHON_VERSION
-    from mlflow.version import VERSION
-
-    if not python_version and not pip_requirements:
-        python_env = None
-
-    else:
-        python_version = python_version or PYTHON_VERSION
-        try:
-            pip_requirements = [
-                req.req_str for req in _parse_requirements(pip_requirements, is_constraint=False)
-            ]
-        except Exception as e:
-            raise MlflowException.invalid_parameter_value(
-                f"Invalid pip_requirements for job function: {pip_requirements}, "
-                f"parsing error: {e!r}"
-            )
-        if mlflow_home := os.environ.get("MLFLOW_HOME"):
-            # Append MLflow dev version dependency (for testing)
-            pip_requirements += [mlflow_home]
-        else:
-            pip_requirements += [f"mlflow=={VERSION}"]
-
-        python_env = _PythonEnv(
-            python=python_version,
-            dependencies=pip_requirements,
-        )
-
     def decorator(fn):
         fn._job_fn_metadata = JobFunctionMetadata(
             fn_fullname=f"{fn.__module__}.{fn.__name__}",
             max_workers=max_workers,
-            python_env=python_env,
         )
         return fn
 
@@ -93,7 +58,6 @@ def submit_job(
     function: Callable[..., Any],
     params: dict[str, Any],
     timeout: float | None = None,
-    env_vars: dict[str, str] | None = None,
 ) -> Job:
     """
     Submit a job to the job queue. The job is executed at most once.
@@ -116,7 +80,6 @@ def submit_job(
             The function must be decorated by `mlflow.server.jobs.job_function` decorator.
         params: The params to be passed to the job function.
         timeout: (optional) The job execution timeout, default None (no timeout)
-        env_vars: (optional) The extra environment variables for the job execution.
 
     Returns:
         The job entity. You can call `get_job` API by the job id to get
@@ -147,8 +110,7 @@ def submit_job(
 
     job_store = _get_job_store()
     serialized_params = json.dumps(params)
-    serialized_env_vars = json.dumps(env_vars) if env_vars else None
-    job = job_store.create_job(func_fullname, serialized_params, timeout, serialized_env_vars)
+    job = job_store.create_job(func_fullname, serialized_params, timeout)
 
     # enqueue job
     _get_or_init_huey_instance(func_fullname).submit_task(
@@ -156,7 +118,6 @@ def submit_job(
         function,
         params,
         timeout,
-        env_vars,
     )
 
     return job

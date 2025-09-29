@@ -401,49 +401,6 @@ def test_job_timeout(monkeypatch, tmp_path):
         assert job.retry_count == 0
 
 
-@job_function(max_workers=1)
-def check_env_var_fn(expected_env_vars: dict[str, str]):
-    for env_name, env_val in expected_env_vars.items():
-        assert os.environ[env_name] == env_val
-
-
-def test_job_with_env_vars(monkeypatch, tmp_path):
-    env_vars = {"TEST_ENV1": "ab", "TEST_ENV2": "123"}
-    with _setup_job_runner(monkeypatch, tmp_path):
-        job_id = submit_job(
-            check_env_var_fn,
-            {"expected_env_vars": env_vars},
-            env_vars=env_vars,
-        ).job_id
-        wait_job_finalize(job_id, timeout=15)
-        job = get_job(job_id)
-        assert job.status == JobStatus.SUCCEEDED
-
-
-@job_function(
-    max_workers=1,
-    python_version="3.11.9",
-    pip_requirements=["openai==1.108.2", "pytest<9"],
-)
-def check_python_env_fn():
-    import openai
-
-    from mlflow.utils import PYTHON_VERSION
-
-    assert PYTHON_VERSION == "3.11.9"
-    assert openai.__version__ == "1.108.2"
-
-
-def test_job_with_python_env(monkeypatch, tmp_path):
-    monkeypatch.setenv("MLFLOW_HOME", dirname(dirname(dirname(dirname(__file__)))))
-
-    with _setup_job_runner(monkeypatch, tmp_path):
-        job_id = submit_job(check_python_env_fn, params={}).job_id
-        wait_job_finalize(job_id, timeout=300)
-        job = get_job(job_id)
-        assert job.status == JobStatus.SUCCEEDED
-
-
 def test_list_job_pagination(monkeypatch, tmp_path):
     import mlflow.store.jobs.sqlalchemy_store
 

@@ -117,9 +117,7 @@ def _start_huey_consumer_proc(
 def _exec_job_in_subproc(
     function_fullname: str,
     params: dict[str, Any],
-    python_env: _PythonEnv | None,
     timeout: float | None,
-    env_vars: dict[str, str] | None,
     tmpdir: str,
 ) -> JobResult | None:
     """
@@ -127,48 +125,13 @@ def _exec_job_in_subproc(
     If the job execution time exceeds timeout, the subprocess is killed and return None,
     otherwise return `JobResult` instance,
     """
-    from mlflow.utils.process import _exec_cmd, _join_commands
-    from mlflow.utils.virtualenv import (
-        _get_mlflow_virtualenv_root,
-        _get_uv_env_creation_command,
-        _get_virtualenv_activate_cmd,
-        _get_virtualenv_extra_env_vars,
-        _get_virtualenv_name,
-    )
+    from mlflow.utils.process import _exec_cmd
 
     job_entry_module = "mlflow.server.jobs._job_subproc_entry"
 
-    if python_env is not None:
-        # set up virtual python environment
-        virtual_envs_root_path = Path(_get_mlflow_virtualenv_root())
-        env_name = _get_virtualenv_name(python_env, None)
-        env_dir = virtual_envs_root_path / env_name
-        activate_cmd = _get_virtualenv_activate_cmd(env_dir)
-
-        if not env_dir.exists():
-            # create python environment
-            env_creation_cmd = _get_uv_env_creation_command(env_dir, python_env.python)
-            _exec_cmd(env_creation_cmd, capture_output=False)
-
-            # install dependencies
-            tmp_req_file = "requirements.txt"
-            (Path(tmpdir) / tmp_req_file).write_text("\n".join(python_env.dependencies))
-            cmd = _join_commands(activate_cmd, f"uv pip install -r {tmp_req_file}")
-            _exec_cmd(
-                cmd,
-                cwd=tmpdir,
-                extra_env=_get_virtualenv_extra_env_vars(),
-                capture_output=False,
-            )
-        else:
-            _logger.info(f"The python environment {env_dir} already exists.")
-
-        job_cmd = _join_commands(activate_cmd, f"exec python -m {job_entry_module}")
-    else:
-        job_cmd = [sys.executable, "-m", job_entry_module]
+    job_cmd = [sys.executable, "-m", job_entry_module]
 
     result_file = str(Path(tmpdir) / "result.json")
-    env_vars = env_vars or {}
     with _exec_cmd(
         job_cmd,
         synchronous=False,
@@ -176,7 +139,6 @@ def _exec_job_in_subproc(
             "_MLFLOW_SERVER_JOB_PARAMS": json.dumps(params),
             "_MLFLOW_SERVER_JOB_FUNCTION_FULLNAME": function_fullname,
             "_MLFLOW_SERVER_JOB_RESULT_DUMP_PATH": result_file,
-            **env_vars,
         },
         capture_output=False,
     ) as popen:

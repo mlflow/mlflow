@@ -20,7 +20,6 @@ class Job(_MlflowObject):
         status: JobStatus,
         result: str | None,
         retry_count: int = 0,
-        env_vars: str | None = None,
     ):
         super().__init__()
         self._job_id = job_id
@@ -31,7 +30,6 @@ class Job(_MlflowObject):
         self._status = status
         self._result = result
         self._retry_count = retry_count
-        self._env_vars = env_vars
 
     @property
     def job_id(self) -> str:
@@ -97,15 +95,6 @@ class Job(_MlflowObject):
     def retry_count(self) -> int:
         """Integer containing the job retry count"""
         return self._retry_count
-
-    @property
-    def env_vars(self) -> str | None:
-        """
-        String containing the job environment variables in JSON format.
-        For example, `{"PATH": "/usr/bin", "PYTHONPATH": "/opt/mlflow"}` represents
-        environment variables to be set when executing the job.
-        """
-        return self._env_vars
 
     def __repr__(self) -> str:
         return f"<Job(job_id={self.job_id}, function_fullname={self.function_fullname})>"
