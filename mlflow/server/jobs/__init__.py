@@ -11,8 +11,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.server.handlers import _get_job_store
 
 from mlflow.utils.environment import _PythonEnv
-from mlflow.utils.requirements_utils import _parse_requirements, _Requirement
-from packaging.version import Version
+from mlflow.utils.requirements_utils import _parse_requirements
 
 
 _logger = logging.getLogger(__name__)

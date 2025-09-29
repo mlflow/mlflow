@@ -5,6 +5,7 @@ import json
 import logging
 import multiprocessing
 import os
+import subprocess
 from pathlib import Path
 import shutil
 import signal
@@ -128,19 +129,18 @@ def _exec_job_in_subproc(
     If the job execution time exceeds timeout, the subprocess is killed and return None,
     otherwise return `JobResult` instance,
     """
+    from mlflow.utils.process import _exec_cmd, _join_commands
+    from mlflow.utils.virtualenv import (
+        _get_virtualenv_name,
+        _get_uv_env_creation_command,
+        _get_mlflow_virtualenv_root,
+        _get_virtualenv_activate_cmd,
+        _get_virtualenv_extra_env_vars,
+    )
 
     job_entry_module = "mlflow.server.jobs._job_subproc_entry"
 
     if python_env is not None:
-        from mlflow.utils.process import _exec_cmd, _join_commands
-        from mlflow.utils.virtualenv import (
-            _get_virtualenv_name,
-            _get_uv_env_creation_command,
-            _get_mlflow_virtualenv_root,
-            _get_virtualenv_activate_cmd,
-            _get_virtualenv_extra_env_vars,
-        )
-
         # set up virtual python environment
         virtual_envs_root_path = Path(_get_mlflow_virtualenv_root())
         env_name = _get_virtualenv_name(python_env, None)
@@ -149,14 +149,18 @@ def _exec_job_in_subproc(
 
         if not env_dir.exists():
             # create python environment
-            env_creation_cmd = _get_uv_env_creation_command(env_dir, python_env.python_version)
-            _exec_cmd(env_creation_cmd)
+            env_creation_cmd = _get_uv_env_creation_command(env_dir, python_env.python)
+            _exec_cmd(env_creation_cmd, capture_output=False)
 
             # install dependencies
             tmp_req_file = f"requirements.txt"
             (Path(tmpdir) / tmp_req_file).write_text("\n".join(python_env.dependencies))
             cmd = _join_commands(activate_cmd, f"uv pip install -r {tmp_req_file}")
-            _exec_cmd(cmd, cwd=tmpdir, extra_env=_get_virtualenv_extra_env_vars())
+            _exec_cmd(
+                cmd, cwd=tmpdir,
+                extra_env=_get_virtualenv_extra_env_vars(),
+                capture_output=False,
+            )
         else:
             _logger.info(f"The python environment {env_dir} already exists.")
 
@@ -166,20 +170,26 @@ def _exec_job_in_subproc(
 
     result_file = str(Path(tmpdir) / "result.json")
     env_vars = env_vars or {}
-    with _exec_cmd(job_cmd, synchronous=False, extra_env={
-        "_MLFLOW_SERVER_JOB_PARAMS": json.dumps(params),
-        "_MLFLOW_SERVER_JOB_FUNCTION_FULLNAME": function_fullname,
-        "_MLFLOW_SERVER_JOB_RESULT_DUMP_PATH": result_file,
-        **env_vars,
-    }) as popen:
-        popen.wait(timeout=timeout)
-        if popen.returncode is None:
-            # The subprocess is still alive when timeout.
-            # kill it.
+    with _exec_cmd(
+        job_cmd,
+        synchronous=False,
+        extra_env={
+            "_MLFLOW_SERVER_JOB_PARAMS": json.dumps(params),
+            "_MLFLOW_SERVER_JOB_FUNCTION_FULLNAME": function_fullname,
+            "_MLFLOW_SERVER_JOB_RESULT_DUMP_PATH": result_file,
+            **env_vars,
+        },
+        capture_output=False,
+    ) as popen:
+        try:
+            popen.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
             popen.kill()
             return None
-        elif popen.returncode == 0:
+
+        if popen.returncode == 0:
             return JobResult.load(result_file)
+
         return JobResult.from_error(
             RuntimeError(
                 f"The subprocess that executes job function {function_fullname} "
