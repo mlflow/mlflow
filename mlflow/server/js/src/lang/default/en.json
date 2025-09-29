@@ -1866,6 +1866,10 @@
     "defaultMessage": "Filters{numFilters}",
     "description": "Evaluation review > evaluations list > filter dropdown button"
   },
+  "JCOE3Q": {
+    "defaultMessage": "View all child runs in the experiment page",
+    "description": "Run page > Overview > Child runs link"
+  },
   "JCboZ7": {
     "defaultMessage": "Path copied",
     "description": "Tooltip displayed after experiment path was successfully copied to clipboard"
@@ -5390,10 +5394,6 @@
   "wrNl6F": {
     "defaultMessage": "Preview",
     "description": "Label for the preview mode on the registered prompt details page"
-  },
-  "wtpLvY": {
-    "defaultMessage": "Load more",
-    "description": "Run page > Overview > Child runs load more"
   },
   "wusz4l": {
     "defaultMessage": "Input",

@@ -3,8 +3,7 @@ import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { RunViewChildRunsBox } from './RunViewChildRunsBox';
 import { MlflowService } from '../../../sdk/MlflowService';
-import userEvent from '@testing-library/user-event';
-import type { RunInfoEntity } from '../../../types';
+import { EXPERIMENT_PARENT_ID_TAG } from '../../experiment-page/utils/experimentPage.common-utils';
 
 jest.mock('../../../sdk/MlflowService', () => ({
   MlflowService: {
@@ -14,17 +13,6 @@ jest.mock('../../../sdk/MlflowService', () => ({
 
 const experimentId = 'exp-id';
 const parentRunUuid = 'parent-run';
-
-const createRunInfo = (runUuid: string, runName: string): RunInfoEntity => ({
-  artifactUri: '',
-  endTime: 0,
-  experimentId,
-  lifecycleStage: 'active',
-  runUuid,
-  runName,
-  startTime: 0,
-  status: 'FINISHED',
-});
 
 describe('RunViewChildRunsBox', () => {
   const renderComponent = () =>
@@ -40,9 +28,23 @@ describe('RunViewChildRunsBox', () => {
     jest.mocked(MlflowService.searchRuns).mockReset();
   });
 
-  test('renders loading state and displays child runs', async () => {
+  test('renders loading state and displays link to experiment page', async () => {
     jest.mocked(MlflowService.searchRuns).mockResolvedValueOnce({
-      runs: [{ info: createRunInfo('child-1', 'Child run 1'), data: { metrics: [], params: [], tags: [] } }],
+      runs: [
+        {
+          info: {
+            artifactUri: '',
+            endTime: 0,
+            experimentId,
+            lifecycleStage: 'active',
+            runUuid: parentRunUuid,
+            runName: 'Parent run',
+            startTime: 0,
+            status: 'FINISHED',
+          },
+          data: { tags: [{ key: EXPERIMENT_PARENT_ID_TAG, value: parentRunUuid }], params: [], metrics: [] },
+        },
+      ],
       next_page_token: undefined,
     });
 
@@ -50,8 +52,9 @@ describe('RunViewChildRunsBox', () => {
 
     expect(screen.getByText('Child runs loading')).toBeInTheDocument();
 
-    const link = await screen.findByRole('link', { name: 'Child run 1' });
-    expect(link).toHaveAttribute('href', `/experiments/${experimentId}/runs/child-1`);
+    const expectedFilter = encodeURIComponent(`tags.\`${EXPERIMENT_PARENT_ID_TAG}\` = '${parentRunUuid}'`);
+    const link = await screen.findByRole('link', { name: 'View all child runs in the experiment page' });
+    expect(link).toHaveAttribute('href', `/experiments/${experimentId}/runs?searchFilter=${expectedFilter}`);
     expect(screen.queryByText('Child runs loading')).not.toBeInTheDocument();
   });
 
@@ -69,32 +72,5 @@ describe('RunViewChildRunsBox', () => {
     renderComponent();
 
     expect(await screen.findByText('—')).toBeInTheDocument();
-  });
-
-  test('loads more runs when clicking the Load more button', async () => {
-    jest
-      .mocked(MlflowService.searchRuns)
-      .mockResolvedValueOnce({
-        runs: [{ info: createRunInfo('child-1', 'Child run 1'), data: { metrics: [], params: [], tags: [] } }],
-        next_page_token: 'next-token',
-      })
-      .mockResolvedValueOnce({
-        runs: [{ info: createRunInfo('child-2', 'Child run 2'), data: { metrics: [], params: [], tags: [] } }],
-        next_page_token: undefined,
-      });
-
-    renderComponent();
-
-    expect(await screen.findByRole('link', { name: 'Child run 1' })).toBeInTheDocument();
-
-    const loadMore = screen.getByRole('button', { name: 'Load more' });
-    await userEvent.click(loadMore);
-
-    expect(await screen.findByRole('link', { name: 'Child run 2' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument();
-    expect(jest.mocked(MlflowService.searchRuns)).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({ page_token: 'next-token' }),
-    );
   });
 });
