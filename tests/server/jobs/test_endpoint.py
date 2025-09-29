@@ -50,7 +50,15 @@ def server_url(tmp_path_factory: pytest.TempPathFactory) -> str:
         start_new_session=True,  # new session & process group
     ) as server_proc:
         try:
-            time.sleep(10)  # wait for server to spin up
+            # wait server up.
+            while True:
+                time.sleep(1)
+                try:
+                    resp = requests.get(f"http://127.0.0.1:{port}/health")
+                except requests.ConnectionError:
+                    continue
+                if resp.status_code == 200:
+                    break
             yield f"http://127.0.0.1:{port}"
         finally:
             # NOTE that we need to kill subprocesses
