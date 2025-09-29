@@ -81,18 +81,29 @@ class TracingClient:
         """
         return self.store.start_trace(trace_info=trace_info)
 
-    def log_spans(self, experiment_id: str, spans: list[Span]) -> list[Span]:
+    def log_spans(self, location: str, spans: list[Span]) -> list[Span]:
         """
         Log spans to the backend.
 
         Args:
-            experiment_id: The experiment ID to log spans to.
+            location: The location to log spans to. It should either be an experiment ID or a
+                Unity Catalog table name.
             spans: List of Span objects to log.
 
         Returns:
             List of logged Span objects from the backend.
         """
-        return self.store.log_spans(experiment_id=experiment_id, spans=spans)
+        try:
+            return self.store.log_spans(
+                location=location,
+                spans=spans,
+                tracking_uri=self.tracking_uri if is_databricks_uri(self.tracking_uri) else None,
+            )
+        except Exception as e:
+            _logger.warning(
+                f"Failed to log span to location {location}: {e}",
+                exc_info=_logger.isEnabledFor(logging.DEBUG),
+            )
 
     def delete_traces(
         self,

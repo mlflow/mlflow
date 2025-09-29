@@ -30,6 +30,7 @@ from mlflow.tracing.config import reset_config
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.destination import (
     Databricks,
+    DatabricksUnityCatalog,
     MlflowExperiment,
     TraceDestination,
     UserTraceDestinationRegistry,
@@ -223,7 +224,7 @@ def set_destination(destination: TraceDestination, *, context_local: bool = Fals
             "The destination must be an instance of TraceDestination."
         )
 
-    if isinstance(destination, Databricks) and (
+    if isinstance(destination, (Databricks, DatabricksUnityCatalog)) and (
         mlflow.get_tracking_uri() is None or not mlflow.get_tracking_uri().startswith("databricks")
     ):
         mlflow.set_tracking_uri("databricks")
@@ -352,16 +353,25 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
     #  2. They can register their implementation to the registry via entry points.
     #  3. MLflow will pick the implementation based on given destination id.
     trace_destination = _MLFLOW_TRACE_USER_DESTINATION.get()
-    if trace_destination and isinstance(trace_destination, (MlflowExperiment, Databricks)):
-        if is_in_databricks_model_serving_environment():
-            _logger.info(
-                "Traces will be sent to the destination set by `mlflow.tracing.set_destination` "
-                "API. To enable saving traces to both MLflow experiment and inference table, "
-                "remove this API call from your model and set `MLFLOW_EXPERIMENT_ID` env var "
-                "instead."
-            )
-        processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
-        processors.append(processor)
+    if trace_destination:
+        # in PrPr, users must set the destination to DatabricksUnityCatalog to export traces to UC
+        if isinstance(trace_destination, DatabricksUnityCatalog):
+            from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
+            from mlflow.tracing.processor.uc_table import DatabricksUCTableSpanProcessor
+
+            exporter = DatabricksUCTableSpanExporter(tracking_uri=mlflow.get_tracking_uri())
+            processor = DatabricksUCTableSpanProcessor(span_exporter=exporter)
+            processors.append(processor)
+        elif isinstance(trace_destination, (MlflowExperiment, Databricks)):
+            if is_in_databricks_model_serving_environment():
+                _logger.info(
+                    "Traces will be sent to the destination set by `mlflow.tracing.set_destination`"
+                    " API. To enable saving traces to both MLflow experiment and inference table, "
+                    "remove this API call from your model and set `MLFLOW_EXPERIMENT_ID` env var "
+                    "instead."
+                )
+            processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
+            processors.append(processor)
     elif is_in_databricks_model_serving_environment():
         if not is_mlflow_tracing_enabled_in_model_serving():
             return processors

@@ -1,4 +1,9 @@
+import json
+import logging
+from typing import Any
+
 from google.protobuf.duration_pb2 import Duration
+from google.protobuf.json_format import MessageToDict
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from mlflow.entities import Assessment, Span, Trace, TraceData, TraceInfo
@@ -10,10 +15,15 @@ from mlflow.entities.trace_location import (
     TraceLocationType,
     UCSchemaLocation,
 )
-from mlflow.exceptions import MlflowException
 from mlflow.protos import assessments_pb2
 from mlflow.protos import databricks_tracing_pb2 as pb
-from mlflow.tracing.utils import construct_trace_id_v4, parse_trace_id_v4
+from mlflow.tracing.utils import (
+    TraceJSONEncoder,
+    construct_trace_id_v4,
+    parse_trace_id_v4,
+)
+
+_logger = logging.getLogger(__name__)
 
 
 def uc_schema_location_to_proto(uc_schema_location: UCSchemaLocation) -> pb.UCSchemaLocation:
@@ -136,6 +146,16 @@ def trace_info_to_proto(trace_info: TraceInfo) -> pb.TraceInfo:
     )
 
 
+def trace_info_to_dict(trace_info: TraceInfo) -> dict[str, Any]:
+    trace_info_dict = MessageToDict(
+        trace_info_to_proto(trace_info), preserving_proto_field_name=True
+    )
+    if trace_info.execution_duration is not None:
+        trace_info_dict.pop("execution_duration", None)
+        trace_info_dict["execution_duration_ms"] = trace_info.execution_duration
+    return trace_info_dict
+
+
 def trace_to_proto(trace: Trace) -> pb.Trace:
     return pb.Trace(
         trace_info=trace_info_to_proto(trace.info),
@@ -150,6 +170,11 @@ def trace_from_proto(proto: pb.Trace) -> Trace:
     )
 
 
+def trace_to_json(trace: Trace) -> str:
+    trace_dict = {"info": trace_info_to_dict(trace.info), "data": trace.data.to_dict()}
+    return json.dumps(trace_dict, cls=TraceJSONEncoder)
+
+
 def assessment_to_proto(assessment: Assessment) -> pb.Assessment:
     assessment_proto = pb.Assessment()
     assessment_proto.assessment_name = assessment.name
@@ -161,11 +186,6 @@ def assessment_to_proto(assessment: Assessment) -> pb.Assessment:
                 type=pb.TraceLocation.TraceLocationType.UC_SCHEMA,
                 uc_schema=pb.UCSchemaLocation(catalog_name=catalog, schema_name=schema),
             )
-        )
-    else:
-        raise MlflowException.invalid_parameter_value(
-            f"Invalid trace ID: {assessment.trace_id}. "
-            "Expected format: trace:/<catalog>.<schema>/<trace_id>"
         )
     assessment_proto.trace_id = trace_id
 

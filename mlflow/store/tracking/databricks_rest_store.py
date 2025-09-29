@@ -1,6 +1,8 @@
 import logging
 
-from mlflow.entities import Assessment, Trace, TraceInfo, TraceLocation
+from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
+
+from mlflow.entities import Assessment, Span, Trace, TraceInfo, TraceLocation
 from mlflow.entities.assessment import ExpectationValue, FeedbackValue
 from mlflow.entities.trace_location import UCSchemaLocation as UCSchemaLocationEntity
 from mlflow.environment_variables import (
@@ -31,6 +33,7 @@ from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
 from mlflow.tracing.utils import parse_trace_id_v4
+from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH
 from mlflow.utils.databricks_tracing_utils import (
     assessment_to_proto,
     trace_from_proto,
@@ -40,6 +43,7 @@ from mlflow.utils.databricks_tracing_utils import (
     uc_schema_location_from_proto,
     uc_schema_location_to_proto,
 )
+from mlflow.utils.databricks_utils import get_databricks_workspace_client_config
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
@@ -48,7 +52,11 @@ from mlflow.utils.rest_utils import (
     extract_api_info_for_service,
     get_single_assessment_endpoint_v4,
     get_single_trace_endpoint_v4,
+    http_request,
+    verify_rest_response,
 )
+
+DATABRICKS_UC_TABLE_HEADER = "X-Databricks-UC-Table-Name"
 
 _logger = logging.getLogger(__name__)
 
@@ -394,6 +402,46 @@ class DatabricksTracingRestStore(RestStore):
             endpoint=endpoint,
         )
         _logger.debug(f"Unlinked experiment {experiment_id} from trace location: {location}")
+
+    def log_spans(self, location: str, spans: list[Span], tracking_uri=None) -> list[Span]:
+        if not spans:
+            return []
+
+        if tracking_uri is None:
+            raise MlflowException(
+                "`tracking_uri` must be provided to log spans to with Databricks tracking server."
+            )
+
+        # TODO: check server version
+
+        endpoint = f"/api/2.0/tracing/otel{OTLP_TRACES_PATH}"
+        try:
+            config = get_databricks_workspace_client_config(tracking_uri)
+        except Exception as e:
+            raise MlflowException(
+                "Failed to log spans to UC table: could not identify Databricks workspace "
+                "configuration"
+            ) from e
+
+        request = ExportTraceServiceRequest()
+        resource_spans = request.resource_spans.add()
+        scope_spans = resource_spans.scope_spans.add()
+        scope_spans.spans.extend(span.to_otel_proto() for span in spans)
+
+        response = http_request(
+            host_creds=self.get_host_creds(),
+            endpoint=endpoint,
+            method="POST",
+            data=request.SerializeToString(),
+            extra_headers={
+                "Content-Type": "application/x-protobuf",
+                DATABRICKS_UC_TABLE_HEADER: location,
+                **config.authenticate(),
+            },
+        )
+
+        verify_rest_response(response, endpoint)
+        return spans
 
     def create_assessment(self, assessment: Assessment) -> Assessment:
         """

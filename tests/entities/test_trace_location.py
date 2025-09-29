@@ -87,3 +87,20 @@ def test_trace_location_from_proto_inference_table():
     trace_location = TraceLocation.from_proto(proto)
     assert trace_location.type == TraceLocationType.INFERENCE_TABLE
     assert trace_location.inference_table.full_table_name == "test_catalog.test_schema.test_table"
+
+
+def test_uc_schema_location_full_otel_spans_table_name():
+    uc_schema = UCSchemaLocation(
+        catalog_name="test_catalog",
+        schema_name="test_schema",
+        otel_spans_table_name="otel_spans",
+    )
+    assert uc_schema.full_otel_spans_table_name == "test_catalog.test_schema.otel_spans"
+
+
+def test_uc_schema_location_full_otel_spans_table_name_none():
+    uc_schema = UCSchemaLocation(
+        catalog_name="test_catalog",
+        schema_name="test_schema",
+    )
+    assert uc_schema.full_otel_spans_table_name is None

@@ -469,13 +469,15 @@ class AbstractStore:
         """
         raise NotImplementedError
 
-    def log_spans(self, experiment_id: str, spans: list[Span]) -> list[Span]:
+    def log_spans(self, location: str, spans: list[Span], tracking_uri=None) -> list[Span]:
         """
         Log multiple span entities to the tracking store.
 
         Args:
-            experiment_id: The experiment ID to log spans to.
+            location: The location to log spans to. Can be either experiment ID or the
+                full UC table name.
             spans: List of Span entities to log. All spans must belong to the same trace.
+            tracking_uri: The tracking URI to use. Default to None.
 
         Returns:
             List of logged Span entities.
@@ -485,12 +487,12 @@ class AbstractStore:
         """
         raise NotImplementedError
 
-    async def log_spans_async(self, experiment_id: str, spans: list[Span]) -> list[Span]:
+    async def log_spans_async(self, location: str, spans: list[Span]) -> list[Span]:
         """
         Asynchronously log multiple span entities to the tracking store.
 
         Args:
-            experiment_id: The experiment ID to log spans to.
+            location: The location to log spans to.
             spans: List of Span entities to log. All spans must belong to the same trace.
 
         Returns:

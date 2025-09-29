@@ -3771,11 +3771,11 @@ async def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, store_type
     if use_async:
         # Use await to execute the async method
         result_spans = await mlflow_client._tracking_client.store.log_spans_async(
-            experiment_id=experiment_id, spans=[mlflow_span_to_log]
+            location=experiment_id, spans=[mlflow_span_to_log]
         )
     else:
         result_spans = mlflow_client._tracking_client.store.log_spans(
-            experiment_id=experiment_id, spans=[mlflow_span_to_log]
+            location=experiment_id, spans=[mlflow_span_to_log]
         )
 
     # Verify the spans were returned (indicates successful logging)
