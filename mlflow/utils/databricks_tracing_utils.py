@@ -15,7 +15,6 @@ from mlflow.entities.trace_location import (
     TraceLocationType,
     UCSchemaLocation,
 )
-from mlflow.exceptions import MlflowException
 from mlflow.protos import assessments_pb2
 from mlflow.protos import databricks_tracing_pb2 as pb
 from mlflow.tracing.utils import (
@@ -187,11 +186,6 @@ def assessment_to_proto(assessment: Assessment) -> pb.Assessment:
                 type=pb.TraceLocation.TraceLocationType.UC_SCHEMA,
                 uc_schema=pb.UCSchemaLocation(catalog_name=catalog, schema_name=schema),
             )
-        )
-    else:
-        raise MlflowException.invalid_parameter_value(
-            f"Invalid trace ID: {assessment.trace_id}. "
-            "Expected format: trace:/<catalog>.<schema>/<trace_id>"
         )
     assessment_proto.trace_id = trace_id
 
