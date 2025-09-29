@@ -35,8 +35,8 @@ export const normalizeDspyChatOutput = (obj: unknown): ModelTraceChatMessage[] |
 
 // Markdown treats single newlines as spaces. For DSPy prompts that are plain text
 // we convert single newlines into hard line breaks while preserving paragraphs.
-// Only the single line break will bre updated, for example,
-// - "foo\nbar" -> "foo  \nbar" (a new line inserted)
+// Only the single line break will be updated, for example,
+// - "foo\nbar" -> "foo  \nbar" (two spaces inserted before \n)
 // - "foo\n\nbar" -> "foo\n\nbar" (no change)
 const toMarkdownWithHardBreaks = (text: string) =>
   text.replace(/\r\n/g, '\n').replace(/(^|[^\n])\n(?!\n)/g, (_m, p1) => `${p1}  \n`);
