@@ -302,11 +302,12 @@ def _validate_server_args(
         )
 
     using_flask_only = gunicorn_opts is not None or waitress_opts is not None
+    # NB: Only check for security params that actually require FastAPI/uvicorn
+    # X-Frame-Options is just a header that works with any server, so we don't include it
     security_params_specified = any(
         [
             allowed_hosts is not None,
             cors_allowed_origins is not None,
-            x_frame_options != "SAMEORIGIN" or "MLFLOW_X_FRAME_OPTIONS" in os.environ,
             disable_security_middleware is True,
         ]
     )
@@ -314,7 +315,7 @@ def _validate_server_args(
     if using_flask_only and security_params_specified:
         raise click.UsageError(
             "Security middleware parameters (--allowed-hosts, --cors-allowed-origins, "
-            "--x-frame-options, --disable-security-middleware) are only supported with "
+            "--disable-security-middleware) are only supported with "
             "the default uvicorn server. They cannot be used with --gunicorn-opts or "
             "--waitress-opts. To use security features, run without specifying a server "
             "option (uses uvicorn by default) or explicitly use --uvicorn-opts."
