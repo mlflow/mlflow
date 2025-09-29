@@ -674,12 +674,11 @@ def test_prompt_version_created(mlflow_client: MlflowClient, app_client: AppClie
     assert logs[0].payload == {
         "name": prompt.name,
         "version": "1",  # Version comes as string
-        "template": "prompt-template",
+        "template": "Hello {{name}}! How are you today?",
         "description": "test_prompt_version_description",
         "tags": {
             "version_tag": "v1",
             "_mlflow_prompt_type": "text",
-            "mlflow.prompt.text": "Hello {{name}}! How are you today?",
         },
     }
 

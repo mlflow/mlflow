@@ -48,6 +48,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
 from mlflow.models import Model
+from mlflow.prompt.constants import PROMPT_TEXT_TAG_KEY
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -2224,14 +2225,20 @@ def _create_model_version():
     response_message = CreateModelVersion.Response(model_version=model_version.to_proto())
 
     if is_prompt:
+        # Convert tags to dict and extract template text efficiently
+        tags_dict = {t.key: t.value for t in request_message.tags}
+        template_text = tags_dict.pop(PROMPT_TEXT_TAG_KEY, None)
+        # Remove internal prompt identification tag
+        tags_dict.pop(IS_PROMPT_TAG_KEY, None)
+
         # Send prompt version creation webhook
         deliver_webhook(
             event=WebhookEvent(WebhookEntity.PROMPT_VERSION, WebhookAction.CREATED),
             payload=PromptVersionCreatedPayload(
                 name=request_message.name,
                 version=str(model_version.version),
-                template=request_message.source,  # For prompts, source contains the template
-                tags={t.key: t.value for t in request_message.tags if t.key != IS_PROMPT_TAG_KEY},
+                template=template_text,
+                tags=tags_dict,
                 description=request_message.description or None,
             ),
             store=store,
