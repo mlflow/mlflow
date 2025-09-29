@@ -6,8 +6,7 @@ from clint.rules.redundant_test_docstring import RedundantTestDocstring
 
 
 def test_redundant_docstrings_are_flagged(index_path: Path) -> None:
-    code = '''import pytest
-
+    code = '''
 def test_feature_a():
     """
     This test verifies that feature A works correctly.
@@ -67,8 +66,7 @@ def test_foo_bar_baz():
 
 
 def test_class_docstrings_follow_same_rules(index_path: Path) -> None:
-    code = '''import pytest
-
+    code = '''
 class TestFeature:
     """
     Tests for the Feature module.
@@ -108,8 +106,7 @@ class TestFeature:
 
 
 def test_supports_test_suffix_files(index_path: Path) -> None:
-    code = '''import pytest
-
+    code = '''
 def test_feature_implementation():
     """Test feature."""
     assert True

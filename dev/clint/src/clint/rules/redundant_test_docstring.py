@@ -40,32 +40,17 @@ class RedundantTestDocstring(Rule):
             return None
 
         if (docstring := ast.get_docstring(node)) and cls._is_redundant_docstring(
-            docstring, node.name, cls._get_raw_docstring(node)
+            docstring, node.name
         ):
             return cls(node.name, has_class_docstring=is_class)
 
         return None
 
     @staticmethod
-    def _get_raw_docstring(
-        node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef,
-    ) -> str | None:
-        """Get the raw docstring value from a node."""
-        if (
-            node.body
-            and isinstance(node.body[0], ast.Expr)
-            and isinstance(node.body[0].value, ast.Constant)
-            and isinstance(node.body[0].value.value, str)
-        ):
-            return node.body[0].value.value
-        return None
-
-    @staticmethod
-    def _is_redundant_docstring(
-        docstring: str, function_name: str, raw_docstring: str | None
-    ) -> bool:
+    def _is_redundant_docstring(docstring: str, function_name: str) -> bool:
         """Check if a docstring is redundant based on length and word overlap with function name."""
-        if raw_docstring and "\n" in raw_docstring:
+        # Multi-line docstrings are always allowed
+        if "\n" in docstring:
             return False
 
         stripped = docstring.strip()
