@@ -5,10 +5,11 @@ Internal job APIs for UI invocation
 import json
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from mlflow.entities._job import Job as JobEntity
+from mlflow.exceptions import MlflowException
 
 job_api_router = APIRouter(prefix="/ajax-api/3.0/jobs", tags=["Job"])
 
@@ -28,7 +29,7 @@ class Job(BaseModel):
     retry_count: int
 
     @classmethod
-    def from_job_entity(cls, job: JobEntity):
+    def from_job_entity(cls, job: JobEntity) -> "Job":
         return cls(
             job_id=job.job_id,
             creation_time=job.creation_time,
@@ -42,10 +43,10 @@ class Job(BaseModel):
 
 
 @job_api_router.get("/{job_id}", response_model=Job)
-def query_job(job_id: str) -> Job:
-    from mlflow.server.jobs import query_job
+def get_job(job_id: str) -> Job:
+    from mlflow.server.jobs import get_job
 
-    job = query_job(job_id)
+    job = get_job(job_id)
     return Job.from_job_entity(job)
 
 
@@ -61,6 +62,12 @@ def submit_job(payload: SubmitJobPayload) -> Job:
     from mlflow.server.jobs.job_runner import _load_function
 
     function_fullname = payload.function_fullname
-    function = _load_function(function_fullname)
-    job = submit_job(function, payload.params, payload.timeout)
-    return Job.from_job_entity(job)
+    try:
+        function = _load_function(function_fullname)
+        job = submit_job(function, payload.params, payload.timeout)
+        return Job.from_job_entity(job)
+    except MlflowException as e:
+        raise HTTPException(
+            status_code=e.get_http_status_code(),
+            detail=e.message,
+        )
