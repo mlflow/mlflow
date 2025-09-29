@@ -40,7 +40,6 @@ from mlflow.environment_variables import (
     _MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE,
     _MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE,
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
-    MLFLOW_TRACING_SQL_WAREHOUSE_ID,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
@@ -64,7 +63,6 @@ from mlflow.protos.service_pb2 import (
     DeleteTag,
     DeleteTraces,
     DeleteTraceTag,
-    DeleteTraceTagV4,
     EndTrace,
     FinalizeLoggedModel,
     GetAssessmentRequest,
@@ -80,7 +78,6 @@ from mlflow.protos.service_pb2 import (
     GetScorer,
     GetTraceInfo,
     GetTraceInfoV3,
-    GetTraceInfoV4,
     LinkTracesToRun,
     ListScorers,
     ListScorerVersions,
@@ -107,7 +104,6 @@ from mlflow.protos.service_pb2 import (
     SetLoggedModelTags,
     SetTag,
     SetTraceTag,
-    SetTraceTagV4,
     StartTrace,
     StartTraceV3,
     TraceRequestMetadata,
@@ -121,7 +117,6 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
-from mlflow.tracing.utils import parse_trace_id_v4
 from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER, OTLP_TRACES_PATH
 from mlflow.utils.databricks_utils import databricks_api_disabled
 from mlflow.utils.proto_json_utils import message_to_json
@@ -134,7 +129,6 @@ from mlflow.utils.rest_utils import (
     get_logged_model_endpoint,
     get_single_assessment_endpoint,
     get_single_trace_endpoint,
-    get_single_trace_endpoint_v4,
     get_trace_tag_endpoint,
     http_request,
     verify_rest_response,
@@ -429,20 +423,6 @@ class RestStore(AbstractStore):
         Returns:
             The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
         """
-        location, trace_id = parse_trace_id_v4(trace_id)
-        if location is not None:
-            sql_warehouse_id = MLFLOW_TRACING_SQL_WAREHOUSE_ID.get()
-            trace_v4_req_body = message_to_json(
-                GetTraceInfoV4(
-                    trace_id=trace_id, location=location, sql_warehouse_id=sql_warehouse_id
-                )
-            )
-            endpoint = f"{get_single_trace_endpoint_v4(location, trace_id)}/info"
-            response_proto = self._call_endpoint(
-                GetTraceInfoV4, trace_v4_req_body, endpoint=endpoint
-            )
-            return TraceInfo.from_proto(response_proto.trace.trace_info)
-
         trace_v3_req_body = message_to_json(GetTraceInfoV3(trace_id=trace_id))
         trace_v3_endpoint = get_single_trace_endpoint(trace_id)
         try:
@@ -591,17 +571,6 @@ class RestStore(AbstractStore):
             key: The string key of the tag.
             value: The string value of the tag.
         """
-        location, trace_id = parse_trace_id_v4(trace_id)
-        if location is not None:
-            endpoint = f"{get_single_trace_endpoint_v4(location, trace_id)}/tags"
-            req_body = message_to_json(
-                SetTraceTagV4(
-                    key=key,
-                    value=value,
-                )
-            )
-            self._call_endpoint(SetTraceTagV4, req_body, endpoint=endpoint)
-            return
         # Always use v2 endpoint
         req_body = message_to_json(SetTraceTag(key=key, value=value))
         self._call_endpoint(SetTraceTag, req_body, endpoint=get_trace_tag_endpoint(trace_id))
@@ -614,14 +583,6 @@ class RestStore(AbstractStore):
             trace_id: The ID of the trace.
             key: The string key of the tag.
         """
-        location, trace_id = parse_trace_id_v4(trace_id)
-        if location is not None:
-            sql_warehouse_id = MLFLOW_TRACING_SQL_WAREHOUSE_ID.get()
-            endpoint = f"{get_single_trace_endpoint_v4(location, trace_id)}/tags/{key}"
-            req_body = message_to_json(DeleteTraceTagV4(sql_warehouse_id=sql_warehouse_id))
-            self._call_endpoint(DeleteTraceTagV4, req_body, endpoint=endpoint)
-            return
-
         # Always use v2 endpoint
         req_body = message_to_json(DeleteTraceTag(key=key))
         self._call_endpoint(DeleteTraceTag, req_body, endpoint=get_trace_tag_endpoint(trace_id))

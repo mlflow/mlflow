@@ -14,11 +14,13 @@ from mlflow.protos.databricks_tracing_pb2 import (
     CreateTrace,
     CreateTraceUCStorageLocation,
     DatabricksTrackingService,
+    DeleteTraceTag,
+    GetTraceInfo,
     GetTraces,
     LinkExperimentToUCTraceLocation,
     SearchTraces,
+    SetTraceTag,
     TraceIdentifier,
-    UCSchemaLocation,
     UnLinkExperimentToUCTraceLocation,
 )
 from mlflow.protos.service_pb2 import MlflowService, SearchUnifiedTraces
@@ -42,6 +44,7 @@ from mlflow.utils.rest_utils import (
     _V4_REST_API_PATH_PREFIX,
     _V4_TRACE_REST_API_PATH_PREFIX,
     extract_api_info_for_service,
+    get_single_trace_endpoint_v4,
     http_request,
     verify_rest_response,
 )
@@ -144,7 +147,9 @@ class DatabricksTracingRestStore(RestStore):
         match location.split("."):
             case [catalog, schema]:
                 return TraceIdentifier(
-                    uc_schema=UCSchemaLocation(catalog_name=catalog, schema_name=schema),
+                    trace_location=trace_location_to_proto(
+                        trace_location_from_databricks_uc_schema(catalog, schema)
+                    ),
                     trace_id=trace_id,
                 )
             case _:
@@ -152,6 +157,69 @@ class DatabricksTracingRestStore(RestStore):
                     f"Invalid trace_id format: {trace_identifier}, should be in the format of "
                     f"{TRACE_ID_V4_PREFIX}<catalog.schema>/<trace_id>"
                 )
+
+    def get_trace_info(self, trace_id: str) -> TraceInfo:
+        """
+        Get the trace info matching the `trace_id`.
+
+        Args:
+            trace_id: String id of the trace to fetch.
+
+        Returns:
+            The fetched ``mlflow.entities.TraceInfo`` object.
+        """
+        location, trace_id = parse_trace_id_v4(trace_id)
+        if location is not None:
+            sql_warehouse_id = MLFLOW_TRACING_SQL_WAREHOUSE_ID.get()
+            trace_v4_req_body = message_to_json(
+                GetTraceInfo(
+                    trace_id=trace_id, location=location, sql_warehouse_id=sql_warehouse_id
+                )
+            )
+            endpoint = f"{get_single_trace_endpoint_v4(location, trace_id)}/info"
+            response_proto = self._call_endpoint(GetTraceInfo, trace_v4_req_body, endpoint=endpoint)
+            return TraceInfo.from_proto(response_proto.trace.trace_info)
+
+        return super().get_trace_info(trace_id)
+
+    def set_trace_tag(self, trace_id: str, key: str, value: str):
+        """
+        Set a tag on the trace with the given trace_id.
+
+        Args:
+            trace_id: The ID of the trace.
+            key: The string key of the tag.
+            value: The string value of the tag.
+        """
+        location, trace_id = parse_trace_id_v4(trace_id)
+        if location is not None:
+            endpoint = f"{get_single_trace_endpoint_v4(location, trace_id)}/tags"
+            req_body = message_to_json(
+                SetTraceTag(
+                    key=key,
+                    value=value,
+                )
+            )
+            self._call_endpoint(SetTraceTag, req_body, endpoint=endpoint)
+            return
+        return super().set_trace_tag(trace_id, key, value)
+
+    def delete_trace_tag(self, trace_id: str, key: str):
+        """
+        Delete a tag on the trace with the given trace_id.
+
+        Args:
+            trace_id: The ID of the trace.
+            key: The string key of the tag.
+        """
+        location, trace_id = parse_trace_id_v4(trace_id)
+        if location is not None:
+            sql_warehouse_id = MLFLOW_TRACING_SQL_WAREHOUSE_ID.get()
+            endpoint = f"{get_single_trace_endpoint_v4(location, trace_id)}/tags/{key}"
+            req_body = message_to_json(DeleteTraceTag(sql_warehouse_id=sql_warehouse_id))
+            self._call_endpoint(DeleteTraceTag, req_body, endpoint=endpoint)
+            return
+        return super().delete_trace_tag(trace_id, key)
 
     def search_traces(
         self,
