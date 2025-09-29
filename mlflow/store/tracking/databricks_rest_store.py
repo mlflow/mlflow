@@ -384,7 +384,7 @@ class DatabricksTracingRestStore(RestStore):
         self._call_endpoint(
             LinkExperimentToUCTraceLocation,
             req_body,
-            endpoint=f"{_V4_TRACE_REST_API_PATH_PREFIX}/location/{experiment_id}",
+            endpoint=f"{_V4_TRACE_REST_API_PATH_PREFIX}/{experiment_id}/link-location",
         )
         _logger.debug(f"Linked experiment {experiment_id} to UC trace location: {uc_schema}")
         return uc_schema
@@ -392,9 +392,9 @@ class DatabricksTracingRestStore(RestStore):
     def unset_experiment_trace_location(self, experiment_id: str, location: str) -> None:
         request = UnLinkExperimentToUCTraceLocation(
             experiment_id=experiment_id,
-            location=location,
+            location=uc_schema_location_to_proto(location),
         )
-        endpoint = f"{_V4_TRACE_REST_API_PATH_PREFIX}/location/{experiment_id}/{location}"
+        endpoint = f"{_V4_TRACE_REST_API_PATH_PREFIX}/{experiment_id}/unlink-location"
         req_body = message_to_json(request)
         self._call_endpoint(
             UnLinkExperimentToUCTraceLocation,
