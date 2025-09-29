@@ -153,7 +153,10 @@ def submit_job(
 
     job_store = _get_job_store()
     serialized_params = json.dumps(params)
-    job = job_store.create_job(func_fullname, serialized_params, timeout)
+    serialized_env_vars = json.dumps(env_vars) if env_vars else None
+    job = job_store.create_job(
+        func_fullname, serialized_params, timeout, serialized_env_vars
+    )
 
     # enqueue job
     _get_or_init_huey_instance(func_fullname).submit_task(

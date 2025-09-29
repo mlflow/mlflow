@@ -380,6 +380,7 @@ def _enqueue_unfinished_jobs() -> None:
         params = json.loads(job.params)
         function = _load_function(job.function_fullname)
         timeout = job.timeout
+        env_vars = json.loads(job.env_vars) if job.env_vars else None
         # enqueue job
         _get_or_init_huey_instance(job.function_fullname).submit_task(
             job.job_id, function, params, timeout, env_vars
