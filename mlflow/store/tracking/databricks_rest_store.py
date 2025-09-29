@@ -396,15 +396,14 @@ class DatabricksTracingRestStore(RestStore):
         )
         _logger.debug(f"Unlinked experiment {experiment_id} from trace location: {location}")
 
-    def log_spans(self, location: str, spans: list[Span], **kwargs) -> list[Span]:
+    def log_spans(self, location: str, spans: list[Span], tracking_uri=None) -> list[Span]:
         if not spans:
             return []
 
-        if "tracking_uri" not in kwargs:
+        if tracking_uri is None:
             raise MlflowException(
                 "`tracking_uri` must be provided to log spans to with Databricks tracking server."
             )
-        tracking_uri = kwargs["tracking_uri"]
 
         # TODO: check server version
 

@@ -93,9 +93,12 @@ class TracingClient:
         Returns:
             List of logged Span objects from the backend.
         """
-        kwargs = {"tracking_uri": self.tracking_uri} if is_databricks_uri(self.tracking_uri) else {}
         try:
-            return self.store.log_spans(location=location, spans=spans, **kwargs)
+            return self.store.log_spans(
+                location=location,
+                spans=spans,
+                tracking_uri=self.tracking_uri if is_databricks_uri(self.tracking_uri) else None,
+            )
         except Exception as e:
             _logger.warning(
                 f"Failed to log span to location {location}: {e}",

@@ -1,10 +1,13 @@
 from unittest import mock
 
+import pytest
+
 import mlflow.tracking.context.default_context
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.trace_location import TraceLocationType
 from mlflow.entities.trace_state import TraceState
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
+from mlflow.exceptions import MlflowException
 from mlflow.tracing.processor.uc_table import DatabricksUCTableSpanProcessor
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 
@@ -64,7 +67,8 @@ def test_on_start_without_uc_table_name(monkeypatch):
         "mlflow.tracing.processor.uc_table.get_active_spans_table_name", return_value=None
     ):
         processor = DatabricksUCTableSpanProcessor(span_exporter=mock.MagicMock())
-        processor.on_start(span)
+        with pytest.raises(MlflowException, match="Unity Catalog spans table name is not set"):
+            processor.on_start(span)
 
     # Check that trace was still created in trace manager
     trace_manager = InMemoryTraceManager.get_instance()

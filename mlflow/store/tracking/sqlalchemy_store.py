@@ -3210,7 +3210,7 @@ class SqlAlchemyStore(AbstractStore):
             joint_count=joint_count,
         )
 
-    def log_spans(self, location: str, spans: list[Span], **kwargs) -> list[Span]:
+    def log_spans(self, location: str, spans: list[Span], tracking_uri=None) -> list[Span]:
         """
         Log multiple span entities to the tracking store.
 
@@ -3218,7 +3218,7 @@ class SqlAlchemyStore(AbstractStore):
             location: The location to log spans to. It should be experiment ID of an MLflow
                 experiment.
             spans: List of Span entities to log. All spans must belong to the same trace.
-            kwargs: Additional keyword arguments.
+            tracking_uri: The tracking URI to use. Default to None.
 
         Returns:
             List of logged Span entities.
