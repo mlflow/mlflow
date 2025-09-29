@@ -252,6 +252,7 @@ def test_chat_complete_autolog_tool_calling(mock_complete):
         TokenUsageKey.TOTAL_TOKENS: 30,
     }
 
+
 @patch(
     "mistralai.chat.Chat.do_request_async",
     return_value=_make_httpx_response(DUMMY_CHAT_COMPLETION_RESPONSE),
@@ -279,4 +280,3 @@ async def test_chat_complete_async_autolog(mock_complete_async):
         TokenUsageKey.OUTPUT_TOKENS: 18,
         TokenUsageKey.TOTAL_TOKENS: 28,
     }
-    
