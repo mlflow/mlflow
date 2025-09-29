@@ -246,15 +246,15 @@ class LinkExperimentToUCTraceLocation(_message.Message):
     def __init__(self, experiment_id: _Optional[str] = ..., uc_schema: _Optional[_Union[UCSchemaLocation, _Mapping]] = ...) -> None: ...
 
 class UnLinkExperimentToUCTraceLocation(_message.Message):
-    __slots__ = ("experiment_id", "location")
+    __slots__ = ("experiment_id", "uc_schema")
     class Response(_message.Message):
         __slots__ = ()
         def __init__(self) -> None: ...
     EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
-    LOCATION_FIELD_NUMBER: _ClassVar[int]
+    UC_SCHEMA_FIELD_NUMBER: _ClassVar[int]
     experiment_id: str
-    location: str
-    def __init__(self, experiment_id: _Optional[str] = ..., location: _Optional[str] = ...) -> None: ...
+    uc_schema: UCSchemaLocation
+    def __init__(self, experiment_id: _Optional[str] = ..., uc_schema: _Optional[_Union[UCSchemaLocation, _Mapping]] = ...) -> None: ...
 
 class Assessment(_message.Message):
     __slots__ = ("assessment_id", "assessment_name", "trace_id", "trace_location", "span_id", "source", "create_time", "last_update_time", "feedback", "expectation", "rationale", "metadata", "overrides", "valid")
