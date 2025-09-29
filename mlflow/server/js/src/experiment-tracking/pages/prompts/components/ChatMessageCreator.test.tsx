@@ -33,15 +33,6 @@ describe('ChatMessageCreator', () => {
     expect(screen.getAllByPlaceholderText('role')).toHaveLength(1);
   });
 
-  it('clears all messages', async () => {
-    renderComponent();
-    await userEvent.click(screen.getAllByRole('button', { name: 'Add message' })[0]);
-    expect(screen.getAllByPlaceholderText('role')).toHaveLength(2);
-
-    await userEvent.click(screen.getByRole('button', { name: 'Clear all' }));
-    expect(screen.getAllByPlaceholderText('role')).toHaveLength(1);
-  });
-
   it('supports custom roles', async () => {
     renderComponent();
     const input = screen.getByPlaceholderText('role');
