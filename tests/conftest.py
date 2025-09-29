@@ -22,6 +22,7 @@ from opentelemetry import trace as trace_api
 import mlflow
 import mlflow.telemetry.utils
 from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_TRACKING_URI
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.telemetry.client import get_telemetry_client
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.export.inference_table import _TRACE_BUFFER
@@ -516,10 +517,26 @@ def tmp_experiment_for_tracing_sdk_test(monkeypatch):
     purge_traces(experiment_id=experiment.experiment_id)
 
 
+@pytest.fixture(scope="session")
+def cached_sqlite(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Creates and caches a SQLite database to avoid repeated migrations for each test run."""
+
+    tmp_dir = tmp_path_factory.mktemp("sqlite_db")
+    db_path = tmp_dir / "mlflow.db"
+    backend_uri = path_to_local_sqlite_uri(db_path)
+    artifact_uri = (tmp_dir / "artifacts").as_uri()
+
+    store = SqlAlchemyStore(backend_uri, artifact_uri)
+    store.engine.dispose()
+    return db_path
+
+
 @pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
-def tracking_uri_mock(tmp_path, request):
+def tracking_uri_mock(tmp_path: Path, request: pytest.FixtureRequest, cached_sqlite: Path):
     if "notrackingurimock" not in request.keywords:
-        tracking_uri = path_to_local_sqlite_uri(tmp_path / f"{uuid.uuid4().hex}.sqlite")
+        db_path = tmp_path / f"{uuid.uuid4().hex}.sqlite"
+        shutil.copy(cached_sqlite, db_path)
+        tracking_uri = path_to_local_sqlite_uri(db_path)
         with _use_tracking_uri(tracking_uri):
             yield tracking_uri
     else:
