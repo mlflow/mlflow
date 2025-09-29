@@ -45,11 +45,11 @@ class SqlAlchemyJobStore(AbstractJobStore):
         )
 
     def create_job(
-        self, 
-        function_fullname: str, 
-        params: str, 
+        self,
+        function_fullname: str,
+        params: str,
         timeout: float | None = None,
-        env_vars: str | None = None
+        env_vars: str | None = None,
     ) -> Job:
         """
         Create a new job with the specified function and parameters.

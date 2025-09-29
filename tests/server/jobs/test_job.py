@@ -17,9 +17,8 @@ from mlflow.server import (
     HUEY_STORAGE_PATH_ENV_VAR,
 )
 from mlflow.server.handlers import _get_job_store
-from mlflow.server.jobs import job_function, get_job, submit_job
-from mlflow.server.jobs.util import _launch_job_runner
-from mlflow.server.jobs.util import _validate_function_parameters
+from mlflow.server.jobs import get_job, job_function, submit_job
+from mlflow.server.jobs.util import _launch_job_runner, _validate_function_parameters
 
 pytestmark = pytest.mark.skipif(
     os.name == "nt", reason="MLflow job execution is not supported on Windows"
@@ -427,8 +426,9 @@ def test_job_with_env_vars(monkeypatch, tmp_path):
     pip_requirements=["openai==1.108.2", "pytest<9"],
 )
 def check_python_env_fn():
-    from mlflow.utils import PYTHON_VERSION
     import openai
+
+    from mlflow.utils import PYTHON_VERSION
 
     assert PYTHON_VERSION == "3.11.9"
     assert openai.__version__ == "1.108.2"
@@ -438,10 +438,7 @@ def test_job_with_python_env(monkeypatch, tmp_path):
     monkeypatch.setenv("MLFLOW_HOME", dirname(dirname(dirname(dirname(__file__)))))
 
     with _setup_job_runner(monkeypatch, tmp_path):
-        job_id = submit_job(
-            check_python_env_fn,
-            params={}
-        ).job_id
+        job_id = submit_job(check_python_env_fn, params={}).job_id
         wait_job_finalize(job_id, timeout=300)
         job = get_job(job_id)
         assert job.status == JobStatus.SUCCEEDED

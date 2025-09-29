@@ -15,6 +15,7 @@ and schedules the job execution continuously.
 """
 
 import os
+
 from mlflow.server.jobs.util import (
     _get_or_init_huey_instance,
     _start_watcher_to_kill_job_runner_if_mlflow_server_dies,
@@ -22,6 +23,4 @@ from mlflow.server.jobs.util import (
 
 _start_watcher_to_kill_job_runner_if_mlflow_server_dies()
 
-huey_instance = _get_or_init_huey_instance(
-    os.environ["_MLFLOW_HUEY_INSTANCE_KEY"]
-).instance
+huey_instance = _get_or_init_huey_instance(os.environ["_MLFLOW_HUEY_INSTANCE_KEY"]).instance

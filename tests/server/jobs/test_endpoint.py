@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 import requests
+
 from mlflow.server.jobs import job_function
 
 pytestmark = pytest.mark.skipif(

@@ -6,11 +6,11 @@ or the job has extra environment variables setting,
 the job is executed as a subprocess.
 """
 
-import os
 import json
-from mlflow.server.jobs.util import JobResult, _load_function, _exit_when_orphaned
+import os
 import threading
 
+from mlflow.server.jobs.util import JobResult, _exit_when_orphaned, _load_function
 
 if __name__ == "__main__":
     # ensure the subprocess is killed when parent process dies.

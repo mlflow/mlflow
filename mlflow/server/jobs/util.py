@@ -3,28 +3,27 @@ import importlib
 import inspect
 import json
 import logging
-import multiprocessing
 import os
-import subprocess
-from pathlib import Path
 import shutil
 import signal
+import subprocess
 import sys
+import tempfile
 import threading
 import time
-import tempfile
-from dataclasses import asdict
-from dataclasses import dataclass
+import traceback
+from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Any, Callable
 
 import cloudpickle
 
 from mlflow.entities._job_status import JobStatus
-from mlflow.exceptions import MlflowException
 from mlflow.environment_variables import (
     MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY,
     MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY,
 )
+from mlflow.exceptions import MlflowException
 from mlflow.server import HUEY_STORAGE_PATH_ENV_VAR
 from mlflow.utils.environment import _PythonEnv
 
@@ -51,14 +50,13 @@ class JobResult:
     @classmethod
     def from_error(cls, e: Exception) -> "JobResult":
         from mlflow.server.jobs import TransientError
-        import traceback
 
         if isinstance(e, TransientError):
             return JobResult(succeeded=False, is_transient_error=True, error=repr(e.origin_error))
         return JobResult(
             succeeded=False,
             is_transient_error=False,
-            error=f"{repr(e)}\nTraceback:\n{traceback.format_exc()}",
+            error=f"{e!r}\nTraceback:\n{traceback.format_exc()}",
         )
 
     def dump(self, path: str) -> None:
@@ -67,7 +65,7 @@ class JobResult:
 
     @classmethod
     def load(cls, path: str) -> "JobResult":
-        with open(path, "r") as fp:
+        with open(path) as fp:
             return JobResult(**json.load(fp))
 
 
@@ -122,7 +120,7 @@ def _exec_job_in_subproc(
     python_env: _PythonEnv | None,
     timeout: float | None,
     env_vars: dict[str, str] | None,
-    tmpdir: str
+    tmpdir: str,
 ) -> JobResult | None:
     """
     Executes the job function in a subproces,
@@ -131,11 +129,11 @@ def _exec_job_in_subproc(
     """
     from mlflow.utils.process import _exec_cmd, _join_commands
     from mlflow.utils.virtualenv import (
-        _get_virtualenv_name,
-        _get_uv_env_creation_command,
         _get_mlflow_virtualenv_root,
+        _get_uv_env_creation_command,
         _get_virtualenv_activate_cmd,
         _get_virtualenv_extra_env_vars,
+        _get_virtualenv_name,
     )
 
     job_entry_module = "mlflow.server.jobs._job_subproc_entry"
@@ -153,11 +151,12 @@ def _exec_job_in_subproc(
             _exec_cmd(env_creation_cmd, capture_output=False)
 
             # install dependencies
-            tmp_req_file = f"requirements.txt"
+            tmp_req_file = "requirements.txt"
             (Path(tmpdir) / tmp_req_file).write_text("\n".join(python_env.dependencies))
             cmd = _join_commands(activate_cmd, f"uv pip install -r {tmp_req_file}")
             _exec_cmd(
-                cmd, cwd=tmpdir,
+                cmd,
+                cwd=tmpdir,
                 extra_env=_get_virtualenv_extra_env_vars(),
                 capture_output=False,
             )
@@ -212,11 +211,7 @@ def _exec_job(
 
     fn_metadata = function._job_fn_metadata
 
-    if (
-        not timeout
-        and not env_vars
-        and not fn_metadata.python_env
-    ):
+    if not timeout and not env_vars and not fn_metadata.python_env:
         try:
             raw_result = function(**params)
             job_result = JobResult(succeeded=True, result=json.dumps(raw_result))
@@ -254,11 +249,11 @@ def _exec_job(
 
 @dataclass
 class HueyInstance:
-    instance: "huey.SqliteHuey"
+    instance: Any
     submit_task: Callable[..., Any]
 
 
-_huey_instance_map: dict[str, HueyInstance] = dict()
+_huey_instance_map: dict[str, HueyInstance] = {}
 _huey_instance_map_lock = threading.RLock()
 
 
@@ -277,8 +272,7 @@ def _get_or_init_huey_instance(instance_key: str):
         if instance_key not in _huey_instance_map:
             _logger.info(f"Creating huey instance for {instance_key}")
             huey_store_file = os.path.join(
-                os.environ[HUEY_STORAGE_PATH_ENV_VAR],
-                f"{instance_key}.mlflow-huey-store"
+                os.environ[HUEY_STORAGE_PATH_ENV_VAR], f"{instance_key}.mlflow-huey-store"
             )
             huey_instance = SqliteHuey(
                 filename=huey_store_file,
@@ -301,7 +295,8 @@ def _launch_huey_consumer(
 
     if not hasattr(job_fn, "_job_fn_metadata"):
         raise MlflowException(
-            f"The job function {job_fn_fullname} is not decorated by 'mlflow.server.jobs.job_function'."
+            f"The job function {job_fn_fullname} is not decorated by "
+            "'mlflow.server.jobs.job_function'."
         )
 
     max_job_parallelism = job_fn._job_fn_metadata.max_workers
@@ -311,7 +306,8 @@ def _launch_huey_consumer(
             # start MLflow job runner process
             # Put it inside the loop to ensure the job runner process alive
             job_runner_proc = _start_huey_consumer_proc(
-                job_fn_fullname, max_job_parallelism,
+                job_fn_fullname,
+                max_job_parallelism,
             )
             job_runner_proc.wait()
             time.sleep(1)
@@ -324,10 +320,10 @@ def _launch_huey_consumer(
     ).start()
 
 
-def _launch_job_runner(backend_store_uri, env_map,  server_proc_pid):
-    from mlflow.utils.uri import extract_db_type_from_uri
-    from mlflow.utils.process import _exec_cmd
+def _launch_job_runner(backend_store_uri, env_map, server_proc_pid):
     from mlflow.exceptions import MlflowException
+    from mlflow.utils.process import _exec_cmd
+    from mlflow.utils.uri import extract_db_type_from_uri
 
     try:
         extract_db_type_from_uri(backend_store_uri)
@@ -340,15 +336,13 @@ def _launch_job_runner(backend_store_uri, env_map,  server_proc_pid):
 
     return _exec_cmd(
         [
-            sys.executable, "-m",
+            sys.executable,
+            "-m",
             "mlflow.server.jobs._job_runner",
         ],
         capture_output=False,
         synchronous=False,
-        extra_env={
-            **env_map,
-            "MLFLOW_SERVER_PID": str(server_proc_pid)
-        }
+        extra_env={**env_map, "MLFLOW_SERVER_PID": str(server_proc_pid)},
     )
 
 

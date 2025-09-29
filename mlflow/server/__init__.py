@@ -412,8 +412,7 @@ def _run_server(
 
         if os.name == "nt":
             _logger.warning(
-                "MLflow job backend does not support Windows system. "
-                "Skip launching the job runner."
+                "MLflow job backend does not support Windows system. Skip launching the job runner."
             )
             return
 

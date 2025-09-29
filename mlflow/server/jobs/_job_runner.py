@@ -12,14 +12,13 @@ The job runner will:
 
 import os
 import time
-from mlflow.server import HUEY_STORAGE_PATH_ENV_VAR
 
+from mlflow.server import HUEY_STORAGE_PATH_ENV_VAR
 from mlflow.server.jobs.util import (
-    _start_watcher_to_kill_job_runner_if_mlflow_server_dies,
     _enqueue_unfinished_jobs,
     _launch_huey_consumer,
+    _start_watcher_to_kill_job_runner_if_mlflow_server_dies,
 )
-
 
 if __name__ == "__main__":
     _start_watcher_to_kill_job_runner_if_mlflow_server_dies()
@@ -37,7 +36,7 @@ if __name__ == "__main__":
 
         for huey_file in new_huey_files:
             if huey_file.endswith(huey_file_suffix):
-                job_fn_fullname = huey_file[:-len(huey_file_suffix)]
+                job_fn_fullname = huey_file[: -len(huey_file_suffix)]
                 _launch_huey_consumer(job_fn_fullname)
 
         seen_huey_files = current_huey_files

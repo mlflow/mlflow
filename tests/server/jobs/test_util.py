@@ -1,12 +1,12 @@
+import importlib
 import os
-import sys
+import time
 from os.path import dirname
 from pathlib import Path
-import time
 
 import pytest
-from mlflow.server.jobs.util import _exec_job_in_subproc, is_process_alive
 
+from mlflow.server.jobs.util import _exec_job_in_subproc, is_process_alive
 
 pytestmark = pytest.mark.skipif(
     os.name == "nt", reason="MLflow job execution is not supported on Windows"
@@ -42,7 +42,7 @@ def check_python_env_fn(
     expected_module_versions: dict[str, str],
 ):
     from mlflow.utils import PYTHON_VERSION
-    import importlib
+
     assert PYTHON_VERSION == expected_python_version
     for module_name, expected_version in expected_module_versions.items():
         module = importlib.import_module(module_name)
@@ -50,8 +50,8 @@ def check_python_env_fn(
 
 
 def test_exec_job_in_subproc_with_python_env(monkeypatch, tmp_path):
-    from mlflow.version import VERSION as MLFLOW_VERSION
     from mlflow.utils.environment import _PythonEnv
+    from mlflow.version import VERSION as MLFLOW_VERSION
 
     monkeypatch.setenv("PYTHONPATH", dirname(__file__))
 
@@ -59,13 +59,16 @@ def test_exec_job_in_subproc_with_python_env(monkeypatch, tmp_path):
         "test_util.check_python_env_fn",
         params={
             "expected_python_version": "3.11.9",
-            "expected_module_versions": {"openai": "1.108.2", "mlflow": MLFLOW_VERSION}
+            "expected_module_versions": {"openai": "1.108.2", "mlflow": MLFLOW_VERSION},
         },
-        python_env=_PythonEnv(python="3.11.9", dependencies=[
-            "openai==1.108.2",
-            "pytest<9",
-            dirname(dirname(dirname(dirname(__file__)))),  # mlflow repo home
-        ]),
+        python_env=_PythonEnv(
+            python="3.11.9",
+            dependencies=[
+                "openai==1.108.2",
+                "pytest<9",
+                dirname(dirname(dirname(dirname(__file__)))),  # mlflow repo home
+            ],
+        ),
         timeout=None,
         env_vars=None,
         tmpdir=str(tmp_path),

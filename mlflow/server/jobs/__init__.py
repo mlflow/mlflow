@@ -1,18 +1,15 @@
-import os
-from dataclasses import dataclass
 import json
 import logging
-from packaging import version
+import os
+from dataclasses import dataclass
 from types import FunctionType
 from typing import Any, Callable
 
 from mlflow.entities._job import Job
 from mlflow.exceptions import MlflowException
 from mlflow.server.handlers import _get_job_store
-
 from mlflow.utils.environment import _PythonEnv
 from mlflow.utils.requirements_utils import _parse_requirements
-
 
 _logger = logging.getLogger(__name__)
 
@@ -63,16 +60,15 @@ def job_function(
         python_version = python_version or PYTHON_VERSION
         try:
             pip_requirements = [
-                req.req_str
-                for req in _parse_requirements(pip_requirements, is_constraint=False)
+                req.req_str for req in _parse_requirements(pip_requirements, is_constraint=False)
             ]
         except Exception as e:
             raise MlflowException.invalid_parameter_value(
                 f"Invalid pip_requirements for job function: {pip_requirements}, "
-                f"parsing error: {repr(e)}"
+                f"parsing error: {e!r}"
             )
         if mlflow_home := os.environ.get("MLFLOW_HOME"):
-            # Append MLFlow dev version dependency (for testing)
+            # Append MLflow dev version dependency (for testing)
             pip_requirements += [mlflow_home]
         else:
             pip_requirements += [f"mlflow=={VERSION}"]
@@ -127,8 +123,7 @@ def submit_job(
         the updated job entity.
     """
     from mlflow.environment_variables import MLFLOW_SERVER_ENABLE_JOB_EXECUTION
-    from mlflow.server.jobs.util import _get_or_init_huey_instance
-    from mlflow.server.jobs.util import _validate_function_parameters
+    from mlflow.server.jobs.util import _get_or_init_huey_instance, _validate_function_parameters
 
     if not MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
         raise MlflowException(
@@ -153,13 +148,15 @@ def submit_job(
     job_store = _get_job_store()
     serialized_params = json.dumps(params)
     serialized_env_vars = json.dumps(env_vars) if env_vars else None
-    job = job_store.create_job(
-        func_fullname, serialized_params, timeout, serialized_env_vars
-    )
+    job = job_store.create_job(func_fullname, serialized_params, timeout, serialized_env_vars)
 
     # enqueue job
     _get_or_init_huey_instance(func_fullname).submit_task(
-        job.job_id, function, params, timeout, env_vars,
+        job.job_id,
+        function,
+        params,
+        timeout,
+        env_vars,
     )
 
     return job
