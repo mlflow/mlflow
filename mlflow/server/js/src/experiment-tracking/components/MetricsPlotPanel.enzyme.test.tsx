@@ -462,7 +462,7 @@ describe('unit tests', () => {
     instance.setState({ loading: true });
     instance.getUrlState = jest.fn().mockReturnValue({ selectedMetricKeys: ['metric_1'] });
     instance.loadMetricHistory = jest.fn().mockResolvedValue(undefined);
-    jest.advanceTimersByTime(1000);
+    jest.advanceTimersByTime(EXPERIMENT_RUNS_FULL_METRICS_POLLING_INTERVAL);
     instance.setState({ loading: false });
     await instance.handleDownloadCsv();
 
