@@ -3349,12 +3349,13 @@ class SqlAlchemyStore(AbstractStore):
 
         return spans
 
-    async def log_spans_async(self, experiment_id: str, spans: list[Span]) -> list[Span]:
+    async def log_spans_async(self, location: str, spans: list[Span]) -> list[Span]:
         """
         Asynchronously log multiple span entities to the tracking store.
 
         Args:
-            experiment_id: The experiment ID to log spans to.
+            location: The location to log spans to. It should be experiment ID of an MLflow
+                experiment.
             spans: List of Span entities to log. All spans must belong to the same trace.
 
         Returns:
@@ -3364,7 +3365,7 @@ class SqlAlchemyStore(AbstractStore):
             MlflowException: If spans belong to different traces.
         """
         # TODO: Implement proper async support
-        return self.log_spans(experiment_id, spans)
+        return self.log_spans(location, spans)
 
     def _get_trace_status_from_root_span(self, spans: list[Span]) -> str | None:
         """
