@@ -1,12 +1,11 @@
 from typing import TYPE_CHECKING, Any, Iterable, Union
 
 from mlflow.entities import Trace
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 if TYPE_CHECKING:
     import pandas as pd
-    from databricks.agents.review_app import (
-        LabelingSession as _LabelingSession,
-    )
     from databricks.agents.review_app import (
         LabelSchema as _LabelSchema,
     )
@@ -46,63 +45,97 @@ class LabelingSession:
         `pip install mlflow[databricks]` to use it.
     """
 
-    def __init__(self, session: "_LabelingSession"):
-        self._session = session
+    def __init__(
+        self,
+        *,
+        name: str,
+        assigned_users: list[str],
+        agent: str | None,
+        label_schemas: list[str],
+        labeling_session_id: str,
+        mlflow_run_id: str,
+        review_app_id: str,
+        experiment_id: str,
+        url: str,
+        enable_multi_turn_chat: bool,
+        custom_inputs: dict[str, Any] | None,
+    ):
+        self._name = name
+        self._assigned_users = assigned_users
+        self._agent = agent
+        self._label_schemas = label_schemas
+        self._labeling_session_id = labeling_session_id
+        self._mlflow_run_id = mlflow_run_id
+        self._review_app_id = review_app_id
+        self._experiment_id = experiment_id
+        self._url = url
+        self._enable_multi_turn_chat = enable_multi_turn_chat
+        self._custom_inputs = custom_inputs
 
     @property
     def name(self) -> str:
         """The name of the labeling session."""
-        return self._session.name
+        return self._name
 
     @property
     def assigned_users(self) -> list[str]:
         """The users assigned to label items in the session."""
-        return self._session.assigned_users
+        return self._assigned_users
 
     @property
     def agent(self) -> str | None:
         """The agent used to generate responses for the items in the session."""
-        return self._session.agent
+        return self._agent
 
     @property
     def label_schemas(self) -> list[str]:
         """The label schemas used in the session."""
-        return self._session.label_schemas
+        return self._label_schemas
 
     @property
     def labeling_session_id(self) -> str:
         """The unique identifier of the labeling session."""
-        return self._session.labeling_session_id
+        return self._labeling_session_id
 
     @property
     def mlflow_run_id(self) -> str:
         """The MLflow run ID associated with the session."""
-        return self._session.mlflow_run_id
+        return self._mlflow_run_id
 
     @property
     def review_app_id(self) -> str:
         """The review app ID associated with the session."""
-        return self._session.review_app_id
+        return self._review_app_id
 
     @property
     def experiment_id(self) -> str:
         """The experiment ID associated with the session."""
-        return self._session.experiment_id
+        return self._experiment_id
 
     @property
     def url(self) -> str:
         """The URL of the labeling session in the review app."""
-        return self._session.url
+        return self._url
 
     @property
     def enable_multi_turn_chat(self) -> bool:
         """Whether multi-turn chat is enabled for the session."""
-        return self._session.enable_multi_turn_chat
+        return self._enable_multi_turn_chat
 
     @property
     def custom_inputs(self) -> dict[str, Any] | None:
         """Custom inputs used in the session."""
-        return self._session.custom_inputs
+        return self._custom_inputs
+
+    def _get_store(self):
+        """
+        Get a labeling store instance.
+
+        This method is defined in order to avoid circular imports.
+        """
+        from mlflow.genai.labeling.stores import _get_labeling_store
+
+        return _get_labeling_store()
 
     def add_dataset(
         self, dataset_name: str, record_ids: list[str] | None = None
@@ -121,7 +154,8 @@ class LabelingSession:
         Returns:
             LabelingSession: The updated labeling session.
         """
-        return LabelingSession(self._session.add_dataset(dataset_name, record_ids))
+        store = self._get_store()
+        return store.add_dataset_to_session(self, dataset_name, record_ids)
 
     def add_traces(
         self,
@@ -143,7 +177,36 @@ class LabelingSession:
         Returns:
             LabelingSession: The updated labeling session.
         """
-        return LabelingSession(self._session.add_traces(traces))
+        import pandas as pd
+
+        if isinstance(traces, pd.DataFrame):
+            if "trace" not in traces.columns:
+                raise MlflowException(
+                    "traces must have a 'trace' column like the result of mlflow.search_traces()",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            traces = traces["trace"].to_list()
+
+        trace_list: list[Trace] = []
+        for trace in traces:
+            if isinstance(trace, str):
+                trace_list.append(Trace.from_json(trace))
+            elif isinstance(trace, Trace):
+                trace_list.append(trace)
+            elif trace is None:
+                raise MlflowException(
+                    "trace cannot be None. Must be mlflow.entities.Trace or its json string "
+                    "representation.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            else:
+                raise MlflowException(
+                    f"Expected mlflow.entities.Trace or json string, got {type(trace).__name__}",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+        store = self._get_store()
+        return store.add_traces_to_session(self, trace_list)
 
     def sync(self, to_dataset: str) -> None:
         """Sync the traces and expectations from the labeling session to a dataset.
@@ -155,7 +218,8 @@ class LabelingSession:
         Args:
             to_dataset: The name of the dataset to sync traces and expectations to.
         """
-        self._session.sync_expectations(to_dataset)
+        store = self._get_store()
+        return store.sync_session_expectations(self, to_dataset)
 
     def set_assigned_users(self, assigned_users: list[str]) -> "LabelingSession":
         """Set the assigned users for the labeling session.
@@ -170,7 +234,8 @@ class LabelingSession:
         Returns:
             LabelingSession: The updated labeling session.
         """
-        return LabelingSession(self._session.set_assigned_users(assigned_users))
+        store = self._get_store()
+        return store.set_session_assigned_users(self, assigned_users)
 
 
 class ReviewApp:
