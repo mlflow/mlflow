@@ -188,6 +188,7 @@ test = [
   "pytest-repeat",
   "pytest-cov",
   "pytest-timeout",
+  "psutil",
 ]
 build = ["pip", "setuptools", "wheel", "build"]
 
