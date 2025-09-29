@@ -18,9 +18,6 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 import cloudpickle
-from huey import SqliteHuey
-from huey.exceptions import RetryTask
-from huey.serializer import Serializer
 
 from mlflow.entities._job_status import JobStatus
 from mlflow.exceptions import MlflowException
@@ -35,6 +32,8 @@ _logger = logging.getLogger(__name__)
 
 
 def _raise_exponential_backoff_retry(retry_count: int) -> None:
+    from huey.exceptions import RetryTask
+
     # We can support more retry strategies (e.g. exponential backoff) in future
     base_delay = MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY.get()
     max_delay = MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY.get()
@@ -52,13 +51,14 @@ class JobResult:
     @classmethod
     def from_error(cls, e: Exception) -> "JobResult":
         from mlflow.server.jobs import TransientError
+        import traceback
 
         if isinstance(e, TransientError):
             return JobResult(succeeded=False, is_transient_error=True, error=repr(e.origin_error))
         return JobResult(
             succeeded=False,
             is_transient_error=False,
-            error=repr(e),
+            error=f"{repr(e)}\nTraceback:\n{traceback.format_exc()}",
         )
 
     def dump(self, path: str) -> None:
@@ -254,7 +254,7 @@ def _exec_job(
 
 @dataclass
 class HueyInstance:
-    instance: SqliteHuey
+    instance: "huey.SqliteHuey"
     submit_task: Callable[..., Any]
 
 
@@ -263,6 +263,9 @@ _huey_instance_map_lock = threading.RLock()
 
 
 def _get_or_init_huey_instance(instance_key: str):
+    from huey import SqliteHuey
+    from huey.serializer import Serializer
+
     class CloudPickleSerializer(Serializer):
         def serialize(self, data):
             return cloudpickle.dumps(data)

@@ -45,7 +45,7 @@ def check_python_env_fn(
     import importlib
     assert PYTHON_VERSION == expected_python_version
     for module_name, expected_version in expected_module_versions.items():
-        module = importlib(module_name)
+        module = importlib.import_module(module_name)
         assert module.__version__ == expected_version
 
 
@@ -63,6 +63,7 @@ def test_exec_job_in_subproc_with_python_env(monkeypatch, tmp_path):
         },
         python_env=_PythonEnv(python="3.11.9", dependencies=[
             "openai==1.108.2",
+            "pytest",
             dirname(dirname(dirname(dirname(__file__)))),  # mlflow repo home
         ]),
         timeout=None,
