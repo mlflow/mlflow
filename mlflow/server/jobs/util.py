@@ -170,56 +170,10 @@ def _start_huey_consumer_proc(
     )
 
 
-def _exec_job_in_subproc(
-    function_fullname: str,
-    params: dict[str, Any],
-    timeout: float | None,
-    tmpdir: str,
-) -> JobResult | None:
-    """
-    Executes the job function in a subprocess,
-    If the job execution time exceeds timeout, the subprocess is killed and return None,
-    otherwise return `JobResult` instance,
-    """
-    from mlflow.utils.process import _exec_cmd
-
-    job_entry_module = "mlflow.server.jobs._job_subproc_entry"
-
-    job_cmd = [sys.executable, "-m", job_entry_module]
-
-    result_file = str(Path(tmpdir) / "result.json")
-    with _exec_cmd(
-        job_cmd,
-        synchronous=False,
-        extra_env={
-            "_MLFLOW_SERVER_JOB_PARAMS": json.dumps(params),
-            "_MLFLOW_SERVER_JOB_FUNCTION_FULLNAME": function_fullname,
-            "_MLFLOW_SERVER_JOB_RESULT_DUMP_PATH": result_file,
-        },
-        capture_output=False,
-    ) as popen:
-        try:
-            popen.wait(timeout=timeout)
-        except subprocess.TimeoutExpired:
-            popen.kill()
-            return None
-
-        if popen.returncode == 0:
-            return JobResult.load(result_file)
-
-        return JobResult.from_error(
-            RuntimeError(
-                f"The subprocess that executes job function {function_fullname} "
-                f"exists with error code {popen.returncode}"
-            )
-        )
-
-
 def _exec_job(
     job_id: str, function: Callable[..., Any], params: dict[str, Any], timeout: float | None
 ) -> None:
     from mlflow.server.handlers import _get_job_store
-    from mlflow.server.jobs.util import execute_function_with_timeout
 
     job_store = _get_job_store()
     job_store.start_job(job_id)

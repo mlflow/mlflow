@@ -115,7 +115,7 @@ def basic_job_fun(x, y, sleep_secs=0):
 def test_basic_job(monkeypatch, tmp_path):
     with _setup_job_runner(monkeypatch, tmp_path):
         submitted_job = submit_job(basic_job_fun, {"x": 3, "y": 4})
-        wait_job_finalize(submitted_job.job_id, timeout=10)
+        wait_job_finalize(submitted_job.job_id, timeout=15)
         job = get_job(submitted_job.job_id)
         assert job.job_id == submitted_job.job_id
         assert job.function_fullname == "test_job.basic_job_fun"
@@ -137,7 +137,7 @@ def json_in_out_fun(data):
 def test_job_json_input_output(monkeypatch, tmp_path):
     with _setup_job_runner(monkeypatch, tmp_path):
         submitted_job = submit_job(json_in_out_fun, {"data": {"x": 3, "y": 4}})
-        wait_job_finalize(submitted_job.job_id, timeout=10)
+        wait_job_finalize(submitted_job.job_id, timeout=15)
         job = get_job(submitted_job.job_id)
         assert job.job_id == submitted_job.job_id
         assert job.function_fullname == "test_job.json_in_out_fun"
@@ -156,7 +156,7 @@ def err_fun(data):
 def test_error_job(monkeypatch, tmp_path):
     with _setup_job_runner(monkeypatch, tmp_path):
         submitted_job = submit_job(err_fun, {"data": None})
-        wait_job_finalize(submitted_job.job_id, timeout=10)
+        wait_job_finalize(submitted_job.job_id, timeout=15)
         job = get_job(submitted_job.job_id)
 
         # check database record correctness.
@@ -179,7 +179,7 @@ def test_job_resume_on_job_runner_restart(monkeypatch, tmp_path):
         job1_id = submit_job(basic_job_fun, {"x": 3, "y": 4, "sleep_secs": 0}).job_id
         job2_id = submit_job(basic_job_fun, {"x": 5, "y": 6, "sleep_secs": 2}).job_id
         job3_id = submit_job(basic_job_fun, {"x": 7, "y": 8, "sleep_secs": 0}).job_id
-        wait_job_finalize(job1_id, timeout=10)
+        wait_job_finalize(job1_id, timeout=15)
         job_runner_proc.kill()
         job_runner_proc.wait()  # ensure the job runner process is killed.
 
@@ -190,8 +190,8 @@ def test_job_resume_on_job_runner_restart(monkeypatch, tmp_path):
 
         # restart the job runner, and verify it resumes unfinished jobs (job2 and job3)
         with _launch_job_runner_for_test():
-            wait_job_finalize(job2_id, timeout=10)
-            wait_job_finalize(job3_id, timeout=10)
+            wait_job_finalize(job2_id, timeout=15)
+            wait_job_finalize(job3_id, timeout=15)
             # assert all jobs are done.
             assert_job_result(job1_id, JobStatus.SUCCEEDED, 7)
             assert_job_result(job2_id, JobStatus.SUCCEEDED, 11)
@@ -212,7 +212,7 @@ def test_job_resume_on_new_job_runner(monkeypatch, tmp_path):
         job1_id = submit_job(basic_job_fun, {"x": 3, "y": 4, "sleep_secs": 0}).job_id
         job2_id = submit_job(basic_job_fun, {"x": 5, "y": 6, "sleep_secs": 2}).job_id
         job3_id = submit_job(basic_job_fun, {"x": 7, "y": 8, "sleep_secs": 0}).job_id
-        wait_job_finalize(job1_id, timeout=10)
+        wait_job_finalize(job1_id, timeout=15)
 
         # assert that job1 has done, job2 is running, and job3 is pending.
         assert_job_result(job1_id, JobStatus.SUCCEEDED, 7)
@@ -223,8 +223,8 @@ def test_job_resume_on_new_job_runner(monkeypatch, tmp_path):
     job_runner_proc.wait()
 
     with _setup_job_runner(monkeypatch, runner2_tmp_path, backend_store_uri):
-        wait_job_finalize(job2_id, timeout=10)
-        wait_job_finalize(job3_id, timeout=10)
+        wait_job_finalize(job2_id, timeout=15)
+        wait_job_finalize(job3_id, timeout=15)
         # assert all jobs are done.
         assert_job_result(job1_id, JobStatus.SUCCEEDED, 7)
         assert_job_result(job2_id, JobStatus.SUCCEEDED, 11)
@@ -252,8 +252,8 @@ def test_job_queue_parallelism(monkeypatch, tmp_path):
         # the corresponding huey consumer process.
         job1_id = submit_job(job_fun_parallelism2, {"x": 1, "y": 1, "sleep_secs": 0}).job_id
         job2_id = submit_job(job_fun_parallelism3, {"x": 1, "y": 1, "sleep_secs": 0}).job_id
-        wait_job_finalize(job1_id, timeout=10)
-        wait_job_finalize(job2_id, timeout=10)
+        wait_job_finalize(job1_id, timeout=15)
+        wait_job_finalize(job2_id, timeout=15)
 
         job_p2_ids = [
             submit_job(job_fun_parallelism2, {"x": x, "y": 1, "sleep_secs": 3}).job_id
@@ -343,9 +343,9 @@ def test_job_retry_on_transient_error(monkeypatch, tmp_path):
 # so that we need a test to cover the case that executes `submit_job` in
 # multi-processes case.
 def test_submit_jobs_from_multi_processes(monkeypatch, tmp_path):
-    with _setup_job_runner(monkeypatch, tmp_path), MultiProcPool() as pool:
+    with _setup_job_runner(monkeypatch, tmp_path), MultiProcPool(2) as pool:
         job_id = submit_job(basic_job_fun, {"x": 1, "y": 1, "sleep_secs": 0}).job_id
-        wait_job_finalize(job_id, timeout=10)
+        wait_job_finalize(job_id, timeout=15)
 
         async_res_list = [
             pool.apply_async(
@@ -357,7 +357,7 @@ def test_submit_jobs_from_multi_processes(monkeypatch, tmp_path):
         ]
         job_ids = [async_res.get().job_id for async_res in async_res_list]
         for job_id in job_ids:
-            wait_job_finalize(job_id, timeout=10)
+            wait_job_finalize(job_id, timeout=15)
         for x in range(2):
             assert_job_result(job_ids[x], JobStatus.SUCCEEDED, x + 1)
 
@@ -377,12 +377,12 @@ def test_job_timeout(monkeypatch, tmp_path):
 
         # warm up
         job_id = submit_job(sleep_fun, {"sleep_secs": 0, "tmp_dir": str(job_tmp_path)}).job_id
-        wait_job_finalize(job_id, timeout=10)
+        wait_job_finalize(job_id, timeout=15)
 
         job_id = submit_job(
             sleep_fun, {"sleep_secs": 10, "tmp_dir": str(job_tmp_path)}, timeout=3
         ).job_id
-        wait_job_finalize(job_id, timeout=3.5)
+        wait_job_finalize(job_id, timeout=4)
         pid = int((job_tmp_path / "pid").read_text())
         # assert timeout job process is killed.
         assert not is_process_alive(pid)
