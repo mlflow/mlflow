@@ -71,3 +71,23 @@ def test_exec_job_in_subproc_with_python_env(monkeypatch, tmp_path):
         tmpdir=str(tmp_path),
     )
     assert result.succeeded
+
+
+def check_env_fn(expected_env_vars: dict[str, str]):
+    for env_name, env_val in expected_env_vars.items():
+        assert os.environ[env_name] == env_val
+
+
+def test_exec_job_in_subproc_with_env_vars(monkeypatch, tmp_path):
+    monkeypatch.setenv("PYTHONPATH", dirname(__file__))
+
+    env_vars = {"TEST_ENV1": "ab", "TEST_ENV2": "123"}
+    result = _exec_job_in_subproc(
+        "test_util.check_env_fn",
+        {"expected_env_vars": env_vars},
+        python_env=None,
+        timeout=3,
+        env_vars=env_vars,
+        tmpdir=str(tmp_path),
+    )
+    assert result.succeeded
