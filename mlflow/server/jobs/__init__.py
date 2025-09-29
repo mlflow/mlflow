@@ -30,7 +30,6 @@ class TransientError(RuntimeError):
 class JobFunctionMetadata:
     fn_fullname: str
     max_workers: int
-    python_env: _PythonEnv | None
 
 
 def job_function(max_workers: int):

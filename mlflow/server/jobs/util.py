@@ -163,7 +163,6 @@ def _exec_job(
     function: Callable[..., Any],
     params: dict[str, Any],
     timeout: float | None,
-    env_vars: dict[str, str] | None,
 ) -> None:
     from mlflow.server.handlers import _get_job_store
 
@@ -172,7 +171,7 @@ def _exec_job(
 
     fn_metadata = function._job_fn_metadata
 
-    if not timeout and not env_vars and not fn_metadata.python_env:
+    if not timeout:
         try:
             raw_result = function(**params)
             job_result = JobResult(succeeded=True, result=json.dumps(raw_result))
@@ -184,9 +183,7 @@ def _exec_job(
             job_result = _exec_job_in_subproc(
                 fn_metadata.fn_fullname,
                 params,
-                fn_metadata.python_env,
                 timeout,
-                env_vars,
                 tmpdir,
             )
 
@@ -359,10 +356,9 @@ def _enqueue_unfinished_jobs() -> None:
         params = json.loads(job.params)
         function = _load_function(job.function_fullname)
         timeout = job.timeout
-        env_vars = json.loads(job.env_vars) if job.env_vars else None
         # enqueue job
         _get_or_init_huey_instance(job.function_fullname).submit_task(
-            job.job_id, function, params, timeout, env_vars
+            job.job_id, function, params, timeout
         )
 
 
