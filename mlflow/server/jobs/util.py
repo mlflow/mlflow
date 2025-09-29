@@ -3,16 +3,15 @@ import importlib
 import inspect
 import json
 import logging
+import multiprocessing
 import os
 import shutil
 import signal
 import subprocess
 import sys
-import tempfile
 import threading
 import time
-import traceback
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
@@ -29,7 +28,7 @@ from mlflow.server import HUEY_STORAGE_PATH_ENV_VAR
 _logger = logging.getLogger(__name__)
 
 
-def _raise_exponential_backoff_retry(retry_count: int) -> None:
+def _exponential_backoff_retry(retry_count: int) -> None:
     from huey.exceptions import RetryTask
 
     # We can support more retry strategies (e.g. exponential backoff) in future
@@ -55,17 +54,8 @@ class JobResult:
         return JobResult(
             succeeded=False,
             is_transient_error=False,
-            error=f"{e!r}\nTraceback:\n{traceback.format_exc()}",
+            error=repr(e),
         )
-
-    def dump(self, path: str) -> None:
-        with open(path, "w") as fp:
-            json.dump(asdict(self), fp)
-
-    @classmethod
-    def load(cls, path: str) -> "JobResult":
-        with open(path) as fp:
-            return JobResult(**json.load(fp))
 
 
 def _exit_when_orphaned(poll_interval: float = 1) -> None:
@@ -73,6 +63,73 @@ def _exit_when_orphaned(poll_interval: float = 1) -> None:
         if os.getppid() == 1:
             os._exit(1)
         time.sleep(poll_interval)
+
+
+def _job_subproc_entry(
+    func: Callable[..., Any],
+    kwargs: dict[str, Any],
+    result_queue: multiprocessing.Queue,
+) -> None:
+    """Child process entrypoint: run func and put result or exception into queue."""
+
+    # ensure the subprocess is killed when parent process dies.
+    threading.Thread(
+        target=_exit_when_orphaned,
+        name="exit_when_orphaned",
+        daemon=True,
+    ).start()
+
+    try:
+        value = func(**kwargs)
+        result_queue.put(
+            JobResult(
+                succeeded=True,
+                result=json.dumps(value),
+            )
+        )
+    except Exception as e:
+        # multiprocess uses pickle which can't serialize any kind of python objects.
+        # so serialize exception class to serializable JobResult before putting it to result queue.
+        result_queue.put(JobResult.from_error(e))
+
+
+def execute_function_with_timeout(
+    func: Callable[..., Any],
+    kwargs: dict[str, Any],
+    timeout: float | None = None,
+) -> JobResult:
+    """
+    Run `func(**kwargs)` in a spawned subprocess.
+    Returns an instance of `JobResult`.
+
+    Raises:
+      - TimeoutError if not finished within `timeout`
+    """
+    if timeout:
+        # NOTE: Use 'spawn' instead of 'fork' because
+        #  we should avoid forking sqlalchemy engine,
+        #  otherwise connection pool, sockets, locks used by the sqlalchemy engine are forked
+        #  and deadlock / race conditions might occur.
+        ctx = multiprocessing.get_context("spawn")
+        result_queue = ctx.Queue(maxsize=1)
+        subproc = ctx.Process(target=_job_subproc_entry, args=(func, kwargs, result_queue))
+        subproc.daemon = True
+        subproc.start()
+
+        subproc.join(timeout=timeout)
+        if not subproc.is_alive():
+            return result_queue.get()
+
+        # timeout case
+        subproc.kill()
+        subproc.join()
+        raise TimeoutError()
+
+    try:
+        raw_result = func(**kwargs)
+        return JobResult(succeeded=True, result=json.dumps(raw_result))
+    except Exception as e:
+        return JobResult.from_error(e)
 
 
 def is_process_alive(pid: int) -> bool:
@@ -159,50 +216,30 @@ def _exec_job_in_subproc(
 
 
 def _exec_job(
-    job_id: str,
-    function: Callable[..., Any],
-    params: dict[str, Any],
-    timeout: float | None,
+    job_id: str, function: Callable[..., Any], params: dict[str, Any], timeout: float | None
 ) -> None:
     from mlflow.server.handlers import _get_job_store
+    from mlflow.server.jobs.util import execute_function_with_timeout
 
     job_store = _get_job_store()
     job_store.start_job(job_id)
 
-    fn_metadata = function._job_fn_metadata
+    try:
+        job_result = execute_function_with_timeout(function, params, timeout)
 
-    if not timeout:
-        try:
-            raw_result = function(**params)
-            job_result = JobResult(succeeded=True, result=json.dumps(raw_result))
-        except Exception as e:
-            job_result = JobResult.from_error(e)
-
-    else:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            job_result = _exec_job_in_subproc(
-                fn_metadata.fn_fullname,
-                params,
-                timeout,
-                tmpdir,
-            )
-
-    if job_result is None:
+        if job_result.succeeded:
+            job_store.finish_job(job_id, job_result.result)
+        else:
+            if job_result.is_transient_error:
+                # For transient errors, if the retry count is less than max allowed count,
+                # trigger task retry by raising `RetryTask` exception.
+                retry_count = job_store.retry_or_fail_job(job_id, job_result.error)
+                if retry_count is not None:
+                    _exponential_backoff_retry(retry_count)
+            else:
+                job_store.fail_job(job_id, job_result.error)
+    except TimeoutError:
         job_store.mark_job_timed_out(job_id)
-        return
-
-    if job_result.succeeded:
-        job_store.finish_job(job_id, job_result.result)
-        return
-
-    if job_result.is_transient_error:
-        # For transient errors, if the retry count is less than max allowed count,
-        # trigger task retry by raising `RetryTask` exception.
-        retry_count = job_store.retry_or_fail_job(job_id, job_result.error)
-        if retry_count is not None:
-            _raise_exponential_backoff_retry(retry_count)
-    else:
-        job_store.fail_job(job_id, job_result.error)
 
 
 @dataclass
