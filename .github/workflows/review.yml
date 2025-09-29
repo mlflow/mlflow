@@ -137,7 +137,7 @@ jobs:
 
           ## 1. Prepare for Review
           - Use `fetch_diff` tool to fetch the PR diff
-          - Read `dev/guides/python.md` thoroughly
+          - If the diff includes changes to .py files, read `dev/guides/python.md` thoroughly
 
           ## 2. Review Changed Lines Only
           - Carefully examine ONLY the changed lines (added or modified) in the diff
