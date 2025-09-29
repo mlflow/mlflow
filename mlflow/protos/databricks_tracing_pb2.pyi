@@ -155,12 +155,12 @@ class GetTraces(_message.Message):
 class SearchTraces(_message.Message):
     __slots__ = ("locations", "filter", "max_results", "order_by", "sql_warehouse_id", "page_token")
     class Response(_message.Message):
-        __slots__ = ("traces", "next_page_token")
-        TRACES_FIELD_NUMBER: _ClassVar[int]
+        __slots__ = ("trace_infos", "next_page_token")
+        TRACE_INFOS_FIELD_NUMBER: _ClassVar[int]
         NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
-        traces: _containers.RepeatedCompositeFieldContainer[Trace]
+        trace_infos: _containers.RepeatedCompositeFieldContainer[TraceInfo]
         next_page_token: str
-        def __init__(self, traces: _Optional[_Iterable[_Union[Trace, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
+        def __init__(self, trace_infos: _Optional[_Iterable[_Union[TraceInfo, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
     LOCATIONS_FIELD_NUMBER: _ClassVar[int]
     FILTER_FIELD_NUMBER: _ClassVar[int]
     MAX_RESULTS_FIELD_NUMBER: _ClassVar[int]

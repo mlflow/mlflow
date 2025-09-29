@@ -268,20 +268,18 @@ def test_search_traces():
     # Format the response
     response.text = json.dumps(
         {
-            "traces": [
+            "trace_infos": [
                 {
-                    "trace_info": {
-                        "trace_id": "tr-1234",
-                        "trace_location": {
-                            "type": "MLFLOW_EXPERIMENT",
-                            "mlflow_experiment": {"experiment_id": "1234"},
-                        },
-                        "request_time": "1970-01-01T00:00:00.123Z",
-                        "execution_duration_ms": 456,
-                        "state": "OK",
-                        "trace_metadata": {"key": "value"},
-                        "tags": {"k": "v"},
-                    }
+                    "trace_id": "tr-1234",
+                    "trace_location": {
+                        "type": "MLFLOW_EXPERIMENT",
+                        "mlflow_experiment": {"experiment_id": "1234"},
+                    },
+                    "request_time": "1970-01-01T00:00:00.123Z",
+                    "execution_duration_ms": 456,
+                    "state": "OK",
+                    "trace_metadata": {"key": "value"},
+                    "tags": {"k": "v"},
                 }
             ],
             "next_page_token": "token",
@@ -345,20 +343,18 @@ def test_search_traces_with_mixed_locations():
     # Format the response
     response.text = json.dumps(
         {
-            "traces": [
+            "trace_infos": [
                 {
-                    "trace_info": {
-                        "trace_id": "tr-1234",
-                        "trace_location": {
-                            "type": "MLFLOW_EXPERIMENT",
-                            "mlflow_experiment": {"experiment_id": "1234"},
-                        },
-                        "request_time": "1970-01-01T00:00:00.123Z",
-                        "execution_duration_ms": 456,
-                        "state": "OK",
-                        "trace_metadata": {"key": "value"},
-                        "tags": {"k": "v"},
-                    }
+                    "trace_id": "tr-1234",
+                    "trace_location": {
+                        "type": "MLFLOW_EXPERIMENT",
+                        "mlflow_experiment": {"experiment_id": "1234"},
+                    },
+                    "request_time": "1970-01-01T00:00:00.123Z",
+                    "execution_duration_ms": 456,
+                    "state": "OK",
+                    "trace_metadata": {"key": "value"},
+                    "tags": {"k": "v"},
                 }
             ],
             "next_page_token": "token",

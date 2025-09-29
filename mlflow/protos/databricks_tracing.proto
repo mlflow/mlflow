@@ -261,8 +261,7 @@ message SearchTraces {
 
   message Response {
     // Information about traces that match the search criteria.
-    // Currently the returned trace only include trace_info
-    repeated Trace traces = 1;
+    repeated TraceInfo trace_infos = 1;
     optional string next_page_token = 2;
   }
 }

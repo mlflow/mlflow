@@ -225,7 +225,7 @@ class DatabricksTracingRestStore(RestStore):
                 else:
                     raise
             trace_infos = [
-                TraceInfo.from_proto(trace.trace_info) for trace in response_proto.traces
+                TraceInfo.from_proto(trace_info) for trace_info in response_proto.trace_infos
             ]
             return trace_infos, response_proto.next_page_token or None
         else:
