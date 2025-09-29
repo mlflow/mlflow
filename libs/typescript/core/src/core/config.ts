@@ -162,7 +162,8 @@ export function init(config: MLflowTracingInitOptions = {}): void {
     throw new Error('experimentId is required in configuration');
   }
 
-  const databricksConfigPath = config.databricksConfigPath ?? path.join(os.homedir(), '.databrickscfg');
+  const databricksConfigPath =
+    config.databricksConfigPath ?? path.join(os.homedir(), '.databrickscfg');
 
   const effectiveConfig: MLflowTracingConfig = {
     ...config,

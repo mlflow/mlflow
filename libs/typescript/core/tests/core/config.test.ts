@@ -39,7 +39,7 @@ describe('Config', () => {
         );
       });
     });
-    
+
     it('should initialize with MLflow tracking server configuration', () => {
       const config = {
         trackingUri: 'http://localhost:5000',
