@@ -16,6 +16,7 @@ from mlflow.environment_variables import (
     MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY,
     MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY,
 )
+from mlflow.exceptions import MlflowException
 from mlflow.server import HUEY_STORAGE_PATH_ENV_VAR
 from mlflow.server.handlers import _get_job_store
 
@@ -100,9 +101,22 @@ def _load_function(fullname: str) -> Callable[..., Any]:
         case [*module_parts, func_name] if module_parts:
             module_name = ".".join(module_parts)
         case _:
-            raise ValueError(f"Invalid function fullname: {fullname!r}")
-    module = importlib.import_module(module_name)
-    return getattr(module, func_name)
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid function fullname format: {fullname}"
+            )
+    try:
+        module = importlib.import_module(module_name)
+        return getattr(module, func_name)
+    except ModuleNotFoundError:
+        # Module doesn't exist
+        raise MlflowException.invalid_parameter_value(
+            f"Module not found for function '{fullname}'",
+        )
+    except AttributeError:
+        # Function doesn't exist in the module
+        raise MlflowException.invalid_parameter_value(
+            f"Function not found in module for '{fullname}'",
+        )
 
 
 def _enqueue_unfinished_jobs() -> None:
