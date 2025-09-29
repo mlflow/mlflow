@@ -69,6 +69,7 @@ CREATE TABLE jobs (
 	status INTEGER NOT NULL,
 	result VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	retry_count INTEGER,
+	env_vars VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT jobs_pk PRIMARY KEY (id)
 )
 
