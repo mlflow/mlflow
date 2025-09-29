@@ -3,17 +3,15 @@ from mlflow.genai.prompts.utils import format_prompt
 # NB: User-facing name for the is_correct assessment.
 CORRECTNESS_FEEDBACK_NAME = "correctness"
 
-CORRECTNESS_BASE_INSTRUCTIONS = """\
+
+CORRECTNESS_PROMPT_INSTRUCTIONS = """\
 Consider the following question, claim and document. You must determine whether the claim is \
 supported by the document in the context of the question. Do not focus on the correctness or \
-completeness of the claim. Do not make assumptions, approximations, or bring in external \
-knowledge."""
+completeness of the claim. Do not make assumptions, approximations, or bring in external knowledge.
 
-CORRECTNESS_PROMPT_INSTRUCTIONS = f"""{CORRECTNESS_BASE_INSTRUCTIONS}
-
-<question>{{{{input}}}}</question>
-<claim>{{{{ground_truth}}}}</claim>
-<document>{{{{input}}}} - {{{{output}}}}</document>\
+<question>{{input}}</question>
+<claim>{{ground_truth}}</claim>
+<document>{{input}} - {{output}}</document>\
 """
 
 CORRECTNESS_PROMPT_OUTPUT = """
@@ -31,12 +29,6 @@ CORRECTNESS_PROMPT = CORRECTNESS_PROMPT_INSTRUCTIONS + CORRECTNESS_PROMPT_OUTPUT
 CORRECTNESS_PROMPT_SUFFIX = """
 
 If the claim is fully supported by the document in the context of the question, you must say "The response is correct" in the rationale. If the claim is not fully supported by the document in the context of the question, you must say "The response is not correct"."""  # noqa: E501
-
-CORRECTNESS_TRACE_FALLBACK_INSTRUCTIONS = f"""{CORRECTNESS_BASE_INSTRUCTIONS}
-
-Extract the question, claim, and document from the trace {{{{{{ trace }}}}}} and \
-evaluate correctness.
-"""
 
 
 def get_prompt(
@@ -75,16 +67,3 @@ def get_prompt(
         prompt += CORRECTNESS_PROMPT_SUFFIX
 
     return prompt
-
-
-def get_trace_fallback_prompt() -> str:
-    """Get the trace-based fallback prompt for correctness evaluation.
-
-    Returns:
-        Complete prompt for trace-based correctness evaluation with trace placeholder.
-    """
-    return (
-        CORRECTNESS_TRACE_FALLBACK_INSTRUCTIONS
-        + CORRECTNESS_PROMPT_OUTPUT
-        + CORRECTNESS_PROMPT_SUFFIX
-    )

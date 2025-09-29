@@ -1,6 +1,6 @@
-import time
+import json
 from abc import abstractmethod
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from typing import Any
 
 import mlflow
@@ -12,31 +12,10 @@ from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.constants import _AFFIRMATIVE_VALUES, _NEGATIVE_VALUES
 from mlflow.genai.judges.prompts.context_sufficiency import CONTEXT_SUFFICIENCY_PROMPT_INSTRUCTIONS
-from mlflow.genai.judges.prompts.correctness import (
-    CORRECTNESS_PROMPT_INSTRUCTIONS,
-)
-from mlflow.genai.judges.prompts.correctness import (
-    get_trace_fallback_prompt as get_correctness_trace_fallback_prompt,
-)
+from mlflow.genai.judges.prompts.correctness import CORRECTNESS_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.groundedness import GROUNDEDNESS_PROMPT_INSTRUCTIONS
-from mlflow.genai.judges.prompts.guidelines import (
-    GUIDELINES_PROMPT_INSTRUCTIONS,
-)
-from mlflow.genai.judges.prompts.guidelines import (
-    get_trace_fallback_prompt as get_guidelines_trace_fallback_prompt,
-)
-from mlflow.genai.judges.prompts.relevance_to_query import (
-    RELEVANCE_TO_QUERY_PROMPT_INSTRUCTIONS,
-)
-from mlflow.genai.judges.prompts.relevance_to_query import (
-    get_trace_fallback_prompt as get_relevance_trace_fallback_prompt,
-)
-from mlflow.genai.judges.prompts.safety import (
-    SAFETY_BASE_INSTRUCTIONS,
-)
-from mlflow.genai.judges.prompts.safety import (
-    get_trace_fallback_prompt as get_safety_trace_fallback_prompt,
-)
+from mlflow.genai.judges.prompts.guidelines import GUIDELINES_PROMPT_INSTRUCTIONS
+from mlflow.genai.judges.prompts.relevance_to_query import RELEVANCE_TO_QUERY_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.utils import CategoricalRating, get_default_model, invoke_judge_model
 from mlflow.genai.scorers.base import (
     _SERIALIZATION_VERSION,
@@ -55,12 +34,64 @@ from mlflow.genai.utils.trace_utils import (
 )
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
-from mlflow.utils.proto_json_utils import milliseconds_to_proto_timestamp
 from mlflow.utils.uri import is_databricks_uri
 
 GENAI_CONFIG_NAME = "databricks-agent"
 
 from mlflow.genai.judges.base import Judge, JudgeField
+
+
+@dataclass
+class ExtractedFields:
+    inputs: Any | None = None
+    outputs: Any | None = None
+    expectations: dict[str, Any] | None = None
+
+
+def _extract_fields_from_trace(
+    trace: Trace | None,
+    inputs: Any | None = None,
+    outputs: Any | None = None,
+    expectations: dict[str, Any] | None = None,
+    model: str | None = None,
+    extract_expectations: bool = False,
+) -> ExtractedFields:
+    """
+    Extract fields from trace using built-in utilities first, then LLM fallback if needed.
+
+    Returns:
+        ExtractedFields dataclass containing inputs, outputs, and expectations
+    """
+    if not trace:
+        return ExtractedFields(inputs=inputs, outputs=outputs, expectations=expectations)
+
+    inputs = resolve_inputs_from_trace(inputs, trace)
+    outputs = resolve_outputs_from_trace(outputs, trace)
+    if extract_expectations:
+        expectations = resolve_expectations_from_trace(expectations, trace)
+
+    if inputs is None or outputs is None:
+        extraction_judge = make_judge(
+            name="field_extractor",
+            instructions=(
+                "Extract the following information from {{ trace }}:\n"
+                "- inputs: The user's request or question\n"
+                "- outputs: The system's response\n"
+                'Return as JSON: {"inputs": "...", "outputs": "..."}'
+            ),
+            model=model or get_default_model(),
+        )
+        result = extraction_judge(trace=trace)
+
+        if result and result.value:
+            try:
+                extracted = json.loads(result.value)
+                inputs = inputs or extracted.get("inputs")
+                outputs = outputs or extracted.get("outputs")
+            except json.JSONDecodeError:
+                pass
+
+    return ExtractedFields(inputs=inputs, outputs=outputs, expectations=expectations)
 
 
 def _raise_missing_fields_error(scorer_name: str, required_fields: list[str]) -> None:
@@ -79,41 +110,17 @@ def _raise_missing_fields_error(scorer_name: str, required_fields: list[str]) ->
     )
 
 
-def _raise_missing_guidelines_error(trace: Any) -> None:
-    """
-    Raise an exception when guidelines are missing from expectations.
-
-    Args:
-        trace: The trace object, if provided (used to customize error message)
-    """
-    if trace:
-        raise MlflowException(
-            "ExpectationsGuidelines scorer requires guidelines to be provided either:\n"
-            "1. In the expectations parameter, OR\n"
-            "2. As assessments in the trace"
-        )
-    else:
-        raise MlflowException("Guidelines must be specified in the `expectations` parameter.")
+def _raise_missing_guidelines_error() -> None:
+    """Raise an exception when guidelines are missing from expectations."""
+    raise MlflowException("Guidelines must be specified in the `expectations` parameter.")
 
 
-def _raise_missing_correctness_expectations_error(trace: Any) -> None:
-    """
-    Raise an exception when correctness expectations are missing.
-
-    Args:
-        trace: The trace object, if provided (used to customize error message)
-    """
-    base_msg = (
+def _raise_missing_correctness_expectations_error() -> None:
+    """Raise an exception when correctness expectations are missing."""
+    raise MlflowException(
         "Correctness scorer requires expectations with either "
         "'expected_response' or 'expected_facts'."
     )
-    if trace:
-        raise MlflowException(
-            f"{base_msg} When using a trace, you can annotate it with "
-            "human assessments for these fields."
-        )
-    else:
-        raise MlflowException(base_msg)
 
 
 def _sanitize_scorer_feedback(feedback: Feedback) -> Feedback:
@@ -676,27 +683,15 @@ class Guidelines(BuiltInScorer):
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
             indicating the adherence to the specified guidelines.
         """
-        if trace is not None:
-            inputs = resolve_inputs_from_trace(inputs, trace)
-            outputs = resolve_outputs_from_trace(outputs, trace)
+        fields = _extract_fields_from_trace(trace, inputs, outputs, model=self.model)
 
-            if inputs is None or outputs is None:
-                prompt = get_guidelines_trace_fallback_prompt(self.guidelines)
-                judge = make_judge(
-                    name=self.name,
-                    instructions=prompt,
-                    model=self.model or get_default_model(),
-                )
-                return judge(trace=trace)
-
-        if inputs is None or outputs is None:
+        if fields.inputs is None or fields.outputs is None:
             _raise_missing_fields_error("Guidelines", ["inputs", "outputs"])
-
         feedback = judges.meets_guidelines(
             guidelines=self.guidelines,
             context={
-                "request": parse_inputs_to_str(inputs),
-                "response": parse_outputs_to_str(outputs),
+                "request": parse_inputs_to_str(fields.inputs),
+                "response": parse_outputs_to_str(fields.outputs),
             },
             name=self.name,
             model=self.model,
@@ -827,36 +822,21 @@ class ExpectationsGuidelines(BuiltInScorer):
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
             indicating the adherence to the specified guidelines.
         """
-        if trace is not None:
-            inputs = resolve_inputs_from_trace(inputs, trace)
-            outputs = resolve_outputs_from_trace(outputs, trace)
-            expectations = resolve_expectations_from_trace(expectations, trace)
+        fields = _extract_fields_from_trace(
+            trace, inputs, outputs, expectations, model=self.model, extract_expectations=True
+        )
 
-            if inputs is None or outputs is None:
-                guidelines = (expectations or {}).get("guidelines")
-                if not guidelines:
-                    _raise_missing_guidelines_error(trace)
-
-                prompt = get_guidelines_trace_fallback_prompt(guidelines)
-                judge = make_judge(
-                    name=self.name,
-                    instructions=prompt,
-                    model=self.model or get_default_model(),
-                )
-                return judge(trace=trace)
-
-        if inputs is None or outputs is None:
+        if fields.inputs is None or fields.outputs is None:
             _raise_missing_fields_error("ExpectationsGuidelines", ["inputs", "outputs"])
 
-        guidelines = (expectations or {}).get("guidelines")
+        guidelines = (fields.expectations or {}).get("guidelines")
         if not guidelines:
-            _raise_missing_guidelines_error(trace)
-
+            _raise_missing_guidelines_error()
         feedback = judges.meets_guidelines(
             guidelines=guidelines,
             context={
-                "request": parse_inputs_to_str(inputs),
-                "response": parse_outputs_to_str(outputs),
+                "request": parse_inputs_to_str(fields.inputs),
+                "response": parse_outputs_to_str(fields.outputs),
             },
             name=self.name,
             model=self.model,
@@ -964,25 +944,15 @@ class RelevanceToQuery(BuiltInScorer):
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
             indicating the relevance of the response to the query.
         """
-        if trace is not None:
-            inputs = resolve_inputs_from_trace(inputs, trace)
-            outputs = resolve_outputs_from_trace(outputs, trace)
+        fields = _extract_fields_from_trace(trace, inputs, outputs, model=self.model)
 
-            if inputs is None or outputs is None:
-                prompt = get_relevance_trace_fallback_prompt()
-                judge = make_judge(
-                    name=self.name,
-                    instructions=prompt,
-                    model=self.model or get_default_model(),
-                )
-                return judge(trace=trace)
-
-        if inputs is None or outputs is None:
+        if fields.inputs is None or fields.outputs is None:
             _raise_missing_fields_error("RelevanceToQuery", ["inputs", "outputs"])
 
-        request = parse_inputs_to_str(inputs)
+        # Use the existing scorer implementation with extracted/provided fields
+        request = parse_inputs_to_str(fields.inputs)
         feedback = judges.is_context_relevant(
-            request=request, context=outputs, name=self.name, model=self.model
+            request=request, context=fields.outputs, name=self.name, model=self.model
         )
         return _sanitize_scorer_feedback(feedback)
 
@@ -1033,7 +1003,7 @@ class Safety(BuiltInScorer):
     @property
     def instructions(self) -> str:
         """Get the instructions of what this scorer evaluates."""
-        return SAFETY_BASE_INSTRUCTIONS
+        return "Ensures responses do not contain harmful, offensive, or toxic content."
 
     def get_input_fields(self) -> list[JudgeField]:
         """
@@ -1076,23 +1046,14 @@ class Safety(BuiltInScorer):
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
             indicating the safety of the response.
         """
-        if trace is not None:
-            outputs = resolve_outputs_from_trace(outputs, trace)
+        fields = _extract_fields_from_trace(trace, outputs=outputs, model=self.model)
 
-            if outputs is None:
-                prompt = get_safety_trace_fallback_prompt()
-                judge = make_judge(
-                    name=self.name,
-                    instructions=prompt,
-                    model=self.model or get_default_model(),
-                )
-                return judge(trace=trace)
-
-        if outputs is None:
+        if fields.outputs is None:
             _raise_missing_fields_error("Safety", ["outputs"])
 
+        # Use the existing scorer implementation with extracted/provided fields
         feedback = judges.is_safe(
-            content=parse_outputs_to_str(outputs),
+            content=parse_outputs_to_str(fields.outputs),
             name=self.name,
             model=self.model,
         )
@@ -1245,68 +1206,24 @@ class Correctness(BuiltInScorer):
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
             indicating the correctness of the response.
         """
-        if trace is not None:
-            from mlflow.entities.assessment_source import AssessmentSourceType
+        fields = _extract_fields_from_trace(
+            trace, inputs, outputs, expectations, model=self.model, extract_expectations=True
+        )
 
-            inputs = resolve_inputs_from_trace(inputs, trace)
-            outputs = resolve_outputs_from_trace(outputs, trace)
-            original_expectations = expectations
-            expectations = resolve_expectations_from_trace(
-                expectations, trace, source=AssessmentSourceType.HUMAN
-            )
-
-            if inputs is None or outputs is None:
-                prompt = get_correctness_trace_fallback_prompt()
-
-                if original_expectations:
-                    trace_dict = trace.to_dict()
-                    if "assessments" not in trace_dict["info"]:
-                        trace_dict["info"]["assessments"] = []
-
-                    current_time_ms = int(time.time() * 1000)
-                    timestamp = milliseconds_to_proto_timestamp(current_time_ms)
-
-                    for key, value in original_expectations.items():
-                        assessment = {
-                            "type": "expectation",
-                            "assessment_name": key,
-                            "source": {"source_type": "CODE", "source_id": "builtin_scorer"},
-                            "expectation": {"value": value},
-                            "create_time": timestamp,
-                            "last_update_time": timestamp,
-                        }
-                        trace_dict["info"]["assessments"].append(assessment)
-
-                    from mlflow.entities.trace import Trace
-
-                    trace = Trace.from_dict(trace_dict)
-
-                judge = make_judge(
-                    name=self.name,
-                    instructions=prompt,
-                    model=self.model or get_default_model(),
-                )
-                return judge(trace=trace)
-
-            if not expectations or (
-                expectations.get("expected_response") is None
-                and expectations.get("expected_facts") is None
-            ):
-                _raise_missing_correctness_expectations_error(trace)
-
-        if inputs is None or outputs is None:
+        if fields.inputs is None or fields.outputs is None:
             _raise_missing_fields_error("Correctness", ["inputs", "outputs"])
 
-        if not expectations or (
-            expectations.get("expected_response") is None
-            and expectations.get("expected_facts") is None
+        if not fields.expectations or (
+            fields.expectations.get("expected_response") is None
+            and fields.expectations.get("expected_facts") is None
         ):
-            _raise_missing_correctness_expectations_error(trace)
+            _raise_missing_correctness_expectations_error()
 
-        request = parse_inputs_to_str(inputs)
-        response = parse_outputs_to_str(outputs)
-        expected_facts = expectations.get("expected_facts")
-        expected_response = expectations.get("expected_response")
+        # Step 2: Use the existing scorer implementation with extracted/provided fields
+        request = parse_inputs_to_str(fields.inputs)
+        response = parse_outputs_to_str(fields.outputs)
+        expected_facts = fields.expectations.get("expected_facts")
+        expected_response = fields.expectations.get("expected_response")
 
         feedback = judges.is_correct(
             request=request,
