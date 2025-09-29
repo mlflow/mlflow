@@ -328,19 +328,17 @@ class DatabricksTracingRestStore(RestStore):
         )
         _logger.debug(f"Unlinked experiment {experiment_id} from trace location: {location}")
 
-    def _log_spans_to_uc_table(
-        self, spans_table_name: str, spans: list[Span], tracking_uri: str
-    ) -> None:
+    def log_spans(self, location: str, spans: list[Span], **kwargs) -> list[Span]:
         if not spans:
             return []
 
-        # TODO: check server version
-
-        trace_ids = {span.trace_id for span in spans}
-        if len(trace_ids) > 1:
-            raise MlflowException.invalid_parameter_value(
-                f"All spans must belong to the same trace. Found trace IDs: {trace_ids}",
+        if "tracking_uri" not in kwargs:
+            raise MlflowException(
+                "`tracking_uri` must be provided to log spans to with Databricks tracking server."
             )
+        tracking_uri = kwargs["tracking_uri"]
+
+        # TODO: check server version
 
         endpoint = f"/api/2.0/tracing/otel{OTLP_TRACES_PATH}"
         try:
@@ -363,9 +361,10 @@ class DatabricksTracingRestStore(RestStore):
             data=request.SerializeToString(),
             extra_headers={
                 "Content-Type": "application/x-protobuf",
-                DATABRICKS_UC_TABLE_HEADER: spans_table_name,
+                DATABRICKS_UC_TABLE_HEADER: location,
                 **config.authenticate(),
             },
         )
 
         verify_rest_response(response, endpoint)
+        return spans

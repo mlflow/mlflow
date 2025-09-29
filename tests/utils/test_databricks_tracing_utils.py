@@ -13,9 +13,8 @@ from mlflow.entities.trace_location import (
 )
 from mlflow.protos import databricks_tracing_pb2 as pb
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
-from mlflow.tracing.utils import TraceMetadataKey
+from mlflow.tracing.utils import TraceMetadataKey, add_size_stats_to_trace_metadata
 from mlflow.utils.databricks_tracing_utils import (
-    add_size_stats_to_trace_metadata_v4,
     inference_table_location_to_proto,
     mlflow_experiment_location_to_proto,
     trace_from_proto,
@@ -289,7 +288,7 @@ def test_trace_info_to_dict():
     }
 
 
-def test_add_size_stats_to_trace_metadata_v4():
+def test_add_size_stats_to_trace_metadata_for_v4_trace():
     with mlflow.start_span() as span:
         otel_trace_id = span.trace_id.removeprefix("tr-")
         uc_schema = "catalog.schema"
@@ -312,5 +311,5 @@ def test_add_size_stats_to_trace_metadata_v4():
         ),
         data=TraceData(spans=[mlflow_span]),
     )
-    add_size_stats_to_trace_metadata_v4(trace)
+    add_size_stats_to_trace_metadata(trace)
     assert TraceMetadataKey.SIZE_STATS in trace.info.trace_metadata

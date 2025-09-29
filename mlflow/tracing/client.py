@@ -81,42 +81,25 @@ class TracingClient:
         """
         return self.store.start_trace(trace_info=trace_info)
 
-    def log_spans(self, experiment_id: str, spans: list[Span]) -> list[Span]:
+    def log_spans(self, location: str, spans: list[Span]) -> list[Span]:
         """
         Log spans to the backend.
 
         Args:
-            experiment_id: The experiment ID to log spans to.
+            location: The location to log spans to. It should either be an experiment ID or a
+                Unity Catalog table name.
             spans: List of Span objects to log.
 
         Returns:
             List of logged Span objects from the backend.
         """
-        return self.store.log_spans(experiment_id=experiment_id, spans=spans)
-
-    def _log_spans_to_uc_table(self, spans_table_name: str, spans: list[Span]) -> None:
-        """
-        Helper method to log spans to a Unity Catalog table.
-
-        Args:
-            spans_table_name: The name of the Unity Catalog table to log spans to.
-            spans: List of Span objects to log.
-        """
-        if is_databricks_uri(self.tracking_uri):
-            try:
-                return self.store._log_spans_to_uc_table(
-                    spans_table_name=spans_table_name,
-                    spans=spans,
-                    tracking_uri=self.tracking_uri,
-                )
-            except Exception as e:
-                _logger.warning(
-                    f"Failed to log span to Unity Catalog table: {e}",
-                    exc_info=_logger.isEnabledFor(logging.DEBUG),
-                )
-        else:
+        kwargs = {"tracking_uri": self.tracking_uri} if is_databricks_uri(self.tracking_uri) else {}
+        try:
+            return self.store.log_spans(location=location, spans=spans, **kwargs)
+        except Exception as e:
             _logger.warning(
-                "Logging spans to Unity Catalog is not supported on the current tracking server."
+                f"Failed to log span to location {location}: {e}",
+                exc_info=_logger.isEnabledFor(logging.DEBUG),
             )
 
     def delete_traces(

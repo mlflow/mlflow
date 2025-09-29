@@ -28,8 +28,8 @@ from mlflow.tracing.utils import (
     deduplicate_span_names_in_place,
     encode_span_id,
     generate_trace_id_v4,
+    get_active_spans_table_name,
     get_otel_attribute,
-    get_spans_table_name_for_trace,
     maybe_get_request_id,
     parse_trace_id_v4,
 )
@@ -414,8 +414,6 @@ def test_generate_trace_id_v4_with_uc_schema():
 
 
 def test_get_spans_table_name_for_trace_with_destination():
-    span = create_mock_otel_span(trace_id=12345, span_id=1)
-
     mock_destination = DatabricksUnityCatalog(
         catalog_name="catalog", schema_name="schema", spans_table_name="spans"
     )
@@ -423,15 +421,13 @@ def test_get_spans_table_name_for_trace_with_destination():
     with mock.patch("mlflow.tracing.provider._MLFLOW_TRACE_USER_DESTINATION") as mock_ctx:
         mock_ctx.get.return_value = mock_destination
 
-        result = get_spans_table_name_for_trace(span)
+        result = get_active_spans_table_name()
         assert result == "catalog.schema.spans"
 
 
 def test_get_spans_table_name_for_trace_no_destination():
-    span = create_mock_otel_span(trace_id=12345, span_id=1)
-
     with mock.patch("mlflow.tracing.provider._MLFLOW_TRACE_USER_DESTINATION") as mock_ctx:
         mock_ctx.get.return_value = None
 
-        result = get_spans_table_name_for_trace(span)
+        result = get_active_spans_table_name()
         assert result is None

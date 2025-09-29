@@ -3210,13 +3210,15 @@ class SqlAlchemyStore(AbstractStore):
             joint_count=joint_count,
         )
 
-    def log_spans(self, experiment_id: str, spans: list[Span]) -> list[Span]:
+    def log_spans(self, location: str, spans: list[Span], **kwargs) -> list[Span]:
         """
         Log multiple span entities to the tracking store.
 
         Args:
-            experiment_id: The experiment ID to log spans to.
+            location: The location to log spans to. It should be experiment ID of an MLflow
+                experiment.
             spans: List of Span entities to log. All spans must belong to the same trace.
+            kwargs: Additional keyword arguments.
 
         Returns:
             List of logged Span entities.
@@ -3257,13 +3259,13 @@ class SqlAlchemyStore(AbstractStore):
             # If trace doesn't exist, create it
             if sql_trace_info is None:
                 # Get experiment to add artifact location tag
-                experiment = self.get_experiment(experiment_id)
+                experiment = self.get_experiment(location)
 
                 # Create trace info for this new trace. We need to establish the trace
                 # before we can add spans to it, as spans have a foreign key to trace_info.
                 sql_trace_info = SqlTraceInfo(
                     request_id=trace_id,
-                    experiment_id=experiment_id,
+                    experiment_id=location,
                     timestamp_ms=min_start_ms,
                     execution_time_ms=((max_end_ms - min_start_ms) if max_end_ms else None),
                     status=trace_status,

@@ -3,6 +3,7 @@ from unittest import mock
 
 import pytest
 from google.protobuf.json_format import MessageToDict
+from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
 
 import mlflow
 from mlflow.entities import Span
@@ -43,6 +44,27 @@ from mlflow.utils.rest_utils import (
     _V4_TRACE_REST_API_PATH_PREFIX,
     MlflowHostCreds,
 )
+
+
+def create_mock_spans(diff_trace_id=False):
+    otel_span1 = OTelProtoSpan()
+    otel_span1.name = "span1"
+    otel_span1.trace_id = b"trace123"
+
+    otel_span2 = OTelProtoSpan()
+    otel_span2.name = "span2"
+    otel_span2.trace_id = b"trace456" if diff_trace_id else b"trace123"
+
+    # Mock spans
+    mock_span1 = mock.MagicMock(spec=Span)
+    mock_span1.trace_id = "trace123"
+    mock_span1.to_otel_proto.return_value = otel_span1
+
+    mock_span2 = mock.MagicMock(spec=Span)
+    mock_span2.trace_id = "trace456" if diff_trace_id else "trace123"
+    mock_span2.to_otel_proto.return_value = otel_span2
+
+    return [mock_span1, mock_span2]
 
 
 def _args(host_creds, endpoint, method, json_body, version, retry_timeout_seconds=None):
@@ -750,51 +772,23 @@ def test_unset_experiment_trace_location_with_uc_schema():
 
 def test_log_spans_to_uc_table_empty_spans():
     store = DatabricksTracingRestStore(lambda: MlflowHostCreds("http://localhost"))
-    result = store._log_spans_to_uc_table("catalog.schema.table", [], "databricks")
+    result = store.log_spans("catalog.schema.table", [], tracking_uri="databricks")
     assert result == []
-
-
-def test_log_spans_to_uc_table_multiple_trace_ids():
-    store = DatabricksTracingRestStore(lambda: MlflowHostCreds("http://localhost"))
-    spans = [
-        mock.MagicMock(spec=Span, trace_id="trace1"),
-        mock.MagicMock(spec=Span, trace_id="trace2"),
-    ]
-
-    with pytest.raises(MlflowException, match="All spans must belong to the same trace"):
-        store._log_spans_to_uc_table("catalog.schema.table", spans, "databricks")
 
 
 @mock.patch("mlflow.store.tracking.databricks_rest_store.get_databricks_workspace_client_config")
 @mock.patch("mlflow.store.tracking.databricks_rest_store.http_request")
 @mock.patch("mlflow.store.tracking.databricks_rest_store.verify_rest_response")
-def test_log_spans_to_uc_table_success(mock_verify, mock_http_request, mock_get_config):
-    from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
-
+@pytest.mark.parametrize("diff_trace_id", [True, False])
+def test_log_spans_to_uc_table_success(
+    mock_verify, mock_http_request, mock_get_config, diff_trace_id
+):
     # Mock configuration
     mock_config = mock.MagicMock()
     mock_config.authenticate.return_value = {"Authorization": "Bearer token"}
     mock_get_config.return_value = mock_config
 
-    # Create real OTel proto spans
-    otel_span1 = OTelProtoSpan()
-    otel_span1.name = "span1"
-    otel_span1.trace_id = b"trace123"
-
-    otel_span2 = OTelProtoSpan()
-    otel_span2.name = "span2"
-    otel_span2.trace_id = b"trace123"
-
-    # Mock spans
-    mock_span1 = mock.MagicMock(spec=Span)
-    mock_span1.trace_id = "trace123"
-    mock_span1.to_otel_proto.return_value = otel_span1
-
-    mock_span2 = mock.MagicMock(spec=Span)
-    mock_span2.trace_id = "trace123"
-    mock_span2.to_otel_proto.return_value = otel_span2
-
-    spans = [mock_span1, mock_span2]
+    spans = create_mock_spans(diff_trace_id)
 
     # Mock HTTP response
     mock_response = mock.MagicMock()
@@ -803,7 +797,7 @@ def test_log_spans_to_uc_table_success(mock_verify, mock_http_request, mock_get_
     store = DatabricksTracingRestStore(lambda: MlflowHostCreds("http://localhost"))
 
     # Execute
-    store._log_spans_to_uc_table("catalog.schema.spans", spans, "databricks")
+    store.log_spans("catalog.schema.spans", spans, tracking_uri="databricks")
 
     # Verify calls
     mock_get_config.assert_called_once_with("databricks")
@@ -830,4 +824,4 @@ def test_log_spans_to_uc_table_config_error(mock_get_config):
     store = DatabricksTracingRestStore(lambda: MlflowHostCreds("http://localhost"))
 
     with pytest.raises(MlflowException, match="Failed to log spans to UC table"):
-        store._log_spans_to_uc_table("catalog.schema.spans", spans, "databricks")
+        store.log_spans("catalog.schema.spans", spans, tracking_uri="databricks")

@@ -1696,13 +1696,15 @@ class RestStore(AbstractStore):
         response = self._call_endpoint(RemoveDatasetFromExperiments, req_body)
         return EvaluationDataset.from_proto(response.dataset)
 
-    def log_spans(self, experiment_id: str, spans: list[Span]) -> list[Span]:
+    def log_spans(self, location: str, spans: list[Span], **kwargs) -> list[Span]:
         """
         Log multiple span entities to the tracking store via the OTel API.
 
         Args:
-            experiment_id: The experiment ID to log spans to.
+            location: The location to log spans to. It should be experiment ID of an MLflow
+                experiment.
             spans: List of Span entities to log. All spans must belong to the same trace.
+            kwargs: Additional keyword arguments.
 
         Returns:
             List of logged Span entities.
@@ -1743,7 +1745,7 @@ class RestStore(AbstractStore):
             data=request.SerializeToString(),
             extra_headers={
                 "Content-Type": "application/x-protobuf",
-                MLFLOW_EXPERIMENT_ID_HEADER: experiment_id,
+                MLFLOW_EXPERIMENT_ID_HEADER: location,
             },
         )
 

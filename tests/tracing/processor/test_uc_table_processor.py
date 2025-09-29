@@ -22,9 +22,9 @@ def test_on_start_with_uc_table_name(monkeypatch):
     trace_id = 12345
     span = create_mock_otel_span(trace_id=trace_id, span_id=1, parent_id=None, start_time=5_000_000)
 
-    # Mock get_spans_table_name_for_trace to return a UC table name
+    # Mock get_active_spans_table_name to return a UC table name
     with mock.patch(
-        "mlflow.tracing.processor.uc_table.get_spans_table_name_for_trace",
+        "mlflow.tracing.processor.uc_table.get_active_spans_table_name",
         return_value="catalog1.schema1.spans_table",
     ):
         processor = DatabricksUCTableSpanProcessor(span_exporter=mock.MagicMock())
@@ -59,9 +59,9 @@ def test_on_start_without_uc_table_name(monkeypatch):
     trace_id = 12345
     span = create_mock_otel_span(trace_id=trace_id, span_id=1, parent_id=None, start_time=5_000_000)
 
-    # Mock get_spans_table_name_for_trace to return None
+    # Mock get_active_spans_table_name to return None
     with mock.patch(
-        "mlflow.tracing.processor.uc_table.get_spans_table_name_for_trace", return_value=None
+        "mlflow.tracing.processor.uc_table.get_active_spans_table_name", return_value=None
     ):
         processor = DatabricksUCTableSpanProcessor(span_exporter=mock.MagicMock())
         processor.on_start(span)
@@ -69,16 +69,7 @@ def test_on_start_without_uc_table_name(monkeypatch):
     # Check that trace was still created in trace manager
     trace_manager = InMemoryTraceManager.get_instance()
     traces = trace_manager._traces
-    assert len(traces) == 1
-
-    # Get the created trace
-    created_trace = list(traces.values())[0]
-    trace_info = created_trace.info
-
-    # Verify trace location is UC_SCHEMA type but with minimal info
-    assert trace_info.trace_location.type == TraceLocationType.UC_SCHEMA
-    # When no UC table name is provided, trace_id should be the original OTEL trace_id
-    assert trace_info.trace_id == trace_id
+    assert len(traces) == 0
 
 
 def test_constructor_disables_metrics_export():
@@ -94,7 +85,7 @@ def test_trace_id_generation_with_uc_schema():
     span = create_mock_otel_span(trace_id=trace_id, span_id=1, parent_id=None, start_time=5_000_000)
 
     with mock.patch(
-        "mlflow.tracing.processor.uc_table.get_spans_table_name_for_trace",
+        "mlflow.tracing.processor.uc_table.get_active_spans_table_name",
         return_value="catalog1.schema1.spans_table",
     ):
         with mock.patch(
@@ -140,7 +131,7 @@ def test_trace_metadata_and_tags():
     span = create_mock_otel_span(trace_id=trace_id, span_id=1, parent_id=None, start_time=5_000_000)
 
     with mock.patch(
-        "mlflow.tracing.processor.uc_table.get_spans_table_name_for_trace",
+        "mlflow.tracing.processor.uc_table.get_active_spans_table_name",
         return_value="catalog1.schema1.spans_table",
     ):
         processor = DatabricksUCTableSpanProcessor(span_exporter=mock.MagicMock())

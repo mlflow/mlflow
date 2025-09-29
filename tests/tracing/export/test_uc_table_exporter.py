@@ -13,33 +13,6 @@ from tests.tracing.helper import (
 )
 
 
-def test_collect_mlflow_spans_for_export_uc_table():
-    trace_manager = InMemoryTraceManager.get_instance()
-    exporter = DatabricksUCTableSpanExporter()
-
-    # Create spans with UC table configuration
-    otel_span1 = create_mock_otel_span(trace_id=12345, span_id=1)
-    otel_span2 = create_mock_otel_span(trace_id=12345, span_id=2)
-
-    trace_id = generate_trace_id_v4(otel_span1, "catalog.schema")
-    span1 = LiveSpan(otel_span1, trace_id)
-    span2 = LiveSpan(otel_span2, trace_id)
-
-    # Create trace info with UC table name
-    trace_info = create_test_trace_info_with_uc_table(trace_id, "catalog", "schema", "spans")
-    trace_manager.register_trace(otel_span1.context.trace_id, trace_info)
-    trace_manager.register_span(span1)
-    trace_manager.register_span(span2)
-
-    spans_by_uc_table = exporter._collect_mlflow_spans_for_export(
-        [otel_span1, otel_span2], trace_manager
-    )
-
-    assert len(spans_by_uc_table) == 1
-    assert "catalog.schema.spans" in spans_by_uc_table
-    assert len(spans_by_uc_table["catalog.schema.spans"]) == 2
-
-
 @pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
 def test_export_spans_to_uc_table(is_async, monkeypatch):
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", str(is_async))
@@ -59,14 +32,18 @@ def test_export_spans_to_uc_table(is_async, monkeypatch):
     trace_manager.register_span(span)
 
     # Export the span
-    exporter.export([otel_span])
+    with mock.patch(
+        "mlflow.tracing.export.uc_table.get_active_spans_table_name",
+        return_value="catalog.schema.spans",
+    ):
+        exporter.export([otel_span])
 
     if is_async:
         # For async tests, we need to flush the specific exporter's queue
         exporter._async_queue.flush(terminate=True)
 
     # Verify UC table logging was called
-    mock_client._log_spans_to_uc_table.assert_called_once_with("catalog.schema.spans", [span])
+    mock_client.log_spans.assert_called_once_with("catalog.schema.spans", [span])
 
 
 def test_log_trace_no_upload_data_for_uc_schema():
@@ -85,7 +62,7 @@ def test_log_trace_no_upload_data_for_uc_schema():
     exporter = DatabricksUCTableSpanExporter()
     exporter._client = mock_client
 
-    with mock.patch("mlflow.tracing.export.uc_table.add_size_stats_to_trace_metadata_v4"):
+    with mock.patch("mlflow.tracing.export.uc_table.add_size_stats_to_trace_metadata"):
         exporter._log_trace(mock_trace, mock_prompts)
 
         # Verify start_trace was called but _upload_trace_data was not
@@ -93,7 +70,7 @@ def test_log_trace_no_upload_data_for_uc_schema():
         mock_client._upload_trace_data.assert_not_called()
 
 
-def test_log_trace_no_log_spans_to_uc_table_if_no_uc_schema():
+def test_log_trace_no_log_spans_if_no_uc_schema():
     mock_client = mock.MagicMock()
 
     # Mock trace info without UC schema
@@ -110,9 +87,9 @@ def test_log_trace_no_log_spans_to_uc_table_if_no_uc_schema():
     exporter = DatabricksUCTableSpanExporter()
     exporter._client = mock_client
 
-    with mock.patch("mlflow.tracing.export.uc_table.add_size_stats_to_trace_metadata_v4"):
+    with mock.patch("mlflow.tracing.export.uc_table.add_size_stats_to_trace_metadata"):
         exporter._log_trace(mock_trace, mock_prompts)
 
         # Verify both start_trace and _upload_trace_data were called
         mock_client.start_trace.assert_called_once_with(mock_trace.info)
-        mock_client._log_spans_to_uc_table.assert_not_called()
+        mock_client.log_spans.assert_not_called()

@@ -30,7 +30,11 @@ from mlflow.utils.proto_json_utils import (
     milliseconds_to_proto_timestamp,
 )
 
-from tests.tracing.helper import V2_TRACE_DICT, create_test_trace_info
+from tests.tracing.helper import (
+    V2_TRACE_DICT,
+    create_test_trace_info,
+    create_test_trace_info_with_uc_table,
+)
 
 
 def _test_model(datetime=datetime.now()):
@@ -261,6 +265,12 @@ def test_trace_to_from_dict_and_json():
 def test_trace_pandas_dataframe_columns():
     t = Trace(
         info=create_test_trace_info("a"),
+        data=TraceData(),
+    )
+    assert Trace.pandas_dataframe_columns() == list(t.to_pandas_dataframe_row())
+
+    t = Trace(
+        info=create_test_trace_info_with_uc_table("a", "catalog", "schema", "spans_table"),
         data=TraceData(),
     )
     assert Trace.pandas_dataframe_columns() == list(t.to_pandas_dataframe_row())
