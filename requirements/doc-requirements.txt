@@ -22,5 +22,5 @@ Flask-WTF<2
 polars>=1
 # required for the genai evaluation example
 openai
-# required for the haystack 
+# required for the haystack
 haystack-ai
