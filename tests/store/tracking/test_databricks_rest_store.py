@@ -1,4 +1,5 @@
 import json
+import time
 from unittest import mock
 
 import pytest
@@ -7,6 +8,12 @@ from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
 
 import mlflow
 from mlflow.entities import Span
+from mlflow.entities.assessment import (
+    AssessmentSource,
+    AssessmentSourceType,
+    Feedback,
+    FeedbackValue,
+)
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
@@ -21,9 +28,12 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND
 from mlflow.protos.databricks_tracing_pb2 import (
+    CreateAssessment,
     CreateTrace,
     CreateTraceUCStorageLocation,
+    DeleteAssessment,
     DeleteTraceTag,
+    GetAssessment,
     GetTraceInfo,
     GetTraces,
     LinkExperimentToUCTraceLocation,
@@ -38,6 +48,7 @@ from mlflow.protos.service_pb2 import SetTraceTag as SetTraceTagV3
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
 from mlflow.utils.databricks_tracing_utils import (
+    assessment_to_proto,
     trace_info_to_proto,
     trace_location_from_databricks_uc_schema,
     trace_location_to_proto,
@@ -1008,3 +1019,214 @@ def test_log_spans_to_uc_table_config_error(mock_get_config):
 
     with pytest.raises(MlflowException, match="Failed to log spans to UC table"):
         store.log_spans("catalog.schema.spans", spans, tracking_uri="databricks")
+
+
+def test_create_assessment():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps(
+        {
+            "assessment": {
+                "assessment_id": "1234",
+                "assessment_name": "assessment_name",
+                "trace_identifier": {
+                    "uc_schema": {
+                        "catalog_name": "catalog",
+                        "schema_name": "schema",
+                    },
+                    "trace_id": "1234",
+                },
+                "source": {
+                    "source_type": "LLM_JUDGE",
+                    "source_id": "gpt-4o-mini",
+                },
+                "create_time": "2025-02-20T05:47:23Z",
+                "last_update_time": "2025-02-20T05:47:23Z",
+                "feedback": {"value": True},
+                "rationale": "rationale",
+                "metadata": {"model": "gpt-4o-mini"},
+                "error": None,
+                "span_id": None,
+            }
+        }
+    )
+
+    feedback = Feedback(
+        trace_id="trace:/catalog.schema/1234",
+        name="assessment_name",
+        value=True,
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.LLM_JUDGE, source_id="gpt-4o-mini"
+        ),
+        create_time_ms=int(time.time() * 1000),
+        last_update_time_ms=int(time.time() * 1000),
+        rationale="rationale",
+        metadata={"model": "gpt-4o-mini"},
+        span_id=None,
+    )
+
+    request = CreateAssessment(
+        assessment=assessment_to_proto(feedback),
+    )
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        res = store.create_assessment(
+            assessment=feedback,
+        )
+
+        _verify_requests(
+            mock_http,
+            creds,
+            "traces/catalog.schema/1234/assessment",
+            "POST",
+            message_to_json(request),
+            version="4.0",
+        )
+        assert isinstance(res, Feedback)
+        assert res.assessment_id is not None
+        assert res.value == feedback.value
+
+
+def test_get_assessment():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    trace_id = "trace:/catalog.schema/1234"
+    response.text = json.dumps(
+        {
+            "assessment": {
+                "assessment_id": "1234",
+                "assessment_name": "assessment_name",
+                "trace_id": trace_id,
+                "source": {
+                    "source_type": "LLM_JUDGE",
+                    "source_id": "gpt-4o-mini",
+                },
+                "create_time": "2025-02-20T05:47:23Z",
+                "last_update_time": "2025-02-20T05:47:23Z",
+                "feedback": {"value": True},
+                "rationale": "rationale",
+                "metadata": {"model": "gpt-4o-mini"},
+                "error": None,
+                "span_id": None,
+            }
+        }
+    )
+    request = GetAssessment()
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        res = store.get_assessment(
+            trace_id=trace_id,
+            assessment_id="1234",
+        )
+
+        _verify_requests(
+            mock_http,
+            creds,
+            "traces/catalog.schema/1234/assessment/1234",
+            "GET",
+            message_to_json(request),
+            version="4.0",
+        )
+        assert isinstance(res, Feedback)
+        assert res.assessment_id == "1234"
+        assert res.value is True
+
+
+def test_update_assessment():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    trace_id = "trace:/catalog.schema/1234"
+    response.text = json.dumps(
+        {
+            "assessment": {
+                "assessment_id": "1234",
+                "assessment_name": "updated_assessment_name",
+                "trace_location": {
+                    "type": "UC_SCHEMA",
+                    "uc_schema": {
+                        "catalog_name": "catalog",
+                        "schema_name": "schema",
+                    },
+                },
+                "trace_id": "1234",
+                "source": {
+                    "source_type": "LLM_JUDGE",
+                    "source_id": "gpt-4o-mini",
+                },
+                "create_time": "2025-02-20T05:47:23Z",
+                "last_update_time": "2025-02-20T05:47:23Z",
+                "feedback": {"value": False},
+                "rationale": "updated_rationale",
+                "metadata": {"model": "gpt-4o-mini"},
+                "error": None,
+                "span_id": None,
+            }
+        }
+    )
+
+    request = {
+        "assessment": {
+            "assessment_id": "1234",
+            "trace_location": {
+                "type": "UC_SCHEMA",
+                "uc_schema": {
+                    "catalog_name": "catalog",
+                    "schema_name": "schema",
+                },
+            },
+            "trace_id": "1234",
+            "feedback": {"value": False},
+            "rationale": "updated_rationale",
+            "metadata": {"model": "gpt-4o-mini"},
+        },
+        "update_mask": "feedback,rationale,metadata",
+    }
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        res = store.update_assessment(
+            trace_id=trace_id,
+            assessment_id="1234",
+            feedback=FeedbackValue(value=False),
+            rationale="updated_rationale",
+            metadata={"model": "gpt-4o-mini"},
+        )
+
+        _verify_requests(
+            mock_http,
+            creds,
+            "traces/catalog.schema/1234/assessment/1234",
+            "PATCH",
+            json.dumps(request),
+            version="4.0",
+        )
+        assert isinstance(res, Feedback)
+        assert res.assessment_id == "1234"
+        assert res.value is False
+        assert res.rationale == "updated_rationale"
+
+
+def test_delete_assessment():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps({})
+    trace_id = "trace:/catalog.schema/1234"
+    request = DeleteAssessment()
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        store.delete_assessment(
+            trace_id=trace_id,
+            assessment_id="1234",
+        )
+
+        _verify_requests(
+            mock_http,
+            creds,
+            "traces/catalog.schema/1234/assessment/1234",
+            "DELETE",
+            message_to_json(request),
+            version="4.0",
+        )

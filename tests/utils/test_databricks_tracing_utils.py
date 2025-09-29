@@ -1,9 +1,18 @@
+import json
 from unittest import mock
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
 import mlflow
-from mlflow.entities import Trace, TraceData, TraceInfo, TraceState
+from mlflow.entities import (
+    AssessmentSource,
+    Expectation,
+    Feedback,
+    Trace,
+    TraceData,
+    TraceInfo,
+    TraceState,
+)
 from mlflow.entities.trace_location import (
     InferenceTableLocation,
     MlflowExperimentLocation,
@@ -11,10 +20,14 @@ from mlflow.entities.trace_location import (
     TraceLocationType,
     UCSchemaLocation,
 )
+from mlflow.protos import assessments_pb2
 from mlflow.protos import databricks_tracing_pb2 as pb
+from mlflow.protos.assessments_pb2 import AssessmentSource as ProtoAssessmentSource
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
 from mlflow.tracing.utils import TraceMetadataKey, add_size_stats_to_trace_metadata
 from mlflow.utils.databricks_tracing_utils import (
+    assessment_to_proto,
+    get_trace_id_from_assessment_proto,
     inference_table_location_to_proto,
     mlflow_experiment_location_to_proto,
     trace_from_proto,
@@ -313,3 +326,93 @@ def test_add_size_stats_to_trace_metadata_for_v4_trace():
     )
     add_size_stats_to_trace_metadata(trace)
     assert TraceMetadataKey.SIZE_STATS in trace.info.trace_metadata
+
+
+def test_assessment_to_proto():
+    # Test with Feedback assessment
+    feedback = Feedback(
+        name="correctness",
+        value=0.95,
+        source=AssessmentSource(source_type="LLM_JUDGE", source_id="gpt-4"),
+        trace_id="trace:/catalog.schema/trace123",
+        metadata={"model": "gpt-4", "temperature": "0.7"},
+        span_id="span456",
+        rationale="The response is accurate and complete",
+        overrides="old_assessment_id",
+        valid=False,
+    )
+    feedback.assessment_id = "assessment789"
+
+    proto_v4 = assessment_to_proto(feedback)
+
+    # Validate proto structure
+    assert isinstance(proto_v4, pb.Assessment)
+    assert proto_v4.assessment_name == "correctness"
+    assert proto_v4.assessment_id == "assessment789"
+    assert proto_v4.span_id == "span456"
+    assert proto_v4.rationale == "The response is accurate and complete"
+    assert proto_v4.overrides == "old_assessment_id"
+    assert proto_v4.valid is False
+
+    # Check TraceIdentifier
+    assert proto_v4.trace_id == "trace123"
+    assert proto_v4.trace_location.uc_schema.catalog_name == "catalog"
+    assert proto_v4.trace_location.uc_schema.schema_name == "schema"
+
+    # Check source
+    assert proto_v4.source.source_type == ProtoAssessmentSource.SourceType.Value("LLM_JUDGE")
+    assert proto_v4.source.source_id == "gpt-4"
+
+    # Check metadata
+    assert proto_v4.metadata["model"] == "gpt-4"
+    assert proto_v4.metadata["temperature"] == "0.7"
+
+    # Check feedback value
+    assert proto_v4.HasField("feedback")
+    assert proto_v4.feedback.value.number_value == 0.95
+
+    # Test with Expectation assessment
+    expectation = Expectation(
+        name="expected_answer",
+        value={"answer": "Paris", "confidence": 0.99},
+        source=AssessmentSource(source_type="HUMAN", source_id="user@example.com"),
+        trace_id="trace:/main.default/trace789",
+        metadata={"question": "What is the capital of France?"},
+        span_id="span111",
+    )
+    expectation.assessment_id = "exp_assessment123"
+
+    proto_v4_exp = assessment_to_proto(expectation)
+
+    assert isinstance(proto_v4_exp, pb.Assessment)
+    assert proto_v4_exp.assessment_name == "expected_answer"
+    assert proto_v4_exp.assessment_id == "exp_assessment123"
+    assert proto_v4_exp.span_id == "span111"
+
+    # Check TraceIdentifier for expectation
+    assert proto_v4_exp.trace_id == "trace789"
+    assert proto_v4_exp.trace_location.uc_schema.catalog_name == "main"
+    assert proto_v4_exp.trace_location.uc_schema.schema_name == "default"
+
+    # Check expectation value
+    assert proto_v4_exp.HasField("expectation")
+    assert proto_v4_exp.expectation.HasField("serialized_value")
+    assert json.loads(proto_v4_exp.expectation.serialized_value.value) == {
+        "answer": "Paris",
+        "confidence": 0.99,
+    }
+
+
+def test_get_trace_id_from_assessment_proto():
+    proto = pb.Assessment(
+        trace_id="1234",
+        trace_location=trace_location_to_proto(
+            trace_location_from_databricks_uc_schema(catalog_name="catalog", schema_name="schema")
+        ),
+    )
+    assert get_trace_id_from_assessment_proto(proto) == "trace:/catalog.schema/1234"
+
+    proto = assessments_pb2.Assessment(
+        trace_id="tr-123",
+    )
+    assert get_trace_id_from_assessment_proto(proto) == "tr-123"
