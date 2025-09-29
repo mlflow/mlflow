@@ -274,7 +274,7 @@ def _get_or_init_huey_instance(instance_key: str):
                 results=False,
                 serializer=CloudPickleSerializer(),
             )
-            huey_submit_task_fn = huey_instance.task()(_exec_job)
+            huey_submit_task_fn = huey_instance.task(retries=0)(_exec_job)
             _huey_instance_map[instance_key] = HueyInstance(
                 instance=huey_instance,
                 submit_task=huey_submit_task_fn,

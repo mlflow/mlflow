@@ -15,12 +15,20 @@ and schedules the job execution continuously.
 """
 
 import os
+import threading
 
 from mlflow.server.jobs.util import (
     _get_or_init_huey_instance,
-    _start_watcher_to_kill_job_runner_if_mlflow_server_dies,
+    _exit_when_orphaned,
 )
 
-_start_watcher_to_kill_job_runner_if_mlflow_server_dies()
+# ensure the subprocess is killed when parent process dies.
+# The huey consumer's parent process is `_job_runner` process,
+# if `_job_runner` process is died, it means the MLflow server exits.
+threading.Thread(
+    target=_exit_when_orphaned,
+    name="exit_when_orphaned",
+    daemon=True,
+).start()
 
 huey_instance = _get_or_init_huey_instance(os.environ["_MLFLOW_HUEY_INSTANCE_KEY"]).instance

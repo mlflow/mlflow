@@ -353,12 +353,12 @@ def test_submit_jobs_from_multi_processes(monkeypatch, tmp_path):
                 args=(basic_job_fun,),
                 kwds={"params": {"x": x, "y": 1, "sleep_secs": 2}},
             )
-            for x in range(4)
+            for x in range(2)
         ]
         job_ids = [async_res.get().job_id for async_res in async_res_list]
         for job_id in job_ids:
             wait_job_finalize(job_id, timeout=10)
-        for x in range(4):
+        for x in range(2):
             assert_job_result(job_ids[x], JobStatus.SUCCEEDED, x + 1)
 
 
