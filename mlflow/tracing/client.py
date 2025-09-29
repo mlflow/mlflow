@@ -667,21 +667,23 @@ class TracingClient:
 
     def _set_experiment_trace_location(
         self,
-        uc_schema: UCSchemaLocation,
+        location: UCSchemaLocation,
         experiment_id: str,
         sql_warehouse_id: str | None = None,
     ) -> UCSchemaLocation:
         if is_databricks_uri(self.tracking_uri):
             return self.store.set_experiment_trace_location(
                 experiment_id=experiment_id,
-                uc_schema=uc_schema,
+                location=location,
                 sql_warehouse_id=sql_warehouse_id,
             )
         raise MlflowException(
             "Setting storage location is not supported on non-Databricks backends."
         )
 
-    def _unset_experiment_trace_location(self, experiment_id: str, location: str) -> None:
+    def _unset_experiment_trace_location(
+        self, experiment_id: str, location: UCSchemaLocation
+    ) -> None:
         if is_databricks_uri(self.tracking_uri):
             self.store.unset_experiment_trace_location(experiment_id, location)
         else:

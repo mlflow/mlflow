@@ -844,7 +844,7 @@ def test_set_experiment_trace_location():
         mock_call.side_effect = [create_location_response, link_response]
 
         result = store.set_experiment_trace_location(
-            uc_schema=uc_schema,
+            location=uc_schema,
             experiment_id=experiment_id,
             sql_warehouse_id=sql_warehouse_id,
         )
@@ -871,7 +871,7 @@ def test_set_experiment_trace_location():
         assert link_request_body["uc_schema"]["otel_logs_table_name"] == "test_logs"
         assert (
             second_call[1]["endpoint"]
-            == f"{_V4_TRACE_REST_API_PATH_PREFIX}/location/{experiment_id}"
+            == f"{_V4_TRACE_REST_API_PATH_PREFIX}/{experiment_id}/link-location"
         )
 
         assert isinstance(result, UCSchemaLocation)
@@ -902,7 +902,7 @@ def test_set_experiment_trace_location_with_existing_location():
         mock_call.side_effect = [create_location_response, link_response]
 
         result = store.set_experiment_trace_location(
-            uc_schema=uc_schema,
+            location=uc_schema,
             experiment_id=experiment_id,
             sql_warehouse_id=sql_warehouse_id,
         )
@@ -927,7 +927,7 @@ def test_set_experiment_trace_location_with_existing_location():
         assert link_request_body["uc_schema"]["schema_name"] == "test_schema"
         assert (
             second_call[1]["endpoint"]
-            == f"{_V4_TRACE_REST_API_PATH_PREFIX}/location/{experiment_id}"
+            == f"{_V4_TRACE_REST_API_PATH_PREFIX}/{experiment_id}/link-location"
         )
 
         assert isinstance(result, UCSchemaLocation)
@@ -948,7 +948,7 @@ def test_unset_experiment_trace_location_with_uc_schema():
     with mock.patch.object(store, "_call_endpoint", return_value=response) as mock_call:
         store.unset_experiment_trace_location(
             experiment_id=experiment_id,
-            location="test_catalog.test_schema",
+            location=UCSchemaLocation(catalog_name="test_catalog", schema_name="test_schema"),
         )
 
         mock_call.assert_called_once()
@@ -957,10 +957,9 @@ def test_unset_experiment_trace_location_with_uc_schema():
         assert call_args[0][0] == UnLinkExperimentToUCTraceLocation
         request_body = json.loads(call_args[0][1])
         assert request_body["experiment_id"] == experiment_id
-        assert request_body["location"] == "test_catalog.test_schema"
-        expected_endpoint = (
-            f"{_V4_TRACE_REST_API_PATH_PREFIX}/location/{experiment_id}/test_catalog.test_schema"
-        )
+        assert request_body["uc_schema"]["catalog_name"] == "test_catalog"
+        assert request_body["uc_schema"]["schema_name"] == "test_schema"
+        expected_endpoint = f"{_V4_TRACE_REST_API_PATH_PREFIX}/{experiment_id}/unlink-location"
         assert call_args[1]["endpoint"] == expected_endpoint
 
 

@@ -81,7 +81,7 @@ def set_experiment_trace_location(
         )
 
     uc_schema_location = TracingClient()._set_experiment_trace_location(
-        uc_schema=location,
+        location=location,
         experiment_id=experiment_id,
         sql_warehouse_id=sql_warehouse_id,
     )
@@ -137,5 +137,5 @@ def unset_experiment_trace_location(
             "Experiment ID is required to clear storage location, either pass it as an argument or "
             "use `mlflow.set_experiment` to set the current experiment."
         )
-    TracingClient()._unset_experiment_trace_location(experiment_id, location.schema_location)
+    TracingClient()._unset_experiment_trace_location(experiment_id, location)
     _logger.info(f"Successfully cleared storage location for experiment `{experiment_id}`")

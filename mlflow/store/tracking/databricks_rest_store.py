@@ -349,13 +349,13 @@ class DatabricksTracingRestStore(RestStore):
 
     def set_experiment_trace_location(
         self,
-        uc_schema: UCSchemaLocationEntity,
+        location: UCSchemaLocationEntity,
         experiment_id: str,
         sql_warehouse_id: str | None = None,
     ) -> UCSchemaLocationEntity:
         req_body = message_to_json(
             CreateTraceUCStorageLocation(
-                uc_schema=uc_schema_location_to_proto(uc_schema),
+                uc_schema=uc_schema_location_to_proto(location),
                 sql_warehouse_id=sql_warehouse_id or MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
             )
         )
@@ -365,36 +365,38 @@ class DatabricksTracingRestStore(RestStore):
                 req_body,
                 endpoint=f"{_V4_TRACE_REST_API_PATH_PREFIX}/location",
             )
-            uc_schema = uc_schema_location_from_proto(response.uc_schema)
+            location = uc_schema_location_from_proto(response.uc_schema)
         except MlflowException as e:
             if e.error_code == ErrorCode.Name(ALREADY_EXISTS):
-                _logger.debug(f"Trace UC storage location already exists: {uc_schema}")
+                _logger.debug(f"Trace UC storage location already exists: {location}")
             else:
                 raise
-        _logger.debug(f"Created trace UC storage location: {uc_schema}")
+        _logger.debug(f"Created trace UC storage location: {location}")
 
         # link experiment to uc trace location
         req_body = message_to_json(
             LinkExperimentToUCTraceLocation(
                 experiment_id=experiment_id,
-                uc_schema=uc_schema_location_to_proto(uc_schema),
+                uc_schema=uc_schema_location_to_proto(location),
             )
         )
 
         self._call_endpoint(
             LinkExperimentToUCTraceLocation,
             req_body,
-            endpoint=f"{_V4_TRACE_REST_API_PATH_PREFIX}/location/{experiment_id}",
+            endpoint=f"{_V4_TRACE_REST_API_PATH_PREFIX}/{experiment_id}/link-location",
         )
-        _logger.debug(f"Linked experiment {experiment_id} to UC trace location: {uc_schema}")
-        return uc_schema
+        _logger.debug(f"Linked experiment {experiment_id} to UC trace location: {location}")
+        return location
 
-    def unset_experiment_trace_location(self, experiment_id: str, location: str) -> None:
+    def unset_experiment_trace_location(
+        self, experiment_id: str, location: UCSchemaLocationEntity
+    ) -> None:
         request = UnLinkExperimentToUCTraceLocation(
             experiment_id=experiment_id,
-            location=location,
+            uc_schema=uc_schema_location_to_proto(location),
         )
-        endpoint = f"{_V4_TRACE_REST_API_PATH_PREFIX}/location/{experiment_id}/{location}"
+        endpoint = f"{_V4_TRACE_REST_API_PATH_PREFIX}/{experiment_id}/unlink-location"
         req_body = message_to_json(request)
         self._call_endpoint(
             UnLinkExperimentToUCTraceLocation,

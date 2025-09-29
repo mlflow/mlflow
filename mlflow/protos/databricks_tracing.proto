@@ -115,7 +115,7 @@ service DatabricksTrackingService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/traces/location/{experiment_id}"
+        path: "/mlflow/traces/{experiment_id}/link-location"
         since { major: 4, minor: 0 },
       }],
       visibility: PUBLIC_UNDOCUMENTED,
@@ -126,8 +126,8 @@ service DatabricksTrackingService {
   rpc unlinkExperimentToUCTraceLocation (UnLinkExperimentToUCTraceLocation) returns (UnLinkExperimentToUCTraceLocation.Response) {
     option (rpc) = {
       endpoints: [{
-        method: "DELETE",
-        path: "/mlflow/traces/location/{experiment_id}/{location}"
+        method: "POST",
+        path: "/mlflow/traces/{experiment_id}/unlink-location"
         since { major: 4, minor: 0 },
       }],
       visibility: PUBLIC_UNDOCUMENTED,
@@ -443,7 +443,7 @@ message LinkExperimentToUCTraceLocation {
   // The experiment ID to link the location
   optional string experiment_id = 1 [(validate_required) = true];
   
-  // Location to unlink
+  // Location to link.
   oneof location {
     UCSchemaLocation uc_schema = 2;
   }
@@ -456,9 +456,11 @@ message UnLinkExperimentToUCTraceLocation {
 
   // Experiment ID to unlink from
   optional string experiment_id = 1 [(validate_required) = true];
-  
-  // Location to unlink. should be <catalog.schema>
-  optional string location = 2;
+
+  // Location to unlink.
+  oneof location {
+    UCSchemaLocation uc_schema = 2;
+  }
 
   message Response {}
 }
