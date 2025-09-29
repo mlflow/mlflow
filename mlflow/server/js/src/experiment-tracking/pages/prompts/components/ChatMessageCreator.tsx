@@ -95,8 +95,6 @@ export const ChatMessageCreator = ({ name }: { name: string }) => {
 
   const addMessageAfter = (index: number) => insert(index + 1, { role: 'user', content: '' });
 
-  const clearAll = () => replace([{ role: 'user', content: '' }]);
-
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
       {fields.map((field, index) => (
@@ -152,14 +150,6 @@ export const ChatMessageCreator = ({ name }: { name: string }) => {
           />
         </div>
       ))}
-      <div css={{ display: 'flex', gap: theme.spacing.sm }}>
-        <Button componentId="mlflow.prompts.chat_creator.clear_all" onClick={clearAll}>
-          <FormattedMessage
-            defaultMessage="Clear all"
-            description="Button to clear all chat messages in the chat prompt creator"
-          />
-        </Button>
-      </div>
       {formState.errors?.[name] && <FormUI.Message type="error" message={(formState.errors as any)[name]?.message} />}
     </div>
   );

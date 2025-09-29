@@ -5491,10 +5491,6 @@
     "defaultMessage": "New",
     "description": "Sidebar create popover button to create new experiment, model or prompt"
   },
-  "xs0iJC": {
-    "defaultMessage": "Clear all",
-    "description": "Button to clear all chat messages in the chat prompt creator"
-  },
   "xwe7WH": {
     "defaultMessage": "Default rendering",
     "description": "Tooltip content for a button that changes the render mode to default"

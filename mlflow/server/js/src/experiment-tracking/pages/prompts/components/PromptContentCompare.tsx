@@ -40,7 +40,8 @@ export const PromptContentCompare = ({
 
   const stringifyChat = (messages: ReturnType<typeof getChatPromptMessagesFromValue>, fallback?: string) => {
     if (messages) {
-      return messages.map((m: any) => `${m.role}: ${m.content}`).join('\n');
+      // Add an extra newline between each message for better diff readability
+      return messages.map((m: any) => `${m.role}: ${m.content}`).join('\n\n');
     }
     return fallback ?? '';
   };
