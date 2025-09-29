@@ -14,6 +14,7 @@ export const IS_PROMPT_TAG_VALUE = 'true';
 export const LINKED_PROMPTS_TAG_KEY = 'mlflow.linkedPrompts';
 export const PROMPT_TYPE_TEXT = 'text';
 export const PROMPT_TYPE_CHAT = 'chat';
+export const PROMPT_TYPE_TAG_KEY = '_mlflow_prompt_type';
 
 // Query parameter name for specifying prompt version in URLs
 export const PROMPT_VERSION_QUERY_PARAM = 'promptVersion';
@@ -33,6 +34,11 @@ export enum PromptVersionsTableMode {
 
 export const getPromptContentTagValue = (promptVersion: RegisteredPromptVersion) => {
   return promptVersion?.tags?.find((tag) => tag.key === REGISTERED_PROMPT_CONTENT_TAG_KEY)?.value;
+};
+
+export const isChatPrompt = (promptVersion?: RegisteredPromptVersion): boolean => {
+  const tagValue = promptVersion?.tags?.find((tag) => tag.key === PROMPT_TYPE_TAG_KEY)?.value;
+  return tagValue === PROMPT_TYPE_CHAT;
 };
 
 const isPromptChatMessage = (value: any): value is ChatPromptMessage => {

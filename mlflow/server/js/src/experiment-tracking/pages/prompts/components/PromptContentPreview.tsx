@@ -8,7 +8,13 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useMemo, useState } from 'react';
-import { getChatPromptMessagesFromValue, getPromptContentTagValue, PROMPT_TYPE_CHAT, PROMPT_TYPE_TEXT } from '../utils';
+import {
+  getChatPromptMessagesFromValue,
+  getPromptContentTagValue,
+  isChatPrompt,
+  PROMPT_TYPE_CHAT,
+  PROMPT_TYPE_TEXT,
+} from '../utils';
 import type { RegisteredPrompt, RegisteredPromptVersion } from '../types';
 import { PromptVersionMetadata } from './PromptVersionMetadata';
 import { FormattedMessage } from 'react-intl';
@@ -38,8 +44,11 @@ export const PromptContentPreview = ({
   showEditPromptVersionMetadataModal: (promptVersion: RegisteredPromptVersion) => void;
 }) => {
   const value = useMemo(() => (promptVersion ? getPromptContentTagValue(promptVersion) : ''), [promptVersion]);
-  const parsedMessages = useMemo(() => getChatPromptMessagesFromValue(value), [value]);
-  const isChatPrompt = !!parsedMessages;
+  const isChatPromptType = useMemo(() => isChatPrompt(promptVersion), [promptVersion]);
+  const parsedMessages = useMemo(
+    () => (isChatPromptType ? getChatPromptMessagesFromValue(value) : undefined),
+    [isChatPromptType, value],
+  );
 
   const { DeletePromptModal, openModal: openDeleteModal } = useDeletePromptVersionModal({
     promptVersion,
@@ -55,7 +64,7 @@ export const PromptContentPreview = ({
     }
 
     const variables: string[] = [];
-    const source = isChatPrompt ? parsedMessages?.map((m) => m.content).join('\n') || '' : value;
+    const source = isChatPromptType ? parsedMessages?.map((m) => m.content).join('\n') || '' : value;
 
     let match;
     while ((match = PROMPT_VARIABLE_REGEX.exec(source)) !== null) {
@@ -69,11 +78,11 @@ export const PromptContentPreview = ({
     }
 
     return uniq(variables);
-  }, [value, isChatPrompt, parsedMessages]);
+  }, [value, isChatPromptType, parsedMessages]);
   const codeSnippetContent = buildCodeSnippetContent(
     promptVersion,
     variableNames,
-    isChatPrompt ? PROMPT_TYPE_CHAT : undefined,
+    isChatPromptType ? PROMPT_TYPE_CHAT : undefined,
   );
 
   const { theme } = useDesignSystemTheme();
@@ -127,7 +136,7 @@ export const PromptContentPreview = ({
       <Spacer shrinks={false} />
       <div
         css={{
-          backgroundColor: isChatPrompt ? undefined : theme.colors.backgroundSecondary,
+          backgroundColor: isChatPromptType ? undefined : theme.colors.backgroundSecondary,
           padding: theme.spacing.md,
           overflow: 'auto',
           display: 'flex',
@@ -135,7 +144,7 @@ export const PromptContentPreview = ({
           gap: theme.spacing.sm,
         }}
       >
-        {isChatPrompt && parsedMessages ? (
+        {isChatPromptType && parsedMessages ? (
           parsedMessages.map((msg: any, index: number) => (
             <ModelTraceExplorerChatMessage
               key={index}
@@ -175,7 +184,7 @@ export const PromptContentPreview = ({
         }
       >
         <ShowArtifactCodeSnippet
-          code={buildCodeSnippetContent(promptVersion, variableNames, isChatPrompt ? PROMPT_TYPE_CHAT : undefined)}
+          code={buildCodeSnippetContent(promptVersion, variableNames, isChatPromptType ? PROMPT_TYPE_CHAT : undefined)}
         />{' '}
       </Modal>
       {DeletePromptModal}

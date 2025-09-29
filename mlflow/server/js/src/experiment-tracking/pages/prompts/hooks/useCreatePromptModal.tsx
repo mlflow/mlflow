@@ -12,7 +12,13 @@ import { useForm, Controller, FormProvider } from 'react-hook-form';
 import { FormattedMessage, useIntl } from 'react-intl';
 import type { RegisteredPrompt, RegisteredPromptVersion } from '../types';
 import { useCreateRegisteredPromptMutation } from './useCreateRegisteredPromptMutation';
-import { getChatPromptMessagesFromValue, getPromptContentTagValue, PROMPT_TYPE_CHAT, PROMPT_TYPE_TEXT } from '../utils';
+import {
+  getChatPromptMessagesFromValue,
+  getPromptContentTagValue,
+  isChatPrompt,
+  PROMPT_TYPE_CHAT,
+  PROMPT_TYPE_TEXT,
+} from '../utils';
 import { CollapsibleSection } from '@mlflow/mlflow/src/common/components/CollapsibleSection';
 import { EditableTagsTableView } from '@mlflow/mlflow/src/common/components/EditableTagsTableView';
 import { ChatPromptMessage } from '../types';
@@ -255,6 +261,7 @@ export const useCreatePromptModal = ({
       mode === CreatePromptModalMode.CreatePromptVersion && latestVersion
         ? getPromptContentTagValue(latestVersion) ?? ''
         : '';
+    const promptType = isChatPrompt(latestVersion) ? PROMPT_TYPE_CHAT : PROMPT_TYPE_TEXT;
     const parsedMessages = getChatPromptMessagesFromValue(tagValue);
 
     form.reset({
@@ -265,7 +272,7 @@ export const useCreatePromptModal = ({
         ? parsedMessages.map((message) => ({ ...message }))
         : [{ role: 'user', content: '' }],
       tags: [],
-      promptType: parsedMessages ? PROMPT_TYPE_CHAT : PROMPT_TYPE_TEXT,
+      promptType,
     });
     setOpen(true);
   };

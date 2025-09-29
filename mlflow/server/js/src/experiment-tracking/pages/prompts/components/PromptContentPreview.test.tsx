@@ -34,12 +34,17 @@ describe('PromptContentPreview', () => {
             { role: 'assistant', content: 'Hello' },
           ]),
         },
+        {
+          key: '_mlflow_prompt_type',
+          value: 'chat',
+        },
       ],
     };
     renderComponent(promptVersion);
-    expect(screen.getByText('User')).toBeInTheDocument();
-    expect(screen.getByText('Assistant')).toBeInTheDocument();
-    expect(screen.getByText('Hi')).toBeInTheDocument();
-    expect(screen.getByText('Hello')).toBeInTheDocument();
+
+    expect(screen.getByText('user', { exact: false })).toBeInTheDocument();
+    expect(screen.getByText('assistant', { exact: false })).toBeInTheDocument();
+    expect(screen.getByText('Hi', { exact: false })).toBeInTheDocument();
+    expect(screen.getByText('Hello', { exact: false })).toBeInTheDocument();
   });
 });
