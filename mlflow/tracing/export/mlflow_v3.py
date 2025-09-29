@@ -66,6 +66,13 @@ class MlflowV3SpanExporter(SpanExporter):
             spans: Sequence of ReadableSpan objects to export.
             manager: The trace manager instance.
         """
+        if is_databricks_uri(self._client.tracking_uri):
+            _logger.debug(
+                "Databricks tracking server only supports logging spans to UC table, "
+                "skipping span exporting."
+            )
+            return
+
         spans_by_experiment = self._collect_mlflow_spans_for_export(spans, manager)
 
         for experiment_id, spans_to_log in spans_by_experiment.items():

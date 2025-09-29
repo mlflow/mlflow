@@ -171,4 +171,4 @@ def trace_from_proto(proto: pb.Trace) -> Trace:
 
 def trace_to_json(trace: Trace) -> str:
     trace_dict = {"info": trace_info_to_dict(trace.info), "data": trace.data.to_dict()}
-    return json.dumps(trace_dict, cls=TraceJSONEncoder, indent=2)
+    return json.dumps(trace_dict, cls=TraceJSONEncoder)
