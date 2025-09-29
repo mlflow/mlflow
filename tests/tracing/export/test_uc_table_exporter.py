@@ -2,7 +2,7 @@ from unittest import mock
 
 import pytest
 
-from mlflow.entities.span import LiveSpan
+from mlflow.entities.span import Span
 from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import generate_trace_id_v4
@@ -24,7 +24,7 @@ def test_export_spans_to_uc_table(is_async, monkeypatch):
 
     otel_span = create_mock_otel_span(trace_id=12345, span_id=1)
     trace_id = generate_trace_id_v4(otel_span, "catalog.schema")
-    span = LiveSpan(otel_span, trace_id)
+    span = Span(otel_span)
 
     # Create trace info with UC table
     trace_info = create_test_trace_info_with_uc_table(trace_id, "catalog", "schema", "spans")
@@ -43,7 +43,12 @@ def test_export_spans_to_uc_table(is_async, monkeypatch):
         exporter._async_queue.flush(terminate=True)
 
     # Verify UC table logging was called
-    mock_client.log_spans.assert_called_once_with("catalog.schema.spans", [span])
+    mock_client.log_spans.assert_called_once()
+    args = mock_client.log_spans.call_args
+    assert args[0][0] == "catalog.schema.spans"
+    assert len(args[0][1]) == 1
+    assert isinstance(args[0][1][0], Span)
+    assert args[0][1][0].to_dict() == span.to_dict()
 
 
 def test_log_trace_no_upload_data_for_uc_schema():
@@ -62,7 +67,7 @@ def test_log_trace_no_upload_data_for_uc_schema():
     exporter = DatabricksUCTableSpanExporter()
     exporter._client = mock_client
 
-    with mock.patch("mlflow.tracing.export.uc_table.add_size_stats_to_trace_metadata"):
+    with mock.patch("mlflow.tracing.utils.add_size_stats_to_trace_metadata"):
         exporter._log_trace(mock_trace, mock_prompts)
 
         # Verify start_trace was called but _upload_trace_data was not
@@ -87,7 +92,7 @@ def test_log_trace_no_log_spans_if_no_uc_schema():
     exporter = DatabricksUCTableSpanExporter()
     exporter._client = mock_client
 
-    with mock.patch("mlflow.tracing.export.uc_table.add_size_stats_to_trace_metadata"):
+    with mock.patch("mlflow.tracing.utils.add_size_stats_to_trace_metadata"):
         exporter._log_trace(mock_trace, mock_prompts)
 
         # Verify both start_trace and _upload_trace_data were called
