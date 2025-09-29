@@ -738,7 +738,6 @@ def test_prompt_tag_deleted(mlflow_client: MlflowClient, app_client: AppClient) 
 
 
 def test_prompt_version_tag_set(mlflow_client: MlflowClient, app_client: AppClient) -> None:
-    pytest.skip("prompt_version_tag APIs have implementation issues")
     mlflow_client.create_webhook(
         name="prompt_version_tag_set",
         url=app_client.get_url("/insecure-webhook"),
@@ -770,8 +769,6 @@ def test_prompt_version_tag_set(mlflow_client: MlflowClient, app_client: AppClie
 
 
 def test_prompt_version_tag_deleted(mlflow_client: MlflowClient, app_client: AppClient) -> None:
-    # Skip this test - prompt version tagging API has implementation issues
-    pytest.skip("prompt_version_tag APIs have implementation issues")
     mlflow_client.create_webhook(
         name="prompt_version_tag_deleted",
         url=app_client.get_url("/insecure-webhook"),
