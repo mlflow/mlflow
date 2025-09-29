@@ -106,6 +106,8 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
   };
 
   intervalId: any;
+  loadMetricHistoryPromise: Promise<any> | null;
+  xAxisType: string | null;
 
   constructor(props: MetricsPlotPanelProps) {
     super(props);
@@ -122,6 +124,8 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
         | undefined,
     };
     this.intervalId = null;
+    this.loadMetricHistoryPromise = null;
+    this.xAxisType = null;
   }
 
   onFocus = () => {
@@ -301,13 +305,14 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
         }
         return { requestIds, success: true };
       });
-    return Promise.all(promises).then((results) => {
+    this.loadMetricHistoryPromise = Promise.all(promises).then((results) => {
       // Ensure we don't set state if component is unmounted
       if (this._isMounted) {
         this.setState({ loading: false });
       }
       return results.flatMap(({ requestIds }) => requestIds);
     });
+    return this.loadMetricHistoryPromise;
   };
 
   loadRuns = (runUuids: any) => {
@@ -426,13 +431,7 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
   handleXAxisChange = (e: any) => {
     // Set axis value type, & reset axis scaling via autorange
     const state = this.getUrlState();
-    const axisEnumToPlotlyType = {
-      [X_AXIS_WALL]: 'date',
-      [X_AXIS_RELATIVE]: 'linear',
-      [X_AXIS_STEP]: 'linear',
-    };
-    // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
-    const axisType = axisEnumToPlotlyType[e.target.value] || 'linear';
+    const axisType = convertXAxisType(e.target.value);
     const newLayout = {
       ...state.layout,
       xaxis: {
@@ -440,6 +439,7 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
         type: axisType,
       },
     };
+    this.xAxisType = axisType;
     this.updateUrlState({ selectedXAxis: e.target.value, layout: newLayout });
   };
 
@@ -449,16 +449,13 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
   }
 
   handleDownloadCsv = async () => {
-    if (!this.state['loading']) {
+    const { loading } = this.state;
+    if (!loading) {
       const state = this.getUrlState();
       const selectedMetricKeys = state.selectedMetricKeys || [];
-      await this.loadMetricHistory(this.props.runUuids, selectedMetricKeys);
-    } else {
-      // Wait for current loading to finish
-      while (this.state['loading']) {
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      }
+      this.loadMetricHistoryPromise = this.loadMetricHistory(this.props.runUuids, selectedMetricKeys);
     }
+    await this.loadMetricHistoryPromise;
 
     // Filter by currently selected metrics (like getMetrics() does)
     const state = this.getUrlState();
@@ -492,11 +489,12 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
     const metrics = this.getMetrics();
     const chartType = MetricsPlotPanel.predictRunChartsCardChartType(metrics);
 
-    const config = RunsChartsCardConfig.getEmptyChartCardByType(chartType, false, getUUID());
+    const empty_config = RunsChartsCardConfig.getEmptyChartCardByType(chartType, false, getUUID());
     const selectedMetricKeys =
       urlState.selectedMetricKeys && urlState.selectedMetricKeys.length > 0 ? urlState.selectedMetricKeys : [metricKey];
 
-    Object.assign(config, {
+    const config = {
+      ...empty_config,
       metricKey,
       selectedMetricKeys,
       xAxisKey: convertXAxisType(urlState.selectedXAxis),
@@ -504,7 +502,7 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
       scaleType: urlState.yAxisLogScale ? 'log' : 'linear',
       displayPoints: urlState.showPoint,
       lineSmoothness: urlState.lineSmoothness,
-    });
+    };
 
     if (chartType === RunsChartType.LINE && urlState.layout && Object.keys(urlState.layout).length > 0) {
       (config as RunsChartsLineCardConfig).range = {
@@ -546,10 +544,10 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
   };
 
   getGlobalLineChartConfig = () => {
-    const urlState = this.getUrlState();
+    const { lineSmoothness, selectedXAxis } = this.getUrlState();
     return {
-      lineSmoothness: urlState.lineSmoothness,
-      xAxisKey: convertXAxisType(urlState.selectedXAxis),
+      lineSmoothness,
+      xAxisKey: convertXAxisType(selectedXAxis),
       selectedXAxisMetricKey: undefined,
     };
   };
@@ -605,6 +603,7 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
             <Spinner size="large" css={{ visibility: loading ? 'visible' : 'hidden' }} />
             <RunsChartsTooltipWrapper contextData={this.getTooltipContextValue()} component={RunsChartsTooltipBody}>
               <RunsChartsCard
+                key={runUuids.join() + this.xAxisType}
                 cardConfig={this.getCardConfig()}
                 chartRunData={this.getChartRunData()}
                 onStartEditChart={() => {}}
