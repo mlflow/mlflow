@@ -441,7 +441,7 @@ class RestStore(BaseRestStore):
             None
         """
         req_body = message_to_json(
-            SetModelVersionTag(name=name, version=version, key=tag.key, value=tag.value)
+            SetModelVersionTag(name=name, version=str(version), key=tag.key, value=tag.value)
         )
         self._call_endpoint(SetModelVersionTag, req_body)
 
