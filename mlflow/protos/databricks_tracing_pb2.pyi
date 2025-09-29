@@ -221,6 +221,19 @@ class SearchTraces(_message.Message):
     page_token: str
     def __init__(self, locations: _Optional[_Iterable[_Union[TraceLocation, _Mapping]]] = ..., filter: _Optional[str] = ..., max_results: _Optional[int] = ..., order_by: _Optional[_Iterable[str]] = ..., sql_warehouse_id: _Optional[str] = ..., page_token: _Optional[str] = ...) -> None: ...
 
+class LinkTracesToRun(_message.Message):
+    __slots__ = ("trace_ids", "run_id", "sql_warehouse_id")
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    TRACE_IDS_FIELD_NUMBER: _ClassVar[int]
+    RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    SQL_WAREHOUSE_ID_FIELD_NUMBER: _ClassVar[int]
+    trace_ids: _containers.RepeatedCompositeFieldContainer[TraceIdentifier]
+    run_id: str
+    sql_warehouse_id: str
+    def __init__(self, trace_ids: _Optional[_Iterable[_Union[TraceIdentifier, _Mapping]]] = ..., run_id: _Optional[str] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
+
 class CreateTraceUCStorageLocation(_message.Message):
     __slots__ = ("uc_schema", "sql_warehouse_id")
     class Response(_message.Message):

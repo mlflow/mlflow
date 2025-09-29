@@ -35,6 +35,7 @@ from mlflow.protos.databricks_tracing_pb2 import (
     GetTraceInfo,
     GetTraces,
     LinkExperimentToUCTraceLocation,
+    LinkTracesToRun,
     SearchTraces,
     SetTraceTag,
     UnLinkExperimentToUCTraceLocation,
@@ -1150,3 +1151,73 @@ def test_delete_assessment():
             message_to_json(request),
             version="4.0",
         )
+
+
+def test_link_traces_to_run():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+
+    trace_ids = ["trace:/catalog.schema/1234", "trace:/catalog.schema/5678"]
+    run_id = "run-1234"
+
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = "{}"
+
+    with mock.patch.object(store, "_call_endpoint", return_value=response) as mock_call:
+        store.link_traces_to_run(trace_ids, run_id)
+
+        mock_call.assert_called_once()
+        call_args = mock_call.call_args
+
+        assert call_args[0][0] == LinkTracesToRun
+        request_body = json.loads(call_args[0][1])
+        assert request_body["trace_ids"] == [
+            {
+                "trace_id": "1234",
+                "trace_location": {
+                    "type": "UC_SCHEMA",
+                    "uc_schema": {
+                        "catalog_name": "catalog",
+                        "schema_name": "schema",
+                    },
+                },
+            },
+            {
+                "trace_id": "5678",
+                "trace_location": {
+                    "type": "UC_SCHEMA",
+                    "uc_schema": {
+                        "catalog_name": "catalog",
+                        "schema_name": "schema",
+                    },
+                },
+            },
+        ]
+        assert call_args[1]["endpoint"] == f"{_V4_TRACE_REST_API_PATH_PREFIX}/link-to-run"
+
+
+def test_link_traces_fallback_to_v3():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+
+    trace_ids = ["tr-1234", "tr-5678"]
+    run_id = "run-1234"
+
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = "{}"
+
+    v4_error = MlflowException("Endpoint not found", error_code=databricks_pb2.ENDPOINT_NOT_FOUND)
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        mock_call.side_effect = [v4_error, response]
+
+        store.link_traces_to_run(trace_ids, run_id)
+
+        assert mock_call.call_count == 2
+
+        second_call = mock_call.call_args_list[1]
+        request_body = json.loads(second_call[0][1])
+        assert request_body["trace_ids"] == trace_ids
+        assert request_body["run_id"] == run_id

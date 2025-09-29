@@ -20,6 +20,7 @@ from mlflow.protos.databricks_tracing_pb2 import (
     GetTraceInfo,
     GetTraces,
     LinkExperimentToUCTraceLocation,
+    LinkTracesToRun,
     SearchTraces,
     SetTraceTag,
     TraceIdentifier,
@@ -539,3 +540,36 @@ class DatabricksTracingRestStore(RestStore):
             )
         else:
             return super().delete_assessment(trace_id, assessment_id)
+
+    def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
+        """
+        Link multiple traces to a run by creating entity associations.
+
+        Args:
+            trace_ids: List of trace IDs to link to the run. Maximum 100 traces allowed.
+            run_id: ID of the run to link traces to.
+
+        Raises:
+            MlflowException: If more than 100 traces are provided.
+        """
+        trace_identifiers = [self._construct_trace_identifier(trace_id) for trace_id in trace_ids]
+        try:
+            req_body = message_to_json(
+                LinkTracesToRun(
+                    trace_ids=trace_identifiers,
+                    run_id=run_id,
+                    sql_warehouse_id=MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+                )
+            )
+            self._call_endpoint(
+                LinkTracesToRun, req_body, endpoint=f"{_V4_TRACE_REST_API_PATH_PREFIX}/link-to-run"
+            )
+        except Exception as e:
+            if all(
+                not trace_identifier.HasField("trace_location")
+                for trace_identifier in trace_identifiers
+            ):
+                _logger.debug(f"Failed to link traces to run, falling back to V3 API. Error: {e}")
+                return super().link_traces_to_run(trace_ids, run_id)
+            else:
+                raise
