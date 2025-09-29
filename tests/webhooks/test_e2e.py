@@ -678,7 +678,6 @@ def test_prompt_version_created(mlflow_client: MlflowClient, app_client: AppClie
         "description": "test_prompt_version_description",
         "tags": {
             "version_tag": "v1",
-            "_mlflow_prompt_type": "text",
         },
     }
 
@@ -897,17 +896,32 @@ def test_prompt_webhook_with_mixed_events(
     logs = app_client.wait_for_logs(expected_count=4, timeout=10)
     assert len(logs) == 4
 
-    payloads_by_fields = {}
-    for log in logs:
-        fields = tuple(sorted(log.payload.keys()))
-        payloads_by_fields[fields] = log.payload
-
-    # Both registered model and prompt creation have the same payload structure
-    assert len(payloads_by_fields) == 3
-
-    assert ("description", "name", "tags") in payloads_by_fields
-    assert ("description", "name", "run_id", "source", "tags", "version") in payloads_by_fields
-    assert ("description", "name", "tags", "template", "version") in payloads_by_fields
+    log_0, log_1, log_2, log_3 = logs
+    assert log_0.payload == {
+        "name": "regular_model",
+        "description": "Regular model description",
+        "tags": {},
+    }
+    assert log_1.payload == {
+        "name": "test_prompt_mixed",
+        "description": "Prompt description",
+        "tags": {},
+    }
+    assert log_2.payload == {
+        "name": "regular_model",
+        "source": "s3://bucket/model",
+        "run_id": "1234567890abcdef",
+        "version": "1",
+        "description": None,
+        "tags": {},
+    }
+    assert log_3.payload == {
+        "name": "test_prompt_mixed",
+        "template": "Hello {{name}}!",
+        "version": "1",
+        "description": None,
+        "tags": {},
+    }
 
 
 def test_prompt_webhook_test_endpoint(mlflow_client: MlflowClient, app_client: AppClient) -> None:
