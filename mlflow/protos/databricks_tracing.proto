@@ -95,6 +95,20 @@ service DatabricksTrackingService {
       };
   }
 
+  // Links traces to a run by creating internal trace input relationships.
+  // This API allows associating multiple traces with runs for evaluation and labeling workflows.
+  rpc linkTracesToRun (LinkTracesToRun) returns (LinkTracesToRun.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/traces/link-to-run"
+        since { major: 4, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Link Traces to Run",
+    };
+  }
+
   // =============================================================================
   // Enablement RPCs
   // =============================================================================
@@ -415,6 +429,22 @@ message SearchTraces {
     repeated TraceInfo trace_infos = 1;
     optional string next_page_token = 2;
   }
+}
+
+message LinkTracesToRun {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Identifiers of the traces to link to the run.
+  // The maximum number of trace_ids that can be linked in a single request is 100.
+  repeated TraceIdentifier trace_ids = 1;
+
+  // ID of the run to link the traces to.
+  optional string run_id = 2 [(validate_required) = true];
+
+  // Optional SQL warehouse ID to link traces.
+  optional string sql_warehouse_id = 3;
+
+  message Response {}
 }
 
 
