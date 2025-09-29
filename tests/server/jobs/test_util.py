@@ -24,9 +24,7 @@ def test_exec_job_in_subproc_timeout(monkeypatch, tmp_path):
     result = _exec_job_in_subproc(
         "test_util.sleep_fn",
         {"secs": 10, "tmpdir": str(tmp_path)},
-        python_env=None,
         timeout=3,
-        env_vars=None,
         tmpdir=str(tmp_path),
     )
     assert (time.time() - beg_time) < 3.5
