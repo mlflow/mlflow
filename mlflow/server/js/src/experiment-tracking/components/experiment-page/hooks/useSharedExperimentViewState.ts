@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { EXPERIMENT_PAGE_QUERY_PARAM_KEYS, useUpdateExperimentPageSearchFacets } from './useExperimentPageSearchFacets';
 import { pick } from 'lodash';
-import { EXPERIMENT_PAGE_UI_STATE_FIELDS, ExperimentPageUIState } from '../models/ExperimentPageUIState';
-import { ExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
-import { ExperimentEntity, KeyValueEntity } from '../../../types';
+import type { ExperimentPageUIState } from '../models/ExperimentPageUIState';
+import { EXPERIMENT_PAGE_UI_STATE_FIELDS } from '../models/ExperimentPageUIState';
+import type { ExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
+import type { ExperimentEntity } from '../../../types';
+import type { KeyValueEntity } from '../../../../common/types';
 import { useNavigate, useSearchParams } from '../../../../common/utils/RoutingUtils';
 import Utils from '../../../../common/utils/Utils';
 import {

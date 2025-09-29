@@ -49,7 +49,7 @@ When using database-backed stores, please note:
 - **Model Registry Integration**: [Model Registry](/ml/model-registry) functionality requires a database-backed store. See [this FAQ](/ml/tracking#tracking-with-model-registry) for more information.
 
 - **Schema Migrations**: `mlflow server` will fail against a database with an out-of-date schema. Always run `mlflow db upgrade [db_uri]` to upgrade your database schema before starting the server. Schema migrations can result in database downtime and may take longer on larger databases. **Always backup your database before running migrations.**
-:::
+  :::
 
 :::note parameter-limits
 In Sep 2023, we increased the max length for params recorded in a Run from 500 to 8k (but we limit param value max length to 6000 internally).
@@ -60,7 +60,7 @@ is a non-invertible migration script that increases the cap in existing database
 ## Deletion Behavior
 
 In order to allow MLflow Runs to be restored, Run metadata and artifacts are not automatically removed
-from the backend store or artifact store when a Run is deleted. The <Link to="/api_reference/cli.html" target="_blank">mlflow gc</Link> CLI is provided
+from the backend store or artifact store when a Run is deleted. The <APILink fn="mlflow.server.cli" hash="mlflow-gc">mlflow gc</APILink> CLI is provided
 for permanently removing Run metadata and artifacts for deleted runs.
 
 ## SQLAlchemy Options

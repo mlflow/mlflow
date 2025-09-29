@@ -25,6 +25,7 @@ type RenameExperimentModalImplProps = {
   onClose: (...args: any[]) => any;
   updateExperimentApi: (...args: any[]) => any;
   getExperimentApi: (...args: any[]) => any;
+  onExperimentRenamed: () => void;
 };
 
 class RenameExperimentModalImpl extends Component<RenameExperimentModalImplProps> {
@@ -33,7 +34,10 @@ class RenameExperimentModalImpl extends Component<RenameExperimentModalImplProps
     const newExperimentName = values[NEW_NAME_FIELD];
     const updateExperimentPromise = this.props
       .updateExperimentApi(this.props.experimentId, newExperimentName)
-      .then(() => this.props.getExperimentApi(this.props.experimentId))
+      .then(() => {
+        this.props.getExperimentApi(this.props.experimentId);
+        this.props.onExperimentRenamed();
+      })
       .catch((e: any) => Utils.logErrorAndNotifyUser(e));
 
     return updateExperimentPromise;

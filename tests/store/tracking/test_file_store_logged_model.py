@@ -56,8 +56,8 @@ def assert_logged_model_attributes(
 
 def assert_models_match(models1, models2):
     assert len(models1) == len(models2)
-    m1 = [m.to_dictionary() for m in models1]
-    m2 = [m.to_dictionary() for m in models2]
+    m1 = sorted([m.to_dictionary() for m in models1], key=lambda m: m["model_id"])
+    m2 = sorted([m.to_dictionary() for m in models2], key=lambda m: m["model_id"])
     assert m1 == m2
 
 
@@ -567,6 +567,63 @@ def test_search_logged_models_filter_string(store):
         assert model.name not in [m.name for m in models]
 
 
+def test_search_logged_models_datasets_filter(store):
+    exp_id = store.create_experiment("test")
+    run_id = store.create_run(exp_id, "user", 0, [], "test_run").info.run_id
+    model1 = store.create_logged_model(exp_id, source_run_id=run_id)
+    model2 = store.create_logged_model(exp_id, source_run_id=run_id)
+    model3 = store.create_logged_model(exp_id, source_run_id=run_id)
+    store.log_batch(
+        run_id,
+        metrics=[
+            Metric(
+                key="metric1",
+                value=0.1,
+                timestamp=0,
+                step=0,
+                model_id=model1.model_id,
+                dataset_name="dataset1",
+                dataset_digest="digest1",
+            ),
+            Metric(
+                key="metric1",
+                value=0.2,
+                timestamp=0,
+                step=0,
+                model_id=model2.model_id,
+                dataset_name="dataset1",
+                dataset_digest="digest2",
+            ),
+            Metric(key="metric2", value=0.1, timestamp=0, step=0, model_id=model3.model_id),
+        ],
+        params=[],
+        tags=[],
+    )
+    model1 = store.get_logged_model(model1.model_id)
+    model2 = store.get_logged_model(model2.model_id)
+    model3 = store.get_logged_model(model3.model_id)
+
+    # Restrict results to models with metrics on dataset1
+    models = store.search_logged_models(
+        experiment_ids=[exp_id],
+        filter_string="metrics.metric1 >= 0.1",
+        datasets=[{"dataset_name": "dataset1"}],
+    )
+    assert_models_match(models, [model1, model2])
+    # Restrict results to models with metrics on dataset1 and digest1
+    models = store.search_logged_models(
+        experiment_ids=[exp_id],
+        filter_string="metrics.metric1 >= 0.1",
+        datasets=[{"dataset_name": "dataset1", "dataset_digest": "digest1"}],
+    )
+    assert_models_match(models, [model1])
+    # No filter string, match models with any metrics on the dataset
+    models = store.search_logged_models(
+        experiment_ids=[exp_id], datasets=[{"dataset_name": "dataset1"}]
+    )
+    assert_models_match(models, [model1, model2])
+
+
 def test_search_logged_models_order_by(store):
     exp_id = store.create_experiment("test")
     logged_models = []
@@ -992,6 +1049,10 @@ def test_search_logged_models_errors(store):
     exp_id = store.create_experiment("test")
     with pytest.raises(MlflowException, match=r"Invalid attribute key 'artifact_location'"):
         store.search_logged_models(experiment_ids=[exp_id], filter_string="artifact_location='abc'")
+    with pytest.raises(
+        MlflowException, match=r"`dataset_name` in the `datasets` clause must be specified"
+    ):
+        store.search_logged_models(experiment_ids=[exp_id], datasets=[{}])
     with pytest.raises(
         MlflowException, match=r"`field_name` in the `order_by` clause must be specified"
     ):

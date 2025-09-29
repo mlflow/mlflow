@@ -1,7 +1,7 @@
 import { type ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
 import { useEditKeyValueTagsModal } from '../../../../common/hooks/useEditKeyValueTagsModal';
 import { MlflowService } from '../../../sdk/MlflowService';
-import { KeyValueEntity } from '../../../types';
+import type { KeyValueEntity } from '../../../../common/types';
 import { useCallback } from 'react';
 import { MLFLOW_INTERNAL_PREFIX } from '../../../../common/utils/TagUtils';
 

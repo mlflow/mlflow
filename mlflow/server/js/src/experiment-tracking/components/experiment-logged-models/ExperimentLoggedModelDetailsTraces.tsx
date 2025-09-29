@@ -1,8 +1,8 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import type { LoggedModelProto } from '../../types';
-import { TracesView } from '../traces/TracesView';
 import { ExperimentLoggedModelDetailsTracesIntroductionText } from './ExperimentLoggedModelDetailsTracesIntroductionText';
 import { TracesViewTableNoTracesQuickstartContextProvider } from '../traces/quickstart/TracesViewTableNoTracesQuickstartContext';
+import { TracesV3Logs } from '../experiment-page/components/traces-v3/TracesV3Logs';
 
 export const ExperimentLoggedModelDetailsTraces = ({ loggedModel }: { loggedModel: LoggedModelProto }) => {
   const experimentIds = useMemo(() => [loggedModel.info?.experiment_id ?? ''], [loggedModel.info?.experiment_id]);
@@ -11,7 +11,7 @@ export const ExperimentLoggedModelDetailsTraces = ({ loggedModel }: { loggedMode
     return null;
   }
   return (
-    <div css={{ height: '100%', overflow: 'hidden' }}>
+    <div css={{ height: '100%' }}>
       <TracesViewTableNoTracesQuickstartContextProvider
         introductionText={
           loggedModel.info?.model_id && (
@@ -20,12 +20,20 @@ export const ExperimentLoggedModelDetailsTraces = ({ loggedModel }: { loggedMode
         }
         displayVersionWarnings={false}
       >
-        <TracesView
-          experimentIds={experimentIds}
-          loggedModelId={loggedModel.info?.model_id}
-          baseComponentId="mlflow.logged_model.traces"
-        />
+        <TracesComponent experimentIds={experimentIds} loggedModelId={loggedModel.info?.model_id} />
       </TracesViewTableNoTracesQuickstartContextProvider>
     </div>
   );
+};
+
+const TracesComponent = ({
+  experimentIds,
+  loggedModelId,
+}: {
+  experimentIds: string[];
+  loggedModelId: string | undefined;
+}) => {
+  return experimentIds.length > 0 ? (
+    <TracesV3Logs experimentId={experimentIds[0]} endpointName="" loggedModelId={loggedModelId} />
+  ) : null;
 };

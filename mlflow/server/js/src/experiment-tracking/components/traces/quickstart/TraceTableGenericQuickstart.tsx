@@ -32,11 +32,7 @@ assert Version(mlflow.__version__) >= Version("${minVersion}"), (
 
   const alertContent = (
     <FormattedMessage
-      defaultMessage={
-        'This example requires MLflow version {minVersion} or newer. ' +
-        'Please run {installCommand} in a notebook cell if your MLflow version is older than this, ' +
-        'and restart the kernel when the command finishes.'
-      }
+      defaultMessage="This example requires MLflow version {minVersion} or newer. Please run {installCommand} in a notebook cell if your MLflow version is older than this, and restart the kernel when the command finishes."
       description="Alert description informing the user of how to upgrade MLflow to the minimum required version"
       values={{
         minVersion,
@@ -50,7 +46,7 @@ assert Version(mlflow.__version__) >= Version("${minVersion}"), (
       {displayVersionWarnings && (
         <Alert
           componentId={`${baseComponentId}.traces_table.${flavorName}_quickstart_alert`}
-          css={{ marginBottom: theme.spacing.md }}
+          css={{ marginBottom: theme.spacing.md, maxWidth: 800 }}
           closable={false}
           message={
             <FormattedMessage
@@ -63,7 +59,7 @@ assert Version(mlflow.__version__) >= Version("${minVersion}"), (
           type="info"
         />
       )}
-      <Typography.Text>{content}</Typography.Text>
+      <Typography.Text css={{ maxWidth: 800 }}>{content}</Typography.Text>
       <div css={{ position: 'relative', width: 'min-content' }}>
         <CopyButton
           componentId={`${baseComponentId}.traces_table.${flavorName}_quickstart_snippet_copy`}

@@ -13,10 +13,12 @@ from mlflow.entities.assessment import (
     Feedback,
     FeedbackValue,
 )
+from mlflow.entities.assessment_error import _STACK_TRACE_TRUNCATION_LENGTH
 from mlflow.exceptions import MlflowException
 from mlflow.protos.assessments_pb2 import Assessment as ProtoAssessment
 from mlflow.protos.assessments_pb2 import Expectation as ProtoExpectation
 from mlflow.protos.assessments_pb2 import Feedback as ProtoFeedback
+from mlflow.tracing.constant import AssessmentMetadataKey
 from mlflow.utils.proto_json_utils import proto_timestamp_to_milliseconds
 
 
@@ -384,9 +386,11 @@ def test_feedback_from_exception(stack_trace_length):
     assert feedback.error_message == "An error occurred."
 
     proto = feedback.to_proto()
-    assert len(proto.feedback.error.stack_trace) == min(stack_trace_length, 1000)
+    assert len(proto.feedback.error.stack_trace) == min(
+        stack_trace_length, _STACK_TRACE_TRUNCATION_LENGTH
+    )
     assert proto.feedback.error.stack_trace.endswith("last line")
-    if stack_trace_length > 1000:
+    if stack_trace_length > _STACK_TRACE_TRUNCATION_LENGTH:
         assert proto.feedback.error.stack_trace.startswith("[Stack trace is truncated]\n...\n")
 
     recovered = Feedback.from_proto(feedback.to_proto())
@@ -406,3 +410,25 @@ def test_assessment_value_assignment():
 
     expectation.value = 0.9
     assert expectation.value == 0.9
+
+
+@pytest.mark.parametrize(
+    ("metadata", "explicit_run_id", "expected_run_id"),
+    [
+        ({AssessmentMetadataKey.SOURCE_RUN_ID: "run123"}, None, "run123"),
+        ({"other_key": "value"}, "explicit_run", "explicit_run"),
+        ({"other_key": "value"}, None, None),
+        (None, None, None),
+    ],
+)
+def test_run_id_handling(metadata, explicit_run_id, expected_run_id):
+    feedback = Feedback(name="test", value=True, metadata=metadata)
+    if explicit_run_id:
+        feedback.run_id = explicit_run_id
+
+    assert feedback.run_id == expected_run_id
+    assert not hasattr(feedback.to_proto(), "run_id")
+
+    if expected_run_id and not explicit_run_id:
+        recovered = Feedback.from_proto(feedback.to_proto())
+        assert recovered.run_id == expected_run_id

@@ -1,6 +1,6 @@
 import { Button, ExpandMoreIcon, Spacer, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { useMemo } from 'react';
-import { RegisteredPrompt, RegisteredPromptVersion } from '../types';
+import type { RegisteredPrompt, RegisteredPromptVersion } from '../types';
 import { getPromptContentTagValue } from '../utils';
 import { PromptVersionMetadata } from './PromptVersionMetadata';
 import { FormattedMessage, useIntl } from 'react-intl';

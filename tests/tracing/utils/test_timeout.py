@@ -73,7 +73,7 @@ def test_trace_halted_after_timeout(monkeypatch):
     traces = get_traces()
     assert len(traces) == 1
     trace = traces[0]
-    assert trace.info.execution_time_ms >= 3000
+    assert trace.info.execution_time_ms >= 2900  # Some margin for windows
     assert trace.info.status == SpanStatusCode.ERROR
     assert len(trace.data.spans) >= 3
 

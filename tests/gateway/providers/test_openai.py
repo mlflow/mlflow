@@ -59,6 +59,28 @@ def chat_response():
     }
 
 
+def completions_response():
+    return {
+        "id": "chatcmpl-abc123",
+        "object": "text.completion",
+        "created": 1677858242,
+        "model": "gpt-4o-mini",
+        "usage": {
+            "prompt_tokens": 13,
+            "completion_tokens": 7,
+            "total_tokens": 20,
+        },
+        "choices": [
+            {
+                "text": "\n\nThis is a test!",
+                "index": 0,
+                "finish_reason": "stop",
+            }
+        ],
+        "headers": {"Content-Type": "application/json"},
+    }
+
+
 @pytest.mark.asyncio
 async def test_chat():
     resp = chat_response()
@@ -219,9 +241,9 @@ def completions_config():
     }
 
 
+@pytest.mark.parametrize("resp", [completions_response(), chat_response()])
 @pytest.mark.asyncio
-async def test_completions():
-    resp = chat_response()
+async def test_completions(resp):
     config = completions_config()
     mock_client = mock_http_client(MockAsyncResponse(resp))
 

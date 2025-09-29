@@ -155,7 +155,7 @@ class DatabricksJobRunner:
             )
         return True
 
-    def _upload_project_to_dbfs(self, project_dir, experiment_id):  # noqa: D417
+    def _upload_project_to_dbfs(self, project_dir, experiment_id):
         """
         Tars a project directory into an archive in a temp dir and uploads it to DBFS, returning
         the HDFS-style URI of the tarball in DBFS (e.g. dbfs:/path/to/tar).

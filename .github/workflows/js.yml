@@ -75,6 +75,9 @@ jobs:
       - name: Run extract-i18n lint
         run: |
           yarn i18n:check
+      - name: Run type-check
+        run: |
+          yarn type-check
       - name: Run tests
         run: |
           yarn test --silent ${{ matrix.option }} src/experiment-tracking/components

@@ -1,7 +1,8 @@
 import { useInfiniteQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { isEmpty, last, uniqBy } from 'lodash';
-import { LoggedModelMetricDataset, LoggedModelProto } from '../../types';
+import type { LoggedModelMetricDataset, LoggedModelProto } from '../../types';
 import { loggedModelsDataRequest } from './request.utils';
+import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 import { useMemo } from 'react';
 
 type UseSearchLoggedModelsQueryResponseType = {
@@ -67,7 +68,7 @@ export const useSearchLoggedModelsQuery = (
         datasets: !isEmpty(selectedFilterDatasets) ? selectedFilterDatasets : undefined,
       };
 
-      return loggedModelsDataRequest('ajax-api/2.0/mlflow/logged-models/search', 'POST', requestBody);
+      return loggedModelsDataRequest(getAjaxUrl('ajax-api/2.0/mlflow/logged-models/search'), 'POST', requestBody);
     },
     cacheTime: 0,
     getNextPageParam: (lastPage) => lastPage.next_page_token,

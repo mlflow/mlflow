@@ -3,7 +3,9 @@ import logging
 import threading
 from abc import ABCMeta, abstractmethod
 from time import sleep, time
-from typing import Any, Optional, Union
+from typing import Any
+
+from pydantic import BaseModel
 
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
@@ -11,11 +13,16 @@ from mlflow.entities.model_registry.model_version_status import ModelVersionStat
 from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import PromptVersion
+from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookStatus, WebhookTestResult
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
     IS_PROMPT_TAG_KEY,
     LINKED_PROMPTS_TAG_KEY,
     PROMPT_TEXT_TAG_KEY,
+    PROMPT_TYPE_CHAT,
+    PROMPT_TYPE_TAG_KEY,
+    PROMPT_TYPE_TEXT,
+    RESPONSE_FORMAT_TAG_KEY,
 )
 from mlflow.prompt.registry_utils import has_prompt_tag, model_version_to_prompt_version
 from mlflow.protos.databricks_pb2 import (
@@ -217,7 +224,7 @@ class AbstractStore:
         run_link=None,
         description=None,
         local_model_path=None,
-        model_id: Optional[str] = None,
+        model_id: str | None = None,
     ):
         """
         Create a new model version from given source and run ID.
@@ -444,6 +451,7 @@ class AbstractStore:
                 tags=[ModelVersionTag(k, v) for k, v in src_mv.tags.items()],
                 run_link=src_mv.run_link,
                 description=src_mv.description,
+                model_id=src_mv.model_id,
             )
             eprint(
                 f"Copied version '{src_mv.version}' of model '{src_mv.name}'"
@@ -498,8 +506,8 @@ class AbstractStore:
     def create_prompt(
         self,
         name: str,
-        description: Optional[str] = None,
-        tags: Optional[dict[str, str]] = None,
+        description: str | None = None,
+        tags: dict[str, str] | None = None,
     ) -> Prompt:
         """
         Create a new prompt in the registry.
@@ -533,10 +541,10 @@ class AbstractStore:
 
     def search_prompts(
         self,
-        filter_string: Optional[str] = None,
-        max_results: Optional[int] = None,
-        order_by: Optional[list[str]] = None,
-        page_token: Optional[str] = None,
+        filter_string: str | None = None,
+        max_results: int | None = None,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
     ) -> PagedList[Prompt]:
         """
         Search for prompts in the registry.
@@ -635,7 +643,7 @@ class AbstractStore:
         # Default implementation: delete tag from registered model
         return self.delete_registered_model_tag(name, key)
 
-    def get_prompt(self, name: str) -> Optional[Prompt]:
+    def get_prompt(self, name: str) -> Prompt | None:
         """
         Get prompt metadata by name.
 
@@ -679,9 +687,10 @@ class AbstractStore:
     def create_prompt_version(
         self,
         name: str,
-        template: str,
-        description: Optional[str] = None,
-        tags: Optional[dict[str, str]] = None,
+        template: str | list[dict[str, Any]],
+        description: str | None = None,
+        tags: dict[str, str] | None = None,
+        response_format: BaseModel | dict[str, Any] | None = None,
     ) -> PromptVersion:
         """
         Create a new version of an existing prompt.
@@ -691,9 +700,17 @@ class AbstractStore:
 
         Args:
             name: Name of the prompt.
-            template: The prompt template text.
+            template: The prompt template content. Can be either:
+                - A string containing text with variables enclosed in double curly braces,
+                  e.g. {{variable}}, which will be replaced with actual values by the `format`
+                  method.
+                - A list of dictionaries representing chat messages, where each message has
+                  'role' and 'content' keys (e.g., [{"role": "user", "content": "Hello {{name}}"}])
             description: Optional description of the prompt version.
             tags: Optional dictionary of version tags.
+            response_format: Optional Pydantic class or dictionary defining the expected response
+                structure. This can be used to specify the schema for structured outputs from LLM
+                calls.
 
         Returns:
             A PromptVersion object representing the created version.
@@ -701,8 +718,25 @@ class AbstractStore:
         # Create version tags including template
         version_tags = [
             ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true"),
-            ModelVersionTag(key=PROMPT_TEXT_TAG_KEY, value=template),
         ]
+        if isinstance(template, str):
+            version_tags.append(ModelVersionTag(key=PROMPT_TEXT_TAG_KEY, value=template))
+            version_tags.append(ModelVersionTag(key=PROMPT_TYPE_TAG_KEY, value=PROMPT_TYPE_TEXT))
+        else:
+            version_tags.append(
+                ModelVersionTag(key=PROMPT_TEXT_TAG_KEY, value=json.dumps(template))
+            )
+            version_tags.append(ModelVersionTag(key=PROMPT_TYPE_TAG_KEY, value=PROMPT_TYPE_CHAT))
+        if response_format:
+            version_tags.append(
+                ModelVersionTag(
+                    key=RESPONSE_FORMAT_TAG_KEY,
+                    value=json.dumps(
+                        PromptVersion.convert_response_format_to_dict(response_format)
+                    ),
+                )
+            )
+
         if tags:
             version_tags.extend([ModelVersionTag(key=k, value=v) for k, v in tags.items()])
 
@@ -723,7 +757,7 @@ class AbstractStore:
 
         return model_version_to_prompt_version(mv, prompt_tags=prompt_tags)
 
-    def get_prompt_version(self, name: str, version: Union[str, int]) -> Optional[PromptVersion]:
+    def get_prompt_version(self, name: str, version: str | int) -> PromptVersion | None:
         """
         Get a specific prompt version.
 
@@ -780,7 +814,7 @@ class AbstractStore:
         except Exception:
             return None
 
-    def delete_prompt_version(self, name: str, version: Union[str, int]) -> None:
+    def delete_prompt_version(self, name: str, version: str | int) -> None:
         """
         Delete a specific prompt version.
 
@@ -798,7 +832,7 @@ class AbstractStore:
             raise MlflowException(f"Invalid version number: {version}")
         return self.delete_model_version(name, version_int)
 
-    def get_prompt_version_by_alias(self, name: str, alias: str) -> Optional[PromptVersion]:
+    def get_prompt_version_by_alias(self, name: str, alias: str) -> PromptVersion | None:
         """
         Get a prompt version by alias.
 
@@ -813,7 +847,7 @@ class AbstractStore:
         """
         return self.get_prompt_version(name, alias)
 
-    def set_prompt_alias(self, name: str, alias: str, version: Union[str, int]) -> None:
+    def set_prompt_alias(self, name: str, alias: str, version: str | int) -> None:
         """
         Set an alias for a prompt version.
 
@@ -839,7 +873,7 @@ class AbstractStore:
         self.delete_registered_model_alias(name, alias)
 
     def search_prompt_versions(
-        self, name: str, max_results: Optional[int] = None, page_token: Optional[str] = None
+        self, name: str, max_results: int | None = None, page_token: str | None = None
     ):
         """
         Search prompt versions for a given prompt name.
@@ -871,12 +905,11 @@ class AbstractStore:
             prompt_versions: List of PromptVersion objects to link.
             trace_id: Trace ID to link to each prompt version.
         """
-        from mlflow.tracking import _get_store as _get_tracking_store
+        from mlflow.tracing.client import TracingClient
 
-        tracking_store = _get_tracking_store()
-
+        client = TracingClient()
         with self._prompt_link_lock:
-            trace_info = tracking_store.get_trace_info(trace_id)
+            trace_info = client.get_trace_info(trace_id)
             if not trace_info:
                 raise MlflowException(
                     f"Could not find trace with ID '{trace_id}' to which to link prompts.",
@@ -900,15 +933,13 @@ class AbstractStore:
 
             # Only update if the tag value actually changed (avoiding redundant updates)
             if current_tag_value != updated_tag_value:
-                tracking_store.set_trace_tag(
+                client.set_trace_tag(
                     trace_id,
                     LINKED_PROMPTS_TAG_KEY,
                     updated_tag_value,
                 )
 
-    def set_prompt_version_tag(
-        self, name: str, version: Union[str, int], key: str, value: str
-    ) -> None:
+    def set_prompt_version_tag(self, name: str, version: str | int, key: str, value: str) -> None:
         """
         Set a tag on a prompt version.
 
@@ -931,7 +962,7 @@ class AbstractStore:
         tag = ModelVersionTag(key=key, value=value)
         return self.set_model_version_tag(name, version_int, tag)
 
-    def delete_prompt_version_tag(self, name: str, version: Union[str, int], key: str) -> None:
+    def delete_prompt_version_tag(self, name: str, version: str | int, key: str) -> None:
         """
         Delete a tag from a prompt version.
 
@@ -1080,3 +1111,133 @@ class AbstractStore:
                 parsed_prompts_tag_value.append(new_prompt_entry)
 
         return json.dumps(parsed_prompts_tag_value)
+
+    # CRUD API for Webhook objects
+    def create_webhook(
+        self,
+        name: str,
+        url: str,
+        events: list[WebhookEvent],
+        description: str | None = None,
+        secret: str | None = None,
+        status: WebhookStatus | None = None,
+    ) -> Webhook:
+        """
+        Create a new webhook in the backend store.
+
+        Args:
+            name: Unique name for the webhook.
+            url: Webhook endpoint URL.
+            events: List of event types that trigger this webhook.
+            description: Optional description of the webhook.
+            secret: Optional secret for HMAC signature verification.
+            status: Webhook status (defaults to ACTIVE).
+
+        Returns:
+            A single :py:class:`mlflow.entities.model_registry.Webhook` object
+            created in the backend.
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} does not support create_webhook")
+
+    def get_webhook(self, webhook_id: str) -> Webhook:
+        """
+        Get webhook instance by ID.
+
+        Args:
+            webhook_id: Webhook ID.
+
+        Returns:
+            A single :py:class:`mlflow.entities.model_registry.Webhook` object.
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} does not support get_webhook")
+
+    def list_webhooks(
+        self,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[Webhook]:
+        """
+        List webhooks in the backend store.
+
+        Args:
+            max_results: Maximum number of webhooks to return.
+            page_token: Token specifying the next page of results.
+
+        Returns:
+            A :py:class:`mlflow.store.entities.paged_list.PagedList` of Webhook objects.
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} does not support list_webhooks")
+
+    def list_webhooks_by_event(
+        self,
+        event: WebhookEvent,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[Webhook]:
+        """
+        List webhooks filtered by event type.
+
+        Args:
+            event: The webhook event to filter by.
+            max_results: Maximum number of webhooks to return.
+            page_token: Token specifying the next page of results.
+
+        Returns:
+            A :py:class:`mlflow.store.entities.paged_list.PagedList` of Webhook objects
+            that are subscribed to the specified event.
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not support list_webhooks_by_event"
+        )
+
+    def update_webhook(
+        self,
+        webhook_id: str,
+        name: str | None = None,
+        description: str | None = None,
+        url: str | None = None,
+        events: list[WebhookEvent] | None = None,
+        secret: str | None = None,
+        status: WebhookStatus | None = None,
+    ) -> Webhook:
+        """
+        Update an existing webhook.
+
+        Args:
+            webhook_id: Webhook ID.
+            name: New webhook name.
+            description: New webhook description.
+            url: New webhook URL.
+            events: New list of event types.
+            secret: New webhook secret.
+            status: New webhook status.
+
+        Returns:
+            A single updated :py:class:`mlflow.entities.model_registry.Webhook` object.
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} does not support update_webhook")
+
+    def delete_webhook(self, webhook_id: str) -> None:
+        """
+        Delete a webhook.
+
+        Args:
+            webhook_id: Webhook ID.
+
+        Returns:
+            None
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} does not support delete_webhook")
+
+    def test_webhook(self, webhook_id: str, event: WebhookEvent | None = None) -> WebhookTestResult:
+        """
+        Test a webhook by sending a test event to the specified URL.
+
+        Args:
+            webhook_id: Webhook ID.
+            event: Optional event type to test. If not specified, uses the first event from webhook.
+
+        Returns:
+            WebhookTestResult indicating success/failure and response details
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} does not support test_webhook")

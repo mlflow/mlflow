@@ -1,0 +1,1 @@
+export const CONTENT_TRUNCATION_LIMIT = 300;

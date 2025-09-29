@@ -1,0 +1,125 @@
+---
+sidebar_position: 6
+sidebar_label: Semantic Kernel
+---
+
+import { APILink } from "@site/src/components/APILink";
+import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
+import ImageBox from "@site/src/components/ImageBox";
+import TOCInline from "@theme/TOCInline";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Tracing Semantic Kernel
+
+<ImageBox src="/images/llms/tracing/semantic-kernel-tracing.png" alt="Semantic Kernel Tracing via autolog" />
+
+[Semantic Kernel](https://learn.microsoft.com/en-us/semantic-kernel/overview/) is a lightweight, open-source SDK that functions as AI middleware, enabling you to integrate AI models into your C#, Python, or Java codebase via a uniform API layer. By abstracting model interactions, it lets you swap in new models without rewriting your application logic.
+
+[MLflow Tracing](/genai/tracing) provides automatic tracing capability for Semantic Kernel. By enabling auto tracing for Semantic Kernel via the <APILink fn="mlflow.semantic_kernel.autolog" /> function, MLflow will capture traces for LLM invocations and log them to the active MLflow Experiment.
+
+MLflow trace automatically captures the following information about Semantic Kernel calls:
+
+- Prompts and completion responses
+- Chat history and messages
+- Latencies
+- Model name and provider
+- Kernel functions and plugins
+- Template variables and arguments
+- Token usage information
+- Any exceptions if raised
+
+Currently, tracing for streaming is not supported. If you want this feature, please file a [feature request](https://github.com/mlflow/mlflow/issues).
+
+## Getting Started
+
+To get started, let's install the requisite libraries. Note that we will use OpenAI for demonstration purposes, but this tutorial extends to all providers supported by Semantic Kernel.
+
+```bash
+pip install 'mlflow>=3.2.0' semantic_kernel openai
+```
+
+Then, enable autologging in your Python code:
+
+:::important
+You must run `mlflow.semantic_kernel.autolog()` prior to running Semantic Kernel code. If this is not performed, traces may not be logged properly.
+:::
+
+```python
+import mlflow
+
+mlflow.semantic_kernel.autolog()
+```
+
+Finally, for setup, let's establish our OpenAI token:
+
+```python
+import os
+from getpass import getpass
+
+# Set the OpenAI API key as an environment variable
+os.environ["OPENAI_API_KEY"] = getpass("openai_api_key: ")
+```
+
+## Example Usage
+
+:::note
+Semantic Kernel primarily uses asynchronous programming patterns. The examples below use `async`/`await` syntax. If you're running these in a Jupyter notebook, the code will work as-is. For scripts, you'll need to wrap the async calls appropriately (e.g., using `asyncio.run()`).
+:::
+
+The simplest example to show the tracing integration is to instrument a [ChatCompletion Kernel](https://learn.microsoft.com/en-us/semantic-kernel/concepts/ai-services/chat-completion/?tabs=csharp-AzureOpenAI%2Cpython-AzureOpenAI%2Cjava-AzureOpenAI&pivots=programming-language-python).
+
+```python
+import openai
+from semantic_kernel import Kernel
+from semantic_kernel.connectors.ai.open_ai import OpenAIChatCompletion
+from semantic_kernel.functions.function_result import FunctionResult
+
+# Create a basic OpenAI client
+openai_client = openai.AsyncOpenAI()
+
+# Create a Semantic Kernel instance and register the OpenAI chat completion service
+kernel = Kernel()
+kernel.add_service(
+    OpenAIChatCompletion(
+        service_id="chat-gpt",
+        ai_model_id="gpt-4o-mini",
+        async_client=openai_client,
+    )
+)
+
+answer = await kernel.invoke_prompt("Is sushi the best food ever?")
+print("AI says:", answer)
+```
+
+## Token Usage Tracking
+
+MLflow >= 3.2.0 supports token usage tracking for Semantic Kernel. The token usage for each LLM call during a kernel invocation will be logged in the `mlflow.chat.tokenUsage` span attribute, and the total usage in the entire trace will be logged in the `mlflow.trace.tokenUsage` metadata field.
+
+```python
+# Generate a trace using the above example
+# ...
+
+
+# Get the trace object just created
+last_trace_id = mlflow.get_last_active_trace_id()
+trace = mlflow.get_trace(trace_id=last_trace_id)
+
+# Print the token usage
+total_usage = trace.info.token_usage
+print("== Total token usage: ==")
+print(f"  Input tokens: {total_usage['input_tokens']}")
+print(f"  Output tokens: {total_usage['output_tokens']}")
+print(f"  Total tokens: {total_usage['total_tokens']}")
+```
+
+```
+== Total token usage: ==
+  Input tokens: 14
+  Output tokens: 113
+  Total tokens: 127
+```
+
+## Disable Auto-tracing
+
+Auto tracing for Semantic Kernel can be disabled globally by calling `mlflow.semantic_kernel.autolog(disable=True)` or `mlflow.autolog(disable=True)`.

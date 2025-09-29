@@ -75,6 +75,60 @@ def test_prompt_format():
     assert result == "Hello, 1 True!"
 
 
+@pytest.mark.parametrize(
+    ("path_value", "unicode_value", "expected"),
+    [
+        ("C:\\Users\\test\\file.txt", "test", "Path: C:\\Users\\test\\file.txt, Unicode: test"),
+        ("test", "\\u0041\\u0042", "Path: test, Unicode: \\u0041\\u0042"),
+        ("line1\nline2", "test", "Path: line1\nline2, Unicode: test"),
+        ("test[0-9]+", "test", "Path: test[0-9]+, Unicode: test"),
+        (
+            "C:\\Users\\test[0-9]+\\file.txt",
+            "\\u0041\\u0042",
+            "Path: C:\\Users\\test[0-9]+\\file.txt, Unicode: \\u0041\\u0042",
+        ),
+        ('test"quoted"', "test", 'Path: test"quoted", Unicode: test'),
+        ("test(1)", "test", "Path: test(1), Unicode: test"),
+        ("$100", "test", "Path: $100, Unicode: test"),
+    ],
+)
+def test_prompt_format_backslash_escape(path_value: str, unicode_value: str, expected: str):
+    prompt = PromptVersion(name="test", version=1, template="Path: {{path}}, Unicode: {{unicode}}")
+    result = prompt.format(path=path_value, unicode=unicode_value)
+    assert result == expected
+
+
+@pytest.mark.parametrize(
+    ("style", "question", "expected_content"),
+    [
+        ("helpful", "What is C:\\Users\\test?", "What is C:\\Users\\test?"),
+        ("helpful", "Unicode: \\u0041\\u0042", "Unicode: \\u0041\\u0042"),
+        ("friendly", "Line 1\nLine 2", "Line 1\nLine 2"),
+        ("professional", "Pattern: [0-9]+", "Pattern: [0-9]+"),
+        (
+            "expert",
+            "Path: C:\\Users\\test[0-9]+\\file.txt",
+            "Path: C:\\Users\\test[0-9]+\\file.txt",
+        ),
+        ("casual", 'He said "Hello"', 'He said "Hello"'),
+    ],
+)
+def test_prompt_format_chat_backslash_escape(style: str, question: str, expected_content: str):
+    """Test that PromptVersion.format correctly handles backslashes in chat prompts."""
+    chat_template = [
+        {"role": "system", "content": "You are a {{style}} assistant."},
+        {"role": "user", "content": "{{question}}"},
+    ]
+    prompt = PromptVersion(name="test", version=1, template=chat_template)
+
+    result = prompt.format(style=style, question=question)
+    expected = [
+        {"role": "system", "content": f"You are a {style} assistant."},
+        {"role": "user", "content": expected_content},
+    ]
+    assert result == expected
+
+
 def test_prompt_from_model_version():
     model_version = ModelVersion(
         name="my-prompt",

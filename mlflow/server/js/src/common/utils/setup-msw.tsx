@@ -1,4 +1,4 @@
-import { RequestHandler } from 'msw';
+import type { RequestHandler } from 'msw';
 import { setupServer as setupMsw } from 'msw/node';
 
 export function setupServer(...handlers: RequestHandler[]) {

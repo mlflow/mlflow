@@ -1,16 +1,16 @@
 import { Accordion } from '@databricks/design-system';
-import { ChartSectionConfig } from '../../../../types';
-import { RunsChartsRunData } from '../RunsCharts.common';
-import {
+import type { ChartSectionConfig } from '../../../../types';
+import type { RunsChartsRunData } from '../RunsCharts.common';
+import type {
   RunsChartsBarCardConfig,
   RunsChartsCardConfig,
-  RunsChartType,
   RunsChartsLineCardConfig,
   RunsChartsScatterCardConfig,
   RunsChartsContourCardConfig,
   SerializedRunsChartsCardConfigCard,
   RunsChartsParallelCardConfig,
 } from '../../runs-charts.types';
+import { RunsChartType } from '../../runs-charts.types';
 import MetricChartsAccordion, { METRIC_CHART_SECTION_HEADER_SIZE } from '../../../MetricChartsAccordion';
 import { RunsChartsSectionHeader } from './RunsChartsSectionHeader';
 import { RunsChartsSection } from './RunsChartsSection';
@@ -24,7 +24,7 @@ import { useDesignSystemTheme } from '@databricks/design-system';
 import { Spacer } from '@databricks/design-system';
 import { useUpdateRunsChartsUIConfiguration } from '../../hooks/useRunsChartsUIConfiguration';
 import { compact, isArray } from 'lodash';
-import { RunsChartCardSetFullscreenFn } from '../cards/ChartCard.common';
+import type { RunsChartCardSetFullscreenFn } from '../cards/ChartCard.common';
 import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
 import type { RunsChartsGlobalLineChartConfig } from '../../../experiment-page/models/ExperimentPageUIState';
 

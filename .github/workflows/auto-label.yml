@@ -1,0 +1,36 @@
+name: auto-label
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  inference:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+      models: read
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          sparse-checkout: |
+            .github
+
+      - uses: ./.github/actions/setup-node
+
+      - name: Install and build tools
+        working-directory: .github/scripts
+        run: npm ci && npm run build
+
+      - name: Run auto-label
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        env:
+          OPENAI_API_KEY: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_BASE: https://models.github.ai/inference
+        with:
+          script: |
+            const { autoLabel } = require('./.github/scripts/dist/bundle.js');
+            const result = await autoLabel({ github, context });
+            console.log(result);

@@ -1,8 +1,8 @@
 import { renderHook, render, screen, waitFor } from '@testing-library/react';
-import { LoggedModelProto, LoggedModelMetricProto } from '../../../types';
+import type { LoggedModelProto, LoggedModelMetricProto } from '../../../types';
 import { useExperimentLoggedModelListPageTableColumns } from './useExperimentLoggedModelListPageTableColumns';
 import { IntlProvider } from 'react-intl';
-import { ColDef, ColGroupDef } from '@ag-grid-community/core';
+import type { ColDef, ColGroupDef } from '@ag-grid-community/core';
 import React from 'react';
 import { ExperimentLoggedModelOpenDatasetDetailsContext } from './useExperimentLoggedModelOpenDatasetDetails';
 import userEvent from '@testing-library/user-event';

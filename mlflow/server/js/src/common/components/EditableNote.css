@@ -1,8 +1,8 @@
-.editable-note-actions {
+.mlflow-editable-note-actions {
   margin-top: 16px;
 }
 
-.editable-note-actions button + button {
+.mlflow-editable-note-actions button + button {
   margin-left: 16px;
 }
 

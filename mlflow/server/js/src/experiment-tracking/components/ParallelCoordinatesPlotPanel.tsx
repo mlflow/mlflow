@@ -15,7 +15,7 @@ import {
   getSharedMetricKeysByRunUuids,
   getRunInfo,
 } from '../reducers/Reducers';
-import _ from 'lodash';
+import { isEmpty } from 'lodash';
 import { CompareRunPlotContainer } from './CompareRunPlotContainer';
 import { FormattedMessage } from 'react-intl';
 import { Typography } from '@databricks/design-system';
@@ -72,7 +72,7 @@ export class ParallelCoordinatesPlotPanel extends React.Component<
           />
         }
       >
-        {!_.isEmpty(selectedParamKeys) || !_.isEmpty(selectedMetricKeys) ? (
+        {!isEmpty(selectedParamKeys) || !isEmpty(selectedMetricKeys) ? (
           <ParallelCoordinatesPlotView
             runUuids={runUuids}
             paramKeys={selectedParamKeys}

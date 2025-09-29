@@ -5,7 +5,7 @@ import inspect
 import logging
 import re
 from textwrap import dedent
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 _logger = logging.getLogger(__name__)
 
@@ -72,7 +72,7 @@ def extract_function_body(func: Callable[..., Any]) -> tuple[str, int]:
     return extractor.function_body, extractor.indent_unit
 
 
-def recreate_function(source: str, signature: str, func_name: str) -> Optional[Callable]:
+def recreate_function(source: str, signature: str, func_name: str) -> Callable[..., Any] | None:
     """
     Recreate a function from its source code, signature, and name.
 
@@ -109,6 +109,7 @@ def recreate_function(source: str, signature: str, func_name: str) -> Optional[C
                 AssessmentSource,
                 AssessmentSourceType,
                 Feedback,
+                Trace,
             )
             from mlflow.genai.judges import CategoricalRating
 
@@ -119,6 +120,7 @@ def recreate_function(source: str, signature: str, func_name: str) -> Optional[C
                     "AssessmentSource": AssessmentSource,
                     "AssessmentError": AssessmentError,
                     "AssessmentSourceType": AssessmentSourceType,
+                    "Trace": Trace,
                     "CategoricalRating": CategoricalRating,
                 }
             )

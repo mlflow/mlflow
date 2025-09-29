@@ -1,5 +1,5 @@
 # GENERATED FILE. PLEASE DON'T MODIFY.
-# Run python3 ./dev/proto_to_graphql/code_generator.py to regenerate.
+# Run uv run ./dev/proto_to_graphql/code_generator.py to regenerate.
 import graphene
 import mlflow
 from mlflow.server.graphql.graphql_custom_scalars import LongString
@@ -198,7 +198,7 @@ class MlflowMetric(graphene.ObjectType):
 
 
 class MlflowRunData(graphene.ObjectType):
-    metrics = graphene.List(graphene.NonNull(MlflowMetric))
+    metrics = graphene.List(graphene.NonNull('mlflow.server.graphql.graphql_schema_extensions.MlflowMetricExtension'))
     params = graphene.List(graphene.NonNull(MlflowParam))
     tags = graphene.List(graphene.NonNull(MlflowRunTag))
 

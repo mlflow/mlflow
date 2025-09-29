@@ -4,7 +4,8 @@ class TraceMetadataKey:
     OUTPUTS = "mlflow.traceOutputs"
     SOURCE_RUN = "mlflow.sourceRun"
     MODEL_ID = "mlflow.modelId"
-    SIZE_BYTES = "mlflow.trace.sizeBytes"
+    # Trace size statistics including total size, number of spans, and max span size
+    SIZE_STATS = "mlflow.trace.sizeStats"
     # Aggregated token usage information in a single trace, stored as a dumped JSON string.
     TOKEN_USAGE = "mlflow.trace.tokenUsage"
     # Store the user ID/name of the application request. Do not confuse this with mlflow.user
@@ -13,10 +14,13 @@ class TraceMetadataKey:
     # Store the session ID of the application request.
     TRACE_SESSION = "mlflow.trace.session"
 
+    # Total size of the trace in bytes. Deprecated, use SIZE_STATS instead.
+    SIZE_BYTES = "mlflow.trace.sizeBytes"
+
 
 class TraceTagKey:
     TRACE_NAME = "mlflow.traceName"
-    EVAL_REQUEST_ID = "eval.requestId"
+    EVAL_REQUEST_ID = "mlflow.eval.requestId"
 
 
 class TokenUsageKey:
@@ -31,6 +35,15 @@ class TokenUsageKey:
         return [cls.INPUT_TOKENS, cls.OUTPUT_TOKENS, cls.TOTAL_TOKENS]
 
 
+class TraceSizeStatsKey:
+    TOTAL_SIZE_BYTES = "total_size_bytes"
+    NUM_SPANS = "num_spans"
+    MAX_SPAN_SIZE_BYTES = "max"
+    P25_SPAN_SIZE_BYTES = "p25"
+    P50_SPAN_SIZE_BYTES = "p50"
+    P75_SPAN_SIZE_BYTES = "p75"
+
+
 # A set of reserved attribute keys
 class SpanAttributeKey:
     EXPERIMENT_ID = "mlflow.experimentId"
@@ -40,15 +53,13 @@ class SpanAttributeKey:
     SPAN_TYPE = "mlflow.spanType"
     FUNCTION_NAME = "mlflow.spanFunctionName"
     START_TIME_NS = "mlflow.spanStartTimeNs"
-    # these attributes are for standardized chat messages and tool definitions
-    # in CHAT_MODEL and LLM spans. they are used for rendering the rich chat
-    # display in the trace UI, as well as downstream consumers of trace data
-    # such as evaluation
-    CHAT_MESSAGES = "mlflow.chat.messages"
     CHAT_TOOLS = "mlflow.chat.tools"
     # This attribute is used to store token usage information from LLM responses.
     # Stored in {"input_tokens": int, "output_tokens": int, "total_tokens": int} format.
     CHAT_USAGE = "mlflow.chat.tokenUsage"
+    # This attribute indicates which flavor/format generated the LLM span. This is
+    # used by downstream (e.g., UI) to determine the message format for parsing.
+    MESSAGE_FORMAT = "mlflow.message.format"
     # This attribute is used to populate `intermediate_outputs` property of a trace data
     # representing intermediate outputs of the trace. This attribute is not empty only on
     # the root span of a trace created by the `mlflow.log_trace` API. The `intermediate_outputs`
@@ -68,10 +79,13 @@ MAX_CHARS_IN_TRACE_INFO_TAGS_KEY = 250
 MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE = 4096
 TRUNCATION_SUFFIX = "..."
 
-TRACE_REQUEST_RESPONSE_PREVIEW_MAX_LENGTH = 10000
+TRACE_REQUEST_RESPONSE_PREVIEW_MAX_LENGTH_DBX = 10000
+TRACE_REQUEST_RESPONSE_PREVIEW_MAX_LENGTH_OSS = 1000
 
 # Trace request ID must have the prefix "tr-" appended to the OpenTelemetry trace ID
 TRACE_REQUEST_ID_PREFIX = "tr-"
+# Trace ID V4 format starts with "trace:/" in the format of "trace:/<location>/<trace_id>"
+TRACE_ID_V4_PREFIX = "trace:/"
 
 # Schema version of traces and spans.
 TRACE_SCHEMA_VERSION = 3
@@ -89,3 +103,6 @@ STREAM_CHUNK_EVENT_VALUE_KEY = "mlflow.chunk.value"
 DATABRICKS_OPTIONS_KEY = "databricks_options"
 RETURN_TRACE_OPTION_KEY = "return_trace"
 DATABRICKS_OUTPUT_KEY = "databricks_output"
+
+# Assessment constants
+ASSESSMENT_ID_PREFIX = "a-"

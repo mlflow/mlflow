@@ -1,11 +1,12 @@
-import { compact, entries, isObject, isNil, isUndefined, reject, values, Dictionary } from 'lodash';
+import type { Dictionary } from 'lodash';
+import { compact, entries, isObject, isNil, isUndefined, reject, values } from 'lodash';
+import type { RunGroupByGroupingValue } from './experimentPage.row-types';
 import {
   type RowGroupRenderMetadata,
   type RowRenderMetadata,
   type RunGroupParentInfo,
   RunGroupingAggregateFunction,
   RunGroupingMode,
-  RunGroupByGroupingValue,
   RunRowVisibilityControl,
 } from './experimentPage.row-types';
 import type { SingleRunData } from './experimentPage.row-utils';
@@ -29,6 +30,13 @@ export type RunsGroupByConfig = {
     mode: RunGroupingMode;
     groupByData: string;
   }[];
+};
+
+export const isGroupedBy = (groupBy: RunsGroupByConfig | null, mode: RunGroupingMode, groupByData: string) => {
+  if (!groupBy) {
+    return false;
+  }
+  return groupBy.groupByKeys.some((key) => key.mode === mode && key.groupByData === groupByData);
 };
 
 /**
@@ -155,23 +163,30 @@ const createGroupRenderMetadataV2 = ({
   rowCounter: { value: number };
   useGroupedValuesInCharts?: boolean;
 }): (RowRenderMetadata | RowGroupRenderMetadata)[] => {
-  const isRunVisible = (runUuid: string) => {
+  const isRunVisible = (runUuid: string, runStatus: string) => {
     if (shouldUseRunRowsVisibilityMap() && !isUndefined(runsVisibilityMap[runUuid])) {
       return runsVisibilityMap[runUuid];
     }
-    return !runsHidden.includes(runUuid);
+    if (runsHidden.includes(runUuid)) {
+      return false;
+    }
+    if (runsHiddenMode === RUNS_VISIBILITY_MODE.HIDE_FINISHED_RUNS) {
+      return !['FINISHED', 'FAILED', 'KILLED'].includes(runStatus);
+    }
+    return true;
   };
 
   // For metric and runs calculation, include only visible runs in the group
   const metricsByRun = runsInGroup
-    .filter(({ runInfo }) => isRunVisible(runInfo.runUuid))
+    .filter(({ runInfo }) => isRunVisible(runInfo.runUuid, runInfo.status))
     .map((run) => run.metrics || []);
-  const paramsByRun = runsInGroup.filter(({ runInfo }) => isRunVisible(runInfo.runUuid)).map((run) => run.params || []);
+  const paramsByRun = runsInGroup
+    .filter(({ runInfo }) => isRunVisible(runInfo.runUuid, runInfo.status))
+    .map((run) => run.params || []);
 
   const isGroupHidden =
     !isRemainingRowsGroup &&
     determineIfRowIsHidden(runsHiddenMode, runsHidden, groupId, rowCounter.value, runsVisibilityMap);
-
   // Increment the counter for "Show N first runs" only if the group is actually visible in charts
   const isGroupUsedInCharts = useGroupedValuesInCharts && !isRemainingRowsGroup;
 
@@ -194,14 +209,16 @@ const createGroupRenderMetadataV2 = ({
     expanderOpen: expanded,
     aggregateFunction,
     runUuids: runsInGroup.map((run) => run.runInfo.runUuid),
-    runUuidsForAggregation: runsInGroup.map((run) => run.runInfo.runUuid).filter(isRunVisible),
+    runUuidsForAggregation: runsInGroup
+      .map((run) => run.runInfo.runUuid)
+      .filter((uuid, idx) => isRunVisible(uuid, runsInGroup[idx].runInfo.status)),
     aggregatedMetricEntities: aggregateValues(metricsByRun, aggregateFunction),
     aggregatedParamEntities: aggregateValues(paramsByRun, aggregateFunction),
     groupingValues: groupingKeys,
     visibilityControl: groupVisibilityControl,
     isRemainingRunsGroup: isRemainingRowsGroup,
     hidden: isGroupHidden,
-    allRunsHidden: runsInGroup.every((run) => !isRunVisible(run.runInfo.runUuid)),
+    allRunsHidden: runsInGroup.every((run) => !isRunVisible(run.runInfo.runUuid, run.runInfo.status)),
   };
 
   // Create an array for resulting table rows
@@ -215,9 +232,15 @@ const createGroupRenderMetadataV2 = ({
 
         // If the group is not visible in charts, the run row has to determine its own visibility.
         const isRowHidden = !isGroupUsedInCharts
-          ? determineIfRowIsHidden(runsHiddenMode, runsHidden, runInfo.runUuid, rowCounter.value, runsVisibilityMap)
-          : !isRunVisible(runInfo.runUuid);
-
+          ? determineIfRowIsHidden(
+              runsHiddenMode,
+              runsHidden,
+              runInfo.runUuid,
+              rowCounter.value,
+              runsVisibilityMap,
+              runInfo.status,
+            )
+          : !isRunVisible(runInfo.runUuid, runInfo.status);
         // Increment the counter for "Show N first runs" only if the group itself is not visible in charts
         if (!isGroupUsedInCharts) {
           rowCounter.value++;

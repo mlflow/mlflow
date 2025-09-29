@@ -4,14 +4,13 @@ export function postProcessSidebar(items) {
 }
 
 export function apiReferencePrefix(): string {
-  let prefix =
-    process.env.API_REFERENCE_PREFIX || "https://mlflow.org/docs/latest/";
-  if (!prefix.startsWith("http")) {
+  let prefix = process.env.API_REFERENCE_PREFIX || 'https://mlflow.org/docs/latest/';
+  if (!prefix.startsWith('http')) {
     throw new Error(`API reference prefix must start with http, got ${prefix}`);
   }
 
-  if (!prefix.endsWith("/")) {
-    prefix += "/";
+  if (!prefix.endsWith('/')) {
+    prefix += '/';
   }
   return prefix;
 }

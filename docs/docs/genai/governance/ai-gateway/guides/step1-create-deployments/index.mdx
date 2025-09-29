@@ -2,12 +2,12 @@
 
 ## Step 1: Install
 
-First, install MLflow along with the `genai` extras to get access to a range of serving-related
+First, install MLflow along with the `gateway` extras to get access to a range of serving-related
 dependencies, including `uvicorn` and `fastapi`. Note that direct dependencies on OpenAI are
 unnecessary, as all supported providers are abstracted from the developer.
 
 ```bash
-pip install 'mlflow[genai]'
+pip install 'mlflow[gateway]'
 ```
 
 ## Step 2: Set the OpenAI Token as an Environment Variable

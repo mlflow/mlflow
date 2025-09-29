@@ -1,4 +1,5 @@
 import pytest
+from pydantic import ValidationError
 
 from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
 
@@ -14,6 +15,7 @@ from mlflow.types.responses import (
     ResponsesAgentResponse,
     ResponsesAgentStreamEvent,
 )
+from mlflow.types.responses_helpers import Message
 
 
 def test_responses_request_validation():
@@ -55,6 +57,22 @@ def test_responses_request_validation():
                 ],
             }
         )
+
+
+def test_message_content_validation():
+    """Test the new Message content validation behavior allowing empty but not None"""
+
+    # Test that None content is rejected (by Pydantic validation)
+    with pytest.raises(ValidationError, match="Input should be a valid"):
+        Message(role="assistant", content=None, type="message")
+
+    # Test that empty string content is allowed
+    message_empty_str = Message(role="assistant", content="", type="message")
+    assert message_empty_str.content == ""
+
+    # Test that empty list content is allowed
+    message_empty_list = Message(role="assistant", content=[], type="message")
+    assert message_empty_list.content == []
 
 
 def test_responses_response_validation():

@@ -6,7 +6,9 @@ from mlflow.tracking.client import MlflowClient
 
 _metrics_queue_lock = RLock()
 _metrics_queue = []
-_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+_thread_pool = concurrent.futures.ThreadPoolExecutor(
+    max_workers=1, thread_name_prefix="MlflowMetricsQueue"
+)
 
 _MAX_METRIC_QUEUE_SIZE = 500
 

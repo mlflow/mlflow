@@ -1,0 +1,221 @@
+# AI Gateway Setup
+
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import TabsWrapper from "@site/src/components/TabsWrapper";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import { Settings, Play, Wrench } from "lucide-react";
+
+Get your MLflow AI Gateway up and running quickly with this step-by-step setup guide.
+
+## Installation
+
+The AI Gateway requires MLflow with additional dependencies for server functionality. The `[gateway]` extra includes FastAPI, Uvicorn, and other serving components:
+
+```bash
+pip install 'mlflow[gateway]'
+```
+
+## Environment Setup
+
+Store your API keys as environment variables to keep them secure and separate from your configuration files. The gateway reads these variables when connecting to providers:
+
+```bash
+# OpenAI
+export OPENAI_API_KEY=sk-...
+
+# Azure OpenAI
+export AZURE_OPENAI_API_KEY=your-azure-key
+export AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+
+# Anthropic
+export ANTHROPIC_API_KEY=sk-ant-...
+
+# AWS Bedrock
+export AWS_ACCESS_KEY_ID=AKIA...
+export AWS_SECRET_ACCESS_KEY=...
+export AWS_REGION=us-east-1
+
+# Cohere
+export COHERE_API_KEY=...
+```
+
+## Basic Server Configuration
+
+The gateway uses a YAML configuration file to define endpoints. Each endpoint specifies a provider, model, and authentication details. Start with a simple configuration and expand as needed:
+
+<TabsWrapper>
+<Tabs>
+<TabItem value="simple" label="Simple Setup" default>
+
+```yaml
+endpoints:
+  - name: chat
+    endpoint_type: llm/v1/chat
+    model:
+      provider: openai
+      name: gpt-3.5-turbo
+      config:
+        openai_api_key: $OPENAI_API_KEY
+```
+
+</TabItem>
+<TabItem value="multiple" label="Multiple Endpoints">
+
+```yaml
+endpoints:
+  - name: chat
+    endpoint_type: llm/v1/chat
+    model:
+      provider: openai
+      name: gpt-3.5-turbo
+      config:
+        openai_api_key: $OPENAI_API_KEY
+
+  - name: completions
+    endpoint_type: llm/v1/completions
+    model:
+      provider: openai
+      name: gpt-3.5-turbo-instruct
+      config:
+        openai_api_key: $OPENAI_API_KEY
+
+  - name: embeddings
+    endpoint_type: llm/v1/embeddings
+    model:
+      provider: openai
+      name: text-embedding-ada-002
+      config:
+        openai_api_key: $OPENAI_API_KEY
+```
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
+## Starting the Gateway Server
+
+The MLflow CLI provides a simple command to start the gateway server. The server will validate your configuration file and start endpoints for all defined providers.
+
+### Basic Start
+
+This starts the server with default settings on localhost port 5000:
+
+```bash
+mlflow gateway start --config-path config.yaml
+```
+
+The server will start on `http://localhost:5000` by default.
+
+### Custom Configuration
+
+For production or specific networking requirements, customize the host, port, and worker processes:
+
+```bash
+mlflow gateway start \
+  --config-path config.yaml \
+  --port 8080 \
+  --host 0.0.0.0 \
+  --workers 4
+```
+
+### Command Line Options
+
+| Option          | Description                     | Default   |
+| --------------- | ------------------------------- | --------- |
+| `--config-path` | Path to YAML configuration file | Required  |
+| `--port`        | Port number for the server      | 5000      |
+| `--host`        | Host address to bind to         | 127.0.0.1 |
+| `--workers`     | Number of worker processes      | 1         |
+
+## Verification
+
+### Check Server Status
+
+Verify the gateway is running and healthy with a simple HTTP health check:
+
+```bash
+# Check if server is responding
+curl http://localhost:5000/health
+```
+
+### View API Documentation
+
+The gateway automatically generates interactive API documentation using FastAPI's built-in Swagger UI:
+
+```
+http://localhost:5000/docs
+```
+
+### Test a Simple Request
+
+Send a test request to verify your endpoint configuration is working correctly:
+
+```bash
+curl -X POST http://localhost:5000/gateway/chat/invocations \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**Missing API Keys:**
+
+```
+Error: Provider 'openai' requires 'openai_api_key' configuration
+```
+
+Solution: Ensure environment variables are set before starting the server.
+
+**Port Conflicts:**
+
+```
+Error: Port 5000 is already in use
+```
+
+Solution: Use a different port with `--port` or stop the conflicting process.
+
+**Configuration Errors:**
+
+```
+Error: Invalid configuration file
+```
+
+Solution: Check YAML syntax and required fields. Configuration is validated when starting the server.
+
+### Validation
+
+Configuration is automatically validated when starting the server. Any errors will be displayed with helpful messages to guide you in fixing the issues.
+
+## Next Steps
+
+Once your gateway is running, learn how to configure providers and endpoints:
+
+<TilesGrid>
+  <TileCard
+    icon={Settings}
+    title="Configuration Guide"
+    description="Learn how to configure providers, endpoints, and advanced settings"
+    href="/genai/governance/ai-gateway/configuration"
+    linkText="Configure providers →"
+  />
+  <TileCard
+    icon={Play}
+    title="Usage Guide"
+    description="Start querying endpoints with Python client and REST APIs"
+    href="/genai/governance/ai-gateway/usage"
+    linkText="Start using →"
+  />
+  <TileCard
+    icon={Wrench}
+    title="Integration Guide"
+    description="Integrate with applications, frameworks, and production systems"
+    href="/genai/governance/ai-gateway/integration"
+    linkText="Learn integrations →"
+  />
+</TilesGrid>

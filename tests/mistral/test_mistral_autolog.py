@@ -15,7 +15,7 @@ from pydantic import BaseModel
 
 import mlflow.mistral
 from mlflow.entities.span import SpanType
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 
 from tests.tracing.helper import get_traces
 
@@ -169,21 +169,12 @@ def test_chat_complete_autolog(mock_complete):
         for key in ["prompt_tokens", "completion_tokens", "total_tokens"]
     }
     assert span.outputs == DUMMY_CHAT_COMPLETION_RESPONSE.model_dump()
-
-    assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
-        {
-            "role": "user",
-            "content": "test message",
-            "tool_calls": None,
-            "tool_call_id": None,
-        },
-        {
-            "role": "assistant",
-            "content": "test answer",
-            "tool_calls": None,
-            "tool_call_id": None,
-        },
-    ]
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "mistral"
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 10,
+        TokenUsageKey.OUTPUT_TOKENS: 18,
+        TokenUsageKey.TOTAL_TOKENS: 28,
+    }
 
     mlflow.mistral.autolog(disable=True)
     client = mistralai.Mistral(api_key="test_key")
@@ -212,47 +203,6 @@ def test_chat_complete_autolog_tool_calling(mock_complete):
     assert span.span_type == SpanType.CHAT_MODEL
     assert span.inputs == DUMMY_CHAT_COMPLETION_WITH_TOOLS_REQUEST
     assert span.outputs == DUMMY_CHAT_COMPLETION_WITH_TOOLS_RESPONSE.model_dump()
-
-    assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
-        {
-            "role": "user",
-            "content": "What's the weather like in San Francisco?",
-            "tool_calls": None,
-            "tool_call_id": None,
-        },
-        {
-            "role": "assistant",
-            "content": "",
-            "tool_calls": [
-                {
-                    "function": {
-                        "name": "get_unit",
-                        "arguments": '"{\\"location\\": \\"San Francisco\\"}"',
-                    },
-                    "id": "tool_123",
-                    "type": "function",
-                }
-            ],
-            "tool_call_id": None,
-        },
-        {"role": "tool", "content": "celsius", "tool_call_id": "tool_123", "tool_calls": None},
-        {
-            "role": "assistant",
-            "content": "",
-            "tool_calls": [
-                {
-                    "function": {
-                        "name": "get_weather",
-                        "arguments": '"{\\"location\\": \\"San Francisco\\", '
-                        '\\"unit\\": \\"celsius\\"}"',
-                    },
-                    "id": "tool_456",
-                    "type": "function",
-                }
-            ],
-            "tool_call_id": None,
-        },
-    ]
 
     assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == [
         {
@@ -295,7 +245,12 @@ def test_chat_complete_autolog_tool_calling(mock_complete):
             },
         },
     ]
-
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "mistral"
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 11,
+        TokenUsageKey.OUTPUT_TOKENS: 19,
+        TokenUsageKey.TOTAL_TOKENS: 30,
+    }
 
 @patch(
     "mistralai.chat.Chat.do_request_async",
@@ -318,3 +273,10 @@ async def test_chat_complete_async_autolog(mock_complete_async):
         for key in ["prompt_tokens", "completion_tokens", "total_tokens"]
     }
     assert span.outputs == DUMMY_CHAT_COMPLETION_RESPONSE.model_dump()
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "mistral"
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 10,
+        TokenUsageKey.OUTPUT_TOKENS: 18,
+        TokenUsageKey.TOTAL_TOKENS: 28,
+    }
+    
