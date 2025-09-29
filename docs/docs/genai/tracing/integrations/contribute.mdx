@@ -110,7 +110,7 @@ There are a few gotchas to watch out for when integrating with MLflow Tracing:
 - **Timestamp Handling**: When using timestamps provided by the library, validate the unit and timezone. MLflow requires timestamps in _nanoseconds since the UNIX epoch_; incorrect timestamps will disrupt span duration.
   :::
 
-  </TabItem>
+</TabItem>
 <TabItem value="typescript" label="TypeScript">
 
 The MLflow TypeScript tracing SDK lives under the [`libs/typescript`](https://github.com/mlflow/mlflow/tree/master/libs/typescript) npm workspace. When implementing a new integration:
@@ -136,7 +136,7 @@ npm run test
 - **Serializable Payloads**: Convert complex SDK objects to JSON-serializable structures before handing them to the MLflow client.
   :::
 
-    </TabItem>
+</TabItem>
 </Tabs>
 
 ## Step 6. Test the Integration
