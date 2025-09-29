@@ -99,4 +99,13 @@ Created by: ${runUrl}
 `,
   });
   console.log(`Created PR: ${pr.html_url}`);
+
+  // Add team-review label to request review from the team
+  await github.rest.issues.addLabels({
+    owner,
+    repo,
+    issue_number: pr.number,
+    labels: ["team-review"],
+  });
+  console.log("Added team-review label to the PR");
 };
