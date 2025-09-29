@@ -12,13 +12,17 @@ from mlflow.environment_variables import (
     MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
 )
 from mlflow.tracing.client import TracingClient
-from mlflow.tracing.constant import SpanAttributeKey, TraceTagKey
+from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
 from mlflow.tracing.export.utils import try_link_prompts_to_trace
 from mlflow.tracing.fluent import _EVAL_REQUEST_ID_TO_TRACE_ID, _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import add_size_stats_to_trace_metadata, maybe_get_request_id
+from mlflow.tracing.utils import (
+    add_size_stats_to_trace_metadata,
+    get_experiment_id_for_trace,
+    maybe_get_request_id,
+)
 from mlflow.utils.databricks_utils import is_in_databricks_notebook
 from mlflow.utils.uri import is_databricks_uri
 
@@ -73,7 +77,7 @@ class MlflowV3SpanExporter(SpanExporter):
         spans = [Span(span) for span in spans]
         spans_by_experiment = defaultdict(list)
         for span in spans:
-            experiment_id = span.get_attribute(SpanAttributeKey.EXPERIMENT_ID)
+            experiment_id = get_experiment_id_for_trace(span)
             spans_by_experiment[experiment_id].append(span)
 
         for experiment_id, spans_to_log in spans_by_experiment.items():
