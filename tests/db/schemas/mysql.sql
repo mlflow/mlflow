@@ -70,7 +70,6 @@ CREATE TABLE jobs (
 	status INTEGER NOT NULL,
 	result TEXT,
 	retry_count INTEGER,
-	env_vars TEXT,
 	PRIMARY KEY (id)
 )
 

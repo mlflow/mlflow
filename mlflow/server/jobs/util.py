@@ -25,7 +25,6 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.server import HUEY_STORAGE_PATH_ENV_VAR
-from mlflow.utils.environment import _PythonEnv
 
 _logger = logging.getLogger(__name__)
 

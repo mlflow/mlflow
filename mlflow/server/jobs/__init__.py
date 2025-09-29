@@ -44,6 +44,7 @@ def job_function(max_workers: int):
         max_workers: The maximum number of workers that are allowed to run the jobs
             using this job function.
     """
+
     def decorator(fn):
         fn._job_fn_metadata = JobFunctionMetadata(
             fn_fullname=f"{fn.__module__}.{fn.__name__}",

@@ -71,7 +71,6 @@ CREATE TABLE jobs (
 	status INTEGER NOT NULL,
 	result TEXT,
 	retry_count INTEGER,
-	env_vars TEXT,
 	CONSTRAINT jobs_pk PRIMARY KEY (id)
 )
 
