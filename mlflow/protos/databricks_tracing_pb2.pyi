@@ -152,6 +152,29 @@ class GetTraces(_message.Message):
     sql_warehouse_id: str
     def __init__(self, trace_ids: _Optional[_Iterable[_Union[TraceIdentifier, _Mapping]]] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
 
+class SearchTraces(_message.Message):
+    __slots__ = ("locations", "filter", "max_results", "order_by", "sql_warehouse_id", "page_token")
+    class Response(_message.Message):
+        __slots__ = ("trace_infos", "next_page_token")
+        TRACE_INFOS_FIELD_NUMBER: _ClassVar[int]
+        NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+        trace_infos: _containers.RepeatedCompositeFieldContainer[TraceInfo]
+        next_page_token: str
+        def __init__(self, trace_infos: _Optional[_Iterable[_Union[TraceInfo, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
+    LOCATIONS_FIELD_NUMBER: _ClassVar[int]
+    FILTER_FIELD_NUMBER: _ClassVar[int]
+    MAX_RESULTS_FIELD_NUMBER: _ClassVar[int]
+    ORDER_BY_FIELD_NUMBER: _ClassVar[int]
+    SQL_WAREHOUSE_ID_FIELD_NUMBER: _ClassVar[int]
+    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    locations: _containers.RepeatedCompositeFieldContainer[TraceLocation]
+    filter: str
+    max_results: int
+    order_by: _containers.RepeatedScalarFieldContainer[str]
+    sql_warehouse_id: str
+    page_token: str
+    def __init__(self, locations: _Optional[_Iterable[_Union[TraceLocation, _Mapping]]] = ..., filter: _Optional[str] = ..., max_results: _Optional[int] = ..., order_by: _Optional[_Iterable[str]] = ..., sql_warehouse_id: _Optional[str] = ..., page_token: _Optional[str] = ...) -> None: ...
+
 class CreateTraceUCStorageLocation(_message.Message):
     __slots__ = ("uc_schema", "sql_warehouse_id")
     class Response(_message.Message):

@@ -1,6 +1,6 @@
 import logging
 
-from mlflow.entities import Trace, TraceInfo
+from mlflow.entities import Trace, TraceInfo, TraceLocation
 from mlflow.entities.trace_location import UCSchemaLocation as UCSchemaLocationEntity
 from mlflow.environment_variables import (
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
@@ -14,21 +14,27 @@ from mlflow.protos.databricks_tracing_pb2 import (
     DatabricksTrackingService,
     GetTraces,
     LinkExperimentToUCTraceLocation,
+    SearchTraces,
     TraceIdentifier,
     UCSchemaLocation,
     UnLinkExperimentToUCTraceLocation,
 )
+from mlflow.protos.service_pb2 import MlflowService, SearchUnifiedTraces
+from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
 from mlflow.tracing.utils import parse_trace_id_v4
 from mlflow.utils.databricks_tracing_utils import (
     trace_from_proto,
     trace_info_to_proto,
+    trace_location_from_databricks_uc_schema,
+    trace_location_to_proto,
     uc_schema_location_from_proto,
     uc_schema_location_to_proto,
 )
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
+    _REST_API_PATH_PREFIX,
     _V4_REST_API_PATH_PREFIX,
     _V4_TRACE_REST_API_PATH_PREFIX,
     extract_api_info_for_service,
@@ -50,8 +56,8 @@ class DatabricksTracingRestStore(RestStore):
     """
 
     _METHOD_TO_INFO = extract_api_info_for_service(
-        DatabricksTrackingService, _V4_REST_API_PATH_PREFIX
-    )
+        MlflowService, _REST_API_PATH_PREFIX
+    ) | extract_api_info_for_service(DatabricksTrackingService, _V4_REST_API_PATH_PREFIX)
 
     def __init__(self, get_host_creds):
         super().__init__(get_host_creds)
@@ -138,6 +144,125 @@ class DatabricksTracingRestStore(RestStore):
                     f"Invalid trace_id format: {trace_identifier}, should be in the format of "
                     f"{TRACE_ID_V4_PREFIX}<catalog.schema>/<trace_id>"
                 )
+
+    def search_traces(
+        self,
+        experiment_ids: list[str] | None = None,
+        filter_string: str | None = None,
+        max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+        model_id: str | None = None,
+        sql_warehouse_id: str | None = None,
+        locations: list[str] | None = None,
+    ) -> tuple[list[TraceInfo], str | None]:
+        # This API is not client-facing, so we should always use `locations`.
+        if experiment_ids is not None:
+            raise MlflowException("`experiment_ids` is deprecated, use `locations` instead.")
+        if not locations:
+            raise MlflowException(
+                "`locations` must be specified for searching traces in Databricks."
+            )
+
+        contain_uc_schemas = False
+        trace_locations = []
+        # model_id is only supported by V3 API
+        if model_id is None:
+            for location in locations:
+                if "." not in location:
+                    trace_locations.append(
+                        trace_location_to_proto(TraceLocation.from_experiment_id(location))
+                    )
+                else:
+                    match location.split("."):
+                        case [catalog, schema]:
+                            trace_locations.append(
+                                trace_location_to_proto(
+                                    trace_location_from_databricks_uc_schema(catalog, schema)
+                                )
+                            )
+                            contain_uc_schemas = True
+                        case _:
+                            raise MlflowException.invalid_parameter_value(
+                                f"Invalid location format: {location}. Expected format: "
+                                "`<catalog_name>.<schema_name>` or `<experiment_id>`."
+                            )
+
+            request = SearchTraces(
+                locations=trace_locations,
+                filter=filter_string,
+                max_results=max_results,
+                order_by=order_by,
+                page_token=page_token,
+                sql_warehouse_id=sql_warehouse_id or MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+            )
+            req_body = message_to_json(request)
+            try:
+                response_proto = self._call_endpoint(
+                    SearchTraces,
+                    req_body,
+                    endpoint=f"{_V4_TRACE_REST_API_PATH_PREFIX}/search",
+                )
+            except MlflowException as e:
+                if e.error_code == ErrorCode.Name(ENDPOINT_NOT_FOUND):
+                    _logger.debug(
+                        "Server does not support SearchTracesV4 API yet. Falling back to V3 API."
+                    )
+                    if contain_uc_schemas:
+                        raise MlflowException(
+                            "Searching traces by locations including UC schemas is not supported "
+                            "on the current tracking server. Only locations with experiment IDs "
+                            "are supported."
+                        )
+                    # fallback to v3 API
+                    return self._search_traces(
+                        locations=locations,
+                        filter_string=filter_string,
+                        max_results=max_results,
+                        order_by=order_by,
+                        page_token=page_token,
+                    )
+                else:
+                    raise
+            trace_infos = [
+                TraceInfo.from_proto(trace_info) for trace_info in response_proto.trace_infos
+            ]
+            return trace_infos, response_proto.next_page_token or None
+        else:
+            return self._search_unified_traces(
+                model_id=model_id,
+                locations=locations,
+                sql_warehouse_id=sql_warehouse_id or MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+                filter_string=filter_string,
+                max_results=max_results,
+                order_by=order_by,
+                page_token=page_token,
+            )
+
+    def _search_unified_traces(
+        self,
+        model_id: str,
+        locations: list[str],
+        sql_warehouse_id: str | None = None,
+        filter_string: str | None = None,
+        max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+    ) -> tuple[list[TraceInfo], str | None]:
+        request = SearchUnifiedTraces(
+            model_id=model_id,
+            sql_warehouse_id=sql_warehouse_id,
+            experiment_ids=locations,
+            filter=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
+        req_body = message_to_json(request)
+        response_proto = self._call_endpoint(SearchUnifiedTraces, req_body)
+        # Convert TraceInfo (v2) objects to TraceInfoV3 objects for consistency
+        trace_infos = [TraceInfo.from_proto(t) for t in response_proto.traces]
+        return trace_infos, response_proto.next_page_token or None
 
     def set_experiment_trace_location(
         self,
