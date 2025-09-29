@@ -10,13 +10,15 @@ import pytest
 
 import mlflow.server.handlers
 from mlflow.entities._job_status import JobStatus
+from mlflow.exceptions import MlflowException
 from mlflow.server import (
     ARTIFACT_ROOT_ENV_VAR,
     BACKEND_STORE_URI_ENV_VAR,
     HUEY_STORAGE_PATH_ENV_VAR,
 )
 from mlflow.server.handlers import _get_job_store
-from mlflow.server.jobs import _reinit_huey_queue, _start_job_runner, query_job, submit_job
+from mlflow.server.jobs import _reinit_huey_queue, _start_job_runner, get_job, submit_job
+from mlflow.server.jobs.util import _validate_function_parameters
 
 pytestmark = pytest.mark.skipif(
     os.name == "nt", reason="MLflow job execution is not supported on Windows"
@@ -62,11 +64,60 @@ def basic_job_fun(x, y, sleep_secs=0):
     return x + y
 
 
+def test_validate_function_parameters():
+    """Test the parameter validation function directly."""
+
+    def test_func(a, b, c=None):
+        return a + b + (c or 0)
+
+    # Test with all required parameters present
+    _validate_function_parameters(test_func, {"a": 1, "b": 2})
+    _validate_function_parameters(test_func, {"a": 1, "b": 2, "c": 3})
+
+    # Test with missing required parameters
+    with pytest.raises(MlflowException, match=r"Missing required parameters.*\['b'\]"):
+        _validate_function_parameters(test_func, {"a": 1})
+
+    assert True  # If we get here, the exception was properly raised
+
+    # Test with multiple missing required parameters
+    with pytest.raises(MlflowException, match=r"Missing required parameters.*\['a', 'b'\]"):
+        _validate_function_parameters(test_func, {})
+
+
+def test_validate_function_parameters_with_varargs():
+    """Test parameter validation with functions that have **kwargs."""
+
+    def test_func_with_kwargs(a, **kwargs):
+        return a
+
+    # Should not raise error even with extra parameters due to **kwargs
+    _validate_function_parameters(test_func_with_kwargs, {"a": 1, "extra": 2})
+
+    # Should still raise error for missing required parameters
+    with pytest.raises(MlflowException, match=r"Missing required parameters.*\['a'\]"):
+        _validate_function_parameters(test_func_with_kwargs, {"extra": 2})
+
+
+def test_validate_function_parameters_with_positional_args():
+    """Test parameter validation with functions that have *args."""
+
+    def test_func_with_args(a, *args):
+        return a
+
+    # Should work fine with just required parameter
+    _validate_function_parameters(test_func_with_args, {"a": 1})
+
+    # Should still raise error for missing required parameters
+    with pytest.raises(MlflowException, match=r"Missing required parameters.*\['a'\]"):
+        _validate_function_parameters(test_func_with_args, {})
+
+
 def test_basic_job(monkeypatch, tmp_path):
     with _setup_job_runner(1, monkeypatch, tmp_path):
         submitted_job = submit_job(basic_job_fun, {"x": 3, "y": 4})
         wait_job_finalize(submitted_job.job_id, timeout=2)
-        job = query_job(submitted_job.job_id)
+        job = get_job(submitted_job.job_id)
         assert job.job_id == submitted_job.job_id
         assert job.function_fullname == "test_job.basic_job_fun"
         assert job.params == '{"x": 3, "y": 4}'
@@ -87,7 +138,7 @@ def test_job_json_input_output(monkeypatch, tmp_path):
     with _setup_job_runner(1, monkeypatch, tmp_path):
         submitted_job = submit_job(json_in_out_fun, {"data": {"x": 3, "y": 4}})
         wait_job_finalize(submitted_job.job_id, timeout=2)
-        job = query_job(submitted_job.job_id)
+        job = get_job(submitted_job.job_id)
         assert job.job_id == submitted_job.job_id
         assert job.function_fullname == "test_job.json_in_out_fun"
         assert job.params == '{"data": {"x": 3, "y": 4}}'
@@ -105,7 +156,7 @@ def test_error_job(monkeypatch, tmp_path):
     with _setup_job_runner(1, monkeypatch, tmp_path):
         submitted_job = submit_job(err_fun, {"data": None})
         wait_job_finalize(submitted_job.job_id, timeout=2)
-        job = query_job(submitted_job.job_id)
+        job = get_job(submitted_job.job_id)
 
         # check database record correctness.
         assert job.job_id == submitted_job.job_id
@@ -118,7 +169,7 @@ def test_error_job(monkeypatch, tmp_path):
 
 
 def assert_job_result(job_id, expected_status, expected_result):
-    job = query_job(job_id)
+    job = get_job(job_id)
     assert job.status == expected_status
     assert job.parsed_result == expected_result
 
@@ -216,7 +267,7 @@ def transient_err_fun(tmp_dir: str, succeed_on_nth_run: int):
 def wait_job_finalize(job_id, timeout):
     beg_time = time.time()
     while time.time() - beg_time <= timeout:
-        job = query_job(job_id)
+        job = get_job(job_id)
         if JobStatus.is_finalized(job.status):
             return
         time.sleep(0.1)

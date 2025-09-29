@@ -22,10 +22,15 @@ import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.trace import Trace
+from mlflow.environment_variables import MLFLOW_JUDGE_MAX_ITERATIONS
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.utils.enum_utils import StrEnum
-from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_pb2 import (
+    BAD_REQUEST,
+    INVALID_PARAMETER_VALUE,
+    REQUEST_LIMIT_EXCEEDED,
+)
 from mlflow.telemetry.events import InvokeCustomJudgeModelEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.telemetry.utils import _is_in_databricks
@@ -951,7 +956,22 @@ def _invoke_litellm(
         )
 
     include_response_format = _MODEL_RESPONSE_FORMAT_CAPABILITIES.get(litellm_model_uri, True)
+
+    max_iterations = MLFLOW_JUDGE_MAX_ITERATIONS.get()
+    iteration_count = 0
+
     while True:
+        iteration_count += 1
+        if iteration_count > max_iterations:
+            raise MlflowException(
+                f"Completion iteration limit of {max_iterations} exceeded. "
+                f"This usually indicates the model is not powerful enough to effectively "
+                f"analyze the trace. Consider using a more intelligent/powerful model. "
+                f"In rare cases, for very complex traces where a large number of completion "
+                f"iterations might be required, you can increase the number of iterations by "
+                f"modifying the {MLFLOW_JUDGE_MAX_ITERATIONS.name} environment variable.",
+                error_code=REQUEST_LIMIT_EXCEEDED,
+            )
         try:
             try:
                 response = _make_completion_request(
@@ -1019,6 +1039,10 @@ def _invoke_litellm(
                             content=result_json,
                         )
                     )
+
+        except MlflowException:
+            # Re-raise MlflowExceptions without wrapping
+            raise
         except Exception as e:
             raise MlflowException(f"Failed to invoke the judge via litellm: {e}") from e
 
