@@ -512,6 +512,13 @@ def get_single_trace_endpoint_v4(location: str, trace_id: str) -> str:
     return f"{_V4_TRACE_REST_API_PATH_PREFIX}/{location}/{trace_id}"
 
 
+def get_single_assessment_endpoint_v4(location: str, trace_id: str, assessment_id: str) -> str:
+    """
+    Get the endpoint for a single assessment using the V4 API.
+    """
+    return f"{_V4_TRACE_REST_API_PATH_PREFIX}/{location}/{trace_id}/assessment/{assessment_id}"
+
+
 def get_logged_model_endpoint(model_id: str) -> str:
     return f"{_REST_API_PATH_PREFIX}/mlflow/logged-models/{model_id}"
 

@@ -2,6 +2,7 @@ import assessments_pb2 as _assessments_pb2
 import databricks_pb2 as _databricks_pb2
 from scalapb import scalapb_pb2 as _scalapb_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
+from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import struct_pb2 as _struct_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from opentelemetry.proto.trace.v1 import trace_pb2 as _trace_pb2
@@ -106,9 +107,9 @@ class TraceInfo(_message.Message):
     execution_duration: _duration_pb2.Duration
     state: TraceInfo.State
     trace_metadata: _containers.ScalarMap[str, str]
-    assessments: _containers.RepeatedCompositeFieldContainer[_assessments_pb2.Assessment]
+    assessments: _containers.RepeatedCompositeFieldContainer[Assessment]
     tags: _containers.ScalarMap[str, str]
-    def __init__(self, trace_id: _Optional[str] = ..., client_request_id: _Optional[str] = ..., trace_location: _Optional[_Union[TraceLocation, _Mapping]] = ..., request_preview: _Optional[str] = ..., response_preview: _Optional[str] = ..., request_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., execution_duration: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., state: _Optional[_Union[TraceInfo.State, str]] = ..., trace_metadata: _Optional[_Mapping[str, str]] = ..., assessments: _Optional[_Iterable[_Union[_assessments_pb2.Assessment, _Mapping]]] = ..., tags: _Optional[_Mapping[str, str]] = ...) -> None: ...
+    def __init__(self, trace_id: _Optional[str] = ..., client_request_id: _Optional[str] = ..., trace_location: _Optional[_Union[TraceLocation, _Mapping]] = ..., request_preview: _Optional[str] = ..., response_preview: _Optional[str] = ..., request_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., execution_duration: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., state: _Optional[_Union[TraceInfo.State, str]] = ..., trace_metadata: _Optional[_Mapping[str, str]] = ..., assessments: _Optional[_Iterable[_Union[Assessment, _Mapping]]] = ..., tags: _Optional[_Mapping[str, str]] = ...) -> None: ...
 
 class CreateTrace(_message.Message):
     __slots__ = ("trace_info", "sql_warehouse_id")
@@ -254,6 +255,109 @@ class UnLinkExperimentToUCTraceLocation(_message.Message):
     experiment_id: str
     location: str
     def __init__(self, experiment_id: _Optional[str] = ..., location: _Optional[str] = ...) -> None: ...
+
+class Assessment(_message.Message):
+    __slots__ = ("assessment_id", "assessment_name", "trace_id", "trace_location", "span_id", "source", "create_time", "last_update_time", "feedback", "expectation", "rationale", "metadata", "overrides", "valid")
+    class MetadataEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    ASSESSMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    ASSESSMENT_NAME_FIELD_NUMBER: _ClassVar[int]
+    TRACE_ID_FIELD_NUMBER: _ClassVar[int]
+    TRACE_LOCATION_FIELD_NUMBER: _ClassVar[int]
+    SPAN_ID_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_FIELD_NUMBER: _ClassVar[int]
+    CREATE_TIME_FIELD_NUMBER: _ClassVar[int]
+    LAST_UPDATE_TIME_FIELD_NUMBER: _ClassVar[int]
+    FEEDBACK_FIELD_NUMBER: _ClassVar[int]
+    EXPECTATION_FIELD_NUMBER: _ClassVar[int]
+    RATIONALE_FIELD_NUMBER: _ClassVar[int]
+    METADATA_FIELD_NUMBER: _ClassVar[int]
+    OVERRIDES_FIELD_NUMBER: _ClassVar[int]
+    VALID_FIELD_NUMBER: _ClassVar[int]
+    assessment_id: str
+    assessment_name: str
+    trace_id: str
+    trace_location: TraceLocation
+    span_id: str
+    source: _assessments_pb2.AssessmentSource
+    create_time: _timestamp_pb2.Timestamp
+    last_update_time: _timestamp_pb2.Timestamp
+    feedback: _assessments_pb2.Feedback
+    expectation: _assessments_pb2.Expectation
+    rationale: str
+    metadata: _containers.ScalarMap[str, str]
+    overrides: str
+    valid: bool
+    def __init__(self, assessment_id: _Optional[str] = ..., assessment_name: _Optional[str] = ..., trace_id: _Optional[str] = ..., trace_location: _Optional[_Union[TraceLocation, _Mapping]] = ..., span_id: _Optional[str] = ..., source: _Optional[_Union[_assessments_pb2.AssessmentSource, _Mapping]] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., last_update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., feedback: _Optional[_Union[_assessments_pb2.Feedback, _Mapping]] = ..., expectation: _Optional[_Union[_assessments_pb2.Expectation, _Mapping]] = ..., rationale: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ..., overrides: _Optional[str] = ..., valid: bool = ...) -> None: ...
+
+class CreateAssessment(_message.Message):
+    __slots__ = ("location", "assessment", "sql_warehouse_id")
+    class Response(_message.Message):
+        __slots__ = ("assessment",)
+        ASSESSMENT_FIELD_NUMBER: _ClassVar[int]
+        assessment: Assessment
+        def __init__(self, assessment: _Optional[_Union[Assessment, _Mapping]] = ...) -> None: ...
+    LOCATION_FIELD_NUMBER: _ClassVar[int]
+    ASSESSMENT_FIELD_NUMBER: _ClassVar[int]
+    SQL_WAREHOUSE_ID_FIELD_NUMBER: _ClassVar[int]
+    location: str
+    assessment: Assessment
+    sql_warehouse_id: str
+    def __init__(self, location: _Optional[str] = ..., assessment: _Optional[_Union[Assessment, _Mapping]] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
+
+class GetAssessment(_message.Message):
+    __slots__ = ("location", "trace_id", "assessment_id", "sql_warehouse_id")
+    class Response(_message.Message):
+        __slots__ = ("assessment",)
+        ASSESSMENT_FIELD_NUMBER: _ClassVar[int]
+        assessment: Assessment
+        def __init__(self, assessment: _Optional[_Union[Assessment, _Mapping]] = ...) -> None: ...
+    LOCATION_FIELD_NUMBER: _ClassVar[int]
+    TRACE_ID_FIELD_NUMBER: _ClassVar[int]
+    ASSESSMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    SQL_WAREHOUSE_ID_FIELD_NUMBER: _ClassVar[int]
+    location: str
+    trace_id: str
+    assessment_id: str
+    sql_warehouse_id: str
+    def __init__(self, location: _Optional[str] = ..., trace_id: _Optional[str] = ..., assessment_id: _Optional[str] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
+
+class UpdateAssessment(_message.Message):
+    __slots__ = ("location", "assessment", "update_mask", "sql_warehouse_id")
+    class Response(_message.Message):
+        __slots__ = ("assessment",)
+        ASSESSMENT_FIELD_NUMBER: _ClassVar[int]
+        assessment: Assessment
+        def __init__(self, assessment: _Optional[_Union[Assessment, _Mapping]] = ...) -> None: ...
+    LOCATION_FIELD_NUMBER: _ClassVar[int]
+    ASSESSMENT_FIELD_NUMBER: _ClassVar[int]
+    UPDATE_MASK_FIELD_NUMBER: _ClassVar[int]
+    SQL_WAREHOUSE_ID_FIELD_NUMBER: _ClassVar[int]
+    location: str
+    assessment: Assessment
+    update_mask: _field_mask_pb2.FieldMask
+    sql_warehouse_id: str
+    def __init__(self, location: _Optional[str] = ..., assessment: _Optional[_Union[Assessment, _Mapping]] = ..., update_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
+
+class DeleteAssessment(_message.Message):
+    __slots__ = ("location", "trace_id", "assessment_id", "sql_warehouse_id")
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    LOCATION_FIELD_NUMBER: _ClassVar[int]
+    TRACE_ID_FIELD_NUMBER: _ClassVar[int]
+    ASSESSMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    SQL_WAREHOUSE_ID_FIELD_NUMBER: _ClassVar[int]
+    location: str
+    trace_id: str
+    assessment_id: str
+    sql_warehouse_id: str
+    def __init__(self, location: _Optional[str] = ..., trace_id: _Optional[str] = ..., assessment_id: _Optional[str] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
 
 class DatabricksTrackingService(_service.service): ...
 

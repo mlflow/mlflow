@@ -1,6 +1,7 @@
 import logging
 
-from mlflow.entities import Trace, TraceInfo, TraceLocation
+from mlflow.entities import Assessment, Trace, TraceInfo, TraceLocation
+from mlflow.entities.assessment import ExpectationValue, FeedbackValue
 from mlflow.entities.trace_location import UCSchemaLocation as UCSchemaLocationEntity
 from mlflow.environment_variables import (
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
@@ -9,10 +10,13 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, ENDPOINT_NOT_FOUND, ErrorCode
 from mlflow.protos.databricks_tracing_pb2 import (
+    CreateAssessment,
     CreateTrace,
     CreateTraceUCStorageLocation,
     DatabricksTrackingService,
+    DeleteAssessment,
     DeleteTraceTag,
+    GetAssessment,
     GetTraceInfo,
     GetTraces,
     LinkExperimentToUCTraceLocation,
@@ -20,6 +24,7 @@ from mlflow.protos.databricks_tracing_pb2 import (
     SetTraceTag,
     TraceIdentifier,
     UnLinkExperimentToUCTraceLocation,
+    UpdateAssessment,
 )
 from mlflow.protos.service_pb2 import MlflowService, SearchUnifiedTraces
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
@@ -27,6 +32,7 @@ from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
 from mlflow.tracing.utils import parse_trace_id_v4
 from mlflow.utils.databricks_tracing_utils import (
+    assessment_to_proto,
     trace_from_proto,
     trace_info_to_proto,
     trace_location_from_databricks_uc_schema,
@@ -40,6 +46,7 @@ from mlflow.utils.rest_utils import (
     _V4_REST_API_PATH_PREFIX,
     _V4_TRACE_REST_API_PATH_PREFIX,
     extract_api_info_for_service,
+    get_single_assessment_endpoint_v4,
     get_single_trace_endpoint_v4,
 )
 
@@ -387,3 +394,148 @@ class DatabricksTracingRestStore(RestStore):
             endpoint=endpoint,
         )
         _logger.debug(f"Unlinked experiment {experiment_id} from trace location: {location}")
+
+    def create_assessment(self, assessment: Assessment) -> Assessment:
+        """
+        Create an assessment entity in the backend store.
+
+        Args:
+            assessment: The assessment to log (without an assessment_id).
+
+        Returns:
+            The created Assessment object.
+        """
+        location, trace_id = parse_trace_id_v4(assessment.trace_id)
+        if location is not None:
+            req_body = message_to_json(
+                CreateAssessment(
+                    assessment=assessment_to_proto(assessment),
+                    sql_warehouse_id=MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+                )
+            )
+            endpoint = f"{get_single_trace_endpoint_v4(location, trace_id)}/assessment"
+            response_proto = self._call_endpoint(
+                CreateAssessment,
+                req_body,
+                endpoint=endpoint,
+            )
+            return Assessment.from_proto(response_proto.assessment)
+
+        return super().create_assessment(assessment)
+
+    def update_assessment(
+        self,
+        trace_id: str,
+        assessment_id: str,
+        name: str | None = None,
+        expectation: ExpectationValue | None = None,
+        feedback: FeedbackValue | None = None,
+        rationale: str | None = None,
+        metadata: dict[str, str] | None = None,
+    ) -> Assessment:
+        """
+        Update an existing assessment entity in the backend store.
+
+        Args:
+            trace_id: The ID of the trace.
+            assessment_id: The ID of the assessment to update.
+            name: The updated name of the assessment.
+            expectation: The updated expectation value of the assessment.
+            feedback: The updated feedback value of the assessment.
+            rationale: The updated rationale of the feedback. Not applicable for expectations.
+            metadata: Additional metadata for the assessment.
+        """
+        if expectation is not None and feedback is not None:
+            raise MlflowException.invalid_parameter_value(
+                "Exactly one of `expectation` or `feedback` should be specified."
+            )
+
+        location, parsed_trace_id = parse_trace_id_v4(trace_id)
+        if location is not None:
+            update = UpdateAssessment(
+                sql_warehouse_id=MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+            )
+            endpoint = get_single_assessment_endpoint_v4(location, parsed_trace_id, assessment_id)
+            assessment = update.assessment
+            assessment.assessment_id = assessment_id
+            catalog, schema = location.split(".")
+            assessment.trace_location.CopyFrom(
+                trace_location_to_proto(trace_location_from_databricks_uc_schema(catalog, schema)),
+            )
+            assessment.trace_id = parsed_trace_id
+            # Field mask specifies which fields to update.
+            mask = update.update_mask
+
+            if name is not None:
+                assessment.assessment_name = name
+                mask.paths.append("assessment_name")
+            if expectation is not None:
+                assessment.expectation.CopyFrom(expectation.to_proto())
+                mask.paths.append("expectation")
+            if feedback is not None:
+                assessment.feedback.CopyFrom(feedback.to_proto())
+                mask.paths.append("feedback")
+            if rationale is not None:
+                assessment.rationale = rationale
+                mask.paths.append("rationale")
+            if metadata is not None:
+                assessment.metadata.update(metadata)
+                mask.paths.append("metadata")
+
+            req_body = message_to_json(update)
+            response_proto = self._call_endpoint(
+                UpdateAssessment,
+                req_body,
+                endpoint=endpoint,
+            )
+            return Assessment.from_proto(response_proto.assessment)
+        else:
+            return super().update_assessment(
+                trace_id, assessment_id, name, expectation, feedback, rationale, metadata
+            )
+
+    def get_assessment(self, trace_id: str, assessment_id: str) -> Assessment:
+        """
+        Get an assessment entity from the backend store.
+        """
+
+        location, trace_id = parse_trace_id_v4(trace_id)
+        if location is not None:
+            req_body = message_to_json(
+                GetAssessment(
+                    sql_warehouse_id=MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+                )
+            )
+            endpoint = get_single_assessment_endpoint_v4(location, trace_id, assessment_id)
+            response_proto = self._call_endpoint(
+                GetAssessment,
+                req_body,
+                endpoint=endpoint,
+            )
+            return Assessment.from_proto(response_proto.assessment)
+
+        return super().get_assessment(trace_id, assessment_id)
+
+    def delete_assessment(self, trace_id: str, assessment_id: str):
+        """
+        Delete an assessment associated with a trace.
+
+        Args:
+            trace_id: String ID of the trace.
+            assessment_id: String ID of the assessment to delete.
+        """
+        location, trace_id = parse_trace_id_v4(trace_id)
+        if location is not None:
+            req_body = message_to_json(
+                DeleteAssessment(
+                    sql_warehouse_id=MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+                )
+            )
+            endpoint = get_single_assessment_endpoint_v4(location, trace_id, assessment_id)
+            self._call_endpoint(
+                DeleteAssessment,
+                req_body,
+                endpoint=endpoint,
+            )
+        else:
+            return super().delete_assessment(trace_id, assessment_id)
