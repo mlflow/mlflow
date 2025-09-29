@@ -18,8 +18,8 @@ import os
 import threading
 
 from mlflow.server.jobs.util import (
-    _get_or_init_huey_instance,
     _exit_when_orphaned,
+    _get_or_init_huey_instance,
 )
 
 # ensure the subprocess is killed when parent process dies.

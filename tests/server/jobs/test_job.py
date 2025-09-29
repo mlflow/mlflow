@@ -344,7 +344,7 @@ def test_job_retry_on_transient_error(monkeypatch, tmp_path):
 # multi-processes case.
 def test_submit_jobs_from_multi_processes(monkeypatch, tmp_path):
     with _setup_job_runner(monkeypatch, tmp_path), MultiProcPool() as pool:
-        job_id = submit_job(job_fun_parallelism2, {"x": 1, "y": 1, "sleep_secs": 0}).job_id
+        job_id = submit_job(basic_job_fun, {"x": 1, "y": 1, "sleep_secs": 0}).job_id
         wait_job_finalize(job_id, timeout=10)
 
         async_res_list = [
