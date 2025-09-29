@@ -828,7 +828,7 @@ name = "cffi"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pycparser", marker = "(python_full_version < '3.13' and implementation_name != 'PyPy') or (implementation_name != 'PyPy' and platform_python_implementation != 'PyPy')" },
+    { name = "pycparser", marker = "implementation_name != 'PyPy'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/eb/56/b1ba7935a17738ae8453301356628e8147c79dbb825bcbc73dc7401f9846/cffi-2.0.0.tar.gz", hash = "sha256:44d1b5909021139fe36001ae048dbdde8214afa20200eda0f64c068cac5d5529", size = 523588, upload-time = "2025-09-08T23:24:04.541Z" }
 wheels = [
@@ -1381,7 +1381,7 @@ dependencies = [
     { name = "boto3" },
     { name = "botocore" },
     { name = "databricks-connect", version = "14.3.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
-    { name = "databricks-connect", version = "17.2.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "databricks-connect", version = "17.2.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "databricks-sdk", extra = ["openai"] },
     { name = "dataclasses-json" },
     { name = "jinja2" },
@@ -1425,7 +1425,7 @@ wheels = [
 
 [[package]]
 name = "databricks-connect"
-version = "17.2.1"
+version = "17.2.2"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
@@ -1447,7 +1447,7 @@ dependencies = [
     { name = "six", marker = "python_full_version >= '3.12'" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/8b/4f/a62cf479d2cf33dc74e1c44d93c1691319f595dc594b50769f60bee699d4/databricks_connect-17.2.1-py2.py3-none-any.whl", hash = "sha256:f35073b139c0c4bd161527bb5531645bb0bd97307766e1b4bd99be0e56acb4b4", size = 2666588, upload-time = "2025-09-23T09:03:52.043Z" },
+    { url = "https://files.pythonhosted.org/packages/1c/9c/0d1bc7bc8bb722be5f97fa197f172a1e72907c03106ba56069aac6fe53f2/databricks_connect-17.2.2-py2.py3-none-any.whl", hash = "sha256:c5aaec78cbebafa71cf6712f035f68c9158eaeb5dc6c2ffc21d80288d4a5944e", size = 2666627, upload-time = "2025-09-29T12:07:18.31Z" },
 ]
 
 [[package]]
@@ -2406,7 +2406,7 @@ sdist = { url = "https://files.pythonhosted.org/packages/86/8c/2dfecf3705f5e5220
 
 [[package]]
 name = "huggingface-hub"
-version = "0.35.1"
+version = "0.35.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "filelock" },
@@ -2418,9 +2418,9 @@ dependencies = [
     { name = "tqdm" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f6/42/0e7be334a6851cd7d51cc11717cb95e89333ebf0064431c0255c56957526/huggingface_hub-0.35.1.tar.gz", hash = "sha256:3585b88c5169c64b7e4214d0e88163d4a709de6d1a502e0cd0459e9ee2c9c572", size = 461374, upload-time = "2025-09-23T13:43:47.074Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a5/53/7c546f1a1034edaf17c54de94a1c36e481124c27e5190a85dcc1be43ffe1/huggingface_hub-0.35.2.tar.gz", hash = "sha256:3a5c03aa272f267a6892e701e5ef1bb2d0d46a487550fda978b5255bcd52f376", size = 461678, upload-time = "2025-09-29T09:50:30.883Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f1/60/4acf0c8a3925d9ff491dc08fe84d37e09cfca9c3b885e0db3d4dedb98cea/huggingface_hub-0.35.1-py3-none-any.whl", hash = "sha256:2f0e2709c711e3040e31d3e0418341f7092910f1462dd00350c4e97af47280a8", size = 563340, upload-time = "2025-09-23T13:43:45.343Z" },
+    { url = "https://files.pythonhosted.org/packages/0a/ca/b1b845d49171aaa12c94614f1b075b1f665f89a617f9f22892af4e59aeec/huggingface_hub-0.35.2-py3-none-any.whl", hash = "sha256:dc6106e45b7744048d3bb315baa48f7b94b66167b2a5bb3175920038da2d5ca7", size = 564080, upload-time = "2025-09-29T09:50:27.876Z" },
 ]
 
 [[package]]
