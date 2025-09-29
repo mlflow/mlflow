@@ -19,11 +19,13 @@ from mlflow.entities.trace_location import (
     TraceLocationType,
     UCSchemaLocation,
 )
+from mlflow.protos import assessments_pb2
 from mlflow.protos import databricks_tracing_pb2 as pb
 from mlflow.protos.assessments_pb2 import AssessmentSource as ProtoAssessmentSource
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
 from mlflow.utils.databricks_tracing_utils import (
     assessment_to_proto,
+    get_trace_id_from_assessment_proto,
     inference_table_location_to_proto,
     mlflow_experiment_location_to_proto,
     trace_from_proto,
@@ -335,3 +337,18 @@ def test_assessment_to_proto():
         "answer": "Paris",
         "confidence": 0.99,
     }
+
+
+def test_get_trace_id_from_assessment_proto():
+    proto = pb.Assessment(
+        trace_id="1234",
+        trace_location=trace_location_to_proto(
+            trace_location_from_databricks_uc_schema(catalog_name="catalog", schema_name="schema")
+        ),
+    )
+    assert get_trace_id_from_assessment_proto(proto) == "trace:/catalog.schema/1234"
+
+    proto = assessments_pb2.Assessment(
+        trace_id="tr-123",
+    )
+    assert get_trace_id_from_assessment_proto(proto) == "tr-123"

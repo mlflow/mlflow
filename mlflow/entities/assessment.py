@@ -285,23 +285,13 @@ class Feedback(Assessment):
 
     @classmethod
     def from_proto(cls, proto):
-        from mlflow.tracing.utils import construct_trace_id_v4
+        from mlflow.utils.databricks_tracing_utils import get_trace_id_from_assessment_proto
 
-        if "trace_location" in proto.DESCRIPTOR.fields_by_name and proto.trace_location.HasField(
-            "uc_schema"
-        ):
-            trace_location = proto.trace_location
-            trace_id = construct_trace_id_v4(
-                f"{trace_location.uc_schema.catalog_name}.{trace_location.uc_schema.schema_name}",
-                proto.trace_id,
-            )
-        else:
-            trace_id = proto.trace_id
         # Convert ScalarMapContainer to a normal Python dict
         metadata = dict(proto.metadata) if proto.metadata else None
         feedback_value = FeedbackValue.from_proto(proto.feedback)
         feedback = cls(
-            trace_id=trace_id,
+            trace_id=get_trace_id_from_assessment_proto(proto),
             name=proto.assessment_name,
             source=AssessmentSource.from_proto(proto.source),
             create_time_ms=proto.create_time.ToMilliseconds(),
@@ -433,24 +423,13 @@ class Expectation(Assessment):
 
     @classmethod
     def from_proto(cls, proto) -> "Expectation":
-        from mlflow.tracing.utils import construct_trace_id_v4
-
-        if "trace_location" in proto.DESCRIPTOR.fields_by_name and proto.trace_location.HasField(
-            "uc_schema"
-        ):
-            trace_location = proto.trace_location
-            trace_id = construct_trace_id_v4(
-                f"{trace_location.uc_schema.catalog_name}.{trace_location.uc_schema.schema_name}",
-                proto.trace_id,
-            )
-        else:
-            trace_id = proto.trace_id
+        from mlflow.utils.databricks_tracing_utils import get_trace_id_from_assessment_proto
 
         # Convert ScalarMapContainer to a normal Python dict
         metadata = dict(proto.metadata) if proto.metadata else None
         expectation_value = ExpectationValue.from_proto(proto.expectation)
         expectation = cls(
-            trace_id=trace_id,
+            trace_id=get_trace_id_from_assessment_proto(proto),
             name=proto.assessment_name,
             source=AssessmentSource.from_proto(proto.source),
             create_time_ms=proto.create_time.ToMilliseconds(),

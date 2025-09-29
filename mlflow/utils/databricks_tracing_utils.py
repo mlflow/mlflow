@@ -11,8 +11,9 @@ from mlflow.entities.trace_location import (
     UCSchemaLocation,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.protos import assessments_pb2
 from mlflow.protos import databricks_tracing_pb2 as pb
-from mlflow.tracing.utils import parse_trace_id_v4
+from mlflow.tracing.utils import construct_trace_id_v4, parse_trace_id_v4
 
 
 def uc_schema_location_to_proto(uc_schema_location: UCSchemaLocation) -> pb.UCSchemaLocation:
@@ -195,3 +196,16 @@ def assessment_to_proto(assessment: Assessment) -> pb.Assessment:
         assessment_proto.valid = assessment.valid
 
     return assessment_proto
+
+
+def get_trace_id_from_assessment_proto(proto: pb.Assessment | assessments_pb2.Assessment) -> str:
+    if "trace_location" in proto.DESCRIPTOR.fields_by_name and proto.trace_location.HasField(
+        "uc_schema"
+    ):
+        trace_location = proto.trace_location
+        return construct_trace_id_v4(
+            f"{trace_location.uc_schema.catalog_name}.{trace_location.uc_schema.schema_name}",
+            proto.trace_id,
+        )
+    else:
+        return proto.trace_id
