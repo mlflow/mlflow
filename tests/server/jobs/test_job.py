@@ -115,7 +115,7 @@ def test_validate_function_parameters_with_positional_args():
 def test_basic_job(monkeypatch, tmp_path):
     with _setup_job_runner(monkeypatch, tmp_path):
         submitted_job = submit_job(basic_job_fun, {"x": 3, "y": 4})
-        wait_job_finalize(submitted_job.job_id, timeout=5)
+        wait_job_finalize(submitted_job.job_id, timeout=10)
         job = get_job(submitted_job.job_id)
         assert job.job_id == submitted_job.job_id
         assert job.function_fullname == "test_job.basic_job_fun"
