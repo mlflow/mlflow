@@ -31,7 +31,7 @@ from mlflow.environment_variables import (
     MLFLOW_WEBHOOK_REQUEST_TIMEOUT,
 )
 from mlflow.store.model_registry.abstract_store import AbstractStore
-from mlflow.store.tracking.file_store import FileStore
+from mlflow.store.model_registry.file_store import FileStore
 from mlflow.webhooks.constants import (
     WEBHOOK_DELIVERY_ID_HEADER,
     WEBHOOK_SIGNATURE_HEADER,

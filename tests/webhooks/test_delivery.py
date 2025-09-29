@@ -4,8 +4,8 @@ from unittest.mock import patch
 import pytest
 
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
+from mlflow.store.model_registry.file_store import FileStore
 from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
-from mlflow.store.tracking.file_store import FileStore
 from mlflow.webhooks.delivery import deliver_webhook
 
 
