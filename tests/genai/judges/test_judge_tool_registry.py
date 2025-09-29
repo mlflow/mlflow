@@ -19,6 +19,15 @@ from mlflow.genai.judges.tools.constants import ToolNames
 from mlflow.types.llm import FunctionToolCallArguments, ToolCall, ToolDefinition
 
 
+@pytest.fixture
+def restore_global_registry():
+    from mlflow.genai.judges.tools.registry import _judge_tool_registry
+
+    original_tools = _judge_tool_registry._tools.copy()
+    yield
+    _judge_tool_registry._tools = original_tools
+
+
 class MockTool(JudgeTool):
     @property
     def name(self) -> str:
@@ -151,36 +160,29 @@ def test_registry_invoke_tool_invalid_arguments():
         registry.invoke(tool_call, trace)
 
 
-def test_global_functions_work():
-    from mlflow.genai.judges.tools.registry import _judge_tool_registry
+def test_global_functions_work(restore_global_registry):
+    mock_tool = MockTool()
+    register_judge_tool(mock_tool)
 
-    original_tools = _judge_tool_registry._tools.copy()
+    tools = list_judge_tools()
+    tool_names = [t.name for t in tools]
+    assert "mock_tool" in tool_names
 
-    try:
-        mock_tool = MockTool()
-        register_judge_tool(mock_tool)
+    trace_info = TraceInfo(
+        trace_id="test-trace-id",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=1234567890,
+        state=TraceState.OK,
+        execution_duration=100,
+    )
+    trace = Trace(info=trace_info, data=None)
 
-        tools = list_judge_tools()
-        tool_names = [t.name for t in tools]
-        assert "mock_tool" in tool_names
+    tool_call = ToolCall(
+        function=FunctionToolCallArguments(name="mock_tool", arguments=json.dumps({}))
+    )
 
-        trace_info = TraceInfo(
-            trace_id="test-trace-id",
-            trace_location=TraceLocation.from_experiment_id("0"),
-            request_time=1234567890,
-            state=TraceState.OK,
-            execution_duration=100,
-        )
-        trace = Trace(info=trace_info, data=None)
-
-        tool_call = ToolCall(
-            function=FunctionToolCallArguments(name="mock_tool", arguments=json.dumps({}))
-        )
-
-        result = invoke_judge_tool(tool_call, trace)
-        assert result == "mock_result_with_0_args"
-    finally:
-        _judge_tool_registry._tools = original_tools
+    result = invoke_judge_tool(tool_call, trace)
+    assert result == "mock_result_with_0_args"
 
 
 def test_builtin_tools_are_properly_registered():
