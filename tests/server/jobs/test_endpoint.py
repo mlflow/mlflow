@@ -25,38 +25,36 @@ def server_url(tmp_path_factory: pytest.TempPathFactory) -> str:
     from tests.helper_functions import get_safe_port
 
     tmp_path = tmp_path_factory.mktemp("server_mod")
-    backend_store_uri = f"sqlite:///{tmp_path / 'mlflow.db'!s}"
+    backend_store_uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
 
     port = get_safe_port()
-    server_proc = None
-    try:
-        server_proc = subprocess.Popen(
-            [
-                sys.executable,
-                "-m",
-                "mlflow",
-                "server",
-                "-h",
-                "127.0.0.1",
-                "-p",
-                str(port),
-                "--backend-store-uri",
-                backend_store_uri,
-            ],
-            env={
-                **os.environ,
-                "PYTHONPATH": os.path.dirname(__file__),
-            },
-            start_new_session=True,  # new session & process group
-        )
-        time.sleep(10)  # wait for server to spin up
-        yield f"http://127.0.0.1:{port}"
-    finally:
-        if server_proc is not None:
+    with subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "server",
+            "-h",
+            "127.0.0.1",
+            "-p",
+            str(port),
+            "--backend-store-uri",
+            backend_store_uri,
+        ],
+        env={
+            **os.environ,
+            "PYTHONPATH": os.path.dirname(__file__),
+        },
+        start_new_session=True,  # new session & process group
+    ) as server_proc:
+        try:
+            time.sleep(10)  # wait for server to spin up
+            yield f"http://127.0.0.1:{port}"
+        finally:
             # NOTE that we need to kill subprocesses
             # (uvicorn server / huey task runner)
             # so `killpg` is needed.
-            os.killpg(server_proc.pid, signal.SIGTERM)
+            os.killpg(server_proc.pid, signal.SIGKILL)
 
 
 def wait_job_finalize(server_url: str, job_id: str, timeout: float) -> None:
