@@ -1,0 +1,140 @@
+{
+  // Python Configuration
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.ruff": "explicit",
+      "source.organizeImports.ruff": "explicit"
+    }
+  },
+
+  // Ruff configuration (uses pyproject.toml automatically)
+  // The Ruff extension will automatically detect and use the pyproject.toml settings
+
+  // Disable mypy completely (repo only checks dev/clint files)
+  // The mypy extension doesn't support per-file filtering, so we disable it entirely
+  // to avoid false positives on files the repo doesn't check
+  "mypy-type-checker.enabled": false,
+
+  // Python analysis
+  "python.analysis.typeCheckingMode": "off", // Disable Pylance strict checking
+  "python.analysis.exclude": [
+    // Default paths to exclude
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.*",
+    // Extra paths to exclude
+    "libs/**"
+  ],
+
+  // TypeScript/JavaScript Configuration
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": "explicit"
+    }
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": "explicit"
+    }
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": "explicit"
+    }
+  },
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": "explicit"
+    }
+  },
+
+  // ESLint configuration
+  "eslint.workingDirectories": ["./mlflow/server/js"],
+  "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
+
+  // TypeScript configuration
+  "typescript.tsdk": "./mlflow/server/js/node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+
+  // JSON formatting
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+
+  // YAML formatting
+  "[yaml]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+
+  // GitHub Actions workflow formatting
+  "[github-actions-workflow]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+
+  // Markdown formatting
+  "[markdown]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+
+  // `.prompt.md` files in `.github/prompts`
+  "[prompt]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+
+  // Files to exclude from explorer
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/.pytest_cache": true,
+    "**/*.pyc": true,
+    "**/.mypy_cache": true,
+    "**/.ruff_cache": true,
+    "**/node_modules": true,
+    "**/build": true,
+    "**/dist": true
+  },
+
+  // Search exclusions
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/__pycache__": true,
+    "**/.pytest_cache": true,
+    "**/build": true,
+    "**/dist": true,
+    "mlflow/server/js/build": true
+  },
+
+  // Prevent VS Code from following symlinks during searches
+  // This avoids duplicate results from symlinks in libs/ directory
+  "search.followSymlinks": false,
+
+  // Editor settings
+  "editor.rulers": [100], // Show ruler at 100 chars for Python
+
+  // Python specific settings
+  "python.terminal.activateEnvironment": true,
+
+  // File associations
+  "files.associations": {
+    "*.mdx": "markdown",
+    "*.ipynb": "jupyter"
+  }
+}

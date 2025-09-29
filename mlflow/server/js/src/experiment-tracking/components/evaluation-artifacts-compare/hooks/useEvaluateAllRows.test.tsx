@@ -4,10 +4,10 @@ import { Provider } from 'react-redux';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import configureStore from 'redux-mock-store';
-import { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
+import type { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
 import { evaluatePromptTableValue } from '../../../actions/PromptEngineeringActions';
 import { cloneDeep } from 'lodash';
-import { UseEvaluationArtifactTableDataResult } from './useEvaluationArtifactTableData';
+import type { UseEvaluationArtifactTableDataResult } from './useEvaluationArtifactTableData';
 import { IntlProvider } from 'react-intl';
 
 // Mock the evaluation action, it simulates taking 1000 ms to evaluate a single value
@@ -112,7 +112,7 @@ describe('useEvaluateAllRows', () => {
       getResult().startEvaluatingRunColumn(mockRun2);
     });
     expect(getResult().runColumnsBeingEvaluated).toEqual(['run_2']);
-    expect(evaluatePromptTableValue).toBeCalledWith(
+    expect(evaluatePromptTableValue).toHaveBeenCalledWith(
       expect.objectContaining({
         compiledPrompt: 'this is a prompt template with question_alpha',
         inputValues: {
@@ -145,9 +145,9 @@ describe('useEvaluateAllRows', () => {
       getResult().startEvaluatingRunColumn(mockRun3);
     });
     expect(getResult().runColumnsBeingEvaluated).toEqual(['run_3']);
-    expect(evaluatePromptTableValue).toBeCalledTimes(1);
+    expect(evaluatePromptTableValue).toHaveBeenCalledTimes(1);
 
-    expect(evaluatePromptTableValue).toBeCalledWith(
+    expect(evaluatePromptTableValue).toHaveBeenCalledWith(
       expect.objectContaining({
         compiledPrompt: 'this is a prompt template with question_alpha',
         inputValues: {
@@ -167,9 +167,9 @@ describe('useEvaluateAllRows', () => {
       jest.advanceTimersByTime(2000);
     });
 
-    expect(evaluatePromptTableValue).toBeCalledTimes(2);
+    expect(evaluatePromptTableValue).toHaveBeenCalledTimes(2);
 
-    expect(evaluatePromptTableValue).toBeCalledWith(
+    expect(evaluatePromptTableValue).toHaveBeenCalledWith(
       expect.objectContaining({
         compiledPrompt: 'this is a prompt template with question_beta',
         inputValues: {
@@ -197,9 +197,9 @@ describe('useEvaluateAllRows', () => {
       getResult().startEvaluatingRunColumn(mockRun3);
     });
     expect(getResult().runColumnsBeingEvaluated).toEqual(['run_3']);
-    expect(evaluatePromptTableValue).toBeCalledTimes(1);
+    expect(evaluatePromptTableValue).toHaveBeenCalledTimes(1);
 
-    expect(evaluatePromptTableValue).toBeCalledWith(
+    expect(evaluatePromptTableValue).toHaveBeenCalledWith(
       expect.objectContaining({
         compiledPrompt: 'this is a prompt template with question_alpha',
         inputValues: {
@@ -223,6 +223,6 @@ describe('useEvaluateAllRows', () => {
     });
 
     // Contrary to previous test, we don't get additional action call
-    expect(evaluatePromptTableValue).toBeCalledTimes(1);
+    expect(evaluatePromptTableValue).toHaveBeenCalledTimes(1);
   });
 });

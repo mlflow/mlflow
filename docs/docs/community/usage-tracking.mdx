@@ -1,0 +1,312 @@
+import { Table } from "@site/src/components/Table";
+
+# Usage Tracking
+
+Starting with version **3.2.0**, MLflow collects anonymized usage data by default. This data contains no sensitive or personally identifiable information.
+
+:::important
+MLflow does not collect any data that contains personal information, in accordance with GDPR and other privacy regulations.
+As a Linux Foundation project, MLflow adheres to the [**LF telemetry data collection and usage policy**](https://lfprojects.org/policies/telemetry-data-policy/).
+This implementation has been reviewed and approved by the Linux Foundation, with the approved proposal documented at the [**Completed Reviews**](https://lfprojects.org/policies/telemetry-data-policy/) section
+in the official policy. See the [`Data Explanation section`](#data-explanation) below for details on what is collected.
+:::
+
+:::note
+Telemetry is only enabled in **Open Source MLflow**. If you're using MLflow through a managed service or distribution,
+please consult your vendor to determine whether telemetry is enabled in your environment.
+In all cases, you can choose to opt out by following the guidance provided in our documentation.
+:::
+
+## Why is data being collected?
+
+MLflow uses anonymous telemetry to understand feature usage, which helps guide development priorities and improve the library.
+This data helps us identify which features are most valuable and where to focus on bug fixes or enhancements.
+
+### GDPR Compliance
+
+Under the General Data Protection Regulation (GDPR), data controllers and processors are responsible for handling personal data with care, transparency, and accountability.
+
+MLflow complies with GDPR in the following ways:
+
+- **No Personal Data Collected**: The telemetry data collected is fully anonymized and does not include any personal or sensitive information (e.g., usernames, IP addresses, file names, parameters, or model content). MLflow generates a random UUID for each session for aggregating usage events, which cannot be used to identify or track individual users.
+- **Purpose Limitation**: Data is only used to improve the MLflow project based on aggregate feature usage patterns.
+- **Data Minimization**: Only the minimum necessary metadata is collected to inform project priorities (e.g., feature toggle state, SDK/platform used, version info).
+- **User Control**: Users can opt out of telemetry at any time by setting the environment variable **MLFLOW_DISABLE_TELEMETRY=true** or **DO_NOT_TRACK=true**. MLflow respects these settings immediately without requiring a restart.
+- **Transparency**: Telemetry endpoints and behavior are documented publicly, and MLflow users can inspect or block the relevant network calls.
+
+For further inquiries or data protection questions, users can file an issue on the [MLflow GitHub repository](https://github.com/mlflow/mlflow/issues).
+
+## What data is collected?
+
+MLflow collects only non-sensitive, anonymized data to help us better understand usage patterns.
+The below section outlines the data currently collected in this version of MLflow. You can view the exact data collected [in the source code](https://github.com/mlflow/mlflow/blob/c71fd0d677c1806ba2d5928398435c4de2c25c0e/mlflow/telemetry/schemas.py).
+
+### Data Explanation
+
+<Table>
+  <thead>
+    <tr>
+      <th>Data Element</th>
+      <th>Explanation</th>
+      <th>Example</th>
+      <th>Why we track this</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Unique session ID</td>
+      <td>A randomly generated, non-personally identifiable UUID is created for each session—defined as each time MLflow is imported</td>
+      <td>45e2751243e84c7e87aca6ac25d75a0d</td>
+      <td>As an identifier for the data in current MLflow session</td>
+    </tr>
+    <tr>
+      <td>Source SDK</td>
+      <td>The current used SDK name</td>
+      <td>mlflow | mlflow-skinny | mlflow-tracing</td>
+      <td>To understand adoption of different MLflow SDKs and identify enhancement areas</td>
+    </tr>
+    <tr>
+      <td>MLflow version</td>
+      <td>The current SDK version</td>
+      <td>3.2.0</td>
+      <td>To identify version-specific usage patterns and support, bug fixes, or deprecation decisions</td>
+    </tr>
+    <tr>
+      <td>Python version</td>
+      <td>The current python version</td>
+      <td>3.10.16</td>
+      <td>To ensure compatibility across Python versions and guide testing or upgrade recommendations</td>
+    </tr>
+    <tr>
+      <td>Operating System</td>
+      <td>The operating system on which MLflow is running</td>
+      <td>macOS-15.4.1-arm64-arm-64bit</td>
+      <td>To understand platform-specific usage and detect platform-dependent issues</td>
+    </tr>
+    <tr>
+      <td>Tracking URI Scheme</td>
+      <td>The scheme of the current tracking URI</td>
+      <td>file | sqlite | mysql | postgresql | mssql | https | http | custom_scheme | None</td>
+      <td>To determine which tracking backends are most commonly used and optimize backend support</td>
+    </tr>
+    <tr>
+      <td>Event Name</td>
+      <td>The tracked event name (see [below table](#tracked-events) for what events are tracked)</td>
+      <td>create_experiment</td>
+      <td>To measure feature usage and improvements</td>
+    </tr>
+    <tr>
+      <td>Event Status</td>
+      <td>Whether the event succeeds or not</td>
+      <td>success | failure | unknown</td>
+      <td>To identify common failure points and improve reliability and error handling</td>
+    </tr>
+    <tr>
+      <td>Timestamp (nanoseconds)</td>
+      <td>Time when the event occurred</td>
+      <td>1753760188623715000</td>
+      <td>As an identifier for the event</td>
+    </tr>
+    <tr>
+      <td>Duration</td>
+      <td>The time the event call takes, in milliseconds</td>
+      <td>1000</td>
+      <td>To monitor performance trends and detect regressions in response time</td>
+    </tr>
+    <tr>
+      <td>Parameters (boolean or enumerated values)</td>
+      <td>See [below table](#tracked-events) for collected parameters for each event</td>
+      <td>create_logged_model event: `{"flavor": "langchain"}`</td>
+      <td>To better understand the usage pattern for each event</td>
+    </tr>
+  </tbody>
+</Table>
+
+#### Tracked Events
+
+**No details about the specific model, code, or weights are collected.** Only the parameters listed under the `Tracked Parameters` column are recorded alongside the event;
+For events with None in the `Tracked Parameters` column, only the event name is recorded. If "MLFLOW_EXPERIMENT_ID" environment variable exists, it is tracked as a param.
+
+<Table>
+  <thead>
+    <tr>
+      <th style={{ width: "20%" }}>Event Name</th>
+      <th style={{ width: "40%" }}>Tracked Parameters</th>
+      <th style={{ width: "40%" }}>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>import_mlflow</td>
+      <td>None</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td>create_experiment</td>
+      <td>Created Experiment ID (random uuid or integer)</td>
+      <td>`{"experiment_id": "0"}`</td>
+    </tr>
+    <tr>
+      <td>create_run</td>
+      <td>Imported packages among [MODULES_TO_CHECK_IMPORT](https://github.com/mlflow/mlflow/blob/c71fd0d677c1806ba2d5928398435c4de2c25c0e/mlflow/telemetry/constant.py#L19) are imported or not; experiment ID used when creating the run</td>
+      <td>`{"imports": ["sklearn"], "experiment_id": "0"}`</td>
+    </tr>
+    <tr>
+      <td>create_logged_model</td>
+      <td>Flavor of the model (e.g. langchain, sklearn)</td>
+      <td>`{"flavor": "langchain"}`</td>
+    </tr>
+    <tr>
+      <td>get_logged_model</td>
+      <td>Imported packages among [MODULES_TO_CHECK_IMPORT](https://github.com/mlflow/mlflow/blob/c71fd0d677c1806ba2d5928398435c4de2c25c0e/mlflow/telemetry/constant.py#L19) are imported or not</td>
+      <td>`{"imports": ["sklearn"]}`</td>
+    </tr>
+    <tr>
+      <td>create_registered_model</td>
+      <td>None</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td>create_model_version</td>
+      <td>None</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td>create_prompt</td>
+      <td>None</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td>start_trace</td>
+      <td>None</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td>log_assessment</td>
+      <td>None</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td>evaluate</td>
+      <td>None</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td>create_webhook</td>
+      <td>Entities of the webhook</td>
+      <td>`{"events": ["model_version.created"]}`</td>
+    </tr>
+    <tr>
+      <td>genai_evaluate</td>
+      <td>Builtin scorers used during GenAI Evaluate</td>
+      <td>`{"builtin_scorers": ["relevance_to_query"]}`</td>
+    </tr>
+    <tr>
+      <td>prompt_optimization</td>
+      <td>None</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td>log_dataset</td>
+      <td>None</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td>log_metric</td>
+      <td>Whether synchronous mode is on or not</td>
+      <td>`{"synchronous": False}`</td>
+    </tr>
+    <tr>
+      <td>log_param</td>
+      <td>Whether synchronous mode is on or not</td>
+      <td>`{"synchronous": True}`</td>
+    </tr>
+    <tr>
+      <td>log_batch</td>
+      <td>Information on whether metrics, parameters, or tags are logged, and the logging mode</td>
+      <td>`{"metrics": False, "params": True, "tags": False, "synchronous": False}`</td>
+    </tr>
+    <tr>
+      <td>invoke_custom_judge_model</td>
+      <td>Judge model provider</td>
+      <td>`{"model_provider": "databricks"}`</td>
+    </tr>
+    <tr>
+      <td>make_judge</td>
+      <td>Model provider (extracted from model string if format is provider:model)</td>
+      <td>`{"model_provider": "openai"}`</td>
+    </tr>
+    <tr>
+      <td>align_judge</td>
+      <td>Number of traces provided and optimizer type</td>
+      <td>`{"trace_count": 100, "optimizer_type": "AlignmentOptimizer"}`</td>
+    </tr>
+  </tbody>
+</Table>
+
+## Why is MLflow Telemetry Opt-Out?
+
+MLflow uses an opt-out telemetry model to help improve the platform for all users based on real-world usage patterns.
+Collecting anonymous usage data by default allows us to:
+
+- Understand how MLflow is being used across a wide range of environments and workflows
+- Identify common pain points and identify feature improvements area more effectively
+- Measure the impact of changes and ensure they improve the experience for the broader community
+
+If telemetry were opt-in, only a small, self-selected subset of users would be represented, leading to biased insights and potentially misaligned priorities.
+We are committed to transparency and user choice. Telemetry is clearly documented, anonymized, and can be easily disabled at any time through configuration.
+This approach helps us make MLflow better for everyone, while giving you full control. Check [`what we are doing with this data`](#what-are-we-doing-with-this-data) section for more information.
+
+## How to opt-out?
+
+MLflow supports opt-out telemetry through either of the following environment variables:
+
+- **MLFLOW_DISABLE_TELEMETRY=true**
+- **DO_NOT_TRACK=true**
+
+Setting either of these will **immediately disable telemetry**, no need to re-import MLflow or restart your session.
+
+:::note
+MLflow automatically disables telemetry in [**some CI environments**](https://github.com/mlflow/mlflow/blob/de6c11193ce6a68ffec4b33650f75bd163143178/mlflow/telemetry/utils.py#L22).
+If you'd like support for additional CI environments, please [open an issue on our GitHub repository](https://github.com/mlflow/mlflow/issues).
+
+- CI
+- Github Actions
+- CircleCI
+- GitLab CI/CD
+- Jenkins Pipeline
+- Travis CI
+- Azure Pipelines
+- BitBucket
+- AWS CodeBuild
+- BuildKite
+- ...
+  :::
+
+### Scope of the setting
+
+- The environment variable only takes effect in processes where it is explicitly set or inherited.
+- If you spawn subprocesses from a clean environment, those subprocesses may not inherit your shell's environment, and telemetry could remain enabled. e.g. `subprocess.run([...], env={})`
+
+Recommendations to ensure telemetry is consistently disabled across all environments:
+
+- Add the variable to your shell startup file (~/.bashrc, ~/.zshrc, etc.): `export MLFLOW_DISABLE_TELEMETRY=true`
+- If you're using subprocesses or isolated environments, use a dotenv manager or explicitly pass the variable when launching.
+
+### How to validate telemetry is disabled?
+
+Use the following code to validate telemetry is disabled.
+
+```python
+from mlflow.telemetry import get_telemetry_client
+
+assert get_telemetry_client() is None, "Telemetry is enabled"
+```
+
+### How to opt-out for your organization?
+
+Organizations can disable telemetry by blocking network access to `https://config.mlflow-telemetry.io`. When this endpoint is unreachable, MLflow automatically disables telemetry.
+
+## What are we doing with this data?
+
+We aggregate anonymized usage data and plan to share insights with the community through public dashboards. You'll be able to see how MLflow features are used and help improve them by contributing.

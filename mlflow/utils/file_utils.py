@@ -24,7 +24,7 @@ from concurrent.futures import as_completed
 from contextlib import contextmanager
 from dataclasses import dataclass
 from subprocess import CalledProcessError, TimeoutExpired
-from typing import Any, Optional, Union
+from typing import Any
 from urllib.parse import unquote
 from urllib.request import pathname2url
 
@@ -757,8 +757,10 @@ def get_or_create_tmp_dir():
     else:
         tmp_dir = tempfile.mkdtemp()
         # mkdtemp creates a directory with permission 0o700
-        # change it to be 0o777 to ensure it can be seen in spark UDF
-        os.chmod(tmp_dir, 0o777)
+        # For Spark UDFs, we need to make it accessible to other processes
+        # Use 0o750 (owner: rwx, group: r-x, others: None) instead of 0o777
+        # This allows read/execute but not write for group and others
+        os.chmod(tmp_dir, 0o750)
         atexit.register(shutil.rmtree, tmp_dir, ignore_errors=True)
 
     return tmp_dir
@@ -826,7 +828,8 @@ def shutil_copytree_without_file_permissions(src_dir, dst_dir):
             # For each directory <dirname> immediately under <dirpath>, create an equivalently-named
             # directory under the destination directory
             abs_dir_path = os.path.join(dst_dir, relative_dir_path)
-            os.mkdir(abs_dir_path)
+            if not os.path.exists(abs_dir_path):
+                os.mkdir(abs_dir_path)
         for filename in filenames:
             # For each file with name <filename> immediately under <dirpath>, copy that file to
             # the appropriate location in the destination directory
@@ -911,7 +914,7 @@ def chdir(path: str) -> None:
         os.chdir(cwd)
 
 
-def get_total_file_size(path: Union[str, pathlib.Path]) -> Optional[int]:
+def get_total_file_size(path: str | pathlib.Path) -> int | None:
     """Return the size of all files under given path, including files in subdirectories.
 
     Args:

@@ -1,12 +1,14 @@
 // @ts-expect-error TS(7016): Could not find a declaration file for module 'reac... Remove this comment to see the full error message
-import { decorators, Treebeard, TreebeardData } from 'react-treebeard';
+import type { TreebeardData } from 'react-treebeard';
+// @ts-expect-error TS(7016): Could not find a declaration file for module 'reac... Remove this comment to see the full error message
+import { decorators, Treebeard } from 'react-treebeard';
 import { DATA_EXTENSIONS, getExtension, IMAGE_EXTENSIONS, TEXT_EXTENSIONS } from '../../common/utils/FileUtils';
 
 import spinner from '../../common/static/mlflow-spinner.png';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { useMemo } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { Theme } from '@emotion/react';
+import type { Theme } from '@emotion/react';
 
 interface ArtifactViewTreeProps {
   onToggleTreebeard: (
@@ -59,7 +61,7 @@ decorators.Header = ({ style, node }: DecoratorStyle) => {
   return (
     <div
       style={style.base}
-      data-test-id="artifact-tree-node"
+      data-testid="artifact-tree-node"
       // eslint-disable-next-line react/no-unknown-property
       artifact-name={node.name}
       aria-label={node.name}
@@ -75,7 +77,7 @@ decorators.Header = ({ style, node }: DecoratorStyle) => {
 decorators.Loading = ({ style }: DecoratorStyle) => {
   return (
     <div style={style}>
-      <img alt="" className="loading-spinner" src={spinner} />
+      <img alt="" className="mlflow-loading-spinner" src={spinner} />
       <FormattedMessage
         defaultMessage="loading..."
         description="Loading spinner text to show that the artifact loading is in progress"
@@ -125,6 +127,8 @@ const getTreebeardStyle = (theme: Theme) => ({
           left: '50%',
           margin: '-12px 0 0 -4px',
           height: '14px',
+          display: 'flex',
+          alignItems: 'end',
         },
         height: 7,
         width: 7,

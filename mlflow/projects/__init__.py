@@ -287,6 +287,7 @@ def run(
 
             - local: use the local environment
             - virtualenv: use virtualenv (and pyenv for Python version management)
+            - uv: use uv
             - conda: use conda
 
             If unspecified, MLflow automatically determines the environment manager to

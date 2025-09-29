@@ -7,7 +7,6 @@ from typing import Any, Optional
 from packaging.version import Version
 
 import mlflow
-from mlflow.crewai.chat import set_span_chat_attributes
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
@@ -18,7 +17,7 @@ _logger = logging.getLogger(__name__)
 
 
 def patched_class_call(original, self, *args, **kwargs):
-    config = AutoLoggingConfig.init(flavor_name=mlflow.gemini.FLAVOR_NAME)
+    config = AutoLoggingConfig.init(flavor_name=mlflow.crewai.FLAVOR_NAME)
 
     if config.log_traces:
         fullname = f"{self.__class__.__name__}.{original.__name__}"
@@ -28,11 +27,6 @@ def patched_class_call(original, self, *args, **kwargs):
             span.set_inputs(inputs)
             _set_span_attributes(span=span, instance=self)
             result = original(self, *args, **kwargs)
-
-            if span_type == SpanType.LLM:
-                set_span_chat_attributes(
-                    span=span, messages=inputs.get("messages", []), output=result
-                )
             # Need to convert the response of generate_content for better visualization
             outputs = result.__dict__ if hasattr(result, "__dict__") else result
 
@@ -77,20 +71,25 @@ def _get_span_type(instance) -> str:
         elif isinstance(
             instance, crewai.agents.agent_builder.base_agent_executor_mixin.CrewAgentExecutorMixin
         ):
-            return SpanType.RETRIEVER
+            return SpanType.MEMORY
 
+        CREWAI_VERSION = Version(crewai.__version__)
         # Knowledge and Memory are not available before 0.83.0
-        if Version(crewai.__version__) >= Version("0.83.0"):
-            if isinstance(
-                instance,
-                (
-                    crewai.memory.ShortTermMemory,
-                    crewai.memory.LongTermMemory,
-                    crewai.memory.UserMemory,
-                    crewai.memory.EntityMemory,
-                    crewai.Knowledge,
-                ),
-            ):
+        if CREWAI_VERSION >= Version("0.83.0"):
+            memory_classes = (
+                crewai.memory.ShortTermMemory,
+                crewai.memory.LongTermMemory,
+                crewai.memory.EntityMemory,
+            )
+            # UserMemory was removed in 0.157.0:
+            # https://github.com/crewAIInc/crewAI/pull/3225
+            if CREWAI_VERSION < Version("0.157.0"):
+                memory_classes = (*memory_classes, crewai.memory.UserMemory)
+
+            if isinstance(instance, memory_classes):
+                return SpanType.MEMORY
+
+            if isinstance(instance, crewai.Knowledge):
                 return SpanType.RETRIEVER
     except AttributeError as e:
         _logger.warn("An exception happens when resolving the span type. Exception: %s", e)
@@ -140,6 +139,8 @@ def _set_span_attributes(span: LiveSpan, instance):
                         value = _parse_tasks(value)
                     elif key == "agents":
                         value = _parse_agents(value)
+                    elif key == "embedder":
+                        value = _sanitize_value(value)
                     span.set_attribute(key, str(value) if isinstance(value, list) else value)
 
         elif isinstance(instance, Agent):
@@ -180,6 +181,8 @@ def _get_agent_attributes(instance):
     for key, value in instance.__dict__.items():
         if key == "tools":
             value = _parse_tools(value)
+        elif key == "embedder":
+            value = _sanitize_value(value)
         if value is None:
             continue
         agent[key] = str(value)
@@ -203,7 +206,7 @@ def _get_task_attributes(instance):
 
 
 def _get_llm_attributes(instance):
-    llm = {}
+    llm = {SpanAttributeKey.MESSAGE_FORMAT: "crewai"}
     for key, value in instance.__dict__.items():
         if value is None:
             continue
@@ -273,3 +276,32 @@ def _parse_tools(tools):
                 }
             )
     return result
+
+
+def _sanitize_value(val):
+    """
+    Sanitize a value to remove sensitive information.
+
+    Args:
+        val: The value to sanitize. Can be None, a dict, a list, or other types.
+
+    Returns:
+        The sanitized value.
+    """
+    if val is None:
+        return None
+
+    sensitive_keys = ["api_key", "secret", "password", "token"]
+
+    if isinstance(val, dict):
+        sanitized = {}
+        for k, v in val.items():
+            if any(sensitive in k.lower() for sensitive in sensitive_keys):
+                continue
+            sanitized[k] = _sanitize_value(v)
+        return sanitized
+
+    elif isinstance(val, list):
+        return [_sanitize_value(item) for item in val]
+
+    return val

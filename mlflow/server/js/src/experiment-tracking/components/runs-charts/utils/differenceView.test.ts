@@ -1,5 +1,6 @@
-import { KeyValueEntity, RunInfoEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
-import { DifferenceCardConfigCompareGroup, RunsChartType, RunsChartsDifferenceCardConfig } from '../runs-charts.types';
+import type { KeyValueEntity } from '../../../../common/types';
+import type { RunsChartsDifferenceCardConfig } from '../runs-charts.types';
+import { DifferenceCardConfigCompareGroup, RunsChartType } from '../runs-charts.types';
 import {
   getDifferenceChartDisplayedValue,
   differenceView,

@@ -43,7 +43,9 @@ with mlflow.start_run():
     model = pipeline.fit(training)
 
     # Log the entire pipeline
-    model_info = mlflow.spark.log_model(spark_model=model, name="spark-pipeline")
+    model_info = mlflow.spark.log_model(
+        spark_model=model, artifact_path="spark-pipeline"
+    )
 
     # Log parameters manually
     mlflow.log_params(
@@ -58,6 +60,7 @@ print(f"Model logged with URI: {model_info.model_uri}")
 ```
 
 This simple example automatically logs:
+
 - The complete Spark ML pipeline with all stages
 - Model parameters from each pipeline stage
 - The trained model in both Spark native and PyFunc formats
@@ -112,12 +115,14 @@ print(predictions)
 <TabItem value="conversion" label="Format Conversion">
 
 **Automatic Conversion Process:**
+
 - **Input Handling**: PyFunc automatically converts pandas DataFrames to Spark DataFrames
 - **Spark Context**: Creates a local Spark session if none exists
 - **Output Processing**: Converts Spark ML vector outputs to arrays for pandas compatibility
 - **Performance Trade-offs**: Initialization overhead vs deployment flexibility
 
 **When to Use Each Format:**
+
 - **Native Spark**: Large-scale batch processing, existing Spark infrastructure
 - **PyFunc**: REST API deployment, edge computing, non-Spark environments
 
@@ -159,7 +164,7 @@ with mlflow.start_run(run_name="Feature Pipeline"):
     )
 
     # Log the complete pipeline
-    mlflow.spark.log_model(spark_model=model, name="feature_pipeline")
+    mlflow.spark.log_model(spark_model=model, artifact_path="feature_pipeline")
 ```
 
 </TabItem>
@@ -211,7 +216,9 @@ with mlflow.start_run(run_name="Hyperparameter Tuning"):
     mlflow.log_metric("test_auc", test_auc)
 
     # Log the best model
-    mlflow.spark.log_model(spark_model=cv_model.bestModel, name="best_cv_model")
+    mlflow.spark.log_model(
+        spark_model=cv_model.bestModel, artifact_path="best_cv_model"
+    )
 ```
 
 </TabItem>
@@ -242,18 +249,20 @@ with mlflow.start_run():
     model = pipeline.fit(processed_data)
 
     # Model training and datasource information both captured
-    mlflow.spark.log_model(model, name="model_with_datasource_tracking")
+    mlflow.spark.log_model(model, artifact_path="model_with_datasource_tracking")
 ```
 
 </TabItem>
 <TabItem value="setup" label="Setup Requirements">
 
 **Requirements:**
+
 - **Spark Version**: Requires Spark 3.0 or above
 - **MLflow-Spark JAR**: Must be included in Spark session configuration
 - **Environment**: Not supported on Databricks shared/serverless clusters
 
 **JAR Configuration:**
+
 ```python
 from pyspark.sql import SparkSession
 
@@ -266,6 +275,7 @@ spark = (
 ```
 
 **What Gets Logged:**
+
 - **Path Information**: Complete paths to data sources
 - **Format Details**: File formats (parquet, delta, csv, etc.)
 - **Version Information**: For versioned sources like Delta Lake
@@ -301,7 +311,7 @@ signature = infer_signature(vector_data, predictions.select("prediction"))
 with mlflow.start_run():
     mlflow.spark.log_model(
         spark_model=model,
-        name="vector_model",
+        artifact_path="vector_model",
         signature=signature,
         input_example=vector_data.limit(2).toPandas(),
     )
@@ -331,7 +341,7 @@ signature = ModelSignature(inputs=input_schema, outputs=output_schema)
 # Log model with explicit signature
 with mlflow.start_run():
     mlflow.spark.log_model(
-        spark_model=model, name="production_model", signature=signature
+        spark_model=model, artifact_path="production_model", signature=signature
     )
 ```
 
@@ -356,7 +366,9 @@ with mlflow.start_run(run_name="ONNX Conversion"):
     model = pipeline.fit(training_data)
 
     # Log original Spark model
-    spark_model_info = mlflow.spark.log_model(spark_model=model, name="spark_model")
+    spark_model_info = mlflow.spark.log_model(
+        spark_model=model, artifact_path="spark_model"
+    )
 
     try:
         # Convert to ONNX using onnxmltools
@@ -402,7 +414,7 @@ with mlflow.start_run():
     # Log model with registration
     model_info = mlflow.spark.log_model(
         spark_model=model,
-        name="production_candidate",
+        artifact_path="production_candidate",
         registered_model_name="CustomerSegmentationModel",
     )
 
@@ -553,7 +565,9 @@ def train_spark_model_with_error_handling(data_path, model_config):
                 raise ValueError("Model validation failed")
 
             # Log successful model
-            model_info = mlflow.spark.log_model(spark_model=model, name="robust_model")
+            model_info = mlflow.spark.log_model(
+                spark_model=model, artifact_path="robust_model"
+            )
 
             mlflow.log_param("training_status", "success")
             return model_info
@@ -589,6 +603,7 @@ def create_pipeline(config):
 **Common Issues and Solutions:**
 
 **Serialization Issues:**
+
 ```python
 # Test model serialization
 def test_model_serialization(model):
@@ -603,6 +618,7 @@ def test_model_serialization(model):
 ```
 
 **Memory Issues:**
+
 ```python
 # Configure Spark for large models
 spark.conf.set("spark.sql.adaptive.enabled", "true")
@@ -612,19 +628,11 @@ spark.conf.set("spark.sql.adaptive.coalescePartitions.enabled", "true")
 large_dataset.cache()  # Only when reused multiple times
 ```
 
-**PyFunc Loading Issues:**
-```python
-# Ensure Spark session exists for PyFunc
-from mlflow.utils._spark_utils import _get_active_spark_session
-
-if _get_active_spark_session() is None:
-    spark = SparkSession.builder.appName("MLflowPyFunc").getOrCreate()
-```
-
 </TabItem>
 <TabItem value="optimization" label="Performance Tips">
 
 **Efficient Logging:**
+
 ```python
 def efficient_spark_ml_logging():
     """Configure efficient logging for Spark ML."""
@@ -643,12 +651,13 @@ def efficient_spark_ml_logging():
         # Log model with minimal examples for large datasets
         mlflow.spark.log_model(
             spark_model=model,
-            name="efficient_model",
+            artifact_path="efficient_model",
             input_example=sample_data.limit(3).toPandas(),  # Small sample only
         )
 ```
 
 **Spark Configuration:**
+
 ```python
 # Optimize Spark for MLflow operations
 def configure_spark_for_mlflow():

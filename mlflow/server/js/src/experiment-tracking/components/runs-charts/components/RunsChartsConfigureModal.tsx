@@ -2,21 +2,19 @@
  * TODO: implement actual UI for this modal, it's a crude placeholder with minimal logic for now
  */
 import { Modal, useDesignSystemTheme, SimpleSelect, SimpleSelectOption } from '@databricks/design-system';
-import { Interpolation, Theme } from '@emotion/react';
+import type { Interpolation, Theme } from '@emotion/react';
 import React, { useCallback, useMemo, useState } from 'react';
 import { useIntl, FormattedMessage } from 'react-intl';
-import {
+import type {
   RunsChartsBarCardConfig,
-  RunsChartsCardConfig,
-  RunsChartType,
   RunsChartsLineCardConfig,
   RunsChartsContourCardConfig,
   RunsChartsScatterCardConfig,
   RunsChartsParallelCardConfig,
   RunsChartsDifferenceCardConfig,
   RunsChartsImageCardConfig,
-  type RunsChartsMetricByDatasetEntry,
 } from '../runs-charts.types';
+import { RunsChartsCardConfig, RunsChartType, type RunsChartsMetricByDatasetEntry } from '../runs-charts.types';
 
 import { ReactComponent as ChartBarIcon } from '../../../../common/static/chart-bar.svg';
 import { ReactComponent as ChartContourIcon } from '../../../../common/static/chart-contour.svg';
@@ -39,7 +37,6 @@ import { RunsChartsConfigureContourChart } from './config/RunsChartsConfigureCon
 import { RunsChartsConfigureScatterChart } from './config/RunsChartsConfigureScatterChart';
 import { RunsChartsTooltipBody } from './RunsChartsTooltipBody';
 import { RunsChartsTooltipWrapper } from '../hooks/useRunsChartsTooltip';
-import { shouldEnableDifferenceViewCharts } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { RunsChartsConfigureDifferenceChart } from './config/RunsChartsConfigureDifferenceChart';
 import type { RunsGroupByConfig } from '../../experiment-page/utils/experimentPage.group-row-utils';
 import { RunsChartsConfigureImageChart } from './config/RunsChartsConfigureImageChart';
@@ -51,17 +48,19 @@ import { DifferenceViewPlot } from './charts/DifferenceViewPlot';
 
 const previewComponentsMap: Record<
   RunsChartType,
-  React.FC<{
-    previewData: RunsChartsRunData[];
-    cardConfig: any;
-    groupBy: RunsGroupByConfig | null;
-    globalLineChartConfig?: RunsChartsGlobalLineChartConfig;
-    setCardConfig: (
-      setter: (
-        current: RunsChartsCardConfig,
-      ) => RunsChartsDifferenceCardConfig | RunsChartsImageCardConfig | RunsChartsLineCardConfig,
-    ) => void;
-  }>
+  React.FC<
+    React.PropsWithChildren<{
+      previewData: RunsChartsRunData[];
+      cardConfig: any;
+      groupBy: RunsGroupByConfig | null;
+      globalLineChartConfig?: RunsChartsGlobalLineChartConfig;
+      setCardConfig: (
+        setter: (
+          current: RunsChartsCardConfig,
+        ) => RunsChartsDifferenceCardConfig | RunsChartsImageCardConfig | RunsChartsLineCardConfig,
+      ) => void;
+    }>
+  >
 > = {
   [RunsChartType.BAR]: RunsChartsConfigureBarChartPreview,
   [RunsChartType.CONTOUR]: RunsChartsConfigureContourChartPreview,
@@ -184,7 +183,7 @@ export const RunsChartsConfigureModal = ({
         />
       );
     }
-    if (shouldEnableDifferenceViewCharts() && type === RunsChartType.DIFFERENCE) {
+    if (type === RunsChartType.DIFFERENCE) {
       return (
         <RunsChartsConfigureDifferenceChart
           metricKeyList={metricKeyList}
@@ -366,7 +365,7 @@ export const RunsChartsConfigureModal = ({
                     </div>
                   </SimpleSelectOption>
                 )}
-                {shouldEnableDifferenceViewCharts() && isChartTypeSupported(RunsChartType.DIFFERENCE) && (
+                {isChartTypeSupported(RunsChartType.DIFFERENCE) && (
                   <SimpleSelectOption value={RunsChartType.DIFFERENCE}>
                     <div css={styles.chartTypeOption(theme)}>
                       <ChartDifferenceIcon />

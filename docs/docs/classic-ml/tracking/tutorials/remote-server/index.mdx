@@ -26,22 +26,18 @@ You can find the list of supported data stores in the [artifact stores](/ml/trac
 When you start logging runs to the MLflow Tracking Server, the following happens:
 
 - **Part 1a and b**:
-
   - The MLflow client creates an instance of a _RestStore_ and sends REST API requests to log MLflow entities
   - The Tracking Server creates an instance of an _SQLAlchemyStore_ and connects to the remote host for inserting
     tracking information in the database (i.e., metrics, parameters, tags, etc.)
 
 - **Part 1c and d**:
-
   - Retrieval requests by the client return information from the configured _SQLAlchemyStore_ table
 
 - **Part 2a and b**:
-
   - Logging events for artifacts are made by the client using the `HttpArtifactRepository` to write files to MLflow Tracking Server
   - The Tracking Server then writes these files to the configured object store location with assumed role authentication
 
 - **Part 2c and d**:
-
   - Retrieving artifacts from the configured backend store for a user request is done with the same authorized authentication that was configured at server start
   - Artifacts are passed to the end user through the Tracking Server through the interface of the `HttpArtifactRepository`
 

@@ -1,36 +1,37 @@
 import { intersection, throttle, uniq } from 'lodash';
-import { Dash, Layout, Margin } from 'plotly.js';
+import type { Dash, Layout, Margin } from 'plotly.js';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { PlotParams } from 'react-plotly.js';
-import {
+import type { PlotParams } from 'react-plotly.js';
+import type {
   ImageEntity,
-  KeyValueEntity,
   MetricEntitiesByName,
   MetricEntity,
   MetricHistoryByName,
   RunInfoEntity,
 } from '../../../types';
-import { Theme } from '@emotion/react';
-import { LegendLabelData } from './RunsMetricsLegend';
-import { RunGroupParentInfo, RunGroupingAggregateFunction } from '../../experiment-page/utils/experimentPage.row-types';
-import { RunsChartsChartMouseEvent } from '../hooks/useRunsChartsTooltip';
+import type { KeyValueEntity } from '../../../../common/types';
+import type { Theme } from '@emotion/react';
+import type { LegendLabelData } from './RunsMetricsLegend';
+import type {
+  RunGroupParentInfo,
+  RunGroupingAggregateFunction,
+} from '../../experiment-page/utils/experimentPage.row-types';
+import type { RunsChartsChartMouseEvent } from '../hooks/useRunsChartsTooltip';
 import { defineMessages } from 'react-intl';
 import type { ExperimentChartImageDownloadHandler } from '../hooks/useChartImageDownloadHandler';
 import { quantile } from 'd3-array';
 import type { UseGetRunQueryResponseRunInfo } from '../../run-page/hooks/useGetRunQuery';
 import { shouldEnableChartExpressions } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
-import {
-  type RunsChartsLineChartExpression,
-  RunsChartsLineChartYAxisType,
+import type {
   RunsChartsBarCardConfig,
   RunsChartsCardConfig,
   RunsChartsContourCardConfig,
   RunsChartsDifferenceCardConfig,
   RunsChartsLineCardConfig,
   RunsChartsScatterCardConfig,
-  RunsChartType,
   RunsChartsParallelCardConfig,
 } from '../runs-charts.types';
+import { type RunsChartsLineChartExpression, RunsChartsLineChartYAxisType, RunsChartType } from '../runs-charts.types';
 import { isParallelChartConfigured, processParallelCoordinateData } from '../utils/parallelCoordinatesPlot.utils';
 
 /**

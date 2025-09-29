@@ -1,19 +1,23 @@
-FROM amd64/python:3.10
+# MSSQL tools are only available for amd64 architecture
+# GitHub Actions runners use amd64, but local development might use ARM (Apple Silicon)
+# The --platform flag ensures consistent behavior across environments
+FROM --platform=linux/amd64 python:3.10
 
 ARG DEPENDENCIES
 
 # apt-get and system utilities
 RUN apt-get update && apt-get install -y \
-    curl apt-transport-https debconf-utils \
+    curl apt-transport-https debconf-utils gnupg \
     && rm -rf /var/lib/apt/lists/*
 
 # adding custom MS repository
-RUN curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add -
+# https://learn.microsoft.com/en-us/sql/linux/quickstart-install-connect-ubuntu?view=sql-server-ver17&tabs=ubuntu2004#install-the-sql-server-command-line-tools
+RUN curl https://packages.microsoft.com/keys/microsoft.asc > /etc/apt/trusted.gpg.d/microsoft.asc
 RUN curl https://packages.microsoft.com/config/ubuntu/20.04/prod.list > /etc/apt/sources.list.d/mssql-release.list
 
 # install SQL Server drivers and tools
 RUN apt-get update && ACCEPT_EULA=Y apt-get install -y mssql-tools unixodbc-dev
 
-RUN pip install pyodbc pytest pytest-cov
-RUN echo "${DEPENDENCIES}" > /tmp/requriements.txt && pip install -r /tmp/requriements.txt
+RUN pip install pyodbc pytest pytest-cov pytest-asyncio
+RUN echo "${DEPENDENCIES}" > /tmp/requirements.txt && pip install -r /tmp/requirements.txt
 RUN pip list

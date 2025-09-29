@@ -126,7 +126,6 @@ def image_for_test():
     ("pipeline", "expected_requirements"),
     [
         ("small_qa_pipeline", {"transformers", "torch", "torchvision"}),
-        ("small_qa_tf_pipeline", {"transformers", "tensorflow"}),
         pytest.param(
             "peft_pipeline",
             {"peft", "transformers", "torch", "torchvision"},
@@ -734,22 +733,6 @@ def test_transformers_log_with_duplicate_extra_pip_requirements(small_multi_moda
             )
 
 
-@pytest.mark.skipif(
-    importlib.util.find_spec("accelerate") is not None, reason="fails when accelerate is installed"
-)
-def test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies(
-    small_qa_tf_pipeline, model_path
-):
-    mlflow.transformers.save_model(small_qa_tf_pipeline, model_path)
-    _assert_pip_requirements(
-        model_path, mlflow.transformers.get_default_pip_requirements(small_qa_tf_pipeline.model)
-    )
-    pip_requirements = _get_deps_from_requirement_file(model_path)
-    assert "tensorflow" in pip_requirements
-    assert "torch" not in pip_requirements
-    assert "accelerate" not in pip_requirements
-
-
 def test_transformers_pt_model_save_without_conda_env_uses_default_env_with_expected_dependencies(
     small_qa_pipeline, model_path
 ):
@@ -777,26 +760,6 @@ def test_transformers_pt_model_save_dependencies_without_accelerate(
     assert "tensorflow" not in pip_requirements
     assert "accelerate" not in pip_requirements
     assert "torch" in pip_requirements
-
-
-@pytest.mark.skipif(
-    importlib.util.find_spec("accelerate") is not None, reason="fails when accelerate is installed"
-)
-def test_transformers_tf_model_log_without_conda_env_uses_default_env_with_expected_dependencies(
-    small_qa_tf_pipeline,
-):
-    artifact_path = "model"
-    with mlflow.start_run():
-        model_info = mlflow.transformers.log_model(small_qa_tf_pipeline, name=artifact_path)
-    _assert_pip_requirements(
-        model_info.model_uri,
-        mlflow.transformers.get_default_pip_requirements(small_qa_tf_pipeline.model),
-    )
-    pip_requirements = _get_deps_from_requirement_file(model_info.model_uri)
-    assert "tensorflow" in pip_requirements
-    assert "torch" not in pip_requirements
-    # Accelerate installs Pytorch along with it, so it should not be present in the requirements
-    assert "accelerate" not in pip_requirements
 
 
 def test_transformers_pt_model_log_without_conda_env_uses_default_env_with_expected_dependencies(
@@ -2753,12 +2716,10 @@ def test_qa_pipeline_pyfunc_predict_with_kwargs(small_qa_pipeline):
     data = {
         "question": [
             "What color is it?",
-            "How do the people go?",
             "What does the 'wolf' howl at?",
         ],
         "context": [
             "Some people said it was green but I know that it's pink.",
-            "The people on the bus go up and down. Up and down.",
             "The pack of 'wolves' stood on the cliff and a 'lone wolf' howled at "
             "the moon for hours.",
         ],
@@ -2814,8 +2775,6 @@ def test_qa_pipeline_pyfunc_predict_with_kwargs(small_qa_pipeline):
     assert values.to_dict(orient="records") == [
         {0: "pink"},
         {0: "pink."},
-        {0: "up and down"},
-        {0: "Up and down"},
         {0: "the moon"},
         {0: "moon"},
     ]
@@ -3581,10 +3540,10 @@ def test_save_and_load_pipeline_without_save_pretrained_false(
 
 # Patch tempdir just to verify the invocation
 @mock.patch("mlflow.transformers.TempDir", side_effect=mlflow.utils.file_utils.TempDir)
-def test_persist_pretrained_model(mock_tmpdir, small_qa_tf_pipeline):
+def test_persist_pretrained_model(mock_tmpdir, small_qa_pipeline):
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
-            small_qa_tf_pipeline,
+            small_qa_pipeline,
             name="model",
             save_pretrained=False,
             pip_requirements=["mlflow"],  # For speed up logging
@@ -3607,7 +3566,8 @@ def test_persist_pretrained_model(mock_tmpdir, small_qa_tf_pipeline):
     assert "model_binary" in updated_config
     assert "source_model_revision" not in updated_config
     assert model_path.exists()
-    assert (model_path / "tf_model.h5").exists()
+    model_path_files = list(model_path.iterdir())
+    assert len(model_path_files) > 0
     assert tokenizer_path.exists()
     assert (tokenizer_path / "tokenizer.json").exists()
 

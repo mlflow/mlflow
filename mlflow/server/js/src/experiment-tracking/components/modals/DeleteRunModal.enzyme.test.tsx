@@ -54,6 +54,7 @@ describe('MyComponent', () => {
     expect(wrapper.length).toBe(1);
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should delete each selected run on submission', (done) => {
     const deletedRunIds: any = [];
     const deleteRunApi = getMockDeleteRunApiFn(false, deletedRunIds);
@@ -65,6 +66,7 @@ describe('MyComponent', () => {
     });
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should show error modal if deletion fails', (done) => {
     const deletedRunIds: any = [];
     const deleteRunApi = getMockDeleteRunApiFn(true, deletedRunIds);
@@ -72,7 +74,7 @@ describe('MyComponent', () => {
     instance = wrapper.instance();
     instance.handleSubmit().then(() => {
       expect(deletedRunIds).toEqual([]);
-      expect(minimalProps.openErrorModal).toBeCalled();
+      expect(minimalProps.openErrorModal).toHaveBeenCalled();
       done();
     });
   });

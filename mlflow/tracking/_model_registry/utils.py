@@ -1,5 +1,4 @@
 from functools import partial
-from typing import Optional
 
 from mlflow.environment_variables import MLFLOW_REGISTRY_URI
 from mlflow.store.db.db_types import DATABASE_ENGINES
@@ -15,7 +14,6 @@ from mlflow.tracking._tracking_service.utils import (
 from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.databricks_utils import (
-    get_databricks_host_creds,
     is_in_databricks_serverless_runtime,
     warn_on_deprecated_cross_workspace_registry_uri,
 )
@@ -119,7 +117,7 @@ def _get_registry_uri_from_context():
     return _registry_uri
 
 
-def _get_default_registry_uri_for_tracking_uri(tracking_uri: Optional[str]) -> Optional[str]:
+def _get_default_registry_uri_for_tracking_uri(tracking_uri: str | None) -> str | None:
     """
     Get the default registry URI for a given tracking URI.
 
@@ -181,8 +179,8 @@ def get_registry_uri() -> str:
 
 
 def _resolve_registry_uri(
-    registry_uri: Optional[str] = None, tracking_uri: Optional[str] = None
-) -> Optional[str]:
+    registry_uri: str | None = None, tracking_uri: str | None = None
+) -> str | None:
     """
     Resolve the registry URI following the same logic as get_registry_uri().
     """
@@ -203,9 +201,9 @@ def _get_rest_store(store_uri, **_):
     return RestStore(partial(get_default_host_creds, store_uri))
 
 
-def _get_databricks_rest_store(store_uri, **_):
+def _get_databricks_rest_store(store_uri, tracking_uri, **_):
     warn_on_deprecated_cross_workspace_registry_uri(registry_uri=store_uri)
-    return DatabricksWorkspaceModelRegistryRestStore(partial(get_databricks_host_creds, store_uri))
+    return DatabricksWorkspaceModelRegistryRestStore(store_uri, tracking_uri)
 
 
 # We define the global variable as `None` so that instantiating the store does not lead to circular

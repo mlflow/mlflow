@@ -1,6 +1,5 @@
 import time
 from threading import Thread
-from typing import Optional
 
 from mlflow.entities import LiveSpan, Span
 from mlflow.entities.span_status import SpanStatusCode
@@ -219,7 +218,7 @@ def _create_test_span(
     request_id="tr-12345",
     trace_id: int = 12345,
     span_id: int = 123,
-    parent_id: Optional[int] = None,
+    parent_id: int | None = None,
     start_time=None,
     end_time=None,
 ):

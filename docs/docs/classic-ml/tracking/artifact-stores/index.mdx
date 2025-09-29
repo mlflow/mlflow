@@ -188,14 +188,10 @@ The HDFS artifact store is accessed using the `pyarrow.fs` module, refer to the
 ## Deletion Behavior
 
 In order to allow MLflow Runs to be restored, Run metadata and artifacts are not automatically removed
-from the backend store or artifact store when a Run is deleted. The <Link to="/api_reference/cli.html" target="_blank">mlflow gc</Link> CLI is provided
+from the backend store or artifact store when a Run is deleted. The <APILink fn="mlflow.server.cli" hash="mlflow-gc">mlflow gc</APILink> CLI is provided
 for permanently removing Run metadata and artifacts for deleted runs.
 
 ## Multipart upload for proxied artifact access
-
-:::note
-This feature is experimental and may be changed or removed in a future release without notice.
-:::
 
 The Tracking Server supports uploading large artifacts using multipart upload for proxied artifact access.
 To enable this feature, set `MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD` to `true`.

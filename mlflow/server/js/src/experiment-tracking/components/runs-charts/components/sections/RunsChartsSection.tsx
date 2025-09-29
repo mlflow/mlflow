@@ -1,8 +1,8 @@
 import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
-import { RunsChartsCardConfig } from '../../runs-charts.types';
-import { RunsChartsRunData } from '../RunsCharts.common';
+import type { RunsChartsCardConfig } from '../../runs-charts.types';
+import type { RunsChartsRunData } from '../RunsCharts.common';
 import type { RunsChartCardSetFullscreenFn } from '../cards/ChartCard.common';
-import { RunsChartsGlobalLineChartConfig } from '../../../experiment-page/models/ExperimentPageUIState';
+import type { RunsChartsGlobalLineChartConfig } from '../../../experiment-page/models/ExperimentPageUIState';
 import type { ChartSectionConfig } from '../../../../types';
 import { RunsChartsDraggableCardsGridSection } from '../RunsChartsDraggableCardsGridSection';
 

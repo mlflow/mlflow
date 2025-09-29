@@ -9,12 +9,7 @@ import { setupServer } from '../../../common/utils/setup-msw';
 import { render, waitFor } from '../../../common/utils/TestUtils.react18';
 import { apis, artifactsByRunUuid } from '../../reducers/Reducers';
 import { ExperimentLoggedModelDetailsArtifacts } from './ExperimentLoggedModelDetailsArtifacts';
-import { isExperimentLoggedModelsUIEnabled } from '../../../common/utils/FeatureUtils';
 import { setupTestRouter, testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
-
-jest.mock('../../../common/utils/FeatureUtils', () => ({
-  isExperimentLoggedModelsUIEnabled: jest.fn(),
-}));
 
 describe('ExperimentLoggedModelDetailsArtifacts integration test', () => {
   const { history } = setupTestRouter();
@@ -80,10 +75,6 @@ describe('ExperimentLoggedModelDetailsArtifacts integration test', () => {
   beforeAll(() => {
     process.env['MLFLOW_USE_ABSOLUTE_AJAX_URLS'] = 'true';
     server.listen();
-  });
-
-  beforeEach(() => {
-    jest.mocked(isExperimentLoggedModelsUIEnabled).mockReturnValue(true);
   });
 
   test('should render list of artifacts and display file contents', async () => {

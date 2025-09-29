@@ -14,6 +14,7 @@ from itertools import zip_longest
 from unittest import mock
 
 import pandas as pd
+import polars as pl
 import pytest
 
 import mlflow
@@ -75,7 +76,6 @@ from mlflow.utils.async_logging.async_logging_queue import (
 )
 from mlflow.utils.time import get_current_time_millis
 
-from tests.helper_functions import multi_context
 from tests.tracing.helper import get_traces
 
 
@@ -203,7 +203,7 @@ def test_get_experiment_id_from_env(monkeypatch):
     exp_id = mlflow.create_experiment(name)
     assert exp_id is not None
     monkeypatch.delenv(MLFLOW_EXPERIMENT_NAME.name, raising=False)
-    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, exp_id)
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, str(exp_id))
     assert _get_experiment_id_from_env() == exp_id
 
     # set only name
@@ -234,7 +234,7 @@ def test_get_experiment_id_from_env(monkeypatch):
     random_id = random.randint(100, 1e6)
     assert exp_id != random_id
     monkeypatch.delenv(MLFLOW_EXPERIMENT_NAME.name, raising=False)
-    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, random_id)
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, str(random_id))
     with pytest.raises(
         MlflowException,
         match=(
@@ -249,7 +249,8 @@ def test_get_experiment_id_from_env(monkeypatch):
     exp_id = mlflow.create_experiment(name)
     random_id = random.randint(100, 1e6)
     assert exp_id != random_id
-    monkeypatch.setenvs({MLFLOW_EXPERIMENT_ID.name: random_id, MLFLOW_EXPERIMENT_NAME.name: name})
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, str(random_id))
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_NAME.name, name)
     with pytest.raises(
         MlflowException,
         match=(
@@ -265,9 +266,8 @@ def test_get_experiment_id_from_env(monkeypatch):
     exp_id = mlflow.create_experiment(name)
     assert exp_id is not None
     random_id = random.randint(100, 1e6)
-    monkeypatch.setenvs(
-        {MLFLOW_EXPERIMENT_ID.name: random_id, MLFLOW_EXPERIMENT_NAME.name: invalid_name}
-    )
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, str(random_id))
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_NAME.name, invalid_name)
     mlflow.set_experiment(experiment_id=exp_id)
     assert _get_experiment_id() == exp_id
 
@@ -316,7 +316,7 @@ def test_get_experiment_id_in_databricks_with_experiment_defined_in_env_returns_
     exp_id = mlflow.create_experiment(exp_name)
     notebook_id = str(int(exp_id) + 73)
     monkeypatch.delenv(MLFLOW_EXPERIMENT_NAME.name, raising=False)
-    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, exp_id)
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, str(exp_id))
 
     with mock.patch(
         "mlflow.tracking.fluent.default_experiment_registry.get_experiment_id",
@@ -570,7 +570,7 @@ def test_start_run_defaults(empty_active_run_stack):
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    with multi_context(
+    with (
         experiment_id_patch,
         user_patch,
         source_name_patch,
@@ -621,8 +621,8 @@ def test_start_run_defaults_databricks_notebook(
     )
     mock_workspace_id = mock.Mock()
     workspace_info_patch = mock.patch(
-        "mlflow.utils.databricks_utils.get_workspace_info_from_dbutils",
-        return_value=(mock_webapp_url, mock_workspace_id),
+        "mlflow.utils.databricks_utils.get_workspace_id",
+        return_value=mock_workspace_id,
     )
 
     expected_tags = {
@@ -639,7 +639,7 @@ def test_start_run_defaults_databricks_notebook(
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    with multi_context(
+    with (
         experiment_id_patch,
         databricks_notebook_patch,
         user_patch,
@@ -703,7 +703,7 @@ def test_start_run_creates_new_run_with_user_specified_tags():
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    with multi_context(
+    with (
         experiment_id_patch,
         user_patch,
         source_name_patch,
@@ -756,7 +756,7 @@ def test_start_run_with_parent():
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    with multi_context(
+    with (
         active_run_stack_patch,
         create_run_patch,
         user_patch,
@@ -903,7 +903,7 @@ def test_start_run_with_description(empty_active_run_stack):
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    with multi_context(
+    with (
         experiment_id_patch,
         user_patch,
         source_name_patch,
@@ -1264,6 +1264,17 @@ def test_set_experiment_tags():
         assert str(exact_expected_tags[tag_key]) == tag_value
 
 
+def test_delete_experiment_tag():
+    with start_run() as active_run:
+        test_experiment = active_run.info.experiment_id
+        mlflow.set_experiment_tag("a", "b")
+        current_experiment = mlflow.tracking.MlflowClient().get_experiment(test_experiment)
+        assert "a" in current_experiment.tags
+        mlflow.delete_experiment_tag("a")
+        finished_experiment = mlflow.tracking.MlflowClient().get_experiment(test_experiment)
+        assert "a" not in finished_experiment.tags
+
+
 @pytest.mark.parametrize("error_code", [RESOURCE_DOES_NOT_EXIST, TEMPORARILY_UNAVAILABLE])
 def test_set_experiment_throws_for_unexpected_error(error_code: int):
     with mock.patch(
@@ -1369,6 +1380,23 @@ def test_log_inputs(tmp_path):
     assert json.loads(dataset_inputs[2].dataset.source) == {"uri": str(path3)}
     assert dataset_inputs[2].tags[0].key == mlflow_tags.MLFLOW_DATASET_CONTEXT
     assert dataset_inputs[2].tags[0].value == "train3"
+
+
+def test_log_input_polars(tmp_path):
+    df = pl.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6], "c": [7, 8, 9]})
+    path = tmp_path / "temp.csv"
+    df.write_csv(path)
+    dataset = mlflow.data.from_polars(df, source=path)
+    with start_run() as run:
+        mlflow.log_input(dataset, "train")
+
+    logged_inputs = MlflowClient().get_run(run.info.run_id).inputs
+    dataset_inputs = logged_inputs.dataset_inputs
+
+    assert len(dataset_inputs) == 1
+    assert dataset_inputs[0].dataset.name == "dataset"
+    assert dataset_inputs[0].dataset.digest == "17158191685003305501"
+    assert dataset_inputs[0].dataset.source_type == "local"
 
 
 def test_log_input_metadata_only():

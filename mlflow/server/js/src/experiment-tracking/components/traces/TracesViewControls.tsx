@@ -1,6 +1,6 @@
 import {
   Button,
-  InfoIcon,
+  InfoSmallIcon,
   Input,
   Popover,
   SearchIcon,
@@ -11,7 +11,7 @@ import {
 import { useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { TracesViewControlsActions } from './TracesViewControlsActions';
-import { ModelTraceInfoWithRunName } from './hooks/useExperimentTraces';
+import type { ModelTraceInfoWithRunName } from './hooks/useExperimentTraces';
 
 const InputTooltip = ({ baseComponentId }: { baseComponentId: string }) => {
   const { theme } = useDesignSystemTheme();
@@ -26,7 +26,7 @@ const InputTooltip = ({ baseComponentId }: { baseComponentId: string }) => {
           size="small"
           type="link"
           icon={
-            <InfoIcon
+            <InfoSmallIcon
               css={{
                 svg: { width: 16, height: 16, color: theme.colors.textSecondary },
               }}

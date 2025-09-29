@@ -1,0 +1,104 @@
+/* Define color variables matching TileCard blues */
+:root {
+  --concept-primary: #0194e2;
+  --concept-primary-dark: #0066cc;
+  --concept-primary-light: rgba(1, 148, 226, 0.3);
+  --concept-primary-lightest: rgba(1, 148, 226, 0.1);
+  --concept-border: var(--ifm-border-color);
+  --concept-text-primary: var(--ifm-color-emphasis-900);
+  --concept-text-secondary: var(--ifm-color-emphasis-700);
+}
+
+:global([data-theme='dark']) {
+  --concept-primary: #0194e2;
+  --concept-primary-dark: #5cb7cc;
+  --concept-primary-light: rgba(1, 148, 226, 0.3);
+  --concept-primary-lightest: rgba(1, 148, 226, 0.15);
+  --concept-border: var(--ifm-border-color);
+  --concept-text-primary: var(--ifm-color-emphasis-900);
+  --concept-text-secondary: var(--ifm-color-emphasis-700);
+}
+
+.conceptOverview {
+  margin: 2rem 0;
+}
+
+.overviewTitle {
+  font-size: 1.25rem;
+  margin-bottom: 1.5rem;
+  color: var(--concept-text-primary);
+  text-align: center;
+  font-weight: 600;
+}
+
+.conceptGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  margin: 0 1rem;
+}
+
+.conceptCard {
+  border: 1px solid var(--concept-border);
+  border-radius: 8px;
+  padding: 1.5rem;
+  background: transparent;
+}
+
+.conceptHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.conceptIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  background: var(--concept-primary-lightest);
+  color: var(--concept-primary);
+  flex-shrink: 0;
+}
+
+.conceptTitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--concept-text-primary);
+}
+
+.conceptDescription {
+  color: var(--concept-text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Dark mode styles */
+[data-theme='dark'] .conceptCard {
+  border: 1px solid var(--concept-border);
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Responsive design */
+@media (min-width: 768px) {
+  .conceptGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .conceptGrid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+
+  .conceptCard {
+    padding: 2rem;
+  }
+}

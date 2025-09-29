@@ -3,8 +3,7 @@ import { Button, PencilIcon, Typography, useDesignSystemTheme } from '@databrick
 import { FormattedMessage } from 'react-intl';
 
 import { KeyValueTag } from '@mlflow/mlflow/src/common/components/KeyValueTag';
-import { KeyValueEntity } from '../../../types';
-import { useUpdatePromptVersionMetadataModal } from '../hooks/useUpdatePromptVersionMetadataModal';
+import type { KeyValueEntity } from '../../../../common/types';
 import { isNil } from 'lodash';
 
 export const PromptVersionTags = ({

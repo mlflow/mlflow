@@ -1,21 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useDispatch } from 'react-redux';
-import { ReduxState, ThunkDispatch } from '../../../../redux-types';
+import type { ReduxState, ThunkDispatch } from '../../../../redux-types';
 import { loadMoreRunsApi, searchRunsApi } from '../../../actions';
-import { ExperimentPageUIState } from '../models/ExperimentPageUIState';
+import type { ExperimentPageUIState } from '../models/ExperimentPageUIState';
 import { createSearchRunsParams, fetchModelVersionsForRuns } from '../utils/experimentPage.fetch-utils';
-import { ExperimentRunsSelectorResult, experimentRunsSelector } from '../utils/experimentRuns.selector';
-import { ExperimentQueryParamsSearchFacets } from './useExperimentPageSearchFacets';
-import { ExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
+import type { ExperimentRunsSelectorResult } from '../utils/experimentRuns.selector';
+import { experimentRunsSelector } from '../utils/experimentRuns.selector';
+import type { ExperimentQueryParamsSearchFacets } from './useExperimentPageSearchFacets';
+import type { ExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
 import { ErrorWrapper } from '../../../../common/utils/ErrorWrapper';
 import { searchModelVersionsApi } from '../../../../model-registry/actions';
 import { PredefinedError } from '@databricks/web-shared/errors';
 import { mapErrorWrapperToPredefinedError } from '../../../../common/utils/ErrorUtils';
-import {
-  shouldEnableExperimentPageAutoRefresh,
-  shouldUsePredefinedErrorsInExperimentTracking,
-} from '../../../../common/utils/FeatureUtils';
+import { shouldUsePredefinedErrorsInExperimentTracking } from '../../../../common/utils/FeatureUtils';
 import Utils from '../../../../common/utils/Utils';
 import { useExperimentRunsAutoRefresh } from './useExperimentRunsAutoRefresh';
 import type { RunEntity, SearchRunsApiResponse } from '../../../types';
@@ -58,6 +56,8 @@ export const useExperimentRuns = (
   const dispatch = useDispatch<ThunkDispatch>();
 
   const [runsData, setRunsData] = useState<ExperimentRunsSelectorResult>(() => createEmptyRunsResult());
+
+  const enableWorkspaceModelsRegistryCall = true;
 
   const persistKey = useMemo(() => (experimentIds ? JSON.stringify(experimentIds.sort()) : null), [experimentIds]);
   const [isLoadingRuns, setIsLoadingRuns] = useState(true);
@@ -108,10 +108,11 @@ export const useExperimentRuns = (
           normalizedError instanceof ErrorWrapper ? normalizedError.getMessageField() : normalizedError.message;
         Utils.displayGlobalErrorNotification(`Failed to load model versions for runs: ${message}`);
       };
-
-      fetchModelVersionsForRuns(runs || [], searchModelVersionsApi, dispatch).catch(handleModelVersionLoadFailure);
+      if (enableWorkspaceModelsRegistryCall) {
+        fetchModelVersionsForRuns(runs || [], searchModelVersionsApi, dispatch).catch(handleModelVersionLoadFailure);
+      }
     },
-    [dispatch],
+    [dispatch, enableWorkspaceModelsRegistryCall],
   );
 
   // Main function for fetching runs
@@ -203,7 +204,7 @@ export const useExperimentRuns = (
     experimentIds,
     fetchRuns,
     searchFacets,
-    enabled: uiState.autoRefreshEnabled && shouldEnableExperimentPageAutoRefresh(),
+    enabled: uiState.autoRefreshEnabled,
     cachedPinnedRuns,
     runsData,
     isLoadingRuns: isLoadingRuns,
@@ -232,4 +233,5 @@ const createEmptyRunsResult = () => ({
   runInfos: [],
   runUuidsMatchingFilter: [],
   tagsList: [],
+  inputsOutputsList: [],
 });

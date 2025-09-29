@@ -1,12 +1,14 @@
 import { useMemo, useRef } from 'react';
-import { ErrorWrapper } from '../../../../../common/utils/ErrorWrapper';
+import type { ErrorWrapper } from '../../../../../common/utils/ErrorWrapper';
 import { EntitySearchAutoComplete } from '../../../EntitySearchAutoComplete';
-import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
+import type { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { RunsSearchTooltipContent } from './RunsSearchTooltipContent';
-import {
-  cleanEntitySearchTagNames,
+import type {
   EntitySearchAutoCompleteEntityNameGroup,
   EntitySearchAutoCompleteOptionGroup,
+} from '../../../EntitySearchAutoComplete.utils';
+import {
+  cleanEntitySearchTagNames,
   getEntitySearchOptionsFromEntityNames,
 } from '../../../EntitySearchAutoComplete.utils';
 import { shouldUseRegexpBasedAutoRunsSearchFilter } from '../../../../../common/utils/FeatureUtils';
@@ -20,6 +22,7 @@ export type RunsSearchAutoCompleteProps = {
   onSearchFilterChange: (newValue: string) => void;
   onClear: () => void;
   requestError: ErrorWrapper | Error | null;
+  className?: string;
 };
 
 const ATTRIBUTE_OPTIONS = [

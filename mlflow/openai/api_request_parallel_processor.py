@@ -61,7 +61,10 @@ class StatusTracker:
 
 
 def call_api(
-    index: int, results: list[tuple[int, Any]], task: Callable, status_tracker: StatusTracker
+    index: int,
+    results: list[tuple[int, Any]],
+    task: Callable[[], Any],
+    status_tracker: StatusTracker,
 ):
     import openai
 

@@ -1,8 +1,8 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
-import type { KeyValueEntity } from '../../types';
+import type { KeyValueEntity } from '../../../common/types';
 import ArtifactPage from '../ArtifactPage';
 import { useMediaQuery } from '@databricks/web-shared/hooks';
-import { UseGetRunQueryResponseOutputs } from './hooks/useGetRunQuery';
+import type { UseGetRunQueryResponseOutputs } from './hooks/useGetRunQuery';
 
 /**
  * A run page tab containing the artifact browser

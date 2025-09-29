@@ -1,12 +1,14 @@
 import {
   Button,
   ChartLineIcon,
+  Checkbox,
   ListIcon,
   SegmentedControlButton,
   SegmentedControlGroup,
   SortAscendingIcon,
   SortDescendingIcon,
   Tooltip,
+  Typography,
   useDesignSystemTheme,
   visuallyHidden,
 } from '@databricks/design-system';
@@ -18,9 +20,11 @@ import { ExperimentLoggedModelListPageColumnSelector } from './ExperimentLoggedM
 import { coerceToEnum } from '@databricks/web-shared/utils';
 import { ExperimentLoggedModelListPageMode } from './hooks/useExperimentLoggedModelListPageMode';
 import { ExperimentLoggedModelListPageAutoComplete } from './ExperimentLoggedModelListPageAutoComplete';
-import { LoggedModelMetricDataset, LoggedModelProto } from '../../types';
+import type { LoggedModelMetricDataset, LoggedModelProto } from '../../types';
 import { ExperimentLoggedModelListPageDatasetDropdown } from './ExperimentLoggedModelListPageDatasetDropdown';
 import { ExperimentLoggedModelListPageOrderBySelector } from './ExperimentLoggedModelListPageOrderBySelector';
+import type { LoggedModelsTableGroupByMode } from './ExperimentLoggedModelListPageTable.utils';
+import { ExperimentLoggedModelListPageGroupBySelector } from './ExperimentLoggedModelListPageGroupBySelector';
 
 export const ExperimentLoggedModelListPageControls = ({
   orderByColumn,
@@ -38,9 +42,13 @@ export const ExperimentLoggedModelListPageControls = ({
   selectedFilterDatasets,
   onToggleDataset,
   onClearSelectedDatasets,
+  groupBy,
+  onChangeGroupBy,
 }: {
   orderByColumn?: string;
   orderByAsc?: boolean;
+  groupBy?: LoggedModelsTableGroupByMode;
+  onChangeGroupBy?: (groupBy: LoggedModelsTableGroupByMode | undefined) => void;
   sortingAndFilteringEnabled?: boolean;
   onChangeOrderBy: (orderByColumn: string, orderByAsc: boolean) => void;
   onUpdateColumns: (columnVisibility: Record<string, boolean>) => void;
@@ -145,6 +153,7 @@ export const ExperimentLoggedModelListPageControls = ({
         onUpdateColumns={onUpdateColumns}
         disabled={viewMode === ExperimentLoggedModelListPageMode.CHART}
       />
+      <ExperimentLoggedModelListPageGroupBySelector groupBy={groupBy} onChangeGroupBy={onChangeGroupBy} />
     </div>
   );
 };

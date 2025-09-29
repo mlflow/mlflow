@@ -59,13 +59,6 @@ ENV PATH="$PYENV_ROOT/bin:$PATH"
 COPY .devcontainer/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt && rm requirements.txt
 
-# Install GitHub CLI (https://github.com/cli/cli/blob/trunk/docs/install_linux.md#debian-ubuntu-linux-raspberry-pi-os-apt)
-RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
-    && sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
-    && sudo apt update \
-    && sudo apt install gh -y
-
 # Install pandoc
 RUN curl https://github.com/jgm/pandoc/releases/download/3.1.9/pandoc-3.1.9-1-${TARGETPLATFORM#*/}.deb -L -o /tmp/pandoc.deb \
     && sudo dpkg -i /tmp/pandoc.deb \

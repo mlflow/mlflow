@@ -3,7 +3,7 @@ import importlib.metadata
 import os
 import posixpath
 import urllib.parse
-from collections import namedtuple
+from typing import Any, NamedTuple
 
 from packaging.version import Version
 
@@ -25,7 +25,12 @@ from mlflow.store.artifact.artifact_repo import (
 )
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 
-GCSMPUArguments = namedtuple("GCSMPUArguments", ["transport", "url", "headers", "content_type"])
+
+class GCSMPUArguments(NamedTuple):
+    transport: Any
+    url: str
+    headers: dict[str, str]
+    content_type: str
 
 
 class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
@@ -39,8 +44,14 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             credentials as described in https://google-cloud.readthedocs.io/en/latest/core/auth.html
     """
 
-    def __init__(self, artifact_uri, client=None, credential_refresh_def=None):
-        super().__init__(artifact_uri)
+    def __init__(
+        self,
+        artifact_uri: str,
+        client=None,
+        credential_refresh_def=None,
+        tracking_uri: str | None = None,
+    ) -> None:
+        super().__init__(artifact_uri, tracking_uri)
         from google.auth.exceptions import DefaultCredentialsError
         from google.cloud import storage as gcs_storage
         from google.cloud.storage.constants import _DEFAULT_TIMEOUT

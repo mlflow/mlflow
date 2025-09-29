@@ -12,7 +12,7 @@ following important interfaces:
   :py:class:`Datasets <mlflow.data.dataset.Dataset>` from a variety of Python data objects, including
   Pandas DataFrames (:py:func:`mlflow.data.from_pandas()`), NumPy arrays
   (:py:func:`mlflow.data.from_numpy()`), Spark DataFrames (:py:func:`mlflow.data.from_spark()`
-  / :py:func:`mlflow.data.load_delta()`), and more.
+  / :py:func:`mlflow.data.load_delta()`), Polars DataFrames (:py:func:`mlflow.data.from_polars()`), and more.
 
 * :py:func:`DatasetSource <mlflow.data.dataset_source.DatasetSource>`: Represents the source of a
   dataset. For example, this may be a directory of files stored in S3, a Delta Table, or a web URL.
@@ -131,6 +131,17 @@ TensorFlow
 .. autoclass:: mlflow.data.evaluation_dataset.EvaluationDataset()
     :members:
     :undoc-members:
+
+
+polars
+~~~~~~
+
+.. autofunction:: mlflow.data.from_polars
+
+.. autoclass:: mlflow.data.polars_dataset.PolarsDataset()
+    :members:
+    :undoc-members:
+    :exclude-members: to_pyfunc, to_evaluation_dataset
 
 
 Dataset Sources 
