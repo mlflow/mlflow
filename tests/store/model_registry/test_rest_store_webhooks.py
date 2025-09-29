@@ -24,7 +24,7 @@ from tests.tracking.integration_test_utils import ServerThread
 
 @pytest.fixture
 def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[RestStore]:
-    """Setup a local MLflow server with proper webhook encryption key support."""
+    """Set up a local MLflow server with proper webhook encryption key support."""
     # Set up encryption key for webhooks using monkeypatch
     encryption_key = Fernet.generate_key().decode("utf-8")
     monkeypatch.setenv(MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY.name, encryption_key)
