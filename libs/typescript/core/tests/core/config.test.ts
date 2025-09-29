@@ -27,7 +27,7 @@ describe('Config', () => {
         process.env.MLFLOW_EXPERIMENT_ID = 'env-experiment-id';
 
         expect(() => init({ experimentId: 'config-experiment-id' })).toThrow(
-          'trackingUri is required in configuration'
+          'An MLflow Tracking URI is required, please provide the trackingUri option to init, or set the MLFLOW_TRACKING_URI environment variable'
         );
       });
 
@@ -35,7 +35,7 @@ describe('Config', () => {
         process.env.MLFLOW_TRACKING_URI = 'http://env-tracking-host:5000';
 
         expect(() => init({ trackingUri: 'http://explicit-host:5000' })).toThrow(
-          'experimentId is required in configuration'
+          'An MLflow experiment ID is required, please provide the experimentId option to init, or set the MLFLOW_EXPERIMENT_ID environment variable'
         );
       });
     });
@@ -60,7 +60,9 @@ describe('Config', () => {
         experimentId: '123456789'
       };
 
-      expect(() => init(config)).toThrow('trackingUri is required in configuration');
+      expect(() => init(config)).toThrow(
+        'An MLflow Tracking URI is required, please provide the trackingUri option to init, or set the MLFLOW_TRACKING_URI environment variable'
+      );
     });
 
     it('should throw error if experimentId is missing', () => {
@@ -69,7 +71,9 @@ describe('Config', () => {
         experimentId: ''
       };
 
-      expect(() => init(config)).toThrow('experimentId is required in configuration');
+      expect(() => init(config)).toThrow(
+        'An MLflow experiment ID is required, please provide the experimentId option to init, or set the MLFLOW_EXPERIMENT_ID environment variable'
+      );
     });
 
     it('should throw error if trackingUri is not a string', () => {

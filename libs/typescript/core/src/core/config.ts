@@ -69,7 +69,9 @@ export interface MLflowTracingConfig {
 
 /**
  * Initialization options for the MLflow tracing SDK. The trackingUri and experimentId
- * can be omitted and will be resolved from environment variables when available.
+ * can be omitted and will be resolved from environment variables when available. Since
+ * this is used on the client side, we need to make sure the trackingUri and experimentId
+ * are required.
  */
 export type MLflowTracingInitOptions = Partial<MLflowTracingConfig>;
 
@@ -134,32 +136,28 @@ let globalConfig: MLflowTracingConfig | null = null;
  * }
  * ```
  */
-export function init(config: MLflowTracingInitOptions = {}): void {
-  const trackingUriFromConfig = config.trackingUri ?? process.env.MLFLOW_TRACKING_URI;
-  const experimentIdFromConfig = config.experimentId ?? process.env.MLFLOW_EXPERIMENT_ID;
+export function init(config: MLflowTracingInitOptions): void {
+  const trackingUri = config.trackingUri ?? process.env.MLFLOW_TRACKING_URI;
+  const experimentId = config.experimentId ?? process.env.MLFLOW_EXPERIMENT_ID;
 
-  if (trackingUriFromConfig === undefined) {
-    throw new Error('trackingUri is required in configuration');
+  if (!trackingUri) {
+    throw new Error(
+      'An MLflow Tracking URI is required, please provide the trackingUri option to init, or set the MLFLOW_TRACKING_URI environment variable'
+    );
   }
 
-  if (experimentIdFromConfig === undefined) {
-    throw new Error('experimentId is required in configuration');
+  if (!experimentId) {
+    throw new Error(
+      'An MLflow experiment ID is required, please provide the experimentId option to init, or set the MLFLOW_EXPERIMENT_ID environment variable'
+    );
   }
 
-  if (typeof trackingUriFromConfig !== 'string') {
+  if (typeof trackingUri !== 'string') {
     throw new Error('trackingUri must be a string');
   }
 
-  if (typeof experimentIdFromConfig !== 'string') {
+  if (typeof experimentId !== 'string') {
     throw new Error('experimentId must be a string');
-  }
-
-  if (!trackingUriFromConfig) {
-    throw new Error('trackingUri is required in configuration');
-  }
-
-  if (!experimentIdFromConfig) {
-    throw new Error('experimentId is required in configuration');
   }
 
   const databricksConfigPath =
@@ -167,14 +165,14 @@ export function init(config: MLflowTracingInitOptions = {}): void {
 
   const effectiveConfig: MLflowTracingConfig = {
     ...config,
-    trackingUri: trackingUriFromConfig,
-    experimentId: experimentIdFromConfig,
+    trackingUri,
+    experimentId,
     databricksConfigPath
   };
 
   if (
     effectiveConfig.trackingUri === 'databricks' ||
-    effectiveConfig.trackingUri.startsWith('databricks://')
+    effectiveConfig.trackingUri?.startsWith('databricks://')
   ) {
     const configPathToUse = effectiveConfig.databricksConfigPath;
 
@@ -193,7 +191,7 @@ export function init(config: MLflowTracingInitOptions = {}): void {
         // Fall back to config file
         // Determine profile name from trackingUri
         let profile = DEFAULT_PROFILE;
-        if (effectiveConfig.trackingUri.startsWith('databricks://')) {
+        if (effectiveConfig.trackingUri?.startsWith('databricks://')) {
           const profilePart = effectiveConfig.trackingUri.slice('databricks://'.length);
           if (profilePart) {
             profile = profilePart;
@@ -218,7 +216,7 @@ export function init(config: MLflowTracingInitOptions = {}): void {
     }
   } else {
     // For self-hosted MLflow tracking server, validate and use the trackingUri as the host
-    if (!isValidHttpUri(effectiveConfig.trackingUri)) {
+    if (!isValidHttpUri(effectiveConfig.trackingUri ?? '')) {
       throw new Error(
         `Invalid trackingUri: '${effectiveConfig.trackingUri}'. Must be a valid HTTP or HTTPS URL.`
       );
