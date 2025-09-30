@@ -104,7 +104,7 @@ View traces in MLflow UI:
 
 ## Publishing
 
-1. Run `yarn bump-version <new_version>` from this directory to bump the package versions appropriately
+1. Run `yarn bump-version --version <new_version>` from this directory to bump the package versions appropriately
 2. `cd` into `core` and run `npm publish`, and repeat for `integrations/openai`
 
 ## Adding New Integrations

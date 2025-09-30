@@ -7,7 +7,7 @@
  */
 
 import { readFileSync, writeFileSync, existsSync } from 'fs';
-import { join, dirname } from 'path';
+import { join } from 'path';
 
 interface PackageJson {
   name: string;
