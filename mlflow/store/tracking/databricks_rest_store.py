@@ -24,7 +24,7 @@ from mlflow.protos.databricks_tracing_pb2 import (
     LinkExperimentToUCTraceLocation,
     SearchTraces,
     SetTraceTag,
-    TraceIdentifier,
+    TracePath,
     UnLinkExperimentToUCTraceLocation,
     UpdateAssessment,
 )
@@ -137,23 +137,23 @@ class DatabricksTracingRestStore(RestStore):
             List of Trace objects.
         """
         sql_warehouse_id = MLFLOW_TRACING_SQL_WAREHOUSE_ID.get()
-        trace_identifiers = [self._construct_trace_identifier(trace_id) for trace_id in trace_ids]
+        trace_paths = [self._construct_trace_path(trace_id) for trace_id in trace_ids]
         req_body = message_to_json(
-            GetTraces(trace_ids=trace_identifiers, sql_warehouse_id=sql_warehouse_id)
+            GetTraces(trace_paths=trace_paths, sql_warehouse_id=sql_warehouse_id)
         )
         response_proto = self._call_endpoint(
             GetTraces, req_body, endpoint=f"{_V4_TRACE_REST_API_PATH_PREFIX}/batch"
         )
         return [trace_from_proto(proto) for proto in response_proto.traces]
 
-    def _construct_trace_identifier(self, trace_identifier: str) -> TraceIdentifier:
-        location, trace_id = parse_trace_id_v4(trace_identifier)
+    def _construct_trace_path(self, trace_id_or_uri: str) -> TracePath:
+        location, trace_id = parse_trace_id_v4(trace_id_or_uri)
         # location is only None when trace_id does not starts with 'trace:/'
         if location is None:
-            return TraceIdentifier(trace_id=trace_id)
+            return TracePath(trace_id=trace_id)
         match location.split("."):
             case [catalog, schema]:
-                return TraceIdentifier(
+                return TracePath(
                     trace_location=trace_location_to_proto(
                         trace_location_from_databricks_uc_schema(catalog, schema)
                     ),
@@ -161,7 +161,7 @@ class DatabricksTracingRestStore(RestStore):
                 )
             case _:
                 raise MlflowException.invalid_parameter_value(
-                    f"Invalid trace_id format: {trace_identifier}, should be in the format of "
+                    f"Invalid trace_id format: {trace_id_or_uri}, should be in the format of "
                     f"{TRACE_ID_V4_PREFIX}<catalog.schema>/<trace_id>"
                 )
 

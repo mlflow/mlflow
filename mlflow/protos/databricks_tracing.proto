@@ -301,7 +301,7 @@ message CreateTrace {
   }
 }
 
-message TraceIdentifier {
+message TracePath {
   // location of the trace
   optional TraceLocation trace_location = 1 [(validate_required) = true];
 
@@ -317,9 +317,9 @@ message Trace {
 message GetTraces {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // Identifiers of the traces to fetch. Must be provided.
-  repeated TraceIdentifier trace_ids = 1 [(validate_required) = true];
-  
+  // Locations and IDs of the traces to fetch. Must be provided.
+  repeated TracePath trace_paths = 1 [(validate_required) = true];
+
   // SQL warehouse to use for query.
   optional string sql_warehouse_id = 2;
 
