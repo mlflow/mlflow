@@ -34,7 +34,7 @@ class JobFunctionMetadata:
     max_workers: int
 
 
-def job_function(max_workers: int) -> Callable[..., Any]:
+def job_function(max_workers: int) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     The decorator for the custom job function for setting max parallel workers that
     the job function can use.

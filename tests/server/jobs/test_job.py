@@ -3,7 +3,6 @@ import os
 import time
 import uuid
 from contextlib import contextmanager
-from os.path import dirname
 from pathlib import Path
 
 import pytest
