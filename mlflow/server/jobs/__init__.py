@@ -31,7 +31,7 @@ class JobFunctionMetadata:
     max_workers: int
 
 
-def job_function(max_workers: int):
+def job_function(max_workers: int) -> Callable[..., Any]:
     """
     The decorator for the custom job function for setting max parallel workers that
     the job function can use.

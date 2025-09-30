@@ -414,3 +414,14 @@ def test_list_job_pagination(monkeypatch, tmp_path):
 
         listed_jobs = _get_job_store().list_jobs()
         assert [job.job_id for job in listed_jobs] == job_ids
+
+
+def bad_job_function() -> None:
+    return
+
+
+def test_job_function_without_decorator():
+    with pytest.raises(
+        MlflowException, match="The job function test_job.bad_job_function is not decorated"
+    ):
+        submit_job(bad_job_function, params={})

@@ -7,6 +7,7 @@ import multiprocessing
 import os
 import shutil
 import signal
+import subprocess
 import sys
 import threading
 import time
@@ -269,7 +270,6 @@ def _launch_huey_consumer(
 
 def _launch_job_runner(backend_store_uri, env_map, server_proc_pid):
     from mlflow.exceptions import MlflowException
-    from mlflow.utils.process import _exec_cmd
     from mlflow.utils.uri import extract_db_type_from_uri
 
     try:
@@ -281,15 +281,13 @@ def _launch_job_runner(backend_store_uri, env_map, server_proc_pid):
         )
         return
 
-    return _exec_cmd(
+    return subprocess.Popen(
         [
             sys.executable,
             "-m",
             "mlflow.server.jobs._job_runner",
         ],
-        capture_output=False,
-        synchronous=False,
-        extra_env={**env_map, "MLFLOW_SERVER_PID": str(server_proc_pid)},
+        env={**os.environ, **env_map, "MLFLOW_SERVER_PID": str(server_proc_pid)},
     )
 
 
