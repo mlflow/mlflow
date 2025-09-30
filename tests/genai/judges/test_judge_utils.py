@@ -182,7 +182,7 @@ def test_invoke_judge_model_successful_with_native_provider():
 
     mock_score_model_on_payload.assert_called_once_with(
         model_uri="openai:/gpt-4",
-        payload=[{"role": "user", "content": "Evaluate this response"}],
+        payload="Evaluate this response",
         endpoint_type="llm/v1/chat",
     )
 
