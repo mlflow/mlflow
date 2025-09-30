@@ -75,8 +75,11 @@ class GatewayAPI(FastAPI):
             )
             self.dynamic_routes[route.name] = route
 
-    def get_dynamic_route(self, route_name: str) -> Route | None:
-        return r.to_route() if (r := self.dynamic_routes.get(route_name)) else None
+    def get_dynamic_route(self, route_name: str) -> Endpoint | None:
+        return r.to_endpoint() if (r := self.dynamic_routes.get(route_name)) else None
+
+    def get_legacy_dynamic_route(self, route_name: str) -> Route | None:
+        return r._to_legacy_route() if (r := self.dynamic_routes.get(route_name)) else None
 
 
 def _translate_http_exception(func):
@@ -292,7 +295,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     @app.get(MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE + "{endpoint_name}")
     async def get_endpoint(endpoint_name: str) -> Endpoint:
         if matched := app.get_dynamic_route(endpoint_name):
-            return matched.to_endpoint()
+            return matched
 
         raise HTTPException(
             status_code=404,
@@ -302,7 +305,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
 
     @app.get(MLFLOW_GATEWAY_CRUD_ROUTE_BASE + "{route_name}", include_in_schema=False)
     async def get_route(route_name: str) -> Route:
-        if matched := app.get_dynamic_route(route_name):
+        if matched := app.get_legacy_dynamic_route(route_name):
             return matched
 
         raise HTTPException(
@@ -319,7 +322,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         end_idx = start_idx + MLFLOW_DEPLOYMENTS_LIST_ENDPOINTS_PAGE_SIZE
         routes = list(app.dynamic_routes.values())
         result = {
-            "endpoints": [route.to_route().to_endpoint() for route in routes[start_idx:end_idx]]
+            "endpoints": [route.to_endpoint() for route in routes[start_idx:end_idx]]
         }
         if len(routes[end_idx:]) > 0:
             next_page_token = SearchRoutesToken(index=end_idx)
@@ -333,7 +336,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
 
         end_idx = start_idx + MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE
         routes = list(app.dynamic_routes.values())
-        result = {"routes": [r.to_route() for r in routes[start_idx:end_idx]]}
+        result = {"routes": [r._to_legacy_route() for r in routes[start_idx:end_idx]]}
         if len(routes[end_idx:]) > 0:
             next_page_token = SearchRoutesToken(index=end_idx)
             result["next_page_token"] = next_page_token.encode()

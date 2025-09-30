@@ -418,11 +418,11 @@ class EndpointConfig(AliasedConfigModel):
 
         return value
 
-    def to_route(self) -> "Route":
+    def _to_legacy_route(self) -> "Route":
         return Route(
             name=self.name,
             route_type=self.endpoint_type,
-            model=RouteModelInfo(
+            model=EndpointModelInfo(
                 name=self.model.name,
                 provider=self.model.provider,
             ),
@@ -430,8 +430,22 @@ class EndpointConfig(AliasedConfigModel):
             limit=self.limit,
         )
 
+    def to_endpoint(self) -> "mlflow.deployments.server.config.Endpoint":
+        from mlflow.deployments.server.config import Endpoint
 
-class RouteModelInfo(ResponseModel):
+        return Endpoint(
+            name=self.name,
+            endpoint_type=self.endpoint_type,
+            model=EndpointModelInfo(
+                name=self.model.name,
+                provider=self.model.provider,
+            ),
+            endpoint_url=f"{MLFLOW_GATEWAY_ROUTE_BASE}{self.name}{MLFLOW_QUERY_SUFFIX}",
+            limit=self.limit,
+        )
+
+
+class EndpointModelInfo(ResponseModel):
     name: str | None = None
     # Use `str` instead of `Provider` enum to allow gateway backends such as Databricks to
     # support new providers without breaking the gateway client.
@@ -454,7 +468,7 @@ _ROUTE_EXTRA_SCHEMA = {
 class Route(ConfigModel):
     name: str
     route_type: str
-    model: RouteModelInfo
+    model: EndpointModelInfo
     route_url: str
     limit: Limit | None = None
 

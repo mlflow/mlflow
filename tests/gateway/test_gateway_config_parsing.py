@@ -180,11 +180,11 @@ def test_convert_route_config_to_routes_payload(basic_config_dict, tmp_path):
 
     assert all(isinstance(route, EndpointConfig) for route in loaded.endpoints)
 
-    routes = [r.to_route() for r in loaded.endpoints]
+    routes = [r.to_endpoint() for r in loaded.endpoints]
 
     for config in loaded.endpoints:
         route = [x for x in routes if x.name == config.name][0]
-        assert route.route_type == config.endpoint_type
+        assert route.endpoint_type == config.endpoint_type
         assert route.model.name == config.model.name
         assert route.model.provider == config.model.provider
         # Pydantic doesn't allow undefined elements to be a part of its serialized object.
