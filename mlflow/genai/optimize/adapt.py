@@ -26,7 +26,7 @@ def adapt_prompts(
     target_prompt_uris: list[str],
     optimizer_lm_params: LLMParams,
     optimizer: BasePromptAdapter | None = None,
-) -> list[PromptVersion]:
+) -> PromptAdaptationResult:
     """
     This API optimizes prompts used in the passed in function to produce similar
     outputs as the outputs in the dataset. This API can be used to maintain the
