@@ -243,9 +243,7 @@ def _get_or_init_huey_instance(instance_key: str):
         return _huey_instance_map[instance_key]
 
 
-def _launch_huey_consumer(
-    job_fn_fullname: str,
-) -> None:
+def _launch_huey_consumer(job_fn_fullname: str) -> None:
     _logger.info(f"Starting huey consumer for job function {job_fn_fullname}")
     job_fn = _load_function(job_fn_fullname)
 
