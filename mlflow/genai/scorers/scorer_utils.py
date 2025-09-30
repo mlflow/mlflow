@@ -7,6 +7,8 @@ import re
 from textwrap import dedent
 from typing import Any, Callable
 
+from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
+
 _logger = logging.getLogger(__name__)
 
 
@@ -72,7 +74,7 @@ def extract_function_body(func: Callable[..., Any]) -> tuple[str, int]:
     return extractor.function_body, extractor.indent_unit
 
 
-def recreate_function(source: str, signature: str, func_name: str) -> Callable[..., Any] | None:
+def recreate_function(source: str, signature: str, func_name: str) -> Callable[..., Any]:
     """
     Recreate a function from its source code, signature, and name.
 
@@ -82,13 +84,20 @@ def recreate_function(source: str, signature: str, func_name: str) -> Callable[.
         func_name: The name of the function.
 
     Returns:
-        The recreated function or None if recreation failed.
+        The recreated function.
+
+    Raises:
+        MlflowException: If function recreation fails (e.g., syntax errors, invalid signature).
     """
+    import mlflow
+
     try:
         # Parse the signature to build the function definition
         sig_match = re.match(r"\((.*?)\)", signature)
         if not sig_match:
-            return None
+            raise MlflowException(
+                f"Invalid signature format: '{signature}'", error_code=INVALID_PARAMETER_VALUE
+            )
 
         params_str = sig_match.group(1).strip()
 
@@ -127,7 +136,9 @@ def recreate_function(source: str, signature: str, func_name: str) -> Callable[.
         except ImportError:
             pass  # Some imports might not be available in all contexts
 
-        local_namespace = {}
+        local_namespace = {
+            "mlflow": mlflow,
+        }
 
         # Execute the function definition with MLflow imports available
         exec(func_def, import_namespace, local_namespace)
@@ -135,6 +146,8 @@ def recreate_function(source: str, signature: str, func_name: str) -> Callable[.
         # Return the recreated function
         return local_namespace[func_name]
 
-    except Exception:
-        _logger.warning(f"Failed to recreate function '{func_name}' from serialized source code")
-        return None
+    except Exception as e:
+        _logger.warning(
+            f"Failed to recreate function '{func_name}' from serialized source code: {e}"
+        )
+        raise
