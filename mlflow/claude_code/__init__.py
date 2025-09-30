@@ -18,11 +18,13 @@ SDK Usage:
 Note: SDK tracing only works with the `ClaudeSDKClient`, not with `query` directly.
 """
 
+import logging
+
 from mlflow.claude_code.autolog import patched_init
-from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_TRACE_LOGGING
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
 FLAVOR_NAME = "claude_code"
+_logger = logging.getLogger(__name__)
 
 
 @autologging_integration(FLAVOR_NAME)
@@ -52,10 +54,14 @@ def autolog(
 
         trace_id = mlflow.get_last_active_trace_id()
     """
-    # Enable async trace logging for SDK usage
-    MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.set("true")
-
-    from claude_agent_sdk import ClaudeSDKClient
+    try:
+        from claude_agent_sdk import ClaudeSDKClient
+    except ImportError:
+        _logger.warning(
+            "Claude Agent SDK is not installed. Please install it with "
+            "`pip install claude-agent-sdk` to enable tracing."
+        )
+        return
 
     safe_patch(
         FLAVOR_NAME,
