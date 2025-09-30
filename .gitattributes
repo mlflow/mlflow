@@ -1,1 +1,4 @@
 * text=auto eol=lf
+
+# Hide auto-generated Python stub files in mlflow/protos from GitHub language detection
+mlflow/protos/**/*.pyi linguist-generated=true
