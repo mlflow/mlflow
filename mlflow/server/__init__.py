@@ -407,6 +407,7 @@ def _run_server(
         try:
             _check_requirements(file_store_path)
         except Exception as e:
+            server_proc.kill()
             raise MlflowException(
                 f"MLflow job runner requirements checking failed (root error: {e!s}). "
                 "If you don't need MLflow job runner, you can disable it by setting "
