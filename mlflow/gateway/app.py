@@ -29,8 +29,8 @@ from mlflow.gateway.config import (
     GatewayConfig,
     LimitsConfig,
     Route,
-    RouteConfig,
-    RouteType,
+    EndpointConfig,
+    EndpointType,
     _load_route_config,
 )
 from mlflow.gateway.constants import (
@@ -53,7 +53,7 @@ class GatewayAPI(FastAPI):
         super().__init__(*args, **kwargs)
         self.state.limiter = limiter
         self.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-        self.dynamic_routes: dict[str, RouteConfig] = {}
+        self.dynamic_routes: dict[str, EndpointConfig] = {}
         self.set_dynamic_routes(config, limiter)
 
     def set_dynamic_routes(self, config: GatewayConfig, limiter: Limiter) -> None:
@@ -94,7 +94,7 @@ def _translate_http_exception(func):
     return wrapper
 
 
-def _create_chat_endpoint(config: RouteConfig):
+def _create_chat_endpoint(config: EndpointConfig):
     prov = get_provider(config.model.provider)(config)
 
     # https://slowapi.readthedocs.io/en/latest/#limitations-and-known-issues
@@ -110,7 +110,7 @@ def _create_chat_endpoint(config: RouteConfig):
     return _chat
 
 
-def _create_completions_endpoint(config: RouteConfig):
+def _create_completions_endpoint(config: EndpointConfig):
     prov = get_provider(config.model.provider)(config)
 
     @_translate_http_exception
@@ -125,7 +125,7 @@ def _create_completions_endpoint(config: RouteConfig):
     return _completions
 
 
-def _create_embeddings_endpoint(config: RouteConfig):
+def _create_embeddings_endpoint(config: EndpointConfig):
     prov = get_provider(config.model.provider)(config)
 
     @_translate_http_exception
@@ -141,11 +141,11 @@ async def _custom(request: Request):
     return request.json()
 
 
-def _route_type_to_endpoint(config: RouteConfig, limiter: Limiter, key: str):
+def _route_type_to_endpoint(config: EndpointConfig, limiter: Limiter, key: str):
     provider_to_factory = {
-        RouteType.LLM_V1_CHAT: _create_chat_endpoint,
-        RouteType.LLM_V1_COMPLETIONS: _create_completions_endpoint,
-        RouteType.LLM_V1_EMBEDDINGS: _create_embeddings_endpoint,
+        EndpointType.LLM_V1_CHAT: _create_chat_endpoint,
+        EndpointType.LLM_V1_COMPLETIONS: _create_completions_endpoint,
+        EndpointType.LLM_V1_EMBEDDINGS: _create_embeddings_endpoint,
     }
     if factory := provider_to_factory.get(config.endpoint_type):
         handler = factory(config)
@@ -366,7 +366,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         request: Request, payload: chat.RequestPayload
     ) -> chat.ResponsePayload:
         route = _look_up_route(payload.model)
-        if route.endpoint_type != RouteType.LLM_V1_CHAT:
+        if route.endpoint_type != EndpointType.LLM_V1_CHAT:
             raise HTTPException(
                 status_code=400,
                 detail=f"Endpoint {route.name!r} is not a chat endpoint.",
@@ -384,7 +384,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         request: Request, payload: completions.RequestPayload
     ) -> completions.ResponsePayload:
         route = _look_up_route(payload.model)
-        if route.endpoint_type != RouteType.LLM_V1_COMPLETIONS:
+        if route.endpoint_type != EndpointType.LLM_V1_COMPLETIONS:
             raise HTTPException(
                 status_code=400,
                 detail=f"Endpoint {route.name!r} is not a completions endpoint.",
@@ -402,7 +402,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         request: Request, payload: embeddings.RequestPayload
     ) -> embeddings.ResponsePayload:
         route = _look_up_route(payload.model)
-        if route.endpoint_type != RouteType.LLM_V1_EMBEDDINGS:
+        if route.endpoint_type != EndpointType.LLM_V1_EMBEDDINGS:
             raise HTTPException(
                 status_code=400,
                 detail=f"Endpoint {route.name!r} is not an embeddings endpoint.",

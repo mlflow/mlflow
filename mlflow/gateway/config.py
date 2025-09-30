@@ -65,7 +65,7 @@ class TogetherAIConfig(ConfigModel):
         return _resolve_api_key_from_input(value)
 
 
-class RouteType(str, Enum):
+class EndpointType(str, Enum):
     LLM_V1_COMPLETIONS = "llm/v1/completions"
     LLM_V1_CHAT = "llm/v1/chat"
     LLM_V1_EMBEDDINGS = "llm/v1/embeddings"
@@ -342,9 +342,9 @@ class LimitsConfig(ConfigModel):
     limits: list[Limit] | None = []
 
 
-class RouteConfig(AliasedConfigModel):
+class EndpointConfig(AliasedConfigModel):
     name: str
-    endpoint_type: RouteType
+    endpoint_type: EndpointType
     model: Model
     limit: Limit | None = None
 
@@ -380,7 +380,7 @@ class RouteConfig(AliasedConfigModel):
         if (
             model
             and model.provider == "mosaicml"
-            and route_type == RouteType.LLM_V1_CHAT
+            and route_type == EndpointType.LLM_V1_CHAT
             and not is_valid_mosiacml_chat_model(model.name)
         ):
             raise MlflowException.invalid_parameter_value(
@@ -397,7 +397,7 @@ class RouteConfig(AliasedConfigModel):
 
     @field_validator("endpoint_type", mode="before")
     def validate_route_type(cls, value):
-        if value in RouteType._value2member_map_:
+        if value in EndpointType._value2member_map_:
             return value
         raise MlflowException.invalid_parameter_value(f"The route_type '{value}' is not supported.")
 
@@ -477,7 +477,7 @@ class Route(ConfigModel):
 
 
 class GatewayConfig(AliasedConfigModel):
-    endpoints: list[RouteConfig]
+    endpoints: list[EndpointConfig]
 
 
 def _load_route_config(path: str | Path) -> GatewayConfig:

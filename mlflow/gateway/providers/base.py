@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import AsyncIterable
 
 from mlflow.gateway.base_models import ConfigModel
-from mlflow.gateway.config import RouteConfig
+from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.utils.annotations import developer_stable
@@ -18,7 +18,7 @@ class BaseProvider(ABC):
     SUPPORTED_ROUTE_TYPES: tuple[str, ...]
     CONFIG_TYPE: type[ConfigModel]
 
-    def __init__(self, config: RouteConfig):
+    def __init__(self, config: EndpointConfig):
         if self.NAME == "":
             raise ValueError(
                 f"{self.__class__.__name__} is a subclass of BaseProvider and must "

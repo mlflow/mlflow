@@ -6,7 +6,7 @@ from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.config import OpenAIConfig, RouteConfig
+from mlflow.gateway.config import OpenAIConfig, EndpointConfig
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.openai import OpenAIProvider
@@ -88,7 +88,7 @@ async def test_chat():
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
-        provider = OpenAIProvider(RouteConfig(**config))
+        provider = OpenAIProvider(EndpointConfig(**config))
         payload = {"messages": [{"role": "user", "content": "Tell me a joke"}], "temperature": 0.5}
         response = await provider.chat(chat.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
@@ -170,7 +170,7 @@ async def test_chat_stream(resp):
     mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
-        provider = OpenAIProvider(RouteConfig(**config))
+        provider = OpenAIProvider(EndpointConfig(**config))
         payload = {"messages": [{"role": "user", "content": "Tell me a joke"}]}
         response = provider.chat_stream(chat.RequestPayload(**payload))
 
@@ -248,7 +248,7 @@ async def test_completions(resp):
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
-        provider = OpenAIProvider(RouteConfig(**config))
+        provider = OpenAIProvider(EndpointConfig(**config))
         payload = {
             "prompt": "This is a test",
         }
@@ -283,7 +283,7 @@ async def test_completions(resp):
 @pytest.mark.asyncio
 async def test_completions_throws_if_prompt_contains_non_string(prompt):
     config = completions_config()
-    provider = OpenAIProvider(RouteConfig(**config))
+    provider = OpenAIProvider(EndpointConfig(**config))
     payload = {"prompt": prompt}
     with pytest.raises(ValidationError, match=r"prompt"):
         await provider.completions(completions.RequestPayload(**payload))
@@ -333,7 +333,7 @@ async def test_completions_stream(resp):
     mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
-        provider = OpenAIProvider(RouteConfig(**config))
+        provider = OpenAIProvider(EndpointConfig(**config))
         payload = {"prompt": "This is a test"}
         response = provider.completions_stream(completions.RequestPayload(**payload))
 
@@ -436,7 +436,7 @@ async def test_embeddings():
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
-        provider = OpenAIProvider(RouteConfig(**config))
+        provider = OpenAIProvider(EndpointConfig(**config))
         payload = {"input": "This is a test"}
         response = await provider.embeddings(embeddings.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
@@ -499,7 +499,7 @@ async def test_embeddings_batch_input():
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
-        provider = OpenAIProvider(RouteConfig(**config))
+        provider = OpenAIProvider(EndpointConfig(**config))
         payload = {"input": ["1", "2"]}
         response = await provider.embeddings(embeddings.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
@@ -567,7 +567,7 @@ async def test_azure_openai():
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
-        provider = OpenAIProvider(RouteConfig(**config))
+        provider = OpenAIProvider(EndpointConfig(**config))
         payload = {
             "prompt": "This is a test",
         }
@@ -606,7 +606,7 @@ async def test_azuread_openai():
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
-        provider = OpenAIProvider(RouteConfig(**config))
+        provider = OpenAIProvider(EndpointConfig(**config))
         payload = {
             "prompt": "This is a test",
         }
@@ -670,7 +670,7 @@ def test_openai_provider_can_be_constructed_with_valid_configs(
         openai_api_version=api_version,
         openai_organization=organization,
     )
-    route_config = RouteConfig(
+    route_config = EndpointConfig(
         name="completions",
         endpoint_type="llm/v1/completions",
         model={
@@ -723,7 +723,7 @@ def test_invalid_openai_configs_throw_on_construction(
 @pytest.mark.asyncio
 async def test_param_model_is_not_permitted():
     config = azure_config("azuread")
-    provider = OpenAIProvider(RouteConfig(**config))
+    provider = OpenAIProvider(EndpointConfig(**config))
     payload = {
         "prompt": "This should fail",
         "max_tokens": 5000,

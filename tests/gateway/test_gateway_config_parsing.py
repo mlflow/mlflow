@@ -7,7 +7,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
     AnthropicConfig,
     OpenAIConfig,
-    RouteConfig,
+    EndpointConfig,
     _load_route_config,
     _resolve_api_key_from_input,
     _save_route_config,
@@ -178,7 +178,7 @@ def test_convert_route_config_to_routes_payload(basic_config_dict, tmp_path):
     conf_path.write_text(yaml.safe_dump(basic_config_dict))
     loaded = _load_route_config(conf_path)
 
-    assert all(isinstance(route, RouteConfig) for route in loaded.endpoints)
+    assert all(isinstance(route, EndpointConfig) for route in loaded.endpoints)
 
     routes = [r.to_route() for r in loaded.endpoints]
 

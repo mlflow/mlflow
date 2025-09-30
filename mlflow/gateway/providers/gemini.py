@@ -2,7 +2,7 @@ import json
 import time
 from typing import Any, AsyncIterable
 
-from mlflow.gateway.config import GeminiConfig, RouteConfig
+from mlflow.gateway.config import GeminiConfig, EndpointConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
@@ -440,7 +440,7 @@ class GeminiProvider(BaseProvider):
     NAME = "Gemini"
     CONFIG_TYPE = GeminiConfig
 
-    def __init__(self, config: RouteConfig) -> None:
+    def __init__(self, config: EndpointConfig) -> None:
         super().__init__(config)
         if config.model.config is None or not isinstance(config.model.config, GeminiConfig):
             raise TypeError(f"Unexpected config type {config.model.config}")

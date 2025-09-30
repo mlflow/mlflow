@@ -3,7 +3,7 @@ from unittest import mock
 import pytest
 from fastapi.encoders import jsonable_encoder
 
-from mlflow.gateway.config import RouteConfig
+from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.gemini import GeminiProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
@@ -108,7 +108,7 @@ def fake_chat_response():
 @pytest.mark.asyncio
 async def test_gemini_single_embedding():
     config = embedding_config()
-    provider = GeminiProvider(RouteConfig(**config))
+    provider = GeminiProvider(EndpointConfig(**config))
     payload = {"input": "This is a test embedding."}
 
     expected_payload = {"content": {"parts": [{"text": "This is a test embedding."}]}}
@@ -141,7 +141,7 @@ async def test_gemini_single_embedding():
 @pytest.mark.asyncio
 async def test_gemini_batch_embedding():
     config = embedding_config()
-    provider = GeminiProvider(RouteConfig(**config))
+    provider = GeminiProvider(EndpointConfig(**config))
     payload = {"input": ["Test embedding 1.", "Test embedding 2."]}
 
     expected_payload = {
@@ -187,7 +187,7 @@ async def test_gemini_batch_embedding():
 @pytest.mark.asyncio
 async def test_gemini_completions():
     config = completions_config()
-    provider = GeminiProvider(RouteConfig(**config))
+    provider = GeminiProvider(EndpointConfig(**config))
     payload = {
         "prompt": "Tell me a joke",
         "temperature": 0.1,
@@ -261,7 +261,7 @@ async def test_gemini_completions():
 )
 async def test_invalid_parameters_completions(override, exclude_keys, expected_msg):
     config = completions_config()
-    provider = GeminiProvider(RouteConfig(**config))
+    provider = GeminiProvider(EndpointConfig(**config))
 
     base_payload = {
         "prompt": "Tell me a joke",
@@ -283,7 +283,7 @@ async def test_invalid_parameters_completions(override, exclude_keys, expected_m
 @pytest.mark.asyncio
 async def test_gemini_chat():
     config = chat_config()
-    provider = GeminiProvider(RouteConfig(**config))
+    provider = GeminiProvider(EndpointConfig(**config))
     payload = {
         "messages": [
             {"role": "system", "content": "You are a helpful assistant"},
@@ -370,7 +370,7 @@ async def test_gemini_chat():
 )
 async def test_invalid_parameters_chat(override, exclude_keys, expected_msg):
     config = chat_config()
-    provider = GeminiProvider(RouteConfig(**config))
+    provider = GeminiProvider(EndpointConfig(**config))
 
     base_payload = {
         "messages": [{"role": "user", "content": "Tell me a joke"}],
@@ -418,7 +418,7 @@ def chat_stream_response_incomplete():
 async def test_gemini_chat_stream(resp):
     config = chat_config()
     mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
-    provider = GeminiProvider(RouteConfig(**config))
+    provider = GeminiProvider(EndpointConfig(**config))
     payload = {"messages": [{"role": "user", "content": "Tell me a joke"}]}
 
     with (
@@ -499,7 +499,7 @@ async def test_gemini_completions_stream(resp):
     config = completions_config()
     mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
 
-    provider = GeminiProvider(RouteConfig(**config))
+    provider = GeminiProvider(EndpointConfig(**config))
     payload = {"prompt": "Recite the song jhony jhony yes papa"}
 
     with (
