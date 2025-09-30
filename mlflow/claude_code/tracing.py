@@ -10,6 +10,21 @@ from typing import Any
 
 import dateutil.parser
 
+import mlflow
+from mlflow import MlflowClient
+from mlflow.claude_code.config import (
+    MLFLOW_TRACING_ENABLED,
+    get_env_var,
+)
+from mlflow.entities import SpanType
+from mlflow.environment_variables import (
+    MLFLOW_EXPERIMENT_ID,
+    MLFLOW_EXPERIMENT_NAME,
+    MLFLOW_TRACKING_URI,
+)
+from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.trace_manager import InMemoryTraceManager
+
 # ============================================================================
 # CONSTANTS
 # ============================================================================
@@ -29,10 +44,18 @@ MESSAGE_FIELD_TYPE = "type"
 MESSAGE_FIELD_MESSAGE = "message"
 MESSAGE_FIELD_TIMESTAMP = "timestamp"
 
+# Custom logging level for Claude tracing
+CLAUDE_TRACING_LEVEL = 25
+
 
 # ============================================================================
 # LOGGING AND SETUP
 # ============================================================================
+
+
+def claude_tracing(self, message, *args, **kwargs):
+    if self.isEnabledFor(CLAUDE_TRACING_LEVEL):
+        self._log(CLAUDE_TRACING_LEVEL, message, args, **kwargs)
 
 
 def setup_logging() -> logging.Logger:
@@ -55,12 +78,14 @@ def setup_logging() -> logging.Logger:
         logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     )
     logger.addHandler(file_handler)
-    logger.setLevel(logging.WARNING)
+    logging.addLevelName(CLAUDE_TRACING_LEVEL, "CLAUDE_TRACING")
+    logger.setLevel(CLAUDE_TRACING_LEVEL)
     logger.propagate = False  # Prevent duplicate log messages
 
     return logger
 
 
+logging.Logger.claude_tracing = claude_tracing
 _MODULE_LOGGER = setup_logging()
 
 
@@ -73,14 +98,6 @@ def setup_mlflow() -> None:
     """Configure MLflow tracking URI and experiment."""
     if not is_tracing_enabled():
         return
-
-    import mlflow
-    from mlflow.claude_code.config import get_env_var
-    from mlflow.environment_variables import (
-        MLFLOW_EXPERIMENT_ID,
-        MLFLOW_EXPERIMENT_NAME,
-        MLFLOW_TRACKING_URI,
-    )
 
     # Get tracking URI from environment/settings
     mlflow.set_tracking_uri(get_env_var(MLFLOW_TRACKING_URI.name))
@@ -100,14 +117,6 @@ def setup_mlflow() -> None:
 
 def is_tracing_enabled() -> bool:
     """Check if MLflow Claude tracing is enabled via environment variable."""
-    try:
-        import mlflow  # noqa: F401
-    except ImportError as e:
-        get_logger().error("MLflow not available: %s", e)
-        return False
-
-    from mlflow.claude_code.config import MLFLOW_TRACING_ENABLED, get_env_var
-
     return get_env_var(MLFLOW_TRACING_ENABLED).lower() in ("true", "1", "yes")
 
 
@@ -137,14 +146,19 @@ def read_transcript(transcript_path: str) -> list[dict[str, Any]]:
         return []
 
 
-def output_hook_response(error: str | None = None, **kwargs) -> None:
-    """Output hook response JSON to stdout for Claude Code hook protocol."""
-    if error is not None:
-        response = {"continue": False, "stopReason": error, **kwargs}
-    else:
-        response = {"continue": True, **kwargs}
+def get_hook_response(error: str | None = None, **kwargs) -> dict[str, Any]:
+    """Build hook response dictionary for Claude Code hook protocol.
 
-    print(json.dumps(response))  # noqa: T201
+    Args:
+        error: Error message if hook failed, None if successful
+        kwargs: Additional fields to include in response
+
+    Returns:
+        Hook response dictionary
+    """
+    if error is not None:
+        return {"continue": False, "stopReason": error, **kwargs}
+    return {"continue": True, **kwargs}
 
 
 # ============================================================================
@@ -429,8 +443,6 @@ def _create_llm_and_tool_spans(
     client, trace, transcript: list[dict[str, Any]], start_idx: int
 ) -> None:
     """Create LLM and tool spans for assistant responses with proper timing."""
-    from mlflow.entities import SpanType
-
     llm_call_num = 0
     for i in range(start_idx, len(transcript)):
         entry = transcript[i]
@@ -549,7 +561,9 @@ def find_final_assistant_response(transcript: list[dict[str, Any]], start_idx: i
 # ============================================================================
 
 
-def process_transcript(transcript_path: str, session_id: str | None = None) -> Any | None:
+def process_transcript(
+    transcript_path: str, session_id: str | None = None
+) -> mlflow.entities.Trace | None:
     """Process a Claude conversation transcript and create an MLflow trace with spans.
 
     Args:
@@ -559,17 +573,7 @@ def process_transcript(transcript_path: str, session_id: str | None = None) -> A
     Returns:
         MLflow trace object if successful, None if processing fails
     """
-    if not is_tracing_enabled():
-        get_logger().info("MLflow Claude tracing is disabled")
-        return None
-
     try:
-        import mlflow
-        from mlflow import MlflowClient
-        from mlflow.tracing.constant import TraceMetadataKey
-        from mlflow.tracing.trace_manager import InMemoryTraceManager
-
-        setup_mlflow()
         client = MlflowClient()
 
         transcript = read_transcript(transcript_path)
@@ -590,7 +594,7 @@ def process_transcript(transcript_path: str, session_id: str | None = None) -> A
         if not session_id:
             session_id = f"claude-{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
-        get_logger().info("Creating MLflow trace for session: %s", session_id)
+        get_logger().claude_tracing("Creating MLflow trace for session: %s", session_id)
 
         conv_start_ns = parse_timestamp_to_ns(last_user_entry.get(MESSAGE_FIELD_TIMESTAMP))
 
@@ -635,7 +639,7 @@ def process_transcript(transcript_path: str, session_id: str | None = None) -> A
         )
 
         mlflow.flush_trace_async_logging()
-        get_logger().info("Created MLflow trace: %s", trace.trace_id)
+        get_logger().claude_tracing("Created MLflow trace: %s", trace.trace_id)
 
         return mlflow.get_trace(trace.trace_id)
 

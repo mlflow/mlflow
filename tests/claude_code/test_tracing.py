@@ -1,7 +1,10 @@
 """Simplified tests for mlflow.claude_code.tracing module."""
 
-# Test only the functions we can easily test without external dependencies
+import logging
+
 from mlflow.claude_code.tracing import (
+    CLAUDE_TRACING_LEVEL,
+    get_hook_response,
     parse_timestamp_to_ns,
     setup_logging,
 )
@@ -51,3 +54,35 @@ def test_setup_logging_creates_logger(monkeypatch, tmp_path):
     log_dir = tmp_path / ".claude" / "mlflow"
     assert log_dir.exists()
     assert log_dir.is_dir()
+
+
+def test_custom_logging_level():
+    """Test that custom claude_tracing logging level is configured."""
+    assert CLAUDE_TRACING_LEVEL > logging.INFO
+    assert CLAUDE_TRACING_LEVEL < logging.WARNING
+    assert logging.getLevelName(CLAUDE_TRACING_LEVEL) == "CLAUDE_TRACING"
+
+
+def test_logger_has_claude_tracing_method(monkeypatch, tmp_path):
+    """Test that logger has claude_tracing method."""
+    monkeypatch.chdir(tmp_path)
+    logger = setup_logging()
+    assert hasattr(logger, "claude_tracing")
+
+
+def test_get_hook_response_success():
+    """Test get_hook_response returns success response."""
+    response = get_hook_response()
+    assert response == {"continue": True}
+
+
+def test_get_hook_response_with_error():
+    """Test get_hook_response returns error response."""
+    response = get_hook_response(error="Test error")
+    assert response == {"continue": False, "stopReason": "Test error"}
+
+
+def test_get_hook_response_with_additional_fields():
+    """Test get_hook_response accepts additional fields."""
+    response = get_hook_response(custom_field="value")
+    assert response == {"continue": True, "custom_field": "value"}
