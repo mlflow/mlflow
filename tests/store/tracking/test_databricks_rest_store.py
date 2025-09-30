@@ -463,8 +463,8 @@ def test_get_traces(monkeypatch):
         request_body = call_args[0][1]
         request_data = json.loads(request_body)
         assert request_data["sql_warehouse_id"] == "test-warehouse"
-        assert "trace_ids" in request_data
-        assert len(request_data["trace_ids"]) == 2
+        assert "trace_paths" in request_data
+        assert len(request_data["trace_paths"]) == 2
 
         endpoint = call_args[1]["endpoint"]
         assert endpoint == f"{_V4_TRACE_REST_API_PATH_PREFIX}/batch"
