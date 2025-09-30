@@ -1397,7 +1397,13 @@ def get_metric_history_bulk_interval_handler():
             ],
         },
     )
+    response_message = get_metric_history_bulk_interval_impl(request_message)
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
 
+
+def get_metric_history_bulk_interval_impl(request_message):
     args = request.args
     run_ids = request_message.run_ids
     metric_key = request_message.metric_key
@@ -1428,9 +1434,7 @@ def get_metric_history_bulk_interval_handler():
 
     response_message = GetMetricHistoryBulkInterval.Response()
     response_message.metrics.extend([m.to_proto() for m in metrics_with_run_ids])
-    response = Response(mimetype="application/json")
-    response.set_data(message_to_json(response_message))
-    return response
+    return response_message
 
 
 @catch_mlflow_exception
