@@ -1,8 +1,10 @@
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any, Callable
 
 import mlflow
 from mlflow.entities.model_registry import PromptVersion
+from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.genai.evaluation.utils import (
     _convert_eval_set_to_df,
 )
@@ -102,43 +104,42 @@ def _build_eval_fn(
     def eval_fn(
         candidate_prompts: dict[str, str], dataset: list[dict[str, Any]]
     ) -> list[EvaluationResultRecord]:
-        original_format_fn = PromptVersion.format
-
-        def _prompt_format_patch(self, **kwargs: Any) -> str:
-            """
-            Patch the format method of PromptVersion to return the candidate prompt
-            if it is in the candidate_prompts dict.
-            """
+        @property
+        def _template_patch(self) -> str:
             template_name = self.name
             if template_name in candidate_prompts:
                 return candidate_prompts[template_name]
-            return original_format_fn(self, **kwargs)
+            return self.template
 
-        results = []
-        patch = _wrap_patch(PromptVersion, "format", _prompt_format_patch)
+        patch = _wrap_patch(PromptVersion, "template", _template_patch)
+
+        def _run_single(record: dict[str, Any]):
+            inputs = record["inputs"]
+            outputs = record["outputs"]
+            eval_request_id = str(uuid.uuid4())
+            # set prediction context to retrieve the trace by the request id,
+            # and set is_evaluate to True to disable async trace logging
+            with set_prediction_context(Context(request_id=eval_request_id, is_evaluate=True)):
+                try:
+                    target_outputs = predict_fn(inputs)
+                except Exception as e:
+                    target_outputs = f"Failed to invoke the predict_fn with {inputs}: {e}"
+
+            trace = mlflow.get_trace(eval_request_id, silent=True)
+            # TODO: Consider more robust scoring mechanism
+            score = 1 if target_outputs == outputs else 0
+            return EvaluationResultRecord(
+                inputs=inputs, outputs=target_outputs, score=score, trace=trace
+            )
+
         try:
-            for record in dataset:
-                inputs = record["inputs"]
-                outputs = record["outputs"]
-                eval_request_id = str(uuid.uuid4())
-                # set prediction context to retrieve the trace by the request id,
-                # and set is_evaluate to True to disable async trace logging
-                with set_prediction_context(Context(request_id=eval_request_id, is_evaluate=True)):
-                    try:
-                        target_outputs = predict_fn(inputs)
-                    except Exception as e:
-                        target_outputs = f"Failed to invoke the predict_fn with {inputs}: {e}"
-
-                trace = mlflow.get_trace(eval_request_id, silent=True)
-                # TODO: Consider more robust scoring mechanism
-                score = 1 if target_outputs == outputs else 0
-                results.append(
-                    EvaluationResultRecord(
-                        inputs=inputs, outputs=target_outputs, score=score, trace=trace
-                    )
-                )
+            with ThreadPoolExecutor(
+                max_workers=MLFLOW_GENAI_EVAL_MAX_WORKERS.get(),
+                thread_name_prefix="MlflowGenAIEvalHarness",
+            ) as executor:
+                futures = [executor.submit(_run_single, record) for record in dataset]
+                return [future.result() for future in futures]
         finally:
             gorilla.revert(patch)
-        return results
 
     return eval_fn

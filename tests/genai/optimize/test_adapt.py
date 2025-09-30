@@ -76,9 +76,8 @@ def sample_summarization_dataset():
     ]
 
 
-def sample_predict_fn(input_text, language):
+def sample_predict_fn(input_text: str, language: str) -> str:
     mlflow.genai.load_prompt("prompts:/test_translation_prompt/1")
-    # Simple translation logic for testing
     translations = {
         ("Hello", "Spanish"): "Hola",
         ("World", "French"): "Monde",
