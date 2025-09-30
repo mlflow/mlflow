@@ -145,7 +145,9 @@ def main():
                 "best_trial": study.best_trial.number,
             }
         )
-        mlflow.log_params(study.best_params)
+        # Log best hyperparameters with 'best_' prefix to avoid conflicts
+        best_params = {f"best_{k}": v for k, v in study.best_params.items()}
+        mlflow.log_params(best_params)
 
         print(f"\nBest trial: {study.best_trial.number}")
         print(f"Best accuracy: {study.best_value:.4f}")
