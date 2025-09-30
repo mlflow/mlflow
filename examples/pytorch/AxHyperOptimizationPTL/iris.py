@@ -3,19 +3,10 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-try:
-    from torchmetrics import Accuracy
-except ImportError:
-    from pytorch_lightning.metrics import Accuracy
-
 
 class IrisClassification(pl.LightningModule):
     def __init__(self, **kwargs):
         super().__init__()
-
-        self.train_acc = Accuracy(task="multiclass", num_classes=3)
-        self.val_acc = Accuracy(task="multiclass", num_classes=3)
-        self.test_acc = Accuracy(task="multiclass", num_classes=3)
         self.args = kwargs
 
         self.fc1 = nn.Linear(4, 10)
@@ -42,8 +33,9 @@ class IrisClassification(pl.LightningModule):
         x, y = batch
         logits = self.forward(x)
         loss = self.cross_entropy_loss(logits, y)
-        self.train_acc(torch.argmax(logits, dim=1), y)
-        self.log("train_acc", self.train_acc.compute(), on_step=False, on_epoch=True)
+        preds = torch.argmax(logits, dim=1)
+        acc = (preds == y).float().mean()
+        self.log("train_acc", acc, on_step=False, on_epoch=True)
         self.log("loss", loss)
         return {"loss": loss}
 
@@ -51,14 +43,16 @@ class IrisClassification(pl.LightningModule):
         x, y = batch
         logits = self.forward(x)
         loss = F.cross_entropy(logits, y)
-        self.val_acc(torch.argmax(logits, dim=1), y)
-        self.log("val_acc", self.val_acc.compute())
+        preds = torch.argmax(logits, dim=1)
+        acc = (preds == y).float().mean()
+        self.log("val_acc", acc)
         self.log("val_loss", loss, sync_dist=True)
 
     def test_step(self, batch, batch_idx):
         x, y = batch
         logits = self.forward(x)
         loss = F.cross_entropy(logits, y)
-        self.test_acc(torch.argmax(logits, dim=1), y)
+        preds = torch.argmax(logits, dim=1)
+        acc = (preds == y).float().mean()
         self.log("test_loss", loss)
-        self.log("test_acc", self.test_acc.compute())
+        self.log("test_acc", acc)
