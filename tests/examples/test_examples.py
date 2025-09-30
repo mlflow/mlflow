@@ -75,6 +75,7 @@ def mock_openai():
         ),
         ("xgboost/xgboost_sklearn", []),
         ("pytorch/MNIST", ["-P", "max_epochs=1"]),
+        ("pytorch/HPOExample", ["-P", "n_trials=2", "-P", "max_epochs=1"]),
         ("pytorch/CaptumExample", ["-P", "max_epochs=50"]),
         ("supply_chain_security", []),
         ("tensorflow", []),
