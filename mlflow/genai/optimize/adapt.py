@@ -10,7 +10,6 @@ from mlflow.genai.optimize.adapters import BasePromptAdapter, get_default_adapte
 from mlflow.genai.optimize.types import EvaluationResultRecord, LLMParams, PromptAdaptationResult
 from mlflow.genai.prompts import load_prompt, register_prompt
 from mlflow.genai.utils.trace_utils import convert_predict_fn
-from mlflow.pyfunc import Context, set_prediction_context
 from mlflow.utils import gorilla
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils.safety import _wrap_patch
@@ -98,6 +97,7 @@ def _build_eval_fn(
     """
     Build an evaluation function that uses the candidate prompts to evaluate the predict_fn.
     """
+    from mlflow.pyfunc import Context, set_prediction_context
 
     def eval_fn(
         candidate_prompts: dict[str, str], dataset: list[dict[str, Any]]
