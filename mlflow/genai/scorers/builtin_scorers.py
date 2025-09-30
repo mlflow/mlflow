@@ -34,7 +34,6 @@ from mlflow.genai.utils.trace_utils import (
     resolve_inputs_from_trace,
     resolve_outputs_from_trace,
 )
-from mlflow.types.llm import ChatMessage
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
 from mlflow.utils.uri import is_databricks_uri
@@ -88,6 +87,8 @@ def resolve_scorer_fields(
         )
 
         user_prompt = "Use the tools to find the inputs and outputs, then return them as JSON."
+
+        from mlflow.types.llm import ChatMessage
 
         messages = [
             ChatMessage(role="system", content=system_prompt),
