@@ -28,29 +28,25 @@ module.exports = async ({ github, context }) => {
   }
 
   async function fetchChecks(ref) {
-    // Check runs (e.g., GitHub Actions)
-    const checkRuns = (
-      await github.paginate(github.rest.checks.listForRef, {
+    // Workflow runs (e.g., GitHub Actions)
+    const workflowRuns = (
+      await github.paginate(github.rest.actions.listWorkflowRunsForRepo, {
         owner,
         repo,
-        ref,
-        filter: "latest",
+        head_sha: ref,
       })
-    )
-      .filter(({ name }) => name !== "protect")
-      // Ignore Copilot's sessions (https://github.com/mlflow/mlflow/actions/workflows/copilot-swe-agent/copilot)
-      .filter(({ name }) => name !== "copilot");
+    ).filter(({ name }) => name !== "protect");
 
     const latestRuns = {};
-    for (const run of checkRuns) {
-      const { name, check_suite } = run;
-      const key = `${name}-${check_suite.id}`;
-      if (!latestRuns[key] || new Date(run.started_at) > new Date(latestRuns[key].started_at)) {
+    for (const run of workflowRuns) {
+      const { path, event } = run;
+      const key = `${path}-${event}`;
+      if (!latestRuns[key] || new Date(run.created_at) > new Date(latestRuns[key].created_at)) {
         latestRuns[key] = run;
       }
     }
-    const runs = Object.values(latestRuns).map(({ name, status, conclusion, check_suite }) => ({
-      name: `${name} (${check_suite.id})`,
+    const runs = Object.values(latestRuns).map(({ name, status, conclusion, path, event }) => ({
+      name: `${name} (${path}, ${event})`,
       status:
         status !== "completed"
           ? STATE.pending
