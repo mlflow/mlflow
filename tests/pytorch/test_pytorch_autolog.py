@@ -6,7 +6,6 @@ from iris import (
     IrisClassificationMultiOptimizer,
     IrisClassificationWithoutValidation,
 )
-from iris_data_module import IrisDataModule, IrisDataModuleWithoutValidation
 from packaging.version import Version
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
@@ -17,6 +16,8 @@ from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.pytorch._lightning_autolog import _get_optimizer_name
 from mlflow.utils.file_utils import TempDir
+
+from tests.pytorch.iris_data_module import IrisDataModule, IrisDataModuleWithoutValidation
 
 NUM_EPOCHS = 20
 
