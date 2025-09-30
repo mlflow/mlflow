@@ -10,6 +10,7 @@ from contextlib import ContextDecorator
 from dataclasses import asdict, dataclass, is_dataclass
 from typing import TYPE_CHECKING, Any, NamedTuple
 
+import pydantic
 import requests
 
 if TYPE_CHECKING:
@@ -412,6 +413,13 @@ def _invoke_via_gateway(
     )
 
 
+class FieldExtraction(pydantic.BaseModel):
+    """Schema for extracting inputs and outputs from traces using LLM."""
+
+    inputs: str = pydantic.Field(description="The user's original request or question")
+    outputs: str = pydantic.Field(description="The system's final response")
+
+
 @record_usage_event(InvokeCustomJudgeModelEvent)
 def invoke_judge_model(
     model_uri: str,
@@ -419,7 +427,6 @@ def invoke_judge_model(
     assessment_name: str,
     trace: Trace | None = None,
     num_retries: int = 10,
-    output_format: type["BaseModel"] | None = None,
 ) -> Feedback:
     """
     Invoke the judge model.
@@ -437,9 +444,6 @@ def invoke_judge_model(
         assessment_name: The name of the assessment.
         trace: Optional trace object for context.
         num_retries: Number of retries on transient failures when using litellm.
-        output_format: Optional Pydantic model class for structured output format.
-                       If not provided, defaults to the standard Judge output format
-                       with 'result' and 'rationale' fields.
 
     Returns:
         Feedback object with the judge's assessment.
@@ -512,7 +516,6 @@ def invoke_judge_model(
             messages=messages,
             trace=trace,
             num_retries=num_retries,
-            output_format=output_format,
         )
     elif trace is not None:
         raise MlflowException(
@@ -533,32 +536,110 @@ def invoke_judge_model(
             error_code=BAD_REQUEST,
         ) from e
 
-    if output_format:
-        feedback = Feedback(
-            name=assessment_name,
-            value=cleaned_response,
-            source=AssessmentSource(
-                source_type=AssessmentSourceType.LLM_JUDGE, source_id=model_uri
-            ),
-        )
-    else:
-        feedback = Feedback(
-            name=assessment_name,
-            value=response_dict["result"],
-            rationale=_sanitize_justification(response_dict.get("rationale", "")),
-            source=AssessmentSource(
-                source_type=AssessmentSourceType.LLM_JUDGE, source_id=model_uri
-            ),
-        )
+    feedback = Feedback(
+        name=assessment_name,
+        value=response_dict["result"],
+        rationale=_sanitize_justification(response_dict.get("rationale", "")),
+        source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id=model_uri),
+    )
 
-        if "error" in response_dict:
-            feedback.error = response_dict["error"]
-            raise MlflowException(
-                f"Judge evaluation failed with error: {response_dict['error']}",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
+    if "error" in response_dict:
+        feedback.error = response_dict["error"]
+        raise MlflowException(
+            f"Judge evaluation failed with error: {response_dict['error']}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
     return feedback
+
+
+def extract_structured_output(
+    model_uri: str,
+    messages: list["ChatMessage"],
+    output_schema: type[pydantic.BaseModel],
+    trace: Trace | None = None,
+    num_retries: int = 10,
+) -> pydantic.BaseModel:
+    """
+    Extract structured output from an LLM using a Pydantic schema.
+
+    This utility is primarily used for extracting information from MLflow traces
+    where the root span may not contain the actual inputs/outputs (e.g., when
+    users wrap their application with a no-op root span). The LLM uses tool
+    calling to examine nested spans within the trace to find the actual data.
+
+    Args:
+        model_uri: The model URI (e.g., "openai:/gpt-4", "anthropic:/claude-3").
+        messages: List of ChatMessage objects for the conversation with the LLM.
+        output_schema: Pydantic model class defining the expected output structure.
+                       The LLM will be instructed to return data matching this schema.
+        trace: Optional trace object for context. When provided, enables tool
+               calling to examine trace spans for information extraction.
+        num_retries: Number of retries on transient failures when using litellm.
+                     Defaults to 10 with exponential backoff.
+
+    Returns:
+        Instance of output_schema with extracted data.
+
+    Raises:
+        Natural Python exceptions (JSONDecodeError, ValidationError) on failures.
+
+    Example:
+        .. code-block:: python
+
+            from pydantic import BaseModel, Field
+            from mlflow.genai.judges.utils import extract_structured_output
+            from mlflow.types.llm import ChatMessage
+
+
+            class FieldExtraction(BaseModel):
+                inputs: str = Field(description="The user's original request")
+                outputs: str = Field(description="The system's final response")
+
+
+            # Extract fields from a trace where root span lacks input/output
+            # but nested spans contain the actual data
+            result = extract_structured_output(
+                model_uri="openai:/gpt-4",
+                messages=[
+                    ChatMessage(role="system", content="Extract fields from the trace"),
+                    ChatMessage(role="user", content="Find the inputs and outputs"),
+                ],
+                output_schema=FieldExtraction,
+                trace=trace,  # Trace with nested spans containing actual data
+            )
+            print(result.inputs)  # Extracted from inner span
+            print(result.outputs)  # Extracted from inner span
+    """
+    from mlflow.metrics.genai.model_utils import _parse_model_uri
+
+    model_provider, model_name = _parse_model_uri(model_uri)
+
+    if not _is_litellm_available():
+        # NB: We log a warning here to inform users about the missing dependency, but we also
+        # raise an exception to signal failure. Callers catch this
+        # exception and handle it gracefully by returning None fields. The scorer then provides
+        # a context-specific error message (e.g., "Scorer requires inputs and outputs").
+        # This approach gives users both diagnostic info (the warning) and a clear action to take
+        # (the scorer's error message about what's actually needed).
+        _logger.warning(
+            "LiteLLM is not available. Structured output extraction from traces requires LiteLLM. "
+            "Install it with `pip install litellm` to enable automatic field extraction."
+        )
+        raise ImportError("LiteLLM is required but not installed")
+
+    response = _invoke_litellm(
+        provider=model_provider,
+        model_name=model_name,
+        messages=messages,
+        trace=trace,
+        num_retries=num_retries,
+        output_format=output_schema,
+    )
+
+    cleaned_response = _strip_markdown_code_blocks(response)
+    response_dict = json.loads(cleaned_response)
+    return output_schema(**response_dict)
 
 
 @dataclass
@@ -936,10 +1017,10 @@ def _invoke_litellm(
     messages: list["ChatMessage"],
     trace: Trace | None,
     num_retries: int,
-    output_format: type["BaseModel"] | None = None,
+    output_format: type[pydantic.BaseModel] | None = None,
 ) -> str:
     """
-    Invoke the judge via litellm with retry support.
+    Invoke the LLM via litellm with retry support.
 
     Args:
         provider: The provider name (e.g., 'openai', 'anthropic').
@@ -948,6 +1029,7 @@ def _invoke_litellm(
         trace: Optional trace object for context with tool calling support.
         num_retries: Number of retries with exponential backoff on transient failures.
         output_format: Optional Pydantic model class for structured output format.
+                       Used by extract_structured_output for schema-based extraction.
 
     Returns:
         The model's response content.

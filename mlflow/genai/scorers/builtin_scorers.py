@@ -1,9 +1,8 @@
-import json
 from abc import abstractmethod
 from dataclasses import asdict, dataclass
 from typing import Any
 
-from pydantic import BaseModel, Field
+import pydantic
 
 import mlflow
 from mlflow.entities.assessment import Feedback
@@ -18,7 +17,13 @@ from mlflow.genai.judges.prompts.correctness import CORRECTNESS_PROMPT_INSTRUCTI
 from mlflow.genai.judges.prompts.groundedness import GROUNDEDNESS_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.guidelines import GUIDELINES_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.relevance_to_query import RELEVANCE_TO_QUERY_PROMPT_INSTRUCTIONS
-from mlflow.genai.judges.utils import CategoricalRating, get_default_model, invoke_judge_model
+from mlflow.genai.judges.utils import (
+    CategoricalRating,
+    FieldExtraction,
+    extract_structured_output,
+    get_default_model,
+    invoke_judge_model,
+)
 from mlflow.genai.scorers.base import (
     _SERIALIZATION_VERSION,
     ScorerKind,
@@ -71,45 +76,39 @@ def resolve_scorer_fields(
         expectations = resolve_expectations_from_trace(expectations, trace)
 
     if inputs is None or outputs is None:
-
-        class FieldExtraction(BaseModel):
-            inputs: str = Field(description="The user's original request or question")
-            outputs: str = Field(description="The system's final response")
-
-        system_prompt = (
-            "Extract the user's original input and the system's final output from the trace.\n"
-            "Use the provided tools to examine the trace's spans to find:\n"
-            "- inputs: The initial user request/question\n"
-            "- outputs: The final system response\n"
-            "\n"
-            "Return the result as a JSON object with exactly these fields:\n"
-            '{"inputs": "...", "outputs": "..."}'
-        )
-
-        user_prompt = "Use the tools to find the inputs and outputs, then return them as JSON."
-
         from mlflow.types.llm import ChatMessage
 
-        messages = [
-            ChatMessage(role="system", content=system_prompt),
-            ChatMessage(role="user", content=user_prompt),
+        prompt = [
+            ChatMessage(
+                role="system",
+                content=(
+                    "Extract the user's original input and the system's final output "
+                    "from the trace.\n"
+                    "Use the provided tools to examine the trace's spans to find:\n"
+                    "- inputs: The initial user request/question\n"
+                    "- outputs: The final system response\n"
+                    "\n"
+                    "Return the result as a JSON object with exactly these fields:\n"
+                    '{"inputs": "...", "outputs": "..."}'
+                ),
+            ),
+            ChatMessage(
+                role="user",
+                content="Use the tools to find the inputs and outputs, then return them as JSON.",
+            ),
         ]
 
-        feedback = invoke_judge_model(
-            model_uri=model or get_default_model(),
-            prompt=messages,
-            assessment_name="field_extraction",
-            output_format=FieldExtraction,
-            trace=trace,
-        )
-
-        if feedback and feedback.value:
-            try:
-                extracted = json.loads(feedback.value)
-                inputs = inputs or extracted.get("inputs")
-                outputs = outputs or extracted.get("outputs")
-            except (json.JSONDecodeError, AttributeError):
-                pass
+        try:
+            extracted = extract_structured_output(
+                model_uri=model or get_default_model(),
+                messages=prompt,
+                output_schema=FieldExtraction,
+                trace=trace,
+            )
+            inputs = inputs or extracted.inputs
+            outputs = outputs or extracted.outputs
+        except Exception:
+            pass
 
     return ExtractedFields(inputs=inputs, outputs=outputs, expectations=expectations)
 
@@ -180,9 +179,7 @@ class BuiltInScorer(Judge):
 
     def model_dump(self, **kwargs) -> dict[str, Any]:
         """Override model_dump to handle builtin scorer serialization."""
-        from pydantic import BaseModel
-
-        pydantic_model_data = BaseModel.model_dump(self, mode="json", **kwargs)
+        pydantic_model_data = pydantic.BaseModel.model_dump(self, mode="json", **kwargs)
         pydantic_model_data["instructions"] = self.instructions
 
         serialized = SerializedScorer(
