@@ -644,7 +644,7 @@ class AbstractStore:
 
         for i in range(0, max_results):
             idx = start_idx + int(i * interval)
-            if idx < num_steps:
+            if idx < end_idx:
                 sampled_steps.append(all_steps[idx])
 
         sampled_steps.append(all_steps[end_idx - 1])
