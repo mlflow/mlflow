@@ -19,8 +19,6 @@ import {
   PROMPT_TYPE_CHAT,
   PROMPT_TYPE_TEXT,
 } from '../utils';
-import { CollapsibleSection } from '@mlflow/mlflow/src/common/components/CollapsibleSection';
-import { EditableTagsTableView } from '@mlflow/mlflow/src/common/components/EditableTagsTableView';
 import { ChatPromptMessage } from '../types';
 import { ChatMessageCreator } from '../components/ChatMessageCreator';
 
@@ -49,7 +47,7 @@ export const useCreatePromptModal = ({
     chatMessages: ChatPromptMessage[];
     commitMessage: string;
     tags: { key: string; value: string }[];
-    promptType: string;
+    promptType: typeof PROMPT_TYPE_CHAT | typeof PROMPT_TYPE_TEXT;
   }>({
     defaultValues: {
       draftName: '',
@@ -122,6 +120,7 @@ export const useCreatePromptModal = ({
               commitMessage: values.commitMessage,
               promptName,
               tags: values.tags,
+              promptType: values.promptType,
             },
             {
               onSuccess: (data) => {

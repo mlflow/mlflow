@@ -218,7 +218,7 @@ variables = {
    ...
 }
 
-messages = prompt.format_messages(**variables)
+messages = prompt.format(**variables)
 response = client.chat.completions.create(
     messages=messages,
     model="gpt-4o-mini",
