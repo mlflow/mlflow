@@ -796,8 +796,8 @@ mlflow.genai.optimize.types.EvaluationResultRecord
 mlflow.genai.optimize.types.LLMParams
 mlflow.genai.optimize.types.OptimizerConfig
 mlflow.genai.optimize.types.OptimizerOutput
-mlflow.genai.optimize.types.PromptAdapterOutput
 mlflow.genai.optimize.types.PromptAdaptationResult
+mlflow.genai.optimize.types.PromptAdapterOutput
 mlflow.genai.optimize.types.PromptOptimizationResult
 mlflow.genai.optimize_prompt
 mlflow.genai.register_prompt
