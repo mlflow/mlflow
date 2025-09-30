@@ -118,3 +118,12 @@ class OptimizerOutput:
     optimizer_name: str
     final_eval_score: float | None = None
     initial_eval_score: float | None = None
+
+
+@experimental(version="3.5.0")
+@dataclass
+class EvaluationResultRecord:
+    inputs: dict[str, Any]
+    outputs: Any
+    score: float
+    trace: Any
