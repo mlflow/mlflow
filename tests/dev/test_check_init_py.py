@@ -170,7 +170,6 @@ def test_exits_with_0_when_tests_directories_have_init_py(temp_git_repo: Path) -
 
 
 def test_ignores_non_test_files_in_tests_directory(temp_git_repo: Path) -> None:
-    """Non-test files in tests directory are ignored."""
     tests_dir = temp_git_repo / "tests"
     test_package_dir = tests_dir / "test_package"
     test_package_dir.mkdir(parents=True)
@@ -195,7 +194,6 @@ def test_ignores_non_test_files_in_tests_directory(temp_git_repo: Path) -> None:
 
 
 def test_checks_all_parent_directories(temp_git_repo: Path) -> None:
-    """All parent directories of Python files should have __init__.py."""
     mlflow_dir = temp_git_repo / "mlflow"
     deep_dir = mlflow_dir / "level1" / "level2" / "level3"
     deep_dir.mkdir(parents=True)
