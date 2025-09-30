@@ -3,12 +3,14 @@ from abc import abstractmethod
 from dataclasses import asdict, dataclass
 from typing import Any
 
+from pydantic import BaseModel, Field
+
 import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai import judges
-from mlflow.genai.judges import make_judge
+from mlflow.genai.judges.base import Judge, JudgeField
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.constants import _AFFIRMATIVE_VALUES, _NEGATIVE_VALUES
 from mlflow.genai.judges.prompts.context_sufficiency import CONTEXT_SUFFICIENCY_PROMPT_INSTRUCTIONS
@@ -32,13 +34,12 @@ from mlflow.genai.utils.trace_utils import (
     resolve_inputs_from_trace,
     resolve_outputs_from_trace,
 )
+from mlflow.types.llm import ChatMessage
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
 from mlflow.utils.uri import is_databricks_uri
 
 GENAI_CONFIG_NAME = "databricks-agent"
-
-from mlflow.genai.judges.base import Judge, JudgeField
 
 
 @dataclass
@@ -48,7 +49,7 @@ class ExtractedFields:
     expectations: dict[str, Any] | None = None
 
 
-def _extract_fields_from_trace(
+def resolve_scorer_fields(
     trace: Trace | None,
     inputs: Any | None = None,
     outputs: Any | None = None,
@@ -57,7 +58,7 @@ def _extract_fields_from_trace(
     extract_expectations: bool = False,
 ) -> ExtractedFields:
     """
-    Extract fields from trace using built-in utilities first, then LLM fallback if needed.
+    Resolve scorer fields from provided values or extract from trace if needed.
 
     Returns:
         ExtractedFields dataclass containing inputs, outputs, and expectations
@@ -71,24 +72,42 @@ def _extract_fields_from_trace(
         expectations = resolve_expectations_from_trace(expectations, trace)
 
     if inputs is None or outputs is None:
-        extraction_judge = make_judge(
-            name="field_extractor",
-            instructions=(
-                "Extract the following information from {{ trace }}:\n"
-                "- inputs: The user's request or question\n"
-                "- outputs: The system's response\n"
-                'Return as JSON: {"inputs": "...", "outputs": "..."}'
-            ),
-            model=model or get_default_model(),
-        )
-        result = extraction_judge(trace=trace)
 
-        if result and result.value:
+        class FieldExtraction(BaseModel):
+            inputs: str = Field(description="The user's original request or question")
+            outputs: str = Field(description="The system's final response")
+
+        system_prompt = (
+            "Extract the user's original input and the system's final output from the trace.\n"
+            "Use the provided tools to examine the trace's spans to find:\n"
+            "- inputs: The initial user request/question\n"
+            "- outputs: The final system response\n"
+            "\n"
+            "Return the result as a JSON object with exactly these fields:\n"
+            '{"inputs": "...", "outputs": "..."}'
+        )
+
+        user_prompt = "Use the tools to find the inputs and outputs, then return them as JSON."
+
+        messages = [
+            ChatMessage(role="system", content=system_prompt),
+            ChatMessage(role="user", content=user_prompt),
+        ]
+
+        feedback = invoke_judge_model(
+            model_uri=model or get_default_model(),
+            prompt=messages,
+            assessment_name="field_extraction",
+            output_format=FieldExtraction,
+            trace=trace,
+        )
+
+        if feedback and feedback.value:
             try:
-                extracted = json.loads(result.value)
+                extracted = json.loads(feedback.value)
                 inputs = inputs or extracted.get("inputs")
                 outputs = outputs or extracted.get("outputs")
-            except json.JSONDecodeError:
+            except (json.JSONDecodeError, AttributeError):
                 pass
 
     return ExtractedFields(inputs=inputs, outputs=outputs, expectations=expectations)
@@ -667,9 +686,10 @@ class Guidelines(BuiltInScorer):
         Evaluate adherence to specified guidelines.
 
         This scorer can be used in two ways:
-        1. **With a trace (recommended)**: Pass an MLflow trace object to automatically extract
+        1. **With a trace**: Pass an MLflow trace object to automatically extract
            and evaluate the inputs and outputs from the trace's execution.
         2. **With explicit inputs/outputs**: Directly provide the inputs and outputs to evaluate.
+           This approach is more stable and predictable than trace extraction.
 
         Args:
             inputs: A dictionary of input data, e.g. {"question": "What is the capital of France?"}.
@@ -683,7 +703,7 @@ class Guidelines(BuiltInScorer):
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
             indicating the adherence to the specified guidelines.
         """
-        fields = _extract_fields_from_trace(trace, inputs, outputs, model=self.model)
+        fields = resolve_scorer_fields(trace, inputs, outputs, model=self.model)
 
         if fields.inputs is None or fields.outputs is None:
             _raise_missing_fields_error("Guidelines", ["inputs", "outputs"])
@@ -799,10 +819,10 @@ class ExpectationsGuidelines(BuiltInScorer):
         Evaluate adherence to specified guidelines.
 
         This scorer can be used in two ways:
-        1. **With a trace (recommended)**: Pass an MLflow trace object to automatically extract
+        1. **With a trace**: Pass an MLflow trace object to automatically extract
            and evaluate inputs, outputs, and expectations from the trace's execution.
         2. **With explicit parameters**: Directly provide the inputs, outputs, and expectations
-           to evaluate.
+           to evaluate. This approach is more stable and predictable than trace extraction.
 
         Args:
             inputs: A dictionary of input data, e.g. {"question": "What is the capital of France?"}.
@@ -822,7 +842,7 @@ class ExpectationsGuidelines(BuiltInScorer):
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
             indicating the adherence to the specified guidelines.
         """
-        fields = _extract_fields_from_trace(
+        fields = resolve_scorer_fields(
             trace, inputs, outputs, expectations, model=self.model, extract_expectations=True
         )
 
@@ -928,9 +948,10 @@ class RelevanceToQuery(BuiltInScorer):
         Evaluate relevance to the user's query.
 
         This scorer can be used in two ways:
-        1. **With a trace (recommended)**: Pass an MLflow trace object to automatically extract
+        1. **With a trace**: Pass an MLflow trace object to automatically extract
            and evaluate the inputs and outputs from the trace's execution.
         2. **With explicit inputs/outputs**: Directly provide the inputs and outputs to evaluate.
+           This approach is more stable and predictable than trace extraction.
 
         Args:
             inputs: A dictionary of input data, e.g. {"question": "What is the capital of France?"}.
@@ -944,7 +965,7 @@ class RelevanceToQuery(BuiltInScorer):
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
             indicating the relevance of the response to the query.
         """
-        fields = _extract_fields_from_trace(trace, inputs, outputs, model=self.model)
+        fields = resolve_scorer_fields(trace, inputs, outputs, model=self.model)
 
         if fields.inputs is None or fields.outputs is None:
             _raise_missing_fields_error("RelevanceToQuery", ["inputs", "outputs"])
@@ -1032,9 +1053,10 @@ class Safety(BuiltInScorer):
         Evaluate safety of the response.
 
         This scorer can be used in two ways:
-        1. **With a trace (recommended)**: Pass an MLflow trace object to automatically extract
+        1. **With a trace**: Pass an MLflow trace object to automatically extract
            and evaluate the outputs from the trace's execution.
         2. **With explicit outputs**: Directly provide the outputs to evaluate.
+           This approach is more stable and predictable than trace extraction.
 
         Args:
             outputs: The response from the model, e.g. "The capital of France is Paris."
@@ -1046,7 +1068,7 @@ class Safety(BuiltInScorer):
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
             indicating the safety of the response.
         """
-        fields = _extract_fields_from_trace(trace, outputs=outputs, model=self.model)
+        fields = resolve_scorer_fields(trace, outputs=outputs, model=self.model)
 
         if fields.outputs is None:
             _raise_missing_fields_error("Safety", ["outputs"])
@@ -1186,10 +1208,10 @@ class Correctness(BuiltInScorer):
         Evaluate correctness of the response against expectations.
 
         This scorer can be used in two ways:
-        1. **With a trace (recommended)**: Pass an MLflow trace object to automatically extract
+        1. **With a trace**: Pass an MLflow trace object to automatically extract
            inputs, outputs, and expectations from the trace's execution and assessments.
         2. **With explicit parameters**: Directly provide inputs, outputs, and expectations to
-           evaluate.
+           evaluate. This approach is more stable and predictable than trace extraction.
 
         Args:
             inputs: A dictionary of input data, e.g. {"question": "What is the capital of France?"}.
@@ -1206,7 +1228,7 @@ class Correctness(BuiltInScorer):
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
             indicating the correctness of the response.
         """
-        fields = _extract_fields_from_trace(
+        fields = resolve_scorer_fields(
             trace, inputs, outputs, expectations, model=self.model, extract_expectations=True
         )
 

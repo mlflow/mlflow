@@ -14,6 +14,7 @@ import requests
 
 if TYPE_CHECKING:
     import litellm
+    from pydantic import BaseModel
 
     from mlflow.genai.judges.base import AlignmentOptimizer, JudgeField
     from mlflow.types.llm import ChatMessage, ToolCall
@@ -171,6 +172,37 @@ Please provide your assessment in the following JSON format only (no markdown):
 
 {json_format}"""
     return prompt + output_format_instructions
+
+
+def _strip_markdown_code_blocks(response: str) -> str:
+    """
+    Strip markdown code blocks from LLM responses.
+
+    Some legacy models wrap JSON responses in markdown code blocks (```json...```).
+    This function removes those wrappers to extract the raw JSON content.
+
+    Args:
+        response: The raw response from the LLM
+
+    Returns:
+        The response with markdown code blocks removed
+    """
+    cleaned = response.strip()
+    if not cleaned.startswith("```"):
+        return cleaned
+
+    lines = cleaned.split("\n")
+    start_idx = 0
+    end_idx = len(lines)
+
+    for i, line in enumerate(lines):
+        if i == 0 and line.startswith("```"):
+            start_idx = 1
+        elif line.strip() == "```" and i > 0:
+            end_idx = i
+            break
+
+    return "\n".join(lines[start_idx:end_idx])
 
 
 def _sanitize_justification(justification: str) -> str:
@@ -387,6 +419,7 @@ def invoke_judge_model(
     assessment_name: str,
     trace: Trace | None = None,
     num_retries: int = 10,
+    output_format: type["BaseModel"] | None = None,
 ) -> Feedback:
     """
     Invoke the judge model.
@@ -404,6 +437,9 @@ def invoke_judge_model(
         assessment_name: The name of the assessment.
         trace: Optional trace object for context.
         num_retries: Number of retries on transient failures when using litellm.
+        output_format: Optional Pydantic model class for structured output format.
+                       If not provided, defaults to the standard Judge output format
+                       with 'result' and 'rationale' fields.
 
     Returns:
         Feedback object with the judge's assessment.
@@ -476,6 +512,7 @@ def invoke_judge_model(
             messages=messages,
             trace=trace,
             num_retries=num_retries,
+            output_format=output_format,
         )
     elif trace is not None:
         raise MlflowException(
@@ -486,27 +523,40 @@ def invoke_judge_model(
     else:
         response = _invoke_via_gateway(model_uri, model_provider, messages)
 
+    cleaned_response = _strip_markdown_code_blocks(response)
+
     try:
-        response_dict = json.loads(response)
+        response_dict = json.loads(cleaned_response)
     except json.JSONDecodeError as e:
         raise MlflowException(
             f"Failed to parse response from judge model. Response: {response}",
             error_code=BAD_REQUEST,
         ) from e
 
-    feedback = Feedback(
-        name=assessment_name,
-        value=response_dict["result"],
-        rationale=_sanitize_justification(response_dict.get("rationale", "")),
-        source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id=model_uri),
-    )
-
-    if "error" in response_dict:
-        feedback.error = response_dict["error"]
-        raise MlflowException(
-            f"Judge evaluation failed with error: {response_dict['error']}",
-            error_code=INVALID_PARAMETER_VALUE,
+    if output_format:
+        feedback = Feedback(
+            name=assessment_name,
+            value=cleaned_response,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE, source_id=model_uri
+            ),
         )
+    else:
+        feedback = Feedback(
+            name=assessment_name,
+            value=response_dict["result"],
+            rationale=_sanitize_justification(response_dict.get("rationale", "")),
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE, source_id=model_uri
+            ),
+        )
+
+        if "error" in response_dict:
+            feedback.error = response_dict["error"]
+            raise MlflowException(
+                f"Judge evaluation failed with error: {response_dict['error']}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
     return feedback
 
@@ -886,6 +936,7 @@ def _invoke_litellm(
     messages: list["ChatMessage"],
     trace: Trace | None,
     num_retries: int,
+    output_format: type["BaseModel"] | None = None,
 ) -> str:
     """
     Invoke the judge via litellm with retry support.
@@ -896,6 +947,7 @@ def _invoke_litellm(
         messages: List of ChatMessage objects.
         trace: Optional trace object for context with tool calling support.
         num_retries: Number of retries with exponential backoff on transient failures.
+        output_format: Optional Pydantic model class for structured output format.
 
     Returns:
         The model's response content.
@@ -937,7 +989,7 @@ def _invoke_litellm(
             "drop_params": True,
         }
         if include_response_format:
-            kwargs["response_format"] = _get_judge_response_format()
+            kwargs["response_format"] = _get_judge_response_format(output_format)
         return litellm.completion(**kwargs)
 
     def _prune_messages_for_context_window():
@@ -1094,13 +1146,27 @@ def _create_litellm_tool_response_message(
     )
 
 
-def _get_judge_response_format() -> dict[str, Any]:
+def _get_judge_response_format(output_format: type["BaseModel"] | None = None) -> dict[str, Any]:
     """
     Get the response format for judge evaluations.
+
+    Args:
+        output_format: Optional Pydantic model class for custom output format.
 
     Returns:
         A dictionary containing the JSON schema for structured outputs.
     """
+    if output_format:
+        schema = output_format.model_json_schema()
+        return {
+            "type": "json_schema",
+            "json_schema": {
+                "name": output_format.__name__.lower(),
+                "strict": True,
+                "schema": schema,
+            },
+        }
+
     # Import here to avoid circular imports
     from mlflow.genai.judges.base import Judge
 

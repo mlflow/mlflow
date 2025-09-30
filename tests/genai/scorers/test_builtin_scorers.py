@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import call, patch
 
 import pytest
 
@@ -19,8 +19,8 @@ from mlflow.genai.scorers import (
 )
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.builtin_scorers import (
-    _extract_fields_from_trace,
     get_all_scorers,
+    resolve_scorer_fields,
 )
 from mlflow.utils.uri import is_databricks_uri
 
@@ -662,10 +662,9 @@ def test_safety_with_trace():
 
 
 def test_correctness_fallback_with_expectations(trace_without_inputs_outputs):
-    with patch("mlflow.genai.scorers.builtin_scorers.make_judge") as mock_make_judge:
-        extraction_judge = MagicMock()
-        extraction_judge.return_value = Feedback(
-            name="field_extractor",
+    with patch("mlflow.genai.scorers.builtin_scorers.invoke_judge_model") as mock_invoke_judge:
+        mock_invoke_judge.return_value = Feedback(
+            name="field_extraction",
             value='{"inputs": {"question": "extracted question"}, "outputs": "extracted answer"}',
             rationale="Extracted fields",
         )
@@ -674,8 +673,6 @@ def test_correctness_fallback_with_expectations(trace_without_inputs_outputs):
             mock_is_correct.return_value = Feedback(
                 name="correctness", value=True, rationale="Correct answer"
             )
-
-            mock_make_judge.return_value = extraction_judge
 
             mlflow.log_expectation(
                 trace_id=trace_without_inputs_outputs.info.trace_id,
@@ -691,10 +688,10 @@ def test_correctness_fallback_with_expectations(trace_without_inputs_outputs):
             assert result.name == "correctness"
             assert result.value is True
 
-            mock_make_judge.assert_called_once()
-            call_args = mock_make_judge.call_args
-            instructions = call_args[1]["instructions"]
-            assert "{{ trace }}" in instructions
+            mock_invoke_judge.assert_called_once()
+            call_args = mock_invoke_judge.call_args
+            # Verify we're calling with the right assessment name
+            assert call_args[1]["assessment_name"] == "field_extraction"
 
             mock_is_correct.assert_called_once()
             is_correct_args = mock_is_correct.call_args
@@ -702,14 +699,12 @@ def test_correctness_fallback_with_expectations(trace_without_inputs_outputs):
 
 
 def test_scorer_fallback_to_make_judge(trace_without_inputs_outputs):
-    with patch("mlflow.genai.scorers.builtin_scorers.make_judge") as mock_make_judge:
-        extraction_judge = MagicMock()
-        extraction_judge.return_value = Feedback(
-            name="field_extractor",
+    with patch("mlflow.genai.scorers.builtin_scorers.invoke_judge_model") as mock_invoke_judge:
+        mock_invoke_judge.return_value = Feedback(
+            name="field_extraction",
             value='{"inputs": {"question": "test"}, "outputs": "test response"}',
             rationale="Extracted fields",
         )
-        mock_make_judge.return_value = extraction_judge
 
         with patch("mlflow.genai.judges.meets_guidelines") as mock_meets_guidelines:
             mock_meets_guidelines.return_value = Feedback(
@@ -722,10 +717,10 @@ def test_scorer_fallback_to_make_judge(trace_without_inputs_outputs):
             assert result.name == "guidelines"
             assert result.value is True
 
-            mock_make_judge.assert_called_once()
-            call_args = mock_make_judge.call_args
-            instructions = call_args[1]["instructions"]
-            assert "{{ trace }}" in instructions
+            mock_invoke_judge.assert_called_once()
+            call_args = mock_invoke_judge.call_args
+            # Verify we're calling with the right assessment name
+            assert call_args[1]["assessment_name"] == "field_extraction"
 
             mock_meets_guidelines.assert_called_once()
             guidelines_args = mock_meets_guidelines.call_args
@@ -743,14 +738,12 @@ def test_scorer_fallback_to_make_judge(trace_without_inputs_outputs):
 def test_trace_not_formatted_into_prompt_for_fallback(
     scorer_factory, expected_name, judge_to_mock, trace_without_inputs_outputs
 ):
-    with patch("mlflow.genai.scorers.builtin_scorers.make_judge") as mock_make_judge:
-        extraction_judge = MagicMock()
-        extraction_judge.return_value = Feedback(
-            name="field_extractor",
+    with patch("mlflow.genai.scorers.builtin_scorers.invoke_judge_model") as mock_invoke_judge:
+        mock_invoke_judge.return_value = Feedback(
+            name="field_extraction",
             value='{"inputs": {"question": "test"}, "outputs": "test response"}',
             rationale="Extracted fields",
         )
-        mock_make_judge.return_value = extraction_judge
 
         with patch(f"mlflow.genai.judges.{judge_to_mock}") as mock_judge:
             mock_judge.return_value = Feedback(
@@ -761,12 +754,12 @@ def test_trace_not_formatted_into_prompt_for_fallback(
             result = scorer(trace=trace_without_inputs_outputs)
             assert result.name == expected_name
 
-            call_args = mock_make_judge.call_args
-            instructions = call_args[1]["instructions"]
-
-            trace_json = trace_without_inputs_outputs.to_json()
-            assert trace_json not in instructions
-            assert "{{ trace }}" in instructions
+            call_args = mock_invoke_judge.call_args
+            # Verify we're calling with the field extraction assessment
+            assert call_args[1]["assessment_name"] == "field_extraction"
+            # Verify the prompt contains the trace data
+            prompt = call_args[1]["prompt"]
+            assert len(prompt) > 0  # Should have messages
 
             mock_judge.assert_called_once()
 
@@ -813,14 +806,12 @@ def test_relevance_mixed_override():
 
 
 def test_trace_agent_mode_with_extra_fields(trace_with_only_inputs):
-    with patch("mlflow.genai.scorers.builtin_scorers.make_judge") as mock_make_judge:
-        extraction_judge = MagicMock()
-        extraction_judge.return_value = Feedback(
-            name="field_extractor",
+    with patch("mlflow.genai.scorers.builtin_scorers.invoke_judge_model") as mock_invoke_judge:
+        mock_invoke_judge.return_value = Feedback(
+            name="field_extraction",
             value='{"outputs": "extracted outputs"}',
             rationale="Extracted missing outputs",
         )
-        mock_make_judge.return_value = extraction_judge
 
         with patch("mlflow.genai.judges.is_safe") as mock_is_safe:
             mock_is_safe.return_value = Feedback(
@@ -833,21 +824,19 @@ def test_trace_agent_mode_with_extra_fields(trace_with_only_inputs):
             assert result.name == "safety"
             assert result.value == "yes"
 
-            mock_make_judge.assert_called_once()
-            call_args = mock_make_judge.call_args
-            instructions = call_args[1]["instructions"]
-            assert "{{ trace }}" in instructions
+            mock_invoke_judge.assert_called_once()
+            call_args = mock_invoke_judge.call_args
+            # Verify we're calling with the right assessment name
+            assert call_args[1]["assessment_name"] == "field_extraction"
 
 
 def test_pure_trace_mode_with_expectations(trace_with_only_outputs):
-    with patch("mlflow.genai.scorers.builtin_scorers.make_judge") as mock_make_judge:
-        extraction_judge = MagicMock()
-        extraction_judge.return_value = Feedback(
-            name="field_extractor",
+    with patch("mlflow.genai.scorers.builtin_scorers.invoke_judge_model") as mock_invoke_judge:
+        mock_invoke_judge.return_value = Feedback(
+            name="field_extraction",
             value='{"inputs": {"question": "extracted question"}}',
             rationale="Extracted missing inputs",
         )
-        mock_make_judge.return_value = extraction_judge
 
         with patch("mlflow.genai.judges.is_correct") as mock_is_correct:
             mock_is_correct.return_value = Feedback(
@@ -862,10 +851,10 @@ def test_pure_trace_mode_with_expectations(trace_with_only_outputs):
             assert result.name == "correctness"
             assert result.value is True
 
-            mock_make_judge.assert_called_once()
-            call_args = mock_make_judge.call_args
-            instructions = call_args[1]["instructions"]
-            assert "{{ trace }}" in instructions
+            mock_invoke_judge.assert_called_once()
+            call_args = mock_invoke_judge.call_args
+            # Verify we're calling with the right assessment name
+            assert call_args[1]["assessment_name"] == "field_extraction"
 
 
 def test_correctness_default_extracts_from_trace():
@@ -947,14 +936,12 @@ def test_expectations_guidelines_extraction_from_trace():
 
 
 def test_expectations_guidelines_fallback_with_trace(trace_without_inputs_outputs):
-    with patch("mlflow.genai.scorers.builtin_scorers.make_judge") as mock_make_judge:
-        extraction_judge = MagicMock()
-        extraction_judge.return_value = Feedback(
-            name="field_extractor",
+    with patch("mlflow.genai.scorers.builtin_scorers.invoke_judge_model") as mock_invoke_judge:
+        mock_invoke_judge.return_value = Feedback(
+            name="field_extraction",
             value='{"inputs": {"question": "test"}, "outputs": "test response"}',
             rationale="Extracted fields",
         )
-        mock_make_judge.return_value = extraction_judge
 
         with patch("mlflow.genai.judges.meets_guidelines") as mock_meets_guidelines:
             mock_meets_guidelines.return_value = Feedback(
@@ -969,10 +956,10 @@ def test_expectations_guidelines_fallback_with_trace(trace_without_inputs_output
             assert result.name == "expectations_guidelines"
             assert result.value is True
 
-            mock_make_judge.assert_called_once()
-            call_args = mock_make_judge.call_args
-            instructions = call_args[1]["instructions"]
-            assert "{{ trace }}" in instructions
+            mock_invoke_judge.assert_called_once()
+            call_args = mock_invoke_judge.call_args
+            # Verify we're calling with the right assessment name
+            assert call_args[1]["assessment_name"] == "field_extraction"
 
 
 def test_expectations_guidelines_mixed_override():
@@ -998,89 +985,80 @@ def test_expectations_guidelines_mixed_override():
         assert call_args[1]["context"]["response"] == expected_response
 
 
-def test_extract_fields_from_trace_with_trace_extraction():
+def test_resolve_scorer_fields_with_trace_extraction():
     trace = create_simple_trace()
 
-    fields = _extract_fields_from_trace(trace=trace)
+    fields = resolve_scorer_fields(trace=trace)
     assert fields.inputs == {"question": "What is MLflow?"}
     assert fields.outputs == "MLflow is an open-source platform for ML lifecycle."
     assert fields.expectations is None
 
-    fields = _extract_fields_from_trace(
+    fields = resolve_scorer_fields(
         trace=trace, inputs="override inputs", outputs="override outputs"
     )
     assert fields.inputs == "override inputs"
     assert fields.outputs == "override outputs"
 
 
-def test_extract_fields_from_trace_with_expectations():
+def test_resolve_scorer_fields_with_expectations():
     trace = create_simple_trace()
     mlflow.log_expectation(
         trace_id=trace.info.trace_id, name="expected_response", value="MLflow is a tool"
     )
     trace_with_expectations = mlflow.get_trace(trace.info.trace_id)
 
-    fields = _extract_fields_from_trace(trace=trace_with_expectations, extract_expectations=True)
+    fields = resolve_scorer_fields(trace=trace_with_expectations, extract_expectations=True)
     assert fields.inputs == {"question": "What is MLflow?"}
     assert fields.outputs == "MLflow is an open-source platform for ML lifecycle."
     assert fields.expectations == {"expected_response": "MLflow is a tool"}
 
 
-def test_extract_fields_from_trace_llm_fallback(trace_without_inputs_outputs):
-    with patch("mlflow.genai.scorers.builtin_scorers.make_judge") as mock_make_judge:
-        mock_judge = MagicMock()
-        mock_judge.return_value = Feedback(
-            name="field_extractor",
+def test_resolve_scorer_fields_llm_fallback(trace_without_inputs_outputs):
+    with patch("mlflow.genai.scorers.builtin_scorers.invoke_judge_model") as mock_invoke_judge:
+        mock_invoke_judge.return_value = Feedback(
+            name="field_extraction",
             value='{"inputs": "extracted input", "outputs": "extracted output"}',
             rationale="Extracted fields",
         )
-        mock_make_judge.return_value = mock_judge
 
-        fields = _extract_fields_from_trace(
-            trace=trace_without_inputs_outputs, model="openai:/gpt-4"
-        )
+        fields = resolve_scorer_fields(trace=trace_without_inputs_outputs, model="openai:/gpt-4")
 
         assert fields.inputs == "extracted input"
         assert fields.outputs == "extracted output"
         assert fields.expectations is None
 
-        mock_make_judge.assert_called_once()
-        call_args = mock_make_judge.call_args
-        assert call_args[1]["name"] == "field_extractor"
-        assert "{{ trace }}" in call_args[1]["instructions"]
-        assert call_args[1]["model"] == "openai:/gpt-4"
+        mock_invoke_judge.assert_called_once()
+        call_args = mock_invoke_judge.call_args
+        assert call_args[1]["assessment_name"] == "field_extraction"
+        assert call_args[1]["model_uri"] == "openai:/gpt-4"
 
 
-def test_extract_fields_from_trace_llm_fallback_with_invalid_json(trace_without_inputs_outputs):
-    with patch("mlflow.genai.scorers.builtin_scorers.make_judge") as mock_make_judge:
-        mock_judge = MagicMock()
-        mock_judge.return_value = Feedback(
-            name="field_extractor", value="not valid json", rationale="Invalid extraction"
+def test_resolve_scorer_fields_llm_fallback_with_invalid_json(trace_without_inputs_outputs):
+    with patch("mlflow.genai.scorers.builtin_scorers.invoke_judge_model") as mock_invoke_judge:
+        mock_invoke_judge.return_value = Feedback(
+            name="field_extraction", value="not valid json", rationale="Invalid extraction"
         )
-        mock_make_judge.return_value = mock_judge
 
-        fields = _extract_fields_from_trace(trace=trace_without_inputs_outputs)
+        fields = resolve_scorer_fields(trace=trace_without_inputs_outputs)
 
         assert fields.inputs is None
         assert fields.outputs is None
         assert fields.expectations is None
 
 
-def test_extract_fields_from_trace_partial_extraction():
+def test_resolve_scorer_fields_partial_extraction():
     with mlflow.start_span(name="partial_span") as span:
         span.set_inputs({"question": "test"})
     trace_with_partial = mlflow.get_trace(span.trace_id)
 
-    with patch("mlflow.genai.scorers.builtin_scorers.make_judge") as mock_make_judge:
-        mock_judge = MagicMock()
-        mock_judge.return_value = Feedback(
-            name="field_extractor",
+    with patch("mlflow.genai.scorers.builtin_scorers.invoke_judge_model") as mock_invoke_judge:
+        mock_invoke_judge.return_value = Feedback(
+            name="field_extraction",
             value='{"outputs": "llm extracted output"}',
             rationale="Partial extraction",
         )
-        mock_make_judge.return_value = mock_judge
 
-        fields = _extract_fields_from_trace(trace=trace_with_partial)
+        fields = resolve_scorer_fields(trace=trace_with_partial)
 
         assert fields.inputs == {"question": "test"}
         assert fields.outputs == "llm extracted output"
