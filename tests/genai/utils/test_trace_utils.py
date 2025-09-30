@@ -149,12 +149,13 @@ def test_convert_predict_fn_skip_validation(monkeypatch):
         call_count += 1
         return question + context
 
-    converted_fn = convert_predict_fn(dummy_predict_fn)
+    sample_input = {"question": "test", "context": "test"}
+    converted_fn = convert_predict_fn(dummy_predict_fn, sample_input)
     # Predict function should not be validated when the env var is set to True
     assert call_count == 0
 
     # converted function takes a single 'request' argument
-    result = converted_fn(request={"question": "test", "context": "test"})
+    result = converted_fn(request=sample_input)
     assert result == "testtest"
 
 
