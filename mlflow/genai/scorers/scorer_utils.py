@@ -91,63 +91,58 @@ def recreate_function(source: str, signature: str, func_name: str) -> Callable[.
     """
     import mlflow
 
-    try:
-        # Parse the signature to build the function definition
-        sig_match = re.match(r"\((.*?)\)", signature)
-        if not sig_match:
-            raise MlflowException(
-                f"Invalid signature format: '{signature}'", error_code=INVALID_PARAMETER_VALUE
-            )
-
-        params_str = sig_match.group(1).strip()
-
-        # Build the function definition
-        func_def = f"def {func_name}({params_str}):\n"
-        # Indent the source code
-        indented_source = "\n".join(f"    {line}" for line in source.split("\n"))
-        func_def += indented_source
-
-        # Create a namespace with common MLflow imports that scorer functions might use
-        import_namespace = {}
-
-        # Import commonly used MLflow classes
-        try:
-            from mlflow.entities import (
-                Assessment,
-                AssessmentError,
-                AssessmentSource,
-                AssessmentSourceType,
-                Feedback,
-                Trace,
-            )
-            from mlflow.genai.judges import CategoricalRating
-
-            import_namespace.update(
-                {
-                    "Feedback": Feedback,
-                    "Assessment": Assessment,
-                    "AssessmentSource": AssessmentSource,
-                    "AssessmentError": AssessmentError,
-                    "AssessmentSourceType": AssessmentSourceType,
-                    "Trace": Trace,
-                    "CategoricalRating": CategoricalRating,
-                }
-            )
-        except ImportError:
-            pass  # Some imports might not be available in all contexts
-
-        local_namespace = {
-            "mlflow": mlflow,
-        }
-
-        # Execute the function definition with MLflow imports available
-        exec(func_def, import_namespace, local_namespace)
-
-        # Return the recreated function
-        return local_namespace[func_name]
-
-    except Exception as e:
-        _logger.warning(
-            f"Failed to recreate function '{func_name}' from serialized source code: {e}"
+    # Parse the signature to build the function definition
+    sig_match = re.match(r"\((.*?)\)", signature)
+    if not sig_match:
+        raise MlflowException(
+            f"Invalid signature format: '{signature}'", error_code=INVALID_PARAMETER_VALUE
         )
-        raise
+
+    params_str = sig_match.group(1).strip()
+
+    # Build the function definition
+    func_def = f"def {func_name}({params_str}):\n"
+    # Indent the source code
+    indented_source = "\n".join(f"    {line}" for line in source.split("\n"))
+    func_def += indented_source
+
+    # Create a namespace with common MLflow imports that scorer functions might use
+    import_namespace = {}
+
+    # Import commonly used MLflow classes
+    try:
+        from mlflow.entities import (
+            Assessment,
+            AssessmentError,
+            AssessmentSource,
+            AssessmentSourceType,
+            Feedback,
+            Trace,
+        )
+        from mlflow.genai.judges import CategoricalRating
+
+        import_namespace.update(
+            {
+                "Feedback": Feedback,
+                "Assessment": Assessment,
+                "AssessmentSource": AssessmentSource,
+                "AssessmentError": AssessmentError,
+                "AssessmentSourceType": AssessmentSourceType,
+                "Trace": Trace,
+                "CategoricalRating": CategoricalRating,
+            }
+        )
+    except ImportError:
+        pass  # Some imports might not be available in all contexts
+
+    # Include mlflow module in local namespace so type hints like "mlflow.entities.Trace"
+    # in function signatures can be resolved during function definition
+    local_namespace = {
+        "mlflow": mlflow,
+    }
+
+    # Execute the function definition with MLflow imports available
+    exec(func_def, import_namespace, local_namespace)
+
+    # Return the recreated function
+    return local_namespace[func_name]

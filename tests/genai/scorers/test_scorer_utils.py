@@ -1,5 +1,4 @@
 import json
-from unittest.mock import patch
 
 import pytest
 
@@ -278,23 +277,6 @@ return json.dumps(data)"""
 
     parsed = json.loads(result)
     assert parsed["count"] == 3
-
-
-@patch("mlflow.genai.scorers.scorer_utils._logger.warning")
-def test_logging_on_failure(mock_logger):
-    """Test that failures are logged appropriately with exception details."""
-    source = "invalid python syntax !!!"
-    signature = "()"
-    func_name = "bad_function"
-
-    with pytest.raises(SyntaxError, match="invalid syntax"):
-        recreate_function(source, signature, func_name)
-
-    # Verify the warning was logged with exception details
-    assert mock_logger.call_count == 1
-    call_args = mock_logger.call_args[0][0]
-    assert "Failed to recreate function 'bad_function' from serialized source code:" in call_args
-    assert "SyntaxError" in call_args or "invalid syntax" in call_args
 
 
 def test_mlflow_imports_available():
