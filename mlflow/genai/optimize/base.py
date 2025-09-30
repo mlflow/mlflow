@@ -9,7 +9,11 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.utils import (
     _convert_eval_set_to_df,
 )
-from mlflow.genai.optimize.optimizers import BasePromptOptimizer, _DSPyMIPROv2Optimizer
+from mlflow.genai.optimize.optimizers import (
+    BasePromptOptimizer,
+    _DSPyGEPAOptimizer,
+    _DSPyMIPROv2Optimizer,
+)
 from mlflow.genai.optimize.types import (
     LLMParams,
     ObjectiveFn,
@@ -35,7 +39,10 @@ if TYPE_CHECKING:
 
     from mlflow.genai.evaluation.utils import EvaluationDatasetTypes
 
-_ALGORITHMS = {"DSPy/MIPROv2": _DSPyMIPROv2Optimizer}
+_ALGORITHMS = {
+    "DSPy/MIPROv2": _DSPyMIPROv2Optimizer,
+    "DSPy/GEPA": _DSPyGEPAOptimizer,
+}
 
 _logger = logging.getLogger(__name__)
 
@@ -55,7 +62,7 @@ def optimize_prompt(
     Optimize a LLM prompt using the given dataset and evaluation metrics.
     By default, the optimized prompt template is automatically registered as a new version of the
     original prompt and optimization metrics are logged.
-    Currently, this API provides built-in support for DSPy's MIPROv2 optimizer and
+    Currently, this API provides built-in support for DSPy's MIPROv2 and GEPA optimizers and
     you can also implement custom optimization algorithms by extending BasePromptOptimizer class.
 
     Args:

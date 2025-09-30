@@ -8,7 +8,7 @@ import { APILink } from "@site/src/components/APILink";
 # Optimize Prompts (Experimental)
 
 MLflow allows you to plug your prompts into advanced prompt optimization techniques through MLflow's unified interface using the <APILink fn="mlflow.genai.optimize_prompt" /> API.
-This feature helps you improve your prompts automatically by leveraging evaluation metrics and labeled data. MLflow provides built-in support for optimization algorithms such as [DSPy's MIPROv2 algorithm](https://dspy.ai/api/optimizers/MIPROv2/). You can also implement custom optimization algorithms by extending MLflow's base optimizer class <APILink fn="mlflow.genai.optimize.BasePromptOptimizer" >BasePromptOptimizer</APILink>.
+This feature helps you improve your prompts automatically by leveraging evaluation metrics and labeled data. MLflow provides built-in support for optimization algorithms such as [DSPy's MIPROv2](https://dspy.ai/api/optimizers/MIPROv2/) and [GEPA (Genetic-Pareto)](https://dspy.ai/api/optimizers/GEPA/) algorithms. You can also implement custom optimization algorithms by extending MLflow's base optimizer class <APILink fn="mlflow.genai.optimize.BasePromptOptimizer" >BasePromptOptimizer</APILink>.
 
 :::tip Key Benefits
 
@@ -205,10 +205,10 @@ def predict(question: str, prompt_uri: str) -> str:
 
 You can customize the optimization process using `OptimizerConfig`, which includes the following parameters:
 
-- **algorithm**: The optimization algorithm to use. Can be a string (e.g., "DSPy/MIPROv2") or a custom optimizer class. Default: "DSPy/MIPROv2"
+- **algorithm**: The optimization algorithm to use. Can be a string (e.g., "DSPy/MIPROv2", "DSPy/GEPA") or a custom optimizer class. Default: "DSPy/MIPROv2"
 - **num_instruction_candidates**: The number of candidate instructions to try. Default: 6
 - **max_few_show_examples**: The maximum number of examples to show in few-shot demonstrations. Default: 6
-- **optimizer_llm**: The LLM to use for optimization. Default: None (uses target LLM)
+- **optimizer_llm**: The LLM to use for optimization. For GEPA, this is used as the reflection LM (recommended: a stronger model like GPT-4). Default: None (uses target LLM)
 - **extract_instructions**: Whether to extract instructions from the initial prompt template. Default: True
 - **verbose**: Whether to show optimizer logs during optimization. Default: False
 - **autolog**: Whether to log the optimization parameters, datasets and metrics. If set to True, a MLflow run is automatically created to store them. Default: False
