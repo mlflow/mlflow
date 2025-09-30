@@ -19,6 +19,15 @@ from mlflow.genai.judges.tools.constants import ToolNames
 from mlflow.types.llm import FunctionToolCallArguments, ToolCall, ToolDefinition
 
 
+@pytest.fixture
+def restore_global_registry():
+    from mlflow.genai.judges.tools.registry import _judge_tool_registry
+
+    original_tools = _judge_tool_registry._tools.copy()
+    yield
+    _judge_tool_registry._tools = original_tools
+
+
 class MockTool(JudgeTool):
     @property
     def name(self) -> str:
@@ -151,7 +160,7 @@ def test_registry_invoke_tool_invalid_arguments():
         registry.invoke(tool_call, trace)
 
 
-def test_global_functions_work():
+def test_global_functions_work(restore_global_registry):
     mock_tool = MockTool()
     register_judge_tool(mock_tool)
 

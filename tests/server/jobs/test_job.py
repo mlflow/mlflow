@@ -27,8 +27,10 @@ pytestmark = pytest.mark.skipif(
 
 @contextmanager
 def _launch_job_runner_for_test():
+    root = str(Path(__file__).resolve().parents[3])
+    new_pythonpath = f"{root}{os.pathsep}{path}" if (path := os.environ.get("PYTHONPATH")) else root
     with _launch_job_runner(
-        {"PYTHONPATH": dirname(__file__)},
+        {"PYTHONPATH": new_pythonpath},
         os.getpid(),
     ) as proc:
         try:
@@ -117,7 +119,7 @@ def test_basic_job(monkeypatch, tmp_path):
         wait_job_finalize(submitted_job.job_id)
         job = get_job(submitted_job.job_id)
         assert job.job_id == submitted_job.job_id
-        assert job.function_fullname == "test_job.basic_job_fun"
+        assert job.function_fullname == "tests.server.jobs.test_job.basic_job_fun"
         assert job.params == '{"x": 3, "y": 4}'
         assert job.timeout is None
         assert job.result == "7"
@@ -139,7 +141,7 @@ def test_job_json_input_output(monkeypatch, tmp_path):
         wait_job_finalize(submitted_job.job_id)
         job = get_job(submitted_job.job_id)
         assert job.job_id == submitted_job.job_id
-        assert job.function_fullname == "test_job.json_in_out_fun"
+        assert job.function_fullname == "tests.server.jobs.test_job.json_in_out_fun"
         assert job.params == '{"data": {"x": 3, "y": 4}}'
         assert job.result == '{"res": 7}'
         assert job.parsed_result == {"res": 7}
@@ -160,7 +162,7 @@ def test_error_job(monkeypatch, tmp_path):
 
         # check database record correctness.
         assert job.job_id == submitted_job.job_id
-        assert job.function_fullname == "test_job.err_fun"
+        assert job.function_fullname == "tests.server.jobs.test_job.err_fun"
         assert job.params == '{"data": null}'
         assert job.result.startswith("RuntimeError()")
         assert job.status == JobStatus.FAILED
@@ -394,7 +396,7 @@ def test_job_timeout(monkeypatch, tmp_path):
 
         # check database record correctness.
         assert job.job_id == job_id
-        assert job.function_fullname == "test_job.sleep_fun"
+        assert job.function_fullname == "tests.server.jobs.test_job.sleep_fun"
         assert job.timeout == 3.0
         assert job.result is None
         assert job.status == JobStatus.TIMEOUT
@@ -422,6 +424,7 @@ def bad_job_function() -> None:
 def test_job_function_without_decorator(monkeypatch, tmp_path):
     with _setup_job_runner(monkeypatch, tmp_path):
         with pytest.raises(
-            MlflowException, match="The job function test_job.bad_job_function is not decorated"
+            MlflowException,
+            match="The job function tests.server.jobs.test_job.bad_job_function is not decorated",
         ):
             submit_job(bad_job_function, params={})
