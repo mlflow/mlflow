@@ -101,7 +101,7 @@ def test_adapt_prompts_single_prompt(sample_translation_prompt, sample_dataset):
             f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
         ],
         optimizer_lm_params=LLMParams(model_name="test/model"),
-        oprimizer=mock_adapter,
+        optimizer=mock_adapter,
     )
 
     assert len(result.optimized_prompts) == 1
@@ -126,7 +126,7 @@ def test_adapt_prompts_multiple_prompts(
             f"prompts:/{sample_summarization_prompt.name}/{sample_summarization_prompt.version}",
         ],
         optimizer_lm_params=LLMParams(model_name="test/model"),
-        oprimizer=mock_adapter,
+        optimizer=mock_adapter,
     )
 
     assert len(result.optimized_prompts) == 2
@@ -146,7 +146,8 @@ def test_adapt_prompts_eval_function_behavior(sample_translation_prompt, sample_
         def optimize(self, eval_fn, dataset, target_prompts, optimizer_lm_params):
             # Test that eval_fn works correctly
             test_prompts = {
-                "test_translation_prompt": "Prompt Candidate: Translate {{input_text}} to {{language}}"
+                "test_translation_prompt": "Prompt Candidate: "
+                "Translate {{input_text}} to {{language}}"
             }
             results = eval_fn(test_prompts, dataset)
             self.eval_fn_calls.append((test_prompts, results))
@@ -187,7 +188,7 @@ def test_adapt_prompts_eval_function_behavior(sample_translation_prompt, sample_
             f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
         ],
         optimizer_lm_params=LLMParams(model_name="test/model"),
-        oprimizer=testing_adapter,
+        optimizer=testing_adapter,
     )
 
     assert len(testing_adapter.eval_fn_calls) == 1
@@ -209,7 +210,7 @@ def test_adapt_prompts_with_list_dataset(sample_translation_prompt, sample_summa
             f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
         ],
         optimizer_lm_params=LLMParams(model_name="test/model"),
-        oprimizer=mock_adapter,
+        optimizer=mock_adapter,
     )
 
     assert len(result.optimized_prompts) == 1
@@ -237,7 +238,7 @@ def test_adapt_prompts_llm_params_passed(sample_translation_prompt, sample_datas
         optimizer_lm_params=LLMParams(
             model_name="test/custom-model", temperature=0.5, base_uri="https://api.test.com"
         ),
-        oprimizer=testing_adapter,
+        optimizer=testing_adapter,
     )
 
     assert len(result.optimized_prompts) == 1

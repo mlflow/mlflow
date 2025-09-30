@@ -5,4 +5,4 @@ __all__ = ["BasePromptAdapter"]
 
 def get_default_adapter() -> BasePromptAdapter:
     # TODO: Implement default adapter
-    return BasePromptAdapter()
+    pass

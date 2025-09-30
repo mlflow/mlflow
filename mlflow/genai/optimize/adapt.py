@@ -25,7 +25,7 @@ def adapt_prompts(
     train_data: "EvaluationDatasetTypes",
     target_prompt_uris: list[str],
     optimizer_lm_params: LLMParams,
-    oprimizer: BasePromptAdapter | None = None,
+    optimizer: BasePromptAdapter | None = None,
 ) -> list[PromptVersion]:
     """
     This API optimizes prompts used in the passed in function to produce similar
@@ -58,15 +58,15 @@ def adapt_prompts(
             The model name can be specified in either format:
             - `<provider>:/<model>` (e.g., "openai:/gpt-4o")
             - `<provider>/<model>` (e.g., "openai/gpt-4o")
-        oprimizer: an optional prompt optimizer object that optimizes a set of prompts based
+        optimizer: an optional prompt optimizer object that optimizes a set of prompts based
             on the evaluation dataset and passed in function.
             If this argument is none, the default optimizer is used.
 
     Returns:
         A list of optimized prompt versions.
     """
-    if oprimizer is None:
-        oprimizer = get_default_adapter()
+    if optimizer is None:
+        optimizer = get_default_adapter()
 
     # TODO: Add dataset validation
     converted_train_data = _convert_eval_set_to_df(train_data).to_dict("records")
@@ -79,7 +79,7 @@ def adapt_prompts(
     target_prompts = [load_prompt(prompt_uri) for prompt_uri in target_prompt_uris]
     target_prompts_dict = {prompt.name: prompt.template for prompt in target_prompts}
 
-    optimizer_output = oprimizer.optimize(
+    optimizer_output = optimizer.optimize(
         eval_fn, converted_train_data, target_prompts_dict, optimizer_lm_params
     )
 
@@ -88,7 +88,7 @@ def adapt_prompts(
             register_prompt(name=prompt_name, template=prompt)
             for prompt_name, prompt in optimizer_output.optimized_prompts.items()
         ],
-        optimizer_name=oprimizer.__class__.__name__,
+        optimizer_name=optimizer.__class__.__name__,
     )
 
 

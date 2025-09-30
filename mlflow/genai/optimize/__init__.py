@@ -8,6 +8,8 @@ from mlflow.genai.optimize.types import (
     LLMParams,
     OptimizerConfig,
     OptimizerOutput,
+    PromptAdaptationResult,
+    PromptAdapterOutput,
     PromptOptimizationResult,
 )
 
@@ -23,4 +25,6 @@ __all__ = [
     "adapt_prompts",
     "EvaluationResultRecord",
     "BasePromptAdapter",
+    "PromptAdapterOutput",
+    "PromptAdaptationResult",
 ]
