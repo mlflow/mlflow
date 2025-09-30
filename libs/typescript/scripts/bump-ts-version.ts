@@ -1,4 +1,3 @@
-#!/usr/bin/env tsx
 /**
  * CLI script to bump the version of MLflow TypeScript libraries.
  *
