@@ -1,8 +1,8 @@
+import multiprocessing
 import os
 import time
 import uuid
 from contextlib import contextmanager
-from multiprocessing import Pool as MultiProcPool
 from os.path import dirname
 from pathlib import Path
 
@@ -343,7 +343,8 @@ def test_job_retry_on_transient_error(monkeypatch, tmp_path):
 # so that we need a test to cover the case that executes `submit_job` in
 # multi-processes case.
 def test_submit_jobs_from_multi_processes(monkeypatch, tmp_path):
-    with _setup_job_runner(monkeypatch, tmp_path), MultiProcPool(2) as pool:
+    context = multiprocessing.get_context("spawn")
+    with _setup_job_runner(monkeypatch, tmp_path), context.Pool(2) as pool:
         job_id = submit_job(basic_job_fun, {"x": 1, "y": 1, "sleep_secs": 0}).job_id
         wait_job_finalize(job_id)
 
