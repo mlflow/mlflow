@@ -9,6 +9,7 @@ import "assessments.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
+import "opentelemetry/proto/common/v1/common.proto";
 import "scalapb/scalapb.proto";
 
 option py_generic_services = true;
@@ -189,7 +190,7 @@ message Span {
     optional fixed64 end_time_unix_nano = 8 [(validate_required) = true];
 
     // A collection of key/value attributes.
-    repeated KeyValue attributes = 9;
+    repeated opentelemetry.proto.common.v1.KeyValue attributes = 9;
 
     // The number of attributes that were discarded.
     optional uint32 dropped_attributes_count = 10;
@@ -203,7 +204,7 @@ message Span {
         optional string name = 2 [(validate_required) = true];
 
         // A collection of attribute key/value pairs on the event.
-        repeated KeyValue attributes =  3;
+        repeated opentelemetry.proto.common.v1.KeyValue attributes =  3;
 
         // The number of dropped attributes.
         optional uint32 dropped_attributes_count = 4;
@@ -228,7 +229,7 @@ message Span {
         optional string trace_state = 3;
 
         // A collection of attribute key/value pairs on the link.
-        repeated KeyValue attributes  = 4;
+        repeated opentelemetry.proto.common.v1.KeyValue attributes  = 4;
 
         // The number of dropped attributes.
         optional uint32 dropped_attributes_count = 5;
