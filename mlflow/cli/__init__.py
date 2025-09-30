@@ -277,6 +277,7 @@ def _user_args_to_dict(arguments, argument_type="P"):
 
 
 def _validate_server_args(
+    ctx=None,
     gunicorn_opts=None,
     workers=None,
     waitress_opts=None,
@@ -302,15 +303,22 @@ def _validate_server_args(
         )
 
     using_flask_only = gunicorn_opts is not None or waitress_opts is not None
-    # NB: Only check for security params that actually require FastAPI/uvicorn
-    # X-Frame-Options is just a header that works with any server, so we don't include it
-    security_params_specified = any(
-        [
-            allowed_hosts is not None,
-            cors_allowed_origins is not None,
-            disable_security_middleware is True,
-        ]
-    )
+    # NB: Only check for security params that are explicitly passed via CLI (not env vars)
+    # This allows Docker containers to set env vars while using gunicorn
+    from click.core import ParameterSource
+
+    security_params_specified = False
+    if ctx:
+        security_params_specified = any(
+            [
+                ctx.get_parameter_source("allowed_hosts") == ParameterSource.COMMANDLINE,
+                ctx.get_parameter_source("cors_allowed_origins") == ParameterSource.COMMANDLINE,
+                (
+                    ctx.get_parameter_source("disable_security_middleware")
+                    == ParameterSource.COMMANDLINE
+                ),
+            ]
+        )
 
     if using_flask_only and security_params_specified:
         raise click.UsageError(
@@ -499,6 +507,7 @@ def server(
         uvicorn_opts = "--reload --log-level debug"
 
     _validate_server_args(
+        ctx=ctx,
         gunicorn_opts=gunicorn_opts,
         workers=workers,
         waitress_opts=waitress_opts,
