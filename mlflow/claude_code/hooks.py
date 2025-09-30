@@ -162,6 +162,31 @@ def disable_tracing_hooks(settings_path: Path) -> bool:
 # ============================================================================
 
 
+def _process_stop_hook(session_id: str | None, transcript_path: str | None) -> dict[str, Any]:
+    """Common logic for processing stop hooks.
+
+    Args:
+        session_id: Session identifier
+        transcript_path: Path to transcript file
+
+    Returns:
+        Hook response dictionary
+    """
+    get_logger().claude_tracing("Stop hook: session=%s, transcript=%s", session_id, transcript_path)
+
+    # Process the transcript and create MLflow trace
+    trace = process_transcript(transcript_path, session_id)
+
+    if trace is not None:
+        return get_hook_response()
+    return get_hook_response(
+        error=(
+            "Failed to process transcript, please check .claude/mlflow/claude_tracing.log"
+            " for more details"
+        ),
+    )
+
+
 def stop_hook_handler() -> None:
     """CLI hook handler for conversation end - processes transcript and creates trace."""
     if not is_tracing_enabled():
@@ -174,27 +199,11 @@ def stop_hook_handler() -> None:
         session_id = hook_data.get("session_id")
         transcript_path = hook_data.get("transcript_path")
 
-        get_logger().claude_tracing(
-            "CLI Stop hook: session=%s, transcript=%s", session_id, transcript_path
-        )
         setup_mlflow()
-
-        # Process the transcript and create MLflow trace
-        trace = process_transcript(transcript_path, session_id)
-
-        if trace is not None:
-            response = get_hook_response()
-        else:
-            response = get_hook_response(
-                error=(
-                    "Failed to process transcript, please check .claude/mlflow/claude_tracing.log"
-                    " for more details"
-                ),
-            )
-
+        response = _process_stop_hook(session_id, transcript_path)
         print(json.dumps(response))  # noqa: T201
 
-    except Exception as e:  # clint: disable=lazy-builtin-import
+    except Exception as e:
         get_logger().error("Error in Stop hook: %s", e, exc_info=True)
         response = get_hook_response(error=str(e))
         print(json.dumps(response))  # noqa: T201
@@ -217,14 +226,7 @@ async def sdk_stop_hook_handler(
         session_id = input_data.get("session_id")
         transcript_path = input_data.get("transcript_path")
 
-        get_logger().claude_tracing(
-            "SDK Stop hook: session=%s, transcript=%s", session_id, transcript_path
-        )
-
-        # Process the transcript and create MLflow trace
-        process_transcript(transcript_path, session_id)
-
-        return get_hook_response()
+        return _process_stop_hook(session_id, transcript_path)
 
     except Exception as e:
         get_logger().error("Error in SDK Stop hook: %s", e, exc_info=True)

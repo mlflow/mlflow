@@ -132,7 +132,7 @@ def read_hook_input() -> dict[str, Any]:
         return json.loads(input_data)
     except json.JSONDecodeError as e:
         get_logger().error("Failed to parse input JSON: %s", e)
-        return {}
+        raise
 
 
 def read_transcript(transcript_path: str) -> list[dict[str, Any]]:
@@ -143,7 +143,7 @@ def read_transcript(transcript_path: str) -> list[dict[str, Any]]:
             return [json.loads(line) for line in lines if line.strip()]
     except Exception as e:
         get_logger().error("Failed to read transcript %s: %s", transcript_path, e)
-        return []
+        raise
 
 
 def get_hook_response(error: str | None = None, **kwargs) -> dict[str, Any]:
@@ -602,6 +602,7 @@ def process_transcript(
             name="claude_code_conversation",
             inputs={"prompt": extract_text_content(last_user_prompt)},
             start_time_ns=conv_start_ns,
+            span_type=SpanType.AGENT,
         )
 
         # Create spans for all assistant responses and tool uses
@@ -645,4 +646,4 @@ def process_transcript(
 
     except Exception as e:
         get_logger().error("Error processing transcript: %s", e, exc_info=True)
-        return None
+        raise
