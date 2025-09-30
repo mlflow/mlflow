@@ -85,9 +85,6 @@ def recreate_function(source: str, signature: str, func_name: str) -> Callable[.
 
     Returns:
         The recreated function.
-
-    Raises:
-        MlflowException: If function recreation fails (e.g., syntax errors, invalid signature).
     """
     import mlflow
 
