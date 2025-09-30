@@ -12,7 +12,7 @@ import sys
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any, Callable, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable
 
 import cloudpickle
 
@@ -377,27 +377,23 @@ def _validate_function_parameters(function: Callable[..., Any], params: dict[str
 
 
 def _check_requirements(backend_store_uri: str | None = None) -> None:
-    from mlflow.utils.uri import extract_db_type_from_uri
     from mlflow.server import BACKEND_STORE_URI_ENV_VAR
+    from mlflow.utils.uri import extract_db_type_from_uri
 
     backend_store_uri = backend_store_uri or os.environ.get(BACKEND_STORE_URI_ENV_VAR, None)
     try:
         import huey  # noqa: F401
     except ImportError:
         raise MlflowException(
-            "MLflow job backend requires 'huey<3,>=2.5.0' package but it is not installed. "
-            "Skip launching the job runner."
+            "MLflow job backend requires 'huey<3,>=2.5.0' package but it is not installed."
         )
 
     try:
         extract_db_type_from_uri(backend_store_uri)
     except MlflowException:
         raise MlflowException(
-            f"MLflow job backend requires a database backend store URI but got {backend_store_uri}, "
-            "skip launching the job runner."
+            f"MLflow job backend requires a database backend store URI but got {backend_store_uri}."
         )
 
     if os.name == "nt":
-        raise MlflowException(
-            "MLflow job backend does not support Windows system."
-        )
+        raise MlflowException("MLflow job backend does not support Windows system.")
