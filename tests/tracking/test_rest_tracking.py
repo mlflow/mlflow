@@ -1468,6 +1468,7 @@ def test_get_metric_history_bulk_interval_respects_max_results(mlflow_client):
         # works if steps are logged in intervals
         (0, 100, 5, list(range(0, 101, 20)), {0, 20, 40, 60, 80, 100}),
         (0, 1000, 5, list(range(0, 1001, 10)), {0, 200, 400, 600, 800, 1000}),
+        (1000, 1100, 50, list(range(900, 1200)), set(range(1000, 1100 + 1, 2)))
     ],
 )
 def test_get_sampled_steps_from_steps(min_step, max_step, max_results, nums, expected):
