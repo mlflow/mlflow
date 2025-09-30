@@ -397,22 +397,26 @@ def _run_server(
             if os.path.exists("/dev/shm")
             else tempfile.mkdtemp()
         )
-    server_proc = _exec_cmd(
-        full_command, extra_env=env_map, capture_output=False, synchronous=False
-    )
 
     if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
-        from mlflow.server.jobs.util import _check_requirements, _launch_job_runner
+        from mlflow.server.jobs.util import _check_requirements
 
         try:
             _check_requirements(file_store_path)
         except Exception as e:
-            server_proc.kill()
             raise MlflowException(
                 f"MLflow job runner requirements checking failed (root error: {e!s}). "
                 "If you don't need MLflow job runner, you can disable it by setting "
                 "environment variable 'MLFLOW_SERVER_ENABLE_JOB_EXECUTION' to 'false'."
             )
+
+    server_proc = _exec_cmd(
+        full_command, extra_env=env_map, capture_output=False, synchronous=False
+    )
+
+    if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
+        from mlflow.server.jobs.util import _launch_job_runner
+
         _launch_job_runner(env_map, server_proc.pid)
 
     server_proc.wait()
