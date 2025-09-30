@@ -380,6 +380,9 @@ def _check_requirements(backend_store_uri: str | None = None) -> None:
     from mlflow.server import BACKEND_STORE_URI_ENV_VAR
     from mlflow.utils.uri import extract_db_type_from_uri
 
+    if os.name == "nt":
+        raise MlflowException("MLflow job backend does not support Windows system.")
+
     try:
         import huey  # noqa: F401
     except ImportError:
@@ -387,7 +390,7 @@ def _check_requirements(backend_store_uri: str | None = None) -> None:
             "MLflow job backend requires 'huey<3,>=2.5.0' package but it is not installed"
         )
 
-    backend_store_uri = backend_store_uri or os.environ.get(BACKEND_STORE_URI_ENV_VAR, None)
+    backend_store_uri = backend_store_uri or os.environ.get(BACKEND_STORE_URI_ENV_VAR)
     if not backend_store_uri:
         raise MlflowException(
             "MLflow job backend requires a database backend store URI but "
@@ -399,6 +402,3 @@ def _check_requirements(backend_store_uri: str | None = None) -> None:
         raise MlflowException(
             f"MLflow job backend requires a database backend store URI but got {backend_store_uri}"
         )
-
-    if os.name == "nt":
-        raise MlflowException("MLflow job backend does not support Windows system.")

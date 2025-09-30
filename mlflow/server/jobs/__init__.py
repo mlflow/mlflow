@@ -10,6 +10,9 @@ from mlflow.server.handlers import _get_job_store
 
 _logger = logging.getLogger(__name__)
 
+P = ParamSpec("P")
+R = TypeVar("R")
+
 
 class TransientError(RuntimeError):
     """
@@ -41,10 +44,7 @@ def job_function(max_workers: int) -> Callable[..., Any]:
             using this job function.
     """
 
-    param_spec = ParamSpec("P")
-    return_type = TypeVar("R")
-
-    def decorator(fn: Callable[param_spec, return_type]) -> Callable[param_spec, return_type]:
+    def decorator(fn: Callable[P, R]) -> Callable[P, R]:
         fn._job_fn_metadata = JobFunctionMetadata(
             fn_fullname=f"{fn.__module__}.{fn.__name__}",
             max_workers=max_workers,
