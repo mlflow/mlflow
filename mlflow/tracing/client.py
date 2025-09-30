@@ -169,10 +169,12 @@ class TracingClient:
         else:
             return self._get_traces_from_tracking_store([trace_id])[0]
 
-    def _get_traces_from_tracking_store(self, trace_ids: list[str]) -> list[Trace]:
+    def _get_traces_from_tracking_store(
+        self, trace_ids: list[str], sql_warehouse_id: str | None = None
+    ) -> list[Trace]:
         if not trace_ids:
             return []
-        if traces := self.store.get_traces(trace_ids):
+        if traces := self.store.get_traces(trace_ids, sql_warehouse_id=sql_warehouse_id):
             return traces
         else:
             trace_ids_str = ", ".join(trace_ids)
@@ -372,7 +374,8 @@ class TracingClient:
                     trace_info_groups = self._group_trace_infos_by_storage(trace_infos)
                     traces.extend(
                         self._get_traces_from_tracking_store(
-                            [t.trace_id for t in trace_info_groups.tracking_store_trace_infos]
+                            [t.trace_id for t in trace_info_groups.tracking_store_trace_infos],
+                            sql_warehouse_id=sql_warehouse_id,
                         )
                     )
 

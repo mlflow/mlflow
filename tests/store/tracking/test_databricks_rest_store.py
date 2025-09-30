@@ -427,7 +427,8 @@ def test_delete_trace_tag_fallback():
         assert result is None
 
 
-def test_get_traces(monkeypatch):
+@pytest.mark.parametrize("sql_warehouse_id", [None, "warehouse_override"])
+def test_get_traces(monkeypatch, sql_warehouse_id):
     monkeypatch.setenv(MLFLOW_TRACING_SQL_WAREHOUSE_ID.name, "test-warehouse")
     with mlflow.start_span(name="test_span_1") as span1:
         span1.set_inputs({"input": "test_value_1"})

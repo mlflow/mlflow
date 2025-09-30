@@ -323,9 +323,17 @@ class AbstractStore:
         """
         raise NotImplementedError
 
-    def get_traces(self, trace_ids: list[str]) -> list[Trace]:
+    def get_traces(self, trace_ids: list[str], sql_warehouse_id: str | None = None) -> list[Trace]:
         """
         Get complete traces with spans for given trace ids.
+
+        Args:
+            trace_ids: List of trace IDs to fetch.
+            sql_warehouse_id: SQL warehouse ID to use for fetching trace data.
+                Only used in Databricks.
+
+        Returns:
+            List of Trace objects.
         """
         # raise MlflowException so this can be captured by the handlers
         # instead of default internal server error and retry
