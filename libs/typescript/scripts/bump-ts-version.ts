@@ -9,10 +9,6 @@
 
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 interface PackageJson {
   name: string;
@@ -22,10 +18,8 @@ interface PackageJson {
 }
 
 function bumpVersion(version: string): void {
-  // Get the typescript libs root (parent of scripts/)
-  const tsRoot = join(__dirname, '..');
-
   // Define paths to package.json files
+  const tsRoot = process.cwd();
   const corePackagePath = join(tsRoot, 'core', 'package.json');
   const openaiPackagePath = join(tsRoot, 'integrations', 'openai', 'package.json');
 
@@ -40,20 +34,14 @@ function bumpVersion(version: string): void {
     process.exit(1);
   }
 
-  // Validate version format (basic check for semver-like format)
-  const versionParts = version.split('.');
-  if (versionParts.length < 2 || versionParts.length > 3) {
-    console.error(`Error: Invalid version format '${version}'. Expected format: X.Y or X.Y.Z`);
+  // Validate version format (semver with optional prerelease)
+  // Matches: X.Y.Z or X.Y.Z-rc.0 or X.Y.Z-beta.1 etc.
+  const semverPattern = /^\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?$/;
+  if (!semverPattern.test(version)) {
+    console.error(
+      `Error: Invalid version format '${version}'. Expected format: X.Y.Z or X.Y.Z-rc.0`
+    );
     process.exit(1);
-  }
-
-  for (const part of versionParts) {
-    if (!/^\d+$/.test(part)) {
-      console.error(
-        `Error: Invalid version format '${version}'. All parts must be numeric.`
-      );
-      process.exit(1);
-    }
   }
 
   // Update core package.json
@@ -108,7 +96,7 @@ function main(): void {
       console.log('Usage: tsx scripts/bump-ts-version.ts --version <version>');
       console.log('\nBump the version of MLflow TypeScript libraries');
       console.log('\nOptions:');
-      console.log('  --version <version>  Version to bump to (e.g., 0.1.2 or 0.2.0)');
+      console.log('  --version <version>  Version to bump to (e.g., 0.1.2, 0.2.0, or 1.0.0-rc.0)');
       console.log('  --help, -h           Show this help message');
       process.exit(0);
     }
