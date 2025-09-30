@@ -1,10 +1,8 @@
 import os
-import sys
 import time
 import uuid
 from contextlib import contextmanager
 from multiprocessing import Pool as MultiProcPool
-from os.path import dirname
 from pathlib import Path
 
 import pytest
@@ -24,19 +22,12 @@ from mlflow.server.jobs.util import _validate_function_parameters
 pytestmark = pytest.mark.skipif(
     os.name == "nt", reason="MLflow job execution is not supported on Windows"
 )
-NotImplemented
 
 
 @contextmanager
 def _start_job_runner_for_test(max_job_parallelism, start_new_runner):
-    sys.path.insert(0, dirname(__file__))
-    # Get the project root directory (parent of tests directory)
-    project_root = str(Path(__file__).resolve().parents[3])
-    current_pythonpath = os.environ.get("PYTHONPATH", "")
-    new_pythonpath = (
-        f"{project_root}{os.pathsep}{current_pythonpath}" if current_pythonpath else project_root
-    )
-
+    root = str(Path(__file__).resolve().parents[3])
+    new_pythonpath = f"{root}{os.pathsep}{path}" if (path := os.environ.get("PYTHONPATH")) else root
     proc = _start_job_runner(
         {"PYTHONPATH": new_pythonpath},
         max_job_parallelism,
