@@ -54,23 +54,10 @@ def sample_scorer(inputs, outputs, expectations):
 
 
 @pytest.mark.parametrize(
-    ("optimizer_config", "use_eval_data", "expected_reflection_settings"),
+    "use_eval_data",
     [
-        (
-            OptimizerConfig(optimizer_llm=LLMParams(model_name="test/model")),
-            False,
-            {"reflection_lm": True},
-        ),
-        (
-            OptimizerConfig(),
-            False,
-            {},
-        ),
-        (
-            OptimizerConfig(),
-            True,
-            {},
-        ),
+        False,
+        True,
     ],
 )
 def test_optimize_scenarios(
@@ -79,13 +66,11 @@ def test_optimize_scenarios(
     sample_prompt,
     mock_extractor,
     capsys,
-    optimizer_config,
     use_eval_data,
-    expected_reflection_settings,
 ):
     import dspy
 
-    optimizer = _DSPyGEPAOptimizer(optimizer_config)
+    optimizer = _DSPyGEPAOptimizer(OptimizerConfig())
 
     optimized_program = dspy.Predict("input_text, language -> translation")
     optimized_program.score = 1.0
@@ -111,10 +96,7 @@ def test_optimize_scenarios(
     # Verify reflection LM settings
     mock_gepa.assert_called_once()
     kwargs = mock_gepa.call_args[1]
-    if expected_reflection_settings:
-        assert "reflection_lm" in kwargs
-    else:
-        assert "reflection_lm" not in kwargs
+    assert "reflection_lm" in kwargs
 
     # Verify GEPA configuration
     assert "auto" in kwargs
@@ -211,7 +193,6 @@ def test_extract_eval_scores_with_detailed_results():
     ],
 )
 def test_display_optimization_result(capsys, initial_score, final_score, expected_messages):
-    """Test display optimization result with various score scenarios."""
     optimizer = _DSPyGEPAOptimizer(OptimizerConfig())
 
     optimizer._display_optimization_result(initial_score, final_score)
