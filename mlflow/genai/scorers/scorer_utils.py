@@ -107,7 +107,10 @@ def recreate_function(source: str, signature: str, func_name: str) -> Callable[.
     func_def += indented_source
 
     # Create a namespace with common MLflow imports that scorer functions might use
-    import_namespace = {}
+    # Include mlflow module so type hints like "mlflow.entities.Trace" can be resolved
+    import_namespace = {
+        "mlflow": mlflow,
+    }
 
     # Import commonly used MLflow classes
     try:
@@ -135,11 +138,8 @@ def recreate_function(source: str, signature: str, func_name: str) -> Callable[.
     except ImportError:
         pass  # Some imports might not be available in all contexts
 
-    # Include mlflow module in local namespace so type hints like "mlflow.entities.Trace"
-    # in function signatures can be resolved during function definition
-    local_namespace = {
-        "mlflow": mlflow,
-    }
+    # Local namespace will capture the created function
+    local_namespace = {}
 
     # Execute the function definition with MLflow imports available
     exec(func_def, import_namespace, local_namespace)
