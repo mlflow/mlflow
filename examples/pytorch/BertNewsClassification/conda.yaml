@@ -11,9 +11,9 @@ dependencies:
       - transformers>=4.0.0
       - pandas
       - numpy<2.0
-      - torch>=2.0.0
+      - torch>=2.0.0,<2.2.0
       - torchdata>=0.6.0
       - torchtext==0.15.1
-      - lightning==2.0.0
+      - lightning>=2.1.0,<2.2.0
       - jsonargparse[signatures]>=4.17.0
       - protobuf<4.0.0

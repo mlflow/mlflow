@@ -7,7 +7,7 @@ dependencies:
       - mlflow
       - torchvision>=0.15.1
       - cloudpickle==1.6.0
-      - lightning==2.0.0
+      - lightning>=2.1.0,<2.2.0
       - jsonargparse[signatures]>=4.17.0
       # typeguard is used for type validation in the ax-platform code base. 3.0.0 release has
       # breaking changes that need to be resolved in ax. Remove this pin when
@@ -15,7 +15,7 @@ dependencies:
       - typeguard<3.0.0
       - ax-platform
       - prettytable
-      - torch>=2.0
+      - torch>=2.0,<2.2
       - protobuf<4.0.0
       # gyptorch 1.9.x is incompatible with the versions of botorch
       # required by many versions of pytorch
