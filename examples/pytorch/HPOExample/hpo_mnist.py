@@ -14,8 +14,8 @@ import argparse
 
 import optuna
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
@@ -40,7 +40,8 @@ class SimpleNet(nn.Module):
 def train_epoch(model, device, train_loader, optimizer):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
-        data, target = data.to(device), target.to(device)
+        data = data.to(device)
+        target = target.to(device)
         optimizer.zero_grad()
         output = model(data)
         loss = F.nll_loss(output, target)
@@ -54,7 +55,8 @@ def evaluate(model, device, test_loader):
     correct = 0
     with torch.no_grad():
         for data, target in test_loader:
-            data, target = data.to(device), target.to(device)
+            data = data.to(device)
+            target = target.to(device)
             output = model(data)
             test_loss += F.nll_loss(output, target, reduction="sum").item()
             pred = output.argmax(dim=1, keepdim=True)
@@ -126,7 +128,7 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
 
     # Start parent MLflow run
-    with mlflow.start_run(run_name="HPO_Parent") as parent_run:
+    with mlflow.start_run(run_name="HPO_Parent"):
         mlflow.log_params({"n_trials": args.n_trials, "max_epochs": args.max_epochs})
 
         # Create Optuna study

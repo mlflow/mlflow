@@ -12,6 +12,7 @@ This example demonstrates hyperparameter optimization with MLflow tracking using
 ## Architecture
 
 The model is a simple 2-layer neural network:
+
 ```
 Input (784) → FC1 (hidden_size) → ReLU → Dropout → FC2 (10) → LogSoftmax
 ```
@@ -26,16 +27,19 @@ Input (784) → FC1 (hidden_size) → ReLU → Dropout → FC2 (10) → LogSoftm
 ## Running the example
 
 ### Quick test (3 trials, 3 epochs each)
+
 ```bash
 python hpo_mnist.py --n-trials 3 --max-epochs 3
 ```
 
 ### Full optimization (10 trials, 5 epochs each)
+
 ```bash
 python hpo_mnist.py --n-trials 10 --max-epochs 5
 ```
 
 ### Using MLflow projects
+
 ```bash
 mlflow run . -P n_trials=5 -P max_epochs=3
 ```
@@ -43,11 +47,13 @@ mlflow run . -P n_trials=5 -P max_epochs=3
 ## Viewing results
 
 After running, view the results in MLflow UI:
+
 ```bash
 mlflow ui
 ```
 
 Navigate to http://localhost:5000 to see:
+
 - Parent run with overall HPO results
 - Child runs for each trial with their hyperparameters and metrics
 - Comparison view to analyze which hyperparameters work best
