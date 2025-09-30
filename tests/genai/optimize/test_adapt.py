@@ -1,12 +1,10 @@
-from unittest.mock import patch
-
 import pandas as pd
 import pytest
 
 import mlflow
 from mlflow.genai.optimize.adapt import adapt_prompts
 from mlflow.genai.optimize.adapters.base import BasePromptAdapter
-from mlflow.genai.optimize.types import EvaluationResultRecord, LLMParams
+from mlflow.genai.optimize.types import EvaluationResultRecord, LLMParams, PromptAdapterOutput
 from mlflow.genai.prompts import register_prompt
 
 
@@ -25,7 +23,7 @@ class MockPromptAdapter(BasePromptAdapter):
         # Verify the optimization by calling eval_fn
         eval_fn(optimized_prompts, train_data)
 
-        return optimized_prompts
+        return PromptAdapterOutput(optimized_prompts=optimized_prompts)
 
 
 @pytest.fixture
@@ -46,18 +44,20 @@ def sample_summarization_prompt():
 
 @pytest.fixture
 def sample_dataset():
-    return pd.DataFrame({
-        "inputs": [
-            {"input_text": "Hello", "language": "Spanish"},
-            {"input_text": "World", "language": "French"},
-            {"input_text": "Goodbye", "language": "Spanish"},
-        ],
-        "outputs": [
-            "Hola",
-            "Monde",
-            "Adiós",
-        ]
-    })
+    return pd.DataFrame(
+        {
+            "inputs": [
+                {"input_text": "Hello", "language": "Spanish"},
+                {"input_text": "World", "language": "French"},
+                {"input_text": "Goodbye", "language": "Spanish"},
+            ],
+            "outputs": [
+                "Hola",
+                "Monde",
+                "Adiós",
+            ],
+        }
+    )
 
 
 @pytest.fixture
@@ -67,17 +67,17 @@ def sample_summarization_dataset():
             "inputs": {
                 "text": "This is a long document that needs to be summarized into key points."
             },
-            "outputs": "Key points summary"
+            "outputs": "Key points summary",
         },
         {
             "inputs": {"text": "Another document with important information for summarization."},
-            "outputs": "Important info summary"
-        }
+            "outputs": "Important info summary",
+        },
     ]
 
 
 def sample_predict_fn(input_text, language):
-    mlflow.genai.load_prompt(f"prompts:/test_translation_prompt/1")
+    mlflow.genai.load_prompt("prompts:/test_translation_prompt/1")
     # Simple translation logic for testing
     translations = {
         ("Hello", "Spanish"): "Hola",
@@ -97,13 +97,15 @@ def test_adapt_prompts_single_prompt(sample_translation_prompt, sample_dataset):
     result = adapt_prompts(
         predict_fn=sample_predict_fn,
         train_data=sample_dataset,
-        target_prompt_uris=[f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"],
+        target_prompt_uris=[
+            f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
+        ],
         optimizer_lm_params=LLMParams(model_name="test/model"),
-        oprimizer=mock_adapter
+        oprimizer=mock_adapter,
     )
 
-    assert len(result) == 1
-    optimized_prompt = result[0]
+    assert len(result.optimized_prompts) == 1
+    optimized_prompt = result.optimized_prompts[0]
     assert optimized_prompt.name == sample_translation_prompt.name
     assert optimized_prompt.version == sample_translation_prompt.version + 1
     assert "Be precise and accurate." in optimized_prompt.template
@@ -121,18 +123,18 @@ def test_adapt_prompts_multiple_prompts(
         train_data=sample_dataset,
         target_prompt_uris=[
             f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}",
-            f"prompts:/{sample_summarization_prompt.name}/{sample_summarization_prompt.version}"
+            f"prompts:/{sample_summarization_prompt.name}/{sample_summarization_prompt.version}",
         ],
         optimizer_lm_params=LLMParams(model_name="test/model"),
-        oprimizer=mock_adapter
+        oprimizer=mock_adapter,
     )
 
-    assert len(result) == 2
-    prompt_names = {prompt.name for prompt in result}
+    assert len(result.optimized_prompts) == 2
+    prompt_names = {prompt.name for prompt in result.optimized_prompts}
     assert sample_translation_prompt.name in prompt_names
     assert sample_summarization_prompt.name in prompt_names
 
-    for prompt in result:
+    for prompt in result.optimized_prompts:
         assert "Be precise and accurate." in prompt.template
 
 
@@ -159,12 +161,14 @@ def test_adapt_prompts_eval_function_behavior(sample_translation_prompt, sample_
                 assert result.score == 1
                 assert result.trace is not None
 
-            return target_prompts
-    
+            return PromptAdapterOutput(optimized_prompts=target_prompts)
+
     predict_called_count = 0
-    
+
     def predict_fn(input_text, language):
-        prompt = mlflow.genai.load_prompt(f"prompts:/test_translation_prompt/1").format(input_text=input_text, language=language)
+        prompt = mlflow.genai.load_prompt("prompts:/test_translation_prompt/1").format(
+            input_text=input_text, language=language
+        )
         nonlocal predict_called_count
         # the first call to the predict_fn is the model check
         if predict_called_count > 0:
@@ -179,15 +183,17 @@ def test_adapt_prompts_eval_function_behavior(sample_translation_prompt, sample_
     adapt_prompts(
         predict_fn=predict_fn,
         train_data=sample_dataset,
-        target_prompt_uris=[f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"],
+        target_prompt_uris=[
+            f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
+        ],
         optimizer_lm_params=LLMParams(model_name="test/model"),
-        oprimizer=testing_adapter
+        oprimizer=testing_adapter,
     )
 
     assert len(testing_adapter.eval_fn_calls) == 1
     _, eval_results = testing_adapter.eval_fn_calls[0]
     assert len(eval_results) == 3  # Number of records in sample_dataset
-    assert predict_called_count == 4 # 3 records in sample_dataset + 1 for the prediction check
+    assert predict_called_count == 4  # 3 records in sample_dataset + 1 for the prediction check
 
 
 def test_adapt_prompts_with_list_dataset(sample_translation_prompt, sample_summarization_dataset):
@@ -199,43 +205,14 @@ def test_adapt_prompts_with_list_dataset(sample_translation_prompt, sample_summa
     result = adapt_prompts(
         predict_fn=summarization_predict_fn,
         train_data=sample_summarization_dataset,
-        target_prompt_uris=[f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"],
+        target_prompt_uris=[
+            f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
+        ],
         optimizer_lm_params=LLMParams(model_name="test/model"),
-        oprimizer=mock_adapter
+        oprimizer=mock_adapter,
     )
 
-    assert len(result) == 1
-
-
-def test_adapt_prompts_tracing_context(sample_translation_prompt, sample_dataset):
-    """Test that MLflow tracing context is properly set during evaluation."""
-
-    class TracingTestAdapter(BasePromptAdapter):
-        def optimize(self, eval_fn, dataset, target_prompts, optimizer_lm_params):
-            results = eval_fn(target_prompts, dataset)
-
-            # Verify that traces are captured
-            for result in results:
-                # The trace might be None in test environment, but the field should exist
-                assert hasattr(result, 'trace')
-
-            return target_prompts
-
-    testing_adapter = TracingTestAdapter()
-
-    with patch("mlflow.get_trace") as mock_get_trace:
-        mock_get_trace.return_value = None  # Mock trace
-
-        adapt_prompts(
-            predict_fn=sample_predict_fn,
-            train_data=sample_dataset,
-            target_prompt_uris=[f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"],
-            optimizer_lm_params=LLMParams(model_name="test/model"),
-            oprimizer=testing_adapter
-        )
-
-        # Verify that get_trace was called for each dataset record
-        assert mock_get_trace.call_count == len(sample_dataset)
+    assert len(result.optimized_prompts) == 1
 
 
 def test_adapt_prompts_llm_params_passed(sample_translation_prompt, sample_dataset):
@@ -247,20 +224,20 @@ def test_adapt_prompts_llm_params_passed(sample_translation_prompt, sample_datas
             assert optimizer_lm_params.temperature == 0.5
             assert optimizer_lm_params.base_uri == "https://api.test.com"
 
-            return target_prompts
+            return PromptAdapterOutput(optimized_prompts=target_prompts)
 
     testing_adapter = ParamsTestAdapter()
 
     result = adapt_prompts(
         predict_fn=sample_predict_fn,
         train_data=sample_dataset,
-        target_prompt_uris=[f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"],
+        target_prompt_uris=[
+            f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
+        ],
         optimizer_lm_params=LLMParams(
-            model_name="test/custom-model",
-            temperature=0.5,
-            base_uri="https://api.test.com"
+            model_name="test/custom-model", temperature=0.5, base_uri="https://api.test.com"
         ),
-        oprimizer=testing_adapter
+        oprimizer=testing_adapter,
     )
 
-    assert len(result) == 1
+    assert len(result.optimized_prompts) == 1

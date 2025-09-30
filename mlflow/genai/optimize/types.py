@@ -123,7 +123,47 @@ class OptimizerOutput:
 @experimental(version="3.5.0")
 @dataclass
 class EvaluationResultRecord:
+    """
+    An output type of `eval_fn` in the
+    :py:func:`mlflow.genai.optimize.BasePromptAdapter.optimize()` API.
+
+    Args:
+        inputs: The inputs of the evaluation.
+        outputs: The outputs of the evaluation.
+        score: The score of the evaluation result.
+        trace: The trace of the evaluation execution.
+    """
+
     inputs: dict[str, Any]
     outputs: Any
     score: float
     trace: Any
+
+
+@experimental(version="3.5.0")
+@dataclass
+class PromptAdapterOutput:
+    """
+    An output of the :py:func:`mlflow.genai.optimize.BasePromptAdapter.optimize()` API.
+
+    Args:
+        optimized_prompts: The optimized prompts as
+            a dict (prompt template name -> prompt template).
+    """
+
+    optimized_prompts: dict[str, str]
+
+
+@experimental(version="3.5.0")
+@dataclass
+class PromptAdaptationResult:
+    """
+    Result of the :py:func:`mlflow.genai.adapt_prompts()` API.
+
+    Args:
+        optimized_prompts: The optimized prompts.
+        optimizer_name: The name of the optimizer.
+    """
+
+    optimized_prompts: list[PromptVersion]
+    optimizer_name: str
