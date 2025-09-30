@@ -220,9 +220,9 @@ describe('PromptsDetailsPage', () => {
       expect.arrayContaining([
         { key: 'mlflow.prompt.is_prompt', value: 'true' },
         { key: 'mlflow.prompt.text', value: JSON.stringify(expectedMessages) },
+        { key: '_mlflow_prompt_type', value: 'chat' },
       ]),
     );
-    expect(payload.tags).not.toEqual(expect.arrayContaining([{ key: '_mlflow_prompt_type', value: 'chat' }]));
   });
 
   it('should display table and react to change page mode', async () => {
