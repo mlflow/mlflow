@@ -1218,6 +1218,10 @@
     "defaultMessage": "No attributes found",
     "description": "Empty state for the attributes tab in the model trace explorer. Attributes are properties of a span that the user defines."
   },
+  "B80MC6": {
+    "defaultMessage": "Contour Plot",
+    "description": "Tab pane title for contour plots on the compare runs page"
+  },
   "B8RvlZ": {
     "defaultMessage": "Comparing version {baseline} with version {compared}",
     "description": "Label for comparing prompt versions in the prompt comparison view. Variables {baseline} and {compared} are numeric version numbers being compared."
@@ -2354,6 +2358,10 @@
     "defaultMessage": "Close",
     "description": "Error modal close button text"
   },
+  "OimAJb": {
+    "defaultMessage": "Scatter Plot",
+    "description": "Tab pane title for scatterplots on the compare runs page"
+  },
   "Oj2ENw": {
     "defaultMessage": "No models registered yet. <link>Learn more about registering models</link>.",
     "description": "Models table > no models present yet"
@@ -2572,6 +2580,10 @@
   "RzZVxC": {
     "defaultMessage": "An error occurred while rendering this component.",
     "description": "Description of error fallback component"
+  },
+  "S7ESYH": {
+    "defaultMessage": "Visualizations",
+    "description": "Tabs title for plots on the compare runs page"
   },
   "SCYMXw": {
     "defaultMessage": "Cancel",
@@ -5078,6 +5090,10 @@
   "sOQcFW": {
     "defaultMessage": "None",
     "description": "Label for the button disabling grouping in the logged model list page"
+  },
+  "sTp/V3": {
+    "defaultMessage": "Parallel Coordinates Plot",
+    "description": "Tab pane title for parallel coordinate plots on the compare runs page"
   },
   "sWbj1n": {
     "defaultMessage": "Apply filters",
