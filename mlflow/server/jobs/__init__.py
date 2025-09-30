@@ -2,7 +2,7 @@ import json
 import logging
 from dataclasses import dataclass
 from types import FunctionType
-from typing import Any, Callable
+from typing import Any, Callable, ParamSpec, TypeVar
 
 from mlflow.entities._job import Job
 from mlflow.exceptions import MlflowException
@@ -41,7 +41,10 @@ def job_function(max_workers: int) -> Callable[..., Any]:
             using this job function.
     """
 
-    def decorator(fn):
+    param_spec = ParamSpec("P")
+    return_type = TypeVar("R")
+
+    def decorator(fn: Callable[param_spec, return_type]) -> Callable[param_spec, return_type]:
         fn._job_fn_metadata = JobFunctionMetadata(
             fn_fullname=f"{fn.__module__}.{fn.__name__}",
             max_workers=max_workers,
