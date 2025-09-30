@@ -52,7 +52,7 @@ def server_url(tmp_path_factory: pytest.TempPathFactory) -> str:
     ) as server_proc:
         try:
             # wait server up.
-            deadline = time.time() + 30
+            deadline = time.time() + 15
             while time.time() < deadline:
                 time.sleep(1)
                 try:
@@ -62,7 +62,7 @@ def server_url(tmp_path_factory: pytest.TempPathFactory) -> str:
                 if resp.status_code == 200:
                     break
             else:
-                raise TimeoutError("Server did not report healthy within 30 seconds")
+                raise TimeoutError("Server did not report healthy within 15 seconds")
             yield f"http://127.0.0.1:{port}"
         finally:
             # NOTE that we need to kill subprocesses

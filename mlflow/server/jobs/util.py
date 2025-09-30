@@ -12,7 +12,7 @@ import sys
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Callable, TYPE_CHECKING
 
 import cloudpickle
 
@@ -23,6 +23,9 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.server import HUEY_STORAGE_PATH_ENV_VAR
+
+if TYPE_CHECKING:
+    import huey
 
 _logger = logging.getLogger(__name__)
 
@@ -151,6 +154,7 @@ def _start_huey_consumer_proc(
     huey_instance_key: str,
     max_job_parallelism: int,
 ):
+    from mlflow.server import MLFLOW_HUEY_INSTANCE_KEY
     from mlflow.utils.process import _exec_cmd
 
     return _exec_cmd(
@@ -164,7 +168,7 @@ def _start_huey_consumer_proc(
         capture_output=False,
         synchronous=False,
         extra_env={
-            "_MLFLOW_HUEY_INSTANCE_KEY": huey_instance_key,
+            MLFLOW_HUEY_INSTANCE_KEY: huey_instance_key,
         },
     )
 
@@ -197,10 +201,14 @@ def _exec_job(
 
 @dataclass
 class HueyInstance:
-    instance: Any
+    instance: "huey.SqliteHuey"
     submit_task: Callable[..., Any]
 
 
+# Each job function has an individual execution pool, each execution pool
+# is managed by a Huey instance.
+# The `_huey_instance_map` stores the map, the key is the job function fullname,
+# and the value is the `HueyInstance` object.
 _huey_instance_map: dict[str, HueyInstance] = {}
 _huey_instance_map_lock = threading.RLock()
 
@@ -268,19 +276,7 @@ def _launch_huey_consumer(
     ).start()
 
 
-def _launch_job_runner(backend_store_uri, env_map, server_proc_pid):
-    from mlflow.exceptions import MlflowException
-    from mlflow.utils.uri import extract_db_type_from_uri
-
-    try:
-        extract_db_type_from_uri(backend_store_uri)
-    except MlflowException:
-        _logger.warning(
-            f"Job store requires a database backend store URI but got {backend_store_uri}, "
-            "skip launching the job runner."
-        )
-        return
-
+def _launch_job_runner(env_map, server_proc_pid):
     return subprocess.Popen(
         [
             sys.executable,
@@ -377,4 +373,31 @@ def _validate_function_parameters(function: Callable[..., Any], params: dict[str
         raise MlflowException.invalid_parameter_value(
             f"Missing required parameters for function '{function.__name__}': {missing_params}. "
             f"Expected parameters: {list(sig.parameters.keys())}"
+        )
+
+
+def _check_requirements(backend_store_uri: str | None = None) -> None:
+    from mlflow.utils.uri import extract_db_type_from_uri
+    from mlflow.server import BACKEND_STORE_URI_ENV_VAR
+
+    backend_store_uri = backend_store_uri or os.environ.get(BACKEND_STORE_URI_ENV_VAR, None)
+    try:
+        import huey  # noqa: F401
+    except ImportError:
+        raise MlflowException(
+            "MLflow job backend requires 'huey<3,>=2.5.0' package but it is not installed. "
+            "Skip launching the job runner."
+        )
+
+    try:
+        extract_db_type_from_uri(backend_store_uri)
+    except MlflowException:
+        raise MlflowException(
+            f"MLflow job backend requires a database backend store URI but got {backend_store_uri}, "
+            "skip launching the job runner."
+        )
+
+    if os.name == "nt":
+        raise MlflowException(
+            "MLflow job backend does not support Windows system."
         )

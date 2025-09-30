@@ -83,7 +83,13 @@ def submit_job(
         the updated job entity.
     """
     from mlflow.environment_variables import MLFLOW_SERVER_ENABLE_JOB_EXECUTION
-    from mlflow.server.jobs.util import _get_or_init_huey_instance, _validate_function_parameters
+    from mlflow.server.jobs.util import (
+        _get_or_init_huey_instance,
+        _check_requirements,
+        _validate_function_parameters,
+    )
+
+    _check_requirements()
 
     if not MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
         raise MlflowException(

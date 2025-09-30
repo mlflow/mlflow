@@ -17,6 +17,7 @@ and schedules the job execution continuously.
 import os
 import threading
 
+from mlflow.server import MLFLOW_HUEY_INSTANCE_KEY
 from mlflow.server.jobs.util import (
     _exit_when_orphaned,
     _get_or_init_huey_instance,
@@ -31,4 +32,4 @@ threading.Thread(
     daemon=True,
 ).start()
 
-huey_instance = _get_or_init_huey_instance(os.environ["_MLFLOW_HUEY_INSTANCE_KEY"]).instance
+huey_instance = _get_or_init_huey_instance(os.environ[MLFLOW_HUEY_INSTANCE_KEY]).instance

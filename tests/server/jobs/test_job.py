@@ -28,7 +28,6 @@ pytestmark = pytest.mark.skipif(
 @contextmanager
 def _launch_job_runner_for_test():
     with _launch_job_runner(
-        os.environ[BACKEND_STORE_URI_ENV_VAR],
         {"PYTHONPATH": dirname(__file__)},
         os.getpid(),
     ) as proc:
@@ -420,8 +419,9 @@ def bad_job_function() -> None:
     return
 
 
-def test_job_function_without_decorator():
-    with pytest.raises(
-        MlflowException, match="The job function test_job.bad_job_function is not decorated"
-    ):
-        submit_job(bad_job_function, params={})
+def test_job_function_without_decorator(monkeypatch, tmp_path):
+    with _setup_job_runner(monkeypatch, tmp_path):
+        with pytest.raises(
+            MlflowException, match="The job function test_job.bad_job_function is not decorated"
+        ):
+            submit_job(bad_job_function, params={})

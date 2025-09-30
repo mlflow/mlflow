@@ -50,6 +50,7 @@ PROMETHEUS_EXPORTER_ENV_VAR = "prometheus_multiproc_dir"
 SERVE_ARTIFACTS_ENV_VAR = "_MLFLOW_SERVER_SERVE_ARTIFACTS"
 ARTIFACTS_ONLY_ENV_VAR = "_MLFLOW_SERVER_ARTIFACTS_ONLY"
 HUEY_STORAGE_PATH_ENV_VAR = "_MLFLOW_HUEY_STORAGE_PATH"
+MLFLOW_HUEY_INSTANCE_KEY = "_MLFLOW_HUEY_INSTANCE_KEY"
 
 REL_STATIC_DIR = "js/build"
 
@@ -401,16 +402,16 @@ def _run_server(
     )
 
     if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
-        try:
-            import huey  # noqa: F401
-        except ImportError:
-            _logger.warning(
-                "MLflow job backend requires 'huey<3,>=2.5.0' package but it is not installed. "
-                "Skip launching the job runner."
-            )
-        else:
-            from mlflow.server.jobs.util import _launch_job_runner
+        from mlflow.server.jobs.util import _check_requirements, _launch_job_runner
 
-            _launch_job_runner(file_store_path, env_map, server_proc.pid)
+        try:
+            _check_requirements(file_store_path)
+        except Exception as e:
+            raise MlflowException(
+                f"MLflow job runner requirements checking failed, root error: {repr(e)}. "
+                "If you don't need MLflow job runner, you can disable it by settting "
+                "environment variable 'MLFLOW_SERVER_ENABLE_JOB_EXECUTION' to 'false'."
+            )
+        _launch_job_runner(env_map, server_proc.pid)
 
     server_proc.wait()
