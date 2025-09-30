@@ -59,28 +59,13 @@ def autolog():
                 except Exception:
                     options = {}
 
-            # Add Stop hook to options
-            if hasattr(options, "hooks"):
-                # SDK options object
-                if options.hooks is None:
-                    options.hooks = {}
-                if "Stop" not in options.hooks:
-                    options.hooks["Stop"] = []
+            # SDK options object
+            if options.hooks is None:
+                options.hooks = {}
+            if "Stop" not in options.hooks:
+                options.hooks["Stop"] = []
 
-                # Add our hook using HookMatcher format
-                try:
-                    hook_matcher = HookMatcher(hooks=[sdk_stop_hook_handler])
-                    options.hooks["Stop"].append(hook_matcher)
-                except Exception:
-                    # Fallback: add function directly
-                    options.hooks["Stop"].append(sdk_stop_hook_handler)
-            elif isinstance(options, dict):
-                # Dict-based options
-                if "hooks" not in options:
-                    options["hooks"] = {}
-                if "Stop" not in options["hooks"]:
-                    options["hooks"]["Stop"] = []
-                options["hooks"]["Stop"].append(sdk_stop_hook_handler)
+            options.hooks["Stop"].append(HookMatcher(hooks=[sdk_stop_hook_handler]))
 
             # Call original init with modified options
             original_init(self, options)
