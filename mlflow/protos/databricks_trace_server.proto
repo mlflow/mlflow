@@ -189,8 +189,7 @@ message Span {
     optional fixed64 end_time_unix_nano = 8 [(validate_required) = true];
 
     // A collection of key/value attributes.
-    // Note: different from the KeyValue in OTLP but will be wire compatible
-    map<string, google.protobuf.Value> attributes = 9;
+    repeated KeyValue attributes = 9;
 
     // The number of attributes that were discarded.
     optional uint32 dropped_attributes_count = 10;
@@ -204,8 +203,7 @@ message Span {
         optional string name = 2 [(validate_required) = true];
 
         // A collection of attribute key/value pairs on the event.
-        // Note: different from the KeyValue in OTLP but will be wire compatible
-        map<string, google.protobuf.Value> attributes = 3;
+        repeated KeyValue attributes =  3;
 
         // The number of dropped attributes.
         optional uint32 dropped_attributes_count = 4;
@@ -230,8 +228,7 @@ message Span {
         optional string trace_state = 3;
 
         // A collection of attribute key/value pairs on the link.
-        // Note: different from the KeyValue in OTLP but will be wire compatible
-        map<string, google.protobuf.Value> attributes = 4;
+        repeated KeyValue attributes  = 4;
 
         // The number of dropped attributes.
         optional uint32 dropped_attributes_count = 5;
