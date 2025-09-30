@@ -75,7 +75,7 @@ class GatewayAPI(FastAPI):
             )
             self.dynamic_routes[route.name] = route
 
-    def get_dynamic_route(self, route_name: str) -> Endpoint | None:
+    def get_dynamic_endpoint(self, route_name: str) -> Endpoint | None:
         return r.to_endpoint() if (r := self.dynamic_routes.get(route_name)) else None
 
     def get_legacy_dynamic_route(self, route_name: str) -> Route | None:
@@ -294,7 +294,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     # TODO: Remove deployments server URLs after deprecation window elapses
     @app.get(MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE + "{endpoint_name}")
     async def get_endpoint(endpoint_name: str) -> Endpoint:
-        if matched := app.get_dynamic_route(endpoint_name):
+        if matched := app.get_dynamic_endpoint(endpoint_name):
             return matched
 
         raise HTTPException(
