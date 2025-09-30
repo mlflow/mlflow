@@ -136,12 +136,12 @@ def test_optimize_with_verbose(
 ):
     import dspy
 
-    mock_gepa.return_value.compile.side_effect = lambda *args, **kwargs: (
+    def compile_side_effect(*args, **kwargs):
         print("GEPA optimization progress")  # noqa: T201
-        or print("GEPA debug info", file=sys.stderr)  # noqa: T201
-        or dspy.Predict("input_text, language -> translation")
-    )
+        print("GEPA debug info", file=sys.stderr)  # noqa: T201
+        return dspy.Predict("input_text, language -> translation")
 
+    mock_gepa.return_value.compile.side_effect = compile_side_effect
     optimizer = _DSPyGEPAOptimizer(OptimizerConfig(verbose=verbose))
 
     optimizer.optimize(
