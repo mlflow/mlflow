@@ -258,7 +258,7 @@ def test_client_get_trace(mock_store, mock_artifact_repo):
         return_value=False,
     ):
         trace = MlflowClient().get_trace(trace_id)
-        mock_store.get_traces.assert_called_once_with([trace_id])
+        mock_store.get_traces.assert_called_once_with([trace_id], sql_warehouse_id=None)
         mock_store.get_trace_info.assert_called_once_with(trace_id)
         mock_artifact_repo.download_trace_data.assert_not_called()
 
@@ -470,7 +470,7 @@ def test_client_search_traces_mixed(mock_store, mock_artifact_repo, include_span
     )
     assert len(results) == 2
     if include_spans:
-        mock_store.get_traces.assert_called_once_with(["1234567"])
+        mock_store.get_traces.assert_called_once_with(["1234567"], sql_warehouse_id=None)
         mock_artifact_repo.download_trace_data.assert_called()
     else:
         mock_store.get_traces.assert_not_called()
