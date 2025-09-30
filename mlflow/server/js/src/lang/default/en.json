@@ -107,6 +107,10 @@
     "defaultMessage": "A network error occurred.",
     "description": "Generic message for a network error"
   },
+  "/DcBLQ": {
+    "defaultMessage": "role",
+    "description": "Placeholder for chat message role input"
+  },
   "/K6wBr": {
     "defaultMessage": "Input data or prompt template have changed since last evaluation of the output",
     "description": "Experiment page > new run modal > dirty output (out of sync with new data)"
@@ -570,6 +574,10 @@
     "defaultMessage": "False",
     "description": "Label for an assessment with a 'false' boolean value"
   },
+  "4g2H7S": {
+    "defaultMessage": "Prompt content is required",
+    "description": "A validation state for the chat prompt content in the prompt creation modal"
+  },
   "4idqpX": {
     "defaultMessage": "Add",
     "description": "Add button text in editable tags table view in MLflow"
@@ -858,6 +866,10 @@
     "defaultMessage": "Context sufficient",
     "description": "Evaluation results > context sufficiency assessment > positive value label. Displayed if retrieved context is sufficient to generate the expected response."
   },
+  "7Uj0KJ": {
+    "defaultMessage": "Move to bottom",
+    "description": "Experiment page > compare runs tab > chart header > move to bottom option"
+  },
   "7WkP1e": {
     "defaultMessage": "Delete",
     "description": "Menu item to delete an experiment run"
@@ -933,6 +945,10 @@
   "81DxPY": {
     "defaultMessage": "Contour plots can only be rendered when comparing a group of runs with three or more unique metrics or params. Log more metrics or params to your runs to visualize them using the contour plot.",
     "description": "Text explanation when contour plot is disabled in comparison pages\n              in MLflow"
+  },
+  "81PFb9": {
+    "defaultMessage": "Prompt type:",
+    "description": "A label for selecting prompt type in the prompt creation modal"
   },
   "83wDn8": {
     "defaultMessage": "Total",
@@ -1201,6 +1217,10 @@
   "B5K1Ix": {
     "defaultMessage": "No attributes found",
     "description": "Empty state for the attributes tab in the model trace explorer. Attributes are properties of a span that the user defines."
+  },
+  "B80MC6": {
+    "defaultMessage": "Contour Plot",
+    "description": "Tab pane title for contour plots on the compare runs page"
   },
   "B8RvlZ": {
     "defaultMessage": "Comparing version {baseline} with version {compared}",
@@ -1489,6 +1509,10 @@
   "ER3oVW": {
     "defaultMessage": "No metrics available",
     "description": "Text shown in a disabled metric selector when there are no selectable metrics."
+  },
+  "ERWI9o": {
+    "defaultMessage": "Text",
+    "description": "Label for text prompt type in the prompt creation modal"
   },
   "ES952j": {
     "defaultMessage": "Not a number ({metricKey})",
@@ -2074,6 +2098,10 @@
     "defaultMessage": "No traces found with the current filter query. <button>Reset filters</button> to see all traces.",
     "description": "Experiment page > traces table > no traces recorded"
   },
+  "LajLDb": {
+    "defaultMessage": "Move to top",
+    "description": "Experiment page > compare runs tab > chart header > move to top option"
+  },
   "LhxSrc": {
     "defaultMessage": "Incorrect",
     "description": "Evaluation results > correctness assessment > negative value label. Displayed if evaluation result is considered as incorrect."
@@ -2181,6 +2209,10 @@
   "Mtj9Ay": {
     "defaultMessage": "Edit description",
     "description": "Run page > Overview > Description section > Edit button label"
+  },
+  "MxiIan": {
+    "defaultMessage": "Add message",
+    "description": "Button to insert a new chat message row"
   },
   "N1G2a5": {
     "defaultMessage": "Expected facts",
@@ -2325,6 +2357,10 @@
   "OfLABN": {
     "defaultMessage": "Close",
     "description": "Error modal close button text"
+  },
+  "OimAJb": {
+    "defaultMessage": "Scatter Plot",
+    "description": "Tab pane title for scatterplots on the compare runs page"
   },
   "Oj2ENw": {
     "defaultMessage": "No models registered yet. <link>Learn more about registering models</link>.",
@@ -2544,6 +2580,10 @@
   "RzZVxC": {
     "defaultMessage": "An error occurred while rendering this component.",
     "description": "Description of error fallback component"
+  },
+  "S7ESYH": {
+    "defaultMessage": "Visualizations",
+    "description": "Tabs title for plots on the compare runs page"
   },
   "SCYMXw": {
     "defaultMessage": "Cancel",
@@ -4019,6 +4059,10 @@
     "defaultMessage": "Violates guidelines",
     "description": "Evaluation results > guideline adherence assessment > negative value label. Displayed if evaluation result does not adhere to the guidelines."
   },
+  "hT5ZGW": {
+    "defaultMessage": "Remove message",
+    "description": "Button to remove a chat message row"
+  },
   "hV4vVj": {
     "defaultMessage": "called {functionName} in {toolCallId}",
     "description": "A message that shows the tool calls that an AI assistant made. The full message reads (for example): 'Assistant called get_weather in id_123'."
@@ -5047,6 +5091,10 @@
     "defaultMessage": "None",
     "description": "Label for the button disabling grouping in the logged model list page"
   },
+  "sTp/V3": {
+    "defaultMessage": "Parallel Coordinates Plot",
+    "description": "Tab pane title for parallel coordinate plots on the compare runs page"
+  },
   "sWbj1n": {
     "defaultMessage": "Apply filters",
     "description": "Button to apply filters in the tags filter popover for experiments page search by tags"
@@ -5414,6 +5462,10 @@
   "xIcbik": {
     "defaultMessage": "Created",
     "description": "Header title for the creation timestamp column in the logged model list table"
+  },
+  "xKpbD3": {
+    "defaultMessage": "Chat",
+    "description": "Label for chat prompt type in the prompt creation modal"
   },
   "xPkIEE": {
     "defaultMessage": "Active",

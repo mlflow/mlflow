@@ -15,6 +15,7 @@ def test_mlflow_backend_scorer_operations():
     """Test all scorer operations with MLflow backend"""
 
     experiment_id = mlflow.create_experiment("test_scorer_mlflow_backend_experiment")
+    mlflow.set_experiment(experiment_id=experiment_id)
 
     @scorer
     def test_mlflow_scorer_v1(outputs) -> bool:
@@ -33,9 +34,8 @@ def test_mlflow_backend_scorer_operations():
     def test_mlflow_scorer_v2(outputs) -> bool:
         return len(outputs) > 10  # Different logic for v2
 
-    registered_scorer_v2 = test_mlflow_scorer_v2.register(
-        experiment_id=experiment_id, name="test_mlflow_scorer"
-    )
+    # Register the scorer in the active experiment.
+    registered_scorer_v2 = test_mlflow_scorer_v2.register(name="test_mlflow_scorer")
     assert registered_scorer_v2.name == "test_mlflow_scorer"
 
     # Test list operation

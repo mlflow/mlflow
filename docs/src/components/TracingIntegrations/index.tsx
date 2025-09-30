@@ -156,6 +156,12 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     link: '/genai/tracing/integrations/listing/txtai',
   },
   {
+    id: 'haystack',
+    name: 'Haystack',
+    logoPath: '/images/logos/haystack-logo.png',
+    link: '/genai/tracing/integrations/listing/haystack',
+  },
+  {
     id: 'claude_code',
     name: 'Claude Code',
     logoPath: '/images/logos/claude-code-logo.svg',

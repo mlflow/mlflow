@@ -6,6 +6,7 @@ from typing import Any
 from pydantic import PrivateAttr
 
 import mlflow
+from mlflow.entities.assessment import Feedback
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
@@ -31,7 +32,7 @@ from mlflow.genai.utils.trace_utils import (
     extract_inputs_from_trace,
     extract_outputs_from_trace,
 )
-from mlflow.prompt.constants import PROMPT_TEMPLATE_VARIABLE_PATTERN
+from mlflow.prompt.constants import PROMPT_TEMPLATE_VARIABLE_PATTERN, PROMPT_TEXT_DISPLAY_LIMIT
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
 
@@ -211,6 +212,11 @@ class InstructionsJudge(Judge):
         trace: Trace | None,
     ) -> None:
         """Warn about parameters that were provided but aren't used."""
+        # Don't warn about unused parameters when using trace-based evaluation
+        # since these parameters may be extracted from the trace for context
+        if self._TEMPLATE_VARIABLE_TRACE in self.template_variables:
+            return
+
         unused_params = []
         if inputs is not None and self._TEMPLATE_VARIABLE_INPUTS not in self.template_variables:
             unused_params.append("inputs")
@@ -257,21 +263,18 @@ class InstructionsJudge(Judge):
         output_fields = self.get_output_fields()
 
         if is_trace_based:
-            # Trace-based: use trace prompt template
             evaluation_rating_fields = "\n".join(
                 [f"- {field.name}: {field.description}" for field in output_fields]
             )
-            base_prompt = INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE.format(
+            return INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE.format(
                 evaluation_rating_fields=evaluation_rating_fields,
                 instructions=self._instructions,
             )
         else:
-            # Field-based: use standard prompt template
             base_prompt = format_prompt(
                 INSTRUCTIONS_JUDGE_SYSTEM_PROMPT, instructions=self._instructions
             )
-
-        return add_output_format_instructions(base_prompt, output_fields=output_fields)
+            return add_output_format_instructions(base_prompt, output_fields=output_fields)
 
     def _build_user_message(
         self,
@@ -293,7 +296,14 @@ class InstructionsJudge(Judge):
             if var_name in template_values:
                 user_message_parts.append(f"{var_name}: {template_values[var_name]}")
 
-        return "\n".join(user_message_parts) if user_message_parts else ""
+        # Some model providers (like Anthropic) require a user message
+        # (i.e. a single-message chat history with role 'system' is not supported),
+        # *and* they require the message to have non-empty content (empty string is not allowed)
+        return (
+            "\n".join(user_message_parts)
+            if user_message_parts
+            else "Follow the instructions from the first message"
+        )
 
     def _build_template_values(
         self, inputs: Any | None, outputs: Any | None, expectations: dict[str, Any] | None
@@ -331,7 +341,7 @@ class InstructionsJudge(Judge):
         outputs: Any = None,
         expectations: dict[str, Any] | None = None,
         trace: Trace | None = None,
-    ) -> Any:
+    ) -> Feedback:
         """
         Evaluate the provided data using the judge's instructions.
 
@@ -424,6 +434,19 @@ class InstructionsJudge(Judge):
                 "{{ outputs }}, {{ trace }}, or {{ expectations }}).",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+
+    def __repr__(self) -> str:
+        """Return string representation of the InstructionsJudge."""
+        instructions_preview = (
+            self._instructions[:PROMPT_TEXT_DISPLAY_LIMIT] + "..."
+            if len(self._instructions) > PROMPT_TEXT_DISPLAY_LIMIT
+            else self._instructions
+        )
+        return (
+            f"InstructionsJudge(name='{self.name}', model='{self._model}', "
+            f"instructions='{instructions_preview}', "
+            f"template_variables={sorted(self.template_variables)})"
+        )
 
     def model_dump(self, **kwargs) -> dict[str, Any]:
         """Override model_dump to serialize as a SerializedScorer."""

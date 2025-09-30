@@ -3,9 +3,11 @@ import { describe, expect, it } from '@jest/globals';
 import { ModelSpanType } from './ModelTrace.types';
 import type { ModelTraceChatMessage, ModelTraceSpanNode, RawModelTraceChatMessage } from './ModelTrace.types';
 import {
+  MOCK_CHAT_SPAN,
   MOCK_CHAT_TOOL_CALL_SPAN,
   MOCK_OPENAI_CHAT_INPUT,
   MOCK_OPENAI_CHAT_OUTPUT,
+  MOCK_OTEL_TRACE,
   MOCK_OVERRIDDING_ASSESSMENT,
   MOCK_ROOT_ASSESSMENT,
   MOCK_SPAN_ASSESSMENT,
@@ -28,6 +30,7 @@ import {
   isModelTraceChatMessage,
   getAssessmentMap,
   decodeSpanId,
+  getDefaultActiveTab,
 } from './ModelTraceExplorer.utils';
 import { TEST_SPAN_FILTER_STATE } from './timeline-tree/TimelineTree.test-utils';
 
@@ -633,5 +636,21 @@ describe('isModelTrace', () => {
     { data: { spans: [] }, info: { trace_metadata: [] } },
   ])("should return false if the object doesn't have the required fields", (trace) => {
     expect(isModelTrace(trace)).toBe(false);
+  });
+});
+
+describe('getDefaultActiveTab', () => {
+  it('should return chat if the node has chat messages', () => {
+    expect(getDefaultActiveTab(MOCK_CHAT_SPAN)).toBe('chat');
+  });
+
+  it('should return content if the node has inputs or outputs', () => {
+    const normalSpan = normalizeNewSpanData(MOCK_V3_SPANS[0], 0, 0, [], {}, '');
+    expect(getDefaultActiveTab(normalSpan)).toBe('content');
+  });
+
+  it('should return attributes if the node has no chat messages or inputs or outputs', () => {
+    const otelSpan = parseModelTraceToTree(MOCK_OTEL_TRACE) as ModelTraceSpanNode;
+    expect(getDefaultActiveTab(otelSpan)).toBe('attributes');
   });
 });

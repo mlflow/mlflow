@@ -6,10 +6,8 @@ from clint.linter import Location, lint_file
 from clint.rules import GetArtifactUri
 
 
-def test_get_artifact_uri_in_rst_example(index_path: Path, tmp_path: Path) -> None:
-    tmp_file = tmp_path / "test.rst"
-    tmp_file.write_text(
-        """
+def test_get_artifact_uri_in_rst_example(index_path: Path) -> None:
+    code = """
 Documentation
 =============
 
@@ -24,21 +22,16 @@ Here's an example:
         model_uri = mlflow.get_artifact_uri("model")
         print(model_uri)
 """
-    )
     config = Config(select={GetArtifactUri.name}, example_rules=[GetArtifactUri.name])
-    violations = lint_file(tmp_file, config, index_path)
+    violations = lint_file(Path("test.rst"), code, config, index_path)
     assert len(violations) == 1
     assert violations[0].rule.name == GetArtifactUri.name
     assert violations[0].loc == Location(12, 20)
 
 
 @pytest.mark.parametrize("suffix", [".md", ".mdx"])
-def test_get_artifact_uri_in_markdown_example(
-    index_path: Path, tmp_path: Path, suffix: str
-) -> None:
-    tmp_file = (tmp_path / "test").with_suffix(suffix)
-    tmp_file.write_text(
-        """
+def test_get_artifact_uri_in_markdown_example(index_path: Path, suffix: str) -> None:
+    code = """
 # Documentation
 
 Here's an example:
@@ -52,35 +45,29 @@ with mlflow.start_run():
     print(model_uri)
 ```
 """
-    )
     config = Config(select={GetArtifactUri.name}, example_rules=[GetArtifactUri.name])
-    violations = lint_file(tmp_file, config, index_path)
+    violations = lint_file(Path("test").with_suffix(suffix), code, config, index_path)
     assert len(violations) == 1
     assert violations[0].rule.name == GetArtifactUri.name
     assert violations[0].loc == Location(10, 16)
 
 
-def test_get_artifact_uri_not_in_regular_python_files(index_path: Path, tmp_path: Path) -> None:
-    tmp_file = tmp_path / "test.py"
-    tmp_file.write_text(
-        """
+def test_get_artifact_uri_not_in_regular_python_files(index_path: Path) -> None:
+    code = """
 import mlflow
 
 with mlflow.start_run():
     model_uri = mlflow.get_artifact_uri("model")
     print(model_uri)
 """
-    )
     config = Config(select={GetArtifactUri.name}, example_rules=[GetArtifactUri.name])
-    violations = lint_file(tmp_file, config, index_path)
+    violations = lint_file(Path("test.py"), code, config, index_path)
     assert len(violations) == 0
 
 
-def test_get_artifact_uri_without_log_model_allowed(index_path: Path, tmp_path: Path) -> None:
+def test_get_artifact_uri_without_log_model_allowed(index_path: Path) -> None:
     """Test that mlflow.get_artifact_uri is allowed when no log_model is present."""
-    tmp_file = tmp_path / "test.rst"
-    tmp_file.write_text(
-        """
+    code = """
 Documentation
 =============
 
@@ -94,7 +81,6 @@ Here's an example:
     model_uri = mlflow.get_artifact_uri("some_model")
     loaded_model = mlflow.sklearn.load_model(model_uri)
 """
-    )
     config = Config(select={GetArtifactUri.name}, example_rules=[GetArtifactUri.name])
-    violations = lint_file(tmp_file, config, index_path)
+    violations = lint_file(Path("test.rst"), code, config, index_path)
     assert len(violations) == 0

@@ -235,6 +235,20 @@ def test_convert_to_eval_set_has_no_errors(data_fixture, request):
     assert "expectations" in transformed_data.columns
 
 
+def test_convert_to_eval_set_without_request_and_response():
+    for _ in range(3):
+        with mlflow.start_span():
+            pass
+
+    trace_df = mlflow.search_traces()
+    trace_df = trace_df[["trace"]]
+    transformed_data = _convert_to_eval_set(trace_df)
+
+    assert "request" in transformed_data.columns
+    assert "response" in transformed_data.columns
+    assert transformed_data["request"].isna().all()
+
+
 def test_convert_to_legacy_eval_raise_for_invalid_json_columns(spark):
     # Data with invalid `inputs` column
     df = spark.createDataFrame(

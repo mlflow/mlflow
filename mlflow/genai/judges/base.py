@@ -7,6 +7,8 @@ from pydantic import BaseModel, Field
 from mlflow.entities.trace import Trace
 from mlflow.genai.judges.utils import get_default_optimizer
 from mlflow.genai.scorers.base import Scorer
+from mlflow.telemetry.events import AlignJudgeEvent
+from mlflow.telemetry.track import record_usage_event
 from mlflow.utils.annotations import experimental
 
 
@@ -84,6 +86,7 @@ class Judge(Scorer):
         ]
 
     @experimental(version="3.4.0")
+    @record_usage_event(AlignJudgeEvent)
     def align(self, traces: list[Trace], optimizer: AlignmentOptimizer | None = None) -> Judge:
         """
         Align this judge with human preferences using the provided optimizer and traces.
@@ -94,6 +97,15 @@ class Judge(Scorer):
 
         Returns:
             A new Judge instance that is better aligned with the input traces.
+
+        Note on Logging:
+            By default, alignment optimization shows minimal progress information.
+            To see detailed optimization output, set the optimizer's logger to DEBUG::
+
+                import logging
+
+                # For SIMBA optimizer (default)
+                logging.getLogger("mlflow.genai.judges.optimizers.simba").setLevel(logging.DEBUG)
         """
         if optimizer is None:
             optimizer = get_default_optimizer()

@@ -604,6 +604,7 @@ export const traceInfoCellRenderer = (
               componentId="mlflow.genai-traces-table.trace-id"
               color="indigo"
               title={value}
+              onClick={() => onChangeEvaluationId(value)}
             >
               <span
                 css={{
@@ -628,6 +629,7 @@ export const traceInfoCellRenderer = (
               componentId="mlflow.genai-traces-table.trace-id"
               color="indigo"
               title={otherValue}
+              onClick={() => onChangeEvaluationId(otherValue)}
             >
               <span
                 css={{

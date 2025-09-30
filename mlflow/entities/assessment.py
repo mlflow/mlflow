@@ -30,7 +30,6 @@ PbValueType = float | int | str | bool
 FeedbackValueType = PbValueType | dict[str, PbValueType] | list[PbValueType]
 
 
-@experimental(version="2.21.0")
 @dataclass
 class Assessment(_MlflowObject):
     """
@@ -346,7 +345,6 @@ class Feedback(Assessment):
         return self.feedback.error.error_message if self.feedback.error else None
 
 
-@experimental(version="2.21.0")
 @dataclass
 class Expectation(Assessment):
     """
@@ -524,7 +522,6 @@ class ExpectationValue(_MlflowObject):
         return self.value is not None and not isinstance(self.value, (int, float, bool, str))
 
 
-@experimental(version="2.21.0")
 @dataclass
 class FeedbackValue(_MlflowObject):
     """Represents a feedback value."""

@@ -12,8 +12,6 @@ from typing import Any
 
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.store.tracking import SEARCH_EVALUATION_DATASETS_MAX_RESULTS
-from mlflow.telemetry.events import CreateDatasetEvent
-from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking import get_tracking_uri
 from mlflow.utils.annotations import deprecated_parameter, experimental
 from mlflow.utils.databricks_utils import is_databricks_default_tracking_uri
@@ -76,7 +74,6 @@ def _validate_non_databricks_params(
 
 
 @deprecated_parameter("uc_table_name", "name")
-@record_usage_event(CreateDatasetEvent)
 def create_dataset(
     name: str | None = None,
     experiment_id: str | list[str] | None = None,
