@@ -380,19 +380,24 @@ def _check_requirements(backend_store_uri: str | None = None) -> None:
     from mlflow.server import BACKEND_STORE_URI_ENV_VAR
     from mlflow.utils.uri import extract_db_type_from_uri
 
-    backend_store_uri = backend_store_uri or os.environ.get(BACKEND_STORE_URI_ENV_VAR, None)
     try:
         import huey  # noqa: F401
     except ImportError:
         raise MlflowException(
-            "MLflow job backend requires 'huey<3,>=2.5.0' package but it is not installed."
+            "MLflow job backend requires 'huey<3,>=2.5.0' package but it is not installed"
         )
 
+    backend_store_uri = backend_store_uri or os.environ.get(BACKEND_STORE_URI_ENV_VAR, None)
+    if not backend_store_uri:
+        raise MlflowException(
+            "MLflow job backend requires a database backend store URI but "
+            "'--backend-store-uri' is not set"
+        )
     try:
         extract_db_type_from_uri(backend_store_uri)
     except MlflowException:
         raise MlflowException(
-            f"MLflow job backend requires a database backend store URI but got {backend_store_uri}."
+            f"MLflow job backend requires a database backend store URI but got {backend_store_uri}"
         )
 
     if os.name == "nt":
