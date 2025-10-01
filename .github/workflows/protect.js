@@ -109,7 +109,7 @@ module.exports = async ({ github, context }) => {
       // Process each job as a separate check
       for (const job of jobs) {
         runs.push({
-          name: `${job.name} (${run.path})`,
+          name: `${job.name} (${run.path}, attempt ${run.run_attempt})`,
           status:
             job.status !== "completed"
               ? STATE.pending
