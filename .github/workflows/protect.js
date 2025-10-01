@@ -108,8 +108,9 @@ module.exports = async ({ github, context }) => {
 
       // Process each job as a separate check
       for (const job of jobs) {
+        const runName = run.path.replace(".github/workflows/", "");
         runs.push({
-          name: `${job.name} (${run.path}, attempt ${run.run_attempt})`,
+          name: `${job.name} (${runName}, attempt ${run.run_attempt})`,
           status:
             job.status !== "completed"
               ? STATE.pending
