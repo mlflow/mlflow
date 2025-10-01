@@ -788,7 +788,6 @@ def test_search_unified_traces():
     max_results = 10
     order_by = ["timestamp_ms DESC"]
     page_token = "12345abcde"
-    sql_warehouse_id = "warehouse123"
     model_id = "model123"
 
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
@@ -798,7 +797,6 @@ def test_search_unified_traces():
             max_results=max_results,
             order_by=order_by,
             page_token=page_token,
-            sql_warehouse_id=sql_warehouse_id,
             model_id=model_id,
         )
 

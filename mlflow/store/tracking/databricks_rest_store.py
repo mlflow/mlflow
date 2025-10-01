@@ -314,7 +314,6 @@ class DatabricksTracingRestStore(RestStore):
             return self._search_unified_traces(
                 model_id=model_id,
                 locations=locations,
-                sql_warehouse_id=MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
                 filter_string=filter_string,
                 max_results=max_results,
                 order_by=order_by,
