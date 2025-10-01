@@ -1,8 +1,13 @@
 """Tests for mlflow.cli.eval_utils module."""
 
-import pandas as pd
+from unittest import mock
 
-from mlflow.cli.eval_utils import build_output_data, format_table_output
+import click
+import pandas as pd
+import pytest
+
+from mlflow.cli.eval_utils import build_output_data, format_table_output, resolve_scorers
+from mlflow.exceptions import MlflowException
 
 
 def mock_extract_from_column(df, idx, scorer_name, normalized_scorer_name):
@@ -324,3 +329,73 @@ class TestFormatTableOutput:
         )
 
         assert table_data[0][1] == "rationale: Some reasoning"
+
+
+class TestResolveScorers:
+    """Tests for resolve_scorers function."""
+
+    @mock.patch("mlflow.cli.eval_utils.get_all_scorers")
+    def test_resolve_builtin_scorer(self, mock_get_all_scorers):
+        """Test resolving a built-in scorer."""
+        # Create a mock scorer object
+        mock_scorer = mock.Mock()
+        mock_scorer.__class__.__name__ = "RelevanceToQuery"
+        mock_get_all_scorers.return_value = [mock_scorer]
+
+        scorers = resolve_scorers(["RelevanceToQuery"], "experiment_123")
+
+        assert len(scorers) == 1
+        assert scorers[0] == mock_scorer
+
+    @mock.patch("mlflow.cli.eval_utils.get_scorer")
+    @mock.patch("mlflow.cli.eval_utils.get_all_scorers")
+    def test_resolve_registered_scorer(self, mock_get_all_scorers, mock_get_scorer):
+        """Test resolving a registered scorer."""
+        mock_get_all_scorers.return_value = []  # No built-in scorers
+        mock_registered = mock.Mock()
+        mock_get_scorer.return_value = mock_registered
+
+        scorers = resolve_scorers(["CustomScorer"], "experiment_123")
+
+        assert len(scorers) == 1
+        assert scorers[0] == mock_registered
+        mock_get_scorer.assert_called_once_with(name="CustomScorer", experiment_id="experiment_123")
+
+    @mock.patch("mlflow.cli.eval_utils.get_scorer")
+    @mock.patch("mlflow.cli.eval_utils.get_all_scorers")
+    def test_resolve_mixed_scorers(self, mock_get_all_scorers, mock_get_scorer):
+        """Test resolving a mix of built-in and registered scorers."""
+        # Setup built-in scorer
+        mock_builtin = mock.Mock()
+        mock_builtin.__class__.__name__ = "Safety"
+        mock_get_all_scorers.return_value = [mock_builtin]
+
+        # Setup registered scorer
+        mock_registered = mock.Mock()
+        mock_get_scorer.return_value = mock_registered
+
+        scorers = resolve_scorers(["Safety", "CustomScorer"], "experiment_123")
+
+        assert len(scorers) == 2
+        assert scorers[0] == mock_builtin
+        assert scorers[1] == mock_registered
+
+    @mock.patch("mlflow.cli.eval_utils.get_scorer")
+    @mock.patch("mlflow.cli.eval_utils.get_all_scorers")
+    def test_scorer_not_found_raises_error(self, mock_get_all_scorers, mock_get_scorer):
+        """Test that non-existent scorer raises appropriate error."""
+        mock_builtin = mock.Mock()
+        mock_builtin.__class__.__name__ = "Safety"
+        mock_get_all_scorers.return_value = [mock_builtin]
+        mock_get_scorer.side_effect = MlflowException("Scorer not found")
+
+        with pytest.raises(click.UsageError, match="NonExistentScorer.*not found"):
+            resolve_scorers(["NonExistentScorer"], "experiment_123")
+
+    @mock.patch("mlflow.cli.eval_utils.get_all_scorers")
+    def test_empty_scorers_raises_error(self, mock_get_all_scorers):
+        """Test that empty scorer list raises error."""
+        mock_get_all_scorers.return_value = []
+
+        with pytest.raises(click.UsageError, match="No valid scorers"):
+            resolve_scorers([], "experiment_123")

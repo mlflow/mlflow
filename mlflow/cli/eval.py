@@ -8,10 +8,14 @@ from typing import Any
 import click
 import pandas as pd
 
-from mlflow.exceptions import MlflowException
+from mlflow.cli.eval_utils import (
+    extract_assessments_from_traces,
+    format_table_output,
+    resolve_scorers,
+)
 from mlflow.genai.evaluation import evaluate
-from mlflow.genai.scorers import get_all_scorers, get_scorer
 from mlflow.tracking import MlflowClient
+from mlflow.utils.string_utils import _create_table
 
 
 def _extract_assessment_from_column(
@@ -238,32 +242,8 @@ def evaluate_traces(
     # Parse scorer names
     scorer_names = [name.strip() for name in scorers.split(",")]
 
-    # ALKIS: Refactor the resolution of scorers into a separate method in eval_utils.py. Add tests.
     # Resolve scorers - check built-in first, then registered
-    resolved_scorers = []
-    builtin_scorers = get_all_scorers()
-    builtin_scorer_map = {scorer.__class__.__name__: scorer for scorer in builtin_scorers}
-
-    for scorer_name in scorer_names:
-        # Check if it's a built-in scorer
-        if scorer_name in builtin_scorer_map:
-            resolved_scorers.append(builtin_scorer_map[scorer_name])
-        else:
-            # Try to get it as a registered scorer
-            try:
-                registered_scorer = get_scorer(name=scorer_name, experiment_id=experiment_id)
-                resolved_scorers.append(registered_scorer)
-            except MlflowException:
-                # Provide helpful error message
-                available_builtin = ", ".join(builtin_scorer_map.keys())
-                raise click.UsageError(
-                    f"Scorer '{scorer_name}' not found. "
-                    f"Available built-in scorers: {available_builtin}. "
-                    f"Or register a custom scorer first."
-                )
-
-    if not resolved_scorers:
-        raise click.UsageError("No valid scorers specified")
+    resolved_scorers = resolve_scorers(scorer_names, experiment_id)
 
     # Run evaluation
     try:
@@ -278,28 +258,13 @@ def evaluate_traces(
             )
 
         # Pass the DataFrame to evaluate()
-        results = evaluate(data=traces_df, scorers=resolved_scorers)
+        evaluate(data=traces_df, scorers=resolved_scorers)
     except Exception as e:
         raise click.UsageError(f"Evaluation failed: {e}")
 
-    # Get the results DataFrame
-    df = _get_results_dataframe(results, debug=debug)
-
-    # Get trace_id column if it exists, otherwise use the original list
-    result_trace_ids = df["trace_id"].tolist() if "trace_id" in df.columns else trace_id_list
-
-    # Build results data structure (used by both JSON and table output)
-    # ALKIS: Do this import at the top of the file. Same for other local imports in this file.
-    from mlflow.cli.eval_utils import build_output_data
-
-    # ALKIS: Use a different logic to extract assessments. Use the get_trace() API to read back the traces. The traces will now have assessments attached to them, and these assessments will have the name of the scorer who generated them. Match the names to the scorer.
-    output_data = build_output_data(
-        df,
-        result_trace_ids,
-        scorer_names,
-        _extract_assessment_from_column,
-        _extract_assessment_from_assessments_column,
-    )
+    # Extract assessments by reading traces back from MLflow
+    # Assessments are now attached to the traces after evaluation
+    output_data = extract_assessments_from_traces(trace_id_list, scorer_names)
 
     # Format and display results
     if output == "json":
@@ -310,9 +275,6 @@ def evaluate_traces(
             click.echo(json.dumps(output_data, indent=2))
     else:
         # Table output format
-        from mlflow.cli.eval_utils import format_table_output
-        from mlflow.utils.string_utils import _create_table
-
         headers, table_data = format_table_output(output_data, scorer_names, _format_error_message)
 
         # Display the table with a clear separator
