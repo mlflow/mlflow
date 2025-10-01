@@ -1,7 +1,7 @@
 """Tests for mlflow.claude_code.autolog functionality."""
 
 import asyncio
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from mlflow.claude_code.autolog import patched_init
 from mlflow.claude_code.hooks import sdk_stop_hook_handler
@@ -30,7 +30,17 @@ def test_autolog_with_options():
     mock_options.hooks = {"Stop": ["a"]}
     mock_self = MagicMock()
 
-    patched_init(original_init, mock_self, mock_options)
+    # Mock claude_agent_sdk imports
+    mock_hook_matcher = MagicMock()
+    with patch.dict(
+        "sys.modules",
+        {
+            "claude_agent_sdk": MagicMock(
+                ClaudeAgentOptions=MagicMock, HookMatcher=mock_hook_matcher
+            )
+        },
+    ):
+        patched_init(original_init, mock_self, mock_options)
 
     # Verify original_init was called
     original_init.assert_called_once_with(mock_self, mock_options)
