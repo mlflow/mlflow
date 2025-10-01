@@ -3,132 +3,18 @@ CLI commands for evaluating traces with scorers.
 """
 
 import json
-from typing import Any
 
 import click
 import pandas as pd
 
 from mlflow.cli.eval_utils import (
-    extract_assessments_from_traces,
+    extract_assessments_from_results,
     format_table_output,
     resolve_scorers,
 )
 from mlflow.genai.evaluation import evaluate
 from mlflow.tracking import MlflowClient
 from mlflow.utils.string_utils import _create_table
-
-
-def _extract_assessment_from_column(
-    df: pd.DataFrame, idx: int, scorer_name: str, normalized_scorer_name: str
-) -> dict:
-    """
-    Extract assessment values from standard evaluation result columns.
-
-    Args:
-        df: DataFrame containing evaluation results
-        idx: Row index to extract from
-        scorer_name: Original scorer name
-        normalized_scorer_name: Normalized scorer name (lowercase with underscores)
-
-    Returns:
-        Dictionary with assessment_name, result, rationale, and error fields
-    """
-    assessment = {
-        "assessment_name": scorer_name,
-        "result": None,
-        "rationale": None,
-    }
-
-    value_col = f"{normalized_scorer_name}/value"
-    rationale_col = f"{normalized_scorer_name}/rationale"
-    error_col = f"{normalized_scorer_name}/error_message"
-
-    # Extract value
-    if value_col in df.columns and idx < len(df):
-        value = df[value_col].iloc[idx]
-        if pd.notna(value):
-            # Convert to native Python type if needed
-            if hasattr(value, "item"):
-                assessment["result"] = value.item()
-            else:
-                assessment["result"] = value
-
-    # Extract rationale
-    if rationale_col in df.columns and idx < len(df):
-        rationale = df[rationale_col].iloc[idx]
-        if pd.notna(rationale):
-            assessment["rationale"] = str(rationale)
-
-    # Extract error if no result
-    if assessment["result"] is None and error_col in df.columns and idx < len(df):
-        error_msg = df[error_col].iloc[idx]
-        if pd.notna(error_msg):
-            assessment["error"] = str(error_msg)
-
-    return assessment
-
-
-def _extract_assessment_from_assessments_column(
-    assessments_info: list, scorer_name: str, normalized_scorer_name: str
-) -> dict | None:
-    """
-    Extract assessment from the assessments column format.
-
-    Args:
-        assessments_data: List of assessment dictionaries
-        scorer_name: Original scorer name
-        normalized_scorer_name: Normalized scorer name
-
-    Returns:
-        Assessment dictionary if found, None otherwise
-    """
-    if not assessments_info:
-        return None
-
-    for assessment_info in assessments_info:
-        # Assessment is a dictionary - access keys directly
-        assess_name = assessment_info.get("assessment_name", "") or assessment_info.get("name", "")
-
-        # Try different possible name matches
-        if any(
-            [
-                assess_name == normalized_scorer_name,
-                assess_name.lower() == scorer_name.lower(),
-                assess_name.lower().replace("_", "") == scorer_name.lower().replace("_", ""),
-                assess_name == scorer_name,
-            ]
-        ):
-            assessment = {
-                "assessment_name": scorer_name,
-                "result": None,
-                "rationale": None,
-            }
-
-            feedback = assessment_info.get("feedback", {})
-            if feedback:
-                if "value" in feedback:
-                    assessment["result"] = feedback["value"]
-                if "rationale" in feedback:
-                    assessment["rationale"] = feedback["rationale"]
-
-            # Also check for rationale at the top level
-            if "rationale" in assessment_info:
-                assessment["rationale"] = assessment_info["rationale"]
-
-            # Check for errors in feedback
-            if feedback and "error" in feedback and feedback["error"]:
-                error_info = feedback["error"]
-                error_msg = (
-                    error_info.get("error_message") or error_info.get("message", "")
-                    if isinstance(error_info, dict)
-                    else str(error_info)
-                )
-                if error_msg:
-                    assessment["error"] = str(error_msg)
-
-            return assessment
-
-    return None
 
 
 def _format_error_message(error_msg: str) -> str:
@@ -139,53 +25,6 @@ def _format_error_message(error_msg: str) -> str:
         return "ERROR: Authentication failed"
     else:
         return f"ERROR: {error_msg[:50]}..."
-
-
-def _get_results_dataframe(results: Any, debug: bool = False) -> pd.DataFrame:
-    """
-    Extract the results DataFrame from evaluation results object.
-
-    Args:
-        results: EvaluationResult object from mlflow.evaluate()
-        debug: Whether to output debug information
-
-    Returns:
-        DataFrame containing evaluation results
-
-    Raises:
-        click.UsageError: If no results DataFrame can be found
-    """
-    df = None
-
-    # Check for results in tables attribute
-    if hasattr(results, "tables") and results.tables:
-        for table_name in ["eval_results", "eval_results_table", "results"]:
-            if table_name in results.tables:
-                df = results.tables[table_name]
-                break
-
-    # Try alternative attribute names
-    if df is None:
-        for attr_name in ["result_df", "_result_df"]:
-            if hasattr(results, attr_name):
-                attr_value = getattr(results, attr_name)
-                if hasattr(attr_value, "columns"):  # It's a DataFrame-like object
-                    df = attr_value
-                    break
-
-    if df is None:
-        if debug:
-            click.echo("Debug: Available attributes on results:", err=True)
-            click.echo(
-                f"  - dir(results): {[attr for attr in dir(results) if not attr.startswith('_')]}",
-                err=True,
-            )
-            if hasattr(results, "tables"):
-                tables_info = list(results.tables.keys()) if results.tables else "None"
-                click.echo(f"  - results.tables keys: {tables_info}", err=True)
-        raise click.UsageError("No evaluation results DataFrame found in results object")
-
-    return df
 
 
 def evaluate_traces(
@@ -263,10 +102,11 @@ def evaluate_traces(
     except Exception as e:
         raise click.UsageError(f"Evaluation failed: {e}")
 
-    # Extract assessments by reading traces back from MLflow
-    # Assessments are now attached to the traces after evaluation
-    # Use the evaluation run_id to filter assessments generated by this evaluation
-    output_data = extract_assessments_from_traces(trace_id_list, scorer_names, evaluation_run_id)
+    # Extract assessments from the results DataFrame
+    # The evaluate() function returns results with a DataFrame in results.tables['eval_results']
+    # that contains an 'assessments' column with all assessment data
+    results_df = results.tables["eval_results"]
+    output_data = extract_assessments_from_results(results_df, evaluation_run_id)
 
     # Format and display results
     if output == "json":
@@ -277,7 +117,17 @@ def evaluate_traces(
             click.echo(json.dumps(output_data, indent=2))
     else:
         # Table output format
-        headers, table_data = format_table_output(output_data, scorer_names, _format_error_message)
+        # Collect all unique assessment names from the results for column headers
+        assessment_names = []
+        for trace_result in output_data:
+            for assessment in trace_result["assessments"]:
+                name = assessment.get("assessment_name")
+                if name and name not in assessment_names and name != "N/A":
+                    assessment_names.append(name)
+
+        headers, table_data = format_table_output(
+            output_data, assessment_names, _format_error_message
+        )
 
         # Display the table with a clear separator
         click.echo("")  # Add blank line after MLflow messages
