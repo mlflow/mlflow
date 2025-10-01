@@ -7,7 +7,7 @@ from mlflow.utils.annotations import experimental
 # The evaluation function that takes candidate prompts as a dict
 # (prompt template name -> prompt template) and a dataset as a list of dicts,
 # and returns a list of EvaluationResultRecord.
-_EVAL_FN = Callable[[dict[str, str], list[dict[str, Any]]], list[EvaluationResultRecord]]
+_EvalFunc = Callable[[dict[str, str], list[dict[str, Any]]], list[EvaluationResultRecord]]
 
 
 @experimental(version="3.5.0")
@@ -15,7 +15,7 @@ class BasePromptAdapter(ABC):
     @abstractmethod
     def optimize(
         self,
-        eval_fn: _EVAL_FN,
+        eval_fn: _EvalFunc,
         train_data: list[dict[str, Any]],
         target_prompts: dict[str, str],
         optimizer_lm_params: LLMParams,

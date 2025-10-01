@@ -65,6 +65,42 @@ def adapt_prompts(
 
     Returns:
         A list of optimized prompt versions.
+
+    Examples:
+
+        .. code-block:: python
+
+            import mlflow
+            import openai
+            from mlflow.genai.optimize import LLMParams
+
+            prompt = mlflow.genai.register_prompt(
+                name="qa",
+                template="Answer the following question: {{question}}",
+            )
+
+
+            def predict_fn(question: str) -> str:
+                completion = openai.OpenAI().chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[{"role": "user", "content": prompt.format(question=question)}],
+                )
+                return completion.choices[0].message.content
+
+
+            dataset = [
+                {"inputs": {"question": "What is the capital of France?"}, "outputs": "Paris"},
+                {"inputs": {"question": "What is the capital of Germany?"}, "outputs": "Berlin"},
+            ]
+
+            result = mlflow.genai.adapt_prompts(
+                predict_fn=predict_fn,
+                train_data=dataset,
+                target_prompt_uris=[prompt.uri],
+                optimizer_lm_params=LLMParams(model_name="gpt-4o"),
+            )
+
+            print(result.optimized_prompts[0].template)
     """
     if optimizer is None:
         optimizer = get_default_adapter()
