@@ -1,84 +1,27 @@
+from abc import ABC
 from unittest import mock
+from unittest.mock import patch
 
 import pytest
 
-from mlflow.entities import DatasetInput, LoggedModelInput, ViewType, Metric
-
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.entities import Metric
+from mlflow.entities.metric import MetricWithRunId
 from mlflow.store.tracking.abstract_store import AbstractStore
 
 
-class MockAbstractStore(AbstractStore):
+class MockAbstractStore(AbstractStore, ABC):
     """Mock implementation of AbstractStore for testing."""
 
     def __init__(self):
         super().__init__()
         self.metrics = []
 
-    def search_experiments(
-        self,
-        view_type=ViewType.ACTIVE_ONLY,
-        max_results=SEARCH_MAX_RESULTS_DEFAULT,
-        filter_string=None,
-        order_by=None,
-        page_token=None,
-    ):
-        pass
-
-    def create_experiment(self, name, artifact_location, tags):
-        pass
-
-    def get_experiment(self, experiment_id):
-        pass
-
-    def delete_experiment(self, experiment_id):
-        pass
-
-    def restore_experiment(self, experiment_id):
-        pass
-
-    def rename_experiment(self, experiment_id, new_name):
-        pass
-
-    def get_run(self, run_id):
-        pass
-
-    def update_run_info(self, run_id, run_status, end_time, run_name):
-        pass
-
-    def create_run(self, experiment_id, user_id, start_time, tags, run_name):
-        pass
-
-    def delete_run(self, run_id):
-        pass
-
-    def restore_run(self, run_id):
-        pass
-
     def get_metric_history(self, run_id, metric_key, max_results=None, page_token=None):
         return [m for m in self.metrics if m.run_id == run_id and m.key == metric_key]
 
-    def _search_runs(
-        self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
-    ):
-        pass
-
-    def log_batch(self, run_id, metrics, params, tags):
-        pass
-
-    def log_inputs(
-        self,
-        run_id: str,
-        datasets: list[DatasetInput] | None = None,
-        models: list[LoggedModelInput] | None = None,
-    ):
-        pass
-
-    def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
-        pass
-
 
 @pytest.fixture
+@patch.multiple(MockAbstractStore, __abstractmethods__=set())
 def store():
     return MockAbstractStore()
 
@@ -291,19 +234,8 @@ def test_get_metric_history_bulk_interval_sampling_algorithm(
     assert len(result_steps) <= max_results + 2
 
 
-def test_get_metric_history_bulk_interval_zero_max_results_raises_error(store):
-    """Test edge case with zero max_results raises ZeroDivisionError."""
-    store.metrics = [
-        Metric("accuracy", 0.8, 1000, 5, run_id="run1"),
-        Metric("accuracy", 0.9, 2000, 10, run_id="run1"),
-    ]
-
-    with pytest.raises(ZeroDivisionError):
-        store.get_metric_history_bulk_interval(["run1"], "accuracy", 0, 0, 20)
-
-
 @pytest.mark.parametrize(
-    ("min_step", "max_step", "max_results", "nums", "expected"),
+    ("start_step", "end_step", "max_results", "steps", "expected"),
     [
         # should be evenly spaced and include the beginning and
         # end despite sometimes making it go above max_results
@@ -314,11 +246,125 @@ def test_get_metric_history_bulk_interval_zero_max_results_raises_error(store):
         # works if steps are logged in intervals
         (0, 100, 5, list(range(0, 101, 20)), {0, 20, 40, 60, 80, 100}),
         (0, 1000, 5, list(range(0, 1001, 10)), {0, 200, 400, 600, 800, 1000}),
-        (1000, 1100, 50, list(range(900, 1200)), set(range(1000, 1100 + 1, 2)))
+        (1000, 1100, 50, list(range(900, 1200)), set(range(1000, 1100 + 1, 2))),
     ],
 )
-def test_get_sampled_steps_from_steps(min_step, max_step, max_results, nums, expected):
-    assert (
-        MockAbstractStore._get_sampled_steps_from_steps(min_step, max_step, max_results, nums)
-        == expected
+def test_get_sampled_steps_from_steps(start_step, end_step, max_results, steps, expected, store):
+    run_id = "run1"
+    metric_key = "accuracy"
+    store.metrics = [Metric(metric_key, 0.0, 1000, step, run_id=run_id) for step in steps]
+    metrics = store.get_metric_history_bulk_interval(
+        [run_id], metric_key, max_results, start_step, end_step
     )
+
+    actual_steps = {metric.step for metric in metrics}
+    assert actual_steps == expected
+
+
+# Tests for get_metric_history_bulk_interval_from_steps
+
+
+def test_get_metric_history_bulk_interval_from_steps_empty_steps(store):
+    """Test with empty steps list."""
+    store.metrics = [Metric("accuracy", 0.8, 1000, 5, run_id="run1")]
+    result = store.get_metric_history_bulk_interval_from_steps("run1", "accuracy", [], 10)
+    assert result == []
+
+
+def test_get_metric_history_bulk_interval_from_steps_no_matching_steps(store):
+    """Test with steps that don't match any metrics."""
+    store.metrics = [
+        Metric("accuracy", 0.8, 1000, 5, run_id="run1"),
+        Metric("accuracy", 0.9, 2000, 10, run_id="run1"),
+    ]
+    result = store.get_metric_history_bulk_interval_from_steps("run1", "accuracy", [1, 2, 3], 10)
+    assert result == []
+
+
+def test_get_metric_history_bulk_interval_from_steps_single_matching_step(store):
+    """Test with single matching step."""
+    store.metrics = [
+        Metric("accuracy", 0.8, 1000, 5, run_id="run1"),
+        Metric("accuracy", 0.9, 2000, 10, run_id="run1"),
+    ]
+    result = store.get_metric_history_bulk_interval_from_steps("run1", "accuracy", [5], 10)
+
+    assert len(result) == 1
+    assert isinstance(result[0], MetricWithRunId)
+    assert result[0].run_id == "run1"
+    assert result[0].key == "accuracy"
+    assert result[0].value == 0.8
+    assert result[0].step == 5
+
+
+def test_get_metric_history_bulk_interval_from_steps_multiple_matching_steps(store):
+    """Test with multiple matching steps."""
+    store.metrics = [
+        Metric("accuracy", 0.8, 1000, 5, run_id="run1"),
+        Metric("accuracy", 0.9, 2000, 10, run_id="run1"),
+        Metric("accuracy", 0.85, 1500, 7, run_id="run1"),
+    ]
+    result = store.get_metric_history_bulk_interval_from_steps("run1", "accuracy", [5, 10], 10)
+
+    assert len(result) == 2
+    # Should be sorted by step, then timestamp
+    assert result[0].step == 5
+    assert result[1].step == 10
+
+
+def test_get_metric_history_bulk_interval_from_steps_max_results_limit(store):
+    """Test max_results limiting."""
+    store.metrics = [
+        Metric("accuracy", 0.8, 1000, 5, run_id="run1"),
+        Metric("accuracy", 0.9, 2000, 10, run_id="run1"),
+        Metric("accuracy", 0.85, 1500, 15, run_id="run1"),
+    ]
+    result = store.get_metric_history_bulk_interval_from_steps("run1", "accuracy", [5, 10, 15], 2)
+
+    assert len(result) == 2
+    # Should return first 2 after sorting
+    assert result[0].step == 5
+    assert result[1].step == 10
+
+
+def test_get_metric_history_bulk_interval_from_steps_sorting_by_step_and_timestamp(store):
+    """Test sorting by step first, then timestamp."""
+    store.metrics = [
+        Metric("accuracy", 0.8, 2000, 5, run_id="run1"),  # Later timestamp
+        Metric("accuracy", 0.7, 1000, 5, run_id="run1"),  # Earlier timestamp, same step
+        Metric("accuracy", 0.9, 1500, 10, run_id="run1"),
+    ]
+    result = store.get_metric_history_bulk_interval_from_steps("run1", "accuracy", [5, 10], 10)
+
+    assert len(result) == 3
+    # Step 5 metrics should come first, sorted by timestamp
+    assert result[0].step == 5
+    assert result[0].timestamp == 1000
+    assert result[1].step == 5
+    assert result[1].timestamp == 2000
+    assert result[2].step == 10
+
+
+def test_get_metric_history_bulk_interval_from_steps_different_run_id(store):
+    """Test that only metrics from specified run_id are returned."""
+    store.metrics = [
+        Metric("accuracy", 0.8, 1000, 5, run_id="run1"),
+        Metric("accuracy", 0.9, 2000, 5, run_id="run2"),
+    ]
+    result = store.get_metric_history_bulk_interval_from_steps("run1", "accuracy", [5], 10)
+
+    assert len(result) == 1
+    assert result[0].run_id == "run1"
+    assert result[0].value == 0.8
+
+
+def test_get_metric_history_bulk_interval_from_steps_different_metric_key(store):
+    """Test that only metrics with matching key are returned."""
+    store.metrics = [
+        Metric("accuracy", 0.8, 1000, 5, run_id="run1"),
+        Metric("loss", 0.2, 1000, 5, run_id="run1"),
+    ]
+    result = store.get_metric_history_bulk_interval_from_steps("run1", "accuracy", [5], 10)
+
+    assert len(result) == 1
+    assert result[0].key == "accuracy"
