@@ -100,6 +100,11 @@ enum WebhookEntity {
   MODEL_VERSION = 2;           // Model version entity
   MODEL_VERSION_TAG = 3;       // Model version tag entity
   MODEL_VERSION_ALIAS = 4;     // Model version alias entity
+  PROMPT = 5;                  // Prompt entity
+  PROMPT_VERSION = 6;          // Prompt version entity
+  PROMPT_TAG = 7;              // Prompt tag entity
+  PROMPT_VERSION_TAG = 8;      // Prompt version tag entity
+  PROMPT_ALIAS = 9;            // Prompt alias entity
 }
 
 // Webhook action types

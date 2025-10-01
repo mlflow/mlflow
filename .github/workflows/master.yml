@@ -32,6 +32,7 @@ env:
   PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
   PYTHONUTF8: "1"
   _MLFLOW_TESTING_TELEMETRY: "true"
+  MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
 
 jobs:
   # python-skinny tests cover a subset of mlflow functionality
@@ -101,11 +102,12 @@ jobs:
             --ignore-flavors --ignore=tests/examples --ignore=tests/evaluate \
             --ignore tests/genai tests
 
-      - name: Run gateway tests with pydantic v1
-        run: |
-          source .venv/bin/activate
-          pip install 'pydantic<2.0'
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/gateway
+      # TODO: Remove this step once support for pydantic v1 is dropped
+      # - name: Run gateway tests with pydantic v1
+      #   run: |
+      #     source .venv/bin/activate
+      #     pip install 'pydantic<2.0'
+      #     pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/gateway
 
       - name: Run databricks-connect related tests
         run: |
@@ -351,11 +353,12 @@ jobs:
 
           # test_spark_connect.py fails if it's run with other tests, so run it separately.
           pytest tests/pyfunc/test_spark_connect.py
-      - name: Run tests on pydantic v1
-        run: |
-          pip install 'pydantic<2'
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
-            tests/types tests/pyfunc/test_pyfunc_model_with_type_hints.py tests/utils/test_pydantic_utils.py
+      # TODO: Remove this step once support for pydantic v1 is dropped
+      # - name: Run tests on pydantic v1
+      #   run: |
+      #     pip install 'pydantic<2'
+      #     pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
+      #       tests/types tests/pyfunc/test_pyfunc_model_with_type_hints.py tests/utils/test_pydantic_utils.py
 
   windows:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false

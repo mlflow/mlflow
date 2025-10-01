@@ -27,11 +27,13 @@ _logger = logging.getLogger(__name__)
 # TODO: The following artifact repositories should use this class. Migrate them.
 #   - databricks_sdk_models_artifact_repo.py
 class DatabricksSdkArtifactRepository(ArtifactRepository):
-    def __init__(self, artifact_uri: str, tracking_uri: str | None = None) -> None:
+    def __init__(
+        self, artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
+    ) -> None:
         from databricks.sdk import WorkspaceClient
         from databricks.sdk.config import Config
 
-        super().__init__(artifact_uri, tracking_uri)
+        super().__init__(artifact_uri, tracking_uri, registry_uri)
         supports_large_file_uploads = _sdk_supports_large_file_uploads()
         wc = WorkspaceClient(
             config=(

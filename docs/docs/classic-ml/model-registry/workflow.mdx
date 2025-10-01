@@ -759,7 +759,7 @@ INPUT_TEXTS = [
 PYTHON_VERSION = f"{version_info.major}.{version_info.minor}.{version_info.micro}"
 
 
-def score_model(model):
+def score_model(loaded_model):
     # Use inference to predict output from the customized PyFunc model
     for i, text in enumerate(INPUT_TEXTS):
         text = INPUT_TEXTS[i]["text"]
