@@ -5,7 +5,7 @@ function getSleepLength(iterationCount, numPendingJobs) {
     return 5 * 1000; // 5 seconds
   }
   // If the number of pending jobs is small, poll more frequently to reduce wait time.
-  return (numPendingJobs <= 5 ? 30 : 5 * 60) * 1000;
+  return (numPendingJobs <= 7 ? 30 : 5 * 60) * 1000;
 }
 module.exports = async ({ github, context }) => {
   const {
