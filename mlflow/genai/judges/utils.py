@@ -421,7 +421,7 @@ def invoke_judge_model(
     in_databricks = _is_in_databricks()
 
     # Handle Databricks endpoints (not the default judge) with proper telemetry
-    if model_provider == "databricks" and isinstance(prompt, str):
+    if model_provider in {"databricks", "endpoints"} and isinstance(prompt, str):
         try:
             output = _invoke_judge_model(
                 model_uri=model_uri,
