@@ -29,15 +29,15 @@ service DatabricksTrackingService {
   }
 
   // Get complete traces with spans for given trace identifiers.
-  rpc getTraces (GetTraces) returns (GetTraces.Response) {
+  rpc batchGetTraces (BatchGetTraces) returns (BatchGetTraces.Response) {
     option (rpc) = {
       endpoints: [{
-        method: "POST",
-        path: "/mlflow/traces/batch",
+        method: "GET",
+        path: "/mlflow/traces/{location_id}/batchGet",
         since {major: 4, minor: 0},
       }],
       visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Get Traces",
+      rpc_doc_title: "Get Traces V4",
     };
   }
 
@@ -314,14 +314,17 @@ message Trace {
   repeated opentelemetry.proto.trace.v1.Span spans = 2;
 }
 
-message GetTraces {
+message BatchGetTraces {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // Locations and IDs of the traces to fetch. Must be provided.
-  repeated TracePath trace_paths = 1 [(validate_required) = true];
+  // The location ID to search on (e.g. "main.catalog" for UC schema).
+  optional string location_id  = 1 [(validate_required) = true];
 
-  // SQL warehouse to use for query.
-  optional string sql_warehouse_id = 2;
+  // The trace IDs to fetch. They must all be located in the same location specified by location_id.
+  repeated string trace_ids = 2;
+
+  // SQL warehouse ID for UC queries
+  optional string sql_warehouse_id = 3;
 
   message Response {
     // The fetched trace information.
