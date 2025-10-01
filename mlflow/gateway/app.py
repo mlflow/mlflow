@@ -53,33 +53,33 @@ class GatewayAPI(FastAPI):
         super().__init__(*args, **kwargs)
         self.state.limiter = limiter
         self.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-        self.dynamic_routes: dict[str, EndpointConfig] = {}
+        self.dynamic_endpoints: dict[str, EndpointConfig] = {}
         self.set_dynamic_routes(config, limiter)
 
     def set_dynamic_routes(self, config: GatewayConfig, limiter: Limiter) -> None:
-        self.dynamic_routes.clear()
-        for route in config.endpoints:
+        self.dynamic_endpoints.clear()
+        for endpoint in config.endpoints:
             # TODO: Remove deployments server URLs after deprecation window elapses
             self.add_api_route(
                 path=(
-                    MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE + route.name + MLFLOW_DEPLOYMENTS_QUERY_SUFFIX
+                    MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE + endpoint.name + MLFLOW_DEPLOYMENTS_QUERY_SUFFIX
                 ),
-                endpoint=_route_type_to_endpoint(route, limiter, "deployments"),
+                endpoint=_route_type_to_endpoint(endpoint, limiter, "deployments"),
                 methods=["POST"],
             )
             self.add_api_route(
-                path=f"{MLFLOW_GATEWAY_ROUTE_BASE}{route.name}{MLFLOW_QUERY_SUFFIX}",
-                endpoint=_route_type_to_endpoint(route, limiter, "gateway"),
+                path=f"{MLFLOW_GATEWAY_ROUTE_BASE}{endpoint.name}{MLFLOW_QUERY_SUFFIX}",
+                endpoint=_route_type_to_endpoint(endpoint, limiter, "gateway"),
                 methods=["POST"],
                 include_in_schema=False,
             )
-            self.dynamic_routes[route.name] = route
+            self.dynamic_endpoints[endpoint.name] = endpoint
 
-    def get_dynamic_endpoint(self, route_name: str) -> Endpoint | None:
-        return r.to_endpoint() if (r := self.dynamic_routes.get(route_name)) else None
+    def get_dynamic_endpoint(self, endpoint_name: str) -> Endpoint | None:
+        return r.to_endpoint() if (r := self.dynamic_endpoints.get(endpoint_name)) else None
 
     def get_legacy_dynamic_route(self, route_name: str) -> Route | None:
-        return r._to_legacy_route() if (r := self.dynamic_routes.get(route_name)) else None
+        return r._to_legacy_route() if (r := self.dynamic_endpoints.get(route_name)) else None
 
 
 def _translate_http_exception(func):
@@ -320,7 +320,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         start_idx = SearchRoutesToken.decode(page_token).index if page_token is not None else 0
 
         end_idx = start_idx + MLFLOW_DEPLOYMENTS_LIST_ENDPOINTS_PAGE_SIZE
-        routes = list(app.dynamic_routes.values())
+        routes = list(app.dynamic_endpoints.values())
         result = {
             "endpoints": [route.to_endpoint() for route in routes[start_idx:end_idx]]
         }
@@ -335,7 +335,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         start_idx = SearchRoutesToken.decode(page_token).index if page_token is not None else 0
 
         end_idx = start_idx + MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE
-        routes = list(app.dynamic_routes.values())
+        routes = list(app.dynamic_endpoints.values())
         result = {"routes": [r._to_legacy_route() for r in routes[start_idx:end_idx]]}
         if len(routes[end_idx:]) > 0:
             next_page_token = SearchRoutesToken(index=end_idx)
@@ -356,7 +356,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         raise HTTPException(status_code=501, detail="The set_limits API is not available yet.")
 
     def _look_up_route(name: str) -> Route | None:
-        if r := app.dynamic_routes.get(name):
+        if r := app.dynamic_endpoints.get(name):
             return r
 
         raise HTTPException(
