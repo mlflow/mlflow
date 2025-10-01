@@ -76,15 +76,30 @@ module.exports = async ({ github, context }) => {
         latestRuns[key] = run;
       }
     }
-    const runs = Object.values(latestRuns).map(({ name, status, conclusion, path, event }) => ({
-      name: `${name} (${path}, ${event})`,
-      status:
-        status !== "completed"
-          ? STATE.pending
-          : conclusion === "success" || conclusion === "skipped"
-          ? STATE.success
-          : STATE.failure,
-    }));
+
+    // Fetch jobs for each workflow run
+    const runs = [];
+    for (const run of Object.values(latestRuns)) {
+      // Fetch jobs for this workflow run
+      const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
+        owner,
+        repo,
+        run_id: run.id,
+      });
+
+      // Process each job as a separate check
+      for (const job of jobs) {
+        runs.push({
+          name: `${job.name} (${run.name})`,
+          status:
+            job.status !== "completed"
+              ? STATE.pending
+              : job.conclusion === "success" || job.conclusion === "skipped"
+              ? STATE.success
+              : STATE.failure,
+        });
+      }
+    }
 
     // Commit statues (e.g., CircleCI checks)
     const commitStatuses = await github.paginate(github.rest.repos.listCommitStatusesForRef, {
