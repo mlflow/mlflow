@@ -987,7 +987,7 @@ MLFLOW_TRACING_SQL_WAREHOUSE_ID = _EnvironmentVariable("MLFLOW_TRACING_SQL_WAREH
 #: --backend-store-uri to database URI.
 #: (default: ``True``)
 MLFLOW_SERVER_ENABLE_JOB_EXECUTION = _BooleanEnvironmentVariable(
-    "MLFLOW_SERVER_ENABLE_JOB_EXECUTION", True
+    "MLFLOW_SERVER_ENABLE_JOB_EXECUTION", False
 )
 
 #: Specifies MLflow server job maximum allowed retries for transient errors.

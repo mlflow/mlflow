@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from types import FunctionType
 from typing import Any, Callable, ParamSpec, TypeVar
 
-from mlflow.entities._job import Job
+from mlflow.entities._job import Job as JobEntity
 from mlflow.exceptions import MlflowException
 from mlflow.server.handlers import _get_job_store
 
@@ -34,7 +34,7 @@ class JobFunctionMetadata:
     max_workers: int
 
 
-def job_function(max_workers: int) -> Callable[[Callable[P, R]], Callable[P, R]]:
+def job(max_workers: int) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     The decorator for the custom job function for setting max parallel workers that
     the job function can use.
@@ -58,7 +58,7 @@ def submit_job(
     function: Callable[..., Any],
     params: dict[str, Any],
     timeout: float | None = None,
-) -> Job:
+) -> JobEntity:
     """
     Submit a job to the job queue. The job is executed at most once.
     If the MLflow server crashes while the job is pending or running,
@@ -129,7 +129,7 @@ def submit_job(
     return job
 
 
-def get_job(job_id: str) -> Job:
+def get_job(job_id: str) -> JobEntity:
     """
     Get the job entity by the job id.
 

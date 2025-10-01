@@ -8,14 +8,14 @@ from typing import Any
 import pytest
 import requests
 
-from mlflow.server.jobs import job_function
+from mlflow.server.jobs import job
 
 pytestmark = pytest.mark.skipif(
     os.name == "nt", reason="MLflow job execution is not supported on Windows"
 )
 
 
-@job_function(max_workers=1)
+@job(max_workers=1)
 def simple_job_fun(x: int, y: int) -> dict[str, Any]:
     return {
         "a": x + y,
@@ -48,6 +48,7 @@ def server_url(tmp_path_factory: pytest.TempPathFactory) -> str:
             **os.environ,
             "PYTHONPATH": os.path.dirname(__file__),
             "MLFLOW_SERVER_ENABLE_JOB_EXECUTION": "true",
+            "_MLFLOW_ALLOWED_JOB_FUNCTION_LIST": "test_endpoint.simple_job_fun",
         },
         start_new_session=True,  # new session & process group
     ) as server_proc:

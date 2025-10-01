@@ -16,7 +16,7 @@ from mlflow.server import (
     HUEY_STORAGE_PATH_ENV_VAR,
 )
 from mlflow.server.handlers import _get_job_store
-from mlflow.server.jobs import get_job, job_function, submit_job
+from mlflow.server.jobs import get_job, job, submit_job
 from mlflow.server.jobs.util import _launch_job_runner, _validate_function_parameters
 
 pytestmark = pytest.mark.skipif(
@@ -105,7 +105,7 @@ def test_validate_function_parameters_with_positional_args():
         _validate_function_parameters(test_func_with_args, {})
 
 
-@job_function(max_workers=1)
+@job(max_workers=1)
 def basic_job_fun(x, y, sleep_secs=0):
     if sleep_secs > 0:
         time.sleep(sleep_secs)
@@ -127,7 +127,7 @@ def test_basic_job(monkeypatch, tmp_path):
         assert job.retry_count == 0
 
 
-@job_function(max_workers=1)
+@job(max_workers=1)
 def json_in_out_fun(data):
     x = data["x"]
     y = data["y"]
@@ -148,7 +148,7 @@ def test_job_json_input_output(monkeypatch, tmp_path):
         assert job.retry_count == 0
 
 
-@job_function(max_workers=1)
+@job(max_workers=1)
 def err_fun(data):
     raise RuntimeError()
 
@@ -231,14 +231,14 @@ def test_job_resume_on_new_job_runner(monkeypatch, tmp_path):
         assert_job_result(job3_id, JobStatus.SUCCEEDED, 15)
 
 
-@job_function(max_workers=2)
+@job(max_workers=2)
 def job_fun_parallelism2(x, y, sleep_secs=0):
     if sleep_secs > 0:
         time.sleep(sleep_secs)
     return x + y
 
 
-@job_function(max_workers=3)
+@job(max_workers=3)
 def job_fun_parallelism3(x, y, sleep_secs=0):
     if sleep_secs > 0:
         time.sleep(sleep_secs)
@@ -281,7 +281,7 @@ def test_job_queue_parallelism(monkeypatch, tmp_path):
         assert_job_result(job_p3_ids[3], JobStatus.SUCCEEDED, 4)
 
 
-@job_function(max_workers=1)
+@job(max_workers=1)
 def transient_err_fun(tmp_dir: str, succeed_on_nth_run: int):
     """
     This function will raise `TransientError` on the first (`succeed_on_nth_run` - 1) runs,
@@ -363,7 +363,7 @@ def test_submit_jobs_from_multi_processes(monkeypatch, tmp_path):
             assert_job_result(job_ids[x], JobStatus.SUCCEEDED, x + 1)
 
 
-@job_function(max_workers=1)
+@job(max_workers=1)
 def sleep_fun(sleep_secs, tmp_dir):
     (Path(tmp_dir) / "pid").write_text(str(os.getpid()))
     time.sleep(sleep_secs)
