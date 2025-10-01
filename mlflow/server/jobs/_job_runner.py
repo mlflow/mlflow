@@ -14,7 +14,7 @@ import os
 import time
 
 from mlflow.server import HUEY_STORAGE_PATH_ENV_VAR
-from mlflow.server.jobs.util import (
+from mlflow.server.jobs.utils import (
     _enqueue_unfinished_jobs,
     _launch_huey_consumer,
     _start_watcher_to_kill_job_runner_if_mlflow_server_dies,
