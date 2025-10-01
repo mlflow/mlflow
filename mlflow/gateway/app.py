@@ -78,7 +78,7 @@ class GatewayAPI(FastAPI):
     def get_dynamic_endpoint(self, endpoint_name: str) -> Endpoint | None:
         return r.to_endpoint() if (r := self.dynamic_endpoints.get(endpoint_name)) else None
 
-    def get_legacy_dynamic_route(self, route_name: str) -> Route | None:
+    def _get_legacy_dynamic_route(self, route_name: str) -> Route | None:
         return r._to_legacy_route() if (r := self.dynamic_endpoints.get(route_name)) else None
 
 
@@ -304,8 +304,8 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         )
 
     @app.get(MLFLOW_GATEWAY_CRUD_ROUTE_BASE + "{route_name}", include_in_schema=False)
-    async def get_route(route_name: str) -> Route:
-        if matched := app.get_legacy_dynamic_route(route_name):
+    async def _legacy_get_route(route_name: str) -> Route:
+        if matched := app._get_legacy_dynamic_route(route_name):
             return matched
 
         raise HTTPException(
@@ -331,7 +331,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         return result
 
     @app.get(MLFLOW_GATEWAY_CRUD_ROUTE_BASE, include_in_schema=False)
-    async def search_routes(page_token: str | None = None) -> SearchRoutesResponse:
+    async def _legacy_search_routes(page_token: str | None = None) -> SearchRoutesResponse:
         start_idx = SearchRoutesToken.decode(page_token).index if page_token is not None else 0
 
         end_idx = start_idx + MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE
