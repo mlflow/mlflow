@@ -30,15 +30,10 @@ def is_valid_endpoint_name(name: str) -> bool:
 
 
 def check_configuration_route_name_collisions(config):
-    if "routes" in config:
-        raise MlflowException.invalid_parameter_value(
-            "The 'routes' field is not supported in the configuration file, "
-            "use 'endpoints' instead."
-        )
-    routes = config.get("endpoints") or []
-    if len(routes) < 2:
+    endpoints = config.get("endpoints") or []
+    if len(endpoints) < 2:
         return
-    names = [route["name"] for route in routes]
+    names = [endpoint["name"] for endpoint in endpoints]
     if len(names) != len(set(names)):
         raise MlflowException.invalid_parameter_value(
             "Duplicate names found in endpoint configurations. Please remove the duplicate endpoint"
@@ -47,9 +42,9 @@ def check_configuration_route_name_collisions(config):
 
 
 def check_configuration_deprecated_fields(config):
-    routes = config.get("endpoints", [])
-    for route in routes:
-        if "route_type" in route:
+    endpoints = config.get("endpoints", [])
+    for endpoint in endpoints:
+        if "route_type" in endpoint:
             raise MlflowException.invalid_parameter_value(
                 "The 'route_type' configuration key is not supported in the configuration file. "
                 "Use 'endpoint_type' instead."

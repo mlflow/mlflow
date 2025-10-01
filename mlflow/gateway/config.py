@@ -4,12 +4,12 @@ import os
 import pathlib
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import pydantic
 import yaml
 from packaging.version import Version
-from pydantic import ConfigDict, ValidationError
+from pydantic import ConfigDict, Field, ValidationError
 from pydantic.json import pydantic_encoder
 
 from mlflow.exceptions import MlflowException
@@ -445,6 +445,18 @@ class EndpointConfig(AliasedConfigModel):
         )
 
 
+class RouteDestinationConfig(ConfigModel):
+    name: str
+    traffic_percentage: int
+
+
+class RouteConfig(ConfigModel):
+    name: str
+    task_type: EndpointType
+    destinations: list[RouteDestinationConfig]
+    routing_strategy: Literal["TRAFFIC_SPLIT"] = "TRAFFIC_SPLIT"
+
+
 class EndpointModelInfo(ResponseModel):
     name: str | None = None
     # Use `str` instead of `Provider` enum to allow gateway backends such as Databricks to
@@ -492,6 +504,7 @@ class _LegacyRoute(ConfigModel):
 
 class GatewayConfig(AliasedConfigModel):
     endpoints: list[EndpointConfig]
+    routes: list[RouteConfig] = Field(default_factory=list)
 
 
 def _load_route_config(path: str | Path) -> GatewayConfig:
