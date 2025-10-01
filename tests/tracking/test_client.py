@@ -258,7 +258,7 @@ def test_client_get_trace(mock_store, mock_artifact_repo):
         return_value=False,
     ):
         trace = MlflowClient().get_trace(trace_id)
-        mock_store.get_traces.assert_called_once_with([trace_id], sql_warehouse_id=None)
+        mock_store.get_traces.assert_called_once_with([trace_id])
         mock_store.get_trace_info.assert_called_once_with(trace_id)
         mock_artifact_repo.download_trace_data.assert_not_called()
 
@@ -403,7 +403,8 @@ def test_client_search_traces_with_get_traces(mock_store, mock_artifact_repo, in
         return_value=mock_traces,
     ) as mock_get_traces:
         results = MlflowClient().search_traces(
-            experiment_ids=["1", "2", "3"], include_spans=include_spans, sql_warehouse_id="123"
+            experiment_ids=["1", "2", "3"],
+            include_spans=include_spans,
         )
 
     mock_store.search_traces.assert_called_once_with(
@@ -413,12 +414,11 @@ def test_client_search_traces_with_get_traces(mock_store, mock_artifact_repo, in
         order_by=None,
         page_token=None,
         model_id=None,
-        sql_warehouse_id="123",
         locations=["1", "2", "3"],
     )
     assert len(results) == 2
     if include_spans:
-        mock_get_traces.assert_called_once_with(["tr-1234567", "tr-8910"], sql_warehouse_id="123")
+        mock_get_traces.assert_called_once_with(["tr-1234567", "tr-8910"])
     else:
         mock_get_traces.assert_not_called()
     mock_artifact_repo.download_trace_data.assert_not_called()
@@ -465,12 +465,11 @@ def test_client_search_traces_mixed(mock_store, mock_artifact_repo, include_span
         order_by=None,
         page_token=None,
         model_id=None,
-        sql_warehouse_id=None,
         locations=["1", "catalog.schema"],
     )
     assert len(results) == 2
     if include_spans:
-        mock_store.get_traces.assert_called_once_with(["1234567"], sql_warehouse_id=None)
+        mock_store.get_traces.assert_called_once_with(["1234567"])
         mock_artifact_repo.download_trace_data.assert_called()
     else:
         mock_store.get_traces.assert_not_called()
@@ -508,7 +507,6 @@ def test_client_search_traces_with_artifact_repo(mock_store, mock_artifact_repo,
         order_by=None,
         page_token=None,
         model_id=None,
-        sql_warehouse_id=None,
         locations=["1", "2", "3"],
     )
     assert len(results) == 2
