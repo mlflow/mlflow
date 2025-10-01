@@ -32,7 +32,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [
+            ubuntu-latest,
+            # TODO: Uncomment once https://www.githubstatus.com/incidents/071h21gptcp0 is resolved
+            # macos-latest,
+          ]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     permissions:
