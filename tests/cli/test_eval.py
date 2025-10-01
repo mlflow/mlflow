@@ -13,23 +13,24 @@ from mlflow.entities import Trace, TraceInfo
 def test_evaluate_traces_with_single_trace_table_output():
     """Test evaluate_traces with a single trace and table output."""
     # Create a test experiment
-    experiment = mlflow.create_experiment("test_experiment")
+    experiment_id = mlflow.create_experiment("test_experiment")
 
     # Create realistic mock trace
     mock_trace = mock.Mock(spec=Trace)
     mock_trace.info = mock.Mock(spec=TraceInfo)
     mock_trace.info.trace_id = "tr-test-123"
-    mock_trace.info.experiment_id = experiment
+    mock_trace.info.experiment_id = experiment_id
 
-    # Mock MlflowClient.get_trace()
-    with mock.patch("mlflow.cli.eval.MlflowClient") as mock_client_class:
-        mock_client = mock_client_class.return_value
-        mock_client.get_trace.return_value = mock_trace
+    # Mock MlflowClient.get_trace() directly
+    with mock.patch("mlflow.cli.eval.MlflowClient.get_trace") as mock_get_trace:
+        mock_get_trace.return_value = mock_trace
 
-        # Mock resolve_scorers
+        # Mock get_all_scorers and get_scorer instead of resolve_scorers
         mock_scorer = mock.Mock()
-        with mock.patch("mlflow.cli.eval.resolve_scorers") as mock_resolve:
-            mock_resolve.return_value = [mock_scorer]
+        mock_scorer.__class__.__name__ = "RelevanceToQuery"
+
+        with mock.patch("mlflow.cli.eval_utils.get_all_scorers") as mock_get_all:
+            mock_get_all.return_value = [mock_scorer]
 
             # Mock evaluate() with realistic return value
             mock_results = mock.Mock()
@@ -59,15 +60,15 @@ def test_evaluate_traces_with_single_trace_table_output():
                 with mock.patch("mlflow.cli.eval.click.echo") as mock_echo:
                     # Call the function
                     evaluate_traces(
-                        experiment_id=experiment,
+                        experiment_id=experiment_id,
                         trace_ids="tr-test-123",
                         scorers="RelevanceToQuery",
                         output="table",
                     )
 
                     # Verify mocks were called with expected arguments
-                    mock_client.get_trace.assert_called_once_with("tr-test-123", display=False)
-                    mock_resolve.assert_called_once_with(["RelevanceToQuery"], experiment)
+                    mock_get_trace.assert_called_once_with("tr-test-123", display=False)
+                    mock_get_all.assert_called_once()
 
                     # Verify evaluate() was called with DataFrame
                     assert mock_evaluate.call_count == 1
@@ -97,15 +98,16 @@ def test_evaluate_traces_with_multiple_traces_json_output():
     mock_trace2.info.trace_id = "tr-test-2"
     mock_trace2.info.experiment_id = experiment
 
-    # Mock MlflowClient.get_trace()
-    with mock.patch("mlflow.cli.eval.MlflowClient") as mock_client_class:
-        mock_client = mock_client_class.return_value
-        mock_client.get_trace.side_effect = [mock_trace1, mock_trace2]
+    # Mock MlflowClient.get_trace() directly
+    with mock.patch("mlflow.cli.eval.MlflowClient.get_trace") as mock_get_trace:
+        mock_get_trace.side_effect = [mock_trace1, mock_trace2]
 
-        # Mock resolve_scorers
+        # Mock get_all_scorers and get_scorer instead of resolve_scorers
         mock_scorer = mock.Mock()
-        with mock.patch("mlflow.cli.eval.resolve_scorers") as mock_resolve:
-            mock_resolve.return_value = [mock_scorer]
+        mock_scorer.__class__.__name__ = "Safety"
+
+        with mock.patch("mlflow.cli.eval_utils.get_all_scorers") as mock_get_all:
+            mock_get_all.return_value = [mock_scorer]
 
             # Mock evaluate() with realistic return value for multiple traces
             mock_results = mock.Mock()
@@ -153,9 +155,9 @@ def test_evaluate_traces_with_multiple_traces_json_output():
                     )
 
                 # Verify get_trace was called for both traces
-                assert mock_client.get_trace.call_count == 2
-                mock_client.get_trace.assert_any_call("tr-test-1", display=False)
-                mock_client.get_trace.assert_any_call("tr-test-2", display=False)
+                assert mock_get_trace.call_count == 2
+                mock_get_trace.assert_any_call("tr-test-1", display=False)
+                mock_get_trace.assert_any_call("tr-test-2", display=False)
 
                 # Verify evaluate() was called with DataFrame containing both traces
                 assert mock_evaluate.call_count == 1
@@ -170,10 +172,9 @@ def test_evaluate_traces_with_nonexistent_trace():
     """Test evaluate_traces raises error when trace doesn't exist."""
     experiment = mlflow.create_experiment("test_experiment_error")
 
-    # Mock MlflowClient.get_trace() to return None
-    with mock.patch("mlflow.cli.eval.MlflowClient") as mock_client_class:
-        mock_client = mock_client_class.return_value
-        mock_client.get_trace.return_value = None
+    # Mock MlflowClient.get_trace() directly to return None
+    with mock.patch("mlflow.cli.eval.MlflowClient.get_trace") as mock_get_trace:
+        mock_get_trace.return_value = None
 
         # Should raise UsageError
         with pytest.raises(Exception, match="Trace with ID 'tr-nonexistent' not found"):
@@ -196,10 +197,9 @@ def test_evaluate_traces_with_trace_from_wrong_experiment():
     mock_trace.info.trace_id = "tr-test-123"
     mock_trace.info.experiment_id = experiment2
 
-    # Mock MlflowClient.get_trace()
-    with mock.patch("mlflow.cli.eval.MlflowClient") as mock_client_class:
-        mock_client = mock_client_class.return_value
-        mock_client.get_trace.return_value = mock_trace
+    # Mock MlflowClient.get_trace() directly
+    with mock.patch("mlflow.cli.eval.MlflowClient.get_trace") as mock_get_trace:
+        mock_get_trace.return_value = mock_trace
 
         # Should raise UsageError
         with pytest.raises(Exception, match="belongs to experiment"):
