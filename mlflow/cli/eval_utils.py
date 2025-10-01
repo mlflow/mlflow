@@ -126,57 +126,6 @@ def extract_assessments_from_results(
     return output_data
 
 
-def build_output_data(
-    df: pd.DataFrame,
-    result_trace_ids: list[str],
-    scorer_names: list[str],
-    extract_assessment_from_column_fn,
-    extract_assessment_from_assessments_column_fn,
-) -> list[dict[str, Any]]:
-    """
-    Build the output data structure from evaluation results.
-
-    Args:
-        df: DataFrame containing evaluation results
-        result_trace_ids: List of trace IDs in the results
-        scorer_names: List of scorer names that were used
-        extract_assessment_from_column_fn: Function to extract from standard columns
-        extract_assessment_from_assessments_column_fn: Function to extract from assessments column
-
-    Returns:
-        List of dictionaries with trace_id and assessments
-    """
-    output_data = []
-
-    for idx, trace_id in enumerate(result_trace_ids):
-        trace_result = {"trace_id": trace_id, "assessments": []}
-
-        # Extract assessments from the DataFrame for this row
-        # ALKIS: We no longer extract asssessments using scorer names. Modify the code accordingly.
-        for scorer_name in scorer_names:
-            normalized_scorer_name = scorer_name.lower().replace(" ", "_")
-
-            # Try standard column format first
-            assessment = extract_assessment_from_column_fn(
-                df, idx, scorer_name, normalized_scorer_name
-            )
-
-            # If no result from columns, try assessments column
-            if assessment["result"] is None and "assessments" in df.columns and idx < len(df):
-                assessments_data = df["assessments"].iloc[idx]
-                assess_from_col = extract_assessment_from_assessments_column_fn(
-                    assessments_data, scorer_name, normalized_scorer_name
-                )
-                if assess_from_col:
-                    assessment = assess_from_col
-
-            trace_result["assessments"].append(assessment)
-
-        output_data.append(trace_result)
-
-    return output_data
-
-
 def format_table_output(
     output_data: list[dict[str, Any]], scorer_names: list[str], format_error_message_fn
 ) -> tuple[list[str], list[list[str]]]:
