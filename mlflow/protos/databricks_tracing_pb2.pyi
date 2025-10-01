@@ -140,18 +140,20 @@ class Trace(_message.Message):
     spans: _containers.RepeatedCompositeFieldContainer[_trace_pb2.Span]
     def __init__(self, trace_info: _Optional[_Union[TraceInfo, _Mapping]] = ..., spans: _Optional[_Iterable[_Union[_trace_pb2.Span, _Mapping]]] = ...) -> None: ...
 
-class GetTraces(_message.Message):
-    __slots__ = ("trace_paths", "sql_warehouse_id")
+class BatchGetTraces(_message.Message):
+    __slots__ = ("location_id", "trace_ids", "sql_warehouse_id")
     class Response(_message.Message):
         __slots__ = ("traces",)
         TRACES_FIELD_NUMBER: _ClassVar[int]
         traces: _containers.RepeatedCompositeFieldContainer[Trace]
         def __init__(self, traces: _Optional[_Iterable[_Union[Trace, _Mapping]]] = ...) -> None: ...
-    TRACE_PATHS_FIELD_NUMBER: _ClassVar[int]
+    LOCATION_ID_FIELD_NUMBER: _ClassVar[int]
+    TRACE_IDS_FIELD_NUMBER: _ClassVar[int]
     SQL_WAREHOUSE_ID_FIELD_NUMBER: _ClassVar[int]
-    trace_paths: _containers.RepeatedCompositeFieldContainer[TracePath]
+    location_id: str
+    trace_ids: _containers.RepeatedScalarFieldContainer[str]
     sql_warehouse_id: str
-    def __init__(self, trace_paths: _Optional[_Iterable[_Union[TracePath, _Mapping]]] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
+    def __init__(self, location_id: _Optional[str] = ..., trace_ids: _Optional[_Iterable[str]] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
 
 class GetTraceInfo(_message.Message):
     __slots__ = ("trace_id", "location", "sql_warehouse_id")

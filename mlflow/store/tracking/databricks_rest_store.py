@@ -30,7 +30,6 @@ from mlflow.protos.databricks_tracing_pb2 import (
 from mlflow.protos.service_pb2 import GetOnlineTraceDetails, MlflowService, SearchUnifiedTraces
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.rest_store import RestStore
-from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
 from mlflow.tracing.utils import parse_trace_id_v4
 from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH
 from mlflow.utils.databricks_tracing_utils import (
@@ -143,7 +142,9 @@ class DatabricksTracingRestStore(RestStore):
             )
         )
         response_proto = self._call_endpoint(
-            BatchGetTraces, req_body, endpoint=f"{_V4_TRACE_REST_API_PATH_PREFIX}/{location}/batchGet"
+            BatchGetTraces,
+            req_body,
+            endpoint=f"{_V4_TRACE_REST_API_PATH_PREFIX}/{location}/batchGet",
         )
         return [trace_from_proto(proto) for proto in response_proto.traces]
 
