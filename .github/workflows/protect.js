@@ -28,6 +28,36 @@ module.exports = async ({ github, context }) => {
   }
 
   async function fetchChecks(ref) {
+    // Check runs (e.g., DCO check, but excluding GitHub Actions)
+    const checkRuns = (
+      await github.paginate(github.rest.checks.listForRef, {
+        owner,
+        repo,
+        ref,
+        filter: "latest",
+      })
+    ).filter(({ name, app }) => name !== "protect" && app?.slug !== "github-actions");
+
+    const latestCheckRuns = {};
+    for (const run of checkRuns) {
+      const { name } = run;
+      if (
+        !latestCheckRuns[name] ||
+        new Date(run.started_at) > new Date(latestCheckRuns[name].started_at)
+      ) {
+        latestCheckRuns[name] = run;
+      }
+    }
+    const checks = Object.values(latestCheckRuns).map(({ name, status, conclusion }) => ({
+      name,
+      status:
+        status !== "completed"
+          ? STATE.pending
+          : conclusion === "success" || conclusion === "skipped"
+          ? STATE.success
+          : STATE.failure,
+    }));
+
     // Workflow runs (e.g., GitHub Actions)
     const workflowRuns = (
       await github.paginate(github.rest.actions.listWorkflowRunsForRepo, {
@@ -79,7 +109,7 @@ module.exports = async ({ github, context }) => {
         state === "pending" ? STATE.pending : state === "success" ? STATE.success : STATE.failure,
     }));
 
-    return [...runs, ...statuses].sort((a, b) => a.name.localeCompare(b.name));
+    return [...checks, ...runs, ...statuses].sort((a, b) => a.name.localeCompare(b.name));
   }
 
   const start = new Date();
