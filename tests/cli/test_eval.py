@@ -25,61 +25,61 @@ def test_evaluate_traces_with_single_trace_table_output():
     with mock.patch("mlflow.cli.eval.MlflowClient.get_trace") as mock_get_trace:
         mock_get_trace.return_value = mock_trace
 
-        # Mock get_all_scorers and get_scorer instead of resolve_scorers
-        mock_scorer = mock.Mock()
-        mock_scorer.__class__.__name__ = "RelevanceToQuery"
+        # Mock evaluate() with realistic return value
+        mock_results = mock.Mock()
+        mock_results.run_id = "run-eval-456"
+        mock_results.tables = {
+            "eval_results": pd.DataFrame(
+                [
+                    {
+                        "trace_id": "tr-test-123",
+                        "assessments": [
+                            {
+                                "assessment_name": "RelevanceToQuery",
+                                "feedback": {"value": "yes"},
+                                "rationale": "The answer is relevant",
+                                "metadata": {"mlflow.assessment.sourceRunId": "run-eval-456"},
+                            }
+                        ],
+                    }
+                ]
+            )
+        }
 
-        with mock.patch("mlflow.cli.eval_utils.get_all_scorers") as mock_get_all:
-            mock_get_all.return_value = [mock_scorer]
+        with mock.patch("mlflow.cli.eval.evaluate") as mock_evaluate:
+            mock_evaluate.return_value = mock_results
 
-            # Mock evaluate() with realistic return value
-            mock_results = mock.Mock()
-            mock_results.run_id = "run-eval-456"
-            mock_results.tables = {
-                "eval_results": pd.DataFrame(
-                    [
-                        {
-                            "trace_id": "tr-test-123",
-                            "assessments": [
-                                {
-                                    "assessment_name": "RelevanceToQuery",
-                                    "feedback": {"value": "yes"},
-                                    "rationale": "The answer is relevant",
-                                    "metadata": {"mlflow.assessment.sourceRunId": "run-eval-456"},
-                                }
-                            ],
-                        }
-                    ]
+            # Mock click.echo to capture output
+            with mock.patch("mlflow.cli.eval.click.echo") as mock_echo:
+                # Call the function
+                evaluate_traces(
+                    experiment_id=experiment_id,
+                    trace_ids="tr-test-123",
+                    scorers="RelevanceToQuery",
+                    output="table",
                 )
-            }
 
-            with mock.patch("mlflow.cli.eval.evaluate") as mock_evaluate:
-                mock_evaluate.return_value = mock_results
+                # Verify mocks were called with expected arguments
+                mock_get_trace.assert_called_once_with("tr-test-123", display=False)
 
-                # Mock click.echo to capture output
-                with mock.patch("mlflow.cli.eval.click.echo") as mock_echo:
-                    # Call the function
-                    evaluate_traces(
-                        experiment_id=experiment_id,
-                        trace_ids="tr-test-123",
-                        scorers="RelevanceToQuery",
-                        output="table",
-                    )
+                # Verify evaluate() was called with DataFrame
+                assert mock_evaluate.call_count == 1
+                call_args = mock_evaluate.call_args
+                assert "data" in call_args.kwargs
+                # Verify DataFrame has correct structure
+                assert isinstance(call_args.kwargs["data"], pd.DataFrame)
+                assert len(call_args.kwargs["data"]) == 1
+                assert "trace_id" in call_args.kwargs["data"].columns
+                assert "trace" in call_args.kwargs["data"].columns
+                assert call_args.kwargs["data"]["trace_id"].iloc[0] == "tr-test-123"
+                assert "scorers" in call_args.kwargs
+                # Verify that scorers is a list with one scorer
+                assert len(call_args.kwargs["scorers"]) == 1
+                # Verify the scorer is an actual RelevanceToQuery scorer (not a mock)
+                assert call_args.kwargs["scorers"][0].__class__.__name__ == "RelevanceToQuery"
 
-                    # Verify mocks were called with expected arguments
-                    mock_get_trace.assert_called_once_with("tr-test-123", display=False)
-                    mock_get_all.assert_called_once()
-
-                    # Verify evaluate() was called with DataFrame
-                    assert mock_evaluate.call_count == 1
-                    call_args = mock_evaluate.call_args
-                    assert "data" in call_args.kwargs
-                    assert isinstance(call_args.kwargs["data"], pd.DataFrame)
-                    assert "scorers" in call_args.kwargs
-                    assert call_args.kwargs["scorers"] == [mock_scorer]
-
-                    # Verify output was displayed
-                    assert mock_echo.call_count >= 2  # At least progress message and table
+                # Verify output was displayed
+                assert mock_echo.call_count >= 2  # At least progress message and table
 
 
 def test_evaluate_traces_with_multiple_traces_json_output():
@@ -102,70 +102,63 @@ def test_evaluate_traces_with_multiple_traces_json_output():
     with mock.patch("mlflow.cli.eval.MlflowClient.get_trace") as mock_get_trace:
         mock_get_trace.side_effect = [mock_trace1, mock_trace2]
 
-        # Mock get_all_scorers and get_scorer instead of resolve_scorers
-        mock_scorer = mock.Mock()
-        mock_scorer.__class__.__name__ = "Safety"
+        # Mock evaluate() with realistic return value for multiple traces
+        mock_results = mock.Mock()
+        mock_results.run_id = "run-eval-789"
+        mock_results.tables = {
+            "eval_results": pd.DataFrame(
+                [
+                    {
+                        "trace_id": "tr-test-1",
+                        "assessments": [
+                            {
+                                "assessment_name": "Correctness",
+                                "feedback": {"value": "correct"},
+                                "rationale": "Content is correct",
+                                "metadata": {"mlflow.assessment.sourceRunId": "run-eval-789"},
+                            }
+                        ],
+                    },
+                    {
+                        "trace_id": "tr-test-2",
+                        "assessments": [
+                            {
+                                "assessment_name": "Correctness",
+                                "feedback": {"value": "correct"},
+                                "rationale": "Also correct",
+                                "metadata": {"mlflow.assessment.sourceRunId": "run-eval-789"},
+                            }
+                        ],
+                    },
+                ]
+            )
+        }
 
-        with mock.patch("mlflow.cli.eval_utils.get_all_scorers") as mock_get_all:
-            mock_get_all.return_value = [mock_scorer]
+        with mock.patch("mlflow.cli.eval.evaluate") as mock_evaluate:
+            mock_evaluate.return_value = mock_results
 
-            # Mock evaluate() with realistic return value for multiple traces
-            mock_results = mock.Mock()
-            mock_results.run_id = "run-eval-789"
-            mock_results.tables = {
-                "eval_results": pd.DataFrame(
-                    [
-                        {
-                            "trace_id": "tr-test-1",
-                            "assessments": [
-                                {
-                                    "assessment_name": "Safety",
-                                    "feedback": {"value": "safe"},
-                                    "rationale": "Content is safe",
-                                    "metadata": {"mlflow.assessment.sourceRunId": "run-eval-789"},
-                                }
-                            ],
-                        },
-                        {
-                            "trace_id": "tr-test-2",
-                            "assessments": [
-                                {
-                                    "assessment_name": "Safety",
-                                    "feedback": {"value": "safe"},
-                                    "rationale": "Also safe",
-                                    "metadata": {"mlflow.assessment.sourceRunId": "run-eval-789"},
-                                }
-                            ],
-                        },
-                    ]
+            # Mock click.echo to capture output
+            with mock.patch("mlflow.cli.eval.click.echo"):
+                # Call the function (using Correctness which is a real built-in scorer)
+                evaluate_traces(
+                    experiment_id=experiment,
+                    trace_ids="tr-test-1,tr-test-2",
+                    scorers="Correctness",
+                    output="json",
                 )
-            }
 
-            with mock.patch("mlflow.cli.eval.evaluate") as mock_evaluate:
-                mock_evaluate.return_value = mock_results
+            # Verify get_trace was called for both traces
+            assert mock_get_trace.call_count == 2
+            mock_get_trace.assert_any_call("tr-test-1", display=False)
+            mock_get_trace.assert_any_call("tr-test-2", display=False)
 
-                # Mock click.echo to capture output
-                with mock.patch("mlflow.cli.eval.click.echo"):
-                    # Call the function
-                    evaluate_traces(
-                        experiment_id=experiment,
-                        trace_ids="tr-test-1,tr-test-2",
-                        scorers="Safety",
-                        output="json",
-                    )
-
-                # Verify get_trace was called for both traces
-                assert mock_get_trace.call_count == 2
-                mock_get_trace.assert_any_call("tr-test-1", display=False)
-                mock_get_trace.assert_any_call("tr-test-2", display=False)
-
-                # Verify evaluate() was called with DataFrame containing both traces
-                assert mock_evaluate.call_count == 1
-                call_args = mock_evaluate.call_args
-                traces_df = call_args.kwargs["data"]
-                assert len(traces_df) == 2
-                assert "tr-test-1" in traces_df["trace_id"].values
-                assert "tr-test-2" in traces_df["trace_id"].values
+            # Verify evaluate() was called with DataFrame containing both traces
+            assert mock_evaluate.call_count == 1
+            call_args = mock_evaluate.call_args
+            traces_df = call_args.kwargs["data"]
+            assert len(traces_df) == 2
+            assert "tr-test-1" in traces_df["trace_id"].values
+            assert "tr-test-2" in traces_df["trace_id"].values
 
 
 def test_evaluate_traces_with_nonexistent_trace():
