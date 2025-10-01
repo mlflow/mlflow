@@ -130,10 +130,12 @@ class DatabricksTracingRestStore(RestStore):
 
         Args:
             trace_ids: List of trace IDs to fetch.
+            location: Location of the trace. For example, "catalog.schema" for UC schema.
 
         Returns:
             List of Trace objects.
         """
+        trace_ids = [parse_trace_id_v4(trace_id)[1] for trace_id in trace_ids]
         req_body = message_to_json(
             BatchGetTraces(
                 location_id=location,

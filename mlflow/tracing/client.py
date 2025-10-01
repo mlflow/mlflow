@@ -11,7 +11,7 @@ from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, Span
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_location import UCSchemaLocation
+from mlflow.entities.trace_location import MlflowExperimentLocation, UCSchemaLocation
 from mlflow.environment_variables import (
     MLFLOW_SEARCH_TRACES_MAX_THREADS,
     MLFLOW_TRACING_SQL_WAREHOUSE_ID,
@@ -35,7 +35,7 @@ from mlflow.telemetry.events import LogAssessmentEvent, StartTraceEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import TraceJSONEncoder, exclude_immutable_tags
+from mlflow.tracing.utils import TraceJSONEncoder, exclude_immutable_tags, parse_trace_id_v4
 from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
 from mlflow.tracking._tracking_service.utils import _get_store, _resolve_tracking_uri
 from mlflow.utils import is_uuid
@@ -148,9 +148,14 @@ class TracingClient:
         Returns:
             The fetched Trace object, of type ``mlflow.entities.Trace``.
         """
-        trace_info = self.get_trace_info(trace_id)
-        if self._should_load_spans_from_artifact(trace_info):
+        location, trace_id = parse_trace_id_v4(trace_id)
+        if location is not None:
+            # V4 trace, load spans from v4 BatchGetTraces endpoint.
+            return self.batch_get_traces([trace_id, location])[0]
+        else:
+            # V3 trace, load spans from artifact repository.
             try:
+                trace_info = self.get_trace_info(trace_id)
                 trace_data = self._download_trace_data(trace_info)
             except MlflowTraceDataNotFound:
                 raise MlflowException(
@@ -169,22 +174,7 @@ class TracingClient:
                     error_code=BAD_REQUEST,
                 ) from None  # Ensure the original spammy exception is not included in the traceback
             return Trace(trace_info, trace_data)
-        else:
-            return self._get_traces_from_tracking_store([trace_id])[0]
 
-    def _get_traces_from_tracking_store(self, trace_ids: list[str]) -> list[Trace]:
-        if not trace_ids:
-            return []
-        if traces := self.store.get_traces(trace_ids):
-            return traces
-        else:
-            trace_ids_str = ", ".join(trace_ids)
-            if len(trace_ids_str) > 20:
-                trace_ids_str = trace_ids_str[:20] + "..."
-            raise MlflowException(
-                f"Traces with IDs {trace_ids_str} not found.",
-                error_code=NOT_FOUND,
-            )
 
     def get_online_trace_details(
         self,
@@ -302,44 +292,6 @@ class TracingClient:
 
         is_databricks = is_databricks_uri(self.tracking_uri)
 
-        def download_trace_extra_fields_from_artifact_repo(trace_info: TraceInfo) -> Trace | None:
-            """
-            Download trace data and assessments for the given trace_info and returns a Trace object.
-            If the download fails (e.g., the trace data is missing or corrupted), returns None.
-
-            The trace_info parameter can be either TraceInfo or TraceInfoV3 object.
-            """
-            is_online_trace = is_uuid(trace_info.trace_id)
-
-            # For online traces in Databricks, we need to get trace data from a different endpoint
-            try:
-                if is_databricks and is_online_trace:
-                    # For online traces, get data from the online API
-                    trace_data = self.get_online_trace_details(
-                        trace_id=trace_info.trace_id,
-                        source_inference_table=trace_info.request_metadata.get(
-                            "mlflow.sourceTable"
-                        ),
-                        source_databricks_request_id=trace_info.request_metadata.get(
-                            "mlflow.databricksRequestId"
-                        ),
-                    )
-                    trace_data = TraceData.from_dict(json.loads(trace_data))
-                else:
-                    # For offline traces, download data from artifact storage
-                    trace_data = self._download_trace_data(trace_info)
-            except MlflowTraceDataException as e:
-                _logger.warning(
-                    (
-                        f"Failed to download trace data for trace {trace_info.trace_id!r} "
-                        f"with {e.ctx}. For full traceback, set logging level to DEBUG."
-                    ),
-                    exc_info=_logger.isEnabledFor(logging.DEBUG),
-                )
-                return None
-            else:
-                return Trace(trace_info, trace_data)
-
         traces = []
         next_max_results = max_results
         next_token = page_token
@@ -362,26 +314,32 @@ class TracingClient:
                     locations=locations,
                 )
 
-                if include_spans:
-                    trace_info_groups = self._group_trace_infos_by_storage(trace_infos)
-                    traces.extend(
-                        self._get_traces_from_tracking_store(
-                            [t.trace_id for t in trace_info_groups.tracking_store_trace_infos],
-                        )
-                    )
+                if not include_spans:
+                    traces.extend(Trace(t, TraceData(spans=[])) for t in trace_infos)
+                    continue
 
-                    traces.extend(
-                        t
-                        for t in executor.map(
-                            download_trace_extra_fields_from_artifact_repo,
-                            trace_info_groups.artifact_repo_trace_infos,
+                location_to_trace_infos = self._group_trace_infos_by_location(trace_infos)
+
+                for location, location_trace_infos in location_to_trace_infos.items():
+                    if isinstance(location, UCSchemaLocation):
+                        # Get full traces from v4 BatchGetTraces endpoint. All traces in a single
+                        # call must be located in the same location.
+                        traces.extend(
+                            self.store.batch_get_traces(
+                                [t.trace_id for t in location_trace_infos],
+                                location.catalog_name + "." + location.schema_name
+                            )
                         )
-                        if t
-                    )
-                else:
-                    traces.extend(
-                        Trace(trace_info, TraceData(spans=[])) for trace_info in trace_infos
-                    )
+                    elif isinstance(location, MlflowExperimentLocation):
+                        # Load spans from artifact repository (v3 traces).
+                        traces.extend(
+                            trace
+                            for trace in executor.map(
+                                self._download_spans_from_artifact_repo,
+                                trace_info_groups.artifact_repo_trace_infos,
+                            )
+                            if trace
+                        )
 
                 if not next_token:
                     break
@@ -390,35 +348,66 @@ class TracingClient:
 
         return PagedList(traces, next_token)
 
-    def _group_trace_infos_by_storage(self, trace_infos: list[TraceInfo]) -> TraceInfoGroups:
+
+    def _download_spans_from_artifact_repo(trace_info: TraceInfo) -> Trace | None:
+        """
+        Download trace data for the given trace_info and returns a Trace object.
+        If the download fails (e.g., the trace data is missing or corrupted), returns None.
+
+        This is used for traces logged via v3 endpoint, where spans are stored in artifact store.
+        """
+        is_online_trace = is_uuid(trace_info.trace_id)
+        is_databricks = is_databricks_uri(self.tracking_uri)
+
+        # For online traces in Databricks, we need to get trace data from a different endpoint
+        try:
+            if is_databricks and is_online_trace:
+                # For online traces, get data from the online API
+                trace_data = self.get_online_trace_details(
+                    trace_id=trace_info.trace_id,
+                    source_inference_table=trace_info.request_metadata.get(
+                        "mlflow.sourceTable"
+                    ),
+                    source_databricks_request_id=trace_info.request_metadata.get(
+                        "mlflow.databricksRequestId"
+                    ),
+                )
+                trace_data = TraceData.from_dict(json.loads(trace_data))
+            else:
+                # For offline traces, download data from artifact storage
+                trace_data = self._download_trace_data(trace_info)
+        except MlflowTraceDataException as e:
+            _logger.warning(
+                (
+                    f"Failed to download trace data for trace {trace_info.trace_id!r} "
+                    f"with {e.ctx}. For full traceback, set logging level to DEBUG."
+                ),
+                exc_info=_logger.isEnabledFor(logging.DEBUG),
+            )
+            return None
+        else:
+            return Trace(trace_info, trace_data)
+
+
+    def _group_trace_infos_by_location(
+        self, trace_infos: list[TraceInfo]
+    ) -> dict[MlflowExperimentLocation | UCSchemaLocation, list[TraceInfo]]:
         """
         Group the trace infos based on where the trace data is stored.
 
         Returns:
-            A named tuple containing two lists of trace infos:
-            - tracking_store_trace_infos: List of trace infos where the trace data is stored in the
-              database or UC table.
-            - artifact_repo_trace_infos: List of trace infos where the trace data is stored in the
-              artifact repository.
+            A dictionary mapping location to a list of trace infos.
         """
-        tracking_store_trace_infos = []
-        artifact_repo_trace_infos = []
+        location_to_trace_infos = defaultdict(list)
         for trace_info in trace_infos:
-            if self._should_load_spans_from_artifact(trace_info):
-                artifact_repo_trace_infos.append(trace_info)
+            if uc_schema := trace_info.trace_location.uc_schema:
+                location_to_trace_infos[uc_schema].append(trace_info)
+            elif mlflow_experiment := trace_info.trace_location.mlflow_experiment:
+                location_to_trace_infos[mlflow_experiment].append(trace_info)
             else:
-                tracking_store_trace_infos.append(trace_info)
-        return TraceInfoGroups(
-            tracking_store_trace_infos=tracking_store_trace_infos,
-            artifact_repo_trace_infos=artifact_repo_trace_infos,
-        )
+                _logger.warning(f"Unsupported location: {trace_info.trace_location}. Skipping.")
+        return location_to_trace_infos
 
-    def _should_load_spans_from_artifact(self, trace_info: TraceInfo) -> bool:
-        """
-        Determine if the spans should be loaded from the artifact repository.
-        """
-        # TODO: this should be extended to support OSS tracking store
-        return trace_info.trace_location.uc_schema is None
 
     def calculate_trace_filter_correlation(
         self,
