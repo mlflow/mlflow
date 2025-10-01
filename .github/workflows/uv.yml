@@ -8,8 +8,8 @@ on:
       - .github/workflows/uv.yml
       - .github/workflows/uv.js
   schedule:
-    # Run this workflow every 3 days at 13:00 UTC
-    - cron: "0 13 */3 * *"
+    # Run this workflow on Monday and Thursday at 13:00 UTC
+    - cron: "0 13 * * 1,4"
   workflow_dispatch:
 
 concurrency:
