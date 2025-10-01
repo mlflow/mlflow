@@ -97,8 +97,9 @@ def recreate_function(source: str, signature: str, func_name: str) -> Callable[.
 
     params_str = sig_match.group(1).strip()
 
-    # Build the function definition
-    func_def = f"def {func_name}({params_str}):\n"
+    # Build the function definition with future annotations to defer type hint evaluation
+    func_def = "from __future__ import annotations\n"
+    func_def += f"def {func_name}({params_str}):\n"
     # Indent the source code
     indented_source = "\n".join(f"    {line}" for line in source.split("\n"))
     func_def += indented_source

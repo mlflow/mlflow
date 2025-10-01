@@ -392,7 +392,7 @@ def test_function_with_mlflow_trace_type_hint():
     value=trace.info.trace_id is not None,
     rationale=f"Trace ID: {trace.info.trace_id}"
 )"""
-    signature = "(trace: mlflow.entities.Trace)"
+    signature = "(trace: mlflow.entities.Trace) -> mlflow.entities.Feedback"
     func_name = "scorer_with_trace_type_hint"
 
     recreated = recreate_function(source, signature, func_name)
