@@ -248,7 +248,7 @@ def _launch_huey_consumer(job_fn_fullname: str) -> None:
     job_fn = _load_function(job_fn_fullname)
 
     if not hasattr(job_fn, "_job_fn_metadata"):
-        raise MlflowException(
+        raise MlflowException.invalid_parameter_value(
             f"The job function {job_fn_fullname} is not decorated by "
             "'mlflow.server.jobs.job_function'."
         )

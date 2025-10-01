@@ -48,7 +48,10 @@ def server_url(tmp_path_factory: pytest.TempPathFactory) -> str:
             **os.environ,
             "PYTHONPATH": os.path.dirname(__file__),
             "MLFLOW_SERVER_ENABLE_JOB_EXECUTION": "true",
-            "_MLFLOW_ALLOWED_JOB_FUNCTION_LIST": "test_endpoint.simple_job_fun",
+            "_MLFLOW_ALLOWED_JOB_FUNCTION_LIST": (
+                "test_endpoint.simple_job_fun,invalid_format_no_module,"
+                "non_existent_module.some_function,os.non_existent_function"
+            ),
         },
         start_new_session=True,  # new session & process group
     ) as server_proc:

@@ -78,6 +78,10 @@ def submit_job(payload: SubmitJobPayload) -> Job:
 
     function_fullname = payload.function_fullname
     try:
+        if function_fullname not in _ALLOWED_JOB_FUNCTION_LIST:
+            raise MlflowException.invalid_parameter_value(
+                f"The function {function_fullname} is not in the allowed job function list"
+            )
         function = _load_function(function_fullname)
         job = submit_job(function, payload.params, payload.timeout)
         return Job.from_job_entity(job)
