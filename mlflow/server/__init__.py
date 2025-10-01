@@ -399,7 +399,7 @@ def _run_server(
         )
 
     if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
-        from mlflow.server.jobs.util import _check_requirements
+        from mlflow.server.jobs.utils import _check_requirements
 
         try:
             _check_requirements(file_store_path)
@@ -415,7 +415,7 @@ def _run_server(
     )
 
     if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
-        from mlflow.server.jobs.util import _launch_job_runner
+        from mlflow.server.jobs.utils import _launch_job_runner
 
         _launch_job_runner(env_map, server_proc.pid)
 
