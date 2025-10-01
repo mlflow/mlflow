@@ -4,7 +4,7 @@ import math
 from concurrent.futures import Future, as_completed
 from typing import TYPE_CHECKING, Any, Collection
 
-from mlflow.entities import Assessment, Trace
+from mlflow.entities import Assessment, Trace, TraceData
 from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME, Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.exceptions import MlflowException
@@ -21,17 +21,24 @@ except ImportError:
     pass
 
 if TYPE_CHECKING:
-    from mlflow.genai.datasets import EvaluationDataset
+    from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
+    from mlflow.genai.datasets import EvaluationDataset as ManagedEvaluationDataset
     from mlflow.genai.evaluation.entities import EvalResult
 
     try:
         import pyspark.sql.dataframe
 
         EvaluationDatasetTypes = (
-            pd.DataFrame | pyspark.sql.dataframe.DataFrame | list[dict] | EvaluationDataset
+            pd.DataFrame
+            | pyspark.sql.dataframe.DataFrame
+            | list[dict]
+            | ManagedEvaluationDataset
+            | EntityEvaluationDataset
         )
     except ImportError:
-        EvaluationDatasetTypes = pd.DataFrame | list[dict] | EvaluationDataset
+        EvaluationDatasetTypes = (
+            pd.DataFrame | list[dict] | ManagedEvaluationDataset | EntityEvaluationDataset
+        )
 
 
 _logger = logging.getLogger(__name__)
@@ -168,10 +175,15 @@ def _extract_request_response_from_trace(df: "pd.DataFrame") -> "pd.DataFrame":
     if "trace" not in df.columns:
         return df
 
+    def _extract_attribute(trace_data: TraceData, attribute_name: str) -> Any:
+        if att := getattr(trace_data, attribute_name, None):
+            return json.loads(att)
+        return None
+
     if "request" not in df.columns:
-        df["request"] = df["trace"].apply(lambda trace: json.loads(trace.data.request))
+        df["request"] = df["trace"].apply(lambda trace: _extract_attribute(trace.data, "request"))
     if "response" not in df.columns:
-        df["response"] = df["trace"].apply(lambda trace: json.loads(trace.data.response))
+        df["response"] = df["trace"].apply(lambda trace: _extract_attribute(trace.data, "response"))
     return df
 
 
@@ -252,8 +264,9 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
     metric_instance = metric(
         eval_fn=eval_fn,
         name=scorer.name,
-        aggregations=scorer.aggregations,
     )
+    # Add aggregations as an attribute since the metric decorator doesn't accept it
+    metric_instance.aggregations = scorer.aggregations
     # Add attribute to indicate if this is a built-in scorer
     metric_instance._is_builtin_scorer = isinstance(scorer, BuiltInScorer)
 
@@ -345,6 +358,33 @@ def is_none_or_nan(value: Any) -> bool:
     """
     # isinstance(value, float) check is needed to ensure that math.isnan is not called on an array.
     return value is None or (isinstance(value, float) and math.isnan(value))
+
+
+def validate_tags(tags: Any) -> None:
+    """
+    Validate that tags are in the expected format: dict[str, str].
+
+    Args:
+        tags: The tags to validate.
+
+    Raises:
+        MlflowException: If tags are not in the correct format.
+    """
+    if is_none_or_nan(tags):
+        return
+
+    if not isinstance(tags, dict):
+        raise MlflowException.invalid_parameter_value(
+            f"Tags must be a dictionary, got {type(tags).__name__}. "
+        )
+
+    errors = []
+    for key in tags.keys():
+        if not isinstance(key, str):
+            errors.append(f"Key {key!r} has type {type(key).__name__}; expected str.")
+
+    if errors:
+        raise MlflowException.invalid_parameter_value("Invalid tags:\n  - " + "\n  - ".join(errors))
 
 
 def complete_eval_futures_with_progress_base(futures: list[Future]) -> list["EvalResult"]:

@@ -1,11 +1,9 @@
-from mlflow.mistral.autolog import patched_class_call
-from mlflow.utils.annotations import experimental
+from mlflow.mistral.autolog import async_patched_class_call, patched_class_call
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
 FLAVOR_NAME = "mistral"
 
 
-@experimental(version="2.21.0")
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_traces: bool = True,
@@ -31,4 +29,11 @@ def autolog(
         Chat,
         "complete",
         patched_class_call,
+    )
+
+    safe_patch(
+        FLAVOR_NAME,
+        Chat,
+        "complete_async",
+        async_patched_class_call,
     )

@@ -5,9 +5,10 @@ import { createMLflowRoutePath, useParams } from '../../../../common/utils/Routi
 import { TestApolloProvider } from '../../../../common/utils/TestApolloProvider';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { graphql } from 'msw';
-import { MlflowGetExperimentQuery } from '../../../../graphql/__generated__/graphql';
+import type { MlflowGetExperimentQuery } from '../../../../graphql/__generated__/graphql';
 import { ExperimentKind } from '../../../constants';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(60000); // Larger timeout for integration testing
 
 describe('useNavigateToExperimentPageTab', () => {

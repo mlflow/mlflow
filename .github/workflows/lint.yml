@@ -32,7 +32,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [
+            ubuntu-latest,
+            # TODO: Uncomment once https://www.githubstatus.com/incidents/071h21gptcp0 is resolved
+            # macos-latest,
+          ]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     permissions:
@@ -49,6 +53,7 @@ jobs:
       - uses: ./.github/actions/setup-python
         id: setup-python
       - name: Add problem matchers
+        if: matrix.os == 'ubuntu-latest'
         run: |
           echo "::add-matcher::.github/workflows/matchers/clint.json"
           echo "::add-matcher::.github/workflows/matchers/format.json"
@@ -56,25 +61,24 @@ jobs:
           echo "::add-matcher::.github/workflows/matchers/typos.json"
       - name: Install dependencies
         run: |
-          uv pip install --system -r requirements/lint-requirements.txt
-      - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/pipdeptree
+          uv sync --locked --only-group lint --only-group test
       - name: Install pre-commit hooks
         run: |
-          pre-commit install --install-hooks
-          pre-commit run install-bin -a -v
+          uv run --only-group lint pre-commit install --install-hooks
+          uv run --only-group lint pre-commit run install-bin -a -v
       - name: Run pre-commit
         id: pre-commit
         env:
           IS_MAINTAINER: ${{ contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association )}}
           NO_FIX: "true"
         run: |
-          pre-commit run --all-files
+          uv run --only-group lint pre-commit run --all-files
 
       - name: Test clint
         run: |
-          uv run --isolated --no-project --with pytest==8.4.0 --with ./dev/clint \
-            pytest --confcutdir=dev/clint dev/clint
+          uv run --only-group test pytest dev/clint
 
-      - run: |
-          python dev/check_function_signatures.py
+      - name: Check function signatures
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          uv run --no-project dev/check_function_signatures.py

@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { Modal, Button, Alert, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import type { FieldValues } from 'react-hook-form';
-import { KeyValueEntity } from '../types';
+import type { KeyValueEntity } from '../types';
 import { UnifiedTaggingForm } from '../components/UnifiedTaggingForm';
 
 interface Params {

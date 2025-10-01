@@ -1,16 +1,14 @@
 import { useMemo, useState } from 'react';
-import { useGetExperimentQuery } from '../../../hooks/useExperimentQuery';
-import { ExperimentViewHeader, ExperimentViewHeaderSkeleton } from './header/ExperimentViewHeader';
-import { ExperimentEntity } from '../../../types';
+import type { useGetExperimentQuery } from '../../../hooks/useExperimentQuery';
+import type { ExperimentEntity } from '../../../types';
 import { ExperimentViewDescriptionNotes } from './ExperimentViewDescriptionNotes';
 import { NOTE_CONTENT_TAG } from '../../../utils/NoteUtils';
-import { ApolloError } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
+import type { ApolloError } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 import { getGraphQLErrorMessage } from '../../../../graphql/get-graphql-error';
 import { Alert, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { ExperimentViewHeaderV2, ExperimentViewHeaderV2Skeleton } from './header/ExperimentViewHeaderV2';
-import { shouldEnableExperimentPageHeaderV2 } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
-import { ExperimentKind } from '../../../constants';
+import { ExperimentViewHeader, ExperimentViewHeaderSkeleton } from './header/ExperimentViewHeader';
+import type { ExperimentKind } from '../../../constants';
 
 type GetExperimentReturnType = ReturnType<typeof useGetExperimentQuery>['data'];
 
@@ -24,6 +22,7 @@ export const ExperimentPageHeaderWithDescription = ({
   error,
   experimentKindSelector,
   inferredExperimentKind,
+  refetchExperiment,
 }: {
   experiment: GetExperimentReturnType;
   loading?: boolean;
@@ -31,12 +30,12 @@ export const ExperimentPageHeaderWithDescription = ({
   error: ApolloError | ReturnType<typeof useGetExperimentQuery>['apiError'];
   experimentKindSelector?: React.ReactNode;
   inferredExperimentKind?: ExperimentKind;
+  refetchExperiment?: () => Promise<unknown>;
 }) => {
   const { theme } = useDesignSystemTheme();
   const [showAddDescriptionButton, setShowAddDescriptionButton] = useState(true);
   const [editing, setEditing] = useState(false);
 
-  // Coerce experiment from the query result into the shape expected by <ExperimentViewHeader />
   const experimentEntity = useMemo(() => {
     const experimentResponse = experiment as GetExperimentReturnType;
     if (!experimentResponse) return null;
@@ -51,7 +50,7 @@ export const ExperimentPageHeaderWithDescription = ({
   const errorMessage = getGraphQLErrorMessage(error);
 
   if (loading) {
-    return shouldEnableExperimentPageHeaderV2() ? <ExperimentViewHeaderV2Skeleton /> : <ExperimentViewHeaderSkeleton />;
+    return <ExperimentViewHeaderSkeleton />;
   }
 
   if (errorMessage) {
@@ -76,20 +75,13 @@ export const ExperimentPageHeaderWithDescription = ({
   if (experimentEntity) {
     return (
       <>
-        {shouldEnableExperimentPageHeaderV2() ? (
-          <ExperimentViewHeaderV2
-            experiment={experimentEntity}
-            inferredExperimentKind={inferredExperimentKind}
-            setEditing={setEditing}
-            experimentKindSelector={experimentKindSelector}
-          />
-        ) : (
-          <ExperimentViewHeader
-            experiment={experimentEntity}
-            showAddDescriptionButton={showAddDescriptionButton}
-            setEditing={setEditing}
-          />
-        )}
+        <ExperimentViewHeader
+          experiment={experimentEntity}
+          inferredExperimentKind={inferredExperimentKind}
+          setEditing={setEditing}
+          experimentKindSelector={experimentKindSelector}
+          refetchExperiment={refetchExperiment}
+        />
         <ExperimentViewDescriptionNotes
           experiment={experimentEntity}
           setShowAddDescriptionButton={setShowAddDescriptionButton}

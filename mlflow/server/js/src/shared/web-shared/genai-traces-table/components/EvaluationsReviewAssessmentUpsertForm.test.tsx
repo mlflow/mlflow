@@ -6,6 +6,7 @@ import { IntlProvider } from '@databricks/i18n';
 
 import { EvaluationsReviewAssessmentUpsertForm } from './EvaluationsReviewAssessmentUpsertForm';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(50000); // Larger timeout for heavier UI test
 
 describe('EvaluationsReviewAssessmentUpsertForm', () => {

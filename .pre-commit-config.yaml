@@ -4,7 +4,7 @@ repos:
     rev: v4.5.0
     hooks:
       - id: trailing-whitespace
-        files: \.mdx
+        files: \.(mdx|ya?ml|txt)$
       - id: end-of-file-fixer
         files: \.(proto|txt|sh|rst)$
         exclude: ^examples/
@@ -22,7 +22,7 @@ repos:
     hooks:
       - id: normalize-chars
         name: normalize-chars
-        entry: python dev/normalize_chars.py
+        entry: uv run --only-group lint dev/normalize_chars.py
         language: system
         stages: [pre-commit]
         types: [text]
@@ -31,7 +31,7 @@ repos:
 
       - id: ruff
         name: ruff
-        entry: python dev/ruff.py
+        entry: uv run --only-group lint dev/ruff.py
         language: system
         files: '\.(py|ipynb)$'
         stages: [pre-commit]
@@ -39,7 +39,7 @@ repos:
 
       - id: format
         name: format
-        entry: python dev/format.py
+        entry: uv run --only-group lint dev/format.py
         language: system
         files: '\.(py|ipynb)$'
         stages: [pre-commit]
@@ -49,12 +49,12 @@ repos:
         name: mypy
         language: system
         files: '^dev/clint/.*\.py$'
-        entry: mypy
+        entry: uv run --only-group lint mypy
         require_serial: true
 
       - id: blacken-docs
         name: blacken-docs
-        entry: blacken-docs
+        entry: uv run --only-group lint blacken-docs
         language: system
         files: '\.(rst|md|mdx)$'
         stages: [pre-commit]
@@ -62,7 +62,7 @@ repos:
 
       - id: clint
         name: clint
-        entry: clint
+        entry: uv run --only-group lint clint
         language: system
         files: '\.(py|ipynb|rst|mdx?)$'
         stages: [pre-commit]
@@ -70,7 +70,7 @@ repos:
 
       - id: install-bin
         name: install-bin
-        entry: python bin/install.py
+        entry: uv run --only-group lint bin/install.py
         language: system
         stages: [pre-commit]
         require_serial: true
@@ -100,7 +100,7 @@ repos:
 
       - id: pyproject
         name: pyproject
-        entry: python dev/pyproject.py
+        entry: uv run --only-group lint dev/pyproject.py
         language: system
         stages: [pre-commit]
         require_serial: true
@@ -108,7 +108,7 @@ repos:
 
       - id: mlver
         name: ml-package-versions-consistency
-        entry: "python dev/update_ml_package_versions.py --skip-yml"
+        entry: "uv run --only-group lint dev/update_ml_package_versions.py --skip-yml"
         files: '^(mlflow/ml-package-versions\.yml|mlflow/ml_package_versions\.py)$'
         language: system
         stages: [pre-commit]
@@ -139,3 +139,21 @@ repos:
         language: system
         stages: [pre-commit]
         require_serial: true
+
+      - id: check-init-py
+        name: check-init-py
+        entry: uv run --only-group lint dev/check_init_py.py
+        language: system
+        files: '^(mlflow|tests)/.*\.py$'
+        stages: [pre-commit]
+        require_serial: true
+        pass_filenames: false
+
+      - id: uv-lock
+        name: uv-lock
+        entry: uv lock
+        language: system
+        files: '^pyproject\.toml$'
+        stages: [pre-commit]
+        require_serial: true
+        pass_filenames: false

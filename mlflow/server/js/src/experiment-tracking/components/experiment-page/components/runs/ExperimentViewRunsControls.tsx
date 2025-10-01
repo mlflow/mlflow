@@ -1,24 +1,22 @@
 import React, { useCallback, useMemo } from 'react';
-import { UpdateExperimentViewStateFn } from '../../../../types';
+import type { UpdateExperimentViewStateFn } from '../../../../types';
 import { useRunSortOptions } from '../../hooks/useRunSortOptions';
-import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
-import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
+import type { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
+import type { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { ExperimentViewRunsControlsActions } from './ExperimentViewRunsControlsActions';
 import { ExperimentViewRunsControlsFilters } from './ExperimentViewRunsControlsFilters';
-import { ErrorWrapper } from '../../../../../common/utils/ErrorWrapper';
+import type { ErrorWrapper } from '../../../../../common/utils/ErrorWrapper';
 import { ToggleButton, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { ExperimentViewRunsColumnSelector } from './ExperimentViewRunsColumnSelector';
-import { ExperimentViewRunsModeSwitch } from './ExperimentViewRunsModeSwitch';
 import { useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
 import Utils from '../../../../../common/utils/Utils';
 import { downloadRunsCsv } from '../../utils/experimentPage.common-utils';
-import { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
+import type { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import { ExperimentViewRunsGroupBySelector } from './ExperimentViewRunsGroupBySelector';
 import { useUpdateExperimentViewUIState } from '../../contexts/ExperimentPageUIStateContext';
-import { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
+import type { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
 import { ExperimentViewRunsSortSelectorV2 } from './ExperimentViewRunsSortSelectorV2';
-import { shouldEnableExperimentPageHeaderV2 } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
 type ExperimentViewRunsControlsProps = {
   viewState: ExperimentPageViewState;
@@ -113,16 +111,6 @@ export const ExperimentViewRunsControls = React.memo(
           marginBottom: theme.spacing.sm,
         }}
       >
-        {/* skip mode switcher if v2 header is enabled
-        since the tab selector has been moved into the header */}
-        {!shouldEnableExperimentPageHeaderV2() && !isComparingExperiments && (
-          <ExperimentViewRunsModeSwitch
-            hideBorder={false}
-            viewState={viewState}
-            runsAreGrouped={Boolean(uiState.groupBy)}
-          />
-        )}
-
         {showActionButtons && (
           <ExperimentViewRunsControlsActions
             runsData={runsData}

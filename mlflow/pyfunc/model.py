@@ -12,7 +12,7 @@ import os
 import shutil
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
-from typing import Any, Generator
+from typing import Any, Generator, Iterator
 
 import cloudpickle
 import pandas as pd
@@ -546,7 +546,7 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
 
     Since the landscape of LLM frameworks is constantly evolving and not every flavor can be
     natively supported by MLflow, we recommend the
-    `Models-from-Code <https://mlflow.org/docs/latest/model/models-from-code.html>`_ logging
+    `Models-from-Code <https://mlflow.org/docs/latest/ml/model/models-from-code.html>`_ logging
     approach.
 
     .. code-block:: python
@@ -827,9 +827,21 @@ def _maybe_decompress_cloudpickle_load(path, compression):
 
 if IS_PYDANTIC_V2_OR_NEWER:
     from mlflow.types.responses import (
+        Message,
+        OutputItem,
         ResponsesAgentRequest,
         ResponsesAgentResponse,
         ResponsesAgentStreamEvent,
+        create_annotation_added,
+        create_function_call_item,
+        create_function_call_output_item,
+        create_reasoning_item,
+        create_text_delta,
+        create_text_output_item,
+        output_to_responses_items_stream,
+        responses_agent_output_reducer,
+        responses_to_cc,
+        to_chat_completions_input,
     )
 
     @experimental(version="3.0.0")
@@ -840,7 +852,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
         methods to help create output items that can be a part of a ResponsesAgentResponse or
         ResponsesAgentStreamEvent.
 
-        See https://www.mlflow.org/docs/latest/llms/responses-agent-intro/ for more details.
+        See https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro for more details.
         """
 
         _skip_type_hint_validation = True
@@ -849,19 +861,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
         def responses_agent_output_reducer(
             chunks: list[ResponsesAgentStreamEvent | dict[str, Any]],
         ):
-            output_items = []
-            for chunk in chunks:
-                # Handle both dict and pydantic object formats
-                if isinstance(chunk, dict):
-                    chunk_type = chunk.get("type")
-                    if chunk_type == "response.output_item.done":
-                        output_items.append(chunk.get("item"))
-                else:
-                    # Pydantic object (ResponsesAgentStreamEvent)
-                    if hasattr(chunk, "type") and chunk.type == "response.output_item.done":
-                        output_items.append(chunk.item)
-
-            return ResponsesAgentResponse(output=output_items).model_dump(exclude_none=True)
+            return responses_agent_output_reducer(chunks)
 
         def __init_subclass__(cls, **kwargs) -> None:
             super().__init_subclass__(**kwargs)
@@ -901,8 +901,9 @@ if IS_PYDANTIC_V2_OR_NEWER:
             Given a ResponsesAgentRequest, returns a ResponsesAgentResponse.
 
             You can see example implementations at
-            https://www.mlflow.org/docs/latest/llms/responses-agent-intro#simple-chat-example and
-            https://www.mlflow.org/docs/latest/llms/responses-agent-intro#tool-calling-example.
+            https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#simple-chat-example
+            and
+            https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#tool-calling-example.
             """
 
         def predict_stream(
@@ -912,56 +913,63 @@ if IS_PYDANTIC_V2_OR_NEWER:
             Given a ResponsesAgentRequest, returns a generator of ResponsesAgentStreamEvent objects.
 
             See more details at
-            https://www.mlflow.org/docs/latest/llms/responses-agent-intro#streaming-agent-output.
+            https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#streaming-agent-output.
 
             You can see example implementations at
-            https://www.mlflow.org/docs/latest/llms/responses-agent-intro#simple-chat-example and
-            https://www.mlflow.org/docs/latest/llms/responses-agent-intro#tool-calling-example.
+            https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#simple-chat-example
+            and
+            https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#tool-calling-example.
             """
             raise NotImplementedError(
                 "Streaming implementation not provided. Please override the "
                 "`predict_stream` method on your model to generate streaming predictions"
             )
 
-        def create_text_delta(self, delta: str, item_id: str) -> dict[str, Any]:
+        @staticmethod
+        def create_text_delta(delta: str, item_id: str) -> dict[str, Any]:
             """Helper method to create a dictionary conforming to the text delta schema for
             streaming.
 
-            Read more at https://www.mlflow.org/docs/latest/llms/responses-agent-intro/#streaming-agent-output.
+            Read more at https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#streaming-agent-output.
             """
-            return {
-                "type": "response.output_text.delta",
-                "item_id": item_id,
-                "delta": delta,
-            }
+            return create_text_delta(delta, item_id)
 
-        def create_text_output_item(self, text: str, id: str) -> dict[str, Any]:
+        @staticmethod
+        def create_annotation_added(
+            item_id: str, annotation: dict[str, Any], annotation_index: int | None = 0
+        ) -> dict[str, Any]:
+            return create_annotation_added(item_id, annotation, annotation_index)
+
+        @staticmethod
+        def create_text_output_item(
+            text: str, id: str, annotations: list[dict[str, Any]] | None = None
+        ) -> dict[str, Any]:
             """Helper method to create a dictionary conforming to the text output item schema.
 
-            Read more at https://www.mlflow.org/docs/latest/llms/responses-agent-intro/#creating-agent-output.
+            Read more at https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#creating-agent-output.
 
             Args:
                 text (str): The text to be outputted.
                 id (str): The id of the output item.
+                annotations (Optional[list[dict]]): The annotations of the output item.
             """
-            return {
-                "id": id,
-                "content": [
-                    {
-                        "text": text,
-                        "type": "output_text",
-                    }
-                ],
-                "role": "assistant",
-                "type": "message",
-            }
+            return create_text_output_item(text, id, annotations)
 
+        @staticmethod
+        def create_reasoning_item(id: str, reasoning_text: str) -> dict[str, Any]:
+            """Helper method to create a dictionary conforming to the reasoning item schema.
+
+            Read more at https://www.mlflow.org/docs/latest/llms/responses-agent-intro/#creating-agent-output.
+            """
+            return create_reasoning_item(id, reasoning_text)
+
+        @staticmethod
         def create_function_call_item(
-            self, id: str, call_id: str, name: str, arguments: str
+            id: str, call_id: str, name: str, arguments: str
         ) -> dict[str, Any]:
             """Helper method to create a dictionary conforming to the function call item schema.
 
-            Read more at https://www.mlflow.org/docs/latest/llms/responses-agent-intro/#creating-agent-output.
+            Read more at https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#creating-agent-output.
 
             Args:
                 id (str): The id of the output item.
@@ -969,29 +977,46 @@ if IS_PYDANTIC_V2_OR_NEWER:
                 name (str): The name of the function to be called.
                 arguments (str): The arguments to be passed to the function.
             """
-            return {
-                "type": "function_call",
-                "id": id,
-                "call_id": call_id,
-                "name": name,
-                "arguments": arguments,
-            }
+            return create_function_call_item(id, call_id, name, arguments)
 
-        def create_function_call_output_item(self, call_id: str, output: str) -> dict[str, Any]:
+        @staticmethod
+        def create_function_call_output_item(call_id: str, output: str) -> dict[str, Any]:
             """Helper method to create a dictionary conforming to the function call output item
             schema.
 
-            Read more at https://www.mlflow.org/docs/latest/llms/responses-agent-intro/#creating-agent-output.
+            Read more at https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#creating-agent-output.
 
             Args:
                 call_id (str): The id of the function call.
                 output (str): The output of the function call.
             """
-            return {
-                "type": "function_call_output",
-                "call_id": call_id,
-                "output": output,
-            }
+            return create_function_call_output_item(call_id, output)
+
+        @staticmethod
+        def _responses_to_cc(message: dict[str, Any]) -> list[dict[str, Any]]:
+            """Convert from a Responses API output item to  a list of ChatCompletion messages."""
+            return responses_to_cc(message)
+
+        @staticmethod
+        def prep_msgs_for_cc_llm(
+            responses_input: list[dict[str, Any] | Message | OutputItem],
+        ) -> list[dict[str, Any]]:
+            "Convert from Responses input items to ChatCompletion dictionaries"
+            return to_chat_completions_input(responses_input)
+
+        @staticmethod
+        def output_to_responses_items_stream(
+            chunks: Iterator[dict[str, Any]], aggregator: list[dict[str, Any]] | None = None
+        ) -> Generator[ResponsesAgentStreamEvent, None, None]:
+            """
+            For streaming, convert from various message format dicts to Responses output items,
+            returning a generator of ResponsesAgentStreamEvent objects.
+
+            If `aggregator` is provided, it will be extended with the aggregated output item dicts.
+
+            For now, only handle a stream of Chat Completion chunks.
+            """
+            yield from output_to_responses_items_stream(chunks, aggregator)
 
 
 def _save_model_with_class_artifacts_params(

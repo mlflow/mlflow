@@ -632,9 +632,19 @@ _MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS = _BooleanEnvironmentVariable(
 )
 
 #: Maximum number of workers to use for running model prediction and scoring during
-# for each row in the dataset passed to the `mlflow.genai.evaluate` function.
+#: for each row in the dataset passed to the `mlflow.genai.evaluate` function.
 #: (default: ``10``)
 MLFLOW_GENAI_EVAL_MAX_WORKERS = _EnvironmentVariable("MLFLOW_GENAI_EVAL_MAX_WORKERS", int, 10)
+
+
+#: Skip trace validation during GenAI evaluation. By default (False), MLflow will validate if
+#: the given predict function generates a valid trace, and otherwise wraps it with @mlflow.trace
+#: decorator to make sure a trace is generated. This validation requires running a single
+#: prediction. When you are sure that the predict function generates a trace, set this to True
+#: to skip the validation and save the time of running a single prediction.
+MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION = _BooleanEnvironmentVariable(
+    "MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION", False
+)
 
 #: Whether to warn (default) or raise (opt-in) for unresolvable requirements inference for
 #: a model's dependency inference. If set to True, an exception will be raised if requirements
@@ -965,3 +975,56 @@ _MLFLOW_TELEMETRY_SESSION_ID = _EnvironmentVariable("_MLFLOW_TELEMETRY_SESSION_I
 #: Internal flag to enable telemetry logging
 #: (default: ``False``)
 _MLFLOW_TELEMETRY_LOGGING = _BooleanEnvironmentVariable("_MLFLOW_TELEMETRY_LOGGING", False)
+
+#: Internal environment variable to indicate which SGI is being used,
+#: e.g. "uvicorn" or "gunicorn".
+#: This should never be set by users or explicitly.
+#: (default: ``None``)
+_MLFLOW_SGI_NAME = _EnvironmentVariable("_MLFLOW_SGI_NAME", str, None)
+
+#: Specifies whether to enforce using stdin scoring server in Spark udf.
+#: (default: ``True``)
+MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF = _BooleanEnvironmentVariable(
+    "MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF", True
+)
+
+#: Specifies the SQL warehouse ID to use for tracing with Databricks backend.
+#: (default: ``None``)
+MLFLOW_TRACING_SQL_WAREHOUSE_ID = _EnvironmentVariable("MLFLOW_TRACING_SQL_WAREHOUSE_ID", str, None)
+
+#: Specifies whether to enable job execution feature for MLflow server.
+#: This feature requires "huey" package dependency, and requires MLflow server to configure
+#: --backend-store-uri to database URI.
+#: (default: ``True``)
+MLFLOW_SERVER_ENABLE_JOB_EXECUTION = _BooleanEnvironmentVariable(
+    "MLFLOW_SERVER_ENABLE_JOB_EXECUTION", False
+)
+
+#: Specifies MLflow server job maximum allowed retries for transient errors.
+#: (default: ``3``)
+MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES = _EnvironmentVariable(
+    "MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES", int, 3
+)
+
+#: Specifies MLflow server job retry base delay in seconds for transient errors.
+#: The retry uses exponential backoff strategy, retry delay is computed by
+#: `delay = min(base_delay * (2 ** (retry_count - 1)), max_delay)`
+#: (default: ``15``)
+MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY = _EnvironmentVariable(
+    "MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY", int, 15
+)
+
+#: Specifies MLflow server job retry maximum delay in seconds for transient errors.
+#: The retry uses exponential backoff strategy, retry delay is computed by
+#: `delay = min(base_delay * (2 ** (retry_count - 1)), max_delay)`
+#: (default: ``60``)
+MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY = _EnvironmentVariable(
+    "MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY", int, 60
+)
+
+
+#: Specifies the maximum number of completion iterations allowed when invoking
+#: judge models. This prevents infinite loops in case of complex traces or
+#: issues with the judge's reasoning.
+#: (default: ``30``)
+MLFLOW_JUDGE_MAX_ITERATIONS = _EnvironmentVariable("MLFLOW_JUDGE_MAX_ITERATIONS", int, 30)

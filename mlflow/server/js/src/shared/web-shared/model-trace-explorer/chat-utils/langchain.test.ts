@@ -1,6 +1,6 @@
 import { normalizeConversation } from '../ModelTraceExplorer.utils';
 
-export const MOCK_LANGCHAIN_INPUT = [
+const MOCK_LANGCHAIN_INPUT = [
   [
     {
       content:
@@ -23,7 +23,7 @@ Instead, why not take a few extra minutes to set up a proper permissions model? 
 
 So, please, for the love of all that is holy in the open-source world, resist the urge to make things "easier." You'll thank me later when your system isn't in flames and your hair isn't turning gray from all the avoidable chaos.`;
 
-export const MOCK_LANGCHAIN_OUTPUT = {
+const MOCK_LANGCHAIN_OUTPUT = {
   generations: [
     [
       {
@@ -93,7 +93,7 @@ export const MOCK_LANGCHAIN_OUTPUT = {
   type: 'LLMResult',
 };
 
-export const MOCK_LANGCHAIN_IMAGE_INPUT = [
+const MOCK_LANGCHAIN_IMAGE_INPUT = [
   [
     {
       content: [
@@ -118,7 +118,7 @@ export const MOCK_LANGCHAIN_IMAGE_INPUT = [
   ],
 ];
 
-export const MOCK_LANGCHAIN_SINGLE_IMAGE_INPUT = [
+const MOCK_LANGCHAIN_SINGLE_IMAGE_INPUT = [
   [
     {
       content: [
@@ -139,7 +139,7 @@ export const MOCK_LANGCHAIN_SINGLE_IMAGE_INPUT = [
   ],
 ];
 
-export const MOCK_LANGCHAIN_CHAT_INPUT = [
+const MOCK_LANGCHAIN_CHAT_INPUT = [
   [
     {
       content: "What's the weather in Singapore and New York?",
@@ -182,7 +182,7 @@ export const MOCK_LANGCHAIN_CHAT_INPUT = [
   ],
 ];
 
-export const MOCK_LANGCHAIN_CHAT_OUTPUT = {
+const MOCK_LANGCHAIN_CHAT_OUTPUT = {
   generations: [
     [
       {

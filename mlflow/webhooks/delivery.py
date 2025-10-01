@@ -31,6 +31,7 @@ from mlflow.environment_variables import (
     MLFLOW_WEBHOOK_REQUEST_TIMEOUT,
 )
 from mlflow.store.model_registry.abstract_store import AbstractStore
+from mlflow.store.model_registry.file_store import FileStore
 from mlflow.webhooks.constants import (
     WEBHOOK_DELIVERY_ID_HEADER,
     WEBHOOK_SIGNATURE_HEADER,
@@ -300,6 +301,10 @@ def deliver_webhook(
     payload: WebhookPayload,
     store: AbstractStore,
 ) -> None:
+    # Exit early if the store is a FileStore since it does not support webhook APIs
+    if isinstance(store, FileStore):
+        return
+
     try:
         _deliver_webhook_impl(event=event, payload=payload, store=store)
     except Exception as e:

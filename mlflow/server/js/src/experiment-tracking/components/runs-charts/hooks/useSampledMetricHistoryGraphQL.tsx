@@ -4,7 +4,7 @@ import { EXPERIMENT_RUNS_METRIC_AUTO_REFRESH_INTERVAL } from '../../../utils/Met
 import { groupBy, keyBy } from 'lodash';
 import { useEffect, useMemo } from 'react';
 import type { SampledMetricsByRun } from './useSampledMetricHistory';
-import { GetMetricHistoryBulkInterval } from '../../../../graphql/__generated__/graphql';
+import type { GetMetricHistoryBulkInterval } from '../../../../graphql/__generated__/graphql';
 import Utils from '../../../../common/utils/Utils';
 import { useIntl } from 'react-intl';
 

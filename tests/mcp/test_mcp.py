@@ -72,3 +72,32 @@ async def test_call_tool(client: Client):
         raise_on_error=False,
     )
     assert result.is_error is True
+
+
+@pytest.mark.asyncio
+async def test_list_prompts(client: Client):
+    prompts = await client.list_prompts()
+    prompt_names = [p.name for p in prompts]
+
+    # Should have at least the genai_analyze_experiment prompt
+    assert "genai_analyze_experiment" in prompt_names
+
+    # Find the analyze experiment prompt
+    analyze_prompt = next(p for p in prompts if p.name == "genai_analyze_experiment")
+    assert "experiment" in analyze_prompt.description.lower()
+    assert "traces" in analyze_prompt.description.lower()
+
+
+@pytest.mark.asyncio
+async def test_get_prompt(client: Client):
+    # Get the analyze experiment prompt
+    result = await client.get_prompt("genai_analyze_experiment")
+
+    # Should return messages
+    assert len(result.messages) > 0
+
+    # Content should contain the AI command instructions
+    content = result.messages[0].content.text
+    assert "Analyze Experiment" in content
+    assert "Step 1: Setup and Configuration" in content
+    assert "MLflow" in content

@@ -48,6 +48,8 @@ _UC_OSS_REST_API_PATH_PREFIX = "/api/2.1"
 _TRACE_REST_API_PATH_PREFIX = f"{_REST_API_PATH_PREFIX}/mlflow/traces"
 _V3_REST_API_PATH_PREFIX = "/api/3.0"
 _V3_TRACE_REST_API_PATH_PREFIX = f"{_V3_REST_API_PATH_PREFIX}/mlflow/traces"
+_V4_REST_API_PATH_PREFIX = "/api/4.0"
+_V4_TRACE_REST_API_PATH_PREFIX = f"{_V4_REST_API_PATH_PREFIX}/mlflow/traces"
 _ARMERIA_OK = "200 OK"
 _DATABRICKS_SDK_RETRY_AFTER_SECS_DEPRECATION_WARNING = (
     "The 'retry_after_secs' parameter of DatabricksError is deprecated"
@@ -92,7 +94,7 @@ def http_request(
             in retry_codes range and retries have been exhausted.
         respect_retry_after_header: Whether to respect Retry-After header on status codes defined
             as Retry.RETRY_AFTER_STATUS_CODES or not.
-        retry_timeout_seconds: Timeout for retires. Only effective when using Databricks SDK.
+        retry_timeout_seconds: Timeout for retries. Only effective when using Databricks SDK.
         kwargs: Additional keyword arguments to pass to `requests.Session.request()`
 
     Returns:
@@ -501,6 +503,13 @@ def get_single_trace_endpoint(request_id, use_v3=True):
     if use_v3:
         return f"{_V3_TRACE_REST_API_PATH_PREFIX}/{request_id}"
     return f"{_TRACE_REST_API_PATH_PREFIX}/{request_id}"
+
+
+def get_single_trace_endpoint_v4(location: str, trace_id: str) -> str:
+    """
+    Get the endpoint for a single trace using the V4 API.
+    """
+    return f"{_V4_TRACE_REST_API_PATH_PREFIX}/{location}/{trace_id}"
 
 
 def get_logged_model_endpoint(model_id: str) -> str:

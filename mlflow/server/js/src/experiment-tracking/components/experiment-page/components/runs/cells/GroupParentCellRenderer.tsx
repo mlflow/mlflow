@@ -1,5 +1,5 @@
-import { ICellRendererParams } from '@ag-grid-community/core';
-import { RunRowType } from '../../../utils/experimentPage.row-types';
+import type { ICellRendererParams } from '@ag-grid-community/core';
+import type { RunRowType } from '../../../utils/experimentPage.row-types';
 import {
   Button,
   ChevronDownIcon,
@@ -22,7 +22,8 @@ import { FormattedMessage } from 'react-intl';
 import { useGetExperimentRunColor, useSaveExperimentRunColor } from '../../../hooks/useExperimentRunColor';
 import { useExperimentViewRunsTableHeaderContext } from '../ExperimentViewRunsTableHeaderContext';
 import { shouldEnableToggleIndividualRunsInGroups } from '../../../../../../common/utils/FeatureUtils';
-import { Link, To, useLocation } from '../../../../../../common/utils/RoutingUtils';
+import type { To } from '../../../../../../common/utils/RoutingUtils';
+import { Link, useLocation } from '../../../../../../common/utils/RoutingUtils';
 import { EXPERIMENT_PAGE_QUERY_PARAM_IS_PREVIEW } from '../../../hooks/useExperimentPageSearchFacets';
 
 export interface GroupParentCellRendererProps extends ICellRendererParams {

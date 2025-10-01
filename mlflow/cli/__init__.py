@@ -6,16 +6,18 @@ import re
 import sys
 import warnings
 from datetime import timedelta
+from pathlib import Path
 
 import click
 from click import UsageError
+from dotenv import load_dotenv
 
 import mlflow.db
 import mlflow.deployments.cli
 import mlflow.experiments
 import mlflow.runs
 import mlflow.store.artifact.cli
-from mlflow import projects, version
+from mlflow import ai_commands, projects, version
 from mlflow.entities import ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID, MLFLOW_EXPERIMENT_NAME
@@ -45,9 +47,40 @@ class AliasedGroup(click.Group):
         return super().get_command(ctx, cmd_name)
 
 
+def _load_env_file(ctx: click.Context, param: click.Parameter, value: str | None) -> str | None:
+    """
+    Click callback to load environment variables from a dotenv file.
+
+    This function is designed to be used as an eager callback for the --env-file option,
+    ensuring that environment variables are loaded before any command execution.
+    """
+    if value is not None:
+        env_path = Path(value)
+        if not env_path.exists():
+            raise click.BadParameter(f"Environment file '{value}' does not exist.")
+
+        # Load the environment file
+        # override=False means existing environment variables take precedence
+        load_dotenv(env_path, override=False)
+
+        # Log that we've loaded the env file (using click.echo for CLI output)
+        click.echo(f"Loaded environment variables from: {value}")
+
+    return value
+
+
 @click.group(cls=AliasedGroup)
 @click.version_option(version=version.VERSION)
-def cli():
+@click.option(
+    "--env-file",
+    type=click.Path(exists=False),
+    callback=_load_env_file,
+    expose_value=True,
+    is_eager=True,
+    help="Load environment variables from a dotenv file before executing the command. "
+    "Variables in the file will be loaded but won't override existing environment variables.",
+)
+def cli(env_file):
     pass
 
 
@@ -276,6 +309,7 @@ def _validate_static_prefix(ctx, param, value):
 
 
 @cli.command()
+@click.pass_context
 @click.option(
     "--backend-store-uri",
     envvar="MLFLOW_BACKEND_STORE_URI",
@@ -378,6 +412,7 @@ def _validate_static_prefix(ctx, param, value):
     ),
 )
 def server(
+    ctx,
     backend_store_uri,
     registry_store_uri,
     default_artifact_root,
@@ -405,6 +440,9 @@ def server(
     """
     from mlflow.server import _run_server
     from mlflow.server.handlers import initialize_backend_stores
+
+    # Get env_file from parent context
+    env_file = ctx.parent.params.get("env_file") if ctx.parent else None
 
     if dev:
         if is_windows():
@@ -466,6 +504,7 @@ def server(
             expose_prometheus=expose_prometheus,
             app_name=app_name,
             uvicorn_opts=uvicorn_opts,
+            env_file=env_file,
         )
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")
@@ -710,6 +749,9 @@ cli.add_command(mlflow.db.commands)
 from mlflow.cli import traces
 
 cli.add_command(traces.commands)
+
+# Add AI commands CLI
+cli.add_command(ai_commands.commands)
 
 try:
     from mlflow.mcp.cli import cli as mcp_cli

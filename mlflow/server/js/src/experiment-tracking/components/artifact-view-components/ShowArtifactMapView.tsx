@@ -15,7 +15,7 @@ import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
 import { ArtifactViewErrorState } from './ArtifactViewErrorState';
-import { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
+import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
 import { fetchArtifactUnified, type FetchArtifactUnifiedFn } from './utils/fetchArtifactUnified';
 
 function onEachFeature(feature: any, layer: any) {

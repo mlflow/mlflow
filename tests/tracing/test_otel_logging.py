@@ -101,10 +101,6 @@ def test_otel_client_sends_spans_to_mlflow_database(mlflow_server: str, monkeypa
         assert span.get_span_context().is_valid, "Span context is not valid"
         assert otel_trace_id != 0, "Trace ID is zero"
 
-    # SimpleSpanProcessor sends spans immediately, so no need to flush
-    # But we still shutdown to ensure cleanup
-    span_processor.shutdown()
-
     # Add a small delay to ensure the server has processed the spans
     time.sleep(0.5)
 
@@ -296,3 +292,20 @@ def test_invalid_content_type_returns_400(mlflow_server: str):
 
     assert response.status_code == 400
     assert "Invalid Content-Type" in response.text
+
+
+def test_empty_resource_spans_returns_400(mlflow_server: str):
+    request = ExportTraceServiceRequest()
+
+    response = requests.post(
+        f"{mlflow_server}/v1/traces",
+        data=request.SerializeToString(),
+        headers={
+            "Content-Type": "application/x-protobuf",
+            MLFLOW_EXPERIMENT_ID_HEADER: "test-experiment",
+        },
+        timeout=10,
+    )
+
+    assert response.status_code == 400
+    assert "no spans found" in response.text
