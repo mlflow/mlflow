@@ -124,7 +124,7 @@ class OptimizerOutput:
 @dataclass
 class EvaluationResultRecord:
     """
-    An output type of `eval_fn` in the
+    The output type of `eval_fn` in the
     :py:func:`mlflow.genai.optimize.BasePromptAdapter.optimize()` API.
 
     Args:
@@ -149,6 +149,7 @@ class PromptAdapterOutput:
     Args:
         optimized_prompts: The optimized prompts as
             a dict (prompt template name -> prompt template).
+            e.g., {"question": "What is the capital of {{country}}?"}
     """
 
     optimized_prompts: dict[str, str]

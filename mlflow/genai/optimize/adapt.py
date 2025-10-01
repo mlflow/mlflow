@@ -37,7 +37,8 @@ def adapt_prompts(
         predict_fn: a target function to be optimized. The callable should receive inputs
             as keyword arguments and return the response. The function should use
             MLflow prompt registry and call `PromptVersion.format` during execution
-            in order for this API to optimize the prompt.
+            in order for this API to optimize the prompt. This function should return the
+            same type as the outputs in the dataset.
         train_data: an evaluation dataset used for the optimization.
             It should include the inputs and outputs fields with dict values.
             The data must be one of the following formats:
@@ -157,15 +158,15 @@ def _build_eval_fn(
             # and set is_evaluate to True to disable async trace logging
             with set_prediction_context(Context(request_id=eval_request_id, is_evaluate=True)):
                 try:
-                    target_outputs = predict_fn(inputs)
+                    program_outputs = predict_fn(inputs)
                 except Exception as e:
-                    target_outputs = f"Failed to invoke the predict_fn with {inputs}: {e}"
+                    program_outputs = f"Failed to invoke the predict_fn with {inputs}: {e}"
 
             trace = mlflow.get_trace(eval_request_id, silent=True)
             # TODO: Consider more robust scoring mechanism
-            score = 1 if target_outputs == outputs else 0
+            score = 1 if program_outputs == outputs else 0
             return EvaluationResultRecord(
-                inputs=inputs, outputs=target_outputs, score=score, trace=trace
+                inputs=inputs, outputs=program_outputs, score=score, trace=trace
             )
 
         try:
