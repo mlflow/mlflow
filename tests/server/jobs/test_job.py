@@ -427,3 +427,21 @@ def test_job_function_without_decorator(monkeypatch, tmp_path):
             match="The job function tests.server.jobs.test_job.bad_job_function is not decorated",
         ):
             submit_job(bad_job_function, params={})
+
+
+@job(max_workers=1, use_process=True)
+def job_use_process(tmp_dir):
+    (Path(tmp_dir) / str(os.getpid())).write_text("")
+
+
+def test_job_use_process(monkeypatch, tmp_path):
+    with _setup_job_runner(monkeypatch, tmp_path):
+        job_tmp_path = tmp_path / "job"
+        job_tmp_path.mkdir()
+
+        # warm up
+        job_id1 = submit_job(job_use_process, {"tmp_dir": str(job_tmp_path)}).job_id
+        job_id2 = submit_job(job_use_process, {"tmp_dir": str(job_tmp_path)}).job_id
+        wait_job_finalize(job_id1)
+        wait_job_finalize(job_id2)
+        assert len(os.listdir(str(job_tmp_path))) == 2

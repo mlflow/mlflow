@@ -99,7 +99,6 @@ def _execute_function_with_timeout(
     func: Callable[..., Any],
     kwargs: dict[str, Any],
     timeout: float,
-    use_process: bool,
 ) -> JobResult:
     """
     Run `func(**kwargs)` in a spawned subprocess.
@@ -108,6 +107,13 @@ def _execute_function_with_timeout(
     Raises:
       - TimeoutError if not finished within `timeout`
     """
+    use_process = func._job_fn_metadata.use_process
+
+    if use_process is None:
+        # if `use_process` is not set,
+        # set `use_process` to True if timeout is set, otherwise set to False.
+        use_process = timeout is not None
+
     if timeout and not use_process:
         raise MlflowException.invalid_parameter_value(
             "If setting timeout for a job, 'use_process' param must be 'True'"
@@ -184,7 +190,6 @@ def _exec_job(
     function: Callable[..., Any],
     params: dict[str, Any],
     timeout: float | None,
-    use_process: bool,
 ) -> None:
     from mlflow.server.handlers import _get_job_store
 
@@ -192,7 +197,7 @@ def _exec_job(
     job_store.start_job(job_id)
 
     try:
-        job_result = _execute_function_with_timeout(function, params, timeout, use_process)
+        job_result = _execute_function_with_timeout(function, params, timeout)
 
         if job_result.succeeded:
             job_store.finish_job(job_id, job_result.result)
