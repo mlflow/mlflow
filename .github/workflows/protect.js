@@ -4,7 +4,8 @@ function getSleepLength(iterationCount, numPendingJobs) {
     // To minimize the wait time, shorten the polling interval for the first 5 iterations.
     return 5 * 1000; // 5 seconds
   }
-  return (numPendingJobs <= 7 ? 30 : 5 * 60) * 1000; // 30 seconds or 5 minutes
+  // If the number of pending jobs is small, poll more frequently to reduce wait time.
+  return (numPendingJobs <= 5 ? 30 : 5 * 60) * 1000;
 }
 module.exports = async ({ github, context }) => {
   const {
@@ -36,7 +37,7 @@ module.exports = async ({ github, context }) => {
         ref,
         filter: "latest",
       })
-    ).filter(({ name, app }) => name !== "protect" && app?.slug !== "github-actions");
+    ).filter(({ app }) => app?.slug !== "github-actions");
 
     const latestCheckRuns = {};
     for (const run of checkRuns) {
@@ -65,7 +66,7 @@ module.exports = async ({ github, context }) => {
         repo,
         head_sha: ref,
       })
-    ).filter(({ name }) => name !== "protect");
+    ).filter(({ path }) => path !== ".github/workflows/protect.yml");
 
     const latestRuns = {};
     for (const run of workflowRuns) {
