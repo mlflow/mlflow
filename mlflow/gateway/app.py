@@ -31,7 +31,7 @@ from mlflow.gateway.config import (
     _LegacyRoute,
     EndpointConfig,
     EndpointType,
-    _load_route_config,
+    _load_gateway_config,
 )
 from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_CRUD_ROUTE_BASE,
@@ -424,7 +424,7 @@ def create_app_from_path(config_path: str | Path) -> GatewayAPI:
     """
     Load the path and generate the GatewayAPI app instance.
     """
-    config = _load_route_config(config_path)
+    config = _load_gateway_config(config_path)
     return create_app_from_config(config)
 
 

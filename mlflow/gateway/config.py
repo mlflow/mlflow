@@ -504,10 +504,10 @@ class _LegacyRoute(ConfigModel):
 
 class GatewayConfig(AliasedConfigModel):
     endpoints: list[EndpointConfig]
-    routes: list[RouteConfig] = Field(default_factory=list)
+    routes: list[RouteConfig] | None = None
 
 
-def _load_route_config(path: str | Path) -> GatewayConfig:
+def _load_gateway_config(path: str | Path) -> GatewayConfig:
     """
     Reads the gateway configuration yaml file from the storage location and returns an instance
     of the configuration RouteConfig class
@@ -541,6 +541,6 @@ def _validate_config(config_path: str) -> GatewayConfig:
         raise MlflowException.invalid_parameter_value(f"{config_path} does not exist")
 
     try:
-        return _load_route_config(config_path)
+        return _load_gateway_config(config_path)
     except ValidationError as e:
         raise MlflowException.invalid_parameter_value(f"Invalid gateway configuration: {e}") from e
