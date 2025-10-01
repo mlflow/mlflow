@@ -32,11 +32,12 @@ class TransientError(RuntimeError):
 class JobFunctionMetadata:
     fn_fullname: str
     max_workers: int
-    use_process: bool | None = None
+    use_process: bool
 
 
 def job(
-    max_workers: int, use_process: bool | None = None
+    max_workers: int,
+    use_process: bool = True,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     The decorator for the custom job function for setting max parallel workers that
@@ -48,8 +49,7 @@ def job(
         use_process: (optional) Specify whether to run the job in an individual process.
             If the job uses environment variables (e.g. API keys),
             it should be run in an individual process to isolate the environment variable settings.
-            Default value is None, in the case the job runs in a thread
-            if timeout is not set, but still runs in a process if timeout is set.
+            Default value is True.
     """
 
     def decorator(fn: Callable[P, R]) -> Callable[P, R]:

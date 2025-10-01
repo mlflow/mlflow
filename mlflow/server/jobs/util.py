@@ -109,11 +109,6 @@ def _execute_function_with_timeout(
     """
     use_process = func._job_fn_metadata.use_process
 
-    if use_process is None:
-        # if `use_process` is not set,
-        # set `use_process` to True if timeout is set, otherwise set to False.
-        use_process = timeout is not None
-
     if timeout and not use_process:
         raise MlflowException.invalid_parameter_value(
             "If setting timeout for a job, 'use_process' param must be 'True'"

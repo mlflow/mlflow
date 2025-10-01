@@ -105,7 +105,7 @@ def test_validate_function_parameters_with_positional_args():
         _validate_function_parameters(test_func_with_args, {})
 
 
-@job(max_workers=1)
+@job(max_workers=1, use_process=False)
 def basic_job_fun(x, y, sleep_secs=0):
     if sleep_secs > 0:
         time.sleep(sleep_secs)
@@ -127,7 +127,7 @@ def test_basic_job(monkeypatch, tmp_path):
         assert job.retry_count == 0
 
 
-@job(max_workers=1)
+@job(max_workers=1, use_process=False)
 def json_in_out_fun(data):
     x = data["x"]
     y = data["y"]
@@ -148,7 +148,7 @@ def test_job_json_input_output(monkeypatch, tmp_path):
         assert job.retry_count == 0
 
 
-@job(max_workers=1)
+@job(max_workers=1, use_process=False)
 def err_fun(data):
     raise RuntimeError()
 
@@ -231,14 +231,14 @@ def test_job_resume_on_new_job_runner(monkeypatch, tmp_path):
         assert_job_result(job3_id, JobStatus.SUCCEEDED, 15)
 
 
-@job(max_workers=2)
+@job(max_workers=2, use_process=False)
 def job_fun_parallelism2(x, y, sleep_secs=0):
     if sleep_secs > 0:
         time.sleep(sleep_secs)
     return x + y
 
 
-@job(max_workers=3)
+@job(max_workers=3, use_process=False)
 def job_fun_parallelism3(x, y, sleep_secs=0):
     if sleep_secs > 0:
         time.sleep(sleep_secs)
@@ -281,7 +281,7 @@ def test_job_queue_parallelism(monkeypatch, tmp_path):
         assert_job_result(job_p3_ids[3], JobStatus.SUCCEEDED, 4)
 
 
-@job(max_workers=1)
+@job(max_workers=1, use_process=False)
 def transient_err_fun(tmp_dir: str, succeed_on_nth_run: int):
     """
     This function will raise `TransientError` on the first (`succeed_on_nth_run` - 1) runs,
