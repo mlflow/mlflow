@@ -4,6 +4,7 @@ import TabsWrapper from "@site/src/components/TabsWrapper";
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
 import DAGLoop from "@site/src/components/DAGLoop";
 import ConceptOverview from "@site/src/components/ConceptOverview";
+import ImageBox from "@site/src/components/ImageBox";
 import { MessageSquare, Target, BarChart3, ExternalLink, Bot, Users, CheckCircle, TrendingUp, Database, Book, Rocket, Scale, AlertTriangle, Zap, ThumbsUp, LineChart, GitBranch, Search, Lightbulb, FileText } from "lucide-react";
 
 # AI Issue Discovery
@@ -127,13 +128,17 @@ The tool will ask you to configure authentication:
 
 - **Databricks**: Provide workspace URL and personal access token, or use a Databricks CLI profile
 - **Local MLflow**: Specify tracking URI (SQLite, PostgreSQL, MySQL, or file store)
-- **Environment Variables**: Use existing MLflow environment configuration
+- **Environment Variables**: Use pre-configured MLflow environment variables like `MLFLOW_TRACKING_URI` (see [environment setup guide](/genai/getting-started/connect-environment))
+
+<ImageBox src="/images/genai/ai-issue-discovery/setup-authentication.png" alt="Setup and Authentication" width="90%"/>
 
 ### 2. Experiment Selection
 
 - Browse available experiments or search by name
 - Select the experiment containing traces to analyze
 - Verify trace availability and data structure
+
+<ImageBox src="/images/genai/ai-issue-discovery/experiment-selection.png" alt="Experiment Selection" width="90%"/>
 
 ### 3. Agent Purpose Identification
 
@@ -143,6 +148,8 @@ The tool examines trace inputs and outputs to understand:
 - Common patterns in user interactions
 
 You'll be asked to confirm or correct this understanding before analysis continues.
+
+<ImageBox src="/images/genai/ai-issue-discovery/agent-purpose.png" alt="Agent Purpose Identification" width="90%"/>
 
 ### 4. Hypothesis-Driven Analysis
 
@@ -158,6 +165,8 @@ The tool systematically tests hypotheses about potential issues:
 - Response appropriateness for query types
 - Context handling and conversation flow
 
+<ImageBox src="/images/genai/ai-issue-discovery/hypothesis-analysis.png" alt="Hypothesis-Driven Analysis" width="90%"/>
+
 ### 5. Report Generation
 
 The tool generates a comprehensive markdown report containing:
@@ -165,6 +174,8 @@ The tool generates a comprehensive markdown report containing:
 - **Confirmed Issues**: Detailed analysis with specific trace examples and root causes
 - **Strengths**: What's working well in your application
 - **Recommendations**: Actionable improvements based on findings
+
+<ImageBox src="/images/genai/ai-issue-discovery/report-generation.png" alt="Report Generation" width="90%"/>
 
 ## Report Content
 
