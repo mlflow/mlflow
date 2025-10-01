@@ -1,5 +1,6 @@
 import json
 import logging
+from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
 from typing import NamedTuple, Sequence
@@ -321,25 +322,22 @@ class TracingClient:
                 location_to_trace_infos = self._group_trace_infos_by_location(trace_infos)
 
                 for location, location_trace_infos in location_to_trace_infos.items():
-                    if isinstance(location, UCSchemaLocation):
-                        # Get full traces from v4 BatchGetTraces endpoint. All traces in a single
-                        # call must be located in the same location.
-                        traces.extend(
-                            self.store.batch_get_traces(
-                                [t.trace_id for t in location_trace_infos],
-                                location.catalog_name + "." + location.schema_name
+                    match location.split("."):
+                        case [catalog, schema]:
+                            # UC schema location. Get full traces from v4 BatchGetTraces endpoint.
+                            # All traces in a single call must be located in the same table.
+                            trace_ids = [t.trace_id for t in location_trace_infos]
+                            traces.extend(self.store.batch_get_traces(trace_ids, location))
+                        case _:
+                            # MLflow experiment location. Load spans from artifact repository.
+                            traces.extend(
+                                trace
+                                for trace in executor.map(
+                                    self._download_spans_from_artifact_repo,
+                                    location_trace_infos,
+                                )
+                                if trace
                             )
-                        )
-                    elif isinstance(location, MlflowExperimentLocation):
-                        # Load spans from artifact repository (v3 traces).
-                        traces.extend(
-                            trace
-                            for trace in executor.map(
-                                self._download_spans_from_artifact_repo,
-                                trace_info_groups.artifact_repo_trace_infos,
-                            )
-                            if trace
-                        )
 
                 if not next_token:
                     break
@@ -401,9 +399,10 @@ class TracingClient:
         location_to_trace_infos = defaultdict(list)
         for trace_info in trace_infos:
             if uc_schema := trace_info.trace_location.uc_schema:
-                location_to_trace_infos[uc_schema].append(trace_info)
+                location = f"{uc_schema.catalog_name}.{uc_schema.schema_name}"
+                location_to_trace_infos[location].append(trace_info)
             elif mlflow_experiment := trace_info.trace_location.mlflow_experiment:
-                location_to_trace_infos[mlflow_experiment].append(trace_info)
+                location_to_trace_infos[mlflow_experiment.experiment_id].append(trace_info)
             else:
                 _logger.warning(f"Unsupported location: {trace_info.trace_location}. Skipping.")
         return location_to_trace_infos
