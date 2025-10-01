@@ -987,13 +987,7 @@ MLFLOW_TRACING_SQL_WAREHOUSE_ID = _EnvironmentVariable("MLFLOW_TRACING_SQL_WAREH
 #: --backend-store-uri to database URI.
 #: (default: ``True``)
 MLFLOW_SERVER_ENABLE_JOB_EXECUTION = _BooleanEnvironmentVariable(
-    "MLFLOW_SERVER_ENABLE_JOB_EXECUTION", True
-)
-
-#: Specifies the MLflow server job maximum parallelism, ``None`` means to use the number of CPUs
-#: as the parallelism. (default: ``None``)
-MLFLOW_SERVER_JOB_MAX_PARALLELISM = _EnvironmentVariable(
-    "MLFLOW_SERVER_JOB_MAX_PARALLELISM", int, None
+    "MLFLOW_SERVER_ENABLE_JOB_EXECUTION", False
 )
 
 #: Specifies MLflow server job maximum allowed retries for transient errors.
@@ -1017,6 +1011,7 @@ MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY = _EnvironmentVariable(
 MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY = _EnvironmentVariable(
     "MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY", int, 60
 )
+
 
 #: Specifies the maximum number of completion iterations allowed when invoking
 #: judge models. This prevents infinite loops in case of complex traces or
