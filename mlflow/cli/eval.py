@@ -7,6 +7,7 @@ import json
 import click
 import pandas as pd
 
+import mlflow
 from mlflow.cli.eval_utils import (
     extract_assessments_from_results,
     format_table_output,
@@ -34,16 +35,10 @@ def evaluate_traces(
         output: Output format ('table' or 'json')
         debug: Whether to output debug information
     """
-    # Set the experiment context using the ID directly
-    # This works with both local and Databricks tracking URIs
-    import os
+    mlflow.set_experiment(experiment_id=experiment_id)
 
-    os.environ["MLFLOW_EXPERIMENT_ID"] = experiment_id
-
-    # Parse trace IDs
+    # Gather traces
     trace_id_list = [tid.strip() for tid in trace_ids.split(",")]
-
-    # Get the traces directly
     client = MlflowClient()
     traces = []
 
@@ -56,7 +51,6 @@ def evaluate_traces(
         if trace is None:
             raise click.UsageError(f"Trace with ID '{trace_id}' not found")
 
-        # Verify the trace belongs to the specified experiment
         if trace.info.experiment_id != experiment_id:
             raise click.UsageError(
                 f"Trace '{trace_id}' belongs to experiment '{trace.info.experiment_id}', "
@@ -65,13 +59,10 @@ def evaluate_traces(
 
         traces.append(trace)
 
-    # Create a DataFrame with trace column for evaluate()
     traces_df = pd.DataFrame([{"trace_id": t.info.trace_id, "trace": t} for t in traces])
 
-    # Parse scorer names
+    # Resolve scorers
     scorer_names = [name.strip() for name in scorers.split(",")]
-
-    # Resolve scorers - check built-in first, then registered
     resolved_scorers = resolve_scorers(scorer_names, experiment_id)
 
     # Run evaluation
@@ -86,29 +77,22 @@ def evaluate_traces(
                 f"Evaluating {trace_count} traces with scorers: {', '.join(scorer_names)}..."
             )
 
-        # Pass the DataFrame to evaluate()
         results = evaluate(data=traces_df, scorers=resolved_scorers)
         evaluation_run_id = results.run_id
     except Exception as e:
         raise click.UsageError(f"Evaluation failed: {e}")
 
-    # Extract assessments from the results DataFrame
-    # The evaluate() function returns results with a DataFrame in results.tables['eval_results']
-    # that contains an 'assessments' column with all assessment data
+    # Parse results
     results_df = results.tables["eval_results"]
     output_data = extract_assessments_from_results(results_df, evaluation_run_id)
 
     # Format and display results
     if output == "json":
-        # Output single object for single trace, array for multiple
         if len(output_data) == 1:
             click.echo(json.dumps(output_data[0], indent=2))
         else:
             click.echo(json.dumps(output_data, indent=2))
     else:
-        # Table output format
         headers, table_data = format_table_output(output_data)
-
-        # Display the table with a clear separator
-        click.echo("")  # Add blank line after MLflow messages
+        click.echo("")
         click.echo(_create_table(table_data, headers=headers))
