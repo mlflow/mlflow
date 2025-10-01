@@ -149,10 +149,16 @@ class TracingClient:
         Returns:
             The fetched Trace object, of type ``mlflow.entities.Trace``.
         """
-        location, trace_id = parse_trace_id_v4(trace_id)
+        location, _ = parse_trace_id_v4(trace_id)
         if location is not None:
             # V4 trace, load spans from v4 BatchGetTraces endpoint.
-            return self.batch_get_traces([trace_id, location])[0]
+            traces = self.store.batch_get_traces([trace_id], location)
+            if not traces:
+                raise MlflowException(
+                    message=f"Trace with ID {trace_id} is not found.",
+                    error_code=NOT_FOUND,
+                )
+            return traces[0]
         else:
             # V3 trace, load spans from artifact repository.
             try:
@@ -175,7 +181,6 @@ class TracingClient:
                     error_code=BAD_REQUEST,
                 ) from None  # Ensure the original spammy exception is not included in the traceback
             return Trace(trace_info, trace_data)
-
 
     def get_online_trace_details(
         self,
@@ -291,8 +296,6 @@ class TracingClient:
             else:
                 filter_string = additional_filter
 
-        is_databricks = is_databricks_uri(self.tracking_uri)
-
         traces = []
         next_max_results = max_results
         next_token = page_token
@@ -315,29 +318,27 @@ class TracingClient:
                     locations=locations,
                 )
 
-                if not include_spans:
-                    traces.extend(Trace(t, TraceData(spans=[])) for t in trace_infos)
-                    continue
-
-                location_to_trace_infos = self._group_trace_infos_by_location(trace_infos)
-
-                for location, location_trace_infos in location_to_trace_infos.items():
-                    match location.split("."):
-                        case [catalog, schema]:
-                            # UC schema location. Get full traces from v4 BatchGetTraces endpoint.
-                            # All traces in a single call must be located in the same table.
-                            trace_ids = [t.trace_id for t in location_trace_infos]
-                            traces.extend(self.store.batch_get_traces(trace_ids, location))
-                        case _:
-                            # MLflow experiment location. Load spans from artifact repository.
-                            traces.extend(
-                                trace
-                                for trace in executor.map(
-                                    self._download_spans_from_artifact_repo,
-                                    location_trace_infos,
+                if include_spans:
+                    location_to_trace_infos = self._group_trace_infos_by_location(trace_infos)
+                    for location, location_trace_infos in location_to_trace_infos.items():
+                        match location.split("."):
+                            case [_, _]:
+                                # UC schema location. Get full traces from v4 BatchGetTraces.
+                                # All traces in a single call must be located in the same table.
+                                trace_ids = [t.trace_id for t in location_trace_infos]
+                                traces.extend(self.store.batch_get_traces(trace_ids, location))
+                            case _:
+                                # MLflow experiment location. Load spans from artifact repository.
+                                traces.extend(
+                                    trace
+                                    for trace in executor.map(
+                                        self._download_spans_from_artifact_repo,
+                                        location_trace_infos,
+                                    )
+                                    if trace
                                 )
-                                if trace
-                            )
+                else:
+                    traces.extend(Trace(t, TraceData(spans=[])) for t in trace_infos)
 
                 if not next_token:
                     break
@@ -346,8 +347,7 @@ class TracingClient:
 
         return PagedList(traces, next_token)
 
-
-    def _download_spans_from_artifact_repo(trace_info: TraceInfo) -> Trace | None:
+    def _download_spans_from_artifact_repo(self, trace_info: TraceInfo) -> Trace | None:
         """
         Download trace data for the given trace_info and returns a Trace object.
         If the download fails (e.g., the trace data is missing or corrupted), returns None.
@@ -363,9 +363,7 @@ class TracingClient:
                 # For online traces, get data from the online API
                 trace_data = self.get_online_trace_details(
                     trace_id=trace_info.trace_id,
-                    source_inference_table=trace_info.request_metadata.get(
-                        "mlflow.sourceTable"
-                    ),
+                    source_inference_table=trace_info.request_metadata.get("mlflow.sourceTable"),
                     source_databricks_request_id=trace_info.request_metadata.get(
                         "mlflow.databricksRequestId"
                     ),
@@ -386,7 +384,6 @@ class TracingClient:
         else:
             return Trace(trace_info, trace_data)
 
-
     def _group_trace_infos_by_location(
         self, trace_infos: list[TraceInfo]
     ) -> dict[MlflowExperimentLocation | UCSchemaLocation, list[TraceInfo]]:
@@ -406,7 +403,6 @@ class TracingClient:
             else:
                 _logger.warning(f"Unsupported location: {trace_info.trace_location}. Skipping.")
         return location_to_trace_infos
-
 
     def calculate_trace_filter_correlation(
         self,
