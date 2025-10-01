@@ -439,7 +439,6 @@ def test_job_use_process(monkeypatch, tmp_path):
         job_tmp_path = tmp_path / "job"
         job_tmp_path.mkdir()
 
-        # warm up
         job_id1 = submit_job(job_use_process, {"tmp_dir": str(job_tmp_path)}).job_id
         job_id2 = submit_job(job_use_process, {"tmp_dir": str(job_tmp_path)}).job_id
         wait_job_finalize(job_id1)
