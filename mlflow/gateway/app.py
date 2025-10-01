@@ -61,7 +61,7 @@ class GatewayAPI(FastAPI):
         }
         self.traffic_routes: dict[str, RouteConfig] = {
             route.name: route
-            for route in config.routes
+            for route in (config.routes or [])
         }
 
         # config API routes
