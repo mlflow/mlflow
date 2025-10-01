@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import random
 from typing import AsyncIterable
 
 from mlflow.gateway.base_models import ConfigModel
@@ -75,6 +76,63 @@ class BaseProvider(ABC):
                 detail="The parameter 'model' is not permitted to be passed. The route being "
                 "queried already defines a model instance.",
             )
+
+
+class TrafficRouteProvider(BaseProvider):
+    """
+    A provider that split traffic and forward to multiple providers
+    """
+
+    NAME: str = "TrafficRoute"
+
+    def __init__(self, configs: list[EndpointConfig], traffic_splits: list[int]):
+        from mlflow.gateway.providers import get_provider
+
+        self._providers = [
+            get_provider(config.model.provider)(config)
+            for config in configs
+        ]
+        self._traffic_splits_prefix_sum = [0] * len(traffic_splits)
+        for i in range(len(traffic_splits)):
+            if i == 0:
+                self._traffic_splits_prefix_sum[0] = traffic_splits[0]
+            else:
+                self._traffic_splits_prefix_sum[i] = (
+                    self._traffic_splits_prefix_sum[i - 1] + traffic_splits[i]
+                )
+
+    def _get_provider(self):
+        rand_value = random.randint(0, 100)
+        for index in range(len(self._traffic_splits_prefix_sum)):
+            if rand_value <= self._traffic_splits_prefix_sum[index]:
+                break
+        return self._providers[index]
+
+    async def chat_stream(
+        self, payload: chat.RequestPayload
+    ) -> AsyncIterable[chat.StreamResponsePayload]:
+        prov = self._get_provider()
+        async for i in prov.chat_stream(payload):
+            yield i
+
+    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+        prov = self._get_provider()
+        return await prov.chat(payload)
+
+    async def completions_stream(
+        self, payload: completions.RequestPayload
+    ) -> AsyncIterable[completions.StreamResponsePayload]:
+        prov = self._get_provider()
+        async for i in prov.completions_stream(payload):
+            yield i
+
+    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+        prov = self._get_provider()
+        return await prov.completions(payload)
+
+    async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+        prov = self._get_provider()
+        return await prov.embeddings(payload)
 
 
 class ProviderAdapter(ABC):

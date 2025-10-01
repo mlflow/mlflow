@@ -31,6 +31,7 @@ from mlflow.gateway.config import (
     _LegacyRoute,
     EndpointConfig,
     EndpointType,
+    RouteConfig,
     _load_gateway_config,
 )
 from mlflow.gateway.constants import (
@@ -42,6 +43,7 @@ from mlflow.gateway.constants import (
     MLFLOW_QUERY_SUFFIX,
 )
 from mlflow.gateway.exceptions import AIGatewayException
+from mlflow.gateway.config import Provider
 from mlflow.gateway.providers import get_provider
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.utils import SearchRoutesToken, make_streaming_response
@@ -53,27 +55,54 @@ class GatewayAPI(FastAPI):
         super().__init__(*args, **kwargs)
         self.state.limiter = limiter
         self.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-        self.dynamic_endpoints: dict[str, EndpointConfig] = {}
-        self.set_dynamic_endpoints(config, limiter)
+        self.dynamic_endpoints: dict[str, EndpointConfig] = {
+            endpoint.name: endpoint
+            for endpoint in config.endpoints
+        }
+        self.traffic_routes: dict[str, RouteConfig] = {
+            route.name: route
+            for route in config.routes
+        }
 
-    def set_dynamic_endpoints(self, config: GatewayConfig, limiter: Limiter) -> None:
-        self.dynamic_endpoints.clear()
-        for endpoint in config.endpoints:
+        # config API routes
+        for name in self.dynamic_endpoints.keys() | self.traffic_routes.keys():
             # TODO: Remove deployments server URLs after deprecation window elapses
             self.add_api_route(
                 path=(
-                    MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE + endpoint.name + MLFLOW_DEPLOYMENTS_QUERY_SUFFIX
+                    MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE + name + MLFLOW_DEPLOYMENTS_QUERY_SUFFIX
                 ),
-                endpoint=_endpoint_config_to_endpoint(endpoint, limiter, "deployments"),
+                endpoint=_get_endpoint_handler(self, name, limiter, "deployments"),
                 methods=["POST"],
             )
             self.add_api_route(
-                path=f"{MLFLOW_GATEWAY_ROUTE_BASE}{endpoint.name}{MLFLOW_QUERY_SUFFIX}",
-                endpoint=_endpoint_config_to_endpoint(endpoint, limiter, "gateway"),
+                path=f"{MLFLOW_GATEWAY_ROUTE_BASE}{name}{MLFLOW_QUERY_SUFFIX}",
+                endpoint=_get_endpoint_handler(self, name, limiter, "gateway"),
                 methods=["POST"],
                 include_in_schema=False,
             )
-            self.dynamic_endpoints[endpoint.name] = endpoint
+
+    def _get_provider_by_name(self, name: str) -> tuple[Provider, EndpointType]:
+        """
+        If the name is an endpoint name, return the endpoint's provider
+        If the name is a traffic route name, return a `TrafficRouteProvider`
+        """
+        from mlflow.gateway.providers.base import TrafficRouteProvider
+
+        if name in self.dynamic_endpoints:
+            config = self.dynamic_endpoints[name]
+            return get_provider(config.model.provider)(config), config.endpoint_type
+        if name in self.traffic_routes:
+            route_config = self.traffic_routes[name]
+            endpoint_configs = [
+                self.dynamic_endpoints[destination.name]
+                for destination in route_config.destinations
+            ]
+            traffic_splits = [
+                destination.traffic_percentage
+                for destination in route_config.destinations
+            ]
+            return TrafficRouteProvider(endpoint_configs, traffic_splits), route_config.task_type
+        raise MlflowException.invalid_parameter_value(f"Invalid endpoint / route name: '{name}'")
 
     def get_dynamic_endpoint(self, endpoint_name: str) -> Endpoint | None:
         return r.to_endpoint() if (r := self.dynamic_endpoints.get(endpoint_name)) else None
@@ -97,9 +126,7 @@ def _translate_http_exception(func):
     return wrapper
 
 
-def _create_chat_endpoint(config: EndpointConfig):
-    prov = get_provider(config.model.provider)(config)
-
+def _create_chat_endpoint(prov: Provider):
     # https://slowapi.readthedocs.io/en/latest/#limitations-and-known-issues
     @_translate_http_exception
     async def _chat(
@@ -113,9 +140,7 @@ def _create_chat_endpoint(config: EndpointConfig):
     return _chat
 
 
-def _create_completions_endpoint(config: EndpointConfig):
-    prov = get_provider(config.model.provider)(config)
-
+def _create_completions_endpoint(prov: Provider):
     @_translate_http_exception
     async def _completions(
         request: Request, payload: completions.RequestPayload
@@ -128,9 +153,7 @@ def _create_completions_endpoint(config: EndpointConfig):
     return _completions
 
 
-def _create_embeddings_endpoint(config: EndpointConfig):
-    prov = get_provider(config.model.provider)(config)
-
+def _create_embeddings_endpoint(prov: Provider):
     @_translate_http_exception
     async def _embeddings(
         request: Request, payload: embeddings.RequestPayload
@@ -144,24 +167,32 @@ async def _custom(request: Request):
     return request.json()
 
 
-def _endpoint_config_to_endpoint(config: EndpointConfig, limiter: Limiter, key: str):
-    provider_to_factory = {
+def _get_endpoint_handler(gateway_api: GatewayAPI, name: str, limiter: Limiter, key: str):
+    endpoint_type_to_factory = {
         EndpointType.LLM_V1_CHAT: _create_chat_endpoint,
         EndpointType.LLM_V1_COMPLETIONS: _create_completions_endpoint,
         EndpointType.LLM_V1_EMBEDDINGS: _create_embeddings_endpoint,
     }
-    if factory := provider_to_factory.get(config.endpoint_type):
-        handler = factory(config)
-        if limit := config.limit:
+    provider, endpoint_type = gateway_api._get_provider_by_name(name)
+
+    if factory := endpoint_type_to_factory.get(endpoint_type):
+        handler = factory(provider)
+
+        if name in gateway_api.dynamic_endpoints:
+            limit = gateway_api.dynamic_endpoints[name].limit
+        else:
+            limit = None
+
+        if limit:
             limit_value = f"{limit.calls}/{limit.renewal_period}"
-            handler.__name__ = f"{handler.__name__}_{config.name}_{key}"
+            handler.__name__ = f"{handler.__name__}_{name}_{key}"
             return limiter.limit(limit_value)(handler)
         else:
             return handler
 
     raise HTTPException(
         status_code=404,
-        detail=f"Unexpected route type {config.endpoint_type!r} for route {config.name!r}.",
+        detail=f"Unexpected route type {endpoint_type!r} for route {name!r}.",
     )
 
 
@@ -370,14 +401,15 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     async def openai_chat_handler(
         request: Request, payload: chat.RequestPayload
     ) -> chat.ResponsePayload:
-        endpoint_config = _look_up_endpoint_config(payload.model)
-        if endpoint_config.endpoint_type != EndpointType.LLM_V1_CHAT:
+        name = payload.model
+        prov, endpoint_type = app._get_provider_by_name(name)
+
+        if endpoint_type != EndpointType.LLM_V1_CHAT:
             raise HTTPException(
                 status_code=400,
-                detail=f"Endpoint {endpoint_config.name!r} is not a chat endpoint.",
+                detail=f"Endpoint {name!r} is not a chat endpoint.",
             )
 
-        prov = get_provider(endpoint_config.model.provider)(endpoint_config)
         payload.model = None  # provider rejects a request with model field, must be set to None
         if payload.stream:
             return await make_streaming_response(prov.chat_stream(payload))
@@ -388,14 +420,15 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     async def openai_completions_handler(
         request: Request, payload: completions.RequestPayload
     ) -> completions.ResponsePayload:
-        endpoint_config = _look_up_endpoint_config(payload.model)
-        if endpoint_config.endpoint_type != EndpointType.LLM_V1_COMPLETIONS:
+        name = payload.model
+        prov, endpoint_type = app._get_provider_by_name(name)
+
+        if endpoint_type != EndpointType.LLM_V1_COMPLETIONS:
             raise HTTPException(
                 status_code=400,
-                detail=f"Endpoint {endpoint_config.name!r} is not a completions endpoint.",
+                detail=f"Endpoint {name!r} is not a completions endpoint.",
             )
 
-        prov = get_provider(endpoint_config.model.provider)(endpoint_config)
         payload.model = None  # provider rejects a request with model field, must be set to None
         if payload.stream:
             return await make_streaming_response(prov.completions_stream(payload))
@@ -406,14 +439,15 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     async def openai_embeddings_handler(
         request: Request, payload: embeddings.RequestPayload
     ) -> embeddings.ResponsePayload:
-        endpoint_config = _look_up_endpoint_config(payload.model)
-        if endpoint_config.endpoint_type != EndpointType.LLM_V1_EMBEDDINGS:
+        name = payload.model
+        prov, endpoint_type = app._get_provider_by_name(name)
+
+        if endpoint_type != EndpointType.LLM_V1_EMBEDDINGS:
             raise HTTPException(
                 status_code=400,
-                detail=f"Endpoint {endpoint_config.name!r} is not an embeddings endpoint.",
+                detail=f"Endpoint {name!r} is not an embeddings endpoint.",
             )
 
-        prov = get_provider(endpoint_config.model.provider)(endpoint_config)
         payload.model = None  # provider rejects a request with model field, must be set to None
         return await prov.embeddings(payload)
 
