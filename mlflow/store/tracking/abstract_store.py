@@ -326,6 +326,12 @@ class AbstractStore:
     def get_traces(self, trace_ids: list[str]) -> list[Trace]:
         """
         Get complete traces with spans for given trace ids.
+
+        Args:
+            trace_ids: List of trace IDs to fetch.
+
+        Returns:
+            List of Trace objects.
         """
         # raise MlflowException so this can be captured by the handlers
         # instead of default internal server error and retry
@@ -335,7 +341,6 @@ class AbstractStore:
     def get_online_trace_details(
         self,
         trace_id: str,
-        sql_warehouse_id: str,
         source_inference_table: str,
         source_databricks_request_id: str,
     ) -> str:
@@ -351,7 +356,6 @@ class AbstractStore:
         order_by: list[str] | None = None,
         page_token: str | None = None,
         model_id: str | None = None,
-        sql_warehouse_id: str | None = None,
         locations: list[str] | None = None,
     ) -> tuple[list[TraceInfo], str | None]:
         """
@@ -365,8 +369,6 @@ class AbstractStore:
             page_token: Token specifying the next page of results. It should be obtained from
                 a ``search_traces`` call.
             model_id: If specified, return traces associated with the model ID.
-            sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
-                searching traces in inference tables.
             locations: A list of locations to search over.
 
         Returns:

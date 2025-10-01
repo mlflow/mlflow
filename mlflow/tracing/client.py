@@ -12,7 +12,10 @@ from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import UCSchemaLocation
-from mlflow.environment_variables import MLFLOW_SEARCH_TRACES_MAX_THREADS
+from mlflow.environment_variables import (
+    MLFLOW_SEARCH_TRACES_MAX_THREADS,
+    MLFLOW_TRACING_SQL_WAREHOUSE_ID,
+)
 from mlflow.exceptions import (
     MlflowException,
     MlflowTraceDataCorrupted,
@@ -186,13 +189,11 @@ class TracingClient:
     def get_online_trace_details(
         self,
         trace_id: str,
-        sql_warehouse_id: str,
         source_inference_table: str,
         source_databricks_request_id: str,
     ) -> str:
         return self.store.get_online_trace_details(
             trace_id=trace_id,
-            sql_warehouse_id=sql_warehouse_id,
             source_inference_table=source_inference_table,
             source_databricks_request_id=source_databricks_request_id,
         )
@@ -205,7 +206,6 @@ class TracingClient:
         order_by: list[str] | None = None,
         page_token: str | None = None,
         model_id: str | None = None,
-        sql_warehouse_id: str | None = None,
         locations: list[str] | None = None,
     ):
         return self.store.search_traces(
@@ -215,7 +215,6 @@ class TracingClient:
             order_by=order_by,
             page_token=page_token,
             model_id=model_id,
-            sql_warehouse_id=sql_warehouse_id,
             locations=locations,
         )
 
@@ -229,7 +228,6 @@ class TracingClient:
         run_id: str | None = None,
         include_spans: bool = True,
         model_id: str | None = None,
-        sql_warehouse_id: str | None = None,
         locations: list[str] | None = None,
     ) -> PagedList[Trace]:
         """
@@ -250,8 +248,6 @@ class TracingClient:
                 the trace metadata is returned, e.g., trace ID, start time, end time, etc,
                 without any spans.
             model_id: If specified, return traces associated with the model ID.
-            sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
-                searching traces in inference tables.
             locations: A list of locations to search over. To search over experiments, provide
                 a list of experiment IDs. To search over UC tables on databricks, provide
                 a list of locations in the format `<catalog_name>.<schema_name>`.
@@ -276,7 +272,7 @@ class TracingClient:
 
             filter_string = (
                 f"request_metadata.`mlflow.modelId` = '{model_id}'"
-                if sql_warehouse_id is None
+                if MLFLOW_TRACING_SQL_WAREHOUSE_ID.get() is None
                 else None
             )
 
@@ -321,7 +317,6 @@ class TracingClient:
                     # For online traces, get data from the online API
                     trace_data = self.get_online_trace_details(
                         trace_id=trace_info.trace_id,
-                        sql_warehouse_id=sql_warehouse_id,
                         source_inference_table=trace_info.request_metadata.get(
                             "mlflow.sourceTable"
                         ),
@@ -364,7 +359,6 @@ class TracingClient:
                     order_by=order_by,
                     page_token=next_token,
                     model_id=model_id,
-                    sql_warehouse_id=sql_warehouse_id,
                     locations=locations,
                 )
 
@@ -372,7 +366,7 @@ class TracingClient:
                     trace_info_groups = self._group_trace_infos_by_storage(trace_infos)
                     traces.extend(
                         self._get_traces_from_tracking_store(
-                            [t.trace_id for t in trace_info_groups.tracking_store_trace_infos]
+                            [t.trace_id for t in trace_info_groups.tracking_store_trace_infos],
                         )
                     )
 

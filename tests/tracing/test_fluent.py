@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 import threading
 import time
 import uuid
@@ -929,7 +930,6 @@ def test_search_traces(return_type, mock_client):
         order_by=["timestamp DESC"],
         page_token=None,
         model_id=None,
-        sql_warehouse_id=None,
         include_spans=True,
         locations=["1"],
     )
@@ -969,7 +969,6 @@ def test_search_traces_with_pagination(mock_client):
         "order_by": None,
         "include_spans": True,
         "model_id": None,
-        "sql_warehouse_id": None,
         "locations": ["1"],
     }
     mock_client.search_traces.assert_has_calls(
@@ -994,7 +993,6 @@ def test_search_traces_with_default_experiment_id(mock_client):
         order_by=None,
         page_token=None,
         model_id=None,
-        sql_warehouse_id=None,
         include_spans=True,
         locations=["123"],
     )
@@ -2228,8 +2226,9 @@ def test_search_traces_with_sql_warehouse_id(mock_client):
     # Verify that search_traces was called with sql_warehouse_id
     mock_client.search_traces.assert_called_once()
     call_kwargs = mock_client.search_traces.call_args.kwargs
-    assert call_kwargs["sql_warehouse_id"] == "warehouse456"
     assert call_kwargs["locations"] == ["123"]
+    assert "sql_warehouse_id" not in call_kwargs
+    assert os.environ["MLFLOW_TRACING_SQL_WAREHOUSE_ID"] == "warehouse456"
 
 
 @skip_when_testing_trace_sdk

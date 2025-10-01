@@ -2152,7 +2152,6 @@ class FileStore(AbstractStore):
         order_by: list[str] | None = None,
         page_token: str | None = None,
         model_id: str | None = None,
-        sql_warehouse_id: str | None = None,
         locations: list[str] | None = None,
     ) -> tuple[list[TraceInfo], str | None]:
         """
@@ -2168,8 +2167,6 @@ class FileStore(AbstractStore):
             page_token: Token specifying the next page of results. It should be obtained from
                 a ``search_traces`` call.
             model_id: If specified, return traces associated with the model ID.
-            sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
-                searching traces in inference tables.
             locations: A list of locations to search over. To search over experiments, provide
                 a list of experiment IDs.
 

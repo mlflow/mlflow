@@ -427,7 +427,8 @@ def test_delete_trace_tag_fallback():
         assert result is None
 
 
-def test_get_traces(monkeypatch):
+@pytest.mark.parametrize("sql_warehouse_id", [None, "warehouse_override"])
+def test_get_traces(monkeypatch, sql_warehouse_id):
     monkeypatch.setenv(MLFLOW_TRACING_SQL_WAREHOUSE_ID.name, "test-warehouse")
     with mlflow.start_span(name="test_span_1") as span1:
         span1.set_inputs({"input": "test_value_1"})
@@ -787,7 +788,6 @@ def test_search_unified_traces():
     max_results = 10
     order_by = ["timestamp_ms DESC"]
     page_token = "12345abcde"
-    sql_warehouse_id = "warehouse123"
     model_id = "model123"
 
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
@@ -797,7 +797,6 @@ def test_search_unified_traces():
             max_results=max_results,
             order_by=order_by,
             page_token=page_token,
-            sql_warehouse_id=sql_warehouse_id,
             model_id=model_id,
         )
 
