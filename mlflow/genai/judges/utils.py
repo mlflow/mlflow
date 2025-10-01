@@ -751,7 +751,7 @@ def _invoke_judge_model(
     num_prompt_tokens = None
     num_completion_tokens = None
 
-    if provider == "databricks":
+    if provider in {"databricks", "endpoints"}:
         output = _invoke_databricks_model(
             model_name=model_name,
             prompt=prompt,
