@@ -6,6 +6,8 @@ import importlib
 import inspect
 import json
 import logging
+import os
+import warnings
 from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, Callable, Generator, Literal
 
@@ -722,8 +724,9 @@ def search_traces(
             - `"list"`: Returns a list of :py:class:`Trace <mlflow.entities.Trace>` objects.
 
         model_id: If specified, search traces associated with the given model ID.
-        sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
-            searching traces in inference tables or UC tables.
+        sql_warehouse_id: DEPRECATED. Use the `MLFLOW_TRACING_SQL_WAREHOUSE_ID` environment
+            variable instead. The ID of the SQL warehouse to use for
+            searching traces in inference tables or UC tables. Only used in Databricks.
 
         include_spans: If ``True``, include spans in the returned traces. Otherwise, only
             the trace metadata is returned, e.g., trace ID, start time, end time, etc,
@@ -789,6 +792,14 @@ def search_traces(
     """
     from mlflow.tracking.fluent import _get_experiment_id
 
+    if sql_warehouse_id is not None:
+        warnings.warn(
+            "The `sql_warehouse_id` parameter is deprecated. Please use the "
+            "`MLFLOW_TRACING_SQL_WAREHOUSE_ID` environment variable instead.",
+            category=FutureWarning,
+        )
+        os.environ["MLFLOW_TRACING_SQL_WAREHOUSE_ID"] = sql_warehouse_id
+
     # Default to "pandas" only if the pandas library is installed
     if return_type is None:
         try:
@@ -835,7 +846,6 @@ def search_traces(
             order_by=order_by,
             page_token=next_page_token,
             model_id=model_id,
-            sql_warehouse_id=sql_warehouse_id,
             include_spans=include_spans,
             locations=locations,
         )

@@ -28,7 +28,7 @@ from mlflow.protos.databricks_tracing_pb2 import (
     UnLinkExperimentToUCTraceLocation,
     UpdateAssessment,
 )
-from mlflow.protos.service_pb2 import MlflowService, SearchUnifiedTraces
+from mlflow.protos.service_pb2 import GetOnlineTraceDetails, MlflowService, SearchUnifiedTraces
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
@@ -126,13 +126,12 @@ class DatabricksTracingRestStore(RestStore):
             else:
                 raise
 
-    def get_traces(self, trace_ids: list[str], sql_warehouse_id: str | None = None) -> list[Trace]:
+    def get_traces(self, trace_ids: list[str]) -> list[Trace]:
         """
         Get complete traces with spans for given trace ids.
 
         Args:
             trace_ids: List of trace IDs to fetch.
-            sql_warehouse_id: SQL warehouse ID to use for fetching trace data.
 
         Returns:
             List of Trace objects.
@@ -237,7 +236,6 @@ class DatabricksTracingRestStore(RestStore):
         order_by: list[str] | None = None,
         page_token: str | None = None,
         model_id: str | None = None,
-        sql_warehouse_id: str | None = None,
         locations: list[str] | None = None,
     ) -> tuple[list[TraceInfo], str | None]:
         # This API is not client-facing, so we should always use `locations`.
@@ -278,7 +276,7 @@ class DatabricksTracingRestStore(RestStore):
                 max_results=max_results,
                 order_by=order_by,
                 page_token=page_token,
-                sql_warehouse_id=sql_warehouse_id or MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+                sql_warehouse_id=MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
             )
             req_body = message_to_json(request)
             try:
@@ -316,7 +314,7 @@ class DatabricksTracingRestStore(RestStore):
             return self._search_unified_traces(
                 model_id=model_id,
                 locations=locations,
-                sql_warehouse_id=sql_warehouse_id or MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+                sql_warehouse_id=MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
                 filter_string=filter_string,
                 max_results=max_results,
                 order_by=order_by,
@@ -327,7 +325,6 @@ class DatabricksTracingRestStore(RestStore):
         self,
         model_id: str,
         locations: list[str],
-        sql_warehouse_id: str | None = None,
         filter_string: str | None = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: list[str] | None = None,
@@ -335,7 +332,7 @@ class DatabricksTracingRestStore(RestStore):
     ) -> tuple[list[TraceInfo], str | None]:
         request = SearchUnifiedTraces(
             model_id=model_id,
-            sql_warehouse_id=sql_warehouse_id,
+            sql_warehouse_id=MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
             experiment_ids=locations,
             filter=filter_string,
             max_results=max_results,
@@ -347,6 +344,22 @@ class DatabricksTracingRestStore(RestStore):
         # Convert TraceInfo (v2) objects to TraceInfoV3 objects for consistency
         trace_infos = [TraceInfo.from_proto(t) for t in response_proto.traces]
         return trace_infos, response_proto.next_page_token or None
+
+    def get_online_trace_details(
+        self,
+        trace_id: str,
+        source_inference_table: str,
+        source_databricks_request_id: str,
+    ):
+        req = GetOnlineTraceDetails(
+            trace_id=trace_id,
+            sql_warehouse_id=MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+            source_inference_table=source_inference_table,
+            source_databricks_request_id=source_databricks_request_id,
+        )
+        req_body = message_to_json(req)
+        response_proto = self._call_endpoint(GetOnlineTraceDetails, req_body)
+        return response_proto.trace_data
 
     def set_experiment_trace_location(
         self,

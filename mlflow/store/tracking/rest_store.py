@@ -73,7 +73,6 @@ from mlflow.protos.service_pb2 import (
     GetExperimentByName,
     GetLoggedModel,
     GetMetricHistory,
-    GetOnlineTraceDetails,
     GetRun,
     GetScorer,
     GetTraceInfo,
@@ -441,23 +440,6 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(GetTraceInfo, req_body, endpoint=endpoint)
         return TraceInfoV2.from_proto(response_proto.trace_info).to_v3()
 
-    def get_online_trace_details(
-        self,
-        trace_id: str,
-        sql_warehouse_id: str,
-        source_inference_table: str,
-        source_databricks_request_id: str,
-    ):
-        req = GetOnlineTraceDetails(
-            trace_id=trace_id,
-            sql_warehouse_id=sql_warehouse_id,
-            source_inference_table=source_inference_table,
-            source_databricks_request_id=source_databricks_request_id,
-        )
-        req_body = message_to_json(req)
-        response_proto = self._call_endpoint(GetOnlineTraceDetails, req_body)
-        return response_proto.trace_data
-
     def search_traces(
         self,
         experiment_ids: list[str] | None = None,
@@ -466,7 +448,6 @@ class RestStore(AbstractStore):
         order_by: list[str] | None = None,
         page_token: str | None = None,
         model_id: str | None = None,
-        sql_warehouse_id: str | None = None,
         locations: list[str] | None = None,
     ):
         locations = _resolve_experiment_ids_and_locations(experiment_ids, locations)
