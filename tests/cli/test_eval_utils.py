@@ -42,6 +42,7 @@ def test_format_single_trace_with_result_and_rationale():
 
     headers, table_data = format_table_output(output_data, scorer_names, mock_format_error_message)
 
+    # Headers should use assessment names from output_data, not scorer_names
     assert headers == ["trace_id", "RelevanceToQuery"]
     assert len(table_data) == 1
     assert table_data[0][0] == "tr-123"
@@ -193,6 +194,41 @@ def test_format_rationale_only_without_result():
     headers, table_data = format_table_output(output_data, scorer_names, mock_format_error_message)
 
     assert table_data[0][1] == "rationale: Some reasoning"
+
+
+def test_format_with_different_assessment_names():
+    """Test that assessment names from output_data are used, not scorer names."""
+    # This test demonstrates the fix for the ALKIS comment:
+    # Assessment names (e.g., "relevance_to_query") should be used in headers,
+    # not scorer class names (e.g., "RelevanceToQuery")
+    output_data = [
+        {
+            "trace_id": "tr-123",
+            "assessments": [
+                {
+                    "assessment_name": "relevance_to_query",  # Different from scorer name
+                    "result": "yes",
+                    "rationale": "The answer is relevant",
+                },
+                {
+                    "assessment_name": "safety_check",  # Different from scorer name
+                    "result": "safe",
+                    "rationale": "Content is safe",
+                },
+            ],
+        }
+    ]
+    # Scorer names are different from assessment names
+    scorer_names = ["RelevanceToQuery", "Safety"]
+
+    headers, table_data = format_table_output(output_data, scorer_names, mock_format_error_message)
+
+    # Headers should use actual assessment names, not scorer_names
+    assert headers == ["trace_id", "relevance_to_query", "safety_check"]
+    assert len(table_data) == 1
+    assert table_data[0][0] == "tr-123"
+    assert "value: yes" in table_data[0][1]
+    assert "value: safe" in table_data[0][2]
 
 
 # Tests for resolve_scorers function

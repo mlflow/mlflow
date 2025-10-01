@@ -134,32 +134,55 @@ def format_table_output(
 
     Args:
         output_data: List of trace results with assessments
-        scorer_names: List of scorer names for column headers
+        scorer_names: List of scorer names (deprecated - assessment names are extracted
+            from output_data)
         format_error_message_fn: Function to format error messages
 
     Returns:
         Tuple of (headers, table_data) where headers is a list of column names
         and table_data is a list of rows (each row is a list of cell values)
     """
-    headers = ["trace_id"] + scorer_names
+    # Extract unique assessment names from output_data to use as column headers
+    # This ensures we use the actual assessment names, not the scorer class names
+    assessment_names = []
+    for trace_result in output_data:
+        for assessment in trace_result["assessments"]:
+            name = assessment.get("assessment_name")
+            if name and name not in assessment_names and name != "N/A":
+                assessment_names.append(name)
+
+    headers = ["trace_id"] + assessment_names
     table_data = []
 
     for trace_result in output_data:
         row = [trace_result["trace_id"]]
 
-        for assessment in trace_result["assessments"]:
-            result_val = assessment.get("result")
-            rationale_val = assessment.get("rationale")
-            error_val = assessment.get("error")
+        # Build a map of assessment_name -> assessment for this trace
+        assessment_map = {
+            assessment.get("assessment_name"): assessment
+            for assessment in trace_result["assessments"]
+            if assessment.get("assessment_name") != "N/A"
+        }
 
-            if error_val:
-                cell_content = f"error: {error_val}"
-            elif result_val is not None and rationale_val:
-                cell_content = f"value: {result_val}, rationale: {rationale_val}"
-            elif result_val is not None:
-                cell_content = f"value: {result_val}"
-            elif rationale_val:
-                cell_content = f"rationale: {rationale_val}"
+        # For each assessment name in headers, get the corresponding assessment
+        for assessment_name in assessment_names:
+            assessment = assessment_map.get(assessment_name)
+
+            if assessment:
+                result_val = assessment.get("result")
+                rationale_val = assessment.get("rationale")
+                error_val = assessment.get("error")
+
+                if error_val:
+                    cell_content = f"error: {error_val}"
+                elif result_val is not None and rationale_val:
+                    cell_content = f"value: {result_val}, rationale: {rationale_val}"
+                elif result_val is not None:
+                    cell_content = f"value: {result_val}"
+                elif rationale_val:
+                    cell_content = f"rationale: {rationale_val}"
+                else:
+                    cell_content = "N/A"
             else:
                 cell_content = "N/A"
 
