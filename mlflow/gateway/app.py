@@ -388,14 +388,14 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     async def openai_completions_handler(
         request: Request, payload: completions.RequestPayload
     ) -> completions.ResponsePayload:
-        route = _look_up_endpoint_config(payload.model)
-        if route.endpoint_type != EndpointType.LLM_V1_COMPLETIONS:
+        endpoint_config = _look_up_endpoint_config(payload.model)
+        if endpoint_config.endpoint_type != EndpointType.LLM_V1_COMPLETIONS:
             raise HTTPException(
                 status_code=400,
-                detail=f"Endpoint {route.name!r} is not a completions endpoint.",
+                detail=f"Endpoint {endpoint_config.name!r} is not a completions endpoint.",
             )
 
-        prov = get_provider(route.model.provider)(route)
+        prov = get_provider(endpoint_config.model.provider)(endpoint_config)
         payload.model = None  # provider rejects a request with model field, must be set to None
         if payload.stream:
             return await make_streaming_response(prov.completions_stream(payload))
@@ -406,14 +406,14 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     async def openai_embeddings_handler(
         request: Request, payload: embeddings.RequestPayload
     ) -> embeddings.ResponsePayload:
-        route = _look_up_endpoint_config(payload.model)
-        if route.endpoint_type != EndpointType.LLM_V1_EMBEDDINGS:
+        endpoint_config = _look_up_endpoint_config(payload.model)
+        if endpoint_config.endpoint_type != EndpointType.LLM_V1_EMBEDDINGS:
             raise HTTPException(
                 status_code=400,
-                detail=f"Endpoint {route.name!r} is not an embeddings endpoint.",
+                detail=f"Endpoint {endpoint_config.name!r} is not an embeddings endpoint.",
             )
 
-        prov = get_provider(route.model.provider)(route)
+        prov = get_provider(endpoint_config.model.provider)(endpoint_config)
         payload.model = None  # provider rejects a request with model field, must be set to None
         return await prov.embeddings(payload)
 
