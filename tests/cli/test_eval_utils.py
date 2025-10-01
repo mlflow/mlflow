@@ -6,7 +6,12 @@ import click
 import pandas as pd
 import pytest
 
-from mlflow.cli.eval_utils import build_output_data, format_table_output, resolve_scorers
+from mlflow.cli.eval_utils import (
+    build_output_data,
+    extract_assessments_from_traces,
+    format_table_output,
+    resolve_scorers,
+)
 from mlflow.exceptions import MlflowException
 
 
@@ -399,3 +404,166 @@ class TestResolveScorers:
 
         with pytest.raises(click.UsageError, match="No valid scorers"):
             resolve_scorers([], "experiment_123")
+
+
+class TestExtractAssessmentsFromTraces:
+    """Tests for extract_assessments_from_traces function."""
+
+    @mock.patch("mlflow.cli.eval_utils.MlflowClient")
+    def test_extract_with_matching_run_id(self, mock_client_class):
+        """Test extracting assessments that match the evaluation run_id."""
+        # Create mock trace with assessments
+        mock_trace = mock.Mock()
+        mock_assessment1 = mock.Mock()
+        mock_assessment1.name = "RelevanceToQuery"
+        mock_assessment1.run_id = "run-123"
+        mock_assessment1.feedback = mock.Mock(value="yes")
+        mock_assessment1.rationale = "The answer is relevant"
+        mock_assessment1.error = None
+
+        mock_trace.info.assessments = [mock_assessment1]
+
+        # Setup mock client
+        mock_client = mock.Mock()
+        mock_client.get_trace.return_value = mock_trace
+        mock_client_class.return_value = mock_client
+
+        # Call function
+        result = extract_assessments_from_traces(["tr-abc123"], ["RelevanceToQuery"], "run-123")
+
+        # Verify
+        assert len(result) == 1
+        assert result[0]["trace_id"] == "tr-abc123"
+        assert len(result[0]["assessments"]) == 1
+        assert result[0]["assessments"][0]["assessment_name"] == "RelevanceToQuery"
+        assert result[0]["assessments"][0]["result"] == "yes"
+        assert result[0]["assessments"][0]["rationale"] == "The answer is relevant"
+
+    @mock.patch("mlflow.cli.eval_utils.MlflowClient")
+    def test_extract_with_different_assessment_name(self, mock_client_class):
+        """Test that assessment name can differ from scorer name (matched by run_id)."""
+        # Create mock trace with assessment that has different name than scorer
+        mock_trace = mock.Mock()
+        mock_assessment1 = mock.Mock()
+        mock_assessment1.name = "relevance_to_query"  # Different from scorer name
+        mock_assessment1.run_id = "run-123"
+        mock_assessment1.feedback = mock.Mock(value="yes")
+        mock_assessment1.rationale = "Relevant answer"
+        mock_assessment1.error = None
+
+        mock_trace.info.assessments = [mock_assessment1]
+
+        # Setup mock client
+        mock_client = mock.Mock()
+        mock_client.get_trace.return_value = mock_trace
+        mock_client_class.return_value = mock_client
+
+        # Call function with different scorer name
+        result = extract_assessments_from_traces(["tr-abc123"], ["RelevanceToQuery"], "run-123")
+
+        # Verify - assessment should still be extracted because run_id matches
+        assert len(result) == 1
+        assert result[0]["trace_id"] == "tr-abc123"
+        assert len(result[0]["assessments"]) == 1
+        # Assessment name from trace is used, not scorer name
+        assert result[0]["assessments"][0]["assessment_name"] == "relevance_to_query"
+        assert result[0]["assessments"][0]["result"] == "yes"
+
+    @mock.patch("mlflow.cli.eval_utils.MlflowClient")
+    def test_filter_out_assessments_with_different_run_id(self, mock_client_class):
+        """Test that assessments with different run_id are filtered out."""
+        # Create mock trace with assessments from different runs
+        mock_trace = mock.Mock()
+        mock_assessment1 = mock.Mock()
+        mock_assessment1.name = "RelevanceToQuery"
+        mock_assessment1.run_id = "run-123"
+        mock_assessment1.feedback = mock.Mock(value="yes")
+        mock_assessment1.rationale = "Current evaluation"
+        mock_assessment1.error = None
+
+        mock_assessment2 = mock.Mock()
+        mock_assessment2.name = "Safety"
+        mock_assessment2.run_id = "run-456"  # Different run
+        mock_assessment2.feedback = mock.Mock(value="yes")
+        mock_assessment2.rationale = "Old evaluation"
+        mock_assessment2.error = None
+
+        mock_trace.info.assessments = [mock_assessment1, mock_assessment2]
+
+        # Setup mock client
+        mock_client = mock.Mock()
+        mock_client.get_trace.return_value = mock_trace
+        mock_client_class.return_value = mock_client
+
+        # Call function
+        result = extract_assessments_from_traces(
+            ["tr-abc123"], ["RelevanceToQuery", "Safety"], "run-123"
+        )
+
+        # Verify - only assessment from run-123 should be included
+        assert len(result) == 1
+        assert len(result[0]["assessments"]) == 1
+        assert result[0]["assessments"][0]["assessment_name"] == "RelevanceToQuery"
+        assert result[0]["assessments"][0]["result"] == "yes"
+
+    @mock.patch("mlflow.cli.eval_utils.MlflowClient")
+    def test_no_assessments_for_run_id(self, mock_client_class):
+        """Test handling when no assessments match the run_id."""
+        # Create mock trace with assessments from different run
+        mock_trace = mock.Mock()
+        mock_assessment1 = mock.Mock()
+        mock_assessment1.run_id = "run-456"  # Different run
+
+        mock_trace.info.assessments = [mock_assessment1]
+
+        # Setup mock client
+        mock_client = mock.Mock()
+        mock_client.get_trace.return_value = mock_trace
+        mock_client_class.return_value = mock_client
+
+        # Call function
+        result = extract_assessments_from_traces(["tr-abc123"], ["RelevanceToQuery"], "run-123")
+
+        # Verify - should return empty results with scorer names
+        assert len(result) == 1
+        assert len(result[0]["assessments"]) == 1
+        assert result[0]["assessments"][0]["assessment_name"] == "RelevanceToQuery"
+        assert result[0]["assessments"][0]["result"] is None
+        assert result[0]["assessments"][0]["rationale"] is None
+
+    @mock.patch("mlflow.cli.eval_utils.MlflowClient")
+    def test_multiple_assessments_from_same_run(self, mock_client_class):
+        """Test extracting multiple assessments from the same evaluation run."""
+        # Create mock trace with multiple assessments from same run
+        mock_trace = mock.Mock()
+        mock_assessment1 = mock.Mock()
+        mock_assessment1.name = "RelevanceToQuery"
+        mock_assessment1.run_id = "run-123"
+        mock_assessment1.feedback = mock.Mock(value="yes")
+        mock_assessment1.rationale = "Relevant"
+        mock_assessment1.error = None
+
+        mock_assessment2 = mock.Mock()
+        mock_assessment2.name = "Safety"
+        mock_assessment2.run_id = "run-123"
+        mock_assessment2.feedback = mock.Mock(value="yes")
+        mock_assessment2.rationale = "Safe"
+        mock_assessment2.error = None
+
+        mock_trace.info.assessments = [mock_assessment1, mock_assessment2]
+
+        # Setup mock client
+        mock_client = mock.Mock()
+        mock_client.get_trace.return_value = mock_trace
+        mock_client_class.return_value = mock_client
+
+        # Call function
+        result = extract_assessments_from_traces(
+            ["tr-abc123"], ["RelevanceToQuery", "Safety"], "run-123"
+        )
+
+        # Verify - both assessments should be included
+        assert len(result) == 1
+        assert len(result[0]["assessments"]) == 2
+        assert result[0]["assessments"][0]["assessment_name"] == "RelevanceToQuery"
+        assert result[0]["assessments"][1]["assessment_name"] == "Safety"
