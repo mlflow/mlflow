@@ -95,10 +95,11 @@ def _job_subproc_entry(
         result_queue.put(JobResult.from_error(e))
 
 
-def execute_function_with_timeout(
+def _execute_function_with_timeout(
     func: Callable[..., Any],
     kwargs: dict[str, Any],
-    timeout: float | None = None,
+    timeout: float,
+    use_process: bool,
 ) -> JobResult:
     """
     Run `func(**kwargs)` in a spawned subprocess.
@@ -107,7 +108,12 @@ def execute_function_with_timeout(
     Raises:
       - TimeoutError if not finished within `timeout`
     """
-    if timeout:
+    if timeout and not use_process:
+        raise MlflowException.invalid_parameter_value(
+            "If setting timeout for a job, 'use_process' param must be 'True'"
+        )
+
+    if use_process:
         # NOTE: Use 'spawn' instead of 'fork' because
         #  we should avoid forking sqlalchemy engine,
         #  otherwise connection pool, sockets, locks used by the sqlalchemy engine are forked
@@ -174,7 +180,11 @@ def _start_huey_consumer_proc(
 
 
 def _exec_job(
-    job_id: str, function: Callable[..., Any], params: dict[str, Any], timeout: float | None
+    job_id: str,
+    function: Callable[..., Any],
+    params: dict[str, Any],
+    timeout: float | None,
+    use_process: bool,
 ) -> None:
     from mlflow.server.handlers import _get_job_store
 
@@ -182,7 +192,7 @@ def _exec_job(
     job_store.start_job(job_id)
 
     try:
-        job_result = execute_function_with_timeout(function, params, timeout)
+        job_result = _execute_function_with_timeout(function, params, timeout, use_process)
 
         if job_result.succeeded:
             job_store.finish_job(job_id, job_result.result)

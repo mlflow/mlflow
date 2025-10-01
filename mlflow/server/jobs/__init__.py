@@ -58,6 +58,7 @@ def submit_job(
     function: Callable[..., Any],
     params: dict[str, Any],
     timeout: float | None = None,
+    use_process: bool | None = None,
 ) -> JobEntity:
     """
     Submit a job to the job queue. The job is executed at most once.
@@ -80,6 +81,11 @@ def submit_job(
             The function must be decorated by `mlflow.server.jobs.job_function` decorator.
         params: The params to be passed to the job function.
         timeout: (optional) The job execution timeout, default None (no timeout)
+        use_process: (optional) Specify whether to run the job in an individual process.
+            If the job uses environment variables (e.g. API keys),
+            it should be run in an individual process to isolate the environment variable settings.
+            Default value is None, in the case the job is executed in a thread
+            if timeout is not set.
 
     Returns:
         The job entity. You can call `get_job` API by the job id to get
@@ -124,6 +130,7 @@ def submit_job(
         function,
         params,
         timeout,
+        use_process,
     )
 
     return job
