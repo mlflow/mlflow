@@ -28,6 +28,24 @@ module.exports = async ({ github, context }) => {
     console.log(`Rate limit remaining: ${rateLimit.resources.core.remaining}`);
   }
 
+  function isNewerRun(newRun, existingRun) {
+    // Returns true if newRun should replace existingRun
+    if (!existingRun) return true;
+
+    // Higher run_attempt takes priority (re-runs)
+    if (newRun.run_attempt > existingRun.run_attempt) return true;
+
+    // For same run_attempt, use newer created_at as tiebreaker
+    if (
+      newRun.run_attempt === existingRun.run_attempt &&
+      new Date(newRun.created_at) > new Date(existingRun.created_at)
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
   async function fetchChecks(ref) {
     // Check runs (e.g., DCO check, but excluding GitHub Actions)
     const checkRuns = (
@@ -68,11 +86,12 @@ module.exports = async ({ github, context }) => {
       })
     ).filter(({ path }) => path !== ".github/workflows/protect.yml");
 
+    // Deduplicate workflow runs by path and event, keeping the latest attempt
     const latestRuns = {};
     for (const run of workflowRuns) {
       const { path, event } = run;
       const key = `${path}-${event}`;
-      if (!latestRuns[key] || new Date(run.created_at) > new Date(latestRuns[key].created_at)) {
+      if (isNewerRun(run, latestRuns[key])) {
         latestRuns[key] = run;
       }
     }
