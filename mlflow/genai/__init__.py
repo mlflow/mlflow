@@ -24,7 +24,7 @@ from mlflow.genai.labeling import (
     get_labeling_sessions,
     get_review_app,
 )
-from mlflow.genai.optimize import optimize_prompt
+from mlflow.genai.optimize import adapt_prompts, optimize_prompt
 from mlflow.genai.prompts import (
     delete_prompt_alias,
     load_prompt,
@@ -58,6 +58,7 @@ __all__ = [
     "delete_prompt_alias",
     "set_prompt_alias",
     "optimize_prompt",
+    "adapt_prompts",
     "ScorerScheduleConfig",
     "Agent",
     "LabelingSession",
