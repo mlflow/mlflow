@@ -50,9 +50,6 @@ def autolog(
         from claude_agent_sdk import ClaudeSDKClient
         async with ClaudeSDKClient() as client:
             await client.query("What is 2 + 2?")
-            # Trace will be created when client exits
-
-        trace_id = mlflow.get_last_active_trace_id()
     """
     try:
         from claude_agent_sdk import ClaudeSDKClient

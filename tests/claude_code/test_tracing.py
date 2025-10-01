@@ -6,6 +6,7 @@ import logging
 
 import pytest
 
+from mlflow.claude_code.hooks import sdk_stop_hook_handler
 from mlflow.claude_code.tracing import (
     CLAUDE_TRACING_LEVEL,
     get_hook_response,
@@ -225,3 +226,19 @@ def test_process_transcript_creates_spans(mock_transcript_file):
     # Verify tool span has proper attributes
     tool_span = tool_spans[0]
     assert tool_span.name == "tool_Bash"
+
+
+def test_sdk_stop_hook_handler_handles_missing_transcript():
+    """Test that sdk_stop_hook_handler handles missing transcript gracefully."""
+
+    async def test():
+        input_data = {
+            "session_id": "test-session-123",
+            "transcript_path": "/nonexistent/path/transcript.jsonl",
+        }
+
+        result = await sdk_stop_hook_handler(input_data, None, None)
+        assert result["continue"] is False
+        assert "stopReason" in result
+
+    asyncio.run(test())

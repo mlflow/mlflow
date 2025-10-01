@@ -16,7 +16,6 @@ def patched_init(original, self, options=None):
             except Exception:
                 options = {}
 
-        # SDK options object
         if options.hooks is None:
             options.hooks = {}
         if "Stop" not in options.hooks:
