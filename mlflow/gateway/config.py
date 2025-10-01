@@ -418,8 +418,8 @@ class EndpointConfig(AliasedConfigModel):
 
         return value
 
-    def _to_legacy_route(self) -> "Route":
-        return Route(
+    def _to_legacy_route(self) -> "_LegacyRoute":
+        return _LegacyRoute(
             name=self.name,
             route_type=self.endpoint_type,
             model=EndpointModelInfo(
@@ -465,7 +465,7 @@ _ROUTE_EXTRA_SCHEMA = {
 }
 
 
-class Route(ConfigModel):
+class _LegacyRoute(ConfigModel):
     name: str
     route_type: str
     model: EndpointModelInfo

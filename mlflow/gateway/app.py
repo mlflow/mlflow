@@ -28,7 +28,7 @@ from mlflow.gateway.base_models import SetLimitsModel
 from mlflow.gateway.config import (
     GatewayConfig,
     LimitsConfig,
-    Route,
+    _LegacyRoute,
     EndpointConfig,
     EndpointType,
     _load_route_config,
@@ -54,9 +54,9 @@ class GatewayAPI(FastAPI):
         self.state.limiter = limiter
         self.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
         self.dynamic_endpoints: dict[str, EndpointConfig] = {}
-        self.set_dynamic_routes(config, limiter)
+        self.set_dynamic_endpoints(config, limiter)
 
-    def set_dynamic_routes(self, config: GatewayConfig, limiter: Limiter) -> None:
+    def set_dynamic_endpoints(self, config: GatewayConfig, limiter: Limiter) -> None:
         self.dynamic_endpoints.clear()
         for endpoint in config.endpoints:
             # TODO: Remove deployments server URLs after deprecation window elapses
@@ -78,7 +78,7 @@ class GatewayAPI(FastAPI):
     def get_dynamic_endpoint(self, endpoint_name: str) -> Endpoint | None:
         return r.to_endpoint() if (r := self.dynamic_endpoints.get(endpoint_name)) else None
 
-    def _get_legacy_dynamic_route(self, route_name: str) -> Route | None:
+    def _get_legacy_dynamic_route(self, route_name: str) -> _LegacyRoute | None:
         return r._to_legacy_route() if (r := self.dynamic_endpoints.get(route_name)) else None
 
 
@@ -208,8 +208,8 @@ class ListEndpointsResponse(BaseModel):
         }
 
 
-class SearchRoutesResponse(BaseModel):
-    routes: list[Route]
+class _LegacySearchRoutesResponse(BaseModel):
+    routes: list[_LegacyRoute]
     next_page_token: str | None = None
 
     class Config:
@@ -303,8 +303,9 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
             "verify the endpoint name.",
         )
 
-    @app.get(MLFLOW_GATEWAY_CRUD_ROUTE_BASE + "{route_name}", include_in_schema=False)
-    async def _legacy_get_route(route_name: str) -> Route:
+    # TODO: Remove the deprecated endpoint
+    @app.get(MLFLOW_GATEWAY_CRUD_ROUTE_BASE + "{route_name}", include_in_schema=False, deprecated=True)
+    async def _legacy_get_route(route_name: str) -> _LegacyRoute:
         if matched := app._get_legacy_dynamic_route(route_name):
             return matched
 
@@ -330,8 +331,9 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
 
         return result
 
-    @app.get(MLFLOW_GATEWAY_CRUD_ROUTE_BASE, include_in_schema=False)
-    async def _legacy_search_routes(page_token: str | None = None) -> SearchRoutesResponse:
+    # TODO: Remove the deprecated endpoint
+    @app.get(MLFLOW_GATEWAY_CRUD_ROUTE_BASE, include_in_schema=False, deprecated=True)
+    async def _legacy_search_routes(page_token: str | None = None) -> _LegacySearchRoutesResponse:
         start_idx = SearchRoutesToken.decode(page_token).index if page_token is not None else 0
 
         end_idx = start_idx + MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE
@@ -355,7 +357,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     async def set_limits(payload: SetLimitsModel) -> LimitsConfig:
         raise HTTPException(status_code=501, detail="The set_limits API is not available yet.")
 
-    def _look_up_route(name: str) -> Route | None:
+    def _look_up_endpoint_config(name: str) -> EndpointConfig | None:
         if r := app.dynamic_endpoints.get(name):
             return r
 
@@ -368,14 +370,14 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     async def openai_chat_handler(
         request: Request, payload: chat.RequestPayload
     ) -> chat.ResponsePayload:
-        route = _look_up_route(payload.model)
-        if route.endpoint_type != EndpointType.LLM_V1_CHAT:
+        endpoint_config = _look_up_endpoint_config(payload.model)
+        if endpoint_config.endpoint_type != EndpointType.LLM_V1_CHAT:
             raise HTTPException(
                 status_code=400,
-                detail=f"Endpoint {route.name!r} is not a chat endpoint.",
+                detail=f"Endpoint {endpoint_config.name!r} is not a chat endpoint.",
             )
 
-        prov = get_provider(route.model.provider)(route)
+        prov = get_provider(endpoint_config.model.provider)(endpoint_config)
         payload.model = None  # provider rejects a request with model field, must be set to None
         if payload.stream:
             return await make_streaming_response(prov.chat_stream(payload))
@@ -386,7 +388,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     async def openai_completions_handler(
         request: Request, payload: completions.RequestPayload
     ) -> completions.ResponsePayload:
-        route = _look_up_route(payload.model)
+        route = _look_up_endpoint_config(payload.model)
         if route.endpoint_type != EndpointType.LLM_V1_COMPLETIONS:
             raise HTTPException(
                 status_code=400,
@@ -404,7 +406,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     async def openai_embeddings_handler(
         request: Request, payload: embeddings.RequestPayload
     ) -> embeddings.ResponsePayload:
-        route = _look_up_route(payload.model)
+        route = _look_up_endpoint_config(payload.model)
         if route.endpoint_type != EndpointType.LLM_V1_EMBEDDINGS:
             raise HTTPException(
                 status_code=400,
