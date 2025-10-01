@@ -6,8 +6,8 @@ import { useMemo } from 'react';
 const SEARCH_EVALUATION_DATASETS_PAGE_SIZE = 20;
 
 type SearchEvaluationDatasetsResponse = {
-  datasets: EvaluationDataset[];
-  next_page_token: string;
+  datasets?: EvaluationDataset[];
+  next_page_token?: string;
 };
 
 export const useSearchEvaluationDatasets = ({
@@ -45,7 +45,7 @@ export const useSearchEvaluationDatasets = ({
     getNextPageParam: (lastPage) => lastPage.next_page_token,
   });
 
-  const flatData = useMemo(() => data?.pages.flatMap((page) => page.datasets), [data]);
+  const flatData = useMemo(() => data?.pages.flatMap((page) => page.datasets ?? []) ?? [], [data]);
 
   return {
     data: flatData,

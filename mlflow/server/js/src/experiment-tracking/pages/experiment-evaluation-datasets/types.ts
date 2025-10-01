@@ -83,3 +83,18 @@ export type DatasetRecordSource = {
   // Source-specific data as JSON
   source_data?: string;
 };
+
+export type GetDatasetRecords = {
+  // Dataset ID to get records for
+  dataset_id: string;
+
+  // Optional pagination - maximum number of records to return
+  max_results?: number;
+
+  // Optional pagination token for getting next page
+  page_token?: string;
+};
+
+export type EvaluationDatasetRecordsTableMetadata = {
+  rowSize: 'sm' | 'md';
+};

@@ -1,13 +1,13 @@
 import { Global } from '@emotion/react';
-import { Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { useDesignSystemTheme } from '@databricks/design-system';
 import { ResizableBox } from 'react-resizable';
 import { ExperimentViewRunsTableResizerHandle } from '../../components/experiment-page/components/runs/ExperimentViewRunsTableResizer';
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { useParams } from '../../../common/utils/RoutingUtils';
 import invariant from 'invariant';
-import { FormattedMessage } from 'react-intl';
-import { useSearchEvaluationDatasets } from './hooks/useSearchEvaluationDatsets';
 import { ExperimentEvaluationDatasetsListTable } from './components/ExperimentEvaluationDatasetsListTable';
+import { ExperimentEvaluationDatasetRecordsTable } from './components/ExperimentEvaluationDatasetRecordsTable';
+import { EvaluationDataset } from './types';
 
 const ExperimentEvaluationDatasetsPageImpl = () => {
   const { experimentId } = useParams();
@@ -15,7 +15,7 @@ const ExperimentEvaluationDatasetsPageImpl = () => {
   const [tableWidth, setTableWidth] = useState(400);
   const [dragging, setDragging] = useState(false);
   const [datasetListHidden, setDatasetListHidden] = useState(false);
-  const [selectedDatasetId, setSelectedDatasetId] = useState<string | undefined>(undefined);
+  const [selectedDataset, setSelectedDataset] = useState<EvaluationDataset | undefined>(undefined);
 
   invariant(experimentId, 'Experiment ID must be defined');
 
@@ -47,19 +47,20 @@ const ExperimentEvaluationDatasetsPageImpl = () => {
       >
         <ExperimentEvaluationDatasetsListTable
           experimentId={experimentId}
-          selectedDatasetId={selectedDatasetId}
-          setSelectedDatasetId={setSelectedDatasetId}
+          selectedDataset={selectedDataset}
+          setSelectedDataset={setSelectedDataset}
         />
       </ResizableBox>
       <div
         css={{
           flex: 1,
+          display: 'flex',
           borderLeft: `1px solid ${theme.colors.border}`,
           minHeight: '0px',
-          overflowX: 'hidden',
+          overflow: 'hidden',
         }}
       >
-        TBI
+        <ExperimentEvaluationDatasetRecordsTable dataset={selectedDataset} />
       </div>
       {dragging && (
         <Global

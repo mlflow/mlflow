@@ -30,12 +30,6 @@ import { ActionsCell } from './ExperimentEvaluationDatasetsActionsCell';
 // scroll offset from bottom that triggers fetching more datasets
 const INFINITE_SCROLL_BOTTOM_OFFSET = 200;
 
-interface ExperimentEvaluationDatasetsListTableProps {
-  experimentId: string;
-  selectedDatasetId?: string;
-  setSelectedDatasetId: (datasetId: string | undefined) => void;
-}
-
 const ALL_COLUMNS = {
   name: true,
   created_time: true,
@@ -48,13 +42,13 @@ interface ExperimentEvaluationDatasetsTableRowProps {
   row: Row<EvaluationDataset>;
   columns: any[];
   isActive: boolean;
-  setSelectedDatasetId: (datasetId: string | undefined) => void;
+  setSelectedDataset: (dataset: EvaluationDataset | undefined) => void;
 }
 
 const ExperimentEvaluationDatasetsTableRow: React.FC<
   React.PropsWithChildren<ExperimentEvaluationDatasetsTableRowProps>
 > = React.memo(
-  ({ row, isActive, setSelectedDatasetId }) => {
+  ({ row, isActive, setSelectedDataset }) => {
     const { theme } = useDesignSystemTheme();
 
     return (
@@ -62,7 +56,7 @@ const ExperimentEvaluationDatasetsTableRow: React.FC<
         key={row.id}
         className="eval-datasets-table-row"
         onClick={() => {
-          setSelectedDatasetId(row.original.dataset_id);
+          setSelectedDataset(row.original);
         }}
       >
         {row.getVisibleCells().map((cell) => (
@@ -87,16 +81,22 @@ const ExperimentEvaluationDatasetsTableRow: React.FC<
   },
 );
 
-export const ExperimentEvaluationDatasetsListTable: React.FC<
-  React.PropsWithChildren<ExperimentEvaluationDatasetsListTableProps>
-> = ({ experimentId, selectedDatasetId, setSelectedDatasetId }) => {
+export const ExperimentEvaluationDatasetsListTable = ({
+  experimentId,
+  selectedDataset,
+  setSelectedDataset,
+}: {
+  experimentId: string;
+  selectedDataset?: EvaluationDataset;
+  setSelectedDataset: (dataset: EvaluationDataset | undefined) => void;
+}) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
   const tableContainerRef = useRef<HTMLDivElement>(null);
 
   const [sorting, setSorting] = useState<SortingState>([
     {
-      id: 'last_update_time',
+      id: 'created_time',
       desc: true, // Most recent first
     },
   ]);
@@ -116,10 +116,10 @@ export const ExperimentEvaluationDatasetsListTable: React.FC<
   const handleCreateDatasetSuccess = useCallback(
     (dataset: EvaluationDataset) => {
       if (dataset.dataset_id) {
-        setSelectedDatasetId(dataset.dataset_id);
+        setSelectedDataset(dataset);
       }
     },
-    [setSelectedDatasetId],
+    [setSelectedDataset],
   );
 
   const columns = useMemo(
@@ -188,8 +188,7 @@ export const ExperimentEvaluationDatasetsListTable: React.FC<
     enableSorting: true,
     onSortingChange: setSorting,
     getSortedRowModel: getSortedRowModel(),
-    enableColumnResizing: true,
-    columnResizeMode: 'onChange',
+    enableColumnResizing: false,
     state: {
       sorting,
     },
@@ -210,14 +209,14 @@ export const ExperimentEvaluationDatasetsListTable: React.FC<
   // Set the selected dataset to the first one (respecting sort order) if we don't already have one
   // or if the selected dataset went out of scope (e.g. was deleted)
   useEffect(() => {
-    if (datasets?.length && (!selectedDatasetId || !datasets.some((d) => d.dataset_id === selectedDatasetId))) {
+    if (datasets?.length && (!selectedDataset || !datasets.some((d) => d.dataset_id === selectedDataset.dataset_id))) {
       // Use the sorted data from the table to respect the current sort order
       const sortedRows = table.getRowModel().rows;
       if (sortedRows.length > 0) {
-        setSelectedDatasetId(sortedRows[0].original.dataset_id);
+        setSelectedDataset(sortedRows[0].original);
       }
     }
-  }, [datasets, selectedDatasetId, setSelectedDatasetId, table]);
+  }, [datasets, selectedDataset, setSelectedDataset, table]);
 
   useEffect(() => {
     fetchMoreOnBottomReached(tableContainerRef.current);
@@ -320,8 +319,8 @@ export const ExperimentEvaluationDatasetsListTable: React.FC<
                   key={row.id}
                   row={row}
                   columns={columns}
-                  isActive={row.original.dataset_id === selectedDatasetId}
-                  setSelectedDatasetId={setSelectedDatasetId}
+                  isActive={row.original.dataset_id === selectedDataset?.dataset_id}
+                  setSelectedDataset={setSelectedDataset}
                 />
               ))}
 
