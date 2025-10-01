@@ -64,12 +64,12 @@ class GatewayAPI(FastAPI):
                 path=(
                     MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE + endpoint.name + MLFLOW_DEPLOYMENTS_QUERY_SUFFIX
                 ),
-                endpoint=_route_type_to_endpoint(endpoint, limiter, "deployments"),
+                endpoint=_endpoint_config_to_endpoint(endpoint, limiter, "deployments"),
                 methods=["POST"],
             )
             self.add_api_route(
                 path=f"{MLFLOW_GATEWAY_ROUTE_BASE}{endpoint.name}{MLFLOW_QUERY_SUFFIX}",
-                endpoint=_route_type_to_endpoint(endpoint, limiter, "gateway"),
+                endpoint=_endpoint_config_to_endpoint(endpoint, limiter, "gateway"),
                 methods=["POST"],
                 include_in_schema=False,
             )
@@ -144,7 +144,7 @@ async def _custom(request: Request):
     return request.json()
 
 
-def _route_type_to_endpoint(config: EndpointConfig, limiter: Limiter, key: str):
+def _endpoint_config_to_endpoint(config: EndpointConfig, limiter: Limiter, key: str):
     provider_to_factory = {
         EndpointType.LLM_V1_CHAT: _create_chat_endpoint,
         EndpointType.LLM_V1_COMPLETIONS: _create_completions_endpoint,
@@ -321,11 +321,11 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         start_idx = SearchRoutesToken.decode(page_token).index if page_token is not None else 0
 
         end_idx = start_idx + MLFLOW_DEPLOYMENTS_LIST_ENDPOINTS_PAGE_SIZE
-        routes = list(app.dynamic_endpoints.values())
+        endpoints = list(app.dynamic_endpoints.values())
         result = {
-            "endpoints": [route.to_endpoint() for route in routes[start_idx:end_idx]]
+            "endpoints": [endpoint.to_endpoint() for endpoint in endpoints[start_idx:end_idx]]
         }
-        if len(routes[end_idx:]) > 0:
+        if len(endpoints[end_idx:]) > 0:
             next_page_token = SearchRoutesToken(index=end_idx)
             result["next_page_token"] = next_page_token.encode()
 
