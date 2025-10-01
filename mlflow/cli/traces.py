@@ -210,7 +210,7 @@ Available fields:
     "--sql-warehouse-id",
     type=click.STRING,
     help=(
-        "DEPRECATED. Use the `MLFLOW_TRACING_SQL_WAREHOUSE_ID` environment variable instead.",
+        "DEPRECATED. Use the `MLFLOW_TRACING_SQL_WAREHOUSE_ID` environment variable instead."
         "SQL warehouse ID (only needed when searching for traces by model "
         "stored in Databricks Unity Catalog)"
     ),
