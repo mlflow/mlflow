@@ -90,7 +90,8 @@ def _extract_assessment_from_assessments_column(
             [
                 assess_name == normalized_scorer_name,
                 assess_name.lower() == scorer_name.lower(),
-                assess_name.lower().replace("_", "") == scorer_name.lower().replace("_", ""),
+                assess_name.lower().replace("_", "")
+                == scorer_name.lower().replace("_", ""),
                 assess_name == scorer_name,
             ]
         ):
@@ -179,7 +180,9 @@ def _get_results_dataframe(results: Any, debug: bool = False) -> pd.DataFrame:
             if hasattr(results, "tables"):
                 tables_info = list(results.tables.keys()) if results.tables else "None"
                 click.echo(f"  - results.tables keys: {tables_info}", err=True)
-        raise click.UsageError("No evaluation results DataFrame found in results object")
+        raise click.UsageError(
+            "No evaluation results DataFrame found in results object"
+        )
 
     return df
 
@@ -233,9 +236,9 @@ def evaluate_traces(
         traces.append(trace)
 
     # Create a DataFrame with trace column for evaluate()
-    # Despite the ALKIS comment, evaluate() actually requires a DataFrame
-    # with a 'trace' column, not a raw list of traces
-    traces_df = pd.DataFrame([{"trace_id": t.info.trace_id, "trace": t} for t in traces])
+    traces_df = pd.DataFrame(
+        [{"trace_id": t.info.trace_id, "trace": t} for t in traces]
+    )
 
     # Parse scorer names
     scorer_names = [name.strip() for name in scorers.split(",")]
@@ -243,7 +246,9 @@ def evaluate_traces(
     # Resolve scorers - check built-in first, then registered
     resolved_scorers = []
     builtin_scorers = get_all_scorers()
-    builtin_scorer_map = {scorer.__class__.__name__: scorer for scorer in builtin_scorers}
+    builtin_scorer_map = {
+        scorer.__class__.__name__: scorer for scorer in builtin_scorers
+    }
 
     for scorer_name in scorer_names:
         # Check if it's a built-in scorer
@@ -252,7 +257,9 @@ def evaluate_traces(
         else:
             # Try to get it as a registered scorer
             try:
-                registered_scorer = get_scorer(name=scorer_name, experiment_id=experiment_id)
+                registered_scorer = get_scorer(
+                    name=scorer_name, experiment_id=experiment_id
+                )
                 resolved_scorers.append(registered_scorer)
             except MlflowException:
                 # Provide helpful error message
@@ -287,35 +294,20 @@ def evaluate_traces(
     df = _get_results_dataframe(results, debug=debug)
 
     # Get trace_id column if it exists, otherwise use the original list
-    result_trace_ids = df["trace_id"].tolist() if "trace_id" in df.columns else trace_id_list
+    result_trace_ids = (
+        df["trace_id"].tolist() if "trace_id" in df.columns else trace_id_list
+    )
 
     # Build results data structure (used by both JSON and table output)
-    output_data = []
+    from mlflow.cli.eval_utils import build_output_data
 
-    for idx, trace_id in enumerate(result_trace_ids):
-        trace_result = {"trace_id": trace_id, "assessments": []}
-
-        # Extract assessments from the DataFrame for this row
-        for scorer_name in scorer_names:
-            normalized_scorer_name = scorer_name.lower().replace(" ", "_")
-
-            # Try standard column format first
-            assessment = _extract_assessment_from_column(
-                df, idx, scorer_name, normalized_scorer_name
-            )
-
-            # If no result from columns, try assessments column
-            if assessment["result"] is None and "assessments" in df.columns and idx < len(df):
-                assessments_data = df["assessments"].iloc[idx]
-                assess_from_col = _extract_assessment_from_assessments_column(
-                    assessments_data, scorer_name, normalized_scorer_name
-                )
-                if assess_from_col:
-                    assessment = assess_from_col
-
-            trace_result["assessments"].append(assessment)
-
-        output_data.append(trace_result)
+    output_data = build_output_data(
+        df,
+        result_trace_ids,
+        scorer_names,
+        _extract_assessment_from_column,
+        _extract_assessment_from_assessments_column,
+    )
 
     # Format and display results
     if output == "json":
@@ -326,40 +318,12 @@ def evaluate_traces(
             click.echo(json.dumps(output_data, indent=2))
     else:
         # Table output format
+        from mlflow.cli.eval_utils import format_table_output
         from mlflow.utils.string_utils import _create_table
 
-        headers = ["trace_id"] + scorer_names
-        table_data = []
-
-        for trace_result in output_data:
-            row = [trace_result["trace_id"]]
-
-            for assessment in trace_result["assessments"]:
-                cell_content = ""
-                result_val = assessment.get("result")
-                rationale_val = assessment.get("rationale")
-                error_val = assessment.get("error")
-
-                # Format as single line: "value: X, rationale: Y"
-                if rationale_val and len(str(rationale_val)) > 100:
-                    rationale_str = str(rationale_val)[:97] + "..."
-                else:
-                    rationale_str = rationale_val if rationale_val else None
-
-                if result_val is not None and rationale_str:
-                    cell_content = f"value: {result_val}, rationale: {rationale_str}"
-                elif result_val is not None:
-                    cell_content = f"value: {result_val}"
-                elif rationale_str:
-                    cell_content = f"rationale: {rationale_str}"
-                elif error_val:
-                    cell_content = _format_error_message(error_val)
-                else:
-                    cell_content = "N/A"
-
-                row.append(cell_content)
-
-            table_data.append(row)
+        headers, table_data = format_table_output(
+            output_data, scorer_names, _format_error_message
+        )
 
         # Display the table with a clear separator
         click.echo("")  # Add blank line after MLflow messages
