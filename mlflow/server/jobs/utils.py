@@ -296,8 +296,6 @@ def _launch_job_runner(env_map, server_proc_pid):
 
 
 def _start_watcher_to_kill_job_runner_if_mlflow_server_dies(check_interval: float = 1.0) -> None:
-    from mlflow.server.jobs.util import is_process_alive
-
     mlflow_server_pid = int(os.environ.get("MLFLOW_SERVER_PID"))
 
     def watcher():

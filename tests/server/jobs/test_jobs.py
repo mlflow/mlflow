@@ -17,7 +17,7 @@ from mlflow.server import (
 )
 from mlflow.server.handlers import _get_job_store
 from mlflow.server.jobs import get_job, job, submit_job
-from mlflow.server.jobs.util import _launch_job_runner, _validate_function_parameters
+from mlflow.server.jobs.utils import _launch_job_runner
 
 pytestmark = pytest.mark.skipif(
     os.name == "nt", reason="MLflow job execution is not supported on Windows"
@@ -56,55 +56,6 @@ def _setup_job_runner(monkeypatch, tmp_path, backend_store_uri=None):
         mlflow.server.handlers._job_store = None
 
 
-def test_validate_function_parameters():
-    """Test the parameter validation function directly."""
-
-    def test_func(a, b, c=None):
-        return a + b + (c or 0)
-
-    # Test with all required parameters present
-    _validate_function_parameters(test_func, {"a": 1, "b": 2})
-    _validate_function_parameters(test_func, {"a": 1, "b": 2, "c": 3})
-
-    # Test with missing required parameters
-    with pytest.raises(MlflowException, match=r"Missing required parameters.*\['b'\]"):
-        _validate_function_parameters(test_func, {"a": 1})
-
-    assert True  # If we get here, the exception was properly raised
-
-    # Test with multiple missing required parameters
-    with pytest.raises(MlflowException, match=r"Missing required parameters.*\['a', 'b'\]"):
-        _validate_function_parameters(test_func, {})
-
-
-def test_validate_function_parameters_with_varargs():
-    """Test parameter validation with functions that have **kwargs."""
-
-    def test_func_with_kwargs(a, **kwargs):
-        return a
-
-    # Should not raise error even with extra parameters due to **kwargs
-    _validate_function_parameters(test_func_with_kwargs, {"a": 1, "extra": 2})
-
-    # Should still raise error for missing required parameters
-    with pytest.raises(MlflowException, match=r"Missing required parameters.*\['a'\]"):
-        _validate_function_parameters(test_func_with_kwargs, {"extra": 2})
-
-
-def test_validate_function_parameters_with_positional_args():
-    """Test parameter validation with functions that have *args."""
-
-    def test_func_with_args(a, *args):
-        return a
-
-    # Should work fine with just required parameter
-    _validate_function_parameters(test_func_with_args, {"a": 1})
-
-    # Should still raise error for missing required parameters
-    with pytest.raises(MlflowException, match=r"Missing required parameters.*\['a'\]"):
-        _validate_function_parameters(test_func_with_args, {})
-
-
 @job(max_workers=1, use_process=False)
 def basic_job_fun(x, y, sleep_secs=0):
     if sleep_secs > 0:
@@ -118,7 +69,7 @@ def test_basic_job(monkeypatch, tmp_path):
         wait_job_finalize(submitted_job.job_id)
         job = get_job(submitted_job.job_id)
         assert job.job_id == submitted_job.job_id
-        assert job.function_fullname == "tests.server.jobs.test_job.basic_job_fun"
+        assert job.function_fullname == "tests.server.jobs.test_jobs.basic_job_fun"
         assert job.params == '{"x": 3, "y": 4}'
         assert job.timeout is None
         assert job.result == "7"
@@ -140,7 +91,7 @@ def test_job_json_input_output(monkeypatch, tmp_path):
         wait_job_finalize(submitted_job.job_id)
         job = get_job(submitted_job.job_id)
         assert job.job_id == submitted_job.job_id
-        assert job.function_fullname == "tests.server.jobs.test_job.json_in_out_fun"
+        assert job.function_fullname == "tests.server.jobs.test_jobs.json_in_out_fun"
         assert job.params == '{"data": {"x": 3, "y": 4}}'
         assert job.result == '{"res": 7}'
         assert job.parsed_result == {"res": 7}
@@ -161,7 +112,7 @@ def test_error_job(monkeypatch, tmp_path):
 
         # check database record correctness.
         assert job.job_id == submitted_job.job_id
-        assert job.function_fullname == "tests.server.jobs.test_job.err_fun"
+        assert job.function_fullname == "tests.server.jobs.test_jobs.err_fun"
         assert job.params == '{"data": null}'
         assert job.result.startswith("RuntimeError()")
         assert job.status == JobStatus.FAILED
@@ -370,7 +321,7 @@ def sleep_fun(sleep_secs, tmp_dir):
 
 
 def test_job_timeout(monkeypatch, tmp_path):
-    from mlflow.server.jobs.util import is_process_alive
+    from mlflow.server.jobs.utils import is_process_alive
 
     with _setup_job_runner(monkeypatch, tmp_path):
         job_tmp_path = tmp_path / "job"
@@ -395,7 +346,7 @@ def test_job_timeout(monkeypatch, tmp_path):
 
         # check database record correctness.
         assert job.job_id == job_id
-        assert job.function_fullname == "tests.server.jobs.test_job.sleep_fun"
+        assert job.function_fullname == "tests.server.jobs.test_jobs.sleep_fun"
         assert job.timeout == 3.0
         assert job.result is None
         assert job.status == JobStatus.TIMEOUT
@@ -424,7 +375,7 @@ def test_job_function_without_decorator(monkeypatch, tmp_path):
     with _setup_job_runner(monkeypatch, tmp_path):
         with pytest.raises(
             MlflowException,
-            match="The job function tests.server.jobs.test_job.bad_job_function is not decorated",
+            match="The job function tests.server.jobs.test_jobs.bad_job_function is not decorated",
         ):
             submit_job(bad_job_function, params={})
 
