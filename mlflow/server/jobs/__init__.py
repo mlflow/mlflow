@@ -32,9 +32,13 @@ class TransientError(RuntimeError):
 class JobFunctionMetadata:
     fn_fullname: str
     max_workers: int
+    use_process: bool
 
 
-def job(max_workers: int) -> Callable[[Callable[P, R]], Callable[P, R]]:
+def job(
+    max_workers: int,
+    use_process: bool = True,
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     The decorator for the custom job function for setting max parallel workers that
     the job function can use.
@@ -42,12 +46,17 @@ def job(max_workers: int) -> Callable[[Callable[P, R]], Callable[P, R]]:
     Args:
         max_workers: The maximum number of workers that are allowed to run the jobs
             using this job function.
+        use_process: (optional) Specify whether to run the job in an individual process.
+            If the job uses environment variables (e.g. API keys),
+            it should be run in an individual process to isolate the environment variable settings.
+            Default value is True.
     """
 
     def decorator(fn: Callable[P, R]) -> Callable[P, R]:
         fn._job_fn_metadata = JobFunctionMetadata(
             fn_fullname=f"{fn.__module__}.{fn.__name__}",
             max_workers=max_workers,
+            use_process=use_process,
         )
         return fn
 
