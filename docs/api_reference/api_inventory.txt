@@ -701,6 +701,7 @@ mlflow.genai.Scorer.start
 mlflow.genai.Scorer.stop
 mlflow.genai.Scorer.update
 mlflow.genai.ScorerScheduleConfig
+mlflow.genai.adapt_prompts
 mlflow.genai.create_dataset
 mlflow.genai.create_labeling_session
 mlflow.genai.datasets.EvaluationDataset
@@ -785,6 +786,8 @@ mlflow.genai.optimize.EvaluationResultRecord
 mlflow.genai.optimize.LLMParams
 mlflow.genai.optimize.OptimizerConfig
 mlflow.genai.optimize.OptimizerOutput
+mlflow.genai.optimize.PromptAdaptationResult
+mlflow.genai.optimize.PromptAdapterOutput
 mlflow.genai.optimize.PromptOptimizationResult
 mlflow.genai.optimize.adapt_prompts
 mlflow.genai.optimize.adapters.base.BasePromptAdapter
