@@ -65,7 +65,7 @@ def _extract_assessment_from_column(
 
 
 def _extract_assessment_from_assessments_column(
-    assessments_data: list, scorer_name: str, normalized_scorer_name: str
+    assessments_info: list, scorer_name: str, normalized_scorer_name: str
 ) -> dict | None:
     """
     Extract assessment from the assessments column format.
@@ -78,20 +78,19 @@ def _extract_assessment_from_assessments_column(
     Returns:
         Assessment dictionary if found, None otherwise
     """
-    if not assessments_data:
+    if not assessments_info:
         return None
 
-    for assess in assessments_data:
+    for assessment_info in assessments_info:
         # Assessment is a dictionary - access keys directly
-        assess_name = assess.get("assessment_name", "") or assess.get("name", "")
+        assess_name = assessment_info.get("assessment_name", "") or assessment_info.get("name", "")
 
         # Try different possible name matches
         if any(
             [
                 assess_name == normalized_scorer_name,
                 assess_name.lower() == scorer_name.lower(),
-                assess_name.lower().replace("_", "")
-                == scorer_name.lower().replace("_", ""),
+                assess_name.lower().replace("_", "") == scorer_name.lower().replace("_", ""),
                 assess_name == scorer_name,
             ]
         ):
@@ -101,7 +100,7 @@ def _extract_assessment_from_assessments_column(
                 "rationale": None,
             }
 
-            feedback = assess.get("feedback", {})
+            feedback = assessment_info.get("feedback", {})
             if feedback:
                 if "value" in feedback:
                     assessment["result"] = feedback["value"]
@@ -109,8 +108,8 @@ def _extract_assessment_from_assessments_column(
                     assessment["rationale"] = feedback["rationale"]
 
             # Also check for rationale at the top level
-            if "rationale" in assess:
-                assessment["rationale"] = assess["rationale"]
+            if "rationale" in assessment_info:
+                assessment["rationale"] = assessment_info["rationale"]
 
             # Check for errors in feedback
             if feedback and "error" in feedback and feedback["error"]:
@@ -180,9 +179,7 @@ def _get_results_dataframe(results: Any, debug: bool = False) -> pd.DataFrame:
             if hasattr(results, "tables"):
                 tables_info = list(results.tables.keys()) if results.tables else "None"
                 click.echo(f"  - results.tables keys: {tables_info}", err=True)
-        raise click.UsageError(
-            "No evaluation results DataFrame found in results object"
-        )
+        raise click.UsageError("No evaluation results DataFrame found in results object")
 
     return df
 
@@ -236,19 +233,16 @@ def evaluate_traces(
         traces.append(trace)
 
     # Create a DataFrame with trace column for evaluate()
-    traces_df = pd.DataFrame(
-        [{"trace_id": t.info.trace_id, "trace": t} for t in traces]
-    )
+    traces_df = pd.DataFrame([{"trace_id": t.info.trace_id, "trace": t} for t in traces])
 
     # Parse scorer names
     scorer_names = [name.strip() for name in scorers.split(",")]
 
+    # ALKIS: Refactor the resolution of scorers into a separate method in eval_utils.py. Add tests.
     # Resolve scorers - check built-in first, then registered
     resolved_scorers = []
     builtin_scorers = get_all_scorers()
-    builtin_scorer_map = {
-        scorer.__class__.__name__: scorer for scorer in builtin_scorers
-    }
+    builtin_scorer_map = {scorer.__class__.__name__: scorer for scorer in builtin_scorers}
 
     for scorer_name in scorer_names:
         # Check if it's a built-in scorer
@@ -257,9 +251,7 @@ def evaluate_traces(
         else:
             # Try to get it as a registered scorer
             try:
-                registered_scorer = get_scorer(
-                    name=scorer_name, experiment_id=experiment_id
-                )
+                registered_scorer = get_scorer(name=scorer_name, experiment_id=experiment_id)
                 resolved_scorers.append(registered_scorer)
             except MlflowException:
                 # Provide helpful error message
@@ -294,13 +286,13 @@ def evaluate_traces(
     df = _get_results_dataframe(results, debug=debug)
 
     # Get trace_id column if it exists, otherwise use the original list
-    result_trace_ids = (
-        df["trace_id"].tolist() if "trace_id" in df.columns else trace_id_list
-    )
+    result_trace_ids = df["trace_id"].tolist() if "trace_id" in df.columns else trace_id_list
 
     # Build results data structure (used by both JSON and table output)
+    # ALKIS: Do this import at the top of the file. Same for other local imports in this file.
     from mlflow.cli.eval_utils import build_output_data
 
+    # ALKIS: Use a different logic to extract assessments. Use the get_trace() API to read back the traces. The traces will now have assessments attached to them, and these assessments will have the name of the scorer who generated them. Match the names to the scorer.
     output_data = build_output_data(
         df,
         result_trace_ids,
@@ -321,9 +313,7 @@ def evaluate_traces(
         from mlflow.cli.eval_utils import format_table_output
         from mlflow.utils.string_utils import _create_table
 
-        headers, table_data = format_table_output(
-            output_data, scorer_names, _format_error_message
-        )
+        headers, table_data = format_table_output(output_data, scorer_names, _format_error_message)
 
         # Display the table with a clear separator
         click.echo("")  # Add blank line after MLflow messages

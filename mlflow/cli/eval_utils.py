@@ -42,7 +42,11 @@ def build_output_data(
             )
 
             # If no result from columns, try assessments column
-            if assessment["result"] is None and "assessments" in df.columns and idx < len(df):
+            if (
+                assessment["result"] is None
+                and "assessments" in df.columns
+                and idx < len(df)
+            ):
                 assessments_data = df["assessments"].iloc[idx]
                 assess_from_col = extract_assessment_from_assessments_column_fn(
                     assessments_data, scorer_name, normalized_scorer_name
