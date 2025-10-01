@@ -17,16 +17,6 @@ from mlflow.tracking import MlflowClient
 from mlflow.utils.string_utils import _create_table
 
 
-def _format_error_message(error_msg: str) -> str:
-    """Format error message for display."""
-    if "OpenAIException" in error_msg and "api_key" in error_msg:
-        return "ERROR: Missing OpenAI API key"
-    elif "AuthenticationError" in error_msg:
-        return "ERROR: Authentication failed"
-    else:
-        return f"ERROR: {error_msg[:50]}..."
-
-
 def evaluate_traces(
     experiment_id: str,
     trace_ids: str,
@@ -117,17 +107,7 @@ def evaluate_traces(
             click.echo(json.dumps(output_data, indent=2))
     else:
         # Table output format
-        # Collect all unique assessment names from the results for column headers
-        assessment_names = []
-        for trace_result in output_data:
-            for assessment in trace_result["assessments"]:
-                name = assessment.get("assessment_name")
-                if name and name not in assessment_names and name != "N/A":
-                    assessment_names.append(name)
-
-        headers, table_data = format_table_output(
-            output_data, assessment_names, _format_error_message
-        )
+        headers, table_data = format_table_output(output_data)
 
         # Display the table with a clear separator
         click.echo("")  # Add blank line after MLflow messages

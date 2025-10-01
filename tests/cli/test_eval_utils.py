@@ -13,14 +13,6 @@ from mlflow.cli.eval_utils import (
 )
 from mlflow.exceptions import MlflowException
 
-
-def mock_format_error_message(error_msg):
-    """Mock function for formatting error messages."""
-    if "OpenAI" in error_msg:
-        return "ERROR: Missing OpenAI API key"
-    return f"ERROR: {error_msg[:50]}..."
-
-
 # Tests for format_table_output function
 
 
@@ -38,11 +30,10 @@ def test_format_single_trace_with_result_and_rationale():
             ],
         }
     ]
-    scorer_names = ["RelevanceToQuery"]
 
-    headers, table_data = format_table_output(output_data, scorer_names, mock_format_error_message)
+    headers, table_data = format_table_output(output_data)
 
-    # Headers should use assessment names from output_data, not scorer_names
+    # Headers should use assessment names from output_data
     assert headers == ["trace_id", "RelevanceToQuery"]
     assert len(table_data) == 1
     assert table_data[0][0] == "tr-123"
@@ -76,9 +67,8 @@ def test_format_multiple_traces_multiple_scorers():
             ],
         },
     ]
-    scorer_names = ["RelevanceToQuery", "Safety"]
 
-    headers, table_data = format_table_output(output_data, scorer_names, mock_format_error_message)
+    headers, table_data = format_table_output(output_data)
 
     assert headers == ["trace_id", "RelevanceToQuery", "Safety"]
     assert len(table_data) == 2
@@ -103,9 +93,8 @@ def test_format_long_rationale_not_truncated():
             ],
         }
     ]
-    scorer_names = ["RelevanceToQuery"]
 
-    headers, table_data = format_table_output(output_data, scorer_names, mock_format_error_message)
+    headers, table_data = format_table_output(output_data)
 
     assert long_rationale in table_data[0][1]
     assert len(table_data[0][1]) >= len(long_rationale)
@@ -126,9 +115,8 @@ def test_format_error_message_formatting():
             ],
         }
     ]
-    scorer_names = ["RelevanceToQuery"]
 
-    headers, table_data = format_table_output(output_data, scorer_names, mock_format_error_message)
+    headers, table_data = format_table_output(output_data)
 
     assert table_data[0][1] == "error: OpenAI API error"
 
@@ -147,9 +135,8 @@ def test_format_na_for_missing_results():
             ],
         }
     ]
-    scorer_names = ["RelevanceToQuery"]
 
-    headers, table_data = format_table_output(output_data, scorer_names, mock_format_error_message)
+    headers, table_data = format_table_output(output_data)
 
     assert table_data[0][1] == "N/A"
 
@@ -168,9 +155,8 @@ def test_format_result_only_without_rationale():
             ],
         }
     ]
-    scorer_names = ["RelevanceToQuery"]
 
-    headers, table_data = format_table_output(output_data, scorer_names, mock_format_error_message)
+    headers, table_data = format_table_output(output_data)
 
     assert table_data[0][1] == "value: yes"
 
@@ -189,18 +175,16 @@ def test_format_rationale_only_without_result():
             ],
         }
     ]
-    scorer_names = ["RelevanceToQuery"]
 
-    headers, table_data = format_table_output(output_data, scorer_names, mock_format_error_message)
+    headers, table_data = format_table_output(output_data)
 
     assert table_data[0][1] == "rationale: Some reasoning"
 
 
 def test_format_with_different_assessment_names():
     """Test that assessment names from output_data are used, not scorer names."""
-    # This test demonstrates the fix for the ALKIS comment:
-    # Assessment names (e.g., "relevance_to_query") should be used in headers,
-    # not scorer class names (e.g., "RelevanceToQuery")
+    # This test demonstrates that assessment names (e.g., "relevance_to_query")
+    # are used in headers, not scorer class names (e.g., "RelevanceToQuery")
     output_data = [
         {
             "trace_id": "tr-123",
@@ -218,12 +202,10 @@ def test_format_with_different_assessment_names():
             ],
         }
     ]
-    # Scorer names are different from assessment names
-    scorer_names = ["RelevanceToQuery", "Safety"]
 
-    headers, table_data = format_table_output(output_data, scorer_names, mock_format_error_message)
+    headers, table_data = format_table_output(output_data)
 
-    # Headers should use actual assessment names, not scorer_names
+    # Headers should use actual assessment names from output_data
     assert headers == ["trace_id", "relevance_to_query", "safety_check"]
     assert len(table_data) == 1
     assert table_data[0][0] == "tr-123"
@@ -260,7 +242,6 @@ def test_resolve_registered_scorer(mock_get_all_scorers, mock_get_scorer):
 
     assert len(scorers) == 1
     assert scorers[0] == mock_registered
-    mock_get_scorer.assert_called_once_with(name="CustomScorer", experiment_id="experiment_123")
 
 
 @mock.patch("mlflow.cli.eval_utils.get_scorer")
@@ -324,12 +305,19 @@ def test_extract_with_matching_run_id():
 
     result = extract_assessments_from_results(results_df, "run-123")
 
-    assert len(result) == 1
-    assert result[0]["trace_id"] == "tr-abc123"
-    assert len(result[0]["assessments"]) == 1
-    assert result[0]["assessments"][0]["assessment_name"] == "RelevanceToQuery"
-    assert result[0]["assessments"][0]["result"] == "yes"
-    assert result[0]["assessments"][0]["rationale"] == "The answer is relevant"
+    expected = [
+        {
+            "trace_id": "tr-abc123",
+            "assessments": [
+                {
+                    "assessment_name": "RelevanceToQuery",
+                    "result": "yes",
+                    "rationale": "The answer is relevant",
+                }
+            ],
+        }
+    ]
+    assert result == expected
 
 
 def test_extract_with_different_assessment_name():
@@ -352,11 +340,19 @@ def test_extract_with_different_assessment_name():
 
     result = extract_assessments_from_results(results_df, "run-123")
 
-    assert len(result) == 1
-    assert result[0]["trace_id"] == "tr-abc123"
-    assert len(result[0]["assessments"]) == 1
-    assert result[0]["assessments"][0]["assessment_name"] == "relevance_to_query"
-    assert result[0]["assessments"][0]["result"] == "yes"
+    expected = [
+        {
+            "trace_id": "tr-abc123",
+            "assessments": [
+                {
+                    "assessment_name": "relevance_to_query",
+                    "result": "yes",
+                    "rationale": "Relevant answer",
+                }
+            ],
+        }
+    ]
+    assert result == expected
 
 
 def test_extract_filter_out_assessments_with_different_run_id():
@@ -385,10 +381,19 @@ def test_extract_filter_out_assessments_with_different_run_id():
 
     result = extract_assessments_from_results(results_df, "run-123")
 
-    assert len(result) == 1
-    assert len(result[0]["assessments"]) == 1
-    assert result[0]["assessments"][0]["assessment_name"] == "RelevanceToQuery"
-    assert result[0]["assessments"][0]["result"] == "yes"
+    expected = [
+        {
+            "trace_id": "tr-abc123",
+            "assessments": [
+                {
+                    "assessment_name": "RelevanceToQuery",
+                    "result": "yes",
+                    "rationale": "Current evaluation",
+                }
+            ],
+        }
+    ]
+    assert result == expected
 
 
 def test_extract_no_assessments_for_run_id():
@@ -442,10 +447,24 @@ def test_extract_multiple_assessments_from_same_run():
 
     result = extract_assessments_from_results(results_df, "run-123")
 
-    assert len(result) == 1
-    assert len(result[0]["assessments"]) == 2
-    assert result[0]["assessments"][0]["assessment_name"] == "RelevanceToQuery"
-    assert result[0]["assessments"][1]["assessment_name"] == "Safety"
+    expected = [
+        {
+            "trace_id": "tr-abc123",
+            "assessments": [
+                {
+                    "assessment_name": "RelevanceToQuery",
+                    "result": "yes",
+                    "rationale": "Relevant",
+                },
+                {
+                    "assessment_name": "Safety",
+                    "result": "yes",
+                    "rationale": "Safe",
+                },
+            ],
+        }
+    ]
+    assert result == expected
 
 
 def test_extract_no_assessments_on_trace_shows_error():

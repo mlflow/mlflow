@@ -126,17 +126,12 @@ def extract_assessments_from_results(
     return output_data
 
 
-def format_table_output(
-    output_data: list[dict[str, Any]], scorer_names: list[str], format_error_message_fn
-) -> tuple[list[str], list[list[str]]]:
+def format_table_output(output_data: list[dict[str, Any]]) -> tuple[list[str], list[list[str]]]:
     """
     Format evaluation results as table data.
 
     Args:
         output_data: List of trace results with assessments
-        scorer_names: List of scorer names (deprecated - assessment names are extracted
-            from output_data)
-        format_error_message_fn: Function to format error messages
 
     Returns:
         Tuple of (headers, table_data) where headers is a list of column names
