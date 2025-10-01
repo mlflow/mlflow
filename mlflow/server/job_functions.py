@@ -1,4 +1,3 @@
-import time
 from mlflow.server.jobs import job_function
 
 
