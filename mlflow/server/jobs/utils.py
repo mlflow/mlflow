@@ -186,9 +186,10 @@ def _exec_job(
     params: dict[str, Any],
     timeout: float | None,
 ) -> None:
+    import mlflow
     from mlflow.server.handlers import _get_job_store
 
-    job_store = _get_job_store()
+    job_store = _get_job_store(mlflow.get_tracking_uri())
     job_store.start_job(job_id)
 
     try:
@@ -332,9 +333,10 @@ def _load_function(fullname: str) -> Callable[..., Any]:
 
 
 def _enqueue_unfinished_jobs() -> None:
+    import mlflow
     from mlflow.server.handlers import _get_job_store
 
-    job_store = _get_job_store()
+    job_store = _get_job_store(mlflow.get_tracking_uri())
 
     unfinished_jobs = job_store.list_jobs(statuses=[JobStatus.PENDING, JobStatus.RUNNING])
 

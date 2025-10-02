@@ -416,7 +416,16 @@ def _run_server(
 
     if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
         from mlflow.server.jobs.utils import _launch_job_runner
+        from mlflow.environment_variables import MLFLOW_TRACKING_URI
 
-        _launch_job_runner(env_map, server_proc.pid)
+        _launch_job_runner(
+            {
+                **env_map,
+                # Set tracking URI environment variable for job runner
+                # so that all job processes inherits it.
+                MLFLOW_TRACKING_URI.name: f"http://{host}:{port}"
+            },
+            server_proc.pid
+        )
 
     server_proc.wait()
