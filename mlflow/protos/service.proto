@@ -2623,7 +2623,6 @@ message GetLoggedModel {
 
 message GetLoggedModelsRequest {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
 
   // The IDs of the logged models to retrieve. Max threshold is 100.
   repeated string model_ids = 1;
