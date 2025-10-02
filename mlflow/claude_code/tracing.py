@@ -626,9 +626,14 @@ def process_transcript(
         )
         parent_span.end(end_time_ns=conv_end_ns)
 
-        # Use this to check if async trace logging is enabled
-        if hasattr(_get_trace_exporter(), "_async_queue"):
-            mlflow.flush_trace_async_logging()
+        try:
+            # Use this to check if async trace logging is enabled
+            if hasattr(_get_trace_exporter(), "_async_queue"):
+                mlflow.flush_trace_async_logging()
+        except Exception as e:
+            # This is not a critical error, so we log it as debug
+            get_logger().debug("Failed to flush trace async logging: %s", e)
+
         get_logger().claude_tracing("Created MLflow trace: %s", parent_span.trace_id)
 
         return mlflow.get_trace(parent_span.trace_id)
