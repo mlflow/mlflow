@@ -20,7 +20,7 @@ service DatabricksTrackingService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/traces/{location_id}/{trace_info.trace_id}"
+        path: "/mlflow/traces/{location_id}/{trace_info.trace_id}/info"
         since { major: 4, minor: 0 },
       }],
       visibility: PUBLIC_UNDOCUMENTED,
