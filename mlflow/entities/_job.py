@@ -16,7 +16,7 @@ class Job(_MlflowObject):
         creation_time: int,
         function_fullname: str,
         params: str,
-        timeout: int | None,
+        timeout: float | None,
         status: JobStatus,
         result: str | None,
         retry_count: int = 0,
@@ -59,7 +59,7 @@ class Job(_MlflowObject):
         return self._params
 
     @property
-    def timeout(self) -> int | None:
+    def timeout(self) -> float | None:
         """
         Job execution timeout in seconds.
         """
