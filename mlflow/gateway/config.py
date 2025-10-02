@@ -543,5 +543,4 @@ def _validate_config(config_path: str) -> GatewayConfig:
     try:
         return _load_gateway_config(config_path)
     except Exception as e:
-        _logger.debug(exc_info=True)
         raise MlflowException.invalid_parameter_value(f"Invalid gateway configuration: {e}") from e
