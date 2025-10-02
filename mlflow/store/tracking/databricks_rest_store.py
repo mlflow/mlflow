@@ -112,7 +112,7 @@ class DatabricksTracingRestStore(RestStore):
                 endpoint=f"{_V4_REST_API_PATH_PREFIX}/mlflow/traces/{location}/{trace_info.trace_id}/info",
                 retry_timeout_seconds=MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.get(),
             )
-            return TraceInfo.from_proto(response_proto.trace_info)
+            return TraceInfo.from_proto(response_proto)
         # Temporarily we capture all exceptions and fallback to v3 if the trace location is not uc
         # TODO: remove this once the endpoint is fully rolled out
         except Exception as e:
