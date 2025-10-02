@@ -12,7 +12,7 @@ from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, Span
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_location import MlflowExperimentLocation, UCSchemaLocation
+from mlflow.entities.trace_location import UCSchemaLocation
 from mlflow.environment_variables import (
     MLFLOW_SEARCH_TRACES_MAX_THREADS,
     MLFLOW_TRACING_SQL_WAREHOUSE_ID,
@@ -321,22 +321,21 @@ class TracingClient:
                 if include_spans:
                     location_to_trace_infos = self._group_trace_infos_by_location(trace_infos)
                     for location, location_trace_infos in location_to_trace_infos.items():
-                        match location.split("."):
-                            case [_, _]:
-                                # UC schema location. Get full traces from v4 BatchGetTraces.
-                                # All traces in a single call must be located in the same table.
-                                trace_ids = [t.trace_id for t in location_trace_infos]
-                                traces.extend(self.store.batch_get_traces(trace_ids, location))
-                            case _:
-                                # MLflow experiment location. Load spans from artifact repository.
-                                traces.extend(
-                                    trace
-                                    for trace in executor.map(
-                                        self._download_spans_from_artifact_repo,
-                                        location_trace_infos,
-                                    )
-                                    if trace
+                        if "." in location:
+                            # UC schema location. Get full traces from v4 BatchGetTraces.
+                            # All traces in a single call must be located in the same table.
+                            trace_ids = [t.trace_id for t in location_trace_infos]
+                            traces.extend(self.store.batch_get_traces(trace_ids, location))
+                        else:
+                            # MLflow experiment location. Load spans from artifact repository.
+                            traces.extend(
+                                trace
+                                for trace in executor.map(
+                                    self._download_spans_from_artifact_repo,
+                                    location_trace_infos,
                                 )
+                                if trace
+                            )
                 else:
                     traces.extend(Trace(t, TraceData(spans=[])) for t in trace_infos)
 
@@ -386,7 +385,7 @@ class TracingClient:
 
     def _group_trace_infos_by_location(
         self, trace_infos: list[TraceInfo]
-    ) -> dict[MlflowExperimentLocation | UCSchemaLocation, list[TraceInfo]]:
+    ) -> dict[str, list[TraceInfo]]:
         """
         Group the trace infos based on where the trace data is stored.
 
