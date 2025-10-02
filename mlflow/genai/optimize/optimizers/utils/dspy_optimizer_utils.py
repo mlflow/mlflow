@@ -32,7 +32,6 @@ def format_dspy_prompt(
     return messages
 
 
-@experimental(version="3.5.0")
 def parse_model_name(model_name: str) -> str:
     """
     Parse model name from URI format to provider/model format.
@@ -49,12 +48,6 @@ def parse_model_name(model_name: str) -> str:
 
     Raises:
         MlflowException: If the model name format is invalid
-
-    Example:
-        >>> parse_model_name("openai:/gpt-4o")
-        'openai/gpt-4o'
-        >>> parse_model_name("openai/gpt-4o")
-        'openai/gpt-4o'
     """
     from mlflow.metrics.genai.model_utils import _parse_model_uri
 
