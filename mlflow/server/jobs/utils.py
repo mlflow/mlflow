@@ -186,10 +186,9 @@ def _exec_job(
     params: dict[str, Any],
     timeout: float | None,
 ) -> None:
-    import mlflow
     from mlflow.server.handlers import _get_job_store
 
-    job_store = _get_job_store(mlflow.get_tracking_uri())
+    job_store = _get_job_store()
     job_store.start_job(job_id)
 
     try:
