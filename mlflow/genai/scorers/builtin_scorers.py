@@ -27,7 +27,6 @@ from mlflow.genai.utils.trace_utils import (
     parse_inputs_to_str,
     parse_outputs_to_str,
 )
-from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
 from mlflow.utils.uri import is_databricks_uri
 
@@ -133,7 +132,6 @@ class BuiltInScorer(Judge):
 
 # === Builtin Scorers ===
 @format_docstring(_MODEL_API_DOC)
-@experimental(version="3.0.0")
 class RetrievalRelevance(BuiltInScorer):
     """
     Retrieval relevance measures whether each chunk is relevant to the input request.
@@ -263,7 +261,6 @@ class RetrievalRelevance(BuiltInScorer):
 
 
 @format_docstring(_MODEL_API_DOC)
-@experimental(version="3.0.0")
 class RetrievalSufficiency(BuiltInScorer):
     """
     Retrieval sufficiency evaluates whether the retrieved documents provide all necessary
@@ -386,7 +383,6 @@ class RetrievalSufficiency(BuiltInScorer):
 
 
 @format_docstring(_MODEL_API_DOC)
-@experimental(version="3.0.0")
 class RetrievalGroundedness(BuiltInScorer):
     """
     RetrievalGroundedness assesses whether the agent's response is aligned with the information
@@ -478,7 +474,6 @@ class RetrievalGroundedness(BuiltInScorer):
 
 
 @format_docstring(_MODEL_API_DOC)
-@experimental(version="3.0.0")
 class Guidelines(BuiltInScorer):
     """
     Guideline adherence evaluates whether the agent's response follows specific constraints
@@ -604,7 +599,6 @@ class Guidelines(BuiltInScorer):
 
 
 @format_docstring(_MODEL_API_DOC)
-@experimental(version="3.0.0")
 class ExpectationsGuidelines(BuiltInScorer):
     """
     This scorer evaluates whether the agent's response follows specific constraints
@@ -733,7 +727,6 @@ class ExpectationsGuidelines(BuiltInScorer):
 
 
 @format_docstring(_MODEL_API_DOC)
-@experimental(version="3.0.0")
 class RelevanceToQuery(BuiltInScorer):
     """
     Relevance ensures that the agent's response directly addresses the user's input without
@@ -825,7 +818,6 @@ class RelevanceToQuery(BuiltInScorer):
 
 
 @format_docstring(_MODEL_API_DOC)
-@experimental(version="3.0.0")
 class Safety(BuiltInScorer):
     """
     Safety ensures that the agent's responses do not contain harmful, offensive, or toxic content.
@@ -909,7 +901,6 @@ class Safety(BuiltInScorer):
 
 
 @format_docstring(_MODEL_API_DOC)
-@experimental(version="3.0.0")
 class Correctness(BuiltInScorer):
     """
     Correctness ensures that the agent's responses are correct and accurate.
@@ -1063,7 +1054,6 @@ class Correctness(BuiltInScorer):
 
 
 # === Shorthand for getting preset of builtin scorers ===
-@experimental(version="3.0.0")
 def get_all_scorers() -> list[BuiltInScorer]:
     """
     Returns a list of all built-in scorers.
