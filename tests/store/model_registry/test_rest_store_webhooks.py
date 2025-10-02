@@ -3,62 +3,44 @@ This test file verifies webhook CRUD operations with the REST client,
 testing both server handlers and the REST client together.
 """
 
-import os
-import subprocess
-import sys
 from pathlib import Path
-from typing import Generator
+from typing import Iterator
 
-import psutil
 import pytest
 from cryptography.fernet import Fernet
 
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent, WebhookStatus
 from mlflow.environment_variables import MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY
 from mlflow.exceptions import MlflowException
+from mlflow.server import handlers
+from mlflow.server.fastapi_app import app
+from mlflow.server.handlers import initialize_backend_stores
 from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.utils.rest_utils import MlflowHostCreds
 
 from tests.helper_functions import get_safe_port
+from tests.tracking.integration_test_utils import ServerThread
 
 
 @pytest.fixture
-def server(tmp_path: Path) -> Generator[str, None, None]:
-    port = get_safe_port()
-    sqlite_db_path = tmp_path / "mlflow.db"
-    with subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "mlflow",
-            "server",
-            f"--port={port}",
-            f"--backend-store-uri=sqlite:///{sqlite_db_path}",
-        ],
-        cwd=tmp_path,
-        env=os.environ.copy()
-        | {MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY.name: Fernet.generate_key().decode("utf-8")},
-    ) as prc:
-        try:
-            yield f"http://localhost:{port}"
-        finally:
-            # Kill the gunicorn processes spawned by mlflow server
-            try:
-                proc = psutil.Process(prc.pid)
-            except psutil.NoSuchProcess:
-                # Handle case where the process did not start correctly
-                pass
-            else:
-                for child in proc.children(recursive=True):
-                    child.terminate()
+def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[RestStore]:
+    """Set up a local MLflow server with proper webhook encryption key support."""
+    # Set up encryption key for webhooks using monkeypatch
+    encryption_key = Fernet.generate_key().decode("utf-8")
+    monkeypatch.setenv(MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY.name, encryption_key)
 
-            # Kill the mlflow server process
-            prc.terminate()
+    # Configure backend stores
+    backend_uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
+    default_artifact_root = tmp_path.as_uri()
 
+    # Force-reset backend stores before each test
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    initialize_backend_stores(backend_uri, default_artifact_root=default_artifact_root)
 
-@pytest.fixture
-def store(server: str) -> RestStore:
-    return RestStore(lambda: MlflowHostCreds(server))
+    # Start server and return RestStore
+    with ServerThread(app, get_safe_port()) as url:
+        yield RestStore(lambda: MlflowHostCreds(url))
 
 
 def test_create_webhook(store: RestStore):
