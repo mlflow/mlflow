@@ -1,4 +1,4 @@
-"""Tests for mlflow.cli.eval_utils module."""
+"""Tests for mlflow.cli.genai_eval_utils module."""
 
 from unittest import mock
 
@@ -6,14 +6,14 @@ import click
 import pandas as pd
 import pytest
 
-from mlflow.cli.eval_utils import (
+from mlflow.cli.genai_eval_utils import (
+    NA_VALUE,
     extract_assessments_from_results,
     format_table_output,
     resolve_scorers,
 )
 from mlflow.exceptions import MlflowException
-
-# Tests for format_table_output function
+from mlflow.tracing.constant import AssessmentMetadataKey
 
 
 def test_format_single_trace_with_result_and_rationale():
@@ -31,14 +31,14 @@ def test_format_single_trace_with_result_and_rationale():
         }
     ]
 
-    headers, table_data = format_table_output(output_data)
+    table_output = format_table_output(output_data)
 
     # Headers should use assessment names from output_data
-    assert headers == ["trace_id", "RelevanceToQuery"]
-    assert len(table_data) == 1
-    assert table_data[0][0] == "tr-123"
-    assert "value: yes" in table_data[0][1]
-    assert "rationale: The answer is relevant" in table_data[0][1]
+    assert table_output.headers == ["trace_id", "RelevanceToQuery"]
+    assert len(table_output.rows) == 1
+    assert table_output.rows[0][0].value == "tr-123"
+    assert "value: yes" in table_output.rows[0][1].value
+    assert "rationale: The answer is relevant" in table_output.rows[0][1].value
 
 
 def test_format_multiple_traces_multiple_scorers():
@@ -68,14 +68,15 @@ def test_format_multiple_traces_multiple_scorers():
         },
     ]
 
-    headers, table_data = format_table_output(output_data)
+    table_output = format_table_output(output_data)
 
-    assert headers == ["trace_id", "RelevanceToQuery", "Safety"]
-    assert len(table_data) == 2
-    assert table_data[0][0] == "tr-123"
-    assert table_data[1][0] == "tr-456"
-    assert "value: yes" in table_data[0][1]
-    assert "value: no" in table_data[1][1]
+    # Assessment names should be sorted
+    assert table_output.headers == ["trace_id", "RelevanceToQuery", "Safety"]
+    assert len(table_output.rows) == 2
+    assert table_output.rows[0][0].value == "tr-123"
+    assert table_output.rows[1][0].value == "tr-456"
+    assert "value: yes" in table_output.rows[0][1].value
+    assert "value: no" in table_output.rows[1][1].value
 
 
 def test_format_long_rationale_not_truncated():
@@ -94,10 +95,10 @@ def test_format_long_rationale_not_truncated():
         }
     ]
 
-    headers, table_data = format_table_output(output_data)
+    table_output = format_table_output(output_data)
 
-    assert long_rationale in table_data[0][1]
-    assert len(table_data[0][1]) >= len(long_rationale)
+    assert long_rationale in table_output.rows[0][1].value
+    assert len(table_output.rows[0][1].value) >= len(long_rationale)
 
 
 def test_format_error_message_formatting():
@@ -116,9 +117,9 @@ def test_format_error_message_formatting():
         }
     ]
 
-    headers, table_data = format_table_output(output_data)
+    table_output = format_table_output(output_data)
 
-    assert table_data[0][1] == "error: OpenAI API error"
+    assert table_output.rows[0][1].value == "error: OpenAI API error"
 
 
 def test_format_na_for_missing_results():
@@ -136,9 +137,9 @@ def test_format_na_for_missing_results():
         }
     ]
 
-    headers, table_data = format_table_output(output_data)
+    table_output = format_table_output(output_data)
 
-    assert table_data[0][1] == "N/A"
+    assert table_output.rows[0][1].value == NA_VALUE
 
 
 def test_format_result_only_without_rationale():
@@ -156,9 +157,9 @@ def test_format_result_only_without_rationale():
         }
     ]
 
-    headers, table_data = format_table_output(output_data)
+    table_output = format_table_output(output_data)
 
-    assert table_data[0][1] == "value: yes"
+    assert table_output.rows[0][1].value == "value: yes"
 
 
 def test_format_rationale_only_without_result():
@@ -176,9 +177,9 @@ def test_format_rationale_only_without_result():
         }
     ]
 
-    headers, table_data = format_table_output(output_data)
+    table_output = format_table_output(output_data)
 
-    assert table_data[0][1] == "rationale: Some reasoning"
+    assert table_output.rows[0][1].value == "rationale: Some reasoning"
 
 
 def test_format_with_different_assessment_names():
@@ -203,35 +204,39 @@ def test_format_with_different_assessment_names():
         }
     ]
 
-    headers, table_data = format_table_output(output_data)
+    table_output = format_table_output(output_data)
 
-    # Headers should use actual assessment names from output_data
-    assert headers == ["trace_id", "relevance_to_query", "safety_check"]
-    assert len(table_data) == 1
-    assert table_data[0][0] == "tr-123"
-    assert "value: yes" in table_data[0][1]
-    assert "value: safe" in table_data[0][2]
+    # Headers should use actual assessment names from output_data (sorted)
+    assert table_output.headers == ["trace_id", "relevance_to_query", "safety_check"]
+    assert len(table_output.rows) == 1
+    assert table_output.rows[0][0].value == "tr-123"
+    assert "value: yes" in table_output.rows[0][1].value
+    assert "value: safe" in table_output.rows[0][2].value
 
 
 # Tests for resolve_scorers function
 
 
-@mock.patch("mlflow.cli.eval_utils.get_all_scorers")
-def test_resolve_builtin_scorer(mock_get_all_scorers):
-    """Test resolving a built-in scorer."""
-    # Create a mock scorer object
-    mock_scorer = mock.Mock()
-    mock_scorer.__class__.__name__ = "RelevanceToQuery"
-    mock_get_all_scorers.return_value = [mock_scorer]
-
-    scorers = resolve_scorers(["RelevanceToQuery"], "experiment_123")
+def test_resolve_builtin_scorer():
+    """Test resolving a built-in scorer using real scorers."""
+    # Test with real built-in scorer names
+    scorers = resolve_scorers(["Correctness"], "experiment_123")
 
     assert len(scorers) == 1
-    assert scorers[0] == mock_scorer
+    assert scorers[0].__class__.__name__ == "Correctness"
 
 
-@mock.patch("mlflow.cli.eval_utils.get_scorer")
-@mock.patch("mlflow.cli.eval_utils.get_all_scorers")
+def test_resolve_builtin_scorer_snake_case():
+    """Test resolving a built-in scorer using snake_case name."""
+    # Test with snake_case name
+    scorers = resolve_scorers(["correctness"], "experiment_123")
+
+    assert len(scorers) == 1
+    assert scorers[0].__class__.__name__ == "Correctness"
+
+
+@mock.patch("mlflow.cli.genai_eval_utils.get_scorer")
+@mock.patch("mlflow.cli.genai_eval_utils.get_all_scorers")
 def test_resolve_registered_scorer(mock_get_all_scorers, mock_get_scorer):
     """Test resolving a registered scorer when not found in built-ins."""
     mock_get_all_scorers.return_value = []  # No built-in scorers
@@ -244,8 +249,8 @@ def test_resolve_registered_scorer(mock_get_all_scorers, mock_get_scorer):
     assert scorers[0] == mock_registered
 
 
-@mock.patch("mlflow.cli.eval_utils.get_scorer")
-@mock.patch("mlflow.cli.eval_utils.get_all_scorers")
+@mock.patch("mlflow.cli.genai_eval_utils.get_scorer")
+@mock.patch("mlflow.cli.genai_eval_utils.get_all_scorers")
 def test_resolve_mixed_scorers(mock_get_all_scorers, mock_get_scorer):
     """Test resolving a mix of built-in and registered scorers."""
     # Setup built-in scorer
@@ -264,8 +269,8 @@ def test_resolve_mixed_scorers(mock_get_all_scorers, mock_get_scorer):
     assert scorers[1] == mock_registered
 
 
-@mock.patch("mlflow.cli.eval_utils.get_scorer")
-@mock.patch("mlflow.cli.eval_utils.get_all_scorers")
+@mock.patch("mlflow.cli.genai_eval_utils.get_scorer")
+@mock.patch("mlflow.cli.genai_eval_utils.get_all_scorers")
 def test_resolve_scorer_not_found_raises_error(mock_get_all_scorers, mock_get_scorer):
     """Test that appropriate error is raised when scorer not found."""
     mock_get_all_scorers.return_value = []
@@ -275,7 +280,7 @@ def test_resolve_scorer_not_found_raises_error(mock_get_all_scorers, mock_get_sc
         resolve_scorers(["UnknownScorer"], "experiment_123")
 
 
-@mock.patch("mlflow.cli.eval_utils.get_all_scorers")
+@mock.patch("mlflow.cli.genai_eval_utils.get_all_scorers")
 def test_resolve_empty_scorers_raises_error(mock_get_all_scorers):
     """Test that error is raised when no scorers specified."""
     with pytest.raises(click.UsageError, match="No valid scorers"):
@@ -296,7 +301,7 @@ def test_extract_with_matching_run_id():
                         "assessment_name": "RelevanceToQuery",
                         "feedback": {"value": "yes"},
                         "rationale": "The answer is relevant",
-                        "metadata": {"mlflow.assessment.sourceRunId": "run-123"},
+                        "metadata": {AssessmentMetadataKey.SOURCE_RUN_ID: "run-123"},
                     }
                 ],
             }
@@ -331,7 +336,7 @@ def test_extract_with_different_assessment_name():
                         "assessment_name": "relevance_to_query",
                         "feedback": {"value": "yes"},
                         "rationale": "Relevant answer",
-                        "metadata": {"mlflow.assessment.sourceRunId": "run-123"},
+                        "metadata": {AssessmentMetadataKey.SOURCE_RUN_ID: "run-123"},
                     }
                 ],
             }
@@ -366,13 +371,13 @@ def test_extract_filter_out_assessments_with_different_run_id():
                         "assessment_name": "RelevanceToQuery",
                         "feedback": {"value": "yes"},
                         "rationale": "Current evaluation",
-                        "metadata": {"mlflow.assessment.sourceRunId": "run-123"},
+                        "metadata": {AssessmentMetadataKey.SOURCE_RUN_ID: "run-123"},
                     },
                     {
                         "assessment_name": "Safety",
                         "feedback": {"value": "yes"},
                         "rationale": "Old evaluation",
-                        "metadata": {"mlflow.assessment.sourceRunId": "run-456"},
+                        "metadata": {AssessmentMetadataKey.SOURCE_RUN_ID: "run-456"},
                     },
                 ],
             }
@@ -405,7 +410,7 @@ def test_extract_no_assessments_for_run_id():
                 "assessments": [
                     {
                         "assessment_name": "RelevanceToQuery",
-                        "metadata": {"mlflow.assessment.sourceRunId": "run-456"},
+                        "metadata": {AssessmentMetadataKey.SOURCE_RUN_ID: "run-456"},
                     }
                 ],
             }
@@ -432,13 +437,13 @@ def test_extract_multiple_assessments_from_same_run():
                         "assessment_name": "RelevanceToQuery",
                         "feedback": {"value": "yes"},
                         "rationale": "Relevant",
-                        "metadata": {"mlflow.assessment.sourceRunId": "run-123"},
+                        "metadata": {AssessmentMetadataKey.SOURCE_RUN_ID: "run-123"},
                     },
                     {
                         "assessment_name": "Safety",
                         "feedback": {"value": "yes"},
                         "rationale": "Safe",
-                        "metadata": {"mlflow.assessment.sourceRunId": "run-123"},
+                        "metadata": {AssessmentMetadataKey.SOURCE_RUN_ID: "run-123"},
                     },
                 ],
             }
