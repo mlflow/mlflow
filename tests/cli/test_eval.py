@@ -25,7 +25,6 @@ def test_evaluate_traces_with_single_trace_table_output():
     with mock.patch("mlflow.cli.eval.MlflowClient.get_trace") as mock_get_trace:
         mock_get_trace.return_value = mock_trace
 
-        # Mock evaluate() with realistic return value - mock at genai.evaluation module level
         mock_results = mock.Mock()
         mock_results.run_id = "run-eval-456"
         mock_results.tables = {
@@ -46,44 +45,34 @@ def test_evaluate_traces_with_single_trace_table_output():
             )
         }
 
-        # ALKIS: IT'S BOTHERSOME TO KEEP REPEATING THE SAME GUIDANCE: DO NOT MOCK METHODS IN
-        # THE cli MODULE. APPLY TO ALL TESTS IN THIS FILE. PAY ATTENTION TO THIS COMMENT
-        # OR THERE WILL BE CONSEQUENCES.
-        # Note: evaluate is imported into cli.eval from genai.evaluation, not defined in
-        # cli module. Patching the imported reference doesn't violate the "don't mock cli
-        # module methods" rule
         with mock.patch("mlflow.cli.eval.evaluate") as mock_evaluate:
             mock_evaluate.return_value = mock_results
 
-            with mock.patch("click.echo"):
-                # Call the function
-                evaluate_traces(
-                    experiment_id=experiment_id,
-                    trace_ids="tr-test-123",
-                    scorers="RelevanceToQuery",
-                    output="table",
-                )
+            # Call the function
+            evaluate_traces(
+                experiment_id=experiment_id,
+                trace_ids="tr-test-123",
+                scorers="RelevanceToQuery",
+                output="table",
+            )
 
-                # Verify mocks were called with expected arguments
-                mock_get_trace.assert_called_once_with("tr-test-123", display=False)
+            # Verify mocks were called with expected arguments
+            mock_get_trace.assert_called_once_with("tr-test-123", display=False)
 
-                # Verify evaluate() was called with DataFrame
-                assert mock_evaluate.call_count == 1
-                call_args = mock_evaluate.call_args
-                assert "data" in call_args.kwargs
-                # Verify DataFrame has correct structure
-                assert isinstance(call_args.kwargs["data"], pd.DataFrame)
-                assert len(call_args.kwargs["data"]) == 1
-                assert "trace_id" in call_args.kwargs["data"].columns
-                assert "trace" in call_args.kwargs["data"].columns
-                assert call_args.kwargs["data"]["trace_id"].iloc[0] == "tr-test-123"
-                assert "scorers" in call_args.kwargs
-                # Verify that scorers is a list with one scorer
-                assert len(call_args.kwargs["scorers"]) == 1
-                # Verify the scorer is an actual RelevanceToQuery scorer (not a mock)
-                assert call_args.kwargs["scorers"][0].__class__.__name__ == "RelevanceToQuery"
+            # Verify evaluate() was called with correct DataFrame
+            assert mock_evaluate.call_count == 1
+            call_args = mock_evaluate.call_args
+            assert "data" in call_args.kwargs
 
-                # ALKIS: DO NOT ASSERT ANY OUTPUT CALLS
+            # Create expected DataFrame and verify it matches
+            expected_df = pd.DataFrame([{"trace_id": "tr-test-123", "trace": mock_trace}])
+            pd.testing.assert_frame_equal(call_args.kwargs["data"], expected_df)
+
+            # Verify scorers
+            assert "scorers" in call_args.kwargs
+            assert len(call_args.kwargs["scorers"]) == 1
+            # Verify the scorer is an actual RelevanceToQuery scorer (not a mock)
+            assert call_args.kwargs["scorers"][0].__class__.__name__ == "RelevanceToQuery"
 
 
 def test_evaluate_traces_with_multiple_traces_json_output():
@@ -141,27 +130,31 @@ def test_evaluate_traces_with_multiple_traces_json_output():
         with mock.patch("mlflow.cli.eval.evaluate") as mock_evaluate:
             mock_evaluate.return_value = mock_results
 
-            with mock.patch("click.echo"):
-                # Call the function (using Correctness which is a real built-in scorer)
-                evaluate_traces(
-                    experiment_id=experiment,
-                    trace_ids="tr-test-1,tr-test-2",
-                    scorers="Correctness",
-                    output="json",
-                )
+            # Call the function (using Correctness which is a real built-in scorer)
+            evaluate_traces(
+                experiment_id=experiment,
+                trace_ids="tr-test-1,tr-test-2",
+                scorers="Correctness",
+                output="json",
+            )
 
             # Verify get_trace was called for both traces
             assert mock_get_trace.call_count == 2
             mock_get_trace.assert_any_call("tr-test-1", display=False)
             mock_get_trace.assert_any_call("tr-test-2", display=False)
 
-            # Verify evaluate() was called with DataFrame containing both traces
+            # Verify evaluate() was called with correct DataFrame
             assert mock_evaluate.call_count == 1
             call_args = mock_evaluate.call_args
-            traces_df = call_args.kwargs["data"]
-            assert len(traces_df) == 2
-            assert "tr-test-1" in traces_df["trace_id"].values
-            assert "tr-test-2" in traces_df["trace_id"].values
+
+            # Create expected DataFrame and verify it matches
+            expected_df = pd.DataFrame(
+                [
+                    {"trace_id": "tr-test-1", "trace": mock_trace1},
+                    {"trace_id": "tr-test-2", "trace": mock_trace2},
+                ]
+            )
+            pd.testing.assert_frame_equal(call_args.kwargs["data"], expected_df)
 
 
 def test_evaluate_traces_with_nonexistent_trace():
