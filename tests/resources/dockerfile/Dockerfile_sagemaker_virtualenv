@@ -2,8 +2,6 @@
 FROM ubuntu:22.04
 
 RUN apt-get -y update && DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get install -y --no-install-recommends wget curl nginx ca-certificates bzip2 build-essential cmake git-core
-# Remove system python3-blinker to avoid pip uninstall conflicts
-RUN apt-get remove -y python3-blinker || true
 
 # Setup pyenv
 RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get -y install tzdata \
@@ -20,6 +18,8 @@ RUN apt install -y software-properties-common \
     && add-apt-repository -y ppa:deadsnakes/ppa \
     && apt update \
     && apt install -y python3.10 python3.10-distutils \
+    # Remove python3-blinker to avoid pip uninstall conflicts
+    && apt remove -y python3-blinker \
     && ln -s -f $(which python3.10) /usr/bin/python \
     && wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py \
     && python /tmp/get-pip.py
