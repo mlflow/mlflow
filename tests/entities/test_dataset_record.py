@@ -477,3 +477,115 @@ def test_dataset_record_complex_inputs():
 
     assert record3.inputs == complex_data
     assert record3.expectations == record.expectations
+
+
+def test_dataset_record_wrapped_output_unwrapping_from_proto():
+    record = DatasetRecord(
+        dataset_record_id="rec123",
+        dataset_id="dataset123",
+        inputs={"query": "test"},
+        outputs={"mlflow_wrapped": "string output"},
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+
+    proto = record.to_proto()
+    record_from_proto = DatasetRecord.from_proto(proto)
+
+    assert record_from_proto.outputs == {"mlflow_wrapped": "string output"}
+
+
+def test_dataset_record_wrapped_output_unwrapping_from_dict():
+    data = {
+        "dataset_record_id": "rec123",
+        "dataset_id": "dataset123",
+        "inputs": {"query": "test"},
+        "outputs": {"mlflow_wrapped": [1, 2, 3]},
+        "created_time": 123456789,
+        "last_update_time": 123456789,
+    }
+
+    record = DatasetRecord.from_dict(data)
+
+    assert record.outputs == {"mlflow_wrapped": [1, 2, 3]}
+
+
+def test_dataset_record_dict_output_not_unwrapped():
+    record = DatasetRecord(
+        dataset_record_id="rec123",
+        dataset_id="dataset123",
+        inputs={"query": "test"},
+        outputs={"result": "answer", "confidence": 0.95},
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+
+    proto = record.to_proto()
+    record_from_proto = DatasetRecord.from_proto(proto)
+
+    assert record_from_proto.outputs == {"result": "answer", "confidence": 0.95}
+
+
+def test_dataset_record_dict_with_wrapped_key_but_not_alone():
+    record = DatasetRecord(
+        dataset_record_id="rec123",
+        dataset_id="dataset123",
+        inputs={"query": "test"},
+        outputs={"mlflow_wrapped": "value", "other_key": "value2"},
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+
+    proto = record.to_proto()
+    record_from_proto = DatasetRecord.from_proto(proto)
+
+    assert record_from_proto.outputs == {
+        "mlflow_wrapped": "value",
+        "other_key": "value2",
+    }
+
+
+def test_dataset_record_none_output_remains_none():
+    record = DatasetRecord(
+        dataset_record_id="rec123",
+        dataset_id="dataset123",
+        inputs={"query": "test"},
+        outputs=None,
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+
+    proto = record.to_proto()
+    record_from_proto = DatasetRecord.from_proto(proto)
+
+    assert record_from_proto.outputs is None
+
+
+def test_dataset_record_to_dict_unwraps_outputs():
+    record = DatasetRecord(
+        dataset_record_id="rec123",
+        dataset_id="dataset123",
+        inputs={"query": "test"},
+        outputs={"mlflow_wrapped": "string output"},
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+
+    data = record.to_dict()
+
+    assert data["outputs"] == {"mlflow_wrapped": "string output"}
+
+
+def test_dataset_record_to_dict_preserves_dict_outputs():
+    record = DatasetRecord(
+        dataset_record_id="rec123",
+        dataset_id="dataset123",
+        inputs={"query": "test"},
+        outputs={"result": "answer", "confidence": 0.95},
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+
+    data = record.to_dict()
+
+    assert data["outputs"] == {"result": "answer", "confidence": 0.95}

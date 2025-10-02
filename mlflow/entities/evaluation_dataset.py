@@ -148,14 +148,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
 
             root_span = trace.data._get_root_span()
             inputs = root_span.inputs if root_span and root_span.inputs is not None else {}
-
-            raw_outputs = root_span.outputs if root_span and root_span.outputs is not None else {}
-            if isinstance(raw_outputs, str):
-                outputs = {"result": raw_outputs}
-            elif isinstance(raw_outputs, dict):
-                outputs = raw_outputs
-            else:
-                outputs = {"result": str(raw_outputs)}
+            outputs = root_span.outputs if root_span and root_span.outputs is not None else None
 
             expectations = {}
             expectation_assessments = trace.search_assessments(type="expectation")

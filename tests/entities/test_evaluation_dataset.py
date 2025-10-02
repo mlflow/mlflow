@@ -511,7 +511,7 @@ def test_process_trace_records_with_string_outputs():
 
     assert len(record_dicts) == 1
     assert record_dicts[0]["inputs"] == {"query": "Tell me about Python"}
-    assert record_dicts[0]["outputs"] == {"result": "Python is a programming language"}
+    assert record_dicts[0]["outputs"] == "Python is a programming language"
     assert record_dicts[0]["expectations"] == {}
     assert record_dicts[0]["source"]["source_type"] == DatasetRecordSourceType.TRACE.value
 
@@ -533,7 +533,7 @@ def test_process_trace_records_with_non_dict_non_string_outputs():
 
     assert len(record_dicts) == 1
     assert record_dicts[0]["inputs"] == {"x": 1, "y": 2}
-    assert record_dicts[0]["outputs"] == {"result": "['result1', 'result2', 'result3']"}
+    assert record_dicts[0]["outputs"] == ["result1", "result2", "result3"]
     assert record_dicts[0]["source"]["source_type"] == DatasetRecordSourceType.TRACE.value
 
 
@@ -551,7 +551,7 @@ def test_process_trace_records_with_numeric_outputs():
     record_dicts = dataset._process_trace_records([trace])
 
     assert len(record_dicts) == 1
-    assert record_dicts[0]["outputs"] == {"result": "42"}
+    assert record_dicts[0]["outputs"] == 42
 
 
 def test_process_trace_records_with_none_outputs():
@@ -570,7 +570,7 @@ def test_process_trace_records_with_none_outputs():
     record_dicts = dataset._process_trace_records([trace])
 
     assert len(record_dicts) == 1
-    assert record_dicts[0]["outputs"] == {}
+    assert record_dicts[0]["outputs"] is None
 
 
 def test_process_trace_records_with_expectations():
@@ -614,8 +614,8 @@ def test_process_trace_records_multiple_traces():
 
     assert len(record_dicts) == 3
     assert record_dicts[0]["outputs"] == {"result": "answer1"}
-    assert record_dicts[1]["outputs"] == {"result": "string answer"}
-    assert record_dicts[2]["outputs"] == {"result": "[1, 2, 3]"}
+    assert record_dicts[1]["outputs"] == "string answer"
+    assert record_dicts[2]["outputs"] == [1, 2, 3]
 
 
 def test_process_trace_records_mixed_types_error():
