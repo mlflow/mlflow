@@ -6,9 +6,6 @@ import logging
 
 from mlflow.entities.trace_location import UCSchemaLocation
 from mlflow.exceptions import MlflowException
-from mlflow.tracing.client import TracingClient
-from mlflow.tracking._tracking_service.utils import get_tracking_uri
-from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.annotations import experimental
 from mlflow.utils.uri import is_databricks_uri
 
@@ -29,7 +26,7 @@ def set_experiment_trace_location(
     stored in the provided Unity Catalog schema.
 
     Note: If the experiment is already linked to a storage location, this will raise an error.
-    Use `mlflow.tracing.enablement.unset_experiment_trace_location` to remove the existing
+    Use `mlflow.tracing.unset_experiment_trace_location` to remove the existing
     storage location first and then set a new one.
 
     Args:
@@ -49,11 +46,10 @@ def set_experiment_trace_location(
 
         import mlflow
         from mlflow.entities import UCSchemaLocation
-        from mlflow.tracing.enablement import set_experiment_trace_location
 
         location = UCSchemaLocation(catalog_name="my_catalog", schema_name="my_schema")
 
-        result = set_experiment_trace_location(
+        result = mlflow.tracing.set_experiment_trace_location(
             location=location,
             experiment_id="12345",
         )
@@ -68,6 +64,10 @@ def set_experiment_trace_location(
         add(1)  # this writes the trace to the storage location set above
 
     """
+    from mlflow.tracing.client import TracingClient
+    from mlflow.tracking._tracking_service.utils import get_tracking_uri
+    from mlflow.tracking.fluent import _get_experiment_id
+
     if not is_databricks_uri(get_tracking_uri()):
         raise MlflowException(
             "The `set_experiment_trace_location` API is only supported on Databricks."
@@ -115,13 +115,16 @@ def unset_experiment_trace_location(
 
         import mlflow
         from mlflow.entities import UCSchemaLocation
-        from mlflow.tracing.enablement import unset_experiment_trace_location
 
-        unset_experiment_trace_location(
+        mlflow.tracing.unset_experiment_trace_location(
             location=UCSchemaLocation(catalog_name="my_catalog", schema_name="my_schema"),
             experiment_id="12345",
         )
     """
+    from mlflow.tracing.client import TracingClient
+    from mlflow.tracking._tracking_service.utils import get_tracking_uri
+    from mlflow.tracking.fluent import _get_experiment_id
+
     if not is_databricks_uri(get_tracking_uri()):
         raise MlflowException(
             "The `unset_experiment_trace_location` API is only supported on Databricks."

@@ -3,10 +3,10 @@ import logging
 from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
-from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.processor.base_mlflow import BaseMlflowSpanProcessor
 from mlflow.tracing.utils import (
     generate_trace_id_v4,
