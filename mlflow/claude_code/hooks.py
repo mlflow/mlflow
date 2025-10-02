@@ -222,6 +222,12 @@ async def sdk_stop_hook_handler(
         tool_use_id: Tool use identifier
         context: HookContext from the SDK
     """
+    from mlflow.utils.autologging_utils import autologging_is_disabled
+
+    # Check if autologging is disabled
+    if autologging_is_disabled("anthropic"):
+        return get_hook_response()
+
     try:
         session_id = input_data.get("session_id")
         transcript_path = input_data.get("transcript_path")

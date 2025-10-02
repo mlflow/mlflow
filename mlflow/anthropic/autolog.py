@@ -18,7 +18,11 @@ _logger = logging.getLogger(__name__)
 
 
 def patched_claude_sdk_init(original, self, options=None):
-    """Patched __init__ that adds MLflow tracing hook to ClaudeSDKClient."""
+    """Patched __init__ that adds MLflow tracing hook to ClaudeSDKClient.
+
+    The hook handler checks autologging_is_disabled() at runtime, so hooks
+    are always injected but become no-ops when autologging is disabled.
+    """
     try:
         from claude_agent_sdk import ClaudeAgentOptions, HookMatcher
 
@@ -26,10 +30,7 @@ def patched_claude_sdk_init(original, self, options=None):
 
         # Create options if not provided
         if options is None:
-            try:
-                options = ClaudeAgentOptions()
-            except Exception:
-                options = {}
+            options = ClaudeAgentOptions()
 
         if options.hooks is None:
             options.hooks = {}
