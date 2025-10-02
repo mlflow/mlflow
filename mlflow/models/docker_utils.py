@@ -30,6 +30,8 @@ RUN apt install -y software-properties-common \
     && add-apt-repository -y ppa:deadsnakes/ppa \
     && apt update \
     && apt install -y python3.10 python3.10-distutils \
+    # Remove python3-blinker to avoid pip uninstall conflicts
+    && apt remove -y python3-blinker \
     && ln -s -f $(which python3.10) /usr/bin/python \
     && wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py \
     && python /tmp/get-pip.py
@@ -108,9 +110,7 @@ def generate_dockerfile(
         setup_python_venv_steps = (
             "RUN apt-get -y update && DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get install -y "
             "--no-install-recommends wget curl nginx ca-certificates bzip2 build-essential cmake "
-            "git-core\n"
-            "# Remove system python3-blinker to avoid pip uninstall conflicts\n"
-            "RUN apt-get remove -y python3-blinker || true\n\n"
+            "git-core\n\n"
         )
         setup_python_venv_steps += (
             SETUP_MINICONDA if env_manager == em.CONDA else SETUP_PYENV_AND_VIRTUALENV
