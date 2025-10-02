@@ -129,6 +129,18 @@ def test_dynamic_route():
                     },
                     "limit": None,
                 }
+            ],
+            "routes": [
+                {
+                    "name": "traffic_route",
+                    "task_type": "llm/v1/chat",
+                    "destinations": [
+                        {
+                            "name": "chat",
+                            "traffic_percentage": 100,
+                        }
+                    ]
+                }
             ]
         }
     )
@@ -161,35 +173,38 @@ def test_dynamic_route():
     with mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
-        resp = client.post(
-            f"{MLFLOW_GATEWAY_ROUTE_BASE}chat/invocations",
-            json={"messages": [{"role": "user", "content": "Tell me a joke"}]},
-        )
-        mock_post.assert_called_once()
-        assert resp.status_code == 200
-        assert resp.json() == {
-            "id": "chatcmpl-abc123",
-            "object": "chat.completion",
-            "created": 1677858242,
-            "model": "gpt-4o-mini",
-            "usage": {
-                "prompt_tokens": 13,
-                "completion_tokens": 7,
-                "total_tokens": 20,
-            },
-            "choices": [
-                {
-                    "message": {
-                        "role": "assistant",
-                        "content": "\n\nThis is a test!",
-                        "tool_calls": None,
-                        "refusal": None,
-                    },
-                    "finish_reason": "stop",
-                    "index": 0,
-                }
-            ],
-        }
+        for name in ["chat", "traffic_route"]:
+            resp = client.post(
+                f"{MLFLOW_GATEWAY_ROUTE_BASE}{name}/invocations",
+                json={"messages": [{"role": "user", "content": "Tell me a joke"}]},
+            )
+            mock_post.assert_called_once()
+            assert resp.status_code == 200
+            assert resp.json() == {
+                "id": "chatcmpl-abc123",
+                "object": "chat.completion",
+                "created": 1677858242,
+                "model": "gpt-4o-mini",
+                "usage": {
+                    "prompt_tokens": 13,
+                    "completion_tokens": 7,
+                    "total_tokens": 20,
+                },
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "\n\nThis is a test!",
+                            "tool_calls": None,
+                            "refusal": None,
+                        },
+                        "finish_reason": "stop",
+                        "index": 0,
+                    }
+                ],
+            }
+
+            mock_post.reset_mock()
 
 
 def test_create_app_from_env_fails_if_MLFLOW_GATEWAY_CONFIG_is_not_set(monkeypatch):

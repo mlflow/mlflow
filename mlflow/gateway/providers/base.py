@@ -2,6 +2,8 @@ from abc import ABC, abstractmethod
 import random
 from typing import AsyncIterable
 
+import numpy as np
+
 from mlflow.gateway.base_models import ConfigModel
 from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.exceptions import AIGatewayException
@@ -92,21 +94,13 @@ class TrafficRouteProvider(BaseProvider):
             get_provider(config.model.provider)(config)
             for config in configs
         ]
-        self._traffic_splits_prefix_sum = [0] * len(traffic_splits)
-        for i in range(len(traffic_splits)):
-            if i == 0:
-                self._traffic_splits_prefix_sum[0] = traffic_splits[0]
-            else:
-                self._traffic_splits_prefix_sum[i] = (
-                    self._traffic_splits_prefix_sum[i - 1] + traffic_splits[i]
-                )
+
+        self._weights = np.array(traffic_splits, dtype=np.float32) / 100
+        self._indices = np.arange(len(self._providers))
 
     def _get_provider(self):
-        rand_value = random.randint(0, 100)
-        for index in range(len(self._traffic_splits_prefix_sum)):
-            if rand_value <= self._traffic_splits_prefix_sum[index]:
-                break
-        return self._providers[index]
+        chosen_index = np.random.choice(self._indices, p=self._weights)
+        return self._providers[chosen_index]
 
     async def chat_stream(
         self, payload: chat.RequestPayload
