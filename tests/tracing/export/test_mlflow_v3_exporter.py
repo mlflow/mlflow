@@ -22,7 +22,7 @@ from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.protos.databricks_tracing_pb2 import TraceInfo as TraceInfoProto
+from mlflow.protos import service_pb2 as pb
 from mlflow.tracing.constant import TraceMetadataKey, TraceSizeStatsKey
 from mlflow.tracing.destination import Databricks
 from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
@@ -62,10 +62,11 @@ def test_export(is_async, monkeypatch):
 
     def mock_response(credentials, path, method, trace_json, *args, **kwargs):
         nonlocal trace_info
-        trace_info_dict = json.loads(trace_json)["trace_info"]
-        trace_info_proto = ParseDict(trace_info_dict, TraceInfoProto())
+        trace_dict = json.loads(trace_json)
+        trace_proto = ParseDict(trace_dict["trace"], pb.Trace())
+        trace_info_proto = ParseDict(trace_dict["trace"]["trace_info"], pb.TraceInfoV3())
         trace_info = TraceInfo.from_proto(trace_info_proto)
-        return trace_info_proto
+        return pb.StartTraceV3.Response(trace=trace_proto)
 
     with (
         mock.patch(
@@ -86,7 +87,7 @@ def test_export(is_async, monkeypatch):
 
     # Access the trace that was passed to _start_trace
     endpoint = mock_call_endpoint.call_args.args[1]
-    assert endpoint == f"/api/4.0/mlflow/traces/{_EXPERIMENT_ID}/{trace_info.trace_id}/info"
+    assert endpoint == "/api/3.0/mlflow/traces"
     trace_data = mock_upload_trace_data.call_args.args[1]
 
     # Basic validation of the trace object

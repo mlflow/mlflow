@@ -101,9 +101,7 @@ class DatabricksTracingRestStore(RestStore):
             if trace_info.trace_location.mlflow_experiment is None:
                 _logger.debug("MLflow experiment is not set for trace, cannot fallback to V3 API.")
                 raise
-
             _logger.debug(f"Falling back to V3 API due to {e!s}")
-
         return super().start_trace(trace_info)
 
     def _start_trace_v4(self, trace_info: TraceInfo) -> TraceInfo:
