@@ -72,7 +72,7 @@ def check_configuration_route_name_collisions(config):
                     f"'{dest_endpoint_type}'."
                 )
 
-            if not (0 < dest_traffic_percentage < 100):
+            if not (0 <= dest_traffic_percentage <= 100):
                 raise MlflowException.invalid_parameter_value(
                     f"The route destination traffic percentage must between 0 and 100."
                 )
