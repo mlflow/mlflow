@@ -30,7 +30,6 @@ from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND
 from mlflow.protos.databricks_tracing_pb2 import (
     BatchGetTraces,
     CreateAssessment,
-    CreateTraceInfo,
     CreateTraceUCStorageLocation,
     DeleteAssessment,
     DeleteTraceTag,
@@ -152,11 +151,7 @@ def test_create_trace_v4_uc_location(monkeypatch):
     expected_trace_info.update({"trace_id": "123"})
     response.text = json.dumps(expected_trace_info)
 
-    expected_request = CreateTraceInfo(
-        location_id="catalog.schema",
-        trace_info=trace_info_to_proto(trace_info),
-    )
-
+    expected_request = trace_info_to_proto(trace_info)
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
         result = store.start_trace(trace_info)
         _verify_requests(
