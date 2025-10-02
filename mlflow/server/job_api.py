@@ -123,10 +123,6 @@ def search_jobs(payload: SearchJobPayload):
 
         return SearchJobsResponse(jobs=job_results)
     except MlflowException as e:
-        import traceback
-
-        traceback.print_exc()
-
         raise HTTPException(
             status_code=e.get_http_status_code(),
             detail=e.message,
