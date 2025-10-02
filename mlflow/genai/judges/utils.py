@@ -453,8 +453,9 @@ def invoke_judge_model(
             # Record failure telemetry only when in Databricks
             if in_databricks:
                 try:
+                    provider = "databricks" if model_provider == "endpoints" else model_provider
                     _record_judge_model_usage_failure_databricks_telemetry(
-                        model_provider=model_provider,
+                        model_provider=provider,
                         endpoint_name=model_name,
                         error_code="UNKNOWN",
                         error_message=traceback.format_exc(),

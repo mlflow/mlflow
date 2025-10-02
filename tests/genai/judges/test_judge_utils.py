@@ -984,8 +984,17 @@ def test_record_failure_telemetry_with_databricks_agents() -> None:
         mock_job_run_id.assert_called_once()
 
 
+@pytest.mark.parametrize(
+    ("model_uri", "expected_model_name"),
+    [
+        ("databricks:/test-model", "test-model"),
+        ("endpoints:/databricks-gpt-oss-120b", "databricks-gpt-oss-120b"),
+    ],
+)
 @pytest.mark.parametrize("with_trace", [False, True])
-def test_invoke_judge_model_databricks_success_not_in_databricks(with_trace, mock_trace) -> None:
+def test_invoke_judge_model_databricks_success_not_in_databricks(
+    model_uri: str, expected_model_name: str, with_trace: bool, mock_trace
+) -> None:
     with (
         mock.patch(
             "mlflow.genai.judges.utils._is_in_databricks",
@@ -1002,7 +1011,7 @@ def test_invoke_judge_model_databricks_success_not_in_databricks(with_trace, moc
         ) as mock_invoke_db,
     ):
         kwargs = {
-            "model_uri": "databricks:/test-model",
+            "model_uri": model_uri,
             "prompt": "Test prompt",
             "assessment_name": "test_assessment",
         }
@@ -1012,7 +1021,7 @@ def test_invoke_judge_model_databricks_success_not_in_databricks(with_trace, moc
         feedback = invoke_judge_model(**kwargs)
 
         mock_invoke_db.assert_called_once_with(
-            model_name="test-model", prompt="Test prompt", num_retries=10
+            model_name=expected_model_name, prompt="Test prompt", num_retries=10
         )
         mock_in_db.assert_called_once()
 
@@ -1020,9 +1029,19 @@ def test_invoke_judge_model_databricks_success_not_in_databricks(with_trace, moc
     assert feedback.value == CategoricalRating.YES
     assert feedback.rationale == "Good response"
     assert feedback.trace_id == ("test-trace" if with_trace else None)
+    assert feedback.source.source_id == f"databricks:/{expected_model_name}"
 
 
-def test_invoke_judge_model_databricks_success_in_databricks() -> None:
+@pytest.mark.parametrize(
+    ("model_uri", "expected_model_name"),
+    [
+        ("databricks:/test-model", "test-model"),
+        ("endpoints:/databricks-gpt-oss-120b", "databricks-gpt-oss-120b"),
+    ],
+)
+def test_invoke_judge_model_databricks_success_in_databricks(
+    model_uri: str, expected_model_name: str
+) -> None:
     with (
         mock.patch(
             "mlflow.genai.judges.utils._is_in_databricks",
@@ -1042,7 +1061,7 @@ def test_invoke_judge_model_databricks_success_in_databricks() -> None:
         ) as mock_success_telemetry,
     ):
         feedback = invoke_judge_model(
-            model_uri="databricks:/test-model",
+            model_uri=model_uri,
             prompt="Test prompt",
             assessment_name="test_assessment",
         )
@@ -1051,11 +1070,13 @@ def test_invoke_judge_model_databricks_success_in_databricks() -> None:
         mock_success_telemetry.assert_called_once_with(
             request_id="req-456",
             model_provider="databricks",
-            endpoint_name="test-model",
+            endpoint_name=expected_model_name,
             num_prompt_tokens=15,
             num_completion_tokens=8,
         )
-        mock_invoke_db.assert_called_once()
+        mock_invoke_db.assert_called_once_with(
+            model_name=expected_model_name, prompt="Test prompt", num_retries=10
+        )
         mock_in_db.assert_called_once()
 
     assert feedback.value == CategoricalRating.NO
@@ -1063,7 +1084,44 @@ def test_invoke_judge_model_databricks_success_in_databricks() -> None:
     assert feedback.trace_id is None
 
 
-def test_invoke_judge_model_databricks_failure_in_databricks() -> None:
+@pytest.mark.parametrize(
+    "model_uri", ["databricks:/test-model", "endpoints:/databricks-gpt-oss-120b"]
+)
+def test_invoke_judge_model_databricks_source_id(model_uri: str) -> None:
+    with mock.patch(
+        "mlflow.genai.judges.utils._invoke_databricks_model",
+        return_value=InvokeDatabricksModelOutput(
+            response='{"result": "yes", "rationale": "Great response"}',
+            request_id="req-789",
+            num_prompt_tokens=4,
+            num_completion_tokens=2,
+        ),
+    ) as mock_invoke_db:
+        feedback = invoke_judge_model(
+            model_uri=model_uri,
+            prompt="Test prompt",
+            assessment_name="test_assessment",
+        )
+
+    expected_model_name = (
+        "test-model" if model_uri.startswith("databricks") else "databricks-gpt-oss-120b"
+    )
+    mock_invoke_db.assert_called_once_with(
+        model_name=expected_model_name, prompt="Test prompt", num_retries=10
+    )
+    assert feedback.source.source_id == f"databricks:/{expected_model_name}"
+
+
+@pytest.mark.parametrize(
+    ("model_uri", "expected_model_name"),
+    [
+        ("databricks:/test-model", "test-model"),
+        ("endpoints:/databricks-gpt-oss-120b", "databricks-gpt-oss-120b"),
+    ],
+)
+def test_invoke_judge_model_databricks_failure_in_databricks(
+    model_uri: str, expected_model_name: str
+) -> None:
     with (
         mock.patch(
             "mlflow.genai.judges.utils._is_in_databricks",
@@ -1079,7 +1137,7 @@ def test_invoke_judge_model_databricks_failure_in_databricks() -> None:
     ):
         with pytest.raises(MlflowException, match="Model invocation failed"):
             invoke_judge_model(
-                model_uri="databricks:/test-model",
+                model_uri=model_uri,
                 prompt="Test prompt",
                 assessment_name="test_assessment",
             )
@@ -1087,11 +1145,13 @@ def test_invoke_judge_model_databricks_failure_in_databricks() -> None:
         # Verify failure telemetry was called
         mock_failure_telemetry.assert_called_once_with(
             model_provider="databricks",
-            endpoint_name="test-model",
+            endpoint_name=expected_model_name,
             error_code="UNKNOWN",
             error_message=mock.ANY,  # Check that error message contains the exception
         )
-        mock_invoke_db.assert_called_once()
+        mock_invoke_db.assert_called_once_with(
+            model_name=expected_model_name, prompt="Test prompt", num_retries=10
+        )
         mock_in_db.assert_called_once()
 
         # Verify error message contains the traceback
@@ -1099,7 +1159,16 @@ def test_invoke_judge_model_databricks_failure_in_databricks() -> None:
         assert "Model invocation failed" in call_args["error_message"]
 
 
-def test_invoke_judge_model_databricks_telemetry_error_handling() -> None:
+@pytest.mark.parametrize(
+    ("model_uri", "expected_model_name"),
+    [
+        ("databricks:/test-model", "test-model"),
+        ("endpoints:/databricks-gpt-oss-120b", "databricks-gpt-oss-120b"),
+    ],
+)
+def test_invoke_judge_model_databricks_telemetry_error_handling(
+    model_uri: str, expected_model_name: str
+) -> None:
     with (
         mock.patch(
             "mlflow.genai.judges.utils._is_in_databricks",
@@ -1121,13 +1190,21 @@ def test_invoke_judge_model_databricks_telemetry_error_handling() -> None:
     ):
         # Should still return feedback despite telemetry failure
         feedback = invoke_judge_model(
-            model_uri="databricks:/test-model",
+            model_uri=model_uri,
             prompt="Test prompt",
             assessment_name="test_assessment",
         )
 
-        mock_success_telemetry.assert_called_once()
-        mock_invoke_db.assert_called_once()
+        mock_success_telemetry.assert_called_once_with(
+            request_id="req-789",
+            model_provider="databricks",
+            endpoint_name=expected_model_name,
+            num_prompt_tokens=5,
+            num_completion_tokens=3,
+        )
+        mock_invoke_db.assert_called_once_with(
+            model_name=expected_model_name, prompt="Test prompt", num_retries=10
+        )
         mock_in_db.assert_called_once()
 
     assert feedback.value == CategoricalRating.YES
