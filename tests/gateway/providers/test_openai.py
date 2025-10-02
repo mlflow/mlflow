@@ -81,14 +81,11 @@ def completions_response():
     }
 
 
-@pytest.mark.asyncio
-async def test_chat():
+async def _run_test_chat(provider):
     resp = chat_response()
-    config = chat_config()
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
-        provider = OpenAIProvider(EndpointConfig(**config))
         payload = {"messages": [{"role": "user", "content": "Tell me a joke"}], "temperature": 0.5}
         response = await provider.chat(chat.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
@@ -131,6 +128,13 @@ async def test_chat():
         )
 
 
+@pytest.mark.asyncio
+async def test_chat():
+    config = chat_config()
+    provider = OpenAIProvider(EndpointConfig(**config))
+    await _run_test_chat(provider)
+
+
 def chat_stream_response():
     return [
         b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"test",'
@@ -163,14 +167,10 @@ def chat_stream_response_incomplete():
     ]
 
 
-@pytest.mark.parametrize("resp", [chat_stream_response(), chat_stream_response_incomplete()])
-@pytest.mark.asyncio
-async def test_chat_stream(resp):
-    config = chat_config()
+async def _run_test_chat_stream(resp, provider):
     mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
-        provider = OpenAIProvider(EndpointConfig(**config))
         payload = {"messages": [{"role": "user", "content": "Tell me a joke"}]}
         response = provider.chat_stream(chat.RequestPayload(**payload))
 
@@ -226,6 +226,14 @@ async def test_chat_stream(resp):
         )
 
 
+@pytest.mark.parametrize("resp", [chat_stream_response(), chat_stream_response_incomplete()])
+@pytest.mark.asyncio
+async def test_chat_stream(resp):
+    config = chat_config()
+    provider = OpenAIProvider(EndpointConfig(**config))
+    await _run_test_chat_stream(resp, provider)
+
+
 def completions_config():
     return {
         "name": "completions",
@@ -241,14 +249,10 @@ def completions_config():
     }
 
 
-@pytest.mark.parametrize("resp", [completions_response(), chat_response()])
-@pytest.mark.asyncio
-async def test_completions(resp):
-    config = completions_config()
+async def _run_test_completions(resp, provider):
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
-        provider = OpenAIProvider(EndpointConfig(**config))
         payload = {
             "prompt": "This is a test",
         }
@@ -277,6 +281,14 @@ async def test_completions(resp):
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
+
+
+@pytest.mark.parametrize("resp", [completions_response(), chat_response()])
+@pytest.mark.asyncio
+async def test_completions(resp):
+    config = completions_config()
+    provider = OpenAIProvider(EndpointConfig(**config))
+    await _run_test_completions(resp, provider)
 
 
 @pytest.mark.parametrize("prompt", [{"set1", "set2"}, ["list1"], [1], ["list1", "list2"], [1, 2]])
@@ -324,16 +336,10 @@ def completions_stream_response_incomplete():
     ]
 
 
-@pytest.mark.parametrize(
-    "resp", [completions_stream_response(), completions_stream_response_incomplete()]
-)
-@pytest.mark.asyncio
-async def test_completions_stream(resp):
-    config = completions_config()
+async def _run_test_completions_stream(resp, provider):
     mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
-        provider = OpenAIProvider(EndpointConfig(**config))
         payload = {"prompt": "This is a test"}
         response = provider.completions_stream(completions.RequestPayload(**payload))
 
@@ -398,6 +404,16 @@ async def test_completions_stream(resp):
         )
 
 
+@pytest.mark.parametrize(
+    "resp", [completions_stream_response(), completions_stream_response_incomplete()]
+)
+@pytest.mark.asyncio
+async def test_completions_stream(resp):
+    config = completions_config()
+    provider = OpenAIProvider(EndpointConfig(**config))
+    await _run_test_completions_stream(resp, provider)
+
+
 def embedding_config():
     return {
         "name": "embeddings",
@@ -413,8 +429,7 @@ def embedding_config():
     }
 
 
-@pytest.mark.asyncio
-async def test_embeddings():
+async def _run_test_embeddings(provider):
     resp = {
         "object": "list",
         "data": [
@@ -432,11 +447,9 @@ async def test_embeddings():
         "usage": {"prompt_tokens": 8, "total_tokens": 8},
         "headers": {"Content-Type": "application/json"},
     }
-    config = embedding_config()
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
-        provider = OpenAIProvider(EndpointConfig(**config))
         payload = {"input": "This is a test"}
         response = await provider.embeddings(embeddings.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
@@ -465,6 +478,13 @@ async def test_embeddings():
             json={"model": "text-embedding-ada-002", "input": "This is a test"},
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
+
+
+@pytest.mark.asyncio
+async def test_embeddings():
+    config = embedding_config()
+    provider = OpenAIProvider(EndpointConfig(**config))
+    await _run_test_embeddings(provider)
 
 
 @pytest.mark.asyncio
