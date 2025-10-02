@@ -106,10 +106,6 @@ class SearchJobPayload(BaseModel):
     params: dict[str, Any] | None = None
     statuses: list[str] | None = None
 
-    # unix timestamp in milliseconds
-    begin_timestamp: int | None = None
-    end_timestamp: int | None = None
-
 
 @job_api_router.post("/search", response_model=JobList)
 def search_job(payload: SearchJobPayload):
@@ -130,9 +126,7 @@ def search_job(payload: SearchJobPayload):
 
         store = _get_job_store()
         job_results = []
-        for job in store.list_jobs(
-            payload.function_fullname, statuses, payload.begin_timestamp, payload.end_timestamp
-        ):
+        for job in store.list_jobs(payload.function_fullname, statuses):
             if filter_params(json.loads(job.params)):
                 job_results.append(Job.from_job_entity(job))
 
