@@ -1,5 +1,5 @@
 # Build an image that can serve mlflow models.
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 
 RUN apt-get -y update && DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get install -y --no-install-recommends wget curl nginx ca-certificates bzip2 build-essential cmake git-core
 

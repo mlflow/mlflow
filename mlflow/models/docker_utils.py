@@ -11,7 +11,7 @@ from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
 
-UBUNTU_BASE_IMAGE = "ubuntu:20.04"
+UBUNTU_BASE_IMAGE = "ubuntu:22.04"
 PYTHON_SLIM_BASE_IMAGE = "python:{version}-slim"
 
 
