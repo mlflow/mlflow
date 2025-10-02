@@ -11,7 +11,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import get_all_scorers, get_scorer
 
 
-def resolve_scorers(scorer_names: list[str], experiment_id: str) -> list:
+def resolve_scorers(scorer_names: list[str], experiment_id: str) -> list[Any]:
     """
     Resolve scorer names to scorer objects.
 
