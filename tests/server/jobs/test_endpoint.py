@@ -162,7 +162,7 @@ def test_job_endpoint_missing_parameters(server_url: str):
     assert response.status_code == 400
     assert response.json()["detail"] == (
         "Missing required parameters for function 'simple_job_fun': ['y']. "
-        + "Expected parameters: ['x', 'y']"
+        + "Expected parameters: ['x', 'y', 'sleep_secs']"
     )
 
 
@@ -171,18 +171,22 @@ def test_job_endpoint_search(server_url: str):
         f"{server_url}/ajax-api/3.0/jobs/",
         json={
             "function_fullname": "test_endpoint.simple_job_fun",
-            "params": {"x": 3, "y": 4},
+            "params": {"x": 7, "y": 4},
         },
     )
+    response.raise_for_status()
     job1_id = response.json()["job_id"]
+
     response = requests.post(
         f"{server_url}/ajax-api/3.0/jobs/",
         json={
             "function_fullname": "test_endpoint.simple_job_fun",
-            "params": {"x": 3, "y": 5},
+            "params": {"x": 7, "y": 5},
         },
     )
+    response.raise_for_status()
     job2_id = response.json()["job_id"]
+
     response = requests.post(
         f"{server_url}/ajax-api/3.0/jobs/",
         json={
@@ -190,7 +194,9 @@ def test_job_endpoint_search(server_url: str):
             "params": {"x": 4, "y": 5},
         },
     )
+    response.raise_for_status()
     job3_id = response.json()["job_id"]
+
     response = requests.post(
         f"{server_url}/ajax-api/3.0/jobs/",
         json={
@@ -199,6 +205,7 @@ def test_job_endpoint_search(server_url: str):
             "timeout": 2,
         },
     )
+    response.raise_for_status()
     job4_id = response.json()["job_id"]
 
     wait_job_finalize(server_url, job1_id)
@@ -213,27 +220,30 @@ def test_job_endpoint_search(server_url: str):
         f"{server_url}/ajax-api/3.0/jobs/search",
         json={
             "function_fullname": "test_endpoint.simple_job_fun",
-            "params": {"x": 3},
+            "params": {"x": 7},
         },
     )
+    response.raise_for_status()
     assert extract_job_ids(response) == [job1_id, job2_id]
 
     response = requests.post(
         f"{server_url}/ajax-api/3.0/jobs/search",
         json={
             "function_fullname": "test_endpoint.bad_fun_name",
-            "params": {"x": 3},
+            "params": {"x": 7},
         },
     )
+    response.raise_for_status()
     assert extract_job_ids(response) == []
 
     response = requests.post(
         f"{server_url}/ajax-api/3.0/jobs/search",
         json={
             "function_fullname": "test_endpoint.simple_job_fun",
-            "params": {"x": 3, "y": 5},
+            "params": {"x": 7, "y": 5},
         },
     )
+    response.raise_for_status()
     assert extract_job_ids(response) == [job2_id]
 
     response = requests.post(
@@ -243,6 +253,7 @@ def test_job_endpoint_search(server_url: str):
             "params": {"y": 5},
         },
     )
+    response.raise_for_status()
     assert extract_job_ids(response) == [job2_id, job3_id, job4_id]
 
     response = requests.post(
@@ -252,6 +263,7 @@ def test_job_endpoint_search(server_url: str):
             "params": {"y": 6},
         },
     )
+    response.raise_for_status()
     assert extract_job_ids(response) == []
 
     response = requests.post(
@@ -262,6 +274,7 @@ def test_job_endpoint_search(server_url: str):
             "statuses": ["SUCCEEDED"],
         },
     )
+    response.raise_for_status()
     assert extract_job_ids(response) == [job2_id, job3_id]
 
     response = requests.post(
@@ -272,6 +285,7 @@ def test_job_endpoint_search(server_url: str):
             "statuses": ["TIMEOUT"],
         },
     )
+    response.raise_for_status()
     assert extract_job_ids(response) == [job4_id]
 
     response = requests.post(
@@ -282,4 +296,5 @@ def test_job_endpoint_search(server_url: str):
             "statuses": ["SUCCEEDED", "TIMEOUT"],
         },
     )
+    response.raise_for_status()
     assert extract_job_ids(response) == [job2_id, job3_id, job4_id]
