@@ -30,7 +30,7 @@ from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND
 from mlflow.protos.databricks_tracing_pb2 import (
     BatchGetTraces,
     CreateAssessment,
-    CreateTrace,
+    CreateTraceInfo,
     CreateTraceUCStorageLocation,
     DeleteAssessment,
     DeleteTraceTag,
@@ -150,11 +150,11 @@ def test_create_trace_v4_uc_location(monkeypatch):
     )
     # The returned trace_id in proto should be otel_trace_id
     expected_trace_info.update({"trace_id": "123"})
-    response.text = json.dumps({"trace_info": expected_trace_info})
+    response.text = json.dumps(expected_trace_info)
 
-    expected_request = CreateTrace(
+    expected_request = CreateTraceInfo(
+        location_id="catalog.schema",
         trace_info=trace_info_to_proto(trace_info),
-        sql_warehouse_id="test-warehouse",
     )
 
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
@@ -162,7 +162,7 @@ def test_create_trace_v4_uc_location(monkeypatch):
         _verify_requests(
             mock_http,
             creds,
-            "traces/catalog.schema",
+            "traces/catalog.schema/123/info",
             "POST",
             message_to_json(expected_request),
             version="4.0",
@@ -171,49 +171,7 @@ def test_create_trace_v4_uc_location(monkeypatch):
         assert result.trace_id == "trace:/catalog.schema/123"
 
 
-def test_create_trace_v4_experiment_location(monkeypatch):
-    monkeypatch.setenv(MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.name, "1")
-    monkeypatch.setenv(MLFLOW_TRACING_SQL_WAREHOUSE_ID.name, "test-warehouse")
-
-    creds = MlflowHostCreds("https://hello")
-    store = DatabricksTracingRestStore(lambda: creds)
-
-    trace_info = TraceInfo(
-        trace_id="tr-123",
-        trace_location=TraceLocation.from_experiment_id("123"),
-        request_time=123,
-        execution_duration=10,
-        state=TraceState.OK,
-        request_preview="",
-        response_preview="",
-        trace_metadata={},
-    )
-
-    # Mock successful v4 response
-    response = mock.MagicMock()
-    response.status_code = 200
-    response.text = json.dumps({"trace_info": trace_info.to_dict()})
-
-    expected_request = CreateTrace(
-        trace_info=trace_info_to_proto(trace_info),
-        sql_warehouse_id="test-warehouse",
-    )
-
-    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
-        result = store.start_trace(trace_info)
-        _verify_requests(
-            mock_http,
-            creds,
-            "traces/123",
-            "POST",
-            message_to_json(expected_request),
-            version="4.0",
-            retry_timeout_seconds=1,
-        )
-        assert result.trace_id == "tr-123"
-
-
-def test_create_trace_v4_fallback_to_v3(monkeypatch):
+def test_create_trace_experiment_location_fallback_to_v3(monkeypatch):
     monkeypatch.setenv(MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.name, "1")
     monkeypatch.setenv(MLFLOW_TRACING_SQL_WAREHOUSE_ID.name, "test-warehouse")
 
@@ -232,20 +190,16 @@ def test_create_trace_v4_fallback_to_v3(monkeypatch):
     )
 
     trace = Trace(info=trace_info, data=TraceData())
-
-    v4_error = MlflowException("Endpoint not found", error_code=databricks_pb2.ENDPOINT_NOT_FOUND)
     v3_response = StartTraceV3.Response(trace=trace.to_proto())
 
     with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
-        mock_call_endpoint.side_effect = [v4_error, v3_response]
+        mock_call_endpoint.side_effect = [v3_response]
 
         result = store.start_trace(trace_info)
 
-        assert mock_call_endpoint.call_count == 2
-        first_call = mock_call_endpoint.call_args_list[0]
-        assert first_call[0][0] == CreateTrace
-        second_call = mock_call_endpoint.call_args_list[1]
-        assert second_call[0][0] == StartTraceV3
+        assert mock_call_endpoint.call_count == 1
+        call_args = mock_call_endpoint.call_args_list[0]
+        assert call_args[0][0] == StartTraceV3
         assert result.trace_id == "tr-456"
 
 

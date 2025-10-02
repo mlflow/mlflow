@@ -111,18 +111,18 @@ class TraceInfo(_message.Message):
     tags: _containers.ScalarMap[str, str]
     def __init__(self, trace_id: _Optional[str] = ..., client_request_id: _Optional[str] = ..., trace_location: _Optional[_Union[TraceLocation, _Mapping]] = ..., request_preview: _Optional[str] = ..., response_preview: _Optional[str] = ..., request_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., execution_duration: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., state: _Optional[_Union[TraceInfo.State, str]] = ..., trace_metadata: _Optional[_Mapping[str, str]] = ..., assessments: _Optional[_Iterable[_Union[Assessment, _Mapping]]] = ..., tags: _Optional[_Mapping[str, str]] = ...) -> None: ...
 
-class CreateTrace(_message.Message):
-    __slots__ = ("trace_info", "sql_warehouse_id")
+class CreateTraceInfo(_message.Message):
+    __slots__ = ("location_id", "trace_info")
     class Response(_message.Message):
         __slots__ = ("trace_info",)
         TRACE_INFO_FIELD_NUMBER: _ClassVar[int]
         trace_info: TraceInfo
         def __init__(self, trace_info: _Optional[_Union[TraceInfo, _Mapping]] = ...) -> None: ...
+    LOCATION_ID_FIELD_NUMBER: _ClassVar[int]
     TRACE_INFO_FIELD_NUMBER: _ClassVar[int]
-    SQL_WAREHOUSE_ID_FIELD_NUMBER: _ClassVar[int]
+    location_id: str
     trace_info: TraceInfo
-    sql_warehouse_id: str
-    def __init__(self, trace_info: _Optional[_Union[TraceInfo, _Mapping]] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
+    def __init__(self, location_id: _Optional[str] = ..., trace_info: _Optional[_Union[TraceInfo, _Mapping]] = ...) -> None: ...
 
 class TracePath(_message.Message):
     __slots__ = ("trace_location", "trace_id")

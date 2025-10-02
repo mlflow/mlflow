@@ -189,6 +189,7 @@ class RestStore(AbstractStore):
         json_body=None,
         endpoint=None,
         retry_timeout_seconds=None,
+        response_proto=None,
     ):
         if endpoint:
             # Allow customizing the endpoint for compatibility with dynamic endpoints, such as
@@ -196,7 +197,7 @@ class RestStore(AbstractStore):
             _, method = self._METHOD_TO_INFO[api]
         else:
             endpoint, method = self._METHOD_TO_INFO[api]
-        response_proto = api.Response()
+        response_proto = response_proto or api.Response()
         return call_endpoint(
             self.get_host_creds(),
             endpoint,

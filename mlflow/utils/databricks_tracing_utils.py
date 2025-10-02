@@ -103,19 +103,28 @@ def trace_location_type_from_proto(proto: pb.TraceLocation.TraceLocationType) ->
 
 def trace_location_from_proto(proto: pb.TraceLocation) -> TraceLocation:
     type_ = trace_location_type_from_proto(proto.type)
+
+    # If the type is unspecified, fallback by looking at the identifier
+    if type_ == TraceLocationType.TRACE_LOCATION_TYPE_UNSPECIFIED:
+        type_ = None
+
     if proto.WhichOneof("identifier") == "uc_schema":
-        return TraceLocation(type=type_, uc_schema=uc_schema_location_from_proto(proto.uc_schema))
+        return TraceLocation(
+            type=type_ or TraceLocationType.UC_SCHEMA,
+            uc_schema=uc_schema_location_from_proto(proto.uc_schema),
+        )
     elif proto.WhichOneof("identifier") == "mlflow_experiment":
         return TraceLocation(
-            type=type_,
+            type=type_ or TraceLocationType.MLFLOW_EXPERIMENT,
             mlflow_experiment=MlflowExperimentLocation.from_proto(proto.mlflow_experiment),
         )
     elif proto.WhichOneof("identifier") == "inference_table":
         return TraceLocation(
-            type=type_, inference_table=InferenceTableLocation.from_proto(proto.inference_table)
+            type=type_ or TraceLocationType.INFERENCE_TABLE,
+            inference_table=InferenceTableLocation.from_proto(proto.inference_table),
         )
     else:
-        return TraceLocation(type=type_)
+        return TraceLocation(TraceLocationType.TRACE_LOCATION_TYPE_UNSPECIFIED)
 
 
 def trace_info_to_proto(trace_info: TraceInfo) -> pb.TraceInfo:
