@@ -12,16 +12,14 @@ from mlflow.entities import Trace, TraceInfo
 
 def test_evaluate_traces_with_single_trace_table_output():
     """Test evaluate_traces with a single trace and table output."""
-    # Create a test experiment
     experiment_id = mlflow.create_experiment("test_experiment")
 
-    # Create realistic mock trace
+    # We will use a minimal mocked trace since we are not testing the actual evaluation logic.
     mock_trace = mock.Mock(spec=Trace)
     mock_trace.info = mock.Mock(spec=TraceInfo)
     mock_trace.info.trace_id = "tr-test-123"
     mock_trace.info.experiment_id = experiment_id
 
-    # Mock MlflowClient.get_trace() directly
     with mock.patch("mlflow.cli.eval.MlflowClient.get_trace") as mock_get_trace:
         mock_get_trace.return_value = mock_trace
 
@@ -64,23 +62,20 @@ def test_evaluate_traces_with_single_trace_table_output():
             call_args = mock_evaluate.call_args
             assert "data" in call_args.kwargs
 
-            # Create expected DataFrame and verify it matches
             expected_df = pd.DataFrame([{"trace_id": "tr-test-123", "trace": mock_trace}])
             pd.testing.assert_frame_equal(call_args.kwargs["data"], expected_df)
 
             # Verify scorers
             assert "scorers" in call_args.kwargs
             assert len(call_args.kwargs["scorers"]) == 1
-            # Verify the scorer is an actual RelevanceToQuery scorer (not a mock)
             assert call_args.kwargs["scorers"][0].__class__.__name__ == "RelevanceToQuery"
 
 
 def test_evaluate_traces_with_multiple_traces_json_output():
     """Test evaluate_traces with multiple traces and JSON output."""
-    # Create a test experiment
     experiment = mlflow.create_experiment("test_experiment_multi")
 
-    # Create realistic mock traces
+    # We will use minimal mocked traces since we are not testing the actual evaluation logic.
     mock_trace1 = mock.Mock(spec=Trace)
     mock_trace1.info = mock.Mock(spec=TraceInfo)
     mock_trace1.info.trace_id = "tr-test-1"
@@ -91,11 +86,9 @@ def test_evaluate_traces_with_multiple_traces_json_output():
     mock_trace2.info.trace_id = "tr-test-2"
     mock_trace2.info.experiment_id = experiment
 
-    # Mock MlflowClient.get_trace() directly
     with mock.patch("mlflow.cli.eval.MlflowClient.get_trace") as mock_get_trace:
         mock_get_trace.side_effect = [mock_trace1, mock_trace2]
 
-        # Mock evaluate() with realistic return value for multiple traces
         mock_results = mock.Mock()
         mock_results.run_id = "run-eval-789"
         mock_results.tables = {
@@ -146,8 +139,6 @@ def test_evaluate_traces_with_multiple_traces_json_output():
             # Verify evaluate() was called with correct DataFrame
             assert mock_evaluate.call_count == 1
             call_args = mock_evaluate.call_args
-
-            # Create expected DataFrame and verify it matches
             expected_df = pd.DataFrame(
                 [
                     {"trace_id": "tr-test-1", "trace": mock_trace1},
