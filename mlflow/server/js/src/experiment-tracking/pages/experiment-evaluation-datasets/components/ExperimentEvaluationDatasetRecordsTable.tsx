@@ -1,22 +1,42 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useGetDatasetRecords } from '../hooks/useGetDatasetRecords';
-import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
-import {
-  Empty,
-  TableCell,
-  TableHeader,
-  TableRow,
-  TableSkeletonRows,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
+import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import { Empty, TableCell, TableHeader, TableRow, TableSkeletonRows } from '@databricks/design-system';
 import { Table } from '@databricks/design-system';
 import { useIntl } from 'react-intl';
 import { JsonCell } from './ExperimentEvaluationDatasetJsonCell';
 import { ExperimentEvaluationDatasetRecordsToolbar } from './ExperimentEvaluationDatasetRecordsToolbar';
 import { parseJSONSafe } from '@mlflow/mlflow/src/common/utils/TagUtils';
-import { EvaluationDataset } from '../types';
+import { EvaluationDataset, EvaluationDatasetRecord } from '../types';
+import { useInfiniteScrollFetch } from '../hooks/useInfiniteScrollFetch';
 
-const INFINITE_SCROLL_BOTTOM_OFFSET = 200;
+const INPUTS_COLUMN_ID = 'inputs';
+const OUTPUTS_COLUMN_ID = 'outputs';
+const EXPECTATIONS_COLUMN_ID = 'expectations';
+
+const columns: ColumnDef<EvaluationDatasetRecord, string>[] = [
+  {
+    id: INPUTS_COLUMN_ID,
+    accessorKey: 'inputs',
+    header: 'Inputs',
+    enableResizing: false,
+    cell: JsonCell,
+  },
+  {
+    id: OUTPUTS_COLUMN_ID,
+    accessorKey: 'outputs',
+    header: 'Outputs',
+    enableResizing: false,
+    cell: JsonCell,
+  },
+  {
+    id: EXPECTATIONS_COLUMN_ID,
+    accessorKey: 'expectations',
+    header: 'Expectations',
+    enableResizing: false,
+    cell: JsonCell,
+  },
+];
 
 const getTotalRecordsCount = (profile: string | undefined): number | undefined => {
   if (!profile) {
@@ -29,14 +49,17 @@ const getTotalRecordsCount = (profile: string | undefined): number | undefined =
 
 export const ExperimentEvaluationDatasetRecordsTable = ({ dataset }: { dataset: EvaluationDataset | undefined }) => {
   const intl = useIntl();
-  const { theme } = useDesignSystemTheme();
-  const tableContainerRef = useRef<HTMLDivElement>(null);
   const datasetId = dataset?.dataset_id;
   const datasetName = dataset?.name;
   const profile = dataset?.profile;
   const totalRecordsCount = getTotalRecordsCount(profile);
 
   const [rowSize, setRowSize] = useState<'sm' | 'md' | 'lg'>('sm');
+  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({
+    [INPUTS_COLUMN_ID]: true,
+    [OUTPUTS_COLUMN_ID]: false,
+    [EXPECTATIONS_COLUMN_ID]: true,
+  });
 
   const {
     data: datasetRecords,
@@ -50,44 +73,11 @@ export const ExperimentEvaluationDatasetRecordsTable = ({ dataset }: { dataset: 
     enabled: !!datasetId,
   });
 
-  const columns = useMemo(
-    () => [
-      {
-        id: 'inputs',
-        accessorKey: 'inputs',
-        header: 'Inputs',
-        enableColumnResizing: false,
-        cell: JsonCell,
-      },
-      {
-        id: 'outputs',
-        accessorKey: 'outputs',
-        header: 'Outputs',
-        enableColumnResizing: false,
-        cell: JsonCell,
-      },
-      {
-        id: 'expectations',
-        accessorKey: 'expectations',
-        header: 'Expectations',
-        enableColumnResizing: false,
-        cell: JsonCell,
-      },
-    ],
-    [],
-  );
-
-  const fetchMoreOnBottomReached = useCallback(
-    (containerRefElement?: HTMLDivElement | null) => {
-      if (containerRefElement) {
-        const { scrollHeight, scrollTop, clientHeight } = containerRefElement;
-        if (scrollHeight - scrollTop - clientHeight < INFINITE_SCROLL_BOTTOM_OFFSET && !isFetching && hasNextPage) {
-          fetchNextPage();
-        }
-      }
-    },
-    [fetchNextPage, isFetching, hasNextPage],
-  );
+  const fetchMoreOnBottomReached = useInfiniteScrollFetch({
+    isFetching,
+    hasNextPage: hasNextPage ?? false,
+    fetchNextPage,
+  });
 
   const table = useReactTable({
     columns,
@@ -96,6 +86,9 @@ export const ExperimentEvaluationDatasetRecordsTable = ({ dataset }: { dataset: 
     getRowId: (row) => row.dataset_record_id,
     enableColumnResizing: false,
     meta: { rowSize },
+    state: {
+      columnVisibility,
+    },
   });
 
   return (
@@ -111,13 +104,15 @@ export const ExperimentEvaluationDatasetRecordsTable = ({ dataset }: { dataset: 
     >
       <ExperimentEvaluationDatasetRecordsToolbar
         datasetName={datasetName ?? ''}
+        columns={columns}
+        columnVisibility={columnVisibility}
+        setColumnVisibility={setColumnVisibility}
         loadedRecordsCount={datasetRecords?.length}
         totalRecordsCount={totalRecordsCount}
         rowSize={rowSize}
         setRowSize={setRowSize}
       />
       <Table
-        ref={tableContainerRef}
         css={{ flex: 1 }}
         empty={
           !isLoading && table.getRowModel().rows.length === 0 ? (
@@ -133,24 +128,27 @@ export const ExperimentEvaluationDatasetRecordsTable = ({ dataset }: { dataset: 
         onScroll={(e) => fetchMoreOnBottomReached(e.currentTarget as HTMLDivElement)}
       >
         <TableRow isHeader>
-          {table.getLeafHeaders().map((header) => (
-            <TableHeader
-              key={header.id}
-              componentId={`mlflow.eval-dataset-records.${header.column.id}-header`}
-              header={header}
-              column={header.column}
-              css={{ position: 'sticky', top: 0, zIndex: 1 }}
-            >
-              {flexRender(header.column.columnDef.header, header.getContext())}
-            </TableHeader>
-          ))}
+          {table.getLeafHeaders().map(
+            (header) =>
+              header.column.getIsVisible() && (
+                <TableHeader
+                  key={header.id}
+                  componentId={`mlflow.eval-dataset-records.${header.column.id}-header`}
+                  header={header}
+                  column={header.column}
+                  css={{ position: 'sticky', top: 0, zIndex: 1 }}
+                >
+                  {flexRender(header.column.columnDef.header, header.getContext())}
+                </TableHeader>
+              ),
+          )}
         </TableRow>
         {isLoading ? (
           <TableSkeletonRows table={table} />
         ) : (
           table.getRowModel().rows.map((row) => (
             <TableRow key={row.id}>
-              {row.getAllCells().map((cell) => (
+              {row.getVisibleCells().map((cell) => (
                 <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
               ))}
             </TableRow>

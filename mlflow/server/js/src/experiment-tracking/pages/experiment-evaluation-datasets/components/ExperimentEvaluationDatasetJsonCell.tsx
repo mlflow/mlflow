@@ -8,7 +8,7 @@ export const JsonCell = ({
   cell,
   table: { options },
 }: {
-  cell: Cell<EvaluationDatasetRecord, string>;
+  cell: Cell<EvaluationDatasetRecord, any>;
   table: Table<EvaluationDatasetRecord>;
 }) => {
   const { theme } = useDesignSystemTheme();

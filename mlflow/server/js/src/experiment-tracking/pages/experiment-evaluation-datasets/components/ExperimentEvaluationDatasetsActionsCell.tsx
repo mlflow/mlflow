@@ -3,9 +3,26 @@ import { Button } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { Row } from '@tanstack/react-table';
 import { EvaluationDataset } from '../types';
+import { SEARCH_EVALUATION_DATASETS_QUERY_KEY } from '../constants';
+import { useDeleteEvaluationDatasetMutation } from '../hooks/useDeleteEvaluationDatasetMutation';
+import { useQueryClient } from '@tanstack/react-query';
+import { useCallback } from 'react';
 
 // Component for rendering dataset actions
 export const ActionsCell = ({ row }: { row: Row<EvaluationDataset> }) => {
+  const queryClient = useQueryClient();
+
+  const { deleteEvaluationDatasetMutation, isLoading: isDeletingDataset } = useDeleteEvaluationDatasetMutation({
+    onSuccess: () => {
+      // invalidate the datasets query
+      queryClient.invalidateQueries({ queryKey: [SEARCH_EVALUATION_DATASETS_QUERY_KEY] });
+    },
+  });
+
+  const handleDelete = useCallback(() => {
+    deleteEvaluationDatasetMutation({ datasetId: row.original.dataset_id });
+  }, [deleteEvaluationDatasetMutation, row]);
+
   return (
     <TableRowAction css={{ padding: 0 }}>
       <DropdownMenu.Root>
@@ -23,23 +40,13 @@ export const ActionsCell = ({ row }: { row: Row<EvaluationDataset> }) => {
             componentId="mlflow.eval-datasets.delete-dataset-menu-option"
             onClick={(e) => {
               e.stopPropagation();
+              handleDelete();
             }}
           >
             <DropdownMenu.IconWrapper>
               <TrashIcon />
             </DropdownMenu.IconWrapper>
             <FormattedMessage defaultMessage="Delete dataset" description="Delete evaluation dataset menu item" />
-          </DropdownMenu.Item>
-          <DropdownMenu.Item
-            componentId="mlflow.eval-datasets.edit-tags-menu-option"
-            onClick={(e) => {
-              e.stopPropagation();
-            }}
-          >
-            <DropdownMenu.IconWrapper>
-              <PencilIcon />
-            </DropdownMenu.IconWrapper>
-            <FormattedMessage defaultMessage="Edit tags" description="Edit evaluation dataset tags menu item" />
           </DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu.Root>

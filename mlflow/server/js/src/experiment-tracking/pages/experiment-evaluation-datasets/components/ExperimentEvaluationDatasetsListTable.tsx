@@ -1,15 +1,10 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Empty,
   Table,
   TableHeader,
   TableRow,
   TableSkeletonRows,
-  DialogCombobox,
-  DialogComboboxContent,
-  DialogComboboxOptionList,
-  DialogComboboxOptionListCheckboxItem,
-  DialogComboboxCustomButtonTriggerWrapper,
   Input,
   Button,
   RefreshIcon,
@@ -17,30 +12,86 @@ import {
   SearchIcon,
   TableCell,
   ColumnsIcon,
+  DropdownMenu,
+  Typography,
+  DatabaseIcon,
 } from '@databricks/design-system';
-import { useIntl } from '@databricks/i18n';
-import type { Row, SortDirection, SortingState } from '@tanstack/react-table';
+import { FormattedMessage, useIntl } from '@databricks/i18n';
+import type { ColumnDef, Row, SortDirection, SortingState } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table';
 import { EvaluationDataset } from '../types';
 import { useSearchEvaluationDatasets } from '../hooks/useSearchEvaluationDatsets';
 import { NameCell } from './ExperimentEvaluationDatasetsNameCell';
 import { LastUpdatedCell } from './ExperimentEvaluationDatasetsLastUpdatedCell';
 import { ActionsCell } from './ExperimentEvaluationDatasetsActionsCell';
+import { isEqual } from 'lodash';
+import { CreateEvaluationDatasetModal } from './CreateEvaluationDatasetModal';
+import { useInfiniteScrollFetch } from '../hooks/useInfiniteScrollFetch';
+import { useDebouncedCallback } from 'use-debounce';
 
-// scroll offset from bottom that triggers fetching more datasets
-const INFINITE_SCROLL_BOTTOM_OFFSET = 200;
-
-const ALL_COLUMNS = {
-  name: true,
-  created_time: true,
-  last_update_time: false,
-  created_by: false,
-  source_type: false,
+const COLUMN_IDS = {
+  NAME: 'name',
+  LAST_UPDATE_TIME: 'last_update_time',
+  CREATED_TIME: 'created_time',
+  CREATED_BY: 'created_by',
+  SOURCE_TYPE: 'source_type',
+  ACTIONS: 'actions',
 };
+
+const DEFAULT_ENABLED_COLUMN_IDS = [COLUMN_IDS.NAME, COLUMN_IDS.LAST_UPDATE_TIME, COLUMN_IDS.ACTIONS];
+const UNSELECTABLE_COLUMN_IDS = [COLUMN_IDS.ACTIONS];
+
+const columns: ColumnDef<EvaluationDataset, any>[] = [
+  {
+    id: COLUMN_IDS.NAME,
+    accessorKey: 'name',
+    header: 'Name',
+    enableSorting: true,
+    cell: NameCell,
+  },
+  {
+    id: COLUMN_IDS.LAST_UPDATE_TIME,
+    accessorKey: 'last_update_time',
+    accessorFn: (row: EvaluationDataset) => (row.last_update_time ? new Date(row.last_update_time).getTime() : 0),
+    header: 'Updated At',
+    enableSorting: true,
+    size: 100,
+    maxSize: 100,
+    cell: LastUpdatedCell,
+  },
+  {
+    id: COLUMN_IDS.CREATED_TIME,
+    accessorKey: 'created_time',
+    accessorFn: (row: EvaluationDataset) => (row.created_time ? new Date(row.created_time).getTime() : 0),
+    header: 'Created At',
+    enableSorting: true,
+    cell: ({ row }: { row: Row<EvaluationDataset> }) => new Date(row.original.created_time).toLocaleString(),
+  },
+  {
+    id: COLUMN_IDS.CREATED_BY,
+    accessorKey: 'created_by',
+    header: 'Created By',
+    enableSorting: true,
+  },
+  {
+    id: COLUMN_IDS.SOURCE_TYPE,
+    accessorKey: 'source_type',
+    header: 'Source Type',
+    enableSorting: true,
+  },
+  {
+    id: 'actions',
+    header: '',
+    enableSorting: false,
+    size: 36,
+    maxSize: 36,
+    cell: ActionsCell,
+  },
+];
 
 interface ExperimentEvaluationDatasetsTableRowProps {
   row: Row<EvaluationDataset>;
-  columns: any[];
+  columnVisibility: { [key: string]: boolean };
   isActive: boolean;
   setSelectedDataset: (dataset: EvaluationDataset | undefined) => void;
 }
@@ -77,7 +128,7 @@ const ExperimentEvaluationDatasetsTableRow: React.FC<
     );
   },
   (prev, next) => {
-    return prev.isActive === next.isActive && prev.columns === next.columns;
+    return prev.isActive === next.isActive && isEqual(prev.columnVisibility, next.columnVisibility);
   },
 );
 
@@ -92,7 +143,6 @@ export const ExperimentEvaluationDatasetsListTable = ({
 }) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
-  const tableContainerRef = useRef<HTMLDivElement>(null);
 
   const [sorting, setSorting] = useState<SortingState>([
     {
@@ -100,8 +150,17 @@ export const ExperimentEvaluationDatasetsListTable = ({
       desc: true, // Most recent first
     },
   ]);
-  const [selectedColumns, setSelectedColumns] = useState<{ [key: string]: boolean }>(ALL_COLUMNS);
+  const [columnVisibility, setColumnVisibility] = useState<{ [key: string]: boolean }>(
+    columns.reduce((acc, column) => {
+      acc[column.id ?? ''] = DEFAULT_ENABLED_COLUMN_IDS.includes(column.id ?? '');
+      return acc;
+    }, {} as { [key: string]: boolean }),
+  );
+  const [showCreateDatasetModal, setShowCreateDatasetModal] = useState(false);
+  // searchFilter only gets updated after the user presses enter
   const [searchFilter, setSearchFilter] = useState('');
+  // control field that gets updated immediately
+  const [internalSearchFilter, setInternalSearchFilter] = useState(searchFilter);
 
   const {
     data: datasets,
@@ -111,74 +170,7 @@ export const ExperimentEvaluationDatasetsListTable = ({
     refetch,
     fetchNextPage,
     hasNextPage,
-  } = useSearchEvaluationDatasets({ experimentId });
-
-  const handleCreateDatasetSuccess = useCallback(
-    (dataset: EvaluationDataset) => {
-      if (dataset.dataset_id) {
-        setSelectedDataset(dataset);
-      }
-    },
-    [setSelectedDataset],
-  );
-
-  const columns = useMemo(
-    () =>
-      [
-        {
-          id: 'name',
-          accessorKey: 'name',
-          header: 'Name',
-          enableSorting: true,
-          enableColumnResizing: false,
-          cell: NameCell,
-        },
-        {
-          id: 'created_time',
-          accessorKey: 'created_time',
-          accessorFn: (row: EvaluationDataset) => (row.created_time ? new Date(row.created_time).getTime() : 0),
-          header: 'Created At',
-          enableSorting: true,
-          enableColumnResizing: false,
-          cell: ({ row }: { row: Row<EvaluationDataset> }) => new Date(row.original.created_time).toLocaleString(),
-        },
-        {
-          id: 'last_update_time',
-          accessorKey: 'last_update_time',
-          accessorFn: (row: EvaluationDataset) => (row.last_update_time ? new Date(row.last_update_time).getTime() : 0),
-          header: 'Updated At',
-          enableSorting: true,
-          enableColumnResizing: false,
-          size: 100,
-          maxSize: 100,
-          cell: LastUpdatedCell,
-        },
-        {
-          id: 'created_by',
-          accessorKey: 'created_by',
-          header: 'Created By',
-          enableSorting: true,
-          enableColumnResizing: false,
-        },
-        {
-          id: 'source_type',
-          accessorKey: 'source_type',
-          header: 'Source Type',
-          enableSorting: true,
-          enableColumnResizing: false,
-        },
-        {
-          id: 'actions',
-          header: '',
-          enableSorting: false,
-          enableColumnResizing: false,
-          size: 36,
-          maxSize: 36,
-          cell: ActionsCell,
-        },
-      ].filter((column) => selectedColumns[column.id as keyof typeof selectedColumns] || column.id === 'actions'),
-    [selectedColumns],
-  );
+  } = useSearchEvaluationDatasets({ experimentId, nameFilter: searchFilter });
 
   const table = useReactTable({
     columns,
@@ -191,20 +183,15 @@ export const ExperimentEvaluationDatasetsListTable = ({
     enableColumnResizing: false,
     state: {
       sorting,
+      columnVisibility,
     },
   });
 
-  const fetchMoreOnBottomReached = useCallback(
-    (containerRefElement?: HTMLDivElement | null) => {
-      if (containerRefElement) {
-        const { scrollHeight, scrollTop, clientHeight } = containerRefElement;
-        if (scrollHeight - scrollTop - clientHeight < INFINITE_SCROLL_BOTTOM_OFFSET && !isFetching && hasNextPage) {
-          fetchNextPage();
-        }
-      }
-    },
-    [fetchNextPage, isFetching, hasNextPage],
-  );
+  const fetchMoreOnBottomReached = useInfiniteScrollFetch({
+    isFetching,
+    hasNextPage: hasNextPage ?? false,
+    fetchNextPage,
+  });
 
   // Set the selected dataset to the first one (respecting sort order) if we don't already have one
   // or if the selected dataset went out of scope (e.g. was deleted)
@@ -218,21 +205,28 @@ export const ExperimentEvaluationDatasetsListTable = ({
     }
   }, [datasets, selectedDataset, setSelectedDataset, table]);
 
-  useEffect(() => {
-    fetchMoreOnBottomReached(tableContainerRef.current);
-  }, [fetchMoreOnBottomReached]);
-
   if (error) {
     return <div>Error loading datasets</div>;
   }
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
-      <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center', marginBottom: theme.spacing.md }}>
+      <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center', marginBottom: theme.spacing.sm }}>
         <Input
+          allowClear
           placeholder="Search by dataset name"
-          value={searchFilter}
-          onChange={(e) => setSearchFilter(e.target.value)}
+          value={internalSearchFilter}
+          onChange={(e) => {
+            setInternalSearchFilter(e.target.value);
+            if (!e.target.value) {
+              setSearchFilter(e.target.value);
+            }
+          }}
+          onClear={() => {
+            setInternalSearchFilter('');
+            setSearchFilter('');
+          }}
+          onPressEnter={() => setSearchFilter(internalSearchFilter)}
           componentId="mlflow.eval-datasets.search-input"
           css={{ flex: 1 }}
           prefix={<SearchIcon />}
@@ -244,34 +238,42 @@ export const ExperimentEvaluationDatasetsListTable = ({
             onClick={() => refetch()}
             componentId="mlflow.eval-datasets.table-refresh-button"
           />
-          <DialogCombobox componentId="mlflow.eval-datasets.table-column-selector" label="Columns" multiSelect>
-            <DialogComboboxCustomButtonTriggerWrapper>
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger asChild>
               <Button icon={<ColumnsIcon />} componentId="mlflow.eval-datasets.table-column-selector-button" />
-            </DialogComboboxCustomButtonTriggerWrapper>
-            <DialogComboboxContent>
-              <DialogComboboxOptionList>
-                {Object.entries(selectedColumns).map(([column, selected]) => (
-                  <DialogComboboxOptionListCheckboxItem
-                    key={column}
-                    value={column}
-                    onChange={() => {
-                      const newSelectedColumns = { ...selectedColumns };
-                      newSelectedColumns[column] = !selected;
-                      setSelectedColumns(newSelectedColumns);
-                    }}
-                    checked={selected}
-                  >
-                    {column
-                      .split('_')
-                      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-                      .join(' ')}
-                  </DialogComboboxOptionListCheckboxItem>
-                ))}
-              </DialogComboboxOptionList>
-            </DialogComboboxContent>
-          </DialogCombobox>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content>
+              {columns.map(
+                (column) =>
+                  !UNSELECTABLE_COLUMN_IDS.includes(column.id ?? '') && (
+                    <DropdownMenu.CheckboxItem
+                      componentId="mlflow.eval-datasets.table-column-selector-checkbox"
+                      key={column.id ?? ''}
+                      checked={columnVisibility[column.id ?? ''] ?? false}
+                      onCheckedChange={(checked) =>
+                        setColumnVisibility({
+                          ...columnVisibility,
+                          [column.id ?? '']: checked,
+                        })
+                      }
+                    >
+                      <DropdownMenu.ItemIndicator />
+                      <Typography.Text>{column.header}</Typography.Text>
+                    </DropdownMenu.CheckboxItem>
+                  ),
+              )}
+            </DropdownMenu.Content>
+          </DropdownMenu.Root>
         </div>
       </div>
+      <Button
+        componentId="mlflow.eval-datasets.create-dataset-button"
+        css={{ width: 'min-content' }}
+        icon={<DatabaseIcon />}
+        onClick={() => setShowCreateDatasetModal(true)}
+      >
+        <FormattedMessage defaultMessage="Create dataset" description="Create evaluation dataset button" />
+      </Button>
       <div css={{ flex: 1, minHeight: 0, position: 'relative' }}>
         <Table
           css={{ height: '100%' }}
@@ -286,7 +288,6 @@ export const ExperimentEvaluationDatasetsListTable = ({
             ) : undefined
           }
           onScroll={(e) => fetchMoreOnBottomReached(e.currentTarget as HTMLDivElement)}
-          ref={tableContainerRef}
           scrollable
         >
           <TableRow isHeader>
@@ -318,7 +319,7 @@ export const ExperimentEvaluationDatasetsListTable = ({
                 <ExperimentEvaluationDatasetsTableRow
                   key={row.id}
                   row={row}
-                  columns={columns}
+                  columnVisibility={columnVisibility}
                   isActive={row.original.dataset_id === selectedDataset?.dataset_id}
                   setSelectedDataset={setSelectedDataset}
                 />
@@ -326,6 +327,11 @@ export const ExperimentEvaluationDatasetsListTable = ({
 
           {(isLoading || isFetching) && <TableSkeletonRows table={table} />}
         </Table>
+        <CreateEvaluationDatasetModal
+          experimentId={experimentId}
+          visible={showCreateDatasetModal}
+          onCancel={() => setShowCreateDatasetModal(false)}
+        />
       </div>
     </div>
   );

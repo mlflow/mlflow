@@ -1,9 +1,9 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { EvaluationDataset } from '../types';
 import { postJson } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 import { useMemo } from 'react';
 
-const SEARCH_EVALUATION_DATASETS_PAGE_SIZE = 20;
+const SEARCH_EVALUATION_DATASETS_PAGE_SIZE = 50;
 
 type SearchEvaluationDatasetsResponse = {
   datasets?: EvaluationDataset[];
@@ -13,21 +13,22 @@ type SearchEvaluationDatasetsResponse = {
 export const useSearchEvaluationDatasets = ({
   experimentId,
   enabled = true,
-  filter = '',
+  nameFilter = '',
 }: {
   experimentId: string;
   enabled?: boolean;
-  filter?: string;
+  nameFilter?: string;
 }) => {
   const { data, fetchNextPage, hasNextPage, isLoading, isFetching, refetch, error } = useInfiniteQuery<
     SearchEvaluationDatasetsResponse,
     Error
   >({
-    queryKey: ['SEARCH_EVALUATION_DATASETS', experimentId, filter],
-    queryFn: async ({ queryKey: [, experimentId, filter], pageParam = undefined }) => {
+    queryKey: ['SEARCH_EVALUATION_DATASETS', experimentId, nameFilter],
+    queryFn: async ({ queryKey: [, experimentId, nameFilter], pageParam = undefined }) => {
+      const filterString = nameFilter ? `name ILIKE '%${nameFilter}%'` : undefined;
       const requestBody = {
         experiment_ids: [experimentId],
-        filter,
+        filter_string: filterString,
         order_by: ['created_time DESC'],
         max_results: SEARCH_EVALUATION_DATASETS_PAGE_SIZE,
         page_token: pageParam,

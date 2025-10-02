@@ -33,7 +33,7 @@ export type EvaluationDataset = {
   experiment_ids: string[];
 };
 
-export type EvaluationDatasetRecord = {
+export interface EvaluationDatasetRecord {
   // Unique identifier for the record
   dataset_record_id: string;
 
@@ -72,7 +72,7 @@ export type EvaluationDatasetRecord = {
 
   // Outputs as JSON string
   outputs?: string;
-};
+}
 
 export type SourceType = 'SOURCE_TYPE_UNSPECIFIED' | 'TRACE' | 'HUMAN' | 'DOCUMENT' | 'CODE';
 

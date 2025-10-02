@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { parseJSONSafe } from '@mlflow/mlflow/src/common/utils/TagUtils';
 import { EvaluationDatasetRecord } from '../types';
 
-const GET_DATASET_RECORDS_PAGE_SIZE = 20;
+const GET_DATASET_RECORDS_PAGE_SIZE = 50;
 
 type GetDatasetRecordsResponse = {
   // JSON serialized list of dataset records
