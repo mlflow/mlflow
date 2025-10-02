@@ -1981,6 +1981,11 @@ class SqlJob(Base):
     Job retry count: `Integer`
     """
 
+    last_update_time = Column(BigInteger(), default=get_current_time_millis)
+    """
+    Last Update time of experiment: `BigInteger`.
+    """
+
     __table_args__ = (
         PrimaryKeyConstraint("id", name="jobs_pk"),
         Index(

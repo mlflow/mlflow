@@ -68,6 +68,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
                 timeout=timeout,
                 status=JobStatus.PENDING.to_int(),
                 result=None,
+                last_update_time=creation_time,
             )
 
             session.add(job)
@@ -85,6 +86,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
             job = self._get_sql_job(session, job_id)
 
             job.status = JobStatus.RUNNING.to_int()
+            job.last_update_time = get_current_time_millis()
 
     def reset_job(self, job_id: str) -> None:
         """
@@ -97,6 +99,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
             job = self._get_sql_job(session, job_id)
 
             job.status = JobStatus.PENDING.to_int()
+            job.last_update_time = get_current_time_millis()
 
     def finish_job(self, job_id: str, result: str) -> None:
         """
@@ -111,6 +114,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
 
             job.status = JobStatus.SUCCEEDED.to_int()
             job.result = result
+            job.last_update_time = get_current_time_millis()
 
     def fail_job(self, job_id: str, error: str) -> None:
         """
@@ -125,6 +129,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
 
             job.status = JobStatus.FAILED.to_int()
             job.result = error
+            job.last_update_time = get_current_time_millis()
 
     def mark_job_timed_out(self, job_id: str) -> None:
         """
@@ -137,6 +142,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
             job = self._get_sql_job(session, job_id)
 
             job.status = JobStatus.TIMEOUT.to_int()
+            job.last_update_time = get_current_time_millis()
 
     def retry_or_fail_job(self, job_id: str, error: str) -> int | None:
         """
@@ -165,6 +171,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
                 return None
             job.retry_count += 1
             job.status = JobStatus.PENDING.to_int()
+            job.last_update_time = get_current_time_millis()
             return job.retry_count
 
     def list_jobs(
