@@ -11,7 +11,6 @@ from typing import Any
 import dateutil.parser
 
 import mlflow
-from mlflow import MlflowClient
 from mlflow.claude_code.config import (
     MLFLOW_TRACING_ENABLED,
     get_env_var,
@@ -438,7 +437,7 @@ def _process_assistant_entry(msg: dict[str, Any], messages: list[dict[str, Any]]
 
 
 def _create_llm_and_tool_spans(
-    client, trace, transcript: list[dict[str, Any]], start_idx: int
+    parent_span, transcript: list[dict[str, Any]], start_idx: int
 ) -> None:
     """Create LLM and tool spans for assistant responses with proper timing."""
     llm_call_num = 0
@@ -469,10 +468,9 @@ def _create_llm_and_tool_spans(
             llm_call_num += 1
             conversation_messages = _reconstruct_conversation_messages(transcript, i)
 
-            llm_span = client.start_span(
+            llm_span = mlflow.start_span_no_context(
                 name=f"llm_call_{llm_call_num}",
-                trace_id=trace.trace_id,
-                parent_id=trace.span_id,
+                parent_span=parent_span,
                 span_type=SpanType.LLM,
                 start_time_ns=timestamp_ns,
                 inputs={
@@ -486,12 +484,8 @@ def _create_llm_and_tool_spans(
                 },
             )
 
-            client.end_span(
-                trace_id=llm_span.trace_id,
-                span_id=llm_span.span_id,
-                outputs={"response": text_content},
-                end_time_ns=timestamp_ns + duration_ns,
-            )
+            llm_span.set_outputs({"response": text_content})
+            llm_span.end(end_time_ns=timestamp_ns + duration_ns)
 
         # Create tool spans with proportional timing and actual results
         if tool_uses:
@@ -503,10 +497,9 @@ def _create_llm_and_tool_spans(
                 tool_use_id = tool_use.get("id", "")
                 tool_result = tool_results.get(tool_use_id, "No result found")
 
-                tool_span = client.start_span(
+                tool_span = mlflow.start_span_no_context(
                     name=f"tool_{tool_use.get('name', 'unknown')}",
-                    trace_id=trace.trace_id,
-                    parent_id=trace.span_id,
+                    parent_span=parent_span,
                     span_type=SpanType.TOOL,
                     start_time_ns=tool_start_ns,
                     inputs=tool_use.get("input", {}),
@@ -516,12 +509,8 @@ def _create_llm_and_tool_spans(
                     },
                 )
 
-                client.end_span(
-                    trace_id=tool_span.trace_id,
-                    span_id=tool_span.span_id,
-                    outputs={"result": tool_result},
-                    end_time_ns=tool_start_ns + tool_duration_ns,
-                )
+                tool_span.set_outputs({"result": tool_result})
+                tool_span.end(end_time_ns=tool_start_ns + tool_duration_ns)
 
 
 def find_final_assistant_response(transcript: list[dict[str, Any]], start_idx: int) -> str | None:
@@ -572,8 +561,6 @@ def process_transcript(
         MLflow trace object if successful, None if processing fails
     """
     try:
-        client = MlflowClient()
-
         transcript = read_transcript(transcript_path)
         if not transcript:
             get_logger().warning("Empty transcript, skipping")
@@ -596,7 +583,7 @@ def process_transcript(
 
         conv_start_ns = parse_timestamp_to_ns(last_user_entry.get(MESSAGE_FIELD_TIMESTAMP))
 
-        trace = client.start_trace(
+        parent_span = mlflow.start_span_no_context(
             name="claude_code_conversation",
             inputs={"prompt": extract_text_content(last_user_prompt)},
             start_time_ns=conv_start_ns,
@@ -604,7 +591,7 @@ def process_transcript(
         )
 
         # Create spans for all assistant responses and tool uses
-        _create_llm_and_tool_spans(client, trace, transcript, last_user_idx + 1)
+        _create_llm_and_tool_spans(parent_span, transcript, last_user_idx + 1)
 
         # Update trace with preview content and end timing
         final_response = find_final_assistant_response(transcript, last_user_idx + 1)
@@ -612,7 +599,9 @@ def process_transcript(
 
         # Set trace previews for UI display
         try:
-            with InMemoryTraceManager.get_instance().get_trace(trace.trace_id) as in_memory_trace:
+            with InMemoryTraceManager.get_instance().get_trace(
+                parent_span.trace_id
+            ) as in_memory_trace:
                 if user_prompt_text:
                     in_memory_trace.info.request_preview = user_prompt_text[:MAX_PREVIEW_LENGTH]
                 if final_response:
@@ -631,16 +620,15 @@ def process_transcript(
         if not conv_end_ns or conv_end_ns <= conv_start_ns:
             conv_end_ns = conv_start_ns + int(10 * NANOSECONDS_PER_S)  # 10 second default
 
-        client.end_trace(
-            trace_id=trace.trace_id,
-            outputs={"response": final_response or "Conversation completed", "status": "completed"},
-            end_time_ns=conv_end_ns,
+        parent_span.set_outputs(
+            {"response": final_response or "Conversation completed", "status": "completed"}
         )
+        parent_span.end(end_time_ns=conv_end_ns)
 
         mlflow.flush_trace_async_logging()
-        get_logger().claude_tracing("Created MLflow trace: %s", trace.trace_id)
+        get_logger().claude_tracing("Created MLflow trace: %s", parent_span.trace_id)
 
-        return mlflow.get_trace(trace.trace_id)
+        return mlflow.get_trace(parent_span.trace_id)
 
     except Exception as e:
         get_logger().error("Error processing transcript: %s", e, exc_info=True)
