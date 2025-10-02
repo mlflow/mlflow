@@ -16,7 +16,7 @@ import TabItem from "@theme/TabItem";
 [MLflow Tracing](/genai/tracing) provides automatic tracing for Claude Code:
 
 1. **CLI tracing**: Automatically trace interactive Claude Code CLI conversations
-2. **SDK tracing**: Trace Claude Code SDK usage in Python applications
+2. **SDK tracing**: Trace Claude Agent SDK usage in Python applications
 
 After setting up auto tracing, MLflow will automatically capture traces of your Claude Code conversations and log them to the active MLflow experiment. The trace automatically captures information such as:
 
@@ -100,28 +100,32 @@ mlflow ui
 
 ### SDK Tracing Setup
 
-Use SDK tracing when building applications that programmatically use the Claude Code SDK.
+Use SDK tracing when building applications that programmatically use the Claude Agent SDK.
 
 #### Basic Setup
 
 ```python
-import mlflow.claude_code
+import mlflow.anthropic
 
-# Enable automatic tracing for Claude Code SDK
-mlflow.claude_code.autolog()  # clint: disable=unknown-mlflow-function
+# Enable automatic tracing for Claude Agent SDK
+mlflow.anthropic.autolog()
 ```
 
-Once enabled, all Claude Code SDK interactions will be automatically traced.
+Once enabled, all Claude Agent SDK interactions will be automatically traced.
+
+:::note
+Only `ClaudeSDKClient` supports tracing. Directly calling `query` will not be traced!
+:::
 
 #### Complete Example
 
 ```python
 import asyncio
-import mlflow.claude_code
+import mlflow.anthropic
 from claude_agent_sdk import ClaudeSDKClient
 
 # Enable autologging
-mlflow.claude_code.autolog()  # clint: disable=unknown-mlflow-function
+mlflow.anthropic.autolog()
 
 # Optionally configure MLflow experiment
 mlflow.set_experiment("my_claude_app")
@@ -148,21 +152,20 @@ import asyncio
 import pandas as pd
 from claude_agent_sdk import ClaudeSDKClient
 
-import mlflow.claude_code
+import mlflow.anthropic
 from mlflow.genai import evaluate, scorer
 from mlflow.genai.judges import make_judge
 
-mlflow.claude_code.autolog()  # clint: disable=unknown-mlflow-function
+mlflow.anthropic.autolog()
 
 
 async def run_agent(query: str) -> str:
-    """Run Claude Code SDK and return response"""
+    """Run Claude Agent SDK and return response"""
     async with ClaudeSDKClient() as client:
         await client.query(query)
 
         response_text = ""
         async for message in client.receive_response():
-            # Process messages and accumulate response
             response_text += str(message) + "\n\n"
 
         return response_text
@@ -248,7 +251,7 @@ This removes the hooks from `.claude/settings.json` but preserves existing trace
 **No traces appearing:**
 
 - Tracing only works with `ClaudeSDKClient` - direct usage of `query()` is not supported
-- Verify `mlflow.claude_code.autolog()` is called before creating the `ClaudeSDKClient`
+- Verify `mlflow.anthropic.autolog()` is called before creating the `ClaudeSDKClient`
 - Check that the tracking URI and experiment ID are configured correctly
 
 ### Disable SDK Tracing
@@ -256,7 +259,7 @@ This removes the hooks from `.claude/settings.json` but preserves existing trace
 To disable SDK tracing:
 
 ```python
-mlflow.claude_code.autolog(disable=True)
+mlflow.anthropic.autolog(disable=True)
 ```
 
 </TabItem>
