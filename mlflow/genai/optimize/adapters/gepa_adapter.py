@@ -34,33 +34,39 @@ class GepaPromptAdapter(BasePromptAdapter):
 
         .. code-block:: python
 
+            import mlflow
+            import openai
+            from mlflow.genai.optimize import LLMParams
             from mlflow.genai.optimize.adapters import GepaPromptAdapter
-            from mlflow.genai.optimize.types import LLMParams
 
-            train_dataset = [
+            prompt = mlflow.genai.register_prompt(
+                name="qa",
+                template="Answer the following question: {{question}}",
+            )
+
+
+            def predict_fn(question: str) -> str:
+                completion = openai.OpenAI().chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[{"role": "user", "content": prompt.format(question=question)}],
+                )
+                return completion.choices[0].message.content
+
+
+            dataset = [
                 {"inputs": {"question": "What is the capital of France?"}, "outputs": "Paris"},
                 {"inputs": {"question": "What is the capital of Germany?"}, "outputs": "Berlin"},
             ]
 
-
-            def my_eval_fn(candidate_prompts, dataset):
-                return [
-                    EvaluationResultRecord(
-                        inputs=record["inputs"],
-                        outputs="output",
-                        score=0.8,
-                        trace={"info": "mock trace"},
-                    )
-                ]
-
-
-            adapter = GepaPromptAdapter(max_metric_calls=100, display_progress_bar=True)
-            result = adapter.optimize(
-                eval_fn=my_eval_fn,
-                train_data=train_dataset,
-                target_prompts={"system_prompt": "You are a helpful assistant."},
-                optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o-mini"),
+            result = mlflow.genai.adapt_prompts(
+                predict_fn=predict_fn,
+                train_data=dataset,
+                target_prompt_uris=[prompt.uri],
+                optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o"),
+                optimizer=GepaPromptAdapter(display_progress_bar=True),
             )
+
+            print(result.optimized_prompts[0].template)
     """
 
     def __init__(
@@ -108,15 +114,12 @@ class GepaPromptAdapter(BasePromptAdapter):
                 "GEPA is not installed. Please install it with: pip install gepa"
             ) from e
 
-        # Since GEPA doesn't have built-in validation set splitting,
-        # we'll use a simple 80/20 split
         split_idx = int(len(train_data) * self.train_val_split_ratio)
         gepa_trainset = train_data[:split_idx] if split_idx > 0 else train_data
         gepa_valset = train_data[split_idx:] if split_idx < len(train_data) else train_data[:1]
 
         model_name = parse_model_name(optimizer_lm_params.model_name)
 
-        # Create a custom adapter for GEPA that uses our eval_fn
         class MLflowGEPAAdapter(gepa.GEPAAdapter):
             def __init__(self, eval_function, prompts_dict):
                 self.eval_function = eval_function
@@ -144,7 +147,7 @@ class GepaPromptAdapter(BasePromptAdapter):
 
                 outputs = [result.outputs for result in eval_results]
                 scores = [result.score for result in eval_results]
-                trajectories = [result.trace for result in eval_results] if capture_traces else None
+                trajectories = eval_results if capture_traces else None
 
                 return gepa.EvaluationBatch(
                     outputs=outputs, scores=scores, trajectories=trajectories
@@ -172,16 +175,17 @@ class GepaPromptAdapter(BasePromptAdapter):
                 for component_name in components_to_update:
                     component_data = []
 
-                    traces = eval_batch.trajectories or eval_batch.outputs
+                    trajectories = eval_batch.trajectories
 
-                    for i, (trace, score) in enumerate(zip(traces, eval_batch.scores)):
-                        trace_str = str(trace) if trace else ""
+                    for i, (trajectory, score) in enumerate(zip(trajectories, eval_batch.scores)):
+                        trace_str = trajectory.trace.to_json() if trajectory.trace else ""
                         component_data.append(
                             {
                                 "component_name": component_name,
                                 "current_text": candidate.get(component_name, ""),
                                 "trace": trace_str,
                                 "score": score,
+                                "expectations": trajectory.expectations,
                                 "index": i,
                             }
                         )
@@ -199,7 +203,6 @@ class GepaPromptAdapter(BasePromptAdapter):
             trainset=gepa_trainset,
             valset=gepa_valset,
             adapter=adapter,
-            task_lm=model_name,
             reflection_lm=reflection_lm,
             max_metric_calls=self.max_metric_calls,
             display_progress_bar=self.display_progress_bar,

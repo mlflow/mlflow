@@ -98,7 +98,7 @@ def adapt_prompts(
                 predict_fn=predict_fn,
                 train_data=dataset,
                 target_prompt_uris=[prompt.uri],
-                optimizer_lm_params=LLMParams(model_name="gpt-4o"),
+                optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o"),
             )
 
             print(result.optimized_prompts[0].template)
@@ -166,7 +166,11 @@ def _build_eval_fn(
             # TODO: Consider more robust scoring mechanism
             score = 1 if program_outputs == outputs else 0
             return EvaluationResultRecord(
-                inputs=inputs, outputs=program_outputs, score=score, trace=trace
+                inputs=inputs,
+                outputs=program_outputs,
+                expectations=outputs,
+                score=score,
+                trace=trace,
             )
 
         try:

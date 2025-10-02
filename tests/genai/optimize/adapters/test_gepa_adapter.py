@@ -45,7 +45,8 @@ def mock_eval_fn():
             results.append(
                 EvaluationResultRecord(
                     inputs=record["inputs"],
-                    outputs=record["outputs"],
+                    outputs="outputs",
+                    expectations=record["outputs"],
                     score=0.8,
                     trace={"info": "mock trace"},
                 )
@@ -108,7 +109,6 @@ def test_gepa_adapter_optimize(sample_train_data, sample_target_prompts, mock_ev
 
     assert call_kwargs["seed_candidate"] == sample_target_prompts
     assert call_kwargs["adapter"] is not None
-    assert call_kwargs["task_lm"] == "openai/gpt-4o-mini"
     assert call_kwargs["max_metric_calls"] == 50
     assert call_kwargs["reflection_lm"] == "openai/gpt-4o-mini"
     assert call_kwargs["display_progress_bar"] is True
@@ -169,7 +169,6 @@ def test_gepa_adapter_optimize_model_name_parsing(
         )
 
     call_kwargs = mock_gepa_module.optimize.call_args.kwargs
-    assert call_kwargs["task_lm"] == "openai/gpt-4o"
     assert call_kwargs["reflection_lm"] == "openai/gpt-4o"
 
 

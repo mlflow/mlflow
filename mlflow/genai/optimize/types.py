@@ -2,7 +2,7 @@ import multiprocessing
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable
 
-from mlflow.entities import Feedback
+from mlflow.entities import Feedback, Trace
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.utils.annotations import experimental
 
@@ -129,15 +129,17 @@ class EvaluationResultRecord:
 
     Args:
         inputs: The inputs of the evaluation.
-        outputs: The outputs of the evaluation.
+        outputs: The outputs of the prediction function.
+        expectations: The expected outputs.
         score: The score of the evaluation result.
         trace: The trace of the evaluation execution.
     """
 
     inputs: dict[str, Any]
     outputs: Any
+    expectations: Any
     score: float
-    trace: Any
+    trace: Trace
 
 
 @experimental(version="3.5.0")
