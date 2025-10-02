@@ -37,7 +37,7 @@
   },
   "peerDependencies": {
     "mlflow-tracing": "^0.1.1",
-    "openai": "^4.0.0"
+    "openai": ">=4.0.0"
   },
   "devDependencies": {
     "jest": "^29.6.2",
