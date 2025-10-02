@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 import requests
 
+import mlflow
 from mlflow.server.jobs import job
 
 pytestmark = pytest.mark.skipif(
@@ -23,6 +24,11 @@ def simple_job_fun(x: int, y: int, sleep_secs: int = 0) -> dict[str, Any]:
         "a": x + y,
         "b": x * y,
     }
+
+
+@job(max_workers=1)
+def job_assert_tracking_uri(server_url: str) -> None:
+    assert mlflow.get_tracking_uri() == server_url
 
 
 @pytest.fixture(scope="module")
@@ -52,7 +58,8 @@ def server_url(tmp_path_factory: pytest.TempPathFactory) -> str:
             "MLFLOW_SERVER_ENABLE_JOB_EXECUTION": "true",
             "_MLFLOW_ALLOWED_JOB_FUNCTION_LIST": (
                 "test_endpoint.simple_job_fun,invalid_format_no_module,"
-                "non_existent_module.some_function,os.non_existent_function"
+                "non_existent_module.some_function,os.non_existent_function,"
+                "test_endpoint.job_assert_tracking_uri"
             ),
         },
         start_new_session=True,  # new session & process group
@@ -164,6 +171,19 @@ def test_job_endpoint_missing_parameters(server_url: str):
         "Missing required parameters for function 'simple_job_fun': ['y']. "
         + "Expected parameters: ['x', 'y', 'sleep_secs']"
     )
+
+
+def test_job_tracking_uri(server_url: str):
+    payload = {
+        "function_fullname": "test_endpoint.job_assert_tracking_uri",
+        "params": {"server_url": server_url},
+    }
+    response = requests.post(f"{server_url}/ajax-api/3.0/jobs/", json=payload)
+    response.raise_for_status()
+    job_id = response.json()["job_id"]
+    wait_job_finalize(server_url, job_id, 10)
+    response2 = requests.get(f"{server_url}/ajax-api/3.0/jobs/{job_id}")
+    assert response2.json()["status"] == "SUCCEEDED"
 
 
 def test_job_endpoint_search(server_url: str):
