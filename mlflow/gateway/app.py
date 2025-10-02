@@ -41,6 +41,8 @@ from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_ROUTE_BASE,
     MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE,
     MLFLOW_QUERY_SUFFIX,
+    MLFLOW_GATEWAY_CRUD_ENDPOINT_V3_BASE,
+    MLFLOW_GATEWAY_CRUD_ROUTE_V3_BASE,
 )
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.config import Provider
@@ -346,6 +348,28 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
             "verify the route name.",
         )
 
+    @app.get(MLFLOW_GATEWAY_CRUD_ENDPOINT_V3_BASE + "{endpoint_name}", include_in_schema=False)
+    async def get_endpoint_v3(endpoint_name: str) -> Endpoint:
+        if matched := app.dynamic_endpoints.get(endpoint_name):
+            return matched.to_endpoint()
+
+        raise HTTPException(
+            status_code=404,
+            detail=f"The endpoint '{endpoint_name}' is not present or active on the server. "
+                   f"Please verify the endpoint name.",
+        )
+
+    @app.get(MLFLOW_GATEWAY_CRUD_ROUTE_V3_BASE + "{route_name}", include_in_schema=False)
+    async def get_route_v3(route_name: str) -> RouteConfig:
+        if matched := app.traffic_routes.get(route_name):
+            return matched
+
+        raise HTTPException(
+            status_code=404,
+            detail=f"The route '{route_name}' is not present or active on the server. "
+                   f"Please verify the route name.",
+        )
+
     # TODO: Remove deployments server URLs after deprecation window elapses
     @app.get(MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE)
     async def list_endpoints(page_token: str | None = None) -> ListEndpointsResponse:
@@ -387,15 +411,6 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     @app.post(MLFLOW_GATEWAY_LIMITS_BASE, include_in_schema=False)
     async def set_limits(payload: SetLimitsModel) -> LimitsConfig:
         raise HTTPException(status_code=501, detail="The set_limits API is not available yet.")
-
-    def _look_up_endpoint_config(name: str) -> EndpointConfig | None:
-        if r := app.dynamic_endpoints.get(name):
-            return r
-
-        raise HTTPException(
-            status_code=400,
-            detail=f"Route {name} not found in the configuration.",
-        )
 
     @app.post("/v1/chat/completions")
     async def openai_chat_handler(
