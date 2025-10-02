@@ -553,7 +553,7 @@ def invoke_judge_model(
     return feedback
 
 
-def extract_structured_output(
+def get_chat_completions_with_structured_output(
     model_uri: str,
     messages: list["ChatMessage"],
     output_schema: type[pydantic.BaseModel],
@@ -561,12 +561,10 @@ def extract_structured_output(
     num_retries: int = 10,
 ) -> pydantic.BaseModel:
     """
-    Extract structured output from an LLM using a Pydantic schema.
+    Get chat completions from an LLM with structured output conforming to a Pydantic schema.
 
-    This utility is primarily used for extracting information from MLflow traces
-    where the root span may not contain the actual inputs/outputs (e.g., when
-    users wrap their application with a no-op root span). The LLM uses tool
-    calling to examine nested spans within the trace to find the actual data.
+    This function invokes an LLM and ensures the response matches the provided Pydantic schema.
+    When a trace is provided, the LLM can use tool calling to examine trace spans.
 
     Args:
         model_uri: The model URI (e.g., "openai:/gpt-4", "anthropic:/claude-3").
@@ -574,21 +572,23 @@ def extract_structured_output(
         output_schema: Pydantic model class defining the expected output structure.
                        The LLM will be instructed to return data matching this schema.
         trace: Optional trace object for context. When provided, enables tool
-               calling to examine trace spans for information extraction.
-        num_retries: Number of retries on transient failures when using litellm.
-                     Defaults to 10 with exponential backoff.
+               calling to examine trace spans.
+        num_retries: Number of retries on transient failures. Defaults to 10 with
+                     exponential backoff.
 
     Returns:
-        Instance of output_schema with extracted data.
+        Instance of output_schema with the structured data from the LLM.
 
     Raises:
-        Natural Python exceptions (JSONDecodeError, ValidationError) on failures.
+        ImportError: If LiteLLM is not installed.
+        JSONDecodeError: If the LLM response cannot be parsed as JSON.
+        ValidationError: If the LLM response does not match the output schema.
 
     Example:
         .. code-block:: python
 
             from pydantic import BaseModel, Field
-            from mlflow.genai.judges.utils import extract_structured_output
+            from mlflow.genai.judges.utils import get_chat_completions_with_structured_output
             from mlflow.types.llm import ChatMessage
 
 
@@ -599,7 +599,7 @@ def extract_structured_output(
 
             # Extract fields from a trace where root span lacks input/output
             # but nested spans contain the actual data
-            result = extract_structured_output(
+            result = get_chat_completions_with_structured_output(
                 model_uri="openai:/gpt-4",
                 messages=[
                     ChatMessage(role="system", content="Extract fields from the trace"),
@@ -616,15 +616,9 @@ def extract_structured_output(
     model_provider, model_name = _parse_model_uri(model_uri)
 
     if not _is_litellm_available():
-        # NB: We log a warning here to inform users about the missing dependency, but we also
-        # raise an exception to signal failure. Callers catch this
-        # exception and handle it gracefully by returning None fields. The scorer then provides
-        # a context-specific error message (e.g., "Scorer requires inputs and outputs").
-        # This approach gives users both diagnostic info (the warning) and a clear action to take
-        # (the scorer's error message about what's actually needed).
         _logger.warning(
-            "LiteLLM is not available. Structured output extraction from traces requires LiteLLM. "
-            "Install it with `pip install litellm` to enable automatic field extraction."
+            "LiteLLM is not available. This function requires LiteLLM. "
+            "Install it with `pip install litellm`."
         )
         raise ImportError("LiteLLM is required but not installed")
 
@@ -634,7 +628,7 @@ def extract_structured_output(
         messages=messages,
         trace=trace,
         num_retries=num_retries,
-        output_format=output_schema,
+        pydantic_format=output_schema,
     )
 
     cleaned_response = _strip_markdown_code_blocks(response)
@@ -1017,7 +1011,7 @@ def _invoke_litellm(
     messages: list["ChatMessage"],
     trace: Trace | None,
     num_retries: int,
-    output_format: type[pydantic.BaseModel] | None = None,
+    pydantic_format: type[pydantic.BaseModel] | None = None,
 ) -> str:
     """
     Invoke the LLM via litellm with retry support.
@@ -1028,8 +1022,9 @@ def _invoke_litellm(
         messages: List of ChatMessage objects.
         trace: Optional trace object for context with tool calling support.
         num_retries: Number of retries with exponential backoff on transient failures.
-        output_format: Optional Pydantic model class for structured output format.
-                       Used by extract_structured_output for schema-based extraction.
+        pydantic_format: Optional Pydantic model class for structured output format.
+                       Used by get_chat_completions_with_structured_output for
+                       schema-based extraction.
 
     Returns:
         The model's response content.
@@ -1071,7 +1066,7 @@ def _invoke_litellm(
             "drop_params": True,
         }
         if include_response_format:
-            kwargs["response_format"] = _get_judge_response_format(output_format)
+            kwargs["response_format"] = _get_judge_response_format(pydantic_format)
         return litellm.completion(**kwargs)
 
     def _prune_messages_for_context_window():
@@ -1228,22 +1223,22 @@ def _create_litellm_tool_response_message(
     )
 
 
-def _get_judge_response_format(output_format: type["BaseModel"] | None = None) -> dict[str, Any]:
+def _get_judge_response_format(pydantic_format: type["BaseModel"] | None = None) -> dict[str, Any]:
     """
     Get the response format for judge evaluations.
 
     Args:
-        output_format: Optional Pydantic model class for custom output format.
+        pydantic_format: Optional Pydantic model class for custom output format.
 
     Returns:
         A dictionary containing the JSON schema for structured outputs.
     """
-    if output_format:
-        schema = output_format.model_json_schema()
+    if pydantic_format:
+        schema = pydantic_format.model_json_schema()
         return {
             "type": "json_schema",
             "json_schema": {
-                "name": output_format.__name__.lower(),
+                "name": pydantic_format.__name__.lower(),
                 "strict": True,
                 "schema": schema,
             },

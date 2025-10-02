@@ -1,8 +1,11 @@
+import logging
 from abc import abstractmethod
 from dataclasses import asdict, dataclass
 from typing import Any
 
 import pydantic
+
+_logger = logging.getLogger(__name__)
 
 import mlflow
 from mlflow.entities.assessment import Feedback
@@ -20,7 +23,7 @@ from mlflow.genai.judges.prompts.relevance_to_query import RELEVANCE_TO_QUERY_PR
 from mlflow.genai.judges.utils import (
     CategoricalRating,
     FieldExtraction,
-    extract_structured_output,
+    get_chat_completions_with_structured_output,
     get_default_model,
     invoke_judge_model,
 )
@@ -99,7 +102,7 @@ def resolve_scorer_fields(
         ]
 
         try:
-            extracted = extract_structured_output(
+            extracted = get_chat_completions_with_structured_output(
                 model_uri=model or get_default_model(),
                 messages=prompt,
                 output_schema=FieldExtraction,
@@ -107,39 +110,14 @@ def resolve_scorer_fields(
             )
             inputs = inputs or extracted.inputs
             outputs = outputs or extracted.outputs
-        except Exception:
-            pass
+        except Exception as e:
+            _logger.warning(
+                "Failed to extract inputs/outputs from trace using LLM: %s. "
+                "Provide inputs and outputs as parameters.",
+                e,
+            )
 
     return ExtractedFields(inputs=inputs, outputs=outputs, expectations=expectations)
-
-
-def _raise_missing_fields_error(scorer_name: str, required_fields: list[str]) -> None:
-    """
-    Raise an exception when required fields are missing for a scorer.
-
-    Args:
-        scorer_name: Name of the scorer (e.g., "Guidelines", "Correctness")
-        required_fields: List of required field names (e.g., ["inputs", "outputs"])
-    """
-    fields_str = " and ".join(required_fields)
-    raise MlflowException(
-        f"{scorer_name} scorer requires either:\n"
-        f"1. A trace (for field extraction and evaluation), OR\n"
-        f"2. {fields_str.capitalize()} (for direct evaluation)"
-    )
-
-
-def _raise_missing_guidelines_error() -> None:
-    """Raise an exception when guidelines are missing from expectations."""
-    raise MlflowException("Guidelines must be specified in the `expectations` parameter.")
-
-
-def _raise_missing_correctness_expectations_error() -> None:
-    """Raise an exception when correctness expectations are missing."""
-    raise MlflowException(
-        "Correctness scorer requires expectations with either "
-        "'expected_response' or 'expected_facts'."
-    )
 
 
 def _sanitize_scorer_feedback(feedback: Feedback) -> Feedback:
@@ -684,10 +662,9 @@ class Guidelines(BuiltInScorer):
         Evaluate adherence to specified guidelines.
 
         This scorer can be used in two ways:
-        1. **With a trace**: Pass an MLflow trace object to automatically extract
-           and evaluate the inputs and outputs from the trace's execution.
-        2. **With explicit inputs/outputs**: Directly provide the inputs and outputs to evaluate.
-           This approach is more stable and predictable than trace extraction.
+        1. Pass an MLflow trace object to automatically extract
+           and evaluate the inputs and outputs from the trace.
+        2. Directly provide the inputs and outputs to evaluate.
 
         Args:
             inputs: A dictionary of input data, e.g. {"question": "What is the capital of France?"}.
@@ -704,7 +681,10 @@ class Guidelines(BuiltInScorer):
         fields = resolve_scorer_fields(trace, inputs, outputs, model=self.model)
 
         if fields.inputs is None or fields.outputs is None:
-            _raise_missing_fields_error("Guidelines", ["inputs", "outputs"])
+            raise MlflowException(
+                "Guidelines scorer requires inputs and outputs. "
+                "Provide them directly or pass a trace containing them."
+            )
         feedback = judges.meets_guidelines(
             guidelines=self.guidelines,
             context={
@@ -817,10 +797,9 @@ class ExpectationsGuidelines(BuiltInScorer):
         Evaluate adherence to specified guidelines.
 
         This scorer can be used in two ways:
-        1. **With a trace**: Pass an MLflow trace object to automatically extract
-           and evaluate inputs, outputs, and expectations from the trace's execution.
-        2. **With explicit parameters**: Directly provide the inputs, outputs, and expectations
-           to evaluate. This approach is more stable and predictable than trace extraction.
+        1. Pass an MLflow trace object to automatically extract
+           and evaluate inputs, outputs, and expectations from the trace.
+        2. Directly provide the inputs, outputs, and expectations to evaluate.
 
         Args:
             inputs: A dictionary of input data, e.g. {"question": "What is the capital of France?"}.
@@ -845,11 +824,17 @@ class ExpectationsGuidelines(BuiltInScorer):
         )
 
         if fields.inputs is None or fields.outputs is None:
-            _raise_missing_fields_error("ExpectationsGuidelines", ["inputs", "outputs"])
+            raise MlflowException(
+                "ExpectationsGuidelines scorer requires inputs and outputs. "
+                "Provide them directly or pass a trace containing them."
+            )
 
         guidelines = (fields.expectations or {}).get("guidelines")
         if not guidelines:
-            _raise_missing_guidelines_error()
+            raise MlflowException(
+                "Guidelines must be specified in the `expectations` parameter or "
+                "must be present in the trace."
+            )
         feedback = judges.meets_guidelines(
             guidelines=guidelines,
             context={
@@ -946,10 +931,9 @@ class RelevanceToQuery(BuiltInScorer):
         Evaluate relevance to the user's query.
 
         This scorer can be used in two ways:
-        1. **With a trace**: Pass an MLflow trace object to automatically extract
-           and evaluate the inputs and outputs from the trace's execution.
-        2. **With explicit inputs/outputs**: Directly provide the inputs and outputs to evaluate.
-           This approach is more stable and predictable than trace extraction.
+        1. Pass an MLflow trace object to automatically extract
+           and evaluate the inputs and outputs from the trace.
+        2. Directly provide the inputs and outputs to evaluate.
 
         Args:
             inputs: A dictionary of input data, e.g. {"question": "What is the capital of France?"}.
@@ -966,7 +950,10 @@ class RelevanceToQuery(BuiltInScorer):
         fields = resolve_scorer_fields(trace, inputs, outputs, model=self.model)
 
         if fields.inputs is None or fields.outputs is None:
-            _raise_missing_fields_error("RelevanceToQuery", ["inputs", "outputs"])
+            raise MlflowException(
+                "RelevanceToQuery scorer requires inputs and outputs. "
+                "Provide them directly or pass a trace containing them."
+            )
 
         # Use the existing scorer implementation with extracted/provided fields
         request = parse_inputs_to_str(fields.inputs)
@@ -1051,10 +1038,9 @@ class Safety(BuiltInScorer):
         Evaluate safety of the response.
 
         This scorer can be used in two ways:
-        1. **With a trace**: Pass an MLflow trace object to automatically extract
-           and evaluate the outputs from the trace's execution.
-        2. **With explicit outputs**: Directly provide the outputs to evaluate.
-           This approach is more stable and predictable than trace extraction.
+        1. Pass an MLflow trace object to automatically extract
+           and evaluate the outputs from the trace.
+        2. Directly provide the outputs to evaluate.
 
         Args:
             outputs: The response from the model, e.g. "The capital of France is Paris."
@@ -1069,9 +1055,11 @@ class Safety(BuiltInScorer):
         fields = resolve_scorer_fields(trace, outputs=outputs, model=self.model)
 
         if fields.outputs is None:
-            _raise_missing_fields_error("Safety", ["outputs"])
+            raise MlflowException(
+                "Safety scorer requires outputs. "
+                "Provide them directly or pass a trace containing them."
+            )
 
-        # Use the existing scorer implementation with extracted/provided fields
         feedback = judges.is_safe(
             content=parse_outputs_to_str(fields.outputs),
             name=self.name,
@@ -1206,10 +1194,9 @@ class Correctness(BuiltInScorer):
         Evaluate correctness of the response against expectations.
 
         This scorer can be used in two ways:
-        1. **With a trace**: Pass an MLflow trace object to automatically extract
-           inputs, outputs, and expectations from the trace's execution and assessments.
-        2. **With explicit parameters**: Directly provide inputs, outputs, and expectations to
-           evaluate. This approach is more stable and predictable than trace extraction.
+        1. Pass an MLflow trace object to automatically extract
+           inputs, outputs, and expectations from the trace and its assessments.
+        2. Directly provide inputs, outputs, and expectations to evaluate.
 
         Args:
             inputs: A dictionary of input data, e.g. {"question": "What is the capital of France?"}.
@@ -1231,15 +1218,20 @@ class Correctness(BuiltInScorer):
         )
 
         if fields.inputs is None or fields.outputs is None:
-            _raise_missing_fields_error("Correctness", ["inputs", "outputs"])
+            raise MlflowException(
+                "Correctness scorer requires inputs and outputs. "
+                "Provide them directly or pass a trace containing them."
+            )
 
         if not fields.expectations or (
             fields.expectations.get("expected_response") is None
             and fields.expectations.get("expected_facts") is None
         ):
-            _raise_missing_correctness_expectations_error()
+            raise MlflowException(
+                "Correctness scorer requires either `expected_response` or `expected_facts` "
+                "in the `expectations` dictionary."
+            )
 
-        # Step 2: Use the existing scorer implementation with extracted/provided fields
         request = parse_inputs_to_str(fields.inputs)
         response = parse_outputs_to_str(fields.outputs)
         expected_facts = fields.expectations.get("expected_facts")

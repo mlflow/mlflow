@@ -663,7 +663,8 @@ def test_safety_with_trace():
 
 
 def test_correctness_fallback_with_expectations(trace_without_inputs_outputs):
-    with patch("mlflow.genai.scorers.builtin_scorers.extract_structured_output") as mock_extract:
+    patch_path = "mlflow.genai.scorers.builtin_scorers.get_chat_completions_with_structured_output"
+    with patch(patch_path) as mock_extract:
         mock_extract.return_value = FieldExtraction(
             inputs='{"question": "extracted question"}', outputs="extracted answer"
         )
@@ -698,7 +699,9 @@ def test_correctness_fallback_with_expectations(trace_without_inputs_outputs):
 
 
 def test_scorer_fallback_to_make_judge(trace_without_inputs_outputs):
-    with patch("mlflow.genai.scorers.builtin_scorers.extract_structured_output") as mock_extract:
+    patch_path = "mlflow.genai.scorers.builtin_scorers.get_chat_completions_with_structured_output"
+
+    with patch(patch_path) as mock_extract:
         mock_extract.return_value = FieldExtraction(
             inputs='{"question": "test"}', outputs="test response"
         )
@@ -735,7 +738,9 @@ def test_scorer_fallback_to_make_judge(trace_without_inputs_outputs):
 def test_trace_not_formatted_into_prompt_for_fallback(
     scorer_factory, expected_name, judge_to_mock, trace_without_inputs_outputs
 ):
-    with patch("mlflow.genai.scorers.builtin_scorers.extract_structured_output") as mock_extract:
+    patch_path = "mlflow.genai.scorers.builtin_scorers.get_chat_completions_with_structured_output"
+
+    with patch(patch_path) as mock_extract:
         mock_extract.return_value = FieldExtraction(
             inputs='{"question": "test"}', outputs="test response"
         )
@@ -799,7 +804,9 @@ def test_relevance_mixed_override():
 
 
 def test_trace_agent_mode_with_extra_fields(trace_with_only_inputs):
-    with patch("mlflow.genai.scorers.builtin_scorers.extract_structured_output") as mock_extract:
+    patch_path = "mlflow.genai.scorers.builtin_scorers.get_chat_completions_with_structured_output"
+
+    with patch(patch_path) as mock_extract:
         mock_extract.return_value = FieldExtraction(
             inputs='{"question": "Test question"}', outputs="extracted outputs"
         )
@@ -822,7 +829,9 @@ def test_trace_agent_mode_with_extra_fields(trace_with_only_inputs):
 
 
 def test_pure_trace_mode_with_expectations(trace_with_only_outputs):
-    with patch("mlflow.genai.scorers.builtin_scorers.extract_structured_output") as mock_extract:
+    patch_path = "mlflow.genai.scorers.builtin_scorers.get_chat_completions_with_structured_output"
+
+    with patch(patch_path) as mock_extract:
         mock_extract.return_value = FieldExtraction(
             inputs='{"question": "extracted question"}', outputs="Test response"
         )
@@ -925,7 +934,9 @@ def test_expectations_guidelines_extraction_from_trace():
 
 
 def test_expectations_guidelines_fallback_with_trace(trace_without_inputs_outputs):
-    with patch("mlflow.genai.scorers.builtin_scorers.extract_structured_output") as mock_extract:
+    patch_path = "mlflow.genai.scorers.builtin_scorers.get_chat_completions_with_structured_output"
+
+    with patch(patch_path) as mock_extract:
         mock_extract.return_value = FieldExtraction(
             inputs='{"question": "test"}', outputs="test response"
         )
@@ -1001,7 +1012,9 @@ def test_resolve_scorer_fields_with_expectations():
 
 
 def test_resolve_scorer_fields_llm_fallback(trace_without_inputs_outputs):
-    with patch("mlflow.genai.scorers.builtin_scorers.extract_structured_output") as mock_extract:
+    patch_path = "mlflow.genai.scorers.builtin_scorers.get_chat_completions_with_structured_output"
+
+    with patch(patch_path) as mock_extract:
         mock_extract.return_value = FieldExtraction(
             inputs="extracted input", outputs="extracted output"
         )
@@ -1019,7 +1032,9 @@ def test_resolve_scorer_fields_llm_fallback(trace_without_inputs_outputs):
 
 
 def test_resolve_scorer_fields_llm_fallback_with_invalid_json(trace_without_inputs_outputs):
-    with patch("mlflow.genai.scorers.builtin_scorers.extract_structured_output") as mock_extract:
+    patch_path = "mlflow.genai.scorers.builtin_scorers.get_chat_completions_with_structured_output"
+
+    with patch(patch_path) as mock_extract:
         mock_extract.side_effect = Exception("Failed to extract")
 
         fields = resolve_scorer_fields(trace=trace_without_inputs_outputs)
@@ -1034,7 +1049,9 @@ def test_resolve_scorer_fields_partial_extraction():
         span.set_inputs({"question": "test"})
     trace_with_partial = mlflow.get_trace(span.trace_id)
 
-    with patch("mlflow.genai.scorers.builtin_scorers.extract_structured_output") as mock_extract:
+    patch_path = "mlflow.genai.scorers.builtin_scorers.get_chat_completions_with_structured_output"
+
+    with patch(patch_path) as mock_extract:
         mock_extract.return_value = FieldExtraction(
             inputs='{"question": "test"}', outputs="llm extracted output"
         )
