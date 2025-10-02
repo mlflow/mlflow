@@ -16,15 +16,15 @@ import "opentelemetry/proto/trace/v1/trace.proto";
 option py_generic_services = true;
 
 service DatabricksTrackingService {
-  rpc createTrace (CreateTrace) returns (CreateTrace.Response) {
+  rpc createTraceInfo (CreateTraceInfo) returns (CreateTraceInfo.Response) {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/traces/{location}"
+        path: "/mlflow/traces/{location_id}/{trace_info.trace_id}"
         since { major: 4, minor: 0 },
       }],
       visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Create Trace",
+      rpc_doc_title: "Create Trace Info v4",
     };
   }
 
@@ -286,14 +286,14 @@ message TraceInfo {
   map<string, string> tags = 11;
 }
 
-message CreateTrace {
+message CreateTraceInfo {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // The information for the trace being created.
-  optional TraceInfo trace_info = 1 [(validate_required) = true];
+  // The location ID of the trace.
+  optional string location_id = 1 [(validate_required) = true];
 
-  // Optional SQL warehouse ID for fetching trace data.
-  optional string sql_warehouse_id = 2;
+  // The information for the trace being created.
+  optional TraceInfo trace_info = 2 [(validate_required) = true];
 
   message Response {
     // The created trace information.

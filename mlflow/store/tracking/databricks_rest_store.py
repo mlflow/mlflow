@@ -14,7 +14,7 @@ from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, ENDPOINT_NOT_FOUND, Err
 from mlflow.protos.databricks_tracing_pb2 import (
     BatchGetTraces,
     CreateAssessment,
-    CreateTrace,
+    CreateTraceInfo,
     CreateTraceUCStorageLocation,
     DatabricksTrackingService,
     DeleteAssessment,
@@ -91,12 +91,6 @@ class DatabricksTracingRestStore(RestStore):
             The returned TraceInfo object from the backend.
         """
         try:
-            sql_warehouse_id = MLFLOW_TRACING_SQL_WAREHOUSE_ID.get()
-            req_body = message_to_json(
-                CreateTrace(
-                    trace_info=trace_info_to_proto(trace_info), sql_warehouse_id=sql_warehouse_id
-                )
-            )
             if uc_schema := trace_info.trace_location.uc_schema:
                 location = f"{uc_schema.catalog_name}.{uc_schema.schema_name}"
             # TODO: we should check if the experiment has a span location tag
@@ -104,10 +98,18 @@ class DatabricksTracingRestStore(RestStore):
                 location = mlflow_experiment.experiment_id
             else:
                 raise MlflowException("Invalid trace location")
+
+            req_body = message_to_json(
+                CreateTraceInfo(
+                    location_id=location,
+                    trace_info=trace_info_to_proto(trace_info),
+                )
+            )
+
             response_proto = self._call_endpoint(
-                CreateTrace,
+                CreateTraceInfo,
                 req_body,
-                endpoint=f"{_V4_REST_API_PATH_PREFIX}/mlflow/traces/{location}",
+                endpoint=f"{_V4_REST_API_PATH_PREFIX}/mlflow/traces/{location}/{trace_info.trace_id}/info",
                 retry_timeout_seconds=MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.get(),
             )
             return TraceInfo.from_proto(response_proto.trace_info)
