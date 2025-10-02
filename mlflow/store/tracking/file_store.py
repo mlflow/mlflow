@@ -280,7 +280,9 @@ class FileStore(AbstractStore):
     def _get_model_metric_path(self, experiment_id: str, model_id: str, metric_key: str) -> str:
         _validate_metric_name(metric_key)
         return os.path.join(
-            self._get_model_dir(experiment_id, model_id), FileStore.METRICS_FOLDER_NAME, metric_key
+            self._get_model_dir(experiment_id, model_id),
+            FileStore.METRICS_FOLDER_NAME,
+            metric_key,
         )
 
     def _get_param_path(self, experiment_id, run_uuid, param_name):
@@ -1073,7 +1075,10 @@ class FileStore(AbstractStore):
                 f"{metric.dataset_digest}\n",
             )
         else:
-            append_to(metric_path, f"{metric.timestamp} {metric.value} {metric.step} {run_id}\n")
+            append_to(
+                metric_path,
+                f"{metric.timestamp} {metric.value} {metric.step} {run_id}\n",
+            )
 
     def _writeable_value(self, tag_value):
         if tag_value is None:
@@ -1865,7 +1870,8 @@ class FileStore(AbstractStore):
 
         try:
             assessment_dict = FileStore._read_yaml(
-                root=os.path.dirname(assessment_path), file_name=os.path.basename(assessment_path)
+                root=os.path.dirname(assessment_path),
+                file_name=os.path.basename(assessment_path),
             )
             return Assessment.from_dictionary(assessment_dict)
         except Exception as e:
@@ -2387,6 +2393,20 @@ class FileStore(AbstractStore):
         """
         return LoggedModel.from_dictionary(self._get_model_dict(model_id))
 
+    def get_logged_models(self, model_ids: list[str]) -> list[LoggedModel]:
+        """
+        Fetch the logged model with the specified ID.
+
+        Args:
+            model_id: ID of the model to fetch.
+
+        Returns:
+            The fetched model.
+        """
+        return [
+            LoggedModel.from_dictionary(self._get_model_dict(model_id)) for model_id in model_ids
+        ]
+
     def delete_logged_model(self, model_id: str) -> None:
         model = self.get_logged_model(model_id)
         model_dict = self._make_persisted_model_dict(model)
@@ -2427,7 +2447,8 @@ class FileStore(AbstractStore):
 
         if model_dict["experiment_id"] != exp_id:
             raise MlflowException(
-                f"Model '{model_id}' metadata is in invalid state.", databricks_pb2.INVALID_STATE
+                f"Model '{model_id}' metadata is in invalid state.",
+                databricks_pb2.INVALID_STATE,
             )
         return model_dict
 
@@ -2641,7 +2662,10 @@ class FileStore(AbstractStore):
                 # artifact storage, it's common the folder is not a run folder
                 m_id = os.path.basename(m_dir)
                 logging.debug(
-                    "Malformed model '%s'. Detailed error %s", m_id, str(exc), exc_info=True
+                    "Malformed model '%s'. Detailed error %s",
+                    m_id,
+                    str(exc),
+                    exc_info=True,
                 )
         return models
 

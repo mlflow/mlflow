@@ -45,7 +45,7 @@ export const isRunPageLoggedModelsTableEnabled = () => true;
 /**
  * Flags enabling fetching data via GraphQL for particular views:
  */
-export const shouldEnableGraphQLRunDetailsPage = () => false;
+export const shouldEnableGraphQLRunDetailsPage = () => true;
 export const shouldEnableGraphQLSampledMetrics = () => false;
 export const shouldEnableGraphQLModelVersionsForRunDetails = () => false;
 export const shouldRerunExperimentUISeeding = () => false;
@@ -74,7 +74,7 @@ export const shouldUnifyLoggedModelsAndRegisteredModels = () => {
  * Enables use of GetLoggedModels API allowing to get multiple logged models by their IDs.
  */
 export const shouldUseGetLoggedModelsBatchAPI = () => {
-  return false;
+  return true;
 };
 
 /**

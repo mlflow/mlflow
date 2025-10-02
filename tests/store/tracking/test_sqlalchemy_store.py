@@ -1513,10 +1513,12 @@ def test_set_tag(store: SqlAlchemyStore, monkeypatch):
     # test setting tags that are too long fails.
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "false")
     with pytest.raises(
-        MlflowException, match=f"exceeds the maximum length of {MAX_TAG_VAL_LENGTH} characters"
+        MlflowException,
+        match=f"exceeds the maximum length of {MAX_TAG_VAL_LENGTH} characters",
     ):
         store.set_tag(
-            run.info.run_id, entities.RunTag("longTagKey", "a" * (MAX_TAG_VAL_LENGTH + 1))
+            run.info.run_id,
+            entities.RunTag("longTagKey", "a" * (MAX_TAG_VAL_LENGTH + 1)),
         )
 
     monkeypatch.setenv("MLFLOW_TRUNCATE_LONG_VALUES", "true")
@@ -4477,7 +4479,11 @@ def test_start_trace(store: SqlAlchemyStore):
     assert trace_info.request_time == 1234
     assert trace_info.execution_duration == 100
     assert trace_info.state == TraceState.OK
-    assert trace_info.trace_metadata == {"rq1": "foo", "rq2": "bar", TRACE_SCHEMA_VERSION_KEY: "3"}
+    assert trace_info.trace_metadata == {
+        "rq1": "foo",
+        "rq2": "bar",
+        TRACE_SCHEMA_VERSION_KEY: "3",
+    }
     artifact_location = trace_info.tags[MLFLOW_ARTIFACT_LOCATION]
     assert artifact_location.endswith(f"/{experiment_id}/traces/{trace_id}/artifacts")
     assert trace_info.tags == {
@@ -4882,12 +4888,14 @@ def test_search_traces_with_invalid_span_attribute(store: SqlAlchemyStore):
 
     # Test invalid span attribute should raise error
     with pytest.raises(
-        MlflowException, match="Invalid span attribute 'type'. Supported attributes: name."
+        MlflowException,
+        match="Invalid span attribute 'type'. Supported attributes: name.",
     ):
         store.search_traces([exp_id], filter_string='span.type = "FUNCTION"')
 
     with pytest.raises(
-        MlflowException, match="Invalid span attribute 'status'. Supported attributes: name."
+        MlflowException,
+        match="Invalid span attribute 'status'. Supported attributes: name.",
     ):
         store.search_traces([exp_id], filter_string='span.status = "OK"')
 
@@ -5766,6 +5774,18 @@ def test_get_logged_model(store: SqlAlchemyStore):
         store.get_logged_model("does-not-exist")
 
 
+def test_get_logged_models(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model_1 = store.create_logged_model(experiment_id=exp_id)
+    model_2 = store.create_logged_model(experiment_id=exp_id)
+    model_3 = store.create_logged_model(experiment_id=exp_id)
+    fetched_models = store.get_logged_models([model_1.model_id, model_2.model_id, model_3.model_id])
+    assert len(fetched_models) == 3
+    assert fetched_models[0].model_id == model_1.model_id
+    assert fetched_models[1].model_id == model_2.model_id
+    assert fetched_models[2].model_id == model_3.model_id
+
+
 def test_delete_logged_model(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
     run = store.create_run(exp_id, "user", 0, [], "test_run")
@@ -5808,11 +5828,17 @@ def test_set_logged_model_tags(store: SqlAlchemyStore):
 
     # New tag
     store.set_logged_model_tags(model.model_id, [LoggedModelTag("tag2", "orange")])
-    assert store.get_logged_model(model.model_id).tags == {"tag1": "apple", "tag2": "orange"}
+    assert store.get_logged_model(model.model_id).tags == {
+        "tag1": "apple",
+        "tag2": "orange",
+    }
 
     # Exieting tag
     store.set_logged_model_tags(model.model_id, [LoggedModelTag("tag2", "grape")])
-    assert store.get_logged_model(model.model_id).tags == {"tag1": "apple", "tag2": "grape"}
+    assert store.get_logged_model(model.model_id).tags == {
+        "tag1": "apple",
+        "tag2": "grape",
+    }
 
     with pytest.raises(MlflowException, match="not found"):
         store.set_logged_model_tags("does-not-exist", [LoggedModelTag("tag1", "apple")])
@@ -6034,7 +6060,12 @@ def test_search_logged_models_filter_string(store: SqlAlchemyStore):
         filter_string="creation_timestamp > 0",
         page_token=first_page.token,
     )
-    assert [m.name for m in second_page] == [model_4.name, model_3.name, model_2.name, model_1.name]
+    assert [m.name for m in second_page] == [
+        model_4.name,
+        model_3.name,
+        model_2.name,
+        model_1.name,
+    ]
     assert second_page.token is None
 
 
@@ -6518,7 +6549,10 @@ def test_create_and_get_assessment(store_and_trace_info):
     assert created_expectation.assessment_id != created_feedback.assessment_id
     assert created_expectation.trace_id == trace_info.request_id
     assert created_expectation.value == "The capital of France is Paris."
-    assert created_expectation.metadata == {"context": "geography-qa", "difficulty": "easy"}
+    assert created_expectation.metadata == {
+        "context": "geography-qa",
+        "difficulty": "easy",
+    }
     assert created_expectation.span_id == "span-456"
     assert created_expectation.valid
 
@@ -6535,7 +6569,10 @@ def test_create_and_get_assessment(store_and_trace_info):
         trace_info.request_id, created_expectation.assessment_id
     )
     assert retrieved_expectation.value == "The capital of France is Paris."
-    assert retrieved_expectation.metadata == {"context": "geography-qa", "difficulty": "easy"}
+    assert retrieved_expectation.metadata == {
+        "context": "geography-qa",
+        "difficulty": "easy",
+    }
     assert retrieved_expectation.span_id == "span-456"
     assert retrieved_expectation.trace_id == trace_info.request_id
     assert retrieved_expectation.valid
@@ -6627,7 +6664,10 @@ def test_update_assessment_expectation(store_and_trace_info):
     assert updated_expectation.assessment_id == original_id
     assert updated_expectation.name == "expected_response"
     assert updated_expectation.value == "The capital and largest city of France is Paris."
-    assert updated_expectation.metadata == {"context": "geography-qa", "updated": "true"}
+    assert updated_expectation.metadata == {
+        "context": "geography-qa",
+        "updated": "true",
+    }
     assert updated_expectation.span_id == "span-456"
     assert updated_expectation.source.source_id == "annotator@company.com"
 
@@ -6672,7 +6712,8 @@ def test_update_assessment_type_validation(store_and_trace_info):
     created_feedback = store.create_assessment(feedback)
 
     with pytest.raises(
-        MlflowException, match=r"Cannot update expectation value on a Feedback assessment"
+        MlflowException,
+        match=r"Cannot update expectation value on a Feedback assessment",
     ):
         store.update_assessment(
             trace_id=trace_info.request_id,
@@ -6689,7 +6730,8 @@ def test_update_assessment_type_validation(store_and_trace_info):
     created_expectation = store.create_assessment(expectation)
 
     with pytest.raises(
-        MlflowException, match=r"Cannot update feedback value on an Expectation assessment"
+        MlflowException,
+        match=r"Cannot update feedback value on an Expectation assessment",
     ):
         store.update_assessment(
             trace_id=trace_info.request_id,
@@ -6703,7 +6745,9 @@ def test_update_assessment_errors(store_and_trace_info):
 
     with pytest.raises(MlflowException, match=r"Trace with request_id 'fake_trace' not found"):
         store.update_assessment(
-            trace_id="fake_trace", assessment_id="fake_assessment", rationale="This should fail"
+            trace_id="fake_trace",
+            assessment_id="fake_assessment",
+            rationale="This should fail",
         )
 
     with pytest.raises(
@@ -6814,7 +6858,8 @@ def test_create_assessment_override_nonexistent(store_and_trace_info):
     )
 
     with pytest.raises(
-        MlflowException, match=r"Assessment with ID 'nonexistent-assessment-id' not found"
+        MlflowException,
+        match=r"Assessment with ID 'nonexistent-assessment-id' not found",
     ):
         store.create_assessment(override_feedback)
 
@@ -6970,7 +7015,8 @@ def test_dataset_crud_operations(store):
         assert not retrieved_dataset.has_records()
 
         with pytest.raises(
-            MlflowException, match="Evaluation dataset with id 'd-nonexistent' not found"
+            MlflowException,
+            match="Evaluation dataset with id 'd-nonexistent' not found",
         ):
             store.get_dataset(dataset_id="d-nonexistent")
 
@@ -6986,7 +7032,9 @@ def test_dataset_records_pagination(store):
     exp_id = _create_experiments(store, ["pagination_test_exp"])[0]
 
     dataset = store.create_dataset(
-        name="pagination_test_dataset", experiment_ids=[exp_id], tags={"test": "pagination"}
+        name="pagination_test_dataset",
+        experiment_ids=[exp_id],
+        tags={"test": "pagination"},
     )
 
     records = []
@@ -7052,7 +7100,10 @@ def test_dataset_search_comprehensive(store):
     datasets = []
     for i in range(10):
         name = f"{test_prefix}dataset_{i:02d}"
-        tags = {"priority": "high" if i % 2 == 0 else "low", "mlflow.user": f"user_{i % 3}"}
+        tags = {
+            "priority": "high" if i % 2 == 0 else "low",
+            "mlflow.user": f"user_{i % 3}",
+        }
 
         if i < 3:
             created = store.create_dataset(
@@ -7384,7 +7435,9 @@ def test_dataset_filtering_ordering_pagination(store):
     test_all_production = [d for d in all_production if d.name.startswith(test_prefix)]
 
     limited_results = store.search_datasets(
-        filter_string="tags.environment = 'production'", order_by=["name ASC"], max_results=3
+        filter_string="tags.environment = 'production'",
+        order_by=["name ASC"],
+        max_results=3,
     )
     test_limited = [d for d in limited_results if d.name.startswith(test_prefix)]
 
@@ -7437,7 +7490,11 @@ def test_dataset_upsert_comprehensive(store):
         "score": 0.8,
         "confidence": 0.9,
     }
-    assert mlflow_record.tags == {"version": "v2", "quality": "high", "reviewed": "true"}
+    assert mlflow_record.tags == {
+        "version": "v2",
+        "quality": "high",
+        "reviewed": "true",
+    }
 
     assert mlflow_record.source.source_type == "TRACE"
     assert mlflow_record.source.source_data["trace_id"] == "trace-001"
@@ -7486,7 +7543,11 @@ def test_dataset_upsert_comprehensive(store):
     records_batch3 = [
         {"inputs": {"minimal": "input"}, "expectations": {"result": "minimal test"}},
         {"inputs": {"question": "Empty expectations"}, "expectations": {}},
-        {"inputs": {"question": "No tags"}, "expectations": {"answer": "No tags"}, "tags": {}},
+        {
+            "inputs": {"question": "No tags"},
+            "expectations": {"answer": "No tags"},
+            "tags": {},
+        },
     ]
 
     result = store.upsert_dataset_records(created_dataset.dataset_id, records_batch3)
@@ -7606,7 +7667,11 @@ def test_dataset_tags_with_sql_backend(store):
 
 
 def test_dataset_update_tags(store):
-    initial_tags = {"environment": "development", "version": "1.0", "deprecated": "true"}
+    initial_tags = {
+        "environment": "development",
+        "version": "1.0",
+        "deprecated": "true",
+    }
     created = store.create_dataset(
         name="test_update_tags",
         tags=initial_tags,
@@ -8232,7 +8297,8 @@ def test_scorer_operations(store: SqlAlchemyStore):
 
     # Try to get non-existent version
     with pytest.raises(
-        MlflowException, match="Scorer with name 'accuracy_scorer' and version 999 not found"
+        MlflowException,
+        match="Scorer with name 'accuracy_scorer' and version 999 not found",
     ):
         store.get_scorer(experiment_id, "accuracy_scorer", version=999)
 
@@ -8242,7 +8308,8 @@ def test_scorer_operations(store: SqlAlchemyStore):
 
     # Verify version 1 is deleted but other versions still exist
     with pytest.raises(
-        MlflowException, match="Scorer with name 'accuracy_scorer' and version 1 not found"
+        MlflowException,
+        match="Scorer with name 'accuracy_scorer' and version 1 not found",
     ):
         store.get_scorer(experiment_id, "accuracy_scorer", version=1)
 
@@ -8293,7 +8360,8 @@ def test_scorer_operations(store: SqlAlchemyStore):
 
     # Step 10: Test delete_scorer for non-existent version
     with pytest.raises(
-        MlflowException, match="Scorer with name 'safety_scorer' and version 999 not found"
+        MlflowException,
+        match="Scorer with name 'safety_scorer' and version 999 not found",
     ):
         store.delete_scorer(experiment_id, "safety_scorer", version=999)
 
@@ -8325,7 +8393,9 @@ def test_dataset_experiment_associations(store):
         exp1, exp2, exp3, exp4 = exp_ids
 
         dataset = store.create_dataset(
-            name="test_dataset_associations", experiment_ids=[exp1], tags={"test": "associations"}
+            name="test_dataset_associations",
+            experiment_ids=[exp1],
+            tags={"test": "associations"},
         )
 
         assert dataset.experiment_ids == [exp1]
@@ -8529,12 +8599,18 @@ def test_calculate_trace_filter_correlation_negative_correlation(store):
 
     for i in range(10):
         _create_trace_for_correlation(
-            store, exp_id, spans=[{"type": "LLM", "status": "ERROR"}], tags={"version": "v1"}
+            store,
+            exp_id,
+            spans=[{"type": "LLM", "status": "ERROR"}],
+            tags={"version": "v1"},
         )
 
     for i in range(10):
         _create_trace_for_correlation(
-            store, exp_id, spans=[{"type": "LLM", "status": "OK"}], tags={"version": "v2"}
+            store,
+            exp_id,
+            spans=[{"type": "LLM", "status": "OK"}],
+            tags={"version": "v2"},
         )
 
     result = store.calculate_trace_filter_correlation(
@@ -8575,7 +8651,10 @@ def test_calculate_trace_filter_correlation_multiple_experiments(store):
 
     for i in range(4):
         _create_trace_for_correlation(
-            store, exp_id1, spans=[{"type": "TOOL", "status": "OK"}], tags={"env": "prod"}
+            store,
+            exp_id1,
+            spans=[{"type": "TOOL", "status": "OK"}],
+            tags={"env": "prod"},
         )
 
     _create_trace_for_correlation(

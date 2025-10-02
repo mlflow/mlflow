@@ -620,7 +620,10 @@ class SqlAlchemyStore(AbstractStore):
             .select_from(SqlInput)
             .join(SqlDataset, SqlInput.source_id == SqlDataset.dataset_uuid)
             .outerjoin(SqlInputTag, SqlInputTag.input_uuid == SqlInput.input_uuid)
-            .filter(SqlInput.destination_type == "RUN", SqlInput.destination_id.in_(run_uuids))
+            .filter(
+                SqlInput.destination_type == "RUN",
+                SqlInput.destination_id.in_(run_uuids),
+            )
             .order_by("run_uuid")
         ).all()
 
@@ -1911,6 +1914,19 @@ class SqlAlchemyStore(AbstractStore):
 
             return logged_model.to_mlflow_entity()
 
+    def get_logged_models(self, model_ids: list[str]) -> list[LoggedModel]:
+        with self.ManagedSessionMaker() as session:
+            logged_models = (
+                session.query(SqlLoggedModel)
+                .filter(
+                    SqlLoggedModel.model_id.in_(model_ids),
+                    SqlLoggedModel.lifecycle_stage != LifecycleStage.DELETED,
+                )
+                .all()
+            )
+
+            return [logged_model.to_mlflow_entity() for logged_model in logged_models]
+
     def delete_logged_model(self, model_id):
         with self.ManagedSessionMaker() as session:
             logged_model = session.query(SqlLoggedModel).get(model_id)
@@ -2364,7 +2380,10 @@ class SqlAlchemyStore(AbstractStore):
         filter_string: str | None,
         datasets: list[dict[str, Any]] | None,
     ):
-        from mlflow.utils.search_logged_model_utils import EntityType, parse_filter_string
+        from mlflow.utils.search_logged_model_utils import (
+            EntityType,
+            parse_filter_string,
+        )
 
         comparisons = parse_filter_string(filter_string)
         dialect = self._get_dialect()
@@ -2946,7 +2965,8 @@ class SqlAlchemyStore(AbstractStore):
             )
 
             session.query(SqlAssessments).filter(
-                SqlAssessments.trace_id == trace_id, SqlAssessments.assessment_id == assessment_id
+                SqlAssessments.trace_id == trace_id,
+                SqlAssessments.assessment_id == assessment_id,
             ).update(
                 {
                     "name": updated_assessment.name,
@@ -2996,7 +3016,8 @@ class SqlAlchemyStore(AbstractStore):
         sql_assessment = (
             session.query(SqlAssessments)
             .filter(
-                SqlAssessments.trace_id == trace_id, SqlAssessments.assessment_id == assessment_id
+                SqlAssessments.trace_id == trace_id,
+                SqlAssessments.assessment_id == assessment_id,
             )
             .one_or_none()
         )
@@ -3470,7 +3491,12 @@ class SqlAlchemyStore(AbstractStore):
             associated with the source entity/entities.
         """
         return self._search_entity_associations(
-            source_ids, source_type, destination_type, "forward", max_results, page_token
+            source_ids,
+            source_type,
+            destination_type,
+            "forward",
+            max_results,
+            page_token,
         )
 
     def search_entities_by_destination(
@@ -3496,7 +3522,12 @@ class SqlAlchemyStore(AbstractStore):
             associated with the destination entity/entities.
         """
         return self._search_entity_associations(
-            destination_ids, destination_type, source_type, "reverse", max_results, page_token
+            destination_ids,
+            destination_type,
+            source_type,
+            "reverse",
+            max_results,
+            page_token,
         )
 
     #######################################################################################
@@ -3692,7 +3723,9 @@ class SqlAlchemyStore(AbstractStore):
                 non_attribute_filters = []
 
             stmt = reduce(
-                lambda s, f: s.join(f), non_attribute_filters, select(SqlEvaluationDataset)
+                lambda s, f: s.join(f),
+                non_attribute_filters,
+                select(SqlEvaluationDataset),
             )
 
             if experiment_ids:

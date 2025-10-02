@@ -6,7 +6,9 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from mlflow.entities import DatasetRecord, EvaluationDataset
 
-from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
+from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import (
+    ExportTraceServiceRequest,
+)
 from packaging.version import Version
 
 from mlflow.entities import (
@@ -73,6 +75,7 @@ from mlflow.protos.service_pb2 import (
     GetExperiment,
     GetExperimentByName,
     GetLoggedModel,
+    GetLoggedModelsRequest,
     GetMetricHistory,
     GetOnlineTraceDetails,
     GetRun,
@@ -431,7 +434,9 @@ class RestStore(AbstractStore):
             sql_warehouse_id = MLFLOW_TRACING_SQL_WAREHOUSE_ID.get()
             trace_v4_req_body = message_to_json(
                 GetTraceInfoV4(
-                    trace_id=trace_id, location=location, sql_warehouse_id=sql_warehouse_id
+                    trace_id=trace_id,
+                    location=location,
+                    sql_warehouse_id=sql_warehouse_id,
                 )
             )
             endpoint = f"{get_single_trace_endpoint_v4(location, trace_id)}/info"
@@ -839,7 +844,13 @@ class RestStore(AbstractStore):
         return PagedList(metric_history, response_proto.next_page_token or None)
 
     def _search_runs(
-        self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
+        self,
+        experiment_ids,
+        filter_string,
+        run_view_type,
+        max_results,
+        order_by,
+        page_token,
     ):
         experiment_ids = [str(experiment_id) for experiment_id in experiment_ids]
         sr = SearchRuns(
@@ -885,7 +896,12 @@ class RestStore(AbstractStore):
         param_protos = [param.to_proto() for param in params]
         tag_protos = [tag.to_proto() for tag in tags]
         req_body = message_to_json(
-            LogBatch(metrics=metric_protos, params=param_protos, tags=tag_protos, run_id=run_id)
+            LogBatch(
+                metrics=metric_protos,
+                params=param_protos,
+                tags=tag_protos,
+                run_id=run_id,
+            )
         )
         self._call_endpoint(LogBatch, req_body)
 
@@ -970,7 +986,9 @@ class RestStore(AbstractStore):
                 )
             )
             self._call_endpoint(
-                LogLoggedModelParamsRequest, json_body=req_body, endpoint=f"{endpoint}/params"
+                LogLoggedModelParamsRequest,
+                json_body=req_body,
+                endpoint=f"{endpoint}/params",
             )
 
     def get_logged_model(self, model_id: str) -> LoggedModel:
@@ -986,6 +1004,20 @@ class RestStore(AbstractStore):
         endpoint = get_logged_model_endpoint(model_id)
         response_proto = self._call_endpoint(GetLoggedModel, endpoint=endpoint)
         return LoggedModel.from_proto(response_proto.model)
+
+    def get_logged_models(self, model_ids: list[str]) -> list[LoggedModel]:
+        """
+        Fetch a list of logged models by their IDs.
+
+        Args:
+            model_ids: List of IDs of the models to fetch.
+
+        Returns:
+            List of fetched models.
+        """
+        endpoint = f"{_REST_API_PATH_PREFIX}/mlflow/logged-models:batchGet"
+        response_proto = self._call_endpoint(GetLoggedModelsRequest, endpoint=endpoint)
+        return [LoggedModel.from_proto(x) for x in response_proto.models]
 
     def delete_logged_model(self, model_id) -> None:
         request = DeleteLoggedModel(model_id=model_id)
@@ -1478,7 +1510,9 @@ class RestStore(AbstractStore):
         req_body = message_to_json(req)
         # Dataset APIs are v3.0 endpoints
         response_proto = self._call_endpoint(
-            SearchEvaluationDatasets, req_body, endpoint="/api/3.0/mlflow/datasets/search"
+            SearchEvaluationDatasets,
+            req_body,
+            endpoint="/api/3.0/mlflow/datasets/search",
         )
         datasets = [EvaluationDataset.from_proto(ds) for ds in response_proto.datasets]
         return PagedList(datasets, response_proto.next_page_token)
@@ -1529,7 +1563,9 @@ class RestStore(AbstractStore):
         req_body = message_to_json(req)
         # Dataset APIs are v3.0 endpoints - dataset_id is in path
         self._call_endpoint(
-            SetDatasetTags, req_body, endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}/tags"
+            SetDatasetTags,
+            req_body,
+            endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}/tags",
         )
 
     @databricks_api_disabled(_DATABRICKS_DATASET_API_NAME, _DATABRICKS_DATASET_ALTERNATIVE)
@@ -1544,7 +1580,9 @@ class RestStore(AbstractStore):
         # DeleteDatasetTag uses path parameters for both dataset_id and key
         # Dataset APIs are v3.0 endpoints
         self._call_endpoint(
-            DeleteDatasetTag, None, endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}/tags/{key}"
+            DeleteDatasetTag,
+            None,
+            endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}/tags/{key}",
         )
 
     @databricks_api_disabled(_DATABRICKS_DATASET_API_NAME, _DATABRICKS_DATASET_ALTERNATIVE)
@@ -1568,7 +1606,10 @@ class RestStore(AbstractStore):
         return list(response_proto.experiment_ids)
 
     def _load_dataset_records(
-        self, dataset_id: str, max_results: int | None = None, page_token: str | None = None
+        self,
+        dataset_id: str,
+        max_results: int | None = None,
+        page_token: str | None = None,
     ) -> tuple["list[DatasetRecord]", str | None]:
         """
         Load dataset records with pagination support.

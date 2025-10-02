@@ -30,7 +30,10 @@ from mlflow import MlflowException
 from mlflow.entities import Experiment
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import RegisteredModel
-from mlflow.environment_variables import _MLFLOW_SGI_NAME, MLFLOW_FLASK_SERVER_SECRET_KEY
+from mlflow.environment_variables import (
+    _MLFLOW_SGI_NAME,
+    MLFLOW_FLASK_SERVER_SECRET_KEY,
+)
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INTERNAL_ERROR,
@@ -75,6 +78,7 @@ from mlflow.protos.service_pb2 import (
     GetExperiment,
     GetExperimentByName,
     GetLoggedModel,
+    GetLoggedModelsRequest,
     GetMetricHistory,
     GetRun,
     ListArtifacts,
@@ -190,7 +194,9 @@ def _get_request_param(param: str) -> str:
     return args[param]
 
 
-def _get_permission_from_store_or_default(store_permission_func: Callable[[], str]) -> Permission:
+def _get_permission_from_store_or_default(
+    store_permission_func: Callable[[], str],
+) -> Permission:
     """
     Attempts to get permission from store,
     and returns default permission if no record is found.
@@ -472,9 +478,18 @@ BEFORE_REQUEST_VALIDATORS.update(
         (UPDATE_EXPERIMENT_PERMISSION, "PATCH"): validate_can_manage_experiment,
         (DELETE_EXPERIMENT_PERMISSION, "DELETE"): validate_can_manage_experiment,
         (GET_REGISTERED_MODEL_PERMISSION, "GET"): validate_can_manage_registered_model,
-        (CREATE_REGISTERED_MODEL_PERMISSION, "POST"): validate_can_manage_registered_model,
-        (UPDATE_REGISTERED_MODEL_PERMISSION, "PATCH"): validate_can_manage_registered_model,
-        (DELETE_REGISTERED_MODEL_PERMISSION, "DELETE"): validate_can_manage_registered_model,
+        (
+            CREATE_REGISTERED_MODEL_PERMISSION,
+            "POST",
+        ): validate_can_manage_registered_model,
+        (
+            UPDATE_REGISTERED_MODEL_PERMISSION,
+            "PATCH",
+        ): validate_can_manage_registered_model,
+        (
+            DELETE_REGISTERED_MODEL_PERMISSION,
+            "DELETE",
+        ): validate_can_manage_registered_model,
     }
 )
 
@@ -482,6 +497,7 @@ BEFORE_REQUEST_VALIDATORS.update(
 LOGGED_MODEL_BEFORE_REQUEST_HANDLERS = {
     CreateLoggedModel: validate_can_update_experiment,
     GetLoggedModel: validate_can_read_logged_model,
+    GetLoggedModelsRequest: validate_can_read_logged_model,
     DeleteLoggedModel: validate_can_delete_logged_model,
     FinalizeLoggedModel: validate_can_update_logged_model,
     DeleteLoggedModelTag: validate_can_delete_logged_model,
@@ -526,7 +542,9 @@ def authenticate_request() -> Authorization | Response:
 
 
 @functools.lru_cache(maxsize=None)
-def get_auth_func(authorization_function: str) -> Callable[[], Authorization | Response]:
+def get_auth_func(
+    authorization_function: str,
+) -> Callable[[], Authorization | Response]:
     """
     Import and return the specified authorization function.
 
