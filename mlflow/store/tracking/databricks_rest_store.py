@@ -92,7 +92,7 @@ class DatabricksTracingRestStore(RestStore):
             The returned TraceInfo object from the backend.
         """
         try:
-            if uc_schema := trace_info.trace_location.uc_schema:
+            if trace_info.trace_location.uc_schema is not None:
                 location, otel_trace_id = parse_trace_id_v4(trace_info.trace_id)
             # TODO: we should check if the experiment has a span location tag
             elif mlflow_experiment := trace_info.trace_location.mlflow_experiment:
@@ -444,7 +444,6 @@ class DatabricksTracingRestStore(RestStore):
                 **config.authenticate(),
             },
         )
-        print(f"response: {response}")
         verify_rest_response(response, endpoint)
         return spans
 
