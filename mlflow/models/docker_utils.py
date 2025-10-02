@@ -108,7 +108,9 @@ def generate_dockerfile(
         setup_python_venv_steps = (
             "RUN apt-get -y update && DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get install -y "
             "--no-install-recommends wget curl nginx ca-certificates bzip2 build-essential cmake "
-            "git-core\n\n"
+            "git-core\n"
+            "# Remove system python3-blinker to avoid pip uninstall conflicts\n"
+            "RUN apt-get remove -y python3-blinker || true\n\n"
         )
         setup_python_venv_steps += (
             SETUP_MINICONDA if env_manager == em.CONDA else SETUP_PYENV_AND_VIRTUALENV
