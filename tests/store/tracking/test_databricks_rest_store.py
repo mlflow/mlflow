@@ -28,6 +28,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND
 from mlflow.protos.databricks_tracing_pb2 import (
+    BatchGetTraces,
     CreateAssessment,
     CreateTrace,
     CreateTraceUCStorageLocation,
@@ -35,7 +36,6 @@ from mlflow.protos.databricks_tracing_pb2 import (
     DeleteTraceTag,
     GetAssessment,
     GetTraceInfo,
-    GetTraces,
     LinkExperimentToUCTraceLocation,
     SearchTraces,
     SetTraceTag,
@@ -428,7 +428,7 @@ def test_delete_trace_tag_fallback():
 
 
 @pytest.mark.parametrize("sql_warehouse_id", [None, "warehouse_override"])
-def test_get_traces(monkeypatch, sql_warehouse_id):
+def test_batch_get_traces(monkeypatch, sql_warehouse_id):
     monkeypatch.setenv(MLFLOW_TRACING_SQL_WAREHOUSE_ID.name, "test-warehouse")
     with mlflow.start_span(name="test_span_1") as span1:
         span1.set_inputs({"input": "test_value_1"})
@@ -441,7 +441,7 @@ def test_get_traces(monkeypatch, sql_warehouse_id):
     trace1 = mlflow.get_trace(span1.trace_id)
     trace2 = mlflow.get_trace(span2.trace_id)
 
-    mock_response = GetTraces.Response()
+    mock_response = BatchGetTraces.Response()
     mock_response.traces.extend([trace_to_proto(trace1), trace_to_proto(trace2)])
 
     store = DatabricksTracingRestStore(lambda: MlflowHostCreds("https://test"))
@@ -454,21 +454,20 @@ def test_get_traces(monkeypatch, sql_warehouse_id):
     with (
         mock.patch.object(store, "_call_endpoint", return_value=mock_response) as mock_call,
     ):
-        result = store.get_traces(trace_ids)
+        result = store.batch_get_traces(trace_ids, location)
 
         mock_call.assert_called_once()
         call_args = mock_call.call_args
 
-        assert call_args[0][0] == GetTraces
+        assert call_args[0][0] == BatchGetTraces
 
         request_body = call_args[0][1]
         request_data = json.loads(request_body)
         assert request_data["sql_warehouse_id"] == "test-warehouse"
-        assert "trace_paths" in request_data
-        assert len(request_data["trace_paths"]) == 2
+        assert request_data["trace_ids"] == [span1.trace_id, span2.trace_id]
 
         endpoint = call_args[1]["endpoint"]
-        assert endpoint == f"{_V4_TRACE_REST_API_PATH_PREFIX}/batch"
+        assert endpoint == f"{_V4_TRACE_REST_API_PATH_PREFIX}/{location}/batchGet"
 
         assert isinstance(result, list)
         assert len(result) == 2

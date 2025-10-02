@@ -323,12 +323,13 @@ class AbstractStore:
         """
         raise NotImplementedError
 
-    def get_traces(self, trace_ids: list[str]) -> list[Trace]:
+    def batch_get_traces(self, trace_ids: list[str], location: str) -> list[Trace]:
         """
-        Get complete traces with spans for given trace ids.
+        Get a batch of complete traces with spans for given trace ids.
 
         Args:
             trace_ids: List of trace IDs to fetch.
+            location: Location of the trace. For example, "catalog.schema" for UC schema.
 
         Returns:
             List of Trace objects.

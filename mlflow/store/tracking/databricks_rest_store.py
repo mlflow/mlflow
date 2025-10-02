@@ -12,6 +12,7 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, ENDPOINT_NOT_FOUND, ErrorCode
 from mlflow.protos.databricks_tracing_pb2 import (
+    BatchGetTraces,
     CreateAssessment,
     CreateTrace,
     CreateTraceUCStorageLocation,
@@ -20,18 +21,15 @@ from mlflow.protos.databricks_tracing_pb2 import (
     DeleteTraceTag,
     GetAssessment,
     GetTraceInfo,
-    GetTraces,
     LinkExperimentToUCTraceLocation,
     SearchTraces,
     SetTraceTag,
-    TracePath,
     UnLinkExperimentToUCTraceLocation,
     UpdateAssessment,
 )
 from mlflow.protos.service_pb2 import GetOnlineTraceDetails, MlflowService, SearchUnifiedTraces
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.rest_store import RestStore
-from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
 from mlflow.tracing.utils import parse_trace_id_v4
 from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH
 from mlflow.utils.databricks_tracing_utils import (
@@ -126,44 +124,31 @@ class DatabricksTracingRestStore(RestStore):
             else:
                 raise
 
-    def get_traces(self, trace_ids: list[str]) -> list[Trace]:
+    def batch_get_traces(self, trace_ids: list[str], location: str) -> list[Trace]:
         """
-        Get complete traces with spans for given trace ids.
+        Get a batch of complete traces with spans for given trace ids.
 
         Args:
             trace_ids: List of trace IDs to fetch.
+            location: Location of the trace. For example, "catalog.schema" for UC schema.
 
         Returns:
             List of Trace objects.
         """
-        sql_warehouse_id = MLFLOW_TRACING_SQL_WAREHOUSE_ID.get()
-        trace_paths = [self._construct_trace_path(trace_id) for trace_id in trace_ids]
+        trace_ids = [parse_trace_id_v4(trace_id)[1] for trace_id in trace_ids]
         req_body = message_to_json(
-            GetTraces(trace_paths=trace_paths, sql_warehouse_id=sql_warehouse_id)
+            BatchGetTraces(
+                location_id=location,
+                trace_ids=trace_ids,
+                sql_warehouse_id=MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+            )
         )
         response_proto = self._call_endpoint(
-            GetTraces, req_body, endpoint=f"{_V4_TRACE_REST_API_PATH_PREFIX}/batch"
+            BatchGetTraces,
+            req_body,
+            endpoint=f"{_V4_TRACE_REST_API_PATH_PREFIX}/{location}/batchGet",
         )
         return [trace_from_proto(proto) for proto in response_proto.traces]
-
-    def _construct_trace_path(self, trace_id_or_uri: str) -> TracePath:
-        location, trace_id = parse_trace_id_v4(trace_id_or_uri)
-        # location is only None when trace_id does not starts with 'trace:/'
-        if location is None:
-            return TracePath(trace_id=trace_id)
-        match location.split("."):
-            case [catalog, schema]:
-                return TracePath(
-                    trace_location=trace_location_to_proto(
-                        trace_location_from_databricks_uc_schema(catalog, schema)
-                    ),
-                    trace_id=trace_id,
-                )
-            case _:
-                raise MlflowException.invalid_parameter_value(
-                    f"Invalid trace_id format: {trace_id_or_uri}, should be in the format of "
-                    f"{TRACE_ID_V4_PREFIX}<catalog.schema>/<trace_id>"
-                )
 
     def get_trace_info(self, trace_id: str) -> TraceInfo:
         """

@@ -211,7 +211,7 @@ def test_client_create_run_with_name(mock_store, mock_time):
 
 def test_client_get_trace(mock_store, mock_artifact_repo):
     trace_id = "trace:/catalog.schema/123"
-    mock_store.get_traces.return_value = [
+    mock_store.batch_get_traces.return_value = [
         Trace(
             TraceInfo(
                 trace_id=trace_id,
@@ -252,15 +252,9 @@ def test_client_get_trace(mock_store, mock_artifact_repo):
             ),
         )
     ]
-
-    with mock.patch(
-        "mlflow.tracing.client.TracingClient._should_load_spans_from_artifact",
-        return_value=False,
-    ):
-        trace = MlflowClient().get_trace(trace_id)
-        mock_store.get_traces.assert_called_once_with([trace_id])
-        mock_store.get_trace_info.assert_called_once_with(trace_id)
-        mock_artifact_repo.download_trace_data.assert_not_called()
+    trace = MlflowClient().get_trace(trace_id)
+    mock_store.batch_get_traces.assert_called_once_with([trace_id], "catalog.schema")
+    mock_artifact_repo.download_trace_data.assert_not_called()
 
     assert trace.info.trace_id == trace_id
     assert trace.info.trace_location.uc_schema.catalog_name == "catalog"
@@ -282,7 +276,7 @@ def test_client_get_trace(mock_store, mock_artifact_repo):
 
 
 def test_client_get_trace_empty_result(mock_store):
-    mock_store.get_traces.return_value = []
+    mock_store.batch_get_traces.return_value = []
     with pytest.raises(MlflowException, match="not found"):
         MlflowClient().get_trace("trace:/catalog.schema/123")
 
@@ -396,17 +390,14 @@ def test_client_search_traces_with_get_traces(mock_store, mock_artifact_repo, in
         ),
     ]
     mock_store.search_traces.return_value = (mock_trace_infos, None)
+    mock_store.batch_get_traces.return_value = [
+        Trace(info=info, data=TraceData(spans=[])) for info in mock_trace_infos
+    ]
 
-    mock_traces = [Trace(info=info, data=TraceData(spans=[])) for info in mock_trace_infos]
-    with mock.patch(
-        "mlflow.tracing.client.TracingClient._get_traces_from_tracking_store",
-        return_value=mock_traces,
-    ) as mock_get_traces:
-        results = MlflowClient().search_traces(
-            experiment_ids=["1", "2", "3"],
-            include_spans=include_spans,
-        )
-
+    results = MlflowClient().search_traces(
+        experiment_ids=["1", "2", "3"],
+        include_spans=include_spans,
+    )
     mock_store.search_traces.assert_called_once_with(
         experiment_ids=None,
         filter_string=None,
@@ -418,9 +409,11 @@ def test_client_search_traces_with_get_traces(mock_store, mock_artifact_repo, in
     )
     assert len(results) == 2
     if include_spans:
-        mock_get_traces.assert_called_once_with(["tr-1234567", "tr-8910"])
+        mock_store.batch_get_traces.assert_called_once_with(
+            ["tr-1234567", "tr-8910"], "catalog.schema"
+        )
     else:
-        mock_get_traces.assert_not_called()
+        mock_store.batch_get_traces.assert_not_called()
     mock_artifact_repo.download_trace_data.assert_not_called()
 
     # The TraceInfo is already fetched prior to the upload_trace_data call,
@@ -452,7 +445,9 @@ def test_client_search_traces_mixed(mock_store, mock_artifact_repo, include_span
         ),
     ]
     mock_store.search_traces.return_value = (mock_traces, None)
-    mock_store.get_traces.return_value = [Trace(info=mock_traces[0], data=TraceData(spans=[]))]
+    mock_store.batch_get_traces.return_value = [
+        Trace(info=mock_traces[0], data=TraceData(spans=[]))
+    ]
     mock_artifact_repo.download_trace_data.return_value = {}
     results = MlflowClient().search_traces(
         locations=["1", "catalog.schema"], include_spans=include_spans
@@ -469,10 +464,10 @@ def test_client_search_traces_mixed(mock_store, mock_artifact_repo, include_span
     )
     assert len(results) == 2
     if include_spans:
-        mock_store.get_traces.assert_called_once_with(["1234567"])
+        mock_store.batch_get_traces.assert_called_once_with(["1234567"], "catalog.schema")
         mock_artifact_repo.download_trace_data.assert_called()
     else:
-        mock_store.get_traces.assert_not_called()
+        mock_store.batch_get_traces.assert_not_called()
         mock_artifact_repo.download_trace_data.assert_not_called()
 
 
