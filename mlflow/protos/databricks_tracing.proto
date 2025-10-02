@@ -16,7 +16,7 @@ import "opentelemetry/proto/trace/v1/trace.proto";
 option py_generic_services = true;
 
 service DatabricksTrackingService {
-  rpc createTraceInfo (CreateTraceInfo) returns (CreateTraceInfo.Response) {
+  rpc createTraceInfo (CreateTraceInfo) returns (TraceInfo) {
     option (rpc) = {
       endpoints: [{
         method: "POST",

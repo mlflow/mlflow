@@ -27,6 +27,7 @@ from mlflow.protos.databricks_tracing_pb2 import (
     UnLinkExperimentToUCTraceLocation,
     UpdateAssessment,
 )
+from mlflow.protos.databricks_tracing_pb2 import TraceInfo as ProtoTraceInfo
 from mlflow.protos.service_pb2 import GetOnlineTraceDetails, MlflowService, SearchUnifiedTraces
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.rest_store import RestStore
@@ -92,10 +93,11 @@ class DatabricksTracingRestStore(RestStore):
         """
         try:
             if uc_schema := trace_info.trace_location.uc_schema:
-                location = f"{uc_schema.catalog_name}.{uc_schema.schema_name}"
+                location, otel_trace_id = parse_trace_id_v4(trace_info.trace_id)
             # TODO: we should check if the experiment has a span location tag
             elif mlflow_experiment := trace_info.trace_location.mlflow_experiment:
                 location = mlflow_experiment.experiment_id
+                otel_trace_id = trace_info.trace_id
             else:
                 raise MlflowException("Invalid trace location")
 
@@ -109,8 +111,9 @@ class DatabricksTracingRestStore(RestStore):
             response_proto = self._call_endpoint(
                 CreateTraceInfo,
                 req_body,
-                endpoint=f"{_V4_REST_API_PATH_PREFIX}/mlflow/traces/{location}/{trace_info.trace_id}/info",
+                endpoint=f"{_V4_REST_API_PATH_PREFIX}/mlflow/traces/{location}/{otel_trace_id}/info",
                 retry_timeout_seconds=MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.get(),
+                response_proto=ProtoTraceInfo(),
             )
             return TraceInfo.from_proto(response_proto)
         # Temporarily we capture all exceptions and fallback to v3 if the trace location is not uc
@@ -441,7 +444,7 @@ class DatabricksTracingRestStore(RestStore):
                 **config.authenticate(),
             },
         )
-
+        print(f"response: {response}")
         verify_rest_response(response, endpoint)
         return spans
 
