@@ -23,6 +23,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracking.fluent import _get_trace_exporter
 
 # ============================================================================
 # CONSTANTS
@@ -625,7 +626,9 @@ def process_transcript(
         )
         parent_span.end(end_time_ns=conv_end_ns)
 
-        mlflow.flush_trace_async_logging()
+        # Use this to check if async trace logging is enabled
+        if hasattr(_get_trace_exporter(), "_async_queue"):
+            mlflow.flush_trace_async_logging()
         get_logger().claude_tracing("Created MLflow trace: %s", parent_span.trace_id)
 
         return mlflow.get_trace(parent_span.trace_id)
