@@ -171,13 +171,24 @@ export const useMlflowTracesTableMetadata = ({
     return {
       assessmentInfos,
       allColumns,
+      evaluatedTraces,
+      otherEvaluatedTraces,
       totalCount: evaluatedTraces.length,
       isLoading: isInnerLoading && !disabled,
       error,
       isEmpty: evaluatedTraces.length === 0,
       tableFilterOptions,
     };
-  }, [assessmentInfos, allColumns, isInnerLoading, error, evaluatedTraces.length, tableFilterOptions, disabled]);
+  }, [
+    assessmentInfos,
+    allColumns,
+    isInnerLoading,
+    error,
+    evaluatedTraces,
+    otherEvaluatedTraces,
+    tableFilterOptions,
+    disabled,
+  ]);
 };
 
 const getNetworkAndClientFilters = (
@@ -289,7 +300,7 @@ export const useSearchMlflowTraces = ({
   const filteredTraces: TraceInfoV3[] | undefined = useMemo(() => {
     if (!evalTraceComparisonEntries) return undefined;
 
-    if (!currentRunDisplayName || (searchQuery === '' && clientFilters?.length === 0)) {
+    if (searchQuery === '' && clientFilters?.length === 0) {
       return evalTraceComparisonEntries.reduce<TraceInfoV3[]>((acc, entry) => {
         if (entry.currentRunValue?.traceInfo) {
           acc.push(entry.currentRunValue.traceInfo);
@@ -302,7 +313,7 @@ export const useSearchMlflowTraces = ({
       return {
         assessmentName: filter.key || '',
         filterValue: filter.value,
-        run: currentRunDisplayName,
+        run: currentRunDisplayName || '',
       };
     });
 

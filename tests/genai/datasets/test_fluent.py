@@ -1,7 +1,6 @@
 import json
 import os
 import sys
-import tempfile
 import warnings
 from unittest import mock
 
@@ -441,11 +440,19 @@ def test_active_record_pattern_merge_records(tracking_uri, experiments):
     records_batch1 = [
         {
             "inputs": {"question": "What is MLflow?"},
-            "expectations": {"answer": "MLflow is an open source platform"},
+            "outputs": {
+                "answer": "MLflow is an open source platform for managing the ML lifecycle",
+                "key1": "value1",
+            },
+            "expectations": {
+                "answer": "MLflow is an open source platform",
+                "key2": "value2",
+            },
             "tags": {"difficulty": "easy"},
         },
         {
             "inputs": {"question": "What is Python?"},
+            "outputs": {"answer": "Python is a versatile programming language"},
             "expectations": {"answer": "Python is a programming language"},
             "tags": {"difficulty": "easy"},
         },
@@ -454,11 +461,13 @@ def test_active_record_pattern_merge_records(tracking_uri, experiments):
     records_batch2 = [
         {
             "inputs": {"question": "What is MLflow?"},
+            "outputs": {"answer": "MLflow is a popular ML lifecycle platform"},
             "expectations": {"answer": "MLflow is an ML lifecycle platform"},
             "tags": {"category": "ml"},
         },
         {
             "inputs": {"question": "What is Docker?"},
+            "outputs": {"answer": "Docker is a popular containerization platform"},
             "expectations": {"answer": "Docker is a containerization platform"},
             "tags": {"difficulty": "medium"},
         },
@@ -472,7 +481,14 @@ def test_active_record_pattern_merge_records(tracking_uri, experiments):
     mlflow_record = df1[df1["inputs"].apply(lambda x: x.get("question") == "What is MLflow?")].iloc[
         0
     ]
-    assert mlflow_record["expectations"]["answer"] == "MLflow is an open source platform"
+    assert mlflow_record["expectations"] == {
+        "answer": "MLflow is an open source platform",
+        "key2": "value2",
+    }
+    assert mlflow_record["outputs"] == {
+        "answer": "MLflow is an open source platform for managing the ML lifecycle",
+        "key1": "value1",
+    }
     assert mlflow_record["tags"]["difficulty"] == "easy"
     assert "category" not in mlflow_record["tags"]
 
@@ -484,9 +500,24 @@ def test_active_record_pattern_merge_records(tracking_uri, experiments):
     mlflow_record_updated = df2[
         df2["inputs"].apply(lambda x: x.get("question") == "What is MLflow?")
     ].iloc[0]
-    assert mlflow_record_updated["expectations"]["answer"] == "MLflow is an ML lifecycle platform"
+
+    assert mlflow_record_updated["expectations"] == {
+        "answer": "MLflow is an ML lifecycle platform",
+        "key2": "value2",
+    }
+    assert mlflow_record_updated["outputs"] == {
+        "answer": "MLflow is a popular ML lifecycle platform"
+    }
     assert mlflow_record_updated["tags"]["difficulty"] == "easy"
     assert mlflow_record_updated["tags"]["category"] == "ml"
+
+    # Verify that the new Docker record also has outputs
+    docker_record = df2[df2["inputs"].apply(lambda x: x.get("question") == "What is Docker?")].iloc[
+        0
+    ]
+    assert docker_record["outputs"]["answer"] == "Docker is a popular containerization platform"
+    assert docker_record["expectations"]["answer"] == "Docker is a containerization platform"
+    assert docker_record["tags"]["difficulty"] == "medium"
 
 
 def test_dataset_with_dataframe_records(tracking_uri, experiments):
@@ -1264,20 +1295,19 @@ def test_dataset_experiment_associations(tracking_uri, experiments):
     assert len(idempotent.experiment_ids) == 1
 
 
-def test_dataset_associations_filestore_blocking():
+def test_dataset_associations_filestore_blocking(tmp_path):
     from mlflow.genai.datasets import (
         add_dataset_to_experiments,
         remove_dataset_from_experiments,
     )
 
-    with tempfile.TemporaryDirectory() as temp_dir:
-        mlflow.set_tracking_uri(f"file://{temp_dir}")
+    mlflow.set_tracking_uri(tmp_path.as_uri())
 
-        with pytest.raises(NotImplementedError, match="not supported with FileStore"):
-            add_dataset_to_experiments(dataset_id="d-test123", experiment_ids=["1", "2"])
+    with pytest.raises(NotImplementedError, match="not supported with FileStore"):
+        add_dataset_to_experiments(dataset_id="d-test123", experiment_ids=["1", "2"])
 
-        with pytest.raises(NotImplementedError, match="not supported with FileStore"):
-            remove_dataset_from_experiments(dataset_id="d-test123", experiment_ids=["1"])
+    with pytest.raises(NotImplementedError, match="not supported with FileStore"):
+        remove_dataset_from_experiments(dataset_id="d-test123", experiment_ids=["1"])
 
 
 def test_evaluation_dataset_tags_crud_workflow(tracking_uri, experiments):

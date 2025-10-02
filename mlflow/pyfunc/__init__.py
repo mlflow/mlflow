@@ -433,6 +433,7 @@ from mlflow.environment_variables import (
     _MLFLOW_IN_CAPTURE_MODULE_PROCESS,
     _MLFLOW_TESTING,
     MLFLOW_DISABLE_SCHEMA_DETAILS,
+    MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF,
     MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR,
     MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT,
 )
@@ -1916,7 +1917,7 @@ def _download_prebuilt_env_if_needed(prebuilt_env_uri):
     from mlflow.utils.file_utils import get_or_create_tmp_dir
 
     parsed_url = urlparse(prebuilt_env_uri)
-    if parsed_url.scheme == "" or parsed_url.scheme == "file":
+    if parsed_url.scheme in {"", "file"}:
         # local path
         return parsed_url.path
     if parsed_url.scheme == "dbfs":
@@ -2583,6 +2584,8 @@ e.g., struct<a:int, b:array<int>>.
 
     tracking_uri = mlflow.get_tracking_uri()
 
+    enforce_stdin_scoring_server = MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF.get()
+
     @pandas_udf(result_type)
     def udf(
         # `pandas_udf` does not support modern type annotations
@@ -2650,7 +2653,7 @@ e.g., struct<a:int, b:array<int>>.
                 else:
                     local_model_path_on_executor = None
 
-                if check_port_connectivity():
+                if not enforce_stdin_scoring_server and check_port_connectivity():
                     # launch scoring server
                     server_port = find_free_port()
                     host = "127.0.0.1"

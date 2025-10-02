@@ -79,21 +79,29 @@ class SerializedScorer:
     call_signature: str | None = None
     original_func_name: str | None = None
 
+    # InstructionsJudge fields (for make_judge created judges)
+    instructions_judge_pydantic_data: dict[str, Any] | None = None
+
     def __post_init__(self):
-        """Validate that either builtin scorer fields or decorator scorer fields are present."""
+        """Validate that exactly one type of scorer fields is present."""
         has_builtin_fields = self.builtin_scorer_class is not None
         has_decorator_fields = self.call_source is not None
+        has_instructions_fields = self.instructions_judge_pydantic_data is not None
 
-        if not has_builtin_fields and not has_decorator_fields:
+        # Count how many field types are present
+        field_count = sum([has_builtin_fields, has_decorator_fields, has_instructions_fields])
+
+        if field_count == 0:
             raise ValueError(
                 "SerializedScorer must have either builtin scorer fields "
-                "(builtin_scorer_class) or decorator scorer fields (call_source) present"
+                "(builtin_scorer_class), decorator scorer fields (call_source), "
+                "or instructions judge fields (instructions_judge_pydantic_data) present"
             )
 
-        if has_builtin_fields and has_decorator_fields:
+        if field_count > 1:
             raise ValueError(
-                "SerializedScorer cannot have both builtin scorer fields and "
-                "decorator scorer fields present simultaneously"
+                "SerializedScorer cannot have multiple types of scorer fields "
+                "present simultaneously"
             )
 
 
@@ -230,6 +238,45 @@ class Scorer(BaseModel):
         elif serialized.call_source and serialized.call_signature and serialized.original_func_name:
             return cls._reconstruct_decorator_scorer(serialized)
 
+        # Handle InstructionsJudge scorers
+        elif serialized.instructions_judge_pydantic_data is not None:
+            from mlflow.genai.judges.instructions_judge import InstructionsJudge
+
+            data = serialized.instructions_judge_pydantic_data
+
+            field_specs = {
+                "instructions": str,
+                "model": str,
+            }
+
+            errors = []
+            for field, expected_type in field_specs.items():
+                if field not in data:
+                    errors.append(f"missing required field '{field}'")
+                elif not isinstance(data[field], expected_type):
+                    actual_type = type(data[field]).__name__
+                    errors.append(
+                        f"field '{field}' must be {expected_type.__name__}, got {actual_type}"
+                    )
+
+            if errors:
+                raise MlflowException.invalid_parameter_value(
+                    f"Failed to deserialize InstructionsJudge scorer '{serialized.name}': "
+                    f"{'; '.join(errors)}"
+                )
+
+            try:
+                return InstructionsJudge(
+                    name=serialized.name,
+                    instructions=data["instructions"],
+                    model=data["model"],
+                    # TODO: add aggregations here once we support boolean/numeric judge outputs
+                )
+            except Exception as e:
+                raise MlflowException.invalid_parameter_value(
+                    f"Failed to create InstructionsJudge scorer '{serialized.name}': {e}"
+                )
+
         # Invalid serialized data
         else:
             raise MlflowException.invalid_parameter_value(
@@ -248,17 +295,18 @@ class Scorer(BaseModel):
         from mlflow.genai.scorers.scorer_utils import recreate_function
 
         # Recreate the original function from source code
-        recreated_func = recreate_function(
-            serialized.call_source, serialized.call_signature, serialized.original_func_name
-        )
-
-        if not recreated_func:
+        try:
+            recreated_func = recreate_function(
+                serialized.call_source, serialized.call_signature, serialized.original_func_name
+            )
+        except Exception as e:
             raise MlflowException.invalid_parameter_value(
                 f"Failed to recreate function from source code. "
                 f"Scorer was created with MLflow version: "
                 f"{serialized.mlflow_version or 'unknown'}, "
                 f"serialization version: {serialized.serialization_version or 'unknown'}. "
-                f"Current MLflow version: {mlflow.__version__}"
+                f"Current MLflow version: {mlflow.__version__}. "
+                f"Error: {e}"
             )
 
         # Apply the scorer decorator to recreate the scorer
@@ -710,7 +758,13 @@ class Scorer(BaseModel):
         return copy
 
     def _check_can_be_registered(self, error_message: str | None = None) -> None:
+        # Allow InstructionsJudge (created via make_judge) to be registered
+        # despite being ScorerKind.CLASS since it has proper serialization support
+        from mlflow.genai.judges.instructions_judge import InstructionsJudge
         from mlflow.genai.scorers.registry import DatabricksStore, _get_scorer_store
+
+        if isinstance(self, InstructionsJudge):
+            return
 
         if self.kind not in _ALLOWED_SCORERS_FOR_REGISTRATION:
             if error_message is None:

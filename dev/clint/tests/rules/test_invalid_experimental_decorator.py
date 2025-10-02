@@ -5,10 +5,8 @@ from clint.linter import Location, lint_file
 from clint.rules.invalid_experimental_decorator import InvalidExperimentalDecorator
 
 
-def test_invalid_experimental_decorator(index_path: Path, tmp_path: Path) -> None:
-    tmp_file = tmp_path / "test.py"
-    tmp_file.write_text(
-        """
+def test_invalid_experimental_decorator(index_path: Path) -> None:
+    code = """
 from mlflow.utils.annotations import experimental
 
 # Bad - no arguments
@@ -46,10 +44,8 @@ def good_function1():
 def good_function2():
     pass
 """
-    )
-
     config = Config(select={InvalidExperimentalDecorator.name})
-    violations = lint_file(tmp_file, config, index_path)
+    violations = lint_file(Path("test.py"), code, config, index_path)
     assert len(violations) == 5
     assert all(isinstance(v.rule, InvalidExperimentalDecorator) for v in violations)
     assert violations[0].loc == Location(4, 1)  # @experimental without args

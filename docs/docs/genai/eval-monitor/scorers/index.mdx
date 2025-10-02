@@ -1,8 +1,10 @@
 import { APILink } from "@site/src/components/APILink";
+import Link from "@docusaurus/Link";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 import TileCard from '@site/src/components/TileCard';
 import TilesGrid from '@site/src/components/TilesGrid';
-import { Bot, GitBranch, Target, Scale } from "lucide-react";
+import { Bot, GitBranch, Target, Scale, Database, Play, Code, Activity, MessageSquare } from "lucide-react";
+import WorkflowSteps from '@site/src/components/WorkflowSteps';
 
 # What are Scorers?
 
@@ -10,7 +12,7 @@ import { Bot, GitBranch, Target, Scale } from "lucide-react";
 
 Scorers can be considered as **metrics** in the traditional ML sense. However, they are more flexible and can return more structured quality feedback, not only the scalar values that are typically represented by metrics.
 
-## How scorers work
+## How Scorers Work
 
 Scorers analyze inputs, outputs, and traces from your GenAI application and produce quality assessments. Here's the flow:
 
@@ -19,43 +21,68 @@ Scorers analyze inputs, outputs, and traces from your GenAI application and prod
 3. Scorers receive the <div className="inline-flex rounded-sm bg-green-100 px-2 py-1 text-sm text-green-900">inputs</div>, <div className="inline-flex rounded-sm bg-orange-100 px-2 py-1 text-sm text-orange-900">outputs</div>, <div className="inline-flex rounded-sm bg-yellow-100 px-2 py-1 text-sm text-yellow-900">expectations</div>, and <div className="inline-flex rounded-sm bg-cyan-100 px-2 py-1 text-sm text-cyan-900">traces</div> (or a subset of them) and produce scores and metadata such as explanations and source information.
 4. MLflow aggregates the scorer results and saves them. You can analyze the results in the UI.
 
-## Evaluation Approaches Comparison
+## What Scorers you should use?
 
-Evaluating the quality of your GenAI application can be done in different ways. Here's a comparison of the different approaches and how you can use them in MLflow. Click on the guide links to learn more about each approach:
+MLflow provides different types of scorers to address different evaluation needs:
 
-| Type             | Heuristic                                            | LLM-based                                                  | Human                                                             |
-| ---------------- | ---------------------------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------- |
-| **Description**  | Deterministic metrics such as `exact_match`, `BLEU`. | Let LLMs judge subjective qualities such as `Correctness`  | Ask domain experts or users to provide feedback.                  |
-| **Cost**         | Minimal                                              | API costs for LLM calls                                    | High (human time)                                                 |
-| **Scalability**  | Highly scalable                                      | Scalable                                                   | Limited                                                           |
-| **Consistency**  | Perfect consistency                                  | Somewhat consistent (if prompted well)                     | Variable (inter-annotator agreement)                              |
-| **Flexibility**  | Limited to predefined patterns                       | Highly flexible with custom prompts                        | Maximum flexibility                                               |
-| **MLflow Guide** | [Custom Scorers](custom.mdx)                         | [LLM-based Scorers](/genai/eval-monitor/scorers/llm-judge) | [Collecting Human Feedback](/genai/tracing/collect-user-feedback) |
+> _I want to try evaluation quickly and get some results fast._
 
-## Scorer Data Requirements
+&emsp;→ Use [Predefined Scorers](/genai/eval-monitor/scorers/llm-judge/predefined) to get started.
 
-:::warning[Important: Trace-based vs Static Data Compatibility]
+> _I want to evaluate my application with a simple natural language criteria, such as "The response must be polite"._
 
-Not all scorers work with static datasets. Some scorers are designed specifically to analyze execution traces and **will not function with static pandas DataFrames** that only contain inputs/outputs/expectations.
+&emsp;→ Use [Guidelines-based Scorers](/genai/eval-monitor/scorers/llm-judge/guidelines).
+
+> _I want to use more advanced prompt for evaluating my application._
+
+&emsp;→ Use [Prompt-based Scorers](/genai/eval-monitor/scorers/llm-judge/make-judge).
+
+> _I want to dump the entire trace to the scorer and get detailed insights from it._
+
+&emsp;→ Use [Agent-as-a-Judge Scorers](/genai/eval-monitor/scorers/llm-judge/agentic-overview).
+
+> _I want to write my own code for evaluating my application. Other scorers don't fit my advanced needs._
+
+&emsp;→ Use [Code-based Scorers](/genai/eval-monitor/scorers/custom) to implement your own evaluation logic with Python.
+
+If you are still not sure about which scorer to use, you can ask to the Ask AI (add image) widget in the right below.
+
+## How to Write a Good Scorer?
+
+The general metrics such as 'Hallucination' or 'Toxicity' rarely work in practice. Successful practitioners
+analyze real data to uncover domain-specific failure modes and then define custom evaluation criteria from the ground up. Here is the general workflow of how to define a good scorer and iterate on it with MLflow.
+
+<WorkflowSteps
+  width="wide"
+  steps={[
+    {
+      title: "Generate traces or collect them from production",
+      description: <div>Start with generating <Link href="/genai/tracing">traces</Link> from a set of realistic input samples. If you already have production traces, that is even better.</div>
+    },
+    {
+      title: "Gather human feedback",
+      description: <div>Collect feedback from domain experts or users. MLflow provides <Link href="/genai/assessments/feedback">a UI and SDK</Link> for collecting feedback on traces.</div>
+    },
+    {
+      title: "Error analysis",
+      description: <div>Analyze the common failure modes (error categories) from the feedback.<br/>To organize traces into error categories, use <Link href="/genai/tracing/attach-tags">Trace Tag</Link> to label and filter traces.</div>
+    },
+    {
+      title: "Translate failure modes into Scorers",
+      description: <div>Define scorers that check for the common failure modes.For example, if the answer is in an incorrect format, you may define an <Link href="/genai/eval-monitor/scorers/llm-judge">LLM-as-a-Judge scorer</Link> that checks if the format is correct. We recommend starting with a simple instruction and then iteratively refine it.</div>
+    },
+    {
+      title: "Align scorers with human feedback.",
+      description: <div>LLM-as-a-Judge has natural biases. Relying on biased evaluation will lead to incorrect decision making. Therefore, it is important to refine the scorer to align with human feedback. You can manually iterate on prompts or instructions, or use the <Link href='/genai/eval-monitor/scorers/llm-judge/alignment'>Automatic Judge Alignment</Link> feature of MLflow to optimize the instruction with a state-of-the-art algorithm powered by <Link href='https://dspy.ai/'>DSPy</Link>.</div>
+    }
+  ]}
+/>
+
+:::tip Pro tip: Version Control Scorers
+
+As you iterate on the scorer, version control becomes important. MLflow can track <ins>[Scorer Versions](/genai/eval-monitor/scorers/versioning)</ins> to help you maintain changes and share the improved scorers with your team.
 
 :::
-
-### Scorer Compatibility Matrix
-
-| Scorer Category            | Static Data Support | Trace Required                | Example Scorers                                                             |
-| -------------------------- | ------------------- | ----------------------------- | --------------------------------------------------------------------------- |
-| **Field-based Scorers**    | ✅ Yes              | ❌ No                         | `Correctness`, `RelevanceToQuery`, `Safety`, custom scorers using `@scorer` |
-| **Trace-based Scorers**    | ❌ No               | ✅ Yes                        | Scorers analyzing execution flow, tool usage patterns, span attributes      |
-| **Retrieval Scorers**      | ❌ No               | ✅ Yes (with RETRIEVER spans) | `RetrievalGroundedness`, `RetrievalRelevance`, `RetrievalSufficiency`       |
-| **Agent Behavior Scorers** | ❌ No               | ✅ Yes                        | Custom scorers analyzing multi-step workflows, tool trajectories            |
-
-### Key Points:
-
-- **Static datasets** (pandas DataFrames with inputs/outputs/expectations) work only with field-based scorers
-- **Trace-based scorers** require actual execution traces from your application
-- If you see errors about missing traces when using retrieval or agent scorers, you need to:
-  1. Use a `predict_fn` that generates traces, OR
-  2. Include pre-collected traces in your dataset
 
 ## Next Steps
 
@@ -74,8 +101,8 @@ Not all scorers work with static datasets. Some scorers are designed specificall
   />
   <TileCard
     icon={Target}
-    title="Collect Ground Truth"
-    description="Gather and manage ground truth data to improve your evaluation accuracy"
-    href="/genai/tracing/collect-user-feedback"
+    title="Collect Human Feedback"
+    description="Gather and manage human feedback to improve your evaluation accuracy"
+    href="/genai/assessments/feedback"
   />
 </TilesGrid>

@@ -7,8 +7,10 @@ from opentelemetry.trace import NoOpTracer
 from pydantic import BaseModel
 
 import mlflow
+from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.entities.span import Span, SpanType
 from mlflow.entities.trace import Trace
+from mlflow.environment_variables import MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION
 from mlflow.genai.utils.data_validation import check_model_prediction
 from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
 from mlflow.tracing.constant import TraceTagKey
@@ -26,21 +28,118 @@ _CHOICES_KEY = "choices"
 _CONTENT_KEY = "content"
 
 
+def extract_request_from_trace(trace: Trace) -> str | None:
+    """
+    Extract request text from an MLflow trace object.
+
+    Args:
+        trace: MLflow trace object
+
+    Returns:
+        Extracted request text as string, or None if no root span
+    """
+    root_span = trace.data._get_root_span()
+    if root_span is None:
+        return None
+    return parse_inputs_to_str(root_span.inputs)
+
+
+def extract_response_from_trace(trace: Trace) -> str | None:
+    """
+    Extract response text from an MLflow trace object.
+
+    Args:
+        trace: MLflow trace object
+
+    Returns:
+        Extracted response text as string, or None if no root span
+    """
+    root_span = trace.data._get_root_span()
+    if root_span is None:
+        return None
+    return parse_outputs_to_str(root_span.outputs)
+
+
+def extract_inputs_from_trace(trace: Trace) -> Any:
+    """
+    Extract inputs from the root span of an MLflow trace.
+
+    Args:
+        trace: MLflow trace object
+
+    Returns:
+        Inputs from the root span, or None if no root span or inputs
+    """
+    root_span = trace.data._get_root_span()
+    if root_span and root_span.inputs is not None:
+        return root_span.inputs
+    return None
+
+
+def extract_outputs_from_trace(trace: Trace) -> Any:
+    """
+    Extract outputs from the root span of an MLflow trace.
+
+    Args:
+        trace: MLflow trace object
+
+    Returns:
+        Outputs from the root span, or None if no root span or outputs
+    """
+    root_span = trace.data._get_root_span()
+    if root_span and root_span.outputs is not None:
+        return root_span.outputs
+    return None
+
+
+def extract_expectations_from_trace(
+    trace: Trace, source: str | None = None
+) -> dict[str, Any] | None:
+    """
+    Extract expectations from trace assessments.
+
+    Args:
+        trace: MLflow trace object
+        source: If specified, only extract expectations from the given source type.
+                Must be one of the valid AssessmentSourceType values
+                If None, extract all expectations regardless of source.
+
+    Returns:
+        Dictionary of expectations, or None if no expectations found
+    """
+    validated_source = AssessmentSourceType._standardize(source) if source is not None else None
+
+    expectation_assessments = trace.search_assessments(type="expectation")
+
+    if validated_source is not None:
+        expectation_assessments = [
+            exp
+            for exp in expectation_assessments
+            if exp.source and exp.source.source_type == validated_source
+        ]
+
+    if not expectation_assessments:
+        return None
+
+    return {exp.name: exp.expectation.value for exp in expectation_assessments}
+
+
 def convert_predict_fn(predict_fn: Callable[..., Any], sample_input: Any) -> Callable[..., Any]:
     """
     Check the predict_fn is callable and add trace decorator if it is not already traced.
     """
-    with (
-        NoOpTracerPatcher() as counter,
-        # Enable auto-tracing before checking if the predict_fn produces traces, so that
-        # functions using auto-traceable libraries (OpenAI, LangChain, etc.) are correctly
-        # identified as traced functions
-        configure_autologging_for_evaluation(enable_tracing=True),
-    ):
-        check_model_prediction(predict_fn, sample_input)
+    if not MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION.get():
+        with (
+            NoOpTracerPatcher() as counter,
+            # Enable auto-tracing before checking if the predict_fn produces traces, so that
+            # functions using auto-traceable libraries (OpenAI, LangChain, etc.) are correctly
+            # identified as traced functions
+            configure_autologging_for_evaluation(enable_tracing=True),
+        ):
+            check_model_prediction(predict_fn, sample_input)
 
-    if counter.count == 0:
-        predict_fn = mlflow.trace(predict_fn)
+        if counter.count == 0:
+            predict_fn = mlflow.trace(predict_fn)
 
     # Wrap the prediction function to unwrap the inputs dictionary into keyword arguments.
     return lambda request: predict_fn(**request)

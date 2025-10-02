@@ -24,6 +24,7 @@ env:
   MLFLOW_CONDA_HOME: /usr/share/miniconda
   SPARK_LOCAL_IP: localhost
   PYTHON_VERSION: "3.10" # minimum supported version + 1
+  PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
   PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
   _MLFLOW_TESTING_TELEMETRY: "true"
 
