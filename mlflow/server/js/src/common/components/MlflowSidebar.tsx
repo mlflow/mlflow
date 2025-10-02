@@ -23,8 +23,7 @@ import {
 import Routes from '../../experiment-tracking/routes';
 import { FormattedMessage } from 'react-intl';
 
-const isHomeActive = (location: Location) =>
-  matchPath({ path: '/', end: true }, location.pathname);
+const isHomeActive = (location: Location) => matchPath({ path: '/', end: true }, location.pathname);
 
 const isExperimentsActive = (location: Location) =>
   matchPath('/experiments/*', location.pathname) || matchPath('/compare-experiments/*', location.pathname);
@@ -44,19 +43,26 @@ export function MlflowSidebar() {
     onSuccess: ({ promptName }) => navigate(Routes.getPromptDetailsPageRoute(promptName)),
   });
 
-  const homeNavItem = {
-    key: 'home',
-    icon: <HomeIcon />,
-    linkProps: {
-      to: ExperimentTrackingRoutes.rootRoute,
-      isActive: isHomeActive,
-      children: (
-        <FormattedMessage defaultMessage="Home" description="Sidebar link for home page" />
-      ),
-    },
-  };
-
   const menuItems = [
+    {
+      key: 'home',
+      icon: <HomeIcon />,
+      linkProps: {
+        to: ExperimentTrackingRoutes.rootRoute,
+        isActive: isHomeActive,
+        children: <FormattedMessage defaultMessage="Home" description="Sidebar link for home page" />,
+      },
+      dropdownProps: {
+        componentId: 'mlflow_sidebar.create_experiment_button',
+        onClick: () => setShowCreateExperimentModal(true),
+        children: (
+          <FormattedMessage
+            defaultMessage="Experiment"
+            description="Sidebar button inside the 'new' popover to create new experiment"
+          />
+        ),
+      },
+    },
     {
       key: 'experiments',
       icon: <BeakerIcon />,
@@ -116,8 +122,6 @@ export function MlflowSidebar() {
     },
   ];
 
-  const navigationItems = [homeNavItem, ...menuItems];
-
   return (
     <aside
       css={{
@@ -157,7 +161,7 @@ export function MlflowSidebar() {
             margin: 0,
           }}
         >
-          {navigationItems.map(({ key, icon, linkProps }) => (
+          {menuItems.map(({ key, icon, linkProps }) => (
             <li key={key}>
               <Link
                 to={linkProps.to}

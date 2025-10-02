@@ -31,11 +31,7 @@ const NewsThumbnail = ({ gradient, title, description, icon: IconComponent }: Ne
         <Typography.Text strong color="primary">
           {title}
         </Typography.Text>
-        {description ? (
-          <Typography.Text color="secondary">{description}</Typography.Text>
-        ) : (
-          <Spacer size="sm" />
-        )}
+        {description ? <Typography.Text color="secondary">{description}</Typography.Text> : <Spacer size="sm" />}
       </div>
       {IconComponent && (
         <div css={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', flex: 1 }}>
@@ -46,25 +42,14 @@ const NewsThumbnail = ({ gradient, title, description, icon: IconComponent }: Ne
   );
 };
 
-const DiscoverNewsCard = ({
-  title,
-  description,
-  link,
-  componentId,
-  thumbnail,
-}: (typeof homeNewsItems)[number]) => {
+const DiscoverNewsCard = ({ title, description, link, componentId, thumbnail }: typeof homeNewsItems[number]) => {
   const { theme } = useDesignSystemTheme();
   const linkStyles = getStartedCardLinkStyles(theme);
   const containerStyles = discoverNewsCardContainerStyles(theme);
 
   const card = (
     <div css={containerStyles}>
-      <NewsThumbnail
-        gradient={thumbnail.gradient}
-        title={title}
-        description={description}
-        icon={thumbnail.icon}
-      />
+      <NewsThumbnail gradient={thumbnail.gradient} title={title} description={description} icon={thumbnail.icon} />
     </div>
   );
 

@@ -10,10 +10,7 @@ export const homeQuickActions: HomeQuickActionDefinition[] = [
     icon: WorkflowsIcon,
     componentId: 'mlflow.home.quick_action.log_traces',
     title: (
-      <FormattedMessage
-        defaultMessage="Log traces"
-        description="Home page quick action title for logging traces"
-      />
+      <FormattedMessage defaultMessage="Log traces" description="Home page quick action title for logging traces" />
     ),
     description: (
       <FormattedMessage
@@ -56,10 +53,7 @@ export const homeQuickActions: HomeQuickActionDefinition[] = [
     icon: NotebookIcon,
     componentId: 'mlflow.home.quick_action.train_models',
     title: (
-      <FormattedMessage
-        defaultMessage="Train models"
-        description="Home page quick action title for training models"
-      />
+      <FormattedMessage defaultMessage="Train models" description="Home page quick action title for training models" />
     ),
     description: (
       <FormattedMessage

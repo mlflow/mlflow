@@ -30,7 +30,10 @@ const ExperimentsEmptyState = ({ onCreateExperiment }: { onCreateExperiment: () 
       }}
     >
       <Typography.Title level={4} css={{ margin: 0 }}>
-        <FormattedMessage defaultMessage="Create your first experiment" description="Home page experiments empty state title" />
+        <FormattedMessage
+          defaultMessage="Create your first experiment"
+          description="Home page experiments empty state title"
+        />
       </Typography.Title>
       <Typography.Text css={{ color: theme.colors.textSecondary }}>
         <FormattedMessage
@@ -47,7 +50,13 @@ const ExperimentsEmptyState = ({ onCreateExperiment }: { onCreateExperiment: () 
   );
 };
 
-export const ExperimentsHomeView = ({ experiments, isLoading, error, onCreateExperiment, onRetry }: ExperimentsHomeViewProps) => {
+export const ExperimentsHomeView = ({
+  experiments,
+  isLoading,
+  error,
+  onCreateExperiment,
+  onRetry,
+}: ExperimentsHomeViewProps) => {
   const { theme } = useDesignSystemTheme();
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [sorting, setSorting] = useState<SortingState>([]);

@@ -5,10 +5,8 @@ import type { HomeNewsItemDefinition } from './types';
 export const homeNewsItems: HomeNewsItemDefinition[] = [
   {
     id: 'auto-tune-llm-judge',
-    title: (
-      <FormattedMessage defaultMessage="Align LLM judge" description="Home page news card title one" />
-    ),
-    description: "LLM judge that automatically learn human preferences. ",
+    title: <FormattedMessage defaultMessage="Align LLM judge" description="Home page news card title one" />,
+    description: 'LLM judge that automatically learn human preferences. ',
     link: {
       type: 'external',
       href: 'https://mlflow.org/docs/latest/llms/llm-evaluate/index.html',
@@ -24,7 +22,7 @@ export const homeNewsItems: HomeNewsItemDefinition[] = [
   {
     id: 'optimize-prompts',
     title: <FormattedMessage defaultMessage="Optimize prompts" description="Home page news card title two" />,
-    description: "Access the state-of-the-art prompt optimization algorithms through MLflow Prompt Registry.",
+    description: 'Access the state-of-the-art prompt optimization algorithms through MLflow Prompt Registry.',
     link: {
       type: 'external',
       href: 'https://mlflow.org/docs/latest/llms/prompt-engineering/index.html',
@@ -40,7 +38,7 @@ export const homeNewsItems: HomeNewsItemDefinition[] = [
   {
     id: 'agents-as-a-judge',
     title: <FormattedMessage defaultMessage="Agents-as-a-judge" description="Home page news card title three" />,
-    description: "Leverage agents as a judge to perform deep trace analysis and improve your evaluation accuracy.",
+    description: 'Leverage agents as a judge to perform deep trace analysis and improve your evaluation accuracy.',
     link: {
       type: 'external',
       href: 'https://mlflow.org/docs/latest/llms/index.html',
@@ -56,7 +54,7 @@ export const homeNewsItems: HomeNewsItemDefinition[] = [
   {
     id: 'dataset-tracking',
     title: <FormattedMessage defaultMessage="Dataset tracking" description="Home page news card title four" />,
-    description: "Track dataset lineage and versions alongside experiments.",
+    description: 'Track dataset lineage and versions alongside experiments.',
     link: {
       type: 'external',
       href: 'https://mlflow.org/docs/latest/data/index.html',

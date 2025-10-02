@@ -11,7 +11,7 @@ import {
   getStartedIconWrapperStyles,
 } from './cardStyles';
 
-type QuickAction = (typeof homeQuickActions)[number];
+type QuickAction = typeof homeQuickActions[number];
 
 const GetStartedCard = ({ action }: { action: QuickAction }) => {
   const { theme } = useDesignSystemTheme();

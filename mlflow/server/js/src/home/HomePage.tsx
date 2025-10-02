@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { useDesignSystemTheme } from '@databricks/design-system';
+import { Header, Spacer, useDesignSystemTheme } from '@databricks/design-system';
+import { FormattedMessage } from 'react-intl';
 import { ScrollablePageWrapper } from '../common/components/ScrollablePageWrapper';
 import { useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { MlflowService } from '../experiment-tracking/sdk/MlflowService';
 import type { SearchExperimentsApiResponse } from '../experiment-tracking/types';
 import { CreateExperimentModal } from '../experiment-tracking/components/modals/CreateExperimentModal';
 import { useInvalidateExperimentList } from '../experiment-tracking/components/experiment-page/hooks/useExperimentListQuery';
-import { HomeHeader } from './components/HomeHeader';
 import { GetStarted } from './components/GetStarted';
 import { ExperimentsHomeView } from './components/ExperimentsHomeView';
 import { DiscoverNews } from './components/DiscoverNews';
@@ -61,7 +61,8 @@ const HomePage = () => {
           gap: theme.spacing.lg,
         }}
       >
-        <HomeHeader onCreateExperiment={handleOpenCreateModal} />
+        <Spacer shrinks={false} />
+        <Header title={<FormattedMessage defaultMessage="Welcome to MLflow" description="Home page hero title" />} />
         <GetStarted />
         <ExperimentsHomeView
           experiments={experiments}
