@@ -1946,7 +1946,7 @@ class SqlJob(Base):
     Job ID: `String` (limit 36 characters). *Primary Key* for ``jobs`` table.
     """
 
-    creation_time = Column(BigInteger, default=get_current_time_millis)
+    creation_time = Column(BigInteger, default=get_current_time_millis, nullable=False)
     """
     Creation timestamp: `BigInteger`.
     """
@@ -1981,7 +1981,7 @@ class SqlJob(Base):
     Job retry count: `Integer`
     """
 
-    last_update_time = Column(BigInteger(), default=get_current_time_millis)
+    last_update_time = Column(BigInteger(), default=get_current_time_millis, nullable=False)
     """
     Last Update time of experiment: `BigInteger`.
     """
