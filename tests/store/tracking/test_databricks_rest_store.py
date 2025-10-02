@@ -180,7 +180,7 @@ def test_create_trace_v4_experiment_location(monkeypatch):
 
     trace_info = TraceInfo(
         trace_id="tr-123",
-        trace_location=TraceLocation.from_experiment_id("experiment_123"),
+        trace_location=TraceLocation.from_experiment_id("experiment_1"),
         request_time=123,
         execution_duration=10,
         state=TraceState.OK,
@@ -192,7 +192,7 @@ def test_create_trace_v4_experiment_location(monkeypatch):
     # Mock successful v4 response
     response = mock.MagicMock()
     response.status_code = 200
-    response.text = json.dumps({"trace_info": trace_info.to_dict()})
+    response.text = json.dumps(trace_info.to_dict())
 
     expected_request = CreateTraceInfo(
         location_id="experiment_1",
@@ -204,7 +204,7 @@ def test_create_trace_v4_experiment_location(monkeypatch):
         _verify_requests(
             mock_http,
             creds,
-            "traces/experiment_1/123/info",
+            "traces/experiment_1/tr-123/info",
             "POST",
             message_to_json(expected_request),
             version="4.0",
