@@ -49,29 +49,9 @@ class DSPyPromptOptimizer(BasePromptOptimizer):
 
         Raises MlflowException for invalid formats.
         """
-        from mlflow.metrics.genai.model_utils import _parse_model_uri
+        from mlflow.genai.optimize.optimizers.utils import parse_model_name
 
-        if not model_name:
-            raise MlflowException.invalid_parameter_value(
-                "Model name cannot be empty. Please provide a model name in the format "
-                "'<provider>:/<model>' or '<provider>/<model>'."
-            )
-
-        try:
-            scheme, path = _parse_model_uri(model_name)
-            return f"{scheme}/{path}"
-        except MlflowException:
-            if "/" in model_name and ":" not in model_name:
-                parts = model_name.split("/")
-                if len(parts) == 2 and parts[0] and parts[1]:
-                    return model_name
-
-            raise MlflowException.invalid_parameter_value(
-                f"Invalid model name format: '{model_name}'. "
-                "Model name must be in one of the following formats:\n"
-                "  - '<provider>/<model>' (e.g., 'openai/gpt-4')\n"
-                "  - '<provider>:/<model>' (e.g., 'openai:/gpt-4')"
-            )
+        return parse_model_name(model_name)
 
     def optimize(
         self,
