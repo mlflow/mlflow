@@ -8,11 +8,14 @@ from typing import Any
 import pytest
 import requests
 
+from mlflow.server.jobs import job
+
 pytestmark = pytest.mark.skipif(
     os.name == "nt", reason="MLflow job execution is not supported on Windows"
 )
 
 
+@job(max_workers=1)
 def simple_job_fun(x: int, y: int) -> dict[str, Any]:
     return {
         "a": x + y,
@@ -25,38 +28,52 @@ def server_url(tmp_path_factory: pytest.TempPathFactory) -> str:
     from tests.helper_functions import get_safe_port
 
     tmp_path = tmp_path_factory.mktemp("server_mod")
-    backend_store_uri = f"sqlite:///{tmp_path / 'mlflow.db'!s}"
+    backend_store_uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
 
     port = get_safe_port()
-    server_proc = None
-    try:
-        server_proc = subprocess.Popen(
-            [
-                sys.executable,
-                "-m",
-                "mlflow",
-                "server",
-                "-h",
-                "127.0.0.1",
-                "-p",
-                str(port),
-                "--backend-store-uri",
-                backend_store_uri,
-            ],
-            env={
-                **os.environ,
-                "PYTHONPATH": os.path.dirname(__file__),
-            },
-            start_new_session=True,  # new session & process group
-        )
-        time.sleep(10)  # wait for server to spin up
-        yield f"http://127.0.0.1:{port}"
-    finally:
-        if server_proc is not None:
+    with subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "server",
+            "-h",
+            "127.0.0.1",
+            "-p",
+            str(port),
+            "--backend-store-uri",
+            backend_store_uri,
+        ],
+        env={
+            **os.environ,
+            "PYTHONPATH": os.path.dirname(__file__),
+            "MLFLOW_SERVER_ENABLE_JOB_EXECUTION": "true",
+            "_MLFLOW_ALLOWED_JOB_FUNCTION_LIST": (
+                "test_endpoint.simple_job_fun,invalid_format_no_module,"
+                "non_existent_module.some_function,os.non_existent_function"
+            ),
+        },
+        start_new_session=True,  # new session & process group
+    ) as server_proc:
+        try:
+            # wait server up.
+            deadline = time.time() + 15
+            while time.time() < deadline:
+                time.sleep(1)
+                try:
+                    resp = requests.get(f"http://127.0.0.1:{port}/health")
+                except requests.ConnectionError:
+                    continue
+                if resp.status_code == 200:
+                    break
+            else:
+                raise TimeoutError("Server did not report healthy within 15 seconds")
+            yield f"http://127.0.0.1:{port}"
+        finally:
             # NOTE that we need to kill subprocesses
             # (uvicorn server / huey task runner)
             # so `killpg` is needed.
-            os.killpg(server_proc.pid, signal.SIGTERM)
+            os.killpg(server_proc.pid, signal.SIGKILL)
 
 
 def wait_job_finalize(server_url: str, job_id: str, timeout: float) -> None:
@@ -79,7 +96,7 @@ def test_job_endpoint(server_url: str):
     response = requests.post(f"{server_url}/ajax-api/3.0/jobs/", json=payload)
     response.raise_for_status()
     job_id = response.json()["job_id"]
-    wait_job_finalize(server_url, job_id, 2)
+    wait_job_finalize(server_url, job_id, 10)
     response2 = requests.get(f"{server_url}/ajax-api/3.0/jobs/{job_id}")
     response2.raise_for_status()
     job_json = response2.json()

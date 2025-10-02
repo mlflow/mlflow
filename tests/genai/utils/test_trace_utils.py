@@ -139,6 +139,26 @@ def test_convert_predict_fn(predict_fn_generator, with_tracing, should_be_wrappe
     assert len(get_traces()) == 1
 
 
+def test_convert_predict_fn_skip_validation(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION", "true")
+
+    call_count = 0
+
+    def dummy_predict_fn(question: str, context: str):
+        nonlocal call_count
+        call_count += 1
+        return question + context
+
+    sample_input = {"question": "test", "context": "test"}
+    converted_fn = convert_predict_fn(dummy_predict_fn, sample_input)
+    # Predict function should not be validated when the env var is set to True
+    assert call_count == 0
+
+    # converted function takes a single 'request' argument
+    result = converted_fn(request=sample_input)
+    assert result == "testtest"
+
+
 def create_span(
     span_id: int,
     parent_id: int,

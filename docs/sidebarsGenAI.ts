@@ -341,6 +341,11 @@ const sidebarsGenAI: SidebarsConfig = {
           id: 'eval-monitor/legacy-llm-evaluation',
           label: 'LLM Evaluation (Legacy)',
         },
+        {
+          type: 'doc',
+          id: 'eval-monitor/faq',
+          label: 'FAQ',
+        },
       ],
       link: {
         type: 'doc',
