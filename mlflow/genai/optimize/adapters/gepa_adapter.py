@@ -120,7 +120,7 @@ class GepaPromptAdapter(BasePromptAdapter):
 
         model_name = parse_model_name(optimizer_lm_params.model_name)
 
-        class MLflowGEPAAdapter(gepa.GEPAAdapter):
+        class MlflowGEPAAdapter(gepa.GEPAAdapter):
             def __init__(self, eval_function, prompts_dict):
                 self.eval_function = eval_function
                 self.prompts_dict = prompts_dict
@@ -194,7 +194,7 @@ class GepaPromptAdapter(BasePromptAdapter):
 
                 return reflective_datasets
 
-        adapter = MLflowGEPAAdapter(eval_fn, target_prompts)
+        adapter = MlflowGEPAAdapter(eval_fn, target_prompts)
 
         reflection_lm = self.reflection_lm if self.reflection_lm else model_name
 
