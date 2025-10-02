@@ -41,12 +41,7 @@ from mlflow.entities.multipart_upload import MultipartUploadPart
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.entities.webhook import (
-    WebhookAction,
-    WebhookEntity,
-    WebhookEvent,
-    WebhookStatus,
-)
+from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent, WebhookStatus
 from mlflow.environment_variables import (
     MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX,
     MLFLOW_DEPLOYMENTS_TARGET,
@@ -187,9 +182,7 @@ from mlflow.store.artifact.artifact_repo import MultipartUploadMixin
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.jobs.abstract_store import AbstractJobStore
-from mlflow.store.model_registry.abstract_store import (
-    AbstractStore as AbstractModelRegistryStore,
-)
+from mlflow.store.model_registry.abstract_store import AbstractStore as AbstractModelRegistryStore
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
 from mlflow.store.tracking.abstract_store import AbstractStore as AbstractTrackingStore
 from mlflow.store.tracking.rest_store import RestStore
@@ -472,9 +465,7 @@ def _get_tracking_store(
     return _tracking_store
 
 
-def _get_model_registry_store(
-    registry_store_uri: str | None = None,
-) -> AbstractModelRegistryStore:
+def _get_model_registry_store(registry_store_uri: str | None = None) -> AbstractModelRegistryStore:
     from mlflow.server import BACKEND_STORE_URI_ENV_VAR, REGISTRY_STORE_URI_ENV_VAR
 
     global _model_registry_store
@@ -3080,11 +3071,7 @@ def _calculate_trace_filter_correlation():
     request_message = _get_request_message(
         CalculateTraceFilterCorrelation(),
         schema={
-            "experiment_ids": [
-                _assert_array,
-                _assert_required,
-                _assert_item_type_string,
-            ],
+            "experiment_ids": [_assert_array, _assert_required, _assert_item_type_string],
             "filter_string1": [_assert_string, _assert_required],
             "filter_string2": [_assert_string, _assert_required],
             "base_filter": [_assert_string],
