@@ -9,6 +9,9 @@
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
+// list of packages that contain `mlflow-tracing` in peerDependencies
+const INTEGRATION_PACKAGES = ['openai'];
+
 interface PackageJson {
   name: string;
   version: string;
@@ -28,9 +31,12 @@ function bumpVersion(version: string): void {
     process.exit(1);
   }
 
-  if (!existsSync(openaiPackagePath)) {
-    console.error(`Error: ${openaiPackagePath} does not exist`);
-    process.exit(1);
+  for (const packageName of INTEGRATION_PACKAGES) {
+    const packagePath = join(tsRoot, 'integrations', packageName, 'package.json');
+    if (!existsSync(packagePath)) {
+      console.error(`Error: ${packagePath} does not exist`);
+      process.exit(1);
+    }
   }
 
   // Validate version format (semver with optional prerelease)
@@ -54,24 +60,25 @@ function bumpVersion(version: string): void {
   writeFileSync(corePackagePath, JSON.stringify(corePackage, null, 2) + '\n', 'utf-8');
   console.log(`  ✓ Updated version: ${oldCoreVersion} → ${version}`);
 
-  // Update openai package.json
-  console.log(`Updating integrations/openai/package.json...`);
-  const openaiPackageText = readFileSync(openaiPackagePath, 'utf-8');
-  const openaiPackage: PackageJson = JSON.parse(openaiPackageText);
+  for (const packageName of INTEGRATION_PACKAGES) {
+    const packagePath = join(tsRoot, 'integrations', packageName, 'package.json');
+    console.log(`Updating integrations/${packageName}/package.json...`);
+    const packageText = readFileSync(packagePath, 'utf-8');
+    const packageJson: PackageJson = JSON.parse(packageText);
 
-  const oldOpenaiVersion = openaiPackage.version;
-  openaiPackage.version = version;
+    const oldVersion = packageJson.version;
+    packageJson.version = version;
 
-  // Update peerDependencies for mlflow-tracing
-  if (openaiPackage.peerDependencies && 'mlflow-tracing' in openaiPackage.peerDependencies) {
-    const oldPeerDep = openaiPackage.peerDependencies['mlflow-tracing'];
-    // Update peerDependency to match new version (keep the ^ prefix)
-    openaiPackage.peerDependencies['mlflow-tracing'] = `^${version}`;
-    console.log(`  ✓ Updated peerDependency mlflow-tracing: ${oldPeerDep} → ^${version}`);
+    writeFileSync(packagePath, JSON.stringify(packageJson, null, 2) + '\n', 'utf-8');
+    console.log(`  ✓ Updated version: ${oldVersion} → ${version}`);
+
+    if (packageJson.peerDependencies && 'mlflow-tracing' in packageJson.peerDependencies) {
+      const oldPeerDep = packageJson.peerDependencies['mlflow-tracing'];
+      packageJson.peerDependencies['mlflow-tracing'] = `^${version}`;
+      writeFileSync(packagePath, JSON.stringify(packageJson, null, 2) + '\n', 'utf-8');
+      console.log(`  ✓ Updated peerDependency mlflow-tracing: ${oldPeerDep} → ^${version}`);
+    }
   }
-
-  writeFileSync(openaiPackagePath, JSON.stringify(openaiPackage, null, 2) + '\n', 'utf-8');
-  console.log(`  ✓ Updated version: ${oldOpenaiVersion} → ${version}`);
 
   console.log(`\n✅ Successfully bumped TypeScript library versions to ${version}`);
 }
