@@ -2018,4 +2018,5 @@ class SqlJob(Base):
             status=JobStatus.from_int(self.status),
             result=self.result,
             retry_count=self.retry_count,
+            last_update_time=self.last_update_time,
         )

@@ -19,8 +19,8 @@ class Job(_MlflowObject):
         timeout: float | None,
         status: JobStatus,
         result: str | None,
-        retry_count: int = 0,
-        last_update_time: int = None,
+        retry_count: int,
+        last_update_time: int,
     ):
         super().__init__()
         self._job_id = job_id

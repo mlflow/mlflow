@@ -101,6 +101,7 @@ def test_job_endpoint(server_url: str):
     response2.raise_for_status()
     job_json = response2.json()
     job_json.pop("creation_time")
+    job_json.pop("last_update_time")
     assert job_json == {
         "job_id": job_id,
         "function_fullname": "test_endpoint.simple_job_fun",
