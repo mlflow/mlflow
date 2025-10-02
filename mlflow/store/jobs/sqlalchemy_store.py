@@ -75,6 +75,15 @@ class SqlAlchemyJobStore(AbstractJobStore):
             session.flush()
             return job.to_mlflow_entity()
 
+    def _update_job(self, job_id: str, new_status: JobStatus, result: str | None = None) -> None:
+        with self.ManagedSessionMaker() as session:
+            job = self._get_sql_job(session, job_id)
+
+            job.status = new_status.to_int()
+            if result is not None:
+                job.result = result
+            job.last_update_time = get_current_time_millis()
+
     def start_job(self, job_id: str) -> None:
         """
         Start a job by setting its status to RUNNING.
@@ -82,11 +91,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
         Args:
             job_id: The ID of the job to start
         """
-        with self.ManagedSessionMaker() as session:
-            job = self._get_sql_job(session, job_id)
-
-            job.status = JobStatus.RUNNING.to_int()
-            job.last_update_time = get_current_time_millis()
+        self._update_job(job_id, JobStatus.RUNNING)
 
     def reset_job(self, job_id: str) -> None:
         """
@@ -95,11 +100,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
         Args:
             job_id: The ID of the job to re-enqueue.
         """
-        with self.ManagedSessionMaker() as session:
-            job = self._get_sql_job(session, job_id)
-
-            job.status = JobStatus.PENDING.to_int()
-            job.last_update_time = get_current_time_millis()
+        self._update_job(job_id, JobStatus.PENDING)
 
     def finish_job(self, job_id: str, result: str) -> None:
         """
@@ -109,12 +110,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
             job_id: The ID of the job to finish
             result: The job result as a string
         """
-        with self.ManagedSessionMaker() as session:
-            job = self._get_sql_job(session, job_id)
-
-            job.status = JobStatus.SUCCEEDED.to_int()
-            job.result = result
-            job.last_update_time = get_current_time_millis()
+        self._update_job(job_id, JobStatus.SUCCEEDED, result)
 
     def fail_job(self, job_id: str, error: str) -> None:
         """
@@ -124,12 +120,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
             job_id: The ID of the job to fail
             error: The error message as a string
         """
-        with self.ManagedSessionMaker() as session:
-            job = self._get_sql_job(session, job_id)
-
-            job.status = JobStatus.FAILED.to_int()
-            job.result = error
-            job.last_update_time = get_current_time_millis()
+        self._update_job(job_id, JobStatus.FAILED, error)
 
     def mark_job_timed_out(self, job_id: str) -> None:
         """
@@ -138,11 +129,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
         Args:
             job_id: The ID of the job
         """
-        with self.ManagedSessionMaker() as session:
-            job = self._get_sql_job(session, job_id)
-
-            job.status = JobStatus.TIMEOUT.to_int()
-            job.last_update_time = get_current_time_millis()
+        self._update_job(job_id, JobStatus.TIMEOUT)
 
     def retry_or_fail_job(self, job_id: str, error: str) -> int | None:
         """
