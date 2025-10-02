@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from mlflow.entities._job import Job as JobEntity
+from mlflow.entities._job_status import JobStatus
 from mlflow.exceptions import MlflowException
 
 job_api_router = APIRouter(prefix="/ajax-api/3.0/jobs", tags=["Job"])
@@ -51,6 +52,14 @@ class Job(BaseModel):
         )
 
 
+class JobList(BaseModel):
+    """
+    Pydantic model for response that contains a list of jobs.
+    """
+
+    jobs: list[Job]
+
+
 @job_api_router.get("/{job_id}", response_model=Job)
 def get_job(job_id: str) -> Job:
     from mlflow.server.jobs import get_job
@@ -85,6 +94,52 @@ def submit_job(payload: SubmitJobPayload) -> Job:
         function = _load_function(function_fullname)
         job = submit_job(function, payload.params, payload.timeout)
         return Job.from_job_entity(job)
+    except MlflowException as e:
+        raise HTTPException(
+            status_code=e.get_http_status_code(),
+            detail=e.message,
+        )
+
+
+class SearchJobPayload(BaseModel):
+    function_fullname: str
+    params: dict[str, Any] | None = None
+    statuses: list[str] | None = None
+
+    # unix timestamp in milliseconds
+    begin_timestamp: int | None = None
+    end_timestamp: int | None = None
+
+
+@job_api_router.post("/search", response_model=JobList)
+def search_job(payload: SearchJobPayload):
+    from mlflow.server.handlers import _get_job_store
+
+    try:
+        statuses = [
+            JobStatus.from_str(status)
+            for status in (payload.statuses or [])
+        ]
+        expected_params = payload.params
+
+        def filter_params(params: dict[str, Any]) -> bool:
+            for key in expected_params:
+                if key in params:
+                    if params[key] != expected_params[key]:
+                        return False
+                else:
+                    return False
+            return True
+
+        store = _get_job_store()
+        job_results = []
+        for job in store.list_jobs(
+            payload.function_fullname, statuses, payload.begin_timestamp, payload.end_timestamp
+        ):
+            if filter_params(json.loads(job.params)):
+                job_results.append(Job.from_job_entity(job))
+
+        return JobList(jobs=job_results)
     except MlflowException as e:
         raise HTTPException(
             status_code=e.get_http_status_code(),

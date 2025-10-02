@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 import requests
+import time
 
 from mlflow.server.jobs import job
 
@@ -16,7 +17,9 @@ pytestmark = pytest.mark.skipif(
 
 
 @job(max_workers=1)
-def simple_job_fun(x: int, y: int) -> dict[str, Any]:
+def simple_job_fun(x: int, y: int, sleep_secs: int = 0) -> dict[str, Any]:
+    if sleep_secs:
+        time.sleep(sleep_secs)
     return {
         "a": x + y,
         "b": x * y,
@@ -76,7 +79,7 @@ def server_url(tmp_path_factory: pytest.TempPathFactory) -> str:
             os.killpg(server_proc.pid, signal.SIGKILL)
 
 
-def wait_job_finalize(server_url: str, job_id: str, timeout: float) -> None:
+def wait_job_finalize(server_url: str, job_id: str, timeout: float = 10) -> None:
     beg_time = time.time()
     while time.time() - beg_time <= timeout:
         response = requests.get(f"{server_url}/ajax-api/3.0/jobs/{job_id}")
@@ -162,3 +165,89 @@ def test_job_endpoint_missing_parameters(server_url: str):
         "Missing required parameters for function 'simple_job_fun': ['y']. "
         + "Expected parameters: ['x', 'y']"
     )
+
+
+def test_job_endpoint_search(server_url: str):
+    response = requests.post(f"{server_url}/ajax-api/3.0/jobs/", json={
+        "function_fullname": "test_endpoint.simple_job_fun",
+        "params": {"x": 3, "y": 4},
+    })
+    job1_id = response.json()["job_id"]
+    response = requests.post(f"{server_url}/ajax-api/3.0/jobs/", json={
+        "function_fullname": "test_endpoint.simple_job_fun",
+        "params": {"x": 3, "y": 5},
+    })
+    job2_id = response.json()["job_id"]
+    response = requests.post(f"{server_url}/ajax-api/3.0/jobs/", json={
+        "function_fullname": "test_endpoint.simple_job_fun",
+        "params": {"x": 4, "y": 5},
+    })
+    job3_id = response.json()["job_id"]
+    response = requests.post(f"{server_url}/ajax-api/3.0/jobs/", json={
+        "function_fullname": "test_endpoint.simple_job_fun",
+        "params": {"x": 4, "y": 5, "sleep_secs": 5},
+        "timeout": 2,
+    })
+    job4_id = response.json()["job_id"]
+
+    wait_job_finalize(server_url, job1_id)
+    wait_job_finalize(server_url, job2_id)
+    wait_job_finalize(server_url, job3_id)
+    wait_job_finalize(server_url, job4_id)
+
+    def extract_job_ids(resp):
+        return [
+            job_json['job_id']
+            for job_json in resp.json()['jobs']
+        ]
+
+    response = requests.post(f"{server_url}/ajax-api/3.0/jobs/search", json={
+        "function_fullname": "test_endpoint.simple_job_fun",
+        "params": {"x": 3},
+    })
+    assert extract_job_ids(response) == [job1_id, job2_id]
+
+    response = requests.post(f"{server_url}/ajax-api/3.0/jobs/search", json={
+        "function_fullname": "test_endpoint.bad_fun_name",
+        "params": {"x": 3},
+    })
+    assert extract_job_ids(response) == []
+
+    response = requests.post(f"{server_url}/ajax-api/3.0/jobs/search", json={
+        "function_fullname": "test_endpoint.simple_job_fun",
+        "params": {"x": 3, "y": 5},
+    })
+    assert extract_job_ids(response) == [job2_id]
+
+    response = requests.post(f"{server_url}/ajax-api/3.0/jobs/search", json={
+        "function_fullname": "test_endpoint.simple_job_fun",
+        "params": {"y": 5},
+    })
+    assert extract_job_ids(response) == [job2_id, job3_id, job4_id]
+
+    response = requests.post(f"{server_url}/ajax-api/3.0/jobs/search", json={
+        "function_fullname": "test_endpoint.simple_job_fun",
+        "params": {"y": 6},
+    })
+    assert extract_job_ids(response) == []
+
+    response = requests.post(f"{server_url}/ajax-api/3.0/jobs/search", json={
+        "function_fullname": "test_endpoint.simple_job_fun",
+        "params": {"y": 5},
+        "statuses": ["SUCCEEDED"]
+    })
+    assert extract_job_ids(response) == [job2_id, job3_id]
+
+    response = requests.post(f"{server_url}/ajax-api/3.0/jobs/search", json={
+        "function_fullname": "test_endpoint.simple_job_fun",
+        "params": {"y": 5},
+        "statuses": ["TIMEOUT"]
+    })
+    assert extract_job_ids(response) == [job4_id]
+
+    response = requests.post(f"{server_url}/ajax-api/3.0/jobs/search", json={
+        "function_fullname": "test_endpoint.simple_job_fun",
+        "params": {"y": 5},
+        "statuses": ["SUCCEEDED", "TIMEOUT"]
+    })
+    assert extract_job_ids(response) == [job2_id, job3_id, job4_id]

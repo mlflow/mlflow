@@ -1,4 +1,5 @@
 from enum import Enum
+from mlflow.exceptions import MlflowException
 
 
 class JobStatus(Enum):
@@ -13,16 +14,25 @@ class JobStatus(Enum):
     @classmethod
     def from_int(cls, status_int: int) -> "JobStatus":
         """Convert integer status to JobStatus enum."""
-        return JobStatus(status_int)
+        try:
+            return JobStatus(status_int)
+        except ValueError as e:
+            raise MlflowException.invalid_parameter_value(str(e))
+
+    @classmethod
+    def from_str(cls, status_str: str) -> "JobStatus":
+        """Convert string status to JobStatus enum."""
+        try:
+            return JobStatus[status_str]
+        except ValueError as e:
+            raise MlflowException.invalid_parameter_value(str(e))
 
     def to_int(self) -> int:
         """Convert JobStatus enum to integer."""
         return self.value
 
     def __str__(self):
-        # `super().__str__()` returns value like `JobStatus.PENDING`
-        # strip the redundant `JobStatus.` prefix.
-        return super().__str__().split(".")[1]
+        return self.name
 
     @staticmethod
     def is_finalized(status: "JobStatus") -> bool:
