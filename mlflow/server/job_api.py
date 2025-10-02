@@ -34,7 +34,7 @@ class Job(BaseModel):
     function_fullname: str
     params: dict[str, Any]
     timeout: float | None
-    status: str
+    status: JobStatus
     result: Any
     retry_count: int
 
@@ -46,7 +46,7 @@ class Job(BaseModel):
             function_fullname=job.function_fullname,
             params=json.loads(job.params),
             timeout=job.timeout,
-            status=str(job.status),
+            status=job.status,
             result=job.parsed_result,
             retry_count=job.retry_count,
         )
@@ -104,34 +104,29 @@ def submit_job(payload: SubmitJobPayload) -> Job:
 class SearchJobPayload(BaseModel):
     function_fullname: str
     params: dict[str, Any] | None = None
-    statuses: list[str] | None = None
+    statuses: list[JobStatus] | None = None
 
 
 @job_api_router.post("/search", response_model=SearchJobsResponse)
-def search_job(payload: SearchJobPayload):
+def search_jobs(payload: SearchJobPayload):
     from mlflow.server.handlers import _get_job_store
 
     try:
-        statuses = [JobStatus.from_str(status) for status in (payload.statuses or [])]
-        expected_params = payload.params
-
-        def filter_params(params: dict[str, Any]) -> bool:
-            for key in expected_params:
-                if key in params:
-                    if params[key] != expected_params[key]:
-                        return False
-                else:
-                    return False
-            return True
-
         store = _get_job_store()
         job_results = []
-        for job in store.list_jobs(payload.function_fullname, statuses):
-            if filter_params(json.loads(job.params)):
-                job_results.append(Job.from_job_entity(job))
+        for job in store.list_jobs(
+            function_fullname=payload.function_fullname,
+            statuses=payload.statuses,
+            params=payload.params,
+        ):
+            job_results.append(Job.from_job_entity(job))
 
         return SearchJobsResponse(jobs=job_results)
     except MlflowException as e:
+        import traceback
+
+        traceback.print_exc()
+
         raise HTTPException(
             status_code=e.get_http_status_code(),
             detail=e.message,

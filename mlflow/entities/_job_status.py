@@ -3,22 +3,24 @@ from enum import Enum
 from mlflow.exceptions import MlflowException
 
 
-class JobStatus(Enum):
+class JobStatus(str, Enum):
     """Enum for status of a Job."""
 
-    PENDING = 0
-    RUNNING = 1
-    SUCCEEDED = 2
-    FAILED = 3
-    TIMEOUT = 4
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    SUCCEEDED = "SUCCEEDED"
+    FAILED = "FAILED"
+    TIMEOUT = "TIMEOUT"
 
     @classmethod
     def from_int(cls, status_int: int) -> "JobStatus":
         """Convert integer status to JobStatus enum."""
         try:
-            return JobStatus(status_int)
-        except ValueError as e:
-            raise MlflowException.invalid_parameter_value(str(e))
+            return next(e for i, e in enumerate(JobStatus) if i == status_int)
+        except StopIteration:
+            raise MlflowException.invalid_parameter_value(
+                f"The value {status_int} can't be converted to JobStatus enum value."
+            )
 
     @classmethod
     def from_str(cls, status_str: str) -> "JobStatus":
@@ -30,7 +32,7 @@ class JobStatus(Enum):
 
     def to_int(self) -> int:
         """Convert JobStatus enum to integer."""
-        return self.value
+        return next(i for i, e in enumerate(JobStatus) if e == self)
 
     def __str__(self):
         return self.name

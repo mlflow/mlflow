@@ -1,5 +1,6 @@
+import json
 import uuid
-from typing import Iterator
+from typing import Any, Iterator
 
 import sqlalchemy
 
@@ -173,6 +174,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
         statuses: list[JobStatus] | None = None,
         begin_timestamp: int | None = None,
         end_timestamp: int | None = None,
+        params: dict[str, Any] | None = None,
     ) -> Iterator[Job]:
         """
         List jobs based on the provided filters.
@@ -182,6 +184,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
             statuses: Filter by a list of job status (PENDING, RUNNING, DONE, FAILED, TIMEOUT)
             begin_timestamp: Filter jobs created after this timestamp (inclusive)
             end_timestamp: Filter jobs created before this timestamp (inclusive)
+            params: Filter jobs by matching job params dict with the provided params dict
 
         Returns:
             Iterator of Job entities that match the filters, ordered by creation time (oldest first)
@@ -221,8 +224,23 @@ class SqlAlchemyJobStore(AbstractJobStore):
                     break
 
                 # Yield each job
-                for job in jobs:
-                    yield job.to_mlflow_entity()
+                if params:
+
+                    def filter_by_params(job_params: dict[str, Any]) -> bool:
+                        for key in params:
+                            if key in job_params:
+                                if job_params[key] != params[key]:
+                                    return False
+                            else:
+                                return False
+                        return True
+
+                    for job in jobs:
+                        if filter_by_params(json.loads(job.params)):
+                            yield job.to_mlflow_entity()
+                else:
+                    for job in jobs:
+                        yield job.to_mlflow_entity()
 
                 # If we got fewer jobs than page_size, we've reached the end
                 if len(jobs) < _LIST_JOB_PAGE_SIZE:
