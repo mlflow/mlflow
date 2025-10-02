@@ -1571,6 +1571,15 @@ def test_update_current_trace_with_metadata():
 
 
 @skip_when_testing_trace_sdk
+def test_update_current_trace_with_model_id():
+    with mlflow.start_span("test_span"):
+        mlflow.update_current_trace(model_id="model-123")
+
+    trace = get_traces()[0]
+    assert trace.info.trace_metadata[TraceMetadataKey.MODEL_ID] == "model-123"
+
+
+@skip_when_testing_trace_sdk
 def test_update_current_trace_should_not_raise_during_model_logging():
     """
     Tracing is disabled while model logging. When the model includes

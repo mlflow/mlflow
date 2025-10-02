@@ -40,7 +40,7 @@ dataset = create_dataset(
 traces = mlflow.search_traces(
     experiment_ids=["0"],
     max_results=50,
-    filter_string="attributes.trace_name = 'chat_completion'",
+    filter_string="attributes.name = 'chat_completion'",
     return_type="list",  # Returns list[Trace] for direct manipulation
 )
 
