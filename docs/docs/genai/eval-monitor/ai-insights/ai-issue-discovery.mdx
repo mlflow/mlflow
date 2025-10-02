@@ -57,6 +57,7 @@ If you have MLflow's MCP server configured, you can simply run:
 ```
 
 ### Prerequisites
+
 - MLflow MCP server (see [MCP setup guide](/genai/mcp/))
 - A coding agent with MCP support (e.g., Claude Code, Cursor, Windsurf, etc.) configured to connect to MLflow MCP server
 - MLflow experiment with logged traces
@@ -75,6 +76,7 @@ mlflow ai-commands genai/analyze_experiment
 **Note**: This command must be run inside a coding agent with MCP support. The agent will interactively guide you through the analysis process.
 
 ### Prerequisites
+
 - A coding agent with MCP support (e.g., Claude Code, Cursor, Windsurf, etc.)
 - MLflow 3.4 or later: `pip install mlflow>=3.4`
 - Access to MLflow tracking server with logged traces
@@ -143,6 +145,7 @@ The tool will ask you to configure authentication:
 ### 3. Agent Purpose Identification
 
 The tool examines trace inputs and outputs to understand:
+
 - What your agent's job is (e.g., "a customer service agent that helps users with billing questions")
 - What data sources and tools the agent has access to
 - Common patterns in user interactions
@@ -156,11 +159,13 @@ You'll be asked to confirm or correct this understanding before analysis continu
 The tool systematically tests hypotheses about potential issues:
 
 **Operational Issues**:
+
 - Error patterns (authentication failures, timeouts, API failures)
 - Performance bottlenecks (slow tool calls, sequential vs parallel execution)
 - Rate limiting and resource contention
 
 **Quality Issues**:
+
 - Content problems (verbosity, repetition, inconsistency)
 - Response appropriateness for query types
 - Context handling and conversation flow
@@ -170,6 +175,7 @@ The tool systematically tests hypotheses about potential issues:
 ### 5. Report Generation
 
 The tool generates a comprehensive markdown report containing:
+
 - **Summary Statistics**: Success rates, latency metrics, error distributions
 - **Confirmed Issues**: Detailed analysis with specific trace examples and root causes
 - **Strengths**: What's working well in your application
