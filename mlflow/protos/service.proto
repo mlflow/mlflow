@@ -760,6 +760,27 @@ service MlflowService {
     };
   }
 
+  // Batch endpoint for getting logged models from a list of model IDs
+  rpc GetLoggedModels(GetLoggedModelsRequest) returns (GetLoggedModelsRequest.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/logged-models:batchGet"
+        since {major: 2, minor: 0},
+      }],
+      error_codes: [
+        RESOURCE_EXHAUSTED,
+        INVALID_PARAMETER_VALUE,
+        PERMISSION_DENIED,
+        BAD_REQUEST,
+        NOT_FOUND,
+        INTERNAL_ERROR
+      ],
+      visibility: PUBLIC,
+      rpc_doc_title: "Get Logged Models",
+    };
+  }
+
   rpc deleteLoggedModel(DeleteLoggedModel) returns (DeleteLoggedModel.Response) {
     option (rpc) = {
       endpoints: [{
@@ -2599,6 +2620,20 @@ message GetLoggedModel {
     optional LoggedModel model = 1;
   }
 }
+
+message GetLoggedModelsRequest {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
+
+  // The IDs of the logged models to retrieve. Max threshold is 100.
+  repeated string model_ids = 1;
+
+  message Response {
+    // The retrieved logged models.
+    repeated LoggedModel models = 1;
+  }
+}
+
 
 message DeleteLoggedModel {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
