@@ -632,9 +632,19 @@ _MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS = _BooleanEnvironmentVariable(
 )
 
 #: Maximum number of workers to use for running model prediction and scoring during
-# for each row in the dataset passed to the `mlflow.genai.evaluate` function.
+#: for each row in the dataset passed to the `mlflow.genai.evaluate` function.
 #: (default: ``10``)
 MLFLOW_GENAI_EVAL_MAX_WORKERS = _EnvironmentVariable("MLFLOW_GENAI_EVAL_MAX_WORKERS", int, 10)
+
+
+#: Skip trace validation during GenAI evaluation. By default (False), MLflow will validate if
+#: the given predict function generates a valid trace, and otherwise wraps it with @mlflow.trace
+#: decorator to make sure a trace is generated. This validation requires running a single
+#: prediction. When you are sure that the predict function generates a trace, set this to True
+#: to skip the validation and save the time of running a single prediction.
+MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION = _BooleanEnvironmentVariable(
+    "MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION", False
+)
 
 #: Whether to warn (default) or raise (opt-in) for unresolvable requirements inference for
 #: a model's dependency inference. If set to True, an exception will be raised if requirements
@@ -987,13 +997,7 @@ MLFLOW_TRACING_SQL_WAREHOUSE_ID = _EnvironmentVariable("MLFLOW_TRACING_SQL_WAREH
 #: --backend-store-uri to database URI.
 #: (default: ``True``)
 MLFLOW_SERVER_ENABLE_JOB_EXECUTION = _BooleanEnvironmentVariable(
-    "MLFLOW_SERVER_ENABLE_JOB_EXECUTION", True
-)
-
-#: Specifies the MLflow server job maximum parallelism, ``None`` means to use the number of CPUs
-#: as the parallelism. (default: ``None``)
-MLFLOW_SERVER_JOB_MAX_PARALLELISM = _EnvironmentVariable(
-    "MLFLOW_SERVER_JOB_MAX_PARALLELISM", int, None
+    "MLFLOW_SERVER_ENABLE_JOB_EXECUTION", False
 )
 
 #: Specifies MLflow server job maximum allowed retries for transient errors.
@@ -1017,6 +1021,7 @@ MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY = _EnvironmentVariable(
 MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY = _EnvironmentVariable(
     "MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY", int, 60
 )
+
 
 #: Specifies the maximum number of completion iterations allowed when invoking
 #: judge models. This prevents infinite loops in case of complex traces or
