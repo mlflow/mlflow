@@ -116,10 +116,7 @@ def search_job(payload: SearchJobPayload):
     from mlflow.server.handlers import _get_job_store
 
     try:
-        statuses = [
-            JobStatus.from_str(status)
-            for status in (payload.statuses or [])
-        ]
+        statuses = [JobStatus.from_str(status) for status in (payload.statuses or [])]
         expected_params = payload.params
 
         def filter_params(params: dict[str, Any]) -> bool:

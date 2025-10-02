@@ -7,7 +7,6 @@ from typing import Any
 
 import pytest
 import requests
-import time
 
 from mlflow.server.jobs import job
 
@@ -168,26 +167,38 @@ def test_job_endpoint_missing_parameters(server_url: str):
 
 
 def test_job_endpoint_search(server_url: str):
-    response = requests.post(f"{server_url}/ajax-api/3.0/jobs/", json={
-        "function_fullname": "test_endpoint.simple_job_fun",
-        "params": {"x": 3, "y": 4},
-    })
+    response = requests.post(
+        f"{server_url}/ajax-api/3.0/jobs/",
+        json={
+            "function_fullname": "test_endpoint.simple_job_fun",
+            "params": {"x": 3, "y": 4},
+        },
+    )
     job1_id = response.json()["job_id"]
-    response = requests.post(f"{server_url}/ajax-api/3.0/jobs/", json={
-        "function_fullname": "test_endpoint.simple_job_fun",
-        "params": {"x": 3, "y": 5},
-    })
+    response = requests.post(
+        f"{server_url}/ajax-api/3.0/jobs/",
+        json={
+            "function_fullname": "test_endpoint.simple_job_fun",
+            "params": {"x": 3, "y": 5},
+        },
+    )
     job2_id = response.json()["job_id"]
-    response = requests.post(f"{server_url}/ajax-api/3.0/jobs/", json={
-        "function_fullname": "test_endpoint.simple_job_fun",
-        "params": {"x": 4, "y": 5},
-    })
+    response = requests.post(
+        f"{server_url}/ajax-api/3.0/jobs/",
+        json={
+            "function_fullname": "test_endpoint.simple_job_fun",
+            "params": {"x": 4, "y": 5},
+        },
+    )
     job3_id = response.json()["job_id"]
-    response = requests.post(f"{server_url}/ajax-api/3.0/jobs/", json={
-        "function_fullname": "test_endpoint.simple_job_fun",
-        "params": {"x": 4, "y": 5, "sleep_secs": 5},
-        "timeout": 2,
-    })
+    response = requests.post(
+        f"{server_url}/ajax-api/3.0/jobs/",
+        json={
+            "function_fullname": "test_endpoint.simple_job_fun",
+            "params": {"x": 4, "y": 5, "sleep_secs": 5},
+            "timeout": 2,
+        },
+    )
     job4_id = response.json()["job_id"]
 
     wait_job_finalize(server_url, job1_id)
@@ -196,58 +207,79 @@ def test_job_endpoint_search(server_url: str):
     wait_job_finalize(server_url, job4_id)
 
     def extract_job_ids(resp):
-        return [
-            job_json['job_id']
-            for job_json in resp.json()['jobs']
-        ]
+        return [job_json["job_id"] for job_json in resp.json()["jobs"]]
 
-    response = requests.post(f"{server_url}/ajax-api/3.0/jobs/search", json={
-        "function_fullname": "test_endpoint.simple_job_fun",
-        "params": {"x": 3},
-    })
+    response = requests.post(
+        f"{server_url}/ajax-api/3.0/jobs/search",
+        json={
+            "function_fullname": "test_endpoint.simple_job_fun",
+            "params": {"x": 3},
+        },
+    )
     assert extract_job_ids(response) == [job1_id, job2_id]
 
-    response = requests.post(f"{server_url}/ajax-api/3.0/jobs/search", json={
-        "function_fullname": "test_endpoint.bad_fun_name",
-        "params": {"x": 3},
-    })
+    response = requests.post(
+        f"{server_url}/ajax-api/3.0/jobs/search",
+        json={
+            "function_fullname": "test_endpoint.bad_fun_name",
+            "params": {"x": 3},
+        },
+    )
     assert extract_job_ids(response) == []
 
-    response = requests.post(f"{server_url}/ajax-api/3.0/jobs/search", json={
-        "function_fullname": "test_endpoint.simple_job_fun",
-        "params": {"x": 3, "y": 5},
-    })
+    response = requests.post(
+        f"{server_url}/ajax-api/3.0/jobs/search",
+        json={
+            "function_fullname": "test_endpoint.simple_job_fun",
+            "params": {"x": 3, "y": 5},
+        },
+    )
     assert extract_job_ids(response) == [job2_id]
 
-    response = requests.post(f"{server_url}/ajax-api/3.0/jobs/search", json={
-        "function_fullname": "test_endpoint.simple_job_fun",
-        "params": {"y": 5},
-    })
+    response = requests.post(
+        f"{server_url}/ajax-api/3.0/jobs/search",
+        json={
+            "function_fullname": "test_endpoint.simple_job_fun",
+            "params": {"y": 5},
+        },
+    )
     assert extract_job_ids(response) == [job2_id, job3_id, job4_id]
 
-    response = requests.post(f"{server_url}/ajax-api/3.0/jobs/search", json={
-        "function_fullname": "test_endpoint.simple_job_fun",
-        "params": {"y": 6},
-    })
+    response = requests.post(
+        f"{server_url}/ajax-api/3.0/jobs/search",
+        json={
+            "function_fullname": "test_endpoint.simple_job_fun",
+            "params": {"y": 6},
+        },
+    )
     assert extract_job_ids(response) == []
 
-    response = requests.post(f"{server_url}/ajax-api/3.0/jobs/search", json={
-        "function_fullname": "test_endpoint.simple_job_fun",
-        "params": {"y": 5},
-        "statuses": ["SUCCEEDED"]
-    })
+    response = requests.post(
+        f"{server_url}/ajax-api/3.0/jobs/search",
+        json={
+            "function_fullname": "test_endpoint.simple_job_fun",
+            "params": {"y": 5},
+            "statuses": ["SUCCEEDED"],
+        },
+    )
     assert extract_job_ids(response) == [job2_id, job3_id]
 
-    response = requests.post(f"{server_url}/ajax-api/3.0/jobs/search", json={
-        "function_fullname": "test_endpoint.simple_job_fun",
-        "params": {"y": 5},
-        "statuses": ["TIMEOUT"]
-    })
+    response = requests.post(
+        f"{server_url}/ajax-api/3.0/jobs/search",
+        json={
+            "function_fullname": "test_endpoint.simple_job_fun",
+            "params": {"y": 5},
+            "statuses": ["TIMEOUT"],
+        },
+    )
     assert extract_job_ids(response) == [job4_id]
 
-    response = requests.post(f"{server_url}/ajax-api/3.0/jobs/search", json={
-        "function_fullname": "test_endpoint.simple_job_fun",
-        "params": {"y": 5},
-        "statuses": ["SUCCEEDED", "TIMEOUT"]
-    })
+    response = requests.post(
+        f"{server_url}/ajax-api/3.0/jobs/search",
+        json={
+            "function_fullname": "test_endpoint.simple_job_fun",
+            "params": {"y": 5},
+            "statuses": ["SUCCEEDED", "TIMEOUT"],
+        },
+    )
     assert extract_job_ids(response) == [job2_id, job3_id, job4_id]
