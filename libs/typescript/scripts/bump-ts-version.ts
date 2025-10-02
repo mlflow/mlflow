@@ -23,7 +23,6 @@ function bumpVersion(version: string): void {
   // Define paths to package.json files
   const tsRoot = process.cwd();
   const corePackagePath = join(tsRoot, 'core', 'package.json');
-  const openaiPackagePath = join(tsRoot, 'integrations', 'openai', 'package.json');
 
   // Validate that files exist
   if (!existsSync(corePackagePath)) {
