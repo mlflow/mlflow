@@ -1,19 +1,9 @@
-"""Tests for mlflow.claude_code.autolog functionality."""
-
 from unittest.mock import MagicMock, patch
 
 from mlflow.claude_code.autolog import patched_init
 
 
-def test_autolog_function_exists():
-    """Test that autolog function is exported."""
-    from mlflow.claude_code import autolog
-
-    assert callable(autolog)
-
-
 def test_autolog_runs_without_sdk():
-    """Test that autolog handles missing SDK gracefully."""
     from mlflow.claude_code import autolog
 
     # Should not raise exception when SDK is not installed
@@ -21,7 +11,6 @@ def test_autolog_runs_without_sdk():
 
 
 def test_autolog_with_options():
-    """Test that autolog works when ClaudeSDKClient is created with options."""
     original_init = MagicMock()
 
     mock_options = MagicMock()

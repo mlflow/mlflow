@@ -1,5 +1,3 @@
-"""Simplified tests for mlflow.claude_code.tracing module."""
-
 import asyncio
 import json
 import logging
@@ -24,7 +22,6 @@ from tests.tracing.helper import get_traces
 
 
 def test_parse_timestamp_to_ns_iso_string():
-    """Test parsing ISO timestamp string to nanoseconds."""
     iso_timestamp = "2024-01-15T10:30:45.123456Z"
     result = parse_timestamp_to_ns(iso_timestamp)
 
@@ -34,7 +31,6 @@ def test_parse_timestamp_to_ns_iso_string():
 
 
 def test_parse_timestamp_to_ns_unix_seconds():
-    """Test parsing Unix timestamp (seconds) to nanoseconds."""
     unix_timestamp = 1705312245.123456
     result = parse_timestamp_to_ns(unix_timestamp)
 
@@ -44,7 +40,6 @@ def test_parse_timestamp_to_ns_unix_seconds():
 
 
 def test_parse_timestamp_to_ns_large_number():
-    """Test parsing large timestamp numbers."""
     large_timestamp = 1705312245123
     result = parse_timestamp_to_ns(large_timestamp)
 
@@ -60,7 +55,6 @@ def test_parse_timestamp_to_ns_large_number():
 
 
 def test_setup_logging_creates_logger(monkeypatch, tmp_path):
-    """Test that setup_logging returns a logger."""
     monkeypatch.chdir(tmp_path)
     logger = setup_logging()
 
@@ -75,14 +69,12 @@ def test_setup_logging_creates_logger(monkeypatch, tmp_path):
 
 
 def test_custom_logging_level():
-    """Test that custom claude_tracing logging level is configured."""
     assert CLAUDE_TRACING_LEVEL > logging.INFO
     assert CLAUDE_TRACING_LEVEL < logging.WARNING
     assert logging.getLevelName(CLAUDE_TRACING_LEVEL) == "CLAUDE_TRACING"
 
 
 def test_logger_has_claude_tracing_method(monkeypatch, tmp_path):
-    """Test that logger has claude_tracing method."""
     monkeypatch.chdir(tmp_path)
     logger = setup_logging()
     assert hasattr(logger, "claude_tracing")
@@ -94,19 +86,16 @@ def test_logger_has_claude_tracing_method(monkeypatch, tmp_path):
 
 
 def test_get_hook_response_success():
-    """Test get_hook_response returns success response."""
     response = get_hook_response()
     assert response == {"continue": True}
 
 
 def test_get_hook_response_with_error():
-    """Test get_hook_response returns error response."""
     response = get_hook_response(error="Test error")
     assert response == {"continue": False, "stopReason": "Test error"}
 
 
 def test_get_hook_response_with_additional_fields():
-    """Test get_hook_response accepts additional fields."""
     response = get_hook_response(custom_field="value")
     assert response == {"continue": True, "custom_field": "value"}
 
@@ -167,7 +156,6 @@ DUMMY_TRANSCRIPT = [
 
 @pytest.fixture
 def mock_transcript_file(tmp_path):
-    """Create a mock transcript file."""
     transcript_path = tmp_path / "transcript.jsonl"
     with open(transcript_path, "w") as f:
         for entry in DUMMY_TRANSCRIPT:
@@ -175,8 +163,8 @@ def mock_transcript_file(tmp_path):
     return str(transcript_path)
 
 
+@pytest.mark.asyncio
 def test_sdk_stop_hook_handler_creates_trace(mock_transcript_file):
-    """Test that sdk_stop_hook_handler creates an MLflow trace."""
     from mlflow.claude_code.hooks import sdk_stop_hook_handler
 
     async def test():
@@ -207,7 +195,6 @@ def test_sdk_stop_hook_handler_creates_trace(mock_transcript_file):
 
 
 def test_process_transcript_creates_spans(mock_transcript_file):
-    """Test that process_transcript creates proper span structure."""
     trace = process_transcript(mock_transcript_file, "test-session-123")
 
     assert trace is not None
@@ -228,9 +215,8 @@ def test_process_transcript_creates_spans(mock_transcript_file):
     assert tool_span.name == "tool_Bash"
 
 
+@pytest.mark.asyncio
 def test_sdk_stop_hook_handler_handles_missing_transcript():
-    """Test that sdk_stop_hook_handler handles missing transcript gracefully."""
-
     async def test():
         input_data = {
             "session_id": "test-session-123",

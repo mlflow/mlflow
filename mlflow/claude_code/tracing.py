@@ -131,8 +131,7 @@ def read_hook_input() -> dict[str, Any]:
         input_data = sys.stdin.read()
         return json.loads(input_data)
     except json.JSONDecodeError as e:
-        get_logger().error("Failed to parse input JSON: %s", e)
-        raise
+        raise json.JSONDecodeError(f"Failed to parse hook input: {e}", input_data, 0) from e
 
 
 def read_transcript(transcript_path: str) -> list[dict[str, Any]]:
@@ -142,8 +141,7 @@ def read_transcript(transcript_path: str) -> list[dict[str, Any]]:
             lines = f.readlines()
             return [json.loads(line) for line in lines if line.strip()]
     except Exception as e:
-        get_logger().error("Failed to read transcript %s: %s", transcript_path, e)
-        raise
+        raise Exception(f"Failed to read transcript {transcript_path}: {e}") from e
 
 
 def get_hook_response(error: str | None = None, **kwargs) -> dict[str, Any]:
