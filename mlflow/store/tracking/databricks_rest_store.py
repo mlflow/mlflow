@@ -93,41 +93,38 @@ class DatabricksTracingRestStore(RestStore):
         """
         try:
             if trace_info.trace_location.uc_schema is not None:
-                location, otel_trace_id = parse_trace_id_v4(trace_info.trace_id)
-            # TODO: we should check if the experiment has a span location tag
-            elif mlflow_experiment := trace_info.trace_location.mlflow_experiment:
-                location = mlflow_experiment.experiment_id
-                otel_trace_id = trace_info.trace_id
-            else:
-                raise MlflowException("Invalid trace location")
+                return self._start_trace_v4(trace_info)
 
-            req_body = message_to_json(
-                CreateTraceInfo(
-                    location_id=location,
-                    trace_info=trace_info_to_proto(trace_info),
-                )
-            )
-
-            response_proto = self._call_endpoint(
-                CreateTraceInfo,
-                req_body,
-                endpoint=f"{_V4_REST_API_PATH_PREFIX}/mlflow/traces/{location}/{otel_trace_id}/info",
-                retry_timeout_seconds=MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.get(),
-                response_proto=ProtoTraceInfo(),
-            )
-            return TraceInfo.from_proto(response_proto)
         # Temporarily we capture all exceptions and fallback to v3 if the trace location is not uc
         # TODO: remove this once the endpoint is fully rolled out
         except Exception as e:
-            if isinstance(e, MlflowException) and e.error_code == ErrorCode.Name(
-                ENDPOINT_NOT_FOUND
-            ):
-                _logger.debug("Server does not support CreateTrace API yet.")
-            if trace_info.trace_location.mlflow_experiment is not None:
-                _logger.debug("Falling back to V3 API.")
-                return super().start_trace(trace_info)
-            else:
+            if trace_info.trace_location.mlflow_experiment is None:
+                _logger.debug("MLflow experiment is not set for trace, cannot fallback to V3 API.")
                 raise
+
+            _logger.debug(f"Falling back to V3 API due to {e!s}")
+
+        return super().start_trace(trace_info)
+
+    def _start_trace_v4(self, trace_info: TraceInfo) -> TraceInfo:
+        location, otel_trace_id = parse_trace_id_v4(trace_info.trace_id)
+        if location is None:
+            raise MlflowException("Invalid trace ID format for v4 API.")
+
+        req_body = message_to_json(
+            CreateTraceInfo(
+                location_id=location,
+                trace_info=trace_info_to_proto(trace_info),
+            )
+        )
+        response_proto = self._call_endpoint(
+            CreateTraceInfo,
+            req_body,
+            endpoint=f"{_V4_REST_API_PATH_PREFIX}/mlflow/traces/{location}/{otel_trace_id}/info",
+            retry_timeout_seconds=MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.get(),
+            response_proto=ProtoTraceInfo(),
+        )
+        return TraceInfo.from_proto(response_proto)
 
     def batch_get_traces(self, trace_ids: list[str], location: str) -> list[Trace]:
         """
