@@ -25,6 +25,8 @@ export const RunViewParentRunBox = ({ parentRunUuid }: { parentRunUuid: string }
     return shouldEnableGraphQLRunDetailsPage() ? parentRunInfoGraphql?.data?.info : parentRunInfoRedux;
   }, [parentRunInfoGraphql, parentRunInfoRedux]);
 
+  console.log('@@@@ parentRunInfo', parentRunInfo);
+
   useEffect(() => {
     // Don't call REST API if GraphQL is enabled
     if (shouldEnableGraphQLRunDetailsPage()) {
