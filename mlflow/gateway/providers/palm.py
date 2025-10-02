@@ -1,7 +1,7 @@
 import time
 from typing import Any
 
-from mlflow.gateway.config import PaLMConfig, EndpointConfig
+from mlflow.gateway.config import EndpointConfig, PaLMConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request

@@ -5,7 +5,7 @@ from urllib.parse import urlparse, urlunparse
 
 from mlflow.environment_variables import MLFLOW_ENABLE_UC_FUNCTIONS
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.config import OpenAIAPIType, OpenAIConfig, EndpointConfig
+from mlflow.gateway.config import EndpointConfig, OpenAIAPIType, OpenAIConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.utils import send_request, send_stream_request

@@ -2,7 +2,7 @@ import json
 import time
 from typing import Any, AsyncIterable
 
-from mlflow.gateway.config import GeminiConfig, EndpointConfig
+from mlflow.gateway.config import EndpointConfig, GeminiConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request

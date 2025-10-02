@@ -44,10 +44,7 @@ def check_configuration_route_name_collisions(config):
             "from the configuration to ensure that endpoints / routes are created properly."
         )
 
-    endpoint_config_dict = {
-        endpoint["name"]: endpoint
-        for endpoint in endpoints
-    }
+    endpoint_config_dict = {endpoint["name"]: endpoint for endpoint in endpoints}
 
     for route in routes:
         route_name = route["name"]
@@ -74,7 +71,7 @@ def check_configuration_route_name_collisions(config):
 
             if not (0 <= dest_traffic_percentage <= 100):
                 raise MlflowException.invalid_parameter_value(
-                    f"The route destination traffic percentage must between 0 and 100."
+                    "The route destination traffic percentage must between 0 and 100."
                 )
 
         if traffic_percentage_sum != 100:

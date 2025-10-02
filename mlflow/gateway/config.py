@@ -4,12 +4,12 @@ import os
 import pathlib
 from enum import Enum
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import pydantic
 import yaml
 from packaging.version import Version
-from pydantic import ConfigDict, Field, ValidationError
+from pydantic import ConfigDict, ValidationError
 from pydantic.json import pydantic_encoder
 
 from mlflow.exceptions import MlflowException
@@ -32,6 +32,9 @@ _logger = logging.getLogger(__name__)
 
 if IS_PYDANTIC_V2_OR_NEWER:
     from pydantic import SerializeAsAny
+
+if TYPE_CHECKING:
+    from mlflow.deployments.server.config import Endpoint
 
 
 class Provider(str, Enum):
@@ -430,7 +433,7 @@ class EndpointConfig(AliasedConfigModel):
             limit=self.limit,
         )
 
-    def to_endpoint(self) -> "mlflow.deployments.server.config.Endpoint":
+    def to_endpoint(self) -> "Endpoint":
         from mlflow.deployments.server.config import Endpoint
 
         return Endpoint(

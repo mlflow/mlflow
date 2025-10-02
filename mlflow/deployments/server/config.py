@@ -1,5 +1,5 @@
 from mlflow.gateway.base_models import ResponseModel
-from mlflow.gateway.config import Limit, EndpointModelInfo
+from mlflow.gateway.config import EndpointModelInfo, Limit
 
 
 class Endpoint(ResponseModel):

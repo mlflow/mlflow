@@ -1,7 +1,7 @@
 import time
 from typing import Any
 
-from mlflow.gateway.config import HuggingFaceTextGenerationInferenceConfig, EndpointConfig
+from mlflow.gateway.config import EndpointConfig, HuggingFaceTextGenerationInferenceConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.providers.utils import (

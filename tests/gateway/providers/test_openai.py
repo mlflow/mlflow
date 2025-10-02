@@ -6,7 +6,7 @@ from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.config import OpenAIConfig, EndpointConfig
+from mlflow.gateway.config import EndpointConfig, OpenAIConfig
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.openai import OpenAIProvider

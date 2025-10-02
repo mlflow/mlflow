@@ -26,26 +26,26 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.base_models import SetLimitsModel
 from mlflow.gateway.config import (
-    GatewayConfig,
-    LimitsConfig,
-    _LegacyRoute,
     EndpointConfig,
     EndpointType,
+    GatewayConfig,
+    LimitsConfig,
+    Provider,
     RouteConfig,
+    _LegacyRoute,
     _load_gateway_config,
 )
 from mlflow.gateway.constants import (
+    MLFLOW_GATEWAY_CRUD_ENDPOINT_V3_BASE,
     MLFLOW_GATEWAY_CRUD_ROUTE_BASE,
+    MLFLOW_GATEWAY_CRUD_ROUTE_V3_BASE,
     MLFLOW_GATEWAY_HEALTH_ENDPOINT,
     MLFLOW_GATEWAY_LIMITS_BASE,
     MLFLOW_GATEWAY_ROUTE_BASE,
     MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE,
     MLFLOW_QUERY_SUFFIX,
-    MLFLOW_GATEWAY_CRUD_ENDPOINT_V3_BASE,
-    MLFLOW_GATEWAY_CRUD_ROUTE_V3_BASE,
 )
 from mlflow.gateway.exceptions import AIGatewayException
-from mlflow.gateway.config import Provider
 from mlflow.gateway.providers import get_provider
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.utils import SearchRoutesToken, make_streaming_response
@@ -58,21 +58,17 @@ class GatewayAPI(FastAPI):
         self.state.limiter = limiter
         self.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
         self.dynamic_endpoints: dict[str, EndpointConfig] = {
-            endpoint.name: endpoint
-            for endpoint in config.endpoints
+            endpoint.name: endpoint for endpoint in config.endpoints
         }
         self.traffic_routes: dict[str, RouteConfig] = {
-            route.name: route
-            for route in (config.routes or [])
+            route.name: route for route in (config.routes or [])
         }
 
         # config API routes
         for name in self.dynamic_endpoints.keys() | self.traffic_routes.keys():
             # TODO: Remove deployments server URLs after deprecation window elapses
             self.add_api_route(
-                path=(
-                    MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE + name + MLFLOW_DEPLOYMENTS_QUERY_SUFFIX
-                ),
+                path=(MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE + name + MLFLOW_DEPLOYMENTS_QUERY_SUFFIX),
                 endpoint=_get_endpoint_handler(self, name, limiter, "deployments"),
                 methods=["POST"],
             )
@@ -100,8 +96,7 @@ class GatewayAPI(FastAPI):
                 for destination in route_config.destinations
             ]
             traffic_splits = [
-                destination.traffic_percentage
-                for destination in route_config.destinations
+                destination.traffic_percentage for destination in route_config.destinations
             ]
             return TrafficRouteProvider(endpoint_configs, traffic_splits), route_config.task_type
         raise MlflowException.invalid_parameter_value(f"Invalid endpoint / route name: '{name}'")
@@ -337,7 +332,9 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         )
 
     # TODO: Remove the deprecated endpoint
-    @app.get(MLFLOW_GATEWAY_CRUD_ROUTE_BASE + "{route_name}", include_in_schema=False, deprecated=True)
+    @app.get(
+        MLFLOW_GATEWAY_CRUD_ROUTE_BASE + "{route_name}", include_in_schema=False, deprecated=True
+    )
     async def _legacy_get_route(route_name: str) -> _LegacyRoute:
         if matched := app._get_legacy_dynamic_route(route_name):
             return matched
@@ -356,7 +353,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         raise HTTPException(
             status_code=404,
             detail=f"The endpoint '{endpoint_name}' is not present or active on the server. "
-                   f"Please verify the endpoint name.",
+            f"Please verify the endpoint name.",
         )
 
     @app.get(MLFLOW_GATEWAY_CRUD_ROUTE_V3_BASE + "{route_name}", include_in_schema=False)
@@ -367,7 +364,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         raise HTTPException(
             status_code=404,
             detail=f"The route '{route_name}' is not present or active on the server. "
-                   f"Please verify the route name.",
+            f"Please verify the route name.",
         )
 
     # TODO: Remove deployments server URLs after deprecation window elapses

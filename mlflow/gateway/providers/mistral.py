@@ -1,7 +1,7 @@
 import time
 from typing import Any
 
-from mlflow.gateway.config import MistralConfig, EndpointConfig
+from mlflow.gateway.config import EndpointConfig, MistralConfig
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.utils import send_request
 from mlflow.gateway.schemas import chat, completions, embeddings

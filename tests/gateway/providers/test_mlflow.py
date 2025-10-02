@@ -5,7 +5,7 @@ import pytest
 from aiohttp import ClientTimeout
 from fastapi.encoders import jsonable_encoder
 
-from mlflow.gateway.config import MlflowModelServingConfig, EndpointConfig
+from mlflow.gateway.config import EndpointConfig, MlflowModelServingConfig
 from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS,
     MLFLOW_SERVING_RESPONSE_KEY,

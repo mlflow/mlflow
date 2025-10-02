@@ -7,10 +7,10 @@ from mlflow.exceptions import MlflowException
 from mlflow.gateway.app import create_app_from_config, create_app_from_env
 from mlflow.gateway.config import GatewayConfig
 from mlflow.gateway.constants import (
-    MLFLOW_GATEWAY_CRUD_ROUTE_BASE,
-    MLFLOW_GATEWAY_ROUTE_BASE,
     MLFLOW_GATEWAY_CRUD_ENDPOINT_V3_BASE,
+    MLFLOW_GATEWAY_CRUD_ROUTE_BASE,
     MLFLOW_GATEWAY_CRUD_ROUTE_V3_BASE,
+    MLFLOW_GATEWAY_ROUTE_BASE,
 )
 
 from tests.gateway.tools import MockAsyncResponse
@@ -158,11 +158,11 @@ def test_get_endpoint_v3(client: TestClient):
     response = client.get(f"{MLFLOW_GATEWAY_CRUD_ENDPOINT_V3_BASE}chat-gpt4")
     assert response.status_code == 200
     assert response.json() == {
-        'name': 'chat-gpt4',
-        'endpoint_type': 'llm/v1/chat',
-        'model': {'name': 'gpt-4', 'provider': 'openai'},
-        'endpoint_url': '/gateway/chat-gpt4/invocations',
-        'limit': None
+        "name": "chat-gpt4",
+        "endpoint_type": "llm/v1/chat",
+        "model": {"name": "gpt-4", "provider": "openai"},
+        "endpoint_url": "/gateway/chat-gpt4/invocations",
+        "limit": None,
     }
 
 
@@ -170,13 +170,13 @@ def test_get_route_v3(client: TestClient):
     response = client.get(f"{MLFLOW_GATEWAY_CRUD_ROUTE_V3_BASE}traffic_route1")
     assert response.status_code == 200
     assert response.json() == {
-        'name': 'traffic_route1',
-        'task_type': 'llm/v1/chat',
-        'destinations': [
-            {'name': 'chat-gpt4', 'traffic_percentage': 80},
-            {'name': 'chat-gpt5', 'traffic_percentage': 20},
+        "name": "traffic_route1",
+        "task_type": "llm/v1/chat",
+        "destinations": [
+            {"name": "chat-gpt4", "traffic_percentage": 80},
+            {"name": "chat-gpt5", "traffic_percentage": 20},
         ],
-        'routing_strategy': 'TRAFFIC_SPLIT'
+        "routing_strategy": "TRAFFIC_SPLIT",
     }
 
 
@@ -207,9 +207,9 @@ def test_dynamic_route():
                             "name": "chat",
                             "traffic_percentage": 100,
                         }
-                    ]
+                    ],
                 }
-            ]
+            ],
         }
     )
     app = create_app_from_config(config)

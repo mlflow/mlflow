@@ -6,8 +6,8 @@ import yaml
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
     AnthropicConfig,
-    OpenAIConfig,
     EndpointConfig,
+    OpenAIConfig,
     _load_gateway_config,
     _resolve_api_key_from_input,
     _save_route_config,
@@ -311,7 +311,8 @@ def test_invalid_model_definition(tmp_path):
     conf_path.write_text(yaml.safe_dump(invalid_format_config_key_invalid_path))
 
     assert (
-            _load_gateway_config(conf_path).endpoints[0].model.config.openai_api_key == "/not/a/real/path"  # pylint: disable=line-too-long
+        _load_gateway_config(conf_path).endpoints[0].model.config.openai_api_key
+        == "/not/a/real/path"  # pylint: disable=line-too-long
     )
 
     invalid_no_config = {

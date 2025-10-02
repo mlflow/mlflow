@@ -2,7 +2,7 @@ import time
 
 from pydantic import BaseModel, StrictFloat, StrictStr, ValidationError
 
-from mlflow.gateway.config import MlflowModelServingConfig, EndpointConfig
+from mlflow.gateway.config import EndpointConfig, MlflowModelServingConfig
 from mlflow.gateway.constants import MLFLOW_SERVING_RESPONSE_KEY
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider

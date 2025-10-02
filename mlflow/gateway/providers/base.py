@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-import random
 from typing import AsyncIterable
 
 import numpy as np
@@ -90,10 +89,7 @@ class TrafficRouteProvider(BaseProvider):
     def __init__(self, configs: list[EndpointConfig], traffic_splits: list[int]):
         from mlflow.gateway.providers import get_provider
 
-        self._providers = [
-            get_provider(config.model.provider)(config)
-            for config in configs
-        ]
+        self._providers = [get_provider(config.model.provider)(config) for config in configs]
 
         self._weights = np.array(traffic_splits, dtype=np.float32) / 100
         self._indices = np.arange(len(self._providers))
