@@ -1932,3 +1932,85 @@ class SqlScorerVersion(Base):
             serialized_scorer=self.serialized_scorer,
             creation_time=self.creation_time,
         )
+
+
+class SqlJob(Base):
+    """
+    DB model for Job entities. These are recorded in the ``jobs`` table.
+    """
+
+    __tablename__ = "jobs"
+
+    id = Column(String(36), nullable=False)
+    """
+    Job ID: `String` (limit 36 characters). *Primary Key* for ``jobs`` table.
+    """
+
+    creation_time = Column(BigInteger, default=get_current_time_millis)
+    """
+    Creation timestamp: `BigInteger`.
+    """
+
+    function_fullname = Column(String(500), nullable=False)
+    """
+    Function fullname: `String` (limit 500 characters).
+    """
+
+    params = Column(Text, nullable=False)
+    """
+    Job parameters: `Text`.
+    """
+
+    timeout = Column(sa.types.Float(precision=53), nullable=True)
+    """
+    Job execution timeout in seconds: `Float`
+    """
+
+    status = Column(Integer, nullable=False)
+    """
+    Job status: `Integer`.
+    """
+
+    result = Column(Text, nullable=True)
+    """
+    Job result: `Text`.
+    """
+
+    retry_count = Column(Integer, default=0)
+    """
+    Job retry count: `Integer`
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="jobs_pk"),
+        Index(
+            "index_jobs_function_status_creation_time",
+            "function_fullname",
+            "status",
+            "creation_time",
+        ),
+    )
+
+    def __repr__(self):
+        return f"<SqlJob ({self.id}, {self.function_fullname}, {self.status})>"
+
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            mlflow.entities._job.Job.
+        """
+        from mlflow.entities._job import Job
+        from mlflow.entities._job_status import JobStatus
+
+        return Job(
+            job_id=self.id,
+            creation_time=self.creation_time,
+            function_fullname=self.function_fullname,
+            params=self.params,
+            timeout=self.timeout,
+            status=JobStatus.from_int(self.status),
+            result=self.result,
+            retry_count=self.retry_count,
+        )

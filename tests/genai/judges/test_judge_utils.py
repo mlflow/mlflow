@@ -134,6 +134,7 @@ def test_invoke_judge_model_successful_with_litellm(num_retries, mock_response):
     assert feedback.rationale == "The response meets all criteria."
     assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
     assert feedback.source.source_id == "openai:/gpt-4"
+    assert feedback.trace_id is None
 
 
 def test_invoke_judge_model_with_chat_messages(mock_response):
@@ -163,6 +164,7 @@ def test_invoke_judge_model_with_chat_messages(mock_response):
 
     assert feedback.name == "quality_check"
     assert feedback.value == CategoricalRating.YES
+    assert feedback.trace_id is None
 
 
 def test_invoke_judge_model_successful_with_native_provider():
@@ -182,7 +184,7 @@ def test_invoke_judge_model_successful_with_native_provider():
 
     mock_score_model_on_payload.assert_called_once_with(
         model_uri="openai:/gpt-4",
-        payload=[{"role": "user", "content": "Evaluate this response"}],
+        payload="Evaluate this response",
         endpoint_type="llm/v1/chat",
     )
 
@@ -191,6 +193,7 @@ def test_invoke_judge_model_successful_with_native_provider():
     assert feedback.rationale == "The response meets all criteria."
     assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
     assert feedback.source.source_id == "openai:/gpt-4"
+    assert feedback.trace_id is None
 
 
 def test_invoke_judge_model_with_unsupported_provider():
@@ -245,7 +248,7 @@ def test_invoke_judge_model_with_trace_passes_tools(mock_trace, mock_response):
 
         mock_list_tools.return_value = [mock_tool1, mock_tool2]
 
-        invoke_judge_model(
+        feedback = invoke_judge_model(
             model_uri="openai:/gpt-4",
             prompt="Evaluate this response",
             assessment_name="quality_check",
@@ -260,6 +263,7 @@ def test_invoke_judge_model_with_trace_passes_tools(mock_trace, mock_response):
         {"name": "list_spans", "description": "List spans"},
     ]
     assert call_kwargs["tool_choice"] == "auto"
+    assert feedback.trace_id == "test-trace"
 
 
 def test_invoke_judge_model_tool_calling_loop(mock_trace):
@@ -325,6 +329,7 @@ def test_invoke_judge_model_tool_calling_loop(mock_trace):
 
     assert feedback.value == CategoricalRating.YES
     assert feedback.rationale == "The trace looks good."
+    assert feedback.trace_id == "test-trace"
 
 
 def test_add_output_format_instructions():
@@ -392,6 +397,7 @@ def test_invoke_judge_model_retries_without_response_format_on_bad_request(
         # Should still return valid feedback
         assert feedback.name == "test"
         assert feedback.value == CategoricalRating.YES
+        assert feedback.trace_id is None
 
 
 def test_invoke_judge_model_stops_trying_response_format_after_failure():
@@ -485,6 +491,7 @@ def test_invoke_judge_model_caches_capabilities_globally():
         # Should have been called twice (initial fail + retry)
         assert mock_litellm.call_count == 2
         assert feedback1.name == "test1"
+        assert feedback1.trace_id is None  # No trace provided, should be None
 
         # Verify capability was cached
         assert _MODEL_RESPONSE_FORMAT_CAPABILITIES.get("openai/gpt-4") is False
@@ -505,6 +512,7 @@ def test_invoke_judge_model_caches_capabilities_globally():
         assert "response_format" not in call_kwargs
 
         assert feedback2.name == "test2"
+        assert feedback2.trace_id is None  # No trace provided, should be None
 
 
 def test_unsupported_response_format_handling_supports_multiple_threads():
@@ -976,7 +984,8 @@ def test_record_failure_telemetry_with_databricks_agents() -> None:
         mock_job_run_id.assert_called_once()
 
 
-def test_invoke_judge_model_databricks_success_not_in_databricks() -> None:
+@pytest.mark.parametrize("with_trace", [False, True])
+def test_invoke_judge_model_databricks_success_not_in_databricks(with_trace, mock_trace) -> None:
     with (
         mock.patch(
             "mlflow.genai.judges.utils._is_in_databricks",
@@ -992,11 +1001,15 @@ def test_invoke_judge_model_databricks_success_not_in_databricks() -> None:
             ),
         ) as mock_invoke_db,
     ):
-        feedback = invoke_judge_model(
-            model_uri="databricks:/test-model",
-            prompt="Test prompt",
-            assessment_name="test_assessment",
-        )
+        kwargs = {
+            "model_uri": "databricks:/test-model",
+            "prompt": "Test prompt",
+            "assessment_name": "test_assessment",
+        }
+        if with_trace:
+            kwargs["trace"] = mock_trace
+
+        feedback = invoke_judge_model(**kwargs)
 
         mock_invoke_db.assert_called_once_with(
             model_name="test-model", prompt="Test prompt", num_retries=10
@@ -1006,6 +1019,7 @@ def test_invoke_judge_model_databricks_success_not_in_databricks() -> None:
     assert feedback.name == "test_assessment"
     assert feedback.value == CategoricalRating.YES
     assert feedback.rationale == "Good response"
+    assert feedback.trace_id == ("test-trace" if with_trace else None)
 
 
 def test_invoke_judge_model_databricks_success_in_databricks() -> None:
@@ -1046,6 +1060,7 @@ def test_invoke_judge_model_databricks_success_in_databricks() -> None:
 
     assert feedback.value == CategoricalRating.NO
     assert feedback.rationale == "Bad response"
+    assert feedback.trace_id is None
 
 
 def test_invoke_judge_model_databricks_failure_in_databricks() -> None:
@@ -1117,6 +1132,7 @@ def test_invoke_judge_model_databricks_telemetry_error_handling() -> None:
 
     assert feedback.value == CategoricalRating.YES
     assert feedback.rationale == "Good"
+    assert feedback.trace_id is None
 
 
 # Tests for call_chat_completions function
@@ -1193,3 +1209,57 @@ def test_get_default_optimizer():
     """Test that get_default_optimizer returns a SIMBA optimizer."""
     optimizer = get_default_optimizer()
     assert isinstance(optimizer, SIMBAAlignmentOptimizer)
+
+
+@pytest.mark.parametrize("env_var_value", ["3", None])
+def test_invoke_judge_model_completion_iteration_limit(mock_trace, monkeypatch, env_var_value):
+    """Test that completion iteration limit is enforced."""
+    if env_var_value is not None:
+        monkeypatch.setenv("MLFLOW_JUDGE_MAX_ITERATIONS", env_var_value)
+        expected_limit = int(env_var_value)
+    else:
+        monkeypatch.delenv("MLFLOW_JUDGE_MAX_ITERATIONS", raising=False)
+        expected_limit = 30
+    mock_tool_call_response = ModelResponse(
+        choices=[
+            {
+                "message": {
+                    "tool_calls": [
+                        {
+                            "id": "call_123",
+                            "function": {"name": "get_trace_info", "arguments": "{}"},
+                        }
+                    ],
+                    "content": None,
+                }
+            }
+        ]
+    )
+
+    with (
+        mock.patch("litellm.completion", return_value=mock_tool_call_response) as mock_litellm,
+        mock.patch("mlflow.genai.judges.tools.list_judge_tools") as mock_list_tools,
+        mock.patch(
+            "mlflow.genai.judges.tools.registry._judge_tool_registry.invoke"
+        ) as mock_invoke_tool,
+    ):
+        mock_tool = mock.Mock()
+        mock_tool.name = "get_trace_info"
+        mock_tool.get_definition.return_value.to_dict.return_value = {"name": "get_trace_info"}
+        mock_list_tools.return_value = [mock_tool]
+        mock_invoke_tool.return_value = {"trace_id": "test-trace", "state": "OK"}
+
+        with pytest.raises(
+            MlflowException, match="Completion iteration limit.*exceeded"
+        ) as exc_info:
+            invoke_judge_model(
+                model_uri="openai:/gpt-4",
+                prompt="Evaluate this response",
+                assessment_name="quality_check",
+                trace=mock_trace,
+            )
+
+        error_msg = str(exc_info.value)
+        assert f"Completion iteration limit of {expected_limit} exceeded" in error_msg
+        assert "model is not powerful enough" in error_msg
+        assert mock_litellm.call_count == expected_limit
