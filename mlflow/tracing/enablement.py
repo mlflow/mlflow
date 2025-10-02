@@ -70,7 +70,7 @@ def set_experiment_trace_location(
     """
     if not is_databricks_uri(get_tracking_uri()):
         raise MlflowException(
-            "Setting storage location is only supported on Databricks Tracking Server."
+            "The `set_experiment_trace_location` API is only supported on Databricks."
         )
 
     experiment_id = experiment_id or _get_experiment_id()
@@ -124,7 +124,7 @@ def unset_experiment_trace_location(
     """
     if not is_databricks_uri(get_tracking_uri()):
         raise MlflowException(
-            "Clearing storage location is only supported on Databricks Tracking Server."
+            "The `unset_experiment_trace_location` API is only supported on Databricks."
         )
 
     if not isinstance(location, UCSchemaLocation):

@@ -12,7 +12,7 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.protos.service_pb2 import TraceInfoV3 as ProtoTraceInfoV3
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, TraceMetadataKey
+from mlflow.tracing.constant import TraceMetadataKey
 
 
 @dataclass
@@ -53,12 +53,6 @@ class TraceInfo(_MlflowObject):
     trace_metadata: dict[str, str] = field(default_factory=dict)
     tags: dict[str, str] = field(default_factory=dict)
     assessments: list[Assessment] = field(default_factory=list)
-
-    def __post_init__(self):
-        # NB: MLflow automatically converts trace metadata and spans to V3 format, even if the
-        # trace was originally created in V2 format with an earlier version of MLflow. Accordingly,
-        # we also update the `TRACE_SCHEMA_VERSION_KEY` in the trace metadata to V3 for consistency
-        self.trace_metadata[TRACE_SCHEMA_VERSION_KEY] = str(TRACE_SCHEMA_VERSION)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert the TraceInfoV3 object to a dictionary."""
