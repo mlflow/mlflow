@@ -139,20 +139,11 @@ jobs:
           - Use `fetch_diff` tool to fetch the PR diff
           - If the diff includes changes to .py files, read `dev/guides/python.md` thoroughly
 
-          ## 2. Review Changed Lines Only
-          - Carefully examine ONLY the changed lines (added or modified) in the diff
-          - Check for style guide violations ONLY in these changed lines
-          - Check for obvious mistakes including:
-            - Typos in variable names, function names, class names, comments, and docstrings
-            - Grammatical errors in comments and documentation
-            - Common coding mistakes (e.g., wrong variable references, logic errors)
-          - Ignore unchanged/context lines and pre-existing code
-
-          ## 3. Decision Point
+          ## 2. Decision Point
           - If NO issues found -> Skip remaining steps
-          - If issues found -> Continue to step 4
+          - If issues found -> Continue to step 3
 
-          ## 4. Add Review Comments
+          ## 3. Add Review Comments
           - Use `add_pr_review_comment` tool for each issue found
           - ONLY comment on lines that are marked as added (+) or modified in the diff
           - Never comment on unchanged context lines or pre-existing code
