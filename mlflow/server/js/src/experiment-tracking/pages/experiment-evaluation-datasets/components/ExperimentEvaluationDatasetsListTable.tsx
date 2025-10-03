@@ -192,10 +192,16 @@ export const ExperimentEvaluationDatasetsListTable = ({
     fetchNextPage,
   });
 
-  // Set the selected dataset to the first one (respecting sort order) if we don't already have one
-  // or if the selected dataset went out of scope (e.g. was deleted)
   useEffect(() => {
-    if (datasets?.length && (!selectedDataset || !datasets.some((d) => d.dataset_id === selectedDataset.dataset_id))) {
+    // if all datasets were deleted, set the selected dataset to undefined
+    if (!datasets?.length) {
+      setSelectedDataset(undefined);
+      return;
+    }
+
+    // set the selected dataset to the first one if the is no selected dataset,
+    // or if the selected dataset went out of scope (e.g. was deleted / not in search)
+    if (!selectedDataset || !datasets.some((d) => d.dataset_id === selectedDataset.dataset_id)) {
       // Use the sorted data from the table to respect the current sort order
       const sortedRows = table.getRowModel().rows;
       if (sortedRows.length > 0) {
@@ -277,7 +283,7 @@ export const ExperimentEvaluationDatasetsListTable = ({
         <Table
           css={{ height: '100%' }}
           empty={
-            !isLoading && table.getRowModel().rows.length === 0 ? (
+            !isLoading && !isFetching && datasets.length === 0 ? (
               <Empty
                 description={intl.formatMessage({
                   defaultMessage: 'No evaluation datasets found',
