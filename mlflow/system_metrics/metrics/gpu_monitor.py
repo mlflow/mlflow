@@ -22,8 +22,8 @@ class GPUMonitor(BaseMetricsMonitor):
         if "pynvml" not in sys.modules:
             # Only instantiate if `pynvml` is installed.
             raise ImportError(
-                "`pynvml` is not installed, to log GPU metrics please run `pip install pynvml` "
-                "to install it."
+                "`nvidia-ml-py` is not installed, to log GPU metrics please run "
+                "`pip install nvidia-ml-py` to install it."
             )
         try:
             # `nvmlInit()` will fail if no GPU is found.

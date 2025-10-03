@@ -24,7 +24,7 @@ def test_gpu_monitor():
     try:
         gpu_monitor = GPUMonitor()
     except Exception:
-        # If pynvml is not installed, or there is no GPU, then `gpu_monitor` creation will fail. In
+        # If nvidia-ml-py is not installed, or there is no GPU, then `gpu_monitor` creation will fail. In
         # this case we skip the test.
         return
 
