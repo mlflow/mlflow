@@ -70,7 +70,9 @@ describe('GenAITracesTableToolbar - integration test', () => {
       setSelectedColumns: jest.fn(),
       traceActions: {
         exportToEvals: {
-          getTrace: jest.fn().mockResolvedValue(undefined),
+          showExportTracesToDatasetsModal: false,
+          setShowExportTracesToDatasetsModal: jest.fn(),
+          renderExportTracesToDatasetsModal: jest.fn(),
         },
         deleteTracesAction: {
           deleteTraces: jest.fn().mockResolvedValue(undefined),
@@ -216,7 +218,9 @@ describe('GenAITracesTableToolbar - integration test', () => {
   it('handles trace actions', async () => {
     const traceActions: TraceActions = {
       exportToEvals: {
-        getTrace: jest.fn().mockResolvedValue(undefined),
+        showExportTracesToDatasetsModal: false,
+        setShowExportTracesToDatasetsModal: jest.fn(),
+        renderExportTracesToDatasetsModal: jest.fn(),
       },
       deleteTracesAction: {
         deleteTraces: jest.fn().mockResolvedValue(undefined),
