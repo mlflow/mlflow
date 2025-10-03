@@ -30,7 +30,6 @@ from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND
 from mlflow.protos.databricks_tracing_pb2 import (
     BatchGetTraces,
     CreateAssessment,
-    CreateTraceInfo,
     CreateTraceUCStorageLocation,
     DeleteAssessment,
     DeleteTraceTag,
@@ -150,11 +149,7 @@ def test_create_trace_v4_uc_location(monkeypatch):
     expected_trace_info.update({"trace_id": "123"})
     response.text = json.dumps(expected_trace_info)
 
-    expected_request = CreateTraceInfo(
-        location_id="catalog.schema",
-        trace_info=trace_info_to_proto(trace_info),
-    )
-
+    expected_request = trace_info_to_proto(trace_info)
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
         result = store.start_trace(trace_info)
         _verify_requests(
@@ -496,7 +491,7 @@ def test_search_traces_uc_schema(monkeypatch):
     assert trace_infos[0].request_time == 123
     assert trace_infos[0].state == TraceStatus.OK.to_state()
     assert trace_infos[0].tags == {"k": "v"}
-    assert trace_infos[0].trace_metadata == {"key": "value", "mlflow.trace_schema.version": "3"}
+    assert trace_infos[0].trace_metadata == {"key": "value"}
     assert token == "token"
 
 
@@ -585,7 +580,7 @@ def test_search_traces_experiment_id(exception):
     assert trace_infos[0].request_time == 123
     assert trace_infos[0].state == TraceStatus.OK.to_state()
     assert trace_infos[0].tags == {"k": "v"}
-    assert trace_infos[0].trace_metadata == {"key": "value", "mlflow.trace_schema.version": "3"}
+    assert trace_infos[0].trace_metadata == {"key": "value"}
     assert token == "token"
 
 
@@ -754,7 +749,7 @@ def test_search_unified_traces():
         # V3's state maps to V2's status
         assert trace_infos[0].state == TraceStatus.OK.to_state()
         assert trace_infos[0].tags == {"k": "v"}
-        assert trace_infos[0].trace_metadata == {"key": "value", "mlflow.trace_schema.version": "3"}
+        assert trace_infos[0].trace_metadata == {"key": "value"}
         assert token == "token"
 
 

@@ -114,12 +114,7 @@ class DatabricksTracingRestStore(RestStore):
         if location is None:
             raise MlflowException("Invalid trace ID format for v4 API.")
 
-        req_body = message_to_json(
-            CreateTraceInfo(
-                location_id=location,
-                trace_info=trace_info_to_proto(trace_info),
-            )
-        )
+        req_body = message_to_json(trace_info_to_proto(trace_info))
         response_proto = self._call_endpoint(
             CreateTraceInfo,
             req_body,
