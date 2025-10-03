@@ -29,7 +29,6 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import (
-    TRACE_SCHEMA_VERSION,
     TRACE_SCHEMA_VERSION_KEY,
     SpanAttributeKey,
     TraceMetadataKey,
@@ -484,7 +483,6 @@ def test_trace_in_model_evaluation(monkeypatch, async_logging_enabled):
 
     trace = mlflow.get_trace(request_id_1)
     assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_id
-    assert trace.info.request_metadata[TRACE_SCHEMA_VERSION_KEY] == str(TRACE_SCHEMA_VERSION)
     assert trace.info.tags[TraceTagKey.EVAL_REQUEST_ID] == request_id_1
 
     trace = mlflow.get_trace(request_id_2)
@@ -1060,8 +1058,7 @@ def test_search_traces_handles_missing_response_tags_and_metadata(mock_client):
     df = mlflow.search_traces()
     assert df["response"].isnull().all()
     assert df["tags"].tolist() == [{}]
-    # trace_metadata should only contain the schema version
-    assert df["trace_metadata"].tolist() == [{TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)}]
+    assert df["trace_metadata"].tolist() == [{}]
 
 
 @skip_when_testing_trace_sdk

@@ -6,6 +6,7 @@ from opentelemetry.sdk.trace.export import SpanExporter
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.processor.base_mlflow import BaseMlflowSpanProcessor
 from mlflow.tracing.utils import (
     generate_trace_id_v4,
@@ -45,13 +46,16 @@ class DatabricksUCTableSpanProcessor(BaseMlflowSpanProcessor):
                 "Databricks Unity Catalog table."
             )
 
+        metadata = self._get_basic_trace_metadata()
+        metadata[TRACE_SCHEMA_VERSION_KEY] = "4"
+
         trace_info = TraceInfo(
             trace_id=trace_id,
             trace_location=trace_location,
             request_time=root_span.start_time // 1_000_000,  # nanosecond to millisecond
             execution_duration=None,
             state=TraceState.IN_PROGRESS,
-            trace_metadata=self._get_basic_trace_metadata(),
+            trace_metadata=metadata,
             tags=self._get_basic_trace_tags(root_span),
         )
         self._trace_manager.register_trace(root_span.context.trace_id, trace_info)

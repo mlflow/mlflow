@@ -1274,7 +1274,9 @@ mlflow.tracing.enable
 mlflow.tracing.enable_notebook_display
 mlflow.tracing.reset
 mlflow.tracing.set_destination
+mlflow.tracing.set_experiment_trace_location
 mlflow.tracing.set_span_chat_tools
+mlflow.tracing.unset_experiment_trace_location
 mlflow.tracking.client.MlflowClient
 mlflow.tracking.fluent.ActiveModel
 mlflow.tracking.fluent.ActiveRun

@@ -295,9 +295,6 @@ def test_trace_info_to_dict():
         "response_preview": "response",
         "client_request_id": "client_request_id",
         "tags": {"key": "value"},
-        "trace_metadata": {
-            TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
-        },
     }
 
 
