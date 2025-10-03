@@ -215,28 +215,3 @@ def test_extract_instructions():
     mock_forward.assert_called_once_with(prompt=template)
 
     assert result == "extracted system message"
-
-
-def test_parse_model_name():
-    optimizer = _TestDSPyPromptOptimizer(OptimizerConfig())
-
-    assert optimizer._parse_model_name("openai:/gpt-4") == "openai/gpt-4"
-    assert optimizer._parse_model_name("anthropic:/claude-3") == "anthropic/claude-3"
-    assert optimizer._parse_model_name("mistral:/mistral-7b") == "mistral/mistral-7b"
-
-    # Test that already formatted names are unchanged
-    assert optimizer._parse_model_name("openai/gpt-4") == "openai/gpt-4"
-    assert optimizer._parse_model_name("anthropic/claude-3") == "anthropic/claude-3"
-
-    # Test invalid formats raise errors
-    with pytest.raises(MlflowException, match="Invalid model name format"):
-        optimizer._parse_model_name("invalid-model-name")
-
-    with pytest.raises(MlflowException, match="Model name cannot be empty"):
-        optimizer._parse_model_name("")
-
-    with pytest.raises(MlflowException, match="Invalid model name format"):
-        optimizer._parse_model_name("openai:")
-
-    with pytest.raises(MlflowException, match="Invalid model name format"):
-        optimizer._parse_model_name("openai/")
