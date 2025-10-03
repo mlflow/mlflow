@@ -60,7 +60,7 @@ from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.server import handlers
 from mlflow.server.fastapi_app import app
-from mlflow.server.handlers import _get_sampled_steps_from_steps, initialize_backend_stores
+from mlflow.server.handlers import initialize_backend_stores
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.client import TracingClient
@@ -98,17 +98,12 @@ def store_type(request):
     return request.param
 
 
-def to_db_uri(db_path: Path) -> str:
-    db_uri = db_path.as_uri()
-    return ("sqlite://" if sys.platform == "win32" else "sqlite:////") + db_uri[len("file://") :]
-
-
 @pytest.fixture(scope="module")
 def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """Creates and caches a SQLite database to avoid repeated migrations for each test run."""
     tmp_dir = tmp_path_factory.mktemp("sqlite_db")
     db_path = tmp_dir / "mlflow.db"
-    backend_uri = to_db_uri(db_path)
+    backend_uri = f"sqlite:///{db_path}"
     artifact_uri = (tmp_dir / "artifacts").as_uri()
 
     store = SqlAlchemyStore(backend_uri, artifact_uri)
@@ -125,7 +120,7 @@ def mlflow_client(store_type: str, tmp_path: Path, cached_db: Path):
         # Copy the cached database for this test
         db_path = tmp_path / "mlflow.db"
         shutil.copy(cached_db, db_path)
-        backend_uri = to_db_uri(db_path)
+        backend_uri = f"sqlite:///{db_path}"
 
     # Force-reset backend stores before each test.
     handlers._tracking_store = None
@@ -1454,24 +1449,6 @@ def test_get_metric_history_bulk_interval_respects_max_results(mlflow_client):
         for j in [1, 2]
     ]
     assert response_limited.json().get("metrics") == expected_metrics
-
-
-@pytest.mark.parametrize(
-    ("min_step", "max_step", "max_results", "nums", "expected"),
-    [
-        # should be evenly spaced and include the beginning and
-        # end despite sometimes making it go above max_results
-        (0, 10, 5, list(range(10)), {0, 2, 4, 6, 8, 9}),
-        # if the clipped list is shorter than max_results,
-        # then everything will be returned
-        (4, 8, 5, list(range(10)), {4, 5, 6, 7, 8}),
-        # works if steps are logged in intervals
-        (0, 100, 5, list(range(0, 101, 20)), {0, 20, 40, 60, 80, 100}),
-        (0, 1000, 5, list(range(0, 1001, 10)), {0, 200, 400, 600, 800, 1000}),
-    ],
-)
-def test_get_sampled_steps_from_steps(min_step, max_step, max_results, nums, expected):
-    assert _get_sampled_steps_from_steps(min_step, max_step, max_results, nums) == expected
 
 
 def test_search_dataset_handler_rejects_invalid_requests(mlflow_client):

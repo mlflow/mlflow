@@ -395,3 +395,12 @@ def test_job_use_process(monkeypatch, tmp_path):
         wait_job_finalize(job_id1)
         wait_job_finalize(job_id2)
         assert len(os.listdir(str(job_tmp_path))) == 2
+
+
+def test_submit_job_bad_call(monkeypatch, tmp_path):
+    with _setup_job_runner(monkeypatch, tmp_path):
+        with pytest.raises(
+            MlflowException,
+            match="When calling 'submit_job', the 'params' argument must be a dict.",
+        ):
+            submit_job(basic_job_fun, params=None)
