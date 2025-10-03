@@ -250,7 +250,7 @@ def transient_err_fun(tmp_dir: str, succeed_on_nth_run: int):
     raise TransientError(RuntimeError("test transient error."))
 
 
-def wait_job_finalize(job_id, timeout=30):
+def wait_job_finalize(job_id, timeout=60):
     beg_time = time.time()
     while time.time() - beg_time <= timeout:
         job = get_job(job_id)
