@@ -1,4 +1,3 @@
-import asyncio
 import sys
 from unittest.mock import MagicMock, patch
 
@@ -10,8 +9,7 @@ from mlflow.anthropic.autolog import patched_claude_sdk_init
 
 def test_anthropic_autolog_without_claude_sdk():
     # Ensure claude_agent_sdk is not in sys.modules
-    if "claude_agent_sdk" in sys.modules:
-        del sys.modules["claude_agent_sdk"]
+    sys.modules.pop("claude_agent_sdk", None)
 
     with (
         patch.dict(
@@ -53,21 +51,19 @@ def test_patched_claude_sdk_init_with_options():
 
 
 @pytest.mark.asyncio
-def test_sdk_hook_handler_when_disabled():
+async def test_sdk_hook_handler_when_disabled():
+    """Test that SDK hook handler doesn't process traces when autologging is disabled."""
     from mlflow.claude_code.hooks import sdk_stop_hook_handler
 
-    async def run_test():
-        with (
-            patch("mlflow.utils.autologging_utils.autologging_is_disabled", return_value=True),
-            patch("mlflow.claude_code.hooks._process_stop_hook") as mock_process,
-        ):
-            result = await sdk_stop_hook_handler(
-                input_data={"session_id": "test", "transcript_path": "/fake/path"},
-                tool_use_id=None,
-                context=None,
-            )
-            # Should return early without calling _process_stop_hook
-            mock_process.assert_not_called()
-            assert result == {"continue": True}
-
-    asyncio.run(run_test())
+    with (
+        patch("mlflow.utils.autologging_utils.autologging_is_disabled", return_value=True),
+        patch("mlflow.claude_code.hooks._process_stop_hook") as mock_process,
+    ):
+        result = await sdk_stop_hook_handler(
+            input_data={"session_id": "test", "transcript_path": "/fake/path"},
+            tool_use_id=None,
+            context=None,
+        )
+        # Should return early without calling _process_stop_hook
+        mock_process.assert_not_called()
+        assert result == {"continue": True}

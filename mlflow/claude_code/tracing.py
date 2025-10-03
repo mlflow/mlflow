@@ -45,7 +45,7 @@ MESSAGE_FIELD_MESSAGE = "message"
 MESSAGE_FIELD_TIMESTAMP = "timestamp"
 
 # Custom logging level for Claude tracing
-CLAUDE_TRACING_LEVEL = 25
+CLAUDE_TRACING_LEVEL = logging.WARNING - 5
 
 
 # ============================================================================
@@ -136,12 +136,9 @@ def read_hook_input() -> dict[str, Any]:
 
 def read_transcript(transcript_path: str) -> list[dict[str, Any]]:
     """Read and parse a Claude Code conversation transcript from JSONL file."""
-    try:
-        with open(transcript_path, encoding="utf-8") as f:
-            lines = f.readlines()
-            return [json.loads(line) for line in lines if line.strip()]
-    except Exception as e:
-        raise Exception(f"Failed to read transcript {transcript_path}: {e}") from e
+    with open(transcript_path, encoding="utf-8") as f:
+        lines = f.readlines()
+        return [json.loads(line) for line in lines if line.strip()]
 
 
 def get_hook_response(error: str | None = None, **kwargs) -> dict[str, Any]:
@@ -640,4 +637,4 @@ def process_transcript(
 
     except Exception as e:
         get_logger().error("Error processing transcript: %s", e, exc_info=True)
-        raise
+        return None

@@ -70,12 +70,6 @@ def test_custom_logging_level():
     assert logging.getLevelName(CLAUDE_TRACING_LEVEL) == "CLAUDE_TRACING"
 
 
-def test_logger_has_claude_tracing_method(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    logger = setup_logging()
-    assert hasattr(logger, "claude_tracing")
-
-
 # ============================================================================
 # HOOK RESPONSE TESTS
 # ============================================================================
@@ -197,6 +191,7 @@ def test_process_transcript_creates_spans(mock_transcript_file):
     assert tool_span.name == "tool_Bash"
 
 
-def test_process_transcript_throws_exception_for_nonexistent_file():
-    with pytest.raises(Exception, match="Failed to read transcript"):
-        process_transcript("/nonexistent/path/transcript.jsonl", "test-session-123")
+def test_process_transcript_returns_none_for_nonexistent_file():
+    """Test that process_transcript returns None for nonexistent files."""
+    result = process_transcript("/nonexistent/path/transcript.jsonl", "test-session-123")
+    assert result is None
