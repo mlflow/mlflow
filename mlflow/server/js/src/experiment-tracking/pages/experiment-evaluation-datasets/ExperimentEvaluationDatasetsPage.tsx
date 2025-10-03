@@ -46,7 +46,7 @@ const ExperimentEvaluationDatasetsPageImpl = () => {
         onResizeStart={() => !datasetListHidden && setDragging(true)}
         onResizeStop={() => setDragging(false)}
       >
-        <div css={{ display: datasetListHidden ? 'none' : 'flex', flex: 1 }}>
+        <div css={{ display: datasetListHidden ? 'none' : 'flex', flex: 1, minWidth: 0 }}>
           <ExperimentEvaluationDatasetsListTable
             experimentId={experimentId}
             selectedDataset={selectedDataset}
