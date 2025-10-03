@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Empty,
   Table,
@@ -24,7 +24,6 @@ import { NameCell } from './ExperimentEvaluationDatasetsNameCell';
 import { LastUpdatedCell } from './ExperimentEvaluationDatasetsLastUpdatedCell';
 import { ActionsCell } from './ExperimentEvaluationDatasetsActionsCell';
 import { isEqual } from 'lodash';
-import { CreateEvaluationDatasetModal } from './CreateEvaluationDatasetModal';
 import { useInfiniteScrollFetch } from '../hooks/useInfiniteScrollFetch';
 import { CreateEvaluationDatasetButton } from './CreateEvaluationDatasetButton';
 
@@ -155,7 +154,6 @@ export const ExperimentEvaluationDatasetsListTable = ({
       return acc;
     }, {} as { [key: string]: boolean }),
   );
-  const [showCreateDatasetModal, setShowCreateDatasetModal] = useState(false);
   // searchFilter only gets updated after the user presses enter
   const [searchFilter, setSearchFilter] = useState('');
   // control field that gets updated immediately
@@ -325,11 +323,6 @@ export const ExperimentEvaluationDatasetsListTable = ({
 
           {(isLoading || isFetching) && <TableSkeletonRows table={table} />}
         </Table>
-        <CreateEvaluationDatasetModal
-          experimentId={experimentId}
-          visible={showCreateDatasetModal}
-          onCancel={() => setShowCreateDatasetModal(false)}
-        />
       </div>
     </div>
   );
