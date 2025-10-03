@@ -6,6 +6,7 @@ import time
 import warnings
 from functools import lru_cache
 from typing import Any, Callable
+from mlflow.utils import auth as mlflow_auth
 
 import requests
 
@@ -227,6 +228,16 @@ def http_request(
         from mlflow.tracking.request_auth.registry import fetch_auth
 
         kwargs["auth"] = fetch_auth(host_creds.auth)
+
+    # Merge in dynamic auth headers (provider or token-file)
+    try:
+        dynamic_headers = mlflow_auth.get_auth_headers()
+        if dynamic_headers:
+            headers.update(dynamic_headers)
+    except Exception:
+        # Never fail the request due to auth header read issues
+        import logging
+        logging.exception("Failed to get dynamic auth headers")
 
     try:
         return _get_http_response_with_retries(
