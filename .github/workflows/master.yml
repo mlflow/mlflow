@@ -65,9 +65,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [1, 2, 3]
+        group: [1, 2, 3, 4, 5]
         include:
-          - splits: 3
+          - splits: 5
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
@@ -98,7 +98,7 @@ jobs:
         run: |
           source .venv/bin/activate
           source dev/setup-ssh.sh
-          for i in {1..10}; do pytest --quiet --requires-ssh tests/server/jobs; done
+          for i in {1..20}; do pytest --quiet --requires-ssh tests/server/jobs; done
 
       # TODO: Remove this step once support for pydantic v1 is dropped
       # - name: Run gateway tests with pydantic v1
