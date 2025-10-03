@@ -18,6 +18,7 @@ from mlflow.claude_code.config import (
     save_claude_config,
 )
 from mlflow.claude_code.tracing import (
+    CLAUDE_TRACING_LEVEL,
     get_hook_response,
     get_logger,
     is_tracing_enabled,
@@ -172,7 +173,9 @@ def _process_stop_hook(session_id: str | None, transcript_path: str | None) -> d
     Returns:
         Hook response dictionary
     """
-    get_logger().claude_tracing("Stop hook: session=%s, transcript=%s", session_id, transcript_path)
+    get_logger().log(
+        CLAUDE_TRACING_LEVEL, "Stop hook: session=%s, transcript=%s", session_id, transcript_path
+    )
 
     # Process the transcript and create MLflow trace
     trace = process_transcript(transcript_path, session_id)

@@ -53,11 +53,6 @@ CLAUDE_TRACING_LEVEL = logging.WARNING - 5
 # ============================================================================
 
 
-def claude_tracing(self, message, *args, **kwargs):
-    if self.isEnabledFor(CLAUDE_TRACING_LEVEL):
-        self._log(CLAUDE_TRACING_LEVEL, message, args, **kwargs)
-
-
 def setup_logging() -> logging.Logger:
     """Set up logging directory and return configured logger.
 
@@ -85,7 +80,6 @@ def setup_logging() -> logging.Logger:
     return logger
 
 
-logging.Logger.claude_tracing = claude_tracing
 _MODULE_LOGGER = setup_logging()
 
 
@@ -577,7 +571,7 @@ def process_transcript(
         if not session_id:
             session_id = f"claude-{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
-        get_logger().claude_tracing("Creating MLflow trace for session: %s", session_id)
+        get_logger().log(CLAUDE_TRACING_LEVEL, "Creating MLflow trace for session: %s", session_id)
 
         conv_start_ns = parse_timestamp_to_ns(last_user_entry.get(MESSAGE_FIELD_TIMESTAMP))
 
@@ -631,7 +625,7 @@ def process_transcript(
             # This is not a critical error, so we log it as debug
             get_logger().debug("Failed to flush trace async logging: %s", e)
 
-        get_logger().claude_tracing("Created MLflow trace: %s", parent_span.trace_id)
+        get_logger().log(CLAUDE_TRACING_LEVEL, "Created MLflow trace: %s", parent_span.trace_id)
 
         return mlflow.get_trace(parent_span.trace_id)
 
