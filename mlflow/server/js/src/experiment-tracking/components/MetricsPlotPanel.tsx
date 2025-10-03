@@ -621,6 +621,8 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
                 onReorderWith={() => {}}
                 canMoveUp={false}
                 canMoveDown={false}
+                canMoveToTop={false}
+                canMoveToBottom={false}
               />
             </RunsChartsTooltipWrapper>
             <RunsChartsFullScreenModal
