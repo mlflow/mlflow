@@ -98,17 +98,12 @@ def store_type(request):
     return request.param
 
 
-def to_db_uri(db_path: Path) -> str:
-    db_uri = db_path.as_uri()
-    return ("sqlite://" if sys.platform == "win32" else "sqlite:////") + db_uri[len("file://") :]
-
-
 @pytest.fixture(scope="module")
 def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """Creates and caches a SQLite database to avoid repeated migrations for each test run."""
     tmp_dir = tmp_path_factory.mktemp("sqlite_db")
     db_path = tmp_dir / "mlflow.db"
-    backend_uri = to_db_uri(db_path)
+    backend_uri = f"sqlite:///{db_path}"
     artifact_uri = (tmp_dir / "artifacts").as_uri()
 
     store = SqlAlchemyStore(backend_uri, artifact_uri)
@@ -125,7 +120,7 @@ def mlflow_client(store_type: str, tmp_path: Path, cached_db: Path):
         # Copy the cached database for this test
         db_path = tmp_path / "mlflow.db"
         shutil.copy(cached_db, db_path)
-        backend_uri = to_db_uri(db_path)
+        backend_uri = f"sqlite:///{db_path}"
 
     # Force-reset backend stores before each test.
     handlers._tracking_store = None
