@@ -46,7 +46,7 @@ export const CreateEvaluationDatasetModal = ({
         description: 'Cancel create evaluation dataset button text',
       })}
       onOk={handleCreateEvaluationDataset}
-      okButtonProps={{ loading: isLoading }}
+      okButtonProps={{ loading: isLoading, disabled: !datasetName }}
       title={
         <FormattedMessage
           defaultMessage="Create evaluation dataset"
