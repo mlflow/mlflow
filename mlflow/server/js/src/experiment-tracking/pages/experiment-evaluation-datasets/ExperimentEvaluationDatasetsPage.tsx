@@ -1,5 +1,5 @@
 import { Global } from '@emotion/react';
-import { Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { useDesignSystemTheme } from '@databricks/design-system';
 import { ResizableBox } from 'react-resizable';
 import { ExperimentViewRunsTableResizerHandle } from '../../components/experiment-page/components/runs/ExperimentViewRunsTableResizer';
 import { useState } from 'react';
@@ -9,7 +9,6 @@ import { ExperimentEvaluationDatasetsListTable } from './components/ExperimentEv
 import { ExperimentEvaluationDatasetRecordsTable } from './components/ExperimentEvaluationDatasetRecordsTable';
 import { EvaluationDataset } from './types';
 import { ExperimentEvaluationDatasetsPageWrapper } from './ExperimentEvaluationDatasetsPageWrapper';
-import { FormattedMessage } from 'react-intl';
 import { ExperimentEvaluationDatasetsEmptyState } from './components/ExperimentEvaluationDatasetsEmptyState';
 
 const ExperimentEvaluationDatasetsPageImpl = () => {
