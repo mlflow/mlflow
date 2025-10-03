@@ -1,3 +1,4 @@
+import assessments_pb2 as _assessments_pb2
 import databricks_pb2 as _databricks_pb2
 from scalapb import scalapb_pb2 as _scalapb_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
@@ -257,57 +258,6 @@ class UnLinkExperimentToUCTraceLocation(_message.Message):
     uc_schema: UCSchemaLocation
     def __init__(self, experiment_id: _Optional[str] = ..., uc_schema: _Optional[_Union[UCSchemaLocation, _Mapping]] = ...) -> None: ...
 
-class AssessmentSource(_message.Message):
-    __slots__ = ("source_type", "source_id")
-    class SourceType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
-        __slots__ = ()
-        SOURCE_TYPE_UNSPECIFIED: _ClassVar[AssessmentSource.SourceType]
-        HUMAN: _ClassVar[AssessmentSource.SourceType]
-        LLM_JUDGE: _ClassVar[AssessmentSource.SourceType]
-        CODE: _ClassVar[AssessmentSource.SourceType]
-    SOURCE_TYPE_UNSPECIFIED: AssessmentSource.SourceType
-    HUMAN: AssessmentSource.SourceType
-    LLM_JUDGE: AssessmentSource.SourceType
-    CODE: AssessmentSource.SourceType
-    SOURCE_TYPE_FIELD_NUMBER: _ClassVar[int]
-    SOURCE_ID_FIELD_NUMBER: _ClassVar[int]
-    source_type: AssessmentSource.SourceType
-    source_id: str
-    def __init__(self, source_type: _Optional[_Union[AssessmentSource.SourceType, str]] = ..., source_id: _Optional[str] = ...) -> None: ...
-
-class AssessmentError(_message.Message):
-    __slots__ = ("error_code", "error_message", "stack_trace")
-    ERROR_CODE_FIELD_NUMBER: _ClassVar[int]
-    ERROR_MESSAGE_FIELD_NUMBER: _ClassVar[int]
-    STACK_TRACE_FIELD_NUMBER: _ClassVar[int]
-    error_code: str
-    error_message: str
-    stack_trace: str
-    def __init__(self, error_code: _Optional[str] = ..., error_message: _Optional[str] = ..., stack_trace: _Optional[str] = ...) -> None: ...
-
-class Expectation(_message.Message):
-    __slots__ = ("value", "serialized_value")
-    class SerializedValue(_message.Message):
-        __slots__ = ("serialization_format", "value")
-        SERIALIZATION_FORMAT_FIELD_NUMBER: _ClassVar[int]
-        VALUE_FIELD_NUMBER: _ClassVar[int]
-        serialization_format: str
-        value: str
-        def __init__(self, serialization_format: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
-    VALUE_FIELD_NUMBER: _ClassVar[int]
-    SERIALIZED_VALUE_FIELD_NUMBER: _ClassVar[int]
-    value: _struct_pb2.Value
-    serialized_value: Expectation.SerializedValue
-    def __init__(self, value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ..., serialized_value: _Optional[_Union[Expectation.SerializedValue, _Mapping]] = ...) -> None: ...
-
-class Feedback(_message.Message):
-    __slots__ = ("value", "error")
-    VALUE_FIELD_NUMBER: _ClassVar[int]
-    ERROR_FIELD_NUMBER: _ClassVar[int]
-    value: _struct_pb2.Value
-    error: AssessmentError
-    def __init__(self, value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ..., error: _Optional[_Union[AssessmentError, _Mapping]] = ...) -> None: ...
-
 class Assessment(_message.Message):
     __slots__ = ("assessment_id", "assessment_name", "trace_id", "trace_location", "span_id", "source", "create_time", "last_update_time", "feedback", "expectation", "rationale", "metadata", "overrides", "valid")
     class MetadataEntry(_message.Message):
@@ -336,16 +286,16 @@ class Assessment(_message.Message):
     trace_id: str
     trace_location: TraceLocation
     span_id: str
-    source: AssessmentSource
+    source: _assessments_pb2.AssessmentSource
     create_time: _timestamp_pb2.Timestamp
     last_update_time: _timestamp_pb2.Timestamp
-    feedback: Feedback
-    expectation: Expectation
+    feedback: _assessments_pb2.Feedback
+    expectation: _assessments_pb2.Expectation
     rationale: str
     metadata: _containers.ScalarMap[str, str]
     overrides: str
     valid: bool
-    def __init__(self, assessment_id: _Optional[str] = ..., assessment_name: _Optional[str] = ..., trace_id: _Optional[str] = ..., trace_location: _Optional[_Union[TraceLocation, _Mapping]] = ..., span_id: _Optional[str] = ..., source: _Optional[_Union[AssessmentSource, _Mapping]] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., last_update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., feedback: _Optional[_Union[Feedback, _Mapping]] = ..., expectation: _Optional[_Union[Expectation, _Mapping]] = ..., rationale: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ..., overrides: _Optional[str] = ..., valid: bool = ...) -> None: ...
+    def __init__(self, assessment_id: _Optional[str] = ..., assessment_name: _Optional[str] = ..., trace_id: _Optional[str] = ..., trace_location: _Optional[_Union[TraceLocation, _Mapping]] = ..., span_id: _Optional[str] = ..., source: _Optional[_Union[_assessments_pb2.AssessmentSource, _Mapping]] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., last_update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., feedback: _Optional[_Union[_assessments_pb2.Feedback, _Mapping]] = ..., expectation: _Optional[_Union[_assessments_pb2.Expectation, _Mapping]] = ..., rationale: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ..., overrides: _Optional[str] = ..., valid: bool = ...) -> None: ...
 
 class CreateAssessment(_message.Message):
     __slots__ = ("location_id", "assessment", "sql_warehouse_id")
