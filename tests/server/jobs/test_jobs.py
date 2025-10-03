@@ -53,6 +53,8 @@ def _setup_job_runner(monkeypatch, tmp_path, backend_store_uri=None):
         with _launch_job_runner_for_test() as job_runner_proc:
             yield job_runner_proc
     finally:
+        # close all db connections and drops connection pool
+        mlflow.server.handlers._job_store.engine.dispose()
         mlflow.server.handlers._job_store = None
 
 
