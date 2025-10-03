@@ -46,11 +46,13 @@ const ExperimentEvaluationDatasetsPageImpl = () => {
         onResizeStart={() => !datasetListHidden && setDragging(true)}
         onResizeStop={() => setDragging(false)}
       >
-        <ExperimentEvaluationDatasetsListTable
-          experimentId={experimentId}
-          selectedDataset={selectedDataset}
-          setSelectedDataset={setSelectedDataset}
-        />
+        <div css={{ display: datasetListHidden ? 'none' : 'flex', flex: 1 }}>
+          <ExperimentEvaluationDatasetsListTable
+            experimentId={experimentId}
+            selectedDataset={selectedDataset}
+            setSelectedDataset={setSelectedDataset}
+          />
+        </div>
       </ResizableBox>
       <div
         css={{
