@@ -13,6 +13,7 @@ Example:
 
 ```python
 import mlflow.anthropic
+from claude_agent_sdk import ClaudeSDKClient
 
 mlflow.anthropic.autolog()
 
