@@ -94,12 +94,6 @@ def f(app: Literal["fastapi", "flask"]) -> None:
     ...
 ```
 
-For older Python versions (< 3.8), you can import `Literal` from `typing_extensions`:
-
-```python
-from typing_extensions import Literal
-```
-
 ## Minimize Try-Catch Block Scope
 
 Wrap only the specific operations that can raise exceptions. Keep safe operations outside the try block to improve debugging and avoid masking unexpected errors.
