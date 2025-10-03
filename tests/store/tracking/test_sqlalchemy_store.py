@@ -98,7 +98,6 @@ from mlflow.store.tracking.dbmodels.models import (
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
-    TRACE_SCHEMA_VERSION_KEY,
     TraceMetadataKey,
 )
 from mlflow.tracing.utils import TraceJSONEncoder

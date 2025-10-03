@@ -57,9 +57,7 @@ def test_set_experiment_trace_location_with_default_experiment(mock_databricks_t
 
     with (
         mock.patch("mlflow.tracing.client.TracingClient") as mock_client_class,
-        mock.patch(
-            "mlflow.tracking.fluent._get_experiment_id", return_value=default_experiment_id
-        ),
+        mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value=default_experiment_id),
     ):
         mock_client = mock.MagicMock()
         mock_client_class.return_value = mock_client
@@ -117,9 +115,7 @@ def test_unset_experiment_trace_location_with_default_experiment(mock_databricks
 
     with (
         mock.patch("mlflow.tracing.client.TracingClient") as mock_client_class,
-        mock.patch(
-            "mlflow.tracking.fluent._get_experiment_id", return_value=default_experiment_id
-        ),
+        mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value=default_experiment_id),
     ):
         mock_client = mock.MagicMock()
         mock_client_class.return_value = mock_client
