@@ -1,5 +1,6 @@
 import {
   Checkbox,
+  Empty,
   Input,
   Modal,
   SearchIcon,
@@ -8,6 +9,7 @@ import {
   TableHeader,
   TableRow,
   TableSkeletonRows,
+  useDesignSystemTheme,
 } from '@databricks/design-system';
 import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { FormattedMessage } from 'react-intl';
@@ -20,6 +22,7 @@ import { getModelTraceId, ModelTrace } from '@mlflow/mlflow/src/shared/web-share
 import { compact } from 'lodash';
 import { extractDatasetInfoFromTraces } from '../utils/datasetUtils';
 import { useUpsertDatasetRecordsMutation } from '../hooks/useUpsertDatasetRecordsMutation';
+import { CreateEvaluationDatasetButton } from './CreateEvaluationDatasetButton';
 
 const CheckboxCell: ColumnDef<EvaluationDataset, string>['cell'] = ({ row }) => {
   return (
@@ -57,6 +60,7 @@ export const ExportTracesToDatasetModal = ({
   setVisible: (visible: boolean) => void;
   selectedTraceInfos: ModelTrace['info'][];
 }) => {
+  const { theme } = useDesignSystemTheme();
   const [isLoadingTraces, setIsLoadingTraces] = useState(true);
   const [datasetRowsToExport, setDatasetRowsToExport] = useState<any[]>([]);
   const [searchFilter, setSearchFilter] = useState('');
@@ -139,26 +143,46 @@ export const ExportTracesToDatasetModal = ({
       }
     >
       <div css={{ height: '500px', overflow: 'hidden' }}>
-        <Input
-          allowClear
-          placeholder="Search by dataset name"
-          value={internalSearchFilter}
-          onChange={(e) => {
-            setInternalSearchFilter(e.target.value);
-            if (!e.target.value) {
-              setSearchFilter(e.target.value);
-            }
-          }}
-          onClear={() => {
-            setInternalSearchFilter('');
-            setSearchFilter('');
-          }}
-          onPressEnter={() => setSearchFilter(internalSearchFilter)}
-          componentId="mlflow.eval-datasets.search-input"
-          css={{ flex: 1 }}
-          prefix={<SearchIcon />}
-        />
-        <Table scrollable onScroll={(e) => fetchMoreOnBottomReached(e.currentTarget as HTMLDivElement)}>
+        <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center', marginBottom: theme.spacing.sm }}>
+          <Input
+            allowClear
+            placeholder="Search by dataset name"
+            value={internalSearchFilter}
+            onChange={(e) => {
+              setInternalSearchFilter(e.target.value);
+              if (!e.target.value) {
+                setSearchFilter(e.target.value);
+              }
+            }}
+            onClear={() => {
+              setInternalSearchFilter('');
+              setSearchFilter('');
+            }}
+            onPressEnter={() => setSearchFilter(internalSearchFilter)}
+            componentId="mlflow.eval-datasets.search-input"
+            css={{ flex: 1 }}
+            prefix={<SearchIcon />}
+          />
+          <CreateEvaluationDatasetButton experimentId={experimentId} />
+        </div>
+        <Table
+          scrollable
+          onScroll={(e) => fetchMoreOnBottomReached(e.currentTarget as HTMLDivElement)}
+          empty={
+            !isLoadingDatasets &&
+            !isFetching &&
+            datasets.length === 0 && (
+              <Empty
+                description={
+                  <FormattedMessage
+                    defaultMessage="No evaluation datasets found"
+                    description="Empty state for the evaluation datasets page"
+                  />
+                }
+              />
+            )
+          }
+        >
           {isLoadingDatasets || isLoadingTraces ? (
             <TableSkeletonRows table={table} />
           ) : (
