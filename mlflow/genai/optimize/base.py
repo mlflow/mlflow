@@ -11,8 +11,8 @@ from mlflow.genai.evaluation.utils import (
 )
 from mlflow.genai.optimize.optimizers import (
     BasePromptOptimizer,
-    _DSPyGEPAOptimizer,
     _DSPyMIPROv2Optimizer,
+    _GEPAOptimizer,
 )
 from mlflow.genai.optimize.types import (
     LLMParams,
@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 
 _ALGORITHMS = {
     "DSPy/MIPROv2": _DSPyMIPROv2Optimizer,
-    "DSPy/GEPA": _DSPyGEPAOptimizer,
+    "GEPA": _GEPAOptimizer,
 }
 
 _logger = logging.getLogger(__name__)

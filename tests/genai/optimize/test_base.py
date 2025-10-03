@@ -230,11 +230,11 @@ def test_optimize_prompt_no_autolog(sample_prompt, sample_data):
 
 def test_optimize_prompt_gepa_algorithm(sample_prompt, sample_data):
     with patch(
-        "mlflow.genai.optimize.base._DSPyGEPAOptimizer.optimize",
+        "mlflow.genai.optimize.base._GEPAOptimizer.optimize",
         return_value=OptimizerOutput(
             final_eval_score=0.95,
             initial_eval_score=0.6,
-            optimizer_name="DSPy/GEPA",
+            optimizer_name="GEPA",
             optimized_prompt="optimized_by_gepa",
         ),
     ) as mock_optimizer:
@@ -243,14 +243,14 @@ def test_optimize_prompt_gepa_algorithm(sample_prompt, sample_data):
             prompt=f"prompts:/{sample_prompt.name}/{sample_prompt.version}",
             train_data=sample_data,
             scorers=[sample_scorer],
-            optimizer_config=OptimizerConfig(algorithm="DSPy/GEPA"),
+            optimizer_config=OptimizerConfig(algorithm="GEPA"),
         )
 
     assert isinstance(result, PromptOptimizationResult)
     assert result.prompt.name == sample_prompt.name
     assert result.prompt.version == sample_prompt.version + 1
     assert result.prompt.template == "optimized_by_gepa"
-    assert result.optimizer_name == "DSPy/GEPA"
+    assert result.optimizer_name == "GEPA"
     assert result.final_eval_score == 0.95
     assert result.initial_eval_score == 0.6
     assert mock_optimizer.call_count == 1
