@@ -78,14 +78,16 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --ignore-flavors \
-            --ignore=tests/projects \
-            --ignore=tests/examples \
-            --ignore=tests/evaluate \
-            --ignore=tests/optuna \
-            --ignore=tests/pyspark/optuna \
-            --ignore=tests/genai \
-            --ignore=tests/telemetry \
-            --ignore=tests/gateway \
-            tests
+          for i in {1..10}; do
+            pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+              --ignore-flavors \
+              --ignore=tests/projects \
+              --ignore=tests/examples \
+              --ignore=tests/evaluate \
+              --ignore=tests/optuna \
+              --ignore=tests/pyspark/optuna \
+              --ignore=tests/genai \
+              --ignore=tests/telemetry \
+              --ignore=tests/gateway \
+              tests
+          done
