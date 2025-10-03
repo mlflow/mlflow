@@ -8,8 +8,6 @@ standard tracking operations to the parent RestStore.
 import datetime
 import json
 import logging
-import os
-import time
 from decimal import Decimal
 from functools import partial
 
@@ -53,7 +51,7 @@ class DatabricksSqlStore(RestStore):
         if self._spark_session:
             try:
                 self._spark_session.stop()
-            except:
+            except Exception:
                 pass
             finally:
                 self._spark_session = None

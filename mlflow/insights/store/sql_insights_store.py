@@ -72,7 +72,7 @@ class SqlInsightsStore(InsightsStore):
         if table_name is None:
             table_name = SqlTraceInfo.__tablename__
 
-        census = Census(
+        return Census(
             metadata=CensusMetadata(
                 created_at=datetime.now(),
                 table_name=table_name,
@@ -84,8 +84,6 @@ class SqlInsightsStore(InsightsStore):
             operational_metrics=operational_metrics,
             quality_metrics=quality_metrics,
         )
-
-        return census
 
     def get_operational_metrics(
         self,

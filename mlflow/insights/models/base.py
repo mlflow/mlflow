@@ -30,6 +30,9 @@ class DatetimeFieldsMixin:
             datetime object
         """
         if isinstance(v, str):
+            # Handle 'Z' suffix (UTC timezone) by replacing with '+00:00'
+            if v.endswith("Z"):
+                v = v[:-1] + "+00:00"
             return datetime.fromisoformat(v)
         return v
 

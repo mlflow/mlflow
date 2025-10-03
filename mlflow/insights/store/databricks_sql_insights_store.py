@@ -433,7 +433,7 @@ class DatabricksSqlInsightsStore(DatabricksSqlStore, InsightsStore):
         )
 
         # Build census entity
-        census = Census(
+        return Census(
             metadata=CensusMetadata(
                 created_at=datetime.now(),
                 table_name=table_name,
@@ -445,6 +445,3 @@ class DatabricksSqlInsightsStore(DatabricksSqlStore, InsightsStore):
             operational_metrics=operational_metrics,
             quality_metrics=quality_metrics,
         )
-
-        # Return as JSON string using the model's serialization
-        return census
