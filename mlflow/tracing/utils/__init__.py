@@ -4,6 +4,7 @@ from __future__ import annotations
 import inspect
 import json
 import logging
+import os
 import uuid
 from collections import Counter, defaultdict
 from contextlib import contextmanager
@@ -677,3 +678,25 @@ def construct_trace_id_v4(location: str, trace_id: str) -> str:
     Construct a trace ID for the given location and trace ID.
     """
     return f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}"
+
+
+
+def get_trace_location_from_env() -> TraceLocation | None:
+    """
+    Get trace location from `MLFLOW_TRACING_LOCATION` environment variable.
+    """
+    from mlflow.entities.trace_location import TraceLocation
+
+    if location := os.getenv("MLFLOW_TRACING_LOCATION"):
+        match location.split("."):
+            case [catalog_name, schema_name]:
+                return TraceLocation.from_databricks_uc_schema(catalog_name, schema_name)
+            case [experiment_id]:
+                return TraceLocation.from_experiment_id(experiment_id)
+            case _:
+                raise MlflowException.invalid_parameter_value(
+                    "Failed to parse trace location from MLFLOW_TRACING_LOCATION "
+                    f"environment variable. Expected format: <catalog_name>.<schema_name> or "
+                    f"<experiment_id>"
+                )
+    return None
