@@ -1,5 +1,5 @@
-from unittest.mock import MagicMock, Mock, patch
 import sys
+from unittest.mock import MagicMock, Mock, patch
 
 import pandas as pd
 import pytest
@@ -33,6 +33,7 @@ def sample_prompt():
 
 class MockGEPAAdapter:
     pass
+
 
 @scorer
 def sample_scorer(inputs, outputs, expectations):
@@ -181,4 +182,4 @@ def test_extract_eval_scores():
     initial_score, final_score = optimizer._extract_eval_scores(mock_result)
 
     assert initial_score == 0.5  # First score
-    assert final_score == 0.9    # Max score
+    assert final_score == 0.9  # Max score

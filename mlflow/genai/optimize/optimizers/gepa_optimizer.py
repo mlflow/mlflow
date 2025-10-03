@@ -1,5 +1,5 @@
-from concurrent.futures import ThreadPoolExecutor
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any
 
 from mlflow.entities.model_registry import PromptVersion
@@ -11,8 +11,8 @@ from mlflow.genai.scorers import Scorer
 from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
-    import pandas as pd
     import gepa
+    import pandas as pd
 
 _logger = logging.getLogger(__name__)
 
@@ -65,11 +65,7 @@ class _GEPAOptimizer(BasePromptOptimizer):
         # Convert DataFrame to list of dictionaries for GEPA
         # Expected format: [{"inputs": {...}, "expected_outputs": ...}, ...]
         train_list = train_data.to_dict("records")
-        eval_list = (
-            eval_data.to_dict("records")
-            if eval_data is not None
-            else None
-        )
+        eval_list = eval_data.to_dict("records") if eval_data is not None else None
 
         # Create GEPA adapter using MLflow scorers
         adapter = self._create_gepa_adapter(
@@ -149,10 +145,16 @@ class _GEPAOptimizer(BasePromptOptimizer):
                 """
                 prompt_template = candidate.get("prompt", self.prompt.template)
 
-                with ThreadPoolExecutor(max_workers=MLFLOW_GENAI_EVAL_MAX_WORKERS.get(), thread_name_prefix="GEPAOptimizer") as executor:
-                    future_to_example = [executor.submit(self._evaluate_single_example, prompt_template, record) for record in batch]
+                with ThreadPoolExecutor(
+                    max_workers=MLFLOW_GENAI_EVAL_MAX_WORKERS.get(),
+                    thread_name_prefix="GEPAOptimizer",
+                ) as executor:
+                    future_to_example = [
+                        executor.submit(self._evaluate_single_example, prompt_template, record)
+                        for record in batch
+                    ]
                     results = [future.result() for future in future_to_example]
-                
+
                 outputs = [result["output"] for result in results]
                 scores = [result["score"] for result in results]
 
@@ -160,23 +162,39 @@ class _GEPAOptimizer(BasePromptOptimizer):
                 return gepa.EvaluationBatch(
                     outputs=outputs, scores=scores, trajectories=results if capture_traces else None
                 )
-            
-            def _evaluate_single_example(self, prompt_template: str, record: dict[str, Any]) -> float:
+
+            def _evaluate_single_example(
+                self, prompt_template: str, record: dict[str, Any]
+            ) -> float:
                 from mlflow.genai.prompts.utils import format_prompt
 
                 inputs = record.get("inputs", {})
                 filled_prompt = format_prompt(prompt_template, **inputs)
-                expectations = record.get("expectations", None)
+                expectations = record.get("expectations")
                 outputs = self._call_llm(filled_prompt)
                 score = self._metric(inputs, outputs, expectations, self.scorers, self.objective)
 
-                return {"inputs": inputs, "output": outputs, "expectations": expectations, "score": score}
+                return {
+                    "inputs": inputs,
+                    "output": outputs,
+                    "expectations": expectations,
+                    "score": score,
+                }
 
-            def _metric(self, inputs: dict[str, Any], outputs: dict[str, Any], expectations: dict[str, Any], scorers: list[Scorer], objective: ObjectiveFn | None) -> float:
+            def _metric(
+                self,
+                inputs: dict[str, Any],
+                outputs: dict[str, Any],
+                expectations: dict[str, Any],
+                scorers: list[Scorer],
+                objective: ObjectiveFn | None,
+            ) -> float:
                 scores = {}
 
                 for scorer in scorers:
-                    scores[scorer.name] = scorer.run(inputs=inputs, outputs=outputs, expectations=expectations)
+                    scores[scorer.name] = scorer.run(
+                        inputs=inputs, outputs=outputs, expectations=expectations
+                    )
                 if objective is not None:
                     return objective(scores)
                 elif all(isinstance(score, (int, float, bool)) for score in scores.values()):
@@ -187,8 +205,8 @@ class _GEPAOptimizer(BasePromptOptimizer):
                         k for k, v in scores.items() if not isinstance(v, (int, float, bool))
                     ]
                     raise MlflowException(
-                        f"Scorer [{','.join(non_numerical_scorers)}] return a string, Assessment or a "
-                        "list of Assessment. Please provide `objective` function to aggregate "
+                        f"Scorer [{','.join(non_numerical_scorers)}] return a string, Assessment or"
+                        " a list of Assessment. Please provide `objective` function to aggregate "
                         "non-numerical values into a single value for optimization."
                     )
 
@@ -260,7 +278,7 @@ class _GEPAOptimizer(BasePromptOptimizer):
             final_score = max(scores)
 
         return initial_score, final_score
-    
+
     def _display_optimization_result(self, initial_score: float | None, final_score: float | None):
         if final_score is None:
             return
