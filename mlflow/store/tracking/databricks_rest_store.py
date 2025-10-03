@@ -289,25 +289,26 @@ class DatabricksTracingRestStore(RestStore):
             # 1. Server does not support SearchTracesV4 API yet.
             # 2. Server supports V4 API but the experiment location is not supported yet.
             # For these known cases, MLflow fallback to V3 API.
-            should_fallback = False
             if e.error_code == ErrorCode.Name(ENDPOINT_NOT_FOUND):
-                should_fallback = True
+                if contain_uc_schemas:
+                    raise MlflowException.invalid_parameter_value(
+                        "Searching traces in UC tables is not supported yet. Only experiment IDs "
+                        "are supported for searching traces."
+                    )
                 _logger.debug("SearchTracesV4 API is not available yet. Falling back to V3 API.")
             elif (
                 e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
                 and "locations not yet supported" in e.message
             ):
-                should_fallback = True
+                if contain_uc_schemas:
+                    raise MlflowException.invalid_parameter_value(
+                        "The `locations` parameter cannot contain both MLflow experiment and UC "
+                        "schema in the same request. Please specify only one type of location "
+                        "at a time."
+                    )
                 _logger.debug("Experiment locations are not supported yet. Falling back to V3 API.")
-
-            if not should_fallback:
-                raise e
-
-            if contain_uc_schemas:
-                raise MlflowException.invalid_parameter_value(
-                    "Searching traces in UC tables is not available yet. Only experiment IDs "
-                    "are supported for searching traces."
-                )
+            else:
+                raise
 
             return self._search_traces(
                 locations=locations,

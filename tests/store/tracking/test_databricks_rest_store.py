@@ -37,7 +37,6 @@ from mlflow.protos.databricks_tracing_pb2 import (
     GetAssessment,
     GetTraceInfo,
     LinkExperimentToUCTraceLocation,
-    SearchTraces,
     SetTraceTag,
     UnLinkExperimentToUCTraceLocation,
 )
@@ -51,7 +50,6 @@ from mlflow.utils.databricks_tracing_utils import (
     assessment_to_proto,
     trace_info_to_proto,
     trace_location_from_databricks_uc_schema,
-    trace_location_to_proto,
     trace_to_proto,
 )
 from mlflow.utils.proto_json_utils import message_to_json
@@ -591,90 +589,52 @@ def test_search_traces_experiment_id(exception):
     assert token == "token"
 
 
-def test_search_traces_with_mixed_locations():
+@pytest.mark.parametrize(
+    "exception",
+    [
+        # Workspace where SearchTracesV4 is not supported yet
+        RestException(
+            json={
+                "error_code": databricks_pb2.ErrorCode.Name(databricks_pb2.ENDPOINT_NOT_FOUND),
+                "message": "Not found",
+            }
+        ),
+        # V4 endpoint does not support searching by experiment ID (yet)
+        RestException(
+            json={
+                "error_code": databricks_pb2.ErrorCode.Name(databricks_pb2.INVALID_PARAMETER_VALUE),
+                "message": "MLFLOW_EXPERIMENT locations not yet supported",
+            }
+        ),
+    ],
+)
+def test_search_traces_with_mixed_locations(exception):
     creds = MlflowHostCreds("https://hello")
     store = DatabricksTracingRestStore(lambda: creds)
-    response = mock.MagicMock()
-    response.status_code = 200
-
-    # Format the response
-    response.text = json.dumps(
-        {
-            "trace_infos": [
-                {
-                    "trace_id": "tr-1234",
-                    "trace_location": {
-                        "type": "MLFLOW_EXPERIMENT",
-                        "mlflow_experiment": {"experiment_id": "1234"},
-                    },
-                    "request_time": "1970-01-01T00:00:00.123Z",
-                    "execution_duration_ms": 456,
-                    "state": "OK",
-                    "trace_metadata": {"key": "value"},
-                    "tags": {"k": "v"},
-                }
-            ],
-            "next_page_token": "token",
-        }
+    expected_error_message = (
+        "Searching traces in UC tables is not supported yet."
+        if exception.error_code == databricks_pb2.ErrorCode.Name(databricks_pb2.ENDPOINT_NOT_FOUND)
+        else "The `locations` parameter cannot contain both MLflow experiment and UC schema "
     )
 
-    # Parameters for search_traces
-    filter_string = "state = 'OK'"
-    max_results = 10
-    order_by = ["request_time DESC"]
-    page_token = "12345abcde"
-    locations = ["1234", "catalog.schema"]
-    trace_locations = []
-    for location in locations:
-        if "." not in location:
-            trace_locations.append(
-                trace_location_to_proto(TraceLocation.from_experiment_id(location))
-            )
-        else:
-            catalog, schema = location.split(".")
-            trace_locations.append(
-                trace_location_to_proto(trace_location_from_databricks_uc_schema(catalog, schema))
+    with mock.patch("mlflow.utils.rest_utils.http_request", side_effect=exception) as mock_http:
+        with pytest.raises(MlflowException, match=expected_error_message):
+            store.search_traces(
+                filter_string="state = 'OK'",
+                locations=["1", "catalog.schema"],
             )
 
-    expected_request = SearchTraces(
-        locations=trace_locations,
-        filter=filter_string,
-        max_results=max_results,
-        order_by=order_by,
-        page_token=page_token,
-    )
+    # V4 endpoint should be called first. Not fallback to V3 because location includes UC schema.
+    mock_http.assert_called_once()
+    call_args = mock_http.call_args[1]
+    assert call_args["endpoint"] == f"{_V4_TRACE_REST_API_PATH_PREFIX}/search"
 
-    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
-        trace_infos, token = store.search_traces(
-            filter_string=filter_string,
-            max_results=max_results,
-            order_by=order_by,
-            page_token=page_token,
-            locations=locations,
-        )
-
-        _verify_requests(
-            mock_http,
-            creds,
-            "traces/search",
-            "POST",
-            message_to_json(expected_request),
-            version="4.0",
-        )
-
-    # Verify the correct parameters were passed and the correct trace info objects were returned
-    # for either endpoint
-    assert len(trace_infos) == 1
-    assert isinstance(trace_infos[0], TraceInfo)
-    assert trace_infos[0].trace_id == "tr-1234"
-    assert trace_infos[0].experiment_id == "1234"
-    assert trace_infos[0].request_time == 123
-    # V3's state maps to V2's status
-    assert trace_infos[0].state == TraceStatus.OK.to_state()
-    # This is correct because TraceInfoV3.from_proto converts the repeated field tags to a dict
-    assert trace_infos[0].tags == {"k": "v"}
-    assert trace_infos[0].trace_metadata == {"key": "value", "mlflow.trace_schema.version": "3"}
-    assert token == "token"
+    json_body = call_args["json"]
+    assert "locations" in json_body
+    assert len(json_body["locations"]) == 2
+    assert json_body["locations"][0]["mlflow_experiment"]["experiment_id"] == "1"
+    assert json_body["locations"][1]["uc_schema"]["catalog_name"] == "catalog"
+    assert json_body["locations"][1]["uc_schema"]["schema_name"] == "schema"
 
 
 def test_search_traces_does_not_fallback_when_uc_schemas_are_specified():
@@ -689,7 +649,7 @@ def test_search_traces_does_not_fallback_when_uc_schemas_are_specified():
     with mock.patch("mlflow.utils.rest_utils.http_request", side_effect=mock_http_request):
         with pytest.raises(
             MlflowException,
-            match="Searching traces in UC tables is not available yet.",
+            match="Searching traces in UC tables is not supported yet.",
         ):
             store.search_traces(locations=["catalog.schema"])
 
