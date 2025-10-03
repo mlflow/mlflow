@@ -3235,6 +3235,10 @@
     "defaultMessage": "Move down",
     "description": "Experiment page > compare runs tab > chart header > move down option"
   },
+  "ZBRK9J": {
+    "defaultMessage": "Export traces to datasets",
+    "description": "Export traces to dataset modal title"
+  },
   "ZGrkWk": {
     "defaultMessage": "Perform inference via model.transform()",
     "description": "Code comment which states how we can perform SparkML inference"
@@ -3350,6 +3354,10 @@
   "a0NgR8": {
     "defaultMessage": "Type",
     "description": "Header for \"type\" column in the UC table schema"
+  },
+  "a1liZ7": {
+    "defaultMessage": "Export",
+    "description": "Export traces to dataset modal action button"
   },
   "a6bpXQ": {
     "defaultMessage": "{numRootCause}/{numEvals} ({percentage}%) runs failed due to the {assessment} judge failing for the current run \"{currentRun}\".",
