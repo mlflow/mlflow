@@ -1,10 +1,8 @@
-import asyncio
 import json
 import logging
 
 import pytest
 
-from mlflow.claude_code.hooks import sdk_stop_hook_handler
 from mlflow.claude_code.tracing import (
     CLAUDE_TRACING_LEVEL,
     get_hook_response,
@@ -13,8 +11,6 @@ from mlflow.claude_code.tracing import (
     setup_logging,
 )
 from mlflow.entities.span import SpanType
-
-from tests.tracing.helper import get_traces
 
 # ============================================================================
 # TIMESTAMP PARSING TESTS
@@ -163,35 +159,21 @@ def mock_transcript_file(tmp_path):
     return str(transcript_path)
 
 
-@pytest.mark.asyncio
-def test_sdk_stop_hook_handler_creates_trace(mock_transcript_file):
-    from mlflow.claude_code.hooks import sdk_stop_hook_handler
+def test_process_transript_creates_trace(mock_transcript_file):
+    trace = process_transcript(mock_transcript_file, "test-session-123")
 
-    async def test():
-        input_data = {
-            "session_id": "test-session-123",
-            "transcript_path": mock_transcript_file,
-        }
+    # Verify trace was created
+    assert trace is not None
 
-        result = await sdk_stop_hook_handler(input_data, None, None)
-        assert result["continue"] is True
+    # Verify trace has spans
+    spans = list(trace.search_spans())
+    assert len(spans) > 0
 
-        # Verify trace was created
-        traces = get_traces()
-        assert len(traces) == 1
-        trace = traces[0]
-
-        # Verify trace has spans
-        spans = list(trace.search_spans())
-        assert len(spans) > 0
-
-        # Verify root span and metadata
-        root_span = trace.data.spans[0]
-        assert root_span.name == "claude_code_conversation"
-        assert root_span.span_type == SpanType.AGENT
-        assert trace.info.trace_metadata.get("mlflow.trace.session") == "test-session-123"
-
-    asyncio.run(test())
+    # Verify root span and metadata
+    root_span = trace.data.spans[0]
+    assert root_span.name == "claude_code_conversation"
+    assert root_span.span_type == SpanType.AGENT
+    assert trace.info.trace_metadata.get("mlflow.trace.session") == "test-session-123"
 
 
 def test_process_transcript_creates_spans(mock_transcript_file):
@@ -215,16 +197,6 @@ def test_process_transcript_creates_spans(mock_transcript_file):
     assert tool_span.name == "tool_Bash"
 
 
-@pytest.mark.asyncio
-def test_sdk_stop_hook_handler_handles_missing_transcript():
-    async def test():
-        input_data = {
-            "session_id": "test-session-123",
-            "transcript_path": "/nonexistent/path/transcript.jsonl",
-        }
-
-        result = await sdk_stop_hook_handler(input_data, None, None)
-        assert result["continue"] is False
-        assert "stopReason" in result
-
-    asyncio.run(test())
+def test_process_transcript_throws_exception_for_nonexistent_file():
+    with pytest.raises(Exception, match="Failed to read transcript"):
+        process_transcript("/nonexistent/path/transcript.jsonl", "test-session-123")
