@@ -16,6 +16,20 @@ CREATE TABLE entity_associations (
 )
 
 
+CREATE TABLE evaluation_datasets (
+	dataset_id VARCHAR(36) NOT NULL,
+	name VARCHAR(255) NOT NULL,
+	schema TEXT,
+	profile TEXT,
+	digest VARCHAR(64),
+	created_time BIGINT,
+	last_update_time BIGINT,
+	created_by VARCHAR(255),
+	last_updated_by VARCHAR(255),
+	CONSTRAINT evaluation_datasets_pk PRIMARY KEY (dataset_id)
+)
+
+
 CREATE TABLE experiments (
 	experiment_id INTEGER DEFAULT nextval('experiments_experiment_id_seq'::regclass) NOT NULL,
 	name VARCHAR(256) NOT NULL,
@@ -45,6 +59,20 @@ CREATE TABLE inputs (
 	destination_id VARCHAR(36) NOT NULL,
 	step BIGINT DEFAULT '0'::bigint NOT NULL,
 	CONSTRAINT inputs_pk PRIMARY KEY (source_type, source_id, destination_type, destination_id)
+)
+
+
+CREATE TABLE jobs (
+	id VARCHAR(36) NOT NULL,
+	creation_time BIGINT NOT NULL,
+	function_fullname VARCHAR(500) NOT NULL,
+	params TEXT NOT NULL,
+	timeout DOUBLE PRECISION,
+	status INTEGER NOT NULL,
+	result TEXT,
+	retry_count INTEGER NOT NULL,
+	last_update_time BIGINT NOT NULL,
+	CONSTRAINT jobs_pk PRIMARY KEY (id)
 )
 
 
@@ -82,6 +110,36 @@ CREATE TABLE datasets (
 	dataset_profile TEXT,
 	CONSTRAINT dataset_pk PRIMARY KEY (experiment_id, name, digest),
 	CONSTRAINT fk_datasets_experiment_id_experiments FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE evaluation_dataset_records (
+	dataset_record_id VARCHAR(36) NOT NULL,
+	dataset_id VARCHAR(36) NOT NULL,
+	inputs JSON NOT NULL,
+	expectations JSON,
+	tags JSON,
+	source JSON,
+	source_id VARCHAR(36),
+	source_type VARCHAR(255),
+	created_time BIGINT,
+	last_update_time BIGINT,
+	created_by VARCHAR(255),
+	last_updated_by VARCHAR(255),
+	input_hash VARCHAR(64) NOT NULL,
+	outputs JSON,
+	CONSTRAINT evaluation_dataset_records_pk PRIMARY KEY (dataset_record_id),
+	CONSTRAINT fk_evaluation_dataset_records_dataset_id FOREIGN KEY(dataset_id) REFERENCES evaluation_datasets (dataset_id) ON DELETE CASCADE,
+	CONSTRAINT unique_dataset_input UNIQUE (dataset_id, input_hash)
+)
+
+
+CREATE TABLE evaluation_dataset_tags (
+	dataset_id VARCHAR(36) NOT NULL,
+	key VARCHAR(255) NOT NULL,
+	value VARCHAR(5000),
+	CONSTRAINT evaluation_dataset_tags_pk PRIMARY KEY (dataset_id, key),
+	CONSTRAINT fk_evaluation_dataset_tags_dataset_id FOREIGN KEY(dataset_id) REFERENCES evaluation_datasets (dataset_id) ON DELETE CASCADE
 )
 
 

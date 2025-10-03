@@ -1,5 +1,5 @@
 # GENERATED FILE. PLEASE DON'T MODIFY.
-# Run python3 ./dev/proto_to_graphql/code_generator.py to regenerate.
+# Run uv run ./dev/proto_to_graphql/code_generator.py to regenerate.
 import graphene
 import mlflow
 from mlflow.server.graphql.graphql_custom_scalars import LongString

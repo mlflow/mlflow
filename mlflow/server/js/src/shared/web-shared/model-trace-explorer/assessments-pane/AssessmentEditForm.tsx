@@ -16,6 +16,7 @@ import { getUser } from '@databricks/web-shared/global-settings';
 
 import type { AssessmentFormInputDataType } from './AssessmentsPane.utils';
 import { getCreateAssessmentPayloadValue } from './AssessmentsPane.utils';
+import { getAssessmentValue } from './utils';
 import type { Assessment } from '../ModelTrace.types';
 import type { UpdateAssessmentPayload } from '../api';
 import { useOverrideAssessment } from '../hooks/useOverrideAssessment';
@@ -59,18 +60,6 @@ const getDefaultValue = (value: any): string | boolean | number | null => {
     return value;
   }
   return null;
-};
-
-const getAssessmentValue = (assessment: Assessment) => {
-  if ('feedback' in assessment) {
-    return assessment.feedback.value;
-  }
-
-  if ('value' in assessment.expectation) {
-    return assessment.expectation.value;
-  }
-
-  return assessment.expectation.serialized_value.value;
 };
 
 export const AssessmentEditForm = ({

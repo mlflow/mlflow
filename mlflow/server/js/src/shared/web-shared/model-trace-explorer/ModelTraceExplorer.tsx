@@ -4,20 +4,22 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { Tabs, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
-import { shouldEnableSummaryView } from './FeatureUtils';
+import { getLargeTraceDisplaySizeThreshold, shouldBlockLargeTraceDisplay } from './FeatureUtils';
 import type { ModelTrace } from './ModelTrace.types';
-import { getModelTraceId } from './ModelTraceExplorer.utils';
+import { getModelTraceId, getModelTraceSize } from './ModelTraceExplorer.utils';
 import { ModelTraceExplorerDetailView } from './ModelTraceExplorerDetailView';
 import { ModelTraceExplorerErrorState } from './ModelTraceExplorerErrorState';
-import { ModelTraceExplorerSkeleton } from './ModelTraceExplorerSkeleton';
+import { ModelTraceExplorerGenericErrorState } from './ModelTraceExplorerGenericErrorState';
+import { ModelTraceExplorerTraceTooLargeView } from './ModelTraceExplorerTraceTooLargeView';
 import {
   ModelTraceExplorerViewStateProvider,
   useModelTraceExplorerViewState,
 } from './ModelTraceExplorerViewStateContext';
 import { useGetModelTraceInfoV3 } from './hooks/useGetModelTraceInfoV3';
 import { ModelTraceExplorerSummaryView } from './summary-view/ModelTraceExplorerSummaryView';
+import { ModelTraceHeaderDetails } from './ModelTraceHeaderDetails';
 
-const ModelTraceExplorerImpl = ({
+const ModelTraceExplorerContent = ({
   modelTrace,
   className,
   selectedSpanId,
@@ -29,21 +31,7 @@ const ModelTraceExplorerImpl = ({
   onSelectSpan?: (selectedSpanId?: string) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const enableSummaryView = shouldEnableSummaryView();
   const { activeView, setActiveView } = useModelTraceExplorerViewState();
-
-  if (!enableSummaryView) {
-    return (
-      <div css={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-        <ModelTraceExplorerDetailView
-          modelTrace={modelTrace}
-          className={className}
-          selectedSpanId={selectedSpanId}
-          onSelectSpan={onSelectSpan}
-        />
-      </div>
-    );
-  }
 
   return (
     <Tabs.Root
@@ -51,7 +39,7 @@ const ModelTraceExplorerImpl = ({
       value={activeView}
       onValueChange={(value) => setActiveView(value as 'summary' | 'detail')}
       css={{
-        '& > div:first-of-type': {
+        '& > div:nth-of-type(2)': {
           marginBottom: 0,
           flexShrink: 0,
         },
@@ -61,6 +49,9 @@ const ModelTraceExplorerImpl = ({
         overflow: 'hidden',
       }}
     >
+      <div css={{ paddingLeft: theme.spacing.md, paddingBottom: theme.spacing.sm }}>
+        <ModelTraceHeaderDetails modelTrace={modelTrace} />
+      </div>
       <Tabs.List css={{ paddingLeft: theme.spacing.md, flexShrink: 0 }}>
         <Tabs.Trigger value="summary">
           <FormattedMessage
@@ -110,10 +101,10 @@ const ContextProviders = ({ children }: { traceId: string; children: React.React
   return <ErrorBoundary fallbackRender={ModelTraceExplorerErrorState}>{children}</ErrorBoundary>;
 };
 
-export const ModelTraceExplorer = ({
+export const ModelTraceExplorerImpl = ({
   modelTrace: initialModelTrace,
   className,
-  initialActiveView = 'summary',
+  initialActiveView,
   selectedSpanId,
   onSelectSpan,
 }: {
@@ -124,13 +115,19 @@ export const ModelTraceExplorer = ({
   onSelectSpan?: (selectedSpanId?: string) => void;
 }) => {
   const [modelTrace, setModelTrace] = useState(initialModelTrace);
-  const [assessmentsPaneEnabled, setAssessmentsPaneEnabled] = useState(true);
+  const [forceDisplay, setForceDisplay] = useState(false);
   const traceId = getModelTraceId(initialModelTrace);
+  // older traces don't have a size, so we default to 0 to always display them
+  const size = getModelTraceSize(initialModelTrace) ?? 0;
+  // always displayable if the feature flag is disabled
+  const isDisplayable = shouldBlockLargeTraceDisplay() ? size < getLargeTraceDisplaySizeThreshold() : true;
+  const [assessmentsPaneEnabled, setAssessmentsPaneEnabled] = useState(traceId.startsWith('tr-'));
 
   useGetModelTraceInfoV3({
     traceId,
     setModelTrace,
     setAssessmentsPaneEnabled,
+    enabled: isDisplayable && traceId.startsWith('tr-'),
   });
 
   useEffect(() => {
@@ -138,6 +135,10 @@ export const ModelTraceExplorer = ({
     // reset the model trace when the traceId changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [traceId]);
+
+  if (!isDisplayable && !forceDisplay) {
+    return <ModelTraceExplorerTraceTooLargeView traceId={traceId} setForceDisplay={setForceDisplay} />;
+  }
 
   return (
     <ContextProviders traceId={traceId}>
@@ -147,7 +148,7 @@ export const ModelTraceExplorer = ({
         selectedSpanIdOnRender={selectedSpanId}
         assessmentsPaneEnabled={assessmentsPaneEnabled}
       >
-        <ModelTraceExplorerImpl
+        <ModelTraceExplorerContent
           modelTrace={modelTrace}
           className={className}
           selectedSpanId={selectedSpanId}
@@ -158,4 +159,4 @@ export const ModelTraceExplorer = ({
   );
 };
 
-ModelTraceExplorer.Skeleton = ModelTraceExplorerSkeleton;
+export const ModelTraceExplorer = ModelTraceExplorerImpl;

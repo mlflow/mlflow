@@ -48,6 +48,8 @@ _UC_OSS_REST_API_PATH_PREFIX = "/api/2.1"
 _TRACE_REST_API_PATH_PREFIX = f"{_REST_API_PATH_PREFIX}/mlflow/traces"
 _V3_REST_API_PATH_PREFIX = "/api/3.0"
 _V3_TRACE_REST_API_PATH_PREFIX = f"{_V3_REST_API_PATH_PREFIX}/mlflow/traces"
+_V4_REST_API_PATH_PREFIX = "/api/4.0"
+_V4_TRACE_REST_API_PATH_PREFIX = f"{_V4_REST_API_PATH_PREFIX}/mlflow/traces"
 _ARMERIA_OK = "200 OK"
 _DATABRICKS_SDK_RETRY_AFTER_SECS_DEPRECATION_WARNING = (
     "The 'retry_after_secs' parameter of DatabricksError is deprecated"
@@ -92,7 +94,7 @@ def http_request(
             in retry_codes range and retries have been exhausted.
         respect_retry_after_header: Whether to respect Retry-After header on status codes defined
             as Retry.RETRY_AFTER_STATUS_CODES or not.
-        retry_timeout_seconds: Timeout for retires. Only effective when using Databricks SDK.
+        retry_timeout_seconds: Timeout for retries. Only effective when using Databricks SDK.
         kwargs: Additional keyword arguments to pass to `requests.Session.request()`
 
     Returns:
@@ -109,6 +111,12 @@ def http_request(
     backoff_jitter = (
         MLFLOW_HTTP_REQUEST_BACKOFF_JITTER.get() if backoff_jitter is None else backoff_jitter
     )
+
+    from mlflow.tracking.request_header.registry import resolve_request_headers
+
+    headers = dict(**resolve_request_headers())
+    if extra_headers:
+        headers = dict(**headers, **extra_headers)
 
     if host_creds.use_databricks_sdk:
         from databricks.sdk.errors import DatabricksError
@@ -134,7 +142,7 @@ def http_request(
                 raw_response = ws_client.api_client.do(
                     method=method,
                     path=endpoint,
-                    headers=extra_headers,
+                    headers=headers,
                     raw=True,
                     query=kwargs.get("params"),
                     body=kwargs.get("json"),
@@ -203,12 +211,6 @@ def http_request(
             f"'{MLFLOW_ENABLE_DB_SDK.name}' to true",
             error_code=CUSTOMER_UNAUTHORIZED,
         )
-
-    from mlflow.tracking.request_header.registry import resolve_request_headers
-
-    headers = dict(**resolve_request_headers())
-    if extra_headers:
-        headers = dict(**headers, **extra_headers)
 
     if auth_str:
         headers["Authorization"] = auth_str
@@ -503,6 +505,13 @@ def get_single_trace_endpoint(request_id, use_v3=True):
     return f"{_TRACE_REST_API_PATH_PREFIX}/{request_id}"
 
 
+def get_single_trace_endpoint_v4(location: str, trace_id: str) -> str:
+    """
+    Get the endpoint for a single trace using the V4 API.
+    """
+    return f"{_V4_TRACE_REST_API_PATH_PREFIX}/{location}/{trace_id}"
+
+
 def get_logged_model_endpoint(model_id: str) -> str:
     return f"{_REST_API_PATH_PREFIX}/mlflow/logged-models/{model_id}"
 
@@ -666,6 +675,9 @@ class MlflowHostCreds:
         if isinstance(other, self.__class__):
             return self.__dict__ == other.__dict__
         return NotImplemented
+
+    def __hash__(self):
+        return hash(frozenset(self.__dict__.items()))
 
     @property
     def verify(self):

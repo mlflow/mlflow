@@ -1,5 +1,6 @@
 import json
 import logging
+import warnings
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -31,8 +32,11 @@ def set_retriever_schema(
     """
     Specify the return schema of a retriever span within your agent or generative AI app code.
 
+    .. deprecated:: 3.3.2
+        This function is deprecated and will be removed in a future version.
+
     **Note**: MLflow recommends that your retriever return the default MLflow retriever output
-    schema described in https://mlflow.org/docs/latest/tracing/tracing-schema#retriever-spans,
+    schema described in https://mlflow.org/docs/latest/genai/data-model/traces/#retriever-spans,
     in which case you do not need to call `set_retriever_schema`. APIs that read MLflow traces
     and look for retriever spans, such as MLflow evaluation, will automatically detect retriever
     spans that match MLflow's default retriever schema.
@@ -82,6 +86,17 @@ def set_retriever_schema(
                 name="my_custom_retriever",
             )
     """
+    warnings.warn(
+        "set_retriever_schema is deprecated and will be removed in a future version. "
+        "Please migrate to use VectorSearchRetrieverTool in the 'databricks-ai-bridge' package, "
+        "or match the default schema so your retriever spans can be detected without requiring "
+        "explicit configuration. See "
+        "https://mlflow.org/docs/latest/genai/data-model/traces/#retriever-spans "
+        "for more information.",
+        category=FutureWarning,
+        stacklevel=2,
+    )
+
     retriever_schemas = globals().get(DependenciesSchemasType.RETRIEVERS.value, [])
 
     # Check if a retriever schema with the same name already exists

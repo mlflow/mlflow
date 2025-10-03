@@ -10,8 +10,8 @@ import { getExperimentKindFromTags } from '@mlflow/mlflow/src/experiment-trackin
 import { ExperimentKind } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { TracesViewTableNoTracesQuickstart } from '../../../traces/quickstart/TracesViewTableNoTracesQuickstart';
 
-export const TracesV3EmptyState = (props: { experimentIds: string[] }) => {
-  const { experimentIds } = props;
+export const TracesV3EmptyState = (props: { experimentIds: string[]; loggedModelId?: string }) => {
+  const { experimentIds, loggedModelId } = props;
 
   const intl = useIntl();
 
@@ -23,6 +23,7 @@ export const TracesV3EmptyState = (props: { experimentIds: string[] }) => {
     experimentId: experimentIds[0],
     pageSize: 1,
     limit: 1,
+    ...(loggedModelId ? { filterByLoggedModelId: loggedModelId } : {}),
   });
 
   // check experiment tags to see if it's genai or custom

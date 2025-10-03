@@ -1,3 +1,24 @@
+/* Define color variables matching TileCard blues */
+:root {
+  --concept-primary: #0194e2;
+  --concept-primary-dark: #0066cc;
+  --concept-primary-light: rgba(1, 148, 226, 0.3);
+  --concept-primary-lightest: rgba(1, 148, 226, 0.1);
+  --concept-border: var(--ifm-border-color);
+  --concept-text-primary: var(--ifm-color-emphasis-900);
+  --concept-text-secondary: var(--ifm-color-emphasis-700);
+}
+
+:global([data-theme='dark']) {
+  --concept-primary: #0194e2;
+  --concept-primary-dark: #5cb7cc;
+  --concept-primary-light: rgba(1, 148, 226, 0.3);
+  --concept-primary-lightest: rgba(1, 148, 226, 0.15);
+  --concept-border: var(--ifm-border-color);
+  --concept-text-primary: var(--ifm-color-emphasis-900);
+  --concept-text-secondary: var(--ifm-color-emphasis-700);
+}
+
 .conceptOverview {
   margin: 2rem 0;
 }
@@ -5,7 +26,7 @@
 .overviewTitle {
   font-size: 1.25rem;
   margin-bottom: 1.5rem;
-  color: var(--ifm-color-emphasis-900);
+  color: var(--concept-text-primary);
   text-align: center;
   font-weight: 600;
 }
@@ -13,17 +34,14 @@
 .conceptGrid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 1rem;
-  max-width: 800px;
-  margin: 0 auto;
+  margin: 0 1rem;
 }
 
 .conceptCard {
-  border: 1px solid var(--ifm-color-emphasis-200);
+  border: 1px solid var(--concept-border);
   border-radius: 8px;
   padding: 1.5rem;
-  background: var(--ifm-background-surface-color);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: transparent;
 }
 
 .conceptHeader {
@@ -40,8 +58,8 @@
   width: 36px;
   height: 36px;
   border-radius: 6px;
-  background: var(--ifm-color-primary-lightest);
-  color: var(--ifm-color-primary);
+  background: var(--concept-primary-lightest);
+  color: var(--concept-primary);
   flex-shrink: 0;
 }
 
@@ -49,11 +67,11 @@
   font-size: 1.1rem;
   font-weight: 600;
   margin: 0;
-  color: var(--ifm-color-emphasis-900);
+  color: var(--concept-text-primary);
 }
 
 .conceptDescription {
-  color: var(--ifm-color-emphasis-700);
+  color: var(--concept-text-secondary);
   font-size: 0.95rem;
   line-height: 1.6;
   margin: 0;
@@ -61,7 +79,7 @@
 
 /* Dark mode styles */
 [data-theme='dark'] .conceptCard {
-  border: none;
+  border: 1px solid var(--concept-border);
   background: transparent;
   box-shadow: none;
 }
@@ -77,7 +95,7 @@
 @media (min-width: 1024px) {
   .conceptGrid {
     grid-template-columns: repeat(3, 1fr);
-    gap: 2rem;
+    gap: 1rem;
   }
 
   .conceptCard {

@@ -17,34 +17,22 @@ from mlflow.metrics.genai.model_utils import (
 
 @pytest.fixture
 def set_envs(monkeypatch):
-    monkeypatch.setenvs(
-        {
-            "OPENAI_API_TYPE": "openai",
-            "OPENAI_API_KEY": "test",
-        }
-    )
+    monkeypatch.setenv("OPENAI_API_TYPE", "openai")
+    monkeypatch.setenv("OPENAI_API_KEY", "test")
 
 
 @pytest.fixture
 def set_deployment_envs(monkeypatch):
-    monkeypatch.setenvs(
-        {
-            "MLFLOW_DEPLOYMENTS_TARGET": "databricks",
-        }
-    )
+    monkeypatch.setenv("MLFLOW_DEPLOYMENTS_TARGET", "databricks")
 
 
 @pytest.fixture
 def set_azure_envs(monkeypatch):
-    monkeypatch.setenvs(
-        {
-            "OPENAI_API_KEY": "test",
-            "OPENAI_API_TYPE": "azure",
-            "OPENAI_API_VERSION": "2023-05-15",
-            "OPENAI_API_BASE": "https://openai-for.openai.azure.com/",
-            "OPENAI_DEPLOYMENT_NAME": "test-openai",
-        }
-    )
+    monkeypatch.setenv("OPENAI_API_KEY", "test")
+    monkeypatch.setenv("OPENAI_API_TYPE", "azure")
+    monkeypatch.setenv("OPENAI_API_VERSION", "2023-05-15")
+    monkeypatch.setenv("OPENAI_API_BASE", "https://openai-for.openai.azure.com/")
+    monkeypatch.setenv("OPENAI_DEPLOYMENT_NAME", "test-openai")
 
 
 @pytest.fixture(autouse=True)

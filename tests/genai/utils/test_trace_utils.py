@@ -9,6 +9,8 @@ import pytest
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
 import mlflow
+from mlflow.entities.assessment import Expectation
+from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.span import Span, SpanType
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
@@ -16,6 +18,11 @@ from mlflow.genai.evaluation.utils import is_none_or_nan
 from mlflow.genai.scorers.base import scorer
 from mlflow.genai.utils.trace_utils import (
     convert_predict_fn,
+    extract_expectations_from_trace,
+    extract_inputs_from_trace,
+    extract_outputs_from_trace,
+    extract_request_from_trace,
+    extract_response_from_trace,
     extract_retrieval_context_from_trace,
     parse_inputs_to_str,
     parse_outputs_to_str,
@@ -130,6 +137,26 @@ def test_convert_predict_fn(predict_fn_generator, with_tracing, should_be_wrappe
         scorers=[dummy_scorer],
     )
     assert len(get_traces()) == 1
+
+
+def test_convert_predict_fn_skip_validation(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION", "true")
+
+    call_count = 0
+
+    def dummy_predict_fn(question: str, context: str):
+        nonlocal call_count
+        call_count += 1
+        return question + context
+
+    sample_input = {"question": "test", "context": "test"}
+    converted_fn = convert_predict_fn(dummy_predict_fn, sample_input)
+    # Predict function should not be validated when the env var is set to True
+    assert call_count == 0
+
+    # converted function takes a single 'request' argument
+    result = converted_fn(request=sample_input)
+    assert result == "testtest"
 
 
 def create_span(
@@ -496,3 +523,126 @@ def test_parse_outputs_to_str(output_data, expected):
 )
 def test_is_none_or_nan(input_value, expected):
     assert is_none_or_nan(input_value) == expected
+
+
+def test_extract_expectations_from_trace_with_source_filter():
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs({"question": "What is MLflow?"})
+        span.set_outputs({"answer": "MLflow is an open source platform"})
+
+    trace_id = span.trace_id
+
+    human_expectation = Expectation(
+        name="human_expectation",
+        value={"expected": "Answer from human"},
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+    )
+    mlflow.log_assessment(trace_id=trace_id, assessment=human_expectation)
+
+    llm_expectation = Expectation(
+        name="llm_expectation",
+        value="LLM generated expectation",
+        source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE),
+    )
+    mlflow.log_assessment(trace_id=trace_id, assessment=llm_expectation)
+
+    code_expectation = Expectation(
+        name="code_expectation",
+        value=42,
+        source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+    )
+    mlflow.log_assessment(trace_id=trace_id, assessment=code_expectation)
+
+    trace = mlflow.get_trace(trace_id)
+
+    result = extract_expectations_from_trace(trace, source=None)
+    assert result == {
+        "human_expectation": {"expected": "Answer from human"},
+        "llm_expectation": "LLM generated expectation",
+        "code_expectation": 42,
+    }
+
+    result = extract_expectations_from_trace(trace, source="HUMAN")
+    assert result == {"human_expectation": {"expected": "Answer from human"}}
+
+    result = extract_expectations_from_trace(trace, source="LLM_JUDGE")
+    assert result == {"llm_expectation": "LLM generated expectation"}
+
+    result = extract_expectations_from_trace(trace, source="CODE")
+    assert result == {"code_expectation": 42}
+
+    result = extract_expectations_from_trace(trace, source="human")
+    assert result == {"human_expectation": {"expected": "Answer from human"}}
+
+    with pytest.raises(mlflow.exceptions.MlflowException, match="Invalid assessment source type"):
+        extract_expectations_from_trace(trace, source="INVALID_SOURCE")
+
+
+def test_extract_expectations_from_trace_returns_none_when_no_expectations():
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs({"question": "What is MLflow?"})
+        span.set_outputs({"answer": "MLflow is an open source platform"})
+
+    trace = mlflow.get_trace(span.trace_id)
+
+    result = extract_expectations_from_trace(trace)
+    assert result is None
+
+    result = extract_expectations_from_trace(trace, source="HUMAN")
+    assert result is None
+
+
+def test_extract_inputs_and_outputs_from_trace():
+    test_inputs = {"question": "What is MLflow?", "context": "MLflow is a tool"}
+    test_outputs = {"answer": "MLflow is an open source platform", "confidence": 0.95}
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs(test_inputs)
+        span.set_outputs(test_outputs)
+
+    trace = mlflow.get_trace(span.trace_id)
+
+    assert extract_inputs_from_trace(trace) == test_inputs
+    assert extract_outputs_from_trace(trace) == test_outputs
+
+    trace_without_data = Trace(
+        info=create_test_trace_info(trace_id="tr-123"), data=TraceData(spans=[])
+    )
+    assert extract_inputs_from_trace(trace_without_data) is None
+    assert extract_outputs_from_trace(trace_without_data) is None
+
+
+def test_extract_request_and_response_from_trace():
+    test_inputs = {"messages": [{"role": "user", "content": "What is MLflow?"}]}
+    test_outputs = {
+        "choices": [{"index": 0, "message": {"role": "assistant", "content": "MLflow is great"}}]
+    }
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs(test_inputs)
+        span.set_outputs(test_outputs)
+
+    trace = mlflow.get_trace(span.trace_id)
+
+    assert extract_request_from_trace(trace) == "What is MLflow?"
+    assert extract_response_from_trace(trace) == "MLflow is great"
+
+    trace_without_data = Trace(
+        info=create_test_trace_info(trace_id="tr-123"), data=TraceData(spans=[])
+    )
+    assert extract_request_from_trace(trace_without_data) is None
+    assert extract_response_from_trace(trace_without_data) is None
+
+
+def test_extract_request_and_response_with_string_inputs():
+    test_inputs = "Simple string input"
+    test_outputs = "Simple string output"
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs(test_inputs)
+        span.set_outputs(test_outputs)
+
+    trace = mlflow.get_trace(span.trace_id)
+
+    assert extract_request_from_trace(trace) == "Simple string input"
+    assert extract_response_from_trace(trace) == "Simple string output"

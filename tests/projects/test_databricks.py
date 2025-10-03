@@ -220,7 +220,8 @@ def test_run_databricks_validations(
     """
     Tests that running on Databricks fails before making any API requests if validations fail.
     """
-    monkeypatch.setenvs({"DATABRICKS_HOST": "test-host", "DATABRICKS_TOKEN": "foo"})
+    monkeypatch.setenv("DATABRICKS_HOST", "test-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "foo")
     with mock.patch(
         "mlflow.projects.databricks.DatabricksJobRunner._databricks_api_request"
     ) as db_api_req_mock:

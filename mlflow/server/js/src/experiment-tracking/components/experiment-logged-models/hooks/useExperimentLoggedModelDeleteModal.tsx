@@ -3,7 +3,7 @@ import { Alert, Modal, Spacer } from '@databricks/design-system';
 import { useCallback, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { loggedModelsDataRequest } from '../../../hooks/logged-models/request.utils';
-import { LoggedModelProto } from '../../../types';
+import type { LoggedModelProto } from '../../../types';
 import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 export const useExperimentLoggedModelDeleteModal = ({

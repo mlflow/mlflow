@@ -4,6 +4,7 @@ import { renderWithIntl, screen, within } from '../../../../common/utils/TestUti
 import userEvent from '@testing-library/user-event';
 import { MlflowService } from '../../../sdk/MlflowService';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000); // Larger timeout for integration testing (form rendering)
 
 const mockTraceInfo: ModelTraceInfo = {

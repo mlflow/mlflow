@@ -24,10 +24,10 @@ runs:
           python_version=$(cat .python-version)
         fi
         if [[ "$python_version" == "3.10" ]]; then
-          if [ ${{ runner.os }} == "Windows" ]; then
-            python_version="3.10.11"
-          else
+          if [ ${{ runner.os }} == "Linux" ]; then
             python_version="3.10.16"
+          else
+            python_version="3.10.11"
           fi
         elif [[ "$python_version" == "3.11" ]]; then
           if [ ${{ runner.os }} == "Windows" ]; then
@@ -44,8 +44,6 @@ runs:
       with:
         python-version: ${{ steps.get-python-version.outputs.version }}
     - uses: astral-sh/setup-uv@f0ec1fc3b38f5e7cd731bb6ce540c5af426746bb # v6.1.0
-      with:
-        version: 0.7.8
     - run: |
         # The default `first-index` strategy is too strict. Use `unsafe-first-match` instead.
         # https://docs.astral.sh/uv/configuration/environment/#uv_index_strategy

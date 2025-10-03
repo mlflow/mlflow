@@ -33,6 +33,18 @@ class ScorerKind(Enum):
 _ALLOWED_SCORERS_FOR_REGISTRATION = [ScorerKind.BUILTIN, ScorerKind.DECORATOR]
 
 
+class ScorerStatus(Enum):
+    """Status of a scorer.
+
+    Scorer status is determined by the sample rate due to the backend not having
+    a notion of whether a scorer is started or stopped.
+    """
+
+    UNREGISTERED = "UNREGISTERED"  # sampling config not set
+    STARTED = "STARTED"  # sample_rate > 0
+    STOPPED = "STOPPED"  # sample_rate == 0
+
+
 @dataclass
 class ScorerSamplingConfig:
     """Configuration for registered scorer sampling."""
@@ -67,21 +79,29 @@ class SerializedScorer:
     call_signature: str | None = None
     original_func_name: str | None = None
 
+    # InstructionsJudge fields (for make_judge created judges)
+    instructions_judge_pydantic_data: dict[str, Any] | None = None
+
     def __post_init__(self):
-        """Validate that either builtin scorer fields or decorator scorer fields are present."""
+        """Validate that exactly one type of scorer fields is present."""
         has_builtin_fields = self.builtin_scorer_class is not None
         has_decorator_fields = self.call_source is not None
+        has_instructions_fields = self.instructions_judge_pydantic_data is not None
 
-        if not has_builtin_fields and not has_decorator_fields:
+        # Count how many field types are present
+        field_count = sum([has_builtin_fields, has_decorator_fields, has_instructions_fields])
+
+        if field_count == 0:
             raise ValueError(
                 "SerializedScorer must have either builtin scorer fields "
-                "(builtin_scorer_class) or decorator scorer fields (call_source) present"
+                "(builtin_scorer_class), decorator scorer fields (call_source), "
+                "or instructions judge fields (instructions_judge_pydantic_data) present"
             )
 
-        if has_builtin_fields and has_decorator_fields:
+        if field_count > 1:
             raise ValueError(
-                "SerializedScorer cannot have both builtin scorer fields and "
-                "decorator scorer fields present simultaneously"
+                "SerializedScorer cannot have multiple types of scorer fields "
+                "present simultaneously"
             )
 
 
@@ -92,6 +112,7 @@ class Scorer(BaseModel):
 
     _cached_dump: dict[str, Any] | None = PrivateAttr(default=None)
     _sampling_config: ScorerSamplingConfig | None = PrivateAttr(default=None)
+    _registered_backend: str | None = PrivateAttr(default=None)
 
     @property
     @experimental(version="3.2.0")
@@ -104,6 +125,16 @@ class Scorer(BaseModel):
     def filter_string(self) -> str | None:
         """Get the filter string for this scorer."""
         return self._sampling_config.filter_string if self._sampling_config else None
+
+    @property
+    @experimental(version="3.3.0")
+    def status(self) -> ScorerStatus:
+        """Get the status of this scorer, using only the local state."""
+
+        if self._registered_backend is None:
+            return ScorerStatus.UNREGISTERED
+
+        return ScorerStatus.STARTED if (self.sample_rate or 0) > 0 else ScorerStatus.STOPPED
 
     def __repr__(self) -> str:
         # Get the standard representation from the parent class
@@ -207,6 +238,45 @@ class Scorer(BaseModel):
         elif serialized.call_source and serialized.call_signature and serialized.original_func_name:
             return cls._reconstruct_decorator_scorer(serialized)
 
+        # Handle InstructionsJudge scorers
+        elif serialized.instructions_judge_pydantic_data is not None:
+            from mlflow.genai.judges.instructions_judge import InstructionsJudge
+
+            data = serialized.instructions_judge_pydantic_data
+
+            field_specs = {
+                "instructions": str,
+                "model": str,
+            }
+
+            errors = []
+            for field, expected_type in field_specs.items():
+                if field not in data:
+                    errors.append(f"missing required field '{field}'")
+                elif not isinstance(data[field], expected_type):
+                    actual_type = type(data[field]).__name__
+                    errors.append(
+                        f"field '{field}' must be {expected_type.__name__}, got {actual_type}"
+                    )
+
+            if errors:
+                raise MlflowException.invalid_parameter_value(
+                    f"Failed to deserialize InstructionsJudge scorer '{serialized.name}': "
+                    f"{'; '.join(errors)}"
+                )
+
+            try:
+                return InstructionsJudge(
+                    name=serialized.name,
+                    instructions=data["instructions"],
+                    model=data["model"],
+                    # TODO: add aggregations here once we support boolean/numeric judge outputs
+                )
+            except Exception as e:
+                raise MlflowException.invalid_parameter_value(
+                    f"Failed to create InstructionsJudge scorer '{serialized.name}': {e}"
+                )
+
         # Invalid serialized data
         else:
             raise MlflowException.invalid_parameter_value(
@@ -225,17 +295,18 @@ class Scorer(BaseModel):
         from mlflow.genai.scorers.scorer_utils import recreate_function
 
         # Recreate the original function from source code
-        recreated_func = recreate_function(
-            serialized.call_source, serialized.call_signature, serialized.original_func_name
-        )
-
-        if not recreated_func:
+        try:
+            recreated_func = recreate_function(
+                serialized.call_source, serialized.call_signature, serialized.original_func_name
+            )
+        except Exception as e:
             raise MlflowException.invalid_parameter_value(
                 f"Failed to recreate function from source code. "
                 f"Scorer was created with MLflow version: "
                 f"{serialized.mlflow_version or 'unknown'}, "
                 f"serialization version: {serialized.serialization_version or 'unknown'}. "
-                f"Current MLflow version: {mlflow.__version__}"
+                f"Current MLflow version: {mlflow.__version__}. "
+                f"Error: {e}"
             )
 
         # Apply the scorer decorator to recreate the scorer
@@ -422,6 +493,7 @@ class Scorer(BaseModel):
             A new Scorer instance with server registration information.
 
         Example:
+
             .. code-block:: python
 
                 import mlflow
@@ -446,7 +518,7 @@ class Scorer(BaseModel):
                 )
         """
         # Get the current tracking store
-        from mlflow.genai.scorers.registry import _get_scorer_store
+        from mlflow.genai.scorers.registry import DatabricksStore, _get_scorer_store
 
         self._check_can_be_registered()
         store = _get_scorer_store()
@@ -461,6 +533,11 @@ class Scorer(BaseModel):
                 new_scorer._cached_dump["name"] = name
 
         store.register_scorer(experiment_id, new_scorer)
+
+        if isinstance(store, DatabricksStore):
+            new_scorer._registered_backend = "databricks"
+        else:
+            new_scorer._registered_backend = "tracking"
         return new_scorer
 
     @experimental(version="3.2.0")
@@ -520,6 +597,11 @@ class Scorer(BaseModel):
 
         self._check_can_be_registered()
 
+        if sampling_config.sample_rate is not None and sampling_config.sample_rate <= 0:
+            raise MlflowException.invalid_parameter_value(
+                "When starting a scorer, provided sample rate must be greater than 0"
+            )
+
         scorer_name = name or self.name
 
         # Update the scorer on the server
@@ -560,6 +642,7 @@ class Scorer(BaseModel):
             A new Scorer instance with updated configuration.
 
         Example:
+
             .. code-block:: python
 
                 import mlflow
@@ -622,6 +705,7 @@ class Scorer(BaseModel):
             A new Scorer instance with sample rate set to 0.
 
         Example:
+
             .. code-block:: python
 
                 import mlflow
@@ -674,6 +758,14 @@ class Scorer(BaseModel):
         return copy
 
     def _check_can_be_registered(self, error_message: str | None = None) -> None:
+        # Allow InstructionsJudge (created via make_judge) to be registered
+        # despite being ScorerKind.CLASS since it has proper serialization support
+        from mlflow.genai.judges.instructions_judge import InstructionsJudge
+        from mlflow.genai.scorers.registry import DatabricksStore, _get_scorer_store
+
+        if isinstance(self, InstructionsJudge):
+            return
+
         if self.kind not in _ALLOWED_SCORERS_FOR_REGISTRATION:
             if error_message is None:
                 error_message = (
@@ -681,6 +773,19 @@ class Scorer(BaseModel):
                     f"Got {self.kind}."
                 )
             raise MlflowException.invalid_parameter_value(error_message)
+
+        store = _get_scorer_store()
+        if (
+            isinstance(store, DatabricksStore)
+            and (model := getattr(self, "model", None))
+            and not model.startswith("databricks")
+        ):
+            raise MlflowException.invalid_parameter_value(
+                "The scorer's judge model must use Databricks as a model provider "
+                "in order to be registered or updated. Please use the default judge model or "
+                "specify a model value starting with `databricks:/`. "
+                f"Got {model}."
+            )
 
 
 @experimental(version="3.0.0")

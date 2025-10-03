@@ -127,32 +127,6 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'category',
-          label: 'Concepts',
-          items: [
-            {
-              type: 'doc',
-              id: 'tracing/concepts/trace',
-              label: 'Trace',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/concepts/span',
-              label: 'Span',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/concepts/feedback',
-              label: 'Feedback',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/concepts/expectations',
-              label: 'Expectations',
-            },
-          ],
-        },
-        {
-          type: 'category',
           label: 'Guides',
           items: [
             {
@@ -241,73 +215,147 @@ const sidebarsGenAI: SidebarsConfig = {
           id: 'eval-monitor/quickstart',
           label: 'Quickstart',
         },
-        // {
-        //   type: 'category',
-        //   label: 'Running Evaluations',
-        //   items: [
-        //     {
-        //       type: 'doc',
-        //       id: 'eval-monitor/running-evaluation/prompts',
-        //       label: 'Evaluate Prompts',
-        //     },
-        //     {
-        //       type: 'doc',
-        //       id: 'eval-monitor/running-evaluation/agents',
-        //       label: 'Evaluate Agents',
-        //     },
-        //     {
-        //       type: 'doc',
-        //       id: 'eval-monitor/running-evaluation/traces',
-        //       label: 'Evaluate Traces',
-        //     },
-        //   ],
-        //   collapsed: false,
-        // },
-        // {
-        //   type: 'category',
-        //   label: 'Scorers',
-        //   items: [
-        //     {
-        //       type: 'doc',
-        //       id: 'eval-monitor/scorers/index',
-        //       label: 'What is a Scorer?',
-        //     },
-        //     {
-        //       type: 'doc',
-        //       id: 'eval-monitor/scorers/llm-judge',
-        //       label: 'LLM-as-a-Judge Scorers',
-        //     },
-        //     {
-        //       type: 'doc',
-        //       id: 'eval-monitor/scorers/custom',
-        //       label: 'Custom Scorers',
-        //     },
-        //     {
-        //       type: 'doc',
-        //       id: 'eval-monitor/scorers/alignment',
-        //       label: 'How to write a good LLM judge?',
-        //     },
-        //     {
-        //       type: 'doc',
-        //       id: 'eval-monitor/scorers/integrations',
-        //       label: 'Third-Party Integrations',
-        //     },
-        //   ],
-        // },
         {
-          type: 'doc',
-          id: 'assessments/feedback',
-          label: 'Human Feedback',
+          type: 'category',
+          label: 'Running Evaluations',
+          items: [
+            {
+              type: 'doc',
+              id: 'eval-monitor/running-evaluation/prompts',
+              label: 'Evaluate Prompts',
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/running-evaluation/agents',
+              label: 'Evaluate Agents',
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/running-evaluation/traces',
+              label: 'Evaluate Traces',
+            },
+          ],
         },
         {
-          type: 'doc',
-          id: 'assessments/expectations',
-          label: 'Annotating Ground Truth',
+          type: 'category',
+          label: 'Scorers',
+          items: [
+            {
+              type: 'doc',
+              id: 'eval-monitor/scorers/index',
+              label: 'What is a Scorer?',
+            },
+            {
+              type: 'category',
+              label: 'Supported Scorers',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/predefined',
+                  label: 'Predefined Scorers',
+                },
+                {
+                  type: 'category',
+                  label: 'LLM-as-a-Judge',
+                  items: [
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/index',
+                      label: 'Overview',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/make-judge',
+                      label: 'Template-based',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/guidelines',
+                      label: 'Guidelines-based',
+                    },
+                  ],
+                  collapsed: false,
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/agentic-overview',
+                  label: 'Agent-as-a-Judge',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/custom',
+                  label: 'Code-based Scorers',
+                },
+              ],
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/scorers/llm-judge/alignment',
+              label: 'Align with Human Feedback',
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/scorers/versioning',
+              label: 'Versioning Scorers',
+            },
+          ],
+        },
+        {
+          type: 'category',
+          label: 'Evaluation Datasets',
+          items: [
+            {
+              type: 'doc',
+              id: 'datasets/end-to-end-workflow',
+              label: 'End-to-End Workflow',
+            },
+            {
+              type: 'doc',
+              id: 'datasets/sdk-guide',
+              label: 'SDK Guide',
+            },
+          ],
+          link: {
+            type: 'doc',
+            id: 'datasets/index',
+          },
+        },
+        {
+          type: 'category',
+          label: 'Annotation',
+          items: [
+            {
+              type: 'doc',
+              id: 'assessments/feedback',
+              label: 'Human Feedback',
+            },
+            {
+              type: 'doc',
+              id: 'assessments/expectations',
+              label: 'Annotating Ground Truth',
+            },
+          ],
+        },
+        {
+          type: 'category',
+          label: 'AI Insights',
+          items: [
+            {
+              type: 'doc',
+              id: 'eval-monitor/ai-insights/ai-issue-discovery',
+              label: 'AI Issue Discovery',
+            },
+          ],
         },
         {
           type: 'doc',
           id: 'eval-monitor/legacy-llm-evaluation',
           label: 'LLM Evaluation (Legacy)',
+        },
+        {
+          type: 'doc',
+          id: 'eval-monitor/faq',
+          label: 'FAQ',
         },
       ],
       link: {
@@ -556,6 +604,17 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: 'MCP',
+      className: 'sidebar-top-level-category',
+      items: [
+        {
+          type: 'doc',
+          id: 'mcp/index',
+        },
+      ],
+    },
+    {
+      type: 'category',
       label: 'Model Serving',
       className: 'sidebar-top-level-category',
       items: [
@@ -643,49 +702,40 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Data Model',
+      label: 'Concepts',
       className: 'sidebar-top-level-category',
       items: [
         {
           type: 'doc',
-          id: 'data-model/experiments',
-          label: 'Experiments',
+          id: 'concepts/trace',
+          label: 'Trace',
         },
         {
           type: 'doc',
-          id: 'data-model/logged-model',
-          label: 'Logged Model',
+          id: 'concepts/span',
+          label: 'Span',
         },
         {
           type: 'doc',
-          id: 'data-model/runs',
-          label: 'Runs',
+          id: 'concepts/feedback',
+          label: 'Feedback',
         },
         {
           type: 'doc',
-          id: 'data-model/traces',
-          label: 'Traces',
+          id: 'concepts/expectations',
+          label: 'Expectations',
         },
         {
           type: 'doc',
-          id: 'data-model/prompts',
-          label: 'Prompts',
+          id: 'concepts/scorers',
+          label: 'Scorers',
         },
         {
           type: 'doc',
-          id: 'data-model/app-versions',
-          label: 'Version Tracking',
-        },
-        {
-          type: 'doc',
-          id: 'data-model/model-registry',
-          label: 'Model Registry',
+          id: 'concepts/evaluation-datasets',
+          label: 'Evaluation Datasets',
         },
       ],
-      link: {
-        type: 'doc',
-        id: 'data-model/index',
-      },
     },
   ],
 };

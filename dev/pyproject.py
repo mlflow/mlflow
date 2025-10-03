@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import re
-import shutil
 import subprocess
+import sys
 from collections import Counter
 from enum import Enum
 from pathlib import Path
+from typing import Any
 
 import toml
 import yaml
@@ -88,6 +89,8 @@ TRACING_INCLUDE_FILES = [
     "mlflow.llama_index*",
     "mlflow.mistral*",
     "mlflow.openai*",
+    "mlflow.strands*",
+    "mlflow.haystack*",
     # Other necessary modules
     "mlflow.azure*",
     "mlflow.entities*",
@@ -124,6 +127,40 @@ TRACING_EXCLUDE_FILES = [
 def find_duplicates(seq):
     counted = Counter(seq)
     return [item for item, count in counted.items() if count > 1]
+
+
+def write_file_if_changed(file_path: Path, new_content: str) -> None:
+    if file_path.exists():
+        existing_content = file_path.read_text()
+        if existing_content == new_content:
+            print(f"No changes in {file_path}, skipping write.")
+            return
+
+    print(f"Writing changes to {file_path}.")
+    file_path.write_text(new_content)
+
+
+def format_content_with_taplo(content: str) -> str:
+    return (
+        subprocess.check_output(
+            ["bin/taplo", "fmt", "-"],
+            input=content,
+            text=True,
+        ).strip()
+        + "\n"
+    )
+
+
+def write_toml_file_if_changed(
+    file_path: Path, description: str, toml_data: dict[str, Any]
+) -> None:
+    """
+    Write a TOML file with description only if content has changed.
+    Formats content with taplo before comparison.
+    """
+    new_content = description + "\n" + toml.dumps(toml_data)
+    formatted_content = format_content_with_taplo(new_content)
+    write_file_if_changed(file_path, formatted_content)
 
 
 class PackageRequirement(BaseModel):
@@ -319,6 +356,7 @@ def build(package_type: PackageType) -> None:
                 "jfrog": ["mlflow-jfrog-plugin"],
                 "langchain": langchain_requirements,
                 "auth": ["Flask-WTF<2"],
+                "jobs": ["huey<3,>=2.5.0"],
             }
             # Tracing SDK does not support extras
             if package_type != PackageType.TRACING
@@ -362,6 +400,7 @@ def build(package_type: PackageType) -> None:
                         "exclude": ["tests", "tests.*"]
                         if package_type != PackageType.TRACING
                         else TRACING_EXCLUDE_FILES,
+                        "namespaces": False,
                     }
                 },
                 "package-data": _get_package_data(package_type),
@@ -370,19 +409,16 @@ def build(package_type: PackageType) -> None:
     }
 
     if package_type == PackageType.TRACING:
-        out_path = "libs/tracing/pyproject.toml"
-        with Path(out_path).open("w") as f:
-            f.write(package_type.description() + "\n")
-            f.write(toml.dumps(data))
+        out_path = Path("libs/tracing/pyproject.toml")
+        write_toml_file_if_changed(out_path, package_type.description(), data)
     elif package_type == PackageType.SKINNY:
-        out_path = "libs/skinny/pyproject.toml"
-        with Path(out_path).open("w") as f:
-            f.write(package_type.description() + "\n")
-            f.write(toml.dumps(data))
+        out_path = Path("libs/skinny/pyproject.toml")
+        write_toml_file_if_changed(out_path, package_type.description(), data)
 
-        Path("libs/skinny/README_SKINNY.md").write_text(
-            SKINNY_README.lstrip() + Path("README.md").read_text()
-        )
+        skinny_readme_path = Path("libs/skinny/README_SKINNY.md")
+        new_readme_content = SKINNY_README.lstrip() + Path("README.md").read_text()
+        write_file_if_changed(skinny_readme_path, new_readme_content)
+
         for f in ["LICENSE.txt", "MANIFEST.in", "mlflow"]:
             symlink = Path("libs/skinny", f)
             if symlink.exists():
@@ -390,21 +426,16 @@ def build(package_type: PackageType) -> None:
             target = Path("../..", f)
             symlink.symlink_to(target, target_is_directory=target.is_dir())
     elif package_type == PackageType.RELEASE:
-        out_path = f"pyproject.{package_type.value}.toml"
-        with Path(out_path).open("w") as f:
-            f.write(package_type.description() + "\n")
-            f.write(toml.dumps(data))
+        out_path = Path(f"pyproject.{package_type.value}.toml")
+        write_toml_file_if_changed(out_path, package_type.description(), data)
     else:
-        out_path = "pyproject.toml"
-        original = Path(out_path).read_text().split(SEPARATOR)[1]
-        with Path(out_path).open("w") as f:
-            f.write(package_type.description() + "\n")
-            f.write(toml.dumps(data))
-            f.write(SEPARATOR)
-            f.write(original)
+        out_path = Path("pyproject.toml")
+        original_manual_content = out_path.read_text().split(SEPARATOR)[1]
+        generated_part = package_type.description() + "\n" + toml.dumps(data)
+        formatted_generated_part = format_content_with_taplo(generated_part)
+        formatted_full_content = formatted_generated_part + SEPARATOR + original_manual_content
 
-    if taplo := shutil.which("taplo"):
-        subprocess.check_call([taplo, "fmt", out_path])
+        write_file_if_changed(out_path, formatted_full_content)
 
 
 def _get_package_data(package_type: PackageType) -> dict[str, list[str]] | None:
@@ -419,6 +450,7 @@ def _get_package_data(package_type: PackageType) -> dict[str, list[str]] | None:
             "server/auth/basic_auth.ini",
             "server/auth/db/migrations/alembic.ini",
             "models/notebook_resources/**/*",
+            "ai_commands/**/*.md",
         ]
     }
 
@@ -445,13 +477,12 @@ def _check_skinny_tracing_mismatch(*, skinny_reqs: list[str], tracing_reqs: list
 
 
 def main() -> None:
-    if shutil.which("taplo") is None:
+    if not Path("bin/taplo").exists():
         print(
             "taplo is required to generate pyproject.toml. "
-            "Please install it by following the instructions at "
-            "https://taplo.tamasfe.dev/cli/introduction.html."
+            "Please run 'python bin/install.py' to install it."
         )
-        return
+        sys.exit(1)
 
     for package_type in PackageType:
         build(package_type)

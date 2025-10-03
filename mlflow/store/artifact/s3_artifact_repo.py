@@ -18,6 +18,12 @@ from mlflow.environment_variables import (
     MLFLOW_S3_UPLOAD_EXTRA_ARGS,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import (
+    INTERNAL_ERROR,
+    PERMISSION_DENIED,
+    RESOURCE_DOES_NOT_EXIST,
+    UNAUTHENTICATED,
+)
 from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
     MultipartUploadMixin,
@@ -25,6 +31,14 @@ from mlflow.store.artifact.artifact_repo import (
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 
 _MAX_CACHE_SECONDS = 300
+
+BOTO_TO_MLFLOW_ERROR = {
+    "AccessDenied": PERMISSION_DENIED,
+    "NoSuchBucket": RESOURCE_DOES_NOT_EXIST,
+    "NoSuchKey": RESOURCE_DOES_NOT_EXIST,
+    "InvalidAccessKeyId": UNAUTHENTICATED,
+    "SignatureDoesNotMatch": UNAUTHENTICATED,
+}
 
 
 def _get_utcnow_timestamp():
@@ -153,6 +167,7 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         secret_access_key=None,
         session_token=None,
         tracking_uri: str | None = None,
+        registry_uri: str | None = None,
     ) -> None:
         """
         Initialize an S3 artifact repository.
@@ -169,7 +184,7 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             tracking_uri: Optional URI for the MLflow tracking server.
                 If None, uses the current tracking URI context.
         """
-        super().__init__(artifact_uri, tracking_uri)
+        super().__init__(artifact_uri, tracking_uri, registry_uri)
         self._access_key_id = access_key_id
         self._secret_access_key = secret_access_key
         self._session_token = session_token
@@ -289,6 +304,42 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                     key=posixpath.join(upload_path, f),
                 )
 
+    def _iterate_s3_paginated_results(self, bucket, prefix):
+        """
+        Iterate over paginated S3 list_objects_v2 results with error handling.
+
+        This helper method isolates the S3 client operations that can raise ClientError
+        and provides appropriate error handling and mapping to MLflow exceptions.
+        The ClientError can occur during both paginator setup and iteration, because
+        the botocore library makes lazy calls.
+
+        Args:
+            bucket: S3 bucket name
+            prefix: S3 prefix to list objects under
+
+        Yields:
+            Individual result pages from S3 list_objects_v2 operation
+
+        Raises:
+            MlflowException: If S3 client operations fail
+        """
+        from botocore.exceptions import ClientError
+
+        try:
+            s3_client = self._get_s3_client()
+            paginator = s3_client.get_paginator("list_objects_v2")
+            results = paginator.paginate(Bucket=bucket, Prefix=prefix, Delimiter="/")
+            for result in results:
+                yield result
+        except ClientError as error:
+            error_code = error.response["Error"]["Code"]
+            mlflow_error_code = BOTO_TO_MLFLOW_ERROR.get(error_code, INTERNAL_ERROR)
+            error_message = error.response["Error"]["Message"]
+            raise MlflowException(
+                f"Failed to list artifacts in {self.artifact_uri}: {error_message}",
+                error_code=mlflow_error_code,
+            )
+
     def list_artifacts(self, path=None):
         """
         List all artifacts directly under the specified S3 path.
@@ -316,11 +367,9 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         dest_path = dest_path.rstrip("/") if dest_path else ""
         infos = []
         prefix = dest_path + "/" if dest_path else ""
-        s3_client = self._get_s3_client()
-        paginator = s3_client.get_paginator("list_objects_v2")
-        results = paginator.paginate(Bucket=bucket, Prefix=prefix, Delimiter="/")
-        for result in results:
-            # Subdirectories will be listed as "common prefixes" due to the way we made the request
+        for result in self._iterate_s3_paginated_results(bucket, prefix):
+            # Subdirectories will be listed as "common prefixes"
+            # due to the way we made the request
             for obj in result.get("CommonPrefixes", []):
                 subdir_path = obj.get("Prefix")
                 self._verify_listed_object_contains_artifact_path_prefix(

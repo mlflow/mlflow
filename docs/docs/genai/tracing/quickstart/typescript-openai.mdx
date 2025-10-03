@@ -3,6 +3,7 @@ import TabItem from '@theme/TabItem';
 import { APILink } from "@site/src/components/APILink";
 import ImageBox from '@site/src/components/ImageBox';
 import TabsWrapper from '@site/src/components/TabsWrapper';
+import ServerSetup from "@site/src/content/setup_server.mdx";
 
 # Tracing Quickstart (TS/JS)
 
@@ -66,46 +67,7 @@ const response = await generate("Hello, Claude");
 
 MLflow logs Traces in a tracking server. Connect your application to the tracking server by one of the following methods.
 
-<TabsWrapper>
-<Tabs>
-<TabItem value="python" label="Self Host (pip) " default>
-
-The Typescript package does not contain the tracking server. To start a self-hosted tracking server from command line using MLflow Python package:
-
-```bash
-# Install mlflow python package. Typescript SDK requires MLflow Tracking Server running on version 3.2.0 or later.
-pip install 'mlflow>=3.2.0rc1' -U
-
-# Start MLflow tracking server locally
-mlflow ui --port 5000
-
-# This will start the server at http://127.0.0.1:5000
-```
-
-:::tip
-
-If you want to start quickly without hosting MLflow server, try the cloud-based MLflow powered by Databricks:
-
-<ins>[Sign up for free →](https://login.databricks.com/?destination_url=%2Fml%2Fexperiments-signup%3Fsource%3DTRY_MLFLOW&dbx_source=TRY_MLFLOW&signup_experience_step=EXPRESS&provider=MLFLOW&utm_source=mlflow_org&tuuid=a9534f33-78bf-4b81-becc-4334e993251d&rl_aid=e6685d78-9f85-4fed-b64f-08e247f53547&intent=SIGN_UP)</ins>
-
-:::
-
-</TabItem>
-
-<TabItem value="remote" label="Remote MLflow Server">
-
-If you have a remote MLflow tracking server already running, skip this step.
-
-</TabItem>
-
-<TabItem value="databricks" label="Databricks">
-
-If you use [Databricks managed MLflow](https://docs.databricks.com/aws/en/mlflow3/genai/), you can skip this step.
-
-</TabItem>
-
-</Tabs>
-</TabsWrapper>
+<ServerSetup />
 
 ### Create a new MLflow Experiment
 
@@ -136,6 +98,19 @@ _You can leave the `Artifact Location` field blank for now. It is an advanced co
     });
     ```
 
+    If [authentication](/ml/auth) is enabled on the tracking server, you can pass the credential through `trackingServerUsername` and `trackingServerPassword`.
+
+    ```typescript
+    import { init } from "mlflow-tracing";
+
+    init({
+        trackingUri: "<your-tracking-server-uri>",
+        experimentId: "<your-experiment-id>",
+        trackingServerUsername: "<your-tracking-server-username>",
+        trackingServerPassword: "<your-tracking-server-password>",
+    });
+    ```
+
     </TabItem>
 
     <TabItem value="remote" label="Remote MLflow Server">
@@ -148,6 +123,19 @@ _You can leave the `Artifact Location` field blank for now. It is an advanced co
     init({
         trackingUri: "<remote-tracking-server-uri>",
         experimentId: "<your-experiment-id>",
+    });
+    ```
+
+    If [authentication](/ml/auth) is enabled on the tracking server, you can pass the credential through `trackingServerUsername` and `trackingServerPassword`.
+
+    ```typescript
+    import { init } from "mlflow-tracing";
+
+    init({
+        trackingUri: "<remote-tracking-server-uri>",
+        experimentId: "<your-experiment-id>",
+        trackingServerUsername: "<remote-tracking-server-username>",
+        trackingServerPassword: "<remote-tracking-server-password>",
     });
     ```
 

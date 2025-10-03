@@ -38,7 +38,6 @@ from mlflow.tracking.fluent import (
     _set_active_model_id,
     _use_logged_model,
 )
-from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
     _construct_databricks_logged_model_url,
     get_databricks_runtime_version,
@@ -644,7 +643,6 @@ class Model:
             serialized_resource = value
         self._resources = serialized_resource
 
-    @experimental(version="2.21.0")
     @property
     def auth_policy(self) -> dict[str, dict[str, Any]]:
         """
@@ -656,7 +654,6 @@ class Model:
         """
         return self._auth_policy
 
-    @experimental(version="2.21.0")
     @auth_policy.setter
     def auth_policy(self, value: dict[str, Any] | AuthPolicy | None) -> None:
         self._auth_policy = value.to_dict() if isinstance(value, AuthPolicy) else value
@@ -1160,6 +1157,7 @@ class Model:
             if not run_id:
                 run_id = active_run.info.run_id if (active_run := mlflow.active_run()) else None
 
+            flavor_name = kwargs.pop("flavor_name", None)
             if model_id is not None:
                 model = client.get_logged_model(model_id)
             else:
@@ -1167,6 +1165,8 @@ class Model:
                     **(params or {}),
                     **(client.get_run(run_id).data.params if run_id else {}),
                 }
+                if flavor_name is None:
+                    flavor_name = flavor.__name__ if hasattr(flavor, "__name__") else "custom"
                 model = _create_logged_model(
                     # TODO: Update model name
                     name=name,
@@ -1176,7 +1176,7 @@ class Model:
                     tags={key: str(value) for key, value in tags.items()}
                     if tags is not None
                     else None,
-                    flavor=flavor.__name__ if hasattr(flavor, "__name__") else "custom",
+                    flavor=flavor_name,
                 )
                 _last_logged_model_id.set(model.model_id)
                 if (
@@ -1306,11 +1306,21 @@ class Model:
                     client.delete_logged_model_tag(model.model_id, MLFLOW_MODEL_IS_EXTERNAL)
                 # client.finalize_logged_model(model.model_id, status=LoggedModelStatus.READY)
 
-                # Associate prompts to the model Run
-                if prompts and run_id:
+                # Associate prompts to the model Run and LoggedModel
+                if prompts:
                     client = mlflow.MlflowClient()
-                    for prompt in prompts:
-                        client.link_prompt_version_to_run(run_id, prompt)
+                    for prompt_uri in prompts:
+                        # Link to run (handles both URIs and PromptVersion objects)
+                        if run_id:
+                            client.link_prompt_version_to_run(run_id, prompt_uri)
+
+                        # Link to LoggedModel - load prompt to get name/version
+                        prompt_obj = client.load_prompt(prompt_uri)
+                        client.link_prompt_version_to_model(
+                            name=prompt_obj.name,
+                            version=prompt_obj.version,
+                            model_id=model.model_id,
+                        )
 
                 # if the model_config kwarg is passed in, then log the model config as an params
                 if model_config := kwargs.get("model_config"):

@@ -22,11 +22,6 @@ from mlflow.genai.labeling import ReviewApp
 if TYPE_CHECKING:
     from databricks.agents.review_app import ReviewApp
 
-_ERROR_MSG = (
-    "The `databricks-agents` package is required to use `mlflow.genai.label_schemas`. "
-    "Please install it with `pip install databricks-agents`."
-)
-
 EXPECTED_FACTS = "expected_facts"
 GUIDELINES = "guidelines"
 EXPECTED_RESPONSE = "expected_response"
@@ -63,17 +58,14 @@ def create_label_schema(
     Returns:
         LabelSchema: The created label schema.
     """
-    try:
-        from databricks.agents import review_app
-    except ImportError:
-        raise ImportError(_ERROR_MSG) from None
+    from mlflow.genai.labeling.stores import _get_labeling_store  # Nested to avoid circular import
 
-    app = review_app.get_review_app()
-    return app.create_label_schema(
+    store = _get_labeling_store()
+    return store.create_label_schema(
         name=name,
         type=type,
         title=title,
-        input=input._to_databricks_input(),
+        input=input,
         instruction=instruction,
         enable_comment=enable_comment,
         overwrite=overwrite,
@@ -93,22 +85,13 @@ def get_label_schema(name: str) -> LabelSchema:
     Returns:
         LabelSchema: The label schema.
     """
-    try:
-        from databricks.agents import review_app
-    except ImportError:
-        raise ImportError(_ERROR_MSG) from None
+    from mlflow.genai.labeling.stores import _get_labeling_store  # Nested to avoid circular import
 
-    app = review_app.get_review_app()
-    label_schema = next(
-        (label_schema for label_schema in app.label_schemas if label_schema.name == name),
-        None,
-    )
-    if label_schema is None:
-        raise ValueError(f"Label schema with name `{name}` not found")
-    return LabelSchema._from_databricks_label_schema(label_schema)
+    store = _get_labeling_store()
+    return store.get_label_schema(name)
 
 
-def delete_label_schema(name: str) -> "ReviewApp":
+def delete_label_schema(name: str):
     """Delete a label schema from the review app.
 
     .. note::
@@ -117,17 +100,20 @@ def delete_label_schema(name: str) -> "ReviewApp":
 
     Args:
         name: The name of the label schema to delete.
-
-    Returns:
-        ReviewApp: The review app.
     """
-    try:
-        from databricks.agents import review_app
-    except ImportError:
-        raise ImportError(_ERROR_MSG) from None
+    # Nested to avoid circular import
+    from mlflow.genai.labeling.databricks_utils import get_databricks_review_app
+    from mlflow.genai.labeling.stores import DatabricksLabelingStore, _get_labeling_store
 
-    app = review_app.get_review_app()
-    return ReviewApp(app.delete_label_schema(name))
+    store = _get_labeling_store()
+    store.delete_label_schema(name)
+
+    # For backwards compatibility, return a ReviewApp instance only if using Databricks store
+    if isinstance(store, DatabricksLabelingStore):
+        return ReviewApp(get_databricks_review_app())
+    else:
+        # For non-Databricks stores, we can't return a meaningful ReviewApp
+        return None
 
 
 __all__ = [

@@ -13,7 +13,11 @@ import {
   getAbsoluteStartEndTime,
   useMonitoringFilters,
 } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringFilters';
-import { isExperimentEvalResultsMonitoringUIEnabled } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import {
+  isExperimentEvalResultsMonitoringUIEnabled,
+  shouldEnableTracesSyncUI,
+} from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { useExperiments } from '../../hooks/useExperiments';
 
 const TracesV3Toolbar = () => {
   // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -53,7 +57,7 @@ const TracesV3Content = ({
       <TracesV3Logs
         experimentId={experimentId || ''}
         // TODO: Remove this once the endpointName is not needed
-        endpointName={endpointName || 'dummy-run'}
+        endpointName={endpointName || ''}
         timeRange={timeRange}
       />
     );

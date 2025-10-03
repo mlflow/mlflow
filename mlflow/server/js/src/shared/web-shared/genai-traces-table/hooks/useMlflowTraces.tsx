@@ -40,10 +40,9 @@ import {
   getMlflowTracesSearchPageSize,
   getEvalTabTotalTracesLimit,
 } from '../utils/FeatureUtils';
-import { makeRequest } from '../utils/FetchUtils';
+import { fetchFn, getAjaxUrl } from '../utils/FetchUtils';
 import MlflowUtils from '../utils/MlflowUtils';
 import { convertTraceInfoV3ToRunEvalEntry, getCustomMetadataKeyFromColumnId } from '../utils/TraceUtils';
-import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 interface SearchMlflowTracesRequest {
   locations?: SearchMlflowLocations[];
@@ -62,7 +61,7 @@ interface SearchMlflowLocations {
   };
 }
 
-const SEARCH_MLFLOW_TRACES_QUERY_KEY = 'searchMlflowTraces';
+export const SEARCH_MLFLOW_TRACES_QUERY_KEY = 'searchMlflowTraces';
 
 export const invalidateMlflowSearchTracesCache = ({ queryClient }: { queryClient: QueryClient }) => {
   queryClient.invalidateQueries({ queryKey: [SEARCH_MLFLOW_TRACES_QUERY_KEY] });
@@ -172,13 +171,24 @@ export const useMlflowTracesTableMetadata = ({
     return {
       assessmentInfos,
       allColumns,
+      evaluatedTraces,
+      otherEvaluatedTraces,
       totalCount: evaluatedTraces.length,
-      isLoading: isInnerLoading,
+      isLoading: isInnerLoading && !disabled,
       error,
       isEmpty: evaluatedTraces.length === 0,
       tableFilterOptions,
     };
-  }, [assessmentInfos, allColumns, isInnerLoading, error, evaluatedTraces.length, tableFilterOptions]);
+  }, [
+    assessmentInfos,
+    allColumns,
+    isInnerLoading,
+    error,
+    evaluatedTraces,
+    otherEvaluatedTraces,
+    tableFilterOptions,
+    disabled,
+  ]);
 };
 
 const getNetworkAndClientFilters = (
@@ -290,7 +300,7 @@ export const useSearchMlflowTraces = ({
   const filteredTraces: TraceInfoV3[] | undefined = useMemo(() => {
     if (!evalTraceComparisonEntries) return undefined;
 
-    if (!currentRunDisplayName || (searchQuery === '' && clientFilters?.length === 0)) {
+    if (searchQuery === '' && clientFilters?.length === 0) {
       return evalTraceComparisonEntries.reduce<TraceInfoV3[]>((acc, entry) => {
         if (entry.currentRunValue?.traceInfo) {
           acc.push(entry.currentRunValue.traceInfo);
@@ -303,7 +313,7 @@ export const useSearchMlflowTraces = ({
       return {
         assessmentName: filter.key || '',
         filterValue: filter.value,
-        run: currentRunDisplayName,
+        run: currentRunDisplayName || '',
       };
     });
 
@@ -399,18 +409,23 @@ const useSearchMlflowTracesInner = ({
         if (pageToken) {
           payload.page_token = pageToken;
         }
-        const response: { traces: TraceInfoV3[]; next_page_token?: string } = await makeRequest(
-          getAjaxUrl('ajax-api/3.0/mlflow/traces/search'),
-          'POST',
-          payload,
-        );
-        const traces = response.traces;
+        const queryResponse = await fetchFn(getAjaxUrl('ajax-api/3.0/mlflow/traces/search'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+          signal,
+        });
+        if (!queryResponse.ok) throw matchPredefinedErrorFromResponse(queryResponse);
+        const json = (await queryResponse.json()) as { traces: TraceInfoV3[]; next_page_token?: string };
+        const traces = json.traces;
         if (!isNil(traces)) {
           allTraces = allTraces.concat(traces);
         }
 
         // If there's no next page, break out of the loop.
-        pageToken = response.next_page_token;
+        pageToken = json.next_page_token;
         if (!pageToken) break;
       }
       return allTraces;

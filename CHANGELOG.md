@@ -1,6 +1,116 @@
 # CHANGELOG
 
-## 3.3.0 (2025-08-13)
+## 3.4.0rc0 (2025-09-11)
+
+MLflow 3.4.0rc0 includes several major features and improvements
+
+### Major New Features
+
+- 📊 **OpenTelemetry Metrics Export**: MLflow now exports span-level statistics as OpenTelemetry metrics, providing enhanced observability and monitoring capabilities for traced applications. (#17325, @dbczumar)
+- 🤖 **MCP Server Integration**: Introducing the Model Context Protocol (MCP) server for MLflow, enabling AI assistants and LLMs to interact with MLflow programmatically. (#17122, @harupy)
+- 🧑‍⚖️ **Custom Judges API**: New `make_judge` API enables creation of custom evaluation judges for assessing LLM outputs with domain-specific criteria. (#17647, @BenWilson2, @dbczumar, @alkispoly-db, @smoorjani)
+- 📈 **Correlations Backend**: Implemented backend infrastructure for storing and computing correlations between experiment metrics using NPMI (Normalized Pointwise Mutual Information). (#17309, #17368, @BenWilson2)
+- 🗂️ **Evaluation Datasets**: MLflow now supports storing and versioning evaluation datasets directly within experiments for reproducible model assessment. (#17447, @BenWilson2)
+- 🔗 **Databricks Backend for MLflow Server**: MLflow server can now use Databricks as a backend, enabling seamless integration with Databricks workspaces. (#17411, @nsthorat)
+- 🤖 **Claude Autologging**: Automatic tracing support for Claude AI interactions, capturing conversations and model responses. (#17305, @smoorjani)
+- 🌊 **Strands Agent Tracing**: Added comprehensive tracing support for Strands agents, including automatic instrumentation for agent workflows and interactions. (#17151, @joelrobin18)
+- 🧪 **Experiment Types in UI**: MLflow now introduces experiment types, helping reduce clutter between classic ML/DL and GenAI features. MLflow auto-detects the type, but you can easily adjust it via a selector next to the experiment name. (#17605, @daniellok-db)
+
+Features:
+
+- [Evaluation] Add ability to pass tags via dataframe in mlflow.genai.evaluate (#17549, @smoorjani)
+- [Evaluation] Add custom judge model support for Safety and RetrievalRelevance builtin scorers (#17526, @dbrx-euirim)
+- [Tracing] Add AI commands as MCP prompts for LLM interaction (#17608, @nsthorat)
+- [Tracing] Add MLFLOW_ENABLE_OTLP_EXPORTER environment variable (#17505, @dbczumar)
+- [Tracing] Support OTel and MLflow dual export (#17187, @dbczumar)
+- [Tracing] Make set_destination use ContextVar for thread safety (#17219, @B-Step62)
+- [CLI] Add MLflow commands CLI for exposing prompt commands to LLMs (#17530, @nsthorat)
+- [CLI] Add 'mlflow runs link-traces' command (#17444, @nsthorat)
+- [CLI] Add 'mlflow runs create' command for programmatic run creation (#17417, @nsthorat)
+- [CLI] Add MLflow traces CLI command with comprehensive search and management capabilities (#17302, @nsthorat)
+- [CLI] Add --env-file flag to all MLflow CLI commands (#17509, @nsthorat)
+- [Tracking] Backend for storing scorers in MLflow experiments (#17090, @WeichenXu123)
+- [Model Registry] Allow cross-workspace copying of model versions between WMR and UC (#17458, @arpitjasa-db)
+- [Models] Add automatic Git-based model versioning for GenAI applications (#17076, @harupy)
+- [Models] Improve WheeledModel.\_download_wheels safety (#17004, @serena-ruan)
+- [Projects] Support resume run for Optuna hyperparameter optimization (#17191, @lu-wang-dl)
+- [Scoring] Add MLFLOW_DEPLOYMENT_CLIENT_HTTP_REQUEST_TIMEOUT environment variable (#17252, @dbczumar)
+- [UI] Add ability to hide/unhide all finished runs in Chart view (#17143, @joelrobin18)
+- [Telemetry] Add MLflow OSS telemetry for invoke_custom_judge_model (#17585, @dbrx-euirim)
+
+Bug fixes:
+
+- [Evaluation] Implement DSPy LM interface for default Databricks model serving (#17672, @smoorjani)
+- [Evaluation] Fix aggregations incorrectly applied to legacy scorer interface (#17596, @BenWilson2)
+- [Evaluation] Add Unity Catalog table source support for mlflow.evaluate (#17546, @BenWilson2)
+- [Evaluation] Fix custom prompt judge encoding issues with custom judge models (#17584, @dbrx-euirim)
+- [Tracking] Fix OpenAI autolog to properly reconstruct Response objects from streaming events (#17535, @WeichenXu123)
+- [Tracking] Add basic authentication support in TypeScript SDK (#17436, @kevin-lyn)
+- [Tracking] Update scorer endpoints to v3.0 API specification (#17409, @WeichenXu123)
+- [Tracking] Fix scorer status handling in MLflow tracking backend (#17379, @WeichenXu123)
+- [Tracking] Fix missing source-run information in UI (#16682, @WeichenXu123)
+- [Scoring] Fix spark_udf to always use stdin_serve for model serving (#17580, @WeichenXu123)
+- [Scoring] Fix a bug with Spark UDF usage of uv as an environment manager (#17489, @WeichenXu123)
+- [Model Registry] Extract source workspace ID from run_link during model version migration (#17600, @arpitjasa-db)
+- [Models] Improve security by reducing write permissions in temporary directory creation (#17544, @BenWilson2)
+- [Server-infra] Fix --env-file flag compatibility with --dev mode (#17615, @nsthorat)
+- [Server-infra] Fix basic authentication with Uvicorn server (#17523, @kevin-lyn)
+- [UI] Fix experiment comparison functionality in UI (#17550, @Flametaa)
+- [UI] Fix compareExperimentsSearch route definitions (#17459, @WeichenXu123)
+
+Documentation updates:
+
+- [Docs] Add clarification for trace requirements in scorers documentation (#17542, @BenWilson2)
+- [Docs] Add documentation for Claude code autotracing (#17521, @smoorjani)
+- [Docs] Remove experimental status message for MPU/MPD features (#17486, @BenWilson2)
+- [Docs] Remove problematic pages from documentation (#17453, @BenWilson2)
+- [Docs] Add documentation for updating signatures on Databricks registered models (#17450, @arpitjasa-db)
+- [Docs] Update Scorers API documentation (#17298, @WeichenXu123)
+- [Docs] Add comprehensive documentation for scorers (#17258, @B-Step62)
+
+Small bug fixes and documentation updates:
+
+#17655, #17657, #17597, #17545, #17547, @BenWilson2; #17671, @smoorjani; #17668, #17665, #17662, #17661, #17659, #17658, #17653, #17643, #17642, #17636, #17634, #17631, #17628, #17611, #17607, #17588, #17570, #17575, #17564, #17557, #17556, #17555, #17536, #17531, #17524, #17510, #17511, #17499, #17500, #17494, #17493, #17490, #17488, #17478, #17479, #17425, #17471, #17457, #17440, #17403, #17405, #17404, #17402, #17366, #17346, #17344, #17337, #17316, #17313, #17284, #17276, #17235, #17226, #17229, @copilot-swe-agent; #17664, #17654, #17613, #17637, #17633, #17612, #17630, #17616, #17626, #17617, #17610, #17614, #17602, #17538, #17522, #17512, #17508, #17492, #17462, #17475, #17468, #17455, #17338, #17257, #17231, #17214, #17223, #17218, #17216, @harupy; #17635, #17663, #17426, #16870, #17428, #17427, #17441, #17377, @serena-ruan; #17605, #17306, @daniellok-db; #17624, #17578, #17369, #17391, #17072, #17326, #17115, @dbczumar; #17598, #17408, #17353, @nsthorat; #17601, #17553, @dbrx-euirim; #17586, #17587, #17310, #17180, @TomeHirata; #17516, @bbqiu; #17477, #17474, @WeichenXu123; #17449, @raymondzhou-db; #17470, @jacob-danner; #17378, @arpitjasa-db; #17121, @ctaymor; #17351, #17322, @ispoljari; #17292, @dsuhinin; #17287, #17281, #17230, #17245, #17237, @B-Step62
+
+## 3.3.2 (2025-08-27)
+
+MLflow 3.3.2 is a patch release that includes several minor improvements and bugfixes
+
+Features:
+
+- [Evaluation] Add support for dataset name persistence (#17250, @BenWilson2)
+
+Bug fixes:
+
+- [Tracing] Add retry policy support to `_invoke_litellm` for improved reliability (#17394, @dbczumar)
+- [UI] fix ui sorting in experiments (#17340, @Flametaa)
+- [Serving] Add Databricks Lakebase Resource (#17277, @jennsun)
+- [Tracing] Fix set trace tags endpoint (#17362, @daniellok-db)
+
+Documentation updates:
+
+- [Docs] Add docs for package lock (#17395, @BenWilson2)
+- [Docs] Fix span processor docs (#17386, @mr-brobot)
+
+Small bug fixes and documentation updates:
+
+#17301, #17299, @B-Step62; #17420, #17421, #17398, #17397, #17349, #17361, #17377, #17359, #17358, #17356, #17261, #17263, #17262, @serena-ruan; #17422, #17310, #17357, @TomeHirata; #17406, @sotagg; #17418, @annzhang-db; #17384, #17376, @daniellok-db
+
+## 3.3.1 (2025-08-20)
+
+MLflow 3.3.1 includes several major features and improvements
+
+Bug fixes:
+
+- [Tracking] Fix `mlflow.genai.datasets` attribute (#17307, @WeichenXu123)
+- [UI] Fix tag display as column in experiment overview (#17296, @joelrobin18)
+- [Tracing] Fix the slowness of dspy tracing (#17290, @TomeHirata)
+
+Small bug fixes and documentation updates:
+
+#17295, @gunsodo; #17272, @bbqiu
+
+## 3.3.0 (2025-08-19)
 
 MLflow 3.3.0 includes several major features and improvements
 
@@ -8,31 +118,38 @@ MLflow 3.3.0 includes several major features and improvements
 
 - 🪝 **Model Registry Webhooks**: MLflow now supports [webhooks](https://mlflow.org/docs/latest/ml/webhooks/) for model registry events, enabling automated notifications and integrations with external systems. (#16583, @harupy)
 - 🧭 **Agno Tracing Integration**: Added [Agno tracing integration](https://mlflow.org/docs/latest/genai/tracing/integrations/listing/agno/) for enhanced observability of AI agent workflows. (#16995, @joelrobin18)
-- 🧪 **GenAI Evaluation in OSS**: MLflow open-sources [the new evaluation capability for LLM applications](https://mlflow.org/releases/3). This suite enables systematic measurement and improvement of LLM application quality, with tight integration into MLflow's observability, feedback collection, and experiment tracking capabilities. (#17161, #17159, @B-Step62)
+- 🧪 **GenAI Evaluation in OSS**: MLflow open-sources [the new evaluation capability for LLM applications](https://mlflow.org/docs/latest/genai/eval-monitor/). This suite enables systematic measurement and improvement of LLM application quality, with tight integration into MLflow's observability, feedback collection, and experiment tracking capabilities. (#17161, #17159, @B-Step62)
 - 🖥️ **Revamped Trace Table View**: The new trace view in MLflow UI provides a streamlined interface for exploring, filtering, and monitoring traces, with enhanced search capabilities including full-text search across requests.(#17092, @daniellok-db)
 - ⚡️ **FastAPI + Uvicorn Server**: MLflow Tracking Server now defaults to FastAPI + Uvicorn for improved performance, while maintaining Flask compatibility. (#17038, @dbczumar)
 
 New features:
 
+- [Tracking] Add a Docker compose file to quickly start a local MLflow server with recommended minimum setup (#17065, @joelrobin18)
 - [Tracing] Add `memory` span type for agentic workflows (#17034, @B-Step62)
 - [Prompts] Enable custom prompt optimizers in `optimize_prompt` including DSPy support (#17052, @TomeHirata)
+- [Model Registry / Prompts] Proper support for the @latest alias (#17146, @B-Step62)
 - [Metrics] Allow custom tokenizer encoding in `token_count` function (#16253, @joelrobin18)
 
 Bug fixes:
 
 - [Tracking] Fix Databricks secret scope check to reduce audit log errors (#17166, @harupy)
-- [Tracing] Remove API keys from CrewAI traces to prevent credential leakage (#17082, @diy2learn)
 - [Tracking] Fix Databricks SDK error code mapping in retry logic (#17095, @harupy)
+- [Tracking] Fix Databricks secret scope check to reduce error rates (#17166, @harupy)
+- [Tracing] Remove API keys from CrewAI traces to prevent credential leakage (#17082, @diy2learn)
 - [Tracing] Fix LiteLLM span association issue by making callbacks synchronous (#16982, @B-Step62)
+- [Tracing] Fix OpenAI Agents tracing (#17227, @B-Step62)
+- [Evaluation] Fix issue with get_label_schema has no attribute (#17163, @smoorjani)
+- [Docs] Fix version selector on API Reference page by adding missing CSS class and versions.json generation (#17247, @copilot-swe-agent)
 
 Documentation updates:
 
 - [Docs] Document custom optimizer usage with `optimize_prompt` (#17084, @TomeHirata)
-- [Docs / Evaluation] Fix built-in scorer documentation for expectation parameter (#17075, @smoorjani)
+- [Docs] Fix built-in scorer documentation for expectation parameter (#17075, @smoorjani)
+- [Docs] Add comprehensive documentation for scorers (#17258, @B-Step62)
 
 Small bug fixes and documentation updates:
 
-#17212, #17206, #17211, #17207, #17205, #17118, #17177, #17182, #17170, #17153, #17168, #17123, #17136, #17119, #17125, #17088, #17101, #17056, #17077, #17057, #17036, #17018, #17024, #17019, #16883, #16972, #16961, #16968, #16962, #16958, @harupy; #17209, #17202, #17184, #17179, #17174, #17141, #17155, #17145, #17130, #17113, #17110, #17098, #17104, #17100, #17060, #17044, #17032, #17008, #17001, #16994, #16991, #16984, #16976, @copilot-swe-agent; #17069, @hayescode; #17199, #17081, #16928, #16931, @TomeHirata; #17148, #17193, #17157, #17067, #17033, #17087, #16973, #16875, #16956, #16959, @B-Step62; #17198, @WeichenXu123; #17195, #17192, #17131, #17128, #17124, #17120, #17102, #17093, #16941, @daniellok-db; #17070, #17074, #17073, @dbczumar; #17169, #17062, #16943, @serena-ruan
+#17230, #17264, #17289, #17287, #17265, #17238, #17215, #17224, #17185, #17148, #17193, #17157, #17067, #17033, #17087, #16973, #16875, #16956, #16959, @B-Step62; #17269, @BenWilson2; #17285, #17259, #17260, #17236, #17196, #17169, #17062, #16943, @serena-ruan; #17253, @sotagg; #17212, #17206, #17211, #17207, #17205, #17118, #17177, #17182, #17170, #17153, #17168, #17123, #17136, #17119, #17125, #17088, #17101, #17056, #17077, #17057, #17036, #17018, #17024, #17019, #16883, #16972, #16961, #16968, #16962, #16958, @harupy; #17209, #17202, #17184, #17179, #17174, #17141, #17155, #17145, #17130, #17113, #17110, #17098, #17104, #17100, #17060, #17044, #17032, #17008, #17001, #16994, #16991, #16984, #16976, @copilot-swe-agent; #17069, @hayescode; #17199, #17081, #16928, #16931, @TomeHirata; #17198, @WeichenXu123; #17195, #17192, #17131, #17128, #17124, #17120, #17102, #17093, #16941, @daniellok-db; #17070, #17074, #17073, @dbczumar
 
 ## 3.2.0 (2025-08-05)
 

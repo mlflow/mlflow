@@ -1,7 +1,7 @@
 import { Button, ExpandMoreIcon, Spacer, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { useMemo } from 'react';
-import { RegisteredPrompt, RegisteredPromptVersion } from '../types';
-import { getPromptContentTagValue } from '../utils';
+import { getChatPromptMessagesFromValue, getPromptContentTagValue } from '../utils';
+import type { RegisteredPrompt, RegisteredPromptVersion } from '../types';
 import { PromptVersionMetadata } from './PromptVersionMetadata';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { diffWords } from '../diff';
@@ -35,7 +35,24 @@ export const PromptContentCompare = ({
     [comparedVersion],
   );
 
-  const diff = useMemo(() => diffWords(baselineValue ?? '', comparedValue ?? '') ?? [], [baselineValue, comparedValue]);
+  const baselineMessages = useMemo(() => getChatPromptMessagesFromValue(baselineValue), [baselineValue]);
+  const comparedMessages = useMemo(() => getChatPromptMessagesFromValue(comparedValue), [comparedValue]);
+
+  const stringifyChat = (messages: ReturnType<typeof getChatPromptMessagesFromValue>, fallback?: string) => {
+    if (messages) {
+      // Add an extra newline between each message for better diff readability
+      return messages.map((m: any) => `${m.role}: ${m.content}`).join('\n\n');
+    }
+    return fallback ?? '';
+  };
+
+  const baselineDisplay = stringifyChat(baselineMessages, baselineValue);
+  const comparedDisplay = stringifyChat(comparedMessages, comparedValue);
+
+  const diff = useMemo(
+    () => diffWords(baselineDisplay ?? '', comparedDisplay ?? '') ?? [],
+    [baselineDisplay, comparedDisplay],
+  );
 
   const colors = useMemo(
     () => ({
@@ -108,7 +125,7 @@ export const PromptContentCompare = ({
               whiteSpace: 'pre-wrap',
             }}
           >
-            {baselineValue || 'Empty'}
+            {baselineDisplay || 'Empty'}
           </Typography.Text>
         </div>
         <div css={{ paddingLeft: theme.spacing.sm, paddingRight: theme.spacing.sm }}>

@@ -3,7 +3,7 @@ import { rest } from 'msw';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { useLoggedModelsForExperimentRunsTableV2 } from './useLoggedModelsForExperimentRunsTableV2';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { RunInfoEntity } from '../../../types';
+import type { RunInfoEntity } from '../../../types';
 
 // Enable feature flags
 jest.mock('../../../../common/utils/FeatureUtils', () => ({
