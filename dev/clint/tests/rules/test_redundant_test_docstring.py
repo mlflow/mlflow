@@ -174,3 +174,52 @@ class TestDataProcessingValidation:
     assert "TestDataProcessingValidation" in class_violation.rule.message
     assert "Test class" in class_violation.rule.message
     assert "Consider removing it or expanding it" in class_violation.rule.message
+
+
+def test_module_single_line_docstrings_are_flagged(index_path: Path) -> None:
+    code = '''"""This is a test module."""
+def test_something():
+    assert True
+'''
+
+    config = Config(select={RedundantTestDocstring.name})
+    violations = lint_file(Path("test_module.py"), code, config, index_path)
+    assert len(violations) == 1
+    assert isinstance(violations[0].rule, RedundantTestDocstring)
+    assert violations[0].rule.is_module_docstring
+    assert "single-line docstring" in violations[0].rule.message
+
+
+def test_module_multiline_docstrings_are_allowed(index_path: Path) -> None:
+    code = '''"""
+This is a test module.
+It has multiple lines.
+"""
+def test_something():
+    assert True
+'''
+
+    config = Config(select={RedundantTestDocstring.name})
+    violations = lint_file(Path("test_module.py"), code, config, index_path)
+    assert len(violations) == 0
+
+
+def test_module_without_docstring_is_not_flagged(index_path: Path) -> None:
+    code = """def test_something():
+    assert True
+"""
+
+    config = Config(select={RedundantTestDocstring.name})
+    violations = lint_file(Path("test_module.py"), code, config, index_path)
+    assert len(violations) == 0
+
+
+def test_non_test_module_docstrings_are_ignored(index_path: Path) -> None:
+    code = '''"""This is a regular module."""
+def some_function():
+    pass
+'''
+
+    config = Config(select={RedundantTestDocstring.name})
+    violations = lint_file(Path("regular_module.py"), code, config, index_path)
+    assert len(violations) == 0

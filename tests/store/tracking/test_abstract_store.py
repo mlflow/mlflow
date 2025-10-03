@@ -60,7 +60,6 @@ def test_get_metric_history_bulk_interval_single_run_single_metric(store):
 
 
 def test_get_metric_history_bulk_interval_single_run_multiple_metrics_within_range(store):
-    """Test single run with multiple metrics within step range."""
     store.metrics = [
         Metric("accuracy", 0.7, 1000, 1, run_id="run1"),
         Metric("accuracy", 0.8, 2000, 5, run_id="run1"),

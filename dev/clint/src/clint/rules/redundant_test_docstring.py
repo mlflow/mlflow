@@ -21,9 +21,15 @@ MAX_DOCSTRING_LENGTH_RATIO = 1.0
 
 
 class RedundantTestDocstring(Rule):
-    def __init__(self, function_name: str, has_class_docstring: bool = False) -> None:
+    def __init__(
+        self,
+        function_name: str | None = None,
+        has_class_docstring: bool = False,
+        is_module_docstring: bool = False,
+    ) -> None:
         self.function_name = function_name
         self.has_class_docstring = has_class_docstring
+        self.is_module_docstring = is_module_docstring
 
     @classmethod
     def check(
@@ -43,6 +49,18 @@ class RedundantTestDocstring(Rule):
             docstring, node.name
         ):
             return cls(node.name, has_class_docstring=is_class)
+
+        return None
+
+    @classmethod
+    def check_module(cls, module: ast.Module, path_name: str) -> Self | None:
+        """Check if module-level docstring is redundant."""
+        if not (path_name.startswith("test_") or path_name.endswith("_test.py")):
+            return None
+
+        if docstring := ast.get_docstring(module):
+            if "\n" not in docstring:
+                return cls(is_module_docstring=True)
 
         return None
 
@@ -73,6 +91,13 @@ class RedundantTestDocstring(Rule):
         return overlap_percentage >= MIN_WORD_OVERLAP_PERCENTAGE
 
     def _message(self) -> str:
+        if self.is_module_docstring:
+            return (
+                "Test module has a single-line docstring. "
+                "Single-line module docstrings don't provide enough context. "
+                "Consider removing it or expanding it with meaningful details."
+            )
+
         entity_type = "Test class" if self.has_class_docstring else "Test function"
         return (
             f"{entity_type} '{self.function_name}' has a redundant docstring. "

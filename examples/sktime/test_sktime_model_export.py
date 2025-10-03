@@ -1,5 +1,3 @@
-"""Tests for sktime custom model flavor."""
-
 import os
 from pathlib import Path
 from unittest import mock
