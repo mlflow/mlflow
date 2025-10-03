@@ -2,8 +2,6 @@ import pytest
 from flask import Flask
 from werkzeug.test import Client
 
-from mlflow.server import app as mlflow_app
-
 
 @pytest.fixture
 def test_app():
@@ -29,11 +27,17 @@ def test_app():
     return app
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def mlflow_app_client():
-    """Test client for the MLflow Flask application."""
-    from mlflow.server import security
+    """Test client for the MLflow Flask application with security middleware."""
+    from flask import Flask
 
-    if not hasattr(mlflow_app, "extensions") or "cors" not in mlflow_app.extensions:
-        security.init_security_middleware(mlflow_app)
-    return Client(mlflow_app)
+    from mlflow.server import handlers, security
+
+    # Create a fresh app for each test to avoid state pollution
+    app = Flask(__name__)
+    for http_path, handler, methods in handlers.get_endpoints():
+        app.add_url_rule(http_path, handler.__name__, handler, methods=methods)
+
+    security.init_security_middleware(app)
+    return Client(app)
