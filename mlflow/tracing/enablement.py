@@ -44,23 +44,24 @@ def set_experiment_trace_location(
         the table names of the spans and logs tables.
 
     Example:
+
         .. code-block:: python
 
-        import mlflow
-        from mlflow.entities import UCSchemaLocation
+            import mlflow
+            from mlflow.entities import UCSchemaLocation
 
-        location = UCSchemaLocation(catalog_name="my_catalog", schema_name="my_schema")
+            location = UCSchemaLocation(catalog_name="my_catalog", schema_name="my_schema")
 
-        result = mlflow.tracing.set_experiment_trace_location(
-            location=location,
-            experiment_id="12345",
-        )
-        print(result.full_otel_spans_table_name)  # my_catalog.my_schema.otel_spans_table
+            result = mlflow.tracing.set_experiment_trace_location(
+                location=location,
+                experiment_id="12345",
+            )
+            print(result.full_otel_spans_table_name)  # my_catalog.my_schema.otel_spans_table
 
 
-        @mlflow.trace
-        def add(x):
-            return x + 1
+            @mlflow.trace
+            def add(x):
+                return x + 1
 
 
         add(1)  # this writes the trace to the storage location set above
