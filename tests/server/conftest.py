@@ -29,7 +29,11 @@ def test_app():
     return app
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def mlflow_app_client():
     """Test client for the MLflow Flask application."""
+    from mlflow.server import security
+
+    if not hasattr(mlflow_app, "extensions") or "cors" not in mlflow_app.extensions:
+        security.init_security_middleware(mlflow_app)
     return Client(mlflow_app)

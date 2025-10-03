@@ -21,7 +21,7 @@ flask:
 
 flask-cors:
   pip_release: Flask-CORS
-  max_major_version: 5
+  max_major_version: 6
 
 numpy:
   pip_release: numpy

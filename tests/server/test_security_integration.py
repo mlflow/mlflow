@@ -1,11 +1,8 @@
-import importlib
 import json
 from unittest import mock
 
 import pytest
 from werkzeug.test import Client
-
-import mlflow.server
 
 
 @pytest.mark.parametrize(
@@ -61,8 +58,16 @@ def test_cors_for_state_changing_requests(mlflow_app_client, origin, endpoint, e
 
 @mock.patch.dict("os.environ", {"MLFLOW_CORS_ALLOWED_ORIGINS": "https://trusted-app.com"})
 def test_cors_with_configured_origins():
-    importlib.reload(mlflow.server)
-    client = Client(mlflow.server.app)
+    from flask import Flask
+
+    from mlflow.server import handlers, security
+
+    app = Flask(__name__)
+    for http_path, handler, methods in handlers.get_endpoints():
+        app.add_url_rule(http_path, handler.__name__, handler, methods=methods)
+
+    security.init_security_middleware(app)
+    client = Client(app)
 
     test_cases = [
         ("https://trusted-app.com", False),
