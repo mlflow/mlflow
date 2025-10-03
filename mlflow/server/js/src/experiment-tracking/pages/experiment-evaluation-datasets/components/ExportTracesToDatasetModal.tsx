@@ -190,7 +190,7 @@ export const ExportTracesToDatasetModal = ({
               ))}
             </>
           )}
-          {hasNextPage && <TableSkeletonRows table={table} />}
+          {(isFetching || hasNextPage) && <TableSkeletonRows table={table} />}
         </Table>
       </div>
     </Modal>
