@@ -81,14 +81,14 @@ def test_uc_schema_location_from_proto():
     proto = pb.UCSchemaLocation(
         catalog_name="test_catalog",
         schema_name="test_schema",
-        otel_spans_table_name="test_catalog.test_schema.test_spans",
-        otel_logs_table_name="test_catalog.test_schema.test_logs",
+        otel_spans_table_name="test_spans",
+        otel_logs_table_name="test_logs",
     )
     schema_location = uc_schema_location_from_proto(proto)
     assert schema_location.catalog_name == "test_catalog"
     assert schema_location.schema_name == "test_schema"
-    assert schema_location.otel_spans_table_name == "test_catalog.test_schema.test_spans"
-    assert schema_location.otel_logs_table_name == "test_catalog.test_schema.test_logs"
+    assert schema_location.full_otel_spans_table_name == "test_catalog.test_schema.test_spans"
+    assert schema_location.full_otel_logs_table_name == "test_catalog.test_schema.test_logs"
 
 
 def test_inference_table_location_to_proto():
@@ -107,33 +107,31 @@ def test_schema_location_to_proto():
     schema_location = UCSchemaLocation(
         catalog_name="test_catalog",
         schema_name="test_schema",
-        otel_spans_table_name="test_catalog.test_schema.test_spans",
-        otel_logs_table_name="test_catalog.test_schema.test_logs",
     )
+    schema_location._otel_spans_table_name = "test_spans"
+    schema_location._otel_logs_table_name = "test_logs"
     proto = uc_schema_location_to_proto(schema_location)
     assert proto.catalog_name == "test_catalog"
     assert proto.schema_name == "test_schema"
-    assert proto.otel_spans_table_name == "test_catalog.test_schema.test_spans"
-    assert proto.otel_logs_table_name == "test_catalog.test_schema.test_logs"
+    assert proto.otel_spans_table_name == "test_spans"
+    assert proto.otel_logs_table_name == "test_logs"
 
 
 def test_trace_location_from_proto_uc_schema():
     proto = pb.TraceLocation(
         type=pb.TraceLocation.TraceLocationType.UC_SCHEMA,
-        uc_schema=uc_schema_location_to_proto(
-            UCSchemaLocation(
-                catalog_name="catalog",
-                schema_name="schema",
-                otel_spans_table_name="catalog.schema.spans",
-                otel_logs_table_name="catalog.schema.logs",
-            )
+        uc_schema=pb.UCSchemaLocation(
+            catalog_name="catalog",
+            schema_name="schema",
+            otel_spans_table_name="spans",
+            otel_logs_table_name="logs",
         ),
     )
     trace_location = trace_location_from_proto(proto)
     assert trace_location.uc_schema.catalog_name == "catalog"
     assert trace_location.uc_schema.schema_name == "schema"
-    assert trace_location.uc_schema.otel_spans_table_name == "catalog.schema.spans"
-    assert trace_location.uc_schema.otel_logs_table_name == "catalog.schema.logs"
+    assert trace_location.uc_schema.full_otel_spans_table_name == "catalog.schema.spans"
+    assert trace_location.uc_schema.full_otel_logs_table_name == "catalog.schema.logs"
 
 
 def test_trace_location_from_proto_mlflow_experiment():
