@@ -1976,7 +1976,7 @@ class SqlJob(Base):
     Job result: `Text`.
     """
 
-    retry_count = Column(Integer, default=0)
+    retry_count = Column(Integer, default=0, nullable=False)
     """
     Job retry count: `Integer`
     """

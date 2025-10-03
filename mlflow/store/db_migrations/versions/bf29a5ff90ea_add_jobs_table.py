@@ -31,7 +31,7 @@ def upgrade():
         sa.Column("timeout", sa.Float(precision=53), nullable=True),
         sa.Column("status", sa.Integer(), nullable=False),
         sa.Column("result", sa.Text(), nullable=True),
-        sa.Column("retry_count", sa.Integer(), default=0),
+        sa.Column("retry_count", sa.Integer(), default=0, nullable=False),
         sa.Column(
             "last_update_time",
             sa.BigInteger(),
