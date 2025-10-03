@@ -2521,6 +2521,10 @@
     "defaultMessage": "On",
     "description": "Runs charts > line chart > display points > on setting label"
   },
+  "QcEYpD": {
+    "defaultMessage": "Add to evaluation dataset",
+    "description": "Add traces to evaluation dataset action"
+  },
   "QhEnTA": {
     "defaultMessage": "Name",
     "description": "Header for the name column in the experiments table"
@@ -5574,6 +5578,10 @@
   "xgypqc": {
     "defaultMessage": "Copied to clipboard",
     "description": "Success message for the notification"
+  },
+  "xiFkTH": {
+    "defaultMessage": "Use for evaluation",
+    "description": "Trace actions dropdown group label"
   },
   "xmPKKq": {
     "defaultMessage": "Model Version:",
