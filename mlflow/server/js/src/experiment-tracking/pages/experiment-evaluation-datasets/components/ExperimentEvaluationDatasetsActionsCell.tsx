@@ -38,6 +38,7 @@ export const ActionsCell = ({ row }: { row: Row<EvaluationDataset> }) => {
         <DropdownMenu.Content align="end">
           <DropdownMenu.Item
             componentId="mlflow.eval-datasets.delete-dataset-menu-option"
+            disabled={isDeletingDataset}
             onClick={(e) => {
               e.stopPropagation();
               e.preventDefault();
