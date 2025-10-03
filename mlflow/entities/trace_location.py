@@ -221,3 +221,10 @@ class TraceLocation(_MlflowObject):
             type=TraceLocationType.MLFLOW_EXPERIMENT,
             mlflow_experiment=MlflowExperimentLocation(experiment_id=experiment_id),
         )
+
+    @classmethod
+    def from_databricks_uc_schema(cls, catalog_name: str, schema_name: str) -> "TraceLocation":
+        return cls(
+            type=TraceLocationType.UC_SCHEMA,
+            uc_schema=UCSchemaLocation(catalog_name=catalog_name, schema_name=schema_name),
+        )

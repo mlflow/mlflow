@@ -512,7 +512,6 @@ def add_size_stats_to_trace_metadata(trace: Trace):
     This function must not throw an exception.
     """
     from mlflow.entities import Trace, TraceData
-    from mlflow.utils.databricks_tracing_utils import trace_to_json
 
     try:
         span_sizes = []
@@ -525,9 +524,7 @@ def add_size_stats_to_trace_metadata(trace: Trace):
         # again (which can be expensive), we compute the size of the trace without spans
         # and combine it with the total size of the spans.
         empty_trace = Trace(info=trace.info, data=TraceData(spans=[]))
-        # use trace_to_json instead of empty_trace.to_json() to be compatible with trace v4
-        # proto, which is a superset of the trace v3 proto.
-        metadata_size = len(trace_to_json(empty_trace).encode("utf-8"))
+        metadata_size = len((empty_trace.to_json()).encode("utf-8"))
 
         # NB: the third term is the size of comma separators between spans (", ").
         trace_size_bytes = sum(span_sizes) + metadata_size + (len(span_sizes) - 1) * 2
