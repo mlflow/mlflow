@@ -1,7 +1,6 @@
 import atexit
 import codecs
 import errno
-import fcntl
 import fnmatch
 import gzip
 import importlib.util
@@ -994,12 +993,16 @@ class ExclusiveFileLock:
         self.fd = None
 
     def __enter__(self):
+        import fcntl
+
         # Open file (create if missing)
         self.fd = open(self.path, "w")
         # Acquire exclusive lock (blocking)
         fcntl.flock(self.fd, fcntl.LOCK_EX)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        import fcntl
+
         # Release lock
         fcntl.flock(self.fd, fcntl.LOCK_UN)
         self.fd.close()
