@@ -4,6 +4,7 @@ Trace enablement functionality for MLflow to enable tracing to Databricks Storag
 
 import logging
 
+import mlflow
 from mlflow.entities.trace_location import UCSchemaLocation
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.client import TracingClient
@@ -79,6 +80,18 @@ def set_experiment_trace_location(
             "Experiment ID is required to set storage location, either pass it as an argument or "
             "use `mlflow.set_experiment` to set the current experiment."
         )
+
+    # Check if the experiment exists. In Databricks notebook, this `get_experiment` call triggers
+    # a side effect to create the experiment for the notebook if it doesn't exist. This side effect
+    # is convenient for users.
+    if experiment_id:
+        try:
+            mlflow.get_experiment(str(experiment_id))
+        except Exception as e:
+            raise MlflowException.invalid_parameter_value(
+                f"Could not find experiment with ID {experiment_id}. Please make sure the "
+                "experiment exists before setting the storage location."
+            ) from e
 
     uc_schema_location = TracingClient()._set_experiment_trace_location(
         location=location,
