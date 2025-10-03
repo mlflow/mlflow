@@ -30,9 +30,9 @@ EXAMPLE USAGE:
         --extract-fields "info.trace_id,info.assessments.*,data.spans.*.name" \
         --output json
 
-    # Extract trace names (using backticks for dots in field names)
+    # Extract trace names (use single quotes with backticks to prevent shell issues)
     mlflow traces search --experiment-ids 1 \
-        --extract-fields "info.trace_id,info.tags.`mlflow.traceName`" \
+        --extract-fields 'info.trace_id,info.tags.`mlflow.traceName`' \
         --output json
 
     # Get full trace details
@@ -223,7 +223,9 @@ Available fields:
     type=click.STRING,
     help="Filter and select specific fields using dot notation. "
     'Examples: "info.trace_id", "info.assessments.*", "data.spans.*.name". '
-    'For field names with dots, use backticks: "info.tags.`mlflow.traceName`". '
+    "For field names with dots, use backticks: 'info.tags.`mlflow.traceName`'. "
+    "Use single quotes around the entire parameter when using backticks "
+    "to prevent shell interpretation. "
     "Comma-separated for multiple fields. "
     "Defaults to standard columns for table mode, all fields for JSON mode.",
 )
@@ -279,6 +281,11 @@ def search_traces(
     \b
     # Search without span data (faster for metadata-only queries)
     mlflow traces search --experiment-id 1 --no-include-spans
+
+    \b
+    # Extract specific fields (use single quotes with backticks)
+    mlflow traces search --experiment-id 1 \\
+        --extract-fields 'info.trace_id,info.trace_metadata.`mlflow.traceInputs`'
     """
     client = TracingClient()
     order_by_list = order_by.split(",") if order_by else None
@@ -360,7 +367,11 @@ def search_traces(
     "--extract-fields",
     type=click.STRING,
     help="Filter and select specific fields using dot notation. "
-    "Examples: 'info.trace_id', 'info.assessments.*', 'data.spans.*.name'. "
+    "Examples: 'info.trace_id', 'info.assessments.*', 'data.spans.*.name', "
+    "'info.request_preview', 'info.response_preview'. "
+    "For field names with dots, use backticks: 'data.spans.*.attributes.`mlflow.spanType`'. "
+    "Use single quotes around the entire parameter when using backticks "
+    "to prevent shell interpretation. "
     "Comma-separated for multiple fields. "
     "If not specified, returns all trace data.",
 )
@@ -381,6 +392,16 @@ def get_trace(
     Examples:
     # Get full trace
     mlflow traces get --trace-id tr-1234567890abcdef
+
+    \b
+    # Extract request and response previews
+    mlflow traces get --trace-id tr-1234567890abcdef \\
+        --extract-fields "info.request_preview,info.response_preview"
+
+    \b
+    # Extract span types (use single quotes with backticks)
+    mlflow traces get --trace-id tr-1234567890abcdef \\
+        --extract-fields 'data.spans.*.name,data.spans.*.attributes.`mlflow.spanType`'
 
     \b
     # Get specific fields only
@@ -497,7 +518,11 @@ def delete_trace_tag(trace_id: str, key: str) -> None:
 @click.option(
     "--source-type",
     type=click.Choice(
-        [AssessmentSourceType.HUMAN, AssessmentSourceType.LLM_JUDGE, AssessmentSourceType.CODE]
+        [
+            AssessmentSourceType.HUMAN,
+            AssessmentSourceType.LLM_JUDGE,
+            AssessmentSourceType.CODE,
+        ]
     ),
     help="Source type of the feedback",
 )
@@ -600,7 +625,11 @@ def log_feedback(
 @click.option(
     "--source-type",
     type=click.Choice(
-        [AssessmentSourceType.HUMAN, AssessmentSourceType.LLM_JUDGE, AssessmentSourceType.CODE]
+        [
+            AssessmentSourceType.HUMAN,
+            AssessmentSourceType.LLM_JUDGE,
+            AssessmentSourceType.CODE,
+        ]
     ),
     help="Source type of the expectation",
 )
