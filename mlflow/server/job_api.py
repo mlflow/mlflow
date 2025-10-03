@@ -36,6 +36,7 @@ class Job(BaseModel):
     status: str
     result: Any
     retry_count: int
+    last_update_time: int
 
     @classmethod
     def from_job_entity(cls, job: JobEntity) -> "Job":
@@ -48,6 +49,7 @@ class Job(BaseModel):
             status=str(job.status),
             result=job.parsed_result,
             retry_count=job.retry_count,
+            last_update_time=job.last_update_time,
         )
 
 
