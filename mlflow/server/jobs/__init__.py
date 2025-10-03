@@ -62,8 +62,8 @@ def job(
             If it is set, `use_process` param must be ``True`
     """
     from mlflow.utils import PYTHON_VERSION
-    from mlflow.version import VERSION
     from mlflow.utils.requirements_utils import _parse_requirements
+    from mlflow.version import VERSION
 
     if python_version or pip_requirements:
         if not use_process:
@@ -78,9 +78,7 @@ def job(
         python_version = python_version or PYTHON_VERSION
         try:
             pip_requirements = [
-                req.req_str for req in _parse_requirements(
-                    pip_requirements, is_constraint=False
-                )
+                req.req_str for req in _parse_requirements(pip_requirements, is_constraint=False)
             ]
         except Exception as e:
             raise MlflowException.invalid_parameter_value(

@@ -3,9 +3,7 @@ import importlib
 import inspect
 import json
 import logging
-import multiprocessing
 import os
-from pathlib import Path
 import shutil
 import signal
 import subprocess
@@ -13,7 +11,8 @@ import sys
 import tempfile
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable
 
 import cloudpickle
@@ -61,6 +60,15 @@ class JobResult:
             is_transient_error=False,
             error=repr(e),
         )
+
+    def dump(self, path: str) -> None:
+        with open(path, "w") as fp:
+            json.dump(asdict(self), fp)
+
+    @classmethod
+    def load(cls, path: str) -> "JobResult":
+        with open(path) as fp:
+            return JobResult(**json.load(fp))
 
 
 def _exit_when_orphaned(poll_interval: float = 1) -> None:
