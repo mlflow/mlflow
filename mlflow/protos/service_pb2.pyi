@@ -1586,19 +1586,36 @@ class DeleteScorer(_message.Message):
     version: int
     def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., version: _Optional[int] = ...) -> None: ...
 
+class UpdateScorer(_message.Message):
+    __slots__ = ("experiment_id", "name", "sample_rate")
+    class Response(_message.Message):
+        __slots__ = ("scorer",)
+        SCORER_FIELD_NUMBER: _ClassVar[int]
+        scorer: Scorer
+        def __init__(self, scorer: _Optional[_Union[Scorer, _Mapping]] = ...) -> None: ...
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    SAMPLE_RATE_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: str
+    name: str
+    sample_rate: float
+    def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., sample_rate: _Optional[float] = ...) -> None: ...
+
 class Scorer(_message.Message):
-    __slots__ = ("experiment_id", "scorer_name", "scorer_version", "serialized_scorer", "creation_time")
+    __slots__ = ("experiment_id", "scorer_name", "scorer_version", "serialized_scorer", "creation_time", "sample_rate")
     EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
     SCORER_NAME_FIELD_NUMBER: _ClassVar[int]
     SCORER_VERSION_FIELD_NUMBER: _ClassVar[int]
     SERIALIZED_SCORER_FIELD_NUMBER: _ClassVar[int]
     CREATION_TIME_FIELD_NUMBER: _ClassVar[int]
+    SAMPLE_RATE_FIELD_NUMBER: _ClassVar[int]
     experiment_id: int
     scorer_name: str
     scorer_version: int
     serialized_scorer: str
     creation_time: int
-    def __init__(self, experiment_id: _Optional[int] = ..., scorer_name: _Optional[str] = ..., scorer_version: _Optional[int] = ..., serialized_scorer: _Optional[str] = ..., creation_time: _Optional[int] = ...) -> None: ...
+    sample_rate: float
+    def __init__(self, experiment_id: _Optional[int] = ..., scorer_name: _Optional[str] = ..., scorer_version: _Optional[int] = ..., serialized_scorer: _Optional[str] = ..., creation_time: _Optional[int] = ..., sample_rate: _Optional[float] = ...) -> None: ...
 
 class MlflowService(_service.service): ...
 

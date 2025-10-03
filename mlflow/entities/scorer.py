@@ -25,6 +25,8 @@ class ScorerVersion(_MlflowObject):
         scorer_version (int): The version number of this scorer instance.
         serialized_scorer (str): JSON-serialized string containing the scorer's metadata and code.
         creation_time (int): Unix timestamp (in milliseconds) when this version was created.
+        sample_rate (float): The fraction of traces to sample for scoring (0.0 to 1.0).
+            Default is 0.0.
 
     Example:
         .. code-block:: python
@@ -52,12 +54,14 @@ class ScorerVersion(_MlflowObject):
         scorer_version: int,
         serialized_scorer: str,
         creation_time: int,
+        sample_rate: float = 0.0,
     ):
         self._experiment_id = experiment_id
         self._scorer_name = scorer_name
         self._scorer_version = scorer_version
         self._serialized_scorer = serialized_scorer
         self._creation_time = creation_time
+        self._sample_rate = sample_rate
 
     @property
     def experiment_id(self):
@@ -126,6 +130,17 @@ class ScorerVersion(_MlflowObject):
         """
         return self._creation_time
 
+    @property
+    def sample_rate(self):
+        """
+        The fraction of traces to sample for scoring.
+
+        Returns:
+            float: A value between 0.0 and 1.0 representing the sampling rate.
+                  0.0 means no sampling (scorer is disabled), 1.0 means score all traces.
+        """
+        return self._sample_rate
+
     @classmethod
     def from_proto(cls, proto):
         """
@@ -146,11 +161,12 @@ class ScorerVersion(_MlflowObject):
             and should not typically be called directly by users.
         """
         return cls(
-            experiment_id=proto.experiment_id,
+            experiment_id=str(proto.experiment_id),
             scorer_name=proto.scorer_name,
             scorer_version=proto.scorer_version,
             serialized_scorer=proto.serialized_scorer,
             creation_time=proto.creation_time,
+            sample_rate=proto.sample_rate if proto.HasField("sample_rate") else 0.0,
         )
 
     def to_proto(self):
@@ -169,11 +185,12 @@ class ScorerVersion(_MlflowObject):
             and should not typically be called directly by users.
         """
         proto = ProtoScorer()
-        proto.experiment_id = self.experiment_id
+        proto.experiment_id = int(self.experiment_id)
         proto.scorer_name = self.scorer_name
         proto.scorer_version = self.scorer_version
         proto.serialized_scorer = self._serialized_scorer
         proto.creation_time = self.creation_time
+        proto.sample_rate = self.sample_rate
         return proto
 
     def __repr__(self):

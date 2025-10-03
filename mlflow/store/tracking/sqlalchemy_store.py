@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import inspect
 import json
 import logging
 import math
@@ -49,6 +50,7 @@ from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.metric import Metric, MetricWithRunId
+from mlflow.entities.scorer import ScorerVersion
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace import Span
 from mlflow.entities.trace_info_v2 import TraceInfoV2
@@ -1981,12 +1983,29 @@ class SqlAlchemyStore(AbstractStore):
         Returns:
             The new version number for the scorer.
         """
+        from mlflow.genai.scorers.base import Scorer
+
+        scorer_obj = Scorer.model_validate(json.loads(serialized_scorer))
+        call_signature = inspect.signature(scorer_obj.__call__)
+        param_names = list(call_signature.parameters.keys())
+
+        has_trace_param = "trace" in param_names
+        has_kwargs = any(
+            param.kind == inspect.Parameter.VAR_KEYWORD
+            for param in call_signature.parameters.values()
+        )
+
+        if not (has_trace_param or has_kwargs):
+            raise MlflowException(
+                f"Scorer '{name}' must accept a 'trace' parameter in its __call__ method. "
+                f"Found parameters: {param_names}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
         with self.ManagedSessionMaker() as session:
-            # Validate experiment exists and is active
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
 
-            # First, check if the scorer exists in the scorers table
             scorer = (
                 session.query(SqlScorer)
                 .filter(
@@ -2270,6 +2289,53 @@ class SqlAlchemyStore(AbstractStore):
                 scorers.append(sql_scorer_version.to_mlflow_entity())
 
             return scorers
+
+    def update_scorer(self, experiment_id, name, sample_rate=None) -> ScorerVersion:
+        """
+        Update a scorer's sampling configuration.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: The scorer name.
+            sample_rate: The new sample rate (0.0 to 1.0). If None, keeps current value.
+
+        Returns:
+            A ScorerVersion entity object with updated configuration.
+
+        Raises:
+            MlflowException: If scorer is not found or if sample_rate is invalid.
+        """
+        with self.ManagedSessionMaker() as session:
+            experiment = self.get_experiment(experiment_id)
+            self._check_experiment_is_active(experiment)
+
+            latest_version = (
+                session.query(SqlScorerVersion)
+                .join(SqlScorer)
+                .filter(
+                    SqlScorer.experiment_id == experiment.experiment_id,
+                    SqlScorer.scorer_name == name,
+                )
+                .order_by(SqlScorerVersion.scorer_version.desc())
+                .first()
+            )
+
+            if latest_version is None:
+                raise MlflowException(
+                    f"Scorer with name '{name}' not found for experiment {experiment_id}.",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            if sample_rate is not None:
+                if not 0.0 <= sample_rate <= 1.0:
+                    raise MlflowException(
+                        f"Invalid sample_rate: {sample_rate}. Must be between 0.0 and 1.0.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                latest_version.sample_rate = sample_rate
+                session.commit()
+
+            return latest_version.to_mlflow_entity()
 
     def _apply_order_by_search_logged_models(
         self,

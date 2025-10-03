@@ -1245,3 +1245,20 @@ class AbstractStore:
             MlflowException: If scorer is not found.
         """
         raise NotImplementedError(self.__class__.__name__)
+
+    def update_scorer(self, experiment_id: str, name: str, sample_rate: float | None = None):
+        """
+        Update a scorer's sampling configuration.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: The scorer name.
+            sample_rate: The new sample rate (0.0 to 1.0). If None, keeps current value.
+
+        Returns:
+            A ScorerVersion entity object with updated configuration.
+
+        Raises:
+            MlflowException: If scorer is not found or if sample_rate is invalid.
+        """
+        raise NotImplementedError(self.__class__.__name__)
