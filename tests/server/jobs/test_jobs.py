@@ -18,6 +18,7 @@ from mlflow.server import (
 from mlflow.server.handlers import _get_job_store
 from mlflow.server.jobs import get_job, job, submit_job
 from mlflow.server.jobs.utils import _launch_job_runner
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
 pytestmark = pytest.mark.skipif(
     os.name == "nt", reason="MLflow job execution is not supported on Windows"
@@ -39,8 +40,14 @@ def _launch_job_runner_for_test():
 
 
 @contextmanager
-def _setup_job_runner(monkeypatch, tmp_path, backend_store_uri=None):
+def _setup_job_runner(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, backend_store_uri: str | None = None
+):
     backend_store_uri = backend_store_uri or f"sqlite:///{tmp_path / 'mlflow.db'}"
+    # Pre-initialize the database to prevent race conditions when the tracking store and job store
+    # attempt to initialize the database simultaneously.
+    store = SqlAlchemyStore(backend_store_uri)
+    store.engine.dispose()
     huey_store_path = tmp_path / "huey_store"
     huey_store_path.mkdir()
     default_artifact_root = str(tmp_path / "artifacts")
