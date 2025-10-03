@@ -11,6 +11,3 @@ mlflow.tracing
     :members:
     :undoc-members:
     :show-inheritance:
-
-.. automodule:: mlflow.tracing.destination
-    :members:
