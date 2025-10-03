@@ -68,11 +68,6 @@ const EvaluationsReviewSingleRunHeaderSection = ({
               <GenAITracesTableActions
                 experimentId={experimentId}
                 selectedTraces={[evaluationResult]}
-                traceActions={{
-                  exportToEvals: {
-                    getTrace,
-                  },
-                }}
                 traceInfos={undefined}
               />
             )}
