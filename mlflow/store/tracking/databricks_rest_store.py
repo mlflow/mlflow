@@ -236,8 +236,6 @@ class DatabricksTracingRestStore(RestStore):
                 "At least one location must be specified for searching traces."
             )
 
-        contain_uc_schemas = False
-        trace_locations = []
         # model_id is only supported by V3 API
         if model_id is not None:
             return self._search_unified_traces(
@@ -249,25 +247,26 @@ class DatabricksTracingRestStore(RestStore):
                 page_token=page_token,
             )
 
+        contain_uc_schemas = False
+        trace_locations = []
         for location in locations:
-            if "." not in location:
-                trace_locations.append(
-                    trace_location_to_proto(TraceLocation.from_experiment_id(location))
-                )
-            else:
-                match location.split("."):
-                    case [catalog, schema]:
-                        trace_locations.append(
-                            trace_location_to_proto(
-                                trace_location_from_databricks_uc_schema(catalog, schema)
-                            )
+            match location.split("."):
+                case [experiment_id]:
+                    trace_locations.append(
+                        trace_location_to_proto(TraceLocation.from_experiment_id(experiment_id))
+                    )
+                case [catalog, schema]:
+                    trace_locations.append(
+                        trace_location_to_proto(
+                            trace_location_from_databricks_uc_schema(catalog, schema)
                         )
-                        contain_uc_schemas = True
-                    case _:
-                        raise MlflowException.invalid_parameter_value(
-                            f"Invalid location type: {location}. Expected type: "
-                            "`<catalog_name>.<schema_name>` or `<experiment_id>`."
-                        )
+                    )
+                    contain_uc_schemas = True
+                case _:
+                    raise MlflowException.invalid_parameter_value(
+                        f"Invalid location type: {location}. Expected type: "
+                        "`<catalog_name>.<schema_name>` or `<experiment_id>`."
+                    )
 
         request = SearchTraces(
             locations=trace_locations,
