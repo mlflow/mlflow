@@ -14,9 +14,8 @@ import {
   ColumnsIcon,
   DropdownMenu,
   Typography,
-  DatabaseIcon,
 } from '@databricks/design-system';
-import { FormattedMessage, useIntl } from '@databricks/i18n';
+import { useIntl } from '@databricks/i18n';
 import type { ColumnDef, Row, SortDirection, SortingState } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table';
 import { EvaluationDataset } from '../types';
@@ -27,6 +26,7 @@ import { ActionsCell } from './ExperimentEvaluationDatasetsActionsCell';
 import { isEqual } from 'lodash';
 import { CreateEvaluationDatasetModal } from './CreateEvaluationDatasetModal';
 import { useInfiniteScrollFetch } from '../hooks/useInfiniteScrollFetch';
+import { CreateEvaluationDatasetButton } from './CreateEvaluationDatasetButton';
 
 const COLUMN_IDS = {
   NAME: 'name',
@@ -271,14 +271,7 @@ export const ExperimentEvaluationDatasetsListTable = ({
           </DropdownMenu.Root>
         </div>
       </div>
-      <Button
-        componentId="mlflow.eval-datasets.create-dataset-button"
-        css={{ width: 'min-content' }}
-        icon={<DatabaseIcon />}
-        onClick={() => setShowCreateDatasetModal(true)}
-      >
-        <FormattedMessage defaultMessage="Create dataset" description="Create evaluation dataset button" />
-      </Button>
+      <CreateEvaluationDatasetButton experimentId={experimentId} />
       <div css={{ flex: 1, minHeight: 0, position: 'relative' }}>
         <Table
           css={{ height: '100%' }}
