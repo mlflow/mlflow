@@ -1983,25 +1983,6 @@ class SqlAlchemyStore(AbstractStore):
         Returns:
             The new version number for the scorer.
         """
-        from mlflow.genai.scorers.base import Scorer
-
-        scorer_obj = Scorer.model_validate(json.loads(serialized_scorer))
-        call_signature = inspect.signature(scorer_obj.__call__)
-        param_names = list(call_signature.parameters.keys())
-
-        has_trace_param = "trace" in param_names
-        has_kwargs = any(
-            param.kind == inspect.Parameter.VAR_KEYWORD
-            for param in call_signature.parameters.values()
-        )
-
-        if not (has_trace_param or has_kwargs):
-            raise MlflowException(
-                f"Scorer '{name}' must accept a 'trace' parameter in its __call__ method. "
-                f"Found parameters: {param_names}",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-
         with self.ManagedSessionMaker() as session:
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
