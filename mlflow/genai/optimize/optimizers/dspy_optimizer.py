@@ -142,7 +142,7 @@ class DSPyPromptOptimizer(BasePromptOptimizer):
         self,
         prompt: PromptVersion,
         program: "dspy.Module",
-        metric: Callable[["dspy.Example"], float],
+        metric: Callable[["dspy.Example", "dspy.Example", Any], float],
         train_data: list["dspy.Example"],
         eval_data: list["dspy.Example"],
     ) -> OptimizerOutput:
@@ -205,7 +205,7 @@ class DSPyPromptOptimizer(BasePromptOptimizer):
         output_fields: dict[str, type],
         scorers: list[Scorer],
         objective: ObjectiveFn | None = None,
-    ) -> Callable[["dspy.Example"], float]:
+    ) -> Callable[["dspy.Example", "dspy.Example", Any], float]:
         def metric(example: "dspy.Example", pred: "dspy.Example", trace=None) -> float:
             scores = {}
             inputs = {key: example.get(key) for key in input_fields.keys()}

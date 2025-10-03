@@ -1,5 +1,5 @@
 import logging
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.genai.optimize.optimizers.dspy_optimizer import DSPyPromptOptimizer
@@ -17,7 +17,7 @@ class _DSPyGEPAOptimizer(DSPyPromptOptimizer):
         self,
         prompt: PromptVersion,
         program: "dspy.Module",
-        metric: Callable[["dspy.Example"], float],
+        metric: Callable[["dspy.Example", "dspy.Example", Any], float],
         train_data: list["dspy.Example"],
         eval_data: list["dspy.Example"] | None,
     ) -> OptimizerOutput:
@@ -46,6 +46,7 @@ class _DSPyGEPAOptimizer(DSPyPromptOptimizer):
             auto="light",
             track_stats=True,
             reflection_lm=reflection_lm,
+            num_threads=self.optimizer_config.num_threads,
         )
 
         with self._maybe_suppress_stdout_stderr():
@@ -97,7 +98,6 @@ class _DSPyGEPAOptimizer(DSPyPromptOptimizer):
     def _display_optimization_result(self, initial_score: float | None, final_score: float | None):
         """Display optimization results."""
         if final_score is None:
-            _logger.info("Optimization complete!")
             return
 
         if initial_score is not None:
