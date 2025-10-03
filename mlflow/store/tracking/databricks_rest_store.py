@@ -10,7 +10,12 @@ from mlflow.environment_variables import (
     MLFLOW_TRACING_SQL_WAREHOUSE_ID,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, ENDPOINT_NOT_FOUND, ErrorCode
+from mlflow.protos.databricks_pb2 import (
+    ALREADY_EXISTS,
+    ENDPOINT_NOT_FOUND,
+    INVALID_PARAMETER_VALUE,
+    ErrorCode,
+)
 from mlflow.protos.databricks_tracing_pb2 import (
     BatchGetTraces,
     CreateAssessment,
@@ -227,75 +232,14 @@ class DatabricksTracingRestStore(RestStore):
         if experiment_ids is not None:
             raise MlflowException("`experiment_ids` is deprecated, use `locations` instead.")
         if not locations:
-            raise MlflowException(
-                "`locations` must be specified for searching traces in Databricks."
+            raise MlflowException.invalid_parameter_value(
+                "At least one location must be specified for searching traces."
             )
 
         contain_uc_schemas = False
         trace_locations = []
         # model_id is only supported by V3 API
-        if model_id is None:
-            for location in locations:
-                if "." not in location:
-                    trace_locations.append(
-                        trace_location_to_proto(TraceLocation.from_experiment_id(location))
-                    )
-                else:
-                    match location.split("."):
-                        case [catalog, schema]:
-                            trace_locations.append(
-                                trace_location_to_proto(
-                                    trace_location_from_databricks_uc_schema(catalog, schema)
-                                )
-                            )
-                            contain_uc_schemas = True
-                        case _:
-                            raise MlflowException.invalid_parameter_value(
-                                f"Invalid location format: {location}. Expected format: "
-                                "`<catalog_name>.<schema_name>` or `<experiment_id>`."
-                            )
-
-            request = SearchTraces(
-                locations=trace_locations,
-                filter=filter_string,
-                max_results=max_results,
-                order_by=order_by,
-                page_token=page_token,
-                sql_warehouse_id=MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
-            )
-            req_body = message_to_json(request)
-            try:
-                response_proto = self._call_endpoint(
-                    SearchTraces,
-                    req_body,
-                    endpoint=f"{_V4_TRACE_REST_API_PATH_PREFIX}/search",
-                )
-            except MlflowException as e:
-                if e.error_code == ErrorCode.Name(ENDPOINT_NOT_FOUND):
-                    _logger.debug(
-                        "Server does not support SearchTracesV4 API yet. Falling back to V3 API."
-                    )
-                    if contain_uc_schemas:
-                        raise MlflowException(
-                            "Searching traces by locations including UC schemas is not supported "
-                            "on the current tracking server. Only locations with experiment IDs "
-                            "are supported."
-                        )
-                    # fallback to v3 API
-                    return self._search_traces(
-                        locations=locations,
-                        filter_string=filter_string,
-                        max_results=max_results,
-                        order_by=order_by,
-                        page_token=page_token,
-                    )
-                else:
-                    raise
-            trace_infos = [
-                TraceInfo.from_proto(trace_info) for trace_info in response_proto.trace_infos
-            ]
-            return trace_infos, response_proto.next_page_token or None
-        else:
+        if model_id is not None:
             return self._search_unified_traces(
                 model_id=model_id,
                 locations=locations,
@@ -304,6 +248,77 @@ class DatabricksTracingRestStore(RestStore):
                 order_by=order_by,
                 page_token=page_token,
             )
+
+        for location in locations:
+            if "." not in location:
+                trace_locations.append(
+                    trace_location_to_proto(TraceLocation.from_experiment_id(location))
+                )
+            else:
+                match location.split("."):
+                    case [catalog, schema]:
+                        trace_locations.append(
+                            trace_location_to_proto(
+                                trace_location_from_databricks_uc_schema(catalog, schema)
+                            )
+                        )
+                        contain_uc_schemas = True
+                    case _:
+                        raise MlflowException.invalid_parameter_value(
+                            f"Invalid location type: {location}. Expected type: "
+                            "`<catalog_name>.<schema_name>` or `<experiment_id>`."
+                        )
+
+        request = SearchTraces(
+            locations=trace_locations,
+            filter=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+            sql_warehouse_id=MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+        )
+        req_body = message_to_json(request)
+        try:
+            response_proto = self._call_endpoint(
+                SearchTraces,
+                req_body,
+                endpoint=f"{_V4_TRACE_REST_API_PATH_PREFIX}/search",
+            )
+        except MlflowException as e:
+            # There are 2 expected failure cases:
+            # 1. Server does not support SearchTracesV4 API yet.
+            # 2. Server supports V4 API but the experiment location is not supported yet.
+            # For these known cases, MLflow fallback to V3 API.
+            should_fallback = False
+            if e.error_code == ErrorCode.Name(ENDPOINT_NOT_FOUND):
+                should_fallback = True
+                _logger.debug("SearchTracesV4 API is not available yet. Falling back to V3 API.")
+            elif (
+                e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+                and "locations not yet supported" in e.message
+            ):
+                should_fallback = True
+                _logger.debug("Experiment locations are not supported yet. Falling back to V3 API.")
+
+            if not should_fallback:
+                raise e
+
+            if contain_uc_schemas:
+                raise MlflowException.invalid_parameter_value(
+                    "Searching traces in UC tables is not available yet. Only experiment IDs "
+                    "are supported for searching traces."
+                )
+
+            return self._search_traces(
+                locations=locations,
+                filter_string=filter_string,
+                max_results=max_results,
+                order_by=order_by,
+                page_token=page_token,
+            )
+
+        trace_infos = [TraceInfo.from_proto(t) for t in response_proto.trace_infos]
+        return trace_infos, response_proto.next_page_token or None
 
     def _search_unified_traces(
         self,
