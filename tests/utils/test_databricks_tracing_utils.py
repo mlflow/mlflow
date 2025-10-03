@@ -32,7 +32,6 @@ from mlflow.utils.databricks_tracing_utils import (
     mlflow_experiment_location_to_proto,
     trace_from_proto,
     trace_info_to_dict,
-    trace_info_to_proto,
     trace_location_from_proto,
     trace_location_to_proto,
     trace_to_proto,
@@ -158,7 +157,7 @@ def test_trace_location_from_proto_inference_table():
     assert trace_location.inference_table.full_table_name == "test_catalog.test_schema.test_table"
 
 
-def test_trace_info_to_proto():
+def test_trace_info_to_v4_proto():
     otel_trace_id = "2efb31387ff19263f92b2c0a61b0a8bc"
     trace_id = f"trace:/catalog.schema/{otel_trace_id}"
     trace_info = TraceInfo(
@@ -173,7 +172,7 @@ def test_trace_info_to_proto():
         client_request_id="client_request_id",
         tags={"key": "value"},
     )
-    proto_trace_info = trace_info_to_proto(trace_info)
+    proto_trace_info = trace_info.to_proto()
     assert proto_trace_info.trace_id == otel_trace_id
     assert proto_trace_info.trace_location.uc_schema.catalog_name == "catalog"
     assert proto_trace_info.trace_location.uc_schema.schema_name == "schema"
