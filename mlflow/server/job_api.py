@@ -108,7 +108,7 @@ class SearchJobsResponse(BaseModel):
 
 
 @job_api_router.post("/search", response_model=SearchJobsResponse)
-def search_jobs(payload: SearchJobPayload):
+def search_jobs(payload: SearchJobPayload) -> SearchJobsResponse:
     from mlflow.server.handlers import _get_job_store
 
     try:

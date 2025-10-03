@@ -37,7 +37,7 @@ class Client:
 
     def submit_job(
         self, function_fullname: str, params: dict[str, Any], timeout: float | None = None
-    ) -> str:
+    ) -> dict[str, Any]:
         payload = {
             "function_fullname": function_fullname,
             "params": params,
@@ -45,17 +45,17 @@ class Client:
         }
         response = requests.post(f"{self.server_url}/ajax-api/3.0/jobs/", json=payload)
         response.raise_for_status()
-        return response.json()["job_id"]
+        return response.json()
 
-    def post(self, path, payload: dict[str, Any]) -> requests.Response:
+    def post(self, path: str, payload: dict[str, Any]) -> requests.Response:
         return requests.post(f"{self.server_url}{path}", json=payload)
 
     def get_job(self, job_id: str) -> dict[str, Any]:
-        response2 = requests.get(f"{self.server_url}/ajax-api/3.0/jobs/{job_id}")
-        response2.raise_for_status()
-        return response2.json()
+        response = requests.get(f"{self.server_url}/ajax-api/3.0/jobs/{job_id}")
+        response.raise_for_status()
+        return response.json()
 
-    def wait_job(self, job_id: str, timeout=10) -> dict[str, Any]:
+    def wait_job(self, job_id: str, timeout: float = 10) -> dict[str, Any]:
         beg_time = time.time()
         while time.time() - beg_time <= timeout:
             job_json = self.get_job(job_id)
@@ -63,6 +63,23 @@ class Client:
                 return job_json
             time.sleep(0.5)
         raise TimeoutError("The job is not finalized within the timeout.")
+
+    def search_job(
+        self,
+        function_fullname: str | None = None,
+        params: dict[str, Any] | None = None,
+        statuses: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        response = self.post(
+            "/ajax-api/3.0/jobs/search",
+            payload={
+                "function_fullname": function_fullname,
+                "params": params,
+                "statuses": statuses,
+            },
+        )
+        response.raise_for_status()
+        return response.json()["jobs"]
 
 
 @pytest.fixture(scope="module")
@@ -123,7 +140,7 @@ def test_job_endpoint(client: Client):
     job_id = client.submit_job(
         function_fullname="test_endpoint.simple_job_fun",
         params={"x": 3, "y": 4},
-    )
+    )["job_id"]
     job_json = client.wait_job(job_id)
     job_json.pop("creation_time")
     assert job_json == {
@@ -193,7 +210,7 @@ def test_job_tracking_uri(client: Client):
     job_id = client.submit_job(
         function_fullname="test_endpoint.job_assert_tracking_uri",
         params={"server_url": client.server_url},
-    )
+    )["job_id"]
     job_json = client.wait_job(job_id)
     assert job_json["status"] == "SUCCEEDED"
 
@@ -202,123 +219,88 @@ def test_job_endpoint_search(client: Client):
     job1_id = client.submit_job(
         function_fullname="test_endpoint.simple_job_fun",
         params={"x": 7, "y": 4},
-    )
+    )["job_id"]
 
     job2_id = client.submit_job(
         function_fullname="test_endpoint.simple_job_fun",
         params={"x": 7, "y": 5},
-    )
+    )["job_id"]
 
     job3_id = client.submit_job(
         function_fullname="test_endpoint.simple_job_fun",
         params={"x": 4, "y": 5},
-    )
+    )["job_id"]
 
     job4_id = client.submit_job(
         function_fullname="test_endpoint.simple_job_fun",
         params={"x": 4, "y": 5, "sleep_secs": 5},
         timeout=2,
-    )
+    )["job_id"]
 
     client.wait_job(job1_id)
     client.wait_job(job2_id)
     client.wait_job(job3_id)
     client.wait_job(job4_id)
 
-    def extract_job_ids(resp):
-        return [job_json["job_id"] for job_json in resp.json()["jobs"]]
+    def extract_job_ids(jobs: list[dict[str, Any]]) -> list[str]:
+        return [job_json["job_id"] for job_json in jobs]
 
-    response = client.post(
-        "/ajax-api/3.0/jobs/search",
-        payload={
-            "function_fullname": "test_endpoint.simple_job_fun",
-            "params": {"x": 7},
-        },
+    jobs = client.search_job(
+        function_fullname="test_endpoint.simple_job_fun",
+        params={"x": 7},
     )
-    response.raise_for_status()
-    assert extract_job_ids(response) == [job1_id, job2_id]
+    assert extract_job_ids(jobs) == [job1_id, job2_id]
 
-    response = client.post(
-        "/ajax-api/3.0/jobs/search",
-        payload={
-            "function_fullname": "test_endpoint.bad_fun_name",
-            "params": {"x": 7},
-        },
+    jobs = client.search_job(
+        function_fullname="test_endpoint.bad_fun_name",
+        params={"x": 7},
     )
-    response.raise_for_status()
-    assert extract_job_ids(response) == []
+    assert extract_job_ids(jobs) == []
 
-    response = client.post(
-        "/ajax-api/3.0/jobs/search",
-        payload={
-            "function_fullname": "test_endpoint.simple_job_fun",
-            "params": {"x": 7, "y": 5},
-        },
+    jobs = client.search_job(
+        function_fullname="test_endpoint.simple_job_fun",
+        params={"x": 7, "y": 5},
     )
-    response.raise_for_status()
-    assert extract_job_ids(response) == [job2_id]
+    assert extract_job_ids(jobs) == [job2_id]
 
-    response = client.post(
-        "/ajax-api/3.0/jobs/search",
-        payload={
-            "function_fullname": "test_endpoint.simple_job_fun",
-            "params": {"y": 5},
-        },
+    jobs = client.search_job(
+        function_fullname="test_endpoint.simple_job_fun",
+        params={"y": 5},
     )
-    response.raise_for_status()
-    assert extract_job_ids(response) == [job2_id, job3_id, job4_id]
+    assert extract_job_ids(jobs) == [job2_id, job3_id, job4_id]
 
-    response = client.post(
-        "/ajax-api/3.0/jobs/search",
-        payload={
-            "function_fullname": "test_endpoint.simple_job_fun",
-            "params": {"y": 6},
-        },
+    jobs = client.search_job(
+        function_fullname="test_endpoint.simple_job_fun",
+        params={"y": 6},
     )
-    response.raise_for_status()
-    assert extract_job_ids(response) == []
+    assert extract_job_ids(jobs) == []
 
-    response = client.post(
-        "/ajax-api/3.0/jobs/search",
-        payload={
-            "function_fullname": "test_endpoint.simple_job_fun",
-            "params": {"y": 5},
-            "statuses": ["SUCCEEDED"],
-        },
+    jobs = client.search_job(
+        function_fullname="test_endpoint.simple_job_fun",
+        params={"y": 5},
+        statuses=["SUCCEEDED"],
     )
-    response.raise_for_status()
-    assert extract_job_ids(response) == [job2_id, job3_id]
+    assert extract_job_ids(jobs) == [job2_id, job3_id]
 
-    response = client.post(
-        "/ajax-api/3.0/jobs/search",
-        payload={
-            "function_fullname": "test_endpoint.simple_job_fun",
-            "params": {"y": 5},
-            "statuses": ["TIMEOUT"],
-        },
+    jobs = client.search_job(
+        function_fullname="test_endpoint.simple_job_fun",
+        params={"y": 5},
+        statuses=["TIMEOUT"],
     )
-    response.raise_for_status()
-    assert extract_job_ids(response) == [job4_id]
+    assert extract_job_ids(jobs) == [job4_id]
 
-    response = client.post(
-        "/ajax-api/3.0/jobs/search",
-        payload={
-            "function_fullname": "test_endpoint.simple_job_fun",
-            "params": {"y": 5},
-            "statuses": ["SUCCEEDED", "TIMEOUT"],
-        },
+    jobs = client.search_job(
+        function_fullname="test_endpoint.simple_job_fun",
+        params={"y": 5},
+        statuses=["SUCCEEDED", "TIMEOUT"],
     )
-    response.raise_for_status()
-    assert extract_job_ids(response) == [job2_id, job3_id, job4_id]
+    assert extract_job_ids(jobs) == [job2_id, job3_id, job4_id]
 
-    response = client.post(
-        "/ajax-api/3.0/jobs/search",
-        payload={
-            "params": {"y": 5},
-            "statuses": ["SUCCEEDED"],
-        },
+    jobs = client.search_job(
+        params={"y": 5},
+        statuses=["SUCCEEDED"],
     )
-    assert extract_job_ids(response) == [job2_id, job3_id]
+    assert extract_job_ids(jobs) == [job2_id, job3_id]
 
     response = client.post(
         "/ajax-api/3.0/jobs/search",

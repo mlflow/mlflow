@@ -194,6 +194,15 @@ class SqlAlchemyJobStore(AbstractJobStore):
         """
         offset = 0
 
+        def filter_by_params(job_params: dict[str, Any]) -> bool:
+            for key in params:
+                if key in job_params:
+                    if job_params[key] != params[key]:
+                        return False
+                else:
+                    return False
+            return True
+
         while True:
             with self.ManagedSessionMaker() as session:
                 # Select all columns needed for Job entity
@@ -229,19 +238,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
                 # Yield each job
                 if params:
                     for job in jobs:
-                        job_params = json.loads(job.params)
-
-                        matched = True
-                        for key in params:
-                            if key in job_params:
-                                if job_params[key] != params[key]:
-                                    matched = False
-                                    break
-                            else:
-                                matched = False
-                                break
-
-                        if matched:
+                        if filter_by_params(json.loads(job.params)):
                             yield job.to_mlflow_entity()
                 else:
                     for job in jobs:
