@@ -36,6 +36,7 @@ class DatabricksUCTableSpanProcessor(BaseMlflowSpanProcessor):
         if uc_spans_table_name := get_active_spans_table_name():
             catalog_name, schema_name, spans_table_name = uc_spans_table_name.split(".")
             trace_location = TraceLocation.from_databricks_uc_schema(catalog_name, schema_name)
+            trace_location.uc_schema._otel_spans_table_name = spans_table_name
             trace_id = generate_trace_id_v4(root_span, trace_location.uc_schema.schema_location)
         else:
             raise MlflowException(

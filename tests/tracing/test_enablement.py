@@ -34,9 +34,9 @@ def test_set_experiment_trace_location(mock_databricks_tracking_uri):
         expected_location = UCSchemaLocation(
             catalog_name="test_catalog",
             schema_name="test_schema",
-            otel_spans_table_name="spans_table",
-            otel_logs_table_name="logs_table",
         )
+        expected_location._otel_logs_table_name = "logs_table"
+        expected_location._otel_spans_table_name = "spans_table"
         mock_client._set_experiment_trace_location.return_value = expected_location
 
         # Test with explicit experiment ID and sql_warehouse_id
