@@ -114,15 +114,17 @@ def unset_experiment_trace_location(
             the current active experiment will be used.
 
     Example:
+
         .. code-block:: python
 
-        import mlflow
-        from mlflow.entities import UCSchemaLocation
+            import mlflow
+            from mlflow.entities import UCSchemaLocation
 
-        mlflow.tracing.unset_experiment_trace_location(
-            location=UCSchemaLocation(catalog_name="my_catalog", schema_name="my_schema"),
-            experiment_id="12345",
-        )
+            mlflow.tracing.unset_experiment_trace_location(
+                location=UCSchemaLocation(catalog_name="my_catalog", schema_name="my_schema"),
+                experiment_id="12345",
+            )
+
     """
     from mlflow.tracing.client import TracingClient
     from mlflow.tracking import get_tracking_uri
