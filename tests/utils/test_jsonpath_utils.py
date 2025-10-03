@@ -106,7 +106,6 @@ def test_jsonpath_extract_values_mixed_types():
 
 
 def test_filter_json_by_fields_single_field():
-    """Test filtering JSON by a single field."""
     data = {"info": {"trace_id": "tr-123", "state": "OK"}, "data": {"spans": []}}
     filtered = filter_json_by_fields(data, ["info.trace_id"])
     expected = {"info": {"trace_id": "tr-123"}}
@@ -114,7 +113,6 @@ def test_filter_json_by_fields_single_field():
 
 
 def test_filter_json_by_fields_multiple_fields():
-    """Test filtering JSON by multiple fields."""
     data = {
         "info": {"trace_id": "tr-123", "state": "OK", "unused": "value"},
         "data": {"spans": [], "metadata": {}},

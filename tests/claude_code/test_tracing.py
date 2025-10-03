@@ -1,5 +1,3 @@
-"""Simplified tests for mlflow.claude_code.tracing module."""
-
 # Test only the functions we can easily test without external dependencies
 from mlflow.claude_code.tracing import (
     parse_timestamp_to_ns,

@@ -95,7 +95,6 @@ def test_register_prompt_with_dict_response_format():
 
 
 def test_register_prompt_error_handling_invalid_chat_format():
-    """Test error handling for invalid chat message formats."""
     invalid_template = [{"content": "Hello"}]  # Missing role
 
     with pytest.raises(ValueError, match="Template must be a list of dicts with role and content"):

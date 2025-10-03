@@ -1,5 +1,3 @@
-"""Tests for sktime custom model flavor."""
-
 import os
 from pathlib import Path
 from unittest import mock
@@ -156,7 +154,6 @@ def test_auto_arima_model_pyfunc_output(auto_arima_model, model_path, serializat
 def test_naive_forecaster_model_with_regressor_pyfunc_output(
     naive_forecaster_model_with_regressor, model_path, data_longley
 ):
-    """Test naive forecaster prediction of loaded pyfunc model."""
     _, _, _, X_test = data_longley
 
     flavor.save_model(sktime_model=naive_forecaster_model_with_regressor, path=model_path)

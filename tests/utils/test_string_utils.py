@@ -45,7 +45,6 @@ def test_mslex_quote():
 
 
 def test_format_table_cell_value_basic():
-    """Test basic cell value formatting."""
     result = format_table_cell_value("field", "value")
     assert result == "value"
 

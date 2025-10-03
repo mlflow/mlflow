@@ -1,5 +1,3 @@
-"""Tests for OtelSpanProcessor metrics export functionality."""
-
 import time
 
 import pytest

@@ -62,7 +62,6 @@ def test_default_get_registry_uri_no_tracking_uri():
 
 
 def test_default_get_registry_uri_with_databricks_tracking_uri_defaults_to_uc():
-    """Test that databricks tracking URIs default to databricks-uc for registry"""
     tracking_uri = "databricks://tracking_werohoz"
     with mock.patch(
         "mlflow.tracking._model_registry.utils._resolve_tracking_uri"
@@ -183,7 +182,6 @@ def test_registry_uri_from_spark_session_overrides_databricks_default():
     ],
 )
 def test_edge_cases_for_databricks_uri_detection(tracking_uri, expected_result):
-    """Test edge cases for databricks URI detection"""
     with mock.patch(
         "mlflow.tracking._tracking_service.utils.get_tracking_uri"
     ) as get_tracking_uri_mock:

@@ -1,5 +1,3 @@
-"""Tests for mlflow.claude_code.config module."""
-
 import json
 
 import pytest

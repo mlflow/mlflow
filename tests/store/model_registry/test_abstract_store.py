@@ -183,7 +183,6 @@ def test_link_prompt_version_to_model_no_model_found(store, mock_tracking_store)
 
 
 def test_link_prompt_version_to_model_prompt_not_found(store, mock_tracking_store):
-    """Test error when prompt version is not found."""
     # Setup
     model_id = "model_123"
     logged_model = LoggedModel(
@@ -694,7 +693,6 @@ def test_link_prompt_version_to_run_no_run_found(store, mock_tracking_store):
 
 
 def test_link_prompt_version_to_run_prompt_not_found(store, mock_tracking_store):
-    """Test error when prompt version is not found."""
     # Setup
     run_id = "run_123"
 

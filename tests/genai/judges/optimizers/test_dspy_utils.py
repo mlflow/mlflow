@@ -1,5 +1,3 @@
-"""Tests for DSPy utility functions."""
-
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest

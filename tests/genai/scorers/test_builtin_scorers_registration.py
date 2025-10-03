@@ -1,5 +1,3 @@
-"""Tests for builtin scorer registration validation with custom judge models."""
-
 from pathlib import Path
 from typing import Iterator
 from unittest import mock

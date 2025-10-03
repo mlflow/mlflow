@@ -7983,7 +7983,6 @@ async def test_log_spans_updates_in_progress_trace_status_from_root_span(
 async def test_log_spans_updates_state_unspecified_trace_status_from_root_span(
     store: SqlAlchemyStore, is_async: bool
 ):
-    """Test that trace status is updated from root span on subsequent logs."""
     experiment_id = store.create_experiment("test_unspecified_update")
     # Generate a proper MLflow trace ID in the format "tr-<32-char-hex>"
     trace_id = f"tr-{uuid.uuid4().hex}"
