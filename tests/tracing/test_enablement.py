@@ -6,6 +6,7 @@ from unittest import mock
 
 import pytest
 
+import mlflow
 from mlflow.entities.trace_location import UCSchemaLocation
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.enablement import (
@@ -21,7 +22,7 @@ def mock_databricks_tracking_uri():
 
 
 def test_set_experiment_trace_location(mock_databricks_tracking_uri):
-    experiment_id = "123"
+    experiment_id = mlflow.create_experiment("test_experiment")
     location = UCSchemaLocation(catalog_name="test_catalog", schema_name="test_schema")
     sql_warehouse_id = "test-warehouse-id"
 
@@ -53,7 +54,7 @@ def test_set_experiment_trace_location(mock_databricks_tracking_uri):
 
 def test_set_experiment_trace_location_with_default_experiment(mock_databricks_tracking_uri):
     location = UCSchemaLocation(catalog_name="test_catalog", schema_name="test_schema")
-    default_experiment_id = "456"
+    default_experiment_id = mlflow.set_experiment("test_experiment").experiment_id
 
     with (
         mock.patch("mlflow.tracing.client.TracingClient") as mock_client_class,
@@ -80,6 +81,14 @@ def test_set_experiment_trace_location_no_experiment(mock_databricks_tracking_ur
     with mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value=None):
         with pytest.raises(MlflowException, match="Experiment ID is required"):
             set_experiment_trace_location(location=location)
+
+
+def test_set_experiment_trace_location_non_existent_experiment(mock_databricks_tracking_uri):
+    location = UCSchemaLocation(catalog_name="test_catalog", schema_name="test_schema")
+
+    experiment_id = "12345"
+    with pytest.raises(MlflowException, match="Could not find experiment with ID"):
+        set_experiment_trace_location(location=location, experiment_id=experiment_id)
 
 
 def test_unset_experiment_trace_location(mock_databricks_tracking_uri):
