@@ -462,9 +462,10 @@ class Linter(ast.NodeVisitor):
         if rule := rules.RedundantTestDocstring.check(node, self.path.name):
             self._check(Location.from_node(node), rule)
 
-    def _check_module_docstring(self, module: ast.Module) -> None:
-        if rule := rules.RedundantTestDocstring.check_module(module, self.path.name):
+    def visit_Module(self, node: ast.Module) -> None:
+        if rule := rules.RedundantTestDocstring.check_module(node, self.path.name):
             self._check(Location(0, 0), rule)
+        self.generic_visit(node)
 
     def _is_in_test(self) -> bool:
         if not self.path.name.startswith("test_"):
@@ -894,7 +895,6 @@ def lint_file(path: Path, code: str, config: Config, index_path: Path) -> list[V
     else:
         linter = Linter(path=path, config=config, ignore=ignore_map(code), index=index)
         module = ast.parse(code)
-        linter._check_module_docstring(module)
         linter.visit(module)
         linter.visit_comments(code)
         linter.visit_file_content(code)
