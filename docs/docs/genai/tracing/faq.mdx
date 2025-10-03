@@ -172,10 +172,10 @@ The `trace_destination` parameter was introduced to the <APILink fn="mlflow.trac
 
 ```python
 import mlflow
-from mlflow.tracing.destination import MlflowExperiment
+from mlflow.entities.trace_location import MlflowExperimentLocation
 
 
-@mlflow.trace(trace_destination=MlflowExperiment(experiment_id="1234"))
+@mlflow.trace(trace_destination=MlflowExperimentLocation(experiment_id="1234"))
 def math_agent(request: Request):
     # Your model logic here
     ...

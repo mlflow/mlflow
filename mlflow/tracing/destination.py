@@ -22,7 +22,7 @@ class UserTraceDestinationRegistry:
         self._global_value = None
         self._context_local_value = ContextVar("mlflow_trace_destination", default=None)
 
-    def get(self) -> TraceDestination | None:
+    def get(self) -> TraceLocationBase | None:
         """First check the context-local value, then the global value."""
         if local_destination := self._context_local_value.get():
             return local_destination
@@ -57,6 +57,7 @@ class UserTraceDestinationRegistry:
         return None
 
 
+@deprecated(since="3.5.0", alternative="mlflow.entities.trace_location.TraceLocation")
 @dataclass
 class TraceDestination:
     """A configuration object for specifying the destination of trace data."""

@@ -18,6 +18,7 @@ from mlflow.entities import NoOpSpan, SpanType, Trace
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, LiveSpan, create_mlflow_span
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
+from mlflow.entities.trace_location import TraceLocationBase
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
@@ -30,7 +31,6 @@ from mlflow.tracing.constant import (
     SpanAttributeKey,
     TraceMetadataKey,
 )
-from mlflow.tracing.destination import TraceDestination
 from mlflow.tracing.provider import is_tracing_enabled, safe_set_span_in_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
@@ -66,7 +66,7 @@ def trace(
     span_type: str = SpanType.UNKNOWN,
     attributes: dict[str, Any] | None = None,
     output_reducer: Callable[[list[Any]], Any] | None = None,
-    trace_destination: TraceDestination | None = None,
+    trace_destination: TraceLocationBase | None = None,
 ) -> Callable[..., Any]:
     """
     A decorator that creates a new span for the decorated function.
@@ -209,7 +209,7 @@ def _wrap_function(
     name: str | None = None,
     span_type: str = SpanType.UNKNOWN,
     attributes: dict[str, Any] | None = None,
-    trace_destination: TraceDestination | None = None,
+    trace_destination: TraceLocationBase | None = None,
 ) -> Callable[..., Any]:
     class _WrappingContext:
         # define the wrapping logic as a coroutine to avoid code duplication
@@ -271,7 +271,7 @@ def _wrap_generator(
     span_type: str = SpanType.UNKNOWN,
     attributes: dict[str, Any] | None = None,
     output_reducer: Callable[[list[Any]], Any] | None = None,
-    trace_destination: TraceDestination | None = None,
+    trace_destination: TraceLocationBase | None = None,
 ) -> Callable[..., Any]:
     """
     Wrap a generator function to create a span.
@@ -415,7 +415,7 @@ def start_span(
     name: str = "span",
     span_type: str | None = SpanType.UNKNOWN,
     attributes: dict[str, Any] | None = None,
-    trace_destination: TraceDestination | None = None,
+    trace_destination: TraceLocationBase | None = None,
 ) -> Generator[LiveSpan, None, None]:
     """
     Context manager to create a new span and start it as the current span in the context.
