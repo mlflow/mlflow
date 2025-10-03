@@ -134,10 +134,12 @@ export const ExperimentEvaluationDatasetsListTable = ({
   experimentId,
   selectedDataset,
   setSelectedDataset,
+  setIsLoading,
 }: {
   experimentId: string;
   selectedDataset?: EvaluationDataset;
   setSelectedDataset: (dataset: EvaluationDataset | undefined) => void;
+  setIsLoading: (isLoading: boolean) => void;
 }) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
@@ -203,6 +205,11 @@ export const ExperimentEvaluationDatasetsListTable = ({
       setSelectedDataset(sortedRows[0].original);
     }
   }
+
+  // update loading state in parent
+  useEffect(() => {
+    setIsLoading(isLoading);
+  }, [isLoading, setIsLoading]);
 
   if (error) {
     return <div>Error loading datasets</div>;
