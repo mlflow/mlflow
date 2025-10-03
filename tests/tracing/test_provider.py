@@ -125,7 +125,7 @@ def test_set_destination_databricks_uc(monkeypatch):
 
 
 def test_set_destination_from_env_var_mlflow_experiment(monkeypatch):
-    monkeypatch.setenv("MLFLOW_TRACING_LOCATION", "123")
+    monkeypatch.setenv("MLFLOW_TRACING_DESTINATION", "123")
 
     tracer = _get_tracer("test")
     processors = tracer.span_processor._span_processors
@@ -135,7 +135,7 @@ def test_set_destination_from_env_var_mlflow_experiment(monkeypatch):
 
 
 def test_set_destination_from_env_var_databricks_uc(monkeypatch):
-    monkeypatch.setenv("MLFLOW_TRACING_LOCATION", "catalog.schema")
+    monkeypatch.setenv("MLFLOW_TRACING_DESTINATION", "catalog.schema")
 
     tracer = _get_tracer("test")
     processors = tracer.span_processor._span_processors
@@ -147,7 +147,7 @@ def test_set_destination_from_env_var_databricks_uc(monkeypatch):
 
 def test_set_destination_in_model_serving(mock_databricks_serving_with_tracing_env, monkeypatch):
     monkeypatch.setenv("MLFLOW_TRACKING_URI", "databricks")
-    monkeypatch.setenv("MLFLOW_TRACING_LOCATION", "catalog.schema")
+    monkeypatch.setenv("MLFLOW_TRACING_DESTINATION", "catalog.schema")
 
     tracer = _get_tracer("test")
     processors = tracer.span_processor._span_processors
