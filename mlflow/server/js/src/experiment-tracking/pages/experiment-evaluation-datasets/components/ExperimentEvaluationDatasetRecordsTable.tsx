@@ -37,9 +37,9 @@ const columns: ColumnDef<EvaluationDatasetRecord, string>[] = [
   },
 ];
 
-export const ExperimentEvaluationDatasetRecordsTable = ({ dataset }: { dataset: EvaluationDataset | undefined }) => {
+export const ExperimentEvaluationDatasetRecordsTable = ({ dataset }: { dataset: EvaluationDataset }) => {
   const intl = useIntl();
-  const datasetId = dataset?.dataset_id;
+  const datasetId = dataset.dataset_id;
 
   const [rowSize, setRowSize] = useState<'sm' | 'md' | 'lg'>('sm');
   const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({
@@ -129,17 +129,14 @@ export const ExperimentEvaluationDatasetRecordsTable = ({ dataset }: { dataset: 
               ),
           )}
         </TableRow>
-        {isLoading ? (
-          <TableSkeletonRows table={table} />
-        ) : (
-          table.getRowModel().rows.map((row) => (
-            <TableRow key={row.id}>
-              {row.getVisibleCells().map((cell) => (
-                <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
-              ))}
-            </TableRow>
-          ))
-        )}
+        {table.getRowModel().rows.map((row) => (
+          <TableRow key={row.id}>
+            {row.getVisibleCells().map((cell) => (
+              <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+            ))}
+          </TableRow>
+        ))}
+        {(isLoading || isFetching) && <TableSkeletonRows table={table} />}
       </Table>
     </div>
   );
