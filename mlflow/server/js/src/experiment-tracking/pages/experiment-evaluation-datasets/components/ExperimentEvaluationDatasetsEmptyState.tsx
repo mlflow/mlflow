@@ -14,6 +14,7 @@ export const ExperimentEvaluationDatasetsEmptyState = ({ experimentId }: { exper
         flexDirection: 'column',
         justifyContent: 'center',
         alignItems: 'center',
+        padding: theme.spacing.md,
       }}
     >
       <Typography.Title level={3} color="secondary">
@@ -33,14 +34,17 @@ export const ExperimentEvaluationDatasetsEmptyState = ({ experimentId }: { exper
                 href="https://mlflow.org/docs/latest/genai/datasets/"
                 openInNewTab
               >
-                {/* eslint-disable-next-line formatjs/enforce-description */}
-                <FormattedMessage defaultMessage="Learn more" />
+                <FormattedMessage defaultMessage="Learn more" description="Learn more link text" />
               </Typography.Link>
             ),
           }}
         />
       </Typography.Paragraph>
-      <img css={{ marginBottom: theme.spacing.md }} src={datasetsEmptyImg} alt="No datasets found" />
+      <img
+        css={{ marginBottom: theme.spacing.md, maxWidth: 'min(100%, 600px)' }}
+        src={datasetsEmptyImg}
+        alt="No datasets found"
+      />
       <CreateEvaluationDatasetButton experimentId={experimentId} />
     </div>
   );
