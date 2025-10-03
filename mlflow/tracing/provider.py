@@ -35,6 +35,7 @@ from mlflow.tracing.destination import (
     TraceDestination,
     UserTraceDestinationRegistry,
 )
+from mlflow.tracing.utils import get_trace_location_from_env
 from mlflow.tracing.utils.exception import raise_as_trace_exception
 from mlflow.tracing.utils.once import Once
 from mlflow.tracing.utils.otlp import (
@@ -271,6 +272,7 @@ def _setup_tracer_provider(disabled=False):
     global _MLFLOW_TRACER_PROVIDER
 
     processors = _get_span_processors(disabled=disabled)
+    print(f"processors: {processors}")
     if not processors:
         _MLFLOW_TRACER_PROVIDER = trace.NoOpTracerProvider()
         return
@@ -296,6 +298,7 @@ def _setup_tracer_provider(disabled=False):
         tracer_provider.add_span_processor(processor)
 
     _MLFLOW_TRACER_PROVIDER = tracer_provider
+    print(f"processors: {processors}")
 
 
 def _get_trace_sampler() -> TraceIdRatioBased | None:
@@ -352,9 +355,10 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
     #  1. Partners can implement span processor/exporter and destination class.
     #  2. They can register their implementation to the registry via entry points.
     #  3. MLflow will pick the implementation based on given destination id.
-    trace_destination = _MLFLOW_TRACE_USER_DESTINATION.get()
+    trace_destination = _MLFLOW_TRACE_USER_DESTINATION.get() or get_trace_location_from_env()
     if trace_destination:
         # in PrPr, users must set the destination to DatabricksUnityCatalog to export traces to UC
+        print(f"trace_destination: {trace_destination}")
         if isinstance(trace_destination, DatabricksUnityCatalog):
             from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
             from mlflow.tracing.processor.uc_table import DatabricksUCTableSpanProcessor
