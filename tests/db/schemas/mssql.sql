@@ -68,7 +68,7 @@ CREATE TABLE jobs (
 	timeout FLOAT,
 	status INTEGER NOT NULL,
 	result VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
-	retry_count INTEGER,
+	retry_count INTEGER NOT NULL,
 	last_update_time BIGINT NOT NULL,
 	CONSTRAINT jobs_pk PRIMARY KEY (id)
 )

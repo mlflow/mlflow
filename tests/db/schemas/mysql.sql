@@ -69,7 +69,7 @@ CREATE TABLE jobs (
 	timeout DOUBLE,
 	status INTEGER NOT NULL,
 	result TEXT,
-	retry_count INTEGER,
+	retry_count INTEGER NOT NULL,
 	last_update_time BIGINT NOT NULL,
 	PRIMARY KEY (id)
 )
