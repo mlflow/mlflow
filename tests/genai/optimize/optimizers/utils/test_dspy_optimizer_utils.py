@@ -40,25 +40,31 @@ def test_format_dspy_prompt(convert_to_single_text):
     mock_format.assert_called_once()
 
 
-def test_parse_model_name():
-    # Test URI format conversion
-    assert parse_model_name("openai:/gpt-4") == "openai/gpt-4"
-    assert parse_model_name("anthropic:/claude-3") == "anthropic/claude-3"
-    assert parse_model_name("mistral:/mistral-7b") == "mistral/mistral-7b"
+@pytest.mark.parametrize(
+    ("input_name", "expected_output"),
+    [
+        # URI format conversion
+        ("openai:/gpt-4", "openai/gpt-4"),
+        ("anthropic:/claude-3", "anthropic/claude-3"),
+        ("mistral:/mistral-7b", "mistral/mistral-7b"),
+        # Already formatted names are unchanged
+        ("openai/gpt-4", "openai/gpt-4"),
+        ("anthropic/claude-3", "anthropic/claude-3"),
+    ],
+)
+def test_parse_model_name_valid(input_name, expected_output):
+    assert parse_model_name(input_name) == expected_output
 
-    # Test that already formatted names are unchanged
-    assert parse_model_name("openai/gpt-4") == "openai/gpt-4"
-    assert parse_model_name("anthropic/claude-3") == "anthropic/claude-3"
 
-    # Test invalid formats raise errors
-    with pytest.raises(MlflowException, match="Invalid model name format"):
-        parse_model_name("invalid-model-name")
-
-    with pytest.raises(MlflowException, match="Model name cannot be empty"):
-        parse_model_name("")
-
-    with pytest.raises(MlflowException, match="Invalid model name format"):
-        parse_model_name("openai:")
-
-    with pytest.raises(MlflowException, match="Invalid model name format"):
-        parse_model_name("openai/")
+@pytest.mark.parametrize(
+    ("input_name", "error_match"),
+    [
+        ("invalid-model-name", "Invalid model name format"),
+        ("", "Model name cannot be empty"),
+        ("openai:", "Invalid model name format"),
+        ("openai/", "Invalid model name format"),
+    ],
+)
+def test_parse_model_name_invalid(input_name, error_match):
+    with pytest.raises(MlflowException, match=error_match):
+        parse_model_name(input_name)
