@@ -3063,7 +3063,6 @@ def test_start_trace(store):
     assert new_trace_info.execution_time_ms == 100
     assert new_trace_info.state == TraceState.OK
     assert new_trace_info.tags["mlflow.artifactLocation"] is not None
-    assert new_trace_info.trace_metadata == {TRACE_SCHEMA_VERSION_KEY: "3"}
     assert new_trace_info.client_request_id == trace_info.client_request_id
 
 

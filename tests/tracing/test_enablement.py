@@ -156,12 +156,12 @@ def test_unset_experiment_trace_location_with_default_experiment(mock_databricks
 def test_non_databricks_tracking_uri_errors():
     with pytest.raises(
         MlflowException,
-        match="Setting storage location is only supported on Databricks Tracking Server.",
+        match="The `set_experiment_trace_location` API is only supported on Databricks.",
     ):
         set_experiment_trace_location(location=UCSchemaLocation("test_catalog", "test_schema"))
 
     with pytest.raises(
         MlflowException,
-        match="Clearing storage location is only supported on Databricks Tracking Server.",
+        match="The `unset_experiment_trace_location` API is only supported on Databricks.",
     ):
         unset_experiment_trace_location(location=UCSchemaLocation("test_catalog", "test_schema"))

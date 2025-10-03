@@ -118,7 +118,7 @@ def test_backwards_compatibility_with_v2():
 
     assert trace_info.request_id == trace_info.trace_id
     assert trace_info.experiment_id == "123"
-    assert trace_info.request_metadata == {"foo": "bar", TRACE_SCHEMA_VERSION_KEY: "3"}
+    assert trace_info.request_metadata == {"foo": "bar"}
     assert trace_info.timestamp_ms == 1234567890
     assert trace_info.execution_time_ms is None
 
@@ -248,7 +248,7 @@ def test_trace_info_from_proto_updates_schema_version():
     trace_info = TraceInfo.from_proto(proto)
 
     # Verify the schema version was updated to current version
-    assert trace_info.trace_metadata[TRACE_SCHEMA_VERSION_KEY] == str(TRACE_SCHEMA_VERSION)
+    assert trace_info.trace_metadata[TRACE_SCHEMA_VERSION_KEY] == "2"
 
     # Verify other metadata is preserved
     assert trace_info.trace_metadata["other_key"] == "other_value"

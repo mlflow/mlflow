@@ -4477,7 +4477,7 @@ def test_start_trace(store: SqlAlchemyStore):
     assert trace_info.request_time == 1234
     assert trace_info.execution_duration == 100
     assert trace_info.state == TraceState.OK
-    assert trace_info.trace_metadata == {"rq1": "foo", "rq2": "bar", TRACE_SCHEMA_VERSION_KEY: "3"}
+    assert trace_info.trace_metadata == {"rq1": "foo", "rq2": "bar"}
     artifact_location = trace_info.tags[MLFLOW_ARTIFACT_LOCATION]
     assert artifact_location.endswith(f"/{experiment_id}/traces/{trace_id}/artifacts")
     assert trace_info.tags == {

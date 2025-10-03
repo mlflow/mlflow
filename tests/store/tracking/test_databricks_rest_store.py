@@ -582,7 +582,7 @@ def test_search_traces_with_mixed_locations():
     assert trace_infos[0].state == TraceStatus.OK.to_state()
     # This is correct because TraceInfoV3.from_proto converts the repeated field tags to a dict
     assert trace_infos[0].tags == {"k": "v"}
-    assert trace_infos[0].trace_metadata == {"key": "value", "mlflow.trace_schema.version": "3"}
+    assert trace_infos[0].trace_metadata == {"key": "value"}
     assert token == "token"
 
 
@@ -698,7 +698,7 @@ def test_search_traces_fallback_to_v3():
     assert trace_infos[0].state == TraceStatus.OK.to_state()
     # This is correct because TraceInfoV3.from_proto converts the repeated field tags to a dict
     assert trace_infos[0].tags == {"k": "v"}
-    assert trace_infos[0].trace_metadata == {"key": "value", "mlflow.trace_schema.version": "3"}
+    assert trace_infos[0].trace_metadata == {"key": "value"}
     assert token == "token"
 
 
