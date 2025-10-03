@@ -12,7 +12,7 @@ from mlflow.entities.trace_location import (
     TraceLocationBase,
     UCSchemaLocation,
 )
-from mlflow.environment_variables import MLFLOW_TRACING_LOCATION
+from mlflow.environment_variables import MLFLOW_TRACING_DESTINATION
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import deprecated
 
@@ -40,9 +40,9 @@ class UserTraceDestinationRegistry:
 
     def _get_trace_location_from_env(self) -> TraceLocationBase | None:
         """
-        Get trace location from `MLFLOW_TRACING_LOCATION` environment variable.
+        Get trace location from `MLFLOW_TRACING_DESTINATION` environment variable.
         """
-        if location := MLFLOW_TRACING_LOCATION.get():
+        if location := MLFLOW_TRACING_DESTINATION.get():
             match location.split("."):
                 case [catalog_name, schema_name]:
                     return UCSchemaLocation(catalog_name, schema_name)
@@ -50,7 +50,7 @@ class UserTraceDestinationRegistry:
                     return MlflowExperimentLocation(experiment_id)
                 case _:
                     raise MlflowException.invalid_parameter_value(
-                        "Failed to parse trace location from MLFLOW_TRACING_LOCATION "
+                        "Failed to parse trace location from MLFLOW_TRACING_DESTINATION "
                         "environment variable. Expected format: <catalog_name>.<schema_name> or "
                         "<experiment_id>"
                     )

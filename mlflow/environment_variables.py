@@ -843,7 +843,7 @@ MLFLOW_TRACING_SQL_WAREHOUSE_ID = _EnvironmentVariable("MLFLOW_TRACING_SQL_WAREH
 #: Specifies the location to send traces to. This can be either an MLflow experiment ID or a
 #: Databricks Unity Catalog (UC) schema (format: `<catalog_name>.<schema_name>`).
 #: (default: ``None`` (an active MLflow experiment will be used))
-MLFLOW_TRACING_LOCATION = _EnvironmentVariable("MLFLOW_TRACING_LOCATION", str, None)
+MLFLOW_TRACING_DESTINATION = _EnvironmentVariable("MLFLOW_TRACING_DESTINATION", str, None)
 
 
 #######################################################################################
