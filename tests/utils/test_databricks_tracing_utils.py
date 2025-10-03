@@ -33,7 +33,6 @@ from mlflow.utils.databricks_tracing_utils import (
     trace_from_proto,
     trace_info_to_dict,
     trace_info_to_proto,
-    trace_location_from_databricks_uc_schema,
     trace_location_from_proto,
     trace_location_to_proto,
     trace_to_proto,
@@ -43,7 +42,7 @@ from mlflow.utils.databricks_tracing_utils import (
 
 
 def test_trace_location_to_proto_uc_schema():
-    trace_location = trace_location_from_databricks_uc_schema(
+    trace_location = TraceLocation.from_databricks_uc_schema(
         catalog_name="test_catalog", schema_name="test_schema"
     )
     proto = trace_location_to_proto(trace_location)
@@ -166,7 +165,7 @@ def test_trace_info_to_proto():
     trace_id = f"trace:/catalog.schema/{otel_trace_id}"
     trace_info = TraceInfo(
         trace_id=trace_id,
-        trace_location=trace_location_from_databricks_uc_schema(
+        trace_location=TraceLocation.from_databricks_uc_schema(
             catalog_name="catalog", schema_name="schema"
         ),
         request_time=0,
@@ -203,7 +202,7 @@ def test_trace_to_proto_and_from_proto():
     trace = Trace(
         info=TraceInfo(
             trace_id=trace_id,
-            trace_location=trace_location_from_databricks_uc_schema(
+            trace_location=TraceLocation.from_databricks_uc_schema(
                 catalog_name="catalog", schema_name="schema"
             ),
             request_time=0,
@@ -247,7 +246,7 @@ def test_trace_info_from_proto_handles_uc_schema_location():
     proto = pb.TraceInfo(
         trace_id="test_trace_id",
         trace_location=trace_location_to_proto(
-            trace_location_from_databricks_uc_schema(catalog_name="catalog", schema_name="schema")
+            TraceLocation.from_databricks_uc_schema(catalog_name="catalog", schema_name="schema")
         ),
         request_preview="test request",
         response_preview="test response",
@@ -270,7 +269,7 @@ def test_trace_info_from_proto_handles_uc_schema_location():
 def test_trace_info_to_dict():
     trace_info = TraceInfo(
         trace_id="test_trace_id",
-        trace_location=trace_location_from_databricks_uc_schema(
+        trace_location=TraceLocation.from_databricks_uc_schema(
             catalog_name="catalog", schema_name="schema"
         ),
         request_time=0,
@@ -312,7 +311,7 @@ def test_add_size_stats_to_trace_metadata_for_v4_trace():
     trace = Trace(
         info=TraceInfo(
             trace_id="test_trace_id",
-            trace_location=trace_location_from_databricks_uc_schema(
+            trace_location=TraceLocation.from_databricks_uc_schema(
                 catalog_name="catalog", schema_name="schema"
             ),
             request_time=0,
@@ -407,7 +406,7 @@ def test_get_trace_id_from_assessment_proto():
     proto = pb.Assessment(
         trace_id="1234",
         trace_location=trace_location_to_proto(
-            trace_location_from_databricks_uc_schema(catalog_name="catalog", schema_name="schema")
+            TraceLocation.from_databricks_uc_schema(catalog_name="catalog", schema_name="schema")
         ),
     )
     assert get_trace_id_from_assessment_proto(proto) == "trace:/catalog.schema/1234"

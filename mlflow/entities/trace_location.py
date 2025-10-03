@@ -63,13 +63,19 @@ class InferenceTableLocation(_MlflowObject):
 @dataclass
 class UCSchemaLocation(_MlflowObject):
     """
-    Represents the location of a Databricks UC schema.
+    Represents the location of a Databricks Unity Catalog (UC) schema.
+
+    Args:
+        catalog_name: The name of the Unity Catalog catalog name.
+        schema_name: The name of the Unity Catalog schema.
     """
 
     catalog_name: str
     schema_name: str
-    otel_spans_table_name: str | None = None
-    otel_logs_table_name: str | None = None
+
+    # These table names are set by the backend
+    _otel_spans_table_name: str | None = None
+    _otel_logs_table_name: str | None = None
 
     @property
     def schema_location(self) -> str:
@@ -77,30 +83,36 @@ class UCSchemaLocation(_MlflowObject):
 
     @property
     def full_otel_spans_table_name(self) -> str | None:
-        if self.otel_spans_table_name:
-            return f"{self.catalog_name}.{self.schema_name}.{self.otel_spans_table_name}"
+        if self._otel_spans_table_name:
+            return f"{self.catalog_name}.{self.schema_name}.{self._otel_spans_table_name}"
 
     @property
     def full_otel_logs_table_name(self) -> str | None:
-        if self.otel_logs_table_name:
-            return f"{self.catalog_name}.{self.schema_name}.{self.otel_logs_table_name}"
+        if self._otel_logs_table_name:
+            return f"{self.catalog_name}.{self.schema_name}.{self._otel_logs_table_name}"
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        d = {
             "catalog_name": self.catalog_name,
             "schema_name": self.schema_name,
-            "otel_spans_table_name": self.otel_spans_table_name,
-            "otel_logs_table_name": self.otel_logs_table_name,
         }
+        if self._otel_spans_table_name:
+            d["otel_spans_table_name"] = self._otel_spans_table_name
+        if self._otel_logs_table_name:
+            d["otel_logs_table_name"] = self._otel_logs_table_name
+        return d
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "UCSchemaLocation":
-        return cls(
+        location = cls(
             catalog_name=d["catalog_name"],
             schema_name=d["schema_name"],
-            otel_spans_table_name=d.get("otel_spans_table_name"),
-            otel_logs_table_name=d.get("otel_logs_table_name"),
         )
+        if otel_spans_table_name := d.get("otel_spans_table_name"):
+            location._otel_spans_table_name = otel_spans_table_name
+        if otel_logs_table_name := d.get("otel_logs_table_name"):
+            location._otel_logs_table_name = otel_logs_table_name
+        return location
 
 
 class TraceLocationType(str, Enum):
@@ -220,4 +232,11 @@ class TraceLocation(_MlflowObject):
         return cls(
             type=TraceLocationType.MLFLOW_EXPERIMENT,
             mlflow_experiment=MlflowExperimentLocation(experiment_id=experiment_id),
+        )
+
+    @classmethod
+    def from_databricks_uc_schema(cls, catalog_name: str, schema_name: str) -> "TraceLocation":
+        return cls(
+            type=TraceLocationType.UC_SCHEMA,
+            uc_schema=UCSchemaLocation(catalog_name=catalog_name, schema_name=schema_name),
         )
