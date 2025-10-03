@@ -48,11 +48,17 @@ class JobResult:
     error: str | None = None
 
     @classmethod
-    def from_error(cls, e: Exception) -> "JobResult":
+    def from_error(cls, e: Exception, transient_error_classes: list[str] | None) -> "JobResult":
         from mlflow.server.jobs import TransientError
 
         if isinstance(e, TransientError):
             return JobResult(succeeded=False, is_transient_error=True, error=repr(e.origin_error))
+
+        if transient_error_classes:
+            error_cls = e.__class__
+            if f"{error_cls.__module__}.{error_cls.__name__}" in transient_error_classes:
+                return JobResult(succeeded=False, is_transient_error=True, error=repr(e))
+
         return JobResult(
             succeeded=False,
             is_transient_error=False,
@@ -71,6 +77,7 @@ def _job_subproc_entry(
     func: Callable[..., Any],
     kwargs: dict[str, Any],
     result_queue: multiprocessing.Queue,
+    transient_error_classes: list[str] | None,
 ) -> None:
     """Child process entrypoint: run func and put result or exception into queue."""
 
@@ -92,7 +99,8 @@ def _job_subproc_entry(
     except Exception as e:
         # multiprocess uses pickle which can't serialize any kind of python objects.
         # so serialize exception class to serializable JobResult before putting it to result queue.
-        result_queue.put(JobResult.from_error(e))
+
+        result_queue.put(JobResult.from_error(e, transient_error_classes))
 
 
 def _execute_function_with_timeout(
@@ -108,6 +116,7 @@ def _execute_function_with_timeout(
       - TimeoutError if not finished within `timeout`
     """
     use_process = func._job_fn_metadata.use_process
+    transient_error_classes = func._job_fn_metadata.transient_error_classes
 
     if timeout and not use_process:
         raise MlflowException.invalid_parameter_value(
@@ -121,7 +130,9 @@ def _execute_function_with_timeout(
         #  and deadlock / race conditions might occur.
         ctx = multiprocessing.get_context("spawn")
         result_queue = ctx.Queue(maxsize=1)
-        subproc = ctx.Process(target=_job_subproc_entry, args=(func, kwargs, result_queue))
+        subproc = ctx.Process(
+            target=_job_subproc_entry, args=(func, kwargs, result_queue, transient_error_classes)
+        )
         subproc.daemon = True
         subproc.start()
 
@@ -138,7 +149,7 @@ def _execute_function_with_timeout(
         raw_result = func(**kwargs)
         return JobResult(succeeded=True, result=json.dumps(raw_result))
     except Exception as e:
-        return JobResult.from_error(e)
+        return JobResult.from_error(e, transient_error_classes)
 
 
 def is_process_alive(pid: int) -> bool:

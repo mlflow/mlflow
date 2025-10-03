@@ -2,7 +2,7 @@ import json
 import logging
 from dataclasses import dataclass
 from types import FunctionType
-from typing import Any, Callable, ParamSpec, Type, TypeVar
+from typing import Any, Callable, ParamSpec, TypeVar
 
 from mlflow.entities._job import Job as JobEntity
 from mlflow.exceptions import MlflowException
@@ -12,7 +12,6 @@ _logger = logging.getLogger(__name__)
 
 P = ParamSpec("P")
 R = TypeVar("R")
-ET = TypeVar("ET", bound=Exception)
 
 
 class TransientError(RuntimeError):
@@ -34,13 +33,13 @@ class JobFunctionMetadata:
     fn_fullname: str
     max_workers: int
     use_process: bool
-    transient_error_classes: list[Type[ET]] | None = None
+    transient_error_classes: list[str] | None = None
 
 
 def job(
     max_workers: int,
     use_process: bool = True,
-    transient_error_classes: list[Type[ET]] | None = None,
+    transient_error_classes: list[str] | None = None,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     The decorator for the custom job function for setting max parallel workers that
@@ -54,7 +53,8 @@ def job(
             it should be run in an individual process to isolate the environment variable settings.
             Default value is True.
         transient_error_classes: (optional) Specify a list of classes that are regarded as
-            transient error classes.
+            transient error classes, each item in the list should be in the form of
+            "{module_name}.{class_name}"
     """
 
     def decorator(fn: Callable[P, R]) -> Callable[P, R]:
