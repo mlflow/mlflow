@@ -165,7 +165,7 @@ class _GEPAOptimizer(BasePromptOptimizer):
 
             def _evaluate_single_example(
                 self, prompt_template: str, record: dict[str, Any]
-            ) -> float:
+            ) -> dict[str, Any]:
                 from mlflow.genai.prompts.utils import format_prompt
 
                 inputs = record.get("inputs", {})
