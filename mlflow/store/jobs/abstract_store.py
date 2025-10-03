@@ -107,6 +107,9 @@ class AbstractJobStore(ABC):
             begin_timestamp: Filter jobs created after this timestamp (inclusive)
             end_timestamp: Filter jobs created before this timestamp (inclusive)
             params: Filter jobs by matching job params dict with the provided params dict
+                e.g., if `params` is ``{'a': 3, 'b': 4}``, it can match the following job params:
+                ``{'a': 3, 'b': 4}``, ``{'a': 3, 'b': 4, 'c': 5}``, but it does not match the
+                following job params: ``{'a': 3, 'b': 6}``, ``{'a': 3, 'c': 5}``.
 
         Returns:
             Iterator of Job entities that match the filters, ordered by creation time (oldest first)

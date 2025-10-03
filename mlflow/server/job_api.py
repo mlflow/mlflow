@@ -52,14 +52,6 @@ class Job(BaseModel):
         )
 
 
-class SearchJobsResponse(BaseModel):
-    """
-    Pydantic model for job searching response.
-    """
-
-    jobs: list[Job]
-
-
 @job_api_router.get("/{job_id}", response_model=Job)
 def get_job(job_id: str) -> Job:
     from mlflow.server.jobs import get_job
@@ -102,9 +94,17 @@ def submit_job(payload: SubmitJobPayload) -> Job:
 
 
 class SearchJobPayload(BaseModel):
-    function_fullname: str
+    function_fullname: str | None = None
     params: dict[str, Any] | None = None
     statuses: list[JobStatus] | None = None
+
+
+class SearchJobsResponse(BaseModel):
+    """
+    Pydantic model for job searching response.
+    """
+
+    jobs: list[Job]
 
 
 @job_api_router.post("/search", response_model=SearchJobsResponse)
@@ -113,14 +113,14 @@ def search_jobs(payload: SearchJobPayload):
 
     try:
         store = _get_job_store()
-        job_results = []
-        for job in store.list_jobs(
-            function_fullname=payload.function_fullname,
-            statuses=payload.statuses,
-            params=payload.params,
-        ):
-            job_results.append(Job.from_job_entity(job))
-
+        job_results = [
+            Job.from_job_entity(job)
+            for job in store.list_jobs(
+                function_fullname=payload.function_fullname,
+                statuses=payload.statuses,
+                params=payload.params,
+            )
+        ]
         return SearchJobsResponse(jobs=job_results)
     except MlflowException as e:
         raise HTTPException(

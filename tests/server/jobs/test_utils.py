@@ -57,3 +57,22 @@ def test_validate_function_parameters_with_positional_args():
     # Should still raise error for missing required parameters
     with pytest.raises(MlflowException, match=r"Missing required parameters.*\['a'\]"):
         _validate_function_parameters(test_func_with_args, {})
+
+
+def test_job_status_conversion():
+    from mlflow.entities._job_status import JobStatus
+
+    assert JobStatus.from_int(1) == JobStatus.RUNNING
+    assert JobStatus.from_str("RUNNING") == JobStatus.RUNNING
+
+    assert JobStatus.RUNNING.to_int() == 1
+    assert str(JobStatus.RUNNING) == "RUNNING"
+
+    with pytest.raises(MlflowException):
+        JobStatus.from_int(-1)
+
+    with pytest.raises(MlflowException):
+        JobStatus.from_int(5)
+
+    with pytest.raises(MlflowException):
+        JobStatus.from_str("ABC")
