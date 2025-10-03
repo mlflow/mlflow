@@ -68,11 +68,17 @@ def test_job_status_conversion():
     assert JobStatus.RUNNING.to_int() == 1
     assert str(JobStatus.RUNNING) == "RUNNING"
 
-    with pytest.raises(MlflowException):
+    with pytest.raises(
+        MlflowException, match="The value -1 can't be converted to JobStatus enum value."
+    ):
         JobStatus.from_int(-1)
 
-    with pytest.raises(MlflowException):
+    with pytest.raises(
+        MlflowException, match="The value 5 can't be converted to JobStatus enum value."
+    ):
         JobStatus.from_int(5)
 
-    with pytest.raises(MlflowException):
+    with pytest.raises(
+        MlflowException, match="The string 'ABC' can't be converted to JobStatus enum value."
+    ):
         JobStatus.from_str("ABC")

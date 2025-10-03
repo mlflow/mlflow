@@ -35,7 +35,9 @@ class Client:
     def __init__(self, server_url: str):
         self.server_url = server_url
 
-    def submit_job(self, function_fullname: str, params: dict[str, Any], timeout: float | None = None) -> str:
+    def submit_job(
+        self, function_fullname: str, params: dict[str, Any], timeout: float | None = None
+    ) -> str:
         payload = {
             "function_fullname": function_fullname,
             "params": params,
@@ -326,5 +328,7 @@ def test_job_endpoint_search(client: Client):
         },
     )
     assert response.status_code == 422
-    assert response.json()['detail'][0]['msg'] == \
-           "Input should be 'PENDING', 'RUNNING', 'SUCCEEDED', 'FAILED' or 'TIMEOUT'"
+    assert (
+        response.json()["detail"][0]["msg"]
+        == "Input should be 'PENDING', 'RUNNING', 'SUCCEEDED', 'FAILED' or 'TIMEOUT'"
+    )

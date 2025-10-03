@@ -27,8 +27,10 @@ class JobStatus(str, Enum):
         """Convert string status to JobStatus enum."""
         try:
             return JobStatus[status_str]
-        except KeyError as e:
-            raise MlflowException.invalid_parameter_value(str(e))
+        except KeyError:
+            raise MlflowException.invalid_parameter_value(
+                f"The string '{status_str}' can't be converted to JobStatus enum value."
+            )
 
     def to_int(self) -> int:
         """Convert JobStatus enum to integer."""

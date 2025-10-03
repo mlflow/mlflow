@@ -401,6 +401,6 @@ def test_submit_job_bad_call(monkeypatch, tmp_path):
     with _setup_job_runner(monkeypatch, tmp_path):
         with pytest.raises(
             MlflowException,
-            match="When calling 'submit_job', the 'params' argument must be a dict."
+            match="When calling 'submit_job', the 'params' argument must be a dict.",
         ):
             submit_job(basic_job_fun, params=None)
