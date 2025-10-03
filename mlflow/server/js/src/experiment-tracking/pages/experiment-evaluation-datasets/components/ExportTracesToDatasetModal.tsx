@@ -183,38 +183,32 @@ export const ExportTracesToDatasetModal = ({
             )
           }
         >
-          {isLoadingDatasets || isLoadingTraces ? (
-            <TableSkeletonRows table={table} />
-          ) : (
-            <>
-              <TableRow isHeader>
-                {table.getLeafHeaders().map((header) => (
-                  <TableHeader
-                    key={header.id}
-                    componentId={`mlflow.eval-datasets.${header.column.id}-header`}
-                    header={header}
-                    column={header.column}
-                    css={{ width: header.column.columnDef.size, maxWidth: header.column.columnDef.maxSize }}
-                  >
-                    {flexRender(header.column.columnDef.header, header.getContext())}
-                  </TableHeader>
-                ))}
-              </TableRow>
-              {table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell
-                      key={cell.id}
-                      css={{ width: cell.column.columnDef.size, maxWidth: cell.column.columnDef.maxSize }}
-                    >
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
-                </TableRow>
+          <TableRow isHeader>
+            {table.getLeafHeaders().map((header) => (
+              <TableHeader
+                key={header.id}
+                componentId={`mlflow.eval-datasets.${header.column.id}-header`}
+                header={header}
+                column={header.column}
+                css={{ width: header.column.columnDef.size, maxWidth: header.column.columnDef.maxSize }}
+              >
+                {flexRender(header.column.columnDef.header, header.getContext())}
+              </TableHeader>
+            ))}
+          </TableRow>
+          {table.getRowModel().rows.map((row) => (
+            <TableRow key={row.id}>
+              {row.getVisibleCells().map((cell) => (
+                <TableCell
+                  key={cell.id}
+                  css={{ width: cell.column.columnDef.size, maxWidth: cell.column.columnDef.maxSize }}
+                >
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </TableCell>
               ))}
-            </>
-          )}
-          {(isFetching || hasNextPage) && <TableSkeletonRows table={table} />}
+            </TableRow>
+          ))}
+          {(isLoadingDatasets || isLoadingTraces || isFetching) && <TableSkeletonRows table={table} />}
         </Table>
       </div>
     </Modal>
