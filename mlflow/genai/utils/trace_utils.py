@@ -10,6 +10,7 @@ import mlflow
 from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.entities.span import Span, SpanType
 from mlflow.entities.trace import Trace
+from mlflow.environment_variables import MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION
 from mlflow.genai.utils.data_validation import check_model_prediction
 from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
 from mlflow.tracing.constant import TraceTagKey
@@ -127,17 +128,18 @@ def convert_predict_fn(predict_fn: Callable[..., Any], sample_input: Any) -> Cal
     """
     Check the predict_fn is callable and add trace decorator if it is not already traced.
     """
-    with (
-        NoOpTracerPatcher() as counter,
-        # Enable auto-tracing before checking if the predict_fn produces traces, so that
-        # functions using auto-traceable libraries (OpenAI, LangChain, etc.) are correctly
-        # identified as traced functions
-        configure_autologging_for_evaluation(enable_tracing=True),
-    ):
-        check_model_prediction(predict_fn, sample_input)
+    if not MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION.get():
+        with (
+            NoOpTracerPatcher() as counter,
+            # Enable auto-tracing before checking if the predict_fn produces traces, so that
+            # functions using auto-traceable libraries (OpenAI, LangChain, etc.) are correctly
+            # identified as traced functions
+            configure_autologging_for_evaluation(enable_tracing=True),
+        ):
+            check_model_prediction(predict_fn, sample_input)
 
-    if counter.count == 0:
-        predict_fn = mlflow.trace(predict_fn)
+        if counter.count == 0:
+            predict_fn = mlflow.trace(predict_fn)
 
     # Wrap the prediction function to unwrap the inputs dictionary into keyword arguments.
     return lambda request: predict_fn(**request)

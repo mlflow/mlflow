@@ -25,3 +25,8 @@ export type RegisteredPromptDetailsResponse = {
 export type PromptVersionsForRunResponse = {
   model_versions?: RegisteredPromptVersion[];
 };
+
+export interface ChatPromptMessage {
+  role: string;
+  content: string;
+}

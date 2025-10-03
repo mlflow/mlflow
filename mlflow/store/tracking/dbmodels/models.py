@@ -1951,7 +1951,7 @@ class SqlJob(Base):
     Job ID: `String` (limit 36 characters). *Primary Key* for ``jobs`` table.
     """
 
-    creation_time = Column(BigInteger, default=get_current_time_millis)
+    creation_time = Column(BigInteger, default=get_current_time_millis, nullable=False)
     """
     Creation timestamp: `BigInteger`.
     """
@@ -1981,9 +1981,14 @@ class SqlJob(Base):
     Job result: `Text`.
     """
 
-    retry_count = Column(Integer, default=0)
+    retry_count = Column(Integer, default=0, nullable=False)
     """
     Job retry count: `Integer`
+    """
+
+    last_update_time = Column(BigInteger(), default=get_current_time_millis, nullable=False)
+    """
+    Last Update time of experiment: `BigInteger`.
     """
 
     __table_args__ = (
@@ -2018,4 +2023,5 @@ class SqlJob(Base):
             status=JobStatus.from_int(self.status),
             result=self.result,
             retry_count=self.retry_count,
+            last_update_time=self.last_update_time,
         )
