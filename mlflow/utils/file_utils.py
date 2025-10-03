@@ -982,7 +982,6 @@ def read_yaml(root: str, file_name: str) -> dict[str, Any]:
         return yaml.safe_load(f)
 
 
-
 class ExclusiveFileLock:
     """
     Exclusive file lock (only works on Unix system)

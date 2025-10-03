@@ -120,7 +120,7 @@ def _safe_initialize_tables(engine):
             _initialize_tables(engine)
         return
 
-    url_hash = hashlib.md5(str(engine.url).encode("utf-8")).hexdigest()
+    url_hash = hashlib.md5(str(engine.url).encode("utf-8")).hexdigest()  # noqa: S324
     with ExclusiveFileLock(f"/tmp/db_init_lock-{url_hash}"):
         if not _all_tables_exist(engine):
             _initialize_tables(engine)
