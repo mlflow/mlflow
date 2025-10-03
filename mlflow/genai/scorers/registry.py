@@ -113,6 +113,23 @@ class AbstractScorerStore(metaclass=ABCMeta):
             mlflow.MlflowException: If scorer is not found.
         """
 
+    @abstractmethod
+    def update_scorer(self, experiment_id, name, sample_rate=None):
+        """
+        Update a scorer's configuration.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: The scorer name.
+            sample_rate: The new sample rate (0.0 to 1.0). If None, keeps current value.
+
+        Returns:
+            The updated scorer.
+
+        Raises:
+            mlflow.MlflowException: If scorer is not found.
+        """
+
 
 class ScorerStoreRegistry:
     """
@@ -248,6 +265,17 @@ class MlflowTrackingStore(AbstractScorerStore):
 
         experiment_id = experiment_id or _get_experiment_id()
         return self._tracking_store.delete_scorer(experiment_id, name, version)
+
+    def update_scorer(self, experiment_id, name, sample_rate=None):
+        from mlflow.genai.scorers import Scorer
+
+        experiment_id = experiment_id or _get_experiment_id()
+
+        # Update the scorer in the tracking store
+        scorer_version = self._tracking_store.update_scorer(experiment_id, name, sample_rate)
+
+        # Convert to Scorer object
+        return Scorer.model_validate(scorer_version.serialized_scorer)
 
 
 class DatabricksStore(AbstractScorerStore):
@@ -398,6 +426,12 @@ class DatabricksStore(AbstractScorerStore):
             )
 
         DatabricksStore.delete_scheduled_scorer(experiment_id, name)
+
+    def update_scorer(self, experiment_id, name, sample_rate=None):
+        raise MlflowException(
+            "Databricks backend does not support update_scorer. "
+            "Use the Databricks UI or API to modify scorer configurations."
+        )
 
 
 # Create the global scorer store registry instance
@@ -571,7 +605,67 @@ def get_scorer(
     return store.get_scorer(experiment_id, name, version)
 
 
-@experimental(version="3.2.0")
+@experimental
+def update_scorer(
+    *,
+    name: str,
+    experiment_id: str | None = None,
+    sample_rate: float | None = None,
+) -> Scorer:
+    """
+    Update a registered scorer's configuration in the MLflow experiment.
+
+    This function updates the configuration of a registered scorer. Currently,
+    only the sample_rate can be updated. The scorer's logic and other properties
+    remain unchanged.
+
+    **Backend Support:**
+        - **OSS MLflow Tracking Backend:** Fully supported
+        - **Databricks Backend:** Not currently supported
+
+    Args:
+        name (str): The name of the scorer to update. This must match exactly with the
+            name of a registered scorer in the experiment.
+        experiment_id (str, optional): The ID of the MLflow experiment containing the scorer.
+            If None, uses the currently active experiment as determined by
+            :func:`mlflow.get_experiment_by_name` or :func:`mlflow.set_experiment`.
+        sample_rate (float | None, optional): The new sampling rate for the scorer,
+            as a fraction between 0.0 and 1.0:
+            - 0.0 disables scoring
+            - 1.0 scores all traces
+            - Values between 0.0 and 1.0 sample that fraction of traces
+            If None, the current sample_rate is preserved.
+
+    Returns:
+        Scorer: The updated scorer object with the new configuration.
+
+    Raises:
+        mlflow.MlflowException: If the scorer with the specified name is not found,
+            if the sample_rate is outside the valid range [0.0, 1.0], or if the
+            backend doesn't support updating scorers.
+
+    Example:
+        .. code-block:: python
+
+            from mlflow.genai.scorers import update_scorer
+
+            # Update a scorer's sample rate to 50%
+            updated_scorer = update_scorer(name="accuracy_scorer", sample_rate=0.5)
+
+            # Disable a scorer by setting sample rate to 0
+            updated_scorer = update_scorer(name="safety_scorer", sample_rate=0.0)
+
+            # Update a scorer in a specific experiment
+            updated_scorer = update_scorer(
+                name="relevance_scorer",
+                experiment_id="123",
+                sample_rate=0.75
+            )
+    """
+    store = _get_scorer_store()
+    return store.update_scorer(experiment_id, name, sample_rate)
+
+
 def delete_scorer(
     *,
     name: str,
