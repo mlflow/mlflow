@@ -1254,6 +1254,10 @@
     "defaultMessage": "Time Range",
     "description": "Label for the start range select dropdown for experiment runs view"
   },
+  "BMUd0e": {
+    "defaultMessage": "Create evaluation datasets in order to iteratively evaluate and improve your app. For example, build a dataset from production traces with negative feedback. {learnMoreLink}",
+    "description": "Description for a quickstart guide on MLflow evaluation datasets"
+  },
   "BOz0T2": {
     "defaultMessage": "Select metric",
     "description": "Placeholder text for a metric selector when configuring a line chart"
@@ -3546,6 +3550,10 @@
   "c0slEY": {
     "defaultMessage": "Click into an individual run to see all models associated with it",
     "description": "MLflow experiment detail page > runs table > tooltip on ML \"Models\" column header"
+  },
+  "c1jD8u": {
+    "defaultMessage": "Create an evaluation dataset",
+    "description": "Evaluation datasets empty state title"
   },
   "c4KA32": {
     "defaultMessage": "An error occurred while attempting to fetch the trace data. Please wait a moment and try again.",
