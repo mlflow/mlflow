@@ -113,6 +113,23 @@ class AbstractScorerStore(metaclass=ABCMeta):
             mlflow.MlflowException: If scorer is not found.
         """
 
+    @abstractmethod
+    def update_scorer(self, experiment_id, name, sample_rate=None):
+        """
+        Update a scorer's configuration.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: The scorer name.
+            sample_rate: The new sample rate (0.0 to 1.0). If None, keeps current value.
+
+        Returns:
+            The updated scorer.
+
+        Raises:
+            mlflow.MlflowException: If scorer is not found.
+        """
+
 
 class ScorerStoreRegistry:
     """
@@ -248,6 +265,17 @@ class MlflowTrackingStore(AbstractScorerStore):
 
         experiment_id = experiment_id or _get_experiment_id()
         return self._tracking_store.delete_scorer(experiment_id, name, version)
+
+    def update_scorer(self, experiment_id, name, sample_rate=None):
+        from mlflow.genai.scorers import Scorer
+
+        experiment_id = experiment_id or _get_experiment_id()
+
+        # Update the scorer in the tracking store
+        scorer_version = self._tracking_store.update_scorer(experiment_id, name, sample_rate)
+
+        # Convert to Scorer object
+        return Scorer.model_validate(scorer_version.serialized_scorer)
 
 
 class DatabricksStore(AbstractScorerStore):
@@ -398,6 +426,12 @@ class DatabricksStore(AbstractScorerStore):
             )
 
         DatabricksStore.delete_scheduled_scorer(experiment_id, name)
+
+    def update_scorer(self, experiment_id, name, sample_rate=None):
+        raise MlflowException(
+            "Databricks backend does not support update_scorer. "
+            "Use the Databricks UI or API to update scorer configuration."
+        )
 
 
 # Create the global scorer store registry instance
