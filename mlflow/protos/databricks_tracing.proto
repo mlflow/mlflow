@@ -494,7 +494,7 @@ message Assessment {
   optional string span_id = 5;
 
   // The source this assessment came from.
-  optional mlflow.assessments.AssessmentSource source = 6;
+  optional assessments.AssessmentSource source = 6;
 
   // The creation time of this assessment.
   optional google.protobuf.Timestamp create_time = 7;
@@ -506,9 +506,9 @@ message Assessment {
   // The name of the Feedback or Expectation must be the same with the assessment_name.
   oneof value {
     // The feedback on the trace from this assessment.
-    mlflow.assessments.Feedback feedback = 9;
+    assessments.Feedback feedback = 9;
     // A representation of the guidelines and/or expected response from the agent.
-    mlflow.assessments.Expectation expectation = 10;
+    assessments.Expectation expectation = 10;
   }
 
   // Justification for the assessment.
