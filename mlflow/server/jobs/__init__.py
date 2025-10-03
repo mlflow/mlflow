@@ -120,6 +120,10 @@ def submit_job(
             "'mlflow.server.jobs.job_function'."
         )
 
+    if not isinstance(params, dict):
+        raise MlflowException.invalid_parameter_value(
+            "When calling 'submit_job', the 'params' argument must be a dict."
+        )
     # Validate that required parameters are provided
     _validate_function_parameters(function, params)
 
