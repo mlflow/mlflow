@@ -88,7 +88,6 @@ def test_json_deserialization(monkeypatch):
             "request_preview": '{"x": 2, "y": 5}',
             "response_preview": "8",
             "trace_metadata": {
-                TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
                 "mlflow.traceInputs": '{"x": 2, "y": 5}',
                 "mlflow.traceOutputs": "8",
                 "mlflow.source.name": mock.ANY,

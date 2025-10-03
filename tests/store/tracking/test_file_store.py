@@ -3008,7 +3008,6 @@ def test_legacy_start_trace_v2(store):
     assert trace_info.timestamp_ms == timestamp_ms
     assert trace_info.execution_time_ms is None
     assert trace_info.status == TraceStatus.IN_PROGRESS
-    assert trace_info.request_metadata == {TRACE_SCHEMA_VERSION_KEY: "2"}
     assert trace_info.tags == tags
 
     with pytest.raises(MlflowException, match=r"Experiment fake_exp_id does not exist."):

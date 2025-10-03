@@ -65,7 +65,7 @@ def set_experiment_trace_location(
 
     """
     from mlflow.tracing.client import TracingClient
-    from mlflow.tracking._tracking_service.utils import get_tracking_uri
+    from mlflow.tracking import get_tracking_uri
     from mlflow.tracking.fluent import _get_experiment_id
 
     if not is_databricks_uri(get_tracking_uri()):
@@ -122,7 +122,7 @@ def unset_experiment_trace_location(
         )
     """
     from mlflow.tracing.client import TracingClient
-    from mlflow.tracking._tracking_service.utils import get_tracking_uri
+    from mlflow.tracking import get_tracking_uri
     from mlflow.tracking.fluent import _get_experiment_id
 
     if not is_databricks_uri(get_tracking_uri()):
