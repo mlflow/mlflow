@@ -101,6 +101,11 @@ jobs:
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
             --ignore-flavors --ignore=tests/examples --ignore=tests/evaluate \
             --ignore tests/genai tests
+      - name: Run Databricks Archival Tests
+        run: |
+          source .venv/bin/activate
+          pip install databricks-connect
+          pytest tests/tracing/databricks_archival
 
       # TODO: Remove this step once support for pydantic v1 is dropped
       # - name: Run gateway tests with pydantic v1
