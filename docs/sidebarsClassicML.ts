@@ -533,6 +533,24 @@ const sidebarsClassicML: SidebarsConfig = {
               label: 'Tracking Server',
               items: [
                 {
+                  type: 'category',
+                  label: 'Server Security',
+                  link: {
+                    type: 'doc',
+                    id: 'tracking/server/security/index',
+                  },
+                  items: [
+                    {
+                      type: 'doc',
+                      id: 'tracking/server/security/configuration',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'tracking/server/security/ui-access',
+                    },
+                  ],
+                },
+                {
                   type: 'doc',
                   id: 'tracking/artifact-stores/index',
                   label: 'Artifact Store',

@@ -29,6 +29,7 @@ requires-python = ">=3.10"
 dependencies = [
   "mlflow-skinny==3.4.1.dev0",
   "mlflow-tracing==3.4.1.dev0",
+  "Flask-CORS<7",
   "Flask<4",
   "alembic<2,!=1.10.0",
   "cryptography<46,>=43.0.0",
