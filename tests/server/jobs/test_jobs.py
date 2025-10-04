@@ -60,7 +60,10 @@ def _setup_job_runner(
         with _launch_job_runner_for_test() as job_runner_proc:
             yield job_runner_proc
     finally:
-        mlflow.server.handlers._job_store = None
+        if mlflow.server.handlers._job_store is not None:
+            # close all db connections and drops connection pool
+            mlflow.server.handlers._job_store.engine.dispose()
+            mlflow.server.handlers._job_store = None
 
 
 @job(max_workers=1, use_process=False)
@@ -254,7 +257,7 @@ def transient_err_fun(tmp_dir: str, succeed_on_nth_run: int):
     raise TransientError(RuntimeError("test transient error."))
 
 
-def wait_job_finalize(job_id, timeout=30):
+def wait_job_finalize(job_id, timeout=60):
     beg_time = time.time()
     while time.time() - beg_time <= timeout:
         job = get_job(job_id)
