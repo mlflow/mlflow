@@ -7,6 +7,8 @@ import requests
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.pyfunc import _load_model_or_server
+from mlflow.utils import env_manager
 
 if TYPE_CHECKING:
     from mlflow.gateway.providers import BaseProvider
@@ -48,7 +50,6 @@ def score_model_on_payload(
 ):
     """Call the model identified by the given uri with the given string prompt."""
     from mlflow.deployments import get_deploy_client
-
     eval_parameters = eval_parameters or {}
     extra_headers = extra_headers or {}
 
@@ -60,8 +61,9 @@ def score_model_on_payload(
             endpoint_type = client.get_endpoint(suffix).endpoint_type
         return call_deployments_api(suffix, payload, eval_parameters, endpoint_type)
     elif prefix in ("model", "runs"):
-        # TODO: call _load_model_or_server
-        raise NotImplementedError
+        _logger.info("Loading local model")
+        model = _load_model_or_server(model_uri, env_manager.LOCAL)
+        return model.predict(payload)
 
     # Import here to avoid loading gateway module at the top level
     from mlflow.gateway.provider_registry import is_supported_provider
