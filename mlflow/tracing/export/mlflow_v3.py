@@ -7,9 +7,8 @@ from opentelemetry.sdk.trace.export import SpanExporter
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.span import Span
 from mlflow.entities.trace import Trace
-from mlflow.environment_variables import (
-    MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
-)
+from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_TRACE_LOGGING
+from mlflow.exceptions import RestException
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.display import get_display_handler
@@ -162,6 +161,15 @@ class MlflowV3SpanExporter(SpanExporter):
             # Silently skip if the store doesn't support log_spans. This is expected for stores that
             # don't implement span-level logging, and we don't want to spam warnings for every span.
             pass
+        except RestException as e:
+            # When the FileStore is behind the tracking server, it returns 501 exception.
+            # However, the OTLP endpoint returns general HTTP error, not MlflowException, which does
+            # not include error_code in the body and handled as a general server side error. Hence,
+            # we need to check the message to handle this case.
+            if "REST OTLP span logging is not supported" in e.message:
+                pass
+            else:
+                _logger.warning(f"Failed to log span to MLflow backend: {e}")
         except Exception as e:
             _logger.warning(f"Failed to log span to MLflow backend: {e}")
 
