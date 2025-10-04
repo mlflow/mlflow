@@ -828,7 +828,7 @@ name = "cffi"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pycparser", marker = "implementation_name != 'PyPy'" },
+    { name = "pycparser", marker = "(python_full_version < '3.13' and implementation_name != 'PyPy') or (implementation_name != 'PyPy' and platform_python_implementation != 'PyPy')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/eb/56/b1ba7935a17738ae8453301356628e8147c79dbb825bcbc73dc7401f9846/cffi-2.0.0.tar.gz", hash = "sha256:44d1b5909021139fe36001ae048dbdde8214afa20200eda0f64c068cac5d5529", size = 523588, upload-time = "2025-09-08T23:24:04.541Z" }
 wheels = [
@@ -3434,7 +3434,9 @@ requires-dist = [
     { name = "requests-auth-aws-sigv4", marker = "extra == 'extras'" },
     { name = "scikit-learn", specifier = "<2" },
     { name = "scipy", specifier = "<2" },
+    { name = "slowapi", marker = "extra == 'gateway'", specifier = "<3" },
     { name = "slowapi", marker = "extra == 'gateway'", specifier = ">=0.1.9,<1" },
+    { name = "slowapi", marker = "extra == 'genai'", specifier = "<3" },
     { name = "slowapi", marker = "extra == 'genai'", specifier = ">=0.1.9,<1" },
     { name = "sqlalchemy", specifier = ">=1.4.0,<3" },
     { name = "sqlparse", specifier = ">=0.4.0,<1" },

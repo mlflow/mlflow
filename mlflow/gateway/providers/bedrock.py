@@ -2,7 +2,7 @@ import json
 import time
 from enum import Enum
 
-from mlflow.gateway.config import AmazonBedrockConfig, AWSIdAndKey, AWSRole, RouteConfig
+from mlflow.gateway.config import AmazonBedrockConfig, AWSIdAndKey, AWSRole, EndpointConfig
 from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
 )
@@ -171,7 +171,7 @@ class AmazonBedrockProvider(BaseProvider):
     NAME = "Amazon Bedrock"
     CONFIG_TYPE = AmazonBedrockConfig
 
-    def __init__(self, config: RouteConfig):
+    def __init__(self, config: EndpointConfig):
         super().__init__(config)
 
         if config.model.config is None or not isinstance(config.model.config, AmazonBedrockConfig):

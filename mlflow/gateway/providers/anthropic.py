@@ -2,7 +2,7 @@ import json
 import time
 from typing import AsyncIterable
 
-from mlflow.gateway.config import AnthropicConfig, RouteConfig
+from mlflow.gateway.config import AnthropicConfig, EndpointConfig
 from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
     MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS,
@@ -229,7 +229,7 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
     NAME = "Anthropic"
     CONFIG_TYPE = AnthropicConfig
 
-    def __init__(self, config: RouteConfig) -> None:
+    def __init__(self, config: EndpointConfig) -> None:
         super().__init__(config)
         if config.model.config is None or not isinstance(config.model.config, AnthropicConfig):
             raise TypeError(f"Invalid config type {config.model.config}")

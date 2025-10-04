@@ -1,5 +1,7 @@
 MLFLOW_GATEWAY_HEALTH_ENDPOINT = "/health"
 MLFLOW_GATEWAY_CRUD_ROUTE_BASE = "/api/2.0/gateway/routes/"
+MLFLOW_GATEWAY_CRUD_ENDPOINT_V3_BASE = "/api/3.0/gateway/endpoint/"
+MLFLOW_GATEWAY_CRUD_ROUTE_V3_BASE = "/api/3.0/gateway/route/"
 MLFLOW_GATEWAY_LIMITS_BASE = "/api/2.0/gateway/limits/"
 MLFLOW_GATEWAY_ROUTE_BASE = "/gateway/"
 MLFLOW_QUERY_SUFFIX = "/invocations"

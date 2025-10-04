@@ -1,11 +1,11 @@
 from mlflow.gateway.base_models import ResponseModel
-from mlflow.gateway.config import Limit, RouteModelInfo
+from mlflow.gateway.config import EndpointModelInfo, Limit
 
 
 class Endpoint(ResponseModel):
     name: str
     endpoint_type: str
-    model: RouteModelInfo
+    model: EndpointModelInfo
     endpoint_url: str
     limit: Limit | None
 

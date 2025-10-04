@@ -2,7 +2,7 @@ import json
 import time
 from typing import Any, AsyncGenerator, AsyncIterable
 
-from mlflow.gateway.config import CohereConfig, RouteConfig
+from mlflow.gateway.config import CohereConfig, EndpointConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
@@ -326,7 +326,7 @@ class CohereProvider(BaseProvider):
     NAME = "Cohere"
     CONFIG_TYPE = CohereConfig
 
-    def __init__(self, config: RouteConfig) -> None:
+    def __init__(self, config: EndpointConfig) -> None:
         super().__init__(config)
         if config.model.config is None or not isinstance(config.model.config, CohereConfig):
             raise TypeError(f"Unexpected config type {config.model.config}")
