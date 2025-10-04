@@ -49,7 +49,6 @@ from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
 from mlflow.utils.databricks_tracing_utils import (
     assessment_to_proto,
     trace_info_to_proto,
-    trace_location_from_databricks_uc_schema,
     trace_location_to_proto,
     trace_to_proto,
 )
@@ -132,7 +131,7 @@ def test_create_trace_v4_uc_location(monkeypatch):
 
     trace_info = TraceInfo(
         trace_id="trace:/catalog.schema/123",
-        trace_location=trace_location_from_databricks_uc_schema("catalog", "schema"),
+        trace_location=TraceLocation.from_databricks_uc_schema("catalog", "schema"),
         request_time=123,
         execution_duration=10,
         state=TraceState.OK,
@@ -542,7 +541,7 @@ def test_search_traces_with_mixed_locations():
         else:
             catalog, schema = location.split(".")
             trace_locations.append(
-                trace_location_to_proto(trace_location_from_databricks_uc_schema(catalog, schema))
+                trace_location_to_proto(TraceLocation.from_databricks_uc_schema(catalog, schema))
             )
 
     expected_request = SearchTraces(
@@ -824,8 +823,8 @@ def test_set_experiment_trace_location():
         assert isinstance(result, UCSchemaLocation)
         assert result.catalog_name == "test_catalog"
         assert result.schema_name == "test_schema"
-        assert result.otel_spans_table_name == "test_spans"
-        assert result.otel_logs_table_name == "test_logs"
+        assert result.full_otel_spans_table_name == "test_catalog.test_schema.test_spans"
+        assert result.full_otel_logs_table_name == "test_catalog.test_schema.test_logs"
 
 
 def test_set_experiment_trace_location_with_existing_location():

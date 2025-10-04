@@ -4,6 +4,7 @@ from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
 from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
@@ -12,7 +13,6 @@ from mlflow.tracing.utils import (
     generate_trace_id_v4,
     get_active_spans_table_name,
 )
-from mlflow.utils.databricks_tracing_utils import trace_location_from_databricks_uc_schema
 
 _logger = logging.getLogger(__name__)
 
@@ -36,9 +36,8 @@ class DatabricksUCTableSpanProcessor(BaseMlflowSpanProcessor):
         """
         if uc_spans_table_name := get_active_spans_table_name():
             catalog_name, schema_name, spans_table_name = uc_spans_table_name.split(".")
-            trace_location = trace_location_from_databricks_uc_schema(
-                catalog_name, schema_name, spans_table_name
-            )
+            trace_location = TraceLocation.from_databricks_uc_schema(catalog_name, schema_name)
+            trace_location.uc_schema._otel_spans_table_name = spans_table_name
             trace_id = generate_trace_id_v4(root_span, trace_location.uc_schema.schema_location)
         else:
             raise MlflowException(

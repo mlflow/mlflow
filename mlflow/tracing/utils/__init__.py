@@ -615,12 +615,12 @@ def get_active_spans_table_name() -> str | None:
     """
     Get active Unity Catalog spans table name that's set by `mlflow.tracing.set_destination`.
     """
-    from mlflow.tracing.destination import DatabricksUnityCatalog
+    from mlflow.entities.trace_location import UCSchemaLocation
     from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
 
     if destination := _MLFLOW_TRACE_USER_DESTINATION.get():
-        if isinstance(destination, DatabricksUnityCatalog):
-            return destination.full_spans_table_name
+        if isinstance(destination, UCSchemaLocation):
+            return destination.full_otel_spans_table_name
 
     return None
 
