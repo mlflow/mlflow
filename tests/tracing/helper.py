@@ -23,7 +23,6 @@ from mlflow.tracing.provider import _get_tracer
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS, get_autolog_function
 from mlflow.utils.autologging_utils.safety import revert_patches
-from mlflow.utils.databricks_tracing_utils import trace_location_from_databricks_uc_schema
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 
@@ -140,9 +139,7 @@ def create_test_trace_info_with_uc_table(
 ) -> TraceInfo:
     return TraceInfo(
         trace_id=trace_id,
-        trace_location=trace_location_from_databricks_uc_schema(
-            catalog_name, schema_name, spans_table_name
-        ),
+        trace_location=TraceLocation.from_databricks_uc_schema(catalog_name, schema_name),
         request_time=0,
         execution_duration=1,
         state=TraceState.OK,

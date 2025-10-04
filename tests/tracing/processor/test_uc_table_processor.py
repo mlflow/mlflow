@@ -44,9 +44,9 @@ def test_on_start_with_uc_table_name(monkeypatch):
 
     # Verify trace location is UC_SCHEMA type
     assert trace_info.trace_location.type == TraceLocationType.UC_SCHEMA
-    assert trace_info.trace_location.uc_schema.catalog_name == "catalog1"
-    assert trace_info.trace_location.uc_schema.schema_name == "schema1"
-    assert trace_info.trace_location.uc_schema.otel_spans_table_name == "spans_table"
+    uc_schema = trace_info.trace_location.uc_schema
+    assert uc_schema.catalog_name == "catalog1"
+    assert uc_schema.schema_name == "schema1"
 
     # Verify trace state and timing
     assert trace_info.state == TraceState.IN_PROGRESS
