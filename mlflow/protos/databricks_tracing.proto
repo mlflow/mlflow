@@ -144,7 +144,7 @@ service DatabricksTrackingService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/traces/{location}/{trace_id}/assessment"
+        path: "/mlflow/traces/{location_id}/{assessment.trace_id}/assessments"
         since {major: 4, minor: 0},
       }],
       visibility: PUBLIC_UNDOCUMENTED,
@@ -157,7 +157,7 @@ service DatabricksTrackingService {
     option (rpc) = {
       endpoints: [{
         method: "GET",
-        path: "/mlflow/traces/{location}/{trace_id}/assessment/{assessment_id}"
+        path: "/mlflow/traces/{location_id}/{trace_id}/assessments/{assessment_id}"
         since {major: 4, minor: 0},
       }],
       visibility: PUBLIC_UNDOCUMENTED,
@@ -170,7 +170,7 @@ service DatabricksTrackingService {
     option (rpc) = {
       endpoints: [{
         method: "PATCH",
-        path: "/mlflow/traces/{location}/{trace_id}/assessment/{assessment_id}"
+        path: "/mlflow/traces/{location_id}/{assessment.trace_id}/assessments/{assessment.assessment_id}"
         since {major: 4, minor: 0},
       }],
       visibility: PUBLIC_UNDOCUMENTED,
@@ -183,7 +183,7 @@ service DatabricksTrackingService {
     option (rpc) = {
       endpoints: [{
         method: "DELETE",
-        path: "/mlflow/traces/{location}/{trace_id}/assessment/{assessment_id}"
+        path: "/mlflow/traces/{location_id}/{trace_id}/assessments/{assessment_id}"
         since {major: 4, minor: 0},
       }],
       visibility: PUBLIC_UNDOCUMENTED,
@@ -471,6 +471,8 @@ message UnLinkExperimentToUCTraceLocation {
 // =============================================================================
 // Assessment API Messages
 // =============================================================================
+// Note: We import assessment types from assessments.proto and extend Assessment
+// with trace_location field for Databricks-specific use cases.
 
 // Data and metadata for an assessment of a trace.
 message Assessment {
@@ -483,7 +485,7 @@ message Assessment {
   optional string assessment_name = 2 [(validate_required) = true];
 
   // ID of the trace this assessment is associated with.
-  optional string trace_id = 3;
+  optional string trace_id = 3 [(validate_required) = true];
 
   // Location of the trace this assessment is associated with.
   optional TraceLocation trace_location = 4;
@@ -531,11 +533,12 @@ message Assessment {
 message CreateAssessment {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // Location identifier (experiment_id or catalog.schema).
-  optional string location = 1 [(validate_required) = true];
-  // The assessment to create.
+  // Location ID (experiment_id or catalog.schema)
+  // This must match the trace_location supplied in the assessment field.
+  optional string location_id = 1 [(validate_required) = true];
+  // Assessment to create
   optional Assessment assessment = 2 [(validate_required) = true];
-  // Optional SQL warehouse ID.
+  // SQL warehouse ID for UC queries
   optional string sql_warehouse_id = 3;
 
   message Response {
@@ -548,13 +551,13 @@ message CreateAssessment {
 message GetAssessment {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // Location identifier (experiment_id or catalog.schema).
-  optional string location = 1 [(validate_required) = true];
-  // The ID of the trace.
+  // Location ID (experiment_id or catalog.schema)
+  optional string location_id = 1 [(validate_required) = true];
+  // Trace ID
   optional string trace_id = 2 [(validate_required) = true];
-  // The ID of the assessment.
+  // Assessment ID to retrieve
   optional string assessment_id = 3 [(validate_required) = true];
-  // Optional SQL warehouse ID.
+  // SQL warehouse ID for UC queries
   optional string sql_warehouse_id = 4;
 
   message Response {
@@ -567,13 +570,24 @@ message GetAssessment {
 message UpdateAssessment {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // Location identifier (experiment_id or catalog.schema).
-  optional string location = 1 [(validate_required) = true];
-  // The assessment containing the fields which should be updated.
+  // Location ID (experiment_id or catalog.schema)
+  optional string location_id = 1 [(validate_required) = true];
+  // Assessment with updated fields
   optional Assessment assessment = 2 [(validate_required) = true];
-  // The list of the assessment fields to update.
+  // Field mask specifying which fields to update
+  //
+  // Valid field names to update are:
+  //    `assessment_name`,
+  //    `span_id`,
+  //    `source`,
+  //    `feedback`,
+  //    `expectation`,
+  //    `rationale`,
+  //    `metadata`,
+  //    `overrides`, and
+  //    `valid`.
   optional google.protobuf.FieldMask update_mask = 3 [(validate_required) = true];
-  // Optional SQL warehouse ID.
+  // SQL warehouse ID for UC queries
   optional string sql_warehouse_id = 4;
 
   message Response {
@@ -586,13 +600,13 @@ message UpdateAssessment {
 message DeleteAssessment{
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // Location identifier (experiment_id or catalog.schema).
-  optional string location = 1 [(validate_required) = true];
-  // The ID of the trace.
+  // Location ID (experiment_id or catalog.schema)
+  optional string location_id = 1 [(validate_required) = true];
+  // Trace ID
   optional string trace_id = 2 [(validate_required) = true];
-  // The ID of the assessment.
+  // Assessment ID to delete
   optional string assessment_id = 3 [(validate_required) = true];
-  // Optional SQL warehouse ID.
+  // SQL warehouse ID for UC queries
   optional string sql_warehouse_id = 4;
 
   message Response {}
