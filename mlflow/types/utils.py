@@ -660,7 +660,7 @@ def _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data) 
     invalid_values = [
         key
         for key, value in data.items()
-        if (isinstance(value, list) and not all(isinstance(item, (str, bytes)) for item in value))
+        if (isinstance(value, list) and not all(isinstance(item, (dict,str, bytes)) for item in value))
         or (not isinstance(value, (np.ndarray, list, str, bytes)))
     ]
     if invalid_values:
