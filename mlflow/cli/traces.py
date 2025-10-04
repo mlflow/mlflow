@@ -497,7 +497,11 @@ def delete_trace_tag(trace_id: str, key: str) -> None:
 @click.option(
     "--source-type",
     type=click.Choice(
-        [AssessmentSourceType.HUMAN, AssessmentSourceType.LLM_JUDGE, AssessmentSourceType.CODE]
+        [
+            AssessmentSourceType.HUMAN,
+            AssessmentSourceType.LLM_JUDGE,
+            AssessmentSourceType.CODE,
+        ]
     ),
     help="Source type of the feedback",
 )
@@ -600,7 +604,11 @@ def log_feedback(
 @click.option(
     "--source-type",
     type=click.Choice(
-        [AssessmentSourceType.HUMAN, AssessmentSourceType.LLM_JUDGE, AssessmentSourceType.CODE]
+        [
+            AssessmentSourceType.HUMAN,
+            AssessmentSourceType.LLM_JUDGE,
+            AssessmentSourceType.CODE,
+        ]
     ),
     help="Source type of the expectation",
 )
@@ -775,3 +783,79 @@ def delete_assessment(trace_id: str, assessment_id: str) -> None:
     client = TracingClient()
     client.delete_assessment(trace_id, assessment_id)
     click.echo(f"Deleted assessment {assessment_id} from trace {trace_id}.")
+
+
+@commands.command("eval")
+@EXPERIMENT_ID
+@click.option(
+    "--trace-ids",
+    type=click.STRING,
+    required=True,
+    help="Comma-separated list of trace IDs to evaluate.",
+)
+@click.option(
+    "--scorers",
+    type=click.STRING,
+    required=True,
+    help="Comma-separated list of scorer names. Can be built-in scorers "
+    "(e.g., Correctness, Safety, RelevanceToQuery) or registered custom scorers.",
+)
+@click.option(
+    "--output",
+    type=click.Choice(["table", "json"]),
+    default="table",
+    help="Output format: 'table' for formatted table (default) or 'json' for JSON format",
+)
+@click.option(
+    "--debug",
+    is_flag=True,
+    help="Enable debug output for troubleshooting",
+)
+def eval_trace(
+    experiment_id: str,
+    trace_ids: str,
+    scorers: str,
+    output: str = "table",
+    debug: bool = False,
+) -> None:
+    """
+    Evaluate one or more traces using specified scorers and display the results.
+
+    This command runs MLflow's genai.evaluate() on specified traces, applying the
+    specified scorers and displaying the evaluation results in table or JSON format.
+
+    \b
+    Examples:
+    # Evaluate a single trace with built-in scorers
+    mlflow traces eval --experiment-id 1 --trace-ids tr-abc123 \\
+        --scorers Correctness,Safety
+
+    \b
+    # Evaluate multiple traces
+    mlflow traces eval --experiment-id 1 --trace-ids tr-abc123,tr-def456,tr-ghi789 \\
+        --scorers RelevanceToQuery
+
+    \b
+    # Evaluate with JSON output
+    mlflow traces eval --experiment-id 1 --trace-ids tr-abc123 \\
+        --scorers Correctness --output json
+
+    \b
+    # Evaluate with custom registered scorer
+    mlflow traces eval --experiment-id 1 --trace-ids tr-abc123,tr-def456 \\
+        --scorers my_custom_scorer,Correctness
+
+    \b
+    Available built-in scorers:
+    - Correctness: Ensures responses are correct and accurate
+    - Safety: Ensures responses don't contain harmful/toxic content
+    - RelevanceToQuery: Ensures response addresses user input directly
+    - Guidelines: Evaluates adherence to specific constraints
+    - ExpectationsGuidelines: Row-specific guidelines evaluation
+    - RetrievalRelevance: Measures chunk relevance to input request
+    - RetrievalSufficiency: Evaluates if retrieved docs provide necessary info
+    - RetrievalGroundedness: Assesses response alignment with retrieved context
+    """
+    from mlflow.cli.eval import evaluate_traces
+
+    evaluate_traces(experiment_id, trace_ids, scorers, output, debug)
