@@ -17,41 +17,12 @@ NA_VALUE = "N/A"
 
 
 @dataclass
-class Cell:
-    """
-    Structured cell data for table display with metadata.
-
-    This dataclass provides richer information about table cells beyond just
-    the displayed string value, enabling future enhancements like tooltips,
-    interactive features, or programmatic access to assessment data.
-    """
-
-    value: str
-    """The formatted display value for the cell"""
-
-    assessment_name: str | None = None
-    """The name of the assessment this cell represents"""
-
-    result: Any | None = None
-    """The raw result value from the assessment"""
-
-    rationale: str | None = None
-    """The rationale text explaining the assessment"""
-
-    error: str | None = None
-    """Error message if the assessment failed"""
-
-
-@dataclass
 class Assessment:
     """
     Structured assessment data for a trace evaluation.
-
-    This dataclass provides type-safe access to assessment results,
-    replacing dict-based access for better clarity and safety.
     """
 
-    assessment_name: str | None
+    name: str | None
     """The name of the assessment"""
 
     result: Any | None = None
@@ -62,6 +33,19 @@ class Assessment:
 
     error: str | None = None
     """Error message if the assessment failed"""
+
+
+@dataclass
+class Cell:
+    """
+    Structured cell data for table display with metadata.
+    """
+
+    value: str
+    """The formatted display value for the cell"""
+
+    assessment: Assessment | None = None
+    """The assessment data for this cell, if it represents an assessment"""
 
 
 @dataclass
@@ -96,7 +80,7 @@ def _format_assessment_cell(assessment: Assessment | None) -> Cell:
         assessment: Assessment object with result, rationale, and error fields
 
     Returns:
-        Cell object with formatted value and metadata
+        Cell object with formatted value and assessment metadata
     """
     if not assessment:
         return Cell(value=NA_VALUE)
@@ -112,13 +96,7 @@ def _format_assessment_cell(assessment: Assessment | None) -> Cell:
     else:
         display_value = NA_VALUE
 
-    return Cell(
-        value=display_value,
-        assessment_name=assessment.assessment_name,
-        result=assessment.result,
-        rationale=assessment.rationale,
-        error=assessment.error,
-    )
+    return Cell(value=display_value, assessment=assessment)
 
 
 def resolve_scorers(scorer_names: list[str], experiment_id: str) -> list[Scorer]:
@@ -156,7 +134,9 @@ def resolve_scorers(scorer_names: list[str], experiment_id: str) -> list[Scorer]
         else:
             # Try to get it as a registered scorer
             try:
-                registered_scorer = get_scorer(name=scorer_name, experiment_id=experiment_id)
+                registered_scorer = get_scorer(
+                    name=scorer_name, experiment_id=experiment_id
+                )
                 resolved_scorers.append(registered_scorer)
             except MlflowException:
                 available_builtin = ", ".join(
@@ -209,25 +189,27 @@ def extract_assessments_from_results(
                 continue
 
             assessment_name = assessment_dict.get("assessment_name")
-            result_val = None
-            rationale_val = None
-            error_val = None
+            assessment_result = None
+            assessment_rationale = None
+            assessment_error = None
 
-            if (feedback := assessment_dict.get("feedback")) and isinstance(feedback, dict):
-                result_val = feedback.get("value")
+            if (feedback := assessment_dict.get("feedback")) and isinstance(
+                feedback, dict
+            ):
+                assessment_result = feedback.get("value")
 
             if rationale := assessment_dict.get("rationale"):
-                rationale_val = rationale
+                assessment_rationale = rationale
 
             if error := assessment_dict.get("error"):
-                error_val = str(error)
+                assessment_error = str(error)
 
             assessments_list.append(
                 Assessment(
-                    assessment_name=assessment_name,
-                    result=result_val,
-                    rationale=rationale_val,
-                    error=error_val,
+                    name=assessment_name,
+                    result=assessment_result,
+                    rationale=assessment_rationale,
+                    error=assessment_error,
                 )
             )
 
@@ -235,7 +217,7 @@ def extract_assessments_from_results(
         if not assessments_list:
             assessments_list.append(
                 Assessment(
-                    assessment_name=NA_VALUE,
+                    name=NA_VALUE,
                     result=None,
                     rationale=None,
                     error="No assessments found on trace",
@@ -258,12 +240,12 @@ def format_table_output(output_data: list[EvalResult]) -> TableOutput:
         TableOutput dataclass containing headers and rows
     """
     # Extract unique assessment names from output_data to use as column headers
-    # Note: assessment_name can be None, so we filter it out
+    # Note: assessment name can be None, so we filter it out
     assessment_names_set = set()
     for trace_result in output_data:
         for assessment in trace_result.assessments:
-            if assessment.assessment_name and assessment.assessment_name != NA_VALUE:
-                assessment_names_set.add(assessment.assessment_name)
+            if assessment.name and assessment.name != NA_VALUE:
+                assessment_names_set.add(assessment.name)
 
     # Sort for consistent ordering
     assessment_names = sorted(assessment_names_set)
@@ -275,11 +257,11 @@ def format_table_output(output_data: list[EvalResult]) -> TableOutput:
         # Create Cell for trace_id column
         row = [Cell(value=trace_result.trace_id)]
 
-        # Build a map of assessment_name -> assessment for this trace
+        # Build a map of assessment name -> assessment for this trace
         assessment_map = {
-            assessment.assessment_name: assessment
+            assessment.name: assessment
             for assessment in trace_result.assessments
-            if assessment.assessment_name and assessment.assessment_name != NA_VALUE
+            if assessment.name and assessment.name != NA_VALUE
         }
 
         # For each assessment name in headers, get the corresponding assessment

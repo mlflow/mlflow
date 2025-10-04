@@ -1,5 +1,3 @@
-"""Tests for mlflow.cli.genai_eval_utils module."""
-
 from unittest import mock
 
 import click
@@ -25,7 +23,7 @@ def test_format_single_trace_with_result_and_rationale():
             trace_id="tr-123",
             assessments=[
                 Assessment(
-                    assessment_name="RelevanceToQuery",
+                    name="RelevanceToQuery",
                     result="yes",
                     rationale="The answer is relevant",
                 )
@@ -50,22 +48,22 @@ def test_format_multiple_traces_multiple_scorers():
             trace_id="tr-123",
             assessments=[
                 Assessment(
-                    assessment_name="RelevanceToQuery",
+                    name="RelevanceToQuery",
                     result="yes",
                     rationale="Relevant",
                 ),
-                Assessment(assessment_name="Safety", result="yes", rationale="Safe"),
+                Assessment(name="Safety", result="yes", rationale="Safe"),
             ],
         ),
         EvalResult(
             trace_id="tr-456",
             assessments=[
                 Assessment(
-                    assessment_name="RelevanceToQuery",
+                    name="RelevanceToQuery",
                     result="no",
                     rationale="Not relevant",
                 ),
-                Assessment(assessment_name="Safety", result="yes", rationale="Safe"),
+                Assessment(name="Safety", result="yes", rationale="Safe"),
             ],
         ),
     ]
@@ -89,7 +87,7 @@ def test_format_long_rationale_not_truncated():
             trace_id="tr-123",
             assessments=[
                 Assessment(
-                    assessment_name="RelevanceToQuery",
+                    name="RelevanceToQuery",
                     result="yes",
                     rationale=long_rationale,
                 )
@@ -110,7 +108,7 @@ def test_format_error_message_formatting():
             trace_id="tr-123",
             assessments=[
                 Assessment(
-                    assessment_name="RelevanceToQuery",
+                    name="RelevanceToQuery",
                     result=None,
                     rationale=None,
                     error="OpenAI API error",
@@ -131,7 +129,7 @@ def test_format_na_for_missing_results():
             trace_id="tr-123",
             assessments=[
                 Assessment(
-                    assessment_name="RelevanceToQuery",
+                    name="RelevanceToQuery",
                     result=None,
                     rationale=None,
                 )
@@ -151,7 +149,7 @@ def test_format_result_only_without_rationale():
             trace_id="tr-123",
             assessments=[
                 Assessment(
-                    assessment_name="RelevanceToQuery",
+                    name="RelevanceToQuery",
                     result="yes",
                     rationale=None,
                 )
@@ -171,7 +169,7 @@ def test_format_rationale_only_without_result():
             trace_id="tr-123",
             assessments=[
                 Assessment(
-                    assessment_name="RelevanceToQuery",
+                    name="RelevanceToQuery",
                     result=None,
                     rationale="Some reasoning",
                 )
@@ -193,12 +191,12 @@ def test_format_with_different_assessment_names():
             trace_id="tr-123",
             assessments=[
                 Assessment(
-                    assessment_name="relevance_to_query",  # Different from scorer name
+                    name="relevance_to_query",  # Different from scorer name
                     result="yes",
                     rationale="The answer is relevant",
                 ),
                 Assessment(
-                    assessment_name="safety_check",  # Different from scorer name
+                    name="safety_check",  # Different from scorer name
                     result="safe",
                     rationale="Content is safe",
                 ),
@@ -295,7 +293,9 @@ def test_resolve_scorer_not_found_raises_error():
             "mlflow.cli.genai_eval_utils.get_scorer",
             side_effect=MlflowException("Not found"),
         ) as mock_get_scorer:
-            with pytest.raises(click.UsageError, match="Scorer 'UnknownScorer' not found"):
+            with pytest.raises(
+                click.UsageError, match="Scorer 'UnknownScorer' not found"
+            ):
                 resolve_scorers(["UnknownScorer"], "experiment_123")
 
             # Verify mocks were called as expected
@@ -339,7 +339,7 @@ def test_extract_with_matching_run_id():
             trace_id="tr-abc123",
             assessments=[
                 Assessment(
-                    assessment_name="RelevanceToQuery",
+                    name="RelevanceToQuery",
                     result="yes",
                     rationale="The answer is relevant",
                 )
@@ -374,7 +374,7 @@ def test_extract_with_different_assessment_name():
             trace_id="tr-abc123",
             assessments=[
                 Assessment(
-                    assessment_name="relevance_to_query",
+                    name="relevance_to_query",
                     result="yes",
                     rationale="Relevant answer",
                 )
@@ -415,7 +415,7 @@ def test_extract_filter_out_assessments_with_different_run_id():
             trace_id="tr-abc123",
             assessments=[
                 Assessment(
-                    assessment_name="RelevanceToQuery",
+                    name="RelevanceToQuery",
                     result="yes",
                     rationale="Current evaluation",
                 )
@@ -481,12 +481,12 @@ def test_extract_multiple_assessments_from_same_run():
             trace_id="tr-abc123",
             assessments=[
                 Assessment(
-                    assessment_name="RelevanceToQuery",
+                    name="RelevanceToQuery",
                     result="yes",
                     rationale="Relevant",
                 ),
                 Assessment(
-                    assessment_name="Safety",
+                    name="Safety",
                     result="yes",
                     rationale="Safe",
                 ),
