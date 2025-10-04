@@ -293,6 +293,25 @@ response_format_dict = {
 }
 ```
 
+### Manage Prompt and Version Tags
+
+MLflow lets you modify and inspect tags after a prompt has been registered. Tags can be
+applied either at the prompt level or to individual prompt versions.
+
+```python
+import mlflow
+
+# Prompt-level tag operations
+mlflow.genai.set_prompt_tag("summarization-prompt", "language", "en")
+mlflow.genai.get_prompt_tags("summarization-prompt")
+mlflow.genai.delete_prompt_tag("summarization-prompt", "language")
+
+# Prompt-version tag operations
+mlflow.genai.set_prompt_version_tag("summarization-prompt", 1, "author", "alice")
+mlflow.genai.load_prompt("prompts:/summarization-prompt/1").tags
+mlflow.genai.delete_prompt_version_tag("summarization-prompt", 1, "author")
+```
+
 ## FAQ
 
 #### Q: How do I delete a prompt version?
