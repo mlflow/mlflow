@@ -236,6 +236,21 @@ def test_get_logged_model(store):
     assert logged_model.to_dictionary() == fetched_model.to_dictionary()
 
 
+def test_get_logged_models(store):
+    exp_id = store.create_experiment("test")
+    run_id = store.create_run(exp_id, "user", 0, [], "test_run").info.run_id
+    logged_model_1 = store.create_logged_model(experiment_id=exp_id, source_run_id=run_id)
+    logged_model_2 = store.create_logged_model(experiment_id=exp_id, source_run_id=run_id)
+    logged_model_3 = store.create_logged_model(experiment_id=exp_id, source_run_id=run_id)
+    fetched_models = store.get_logged_models(
+        [logged_model_1.model_id, logged_model_2.model_id, logged_model_3.model_id]
+    )
+    assert len(fetched_models) == 3
+    assert fetched_models[0].model_uri == logged_model_1.model_uri
+    assert fetched_models[1].model_uri == logged_model_2.model_uri
+    assert fetched_models[2].model_uri == logged_model_3.model_uri
+
+
 def test_delete_logged_model(store: FileStore):
     exp_id = store.create_experiment("test")
     run = store.create_run(exp_id, "user", 0, [], "test_run")

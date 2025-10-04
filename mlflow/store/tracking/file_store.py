@@ -2387,6 +2387,20 @@ class FileStore(AbstractStore):
         """
         return LoggedModel.from_dictionary(self._get_model_dict(model_id))
 
+    def get_logged_models(self, model_ids: list[str]) -> list[LoggedModel]:
+        """
+        Fetch the logged model with the specified ID.
+
+        Args:
+            model_ids: ID of the model to fetch.
+
+        Returns:
+            The fetched model.
+        """
+        return [
+            LoggedModel.from_dictionary(self._get_model_dict(model_id)) for model_id in model_ids
+        ]
+
     def delete_logged_model(self, model_id: str) -> None:
         model = self.get_logged_model(model_id)
         model_dict = self._make_persisted_model_dict(model)

@@ -75,6 +75,7 @@ from mlflow.protos.service_pb2 import (
     GetExperiment,
     GetExperimentByName,
     GetLoggedModel,
+    GetLoggedModelsRequest,
     GetMetricHistory,
     GetRun,
     ListArtifacts,
@@ -482,6 +483,7 @@ BEFORE_REQUEST_VALIDATORS.update(
 LOGGED_MODEL_BEFORE_REQUEST_HANDLERS = {
     CreateLoggedModel: validate_can_update_experiment,
     GetLoggedModel: validate_can_read_logged_model,
+    GetLoggedModelsRequest: validate_can_read_logged_model,
     DeleteLoggedModel: validate_can_delete_logged_model,
     FinalizeLoggedModel: validate_can_update_logged_model,
     DeleteLoggedModelTag: validate_can_delete_logged_model,

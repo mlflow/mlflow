@@ -74,7 +74,7 @@ export const shouldUnifyLoggedModelsAndRegisteredModels = () => {
  * Enables use of GetLoggedModels API allowing to get multiple logged models by their IDs.
  */
 export const shouldUseGetLoggedModelsBatchAPI = () => {
-  return false;
+  return true;
 };
 
 /**

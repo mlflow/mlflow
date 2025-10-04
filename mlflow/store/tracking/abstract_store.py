@@ -1004,6 +1004,18 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
+    def get_logged_models(self, model_ids: list[str]) -> list[LoggedModel]:
+        """
+        Fetch a list of logged models by their IDs.
+
+        Args:
+            model_ids: List of IDs of the models to fetch.
+
+        Returns:
+            List of fetched models.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
     def delete_logged_model(self, model_id: str) -> None:
         """
         Delete the logged model with the specified ID.

@@ -1911,6 +1911,19 @@ class SqlAlchemyStore(AbstractStore):
 
             return logged_model.to_mlflow_entity()
 
+    def get_logged_models(self, model_ids: list[str]) -> list[LoggedModel]:
+        with self.ManagedSessionMaker() as session:
+            logged_models = (
+                session.query(SqlLoggedModel)
+                .filter(
+                    SqlLoggedModel.model_id.in_(model_ids),
+                    SqlLoggedModel.lifecycle_stage != LifecycleStage.DELETED,
+                )
+                .all()
+            )
+
+            return [logged_model.to_mlflow_entity() for logged_model in logged_models]
+
     def delete_logged_model(self, model_id):
         with self.ManagedSessionMaker() as session:
             logged_model = session.query(SqlLoggedModel).get(model_id)

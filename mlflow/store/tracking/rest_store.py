@@ -73,6 +73,7 @@ from mlflow.protos.service_pb2 import (
     GetExperiment,
     GetExperimentByName,
     GetLoggedModel,
+    GetLoggedModelsRequest,
     GetMetricHistory,
     GetOnlineTraceDetails,
     GetRun,
@@ -986,6 +987,20 @@ class RestStore(AbstractStore):
         endpoint = get_logged_model_endpoint(model_id)
         response_proto = self._call_endpoint(GetLoggedModel, endpoint=endpoint)
         return LoggedModel.from_proto(response_proto.model)
+
+    def get_logged_models(self, model_ids: list[str]) -> list[LoggedModel]:
+        """
+        Fetch a list of logged models by their IDs.
+
+        Args:
+            model_ids: List of IDs of the models to fetch.
+
+        Returns:
+            List of fetched models.
+        """
+        endpoint = f"{_REST_API_PATH_PREFIX}/mlflow/logged-models:batchGet"
+        response_proto = self._call_endpoint(GetLoggedModelsRequest, endpoint=endpoint)
+        return [LoggedModel.from_proto(x) for x in response_proto.models]
 
     def delete_logged_model(self, model_id) -> None:
         request = DeleteLoggedModel(model_id=model_id)

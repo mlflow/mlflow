@@ -121,6 +121,7 @@ from mlflow.protos.service_pb2 import (
     GetExperiment,
     GetExperimentByName,
     GetLoggedModel,
+    GetLoggedModelsRequest,
     GetMetricHistory,
     GetMetricHistoryBulkInterval,
     GetRun,
@@ -3425,6 +3426,20 @@ def _get_logged_model(model_id: str):
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def _get_logged_models():
+    request_message = _get_request_message(
+        GetLoggedModelsRequest(),
+        schema={"model_ids": [_assert_array, _assert_item_type_string, _assert_required]},
+    )
+    models = _get_tracking_store().get_logged_models(request_message.model_ids)
+    response_message = GetLoggedModelsRequest.Response(
+        models=[model.to_proto() for model in models]
+    )
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _finalize_logged_model(model_id: str):
     request_message = _get_request_message(
         FinalizeLoggedModel(),
@@ -4067,6 +4082,7 @@ HANDLERS = {
     # Logged Models APIs
     CreateLoggedModel: _create_logged_model,
     GetLoggedModel: _get_logged_model,
+    GetLoggedModelsRequest: _get_logged_models,
     FinalizeLoggedModel: _finalize_logged_model,
     DeleteLoggedModel: _delete_logged_model,
     SetLoggedModelTags: _set_logged_model_tags,

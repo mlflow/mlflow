@@ -5766,6 +5766,18 @@ def test_get_logged_model(store: SqlAlchemyStore):
         store.get_logged_model("does-not-exist")
 
 
+def test_get_logged_models(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model_1 = store.create_logged_model(experiment_id=exp_id)
+    model_2 = store.create_logged_model(experiment_id=exp_id)
+    model_3 = store.create_logged_model(experiment_id=exp_id)
+    fetched_models = store.get_logged_models([model_1.model_id, model_2.model_id, model_3.model_id])
+    assert len(fetched_models) == 3
+    assert fetched_models[0].model_id == model_1.model_id
+    assert fetched_models[1].model_id == model_2.model_id
+    assert fetched_models[2].model_id == model_3.model_id
+
+
 def test_delete_logged_model(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
     run = store.create_run(exp_id, "user", 0, [], "test_run")

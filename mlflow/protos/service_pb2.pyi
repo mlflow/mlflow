@@ -1159,6 +1159,17 @@ class GetLoggedModel(_message.Message):
     model_id: str
     def __init__(self, model_id: _Optional[str] = ...) -> None: ...
 
+class GetLoggedModelsRequest(_message.Message):
+    __slots__ = ("model_ids",)
+    class Response(_message.Message):
+        __slots__ = ("models",)
+        MODELS_FIELD_NUMBER: _ClassVar[int]
+        models: _containers.RepeatedCompositeFieldContainer[LoggedModel]
+        def __init__(self, models: _Optional[_Iterable[_Union[LoggedModel, _Mapping]]] = ...) -> None: ...
+    MODEL_IDS_FIELD_NUMBER: _ClassVar[int]
+    model_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, model_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+
 class DeleteLoggedModel(_message.Message):
     __slots__ = ("model_id",)
     class Response(_message.Message):
