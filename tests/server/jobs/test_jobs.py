@@ -25,10 +25,14 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+def _get_mlflow_repo_home():
+    root = str(Path(__file__).resolve().parents[3])
+    return f"{root}{os.pathsep}{path}" if (path := os.environ.get("PYTHONPATH")) else root
+
+
 @contextmanager
 def _launch_job_runner_for_test():
-    root = str(Path(__file__).resolve().parents[3])
-    new_pythonpath = f"{root}{os.pathsep}{path}" if (path := os.environ.get("PYTHONPATH")) else root
+    new_pythonpath = _get_mlflow_repo_home()
     with _launch_job_runner(
         {"PYTHONPATH": new_pythonpath},
         os.getpid(),
@@ -411,3 +415,39 @@ def test_submit_job_bad_call(monkeypatch, tmp_path):
             match="When calling 'submit_job', the 'params' argument must be a dict.",
         ):
             submit_job(basic_job_fun, params=None)
+
+
+@job(
+    max_workers=1,
+    python_version="3.11.9",
+    pip_requirements=["openai==1.108.2", "pytest<9"],
+)
+def check_python_env_fn():
+    import openai
+
+    from mlflow.utils import PYTHON_VERSION
+
+    assert PYTHON_VERSION == "3.11.9"
+    assert openai.__version__ == "1.108.2"
+
+
+def test_job_with_python_env(monkeypatch, tmp_path):
+    monkeypatch.setenv("MLFLOW_HOME", _get_mlflow_repo_home())
+
+    with _setup_job_runner(monkeypatch, tmp_path):
+        job_id = submit_job(check_python_env_fn, params={}).job_id
+        wait_job_finalize(job_id, timeout=300)
+        job = get_job(job_id)
+        assert job.status == JobStatus.SUCCEEDED
+
+
+def test_bad_job_python_env_function():
+    with pytest.raises(MlflowException, match="'use_process' must be set to True"):
+
+        @job(
+            max_workers=1,
+            pip_requirements=["openai==1.108.2", "pytest<9"],
+            use_process=False,
+        )
+        def bad_python_env_fn():
+            pass
