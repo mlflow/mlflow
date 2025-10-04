@@ -113,6 +113,33 @@ class AbstractScorerStore(metaclass=ABCMeta):
             mlflow.MlflowException: If scorer is not found.
         """
 
+    @abstractmethod
+    def update_registered_scorer(
+        self,
+        *,
+        name: str,
+        scorer: "Scorer | None" = None,
+        sample_rate: float | None = None,
+        filter_string: str | None = None,
+        experiment_id: str | None = None,
+    ) -> "Scorer":
+        """
+        Update a registered scorer's configuration.
+
+        Args:
+            name: The scorer name to update.
+            scorer: Optional new scorer instance to replace the existing one.
+            sample_rate: Optional new sample rate (0.0 to 1.0).
+            filter_string: Optional new filter string.
+            experiment_id: The experiment ID containing the scorer.
+
+        Returns:
+            The updated Scorer instance.
+
+        Raises:
+            mlflow.MlflowException: If scorer is not found.
+        """
+
 
 class ScorerStoreRegistry:
     """
@@ -192,7 +219,14 @@ class MlflowTrackingStore(AbstractScorerStore):
     def register_scorer(self, experiment_id: str | None, scorer: Scorer) -> int | None:
         serialized_scorer = json.dumps(scorer.model_dump())
         experiment_id = experiment_id or _get_experiment_id()
-        return self._tracking_store.register_scorer(experiment_id, scorer.name, serialized_scorer)
+        version = self._tracking_store.register_scorer(
+            experiment_id, scorer.name, serialized_scorer
+        )
+
+        # Set the sampling config on the new instance
+        scorer._sampling_config = ScorerSamplingConfig(sample_rate=0.0, filter_string=None)
+
+        return version
 
     def list_scorers(self, experiment_id) -> list["Scorer"]:
         from mlflow.genai.scorers import Scorer
@@ -248,6 +282,38 @@ class MlflowTrackingStore(AbstractScorerStore):
 
         experiment_id = experiment_id or _get_experiment_id()
         return self._tracking_store.delete_scorer(experiment_id, name, version)
+
+    def update_registered_scorer(
+        self,
+        *,
+        name: str,
+        scorer: Scorer | None = None,
+        sample_rate: float | None = None,
+        filter_string: str | None = None,
+        experiment_id: str | None = None,
+    ) -> Scorer:
+        from mlflow.genai.scorers import Scorer
+
+        experiment_id = experiment_id or _get_experiment_id()
+
+        # Call the tracking store's update_scorer method
+        updated_scorer_version = self._tracking_store.update_scorer(
+            experiment_id=experiment_id,
+            name=name,
+            sample_rate=sample_rate,
+            filter_string=filter_string,
+        )
+
+        # Convert the returned ScorerVersion to a Scorer object
+        scorer_obj = Scorer.model_validate(updated_scorer_version.serialized_scorer)
+
+        # Set the sampling config with the updated values
+        scorer_obj._sampling_config = ScorerSamplingConfig(
+            sample_rate=updated_scorer_version.sample_rate,
+            filter_string=filter_string,
+        )
+
+        return scorer_obj
 
 
 class DatabricksStore(AbstractScorerStore):
@@ -326,8 +392,8 @@ class DatabricksStore(AbstractScorerStore):
             scheduled_scorer_name=name,
         )
 
-    @staticmethod
     def update_registered_scorer(
+        self,
         *,
         name: str,
         scorer: Scorer | None = None,
