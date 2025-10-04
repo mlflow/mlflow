@@ -34,8 +34,8 @@ const isNodeImportant = (node: ModelTraceSpanNode) => {
 export const ModelTraceExplorerSummaryView = ({ modelTrace }: { modelTrace: ModelTrace }) => {
   const { theme } = useDesignSystemTheme();
   const [paneWidth, setPaneWidth] = useState(500);
-  const { rootNode, nodeMap, assessmentsPaneEnabled, assessmentsPaneExpanded } = useModelTraceExplorerViewState();
-
+  const { rootNode, nodeMap, assessmentsPaneEnabled, assessmentsPaneExpanded, isInComparisonView } =
+    useModelTraceExplorerViewState();
   const allAssessments = useMemo(() => Object.values(nodeMap).flatMap((node) => node.assessments), [nodeMap]);
 
   const intermediateNodes = useMemo(() => {
@@ -63,6 +63,21 @@ export const ModelTraceExplorerSummaryView = ({ modelTrace }: { modelTrace: Mode
             />
           }
         />
+      </div>
+    );
+  }
+
+  if (isInComparisonView) {
+    return (
+      <div css={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+        {assessmentsPaneEnabled && assessmentsPaneExpanded && (
+          <div css={{ borderBottom: `1px solid ${theme.colors.border}`, maxHeight: '50%', overflowY: 'auto' }}>
+            <AssessmentsPane assessments={allAssessments} traceId={rootNode.traceId} activeSpanId={undefined} />
+          </div>
+        )}
+        <div css={{ flex: '1 1 0%', minHeight: 0, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+          <ModelTraceExplorerSummarySpans rootNode={rootNode} intermediateNodes={intermediateNodes} />
+        </div>
       </div>
     );
   }
