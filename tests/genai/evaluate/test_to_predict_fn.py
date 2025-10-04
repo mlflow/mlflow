@@ -8,7 +8,6 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_TRACE_LOGGING
 from mlflow.genai.evaluation.base import to_predict_fn
 from mlflow.genai.utils.trace_utils import convert_predict_fn
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
 
 from tests.evaluate.test_evaluation import _DUMMY_CHAT_RESPONSE
 from tests.tracing.helper import V2_TRACE_DICT
@@ -186,7 +185,6 @@ def test_to_predict_fn_return_v2_trace(mock_deploy_client, mock_tracing_client):
     assert trace_info.trace_id != V2_TRACE_DICT["info"]["request_id"]
     assert trace_info.request_preview == '{"x": 2, "y": 5}'
     assert trace_info.response_preview == "8"
-    assert trace_info.trace_metadata[TRACE_SCHEMA_VERSION_KEY] == "3"
     trace_data = mock_tracing_client._upload_trace_data.call_args[0][1]
     assert len(trace_data.spans) == 2
     assert trace_data.spans[0].name == "predict"

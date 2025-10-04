@@ -18,6 +18,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.assessments_pb2 import Assessment as ProtoAssessment
 from mlflow.protos.assessments_pb2 import Expectation as ProtoExpectation
 from mlflow.protos.assessments_pb2 import Feedback as ProtoFeedback
+from mlflow.protos.databricks_tracing_pb2 import Assessment as ProtoAssessmentV4
+from mlflow.protos.databricks_tracing_pb2 import TraceLocation, UCSchemaLocation
 from mlflow.tracing.constant import AssessmentMetadataKey
 from mlflow.utils.proto_json_utils import proto_timestamp_to_milliseconds
 
@@ -432,3 +434,115 @@ def test_run_id_handling(metadata, explicit_run_id, expected_run_id):
     if expected_run_id and not explicit_run_id:
         recovered = Feedback.from_proto(feedback.to_proto())
         assert recovered.run_id == expected_run_id
+
+
+def test_feedback_from_proto_v4():
+    # Create v4 proto with all fields
+    proto_v4 = ProtoAssessmentV4()
+    proto_v4.assessment_id = "feedback123"
+    proto_v4.assessment_name = "accuracy"
+
+    proto_v4.trace_location.CopyFrom(
+        TraceLocation(
+            type=TraceLocation.TraceLocationType.UC_SCHEMA,
+            uc_schema=UCSchemaLocation(catalog_name="prod", schema_name="ml_data"),
+        )
+    )
+    proto_v4.trace_id = "123456"
+
+    proto_v4.span_id = "span789"
+    proto_v4.rationale = "Model output matches ground truth"
+    proto_v4.overrides = "prev_assessment"
+    proto_v4.valid = True
+
+    # Set source
+    source = AssessmentSource(source_type="CODE", source_id="scorer.py")
+    proto_v4.source.CopyFrom(source.to_proto())
+
+    # Set timestamps
+    proto_v4.create_time.FromMilliseconds(1700000000000)
+    proto_v4.last_update_time.FromMilliseconds(1700000001000)
+
+    # Set metadata
+    proto_v4.metadata["key1"] = "value1"
+    proto_v4.metadata["key2"] = "value2"
+
+    # Set feedback value with error
+    feedback_value = FeedbackValue(
+        value=0.85, error=AssessmentError(error_code="TIMEOUT", error_message="Request timed out")
+    )
+    proto_v4.feedback.CopyFrom(feedback_value.to_proto())
+
+    # Convert from proto
+    feedback = Feedback.from_proto(proto_v4)
+
+    # Validate all fields
+    assert feedback.assessment_id == "feedback123"
+    assert feedback.name == "accuracy"
+    assert feedback.trace_id == "trace:/prod.ml_data/123456"
+    assert feedback.span_id == "span789"
+    assert feedback.rationale == "Model output matches ground truth"
+    assert feedback.overrides == "prev_assessment"
+    assert feedback.valid is True
+    assert feedback.value == 0.85
+    assert feedback.error.error_code == "TIMEOUT"
+    assert feedback.error.error_message == "Request timed out"
+    assert feedback.source.source_type == "CODE"
+    assert feedback.source.source_id == "scorer.py"
+    assert feedback.create_time_ms == 1700000000000
+    assert feedback.last_update_time_ms == 1700000001000
+    assert feedback.metadata == {"key1": "value1", "key2": "value2"}
+
+
+def test_expectation_from_proto_v4():
+    # Create v4 proto with all fields
+    proto_v4 = ProtoAssessmentV4()
+    proto_v4.assessment_id = "exp123"
+    proto_v4.assessment_name = "expected_output"
+
+    # Set TraceIdentifier with UC schema location
+    proto_v4.trace_location.CopyFrom(
+        TraceLocation(
+            type=TraceLocation.TraceLocationType.UC_SCHEMA,
+            uc_schema=UCSchemaLocation(catalog_name="dev", schema_name="experiments"),
+        )
+    )
+    proto_v4.trace_id = "123456"
+
+    proto_v4.span_id = "exp_span789"
+
+    # Set source
+    source = AssessmentSource(source_type="HUMAN", source_id="expert@company.com")
+    proto_v4.source.CopyFrom(source.to_proto())
+
+    # Set timestamps
+    proto_v4.create_time.FromMilliseconds(1700000002000)
+    proto_v4.last_update_time.FromMilliseconds(1700000003000)
+
+    # Set metadata
+    proto_v4.metadata["dataset"] = "test_set_v1"
+    proto_v4.metadata["version"] = "1.0"
+
+    # Set expectation value (complex structure)
+    expectation_value = ExpectationValue(
+        value={"expected_response": "The capital is Paris", "alternatives": ["Paris, France"]}
+    )
+    proto_v4.expectation.CopyFrom(expectation_value.to_proto())
+
+    # Convert from proto
+    expectation = Expectation.from_proto(proto_v4)
+
+    # Validate all fields
+    assert expectation.assessment_id == "exp123"
+    assert expectation.name == "expected_output"
+    assert expectation.trace_id == "trace:/dev.experiments/123456"
+    assert expectation.span_id == "exp_span789"
+    assert expectation.value == {
+        "expected_response": "The capital is Paris",
+        "alternatives": ["Paris, France"],
+    }
+    assert expectation.source.source_type == "HUMAN"
+    assert expectation.source.source_id == "expert@company.com"
+    assert expectation.create_time_ms == 1700000002000
+    assert expectation.last_update_time_ms == 1700000003000
+    assert expectation.metadata == {"dataset": "test_set_v1", "version": "1.0"}

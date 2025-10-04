@@ -35,7 +35,7 @@ from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v2 import TraceInfoV2
-from mlflow.entities.trace_location import TraceLocation, TraceLocationType
+from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
@@ -67,7 +67,6 @@ from mlflow.protos.service_pb2 import (
     GetLoggedModel,
     GetScorer,
     GetTraceInfoV3,
-    GetTraceInfoV4,
     ListScorers,
     ListScorerVersions,
     LogBatch,
@@ -93,9 +92,9 @@ from mlflow.protos.service_pb2 import (
 from mlflow.protos.service_pb2 import RunTag as ProtoRunTag
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
-from mlflow.store.tracking.rest_store import _METHOD_TO_INFO, RestStore
+from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
-from mlflow.tracing.constant import TRACE_ID_V4_PREFIX, TRACE_SCHEMA_VERSION_KEY
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracking.request_header.default_request_header_provider import (
     DefaultRequestHeaderProvider,
 )
@@ -793,7 +792,7 @@ def test_search_traces():
     # Test with databricks tracking URI (using v3 endpoint)
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
         trace_infos, token = store.search_traces(
-            experiment_ids=experiment_ids,
+            locations=experiment_ids,
             filter_string=filter_string,
             max_results=max_results,
             order_by=order_by,
@@ -827,74 +826,24 @@ def test_search_traces():
     assert trace_infos[0].state == TraceStatus.OK.to_state()
     # This is correct because TraceInfoV3.from_proto converts the repeated field tags to a dict
     assert trace_infos[0].tags == {"k": "v"}
-    assert trace_infos[0].trace_metadata == {"key": "value", "mlflow.trace_schema.version": "3"}
+    assert trace_infos[0].trace_metadata == {"key": "value"}
     assert token == "token"
 
 
-def test_search_unified_traces():
-    """Test the search_traces method when using SearchUnifiedTraces with sql_warehouse_id."""
+def test_search_traces_errors():
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)
-    response = mock.MagicMock()
-    response.status_code = 200
+    with pytest.raises(
+        MlflowException,
+        match="Locations must be a list of experiment IDs",
+    ):
+        store.search_traces(locations=["catalog.schema"])
 
-    # Format the response (using TraceInfo format for online path)
-    response.text = json.dumps(
-        {
-            "traces": [
-                {
-                    "request_id": "tr-1234",
-                    "experiment_id": "1234",
-                    "timestamp_ms": 123,
-                    "execution_time_ms": 456,
-                    "status": "OK",
-                    "tags": [
-                        {"key": "k", "value": "v"},
-                    ],
-                    "request_metadata": [
-                        {"key": "key", "value": "value"},
-                    ],
-                }
-            ],
-            "next_page_token": "token",
-        }
-    )
-
-    # Parameters for search_traces
-    experiment_ids = ["1234"]
-    filter_string = "status = 'OK'"
-    max_results = 10
-    order_by = ["timestamp_ms DESC"]
-    page_token = "12345abcde"
-    sql_warehouse_id = "warehouse123"
-    model_id = "model123"
-
-    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
-        trace_infos, token = store.search_traces(
-            experiment_ids=experiment_ids,
-            filter_string=filter_string,
-            max_results=max_results,
-            order_by=order_by,
-            page_token=page_token,
-            sql_warehouse_id=sql_warehouse_id,
-            model_id=model_id,
-        )
-
-        # Verify the correct endpoint was called
-        call_args = mock_http.call_args[1]
-        assert call_args["endpoint"] == "/api/2.0/mlflow/unified-traces"
-
-        # Verify the correct trace info objects were returned
-        assert len(trace_infos) == 1
-        assert isinstance(trace_infos[0], TraceInfo)
-        assert trace_infos[0].trace_id == "tr-1234"
-        assert trace_infos[0].experiment_id == "1234"
-        assert trace_infos[0].request_time == 123
-        # V3's state maps to V2's status
-        assert trace_infos[0].state == TraceStatus.OK.to_state()
-        assert trace_infos[0].tags == {"k": "v"}
-        assert trace_infos[0].trace_metadata == {"key": "value", "mlflow.trace_schema.version": "3"}
-        assert token == "token"
+    with pytest.raises(
+        MlflowException,
+        match="Searching traces by model_id is not supported on the current tracking server.",
+    ):
+        store.search_traces(model_id="model_id")
 
 
 def test_get_artifact_uri_for_trace_compatibility():
@@ -1322,7 +1271,7 @@ def test_get_trace_info():
         assert isinstance(result, TraceInfo)
         assert result.trace_id == span.trace_id
         assert result.experiment_id == "0"
-        assert result.trace_metadata == {"key1": "value1", "mlflow.trace_schema.version": "3"}
+        assert result.trace_metadata == {"key1": "value1"}
         assert result.tags == {"tag1": "value1"}
         assert result.state == TraceState.OK
         assert len(result.assessments) == 4
@@ -1330,98 +1279,6 @@ def test_get_trace_info():
         assert result.assessments[1].name == "feedback_error"
         assert result.assessments[2].name == "expectation"
         assert result.assessments[3].name == "complex_expectation"
-
-
-def test_get_trace_info_v4_format(monkeypatch):
-    with mlflow.start_span(name="test_span_v4") as span:
-        span.set_inputs({"input": "test_value"})
-        span.set_outputs({"output": "result"})
-
-    trace = mlflow.get_trace(span.trace_id)
-    trace_proto = trace.to_proto()
-    mock_v4_response = GetTraceInfoV4.Response(trace=trace_proto)
-
-    store = RestStore(lambda: MlflowHostCreds("https://test"))
-
-    location = "catalog.schema"
-    v4_trace_id = f"{TRACE_ID_V4_PREFIX}{location}/{span.trace_id}"
-
-    monkeypatch.setenv("MLFLOW_TRACING_SQL_WAREHOUSE_ID", "test-warehouse")
-    with mock.patch.object(store, "_call_endpoint", return_value=mock_v4_response) as mock_call:
-        result = store.get_trace_info(v4_trace_id)
-
-        mock_call.assert_called_once()
-        call_args = mock_call.call_args
-
-        assert call_args[0][0] == GetTraceInfoV4
-
-        request_body = call_args[0][1]
-        request_data = json.loads(request_body)
-        assert request_data["trace_id"] == span.trace_id
-        assert request_data["location"] == location
-        assert request_data["sql_warehouse_id"] == "test-warehouse"
-
-        endpoint = call_args[1]["endpoint"]
-        assert f"/traces/{location}/{span.trace_id}/info" in endpoint
-
-        assert isinstance(result, TraceInfo)
-        assert result.trace_id == span.trace_id
-
-
-def test_get_trace_info_v4_fallback_to_v3():
-    with mlflow.start_span(name="test_span_v3") as span:
-        span.set_inputs({"input": "test_value"})
-
-    trace = mlflow.get_trace(span.trace_id)
-    trace_proto = trace.to_proto()
-    mock_v3_response = GetTraceInfoV3.Response(trace=trace_proto)
-
-    store = RestStore(lambda: MlflowHostCreds("https://test"))
-
-    with mock.patch.object(store, "_call_endpoint", return_value=mock_v3_response) as mock_call:
-        result = store.get_trace_info(span.trace_id)
-
-        mock_call.assert_called_once()
-        call_args = mock_call.call_args
-        assert call_args[0][0] == GetTraceInfoV3
-
-        request_body = call_args[0][1]
-        request_data = json.loads(request_body)
-        assert request_data["trace_id"] == span.trace_id
-
-        assert isinstance(result, TraceInfo)
-        assert result.trace_id == span.trace_id
-
-
-def test_get_trace_info_v4_different_location_formats():
-    with mlflow.start_span(name="test_span") as span:
-        span.set_inputs({"input": "value"})
-
-    trace = mlflow.get_trace(span.trace_id)
-    trace.info.trace_location = TraceLocation.from_uc_schema("catalog", "schema")
-    mock_response = GetTraceInfoV4.Response(trace=trace.to_proto())
-    store = RestStore(lambda: MlflowHostCreds("https://test"))
-
-    test_locations = ["experiment123", "catalog.schema"]
-
-    for location in test_locations:
-        v4_trace_id = f"{TRACE_ID_V4_PREFIX}{location}/{span.trace_id}"
-
-        with mock.patch.object(store, "_call_endpoint", return_value=mock_response) as mock_call:
-            result = store.get_trace_info(v4_trace_id)
-
-            call_args = mock_call.call_args
-            request_data = json.loads(call_args[0][1])
-            assert request_data["location"] == location
-            assert request_data["trace_id"] == span.trace_id
-
-            endpoint = call_args[1]["endpoint"]
-            assert f"/traces/{location}/{span.trace_id}/info" in endpoint
-
-            assert isinstance(result, TraceInfo)
-            assert result.trace_location.type == TraceLocationType.UC_SCHEMA
-            assert result.trace_location.uc_schema.catalog_name == "catalog"
-            assert result.trace_location.uc_schema.schema_name == "schema"
 
 
 def test_log_logged_model_params():
@@ -1464,7 +1321,7 @@ def test_log_logged_model_params():
             _, endpoint, method, json_body, response_proto = call.args
 
             # Verify endpoint and method are correct
-            assert endpoint, method == _METHOD_TO_INFO[LogLoggedModelParamsRequest]
+            assert endpoint, method == RestStore._METHOD_TO_INFO[LogLoggedModelParamsRequest]
             assert json_body == batches[i]
 
 

@@ -109,9 +109,11 @@ class Trace(_MlflowObject):
         return bundle
 
     def to_pandas_dataframe_row(self) -> dict[str, Any]:
+        from mlflow.utils.databricks_tracing_utils import trace_to_json
+
         return {
             "trace_id": self.info.trace_id,
-            "trace": self.to_json(),  # json string to be compatible with Spark DataFrame
+            "trace": trace_to_json(self),  # json string to be compatible with Spark DataFrame
             "client_request_id": self.info.client_request_id,
             "state": self.info.state,
             "request_time": self.info.request_time,

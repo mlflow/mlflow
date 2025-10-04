@@ -300,7 +300,8 @@ def http_request_safe(host_creds, endpoint, method, **kwargs):
 def verify_rest_response(response, endpoint):
     """Verify the return code and format, raise exception if the request was not successful."""
     # Handle Armeria-specific response case where response text is "200 OK"
-    if response.status_code == 200 and response.text.strip() == _ARMERIA_OK:
+    # v1/traces endpoint might return empty response
+    if response.status_code == 200 and response.text.strip() in (_ARMERIA_OK, ""):
         response._content = b"{}"  # Update response content to be an empty JSON dictionary
         return response
 
@@ -510,6 +511,13 @@ def get_single_trace_endpoint_v4(location: str, trace_id: str) -> str:
     Get the endpoint for a single trace using the V4 API.
     """
     return f"{_V4_TRACE_REST_API_PATH_PREFIX}/{location}/{trace_id}"
+
+
+def get_single_assessment_endpoint_v4(location: str, trace_id: str, assessment_id: str) -> str:
+    """
+    Get the endpoint for a single assessment using the V4 API.
+    """
+    return f"{_V4_TRACE_REST_API_PATH_PREFIX}/{location}/{trace_id}/assessment/{assessment_id}"
 
 
 def get_logged_model_endpoint(model_id: str) -> str:

@@ -21,6 +21,7 @@ from mlflow.utils.databricks_utils import (
     check_databricks_secret_scope_access,
     get_databricks_host_creds,
     get_databricks_runtime_major_minor_version,
+    get_databricks_workspace_client_config,
     get_dbconnect_udf_sandbox_info,
     get_mlflow_credential_context_by_run_id,
     get_workspace_info_from_databricks_secrets,
@@ -771,3 +772,89 @@ def test_databricks_runtime_version_parse_invalid(invalid_version):
     """Test that DatabricksRuntimeVersion.parse() raises error for invalid version strings."""
     with pytest.raises(Exception, match="Failed to parse databricks runtime version"):
         DatabricksRuntimeVersion.parse(invalid_version)
+
+
+@mock.patch("databricks.sdk.WorkspaceClient")
+@mock.patch("mlflow.utils.databricks_utils.get_db_info_from_uri")
+def test_get_databricks_workspace_client_config_with_tracking_uri_provider(
+    mock_get_db_info, mock_workspace_client
+):
+    # Mock the tracking URI parsing
+    mock_get_db_info.return_value = ("profile_name", "key_prefix")
+
+    # Mock the workspace client and its config
+    mock_config = mock.MagicMock()
+    mock_client_instance = mock.MagicMock()
+    mock_client_instance.config = mock_config
+    mock_workspace_client.return_value = mock_client_instance
+
+    # Mock TrackingURIConfigProvider
+    mock_uri_config = mock.MagicMock()
+    mock_uri_config.host = "https://test.databricks.com"
+    mock_uri_config.token = "test_token"
+
+    with mock.patch("mlflow.utils.databricks_utils.TrackingURIConfigProvider") as mock_provider:
+        mock_provider.return_value.get_config.return_value = mock_uri_config
+
+        result = get_databricks_workspace_client_config("databricks://profile:prefix")
+
+        # Verify the WorkspaceClient was created with correct parameters
+        mock_workspace_client.assert_called_once_with(
+            host="https://test.databricks.com", token="test_token"
+        )
+        assert result == mock_config
+
+
+@mock.patch("databricks.sdk.WorkspaceClient")
+@mock.patch("mlflow.utils.databricks_utils.get_db_info_from_uri")
+def test_get_databricks_workspace_client_config_with_profile(
+    mock_get_db_info, mock_workspace_client
+):
+    # Mock the tracking URI parsing - no key prefix means use profile
+    mock_get_db_info.return_value = ("profile_name", None)
+
+    # Mock the workspace client and its config
+    mock_config = mock.MagicMock()
+    mock_client_instance = mock.MagicMock()
+    mock_client_instance.config = mock_config
+    mock_workspace_client.return_value = mock_client_instance
+
+    result = get_databricks_workspace_client_config("databricks://profile_name")
+
+    # Verify the WorkspaceClient was created with profile
+    mock_workspace_client.assert_called_once_with(profile="profile_name")
+    assert result == mock_config
+
+
+@mock.patch("databricks.sdk.WorkspaceClient")
+@mock.patch("mlflow.utils.databricks_utils.get_db_info_from_uri")
+def test_get_databricks_workspace_client_config_env_profile(
+    mock_get_db_info, mock_workspace_client, monkeypatch
+):
+    monkeypatch.setenv("DATABRICKS_CONFIG_PROFILE", "env_profile")
+    # Mock the tracking URI parsing - no profile or key prefix
+    mock_get_db_info.return_value = (None, None)
+
+    # Mock the workspace client and its config
+    mock_config = mock.MagicMock()
+    mock_client_instance = mock.MagicMock()
+    mock_client_instance.config = mock_config
+    mock_workspace_client.return_value = mock_client_instance
+
+    result = get_databricks_workspace_client_config("databricks")
+
+    # Verify the WorkspaceClient was created with environment profile
+    mock_workspace_client.assert_called_once_with(profile="env_profile")
+    assert result == mock_config
+
+
+@mock.patch("databricks.sdk.WorkspaceClient")
+@mock.patch("mlflow.utils.databricks_utils.get_db_info_from_uri")
+def test_get_databricks_workspace_client_config_client_creation_error(
+    mock_get_db_info, mock_workspace_client
+):
+    mock_get_db_info.return_value = ("profile", None)
+    mock_workspace_client.side_effect = Exception("Client creation failed")
+
+    with pytest.raises(Exception, match="Client creation failed"):
+        get_databricks_workspace_client_config("databricks://profile")

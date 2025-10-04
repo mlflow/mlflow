@@ -62,6 +62,8 @@ For detailed help on any command, use:
 """
 
 import json
+import os
+import warnings
 
 import click
 
@@ -208,6 +210,7 @@ Available fields:
     "--sql-warehouse-id",
     type=click.STRING,
     help=(
+        "DEPRECATED. Use the `MLFLOW_TRACING_SQL_WAREHOUSE_ID` environment variable instead."
         "SQL warehouse ID (only needed when searching for traces by model "
         "stored in Databricks Unity Catalog)"
     ),
@@ -283,8 +286,17 @@ def search_traces(
     client = TracingClient()
     order_by_list = order_by.split(",") if order_by else None
 
+    # Set the sql_warehouse_id in the environment variable
+    if sql_warehouse_id is not None:
+        warnings.warn(
+            "The `sql_warehouse_id` parameter is deprecated. Please use the "
+            "`MLFLOW_TRACING_SQL_WAREHOUSE_ID` environment variable instead.",
+            category=FutureWarning,
+        )
+        os.environ["MLFLOW_TRACING_SQL_WAREHOUSE_ID"] = sql_warehouse_id
+
     traces = client.search_traces(
-        experiment_ids=[experiment_id],
+        locations=[experiment_id],
         filter_string=filter_string,
         max_results=max_results,
         order_by=order_by_list,
@@ -292,7 +304,6 @@ def search_traces(
         run_id=run_id,
         include_spans=include_spans,
         model_id=model_id,
-        sql_warehouse_id=sql_warehouse_id,
     )
 
     # Determine which fields to show

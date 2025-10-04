@@ -1,4 +1,5 @@
 import platform
+import shutil
 import subprocess
 import tempfile
 import textwrap
@@ -19,16 +20,20 @@ def gen_protos(
     proto_files: list[Path],
     lang: Literal["python", "java"],
     protoc_bin: Path,
-    protoc_include_path: Path,
+    protoc_include_paths: list[Path],
     out_dir: Path,
 ) -> None:
     assert lang in ["python", "java"]
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    include_args = []
+    for include_path in protoc_include_paths:
+        include_args.append(f"-I={include_path}")
+
     subprocess.check_call(
         [
             protoc_bin,
-            f"-I={protoc_include_path}",
+            *include_args,
             f"-I={proto_dir}",
             f"--{lang}_out={out_dir}",
             *[proto_dir / pf for pf in proto_files],
@@ -40,13 +45,17 @@ def gen_stub_files(
     proto_dir: Path,
     proto_files: list[Path],
     protoc_bin: Path,
-    protoc_include_path: Path,
+    protoc_include_paths: list[Path],
     out_dir: Path,
 ) -> None:
+    include_args = []
+    for include_path in protoc_include_paths:
+        include_args.append(f"-I={include_path}")
+
     subprocess.check_call(
         [
             protoc_bin,
-            f"-I={protoc_include_path}",
+            *include_args,
             f"-I={proto_dir}",
             f"--pyi_out={out_dir}",
             *[proto_dir / pf for pf in proto_files],
@@ -94,7 +103,7 @@ uc_proto_files = to_paths(
     "unity_catalog_prompt_messages.proto",
     "unity_catalog_prompt_service.proto",
 )
-tracing_proto_files = to_paths("databricks_trace_server.proto")
+tracing_proto_files = to_paths("databricks_trace_server.proto", "databricks_tracing.proto")
 facet_proto_files = to_paths("facet_feature_statistics.proto")
 python_proto_files = basic_proto_files + uc_proto_files + facet_proto_files + tracing_proto_files
 test_proto_files = to_paths("test_message.proto")
@@ -146,13 +155,13 @@ python_gencode_replacements = [
 ]
 
 
-def gen_python_protos(protoc_bin: Path, protoc_include_path: Path, out_dir: Path) -> None:
+def gen_python_protos(protoc_bin: Path, protoc_include_paths: list[Path], out_dir: Path) -> None:
     gen_protos(
         MLFLOW_PROTOS_DIR,
         python_proto_files,
         "python",
         protoc_bin,
-        protoc_include_path,
+        protoc_include_paths,
         out_dir,
     )
 
@@ -161,7 +170,7 @@ def gen_python_protos(protoc_bin: Path, protoc_include_path: Path, out_dir: Path
         test_proto_files,
         "python",
         protoc_bin,
-        protoc_include_path,
+        protoc_include_paths,
         out_dir,
     )
 
@@ -171,6 +180,31 @@ def gen_python_protos(protoc_bin: Path, protoc_include_path: Path, out_dir: Path
 
 def download_file(url: str, output_path: Path) -> None:
     urllib.request.urlretrieve(url, output_path)
+
+
+def download_opentelemetry_protos(version: str = "v1.7.0") -> Path:
+    """
+    Download OpenTelemetry proto files from GitHub.
+    Returns the path to the opentelemetry-proto directory.
+    """
+    otel_proto_dir = CACHE_DIR / f"opentelemetry-proto-{version}"
+
+    if not otel_proto_dir.exists():
+        print(f"Downloading OpenTelemetry proto files {version}...")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            zip_path = Path(tmpdir) / "otel-proto.zip"
+            download_file(
+                f"https://github.com/open-telemetry/opentelemetry-proto/archive/refs/tags/{version}.zip",
+                zip_path,
+            )
+            with zipfile.ZipFile(zip_path, "r") as zip_ref:
+                zip_ref.extractall(tmpdir)
+
+            # Move the extracted directory to cache
+            extracted_dir = Path(tmpdir) / f"opentelemetry-proto-{version[1:]}"  # Remove 'v' prefix
+            shutil.move(str(extracted_dir), str(otel_proto_dir))
+
+    return otel_proto_dir
 
 
 def download_and_extract_protoc(version: Literal["3.19.4", "26.0"]) -> tuple[Path, Path]:
@@ -232,8 +266,15 @@ def main() -> None:
         protoc3194, protoc3194_include = download_and_extract_protoc("3.19.4")
         protoc5260, protoc5260_include = download_and_extract_protoc("26.0")
 
-        gen_python_protos(protoc3194, protoc3194_include, proto3194_out)
-        gen_python_protos(protoc5260, protoc5260_include, proto5260_out)
+        # Download OpenTelemetry proto files
+        otel_proto_dir = download_opentelemetry_protos()
+
+        # Build include paths list
+        protoc3194_includes = [protoc3194_include, otel_proto_dir]
+        protoc5260_includes = [protoc5260_include, otel_proto_dir]
+
+        gen_python_protos(protoc3194, protoc3194_includes, proto3194_out)
+        gen_python_protos(protoc5260, protoc5260_includes, proto5260_out)
 
         for proto_files, protos_dir in [
             (python_proto_files, MLFLOW_PROTOS_DIR),
@@ -254,7 +295,7 @@ def main() -> None:
         basic_proto_files,
         "java",
         protoc3194,
-        protoc3194_include,
+        protoc3194_includes,
         Path("mlflow/java/client/src/main/java"),
     )
 
@@ -262,7 +303,7 @@ def main() -> None:
         MLFLOW_PROTOS_DIR,
         python_proto_files,
         protoc5260,
-        protoc5260_include,
+        protoc5260_includes,
         Path("mlflow/protos/"),
     )
 
