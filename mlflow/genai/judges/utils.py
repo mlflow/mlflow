@@ -10,10 +10,12 @@ from contextlib import ContextDecorator
 from dataclasses import asdict, dataclass, is_dataclass
 from typing import TYPE_CHECKING, Any, NamedTuple
 
+import pydantic
 import requests
 
 if TYPE_CHECKING:
     import litellm
+    from pydantic import BaseModel
 
     from mlflow.genai.judges.base import AlignmentOptimizer, JudgeField
     from mlflow.types.llm import ChatMessage, ToolCall
@@ -170,6 +172,37 @@ Please provide your assessment in the following JSON format only (no markdown):
 
 {json_format}"""
     return prompt + output_format_instructions
+
+
+def _strip_markdown_code_blocks(response: str) -> str:
+    """
+    Strip markdown code blocks from LLM responses.
+
+    Some legacy models wrap JSON responses in markdown code blocks (```json...```).
+    This function removes those wrappers to extract the raw JSON content.
+
+    Args:
+        response: The raw response from the LLM
+
+    Returns:
+        The response with markdown code blocks removed
+    """
+    cleaned = response.strip()
+    if not cleaned.startswith("```"):
+        return cleaned
+
+    lines = cleaned.split("\n")
+    start_idx = 0
+    end_idx = len(lines)
+
+    for i, line in enumerate(lines):
+        if i == 0 and line.startswith("```"):
+            start_idx = 1
+        elif line.strip() == "```" and i > 0:
+            end_idx = i
+            break
+
+    return "\n".join(lines[start_idx:end_idx])
 
 
 def _sanitize_justification(justification: str) -> str:
@@ -379,6 +412,13 @@ def _invoke_via_gateway(
     )
 
 
+class FieldExtraction(pydantic.BaseModel):
+    """Schema for extracting inputs and outputs from traces using LLM."""
+
+    inputs: str = pydantic.Field(description="The user's original request or question")
+    outputs: str = pydantic.Field(description="The system's final response")
+
+
 @record_usage_event(InvokeCustomJudgeModelEvent)
 def invoke_judge_model(
     model_uri: str,
@@ -492,8 +532,10 @@ def invoke_judge_model(
             )
         response = _invoke_via_gateway(model_uri, model_provider, prompt)
 
+    cleaned_response = _strip_markdown_code_blocks(response)
+
     try:
-        response_dict = json.loads(response)
+        response_dict = json.loads(cleaned_response)
     except json.JSONDecodeError as e:
         raise MlflowException(
             f"Failed to parse response from judge model. Response: {response}",
@@ -516,6 +558,89 @@ def invoke_judge_model(
         )
 
     return feedback
+
+
+def get_chat_completions_with_structured_output(
+    model_uri: str,
+    messages: list["ChatMessage"],
+    output_schema: type[pydantic.BaseModel],
+    trace: Trace | None = None,
+    num_retries: int = 10,
+) -> pydantic.BaseModel:
+    """
+    Get chat completions from an LLM with structured output conforming to a Pydantic schema.
+
+    This function invokes an LLM and ensures the response matches the provided Pydantic schema.
+    When a trace is provided, the LLM can use tool calling to examine trace spans.
+
+    Args:
+        model_uri: The model URI (e.g., "openai:/gpt-4", "anthropic:/claude-3").
+        messages: List of ChatMessage objects for the conversation with the LLM.
+        output_schema: Pydantic model class defining the expected output structure.
+                       The LLM will be instructed to return data matching this schema.
+        trace: Optional trace object for context. When provided, enables tool
+               calling to examine trace spans.
+        num_retries: Number of retries on transient failures. Defaults to 10 with
+                     exponential backoff.
+
+    Returns:
+        Instance of output_schema with the structured data from the LLM.
+
+    Raises:
+        ImportError: If LiteLLM is not installed.
+        JSONDecodeError: If the LLM response cannot be parsed as JSON.
+        ValidationError: If the LLM response does not match the output schema.
+
+    Example:
+        .. code-block:: python
+
+            from pydantic import BaseModel, Field
+            from mlflow.genai.judges.utils import get_chat_completions_with_structured_output
+            from mlflow.types.llm import ChatMessage
+
+
+            class FieldExtraction(BaseModel):
+                inputs: str = Field(description="The user's original request")
+                outputs: str = Field(description="The system's final response")
+
+
+            # Extract fields from a trace where root span lacks input/output
+            # but nested spans contain the actual data
+            result = get_chat_completions_with_structured_output(
+                model_uri="openai:/gpt-4",
+                messages=[
+                    ChatMessage(role="system", content="Extract fields from the trace"),
+                    ChatMessage(role="user", content="Find the inputs and outputs"),
+                ],
+                output_schema=FieldExtraction,
+                trace=trace,  # Trace with nested spans containing actual data
+            )
+            print(result.inputs)  # Extracted from inner span
+            print(result.outputs)  # Extracted from inner span
+    """
+    from mlflow.metrics.genai.model_utils import _parse_model_uri
+
+    model_provider, model_name = _parse_model_uri(model_uri)
+
+    if not _is_litellm_available():
+        _logger.warning(
+            "LiteLLM is not available. This function requires LiteLLM. "
+            "Install it with `pip install litellm`."
+        )
+        raise ImportError("LiteLLM is required but not installed")
+
+    response = _invoke_litellm(
+        provider=model_provider,
+        model_name=model_name,
+        messages=messages,
+        trace=trace,
+        num_retries=num_retries,
+        pydantic_format=output_schema,
+    )
+
+    cleaned_response = _strip_markdown_code_blocks(response)
+    response_dict = json.loads(cleaned_response)
+    return output_schema(**response_dict)
 
 
 @dataclass
@@ -852,9 +977,10 @@ def _invoke_litellm(
     messages: list["ChatMessage"],
     trace: Trace | None,
     num_retries: int,
+    pydantic_format: type[pydantic.BaseModel] | None = None,
 ) -> str:
     """
-    Invoke the judge via litellm with retry support.
+    Invoke the LLM via litellm with retry support.
 
     Args:
         provider: The provider name (e.g., 'openai', 'anthropic').
@@ -862,6 +988,9 @@ def _invoke_litellm(
         messages: List of ChatMessage objects.
         trace: Optional trace object for context with tool calling support.
         num_retries: Number of retries with exponential backoff on transient failures.
+        pydantic_format: Optional Pydantic model class for structured output format.
+                       Used by get_chat_completions_with_structured_output for
+                       schema-based extraction.
 
     Returns:
         The model's response content.
@@ -903,7 +1032,7 @@ def _invoke_litellm(
             "drop_params": True,
         }
         if include_response_format:
-            kwargs["response_format"] = _get_judge_response_format()
+            kwargs["response_format"] = _get_judge_response_format(pydantic_format)
         return litellm.completion(**kwargs)
 
     def _prune_messages_for_context_window():
@@ -1060,13 +1189,27 @@ def _create_litellm_tool_response_message(
     )
 
 
-def _get_judge_response_format() -> dict[str, Any]:
+def _get_judge_response_format(pydantic_format: type["BaseModel"] | None = None) -> dict[str, Any]:
     """
     Get the response format for judge evaluations.
+
+    Args:
+        pydantic_format: Optional Pydantic model class for custom output format.
 
     Returns:
         A dictionary containing the JSON schema for structured outputs.
     """
+    if pydantic_format:
+        schema = pydantic_format.model_json_schema()
+        return {
+            "type": "json_schema",
+            "json_schema": {
+                "name": pydantic_format.__name__.lower(),
+                "strict": True,
+                "schema": schema,
+            },
+        }
+
     # Import here to avoid circular imports
     from mlflow.genai.judges.base import Judge
 
