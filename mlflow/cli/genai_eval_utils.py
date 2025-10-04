@@ -43,6 +43,44 @@ class Cell:
 
 
 @dataclass
+class Assessment:
+    """
+    Structured assessment data for a trace evaluation.
+
+    This dataclass provides type-safe access to assessment results,
+    replacing dict-based access for better clarity and safety.
+    """
+
+    assessment_name: str | None
+    """The name of the assessment"""
+
+    result: Any | None = None
+    """The result value from the assessment"""
+
+    rationale: str | None = None
+    """The rationale text explaining the assessment"""
+
+    error: str | None = None
+    """Error message if the assessment failed"""
+
+
+@dataclass
+class EvalResult:
+    """
+    Container for evaluation results for a single trace.
+
+    This dataclass provides structured access to trace evaluation data,
+    replacing dict-based access for better type safety.
+    """
+
+    trace_id: str
+    """The trace ID"""
+
+    assessments: list[Assessment]
+    """List of Assessment objects for this trace"""
+
+
+@dataclass
 class TableOutput:
     """Container for formatted table data."""
 
@@ -50,12 +88,12 @@ class TableOutput:
     rows: list[list[Cell]]
 
 
-def _format_assessment_cell(assessment: dict[str, Any] | None) -> Cell:
+def _format_assessment_cell(assessment: Assessment | None) -> Cell:
     """
     Format a single assessment cell for table display.
 
     Args:
-        assessment: Assessment dictionary with result, rationale, and error fields
+        assessment: Assessment object with result, rationale, and error fields
 
     Returns:
         Cell object with formatted value and metadata
@@ -63,28 +101,23 @@ def _format_assessment_cell(assessment: dict[str, Any] | None) -> Cell:
     if not assessment:
         return Cell(value=NA_VALUE)
 
-    assessment_name = assessment.get("assessment_name")
-    result_val = assessment.get("result")
-    rationale_val = assessment.get("rationale")
-    error_val = assessment.get("error")
-
-    if error_val:
-        display_value = f"error: {error_val}"
-    elif result_val is not None and rationale_val:
-        display_value = f"value: {result_val}, rationale: {rationale_val}"
-    elif result_val is not None:
-        display_value = f"value: {result_val}"
-    elif rationale_val:
-        display_value = f"rationale: {rationale_val}"
+    if assessment.error:
+        display_value = f"error: {assessment.error}"
+    elif assessment.result is not None and assessment.rationale:
+        display_value = f"value: {assessment.result}, rationale: {assessment.rationale}"
+    elif assessment.result is not None:
+        display_value = f"value: {assessment.result}"
+    elif assessment.rationale:
+        display_value = f"rationale: {assessment.rationale}"
     else:
         display_value = NA_VALUE
 
     return Cell(
         value=display_value,
-        assessment_name=assessment_name,
-        result=result_val,
-        rationale=rationale_val,
-        error=error_val,
+        assessment_name=assessment.assessment_name,
+        result=assessment.result,
+        rationale=assessment.rationale,
+        error=assessment.error,
     )
 
 
@@ -145,7 +178,7 @@ def resolve_scorers(scorer_names: list[str], experiment_id: str) -> list[Scorer]
 
 def extract_assessments_from_results(
     results_df: pd.DataFrame, evaluation_run_id: str
-) -> list[dict[str, Any]]:
+) -> list[EvalResult]:
     """
     Extract assessments from evaluation results DataFrame.
 
@@ -159,13 +192,13 @@ def extract_assessments_from_results(
         evaluation_run_id: The MLflow run ID from the evaluation that generated the assessments
 
     Returns:
-        List of dictionaries with trace_id and assessments
+        List of EvalResult objects with trace_id and assessments
     """
     output_data = []
 
     for _, row in results_df.iterrows():
-        trace_id = row["trace_id"]
-        trace_assessments = {"trace_id": trace_id, "assessments": []}
+        trace_id = row.get("trace_id", "unknown")
+        assessments_list = []
 
         for assessment_dict in row.get("assessments", []):
             # Only consider assessments from the evaluation run
@@ -175,55 +208,62 @@ def extract_assessments_from_results(
             if source_run_id != evaluation_run_id:
                 continue
 
-            result_dict = {
-                "assessment_name": assessment_dict.get("assessment_name"),
-                "result": None,
-                "rationale": None,
-            }
+            assessment_name = assessment_dict.get("assessment_name")
+            result_val = None
+            rationale_val = None
+            error_val = None
 
             if (feedback := assessment_dict.get("feedback")) and isinstance(feedback, dict):
-                result_dict["result"] = feedback.get("value")
+                result_val = feedback.get("value")
 
             if rationale := assessment_dict.get("rationale"):
-                result_dict["rationale"] = rationale
+                rationale_val = rationale
 
             if error := assessment_dict.get("error"):
-                result_dict["error"] = str(error)
+                error_val = str(error)
 
-            trace_assessments["assessments"].append(result_dict)
-
-        # If no assessments were found for this trace, add error markers
-        if not trace_assessments["assessments"]:
-            trace_assessments["assessments"].append(
-                {
-                    "assessment_name": NA_VALUE,
-                    "result": None,
-                    "rationale": None,
-                    "error": "No assessments found on trace",
-                }
+            assessments_list.append(
+                Assessment(
+                    assessment_name=assessment_name,
+                    result=result_val,
+                    rationale=rationale_val,
+                    error=error_val,
+                )
             )
 
-        output_data.append(trace_assessments)
+        # If no assessments were found for this trace, add error markers
+        if not assessments_list:
+            assessments_list.append(
+                Assessment(
+                    assessment_name=NA_VALUE,
+                    result=None,
+                    rationale=None,
+                    error="No assessments found on trace",
+                )
+            )
+
+        output_data.append(EvalResult(trace_id=trace_id, assessments=assessments_list))
 
     return output_data
 
 
-def format_table_output(output_data: list[dict[str, Any]]) -> TableOutput:
+def format_table_output(output_data: list[EvalResult]) -> TableOutput:
     """
     Format evaluation results as table data.
 
     Args:
-        output_data: List of trace results with assessments
+        output_data: List of EvalResult objects with assessments
 
     Returns:
         TableOutput dataclass containing headers and rows
     """
     # Extract unique assessment names from output_data to use as column headers
+    # Note: assessment_name can be None, so we filter it out
     assessment_names_set = set()
     for trace_result in output_data:
-        for assessment in trace_result["assessments"]:
-            if (name := assessment.get("assessment_name")) and name != NA_VALUE:
-                assessment_names_set.add(name)
+        for assessment in trace_result.assessments:
+            if assessment.assessment_name and assessment.assessment_name != NA_VALUE:
+                assessment_names_set.add(assessment.assessment_name)
 
     # Sort for consistent ordering
     assessment_names = sorted(assessment_names_set)
@@ -233,13 +273,13 @@ def format_table_output(output_data: list[dict[str, Any]]) -> TableOutput:
 
     for trace_result in output_data:
         # Create Cell for trace_id column
-        row = [Cell(value=trace_result["trace_id"])]
+        row = [Cell(value=trace_result.trace_id)]
 
         # Build a map of assessment_name -> assessment for this trace
         assessment_map = {
-            assessment.get("assessment_name"): assessment
-            for assessment in trace_result["assessments"]
-            if assessment.get("assessment_name") != NA_VALUE
+            assessment.assessment_name: assessment
+            for assessment in trace_result.assessments
+            if assessment.assessment_name and assessment.assessment_name != NA_VALUE
         }
 
         # For each assessment name in headers, get the corresponding assessment

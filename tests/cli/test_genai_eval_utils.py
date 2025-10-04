@@ -8,6 +8,8 @@ import pytest
 
 from mlflow.cli.genai_eval_utils import (
     NA_VALUE,
+    Assessment,
+    EvalResult,
     extract_assessments_from_results,
     format_table_output,
     resolve_scorers,
@@ -19,16 +21,16 @@ from mlflow.tracing.constant import AssessmentMetadataKey
 def test_format_single_trace_with_result_and_rationale():
     """Test formatting a single trace with result and rationale."""
     output_data = [
-        {
-            "trace_id": "tr-123",
-            "assessments": [
-                {
-                    "assessment_name": "RelevanceToQuery",
-                    "result": "yes",
-                    "rationale": "The answer is relevant",
-                }
+        EvalResult(
+            trace_id="tr-123",
+            assessments=[
+                Assessment(
+                    assessment_name="RelevanceToQuery",
+                    result="yes",
+                    rationale="The answer is relevant",
+                )
             ],
-        }
+        )
     ]
 
     table_output = format_table_output(output_data)
@@ -44,28 +46,28 @@ def test_format_single_trace_with_result_and_rationale():
 def test_format_multiple_traces_multiple_scorers():
     """Test formatting multiple traces with multiple scorers."""
     output_data = [
-        {
-            "trace_id": "tr-123",
-            "assessments": [
-                {
-                    "assessment_name": "RelevanceToQuery",
-                    "result": "yes",
-                    "rationale": "Relevant",
-                },
-                {"assessment_name": "Safety", "result": "yes", "rationale": "Safe"},
+        EvalResult(
+            trace_id="tr-123",
+            assessments=[
+                Assessment(
+                    assessment_name="RelevanceToQuery",
+                    result="yes",
+                    rationale="Relevant",
+                ),
+                Assessment(assessment_name="Safety", result="yes", rationale="Safe"),
             ],
-        },
-        {
-            "trace_id": "tr-456",
-            "assessments": [
-                {
-                    "assessment_name": "RelevanceToQuery",
-                    "result": "no",
-                    "rationale": "Not relevant",
-                },
-                {"assessment_name": "Safety", "result": "yes", "rationale": "Safe"},
+        ),
+        EvalResult(
+            trace_id="tr-456",
+            assessments=[
+                Assessment(
+                    assessment_name="RelevanceToQuery",
+                    result="no",
+                    rationale="Not relevant",
+                ),
+                Assessment(assessment_name="Safety", result="yes", rationale="Safe"),
             ],
-        },
+        ),
     ]
 
     table_output = format_table_output(output_data)
@@ -83,16 +85,16 @@ def test_format_long_rationale_not_truncated():
     """Test that long rationales are displayed in full."""
     long_rationale = "x" * 150
     output_data = [
-        {
-            "trace_id": "tr-123",
-            "assessments": [
-                {
-                    "assessment_name": "RelevanceToQuery",
-                    "result": "yes",
-                    "rationale": long_rationale,
-                }
+        EvalResult(
+            trace_id="tr-123",
+            assessments=[
+                Assessment(
+                    assessment_name="RelevanceToQuery",
+                    result="yes",
+                    rationale=long_rationale,
+                )
             ],
-        }
+        )
     ]
 
     table_output = format_table_output(output_data)
@@ -104,17 +106,17 @@ def test_format_long_rationale_not_truncated():
 def test_format_error_message_formatting():
     """Test that error messages are formatted correctly."""
     output_data = [
-        {
-            "trace_id": "tr-123",
-            "assessments": [
-                {
-                    "assessment_name": "RelevanceToQuery",
-                    "result": None,
-                    "rationale": None,
-                    "error": "OpenAI API error",
-                }
+        EvalResult(
+            trace_id="tr-123",
+            assessments=[
+                Assessment(
+                    assessment_name="RelevanceToQuery",
+                    result=None,
+                    rationale=None,
+                    error="OpenAI API error",
+                )
             ],
-        }
+        )
     ]
 
     table_output = format_table_output(output_data)
@@ -125,16 +127,16 @@ def test_format_error_message_formatting():
 def test_format_na_for_missing_results():
     """Test that N/A is shown when no result, rationale, or error."""
     output_data = [
-        {
-            "trace_id": "tr-123",
-            "assessments": [
-                {
-                    "assessment_name": "RelevanceToQuery",
-                    "result": None,
-                    "rationale": None,
-                }
+        EvalResult(
+            trace_id="tr-123",
+            assessments=[
+                Assessment(
+                    assessment_name="RelevanceToQuery",
+                    result=None,
+                    rationale=None,
+                )
             ],
-        }
+        )
     ]
 
     table_output = format_table_output(output_data)
@@ -145,16 +147,16 @@ def test_format_na_for_missing_results():
 def test_format_result_only_without_rationale():
     """Test formatting when only result is present without rationale."""
     output_data = [
-        {
-            "trace_id": "tr-123",
-            "assessments": [
-                {
-                    "assessment_name": "RelevanceToQuery",
-                    "result": "yes",
-                    "rationale": None,
-                }
+        EvalResult(
+            trace_id="tr-123",
+            assessments=[
+                Assessment(
+                    assessment_name="RelevanceToQuery",
+                    result="yes",
+                    rationale=None,
+                )
             ],
-        }
+        )
     ]
 
     table_output = format_table_output(output_data)
@@ -165,16 +167,16 @@ def test_format_result_only_without_rationale():
 def test_format_rationale_only_without_result():
     """Test formatting when only rationale is present without result."""
     output_data = [
-        {
-            "trace_id": "tr-123",
-            "assessments": [
-                {
-                    "assessment_name": "RelevanceToQuery",
-                    "result": None,
-                    "rationale": "Some reasoning",
-                }
+        EvalResult(
+            trace_id="tr-123",
+            assessments=[
+                Assessment(
+                    assessment_name="RelevanceToQuery",
+                    result=None,
+                    rationale="Some reasoning",
+                )
             ],
-        }
+        )
     ]
 
     table_output = format_table_output(output_data)
@@ -187,21 +189,21 @@ def test_format_with_different_assessment_names():
     # This test demonstrates that assessment names (e.g., "relevance_to_query")
     # are used in headers, not scorer class names (e.g., "RelevanceToQuery")
     output_data = [
-        {
-            "trace_id": "tr-123",
-            "assessments": [
-                {
-                    "assessment_name": "relevance_to_query",  # Different from scorer name
-                    "result": "yes",
-                    "rationale": "The answer is relevant",
-                },
-                {
-                    "assessment_name": "safety_check",  # Different from scorer name
-                    "result": "safe",
-                    "rationale": "Content is safe",
-                },
+        EvalResult(
+            trace_id="tr-123",
+            assessments=[
+                Assessment(
+                    assessment_name="relevance_to_query",  # Different from scorer name
+                    result="yes",
+                    rationale="The answer is relevant",
+                ),
+                Assessment(
+                    assessment_name="safety_check",  # Different from scorer name
+                    result="safe",
+                    rationale="Content is safe",
+                ),
             ],
-        }
+        )
     ]
 
     table_output = format_table_output(output_data)
@@ -235,53 +237,75 @@ def test_resolve_builtin_scorer_snake_case():
     assert scorers[0].__class__.__name__ == "Correctness"
 
 
-@mock.patch("mlflow.cli.genai_eval_utils.get_scorer")
-@mock.patch("mlflow.cli.genai_eval_utils.get_all_scorers")
-def test_resolve_registered_scorer(mock_get_all_scorers, mock_get_scorer):
+def test_resolve_registered_scorer():
     """Test resolving a registered scorer when not found in built-ins."""
-    mock_get_all_scorers.return_value = []  # No built-in scorers
     mock_registered = mock.Mock()
-    mock_get_scorer.return_value = mock_registered
 
-    scorers = resolve_scorers(["CustomScorer"], "experiment_123")
+    with mock.patch(
+        "mlflow.cli.genai_eval_utils.get_all_scorers", return_value=[]
+    ) as mock_get_all_scorers:
+        with mock.patch(
+            "mlflow.cli.genai_eval_utils.get_scorer", return_value=mock_registered
+        ) as mock_get_scorer:
+            scorers = resolve_scorers(["CustomScorer"], "experiment_123")
 
-    assert len(scorers) == 1
-    assert scorers[0] == mock_registered
+            assert len(scorers) == 1
+            assert scorers[0] == mock_registered
+            # Verify mocks were called as expected
+            mock_get_all_scorers.assert_called_once()
+            mock_get_scorer.assert_called_once_with(
+                name="CustomScorer", experiment_id="experiment_123"
+            )
 
 
-@mock.patch("mlflow.cli.genai_eval_utils.get_scorer")
-@mock.patch("mlflow.cli.genai_eval_utils.get_all_scorers")
-def test_resolve_mixed_scorers(mock_get_all_scorers, mock_get_scorer):
+def test_resolve_mixed_scorers():
     """Test resolving a mix of built-in and registered scorers."""
     # Setup built-in scorer
     mock_builtin = mock.Mock()
     mock_builtin.__class__.__name__ = "Safety"
-    mock_get_all_scorers.return_value = [mock_builtin]
+    mock_builtin.name = None
 
     # Setup registered scorer
     mock_registered = mock.Mock()
-    mock_get_scorer.return_value = mock_registered
 
-    scorers = resolve_scorers(["Safety", "CustomScorer"], "experiment_123")
+    with mock.patch(
+        "mlflow.cli.genai_eval_utils.get_all_scorers", return_value=[mock_builtin]
+    ) as mock_get_all_scorers:
+        with mock.patch(
+            "mlflow.cli.genai_eval_utils.get_scorer", return_value=mock_registered
+        ) as mock_get_scorer:
+            scorers = resolve_scorers(["Safety", "CustomScorer"], "experiment_123")
 
-    assert len(scorers) == 2
-    assert scorers[0] == mock_builtin
-    assert scorers[1] == mock_registered
+            assert len(scorers) == 2
+            assert scorers[0] == mock_builtin
+            assert scorers[1] == mock_registered
+            # Verify mocks were called as expected
+            mock_get_all_scorers.assert_called_once()
+            mock_get_scorer.assert_called_once_with(
+                name="CustomScorer", experiment_id="experiment_123"
+            )
 
 
-@mock.patch("mlflow.cli.genai_eval_utils.get_scorer")
-@mock.patch("mlflow.cli.genai_eval_utils.get_all_scorers")
-def test_resolve_scorer_not_found_raises_error(mock_get_all_scorers, mock_get_scorer):
+def test_resolve_scorer_not_found_raises_error():
     """Test that appropriate error is raised when scorer not found."""
-    mock_get_all_scorers.return_value = []
-    mock_get_scorer.side_effect = MlflowException("Not found")
+    with mock.patch(
+        "mlflow.cli.genai_eval_utils.get_all_scorers", return_value=[]
+    ) as mock_get_all_scorers:
+        with mock.patch(
+            "mlflow.cli.genai_eval_utils.get_scorer",
+            side_effect=MlflowException("Not found"),
+        ) as mock_get_scorer:
+            with pytest.raises(click.UsageError, match="Scorer 'UnknownScorer' not found"):
+                resolve_scorers(["UnknownScorer"], "experiment_123")
 
-    with pytest.raises(click.UsageError, match="Scorer 'UnknownScorer' not found"):
-        resolve_scorers(["UnknownScorer"], "experiment_123")
+            # Verify mocks were called as expected
+            mock_get_all_scorers.assert_called_once()
+            mock_get_scorer.assert_called_once_with(
+                name="UnknownScorer", experiment_id="experiment_123"
+            )
 
 
-@mock.patch("mlflow.cli.genai_eval_utils.get_all_scorers")
-def test_resolve_empty_scorers_raises_error(mock_get_all_scorers):
+def test_resolve_empty_scorers_raises_error():
     """Test that error is raised when no scorers specified."""
     with pytest.raises(click.UsageError, match="No valid scorers"):
         resolve_scorers([], "experiment_123")
@@ -311,16 +335,16 @@ def test_extract_with_matching_run_id():
     result = extract_assessments_from_results(results_df, "run-123")
 
     expected = [
-        {
-            "trace_id": "tr-abc123",
-            "assessments": [
-                {
-                    "assessment_name": "RelevanceToQuery",
-                    "result": "yes",
-                    "rationale": "The answer is relevant",
-                }
+        EvalResult(
+            trace_id="tr-abc123",
+            assessments=[
+                Assessment(
+                    assessment_name="RelevanceToQuery",
+                    result="yes",
+                    rationale="The answer is relevant",
+                )
             ],
-        }
+        )
     ]
     assert result == expected
 
@@ -346,16 +370,16 @@ def test_extract_with_different_assessment_name():
     result = extract_assessments_from_results(results_df, "run-123")
 
     expected = [
-        {
-            "trace_id": "tr-abc123",
-            "assessments": [
-                {
-                    "assessment_name": "relevance_to_query",
-                    "result": "yes",
-                    "rationale": "Relevant answer",
-                }
+        EvalResult(
+            trace_id="tr-abc123",
+            assessments=[
+                Assessment(
+                    assessment_name="relevance_to_query",
+                    result="yes",
+                    rationale="Relevant answer",
+                )
             ],
-        }
+        )
     ]
     assert result == expected
 
@@ -387,16 +411,16 @@ def test_extract_filter_out_assessments_with_different_run_id():
     result = extract_assessments_from_results(results_df, "run-123")
 
     expected = [
-        {
-            "trace_id": "tr-abc123",
-            "assessments": [
-                {
-                    "assessment_name": "RelevanceToQuery",
-                    "result": "yes",
-                    "rationale": "Current evaluation",
-                }
+        EvalResult(
+            trace_id="tr-abc123",
+            assessments=[
+                Assessment(
+                    assessment_name="RelevanceToQuery",
+                    result="yes",
+                    rationale="Current evaluation",
+                )
             ],
-        }
+        )
     ]
     assert result == expected
 
@@ -420,10 +444,10 @@ def test_extract_no_assessments_for_run_id():
     result = extract_assessments_from_results(results_df, "run-123")
 
     assert len(result) == 1
-    assert len(result[0]["assessments"]) == 1
-    assert result[0]["assessments"][0]["result"] is None
-    assert result[0]["assessments"][0]["rationale"] is None
-    assert "error" in result[0]["assessments"][0]
+    assert len(result[0].assessments) == 1
+    assert result[0].assessments[0].result is None
+    assert result[0].assessments[0].rationale is None
+    assert result[0].assessments[0].error is not None
 
 
 def test_extract_multiple_assessments_from_same_run():
@@ -453,21 +477,21 @@ def test_extract_multiple_assessments_from_same_run():
     result = extract_assessments_from_results(results_df, "run-123")
 
     expected = [
-        {
-            "trace_id": "tr-abc123",
-            "assessments": [
-                {
-                    "assessment_name": "RelevanceToQuery",
-                    "result": "yes",
-                    "rationale": "Relevant",
-                },
-                {
-                    "assessment_name": "Safety",
-                    "result": "yes",
-                    "rationale": "Safe",
-                },
+        EvalResult(
+            trace_id="tr-abc123",
+            assessments=[
+                Assessment(
+                    assessment_name="RelevanceToQuery",
+                    result="yes",
+                    rationale="Relevant",
+                ),
+                Assessment(
+                    assessment_name="Safety",
+                    result="yes",
+                    rationale="Safe",
+                ),
             ],
-        }
+        )
     ]
     assert result == expected
 
@@ -479,5 +503,5 @@ def test_extract_no_assessments_on_trace_shows_error():
     result = extract_assessments_from_results(results_df, "run-123")
 
     assert len(result) == 1
-    assert len(result[0]["assessments"]) == 1
-    assert result[0]["assessments"][0]["error"] == "No assessments found on trace"
+    assert len(result[0].assessments) == 1
+    assert result[0].assessments[0].error == "No assessments found on trace"
