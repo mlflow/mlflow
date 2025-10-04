@@ -33,13 +33,13 @@ class JobFunctionMetadata:
     fn_fullname: str
     max_workers: int
     use_process: bool
-    transient_error_classes: list[str] | None = None
+    transient_error_classes: list[type[Exception]] | None = None
 
 
 def job(
     max_workers: int,
     use_process: bool = True,
-    transient_error_classes: list[str] | None = None,
+    transient_error_classes: list[type[Exception]] | None = None,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     The decorator for the custom job function for setting max parallel workers that
@@ -53,8 +53,7 @@ def job(
             it should be run in an individual process to isolate the environment variable settings.
             Default value is True.
         transient_error_classes: (optional) Specify a list of classes that are regarded as
-            transient error classes, each item in the list should be in the form of
-            "{module_name}.{class_name}"
+            transient error classes.
     """
 
     def decorator(fn: Callable[P, R]) -> Callable[P, R]:

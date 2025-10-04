@@ -48,15 +48,16 @@ class JobResult:
     error: str | None = None
 
     @classmethod
-    def from_error(cls, e: Exception, transient_error_classes: list[str] | None) -> "JobResult":
+    def from_error(
+        cls, e: Exception, transient_error_classes: list[type[Exception]] | None
+    ) -> "JobResult":
         from mlflow.server.jobs import TransientError
 
         if isinstance(e, TransientError):
             return JobResult(succeeded=False, is_transient_error=True, error=repr(e.origin_error))
 
         if transient_error_classes:
-            error_cls = e.__class__
-            if f"{error_cls.__module__}.{error_cls.__name__}" in transient_error_classes:
+            if e.__class__ in transient_error_classes:
                 return JobResult(succeeded=False, is_transient_error=True, error=repr(e))
 
         return JobResult(
@@ -77,7 +78,7 @@ def _job_subproc_entry(
     func: Callable[..., Any],
     kwargs: dict[str, Any],
     result_queue: multiprocessing.Queue,
-    transient_error_classes: list[str] | None,
+    transient_error_classes: list[type[Exception]] | None,
 ) -> None:
     """Child process entrypoint: run func and put result or exception into queue."""
 

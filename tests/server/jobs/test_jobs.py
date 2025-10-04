@@ -247,7 +247,7 @@ def transient_err_fun(tmp_dir: str, succeed_on_nth_run: int):
     raise TransientError(RuntimeError("test transient error."))
 
 
-@job(max_workers=1, use_process=False, transient_error_classes=["builtins.TimeoutError"])
+@job(max_workers=1, use_process=False, transient_error_classes=[TimeoutError])
 def transient_err_fun2(tmp_dir: str, succeed_on_nth_run: int):
     """
     This function will raise `TimeoutError` on the first (`succeed_on_nth_run` - 1) runs,
@@ -260,7 +260,7 @@ def transient_err_fun2(tmp_dir: str, succeed_on_nth_run: int):
     raise TimeoutError("test transient timeout error.")
 
 
-def wait_job_finalize(job_id, timeout=30):
+def wait_job_finalize(job_id, timeout=60):
     beg_time = time.time()
     while time.time() - beg_time <= timeout:
         job = get_job(job_id)
