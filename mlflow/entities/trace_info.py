@@ -75,7 +75,13 @@ class TraceInfo(_MlflowObject):
             d["assessments"] = [Assessment.from_dictionary(a) for a in assessments]
 
         if trace_location := d.get("trace_location"):
-            d["trace_location"] = TraceLocation.from_dict(trace_location)
+            trace_location = TraceLocation.from_dict(trace_location)
+            d["trace_location"] = trace_location
+
+            # V4 trace info has URI-format trace id and uc schema location
+            if trace_location.type == "UC_SCHEMA":
+                schema = trace_location.uc_schema
+                d["trace_id"] = f"trace:/{schema.catalog_name}.{schema.schema_name}/{d['trace_id']}"
 
         if state := d.get("state"):
             d["state"] = TraceState(state)
@@ -92,6 +98,11 @@ class TraceInfo(_MlflowObject):
 
     def to_proto(self) -> ProtoTraceInfoV3:
         from mlflow.entities.trace_info_v2 import _truncate_request_metadata, _truncate_tags
+
+        if self.is_v4():
+            from mlflow.utils.databricks_tracing_utils import trace_info_to_v4_proto
+
+            return trace_info_to_v4_proto(self)
 
         request_time = Timestamp()
         request_time.FromMilliseconds(self.request_time)
@@ -225,3 +236,6 @@ class TraceInfo(_MlflowObject):
         if usage_json := self.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE):
             return json.loads(usage_json)
         return None
+
+    def is_v4(self) -> bool:
+        return self.trace_location.uc_schema is not None
