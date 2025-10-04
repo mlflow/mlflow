@@ -41,6 +41,7 @@ from mlflow.entities import (
     trace_location,
 )
 from mlflow.entities.assessment import ExpectationValue, FeedbackValue
+from mlflow.entities.dataset_record import DatasetRecord
 from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
@@ -7787,6 +7788,98 @@ def test_sql_dataset_record_merge():
 
         assert record6.expectations == {"accuracy": 0.8}  # Unchanged
         assert record6.tags == {"env": "test", "version": "1.0"}
+
+
+def test_sql_dataset_record_wrapping_unwrapping():
+    from mlflow.entities.dataset_record import DATASET_RECORD_WRAPPED_OUTPUT_KEY
+
+    entity = DatasetRecord(
+        dataset_record_id="rec1",
+        dataset_id="ds1",
+        inputs={"q": "test"},
+        outputs="string output",
+        created_time=1000,
+        last_update_time=1000,
+    )
+
+    sql_record = SqlEvaluationDatasetRecord.from_mlflow_entity(entity, "input_hash_123")
+
+    assert sql_record.outputs == {DATASET_RECORD_WRAPPED_OUTPUT_KEY: "string output"}
+
+    unwrapped_entity = sql_record.to_mlflow_entity()
+    assert unwrapped_entity.outputs == "string output"
+
+    entity2 = DatasetRecord(
+        dataset_record_id="rec2",
+        dataset_id="ds1",
+        inputs={"q": "test"},
+        outputs=[1, 2, 3],
+        created_time=1000,
+        last_update_time=1000,
+    )
+
+    sql_record2 = SqlEvaluationDatasetRecord.from_mlflow_entity(entity2, "input_hash_456")
+    assert sql_record2.outputs == {DATASET_RECORD_WRAPPED_OUTPUT_KEY: [1, 2, 3]}
+
+    unwrapped_entity2 = sql_record2.to_mlflow_entity()
+    assert unwrapped_entity2.outputs == [1, 2, 3]
+
+    entity3 = DatasetRecord(
+        dataset_record_id="rec3",
+        dataset_id="ds1",
+        inputs={"q": "test"},
+        outputs=42,
+        created_time=1000,
+        last_update_time=1000,
+    )
+
+    sql_record3 = SqlEvaluationDatasetRecord.from_mlflow_entity(entity3, "input_hash_789")
+    assert sql_record3.outputs == {DATASET_RECORD_WRAPPED_OUTPUT_KEY: 42}
+
+    unwrapped_entity3 = sql_record3.to_mlflow_entity()
+    assert unwrapped_entity3.outputs == 42
+
+    entity4 = DatasetRecord(
+        dataset_record_id="rec4",
+        dataset_id="ds1",
+        inputs={"q": "test"},
+        outputs={"result": "answer"},
+        created_time=1000,
+        last_update_time=1000,
+    )
+
+    sql_record4 = SqlEvaluationDatasetRecord.from_mlflow_entity(entity4, "input_hash_abc")
+    assert sql_record4.outputs == {DATASET_RECORD_WRAPPED_OUTPUT_KEY: {"result": "answer"}}
+
+    unwrapped_entity4 = sql_record4.to_mlflow_entity()
+    assert unwrapped_entity4.outputs == {"result": "answer"}
+
+    entity5 = DatasetRecord(
+        dataset_record_id="rec5",
+        dataset_id="ds1",
+        inputs={"q": "test"},
+        outputs=None,
+        created_time=1000,
+        last_update_time=1000,
+    )
+
+    sql_record5 = SqlEvaluationDatasetRecord.from_mlflow_entity(entity5, "input_hash_def")
+    assert sql_record5.outputs is None
+
+    unwrapped_entity5 = sql_record5.to_mlflow_entity()
+    assert unwrapped_entity5.outputs is None
+
+    sql_record6 = SqlEvaluationDatasetRecord()
+    sql_record6.outputs = {"old": "data"}
+
+    sql_record6.merge({"outputs": "new string output"})
+    assert sql_record6.outputs == {DATASET_RECORD_WRAPPED_OUTPUT_KEY: "new string output"}
+
+    sql_record7 = SqlEvaluationDatasetRecord()
+    sql_record7.outputs = None
+
+    sql_record7.merge({"outputs": {"new": "dict"}})
+    assert sql_record7.outputs == {DATASET_RECORD_WRAPPED_OUTPUT_KEY: {"new": "dict"}}
 
 
 @pytest.mark.asyncio

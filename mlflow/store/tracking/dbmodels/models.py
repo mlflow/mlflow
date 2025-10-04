@@ -48,6 +48,7 @@ from mlflow.entities import (
     TraceInfo,
     ViewType,
 )
+from mlflow.entities.dataset_record import DATASET_RECORD_WRAPPED_OUTPUT_KEY
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
@@ -1573,16 +1574,11 @@ class SqlEvaluationDatasetRecord(Base):
         return f"{SqlEvaluationDatasetRecord.RECORD_ID_PREFIX}{uuid.uuid4().hex}"
 
     def to_mlflow_entity(self):
-        """
-        Convert DB model to corresponding MLflow entity.
-
-        Returns:
-            :py:class:`mlflow.entities.DatasetRecord`.
-        """
-
         inputs = self.inputs
         expectations = self.expectations
         tags = self.tags
+
+        outputs = self.outputs.get(DATASET_RECORD_WRAPPED_OUTPUT_KEY) if self.outputs else None
 
         source = None
         if self.source:
@@ -1592,7 +1588,7 @@ class SqlEvaluationDatasetRecord(Base):
             dataset_record_id=self.dataset_record_id,
             dataset_id=self.dataset_id,
             inputs=inputs,
-            outputs=self.outputs,
+            outputs=outputs,
             expectations=expectations,
             tags=tags,
             source=source,
@@ -1615,14 +1611,21 @@ class SqlEvaluationDatasetRecord(Base):
         Returns:
             SqlEvaluationDatasetRecord instance
         """
+
         source_dict = None
         if record.source:
             source_dict = record.source.to_dict()
 
+        outputs = (
+            {DATASET_RECORD_WRAPPED_OUTPUT_KEY: record.outputs}
+            if record.outputs is not None
+            else None
+        )
+
         kwargs = {
             "dataset_id": record.dataset_id,
             "inputs": record.inputs,
-            "outputs": record.outputs,
+            "outputs": outputs,
             "expectations": record.expectations,
             "tags": record.tags,
             "source": source_dict,
@@ -1651,8 +1654,13 @@ class SqlEvaluationDatasetRecord(Base):
             new_record_dict: Dictionary containing new record data with optional
                            'outputs', 'expectations' and 'tags' fields to merge.
         """
-        if new_outputs := new_record_dict.get("outputs"):
-            self.outputs = new_outputs
+        if "outputs" in new_record_dict:
+            new_outputs = new_record_dict["outputs"]
+            self.outputs = (
+                {DATASET_RECORD_WRAPPED_OUTPUT_KEY: new_outputs}
+                if new_outputs is not None
+                else None
+            )
 
         if new_expectations := new_record_dict.get("expectations"):
             if self.expectations is None:
