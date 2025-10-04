@@ -167,7 +167,9 @@ def find_matching_paths(data: dict[str, Any], wildcard_path: str) -> list[str]:
             paths = []
             if isinstance(current_data, dict):
                 for key in current_data.keys():
-                    new_path = f"{current_path}.{key}"
+                    # Wrap keys containing dots in backticks to preserve them as single segments
+                    escaped_key = f"`{key}`" if "." in key else key
+                    new_path = f"{current_path}.{escaped_key}"
                     paths.extend(find_paths(current_data[key], remaining, new_path))
             elif isinstance(current_data, list):
                 for i, item in enumerate(current_data):
@@ -176,7 +178,9 @@ def find_matching_paths(data: dict[str, Any], wildcard_path: str) -> list[str]:
             return paths
         else:
             if isinstance(current_data, dict) and part in current_data:
-                new_path = f"{current_path}.{part}"
+                # Wrap keys containing dots in backticks to preserve them as single segments
+                escaped_key = f"`{part}`" if "." in part else part
+                new_path = f"{current_path}.{escaped_key}"
                 return find_paths(current_data[part], remaining, new_path)
             return []
 
