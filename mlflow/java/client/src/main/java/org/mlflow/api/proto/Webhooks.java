@@ -179,6 +179,46 @@ public final class Webhooks {
      * <code>MODEL_VERSION_ALIAS = 4;</code>
      */
     MODEL_VERSION_ALIAS(4),
+    /**
+     * <pre>
+     * Prompt entity
+     * </pre>
+     *
+     * <code>PROMPT = 5;</code>
+     */
+    PROMPT(5),
+    /**
+     * <pre>
+     * Prompt version entity
+     * </pre>
+     *
+     * <code>PROMPT_VERSION = 6;</code>
+     */
+    PROMPT_VERSION(6),
+    /**
+     * <pre>
+     * Prompt tag entity
+     * </pre>
+     *
+     * <code>PROMPT_TAG = 7;</code>
+     */
+    PROMPT_TAG(7),
+    /**
+     * <pre>
+     * Prompt version tag entity
+     * </pre>
+     *
+     * <code>PROMPT_VERSION_TAG = 8;</code>
+     */
+    PROMPT_VERSION_TAG(8),
+    /**
+     * <pre>
+     * Prompt alias entity
+     * </pre>
+     *
+     * <code>PROMPT_ALIAS = 9;</code>
+     */
+    PROMPT_ALIAS(9),
     ;
 
     /**
@@ -221,6 +261,46 @@ public final class Webhooks {
      * <code>MODEL_VERSION_ALIAS = 4;</code>
      */
     public static final int MODEL_VERSION_ALIAS_VALUE = 4;
+    /**
+     * <pre>
+     * Prompt entity
+     * </pre>
+     *
+     * <code>PROMPT = 5;</code>
+     */
+    public static final int PROMPT_VALUE = 5;
+    /**
+     * <pre>
+     * Prompt version entity
+     * </pre>
+     *
+     * <code>PROMPT_VERSION = 6;</code>
+     */
+    public static final int PROMPT_VERSION_VALUE = 6;
+    /**
+     * <pre>
+     * Prompt tag entity
+     * </pre>
+     *
+     * <code>PROMPT_TAG = 7;</code>
+     */
+    public static final int PROMPT_TAG_VALUE = 7;
+    /**
+     * <pre>
+     * Prompt version tag entity
+     * </pre>
+     *
+     * <code>PROMPT_VERSION_TAG = 8;</code>
+     */
+    public static final int PROMPT_VERSION_TAG_VALUE = 8;
+    /**
+     * <pre>
+     * Prompt alias entity
+     * </pre>
+     *
+     * <code>PROMPT_ALIAS = 9;</code>
+     */
+    public static final int PROMPT_ALIAS_VALUE = 9;
 
 
     public final int getNumber() {
@@ -248,6 +328,11 @@ public final class Webhooks {
         case 2: return MODEL_VERSION;
         case 3: return MODEL_VERSION_TAG;
         case 4: return MODEL_VERSION_ALIAS;
+        case 5: return PROMPT;
+        case 6: return PROMPT_VERSION;
+        case 7: return PROMPT_TAG;
+        case 8: return PROMPT_VERSION_TAG;
+        case 9: return PROMPT_ALIAS;
         default: return null;
       }
     }
@@ -16043,34 +16128,37 @@ public final class Webhooks {
       "WebhookEvent\0325\n\010Response\022)\n\006result\030\001 \001(\013" +
       "2\031.mlflow.WebhookTestResult:+\342?(\n&com.da" +
       "tabricks.rpc.RPC[$this.Response]*)\n\rWebh" +
-      "ookStatus\022\n\n\006ACTIVE\020\001\022\014\n\010DISABLED\020\002*\200\001\n\r" +
+      "ookStatus\022\n\n\006ACTIVE\020\001\022\014\n\010DISABLED\020\002*\332\001\n\r" +
       "WebhookEntity\022\026\n\022ENTITY_UNSPECIFIED\020\000\022\024\n" +
       "\020REGISTERED_MODEL\020\001\022\021\n\rMODEL_VERSION\020\002\022\025" +
       "\n\021MODEL_VERSION_TAG\020\003\022\027\n\023MODEL_VERSION_A" +
-      "LIAS\020\004*W\n\rWebhookAction\022\026\n\022ACTION_UNSPEC" +
-      "IFIED\020\000\022\013\n\007CREATED\020\001\022\013\n\007UPDATED\020\002\022\013\n\007DEL" +
-      "ETED\020\003\022\007\n\003SET\020\0042\265\006\n\016WebhookService\022~\n\rcr" +
-      "eateWebhook\022\025.mlflow.CreateWebhook\032\036.mlf" +
-      "low.CreateWebhook.Response\"6\362\206\0312\n\036\n\004POST" +
-      "\022\020/mlflow/webhooks\032\004\010\002\020\000\020\001*\016Create Webho" +
-      "ok\022y\n\014listWebhooks\022\024.mlflow.ListWebhooks" +
-      "\032\035.mlflow.ListWebhooks.Response\"4\362\206\0310\n\035\n" +
-      "\003GET\022\020/mlflow/webhooks\032\004\010\002\020\000\020\001*\rList Web" +
-      "hooks\022~\n\ngetWebhook\022\022.mlflow.GetWebhook\032" +
-      "\033.mlflow.GetWebhook.Response\"?\362\206\031;\n*\n\003GE" +
-      "T\022\035/mlflow/webhooks/{webhook_id}\032\004\010\002\020\000\020\001" +
-      "*\013Get Webhook\022\214\001\n\rupdateWebhook\022\025.mlflow" +
-      ".UpdateWebhook\032\036.mlflow.UpdateWebhook.Re" +
-      "sponse\"D\362\206\031@\n,\n\005PATCH\022\035/mlflow/webhooks/" +
-      "{webhook_id}\032\004\010\002\020\000\020\001*\016Update Webhook\022\215\001\n" +
-      "\rdeleteWebhook\022\025.mlflow.DeleteWebhook\032\036." +
-      "mlflow.DeleteWebhook.Response\"E\362\206\031A\n-\n\006D" +
-      "ELETE\022\035/mlflow/webhooks/{webhook_id}\032\004\010\002" +
-      "\020\000\020\001*\016Delete Webhook\022\210\001\n\013testWebhook\022\023.m" +
-      "lflow.TestWebhook\032\034.mlflow.TestWebhook.R" +
-      "esponse\"F\362\206\031B\n0\n\004POST\022\"/mlflow/webhooks/" +
-      "{webhook_id}/test\032\004\010\002\020\000\020\001*\014Test WebhookB" +
-      "!\n\024org.mlflow.api.proto\220\001\001\240\001\001\342?\002\020\001"
+      "LIAS\020\004\022\n\n\006PROMPT\020\005\022\022\n\016PROMPT_VERSION\020\006\022\016" +
+      "\n\nPROMPT_TAG\020\007\022\026\n\022PROMPT_VERSION_TAG\020\010\022\020" +
+      "\n\014PROMPT_ALIAS\020\t*W\n\rWebhookAction\022\026\n\022ACT" +
+      "ION_UNSPECIFIED\020\000\022\013\n\007CREATED\020\001\022\013\n\007UPDATE" +
+      "D\020\002\022\013\n\007DELETED\020\003\022\007\n\003SET\020\0042\265\006\n\016WebhookSer" +
+      "vice\022~\n\rcreateWebhook\022\025.mlflow.CreateWeb" +
+      "hook\032\036.mlflow.CreateWebhook.Response\"6\362\206" +
+      "\0312\n\036\n\004POST\022\020/mlflow/webhooks\032\004\010\002\020\000\020\001*\016Cr" +
+      "eate Webhook\022y\n\014listWebhooks\022\024.mlflow.Li" +
+      "stWebhooks\032\035.mlflow.ListWebhooks.Respons" +
+      "e\"4\362\206\0310\n\035\n\003GET\022\020/mlflow/webhooks\032\004\010\002\020\000\020\001" +
+      "*\rList Webhooks\022~\n\ngetWebhook\022\022.mlflow.G" +
+      "etWebhook\032\033.mlflow.GetWebhook.Response\"?" +
+      "\362\206\031;\n*\n\003GET\022\035/mlflow/webhooks/{webhook_i" +
+      "d}\032\004\010\002\020\000\020\001*\013Get Webhook\022\214\001\n\rupdateWebhoo" +
+      "k\022\025.mlflow.UpdateWebhook\032\036.mlflow.Update" +
+      "Webhook.Response\"D\362\206\031@\n,\n\005PATCH\022\035/mlflow" +
+      "/webhooks/{webhook_id}\032\004\010\002\020\000\020\001*\016Update W" +
+      "ebhook\022\215\001\n\rdeleteWebhook\022\025.mlflow.Delete" +
+      "Webhook\032\036.mlflow.DeleteWebhook.Response\"" +
+      "E\362\206\031A\n-\n\006DELETE\022\035/mlflow/webhooks/{webho" +
+      "ok_id}\032\004\010\002\020\000\020\001*\016Delete Webhook\022\210\001\n\013testW" +
+      "ebhook\022\023.mlflow.TestWebhook\032\034.mlflow.Tes" +
+      "tWebhook.Response\"F\362\206\031B\n0\n\004POST\022\"/mlflow" +
+      "/webhooks/{webhook_id}/test\032\004\010\002\020\000\020\001*\014Tes" +
+      "t WebhookB!\n\024org.mlflow.api.proto\220\001\001\240\001\001\342" +
+      "?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,

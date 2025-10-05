@@ -75,18 +75,7 @@ def mock_openai():
         ),
         ("xgboost/xgboost_sklearn", []),
         ("pytorch/MNIST", ["-P", "max_epochs=1"]),
-        (
-            "pytorch/BertNewsClassification",
-            ["-P", "max_epochs=1", "-P", "num_samples=100", "-P", "dataset=20newsgroups"],
-        ),
-        (
-            "pytorch/AxHyperOptimizationPTL",
-            ["-P", "max_epochs=10", "-P", "total_trials=1"],
-        ),
-        (
-            "pytorch/IterativePruning",
-            ["-P", "max_epochs=1", "-P", "total_trials=1"],
-        ),
+        ("pytorch/HPOExample", ["-P", "n_trials=2", "-P", "max_epochs=1"]),
         ("pytorch/CaptumExample", ["-P", "max_epochs=50"]),
         ("supply_chain_security", []),
         ("tensorflow", []),

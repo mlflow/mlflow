@@ -141,11 +141,8 @@ jobs:
 
           ## 2. Review Changed Lines Only
           - Carefully examine ONLY the changed lines (added or modified) in the diff
-          - Check for style guide violations ONLY in these changed lines
-          - Check for obvious mistakes including:
-            - Typos in variable names, function names, class names, comments, and docstrings
-            - Grammatical errors in comments and documentation
-            - Common coding mistakes (e.g., wrong variable references, logic errors)
+          - Check ONLY for style guide violations in these changed lines
+          - Do NOT check for other issues like bugs, logic errors, or functionality problems
           - Ignore unchanged/context lines and pre-existing code
 
           ## 3. Decision Point
