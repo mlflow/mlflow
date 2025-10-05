@@ -289,6 +289,8 @@ def _setup_tracer_provider(disabled=False):
     suppress_warning("opentelemetry.sdk.trace", "Setting attribute on ended span")
     suppress_warning("opentelemetry.sdk.trace", "Calling end() on an ended span")
 
+    # NB: If otel resource env vars are set explicitly, don't create an empty resource
+    # so that they are propagated to otel spans.
     otel_service_name = os.getenv("OTEL_SERVICE_NAME")
     otel_resource_attributes = os.getenv("OTEL_RESOURCE_ATTRIBUTES")
     resource = None
