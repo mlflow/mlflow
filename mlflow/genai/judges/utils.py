@@ -6,6 +6,7 @@ import re
 import threading
 import time
 import traceback
+import warnings
 from contextlib import ContextDecorator
 from dataclasses import asdict, dataclass, is_dataclass
 from typing import TYPE_CHECKING, Any, NamedTuple
@@ -421,6 +422,13 @@ def invoke_judge_model(
 
     # Handle Databricks endpoints (not the default judge) with proper telemetry
     if model_provider in {"databricks", "endpoints"} and isinstance(prompt, str):
+        if model_provider == "endpoints":
+            warnings.warn(
+                "The legacy provider 'endpoints' is deprecated and will be removed in a future"
+                "release. Please update your code to use the 'databricks' provider instead.",
+                FutureWarning,
+                stacklevel=2,
+            )
         try:
             output = _invoke_databricks_judge_model(
                 model_name=model_name,
