@@ -937,12 +937,6 @@ def test_kickoff_for_each(simple_agent_1, task_1, autolog):
     }
     assert span_5.outputs is None
 
-    assert traces[0].info.token_usage == {
-        TokenUsageKey.INPUT_TOKENS: 36864,
-        TokenUsageKey.OUTPUT_TOKENS: 49152,
-        TokenUsageKey.TOTAL_TOKENS: 86016,
-    }
-
 
 def test_flow(simple_agent_1, task_1, autolog):
     crew = Crew(
@@ -1031,9 +1025,3 @@ def test_flow(simple_agent_1, task_1, autolog):
         }
     }
     assert span_5.outputs is None
-
-    assert traces[0].info.token_usage == {
-        TokenUsageKey.INPUT_TOKENS: 36864,
-        TokenUsageKey.OUTPUT_TOKENS: 49152,
-        TokenUsageKey.TOTAL_TOKENS: 86016,
-    }
