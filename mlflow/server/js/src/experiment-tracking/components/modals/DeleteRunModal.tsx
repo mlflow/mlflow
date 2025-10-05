@@ -172,8 +172,8 @@ export class DeleteRunModalImpl extends Component<Props, State> {
           </p>
           {hasChildRuns ? (
             <p>
-              {childRunCount} child {Utils.pluralize('run', childRunCount)} will also be removed when deleting selected
-              runs and children ({totalRunsWithChildren} total).
+              The selected run has {childRunCount} child {Utils.pluralize('run', childRunCount)}. Delete this run alone
+              or all {totalRunsWithChildren}?
             </p>
           ) : null}
           {/* @ts-expect-error TS(4111): Property 'MLFLOW_SHOW_GDPR_PURGING_MESSAGES' comes from a... Remove this comment to see the full error message */}
