@@ -32,6 +32,7 @@ import { TracesV3EmptyState } from './TracesV3EmptyState';
 import { useQueryClient } from '@databricks/web-shared/query-client';
 import { useSetInitialTimeFilter } from './hooks/useSetInitialTimeFilter';
 import { checkColumnContents } from './utils/columnUtils';
+import { useExportTracesToDatasetModal } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets/hooks/useExportTracesToDatasetModal';
 
 const TracesV3LogsImpl = React.memo(
   ({
@@ -135,6 +136,11 @@ const TracesV3LogsImpl = React.memo(
       useV3Apis: true,
     });
 
+    const { showExportTracesToDatasetsModal, setShowExportTracesToDatasetsModal, renderExportTracesToDatasetsModal } =
+      useExportTracesToDatasetModal({
+        experimentId,
+      });
+
     const traceActions: TraceActions = useMemo(() => {
       return {
         deleteTracesAction: {
@@ -142,15 +148,23 @@ const TracesV3LogsImpl = React.memo(
             deleteTracesMutation.mutateAsync({ experimentId, traceRequestIds: traceIds }),
         },
         exportToEvals: {
-          exportToEvalsInstanceEnabled: true,
-          getTrace,
+          showExportTracesToDatasetsModal,
+          setShowExportTracesToDatasetsModal,
+          renderExportTracesToDatasetsModal,
         },
         editTags: {
           showEditTagsModalForTrace,
           EditTagsModal,
         },
       };
-    }, [deleteTracesMutation, showEditTagsModalForTrace, EditTagsModal]);
+    }, [
+      showExportTracesToDatasetsModal,
+      setShowExportTracesToDatasetsModal,
+      renderExportTracesToDatasetsModal,
+      showEditTagsModalForTrace,
+      EditTagsModal,
+      deleteTracesMutation,
+    ]);
 
     const countInfo = useMemo(() => {
       return {

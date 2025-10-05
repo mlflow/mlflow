@@ -114,19 +114,10 @@ function GenAiTracesTableImpl({
   // Eventually we should just take traceActions that user passes in
   // once exportToEval is moved to traceActions as well.
   const fullTraceActions: TraceActions = useMemo(() => {
-    const exportToEvalAction = exportToEvalsInstanceEnabled
-      ? {
-          exportToEvals: {
-            exportToEvalsInstanceEnabled,
-            getTrace,
-          },
-        }
-      : {};
     return {
       ...traceActions,
-      ...exportToEvalAction,
     };
-  }, [traceActions, exportToEvalsInstanceEnabled, getTrace]);
+  }, [traceActions]);
 
   const enableTableRowSelection: boolean = Object.keys(fullTraceActions).length > 0;
 
