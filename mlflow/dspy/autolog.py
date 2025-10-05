@@ -138,7 +138,12 @@ def _active_callback():
 
 
 def _patched_compile(original, self, *args, **kwargs):
-    from mlflow.dspy.util import log_dspy_dataset, log_dspy_lm_state, save_dspy_module_state
+    from mlflow.dspy.util import (
+        log_dspy_dataset,
+        log_dspy_lm_state,
+        log_dummy_model_outputs,
+        save_dspy_module_state,
+    )
 
     # NB: Since calling mlflow.dspy.autolog() again does not unpatch a function, we need to
     # check this flag at runtime to determine if we should generate traces.
@@ -162,6 +167,12 @@ def _patched_compile(original, self, *args, **kwargs):
                 if callback.optimizer_stack_level == 0:
                     # Reset the callback state after the completion of root compile
                     callback.reset()
+
+    # NB: Log a dummy run outputs such that "Run" tab is shown in the UI. Currently, the
+    # GenAI experiment does not show the "Run" tab without this, which is critical gap for
+    # DSPy users. This should be done BEFORE the compile call, because Run page is used
+    # for tracking the compile progress, not only after finishing the compile.
+    log_dummy_model_outputs()
 
     if not get_autologging_config(FLAVOR_NAME, "log_compiles"):
         return _compile_fn(self, *args, **kwargs)
