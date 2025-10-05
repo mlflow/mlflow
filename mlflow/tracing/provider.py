@@ -11,6 +11,7 @@ import contextvars
 import functools
 import json
 import logging
+import os
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
@@ -288,9 +289,16 @@ def _setup_tracer_provider(disabled=False):
     suppress_warning("opentelemetry.sdk.trace", "Setting attribute on ended span")
     suppress_warning("opentelemetry.sdk.trace", "Calling end() on an ended span")
 
-    # Setting an empty resource to avoid triggering resource aggregation, which causes
-    # an issue in LiteLLM tracing: https://github.com/mlflow/mlflow/issues/16296
-    tracer_provider = TracerProvider(resource=Resource.get_empty(), sampler=_get_trace_sampler())
+    # NB: If otel resource env vars are set explicitly, don't create an empty resource
+    # so that they are propagated to otel spans.
+    otel_service_name = os.getenv("OTEL_SERVICE_NAME")
+    otel_resource_attributes = os.getenv("OTEL_RESOURCE_ATTRIBUTES")
+    resource = None
+    if not otel_service_name and not otel_resource_attributes:
+        # Setting an empty resource to avoid triggering resource aggregation, which causes
+        # an issue in LiteLLM tracing: https://github.com/mlflow/mlflow/issues/16296
+        resource = Resource.get_empty()
+    tracer_provider = TracerProvider(resource=resource, sampler=_get_trace_sampler())
     for processor in processors:
         tracer_provider.add_span_processor(processor)
 
