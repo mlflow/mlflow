@@ -293,9 +293,7 @@ def test_resolve_scorer_not_found_raises_error():
             "mlflow.cli.genai_eval_utils.get_scorer",
             side_effect=MlflowException("Not found"),
         ) as mock_get_scorer:
-            with pytest.raises(
-                click.UsageError, match="Scorer 'UnknownScorer' not found"
-            ):
+            with pytest.raises(click.UsageError, match="Scorer 'UnknownScorer' not found"):
                 resolve_scorers(["UnknownScorer"], "experiment_123")
 
             # Verify mocks were called as expected

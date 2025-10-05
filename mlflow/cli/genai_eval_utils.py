@@ -134,9 +134,7 @@ def resolve_scorers(scorer_names: list[str], experiment_id: str) -> list[Scorer]
         else:
             # Try to get it as a registered scorer
             try:
-                registered_scorer = get_scorer(
-                    name=scorer_name, experiment_id=experiment_id
-                )
+                registered_scorer = get_scorer(name=scorer_name, experiment_id=experiment_id)
                 resolved_scorers.append(registered_scorer)
             except MlflowException:
                 available_builtin = ", ".join(
@@ -193,9 +191,7 @@ def extract_assessments_from_results(
             assessment_rationale = None
             assessment_error = None
 
-            if (feedback := assessment_dict.get("feedback")) and isinstance(
-                feedback, dict
-            ):
+            if (feedback := assessment_dict.get("feedback")) and isinstance(feedback, dict):
                 assessment_result = feedback.get("value")
 
             if rationale := assessment_dict.get("rationale"):
