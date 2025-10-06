@@ -478,6 +478,7 @@ transformers:
       ">= 4.38.2": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
       "< 4.52.0.dev0": ["accelerate<1"]
     pre_test: |
+      sudo apt-get update -y && sudo apt-get install -y ffmpeg
       export PYTHONPATH=./
       python tests/transformers/helper.py
     run: |
