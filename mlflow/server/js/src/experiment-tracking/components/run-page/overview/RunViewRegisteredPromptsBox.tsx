@@ -25,7 +25,7 @@ export const RunViewRegisteredPromptsBox = ({
   }
 
   if (error || !promptVersions || promptVersions.length === 0) {
-    return <Typography.Hint>—</Typography.Hint>;
+    return <Typography.Hint css={{ padding: `${theme.spacing.xs}px 0px` }}>—</Typography.Hint>;
   }
 
   return (
@@ -35,7 +35,7 @@ export const RunViewRegisteredPromptsBox = ({
         flexDirection: 'row',
         gap: theme.spacing.sm,
         flexWrap: 'wrap',
-        padding: `${theme.spacing.sm}px 0px`,
+        padding: `${theme.spacing.xs}px 0px`,
       }}
     >
       {promptVersions.map((promptVersion, index) => {

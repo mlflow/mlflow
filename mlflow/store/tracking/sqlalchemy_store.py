@@ -1,3 +1,5 @@
+import base64
+import hashlib
 import json
 import logging
 import math
@@ -21,6 +23,9 @@ import mlflow.store.db.utils
 from mlflow.entities import (
     Assessment,
     DatasetInput,
+    DatasetRecord,
+    DatasetRecordSource,
+    EvaluationDataset,
     Expectation,
     Experiment,
     Feedback,
@@ -71,6 +76,9 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlAssessments,
     SqlDataset,
     SqlEntityAssociation,
+    SqlEvaluationDataset,
+    SqlEvaluationDatasetRecord,
+    SqlEvaluationDatasetTag,
     SqlExperiment,
     SqlExperimentTag,
     SqlInput,
@@ -101,10 +109,12 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_DATASET_CONTEXT,
     MLFLOW_LOGGED_MODELS,
     MLFLOW_RUN_NAME,
+    MLFLOW_USER,
     _get_run_name_from_tags,
 )
 from mlflow.utils.name_utils import _generate_random_name
 from mlflow.utils.search_utils import (
+    SearchEvaluationDatasetsUtils,
     SearchExperimentsUtils,
     SearchLoggedModelsPaginationToken,
     SearchTraceUtils,
@@ -181,6 +191,7 @@ class SqlAlchemyStore(AbstractStore):
     MODELS_FOLDER_NAME = "models"
     TRACE_FOLDER_NAME = "traces"
     DEFAULT_EXPERIMENT_ID = "0"
+    EVALUATION_DATASET_ID_PREFIX = "d-"
     _db_uri_sql_alchemy_engine_map = {}
     _db_uri_sql_alchemy_engine_map_lock = threading.Lock()
 
@@ -228,7 +239,12 @@ class SqlAlchemyStore(AbstractStore):
         if is_local_uri(default_artifact_root):
             mkdir(local_file_uri_to_path(default_artifact_root))
 
-        if len(self.search_experiments(view_type=ViewType.ALL)) == 0:
+        # Check if default experiment exists (not just if any experiments exist)
+        # This is important for databases that persist across test runs
+        try:
+            self.get_experiment(str(self.DEFAULT_EXPERIMENT_ID))
+        except MlflowException:
+            # Default experiment doesn't exist, create it
             with self.ManagedSessionMaker() as session:
                 self._create_default_experiment(session)
 
@@ -332,13 +348,13 @@ class SqlAlchemyStore(AbstractStore):
                     # this requires a double write. The first one to generate an autoincrement-ed ID
                     eid = session.query(SqlExperiment).filter_by(name=name).first().experiment_id
                     experiment.artifact_location = self._get_artifact_location(eid)
+                session.flush()
             except sqlalchemy.exc.IntegrityError as e:
                 raise MlflowException(
                     f"Experiment(name={name}) already exists. Error: {e}",
                     RESOURCE_ALREADY_EXISTS,
                 )
 
-            session.flush()
             return str(experiment.experiment_id)
 
     def _search_experiments(
@@ -3363,6 +3379,709 @@ class SqlAlchemyStore(AbstractStore):
         return None
 
     #######################################################################################
+    # Entity Association Methods
+    #######################################################################################
+
+    def _search_entity_associations(
+        self,
+        entity_ids: str | list[str],
+        entity_type: EntityAssociationType,
+        target_type: EntityAssociationType,
+        search_direction: str,  # "forward" or "reverse"
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[str]:
+        """
+        Common implementation for searching entity associations.
+
+        Args:
+            entity_ids: The ID(s) of the entity to search from. Can be a single ID or a list.
+            entity_type: The type of the entity to search from.
+            target_type: The type of the target entities to find.
+            search_direction: "forward" to search source->destination, "reverse" for the opposite.
+            max_results: Maximum number of results to return. If None, return all results.
+            page_token: Token indicating the page of results to fetch.
+
+        Returns:
+            A :py:class:`mlflow.store.entities.paged_list.PagedList` of target entity IDs.
+        """
+        if isinstance(entity_ids, str):
+            entity_ids = [entity_ids]
+
+        with self.ManagedSessionMaker() as session:
+            query = session.query(SqlEntityAssociation)
+
+            if search_direction == "forward":
+                query = query.filter(
+                    SqlEntityAssociation.source_type == entity_type,
+                    SqlEntityAssociation.source_id.in_(entity_ids),
+                    SqlEntityAssociation.destination_type == target_type,
+                )
+                order_field = SqlEntityAssociation.destination_id
+                result_field = "destination_id"
+            else:
+                query = query.filter(
+                    SqlEntityAssociation.destination_type == entity_type,
+                    SqlEntityAssociation.destination_id.in_(entity_ids),
+                    SqlEntityAssociation.source_type == target_type,
+                )
+                order_field = SqlEntityAssociation.source_id
+                result_field = "source_id"
+
+            offset = SearchUtils.parse_start_offset_from_page_token(page_token)
+
+            query = query.order_by(SqlEntityAssociation.created_time, order_field)
+            query = query.offset(offset)
+
+            if max_results is not None:
+                query = query.limit(max_results + 1)
+
+            associations = query.all()
+
+            next_token = None
+            if max_results is not None and len(associations) == max_results + 1:
+                final_offset = offset + max_results
+                next_token = SearchUtils.create_page_token(final_offset)
+                associations = associations[:max_results]
+
+            results = list(dict.fromkeys([getattr(assoc, result_field) for assoc in associations]))
+            return PagedList(results, next_token)
+
+    def search_entities_by_source(
+        self,
+        source_ids: str | list[str],
+        source_type: EntityAssociationType,
+        destination_type: EntityAssociationType,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[str]:
+        """
+        Get destination IDs associated with source entity/entities.
+
+        Args:
+            source_ids: The ID(s) of the source entity. Can be a single ID or a list.
+            source_type: The type of the source entity.
+            destination_type: The type of the destination entity.
+            max_results: Maximum number of results to return. If None, return all results.
+            page_token: Token indicating the page of results to fetch.
+
+        Returns:
+            A :py:class:`mlflow.store.entities.paged_list.PagedList` of destination IDs
+            associated with the source entity/entities.
+        """
+        return self._search_entity_associations(
+            source_ids, source_type, destination_type, "forward", max_results, page_token
+        )
+
+    def search_entities_by_destination(
+        self,
+        destination_ids: str | list[str],
+        destination_type: EntityAssociationType,
+        source_type: EntityAssociationType,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[str]:
+        """
+        Get source IDs associated with destination entity/entities.
+
+        Args:
+            destination_ids: The ID(s) of the destination entity. Can be a single ID or a list.
+            destination_type: The type of the destination entity.
+            source_type: The type of the source entity.
+            max_results: Maximum number of results to return. If None, return all results.
+            page_token: Token indicating the page of results to fetch.
+
+        Returns:
+            A :py:class:`mlflow.store.entities.paged_list.PagedList` of source IDs
+            associated with the destination entity/entities.
+        """
+        return self._search_entity_associations(
+            destination_ids, destination_type, source_type, "reverse", max_results, page_token
+        )
+
+    #######################################################################################
+    # Evaluation Dataset Methods
+    #######################################################################################
+
+    def _compute_dataset_digest(self, name: str, last_update_time: int) -> str:
+        """
+        Compute digest for an evaluation dataset.
+
+        The digest includes the dataset name and last_update_time to ensure
+        that any state change results in a different digest.
+
+        Args:
+            name: Dataset name
+            last_update_time: Last update timestamp in milliseconds
+
+        Returns:
+            8-character digest string
+        """
+        digest_input = f"{name}:{last_update_time}".encode()
+        return hashlib.sha256(digest_input).hexdigest()[:8]
+
+    def create_dataset(
+        self,
+        name: str,
+        tags: dict[str, str] | None = None,
+        experiment_ids: list[str] | None = None,
+    ) -> EvaluationDataset:
+        """
+        Create a new evaluation dataset in the database.
+
+        Args:
+            name: The name of the evaluation dataset.
+            tags: Optional tags to associate with the dataset.
+            experiment_ids: List of experiment IDs to associate with the dataset
+
+        Returns:
+            The created EvaluationDataset object with backend-generated metadata.
+        """
+        with self.ManagedSessionMaker() as session:
+            dataset_id = f"{self.EVALUATION_DATASET_ID_PREFIX}{uuid.uuid4().hex}"
+
+            current_time = get_current_time_millis()
+            digest = self._compute_dataset_digest(name, current_time)
+
+            user_id = None
+            if tags and MLFLOW_USER in tags:
+                user_id = tags[MLFLOW_USER]
+
+            created_dataset = EvaluationDataset(
+                dataset_id=dataset_id,
+                name=name,
+                digest=digest,
+                created_time=current_time,
+                last_update_time=current_time,
+                tags=tags or {},
+                schema=None,  # Schema is computed when data is added
+                profile=None,  # Profile is computed when data is added
+                created_by=user_id,
+                last_updated_by=user_id,
+            )
+
+            sql_dataset = SqlEvaluationDataset.from_mlflow_entity(created_dataset)
+            session.add(sql_dataset)
+
+            if created_dataset.tags:
+                for key, value in created_dataset.tags.items():
+                    tag = SqlEvaluationDatasetTag(
+                        dataset_id=dataset_id,
+                        key=key,
+                        value=value,
+                    )
+                    session.add(tag)
+
+            if experiment_ids:
+                for exp_id in experiment_ids:
+                    association = SqlEntityAssociation(
+                        source_type=EntityAssociationType.EVALUATION_DATASET,
+                        source_id=dataset_id,
+                        destination_type=EntityAssociationType.EXPERIMENT,
+                        destination_id=str(exp_id),
+                        created_time=current_time,
+                    )
+                    session.add(association)
+
+            sql_dataset_with_tags = (
+                session.query(SqlEvaluationDataset)
+                .filter(SqlEvaluationDataset.dataset_id == dataset_id)
+                .one()
+            )
+
+            created_dataset = sql_dataset_with_tags.to_mlflow_entity()
+            created_dataset.experiment_ids = experiment_ids or []
+            created_dataset._tracking_store = self
+
+            return created_dataset
+
+    def get_dataset(self, dataset_id: str) -> EvaluationDataset:
+        """
+        Get an evaluation dataset by ID.
+
+        Args:
+            dataset_id: The ID of the dataset to retrieve.
+
+        Returns:
+            The EvaluationDataset object (without records or experiment_ids - lazy loading).
+        """
+        with self.ManagedSessionMaker() as session:
+            sql_dataset = (
+                session.query(SqlEvaluationDataset)
+                .filter(SqlEvaluationDataset.dataset_id == dataset_id)
+                .one_or_none()
+            )
+
+            if sql_dataset is None:
+                raise MlflowException(
+                    f"Evaluation dataset with id '{dataset_id}' not found",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+
+            return sql_dataset.to_mlflow_entity()
+
+    def delete_dataset(self, dataset_id: str) -> None:
+        """
+        Delete an evaluation dataset and all its records.
+
+        Args:
+            dataset_id: The ID of the dataset to delete.
+        """
+
+        with self.ManagedSessionMaker() as session:
+            sql_dataset = (
+                session.query(SqlEvaluationDataset)
+                .filter(SqlEvaluationDataset.dataset_id == dataset_id)
+                .one_or_none()
+            )
+
+            if sql_dataset is None:
+                _logger.warning(f"Evaluation dataset with id '{dataset_id}' not found.")
+                return
+
+            session.query(SqlEntityAssociation).filter(
+                or_(
+                    and_(
+                        SqlEntityAssociation.destination_type
+                        == EntityAssociationType.EVALUATION_DATASET,
+                        SqlEntityAssociation.destination_id == dataset_id,
+                    ),
+                    and_(
+                        SqlEntityAssociation.source_type
+                        == EntityAssociationType.EVALUATION_DATASET,
+                        SqlEntityAssociation.source_id == dataset_id,
+                    ),
+                )
+            ).delete()
+
+            session.delete(sql_dataset)
+
+    def search_datasets(
+        self,
+        experiment_ids: list[str] | None = None,
+        filter_string: str | None = None,
+        max_results: int = 1000,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[EvaluationDataset]:
+        """
+        Search for evaluation datasets.
+
+        Args:
+            experiment_ids: Filter by associated experiment IDs.
+            filter_string: SQL-like filter string.
+            max_results: Maximum number of results to return.
+            order_by: List of fields to order by.
+            page_token: Token for pagination.
+
+        Returns:
+            PagedList of EvaluationDataset objects (without records).
+        """
+        self._validate_max_results_param(max_results)
+
+        offset = SearchUtils.parse_start_offset_from_page_token(page_token)
+
+        with self.ManagedSessionMaker() as session:
+            if filter_string:
+                parsed_filters = SearchEvaluationDatasetsUtils.parse_search_filter(filter_string)
+                attribute_filters, non_attribute_filters = _get_search_datasets_filter_clauses(
+                    parsed_filters, self._get_dialect()
+                )
+            else:
+                attribute_filters = []
+                non_attribute_filters = []
+
+            stmt = reduce(
+                lambda s, f: s.join(f), non_attribute_filters, select(SqlEvaluationDataset)
+            )
+
+            if experiment_ids:
+                dataset_ids_result = self.search_entities_by_destination(
+                    destination_ids=experiment_ids,
+                    destination_type=EntityAssociationType.EXPERIMENT,
+                    source_type=EntityAssociationType.EVALUATION_DATASET,
+                )
+                dataset_ids = dataset_ids_result.to_list()
+                stmt = stmt.filter(SqlEvaluationDataset.dataset_id.in_(dataset_ids))
+
+            stmt = stmt.filter(*attribute_filters)
+
+            order_by_clauses = _get_search_datasets_order_by_clauses(order_by)
+            stmt = stmt.order_by(*order_by_clauses)
+
+            stmt = stmt.offset(offset).limit(max_results + 1)
+
+            sql_datasets = session.execute(stmt).scalars(SqlEvaluationDataset).all()
+
+            next_page_token = None
+            if len(sql_datasets) > max_results:
+                sql_datasets = sql_datasets[:max_results]
+                next_page_token = SearchUtils.create_page_token(offset + max_results)
+
+            datasets = []
+            for sql_dataset in sql_datasets:
+                dataset = sql_dataset.to_mlflow_entity()
+                datasets.append(dataset)
+
+            return PagedList(datasets, next_page_token)
+
+    def _update_dataset_schema(self, existing_schema_json, record_dicts):
+        """
+        Update dataset schema with new fields from records.
+        This method combines schema computation and merging into a single operation
+        for efficiency, since schemas are stored as JSON strings.
+
+        Args:
+            existing_schema_json: JSON string of existing schema or None
+            record_dicts: List of record dictionaries being upserted
+
+        Returns:
+            Updated schema dictionary or None if no records and no existing schema
+        """
+        if not record_dicts and not existing_schema_json:
+            return None
+
+        schema = (
+            json.loads(existing_schema_json)
+            if existing_schema_json
+            else {"inputs": {}, "outputs": {}, "expectations": {}, "version": "1.0"}
+        )
+
+        for record in record_dicts:
+            if inputs := record.get("inputs"):
+                for key, value in inputs.items():
+                    if key not in schema["inputs"]:
+                        schema["inputs"][key] = self._infer_field_type(value)
+
+            if (outputs := record.get("outputs")) is not None:
+                if isinstance(outputs, dict):
+                    for key, value in outputs.items():
+                        if key not in schema["outputs"]:
+                            schema["outputs"][key] = self._infer_field_type(value)
+                else:
+                    if not schema["outputs"]:
+                        schema["outputs"] = self._infer_field_type(outputs)
+
+            if expectations := record.get("expectations"):
+                for key, value in expectations.items():
+                    if key not in schema["expectations"]:
+                        schema["expectations"][key] = self._infer_field_type(value)
+
+        return schema
+
+    def _compute_dataset_profile(self, session, dataset_id):
+        """
+        Compute profile statistics for the dataset based on current state.
+
+        Args:
+            session: Database session
+            dataset_id: ID of the dataset
+
+        Returns:
+            Profile dictionary with current statistics
+        """
+        total_records = (
+            session.query(SqlEvaluationDatasetRecord)
+            .filter(SqlEvaluationDatasetRecord.dataset_id == dataset_id)
+            .count()
+        )
+
+        if total_records == 0:
+            return None
+
+        return {"num_records": total_records}
+
+    def _infer_field_type(self, value):
+        """
+        Infer the type of a field value.
+
+        Returns a string representation of the type.
+        """
+        if value is None:
+            return "null"
+        elif isinstance(value, bool):
+            return "boolean"
+        elif isinstance(value, int):
+            return "integer"
+        elif isinstance(value, float):
+            return "float"
+        elif isinstance(value, str):
+            return "string"
+        elif isinstance(value, list):
+            return "array"
+        elif isinstance(value, dict):
+            return "object"
+        else:
+            return "unknown"
+
+    def _load_dataset_records(
+        self,
+        dataset_id: str,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> tuple[list[DatasetRecord], str | None]:
+        """
+        Load dataset records with cursor-based pagination support.
+
+        Records are ordered by (created_time, dataset_record_id) to ensure deterministic
+        pagination across all database backends.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            max_results: Maximum number of records to return. Defaults to
+                LOAD_DATASET_RECORDS_MAX_RESULTS. If explicitly set to None, returns all records.
+            page_token: Cursor token for pagination in format "created_time:record_id".
+                If None, starts from the beginning.
+
+        Returns:
+            Tuple of (list of DatasetRecord objects, next_page_token).
+            next_page_token is None if there are no more records.
+        """
+        from mlflow.store.tracking import LOAD_DATASET_RECORDS_MAX_RESULTS
+
+        # Use default if not explicitly set
+        if max_results is None:
+            effective_max_results = None  # Return all records for internal use
+        else:
+            effective_max_results = max_results or LOAD_DATASET_RECORDS_MAX_RESULTS
+
+        with self.ManagedSessionMaker() as session:
+            query = (
+                session.query(SqlEvaluationDatasetRecord)
+                .filter(SqlEvaluationDatasetRecord.dataset_id == dataset_id)
+                .order_by(
+                    SqlEvaluationDatasetRecord.created_time,
+                    SqlEvaluationDatasetRecord.dataset_record_id,
+                )
+            )
+
+            if page_token:
+                try:
+                    decoded = base64.b64decode(page_token.encode()).decode()
+                    last_created_time, last_record_id = decoded.split(":", 1)
+                    last_created_time = int(last_created_time)
+
+                    query = query.filter(
+                        (SqlEvaluationDatasetRecord.created_time > last_created_time)
+                        | (
+                            (SqlEvaluationDatasetRecord.created_time == last_created_time)
+                            & (SqlEvaluationDatasetRecord.dataset_record_id > last_record_id)
+                        )
+                    )
+                except (ValueError, AttributeError):
+                    offset = int(page_token)
+                    query = query.offset(offset)
+
+            if effective_max_results is not None:
+                sql_records = query.limit(effective_max_results + 1).all()
+
+                if len(sql_records) > effective_max_results:
+                    sql_records = sql_records[:effective_max_results]
+                    last_record = sql_records[-1]
+                    cursor = f"{last_record.created_time}:{last_record.dataset_record_id}"
+                    next_page_token = base64.b64encode(cursor.encode()).decode()
+                else:
+                    next_page_token = None
+            else:
+                sql_records = query.all()
+                next_page_token = None
+
+            records = [record.to_mlflow_entity() for record in sql_records]
+            return records, next_page_token
+
+    def delete_dataset_tag(self, dataset_id: str, key: str) -> None:
+        """
+        Delete a tag from an evaluation dataset.
+
+        This operation is idempotent - if the tag doesn't exist, it's a no-op.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            key: The tag key to delete.
+        """
+        with self.ManagedSessionMaker() as session:
+            deleted_count = (
+                session.query(SqlEvaluationDatasetTag)
+                .filter_by(dataset_id=dataset_id, key=key)
+                .delete()
+            )
+
+            if deleted_count == 0:
+                _logger.debug(
+                    f"Tag '{key}' not found for evaluation dataset {dataset_id}. "
+                    "It may have already been deleted or never existed."
+                )
+
+    def upsert_dataset_records(
+        self, dataset_id: str, records: list[dict[str, Any]]
+    ) -> dict[str, int]:
+        """
+        Bulk upsert records with input-based deduplication.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            records: List of record dictionaries.
+
+        Returns:
+            Dictionary with counts of inserted and updated records.
+        """
+
+        with self.ManagedSessionMaker() as session:
+            inserted_count = 0
+            updated_count = 0
+            current_time = get_current_time_millis()
+            updated_by = None  # Track who last updated the dataset
+
+            for record_dict in records:
+                inputs_json = json.dumps(record_dict.get("inputs", {}), sort_keys=True)
+                input_hash = hashlib.sha256(inputs_json.encode()).hexdigest()
+
+                existing_record = (
+                    session.query(SqlEvaluationDatasetRecord)
+                    .filter(
+                        SqlEvaluationDatasetRecord.dataset_id == dataset_id,
+                        SqlEvaluationDatasetRecord.input_hash == input_hash,
+                    )
+                    .one_or_none()
+                )
+
+                tags = record_dict.get("tags")
+                if tags and MLFLOW_USER in tags:
+                    updated_by = tags[MLFLOW_USER]
+
+                if existing_record:
+                    existing_record.merge(record_dict)
+                    updated_count += 1
+                else:
+                    created_by = None
+                    if tags and MLFLOW_USER in tags:
+                        created_by = tags[MLFLOW_USER]
+
+                    source = None
+                    if source_data := record_dict.get("source"):
+                        if isinstance(source_data, dict):
+                            source = DatasetRecordSource.from_dict(source_data)
+                        else:
+                            source = source_data
+
+                    record = DatasetRecord(
+                        dataset_record_id=None,
+                        dataset_id=dataset_id,
+                        inputs=record_dict.get("inputs", {}),
+                        outputs=record_dict.get("outputs", {}),
+                        created_time=current_time,
+                        last_update_time=current_time,
+                        expectations=record_dict.get("expectations"),
+                        tags=tags,
+                        source=source,
+                        created_by=created_by,
+                        last_updated_by=created_by,
+                    )
+
+                    sql_record = SqlEvaluationDatasetRecord.from_mlflow_entity(record, input_hash)
+                    session.add(sql_record)
+                    inserted_count += 1
+
+            dataset_info = (
+                session.query(SqlEvaluationDataset.schema, SqlEvaluationDataset.name)
+                .filter(SqlEvaluationDataset.dataset_id == dataset_id)
+                .first()
+            )
+
+            if dataset_info:
+                existing_schema = dataset_info[0]
+                dataset_name = dataset_info[1]
+            else:
+                existing_schema = None
+                dataset_name = None
+
+            updated_schema = self._update_dataset_schema(existing_schema, records)
+
+            updated_profile = self._compute_dataset_profile(session, dataset_id)
+
+            new_digest = self._compute_dataset_digest(dataset_name, current_time)
+
+            update_fields = {
+                "last_update_time": current_time,
+                "last_updated_by": updated_by,
+                "digest": new_digest,
+            }
+
+            if updated_schema:
+                update_fields["schema"] = json.dumps(updated_schema)
+
+            if updated_profile:
+                update_fields["profile"] = json.dumps(updated_profile)
+
+            session.query(SqlEvaluationDataset).filter(
+                SqlEvaluationDataset.dataset_id == dataset_id
+            ).update(update_fields)
+
+            return {"inserted": inserted_count, "updated": updated_count}
+
+    def get_dataset_experiment_ids(self, dataset_id: str) -> list[str]:
+        """
+        Get experiment IDs associated with an evaluation dataset.
+        This method is used for lazy loading of experiment_ids in the EvaluationDataset entity.
+
+        Args:
+            dataset_id: The ID of the dataset.
+
+        Returns:
+            List of experiment IDs associated with the dataset.
+        """
+        experiment_ids = self.search_entities_by_source(
+            source_ids=dataset_id,
+            source_type=EntityAssociationType.EVALUATION_DATASET,
+            destination_type=EntityAssociationType.EXPERIMENT,
+        )
+
+        return experiment_ids.to_list()
+
+    def set_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
+        """
+        Update tags for an evaluation dataset.
+        This implements an upsert operation - existing tags are merged with new tags.
+
+        Args:
+            dataset_id: The ID of the dataset to update.
+            tags: Dictionary of tags to update.
+
+        Raises:
+            MlflowException: If the dataset doesn't exist.
+        """
+        with self.ManagedSessionMaker() as session:
+            # NB: Checking that the dataset exists within this API avoids
+            # very confusing error messages regarding foreign key constraint
+            # violations that are different for various RDBMS backends and
+            # a generic error message regarding existence of a dependent key.
+            # Use .first() instead of .exists() for MSSQL compatibility
+            dataset = session.query(SqlEvaluationDataset).filter_by(dataset_id=dataset_id).first()
+
+            if not dataset:
+                raise MlflowException(
+                    f"Could not find evaluation dataset with ID {dataset_id}",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            for key, value in tags.items():
+                if value is not None:
+                    existing_tag = (
+                        session.query(SqlEvaluationDatasetTag)
+                        .filter_by(dataset_id=dataset_id, key=key)
+                        .first()
+                    )
+                    if existing_tag:
+                        existing_tag.value = str(value)
+                    else:
+                        new_tag = SqlEvaluationDatasetTag(
+                            dataset_id=dataset_id,
+                            key=key,
+                            value=str(value),
+                        )
+                        session.add(new_tag)
+
+    #######################################################################################
     # Below are legacy V2 Tracing APIs. DO NOT USE. Use the V3 APIs instead.
     #######################################################################################
     def deprecated_start_trace_v2(
@@ -3447,6 +4166,116 @@ class SqlAlchemyStore(AbstractStore):
             for k, v in tags.items():
                 session.merge(SqlTraceTag(request_id=request_id, key=k, value=v))
             return TraceInfoV2.from_v3(sql_trace_info.to_mlflow_entity())
+
+    def add_dataset_to_experiments(
+        self, dataset_id: str, experiment_ids: list[str]
+    ) -> EvaluationDataset:
+        """
+        Add a dataset to additional experiments.
+        """
+        from mlflow.entities.entity_type import EntityAssociationType
+
+        with self.ManagedSessionMaker() as session:
+            dataset = session.query(SqlEvaluationDataset).filter_by(dataset_id=dataset_id).first()
+            if not dataset:
+                raise MlflowException(
+                    f"Dataset '{dataset_id}' not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            for exp_id in experiment_ids:
+                if not session.query(SqlExperiment).filter_by(experiment_id=str(exp_id)).first():
+                    raise MlflowException(
+                        f"Experiment '{exp_id}' not found",
+                        error_code=RESOURCE_DOES_NOT_EXIST,
+                    )
+
+            existing_associations = (
+                session.query(SqlEntityAssociation)
+                .filter(
+                    SqlEntityAssociation.source_id == dataset_id,
+                    SqlEntityAssociation.source_type == EntityAssociationType.EVALUATION_DATASET,
+                    SqlEntityAssociation.destination_id.in_(
+                        [str(exp_id) for exp_id in experiment_ids]
+                    ),
+                    SqlEntityAssociation.destination_type == EntityAssociationType.EXPERIMENT,
+                )
+                .all()
+            )
+
+            existing_exp_ids = {assoc.destination_id for assoc in existing_associations}
+
+            new_associations = []
+            for exp_id in experiment_ids:
+                if str(exp_id) not in existing_exp_ids:
+                    new_associations.append(
+                        SqlEntityAssociation(
+                            association_id=uuid.uuid4().hex,
+                            source_id=dataset_id,
+                            source_type=EntityAssociationType.EVALUATION_DATASET,
+                            destination_id=str(exp_id),
+                            destination_type=EntityAssociationType.EXPERIMENT,
+                        )
+                    )
+
+            if new_associations:
+                session.bulk_save_objects(new_associations)
+
+            dataset.last_update_time = get_current_time_millis()
+            session.commit()
+
+            return dataset.to_mlflow_entity()
+
+    def remove_dataset_from_experiments(
+        self, dataset_id: str, experiment_ids: list[str]
+    ) -> EvaluationDataset:
+        """
+        Remove a dataset from experiments (idempotent).
+        """
+        from mlflow.entities.entity_type import EntityAssociationType
+
+        with self.ManagedSessionMaker() as session:
+            dataset = session.query(SqlEvaluationDataset).filter_by(dataset_id=dataset_id).first()
+            if not dataset:
+                raise MlflowException(
+                    f"Dataset '{dataset_id}' not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            existing_associations = (
+                session.query(SqlEntityAssociation)
+                .filter(
+                    SqlEntityAssociation.source_id == dataset_id,
+                    SqlEntityAssociation.source_type == EntityAssociationType.EVALUATION_DATASET,
+                    SqlEntityAssociation.destination_id.in_(
+                        [str(exp_id) for exp_id in experiment_ids]
+                    ),
+                    SqlEntityAssociation.destination_type == EntityAssociationType.EXPERIMENT,
+                )
+                .all()
+            )
+
+            existing_exp_ids = {assoc.destination_id for assoc in existing_associations}
+
+            for exp_id in experiment_ids:
+                if str(exp_id) not in existing_exp_ids:
+                    _logger.warning(
+                        f"Dataset '{dataset_id}' was not associated with experiment '{exp_id}'"
+                    )
+
+            if existing_exp_ids:
+                session.query(SqlEntityAssociation).filter(
+                    SqlEntityAssociation.source_id == dataset_id,
+                    SqlEntityAssociation.source_type == EntityAssociationType.EVALUATION_DATASET,
+                    SqlEntityAssociation.destination_id.in_(list(existing_exp_ids)),
+                    SqlEntityAssociation.destination_type == EntityAssociationType.EXPERIMENT,
+                ).delete(synchronize_session=False)
+
+                dataset.last_update_time = get_current_time_millis()
+
+            session.commit()
+
+            return dataset.to_mlflow_entity()
 
 
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
@@ -3820,3 +4649,79 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
             )
 
     return attribute_filters, non_attribute_filters, span_filters, run_id_filter
+
+
+def _get_search_datasets_filter_clauses(parsed_filters, dialect):
+    """
+    Creates evaluation dataset attribute filters and non-attribute filters for tags.
+    """
+    attribute_filters = []
+    non_attribute_filters = []
+
+    for f in parsed_filters:
+        type_ = f["type"]
+        key = f["key"]
+        comparator = f["comparator"]
+        value = f["value"]
+
+        if type_ == "attribute":
+            if SearchEvaluationDatasetsUtils.is_string_attribute(
+                type_, key, comparator
+            ) and comparator not in ("=", "!=", "LIKE", "ILIKE"):
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid comparator for string attribute: {comparator}"
+                )
+            if SearchEvaluationDatasetsUtils.is_numeric_attribute(
+                type_, key, comparator
+            ) and comparator not in ("=", "!=", "<", "<=", ">", ">="):
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid comparator for numeric attribute: {comparator}"
+                )
+            attr = getattr(SqlEvaluationDataset, key)
+            attr_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
+            attribute_filters.append(attr_filter)
+        elif type_ == "tag":
+            if comparator not in ("=", "!=", "LIKE", "ILIKE"):
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid comparator for tag: {comparator}"
+                )
+            val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
+                SqlEvaluationDatasetTag.value, value
+            )
+            key_filter = SearchUtils.get_sql_comparison_func("=", dialect)(
+                SqlEvaluationDatasetTag.key, key
+            )
+            non_attribute_filters.append(
+                select(SqlEvaluationDatasetTag).filter(key_filter, val_filter).subquery()
+            )
+        else:
+            raise MlflowException.invalid_parameter_value(f"Invalid token type: {type_}")
+
+    return attribute_filters, non_attribute_filters
+
+
+def _get_search_datasets_order_by_clauses(order_by):
+    """
+    Creates order by clauses for searching evaluation datasets.
+    """
+    if not order_by:
+        order_by = ["created_time DESC"]
+
+    order_by_clauses = []
+
+    for order in order_by:
+        type_, key, ascending = (
+            SearchEvaluationDatasetsUtils.parse_order_by_for_search_evaluation_datasets(order)
+        )
+        if type_ == "attribute":
+            field = key
+        else:
+            raise MlflowException.invalid_parameter_value(f"Invalid order_by entity: {type_}")
+
+        order_by_clauses.append((getattr(SqlEvaluationDataset, field), ascending))
+
+    # Add a tie-breaker
+    if not any(col == SqlEvaluationDataset.dataset_id for col, _ in order_by_clauses):
+        order_by_clauses.append((SqlEvaluationDataset.dataset_id, False))
+
+    return [col.asc() if ascending else col.desc() for col, ascending in order_by_clauses]

@@ -40,22 +40,25 @@ import { ModelTraceExplorerIcon } from './ModelTraceExplorerIcon';
 import {
   normalizeAnthropicChatInput,
   normalizeAnthropicChatOutput,
+  normalizeAutogenChatInput,
+  normalizeAutogenChatOutput,
+  normalizeBedrockChatInput,
+  normalizeBedrockChatOutput,
   normalizeGeminiChatInput,
   normalizeGeminiChatOutput,
   normalizeOpenAIChatInput,
   normalizeOpenAIChatResponse,
   normalizeOpenAIResponsesInput,
   normalizeOpenAIResponsesOutput,
+  normalizeOpenAIAgentInput,
+  normalizeOpenAIAgentOutput,
   normalizeLangchainChatInput,
   normalizeLangchainChatResult,
+  normalizeLlamaIndexChatInput,
   normalizeLlamaIndexChatResponse,
   normalizeDspyChatInput,
   normalizeDspyChatOutput,
 } from './chat-utils';
-import { normalizeLlamaIndexChatInput } from './chat-utils/llamaindex';
-import { normalizeOpenAIAgentInput, normalizeOpenAIAgentOutput } from './chat-utils/openai';
-import { normalizeAutogenChatInput, normalizeAutogenChatOutput } from './chat-utils/autogen';
-import { normalizeBedrockChatInput, normalizeBedrockChatOutput } from './chat-utils/bedrock';
 
 export const FETCH_TRACE_INFO_QUERY_KEY = 'model-trace-info-v3';
 
@@ -333,7 +336,7 @@ const getChatMessagesFromSpan = (
   messagesAttributeValue: any,
   inputs: any,
   outputs: any,
-  spanAttributes?: Record<string, any>,
+  messageFormat?: string,
 ): ModelTraceChatMessage[] | undefined => {
   // if the `mlflow.chat.messages` attribute is provided
   // and in the correct format, return it as-is
@@ -345,9 +348,8 @@ const getChatMessagesFromSpan = (
   // otherwise, attempt to parse messages from inputs and outputs
   // this is to support rich rendering for older versions of MLflow
   // before the `mlflow.chat.messages` attribute was introduced
-  const messagesFromInputs = normalizeConversation(inputs, spanAttributes?.['mlflow.message.format']) ?? [];
-  const messagesFromOutputs = normalizeConversation(outputs, spanAttributes?.['mlflow.message.format']) ?? [];
-
+  const messagesFromInputs = normalizeConversation(inputs, messageFormat) ?? [];
+  const messagesFromOutputs = normalizeConversation(outputs, messageFormat) ?? [];
   // when either input or output is not chat messages, we do not set the chat message fiels.
   if (messagesFromInputs.length === 0 || messagesFromOutputs.length === 0) {
     return undefined;
@@ -396,8 +398,7 @@ export const normalizeNewSpanData = (
   // data that powers the "chat" tab
   const messagesAttributeValue = tryDeserializeAttribute(span.attributes?.['mlflow.chat.messages']);
   const messageFormat = tryDeserializeAttribute(span.attributes?.['mlflow.message.format']);
-  const spanAttributesForChat = messageFormat ? { 'mlflow.message.format': messageFormat } : undefined;
-  const chatMessages = getChatMessagesFromSpan(messagesAttributeValue, inputs, outputs, spanAttributesForChat);
+  const chatMessages = getChatMessagesFromSpan(messagesAttributeValue, inputs, outputs, messageFormat);
   const chatTools = getChatToolsFromSpan(tryDeserializeAttribute(span.attributes?.['mlflow.chat.tools']), inputs);
 
   // remove other private mlflow attributes
@@ -447,7 +448,11 @@ const base64ToHex = (base64: string): string => {
 };
 
 // mlflow span ids are meant to be interpreted as hex strings
-export const decodeSpanId = (spanId: string, isV3Span: boolean): string => {
+export const decodeSpanId = (spanId: string | null | undefined, isV3Span: boolean): string => {
+  if (!spanId) {
+    return '';
+  }
+
   if (isV3Span) {
     // v3 span ids are base64 encoded
     try {
@@ -480,7 +485,9 @@ export function isV2ModelTraceSpan(span: ModelTraceSpan): span is ModelTraceSpan
 }
 
 export function getModelTraceSpanId(span: ModelTraceSpan): string {
-  return isV3ModelTraceSpan(span) ? decodeSpanId(span.span_id, true) : decodeSpanId(span.context?.span_id ?? '', false);
+  return isV3ModelTraceSpan(span)
+    ? decodeSpanId(span.span_id ?? '', true)
+    : decodeSpanId(span.context?.span_id ?? '', false);
 }
 
 export function getModelTraceSpanParentId(span: ModelTraceSpan): string {
@@ -499,6 +506,16 @@ export function getModelTraceSpanEndTime(span: ModelTraceSpan): number {
 
 export function getModelTraceId(trace: ModelTrace): string {
   return isV3ModelTraceInfo(trace.info) ? trace.info.trace_id : trace.info.request_id ?? '';
+}
+
+// get the size of the trace in bytes, or null if the size is not available
+export function getModelTraceSize(trace: ModelTrace): number | null {
+  if (!isV3ModelTraceInfo(trace.info)) {
+    return null;
+  }
+
+  const size = Number(trace.info?.trace_metadata?.['mlflow.trace.sizeBytes']);
+  return !isNil(size) && !isNaN(size) ? size : null;
 }
 
 export function parseModelTraceToTree(trace: ModelTrace): ModelTraceSpanNode | null {
@@ -887,8 +904,6 @@ export const isModelTraceChatResponse = (obj: any): obj is ModelTraceChatRespons
 
 /**
  * Attempt to normalize a conversation, return null in case the format is unrecognized
- * TODO: move all chat parsing logic to the chat-utils folder to avoid cluttering this
- * utils file.
  *
  * Supported formats:
  *   1. Langchain chat inputs
@@ -904,6 +919,12 @@ export const isModelTraceChatResponse = (obj: any): obj is ModelTraceChatRespons
  *  10. Gemini outputs
  *  11. Anthropic inputs
  *  12. Anthropic outputs
+ *  13. OpenAI Agent inputs
+ *  14. OpenAI Agent outputs
+ *  15. Autogen inputs
+ *  16. Autogen outputs
+ *  17. Bedrock inputs
+ *  18. Bedrock outputs
  */
 export const normalizeConversation = (input: any, messageFormat?: string): ModelTraceChatMessage[] | null => {
   // wrap in try/catch to avoid crashing the UI. we're doing a lot of type coercion
@@ -962,7 +983,6 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
         if (chatMessages) return chatMessages;
         break;
     }
-
     return null;
   } catch (e) {
     return null;
@@ -1027,4 +1047,23 @@ export const prettyPrintChatMessage = (message: RawModelTraceChatMessage): Model
     content: formatChatContent(message.content),
     tool_calls: message.tool_calls?.map(prettyPrintToolCall),
   };
+};
+
+export const getDefaultActiveTab = (
+  selectedNode: ModelTraceSpanNode | undefined,
+): 'chat' | 'content' | 'attributes' | 'events' => {
+  if (isNil(selectedNode)) {
+    return 'content';
+  }
+
+  if (selectedNode.chatMessages) {
+    return 'chat';
+  }
+
+  const hasInputsOrOutputs = !isNil(selectedNode.inputs) || !isNil(selectedNode.outputs);
+  if (hasInputsOrOutputs) {
+    return 'content';
+  }
+
+  return 'attributes';
 };

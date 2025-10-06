@@ -1,10 +1,12 @@
+import bisect
 import json
 from abc import ABCMeta, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from mlflow.entities import (
     Assessment,
     DatasetInput,
+    DatasetRecord,
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
@@ -13,15 +15,22 @@ from mlflow.entities import (
     LoggedModelTag,
     ViewType,
 )
+
+if TYPE_CHECKING:
+    from mlflow.entities import EvaluationDataset
 from mlflow.entities.metric import MetricWithRunId
 from mlflow.entities.trace import Span
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
+from mlflow.store.tracking import (
+    MAX_RESULTS_GET_METRIC_HISTORY,
+    SEARCH_MAX_RESULTS_DEFAULT,
+    SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+)
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.utils import mlflow_tags
-from mlflow.utils.annotations import developer_stable
+from mlflow.utils.annotations import developer_stable, requires_sql_backend
 from mlflow.utils.async_logging.async_logging_queue import AsyncLoggingQueue
 from mlflow.utils.async_logging.run_operations import RunOperations
 
@@ -618,6 +627,82 @@ class AbstractStore:
             for metric in metrics_for_run
         ]
 
+    def get_metric_history_bulk_interval(
+        self, run_ids: list[str], metric_key: str, max_results: int, start_step: int, end_step: int
+    ) -> list[MetricWithRunId]:
+        """
+        Return a list of metric objects for a given metric across multiple runs,
+        sampled within a specified step range.
+
+        This method collects metric history from multiple runs, samples the steps
+        to limit the result size, and returns metrics for the sampled steps. The
+        sampling preserves min/max steps to maintain data boundaries.
+
+        Args:
+            run_ids: List of unique identifiers for runs.
+            metric_key: Metric name to retrieve across runs.
+            max_results: Maximum number of steps to sample from the step range.
+            start_step: Starting step of the range (inclusive). If None, starts from 0.
+            end_step: Ending step of the range (inclusive). If None, uses the maximum
+                step found across all runs.
+
+        Returns:
+            A list of `MetricWithRunId` objects containing metric data for the sampled
+            steps across all specified runs.
+        """
+
+        # get a list of all steps for all runs. this is necessary
+        # because we can't assume that every step was logged, so
+        # sampling needs to be done on the steps that actually exist
+        all_runs = [
+            [m.step for m in self.get_metric_history(run_id, metric_key)] for run_id in run_ids
+        ]
+
+        # save mins and maxes to be added back later
+        all_mins_and_maxes = {step for run in all_runs if run for step in [min(run), max(run)]}
+        all_steps = sorted({step for sublist in all_runs for step in sublist})
+
+        # init start and end step if not provided in args
+        if start_step is None and end_step is None:
+            start_step = 0
+            end_step = all_steps[-1] if all_steps else 0
+
+        # remove any steps outside of the range
+        all_mins_and_maxes = {step for step in all_mins_and_maxes if start_step <= step <= end_step}
+
+        # doing extra iterations here shouldn't badly affect performance,
+        # since the number of steps at this point should be relatively small
+        # (MAX_RESULTS_PER_RUN + len(all_mins_and_maxes))
+
+        start_idx = bisect.bisect_left(all_steps, start_step)
+        end_idx = bisect.bisect_right(all_steps, end_step)
+        if end_idx - start_idx <= max_results:
+            sampled_steps = set(all_steps[start_idx:end_idx])
+        else:
+            num_steps = end_idx - start_idx
+            interval = num_steps / max_results
+            sampled_steps = set()
+
+            for i in range(0, max_results):
+                idx = start_idx + int(i * interval)
+                if idx < end_idx:
+                    sampled_steps.add(all_steps[idx])
+
+            sampled_steps.add(all_steps[end_idx - 1])
+
+        steps = sorted(sampled_steps.union(all_mins_and_maxes))
+        metrics_with_run_ids = []
+        for run_id in run_ids:
+            metrics_with_run_ids.extend(
+                self.get_metric_history_bulk_interval_from_steps(
+                    run_id=run_id,
+                    metric_key=metric_key,
+                    steps=steps,
+                    max_results=MAX_RESULTS_GET_METRIC_HISTORY,
+                )
+            )
+        return metrics_with_run_ids
+
     def search_runs(
         self,
         experiment_ids,
@@ -925,6 +1010,196 @@ class AbstractStore:
 
         Args:
             model_id: ID of the model to delete.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def create_dataset(
+        self,
+        name: str,
+        tags: dict[str, str] | None = None,
+        experiment_ids: list[str] | None = None,
+    ) -> "EvaluationDataset":
+        """
+        Create a new evaluation dataset.
+
+        Args:
+            name: The name of the evaluation dataset.
+            tags: Optional tags to associate with the dataset.
+            experiment_ids: List of experiment IDs to associate with the dataset.
+
+        Returns:
+            The created evaluation dataset with populated metadata.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def get_dataset(self, dataset_id: str) -> "EvaluationDataset":
+        """
+        Get an evaluation dataset by ID.
+
+        Args:
+            dataset_id: The ID of the dataset to retrieve.
+
+        Returns:
+            The evaluation dataset object.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def delete_dataset(self, dataset_id: str) -> None:
+        """
+        Delete a dataset and all its records.
+
+        Args:
+            dataset_id: The ID of the dataset to delete.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def search_datasets(
+        self,
+        experiment_ids: list[str] | None = None,
+        filter_string: str | None = None,
+        max_results: int = 1000,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+    ) -> PagedList["EvaluationDataset"]:
+        """
+        Search for evaluation datasets.
+
+        Args:
+            experiment_ids: List of experiment IDs to filter by.
+            filter_string: Filter string for dataset names.
+            max_results: Maximum number of results to return.
+            order_by: Ordering criteria.
+            page_token: Token for retrieving the next page of results.
+
+        Returns:
+            A PagedList of evaluation datasets.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def upsert_dataset_records(
+        self,
+        dataset_id: str,
+        records: list[dict[str, Any]],
+    ) -> dict[str, int]:
+        """
+        Upsert records into an evaluation dataset.
+
+        Args:
+            dataset_id: The ID of the dataset to update.
+            records: List of record dictionaries to upsert.
+
+        Returns:
+            Dictionary with 'inserted' and 'updated' counts.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def set_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
+        """
+        Set tags for an evaluation dataset.
+
+        This implements an upsert operation - existing tags are merged with new tags.
+
+        Args:
+            dataset_id: The ID of the dataset to update.
+            tags: Dictionary of tags to update.
+
+        Raises:
+            MlflowException: If dataset not found or invalid parameters.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def delete_dataset_tag(self, dataset_id: str, key: str) -> None:
+        """
+        Delete a tag from an evaluation dataset.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            key: The tag key to delete.
+
+        Raises:
+            MlflowException: If dataset not found.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def get_dataset_experiment_ids(self, dataset_id: str) -> list[str]:
+        """
+        Get experiment IDs associated with an evaluation dataset.
+
+        This method is used for lazy loading of experiment_ids in the EvaluationDataset entity.
+
+        Args:
+            dataset_id: The ID of the dataset.
+
+        Returns:
+            List of experiment IDs associated with the dataset.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def _load_dataset_records(
+        self,
+        dataset_id: str,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> tuple[list[DatasetRecord], str | None]:
+        """
+        Load dataset records with pagination support.
+
+        This method is used by handlers and for lazy loading of records in the
+        EvaluationDataset entity.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            max_results: Maximum number of records to return. If None, returns all records.
+            page_token: Token for pagination. If None, starts from the beginning.
+
+        Returns:
+            Tuple of (list of DatasetRecord objects, next_page_token).
+            next_page_token is None if there are no more records.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def add_dataset_to_experiments(
+        self, dataset_id: str, experiment_ids: list[str]
+    ) -> "EvaluationDataset":
+        """
+        Add a dataset to additional experiments.
+
+        Args:
+            dataset_id: The ID of the dataset to update
+            experiment_ids: List of experiment IDs to associate with the dataset
+
+        Returns:
+            The updated EvaluationDataset
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def remove_dataset_from_experiments(
+        self, dataset_id: str, experiment_ids: list[str]
+    ) -> "EvaluationDataset":
+        """
+        Remove a dataset from experiments.
+
+        Args:
+            dataset_id: The ID of the dataset to update
+            experiment_ids: List of experiment IDs to disassociate from the dataset
+
+        Returns:
+            The updated EvaluationDataset
+
+        Note:
+            This operation is idempotent - removing non-existent associations
+            will not raise an error.
         """
         raise NotImplementedError(self.__class__.__name__)
 

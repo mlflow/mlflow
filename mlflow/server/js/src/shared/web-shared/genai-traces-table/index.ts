@@ -26,6 +26,7 @@ export {
   useSearchMlflowTraces,
   useMlflowTracesTableMetadata,
   invalidateMlflowSearchTracesCache,
+  SEARCH_MLFLOW_TRACES_QUERY_KEY,
 } from './hooks/useMlflowTraces';
 export { getEvalTabTotalTracesLimit } from './utils/FeatureUtils';
 export { GenAITracesTableToolbar } from './GenAITracesTableToolbar';
@@ -65,7 +66,12 @@ export {
   RUN_EVALUATION_RESULTS_TAB_SINGLE_RUN,
 } from './utils/EvaluationLogging';
 
-export { getTracesTagKeys } from './utils/TraceUtils';
+export {
+  getTracesTagKeys,
+  getTraceInfoInputs,
+  getTraceInfoOutputs,
+  convertTraceInfoV3ToRunEvalEntry,
+} from './utils/TraceUtils';
 
 export {
   REQUEST_TIME_COLUMN_ID,
@@ -74,6 +80,7 @@ export {
   TAGS_COLUMN_ID,
   RESPONSE_COLUMN_ID,
   TOKENS_COLUMN_ID,
+  TRACE_ID_COLUMN_ID,
 } from './hooks/useTableColumns';
 
 // Test utilities

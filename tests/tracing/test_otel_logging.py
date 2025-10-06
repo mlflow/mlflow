@@ -5,7 +5,10 @@ This test suite verifies that the experiment ID header functionality works corre
 when using OpenTelemetry clients to send spans to MLflow's OTel endpoint.
 """
 
+import shutil
 import time
+from pathlib import Path
+from typing import Iterator
 
 import pytest
 import requests
@@ -22,24 +25,48 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.util._once import Once
 
 import mlflow
+from mlflow.server import handlers
+from mlflow.server.fastapi_app import app as mlflow_app
+from mlflow.server.handlers import initialize_backend_stores
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.utils import encode_trace_id
 from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER
 from mlflow.version import IS_TRACING_SDK_ONLY
 
-from tests.tracking.integration_test_utils import _init_server
+from tests.helper_functions import get_safe_port
+from tests.store.tracking.test_sqlalchemy_store import ARTIFACT_URI
+from tests.tracking.integration_test_utils import ServerThread
 
 if IS_TRACING_SDK_ONLY:
     pytest.skip("OTel endpoint tests require full MLflow server", allow_module_level=True)
 
 
+@pytest.fixture(scope="module")
+def cached_db(tmp_path_factory) -> Path:
+    """Creates and caches a SQLite database to avoid repeated migrations for each test run."""
+    tmp_path = tmp_path_factory.mktemp("sqlite_db")
+    db_path = tmp_path / "mlflow.db"
+    db_uri = f"sqlite:///{db_path}"
+    store = SqlAlchemyStore(db_uri, ARTIFACT_URI)
+    store.engine.dispose()
+    return db_path
+
+
 @pytest.fixture
-def mlflow_server(tmp_path):
-    """Fixture to provide a running MLflow server with FastAPI that includes OTel routes."""
-    backend_store_uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
+def mlflow_server(tmp_path: Path, cached_db: Path) -> Iterator[str]:
+    # Copy the pre-initialized cached DB into this test's tmp path
+    db_path = tmp_path / "mlflow.db"
+    shutil.copy(cached_db, db_path)
+
+    backend_store_uri = f"sqlite:///{db_path}"
     artifact_root = tmp_path.as_uri()
 
-    # Use _init_server with FastAPI (which is now the default)
-    with _init_server(backend_store_uri, artifact_root) as url:
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    initialize_backend_stores(backend_store_uri, default_artifact_root=artifact_root)
+
+    # Start the FastAPI app in a background thread and yield its URL.
+    with ServerThread(mlflow_app, get_safe_port()) as url:
         yield url
 
 
@@ -100,10 +127,6 @@ def test_otel_client_sends_spans_to_mlflow_database(mlflow_server: str, monkeypa
         # Verify the span was actually created and has valid context
         assert span.get_span_context().is_valid, "Span context is not valid"
         assert otel_trace_id != 0, "Trace ID is zero"
-
-    # SimpleSpanProcessor sends spans immediately, so no need to flush
-    # But we still shutdown to ensure cleanup
-    span_processor.shutdown()
 
     # Add a small delay to ensure the server has processed the spans
     time.sleep(0.5)
@@ -296,3 +319,20 @@ def test_invalid_content_type_returns_400(mlflow_server: str):
 
     assert response.status_code == 400
     assert "Invalid Content-Type" in response.text
+
+
+def test_empty_resource_spans_returns_400(mlflow_server: str):
+    request = ExportTraceServiceRequest()
+
+    response = requests.post(
+        f"{mlflow_server}/v1/traces",
+        data=request.SerializeToString(),
+        headers={
+            "Content-Type": "application/x-protobuf",
+            MLFLOW_EXPERIMENT_ID_HEADER: "test-experiment",
+        },
+        timeout=10,
+    )
+
+    assert response.status_code == 400
+    assert "no spans found" in response.text

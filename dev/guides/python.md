@@ -2,20 +2,20 @@
 
 This guide documents Python coding conventions that go beyond what [ruff](https://docs.astral.sh/ruff/) and [clint](../../dev/clint/) can enforce. The practices below require human judgment to implement correctly and improve code readability, maintainability, and testability across the MLflow codebase.
 
-## Avoid Redundant Test Docstrings
+## Avoid Redundant Docstrings
 
-Omit docstrings that merely echo the function name without adding value. Test names should be self-documenting.
+Omit docstrings that merely repeat the function name or provide no additional value. Function names should be self-documenting.
 
 ```python
 # Bad
-def test_foo():
-    """Test foo"""
-    ...
+def calculate_sum(a: int, b: int) -> int:
+    """Calculate sum"""
+    return a + b
 
 
 # Good
-def test_foo():
-    ...
+def calculate_sum(a: int, b: int) -> int:
+    return a + b
 ```
 
 ## Use Type Hints for All Functions
@@ -31,6 +31,67 @@ def foo(s):
 # Good
 def foo(s: str) -> int:
     return len(s)
+```
+
+### Exceptions
+
+**Test functions:** The `-> None` return type can be omitted for test functions since they implicitly return `None` and the return value is not used. However, **parameter type hints are still required** for all test function parameters.
+
+```python
+# Good - has parameter type hints but no return type hint
+def test_foo(s: str):
+    ...
+
+
+# Good - has both parameter and return type hints
+def test_foo(s: str) -> None:
+    ...
+
+
+# Bad - missing parameter type hints
+def test_foo(s):
+    ...
+```
+
+**`__init__` methods:** The `-> None` return type can be omitted for `__init__` methods since they always return `None` by definition.
+
+```python
+# Acceptable
+class Foo:
+    def __init__(self, s: str):
+        ...
+
+
+# Also acceptable (but not required)
+class Foo:
+    def __init__(self, s: str) -> None:
+        ...
+```
+
+### Prefer `typing.Literal` for Fixed-String Parameters
+
+When a parameter only accepts a fixed set of string values, use `typing.Literal` instead of a plain `str` type hint. This improves type-checking, enables IDE autocompletion, and documents allowed values at the type level.
+
+```python
+# Bad
+def f(app: str) -> None:
+    """
+    Args:
+        app: Application type. Either "fastapi" or "flask".
+    """
+    ...
+
+
+# Good
+from typing import Literal
+
+
+def f(app: Literal["fastapi", "flask"]) -> None:
+    """
+    Args:
+        app: Application type. Either "fastapi" or "flask".
+    """
+    ...
 ```
 
 ## Minimize Try-Catch Block Scope
@@ -76,6 +137,88 @@ class User:
 
 def get_user() -> User:
     return User(name="Alice", age=30, occupation="Engineer")
+```
+
+## Use `pathlib` Methods Instead of `os` Module Functions
+
+When you have a `pathlib.Path` object, use its built-in methods instead of `os` module functions. This is more readable, type-safe, and follows object-oriented principles.
+
+```python
+from pathlib import Path
+
+path = Path("some/file.txt")
+
+# Bad
+import os
+
+os.path.exists(path)
+os.remove(path)
+
+# Good
+path.exists()
+path.unlink()
+```
+
+## Pass `pathlib.Path` Objects Directly to `subprocess`
+
+Avoid converting `pathlib.Path` objects to strings when passing them to `subprocess` functions. Modern Python (3.8+) accepts Path objects directly, making the code cleaner and more type-safe.
+
+```python
+import subprocess
+from pathlib import Path
+
+path = Path("some/script.py")
+
+# Bad
+subprocess.check_call(["foo", "bar", str(path)])
+
+# Good
+subprocess.check_call(["foo", "bar", path])
+```
+
+## Use next() to Find First Match Instead of Loop-and-Break
+
+Use the `next()` builtin function with a generator expression to find the first item that matches a condition. This is more concise and functional than manually looping with break statements.
+
+```python
+# Bad
+result = None
+for item in items:
+    if item.name == "target":
+        result = item
+        break
+
+# Good
+result = next((item for item in items if item.name == "target"), None)
+```
+
+## Use Pattern Matching for String Splitting
+
+When splitting strings into a fixed number of parts, use pattern matching instead of direct unpacking or verbose length checks. Pattern matching provides concise, safe extraction that clearly handles both expected and unexpected cases.
+
+```python
+# Bad: unsafe
+a, b = some_str.split(".")
+
+# Bad: safe but verbose
+if some_str.count(".") == 1:
+    a, b = some_str.split(".")
+else:
+    raise ValueError(f"Invalid format: {some_str!r}")
+
+# Bad: safe but verbose
+splits = some_str.split(".")
+if len(splits) == 2:
+    a, b = splits
+else:
+    raise ValueError(f"Invalid format: {some_str!r}")
+
+# Good
+match some_str.split("."):
+    case [a, b]:
+        ...
+    case _:
+        raise ValueError(f"Invalid format: {some_str!r}")
 ```
 
 ## Always Verify Mock Calls with Assertions
@@ -125,6 +268,34 @@ def test_foo():
 
     with mock.patch("foo.bar", side_effect=Exception("Error")) as mock_bar:
         calls_bar()
+```
+
+## Prefer `unittest.mock.patch` as a Context Manager
+
+`unittest.mock.patch` should be used as a **context manager** rather than as a decorator, unless the patch must stay active for the entire test (which is unlikely in most cases). Using a context manager avoids patches being active longer than needed and makes it clear which code depends on them.
+
+```python
+from unittest import mock
+
+
+# Bad
+@mock.patch("foo.bar")
+def test_bar(mock_bar):
+    result1 = foo.bar()  # bar is patched here
+    result2 = foo.baz()  # baz depends on real bar, but bar is still patched!
+    assert result1 == "ok"
+    assert result2 == "baz"
+    # bar stays patched even after we're done using it
+
+
+# Good
+def test_bar():
+    with mock.patch("foo.bar") as mock_bar:
+        result1 = foo.bar()  # bar is patched only in this block
+    result2 = foo.baz()  # baz now uses the real bar
+    assert result1 == "ok"
+    assert result2 == "baz"
+    # outside patch, everything back to normal
 ```
 
 ## Use Pytest's Monkeypatch for Directory Changes
@@ -177,17 +348,52 @@ def test_foo(input: str, expected: int):
 
 ## Use Pytest's Monkeypatch for Mocking Environment Variables
 
-Use `monkeypatch.setenv()` instead of `mock.patch.dict()` for environment variables. Pytest's monkeypatch fixture automatically restores the original environment after the test, providing cleaner and more reliable test isolation.
+Use `monkeypatch.setenv()` and `monkeypatch.delenv()` instead of `mock.patch.dict()` for environment variables. Pytest's monkeypatch fixture automatically restores the original environment after the test, providing cleaner and more reliable test isolation.
 
 ```python
-# Bad
+# Bad - Setting environment variables
 def test_foo():
     with mock.patch.dict("os.environ", {"FOO": "True"}):
         ...
 
 
-# Good
+# Bad - Removing environment variables
+def test_bar():
+    with mock.patch.dict("os.environ", {}, clear=True):
+        ...
+
+
+# Good - Setting environment variables
 def test_foo(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("FOO", "True")
+    ...
+
+
+# Good - Removing environment variables
+def test_bar(monkeypatch: pytest.MonkeyPatch):
+    # raising=False prevents KeyError if FOO doesn't exist
+    monkeypatch.delenv("FOO", raising=False)
+    ...
+```
+
+## Use Pytest's tmp_path Fixture for Temporary Files
+
+Use `tmp_path` fixture instead of manual `tempfile.TemporaryDirectory()` for handling temporary files and directories in tests. Pytest automatically cleans up the temporary directory after the test, provides better test isolation, and integrates seamlessly with pytest's fixture system.
+
+```python
+# Bad
+import tempfile
+
+
+def test_foo():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        ...
+
+
+# Good
+from pathlib import Path
+
+
+def test_foo(tmp_path: Path):
     ...
 ```

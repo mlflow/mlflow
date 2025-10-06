@@ -168,18 +168,6 @@ describe('ArtifactPage', () => {
     });
     expect(expectedActions).toHaveLength(3);
   });
-  test('should not poll for model versions if registry is disabled', () => {
-    jest.useFakeTimers();
-    const enabledSpy = jest.spyOn(Utils, 'isModelRegistryEnabled').mockImplementation(() => false);
-    expect(Utils.isModelRegistryEnabled()).toEqual(false);
-    getArtifactPageInstance().handleActiveNodeChange(true);
-    jest.advanceTimersByTime(POLL_INTERVAL * 3);
-    const expectedActions = minimalStore.getActions().filter((action: any) => {
-      return action.type === pending(SEARCH_MODEL_VERSIONS);
-    });
-    expect(expectedActions).toHaveLength(0);
-    enabledSpy.mockRestore();
-  });
   test('should not poll for model versions if active node is not directory', () => {
     jest.useFakeTimers();
     expect(getArtifactPageInstance().state.activeNodeIsDirectory).toEqual(false);

@@ -18,7 +18,9 @@ class UCVolumesArtifactRepository(DatabricksSdkArtifactRepository):
     Stores artifacts on UC Volumes using the Files REST API.
     """
 
-    def __init__(self, artifact_uri: str, tracking_uri: str | None = None) -> None:
+    def __init__(
+        self, artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
+    ) -> None:
         if not is_valid_uc_volumes_uri(artifact_uri):
             raise MlflowException(
                 message=(
@@ -28,10 +30,12 @@ class UCVolumesArtifactRepository(DatabricksSdkArtifactRepository):
                 error_code=INVALID_PARAMETER_VALUE,
             )
         uri = remove_databricks_profile_info_from_artifact_uri(artifact_uri)
-        super().__init__("/" + strip_scheme(uri).strip("/"), tracking_uri)
+        super().__init__("/" + strip_scheme(uri).strip("/"), tracking_uri, registry_uri)
 
 
-def uc_volume_artifact_repo_factory(artifact_uri: str, tracking_uri: str | None = None):
+def uc_volume_artifact_repo_factory(
+    artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
+):
     """
     Returns an ArtifactRepository subclass for storing artifacts on Volumes.
 
@@ -41,6 +45,7 @@ def uc_volume_artifact_repo_factory(artifact_uri: str, tracking_uri: str | None 
     Args:
         artifact_uri: Volume root artifact URI.
         tracking_uri: The tracking URI.
+        registry_uri: The registry URI.
 
     Returns:
         Subclass of ArtifactRepository capable of storing artifacts on DBFS.
@@ -71,4 +76,6 @@ def uc_volume_artifact_repo_factory(artifact_uri: str, tracking_uri: str | None 
         uri_without_profile = remove_databricks_profile_info_from_artifact_uri(artifact_uri)
         path = strip_scheme(uri_without_profile).lstrip("/")
         return LocalArtifactRepository(f"file:///{path}", tracking_uri=tracking_uri)
-    return UCVolumesArtifactRepository(artifact_uri, tracking_uri=tracking_uri)
+    return UCVolumesArtifactRepository(
+        artifact_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
+    )

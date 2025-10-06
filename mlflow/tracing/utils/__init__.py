@@ -5,19 +5,21 @@ import inspect
 import json
 import logging
 import uuid
-from collections import Counter
+from collections import Counter, defaultdict
 from contextlib import contextmanager
 from dataclasses import asdict, is_dataclass
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Generator
 
 from opentelemetry import trace as trace_api
+from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
 from packaging.version import Version
 
-from mlflow.exceptions import BAD_REQUEST, MlflowTracingException
+from mlflow.exceptions import BAD_REQUEST, MlflowException, MlflowTracingException
 from mlflow.tracing.constant import (
     ASSESSMENT_ID_PREFIX,
+    TRACE_ID_V4_PREFIX,
     TRACE_REQUEST_ID_PREFIX,
     SpanAttributeKey,
     TokenUsageKey,
@@ -219,23 +221,34 @@ def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
     has_usage_data = False
 
     span_id_to_spans = {span.span_id: span for span in spans}
-    for span in spans:
-        # Get usage attribute from span
-        if usage := span.get_attribute(SpanAttributeKey.CHAT_USAGE):
-            # If the parent span is also LLM/Chat span and has the token usage data,
-            # it tracks the same usage data by multiple flavors e.g. LangChain ChatOpenAI
-            # and OpenAI tracing. We should avoid double counting the usage data.
-            if (
-                span.parent_id
-                and (parent_span := span_id_to_spans.get(span.parent_id))
-                and parent_span.get_attribute(SpanAttributeKey.CHAT_USAGE)
-            ):
-                continue
+    children_map: defaultdict[str, list[LiveSpan]] = defaultdict(list)
+    roots: list[LiveSpan] = []
 
+    for span in spans:
+        parent_id = span.parent_id
+        if parent_id and parent_id in span_id_to_spans:
+            children_map[parent_id].append(span)
+        else:
+            roots.append(span)
+
+    def dfs(span: LiveSpan, ancestor_has_usage: bool) -> None:
+        nonlocal input_tokens, output_tokens, total_tokens, has_usage_data
+
+        usage = span.get_attribute(SpanAttributeKey.CHAT_USAGE)
+        span_has_usage = usage is not None
+
+        if span_has_usage and not ancestor_has_usage:
             input_tokens += usage.get(TokenUsageKey.INPUT_TOKENS, 0)
             output_tokens += usage.get(TokenUsageKey.OUTPUT_TOKENS, 0)
             total_tokens += usage.get(TokenUsageKey.TOTAL_TOKENS, 0)
             has_usage_data = True
+
+        next_ancestor_has_usage = ancestor_has_usage or span_has_usage
+        for child in children_map.get(span.span_id, []):
+            dfs(child, next_ancestor_has_usage)
+
+    for root in roots:
+        dfs(root, False)
 
     # If none of the spans have token usage data, we shouldn't log token usage metadata.
     if not has_usage_data:
@@ -261,7 +274,10 @@ def get_otel_attribute(span: trace_api.Span, key: str) -> str | None:
         be parsed, return None.
     """
     try:
-        return json.loads(span.attributes.get(key))
+        attribute_value = span.attributes.get(key)
+        if attribute_value is None:
+            return None
+        return json.loads(attribute_value)
     except Exception:
         _logger.debug(f"Failed to get attribute {key} with from span {span}.", exc_info=True)
 
@@ -546,6 +562,38 @@ def update_trace_state_from_span_conditionally(trace, root_span):
         trace.info.state = TraceState.from_otel_status(root_span.status)
 
 
+def get_experiment_id_for_trace(span: OTelReadableSpan) -> str:
+    """
+    Determine the experiment ID to associate with the trace.
+
+    The experiment ID can be configured in multiple ways, in order of precedence:
+      1. An experiment ID specified via the span creation API i.e. MlflowClient().start_trace()
+      2. An experiment ID specified via `mlflow.tracing.set_destination`
+      3. An experiment ID of an active run.
+      4. The default experiment ID
+
+    Args:
+        span: The OpenTelemetry ReadableSpan to extract experiment ID from.
+
+    Returns:
+        The experiment ID string to use for the trace.
+    """
+    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
+    from mlflow.tracking.fluent import _get_experiment_id, _get_latest_active_run
+
+    if experiment_id := get_otel_attribute(span, SpanAttributeKey.EXPERIMENT_ID):
+        return experiment_id
+
+    if destination := _MLFLOW_TRACE_USER_DESTINATION.get():
+        if exp_id := getattr(destination, "experiment_id", None):
+            return exp_id
+
+    if run := _get_latest_active_run():
+        return run.info.experiment_id
+
+    return _get_experiment_id()
+
+
 def generate_assessment_id() -> str:
     """
     Generates an assessment ID of the form 'a-<uuid4>' in hex string format.
@@ -573,3 +621,19 @@ def _bypass_attribute_guard(span: OTelSpan) -> Generator[None, None, None]:
         yield
     finally:
         span._end_time = original_end_time
+
+
+def parse_trace_id_v4(trace_id: str) -> tuple[str | None, str]:
+    """
+    Parse the trace ID into location and trace ID components.
+    """
+    if trace_id.startswith(TRACE_ID_V4_PREFIX):
+        match trace_id.removeprefix(TRACE_ID_V4_PREFIX).split("/"):
+            case [location, tid] if location and tid:
+                return location, tid
+            case _:
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid trace ID format: {trace_id}. "
+                    f"Expected format: {TRACE_ID_V4_PREFIX}<location>/<trace_id>"
+                )
+    return None, trace_id

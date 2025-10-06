@@ -11,8 +11,7 @@ import type {
   RawGenaiEvaluationArtifactResponse,
 } from '../types';
 import { mergeMetricsAndAssessmentsWithEvaluations, parseRawTableArtifact } from '../utils/EvaluationDataParseUtils';
-import { makeRequest } from '../utils/FetchUtils';
-import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
+import { getAjaxUrl, makeRequest } from '../utils/FetchUtils';
 
 type UseGetTraceEvaluationArtifactQueryKey = [
   'GET_TRACE_EVALUATION_ARTIFACT',

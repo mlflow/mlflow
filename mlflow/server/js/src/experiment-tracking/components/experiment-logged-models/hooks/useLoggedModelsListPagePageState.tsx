@@ -2,10 +2,10 @@ import { first, isEmpty, isEqual } from 'lodash';
 import { useCallback, useReducer, useState } from 'react';
 import { RUNS_VISIBILITY_MODE } from '../../experiment-page/models/ExperimentPageUIState';
 import { isLoggedModelRowHidden } from './useExperimentLoggedModelListPageRowVisibility';
-import { LoggedModelMetricDataset } from '../../../types';
+import type { LoggedModelMetricDataset } from '../../../types';
 import { ExperimentLoggedModelListPageKnownColumns } from './useExperimentLoggedModelListPageTableColumns';
 import { useSafeDeferredValue } from '../../../../common/hooks/useSafeDeferredValue';
-import { LoggedModelsTableGroupByMode } from '../ExperimentLoggedModelListPageTable.utils';
+import type { LoggedModelsTableGroupByMode } from '../ExperimentLoggedModelListPageTable.utils';
 
 type ActionType =
   | { type: 'SET_ORDER_BY'; orderByColumn: string; orderByAsc: boolean }

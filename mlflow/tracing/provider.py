@@ -11,6 +11,7 @@ import contextvars
 import functools
 import json
 import logging
+import os
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
@@ -36,9 +37,12 @@ from mlflow.tracing.destination import (
 )
 from mlflow.tracing.utils.exception import raise_as_trace_exception
 from mlflow.tracing.utils.once import Once
-from mlflow.tracing.utils.otlp import get_otlp_exporter, should_use_otlp_exporter
+from mlflow.tracing.utils.otlp import (
+    get_otlp_exporter,
+    should_export_otlp_metrics,
+    should_use_otlp_exporter,
+)
 from mlflow.tracing.utils.warning import suppress_warning
-from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
     is_mlflow_tracing_enabled_in_model_serving,
@@ -186,7 +190,6 @@ def detach_span_from_context(token: contextvars.Token):
     context_api.detach(token)
 
 
-@experimental(version="2.21.0")
 def set_destination(destination: TraceDestination, *, context_local: bool = False):
     """
     Set a custom span destination to which MLflow will export the traces.
@@ -286,9 +289,16 @@ def _setup_tracer_provider(disabled=False):
     suppress_warning("opentelemetry.sdk.trace", "Setting attribute on ended span")
     suppress_warning("opentelemetry.sdk.trace", "Calling end() on an ended span")
 
-    # Setting an empty resource to avoid triggering resource aggregation, which causes
-    # an issue in LiteLLM tracing: https://github.com/mlflow/mlflow/issues/16296
-    tracer_provider = TracerProvider(resource=Resource.get_empty(), sampler=_get_trace_sampler())
+    # NB: If otel resource env vars are set explicitly, don't create an empty resource
+    # so that they are propagated to otel spans.
+    otel_service_name = os.getenv("OTEL_SERVICE_NAME")
+    otel_resource_attributes = os.getenv("OTEL_RESOURCE_ATTRIBUTES")
+    resource = None
+    if not otel_service_name and not otel_resource_attributes:
+        # Setting an empty resource to avoid triggering resource aggregation, which causes
+        # an issue in LiteLLM tracing: https://github.com/mlflow/mlflow/issues/16296
+        resource = Resource.get_empty()
+    tracer_provider = TracerProvider(resource=resource, sampler=_get_trace_sampler())
     for processor in processors:
         tracer_provider.add_span_processor(processor)
 
@@ -333,7 +343,13 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
         from mlflow.tracing.processor.otel import OtelSpanProcessor
 
         exporter = get_otlp_exporter()
-        otel_processor = OtelSpanProcessor(exporter)
+        otel_processor = OtelSpanProcessor(
+            span_exporter=exporter,
+            # Only export metrics from the Otel processor if dual export is not enabled. Otherwise,
+            # both Otel and MLflow processors will export metrics, causing duplication
+            export_metrics=should_export_otlp_metrics()
+            and not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get(),
+        )
         processors.append(otel_processor)
 
         if not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get():
@@ -380,7 +396,10 @@ def _get_mlflow_span_processor(tracking_uri: str):
     from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 
     exporter = MlflowV3SpanExporter(tracking_uri=tracking_uri)
-    return MlflowV3SpanProcessor(exporter)
+    return MlflowV3SpanProcessor(
+        span_exporter=exporter,
+        export_metrics=should_export_otlp_metrics(),
+    )
 
 
 @raise_as_trace_exception

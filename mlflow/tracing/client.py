@@ -342,6 +342,57 @@ class TracingClient:
 
         return PagedList(traces, next_token)
 
+    def calculate_trace_filter_correlation(
+        self,
+        experiment_ids: list[str],
+        filter_string1: str,
+        filter_string2: str,
+        base_filter: str | None = None,
+    ):
+        """
+        Calculate the correlation (NPMI) between two trace filter conditions.
+
+        This method computes the Normalized Pointwise Mutual Information (NPMI)
+        between traces matching two different filter conditions, which measures
+        how much more (or less) likely traces are to satisfy both conditions
+        compared to if the conditions were independent.
+
+        Args:
+            experiment_ids: List of experiment IDs to search within.
+            filter_string1: First filter condition (e.g., "span.type = 'LLM'").
+            filter_string2: Second filter condition (e.g., "feedback.quality > 0.8").
+            base_filter: Optional base filter that both filter1 and filter2 are tested on top of
+                        (e.g., 'request_time > ... and request_time < ...' for time windows).
+
+        Returns:
+            TraceFilterCorrelationResult containing:
+                - npmi: NPMI score from -1 (never co-occur) to 1 (always co-occur)
+                - npmi_smoothed: Smoothed NPMI value with Jeffreys prior for robustness
+                - filter1_count: Number of traces matching filter_string1
+                - filter2_count: Number of traces matching filter_string2
+                - joint_count: Number of traces matching both filters
+                - total_count: Total number of traces in the experiments
+
+        .. code-block:: python
+
+            from mlflow.tracing.client import TracingClient
+
+            client = TracingClient()
+            result = client.calculate_trace_filter_correlation(
+                experiment_ids=["123"],
+                filter_string1="span.type = 'LLM'",
+                filter_string2="feedback.quality > 0.8",
+            )
+            print(f"NPMI: {result.npmi:.3f}")
+            # Output: NPMI: 0.456
+        """
+        return self.store.calculate_trace_filter_correlation(
+            experiment_ids=experiment_ids,
+            filter_string1=filter_string1,
+            filter_string2=filter_string2,
+            base_filter=base_filter,
+        )
+
     def set_trace_tags(self, trace_id: str, tags: dict[str, str]):
         """
         Set tags on the trace with the given trace_id.

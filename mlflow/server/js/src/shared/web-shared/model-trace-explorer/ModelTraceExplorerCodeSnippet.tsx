@@ -30,6 +30,8 @@ function getRenderModeDisplayText(renderMode: CodeSnippetRenderMode) {
       return 'Text';
     case CodeSnippetRenderMode.MARKDOWN:
       return 'Markdown';
+    case CodeSnippetRenderMode.PYTHON:
+      return 'Python';
   }
 }
 
@@ -135,12 +137,17 @@ export function ModelTraceExplorerCodeSnippet({
                       value={renderMode}
                       onValueChange={(value) => setRenderMode(value as CodeSnippetRenderMode)}
                     >
-                      {Object.values(CodeSnippetRenderMode).map((mode) => (
-                        <DropdownMenu.RadioItem key={mode} value={mode}>
-                          <DropdownMenu.ItemIndicator />
-                          {getRenderModeDisplayText(mode)}
-                        </DropdownMenu.RadioItem>
-                      ))}
+                      {Object.values(CodeSnippetRenderMode).map((mode) => {
+                        if (mode === CodeSnippetRenderMode.PYTHON) {
+                          return null;
+                        }
+                        return (
+                          <DropdownMenu.RadioItem key={mode} value={mode}>
+                            <DropdownMenu.ItemIndicator />
+                            {getRenderModeDisplayText(mode)}
+                          </DropdownMenu.RadioItem>
+                        );
+                      })}
                     </DropdownMenu.RadioGroup>
                     <DropdownMenu.Arrow />
                   </DropdownMenu.Content>

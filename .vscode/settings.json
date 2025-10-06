@@ -82,10 +82,22 @@
     "editor.formatOnSave": true
   },
 
+  // GitHub Actions workflow formatting
+  "[github-actions-workflow]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+
   // Markdown formatting
   "[markdown]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode",
-    "editor.formatOnSave": false // Don't auto-format markdown as it might break documentation
+    "editor.formatOnSave": true
+  },
+
+  // `.prompt.md` files in `.github/prompts`
+  "[prompt]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
   },
 
   // Files to exclude from explorer
@@ -109,6 +121,10 @@
     "**/dist": true,
     "mlflow/server/js/build": true
   },
+
+  // Prevent VS Code from following symlinks during searches
+  // This avoids duplicate results from symlinks in libs/ directory
+  "search.followSymlinks": false,
 
   // Editor settings
   "editor.rulers": [100], // Show ruler at 100 chars for Python

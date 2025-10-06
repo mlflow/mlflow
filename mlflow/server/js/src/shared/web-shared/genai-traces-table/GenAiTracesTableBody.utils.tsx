@@ -8,6 +8,7 @@ import type { IntlShape } from '@databricks/i18n';
 import { traceInfoSortingFn } from './GenAiTracesTable.utils';
 import {
   assessmentCellRenderer,
+  expectationCellRenderer,
   inputColumnCellRenderer,
   traceInfoCellRenderer,
 } from './cellRenderers/rendererFunctions';
@@ -209,6 +210,24 @@ export const getColumnConfig = (
             comparisonEntry: EvalTraceComparisonEntry;
           };
           return assessmentCellRenderer(theme, intl, isComparing, assessmentInfo, comparisonEntry);
+        },
+      };
+    case TracesTableColumnType.EXPECTATION:
+      return {
+        ...baseColConfig,
+        accessorFn: (originalRow) => {
+          return { isComparing, expectationName: col.expectationName, comparisonEntry: originalRow };
+        },
+        maxSize: MAX_ASSESSMENT_COLUMN_SIZE,
+        size: isComparing ? DEFAULT_ASSESSMENTS_CELL_WIDTH_COMPARE_PX : DEFAULT_ASSESSMENT_CELL_WIDTH_PX,
+        minSize: isComparing ? DEFAULT_ASSESSMENTS_CELL_WIDTH_COMPARE_PX : DEFAULT_ASSESSMENT_CELL_WIDTH_PX,
+        cell: (cell) => {
+          const { isComparing, expectationName, comparisonEntry } = cell.getValue() as {
+            isComparing: boolean;
+            expectationName: string;
+            comparisonEntry: EvalTraceComparisonEntry;
+          };
+          return expectationCellRenderer(theme, intl, isComparing, expectationName, comparisonEntry);
         },
       };
     case TracesTableColumnType.TRACE_INFO:

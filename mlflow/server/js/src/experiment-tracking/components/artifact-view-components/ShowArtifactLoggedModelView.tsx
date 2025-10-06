@@ -18,14 +18,15 @@ import {
   CustomPyfuncModelsDocUrl,
 } from '../../../common/constants';
 import { Typography } from '@databricks/design-system';
-import { FormattedMessage, injectIntl, IntlShape } from 'react-intl';
+import type { IntlShape } from 'react-intl';
+import { FormattedMessage, injectIntl } from 'react-intl';
 
 import './ShowArtifactLoggedModelView.css';
 import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
 import { ArtifactViewErrorState } from './ArtifactViewErrorState';
 import { ShowArtifactCodeSnippet } from './ShowArtifactCodeSnippet';
 import { fetchArtifactUnified } from './utils/fetchArtifactUnified';
-import { KeyValueEntity } from '../../../common/types';
+import type { KeyValueEntity } from '../../../common/types';
 
 const { Paragraph, Text, Title } = Typography;
 

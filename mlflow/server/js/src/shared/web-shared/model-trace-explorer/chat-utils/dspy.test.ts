@@ -1,6 +1,6 @@
 import { normalizeConversation } from '../ModelTraceExplorer.utils';
 
-export const MOCK_DSPY_INPUT = {
+const MOCK_DSPY_INPUT = {
   messages: [
     {
       role: 'system',
@@ -16,13 +16,14 @@ export const MOCK_DSPY_INPUT = {
   prompt: null,
 };
 
-export const MOCK_DSPY_OUTPUT = [
+const MOCK_DSPY_OUTPUT = [
   '[[ ## reasoning ## ]]\nThe passage explains the functionality of MLflow Tracing in the context of Generative AI applications. It highlights how this feature improves observability by recording detailed information about the execution process, which aids in identifying bugs and unexpected behaviors. The emphasis is on the benefits of capturing inputs, outputs, and metadata for each step of a request.\n\n[[ ## summary ## ]]\nMLflow Tracing enhances observability in Generative AI applications by recording detailed execution information, helping to identify bugs and unexpected behaviors.\n\n[[ ## completed ## ]]',
 ];
 
 describe('normalizeConversation', () => {
   it('should handle dspy input', () => {
-    expect(normalizeConversation(MOCK_DSPY_INPUT, 'dspy')).toEqual([
+    const conv = normalizeConversation(MOCK_DSPY_INPUT, 'dspy');
+    expect(conv).toEqual([
       expect.objectContaining({
         role: 'system',
         content: expect.stringContaining('Your input fields are:'),
@@ -32,14 +33,18 @@ describe('normalizeConversation', () => {
         content: expect.stringContaining('[[ ## passage ## ]]'),
       }),
     ]);
+    // Ensure single newlines are converted to hard breaks for markdown rendering
+    expect(conv?.[0].content).toContain('  \n');
   });
 
   it('should handle dspy output', () => {
-    expect(normalizeConversation(MOCK_DSPY_OUTPUT, 'dspy')).toEqual([
+    const conv = normalizeConversation(MOCK_DSPY_OUTPUT, 'dspy');
+    expect(conv).toEqual([
       expect.objectContaining({
         content: expect.stringContaining('[[ ## reasoning ## ]]'),
         role: 'assistant',
       }),
     ]);
+    expect(conv?.[0].content).toContain('  \n');
   });
 });
