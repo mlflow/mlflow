@@ -33,6 +33,7 @@ def adapt_prompts(
     target_prompt_uris: list[str],
     optimizer_lm_params: LLMParams,
     optimizer: BasePromptAdapter | None = None,
+    eval_metric: Callable[[Any, Any], float] | None = None,
 ) -> PromptAdaptationResult:
     """
     This API optimizes prompts used in the passed in function to produce similar
@@ -69,6 +70,10 @@ def adapt_prompts(
         optimizer: an optional prompt optimizer object that optimizes a set of prompts based
             on the evaluation dataset and passed in function.
             If this argument is none, the default optimizer is used.
+        eval_metric: an optional callable that computes a score between program outputs
+            and expected outputs. Should accept (program_outputs, expected_outputs) and
+            return a float score between 0 and 1. If None, uses the default metric that
+            applies exact match for numeric types and LLM judge for text.
 
     Returns:
         A list of optimized prompt versions.
@@ -118,7 +123,7 @@ def adapt_prompts(
         predict_fn=predict_fn, sample_input=converted_train_data[0]["inputs"]
     )
 
-    eval_fn = _build_eval_fn(predict_fn, optimizer_lm_params)
+    eval_fn = _build_eval_fn(predict_fn, optimizer_lm_params, eval_metric)
 
     target_prompts = [load_prompt(prompt_uri) for prompt_uri in target_prompt_uris]
     target_prompts_dict = {prompt.name: prompt.template for prompt in target_prompts}
@@ -196,6 +201,7 @@ def _compute_score(program_outputs: Any, expected_outputs: Any, judge_model: str
 def _build_eval_fn(
     predict_fn: Callable[..., Any],
     optimizer_lm_params: LLMParams,
+    eval_metric: Callable[[Any, Any], float] | None = None,
 ) -> Callable[[dict[str, str], list[dict[str, Any]]], list[EvaluationResultRecord]]:
     """
     Build an evaluation function that uses the candidate prompts to evaluate the predict_fn.
@@ -203,6 +209,7 @@ def _build_eval_fn(
     Args:
         predict_fn: The function to evaluate
         optimizer_lm_params: LLM parameters for the optimizer, used for judge evaluation
+        eval_metric: Optional custom evaluation metric function
 
     Returns:
         An evaluation function
@@ -234,7 +241,11 @@ def _build_eval_fn(
                     program_outputs = f"Failed to invoke the predict_fn with {inputs}: {e}"
 
             trace = mlflow.get_trace(eval_request_id, silent=True)
-            score = _compute_score(program_outputs, outputs, optimizer_lm_params.model_name)
+            # Use custom metric if provided, otherwise use default scoring
+            if eval_metric is not None:
+                score = eval_metric(program_outputs, outputs)
+            else:
+                score = _compute_score(program_outputs, outputs, optimizer_lm_params.model_name)
             return EvaluationResultRecord(
                 inputs=inputs,
                 outputs=program_outputs,

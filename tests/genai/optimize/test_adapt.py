@@ -282,11 +282,12 @@ def test_compute_score_llm_judge_semantic_matching():
         # Verify correct parameters passed to make_judge
         assert mock_make_judge.call_args.kwargs["name"] == "equivalence_judge"
         assert mock_make_judge.call_args.kwargs["model"] == "openai:/gpt-4o-mini"
-        assert "{{ outputs }}" in mock_make_judge.call_args.kwargs["instructions"]
+        assert "{{outputs}}" in mock_make_judge.call_args.kwargs["instructions"]
+        assert "{{expectations}}" in mock_make_judge.call_args.kwargs["instructions"]
 
         # Verify judge called with string representations
         mock_judge.assert_called_once_with(
-            outputs="The capital of France is Paris", expectations="Paris"
+            outputs="The capital of France is Paris", expectations={"expected_output": "Paris"}
         )
         assert score == 1.0
 
@@ -302,3 +303,53 @@ def test_compute_score_error_handling():
     with patch("mlflow.genai.judges.make_judge") as mock_make_judge:
         mock_make_judge.side_effect = Exception("API Error")
         assert _compute_score("output", "expected", "test/model") == 0.0
+
+
+def test_adapt_prompts_with_custom_eval_metric(sample_translation_prompt, sample_dataset):
+    def custom_metric(output, expected):
+        return 1.0 if str(output).lower() == str(expected).lower() else 0.5
+
+    class MetricTestAdapter(BasePromptAdapter):
+        def __init__(self):
+            self.captured_scores = []
+
+        def optimize(self, eval_fn, dataset, target_prompts, optimizer_lm_params):
+            # Run eval_fn and capture the scores
+            results = eval_fn(target_prompts, dataset)
+            self.captured_scores = [r.score for r in results]
+            return PromptAdapterOutput(optimized_prompts=target_prompts)
+
+    testing_adapter = MetricTestAdapter()
+
+    # Create dataset with outputs that will test custom metric
+    test_dataset = pd.DataFrame(
+        {
+            "inputs": [
+                {"input_text": "Hello", "language": "Spanish"},
+                {"input_text": "World", "language": "French"},
+            ],
+            "outputs": ["HOLA", "monde"],  # Different cases to test custom metric
+        }
+    )
+
+    def predict_fn(input_text, language):
+        mlflow.genai.load_prompt("prompts:/test_translation_prompt/1")
+        # Return lowercase outputs
+        return {"Hello": "hola", "World": "monde"}.get(input_text, "unknown")
+
+    result = adapt_prompts(
+        predict_fn=predict_fn,
+        train_data=test_dataset,
+        target_prompt_uris=[
+            f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
+        ],
+        optimizer_lm_params=LLMParams(model_name="test/model"),
+        optimizer=testing_adapter,
+        eval_metric=custom_metric,
+    )
+
+    # Verify custom metric was used
+    # "hola" vs "HOLA" (case insensitive match) -> 1.0
+    # "monde" vs "monde" (exact match) -> 1.0
+    assert testing_adapter.captured_scores == [1.0, 1.0]
+    assert len(result.optimized_prompts) == 1

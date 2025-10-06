@@ -1,7 +1,7 @@
 from typing import Any
 
 from mlflow.genai.optimize.adapters.base import BasePromptAdapter, _EvalFunc
-from mlflow.genai.optimize.types import LLMParams, PromptAdapterOutput
+from mlflow.genai.optimize.types import EvaluationResultRecord, LLMParams, PromptAdapterOutput
 from mlflow.utils.annotations import experimental
 
 
@@ -148,7 +148,7 @@ class GepaPromptAdapter(BasePromptAdapter):
             def make_reflective_dataset(
                 self,
                 candidate: dict[str, str],
-                eval_batch: "gepa.EvaluationBatch",
+                eval_batch: "gepa.EvaluationBatch[EvaluationResultRecord, Any]",
                 components_to_update: list[str],
             ) -> dict[str, list[dict[str, Any]]]:
                 """
