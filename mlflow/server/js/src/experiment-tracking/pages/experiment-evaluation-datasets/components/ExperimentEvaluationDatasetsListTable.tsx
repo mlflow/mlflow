@@ -190,23 +190,20 @@ export const ExperimentEvaluationDatasetsListTable = ({
     fetchNextPage,
   });
 
-  useEffect(() => {
-    // if all datasets were deleted, set the selected dataset to undefined
-    if (!datasets?.length) {
-      setSelectedDataset(undefined);
-      return;
-    }
+  if (!datasets?.length) {
+    setSelectedDataset(undefined);
+    return;
+  }
 
-    // set the selected dataset to the first one if the is no selected dataset,
-    // or if the selected dataset went out of scope (e.g. was deleted / not in search)
-    if (!selectedDataset || !datasets.some((d) => d.dataset_id === selectedDataset.dataset_id)) {
-      // Use the sorted data from the table to respect the current sort order
-      const sortedRows = table.getRowModel().rows;
-      if (sortedRows.length > 0) {
-        setSelectedDataset(sortedRows[0].original);
-      }
+  // set the selected dataset to the first one if the is no selected dataset,
+  // or if the selected dataset went out of scope (e.g. was deleted / not in search)
+  if (!selectedDataset || !datasets.some((d) => d.dataset_id === selectedDataset.dataset_id)) {
+    // Use the sorted data from the table to respect the current sort order
+    const sortedRows = table.getRowModel().rows;
+    if (sortedRows.length > 0) {
+      setSelectedDataset(sortedRows[0].original);
     }
-  }, [datasets, selectedDataset, setSelectedDataset, table]);
+  }
 
   if (error) {
     return <div>Error loading datasets</div>;
