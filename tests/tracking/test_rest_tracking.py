@@ -2543,48 +2543,45 @@ def test_legacy_start_and_end_trace_v2(mlflow_client):
 
 
 def test_start_trace(mlflow_client):
-    experiment_id = mlflow_client.create_experiment("start end trace")
-
-    # Trace CRUD APIs are not directly exposed as public API of MlflowClient,
-    # so we use the underlying tracking client to test them.
-    client = mlflow_client._tracing_client
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+    experiment_id = mlflow.set_experiment("start end trace").experiment_id
 
     # Helper function to remove auto-added system tags (mlflow.xxx) from testing
-    def _exclude_system_tags(tags: dict[str, str]):
-        return {k: v for k, v in tags.items() if not k.startswith("mlflow.")}
+    def _exclude_system_keys(d: dict[str, str]):
+        return {k: v for k, v in d.items() if not k.startswith("mlflow.")}
 
-    trace_info = TraceInfo(
-        trace_id="tr-1234",
-        trace_location=TraceLocation.from_experiment_id(experiment_id),
-        request_time=1000,
-        execution_duration=2000,
-        state=TraceState.OK,
-        trace_metadata={
-            "meta1": "apple",
-            "meta2": "grape",
-            TRACE_SCHEMA_VERSION_KEY: "3",
-        },
-        tags={
-            "tag1": "football",
-            "tag2": "basketball",
-        },
-    )
-    trace_info = client.start_trace(trace_info)
-    assert trace_info.trace_id == "tr-1234"
-    assert trace_info.experiment_id == experiment_id
-    assert trace_info.request_time == 1000
-    assert trace_info.execution_duration == 2000
-    assert trace_info.state == TraceState.OK
-    assert trace_info.trace_metadata == {
+    with mock.patch("mlflow.tracing.export.mlflow_v3._logger.warning") as mock_warning:
+        with mlflow.start_span(name="test") as span:
+            mlflow.update_current_trace(
+                tags={
+                    "tag1": "football",
+                    "tag2": "basketball",
+                },
+                metadata={
+                    "meta1": "apple",
+                    "meta2": "grape",
+                },
+            )
+
+    trace = mlflow_client.get_trace(span.trace_id)
+    assert trace.info.trace_id == span.trace_id
+    assert trace.info.experiment_id == experiment_id
+    assert trace.info.request_time > 0
+    assert trace.info.execution_duration is not None
+    assert trace.info.state == TraceState.OK
+    assert _exclude_system_keys(trace.info.trace_metadata) == {
         "meta1": "apple",
         "meta2": "grape",
-        TRACE_SCHEMA_VERSION_KEY: "3",
     }
-    assert _exclude_system_tags(trace_info.tags) == {
+    assert trace.info.trace_metadata[TRACE_SCHEMA_VERSION_KEY] == "3"
+    assert _exclude_system_keys(trace.info.tags) == {
         "tag1": "football",
         "tag2": "basketball",
     }
-    assert trace_info == client.get_trace_info(trace_info.trace_id)
+
+    # No "Failed to log span to MLflow backend" warning should be issued
+    for call in mock_warning.call_args_list:
+        assert "Failed to log span to MLflow backend" not in str(call)
 
 
 def test_search_traces(mlflow_client):
