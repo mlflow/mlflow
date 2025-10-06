@@ -1,4 +1,4 @@
-import { DropdownMenu, OverflowIcon, PencilIcon, Spinner, TableRowAction, TrashIcon } from '@databricks/design-system';
+import { DropdownMenu, OverflowIcon, Spinner, TableRowAction, TrashIcon } from '@databricks/design-system';
 import { Button } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { Row } from '@tanstack/react-table';

@@ -19,7 +19,7 @@ import { useIntl } from '@databricks/i18n';
 import type { ColumnDef, Row, SortDirection, SortingState } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table';
 import { EvaluationDataset } from '../types';
-import { useSearchEvaluationDatasets } from '../hooks/useSearchEvaluationDatsets';
+import { useSearchEvaluationDatasets } from '../hooks/useSearchEvaluationDatasets';
 import { NameCell } from './ExperimentEvaluationDatasetsNameCell';
 import { LastUpdatedCell } from './ExperimentEvaluationDatasetsLastUpdatedCell';
 import { ActionsCell } from './ExperimentEvaluationDatasetsActionsCell';
