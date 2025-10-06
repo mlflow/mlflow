@@ -252,7 +252,7 @@ class DatabricksTracingRestStore(RestStore):
                 case [catalog, schema]:
                     trace_locations.append(
                         trace_location_to_proto(
-                            trace_location_from_databricks_uc_schema(catalog, schema)
+                            TraceLocation.from_databricks_uc_schema(catalog, schema)
                         )
                     )
                     contain_uc_schemas = True
