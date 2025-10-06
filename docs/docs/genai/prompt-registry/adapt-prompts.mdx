@@ -83,6 +83,7 @@ print(f"## Optimized template: {optimized_prompt.template}")
 ```
 
 In this example, this API produces a more informative prompt template:
+
 ```
 ## Optimized template:
 Please provide a concise response to the question enclosed in the {{question}} variable.
@@ -97,6 +98,7 @@ Your aim is to deliver a precise, correct answer that matches the expectation ou
 ### 1. Predict Function
 
 Your `predict_fn` should:
+
 - Accept inputs as keyword arguments
 - Use prompts from MLflow Prompt Registry via <APILink fn="mlflow.entities.PromptVersion.format" text="PromptVersion.format()" />
 - Return outputs matching the type in your dataset
@@ -139,6 +141,7 @@ The dataset must include `inputs` and `outputs` columns:
 </table>
 
 Supported dataset formats:
+
 - Pandas DataFrame
 - List of dictionaries
 - MLflow EvaluationDataset
@@ -189,6 +192,7 @@ optimizer_lm_params = LLMParams(
 ```
 
 ## Prepare Training Dataset from your existing application
+
 Manually labeling training data can be slow and hold up your experimentation with different models. If your current AI system already generates reasonably good outputs, consider using that language model to create your training dataset for rewriting instead. Alternatively, you can use [MLflow UI to annotate your dataset](/genai/assessments/feedback).
 
 ```python
@@ -314,6 +318,7 @@ print(f"Optimizer: {result.optimizer_name}")
 ### Issue: Outputs Don't Match Expected Results
 
 **Solution**: Ensure your training data accurately represents the desired outputs:
+
 - Verify the `outputs` column contains the exact format you want
 - Check that `inputs` match the variables in your prompt template
 - Increase the size and diversity of your training dataset
@@ -323,6 +328,7 @@ Also note that it is sometimes impossible to produce completely the same outputs
 ### Issue: Rewriting Takes Too Long
 
 **Solution**: Reduce the dataset size or use a faster optimizer model:
+
 ```python
 # Use fewer examples for faster rewriting
 small_dataset = dataset[:10]
@@ -334,6 +340,7 @@ optimizer_lm_params = LLMParams(model_name="openai:/gpt-5-mini")
 ### Issue: Prompts Not Updated
 
 **Solution**: Ensure your `predict_fn` uses <APILink fn="mlflow.entities.PromptVersion.format" text="PromptVersion.format()" />:
+
 ```python
 # ✅ Correct - uses Prompt Registry
 def predict_fn(question: str):
