@@ -1,4 +1,4 @@
-import { postJson } from '@mlflow/mlflow/src/common/utils/FetchUtils';
+import { fetchAPI, getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 import { useMutation, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { EvaluationDataset } from '../types';
 import { SEARCH_EVALUATION_DATASETS_QUERY_KEY } from '../constants';
@@ -23,13 +23,16 @@ export const useCreateEvaluationDatasetMutation = ({
 
   const { mutate: createEvaluationDatasetMutation, isLoading } = useMutation({
     mutationFn: async ({ datasetName, experimentIds }: CreateDatasetPayload) => {
-      const response = (await postJson({
-        relativeUrl: 'ajax-api/3.0/mlflow/datasets/create',
-        data: {
-          name: datasetName,
-          experiment_ids: experimentIds,
-        },
-      })) as CreateDatasetResponse;
+      const requestBody = {
+        datasetName,
+        experimentIds,
+      };
+
+      const response = (await fetchAPI(
+        getAjaxUrl('ajax-api/3.0/mlflow/datasets/create'),
+        'POST',
+        requestBody,
+      )) as CreateDatasetResponse;
 
       return response.dataset;
     },

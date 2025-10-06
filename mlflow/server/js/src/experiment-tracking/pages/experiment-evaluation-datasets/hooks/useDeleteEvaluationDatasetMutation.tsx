@@ -1,4 +1,4 @@
-import { deleteJson } from '@mlflow/mlflow/src/common/utils/FetchUtils';
+import { fetchAPI, getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 import { useMutation, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { SEARCH_EVALUATION_DATASETS_QUERY_KEY } from '../constants';
 
@@ -13,10 +13,7 @@ export const useDeleteEvaluationDatasetMutation = ({
 
   const { mutate: deleteEvaluationDatasetMutation, isLoading } = useMutation({
     mutationFn: async ({ datasetId }: { datasetId: string }) => {
-      await deleteJson({
-        relativeUrl: `ajax-api/3.0/mlflow/datasets/${datasetId}`,
-        data: {},
-      });
+      await fetchAPI(getAjaxUrl(`ajax-api/3.0/mlflow/datasets/${datasetId}`), 'DELETE');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [SEARCH_EVALUATION_DATASETS_QUERY_KEY] });

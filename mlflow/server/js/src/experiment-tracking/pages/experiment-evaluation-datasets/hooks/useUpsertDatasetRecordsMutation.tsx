@@ -1,4 +1,4 @@
-import { postJson } from '@mlflow/mlflow/src/common/utils/FetchUtils';
+import { fetchAPI, getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 import { useMutation } from '@tanstack/react-query';
 
 type UpsertDatasetRecordsPayload = {
@@ -21,13 +21,16 @@ export const useUpsertDatasetRecordsMutation = ({
 }) => {
   const { mutate: upsertDatasetRecordsMutation, isLoading } = useMutation({
     mutationFn: async ({ datasetId, records }: UpsertDatasetRecordsPayload) => {
-      const response = (await postJson({
-        relativeUrl: `ajax-api/3.0/mlflow/datasets/${datasetId}/records`,
-        data: {
-          dataset_id: datasetId,
-          records: records,
-        },
-      })) as UpsertDatasetRecordsResponse;
+      const requestBody = {
+        dataset_id: datasetId,
+        records: records,
+      };
+
+      const response = (await fetchAPI(
+        getAjaxUrl(`ajax-api/3.0/mlflow/datasets/${datasetId}/records`),
+        'POST',
+        requestBody,
+      )) as UpsertDatasetRecordsResponse;
 
       return response;
     },
