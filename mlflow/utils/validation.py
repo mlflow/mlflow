@@ -477,6 +477,28 @@ def _validate_experiment_id_type(experiment_id):
         )
 
 
+def _validate_list_param(param_name, param_value, allow_none=False):
+    """
+    Validate that a parameter is a list and raise a helpful error if it isn't.
+
+    Args:
+        param_name: Name of the parameter being validated (e.g., "experiment_ids")
+        param_value: The value to validate
+        allow_none: If True, None is allowed. If False, None is treated as invalid.
+
+    Raises:
+        MlflowException: If the parameter is not a list (and not None when allow_none=True)
+    """
+    if allow_none and param_value is None:
+        return
+
+    if not isinstance(param_value, list):
+        raise MlflowException.invalid_parameter_value(
+            f"{param_name} must be a list, got {type(param_value).__name__}. "
+            f"Did you mean to use {param_name}=[{param_value!r}]?"
+        )
+
+
 def _validate_model_name(model_name):
     if model_name is None or model_name == "":
         raise MlflowException(missing_value("name"), error_code=INVALID_PARAMETER_VALUE)

@@ -16,6 +16,7 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location,
     _validate_experiment_artifact_location_length,
     _validate_experiment_name,
+    _validate_list_param,
     _validate_metric_name,
     _validate_model_alias_name,
     _validate_model_alias_name_reserved,
@@ -376,3 +377,40 @@ def test_setting_experiment_artifact_location_env_var_works(monkeypatch):
     # increase limit to 11
     monkeypatch.setenv(MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH.name, "11")
     _validate_experiment_artifact_location_length(artifact_location)
+
+
+def test_validate_list_param_with_valid_list():
+    _validate_list_param("experiment_ids", ["1", "2", "3"])
+    _validate_list_param("test_param", [])
+    _validate_list_param("test_param", [1, 2, 3])
+
+
+def test_validate_list_param_with_none_not_allowed():
+    with pytest.raises(MlflowException, match="experiment_ids must be a list"):
+        _validate_list_param("experiment_ids", None, allow_none=False)
+
+
+def test_validate_list_param_with_none_allowed():
+    _validate_list_param("experiment_ids", None, allow_none=True)
+
+
+def test_validate_list_param_with_int():
+    with pytest.raises(
+        MlflowException, match=r"experiment_ids must be a list, got int"
+    ) as exc_info:
+        _validate_list_param("experiment_ids", 4)
+    assert "Did you mean to use experiment_ids=[4]?" in str(exc_info.value)
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+def test_validate_list_param_with_string():
+    with pytest.raises(MlflowException, match=r"param_name must be a list, got str") as exc_info:
+        _validate_list_param("param_name", "value")
+    assert "Did you mean to use param_name=['value']?" in str(exc_info.value)
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+def test_validate_list_param_with_dict():
+    with pytest.raises(MlflowException, match=r"my_param must be a list, got dict") as exc_info:
+        _validate_list_param("my_param", {"key": "value"})
+    assert "Did you mean to use my_param=[{'key': 'value'}]?" in str(exc_info.value)
