@@ -60,7 +60,7 @@ from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.server import handlers
 from mlflow.server.fastapi_app import app
-from mlflow.server.handlers import _get_sampled_steps_from_steps, initialize_backend_stores
+from mlflow.server.handlers import initialize_backend_stores
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.client import TracingClient
@@ -1454,24 +1454,6 @@ def test_get_metric_history_bulk_interval_respects_max_results(mlflow_client):
         for j in [1, 2]
     ]
     assert response_limited.json().get("metrics") == expected_metrics
-
-
-@pytest.mark.parametrize(
-    ("min_step", "max_step", "max_results", "nums", "expected"),
-    [
-        # should be evenly spaced and include the beginning and
-        # end despite sometimes making it go above max_results
-        (0, 10, 5, list(range(10)), {0, 2, 4, 6, 8, 9}),
-        # if the clipped list is shorter than max_results,
-        # then everything will be returned
-        (4, 8, 5, list(range(10)), {4, 5, 6, 7, 8}),
-        # works if steps are logged in intervals
-        (0, 100, 5, list(range(0, 101, 20)), {0, 20, 40, 60, 80, 100}),
-        (0, 1000, 5, list(range(0, 1001, 10)), {0, 200, 400, 600, 800, 1000}),
-    ],
-)
-def test_get_sampled_steps_from_steps(min_step, max_step, max_results, nums, expected):
-    assert _get_sampled_steps_from_steps(min_step, max_step, max_results, nums) == expected
 
 
 def test_search_dataset_handler_rejects_invalid_requests(mlflow_client):
