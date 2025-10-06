@@ -41,6 +41,7 @@ prompt = mlflow.genai.register_prompt(
     template="Answer the following question: {{question}}",
 )
 
+
 # Your current function
 def predict_fn(question: str) -> str:
     completion = openai.OpenAI().chat.completions.create(
@@ -48,6 +49,7 @@ def predict_fn(question: str) -> str:
         messages=[{"role": "user", "content": prompt.format(question=question)}],
     )
     return completion.choices[0].message.content
+
 
 # Example data showing desired outputs (e.g., outputs produced by gpt-4o)
 dataset = [
@@ -59,7 +61,10 @@ dataset = [
     {"inputs": {"question": "What is the capital of Switzerland?"}, "outputs": "Bern"},
     {"inputs": {"question": "What is the capital of Austria?"}, "outputs": "Vienna"},
     {"inputs": {"question": "What is the capital of Belgium?"}, "outputs": "Brussels"},
-    {"inputs": {"question": "What is the capital of Netherlands?"}, "outputs": "Amsterdam"},
+    {
+        "inputs": {"question": "What is the capital of Netherlands?"},
+        "outputs": "Amsterdam",
+    },
     {"inputs": {"question": "What is the capital of Norway?"}, "outputs": "Oslo"},
     {"inputs": {"question": "What is the capital of Sweden?"}, "outputs": "Stockholm"},
 ]
@@ -80,10 +85,10 @@ print(f"## Optimized template: {optimized_prompt.template}")
 In this example, this API produces a more informative prompt template:
 ```
 ## Optimized template:
-Please provide a concise response to the question enclosed in the {{question}} variable. 
-Ensure that the answer addresses the main question directly. 
-For instance, if a location is asked about, mention only the primary information required, such as the name of the capital city for a country-related question. 
-Avoid additional context, complete sentences, or extraneous information in your response. 
+Please provide a concise response to the question enclosed in the {{question}} variable.
+Ensure that the answer addresses the main question directly.
+For instance, if a location is asked about, mention only the primary information required, such as the name of the capital city for a country-related question.
+Avoid additional context, complete sentences, or extraneous information in your response.
 Your aim is to deliver a precise, correct answer that matches the expectation outlined.
 ```
 
@@ -142,26 +147,22 @@ Supported dataset formats:
 ```python
 # List of dictionaries
 dataset = [
-    {
-        "inputs": {"question": "What is the capital of France?"},
-        "outputs": "Paris"
-    },
-    {
-        "inputs": {"question": "What is the capital of Germany?"},
-        "outputs": "Berlin"
-    },
+    {"inputs": {"question": "What is the capital of France?"}, "outputs": "Paris"},
+    {"inputs": {"question": "What is the capital of Germany?"}, "outputs": "Berlin"},
 ]
 
 # Or Pandas DataFrame
 import pandas as pd
 
-dataset = pd.DataFrame({
-    "inputs": [
-        {"question": "What is the capital of France?"},
-        {"question": "What is the capital of Germany?"},
-    ],
-    "outputs": ["Paris", "Berlin"],
-})
+dataset = pd.DataFrame(
+    {
+        "inputs": [
+            {"question": "What is the capital of France?"},
+            {"question": "What is the capital of Germany?"},
+        ],
+        "outputs": ["Paris", "Berlin"],
+    }
+)
 ```
 
 ### 3. Target Prompt URIs
@@ -170,8 +171,8 @@ Specify which prompts to optimize using their URIs:
 
 ```python
 target_prompt_uris = [
-    "prompts:/qa/1",              # Specific version
-    "prompts:/instruction/latest", # Latest version
+    "prompts:/qa/1",  # Specific version
+    "prompts:/instruction/latest",  # Latest version
 ]
 ```
 
@@ -183,7 +184,7 @@ Configure the model used for optimization using <APILink fn="mlflow.genai.optimi
 from mlflow.genai.optimize import LLMParams
 
 optimizer_lm_params = LLMParams(
-    model_name="openai:/gpt-4o",     # Model for optimization
+    model_name="openai:/gpt-4o",  # Model for optimization
 )
 ```
 
@@ -194,16 +195,18 @@ Manually labeling training data can be slow and hold up your experimentation wit
 import mlflow
 from mlflow.genai.datasets import create_dataset
 
+
 # Enable tracing for your existing application
 @mlflow.trace
 def predict_fn(question: str) -> str:
     # Inference logic with the current language model
     ...
 
+
 inputs = [
-    {"question": "What is the capital of France?"}, 
-    {"question": "What is the capital of Germany?"}, 
-    {"question": "What is the capital of Japan?"}
+    {"question": "What is the capital of France?"},
+    {"question": "What is the capital of Germany?"},
+    {"question": "What is the capital of Japan?"},
 ]
 
 for record in inputs:
@@ -232,6 +235,7 @@ You can provide your own optimization algorithm by implementing <APILink fn="mlf
 ```python
 from mlflow.genai.optimize import BasePromptAdapter
 
+
 class MyCustomAdapter(BasePromptAdapter):
     def optimize(self, eval_fn, dataset, target_prompts, optimizer_lm_params):
         # Your custom optimization logic
@@ -243,6 +247,7 @@ class MyCustomAdapter(BasePromptAdapter):
             )
 
         return OptimizerAdapterOutput(optimized_prompts=optimized_prompts)
+
 
 # Use your custom adapter
 result = mlflow.genai.adapt_prompts(
@@ -334,6 +339,7 @@ optimizer_lm_params = LLMParams(model_name="openai:/gpt-5-mini")
 def predict_fn(question: str):
     prompt = mlflow.genai.load_prompt("prompts:/qa/1")
     return llm_call(prompt.format(question=question))
+
 
 # ❌ Incorrect - hardcoded prompt
 def predict_fn(question: str):
