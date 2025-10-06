@@ -192,6 +192,11 @@ export const ExperimentEvaluationDatasetsListTable = ({
     fetchNextPage,
   });
 
+  // update loading state in parent
+  useEffect(() => {
+    setIsLoading(isLoading);
+  }, [isLoading, setIsLoading]);
+
   if (!datasets?.length) {
     setSelectedDataset(undefined);
   }
@@ -205,11 +210,6 @@ export const ExperimentEvaluationDatasetsListTable = ({
       setSelectedDataset(sortedRows[0].original);
     }
   }
-
-  // update loading state in parent
-  useEffect(() => {
-    setIsLoading(isLoading);
-  }, [isLoading, setIsLoading]);
 
   if (error) {
     return <div>Error loading datasets</div>;
