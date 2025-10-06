@@ -118,7 +118,7 @@ app = graph.compile()
 
 # Executing the graph will log the steps as a trace
 app.invoke({"input": "Say hello to MLflow."})`,
-  getImageSource: () => 'https://mlflow.org/docs/3.4.0/images/llms/tracing/langgraph-tracing.gif',
+    getImageSource: () => 'https://mlflow.org/docs/3.4.0/images/llms/tracing/langgraph-tracing.gif',
   },
   llama_index: {
     minVersion: '2.15.1',

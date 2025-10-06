@@ -17,7 +17,9 @@ export const TraceTableGenericQuickstart = ({
   const code = getCodeSource();
   return (
     <div>
-      <Typography.Text css={{ maxWidth: 800 }} color="secondary">{content}</Typography.Text>
+      <Typography.Text css={{ maxWidth: 800 }} color="secondary">
+        {content}
+      </Typography.Text>
       <div css={{ position: 'relative', width: 'min-content' }}>
         <CopyButton
           componentId={`${baseComponentId}.traces_table.${flavorName}_quickstart_snippet_copy`}

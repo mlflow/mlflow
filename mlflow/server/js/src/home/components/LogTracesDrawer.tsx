@@ -30,7 +30,6 @@ import BedrockLogo from '../../common/static/logos/bedrock.svg';
 import LlamaIndexLogo from '../../common/static/logos/llamaindex.png';
 import AutoGenLogo from '../../common/static/logos/autogen.png';
 import CrewAILogo from '../../common/static/logos/crewai.png';
-import { getStartedIconWrapperStyles } from './cardStyles';
 
 type SupportedQuickstartFlavor = QUICKSTART_FLAVOR;
 
@@ -102,11 +101,9 @@ const frameworks: FrameworkDefinition[] = [
   },
 ];
 
-const MORE_INTEGRATIONS_URL =
-  'https://mlflow.org/docs/latest/genai/tracing/#one-line-auto-tracing-integrations';
+const MORE_INTEGRATIONS_URL = 'https://mlflow.org/docs/latest/genai/tracing/#one-line-auto-tracing-integrations';
 
-const TRACING_DOCS_URL =
-  'https://mlflow.org/docs/latest/genai/tracing/';
+const TRACING_DOCS_URL = 'https://mlflow.org/docs/latest/genai/tracing/';
 
 const CONFIGURE_EXPERIMENT_SNIPPET = `import mlflow
 
@@ -118,7 +115,6 @@ mlflow.set_experiment("traces-quickstart")`;
 export const LogTracesDrawer = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
   const { theme } = useDesignSystemTheme();
   const [selectedFramework, setSelectedFramework] = useState<SupportedQuickstartFlavor>('openai');
-  const iconWrapperStyles = getStartedIconWrapperStyles(theme);
 
   const handleOpenChange = (open: boolean) => {
     if (!open) {
@@ -140,7 +136,16 @@ export const LogTracesDrawer = ({ isOpen, onClose }: { isOpen: boolean; onClose:
               gap: theme.spacing.sm,
             }}
           >
-            <span css={iconWrapperStyles}>
+            <span css={{
+                borderRadius: theme.borders.borderRadiusSm,
+                background: theme.colors.actionDefaultBackgroundHover,
+                padding: theme.spacing.xs,
+                color: theme.colors.blue500,
+                height: 'min-content',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
               <WorkflowsIcon />
             </span>
             <FormattedMessage
@@ -167,11 +172,11 @@ export const LogTracesDrawer = ({ isOpen, onClose }: { isOpen: boolean; onClose:
         >
           <aside
             css={{
-              minWidth: 220,
-              maxWidth: 260,
               display: 'flex',
               flexDirection: 'column',
               gap: theme.spacing.sm,
+              minWidth: 220,
+              maxWidth: 260,
             }}
           >
             {frameworks.map((framework) => {
@@ -194,7 +199,6 @@ export const LogTracesDrawer = ({ isOpen, onClose }: { isOpen: boolean; onClose:
                       ? theme.colors.actionPrimaryBackgroundDefault
                       : theme.colors.backgroundSecondary,
                     color: isSelected ? theme.colors.actionPrimaryTextDefault : theme.colors.textPrimary,
-                    boxShadow: theme.shadows.sm,
                     transition: 'background 150ms ease',
                     display: 'flex',
                     alignItems: 'center',
@@ -211,14 +215,7 @@ export const LogTracesDrawer = ({ isOpen, onClose }: { isOpen: boolean; onClose:
                   }}
                 >
                   {logoSrc && (
-                    <img
-                      src={logoSrc}
-                      width={28}
-                      height={28}
-                      alt=""
-                      aria-hidden
-                      css={{ display: 'block' }}
-                    />
+                    <img src={logoSrc} width={28} height={28} alt="icon" aria-hidden css={{ display: 'block' }} />
                   )}
                   {framework.message}
                 </button>
@@ -238,7 +235,7 @@ export const LogTracesDrawer = ({ isOpen, onClose }: { isOpen: boolean; onClose:
               }}
             >
               <FormattedMessage
-                defaultMessage="Explore 15+ more integrations"
+                defaultMessage="View all integrations"
                 description="Link text directing users to additional tracing integrations"
               />
               <NewWindowIcon css={{ fontSize: 14 }} />
@@ -248,7 +245,6 @@ export const LogTracesDrawer = ({ isOpen, onClose }: { isOpen: boolean; onClose:
             css={{
               flex: 1,
               minWidth: 0,
-              maxWidth: 860,
               display: 'flex',
               flexDirection: 'column',
               gap: theme.spacing.lg,
@@ -261,9 +257,10 @@ export const LogTracesDrawer = ({ isOpen, onClose }: { isOpen: boolean; onClose:
           >
             {QUICKSTART_CONTENT[selectedFramework]!.getImageSource && (
               <img
-                  src={QUICKSTART_CONTENT[selectedFramework].getImageSource()}
-                  css={{ borderRadius: theme.borders.borderRadiusMd }}
-                  alt={selectedFramework} />
+                src={QUICKSTART_CONTENT[selectedFramework].getImageSource()}
+                css={{ borderRadius: theme.borders.borderRadiusMd }}
+                alt={selectedFramework}
+              />
             )}
             <section
               css={{
@@ -376,15 +373,15 @@ export const LogTracesDrawer = ({ isOpen, onClose }: { isOpen: boolean; onClose:
                   <li>
                     <FormattedMessage
                       defaultMessage="Select the experiment you configured above."
-                        description="Instruction to select the experiment configured for traces"
-                      />
+                      description="Instruction to select the experiment configured for traces"
+                    />
                   </li>
                   <li>
                     <FormattedMessage
                       defaultMessage="Switch to the {tracesTab} tab to inspect trace inputs, outputs, and tokens."
                       description="Instruction to open the traces tab in the experiment page"
                       values={{ tracesTab: <strong>Traces</strong> }}
-                      />
+                    />
                   </li>
                 </ol>
               </Typography.Text>
@@ -395,7 +392,21 @@ export const LogTracesDrawer = ({ isOpen, onClose }: { isOpen: boolean; onClose:
                   defaultMessage="Learn more about tracing in the {tracingDocs}."
                   description="Instruction to learn more about tracing in the tracing docs"
                   values={{
-                    tracingDocs: <a href={TRACING_DOCS_URL} target="_blank" rel="noopener noreferrer" css={{ display: 'inline-flex', gap: theme.spacing.xs, alignItems: 'center' }}><FormattedMessage defaultMessage="MLflow documentation" description="Link to tracing documentation" /><NewWindowIcon css={{ fontSize: 14 }} /></a> }}
+                    tracingDocs: (
+                      <a
+                        href={TRACING_DOCS_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        css={{ display: 'inline-flex', gap: theme.spacing.xs, alignItems: 'center' }}
+                      >
+                        <FormattedMessage
+                          defaultMessage="MLflow documentation"
+                          description="Link to tracing documentation"
+                        />
+                        <NewWindowIcon css={{ fontSize: 14 }} />
+                      </a>
+                    ),
+                  }}
                 />
               </Typography.Text>
             </section>

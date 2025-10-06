@@ -77,7 +77,6 @@ const GetStartedCard = ({ action, onLogTracesClick }: { action: QuickAction; onL
           font: 'inherit',
           textAlign: 'left',
         }}
-        data-component-id={action.componentId}
       >
         {card}
       </button>
