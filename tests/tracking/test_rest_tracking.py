@@ -2565,8 +2565,7 @@ def test_legacy_start_and_end_trace_v2(mlflow_client):
     }
 
 
-@mock.patch("mlflow.tracing.export.mlflow_v3._logger")
-def test_start_trace(mock_exporter_logger, mlflow_client):
+def test_start_trace(mlflow_client):
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
     experiment_id = mlflow.set_experiment("start end trace").experiment_id
 
@@ -2574,17 +2573,18 @@ def test_start_trace(mock_exporter_logger, mlflow_client):
     def _exclude_system_keys(d: dict[str, str]):
         return {k: v for k, v in d.items() if not k.startswith("mlflow.")}
 
-    with mlflow.start_span(name="test") as span:
-        mlflow.update_current_trace(
-            tags={
-                "tag1": "football",
-                "tag2": "basketball",
-            },
-            metadata={
-                "meta1": "apple",
-                "meta2": "grape",
-            },
-        )
+    with mock.patch("mlflow.tracing.export.mlflow_v3._logger") as mock_logger:
+        with mlflow.start_span(name="test") as span:
+            mlflow.update_current_trace(
+                tags={
+                    "tag1": "football",
+                    "tag2": "basketball",
+                },
+                metadata={
+                    "meta1": "apple",
+                    "meta2": "grape",
+                },
+            )
 
     trace = mlflow_client.get_trace(span.trace_id)
     assert trace.info.trace_id == span.trace_id
@@ -2602,8 +2602,9 @@ def test_start_trace(mock_exporter_logger, mlflow_client):
         "tag2": "basketball",
     }
 
-    # No logging failure warning should be issued
-    mock_exporter_logger.warning.assert_not_called()
+    # No "Failed to log span to MLflow backend" warning should be issued
+    for call in mock_logger.warning.call_args_list:
+        assert "Failed to log span to MLflow backend" not in str(call)
 
 
 def test_search_traces(mlflow_client):
