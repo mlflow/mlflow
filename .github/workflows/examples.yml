@@ -38,6 +38,8 @@ env:
   MLFLOW_HOME: ${{ github.workspace }}
   MLFLOW_CONDA_HOME: /usr/share/miniconda
   PYTHONFAULTHANDLER: "1"
+  MLFLOW_ENV_MANAGER: uv
+  UV_CACHE_DIR: /tmp/uv-cache
 
 jobs:
   examples:
@@ -80,6 +82,8 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh --ml
           pip install fastapi uvicorn tf-keras
+          uv --version
+          echo "UV_CACHE_DIR: $UV_CACHE_DIR"
 
       - name: Run example tests
         if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.check-diff.outputs.examples_changed == 'true' }}
