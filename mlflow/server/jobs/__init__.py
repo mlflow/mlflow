@@ -33,11 +33,13 @@ class JobFunctionMetadata:
     fn_fullname: str
     max_workers: int
     use_process: bool
+    transient_error_classes: list[type[Exception]] | None = None
 
 
 def job(
     max_workers: int,
     use_process: bool = True,
+    transient_error_classes: list[type[Exception]] | None = None,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     The decorator for the custom job function for setting max parallel workers that
@@ -50,6 +52,8 @@ def job(
             If the job uses environment variables (e.g. API keys),
             it should be run in an individual process to isolate the environment variable settings.
             Default value is True.
+        transient_error_classes: (optional) Specify a list of classes that are regarded as
+            transient error classes.
     """
 
     def decorator(fn: Callable[P, R]) -> Callable[P, R]:
@@ -57,6 +61,7 @@ def job(
             fn_fullname=f"{fn.__module__}.{fn.__name__}",
             max_workers=max_workers,
             use_process=use_process,
+            transient_error_classes=transient_error_classes,
         )
         return fn
 
@@ -81,7 +86,9 @@ def submit_job(
         function: The job function, it must be a python module-level function,
             and all params and return value must be JSON-serializable.
             The function can raise `TransientError` in order to trigger
-            job retry, you can set `MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES`
+            job retry, or you can annotate a list of transient error classes
+            by ``@job(..., transient_error_classes=[...])``.
+            You can set `MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES`
             to configure maximum allowed retries for transient errors
             and set `MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY` to
             configure base retry delay in seconds.
@@ -120,6 +127,10 @@ def submit_job(
             "'mlflow.server.jobs.job_function'."
         )
 
+    if not isinstance(params, dict):
+        raise MlflowException.invalid_parameter_value(
+            "When calling 'submit_job', the 'params' argument must be a dict."
+        )
     # Validate that required parameters are provided
     _validate_function_parameters(function, params)
 

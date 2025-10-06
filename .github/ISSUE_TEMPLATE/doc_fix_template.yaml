@@ -8,6 +8,11 @@ body:
     attributes:
       value: |
         Thank you for submitting an issue. Please refer to our [issue policy](https://www.github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md) for information on what types of issues we address.
+
+        **Is this the right repository?**
+        - ✅ **Documentation pages** under https://mlflow.org/docs (API reference, tutorials, how-to guides) — you're in the right place!
+        - ❌ **Main website content** (blog posts, marketing pages, other site content) — please file at https://github.com/mlflow/mlflow-website/issues instead
+
         **Please fill in this documentation issue template to ensure a timely and thorough response.**
   - type: dropdown
     id: contribution
@@ -25,6 +30,7 @@ body:
       label: URL(s) with the issue
       description: |
         Please provide a link to the documentation entry in question.
+        Note: This repo is for https://mlflow.org/docs pages only. For other website content, use https://github.com/mlflow/mlflow-website/issues.
     validations:
       required: true
   - type: textarea
