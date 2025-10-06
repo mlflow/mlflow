@@ -83,7 +83,7 @@ In this example, this API produces a more informative prompt template:
 Please provide a concise response to the question enclosed in the {{question}} variable. 
 Ensure that the answer addresses the main question directly. 
 For instance, if a location is asked about, mention only the primary information required, such as the name of the capital city for a country-related question. 
-void additional context, complete sentences, or extraneous information in your response. 
+Avoid additional context, complete sentences, or extraneous information in your response. 
 Your aim is to deliver a precise, correct answer that matches the expectation outlined.
 ```
 
@@ -220,7 +220,7 @@ traces = mlflow.search_traces(
 )
 
 # Merge the list of Trace objects into your dataset
-dataset.merge_records(annotated_traces)
+dataset.merge_records(traces)
 ```
 
 ## Advanced Usage
