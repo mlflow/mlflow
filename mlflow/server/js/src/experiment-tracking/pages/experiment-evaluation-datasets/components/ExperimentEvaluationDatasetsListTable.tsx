@@ -192,7 +192,6 @@ export const ExperimentEvaluationDatasetsListTable = ({
 
   if (!datasets?.length) {
     setSelectedDataset(undefined);
-    return;
   }
 
   // set the selected dataset to the first one if the is no selected dataset,
