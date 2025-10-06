@@ -14,7 +14,7 @@ import {
 import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { FormattedMessage } from 'react-intl';
 import { useInfiniteScrollFetch } from '../hooks/useInfiniteScrollFetch';
-import { useSearchEvaluationDatasets } from '../hooks/useSearchEvaluationDatsets';
+import { useSearchEvaluationDatasets } from '../hooks/useSearchEvaluationDatasets';
 import { EvaluationDataset } from '../types';
 import { getTrace } from '../../../utils/TraceUtils';
 import { useCallback, useEffect, useState } from 'react';
