@@ -97,6 +97,10 @@ const testEntitiesState: Partial<ReduxState['entities']> = {
 };
 
 describe('RunViewOverview integration', () => {
+  beforeEach(() => {
+    jest.mocked(useGetRunQuery).mockReset();
+  });
+
   const onRunDataUpdated = jest.fn();
   const renderComponent = ({
     tags = {},
