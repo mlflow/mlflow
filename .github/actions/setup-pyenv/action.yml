@@ -13,7 +13,7 @@ runs:
         sudo apt-get update -y
         sudo apt-get install -y --no-install-recommends make build-essential libssl-dev zlib1g-dev \
         libbz2-dev libreadline-dev libsqlite3-dev wget curl \
-        libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev
+        libncursesw5-dev xz-utils libffi-dev liblzma-dev
     - name: Install pyenv
       if: runner.os == 'Linux'
       shell: bash
