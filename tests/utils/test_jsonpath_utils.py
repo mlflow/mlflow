@@ -221,8 +221,6 @@ def test_validate_field_paths_suggestions():
 
 
 def test_wildcard_with_dotted_field_names():
-    """Test wildcard expansion with field names containing dots."""
-    # This tests the specific fix for handling fields like 'mlflow.spanType' with wildcards
     data = {
         "data": {
             "spans": [
@@ -246,20 +244,15 @@ def test_wildcard_with_dotted_field_names():
         }
     }
 
-    # Test extracting field with dots using wildcards
     values = jsonpath_extract_values(data, "data.spans.*.attributes.`mlflow.spanType`")
     assert values == ["AGENT", "CHAIN"]
 
-    # Test filtering preserves structure with dotted fields
     filtered = filter_json_by_fields(data, ["data.spans.*.attributes.`mlflow.spanType`"])
     assert len(filtered["data"]["spans"]) == 2
     assert filtered["data"]["spans"][0]["attributes"]["mlflow.spanType"] == "AGENT"
     assert filtered["data"]["spans"][1]["attributes"]["mlflow.spanType"] == "CHAIN"
-    # Should not include other attributes
     assert "mlflow.spanName" not in filtered["data"]["spans"][0]["attributes"]
     assert "regular_attr" not in filtered["data"]["spans"][0]["attributes"]
-
-    # Test multiple dotted fields
     filtered2 = filter_json_by_fields(
         data,
         ["data.spans.*.attributes.`mlflow.spanType`", "data.spans.*.attributes.`mlflow.spanName`"],
