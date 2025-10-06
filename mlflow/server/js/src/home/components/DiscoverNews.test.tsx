@@ -35,9 +35,7 @@ describe('DiscoverNews', () => {
     renderWithDesignSystem(<DiscoverNews />);
 
     homeNewsItems.forEach((item) => {
-      const link = screen
-        .getByText(item.title.props.defaultMessage)
-        .closest('a') as HTMLAnchorElement | null;
+      const link = screen.getByText(item.title.props.defaultMessage).closest('a') as HTMLAnchorElement | null;
 
       expect(link).not.toBeNull();
       expect(link).toHaveAttribute('href', item.link);

@@ -2628,6 +2628,7 @@
   "S5QeiE": {
     "defaultMessage": "Retry",
     "description": "Home page experiments retry CTA"
+  },
   "S7ESYH": {
     "defaultMessage": "Visualizations",
     "description": "Tabs title for plots on the compare runs page"
@@ -5165,6 +5166,7 @@
   "sS3GBl": {
     "defaultMessage": "Trace LLM applications for debugging and monitoring.",
     "description": "Home page quick action description for logging traces"
+  },
   "sTp/V3": {
     "defaultMessage": "Parallel Coordinates Plot",
     "description": "Tab pane title for parallel coordinate plots on the compare runs page"

@@ -25,9 +25,7 @@ describe('GetStarted', () => {
     renderWithDesignSystem(<GetStarted />);
 
     homeQuickActions.forEach((action) => {
-      const link = screen
-        .getByText(action.title.props.defaultMessage)
-        .closest('a') as HTMLAnchorElement | null;
+      const link = screen.getByText(action.title.props.defaultMessage).closest('a') as HTMLAnchorElement | null;
 
       expect(link).not.toBeNull();
       expect(link).toHaveAttribute('href', action.link);
