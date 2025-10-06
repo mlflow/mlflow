@@ -6,7 +6,8 @@ import type { ReduxState } from '../../../redux-types';
 import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 import { cloneDeep, merge } from 'lodash';
 import userEvent from '@testing-library/user-event';
-import { getRunApi, setTagApi } from '../../actions';
+import { setTagApi } from '../../actions';
+import { useGetRunQuery } from './hooks/useGetRunQuery';
 import { usePromptVersionsForRunQuery } from '../../pages/prompts/hooks/usePromptVersionsForRunQuery';
 import { NOTE_CONTENT_TAG } from '../../utils/NoteUtils';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -25,7 +26,10 @@ jest.mock('../../../common/components/Prompt', () => ({
 
 jest.mock('../../actions', () => ({
   setTagApi: jest.fn(() => ({ type: 'setTagApi', payload: Promise.resolve() })),
-  getRunApi: jest.fn(() => ({ type: 'getRunApi', payload: Promise.resolve() })),
+}));
+
+jest.mock('./hooks/useGetRunQuery', () => ({
+  useGetRunQuery: jest.fn(),
 }));
 
 const testPromptName = 'test-prompt';
@@ -93,6 +97,10 @@ const testEntitiesState: Partial<ReduxState['entities']> = {
 };
 
 describe('RunViewOverview integration', () => {
+  beforeEach(() => {
+    jest.mocked(useGetRunQuery).mockReset();
+  });
+
   const onRunDataUpdated = jest.fn();
   const renderComponent = ({
     tags = {},
@@ -296,6 +304,14 @@ describe('RunViewOverview integration', () => {
     const testParentRunUuid = 'test-parent-run-uuid';
     const testParentRunName = 'Test parent run name';
 
+    (useGetRunQuery as jest.Mock).mockReturnValue({
+      data: { info: { runName: testParentRunName, runUuid: testParentRunUuid, experimentId: testExperimentId } },
+      loading: false,
+      apolloError: undefined,
+      apiError: undefined,
+      refetchRun: jest.fn(),
+    });
+
     const { container } = renderComponent({
       tags: {
         [EXPERIMENT_PARENT_ID_TAG]: {
@@ -333,7 +349,7 @@ describe('RunViewOverview integration', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Parent run name loading')).toBeInTheDocument();
-      expect(getRunApi).toHaveBeenCalledWith(testParentRunUuid);
+      expect(useGetRunQuery).toHaveBeenCalledWith({ runUuid: testParentRunUuid, disabled: false });
     });
   });
 

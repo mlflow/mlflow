@@ -271,6 +271,7 @@ select = [
   "RUF003",  # ambiguous-unicode-character-comment
   "RUF010",  # explicit-f-string-type-conversion
   "RUF013",  # implicit-optional
+  "RUF051",  # if-key-in-dict-del
   "RUF100",  # unused-noqa
   "S307",    # suspicious-eval-usage
   "S324",    # hashlib-insecure-hash-function
