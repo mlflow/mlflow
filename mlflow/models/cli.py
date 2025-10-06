@@ -210,6 +210,7 @@ def prepare_env(
 @cli_args.INSTALL_JAVA
 @cli_args.INSTALL_MLFLOW
 @cli_args.ENABLE_MLSERVER
+@cli_args.BASE_IMAGE
 def generate_dockerfile(
     model_uri,
     output_directory,
@@ -218,6 +219,7 @@ def generate_dockerfile(
     install_java,
     install_mlflow,
     enable_mlserver,
+    base_image,
 ):
     """
     Generates a directory with Dockerfile whose default entrypoint serves an MLflow model at port
@@ -238,6 +240,7 @@ def generate_dockerfile(
             install_java=install_java,
             install_mlflow=install_mlflow,
             enable_mlserver=enable_mlserver,
+            base_image=base_image,
         )
         _logger.info("Generated Dockerfile in directory %s", output_directory)
     else:
@@ -256,6 +259,7 @@ def generate_dockerfile(
 @cli_args.INSTALL_JAVA
 @cli_args.INSTALL_MLFLOW
 @cli_args.ENABLE_MLSERVER
+@cli_args.BASE_IMAGE
 def build_docker(**kwargs):
     """
     Builds a Docker image whose default entrypoint serves an MLflow model at port 8080, using the
