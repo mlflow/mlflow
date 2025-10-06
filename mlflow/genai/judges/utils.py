@@ -6,6 +6,7 @@ import re
 import threading
 import time
 import traceback
+import warnings
 from contextlib import ContextDecorator
 from dataclasses import asdict, dataclass, is_dataclass
 from typing import TYPE_CHECKING, Any, NamedTuple
@@ -41,7 +42,6 @@ _logger = logging.getLogger(__name__)
 
 # "endpoints" is a special case for Databricks model serving endpoints.
 _NATIVE_PROVIDERS = ["openai", "anthropic", "bedrock", "mistral", "endpoints"]
-_LITELLM_PROVIDERS = ["azure", "vertexai", "cohere", "replicate", "groq", "together"]
 
 # Global cache to track model capabilities across function calls
 # Key: model URI (e.g., "openai/gpt-4"), Value: boolean indicating response_format support
@@ -126,7 +126,7 @@ def validate_judge_model(model_uri: str) -> None:
     provider, model_name = _parse_model_uri(model_uri)
 
     # Check if LiteLLM is required and available for non-native providers
-    if provider not in _NATIVE_PROVIDERS and provider in _LITELLM_PROVIDERS:
+    if provider not in _NATIVE_PROVIDERS:
         if not _is_litellm_available():
             raise MlflowException(
                 f"LiteLLM is required for using '{provider}' as a provider. "
@@ -348,7 +348,7 @@ def _invoke_databricks_judge(
 def _invoke_via_gateway(
     model_uri: str,
     provider: str,
-    messages: list["ChatMessage"],
+    prompt: str,
 ) -> str:
     """
     Invoke the judge model via native AI Gateway adapters.
@@ -356,7 +356,7 @@ def _invoke_via_gateway(
     Args:
         model_uri: The full model URI.
         provider: The provider name.
-        messages: List of ChatMessage objects.
+        prompt: The prompt to evaluate.
 
     Returns:
         The JSON response string from the model.
@@ -375,7 +375,7 @@ def _invoke_via_gateway(
 
     return score_model_on_payload(
         model_uri=model_uri,
-        payload=[{"role": msg.role, "content": msg.content} for msg in messages],
+        payload=prompt,
         endpoint_type=get_endpoint_type(model_uri) or "llm/v1/chat",
     )
 
@@ -421,15 +421,23 @@ def invoke_judge_model(
     in_databricks = _is_in_databricks()
 
     # Handle Databricks endpoints (not the default judge) with proper telemetry
-    if model_provider == "databricks" and isinstance(prompt, str):
+    if model_provider in {"databricks", "endpoints"} and isinstance(prompt, str):
+        if model_provider == "endpoints":
+            warnings.warn(
+                "The legacy provider 'endpoints' is deprecated and will be removed in a future"
+                "release. Please update your code to use the 'databricks' provider instead.",
+                FutureWarning,
+                stacklevel=2,
+            )
         try:
-            output = _invoke_judge_model(
-                model_uri=model_uri,
+            output = _invoke_databricks_judge_model(
+                model_name=model_name,
                 prompt=prompt,
                 assessment_name=assessment_name,
                 num_retries=num_retries,
             )
             feedback = output.feedback
+            feedback.trace_id = trace.info.trace_id if trace is not None else None
 
             # Record success telemetry only when in Databricks
             if in_databricks:
@@ -453,8 +461,9 @@ def invoke_judge_model(
             # Record failure telemetry only when in Databricks
             if in_databricks:
                 try:
+                    provider = "databricks" if model_provider == "endpoints" else model_provider
                     _record_judge_model_usage_failure_databricks_telemetry(
-                        model_provider=model_provider,
+                        model_provider=provider,
                         endpoint_name=model_name,
                         error_code="UNKNOWN",
                         error_message=traceback.format_exc(),
@@ -484,7 +493,13 @@ def invoke_judge_model(
             error_code=BAD_REQUEST,
         )
     else:
-        response = _invoke_via_gateway(model_uri, model_provider, messages)
+        if not isinstance(prompt, str):
+            raise MlflowException(
+                "This judge is not supported by native LLM providers. Please install "
+                "LiteLLM with `pip install litellm` to use this judge.",
+                error_code=BAD_REQUEST,
+            )
+        response = _invoke_via_gateway(model_uri, model_provider, prompt)
 
     try:
         response_dict = json.loads(response)
@@ -499,6 +514,7 @@ def invoke_judge_model(
         value=response_dict["result"],
         rationale=_sanitize_justification(response_dict.get("rationale", "")),
         source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id=model_uri),
+        trace_id=trace.info.trace_id if trace is not None else None,
     )
 
     if "error" in response_dict:
@@ -733,83 +749,42 @@ class InvokeJudgeModelHelperOutput:
     num_completion_tokens: int | None
 
 
-def _invoke_judge_model(
+def _invoke_databricks_judge_model(
     *,
-    model_uri: str,
+    model_name: str,
     prompt: str,
     assessment_name: str,
     num_retries: int = 10,
 ) -> InvokeJudgeModelHelperOutput:
-    from mlflow.metrics.genai.model_utils import (
-        _parse_model_uri,
-        get_endpoint_type,
-        score_model_on_payload,
+    output = _invoke_databricks_model(
+        model_name=model_name,
+        prompt=prompt,
+        num_retries=num_retries,
     )
-
-    provider, model_name = _parse_model_uri(model_uri)
-    request_id = None
-    num_prompt_tokens = None
-    num_completion_tokens = None
-
-    if provider == "databricks":
-        output = _invoke_databricks_model(
-            model_name=model_name,
-            prompt=prompt,
-            num_retries=num_retries,
-        )
-        response = output.response
-        request_id = output.request_id
-        num_prompt_tokens = output.num_prompt_tokens
-        num_completion_tokens = output.num_completion_tokens
-    elif _is_litellm_available():
-        # prioritize litellm for better performance
-        from mlflow.types.llm import ChatMessage
-
-        messages = [ChatMessage(role="user", content=prompt)]
-        response = _invoke_litellm(
-            provider=provider,
-            model_name=model_name,
-            messages=messages,
-            trace=None,
-            num_retries=num_retries,
-        )
-    elif provider in _NATIVE_PROVIDERS:
-        response = score_model_on_payload(
-            model_uri=model_uri,
-            payload=prompt,
-            endpoint_type=get_endpoint_type(model_uri) or "llm/v1/chat",
-        )
-    else:
-        raise MlflowException(
-            f"LiteLLM is required for using '{provider}' LLM. Please install it with "
-            "`pip install litellm`.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-
     try:
-        response_dict = json.loads(response)
+        response_dict = json.loads(output.response)
         feedback = Feedback(
             name=assessment_name,
             value=response_dict["result"],
             rationale=_sanitize_justification(response_dict.get("rationale", "")),
             source=AssessmentSource(
                 source_type=AssessmentSourceType.LLM_JUDGE,
-                source_id=model_uri,
+                source_id=f"databricks:/{model_name}",
             ),
         )
     except json.JSONDecodeError as e:
         raise MlflowException(
-            f"Failed to parse the response from the judge. Response: {response}",
+            f"Failed to parse the response from the judge. Response: {output.response}",
             error_code=INVALID_PARAMETER_VALUE,
         ) from e
 
     return InvokeJudgeModelHelperOutput(
         feedback=feedback,
-        model_provider=provider,
+        model_provider="databricks",
         model_name=model_name,
-        request_id=request_id,
-        num_prompt_tokens=num_prompt_tokens,
-        num_completion_tokens=num_completion_tokens,
+        request_id=output.request_id,
+        num_prompt_tokens=output.num_prompt_tokens,
+        num_completion_tokens=output.num_completion_tokens,
     )
 
 

@@ -105,7 +105,11 @@ def filter_diff(full_diff: str) -> str:
             # Extract file path from: diff --git a/path/to/file.py b/path/to/file.py
             if match := re.match(r"diff --git a/(.*?) b/(.*?)$", line):
                 file_path = match.group(2)  # Use the 'b/' path (new file path)
-                in_included_file = not should_exclude_file(file_path)
+                # Exclude deleted files (where b/ path is dev/null)
+                if file_path == "dev/null":
+                    in_included_file = False
+                else:
+                    in_included_file = not should_exclude_file(file_path)
             else:
                 in_included_file = False
 

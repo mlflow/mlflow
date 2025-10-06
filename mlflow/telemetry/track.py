@@ -65,8 +65,7 @@ def _generate_telemetry_record(
         bound_args.apply_defaults()
 
         arguments = dict(bound_args.arguments)
-        if "self" in arguments:
-            del arguments["self"]
+        arguments.pop("self", None)
 
         params = list(arguments.keys())
         if params and params[0] == "cls" and isinstance(arguments["cls"], type):
