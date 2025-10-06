@@ -19,7 +19,7 @@ from mlflow.insights.store.databricks_sql_insights_store import DatabricksSqlIns
 
 
 @pytest.fixture
-def mock_store():
+def mock_store() -> DatabricksSqlInsightsStore:
     """Set up test fixtures with mocked Databricks store."""
     # Mock the parent DatabricksSqlStore initialization
     with patch(
@@ -43,7 +43,7 @@ def mock_store():
 # ============== Basic Unit Tests ==============
 
 
-def test_generate_census_empty_experiment(mock_store):
+def test_generate_census_empty_experiment(mock_store: DatabricksSqlInsightsStore):
     """Test census generation with no data."""
     experiment_id = "12345"
     table_name = "traces_table_12345"
@@ -95,7 +95,7 @@ def test_generate_census_empty_experiment(mock_store):
     assert len(census.operational_metrics.top_slow_tools) == 0
 
 
-def test_generate_census_with_traces(mock_store):
+def test_generate_census_with_traces(mock_store: DatabricksSqlInsightsStore):
     """Test census generation with trace data."""
     experiment_id = "12345"
     table_name = "traces_table_12345"
@@ -194,7 +194,7 @@ def test_generate_census_with_traces(mock_store):
     assert census.quality_metrics.response_quality_issues.value == 12.0
 
 
-def test_generate_census_no_trace_table(mock_store):
+def test_generate_census_no_trace_table(mock_store: DatabricksSqlInsightsStore):
     """Test census generation when no trace table exists for experiment."""
     experiment_id = "12345"
     mock_store._get_trace_table_for_experiment.return_value = None
@@ -205,13 +205,13 @@ def test_generate_census_no_trace_table(mock_store):
     assert context.value.error_code in ["INVALID_PARAMETER_VALUE", 1000]
 
 
-def test_generate_census_invalid_experiment_id(mock_store):
+def test_generate_census_invalid_experiment_id(mock_store: DatabricksSqlInsightsStore):
     """Test census generation with invalid experiment ID."""
     with pytest.raises(MlflowException, match="experiment_id parameter is required"):
         mock_store.generate_census("")
 
 
-def test_generate_census_with_sample_trace_cleanup(mock_store):
+def test_generate_census_with_sample_trace_cleanup(mock_store: DatabricksSqlInsightsStore):
     """Test that sample trace IDs are properly cleaned (None values filtered)."""
     experiment_id = "12345"
     table_name = "traces_table_12345"
@@ -279,7 +279,7 @@ def test_generate_census_with_sample_trace_cleanup(mock_store):
     assert census.quality_metrics.verbosity.sample_trace_ids == []
 
 
-def test_census_serialization(mock_store):
+def test_census_serialization(mock_store: DatabricksSqlInsightsStore):
     """Test that census can be serialized to JSON."""
     experiment_id = "12345"
     table_name = "traces_table_12345"
@@ -330,7 +330,7 @@ def test_census_serialization(mock_store):
     assert census_dict["operational_metrics"]["total_traces"] == 1
 
 
-def test_execute_sql_error_handling(mock_store):
+def test_execute_sql_error_handling(mock_store: DatabricksSqlInsightsStore):
     """Test error handling when SQL execution fails."""
     experiment_id = "12345"
     table_name = "traces_table_12345"
@@ -344,7 +344,7 @@ def test_execute_sql_error_handling(mock_store):
         mock_store.generate_census(experiment_id)
 
 
-def test_get_trace_table_for_experiment_implementation(mock_store):
+def test_get_trace_table_for_experiment_implementation(mock_store: DatabricksSqlInsightsStore):
     """Test the _get_trace_table_for_experiment method behavior through mocking."""
     # Since _get_trace_table_for_experiment is implemented in the parent class
     # DatabricksSqlStore, and we're mocking it in our fixture, we'll test
@@ -404,7 +404,7 @@ def test_get_trace_table_no_tracing_enabled():
         assert table_name is None
 
 
-def test_complex_error_span_aggregation(mock_store):
+def test_complex_error_span_aggregation(mock_store: DatabricksSqlInsightsStore):
     """Test aggregation of complex error span data."""
     experiment_id = "12345"
     table_name = "traces_table_12345"
@@ -509,7 +509,7 @@ def test_complex_error_span_aggregation(mock_store):
     assert "misc_error" not in span_names
 
 
-def test_metadata_population(mock_store):
+def test_metadata_population(mock_store: DatabricksSqlInsightsStore):
     """Test that census metadata is properly populated."""
     experiment_id = "12345"
     mock_store._get_trace_table_for_experiment.return_value = "custom.catalog.traces"

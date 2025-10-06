@@ -12,6 +12,7 @@ import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -30,7 +31,7 @@ from mlflow.tracing.utils import encode_span_id, encode_trace_id
 
 
 @pytest.fixture
-def test_store():
+def test_store() -> dict[str, Any]:
     """Set up test database and store instances."""
     temp_dir = tempfile.mkdtemp()
     # Use environment variable if set (for testing against different databases)
@@ -74,14 +75,14 @@ def test_store():
 
 
 def create_test_trace_and_spans(
-    store_info,
-    exp_id,
-    num_spans=3,
-    start_time=None,
-    duration_ms=100,
-    status="OK",
-    add_metadata=True,
-):
+    store_info: dict[str, Any],
+    exp_id: str,
+    num_spans: int = 3,
+    start_time: datetime | None = None,
+    duration_ms: int = 100,
+    status: str = "OK",
+    add_metadata: bool = True,
+) -> tuple[str, str]:
     """Helper to create test trace with spans directly in database."""
     if start_time is None:
         start_time = datetime.now(timezone.utc)
@@ -179,7 +180,7 @@ def test_basic_insights_store_creation():
     shutil.rmtree(temp_dir)
 
 
-def test_empty_metrics(test_store):
+def test_empty_metrics(test_store: dict[str, Any]):
     """Test metrics retrieval with no data."""
     insights_store = test_store["insights_store"]
     exp_id = test_store["exp_id"]
@@ -197,7 +198,7 @@ def test_empty_metrics(test_store):
     assert len(metrics.top_slow_tools) == 0
 
 
-def test_single_trace_metrics(test_store):
+def test_single_trace_metrics(test_store: dict[str, Any]):
     """Test metrics with a single trace."""
     insights_store = test_store["insights_store"]
     tracking_store = test_store["tracking_store"]
@@ -280,7 +281,7 @@ def test_single_trace_metrics(test_store):
     assert census.operational_metrics.total_traces == 1
 
 
-def test_error_trace_metrics(test_store):
+def test_error_trace_metrics(test_store: dict[str, Any]):
     """Test metrics with an error trace."""
     insights_store = test_store["insights_store"]
     tracking_store = test_store["tracking_store"]
@@ -355,7 +356,7 @@ def test_error_trace_metrics(test_store):
 # ============== Database Optimization Tests ==============
 
 
-def test_get_operational_metrics_db_aggregation(test_store):
+def test_get_operational_metrics_db_aggregation(test_store: dict[str, Any]):
     """Test that operational metrics use database aggregation."""
     exp_id = test_store["exp_id"]
     insights_store = test_store["insights_store"]
@@ -383,7 +384,7 @@ def test_get_operational_metrics_db_aggregation(test_store):
     assert metrics.p95_latency_ms >= metrics.p50_latency_ms
 
 
-def test_calculate_latency_percentiles_single_query(test_store):
+def test_calculate_latency_percentiles_single_query(test_store: dict[str, Any]):
     """Test that percentile calculations happen in a single DB query."""
     exp_id = test_store["exp_id"]
     insights_store = test_store["insights_store"]
@@ -412,7 +413,7 @@ def test_calculate_latency_percentiles_single_query(test_store):
     assert metrics.p95_latency_ms > metrics.p50_latency_ms
 
 
-def test_get_quality_metrics_aggregated_queries(test_store):
+def test_get_quality_metrics_aggregated_queries(test_store: dict[str, Any]):
     """Test that quality metrics use aggregated database queries."""
     exp_id = test_store["exp_id"]
     insights_store = test_store["insights_store"]
@@ -442,7 +443,7 @@ def test_get_quality_metrics_aggregated_queries(test_store):
     assert metrics.response_quality_issues is not None
 
 
-def test_time_bucketing_aggregation(test_store):
+def test_time_bucketing_aggregation(test_store: dict[str, Any]):
     """Test that time bucketing happens at database level."""
     exp_id = test_store["exp_id"]
     insights_store = test_store["insights_store"]
@@ -472,7 +473,7 @@ def test_time_bucketing_aggregation(test_store):
     assert len(metrics.time_buckets) == 0
 
 
-def test_no_full_dataset_transfer(test_store):
+def test_no_full_dataset_transfer(test_store: dict[str, Any]):
     """Test that aggregated metrics work efficiently with large datasets."""
     exp_id = test_store["exp_id"]
     insights_store = test_store["insights_store"]
@@ -505,7 +506,7 @@ def test_no_full_dataset_transfer(test_store):
     assert metrics.p95_latency_ms > metrics.p50_latency_ms
 
 
-def test_postgresql_specific_percentiles(test_store):
+def test_postgresql_specific_percentiles(test_store: dict[str, Any]):
     """Test PostgreSQL-specific percentile_cont usage."""
     db_uri = test_store["db_uri"]
     if "postgresql" not in db_uri:
@@ -537,7 +538,7 @@ def test_postgresql_specific_percentiles(test_store):
     assert metrics.p95_latency_ms <= metrics.p99_latency_ms
 
 
-def test_sqlite_fallback_percentiles(test_store):
+def test_sqlite_fallback_percentiles(test_store: dict[str, Any]):
     """Test SQLite fallback percentile implementation."""
     db_uri = test_store["db_uri"]
     if "sqlite" not in db_uri:
@@ -567,7 +568,7 @@ def test_sqlite_fallback_percentiles(test_store):
     assert metrics.p95_latency_ms > metrics.p50_latency_ms
 
 
-def test_census_generation_efficiency(test_store):
+def test_census_generation_efficiency(test_store: dict[str, Any]):
     """Test that census generation uses efficient aggregated queries."""
     exp_id = test_store["exp_id"]
     insights_store = test_store["insights_store"]
@@ -600,7 +601,7 @@ def test_census_generation_efficiency(test_store):
     assert abs(census.operational_metrics.error_rate - 10.0) <= 1.0
 
 
-def test_model_distribution_aggregation(test_store):
+def test_model_distribution_aggregation(test_store: dict[str, Any]):
     """Test model distribution calculation efficiency."""
     exp_id = test_store["exp_id"]
     insights_store = test_store["insights_store"]
@@ -627,7 +628,7 @@ def test_model_distribution_aggregation(test_store):
     assert len(metrics.top_slow_tools) > 0
 
 
-def test_empty_results_handling(test_store):
+def test_empty_results_handling(test_store: dict[str, Any]):
     """Test graceful handling of empty result sets."""
     insights_store = test_store["insights_store"]
 
@@ -644,7 +645,7 @@ def test_empty_results_handling(test_store):
     assert census.operational_metrics.total_traces == 0
 
 
-def test_multiple_experiments_aggregation(test_store):
+def test_multiple_experiments_aggregation(test_store: dict[str, Any]):
     """Test aggregation across multiple experiments."""
     tracking_store = test_store["tracking_store"]
     insights_store = test_store["insights_store"]
@@ -834,7 +835,7 @@ def create_spans_in_db(
         session.commit()
 
 
-def test_integration_get_operational_metrics(test_store):
+def test_integration_get_operational_metrics(test_store: dict[str, Any]):
     """Integration test for operational metrics with realistic data."""
     insights_store = test_store["insights_store"]
     exp_id = test_store["exp_id"]
@@ -851,7 +852,7 @@ def test_integration_get_operational_metrics(test_store):
     assert len(metrics.top_slow_tools) > 0
 
 
-def test_integration_time_filtering(test_store):
+def test_integration_time_filtering(test_store: dict[str, Any]):
     """Test time range filtering with realistic data."""
     insights_store = test_store["insights_store"]
     exp_id = test_store["exp_id"]
@@ -872,7 +873,7 @@ def test_integration_time_filtering(test_store):
     assert recent_metrics.total_traces <= all_metrics.total_traces
 
 
-def test_integration_census_generation(test_store):
+def test_integration_census_generation(test_store: dict[str, Any]):
     """Test census generation with realistic data."""
     insights_store = test_store["insights_store"]
     exp_id = test_store["exp_id"]

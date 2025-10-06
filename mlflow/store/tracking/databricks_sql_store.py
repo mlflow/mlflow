@@ -10,6 +10,7 @@ import json
 import logging
 from decimal import Decimal
 from functools import partial
+from typing import Any
 
 import requests
 
@@ -46,7 +47,7 @@ class DatabricksSqlStore(RestStore):
         """Close Spark session when store is deleted."""
         self.close_spark_session()
 
-    def close_spark_session(self):
+    def close_spark_session(self) -> None:
         """Close the Spark session if it exists."""
         if self._spark_session:
             try:
@@ -56,7 +57,7 @@ class DatabricksSqlStore(RestStore):
             finally:
                 self._spark_session = None
 
-    def _get_or_create_spark_session(self):
+    def _get_or_create_spark_session(self) -> Any:
         """
         Get or create a Spark session for Databricks SQL queries.
 
@@ -67,7 +68,7 @@ class DatabricksSqlStore(RestStore):
             self._create_new_spark_session()
         return self._spark_session
 
-    def _is_spark_session_healthy(self):
+    def _is_spark_session_healthy(self) -> bool:
         """
         Check if the current Spark session is healthy by running a simple query.
 
@@ -85,7 +86,7 @@ class DatabricksSqlStore(RestStore):
             _logger.warning(f"Spark session health check failed: {e}")
             return False
 
-    def _create_new_spark_session(self):
+    def _create_new_spark_session(self) -> None:
         """
         Create a new Spark session, cleaning up the old one if it exists.
         """
@@ -117,7 +118,7 @@ class DatabricksSqlStore(RestStore):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-    def execute_sql(self, query: str):
+    def execute_sql(self, query: str) -> list[dict[str, Any]]:
         """
         Execute a SQL query against Databricks using Spark.
 
@@ -131,7 +132,7 @@ class DatabricksSqlStore(RestStore):
             spark = self._get_or_create_spark_session()
             result = spark.sql(query).collect()
 
-            def convert_value(value):
+            def convert_value(value: Any) -> Any:
                 """Recursively convert Spark SQL types to JSON-serializable types."""
                 if value is None:
                     return None

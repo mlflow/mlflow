@@ -27,7 +27,7 @@ class TimeBucket(BaseModel, DatetimeFieldsMixin):
 
     @field_validator("time_bucket", mode="before")
     @classmethod
-    def validate_time_bucket(cls, v):
+    def validate_time_bucket(cls, v: str | datetime) -> datetime:
         return cls.parse_datetime(v)
 
 
@@ -67,7 +67,7 @@ class OperationalMetrics(BaseModel, DatetimeFieldsMixin):
 
     @field_validator("first_trace_timestamp", "last_trace_timestamp", mode="before")
     @classmethod
-    def validate_timestamps(cls, v):
+    def validate_timestamps(cls, v: str | datetime) -> datetime:
         return cls.parse_datetime(v)
 
     p50_latency_ms: float = Field(description="50th percentile latency")
@@ -119,7 +119,7 @@ class CensusMetadata(BaseModel, DatetimeFieldsMixin):
 
     @field_validator("created_at", mode="before")
     @classmethod
-    def validate_created_at(cls, v):
+    def validate_created_at(cls, v: str | datetime) -> datetime:
         """Convert string to datetime if needed."""
         return cls.parse_datetime(v)
 
