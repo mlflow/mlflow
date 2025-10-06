@@ -2526,7 +2526,6 @@ def test_legacy_start_and_end_trace_v2(mlflow_client):
     assert trace_info.request_metadata == {
         "meta1": "apple",
         "meta2": "grape",
-        TRACE_SCHEMA_VERSION_KEY: "2",
     }
     assert _exclude_system_tags(trace_info.tags) == {
         "tag1": "football",
@@ -2540,7 +2539,6 @@ def test_legacy_start_and_end_trace_v2(mlflow_client):
         request_metadata={
             "meta1": "orange",
             "meta3": "banana",
-            TRACE_SCHEMA_VERSION_KEY: "2",
         },
         tags={
             "tag1": "soccer",
@@ -2556,7 +2554,6 @@ def test_legacy_start_and_end_trace_v2(mlflow_client):
         "meta1": "orange",
         "meta2": "grape",
         "meta3": "banana",
-        TRACE_SCHEMA_VERSION_KEY: "2",
     }
     assert _exclude_system_tags(trace_info.tags) == {
         "tag1": "soccer",

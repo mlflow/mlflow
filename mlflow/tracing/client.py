@@ -650,7 +650,7 @@ class TracingClient:
     ) -> UCSchemaLocation:
         if is_databricks_uri(self.tracking_uri):
             return self.store.set_experiment_trace_location(
-                experiment_id=experiment_id,
+                experiment_id=str(experiment_id),
                 location=location,
                 sql_warehouse_id=sql_warehouse_id,
             )
@@ -662,7 +662,7 @@ class TracingClient:
         self, experiment_id: str, location: UCSchemaLocation
     ) -> None:
         if is_databricks_uri(self.tracking_uri):
-            self.store.unset_experiment_trace_location(experiment_id, location)
+            self.store.unset_experiment_trace_location(str(experiment_id), location)
         else:
             raise MlflowException(
                 "Clearing storage location is not supported on non-Databricks backends."

@@ -67,7 +67,7 @@ def test_trace_location_mismatch():
         )
 
 
-def test_trace_location_from_proto_mlflow_experiment():
+def test_trace_location_from_v4_proto_mlflow_experiment():
     proto = pb.TraceLocation(
         type=pb.TraceLocation.TraceLocationType.MLFLOW_EXPERIMENT,
         mlflow_experiment=pb.TraceLocation.MlflowExperimentLocation(experiment_id="1234"),
@@ -77,7 +77,7 @@ def test_trace_location_from_proto_mlflow_experiment():
     assert trace_location.mlflow_experiment.experiment_id == "1234"
 
 
-def test_trace_location_from_proto_inference_table():
+def test_trace_location_from_v4_proto_inference_table():
     proto = pb.TraceLocation(
         type=pb.TraceLocation.TraceLocationType.INFERENCE_TABLE,
         inference_table=pb.TraceLocation.InferenceTableLocation(
@@ -93,8 +93,8 @@ def test_uc_schema_location_full_otel_spans_table_name():
     uc_schema = UCSchemaLocation(
         catalog_name="test_catalog",
         schema_name="test_schema",
-        otel_spans_table_name="otel_spans",
     )
+    uc_schema._otel_spans_table_name = "otel_spans"
     assert uc_schema.full_otel_spans_table_name == "test_catalog.test_schema.otel_spans"
 
 

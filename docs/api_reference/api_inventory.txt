@@ -496,6 +496,7 @@ mlflow.entities.TraceInfo.from_proto
 mlflow.entities.TraceInfo.to_dict
 mlflow.entities.TraceInfo.to_proto
 mlflow.entities.TraceLocation
+mlflow.entities.TraceLocation.from_databricks_uc_schema
 mlflow.entities.TraceLocation.from_dict
 mlflow.entities.TraceLocation.from_experiment_id
 mlflow.entities.TraceLocation.from_proto
@@ -1274,7 +1275,9 @@ mlflow.tracing.enable
 mlflow.tracing.enable_notebook_display
 mlflow.tracing.reset
 mlflow.tracing.set_destination
+mlflow.tracing.set_experiment_trace_location
 mlflow.tracing.set_span_chat_tools
+mlflow.tracing.unset_experiment_trace_location
 mlflow.tracking.client.MlflowClient
 mlflow.tracking.fluent.ActiveModel
 mlflow.tracking.fluent.ActiveRun

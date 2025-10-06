@@ -30,22 +30,19 @@ def uc_schema_location_to_proto(uc_schema_location: UCSchemaLocation) -> pb.UCSc
     return pb.UCSchemaLocation(
         catalog_name=uc_schema_location.catalog_name,
         schema_name=uc_schema_location.schema_name,
-        otel_spans_table_name=uc_schema_location.otel_spans_table_name,
-        otel_logs_table_name=uc_schema_location.otel_logs_table_name,
+        otel_spans_table_name=uc_schema_location._otel_spans_table_name,
+        otel_logs_table_name=uc_schema_location._otel_logs_table_name,
     )
 
 
 def uc_schema_location_from_proto(proto: pb.UCSchemaLocation) -> UCSchemaLocation:
-    return UCSchemaLocation(
-        catalog_name=proto.catalog_name,
-        schema_name=proto.schema_name,
-        otel_spans_table_name=proto.otel_spans_table_name
-        if proto.HasField("otel_spans_table_name")
-        else None,
-        otel_logs_table_name=proto.otel_logs_table_name
-        if proto.HasField("otel_logs_table_name")
-        else None,
-    )
+    location = UCSchemaLocation(catalog_name=proto.catalog_name, schema_name=proto.schema_name)
+
+    if proto.HasField("otel_spans_table_name"):
+        location._otel_spans_table_name = proto.otel_spans_table_name
+    if proto.HasField("otel_logs_table_name"):
+        location._otel_logs_table_name = proto.otel_logs_table_name
+    return location
 
 
 def inference_table_location_to_proto(
@@ -78,23 +75,6 @@ def trace_location_to_proto(trace_location: TraceLocation) -> pb.TraceLocation:
         )
     else:
         raise ValueError(f"Unsupported trace location type: {trace_location.type}")
-
-
-def trace_location_from_databricks_uc_schema(
-    catalog_name: str,
-    schema_name: str,
-    otel_spans_table_name: str | None = None,
-    otel_logs_table_name: str | None = None,
-) -> TraceLocation:
-    return TraceLocation(
-        type=TraceLocationType.UC_SCHEMA,
-        uc_schema=UCSchemaLocation(
-            catalog_name=catalog_name,
-            schema_name=schema_name,
-            otel_spans_table_name=otel_spans_table_name,
-            otel_logs_table_name=otel_logs_table_name,
-        ),
-    )
 
 
 def trace_location_type_from_proto(proto: pb.TraceLocation.TraceLocationType) -> TraceLocationType:

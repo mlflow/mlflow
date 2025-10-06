@@ -24,20 +24,18 @@ from mlflow.environment_variables import (
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
     MLFLOW_TRACING_SQL_WAREHOUSE_ID,
 )
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, RestException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND
 from mlflow.protos.databricks_tracing_pb2 import (
     BatchGetTraces,
     CreateAssessment,
-    CreateTraceInfo,
     CreateTraceUCStorageLocation,
     DeleteAssessment,
     DeleteTraceTag,
     GetAssessment,
     GetTraceInfo,
     LinkExperimentToUCTraceLocation,
-    SearchTraces,
     SetTraceTag,
     UnLinkExperimentToUCTraceLocation,
 )
@@ -50,8 +48,6 @@ from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
 from mlflow.utils.databricks_tracing_utils import (
     assessment_to_proto,
     trace_info_to_proto,
-    trace_location_from_databricks_uc_schema,
-    trace_location_to_proto,
     trace_to_proto,
 )
 from mlflow.utils.proto_json_utils import message_to_json
@@ -133,7 +129,7 @@ def test_create_trace_v4_uc_location(monkeypatch):
 
     trace_info = TraceInfo(
         trace_id="trace:/catalog.schema/123",
-        trace_location=trace_location_from_databricks_uc_schema("catalog", "schema"),
+        trace_location=TraceLocation.from_databricks_uc_schema("catalog", "schema"),
         request_time=123,
         execution_duration=10,
         state=TraceState.OK,
@@ -152,11 +148,7 @@ def test_create_trace_v4_uc_location(monkeypatch):
     expected_trace_info.update({"trace_id": "123"})
     response.text = json.dumps(expected_trace_info)
 
-    expected_request = CreateTraceInfo(
-        location_id="catalog.schema",
-        trace_info=trace_info_to_proto(trace_info),
-    )
-
+    expected_request = trace_info_to_proto(trace_info)
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
         result = store.start_trace(trace_info)
         _verify_requests(
@@ -430,21 +422,23 @@ def test_batch_get_traces(monkeypatch, sql_warehouse_id):
         assert result[1].info.trace_id == span2.trace_id
 
 
-def test_search_traces():
+def test_search_traces_uc_schema(monkeypatch):
+    monkeypatch.setenv(MLFLOW_TRACING_SQL_WAREHOUSE_ID.name, "test-warehouse")
+
     creds = MlflowHostCreds("https://hello")
     store = DatabricksTracingRestStore(lambda: creds)
     response = mock.MagicMock()
     response.status_code = 200
 
-    # Format the response
     response.text = json.dumps(
         {
             "trace_infos": [
                 {
-                    "trace_id": "tr-1234",
+                    # REST API uses raw otel id as trace_id
+                    "trace_id": "1234",
                     "trace_location": {
-                        "type": "MLFLOW_EXPERIMENT",
-                        "mlflow_experiment": {"experiment_id": "1234"},
+                        "type": "UC_SCHEMA",
+                        "uc_schema": {"catalog_name": "catalog", "schema_name": "schema"},
                     },
                     "request_time": "1970-01-01T00:00:00.123Z",
                     "execution_duration_ms": 456,
@@ -457,69 +451,82 @@ def test_search_traces():
         }
     )
 
-    # Parameters for search_traces
     filter_string = "state = 'OK'"
-    max_results = 10
-    order_by = ["request_time DESC"]
-    page_token = "12345abcde"
+    max_results = 50
+    order_by = ["request_time ASC", "execution_duration_ms DESC"]
     locations = ["catalog.schema"]
+    page_token = "12345abcde"
 
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
         trace_infos, token = store.search_traces(
             filter_string=filter_string,
             max_results=max_results,
             order_by=order_by,
-            page_token=page_token,
             locations=locations,
+            page_token=page_token,
         )
 
-        # Verify the correct endpoint was called (now V4 by default)
-        call_args = mock_http.call_args[1]
-        assert call_args["endpoint"] == f"{_V4_TRACE_REST_API_PATH_PREFIX}/search"
+    # V4 endpoint should be called for UC schema locations
+    assert mock_http.call_count == 1
+    call_args = mock_http.call_args[1]
+    assert call_args["endpoint"] == f"{_V4_TRACE_REST_API_PATH_PREFIX}/search"
 
-        # Verify the correct parameters were passed
-        json_body = call_args["json"]
-        # The field name should now be 'locations' instead of 'trace_locations'
-        assert "locations" in json_body
-        # The experiment_ids are converted to trace_locations
-        assert len(json_body["locations"]) == 1
-        assert json_body["locations"][0]["uc_schema"]["catalog_name"] == "catalog"
-        assert json_body["locations"][0]["uc_schema"]["schema_name"] == "schema"
-        assert json_body["filter"] == filter_string
-        assert json_body["max_results"] == max_results
-        assert json_body["order_by"] == order_by
-        assert json_body["page_token"] == page_token
+    json_body = call_args["json"]
+    assert "locations" in json_body
+    assert len(json_body["locations"]) == 1
+    assert json_body["locations"][0]["uc_schema"]["catalog_name"] == "catalog"
+    assert json_body["locations"][0]["uc_schema"]["schema_name"] == "schema"
+    assert json_body["filter"] == filter_string
+    assert json_body["max_results"] == max_results
+    assert json_body["order_by"] == order_by
+    assert json_body["page_token"] == page_token
+    assert json_body["sql_warehouse_id"] == "test-warehouse"
 
-    # Verify the correct parameters were passed and the correct trace info objects were returned
-    # for either endpoint
     assert len(trace_infos) == 1
     assert isinstance(trace_infos[0], TraceInfo)
-    assert trace_infos[0].trace_id == "tr-1234"
-    assert trace_infos[0].experiment_id == "1234"
+    assert trace_infos[0].trace_id == "trace:/catalog.schema/1234"
+    assert trace_infos[0].trace_location.uc_schema.catalog_name == "catalog"
+    assert trace_infos[0].trace_location.uc_schema.schema_name == "schema"
     assert trace_infos[0].request_time == 123
-    # V3's state maps to V2's status
     assert trace_infos[0].state == TraceStatus.OK.to_state()
-    # This is correct because TraceInfoV3.from_proto converts the repeated field tags to a dict
     assert trace_infos[0].tags == {"k": "v"}
-    assert trace_infos[0].trace_metadata == {"key": "value", "mlflow.trace_schema.version": "3"}
+    assert trace_infos[0].trace_metadata == {"key": "value"}
     assert token == "token"
 
 
-def test_search_traces_with_mixed_locations():
+@pytest.mark.parametrize(
+    "exception",
+    [
+        # Workspace where SearchTracesV4 is not supported yet
+        RestException(
+            json={
+                "error_code": databricks_pb2.ErrorCode.Name(databricks_pb2.ENDPOINT_NOT_FOUND),
+                "message": "Not found",
+            }
+        ),
+        # V4 endpoint does not support searching by experiment ID (yet)
+        RestException(
+            json={
+                "error_code": databricks_pb2.ErrorCode.Name(databricks_pb2.INVALID_PARAMETER_VALUE),
+                "message": "MLFLOW_EXPERIMENT locations not yet supported",
+            }
+        ),
+    ],
+)
+def test_search_traces_experiment_id(exception):
     creds = MlflowHostCreds("https://hello")
     store = DatabricksTracingRestStore(lambda: creds)
     response = mock.MagicMock()
     response.status_code = 200
 
-    # Format the response
     response.text = json.dumps(
         {
-            "trace_infos": [
+            "traces": [
                 {
                     "trace_id": "tr-1234",
                     "trace_location": {
                         "type": "MLFLOW_EXPERIMENT",
-                        "mlflow_experiment": {"experiment_id": "1234"},
+                        "mlflow_experiment": {"experiment_id": "1"},
                     },
                     "request_time": "1970-01-01T00:00:00.123Z",
                     "execution_duration_ms": 456,
@@ -531,67 +538,100 @@ def test_search_traces_with_mixed_locations():
             "next_page_token": "token",
         }
     )
-
-    # Parameters for search_traces
     filter_string = "state = 'OK'"
-    max_results = 10
-    order_by = ["request_time DESC"]
     page_token = "12345abcde"
-    locations = ["1234", "catalog.schema"]
-    trace_locations = []
-    for location in locations:
-        if "." not in location:
-            trace_locations.append(
-                trace_location_to_proto(TraceLocation.from_experiment_id(location))
-            )
-        else:
-            catalog, schema = location.split(".")
-            trace_locations.append(
-                trace_location_to_proto(trace_location_from_databricks_uc_schema(catalog, schema))
-            )
+    locations = ["1"]
 
-    expected_request = SearchTraces(
-        locations=trace_locations,
-        filter=filter_string,
-        max_results=max_results,
-        order_by=order_by,
-        page_token=page_token,
-    )
-
-    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+    with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
+        # v4 call -> exception, v3 call -> response
+        mock_http.side_effect = [exception, response]
         trace_infos, token = store.search_traces(
             filter_string=filter_string,
-            max_results=max_results,
-            order_by=order_by,
             page_token=page_token,
             locations=locations,
         )
 
-        _verify_requests(
-            mock_http,
-            creds,
-            "traces/search",
-            "POST",
-            message_to_json(expected_request),
-            version="4.0",
-        )
+    # MLflow first tries V4 endpoint, then falls back to V3
+    assert mock_http.call_count == 2
 
-    # Verify the correct parameters were passed and the correct trace info objects were returned
-    # for either endpoint
+    first_call_args = mock_http.call_args_list[0][1]
+    assert first_call_args["endpoint"] == f"{_V4_TRACE_REST_API_PATH_PREFIX}/search"
+
+    json_body = first_call_args["json"]
+    assert "locations" in json_body
+    assert len(json_body["locations"]) == 1
+    assert json_body["locations"][0]["mlflow_experiment"]["experiment_id"] == "1"
+    assert json_body["filter"] == filter_string
+    assert json_body["max_results"] == 100
+
+    second_call_args = mock_http.call_args_list[1][1]
+    assert second_call_args["endpoint"] == f"{_V3_TRACE_REST_API_PATH_PREFIX}/search"
+    json_body = second_call_args["json"]
+    assert len(json_body["locations"]) == 1
+    assert json_body["locations"][0]["mlflow_experiment"]["experiment_id"] == "1"
+    assert json_body["filter"] == filter_string
+    assert json_body["max_results"] == 100
+
     assert len(trace_infos) == 1
     assert isinstance(trace_infos[0], TraceInfo)
     assert trace_infos[0].trace_id == "tr-1234"
-    assert trace_infos[0].experiment_id == "1234"
+    assert trace_infos[0].experiment_id == "1"
     assert trace_infos[0].request_time == 123
-    # V3's state maps to V2's status
     assert trace_infos[0].state == TraceStatus.OK.to_state()
-    # This is correct because TraceInfoV3.from_proto converts the repeated field tags to a dict
     assert trace_infos[0].tags == {"k": "v"}
-    assert trace_infos[0].trace_metadata == {"key": "value", "mlflow.trace_schema.version": "3"}
+    assert trace_infos[0].trace_metadata == {"key": "value"}
     assert token == "token"
 
 
-def test_search_traces_errors():
+@pytest.mark.parametrize(
+    "exception",
+    [
+        # Workspace where SearchTracesV4 is not supported yet
+        RestException(
+            json={
+                "error_code": databricks_pb2.ErrorCode.Name(databricks_pb2.ENDPOINT_NOT_FOUND),
+                "message": "Not found",
+            }
+        ),
+        # V4 endpoint does not support searching by experiment ID (yet)
+        RestException(
+            json={
+                "error_code": databricks_pb2.ErrorCode.Name(databricks_pb2.INVALID_PARAMETER_VALUE),
+                "message": "MLFLOW_EXPERIMENT locations not yet supported",
+            }
+        ),
+    ],
+)
+def test_search_traces_with_mixed_locations(exception):
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+    expected_error_message = (
+        "Searching traces in UC tables is not supported yet."
+        if exception.error_code == databricks_pb2.ErrorCode.Name(databricks_pb2.ENDPOINT_NOT_FOUND)
+        else "The `locations` parameter cannot contain both MLflow experiment and UC schema "
+    )
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", side_effect=exception) as mock_http:
+        with pytest.raises(MlflowException, match=expected_error_message):
+            store.search_traces(
+                filter_string="state = 'OK'",
+                locations=["1", "catalog.schema"],
+            )
+
+    # V4 endpoint should be called first. Not fallback to V3 because location includes UC schema.
+    mock_http.assert_called_once()
+    call_args = mock_http.call_args[1]
+    assert call_args["endpoint"] == f"{_V4_TRACE_REST_API_PATH_PREFIX}/search"
+
+    json_body = call_args["json"]
+    assert "locations" in json_body
+    assert len(json_body["locations"]) == 2
+    assert json_body["locations"][0]["mlflow_experiment"]["experiment_id"] == "1"
+    assert json_body["locations"][1]["uc_schema"]["catalog_name"] == "catalog"
+    assert json_body["locations"][1]["uc_schema"]["schema_name"] == "schema"
+
+
+def test_search_traces_does_not_fallback_when_uc_schemas_are_specified():
     creds = MlflowHostCreds("https://hello")
     store = DatabricksTracingRestStore(lambda: creds)
 
@@ -603,11 +643,19 @@ def test_search_traces_errors():
     with mock.patch("mlflow.utils.rest_utils.http_request", side_effect=mock_http_request):
         with pytest.raises(
             MlflowException,
-            match="Searching traces by locations including UC schemas is not supported",
+            match="Searching traces in UC tables is not supported yet.",
         ):
-            store.search_traces(
-                locations=["catalog.schema"],
-            )
+            store.search_traces(locations=["catalog.schema"])
+
+
+def test_search_traces_non_fallback_errors():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+
+    with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
+        mock_http.side_effect = MlflowException("Random error")
+        with pytest.raises(MlflowException, match="Random error"):
+            store.search_traces(locations=["catalog.schema"])
 
 
 def test_search_traces_experiment_ids_deprecated():
@@ -624,87 +672,21 @@ def test_search_traces_experiment_ids_deprecated():
         )
 
 
-def test_search_traces_fallback_to_v3():
+def test_search_traces_with_missing_location():
     creds = MlflowHostCreds("https://hello")
     store = DatabricksTracingRestStore(lambda: creds)
-    response = mock.MagicMock()
-    response.status_code = 200
+    with pytest.raises(MlflowException, match="location.*must be specified"):
+        store.search_traces()
 
-    # Format the response
-    response.text = json.dumps(
-        {
-            "traces": [
-                # v3 API result only includes trace_info
-                {
-                    "trace_id": "tr-1234",
-                    "trace_location": {
-                        "type": "MLFLOW_EXPERIMENT",
-                        "mlflow_experiment": {"experiment_id": "1234"},
-                    },
-                    "request_time": "1970-01-01T00:00:00.123Z",
-                    "execution_duration_ms": 456,
-                    "state": "OK",
-                    "trace_metadata": {"key": "value"},
-                    "tags": {"k": "v"},
-                }
-            ],
-            "next_page_token": "token",
-        }
-    )
+    with pytest.raises(MlflowException, match="location.*must be specified"):
+        store.search_traces(locations=[])
 
-    # Parameters for search_traces
-    experiment_ids = ["1234"]
-    filter_string = "state = 'OK'"
-    max_results = 10
-    order_by = ["request_time DESC"]
-    page_token = "12345abcde"
 
-    def mock_http_request(*args, **kwargs):
-        if kwargs.get("endpoint") == f"{_V4_TRACE_REST_API_PATH_PREFIX}/search":
-            raise MlflowException("V4 endpoint not supported", error_code=ENDPOINT_NOT_FOUND)
-        return response
-
-    # Test with databricks tracking URI (using v3 endpoint)
-    with mock.patch(
-        "mlflow.utils.rest_utils.http_request", side_effect=mock_http_request
-    ) as mock_http:
-        trace_infos, token = store.search_traces(
-            locations=experiment_ids,
-            filter_string=filter_string,
-            max_results=max_results,
-            order_by=order_by,
-            page_token=page_token,
-        )
-
-        # Verify the correct endpoint was called
-        call_args = mock_http.call_args[1]
-        assert call_args["endpoint"] == f"{_V3_TRACE_REST_API_PATH_PREFIX}/search"
-
-        # Verify the correct parameters were passed
-        json_body = call_args["json"]
-        # The field name should now be 'locations' instead of 'trace_locations'
-        assert "locations" in json_body
-        # The experiment_ids are converted to trace_locations
-        assert len(json_body["locations"]) == 1
-        assert json_body["locations"][0]["mlflow_experiment"]["experiment_id"] == experiment_ids[0]
-        assert json_body["filter"] == filter_string
-        assert json_body["max_results"] == max_results
-        assert json_body["order_by"] == order_by
-        assert json_body["page_token"] == page_token
-
-    # Verify the correct parameters were passed and the correct trace info objects were returned
-    # for either endpoint
-    assert len(trace_infos) == 1
-    assert isinstance(trace_infos[0], TraceInfo)
-    assert trace_infos[0].trace_id == "tr-1234"
-    assert trace_infos[0].experiment_id == "1234"
-    assert trace_infos[0].request_time == 123
-    # V3's state maps to V2's status
-    assert trace_infos[0].state == TraceStatus.OK.to_state()
-    # This is correct because TraceInfoV3.from_proto converts the repeated field tags to a dict
-    assert trace_infos[0].tags == {"k": "v"}
-    assert trace_infos[0].trace_metadata == {"key": "value", "mlflow.trace_schema.version": "3"}
-    assert token == "token"
+def test_search_traces_with_invalid_location():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+    with pytest.raises(MlflowException, match="Invalid location type:"):
+        store.search_traces(locations=["catalog.schema.table_name"])
 
 
 def test_search_unified_traces():
@@ -766,7 +748,7 @@ def test_search_unified_traces():
         # V3's state maps to V2's status
         assert trace_infos[0].state == TraceStatus.OK.to_state()
         assert trace_infos[0].tags == {"k": "v"}
-        assert trace_infos[0].trace_metadata == {"key": "value", "mlflow.trace_schema.version": "3"}
+        assert trace_infos[0].trace_metadata == {"key": "value"}
         assert token == "token"
 
 
@@ -829,8 +811,8 @@ def test_set_experiment_trace_location():
         assert isinstance(result, UCSchemaLocation)
         assert result.catalog_name == "test_catalog"
         assert result.schema_name == "test_schema"
-        assert result.otel_spans_table_name == "test_spans"
-        assert result.otel_logs_table_name == "test_logs"
+        assert result.full_otel_spans_table_name == "test_catalog.test_schema.test_spans"
+        assert result.full_otel_logs_table_name == "test_catalog.test_schema.test_logs"
 
 
 def test_set_experiment_trace_location_with_existing_location():
