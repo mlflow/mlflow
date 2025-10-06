@@ -496,6 +496,7 @@ mlflow.entities.TraceInfo.from_proto
 mlflow.entities.TraceInfo.to_dict
 mlflow.entities.TraceInfo.to_proto
 mlflow.entities.TraceLocation
+mlflow.entities.TraceLocation.from_databricks_uc_schema
 mlflow.entities.TraceLocation.from_dict
 mlflow.entities.TraceLocation.from_experiment_id
 mlflow.entities.TraceLocation.from_proto
