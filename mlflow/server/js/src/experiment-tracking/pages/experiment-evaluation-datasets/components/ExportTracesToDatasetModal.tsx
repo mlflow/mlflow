@@ -8,6 +8,7 @@ import {
   TableCell,
   TableHeader,
   TableRow,
+  TableRowSelectCell,
   TableSkeletonRows,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -35,13 +36,6 @@ const CheckboxCell: ColumnDef<EvaluationDataset, string>['cell'] = ({ row }) => 
 };
 
 const columns: ColumnDef<EvaluationDataset, string>[] = [
-  {
-    id: 'checkbox',
-    header: '',
-    size: 32,
-    maxSize: 32,
-    cell: CheckboxCell,
-  },
   {
     id: 'name',
     accessorKey: 'name',
@@ -159,6 +153,7 @@ export const ExportTracesToDatasetModal = ({
         <Table
           scrollable
           onScroll={(e) => fetchMoreOnBottomReached(e.currentTarget as HTMLDivElement)}
+          someRowsSelected={table.getIsSomeRowsSelected() || table.getIsAllRowsSelected()}
           empty={
             !isLoadingDatasets &&
             !isFetching &&
@@ -175,6 +170,12 @@ export const ExportTracesToDatasetModal = ({
           }
         >
           <TableRow isHeader>
+            <TableRowSelectCell
+              componentId="mlflow.export-traces-to-dataset-modal.header-checkbox"
+              checked={table.getIsAllRowsSelected()}
+              indeterminate={table.getIsSomeRowsSelected()}
+              onChange={table.getToggleAllRowsSelectedHandler()}
+            />
             {table.getLeafHeaders().map((header) => (
               <TableHeader
                 key={header.id}
@@ -190,6 +191,13 @@ export const ExportTracesToDatasetModal = ({
           {!isInitialLoading &&
             table.getRowModel().rows.map((row) => (
               <TableRow key={row.id}>
+                <div>
+                  <TableRowSelectCell
+                    componentId="mlflow.export-traces-to-dataset-modal.row-checkbox"
+                    checked={row.getIsSelected()}
+                    onChange={row.getToggleSelectedHandler()}
+                  />
+                </div>
                 {row.getVisibleCells().map((cell) => (
                   <TableCell
                     key={cell.id}
