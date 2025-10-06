@@ -382,6 +382,10 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'doc',
+          id: 'prompt-registry/adapt-prompts',
+        },
+        {
+          type: 'doc',
           id: 'prompt-registry/prompt-engineering',
           label: 'Prompt Engineering UI',
         },
