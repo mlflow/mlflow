@@ -239,21 +239,21 @@ def test_resolve_registered_scorer():
     """Test resolving a registered scorer when not found in built-ins."""
     mock_registered = mock.Mock()
 
-    with mock.patch(
-        "mlflow.cli.genai_eval_utils.get_all_scorers", return_value=[]
-    ) as mock_get_all_scorers:
-        with mock.patch(
+    with (
+        mock.patch(
+            "mlflow.cli.genai_eval_utils.get_all_scorers", return_value=[]
+        ) as mock_get_all_scorers,
+        mock.patch(
             "mlflow.cli.genai_eval_utils.get_scorer", return_value=mock_registered
-        ) as mock_get_scorer:
-            scorers = resolve_scorers(["CustomScorer"], "experiment_123")
+        ) as mock_get_scorer,
+    ):
+        scorers = resolve_scorers(["CustomScorer"], "experiment_123")
 
-            assert len(scorers) == 1
-            assert scorers[0] == mock_registered
-            # Verify mocks were called as expected
-            mock_get_all_scorers.assert_called_once()
-            mock_get_scorer.assert_called_once_with(
-                name="CustomScorer", experiment_id="experiment_123"
-            )
+        assert len(scorers) == 1
+        assert scorers[0] == mock_registered
+        # Verify mocks were called as expected
+        mock_get_all_scorers.assert_called_once()
+        mock_get_scorer.assert_called_once_with(name="CustomScorer", experiment_id="experiment_123")
 
 
 def test_resolve_mixed_scorers():
@@ -266,41 +266,43 @@ def test_resolve_mixed_scorers():
     # Setup registered scorer
     mock_registered = mock.Mock()
 
-    with mock.patch(
-        "mlflow.cli.genai_eval_utils.get_all_scorers", return_value=[mock_builtin]
-    ) as mock_get_all_scorers:
-        with mock.patch(
+    with (
+        mock.patch(
+            "mlflow.cli.genai_eval_utils.get_all_scorers", return_value=[mock_builtin]
+        ) as mock_get_all_scorers,
+        mock.patch(
             "mlflow.cli.genai_eval_utils.get_scorer", return_value=mock_registered
-        ) as mock_get_scorer:
-            scorers = resolve_scorers(["Safety", "CustomScorer"], "experiment_123")
+        ) as mock_get_scorer,
+    ):
+        scorers = resolve_scorers(["Safety", "CustomScorer"], "experiment_123")
 
-            assert len(scorers) == 2
-            assert scorers[0] == mock_builtin
-            assert scorers[1] == mock_registered
-            # Verify mocks were called as expected
-            mock_get_all_scorers.assert_called_once()
-            mock_get_scorer.assert_called_once_with(
-                name="CustomScorer", experiment_id="experiment_123"
-            )
+        assert len(scorers) == 2
+        assert scorers[0] == mock_builtin
+        assert scorers[1] == mock_registered
+        # Verify mocks were called as expected
+        mock_get_all_scorers.assert_called_once()
+        mock_get_scorer.assert_called_once_with(name="CustomScorer", experiment_id="experiment_123")
 
 
 def test_resolve_scorer_not_found_raises_error():
     """Test that appropriate error is raised when scorer not found."""
-    with mock.patch(
-        "mlflow.cli.genai_eval_utils.get_all_scorers", return_value=[]
-    ) as mock_get_all_scorers:
-        with mock.patch(
+    with (
+        mock.patch(
+            "mlflow.cli.genai_eval_utils.get_all_scorers", return_value=[]
+        ) as mock_get_all_scorers,
+        mock.patch(
             "mlflow.cli.genai_eval_utils.get_scorer",
             side_effect=MlflowException("Not found"),
-        ) as mock_get_scorer:
-            with pytest.raises(click.UsageError, match="Scorer 'UnknownScorer' not found"):
-                resolve_scorers(["UnknownScorer"], "experiment_123")
+        ) as mock_get_scorer,
+    ):
+        with pytest.raises(click.UsageError, match="Scorer 'UnknownScorer' not found"):
+            resolve_scorers(["UnknownScorer"], "experiment_123")
 
-            # Verify mocks were called as expected
-            mock_get_all_scorers.assert_called_once()
-            mock_get_scorer.assert_called_once_with(
-                name="UnknownScorer", experiment_id="experiment_123"
-            )
+        # Verify mocks were called as expected
+        mock_get_all_scorers.assert_called_once()
+        mock_get_scorer.assert_called_once_with(
+            name="UnknownScorer", experiment_id="experiment_123"
+        )
 
 
 def test_resolve_empty_scorers_raises_error():
