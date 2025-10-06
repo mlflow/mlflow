@@ -52,21 +52,22 @@ def predict_fn(question: str) -> str:
 
 
 # Example data showing desired outputs (e.g., outputs produced by gpt-4o)
+countries = [
+    ("France", "Paris"),
+    ("Germany", "Berlin"),
+    ("Italy", "Rome"),
+    ("Spain", "Madrid"),
+    ("Portugal", "Lisbon"),
+    ("Switzerland", "Bern"),
+    ("Austria", "Vienna"),
+    ("Belgium", "Brussels"),
+    ("Netherlands", "Amsterdam"),
+    ("Norway", "Oslo"),
+    ("Sweden", "Stockholm"),
+]
 dataset = [
-    {"inputs": {"question": "What is the capital of France?"}, "outputs": "Paris"},
-    {"inputs": {"question": "What is the capital of Germany?"}, "outputs": "Berlin"},
-    {"inputs": {"question": "What is the capital of Italy?"}, "outputs": "Rome"},
-    {"inputs": {"question": "What is the capital of Spain?"}, "outputs": "Madrid"},
-    {"inputs": {"question": "What is the capital of Portugal?"}, "outputs": "Lisbon"},
-    {"inputs": {"question": "What is the capital of Switzerland?"}, "outputs": "Bern"},
-    {"inputs": {"question": "What is the capital of Austria?"}, "outputs": "Vienna"},
-    {"inputs": {"question": "What is the capital of Belgium?"}, "outputs": "Brussels"},
-    {
-        "inputs": {"question": "What is the capital of Netherlands?"},
-        "outputs": "Amsterdam",
-    },
-    {"inputs": {"question": "What is the capital of Norway?"}, "outputs": "Oslo"},
-    {"inputs": {"question": "What is the capital of Sweden?"}, "outputs": "Stockholm"},
+    {"inputs": {"question": f"What is the capital of {country}?"}, "outputs": capital}
+    for country, capital in countries
 ]
 
 # Rewrite prompts for a new model
@@ -97,7 +98,7 @@ Your aim is to deliver a precise, correct answer that matches the expectation ou
 
 ### 1. Predict Function
 
-Your `predict_fn` should:
+Your `predict_fn` must:
 
 - Accept inputs as keyword arguments
 - Use prompts from MLflow Prompt Registry via <APILink fn="mlflow.entities.PromptVersion.format" text="PromptVersion.format()" />
@@ -357,5 +358,5 @@ Note that MLflow may return the original prompts unchanged if it can't find impr
 
 ## See Also
 
-- [Create and Edit Prompts](/docs/genai/prompt-registry/create-and-edit-prompts): Basic usage of Prompt Registry
-- [Optimize Prompts](/docs/genai/prompt-registry/optimize-prompts): Optimize your prompts based on custom evaluation criteria.
+- [Create and Edit Prompts](/genai/prompt-registry/create-and-edit-prompts): Basic usage of Prompt Registry
+- [Optimize Prompts](/genai/prompt-registry/optimize-prompts): Optimize your prompts based on custom evaluation criteria.
