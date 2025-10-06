@@ -705,7 +705,7 @@ const config: Config = {
             from: ['/introduction'],
           },
           {
-            to: '/ml/auth',
+            to: '/self-hosting/authentication/basic-http-auth',
             from: ['/auth'],
           },
           {
