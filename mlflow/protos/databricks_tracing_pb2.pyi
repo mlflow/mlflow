@@ -298,68 +298,68 @@ class Assessment(_message.Message):
     def __init__(self, assessment_id: _Optional[str] = ..., assessment_name: _Optional[str] = ..., trace_id: _Optional[str] = ..., trace_location: _Optional[_Union[TraceLocation, _Mapping]] = ..., span_id: _Optional[str] = ..., source: _Optional[_Union[_assessments_pb2.AssessmentSource, _Mapping]] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., last_update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., feedback: _Optional[_Union[_assessments_pb2.Feedback, _Mapping]] = ..., expectation: _Optional[_Union[_assessments_pb2.Expectation, _Mapping]] = ..., rationale: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ..., overrides: _Optional[str] = ..., valid: bool = ...) -> None: ...
 
 class CreateAssessment(_message.Message):
-    __slots__ = ("location", "assessment", "sql_warehouse_id")
+    __slots__ = ("location_id", "assessment", "sql_warehouse_id")
     class Response(_message.Message):
         __slots__ = ("assessment",)
         ASSESSMENT_FIELD_NUMBER: _ClassVar[int]
         assessment: Assessment
         def __init__(self, assessment: _Optional[_Union[Assessment, _Mapping]] = ...) -> None: ...
-    LOCATION_FIELD_NUMBER: _ClassVar[int]
+    LOCATION_ID_FIELD_NUMBER: _ClassVar[int]
     ASSESSMENT_FIELD_NUMBER: _ClassVar[int]
     SQL_WAREHOUSE_ID_FIELD_NUMBER: _ClassVar[int]
-    location: str
+    location_id: str
     assessment: Assessment
     sql_warehouse_id: str
-    def __init__(self, location: _Optional[str] = ..., assessment: _Optional[_Union[Assessment, _Mapping]] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
+    def __init__(self, location_id: _Optional[str] = ..., assessment: _Optional[_Union[Assessment, _Mapping]] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
 
 class GetAssessment(_message.Message):
-    __slots__ = ("location", "trace_id", "assessment_id", "sql_warehouse_id")
+    __slots__ = ("location_id", "trace_id", "assessment_id", "sql_warehouse_id")
     class Response(_message.Message):
         __slots__ = ("assessment",)
         ASSESSMENT_FIELD_NUMBER: _ClassVar[int]
         assessment: Assessment
         def __init__(self, assessment: _Optional[_Union[Assessment, _Mapping]] = ...) -> None: ...
-    LOCATION_FIELD_NUMBER: _ClassVar[int]
+    LOCATION_ID_FIELD_NUMBER: _ClassVar[int]
     TRACE_ID_FIELD_NUMBER: _ClassVar[int]
     ASSESSMENT_ID_FIELD_NUMBER: _ClassVar[int]
     SQL_WAREHOUSE_ID_FIELD_NUMBER: _ClassVar[int]
-    location: str
+    location_id: str
     trace_id: str
     assessment_id: str
     sql_warehouse_id: str
-    def __init__(self, location: _Optional[str] = ..., trace_id: _Optional[str] = ..., assessment_id: _Optional[str] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
+    def __init__(self, location_id: _Optional[str] = ..., trace_id: _Optional[str] = ..., assessment_id: _Optional[str] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
 
 class UpdateAssessment(_message.Message):
-    __slots__ = ("location", "assessment", "update_mask", "sql_warehouse_id")
+    __slots__ = ("location_id", "assessment", "update_mask", "sql_warehouse_id")
     class Response(_message.Message):
         __slots__ = ("assessment",)
         ASSESSMENT_FIELD_NUMBER: _ClassVar[int]
         assessment: Assessment
         def __init__(self, assessment: _Optional[_Union[Assessment, _Mapping]] = ...) -> None: ...
-    LOCATION_FIELD_NUMBER: _ClassVar[int]
+    LOCATION_ID_FIELD_NUMBER: _ClassVar[int]
     ASSESSMENT_FIELD_NUMBER: _ClassVar[int]
     UPDATE_MASK_FIELD_NUMBER: _ClassVar[int]
     SQL_WAREHOUSE_ID_FIELD_NUMBER: _ClassVar[int]
-    location: str
+    location_id: str
     assessment: Assessment
     update_mask: _field_mask_pb2.FieldMask
     sql_warehouse_id: str
-    def __init__(self, location: _Optional[str] = ..., assessment: _Optional[_Union[Assessment, _Mapping]] = ..., update_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
+    def __init__(self, location_id: _Optional[str] = ..., assessment: _Optional[_Union[Assessment, _Mapping]] = ..., update_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
 
 class DeleteAssessment(_message.Message):
-    __slots__ = ("location", "trace_id", "assessment_id", "sql_warehouse_id")
+    __slots__ = ("location_id", "trace_id", "assessment_id", "sql_warehouse_id")
     class Response(_message.Message):
         __slots__ = ()
         def __init__(self) -> None: ...
-    LOCATION_FIELD_NUMBER: _ClassVar[int]
+    LOCATION_ID_FIELD_NUMBER: _ClassVar[int]
     TRACE_ID_FIELD_NUMBER: _ClassVar[int]
     ASSESSMENT_ID_FIELD_NUMBER: _ClassVar[int]
     SQL_WAREHOUSE_ID_FIELD_NUMBER: _ClassVar[int]
-    location: str
+    location_id: str
     trace_id: str
     assessment_id: str
     sql_warehouse_id: str
-    def __init__(self, location: _Optional[str] = ..., trace_id: _Optional[str] = ..., assessment_id: _Optional[str] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
+    def __init__(self, location_id: _Optional[str] = ..., trace_id: _Optional[str] = ..., assessment_id: _Optional[str] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
 
 class DatabricksTrackingService(_service.service): ...
 

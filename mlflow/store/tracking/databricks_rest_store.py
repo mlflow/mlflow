@@ -42,7 +42,6 @@ from mlflow.utils.databricks_tracing_utils import (
     assessment_to_proto,
     trace_from_proto,
     trace_info_to_proto,
-    trace_location_from_databricks_uc_schema,
     trace_location_to_proto,
     uc_schema_location_from_proto,
     uc_schema_location_to_proto,
@@ -517,7 +516,7 @@ class DatabricksTracingRestStore(RestStore):
             assessment.assessment_id = assessment_id
             catalog, schema = location.split(".")
             assessment.trace_location.CopyFrom(
-                trace_location_to_proto(trace_location_from_databricks_uc_schema(catalog, schema)),
+                trace_location_to_proto(TraceLocation.from_databricks_uc_schema(catalog, schema)),
             )
             assessment.trace_id = parsed_trace_id
             # Field mask specifies which fields to update.
