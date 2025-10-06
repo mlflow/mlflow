@@ -509,6 +509,7 @@ def autolog(
             The registered model is created if it does not already exist.
         model_format: File format in which the model is to be saved.
         extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+        exclude_none_params: If ``True``, parameters with value ``None`` are excluded from
     """
     import numpy as np
     import xgboost
