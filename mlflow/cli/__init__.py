@@ -519,10 +519,10 @@ def server(
     )
 
     if disable_security_middleware:
-        os.environ["MLFLOW_DISABLE_SECURITY_MIDDLEWARE"] = "true"
+        os.environ["MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE"] = "true"
     else:
         if allowed_hosts:
-            os.environ["MLFLOW_ALLOWED_HOSTS"] = allowed_hosts
+            os.environ["MLFLOW_SERVER_ALLOWED_HOSTS"] = allowed_hosts
             if allowed_hosts == "*":
                 click.echo(
                     "WARNING: Accepting ALL hosts. "
@@ -530,7 +530,7 @@ def server(
                 )
 
         if cors_allowed_origins:
-            os.environ["MLFLOW_CORS_ALLOWED_ORIGINS"] = cors_allowed_origins
+            os.environ["MLFLOW_SERVER_CORS_ALLOWED_ORIGINS"] = cors_allowed_origins
             if cors_allowed_origins == "*":
                 click.echo(
                     "WARNING: Allowing ALL origins for CORS. "
@@ -539,7 +539,7 @@ def server(
                 )
 
         if x_frame_options:
-            os.environ["MLFLOW_X_FRAME_OPTIONS"] = x_frame_options
+            os.environ["MLFLOW_SERVER_X_FRAME_OPTIONS"] = x_frame_options
 
     # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
     if not backend_store_uri:

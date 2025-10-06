@@ -4,7 +4,10 @@ from http import HTTPStatus
 from flask import Flask, Response, request
 from flask_cors import CORS
 
-from mlflow.environment_variables import MLFLOW_DISABLE_SECURITY_MIDDLEWARE, MLFLOW_X_FRAME_OPTIONS
+from mlflow.environment_variables import (
+    MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE,
+    MLFLOW_SERVER_X_FRAME_OPTIONS,
+)
 from mlflow.server.security_utils import (
     CORS_BLOCKED_MSG,
     HEALTH_ENDPOINTS,
@@ -43,12 +46,12 @@ def init_security_middleware(app: Flask) -> None:
     Args:
         app: Flask application instance.
     """
-    if MLFLOW_DISABLE_SECURITY_MIDDLEWARE.get() == "true":
+    if MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE.get() == "true":
         return
 
     allowed_origins = get_allowed_origins()
     allowed_hosts = get_allowed_hosts()
-    x_frame_options = MLFLOW_X_FRAME_OPTIONS.get()
+    x_frame_options = MLFLOW_SERVER_X_FRAME_OPTIONS.get()
 
     if allowed_origins and "*" in allowed_origins:
         CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)

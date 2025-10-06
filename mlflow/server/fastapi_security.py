@@ -5,7 +5,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.types import ASGIApp
 
-from mlflow.environment_variables import MLFLOW_DISABLE_SECURITY_MIDDLEWARE, MLFLOW_X_FRAME_OPTIONS
+from mlflow.environment_variables import (
+    MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE,
+    MLFLOW_SERVER_X_FRAME_OPTIONS,
+)
 from mlflow.server.security_utils import (
     CORS_BLOCKED_MSG,
     HEALTH_ENDPOINTS,
@@ -59,7 +62,7 @@ class SecurityHeadersMiddleware:
 
     def __init__(self, app: ASGIApp):
         self.app = app
-        self.x_frame_options = MLFLOW_X_FRAME_OPTIONS.get()
+        self.x_frame_options = MLFLOW_SERVER_X_FRAME_OPTIONS.get()
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
@@ -146,7 +149,7 @@ def init_fastapi_security(app: FastAPI) -> None:
     Args:
         app: FastAPI application instance.
     """
-    if MLFLOW_DISABLE_SECURITY_MIDDLEWARE.get() == "true":
+    if MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE.get() == "true":
         return
 
     app.add_middleware(SecurityHeadersMiddleware)

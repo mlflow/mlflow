@@ -8,7 +8,10 @@ security implementations.
 import fnmatch
 from urllib.parse import urlparse
 
-from mlflow.environment_variables import MLFLOW_ALLOWED_HOSTS, MLFLOW_CORS_ALLOWED_ORIGINS
+from mlflow.environment_variables import (
+    MLFLOW_SERVER_ALLOWED_HOSTS,
+    MLFLOW_SERVER_CORS_ALLOWED_ORIGINS,
+)
 
 # Security response messages
 INVALID_HOST_MSG = "Invalid Host header - possible DNS rebinding attack detected"
@@ -74,14 +77,14 @@ def get_private_ip_patterns() -> list[str]:
 
 def get_allowed_hosts_from_env() -> list[str] | None:
     """Get allowed hosts from environment variable."""
-    if allowed_hosts_env := MLFLOW_ALLOWED_HOSTS.get():
+    if allowed_hosts_env := MLFLOW_SERVER_ALLOWED_HOSTS.get():
         return [host.strip() for host in allowed_hosts_env.split(",")]
     return None
 
 
 def get_allowed_origins_from_env() -> list[str] | None:
     """Get allowed CORS origins from environment variable."""
-    if allowed_origins_env := MLFLOW_CORS_ALLOWED_ORIGINS.get():
+    if allowed_origins_env := MLFLOW_SERVER_CORS_ALLOWED_ORIGINS.get():
         return [origin.strip() for origin in allowed_origins_env.split(",")]
     return None
 

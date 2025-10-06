@@ -22,7 +22,9 @@ def test_default_allowed_hosts():
 
 
 def test_custom_allowed_hosts():
-    with mock.patch.dict(os.environ, {"MLFLOW_ALLOWED_HOSTS": "example.com,app.example.com"}):
+    with mock.patch.dict(
+        os.environ, {"MLFLOW_SERVER_ALLOWED_HOSTS": "example.com,app.example.com"}
+    ):
         hosts = security.get_allowed_hosts()
         assert "example.com" in hosts
         assert "app.example.com" in hosts
@@ -37,7 +39,7 @@ def test_custom_allowed_hosts():
     ],
 )
 def test_dns_rebinding_protection(test_app, host_header, expected_status, expected_error):
-    with mock.patch.dict(os.environ, {"MLFLOW_ALLOWED_HOSTS": "localhost,127.0.0.1"}):
+    with mock.patch.dict(os.environ, {"MLFLOW_SERVER_ALLOWED_HOSTS": "localhost,127.0.0.1"}):
         security.init_security_middleware(test_app)
         client = Client(test_app)
 
@@ -58,7 +60,8 @@ def test_dns_rebinding_protection(test_app, host_header, expected_status, expect
 )
 def test_cors_protection(test_app, method, origin, expected_cors_header):
     with mock.patch.dict(
-        os.environ, {"MLFLOW_CORS_ALLOWED_ORIGINS": "http://localhost:3000,https://app.example.com"}
+        os.environ,
+        {"MLFLOW_SERVER_CORS_ALLOWED_ORIGINS": "http://localhost:3000,https://app.example.com"},
     ):
         security.init_security_middleware(test_app)
         client = Client(test_app)
@@ -72,7 +75,7 @@ def test_cors_protection(test_app, method, origin, expected_cors_header):
 
 
 def test_insecure_cors_mode(test_app):
-    with mock.patch.dict(os.environ, {"MLFLOW_CORS_ALLOWED_ORIGINS": "*"}):
+    with mock.patch.dict(os.environ, {"MLFLOW_SERVER_CORS_ALLOWED_ORIGINS": "*"}):
         security.init_security_middleware(test_app)
         client = Client(test_app)
 
@@ -89,7 +92,9 @@ def test_insecure_cors_mode(test_app):
     ],
 )
 def test_preflight_options_request(test_app, origin, expected_cors_header):
-    with mock.patch.dict(os.environ, {"MLFLOW_CORS_ALLOWED_ORIGINS": "http://localhost:3000"}):
+    with mock.patch.dict(
+        os.environ, {"MLFLOW_SERVER_CORS_ALLOWED_ORIGINS": "http://localhost:3000"}
+    ):
         security.init_security_middleware(test_app)
         client = Client(test_app)
 
@@ -117,7 +122,7 @@ def test_security_headers(test_app):
 
 
 def test_disable_security_middleware(test_app):
-    with mock.patch.dict(os.environ, {"MLFLOW_DISABLE_SECURITY_MIDDLEWARE": "true"}):
+    with mock.patch.dict(os.environ, {"MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE": "true"}):
         security.init_security_middleware(test_app)
         client = Client(test_app)
 
@@ -136,7 +141,7 @@ def test_x_frame_options_configuration():
     def test():
         return "OK"
 
-    with mock.patch.dict(os.environ, {"MLFLOW_X_FRAME_OPTIONS": "DENY"}):
+    with mock.patch.dict(os.environ, {"MLFLOW_SERVER_X_FRAME_OPTIONS": "DENY"}):
         security.init_security_middleware(app)
         client = Client(app)
         response = client.get("/test")
@@ -148,7 +153,7 @@ def test_x_frame_options_configuration():
     def test2():
         return "OK"
 
-    with mock.patch.dict(os.environ, {"MLFLOW_X_FRAME_OPTIONS": "NONE"}):
+    with mock.patch.dict(os.environ, {"MLFLOW_SERVER_X_FRAME_OPTIONS": "NONE"}):
         security.init_security_middleware(app2)
         client = Client(app2)
         response = client.get("/test")
@@ -157,7 +162,7 @@ def test_x_frame_options_configuration():
 
 def test_wildcard_hosts(test_app):
     """Test that wildcard hosts allow all."""
-    with mock.patch.dict(os.environ, {"MLFLOW_ALLOWED_HOSTS": "*"}):
+    with mock.patch.dict(os.environ, {"MLFLOW_SERVER_ALLOWED_HOSTS": "*"}):
         security.init_security_middleware(test_app)
         client = Client(test_app)
 
@@ -173,7 +178,7 @@ def test_wildcard_hosts(test_app):
     ],
 )
 def test_endpoint_security_bypass(test_app, endpoint, host_header, expected_status):
-    with mock.patch.dict(os.environ, {"MLFLOW_ALLOWED_HOSTS": "localhost"}):
+    with mock.patch.dict(os.environ, {"MLFLOW_SERVER_ALLOWED_HOSTS": "localhost"}):
         security.init_security_middleware(test_app)
         client = Client(test_app)
 
@@ -204,11 +209,11 @@ def test_host_validation(hostname, expected_valid):
     ("env_var", "env_value", "expected_result"),
     [
         (
-            "MLFLOW_CORS_ALLOWED_ORIGINS",
+            "MLFLOW_SERVER_CORS_ALLOWED_ORIGINS",
             "http://app1.com,http://app2.com",
             ["http://app1.com", "http://app2.com"],
         ),
-        ("MLFLOW_ALLOWED_HOSTS", "app1.com,app2.com:8080", ["app1.com", "app2.com:8080"]),
+        ("MLFLOW_SERVER_ALLOWED_HOSTS", "app1.com,app2.com:8080", ["app1.com", "app2.com:8080"]),
     ],
 )
 def test_environment_variable_configuration(env_var, env_value, expected_result):

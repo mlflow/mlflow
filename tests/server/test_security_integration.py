@@ -56,7 +56,7 @@ def test_cors_for_state_changing_requests(mlflow_app_client, origin, endpoint, e
         assert response.status_code != 403
 
 
-@mock.patch.dict("os.environ", {"MLFLOW_CORS_ALLOWED_ORIGINS": "https://trusted-app.com"})
+@mock.patch.dict("os.environ", {"MLFLOW_SERVER_CORS_ALLOWED_ORIGINS": "https://trusted-app.com"})
 def test_cors_with_configured_origins():
     from flask import Flask
 

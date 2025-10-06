@@ -12,12 +12,12 @@ Security middleware features require the FastAPI-based tracking server (uvicorn)
 
 Security settings can be configured through CLI options or environment variables:
 
-| Setting              | CLI Option                      | Environment Variable                 | Default                |
-| -------------------- | ------------------------------- | ------------------------------------ | ---------------------- |
-| **Allowed Hosts**    | `--allowed-hosts`               | `MLFLOW_ALLOWED_HOSTS`               | localhost, private IPs |
-| **CORS Origins**     | `--cors-allowed-origins`        | `MLFLOW_CORS_ALLOWED_ORIGINS`        | localhost:\*           |
-| **X-Frame-Options**  | `--x-frame-options`             | `MLFLOW_X_FRAME_OPTIONS`             | SAMEORIGIN             |
-| **Disable Security** | `--disable-security-middleware` | `MLFLOW_DISABLE_SECURITY_MIDDLEWARE` | false                  |
+| Setting              | CLI Option                      | Environment Variable                        | Default                |
+| -------------------- | ------------------------------- | ------------------------------------------- | ---------------------- |
+| **Allowed Hosts**    | `--allowed-hosts`               | `MLFLOW_SERVER_ALLOWED_HOSTS`               | localhost, private IPs |
+| **CORS Origins**     | `--cors-allowed-origins`        | `MLFLOW_SERVER_CORS_ALLOWED_ORIGINS`        | localhost:\*           |
+| **X-Frame-Options**  | `--x-frame-options`             | `MLFLOW_SERVER_X_FRAME_OPTIONS`             | SAMEORIGIN             |
+| **Disable Security** | `--disable-security-middleware` | `MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE` | false                  |
 
 ## --allowed-hosts
 

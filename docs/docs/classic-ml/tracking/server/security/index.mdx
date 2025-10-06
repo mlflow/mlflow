@@ -24,8 +24,8 @@ mlflow server --host 0.0.0.0 \
   --cors-allowed-origins "https://notebook.internal"
 
 # Production
-export MLFLOW_ALLOWED_HOSTS="mlflow.company.com"
-export MLFLOW_CORS_ALLOWED_ORIGINS="https://app.company.com"
+export MLFLOW_SERVER_ALLOWED_HOSTS="mlflow.company.com"
+export MLFLOW_SERVER_CORS_ALLOWED_ORIGINS="https://app.company.com"
 mlflow server --host 127.0.0.1
 ```
 

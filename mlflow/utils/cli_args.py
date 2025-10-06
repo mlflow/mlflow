@@ -262,7 +262,7 @@ INSTALL_JAVA = click.option(
 # Security-related options for MLflow server
 ALLOWED_HOSTS = click.option(
     "--allowed-hosts",
-    envvar="MLFLOW_ALLOWED_HOSTS",
+    envvar="MLFLOW_SERVER_ALLOWED_HOSTS",
     default=None,
     help="Comma-separated list of allowed Host headers to prevent DNS rebinding attacks "
     "(default: localhost + private IPs). "
@@ -276,7 +276,7 @@ ALLOWED_HOSTS = click.option(
 
 CORS_ALLOWED_ORIGINS = click.option(
     "--cors-allowed-origins",
-    envvar="MLFLOW_CORS_ALLOWED_ORIGINS",
+    envvar="MLFLOW_SERVER_CORS_ALLOWED_ORIGINS",
     default=None,
     help="Comma-separated list of allowed CORS origins to prevent cross-site request attacks "
     "(default: localhost origins on any port). "
@@ -289,7 +289,7 @@ CORS_ALLOWED_ORIGINS = click.option(
 
 DISABLE_SECURITY_MIDDLEWARE = click.option(
     "--disable-security-middleware",
-    envvar="MLFLOW_DISABLE_SECURITY_MIDDLEWARE",
+    envvar="MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE",
     is_flag=True,
     default=False,
     help="DANGEROUS: Disable all security middleware including CORS protection and host "
@@ -301,7 +301,7 @@ DISABLE_SECURITY_MIDDLEWARE = click.option(
 
 X_FRAME_OPTIONS = click.option(
     "--x-frame-options",
-    envvar="MLFLOW_X_FRAME_OPTIONS",
+    envvar="MLFLOW_SERVER_X_FRAME_OPTIONS",
     default="SAMEORIGIN",
     help="X-Frame-Options header value for clickjacking protection. "
     "Options: 'SAMEORIGIN' (default - allows embedding only from same origin), "

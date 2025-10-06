@@ -114,18 +114,18 @@ mlflow server \
 ```bash
 # In docker-compose.yml, set environment variables:
 environment:
-  MLFLOW_ALLOWED_HOSTS: "tracking-server:5000,localhost:5000,127.0.0.1:5000"
-  MLFLOW_CORS_ALLOWED_ORIGINS: "http://frontend:3000"
+  MLFLOW_SERVER_ALLOWED_HOSTS: "tracking-server:5000,localhost:5000,127.0.0.1:5000"
+  MLFLOW_SERVER_CORS_ALLOWED_ORIGINS: "http://frontend:3000"
 ```
 
 ## Environment Variables
 
 All CLI options can be set via environment variables:
 
-- `MLFLOW_ALLOWED_HOSTS` - Comma-separated list of allowed hosts
-- `MLFLOW_CORS_ALLOWED_ORIGINS` - Comma-separated list of allowed CORS origins
-- `MLFLOW_X_FRAME_OPTIONS` - Clickjacking protection setting
-- `MLFLOW_DISABLE_SECURITY_MIDDLEWARE` - Set to "true" to disable security
+- `MLFLOW_SERVER_ALLOWED_HOSTS` - Comma-separated list of allowed hosts
+- `MLFLOW_SERVER_CORS_ALLOWED_ORIGINS` - Comma-separated list of allowed CORS origins
+- `MLFLOW_SERVER_X_FRAME_OPTIONS` - Clickjacking protection setting
+- `MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE` - Set to "true" to disable security
 
 ## Security Messages
 
