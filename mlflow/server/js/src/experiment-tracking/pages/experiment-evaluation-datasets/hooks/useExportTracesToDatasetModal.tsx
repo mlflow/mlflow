@@ -1,15 +1,12 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ExportTracesToDatasetModal } from '../components/ExportTracesToDatasetModal';
 import { ModelTrace } from '@mlflow/mlflow/src/shared/web-shared/model-trace-explorer';
 
 // used to pass the modal from mlflow codebase to genai-traces-table
 export const useExportTracesToDatasetModal = ({ experimentId }: { experimentId: string }) => {
   const [visible, setVisible] = useState(false);
-
-  return {
-    showExportTracesToDatasetsModal: visible,
-    setShowExportTracesToDatasetsModal: setVisible,
-    renderExportTracesToDatasetsModal: ({ selectedTraceInfos }: { selectedTraceInfos: ModelTrace['info'][] }) => (
+  const renderExportTracesToDatasetsModal = useCallback(
+    ({ selectedTraceInfos }: { selectedTraceInfos: ModelTrace['info'][] }) => (
       <ExportTracesToDatasetModal
         experimentId={experimentId}
         visible={visible}
@@ -17,5 +14,12 @@ export const useExportTracesToDatasetModal = ({ experimentId }: { experimentId: 
         selectedTraceInfos={selectedTraceInfos}
       />
     ),
+    [experimentId, visible, setVisible],
+  );
+
+  return {
+    showExportTracesToDatasetsModal: visible,
+    setShowExportTracesToDatasetsModal: setVisible,
+    renderExportTracesToDatasetsModal,
   };
 };
