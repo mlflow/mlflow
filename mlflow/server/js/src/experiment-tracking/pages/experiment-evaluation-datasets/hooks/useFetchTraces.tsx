@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getTrace } from '../../../utils/TraceUtils';
 import { FETCH_TRACES_QUERY_KEY } from '../constants';
 
-const MAX_PARALLEL_REQUESTS = 10;
+const MAX_PARALLEL_REQUESTS = 20;
 
 async function fetchWithConcurrency<T>(
   ids: string[],
