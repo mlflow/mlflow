@@ -1,5 +1,5 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { getJson } from '@mlflow/mlflow/src/common/utils/FetchUtils';
+import { fetchAPI, getAjaxUrl, getJson } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 import { useMemo } from 'react';
 import { parseJSONSafe } from '@mlflow/mlflow/src/common/utils/TagUtils';
 import { EvaluationDatasetRecord } from '../types';
@@ -26,10 +26,11 @@ export const useGetDatasetRecords = ({ datasetId, enabled = true }: { datasetId:
         page_token: pageParam,
       };
 
-      return (await getJson({
-        relativeUrl: `ajax-api/3.0/mlflow/datasets/${datasetId}/records`,
-        data: requestBody,
-      })) as GetDatasetRecordsResponse;
+      return (await fetchAPI(
+        getAjaxUrl(`ajax-api/3.0/mlflow/datasets/${datasetId}/records`),
+        'GET',
+        requestBody,
+      )) as GetDatasetRecordsResponse;
     },
     cacheTime: 0,
     refetchOnWindowFocus: false,
