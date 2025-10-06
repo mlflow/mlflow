@@ -211,7 +211,6 @@ def test_scorer_start_with_name_param(mock_update, _):
 @patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
 @patch("mlflow.genai.scorers.registry.DatabricksStore.update_registered_scorer")
 def test_scorer_update_with_all_params(mock_update, _):
-    """Test updating with all parameters."""
     my_scorer = length_check
     my_scorer = my_scorer._create_copy()
     my_scorer.name = "original_name"

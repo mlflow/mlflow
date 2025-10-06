@@ -10,6 +10,7 @@ meaningful context.
 """
 
 import ast
+import difflib
 import re
 
 from typing_extensions import Self
@@ -45,10 +46,22 @@ class RedundantTestDocstring(Rule):
         if not is_class and not node.name.startswith("test_"):
             return None
 
-        if (docstring := ast.get_docstring(node)) and cls._is_redundant_docstring(
-            docstring, node.name
+        # Check if docstring exists and get the raw docstring for multiline detection
+        if (
+            node.body
+            and isinstance(node.body[0], ast.Expr)
+            and isinstance(node.body[0].value, ast.Constant)
+            and isinstance(node.body[0].value.s, str)
         ):
-            return cls(node.name, has_class_docstring=is_class)
+            raw_docstring = node.body[0].value.s
+            docstring = ast.get_docstring(node)
+
+            # If raw docstring has newlines, it's multiline - always allow
+            if "\n" in raw_docstring:
+                return None
+
+            if docstring and cls._is_redundant_docstring(docstring, node.name):
+                return cls(node.name, has_class_docstring=is_class)
 
         return None
 
@@ -58,37 +71,53 @@ class RedundantTestDocstring(Rule):
         if not (path_name.startswith("test_") or path_name.endswith("_test.py")):
             return None
 
-        if docstring := ast.get_docstring(module):
-            if "\n" not in docstring:
+        # Check raw docstring for multiline detection
+        if (
+            module.body
+            and isinstance(module.body[0], ast.Expr)
+            and isinstance(module.body[0].value, ast.Constant)
+            and isinstance(module.body[0].value.s, str)
+        ):
+            raw_docstring = module.body[0].value.s
+            # Only flag single-line module docstrings
+            if "\n" not in raw_docstring:
                 return cls(is_module_docstring=True)
 
         return None
 
     @staticmethod
     def _is_redundant_docstring(docstring: str, function_name: str) -> bool:
-        """Check if a docstring is redundant based on length and word overlap with function name."""
-        # Multi-line docstrings are always allowed
-        if "\n" in docstring:
-            return False
-
+        """Check if a docstring is redundant based on length and similarity to function name."""
         stripped = docstring.strip()
         if len(stripped) > len(function_name) * MAX_DOCSTRING_LENGTH_RATIO:
             return False
 
-        func_words = (
-            set(function_name.lower().split("_"))
-            if "_" in function_name
-            else {word.lower() for word in re.findall(r"[A-Z][a-z]*|[a-z]+", function_name)}
-        )
-        func_words -= {"test", ""}
+        # Normalize function name: convert snake_case and camelCase to space-separated words
+        func_normalized = function_name.replace("_", " ")
+        func_normalized = re.sub(r"([a-z])([A-Z])", r"\1 \2", func_normalized)
+        func_normalized = func_normalized.lower().replace("test", "").strip()
+        # Remove punctuation and normalize whitespace
+        func_normalized = re.sub(r"[^\w\s]", "", func_normalized)
+        func_normalized = " ".join(func_normalized.split())
 
-        doc_words = set(re.findall(r"\b[a-z]+\b", stripped.lower())) - {"test", "tests"}
+        # Normalize docstring
+        doc_normalized = stripped.lower().replace("test", "").replace("tests", "").strip()
+        # Remove punctuation and normalize whitespace
+        doc_normalized = re.sub(r"[^\w\s]", "", doc_normalized)
+        doc_normalized = " ".join(doc_normalized.split())
 
-        if not func_words or not doc_words:
+        if not func_normalized or not doc_normalized:
             return False
 
-        overlap_percentage = len(func_words & doc_words) / len(func_words)
-        return overlap_percentage >= MIN_WORD_OVERLAP_PERCENTAGE
+        # Use SequenceMatcher to check if docstring content appears in function name
+        # This handles partial matches better (e.g., "validate" vs "validation")
+        matcher = difflib.SequenceMatcher(None, doc_normalized, func_normalized)
+        match = matcher.find_longest_match(0, len(doc_normalized), 0, len(func_normalized))
+
+        # Calculate what percentage of the docstring matches the function name
+        match_ratio = match.size / len(doc_normalized) if len(doc_normalized) > 0 else 0
+
+        return match_ratio >= MIN_WORD_OVERLAP_PERCENTAGE
 
     def _message(self) -> str:
         if self.is_module_docstring:

@@ -386,7 +386,6 @@ def test_input_type_all_inputs_implement_required_methods(input_obj):
     ],
 )
 def test_label_schema_type_enum_values(enum_member, expected_value):
-    """Test LabelSchemaType enum values."""
     assert enum_member == expected_value
 
 
@@ -401,7 +400,6 @@ def test_label_schema_type_enum_values(enum_member, expected_value):
     ],
 )
 def test_label_schema_type_enum_membership(value, should_be_member):
-    """Test enum membership."""
     if should_be_member:
         assert value in LabelSchemaType
     else:

@@ -37,7 +37,6 @@ def test_jsonpath_extract_values_wildcard_dict():
 
 
 def test_jsonpath_extract_values_missing_field():
-    """Test extraction of missing fields."""
     data = {"info": {"trace_id": "tr-123"}}
     values = jsonpath_extract_values(data, "info.nonexistent")
     assert values == []
