@@ -5,7 +5,7 @@ import inspect
 import json
 import logging
 import uuid
-from collections import Counter
+from collections import Counter, defaultdict
 from contextlib import contextmanager
 from dataclasses import asdict, is_dataclass
 from functools import lru_cache
@@ -221,23 +221,34 @@ def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
     has_usage_data = False
 
     span_id_to_spans = {span.span_id: span for span in spans}
-    for span in spans:
-        # Get usage attribute from span
-        if usage := span.get_attribute(SpanAttributeKey.CHAT_USAGE):
-            # If the parent span is also LLM/Chat span and has the token usage data,
-            # it tracks the same usage data by multiple flavors e.g. LangChain ChatOpenAI
-            # and OpenAI tracing. We should avoid double counting the usage data.
-            if (
-                span.parent_id
-                and (parent_span := span_id_to_spans.get(span.parent_id))
-                and parent_span.get_attribute(SpanAttributeKey.CHAT_USAGE)
-            ):
-                continue
+    children_map: defaultdict[str, list[LiveSpan]] = defaultdict(list)
+    roots: list[LiveSpan] = []
 
+    for span in spans:
+        parent_id = span.parent_id
+        if parent_id and parent_id in span_id_to_spans:
+            children_map[parent_id].append(span)
+        else:
+            roots.append(span)
+
+    def dfs(span: LiveSpan, ancestor_has_usage: bool) -> None:
+        nonlocal input_tokens, output_tokens, total_tokens, has_usage_data
+
+        usage = span.get_attribute(SpanAttributeKey.CHAT_USAGE)
+        span_has_usage = usage is not None
+
+        if span_has_usage and not ancestor_has_usage:
             input_tokens += usage.get(TokenUsageKey.INPUT_TOKENS, 0)
             output_tokens += usage.get(TokenUsageKey.OUTPUT_TOKENS, 0)
             total_tokens += usage.get(TokenUsageKey.TOTAL_TOKENS, 0)
             has_usage_data = True
+
+        next_ancestor_has_usage = ancestor_has_usage or span_has_usage
+        for child in children_map.get(span.span_id, []):
+            dfs(child, next_ancestor_has_usage)
+
+    for root in roots:
+        dfs(root, False)
 
     # If none of the spans have token usage data, we shouldn't log token usage metadata.
     if not has_usage_data:
@@ -263,7 +274,10 @@ def get_otel_attribute(span: trace_api.Span, key: str) -> str | None:
         be parsed, return None.
     """
     try:
-        return json.loads(span.attributes.get(key))
+        attribute_value = span.attributes.get(key)
+        if attribute_value is None:
+            return None
+        return json.loads(attribute_value)
     except Exception:
         _logger.debug(f"Failed to get attribute {key} with from span {span}.", exc_info=True)
 

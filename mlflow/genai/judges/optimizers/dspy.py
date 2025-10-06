@@ -161,7 +161,7 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
-            self._logger.info(f"Setting up DSPy context with model: {self._model}")
+            self._logger.debug(f"Setting up DSPy context with model: {self._model}")
 
             # Configure DSPy to use the optimizer's model
             # This ensures the optimizer uses its own model, separate from the judge's model
@@ -170,7 +170,7 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
             with dspy.context(lm=optimizer_lm):
                 # Create DSPy program that will simulate the judge
                 program = self._get_dspy_program_from_judge(judge)
-                self._logger.info("Created DSPy program with signature using judge's model")
+                self._logger.debug("Created DSPy program with signature using judge's model")
 
                 # Convert traces to DSPy format
                 dspy_examples = []
@@ -180,7 +180,8 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
                         dspy_examples.append(example)
 
                 self._logger.info(
-                    f"Created {len(dspy_examples)} valid examples from {len(traces)} traces"
+                    f"Preparing optimization with {len(dspy_examples)} examples "
+                    f"from {len(traces)} traces"
                 )
 
                 if not dspy_examples:
@@ -199,13 +200,13 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
                         error_code=INVALID_PARAMETER_VALUE,
                     )
 
-                self._logger.info("Starting DSPy optimization...")
+                self._logger.debug("Starting DSPy optimization...")
 
                 # Use the algorithm-specific optimization method
                 # Each implementation decides how to handle data splitting
                 optimized_program = self._dspy_optimize(program, dspy_examples, agreement_metric)
 
-                self._logger.info("DSPy optimization completed")
+                self._logger.debug("DSPy optimization completed")
 
                 # Create optimized judge with DSPy-optimized instructions
 

@@ -76,7 +76,12 @@ def main() -> None:
                     sys.stdout.write(json.dumps([v.json() for v in violations]))
                 elif args.output_format == "text":
                     sys.stderr.write("\n".join(map(str, violations)) + "\n")
+                count = len(violations)
+                label = "error" if count == 1 else "errors"
+                print(f"Found {count} {label}", file=sys.stderr)
                 sys.exit(1)
+            else:
+                print("No errors found!", file=sys.stderr)
 
 
 if __name__ == "__main__":

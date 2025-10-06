@@ -60,6 +60,20 @@ CREATE TABLE inputs (
 )
 
 
+CREATE TABLE jobs (
+	id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	creation_time BIGINT NOT NULL,
+	function_fullname VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	params VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	timeout FLOAT,
+	status INTEGER NOT NULL,
+	result VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	retry_count INTEGER NOT NULL,
+	last_update_time BIGINT NOT NULL,
+	CONSTRAINT jobs_pk PRIMARY KEY (id)
+)
+
+
 CREATE TABLE registered_models (
 	name VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	creation_time BIGINT,
