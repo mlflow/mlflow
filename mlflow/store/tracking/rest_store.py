@@ -114,6 +114,7 @@ from mlflow.protos.service_pb2 import (
     UpdateAssessment,
     UpdateExperiment,
     UpdateRun,
+    UpdateScorer,
     UpsertDatasetRecords,
 )
 from mlflow.store.entities.paged_list import PagedList
@@ -1248,6 +1249,54 @@ class RestStore(AbstractStore):
             GetScorer,
             req_body,
             endpoint="/api/3.0/mlflow/scorers/get",
+        )
+        return ScorerVersion.from_proto(response_proto.scorer)
+
+    def update_scorer(
+        self,
+        experiment_id: str,
+        name: str,
+        sample_rate: float | None = None,
+        filter_string: str | None = None,
+    ) -> ScorerVersion:
+        """
+        Update a scorer's sampling configuration.
+
+        Args:
+            experiment_id: String ID of the experiment.
+            name: String name of the scorer.
+            sample_rate: The new sample rate (0.0 to 1.0). If None, keeps current value.
+            filter_string: The new filter string. If None, keeps current value.
+
+        Returns:
+            A ScorerVersion entity object with updated configuration.
+
+        Raises:
+            MlflowException: If scorer is not found or if filter_string is specified
+                (not supported in RestStore yet).
+        """
+        if filter_string is not None:
+            from mlflow.exceptions import MlflowException
+            from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+
+            raise MlflowException(
+                "filter_string is not yet supported in RestStore",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        req_body = message_to_json(
+            UpdateScorer(
+                experiment_id=experiment_id,
+                name=name,
+                sample_rate=sample_rate if sample_rate is not None else None,
+                filter_string=filter_string if filter_string is not None else None,
+            )
+        )
+        # Scorer APIs are v3.0 endpoints
+        response_proto = self._call_endpoint(
+            UpdateScorer,
+            req_body,
+            endpoint="/api/3.0/mlflow/scorers/update",
         )
         return ScorerVersion.from_proto(response_proto.scorer)
 

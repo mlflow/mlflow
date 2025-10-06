@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import inspect
 import json
 import logging
 import math
@@ -1981,6 +1982,30 @@ class SqlAlchemyStore(AbstractStore):
         Returns:
             The new version number for the scorer.
         """
+        # For TrackingStore (not Databricks), validate that the scorer accepts a 'trace' argument
+        from mlflow.genai.scorers.base import Scorer
+
+        # Deserialize the scorer to validate it
+        scorer_obj = Scorer.model_validate(json.loads(serialized_scorer))
+
+        # Check if the scorer's __call__ method accepts a 'trace' parameter
+        call_signature = inspect.signature(scorer_obj.__call__)
+        param_names = list(call_signature.parameters.keys())
+
+        # Check if 'trace' is in the parameters or if there's **kwargs
+        has_trace_param = "trace" in param_names
+        has_kwargs = any(
+            param.kind == inspect.Parameter.VAR_KEYWORD
+            for param in call_signature.parameters.values()
+        )
+
+        if not (has_trace_param or has_kwargs):
+            raise MlflowException(
+                f"Scorer '{name}' must accept a 'trace' parameter in its __call__ method. "
+                f"Found parameters: {param_names}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
         with self.ManagedSessionMaker() as session:
             # Validate experiment exists and is active
             experiment = self.get_experiment(experiment_id)
@@ -2149,6 +2174,76 @@ class SqlAlchemyStore(AbstractStore):
                     )
 
             return sql_scorer_version.to_mlflow_entity()
+
+    def update_scorer(self, experiment_id, name, sample_rate=None, filter_string=None):
+        """
+        Update a scorer's sampling configuration.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: The scorer name.
+            sample_rate: The new sample rate (0.0 to 1.0). If None, keeps current value.
+            filter_string: The new filter string. If None, keeps current value.
+
+        Returns:
+            A ScorerVersion entity object with updated configuration.
+
+        Raises:
+            MlflowException: If scorer is not found or if filter_string is specified
+                (not supported in SqlAlchemyStore yet).
+        """
+        if filter_string is not None:
+            raise MlflowException(
+                "Scorer `filter_string` updates are not yet supported",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        with self.ManagedSessionMaker() as session:
+            # Validate experiment exists and is active
+            experiment = self.get_experiment(experiment_id)
+            self._check_experiment_is_active(experiment)
+
+            # Get the scorer record
+            scorer = (
+                session.query(SqlScorer)
+                .filter(
+                    SqlScorer.experiment_id == experiment.experiment_id,
+                    SqlScorer.scorer_name == name,
+                )
+                .first()
+            )
+
+            if scorer is None:
+                raise MlflowException(
+                    f"Scorer with name '{name}' not found for experiment {experiment_id}.",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            # Get the latest scorer version
+            latest_version = (
+                session.query(SqlScorerVersion)
+                .filter(SqlScorerVersion.scorer_id == scorer.scorer_id)
+                .order_by(SqlScorerVersion.scorer_version.desc())
+                .first()
+            )
+
+            if latest_version is None:
+                raise MlflowException(
+                    f"No versions found for scorer '{name}' in experiment {experiment_id}.",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            # Update the sample_rate if provided
+            if sample_rate is not None:
+                if not 0.0 <= sample_rate <= 1.0:
+                    raise MlflowException(
+                        f"Invalid sample_rate: {sample_rate}. Must be between 0.0 and 1.0.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                latest_version.sample_rate = sample_rate
+                session.commit()
+
+            return latest_version.to_mlflow_entity()
 
     def delete_scorer(self, experiment_id, name, version=None):
         """
