@@ -167,7 +167,6 @@ def find_matching_paths(data: dict[str, Any], wildcard_path: str) -> list[str]:
             paths = []
             if isinstance(current_data, dict):
                 for key in current_data.keys():
-                    # Wrap all keys in backticks for consistency and safety
                     escaped_key = f"`{key}`"
                     new_path = f"{current_path}.{escaped_key}"
                     paths.extend(find_paths(current_data[key], remaining, new_path))
@@ -178,7 +177,6 @@ def find_matching_paths(data: dict[str, Any], wildcard_path: str) -> list[str]:
             return paths
         else:
             if isinstance(current_data, dict) and part in current_data:
-                # Wrap all keys in backticks for consistency and safety
                 escaped_key = f"`{part}`"
                 new_path = f"{current_path}.{escaped_key}"
                 return find_paths(current_data[part], remaining, new_path)
