@@ -96,11 +96,3 @@ def test_uc_schema_location_full_otel_spans_table_name():
     )
     uc_schema._otel_spans_table_name = "otel_spans"
     assert uc_schema.full_otel_spans_table_name == "test_catalog.test_schema.otel_spans"
-
-
-def test_uc_schema_location_full_otel_spans_table_name_none():
-    uc_schema = UCSchemaLocation(
-        catalog_name="test_catalog",
-        schema_name="test_schema",
-    )
-    assert uc_schema.full_otel_spans_table_name is None

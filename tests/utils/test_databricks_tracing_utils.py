@@ -284,6 +284,9 @@ def test_trace_info_to_dict():
             "uc_schema": {
                 "catalog_name": "catalog",
                 "schema_name": "schema",
+                # Default table names
+                "otel_spans_table_name": "mlflow_experiment_trace_otel_spans",
+                "otel_logs_table_name": "mlflow_experiment_trace_otel_logs",
             },
         },
         "request_time": mock.ANY,
