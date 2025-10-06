@@ -9,6 +9,7 @@ import {
   WorkflowsIcon,
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
+import { QUICKSTART_CONTENT } from '@mlflow/mlflow/src/experiment-tracking/components/traces/quickstart/TraceTableQuickstart.utils';
 import { TraceTableGenericQuickstart } from '@mlflow/mlflow/src/experiment-tracking/components/traces/quickstart/TraceTableGenericQuickstart';
 import type { QUICKSTART_FLAVOR } from '@mlflow/mlflow/src/experiment-tracking/components/traces/quickstart/TraceTableQuickstart.utils';
 import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
@@ -140,7 +141,7 @@ export const LogTracesDrawer = ({ isOpen, onClose }: { isOpen: boolean; onClose:
             }}
           >
             <span css={iconWrapperStyles}>
-              <WorkflowsIcon css={{ width: 20, height: 20 }} />
+              <WorkflowsIcon />
             </span>
             <FormattedMessage
               defaultMessage="Log traces"
@@ -173,12 +174,6 @@ export const LogTracesDrawer = ({ isOpen, onClose }: { isOpen: boolean; onClose:
               gap: theme.spacing.sm,
             }}
           >
-            <Typography.Title level={3} css={{ margin: 0 }}>
-              <FormattedMessage
-                defaultMessage="Select a framework"
-                description="Section title for selecting an LLM tracing framework"
-              />
-            </Typography.Title>
             {frameworks.map((framework) => {
               const isSelected = framework.id === selectedFramework;
               const logoSrc = isSelected && framework.selectedLogo ? framework.selectedLogo : framework.logo;
@@ -264,6 +259,12 @@ export const LogTracesDrawer = ({ isOpen, onClose }: { isOpen: boolean; onClose:
               boxShadow: theme.shadows.xs,
             }}
           >
+            {QUICKSTART_CONTENT[selectedFramework]!.getImageSource && (
+              <img
+                  src={QUICKSTART_CONTENT[selectedFramework].getImageSource()}
+                  css={{ borderRadius: theme.borders.borderRadiusMd }}
+                  alt={selectedFramework} />
+            )}
             <section
               css={{
                 display: 'flex',

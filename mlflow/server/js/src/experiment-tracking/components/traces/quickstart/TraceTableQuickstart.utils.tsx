@@ -22,6 +22,7 @@ export const QUICKSTART_CONTENT: Record<
     minVersion: string;
     getContent: (baseComponentId?: string) => React.ReactNode;
     getCodeSource: () => string;
+    getImageSource?: () => string;
   }
 > = {
   openai: {
@@ -50,6 +51,7 @@ messages = [
 
 # Inputs and outputs of the API request will be logged in a trace
 client.chat.completions.create(model="gpt-4o-mini", messages=messages)`,
+    getImageSource: () => 'https://mlflow.org/docs/3.4.0/images/llms/tracing/openai-tracing.gif',
   },
   langchain: {
     // the autologging integration was really introduced in
@@ -78,6 +80,7 @@ chain = prompt | llm
 
 # Invoking the chain will cause a trace to be logged
 chain.invoke("What is MLflow?")`,
+    getImageSource: () => 'https://mlflow.org/docs/3.4.0/images/llms/tracing/langgraph-tracing.gif',
   },
   langgraph: {
     minVersion: '2.19.0',
@@ -115,6 +118,7 @@ app = graph.compile()
 
 # Executing the graph will log the steps as a trace
 app.invoke({"input": "Say hello to MLflow."})`,
+  getImageSource: () => 'https://mlflow.org/docs/3.4.0/images/llms/tracing/langgraph-tracing.gif',
   },
   llama_index: {
     minVersion: '2.15.1',
@@ -166,6 +170,7 @@ question = "Two dice are tossed. What is the probability that the sum equals two
 
 # All intermediate outputs from the execution will be logged
 math(question=question)`,
+    getImageSource: () => 'https://mlflow.org/docs/3.4.0/images/llms/tracing/dspy-tracing.gif',
   },
   crewai: {
     minVersion: '2.19.0',

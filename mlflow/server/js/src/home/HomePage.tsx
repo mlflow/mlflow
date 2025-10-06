@@ -60,7 +60,7 @@ const HomePage = () => {
       }}
     >
       <Header title={<FormattedMessage defaultMessage="Welcome to MLflow" description="Home page hero title" />} />
-      <GetStarted />
+      <GetStarted onLogTracesClick={handleOpenLogTracesDrawer} />
       <ExperimentsHomeView
         experiments={experiments}
         isLoading={isLoading}

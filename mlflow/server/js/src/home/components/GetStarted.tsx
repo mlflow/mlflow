@@ -82,13 +82,13 @@ const GetStartedCard = ({ action, onLogTracesClick }: { action: QuickAction; onL
         {card}
       </button>
     );
+  } else {
+    return (
+      <a href={action.link} target="_blank" rel="noopener noreferrer" css={linkStyles}>
+        {card}
+      </a>
+    );
   }
-
-  return (
-    <a href={action.link} target="_blank" rel="noopener noreferrer" css={linkStyles}>
-      {card}
-    </a>
-  );
 };
 
 export const GetStarted = ({ onLogTracesClick }: { onLogTracesClick?: () => void }) => {
@@ -110,7 +110,7 @@ export const GetStarted = ({ onLogTracesClick }: { onLogTracesClick?: () => void
         }}
       >
         {homeQuickActions.map((action) => (
-          <GetStartedCard key={action.id} action={action} />
+          <GetStartedCard key={action.id} action={action} onLogTracesClick={onLogTracesClick} />
         ))}
       </section>
     </section>
