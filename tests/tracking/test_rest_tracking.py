@@ -2573,7 +2573,7 @@ def test_start_trace(mlflow_client):
     def _exclude_system_keys(d: dict[str, str]):
         return {k: v for k, v in d.items() if not k.startswith("mlflow.")}
 
-    with mock.patch("mlflow.tracing.export.mlflow_v3._logger") as mock_logger:
+    with mock.patch("mlflow.tracing.export.mlflow_v3._logger.warning") as mock_warning:
         with mlflow.start_span(name="test") as span:
             mlflow.update_current_trace(
                 tags={
@@ -2603,7 +2603,7 @@ def test_start_trace(mlflow_client):
     }
 
     # No "Failed to log span to MLflow backend" warning should be issued
-    for call in mock_logger.warning.call_args_list:
+    for call in mock_warning.call_args_list:
         assert "Failed to log span to MLflow backend" not in str(call)
 
 
