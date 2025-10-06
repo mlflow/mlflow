@@ -9,9 +9,9 @@ body:
       value: |
         Thank you for submitting an issue. Please refer to our [issue policy](https://www.github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md) for information on what types of issues we address.
 
-        **Where to file this issue**
-        - If the problem is in documentation pages under https://mlflow.org/docs (for example: API reference, tutorials, how-to guides), please open this issue in the mlflow repository: https://github.com/mlflow/mlflow/issues
-        - If the problem is in the main website (for example: a blog post, marketing page, or other non-docs site content), please open this issue in the website repository: https://github.com/mlflow/mlflow-website/issues
+        **Is this the right repository?**
+        - ✅ **Documentation pages** under https://mlflow.org/docs (API reference, tutorials, how-to guides) — you're in the right place!
+        - ❌ **Main website content** (blog posts, marketing pages, other site content) — please file at https://github.com/mlflow/mlflow-website/issues instead
 
         **Please fill in this documentation issue template to ensure a timely and thorough response.**
   - type: dropdown
@@ -30,7 +30,7 @@ body:
       label: URL(s) with the issue
       description: |
         Please provide a link to the documentation entry in question.
-        Note: Issues for pages under https://mlflow.org/docs should be filed here in mlflow/mlflow. Issues for other website content should be filed in mlflow/mlflow-website.
+        Note: This repo is for https://mlflow.org/docs pages only. For other website content, use https://github.com/mlflow/mlflow-website/issues.
     validations:
       required: true
   - type: textarea
