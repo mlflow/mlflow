@@ -48,31 +48,23 @@ const HomePage = () => {
   return (
     <ScrollablePageWrapper
       css={{
-        padding: `0 ${theme.spacing.lg}px`,
+        padding: theme.spacing.md,
         display: 'flex',
-        justifyContent: 'center',
+        flexDirection: 'column',
+        gap: theme.spacing.lg,
+        height: 'min-content',
       }}
     >
-      <div
-        css={{
-          width: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: theme.spacing.lg,
-        }}
-      >
-        <Spacer shrinks={false} />
-        <Header title={<FormattedMessage defaultMessage="Welcome to MLflow" description="Home page hero title" />} />
-        <GetStarted />
-        <ExperimentsHomeView
-          experiments={experiments}
-          isLoading={isLoading}
-          error={error}
-          onCreateExperiment={handleOpenCreateModal}
-          onRetry={refetch}
-        />
-        <DiscoverNews />
-      </div>
+      <Header title={<FormattedMessage defaultMessage="Welcome to MLflow" description="Home page hero title" />} />
+      <GetStarted />
+      <ExperimentsHomeView
+        experiments={experiments}
+        isLoading={isLoading}
+        error={error}
+        onCreateExperiment={handleOpenCreateModal}
+        onRetry={refetch}
+      />
+      <DiscoverNews />
 
       <CreateExperimentModal
         isOpen={isCreateModalOpen}

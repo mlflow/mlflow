@@ -1,12 +1,11 @@
 import { useMemo, useState } from 'react';
-import { Alert, Button, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Alert, Button, Spacer, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import type { RowSelectionState, SortingState } from '@tanstack/react-table';
 import { FormattedMessage } from 'react-intl';
 import { ExperimentListTable } from '../../experiment-tracking/components/ExperimentListTable';
 import Routes from '../../experiment-tracking/routes';
 import { Link } from '../../common/utils/RoutingUtils';
 import type { ExperimentEntity } from '../../experiment-tracking/types';
-import { sectionHeaderStyles } from './cardStyles';
 
 type ExperimentsHomeViewProps = {
   experiments?: ExperimentEntity[];
@@ -41,11 +40,9 @@ const ExperimentsEmptyState = ({ onCreateExperiment }: { onCreateExperiment: () 
           description="Home page experiments empty state description"
         />
       </Typography.Text>
-      <div>
-        <Button componentId="mlflow.home.experiments.create" onClick={onCreateExperiment}>
-          <FormattedMessage defaultMessage="Create experiment" description="Home page experiments empty state CTA" />
-        </Button>
-      </div>
+      <Button componentId="mlflow.home.experiments.create" onClick={onCreateExperiment}>
+        <FormattedMessage defaultMessage="Create experiment" description="Home page experiments empty state CTA" />
+      </Button>
     </div>
   );
 };
@@ -65,13 +62,25 @@ export const ExperimentsHomeView = ({
   const shouldShowEmptyState = !isLoading && !error && topExperiments.length === 0;
 
   return (
-    <section css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-      <Typography.Title level={3} css={sectionHeaderStyles}>
-        <FormattedMessage defaultMessage="Experiments" description="Home page experiments preview title" />
-      </Typography.Title>
+    <section css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
       <div
         css={{
-          border: `1px solid ${theme.colors.borderStrong}`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: theme.spacing.md,
+        }}
+      >
+        <Typography.Title level={3} css={{ margin: 0 }}>
+          <FormattedMessage defaultMessage="Experiments" description="Home page experiments preview title" />
+        </Typography.Title>
+        <Link to={Routes.experimentsObservatoryRoute}>
+          <FormattedMessage defaultMessage="View all" description="Home page experiments view all link" />
+        </Link>
+      </div>
+      <div
+        css={{
+          border: `1px solid ${theme.colors.border}`,
           overflow: 'hidden',
           backgroundColor: theme.colors.backgroundPrimary,
         }}
@@ -109,15 +118,7 @@ export const ExperimentsHomeView = ({
           />
         )}
       </div>
-      <Typography.Link
-        componentId="mlflow.home.experiments.view_all"
-        to={Routes.experimentsObservatoryRoute}
-        as={Link}
-        css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs, alignSelf: 'flex-end' }}
-      >
-        <span>{'>>>'}</span>
-        <FormattedMessage defaultMessage="See all experiments" description="Home page experiments view all link" />
-      </Typography.Link>
+      <Spacer shrinks={false} />
     </section>
   );
 };

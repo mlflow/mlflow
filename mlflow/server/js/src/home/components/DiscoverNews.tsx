@@ -1,9 +1,7 @@
 import type { ComponentType, ReactNode } from 'react';
 import { Spacer, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { Link } from '../../common/utils/RoutingUtils';
 import { homeNewsItems } from '../news-items';
-import { sectionHeaderStyles, discoverNewsCardContainerStyles, getStartedCardLinkStyles } from './cardStyles';
 
 type NewsThumbnailProps = {
   gradient: string;
@@ -42,33 +40,46 @@ const NewsThumbnail = ({ gradient, title, description, icon: IconComponent }: Ne
   );
 };
 
-const DiscoverNewsCard = ({ title, description, link, componentId, thumbnail }: typeof homeNewsItems[number]) => {
+const DiscoverNewsCard = ({ title, description, link, thumbnail }: typeof homeNewsItems[number]) => {
   const { theme } = useDesignSystemTheme();
-  const linkStyles = getStartedCardLinkStyles(theme);
-  const containerStyles = discoverNewsCardContainerStyles(theme);
+  const linkStyles = {
+    textDecoration: 'none',
+    color: theme.colors.textPrimary,
+    display: 'block',
+  };
 
   const card = (
-    <div css={containerStyles}>
+    <div
+      css={{
+        overflow: 'hidden',
+        border: `1px solid ${theme.colors.actionDefaultBorderDefault}`,
+        borderRadius: theme.borders.borderRadiusMd,
+        background: theme.colors.backgroundPrimary,
+        padding: theme.spacing.sm + theme.spacing.xs,
+        display: 'flex',
+        flexDirection: 'column' as const,
+        gap: theme.spacing.sm,
+        boxSizing: 'border-box' as const,
+        boxShadow: theme.shadows.sm,
+        cursor: 'pointer',
+        transition: 'background 150ms ease',
+        height: '100%',
+        width: 320,
+        minWidth: 320,
+        '&:hover': {
+          background: theme.colors.actionDefaultBackgroundHover,
+        },
+        '&:active': {
+          background: theme.colors.actionDefaultBackgroundPress,
+        },
+      }}
+    >
       <NewsThumbnail gradient={thumbnail.gradient} title={title} description={description} icon={thumbnail.icon} />
     </div>
   );
 
-  if (link.type === 'internal') {
-    return (
-      <Link to={link.to} css={linkStyles} data-component-id={componentId}>
-        {card}
-      </Link>
-    );
-  }
-
   return (
-    <a
-      href={link.href}
-      target={link.target ?? '_blank'}
-      rel={link.rel ?? 'noopener noreferrer'}
-      css={linkStyles}
-      data-component-id={componentId}
-    >
+    <a href={link} target="_blank" rel="noopener noreferrer" css={linkStyles}>
       {card}
     </a>
   );
@@ -79,9 +90,26 @@ export const DiscoverNews = () => {
 
   return (
     <section css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-      <Typography.Title level={3} css={sectionHeaderStyles}>
-        <FormattedMessage defaultMessage="Discover new features" description="Home page news section title" />
-      </Typography.Title>
+      <div
+        css={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: theme.spacing.md,
+        }}
+      >
+        <Typography.Title level={3} css={{ margin: 0 }}>
+          <FormattedMessage defaultMessage="Discover new features" description="Home page news section title" />
+        </Typography.Title>
+        <Typography.Link
+          componentId="mlflow.home.news.view_more"
+          href="https://mlflow.org/blog/"
+          openInNewTab
+          css={{ color: theme.colors.textSecondary }}
+        >
+          <FormattedMessage defaultMessage="View all" description="Home page news section view more link" />
+        </Typography.Link>
+      </div>
       <section css={{ width: '100%', minWidth: 0 }}>
         <div
           css={{
@@ -96,16 +124,6 @@ export const DiscoverNews = () => {
           ))}
         </div>
       </section>
-      <Typography.Link
-        componentId="mlflow.home.news.view_more"
-        href="https://mlflow.org/blog/"
-        target="_blank"
-        rel="noopener noreferrer"
-        css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs, alignSelf: 'flex-end' }}
-      >
-        <span>{'>>>'}</span>
-        <FormattedMessage defaultMessage="See more announcements" description="Home page news section view more link" />
-      </Typography.Link>
     </section>
   );
 };

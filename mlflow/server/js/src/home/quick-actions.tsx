@@ -18,12 +18,7 @@ export const homeQuickActions: HomeQuickActionDefinition[] = [
         description="Home page quick action description for logging traces"
       />
     ),
-    link: {
-      type: 'external',
-      href: 'https://mlflow.org/docs/latest/llms/tracing/index.html',
-      target: '_blank',
-      rel: 'noopener noreferrer',
-    },
+    link: 'https://mlflow.org/docs/latest/llms/tracing/index.html',
   },
   {
     id: 'run-evaluation',
@@ -41,12 +36,7 @@ export const homeQuickActions: HomeQuickActionDefinition[] = [
         description="Home page quick action description for running evaluations"
       />
     ),
-    link: {
-      type: 'external',
-      href: 'https://mlflow.org/docs/latest/llms/llm-evaluate/index.html',
-      target: '_blank',
-      rel: 'noopener noreferrer',
-    },
+    link: 'https://mlflow.org/docs/latest/llms/llm-evaluate/index.html',
   },
   {
     id: 'train-models',
@@ -61,10 +51,7 @@ export const homeQuickActions: HomeQuickActionDefinition[] = [
         description="Home page quick action description for training models"
       />
     ),
-    link: {
-      type: 'internal',
-      to: ExperimentTrackingRoutes.experimentsObservatoryRoute,
-    },
+    link: 'https://mlflow.org/docs/latest/ml/tracking/quickstart/',
   },
   {
     id: 'register-prompts',
@@ -82,9 +69,6 @@ export const homeQuickActions: HomeQuickActionDefinition[] = [
         description="Home page quick action description for registering prompts"
       />
     ),
-    link: {
-      type: 'internal',
-      to: ExperimentTrackingRoutes.promptsPageRoute,
-    },
+    link: 'https://mlflow.org/docs/latest/genai/prompt-registry/',
   },
 ];

@@ -5,7 +5,7 @@ import { homeNewsItems } from '../news-items';
 
 describe('DiscoverNews', () => {
   it('renders section header and all news links', () => {
-    const { container } = renderWithDesignSystem(<DiscoverNews />);
+    renderWithDesignSystem(<DiscoverNews />);
 
     expect(
       screen.getByRole('heading', {
@@ -15,7 +15,9 @@ describe('DiscoverNews', () => {
     ).toBeInTheDocument();
 
     homeNewsItems.forEach((item) => {
-      expect(container.querySelector(`[data-component-id="${item.componentId}"]`)).toBeInTheDocument();
+      const title = screen.getByText(item.title.props.defaultMessage);
+      expect(title).toBeInTheDocument();
+      expect(title.closest('a')).not.toBeNull();
     });
   });
 
@@ -24,26 +26,23 @@ describe('DiscoverNews', () => {
 
     expect(
       screen.getByRole('link', {
-        name: '>>> See more announcements',
+        name: 'View all',
       }),
     ).toBeInTheDocument();
   });
 
-  it('renders external links with correct attributes', () => {
-    const { container } = renderWithDesignSystem(<DiscoverNews />);
-    const externalItem = homeNewsItems.find((item) => item.link.type === 'external');
+  it('renders news links with correct attributes', () => {
+    renderWithDesignSystem(<DiscoverNews />);
 
-    if (!externalItem || externalItem.link.type !== 'external') {
-      throw new Error('Expected at least one external news item');
-    }
+    homeNewsItems.forEach((item) => {
+      const link = screen
+        .getByText(item.title.props.defaultMessage)
+        .closest('a') as HTMLAnchorElement | null;
 
-    const externalLink = container.querySelector(
-      `[data-component-id="${externalItem.componentId}"]`,
-    ) as HTMLAnchorElement | null;
-
-    expect(externalLink).not.toBeNull();
-    expect(externalLink).toHaveAttribute('href', externalItem.link.href);
-    expect(externalLink).toHaveAttribute('target', '_blank');
-    expect(externalLink).toHaveAttribute('rel', 'noopener noreferrer');
+      expect(link).not.toBeNull();
+      expect(link).toHaveAttribute('href', item.link);
+      expect(link).toHaveAttribute('target', '_blank');
+      expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    });
   });
 });
