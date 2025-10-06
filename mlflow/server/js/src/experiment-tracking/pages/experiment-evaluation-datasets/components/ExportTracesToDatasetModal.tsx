@@ -80,6 +80,8 @@ export const ExportTracesToDatasetModal = ({
     hasNextPage,
   } = useSearchEvaluationDatasets({ experimentId, nameFilter: searchFilter });
 
+  const isInitialLoading = isLoadingDatasets || isLoadingTraces;
+
   const fetchMoreOnBottomReached = useInfiniteScrollFetch({
     isFetching,
     hasNextPage: hasNextPage ?? false,
@@ -185,19 +187,20 @@ export const ExportTracesToDatasetModal = ({
               </TableHeader>
             ))}
           </TableRow>
-          {table.getRowModel().rows.map((row) => (
-            <TableRow key={row.id}>
-              {row.getVisibleCells().map((cell) => (
-                <TableCell
-                  key={cell.id}
-                  css={{ width: cell.column.columnDef.size, maxWidth: cell.column.columnDef.maxSize }}
-                >
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </TableCell>
-              ))}
-            </TableRow>
-          ))}
-          {(isLoadingDatasets || isLoadingTraces || isFetching) && <TableSkeletonRows table={table} />}
+          {!isInitialLoading &&
+            table.getRowModel().rows.map((row) => (
+              <TableRow key={row.id}>
+                {row.getVisibleCells().map((cell) => (
+                  <TableCell
+                    key={cell.id}
+                    css={{ width: cell.column.columnDef.size, maxWidth: cell.column.columnDef.maxSize }}
+                  >
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          {(isInitialLoading || isFetching) && <TableSkeletonRows table={table} />}
         </Table>
       </div>
     </Modal>
