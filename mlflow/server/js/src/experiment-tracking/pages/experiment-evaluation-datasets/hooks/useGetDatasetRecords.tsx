@@ -20,16 +20,16 @@ export const useGetDatasetRecords = ({ datasetId, enabled = true }: { datasetId:
   >({
     queryKey: [GET_DATASET_RECORDS_QUERY_KEY, datasetId],
     queryFn: async ({ queryKey: [, datasetId], pageParam = undefined }) => {
-      const requestBody = {
-        dataset_id: datasetId,
-        max_results: GET_DATASET_RECORDS_PAGE_SIZE,
-        page_token: pageParam,
-      };
+      const queryParams = new URLSearchParams();
+      queryParams.set('dataset_id', datasetId as string);
+      queryParams.set('max_results', GET_DATASET_RECORDS_PAGE_SIZE.toString());
+      if (pageParam) {
+        queryParams.set('page_token', pageParam ?? '');
+      }
 
       return (await fetchAPI(
-        getAjaxUrl(`ajax-api/3.0/mlflow/datasets/${datasetId}/records`),
+        getAjaxUrl(`ajax-api/3.0/mlflow/datasets/${datasetId}/records?${queryParams.toString()}`),
         'GET',
-        requestBody,
       )) as GetDatasetRecordsResponse;
     },
     cacheTime: 0,
