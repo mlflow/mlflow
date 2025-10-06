@@ -1,8 +1,10 @@
+from unittest.mock import Mock, patch
+
 import pandas as pd
 import pytest
 
 import mlflow
-from mlflow.genai.optimize.adapt import adapt_prompts
+from mlflow.genai.optimize.adapt import _compute_score, adapt_prompts
 from mlflow.genai.optimize.adapters.base import BasePromptAdapter
 from mlflow.genai.optimize.types import EvaluationResultRecord, LLMParams, PromptAdapterOutput
 from mlflow.genai.prompts import register_prompt
@@ -241,3 +243,62 @@ def test_adapt_prompts_llm_params_passed(sample_translation_prompt, sample_datas
     )
 
     assert len(result.optimized_prompts) == 1
+
+
+@pytest.mark.parametrize(
+    ("program_outputs", "expected_outputs", "expected_score"),
+    [
+        # Numeric exact matches
+        (42, 42, 1.0),
+        (42, 43, 0.0),
+        (3.14, 3.14, 1.0),
+        (3.14, 3.15, 0.0),
+        (True, True, 1.0),
+        (True, False, 0.0),
+        # Mixed numeric types
+        (1, 1.0, 1.0),
+        (0, False, 1.0),
+        (1, True, 1.0),
+        # String exact matches
+        ("hello", "hello", 1.0),
+        ("Paris", "Paris", 1.0),
+        # Non-string types converted to strings
+        ([1, 2, 3], [1, 2, 3], 1.0),
+    ],
+)
+def test_compute_score_exact_match(program_outputs, expected_outputs, expected_score):
+    assert _compute_score(program_outputs, expected_outputs, "test/model") == expected_score
+
+
+def test_compute_score_llm_judge_semantic_matching():
+    # Test pass case
+    mock_pass = Mock(value="pass")
+    with patch("mlflow.genai.judges.make_judge") as mock_make_judge:
+        mock_judge = Mock(return_value=mock_pass)
+        mock_make_judge.return_value = mock_judge
+
+        score = _compute_score("The capital of France is Paris", "Paris", "openai:/gpt-4o-mini")
+
+        # Verify correct parameters passed to make_judge
+        assert mock_make_judge.call_args.kwargs["name"] == "equivalence_judge"
+        assert mock_make_judge.call_args.kwargs["model"] == "openai:/gpt-4o-mini"
+        assert "{{ outputs }}" in mock_make_judge.call_args.kwargs["instructions"]
+
+        # Verify judge called with string representations
+        mock_judge.assert_called_once_with(
+            outputs="The capital of France is Paris", expectations="Paris"
+        )
+        assert score == 1.0
+
+    # Test fail case
+    mock_result = Mock(value="fail")
+    with patch("mlflow.genai.judges.make_judge") as mock_make_judge:
+        mock_judge = Mock(return_value=mock_result)
+        mock_make_judge.return_value = mock_judge
+        assert _compute_score("output", "different", "test/model") == 0.0
+
+
+def test_compute_score_error_handling():
+    with patch("mlflow.genai.judges.make_judge") as mock_make_judge:
+        mock_make_judge.side_effect = Exception("API Error")
+        assert _compute_score("output", "expected", "test/model") == 0.0

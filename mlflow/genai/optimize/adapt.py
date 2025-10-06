@@ -1,3 +1,4 @@
+import logging
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any, Callable
@@ -20,6 +21,8 @@ from mlflow.utils.autologging_utils.safety import _wrap_patch
 
 if TYPE_CHECKING:
     from mlflow.genai.evaluation.utils import EvaluationDatasetTypes
+
+_logger = logging.getLogger(__name__)
 
 
 @experimental(version="3.5.0")
@@ -115,7 +118,7 @@ def adapt_prompts(
         predict_fn=predict_fn, sample_input=converted_train_data[0]["inputs"]
     )
 
-    eval_fn = _build_eval_fn(predict_fn)
+    eval_fn = _build_eval_fn(predict_fn, optimizer_lm_params)
 
     target_prompts = [load_prompt(prompt_uri) for prompt_uri in target_prompt_uris]
     target_prompts_dict = {prompt.name: prompt.template for prompt in target_prompts}
@@ -133,11 +136,76 @@ def adapt_prompts(
     )
 
 
+def _compute_score(program_outputs: Any, expected_outputs: Any, judge_model: str) -> float:
+    """
+    Compute a score comparing program outputs to expected outputs.
+
+    Uses exact match for numerical types and LLM judge for string types.
+
+    Args:
+        program_outputs: The actual output from the program
+        expected_outputs: The expected output
+        judge_model: The model to use for LLM judge evaluation
+
+    Returns:
+        A score between 0 and 1
+    """
+    # Handle exact match for numerical types
+    if isinstance(program_outputs, (int, float, bool)) and isinstance(
+        expected_outputs, (int, float, bool)
+    ):
+        return 1.0 if program_outputs == expected_outputs else 0.0
+
+    # Convert to strings for comparison
+    program_str = str(program_outputs)
+    expected_str = str(expected_outputs)
+
+    # Use exact match first
+    if program_str == expected_str:
+        return 1.0
+
+    # Use LLM judge for text outputs
+    try:
+        from mlflow.genai.judges import make_judge
+
+        judge = make_judge(
+            name="equivalence_judge",
+            instructions=(
+                "Compare {{outputs}} against {{expectations}}. "
+                "Evaluate if they are semantically equivalent or convey the same meaning. "
+                "Return 'pass' if they match, 'fail' if they don't."
+            ),
+            model=judge_model,
+        )
+
+        result = judge(outputs=program_str, expectations={"expected_output": expected_str})
+
+        # Parse the result - judges return Assessment with 'value' and 'rationale' fields
+        # The 'value' field contains the result ("pass", "fail")
+        result_value = str(result.value).lower().strip()
+        if result_value == "pass":
+            return 1.0
+        else:
+            return 0.0
+
+    except Exception as e:
+        _logger.warning("Failed to compute score with LLM judge: %s", e)
+        return 0.0
+
+
 def _build_eval_fn(
     predict_fn: Callable[..., Any],
+    optimizer_lm_params: LLMParams,
 ) -> Callable[[dict[str, str], list[dict[str, Any]]], list[EvaluationResultRecord]]:
     """
     Build an evaluation function that uses the candidate prompts to evaluate the predict_fn.
+
+    Args:
+        predict_fn: The function to evaluate
+        optimizer_lm_params: LLM parameters for the optimizer, used for judge evaluation
+
+    Returns:
+        An evaluation function
     """
     from mlflow.pyfunc import Context, set_prediction_context
 
@@ -166,8 +234,7 @@ def _build_eval_fn(
                     program_outputs = f"Failed to invoke the predict_fn with {inputs}: {e}"
 
             trace = mlflow.get_trace(eval_request_id, silent=True)
-            # TODO: Consider more robust scoring mechanism
-            score = 1 if program_outputs == outputs else 0
+            score = _compute_score(program_outputs, outputs, optimizer_lm_params.model_name)
             return EvaluationResultRecord(
                 inputs=inputs,
                 outputs=program_outputs,
