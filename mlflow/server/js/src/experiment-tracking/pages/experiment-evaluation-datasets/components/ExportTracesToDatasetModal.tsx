@@ -16,13 +16,13 @@ import { FormattedMessage } from 'react-intl';
 import { useInfiniteScrollFetch } from '../hooks/useInfiniteScrollFetch';
 import { useSearchEvaluationDatasets } from '../hooks/useSearchEvaluationDatasets';
 import { EvaluationDataset } from '../types';
-import { getTrace } from '../../../utils/TraceUtils';
 import { useCallback, useEffect, useState } from 'react';
 import { getModelTraceId, ModelTrace } from '@mlflow/mlflow/src/shared/web-shared/model-trace-explorer';
 import { compact } from 'lodash';
 import { extractDatasetInfoFromTraces } from '../utils/datasetUtils';
 import { useUpsertDatasetRecordsMutation } from '../hooks/useUpsertDatasetRecordsMutation';
 import { CreateEvaluationDatasetButton } from './CreateEvaluationDatasetButton';
+import { useFetchTraces } from '../hooks/useFetchTraces';
 
 const CheckboxCell: ColumnDef<EvaluationDataset, string>['cell'] = ({ row }) => {
   return (
@@ -61,27 +61,16 @@ export const ExportTracesToDatasetModal = ({
   selectedTraceInfos: ModelTrace['info'][];
 }) => {
   const { theme } = useDesignSystemTheme();
-  const [isLoadingTraces, setIsLoadingTraces] = useState(true);
-  const [datasetRowsToExport, setDatasetRowsToExport] = useState<any[]>([]);
   const [searchFilter, setSearchFilter] = useState('');
   const [internalSearchFilter, setInternalSearchFilter] = useState(searchFilter);
 
-  // we need to fetch trace data, as the dataset rows
-  // require the inputs of the root span
-  useEffect(() => {
-    Promise.all(
-      selectedTraceInfos.map((traceInfo) =>
-        getTrace(
-          // hacky wrap just to get the id, as this util function expects
-          // the full trace, which is not available in the trace table
-          getModelTraceId({ info: traceInfo, data: { spans: [] } }),
-        ),
-      ),
-    ).then((traces) => {
-      setDatasetRowsToExport(extractDatasetInfoFromTraces(compact(traces)));
-      setIsLoadingTraces(false);
-    });
-  }, [selectedTraceInfos]);
+  const traceIds = selectedTraceInfos.map((traceInfo) =>
+    // hacky wrap just to get the id, as this util function expects
+    // the full trace, which is not available in the trace table
+    getModelTraceId({ info: traceInfo, data: { spans: [] } }),
+  );
+  const { data: traces, isLoading: isLoadingTraces } = useFetchTraces({ traceIds });
+  const datasetRowsToExport = extractDatasetInfoFromTraces(compact(traces));
 
   const {
     data: datasets,
