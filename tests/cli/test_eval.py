@@ -14,15 +14,14 @@ def test_evaluate_traces_with_single_trace_table_output():
     """Test evaluate_traces with a single trace and table output."""
     experiment_id = mlflow.create_experiment("test_experiment")
 
-    # We will use a minimal mocked trace since we are not testing the actual evaluation logic.
     mock_trace = mock.Mock(spec=Trace)
     mock_trace.info = mock.Mock(spec=TraceInfo)
     mock_trace.info.trace_id = "tr-test-123"
     mock_trace.info.experiment_id = experiment_id
 
-    with mock.patch("mlflow.cli.eval.MlflowClient.get_trace") as mock_get_trace:
-        mock_get_trace.return_value = mock_trace
-
+    with mock.patch(
+        "mlflow.cli.eval.MlflowClient.get_trace", return_value=mock_trace
+    ) as mock_get_trace:
         mock_results = mock.Mock()
         mock_results.run_id = "run-eval-456"
         mock_results.tables = {
@@ -43,21 +42,16 @@ def test_evaluate_traces_with_single_trace_table_output():
             )
         }
 
-        with mock.patch("mlflow.cli.eval.evaluate") as mock_evaluate:
-            mock_evaluate.return_value = mock_results
-
-            # Call the function
+        with mock.patch("mlflow.cli.eval.evaluate", return_value=mock_results) as mock_evaluate:
             evaluate_traces(
                 experiment_id=experiment_id,
                 trace_ids="tr-test-123",
                 scorers="RelevanceToQuery",
-                output="table",
+                output_format="table",
             )
 
-            # Verify mocks were called with expected arguments
             mock_get_trace.assert_called_once_with("tr-test-123", display=False)
 
-            # Verify evaluate() was called with correct DataFrame
             assert mock_evaluate.call_count == 1
             call_args = mock_evaluate.call_args
             assert "data" in call_args.kwargs
@@ -65,7 +59,6 @@ def test_evaluate_traces_with_single_trace_table_output():
             expected_df = pd.DataFrame([{"trace_id": "tr-test-123", "trace": mock_trace}])
             pd.testing.assert_frame_equal(call_args.kwargs["data"], expected_df)
 
-            # Verify scorers
             assert "scorers" in call_args.kwargs
             assert len(call_args.kwargs["scorers"]) == 1
             assert call_args.kwargs["scorers"][0].__class__.__name__ == "RelevanceToQuery"
@@ -75,7 +68,6 @@ def test_evaluate_traces_with_multiple_traces_json_output():
     """Test evaluate_traces with multiple traces and JSON output."""
     experiment = mlflow.create_experiment("test_experiment_multi")
 
-    # We will use minimal mocked traces since we are not testing the actual evaluation logic.
     mock_trace1 = mock.Mock(spec=Trace)
     mock_trace1.info = mock.Mock(spec=TraceInfo)
     mock_trace1.info.trace_id = "tr-test-1"
@@ -86,9 +78,9 @@ def test_evaluate_traces_with_multiple_traces_json_output():
     mock_trace2.info.trace_id = "tr-test-2"
     mock_trace2.info.experiment_id = experiment
 
-    with mock.patch("mlflow.cli.eval.MlflowClient.get_trace") as mock_get_trace:
-        mock_get_trace.side_effect = [mock_trace1, mock_trace2]
-
+    with mock.patch(
+        "mlflow.cli.eval.MlflowClient.get_trace", side_effect=[mock_trace1, mock_trace2]
+    ) as mock_get_trace:
         mock_results = mock.Mock()
         mock_results.run_id = "run-eval-789"
         mock_results.tables = {
@@ -120,23 +112,18 @@ def test_evaluate_traces_with_multiple_traces_json_output():
             )
         }
 
-        with mock.patch("mlflow.cli.eval.evaluate") as mock_evaluate:
-            mock_evaluate.return_value = mock_results
-
-            # Call the function (using Correctness which is a real built-in scorer)
+        with mock.patch("mlflow.cli.eval.evaluate", return_value=mock_results) as mock_evaluate:
             evaluate_traces(
                 experiment_id=experiment,
                 trace_ids="tr-test-1,tr-test-2",
                 scorers="Correctness",
-                output="json",
+                output_format="json",
             )
 
-            # Verify get_trace was called for both traces
             assert mock_get_trace.call_count == 2
             mock_get_trace.assert_any_call("tr-test-1", display=False)
             mock_get_trace.assert_any_call("tr-test-2", display=False)
 
-            # Verify evaluate() was called with correct DataFrame
             assert mock_evaluate.call_count == 1
             call_args = mock_evaluate.call_args
             expected_df = pd.DataFrame(
@@ -152,17 +139,13 @@ def test_evaluate_traces_with_nonexistent_trace():
     """Test evaluate_traces raises error when trace doesn't exist."""
     experiment = mlflow.create_experiment("test_experiment_error")
 
-    # Mock MlflowClient.get_trace() directly to return None
-    with mock.patch("mlflow.cli.eval.MlflowClient.get_trace") as mock_get_trace:
-        mock_get_trace.return_value = None
-
-        # Should raise UsageError
+    with mock.patch("mlflow.cli.eval.MlflowClient.get_trace", return_value=None):
         with pytest.raises(Exception, match="Trace with ID 'tr-nonexistent' not found"):
             evaluate_traces(
                 experiment_id=experiment,
                 trace_ids="tr-nonexistent",
                 scorers="RelevanceToQuery",
-                output="table",
+                output_format="table",
             )
 
 
@@ -171,21 +154,16 @@ def test_evaluate_traces_with_trace_from_wrong_experiment():
     experiment1 = mlflow.create_experiment("test_experiment_1")
     experiment2 = mlflow.create_experiment("test_experiment_2")
 
-    # Create mock trace belonging to experiment2
     mock_trace = mock.Mock(spec=Trace)
     mock_trace.info = mock.Mock(spec=TraceInfo)
     mock_trace.info.trace_id = "tr-test-123"
     mock_trace.info.experiment_id = experiment2
 
-    # Mock MlflowClient.get_trace() directly
-    with mock.patch("mlflow.cli.eval.MlflowClient.get_trace") as mock_get_trace:
-        mock_get_trace.return_value = mock_trace
-
-        # Should raise UsageError
+    with mock.patch("mlflow.cli.eval.MlflowClient.get_trace", return_value=mock_trace):
         with pytest.raises(Exception, match="belongs to experiment"):
             evaluate_traces(
                 experiment_id=experiment1,
                 trace_ids="tr-test-123",
                 scorers="RelevanceToQuery",
-                output="table",
+                output_format="table",
             )
