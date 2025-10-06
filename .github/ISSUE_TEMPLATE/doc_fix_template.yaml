@@ -10,8 +10,8 @@ body:
         Thank you for submitting an issue. Please refer to our [issue policy](https://www.github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md) for information on what types of issues we address.
 
         **Where to file this issue**
-        - If the problem is in documentation pages under https://mlflow.org/docs (for example: API reference, tutorials, how-to guides), please open this issue in the mlflow repository: https://github.com/mlflow/mlflow
-        - If the problem is in the main website (for example: a blog post, marketing page, or other non-docs site content), please open this issue in the website repository: https://github.com/mlflow/mlflow-website
+        - If the problem is in documentation pages under https://mlflow.org/docs (for example: API reference, tutorials, how-to guides), please open this issue in the mlflow repository: https://github.com/mlflow/mlflow/issues
+        - If the problem is in the main website (for example: a blog post, marketing page, or other non-docs site content), please open this issue in the website repository: https://github.com/mlflow/mlflow-website/issues
 
         **Please fill in this documentation issue template to ensure a timely and thorough response.**
   - type: dropdown
