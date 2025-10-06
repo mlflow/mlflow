@@ -8,36 +8,31 @@ import click
 import pandas as pd
 
 import mlflow
-from mlflow.cli.eval_utils import (
+from mlflow.cli.genai_eval_utils import (
     extract_assessments_from_results,
     format_table_output,
     resolve_scorers,
 )
+from mlflow.entities import Trace
 from mlflow.genai.evaluation import evaluate
 from mlflow.tracking import MlflowClient
 from mlflow.utils.string_utils import _create_table
 
 
-def evaluate_traces(
-    experiment_id: str,
-    trace_ids: str,
-    scorers: str,
-    output: str = "table",
-    debug: bool = False,
-) -> None:
+def _gather_traces(trace_ids: str, experiment_id: str) -> list[Trace]:
     """
-    Evaluate traces with specified scorers and output results.
+    Gather and validate traces from the tracking store.
 
     Args:
-        experiment_id: The experiment ID to use for evaluation
-        trace_ids: Comma-separated list of trace IDs to evaluate
-        scorers: Comma-separated list of scorer names
-        output: Output format ('table' or 'json')
-        debug: Whether to output debug information
-    """
-    mlflow.set_experiment(experiment_id=experiment_id)
+        trace_ids: Comma-separated list of trace IDs to gather
+        experiment_id: Expected experiment ID for all traces
 
-    # Gather traces
+    Returns:
+        List of Trace objects
+
+    Raises:
+        click.UsageError: If any trace is not found or belongs to wrong experiment
+    """
     trace_id_list = [tid.strip() for tid in trace_ids.split(",")]
     client = MlflowClient()
     traces = []
@@ -59,19 +54,38 @@ def evaluate_traces(
 
         traces.append(trace)
 
+    return traces
+
+
+def evaluate_traces(
+    experiment_id: str,
+    trace_ids: str,
+    scorers: str,
+    output_format: str = "table",
+) -> None:
+    """
+    Evaluate traces with specified scorers and output results.
+
+    Args:
+        experiment_id: The experiment ID to use for evaluation
+        trace_ids: Comma-separated list of trace IDs to evaluate
+        scorers: Comma-separated list of scorer names
+        output_format: Output format ('table' or 'json')
+    """
+    mlflow.set_experiment(experiment_id=experiment_id)
+
+    traces = _gather_traces(trace_ids, experiment_id)
     traces_df = pd.DataFrame([{"trace_id": t.info.trace_id, "trace": t} for t in traces])
 
-    # Resolve scorers
     scorer_names = [name.strip() for name in scorers.split(",")]
     resolved_scorers = resolve_scorers(scorer_names, experiment_id)
 
-    # Run evaluation
     try:
-        trace_count = len(trace_id_list)
+        trace_count = len(traces)
         if trace_count == 1:
-            click.echo(
-                f"Evaluating trace {trace_id_list[0]} with scorers: {', '.join(scorer_names)}..."
-            )
+            scorers_list = ", ".join(scorer_names)
+            trace_id = traces[0].info.trace_id
+            click.echo(f"Evaluating trace {trace_id} with scorers: {scorers_list}...")
         else:
             click.echo(
                 f"Evaluating {trace_count} traces with scorers: {', '.join(scorer_names)}..."
@@ -82,17 +96,33 @@ def evaluate_traces(
     except Exception as e:
         raise click.UsageError(f"Evaluation failed: {e}")
 
-    # Parse results
     results_df = results.tables["eval_results"]
     output_data = extract_assessments_from_results(results_df, evaluation_run_id)
 
-    # Format and display results
-    if output == "json":
-        if len(output_data) == 1:
-            click.echo(json.dumps(output_data[0], indent=2))
+    if output_format == "json":
+        # Convert EvalResult objects to dicts for JSON serialization
+        json_data = [
+            {
+                "trace_id": result.trace_id,
+                "assessments": [
+                    {
+                        "name": assessment.name,
+                        "result": assessment.result,
+                        "rationale": assessment.rationale,
+                        "error": assessment.error,
+                    }
+                    for assessment in result.assessments
+                ],
+            }
+            for result in output_data
+        ]
+        if len(json_data) == 1:
+            click.echo(json.dumps(json_data[0], indent=2))
         else:
-            click.echo(json.dumps(output_data, indent=2))
+            click.echo(json.dumps(json_data, indent=2))
     else:
-        headers, table_data = format_table_output(output_data)
+        table_output = format_table_output(output_data)
+        # Extract string values from Cell objects for table display
+        table_data = [[cell.value for cell in row] for row in table_output.rows]
         click.echo("")
-        click.echo(_create_table(table_data, headers=headers))
+        click.echo(_create_table(table_data, headers=table_output.headers))

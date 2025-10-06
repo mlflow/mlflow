@@ -785,7 +785,7 @@ def delete_assessment(trace_id: str, assessment_id: str) -> None:
     click.echo(f"Deleted assessment {assessment_id} from trace {trace_id}.")
 
 
-@commands.command("eval")
+@commands.command("evaluate")
 @EXPERIMENT_ID
 @click.option(
     "--trace-ids",
@@ -801,22 +801,16 @@ def delete_assessment(trace_id: str, assessment_id: str) -> None:
     "(e.g., Correctness, Safety, RelevanceToQuery) or registered custom scorers.",
 )
 @click.option(
-    "--output",
+    "--output-format",
     type=click.Choice(["table", "json"]),
     default="table",
     help="Output format: 'table' for formatted table (default) or 'json' for JSON format",
 )
-@click.option(
-    "--debug",
-    is_flag=True,
-    help="Enable debug output for troubleshooting",
-)
-def eval_trace(
+def evaluate_traces(
     experiment_id: str,
     trace_ids: str,
     scorers: str,
-    output: str = "table",
-    debug: bool = False,
+    output_format: str = "table",
 ) -> None:
     """
     Evaluate one or more traces using specified scorers and display the results.
@@ -827,35 +821,37 @@ def eval_trace(
     \b
     Examples:
     # Evaluate a single trace with built-in scorers
-    mlflow traces eval --experiment-id 1 --trace-ids tr-abc123 \\
+    mlflow traces evaluate --experiment-id 1 --trace-ids tr-abc123 \\
         --scorers Correctness,Safety
 
     \b
     # Evaluate multiple traces
-    mlflow traces eval --experiment-id 1 --trace-ids tr-abc123,tr-def456,tr-ghi789 \\
+    mlflow traces evaluate --experiment-id 1 --trace-ids tr-abc123,tr-def456,tr-ghi789 \\
         --scorers RelevanceToQuery
 
     \b
     # Evaluate with JSON output
-    mlflow traces eval --experiment-id 1 --trace-ids tr-abc123 \\
-        --scorers Correctness --output json
+    mlflow traces evaluate --experiment-id 1 --trace-ids tr-abc123 \\
+        --scorers Correctness --output-format json
 
     \b
     # Evaluate with custom registered scorer
-    mlflow traces eval --experiment-id 1 --trace-ids tr-abc123,tr-def456 \\
+    mlflow traces evaluate --experiment-id 1 --trace-ids tr-abc123,tr-def456 \\
         --scorers my_custom_scorer,Correctness
 
     \b
-    Available built-in scorers:
-    - Correctness: Ensures responses are correct and accurate
-    - Safety: Ensures responses don't contain harmful/toxic content
-    - RelevanceToQuery: Ensures response addresses user input directly
-    - Guidelines: Evaluates adherence to specific constraints
-    - ExpectationsGuidelines: Row-specific guidelines evaluation
-    - RetrievalRelevance: Measures chunk relevance to input request
-    - RetrievalSufficiency: Evaluates if retrieved docs provide necessary info
-    - RetrievalGroundedness: Assesses response alignment with retrieved context
+    Available built-in scorers (use either PascalCase or snake_case):
+    - Correctness / correctness: Ensures responses are correct and accurate
+    - Safety / safety: Ensures responses don't contain harmful/toxic content
+    - RelevanceToQuery / relevance_to_query: Ensures response addresses user input directly
+    - Guidelines / guidelines: Evaluates adherence to specific constraints
+    - ExpectationsGuidelines / expectations_guidelines: Row-specific guidelines evaluation
+    - RetrievalRelevance / retrieval_relevance: Measures chunk relevance to input request
+    - RetrievalSufficiency / retrieval_sufficiency: Evaluates if retrieved docs provide
+      necessary info
+    - RetrievalGroundedness / retrieval_groundedness: Assesses response alignment with
+      retrieved context
     """
-    from mlflow.cli.eval import evaluate_traces
+    from mlflow.cli.eval import evaluate_traces as run_evaluation
 
-    evaluate_traces(experiment_id, trace_ids, scorers, output, debug)
+    run_evaluation(experiment_id, trace_ids, scorers, output_format)
