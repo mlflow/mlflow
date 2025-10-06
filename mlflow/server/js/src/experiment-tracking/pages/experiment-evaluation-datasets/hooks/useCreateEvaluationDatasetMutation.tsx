@@ -24,8 +24,8 @@ export const useCreateEvaluationDatasetMutation = ({
   const { mutate: createEvaluationDatasetMutation, isLoading } = useMutation({
     mutationFn: async ({ datasetName, experimentIds }: CreateDatasetPayload) => {
       const requestBody = {
-        datasetName,
-        experimentIds,
+        name: datasetName,
+        experiment_ids: experimentIds,
       };
 
       const response = (await fetchAPI(
