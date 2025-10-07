@@ -417,7 +417,7 @@ def _parse_chunk(chunk: Any) -> dict[str, Any] | None:
     return doc
 
 
-def clean_up_extra_traces(run_id: str, start_time_ms: int):
+def clean_up_extra_traces(run_id: str, start_time_ms: int) -> None:
     """
     Clean up noisy traces generated outside predict function.
 

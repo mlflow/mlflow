@@ -301,7 +301,7 @@ def _parse_databricks_judge_response(
     )
 
 
-def call_chat_completions(user_prompt: str, system_prompt: str):
+def call_chat_completions(user_prompt: str, system_prompt: str) -> Any:
     """
     Invokes the Databricks chat completions API using the databricks.agents.evals library.
 
@@ -1321,7 +1321,7 @@ def _prune_messages_exceeding_context_window_length(
     return pruned_messages
 
 
-def _get_litellm_retry_policy(num_retries: int):
+def _get_litellm_retry_policy(num_retries: int) -> "litellm.RetryPolicy":
     """
     Get a LiteLLM retry policy for retrying requests when transient API errors occur.
 
