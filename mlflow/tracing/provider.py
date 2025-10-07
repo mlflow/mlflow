@@ -199,6 +199,7 @@ def set_destination(destination: TraceLocationBase, *, context_local: bool = Fal
     Args:
         destination: A trace location object that specifies the location of the trace data.
             Currently, the following locations are supported:
+
             - :py:class:`~mlflow.entities.trace_location.MlflowExperimentLocation`: Logs traces to
                 an MLflow experiment.
             - :py:class:`~mlflow.entities.trace_location.UCSchemaLocation`: Logs traces to a
@@ -412,7 +413,6 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
                 )
             processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
             processors.append(processor)
-
     elif is_in_databricks_model_serving_environment():
         if not is_mlflow_tracing_enabled_in_model_serving():
             return processors

@@ -106,7 +106,7 @@ class TracingClient:
         except Exception as e:
             _logger.warning(
                 f"Failed to log span to location {location}: {e}",
-                exc_info=True,  # _logger.isEnabledFor(logging.DEBUG),
+                exc_info=_logger.isEnabledFor(logging.DEBUG),
             )
 
     def delete_traces(

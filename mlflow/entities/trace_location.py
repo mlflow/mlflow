@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
@@ -11,24 +12,17 @@ _UC_SCHEMA_DEFAULT_LOGS_TABLE_NAME = "mlflow_experiment_trace_otel_logs"
 
 
 @dataclass
-class TraceLocationBase(_MlflowObject):
+class TraceLocationBase(_MlflowObject, ABC):
     """
     Base class for trace location classes.
     """
 
-    def to_proto(self):
-        raise NotImplementedError
+    @abstractmethod
+    def to_dict(self) -> dict[str, Any]: ...
 
     @classmethod
-    def from_proto(cls, proto) -> "TraceLocationBase":
-        raise NotImplementedError
-
-    def to_dict(self) -> dict[str, Any]:
-        raise NotImplementedError
-
-    @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "TraceLocationBase":
-        raise NotImplementedError
+    @abstractmethod
+    def from_dict(cls, d: dict[str, Any]) -> "TraceLocationBase": ...
 
 
 @dataclass

@@ -50,7 +50,7 @@ class UserTraceDestinationRegistry:
                     return MlflowExperimentLocation(experiment_id)
                 case _:
                     raise MlflowException.invalid_parameter_value(
-                        "Failed to parse trace location from MLFLOW_TRACING_DESTINATION "
+                        f"Failed to parse trace location {location} rom MLFLOW_TRACING_DESTINATION "
                         "environment variable. Expected format: <catalog_name>.<schema_name> or "
                         "<experiment_id>"
                     )
