@@ -20,7 +20,6 @@ from mlflow.insights.store.databricks_sql_insights_store import DatabricksSqlIns
 
 @pytest.fixture
 def mock_store() -> DatabricksSqlInsightsStore:
-    """Set up test fixtures with mocked Databricks store."""
     # Mock the parent DatabricksSqlStore initialization
     with patch(
         "mlflow.insights.store.databricks_sql_insights_store.DatabricksSqlStore.__init__"
@@ -40,11 +39,7 @@ def mock_store() -> DatabricksSqlInsightsStore:
     return store
 
 
-# ============== Basic Unit Tests ==============
-
-
 def test_generate_census_empty_experiment(mock_store: DatabricksSqlInsightsStore):
-    """Test census generation with no data."""
     experiment_id = "12345"
     table_name = "traces_table_12345"
 
@@ -100,7 +95,6 @@ def test_generate_census_empty_experiment(mock_store: DatabricksSqlInsightsStore
 
 
 def test_generate_census_with_traces(mock_store: DatabricksSqlInsightsStore):
-    """Test census generation with trace data."""
     experiment_id = "12345"
     table_name = "traces_table_12345"
 
@@ -198,7 +192,6 @@ def test_generate_census_with_traces(mock_store: DatabricksSqlInsightsStore):
 
 
 def test_generate_census_no_trace_table(mock_store: DatabricksSqlInsightsStore):
-    """Test census generation when no trace table exists for experiment."""
     experiment_id = "12345"
     mock_store._get_trace_table_for_experiment.return_value = None
 
@@ -209,13 +202,11 @@ def test_generate_census_no_trace_table(mock_store: DatabricksSqlInsightsStore):
 
 
 def test_generate_census_invalid_experiment_id(mock_store: DatabricksSqlInsightsStore):
-    """Test census generation with invalid experiment ID."""
     with pytest.raises(MlflowException, match="experiment_id parameter is required"):
         mock_store.generate_census("")
 
 
 def test_generate_census_with_sample_trace_cleanup(mock_store: DatabricksSqlInsightsStore):
-    """Test that sample trace IDs are properly cleaned (None values filtered)."""
     experiment_id = "12345"
     table_name = "traces_table_12345"
 
@@ -291,7 +282,6 @@ def test_generate_census_with_sample_trace_cleanup(mock_store: DatabricksSqlInsi
 
 
 def test_census_serialization(mock_store: DatabricksSqlInsightsStore):
-    """Test that census can be serialized to JSON."""
     experiment_id = "12345"
     table_name = "traces_table_12345"
 
@@ -352,7 +342,6 @@ def test_census_serialization(mock_store: DatabricksSqlInsightsStore):
 
 
 def test_execute_sql_error_handling(mock_store: DatabricksSqlInsightsStore):
-    """Test error handling when SQL execution fails."""
     experiment_id = "12345"
     table_name = "traces_table_12345"
 
@@ -366,7 +355,6 @@ def test_execute_sql_error_handling(mock_store: DatabricksSqlInsightsStore):
 
 
 def test_get_trace_table_for_experiment_implementation(mock_store: DatabricksSqlInsightsStore):
-    """Test the _get_trace_table_for_experiment method behavior through mocking."""
     # Since _get_trace_table_for_experiment is implemented in the parent class
     # DatabricksSqlStore, and we're mocking it in our fixture, we'll test
     # that our code properly calls this method with the right experiment_id
@@ -407,7 +395,6 @@ def test_get_trace_table_for_experiment_implementation(mock_store: DatabricksSql
 
 
 def test_get_trace_table_no_tracing_enabled():
-    """Test when experiment doesn't have tracing enabled."""
     # Mock REST API response without monitor info
     mock_response = MagicMock()
     mock_response.status_code = 200
@@ -432,7 +419,6 @@ def test_get_trace_table_no_tracing_enabled():
 
 
 def test_complex_error_span_aggregation(mock_store: DatabricksSqlInsightsStore):
-    """Test aggregation of complex error span data."""
     experiment_id = "12345"
     table_name = "traces_table_12345"
 
@@ -554,7 +540,6 @@ def test_complex_error_span_aggregation(mock_store: DatabricksSqlInsightsStore):
 
 
 def test_metadata_population(mock_store: DatabricksSqlInsightsStore):
-    """Test that census metadata is properly populated."""
     experiment_id = "12345"
     mock_store._get_trace_table_for_experiment.return_value = "custom.catalog.traces"
 

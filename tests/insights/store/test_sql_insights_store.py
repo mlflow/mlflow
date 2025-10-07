@@ -32,7 +32,6 @@ from mlflow.tracing.utils import encode_span_id, encode_trace_id
 
 @pytest.fixture
 def test_store() -> dict[str, Any]:
-    """Set up test database and store instances."""
     temp_dir = tempfile.mkdtemp()
     # Use environment variable if set (for testing against different databases)
     # Otherwise default to SQLite
@@ -83,7 +82,6 @@ def create_test_trace_and_spans(
     status: str = "OK",
     add_metadata: bool = True,
 ) -> tuple[str, str]:
-    """Helper to create test trace with spans directly in database."""
     if start_time is None:
         start_time = datetime.now(timezone.utc)
 
@@ -158,11 +156,7 @@ def create_test_trace_and_spans(
     return request_id, trace_id
 
 
-# ============== Basic Smoke Tests ==============
-
-
 def test_basic_insights_store_creation():
-    """Test that we can create an insights store."""
     temp_dir = tempfile.mkdtemp()
     db_path = Path(temp_dir) / "test.db"
     artifact_path = Path(temp_dir) / "artifacts"
@@ -181,7 +175,6 @@ def test_basic_insights_store_creation():
 
 
 def test_empty_metrics(test_store: dict[str, Any]):
-    """Test metrics retrieval with no data."""
     insights_store = test_store["insights_store"]
     exp_id = test_store["exp_id"]
 
@@ -199,7 +192,6 @@ def test_empty_metrics(test_store: dict[str, Any]):
 
 
 def test_single_trace_metrics(test_store: dict[str, Any]):
-    """Test metrics with a single trace."""
     insights_store = test_store["insights_store"]
     tracking_store = test_store["tracking_store"]
     exp_id = test_store["exp_id"]
@@ -282,7 +274,6 @@ def test_single_trace_metrics(test_store: dict[str, Any]):
 
 
 def test_error_trace_metrics(test_store: dict[str, Any]):
-    """Test metrics with an error trace."""
     insights_store = test_store["insights_store"]
     tracking_store = test_store["tracking_store"]
     exp_id = test_store["exp_id"]
@@ -353,11 +344,7 @@ def test_error_trace_metrics(test_store: dict[str, Any]):
     assert quality.response_quality_issues.value == 100.0  # Has "Sorry" in response
 
 
-# ============== Database Optimization Tests ==============
-
-
 def test_get_operational_metrics_db_aggregation(test_store: dict[str, Any]):
-    """Test that operational metrics use database aggregation."""
     exp_id = test_store["exp_id"]
     insights_store = test_store["insights_store"]
 
@@ -385,7 +372,6 @@ def test_get_operational_metrics_db_aggregation(test_store: dict[str, Any]):
 
 
 def test_calculate_latency_percentiles_single_query(test_store: dict[str, Any]):
-    """Test that percentile calculations happen in a single DB query."""
     exp_id = test_store["exp_id"]
     insights_store = test_store["insights_store"]
 
@@ -414,7 +400,6 @@ def test_calculate_latency_percentiles_single_query(test_store: dict[str, Any]):
 
 
 def test_get_quality_metrics_aggregated_queries(test_store: dict[str, Any]):
-    """Test that quality metrics use aggregated database queries."""
     exp_id = test_store["exp_id"]
     insights_store = test_store["insights_store"]
 
@@ -444,7 +429,6 @@ def test_get_quality_metrics_aggregated_queries(test_store: dict[str, Any]):
 
 
 def test_time_bucketing_aggregation(test_store: dict[str, Any]):
-    """Test that time bucketing happens at database level."""
     exp_id = test_store["exp_id"]
     insights_store = test_store["insights_store"]
 
@@ -474,7 +458,6 @@ def test_time_bucketing_aggregation(test_store: dict[str, Any]):
 
 
 def test_no_full_dataset_transfer(test_store: dict[str, Any]):
-    """Test that aggregated metrics work efficiently with large datasets."""
     exp_id = test_store["exp_id"]
     insights_store = test_store["insights_store"]
 
@@ -507,7 +490,6 @@ def test_no_full_dataset_transfer(test_store: dict[str, Any]):
 
 
 def test_postgresql_specific_percentiles(test_store: dict[str, Any]):
-    """Test PostgreSQL-specific percentile_cont usage."""
     db_uri = test_store["db_uri"]
     if "postgresql" not in db_uri:
         pytest.skip("PostgreSQL-specific test")
@@ -539,7 +521,6 @@ def test_postgresql_specific_percentiles(test_store: dict[str, Any]):
 
 
 def test_sqlite_fallback_percentiles(test_store: dict[str, Any]):
-    """Test SQLite fallback percentile implementation."""
     db_uri = test_store["db_uri"]
     if "sqlite" not in db_uri:
         pytest.skip("SQLite-specific test")
@@ -569,7 +550,6 @@ def test_sqlite_fallback_percentiles(test_store: dict[str, Any]):
 
 
 def test_census_generation_efficiency(test_store: dict[str, Any]):
-    """Test that census generation uses efficient aggregated queries."""
     exp_id = test_store["exp_id"]
     insights_store = test_store["insights_store"]
     Session = test_store["Session"]
@@ -602,7 +582,6 @@ def test_census_generation_efficiency(test_store: dict[str, Any]):
 
 
 def test_model_distribution_aggregation(test_store: dict[str, Any]):
-    """Test model distribution calculation efficiency."""
     exp_id = test_store["exp_id"]
     insights_store = test_store["insights_store"]
 
@@ -629,7 +608,6 @@ def test_model_distribution_aggregation(test_store: dict[str, Any]):
 
 
 def test_empty_results_handling(test_store: dict[str, Any]):
-    """Test graceful handling of empty result sets."""
     insights_store = test_store["insights_store"]
 
     # Test with non-existent experiment
@@ -646,7 +624,6 @@ def test_empty_results_handling(test_store: dict[str, Any]):
 
 
 def test_multiple_experiments_aggregation(test_store: dict[str, Any]):
-    """Test aggregation across multiple experiments."""
     tracking_store = test_store["tracking_store"]
     insights_store = test_store["insights_store"]
     exp_id = test_store["exp_id"]
@@ -684,11 +661,7 @@ def test_multiple_experiments_aggregation(test_store: dict[str, Any]):
     assert metrics_recent.total_traces == 30
 
 
-# ============== Integration Tests ==============
-
-
 def create_primed_store(test_store, num_traces=100):
-    """Create test traces with various characteristics for integration testing."""
     tracking_store = test_store["tracking_store"]
     exp_id = test_store["exp_id"]
 
@@ -752,7 +725,6 @@ def create_spans_in_db(
     has_error: bool,
     timestamp: int,
 ):
-    """Create spans directly in the database."""
     with store.ManagedSessionMaker() as session:
         num_spans = random.randint(3, 8)
 
@@ -836,7 +808,6 @@ def create_spans_in_db(
 
 
 def test_integration_get_operational_metrics(test_store: dict[str, Any]):
-    """Integration test for operational metrics with realistic data."""
     insights_store = test_store["insights_store"]
     exp_id = test_store["exp_id"]
 
@@ -853,7 +824,6 @@ def test_integration_get_operational_metrics(test_store: dict[str, Any]):
 
 
 def test_integration_time_filtering(test_store: dict[str, Any]):
-    """Test time range filtering with realistic data."""
     insights_store = test_store["insights_store"]
     exp_id = test_store["exp_id"]
 
@@ -874,7 +844,6 @@ def test_integration_time_filtering(test_store: dict[str, Any]):
 
 
 def test_integration_census_generation(test_store: dict[str, Any]):
-    """Test census generation with realistic data."""
     insights_store = test_store["insights_store"]
     exp_id = test_store["exp_id"]
 

@@ -16,8 +16,6 @@ from mlflow.insights.models.entities import (
 
 @pytest.fixture
 def operational_metrics():
-    """Create sample operational metrics."""
-
     return OperationalMetrics(
         total_traces=1000,
         ok_count=950,
@@ -83,8 +81,6 @@ def operational_metrics():
 
 @pytest.fixture
 def quality_metrics():
-    """Create sample quality metrics."""
-
     return QualityMetrics(
         minimal_responses=QualityMetric(
             value=2.5,
@@ -111,8 +107,6 @@ def quality_metrics():
 
 @pytest.fixture
 def census(operational_metrics, quality_metrics):
-    """Create a census instance."""
-
     return Census.create_with_timestamp(
         table_name="test_table",
         operational_metrics=operational_metrics,
