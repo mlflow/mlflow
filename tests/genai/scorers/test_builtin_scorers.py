@@ -22,6 +22,9 @@ from mlflow.genai.scorers import (
 )
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.builtin_scorers import (
+    ExtractedFields,
+    _construct_field_extraction_config,
+    _validate_required_fields,
     get_all_scorers,
     resolve_scorer_fields,
 )
@@ -1094,3 +1097,129 @@ def test_resolve_scorer_fields_partial_extraction(mock_judge_with_inputs_outputs
         assert fields.inputs == {"question": "test"}
         assert fields.outputs == "llm extracted output"
         assert fields.expectations is None
+
+
+@pytest.mark.parametrize(
+    ("needs_inputs", "needs_outputs", "expected_in_content", "not_expected_in_content"),
+    [
+        (True, False, ["inputs: The initial user request/question"], ["outputs"]),
+        (False, True, ["outputs: The final system response"], ["inputs"]),
+        (
+            True,
+            True,
+            ["inputs: The initial user request/question", "outputs: The final system response"],
+            [],
+        ),
+    ],
+)
+def test_construct_field_extraction_config_messages(
+    needs_inputs, needs_outputs, expected_in_content, not_expected_in_content
+):
+    config = _construct_field_extraction_config(
+        needs_inputs=needs_inputs, needs_outputs=needs_outputs
+    )
+
+    assert len(config.messages) == 2
+    assert config.messages[0].role == "system"
+    assert config.messages[1].role == "user"
+
+    for expected in expected_in_content:
+        assert expected in config.messages[0].content
+
+    for not_expected in not_expected_in_content:
+        assert not_expected not in config.messages[0].content
+
+
+@pytest.mark.parametrize(
+    ("needs_inputs", "needs_outputs", "expected_fields", "expected_descriptions"),
+    [
+        (
+            True,
+            False,
+            {"inputs": True, "outputs": False},
+            {"inputs": "The user's original request"},
+        ),
+        (
+            False,
+            True,
+            {"inputs": False, "outputs": True},
+            {"outputs": "The system's final response"},
+        ),
+        (
+            True,
+            True,
+            {"inputs": True, "outputs": True},
+            {"inputs": "The user's original request", "outputs": "The system's final response"},
+        ),
+    ],
+)
+def test_construct_field_extraction_config_schema(
+    needs_inputs, needs_outputs, expected_fields, expected_descriptions
+):
+    config = _construct_field_extraction_config(
+        needs_inputs=needs_inputs, needs_outputs=needs_outputs
+    )
+
+    schema_fields = config.schema.model_fields
+
+    for field_name, should_exist in expected_fields.items():
+        if should_exist:
+            assert field_name in schema_fields
+        else:
+            assert field_name not in schema_fields
+
+    for field_name, description in expected_descriptions.items():
+        assert schema_fields[field_name].description == description
+
+
+def test_construct_field_extraction_config_structure():
+    config = _construct_field_extraction_config(needs_inputs=True, needs_outputs=True)
+
+    assert config.messages[0].content.startswith("Extract the following fields from the trace.")
+    assert "Use the provided tools to examine the trace's spans" in config.messages[0].content
+    assert "Return the result as JSON." in config.messages[0].content
+    expected_user_message = "Use the tools to find the required fields, then return them as JSON."
+    assert config.messages[1].content == expected_user_message
+
+
+def test_validate_required_fields_single_missing():
+    from mlflow.exceptions import MlflowException
+
+    judge = mock.Mock()
+    judge.get_input_fields.return_value = [JudgeField(name="inputs", description="Test inputs")]
+
+    fields = ExtractedFields(inputs=None, outputs="some output")
+
+    with pytest.raises(MlflowException, match=r"TestScorer requires the following fields: inputs"):
+        _validate_required_fields(fields, judge, "TestScorer")
+
+
+def test_validate_required_fields_multiple_missing():
+    from mlflow.exceptions import MlflowException
+
+    judge = mock.Mock()
+    judge.get_input_fields.return_value = [
+        JudgeField(name="inputs", description="Test inputs"),
+        JudgeField(name="outputs", description="Test outputs"),
+        JudgeField(name="expectations", description="Test expectations"),
+    ]
+
+    fields = ExtractedFields(inputs=None, outputs=None, expectations=None)
+
+    with pytest.raises(
+        MlflowException,
+        match=r"TestScorer requires the following fields: inputs, outputs, expectations",
+    ):
+        _validate_required_fields(fields, judge, "TestScorer")
+
+
+def test_validate_required_fields_all_present():
+    judge = mock.Mock()
+    judge.get_input_fields.return_value = [
+        JudgeField(name="inputs", description="Test inputs"),
+        JudgeField(name="outputs", description="Test outputs"),
+    ]
+
+    fields = ExtractedFields(inputs="some input", outputs="some output")
+
+    _validate_required_fields(fields, judge, "TestScorer")

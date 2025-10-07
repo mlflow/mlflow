@@ -218,6 +218,7 @@ def convert_predict_fn(predict_fn: Callable[..., Any], sample_input: Any) -> Cal
         if counter.count == 0:
             predict_fn = mlflow.trace(predict_fn)
 
+    # Wrap the prediction function to unwrap the inputs dictionary into keyword arguments.
     return lambda request: predict_fn(**request)
 
 
@@ -436,6 +437,7 @@ def clean_up_extra_traces(run_id: str, start_time_ms: int) -> None:
     from mlflow.tracking.fluent import _get_experiment_id
 
     try:
+        # Search for all traces generated during evaluation
         traces = mlflow.search_traces(
             run_id=run_id,
             include_spans=False,
@@ -443,6 +445,7 @@ def clean_up_extra_traces(run_id: str, start_time_ms: int) -> None:
             return_type="list",
         )
         extra_trace_ids = [
+            # Traces from predict function should always have the EVAL_REQUEST_ID tag
             trace.info.trace_id
             for trace in traces
             if TraceTagKey.EVAL_REQUEST_ID not in trace.info.tags
@@ -452,6 +455,7 @@ def clean_up_extra_traces(run_id: str, start_time_ms: int) -> None:
                 f"Found {len(extra_trace_ids)} extra traces generated during evaluation run. "
                 "Deleting them."
             )
+            # Import MlflowClient locally to avoid issues with tracing-only SDK
             from mlflow.tracking.client import MlflowClient
 
             MlflowClient().delete_traces(

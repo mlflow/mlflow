@@ -509,7 +509,7 @@ def invoke_judge_model(
     messages = [ChatMessage(role="user", content=prompt)] if isinstance(prompt, str) else prompt
 
     if _is_litellm_available():
-        response = _invoke_litellm(
+        response = _invoke_litellm_and_handle_tools(
             provider=model_provider,
             model_name=model_name,
             messages=messages,
@@ -614,13 +614,13 @@ def get_chat_completions_with_structured_output(
 
     model_provider, model_name = _parse_model_uri(model_uri)
 
-    response = _invoke_litellm(
+    response = _invoke_litellm_and_handle_tools(
         provider=model_provider,
         model_name=model_name,
         messages=messages,
         trace=trace,
         num_retries=num_retries,
-        pydantic_format=output_schema,
+        response_format=output_schema,
     )
 
     cleaned_response = _strip_markdown_code_blocks(response)
@@ -883,7 +883,7 @@ def _invoke_judge_model(
         from mlflow.types.llm import ChatMessage
 
         messages = [ChatMessage(role="user", content=prompt)]
-        response = _invoke_litellm(
+        response = _invoke_litellm_and_handle_tools(
             provider=provider,
             model_name=model_name,
             messages=messages,
@@ -996,7 +996,7 @@ class _SuppressLiteLLMNonfatalErrors(ContextDecorator):
 _suppress_litellm_nonfatal_errors = _SuppressLiteLLMNonfatalErrors()
 
 
-def _make_litellm_completion_request(
+def _invoke_litellm(
     litellm_model_uri: str,
     messages: list["litellm.Message"],
     tools: list[dict[str, Any]],
@@ -1005,7 +1005,7 @@ def _make_litellm_completion_request(
     include_response_format: bool,
 ) -> "litellm.ModelResponse":
     """
-    Make a single completion request to litellm with retry support.
+    Invoke litellm completion with retry support.
 
     Args:
         litellm_model_uri: Full model URI for litellm (e.g., "openai/gpt-4").
@@ -1088,7 +1088,7 @@ def _process_tool_calls(
 
 
 @_suppress_litellm_nonfatal_errors
-def _invoke_litellm(
+def _invoke_litellm_and_handle_tools(
     provider: str,
     model_name: str,
     messages: list["ChatMessage"],
@@ -1097,7 +1097,7 @@ def _invoke_litellm(
     response_format: type[pydantic.BaseModel] | None = None,
 ) -> str:
     """
-    Invoke the LLM via litellm with retry support and optional tool calling.
+    Invoke litellm with retry support and handle tool calling loop.
 
     Args:
         provider: The provider name (e.g., 'openai', 'anthropic').
@@ -1159,7 +1159,7 @@ def _invoke_litellm(
             )
         try:
             try:
-                response = _make_litellm_completion_request(
+                response = _invoke_litellm(
                     litellm_model_uri=litellm_model_uri,
                     messages=messages,
                     tools=tools,

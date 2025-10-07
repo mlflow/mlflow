@@ -23,7 +23,7 @@ from mlflow.genai.judges.utils import (
     CategoricalRating,
     InvokeDatabricksModelOutput,
     _invoke_databricks_model,
-    _make_litellm_completion_request,
+    _invoke_litellm,
     _parse_databricks_model_response,
     _process_tool_calls,
     add_output_format_instructions,
@@ -1236,13 +1236,13 @@ def test_invoke_judge_model_completion_iteration_limit(mock_trace, monkeypatch, 
         assert mock_litellm.call_count == expected_limit
 
 
-def test_make_litellm_completion_request_basic():
+def test_invoke_litellm_basic():
     mock_response = ModelResponse(
         choices=[{"message": {"content": '{"result": "yes", "rationale": "Good"}'}}]
     )
 
     with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
-        result = _make_litellm_completion_request(
+        result = _invoke_litellm(
             litellm_model_uri="openai/gpt-4",
             messages=[litellm.Message(role="user", content="Test")],
             tools=[],
@@ -1262,12 +1262,12 @@ def test_make_litellm_completion_request_basic():
     assert "response_format" not in call_kwargs
 
 
-def test_make_litellm_completion_request_with_tools():
+def test_invoke_litellm_with_tools():
     mock_response = ModelResponse(choices=[{"message": {"content": "response"}}])
     tools = [{"name": "test_tool", "description": "A test tool"}]
 
     with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
-        result = _make_litellm_completion_request(
+        result = _invoke_litellm(
             litellm_model_uri="openai/gpt-4",
             messages=[litellm.Message(role="user", content="Test")],
             tools=tools,
@@ -1282,14 +1282,14 @@ def test_make_litellm_completion_request_with_tools():
     assert call_kwargs["tool_choice"] == "auto"
 
 
-def test_make_litellm_completion_request_with_response_format():
+def test_invoke_litellm_with_response_format():
     class TestSchema(BaseModel):
         result: str = Field(description="The result")
 
     mock_response = ModelResponse(choices=[{"message": {"content": '{"result": "yes"}'}}])
 
     with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
-        result = _make_litellm_completion_request(
+        result = _invoke_litellm(
             litellm_model_uri="openai/gpt-4",
             messages=[litellm.Message(role="user", content="Test")],
             tools=[],
@@ -1440,7 +1440,7 @@ def test_process_tool_calls_mixed_success_and_error(mock_trace):
     assert "Error: Failed" in result[1].content
 
 
-def test_make_litellm_completion_request_exception_propagation():
+def test_invoke_litellm_exception_propagation():
     with mock.patch(
         "litellm.completion",
         side_effect=litellm.RateLimitError(
@@ -1448,7 +1448,7 @@ def test_make_litellm_completion_request_exception_propagation():
         ),
     ):
         with pytest.raises(litellm.RateLimitError, match="Rate limit exceeded"):
-            _make_litellm_completion_request(
+            _invoke_litellm(
                 litellm_model_uri="openai/gpt-4",
                 messages=[litellm.Message(role="user", content="Test")],
                 tools=[],
@@ -1458,11 +1458,11 @@ def test_make_litellm_completion_request_exception_propagation():
             )
 
 
-def test_make_litellm_completion_request_retry_policy_configured():
+def test_invoke_litellm_retry_policy_configured():
     mock_response = ModelResponse(choices=[{"message": {"content": "test"}}])
 
     with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
-        _make_litellm_completion_request(
+        _invoke_litellm(
             litellm_model_uri="openai/gpt-4",
             messages=[litellm.Message(role="user", content="Test")],
             tools=[],
@@ -1481,7 +1481,7 @@ def test_make_litellm_completion_request_retry_policy_configured():
     assert retry_policy.AuthenticationErrorRetries == 0
 
 
-def test_invoke_litellm_orchestration_with_context_window_exceeded(mock_trace):
+def test_invoke_litellm_and_handle_tools_with_context_window_exceeded(mock_trace):
     context_error = litellm.ContextWindowExceededError(
         message="Context window exceeded", model="openai/gpt-4", llm_provider="openai"
     )
@@ -1502,9 +1502,9 @@ def test_invoke_litellm_orchestration_with_context_window_exceeded(mock_trace):
     ):
         mock_prune.return_value = [litellm.Message(role="user", content="Pruned")]
 
-        from mlflow.genai.judges.utils import _invoke_litellm
+        from mlflow.genai.judges.utils import _invoke_litellm_and_handle_tools
 
-        result = _invoke_litellm(
+        result = _invoke_litellm_and_handle_tools(
             provider="openai",
             model_name="gpt-4",
             messages=[ChatMessage(role="user", content="Very long message" * 100)],
@@ -1517,7 +1517,7 @@ def test_invoke_litellm_orchestration_with_context_window_exceeded(mock_trace):
     assert result == '{"result": "yes", "rationale": "OK"}'
 
 
-def test_invoke_litellm_tool_call_integration(mock_trace):
+def test_invoke_litellm_and_handle_tools_integration(mock_trace):
     tool_call_response = ModelResponse(
         choices=[
             {
@@ -1548,9 +1548,9 @@ def test_invoke_litellm_tool_call_integration(mock_trace):
         mock_list_tools.return_value = [mock_tool]
         mock_invoke.return_value = {"trace_data": "some data"}
 
-        from mlflow.genai.judges.utils import _invoke_litellm
+        from mlflow.genai.judges.utils import _invoke_litellm_and_handle_tools
 
-        result = _invoke_litellm(
+        result = _invoke_litellm_and_handle_tools(
             provider="openai",
             model_name="gpt-4",
             messages=[ChatMessage(role="user", content="Test with trace")],

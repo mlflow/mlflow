@@ -1,9 +1,12 @@
 import logging
 from abc import abstractmethod
 from dataclasses import asdict, dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pydantic
+
+if TYPE_CHECKING:
+    from mlflow.types.llm import ChatMessage
 
 _logger = logging.getLogger(__name__)
 
@@ -49,10 +52,104 @@ GENAI_CONFIG_NAME = "databricks-agent"
 
 
 @dataclass
+class FieldExtractionConfig:
+    messages: list["ChatMessage"]
+    schema: type[pydantic.BaseModel]
+
+
+@dataclass
 class ExtractedFields:
     inputs: Any | None = None
     outputs: Any | None = None
     expectations: dict[str, Any] | None = None
+
+
+def _construct_field_extraction_config(
+    needs_inputs: bool,
+    needs_outputs: bool,
+) -> FieldExtractionConfig:
+    """
+    Construct field extraction configuration with messages and schema.
+
+    Args:
+        needs_inputs: Whether inputs field needs extraction.
+        needs_outputs: Whether outputs field needs extraction.
+
+    Returns:
+        FieldExtractionConfig containing messages and schema for extraction.
+    """
+    from mlflow.types.llm import ChatMessage
+
+    extraction_tasks = []
+    schema_fields = {}
+
+    if needs_inputs:
+        extraction_tasks.append("- inputs: The initial user request/question")
+        schema_fields["inputs"] = (
+            str,
+            pydantic.Field(description="The user's original request"),
+        )
+
+    if needs_outputs:
+        extraction_tasks.append("- outputs: The final system response")
+        schema_fields["outputs"] = (
+            str,
+            pydantic.Field(description="The system's final response"),
+        )
+
+    schema = pydantic.create_model("ExtractionSchema", **schema_fields)
+
+    messages = [
+        ChatMessage(
+            role="system",
+            content=(
+                "Extract the following fields from the trace.\n"
+                "Use the provided tools to examine the trace's spans to find:\n"
+                + "\n".join(extraction_tasks)
+                + "\n\nReturn the result as JSON."
+            ),
+        ),
+        ChatMessage(
+            role="user",
+            content="Use the tools to find the required fields, then return them as JSON.",
+        ),
+    ]
+
+    return FieldExtractionConfig(messages=messages, schema=schema)
+
+
+def _validate_required_fields(
+    fields: ExtractedFields,
+    judge: Judge,
+    scorer_name: str,
+) -> None:
+    """
+    Validate that all required fields for a scorer are present.
+
+    Args:
+        fields: Extracted fields containing inputs, outputs, and expectations.
+        judge: Judge instance to determine which fields are required.
+        scorer_name: Name of the scorer for error messages.
+
+    Raises:
+        MlflowException: If any required fields are missing.
+    """
+    required_fields = {field.name for field in judge.get_input_fields()}
+    missing_fields = []
+
+    if "inputs" in required_fields and fields.inputs is None:
+        missing_fields.append("inputs")
+    if "outputs" in required_fields and fields.outputs is None:
+        missing_fields.append("outputs")
+    if "expectations" in required_fields and fields.expectations is None:
+        missing_fields.append("expectations")
+
+    if missing_fields:
+        fields_str = ", ".join(missing_fields)
+        raise MlflowException(
+            f"{scorer_name} requires the following fields: {fields_str}. "
+            "Provide them directly or pass a trace containing them."
+        )
 
 
 def resolve_scorer_fields(
@@ -92,51 +189,16 @@ def resolve_scorer_fields(
     needs_outputs = outputs is None and "outputs" in input_field_names
 
     if needs_inputs or needs_outputs:
-        from mlflow.types.llm import ChatMessage
-
-        extraction_tasks = []
-        schema_fields = {}
-
-        if needs_inputs:
-            extraction_tasks.append("- inputs: The initial user request/question")
-            schema_fields["inputs"] = (
-                str,
-                pydantic.Field(description="The user's original request"),
-            )
-
-        if needs_outputs:
-            extraction_tasks.append("- outputs: The final system response")
-            schema_fields["outputs"] = (
-                str,
-                pydantic.Field(description="The system's final response"),
-            )
-
-        if not extraction_tasks:
-            return ExtractedFields(inputs=inputs, outputs=outputs, expectations=expectations)
-
-        ExtractionSchema = pydantic.create_model("ExtractionSchema", **schema_fields)
-
-        prompt = [
-            ChatMessage(
-                role="system",
-                content=(
-                    "Extract the following fields from the trace.\n"
-                    "Use the provided tools to examine the trace's spans to find:\n"
-                    + "\n".join(extraction_tasks)
-                    + "\n\nReturn the result as JSON."
-                ),
-            ),
-            ChatMessage(
-                role="user",
-                content="Use the tools to find the required fields, then return them as JSON.",
-            ),
-        ]
+        extraction_config = _construct_field_extraction_config(
+            needs_inputs=needs_inputs,
+            needs_outputs=needs_outputs,
+        )
 
         try:
             extracted = get_chat_completions_with_structured_output(
                 model_uri=model or get_default_model(),
-                messages=prompt,
-                output_schema=ExtractionSchema,
+                messages=extraction_config.messages,
+                output_schema=extraction_config.schema,
                 trace=trace,
             )
             if needs_inputs:
@@ -711,18 +773,8 @@ class Guidelines(BuiltInScorer):
             indicating the adherence to the specified guidelines.
         """
         fields = resolve_scorer_fields(trace, self, inputs, outputs, model=self.model)
+        _validate_required_fields(fields, self, "Guidelines scorer")
 
-        required_fields = {field.name for field in self.get_input_fields()}
-        if "inputs" in required_fields and fields.inputs is None:
-            raise MlflowException(
-                "Guidelines scorer requires inputs. "
-                "Provide them directly or pass a trace containing them."
-            )
-        if "outputs" in required_fields and fields.outputs is None:
-            raise MlflowException(
-                "Guidelines scorer requires outputs. "
-                "Provide them directly or pass a trace containing them."
-            )
         feedback = judges.meets_guidelines(
             guidelines=self.guidelines,
             context={
@@ -866,18 +918,7 @@ class ExpectationsGuidelines(BuiltInScorer):
             model=self.model,
             extract_expectations=True,
         )
-
-        required_fields = {field.name for field in self.get_input_fields()}
-        if "inputs" in required_fields and fields.inputs is None:
-            raise MlflowException(
-                "ExpectationsGuidelines scorer requires inputs. "
-                "Provide them directly or pass a trace containing them."
-            )
-        if "outputs" in required_fields and fields.outputs is None:
-            raise MlflowException(
-                "ExpectationsGuidelines scorer requires outputs. "
-                "Provide them directly or pass a trace containing them."
-            )
+        _validate_required_fields(fields, self, "ExpectationsGuidelines scorer")
 
         guidelines = (fields.expectations or {}).get("guidelines")
         if not guidelines:
@@ -998,18 +1039,7 @@ class RelevanceToQuery(BuiltInScorer):
             indicating the relevance of the response to the query.
         """
         fields = resolve_scorer_fields(trace, self, inputs, outputs, model=self.model)
-
-        required_fields = {field.name for field in self.get_input_fields()}
-        if "inputs" in required_fields and fields.inputs is None:
-            raise MlflowException(
-                "RelevanceToQuery scorer requires inputs. "
-                "Provide them directly or pass a trace containing them."
-            )
-        if "outputs" in required_fields and fields.outputs is None:
-            raise MlflowException(
-                "RelevanceToQuery scorer requires outputs. "
-                "Provide them directly or pass a trace containing them."
-            )
+        _validate_required_fields(fields, self, "RelevanceToQuery scorer")
 
         # Use the existing scorer implementation with extracted/provided fields
         request = parse_inputs_to_str(fields.inputs)
@@ -1109,13 +1139,7 @@ class Safety(BuiltInScorer):
             indicating the safety of the response.
         """
         fields = resolve_scorer_fields(trace, self, outputs=outputs, model=self.model)
-
-        required_fields = {field.name for field in self.get_input_fields()}
-        if "outputs" in required_fields and fields.outputs is None:
-            raise MlflowException(
-                "Safety scorer requires outputs. "
-                "Provide them directly or pass a trace containing them."
-            )
+        _validate_required_fields(fields, self, "Safety scorer")
 
         feedback = judges.is_safe(
             content=parse_outputs_to_str(fields.outputs),
@@ -1279,18 +1303,7 @@ class Correctness(BuiltInScorer):
             model=self.model,
             extract_expectations=True,
         )
-
-        required_fields = {field.name for field in self.get_input_fields()}
-        if "inputs" in required_fields and fields.inputs is None:
-            raise MlflowException(
-                "Correctness scorer requires inputs. "
-                "Provide them directly or pass a trace containing them."
-            )
-        if "outputs" in required_fields and fields.outputs is None:
-            raise MlflowException(
-                "Correctness scorer requires outputs. "
-                "Provide them directly or pass a trace containing them."
-            )
+        _validate_required_fields(fields, self, "Correctness scorer")
 
         if not fields.expectations or (
             fields.expectations.get("expected_response") is None
