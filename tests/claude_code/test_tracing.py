@@ -3,6 +3,7 @@ import logging
 
 import pytest
 
+import mlflow
 from mlflow.claude_code.tracing import (
     CLAUDE_TRACING_LEVEL,
     get_hook_response,
@@ -11,6 +12,7 @@ from mlflow.claude_code.tracing import (
     setup_logging,
 )
 from mlflow.entities.span import SpanType
+from mlflow.tracing.constant import TraceMetadataKey
 
 # ============================================================================
 # TIMESTAMP PARSING TESTS
@@ -192,6 +194,13 @@ def test_process_transcript_creates_spans(mock_transcript_file):
 
 
 def test_process_transcript_returns_none_for_nonexistent_file():
-    """Test that process_transcript returns None for nonexistent files."""
     result = process_transcript("/nonexistent/path/transcript.jsonl", "test-session-123")
     assert result is None
+
+
+def test_process_transcript_links_trace_to_run(mock_transcript_file):
+    with mlflow.start_run() as run:
+        trace = process_transcript(mock_transcript_file, "test-session-123")
+
+        assert trace is not None
+        assert trace.info.trace_metadata.get(TraceMetadataKey.SOURCE_RUN) == run.info.run_id

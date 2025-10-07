@@ -158,7 +158,6 @@ def test_run_server_win32(mock_exec_cmd, monkeypatch):
 
 
 def test_run_server_with_uvicorn(mock_exec_cmd, monkeypatch):
-    """Test running server with uvicorn."""
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
     with mock.patch("sys.platform", return_value="linux"):
         server._run_server(

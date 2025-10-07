@@ -4477,7 +4477,6 @@ def test_classifier_evaluation_scenarios(
 def test_classifier_evaluation_error_conditions(
     data, evaluator_config, expected_error, error_message_pattern, description
 ):
-    """Test error conditions in classifier evaluation."""
     with pytest.raises(expected_error, match=error_message_pattern):
         mlflow.evaluate(
             data=data,
