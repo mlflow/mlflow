@@ -1,5 +1,4 @@
 import {
-  Checkbox,
   Empty,
   Input,
   Modal,
@@ -24,16 +23,6 @@ import { extractDatasetInfoFromTraces } from '../utils/datasetUtils';
 import { useUpsertDatasetRecordsMutation } from '../hooks/useUpsertDatasetRecordsMutation';
 import { CreateEvaluationDatasetButton } from './CreateEvaluationDatasetButton';
 import { useFetchTraces } from '../hooks/useFetchTraces';
-
-const CheckboxCell: ColumnDef<EvaluationDataset, string>['cell'] = ({ row }) => {
-  return (
-    <Checkbox
-      componentId="mlflow.export-traces-to-dataset-modal.checkbox"
-      isChecked={row.getIsSelected()}
-      onChange={row.getToggleSelectedHandler()}
-    />
-  );
-};
 
 const columns: ColumnDef<EvaluationDataset, string>[] = [
   {
