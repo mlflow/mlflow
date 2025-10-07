@@ -8,6 +8,7 @@ import numbers
 import posixpath
 import re
 import urllib.parse
+from typing import Any
 
 from mlflow.entities import Dataset, DatasetInput, InputTag, Param, RunTag
 from mlflow.entities.model_registry.prompt_version import PROMPT_TEXT_TAG_KEY
@@ -477,7 +478,7 @@ def _validate_experiment_id_type(experiment_id):
         )
 
 
-def _validate_list_param(param_name, param_value, allow_none=False):
+def _validate_list_param(param_name: str, param_value: Any, allow_none: bool = False) -> None:
     """
     Validate that a parameter is a list and raise a helpful error if it isn't.
 
