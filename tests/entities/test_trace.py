@@ -98,6 +98,7 @@ def test_json_deserialization(monkeypatch):
                 "mlflow.user": mock.ANY,
                 "mlflow.trace.sizeBytes": mock.ANY,
                 "mlflow.trace.sizeStats": mock.ANY,
+                "mlflow.trace_schema.version": "3",
             },
             "tags": {
                 "mlflow.traceName": "predict",
