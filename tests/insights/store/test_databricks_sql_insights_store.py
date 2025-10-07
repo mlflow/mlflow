@@ -53,11 +53,15 @@ def test_generate_census_empty_experiment(mock_store: DatabricksSqlInsightsStore
 
     # Mock SQL query results - all empty
     mock_store.execute_sql.side_effect = [
-        # Basic counts query
-        [{"total_traces": 0, "ok_count": 0, "error_count": 0, "error_rate_percentage": 0.0}],
-        # Latency percentiles query
+        # Combined basics query (basic metrics + latency + timestamps)
         [
             {
+                "total_traces": 0,
+                "ok_count": 0,
+                "error_count": 0,
+                "error_rate_percentage": 0.0,
+                "first_trace_timestamp": datetime.now(timezone.utc).isoformat(),
+                "last_trace_timestamp": datetime.now(timezone.utc).isoformat(),
                 "p50_latency_ms": 0.0,
                 "p90_latency_ms": 0.0,
                 "p95_latency_ms": 0.0,
@@ -65,22 +69,22 @@ def test_generate_census_empty_experiment(mock_store: DatabricksSqlInsightsStore
                 "max_latency_ms": 0.0,
             }
         ],
-        # Error spans query
-        [],
-        # Slow tools query
-        [],
-        # Timestamp range query
+        # Spans analysis query (errors + slow tools)
+        [],  # Empty result for no spans
+        # Quality metrics query
         [
             {
-                "first_trace_timestamp": datetime.now(timezone.utc).isoformat(),
-                "last_trace_timestamp": datetime.now(timezone.utc).isoformat(),
+                "total_ok": 0,
+                "minimal_response_rate": 0.0,
+                "problematic_response_rate": 0.0,
+                "verbose_percentage": 0.0,
+                "rushed_complex_pct": 0.0,
+                "minimal_sample_ids": [],
+                "quality_sample_ids": [],
+                "verbosity_sample_ids": [],
+                "rushed_sample_ids": [],
             }
         ],
-        # Quality metrics queries (4 of them)
-        [{"verbose_percentage": 0.0, "sample_trace_ids": []}],
-        [{"rushed_complex_pct": 0.0, "sample_trace_ids": []}],
-        [{"minimal_response_rate": 0.0, "sample_trace_ids": []}],
-        [{"problematic_response_rate_percentage": 0.0, "sample_trace_ids": []}],
     ]
 
     # Generate census
@@ -104,18 +108,15 @@ def test_generate_census_with_traces(mock_store: DatabricksSqlInsightsStore):
 
     # Mock SQL query results with actual data
     mock_store.execute_sql.side_effect = [
-        # Basic counts query
+        # Combined basics query (basic metrics + latency + timestamps)
         [
             {
                 "total_traces": 100,
                 "ok_count": 90,
                 "error_count": 10,
                 "error_rate_percentage": 10.0,
-            }
-        ],
-        # Latency percentiles query
-        [
-            {
+                "first_trace_timestamp": "2024-01-01T00:00:00Z",
+                "last_trace_timestamp": "2024-01-02T00:00:00Z",
                 "p50_latency_ms": 100.0,
                 "p90_latency_ms": 500.0,
                 "p95_latency_ms": 750.0,
@@ -123,46 +124,48 @@ def test_generate_census_with_traces(mock_store: DatabricksSqlInsightsStore):
                 "max_latency_ms": 2000.0,
             }
         ],
-        # Error spans query
+        # Spans analysis query (errors + slow tools combined)
         [
             {
-                "error_span_name": "api_call",
+                "type": "error",
+                "name": "api_call",
                 "count": 5,
-                "percentage_of_errors": 50.0,
+                "percentage": 50.0,
+                "median_latency_ms": None,
+                "p95_latency_ms": None,
                 "sample_trace_ids": ["trace1", "trace2"],
             },
             {
-                "error_span_name": "db_query",
+                "type": "error",
+                "name": "db_query",
                 "count": 3,
-                "percentage_of_errors": 30.0,
+                "percentage": 30.0,
+                "median_latency_ms": None,
+                "p95_latency_ms": None,
                 "sample_trace_ids": ["trace3"],
             },
-        ],
-        # Slow tools query
-        [
             {
-                "tool_span_name": "llm_invoke",
+                "type": "slow_tool",
+                "name": "llm_invoke",
                 "count": 20,
+                "percentage": None,
                 "median_latency_ms": 300.0,
                 "p95_latency_ms": 800.0,
                 "sample_trace_ids": ["trace4", "trace5"],
-            }
+            },
         ],
-        # Timestamp range query
+        # Quality metrics query
         [
             {
-                "first_trace_timestamp": "2024-01-01T00:00:00Z",
-                "last_trace_timestamp": "2024-01-02T00:00:00Z",
-            }
-        ],
-        # Quality metrics queries
-        [{"verbose_percentage": 15.5, "sample_trace_ids": ["trace6", "trace7"]}],
-        [{"rushed_complex_pct": 8.2, "sample_trace_ids": ["trace8"]}],
-        [{"minimal_response_rate": 5.0, "sample_trace_ids": ["trace9"]}],
-        [
-            {
-                "problematic_response_rate_percentage": 12.0,
-                "sample_trace_ids": ["trace10", "trace11"],
+                "total_ok": 90,
+                "minimal_response_rate": 5.0,
+                "problematic_response_rate": 12.0,
+                "verbose_percentage": 15.5,
+                "rushed_complex_pct": 8.2,
+                "minimal_sample_ids": ["trace9"],
+                "quality_sample_ids": ["trace10", "trace11"],
+                "verbosity_sample_ids": ["trace6", "trace7"],
+                "rushed_sample_ids": ["trace8"],
             }
         ],
     ]
@@ -220,11 +223,15 @@ def test_generate_census_with_sample_trace_cleanup(mock_store: DatabricksSqlInsi
 
     # Mock results with None values in sample_trace_ids
     mock_store.execute_sql.side_effect = [
-        # Basic counts
-        [{"total_traces": 10, "ok_count": 10, "error_count": 0, "error_rate_percentage": 0.0}],
-        # Latency percentiles
+        # Combined basics query
         [
             {
+                "total_traces": 10,
+                "ok_count": 10,
+                "error_count": 0,
+                "error_rate_percentage": 0.0,
+                "first_trace_timestamp": "2024-01-01T00:00:00Z",
+                "last_trace_timestamp": "2024-01-01T01:00:00Z",
                 "p50_latency_ms": 100.0,
                 "p90_latency_ms": 200.0,
                 "p95_latency_ms": 250.0,
@@ -232,37 +239,41 @@ def test_generate_census_with_sample_trace_cleanup(mock_store: DatabricksSqlInsi
                 "max_latency_ms": 400.0,
             }
         ],
-        # Error spans - with None values
+        # Spans analysis - with None values
         [
             {
-                "error_span_name": "test_span",
+                "type": "error",
+                "name": "test_span",
                 "count": 1,
-                "percentage_of_errors": 100.0,
+                "percentage": 100.0,
+                "median_latency_ms": None,
+                "p95_latency_ms": None,
                 "sample_trace_ids": [None, None, "trace2", None, "trace3", None],
-            }
-        ],
-        # Slow tools - with None values
-        [
+            },
             {
-                "tool_span_name": "test_tool",
+                "type": "slow_tool",
+                "name": "test_tool",
                 "count": 5,
+                "percentage": None,
                 "median_latency_ms": 150.0,
                 "p95_latency_ms": 250.0,
                 "sample_trace_ids": ["trace4", None, None, "trace5"],
-            }
-        ],
-        # Timestamps
-        [
-            {
-                "first_trace_timestamp": "2024-01-01T00:00:00Z",
-                "last_trace_timestamp": "2024-01-01T01:00:00Z",
-            }
+            },
         ],
         # Quality metrics with None values
-        [{"verbose_percentage": 0.0, "sample_trace_ids": [None, None]}],
-        [{"rushed_complex_pct": 0.0, "sample_trace_ids": []}],
-        [{"minimal_response_rate": 0.0, "sample_trace_ids": [None, "trace6", None]}],
-        [{"problematic_response_rate_percentage": 0.0, "sample_trace_ids": []}],
+        [
+            {
+                "total_ok": 10,
+                "minimal_response_rate": 0.0,
+                "problematic_response_rate": 0.0,
+                "verbose_percentage": 0.0,
+                "rushed_complex_pct": 0.0,
+                "minimal_sample_ids": [None, "trace6", None],
+                "quality_sample_ids": [],
+                "verbosity_sample_ids": [None, None],
+                "rushed_sample_ids": [],
+            }
+        ],
     ]
 
     census = mock_store.generate_census(experiment_id)
@@ -288,9 +299,15 @@ def test_census_serialization(mock_store: DatabricksSqlInsightsStore):
 
     # Mock minimal valid response
     mock_store.execute_sql.side_effect = [
-        [{"total_traces": 1, "ok_count": 1, "error_count": 0, "error_rate_percentage": 0.0}],
+        # Combined basics query
         [
             {
+                "total_traces": 1,
+                "ok_count": 1,
+                "error_count": 0,
+                "error_rate_percentage": 0.0,
+                "first_trace_timestamp": "2024-01-01T00:00:00Z",
+                "last_trace_timestamp": "2024-01-01T00:00:00Z",
                 "p50_latency_ms": 100.0,
                 "p90_latency_ms": 100.0,
                 "p95_latency_ms": 100.0,
@@ -298,18 +315,22 @@ def test_census_serialization(mock_store: DatabricksSqlInsightsStore):
                 "max_latency_ms": 100.0,
             }
         ],
-        [],  # No error spans
-        [],  # No slow tools
+        # Spans analysis
+        [],  # No error spans or slow tools
+        # Quality metrics
         [
             {
-                "first_trace_timestamp": "2024-01-01T00:00:00Z",
-                "last_trace_timestamp": "2024-01-01T00:00:00Z",
+                "total_ok": 1,
+                "minimal_response_rate": 0.0,
+                "problematic_response_rate": 0.0,
+                "verbose_percentage": 0.0,
+                "rushed_complex_pct": 0.0,
+                "minimal_sample_ids": [],
+                "quality_sample_ids": [],
+                "verbosity_sample_ids": [],
+                "rushed_sample_ids": [],
             }
         ],
-        [{"verbose_percentage": 0.0, "sample_trace_ids": []}],
-        [{"rushed_complex_pct": 0.0, "sample_trace_ids": []}],
-        [{"minimal_response_rate": 0.0, "sample_trace_ids": []}],
-        [{"problematic_response_rate_percentage": 0.0, "sample_trace_ids": []}],
     ]
 
     census = mock_store.generate_census(experiment_id)
@@ -387,17 +408,23 @@ def test_get_trace_table_for_experiment_implementation(mock_store: DatabricksSql
 
 def test_get_trace_table_no_tracing_enabled():
     """Test when experiment doesn't have tracing enabled."""
-    # Mock REST API response without tracing tags
-    mock_response = {"experiment": {"tags": [{"key": "some.other.tag", "value": "value"}]}}
+    # Mock REST API response without monitor info
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"monitor_infos": []}
 
-    with patch(
-        "mlflow.insights.store.databricks_sql_insights_store.DatabricksSqlStore.__init__"
-    ) as mock_init:
+    with (
+        patch(
+            "mlflow.insights.store.databricks_sql_insights_store.DatabricksSqlStore.__init__"
+        ) as mock_init,
+        patch("mlflow.utils.rest_utils.http_request") as mock_http,
+    ):
         mock_init.return_value = None
+        mock_http.return_value = mock_response
+
         store = DatabricksSqlInsightsStore(store_uri="databricks")
         store._spark_session = None
         store.get_host_creds = MagicMock()
-        store.perform_request = MagicMock(return_value=mock_response)
 
         table_name = store._get_trace_table_for_experiment("12345")
 
@@ -452,17 +479,31 @@ def test_complex_error_span_aggregation(mock_store: DatabricksSqlInsightsStore):
         },
     ]
 
+    # Convert error_spans to new combined query format
+    spans_results = []
+    for span in error_spans[:5]:  # Only top 5 are returned
+        spans_results.append(
+            {
+                "type": "error",
+                "name": span["error_span_name"],
+                "count": span["count"],
+                "percentage": span["percentage_of_errors"],
+                "median_latency_ms": None,
+                "p95_latency_ms": None,
+                "sample_trace_ids": span["sample_trace_ids"],
+            }
+        )
+
     mock_store.execute_sql.side_effect = [
+        # Combined basics query
         [
             {
                 "total_traces": 1000,
                 "ok_count": 930,
                 "error_count": 70,
                 "error_rate_percentage": 7.0,
-            }
-        ],
-        [
-            {
+                "first_trace_timestamp": "2024-01-01T00:00:00Z",
+                "last_trace_timestamp": "2024-01-01T12:00:00Z",
                 "p50_latency_ms": 150.0,
                 "p90_latency_ms": 450.0,
                 "p95_latency_ms": 650.0,
@@ -470,19 +511,22 @@ def test_complex_error_span_aggregation(mock_store: DatabricksSqlInsightsStore):
                 "max_latency_ms": 2500.0,
             }
         ],
-        error_spans,  # Error spans query result
-        [],  # No slow tools
+        # Spans analysis (error spans + slow tools)
+        spans_results,
+        # Quality metrics
         [
             {
-                "first_trace_timestamp": "2024-01-01T00:00:00Z",
-                "last_trace_timestamp": "2024-01-01T12:00:00Z",
+                "total_ok": 930,
+                "minimal_response_rate": 2.0,
+                "problematic_response_rate": 4.0,
+                "verbose_percentage": 5.0,
+                "rushed_complex_pct": 3.0,
+                "minimal_sample_ids": [],
+                "quality_sample_ids": [],
+                "verbosity_sample_ids": [],
+                "rushed_sample_ids": [],
             }
         ],
-        # Quality metrics
-        [{"verbose_percentage": 5.0, "sample_trace_ids": []}],
-        [{"rushed_complex_pct": 3.0, "sample_trace_ids": []}],
-        [{"minimal_response_rate": 2.0, "sample_trace_ids": []}],
-        [{"problematic_response_rate_percentage": 4.0, "sample_trace_ids": []}],
     ]
 
     census = mock_store.generate_census(experiment_id)
@@ -516,9 +560,15 @@ def test_metadata_population(mock_store: DatabricksSqlInsightsStore):
 
     # Mock minimal responses
     mock_store.execute_sql.side_effect = [
-        [{"total_traces": 5, "ok_count": 5, "error_count": 0, "error_rate_percentage": 0.0}],
+        # Combined basics query
         [
             {
+                "total_traces": 5,
+                "ok_count": 5,
+                "error_count": 0,
+                "error_rate_percentage": 0.0,
+                "first_trace_timestamp": "2024-01-01T00:00:00Z",
+                "last_trace_timestamp": "2024-01-01T01:00:00Z",
                 "p50_latency_ms": 100.0,
                 "p90_latency_ms": 100.0,
                 "p95_latency_ms": 100.0,
@@ -526,18 +576,22 @@ def test_metadata_population(mock_store: DatabricksSqlInsightsStore):
                 "max_latency_ms": 100.0,
             }
         ],
-        [],
-        [],
+        # Spans analysis
+        [],  # No error spans or slow tools
+        # Quality metrics
         [
             {
-                "first_trace_timestamp": "2024-01-01T00:00:00Z",
-                "last_trace_timestamp": "2024-01-01T01:00:00Z",
+                "total_ok": 5,
+                "minimal_response_rate": 0.0,
+                "problematic_response_rate": 0.0,
+                "verbose_percentage": 0.0,
+                "rushed_complex_pct": 0.0,
+                "minimal_sample_ids": [],
+                "quality_sample_ids": [],
+                "verbosity_sample_ids": [],
+                "rushed_sample_ids": [],
             }
         ],
-        [{"verbose_percentage": 0.0, "sample_trace_ids": []}],
-        [{"rushed_complex_pct": 0.0, "sample_trace_ids": []}],
-        [{"minimal_response_rate": 0.0, "sample_trace_ids": []}],
-        [{"problematic_response_rate_percentage": 0.0, "sample_trace_ids": []}],
     ]
 
     census = mock_store.generate_census(experiment_id)

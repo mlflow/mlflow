@@ -6,13 +6,10 @@ standard tracking operations to the parent RestStore.
 """
 
 import datetime
-import json
 import logging
 from decimal import Decimal
 from functools import partial
 from typing import Any
-
-import requests
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -179,36 +176,28 @@ class DatabricksSqlStore(RestStore):
             The trace table name (without backticks) if found, None otherwise
         """
         try:
-            # Get host credentials for making the API call
-            host_creds = self.get_host_creds()
+            from mlflow.utils.rest_utils import http_request
 
-            # Prepare request
-            url = f"{host_creds.host}/api/2.0/managed-evals/monitors"
-            headers = {"Content-Type": "application/json"}
-            if host_creds.token:
-                headers["Authorization"] = f"Bearer {host_creds.token}"
+            _logger.debug(f"Calling GetMonitor API for experiment {experiment_id}")
 
-            request_body = json.dumps({"experiment_id": experiment_id})
-
-            _logger.debug(f"Calling GetMonitor API for experiment {experiment_id}: {url}")
-
-            # Make the API call
-            resp = requests.post(
-                url,
-                data=request_body,
-                headers=headers,
-                verify=not getattr(host_creds, "ignore_tls_verification", False),
+            # Make the API call using MLflow's http_request utility
+            # This handles retry policies, auth headers, and TLS verification automatically
+            response = http_request(
+                host_creds=self.get_host_creds(),
+                endpoint="/api/2.0/managed-evals/monitors",
+                method="POST",
+                json={"experiment_id": experiment_id},
             )
 
-            _logger.debug(f"GetMonitor API response status: {resp.status_code}")
-            if resp.status_code != 200:
+            _logger.debug(f"GetMonitor API response status: {response.status_code}")
+            if response.status_code != 200:
                 _logger.warning(
-                    f"GetMonitor API failed with status {resp.status_code}: {resp.text}"
+                    f"GetMonitor API failed with status {response.status_code}: {response.text}"
                 )
                 # API call failed, return None to fall back to default behavior
                 return None
 
-            response_json = resp.json()
+            response_json = response.json()
             _logger.debug(f"GetMonitor API response: {response_json}")
 
             # Extract trace_archive_table from response
@@ -225,6 +214,7 @@ class DatabricksSqlStore(RestStore):
             return None
 
         except Exception as e:
-            _logger.error(f"Error getting trace table for experiment: {e}")
-            # If anything goes wrong, return None
-            return None
+            raise MlflowException(
+                f"Error getting trace table for experiment {experiment_id}: {e}",
+                error_code=INVALID_PARAMETER_VALUE,
+            ) from e

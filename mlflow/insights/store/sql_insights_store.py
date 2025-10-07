@@ -624,17 +624,26 @@ class SqlInsightsStore(InsightsStore):
             ),
             "quality_issues": QualityMetric(
                 value=quality_pct,
-                description="Percentage of responses containing uncertainty or apology phrases",
+                description=(
+                    "Percentage of responses containing uncertainty or apology phrases "
+                    "(?, 'apologize', 'sorry', 'not sure', 'cannot confirm')"
+                ),
                 sample_trace_ids=quality_sample_ids,
             ),
             "rushed": QualityMetric(
                 value=duration_stats.get("rushed_pct", 0.0),
-                description="Percentage of traces processed faster than P10 execution time",
+                description=(
+                    "Percentage of complex requests (>P75 request length) "
+                    "processed too quickly (<P10 execution time)"
+                ),
                 sample_trace_ids=duration_stats.get("rushed_samples", []),
             ),
             "verbose": QualityMetric(
                 value=0.0,  # Simplified for now
-                description="Percentage of short inputs receiving verbose responses",
+                description=(
+                    "Percentage of short inputs (≤P25 request length) "
+                    "receiving verbose responses (>P90 response length)"
+                ),
                 sample_trace_ids=[],
             ),
         }

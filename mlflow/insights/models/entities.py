@@ -61,19 +61,35 @@ class OperationalMetrics(BaseModel, DatetimeFieldsMixin):
     ok_count: int = Field(description="Count of successful traces")
     error_count: int = Field(description="Count of error traces")
     error_rate: float = Field(description="Overall error rate percentage")
-    first_trace_timestamp: datetime = Field(description="Timestamp of earliest trace")
-    last_trace_timestamp: datetime = Field(description="Timestamp of latest trace")
-    max_latency_ms: float = Field(description="Maximum latency in milliseconds")
+    first_trace_timestamp: datetime | None = Field(
+        default=None, description="Timestamp of earliest trace (null if no traces)"
+    )
+    last_trace_timestamp: datetime | None = Field(
+        default=None, description="Timestamp of latest trace (null if no traces)"
+    )
+    max_latency_ms: float | None = Field(
+        default=None, description="Maximum latency in milliseconds (null if no OK traces)"
+    )
 
     @field_validator("first_trace_timestamp", "last_trace_timestamp", mode="before")
     @classmethod
-    def validate_timestamps(cls, v: str | datetime) -> datetime:
+    def validate_timestamps(cls, v: str | datetime | None) -> datetime | None:
+        if v is None:
+            return None
         return cls.parse_datetime(v)
 
-    p50_latency_ms: float = Field(description="50th percentile latency")
-    p90_latency_ms: float = Field(description="90th percentile latency")
-    p95_latency_ms: float = Field(description="95th percentile latency")
-    p99_latency_ms: float = Field(description="99th percentile latency")
+    p50_latency_ms: float | None = Field(
+        default=None, description="50th percentile latency (null if no OK traces)"
+    )
+    p90_latency_ms: float | None = Field(
+        default=None, description="90th percentile latency (null if no OK traces)"
+    )
+    p95_latency_ms: float | None = Field(
+        default=None, description="95th percentile latency (null if no OK traces)"
+    )
+    p99_latency_ms: float | None = Field(
+        default=None, description="99th percentile latency (null if no OK traces)"
+    )
     time_buckets: list[TimeBucket] = Field(
         default_factory=list, description="Time-bucketed performance metrics"
     )
@@ -88,7 +104,9 @@ class OperationalMetrics(BaseModel, DatetimeFieldsMixin):
 class QualityMetric(BaseModel, DatetimeFieldsMixin):
     """Individual quality metric with samples."""
 
-    value: float = Field(description="Metric value as percentage")
+    value: float | None = Field(
+        default=None, description="Metric value as percentage (null if couldn't be calculated)"
+    )
     description: str = Field(description="Description of what this metric measures")
     sample_trace_ids: list[str] = Field(
         default_factory=list, description="Sample trace IDs exhibiting this quality issue"
