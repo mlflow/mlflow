@@ -14,7 +14,7 @@ from mlflow.insights.models.entities import (
     SlowTool,
 )
 from mlflow.insights.store.base import InsightsStore
-from mlflow.insights.store.census_queries import (
+from mlflow.insights.store.databricks_census_queries import (
     get_combined_basics_query,
     get_quality_metrics_query,
     get_spans_analysis_query,
