@@ -99,7 +99,6 @@ from mlflow.store.tracking.dbmodels.models import (
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
-    TRACE_SCHEMA_VERSION_KEY,
     TraceMetadataKey,
 )
 from mlflow.tracing.utils import TraceJSONEncoder
@@ -4417,7 +4416,6 @@ def test_legacy_start_and_end_trace_v2(store: SqlAlchemyStore):
     assert trace_info.request_metadata == {
         "rq1": "foo",
         "rq2": "bar",
-        TRACE_SCHEMA_VERSION_KEY: "2",
     }
     artifact_location = trace_info.tags[MLFLOW_ARTIFACT_LOCATION]
     assert artifact_location.endswith(f"/{experiment_id}/traces/{request_id}/artifacts")
@@ -4448,7 +4446,6 @@ def test_legacy_start_and_end_trace_v2(store: SqlAlchemyStore):
         "rq1": "updated",
         "rq2": "bar",
         "rq3": "baz",
-        TRACE_SCHEMA_VERSION_KEY: "2",
     }
     assert trace_info.tags == {
         "tag1": "updated",
@@ -4478,7 +4475,7 @@ def test_start_trace(store: SqlAlchemyStore):
     assert trace_info.request_time == 1234
     assert trace_info.execution_duration == 100
     assert trace_info.state == TraceState.OK
-    assert trace_info.trace_metadata == {"rq1": "foo", "rq2": "bar", TRACE_SCHEMA_VERSION_KEY: "3"}
+    assert trace_info.trace_metadata == {"rq1": "foo", "rq2": "bar"}
     artifact_location = trace_info.tags[MLFLOW_ARTIFACT_LOCATION]
     assert artifact_location.endswith(f"/{experiment_id}/traces/{trace_id}/artifacts")
     assert trace_info.tags == {
