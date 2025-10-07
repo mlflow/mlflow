@@ -733,12 +733,15 @@ mlflow.genai.delete_dataset
 mlflow.genai.delete_dataset_tag
 mlflow.genai.delete_labeling_session
 mlflow.genai.delete_prompt_alias
+mlflow.genai.delete_prompt_tag
+mlflow.genai.delete_prompt_version_tag
 mlflow.genai.disable_git_model_versioning
 mlflow.genai.enable_git_model_versioning
 mlflow.genai.evaluate
 mlflow.genai.get_dataset
 mlflow.genai.get_labeling_session
 mlflow.genai.get_labeling_sessions
+mlflow.genai.get_prompt_tags
 mlflow.genai.get_review_app
 mlflow.genai.judges.AlignmentOptimizer
 mlflow.genai.judges.AlignmentOptimizer.align
@@ -849,6 +852,8 @@ mlflow.genai.search_datasets
 mlflow.genai.search_prompts
 mlflow.genai.set_dataset_tags
 mlflow.genai.set_prompt_alias
+mlflow.genai.set_prompt_tag
+mlflow.genai.set_prompt_version_tag
 mlflow.genai.to_predict_fn
 mlflow.get_active_model_id
 mlflow.get_active_trace_id

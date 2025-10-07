@@ -37,6 +37,7 @@ defaults:
 env:
   MLFLOW_HOME: ${{ github.workspace }}
   MLFLOW_CONDA_HOME: /usr/share/miniconda
+  PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
   PYTHONFAULTHANDLER: "1"
 
 jobs:
