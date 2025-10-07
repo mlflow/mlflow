@@ -52,6 +52,10 @@ EXAMPLE USAGE:
     mlflow traces set-tag --trace-id tr-abc123 \
         --key environment --value production
 
+    # Evaluate traces
+    mlflow traces evaluate --trace-ids tr-abc123,tr-abc124 \
+        --scorers Correctness,Safety --output json
+
 ASSESSMENT TYPES:
     • Feedback: Evaluation scores, ratings, or judgments
     • Expectations: Ground truth labels or expected outputs
@@ -498,7 +502,11 @@ def delete_trace_tag(trace_id: str, key: str) -> None:
 @click.option(
     "--source-type",
     type=click.Choice(
-        [AssessmentSourceType.HUMAN, AssessmentSourceType.LLM_JUDGE, AssessmentSourceType.CODE]
+        [
+            AssessmentSourceType.HUMAN,
+            AssessmentSourceType.LLM_JUDGE,
+            AssessmentSourceType.CODE,
+        ]
     ),
     help="Source type of the feedback",
 )
@@ -601,7 +609,11 @@ def log_feedback(
 @click.option(
     "--source-type",
     type=click.Choice(
-        [AssessmentSourceType.HUMAN, AssessmentSourceType.LLM_JUDGE, AssessmentSourceType.CODE]
+        [
+            AssessmentSourceType.HUMAN,
+            AssessmentSourceType.LLM_JUDGE,
+            AssessmentSourceType.CODE,
+        ]
     ),
     help="Source type of the expectation",
 )
@@ -794,7 +806,8 @@ def delete_assessment(trace_id: str, assessment_id: str) -> None:
     "(e.g., Correctness, Safety, RelevanceToQuery) or registered custom scorers.",
 )
 @click.option(
-    "--output-format",
+    "--output",
+    "output_format",
     type=click.Choice(["table", "json"]),
     default="table",
     help="Output format: 'table' for formatted table (default) or 'json' for JSON format",
@@ -814,22 +827,21 @@ def evaluate_traces(
     \b
     Examples:
     # Evaluate a single trace with built-in scorers
-    mlflow traces evaluate --experiment-id 1 --trace-ids tr-abc123 \\
-        --scorers Correctness,Safety
+    mlflow traces evaluate --trace-ids tr-abc123 --scorers Correctness,Safety
 
     \b
     # Evaluate multiple traces
-    mlflow traces evaluate --experiment-id 1 --trace-ids tr-abc123,tr-def456,tr-ghi789 \\
+    mlflow traces evaluate --trace-ids tr-abc123,tr-def456,tr-ghi789 \\
         --scorers RelevanceToQuery
 
     \b
     # Evaluate with JSON output
-    mlflow traces evaluate --experiment-id 1 --trace-ids tr-abc123 \\
-        --scorers Correctness --output-format json
+    mlflow traces evaluate --trace-ids tr-abc123 \\
+        --scorers Correctness --output json
 
     \b
     # Evaluate with custom registered scorer
-    mlflow traces evaluate --experiment-id 1 --trace-ids tr-abc123,tr-def456 \\
+    mlflow traces evaluate --trace-ids tr-abc123,tr-def456 \\
         --scorers my_custom_scorer,Correctness
 
     \b
