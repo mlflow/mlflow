@@ -936,6 +936,14 @@ def test_search_traces_invalid_return_types(mock_client):
         mlflow.search_traces(extract_fields=["foo.inputs.bar"], return_type="list")
 
 
+def test_search_traces_validates_experiment_ids_type():
+    with pytest.raises(MlflowException, match=r"experiment_ids must be a list"):
+        mlflow.search_traces(experiment_ids=4)
+
+    with pytest.raises(MlflowException, match=r"experiment_ids must be a list"):
+        mlflow.search_traces(experiment_ids="4")
+
+
 def test_search_traces_with_pagination(mock_client):
     traces = [
         Trace(

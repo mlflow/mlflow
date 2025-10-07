@@ -61,7 +61,7 @@ def test_async_queue_activate_thread_safe(mock_atexit):
         return sum(
             t.is_alive()
             for t in threading.enumerate()
-            if t is not main_thread and t.getName().startswith("MLflowTraceLogging")
+            if t is not main_thread and t.name.startswith("MLflowTraceLogging")
         )
 
     # 1. Validate activation

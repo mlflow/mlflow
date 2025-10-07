@@ -367,6 +367,10 @@
     "defaultMessage": "Model schema",
     "description": "Heading text for the model schema of the registered model from the experiment run"
   },
+  "287Ack": {
+    "defaultMessage": "Create evaluation dataset",
+    "description": "Create evaluation dataset modal title"
+  },
   "28Dnzz": {
     "defaultMessage": "Parameters",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > parameters heading"
@@ -1062,6 +1066,10 @@
     "defaultMessage": "Select as compared version",
     "description": "Label for selecting compared prompt version in the comparison view"
   },
+  "9J8zoa": {
+    "defaultMessage": "An error occurred while rendering this component.",
+    "description": "Description for default error message in experiment datasets UI"
+  },
   "9KLNi5": {
     "defaultMessage": "Delete",
     "description": "Experiments page list, delete bulk experiments modal primary button"
@@ -1466,6 +1474,10 @@
     "defaultMessage": "Y axis",
     "description": "Label for Y axis in scatter chart configurator in compare runs chart config modal"
   },
+  "DcGPfO": {
+    "defaultMessage": "Row height",
+    "description": "Label for the row height radio group"
+  },
   "Dhn7Mb": {
     "defaultMessage": "Displaying Runs from {numExperiments} Experiments",
     "description": "Message shown when displaying runs from multiple experiments"
@@ -1573,6 +1585,10 @@
   "F16DNA": {
     "defaultMessage": "Version {versionNum}",
     "description": "Title text for model version page"
+  },
+  "F4K195": {
+    "defaultMessage": "No evaluation datasets found",
+    "description": "Empty state for the evaluation datasets page"
   },
   "F8MqzZ": {
     "defaultMessage": "Path",
@@ -2254,6 +2270,10 @@
     "defaultMessage": "{count, plural, =1 {1 month} other {# months}} ago",
     "description": "Time duration in months"
   },
+  "N7BCue": {
+    "defaultMessage": "Create dataset",
+    "description": "Create evaluation dataset button"
+  },
   "N8YuIr": {
     "defaultMessage": "Error while loading metric page",
     "description": "Title of the error state on the metric page"
@@ -2541,6 +2561,10 @@
     "defaultMessage": "Register prompts",
     "description": "Home page quick action title for registering prompts"
   },
+  "QcEYpD": {
+    "defaultMessage": "Add to evaluation dataset",
+    "description": "Add traces to evaluation dataset action"
+  },
   "QhEnTA": {
     "defaultMessage": "Name",
     "description": "Header for the name column in the experiments table"
@@ -2783,6 +2807,10 @@
   "TlVXcS": {
     "defaultMessage": "Cancel",
     "description": "Cancel button label within a modal for adding/editing a new runs comparison chart"
+  },
+  "TnD/vL": {
+    "defaultMessage": "No records found",
+    "description": "Empty state for the evaluation dataset records table"
   },
   "Tpj2su": {
     "defaultMessage": "Attributes",
@@ -3076,6 +3104,10 @@
     "defaultMessage": "Groundedness",
     "description": "Evaluation results > known type of evaluation result assessment > groundedness assessment. Used to indicate if the result is grounded in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Groundedness: moderately grounded\""
   },
+  "WtUqxc": {
+    "defaultMessage": "Error",
+    "description": "Title for error fallback component in experiment datasets UI"
+  },
   "Wv3B3G": {
     "defaultMessage": "Supported formats: image, text, html, pdf, audio, video, geojson files",
     "description": "Text to explain users which formats are supported to display the artifacts"
@@ -3267,6 +3299,10 @@
     "defaultMessage": "Move down",
     "description": "Experiment page > compare runs tab > chart header > move down option"
   },
+  "ZBRK9J": {
+    "defaultMessage": "Export traces to datasets",
+    "description": "Export traces to dataset modal title"
+  },
   "ZGrkWk": {
     "defaultMessage": "Perform inference via model.transform()",
     "description": "Code comment which states how we can perform SparkML inference"
@@ -3275,6 +3311,10 @@
     "defaultMessage": "Adheres to guidelines",
     "description": "Evaluation results > guideline adherence assessment > positive value label. Displayed if evaluation result adheres to the guidelines."
   },
+  "ZNyTjg": {
+    "defaultMessage": "Small",
+    "description": "Small row size"
+  },
   "ZO8PZt": {
     "defaultMessage": "{count, plural, =1 {1 minute} other {# minutes}} ago",
     "description": "Time duration in minutes"
@@ -3282,6 +3322,10 @@
   "ZOsiNc": {
     "defaultMessage": "just now",
     "description": "Indicates a time duration that just passed"
+  },
+  "ZQpc2w": {
+    "defaultMessage": "Enter dataset name",
+    "description": "Dataset name placeholder"
   },
   "ZRUzaz": {
     "defaultMessage": "Install MLflow 3:",
@@ -3374,6 +3418,10 @@
   "a0NgR8": {
     "defaultMessage": "Type",
     "description": "Header for \"type\" column in the UC table schema"
+  },
+  "a1liZ7": {
+    "defaultMessage": "Export",
+    "description": "Export traces to dataset modal action button"
   },
   "a6bpXQ": {
     "defaultMessage": "{numRootCause}/{numEvals} ({percentage}%) runs failed due to the {assessment} judge failing for the current run \"{currentRun}\".",
@@ -3611,6 +3659,10 @@
     "defaultMessage": "Schema",
     "description": "Table title text for schema table in the model comparison page"
   },
+  "cMRvTA": {
+    "defaultMessage": "Delete dataset",
+    "description": "Delete evaluation dataset menu item"
+  },
   "cMa3hp": {
     "defaultMessage": "Run evaluation",
     "description": "Label for a button that displays instructions for starting a new evaluation run"
@@ -3634,6 +3686,14 @@
   "crTWax": {
     "defaultMessage": "Key",
     "description": "Key-value tag editor modal > Key input label"
+  },
+  "creoEe": {
+    "defaultMessage": "Create",
+    "description": "Create evaluation dataset button text"
+  },
+  "crmbMK": {
+    "defaultMessage": "Displaying {loadedRecordsCount} of {totalRecordsCount, plural, =1 {1 record} other {# records}}",
+    "description": "Label for the number of records displayed"
   },
   "csNr/8": {
     "defaultMessage": "Disable grouped runs to compare parameters, tag, or attributes",
@@ -3758,6 +3818,10 @@
   "e9qVjz": {
     "defaultMessage": "Cancel",
     "description": "Evaluation review > assessments > cancel overriding review button"
+  },
+  "eAFhRf": {
+    "defaultMessage": "Runs",
+    "description": "Label for the evaluation runs sub-tab in the MLflow experiment navbar"
   },
   "eBGO2d": {
     "defaultMessage": "No metrics to display.",
@@ -3894,6 +3958,10 @@
   "faLIN+": {
     "defaultMessage": "Timestamp",
     "description": "Run page > Charts tab > Chart tooltip > Timestamp label"
+  },
+  "fcIHyN": {
+    "defaultMessage": "Medium",
+    "description": "Medium row size"
   },
   "ffIouW": {
     "defaultMessage": "Retrieval sufficiency assessment is missing. This is likely because your agent is not returning retrieved_context.",
@@ -4226,6 +4294,10 @@
   "iT8ODo": {
     "defaultMessage": "Minimum",
     "description": "Experiment page > group by runs control > minimum aggregate function"
+  },
+  "iVrgfC": {
+    "defaultMessage": "Datasets",
+    "description": "Label for the evaluation datasets sub-tab in the MLflow experiment navbar"
   },
   "iXb99e": {
     "defaultMessage": "Box Plot",
@@ -4658,6 +4730,10 @@
   "nDVJ/n": {
     "defaultMessage": "Pass",
     "description": "The label for a passing asseessment above a bar-chart in the summary stats."
+  },
+  "nEnDEu": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel create evaluation dataset button text"
   },
   "nEoTsR": {
     "defaultMessage": "Completed Runs",
@@ -5179,6 +5255,10 @@
     "defaultMessage": "Ignore column ordering",
     "description": "Toggle text that determines whether to ignore column order in the\n                      model comparison page"
   },
+  "sbHChH": {
+    "defaultMessage": "Dataset name is required",
+    "description": "Input field error when dataset name is empty"
+  },
   "sblqXA": {
     "defaultMessage": "Use the runs difference view to compare model and system metrics, parameters, attributes, and tags across runs.",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > chart not configured warning > description"
@@ -5579,9 +5659,21 @@
     "defaultMessage": "Search prompts",
     "description": "Placeholder text for the search input in the prompts table on the logged model details page"
   },
+  "xdFMIN": {
+    "defaultMessage": "Dataset name",
+    "description": "Dataset name label"
+  },
+  "xgbeVS": {
+    "defaultMessage": "Large",
+    "description": "Large row size"
+  },
   "xgypqc": {
     "defaultMessage": "Copied to clipboard",
     "description": "Success message for the notification"
+  },
+  "xiFkTH": {
+    "defaultMessage": "Use for evaluation",
+    "description": "Trace actions dropdown group label"
   },
   "xmPKKq": {
     "defaultMessage": "Model Version:",

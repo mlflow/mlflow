@@ -27,6 +27,7 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
+  "Flask-CORS<7",
   "Flask<4",
   "alembic<2,!=1.10.0",
   "cachetools<7,>=5.0.0",
@@ -432,6 +433,8 @@ filterwarnings = [
   "error:^`np\\.[a-z]+` is a deprecated alias for.+:DeprecationWarning:tests",
   "error::pytest.PytestCollectionWarning",
   "error:.*type should be str.*converted to str implicitly:pytest.PytestWarning",
+  # Prevent deprecated threading.Thread.getName() from being used
+  "error:getName\\(\\) is deprecated, get the name attribute instead:DeprecationWarning",
 ]
 timeout = 1200
 
