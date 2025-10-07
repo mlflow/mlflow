@@ -9,6 +9,7 @@ import { ExperimentEvaluationDatasetsListTable } from './components/ExperimentEv
 import { ExperimentEvaluationDatasetRecordsTable } from './components/ExperimentEvaluationDatasetRecordsTable';
 import { EvaluationDataset } from './types';
 import { ExperimentEvaluationDatasetsPageWrapper } from './ExperimentEvaluationDatasetsPageWrapper';
+import { ExperimentEvaluationDatasetsEmptyState } from './components/ExperimentEvaluationDatasetsEmptyState';
 
 const ExperimentEvaluationDatasetsPageImpl = () => {
   const { experimentId } = useParams();
@@ -17,6 +18,7 @@ const ExperimentEvaluationDatasetsPageImpl = () => {
   const [dragging, setDragging] = useState(false);
   const [datasetListHidden, setDatasetListHidden] = useState(false);
   const [selectedDataset, setSelectedDataset] = useState<EvaluationDataset | undefined>(undefined);
+  const [isDatasetsLoading, setIsDatasetsLoading] = useState(false);
 
   invariant(experimentId, 'Experiment ID must be defined');
 
@@ -48,6 +50,7 @@ const ExperimentEvaluationDatasetsPageImpl = () => {
       >
         <div css={{ display: datasetListHidden ? 'none' : 'flex', flex: 1, minWidth: 0 }}>
           <ExperimentEvaluationDatasetsListTable
+            setIsLoading={setIsDatasetsLoading}
             experimentId={experimentId}
             selectedDataset={selectedDataset}
             setSelectedDataset={setSelectedDataset}
@@ -63,6 +66,9 @@ const ExperimentEvaluationDatasetsPageImpl = () => {
           overflow: 'hidden',
         }}
       >
+        {!isDatasetsLoading && !selectedDataset && (
+          <ExperimentEvaluationDatasetsEmptyState experimentId={experimentId} />
+        )}
         {selectedDataset && <ExperimentEvaluationDatasetRecordsTable dataset={selectedDataset} />}
       </div>
       {dragging && (
