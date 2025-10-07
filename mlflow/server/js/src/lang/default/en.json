@@ -1050,6 +1050,10 @@
     "defaultMessage": "Select as compared version",
     "description": "Label for selecting compared prompt version in the comparison view"
   },
+  "9J8zoa": {
+    "defaultMessage": "An error occurred while rendering this component.",
+    "description": "Description for default error message in experiment datasets UI"
+  },
   "9KLNi5": {
     "defaultMessage": "Delete",
     "description": "Experiments page list, delete bulk experiments modal primary button"
@@ -3044,6 +3048,10 @@
     "defaultMessage": "Groundedness",
     "description": "Evaluation results > known type of evaluation result assessment > groundedness assessment. Used to indicate if the result is grounded in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Groundedness: moderately grounded\""
   },
+  "WtUqxc": {
+    "defaultMessage": "Error",
+    "description": "Title for error fallback component in experiment datasets UI"
+  },
   "Wv3B3G": {
     "defaultMessage": "Supported formats: image, text, html, pdf, audio, video, geojson files",
     "description": "Text to explain users which formats are supported to display the artifacts"
@@ -3751,6 +3759,10 @@
     "defaultMessage": "Cancel",
     "description": "Evaluation review > assessments > cancel overriding review button"
   },
+  "eAFhRf": {
+    "defaultMessage": "Runs",
+    "description": "Label for the evaluation runs sub-tab in the MLflow experiment navbar"
+  },
   "eBGO2d": {
     "defaultMessage": "No metrics to display.",
     "description": "Text shown when there are no metrics to display"
@@ -4218,6 +4230,10 @@
   "iT8ODo": {
     "defaultMessage": "Minimum",
     "description": "Experiment page > group by runs control > minimum aggregate function"
+  },
+  "iVrgfC": {
+    "defaultMessage": "Datasets",
+    "description": "Label for the evaluation datasets sub-tab in the MLflow experiment navbar"
   },
   "iXb99e": {
     "defaultMessage": "Box Plot",
