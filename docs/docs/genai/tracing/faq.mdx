@@ -172,10 +172,10 @@ The `trace_destination` parameter was introduced to the <APILink fn="mlflow.trac
 
 ```python
 import mlflow
-from mlflow.tracing.destination import MlflowExperiment
+from mlflow.entities.trace_location import MlflowExperimentLocation
 
 
-@mlflow.trace(trace_destination=MlflowExperiment(experiment_id="1234"))
+@mlflow.trace(trace_destination=MlflowExperimentLocation(experiment_id="1234"))
 def math_agent(request: Request):
     # Your model logic here
     ...
@@ -189,12 +189,13 @@ The <APILink fn="mlflow.tracing.set_destination" /> API is a purpose-built API f
 
 ```python
 import mlflow
+from mlflow.entities.trace_location import MlflowExperimentLocation
 
 
 @app.get("/math-agent")
 def math_agent(request: Request):
     # The API is super low-overhead, so you can call it inside the request handler.
-    mlflow.tracing.set_destination(MlflowExperiment(experiment_id="1234"))
+    mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id="1234"))
 
     # Your model logic here
     with mlflow.start_span(name="math-agent") as span:
@@ -203,7 +204,7 @@ def math_agent(request: Request):
 
 @app.get("/chat-agent")
 def chat_agent(request: Request):
-    mlflow.tracing.set_destination(MlflowExperiment(experiment_id="5678"))
+    mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id="5678"))
 
     # Your model logic here
     with mlflow.start_span(name="chat-agent") as span:
