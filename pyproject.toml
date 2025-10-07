@@ -433,6 +433,8 @@ filterwarnings = [
   "error:^`np\\.[a-z]+` is a deprecated alias for.+:DeprecationWarning:tests",
   "error::pytest.PytestCollectionWarning",
   "error:.*type should be str.*converted to str implicitly:pytest.PytestWarning",
+  # Prevent deprecated threading.Thread.getName() from being used
+  "error:getName\\(\\) is deprecated, get the name attribute instead:DeprecationWarning",
 ]
 timeout = 1200
 
