@@ -81,17 +81,15 @@ def evaluate_traces(
     scorer_names = [name.strip() for name in scorers.split(",")]
     resolved_scorers = resolve_scorers(scorer_names, experiment_id)
 
-    try:
-        trace_count = len(traces)
-        if trace_count == 1:
-            scorers_list = ", ".join(scorer_names)
-            trace_id = traces[0].info.trace_id
-            click.echo(f"Evaluating trace {trace_id} with scorers: {scorers_list}...")
-        else:
-            click.echo(
-                f"Evaluating {trace_count} traces with scorers: {', '.join(scorer_names)}..."
-            )
+    trace_count = len(traces)
+    scorers_list = ", ".join(scorer_names)
+    if trace_count == 1:
+        trace_id = traces[0].info.trace_id
+        click.echo(f"Evaluating trace {trace_id} with scorers: {scorers_list}...")
+    else:
+        click.echo(f"Evaluating {trace_count} traces with scorers: {scorers_list}...")
 
+    try:
         results = evaluate(data=traces_df, scorers=resolved_scorers)
         evaluation_run_id = results.run_id
     except Exception as e:
