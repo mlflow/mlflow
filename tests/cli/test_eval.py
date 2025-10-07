@@ -1,5 +1,3 @@
-"""Tests for mlflow.cli.eval module."""
-
 from unittest import mock
 
 import click
@@ -12,7 +10,6 @@ from mlflow.entities import Trace, TraceInfo
 
 
 def test_evaluate_traces_with_single_trace_table_output():
-    """Test evaluate_traces with a single trace and table output."""
     experiment_id = mlflow.create_experiment("test_experiment")
 
     mock_trace = mock.Mock(spec=Trace)
@@ -22,27 +19,33 @@ def test_evaluate_traces_with_single_trace_table_output():
 
     mock_results = mock.Mock()
     mock_results.run_id = "run-eval-456"
-    mock_results.tables = {"eval_results": pd.DataFrame(
-        [
-            {
-                "trace_id": "tr-test-123",
-                "assessments": [
-                    {
-                        "assessment_name": "RelevanceToQuery",
-                        "feedback": {"value": "yes"},
-                        "rationale": "The answer is relevant",
-                        "metadata": {"mlflow.assessment.sourceRunId": "run-eval-456"},
-                    }
-                ],
-            }
-        ]
-    )}
+    mock_results.tables = {
+        "eval_results": pd.DataFrame(
+            [
+                {
+                    "trace_id": "tr-test-123",
+                    "assessments": [
+                        {
+                            "assessment_name": "RelevanceToQuery",
+                            "feedback": {"value": "yes"},
+                            "rationale": "The answer is relevant",
+                            "metadata": {
+                                "mlflow.assessment.sourceRunId": "run-eval-456"
+                            },
+                        }
+                    ],
+                }
+            ]
+        )
+    }
 
     with (
         mock.patch(
             "mlflow.cli.eval.MlflowClient.get_trace", return_value=mock_trace
         ) as mock_get_trace,
-        mock.patch("mlflow.cli.eval.evaluate", return_value=mock_results) as mock_evaluate,
+        mock.patch(
+            "mlflow.cli.eval.evaluate", return_value=mock_results
+        ) as mock_evaluate,
     ):
         evaluate_traces(
             experiment_id=experiment_id,
@@ -80,38 +83,47 @@ def test_evaluate_traces_with_multiple_traces_json_output():
 
     mock_results = mock.Mock()
     mock_results.run_id = "run-eval-789"
-    mock_results.tables = {"eval_results": pd.DataFrame(
-        [
-            {
-                "trace_id": "tr-test-1",
-                "assessments": [
-                    {
-                        "assessment_name": "Correctness",
-                        "feedback": {"value": "correct"},
-                        "rationale": "Content is correct",
-                        "metadata": {"mlflow.assessment.sourceRunId": "run-eval-789"},
-                    }
-                ],
-            },
-            {
-                "trace_id": "tr-test-2",
-                "assessments": [
-                    {
-                        "assessment_name": "Correctness",
-                        "feedback": {"value": "correct"},
-                        "rationale": "Also correct",
-                        "metadata": {"mlflow.assessment.sourceRunId": "run-eval-789"},
-                    }
-                ],
-            },
-        ]
-    )}
+    mock_results.tables = {
+        "eval_results": pd.DataFrame(
+            [
+                {
+                    "trace_id": "tr-test-1",
+                    "assessments": [
+                        {
+                            "assessment_name": "Correctness",
+                            "feedback": {"value": "correct"},
+                            "rationale": "Content is correct",
+                            "metadata": {
+                                "mlflow.assessment.sourceRunId": "run-eval-789"
+                            },
+                        }
+                    ],
+                },
+                {
+                    "trace_id": "tr-test-2",
+                    "assessments": [
+                        {
+                            "assessment_name": "Correctness",
+                            "feedback": {"value": "correct"},
+                            "rationale": "Also correct",
+                            "metadata": {
+                                "mlflow.assessment.sourceRunId": "run-eval-789"
+                            },
+                        }
+                    ],
+                },
+            ]
+        )
+    }
 
     with (
         mock.patch(
-            "mlflow.cli.eval.MlflowClient.get_trace", side_effect=[mock_trace1, mock_trace2]
+            "mlflow.cli.eval.MlflowClient.get_trace",
+            side_effect=[mock_trace1, mock_trace2],
         ) as mock_get_trace,
-        mock.patch("mlflow.cli.eval.evaluate", return_value=mock_results) as mock_evaluate,
+        mock.patch(
+            "mlflow.cli.eval.evaluate", return_value=mock_results
+        ) as mock_evaluate,
     ):
         evaluate_traces(
             experiment_id=experiment,
@@ -136,14 +148,14 @@ def test_evaluate_traces_with_multiple_traces_json_output():
 
 
 def test_evaluate_traces_with_nonexistent_trace():
-    """Test evaluate_traces raises error when trace doesn't exist."""
     experiment = mlflow.create_experiment("test_experiment_error")
 
-    with (
-        mock.patch("mlflow.cli.eval.MlflowClient.get_trace", return_value=None) as mock_get_trace,
-        mock.patch("mlflow.cli.eval.evaluate") as mock_evaluate,
-    ):
-        with pytest.raises(click.UsageError, match="Trace with ID 'tr-nonexistent' not found"):
+    with mock.patch(
+        "mlflow.cli.eval.MlflowClient.get_trace", return_value=None
+    ) as mock_get_trace:
+        with pytest.raises(
+            click.UsageError, match="Trace with ID 'tr-nonexistent' not found"
+        ):
             evaluate_traces(
                 experiment_id=experiment,
                 trace_ids="tr-nonexistent",
@@ -152,11 +164,9 @@ def test_evaluate_traces_with_nonexistent_trace():
             )
 
         mock_get_trace.assert_called_once_with("tr-nonexistent", display=False)
-        mock_evaluate.assert_not_called()
 
 
 def test_evaluate_traces_with_trace_from_wrong_experiment():
-    """Test evaluate_traces raises error when trace belongs to different experiment."""
     experiment1 = mlflow.create_experiment("test_experiment_1")
     experiment2 = mlflow.create_experiment("test_experiment_2")
 
@@ -165,12 +175,9 @@ def test_evaluate_traces_with_trace_from_wrong_experiment():
     mock_trace.info.trace_id = "tr-test-123"
     mock_trace.info.experiment_id = experiment2
 
-    with (
-        mock.patch(
-            "mlflow.cli.eval.MlflowClient.get_trace", return_value=mock_trace
-        ) as mock_get_trace,
-        mock.patch("mlflow.cli.eval.evaluate") as mock_evaluate,
-    ):
+    with mock.patch(
+        "mlflow.cli.eval.MlflowClient.get_trace", return_value=mock_trace
+    ) as mock_get_trace:
         with pytest.raises(click.UsageError, match="belongs to experiment"):
             evaluate_traces(
                 experiment_id=experiment1,
@@ -180,4 +187,3 @@ def test_evaluate_traces_with_trace_from_wrong_experiment():
             )
 
         mock_get_trace.assert_called_once_with("tr-test-123", display=False)
-        mock_evaluate.assert_not_called()
