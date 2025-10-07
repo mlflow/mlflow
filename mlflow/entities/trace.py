@@ -82,7 +82,7 @@ class Trace(_MlflowObject):
         # full JSON can cause notebooks to exceed size limits
         return json.dumps(
             {
-                "trace_id": self.info.request_id,
+                "trace_id": self.info.trace_id,
                 # TODO: remove this once sql_warehouse_id
                 # is optional in the v4 tracing APIs
                 "sql_warehouse_id": MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
