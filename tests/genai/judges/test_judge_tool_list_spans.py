@@ -1,5 +1,3 @@
-"""Tests for the ListSpansTool implementation."""
-
 from unittest import mock
 
 import pytest

@@ -632,9 +632,19 @@ _MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS = _BooleanEnvironmentVariable(
 )
 
 #: Maximum number of workers to use for running model prediction and scoring during
-# for each row in the dataset passed to the `mlflow.genai.evaluate` function.
+#: for each row in the dataset passed to the `mlflow.genai.evaluate` function.
 #: (default: ``10``)
 MLFLOW_GENAI_EVAL_MAX_WORKERS = _EnvironmentVariable("MLFLOW_GENAI_EVAL_MAX_WORKERS", int, 10)
+
+
+#: Skip trace validation during GenAI evaluation. By default (False), MLflow will validate if
+#: the given predict function generates a valid trace, and otherwise wraps it with @mlflow.trace
+#: decorator to make sure a trace is generated. This validation requires running a single
+#: prediction. When you are sure that the predict function generates a trace, set this to True
+#: to skip the validation and save the time of running a single prediction.
+MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION = _BooleanEnvironmentVariable(
+    "MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION", False
+)
 
 #: Whether to warn (default) or raise (opt-in) for unresolvable requirements inference for
 #: a model's dependency inference. If set to True, an exception will be raised if requirements
@@ -772,6 +782,36 @@ _MLFLOW_IS_IN_SERVING_ENVIRONMENT = _BooleanEnvironmentVariable(
 #: Secret key for the Flask app. This is necessary for enabling CSRF protection
 #: in the UI signup page when running the app with basic authentication enabled
 MLFLOW_FLASK_SERVER_SECRET_KEY = _EnvironmentVariable("MLFLOW_FLASK_SERVER_SECRET_KEY", str, None)
+
+#: (MLflow 3.5.0+) Comma-separated list of allowed CORS origins for the MLflow server.
+#: Example: "http://localhost:3000,https://app.example.com"
+#: Use "*" to allow ALL origins (DANGEROUS - only use for development!).
+#: (default: ``None`` - localhost origins only)
+MLFLOW_SERVER_CORS_ALLOWED_ORIGINS = _EnvironmentVariable(
+    "MLFLOW_SERVER_CORS_ALLOWED_ORIGINS", str, None
+)
+
+#: (MLflow 3.5.0+) Comma-separated list of allowed Host headers for the MLflow server.
+#: Example: "mlflow.company.com,mlflow.internal:5000"
+#: Use "*" to allow ALL hosts (not recommended for production).
+#: If not set, defaults to localhost variants and private IP ranges.
+#: (default: ``None`` - localhost and private IP ranges)
+MLFLOW_SERVER_ALLOWED_HOSTS = _EnvironmentVariable("MLFLOW_SERVER_ALLOWED_HOSTS", str, None)
+
+#: (MLflow 3.5.0+) Disable all security middleware (DANGEROUS - only use for testing!).
+#: Set to "true" to disable security headers, CORS protection, and host validation.
+#: (default: ``"false"``)
+MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE = _EnvironmentVariable(
+    "MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE", str, "false"
+)
+
+#: (MLflow 3.5.0+) X-Frame-Options header value for clickjacking protection.
+#: Options: "SAMEORIGIN" (default), "DENY", or "NONE" (disable).
+#: Set to "NONE" to allow embedding MLflow UI in iframes from different origins.
+#: (default: ``"SAMEORIGIN"``)
+MLFLOW_SERVER_X_FRAME_OPTIONS = _EnvironmentVariable(
+    "MLFLOW_SERVER_X_FRAME_OPTIONS", str, "SAMEORIGIN"
+)
 
 #: Specifies the max length (in chars) of an experiment's artifact location.
 #: The default is 2048.
@@ -985,15 +1025,9 @@ MLFLOW_TRACING_SQL_WAREHOUSE_ID = _EnvironmentVariable("MLFLOW_TRACING_SQL_WAREH
 #: Specifies whether to enable job execution feature for MLflow server.
 #: This feature requires "huey" package dependency, and requires MLflow server to configure
 #: --backend-store-uri to database URI.
-#: (default: ``True``)
+#: (default: ``False``)
 MLFLOW_SERVER_ENABLE_JOB_EXECUTION = _BooleanEnvironmentVariable(
-    "MLFLOW_SERVER_ENABLE_JOB_EXECUTION", True
-)
-
-#: Specifies the MLflow server job maximum parallelism, ``None`` means to use the number of CPUs
-#: as the parallelism. (default: ``None``)
-MLFLOW_SERVER_JOB_MAX_PARALLELISM = _EnvironmentVariable(
-    "MLFLOW_SERVER_JOB_MAX_PARALLELISM", int, None
+    "MLFLOW_SERVER_ENABLE_JOB_EXECUTION", False
 )
 
 #: Specifies MLflow server job maximum allowed retries for transient errors.
@@ -1017,6 +1051,7 @@ MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY = _EnvironmentVariable(
 MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY = _EnvironmentVariable(
     "MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY", int, 60
 )
+
 
 #: Specifies the maximum number of completion iterations allowed when invoking
 #: judge models. This prevents infinite loops in case of complex traces or

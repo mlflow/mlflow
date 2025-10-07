@@ -478,6 +478,8 @@ transformers:
       ">= 4.38.2": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
       "< 4.52.0.dev0": ["accelerate<1"]
     pre_test: |
+      sudo apt-get update -y
+      sudo apt-get install -y ffmpeg
       export PYTHONPATH=./
       python tests/transformers/helper.py
     run: |
@@ -811,6 +813,7 @@ gemini:
       pip install google-generativeai
       pytest tests/gemini
     test_tracing_sdk: true
+    test_every_n_versions: 10
 
 anthropic:
   package_info:
@@ -826,7 +829,7 @@ anthropic:
     run: pytest tests/anthropic
     # Our CI runs tests for every minor version of the library by default, which results in
     # many test tasks for anthropic. Reducing the number of testing only for every 5 version.
-    test_every_n_versions: 5
+    test_every_n_versions: 10
     test_tracing_sdk: true
 
 crewai:
@@ -843,6 +846,7 @@ crewai:
     requirements:
     run: pytest tests/crewai
     test_tracing_sdk: true
+    test_every_n_versions: 20
 
 agno:
   package_info:
@@ -930,6 +934,7 @@ haystack:
     requirements:
     run: pytest tests/haystack
     test_tracing_sdk: true
+    test_every_n_versions: 10
 
 mistral:
   package_info:
@@ -949,6 +954,7 @@ mistral:
     requirements:
     run: pytest tests/mistral
     test_tracing_sdk: true
+    test_every_n_versions: 10
 
 sentence_transformers:
   package_info:
@@ -1008,6 +1014,7 @@ promptflow:
       "< 1.18": ["numpy<2"]
     run: |
       pytest tests/promptflow/test_promptflow_model_export.py
+    test_every_n_versions: 10
 
 litellm:
   package_info:
@@ -1042,6 +1049,7 @@ groq:
     requirements:
     run: pytest tests/groq
     test_tracing_sdk: true
+    test_every_n_versions: 10
 
 bedrock:
   package_info:

@@ -119,7 +119,9 @@ class DatabricksWorkspaceModelRegistryRestStore(RestStore):
             source_uri = f"models:/{src_mv.name}/{src_mv.version}"
             try:
                 local_model_dir = mlflow.artifacts.download_artifacts(
-                    artifact_uri=source_uri, tracking_uri=self.tracking_uri
+                    artifact_uri=source_uri,
+                    tracking_uri=self.tracking_uri,
+                    registry_uri="databricks",
                 )
             except Exception as e:
                 raise MlflowException(

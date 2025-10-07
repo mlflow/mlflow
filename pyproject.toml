@@ -27,6 +27,7 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
+  "Flask-CORS<7",
   "Flask<4",
   "alembic<2,!=1.10.0",
   "cachetools<7,>=5.0.0",
@@ -187,6 +188,7 @@ test = [
   "pytest-repeat",
   "pytest-cov",
   "pytest-timeout",
+  "psutil",
 ]
 build = ["pip", "setuptools", "wheel", "build"]
 
@@ -269,6 +271,7 @@ select = [
   "RUF003",  # ambiguous-unicode-character-comment
   "RUF010",  # explicit-f-string-type-conversion
   "RUF013",  # implicit-optional
+  "RUF051",  # if-key-in-dict-del
   "RUF100",  # unused-noqa
   "S307",    # suspicious-eval-usage
   "S324",    # hashlib-insecure-hash-function
@@ -430,6 +433,10 @@ filterwarnings = [
   "error:^`np\\.[a-z]+` is a deprecated alias for.+:DeprecationWarning:tests",
   "error::pytest.PytestCollectionWarning",
   "error:.*type should be str.*converted to str implicitly:pytest.PytestWarning",
+  # Prevent deprecated threading.Thread.getName() from being used
+  "error:getName\\(\\) is deprecated, get the name attribute instead:DeprecationWarning",
+  # Prevent deprecated non-integer arguments to randrange() from being used
+  "error:non-integer arguments to randrange\\(\\) have been deprecated:DeprecationWarning",
 ]
 timeout = 1200
 

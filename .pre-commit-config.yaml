@@ -4,7 +4,7 @@ repos:
     rev: v4.5.0
     hooks:
       - id: trailing-whitespace
-        files: \.(mdx|ya?ml)$
+        files: \.(mdx|ya?ml|txt)$
       - id: end-of-file-fixer
         files: \.(proto|txt|sh|rst)$
         exclude: ^examples/
@@ -144,7 +144,7 @@ repos:
         name: check-init-py
         entry: uv run --only-group lint dev/check_init_py.py
         language: system
-        files: '^mlflow/.*\.py$'
+        files: '^(mlflow|tests)/.*\.py$'
         stages: [pre-commit]
         require_serial: true
         pass_filenames: false

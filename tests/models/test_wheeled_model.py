@@ -54,7 +54,7 @@ def sklearn_knn_model():
 
 
 def random_int(lo=1, hi=1000000000):
-    return random.randint(lo, hi)
+    return random.randint(int(lo), int(hi))
 
 
 def _get_list_from_file(path):

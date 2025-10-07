@@ -49,9 +49,10 @@ all network interfaces (or a specific interface address). This is typically
 required configuration when running the server **in a Kubernetes pod or a
 Docker container**.
 
-Note that doing this for a server running on a public network is not recommended
-for security reasons. You should consider using a reverse proxy like NGINX or Apache
-httpd, or connecting over VPN (See [Secure Tracking Server](#tracking-auth) for more details).
+MLflow 3.5.0+ includes built-in security middleware to protect against DNS rebinding
+and CORS attacks. When using `--host 0.0.0.0`, configure the `--allowed-hosts` option
+to specify which domains can access your server. See [Security Configuration](/ml/tracking/server/security)
+for details.
 :::
 
 ## Logging to a Tracking Server \{#logging_to_a_tracking_server}
@@ -256,14 +257,35 @@ Otherwise, all artifact requests will route to the MLflow Tracking server, defea
 
 ## Secure Tracking Server \{#tracking-auth}
 
-The `--host` option exposes the service on all interfaces. If running a server in production, we
-would recommend not exposing the built-in server broadly (as it is unauthenticated and unencrypted),
-and instead putting it behind a reverse proxy like NGINX or Apache httpd, or connecting over VPN.
+### Built-in Security Middleware
 
-You can then pass authentication headers to MLflow using these environment variables .
+MLflow 3.5.0+ includes security middleware that automatically protects against common web vulnerabilities:
+
+- **DNS Rebinding Protection**: Validates Host headers to prevent attacks on internal services
+- **CORS Protection**: Controls which web applications can access your API
+- **Clickjacking Prevention**: X-Frame-Options header controls iframe embedding
+
+Configure these features with simple command-line options:
+
+```bash
+mlflow server --host 0.0.0.0 \
+  --allowed-hosts "mlflow.company.com" \
+  --cors-allowed-origins "https://app.company.com"
+```
+
+For detailed configuration options, see [Security Configuration](/ml/tracking/server/security/configuration).
+
+### Authentication and Encryption
+
+For production deployments, we recommend using a reverse proxy (NGINX, Apache httpd) or VPN to add:
+
+- **TLS/HTTPS encryption** for secure communication
+- **Authentication** via proxy authentication headers
+
+You can pass authentication headers to MLflow using these environment variables:
 
 - `MLFLOW_TRACKING_USERNAME` and `MLFLOW_TRACKING_PASSWORD` - username and password to use with HTTP
-  Basic authentication. To use Basic authentication, you must set `both` environment variables .
+  Basic authentication. To use Basic authentication, you must set `both` environment variables.
 - `MLFLOW_TRACKING_TOKEN` - token to use with HTTP Bearer authentication. Basic authentication takes precedence if set.
 - `MLFLOW_TRACKING_INSECURE_TLS` - If set to the literal `true`, MLflow does not verify the TLS connection,
   meaning it does not validate certificates or hostnames for `https://` tracking URIs. This flag is not recommended for
@@ -277,6 +299,22 @@ You can then pass authentication headers to MLflow using these environment varia
   of the `requests.request` function
   (see [requests main interface](https://requests.readthedocs.io/en/master/api)).
   This can be used to use a (self-signed) client certificate.
+
+For notebook integration and UI embedding options, see [UI Access & Notebooks](/ml/tracking/server/security/ui-access).
+
+## Tracking Server versioning
+
+The version of MLflow running on the server can be found by querying the `/version` endpoint.
+This can be used to check that the client-side version of MLflow is up-to-date with a remote tracking server prior to running experiments.
+For example:
+
+```python
+import requests
+import mlflow
+
+response = requests.get("http://<mlflow-host>:<mlflow-port>/version")
+assert response.text == mlflow.__version__  # Checking for a strict version match
+```
 
 ## Model Version Source Validation
 

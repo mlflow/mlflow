@@ -52,7 +52,9 @@ def test_models_artifact_repo_init_with_uri_containing_profile(uri_with_profile)
         models_repo = ModelsArtifactRepository(uri_with_profile)
         assert models_repo.artifact_uri == uri_with_profile
         assert isinstance(models_repo.repo, DatabricksModelsArtifactRepository)
-        mock_repo.assert_called_once_with(uri_with_profile)
+        mock_repo.assert_called_once_with(
+            uri_with_profile, tracking_uri=None, registry_uri=mock.ANY
+        )
 
 
 @pytest.mark.parametrize(
@@ -72,7 +74,11 @@ def test_models_artifact_repo_init_with_db_profile_inferred_from_context(uri_wit
         models_repo = ModelsArtifactRepository(uri_without_profile)
         assert models_repo.artifact_uri == uri_without_profile
         assert isinstance(models_repo.repo, DatabricksModelsArtifactRepository)
-        mock_repo.assert_called_once_with(uri_without_profile)
+        mock_repo.assert_called_once_with(
+            uri_without_profile,
+            tracking_uri=None,
+            registry_uri="databricks://getRegistryUriDefault",
+        )
 
 
 def test_models_artifact_repo_init_with_uc_registry_db_profile_inferred_from_context():
@@ -87,7 +93,9 @@ def test_models_artifact_repo_init_with_uc_registry_db_profile_inferred_from_con
         models_repo = ModelsArtifactRepository(model_uri)
         assert models_repo.artifact_uri == model_uri
         assert isinstance(models_repo.repo, UnityCatalogModelsArtifactRepository)
-        mock_repo.assert_called_once_with(model_uri, registry_uri=uc_registry_uri)
+        mock_repo.assert_called_once_with(
+            model_uri, registry_uri=uc_registry_uri, tracking_uri=None
+        )
 
 
 def test_models_artifact_repo_init_with_uc_oss_profile_inferred_from_context():
@@ -102,7 +110,9 @@ def test_models_artifact_repo_init_with_uc_oss_profile_inferred_from_context():
         models_repo = ModelsArtifactRepository(model_uri)
         assert models_repo.artifact_uri == model_uri
         assert isinstance(models_repo.repo, UnityCatalogOSSModelsArtifactRepository)
-        mock_repo.assert_called_once_with(model_uri, registry_uri=uc_registry_uri)
+        mock_repo.assert_called_once_with(
+            model_uri, registry_uri=uc_registry_uri, tracking_uri=None
+        )
 
 
 def test_models_artifact_repo_init_with_version_uri_and_not_using_databricks_registry():
@@ -123,7 +133,9 @@ def test_models_artifact_repo_init_with_version_uri_and_not_using_databricks_reg
     ):
         model_uri = "models:/MyModel/12"
         ModelsArtifactRepository(model_uri)
-        get_repo_mock.assert_called_once_with(artifact_location)
+        get_repo_mock.assert_called_once_with(
+            artifact_location, tracking_uri=None, registry_uri=mock.ANY
+        )
 
 
 def test_models_artifact_repo_init_with_stage_uri_and_not_using_databricks_registry():
@@ -155,7 +167,9 @@ def test_models_artifact_repo_init_with_stage_uri_and_not_using_databricks_regis
         ) as get_repo_mock,
     ):
         ModelsArtifactRepository(model_uri)
-        get_repo_mock.assert_called_once_with(artifact_location)
+        get_repo_mock.assert_called_once_with(
+            artifact_location, tracking_uri=None, registry_uri=mock.ANY
+        )
 
 
 def test_models_artifact_repo_uses_repo_download_artifacts(tmp_path):
