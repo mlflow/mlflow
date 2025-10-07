@@ -498,11 +498,7 @@ def delete_trace_tag(trace_id: str, key: str) -> None:
 @click.option(
     "--source-type",
     type=click.Choice(
-        [
-            AssessmentSourceType.HUMAN,
-            AssessmentSourceType.LLM_JUDGE,
-            AssessmentSourceType.CODE,
-        ]
+        [AssessmentSourceType.HUMAN, AssessmentSourceType.LLM_JUDGE, AssessmentSourceType.CODE]
     ),
     help="Source type of the feedback",
 )
