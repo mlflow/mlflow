@@ -276,6 +276,7 @@ select = [
   "S307",    # suspicious-eval-usage
   "S324",    # hashlib-insecure-hash-function
   "SIM101",  # duplicate-isinstance-call
+  "SIM107",  # return-in-try-except-finally
   "SIM108",  # if-else-block-instead-of-if-exp
   "SIM114",  # if-with-same-arms
   "SIM115",  # open-file-with-context-handler
