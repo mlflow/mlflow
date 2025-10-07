@@ -3799,10 +3799,14 @@ class SqlAlchemyStore(AbstractStore):
                     if key not in schema["inputs"]:
                         schema["inputs"][key] = self._infer_field_type(value)
 
-            if outputs := record.get("outputs"):
-                for key, value in outputs.items():
-                    if key not in schema["outputs"]:
-                        schema["outputs"][key] = self._infer_field_type(value)
+            if (outputs := record.get("outputs")) is not None:
+                if isinstance(outputs, dict):
+                    for key, value in outputs.items():
+                        if key not in schema["outputs"]:
+                            schema["outputs"][key] = self._infer_field_type(value)
+                else:
+                    if not schema["outputs"]:
+                        schema["outputs"] = self._infer_field_type(outputs)
 
             if expectations := record.get("expectations"):
                 for key, value in expectations.items():
