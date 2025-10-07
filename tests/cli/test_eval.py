@@ -29,9 +29,7 @@ def test_evaluate_traces_with_single_trace_table_output():
                             "assessment_name": "RelevanceToQuery",
                             "feedback": {"value": "yes"},
                             "rationale": "The answer is relevant",
-                            "metadata": {
-                                "mlflow.assessment.sourceRunId": "run-eval-456"
-                            },
+                            "metadata": {"mlflow.assessment.sourceRunId": "run-eval-456"},
                         }
                     ],
                 }
@@ -43,9 +41,7 @@ def test_evaluate_traces_with_single_trace_table_output():
         mock.patch(
             "mlflow.cli.eval.MlflowClient.get_trace", return_value=mock_trace
         ) as mock_get_trace,
-        mock.patch(
-            "mlflow.cli.eval.evaluate", return_value=mock_results
-        ) as mock_evaluate,
+        mock.patch("mlflow.cli.eval.evaluate", return_value=mock_results) as mock_evaluate,
     ):
         evaluate_traces(
             experiment_id=experiment_id,
@@ -93,9 +89,7 @@ def test_evaluate_traces_with_multiple_traces_json_output():
                             "assessment_name": "Correctness",
                             "feedback": {"value": "correct"},
                             "rationale": "Content is correct",
-                            "metadata": {
-                                "mlflow.assessment.sourceRunId": "run-eval-789"
-                            },
+                            "metadata": {"mlflow.assessment.sourceRunId": "run-eval-789"},
                         }
                     ],
                 },
@@ -106,9 +100,7 @@ def test_evaluate_traces_with_multiple_traces_json_output():
                             "assessment_name": "Correctness",
                             "feedback": {"value": "correct"},
                             "rationale": "Also correct",
-                            "metadata": {
-                                "mlflow.assessment.sourceRunId": "run-eval-789"
-                            },
+                            "metadata": {"mlflow.assessment.sourceRunId": "run-eval-789"},
                         }
                     ],
                 },
@@ -121,9 +113,7 @@ def test_evaluate_traces_with_multiple_traces_json_output():
             "mlflow.cli.eval.MlflowClient.get_trace",
             side_effect=[mock_trace1, mock_trace2],
         ) as mock_get_trace,
-        mock.patch(
-            "mlflow.cli.eval.evaluate", return_value=mock_results
-        ) as mock_evaluate,
+        mock.patch("mlflow.cli.eval.evaluate", return_value=mock_results) as mock_evaluate,
     ):
         evaluate_traces(
             experiment_id=experiment,
@@ -150,12 +140,8 @@ def test_evaluate_traces_with_multiple_traces_json_output():
 def test_evaluate_traces_with_nonexistent_trace():
     experiment = mlflow.create_experiment("test_experiment_error")
 
-    with mock.patch(
-        "mlflow.cli.eval.MlflowClient.get_trace", return_value=None
-    ) as mock_get_trace:
-        with pytest.raises(
-            click.UsageError, match="Trace with ID 'tr-nonexistent' not found"
-        ):
+    with mock.patch("mlflow.cli.eval.MlflowClient.get_trace", return_value=None) as mock_get_trace:
+        with pytest.raises(click.UsageError, match="Trace with ID 'tr-nonexistent' not found"):
             evaluate_traces(
                 experiment_id=experiment,
                 trace_ids="tr-nonexistent",
