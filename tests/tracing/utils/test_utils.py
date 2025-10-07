@@ -12,6 +12,7 @@ from mlflow.entities import (
     SpanType,
 )
 from mlflow.entities.span import SpanType
+from mlflow.entities.trace_location import UCSchemaLocation
 from mlflow.exceptions import MlflowException
 from mlflow.tracing import set_span_chat_tools
 from mlflow.tracing.constant import (
@@ -19,7 +20,6 @@ from mlflow.tracing.constant import (
     SpanAttributeKey,
     TokenUsageKey,
 )
-from mlflow.tracing.destination import DatabricksUnityCatalog
 from mlflow.tracing.utils import (
     _calculate_percentile,
     aggregate_usage_from_spans,
@@ -414,15 +414,13 @@ def test_generate_trace_id_v4_with_uc_schema():
 
 
 def test_get_spans_table_name_for_trace_with_destination():
-    mock_destination = DatabricksUnityCatalog(
-        catalog_name="catalog", schema_name="schema", spans_table_name="spans"
-    )
+    mock_destination = UCSchemaLocation(catalog_name="catalog", schema_name="schema")
 
     with mock.patch("mlflow.tracing.provider._MLFLOW_TRACE_USER_DESTINATION") as mock_ctx:
         mock_ctx.get.return_value = mock_destination
 
         result = get_active_spans_table_name()
-        assert result == "catalog.schema.spans"
+        assert result == "catalog.schema.mlflow_experiment_trace_otel_spans"
 
 
 def test_get_spans_table_name_for_trace_no_destination():

@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
@@ -6,9 +7,26 @@ from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.exceptions import MlflowException
 from mlflow.protos import service_pb2 as pb
 
+_UC_SCHEMA_DEFAULT_SPANS_TABLE_NAME = "mlflow_experiment_trace_otel_spans"
+_UC_SCHEMA_DEFAULT_LOGS_TABLE_NAME = "mlflow_experiment_trace_otel_logs"
+
 
 @dataclass
-class MlflowExperimentLocation(_MlflowObject):
+class TraceLocationBase(_MlflowObject, ABC):
+    """
+    Base class for trace location classes.
+    """
+
+    @abstractmethod
+    def to_dict(self) -> dict[str, Any]: ...
+
+    @classmethod
+    @abstractmethod
+    def from_dict(cls, d: dict[str, Any]) -> "TraceLocationBase": ...
+
+
+@dataclass
+class MlflowExperimentLocation(TraceLocationBase):
     """
     Represents the location of an MLflow experiment.
 
@@ -34,7 +52,7 @@ class MlflowExperimentLocation(_MlflowObject):
 
 
 @dataclass
-class InferenceTableLocation(_MlflowObject):
+class InferenceTableLocation(TraceLocationBase):
     """
     Represents the location of a Databricks inference table.
 
@@ -61,7 +79,7 @@ class InferenceTableLocation(_MlflowObject):
 
 
 @dataclass
-class UCSchemaLocation(_MlflowObject):
+class UCSchemaLocation(TraceLocationBase):
     """
     Represents the location of a Databricks Unity Catalog (UC) schema.
 
@@ -74,8 +92,8 @@ class UCSchemaLocation(_MlflowObject):
     schema_name: str
 
     # These table names are set by the backend
-    _otel_spans_table_name: str | None = None
-    _otel_logs_table_name: str | None = None
+    _otel_spans_table_name: str | None = _UC_SCHEMA_DEFAULT_SPANS_TABLE_NAME
+    _otel_logs_table_name: str | None = _UC_SCHEMA_DEFAULT_LOGS_TABLE_NAME
 
     @property
     def schema_location(self) -> str:
