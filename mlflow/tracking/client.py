@@ -125,6 +125,7 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import is_databricks_unity_catalog_uri, is_databricks_uri
 from mlflow.utils.validation import (
+    _validate_list_param,
     _validate_model_alias_name,
     _validate_model_name,
     _validate_model_version,
@@ -1123,9 +1124,10 @@ class MlflowClient:
             get_display_handler().display_traces([trace])
         return trace
 
+    @deprecated_parameter("experiment_ids", "locations")
     def search_traces(
         self,
-        experiment_ids: list[str],
+        experiment_ids: list[str] | None = None,
         filter_string: str | None = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: list[str] | None = None,
@@ -1133,7 +1135,7 @@ class MlflowClient:
         run_id: str | None = None,
         include_spans: bool = True,
         model_id: str | None = None,
-        sql_warehouse_id: str | None = None,
+        locations: list[str] | None = None,
     ) -> PagedList[Trace]:
         """
         Return traces that match the given list of search expressions within the experiments.
@@ -1152,9 +1154,9 @@ class MlflowClient:
                 the trace metadata is returned, e.g., trace ID, start time, end time, etc,
                 without any spans.
             model_id: If specified, return traces associated with the model ID.
-            sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
-                searching traces in inference tables.
-
+            locations: A list of locations to search over. To search over experiments, provide
+                a list of experiment IDs. To search over UC tables on databricks, provide
+                a list of locations in the format `<catalog_name>.<schema_name>`.
 
         Returns:
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
@@ -1164,6 +1166,9 @@ class MlflowClient:
             some store implementations may not support pagination and thus the returned token would
             not be meaningful in such cases.
         """
+        _validate_list_param("experiment_ids", experiment_ids, allow_none=True)
+        _validate_list_param("locations", locations, allow_none=True)
+
         return self._tracing_client.search_traces(
             experiment_ids=experiment_ids,
             filter_string=filter_string,
@@ -1173,7 +1178,7 @@ class MlflowClient:
             run_id=run_id,
             include_spans=include_spans,
             model_id=model_id,
-            sql_warehouse_id=sql_warehouse_id,
+            locations=locations,
         )
 
     def start_trace(

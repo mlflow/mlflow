@@ -1,4 +1,5 @@
 import json
+from unittest import mock
 from unittest.mock import Mock, patch
 
 import pytest
@@ -11,6 +12,7 @@ from mlflow.entities import (
     SpanType,
 )
 from mlflow.entities.span import SpanType
+from mlflow.entities.trace_location import UCSchemaLocation
 from mlflow.exceptions import MlflowException
 from mlflow.tracing import set_span_chat_tools
 from mlflow.tracing.constant import (
@@ -25,6 +27,8 @@ from mlflow.tracing.utils import (
     construct_full_inputs,
     deduplicate_span_names_in_place,
     encode_span_id,
+    generate_trace_id_v4,
+    get_active_spans_table_name,
     get_otel_attribute,
     maybe_get_request_id,
     parse_trace_id_v4,
@@ -394,3 +398,34 @@ def test_get_otel_attribute_non_string_attribute():
 
     result = get_otel_attribute(span, "boolean_value")
     assert result is None
+
+
+def test_generate_trace_id_v4_with_uc_schema():
+    span = create_mock_otel_span(trace_id=12345, span_id=1)
+    uc_schema = "catalog.schema"
+
+    with mock.patch(
+        "mlflow.tracing.utils.construct_trace_id_v4", return_value="trace:/catalog.schema/abc123"
+    ) as mock_construct:
+        result = generate_trace_id_v4(span, uc_schema)
+
+        mock_construct.assert_called_once_with(uc_schema, mock.ANY)
+        assert result == "trace:/catalog.schema/abc123"
+
+
+def test_get_spans_table_name_for_trace_with_destination():
+    mock_destination = UCSchemaLocation(catalog_name="catalog", schema_name="schema")
+
+    with mock.patch("mlflow.tracing.provider._MLFLOW_TRACE_USER_DESTINATION") as mock_ctx:
+        mock_ctx.get.return_value = mock_destination
+
+        result = get_active_spans_table_name()
+        assert result == "catalog.schema.mlflow_experiment_trace_otel_spans"
+
+
+def test_get_spans_table_name_for_trace_no_destination():
+    with mock.patch("mlflow.tracing.provider._MLFLOW_TRACE_USER_DESTINATION") as mock_ctx:
+        mock_ctx.get.return_value = None
+
+        result = get_active_spans_table_name()
+        assert result is None

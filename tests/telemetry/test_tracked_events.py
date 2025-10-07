@@ -682,7 +682,10 @@ def test_invoke_custom_judge_model(
                     )
         else:
             with (
-                mock.patch("mlflow.genai.judges.utils._invoke_litellm", return_value=mock_response),
+                mock.patch(
+                    "mlflow.genai.judges.utils._invoke_litellm_and_handle_tools",
+                    return_value=mock_response,
+                ),
                 mock.patch("mlflow.genai.judges.utils._invoke_databricks_model") as mock_databricks,
             ):
                 # For databricks provider, mock the databricks model invocation
