@@ -101,7 +101,7 @@ def test_adapt_prompts_single_prompt(sample_translation_prompt, sample_dataset):
         target_prompt_uris=[
             f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
         ],
-        optimizer_lm_params=LLMParams(model_name="test/model"),
+        optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o-mini"),
         optimizer=mock_adapter,
     )
 
@@ -126,7 +126,7 @@ def test_adapt_prompts_multiple_prompts(
             f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}",
             f"prompts:/{sample_summarization_prompt.name}/{sample_summarization_prompt.version}",
         ],
-        optimizer_lm_params=LLMParams(model_name="test/model"),
+        optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o-mini"),
         optimizer=mock_adapter,
     )
 
@@ -188,7 +188,7 @@ def test_adapt_prompts_eval_function_behavior(sample_translation_prompt, sample_
         target_prompt_uris=[
             f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
         ],
-        optimizer_lm_params=LLMParams(model_name="test/model"),
+        optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o-mini"),
         optimizer=testing_adapter,
     )
 
@@ -210,7 +210,7 @@ def test_adapt_prompts_with_list_dataset(sample_translation_prompt, sample_summa
         target_prompt_uris=[
             f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
         ],
-        optimizer_lm_params=LLMParams(model_name="test/model"),
+        optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o-mini"),
         optimizer=mock_adapter,
     )
 
@@ -267,7 +267,9 @@ def test_adapt_prompts_llm_params_passed(sample_translation_prompt, sample_datas
     ],
 )
 def test_compute_score_exact_match(program_outputs, expected_outputs, expected_score):
-    assert _compute_score(program_outputs, expected_outputs, "test/model") == expected_score
+    assert (
+        _compute_score(program_outputs, expected_outputs, "openai:/gpt-4o-mini") == expected_score
+    )
 
 
 def test_compute_score_llm_judge_semantic_matching():
@@ -287,7 +289,8 @@ def test_compute_score_llm_judge_semantic_matching():
 
         # Verify judge called with string representations
         mock_judge.assert_called_once_with(
-            outputs="The capital of France is Paris", expectations={"expected_output": "Paris"}
+            outputs={"outputs": "The capital of France is Paris"},
+            expectations={"outputs": "Paris"},
         )
         assert score == 1.0
 
@@ -296,13 +299,14 @@ def test_compute_score_llm_judge_semantic_matching():
     with patch("mlflow.genai.judges.make_judge") as mock_make_judge:
         mock_judge = Mock(return_value=mock_result)
         mock_make_judge.return_value = mock_judge
-        assert _compute_score("output", "different", "test/model") == 0.0
+        assert _compute_score("output", "different", "openai:/gpt-4o-mini") == 0.0
 
 
 def test_compute_score_error_handling():
     with patch("mlflow.genai.judges.make_judge") as mock_make_judge:
-        mock_make_judge.side_effect = Exception("API Error")
-        assert _compute_score("output", "expected", "test/model") == 0.0
+        mock_judge = Mock(side_effect=Exception("API Error"))
+        mock_make_judge.return_value = mock_judge
+        assert _compute_score("output", "expected", "openai:/gpt-4o-mini") == 0.0
 
 
 def test_adapt_prompts_with_custom_eval_metric(sample_translation_prompt, sample_dataset):
@@ -343,7 +347,7 @@ def test_adapt_prompts_with_custom_eval_metric(sample_translation_prompt, sample
         target_prompt_uris=[
             f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
         ],
-        optimizer_lm_params=LLMParams(model_name="test/model"),
+        optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o-mini"),
         optimizer=testing_adapter,
         eval_metric=custom_metric,
     )

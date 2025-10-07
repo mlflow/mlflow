@@ -71,7 +71,7 @@ def adapt_prompts(
             on the evaluation dataset and passed in function.
             If this argument is none, the default optimizer is used.
         eval_metric: an optional callable that computes a score between program outputs
-            and expected outputs. Should accept (program_outputs, expected_outputs) and
+            and expected outputs. Should accept (outputs, expectations) and
             return a float score between 0 and 1. If None, uses the default metric that
             applies exact match for numeric types and LLM judge for text.
 
@@ -155,6 +155,8 @@ def _compute_score(program_outputs: Any, expected_outputs: Any, judge_model: str
     Returns:
         A score between 0 and 1
     """
+    from mlflow.genai.judges import make_judge
+
     # Handle exact match for numerical types
     if isinstance(program_outputs, (int, float, bool)) and isinstance(
         expected_outputs, (int, float, bool)
@@ -170,20 +172,19 @@ def _compute_score(program_outputs: Any, expected_outputs: Any, judge_model: str
         return 1.0
 
     # Use LLM judge for text outputs
+    judge = make_judge(
+        name="equivalence_judge",
+        instructions=(
+            "Compare {{outputs}} against {{expectations}}. "
+            "Evaluate if they are both semantically equivalent or convey the same meaning, "
+            "and if the output format matches the expected format "
+            "(e.g., JSON structure, sentence structure). "
+            "Return 'pass' if they match in both content and format, 'fail' if they don't."
+        ),
+        model=judge_model,
+    )
     try:
-        from mlflow.genai.judges import make_judge
-
-        judge = make_judge(
-            name="equivalence_judge",
-            instructions=(
-                "Compare {{outputs}} against {{expectations}}. "
-                "Evaluate if they are semantically equivalent or convey the same meaning. "
-                "Return 'pass' if they match, 'fail' if they don't."
-            ),
-            model=judge_model,
-        )
-
-        result = judge(outputs=program_str, expectations={"expected_output": expected_str})
+        result = judge(outputs={"outputs": program_str}, expectations={"outputs": expected_str})
 
         # Parse the result - judges return Assessment with 'value' and 'rationale' fields
         # The 'value' field contains the result ("pass", "fail")
