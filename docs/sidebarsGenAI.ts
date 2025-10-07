@@ -349,7 +349,7 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Prompt Registry',
+      label: 'Prompt Management',
       className: 'sidebar-top-level-category',
       items: [
         {
