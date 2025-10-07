@@ -1450,6 +1450,10 @@
     "defaultMessage": "Y axis",
     "description": "Label for Y axis in scatter chart configurator in compare runs chart config modal"
   },
+  "DcGPfO": {
+    "defaultMessage": "Row height",
+    "description": "Label for the row height radio group"
+  },
   "Dhn7Mb": {
     "defaultMessage": "Displaying Runs from {numExperiments} Experiments",
     "description": "Message shown when displaying runs from multiple experiments"
@@ -2748,6 +2752,10 @@
     "defaultMessage": "Cancel",
     "description": "Cancel button label within a modal for adding/editing a new runs comparison chart"
   },
+  "TnD/vL": {
+    "defaultMessage": "No records found",
+    "description": "Empty state for the evaluation dataset records table"
+  },
   "Tpj2su": {
     "defaultMessage": "Attributes",
     "description": "Label for the attributes column group in the logged model column selector"
@@ -3235,6 +3243,10 @@
     "defaultMessage": "Adheres to guidelines",
     "description": "Evaluation results > guideline adherence assessment > positive value label. Displayed if evaluation result adheres to the guidelines."
   },
+  "ZNyTjg": {
+    "defaultMessage": "Small",
+    "description": "Small row size"
+  },
   "ZO8PZt": {
     "defaultMessage": "{count, plural, =1 {1 minute} other {# minutes}} ago",
     "description": "Time duration in minutes"
@@ -3603,6 +3615,10 @@
     "defaultMessage": "Create",
     "description": "Create evaluation dataset button text"
   },
+  "crmbMK": {
+    "defaultMessage": "Displaying {loadedRecordsCount} of {totalRecordsCount, plural, =1 {1 record} other {# records}}",
+    "description": "Label for the number of records displayed"
+  },
   "csNr/8": {
     "defaultMessage": "Disable grouped runs to compare parameters, tag, or attributes",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > disable group runs tooltip message"
@@ -3862,6 +3878,10 @@
   "faLIN+": {
     "defaultMessage": "Timestamp",
     "description": "Run page > Charts tab > Chart tooltip > Timestamp label"
+  },
+  "fcIHyN": {
+    "defaultMessage": "Medium",
+    "description": "Medium row size"
   },
   "ffIouW": {
     "defaultMessage": "Retrieval sufficiency assessment is missing. This is likely because your agent is not returning retrieved_context.",
@@ -5522,6 +5542,10 @@
   "xdFMIN": {
     "defaultMessage": "Dataset name",
     "description": "Dataset name label"
+  },
+  "xgbeVS": {
+    "defaultMessage": "Large",
+    "description": "Large row size"
   },
   "xgypqc": {
     "defaultMessage": "Copied to clipboard",
