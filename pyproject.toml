@@ -231,6 +231,7 @@ docstring-code-line-length = 88
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 select = [
   "B006",    # multiple-argument-default
+  "B012",    # jump-statement-in-finally
   "B015",    # useless-comparison
   "D209",    # new-line-after-last-paragraph
   "D411",    # no-blank-line-before-section
@@ -276,7 +277,6 @@ select = [
   "S307",    # suspicious-eval-usage
   "S324",    # hashlib-insecure-hash-function
   "SIM101",  # duplicate-isinstance-call
-  "SIM107",  # return-in-try-except-finally
   "SIM108",  # if-else-block-instead-of-if-exp
   "SIM114",  # if-with-same-arms
   "SIM115",  # open-file-with-context-handler
