@@ -11,6 +11,7 @@ runs:
       # Note: llvm is optional (required only for building PyPy/clang)
       run: |
         sudo apt-get update -y
+        sudo apt-get purge -y man-db || true
         sudo apt-get install -y --no-install-recommends make build-essential libssl-dev zlib1g-dev \
         libbz2-dev libreadline-dev libsqlite3-dev wget curl \
         libncursesw5-dev xz-utils libffi-dev liblzma-dev
