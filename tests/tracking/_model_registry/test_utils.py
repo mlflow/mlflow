@@ -154,7 +154,6 @@ def test_registry_uri_from_environment_overrides_databricks_default():
 
 
 def test_registry_uri_from_spark_session_overrides_databricks_default():
-    """Test that registry URI from Spark session overrides databricks default"""
     tracking_uri = "databricks://workspace"
     spark_registry_uri = "databricks-uc://spark_profile"
 
@@ -223,7 +222,6 @@ def test_resolve_registry_uri_consistency_with_get_registry_uri(
 
 
 def test_resolve_registry_uri_with_environment_variable():
-    """Test _resolve_registry_uri with environment variable set"""
     from mlflow.environment_variables import MLFLOW_REGISTRY_URI
 
     env_registry_uri = "http://env-registry:5000"
@@ -244,7 +242,6 @@ def test_resolve_registry_uri_with_environment_variable():
 
 
 def test_resolve_registry_uri_with_spark_session():
-    """Test _resolve_registry_uri with Spark session URI"""
     spark_registry_uri = "databricks-uc://spark_profile"
     tracking_uri = "databricks://workspace"
 

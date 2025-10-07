@@ -2716,7 +2716,6 @@ def test_link_chat_prompt_version_to_run():
 
 
 def test_create_prompt_with_pydantic_response_format_client():
-    """Test client-level integration with Pydantic response format."""
     from pydantic import BaseModel
 
     class ResponseSchema(BaseModel):
@@ -2815,7 +2814,6 @@ def test_create_prompt_complex_chat_template_client():
 
 
 def test_create_prompt_with_none_response_format_client():
-    """Test client-level integration with None response format."""
     client = MlflowClient()
     prompt = client.register_prompt(
         name="test_none_response_client",
@@ -2860,7 +2858,6 @@ def test_create_prompt_with_single_message_chat_client():
 
 
 def test_create_prompt_with_multiple_variables_in_chat_client():
-    """Test client-level integration with multiple variables in chat messages."""
     chat_template = [
         {
             "role": "system",

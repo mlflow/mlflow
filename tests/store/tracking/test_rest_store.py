@@ -1363,7 +1363,6 @@ def test_log_logged_model_params():
 def test_create_logged_models_with_params(
     monkeypatch, params_count, expected_call_count, create_batch_size, log_batch_size
 ):
-    """Test creating logged models with parameters."""
     # Set environment variables using monkeypatch
     monkeypatch.setenv(_MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE.name, str(create_batch_size))
     monkeypatch.setenv(_MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE.name, str(log_batch_size))
