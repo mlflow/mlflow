@@ -44,6 +44,7 @@ from mlflow.tracing.utils import (
 from mlflow.tracing.utils.search import extract_span_inputs_outputs, traces_to_df
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import deprecated_parameter
+from mlflow.utils.validation import _validate_list_param
 
 _logger = logging.getLogger(__name__)
 
@@ -828,8 +829,12 @@ def search_traces(
                 ),
             )
 
+    _validate_list_param("experiment_ids", experiment_ids, allow_none=True)
+    _validate_list_param("locations", locations, allow_none=True)
+    
     if not experiment_ids and not locations:
         _logger.debug("Searching traces in the current active experiment")
+
         if experiment_id := _get_experiment_id():
             locations = [experiment_id]
         else:

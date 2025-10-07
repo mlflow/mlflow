@@ -40,6 +40,7 @@ import { useGetExperimentRunColor } from '../experiment-page/hooks/useExperiment
 import { useQueryClient } from '@databricks/web-shared/query-client';
 import { useSearchRunsQuery } from '../run-page/hooks/useSearchRunsQuery';
 import { checkColumnContents } from '../experiment-page/components/traces-v3/utils/columnUtils';
+import { useExportTracesToDatasetModal } from '../../pages/experiment-evaluation-datasets/hooks/useExportTracesToDatasetModal';
 
 const RunViewEvaluationsTabInner = ({
   experimentId,
@@ -150,6 +151,11 @@ const RunViewEvaluationsTabInner = ({
     useV3Apis: true,
   });
 
+  const { showExportTracesToDatasetsModal, setShowExportTracesToDatasetsModal, renderExportTracesToDatasetsModal } =
+    useExportTracesToDatasetModal({
+      experimentId,
+    });
+
   const traceActions: TraceActions = useMemo(() => {
     return {
       deleteTracesAction: {
@@ -157,15 +163,23 @@ const RunViewEvaluationsTabInner = ({
           deleteTracesMutation.mutateAsync({ experimentId, traceRequestIds: traceIds }),
       },
       exportToEvals: {
-        exportToEvalsInstanceEnabled: true,
-        getTrace,
+        showExportTracesToDatasetsModal,
+        setShowExportTracesToDatasetsModal,
+        renderExportTracesToDatasetsModal,
       },
       editTags: {
         showEditTagsModalForTrace,
         EditTagsModal,
       },
     };
-  }, [deleteTracesMutation, showEditTagsModalForTrace, EditTagsModal]);
+  }, [
+    showExportTracesToDatasetsModal,
+    setShowExportTracesToDatasetsModal,
+    renderExportTracesToDatasetsModal,
+    showEditTagsModalForTrace,
+    EditTagsModal,
+    deleteTracesMutation,
+  ]);
 
   const isTableLoading = traceInfosLoading || compareToRunLoading;
 
