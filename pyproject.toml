@@ -231,6 +231,7 @@ docstring-code-line-length = 88
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 select = [
   "B006",    # multiple-argument-default
+  "B012",    # jump-statement-in-finally
   "B015",    # useless-comparison
   "D209",    # new-line-after-last-paragraph
   "D411",    # no-blank-line-before-section
