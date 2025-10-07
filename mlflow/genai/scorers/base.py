@@ -12,7 +12,6 @@ from mlflow.entities import Assessment, Feedback
 from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
-from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
@@ -105,7 +104,6 @@ class SerializedScorer:
             )
 
 
-@experimental(version="3.0.0")
 class Scorer(BaseModel):
     name: str
     aggregations: list[_AggregationType] | None = None
@@ -115,19 +113,16 @@ class Scorer(BaseModel):
     _registered_backend: str | None = PrivateAttr(default=None)
 
     @property
-    @experimental(version="3.2.0")
     def sample_rate(self) -> float | None:
         """Get the sample rate for this scorer. Available when registered for monitoring."""
         return self._sampling_config.sample_rate if self._sampling_config else None
 
     @property
-    @experimental(version="3.2.0")
     def filter_string(self) -> str | None:
         """Get the filter string for this scorer."""
         return self._sampling_config.filter_string if self._sampling_config else None
 
     @property
-    @experimental(version="3.3.0")
     def status(self) -> ScorerStatus:
         """Get the status of this scorer, using only the local state."""
 
@@ -474,7 +469,6 @@ class Scorer(BaseModel):
     def kind(self) -> ScorerKind:
         return ScorerKind.CLASS
 
-    @experimental(version="3.2.0")
     def register(self, *, name: str | None = None, experiment_id: str | None = None) -> "Scorer":
         """
         Register this scorer with the MLflow server.
@@ -540,7 +534,6 @@ class Scorer(BaseModel):
             new_scorer._registered_backend = "tracking"
         return new_scorer
 
-    @experimental(version="3.2.0")
     def start(
         self,
         *,
@@ -613,7 +606,6 @@ class Scorer(BaseModel):
             experiment_id=experiment_id,
         )
 
-    @experimental(version="3.2.0")
     def update(
         self,
         *,
@@ -687,7 +679,6 @@ class Scorer(BaseModel):
             experiment_id=experiment_id,
         )
 
-    @experimental(version="3.2.0")
     def stop(self, *, name: str | None = None, experiment_id: str | None = None) -> "Scorer":
         """
         Stop registered scoring by setting sample rate to 0.
@@ -788,7 +779,6 @@ class Scorer(BaseModel):
             )
 
 
-@experimental(version="3.0.0")
 def scorer(
     func=None,
     *,

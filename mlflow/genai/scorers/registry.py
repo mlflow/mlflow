@@ -14,7 +14,6 @@ from mlflow.genai.scheduled_scorers import ScorerScheduleConfig
 from mlflow.genai.scorers.base import Scorer, ScorerSamplingConfig
 from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.tracking.fluent import _get_experiment_id
-from mlflow.utils.annotations import experimental
 from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.uri import get_uri_scheme
 
@@ -434,7 +433,6 @@ _ERROR_MSG = (
 )
 
 
-@experimental(version="3.2.0")
 def list_scorers(*, experiment_id: str | None = None) -> list[Scorer]:
     """
     List all registered scorers for an experiment.
@@ -482,7 +480,6 @@ def list_scorers(*, experiment_id: str | None = None) -> list[Scorer]:
     return store.list_scorers(experiment_id)
 
 
-@experimental(version="3.2.0")
 def list_scorer_versions(
     *, name: str, experiment_id: str | None = None
 ) -> list[tuple[Scorer, int | None]]:
@@ -518,7 +515,6 @@ def list_scorer_versions(
     return store.list_scorer_versions(experiment_id, name)
 
 
-@experimental(version="3.2.0")
 def get_scorer(
     *, name: str, experiment_id: str | None = None, version: int | None = None
 ) -> Scorer:
@@ -571,7 +567,6 @@ def get_scorer(
     return store.get_scorer(experiment_id, name, version)
 
 
-@experimental(version="3.2.0")
 def delete_scorer(
     *,
     name: str,
