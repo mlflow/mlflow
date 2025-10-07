@@ -1180,7 +1180,6 @@ def test_prompt_associate_with_run_chat_format():
 
 
 def test_register_prompt_with_pydantic_response_format():
-    """Test registering prompts with Pydantic response format."""
     from pydantic import BaseModel
 
     class ResponseSchema(BaseModel):
@@ -1292,7 +1291,6 @@ def test_register_prompt_complex_chat_template():
 
 
 def test_register_prompt_with_none_response_format():
-    """Test registering prompts with None response format."""
     # Register prompt with None response format
     mlflow.register_prompt(
         name="test_none_response", template="Hello {{name}}!", response_format=None
@@ -1304,7 +1302,6 @@ def test_register_prompt_with_none_response_format():
 
 
 def test_register_prompt_with_empty_chat_template():
-    """Test registering prompts with empty chat template list."""
     # Empty list should be treated as text prompt
     mlflow.register_prompt(name="test_empty_chat", template=[])
 

@@ -111,7 +111,7 @@ export const ExperimentListTable = ({
   isLoading: boolean;
   rowSelection: RowSelectionState;
   setRowSelection: OnChangeFn<RowSelectionState>;
-  cursorPaginationProps: Omit<CursorPaginationProps, 'componentId'>;
+  cursorPaginationProps?: Omit<CursorPaginationProps, 'componentId'>;
   sortingProps: { sorting: SortingState; setSorting: OnChangeFn<SortingState> };
   onEditTags: (editedEntity: ExperimentEntity) => void;
 }) => {
@@ -174,7 +174,11 @@ export const ExperimentListTable = ({
   return (
     <Table
       scrollable
-      pagination={<CursorPagination {...cursorPaginationProps} componentId="mlflow.experiment_list_view.pagination" />}
+      pagination={
+        cursorPaginationProps ? (
+          <CursorPagination {...cursorPaginationProps} componentId="mlflow.experiment_list_view.pagination" />
+        ) : undefined
+      }
       empty={getEmptyState()}
     >
       <TableRow isHeader>

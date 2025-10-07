@@ -2560,9 +2560,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@databricks/design-system@npm:^1.12.20":
-  version: 1.12.21
-  resolution: "@databricks/design-system@npm:1.12.21"
+"@databricks/design-system@npm:^1.12.21":
+  version: 1.12.22
+  resolution: "@databricks/design-system@npm:1.12.22"
   dependencies:
     "@ant-design/icons": "npm:^4.7.0"
     "@babel/runtime": "npm:^7.27.3"
@@ -2591,7 +2591,7 @@ __metadata:
     chroma-js: "npm:^2.4.2"
     classnames: "npm:^2.3.1"
     date-fns: "npm:^3.6.0"
-    dom-accessibility-api: "npm:^0.5.9"
+    dom-accessibility-api: "npm:^0.7.0"
     downshift: "npm:^6.1.9"
     enzyme: "npm:^3.11.0"
     lodash: "npm:^4.17.21"
@@ -2604,7 +2604,7 @@ __metadata:
     moment: ^2.25.3
     react: "*"
     react-dom: "*"
-  checksum: 10c0/9c1ddd49b5eb53f991f16490666c50ca16765242390f61335a781f364ad340cc2c38d92bb475cb9f7b55a0fafd8d5bafe7eceb468c981415b77ef5ef1510e391
+  checksum: 10c0/bad36095618b282d484e5df5c4b33411a87db5aad4082e42f8f4a752c191c6a987aa4f5f3f56d5317ca98dbd67e04b505db6c17728effd16cec059650c433519
   languageName: node
   linkType: hard
 
@@ -4343,7 +4343,7 @@ __metadata:
     "@babel/preset-react": "npm:^7.27.1"
     "@babel/preset-typescript": "npm:^7.27.1"
     "@craco/craco": "npm:7.0.0-alpha.0"
-    "@databricks/design-system": "npm:^1.12.20"
+    "@databricks/design-system": "npm:^1.12.21"
     "@emotion/babel-plugin": "npm:^11.11.0"
     "@emotion/babel-preset-css-prop": "npm:^11.11.0"
     "@emotion/cache": "npm:^11.11.0"
@@ -15053,6 +15053,13 @@ __metadata:
   version: 0.6.3
   resolution: "dom-accessibility-api@npm:0.6.3"
   checksum: 10c0/10bee5aa514b2a9a37c87cd81268db607a2e933a050074abc2f6fa3da9080ebed206a320cbc123567f2c3087d22292853bdfdceaffdd4334ffe2af9510b29360
+  languageName: node
+  linkType: hard
+
+"dom-accessibility-api@npm:^0.7.0":
+  version: 0.7.0
+  resolution: "dom-accessibility-api@npm:0.7.0"
+  checksum: 10c0/51d3fe283b0b4882442ba7cd7c76d27aa96b57e1854f0373be62c0abfaa95e89f4c1a1b883712814dc52b0a0853147f6de681fae20467a29d3a485df9b7329d8
   languageName: node
   linkType: hard
 

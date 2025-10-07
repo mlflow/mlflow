@@ -135,7 +135,13 @@ export interface EvaluationsOverviewTableSort {
 
 export interface TraceActions {
   exportToEvals?: {
-    getTrace?: (traceId?: string) => Promise<ModelTrace | undefined>;
+    showExportTracesToDatasetsModal: boolean;
+    setShowExportTracesToDatasetsModal: (visible: boolean) => void;
+    renderExportTracesToDatasetsModal: ({
+      selectedTraceInfos,
+    }: {
+      selectedTraceInfos: ModelTrace['info'][];
+    }) => React.ReactNode;
   };
   deleteTracesAction?: {
     deleteTraces: (experimentId: string, traceIds: string[]) => Promise<any>;
