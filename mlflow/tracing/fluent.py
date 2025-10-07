@@ -829,9 +829,8 @@ def search_traces(
                 ),
             )
 
-    _validate_list_param("experiment_ids", experiment_ids, allow_none=True)
     _validate_list_param("locations", locations, allow_none=True)
-    
+
     if not experiment_ids and not locations:
         _logger.debug("Searching traces in the current active experiment")
 

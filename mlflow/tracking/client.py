@@ -125,6 +125,7 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import is_databricks_unity_catalog_uri, is_databricks_uri
 from mlflow.utils.validation import (
+    _validate_list_param,
     _validate_model_alias_name,
     _validate_model_name,
     _validate_model_version,
@@ -1165,6 +1166,9 @@ class MlflowClient:
             some store implementations may not support pagination and thus the returned token would
             not be meaningful in such cases.
         """
+        _validate_list_param("experiment_ids", experiment_ids, allow_none=True)
+        _validate_list_param("locations", locations, allow_none=True)
+
         return self._tracing_client.search_traces(
             experiment_ids=experiment_ids,
             filter_string=filter_string,

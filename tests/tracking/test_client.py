@@ -557,11 +557,11 @@ def test_client_search_traces_trace_data_download_error(mock_store, include_span
 
 
 def test_client_search_traces_validates_experiment_ids_type():
-    with pytest.raises(MlflowException, match=r"experiment_ids must be a list"):
-        MlflowClient().search_traces(experiment_ids=4)
+    with pytest.raises(MlflowException, match=r"locations must be a list"):
+        MlflowClient().search_traces(locations=4)
 
-    with pytest.raises(MlflowException, match=r"experiment_ids must be a list"):
-        MlflowClient().search_traces(experiment_ids="4")
+    with pytest.raises(MlflowException, match=r"locations must be a list"):
+        MlflowClient().search_traces(locations="4")
 
 
 def test_client_delete_traces(mock_store):
