@@ -194,7 +194,6 @@ def test_process_transcript_creates_spans(mock_transcript_file):
 
 
 def test_process_transcript_returns_none_for_nonexistent_file():
-    """Test that process_transcript returns None for nonexistent files."""
     result = process_transcript("/nonexistent/path/transcript.jsonl", "test-session-123")
     assert result is None
 

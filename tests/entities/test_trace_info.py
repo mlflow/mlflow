@@ -288,7 +288,6 @@ def test_trace_info_from_proto_adds_missing_schema_version():
 
 
 def test_trace_info_from_proto_preserves_current_schema_version():
-    """Test that TraceInfo.from_proto preserves current schema version."""
     # Create a proto with current schema version in metadata
     request_time = Timestamp()
     request_time.FromMilliseconds(1234567890)
