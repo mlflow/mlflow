@@ -26,7 +26,7 @@ const NewsThumbnail = ({ gradient, title, description, icon: IconComponent }: Ne
       }}
     >
       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-        <Typography.Text strong color="primary">
+        <Typography.Text bold color="primary">
           {title}
         </Typography.Text>
         {description ? <Typography.Text color="secondary">{description}</Typography.Text> : <Spacer size="sm" />}

@@ -15,9 +15,10 @@ describe('GetStarted', () => {
     ).toBeInTheDocument();
 
     homeQuickActions.forEach((action) => {
-      const title = screen.getByText(action.title.props.defaultMessage);
-      expect(title).toBeInTheDocument();
-      expect(title.closest('a')).not.toBeNull();
+      const defaultMessage = (action.title as React.ReactElement).props.defaultMessage;
+      const element = screen.getByText(defaultMessage);
+      expect(element).toBeInTheDocument();
+      expect(element.closest('a')).not.toBeNull();
     });
   });
 
@@ -25,12 +26,13 @@ describe('GetStarted', () => {
     renderWithDesignSystem(<GetStarted />);
 
     homeQuickActions.forEach((action) => {
-      const link = screen.getByText(action.title.props.defaultMessage).closest('a') as HTMLAnchorElement | null;
+      const defaultMessage = (action.title as React.ReactElement).props.defaultMessage;
+      const linkElement = screen.getByText(defaultMessage).closest('a') as HTMLAnchorElement | null;
 
-      expect(link).not.toBeNull();
-      expect(link).toHaveAttribute('href', action.link);
-      expect(link).toHaveAttribute('target', '_blank');
-      expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+      expect(linkElement).not.toBeNull();
+      expect(linkElement).toHaveAttribute('href', action.link);
+      expect(linkElement).toHaveAttribute('target', '_blank');
+      expect(linkElement).toHaveAttribute('rel', 'noopener noreferrer');
     });
   });
 });

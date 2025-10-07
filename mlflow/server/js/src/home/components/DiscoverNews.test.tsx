@@ -15,9 +15,10 @@ describe('DiscoverNews', () => {
     ).toBeInTheDocument();
 
     homeNewsItems.forEach((item) => {
-      const title = screen.getByText(item.title.props.defaultMessage);
-      expect(title).toBeInTheDocument();
-      expect(title.closest('a')).not.toBeNull();
+      const defaultMessage = (item.title as React.ReactElement).props.defaultMessage;
+      const element = screen.getByText(defaultMessage);
+      expect(element).toBeInTheDocument();
+      expect(element.closest('a')).not.toBeNull();
     });
   });
 
@@ -35,12 +36,13 @@ describe('DiscoverNews', () => {
     renderWithDesignSystem(<DiscoverNews />);
 
     homeNewsItems.forEach((item) => {
-      const link = screen.getByText(item.title.props.defaultMessage).closest('a') as HTMLAnchorElement | null;
+      const defaultMessage = (item.title as React.ReactElement).props.defaultMessage;
+      const linkElement = screen.getByText(defaultMessage).closest('a') as HTMLAnchorElement | null;
 
-      expect(link).not.toBeNull();
-      expect(link).toHaveAttribute('href', item.link);
-      expect(link).toHaveAttribute('target', '_blank');
-      expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+      expect(linkElement).not.toBeNull();
+      expect(linkElement).toHaveAttribute('href', item.link);
+      expect(linkElement).toHaveAttribute('target', '_blank');
+      expect(linkElement).toHaveAttribute('rel', 'noopener noreferrer');
     });
   });
 });
