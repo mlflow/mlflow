@@ -3,12 +3,15 @@ import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import type { ExperimentEntity } from '../../experiment-tracking/types';
 import { ExperimentsHomeView } from './ExperimentsHomeView';
+import { MemoryRouter } from '../../common/utils/RoutingUtils';
 
 jest.mock('../../experiment-tracking/components/ExperimentListTable', () => ({
   ExperimentListTable: ({ experiments }: { experiments: ExperimentEntity[] }) => (
     <div data-testid="experiment-list-table">{`rows:${experiments.length}`}</div>
   ),
 }));
+
+const renderWithRouter = (ui: React.ReactElement) => renderWithDesignSystem(<MemoryRouter>{ui}</MemoryRouter>);
 
 describe('ExperimentsHomeView', () => {
   const sampleExperiment: ExperimentEntity = {
@@ -25,7 +28,7 @@ describe('ExperimentsHomeView', () => {
   it('shows empty state when there are no experiments', async () => {
     const onCreateExperiment = jest.fn();
 
-    const { container } = renderWithDesignSystem(
+    renderWithRouter(
       <ExperimentsHomeView
         experiments={[]}
         isLoading={false}
@@ -37,7 +40,7 @@ describe('ExperimentsHomeView', () => {
 
     expect(screen.getByRole('heading', { level: 3, name: 'Experiments' })).toBeInTheDocument();
     expect(screen.getByText('Create your first experiment')).toBeInTheDocument();
-    expect(container.querySelector('[data-component-id="mlflow.home.experiments.view_all"]')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'View all' })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Create experiment' }));
     expect(onCreateExperiment).toHaveBeenCalled();
@@ -47,7 +50,7 @@ describe('ExperimentsHomeView', () => {
     const onRetry = jest.fn();
     const error = new Error('Boom');
 
-    renderWithDesignSystem(
+    renderWithRouter(
       <ExperimentsHomeView
         experiments={[sampleExperiment]}
         isLoading={false}
@@ -65,7 +68,7 @@ describe('ExperimentsHomeView', () => {
   });
 
   it('renders experiment preview when data is available', () => {
-    renderWithDesignSystem(
+    renderWithRouter(
       <ExperimentsHomeView
         experiments={[sampleExperiment]}
         isLoading={false}
