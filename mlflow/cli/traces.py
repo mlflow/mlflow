@@ -193,9 +193,7 @@ Available fields:
     type=click.STRING,
     help="Comma-separated list of fields to order by (e.g., 'timestamp_ms DESC, status')",
 )
-@click.option(
-    "--page-token", type=click.STRING, help="Token for pagination from previous search"
-)
+@click.option("--page-token", type=click.STRING, help="Token for pagination from previous search")
 @click.option(
     "--run-id",
     type=click.STRING,
@@ -413,9 +411,7 @@ def get_trace(
 
 @commands.command("delete")
 @EXPERIMENT_ID
-@click.option(
-    "--trace-ids", type=click.STRING, help="Comma-separated list of trace IDs to delete"
-)
+@click.option("--trace-ids", type=click.STRING, help="Comma-separated list of trace IDs to delete")
 @click.option(
     "--max-timestamp-millis",
     type=click.INT,
@@ -515,15 +511,9 @@ def delete_trace_tag(trace_id: str, key: str) -> None:
     type=click.STRING,
     help="Source identifier (e.g., email for HUMAN, model name for LLM)",
 )
-@click.option(
-    "--rationale", type=click.STRING, help="Explanation/justification for the feedback"
-)
-@click.option(
-    "--metadata", type=click.STRING, help="Additional metadata as JSON string"
-)
-@click.option(
-    "--span-id", type=click.STRING, help="Associate feedback with a specific span ID"
-)
+@click.option("--rationale", type=click.STRING, help="Explanation/justification for the feedback")
+@click.option("--metadata", type=click.STRING, help="Additional metadata as JSON string")
+@click.option("--span-id", type=click.STRING, help="Associate feedback with a specific span ID")
 def log_feedback(
     trace_id: str,
     name: str,
@@ -624,12 +614,8 @@ def log_feedback(
     help="Source type of the expectation",
 )
 @click.option("--source-id", type=click.STRING, help="Source identifier")
-@click.option(
-    "--metadata", type=click.STRING, help="Additional metadata as JSON string"
-)
-@click.option(
-    "--span-id", type=click.STRING, help="Associate expectation with a specific span ID"
-)
+@click.option("--metadata", type=click.STRING, help="Additional metadata as JSON string")
+@click.option("--span-id", type=click.STRING, help="Associate expectation with a specific span ID")
 def log_expectation(
     trace_id: str,
     name: str,
@@ -713,9 +699,7 @@ def get_assessment(trace_id: str, assessment_id: str) -> None:
 
 @commands.command("update-assessment")
 @TRACE_ID
-@click.option(
-    "--assessment-id", type=click.STRING, required=True, help="Assessment ID to update"
-)
+@click.option("--assessment-id", type=click.STRING, required=True, help="Assessment ID to update")
 @click.option("--value", type=click.STRING, help="Updated assessment value (JSON)")
 @click.option("--rationale", type=click.STRING, help="Updated rationale")
 @click.option("--metadata", type=click.STRING, help="Updated metadata as JSON")
@@ -788,9 +772,7 @@ def update_assessment(
 
 @commands.command("delete-assessment")
 @TRACE_ID
-@click.option(
-    "--assessment-id", type=click.STRING, required=True, help="Assessment ID to delete"
-)
+@click.option("--assessment-id", type=click.STRING, required=True, help="Assessment ID to delete")
 def delete_assessment(trace_id: str, assessment_id: str) -> None:
     """
     Delete an assessment from a trace.
