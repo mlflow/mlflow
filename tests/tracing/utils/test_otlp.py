@@ -1,5 +1,4 @@
 import time
-from unittest import mock
 
 import pytest
 
@@ -11,6 +10,8 @@ from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.provider import _get_trace_exporter, _get_tracer
 from mlflow.tracking import MlflowClient
 from mlflow.utils.os import is_windows
+
+from tests.tracing.helper import get_traces
 
 # OTLP exporters are not installed in some CI jobs
 try:
@@ -101,7 +102,13 @@ def test_get_otlp_exporter_invalid_protocol(monkeypatch):
 
 
 @pytest.mark.skipif(is_windows(), reason="Otel collector docker image does not support Windows")
-def test_export_to_otel_collector(otel_collector, monkeypatch):
+@pytest.mark.parametrize("dual_export", [True, False, None], ids=["enable", "disable", "default"])
+def test_export_to_otel_collector(otel_collector, monkeypatch, dual_export):
+    if dual_export:
+        monkeypatch.setenv("MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT", "true")
+    elif dual_export is False:
+        monkeypatch.setenv("MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT", "false")
+
     from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 
     _, _, port = otel_collector
@@ -126,21 +133,21 @@ def test_export_to_otel_collector(otel_collector, monkeypatch):
             time.sleep(0.1)
             return res
 
-    mock_client = mock.MagicMock()
-    with mock.patch("mlflow.tracing.fluent.TracingClient", return_value=mock_client):
-        # Create a trace
-        model = TestModel()
-        model.predict(2, 5)
+    model = TestModel()
+    model.predict(2, 5)
 
     # Tracer should be configured to export to OTLP
     exporter = _get_trace_exporter()
     assert isinstance(exporter, OTLPSpanExporter)
     assert exporter._endpoint == f"127.0.0.1:{port}"
 
-    # Traces should not be logged to MLflow
-    mock_client.start_trace.assert_not_called()
-    mock_client._upload_trace_data.assert_not_called()
-    mock_client._upload_ended_trace_info.assert_not_called()
+    mlflow_traces = get_traces()
+    if dual_export:
+        assert len(mlflow_traces) == 1
+        assert mlflow_traces[0].info.state == "OK"
+        assert len(mlflow_traces[0].data.spans) == 3
+    else:
+        assert len(mlflow_traces) == 0
 
     # Wait for collector to receive spans, checking every second for up to 60 seconds
     _, output_file, _ = otel_collector
