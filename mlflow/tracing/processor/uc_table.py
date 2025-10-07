@@ -46,6 +46,7 @@ class DatabricksUCTableSpanProcessor(BaseMlflowSpanProcessor):
             )
 
         metadata = self._get_basic_trace_metadata()
+        # Override the schema version to 4 for UC table
         metadata[TRACE_SCHEMA_VERSION_KEY] = "4"
 
         trace_info = TraceInfo(
