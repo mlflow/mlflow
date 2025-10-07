@@ -8,7 +8,7 @@ import { APILink } from "@site/src/components/APILink";
 # Optimize Prompts (Experimental)
 
 MLflow allows you to plug your prompts into advanced prompt optimization techniques through MLflow's unified interface using the <APILink fn="mlflow.genai.optimize_prompt" /> API.
-This feature helps you improve your prompts automatically by leveraging evaluation metrics and labeled data. MLflow provides built-in support for optimization algorithms such as [DSPy's MIPROv2](https://dspy.ai/api/optimizers/MIPROv2/) and [GEPA (Genetic-Pareto)](https://dspy.ai/api/optimizers/GEPA/) algorithms. You can also implement custom optimization algorithms by extending MLflow's base optimizer class <APILink fn="mlflow.genai.optimize.BasePromptOptimizer" >BasePromptOptimizer</APILink>.
+This feature helps you improve your prompts automatically by leveraging evaluation metrics and labeled data. MLflow provides built-in support for optimization algorithms such as [DSPy's MIPROv2](https://dspy.ai/api/optimizers/MIPROv2/) and [GEPA](https://dspy.ai/api/optimizers/GEPA/) algorithms. You can also implement custom optimization algorithms by extending MLflow's base optimizer class <APILink fn="mlflow.genai.optimize.BasePromptOptimizer" >BasePromptOptimizer</APILink>.
 
 :::tip Key Benefits
 
@@ -88,6 +88,7 @@ os.environ["OPENAI_API_KEY"] = "<YOUR_OPENAI_API_KEY>"
 
 # Define a custom scorer function to evaluate prompt performance with the @scorer decorator.
 # The scorer function for optimization can take inputs, outputs, and expectations arguments, but not the trace argument.
+# Note that the DSPy/MIPROv2 optimizer requires metrics to receive outputs as a dict.
 @scorer
 def exact_match(expectations: dict[str, Any], outputs: dict[str, Any]) -> bool:
     return expectations["answer"] == outputs["answer"]
@@ -180,7 +181,7 @@ After the optimization process is completed, you can visit the MLflow Prompt Reg
 
 ![Optimized Prompt](/images/llms/optimize-prompt/registered_prompt.png)
 
-Note that the optimized prompt of <APILink fn="mlflow.genai.optimize_prompt" /> expects the output to be a JSON string.
+Note that the optimized prompt of **DSPy/MIPROv2** optimizer expects the output to be a JSON string.
 Therefore, you need to parse the output using `json.loads` in your application. See [Load and Use the Prompt](/genai/prompt-registry/#4-load-and-use-the-prompt) for how to load the optimized prompt.
 
 ```python
@@ -213,7 +214,7 @@ You can customize the optimization process using `OptimizerConfig`, which includ
 - **verbose**: Whether to show optimizer logs during optimization. Default: False
 - **autolog**: Whether to log the optimization parameters, datasets and metrics. If set to True, a MLflow run is automatically created to store them. Default: False
 
-See <APILink fn="mlflow.genai.OptimizerConfig" /> for more details.
+See <APILink fn="mlflow.genai.OptimizerConfig" >OptimizerConfig</APILink> for more details.
 
 ## Custom Optimizers
 
