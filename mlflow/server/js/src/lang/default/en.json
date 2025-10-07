@@ -363,6 +363,10 @@
     "defaultMessage": "Model schema",
     "description": "Heading text for the model schema of the registered model from the experiment run"
   },
+  "287Ack": {
+    "defaultMessage": "Create evaluation dataset",
+    "description": "Create evaluation dataset modal title"
+  },
   "28Dnzz": {
     "defaultMessage": "Parameters",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > parameters heading"
@@ -2222,6 +2226,10 @@
     "defaultMessage": "{count, plural, =1 {1 month} other {# months}} ago",
     "description": "Time duration in months"
   },
+  "N7BCue": {
+    "defaultMessage": "Create dataset",
+    "description": "Create evaluation dataset button"
+  },
   "N8YuIr": {
     "defaultMessage": "Error while loading metric page",
     "description": "Title of the error state on the metric page"
@@ -3231,6 +3239,10 @@
     "defaultMessage": "just now",
     "description": "Indicates a time duration that just passed"
   },
+  "ZQpc2w": {
+    "defaultMessage": "Enter dataset name",
+    "description": "Dataset name placeholder"
+  },
   "ZRUzaz": {
     "defaultMessage": "Install MLflow 3:",
     "description": "Instruction for installing MLflow from mlflow-3 branch in log MLflow 3 models"
@@ -3578,6 +3590,10 @@
   "crTWax": {
     "defaultMessage": "Key",
     "description": "Key-value tag editor modal > Key input label"
+  },
+  "creoEe": {
+    "defaultMessage": "Create",
+    "description": "Create evaluation dataset button text"
   },
   "csNr/8": {
     "defaultMessage": "Disable grouped runs to compare parameters, tag, or attributes",
@@ -4599,6 +4615,10 @@
     "defaultMessage": "Pass",
     "description": "The label for a passing asseessment above a bar-chart in the summary stats."
   },
+  "nEnDEu": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel create evaluation dataset button text"
+  },
   "nEoTsR": {
     "defaultMessage": "Completed Runs",
     "description": "Label for the progress bar to show the number of completed runs"
@@ -5103,6 +5123,10 @@
     "defaultMessage": "Ignore column ordering",
     "description": "Toggle text that determines whether to ignore column order in the\n                      model comparison page"
   },
+  "sbHChH": {
+    "defaultMessage": "Dataset name is required",
+    "description": "Input field error when dataset name is empty"
+  },
   "sblqXA": {
     "defaultMessage": "Use the runs difference view to compare model and system metrics, parameters, attributes, and tags across runs.",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > chart not configured warning > description"
@@ -5486,6 +5510,10 @@
   "xZ/PkV": {
     "defaultMessage": "Search prompts",
     "description": "Placeholder text for the search input in the prompts table on the logged model details page"
+  },
+  "xdFMIN": {
+    "defaultMessage": "Dataset name",
+    "description": "Dataset name label"
   },
   "xgypqc": {
     "defaultMessage": "Copied to clipboard",
