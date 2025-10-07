@@ -152,7 +152,11 @@ def test_export_to_otel_collector(otel_collector, monkeypatch):
         # Check if spans are in the logs - the debug exporter outputs span details
         # The BatchSpanProcessor may send spans in multiple batches, so we check for any evidence
         # that the collector is receiving spans from our test
-        if "predict" in collector_logs:
+        if (
+            "predict" in collector_logs
+            and "add_one_with_custom_name" in collector_logs
+            and "square" in collector_logs
+        ):
             # We found evidence that spans are being exported to the collector
             # The child spans may come in separate batches, but OTLP export works
             spans_found = True
