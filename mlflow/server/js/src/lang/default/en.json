@@ -1558,6 +1558,10 @@
     "defaultMessage": "Version {versionNum}",
     "description": "Title text for model version page"
   },
+  "F4K195": {
+    "defaultMessage": "No evaluation datasets found",
+    "description": "Empty state for the evaluation datasets page"
+  },
   "F8MqzZ": {
     "defaultMessage": "Path",
     "description": "Label for displaying the current experiment path"
@@ -3566,6 +3570,10 @@
   "cK6riy": {
     "defaultMessage": "Schema",
     "description": "Table title text for schema table in the model comparison page"
+  },
+  "cMRvTA": {
+    "defaultMessage": "Delete dataset",
+    "description": "Delete evaluation dataset menu item"
   },
   "cMa3hp": {
     "defaultMessage": "Run evaluation",
