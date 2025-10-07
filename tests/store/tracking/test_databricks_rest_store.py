@@ -1109,6 +1109,8 @@ def test_update_assessment():
                 "uc_schema": {
                     "catalog_name": "catalog",
                     "schema_name": "schema",
+                    "otel_spans_table_name": "mlflow_experiment_trace_otel_spans",
+                    "otel_logs_table_name": "mlflow_experiment_trace_otel_logs",
                 },
             },
             "trace_id": "1234",
