@@ -705,7 +705,7 @@ const sidebarsClassicML: SidebarsConfig = {
         },
         {
           type: 'link',
-          href: 'https://mlflow.org/docs/latest/self-hosting/authentication/basic-http-auth',
+          href: 'https://mlflow.org/docs/latest/self-hosting/security/basic-http-auth',
           label: 'Access Control',
         },
         {

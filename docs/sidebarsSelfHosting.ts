@@ -36,21 +36,26 @@ const sidebarsSelfHosting: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Authentication',
+      label: 'Security',
       items: [
         {
           type: 'doc',
-          id: 'authentication/basic-http-auth',
+          id: 'security/network',
+          label: ' Network Protection',
+        },
+        {
+          type: 'doc',
+          id: 'security/basic-http-auth',
           label: 'Username and Password',
         },
         {
           type: 'doc',
-          id: 'authentication/sso',
+          id: 'security/sso',
           label: 'SSO (Single Sign-On)',
         },
         {
           type: 'doc',
-          id: 'authentication/custom',
+          id: 'security/custom',
           label: 'Custom Authentication',
         },
       ],

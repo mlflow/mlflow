@@ -494,7 +494,7 @@ const sidebars: SidebarsConfig = {
         },
         {
           type: 'doc',
-          id: '/self-hosting/authentication/basic-http-auth',
+          id: '/self-hosting/security/basic-http-auth',
           label: 'Access Control',
         },
         {

@@ -289,7 +289,7 @@ const config: Config = {
             from: ['/ml/tracking/backend-stores', '/tracking/backend-stores'],
           },
           {
-            to: '/self-hosting/authentication/basic-http-auth',
+            to: '/self-hosting/security/basic-http-auth',
             from: ['/ml/auth'],
           },
           // Redirect mlflow 3 pages
@@ -705,7 +705,7 @@ const config: Config = {
             from: ['/introduction'],
           },
           {
-            to: '/self-hosting/authentication/basic-http-auth',
+            to: '/self-hosting/security/basic-http-auth',
             from: ['/auth'],
           },
           {
