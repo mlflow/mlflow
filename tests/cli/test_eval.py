@@ -11,18 +11,24 @@ from mlflow.cli.eval import evaluate_traces
 from mlflow.entities import Trace, TraceInfo
 
 
-def test_evaluate_traces_with_single_trace_table_output():
+@pytest.mark.parametrize(
+    "result_format",
+    [
+        "result_df",  # mlflow.genai.evaluation.entities.EvaluationResult
+        "tables_eval_results",  # mlflow.models.evaluation.base.EvaluationResult
+        "tables_eval_results_table",  # alternative key name
+    ],
+)
+def test_evaluate_traces_with_single_trace_table_output(result_format):
     """Test evaluate_traces with a single trace and table output."""
-    experiment_id = mlflow.create_experiment("test_experiment")
+    experiment_id = mlflow.create_experiment(f"test_experiment_{result_format}")
 
     mock_trace = mock.Mock(spec=Trace)
     mock_trace.info = mock.Mock(spec=TraceInfo)
     mock_trace.info.trace_id = "tr-test-123"
     mock_trace.info.experiment_id = experiment_id
 
-    mock_results = mock.Mock()
-    mock_results.run_id = "run-eval-456"
-    mock_results.result_df = pd.DataFrame(
+    results_df = pd.DataFrame(
         [
             {
                 "trace_id": "tr-test-123",
@@ -37,6 +43,19 @@ def test_evaluate_traces_with_single_trace_table_output():
             }
         ]
     )
+
+    mock_results = mock.Mock()
+    mock_results.run_id = "run-eval-456"
+
+    if result_format == "result_df":
+        mock_results.result_df = results_df
+        del mock_results.tables
+    elif result_format == "tables_eval_results":
+        mock_results.tables = {"eval_results": results_df}
+        del mock_results.result_df
+    elif result_format == "tables_eval_results_table":
+        mock_results.tables = {"eval_results_table": results_df}
+        del mock_results.result_df
 
     with (
         mock.patch(
@@ -65,8 +84,16 @@ def test_evaluate_traces_with_single_trace_table_output():
         assert call_args.kwargs["scorers"][0].__class__.__name__ == "RelevanceToQuery"
 
 
-def test_evaluate_traces_with_multiple_traces_json_output():
-    experiment = mlflow.create_experiment("test_experiment_multi")
+@pytest.mark.parametrize(
+    "result_format",
+    [
+        "result_df",  # mlflow.genai.evaluation.entities.EvaluationResult
+        "tables_eval_results",  # mlflow.models.evaluation.base.EvaluationResult
+        "tables_eval_results_table",  # alternative key name
+    ],
+)
+def test_evaluate_traces_with_multiple_traces_json_output(result_format):
+    experiment = mlflow.create_experiment(f"test_experiment_multi_{result_format}")
 
     mock_trace1 = mock.Mock(spec=Trace)
     mock_trace1.info = mock.Mock(spec=TraceInfo)
@@ -78,9 +105,7 @@ def test_evaluate_traces_with_multiple_traces_json_output():
     mock_trace2.info.trace_id = "tr-test-2"
     mock_trace2.info.experiment_id = experiment
 
-    mock_results = mock.Mock()
-    mock_results.run_id = "run-eval-789"
-    mock_results.result_df = pd.DataFrame(
+    results_df = pd.DataFrame(
         [
             {
                 "trace_id": "tr-test-1",
@@ -106,6 +131,19 @@ def test_evaluate_traces_with_multiple_traces_json_output():
             },
         ]
     )
+
+    mock_results = mock.Mock()
+    mock_results.run_id = "run-eval-789"
+
+    if result_format == "result_df":
+        mock_results.result_df = results_df
+        del mock_results.tables
+    elif result_format == "tables_eval_results":
+        mock_results.tables = {"eval_results": results_df}
+        del mock_results.result_df
+    elif result_format == "tables_eval_results_table":
+        mock_results.tables = {"eval_results_table": results_df}
+        del mock_results.result_df
 
     with (
         mock.patch(

@@ -98,7 +98,9 @@ def evaluate_traces(
     if hasattr(results, "result_df"):
         results_df = results.result_df
     elif hasattr(results, "tables"):
-        results_df = results.tables.get("eval_results") or results.tables.get("eval_results_table")
+        results_df = results.tables.get("eval_results")
+        if results_df is None:
+            results_df = results.tables.get("eval_results_table")
         if results_df is None:
             raise click.UsageError("No evaluation results table found in results")
     else:
