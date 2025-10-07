@@ -1,3 +1,4 @@
+from unittest import mock
 from unittest.mock import call, patch
 
 import pytest
@@ -6,6 +7,7 @@ import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.span import SpanType
+from mlflow.genai.judges.base import JudgeField
 from mlflow.genai.judges.builtin import CategoricalRating
 from mlflow.genai.judges.utils import FieldExtraction
 from mlflow.genai.scorers import (
@@ -47,6 +49,16 @@ def trace_with_only_outputs():
     with mlflow.start_span(name="outputs_only_span") as span:
         span.set_outputs({"response": "Test response"})
     return mlflow.get_trace(span.trace_id)
+
+
+@pytest.fixture
+def mock_judge_with_inputs_outputs():
+    judge = mock.Mock()
+    judge.get_input_fields.return_value = [
+        JudgeField(name="inputs", description="Test inputs"),
+        JudgeField(name="outputs", description="Test outputs"),
+    ]
+    return judge
 
 
 @patch("mlflow.genai.judges.is_grounded")
@@ -983,43 +995,57 @@ def test_expectations_guidelines_mixed_override():
         assert call_args[1]["context"]["response"] == expected_response
 
 
-def test_resolve_scorer_fields_with_trace_extraction():
+def test_resolve_scorer_fields_with_trace_extraction(mock_judge_with_inputs_outputs):
     trace = create_simple_trace()
 
-    fields = resolve_scorer_fields(trace=trace)
+    fields = resolve_scorer_fields(trace=trace, judge=mock_judge_with_inputs_outputs)
     assert fields.inputs == {"question": "What is MLflow?"}
     assert fields.outputs == "MLflow is an open-source platform for ML lifecycle."
     assert fields.expectations is None
 
     fields = resolve_scorer_fields(
-        trace=trace, inputs="override inputs", outputs="override outputs"
+        trace=trace,
+        judge=mock_judge_with_inputs_outputs,
+        inputs="override inputs",
+        outputs="override outputs",
     )
     assert fields.inputs == "override inputs"
     assert fields.outputs == "override outputs"
 
 
-def test_resolve_scorer_fields_with_expectations():
+def test_resolve_scorer_fields_with_expectations(mock_judge_with_inputs_outputs):
     trace = create_simple_trace()
     mlflow.log_expectation(
         trace_id=trace.info.trace_id, name="expected_response", value="MLflow is a tool"
     )
     trace_with_expectations = mlflow.get_trace(trace.info.trace_id)
 
-    fields = resolve_scorer_fields(trace=trace_with_expectations, extract_expectations=True)
+    fields = resolve_scorer_fields(
+        trace=trace_with_expectations,
+        judge=mock_judge_with_inputs_outputs,
+        extract_expectations=True,
+    )
     assert fields.inputs == {"question": "What is MLflow?"}
     assert fields.outputs == "MLflow is an open-source platform for ML lifecycle."
     assert fields.expectations == {"expected_response": "MLflow is a tool"}
 
 
-def test_resolve_scorer_fields_llm_fallback(trace_without_inputs_outputs):
+def test_resolve_scorer_fields_llm_fallback(
+    trace_without_inputs_outputs, mock_judge_with_inputs_outputs
+):
     patch_path = "mlflow.genai.scorers.builtin_scorers.get_chat_completions_with_structured_output"
 
     with patch(patch_path) as mock_extract:
-        mock_extract.return_value = FieldExtraction(
-            inputs="extracted input", outputs="extracted output"
-        )
+        mock_result = mock.Mock()
+        mock_result.inputs = "extracted input"
+        mock_result.outputs = "extracted output"
+        mock_extract.return_value = mock_result
 
-        fields = resolve_scorer_fields(trace=trace_without_inputs_outputs, model="openai:/gpt-4")
+        fields = resolve_scorer_fields(
+            trace=trace_without_inputs_outputs,
+            judge=mock_judge_with_inputs_outputs,
+            model="openai:/gpt-4",
+        )
 
         assert fields.inputs == "extracted input"
         assert fields.outputs == "extracted output"
@@ -1031,20 +1057,24 @@ def test_resolve_scorer_fields_llm_fallback(trace_without_inputs_outputs):
         assert call_args[1]["trace"] == trace_without_inputs_outputs
 
 
-def test_resolve_scorer_fields_llm_fallback_with_invalid_json(trace_without_inputs_outputs):
+def test_resolve_scorer_fields_llm_fallback_with_invalid_json(
+    trace_without_inputs_outputs, mock_judge_with_inputs_outputs
+):
     patch_path = "mlflow.genai.scorers.builtin_scorers.get_chat_completions_with_structured_output"
 
     with patch(patch_path) as mock_extract:
         mock_extract.side_effect = Exception("Failed to extract")
 
-        fields = resolve_scorer_fields(trace=trace_without_inputs_outputs)
+        fields = resolve_scorer_fields(
+            trace=trace_without_inputs_outputs, judge=mock_judge_with_inputs_outputs
+        )
 
         assert fields.inputs is None
         assert fields.outputs is None
         assert fields.expectations is None
 
 
-def test_resolve_scorer_fields_partial_extraction():
+def test_resolve_scorer_fields_partial_extraction(mock_judge_with_inputs_outputs):
     with mlflow.start_span(name="partial_span") as span:
         span.set_inputs({"question": "test"})
     trace_with_partial = mlflow.get_trace(span.trace_id)
@@ -1052,11 +1082,14 @@ def test_resolve_scorer_fields_partial_extraction():
     patch_path = "mlflow.genai.scorers.builtin_scorers.get_chat_completions_with_structured_output"
 
     with patch(patch_path) as mock_extract:
-        mock_extract.return_value = FieldExtraction(
-            inputs='{"question": "test"}', outputs="llm extracted output"
-        )
+        mock_result = mock.Mock()
+        mock_result.inputs = '{"question": "test"}'
+        mock_result.outputs = "llm extracted output"
+        mock_extract.return_value = mock_result
 
-        fields = resolve_scorer_fields(trace=trace_with_partial)
+        fields = resolve_scorer_fields(
+            trace=trace_with_partial, judge=mock_judge_with_inputs_outputs
+        )
 
         assert fields.inputs == {"question": "test"}
         assert fields.outputs == "llm extracted output"

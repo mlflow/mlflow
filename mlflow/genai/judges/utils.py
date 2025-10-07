@@ -15,7 +15,6 @@ import requests
 
 if TYPE_CHECKING:
     import litellm
-    from pydantic import BaseModel
 
     from mlflow.genai.judges.base import AlignmentOptimizer, JudgeField
     from mlflow.types.llm import ChatMessage, ToolCall
@@ -615,13 +614,6 @@ def get_chat_completions_with_structured_output(
 
     model_provider, model_name = _parse_model_uri(model_uri)
 
-    if not _is_litellm_available():
-        _logger.warning(
-            "LiteLLM is not available. This function requires LiteLLM. "
-            "Install it with `pip install litellm`."
-        )
-        raise ImportError("LiteLLM is required but not installed")
-
     response = _invoke_litellm(
         provider=model_provider,
         model_name=model_name,
@@ -1004,6 +996,97 @@ class _SuppressLiteLLMNonfatalErrors(ContextDecorator):
 _suppress_litellm_nonfatal_errors = _SuppressLiteLLMNonfatalErrors()
 
 
+def _make_litellm_completion_request(
+    litellm_model_uri: str,
+    messages: list["litellm.Message"],
+    tools: list[dict[str, Any]],
+    num_retries: int,
+    response_format: type[pydantic.BaseModel] | None,
+    include_response_format: bool,
+) -> "litellm.ModelResponse":
+    """
+    Make a single completion request to litellm with retry support.
+
+    Args:
+        litellm_model_uri: Full model URI for litellm (e.g., "openai/gpt-4").
+        messages: List of litellm Message objects.
+        tools: List of tool definitions (empty list if no tools).
+        num_retries: Number of retries with exponential backoff.
+        response_format: Optional Pydantic model class for structured output.
+        include_response_format: Whether to include response_format in the request.
+
+    Returns:
+        The litellm ModelResponse object.
+
+    Raises:
+        Various litellm exceptions on failure.
+    """
+    import litellm
+
+    kwargs = {
+        "model": litellm_model_uri,
+        "messages": messages,
+        "tools": tools if tools else None,
+        "tool_choice": "auto" if tools else None,
+        "retry_policy": _get_litellm_retry_policy(num_retries),
+        "retry_strategy": "exponential_backoff_retry",
+        # In LiteLLM version 1.55.3+, max_retries is stacked on top of retry_policy.
+        # To avoid double-retry, we set max_retries=0
+        "max_retries": 0,
+        # Drop any parameters that are known to be unsupported by the LLM.
+        # This is important for compatibility with certain models that don't support
+        # certain call parameters (e.g. GPT-4 doesn't support 'response_format')
+        "drop_params": True,
+    }
+    if include_response_format:
+        # LiteLLM supports passing Pydantic models directly for response_format
+        kwargs["response_format"] = response_format or _get_default_judge_response_schema()
+    return litellm.completion(**kwargs)
+
+
+def _process_tool_calls(
+    tool_calls: list["litellm.ChatCompletionMessageToolCall"],
+    trace: Trace | None,
+) -> list["litellm.Message"]:
+    """
+    Process tool calls and return tool response messages.
+
+    Args:
+        tool_calls: List of tool calls from the LLM response.
+        trace: Optional trace object for context.
+
+    Returns:
+        List of litellm Message objects containing tool responses.
+    """
+    from mlflow.genai.judges.tools.registry import _judge_tool_registry
+
+    tool_response_messages = []
+    for tool_call in tool_calls:
+        try:
+            mlflow_tool_call = _create_mlflow_tool_call_from_litellm(litellm_tool_call=tool_call)
+            result = _judge_tool_registry.invoke(tool_call=mlflow_tool_call, trace=trace)
+        except Exception as e:
+            tool_response_messages.append(
+                _create_litellm_tool_response_message(
+                    tool_call_id=tool_call.id,
+                    tool_name=tool_call.function.name,
+                    content=f"Error: {e!s}",
+                )
+            )
+        else:
+            if is_dataclass(result):
+                result = asdict(result)
+            result_json = json.dumps(result, default=str) if not isinstance(result, str) else result
+            tool_response_messages.append(
+                _create_litellm_tool_response_message(
+                    tool_call_id=tool_call.id,
+                    tool_name=tool_call.function.name,
+                    content=result_json,
+                )
+            )
+    return tool_response_messages
+
+
 @_suppress_litellm_nonfatal_errors
 def _invoke_litellm(
     provider: str,
@@ -1011,10 +1094,10 @@ def _invoke_litellm(
     messages: list["ChatMessage"],
     trace: Trace | None,
     num_retries: int,
-    pydantic_format: type[pydantic.BaseModel] | None = None,
+    response_format: type[pydantic.BaseModel] | None = None,
 ) -> str:
     """
-    Invoke the LLM via litellm with retry support.
+    Invoke the LLM via litellm with retry support and optional tool calling.
 
     Args:
         provider: The provider name (e.g., 'openai', 'anthropic').
@@ -1022,7 +1105,7 @@ def _invoke_litellm(
         messages: List of ChatMessage objects.
         trace: Optional trace object for context with tool calling support.
         num_retries: Number of retries with exponential backoff on transient failures.
-        pydantic_format: Optional Pydantic model class for structured output format.
+        response_format: Optional Pydantic model class for structured output format.
                        Used by get_chat_completions_with_structured_output for
                        schema-based extraction.
 
@@ -1034,10 +1117,7 @@ def _invoke_litellm(
     """
     import litellm
 
-    # Import at function level to avoid circular imports
-    # (tools.registry imports from utils for invoke_judge_model)
     from mlflow.genai.judges.tools import list_judge_tools
-    from mlflow.genai.judges.tools.registry import _judge_tool_registry
 
     messages = [litellm.Message(role=msg.role, content=msg.content) for msg in messages]
 
@@ -1048,34 +1128,10 @@ def _invoke_litellm(
         judge_tools = list_judge_tools()
         tools = [tool.get_definition().to_dict() for tool in judge_tools]
 
-    def _make_completion_request(messages: list[litellm.Message], include_response_format: bool):
-        """Helper to make litellm completion request with optional response_format."""
-        kwargs = {
-            "model": litellm_model_uri,
-            "messages": messages,
-            "tools": tools if tools else None,
-            "tool_choice": "auto" if tools else None,
-            "retry_policy": _get_litellm_retry_policy(num_retries),
-            "retry_strategy": "exponential_backoff_retry",
-            # In LiteLLM version 1.55.3+, max_retries is stacked on top of retry_policy.
-            # To avoid double-retry, we set max_retries=0
-            "max_retries": 0,
-            # Drop any parameters that are known to be unsupported by the LLM.
-            # This is important for compatibility with certain models that don't support
-            # certain call parameters (e.g. GPT-4 doesn't support 'response_format')
-            "drop_params": True,
-        }
-        if include_response_format:
-            kwargs["response_format"] = _get_judge_response_format(pydantic_format)
-        return litellm.completion(**kwargs)
-
     def _prune_messages_for_context_window():
-        """Helper to prune messages when context window is exceeded."""
         try:
             max_context_length = litellm.get_max_tokens(litellm_model_uri)
         except Exception:
-            # If the model is unknown to LiteLLM, fetching its max tokens may
-            # result in an exception
             max_context_length = None
 
         return _prune_messages_exceeding_context_window_length(
@@ -1103,12 +1159,16 @@ def _invoke_litellm(
             )
         try:
             try:
-                response = _make_completion_request(
-                    messages, include_response_format=include_response_format
+                response = _make_litellm_completion_request(
+                    litellm_model_uri=litellm_model_uri,
+                    messages=messages,
+                    tools=tools,
+                    num_retries=num_retries,
+                    response_format=response_format,
+                    include_response_format=include_response_format,
                 )
             except (litellm.BadRequestError, litellm.UnsupportedParamsError) as e:
                 if isinstance(e, litellm.ContextWindowExceededError) or "context length" in str(e):
-                    # Retry with pruned messages
                     messages = _prune_messages_for_context_window()
                     continue
                 # Check whether the request attempted to use structured outputs, rather than
@@ -1124,9 +1184,7 @@ def _invoke_litellm(
                         f"tool calling + structured outputs. Error: {e}. "
                         f"Falling back to unstructured response."
                     )
-                    # Cache the lack of structured outputs support for future calls
                     _MODEL_RESPONSE_FORMAT_CAPABILITIES[litellm_model_uri] = False
-                    # Retry without response_format
                     include_response_format = False
                     continue
                 else:
@@ -1137,40 +1195,10 @@ def _invoke_litellm(
                 return message.content
 
             messages.append(message)
-            # TODO: Consider making tool calls concurrent for better performance.
-            # Currently sequential for simplicity and to maintain order of results.
-            for tool_call in message.tool_calls:
-                try:
-                    mlflow_tool_call = _create_mlflow_tool_call_from_litellm(
-                        litellm_tool_call=tool_call
-                    )
-                    result = _judge_tool_registry.invoke(tool_call=mlflow_tool_call, trace=trace)
-                except Exception as e:
-                    messages.append(
-                        _create_litellm_tool_response_message(
-                            tool_call_id=tool_call.id,
-                            tool_name=tool_call.function.name,
-                            content=f"Error: {e!s}",
-                        )
-                    )
-                else:
-                    # Convert dataclass results to dict if needed
-                    # The tool result is either a dict, string, or dataclass
-                    if is_dataclass(result):
-                        result = asdict(result)
-                    result_json = (
-                        json.dumps(result, default=str) if not isinstance(result, str) else result
-                    )
-                    messages.append(
-                        _create_litellm_tool_response_message(
-                            tool_call_id=tool_call.id,
-                            tool_name=tool_call.function.name,
-                            content=result_json,
-                        )
-                    )
+            tool_response_messages = _process_tool_calls(tool_calls=message.tool_calls, trace=trace)
+            messages.extend(tool_response_messages)
 
         except MlflowException:
-            # Re-raise MlflowExceptions without wrapping
             raise
         except Exception as e:
             raise MlflowException(f"Failed to invoke the judge via litellm: {e}") from e
@@ -1223,55 +1251,23 @@ def _create_litellm_tool_response_message(
     )
 
 
-def _get_judge_response_format(pydantic_format: type["BaseModel"] | None = None) -> dict[str, Any]:
+def _get_default_judge_response_schema() -> type[pydantic.BaseModel]:
     """
-    Get the response format for judge evaluations.
-
-    Args:
-        pydantic_format: Optional Pydantic model class for custom output format.
+    Get the default Pydantic schema for judge evaluations.
 
     Returns:
-        A dictionary containing the JSON schema for structured outputs.
+        A Pydantic BaseModel class defining the standard judge output format.
     """
-    if pydantic_format:
-        schema = pydantic_format.model_json_schema()
-        return {
-            "type": "json_schema",
-            "json_schema": {
-                "name": pydantic_format.__name__.lower(),
-                "strict": True,
-                "schema": schema,
-            },
-        }
-
     # Import here to avoid circular imports
     from mlflow.genai.judges.base import Judge
 
     output_fields = Judge.get_output_fields()
 
-    properties = {}
-    required_fields = []
-
+    field_definitions = {}
     for field in output_fields:
-        properties[field.name] = {
-            "type": "string",
-            "description": field.description,
-        }
-        required_fields.append(field.name)
+        field_definitions[field.name] = (str, pydantic.Field(description=field.description))
 
-    return {
-        "type": "json_schema",
-        "json_schema": {
-            "name": "judge_evaluation",
-            "strict": True,
-            "schema": {
-                "type": "object",
-                "properties": properties,
-                "required": required_fields,
-                "additionalProperties": False,
-            },
-        },
-    }
+    return pydantic.create_model("JudgeEvaluation", **field_definitions)
 
 
 def _prune_messages_exceeding_context_window_length(

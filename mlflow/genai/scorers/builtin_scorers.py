@@ -22,7 +22,6 @@ from mlflow.genai.judges.prompts.guidelines import GUIDELINES_PROMPT_INSTRUCTION
 from mlflow.genai.judges.prompts.relevance_to_query import RELEVANCE_TO_QUERY_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.utils import (
     CategoricalRating,
-    FieldExtraction,
     get_chat_completions_with_structured_output,
     get_default_model,
     invoke_judge_model,
@@ -58,6 +57,7 @@ class ExtractedFields:
 
 def resolve_scorer_fields(
     trace: Trace | None,
+    judge: Judge,
     inputs: Any | None = None,
     outputs: Any | None = None,
     expectations: dict[str, Any] | None = None,
@@ -66,6 +66,15 @@ def resolve_scorer_fields(
 ) -> ExtractedFields:
     """
     Resolve scorer fields from provided values or extract from trace if needed.
+
+    Args:
+        trace: MLflow trace object containing the execution to evaluate.
+        judge: Judge instance to determine which fields need extraction.
+        inputs: Input data to evaluate. If None, will be extracted from trace.
+        outputs: Output data to evaluate. If None, will be extracted from trace.
+        expectations: Dictionary of expected outcomes. If None, will be extracted from trace.
+        model: Model URI to use for LLM-based extraction if needed.
+        extract_expectations: If True, extract expectations from trace.
 
     Returns:
         ExtractedFields dataclass containing inputs, outputs, and expectations
@@ -78,26 +87,48 @@ def resolve_scorer_fields(
     if extract_expectations:
         expectations = resolve_expectations_from_trace(expectations, trace)
 
-    if inputs is None or outputs is None:
+    input_field_names = {field.name for field in judge.get_input_fields()}
+    needs_inputs = inputs is None and "inputs" in input_field_names
+    needs_outputs = outputs is None and "outputs" in input_field_names
+
+    if needs_inputs or needs_outputs:
         from mlflow.types.llm import ChatMessage
+
+        extraction_tasks = []
+        schema_fields = {}
+
+        if needs_inputs:
+            extraction_tasks.append("- inputs: The initial user request/question")
+            schema_fields["inputs"] = (
+                str,
+                pydantic.Field(description="The user's original request"),
+            )
+
+        if needs_outputs:
+            extraction_tasks.append("- outputs: The final system response")
+            schema_fields["outputs"] = (
+                str,
+                pydantic.Field(description="The system's final response"),
+            )
+
+        if not extraction_tasks:
+            return ExtractedFields(inputs=inputs, outputs=outputs, expectations=expectations)
+
+        ExtractionSchema = pydantic.create_model("ExtractionSchema", **schema_fields)
 
         prompt = [
             ChatMessage(
                 role="system",
                 content=(
-                    "Extract the user's original input and the system's final output "
-                    "from the trace.\n"
+                    "Extract the following fields from the trace.\n"
                     "Use the provided tools to examine the trace's spans to find:\n"
-                    "- inputs: The initial user request/question\n"
-                    "- outputs: The final system response\n"
-                    "\n"
-                    "Return the result as a JSON object with exactly these fields:\n"
-                    '{"inputs": "...", "outputs": "..."}'
+                    + "\n".join(extraction_tasks)
+                    + "\n\nReturn the result as JSON."
                 ),
             ),
             ChatMessage(
                 role="user",
-                content="Use the tools to find the inputs and outputs, then return them as JSON.",
+                content="Use the tools to find the required fields, then return them as JSON.",
             ),
         ]
 
@@ -105,15 +136,16 @@ def resolve_scorer_fields(
             extracted = get_chat_completions_with_structured_output(
                 model_uri=model or get_default_model(),
                 messages=prompt,
-                output_schema=FieldExtraction,
+                output_schema=ExtractionSchema,
                 trace=trace,
             )
-            inputs = inputs or extracted.inputs
-            outputs = outputs or extracted.outputs
+            if needs_inputs:
+                inputs = inputs or extracted.inputs
+            if needs_outputs:
+                outputs = outputs or extracted.outputs
         except Exception as e:
             _logger.warning(
-                "Failed to extract inputs/outputs from trace using LLM: %s. "
-                "Provide inputs and outputs as parameters.",
+                "Failed to extract required fields from trace using LLM: %s",
                 e,
             )
 
@@ -678,11 +710,17 @@ class Guidelines(BuiltInScorer):
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
             indicating the adherence to the specified guidelines.
         """
-        fields = resolve_scorer_fields(trace, inputs, outputs, model=self.model)
+        fields = resolve_scorer_fields(trace, self, inputs, outputs, model=self.model)
 
-        if fields.inputs is None or fields.outputs is None:
+        required_fields = {field.name for field in self.get_input_fields()}
+        if "inputs" in required_fields and fields.inputs is None:
             raise MlflowException(
-                "Guidelines scorer requires inputs and outputs. "
+                "Guidelines scorer requires inputs. "
+                "Provide them directly or pass a trace containing them."
+            )
+        if "outputs" in required_fields and fields.outputs is None:
+            raise MlflowException(
+                "Guidelines scorer requires outputs. "
                 "Provide them directly or pass a trace containing them."
             )
         feedback = judges.meets_guidelines(
@@ -820,12 +858,24 @@ class ExpectationsGuidelines(BuiltInScorer):
             indicating the adherence to the specified guidelines.
         """
         fields = resolve_scorer_fields(
-            trace, inputs, outputs, expectations, model=self.model, extract_expectations=True
+            trace,
+            self,
+            inputs,
+            outputs,
+            expectations,
+            model=self.model,
+            extract_expectations=True,
         )
 
-        if fields.inputs is None or fields.outputs is None:
+        required_fields = {field.name for field in self.get_input_fields()}
+        if "inputs" in required_fields and fields.inputs is None:
             raise MlflowException(
-                "ExpectationsGuidelines scorer requires inputs and outputs. "
+                "ExpectationsGuidelines scorer requires inputs. "
+                "Provide them directly or pass a trace containing them."
+            )
+        if "outputs" in required_fields and fields.outputs is None:
+            raise MlflowException(
+                "ExpectationsGuidelines scorer requires outputs. "
                 "Provide them directly or pass a trace containing them."
             )
 
@@ -947,11 +997,17 @@ class RelevanceToQuery(BuiltInScorer):
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
             indicating the relevance of the response to the query.
         """
-        fields = resolve_scorer_fields(trace, inputs, outputs, model=self.model)
+        fields = resolve_scorer_fields(trace, self, inputs, outputs, model=self.model)
 
-        if fields.inputs is None or fields.outputs is None:
+        required_fields = {field.name for field in self.get_input_fields()}
+        if "inputs" in required_fields and fields.inputs is None:
             raise MlflowException(
-                "RelevanceToQuery scorer requires inputs and outputs. "
+                "RelevanceToQuery scorer requires inputs. "
+                "Provide them directly or pass a trace containing them."
+            )
+        if "outputs" in required_fields and fields.outputs is None:
+            raise MlflowException(
+                "RelevanceToQuery scorer requires outputs. "
                 "Provide them directly or pass a trace containing them."
             )
 
@@ -1052,9 +1108,10 @@ class Safety(BuiltInScorer):
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
             indicating the safety of the response.
         """
-        fields = resolve_scorer_fields(trace, outputs=outputs, model=self.model)
+        fields = resolve_scorer_fields(trace, self, outputs=outputs, model=self.model)
 
-        if fields.outputs is None:
+        required_fields = {field.name for field in self.get_input_fields()}
+        if "outputs" in required_fields and fields.outputs is None:
             raise MlflowException(
                 "Safety scorer requires outputs. "
                 "Provide them directly or pass a trace containing them."
@@ -1214,12 +1271,24 @@ class Correctness(BuiltInScorer):
             indicating the correctness of the response.
         """
         fields = resolve_scorer_fields(
-            trace, inputs, outputs, expectations, model=self.model, extract_expectations=True
+            trace,
+            self,
+            inputs,
+            outputs,
+            expectations,
+            model=self.model,
+            extract_expectations=True,
         )
 
-        if fields.inputs is None or fields.outputs is None:
+        required_fields = {field.name for field in self.get_input_fields()}
+        if "inputs" in required_fields and fields.inputs is None:
             raise MlflowException(
-                "Correctness scorer requires inputs and outputs. "
+                "Correctness scorer requires inputs. "
+                "Provide them directly or pass a trace containing them."
+            )
+        if "outputs" in required_fields and fields.outputs is None:
+            raise MlflowException(
+                "Correctness scorer requires outputs. "
                 "Provide them directly or pass a trace containing them."
             )
 

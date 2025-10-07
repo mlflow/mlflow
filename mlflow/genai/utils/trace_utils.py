@@ -92,19 +92,23 @@ def extract_outputs_from_trace(trace: Trace) -> Any:
     return None
 
 
-def resolve_inputs_from_trace(inputs: Any | None, trace: Trace) -> Any | None:
+def resolve_inputs_from_trace(
+    inputs: Any | None, trace: Trace, *, extract_if_none: bool = True
+) -> Any | None:
     """
     Extract inputs from trace if not provided.
 
     Args:
         inputs: Input data to evaluate. If None, will be extracted from trace.
         trace: MLflow trace object containing the execution to evaluate.
+        extract_if_none: If True, extract from trace when inputs is None. If False, only
+                        return the provided inputs value. Defaults to True.
 
     Returns:
         The provided inputs if not None, otherwise extracted inputs from trace,
         or None if extraction fails.
     """
-    if inputs is None and trace is not None:
+    if inputs is None and trace is not None and extract_if_none:
         try:
             return extract_inputs_from_trace(trace)
         except Exception as e:
@@ -112,19 +116,23 @@ def resolve_inputs_from_trace(inputs: Any | None, trace: Trace) -> Any | None:
     return inputs
 
 
-def resolve_outputs_from_trace(outputs: Any | None, trace: Trace) -> Any | None:
+def resolve_outputs_from_trace(
+    outputs: Any | None, trace: Trace, *, extract_if_none: bool = True
+) -> Any | None:
     """
     Extract outputs from trace if not provided.
 
     Args:
         outputs: Output data to evaluate. If None, will be extracted from trace.
         trace: MLflow trace object containing the execution to evaluate.
+        extract_if_none: If True, extract from trace when outputs is None. If False, only
+                        return the provided outputs value. Defaults to True.
 
     Returns:
         The provided outputs if not None, otherwise extracted outputs from trace,
         or None if extraction fails.
     """
-    if outputs is None and trace is not None:
+    if outputs is None and trace is not None and extract_if_none:
         try:
             return extract_outputs_from_trace(trace)
         except Exception as e:
@@ -136,6 +144,8 @@ def resolve_expectations_from_trace(
     expectations: dict[str, Any] | None,
     trace: Trace,
     source: AssessmentSourceType = AssessmentSourceType.HUMAN,
+    *,
+    extract_if_none: bool = True,
 ) -> dict[str, Any] | None:
     """
     Extract expectations from trace if not provided.
@@ -144,12 +154,14 @@ def resolve_expectations_from_trace(
         expectations: Dictionary of expected outcomes. If None, will be extracted from trace.
         trace: MLflow trace object containing the execution to evaluate.
         source: Assessment source type to filter expectations by. Defaults to HUMAN.
+        extract_if_none: If True, extract from trace when expectations is None. If False, only
+                        return the provided expectations value. Defaults to True.
 
     Returns:
         The provided expectations if not None, otherwise extracted expectations from trace,
         or None if extraction fails.
     """
-    if expectations is None and trace is not None:
+    if expectations is None and trace is not None and extract_if_none:
         try:
             return extract_expectations_from_trace(trace, source=source)
         except Exception as e:
@@ -248,12 +260,15 @@ def is_none_or_nan(value: Any) -> bool:
 
     NB: This function does not handle pandas.NA.
     """
+    # isinstance(value, float) check is needed to ensure that math.isnan is not called on an array.
     return value is None or (isinstance(value, float) and math.isnan(value))
 
 
 def parse_inputs_to_str(value: Any) -> str:
     """Parse the inputs to a string compatible with the judges API"""
     if is_none_or_nan(value):
+        # The DBX managed backend doesn't allow empty inputs. This is
+        # a temporary workaround to bypass the validation.
         return " "
     if isinstance(value, str):
         return value
@@ -276,6 +291,7 @@ def parse_outputs_to_str(value: Any) -> str:
     if isinstance(value, str):
         return value
 
+    # PyFuncModel.predict wraps the output in a list
     if isinstance(value, list) and len(value) > 0:
         return parse_outputs_to_str(value[0])
 
@@ -317,6 +333,7 @@ def _to_dict(obj: Any) -> dict[str, Any]:
     if isinstance(obj, BaseModel):
         return obj.model_dump()
 
+    # Convert to JSON string and then back to dictionary to handle nested objects
     json_str = json.dumps(obj, cls=TraceJSONEncoder)
     return json.loads(json_str)
 
@@ -364,12 +381,15 @@ def _get_top_level_retrieval_spans(trace: Trace) -> list[Span]:
     Span C and Span F are NOT top-level because they are children of other retrieval spans.
     """
     top_level_retrieval_spans = []
+    # Cache span_id -> span mapping for fast lookup
     all_spans = {span.span_id: span for span in trace.data.spans}
     for span in trace.search_spans(span_type=SpanType.RETRIEVER):
+        # Check if this span is a child of another retrieval span
         parent_id = span.parent_id
         while parent_id:
             parent_span = all_spans.get(parent_id)
             if not parent_span:
+                # Malformed trace
                 _logger.debug(
                     f"Malformed trace: span {span} has parent span ID {parent_id}, "
                     "but the parent span is not found in the trace."
@@ -377,6 +397,7 @@ def _get_top_level_retrieval_spans(trace: Trace) -> list[Span]:
                 break
 
             if parent_span.span_type == SpanType.RETRIEVER:
+                # This span is a child of another retrieval span
                 break
 
             parent_id = parent_span.parent_id
