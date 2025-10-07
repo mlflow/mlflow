@@ -22,23 +22,21 @@ def test_evaluate_traces_with_single_trace_table_output():
 
     mock_results = mock.Mock()
     mock_results.run_id = "run-eval-456"
-    mock_results.tables = {
-        "eval_results": pd.DataFrame(
-            [
-                {
-                    "trace_id": "tr-test-123",
-                    "assessments": [
-                        {
-                            "assessment_name": "RelevanceToQuery",
-                            "feedback": {"value": "yes"},
-                            "rationale": "The answer is relevant",
-                            "metadata": {"mlflow.assessment.sourceRunId": "run-eval-456"},
-                        }
-                    ],
-                }
-            ]
-        )
-    }
+    mock_results.result_df = pd.DataFrame(
+        [
+            {
+                "trace_id": "tr-test-123",
+                "assessments": [
+                    {
+                        "assessment_name": "RelevanceToQuery",
+                        "feedback": {"value": "yes"},
+                        "rationale": "The answer is relevant",
+                        "metadata": {"mlflow.assessment.sourceRunId": "run-eval-456"},
+                    }
+                ],
+            }
+        ]
+    )
 
     with (
         mock.patch(
@@ -82,34 +80,32 @@ def test_evaluate_traces_with_multiple_traces_json_output():
 
     mock_results = mock.Mock()
     mock_results.run_id = "run-eval-789"
-    mock_results.tables = {
-        "eval_results": pd.DataFrame(
-            [
-                {
-                    "trace_id": "tr-test-1",
-                    "assessments": [
-                        {
-                            "assessment_name": "Correctness",
-                            "feedback": {"value": "correct"},
-                            "rationale": "Content is correct",
-                            "metadata": {"mlflow.assessment.sourceRunId": "run-eval-789"},
-                        }
-                    ],
-                },
-                {
-                    "trace_id": "tr-test-2",
-                    "assessments": [
-                        {
-                            "assessment_name": "Correctness",
-                            "feedback": {"value": "correct"},
-                            "rationale": "Also correct",
-                            "metadata": {"mlflow.assessment.sourceRunId": "run-eval-789"},
-                        }
-                    ],
-                },
-            ]
-        )
-    }
+    mock_results.result_df = pd.DataFrame(
+        [
+            {
+                "trace_id": "tr-test-1",
+                "assessments": [
+                    {
+                        "assessment_name": "Correctness",
+                        "feedback": {"value": "correct"},
+                        "rationale": "Content is correct",
+                        "metadata": {"mlflow.assessment.sourceRunId": "run-eval-789"},
+                    }
+                ],
+            },
+            {
+                "trace_id": "tr-test-2",
+                "assessments": [
+                    {
+                        "assessment_name": "Correctness",
+                        "feedback": {"value": "correct"},
+                        "rationale": "Also correct",
+                        "metadata": {"mlflow.assessment.sourceRunId": "run-eval-789"},
+                    }
+                ],
+            },
+        ]
+    )
 
     with (
         mock.patch(

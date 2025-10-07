@@ -95,7 +95,15 @@ def evaluate_traces(
     except Exception as e:
         raise click.UsageError(f"Evaluation failed: {e}")
 
-    results_df = results.tables["eval_results"]
+    if hasattr(results, "result_df"):
+        results_df = results.result_df
+    elif hasattr(results, "tables"):
+        results_df = results.tables.get("eval_results") or results.tables.get("eval_results_table")
+        if results_df is None:
+            raise click.UsageError("No evaluation results table found in results")
+    else:
+        raise click.UsageError("Unexpected evaluation result format")
+
     output_data = extract_assessments_from_results(results_df, evaluation_run_id)
 
     if output_format == "json":
