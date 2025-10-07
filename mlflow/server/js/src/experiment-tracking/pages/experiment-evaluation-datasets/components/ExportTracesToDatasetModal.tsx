@@ -17,7 +17,7 @@ import { FormattedMessage } from 'react-intl';
 import { useInfiniteScrollFetch } from '../hooks/useInfiniteScrollFetch';
 import { useSearchEvaluationDatasets } from '../hooks/useSearchEvaluationDatasets';
 import { EvaluationDataset } from '../types';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { getModelTraceId, ModelTrace } from '@mlflow/mlflow/src/shared/web-shared/model-trace-explorer';
 import { compact } from 'lodash';
 import { extractDatasetInfoFromTraces } from '../utils/datasetUtils';
