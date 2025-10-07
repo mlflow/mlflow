@@ -1,6 +1,5 @@
 import base64
 import hashlib
-import inspect
 import json
 import logging
 import math
@@ -1983,25 +1982,6 @@ class SqlAlchemyStore(AbstractStore):
         Returns:
             The new version number for the scorer.
         """
-        from mlflow.genai.scorers.base import Scorer
-
-        scorer_obj = Scorer.model_validate(json.loads(serialized_scorer))
-        call_signature = inspect.signature(scorer_obj.__call__)
-        param_names = list(call_signature.parameters.keys())
-
-        has_trace_param = "trace" in param_names
-        has_kwargs = any(
-            param.kind == inspect.Parameter.VAR_KEYWORD
-            for param in call_signature.parameters.values()
-        )
-
-        if not (has_trace_param or has_kwargs):
-            raise MlflowException(
-                f"Scorer '{name}' must accept a 'trace' parameter in its __call__ method. "
-                f"Found parameters: {param_names}",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-
         with self.ManagedSessionMaker() as session:
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
@@ -3819,10 +3799,14 @@ class SqlAlchemyStore(AbstractStore):
                     if key not in schema["inputs"]:
                         schema["inputs"][key] = self._infer_field_type(value)
 
-            if outputs := record.get("outputs"):
-                for key, value in outputs.items():
-                    if key not in schema["outputs"]:
-                        schema["outputs"][key] = self._infer_field_type(value)
+            if (outputs := record.get("outputs")) is not None:
+                if isinstance(outputs, dict):
+                    for key, value in outputs.items():
+                        if key not in schema["outputs"]:
+                            schema["outputs"][key] = self._infer_field_type(value)
+                else:
+                    if not schema["outputs"]:
+                        schema["outputs"] = self._infer_field_type(outputs)
 
             if expectations := record.get("expectations"):
                 for key, value in expectations.items():

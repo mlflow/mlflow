@@ -430,7 +430,7 @@ class DatabricksStore(AbstractScorerStore):
     def update_scorer(self, experiment_id, name, sample_rate=None):
         raise MlflowException(
             "Databricks backend does not support update_scorer. "
-            "Use the Databricks UI or API to modify scorer configurations."
+            "Use the Databricks UI or API to update scorer configuration."
         )
 
 

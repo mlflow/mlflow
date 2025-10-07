@@ -2,13 +2,15 @@ import inspect
 import json
 import logging
 import warnings
+from contextlib import contextmanager, nullcontext
+from typing import Any
 
 from packaging.version import Version
 
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
@@ -25,12 +27,57 @@ def patched_class_call(original, self, *args, **kwargs):
             inputs = _construct_full_inputs(original, self, *args, **kwargs)
             span.set_inputs(inputs)
             _set_span_attributes(span=span, instance=self)
-            result = original(self, *args, **kwargs)
+
+            # CrewAI reports only crew-level usage totals.
+            # This patch hooks LiteLLM's `completion` to capture each response
+            # so per-call LLM usage can be logged.
+            capture_context = (
+                _capture_llm_response(self) if span_type == SpanType.LLM else nullcontext()
+            )
+            with capture_context:
+                result = original(self, *args, **kwargs)
+
             # Need to convert the response of generate_content for better visualization
             outputs = result.__dict__ if hasattr(result, "__dict__") else result
+
+            if span_type == SpanType.LLM and (usage_dict := _parse_usage(self)):
+                span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
             span.set_outputs(outputs)
 
             return result
+
+
+def _capture_llm_response(instance):
+    @contextmanager
+    def _patched_completion():
+        import litellm
+
+        original_completion = litellm.completion
+
+        def _capture_completion(*args, **kwargs):
+            response = original_completion(*args, **kwargs)
+            setattr(instance, "_mlflow_last_response", response)
+            return response
+
+        litellm.completion = _capture_completion
+        try:
+            yield
+        finally:
+            litellm.completion = original_completion
+
+    return _patched_completion()
+
+
+def _parse_usage(instance: Any) -> dict[str, int] | None:
+    usage = instance.__dict__.get("_mlflow_last_response", {}).get("usage", {})
+    if not usage:
+        return None
+
+    return {
+        TokenUsageKey.INPUT_TOKENS: usage.prompt_tokens,
+        TokenUsageKey.OUTPUT_TOKENS: usage.completion_tokens,
+        TokenUsageKey.TOTAL_TOKENS: usage.total_tokens,
+    }
 
 
 def _get_span_type(instance) -> str:

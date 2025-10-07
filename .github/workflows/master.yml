@@ -32,6 +32,7 @@ env:
   PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
   PYTHONUTF8: "1"
   _MLFLOW_TESTING_TELEMETRY: "true"
+  MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
 
 jobs:
   # python-skinny tests cover a subset of mlflow functionality

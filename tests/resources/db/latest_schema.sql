@@ -64,13 +64,14 @@ CREATE TABLE inputs (
 
 CREATE TABLE jobs (
 	id VARCHAR(36) NOT NULL,
-	creation_time BIGINT,
+	creation_time BIGINT NOT NULL,
 	function_fullname VARCHAR(500) NOT NULL,
 	params TEXT NOT NULL,
 	timeout FLOAT,
 	status INTEGER NOT NULL,
 	result TEXT,
-	retry_count INTEGER,
+	retry_count INTEGER NOT NULL,
+	last_update_time BIGINT NOT NULL,
 	CONSTRAINT jobs_pk PRIMARY KEY (id)
 )
 
@@ -374,6 +375,7 @@ CREATE TABLE scorer_versions (
 	scorer_version INTEGER NOT NULL,
 	serialized_scorer TEXT NOT NULL,
 	creation_time BIGINT,
+	sample_rate FLOAT DEFAULT '0.0' NOT NULL,
 	CONSTRAINT scorer_version_pk PRIMARY KEY (scorer_id, scorer_version),
 	CONSTRAINT fk_scorer_versions_scorer_id FOREIGN KEY(scorer_id) REFERENCES scorers (scorer_id) ON DELETE CASCADE
 )

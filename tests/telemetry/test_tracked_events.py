@@ -636,7 +636,7 @@ def test_git_model_versioning(mock_requests, mock_telemetry_client):
     [
         ("databricks:/llama-3.1-70b", "databricks", True, False),
         ("openai:/gpt-4o-mini", "openai", True, False),
-        ("endpoints:/my-endpoint", "endpoints", False, True),
+        ("endpoints:/my-endpoint", "endpoints", True, False),
         ("anthropic:/claude-3-opus", "anthropic", True, False),
     ],
 )
@@ -686,7 +686,7 @@ def test_invoke_custom_judge_model(
                 mock.patch("mlflow.genai.judges.utils._invoke_databricks_model") as mock_databricks,
             ):
                 # For databricks provider, mock the databricks model invocation
-                if expected_provider == "databricks":
+                if expected_provider in ["databricks", "endpoints"]:
                     from mlflow.genai.judges.utils import InvokeDatabricksModelOutput
 
                     mock_databricks.return_value = InvokeDatabricksModelOutput(
