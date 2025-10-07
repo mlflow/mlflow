@@ -1876,7 +1876,7 @@ class SqlAlchemyStore(AbstractStore):
 
     def log_logged_model_params(self, model_id: str, params: list[LoggedModelParameter]):
         with self.ManagedSessionMaker() as session:
-            logged_model = session.query(SqlLoggedModel).get(model_id)
+            logged_model = session.get(SqlLoggedModel, model_id)
             if not logged_model:
                 self._raise_model_not_found(model_id)
 
@@ -1913,7 +1913,7 @@ class SqlAlchemyStore(AbstractStore):
 
     def delete_logged_model(self, model_id):
         with self.ManagedSessionMaker() as session:
-            logged_model = session.query(SqlLoggedModel).get(model_id)
+            logged_model = session.get(SqlLoggedModel, model_id)
             if not logged_model:
                 self._raise_model_not_found(model_id)
 
@@ -1923,7 +1923,7 @@ class SqlAlchemyStore(AbstractStore):
 
     def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
         with self.ManagedSessionMaker() as session:
-            logged_model = session.query(SqlLoggedModel).get(model_id)
+            logged_model = session.get(SqlLoggedModel, model_id)
             if not logged_model:
                 self._raise_model_not_found(model_id)
 
@@ -1934,7 +1934,7 @@ class SqlAlchemyStore(AbstractStore):
 
     def set_logged_model_tags(self, model_id: str, tags: list[LoggedModelTag]) -> None:
         with self.ManagedSessionMaker() as session:
-            logged_model = session.query(SqlLoggedModel).get(model_id)
+            logged_model = session.get(SqlLoggedModel, model_id)
             if not logged_model:
                 self._raise_model_not_found(model_id)
 
@@ -1951,7 +1951,7 @@ class SqlAlchemyStore(AbstractStore):
 
     def delete_logged_model_tag(self, model_id: str, key: str) -> None:
         with self.ManagedSessionMaker() as session:
-            logged_model = session.query(SqlLoggedModel).get(model_id)
+            logged_model = session.get(SqlLoggedModel, model_id)
             if not logged_model:
                 self._raise_model_not_found(model_id)
 

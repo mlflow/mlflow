@@ -437,6 +437,8 @@ filterwarnings = [
   "error:getName\\(\\) is deprecated, get the name attribute instead:DeprecationWarning",
   # Prevent deprecated non-integer arguments to randrange() from being used
   "error:non-integer arguments to randrange\\(\\) have been deprecated:DeprecationWarning",
+  # Prevent SQLAlchemy legacy API usage
+  "error::sqlalchemy.exc.LegacyAPIWarning",
 ]
 timeout = 1200
 
