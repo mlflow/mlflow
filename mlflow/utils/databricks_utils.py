@@ -823,10 +823,9 @@ def get_databricks_host_creds(server_uri=None):
         use_databricks_sdk = False
         databricks_auth_profile = None
 
-    config = _get_databricks_creds_config(server_uri)
-
-    if not config:
-        _fail_malformed_databricks_auth(profile)
+    # if `use_databricks_sdk` is True, databricks-sdk can set up authentication correctly,
+    # so that we can ignore `_get_databricks_creds_config` failure in the case.
+    config = _get_databricks_creds_config(server_uri, use_databricks_sdk=use_databricks_sdk)
 
     return MlflowHostCreds(
         config.host,
@@ -1133,7 +1132,7 @@ def _print_databricks_deployment_job_url(
     return job_url
 
 
-def _get_databricks_creds_config(tracking_uri):
+def _get_databricks_creds_config(tracking_uri, use_databricks_sdk=False):
     # Note:
     # `_get_databricks_creds_config` reads credential token values or password and
     # returns a `DatabricksConfig` object
@@ -1171,6 +1170,10 @@ def _get_databricks_creds_config(tracking_uri):
                 break
 
     if not config or not config.host:
+        if use_databricks_sdk:
+            # If we use Databricks sdk to do authentication,
+            # we can ignore error in `_get_databricks_creds_config`
+            return config or DatabricksConfig.empty()
         _fail_malformed_databricks_auth(tracking_uri)
 
     return config
