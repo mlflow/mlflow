@@ -22,7 +22,7 @@ def test_evaluate_traces_with_single_trace_table_output():
 
     mock_results = mock.Mock()
     mock_results.run_id = "run-eval-456"
-    mock_results.result_df = pd.DataFrame(
+    mock_results.tables = {"eval_results": pd.DataFrame(
         [
             {
                 "trace_id": "tr-test-123",
@@ -36,7 +36,7 @@ def test_evaluate_traces_with_single_trace_table_output():
                 ],
             }
         ]
-    )
+    )}
 
     with (
         mock.patch(
@@ -80,7 +80,7 @@ def test_evaluate_traces_with_multiple_traces_json_output():
 
     mock_results = mock.Mock()
     mock_results.run_id = "run-eval-789"
-    mock_results.result_df = pd.DataFrame(
+    mock_results.tables = {"eval_results": pd.DataFrame(
         [
             {
                 "trace_id": "tr-test-1",
@@ -105,7 +105,7 @@ def test_evaluate_traces_with_multiple_traces_json_output():
                 ],
             },
         ]
-    )
+    )}
 
     with (
         mock.patch(
