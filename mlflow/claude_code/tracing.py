@@ -599,6 +599,7 @@ def process_transcript(
                 if final_response:
                     in_memory_trace.info.response_preview = final_response[:MAX_PREVIEW_LENGTH]
                 in_memory_trace.info.trace_metadata = {
+                    **in_memory_trace.info.trace_metadata,
                     TraceMetadataKey.TRACE_SESSION: session_id,
                     TraceMetadataKey.TRACE_USER: os.environ.get("USER", ""),
                     "mlflow.trace.working_directory": os.getcwd(),

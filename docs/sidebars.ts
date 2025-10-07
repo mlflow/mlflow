@@ -350,6 +350,24 @@ const sidebars: SidebarsConfig = {
                 },
                 {
                   type: 'category',
+                  label: 'Server Security',
+                  link: {
+                    type: 'doc',
+                    id: 'tracking/server/security/index',
+                  },
+                  items: [
+                    {
+                      type: 'doc',
+                      id: 'tracking/server/security/configuration',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'tracking/server/security/ui-access',
+                    },
+                  ],
+                },
+                {
+                  type: 'category',
                   label: 'Tutorials',
                   items: [
                     {
