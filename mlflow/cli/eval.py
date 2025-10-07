@@ -3,6 +3,7 @@ CLI commands for evaluating traces with scorers.
 """
 
 import json
+from typing import Literal
 
 import click
 import pandas as pd
@@ -61,7 +62,7 @@ def evaluate_traces(
     experiment_id: str,
     trace_ids: str,
     scorers: str,
-    output_format: str = "table",
+    output_format: Literal["table", "json"] = "table",
 ) -> None:
     """
     Evaluate traces with specified scorers and output results.
@@ -75,7 +76,9 @@ def evaluate_traces(
     mlflow.set_experiment(experiment_id=experiment_id)
 
     traces = _gather_traces(trace_ids, experiment_id)
-    traces_df = pd.DataFrame([{"trace_id": t.info.trace_id, "trace": t} for t in traces])
+    traces_df = pd.DataFrame(
+        [{"trace_id": t.info.trace_id, "trace": t} for t in traces]
+    )
 
     scorer_names = [name.strip() for name in scorers.split(",")]
     resolved_scorers = resolve_scorers(scorer_names, experiment_id)
@@ -124,5 +127,6 @@ def evaluate_traces(
         table_output = format_table_output(output_data)
         # Extract string values from Cell objects for table display
         table_data = [[cell.value for cell in row] for row in table_output.rows]
+        # Add new line in the output before the final result.
         click.echo("")
         click.echo(_create_table(table_data, headers=table_output.headers))
