@@ -41,6 +41,7 @@ from mlflow.entities import (
     trace_location,
 )
 from mlflow.entities.assessment import ExpectationValue, FeedbackValue
+from mlflow.entities.dataset_record import DatasetRecord
 from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
@@ -523,6 +524,23 @@ def test_default_experiment_lifecycle(store: SqlAlchemyStore, tmp_path):
 def test_raise_duplicate_experiments(store: SqlAlchemyStore):
     with pytest.raises(Exception, match=r"Experiment\(name=.+\) already exists"):
         _create_experiments(store, ["test", "test"])
+
+
+def test_duplicate_experiment_with_artifact_location_returns_resource_already_exists(
+    store: SqlAlchemyStore, tmp_path: Path
+):
+    exp_name = "test_duplicate_with_artifact_location"
+    artifact_location = str(tmp_path / "test_artifacts")
+
+    # First creation should succeed
+    store.create_experiment(exp_name, artifact_location=artifact_location)
+
+    # Second creation should raise MlflowException with RESOURCE_ALREADY_EXISTS error code
+    with pytest.raises(MlflowException, match="already exists") as exc_info:
+        store.create_experiment(exp_name, artifact_location=artifact_location)
+
+    # Verify that the error code is RESOURCE_ALREADY_EXISTS, not BAD_REQUEST
+    assert exc_info.value.error_code == "RESOURCE_ALREADY_EXISTS"
 
 
 def test_raise_experiment_dont_exist(store: SqlAlchemyStore):
@@ -7523,6 +7541,7 @@ def test_dataset_associations_and_lazy_loading(store):
 
         assert list(df.columns) == [
             "inputs",
+            "outputs",
             "expectations",
             "tags",
             "source_type",
@@ -7771,6 +7790,98 @@ def test_sql_dataset_record_merge():
         assert record6.tags == {"env": "test", "version": "1.0"}
 
 
+def test_sql_dataset_record_wrapping_unwrapping():
+    from mlflow.entities.dataset_record import DATASET_RECORD_WRAPPED_OUTPUT_KEY
+
+    entity = DatasetRecord(
+        dataset_record_id="rec1",
+        dataset_id="ds1",
+        inputs={"q": "test"},
+        outputs="string output",
+        created_time=1000,
+        last_update_time=1000,
+    )
+
+    sql_record = SqlEvaluationDatasetRecord.from_mlflow_entity(entity, "input_hash_123")
+
+    assert sql_record.outputs == {DATASET_RECORD_WRAPPED_OUTPUT_KEY: "string output"}
+
+    unwrapped_entity = sql_record.to_mlflow_entity()
+    assert unwrapped_entity.outputs == "string output"
+
+    entity2 = DatasetRecord(
+        dataset_record_id="rec2",
+        dataset_id="ds1",
+        inputs={"q": "test"},
+        outputs=[1, 2, 3],
+        created_time=1000,
+        last_update_time=1000,
+    )
+
+    sql_record2 = SqlEvaluationDatasetRecord.from_mlflow_entity(entity2, "input_hash_456")
+    assert sql_record2.outputs == {DATASET_RECORD_WRAPPED_OUTPUT_KEY: [1, 2, 3]}
+
+    unwrapped_entity2 = sql_record2.to_mlflow_entity()
+    assert unwrapped_entity2.outputs == [1, 2, 3]
+
+    entity3 = DatasetRecord(
+        dataset_record_id="rec3",
+        dataset_id="ds1",
+        inputs={"q": "test"},
+        outputs=42,
+        created_time=1000,
+        last_update_time=1000,
+    )
+
+    sql_record3 = SqlEvaluationDatasetRecord.from_mlflow_entity(entity3, "input_hash_789")
+    assert sql_record3.outputs == {DATASET_RECORD_WRAPPED_OUTPUT_KEY: 42}
+
+    unwrapped_entity3 = sql_record3.to_mlflow_entity()
+    assert unwrapped_entity3.outputs == 42
+
+    entity4 = DatasetRecord(
+        dataset_record_id="rec4",
+        dataset_id="ds1",
+        inputs={"q": "test"},
+        outputs={"result": "answer"},
+        created_time=1000,
+        last_update_time=1000,
+    )
+
+    sql_record4 = SqlEvaluationDatasetRecord.from_mlflow_entity(entity4, "input_hash_abc")
+    assert sql_record4.outputs == {DATASET_RECORD_WRAPPED_OUTPUT_KEY: {"result": "answer"}}
+
+    unwrapped_entity4 = sql_record4.to_mlflow_entity()
+    assert unwrapped_entity4.outputs == {"result": "answer"}
+
+    entity5 = DatasetRecord(
+        dataset_record_id="rec5",
+        dataset_id="ds1",
+        inputs={"q": "test"},
+        outputs=None,
+        created_time=1000,
+        last_update_time=1000,
+    )
+
+    sql_record5 = SqlEvaluationDatasetRecord.from_mlflow_entity(entity5, "input_hash_def")
+    assert sql_record5.outputs is None
+
+    unwrapped_entity5 = sql_record5.to_mlflow_entity()
+    assert unwrapped_entity5.outputs is None
+
+    sql_record6 = SqlEvaluationDatasetRecord()
+    sql_record6.outputs = {"old": "data"}
+
+    sql_record6.merge({"outputs": "new string output"})
+    assert sql_record6.outputs == {DATASET_RECORD_WRAPPED_OUTPUT_KEY: "new string output"}
+
+    sql_record7 = SqlEvaluationDatasetRecord()
+    sql_record7.outputs = None
+
+    sql_record7.merge({"outputs": {"new": "dict"}})
+    assert sql_record7.outputs == {DATASET_RECORD_WRAPPED_OUTPUT_KEY: {"new": "dict"}}
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("is_async", [False, True])
 async def test_log_spans_default_trace_status_in_progress(store: SqlAlchemyStore, is_async: bool):
@@ -7965,7 +8076,6 @@ async def test_log_spans_updates_in_progress_trace_status_from_root_span(
 async def test_log_spans_updates_state_unspecified_trace_status_from_root_span(
     store: SqlAlchemyStore, is_async: bool
 ):
-    """Test that trace status is updated from root span on subsequent logs."""
     experiment_id = store.create_experiment("test_unspecified_update")
     # Generate a proper MLflow trace ID in the format "tr-<32-char-hex>"
     trace_id = f"tr-{uuid.uuid4().hex}"

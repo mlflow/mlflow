@@ -13,12 +13,12 @@ import {
   useMlflowTracesTableMetadata,
   useSearchMlflowTraces,
   useSelectedColumns,
+  convertTraceInfoV3ToRunEvalEntry,
 } from '@databricks/web-shared/genai-traces-table';
 
 import { getUser } from '@databricks/web-shared/global-settings';
 import type { NetworkRequestError } from '@databricks/web-shared/errors';
 import { TestRouter, testRoute, waitForRoutesToBeRendered } from '@mlflow/mlflow/src/common/utils/RoutingTestUtils';
-import { convertTraceInfoV3ToRunEvalEntry } from '@mlflow/mlflow/src/shared/web-shared/genai-traces-table/utils/TraceUtils';
 
 // Mock the virtualizer to render all rows in tests
 jest.mock('@tanstack/react-virtual', () => {

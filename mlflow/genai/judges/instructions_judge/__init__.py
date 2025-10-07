@@ -32,7 +32,7 @@ from mlflow.genai.utils.trace_utils import (
     extract_inputs_from_trace,
     extract_outputs_from_trace,
 )
-from mlflow.prompt.constants import PROMPT_TEMPLATE_VARIABLE_PATTERN
+from mlflow.prompt.constants import PROMPT_TEMPLATE_VARIABLE_PATTERN, PROMPT_TEXT_DISPLAY_LIMIT
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
 
@@ -296,7 +296,14 @@ class InstructionsJudge(Judge):
             if var_name in template_values:
                 user_message_parts.append(f"{var_name}: {template_values[var_name]}")
 
-        return "\n".join(user_message_parts) if user_message_parts else ""
+        # Some model providers (like Anthropic) require a user message
+        # (i.e. a single-message chat history with role 'system' is not supported),
+        # *and* they require the message to have non-empty content (empty string is not allowed)
+        return (
+            "\n".join(user_message_parts)
+            if user_message_parts
+            else "Follow the instructions from the first message"
+        )
 
     def _build_template_values(
         self, inputs: Any | None, outputs: Any | None, expectations: dict[str, Any] | None
@@ -427,6 +434,19 @@ class InstructionsJudge(Judge):
                 "{{ outputs }}, {{ trace }}, or {{ expectations }}).",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+
+    def __repr__(self) -> str:
+        """Return string representation of the InstructionsJudge."""
+        instructions_preview = (
+            self._instructions[:PROMPT_TEXT_DISPLAY_LIMIT] + "..."
+            if len(self._instructions) > PROMPT_TEXT_DISPLAY_LIMIT
+            else self._instructions
+        )
+        return (
+            f"InstructionsJudge(name='{self.name}', model='{self._model}', "
+            f"instructions='{instructions_preview}', "
+            f"template_variables={sorted(self.template_variables)})"
+        )
 
     def model_dump(self, **kwargs) -> dict[str, Any]:
         """Override model_dump to serialize as a SerializedScorer."""

@@ -29,6 +29,7 @@ from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.utils.trace_utils import create_minimal_trace
 from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.tracing.constant import AssessmentMetadataKey
+from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 
 _logger = logging.getLogger(__name__)
 
@@ -129,9 +130,9 @@ def _run_single(
     tags = eval_item.tags if not is_none_or_nan(eval_item.tags) else {}
     validate_tags(tags)
 
-    for key, value in tags.items():
+    for key in tags.keys() - IMMUTABLE_TAGS:
         try:
-            mlflow.set_trace_tag(trace_id=eval_item.trace.info.trace_id, key=key, value=value)
+            mlflow.set_trace_tag(trace_id=eval_item.trace.info.trace_id, key=key, value=tags[key])
         except Exception as e:
             # Failures in logging to MLflow should not fail the entire harness run
             _logger.warning(f"Failed to log tag {key} to MLflow: {e}")

@@ -66,4 +66,34 @@ describe('CompareRunView', () => {
       expect(screen.getByText(/Comparing 0 Runs/)).toBeInTheDocument();
     });
   });
+
+  test('Displays visualizations section with parallel coordinates plot by default', async () => {
+    render(
+      <MockedReduxStoreProvider
+        state={
+          {
+            compareExperiments: {},
+            comparedExperiments: {},
+            entities: {
+              experimentsById: { exp_1: {} },
+              runInfosByUuid: { run_1: { runUuid: 'run_1' }, run_2: { runUuid: 'run_2' } },
+              paramsByRunUuid: { run_1: {}, run_2: {} },
+              latestMetricsByRunUuid: { run_1: {}, run_2: {} },
+              tagsByRunUuid: { run_1: {}, run_2: {} },
+            },
+          } as any
+        }
+      >
+        <CompareRunView experimentIds={['exp_1']} runUuids={['run_1', 'run_2']} />
+      </MockedReduxStoreProvider>,
+      {
+        wrapper,
+      },
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Visualizations/i)).toBeInTheDocument();
+      expect(screen.getByText(/Parallel Coordinates Plot/i)).toBeInTheDocument();
+    });
+  });
 });

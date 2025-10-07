@@ -36,6 +36,7 @@ from mlflow.tracking._tracking_service.utils import _get_store, _resolve_trackin
 from mlflow.utils import is_uuid
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, is_databricks_uri
+from mlflow.utils.validation import _validate_list_param
 
 _logger = logging.getLogger(__name__)
 
@@ -223,6 +224,8 @@ class TracingClient:
             some store implementations may not support pagination and thus the returned token would
             not be meaningful in such cases.
         """
+        _validate_list_param("experiment_ids", experiment_ids, allow_none=False)
+
         if model_id is not None:
             if filter_string:
                 raise MlflowException(

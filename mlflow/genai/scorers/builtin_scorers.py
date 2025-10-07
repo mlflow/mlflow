@@ -8,12 +8,13 @@ from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai import judges
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
+from mlflow.genai.judges.constants import _AFFIRMATIVE_VALUES, _NEGATIVE_VALUES
 from mlflow.genai.judges.prompts.context_sufficiency import CONTEXT_SUFFICIENCY_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.correctness import CORRECTNESS_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.groundedness import GROUNDEDNESS_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.guidelines import GUIDELINES_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.relevance_to_query import RELEVANCE_TO_QUERY_PROMPT_INSTRUCTIONS
-from mlflow.genai.judges.utils import get_default_model, invoke_judge_model
+from mlflow.genai.judges.utils import CategoricalRating, get_default_model, invoke_judge_model
 from mlflow.genai.scorers.base import (
     _SERIALIZATION_VERSION,
     ScorerKind,
@@ -33,6 +34,25 @@ from mlflow.utils.uri import is_databricks_uri
 GENAI_CONFIG_NAME = "databricks-agent"
 
 from mlflow.genai.judges.base import Judge, JudgeField
+
+
+def _sanitize_scorer_feedback(feedback: Feedback) -> Feedback:
+    """Sanitize feedback values from LLM judges to ensure YES/NO consistency."""
+    if feedback.value:
+        if isinstance(feedback.value, CategoricalRating):
+            return feedback
+
+        if isinstance(feedback.value, str):
+            value_str = feedback.value.strip().lower()
+
+            if value_str in _AFFIRMATIVE_VALUES:
+                feedback.value = CategoricalRating.YES
+            elif value_str in _NEGATIVE_VALUES:
+                feedback.value = CategoricalRating.NO
+            else:
+                feedback.value = CategoricalRating(value_str)
+
+    return feedback
 
 
 class BuiltInScorer(Judge):
@@ -70,23 +90,25 @@ class BuiltInScorer(Judge):
         return asdict(serialized)
 
     @classmethod
-    def model_validate(cls, obj) -> "BuiltInScorer":
+    def model_validate(cls, obj: SerializedScorer | dict[str, Any]) -> "BuiltInScorer":
         """Override model_validate to handle builtin scorer deserialization."""
-        if not isinstance(obj, dict) or "builtin_scorer_class" not in obj:
-            raise MlflowException.invalid_parameter_value(
-                f"Invalid builtin scorer data: expected a dictionary with 'builtin_scorer_class'"
-                f" field, got {type(obj).__name__}."
-            )
-
         from mlflow.genai.scorers import builtin_scorers
-        from mlflow.genai.scorers.base import SerializedScorer
 
-        try:
-            serialized = SerializedScorer(**obj)
-        except Exception as e:
-            raise MlflowException.invalid_parameter_value(
-                f"Failed to parse serialized scorer data: {e}"
-            )
+        if isinstance(obj, SerializedScorer):
+            serialized = obj
+        else:
+            if not isinstance(obj, dict) or "builtin_scorer_class" not in obj:
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid builtin scorer data: expected a dictionary with "
+                    f"'builtin_scorer_class' field, got {type(obj).__name__}."
+                )
+
+            try:
+                serialized = SerializedScorer(**obj)
+            except Exception as e:
+                raise MlflowException.invalid_parameter_value(
+                    f"Failed to parse serialized scorer data: {e}"
+                )
 
         try:
             scorer_class = getattr(builtin_scorers, serialized.builtin_scorer_class)
@@ -220,7 +242,8 @@ class RetrievalRelevance(BuiltInScorer):
             for chunk in chunks:
                 prompt = get_prompt(request=request, context=chunk["content"])
                 feedback = invoke_judge_model(model, prompt, assessment_name=self.name)
-                chunk_feedbacks.append(feedback)
+                sanitized_feedback = _sanitize_scorer_feedback(feedback)
+                chunk_feedbacks.append(sanitized_feedback)
 
         for feedback in chunk_feedbacks:
             feedback.span_id = span_id
@@ -568,7 +591,7 @@ class Guidelines(BuiltInScorer):
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
             indicating the adherence to the specified guidelines.
         """
-        return judges.meets_guidelines(
+        feedback = judges.meets_guidelines(
             guidelines=self.guidelines,
             context={
                 "request": parse_inputs_to_str(inputs),
@@ -577,6 +600,7 @@ class Guidelines(BuiltInScorer):
             name=self.name,
             model=self.model,
         )
+        return _sanitize_scorer_feedback(feedback)
 
 
 @format_docstring(_MODEL_API_DOC)
@@ -696,7 +720,7 @@ class ExpectationsGuidelines(BuiltInScorer):
                 "must be present in the trace."
             )
 
-        return judges.meets_guidelines(
+        feedback = judges.meets_guidelines(
             guidelines=guidelines,
             context={
                 "request": parse_inputs_to_str(inputs),
@@ -705,6 +729,7 @@ class ExpectationsGuidelines(BuiltInScorer):
             name=self.name,
             model=self.model,
         )
+        return _sanitize_scorer_feedback(feedback)
 
 
 @format_docstring(_MODEL_API_DOC)
@@ -793,9 +818,10 @@ class RelevanceToQuery(BuiltInScorer):
             indicating the relevance of the response to the query.
         """
         request = parse_inputs_to_str(inputs)
-        return judges.is_context_relevant(
+        feedback = judges.is_context_relevant(
             request=request, context=outputs, name=self.name, model=self.model
         )
+        return _sanitize_scorer_feedback(feedback)
 
 
 @format_docstring(_MODEL_API_DOC)
@@ -874,11 +900,12 @@ class Safety(BuiltInScorer):
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
             indicating the safety of the response.
         """
-        return judges.is_safe(
+        feedback = judges.is_safe(
             content=parse_outputs_to_str(outputs),
             name=self.name,
             model=self.model,
         )
+        return _sanitize_scorer_feedback(feedback)
 
 
 @format_docstring(_MODEL_API_DOC)
@@ -1024,7 +1051,7 @@ class Correctness(BuiltInScorer):
                 "in the `expectations` dictionary."
             )
 
-        return judges.is_correct(
+        feedback = judges.is_correct(
             request=request,
             response=response,
             expected_response=expected_response,
@@ -1032,6 +1059,7 @@ class Correctness(BuiltInScorer):
             name=self.name,
             model=self.model,
         )
+        return _sanitize_scorer_feedback(feedback)
 
 
 # === Shorthand for getting preset of builtin scorers ===

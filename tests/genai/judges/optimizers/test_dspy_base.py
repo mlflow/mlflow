@@ -1,5 +1,3 @@
-"""Tests for DSPyAlignmentOptimizer base class."""
-
 from typing import Any, Callable, Collection
 from unittest.mock import MagicMock, Mock, patch
 

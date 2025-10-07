@@ -9,6 +9,7 @@ from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.prompt.registry_utils import require_prompt_registry
 from mlflow.store.entities.paged_list import PagedList
+from mlflow.tracking.client import MlflowClient
 from mlflow.utils.annotations import experimental
 
 
@@ -226,3 +227,75 @@ def delete_prompt_alias(name: str, alias: str) -> None:
     """
     with suppress_genai_migration_warning():
         return registry_api.delete_prompt_alias(name=name, alias=alias)
+
+
+@experimental(version="3.5.0")
+@require_prompt_registry
+def get_prompt_tags(name: str) -> Prompt:
+    """Get a prompt's metadata from the MLflow Prompt Registry.
+
+    Args:
+        name: The name of the prompt.
+    """
+    with suppress_genai_migration_warning():
+        return MlflowClient().get_prompt(name=name).tags
+
+
+@experimental(version="3.5.0")
+@require_prompt_registry
+def set_prompt_tag(name: str, key: str, value: str) -> None:
+    """Set a tag on a prompt in the MLflow Prompt Registry.
+
+    Args:
+        name: The name of the prompt.
+        key: The key of the tag
+        value: The value of the tag for the key
+    """
+    with suppress_genai_migration_warning():
+        MlflowClient().set_prompt_tag(name=name, key=key, value=value)
+        registry_api._load_prompt_cached.cache_clear()
+
+
+@experimental(version="3.5.0")
+@require_prompt_registry
+def delete_prompt_tag(name: str, key: str) -> None:
+    """Delete a tag from a prompt in the MLflow Prompt Registry.
+
+    Args:
+        name: The name of the prompt.
+        key: The key of the tag
+    """
+    with suppress_genai_migration_warning():
+        MlflowClient().delete_prompt_tag(name=name, key=key)
+        registry_api._load_prompt_cached.cache_clear()
+
+
+@experimental(version="3.5.0")
+@require_prompt_registry
+def set_prompt_version_tag(name: str, version: str | int, key: str, value: str) -> None:
+    """Set a tag on a prompt version in the MLflow Prompt Registry.
+
+    Args:
+        name: The name of the prompt.
+        version: The version of the prompt.
+        key: The key of the tag
+        value: The value of the tag for the key
+    """
+    with suppress_genai_migration_warning():
+        MlflowClient().set_prompt_version_tag(name=name, version=version, key=key, value=value)
+        registry_api._load_prompt_cached.cache_clear()
+
+
+@experimental(version="3.5.0")
+@require_prompt_registry
+def delete_prompt_version_tag(name: str, version: str | int, key: str) -> None:
+    """Delete a tag from a prompt version in the MLflow Prompt Registry.
+
+    Args:
+        name: The name of the prompt.
+        version: The version of the prompt.
+        key: The key of the tag
+    """
+    with suppress_genai_migration_warning():
+        MlflowClient().delete_prompt_version_tag(name=name, version=version, key=key)
+        registry_api._load_prompt_cached.cache_clear()

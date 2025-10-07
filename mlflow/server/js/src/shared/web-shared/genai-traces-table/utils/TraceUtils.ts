@@ -115,7 +115,7 @@ function processExpectationAssessment(assessment: AssessmentV3, targets: Record<
   } else if (typeof assessmentValue === 'string') {
     targets[assessmentName] = safelyParseValue(assessmentValue);
   } else {
-    targets[assessmentName] = [];
+    targets[assessmentName] = assessmentValue;
   }
 }
 

@@ -5,10 +5,8 @@ from clint.linter import Location, lint_file
 from clint.rules.markdown_link import MarkdownLink
 
 
-def test_markdown_link(index_path: Path, tmp_path: Path) -> None:
-    tmp_file = tmp_path / "test.py"
-    tmp_file.write_text(
-        '''
+def test_markdown_link(index_path: Path) -> None:
+    code = '''
 # Bad
 def function_with_markdown_link():
     """
@@ -31,10 +29,9 @@ def function_with_rest_link():
     This function has a `reST link <https://example.com>`_.
     """
 '''
-    )
 
     config = Config(select={MarkdownLink.name})
-    violations = lint_file(tmp_file, config, index_path)
+    violations = lint_file(Path("test.py"), code, config, index_path)
     assert len(violations) == 3
     assert all(isinstance(v.rule, MarkdownLink) for v in violations)
     assert violations[0].loc == Location(3, 4)

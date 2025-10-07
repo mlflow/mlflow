@@ -6,6 +6,7 @@ import type { ExperimentPageTabName } from './constants';
  * Keys should correspond to route paths.
  */
 export enum PageId {
+  home = 'mlflow.home',
   promptsPage = 'mlflow.prompts',
   promptDetailsPage = 'mlflow.prompts.details',
   experimentPageTabbed = 'mlflow.experiment.details.tab',

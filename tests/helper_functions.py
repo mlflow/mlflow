@@ -43,7 +43,7 @@ def get_safe_port():
 
 
 def random_int(lo=1, hi=1e10):
-    return random.randint(lo, hi)
+    return random.randint(int(lo), int(hi))
 
 
 def random_str(size=12):

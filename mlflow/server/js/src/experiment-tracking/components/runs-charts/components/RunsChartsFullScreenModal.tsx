@@ -86,6 +86,10 @@ export const RunsChartsFullScreenModal = <TContext,>({
     >
       <RunsChartsTooltipWrapper contextData={tooltipContextValue} component={tooltipComponent}>
         <RunsChartsCard
+          canMoveToTop={false}
+          canMoveToBottom={false}
+          firstChartUuid={undefined}
+          lastChartUuid={undefined}
           cardConfig={fullScreenChart.config}
           chartRunData={chartData}
           groupBy={groupBy}

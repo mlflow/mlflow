@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 import pytest
@@ -15,11 +15,15 @@ from mlflow.exceptions import MlflowException
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
 
-
-@pytest.fixture
-def spark_session(tmp_path):
+if TYPE_CHECKING:
     from pyspark.sql import SparkSession
 
+
+@pytest.fixture(scope="module")
+def spark_session(tmp_path_factory: pytest.TempPathFactory):
+    from pyspark.sql import SparkSession
+
+    tmp_dir = tmp_path_factory.mktemp("spark_tmp")
     with (
         SparkSession.builder.master("local[*]")
         .config("spark.jars.packages", "io.delta:delta-spark_2.12:3.0.0")
@@ -27,10 +31,17 @@ def spark_session(tmp_path):
         .config(
             "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"
         )
-        .config("spark.sql.warehouse.dir", str(tmp_path))
+        .config("spark.sql.warehouse.dir", str(tmp_dir))
         .getOrCreate()
     ) as session:
         yield session
+
+
+@pytest.fixture(autouse=True)
+def drop_tables(spark_session: "SparkSession"):
+    yield
+    for row in spark_session.sql("SHOW TABLES").collect():
+        spark_session.sql(f"DROP TABLE IF EXISTS {row.tableName}")
 
 
 @pytest.fixture

@@ -77,6 +77,7 @@ from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     FEATURE_DISABLED,
     INVALID_PARAMETER_VALUE,
+    NOT_FOUND,
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
@@ -754,23 +755,25 @@ class MlflowClient:
                 is not found.
         """
         parsed_name_or_uri, parsed_version = parse_prompt_name_or_uri(name_or_uri, version)
-        if parsed_name_or_uri.startswith("prompts:/"):
-            # URI case: parse the URI to extract name and version/alias
-            name, version_or_alias = self.parse_prompt_uri(parsed_name_or_uri)
-        else:
-            # Name case: use the name and provided version
-            name = parsed_name_or_uri
-            version_or_alias = parsed_version
 
-        registry_client = self._get_registry_client()
         try:
-            # If version_or_alias is not a digit, treat as alias
+            if parsed_name_or_uri.startswith("prompts:/"):
+                name, version_or_alias = self.parse_prompt_uri(parsed_name_or_uri)
+            else:
+                name = parsed_name_or_uri
+                version_or_alias = parsed_version
+
+            registry_client = self._get_registry_client()
             if isinstance(version_or_alias, str) and not version_or_alias.isdigit():
                 return registry_client.get_prompt_version_by_alias(name, version_or_alias)
             else:
                 return registry_client.get_prompt_version(name, version_or_alias)
         except MlflowException as exc:
-            if allow_missing and exc.error_code in ("RESOURCE_DOES_NOT_EXIST", "NOT_FOUND"):
+            if allow_missing and exc.error_code in (
+                ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
+                ErrorCode.Name(INVALID_PARAMETER_VALUE),  # Missing alias (file/sql registry only)
+                ErrorCode.Name(NOT_FOUND),
+            ):
                 return None
             raise
 

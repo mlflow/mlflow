@@ -45,7 +45,7 @@ export const isRunPageLoggedModelsTableEnabled = () => true;
 /**
  * Flags enabling fetching data via GraphQL for particular views:
  */
-export const shouldEnableGraphQLRunDetailsPage = () => false;
+export const shouldEnableGraphQLRunDetailsPage = () => true;
 export const shouldEnableGraphQLSampledMetrics = () => false;
 export const shouldEnableGraphQLModelVersionsForRunDetails = () => false;
 export const shouldRerunExperimentUISeeding = () => false;

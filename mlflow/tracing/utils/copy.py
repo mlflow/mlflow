@@ -44,9 +44,10 @@ def copy_trace_to_experiment(trace_dict: dict[str, Any], experiment_id: str | No
             error_code=INVALID_STATE,
         )
 
-    user_tags = {k: v for k, v in trace_dict["info"]["tags"].items() if not k.startswith("mlflow.")}
-    with trace_manager.get_trace(trace_id=new_trace_id) as trace:
-        trace.info.tags.update(user_tags)
+    if (info := trace_dict.get("info")) and (all_tags := info.get("tags")):
+        if user_tags := {k: v for k, v in all_tags.items() if not k.startswith("mlflow.")}:
+            with trace_manager.get_trace(trace_id=new_trace_id) as trace:
+                trace.info.tags.update(user_tags)
 
     # Close the root span triggers the trace export.
     new_root_span.end(end_time_ns=spans[0].end_time_ns)

@@ -1,6 +1,8 @@
-from unittest.mock import patch
+import json
+from unittest.mock import Mock, patch
 
 import pytest
+from opentelemetry import trace as trace_api
 from pydantic import ValidationError
 
 import mlflow
@@ -9,8 +11,10 @@ from mlflow.entities import (
     SpanType,
 )
 from mlflow.entities.span import SpanType
+from mlflow.exceptions import MlflowException
 from mlflow.tracing import set_span_chat_tools
 from mlflow.tracing.constant import (
+    TRACE_ID_V4_PREFIX,
     SpanAttributeKey,
     TokenUsageKey,
 )
@@ -21,7 +25,9 @@ from mlflow.tracing.utils import (
     construct_full_inputs,
     deduplicate_span_names_in_place,
     encode_span_id,
+    get_otel_attribute,
     maybe_get_request_id,
+    parse_trace_id_v4,
 )
 
 from tests.tracing.helper import create_mock_otel_span
@@ -88,6 +94,58 @@ def test_aggregate_usage_from_spans():
         TokenUsageKey.INPUT_TOKENS: 15,
         TokenUsageKey.OUTPUT_TOKENS: 45,
         TokenUsageKey.TOTAL_TOKENS: 60,
+    }
+
+
+def test_aggregate_usage_from_spans_skips_descendant_usage():
+    spans = [
+        LiveSpan(create_mock_otel_span("trace_id", span_id=1, name="root"), trace_id="tr-123"),
+        LiveSpan(
+            create_mock_otel_span("trace_id", span_id=2, name="child", parent_id=1),
+            trace_id="tr-123",
+        ),
+        LiveSpan(
+            create_mock_otel_span("trace_id", span_id=3, name="grandchild", parent_id=2),
+            trace_id="tr-123",
+        ),
+        LiveSpan(
+            create_mock_otel_span("trace_id", span_id=4, name="independent"), trace_id="tr-123"
+        ),
+    ]
+
+    spans[0].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 10,
+            TokenUsageKey.OUTPUT_TOKENS: 20,
+            TokenUsageKey.TOTAL_TOKENS: 30,
+        },
+    )
+
+    spans[2].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 5,
+            TokenUsageKey.OUTPUT_TOKENS: 10,
+            TokenUsageKey.TOTAL_TOKENS: 15,
+        },
+    )
+
+    spans[3].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 3,
+            TokenUsageKey.OUTPUT_TOKENS: 6,
+            TokenUsageKey.TOTAL_TOKENS: 9,
+        },
+    )
+
+    usage = aggregate_usage_from_spans(spans)
+
+    assert usage == {
+        TokenUsageKey.INPUT_TOKENS: 13,
+        TokenUsageKey.OUTPUT_TOKENS: 26,
+        TokenUsageKey.TOTAL_TOKENS: 39,
     }
 
 
@@ -226,4 +284,113 @@ def test_calculate_percentile():
     data = list(range(1, 101))  # 1 to 100
     assert _calculate_percentile(data, 0.25) == 25.75
     assert _calculate_percentile(data, 0.5) == 50.5
-    assert _calculate_percentile(data, 0.75) == 75.25
+
+
+def test_parse_trace_id_v4():
+    test_trace_id = "tr-original-trace-123"
+
+    v4_id_uc_schema = f"{TRACE_ID_V4_PREFIX}catalog.schema/{test_trace_id}"
+    location, parsed_id = parse_trace_id_v4(v4_id_uc_schema)
+    assert location == "catalog.schema"
+    assert parsed_id == test_trace_id
+
+    v4_id_experiment = f"{TRACE_ID_V4_PREFIX}experiment_id/{test_trace_id}"
+    location, parsed_id = parse_trace_id_v4(v4_id_experiment)
+    assert location == "experiment_id"
+    assert parsed_id == test_trace_id
+
+    location, parsed_id = parse_trace_id_v4(test_trace_id)
+    assert location is None
+    assert parsed_id == test_trace_id
+
+
+def test_parse_trace_id_v4_invalid_format():
+    with pytest.raises(MlflowException, match="Invalid trace ID format"):
+        parse_trace_id_v4(f"{TRACE_ID_V4_PREFIX}123")
+
+    with pytest.raises(MlflowException, match="Invalid trace ID format"):
+        parse_trace_id_v4(f"{TRACE_ID_V4_PREFIX}123/")
+
+    with pytest.raises(MlflowException, match="Invalid trace ID format"):
+        parse_trace_id_v4(f"{TRACE_ID_V4_PREFIX}catalog.schema/../invalid-trace-id")
+
+    with pytest.raises(MlflowException, match="Invalid trace ID format"):
+        parse_trace_id_v4(f"{TRACE_ID_V4_PREFIX}catalog.schema/invalid-trace-id/invalid-format")
+
+
+def test_get_otel_attribute_existing_attribute():
+    # Create a mock span with attributes
+    span = Mock(spec=trace_api.Span)
+    span.attributes = {
+        "test_key": json.dumps({"data": "value"}),
+        "string_key": json.dumps("simple_string"),
+        "number_key": json.dumps(42),
+        "boolean_key": json.dumps(True),
+        "list_key": json.dumps([1, 2, 3]),
+    }
+
+    # Test various data types
+    result = get_otel_attribute(span, "test_key")
+    assert result == {"data": "value"}
+
+    result = get_otel_attribute(span, "string_key")
+    assert result == "simple_string"
+
+    result = get_otel_attribute(span, "number_key")
+    assert result == 42
+
+    result = get_otel_attribute(span, "boolean_key")
+    assert result is True
+
+    result = get_otel_attribute(span, "list_key")
+    assert result == [1, 2, 3]
+
+
+def test_get_otel_attribute_missing_attribute():
+    # Create a mock span with empty attributes
+    span = Mock(spec=trace_api.Span)
+    span.attributes = {}
+
+    result = get_otel_attribute(span, "nonexistent_key")
+    assert result is None
+
+
+def test_get_otel_attribute_none_attribute():
+    # Create a mock span where attributes.get() returns None
+    span = Mock(spec=trace_api.Span)
+    span.attributes = Mock()
+    span.attributes.get.return_value = None
+
+    result = get_otel_attribute(span, "any_key")
+    assert result is None
+
+
+def test_get_otel_attribute_invalid_json():
+    # Create a mock span with invalid JSON
+    span = Mock(spec=trace_api.Span)
+    span.attributes = {
+        "invalid_json": "not valid json {",
+        "empty_string": "",
+    }
+
+    result = get_otel_attribute(span, "invalid_json")
+    assert result is None
+
+    result = get_otel_attribute(span, "empty_string")
+    assert result is None
+
+
+def test_get_otel_attribute_non_string_attribute():
+    # In some edge cases, attributes might contain non-string values
+    span = Mock(spec=trace_api.Span)
+    span.attributes = {
+        "number_value": 123,  # Not a JSON string
+        "boolean_value": True,  # Not a JSON string
+    }
+
+    # These should fail gracefully and return None
+    result = get_otel_attribute(span, "number_value")
+    assert result is None
+
+    result = get_otel_attribute(span, "boolean_value")
+    assert result is None

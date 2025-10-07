@@ -34,6 +34,10 @@ export interface RunsChartCardReorderProps {
   canMoveDown: boolean;
   previousChartUuid?: string;
   nextChartUuid?: string;
+  canMoveToTop: boolean;
+  canMoveToBottom: boolean;
+  firstChartUuid?: string;
+  lastChartUuid?: string;
 }
 
 export interface RunsChartCardSizeProps {
@@ -96,8 +100,12 @@ const RunsChartCardWrapperRaw = ({
   onReorderWith = noop,
   canMoveDown,
   canMoveUp,
+  canMoveToTop,
+  canMoveToBottom,
   previousChartUuid,
   nextChartUuid,
+  firstChartUuid,
+  lastChartUuid,
   additionalMenuContent,
   toggleFullScreenChart,
   toggles,
@@ -116,6 +124,14 @@ const RunsChartCardWrapperRaw = ({
   const onMoveDown = useCallback(
     () => onReorderWith(uuid || '', nextChartUuid || ''),
     [onReorderWith, uuid, nextChartUuid],
+  );
+  const onMoveToTop = useCallback(
+    () => onReorderWith(uuid || '', firstChartUuid || ''),
+    [onReorderWith, uuid, firstChartUuid],
+  );
+  const onMoveToBottom = useCallback(
+    () => onReorderWith(uuid || '', lastChartUuid || ''),
+    [onReorderWith, uuid, lastChartUuid],
   );
 
   const usingCustomTitle = React.isValidElement(title);
@@ -283,6 +299,17 @@ const RunsChartCardWrapperRaw = ({
             <DropdownMenu.Separator />
             <DropdownMenu.Item
               componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_cards_chartcard.common.tsx_334"
+              disabled={!canMoveToTop}
+              onClick={onMoveToTop}
+              data-testid="experiment-view-compare-runs-move-to-top"
+            >
+              <FormattedMessage
+                defaultMessage="Move to top"
+                description="Experiment page > compare runs tab > chart header > move to top option"
+              />
+            </DropdownMenu.Item>
+            <DropdownMenu.Item
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_cards_chartcard.common.tsx_340"
               disabled={!canMoveUp}
               onClick={onMoveUp}
               data-testid="experiment-view-compare-runs-move-up"
@@ -304,6 +331,17 @@ const RunsChartCardWrapperRaw = ({
               />
             </DropdownMenu.Item>
             {additionalMenuContent}
+            <DropdownMenu.Item
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_cards_chartcard.common.tsx_350"
+              disabled={!canMoveToBottom}
+              onClick={onMoveToBottom}
+              data-testid="experiment-view-compare-runs-move-to-bottom"
+            >
+              <FormattedMessage
+                defaultMessage="Move to bottom"
+                description="Experiment page > compare runs tab > chart header > move to bottom option"
+              />
+            </DropdownMenu.Item>
           </DropdownMenu.Content>
         </DropdownMenu.Root>
       </div>

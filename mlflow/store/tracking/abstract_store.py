@@ -1,3 +1,4 @@
+import bisect
 import json
 from abc import ABCMeta, abstractmethod
 from typing import TYPE_CHECKING, Any
@@ -22,7 +23,11 @@ from mlflow.entities.trace import Span
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
+from mlflow.store.tracking import (
+    MAX_RESULTS_GET_METRIC_HISTORY,
+    SEARCH_MAX_RESULTS_DEFAULT,
+    SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+)
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.utils import mlflow_tags
 from mlflow.utils.annotations import developer_stable, requires_sql_backend
@@ -621,6 +626,82 @@ class AbstractStore:
             )
             for metric in metrics_for_run
         ]
+
+    def get_metric_history_bulk_interval(
+        self, run_ids: list[str], metric_key: str, max_results: int, start_step: int, end_step: int
+    ) -> list[MetricWithRunId]:
+        """
+        Return a list of metric objects for a given metric across multiple runs,
+        sampled within a specified step range.
+
+        This method collects metric history from multiple runs, samples the steps
+        to limit the result size, and returns metrics for the sampled steps. The
+        sampling preserves min/max steps to maintain data boundaries.
+
+        Args:
+            run_ids: List of unique identifiers for runs.
+            metric_key: Metric name to retrieve across runs.
+            max_results: Maximum number of steps to sample from the step range.
+            start_step: Starting step of the range (inclusive). If None, starts from 0.
+            end_step: Ending step of the range (inclusive). If None, uses the maximum
+                step found across all runs.
+
+        Returns:
+            A list of `MetricWithRunId` objects containing metric data for the sampled
+            steps across all specified runs.
+        """
+
+        # get a list of all steps for all runs. this is necessary
+        # because we can't assume that every step was logged, so
+        # sampling needs to be done on the steps that actually exist
+        all_runs = [
+            [m.step for m in self.get_metric_history(run_id, metric_key)] for run_id in run_ids
+        ]
+
+        # save mins and maxes to be added back later
+        all_mins_and_maxes = {step for run in all_runs if run for step in [min(run), max(run)]}
+        all_steps = sorted({step for sublist in all_runs for step in sublist})
+
+        # init start and end step if not provided in args
+        if start_step is None and end_step is None:
+            start_step = 0
+            end_step = all_steps[-1] if all_steps else 0
+
+        # remove any steps outside of the range
+        all_mins_and_maxes = {step for step in all_mins_and_maxes if start_step <= step <= end_step}
+
+        # doing extra iterations here shouldn't badly affect performance,
+        # since the number of steps at this point should be relatively small
+        # (MAX_RESULTS_PER_RUN + len(all_mins_and_maxes))
+
+        start_idx = bisect.bisect_left(all_steps, start_step)
+        end_idx = bisect.bisect_right(all_steps, end_step)
+        if end_idx - start_idx <= max_results:
+            sampled_steps = set(all_steps[start_idx:end_idx])
+        else:
+            num_steps = end_idx - start_idx
+            interval = num_steps / max_results
+            sampled_steps = set()
+
+            for i in range(0, max_results):
+                idx = start_idx + int(i * interval)
+                if idx < end_idx:
+                    sampled_steps.add(all_steps[idx])
+
+            sampled_steps.add(all_steps[end_idx - 1])
+
+        steps = sorted(sampled_steps.union(all_mins_and_maxes))
+        metrics_with_run_ids = []
+        for run_id in run_ids:
+            metrics_with_run_ids.extend(
+                self.get_metric_history_bulk_interval_from_steps(
+                    run_id=run_id,
+                    metric_key=metric_key,
+                    steps=steps,
+                    max_results=MAX_RESULTS_GET_METRIC_HISTORY,
+                )
+            )
+        return metrics_with_run_ids
 
     def search_runs(
         self,

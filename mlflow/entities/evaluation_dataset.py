@@ -148,6 +148,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
 
             root_span = trace.data._get_root_span()
             inputs = root_span.inputs if root_span and root_span.inputs is not None else {}
+            outputs = root_span.outputs if root_span and root_span.outputs is not None else None
 
             expectations = {}
             expectation_assessments = trace.search_assessments(type="expectation")
@@ -156,6 +157,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
 
             record_dict = {
                 "inputs": inputs,
+                "outputs": outputs,
                 "expectations": expectations,
                 "source": {
                     "source_type": DatasetRecordSourceType.TRACE.value,
@@ -312,7 +314,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         This method triggers lazy loading of records if they haven't been loaded yet.
 
         Returns:
-            DataFrame with columns for inputs, expectations, tags, and metadata
+            DataFrame with columns for inputs, outputs, expectations, tags, and metadata
         """
         import pandas as pd
 
@@ -322,6 +324,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
             return pd.DataFrame(
                 columns=[
                     "inputs",
+                    "outputs",
                     "expectations",
                     "tags",
                     "source_type",
@@ -335,6 +338,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         for record in records:
             row = {
                 "inputs": record.inputs,
+                "outputs": record.outputs,
                 "expectations": record.expectations,
                 "tags": record.tags,
                 "source_type": record.source_type,

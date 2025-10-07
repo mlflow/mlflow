@@ -169,11 +169,21 @@ def test_strands_autolog_single_trace():
 
     traces = get_traces()
     assert len(traces) == 1
-    span = traces[0].data.spans[0]
-    assert span.span_type == SpanType.AGENT
-    assert span.inputs == [{"role": "user", "content": [{"text": "hello"}]}]
-    assert span.outputs.strip() == "hi"
-    assert span.attributes[SpanAttributeKey.CHAT_USAGE] == {
+    spans = traces[0].data.spans
+    agent_span = next(span for span in spans if span.span_type == SpanType.AGENT)
+    assert agent_span.inputs == [{"role": "user", "content": [{"text": "hello"}]}]
+    assert agent_span.outputs.strip() == "hi"
+    assert SpanAttributeKey.CHAT_USAGE not in agent_span.attributes
+
+    usage_spans = [span for span in spans if span.attributes.get(SpanAttributeKey.CHAT_USAGE)]
+    assert usage_spans, "expected at least one child span recording token usage"
+    assert all(span.span_type != SpanType.AGENT for span in usage_spans)
+    assert usage_spans[0].attributes[SpanAttributeKey.CHAT_USAGE] == {
+        "input_tokens": 1,
+        "output_tokens": 2,
+        "total_tokens": 3,
+    }
+    assert traces[0].info.token_usage == {
         "input_tokens": 1,
         "output_tokens": 2,
         "total_tokens": 3,

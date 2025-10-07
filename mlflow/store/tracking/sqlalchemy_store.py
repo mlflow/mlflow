@@ -348,13 +348,13 @@ class SqlAlchemyStore(AbstractStore):
                     # this requires a double write. The first one to generate an autoincrement-ed ID
                     eid = session.query(SqlExperiment).filter_by(name=name).first().experiment_id
                     experiment.artifact_location = self._get_artifact_location(eid)
+                session.flush()
             except sqlalchemy.exc.IntegrityError as e:
                 raise MlflowException(
                     f"Experiment(name={name}) already exists. Error: {e}",
                     RESOURCE_ALREADY_EXISTS,
                 )
 
-            session.flush()
             return str(experiment.experiment_id)
 
     def _search_experiments(
@@ -1876,7 +1876,7 @@ class SqlAlchemyStore(AbstractStore):
 
     def log_logged_model_params(self, model_id: str, params: list[LoggedModelParameter]):
         with self.ManagedSessionMaker() as session:
-            logged_model = session.query(SqlLoggedModel).get(model_id)
+            logged_model = session.get(SqlLoggedModel, model_id)
             if not logged_model:
                 self._raise_model_not_found(model_id)
 
@@ -1913,7 +1913,7 @@ class SqlAlchemyStore(AbstractStore):
 
     def delete_logged_model(self, model_id):
         with self.ManagedSessionMaker() as session:
-            logged_model = session.query(SqlLoggedModel).get(model_id)
+            logged_model = session.get(SqlLoggedModel, model_id)
             if not logged_model:
                 self._raise_model_not_found(model_id)
 
@@ -1923,7 +1923,7 @@ class SqlAlchemyStore(AbstractStore):
 
     def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
         with self.ManagedSessionMaker() as session:
-            logged_model = session.query(SqlLoggedModel).get(model_id)
+            logged_model = session.get(SqlLoggedModel, model_id)
             if not logged_model:
                 self._raise_model_not_found(model_id)
 
@@ -1934,7 +1934,7 @@ class SqlAlchemyStore(AbstractStore):
 
     def set_logged_model_tags(self, model_id: str, tags: list[LoggedModelTag]) -> None:
         with self.ManagedSessionMaker() as session:
-            logged_model = session.query(SqlLoggedModel).get(model_id)
+            logged_model = session.get(SqlLoggedModel, model_id)
             if not logged_model:
                 self._raise_model_not_found(model_id)
 
@@ -1951,7 +1951,7 @@ class SqlAlchemyStore(AbstractStore):
 
     def delete_logged_model_tag(self, model_id: str, key: str) -> None:
         with self.ManagedSessionMaker() as session:
-            logged_model = session.query(SqlLoggedModel).get(model_id)
+            logged_model = session.get(SqlLoggedModel, model_id)
             if not logged_model:
                 self._raise_model_not_found(model_id)
 
@@ -3744,7 +3744,7 @@ class SqlAlchemyStore(AbstractStore):
         schema = (
             json.loads(existing_schema_json)
             if existing_schema_json
-            else {"inputs": {}, "expectations": {}, "version": "1.0"}
+            else {"inputs": {}, "outputs": {}, "expectations": {}, "version": "1.0"}
         )
 
         for record in record_dicts:
@@ -3752,6 +3752,15 @@ class SqlAlchemyStore(AbstractStore):
                 for key, value in inputs.items():
                     if key not in schema["inputs"]:
                         schema["inputs"][key] = self._infer_field_type(value)
+
+            if (outputs := record.get("outputs")) is not None:
+                if isinstance(outputs, dict):
+                    for key, value in outputs.items():
+                        if key not in schema["outputs"]:
+                            schema["outputs"][key] = self._infer_field_type(value)
+                else:
+                    if not schema["outputs"]:
+                        schema["outputs"] = self._infer_field_type(outputs)
 
             if expectations := record.get("expectations"):
                 for key, value in expectations.items():
@@ -3959,6 +3968,7 @@ class SqlAlchemyStore(AbstractStore):
                         dataset_record_id=None,
                         dataset_id=dataset_id,
                         inputs=record_dict.get("inputs", {}),
+                        outputs=record_dict.get("outputs", {}),
                         created_time=current_time,
                         last_update_time=current_time,
                         expectations=record_dict.get("expectations"),

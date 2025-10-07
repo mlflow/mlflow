@@ -936,6 +936,14 @@ def test_search_traces_invalid_return_types(mock_client):
         mlflow.search_traces(extract_fields=["foo.inputs.bar"], return_type="list")
 
 
+def test_search_traces_validates_experiment_ids_type():
+    with pytest.raises(MlflowException, match=r"experiment_ids must be a list"):
+        mlflow.search_traces(experiment_ids=4)
+
+    with pytest.raises(MlflowException, match=r"experiment_ids must be a list"):
+        mlflow.search_traces(experiment_ids="4")
+
+
 def test_search_traces_with_pagination(mock_client):
     traces = [
         Trace(
@@ -1568,6 +1576,15 @@ def test_update_current_trace_with_metadata():
     assert traces[0].info.status == "OK"
     for k, v in expected_metadata.items():
         assert traces[0].info.trace_metadata[k] == v
+
+
+@skip_when_testing_trace_sdk
+def test_update_current_trace_with_model_id():
+    with mlflow.start_span("test_span"):
+        mlflow.update_current_trace(model_id="model-123")
+
+    trace = get_traces()[0]
+    assert trace.info.trace_metadata[TraceMetadataKey.MODEL_ID] == "model-123"
 
 
 @skip_when_testing_trace_sdk

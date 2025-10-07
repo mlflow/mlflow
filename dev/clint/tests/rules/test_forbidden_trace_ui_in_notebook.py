@@ -5,8 +5,7 @@ from clint.linter import lint_file
 from clint.rules.forbidden_trace_ui_in_notebook import ForbiddenTraceUIInNotebook
 
 
-def test_forbidden_trace_ui_in_notebook(index_path: Path, tmp_path: Path) -> None:
-    tmp_file = tmp_path / "test.ipynb"
+def test_forbidden_trace_ui_in_notebook(index_path: Path) -> None:
     notebook_content = """
 {
  "cells": [
@@ -59,9 +58,9 @@ def test_forbidden_trace_ui_in_notebook(index_path: Path, tmp_path: Path) -> Non
  "nbformat_minor": 4
 }
 """
-    tmp_file.write_text(notebook_content)
+    code = notebook_content
     config = Config(select={ForbiddenTraceUIInNotebook.name})
-    violations = lint_file(tmp_file, config, index_path)
+    violations = lint_file(Path("test.ipynb"), code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, ForbiddenTraceUIInNotebook) for v in violations)
     assert violations[0].cell == 2

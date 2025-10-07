@@ -95,4 +95,5 @@ jobs:
         run: |
           cd tests
           export RETICULATE_PYTHON_BIN=$(which python)
+          export MLFLOW_SERVER_ENABLE_JOB_EXECUTION=false
           Rscript -e 'source("../.run-tests.R", echo=TRUE)'

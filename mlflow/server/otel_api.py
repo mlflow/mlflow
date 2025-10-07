@@ -104,7 +104,7 @@ async def export_traces(
                     mlflow_spans.append(mlflow_span)
                 except Exception:
                     raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        status_code=422,
                         detail="Cannot convert OpenTelemetry span to MLflow span",
                     )
 
@@ -120,7 +120,7 @@ async def export_traces(
             )
         except Exception as e:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=422,
                 detail=f"Cannot store OpenTelemetry spans: {e}",
             )
 

@@ -121,6 +121,11 @@ def _set_inputs_outputs(mlflow_span: LiveSpan, span: OTelReadableSpan) -> None:
 
 
 def _set_token_usage(mlflow_span: LiveSpan, span: OTelReadableSpan) -> None:
+    # Strands agents contain complete token usage information in the AGENT span
+    # We don't need to set token usage for the AGENT span to avoid double counting
+    if mlflow_span.get_attribute(SpanAttributeKey.SPAN_TYPE) == SpanType.AGENT:
+        return
+
     usage = {}
     if (v := span.attributes.get("gen_ai.usage.input_tokens")) is not None:
         usage[TokenUsageKey.INPUT_TOKENS] = v

@@ -9,12 +9,12 @@ from dspy.utils.callback import BaseCallback
 
 import mlflow
 from mlflow.dspy.constant import FLAVOR_NAME
-from mlflow.dspy.util import log_dspy_module_params, save_dspy_module_state
+from mlflow.dspy.util import log_dspy_lm_state, log_dspy_module_params, save_dspy_module_state
 from mlflow.entities import SpanStatusCode, SpanType
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.span_event import SpanEvent
 from mlflow.exceptions import MlflowException
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils import maybe_set_prediction_context
@@ -63,6 +63,8 @@ class MlflowCallback(BaseCallback):
         # call_id: (key, step)
         self._call_id_to_metric_key: dict[str, tuple[str, int]] = {}
         self._evaluation_counter = defaultdict(int)
+        self._disabled_eval_call_ids = set()
+        self._eval_runs_started: set[str] = set()
 
     def set_dependencies_schema(self, dependencies_schema: dict[str, Any]):
         if self._dependencies_schema:
@@ -95,6 +97,7 @@ class MlflowCallback(BaseCallback):
     @skip_if_trace_disabled
     def on_module_end(self, call_id: str, outputs: Any | None, exception: Exception | None = None):
         instance = self._call_id_to_module.pop(call_id)
+        attributes = {}
 
         if _get_fully_qualified_class_name(instance) == "dspy.retrieve.databricks_rm.DatabricksRM":
             from mlflow.entities.document import Document
@@ -126,9 +129,22 @@ class MlflowCallback(BaseCallback):
             # is not easy to read on UI. Therefore, we unpack it to a dictionary.
             # https://github.com/stanfordnlp/dspy/blob/6fe693528323c9c10c82d90cb26711a985e18b29/dspy/primitives/prediction.py#L21-L28
             if isinstance(outputs, dspy.Prediction):
+                usage_by_model = (
+                    outputs.get_lm_usage() if hasattr(outputs, "get_lm_usage") else None
+                )
                 outputs = outputs.toDict()
-
-        self._end_span(call_id, outputs, exception)
+                if usage_by_model:
+                    usage_data = {
+                        TokenUsageKey.INPUT_TOKENS: 0,
+                        TokenUsageKey.OUTPUT_TOKENS: 0,
+                        TokenUsageKey.TOTAL_TOKENS: 0,
+                    }
+                    for usage in usage_by_model.values():
+                        usage_data[TokenUsageKey.INPUT_TOKENS] += usage.get("prompt_tokens", 0)
+                        usage_data[TokenUsageKey.OUTPUT_TOKENS] += usage.get("completion_tokens", 0)
+                        usage_data[TokenUsageKey.TOTAL_TOKENS] += usage.get("total_tokens", 0)
+                    attributes[SpanAttributeKey.CHAT_USAGE] = usage_data
+        self._end_span(call_id, outputs, exception, attributes)
 
     @skip_if_trace_disabled
     def on_lm_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
@@ -235,6 +251,10 @@ class MlflowCallback(BaseCallback):
         if callback_metadata := inputs.get("callback_metadata"):
             if "metric_key" in callback_metadata:
                 key = callback_metadata["metric_key"]
+            if callback_metadata.get("disable_logging"):
+                self._disabled_eval_call_ids.add(call_id)
+                return
+        started_run = False
         if self.optimizer_stack_level > 0:
             with _lock:
                 # we may want to include optimizer_stack_level in the key
@@ -243,11 +263,19 @@ class MlflowCallback(BaseCallback):
                 self._evaluation_counter[key] += 1
             self._call_id_to_metric_key[call_id] = (key, step)
             mlflow.start_run(run_name=f"{key}_{step}", nested=True)
-        else:
+            started_run = True
+        elif mlflow.active_run() is None:
             mlflow.start_run(run_name=key, nested=True)
+            started_run = True
+
+        if started_run:
+            self._eval_runs_started.add(call_id)
         if program := inputs.get("program"):
             save_dspy_module_state(program, "model.json")
             log_dspy_module_params(program)
+
+        # Log the current DSPy LM state
+        log_dspy_lm_state()
 
     def on_evaluate_end(
         self,
@@ -262,8 +290,14 @@ class MlflowCallback(BaseCallback):
         """
         if not get_autologging_config(FLAVOR_NAME, "log_evals"):
             return
+        if call_id in self._disabled_eval_call_ids:
+            self._disabled_eval_call_ids.discard(call_id)
+            return
+        run_started = call_id in self._eval_runs_started
         if exception:
-            mlflow.end_run(status=RunStatus.to_string(RunStatus.FAILED))
+            if run_started:
+                mlflow.end_run(status=RunStatus.to_string(RunStatus.FAILED))
+                self._eval_runs_started.discard(call_id)
             return
         score = None
         if isinstance(outputs, float):
@@ -279,7 +313,9 @@ class MlflowCallback(BaseCallback):
         if score is not None:
             mlflow.log_metric("eval", score)
 
-        mlflow.end_run()
+        if run_started:
+            mlflow.end_run()
+            self._eval_runs_started.discard(call_id)
         # Log the evaluation score to the parent run if called inside optimization
         if self.optimizer_stack_level > 0 and mlflow.active_run() is not None:
             if call_id not in self._call_id_to_metric_key:
@@ -295,6 +331,7 @@ class MlflowCallback(BaseCallback):
     def reset(self):
         self._call_id_to_metric_key: dict[str, tuple[str, int]] = {}
         self._evaluation_counter = defaultdict(int)
+        self._eval_runs_started = set()
 
     def _start_span(
         self,
@@ -332,6 +369,7 @@ class MlflowCallback(BaseCallback):
         call_id: str,
         outputs: Any | None,
         exception: Exception | None = None,
+        attributes: dict[str, Any] | None = None,
     ):
         st = self._call_id_to_span.pop(call_id, None)
 
@@ -343,6 +381,9 @@ class MlflowCallback(BaseCallback):
 
         if exception:
             st.span.add_event(SpanEvent.from_exception(exception))
+
+        if attributes:
+            st.span.set_attributes(attributes)
 
         try:
             st.span.end(outputs=outputs, status=status)

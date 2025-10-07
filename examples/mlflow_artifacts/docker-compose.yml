@@ -48,6 +48,8 @@ services:
       MLFLOW_S3_ENDPOINT_URL: http://minio:9000
       AWS_ACCESS_KEY_ID: "user"
       AWS_SECRET_ACCESS_KEY: "password"
+      MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
+      MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE: "true"
     command: >
       mlflow server
       --host 0.0.0.0
@@ -76,6 +78,9 @@ services:
     ports:
       # MLflow UI is available at http://localhost:5000
       - "5000:5000"
+    environment:
+      MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
+      MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE: "true"
     command: >
       mlflow server
       --host 0.0.0.0

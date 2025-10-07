@@ -55,7 +55,7 @@ MLflow provides several types of scorers to address different evaluation needs:
   {
     icon: Users,
     title: "Human-Aligned Judges",
-    description: "LLM judges that have been fine-tuned with human feedback to match your specific quality standards. These provide the consistency of automation with the nuance of human judgment."
+    description: "LLM judges that have been aligned with human feedback using the built-in align() method to match your specific quality standards. These provide the consistency of automation with the nuance of human judgment."
   },
   {
     icon: Brain,
@@ -83,7 +83,11 @@ All scorers in MLflow produce standardized output that integrates seamlessly wit
 
 ## Common Scorer Patterns
 
-### Agent-as-a-Judge (Trace-Based)
+MLflow's scorer system is highly flexible, supporting everything from simple rule-based checks to sophisticated AI agents that analyze entire execution traces. The examples below demonstrate the breadth of evaluation capabilities available - from detecting inefficiencies in multi-step workflows to assessing text readability, measuring response latency, and ensuring output quality. Each pattern can be customized to your specific use case and combined with others for comprehensive evaluation.
+
+<TabsWrapper>
+<Tabs>
+  <TabItem value="agent-judge" label="Agent-as-a-Judge (Trace Analysis)" default>
 
 ```python
 from mlflow.genai.judges import make_judge
@@ -152,7 +156,8 @@ print(f"Efficiency: {feedback.value}")
 print(f"Analysis: {feedback.rationale}")
 ```
 
-### LLM Judge (Field-Based)
+  </TabItem>
+  <TabItem value="llm-judge" label="LLM Judge (Field-Based)">
 
 ```python
 from mlflow.genai.judges import make_judge
@@ -176,7 +181,8 @@ feedback = correctness_judge(
 print(f"Correctness: {feedback.value}")
 ```
 
-### Reading Level Assessment
+  </TabItem>
+  <TabItem value="reading-level" label="Reading Level Assessment">
 
 ```python
 import textstat
@@ -202,7 +208,8 @@ def reading_level(outputs: str) -> Feedback:
     return Feedback(value=level, rationale=rationale, metadata={"score": score})
 ```
 
-### Language Perplexity Scoring
+  </TabItem>
+  <TabItem value="perplexity" label="Language Perplexity Scoring">
 
 ```python
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -224,7 +231,8 @@ def perplexity_score(outputs: str) -> float:
     return perplexity  # Lower is better - indicates more natural text
 ```
 
-### Response Latency Tracking
+  </TabItem>
+  <TabItem value="latency" label="Response Latency Tracking">
 
 ```python
 from mlflow.genai.scorers import scorer
@@ -249,6 +257,66 @@ def response_time(trace: Trace) -> Feedback:
         rationale=f"Response took {latency_ms:.0f}ms",
         metadata={"latency_ms": latency_ms},
     )
+```
+
+  </TabItem>
+</Tabs>
+</TabsWrapper>
+
+## Judge Alignment
+
+One of the most powerful features of MLflow scorers is the ability to **align LLM judges with human preferences**. This transforms generic evaluation models into domain-specific experts that understand your unique quality standards.
+
+### How Alignment Works
+
+Judge alignment uses human feedback to improve the accuracy and consistency of LLM-based scorers:
+
+```python
+from mlflow.genai.judges import make_judge
+import mlflow
+
+# Create an initial judge
+quality_judge = make_judge(
+    name="quality",
+    instructions="Evaluate if {{ outputs }} meets quality standards for {{ inputs }}.",
+    model="anthropic:/claude-opus-4-1-20250805",
+)
+
+# Collect traces with both judge assessments and human feedback
+traces_with_feedback = mlflow.search_traces(
+    experiment_ids=[experiment_id], max_results=20  # Minimum 10 required for alignment
+)
+
+# Align the judge with human preferences (uses default DSPy-SIMBA optimizer)
+aligned_judge = quality_judge.align(traces_with_feedback)
+
+# The aligned judge now better matches your team's quality standards
+feedback = aligned_judge(inputs={"query": "..."}, outputs={"response": "..."})
+```
+
+### Key Benefits of Alignment
+
+- **Domain Expertise**: Judges learn your specific quality criteria from expert feedback
+- **Consistency**: Aligned judges apply standards uniformly across evaluations
+- **Cost Efficiency**: Once aligned, smaller/cheaper models can match expert judgment
+- **Continuous Improvement**: Re-align as your standards evolve
+
+### The Plugin Architecture
+
+MLflow's alignment system uses a plugin architecture, allowing you to create custom optimizers by extending the <APILink fn="mlflow.genai.judges.base.AlignmentOptimizer">AlignmentOptimizer</APILink> base class:
+
+```python
+from mlflow.genai.judges.base import AlignmentOptimizer
+
+
+class CustomOptimizer(AlignmentOptimizer):
+    def align(self, judge, traces):
+        # Your custom alignment logic
+        return improved_judge
+
+
+# Use your custom optimizer
+aligned_judge = quality_judge.align(traces, CustomOptimizer())
 ```
 
 ## Integration with MLflow Evaluation
@@ -337,6 +405,15 @@ print(f"Reading Level: {results.metrics.get('reading_level/mode', 'N/A')}")
     description="Learn about using LLMs as judges for evaluation"
     href="/genai/eval-monitor/scorers/llm-judge/"
     linkText="Explore LLM judges →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Users}
+    iconSize={48}
+    title="Judge Alignment"
+    description="Align judges with human feedback for domain expertise"
+    href="/genai/eval-monitor/scorers/llm-judge/alignment"
+    linkText="Learn alignment →"
     containerHeight={64}
   />
   <TileCard

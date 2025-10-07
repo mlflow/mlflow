@@ -96,6 +96,8 @@ describe('RunsChartsGlobalChartSettingsDropdown', () => {
                 <DragAndDropProvider>
                   {uiState.compareRunCharts?.map((chartConfig, index) => (
                     <RunsChartsCard
+                      canMoveToTop={false}
+                      canMoveToBottom={false}
                       key={chartConfig.uuid}
                       cardConfig={chartConfig}
                       // Generate one sample run so the charts can render

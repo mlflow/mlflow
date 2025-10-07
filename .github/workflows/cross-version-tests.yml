@@ -132,7 +132,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.set-matrix.outputs.matrix1) }}
-    steps:
+    steps: &test-steps
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
@@ -198,58 +198,4 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.set-matrix.outputs.matrix2) }}
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
-          ref: ${{ github.event.inputs.ref }}
-      - uses: ./.github/actions/free-disk-space
-        if: matrix.free_disk_space
-      - uses: ./.github/actions/setup-python
-        with:
-          python-version: ${{ matrix.python }}
-      - uses: ./.github/actions/setup-pyenv
-      - uses: ./.github/actions/setup-java
-        with:
-          java-version: ${{ matrix.java }}
-      - name: Remove constraints
-        run: |
-          # Remove any constraints for the current package to prevent installation conflicts
-          sed -i '/^${{ matrix.package }}/d' requirements/constraints.txt
-
-          if ! git diff --exit-code requirements/constraints.txt; then
-            git diff
-            git config user.name 'mlflow-app[bot]'
-            git config user.email 'mlflow-app[bot]@users.noreply.github.com'
-            git add requirements/constraints.txt
-            git commit -m "Remove constraints for testing"
-          fi
-      - name: Install mlflow & test dependencies
-        run: |
-          pip install -U pip wheel setuptools
-          # For tracing SDK test, install the tracing package from the local path and minimal test dependencies
-          if [[ "${{ matrix.category }}" == "tracing-sdk" ]]; then
-            pip install libs/tracing
-            pip install pytest pytest-asyncio pytest-cov
-          # Other two categories of tests (model/autologging)
-          else
-            pip install .[extras]
-            pip install -r requirements/test-requirements.txt
-          fi
-      - name: Install ${{ matrix.package }} ${{ matrix.version }}
-        run: |
-          ${{ matrix.install }}
-      - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/pipdeptree
-      - name: Pre-test
-        if: matrix.pre_test
-        run: |
-          ${{ matrix.pre_test }}
-      - name: Run tests
-        env:
-          MLFLOW_CONDA_HOME: /usr/share/miniconda
-          SPARK_LOCAL_IP: localhost
-          JOHNSNOWLABS_LICENSE_JSON: ${{ secrets.JOHNSNOWLABS_LICENSE_JSON }}
-          HF_HUB_ENABLE_HF_TRANSFER: 1
-        run: |
-          ${{ matrix.run }}
+    steps: *test-steps

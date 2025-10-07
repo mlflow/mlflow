@@ -441,7 +441,7 @@ class RestStore(BaseRestStore):
             None
         """
         req_body = message_to_json(
-            SetModelVersionTag(name=name, version=version, key=tag.key, value=tag.value)
+            SetModelVersionTag(name=name, version=str(version), key=tag.key, value=tag.value)
         )
         self._call_endpoint(SetModelVersionTag, req_body)
 
@@ -457,7 +457,7 @@ class RestStore(BaseRestStore):
         Returns:
             None
         """
-        req_body = message_to_json(DeleteModelVersionTag(name=name, version=version, key=key))
+        req_body = message_to_json(DeleteModelVersionTag(name=name, version=str(version), key=key))
         self._call_endpoint(DeleteModelVersionTag, req_body)
 
     def set_registered_model_alias(self, name, alias, version):

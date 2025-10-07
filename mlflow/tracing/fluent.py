@@ -26,6 +26,7 @@ from mlflow.tracing.constant import (
     STREAM_CHUNK_EVENT_NAME_FORMAT,
     STREAM_CHUNK_EVENT_VALUE_KEY,
     SpanAttributeKey,
+    TraceMetadataKey,
 )
 from mlflow.tracing.destination import TraceDestination
 from mlflow.tracing.provider import is_tracing_enabled, safe_set_span_in_context
@@ -41,6 +42,7 @@ from mlflow.tracing.utils import (
 from mlflow.tracing.utils.search import extract_span_inputs_outputs, traces_to_df
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import deprecated_parameter
+from mlflow.utils.validation import _validate_list_param
 
 _logger = logging.getLogger(__name__)
 
@@ -810,6 +812,8 @@ def search_traces(
                 ),
             )
 
+    _validate_list_param("experiment_ids", experiment_ids, allow_none=True)
+
     if not experiment_ids:
         if experiment_id := _get_experiment_id():
             experiment_ids = [experiment_id]
@@ -979,6 +983,7 @@ def update_current_trace(
     request_preview: str | None = None,
     response_preview: str | None = None,
     state: TraceState | str | None = None,
+    model_id: str | None = None,
 ):
     """
     Update the current active trace with the given options.
@@ -1001,6 +1006,8 @@ def update_current_trace(
         state: The state to set on the trace. Can be a TraceState enum value or string.
             Only "OK" and "ERROR" are allowed. This overrides the overall trace state without
             affecting the status of the current span.
+        model_id: The ID of the model to associate with the trace. If not set, the active
+            model ID is associated with the trace.
 
     Example:
 
@@ -1094,8 +1101,14 @@ def update_current_trace(
                 f"{non_string_items}"
             )
 
-    _warn_non_string_values(tags or {}, "tags")
-    _warn_non_string_values(metadata or {}, "metadata")
+    tags = tags or {}
+    metadata = metadata or {}
+
+    if model_id:
+        metadata[TraceMetadataKey.MODEL_ID] = model_id
+
+    _warn_non_string_values(tags, "tags")
+    _warn_non_string_values(metadata, "metadata")
 
     # Update tags and client request ID for the trace stored in-memory rather than directly
     # updating the backend store. The in-memory trace will be exported when it is ended.
@@ -1130,8 +1143,8 @@ def update_current_trace(
 
             trace.info.state = TraceState(state) if isinstance(state, str) else state
 
-        trace.info.tags.update(tags or {})
-        trace.info.trace_metadata.update(metadata or {})
+        trace.info.tags.update(tags)
+        trace.info.trace_metadata.update(metadata)
         if client_request_id is not None:
             trace.info.client_request_id = str(client_request_id)
 

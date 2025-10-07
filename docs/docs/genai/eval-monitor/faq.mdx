@@ -1,0 +1,64 @@
+import { APILink } from "@site/src/components/APILink";
+import ImageBox from '@site/src/components/ImageBox';
+
+# Evaluate & Monitor FAQ
+
+This page addresses frequently asked questions about MLflow's GenAI evaluation.
+
+## Where can I find the evaluation results in MLflow UI?
+
+After an evaluation completes, you can find the resulting runs on the experiment page. Click the run name to view aggregated metrics and metadata in the overview pane.
+
+To inspect per-row evaluation results, open the **Traces** tab on the run overview page.
+
+<ImageBox src="/images/mlflow-3/eval-monitor/quickstart-eval-result.png" alt="Detailed Evaluation Results" width="90%" />
+
+## How to change the concurrency of the evaluation?
+
+MLflow uses a thread pool to run the predict function and scorers in parallel. Configure the number of workers by setting the `MLFLOW_GENAI_EVAL_MAX_WORKERS` environment variable (default: `10`).
+
+```bash
+export MLFLOW_GENAI_EVAL_MAX_WORKERS=5
+```
+
+## Why does MLflow make N+1 predictions during evaluation?
+
+MLflow requires the predict function passed through the `predict_fn` parameter to emit a single trace per call. To ensure the function produces a trace, MLflow first runs one additional prediction on a single input.
+
+If you are confident the predict function already generates traces, skip this validation by setting the `MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION` environment variable to `true`.
+
+```bash
+export MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION=true
+```
+
+## How do I change the name of the evaluation run?
+
+By default, `mlflow.genai.evaluate` generates a random run name. Set a custom name by wrapping the call with `mlflow.start_run`.
+
+```python
+with mlflow.start_run(run_name="My Evaluation Run") as run:
+    mlflow.genai.evaluate(...)
+```
+
+## How do I use Databricks Model Serving endpoints as the predict function?
+
+MLflow provides <APILink fn="mlflow.genai.to_predict_fn" />, which wraps a Databricks Model Serving endpoint so it behaves like a predict function compatible with GenAI evaluation.
+
+The wrapper:
+
+- Translates each input sample into the request payload expected by the endpoint.
+- Injects `{"databricks_options": {"return_trace": True}}` so the endpoint returns a model-generated trace.
+- Copies the trace into the current experiment so it appears in the MLflow UI.
+
+```python
+import mlflow
+from mlflow.genai.scorers import Correctness
+
+mlflow.genai.evaluate(
+    # The {"messages": ...} part must be compatible with the request schema of the endpoint
+    data=[{"inputs": {"messages": [{"role": "user", "content": "What is MLflow?"}]}}],
+    # Your Databricks Model Serving endpoint URI
+    predict_fn=mlflow.genai.to_predict_fn("endpoints:/chat"),
+    scorers=[Correctness()],
+)
+```

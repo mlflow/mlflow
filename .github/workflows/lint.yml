@@ -57,7 +57,7 @@ jobs:
           echo "::add-matcher::.github/workflows/matchers/typos.json"
       - name: Install dependencies
         run: |
-          uv sync --only-group lint --only-group test
+          uv sync --locked --only-group lint --only-group test
       - name: Install pre-commit hooks
         run: |
           uv run --only-group lint pre-commit install --install-hooks
@@ -74,5 +74,7 @@ jobs:
         run: |
           uv run --only-group test pytest dev/clint
 
-      - run: |
+      - name: Check function signatures
+        if: matrix.os == 'ubuntu-latest'
+        run: |
           uv run --no-project dev/check_function_signatures.py

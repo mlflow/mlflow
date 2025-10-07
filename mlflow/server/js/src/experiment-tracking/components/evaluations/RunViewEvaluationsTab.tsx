@@ -28,6 +28,7 @@ import {
   useTableSort,
   TOKENS_COLUMN_ID,
   invalidateMlflowSearchTracesCache,
+  TRACE_ID_COLUMN_ID,
 } from '@databricks/web-shared/genai-traces-table';
 import { useRunLoggedTraceTableArtifacts } from './hooks/useRunLoggedTraceTableArtifacts';
 import { useMarkdownConverter } from '../../../common/utils/MarkdownUtils';
@@ -39,7 +40,7 @@ import { useGetExperimentRunColor } from '../experiment-page/hooks/useExperiment
 import { useQueryClient } from '@databricks/web-shared/query-client';
 import { useSearchRunsQuery } from '../run-page/hooks/useSearchRunsQuery';
 import { checkColumnContents } from '../experiment-page/components/traces-v3/utils/columnUtils';
-import { TRACE_ID_COLUMN_ID } from '@mlflow/mlflow/src/shared/web-shared/genai-traces-table/hooks/useTableColumns';
+import { useExportTracesToDatasetModal } from '../../pages/experiment-evaluation-datasets/hooks/useExportTracesToDatasetModal';
 
 const RunViewEvaluationsTabInner = ({
   experimentId,
@@ -81,22 +82,25 @@ const RunViewEvaluationsTabInner = ({
   const getRunColor = useGetExperimentRunColor();
   const queryClient = useQueryClient();
 
-  const defaultSelectedColumns = useCallback((columns: TracesTableColumn[]) => {
-    const { responseHasContent, inputHasContent, tokensHasContent } = checkColumnContents(
-      evaluatedTraces.concat(otherEvaluatedTraces),
-    );
+  const defaultSelectedColumns = useCallback(
+    (columns: TracesTableColumn[]) => {
+      const { responseHasContent, inputHasContent, tokensHasContent } = checkColumnContents(
+        evaluatedTraces.concat(otherEvaluatedTraces),
+      );
 
-    return columns.filter(
-      (col) =>
-        col.type === TracesTableColumnType.ASSESSMENT ||
-        col.type === TracesTableColumnType.EXPECTATION ||
-        (inputHasContent && col.type === TracesTableColumnType.INPUT) ||
-        (responseHasContent && col.type === TracesTableColumnType.TRACE_INFO && col.id === RESPONSE_COLUMN_ID) ||
-        (tokensHasContent && col.type === TracesTableColumnType.TRACE_INFO && col.id === TOKENS_COLUMN_ID) ||
-        (col.type === TracesTableColumnType.TRACE_INFO &&
-          [TRACE_ID_COLUMN_ID, EXECUTION_DURATION_COLUMN_ID, STATE_COLUMN_ID].includes(col.id)),
-    );
-  }, []);
+      return columns.filter(
+        (col) =>
+          col.type === TracesTableColumnType.ASSESSMENT ||
+          col.type === TracesTableColumnType.EXPECTATION ||
+          (inputHasContent && col.type === TracesTableColumnType.INPUT) ||
+          (responseHasContent && col.type === TracesTableColumnType.TRACE_INFO && col.id === RESPONSE_COLUMN_ID) ||
+          (tokensHasContent && col.type === TracesTableColumnType.TRACE_INFO && col.id === TOKENS_COLUMN_ID) ||
+          (col.type === TracesTableColumnType.TRACE_INFO &&
+            [TRACE_ID_COLUMN_ID, EXECUTION_DURATION_COLUMN_ID, STATE_COLUMN_ID].includes(col.id)),
+      );
+    },
+    [evaluatedTraces, otherEvaluatedTraces],
+  );
 
   const { selectedColumns, toggleColumns, setSelectedColumns } = useSelectedColumns(
     experimentId,
@@ -147,6 +151,11 @@ const RunViewEvaluationsTabInner = ({
     useV3Apis: true,
   });
 
+  const { showExportTracesToDatasetsModal, setShowExportTracesToDatasetsModal, renderExportTracesToDatasetsModal } =
+    useExportTracesToDatasetModal({
+      experimentId,
+    });
+
   const traceActions: TraceActions = useMemo(() => {
     return {
       deleteTracesAction: {
@@ -154,15 +163,23 @@ const RunViewEvaluationsTabInner = ({
           deleteTracesMutation.mutateAsync({ experimentId, traceRequestIds: traceIds }),
       },
       exportToEvals: {
-        exportToEvalsInstanceEnabled: true,
-        getTrace,
+        showExportTracesToDatasetsModal,
+        setShowExportTracesToDatasetsModal,
+        renderExportTracesToDatasetsModal,
       },
       editTags: {
         showEditTagsModalForTrace,
         EditTagsModal,
       },
     };
-  }, [deleteTracesMutation, showEditTagsModalForTrace, EditTagsModal]);
+  }, [
+    showExportTracesToDatasetsModal,
+    setShowExportTracesToDatasetsModal,
+    renderExportTracesToDatasetsModal,
+    showEditTagsModalForTrace,
+    EditTagsModal,
+    deleteTracesMutation,
+  ]);
 
   const isTableLoading = traceInfosLoading || compareToRunLoading;
 

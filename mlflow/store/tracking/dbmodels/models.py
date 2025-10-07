@@ -48,6 +48,7 @@ from mlflow.entities import (
     TraceInfo,
     ViewType,
 )
+from mlflow.entities.dataset_record import DATASET_RECORD_WRAPPED_OUTPUT_KEY
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
@@ -1487,6 +1488,11 @@ class SqlEvaluationDatasetRecord(Base):
     Inputs JSON: `JSON`. *Non null* in table schema.
     """
 
+    outputs = Column(MutableJSON, nullable=True)
+    """
+    Outputs JSON: `JSON`.
+    """
+
     expectations = Column(MutableJSON, nullable=True)
     """
     Expectations JSON: `JSON`.
@@ -1568,16 +1574,11 @@ class SqlEvaluationDatasetRecord(Base):
         return f"{SqlEvaluationDatasetRecord.RECORD_ID_PREFIX}{uuid.uuid4().hex}"
 
     def to_mlflow_entity(self):
-        """
-        Convert DB model to corresponding MLflow entity.
-
-        Returns:
-            :py:class:`mlflow.entities.DatasetRecord`.
-        """
-
         inputs = self.inputs
         expectations = self.expectations
         tags = self.tags
+
+        outputs = self.outputs.get(DATASET_RECORD_WRAPPED_OUTPUT_KEY) if self.outputs else None
 
         source = None
         if self.source:
@@ -1587,6 +1588,7 @@ class SqlEvaluationDatasetRecord(Base):
             dataset_record_id=self.dataset_record_id,
             dataset_id=self.dataset_id,
             inputs=inputs,
+            outputs=outputs,
             expectations=expectations,
             tags=tags,
             source=source,
@@ -1609,13 +1611,21 @@ class SqlEvaluationDatasetRecord(Base):
         Returns:
             SqlEvaluationDatasetRecord instance
         """
+
         source_dict = None
         if record.source:
             source_dict = record.source.to_dict()
 
+        outputs = (
+            {DATASET_RECORD_WRAPPED_OUTPUT_KEY: record.outputs}
+            if record.outputs is not None
+            else None
+        )
+
         kwargs = {
             "dataset_id": record.dataset_id,
             "inputs": record.inputs,
+            "outputs": outputs,
             "expectations": record.expectations,
             "tags": record.tags,
             "source": source_dict,
@@ -1637,13 +1647,21 @@ class SqlEvaluationDatasetRecord(Base):
         """
         Merge new record data into this existing record.
 
-        Updates expectations and tags by merging new values with existing ones.
+        Updates outputs, expectations and tags by merging new values with existing ones.
         Preserves created_time and created_by from the original record.
 
         Args:
             new_record_dict: Dictionary containing new record data with optional
-                           'expectations' and 'tags' fields to merge.
+                           'outputs', 'expectations' and 'tags' fields to merge.
         """
+        if "outputs" in new_record_dict:
+            new_outputs = new_record_dict["outputs"]
+            self.outputs = (
+                {DATASET_RECORD_WRAPPED_OUTPUT_KEY: new_outputs}
+                if new_outputs is not None
+                else None
+            )
+
         if new_expectations := new_record_dict.get("expectations"):
             if self.expectations is None:
                 self.expectations = {}
@@ -1921,4 +1939,92 @@ class SqlScorerVersion(Base):
             scorer_version=self.scorer_version,
             serialized_scorer=self.serialized_scorer,
             creation_time=self.creation_time,
+        )
+
+
+class SqlJob(Base):
+    """
+    DB model for Job entities. These are recorded in the ``jobs`` table.
+    """
+
+    __tablename__ = "jobs"
+
+    id = Column(String(36), nullable=False)
+    """
+    Job ID: `String` (limit 36 characters). *Primary Key* for ``jobs`` table.
+    """
+
+    creation_time = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Creation timestamp: `BigInteger`.
+    """
+
+    function_fullname = Column(String(500), nullable=False)
+    """
+    Function fullname: `String` (limit 500 characters).
+    """
+
+    params = Column(Text, nullable=False)
+    """
+    Job parameters: `Text`.
+    """
+
+    timeout = Column(sa.types.Float(precision=53), nullable=True)
+    """
+    Job execution timeout in seconds: `Float`
+    """
+
+    status = Column(Integer, nullable=False)
+    """
+    Job status: `Integer`.
+    """
+
+    result = Column(Text, nullable=True)
+    """
+    Job result: `Text`.
+    """
+
+    retry_count = Column(Integer, default=0, nullable=False)
+    """
+    Job retry count: `Integer`
+    """
+
+    last_update_time = Column(BigInteger(), default=get_current_time_millis, nullable=False)
+    """
+    Last Update time of experiment: `BigInteger`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="jobs_pk"),
+        Index(
+            "index_jobs_function_status_creation_time",
+            "function_fullname",
+            "status",
+            "creation_time",
+        ),
+    )
+
+    def __repr__(self):
+        return f"<SqlJob ({self.id}, {self.function_fullname}, {self.status})>"
+
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            mlflow.entities._job.Job.
+        """
+        from mlflow.entities._job import Job
+        from mlflow.entities._job_status import JobStatus
+
+        return Job(
+            job_id=self.id,
+            creation_time=self.creation_time,
+            function_fullname=self.function_fullname,
+            params=self.params,
+            timeout=self.timeout,
+            status=JobStatus.from_int(self.status),
+            result=self.result,
+            retry_count=self.retry_count,
+            last_update_time=self.last_update_time,
         )

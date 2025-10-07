@@ -65,6 +65,9 @@ def store(tmp_path: Path, cached_db: Path):
         s = SqlAlchemyStore(db_uri)
         yield s
 
+    # Dispose the engine to close all pooled connections
+    s.engine.dispose()
+
 
 def _cleanup_database(store: SqlAlchemyStore):
     with store.ManagedSessionMaker() as session:

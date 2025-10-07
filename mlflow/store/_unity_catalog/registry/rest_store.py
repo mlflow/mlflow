@@ -873,7 +873,7 @@ class UcModelRegistryStore(BaseRestStore):
                     f"Unable to download model artifacts from source artifact location "
                     f"'{source}' in order to upload them to Unity Catalog. Please ensure "
                     f"the source artifact location exists and that you can download from "
-                    f"it via mlflow.artifacts.download_artifacts()"
+                    f"it via mlflow.artifacts.download_artifacts(). Original error: {e}"
                 ) from e
             try:
                 yield local_model_dir

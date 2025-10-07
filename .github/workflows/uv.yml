@@ -1,0 +1,48 @@
+name: uv
+
+on:
+  pull_request:
+    branches:
+      - master
+    paths:
+      - .github/workflows/uv.yml
+      - .github/workflows/uv.js
+  schedule:
+    # Run this workflow on Monday and Thursday at 13:00 UTC
+    - cron: "0 13 * * 1,4"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  uv:
+    # Skip scheduled runs on forks
+    if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
+        id: app-token
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+      - uses: ./.github/actions/setup-python
+      - name: Update uv.lock and create PR
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            const script = require('.github/workflows/uv.js');
+            await script({ github, context });

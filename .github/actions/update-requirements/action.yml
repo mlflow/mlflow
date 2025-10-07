@@ -13,6 +13,7 @@ runs:
       id: update-requirements
       shell: bash --noprofile --norc -exo pipefail {0}
       run: |
+        python bin/install.py
         python dev/update_requirements.py --requirements-yaml-location requirements
         if [ -z "$(git status --porcelain)" ]; then
           echo "updated=false" >> $GITHUB_OUTPUT

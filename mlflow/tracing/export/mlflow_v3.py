@@ -7,9 +7,8 @@ from opentelemetry.sdk.trace.export import SpanExporter
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.span import Span
 from mlflow.entities.trace import Trace
-from mlflow.environment_variables import (
-    MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
-)
+from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_TRACE_LOGGING
+from mlflow.exceptions import RestException
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.display import get_display_handler
@@ -43,6 +42,11 @@ class MlflowV3SpanExporter(SpanExporter):
         # Display handler is no-op when running outside of notebooks.
         self._display_handler = get_display_handler()
 
+        # A flag to cache the failure of exporting spans so that the client will not try to export
+        # spans again and trigger excessive server side errors. Default to True (optimistically
+        # assume the store supports span-level logging).
+        self._should_export_spans_incrementally = True
+
     def export(self, spans: Sequence[ReadableSpan]) -> None:
         """
         Export the spans to the destination.
@@ -53,7 +57,9 @@ class MlflowV3SpanExporter(SpanExporter):
         """
         manager = InMemoryTraceManager.get_instance()
 
-        self._export_spans_incrementally(spans, manager)
+        if self._should_export_spans_incrementally:
+            self._export_spans_incrementally(spans, manager)
+
         self._export_traces(spans, manager)
 
     def _export_spans_incrementally(
@@ -161,9 +167,18 @@ class MlflowV3SpanExporter(SpanExporter):
         except NotImplementedError:
             # Silently skip if the store doesn't support log_spans. This is expected for stores that
             # don't implement span-level logging, and we don't want to spam warnings for every span.
-            pass
+            self._should_export_spans_incrementally = False
+        except RestException as e:
+            # When the FileStore is behind the tracking server, it returns 501 exception.
+            # However, the OTLP endpoint returns general HTTP error, not MlflowException, which does
+            # not include error_code in the body and handled as a general server side error. Hence,
+            # we need to check the message to handle this case.
+            if "REST OTLP span logging is not supported" in e.message:
+                self._should_export_spans_incrementally = False
+            else:
+                _logger.debug(f"Failed to log span to MLflow backend: {e}")
         except Exception as e:
-            _logger.warning(f"Failed to log span to MLflow backend: {e}")
+            _logger.debug(f"Failed to log span to MLflow backend: {e}")
 
     def _log_trace(self, trace: Trace, prompts: Sequence[PromptVersion]) -> None:
         """

@@ -1,8 +1,5 @@
-import { RunEvaluationTracesDataEntry } from '@mlflow/mlflow/src/shared/web-shared/genai-traces-table/types';
-import {
-  getTraceInfoInputs,
-  getTraceInfoOutputs,
-} from '@mlflow/mlflow/src/shared/web-shared/genai-traces-table/utils/TraceUtils';
+import type { RunEvaluationTracesDataEntry } from '@databricks/web-shared/genai-traces-table';
+import { getTraceInfoInputs, getTraceInfoOutputs } from '@databricks/web-shared/genai-traces-table';
 
 export const checkColumnContents = (
   evalRows: RunEvaluationTracesDataEntry[],
@@ -11,10 +8,10 @@ export const checkColumnContents = (
   let inputHasContent = false;
   let tokensHasContent = false;
 
-  evalRows.forEach((evalRow) => {
+  for (const evalRow of evalRows) {
     const traceInfo = evalRow.traceInfo;
     if (!traceInfo) {
-      return;
+      continue;
     }
     if (getTraceInfoInputs(traceInfo)) {
       inputHasContent = true;
@@ -26,7 +23,7 @@ export const checkColumnContents = (
     if (evalRow.traceInfo?.trace_metadata?.['mlflow.trace.tokenUsage']) {
       tokensHasContent = true;
     }
-  });
+  }
 
   return { responseHasContent, inputHasContent, tokensHasContent };
 };

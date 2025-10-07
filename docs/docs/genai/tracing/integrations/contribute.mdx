@@ -4,6 +4,8 @@ sidebar_label: Add New Integration
 ---
 
 import { APILink } from "@site/src/components/APILink";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
 
 # Contributing to MLflow Tracing
 
@@ -89,6 +91,9 @@ Include a brief overview of the library's core functionality and use cases to pr
 
 ## Step 5. Begin Implementation
 
+<Tabs>
+  <TabItem value="python" label="Python" default>
+
 With the design approved, start implementation:
 
 1. **Create a New Module**: If the library isn't already integrated with MLflow, create a new directory under `mlflow/` (e.g., `mlflow/llama_index`). Add an `__init__.py` file to initialize the module.
@@ -104,6 +109,35 @@ There are a few gotchas to watch out for when integrating with MLflow Tracing:
 - **Serialization**: MLflow serializes traces to JSON via the custom `TraceJsonEncoder` implementation, which supports common objects and Pydantic models. If your library uses custom objects, consider extending the serializer, as unsupported types are stringified and may lose useful detail.
 - **Timestamp Handling**: When using timestamps provided by the library, validate the unit and timezone. MLflow requires timestamps in _nanoseconds since the UNIX epoch_; incorrect timestamps will disrupt span duration.
   :::
+
+</TabItem>
+<TabItem value="typescript" label="TypeScript">
+
+The MLflow TypeScript tracing SDK lives under the [`libs/typescript`](https://github.com/mlflow/mlflow/tree/master/libs/typescript) npm workspace. When implementing a new integration:
+
+1. **Create a Workspace Package**: Scaffold `libs/typescript/integrations/<provider>` using the [OpenAI integration](https://github.com/mlflow/mlflow/tree/master/libs/typescript/integrations/openai) as a template, including `package.json`, `tsconfig.json`, and optional docs.
+2. **Expose Instrumentation Helpers**: Implement the tracing entry points in `src/`—for example, a `traced<Client>()` wrapper or `register()` function that wires the integration into `mlflow-tracing`.
+3. **Document and Test**: Add README snippets or inline docs plus unit/integration tests under `tests/` so reviewers can validate the new instrumentation.
+4. **Update Workspace Scripts**: Extend the root [`package.json`](https://github.com/mlflow/mlflow/blob/master/libs/typescript/package.json) `build:integrations` or `test:integrations` commands if the new package needs custom build or test steps.
+
+After coding, build and exercise the workspace locally to make sure artifacts in `dist/` are up to date:
+
+```bash
+cd libs/typescript
+npm install
+npm run build
+npm run test
+```
+
+:::warning attention
+
+- **Trace Shape**: Align span names, attributes, and metadata with the Python integrations so downstream UI components interpret traces correctly.
+- **Streaming & Async Workloads**: Buffer streaming responses or async iterators before logging outputs so they remain consumable by the caller.
+- **Serializable Payloads**: Convert complex SDK objects to JSON-serializable structures before handing them to the MLflow client.
+  :::
+
+</TabItem>
+</Tabs>
 
 ## Step 6. Test the Integration
 

@@ -45,7 +45,6 @@ def test_mslex_quote():
 
 
 def test_format_table_cell_value_basic():
-    """Test basic cell value formatting."""
     result = format_table_cell_value("field", "value")
     assert result == "value"
 
@@ -92,7 +91,6 @@ def test_format_table_cell_value_preview_truncation():
 
 
 def test_format_table_cell_value_invalid_timestamp():
-    """Test handling of invalid timestamp values."""
     result = format_table_cell_value("info.request_time", "invalid-timestamp")
     assert result == "invalid-timestamp"  # Should return original
 

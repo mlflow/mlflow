@@ -171,7 +171,9 @@ def translate_prompt_exception(func):
             )
 
             if new_message != original_message:
-                raise MlflowException(new_message) from e
+                new_exc = MlflowException(new_message)
+                new_exc.error_code = e.error_code  # Preserve original error code
+                raise new_exc from e
             else:
                 raise e
 

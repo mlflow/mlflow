@@ -94,6 +94,12 @@
     "editor.formatOnSave": true
   },
 
+  // `.prompt.md` files in `.github/prompts`
+  "[prompt]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+
   // Files to exclude from explorer
   "files.exclude": {
     "**/__pycache__": true,
