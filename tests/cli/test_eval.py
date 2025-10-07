@@ -2,6 +2,7 @@
 
 from unittest import mock
 
+import click
 import pandas as pd
 import pytest
 
@@ -140,7 +141,7 @@ def test_evaluate_traces_with_nonexistent_trace():
     experiment = mlflow.create_experiment("test_experiment_error")
 
     with mock.patch("mlflow.cli.eval.MlflowClient.get_trace", return_value=None):
-        with pytest.raises(Exception, match="Trace with ID 'tr-nonexistent' not found"):
+        with pytest.raises(click.UsageError, match="Trace with ID 'tr-nonexistent' not found"):
             evaluate_traces(
                 experiment_id=experiment,
                 trace_ids="tr-nonexistent",
@@ -160,7 +161,7 @@ def test_evaluate_traces_with_trace_from_wrong_experiment():
     mock_trace.info.experiment_id = experiment2
 
     with mock.patch("mlflow.cli.eval.MlflowClient.get_trace", return_value=mock_trace):
-        with pytest.raises(Exception, match="belongs to experiment"):
+        with pytest.raises(click.UsageError, match="belongs to experiment"):
             evaluate_traces(
                 experiment_id=experiment1,
                 trace_ids="tr-test-123",
