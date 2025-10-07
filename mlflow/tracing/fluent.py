@@ -42,6 +42,7 @@ from mlflow.tracing.utils import (
 from mlflow.tracing.utils.search import extract_span_inputs_outputs, traces_to_df
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import deprecated_parameter
+from mlflow.utils.validation import _validate_list_param
 
 _logger = logging.getLogger(__name__)
 
@@ -810,6 +811,8 @@ def search_traces(
                     " the `return_type='pandas'` option, or set `return_type='list'`."
                 ),
             )
+
+    _validate_list_param("experiment_ids", experiment_ids, allow_none=True)
 
     if not experiment_ids:
         if experiment_id := _get_experiment_id():
