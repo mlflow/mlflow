@@ -18,7 +18,7 @@ from typing_extensions import Self
 from clint.rules.base import Rule
 
 MIN_WORD_OVERLAP_PERCENTAGE = 0.5
-MAX_DOCSTRING_LENGTH_RATIO = 1.0
+MAX_DOCSTRING_LENGTH_RATIO = 1.25
 
 
 class RedundantTestDocstring(Rule):

@@ -7,9 +7,6 @@ on:
       - synchronize
       - reopened
       - ready_for_review
-    paths:
-      - libs/typescript/**
-      - .github/workflows/typescript.yml
   push:
     branches:
       - master

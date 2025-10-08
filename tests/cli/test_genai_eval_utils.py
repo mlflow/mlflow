@@ -17,7 +17,6 @@ from mlflow.tracing.constant import AssessmentMetadataKey
 
 
 def test_format_single_trace_with_result_and_rationale():
-    """Test formatting a single trace with result and rationale."""
     output_data = [
         EvalResult(
             trace_id="tr-123",
@@ -385,7 +384,6 @@ def test_extract_with_different_assessment_name():
 
 
 def test_extract_filter_out_assessments_with_different_run_id():
-    """Test that assessments with different run_id are filtered out."""
     results_df = pd.DataFrame(
         [
             {

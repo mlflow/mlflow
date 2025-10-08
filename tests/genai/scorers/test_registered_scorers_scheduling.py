@@ -267,7 +267,6 @@ def test_builtin_scorer_register(mock_add, _):
 @patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
 @patch("mlflow.genai.scorers.registry.DatabricksStore.update_registered_scorer")
 def test_builtin_scorer_update(mock_update, _):
-    """Test updating a builtin scorer."""
     guidelines_scorer = Guidelines(guidelines="Be helpful")
     guidelines_scorer = guidelines_scorer._create_copy()
     guidelines_scorer.name = "my_guidelines"
