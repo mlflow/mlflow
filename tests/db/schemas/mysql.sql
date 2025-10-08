@@ -373,7 +373,7 @@ CREATE TABLE scorer_versions (
 	scorer_version INTEGER NOT NULL,
 	serialized_scorer TEXT NOT NULL,
 	creation_time BIGINT,
-	sample_rate FLOAT DEFAULT '0.0' NOT NULL,
+	sample_rate FLOAT DEFAULT '0' NOT NULL,
 	PRIMARY KEY (scorer_id, scorer_version),
 	CONSTRAINT fk_scorer_versions_scorer_id FOREIGN KEY(scorer_id) REFERENCES scorers (scorer_id) ON DELETE CASCADE
 )
