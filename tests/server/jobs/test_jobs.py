@@ -252,6 +252,7 @@ def transient_err_fun(tmp_dir: str, succeed_on_nth_run: int):
     then return 100 on the `succeed_on_nth_run` run. The `tmp_dir` records the run state.
     """
     from mlflow.server.jobs import TransientError
+
     # create one file with a unique name for each function call
     with open(os.path.join(tmp_dir, uuid.uuid4().hex), "w") as f:
         f.close()

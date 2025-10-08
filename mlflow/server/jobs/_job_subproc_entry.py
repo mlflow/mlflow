@@ -6,10 +6,11 @@ or the job has extra environment variables setting,
 the job is executed as a subprocess.
 """
 
-import cloudpickle
 import json
 import os
 import threading
+
+import cloudpickle
 
 from mlflow.server.jobs.utils import JobResult, _exit_when_orphaned, _load_function
 
