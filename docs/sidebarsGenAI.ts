@@ -349,7 +349,7 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Prompt Registry',
+      label: 'Prompt Management',
       className: 'sidebar-top-level-category',
       items: [
         {
@@ -379,6 +379,10 @@ const sidebarsGenAI: SidebarsConfig = {
         {
           type: 'doc',
           id: 'prompt-registry/optimize-prompts',
+        },
+        {
+          type: 'doc',
+          id: 'prompt-registry/adapt-prompts',
         },
         {
           type: 'doc',
