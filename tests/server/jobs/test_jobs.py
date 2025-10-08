@@ -1,13 +1,11 @@
 import multiprocessing
 import os
 import time
-import uuid
 from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
 
-import mlflow.server.handlers
 from mlflow.entities._job_status import JobStatus
 from mlflow.exceptions import MlflowException
 from mlflow.server import (
@@ -16,7 +14,7 @@ from mlflow.server import (
     HUEY_STORAGE_PATH_ENV_VAR,
 )
 from mlflow.server.handlers import _get_job_store
-from mlflow.server.jobs import get_job, job, submit_job
+from mlflow.server.jobs import TransientError, get_job, job, submit_job
 from mlflow.server.jobs.utils import _launch_job_runner
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
@@ -64,6 +62,10 @@ def _setup_job_runner(
         with _launch_job_runner_for_test() as job_runner_proc:
             yield job_runner_proc
     finally:
+        # Clear the huey instance cache AFTER killing the runner to ensure clean state for next test
+        import mlflow.server.jobs.utils
+
+        mlflow.server.jobs.utils._huey_instance_map.clear()
         mlflow.server.handlers._job_store = None
 
 
@@ -256,33 +258,40 @@ def test_job_queue_parallelism(monkeypatch, tmp_path):
 
 
 @job(max_workers=1)
-def transient_err_fun(tmp_dir: str, succeed_on_nth_run: int):
-    """
-    This function will raise `TransientError` on the first (`succeed_on_nth_run` - 1) runs,
-    then return 100 on the `succeed_on_nth_run` run. The `tmp_dir` records the run state.
-    """
-    from mlflow.server.jobs import TransientError
+def transient_err_fun_always_fail():
+    raise TransientError(RuntimeError("test transient error."))
 
-    # create one file with a unique name for each function call
-    with open(os.path.join(tmp_dir, uuid.uuid4().hex), "w") as f:
-        f.close()
-    time.sleep(0.1)
-    if len(os.listdir(tmp_dir)) == succeed_on_nth_run:
+
+@job(max_workers=1)
+def transient_err_fun_fail_then_succeed(counter_file: str):
+    counter_path = Path(counter_file)
+
+    try:
+        current = int(counter_path.read_text()) if counter_path.exists() else 0
+    except (ValueError, FileNotFoundError):
+        current = 0
+
+    current += 1
+    counter_path.write_text(str(current))
+
+    if current >= 2:
         return 100
     raise TransientError(RuntimeError("test transient error."))
 
 
 @job(max_workers=1, transient_error_classes=[TimeoutError])
-def transient_err_fun2(tmp_dir: str, succeed_on_nth_run: int):
-    """
-    This function will raise `TimeoutError` on the first (`succeed_on_nth_run` - 1) runs,
-    then return 100 on the `succeed_on_nth_run` run. The `tmp_dir` records the run state.
-    """
-    # create one file with a unique name for each function call
-    with open(os.path.join(tmp_dir, uuid.uuid4().hex), "w") as f:
-        f.close()
-    time.sleep(0.1)
-    if len(os.listdir(tmp_dir)) == succeed_on_nth_run:
+def transient_err_fun2_fail_then_succeed(counter_file: str):
+    counter_path = Path(counter_file)
+
+    try:
+        current = int(counter_path.read_text()) if counter_path.exists() else 0
+    except (ValueError, FileNotFoundError):
+        current = 0
+
+    current += 1
+    counter_path.write_text(str(current))
+
+    if current >= 2:
         return 100
     raise TimeoutError("test transient timeout error.")
 
@@ -303,12 +312,8 @@ def test_job_retry_on_transient_error(monkeypatch, tmp_path):
     with _setup_job_runner(monkeypatch, tmp_path):
         store = _get_job_store()
 
-        job1_tmp_path = tmp_path / "job1"
-        job1_tmp_path.mkdir()
-
-        job1_id = submit_job(
-            transient_err_fun, {"tmp_dir": str(job1_tmp_path), "succeed_on_nth_run": 3}
-        ).job_id
+        # Test 1: Job that always fails should exhaust retries and fail
+        job1_id = submit_job(transient_err_fun_always_fail, {}).job_id
         wait_job_finalize(job1_id, timeout=120)
         assert_job_result(job1_id, JobStatus.FAILED, "RuntimeError('test transient error.')")
         job1 = store.get_job(job1_id)
@@ -316,11 +321,10 @@ def test_job_retry_on_transient_error(monkeypatch, tmp_path):
         assert job1.result == "RuntimeError('test transient error.')"
         assert job1.retry_count == 2
 
-        job2_tmp_path = tmp_path / "job2"
-        job2_tmp_path.mkdir()
-
+        # Test 2: Job that fails once then succeeds should succeed with retry_count=1
+        job2_counter = tmp_path / "job2_counter.txt"
         job2_id = submit_job(
-            transient_err_fun, {"tmp_dir": str(job2_tmp_path), "succeed_on_nth_run": 2}
+            transient_err_fun_fail_then_succeed, {"counter_file": str(job2_counter)}
         ).job_id
         wait_job_finalize(job2_id)
         assert_job_result(job2_id, JobStatus.SUCCEEDED, 100)
@@ -329,11 +333,10 @@ def test_job_retry_on_transient_error(monkeypatch, tmp_path):
         assert job2.result == "100"
         assert job2.retry_count == 1
 
-        job3_tmp_path = tmp_path / "job3"
-        job3_tmp_path.mkdir()
-
+        # Test 3: Same as test 2 but with custom transient_error_classes
+        job3_counter = tmp_path / "job3_counter.txt"
         job3_id = submit_job(
-            transient_err_fun2, {"tmp_dir": str(job3_tmp_path), "succeed_on_nth_run": 2}
+            transient_err_fun2_fail_then_succeed, {"counter_file": str(job3_counter)}
         ).job_id
         wait_job_finalize(job3_id)
         assert_job_result(job3_id, JobStatus.SUCCEEDED, 100)
