@@ -266,6 +266,7 @@ def transient_err_fun(tmp_dir: str, succeed_on_nth_run: int):
     # create one file with a unique name for each function call
     with open(os.path.join(tmp_dir, uuid.uuid4().hex), "w") as f:
         f.close()
+    time.sleep(0.1)
     if len(os.listdir(tmp_dir)) == succeed_on_nth_run:
         return 100
     raise TransientError(RuntimeError("test transient error."))
@@ -280,6 +281,7 @@ def transient_err_fun2(tmp_dir: str, succeed_on_nth_run: int):
     # create one file with a unique name for each function call
     with open(os.path.join(tmp_dir, uuid.uuid4().hex), "w") as f:
         f.close()
+    time.sleep(0.1)
     if len(os.listdir(tmp_dir)) == succeed_on_nth_run:
         return 100
     raise TimeoutError("test transient timeout error.")
