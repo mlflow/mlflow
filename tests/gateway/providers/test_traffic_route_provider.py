@@ -31,6 +31,7 @@ def _get_traffic_route_provider(endpoint_config: dict[str, Any]) -> TrafficRoute
     return TrafficRouteProvider(
         configs=[EndpointConfig(**endpoint_config)],
         traffic_splits=[100],
+        routing_strategy="TRAFFIC_SPLIT",
     )
 
 

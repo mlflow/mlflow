@@ -98,7 +98,9 @@ class GatewayAPI(FastAPI):
             traffic_splits = [
                 destination.traffic_percentage for destination in route_config.destinations
             ]
-            return TrafficRouteProvider(endpoint_configs, traffic_splits), route_config.task_type
+            return TrafficRouteProvider(
+                endpoint_configs, traffic_splits, route_config.routing_strategy,
+            ), route_config.task_type
         raise MlflowException.invalid_parameter_value(f"Invalid endpoint / route name: '{name}'")
 
     def get_dynamic_endpoint(self, endpoint_name: str) -> Endpoint | None:

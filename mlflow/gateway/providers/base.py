@@ -3,6 +3,7 @@ from typing import AsyncIterable
 
 import numpy as np
 
+from mlflow.exceptions import MlflowException
 from mlflow.gateway.base_models import ConfigModel
 from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.exceptions import AIGatewayException
@@ -86,8 +87,23 @@ class TrafficRouteProvider(BaseProvider):
 
     NAME: str = "TrafficRoute"
 
-    def __init__(self, configs: list[EndpointConfig], traffic_splits: list[int]):
+    def __init__(
+        self,
+        configs: list[EndpointConfig],
+        traffic_splits: list[int],
+        routing_strategy: str,
+    ):
         from mlflow.gateway.providers import get_provider
+
+        if len(configs) != len(traffic_splits):
+            raise MlflowException.invalid_parameter_value(
+                "'configs' and 'traffic_splits' should have the same length."
+            )
+
+        if routing_strategy != "TRAFFIC_SPLIT":
+            raise MlflowException.invalid_parameter_value(
+                "'routing_strategy' must be 'TRAFFIC_SPLIT'."
+            )
 
         self._providers = [get_provider(config.model.provider)(config) for config in configs]
 
