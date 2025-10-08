@@ -94,7 +94,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.4.9",
-            "maximum": "0.7.5"
+            "maximum": "0.7.4"
         }
     },
     "gemini": {
@@ -133,7 +133,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "1.7.0",
-            "maximum": "2.1.1"
+            "maximum": "1.8.1"
         }
     },
     "pydantic_ai": {
