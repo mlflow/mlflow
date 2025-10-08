@@ -60,7 +60,7 @@ describe('MlflowClient', () => {
       expect(createdTraceInfo.responsePreview).toBe('{"output":"result"}');
       expect(createdTraceInfo.clientRequestId).toBe('client-request-id');
       expect(createdTraceInfo.traceMetadata).toEqual({
-        'meta-key': 'meta-value',
+        'meta-key': 'meta-value'
       });
       expect(createdTraceInfo.tags).toEqual({
         'tag-key': 'tag-value',

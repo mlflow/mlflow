@@ -2,9 +2,9 @@
 
 Seamlessly integrate [MLflow Tracing](https://github.com/mlflow/mlflow/tree/main/libs/typescript) with Anthropic to automatically trace your Claude API calls.
 
-| Package                 | NPM                                                                                                         | Description                                       |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| [mlflow-anthropic](./)  | [![npm package](https://img.shields.io/npm/v/mlflow-tracing-anthropic?style=flat-square)](https://www.npmjs.com/package/mlflow-tracing-anthropic) | Auto-instrumentation integration for Anthropic.  |
+| Package                | NPM                                                                                                                                               | Description                                     |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| [mlflow-anthropic](./) | [![npm package](https://img.shields.io/npm/v/mlflow-tracing-anthropic?style=flat-square)](https://www.npmjs.com/package/mlflow-tracing-anthropic) | Auto-instrumentation integration for Anthropic. |
 
 ## Installation
 
@@ -48,9 +48,7 @@ const client = tracedAnthropic(anthropic);
 const response = await client.messages.create({
   model: 'claude-3-7-sonnet-20250219',
   max_tokens: 256,
-  messages: [
-    { role: 'user', content: 'Hello Claude' }
-  ]
+  messages: [{ role: 'user', content: 'Hello Claude' }]
 });
 ```
 
@@ -61,11 +59,13 @@ View traces in MLflow UI:
 ## End-to-End Autologging Workflow
 
 1. **Install dependencies**
+
    ```bash
    npm install mlflow-tracing mlflow-anthropic @anthropic-ai/sdk
    ```
 
 2. **Configure MLflow** by pointing the SDK at your tracking server:
+
    ```typescript
    import * as mlflow from 'mlflow-tracing';
 
@@ -76,6 +76,7 @@ View traces in MLflow UI:
    ```
 
 3. **Wrap the Anthropic client** with the auto-instrumentation helper:
+
    ```typescript
    import Anthropic from '@anthropic-ai/sdk';
    import { tracedAnthropic } from 'mlflow-anthropic';
@@ -85,13 +86,12 @@ View traces in MLflow UI:
    ```
 
 4. **Call the Claude APIs as usual**—every traced method invocation automatically creates an MLflow span:
+
    ```typescript
    const completion = await client.messages.create({
      model: 'claude-3-haiku-20240307',
      max_tokens: 256,
-     messages: [
-       { role: 'user', content: 'Hello Claude' }
-     ]
+     messages: [{ role: 'user', content: 'Hello Claude' }]
    });
    console.log(completion.content[0]);
    ```

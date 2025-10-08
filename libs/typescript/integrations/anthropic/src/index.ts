@@ -102,7 +102,7 @@ function extractTokenUsage(response: any): TokenUsage | undefined {
 
   const inputTokens = usage.input_tokens;
   const outputTokens = usage.output_tokens;
-  const totalTokens = usage.total_tokens ?? ((inputTokens ?? 0) + (outputTokens ?? 0));
+  const totalTokens = usage.total_tokens ?? (inputTokens ?? 0) + (outputTokens ?? 0);
 
   return {
     input_tokens: inputTokens ?? totalTokens ?? 0,

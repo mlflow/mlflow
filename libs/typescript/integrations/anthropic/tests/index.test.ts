@@ -58,9 +58,7 @@ describe('tracedAnthropic', () => {
     const result = await wrappedAnthropic.messages.create({
       model: 'claude-3-7-sonnet-20250219',
       max_tokens: 256,
-      messages: [
-        { role: 'user', content: 'Hello Claude!' }
-      ]
+      messages: [{ role: 'user', content: 'Hello Claude!' }]
     });
 
     const trace = await getLastActiveTrace();
@@ -79,9 +77,7 @@ describe('tracedAnthropic', () => {
     expect(span.inputs).toEqual({
       model: 'claude-3-7-sonnet-20250219',
       max_tokens: 256,
-      messages: [
-        { role: 'user', content: 'Hello Claude!' }
-      ]
+      messages: [{ role: 'user', content: 'Hello Claude!' }]
     });
     expect(span.outputs).toEqual(result);
 
@@ -114,9 +110,7 @@ describe('tracedAnthropic', () => {
       wrappedAnthropic.messages.create({
         model: 'claude-3-7-sonnet-20250219',
         max_tokens: 128,
-        messages: [
-          { role: 'user', content: 'This request should fail.' }
-        ]
+        messages: [{ role: 'user', content: 'This request should fail.' }]
       })
     ).rejects.toThrow();
 
@@ -128,9 +122,7 @@ describe('tracedAnthropic', () => {
     expect(span.inputs).toEqual({
       model: 'claude-3-7-sonnet-20250219',
       max_tokens: 128,
-      messages: [
-        { role: 'user', content: 'This request should fail.' }
-      ]
+      messages: [{ role: 'user', content: 'This request should fail.' }]
     });
     expect(span.outputs).toBeUndefined();
   });
@@ -144,9 +136,7 @@ describe('tracedAnthropic', () => {
         const response = await wrappedAnthropic.messages.create({
           model: 'claude-3-7-sonnet-20250219',
           max_tokens: 128,
-          messages: [
-            { role: 'user', content: 'Hello from parent span.' }
-          ]
+          messages: [{ role: 'user', content: 'Hello from parent span.' }]
         });
         return response.content[0];
       },
@@ -172,9 +162,7 @@ describe('tracedAnthropic', () => {
     expect(childSpan.inputs).toEqual({
       model: 'claude-3-7-sonnet-20250219',
       max_tokens: 128,
-      messages: [
-        { role: 'user', content: 'Hello from parent span.' }
-      ]
+      messages: [{ role: 'user', content: 'Hello from parent span.' }]
     });
     expect(childSpan.outputs).toBeDefined();
   });
