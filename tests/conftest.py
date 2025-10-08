@@ -13,10 +13,13 @@ import uuid
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 from unittest import mock
 
 import pytest
 import requests
+import yaml
+from matplotlib.pylab import Any
 from opentelemetry import trace as trace_api
 
 import mlflow
@@ -377,6 +380,29 @@ def pytest_collection_modifyitems(session, config, items):
         items[:] = items[(group - 1) :: splits]
 
 
+def _dump_yaml(data: dict[str, Any]) -> str:
+    """Dump data as YAML with multi-line strings using | style."""
+
+    class LiteralDumper(yaml.SafeDumper):
+        pass
+
+    def literal_representer(dumper: yaml.SafeDumper, data: str) -> yaml.ScalarNode:
+        if "\n" in data:
+            # Add trailing newline to use | instead of |-
+            return dumper.represent_scalar("tag:yaml.org,2002:str", data + "\n", style="|")
+        return dumper.represent_scalar("tag:yaml.org,2002:str", data)
+
+    LiteralDumper.add_representer(str, literal_representer)
+
+    return yaml.dump(
+        data,
+        Dumper=LiteralDumper,
+        default_flow_style=False,
+        sort_keys=False,
+        allow_unicode=True,
+    )
+
+
 @pytest.hookimpl(hookwrapper=True)
 def pytest_terminal_summary(terminalreporter, exitstatus, config):
     yield
@@ -410,11 +436,11 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                 if matrix_json := os.environ.get("CROSS_VERSION_MATRIX"):
                     try:
                         matrix = json.loads(matrix_json)
-                        formatted_json = json.dumps(matrix, indent=2)
+                        formatted_yaml = _dump_yaml(matrix)
                         f.write("\n## Cross-Version Test Configuration\n\n")
-                        f.write("```json\n")
-                        f.write(formatted_json)
-                        f.write("\n```\n\n")
+                        f.write("```yaml\n")
+                        f.write(formatted_yaml)
+                        f.write("```\n\n")
                     except json.JSONDecodeError:
                         pass
 
