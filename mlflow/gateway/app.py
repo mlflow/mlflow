@@ -99,7 +99,9 @@ class GatewayAPI(FastAPI):
                 destination.traffic_percentage for destination in route_config.destinations
             ]
             return TrafficRouteProvider(
-                endpoint_configs, traffic_splits, route_config.routing_strategy,
+                endpoint_configs,
+                traffic_splits,
+                route_config.routing_strategy,
             ), route_config.task_type
         raise MlflowException.invalid_parameter_value(f"Invalid endpoint / route name: '{name}'")
 
