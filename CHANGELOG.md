@@ -6,9 +6,11 @@ MLflow 3.5.0rc0 includes several major features and improvements
 
 Major new features:
 
-- 🤖 **Tracing support for Claude Code SDK**: MLflow now provides a tracing integration for both the Claude Code CLI and SDK! Configure the autologging integration to track your prompts, Claude's responses, tool calls, and more. Check out this docs page to get started. (#18022, @smoorjani)
+- 🤖 **Tracing support for Claude Code SDK**: MLflow now provides a tracing integration for both the Claude Code CLI and SDK! Configure the autologging integration to track your prompts, Claude's responses, tool calls, and more. Check out this [doc page](https://mlflow.org/docs/latest/genai/tracing/integrations/listing/claude_code/) to get started. (#18022, @smoorjani)
 - ✨ **Improved UI homepage**: The MLflow UI's homepage has been updated to help you get started with more of our latest features. This page will be updated regularly moving forward, allowing you to get more in-product guidance.
 - 🗂️ **Evaluation datasets UI integration**: In MLflow 3.4.0, we released backend support for creating evaluation datasets for GenAI applications. In this release, we've added a new tab to the MLflow Experiment UI, allowing you to create, manage, and export traces to your datasets without having to write a line of code.
+- **GEPA support for prompt optimization**: MLflow's prompt optimization feature now supports the [GEPA algorithm](https://dspy.ai/api/optimizers/GEPA/overview/), allowing you to achieve higher performing prompts with less rollouts. For instructions on how to get started with prompt optimization, visit this [doc page](https://mlflow.org/docs/latest/genai/prompt-registry/optimize-prompts/)!
+- **Security middleware layer for tracking server**: MLflow now ships with a security middleware layer by default, allowing you to protect against DNS rebinding, CORS attacks, and more. Read the documentation [here](https://mlflow.org/docs/latest/ml/tracking/server/security/) to learn how to configure these options.
 
 Features:
 
@@ -16,6 +18,8 @@ Features:
 - [Evaluation] Add support for trace inputs to built-in scorers (#17943, @BenWilson2)
 - [Tracking] Add a security middleware layer to MLflow Tracking Server (#17910, @BenWilson2)
 - [UI] Add option to delete child runs together with parent runs (#18052, @joelrobin18)
+- [UI] Add UI for creating chat-templated prompts (#17334, @joelrobin18)
+- [UI] Added move to top, move to bottom for charts (#17742, @joelrobin18)
 - [Tracking] Crewai Token Count + Doc Update (#16373, @joelrobin18)
 - [Evaluation / Tracing / Tracking] Job backend: Support setting a list for transient error classes (#18112, @WeichenXu123)
 - [Evaluation / Tracking] Job backend: Add Job search endpoint, for front-end code to search jobs by function / params / job status (#18070, @WeichenXu123)
@@ -23,7 +27,6 @@ Features:
 - [Evaluation / Tracing / Tracking] Job backend: allow explicitly setting job function to run in an individual process (#18049, @WeichenXu123)
 - [Evaluation] Allow disable eval sample check (#18032, @B-Step62)
 - [Evaluation / Tracing / Tracking] Job backend: Create individual execution pool for each job function (#18012, @WeichenXu123)
-- [UI] Prompt Registry Chat UI (#17334, @joelrobin18)
 - [Prompts] Add prompt registry support to MLflow webhooks (#17640, @harupy)
 - [Tracing] Add support for reading values from Env variable (#17792, @joelrobin18)
 - [Tracking] Mistral tracing improvement (#16370, @joelrobin18)
@@ -32,10 +35,9 @@ Features:
 - [Tracking] Job execution backend (#17676, @WeichenXu123)
 - [Evaluation] Reduce verbosity of SIMBA optimizer logs when aligning judges (#17795, @BenWilson2)
 - [Tracking] Gemini token count (#16248, @joelrobin18)
-- [] Gemini streaming (#16249, @joelrobin18)
+- [Tracing] Gemini streaming (#16249, @joelrobin18)
 - [Tracking] Adds optional 'outputs' column for evaluation dataset record (#17735, @WeichenXu123)
 - [Evaluation] Add `__repr__` for Judges (#17794, @BenWilson2)
-- [UI] Added move to top, move to bottom for charts (#17742, @joelrobin18)
 
 Bug fixes:
 
