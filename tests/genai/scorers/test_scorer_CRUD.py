@@ -1,6 +1,9 @@
 from unittest.mock import ANY, Mock, patch
 
+import pytest
+
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import Scorer, scorer
 from mlflow.genai.scorers.base import Scorer, ScorerSamplingConfig, ScorerStatus
 from mlflow.genai.scorers.registry import (
@@ -8,6 +11,7 @@ from mlflow.genai.scorers.registry import (
     get_scorer,
     list_scorer_versions,
     list_scorers,
+    update_scorer,
 )
 
 
@@ -138,3 +142,13 @@ def test_databricks_backend_scorer_operations(mock_delete, mock_get, mock_list, 
     # Test delete operation
     delete_scorer(name="test_databricks_scorer", experiment_id="exp_123")
     mock_delete.assert_called_once_with("exp_123", "test_databricks_scorer")
+
+
+def test_databricks_update_scorer_not_supported():
+    with patch(
+        "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks"
+    ):
+        with pytest.raises(
+            MlflowException, match="Databricks backend does not support update_scorer"
+        ):
+            update_scorer(name="test_scorer", experiment_id="exp_123", sample_rate=0.7)

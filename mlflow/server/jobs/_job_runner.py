@@ -22,12 +22,19 @@ from mlflow.server.jobs.utils import (
 
 if __name__ == "__main__":
     _start_watcher_to_kill_job_runner_if_mlflow_server_dies()
-    _enqueue_unfinished_jobs()
 
     huey_store_path = os.environ[HUEY_STORAGE_PATH_ENV_VAR]
-
-    seen_huey_files = set()
     huey_file_suffix = ".mlflow-huey-store"
+
+    # Start consumers for any existing huey store files (from previous runner instances)
+    # This must happen BEFORE _enqueue_unfinished_jobs() so consumers are ready
+    seen_huey_files = set(os.listdir(huey_store_path))
+    for huey_file in seen_huey_files:
+        if huey_file.endswith(huey_file_suffix):
+            job_fn_fullname = huey_file[: -len(huey_file_suffix)]
+            _launch_huey_consumer(job_fn_fullname)
+
+    _enqueue_unfinished_jobs()
 
     while True:
         time.sleep(0.5)
