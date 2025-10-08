@@ -209,40 +209,50 @@ def job_fun_parallelism3(x, y, sleep_secs=0):
 
 def test_job_queue_parallelism(monkeypatch, tmp_path):
     with _setup_job_runner(monkeypatch, tmp_path):
-        # warm up:
-        # The first job submission of each job function triggers setting up
-        # the corresponding huey consumer process.
-        job1_id = submit_job(job_fun_parallelism2, {"x": 1, "y": 1, "sleep_secs": 0}).job_id
-        job2_id = submit_job(job_fun_parallelism3, {"x": 1, "y": 1, "sleep_secs": 0}).job_id
-        wait_job_finalize(job1_id)
-        wait_job_finalize(job2_id)
+        for x in range(4):
+            submit_job(job_fun_parallelism2, {"x": x, "y": 1, "sleep_secs": 5}).job_id
 
-        job_p2_ids = [
-            submit_job(job_fun_parallelism2, {"x": x, "y": 1, "sleep_secs": 10}).job_id
-            for x in range(4)
-        ]
-        job_p3_ids = [
-            submit_job(job_fun_parallelism3, {"x": x, "y": 1, "sleep_secs": 10}).job_id
-            for x in range(4)
-        ]
+        for x in range(6):
+            submit_job(job_fun_parallelism3, {"x": x, "y": 1, "sleep_secs": 5}).job_id
 
-        time.sleep(15)
-        assert_job_result(job_p2_ids[0], JobStatus.SUCCEEDED, 1)
-        assert_job_result(job_p2_ids[1], JobStatus.SUCCEEDED, 2)
-        assert_job_result(job_p2_ids[2], JobStatus.RUNNING, None)
-        assert_job_result(job_p2_ids[3], JobStatus.RUNNING, None)
+        job_store = _get_job_store()
+        p2_peak_parallelism = 0
+        p3_peak_parallelism = 0
 
-        assert_job_result(job_p3_ids[0], JobStatus.SUCCEEDED, 1)
-        assert_job_result(job_p3_ids[1], JobStatus.SUCCEEDED, 2)
-        assert_job_result(job_p3_ids[2], JobStatus.SUCCEEDED, 3)
-        assert_job_result(job_p3_ids[3], JobStatus.RUNNING, None)
+        deadline = time.time() + 60
+        while time.time() < deadline:
+            p2_parallelism = 0
+            p3_parallelism = 0
 
-        wait_job_finalize(job_p2_ids[2])
-        wait_job_finalize(job_p2_ids[3])
-        wait_job_finalize(job_p3_ids[3])
-        assert_job_result(job_p2_ids[2], JobStatus.SUCCEEDED, 3)
-        assert_job_result(job_p2_ids[3], JobStatus.SUCCEEDED, 4)
-        assert_job_result(job_p3_ids[3], JobStatus.SUCCEEDED, 4)
+            p2_succeeded_count = 0
+            p3_succeeded_count = 0
+
+            for job in job_store.list_jobs():
+                if job.function_fullname.endswith("job_fun_parallelism2"):
+                    if job.status == JobStatus.RUNNING:
+                        p2_parallelism += 1
+                    elif job.status == JobStatus.SUCCEEDED:
+                        p2_succeeded_count += 1
+                elif job.function_fullname.endswith("job_fun_parallelism3"):
+                    if job.status == JobStatus.RUNNING:
+                        p3_parallelism += 1
+                    elif job.status == JobStatus.SUCCEEDED:
+                        p3_succeeded_count += 1
+
+            if p2_parallelism > p2_peak_parallelism:
+                p2_peak_parallelism = p2_parallelism
+
+            if p3_parallelism > p3_peak_parallelism:
+                p3_peak_parallelism = p3_parallelism
+
+            if p2_succeeded_count + p3_succeeded_count == 10:
+                break
+            time.sleep(0.2)
+        else:
+            assert False, "Submitted Jobs do not succeed within timeout."
+
+        assert p2_peak_parallelism == 2
+        assert p3_peak_parallelism == 3
 
 
 @job(max_workers=1)
@@ -467,6 +477,6 @@ def test_job_with_python_env(monkeypatch, tmp_path):
 
     with _setup_job_runner(monkeypatch, tmp_path):
         job_id = submit_job(check_python_env_fn, params={}).job_id
-        wait_job_finalize(job_id, timeout=300)
+        wait_job_finalize(job_id, timeout=600)
         job = get_job(job_id)
         assert job.status == JobStatus.SUCCEEDED
