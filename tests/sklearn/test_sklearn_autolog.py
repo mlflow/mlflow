@@ -131,6 +131,8 @@ def _get_model_uri(name: str = MODEL_DIR) -> str:
 
 
 def test_autolog_preserves_original_function_attributes():
+    assert False
+
     def get_func_attrs(f):
         attrs = {}
         for attr_name in ["__doc__", "__name__"]:
@@ -160,6 +162,8 @@ def test_autolog_preserves_original_function_attributes():
 
 
 def test_autolog_throws_error_with_negative_max_tuning_runs():
+    assert False
+
     with pytest.raises(
         MlflowException, match="`max_tuning_runs` must be non-negative, instead got -1."
     ):
