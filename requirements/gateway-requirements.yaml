@@ -34,7 +34,3 @@ slowapi:
   pip_release: slowapi
   max_major_version: 0
   minimum: "0.1.9"
-
-numpy:
-  pip_release: numpy
-  max_major_version: 2
