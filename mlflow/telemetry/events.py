@@ -187,7 +187,7 @@ class PromptAdaptationEvent(Event):
         if optimizer := arguments.get("optimizer"):
             result["optimizer_type"] = type(optimizer).__name__
         else:
-            result["optimizer_type"] = "default"
+            result["optimizer_type"] = None
 
         # Track the number of prompts being adapted
         target_prompt_uris = arguments.get("target_prompt_uris") or []
