@@ -476,12 +476,9 @@ def remote_backend_for_tracing_sdk_test():
             [
                 "uv",
                 "run",
-                "--with",
+                "--directory",
                 # Install from the dev version
                 mlflow_root,
-                "--python",
-                # Get current python version
-                f"{sys.version_info.major}.{sys.version_info.minor}",
                 "mlflow",
                 "server",
                 "--port",
