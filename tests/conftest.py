@@ -435,6 +435,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                 if matrix_json := os.environ.get("CROSS_VERSION_MATRIX"):
                     try:
                         matrix = json.loads(matrix_json)
+                        matrix.pop("run", None)
                         formatted_yaml = _dump_yaml(matrix)
                         f.write("\n## Cross-Version Test Configuration\n\n")
                         f.write("```yaml\n")
