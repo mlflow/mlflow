@@ -2,12 +2,10 @@
 from typing import Generator
 from unittest import mock
 
-import langchain
 import pytest
 from langchain.prompts import PromptTemplate
 from langchain.schema.output_parser import StrOutputParser
 from openai.types.chat.chat_completion import ChatCompletion
-from packaging.version import Version
 
 import mlflow
 
@@ -56,10 +54,6 @@ def model_path(tmp_path):
     return tmp_path / "model"
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.3.0"),
-    reason="databricks-langchain requires langchain >= 0.3.0",
-)
 def test_save_and_load_chat_databricks(model_path):
     from databricks_langchain import ChatDatabricks
 
@@ -77,10 +71,6 @@ def test_save_and_load_chat_databricks(model_path):
     assert prediction == ["What is MLflow?"]
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.3.0"),
-    reason="databricks-langchain requires langchain >= 0.3.0",
-)
 def test_save_and_load_chat_databricks_legacy(model_path):
     # Test saving and loading the community version of ChatDatabricks
     from langchain.chat_models import ChatDatabricks

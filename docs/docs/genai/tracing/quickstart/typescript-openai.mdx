@@ -23,6 +23,12 @@ Install the required packages by running the following command:
 npm install mlflow-openai
 ```
 
+:::tip
+
+MLflow's official TypeScript SDK only contains tracing functionality. If you want to use the full experiment tracking experience, you can combine it with <ins>[mlflow.js](https://github.com/open-source-labs/mlflow-js)</ins>, a **community-maintained** package that provides experiment tracking APIs compatible with Python SDK, built on top of MLflow's REST APIs.
+
+:::
+
 :::info
 
 The code example in this guide uses the OpenAI SDK; however, the contents of this guide are applicable to any other LLM providers, such as Anthropic, Google, Bedrock, and more.

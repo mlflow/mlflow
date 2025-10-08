@@ -168,7 +168,7 @@ class IPythonTraceDisplayHandler:
             # a side-effect in a few other functions (e.g. log_trace,
             # get_traces, search_traces), and we don't want to block
             # the core functionality if the display fails.
-            _logger.error("Failed to display traces", exc_info=True)
+            _logger.debug("Failed to display traces", exc_info=True)
             self.traces_to_display = {}
 
     def get_mimebundle(self, traces: list["Trace"]):
