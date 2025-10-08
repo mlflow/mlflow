@@ -136,7 +136,8 @@ export const LogTracesDrawer = ({ isOpen, onClose }: { isOpen: boolean; onClose:
               gap: theme.spacing.sm,
             }}
           >
-            <span css={{
+            <span
+              css={{
                 borderRadius: theme.borders.borderRadiusSm,
                 background: theme.colors.actionDefaultBackgroundHover,
                 padding: theme.spacing.xs,
@@ -145,7 +146,8 @@ export const LogTracesDrawer = ({ isOpen, onClose }: { isOpen: boolean; onClose:
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-              }}>
+              }}
+            >
               <WorkflowsIcon />
             </span>
             <FormattedMessage
