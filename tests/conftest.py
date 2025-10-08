@@ -19,7 +19,6 @@ from unittest import mock
 import pytest
 import requests
 import yaml
-from matplotlib.pylab import Any
 from opentelemetry import trace as trace_api
 
 import mlflow
