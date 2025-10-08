@@ -7,18 +7,17 @@ MLflow 3.5.0rc0 includes several major features and improvements
 Major new features:
 
 - 🤖 **Tracing support for Claude Code SDK**: MLflow now provides a tracing integration for both the Claude Code CLI and SDK! Configure the autologging integration to track your prompts, Claude's responses, tool calls, and more. Check out this docs page to get started. (#18022, @smoorjani)
+- ✨ **Improved UI homepage**: The MLflow UI's homepage has been updated to help you get started with more of our latest features. This page will be updated regularly moving forward, allowing you to get more in-product guidance.
 - 🗂️ **Evaluation datasets UI integration**: In MLflow 3.4.0, we released backend support for creating evaluation datasets for GenAI applications. In this release, we've added a new tab to the MLflow Experiment UI, allowing you to create, manage, and export traces to your datasets without having to write a line of code.
 
 Features:
 
 - [Prompts] Support GEPA in mlflow.genai.optimize_prompt (#18031, @TomeHirata)
 - [Evaluation] Add support for trace inputs to built-in scorers (#17943, @BenWilson2)
-- [UI] In product onboarding 0 (#18098, @B-Step62)
 - [Tracking] Add a security middleware layer to MLflow Tracking Server (#17910, @BenWilson2)
-- [UI] Delete parent child run together (#18052, @joelrobin18)
+- [UI] Add option to delete child runs together with parent runs (#18052, @joelrobin18)
 - [Tracking] Crewai Token Count + Doc Update (#16373, @joelrobin18)
 - [Evaluation / Tracing / Tracking] Job backend: Support setting a list for transient error classes (#18112, @WeichenXu123)
-- [Tracking] Claude Code SDK Autologging (#18022, @smoorjani)
 - [Evaluation / Tracking] Job backend: Add Job search endpoint, for front-end code to search jobs by function / params / job status (#18070, @WeichenXu123)
 - [Tracking] Job backend: add last_update_time column for job table, for counting job pending / execution time (#18071, @WeichenXu123)
 - [Evaluation / Tracing / Tracking] Job backend: allow explicitly setting job function to run in an individual process (#18049, @WeichenXu123)
