@@ -56,7 +56,7 @@ const response = await client.messages.create({
 
 View traces in MLflow UI:
 
-![MLflow Tracing UI](https://github.com/mlflow/mlflow/blob/891fed9a746477f808dd2b82d3abb2382293c564/docs/static/images/llms/tracing/quickstart/single-openai-trace-detail.png?raw=true)
+![MLflow Tracing UI](https://github.com/mlflow/mlflow/blob/master/docs/static/images/llms/anthropic/anthropic-tracing.png?raw=True)
 
 ## End-to-End Autologging Workflow
 
