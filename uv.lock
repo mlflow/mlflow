@@ -3433,7 +3433,7 @@ requires-dist = [
     { name = "cachetools", specifier = ">=5.0.0,<7" },
     { name = "click", specifier = ">=7.0,<9" },
     { name = "cloudpickle", specifier = "<4" },
-    { name = "cryptography", specifier = ">=43.0.0,<46" },
+    { name = "cryptography", specifier = ">=43.0.0,<47" },
     { name = "databricks-agents", marker = "extra == 'databricks'", specifier = ">=1.2.0,<2.0" },
     { name = "databricks-sdk", specifier = ">=0.20.0,<1" },
     { name = "docker", specifier = ">=4.0.0,<8" },
