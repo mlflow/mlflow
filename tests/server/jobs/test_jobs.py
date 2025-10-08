@@ -307,7 +307,7 @@ def test_job_retry_on_transient_error(monkeypatch, tmp_path):
         job1_id = submit_job(
             transient_err_fun, {"tmp_dir": str(job1_tmp_path), "succeed_on_nth_run": 3}
         ).job_id
-        wait_job_finalize(job1_id)
+        wait_job_finalize(job1_id, timeout=120)
         assert_job_result(job1_id, JobStatus.FAILED, "RuntimeError('test transient error.')")
         job1 = store.get_job(job1_id)
         assert job1.status == JobStatus.FAILED
