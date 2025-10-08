@@ -250,7 +250,6 @@ def test_predict_var_signature_saved_correctly(
 def test_signature_and_example_for_pyfunc_predict_interval(
     auto_arima_model, model_path, data_airline, use_signature, use_example
 ):
-    """Test saving of mlflow signature and example for pyfunc predict."""
     model_path_primary = model_path.joinpath("primary")
     model_path_secondary = model_path.joinpath("secondary")
     flavor.save_model(sktime_model=auto_arima_model, path=model_path_primary)
@@ -355,7 +354,6 @@ def test_log_model(auto_arima_model, tmp_path, should_start_run, serialization_f
 
 
 def test_log_model_calls_register_model(auto_arima_model, tmp_path):
-    """Test log model calls register model."""
     artifact_path = "sktime"
     register_model_patch = mock.patch("mlflow.register_model")
     with mlflow.start_run(), register_model_patch:

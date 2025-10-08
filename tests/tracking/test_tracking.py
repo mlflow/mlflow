@@ -56,7 +56,7 @@ def test_create_experiment():
     with pytest.raises(MlflowException, match="Invalid experiment name"):
         mlflow.create_experiment("")
 
-    exp_id = mlflow.create_experiment(f"Some random experiment name {random.randint(1, 1e6)}")
+    exp_id = mlflow.create_experiment(f"Some random experiment name {random.randint(1, int(1e6))}")
     assert exp_id is not None
 
 
