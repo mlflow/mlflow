@@ -437,14 +437,14 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                         matrix = json.loads(matrix_json)
                         matrix.pop("run", None)
                         formatted_yaml = _dump_yaml(matrix)
-                        f.write("\n## Cross-Version Test Configuration\n\n")
+                        f.write("\n### Cross-Version Test Configuration\n\n")
                         f.write("```yaml\n")
                         f.write(formatted_yaml)
                         f.write("```\n\n")
                     except json.JSONDecodeError:
                         pass
 
-                f.write("## Failed tests\n")
+                f.write("### Failed Tests\n")
                 f.write("Run the following command to run the failed tests:\n")
                 f.write("```bash\n")
                 f.write(" ".join(["pytest"] + ids) + "\n")
