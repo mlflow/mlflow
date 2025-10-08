@@ -406,6 +406,18 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         if summary_path := os.environ.get("GITHUB_STEP_SUMMARY"):
             summary_path = Path(summary_path).resolve()
             with summary_path.open("a") as f:
+                # Write cross-version matrix info if available
+                if matrix_json := os.environ.get("CROSS_VERSION_MATRIX"):
+                    try:
+                        matrix = json.loads(matrix_json)
+                        formatted_json = json.dumps(matrix, indent=2)
+                        f.write("\n## Cross-Version Test Configuration\n\n")
+                        f.write("```json\n")
+                        f.write(formatted_json)
+                        f.write("\n```\n\n")
+                    except json.JSONDecodeError:
+                        pass
+
                 f.write("## Failed tests\n")
                 f.write("Run the following command to run the failed tests:\n")
                 f.write("```bash\n")
