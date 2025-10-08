@@ -34,43 +34,33 @@ class TransientError(RuntimeError):
 class JobFunctionMetadata:
     fn_fullname: str
     max_workers: int
-    use_process: bool
-    python_env: _PythonEnv | None
+    transient_error_classes: list[type[Exception]] | None = None
+    python_env: _PythonEnv | None = None
 
 
 def job(
     max_workers: int,
-    use_process: bool = True,
+    transient_error_classes: list[type[Exception]] | None = None,
     python_version: str | None = None,
     pip_requirements: list[str] | None = None,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     The decorator for the custom job function for setting max parallel workers that
     the job function can use.
+    Each job is executed in an individual subprocess.
 
     Args:
         max_workers: The maximum number of workers that are allowed to run the jobs
             using this job function.
-        use_process: Specify whether to run the job in an individual process.
-            If the job uses environment variables (e.g. API keys),
-            it should be run in an individual process to isolate the environment variable settings.
-            Default value is True.
-        python_version: (optional) The required python version to run the job function,
-           If it is set, `use_process` param must be ``True``
+        transient_error_classes: (optional) Specify a list of classes that are regarded as
+            transient error classes.
+        python_version: (optional) The required python version to run the job function.
         pip_requirements: (optional) The required pip requirements to run the job function,
             relative file references such as "-r requirements.txt" are not supported.
-            If it is set, `use_process` param must be ``True`
     """
     from mlflow.utils import PYTHON_VERSION
     from mlflow.utils.requirements_utils import _parse_requirements
     from mlflow.version import VERSION
-
-    if python_version or pip_requirements:
-        if not use_process:
-            raise MlflowException(
-                "If you set 'python_version' or 'pip_requirements' for a job function, "
-                "'use_process' must be set to True."
-            )
 
     if not python_version and not pip_requirements:
         python_env = None
@@ -100,7 +90,7 @@ def job(
         fn._job_fn_metadata = JobFunctionMetadata(
             fn_fullname=f"{fn.__module__}.{fn.__name__}",
             max_workers=max_workers,
-            use_process=use_process,
+            transient_error_classes=transient_error_classes,
             python_env=python_env,
         )
         return fn
@@ -126,7 +116,9 @@ def submit_job(
         function: The job function, it must be a python module-level function,
             and all params and return value must be JSON-serializable.
             The function can raise `TransientError` in order to trigger
-            job retry, you can set `MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES`
+            job retry, or you can annotate a list of transient error classes
+            by ``@job(..., transient_error_classes=[...])``.
+            You can set `MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES`
             to configure maximum allowed retries for transient errors
             and set `MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY` to
             configure base retry delay in seconds.

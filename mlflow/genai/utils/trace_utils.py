@@ -92,6 +92,83 @@ def extract_outputs_from_trace(trace: Trace) -> Any:
     return None
 
 
+def resolve_inputs_from_trace(
+    inputs: Any | None, trace: Trace, *, extract_if_none: bool = True
+) -> Any | None:
+    """
+    Extract inputs from trace if not provided.
+
+    Args:
+        inputs: Input data to evaluate. If None, will be extracted from trace.
+        trace: MLflow trace object containing the execution to evaluate.
+        extract_if_none: If True, extract from trace when inputs is None. If False, only
+                        return the provided inputs value. Defaults to True.
+
+    Returns:
+        The provided inputs if not None, otherwise extracted inputs from trace,
+        or None if extraction fails.
+    """
+    if inputs is None and trace is not None and extract_if_none:
+        try:
+            return extract_inputs_from_trace(trace)
+        except Exception as e:
+            _logger.debug(f"Could not extract inputs from trace: {e}")
+    return inputs
+
+
+def resolve_outputs_from_trace(
+    outputs: Any | None, trace: Trace, *, extract_if_none: bool = True
+) -> Any | None:
+    """
+    Extract outputs from trace if not provided.
+
+    Args:
+        outputs: Output data to evaluate. If None, will be extracted from trace.
+        trace: MLflow trace object containing the execution to evaluate.
+        extract_if_none: If True, extract from trace when outputs is None. If False, only
+                        return the provided outputs value. Defaults to True.
+
+    Returns:
+        The provided outputs if not None, otherwise extracted outputs from trace,
+        or None if extraction fails.
+    """
+    if outputs is None and trace is not None and extract_if_none:
+        try:
+            return extract_outputs_from_trace(trace)
+        except Exception as e:
+            _logger.debug(f"Could not extract outputs from trace: {e}")
+    return outputs
+
+
+def resolve_expectations_from_trace(
+    expectations: dict[str, Any] | None,
+    trace: Trace,
+    source: AssessmentSourceType = AssessmentSourceType.HUMAN,
+    *,
+    extract_if_none: bool = True,
+) -> dict[str, Any] | None:
+    """
+    Extract expectations from trace if not provided.
+
+    Args:
+        expectations: Dictionary of expected outcomes. If None, will be extracted from trace.
+        trace: MLflow trace object containing the execution to evaluate.
+        source: Assessment source type to filter expectations by. Defaults to HUMAN.
+        extract_if_none: If True, extract from trace when expectations is None. If False, only
+                        return the provided expectations value. Defaults to True.
+
+    Returns:
+        The provided expectations if not None, otherwise extracted expectations from trace,
+        or None if extraction fails.
+    """
+    if expectations is None and trace is not None and extract_if_none:
+        try:
+            return extract_expectations_from_trace(trace, source=source)
+        except Exception as e:
+            _logger.debug(f"Could not extract expectations from trace: {e}")
+    return expectations
+
+
 def extract_expectations_from_trace(
     trace: Trace, source: str | None = None
 ) -> dict[str, Any] | None:
@@ -199,13 +276,10 @@ def parse_inputs_to_str(value: Any) -> str:
 
     value = _to_dict(value)
 
-    # Special handling for "messages" key.
     if (messages := value.get(_MESSAGES_KEY)) and len(messages) > 0:
         contents = [m.get(_CONTENT_KEY) for m in messages]
-        # If the message contains multiple messages, dump the whole messages object.
         if len(contents) > 1 and all(isinstance(c, str) for c in contents):
             return json.dumps(messages)
-        # If the message contains a single message, return the content.
         elif isinstance(contents[-1], str):
             return contents[-1]
     return str(value)
@@ -223,8 +297,6 @@ def parse_outputs_to_str(value: Any) -> str:
         return parse_outputs_to_str(value[0])
 
     value = _to_dict(value)
-
-    # Special handling for chat response
     if _is_chat_choices(value.get(_CHOICES_KEY)):
         content = value[_CHOICES_KEY][0][_MESSAGE_KEY][_CONTENT_KEY]
     elif _is_chat_messages(value.get(_MESSAGES_KEY)):
@@ -277,12 +349,11 @@ def extract_retrieval_context_from_trace(trace: Trace | None) -> dict[str, list[
     if trace is None or trace.data is None:
         return {}
 
-    # Only consider the top-level retrieval spans
     top_level_retrieval_spans = _get_top_level_retrieval_spans(trace)
     if len(top_level_retrieval_spans) == 0:
         return {}
 
-    retrieved = {}  # span_id -> list of documents
+    retrieved = {}
 
     for retrieval_span in top_level_retrieval_spans:
         try:
@@ -332,7 +403,6 @@ def _get_top_level_retrieval_spans(trace: Trace) -> list[Span]:
 
             parent_id = parent_span.parent_id
         else:
-            # If the loop completes without breaking, this is a top-level span
             top_level_retrieval_spans.append(span)
 
     return top_level_retrieval_spans
@@ -348,7 +418,7 @@ def _parse_chunk(chunk: Any) -> dict[str, Any] | None:
     return doc
 
 
-def clean_up_extra_traces(run_id: str, start_time_ms: int):
+def clean_up_extra_traces(run_id: str, start_time_ms: int) -> None:
     """
     Clean up noisy traces generated outside predict function.
 
@@ -370,10 +440,7 @@ def clean_up_extra_traces(run_id: str, start_time_ms: int):
         # Search for all traces generated during evaluation
         traces = mlflow.search_traces(
             run_id=run_id,
-            # Not download spans for efficiency
             include_spans=False,
-            # Limit to traces generated after evaluation time to ensure we will not
-            # delete traces generated before evaluation.
             filter_string=f"trace.timestamp >= {start_time_ms}",
             return_type="list",
         )
@@ -394,7 +461,6 @@ def clean_up_extra_traces(run_id: str, start_time_ms: int):
             MlflowClient().delete_traces(
                 experiment_id=_get_experiment_id(), trace_ids=extra_trace_ids
             )
-            # Avoid displaying the deleted trace in notebook cell output
             for trace_id in extra_trace_ids:
                 IPythonTraceDisplayHandler.get_instance().traces_to_display.pop(trace_id, None)
         else:
@@ -412,7 +478,6 @@ def create_minimal_trace(eval_item: "EvalItem") -> Trace:
     """
     from mlflow.pyfunc.context import Context, set_prediction_context
 
-    # Set the context so that the trace is logged synchronously
     context = Context(request_id=eval_item.request_id, is_evaluate=True)
     with set_prediction_context(context):
         with mlflow.start_span(name="root_span", span_type=SpanType.CHAIN) as root_span:

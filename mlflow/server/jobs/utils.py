@@ -3,6 +3,7 @@ import importlib
 import inspect
 import json
 import logging
+import multiprocessing
 import os
 import shutil
 import signal
@@ -50,11 +51,18 @@ class JobResult:
     error: str | None = None
 
     @classmethod
-    def from_error(cls, e: Exception) -> "JobResult":
+    def from_error(
+        cls, e: Exception, transient_error_classes: list[type[Exception]] | None = None
+    ) -> "JobResult":
         from mlflow.server.jobs import TransientError
 
         if isinstance(e, TransientError):
             return JobResult(succeeded=False, is_transient_error=True, error=repr(e.origin_error))
+
+        if transient_error_classes:
+            if e.__class__ in transient_error_classes:
+                return JobResult(succeeded=False, is_transient_error=True, error=repr(e))
+
         return JobResult(
             succeeded=False,
             is_transient_error=False,
@@ -117,10 +125,14 @@ def _start_huey_consumer_proc(
     )
 
 
+_JOB_ENTRY_MODULE = "mlflow.server.jobs._job_subproc_entry"
+
+
 def _exec_job_in_subproc(
     function_fullname: str,
     params: dict[str, Any],
     python_env: _PythonEnv | None,
+    transient_error_classes: list[type[Exception]] | None,
     timeout: float | None,
     tmpdir: str,
 ) -> JobResult | None:
@@ -138,8 +150,6 @@ def _exec_job_in_subproc(
         _get_virtualenv_name,
     )
 
-    job_entry_module = "mlflow.server.jobs._job_subproc_entry"
-
     if python_env is not None:
         # set up virtual python environment
         virtual_envs_root_path = Path(_get_mlflow_virtualenv_root())
@@ -148,6 +158,7 @@ def _exec_job_in_subproc(
         activate_cmd = _get_virtualenv_activate_cmd(env_dir)
 
         if not env_dir.exists():
+            _logger.info(f"Creating a python virtual environment in {env_dir}.")
             # create python environment
             env_creation_cmd = _get_uv_env_creation_command(env_dir, python_env.python)
             _exec_cmd(env_creation_cmd, capture_output=False)
@@ -163,13 +174,17 @@ def _exec_job_in_subproc(
                 capture_output=False,
             )
         else:
-            _logger.info(f"The python environment {env_dir} already exists.")
+            _logger.debug(f"The python environment {env_dir} already exists.")
 
-        job_cmd = _join_commands(activate_cmd, f"exec python -m {job_entry_module}")
+        job_cmd = _join_commands(activate_cmd, f"exec python -m {_JOB_ENTRY_MODULE}")
     else:
-        job_cmd = [sys.executable, "-m", job_entry_module]
+        job_cmd = [sys.executable, "-m", _JOB_ENTRY_MODULE]
 
     result_file = str(Path(tmpdir) / "result.json")
+    transient_error_classes_file = str(Path(tmpdir) / "transient_error_classes.pkl")
+    with open(transient_error_classes_file, "wb") as f:
+        cloudpickle.dump(transient_error_classes, f)
+
     with subprocess.Popen(
         job_cmd,
         env={
@@ -177,6 +192,7 @@ def _exec_job_in_subproc(
             "_MLFLOW_SERVER_JOB_PARAMS": json.dumps(params),
             "_MLFLOW_SERVER_JOB_FUNCTION_FULLNAME": function_fullname,
             "_MLFLOW_SERVER_JOB_RESULT_DUMP_PATH": result_file,
+            "_MLFLOW_SERVER_JOB_TRANSIENT_ERROR_ClASSES_PATH": transient_error_classes_file,
         },
     ) as popen:
         try:
@@ -209,21 +225,15 @@ def _exec_job(
 
     fn_metadata = function._job_fn_metadata
 
-    if fn_metadata.use_process:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            job_result = _exec_job_in_subproc(
-                fn_metadata.fn_fullname,
-                params,
-                fn_metadata.python_env,
-                timeout,
-                tmpdir,
-            )
-    else:
-        try:
-            raw_result = function(**params)
-            job_result = JobResult(succeeded=True, result=json.dumps(raw_result))
-        except Exception as e:
-            job_result = JobResult.from_error(e)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        job_result = _exec_job_in_subproc(
+            fn_metadata.fn_fullname,
+            params,
+            fn_metadata.python_env,
+            fn_metadata.transient_error_classes,
+            timeout,
+            tmpdir,
+        )
 
     if job_result is None:
         job_store.mark_job_timed_out(job_id)

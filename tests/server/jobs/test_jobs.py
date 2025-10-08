@@ -18,6 +18,7 @@ from mlflow.server import (
 from mlflow.server.handlers import _get_job_store
 from mlflow.server.jobs import get_job, job, submit_job
 from mlflow.server.jobs.utils import _launch_job_runner
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
 pytestmark = pytest.mark.skipif(
     os.name == "nt", reason="MLflow job execution is not supported on Windows"
@@ -43,8 +44,14 @@ def _launch_job_runner_for_test():
 
 
 @contextmanager
-def _setup_job_runner(monkeypatch, tmp_path, backend_store_uri=None):
+def _setup_job_runner(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, backend_store_uri: str | None = None
+):
     backend_store_uri = backend_store_uri or f"sqlite:///{tmp_path / 'mlflow.db'}"
+    # Pre-initialize the database to prevent race conditions when the tracking store and job store
+    # attempt to initialize the database simultaneously.
+    store = SqlAlchemyStore(backend_store_uri, (tmp_path / "artifacts").as_uri())
+    store.engine.dispose()
     huey_store_path = tmp_path / "huey_store"
     huey_store_path.mkdir()
     default_artifact_root = str(tmp_path / "artifacts")
@@ -60,7 +67,7 @@ def _setup_job_runner(monkeypatch, tmp_path, backend_store_uri=None):
         mlflow.server.handlers._job_store = None
 
 
-@job(max_workers=1, use_process=False)
+@job(max_workers=1)
 def basic_job_fun(x, y, sleep_secs=0):
     if sleep_secs > 0:
         time.sleep(sleep_secs)
@@ -82,7 +89,7 @@ def test_basic_job(monkeypatch, tmp_path):
         assert job.retry_count == 0
 
 
-@job(max_workers=1, use_process=False)
+@job(max_workers=1)
 def json_in_out_fun(data):
     x = data["x"]
     y = data["y"]
@@ -103,7 +110,7 @@ def test_job_json_input_output(monkeypatch, tmp_path):
         assert job.retry_count == 0
 
 
-@job(max_workers=1, use_process=False)
+@job(max_workers=1)
 def err_fun(data):
     raise RuntimeError()
 
@@ -186,14 +193,14 @@ def test_job_resume_on_new_job_runner(monkeypatch, tmp_path):
         assert_job_result(job3_id, JobStatus.SUCCEEDED, 15)
 
 
-@job(max_workers=2, use_process=False)
+@job(max_workers=2)
 def job_fun_parallelism2(x, y, sleep_secs=0):
     if sleep_secs > 0:
         time.sleep(sleep_secs)
     return x + y
 
 
-@job(max_workers=3, use_process=False)
+@job(max_workers=3)
 def job_fun_parallelism3(x, y, sleep_secs=0):
     if sleep_secs > 0:
         time.sleep(sleep_secs)
@@ -211,15 +218,15 @@ def test_job_queue_parallelism(monkeypatch, tmp_path):
         wait_job_finalize(job2_id)
 
         job_p2_ids = [
-            submit_job(job_fun_parallelism2, {"x": x, "y": 1, "sleep_secs": 3}).job_id
+            submit_job(job_fun_parallelism2, {"x": x, "y": 1, "sleep_secs": 10}).job_id
             for x in range(4)
         ]
         job_p3_ids = [
-            submit_job(job_fun_parallelism3, {"x": x, "y": 1, "sleep_secs": 3}).job_id
+            submit_job(job_fun_parallelism3, {"x": x, "y": 1, "sleep_secs": 10}).job_id
             for x in range(4)
         ]
 
-        time.sleep(3.5)
+        time.sleep(15)
         assert_job_result(job_p2_ids[0], JobStatus.SUCCEEDED, 1)
         assert_job_result(job_p2_ids[1], JobStatus.SUCCEEDED, 2)
         assert_job_result(job_p2_ids[2], JobStatus.RUNNING, None)
@@ -230,28 +237,44 @@ def test_job_queue_parallelism(monkeypatch, tmp_path):
         assert_job_result(job_p3_ids[2], JobStatus.SUCCEEDED, 3)
         assert_job_result(job_p3_ids[3], JobStatus.RUNNING, None)
 
-        time.sleep(3.5)
+        wait_job_finalize(job_p2_ids[2])
+        wait_job_finalize(job_p2_ids[3])
+        wait_job_finalize(job_p3_ids[3])
         assert_job_result(job_p2_ids[2], JobStatus.SUCCEEDED, 3)
         assert_job_result(job_p2_ids[3], JobStatus.SUCCEEDED, 4)
         assert_job_result(job_p3_ids[3], JobStatus.SUCCEEDED, 4)
 
 
-@job(max_workers=1, use_process=False)
+@job(max_workers=1)
 def transient_err_fun(tmp_dir: str, succeed_on_nth_run: int):
     """
     This function will raise `TransientError` on the first (`succeed_on_nth_run` - 1) runs,
     then return 100 on the `succeed_on_nth_run` run. The `tmp_dir` records the run state.
     """
     from mlflow.server.jobs import TransientError
-
-    if len(os.listdir(tmp_dir)) == succeed_on_nth_run:
-        return 100
+    # create one file with a unique name for each function call
     with open(os.path.join(tmp_dir, uuid.uuid4().hex), "w") as f:
         f.close()
+    if len(os.listdir(tmp_dir)) == succeed_on_nth_run:
+        return 100
     raise TransientError(RuntimeError("test transient error."))
 
 
-def wait_job_finalize(job_id, timeout=30):
+@job(max_workers=1, transient_error_classes=[TimeoutError])
+def transient_err_fun2(tmp_dir: str, succeed_on_nth_run: int):
+    """
+    This function will raise `TimeoutError` on the first (`succeed_on_nth_run` - 1) runs,
+    then return 100 on the `succeed_on_nth_run` run. The `tmp_dir` records the run state.
+    """
+    # create one file with a unique name for each function call
+    with open(os.path.join(tmp_dir, uuid.uuid4().hex), "w") as f:
+        f.close()
+    if len(os.listdir(tmp_dir)) == succeed_on_nth_run:
+        return 100
+    raise TimeoutError("test transient timeout error.")
+
+
+def wait_job_finalize(job_id, timeout=60):
     beg_time = time.time()
     while time.time() - beg_time <= timeout:
         job = get_job(job_id)
@@ -263,6 +286,7 @@ def wait_job_finalize(job_id, timeout=30):
 
 def test_job_retry_on_transient_error(monkeypatch, tmp_path):
     monkeypatch.setenv("MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY", "1")
+    monkeypatch.setenv("MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES", "2")
     with _setup_job_runner(monkeypatch, tmp_path):
         store = _get_job_store()
 
@@ -270,27 +294,40 @@ def test_job_retry_on_transient_error(monkeypatch, tmp_path):
         job1_tmp_path.mkdir()
 
         job1_id = submit_job(
-            transient_err_fun, {"tmp_dir": str(job1_tmp_path), "succeed_on_nth_run": 4}
+            transient_err_fun, {"tmp_dir": str(job1_tmp_path), "succeed_on_nth_run": 3}
         ).job_id
         wait_job_finalize(job1_id)
         assert_job_result(job1_id, JobStatus.FAILED, "RuntimeError('test transient error.')")
         job1 = store.get_job(job1_id)
         assert job1.status == JobStatus.FAILED
         assert job1.result == "RuntimeError('test transient error.')"
-        assert job1.retry_count == 3
+        assert job1.retry_count == 2
 
         job2_tmp_path = tmp_path / "job2"
         job2_tmp_path.mkdir()
 
         job2_id = submit_job(
-            transient_err_fun, {"tmp_dir": str(job2_tmp_path), "succeed_on_nth_run": 1}
+            transient_err_fun, {"tmp_dir": str(job2_tmp_path), "succeed_on_nth_run": 2}
         ).job_id
-        time.sleep(3)
+        wait_job_finalize(job2_id)
         assert_job_result(job2_id, JobStatus.SUCCEEDED, 100)
         job2 = store.get_job(job2_id)
         assert job2.status == JobStatus.SUCCEEDED
         assert job2.result == "100"
         assert job2.retry_count == 1
+
+        job3_tmp_path = tmp_path / "job3"
+        job3_tmp_path.mkdir()
+
+        job3_id = submit_job(
+            transient_err_fun2, {"tmp_dir": str(job3_tmp_path), "succeed_on_nth_run": 2}
+        ).job_id
+        wait_job_finalize(job3_id)
+        assert_job_result(job3_id, JobStatus.SUCCEEDED, 100)
+        job3 = store.get_job(job3_id)
+        assert job3.status == JobStatus.SUCCEEDED
+        assert job3.result == "100"
+        assert job3.retry_count == 1
 
 
 # `submit_job` API is designed to be called inside MLflow server handler,
@@ -384,7 +421,7 @@ def test_job_function_without_decorator(monkeypatch, tmp_path):
             submit_job(bad_job_function, params={})
 
 
-@job(max_workers=1, use_process=True)
+@job(max_workers=1)
 def job_use_process(tmp_dir):
     (Path(tmp_dir) / str(os.getpid())).write_text("")
 
@@ -440,7 +477,6 @@ def test_bad_job_python_env_function():
         @job(
             max_workers=1,
             pip_requirements=["openai==1.108.2", "pytest<9"],
-            use_process=False,
         )
         def bad_python_env_fn():
             pass

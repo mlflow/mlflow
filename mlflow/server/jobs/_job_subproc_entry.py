@@ -6,6 +6,7 @@ or the job has extra environment variables setting,
 the job is executed as a subprocess.
 """
 
+import cloudpickle
 import json
 import os
 import threading
@@ -23,7 +24,11 @@ if __name__ == "__main__":
     params = json.loads(os.environ["_MLFLOW_SERVER_JOB_PARAMS"])
     function = _load_function(os.environ["_MLFLOW_SERVER_JOB_FUNCTION_FULLNAME"])
     result_dump_path = os.environ["_MLFLOW_SERVER_JOB_RESULT_DUMP_PATH"]
+    transient_error_classes_path = os.environ["_MLFLOW_SERVER_JOB_TRANSIENT_ERROR_ClASSES_PATH"]
+
     try:
+        with open(transient_error_classes_path, "rb") as f:
+            transient_error_classes = cloudpickle.load(f)
         value = function(**params)
         job_result = JobResult(
             succeeded=True,
@@ -31,4 +36,4 @@ if __name__ == "__main__":
         )
         job_result.dump(result_dump_path)
     except Exception as e:
-        JobResult.from_error(e).dump(result_dump_path)
+        JobResult.from_error(e, transient_error_classes).dump(result_dump_path)
