@@ -456,6 +456,17 @@ class Linter(ast.NodeVisitor):
         if rule := rules.NoClassBasedTests.check(node, self.path.name):
             self._check(Location.from_node(node), rule)
 
+    def _redundant_test_docstring(
+        self, node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef
+    ) -> None:
+        if rule := rules.RedundantTestDocstring.check(node, self.path.name):
+            self._check(Location.from_node(node), rule)
+
+    def visit_Module(self, node: ast.Module) -> None:
+        if rule := rules.RedundantTestDocstring.check_module(node, self.path.name):
+            self._check(Location(0, 0), rule)
+        self.generic_visit(node)
+
     def _is_in_test(self) -> bool:
         if not self.path.name.startswith("test_"):
             return False
@@ -499,6 +510,7 @@ class Linter(ast.NodeVisitor):
         self._syntax_error_example(node)
         self._mlflow_class_name(node)
         self._no_class_based_tests(node)
+        self._redundant_test_docstring(node)
         self.visit_decorators(node.decorator_list)
         self._markdown_link(node)
         with self.resolver.scope():
@@ -564,6 +576,7 @@ class Linter(ast.NodeVisitor):
         self._markdown_link(node)
         self._invalid_abstract_method(node)
         self._pytest_mark_repeat(node)
+        self._redundant_test_docstring(node)
 
         for arg in node.args.args + node.args.kwonlyargs + node.args.posonlyargs:
             if arg.annotation:
@@ -586,6 +599,7 @@ class Linter(ast.NodeVisitor):
         self._markdown_link(node)
         self._invalid_abstract_method(node)
         self._pytest_mark_repeat(node)
+        self._redundant_test_docstring(node)
         self.stack.append(node)
         self._no_rst(node)
         self.visit_decorators(node.decorator_list)
@@ -702,6 +716,9 @@ class Linter(ast.NodeVisitor):
 
         if rules.ThreadPoolExecutorWithoutThreadNamePrefix.check(node, self.resolver):
             self._check(Location.from_node(node), rules.ThreadPoolExecutorWithoutThreadNamePrefix())
+
+        if rules.IsinstanceUnionSyntax.check(node):
+            self._check(Location.from_node(node), rules.IsinstanceUnionSyntax())
 
         if self._is_in_test() and rules.OsChdirInTest.check(node, self.resolver):
             self._check(Location.from_node(node), rules.OsChdirInTest())
@@ -877,7 +894,8 @@ def lint_file(path: Path, code: str, config: Config, index_path: Path) -> list[V
         return violations
     else:
         linter = Linter(path=path, config=config, ignore=ignore_map(code), index=index)
-        linter.visit(ast.parse(code))
+        module = ast.parse(code)
+        linter.visit(module)
         linter.visit_comments(code)
         linter.visit_file_content(code)
         linter.post_visit()

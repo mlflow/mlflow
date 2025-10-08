@@ -123,8 +123,9 @@ def test_build_uvicorn_command_with_env_file():
     assert env_file_path_idx < app_name_idx
 
 
-def test_run_server(mock_exec_cmd):
+def test_run_server(mock_exec_cmd, monkeypatch):
     """Make sure this runs."""
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
     with mock.patch("sys.platform", return_value="linux"):
         server._run_server(
             file_store_path="",
@@ -139,8 +140,9 @@ def test_run_server(mock_exec_cmd):
     mock_exec_cmd.assert_called_once()
 
 
-def test_run_server_win32(mock_exec_cmd):
+def test_run_server_win32(mock_exec_cmd, monkeypatch):
     """Make sure this runs."""
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
     with mock.patch("sys.platform", return_value="win32"):
         server._run_server(
             file_store_path="",
@@ -156,7 +158,6 @@ def test_run_server_win32(mock_exec_cmd):
 
 
 def test_run_server_with_uvicorn(mock_exec_cmd, monkeypatch):
-    """Test running server with uvicorn."""
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
     with mock.patch("sys.platform", return_value="linux"):
         server._run_server(

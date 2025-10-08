@@ -447,6 +447,65 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
         <PageHeader title={title} breadcrumbs={breadcrumbs} spacerSize="xs" />
         <CollapsibleSection
           title={this.props.intl.formatMessage({
+            defaultMessage: 'Visualizations',
+            description: 'Tabs title for plots on the compare runs page',
+          })}
+        >
+          <LegacyTabs>
+            <TabPane
+              tab={
+                <FormattedMessage
+                  defaultMessage="Parallel Coordinates Plot"
+                  // eslint-disable-next-line max-len
+                  description="Tab pane title for parallel coordinate plots on the compare runs page"
+                />
+              }
+              key="parallel-coordinates-plot"
+            >
+              <ParallelCoordinatesPlotPanel runUuids={this.props.runUuids} />
+            </TabPane>
+            <TabPane
+              tab={
+                <FormattedMessage
+                  defaultMessage="Scatter Plot"
+                  description="Tab pane title for scatterplots on the compare runs page"
+                />
+              }
+              key="scatter-plot"
+            >
+              <CompareRunScatter runUuids={this.props.runUuids} runDisplayNames={this.props.runDisplayNames} />
+            </TabPane>
+            <TabPane
+              tab={
+                <FormattedMessage
+                  defaultMessage="Box Plot"
+                  description="Tab pane title for box plot on the compare runs page"
+                />
+              }
+              key="box-plot"
+            >
+              <CompareRunBox
+                runUuids={runUuids}
+                runInfos={runInfos}
+                paramLists={paramLists}
+                metricLists={metricLists}
+              />
+            </TabPane>
+            <TabPane
+              tab={
+                <FormattedMessage
+                  defaultMessage="Contour Plot"
+                  description="Tab pane title for contour plots on the compare runs page"
+                />
+              }
+              key="contour-plot"
+            >
+              <CompareRunContour runUuids={this.props.runUuids} runDisplayNames={this.props.runDisplayNames} />
+            </TabPane>
+          </LegacyTabs>
+        </CollapsibleSection>
+        <CollapsibleSection
+          title={this.props.intl.formatMessage({
             defaultMessage: 'Run details',
             description: 'Compare table title on the compare runs page',
           })}
