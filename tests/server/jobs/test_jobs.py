@@ -25,10 +25,14 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+def _get_mlflow_repo_home():
+    root = str(Path(__file__).resolve().parents[3])
+    return f"{root}{os.pathsep}{path}" if (path := os.environ.get("PYTHONPATH")) else root
+
+
 @contextmanager
 def _launch_job_runner_for_test():
-    root = str(Path(__file__).resolve().parents[3])
-    new_pythonpath = f"{root}{os.pathsep}{path}" if (path := os.environ.get("PYTHONPATH")) else root
+    new_pythonpath = _get_mlflow_repo_home()
     with _launch_job_runner(
         {"PYTHONPATH": new_pythonpath},
         os.getpid(),
@@ -63,7 +67,7 @@ def _setup_job_runner(
         mlflow.server.handlers._job_store = None
 
 
-@job(max_workers=1, use_process=False)
+@job(max_workers=1)
 def basic_job_fun(x, y, sleep_secs=0):
     if sleep_secs > 0:
         time.sleep(sleep_secs)
@@ -85,7 +89,7 @@ def test_basic_job(monkeypatch, tmp_path):
         assert job.retry_count == 0
 
 
-@job(max_workers=1, use_process=False)
+@job(max_workers=1)
 def json_in_out_fun(data):
     x = data["x"]
     y = data["y"]
@@ -106,7 +110,7 @@ def test_job_json_input_output(monkeypatch, tmp_path):
         assert job.retry_count == 0
 
 
-@job(max_workers=1, use_process=False)
+@job(max_workers=1)
 def err_fun(data):
     raise RuntimeError()
 
@@ -189,14 +193,14 @@ def test_job_resume_on_new_job_runner(monkeypatch, tmp_path):
         assert_job_result(job3_id, JobStatus.SUCCEEDED, 15)
 
 
-@job(max_workers=2, use_process=False)
+@job(max_workers=2)
 def job_fun_parallelism2(x, y, sleep_secs=0):
     if sleep_secs > 0:
         time.sleep(sleep_secs)
     return x + y
 
 
-@job(max_workers=3, use_process=False)
+@job(max_workers=3)
 def job_fun_parallelism3(x, y, sleep_secs=0):
     if sleep_secs > 0:
         time.sleep(sleep_secs)
@@ -205,41 +209,53 @@ def job_fun_parallelism3(x, y, sleep_secs=0):
 
 def test_job_queue_parallelism(monkeypatch, tmp_path):
     with _setup_job_runner(monkeypatch, tmp_path):
-        # warm up:
-        # The first job submission of each job function triggers setting up
-        # the corresponding huey consumer process.
-        job1_id = submit_job(job_fun_parallelism2, {"x": 1, "y": 1, "sleep_secs": 0}).job_id
-        job2_id = submit_job(job_fun_parallelism3, {"x": 1, "y": 1, "sleep_secs": 0}).job_id
-        wait_job_finalize(job1_id)
-        wait_job_finalize(job2_id)
+        for x in range(4):
+            submit_job(job_fun_parallelism2, {"x": x, "y": 1, "sleep_secs": 5}).job_id
 
-        job_p2_ids = [
-            submit_job(job_fun_parallelism2, {"x": x, "y": 1, "sleep_secs": 3}).job_id
-            for x in range(4)
-        ]
-        job_p3_ids = [
-            submit_job(job_fun_parallelism3, {"x": x, "y": 1, "sleep_secs": 3}).job_id
-            for x in range(4)
-        ]
+        for x in range(6):
+            submit_job(job_fun_parallelism3, {"x": x, "y": 1, "sleep_secs": 5}).job_id
 
-        time.sleep(3.5)
-        assert_job_result(job_p2_ids[0], JobStatus.SUCCEEDED, 1)
-        assert_job_result(job_p2_ids[1], JobStatus.SUCCEEDED, 2)
-        assert_job_result(job_p2_ids[2], JobStatus.RUNNING, None)
-        assert_job_result(job_p2_ids[3], JobStatus.RUNNING, None)
+        job_store = _get_job_store()
+        p2_peak_parallelism = 0
+        p3_peak_parallelism = 0
 
-        assert_job_result(job_p3_ids[0], JobStatus.SUCCEEDED, 1)
-        assert_job_result(job_p3_ids[1], JobStatus.SUCCEEDED, 2)
-        assert_job_result(job_p3_ids[2], JobStatus.SUCCEEDED, 3)
-        assert_job_result(job_p3_ids[3], JobStatus.RUNNING, None)
+        deadline = time.time() + 60
+        while time.time() < deadline:
+            p2_parallelism = 0
+            p3_parallelism = 0
 
-        time.sleep(3.5)
-        assert_job_result(job_p2_ids[2], JobStatus.SUCCEEDED, 3)
-        assert_job_result(job_p2_ids[3], JobStatus.SUCCEEDED, 4)
-        assert_job_result(job_p3_ids[3], JobStatus.SUCCEEDED, 4)
+            p2_succeeded_count = 0
+            p3_succeeded_count = 0
+
+            for job in job_store.list_jobs():
+                if job.function_fullname.endswith("job_fun_parallelism2"):
+                    if job.status == JobStatus.RUNNING:
+                        p2_parallelism += 1
+                    elif job.status == JobStatus.SUCCEEDED:
+                        p2_succeeded_count += 1
+                elif job.function_fullname.endswith("job_fun_parallelism3"):
+                    if job.status == JobStatus.RUNNING:
+                        p3_parallelism += 1
+                    elif job.status == JobStatus.SUCCEEDED:
+                        p3_succeeded_count += 1
+
+            if p2_parallelism > p2_peak_parallelism:
+                p2_peak_parallelism = p2_parallelism
+
+            if p3_parallelism > p3_peak_parallelism:
+                p3_peak_parallelism = p3_parallelism
+
+            if p2_succeeded_count + p3_succeeded_count == 10:
+                break
+            time.sleep(0.2)
+        else:
+            assert False, "Submitted Jobs do not succeed within timeout."
+
+        assert p2_peak_parallelism == 2
+        assert p3_peak_parallelism == 3
 
 
-@job(max_workers=1, use_process=False)
+@job(max_workers=1)
 def transient_err_fun(tmp_dir: str, succeed_on_nth_run: int):
     """
     This function will raise `TransientError` on the first (`succeed_on_nth_run` - 1) runs,
@@ -247,23 +263,27 @@ def transient_err_fun(tmp_dir: str, succeed_on_nth_run: int):
     """
     from mlflow.server.jobs import TransientError
 
-    if len(os.listdir(tmp_dir)) == succeed_on_nth_run:
-        return 100
+    # create one file with a unique name for each function call
     with open(os.path.join(tmp_dir, uuid.uuid4().hex), "w") as f:
         f.close()
+    time.sleep(0.1)
+    if len(os.listdir(tmp_dir)) == succeed_on_nth_run:
+        return 100
     raise TransientError(RuntimeError("test transient error."))
 
 
-@job(max_workers=1, use_process=False, transient_error_classes=[TimeoutError])
+@job(max_workers=1, transient_error_classes=[TimeoutError])
 def transient_err_fun2(tmp_dir: str, succeed_on_nth_run: int):
     """
     This function will raise `TimeoutError` on the first (`succeed_on_nth_run` - 1) runs,
     then return 100 on the `succeed_on_nth_run` run. The `tmp_dir` records the run state.
     """
-    if len(os.listdir(tmp_dir)) == succeed_on_nth_run:
-        return 100
+    # create one file with a unique name for each function call
     with open(os.path.join(tmp_dir, uuid.uuid4().hex), "w") as f:
         f.close()
+    time.sleep(0.1)
+    if len(os.listdir(tmp_dir)) == succeed_on_nth_run:
+        return 100
     raise TimeoutError("test transient timeout error.")
 
 
@@ -289,7 +309,7 @@ def test_job_retry_on_transient_error(monkeypatch, tmp_path):
         job1_id = submit_job(
             transient_err_fun, {"tmp_dir": str(job1_tmp_path), "succeed_on_nth_run": 3}
         ).job_id
-        wait_job_finalize(job1_id)
+        wait_job_finalize(job1_id, timeout=120)
         assert_job_result(job1_id, JobStatus.FAILED, "RuntimeError('test transient error.')")
         job1 = store.get_job(job1_id)
         assert job1.status == JobStatus.FAILED
@@ -307,7 +327,7 @@ def test_job_retry_on_transient_error(monkeypatch, tmp_path):
         job2 = store.get_job(job2_id)
         assert job2.status == JobStatus.SUCCEEDED
         assert job2.result == "100"
-        assert job2.retry_count == 2
+        assert job2.retry_count == 1
 
         job3_tmp_path = tmp_path / "job3"
         job3_tmp_path.mkdir()
@@ -320,7 +340,7 @@ def test_job_retry_on_transient_error(monkeypatch, tmp_path):
         job3 = store.get_job(job3_id)
         assert job3.status == JobStatus.SUCCEEDED
         assert job3.result == "100"
-        assert job3.retry_count == 2
+        assert job3.retry_count == 1
 
 
 # `submit_job` API is designed to be called inside MLflow server handler,
@@ -414,7 +434,7 @@ def test_job_function_without_decorator(monkeypatch, tmp_path):
             submit_job(bad_job_function, params={})
 
 
-@job(max_workers=1, use_process=True)
+@job(max_workers=1)
 def job_use_process(tmp_dir):
     (Path(tmp_dir) / str(os.getpid())).write_text("")
 
@@ -438,3 +458,27 @@ def test_submit_job_bad_call(monkeypatch, tmp_path):
             match="When calling 'submit_job', the 'params' argument must be a dict.",
         ):
             submit_job(basic_job_fun, params=None)
+
+
+@job(
+    max_workers=1,
+    python_version="3.11.9",
+    pip_requirements=["openai==1.108.2", "pytest<9"],
+)
+def check_python_env_fn():
+    import openai
+
+    from mlflow.utils import PYTHON_VERSION
+
+    assert PYTHON_VERSION == "3.11.9"
+    assert openai.__version__ == "1.108.2"
+
+
+def test_job_with_python_env(monkeypatch, tmp_path):
+    monkeypatch.setenv("MLFLOW_HOME", _get_mlflow_repo_home())
+
+    with _setup_job_runner(monkeypatch, tmp_path):
+        job_id = submit_job(check_python_env_fn, params={}).job_id
+        wait_job_finalize(job_id, timeout=600)
+        job = get_job(job_id)
+        assert job.status == JobStatus.SUCCEEDED

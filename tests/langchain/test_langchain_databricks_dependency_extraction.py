@@ -1,10 +1,8 @@
 from collections import Counter, defaultdict
 from unittest import mock
 
-import langchain
 import pytest
 from databricks.vector_search.client import VectorSearchIndex
-from packaging.version import Version
 
 from mlflow.langchain.databricks_dependencies import (
     _detect_databricks_dependencies,
@@ -330,10 +328,6 @@ def test_parsing_dependency_from_agent(monkeypatch: pytest.MonkeyPatch):
     ]
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.1.0"),
-    reason="Tools are not supported the way we want in earlier versions",
-)
 @pytest.mark.parametrize("use_partner_package", [True, False])
 def test_parsing_multiple_dependency_from_agent(monkeypatch, use_partner_package):
     if use_partner_package and not _is_partner_package_installed():
@@ -524,10 +518,6 @@ def test_parsing_dependency_from_databricks(monkeypatch, use_partner_package):
     ]
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="unitycatalog-langchain depends on langchain>=0.2.0",
-)
 def test_parsing_unitycatalog_tool_as_dependency(monkeypatch: pytest.MonkeyPatch):
     from databricks.sdk.service.catalog import FunctionInfo
     from langchain.agents import initialize_agent
