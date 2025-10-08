@@ -11,7 +11,12 @@ import { InMemoryTraceManager } from '../core/trace_manager';
 import { TraceInfo } from '../core/entities/trace_info';
 import { createTraceLocationFromExperimentId } from '../core/entities/trace_location';
 import { fromOtelStatus, TraceState } from '../core/entities/trace_state';
-import { SpanAttributeKey, TRACE_ID_PREFIX, TraceMetadataKey } from '../core/constants';
+import {
+  SpanAttributeKey,
+  TRACE_ID_PREFIX,
+  TRACE_SCHEMA_VERSION,
+  TraceMetadataKey
+} from '../core/constants';
 import {
   convertHrTimeToMs,
   deduplicateSpanNamesInPlace,
@@ -56,7 +61,9 @@ export class MlflowSpanProcessor implements SpanProcessor {
         requestTime: convertHrTimeToMs(span.startTime),
         executionDuration: 0,
         state: TraceState.IN_PROGRESS,
-        traceMetadata: {},
+        traceMetadata: {
+          [TraceMetadataKey.SCHEMA_VERSION]: TRACE_SCHEMA_VERSION
+        },
         tags: {},
         assessments: []
       });
