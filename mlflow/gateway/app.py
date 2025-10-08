@@ -31,7 +31,7 @@ from mlflow.gateway.config import (
     GatewayConfig,
     LimitsConfig,
     Provider,
-    RouteConfig,
+    TrafficRouteConfig,
     _LegacyRoute,
     _load_gateway_config,
 )
@@ -60,7 +60,7 @@ class GatewayAPI(FastAPI):
         self.dynamic_endpoints: dict[str, EndpointConfig] = {
             endpoint.name: endpoint for endpoint in config.endpoints
         }
-        self.traffic_routes: dict[str, RouteConfig] = {
+        self.traffic_routes: dict[str, TrafficRouteConfig] = {
             route.name: route for route in (config.routes or [])
         }
 
@@ -361,7 +361,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         )
 
     @app.get(MLFLOW_GATEWAY_CRUD_ROUTE_V3_BASE + "{route_name}", include_in_schema=False)
-    async def get_route_v3(route_name: str) -> RouteConfig:
+    async def get_route_v3(route_name: str) -> TrafficRouteConfig:
         if matched := app.traffic_routes.get(route_name):
             return matched
 

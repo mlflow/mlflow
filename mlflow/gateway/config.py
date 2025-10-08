@@ -453,7 +453,7 @@ class RouteDestinationConfig(ConfigModel):
     traffic_percentage: int
 
 
-class RouteConfig(ConfigModel):
+class TrafficRouteConfig(ConfigModel):
     name: str
     task_type: EndpointType
     destinations: list[RouteDestinationConfig]
@@ -507,7 +507,7 @@ class _LegacyRoute(ConfigModel):
 
 class GatewayConfig(AliasedConfigModel):
     endpoints: list[EndpointConfig]
-    routes: list[RouteConfig] | None = None
+    routes: list[TrafficRouteConfig] | None = None
 
 
 def _load_gateway_config(path: str | Path) -> GatewayConfig:
