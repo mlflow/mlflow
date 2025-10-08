@@ -31,10 +31,8 @@ module.exports = async () => {
     'uv',
     [
       'run',
-      '--with',
+      '--directory',
       mlflowRoot,
-      '--python',
-      '3.10',
       'mlflow',
       'server',
       '--port',
