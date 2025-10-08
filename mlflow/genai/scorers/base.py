@@ -538,6 +538,8 @@ class Scorer(BaseModel):
             new_scorer._registered_backend = "databricks"
         else:
             new_scorer._registered_backend = "tracking"
+            new_scorer._sampling_config = ScorerSamplingConfig(sample_rate=0.0, filter_string=None)
+
         return new_scorer
 
     @experimental(version="3.2.0")

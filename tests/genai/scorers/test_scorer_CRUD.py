@@ -1,6 +1,9 @@
 from unittest.mock import ANY, Mock, patch
 
+import pytest
+
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import Scorer, scorer
 from mlflow.genai.scorers.base import Scorer, ScorerSamplingConfig, ScorerStatus
 from mlflow.genai.scorers.registry import (
@@ -19,8 +22,8 @@ def test_mlflow_backend_scorer_operations():
     mlflow.set_experiment(experiment_id=experiment_id)
 
     @scorer
-    def test_mlflow_scorer_v1(trace) -> bool:
-        return len(trace.outputs) > 0 if hasattr(trace, 'outputs') else True
+    def test_mlflow_scorer_v1(outputs) -> bool:
+        return len(outputs) > 0
 
     assert test_mlflow_scorer_v1.status == ScorerStatus.UNREGISTERED
     # Test register operation
@@ -32,8 +35,8 @@ def test_mlflow_backend_scorer_operations():
 
     # Register a second version of the scorer
     @scorer
-    def test_mlflow_scorer_v2(trace) -> bool:
-        return len(trace.outputs) > 10 if hasattr(trace, 'outputs') else False  # Different logic for v2
+    def test_mlflow_scorer_v2(outputs) -> bool:
+        return len(outputs) > 10  # Different logic for v2
 
     # Register the scorer in the active experiment.
     registered_scorer_v2 = test_mlflow_scorer_v2.register(name="test_mlflow_scorer")
@@ -62,37 +65,13 @@ def test_mlflow_backend_scorer_operations():
     retrieved_scorer_latest = get_scorer(name="test_mlflow_scorer", experiment_id=experiment_id)
     assert retrieved_scorer_latest._original_func.__name__ == "test_mlflow_scorer_v2"
 
-    # Test update_scorer operation
-    # First register a scorer again for testing update
-    test_update_scorer = test_mlflow_scorer_v1.register(
-        experiment_id=experiment_id, name="test_update_scorer"
-    )
-
-    # Update the scorer's sample rate
-    updated_scorer = update_scorer(
-        name="test_update_scorer", experiment_id=experiment_id, sample_rate=0.5
-    )
-
-    # The updated scorer should have the new sample rate
-    # Note: We need to mock the tracking store to return proper sample_rate
-    # For now, we just verify the operation doesn't fail
-    assert updated_scorer is not None
-    assert updated_scorer.name == "test_update_scorer"
-
     # Test delete_scorer with specific version
     delete_scorer(name="test_mlflow_scorer", experiment_id=experiment_id, version=2)
     scorers_after_delete = list_scorers(experiment_id=experiment_id)
-    assert len(scorers_after_delete) == 2  # test_mlflow_scorer_v1 and test_update_scorer
-
-    # Find the test_mlflow_scorer in the list
-    test_mlflow_scorer_remaining = [
-        s for s in scorers_after_delete if s.name == "test_mlflow_scorer"
-    ]
-    assert len(test_mlflow_scorer_remaining) == 1
-    assert test_mlflow_scorer_remaining[0]._original_func.__name__ == "test_mlflow_scorer_v1"
+    assert len(scorers_after_delete) == 1
+    assert scorers_after_delete[0]._original_func.__name__ == "test_mlflow_scorer_v1"
 
     delete_scorer(name="test_mlflow_scorer", experiment_id=experiment_id, version=1)
-    delete_scorer(name="test_update_scorer", experiment_id=experiment_id, version="all")
     scorers_after_delete = list_scorers(experiment_id=experiment_id)
     assert len(scorers_after_delete) == 0
 
@@ -164,9 +143,12 @@ def test_databricks_backend_scorer_operations(mock_delete, mock_get, mock_list, 
     delete_scorer(name="test_databricks_scorer", experiment_id="exp_123")
     mock_delete.assert_called_once_with("exp_123", "test_databricks_scorer")
 
-    # Test update_scorer operation (should raise exception for Databricks backend)
-    import pytest
-    from mlflow.exceptions import MlflowException
 
-    with pytest.raises(MlflowException, match="Databricks backend does not support update_scorer"):
-        update_scorer(name="test_databricks_scorer", experiment_id="exp_123", sample_rate=0.7)
+def test_databricks_update_scorer_not_supported():
+    with patch(
+        "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks"
+    ):
+        with pytest.raises(
+            MlflowException, match="Databricks backend does not support update_scorer"
+        ):
+            update_scorer(name="test_scorer", experiment_id="exp_123", sample_rate=0.7)

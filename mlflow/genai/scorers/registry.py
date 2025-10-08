@@ -223,6 +223,9 @@ class MlflowTrackingStore(AbstractScorerStore):
         scorers = []
         for scorer_version in scorer_versions:
             scorer = Scorer.model_validate(scorer_version.serialized_scorer)
+            scorer._sampling_config = ScorerSamplingConfig(
+                sample_rate=scorer_version.sample_rate, filter_string=None
+            )
             scorers.append(scorer)
 
         return scorers
@@ -236,7 +239,11 @@ class MlflowTrackingStore(AbstractScorerStore):
         scorer_version = self._tracking_store.get_scorer(experiment_id, name, version)
 
         # Convert to Scorer object
-        return Scorer.model_validate(scorer_version.serialized_scorer)
+        scorer = Scorer.model_validate(scorer_version.serialized_scorer)
+        scorer._sampling_config = ScorerSamplingConfig(
+            sample_rate=scorer_version.sample_rate, filter_string=None
+        )
+        return scorer
 
     def list_scorer_versions(self, experiment_id, name) -> list[tuple[Scorer, int]]:
         from mlflow.genai.scorers import Scorer
@@ -250,6 +257,9 @@ class MlflowTrackingStore(AbstractScorerStore):
         scorers = []
         for scorer_version in scorer_versions:
             scorer = Scorer.model_validate(scorer_version.serialized_scorer)
+            scorer._sampling_config = ScorerSamplingConfig(
+                sample_rate=scorer_version.sample_rate, filter_string=None
+            )
             version = scorer_version.scorer_version
             scorers.append((scorer, version))
 
@@ -275,7 +285,11 @@ class MlflowTrackingStore(AbstractScorerStore):
         scorer_version = self._tracking_store.update_scorer(experiment_id, name, sample_rate)
 
         # Convert to Scorer object
-        return Scorer.model_validate(scorer_version.serialized_scorer)
+        scorer = Scorer.model_validate(scorer_version.serialized_scorer)
+        scorer._sampling_config = ScorerSamplingConfig(
+            sample_rate=scorer_version.sample_rate, filter_string=None
+        )
+        return scorer
 
 
 class DatabricksStore(AbstractScorerStore):
@@ -605,7 +619,7 @@ def get_scorer(
     return store.get_scorer(experiment_id, name, version)
 
 
-@experimental
+@experimental(version="3.6.0")
 def update_scorer(
     *,
     name: str,
@@ -657,9 +671,7 @@ def update_scorer(
 
             # Update a scorer in a specific experiment
             updated_scorer = update_scorer(
-                name="relevance_scorer",
-                experiment_id="123",
-                sample_rate=0.75
+                name="relevance_scorer", experiment_id="123", sample_rate=0.75
             )
     """
     store = _get_scorer_store()
