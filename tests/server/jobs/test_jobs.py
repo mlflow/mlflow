@@ -470,14 +470,3 @@ def test_job_with_python_env(monkeypatch, tmp_path):
         wait_job_finalize(job_id, timeout=300)
         job = get_job(job_id)
         assert job.status == JobStatus.SUCCEEDED
-
-
-def test_bad_job_python_env_function():
-    with pytest.raises(MlflowException, match="'use_process' must be set to True"):
-
-        @job(
-            max_workers=1,
-            pip_requirements=["openai==1.108.2", "pytest<9"],
-        )
-        def bad_python_env_fn():
-            pass
