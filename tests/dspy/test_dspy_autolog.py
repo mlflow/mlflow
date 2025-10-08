@@ -7,7 +7,6 @@ import dspy
 import dspy.teleprompt
 import pytest
 from dspy.evaluate import Evaluate
-from dspy.evaluate.evaluate import EvaluationResult
 from dspy.evaluate.metrics import answer_exact_match
 from dspy.predict import Predict
 from dspy.primitives.example import Example
@@ -896,7 +895,12 @@ def test_autolog_log_traces_from_evals(call_args):
     else:
         result = evaluator(program, answer_exact_match, devset=examples)
 
-    assert isinstance(result, EvaluationResult)
+    if _DSPY_VERSION >= Version("3.0.0"):
+        from dspy.evaluate.evaluate import EvaluationResult
+
+        assert isinstance(result, EvaluationResult)
+    else:
+        assert result is not None
 
     traces = get_traces()
     assert len(traces) == 2

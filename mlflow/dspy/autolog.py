@@ -246,6 +246,8 @@ def _patch_metric(metric):
 
         try:
             if isinstance(score, dspy.Prediction):
+                # GEPA metric returns a Prediction object with score and feedback attributes.
+                # https://dspy.ai/tutorials/gepa_aime/
                 value = getattr(score, "score", None)
                 rationale = getattr(score, "feedback", None)
             else:
