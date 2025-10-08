@@ -34,7 +34,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.telemetry.events import LogAssessmentEvent, StartTraceEvent
 from mlflow.telemetry.track import record_usage_event
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import BATCH_GET_TRACES_MAX_RESULTS, TraceMetadataKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import TraceJSONEncoder, exclude_immutable_tags, parse_trace_id_v4
 from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
@@ -325,7 +325,11 @@ class TracingClient:
                             # UC schema location. Get full traces from v4 BatchGetTraces.
                             # All traces in a single call must be located in the same table.
                             trace_ids = [t.trace_id for t in location_trace_infos]
-                            traces.extend(self.store.batch_get_traces(trace_ids, location))
+                            traces.extend(
+                                self._download_spans_from_batch_get_traces(
+                                    trace_ids, location, executor
+                                )
+                            )
                         else:
                             # MLflow experiment location. Load spans from artifact repository.
                             traces.extend(
@@ -345,6 +349,26 @@ class TracingClient:
                 next_max_results = max_results - len(traces)
 
         return PagedList(traces, next_token)
+
+    def _download_spans_from_batch_get_traces(
+        self, trace_ids: list[str], location: str, executor: ThreadPoolExecutor
+    ) -> list[Trace]:
+        """
+        Fetch full traces including spans from the BatchGetTrace v4 endpoint.
+        BatchGetTrace endpoint only support up to 10 traces in a single call.
+        """
+        traces = []
+
+        def _fetch_minibatch(ids: list[str]) -> list[Trace]:
+            return self.store.batch_get_traces(ids, location) or []
+
+        batches = [
+            trace_ids[i : i + BATCH_GET_TRACES_MAX_RESULTS]
+            for i in range(0, len(trace_ids), BATCH_GET_TRACES_MAX_RESULTS)
+        ]
+        for minibatch_traces in executor.map(_fetch_minibatch, batches):
+            traces.extend(minibatch_traces)
+        return traces
 
     def _download_spans_from_artifact_repo(self, trace_info: TraceInfo) -> Trace | None:
         """
