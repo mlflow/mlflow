@@ -36,7 +36,7 @@ runs:
             python_version="3.11.8"
           fi
         else
-          # echo "Invalid python version: '$python_version'. Must be '3.10', or '3.11'."
+          echo "Invalid python version: '$python_version'. Must be '3.10', or '3.11'."
           # exit 1
         fi
         echo "version=$python_version" >> $GITHUB_OUTPUT
