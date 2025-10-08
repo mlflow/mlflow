@@ -10,14 +10,18 @@ from click.testing import CliRunner
 import mlflow
 from mlflow import MlflowClient
 from mlflow.entities import EvaluationDataset, Feedback, Metric, Param, RunTag
+from mlflow.entities.trace import Trace
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 from mlflow.genai.datasets import create_dataset
+from mlflow.genai.judges import make_judge
+from mlflow.genai.judges.base import AlignmentOptimizer
 from mlflow.genai.optimize.types import LLMParams, OptimizerOutput
 from mlflow.genai.scorers import scorer
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.pyfunc.model import ResponsesAgent, ResponsesAgentRequest, ResponsesAgentResponse
 from mlflow.telemetry.client import TelemetryClient
 from mlflow.telemetry.events import (
+    AlignJudgeEvent,
     CreateDatasetEvent,
     CreateExperimentEvent,
     CreateLoggedModelEvent,
@@ -36,6 +40,7 @@ from mlflow.telemetry.events import (
     LogDatasetEvent,
     LogMetricEvent,
     LogParamEvent,
+    MakeJudgeEvent,
     McpRunEvent,
     MergeRecordsEvent,
     PromptOptimizationEvent,
@@ -631,7 +636,7 @@ def test_git_model_versioning(mock_requests, mock_telemetry_client):
     [
         ("databricks:/llama-3.1-70b", "databricks", True, False),
         ("openai:/gpt-4o-mini", "openai", True, False),
-        ("endpoints:/my-endpoint", "endpoints", False, True),
+        ("endpoints:/my-endpoint", "endpoints", True, False),
         ("anthropic:/claude-3-opus", "anthropic", True, False),
     ],
 )
@@ -677,11 +682,14 @@ def test_invoke_custom_judge_model(
                     )
         else:
             with (
-                mock.patch("mlflow.genai.judges.utils._invoke_litellm", return_value=mock_response),
+                mock.patch(
+                    "mlflow.genai.judges.utils._invoke_litellm_and_handle_tools",
+                    return_value=mock_response,
+                ),
                 mock.patch("mlflow.genai.judges.utils._invoke_databricks_model") as mock_databricks,
             ):
                 # For databricks provider, mock the databricks model invocation
-                if expected_provider == "databricks":
+                if expected_provider in ["databricks", "endpoints"]:
                     from mlflow.genai.judges.utils import InvokeDatabricksModelOutput
 
                     mock_databricks.return_value = InvokeDatabricksModelOutput(
@@ -704,3 +712,49 @@ def test_invoke_custom_judge_model(
             InvokeCustomJudgeModelEvent.name,
             expected_params,
         )
+
+
+def test_make_judge(mock_requests, mock_telemetry_client: TelemetryClient):
+    make_judge(
+        name="test_judge",
+        instructions="Evaluate the {{ inputs }} and {{ outputs }}",
+        model="openai:/gpt-4",
+    )
+    expected_params = {"model_provider": "openai"}
+    validate_telemetry_record(
+        mock_telemetry_client, mock_requests, MakeJudgeEvent.name, expected_params
+    )
+
+    make_judge(
+        name="test_judge",
+        instructions="Evaluate the {{ inputs }} and {{ outputs }}",
+    )
+    expected_params = {"model_provider": None}
+    validate_telemetry_record(
+        mock_telemetry_client, mock_requests, MakeJudgeEvent.name, expected_params
+    )
+
+
+def test_align_judge(mock_requests, mock_telemetry_client: TelemetryClient):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate the {{ inputs }} and {{ outputs }}",
+        model="openai:/gpt-4",
+    )
+
+    traces = [
+        mock.MagicMock(spec=Trace),
+        mock.MagicMock(spec=Trace),
+    ]
+
+    class MockOptimizer(AlignmentOptimizer):
+        def align(self, judge, traces):
+            return judge
+
+    custom_optimizer = MockOptimizer()
+    judge.align(traces, optimizer=custom_optimizer)
+
+    expected_params = {"trace_count": 2, "optimizer_type": "MockOptimizer"}
+    validate_telemetry_record(
+        mock_telemetry_client, mock_requests, AlignJudgeEvent.name, expected_params
+    )

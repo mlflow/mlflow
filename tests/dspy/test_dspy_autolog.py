@@ -619,7 +619,19 @@ def test_autolog_log_compile(log_compiles):
     if log_compiles:
         run = mlflow.last_active_run()
         assert run is not None
-        assert run.data.params == {"kwarg1": "1", "kwarg2": "2"}
+        assert run.data.params == {
+            "kwarg1": "1",
+            "kwarg2": "2",
+            "lm_params": json.dumps(
+                {
+                    "cache": True,
+                    "max_tokens": 1000,
+                    "model": "dummy",
+                    "model_type": "chat",
+                    "temperature": 0.0,
+                }
+            ),
+        }
         client = MlflowClient()
         artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
         assert "best_model.json" in artifacts
@@ -755,18 +767,18 @@ is_2_7_or_newer = Version(importlib.metadata.version("dspy")) >= Version("2.7.0"
 def test_autolog_log_evals(
     tmp_path, log_evals, return_outputs, lm, examples, expected_result_table
 ):
-    dspy.settings.configure(lm=lm)
-    program = Predict("question -> answer")
-    if is_2_7_or_newer:
-        evaluator = Evaluate(devset=examples, metric=answer_exact_match)
-    else:
-        # return_outputs arg does not exist after 2.7
-        evaluator = Evaluate(
-            devset=examples, metric=answer_exact_match, return_outputs=return_outputs
-        )
-
     mlflow.dspy.autolog(log_evals=log_evals)
-    evaluator(program, devset=examples)
+
+    with dspy.context(lm=lm):
+        program = Predict("question -> answer")
+        if is_2_7_or_newer:
+            evaluator = Evaluate(devset=examples, metric=answer_exact_match)
+        else:
+            # return_outputs arg does not exist after 2.7
+            evaluator = Evaluate(
+                devset=examples, metric=answer_exact_match, return_outputs=return_outputs
+            )
+        evaluator(program, devset=examples)
 
     run = mlflow.last_active_run()
     if log_evals:
@@ -778,6 +790,15 @@ def test_autolog_log_evals(
             "Predict.signature.fields.1.description": "${answer}",
             "Predict.signature.fields.1.prefix": "Answer:",
             "Predict.signature.instructions": "Given the fields `question`, produce the fields `answer`.",  # noqa: E501
+            "lm_params": json.dumps(
+                {
+                    "cache": True,
+                    "max_tokens": 1000,
+                    "model": "dummy",
+                    "model_type": "chat",
+                    "temperature": 0.0,
+                }
+            ),
         }
         client = MlflowClient()
         artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
@@ -826,32 +847,27 @@ def test_autolog_nested_evals():
     evaluator = Evaluate(devset=examples, metric=answer_exact_match)
 
     mlflow.dspy.autolog(log_evals=True)
-    with mlflow.start_run() as run:
+    with mlflow.start_run() as active_run:
         evaluator(program, devset=examples[:1])
         evaluator(program, devset=examples[1:])
 
-    # children runs
     client = MlflowClient()
+    run = client.get_run(active_run.info.run_id)
+    assert run.data.metrics == {"eval": 0.0}
+
+    artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
+    assert "model.json" in artifacts
+
+    metric_history = client.get_metric_history(run.info.run_id, "eval")
+    assert [metric.value for metric in metric_history] == [100.0, 0.0]
+
     child_runs = client.search_runs(
         run.info.experiment_id,
         filter_string=f"tags.mlflow.parentRunId = '{run.info.run_id}'",
         order_by=["attributes.start_time ASC"],
     )
-    assert len(child_runs) == 2
-    for i, run in enumerate(child_runs):
-        if i == 0:
-            assert run.data.metrics == {"eval": 100.0}
-        else:
-            assert run.data.metrics == {"eval": 0}
-        assert run.data.params == {
-            "Predict.signature.fields.0.description": "${question}",
-            "Predict.signature.fields.0.prefix": "Question:",
-            "Predict.signature.fields.1.description": "${answer}",
-            "Predict.signature.fields.1.prefix": "Answer:",
-            "Predict.signature.instructions": "Given the fields `question`, produce the fields `answer`.",  # noqa: E501
-        }
-        artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
-        assert "model.json" in artifacts
+
+    assert len(child_runs) == 0
 
 
 @skip_when_testing_trace_sdk
@@ -924,6 +940,15 @@ def test_autolog_log_compile_with_evals():
             "Predict.signature.fields.1.description": "${answer}",
             "Predict.signature.fields.1.prefix": "Answer:",
             "Predict.signature.instructions": "Given the fields `question`, produce the fields `answer`.",  # noqa: E501
+            "lm_params": json.dumps(
+                {
+                    "cache": True,
+                    "max_tokens": 1000,
+                    "model": "dummy",
+                    "model_type": "chat",
+                    "temperature": 0.0,
+                }
+            ),
         }
 
 

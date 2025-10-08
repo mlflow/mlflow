@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import re
-import shutil
 import subprocess
+import sys
 from collections import Counter
 from enum import Enum
 from pathlib import Path
@@ -356,6 +356,7 @@ def build(package_type: PackageType) -> None:
                 "jfrog": ["mlflow-jfrog-plugin"],
                 "langchain": langchain_requirements,
                 "auth": ["Flask-WTF<2"],
+                "jobs": ["huey<3,>=2.5.0", "uv<1"],
             }
             # Tracing SDK does not support extras
             if package_type != PackageType.TRACING
@@ -399,6 +400,7 @@ def build(package_type: PackageType) -> None:
                         "exclude": ["tests", "tests.*"]
                         if package_type != PackageType.TRACING
                         else TRACING_EXCLUDE_FILES,
+                        "namespaces": False,
                     }
                 },
                 "package-data": _get_package_data(package_type),
@@ -434,6 +436,7 @@ def build(package_type: PackageType) -> None:
         formatted_full_content = formatted_generated_part + SEPARATOR + original_manual_content
 
         write_file_if_changed(out_path, formatted_full_content)
+        subprocess.check_call(["uv", "lock"])
 
 
 def _get_package_data(package_type: PackageType) -> dict[str, list[str]] | None:
@@ -475,13 +478,12 @@ def _check_skinny_tracing_mismatch(*, skinny_reqs: list[str], tracing_reqs: list
 
 
 def main() -> None:
-    if shutil.which("taplo") is None:
+    if not Path("bin/taplo").exists():
         print(
             "taplo is required to generate pyproject.toml. "
-            "Please install it by following the instructions at "
-            "https://taplo.tamasfe.dev/cli/introduction.html."
+            "Please run 'python bin/install.py' to install it."
         )
-        return
+        sys.exit(1)
 
     for package_type in PackageType:
         build(package_type)

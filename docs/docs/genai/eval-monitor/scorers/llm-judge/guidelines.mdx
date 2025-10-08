@@ -4,11 +4,7 @@ import TileCard from '@site/src/components/TileCard';
 import TilesGrid from '@site/src/components/TilesGrid';
 import { Bot, GitBranch, MessageSquare } from "lucide-react";
 
-# Create Custom LLM Scorers
-
-While MLflow's predefined LLM judge scorers offer excellent starting points for common quality dimensions in simpler applications, you'll need to create custom LLM judges as your application becomes more complex and to tune your evaluation criteria to meet the specific, nuanced business requirements of your use case and align with your domain expert's judgment. MLflow provides robust and flexible ways to create **custom LLM judges** tailored to these unique requirements.
-
-## Guidelines (_we suggest starting here_)
+# Guidelines-based LLM Scorers
 
 <APILink fn="mlflow.genai.scorers.Guidelines">Guidelines</APILink> is a powerful scorer class designed to let you quickly and easily customize evaluation by defining natural language criteria that are framed as pass/fail conditions. It is ideal for checking compliance with rules, style guides, or information inclusion/exclusion.
 
@@ -62,25 +58,6 @@ mlflow.genai.evaluate(
 MLflow supports all major LLM providers, such as OpenAI, Anthropic, Google, xAI, and more.
 
 See [Supported Models](/genai/eval-monitor/scorers/llm-judge#supported-models) for more details.
-
-## Bring Your Own Prompt (full control)
-
-While `Guidelines` scorers have the distinct advantage of being easy to write and maintain, you may need more control or can't write your evaluation criteria as pass/fail guidelines.
-
-:::note[Recommendation: Use make_judge Instead]
-We recommend using the <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API instead of `custom_prompt_judge`. The `make_judge` API provides:
-
-- More flexible template-based instructions
-- Better version control and collaboration features
-- Support for both field-based and Agent-as-a-Judge evaluation
-- Alignment capabilities with human feedback
-
-See the [make_judge documentation](/genai/eval-monitor/scorers/llm-judge/make-judge) for complete details.
-:::
-
-The <APILink fn="mlflow.genai.judges.custom_prompt_judge">custom_prompt_judge</APILink> API allows you to define a full prompt for the judge, while still letting MLflow handle complexities like response parsing.
-
-See [Bring Your Own Prompt](/genai/eval-monitor/scorers/llm-judge/prompt) for more details.
 
 ## Next Steps
 

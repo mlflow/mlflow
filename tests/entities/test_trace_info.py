@@ -118,7 +118,7 @@ def test_backwards_compatibility_with_v2():
 
     assert trace_info.request_id == trace_info.trace_id
     assert trace_info.experiment_id == "123"
-    assert trace_info.request_metadata == {"foo": "bar", TRACE_SCHEMA_VERSION_KEY: "3"}
+    assert trace_info.request_metadata == {"foo": "bar"}
     assert trace_info.timestamp_ms == 1234567890
     assert trace_info.execution_time_ms is None
 
@@ -248,7 +248,7 @@ def test_trace_info_from_proto_updates_schema_version():
     trace_info = TraceInfo.from_proto(proto)
 
     # Verify the schema version was updated to current version
-    assert trace_info.trace_metadata[TRACE_SCHEMA_VERSION_KEY] == str(TRACE_SCHEMA_VERSION)
+    assert trace_info.trace_metadata[TRACE_SCHEMA_VERSION_KEY] == "2"
 
     # Verify other metadata is preserved
     assert trace_info.trace_metadata["other_key"] == "other_value"
@@ -258,37 +258,7 @@ def test_trace_info_from_proto_updates_schema_version():
     assert trace_info.experiment_id == "123"
 
 
-def test_trace_info_from_proto_adds_missing_schema_version():
-    """Test that TraceInfo.from_proto adds schema version when it doesn't exist."""
-    # Create a proto without schema version in metadata
-    request_time = Timestamp()
-    request_time.FromMilliseconds(1234567890)
-
-    proto = ProtoTraceInfoV3(
-        trace_id="test_trace_id",
-        trace_location=TraceLocation.from_experiment_id("123").to_proto(),
-        request_preview="test request",
-        response_preview="test response",
-        request_time=request_time,
-        state=TraceState.OK.to_proto(),
-        trace_metadata={
-            "other_key": "other_value",  # No schema version
-        },
-        tags={"test_tag": "test_value"},
-    )
-
-    # Convert from proto
-    trace_info = TraceInfo.from_proto(proto)
-
-    # Verify the schema version was added
-    assert trace_info.trace_metadata[TRACE_SCHEMA_VERSION_KEY] == str(TRACE_SCHEMA_VERSION)
-
-    # Verify other metadata is preserved
-    assert trace_info.trace_metadata["other_key"] == "other_value"
-
-
 def test_trace_info_from_proto_preserves_current_schema_version():
-    """Test that TraceInfo.from_proto preserves current schema version."""
     # Create a proto with current schema version in metadata
     request_time = Timestamp()
     request_time.FromMilliseconds(1234567890)
