@@ -1011,7 +1011,7 @@ def test_create_assessment():
         _verify_requests(
             mock_http,
             creds,
-            "traces/catalog.schema/1234/assessment",
+            "traces/catalog.schema/1234/assessments",
             "POST",
             message_to_json(request),
             version="4.0",
@@ -1057,7 +1057,7 @@ def test_get_assessment():
         _verify_requests(
             mock_http,
             creds,
-            "traces/catalog.schema/1234/assessment/1234",
+            "traces/catalog.schema/1234/assessments/1234",
             "GET",
             message_to_json(request),
             version="4.0",
@@ -1132,7 +1132,7 @@ def test_update_assessment():
         _verify_requests(
             mock_http,
             creds,
-            "traces/catalog.schema/1234/assessment/1234",
+            "traces/catalog.schema/1234/assessments/1234",
             "PATCH",
             json.dumps(request),
             version="4.0",
@@ -1160,7 +1160,7 @@ def test_delete_assessment():
         _verify_requests(
             mock_http,
             creds,
-            "traces/catalog.schema/1234/assessment/1234",
+            "traces/catalog.schema/1234/assessments/1234",
             "DELETE",
             message_to_json(request),
             version="4.0",
