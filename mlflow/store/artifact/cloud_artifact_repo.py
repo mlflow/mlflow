@@ -14,6 +14,7 @@ from mlflow.environment_variables import (
     MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE,
     MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE,
     MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
+    MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
@@ -136,19 +137,60 @@ class CloudArtifactRepository(ArtifactRepository):
         # TODO: change to class method
         def upload_artifacts_iter():
             for staged_upload_chunk in chunk_list(staged_uploads, _ARTIFACT_UPLOAD_BATCH_SIZE):
-                write_credential_infos = self._get_write_credential_infos(
-                    remote_file_paths=[
-                        staged_upload.artifact_file_path for staged_upload in staged_upload_chunk
-                    ],
-                )
+                # NB: Partition files by size to avoid double credential allocation.
+                # In strict egress control environments (e.g., Databricks Secure Egress Gateway),
+                # requesting presigned URL credentials for large files that will subsequently
+                # create their own multipart upload credentials violates security policies.
+                # Large files (>= MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE) trigger multipart
+                # upload in _upload_to_cloud(), which creates separate credentials via
+                # _create_multipart_upload(). Requesting batch credentials for these files
+                # wastes resources and can fail with:
+                #   - Egress policy violations (double credential request for same file)
+                #   - Credential quota exhaustion
+                #   - "Unauthorized storage access" errors
+                #   - Permission conflicts from multiple credential types for same path
+                #
+                # This issue manifests as:
+                #   ✓ All large files work (only multipart credentials)
+                #   ✓ All small files work (only simple PUT credentials)
+                #   ✗ Mixed sizes fail (double credentials for large files blocked by SEG)
+                small_uploads = []
+                large_uploads = []
+                multipart_threshold = MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get()
+
+                for upload in staged_upload_chunk:
+                    if os.path.getsize(upload.src_file_path) >= multipart_threshold:
+                        large_uploads.append(upload)
+                    else:
+                        small_uploads.append(upload)
+
+                # Only request credentials for small files
+                small_file_credentials = []
+                if small_uploads:
+                    small_file_credentials = self._get_write_credential_infos(
+                        remote_file_paths=[u.artifact_file_path for u in small_uploads]
+                    )
 
                 inflight_uploads = {}
+
+                # Upload small files with batch credentials
                 for staged_upload, write_credential_info in zip(
-                    staged_upload_chunk, write_credential_infos
+                    small_uploads, small_file_credentials
                 ):
                     upload_future = self.thread_pool.submit(
                         self._upload_to_cloud,
                         cloud_credential_info=write_credential_info,
+                        src_file_path=staged_upload.src_file_path,
+                        artifact_file_path=staged_upload.artifact_file_path,
+                    )
+                    inflight_uploads[staged_upload.src_file_path] = upload_future
+
+                # Upload large files without pre-allocated credentials
+                # (multipart upload will create its own credentials)
+                for staged_upload in large_uploads:
+                    upload_future = self.thread_pool.submit(
+                        self._upload_to_cloud,
+                        cloud_credential_info=None,
                         src_file_path=staged_upload.src_file_path,
                         artifact_file_path=staged_upload.artifact_file_path,
                     )
@@ -192,7 +234,8 @@ class CloudArtifactRepository(ArtifactRepository):
         Upload a single file to the cloud.
 
         Args:
-            cloud_credential_info: ArtifactCredentialInfo object with presigned URL for the file.
+            cloud_credential_info: ArtifactCredentialInfo object with presigned URL for the file,
+                or None for large files where credentials should be obtained separately.
             src_file_path: Local source file path for the upload.
             artifact_file_path: Path in the artifact repository where the artifact will be logged.
 

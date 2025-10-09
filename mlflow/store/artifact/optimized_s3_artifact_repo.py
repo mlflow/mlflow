@@ -186,6 +186,12 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         return [self._get_s3_client() for _ in remote_file_paths]
 
     def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_file_path):
+        # NB: cloud_credential_info can be None for large files in strict egress control
+        # environments (e.g., Databricks SEG). In this repository, cloud_credential_info
+        # is an S3 client object.
+        if cloud_credential_info is None:
+            cloud_credential_info = self._get_s3_client()
+
         dest_path = posixpath.join(self.bucket_path, artifact_file_path)
         key = posixpath.normpath(dest_path)
         if (
