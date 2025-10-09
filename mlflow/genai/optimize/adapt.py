@@ -125,6 +125,41 @@ def adapt_prompts(
             )
 
             print(result.optimized_prompts[0].template)
+
+        **Example: Using custom scorers with an objective function**
+
+        .. code-block:: python
+
+            import mlflow
+            from mlflow.genai.optimize import LLMParams
+            from mlflow.genai.scorers import scorer
+
+
+            # Define custom scorers
+            @scorer(name="accuracy")
+            def accuracy_scorer(outputs, expectations):
+                return 1.0 if outputs.lower() == expectations.lower() else 0.0
+
+
+            @scorer(name="brevity")
+            def brevity_scorer(outputs):
+                # Prefer shorter outputs (max 50 chars gets score of 1.0)
+                return min(1.0, 50 / max(len(outputs), 1))
+
+
+            # Define objective to combine scores
+            def weighted_objective(scores):
+                return 0.7 * scores["accuracy"] + 0.3 * scores["brevity"]
+
+
+            result = mlflow.genai.adapt_prompts(
+                predict_fn=predict_fn,
+                train_data=dataset,
+                target_prompt_uris=[prompt.uri],
+                optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o"),
+                scorers=[accuracy_scorer, brevity_scorer],
+                objective=weighted_objective,
+            )
     """
     if optimizer is None:
         optimizer = get_default_adapter()

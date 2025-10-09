@@ -154,7 +154,7 @@ def test_align_judge_parse_params(arguments, expected_params):
             {
                 "optimizer_type": "MockOptimizer",
                 "prompt_count": 1,
-                "custom_scorers": False,
+                "scorer_count": None,
                 "custom_objective": False,
             },
         ),
@@ -169,22 +169,22 @@ def test_align_judge_parse_params(arguments, expected_params):
             {
                 "optimizer_type": "CustomAdapter",
                 "prompt_count": 2,
-                "custom_scorers": True,
+                "scorer_count": 1,
                 "custom_objective": False,
             },
         ),
-        # Custom objective
+        # Custom objective with multiple scorers
         (
             {
                 "optimizer": type("TestAdapter", (), {})(),
                 "target_prompt_uris": ["prompts:/test/1"],
-                "scorers": [Mock()],
+                "scorers": [Mock(), Mock(), Mock()],
                 "objective": lambda scores: sum(scores.values()),
             },
             {
                 "optimizer_type": "TestAdapter",
                 "prompt_count": 1,
-                "custom_scorers": True,
+                "scorer_count": 3,
                 "custom_objective": True,
             },
         ),
@@ -199,7 +199,7 @@ def test_align_judge_parse_params(arguments, expected_params):
             {
                 "optimizer_type": None,
                 "prompt_count": 1,
-                "custom_scorers": False,
+                "scorer_count": None,
                 "custom_objective": False,
             },
         ),
