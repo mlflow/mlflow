@@ -139,7 +139,6 @@ def assert_job_result(job_id, expected_status, expected_result):
 
 
 def test_job_resume_on_job_runner_restart(monkeypatch, tmp_path):
-    assert False
     with _setup_job_runner(monkeypatch, tmp_path) as job_runner_proc:
         job1_id = submit_job(basic_job_fun, {"x": 3, "y": 4, "sleep_secs": 0}).job_id
         job2_id = submit_job(basic_job_fun, {"x": 5, "y": 6, "sleep_secs": 2}).job_id
