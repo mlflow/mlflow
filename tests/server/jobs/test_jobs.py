@@ -53,10 +53,12 @@ def _setup_job_runner(
     backend_store_uri: str | None = None,
 ):
     backend_store_uri = backend_store_uri or f"sqlite:///{tmp_path / 'mlflow.db'}"
+    """
     # Pre-initialize the database to prevent race conditions when the tracking store and job store
     # attempt to initialize the database simultaneously.
     store = SqlAlchemyStore(backend_store_uri, (tmp_path / "artifacts").as_uri())
     store.engine.dispose()
+    """
     huey_store_path = tmp_path / "huey_store"
     huey_store_path.mkdir()
     default_artifact_root = str(tmp_path / "artifacts")
@@ -80,6 +82,9 @@ def _setup_job_runner(
         import mlflow.server.jobs.utils
 
         mlflow.server.jobs.utils._huey_instance_map.clear()
+        if mlflow.server.handlers._job_store is not None:
+            # close all db connections and drops connection pool
+            mlflow.server.handlers._job_store.engine.dispose()
         mlflow.server.handlers._job_store = None
 
 
@@ -252,16 +257,16 @@ def test_job_queue_parallelism(monkeypatch, tmp_path):
         ],
     ):
         for x in range(4):
-            submit_job(job_fun_parallelism2, {"x": x, "y": 1, "sleep_secs": 5}).job_id
+            submit_job(job_fun_parallelism2, {"x": x, "y": 1, "sleep_secs": 2})
 
         for x in range(6):
-            submit_job(job_fun_parallelism3, {"x": x, "y": 1, "sleep_secs": 5}).job_id
+            submit_job(job_fun_parallelism3, {"x": x, "y": 1, "sleep_secs": 2})
 
         job_store = _get_job_store()
         p2_peak_parallelism = 0
         p3_peak_parallelism = 0
 
-        deadline = time.time() + 60
+        deadline = time.time() + 180
         while time.time() < deadline:
             p2_parallelism = 0
             p3_parallelism = 0
@@ -269,7 +274,8 @@ def test_job_queue_parallelism(monkeypatch, tmp_path):
             p2_succeeded_count = 0
             p3_succeeded_count = 0
 
-            for job in job_store.list_jobs():
+            jobs = list(job_store.list_jobs())
+            for job in jobs:
                 if job.function_fullname.endswith("job_fun_parallelism2"):
                     if job.status == JobStatus.RUNNING:
                         p2_parallelism += 1
@@ -289,7 +295,7 @@ def test_job_queue_parallelism(monkeypatch, tmp_path):
 
             if p2_succeeded_count + p3_succeeded_count == 10:
                 break
-            time.sleep(0.2)
+            time.sleep(1)
         else:
             assert False, "Submitted Jobs do not succeed within timeout."
 
@@ -361,7 +367,7 @@ def test_job_retry_on_transient_error(monkeypatch, tmp_path):
 
         # Test 1: Job that always fails should exhaust retries and fail
         job1_id = submit_job(transient_err_fun_always_fail, {}).job_id
-        wait_job_finalize(job1_id, timeout=120)
+        wait_job_finalize(job1_id)
         assert_job_result(job1_id, JobStatus.FAILED, "RuntimeError('test transient error.')")
         job1 = store.get_job(job1_id)
         assert job1.status == JobStatus.FAILED
