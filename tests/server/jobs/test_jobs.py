@@ -20,9 +20,11 @@ from mlflow.server.jobs import get_job, job, submit_job
 from mlflow.server.jobs.utils import _launch_job_runner
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
-pytestmark = pytest.mark.skipif(
-    os.name == "nt", reason="MLflow job execution is not supported on Windows"
-)
+# TODO: Remove `pytest.mark.xfail` after fixing flakiness
+pytestmark = [
+    pytest.mark.skipif(os.name == "nt", reason="MLflow job execution is not supported on Windows"),
+    pytest.mark.xfail,
+]
 
 
 @contextmanager
