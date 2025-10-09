@@ -73,9 +73,8 @@ def adapt_prompts(
         target_prompt_uris: a list of prompt uris to be optimized.
             The prompt templates should be used by the predict_fn.
         optimizer_lm_params: model parameters used in the optimization algorithm.
-            The model name can be specified in either format:
-            - `<provider>:/<model>` (e.g., "openai:/gpt-4o")
-            - `<provider>/<model>` (e.g., "openai/gpt-4o")
+            The model name can be specified in the format
+            `<provider>:/<model>` (e.g., "openai:/gpt-4o")
         scorers: List of scorers that evaluate the inputs, outputs and expectations.
             If None, uses a default scorer that applies exact match for numeric types
             and LLM judge for text.
@@ -250,7 +249,7 @@ def _build_eval_fn(
         try:
             with ThreadPoolExecutor(
                 max_workers=MLFLOW_GENAI_EVAL_MAX_WORKERS.get(),
-                thread_name_prefix="MlflowGenAIEvalHarness",
+                thread_name_prefix="MLflowPromptAdaptation",
             ) as executor:
                 futures = [executor.submit(_run_single, record) for record in dataset]
                 return [future.result() for future in futures]
