@@ -12,6 +12,7 @@ The job runner will:
 
 import logging
 import os
+import time
 
 from mlflow.server import HUEY_STORAGE_PATH_ENV_VAR
 from mlflow.server.jobs import _ALLOWED_JOB_FUNCTION_LIST
@@ -24,7 +25,6 @@ from mlflow.server.jobs.utils import (
 if __name__ == "__main__":
     logger = logging.getLogger("mlflow.server.jobs._job_runner")
     _start_watcher_to_kill_job_runner_if_mlflow_server_dies()
-    _enqueue_unfinished_jobs()
 
     huey_store_path = os.environ[HUEY_STORAGE_PATH_ENV_VAR]
 
@@ -35,3 +35,6 @@ if __name__ == "__main__":
             logging.warning(
                 f"Launch Huey consumer for {job_fn_fullname} jobs failed, root cause: {e!r}"
             )
+
+    time.sleep(10)  # wait for huey consumer launching
+    _enqueue_unfinished_jobs()

@@ -111,22 +111,6 @@ def _initialize_tables(engine):
     _upgrade_db(engine)
 
 
-def _safe_initialize_tables(engine):
-    import hashlib
-
-    from mlflow.utils.file_utils import ExclusiveFileLock
-
-    if os.name == "nt":
-        if not _all_tables_exist(engine):
-            _initialize_tables(engine)
-        return
-
-    url_hash = hashlib.md5(str(engine.url).encode("utf-8")).hexdigest()  # noqa: S324
-    with ExclusiveFileLock(f"/tmp/db_init_lock-{url_hash}"):
-        if not _all_tables_exist(engine):
-            _initialize_tables(engine)
-
-
 def _get_latest_schema_revision():
     """Get latest schema revision as a string."""
     # We aren't executing any commands against a DB, so we leave the DB URL unspecified

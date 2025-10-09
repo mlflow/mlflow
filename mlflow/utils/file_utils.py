@@ -979,30 +979,3 @@ def read_yaml(root: str, file_name: str) -> dict[str, Any]:
 
     with open(os.path.join(root, file_name)) as f:
         return yaml.safe_load(f)
-
-
-class ExclusiveFileLock:
-    """
-    Exclusive file lock (only works on Unix system)
-    """
-
-    def __init__(self, path):
-        if os.name == "nt":
-            raise MlflowException("ExclusiveFileLock class does not support Windows system.")
-        self.path = path
-        self.fd = None
-
-    def __enter__(self):
-        import fcntl
-
-        # Open file (create if missing)
-        self.fd = open(self.path, "w")
-        # Acquire exclusive lock (blocking)
-        fcntl.flock(self.fd, fcntl.LOCK_EX)
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        import fcntl
-
-        # Release lock
-        fcntl.flock(self.fd, fcntl.LOCK_UN)
-        self.fd.close()
