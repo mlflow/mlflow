@@ -20,9 +20,10 @@ from mlflow.server.jobs import get_job, job, submit_job
 from mlflow.server.jobs.utils import _launch_job_runner
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
-pytestmark = pytest.mark.skipif(
-    os.name == "nt", reason="MLflow job execution is not supported on Windows"
-)
+pytestmark = [
+    pytest.mark.skipif(os.name == "nt", reason="MLflow job execution is not supported on Windows"),
+    pytest.mark.repeat(30),
+]
 
 
 def _get_mlflow_repo_home():
