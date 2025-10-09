@@ -3,7 +3,6 @@ Internal job APIs for UI invocation
 """
 
 import json
-import os
 from typing import Any
 
 from fastapi import APIRouter, HTTPException

@@ -113,6 +113,7 @@ def _initialize_tables(engine):
 
 def _safe_initialize_tables(engine):
     import hashlib
+
     from mlflow.utils.file_utils import ExclusiveFileLock
 
     if os.name == "nt":

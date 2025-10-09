@@ -13,7 +13,6 @@ The job runner will:
 import logging
 import os
 
-from mlflow.exceptions import MlflowException
 from mlflow.server import HUEY_STORAGE_PATH_ENV_VAR
 from mlflow.server.jobs import _ALLOWED_JOB_FUNCTION_LIST
 from mlflow.server.jobs.utils import (
@@ -34,5 +33,5 @@ if __name__ == "__main__":
             _launch_huey_consumer(job_fn_fullname)
         except Exception as e:
             logging.warning(
-                f"Launch Huey consumer for {job_fn_fullname} jobs failed, root cause: {repr(e)}"
+                f"Launch Huey consumer for {job_fn_fullname} jobs failed, root cause: {e!r}"
             )
