@@ -4,10 +4,11 @@ import pandas as pd
 import pytest
 
 import mlflow
-from mlflow.genai.optimize.adapt import _compute_score, adapt_prompts
+from mlflow.genai.optimize.adapt import _make_output_equivalence_scorer, adapt_prompts
 from mlflow.genai.optimize.adapters.base import BasePromptAdapter
 from mlflow.genai.optimize.types import EvaluationResultRecord, LLMParams, PromptAdapterOutput
 from mlflow.genai.prompts import register_prompt
+from mlflow.genai.scorers import scorer
 
 
 class MockPromptAdapter(BasePromptAdapter):
@@ -266,20 +267,27 @@ def test_adapt_prompts_llm_params_passed(sample_translation_prompt, sample_datas
         ([1, 2, 3], [1, 2, 3], 1.0),
     ],
 )
-def test_compute_score_exact_match(program_outputs, expected_outputs, expected_score):
+def test_output_equivalence_scorer_exact_match(program_outputs, expected_outputs, expected_score):
+    """Test the default output equivalence scorer with exact matches."""
+    test_scorer = _make_output_equivalence_scorer("openai:/gpt-4o-mini")
     assert (
-        _compute_score(program_outputs, expected_outputs, "openai:/gpt-4o-mini") == expected_score
+        test_scorer.run(inputs={}, outputs=program_outputs, expectations=expected_outputs)
+        == expected_score
     )
 
 
-def test_compute_score_llm_judge_semantic_matching():
+def test_output_equivalence_scorer_llm_judge():
+    """Test the default output equivalence scorer with LLM judge."""
     # Test pass case
     mock_pass = Mock(value="pass")
     with patch("mlflow.genai.judges.make_judge") as mock_make_judge:
         mock_judge = Mock(return_value=mock_pass)
         mock_make_judge.return_value = mock_judge
 
-        score = _compute_score("The capital of France is Paris", "Paris", "openai:/gpt-4o-mini")
+        test_scorer = _make_output_equivalence_scorer("openai:/gpt-4o-mini")
+        score = test_scorer.run(
+            inputs={}, outputs="The capital of France is Paris", expectations="Paris"
+        )
 
         # Verify correct parameters passed to make_judge
         assert mock_make_judge.call_args.kwargs["name"] == "equivalence_judge"
@@ -299,19 +307,26 @@ def test_compute_score_llm_judge_semantic_matching():
     with patch("mlflow.genai.judges.make_judge") as mock_make_judge:
         mock_judge = Mock(return_value=mock_result)
         mock_make_judge.return_value = mock_judge
-        assert _compute_score("output", "different", "openai:/gpt-4o-mini") == 0.0
+        test_scorer = _make_output_equivalence_scorer("openai:/gpt-4o-mini")
+        assert test_scorer.run(inputs={}, outputs="output", expectations="different") == 0.0
 
 
-def test_compute_score_error_handling():
+def test_output_equivalence_scorer_error_handling():
+    """Test error handling in the default scorer."""
     with patch("mlflow.genai.judges.make_judge") as mock_make_judge:
         mock_judge = Mock(side_effect=Exception("API Error"))
         mock_make_judge.return_value = mock_judge
-        assert _compute_score("output", "expected", "openai:/gpt-4o-mini") == 0.0
+        test_scorer = _make_output_equivalence_scorer("openai:/gpt-4o-mini")
+        assert test_scorer.run(inputs={}, outputs="output", expectations="expected") == 0.0
 
 
-def test_adapt_prompts_with_custom_eval_metric(sample_translation_prompt, sample_dataset):
-    def custom_metric(output, expected):
-        return 1.0 if str(output).lower() == str(expected).lower() else 0.5
+def test_adapt_prompts_with_custom_scorers(sample_translation_prompt, sample_dataset):
+    """Test adapt_prompts with custom scorers."""
+
+    # Create a custom scorer for case-insensitive matching
+    @scorer(name="case_insensitive_match")
+    def case_insensitive_match(outputs, expectations):
+        return 1.0 if str(outputs).lower() == str(expectations).lower() else 0.5
 
     class MetricTestAdapter(BasePromptAdapter):
         def __init__(self):
@@ -325,14 +340,14 @@ def test_adapt_prompts_with_custom_eval_metric(sample_translation_prompt, sample
 
     testing_adapter = MetricTestAdapter()
 
-    # Create dataset with outputs that will test custom metric
+    # Create dataset with outputs that will test custom scorer
     test_dataset = pd.DataFrame(
         {
             "inputs": [
                 {"input_text": "Hello", "language": "Spanish"},
                 {"input_text": "World", "language": "French"},
             ],
-            "outputs": ["HOLA", "monde"],  # Different cases to test custom metric
+            "outputs": ["HOLA", "monde"],  # Different cases to test custom scorer
         }
     )
 
@@ -348,11 +363,11 @@ def test_adapt_prompts_with_custom_eval_metric(sample_translation_prompt, sample
             f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
         ],
         optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o-mini"),
+        scorers=[case_insensitive_match],
         optimizer=testing_adapter,
-        eval_metric=custom_metric,
     )
 
-    # Verify custom metric was used
+    # Verify custom scorer was used
     # "hola" vs "HOLA" (case insensitive match) -> 1.0
     # "monde" vs "monde" (exact match) -> 1.0
     assert testing_adapter.captured_scores == [1.0, 1.0]

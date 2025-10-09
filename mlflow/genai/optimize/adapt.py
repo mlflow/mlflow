@@ -10,8 +10,15 @@ from mlflow.genai.evaluation.utils import (
     _convert_eval_set_to_df,
 )
 from mlflow.genai.optimize.adapters import BasePromptAdapter, get_default_adapter
-from mlflow.genai.optimize.types import EvaluationResultRecord, LLMParams, PromptAdaptationResult
+from mlflow.genai.optimize.types import (
+    EvaluationResultRecord,
+    LLMParams,
+    ObjectiveFn,
+    PromptAdaptationResult,
+)
+from mlflow.genai.optimize.util import create_metric_from_scorers
 from mlflow.genai.prompts import load_prompt, register_prompt
+from mlflow.genai.scorers import Scorer, scorer
 from mlflow.genai.utils.trace_utils import convert_predict_fn
 from mlflow.telemetry.events import PromptAdaptationEvent
 from mlflow.telemetry.track import record_usage_event
@@ -32,8 +39,9 @@ def adapt_prompts(
     train_data: "EvaluationDatasetTypes",
     target_prompt_uris: list[str],
     optimizer_lm_params: LLMParams,
+    scorers: list[Scorer] | None = None,
+    objective: ObjectiveFn | None = None,
     optimizer: BasePromptAdapter | None = None,
-    eval_metric: Callable[[Any, Any], float] | None = None,
 ) -> PromptAdaptationResult:
     """
     This API optimizes prompts used in the passed in function to produce similar
@@ -67,13 +75,16 @@ def adapt_prompts(
             The model name can be specified in either format:
             - `<provider>:/<model>` (e.g., "openai:/gpt-4o")
             - `<provider>/<model>` (e.g., "openai/gpt-4o")
+        scorers: List of scorers that evaluate the inputs, outputs and expectations.
+            If None, uses a default scorer that applies exact match for numeric types
+            and LLM judge for text.
+        objective: A callable that computes the overall performance metric from individual
+            scorer outputs. Takes a dict mapping scorer names to scores and returns a float
+            value (greater is better). If None and all scorers return numerical values,
+            uses sum of scores by default.
         optimizer: an optional prompt optimizer object that optimizes a set of prompts based
             on the evaluation dataset and passed in function.
             If this argument is none, the default optimizer is used.
-        eval_metric: an optional callable that computes a score between program outputs
-            and expected outputs. Should accept (outputs, expectations) and
-            return a float score between 0 and 1. If None, uses the default metric that
-            applies exact match for numeric types and LLM judge for text.
 
     Returns:
         A list of optimized prompt versions.
@@ -117,13 +128,19 @@ def adapt_prompts(
     if optimizer is None:
         optimizer = get_default_adapter()
 
+    # Use default scorer if none provided
+    if not scorers:
+        scorers = [_make_output_equivalence_scorer(optimizer_lm_params.model_name)]
+
     # TODO: Add dataset validation
     converted_train_data = _convert_eval_set_to_df(train_data).to_dict("records")
     predict_fn = convert_predict_fn(
         predict_fn=predict_fn, sample_input=converted_train_data[0]["inputs"]
     )
 
-    eval_fn = _build_eval_fn(predict_fn, optimizer_lm_params, eval_metric)
+    # Create metric from scorers
+    metric_fn = create_metric_from_scorers(scorers, objective)
+    eval_fn = _build_eval_fn(predict_fn, metric_fn)
 
     target_prompts = [load_prompt(prompt_uri) for prompt_uri in target_prompt_uris]
     target_prompts_dict = {prompt.name: prompt.template for prompt in target_prompts}
@@ -141,76 +158,16 @@ def adapt_prompts(
     )
 
 
-def _compute_score(program_outputs: Any, expected_outputs: Any, judge_model: str) -> float:
-    """
-    Compute a score comparing program outputs to expected outputs.
-
-    Uses exact match for numerical types and LLM judge for string types.
-
-    Args:
-        program_outputs: The actual output from the program
-        expected_outputs: The expected output
-        judge_model: The model to use for LLM judge evaluation
-
-    Returns:
-        A score between 0 and 1
-    """
-    from mlflow.genai.judges import make_judge
-
-    # Handle exact match for numerical types
-    if isinstance(program_outputs, (int, float, bool)) and isinstance(
-        expected_outputs, (int, float, bool)
-    ):
-        return 1.0 if program_outputs == expected_outputs else 0.0
-
-    # Convert to strings for comparison
-    program_str = str(program_outputs)
-    expected_str = str(expected_outputs)
-
-    # Use exact match first
-    if program_str == expected_str:
-        return 1.0
-
-    # Use LLM judge for text outputs
-    judge = make_judge(
-        name="equivalence_judge",
-        instructions=(
-            "Compare {{outputs}} against {{expectations}}. "
-            "Evaluate if they are both semantically equivalent or convey the same meaning, "
-            "and if the output format matches the expected format "
-            "(e.g., JSON structure, sentence structure). "
-            "Return 'pass' if they match in both content and format, 'fail' if they don't."
-        ),
-        model=judge_model,
-    )
-    try:
-        result = judge(outputs={"outputs": program_str}, expectations={"outputs": expected_str})
-
-        # Parse the result - judges return Assessment with 'value' and 'rationale' fields
-        # The 'value' field contains the result ("pass", "fail")
-        result_value = str(result.value).lower().strip()
-        if result_value == "pass":
-            return 1.0
-        else:
-            return 0.0
-
-    except Exception as e:
-        _logger.warning("Failed to compute score with LLM judge: %s", e)
-        return 0.0
-
-
 def _build_eval_fn(
     predict_fn: Callable[..., Any],
-    optimizer_lm_params: LLMParams,
-    eval_metric: Callable[[Any, Any], float] | None = None,
+    metric_fn: Callable[[dict[str, Any], dict[str, Any], dict[str, Any]], float],
 ) -> Callable[[dict[str, str], list[dict[str, Any]]], list[EvaluationResultRecord]]:
     """
     Build an evaluation function that uses the candidate prompts to evaluate the predict_fn.
 
     Args:
         predict_fn: The function to evaluate
-        optimizer_lm_params: LLM parameters for the optimizer, used for judge evaluation
-        eval_metric: Optional custom evaluation metric function
+        metric_fn: Metric function created from scorers that takes (inputs, outputs, expectations)
 
     Returns:
         An evaluation function
@@ -242,11 +199,8 @@ def _build_eval_fn(
                     program_outputs = f"Failed to invoke the predict_fn with {inputs}: {e}"
 
             trace = mlflow.get_trace(eval_request_id, silent=True)
-            # Use custom metric if provided, otherwise use default scoring
-            if eval_metric is not None:
-                score = eval_metric(program_outputs, outputs)
-            else:
-                score = _compute_score(program_outputs, outputs, optimizer_lm_params.model_name)
+            # Use metric function created from scorers
+            score = metric_fn(inputs=inputs, outputs=program_outputs, expectations=outputs)
             return EvaluationResultRecord(
                 inputs=inputs,
                 outputs=program_outputs,
@@ -266,3 +220,67 @@ def _build_eval_fn(
             gorilla.revert(patch)
 
     return eval_fn
+
+
+def _make_output_equivalence_scorer(judge_model: str) -> Scorer:
+    """
+    Create an output equivalence scorer with a specific judge model.
+
+    Args:
+        judge_model: The model to use for LLM judge evaluation
+
+    Returns:
+        A Scorer that compares outputs against expected outputs
+    """
+
+    @scorer(name="output_equivalence")
+    def output_equivalence(outputs: Any, expectations: Any) -> float:
+        """
+        Compare outputs against expected outputs.
+
+        Uses exact match for numerical types and LLM judge for text types.
+
+        Args:
+            outputs: The actual output from the program
+            expectations: The expected output to match
+
+        Returns:
+            A score between 0 and 1
+        """
+        from mlflow.genai.judges import make_judge
+
+        # Handle exact match for numerical types
+        if isinstance(outputs, (int, float, bool)) and isinstance(expectations, (int, float, bool)):
+            return 1.0 if outputs == expectations else 0.0
+
+        # Convert to strings for comparison
+        outputs_str = str(outputs)
+        expectations_str = str(expectations)
+
+        # Use exact match first
+        if outputs_str == expectations_str:
+            return 1.0
+
+        # Use LLM judge for text outputs
+        judge = make_judge(
+            name="equivalence_judge",
+            instructions=(
+                "Compare {{outputs}} against {{expectations}}. "
+                "Evaluate if they are both semantically equivalent or convey the same meaning, "
+                "and if the output format matches the expected format "
+                "(e.g., JSON structure, list format, sentence structure). "
+                "Return 'pass' if they match in both content and format, 'fail' if they don't."
+            ),
+            model=judge_model,
+        )
+        try:
+            result = judge(
+                outputs={"outputs": outputs_str}, expectations={"outputs": expectations_str}
+            )
+            result_value = str(result.value).lower().strip()
+            return 1.0 if result_value == "pass" else 0.0
+        except Exception as e:
+            _logger.warning("Failed to compute score with LLM judge: %s", e)
+            return 0.0
+
+    return output_equivalence

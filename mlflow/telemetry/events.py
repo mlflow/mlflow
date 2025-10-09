@@ -196,8 +196,11 @@ class PromptAdaptationEvent(Event):
         except TypeError:
             result["prompt_count"] = None
 
-        # Track if custom eval_metric is provided
-        result["custom_eval_metric"] = arguments.get("eval_metric") is not None
+        # Track if custom scorers are provided
+        result["custom_scorers"] = arguments.get("scorers") is not None
+
+        # Track if custom objective is provided
+        result["custom_objective"] = arguments.get("objective") is not None
 
         return result
 

@@ -1,3 +1,5 @@
+from unittest.mock import Mock
+
 import pytest
 
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
@@ -146,23 +148,60 @@ def test_align_judge_parse_params(arguments, expected_params):
             {
                 "optimizer": type("MockOptimizer", (), {})(),
                 "target_prompt_uris": ["prompts:/test/1"],
-                "eval_metric": None,
+                "scorers": None,
+                "objective": None,
             },
-            {"optimizer_type": "MockOptimizer", "prompt_count": 1, "custom_eval_metric": False},
+            {
+                "optimizer_type": "MockOptimizer",
+                "prompt_count": 1,
+                "custom_scorers": False,
+                "custom_objective": False,
+            },
         ),
-        # Multiple prompt URIs
+        # Multiple prompt URIs with custom scorers
         (
             {
                 "optimizer": type("CustomAdapter", (), {})(),
                 "target_prompt_uris": ["prompts:/test/1", "prompts:/test/2"],
-                "eval_metric": lambda x, y: 1.0,
+                "scorers": [Mock()],
+                "objective": None,
             },
-            {"optimizer_type": "CustomAdapter", "prompt_count": 2, "custom_eval_metric": True},
+            {
+                "optimizer_type": "CustomAdapter",
+                "prompt_count": 2,
+                "custom_scorers": True,
+                "custom_objective": False,
+            },
+        ),
+        # Custom objective
+        (
+            {
+                "optimizer": type("TestAdapter", (), {})(),
+                "target_prompt_uris": ["prompts:/test/1"],
+                "scorers": [Mock()],
+                "objective": lambda scores: sum(scores.values()),
+            },
+            {
+                "optimizer_type": "TestAdapter",
+                "prompt_count": 1,
+                "custom_scorers": True,
+                "custom_objective": True,
+            },
         ),
         # No optimizer provided - optimizer_type should be None
         (
-            {"optimizer": None, "target_prompt_uris": ["prompts:/test/1"], "eval_metric": None},
-            {"optimizer_type": None, "prompt_count": 1, "custom_eval_metric": False},
+            {
+                "optimizer": None,
+                "target_prompt_uris": ["prompts:/test/1"],
+                "scorers": None,
+                "objective": None,
+            },
+            {
+                "optimizer_type": None,
+                "prompt_count": 1,
+                "custom_scorers": False,
+                "custom_objective": False,
+            },
         ),
     ],
 )

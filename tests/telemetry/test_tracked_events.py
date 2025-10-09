@@ -411,7 +411,12 @@ def test_prompt_adaptation(mock_requests, mock_telemetry_client: TelemetryClient
         mock_telemetry_client,
         mock_requests,
         PromptAdaptationEvent.name,
-        {"optimizer_type": "MockAdapter", "prompt_count": 1, "custom_eval_metric": False},
+        {
+            "optimizer_type": "MockAdapter",
+            "prompt_count": 1,
+            "custom_scorers": False,
+            "custom_objective": False,
+        },
     )
 
 
