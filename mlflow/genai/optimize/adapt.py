@@ -173,7 +173,6 @@ def adapt_prompts(
         predict_fn=predict_fn, sample_input=converted_train_data[0]["inputs"]
     )
 
-    # Create metric from scorers
     metric_fn = create_metric_from_scorers(scorers, objective)
     eval_fn = _build_eval_fn(predict_fn, metric_fn)
 
@@ -225,7 +224,8 @@ def _build_eval_fn(
 
         def _run_single(record: dict[str, Any]):
             inputs = record["inputs"]
-            outputs = record["outputs"]
+            # use expectations if provided, otherwise use outputs
+            outputs = record.get("expectations") or record.get("outputs")
             eval_request_id = str(uuid.uuid4())
             # set prediction context to retrieve the trace by the request id,
             # and set is_evaluate to True to disable async trace logging
