@@ -837,7 +837,7 @@ MLFLOW_MYSQL_SSL_KEY = _EnvironmentVariable("MLFLOW_MYSQL_SSL_KEY", str, None)
 #: Specifies the Databricks traffic ID to inject as x-databricks-traffic-id header
 #: in HTTP requests to Databricks endpoints
 #: (default: ``None``)
-MLFLOW_DATABRICKS_TRAFFIC_ID = _EnvironmentVariable("MLFLOW_DATABRICKS_TRAFFIC_ID", str, None)
+_MLFLOW_DATABRICKS_TRAFFIC_ID = _EnvironmentVariable("MLFLOW_DATABRICKS_TRAFFIC_ID", str, None)
 
 #######################################################################################
 # Tracing

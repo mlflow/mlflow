@@ -13,7 +13,7 @@ from mlflow.environment_variables import (
     _MLFLOW_HTTP_REQUEST_MAX_BACKOFF_FACTOR_LIMIT,
     _MLFLOW_HTTP_REQUEST_MAX_RETRIES_LIMIT,
     MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT,
-    MLFLOW_DATABRICKS_TRAFFIC_ID,
+    _MLFLOW_DATABRICKS_TRAFFIC_ID,
     MLFLOW_ENABLE_DB_SDK,
     MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR,
     MLFLOW_HTTP_REQUEST_BACKOFF_JITTER,
@@ -120,7 +120,7 @@ def http_request(
         headers = dict(**headers, **extra_headers)
 
     # Inject x-databricks-traffic-id header if environment variable is set
-    if traffic_id := MLFLOW_DATABRICKS_TRAFFIC_ID.get():
+    if traffic_id := _MLFLOW_DATABRICKS_TRAFFIC_ID.get():
         headers["x-databricks-traffic-id"] = traffic_id
 
     if host_creds.use_databricks_sdk:
