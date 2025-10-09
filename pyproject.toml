@@ -195,6 +195,9 @@ build = ["pip", "setuptools", "wheel", "build"]
 [tool.uv]
 required-version = "==0.8.18"
 
+[tool.uv.pip]
+torch-backend = "cpu"
+
 [tool.uv.workspace]
 members = ["dev/clint", "tests/resources/mlflow-test-plugin"]
 
