@@ -7,7 +7,7 @@ import { APILink } from "@site/src/components/APILink";
 
 # Rewrite Prompts for New Models (Experimental)
 
-When migrating to a new language model, you often discover that your carefully crafted prompts don't work as well with the new model. MLflow's <APILink fn="mlflow.genai.optimize_prompts" /> API helps you **automatically adapt prompts** to maintain output quality when switching models, using your existing application's outputs as training data.
+When migrating to a new language model, you often discover that your carefully crafted prompts don't work as well with the new model. MLflow's <APILink fn="mlflow.genai.optimize_prompts" /> API helps you **automatically rewrite prompts** to maintain output quality when switching models, using your existing application's outputs as training data.
 
 :::tip Key Benefits
 
@@ -117,9 +117,9 @@ This automatically creates a dataset with:
 - `inputs`: The input variables (`text` in this case)
 - `outputs`: The actual outputs from your source model (`gpt-4o`)
 
-### Step 3: Test Target Model (Optional)
+### Step 3: Switch Model
 
-Verify that the target model needs optimization:
+Switch your LM to the target model:
 
 ```python
 # Define function using target model
@@ -131,15 +131,6 @@ def predict_fn(text: str) -> str:
         temperature=0,
     )
     return completion.choices[0].message.content.lower()
-
-
-# Test target model with same inputs
-with mlflow.start_run() as run:
-    for record in inputs:
-        predict_fn(**record["inputs"])
-
-# Review traces to see format differences
-mlflow.search_traces(run_id=run.info.run_id)
 ```
 
 You might notice the target model doesn't follow the format as consistently as the source model.
@@ -240,66 +231,6 @@ result = mlflow.genai.optimize_prompts(
 )
 ```
 
-## Common Migration Scenarios
-
-### Scenario 1: Cost Reduction (GPT-4o → GPT-4o-mini)
-
-```python
-# Collect outputs from expensive model
-@mlflow.trace
-def expensive_model(text: str) -> str:
-    return openai_call(model="gpt-4o", prompt=prompt.format(text=text))
-
-
-# Optimize for cheaper model
-result = mlflow.genai.optimize_prompts(
-    predict_fn=lambda text: openai_call(
-        model="gpt-4o-mini", prompt=prompt.format(text=text)
-    ),
-    train_data=dataset,
-    target_prompt_uris=[prompt.uri],
-    optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o-mini"),
-)
-```
-
-### Scenario 2: Provider Switch (OpenAI → Anthropic)
-
-```python
-# Source: OpenAI GPT-4
-@mlflow.trace
-def openai_predict(question: str) -> str:
-    return openai_call(model="gpt-4", prompt=prompt.format(question=question))
-
-
-# Target: Anthropic Claude
-@mlflow.trace
-def anthropic_predict(question: str) -> str:
-    return anthropic_call(
-        model="claude-3-opus", prompt=prompt.format(question=question)
-    )
-
-
-# Optimize for Claude
-result = mlflow.genai.optimize_prompts(
-    predict_fn=anthropic_predict,
-    train_data=dataset_from_gpt4_traces,
-    target_prompt_uris=[prompt.uri],
-    optimizer_lm_params=LLMParams(model_name="anthropic:/claude-3-opus"),
-)
-```
-
-### Scenario 3: Speed Optimization (Large → Small Model)
-
-```python
-# Optimize for faster model while maintaining quality
-result = mlflow.genai.optimize_prompts(
-    predict_fn=fast_model_predict,
-    train_data=slow_model_outputs,
-    target_prompt_uris=[prompt.uri],
-    optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o-mini"),
-)
-```
-
 ## Best Practices
 
 ### 1. Collect Sufficient Data
@@ -338,16 +269,7 @@ inputs = [
 
 ### 3. Verify Results
 
-Always test optimized prompts before production deployment:
-
-```python
-# Evaluate on held-out test set
-test_inputs = [...]  # New inputs not used for optimization
-
-for test_input in test_inputs:
-    result = predict_fn(**test_input["inputs"])
-    print(f"Expected: {test_input['expected']}, Got: {result}")
-```
+Always test optimized prompts using <APILink fn="mlflow.genai.evaluate" /> before production deployment.
 
 ## Troubleshooting
 

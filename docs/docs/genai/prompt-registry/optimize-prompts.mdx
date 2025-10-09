@@ -1,6 +1,6 @@
 ---
 sidebar_position: 5
-sidebar_label: Optimize Prompts 🆕
+sidebar_label: Optimize Prompts
 ---
 
 import { APILink } from "@site/src/components/APILink";
@@ -314,9 +314,7 @@ print(f"Final score: {result.final_eval_score}")
 Optimize prompts to produce more accurate outputs:
 
 ```python
-@scorer
-def exact_match(outputs, expectations):
-    return 1.0 if outputs == expectations else 0.0
+from mlflow.genai.scorers import Correctness
 
 
 result = mlflow.genai.optimize_prompts(
@@ -324,25 +322,16 @@ result = mlflow.genai.optimize_prompts(
     train_data=dataset,
     target_prompt_uris=[prompt.uri],
     optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o"),
-    scorers=[exact_match],
+    scorers=[Correctness(model="openai:/gpt-4o")],
 )
 ```
 
-### Optimizing for Format
+### Optimizing for Safeness
 
-Ensure outputs follow a specific format:
+Ensure outputs are safe:
 
 ```python
-import json
-
-
-@scorer
-def json_format_scorer(outputs):
-    try:
-        json.loads(outputs)
-        return 1.0
-    except:
-        return 0.0
+from mlflow.genai.scorers import Safety
 
 
 result = mlflow.genai.optimize_prompts(
@@ -350,7 +339,7 @@ result = mlflow.genai.optimize_prompts(
     train_data=dataset,
     target_prompt_uris=[prompt.uri],
     optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o"),
-    scorers=[json_format_scorer],
+    scorers=[Safety(model="openai:/gpt-4o")],
 )
 ```
 
