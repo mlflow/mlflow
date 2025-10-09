@@ -177,7 +177,7 @@ class PromptOptimizationEvent(Event):
 
 
 class PromptAdaptationEvent(Event):
-    name: str = "prompt_adaptation"
+    name: str = "adapt_prompt"
 
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:

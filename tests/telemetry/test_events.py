@@ -88,7 +88,7 @@ def test_event_name():
     assert MergeRecordsEvent.name == "merge_records"
     assert MakeJudgeEvent.name == "make_judge"
     assert AlignJudgeEvent.name == "align_judge"
-    assert PromptAdaptationEvent.name == "prompt_adaptation"
+    assert PromptAdaptationEvent.name == "adapt_prompt"
 
 
 @pytest.mark.parametrize(
@@ -159,7 +159,7 @@ def test_align_judge_parse_params(arguments, expected_params):
             },
             {"optimizer_type": "CustomAdapter", "prompt_count": 2, "custom_eval_metric": True},
         ),
-        # No optimizer provided - should return None
+        # No optimizer provided - optimizer_type should be None
         (
             {"optimizer": None, "target_prompt_uris": ["prompts:/test/1"], "eval_metric": None},
             {"optimizer_type": None, "prompt_count": 1, "custom_eval_metric": False},
