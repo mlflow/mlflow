@@ -4,14 +4,14 @@ import pandas as pd
 import pytest
 
 import mlflow
-from mlflow.genai.optimize.adapt import _make_output_equivalence_scorer, adapt_prompts
-from mlflow.genai.optimize.adapters.base import BasePromptAdapter
+from mlflow.genai.optimize.adapt import _make_output_equivalence_scorer, optimize_prompts
+from mlflow.genai.optimize.optimizers.base import BasePromptOptimizer
 from mlflow.genai.optimize.types import EvaluationResultRecord, LLMParams, PromptAdapterOutput
 from mlflow.genai.prompts import register_prompt
 from mlflow.genai.scorers import scorer
 
 
-class MockPromptAdapter(BasePromptAdapter):
+class MockPromptAdapter(BasePromptOptimizer):
     def optimize(self, eval_fn, train_data, target_prompts, optimizer_lm_params):
         optimized_prompts = {}
         for prompt_name, template in target_prompts.items():
@@ -95,7 +95,7 @@ def sample_summarization_fn(text):
 def test_adapt_prompts_single_prompt(sample_translation_prompt, sample_dataset):
     mock_adapter = MockPromptAdapter()
 
-    result = adapt_prompts(
+    result = optimize_prompts(
         predict_fn=sample_predict_fn,
         train_data=sample_dataset,
         target_prompt_uris=[
@@ -121,7 +121,7 @@ def test_adapt_prompts_multiple_prompts(
 ):
     mock_adapter = MockPromptAdapter()
 
-    result = adapt_prompts(
+    result = optimize_prompts(
         predict_fn=sample_predict_fn,
         train_data=sample_dataset,
         target_prompt_uris=[
@@ -144,7 +144,7 @@ def test_adapt_prompts_multiple_prompts(
 
 
 def test_adapt_prompts_eval_function_behavior(sample_translation_prompt, sample_dataset):
-    class TestingAdapter(BasePromptAdapter):
+    class TestingAdapter(BasePromptOptimizer):
         def __init__(self):
             self.eval_fn_calls = []
 
@@ -186,7 +186,7 @@ def test_adapt_prompts_eval_function_behavior(sample_translation_prompt, sample_
 
     testing_adapter = TestingAdapter()
 
-    adapt_prompts(
+    optimize_prompts(
         predict_fn=predict_fn,
         train_data=sample_dataset,
         target_prompt_uris=[
@@ -208,7 +208,7 @@ def test_adapt_prompts_with_list_dataset(sample_translation_prompt, sample_summa
     def summarization_predict_fn(text):
         return f"Summary: {text[:10]}..."
 
-    result = adapt_prompts(
+    result = optimize_prompts(
         predict_fn=summarization_predict_fn,
         train_data=sample_summarization_dataset,
         target_prompt_uris=[
@@ -224,7 +224,7 @@ def test_adapt_prompts_with_list_dataset(sample_translation_prompt, sample_summa
 
 
 def test_adapt_prompts_llm_params_passed(sample_translation_prompt, sample_dataset):
-    class ParamsTestAdapter(BasePromptAdapter):
+    class ParamsTestAdapter(BasePromptOptimizer):
         def optimize(self, eval_fn, dataset, target_prompts, optimizer_lm_params):
             # Verify the parameters are passed correctly
             assert isinstance(optimizer_lm_params, LLMParams)
@@ -236,7 +236,7 @@ def test_adapt_prompts_llm_params_passed(sample_translation_prompt, sample_datas
 
     testing_adapter = ParamsTestAdapter()
 
-    result = adapt_prompts(
+    result = optimize_prompts(
         predict_fn=sample_predict_fn,
         train_data=sample_dataset,
         target_prompt_uris=[
@@ -328,7 +328,7 @@ def test_adapt_prompts_with_custom_scorers(sample_translation_prompt, sample_dat
     def case_insensitive_match(outputs, expectations):
         return 1.0 if str(outputs).lower() == str(expectations).lower() else 0.5
 
-    class MetricTestAdapter(BasePromptAdapter):
+    class MetricTestAdapter(BasePromptOptimizer):
         def __init__(self):
             self.captured_scores = []
 
@@ -356,7 +356,7 @@ def test_adapt_prompts_with_custom_scorers(sample_translation_prompt, sample_dat
         # Return lowercase outputs
         return {"Hello": "hola", "World": "monde"}.get(input_text, "unknown")
 
-    result = adapt_prompts(
+    result = optimize_prompts(
         predict_fn=predict_fn,
         train_data=test_dataset,
         target_prompt_uris=[

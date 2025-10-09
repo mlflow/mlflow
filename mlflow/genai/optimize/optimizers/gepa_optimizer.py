@@ -1,54 +1,111 @@
-import logging
-from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any
 
-from mlflow.entities.model_registry import PromptVersion
-from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
-from mlflow.genai.optimize.optimizers.base_optimizer import BasePromptOptimizer
-from mlflow.genai.optimize.types import LLMParams, ObjectiveFn, OptimizerOutput
-from mlflow.genai.optimize.util import create_metric_from_scorers
-from mlflow.genai.scorers import Scorer
+from mlflow.genai.optimize.optimizers.base import BasePromptOptimizer, _EvalFunc
+from mlflow.genai.optimize.types import EvaluationResultRecord, LLMParams, PromptAdapterOutput
 from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
     import gepa
-    import pandas as pd
-
-_logger = logging.getLogger(__name__)
 
 
 @experimental(version="3.5.0")
-class _GEPAOptimizer(BasePromptOptimizer):
+class GepaPromptOptimizer(BasePromptOptimizer):
     """
-    Prompt optimizer using native GEPA (Genetic-Pareto) optimization algorithm.
+    A prompt adapter that uses GEPA (Genetic-Pareto) optimization algorithm
+    to optimize prompts.
 
-    This optimizer uses GEPA directly without DSPy dependency, leveraging
-    iterative mutation, reflection, and Pareto-aware candidate selection.
+    GEPA uses iterative mutation, reflection, and Pareto-aware candidate selection
+    to improve text components like prompts. It leverages large language models to
+    reflect on system behavior and propose improvements.
+
+    Args:
+        max_metric_calls: Maximum number of evaluation calls during optimization.
+            Higher values may lead to better results but increase optimization time.
+            Default: 100
+        reflection_lm: Optional LLM model name for the reflection model.
+            This should be a stronger model used to reflect on and propose improvements.
+            Format: "<provider>/<model>" (e.g., "openai/gpt-4",
+            "anthropic/claude-3-5-sonnet-20241022").
+            If not provided, the task LLM will be used for reflection.
+            Default: None
+        display_progress_bar: Whether to show a progress bar during optimization.
+            Default: False
+
+    Example:
+
+        .. code-block:: python
+
+            import mlflow
+            import openai
+            from mlflow.genai.optimize import LLMParams
+            from mlflow.genai.optimize.optimizers import GepaPromptOptimizer
+
+            prompt = mlflow.genai.register_prompt(
+                name="qa",
+                template="Answer the following question: {{question}}",
+            )
+
+
+            def predict_fn(question: str) -> str:
+                completion = openai.OpenAI().chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[{"role": "user", "content": prompt.format(question=question)}],
+                )
+                return completion.choices[0].message.content
+
+
+            dataset = [
+                {"inputs": {"question": "What is the capital of France?"}, "outputs": "Paris"},
+                {"inputs": {"question": "What is the capital of Germany?"}, "outputs": "Berlin"},
+            ]
+
+            result = mlflow.genai.optimize_prompts(
+                predict_fn=predict_fn,
+                train_data=dataset,
+                target_prompt_uris=[prompt.uri],
+                optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o"),
+                optimizer=GepaPromptOptimizer(display_progress_bar=True),
+            )
+
+            print(result.optimized_prompts[0].template)
     """
+
+    def __init__(
+        self,
+        max_metric_calls: int = 100,
+        reflection_lm: str | None = None,
+        display_progress_bar: bool = False,
+    ):
+        self.max_metric_calls = max_metric_calls
+        self.reflection_lm = reflection_lm
+        self.display_progress_bar = display_progress_bar
 
     def optimize(
         self,
-        prompt: PromptVersion,
-        target_llm_params: LLMParams,
-        train_data: "pd.DataFrame",
-        scorers: list[Scorer],
-        objective: ObjectiveFn | None = None,
-        eval_data: "pd.DataFrame | None" = None,
-    ) -> OptimizerOutput:
+        eval_fn: _EvalFunc,
+        train_data: list[dict[str, Any]],
+        target_prompts: dict[str, str],
+        optimizer_lm_params: LLMParams,
+    ) -> PromptAdapterOutput:
         """
-        Optimize a prompt using GEPA algorithm.
+        Optimize the target prompts using GEPA algorithm.
 
         Args:
-            prompt: The initial prompt version to optimize
-            target_llm_params: Parameters for the target LLM
-            train_data: Training dataset as a pandas DataFrame
-            scorers: List of scorers to evaluate prompt performance
-            objective: Optional objective function to combine scorer outputs
-            eval_data: Optional evaluation dataset
+            eval_fn: The evaluation function that takes candidate prompts as a dict
+                (prompt template name -> prompt template) and a dataset as a list of dicts,
+                and returns a list of EvaluationResultRecord.
+            train_data: The dataset to use for optimization. Each record should
+                include the inputs and outputs fields with dict values.
+            target_prompts: The target prompt templates to use. The key is the prompt template
+                name and the value is the prompt template.
+            optimizer_lm_params: The optimizer LLM parameters to use.
 
         Returns:
-            OptimizerOutput containing the optimized prompt and scores
+            The outputs of the prompt adapter that includes the optimized prompts
+            as a dict (prompt template name -> prompt template).
         """
+        from mlflow.genai.optimize.optimizers.utils import parse_model_name
+
         try:
             import gepa
         except ImportError as e:
@@ -56,76 +113,13 @@ class _GEPAOptimizer(BasePromptOptimizer):
                 "GEPA is not installed. Please install it with: pip install gepa"
             ) from e
 
-        _logger.info(
-            f"🎯 Starting GEPA prompt optimization for: {prompt.uri}\n"
-            f"⏱️ This may take several minutes or longer depending on dataset size...\n"
-            f"📊 Training with {len(train_data)} examples."
-        )
-
-        # Convert DataFrame to list of dictionaries for GEPA
-        # Expected format: [{"inputs": {...}, "expected_outputs": ...}, ...]
-        train_list = train_data.to_dict("records")
-        eval_list = eval_data.to_dict("records") if eval_data is not None else None
-
-        # Create GEPA adapter using MLflow scorers
-        adapter = self._create_gepa_adapter(
-            prompt=prompt,
-            target_llm_params=target_llm_params,
-            scorers=scorers,
-            objective=objective,
-        )
-
-        # Parse model names (convert from "provider:/model" to "provider/model")
-        task_lm = self._parse_model_name(target_llm_params.model_name)
-
-        if self.optimizer_config.optimizer_llm:
-            reflection_lm = self._parse_model_name(self.optimizer_config.optimizer_llm.model_name)
-        else:
-            reflection_lm = task_lm
-
-        # Prepare seed candidate - use the prompt template as the initial text
-        seed_candidate = {"prompt": prompt.template}
-
-        # Run GEPA optimization
-        with self._maybe_suppress_stdout_stderr():
-            result = gepa.optimize(
-                seed_candidate=seed_candidate,
-                trainset=train_list,
-                valset=eval_list,
-                adapter=adapter,
-                reflection_lm=reflection_lm,
-                max_metric_calls=self.optimizer_config.num_instruction_candidates * 10,
-                display_progress_bar=self.optimizer_config.verbose,
-            )
-
-        optimized_template = result.best_candidate["prompt"]
-        initial_score, final_score = self._extract_eval_scores(result)
-
-        self._display_optimization_result(initial_score, final_score)
-
-        return OptimizerOutput(
-            final_eval_score=final_score,
-            initial_eval_score=initial_score,
-            optimized_prompt=optimized_template,
-            optimizer_name="GEPA",
-        )
-
-    def _create_gepa_adapter(
-        self,
-        prompt: PromptVersion,
-        target_llm_params: LLMParams,
-        scorers: list[Scorer],
-        objective: ObjectiveFn | None,
-    ):
-        import gepa
+        model_name = parse_model_name(optimizer_lm_params.model_name)
 
         class MlflowGEPAAdapter(gepa.GEPAAdapter):
-            def __init__(self, prompt_version, llm_params, scorers_list, objective_fn):
-                self.prompt = prompt_version
-                self.llm_params = llm_params
-                self.scorers = scorers_list
-                self.objective = objective_fn
-                self.metric = create_metric_from_scorers(scorers_list, objective_fn)
+            def __init__(self, eval_function, prompts_dict):
+                self.eval_function = eval_function
+                self.prompts_dict = prompts_dict
+                self.prompt_names = list(prompts_dict.keys())
 
             def evaluate(
                 self,
@@ -134,73 +128,30 @@ class _GEPAOptimizer(BasePromptOptimizer):
                 capture_traces: bool = False,
             ) -> "gepa.EvaluationBatch":
                 """
-                Evaluate a candidate prompt on a batch of data.
+                Evaluate a candidate prompt using the MLflow eval function.
 
                 Args:
-                    batch: List of data instances with 'inputs' and 'expected_outputs'
-                    candidate: Candidate text components (e.g., {"prompt": "..."})
+                    batch: List of data instances to evaluate
+                    candidate: Proposed text components (prompts)
                     capture_traces: Whether to capture execution traces
 
                 Returns:
                     EvaluationBatch with outputs, scores, and optional trajectories
                 """
-                prompt_template = candidate.get("prompt", self.prompt.template)
+                eval_results = self.eval_function(candidate, batch)
 
-                with ThreadPoolExecutor(
-                    max_workers=MLFLOW_GENAI_EVAL_MAX_WORKERS.get(),
-                    thread_name_prefix="GEPAOptimizer",
-                ) as executor:
-                    future_to_example = [
-                        executor.submit(self._evaluate_single_example, prompt_template, record)
-                        for record in batch
-                    ]
-                    results = [future.result() for future in future_to_example]
+                outputs = [result.outputs for result in eval_results]
+                scores = [result.score for result in eval_results]
+                trajectories = eval_results if capture_traces else None
 
-                outputs = [result["output"] for result in results]
-                scores = [result["score"] for result in results]
-
-                # Return GEPA's EvaluationBatch
                 return gepa.EvaluationBatch(
-                    outputs=outputs, scores=scores, trajectories=results if capture_traces else None
+                    outputs=outputs, scores=scores, trajectories=trajectories
                 )
-
-            def _evaluate_single_example(
-                self, prompt_template: str, record: dict[str, Any]
-            ) -> dict[str, Any]:
-                from mlflow.genai.prompts.utils import format_prompt
-
-                inputs = record.get("inputs", {})
-                filled_prompt = format_prompt(prompt_template, **inputs)
-                expectations = record.get("expectations")
-                outputs = self._call_llm(filled_prompt)
-                score = self.metric(inputs, outputs, expectations)
-
-                return {
-                    "inputs": inputs,
-                    "output": outputs,
-                    "expectations": expectations,
-                    "score": score,
-                }
-
-            def _call_llm(self, prompt: str) -> str:
-                try:
-                    import litellm
-
-                    response = litellm.completion(
-                        model=self.llm_params.model_name,
-                        messages=[{"role": "user", "content": prompt}],
-                        temperature=self.llm_params.temperature,
-                        api_base=self.llm_params.base_uri,
-                    )
-                    return response.choices[0].message.content
-                except Exception as e:
-                    _logger.error(f"LLM call failed: {e}")
-                    return ""
 
             def make_reflective_dataset(
                 self,
                 candidate: dict[str, str],
-                eval_batch: "gepa.EvaluationBatch",
+                eval_batch: "gepa.EvaluationBatch[EvaluationResultRecord, Any]",
                 components_to_update: list[str],
             ) -> dict[str, list[dict[str, Any]]]:
                 """
@@ -219,15 +170,17 @@ class _GEPAOptimizer(BasePromptOptimizer):
                 for component_name in components_to_update:
                     component_data = []
 
-                    for i, trace in enumerate(eval_batch.trajectories):
+                    trajectories = eval_batch.trajectories
+
+                    for i, (trajectory, score) in enumerate(zip(trajectories, eval_batch.scores)):
+                        trace_str = trajectory.trace.to_json() if trajectory.trace else ""
                         component_data.append(
                             {
                                 "component_name": component_name,
                                 "current_text": candidate.get(component_name, ""),
-                                "inputs": trace.get("inputs", {}),
-                                "score": trace.get("score"),
-                                "output": trace.get("output", ""),
-                                "expectations": trace.get("expectations", {}),
+                                "trace": trace_str,
+                                "score": score,
+                                "expectations": trajectory.expectations,
                                 "index": i,
                             }
                         )
@@ -236,9 +189,38 @@ class _GEPAOptimizer(BasePromptOptimizer):
 
                 return reflective_datasets
 
-        return MlflowGEPAAdapter(prompt, target_llm_params, scorers, objective)
+        adapter = MlflowGEPAAdapter(eval_fn, target_prompts)
+
+        reflection_lm = self.reflection_lm if self.reflection_lm else model_name
+
+        gepa_result = gepa.optimize(
+            seed_candidate=target_prompts,
+            trainset=train_data,
+            adapter=adapter,
+            reflection_lm=reflection_lm,
+            max_metric_calls=self.max_metric_calls,
+            display_progress_bar=self.display_progress_bar,
+        )
+
+        optimized_prompts = gepa_result.best_candidate
+        initial_score, final_score = self._extract_eval_scores(gepa_result)
+
+        return PromptAdapterOutput(
+            optimized_prompts=optimized_prompts,
+            initial_eval_score=initial_score,
+            final_eval_score=final_score,
+        )
 
     def _extract_eval_scores(self, result: "gepa.GEPAResult") -> tuple[float | None, float | None]:
+        """
+        Extract initial and final evaluation scores from GEPA result.
+
+        Args:
+            result: GEPA optimization result
+
+        Returns:
+            Tuple of (initial_score, final_score), both can be None if unavailable
+        """
         final_score = None
         initial_score = None
 
@@ -250,28 +232,3 @@ class _GEPAOptimizer(BasePromptOptimizer):
             final_score = max(scores)
 
         return initial_score, final_score
-
-    def _display_optimization_result(self, initial_score: float | None, final_score: float | None):
-        if final_score is None:
-            return
-
-        if initial_score is not None:
-            if abs(initial_score - final_score) < 0.0001:
-                _logger.info(f"Optimization complete! Score remained stable at: {final_score:.4f}.")
-            else:
-                improvement = final_score - initial_score
-                _logger.info(
-                    f"🎉 Optimization complete! "
-                    f"Initial score: {initial_score:.4f}. "
-                    f"Final score: {final_score:.4f} "
-                    f"(+{improvement:.4f})."
-                )
-        else:
-            _logger.info(f"Optimization complete! Final score: {final_score:.4f}.")
-
-    def _parse_model_name(self, model_name: str) -> str:
-        # Convert "provider:/model" to "provider/model"
-        # TODO: Use parse_model_name util after merging the model switch branch
-        if ":" in model_name:
-            model_name = model_name.replace(":/", "/")
-        return model_name

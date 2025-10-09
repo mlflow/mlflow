@@ -9,7 +9,7 @@ from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.genai.evaluation.utils import (
     _convert_eval_set_to_df,
 )
-from mlflow.genai.optimize.adapters import BasePromptAdapter, get_default_adapter
+from mlflow.genai.optimize.optimizers import BasePromptOptimizer, get_default_optimizer
 from mlflow.genai.optimize.types import (
     EvaluationResultRecord,
     LLMParams,
@@ -34,7 +34,7 @@ _logger = logging.getLogger(__name__)
 
 @experimental(version="3.5.0")
 @record_usage_event(PromptAdaptationEvent)
-def adapt_prompts(
+def optimize_prompts(
     *,
     predict_fn: Callable[..., Any],
     train_data: "EvaluationDatasetTypes",
@@ -42,7 +42,7 @@ def adapt_prompts(
     optimizer_lm_params: LLMParams,
     scorers: list[Scorer] | None = None,
     objective: ObjectiveFn | None = None,
-    optimizer: BasePromptAdapter | None = None,
+    optimizer: BasePromptOptimizer | None = None,
 ) -> PromptAdaptationResult:
     """
     This API optimizes prompts used in the passed in function to produce similar
@@ -116,7 +116,7 @@ def adapt_prompts(
                 {"inputs": {"question": "What is the capital of Germany?"}, "outputs": "Berlin"},
             ]
 
-            result = mlflow.genai.adapt_prompts(
+            result = mlflow.genai.optimize_prompts(
                 predict_fn=predict_fn,
                 train_data=dataset,
                 target_prompt_uris=[prompt.uri],
@@ -151,7 +151,7 @@ def adapt_prompts(
                 return 0.7 * scores["accuracy"] + 0.3 * scores["brevity"]
 
 
-            result = mlflow.genai.adapt_prompts(
+            result = mlflow.genai.optimize_prompts(
                 predict_fn=predict_fn,
                 train_data=dataset,
                 target_prompt_uris=[prompt.uri],
@@ -161,7 +161,7 @@ def adapt_prompts(
             )
     """
     if optimizer is None:
-        optimizer = get_default_adapter()
+        optimizer = get_default_optimizer()
 
     # Use default scorer if none provided
     if not scorers:

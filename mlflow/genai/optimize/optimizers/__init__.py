@@ -1,11 +1,14 @@
-from mlflow.genai.optimize.optimizers.base_optimizer import BasePromptOptimizer
-from mlflow.genai.optimize.optimizers.dspy_mipro_optimizer import _DSPyMIPROv2Optimizer
-from mlflow.genai.optimize.optimizers.dspy_optimizer import DSPyPromptOptimizer
-from mlflow.genai.optimize.optimizers.gepa_optimizer import _GEPAOptimizer
+from mlflow.genai.optimize.optimizers.base import BasePromptOptimizer
+from mlflow.genai.optimize.optimizers.gepa_optimizer import GepaPromptOptimizer
 
-__all__ = [
-    "BasePromptOptimizer",
-    "DSPyPromptOptimizer",
-    "_DSPyMIPROv2Optimizer",
-    "_GEPAOptimizer",
-]
+__all__ = ["BasePromptOptimizer", "GepaPromptOptimizer"]
+
+
+def get_default_optimizer() -> BasePromptOptimizer:
+    """
+    Get the default prompt optimizer.
+
+    Returns:
+        GepaPromptOptimizer: The default GEPA-based prompt optimizer with default settings.
+    """
+    return GepaPromptOptimizer()

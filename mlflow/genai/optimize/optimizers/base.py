@@ -11,7 +11,7 @@ _EvalFunc = Callable[[dict[str, str], list[dict[str, Any]]], list[EvaluationResu
 
 
 @experimental(version="3.5.0")
-class BasePromptAdapter(ABC):
+class BasePromptOptimizer(ABC):
     @abstractmethod
     def optimize(
         self,

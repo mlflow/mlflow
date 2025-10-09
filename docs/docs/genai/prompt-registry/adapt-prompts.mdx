@@ -7,373 +7,406 @@ import { APILink } from "@site/src/components/APILink";
 
 # Rewrite Prompts for New Models (Experimental)
 
-MLflow provides the <APILink fn="mlflow.genai.adapt_prompts" /> API to help you **maintain consistent outputs** when changing language models in your applications. This feature automatically adapts your prompts to produce similar outputs with a new model as you were getting with your previous model. This API uses the [GEPA](https://arxiv.org/abs/2507.19457) optimization algorithm by default, but you can plug your custom algorithm as well.
+When migrating to a new language model, you often discover that your carefully crafted prompts don't work as well with the new model. MLflow's <APILink fn="mlflow.genai.optimize_prompts" /> API helps you **automatically adapt prompts** to maintain output quality when switching models, using your existing application's outputs as training data.
 
 :::tip Key Benefits
 
-- **Model Migration**: Seamlessly switch between language models while maintaining output consistency
-- **Automatic Optimization**: Automatically rewrites prompts based on your existing data
-- **No Ground Truth Requirement**: No human labeling is required if you optimize prompts based on the existing outputs
-- **Trace-Aware**: Leverages MLflow tracing to understand prompt usage patterns
-- **Flexible**: Works with any function that uses MLflow Prompt Registry
+- **Seamless Model Migration**: Switch between models while preserving output quality
+- **No Manual Labeling**: Use traces from your existing application as training data
+- **Automatic Adaptation**: Let GEPA optimize prompts for the new model
+- **Cost Optimization**: Confidently downgrade to cheaper models without quality loss
+- **Provider Switching**: Migrate between providers (OpenAI ↔ Anthropic ↔ others)
 
 :::
 
 :::note[Version Requirements]
-The `adapt_prompts` API requires **MLflow >= 3.5.0**.
+This feature requires **MLflow >= 3.5.0**.
 :::
 
 ![](/images/adapt_prompt_flow.svg)
 
-## When to Use Prompt Rewriting
+## When to Use This
 
-Prompt rewriting is particularly useful when:
+This approach is ideal when:
 
-- **Cost Optimization**: Downgrading to a more cost-effective cheaper model while minimizing quality drift
-- **Performance Requirements**: Moving to a faster model without sacrificing output quality
-- **Switching Providers**: Changing from one LLM provider to another (e.g., OpenAI to Anthropic)
+- **Downgrading Models**: Moving from `gpt-4o` → `gpt-4o-mini` to reduce costs
+- **Switching Providers**: Changing from OpenAI to Anthropic or vice versa
+- **Performance Optimization**: Moving to faster models while maintaining quality
+- **You Have Existing Outputs**: Your current system already produces good results
 
-## Quick Start
+## Quick Start: Model Migration Workflow
 
-Here's a simple example of rewriting prompts when switching models:
+Here's a complete example of migrating from `gpt-4o` to `gpt-4o-mini` while maintaining output consistency:
+
+### Step 1: Capture Outputs from Current Model
+
+First, collect outputs from your existing model using MLflow tracing:
 
 ```python
 import mlflow
 import openai
 from mlflow.genai.optimize import LLMParams
+from mlflow.genai.datasets import create_dataset
 
 # Register your current prompt
 prompt = mlflow.genai.register_prompt(
-    name="qa",
-    template="Answer the following question: {{question}}",
+    name="sentiment",
+    template="""
+Classify the sentiment. Answer 'positive' or 'negative' or 'neutral'.
+
+Text: {{text}}
+    """,
 )
 
 
-# Your current function
-def predict_fn(question: str) -> str:
+# Your current function with the source model
+@mlflow.trace
+def predict_fn(text: str) -> str:
     completion = openai.OpenAI().chat.completions.create(
-        model="gpt-4o-mini",  # Target model to optimize the prompt for
-        messages=[{"role": "user", "content": prompt.format(question=question)}],
+        model="gpt-4o",  # Source model
+        messages=[{"role": "user", "content": prompt.format(text=text)}],
+        temperature=0,
     )
-    return completion.choices[0].message.content
+    return completion.choices[0].message.content.lower()
 
 
-# Example data showing desired outputs (e.g., outputs produced by gpt-4o)
-countries = {
-    "France": "Paris",
-    "Germany": "Berlin",
-    "Italy": "Rome",
-    "Spain": "Madrid",
-    "Portugal": "Lisbon",
-    "Switzerland": "Bern",
-    "Austria": "Vienna",
-    "Belgium": "Brussels",
-    "Netherlands": "Amsterdam",
-    "Norway": "Oslo",
-    "Sweden": "Stockholm",
-}
-dataset = [
-    {"inputs": {"question": f"What is the capital of {country}?"}, "outputs": capital}
-    for country, capital in countries.items()
+# Example inputs
+inputs = [
+    {
+        "inputs": {
+            "text": "This movie was absolutely fantastic! I loved every minute of it."
+        }
+    },
+    {"inputs": {"text": "The service was terrible and the food arrived cold."}},
+    {"inputs": {"text": "It was okay, nothing special but not bad either."}},
+    {
+        "inputs": {
+            "text": "I'm so disappointed with this purchase. Complete waste of money."
+        }
+    },
+    {"inputs": {"text": "Best experience ever! Highly recommend to everyone."}},
+    {"inputs": {"text": "The product works as described. No complaints."}},
+    {"inputs": {"text": "I can't believe how amazing this turned out to be!"}},
+    {"inputs": {"text": "Worst customer support I've ever dealt with."}},
+    {"inputs": {"text": "It's fine for the price. Gets the job done."}},
+    {"inputs": {"text": "This exceeded all my expectations. Truly wonderful!"}},
 ]
 
-# Adapt prompts for a new model
-result = mlflow.genai.adapt_prompts(
+# Collect outputs from source model
+with mlflow.start_run() as run:
+    for record in inputs:
+        predict_fn(**record["inputs"])
+```
+
+### Step 2: Create Training Dataset from Traces
+
+Convert the traced outputs into a training dataset:
+
+```python
+# Create dataset
+dataset = create_dataset(name="sentiment_migration_dataset")
+
+# Retrieve traces from the run
+traces = mlflow.search_traces(return_type="list", run_id=run.info.run_id)
+
+# Merge traces into dataset
+dataset.merge_records(traces)
+```
+
+This automatically creates a dataset with:
+- `inputs`: The input variables (`text` in this case)
+- `outputs`: The actual outputs from your source model (`gpt-4o`)
+
+### Step 3: Test Target Model (Optional)
+
+Verify that the target model needs optimization:
+
+```python
+# Define function using target model
+@mlflow.trace
+def predict_fn(text: str) -> str:
+    completion = openai.OpenAI().chat.completions.create(
+        model="gpt-4o-mini",  # Target model
+        messages=[{"role": "user", "content": prompt.format(text=text)}],
+        temperature=0,
+    )
+    return completion.choices[0].message.content.lower()
+
+
+# Test target model with same inputs
+with mlflow.start_run() as run:
+    for record in inputs:
+        predict_fn(**record["inputs"])
+
+# Review traces to see format differences
+mlflow.search_traces(run_id=run.info.run_id)
+```
+
+You might notice the target model doesn't follow the format as consistently as the source model.
+
+### Step 4: Optimize Prompts for Target Model
+
+Use the collected dataset to optimize prompts for the target model:
+
+```python
+# Optimize prompts for the target model
+result = mlflow.genai.optimize_prompts(
     predict_fn=predict_fn,
-    train_data=dataset,
+    train_data=dataset.to_df(),
     target_prompt_uris=[prompt.uri],
-    optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o"),
+    optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o-mini"),
 )
 
-# Use the optimized prompt
+# View the optimized prompt
 optimized_prompt = result.optimized_prompts[0]
-print(f"## Optimized template: {optimized_prompt.template}")
+print(f"Optimized template: {optimized_prompt.template}")
 ```
 
-In this example, this API produces a more informative prompt template:
+The optimized prompt will include additional instructions to help `gpt-4o-mini` match the behavior of `gpt-4o`:
 
 ```
-## Optimized template:
-Answer the following question: {{question}}
+Optimized template:
+Classify the sentiment of the provided text. Your response must be one of the following:
+- 'positive'
+- 'negative'
+- 'neutral'
 
-Your response must be concise, factual, and directly address the specific question asked. Responses should be based on widely accepted knowledge regarding country capitals.
+Ensure your response is lowercase and contains only one of these three words.
 
-For each question about a capital city, provide only the name of the capital city itself. Avoid any additional context, explanations, or elaborations unless explicitly requested by the user.
+Text: {{text}}
 
-Example questions you may encounter include:
-- "What is the capital of Belgium?"
-- "What is the capital of Canada?"
-- "What is the capital of Brazil?"
+Guidelines:
+- 'positive': The text expresses satisfaction, happiness, or approval
+- 'negative': The text expresses dissatisfaction, anger, or disapproval
+- 'neutral': The text is factual or balanced without strong emotion
 
-For each example question, the expected format of your answer should strictly be:
-- Brussels (for Belgium)
-- Ottawa (for Canada)
-- Brasília (for Brazil)
-
-Furthermore, ensure that your responses align directly with the asked question and do not deviate into related topics or generalizations about the countries unless specifically prompted.
-
-Your response should exemplify clarity and maintain a straightforward structure focused on user needs.
+Your response must match this exact format with no additional explanation.
 ```
 
-## Components
+### Step 5: Use Optimized Prompt
 
-### 1. Predict Function
-
-Your `predict_fn` must:
-
-- Accept inputs as keyword arguments
-- Use prompts from MLflow Prompt Registry via <APILink fn="mlflow.entities.PromptVersion.format" text="PromptVersion.format()" />
-- Return outputs matching the type in your dataset
+Deploy the optimized prompt in your application:
 
 ```python
-def predict_fn(question: str) -> str:
-    # Load prompt from registry
-    prompt = mlflow.genai.load_prompt("prompts:/qa/1")
+# Load the optimized prompt
+optimized = mlflow.genai.load_prompt(optimized_prompt.uri)
 
-    # Format the prompt
-    formatted_prompt = prompt.format(question=question)
 
-    # Call your LLM
-    response = your_llm_call(formatted_prompt)
+# Use in production
+@mlflow.trace
+def predict_fn_optimized(text: str) -> str:
+    completion = openai.OpenAI().chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": optimized.format(text=text)}],
+        temperature=0,
+    )
+    return completion.choices[0].message.content.lower()
 
-    return response
+
+# Test with new inputs
+test_result = predict_fn_optimized("This product is amazing!")
+print(test_result)  # Output: positive
 ```
 
-### 2. Training Data
+## Alternative: Using Existing Data
 
-The dataset must include `inputs` and `outputs` columns:
-
-<table style={{ width: "100%" }}>
-  <thead>
-    <tr>
-      <th style={{ width: "20%" }}>Column</th>
-      <th style={{ width: "80%" }}>Description</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code>inputs</code></td>
-      <td>Dictionary containing variables that match your prompt template placeholders (e.g., <code>{'{"question": "What is AI?"}'}</code>)</td>
-    </tr>
-    <tr>
-      <td><code>outputs</code></td>
-      <td>The expected output your function should produce for the given inputs</td>
-    </tr>
-  </tbody>
-</table>
-
-Supported dataset formats:
-
-- Pandas DataFrame
-- List of dictionaries
-- MLflow EvaluationDataset
-- Spark DataFrame
+If you already have a dataset with inputs and expected outputs, you can skip the tracing step:
 
 ```python
-# List of dictionaries
-dataset = [
-    {"inputs": {"question": "What is the capital of France?"}, "outputs": "Paris"},
-    {"inputs": {"question": "What is the capital of Germany?"}, "outputs": "Berlin"},
-]
-
-# Or Pandas DataFrame
+# Prepare dataset directly
 import pandas as pd
 
 dataset = pd.DataFrame(
     {
         "inputs": [
-            {"question": "What is the capital of France?"},
-            {"question": "What is the capital of Germany?"},
+            {"text": "This is wonderful!"},
+            {"text": "Terrible experience."},
+            {"text": "It's okay."},
         ],
-        "outputs": ["Paris", "Berlin"],
+        "outputs": [
+            "positive",
+            "negative",
+            "neutral",
+        ],
     }
 )
-```
 
-### 3. Target Prompt URIs
-
-Specify which prompts to optimize using their URIs:
-
-```python
-target_prompt_uris = [
-    "prompts:/qa/1",  # Specific version
-    "prompts:/instruction/latest",  # Latest version
-]
-```
-
-### 4. Optimizer LM Parameters
-
-Configure the model used for optimization using <APILink fn="mlflow.genai.optimize.LLMParams" />:
-
-```python
-from mlflow.genai.optimize import LLMParams
-
-optimizer_lm_params = LLMParams(
-    model_name="openai:/gpt-4o",  # Model for optimization
-)
-```
-
-## Prepare Training Dataset from your existing application
-
-Manually labeling training data can be slow and hold up your experimentation with different models. If your current AI system already generates reasonably good outputs, consider using that language model to create your training dataset for rewriting instead. Alternatively, you can use [MLflow UI to annotate your dataset](/genai/assessments/feedback).
-
-```python
-import mlflow
-from mlflow.genai.datasets import create_dataset
-
-
-# Enable tracing for your existing application
-@mlflow.trace
-def predict_fn(question: str) -> str:
-    # Inference logic with the current language model
-    ...
-
-
-inputs = [
-    {"question": "What is the capital of France?"},
-    {"question": "What is the capital of Germany?"},
-    {"question": "What is the capital of Japan?"},
-]
-
-for record in inputs:
-    predict_fn(**record)
-
-# Create your evaluation dataset
-dataset = create_dataset(name="qa_evaluation_dataset")
-
-# Retrieve traces
-traces = mlflow.search_traces(return_type="list")
-
-# Merge the list of Trace objects into your dataset
-dataset.merge_records(traces)
-```
-
-## Advanced Usage
-
-### Using Custom Optimizers
-
-You can provide your own optimization algorithm by implementing <APILink fn="mlflow.genai.optimize.BasePromptAdapter" >BasePromptAdapter</APILink>:
-
-```python
-from mlflow.genai.optimize import BasePromptAdapter, PromptAdapterOutput
-
-
-class MyCustomAdapter(BasePromptAdapter):
-    def optimize(self, eval_fn, dataset, target_prompts, optimizer_lm_params):
-        # Your custom optimization logic
-        optimized_prompts = {}
-        for prompt_name, prompt_template in target_prompts.items():
-            # Implement your optimization algorithm
-            optimized_prompts[prompt_name] = your_optimization_logic(
-                prompt_template, dataset, optimizer_lm_params
-            )
-
-        return PromptAdapterOutput(optimized_prompts=optimized_prompts)
-
-
-# Use your custom adapter
-result = mlflow.genai.adapt_prompts(
+# Optimize directly
+result = mlflow.genai.optimize_prompts(
     predict_fn=predict_fn,
     train_data=dataset,
     target_prompt_uris=[prompt.uri],
-    optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o"),
-    optimizer=MyCustomAdapter(),
+    optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o-mini"),
 )
 ```
 
-### Multi-Prompt Rewriting
+## Common Migration Scenarios
 
-Adapt multiple prompts simultaneously:
+### Scenario 1: Cost Reduction (GPT-4o → GPT-4o-mini)
 
 ```python
-# Register multiple prompts
-system_prompt = mlflow.genai.register_prompt(
-    name="system_instruction",
-    template="You are a helpful assistant.",
-)
+# Collect outputs from expensive model
+@mlflow.trace
+def expensive_model(text: str) -> str:
+    return openai_call(model="gpt-4o", prompt=prompt.format(text=text))
 
-user_prompt = mlflow.genai.register_prompt(
-    name="user_query",
-    template="Question: {{question}}",
-)
 
-# adapt both prompts together
-result = mlflow.genai.adapt_prompts(
-    predict_fn=predict_fn,
+# Optimize for cheaper model
+result = mlflow.genai.optimize_prompts(
+    predict_fn=lambda text: openai_call(
+        model="gpt-4o-mini", prompt=prompt.format(text=text)
+    ),
     train_data=dataset,
-    target_prompt_uris=[
-        system_prompt.uri,
-        user_prompt.uri,
-    ],
-    optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o"),
+    target_prompt_uris=[prompt.uri],
+    optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o-mini"),
 )
-
-# Access individual optimized prompts
-optimized_system = result.optimized_prompts[0]
-optimized_user = result.optimized_prompts[1]
 ```
 
-## Result Object
-
-The <APILink fn="mlflow.genai.adapt_prompts" /> API returns a <APILink fn="mlflow.genai.optimize.PromptAdaptationResult">PromptAdaptationResult</APILink> object:
+### Scenario 2: Provider Switch (OpenAI → Anthropic)
 
 ```python
-result = mlflow.genai.adapt_prompts(...)
+# Source: OpenAI GPT-4
+@mlflow.trace
+def openai_predict(question: str) -> str:
+    return openai_call(model="gpt-4", prompt=prompt.format(question=question))
 
-# Access optimized prompts
-for prompt in result.optimized_prompts:
-    print(f"Prompt: {prompt.name}")
-    print(f"Version: {prompt.version}")
-    print(f"Template: {prompt.template}")
-    print(f"URI: {prompt.uri}")
 
-# Check which optimizer was used
-print(f"Optimizer: {result.optimizer_name}")
+# Target: Anthropic Claude
+@mlflow.trace
+def anthropic_predict(question: str) -> str:
+    return anthropic_call(
+        model="claude-3-opus", prompt=prompt.format(question=question)
+    )
+
+
+# Optimize for Claude
+result = mlflow.genai.optimize_prompts(
+    predict_fn=anthropic_predict,
+    train_data=dataset_from_gpt4_traces,
+    target_prompt_uris=[prompt.uri],
+    optimizer_lm_params=LLMParams(model_name="anthropic:/claude-3-opus"),
+)
+```
+
+### Scenario 3: Speed Optimization (Large → Small Model)
+
+```python
+# Optimize for faster model while maintaining quality
+result = mlflow.genai.optimize_prompts(
+    predict_fn=fast_model_predict,
+    train_data=slow_model_outputs,
+    target_prompt_uris=[prompt.uri],
+    optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o-mini"),
+)
+```
+
+## Best Practices
+
+### 1. Collect Sufficient Data
+
+For best results, collect outputs from at least 20-50 diverse examples:
+
+```python
+# ✅ Good: Diverse examples
+inputs = [
+    {"text": "Short positive."},
+    {
+        "text": "A much longer negative review with multiple sentences and detailed criticism."
+    },
+    {"text": "Neutral statement."},
+    # ... more varied examples
+]
+
+# ❌ Poor: Too few, too similar
+inputs = [
+    {"text": "Good"},
+    {"text": "Bad"},
+]
+```
+
+### 2. Use Representative Examples
+
+Include edge cases and challenging inputs:
+
+```python
+inputs = [
+    {"text": "Absolutely fantastic!"},  # Clear positive
+    {"text": "It's not bad, I guess."},  # Ambiguous
+    {"text": "The food was good but service terrible."},  # Mixed sentiment
+]
+```
+
+### 3. Verify Results
+
+Always test optimized prompts before production deployment:
+
+```python
+# Evaluate on held-out test set
+test_inputs = [...]  # New inputs not used for optimization
+
+for test_input in test_inputs:
+    result = predict_fn(**test_input["inputs"])
+    print(f"Expected: {test_input['expected']}, Got: {result}")
 ```
 
 ## Troubleshooting
 
-### Issue: Outputs Don't Match Expected Results
+### Issue: Target Model Still Doesn't Match Source
 
-**Solution**: Ensure your training data accurately represents the desired outputs:
+**Cause**: Different models have different capabilities.
 
-- Verify the `outputs` column contains the exact format you want
-- Check that `inputs` match the variables in your prompt template
-- Increase the size and diversity of your training dataset
+**Solution**:
+- Increase training data size (aim for 50+ examples)
+- Use a more powerful optimizer model
+- Consider if the target model is capable of the task
+- Add explicit format examples to your initial prompt
 
-Also note that it is sometimes impossible to produce completely the same outputs by optimizing the prompts across different language models.
+### Issue: Optimization Takes Too Long
 
-### Issue: Rewriting Takes Too Long
-
-**Solution**: Reduce the dataset size or use a faster optimizer model:
-
-```python
-# Use fewer examples for faster rewriting
-small_dataset = dataset[:10]
-
-# Or use a faster/smaller model for rewriting
-optimizer_lm_params = LLMParams(model_name="openai:/gpt-5-mini")
-```
-
-### Issue: Prompts Not Updated
-
-**Solution**: Ensure your `predict_fn` uses <APILink fn="mlflow.entities.PromptVersion.format" text="PromptVersion.format()" />:
+**Solution**: Reduce dataset size or use faster optimizer:
 
 ```python
-# ✅ Correct - uses Prompt Registry
-def predict_fn(question: str):
-    prompt = mlflow.genai.load_prompt("prompts:/qa/1")
-    return llm_call(prompt.format(question=question))
+# Use subset of data
+small_dataset = dataset.sample(n=20)
 
-
-# ❌ Incorrect - hardcoded prompt
-def predict_fn(question: str):
-    return llm_call(f"Answer: {question}")
+# Or use faster optimizer model
+optimizer_lm_params = LLMParams(model_name="openai:/gpt-4o-mini")
 ```
 
-Note that MLflow may return the original prompts unchanged if it can't find improvements. In this case, try increasing your dataset size or evaluate the original prompts against the target model to verify whether quality has actually declined.
+### Issue: Dataset Creation Fails
+
+**Solution**: Verify trace structure:
+
+```python
+# Check traces have required fields
+traces = mlflow.search_traces(return_type="list", run_id=run.info.run_id)
+for trace in traces:
+    print(f"Inputs: {trace.info.request}")
+    print(f"Outputs: {trace.info.response}")
+```
+
+## Measuring Success
+
+Track how well the migration worked:
+
+```python
+# Compare source and target model on test set
+from mlflow.genai import evaluate
+
+# Evaluate optimized prompt
+results = evaluate(
+    data=test_dataset,
+    predict_fn=predict_fn_optimized,
+    scorers=[accuracy_scorer, format_scorer],
+)
+
+print(f"Accuracy: {results.metrics['accuracy']}")
+print(f"Format compliance: {results.metrics['format_scorer']}")
+```
 
 ## See Also
 
-- [Create and Edit Prompts](/genai/prompt-registry/create-and-edit-prompts): Basic usage of Prompt Registry
-- [Optimize Prompts](/genai/prompt-registry/optimize-prompts): Optimize your prompts based on custom evaluation criteria.
+- [Optimize Prompts](/genai/prompt-registry/optimize-prompts): General prompt optimization guide
+- [Create and Edit Prompts](/genai/prompt-registry/create-and-edit-prompts): Prompt Registry basics
+- [Evaluate Prompts](/genai/eval-monitor/running-evaluation/prompts): Evaluate prompt performance
+- [MLflow Tracing](/genai/tracing/overview): Understanding MLflow tracing
