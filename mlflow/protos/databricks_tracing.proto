@@ -59,7 +59,7 @@ service DatabricksTrackingService {
     option (rpc) = {
       endpoints: [{
         method: "PATCH",
-        path: "/mlflow/traces/{location}/{trace_id}/tags"
+        path: "/mlflow/traces/{location_id}/{trace_id}/tags"
         since { major: 4, minor: 0 },
       }],
       visibility: PUBLIC_UNDOCUMENTED,
@@ -72,7 +72,7 @@ service DatabricksTrackingService {
     option (rpc) = {
       endpoints: [{
         method: "DELETE",
-        path: "/mlflow/traces/{location}/{trace_id}/tags/{key}"
+        path: "/mlflow/traces/{location_id}/{trace_id}/tags/{key}"
         since { major: 4, minor: 0 },
       }],
       visibility: PUBLIC_UNDOCUMENTED,
