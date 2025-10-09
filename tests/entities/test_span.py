@@ -3,14 +3,19 @@ from datetime import datetime
 
 import opentelemetry.trace as trace_api
 import pytest
+from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
+from opentelemetry.proto.trace.v1.trace_pb2 import Status as OTelProtoStatus
+from opentelemetry.sdk.trace import Event as OTelEvent
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
+from opentelemetry.trace import Status as OTelStatus
+from opentelemetry.trace import StatusCode as OTelStatusCode
 
 import mlflow
 from mlflow.entities import LiveSpan, Span, SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.entities.span import NoOpSpan, create_mlflow_span
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.provider import _get_tracer, trace_disabled
-from mlflow.tracing.utils import encode_span_id, encode_trace_id
+from mlflow.tracing.utils import build_otel_context, encode_span_id, encode_trace_id
 
 
 def test_create_live_span():
@@ -289,3 +294,255 @@ def test_from_dict_raises_when_trace_id_is_empty():
                 "events": [],
             }
         )
+
+
+def test_set_attribute_directly_to_otel_span():
+    with mlflow.start_span("test") as span:
+        span._span.set_attribute("int", 1)
+        span._span.set_attribute("str", "a")
+
+    assert span.get_attribute("int") == 1
+    assert span.get_attribute("str") == "a"
+
+
+@pytest.fixture
+def sample_otel_span_for_conversion():
+    """Create a sample OTelReadableSpan for testing."""
+    return OTelReadableSpan(
+        name="test_span",
+        context=build_otel_context(
+            trace_id=0x12345678901234567890123456789012,
+            span_id=0x1234567890123456,
+        ),
+        parent=build_otel_context(
+            trace_id=0x12345678901234567890123456789012,
+            span_id=0x0987654321098765,
+        ),
+        start_time=1000000000,
+        end_time=2000000000,
+        attributes={
+            "mlflow.traceRequestId": "tr-12345678901234567890123456789012",
+            "mlflow.spanType": "LLM",
+            "mlflow.spanInputs": '{"prompt": "Hello"}',
+            "mlflow.spanOutputs": '{"response": "Hi"}',
+            "custom_attr": '{"key": "value"}',
+        },
+        status=OTelStatus(OTelStatusCode.OK, "Success"),
+        events=[
+            OTelEvent(
+                name="event1",
+                timestamp=1500000000,
+                attributes={"event_key": "event_value"},
+            )
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    "attributes",
+    [
+        # Empty attributes
+        {},
+        # String attributes
+        {"str_key": "str_value"},
+        # Numeric attributes
+        {"int_key": 42, "float_key": 3.14},
+        # Boolean attributes
+        {"bool_key": True, "false_key": False},
+        # Bytes attributes
+        {"bytes_key": b"binary_data"},
+        # List attributes
+        {"list_str": ["a", "b", "c"], "list_int": [1, 2, 3], "list_float": [1.1, 2.2]},
+        # Dict attributes
+        {"dict_key": {"nested": "value", "number": 123}},
+        # Mixed complex attributes
+        {
+            "complex": {
+                "nested_list": [1, "two", 3.0],
+                "nested_dict": {"deep": {"deeper": "value"}},
+            },
+            "simple": "string",
+        },
+    ],
+)
+def test_otel_attribute_conversion(attributes):
+    """Test attribute conversion with various data types."""
+    from opentelemetry.proto.common.v1.common_pb2 import KeyValue
+
+    from mlflow.tracing.utils.otlp import _decode_otel_proto_anyvalue, _set_otel_proto_anyvalue
+
+    # Convert attributes to proto format
+    proto_attrs = []
+    for key, value in attributes.items():
+        kv = KeyValue()
+        kv.key = key
+        _set_otel_proto_anyvalue(kv.value, value)
+        proto_attrs.append(kv)
+
+    # Decode back and verify
+    decoded = {}
+    for kv in proto_attrs:
+        decoded[kv.key] = _decode_otel_proto_anyvalue(kv.value)
+
+    assert decoded == attributes
+
+
+def test_span_to_otel_proto_conversion(sample_otel_span_for_conversion):
+    """Test converting MLflow Span to OTel protobuf."""
+    # Create MLflow span from OTel span
+    mlflow_span = Span(sample_otel_span_for_conversion)
+
+    # Convert to OTel proto
+    otel_proto = mlflow_span.to_otel_proto()
+
+    # Verify basic fields
+    assert otel_proto.name == "test_span"
+    assert otel_proto.start_time_unix_nano == 1000000000
+    assert otel_proto.end_time_unix_nano == 2000000000
+
+    # Verify IDs (should be in bytes format)
+    assert len(otel_proto.trace_id) == 16  # 128-bit trace ID
+    assert len(otel_proto.span_id) == 8  # 64-bit span ID
+    assert len(otel_proto.parent_span_id) == 8
+
+    # Verify status
+    assert otel_proto.status.code == OTelProtoStatus.STATUS_CODE_OK
+    # OTel SDK clears description for non-ERROR statuses
+    assert otel_proto.status.message == ""
+
+    # Verify attributes exist
+    assert len(otel_proto.attributes) == 5
+    attr_keys = {attr.key for attr in otel_proto.attributes}
+    assert "mlflow.spanType" in attr_keys
+    assert "custom_attr" in attr_keys
+
+    # Verify events
+    assert len(otel_proto.events) == 1
+    assert otel_proto.events[0].name == "event1"
+    assert otel_proto.events[0].time_unix_nano == 1500000000
+
+
+def test_span_from_otel_proto_conversion():
+    """Test converting OTel protobuf to MLflow Span."""
+    # Create OTel proto span
+    otel_proto = OTelProtoSpan()
+    otel_proto.trace_id = bytes.fromhex("12345678901234567890123456789012")
+    otel_proto.span_id = bytes.fromhex("1234567890123456")
+    otel_proto.parent_span_id = bytes.fromhex("0987654321098765")
+    otel_proto.name = "proto_span"
+    otel_proto.start_time_unix_nano = 1000000000
+    otel_proto.end_time_unix_nano = 2000000000
+
+    # Add status
+    otel_proto.status.code = OTelProtoStatus.STATUS_CODE_ERROR
+    otel_proto.status.message = "Error occurred"
+
+    # Add attributes
+    from mlflow.tracing.utils.otlp import _set_otel_proto_anyvalue
+
+    attr1 = otel_proto.attributes.add()
+    attr1.key = "mlflow.traceRequestId"
+    _set_otel_proto_anyvalue(attr1.value, '{"request": "id"}')
+
+    attr2 = otel_proto.attributes.add()
+    attr2.key = "mlflow.spanType"
+    _set_otel_proto_anyvalue(attr2.value, "CHAIN")
+
+    attr3 = otel_proto.attributes.add()
+    attr3.key = "custom"
+    _set_otel_proto_anyvalue(attr3.value, {"nested": {"value": 123}})
+
+    # Add event
+    event = otel_proto.events.add()
+    event.name = "test_event"
+    event.time_unix_nano = 1500000000
+    event_attr = event.attributes.add()
+    event_attr.key = "event_data"
+    _set_otel_proto_anyvalue(event_attr.value, "event_value")
+
+    # Convert to MLflow span
+    mlflow_span = Span.from_otel_proto(otel_proto)
+
+    # Verify basic fields
+    assert mlflow_span.name == "proto_span"
+    assert mlflow_span.start_time_ns == 1000000000
+    assert mlflow_span.end_time_ns == 2000000000
+
+    # Verify IDs
+    assert mlflow_span.span_id == "1234567890123456"
+    assert mlflow_span.parent_id == "0987654321098765"
+
+    # Verify status
+    assert mlflow_span.status.status_code == SpanStatusCode.ERROR
+    assert mlflow_span.status.description == "Error occurred"
+
+    # Verify attributes
+    assert mlflow_span.span_type == "CHAIN"
+    assert mlflow_span.get_attribute("custom") == {"nested": {"value": 123}}
+
+    # Verify events
+    assert len(mlflow_span.events) == 1
+    assert mlflow_span.events[0].name == "test_event"
+    assert mlflow_span.events[0].timestamp == 1500000000
+    assert mlflow_span.events[0].attributes["event_data"] == "event_value"
+
+
+def test_otel_roundtrip_conversion(sample_otel_span_for_conversion):
+    """Test that conversion roundtrip preserves data."""
+    # Start with OTel span -> MLflow span
+    mlflow_span = Span(sample_otel_span_for_conversion)
+
+    # Convert to OTel proto
+    otel_proto = mlflow_span.to_otel_proto()
+
+    # Convert back to MLflow span
+    roundtrip_span = Span.from_otel_proto(otel_proto)
+
+    # Verify key fields are preserved
+    assert roundtrip_span.name == mlflow_span.name
+    assert roundtrip_span.span_id == mlflow_span.span_id
+    assert roundtrip_span.parent_id == mlflow_span.parent_id
+    assert roundtrip_span.start_time_ns == mlflow_span.start_time_ns
+    assert roundtrip_span.end_time_ns == mlflow_span.end_time_ns
+    assert roundtrip_span.status.status_code == mlflow_span.status.status_code
+    assert roundtrip_span.status.description == mlflow_span.status.description
+
+    # Verify span attributes are preserved
+    assert roundtrip_span.span_type == mlflow_span.span_type
+    assert roundtrip_span.inputs == mlflow_span.inputs
+    assert roundtrip_span.outputs == mlflow_span.outputs
+
+    # Verify ALL attributes are preserved by iterating through them
+    # Get all attribute keys from both spans
+    original_attributes = mlflow_span.attributes
+    roundtrip_attributes = roundtrip_span.attributes
+
+    # Check we have the same number of attributes
+    assert len(original_attributes) == len(roundtrip_attributes)
+
+    # Check each attribute is preserved correctly
+    for attr_key in original_attributes:
+        assert attr_key in roundtrip_attributes, f"Attribute {attr_key} missing after roundtrip"
+        original_value = original_attributes[attr_key]
+        roundtrip_value = roundtrip_attributes[attr_key]
+        assert original_value == roundtrip_value, (
+            f"Attribute {attr_key} changed: {original_value} != {roundtrip_value}"
+        )
+
+    # Also explicitly verify specific important attributes
+    # The original span has a custom_attr that should be preserved
+    original_custom_attr = mlflow_span.get_attribute("custom_attr")
+    roundtrip_custom_attr = roundtrip_span.get_attribute("custom_attr")
+    assert original_custom_attr == roundtrip_custom_attr
+    assert original_custom_attr == {"key": "value"}
+
+    # Verify the trace request ID is preserved
+    assert roundtrip_span.request_id == mlflow_span.request_id
+    assert roundtrip_span.request_id == "tr-12345678901234567890123456789012"
+
+    # Verify events
+    assert len(roundtrip_span.events) == len(mlflow_span.events)
+    for orig_event, rt_event in zip(mlflow_span.events, roundtrip_span.events):
+        assert rt_event.name == orig_event.name
+        assert rt_event.timestamp == orig_event.timestamp
+        assert rt_event.attributes == orig_event.attributes

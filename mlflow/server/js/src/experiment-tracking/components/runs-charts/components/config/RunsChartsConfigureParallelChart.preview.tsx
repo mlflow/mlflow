@@ -1,8 +1,8 @@
-import { RunsChartsRunData } from '../RunsCharts.common';
+import type { RunsChartsRunData } from '../RunsCharts.common';
 import LazyParallelCoordinatesPlot from '../charts/LazyParallelCoordinatesPlot';
 import { isParallelChartConfigured, processParallelCoordinateData } from '../../utils/parallelCoordinatesPlot.utils';
 import { useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
-import { RunsChartsParallelCardConfig } from '../../runs-charts.types';
+import type { RunsChartsParallelCardConfig } from '../../runs-charts.types';
 import { useMemo } from 'react';
 import { FormattedMessage } from 'react-intl';
 import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';

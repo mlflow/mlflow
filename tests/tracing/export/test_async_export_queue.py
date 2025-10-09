@@ -6,6 +6,8 @@ from unittest import mock
 
 from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
 
+from tests.tracing.helper import skip_when_testing_trace_sdk
+
 
 def test_async_queue_handle_tasks():
     queue = AsyncTraceExportQueue()
@@ -39,6 +41,7 @@ def exporter_process(counter):
         queue.put(task)
 
 
+@skip_when_testing_trace_sdk
 def test_async_queue_complete_task_process_finished():
     multiprocessing.set_start_method("spawn", force=True)
     counter = multiprocessing.Value("i", 0)
@@ -58,7 +61,7 @@ def test_async_queue_activate_thread_safe(mock_atexit):
         return sum(
             t.is_alive()
             for t in threading.enumerate()
-            if t is not main_thread and t.getName().startswith("MLflowTraceLogging")
+            if t is not main_thread and t.name.startswith("MLflowTraceLogging")
         )
 
     # 1. Validate activation

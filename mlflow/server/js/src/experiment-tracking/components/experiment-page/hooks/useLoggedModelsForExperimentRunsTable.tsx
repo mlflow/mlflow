@@ -1,13 +1,18 @@
 import { useMemo } from 'react';
-import { isExperimentLoggedModelsUIEnabled } from '../../../../common/utils/FeatureUtils';
 import { useSearchLoggedModelsQuery } from '../../../hooks/logged-models/useSearchLoggedModelsQuery';
-import { LoggedModelProto } from '../../../types';
+import type { LoggedModelProto } from '../../../types';
 
-export const useLoggedModelsForExperimentRunsTable = (experimentIds: string[]) => {
+export const useLoggedModelsForExperimentRunsTable = ({
+  experimentIds,
+  enabled = true,
+}: {
+  experimentIds: string[];
+  enabled?: boolean;
+}) => {
   const { data: loggedModelsData } = useSearchLoggedModelsQuery(
     { experimentIds },
     {
-      enabled: isExperimentLoggedModelsUIEnabled(),
+      enabled,
     },
   );
 

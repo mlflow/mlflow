@@ -1,28 +1,33 @@
 import abc
+import contextlib
+import io
+import os
 from typing import TYPE_CHECKING, Optional
 
-from mlflow.entities.model_registry import Prompt
-from mlflow.genai.optimize.types import OBJECTIVE_FN, LLMParams, OptimizerConfig
+from mlflow.entities.model_registry import PromptVersion
+from mlflow.genai.optimize.types import LLMParams, ObjectiveFn, OptimizerConfig, OptimizerOutput
 from mlflow.genai.scorers import Scorer
+from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
     import pandas as pd
 
 
-class _BaseOptimizer(abc.ABC):
+@experimental(version="3.3.0")
+class BasePromptOptimizer(abc.ABC):
     def __init__(self, optimizer_config: OptimizerConfig):
-        self.optimizer_config = optimizer_config
+        self._optimizer_config = optimizer_config
 
     @abc.abstractmethod
     def optimize(
         self,
-        prompt: Prompt,
+        prompt: PromptVersion,
         target_llm_params: LLMParams,
         train_data: "pd.DataFrame",
         scorers: list[Scorer],
-        objective: Optional[OBJECTIVE_FN] = None,
+        objective: ObjectiveFn | None = None,
         eval_data: Optional["pd.DataFrame"] = None,
-    ) -> Prompt:
+    ) -> OptimizerOutput:
         """Optimize the given prompt using the specified configuration.
 
         Args:
@@ -34,5 +39,30 @@ class _BaseOptimizer(abc.ABC):
             eval_data: Optional evaluation dataset.
 
         Returns:
-            The optimized prompt registered in the prompt registry as a new version.
+            The optimized prompt version registered in the prompt registry as a new version.
         """
+
+    @property
+    def optimizer_config(self) -> OptimizerConfig:
+        return self._optimizer_config
+
+    @contextlib.contextmanager
+    def _maybe_suppress_stdout_stderr(self):
+        """Context manager for redirecting stdout/stderr based on verbose setting.
+        If verbose is False, redirects output to devnull or StringIO.
+        If verbose is True, doesn't redirect output.
+        """
+        if not self.optimizer_config.verbose:
+            try:
+                output_sink = open(os.devnull, "w")  # noqa: SIM115
+            except (OSError, IOError):
+                output_sink = io.StringIO()
+
+            with output_sink:
+                with (
+                    contextlib.redirect_stdout(output_sink),
+                    contextlib.redirect_stderr(output_sink),
+                ):
+                    yield
+        else:
+            yield

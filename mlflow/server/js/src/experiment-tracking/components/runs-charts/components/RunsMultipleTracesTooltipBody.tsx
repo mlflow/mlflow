@@ -1,6 +1,6 @@
 import { isUndefined } from 'lodash';
 
-import { RunsCompareMultipleTracesTooltipData } from './RunsMetricsLinePlot';
+import type { RunsCompareMultipleTracesTooltipData } from './RunsMetricsLinePlot';
 import React from 'react';
 import { TraceLabelColorIndicator } from './RunsMetricsLegend';
 import { FormattedDate, FormattedTime, useIntl } from 'react-intl';

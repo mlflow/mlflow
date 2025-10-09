@@ -1,0 +1,17 @@
+{
+  "current": {
+    "path": "/static/lib/ml-model-trace-renderer/index.html"
+  },
+  "2": {
+    "path": "/static/lib/ml-model-trace-renderer/2/index.html",
+    "commit": "9682fa9bd0ab2bb087d8b8ab14e4035b867f79ca"
+  },
+  "oss": {
+    "path": "/static/lib/ml-model-trace-renderer/oss/index.html",
+    "commit": "b5595f5c6263c1c8e3614d85eb1d233d28789bb9"
+  },
+  "3": {
+    "path": "/static/lib/ml-model-trace-renderer/3/index.html",
+    "commit": "9682fa9bd0ab2bb087d8b8ab14e4035b867f79ca"
+  }
+}

@@ -10,7 +10,7 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { ModelRegistryRoutes } from '../../routes';
-import { KeyValueEntity } from '../../../experiment-tracking/types';
+import type { KeyValueEntity } from '../../../common/types';
 import { MLFLOW_INTERNAL_PREFIX } from '../../../common/utils/TagUtils';
 
 const EmptyCell = () => <>&mdash;</>;

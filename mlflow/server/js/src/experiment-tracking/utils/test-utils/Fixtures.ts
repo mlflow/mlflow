@@ -1,4 +1,4 @@
-import { ExperimentEntity, RunInfoEntity } from '../../types';
+import type { ExperimentEntity, RunInfoEntity } from '../../types';
 
 const createExperiment = ({
   experimentId = '0',

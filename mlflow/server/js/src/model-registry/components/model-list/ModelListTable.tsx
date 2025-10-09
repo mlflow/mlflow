@@ -10,15 +10,17 @@ import {
   TableSkeletonRows,
   WarningIcon,
 } from '@databricks/design-system';
-import { Interpolation, Theme } from '@emotion/react';
-import { ColumnDef, flexRender, getCoreRowModel, SortingState, useReactTable } from '@tanstack/react-table';
+import type { Interpolation, Theme } from '@emotion/react';
+import type { ColumnDef, SortingState } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { useMemo } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Link } from '../../../common/utils/RoutingUtils';
 import { ModelListTagsCell, ModelListVersionLinkCell } from './ModelTableCellRenderers';
 import { RegisteringModelDocUrl } from '../../../common/constants';
 import Utils from '../../../common/utils/Utils';
-import type { KeyValueEntity, ModelEntity, ModelVersionInfoEntity } from '../../../experiment-tracking/types';
+import type { ModelEntity, ModelVersionInfoEntity } from '../../../experiment-tracking/types';
+import type { KeyValueEntity } from '../../../common/types';
 import { Stages } from '../../constants';
 import { ModelRegistryRoutes } from '../../routes';
 import { CreateModelButton } from '../CreateModelButton';
@@ -206,11 +208,7 @@ export const ModelListTable = ({
     );
 
     return columns;
-  }, [
-    // prettier-ignore
-    intl,
-    usingNextModelsUI,
-  ]);
+  }, [intl, usingNextModelsUI]);
 
   const sorting: SortingState = [{ id: orderByKey, desc: !orderByAsc }];
 

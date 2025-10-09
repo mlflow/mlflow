@@ -9,7 +9,7 @@ import {
   Popover,
 } from '@databricks/design-system';
 import Utils from '../../../../common/utils/Utils';
-import type { KeyValueEntity } from '../../../types';
+import type { KeyValueEntity } from '../../../../common/types';
 import { MLFLOW_RUN_GIT_SOURCE_BRANCH_TAG } from '../../../constants';
 import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
 import { ExperimentSourceTypeIcon } from '../../ExperimentSourceTypeIcon';

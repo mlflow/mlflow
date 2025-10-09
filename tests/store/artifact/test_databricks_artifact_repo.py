@@ -56,6 +56,12 @@ MOCK_SUBDIR = "subdir/path"
 MOCK_SUBDIR_ROOT_URI = posixpath.join(MOCK_RUN_ROOT_URI, MOCK_SUBDIR)
 
 
+@pytest.fixture(autouse=True)
+def disable_databricks_sdk_for_run_artifacts(monkeypatch: pytest.MonkeyPatch):
+    """Automatically disable Databricks SDK for run artifacts in all tests in this file."""
+    monkeypatch.setenv("MLFLOW_DISABLE_DATABRICKS_SDK_FOR_RUN_ARTIFACTS", "true")
+
+
 @pytest.fixture
 def databricks_artifact_repo():
     with mock.patch(
@@ -199,7 +205,20 @@ def test_run_relative_artifact_repo_root_path(artifact_uri, expected_relative_pa
         assert repo.resource.relative_path == expected_relative_path
 
 
-def test_extract_run_id():
+@pytest.mark.parametrize(
+    ("uri", "expected"),
+    [
+        ("dbfs:/databricks/mlflow-tracking/123/456/artifact", "456"),
+        ("dbfs:/databricks/mlflow-tracking/123/logged_models/m-123", None),
+        ("dbfs:/databricks/mlflow-tracking/123/tr-123/artifacts", None),
+        ("dbfs:/databricks/mlflow-tracking/123/", None),
+    ],
+)
+def test_extract_run_id(uri: str, expected: str | None):
+    assert DatabricksArtifactRepository._extract_run_id(uri) == expected
+
+
+def test_extract_resource():
     with mock.patch(
         f"{DATABRICKS_ARTIFACT_REPOSITORY_RESOURCES}._Run.get_artifact_root",
         return_value=MOCK_RUN_ROOT_URI,
@@ -1655,6 +1674,9 @@ def test_upload_trace_data(databricks_artifact_repo_trace, cred_type):
             return_value=([cred_info], None),
         ),
         mock.patch("requests.Session.request", return_value=MockResponse(b"{}")),
+        mock.patch.object(databricks_artifact_repo_trace, "chunk_thread_pool") as mock_thread_pool,
     ):
         trace_data = json.dumps({"spans": [], "request": None, "response": None})
         databricks_artifact_repo_trace.upload_trace_data(trace_data)
+    # Verify that threading is not used in upload_trace_data
+    mock_thread_pool.submit.assert_not_called()

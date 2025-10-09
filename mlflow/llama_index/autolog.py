@@ -1,9 +1,7 @@
 from mlflow.llama_index.constant import FLAVOR_NAME
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration
 
 
-@experimental
 def autolog(
     log_traces: bool = True,
     disable: bool = False,

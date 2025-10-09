@@ -39,16 +39,6 @@ def load_small_qa_pipeline():
 
 @prefetch
 @flaky()
-def load_small_qa_tf_pipeline():
-    # Same architecture as above but loaded as a Tensorflow based model
-    architecture = "csarron/mobilebert-uncased-squad-v2"
-    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
-    model = transformers.TFAutoModelForQuestionAnswering.from_pretrained(architecture)
-    return transformers.pipeline(task="question-answering", model=model, tokenizer=tokenizer)
-
-
-@prefetch
-@flaky()
 def load_small_vision_model():
     architecture = "google/mobilenet_v2_1.0_224"
     feature_extractor = transformers.AutoFeatureExtractor.from_pretrained(

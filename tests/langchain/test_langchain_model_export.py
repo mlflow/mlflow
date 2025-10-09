@@ -7,7 +7,7 @@ import sys
 import warnings
 from importlib.metadata import version
 from operator import itemgetter
-from typing import Any, Iterator, Mapping, Optional
+from typing import Any, Iterator, Mapping
 from unittest import mock
 
 import langchain
@@ -100,7 +100,10 @@ from mlflow.pyfunc.context import Context
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Object, Property
 
-from tests.helper_functions import _compare_logged_code_paths, pyfunc_serve_and_score_model
+from tests.helper_functions import (
+    _compare_logged_code_paths,
+    pyfunc_serve_and_score_model,
+)
 from tests.langchain.conftest import DeterministicDummyEmbeddings
 
 # this kwarg was added in langchain_community 0.0.27, and
@@ -233,7 +236,7 @@ def create_retriever_tool(monkeypatch):
 class FakeLLM(LLM):
     """Fake LLM wrapper for testing purposes."""
 
-    queries: Optional[Mapping] = None
+    queries: Mapping | None = None
     endpoint_name: str = "fake-llm-endpoint"
 
     @property
@@ -241,7 +244,7 @@ class FakeLLM(LLM):
         """Return type of llm."""
         return "fake"
 
-    def _call(self, prompt: str, stop: Optional[list[str]] = None, run_manager=None) -> str:
+    def _call(self, prompt: str, stop: list[str] | None = None, run_manager=None) -> str:
         """First try to lookup in queries, else return 'foo' or 'bar'."""
         if self.queries is not None:
             return self.queries[prompt]
@@ -351,8 +354,8 @@ def get_fake_chat_model(endpoint_name="fake-endpoint"):
         def _call(
             self,
             messages: list[BaseMessage],
-            stop: Optional[list[str]] = None,
-            run_manager: Optional[CallbackManagerForLLMRun] = None,
+            stop: list[str] | None = None,
+            run_manager: CallbackManagerForLLMRun | None = None,
             **kwargs: Any,
         ) -> str:
             return "Databricks"
@@ -381,8 +384,8 @@ def fake_classifier_chat_model():
         def _call(
             self,
             messages: list[BaseMessage],
-            stop: Optional[list[str]] = None,
-            run_manager: Optional[CallbackManagerForLLMRun] = None,
+            stop: list[str] | None = None,
+            run_manager: CallbackManagerForLLMRun | None = None,
             **kwargs: Any,
         ) -> str:
             if "MLflow" in messages[0].content.split(":")[1]:
@@ -482,33 +485,20 @@ def test_save_model_with_partner_package(tmp_path):
     from langchain_community.chat_models import ChatOpenAI as ChatOpenAICommunity
     from langchain_openai import ChatOpenAI as ChatOpenAIPartner
 
-    def _is_partner_pkg_warning_issued(ws):
-        # Dummy warning to ensure at least one warning is issued. Otherwise the pytest.warns
-        # context manager will raise an exception at exit.
-        warnings.warn("dummy")
-        return any(
-            str(w.message).startswith(
-                "Your model contains a class imported from the LangChain "
-                "partner package `langchain-openai`."
-            )
-            for w in ws
-        )
-
     # 1. Saving a model with LLM from a community package
     #    -> no warning should be raised
     chain = ChatOpenAICommunity() | StrOutputParser()
 
-    with pytest.warns() as ws:
+    with warnings.catch_warnings():
+        warnings.filterwarnings("error", message=".*LangChain partner package.*")
         mlflow.langchain.save_model(chain, tmp_path / "community-model")
-        assert not _is_partner_pkg_warning_issued(ws)
 
     # 2. Saving a model with LLM from a partner package
     #    -> a warning should be raised and incorrect class is loaded
     chain = ChatOpenAIPartner() | StrOutputParser()
 
-    with pytest.warns() as ws:
+    with pytest.warns(match=r".*LangChain partner package.*"):
         mlflow.langchain.save_model(chain, tmp_path / "partner-model")
-        assert _is_partner_pkg_warning_issued(ws)
 
     loaded_model = mlflow.langchain.load_model(tmp_path / "partner-model")
     loaded_llm = loaded_model.steps[0]
@@ -528,12 +518,12 @@ mlflow.models.set_model(chain)
 """
         )
 
-    with pytest.warns() as ws:
+    with warnings.catch_warnings():
+        warnings.filterwarnings("error", message=".*LangChain partner package.*")
         mlflow.langchain.save_model(
             lc_model=str(tmp_path / "model.py"),
             path=tmp_path / "model-from-code",
         )
-        assert not _is_partner_pkg_warning_issued(ws)
 
     loaded_model = mlflow.langchain.load_model(tmp_path / "model-from-code")
     loaded_llm = loaded_model.steps[0]
@@ -568,10 +558,6 @@ def test_langchain_log_huggingface_hub_model_metadata(model_path):
     assert type(loaded_model.steps[1]).__name__ == "HuggingFacePipeline"
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="Agent behavior is not stable across minor versions",
-)
 @pytest.mark.parametrize("return_intermediate_steps", [False, True])
 def test_langchain_agent_model_predict(return_intermediate_steps, monkeypatch):
     input_example = {"input": "What is 2 * 3?"}
@@ -637,10 +623,6 @@ def test_langchain_agent_model_predict(return_intermediate_steps, monkeypatch):
     assert response == expected_output
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="Agent behavior is not stable across minor versions",
-)
 def test_langchain_agent_model_predict_stream():
     input_example = {"input": "What is 2 * 3?"}
     with mlflow.start_run():
@@ -1971,10 +1953,6 @@ def test_databricks_dependency_extraction_from_retrieval_qa_chain(tmp_path):
     assert actual["vector_search_index"] == expected["vector_search_index"]
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="Langgraph are not supported the way we want in earlier versions",
-)
 def test_databricks_dependency_extraction_from_langgraph_agent(monkeypatch):
     from langchain_community.chat_models import ChatDatabricks
     from langchain_core.runnables import RunnableLambda
@@ -2026,10 +2004,6 @@ def test_databricks_dependency_extraction_from_langgraph_agent(monkeypatch):
         assert all(item in expected["function"] for item in actual["function"])
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.1.0"),
-    reason="Tools are not supported the way we want in earlier versions",
-)
 def test_databricks_dependency_extraction_from_agent_chain(monkeypatch):
     from langchain_community.chat_models import ChatDatabricks
 
@@ -2406,12 +2380,6 @@ def test_save_load_chain_that_relies_on_pickle_serialization(monkeypatch, model_
     # Not passing an input_example to avoid triggering prediction
     mlflow.langchain.save_model(chain, model_path)
 
-    if IS_PICKLE_SERIALIZATION_RESTRICTED and Version(langchain.__version__) < Version("0.1.14"):
-        # For LangChain between 0.1.12 and 0.1.14, MLflow cannot load a model that relies on pickle
-        # serialization, instead, raises an MlflowException with a message that explains the issue.
-        with pytest.raises(MlflowException, match=r"Since langchain-community 0.0.27, loading a"):
-            mlflow.langchain.load_model(model_path)
-        return
     loaded_model = mlflow.langchain.load_model(model_path)
 
     # Check if the deserialized model has the same endpoint and temperature
@@ -2854,8 +2822,8 @@ def get_fake_chat_stream_model(endpoint_name="fake-stream-endpoint"):
         def _call(
             self,
             messages: list[BaseMessage],
-            stop: Optional[list[str]] = None,
-            run_manager: Optional[CallbackManagerForLLMRun] = None,
+            stop: list[str] | None = None,
+            run_manager: CallbackManagerForLLMRun | None = None,
             **kwargs: Any,
         ) -> str:
             return "Databricks"
@@ -2863,8 +2831,8 @@ def get_fake_chat_stream_model(endpoint_name="fake-stream-endpoint"):
         def _stream(
             self,
             messages: list[BaseMessage],
-            stop: Optional[list[str]] = None,
-            run_manager: Optional[CallbackManagerForLLMRun] = None,
+            stop: list[str] | None = None,
+            run_manager: CallbackManagerForLLMRun | None = None,
             **kwargs: Any,
         ) -> Iterator[ChatGenerationChunk]:
             for chunk_content, finish_reason in [
@@ -2925,7 +2893,7 @@ def test_simple_chat_model_stream_inference(fake_chat_stream_model, provide_sign
 
         chunk_iter = loaded_model.predict_stream(input_example)
 
-        finish_reason = None if Version(langchain.__version__) < Version("0.1.8") else "stop"
+        finish_reason = "stop"
 
         with mock.patch("time.time", return_value=1677858242):
             chunks = list(chunk_iter)
@@ -3389,9 +3357,6 @@ def test_langchain_model_streamable_param_in_log_model_for_lc_runnable_types(
         assert model_info.flavors["langchain"]["streamable"] is bool(streamable)
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.1.20"), reason="feature not existing"
-)
 def test_agent_executor_model_with_messages_input():
     question = {"messages": [{"role": "user", "content": "Who owns MLflow?"}]}
 
@@ -3456,10 +3421,6 @@ def test_signature_inference_succeeds_with_any_type(monkeypatch: pytest.MonkeyPa
     assert model_info.signature.outputs == schema
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="Configurable fields are not supported correctly in old versions",
-)
 def test_invoking_model_with_params():
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
@@ -3572,9 +3533,6 @@ def chain_accepts_list_messages():
     return prompt | fake_chat_model | StrOutputParser()
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.1.20"), reason="feature not existing"
-)
 @pytest.mark.parametrize(
     ("model", "should_convert", "input_example", "needs_env_var"),
     [
@@ -3689,16 +3647,10 @@ def test_log_langchain_model_with_prompt():
     )
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="Feature not existing",
-)
 def test_predict_with_callbacks_with_tracing(monkeypatch):
     # Simulate the model serving environment
     monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
     monkeypatch.setenv("ENABLE_MLFLOW_TRACING", "true")
-    # write to mlflow backend as well
-    monkeypatch.setenv("MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING", "true")
     mlflow.tracing.reset()
 
     model_info = mlflow.langchain.log_model(
@@ -3715,12 +3667,12 @@ def test_predict_with_callbacks_with_tracing(monkeypatch):
     tracer = MlflowLangchainTracer(prediction_context=Context(request_id))
     input_example = {"messages": [{"role": "user", "content": TEST_CONTENT}]}
 
-    with mock.patch("mlflow.tracing.client.TracingClient.start_trace_v3") as mock_start_trace_v3:
+    with mock.patch("mlflow.tracing.client.TracingClient.start_trace") as mock_start_trace:
         pyfunc_model._model_impl._predict_with_callbacks(
             data=input_example, callback_handlers=[tracer]
         )
         mlflow.flush_trace_async_logging()
-        mock_start_trace_v3.assert_called_once()
-        trace = mock_start_trace_v3.call_args[0][0]
-        assert trace.info.client_request_id == request_id
-        assert trace.info.request_metadata[TraceMetadataKey.MODEL_ID] == model_info.model_id
+        mock_start_trace.assert_called_once()
+        trace_info = mock_start_trace.call_args[0][0]
+        assert trace_info.client_request_id == request_id
+        assert trace_info.request_metadata[TraceMetadataKey.MODEL_ID] == model_info.model_id

@@ -1,7 +1,6 @@
 import logging
 
 from mlflow.langchain.constant import FLAVOR_NAME
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 from mlflow.utils.autologging_utils.safety import safe_patch
@@ -9,7 +8,6 @@ from mlflow.utils.autologging_utils.safety import safe_patch
 logger = logging.getLogger(__name__)
 
 
-@experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     disable=False,

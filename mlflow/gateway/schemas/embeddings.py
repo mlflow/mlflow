@@ -1,5 +1,3 @@
-from typing import Optional, Union
-
 from mlflow.gateway.base_models import RequestModel, ResponseModel
 from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
@@ -11,7 +9,7 @@ _REQUEST_PAYLOAD_EXTRA_SCHEMA = {
 
 
 class RequestPayload(RequestModel):
-    input: Union[str, list[str], list[int], list[list[int]]]
+    input: str | list[str] | list[int] | list[list[int]]
 
     class Config:
         if IS_PYDANTIC_V2_OR_NEWER:
@@ -22,13 +20,13 @@ class RequestPayload(RequestModel):
 
 class EmbeddingObject(ResponseModel):
     object: str = "embedding"
-    embedding: Union[list[float], str]
+    embedding: list[float] | str
     index: int
 
 
 class EmbeddingsUsage(ResponseModel):
-    prompt_tokens: Optional[int] = None
-    total_tokens: Optional[int] = None
+    prompt_tokens: int | None = None
+    total_tokens: int | None = None
 
 
 _RESPONSE_PAYLOAD_EXTRA_SCHEMA = {

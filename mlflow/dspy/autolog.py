@@ -6,7 +6,6 @@ import mlflow
 from mlflow.dspy.constant import FLAVOR_NAME
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracing.utils import construct_full_inputs
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     get_autologging_config,
@@ -14,7 +13,6 @@ from mlflow.utils.autologging_utils import (
 )
 
 
-@experimental
 def autolog(
     log_traces: bool = True,
     log_traces_from_compile: bool = False,
@@ -66,12 +64,16 @@ def autolog(
     import dspy
 
     from mlflow.dspy.callback import MlflowCallback
-    from mlflow.dspy.util import log_dspy_dataset, save_dspy_module_state
+    from mlflow.dspy.util import log_dspy_dataset, log_dspy_lm_state, save_dspy_module_state
 
     # Enable tracing by setting the MlflowCallback
     if not disable:
         if not any(isinstance(c, MlflowCallback) for c in dspy.settings.callbacks):
             dspy.settings.configure(callbacks=[*dspy.settings.callbacks, MlflowCallback()])
+        # DSPy token tracking has an issue before 3.0.4: https://github.com/stanfordnlp/dspy/pull/8831
+        if Version(importlib.metadata.version("dspy")) >= Version("3.0.4"):
+            dspy.settings.configure(track_usage=True)
+
     else:
         dspy.settings.configure(
             callbacks=[c for c in dspy.settings.callbacks if not isinstance(c, MlflowCallback)]
@@ -124,6 +126,9 @@ def autolog(
             mlflow.log_params(
                 {k: v for k, v in inputs.items() if isinstance(v, (int, float, str, bool))}
             )
+
+            # Log the current DSPy LM state
+            log_dspy_lm_state()
 
             if trainset := inputs.get("trainset"):
                 log_dspy_dataset(trainset, "trainset.json")

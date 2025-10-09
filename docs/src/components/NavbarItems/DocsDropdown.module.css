@@ -1,0 +1,15 @@
+.docsDropdown {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.docsDropdown::after {
+  top: 4px !important;
+}
+
+@media (max-width: 996px) {
+  .dropdownCircle {
+    display: none;
+  }
+}

@@ -28,7 +28,7 @@ import {
 } from '@tanstack/react-table';
 import React from 'react';
 import { parseJSONSafe } from '@mlflow/mlflow/src/common/utils/TagUtils';
-import { ArtifactLogTableImageObject } from '@mlflow/mlflow/src/experiment-tracking/types';
+import type { ArtifactLogTableImageObject } from '@mlflow/mlflow/src/experiment-tracking/types';
 import { LOG_TABLE_IMAGE_COLUMN_TYPE } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { ImagePlot } from '../runs-charts/components/charts/ImageGridPlot.common';
 import { ToggleIconButton } from '../../../common/components/ToggleIconButton';
@@ -388,7 +388,14 @@ type ShowArtifactLoggedTableViewProps = {
 } & LoggedModelArtifactViewerProps;
 
 export const ShowArtifactLoggedTableView = React.memo(
-  ({ runUuid, path, isLoggedModelsMode, loggedModelId, experimentId }: ShowArtifactLoggedTableViewProps) => {
+  ({
+    runUuid,
+    path,
+    isLoggedModelsMode,
+    loggedModelId,
+    experimentId,
+    entityTags,
+  }: ShowArtifactLoggedTableViewProps) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<Error>();
     const [curPath, setCurPath] = useState<string | undefined>(undefined);
@@ -396,7 +403,10 @@ export const ShowArtifactLoggedTableView = React.memo(
 
     useEffect(() => {
       setLoading(true);
-      fetchArtifactUnified({ runUuid, path, isLoggedModelsMode, loggedModelId, experimentId }, getArtifactContent)
+      fetchArtifactUnified(
+        { runUuid, path, isLoggedModelsMode, loggedModelId, experimentId, entityTags },
+        getArtifactContent,
+      )
         .then((value) => {
           setLoading(false);
           // Check if value is stringified JSON
@@ -412,7 +422,7 @@ export const ShowArtifactLoggedTableView = React.memo(
           setLoading(false);
         });
       setCurPath(path);
-    }, [path, runUuid, isLoggedModelsMode, loggedModelId, experimentId]);
+    }, [path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags]);
 
     const data = useMemo<{
       columns: string[];

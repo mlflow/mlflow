@@ -35,7 +35,7 @@ signature = mlflow.models.infer_signature(
 )
 
 inference_config = {
-    "return_timestamps": "word",
+    "return_timestamps": False,
     "chunk_length_s": 20,
     "stride_length_s": [5, 3],
 }

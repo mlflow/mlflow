@@ -4,13 +4,14 @@ import json
 import logging
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.span import Span, SpanType
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v2 import TraceInfoV2
+from mlflow.environment_variables import MLFLOW_TRACING_SQL_WAREHOUSE_ID
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.service_pb2 import Trace as ProtoTrace
@@ -76,10 +77,17 @@ class Trace(_MlflowObject):
         return cls.from_dict(trace_dict)
 
     def _serialize_for_mimebundle(self):
-        # databricks notebooks will use the request ID to
+        # databricks notebooks will use the trace ID to
         # fetch the trace from the backend. including the
         # full JSON can cause notebooks to exceed size limits
-        return json.dumps(self.info.request_id)
+        return json.dumps(
+            {
+                "trace_id": self.info.trace_id,
+                # TODO: remove this once sql_warehouse_id
+                # is optional in the v4 tracing APIs
+                "sql_warehouse_id": MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+            }
+        )
 
     def _repr_mimebundle_(self, include=None, exclude=None):
         """
@@ -109,9 +117,11 @@ class Trace(_MlflowObject):
         return bundle
 
     def to_pandas_dataframe_row(self) -> dict[str, Any]:
+        from mlflow.utils.databricks_tracing_utils import trace_to_json
+
         return {
             "trace_id": self.info.trace_id,
-            "trace": self,
+            "trace": trace_to_json(self),  # json string to be compatible with Spark DataFrame
             "client_request_id": self.info.client_request_id,
             "state": self.info.state,
             "request_time": self.info.request_time,
@@ -121,7 +131,7 @@ class Trace(_MlflowObject):
             "trace_metadata": self.info.trace_metadata,
             "tags": self.info.tags,
             "spans": [span.to_dict() for span in self.data.spans],
-            "assessments": self.info.assessments,
+            "assessments": [assessment.to_dictionary() for assessment in self.info.assessments],
         }
 
     def _deserialize_json_attr(self, value: str):
@@ -133,9 +143,9 @@ class Trace(_MlflowObject):
 
     def search_spans(
         self,
-        span_type: Optional[SpanType] = None,
-        name: Optional[Union[str, re.Pattern]] = None,
-        span_id: Optional[str] = None,
+        span_type: SpanType | None = None,
+        name: str | re.Pattern | None = None,
+        span_id: str | None = None,
     ) -> list[Span]:
         """
         Search for spans that match the given criteria within the trace.
@@ -245,11 +255,11 @@ class Trace(_MlflowObject):
 
     def search_assessments(
         self,
-        name: Optional[str] = None,
+        name: str | None = None,
         *,
-        span_id: Optional[str] = None,
+        span_id: str | None = None,
         all: bool = False,
-        type: Optional[Literal["expectation", "feedback"]] = None,
+        type: Literal["expectation", "feedback"] | None = None,
     ) -> list["Assessment"]:
         """
         Get assessments for a given name / span ID. By default, this only returns assessments

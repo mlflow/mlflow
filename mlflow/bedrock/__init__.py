@@ -1,6 +1,5 @@
 import logging
 
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
 _logger = logging.getLogger(__name__)
@@ -8,7 +7,6 @@ _logger = logging.getLogger(__name__)
 FLAVOR_NAME = "bedrock"
 
 
-@experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_traces: bool = True,
@@ -17,7 +15,7 @@ def autolog(
 ):
     """
     Enables (or disables) and configures autologging from Amazon Bedrock to MLflow.
-    Only synchronous calls are supported. Asynchnorous APIs and streaming are not recorded.
+    Only synchronous calls are supported. Asynchronous APIs and streaming are not recorded.
 
     Args:
         log_traces: If ``True``, traces are logged for Bedrock models.

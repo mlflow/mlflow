@@ -1,8 +1,10 @@
 function isAllowed({ author_association, user }) {
   return (
     ["owner", "member", "collaborator"].includes(author_association.toLowerCase()) ||
-    // Allow Copilot to run this workflow
-    (user && user.login.toLowerCase() === "copilot" && user.type.toLowerCase() === "bot")
+    // Allow Copilot and mlflow-app bot to run this workflow
+    (user &&
+      user.type.toLowerCase() === "bot" &&
+      ["copilot", "mlflow-app[bot]"].includes(user.login.toLowerCase()))
   );
 }
 

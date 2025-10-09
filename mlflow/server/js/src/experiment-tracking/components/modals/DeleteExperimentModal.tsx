@@ -7,11 +7,11 @@
 
 import React, { Component } from 'react';
 import { ConfirmModal } from './ConfirmModal';
-import { deleteExperimentApi, searchExperimentsApi } from '../../actions';
+import { deleteExperimentApi } from '../../actions';
 import Routes from '../../routes';
 import Utils from '../../../common/utils/Utils';
 import { connect } from 'react-redux';
-import { NavigateFunction } from '../../../common/utils/RoutingUtils';
+import type { NavigateFunction } from '../../../common/utils/RoutingUtils';
 import { getUUID } from '../../../common/utils/ActionUtils';
 import { withRouterNext } from '../../../common/utils/withRouterNext';
 
@@ -22,7 +22,7 @@ type Props = {
   experimentId: string;
   experimentName: string;
   deleteExperimentApi: (...args: any[]) => any;
-  searchExperimentsApi: (...args: any[]) => any;
+  onExperimentDeleted: () => void;
   navigate: NavigateFunction;
 };
 
@@ -49,7 +49,7 @@ export class DeleteExperimentModalImpl extends Component<Props> {
           }
         }
       })
-      .then(() => this.props.searchExperimentsApi(deleteExperimentRequestId))
+      .then(() => this.props.onExperimentDeleted())
       .catch((e: any) => {
         Utils.logErrorAndNotifyUser(e);
       });
@@ -90,7 +90,6 @@ export class DeleteExperimentModalImpl extends Component<Props> {
 
 const mapDispatchToProps = {
   deleteExperimentApi,
-  searchExperimentsApi,
 };
 
 export const DeleteExperimentModal = withRouterNext(connect(undefined, mapDispatchToProps)(DeleteExperimentModalImpl));

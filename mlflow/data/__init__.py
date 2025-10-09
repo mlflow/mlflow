@@ -1,12 +1,14 @@
 import sys
 from contextlib import suppress
-from typing import Union
 
 from mlflow.data import dataset_registry
 from mlflow.data import sources as mlflow_data_sources
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
-from mlflow.data.dataset_source_registry import get_dataset_source_from_json, get_registered_sources
+from mlflow.data.dataset_source_registry import (
+    get_dataset_source_from_json,
+    get_registered_sources,
+)
 from mlflow.entities import Dataset as DatasetEntity
 from mlflow.entities import DatasetInput
 from mlflow.exceptions import MlflowException
@@ -17,7 +19,7 @@ with suppress(ImportError):
     from mlflow.data import meta_dataset  # noqa: F401
 
 
-def get_source(dataset: Union[DatasetEntity, DatasetInput, Dataset]) -> DatasetSource:
+def get_source(dataset: DatasetEntity | DatasetInput | Dataset) -> DatasetSource:
     """Obtains the source of the specified dataset or dataset input.
 
     Args:

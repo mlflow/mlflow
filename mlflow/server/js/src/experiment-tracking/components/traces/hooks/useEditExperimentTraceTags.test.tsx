@@ -4,6 +4,7 @@ import { renderWithIntl, screen, within } from '../../../../common/utils/TestUti
 import userEvent from '@testing-library/user-event';
 import { MlflowService } from '../../../sdk/MlflowService';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000); // Larger timeout for integration testing (form rendering)
 
 const mockTraceInfo: ModelTraceInfo = {
@@ -59,12 +60,12 @@ describe('useEditExperimentTraceTag', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save tags' }));
 
     // We expect one new tag to be added
-    expect(MlflowService.setExperimentTraceTag).toBeCalledTimes(1);
-    expect(MlflowService.setExperimentTraceTag).toBeCalledWith('tr-test-request-id-1', 'newtag', 'newvalue');
+    expect(MlflowService.setExperimentTraceTag).toHaveBeenCalledTimes(1);
+    expect(MlflowService.setExperimentTraceTag).toHaveBeenCalledWith('tr-test-request-id-1', 'newtag', 'newvalue');
 
     // We expect one existing tag to be deleted
-    expect(MlflowService.deleteExperimentTraceTag).toBeCalledTimes(1);
-    expect(MlflowService.deleteExperimentTraceTag).toBeCalledWith('tr-test-request-id-1', 'existing-tag');
+    expect(MlflowService.deleteExperimentTraceTag).toHaveBeenCalledTimes(1);
+    expect(MlflowService.deleteExperimentTraceTag).toHaveBeenCalledWith('tr-test-request-id-1', 'existing-tag');
   });
 
   test('it should properly add tag with key and value with v3 apis', async () => {
@@ -105,11 +106,11 @@ describe('useEditExperimentTraceTag', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save tags' }));
 
     // We expect one new tag to be added
-    expect(MlflowService.setExperimentTraceTag).toBeCalledTimes(1);
-    expect(MlflowService.setExperimentTraceTag).toBeCalledWith('tr-test-request-id-1', 'newtag', 'newvalue');
+    expect(MlflowService.setExperimentTraceTag).toHaveBeenCalledTimes(1);
+    expect(MlflowService.setExperimentTraceTag).toHaveBeenCalledWith('tr-test-request-id-1', 'newtag', 'newvalue');
 
     // We expect one existing tag to be deleted
-    expect(MlflowService.deleteExperimentTraceTag).toBeCalledTimes(1);
-    expect(MlflowService.deleteExperimentTraceTag).toBeCalledWith('tr-test-request-id-1', 'existing-tag');
+    expect(MlflowService.deleteExperimentTraceTag).toHaveBeenCalledTimes(1);
+    expect(MlflowService.deleteExperimentTraceTag).toHaveBeenCalledWith('tr-test-request-id-1', 'existing-tag');
   });
 });

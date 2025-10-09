@@ -1,5 +1,5 @@
 # GENERATED FILE. PLEASE DON'T MODIFY.
-# Run python3 ./dev/proto_to_graphql/code_generator.py to regenerate.
+# Run uv run ./dev/proto_to_graphql/code_generator.py to regenerate.
 
 directive @component(name: String!) on QUERY | MUTATION
 
@@ -12,6 +12,7 @@ type Query {
 
   """Simple echoing field"""
   test(inputString: String): Test
+  mlflowSearchRuns(input: MlflowSearchRunsInput): MlflowSearchRunsResponse
 }
 
 type MlflowGetExperimentResponse {
@@ -113,12 +114,12 @@ enum MlflowRunStatus {
 }
 
 type MlflowRunData {
-  metrics: [MlflowMetric!]
+  metrics: [MlflowMetricExtension!]
   params: [MlflowParam!]
   tags: [MlflowRunTag!]
 }
 
-type MlflowMetric {
+type MlflowMetricExtension {
   key: String
   value: Float
   timestamp: LongString
@@ -293,6 +294,27 @@ type Test {
   output: String
 }
 
+type MlflowSearchRunsResponse {
+  runs: [MlflowRunExtension!]
+  nextPageToken: String
+  apiError: ApiError
+}
+
+input MlflowSearchRunsInput {
+  experimentIds: [String]
+  filter: String
+  runViewType: MlflowViewType = null
+  maxResults: Int
+  orderBy: [String]
+  pageToken: String
+}
+
+enum MlflowViewType {
+  ACTIVE_ONLY
+  DELETED_ONLY
+  ALL
+}
+
 type Mutation {
   mlflowSearchDatasets(input: MlflowSearchDatasetsInput): MlflowSearchDatasetsResponse
   mlflowSearchRuns(input: MlflowSearchRunsInput): MlflowSearchRunsResponse
@@ -315,27 +337,6 @@ type MlflowDatasetSummary {
 
 input MlflowSearchDatasetsInput {
   experimentIds: [String]
-}
-
-type MlflowSearchRunsResponse {
-  runs: [MlflowRunExtension!]
-  nextPageToken: String
-  apiError: ApiError
-}
-
-input MlflowSearchRunsInput {
-  experimentIds: [String]
-  filter: String
-  runViewType: MlflowViewType = null
-  maxResults: Int
-  orderBy: [String]
-  pageToken: String
-}
-
-enum MlflowViewType {
-  ACTIVE_ONLY
-  DELETED_ONLY
-  ALL
 }
 
 type TestMutation {

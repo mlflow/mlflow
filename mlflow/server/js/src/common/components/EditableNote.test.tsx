@@ -27,13 +27,13 @@ describe('EditableNote', () => {
     expect(screen.getByTestId('note-view-outer-container')).toBeInTheDocument();
   });
 
-  test('test renderActions is called and rendered correctly when showEditor is true', () => {
+  test('renderActions is called and rendered correctly when showEditor is true', () => {
     renderWithIntl(<EditableNote {...commonProps} />);
     expect(screen.getByTestId('note-view-outer-container')).toBeInTheDocument();
     expect(screen.getByTestId('editable-note-actions')).toBeInTheDocument();
   });
 
-  test('test handleSubmitClick with successful onSubmit', async () => {
+  test('handleSubmitClick with successful onSubmit', async () => {
     renderWithIntl(<EditableNote {...commonProps} />);
 
     await userEvent.type(screen.getByTestId(textAreaDataTestId), 'test note');
@@ -43,7 +43,7 @@ describe('EditableNote', () => {
     expect(screen.queryByText('Failed to submit')).not.toBeInTheDocument();
   });
 
-  test('test handleRenameExperiment errors correctly', async () => {
+  test('handleRenameExperiment errors correctly', async () => {
     const mockSubmit = jest.fn(() => Promise.reject());
     const props = {
       onSubmit: mockSubmit,
@@ -57,5 +57,12 @@ describe('EditableNote', () => {
 
     expect(mockSubmit).toHaveBeenCalledTimes(1);
     expect(screen.getByText('Failed to submit')).toBeInTheDocument();
+  });
+  test('updates displayed description when defaultMarkdown changes', () => {
+    const { rerender } = renderWithIntl(<EditableNote {...minimalProps} defaultMarkdown="first description" />);
+    expect(screen.getByText('first description')).toBeInTheDocument();
+
+    rerender(<EditableNote {...minimalProps} defaultMarkdown="second description" />);
+    expect(screen.getByText('second description')).toBeInTheDocument();
   });
 });

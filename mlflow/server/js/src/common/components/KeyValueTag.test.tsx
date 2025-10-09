@@ -1,5 +1,5 @@
 import { screen, renderWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
-import { KeyValueEntity } from '../../experiment-tracking/types';
+import type { KeyValueEntity } from '../types';
 import { KeyValueTag, getKeyAndValueComplexTruncation } from './KeyValueTag';
 
 describe('KeyValueTag', () => {

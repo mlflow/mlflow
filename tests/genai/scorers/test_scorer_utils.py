@@ -1,9 +1,8 @@
 import json
-from unittest.mock import patch
 
 import pytest
 
-from mlflow.entities import Assessment, Feedback
+from mlflow.entities import Assessment, Feedback, Trace
 from mlflow.genai.scorers.scorer_utils import recreate_function
 
 # ============================================================================
@@ -149,7 +148,6 @@ def test_empty_signature():
 
 
 def test_single_parameter_signature():
-    """Test function with single parameter."""
     source = "return x * 2"
     signature = "(x)"
     func_name = "double"
@@ -202,14 +200,15 @@ return f"{prefix}: {len(data)} items" + (suffix or "")"""
 
 
 def test_empty_signature_string():
-    """Test that empty signature string returns None."""
+    """Test that empty signature string raises MlflowException."""
+    from mlflow.exceptions import MlflowException
+
     source = "return 1"
     signature = ""
     func_name = "empty_sig"
 
-    recreated = recreate_function(source, signature, func_name)
-
-    assert recreated is None
+    with pytest.raises(MlflowException, match="Invalid signature format"):
+        recreate_function(source, signature, func_name)
 
 
 # ============================================================================
@@ -252,15 +251,13 @@ def test_function_with_undefined_variable():
 
 
 def test_function_with_syntax_error():
-    """Test that function with syntax errors fails gracefully."""
+    """Test that function with syntax errors raises an exception."""
     source = "if x > 0\n    return True"  # Missing colon
     signature = "(x)"
     func_name = "syntax_error_func"
 
-    recreated = recreate_function(source, signature, func_name)
-
-    # Should return None due to syntax error
-    assert recreated is None
+    with pytest.raises(SyntaxError, match="expected ':'"):
+        recreate_function(source, signature, func_name)
 
 
 def test_function_using_builtin_modules():
@@ -281,21 +278,6 @@ return json.dumps(data)"""
     assert parsed["count"] == 3
 
 
-@patch("mlflow.genai.scorers.scorer_utils._logger.warning")
-def test_logging_on_failure(mock_logger):
-    """Test that failures are logged appropriately."""
-    source = "invalid python syntax !!!"
-    signature = "()"
-    func_name = "bad_function"
-
-    recreated = recreate_function(source, signature, func_name)
-
-    assert recreated is None
-    mock_logger.assert_called_once_with(
-        "Failed to recreate function 'bad_function' from serialized source code"
-    )
-
-
 def test_mlflow_imports_available():
     """Test that MLflow imports are available in the namespace."""
     source = """# Test all available MLflow imports
@@ -303,7 +285,27 @@ feedback = Feedback(value=True, rationale="test")
 # AssessmentSource should be available too
 from mlflow.entities.assessment_source import AssessmentSourceType
 source_obj = AssessmentSourceType.CODE  # Use the default source type
-return {"feedback": feedback, "source": source_obj}"""
+# Test that Trace is available
+from mlflow.entities import TraceInfo, TraceState, TraceData
+from mlflow.entities.trace_location import (
+    TraceLocation,
+    TraceLocationType,
+    MlflowExperimentLocation,
+)
+from mlflow.entities.trace import Trace
+mlflow_exp_location = MlflowExperimentLocation(experiment_id="0")
+trace_location = TraceLocation(
+    type=TraceLocationType.MLFLOW_EXPERIMENT,
+    mlflow_experiment=mlflow_exp_location
+)
+trace_info = TraceInfo(
+    trace_id="test_trace_id",
+    trace_location=trace_location,
+    request_time=1000,
+    state=TraceState.OK
+)
+trace = Trace(info=trace_info, data=TraceData())
+return {"feedback": feedback, "source": source_obj, "trace": trace}"""
     signature = "()"
     func_name = "test_mlflow_imports"
 
@@ -316,6 +318,8 @@ return {"feedback": feedback, "source": source_obj}"""
     # AssessmentSourceType should be available (it's an enum/class)
     assert result["source"] is not None
     assert result["source"] == "CODE"
+    # Check that Trace is available and can be instantiated
+    assert isinstance(result["trace"], Trace)
 
 
 def test_function_name_in_namespace():
@@ -352,10 +356,8 @@ def test_empty_source_code():
     func_name = "empty_func"
 
     # Empty source code should cause syntax error during function definition
-    recreated = recreate_function(source, signature, func_name)
-
-    # Should return None due to invalid function definition
-    assert recreated is None
+    with pytest.raises(SyntaxError, match="expected an indented block"):
+        recreate_function(source, signature, func_name)
 
 
 def test_function_with_import_error_at_runtime():
@@ -375,3 +377,49 @@ except NameError:
     # But calling it should handle the missing import gracefully
     result = recreated()
     assert result == "import_failed"
+
+
+def test_function_with_mlflow_trace_type_hint():
+    """
+    Test that a function with mlflow.entities.Trace type hints can be recreated.
+
+    This reproduces the issue where scorers with type hints like mlflow.entities.Trace
+    would fail to register because the mlflow module wasn't available in the namespace
+    during function recreation.
+    """
+    source = """return Feedback(
+    value=trace.info.trace_id is not None,
+    rationale=f"Trace ID: {trace.info.trace_id}"
+)"""
+    signature = "(trace: mlflow.entities.Trace) -> mlflow.entities.Feedback"
+    func_name = "scorer_with_trace_type_hint"
+
+    recreated = recreate_function(source, signature, func_name)
+
+    assert recreated is not None
+    assert recreated.__name__ == func_name
+
+    # Test that it can be called with a Trace object
+    from mlflow.entities import TraceData, TraceInfo, TraceState
+    from mlflow.entities.trace_location import (
+        MlflowExperimentLocation,
+        TraceLocation,
+        TraceLocationType,
+    )
+
+    mlflow_exp_location = MlflowExperimentLocation(experiment_id="0")
+    trace_location = TraceLocation(
+        type=TraceLocationType.MLFLOW_EXPERIMENT, mlflow_experiment=mlflow_exp_location
+    )
+    trace_info = TraceInfo(
+        trace_id="test_trace_id",
+        trace_location=trace_location,
+        request_time=1000,
+        state=TraceState.OK,
+    )
+    trace = Trace(info=trace_info, data=TraceData())
+
+    result = recreated(trace)
+    assert isinstance(result, Feedback)
+    assert result.value is True
+    assert "test_trace_id" in result.rationale

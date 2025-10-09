@@ -27,22 +27,25 @@ with mlflow.start_run():
 <details>
   <summary>What Gets Automatically Captured</summary>
 
-  #### Model Components & Architecture
-  - 🧠 **Pipeline Components**: All pipeline components (tokenizer, tagger, parser, NER, text categorizer)
-  - 📐 **Model Configuration**: Architecture details, hyperparameters, and component settings
-  - 🎯 **Component Metadata**: Individual component configurations and performance metrics
-  - 🔧 **Custom Components**: User-defined pipeline components and extensions
+#### Model Components & Architecture
 
-  #### Dependencies & Environment
-  - 📦 **spaCy Version**: Exact spaCy version for reproducibility
-  - 🐍 **Python Environment**: Complete environment specification with all dependencies
-  - 📋 **Requirements**: Automatic generation of pip requirements and conda environment
-  - 🔗 **Model Dependencies**: Language models and custom extensions
+- 🧠 **Pipeline Components**: All pipeline components (tokenizer, tagger, parser, NER, text categorizer)
+- 📐 **Model Configuration**: Architecture details, hyperparameters, and component settings
+- 🎯 **Component Metadata**: Individual component configurations and performance metrics
+- 🔧 **Custom Components**: User-defined pipeline components and extensions
 
-  #### Deployment Artifacts
-  - 🤖 **Complete Model**: Full model serialization with vocabularies and weights
-  - 📊 **Model Metadata**: Model size, components, and performance characteristics
-  - 🏷️ **Model Signatures**: Input/output schemas for validation (when applicable)
+#### Dependencies & Environment
+
+- 📦 **spaCy Version**: Exact spaCy version for reproducibility
+- 🐍 **Python Environment**: Complete environment specification with all dependencies
+- 📋 **Requirements**: Automatic generation of pip requirements and conda environment
+- 🔗 **Model Dependencies**: Language models and custom extensions
+
+#### Deployment Artifacts
+
+- 🤖 **Complete Model**: Full model serialization with vocabularies and weights
+- 📊 **Model Metadata**: Model size, components, and performance characteristics
+- 🏷️ **Model Signatures**: Input/output schemas for validation (when applicable)
 
 </details>
 
@@ -88,22 +91,25 @@ print(predictions)
 <details>
   <summary>Text Classification Integration Details</summary>
 
-  #### Automatic PyFunc Generation
-  - 🎯 **Smart Detection**: MLflow automatically detects TextCategorizer components
-  - 📊 **DataFrame Input**: PyFunc wrapper accepts pandas DataFrame with text column
-  - 🔄 **Batch Processing**: Efficient inference on multiple texts simultaneously
-  - 📈 **Probability Scores**: Returns prediction probabilities for all categories
+#### Automatic PyFunc Generation
 
-  #### Input/Output Format
-  - **Input**: pandas DataFrame with exactly one column containing text data
-  - **Output**: pandas DataFrame with "predictions" column containing category probabilities
-  - **Format**: Each prediction is a dictionary with category names as keys and probabilities as values
+- 🎯 **Smart Detection**: MLflow automatically detects TextCategorizer components
+- 📊 **DataFrame Input**: PyFunc wrapper accepts pandas DataFrame with text column
+- 🔄 **Batch Processing**: Efficient inference on multiple texts simultaneously
+- 📈 **Probability Scores**: Returns prediction probabilities for all categories
 
-  #### Deployment Benefits
-  - 🚀 **Universal Interface**: Use standard MLflow serving infrastructure
-  - 📦 **Easy Integration**: Compatible with MLflow's deployment tools and APIs
-  - 🔍 **Model Validation**: Automatic input validation and error handling
-  - 📊 **Monitoring**: Integration with MLflow's model monitoring capabilities
+#### Input/Output Format
+
+- **Input**: pandas DataFrame with exactly one column containing text data
+- **Output**: pandas DataFrame with "predictions" column containing category probabilities
+- **Format**: Each prediction is a dictionary with category names as keys and probabilities as values
+
+#### Deployment Benefits
+
+- 🚀 **Universal Interface**: Use standard MLflow serving infrastructure
+- 📦 **Easy Integration**: Compatible with MLflow's deployment tools and APIs
+- 🔍 **Model Validation**: Automatic input validation and error handling
+- 📊 **Monitoring**: Integration with MLflow's model monitoring capabilities
 
 </details>
 
@@ -162,36 +168,40 @@ def mlflow_logger():
 <details>
   <summary>Training Configuration Setup</summary>
 
-  #### Configuration File Integration
+#### Configuration File Integration
 
-  1. **Generate Base Configuration**:
-  ```bash
-  python -m spacy init config --pipeline textcat --lang en config.cfg
-  ```
+1. **Generate Base Configuration**:
 
-  2. **Update Logger Configuration**:
-  ```ini
-  [training.logger]
-  @loggers = "mlflow_logger.v1"
+```bash
+python -m spacy init config --pipeline textcat --lang en config.cfg
+```
 
-  [training]
-  max_steps = 1000
-  eval_frequency = 100
-  ```
+2. **Update Logger Configuration**:
 
-  3. **Configure Data Paths**:
-  ```ini
-  [paths]
-  train = "./train.spacy"
-  dev = "./dev.spacy"
-  ```
+```ini
+[training.logger]
+@loggers = "mlflow_logger.v1"
 
-  #### Advanced Logger Features
-  - 📊 **Component-Level Tracking**: Monitor individual pipeline component performance
-  - 🎯 **Custom Metrics**: Log domain-specific evaluation metrics
-  - 📈 **Training Dynamics**: Track learning curves and convergence patterns
-  - 🔄 **Automatic Model Saving**: Save best models based on validation performance
-  - 📝 **Experiment Metadata**: Log training configuration and hyperparameters
+[training]
+max_steps = 1000
+eval_frequency = 100
+```
+
+3. **Configure Data Paths**:
+
+```ini
+[paths]
+train = "./train.spacy"
+dev = "./dev.spacy"
+```
+
+#### Advanced Logger Features
+
+- 📊 **Component-Level Tracking**: Monitor individual pipeline component performance
+- 🎯 **Custom Metrics**: Log domain-specific evaluation metrics
+- 📈 **Training Dynamics**: Track learning curves and convergence patterns
+- 🔄 **Automatic Model Saving**: Save best models based on validation performance
+- 📝 **Experiment Metadata**: Log training configuration and hyperparameters
 
 </details>
 
@@ -313,33 +323,36 @@ for token in doc:
 <details>
   <summary>Loading Options and Use Cases</summary>
 
-  #### Native spaCy Loading
-  ```python
-  # Full spaCy functionality - all pipeline components
-  nlp = mlflow.spacy.load_model(model_info.model_uri)
+#### Native spaCy Loading
 
-  # Access all spaCy features
-  doc = nlp("Analyze this text completely.")
-  entities = [(ent.text, ent.label_) for ent in doc.ents]
-  dependencies = [(token.text, token.dep_, token.head.text) for token in doc]
-  ```
+```python
+# Full spaCy functionality - all pipeline components
+nlp = mlflow.spacy.load_model(model_info.model_uri)
 
-  #### PyFunc Loading (Text Classification Only)
-  ```python
-  # Simplified interface for text classification
-  classifier = mlflow.pyfunc.load_model(model_info.model_uri)
+# Access all spaCy features
+doc = nlp("Analyze this text completely.")
+entities = [(ent.text, ent.label_) for ent in doc.ents]
+dependencies = [(token.text, token.dep_, token.head.text) for token in doc]
+```
 
-  # DataFrame input required
-  import pandas as pd
+#### PyFunc Loading (Text Classification Only)
 
-  test_data = pd.DataFrame({"text": ["Sample text to classify"]})
-  predictions = classifier.predict(test_data)
-  ```
+```python
+# Simplified interface for text classification
+classifier = mlflow.pyfunc.load_model(model_info.model_uri)
 
-  #### When to Use Each Approach
-  - 🧠 **Native spaCy**: Full NLP pipeline access, custom components, advanced features
-  - 📊 **PyFunc**: Text classification deployment, simple inference, production serving
-  - 🔄 **Mixed Approach**: Development with native, deployment with PyFunc
+# DataFrame input required
+import pandas as pd
+
+test_data = pd.DataFrame({"text": ["Sample text to classify"]})
+predictions = classifier.predict(test_data)
+```
+
+#### When to Use Each Approach
+
+- 🧠 **Native spaCy**: Full NLP pipeline access, custom components, advanced features
+- 📊 **PyFunc**: Text classification deployment, simple inference, production serving
+- 🔄 **Mixed Approach**: Development with native, deployment with PyFunc
 
 </details>
 
@@ -388,33 +401,34 @@ mlflow.spacy.log_model(
 <details>
   <summary>Manual Signature Definition</summary>
 
-  For complete control over your model signature:
+For complete control over your model signature:
 
-  ```python
-  import mlflow
-  from mlflow.types import Schema, ColSpec
-  from mlflow.models import ModelSignature
+```python
+import mlflow
+from mlflow.types import Schema, ColSpec
+from mlflow.models import ModelSignature
 
-  # Define input schema for text classification
-  input_schema = Schema([ColSpec("string", "text")])
+# Define input schema for text classification
+input_schema = Schema([ColSpec("string", "text")])
 
-  # Define output schema
-  output_schema = Schema(
-      [ColSpec("object", "predictions")]  # Dictionary with category probabilities
-  )
+# Define output schema
+output_schema = Schema(
+    [ColSpec("object", "predictions")]  # Dictionary with category probabilities
+)
 
-  # Create signature
-  signature = ModelSignature(inputs=input_schema, outputs=output_schema)
+# Create signature
+signature = ModelSignature(inputs=input_schema, outputs=output_schema)
 
-  # Log model with manual signature
-  mlflow.spacy.log_model(nlp, name="model", signature=signature)
-  ```
+# Log model with manual signature
+mlflow.spacy.log_model(nlp, name="model", signature=signature)
+```
 
-  Manual signatures are useful when:
-  - You need precise control over input/output specifications
-  - Working with custom output formats
-  - The automatic inference doesn't capture your intended schema
-  - You want to document expected data types explicitly
+Manual signatures are useful when:
+
+- You need precise control over input/output specifications
+- Working with custom output formats
+- The automatic inference doesn't capture your intended schema
+- You want to document expected data types explicitly
 
 </details>
 
@@ -514,90 +528,91 @@ Track experiments across different languages and models:
 <details>
   <summary>Multilingual Experiment Tracking</summary>
 
-  ```python
-  import mlflow
-  import spacy
-  from collections import defaultdict
+```python
+import mlflow
+import spacy
+from collections import defaultdict
 
 
-  def evaluate_multilingual_models():
-      """Evaluate performance across multiple language models."""
+def evaluate_multilingual_models():
+    """Evaluate performance across multiple language models."""
 
-      # Define language models to test
-      models = {
-          "en": "en_core_web_sm",
-          "de": "de_core_news_sm",
-          "fr": "fr_core_news_sm",
-          "es": "es_core_news_sm",
-      }
+    # Define language models to test
+    models = {
+        "en": "en_core_web_sm",
+        "de": "de_core_news_sm",
+        "fr": "fr_core_news_sm",
+        "es": "es_core_news_sm",
+    }
 
-      # Sample texts for each language
-      test_texts = {
-          "en": "Apple Inc. is a technology company based in California.",
-          "de": "Apple Inc. ist ein Technologieunternehmen in Kalifornien.",
-          "fr": "Apple Inc. est une entreprise technologique basée en Californie.",
-          "es": "Apple Inc. es una empresa de tecnología con sede en California.",
-      }
+    # Sample texts for each language
+    test_texts = {
+        "en": "Apple Inc. is a technology company based in California.",
+        "de": "Apple Inc. ist ein Technologieunternehmen in Kalifornien.",
+        "fr": "Apple Inc. est une entreprise technologique basée en Californie.",
+        "es": "Apple Inc. es una empresa de tecnología con sede en California.",
+    }
 
-      with mlflow.start_run(run_name="multilingual_comparison"):
-          results = {}
+    with mlflow.start_run(run_name="multilingual_comparison"):
+        results = {}
 
-          for lang, model_name in models.items():
-              try:
-                  with mlflow.start_run(run_name=f"{lang}_model", nested=True):
-                      # Load language-specific model
-                      nlp = spacy.load(model_name)
+        for lang, model_name in models.items():
+            try:
+                with mlflow.start_run(run_name=f"{lang}_model", nested=True):
+                    # Load language-specific model
+                    nlp = spacy.load(model_name)
 
-                      # Log model information
-                      mlflow.log_params(
-                          {
-                              "language": lang,
-                              "model_name": model_name,
-                              "pipeline_components": nlp.pipe_names,
-                              "model_size": len(nlp.vocab),
-                          }
-                      )
+                    # Log model information
+                    mlflow.log_params(
+                        {
+                            "language": lang,
+                            "model_name": model_name,
+                            "pipeline_components": nlp.pipe_names,
+                            "model_size": len(nlp.vocab),
+                        }
+                    )
 
-                      # Process text and extract entities
-                      doc = nlp(test_texts[lang])
-                      entities = [(ent.text, ent.label_) for ent in doc.ents]
+                    # Process text and extract entities
+                    doc = nlp(test_texts[lang])
+                    entities = [(ent.text, ent.label_) for ent in doc.ents]
 
-                      # Log results
-                      mlflow.log_metrics(
-                          {
-                              "num_entities": len(entities),
-                              "num_tokens": len(doc),
-                              "processing_time": 0.1,  # Placeholder
-                          }
-                      )
+                    # Log results
+                    mlflow.log_metrics(
+                        {
+                            "num_entities": len(entities),
+                            "num_tokens": len(doc),
+                            "processing_time": 0.1,  # Placeholder
+                        }
+                    )
 
-                      # Log the model
-                      mlflow.spacy.log_model(nlp, name=f"{lang}_model")
+                    # Log the model
+                    mlflow.spacy.log_model(nlp, name=f"{lang}_model")
 
-                      results[lang] = {"entities": entities, "tokens": len(doc)}
+                    results[lang] = {"entities": entities, "tokens": len(doc)}
 
-              except OSError:
-                  print(f"Model {model_name} not available, skipping {lang}")
+            except OSError:
+                print(f"Model {model_name} not available, skipping {lang}")
 
-          # Log summary results
-          mlflow.log_param("total_languages", len(results))
-          mlflow.log_metric(
-              "avg_entities_per_lang",
-              sum(r["entities"].__len__() for r in results.values()) / len(results),
-          )
+        # Log summary results
+        mlflow.log_param("total_languages", len(results))
+        mlflow.log_metric(
+            "avg_entities_per_lang",
+            sum(r["entities"].__len__() for r in results.values()) / len(results),
+        )
 
-          return results
+        return results
 
 
-  # Run multilingual evaluation
-  results = evaluate_multilingual_models()
-  ```
+# Run multilingual evaluation
+results = evaluate_multilingual_models()
+```
 
-  #### Benefits of Multilingual Tracking
-  - 🌐 **Cross-Language Comparison**: Compare model performance across languages
-  - 📊 **Unified Metrics**: Track consistent metrics across different language models
-  - 🔄 **Model Selection**: Choose best models for multilingual applications
-  - 📈 **Performance Analysis**: Identify language-specific strengths and weaknesses
+#### Benefits of Multilingual Tracking
+
+- 🌐 **Cross-Language Comparison**: Compare model performance across languages
+- 📊 **Unified Metrics**: Track consistent metrics across different language models
+- 🔄 **Model Selection**: Choose best models for multilingual applications
+- 📈 **Performance Analysis**: Identify language-specific strengths and weaknesses
 
 </details>
 
@@ -754,25 +769,26 @@ curl http://localhost:5000/invocations \
 <details>
   <summary>Advanced Deployment Options</summary>
 
-  The `mlflow models serve` command supports several options for spaCy models:
+The `mlflow models serve` command supports several options for spaCy models:
 
-  ```bash
-  # Specify environment manager
-  mlflow models serve -m models:/<model_id> -p 5000 --env-manager conda
+```bash
+# Specify environment manager
+mlflow models serve -m models:/<model_id> -p 5000 --env-manager conda
 
-  # Enable MLServer for enhanced performance
-  mlflow models serve -m models:/<model_id> -p 5000 --enable-mlserver
+# Enable MLServer for enhanced performance
+mlflow models serve -m models:/<model_id> -p 5000 --enable-mlserver
 
-  # Set custom host for network access
-  mlflow models serve -m models:/<model_id> -p 5000 --host 0.0.0.0
-  ```
+# Set custom host for network access
+mlflow models serve -m models:/<model_id> -p 5000 --host 0.0.0.0
+```
 
-  For production deployments, consider:
-  - Using MLServer (`--enable-mlserver`) for better performance and scalability
-  - Building Docker images with `mlflow models build-docker`
-  - Deploying to cloud platforms like Azure ML or Amazon SageMaker
-  - Setting up proper environment management and dependency isolation
-  - Implementing model monitoring and health checks
+For production deployments, consider:
+
+- Using MLServer (`--enable-mlserver`) for better performance and scalability
+- Building Docker images with `mlflow models build-docker`
+- Deploying to cloud platforms like Azure ML or Amazon SageMaker
+- Setting up proper environment management and dependency isolation
+- Implementing model monitoring and health checks
 
 </details>
 

@@ -1,5 +1,6 @@
 import { random } from 'lodash';
-import { LoggedModelProto, LoggedModelStatusProtoEnum } from '../types';
+import type { LoggedModelProto } from '../types';
+import { LoggedModelStatusProtoEnum } from '../types';
 import { generateRandomRunName } from './RunNameUtils';
 import { rest } from 'msw';
 
@@ -72,6 +73,15 @@ export const mockSearchLoggedModels = (
   models = getLoggedModelsDemoData(experimentId),
 ) =>
   rest.post('/ajax-api/2.0/mlflow/logged-models/search', (req, res, ctx) =>
+    res(
+      ctx.json({
+        models,
+      }),
+    ),
+  );
+
+export const mockGetLoggedModels = (models = getLoggedModelsDemoData('test-experiment')) =>
+  rest.get('/ajax-api/2.0/mlflow/logged-models:batchGet', (req, res, ctx) =>
     res(
       ctx.json({
         models,

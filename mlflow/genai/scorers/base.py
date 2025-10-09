@@ -2,7 +2,8 @@ import functools
 import inspect
 import logging
 from dataclasses import asdict, dataclass
-from typing import Any, Callable, Literal, Optional, Union
+from enum import Enum
+from typing import Any, Callable, Literal, TypeAlias
 
 from pydantic import BaseModel, PrivateAttr
 
@@ -17,6 +18,42 @@ _logger = logging.getLogger(__name__)
 
 # Serialization version for tracking changes to the serialization format
 _SERIALIZATION_VERSION = 1
+_AggregationFunc: TypeAlias = Callable[[list[int | float]], float]
+_AggregationType: TypeAlias = (
+    Literal["min", "max", "mean", "median", "variance", "p90"] | _AggregationFunc
+)
+
+
+class ScorerKind(Enum):
+    CLASS = "class"
+    BUILTIN = "builtin"
+    DECORATOR = "decorator"
+
+
+_ALLOWED_SCORERS_FOR_REGISTRATION = [ScorerKind.BUILTIN, ScorerKind.DECORATOR]
+
+
+class ScorerStatus(Enum):
+    """Status of a scorer.
+
+    Scorer status is determined by the sample rate due to the backend not having
+    a notion of whether a scorer is started or stopped.
+    """
+
+    UNREGISTERED = "UNREGISTERED"  # sampling config not set
+    STARTED = "STARTED"  # sample_rate > 0
+    STOPPED = "STOPPED"  # sample_rate == 0
+
+
+@dataclass
+class ScorerSamplingConfig:
+    """Configuration for registered scorer sampling."""
+
+    sample_rate: float | None = None
+    filter_string: str | None = None
+
+
+AggregationFunc = Callable[[list[float]], float]  # List of per-row value -> aggregated value
 
 
 @dataclass
@@ -27,45 +64,97 @@ class SerializedScorer:
 
     # Core scorer fields
     name: str
-    aggregations: Optional[list[str]] = None
+    aggregations: list[str] | None = None
 
     # Version metadata
     mlflow_version: str = mlflow.__version__
     serialization_version: int = _SERIALIZATION_VERSION
 
     # Builtin scorer fields (for scorers from mlflow.genai.scorers.builtin_scorers)
-    builtin_scorer_class: Optional[str] = None
-    builtin_scorer_pydantic_data: Optional[dict] = None
+    builtin_scorer_class: str | None = None
+    builtin_scorer_pydantic_data: dict[str, Any] | None = None
 
     # Decorator scorer fields (for @scorer decorated functions)
-    call_source: Optional[str] = None
-    call_signature: Optional[str] = None
-    original_func_name: Optional[str] = None
+    call_source: str | None = None
+    call_signature: str | None = None
+    original_func_name: str | None = None
+
+    # InstructionsJudge fields (for make_judge created judges)
+    instructions_judge_pydantic_data: dict[str, Any] | None = None
+
+    def __post_init__(self):
+        """Validate that exactly one type of scorer fields is present."""
+        has_builtin_fields = self.builtin_scorer_class is not None
+        has_decorator_fields = self.call_source is not None
+        has_instructions_fields = self.instructions_judge_pydantic_data is not None
+
+        # Count how many field types are present
+        field_count = sum([has_builtin_fields, has_decorator_fields, has_instructions_fields])
+
+        if field_count == 0:
+            raise ValueError(
+                "SerializedScorer must have either builtin scorer fields "
+                "(builtin_scorer_class), decorator scorer fields (call_source), "
+                "or instructions judge fields (instructions_judge_pydantic_data) present"
+            )
+
+        if field_count > 1:
+            raise ValueError(
+                "SerializedScorer cannot have multiple types of scorer fields "
+                "present simultaneously"
+            )
 
 
-@experimental
+@experimental(version="3.0.0")
 class Scorer(BaseModel):
     name: str
-    aggregations: Optional[list] = None
+    aggregations: list[_AggregationType] | None = None
 
-    def model_dump(self, **kwargs) -> dict:
+    _cached_dump: dict[str, Any] | None = PrivateAttr(default=None)
+    _sampling_config: ScorerSamplingConfig | None = PrivateAttr(default=None)
+    _registered_backend: str | None = PrivateAttr(default=None)
+
+    @property
+    @experimental(version="3.2.0")
+    def sample_rate(self) -> float | None:
+        """Get the sample rate for this scorer. Available when registered for monitoring."""
+        return self._sampling_config.sample_rate if self._sampling_config else None
+
+    @property
+    @experimental(version="3.2.0")
+    def filter_string(self) -> str | None:
+        """Get the filter string for this scorer."""
+        return self._sampling_config.filter_string if self._sampling_config else None
+
+    @property
+    @experimental(version="3.3.0")
+    def status(self) -> ScorerStatus:
+        """Get the status of this scorer, using only the local state."""
+
+        if self._registered_backend is None:
+            return ScorerStatus.UNREGISTERED
+
+        return ScorerStatus.STARTED if (self.sample_rate or 0) > 0 else ScorerStatus.STOPPED
+
+    def __repr__(self) -> str:
+        # Get the standard representation from the parent class
+        base_repr = super().__repr__()
+        filter_string = self.filter_string
+        if filter_string is not None:
+            filter_string = f"'{filter_string}'"
+
+        # Inject the property's value into the repr string
+        return f"{base_repr[:-1]}, sample_rate={self.sample_rate}, filter_string={filter_string})"
+
+    def model_dump(self, **kwargs) -> dict[str, Any]:
         """Override model_dump to include source code."""
-        # Create serialized scorer with core fields
-        serialized = SerializedScorer(
-            name=self.name,
-            aggregations=self.aggregations,
-            mlflow_version=mlflow.__version__,
-            serialization_version=_SERIALIZATION_VERSION,
-        )
+
+        # Return cached dump if available (prevents re-serialization issues with dynamic functions)
+        if self._cached_dump is not None:
+            return self._cached_dump
 
         # Check if this is a decorator scorer
-        if hasattr(self, "_original_func") and self._original_func:
-            # Decorator scorer - extract and store source code
-            source_info = self._extract_source_code_info()
-            serialized.call_source = source_info.get("call_source")
-            serialized.call_signature = source_info.get("call_signature")
-            serialized.original_func_name = source_info.get("original_func_name")
-        else:
+        if not getattr(self, "_original_func", None):
             # BuiltInScorer overrides `model_dump`, so this is neither a builtin scorer nor a
             # decorator scorer
             raise MlflowException.invalid_parameter_value(
@@ -77,9 +166,23 @@ class Scorer(BaseModel):
                 f"Please use the @scorer decorator instead."
             )
 
-        return asdict(serialized)
+        # Decorator scorer - extract and store source code
+        source_info = self._extract_source_code_info()
 
-    def _extract_source_code_info(self) -> dict:
+        # Create serialized scorer with all fields at once
+        serialized = SerializedScorer(
+            name=self.name,
+            aggregations=self.aggregations,
+            mlflow_version=mlflow.__version__,
+            serialization_version=_SERIALIZATION_VERSION,
+            call_source=source_info.get("call_source"),
+            call_signature=source_info.get("call_signature"),
+            original_func_name=source_info.get("original_func_name"),
+        )
+        self._cached_dump = asdict(serialized)
+        return self._cached_dump
+
+    def _extract_source_code_info(self) -> dict[str, str | None]:
         """Extract source code information for the original decorated function."""
         from mlflow.genai.scorers.scorer_utils import extract_function_body
 
@@ -98,18 +201,23 @@ class Scorer(BaseModel):
     @classmethod
     def model_validate(cls, obj: Any) -> "Scorer":
         """Override model_validate to reconstruct scorer from source code."""
-        if not isinstance(obj, dict):
+        # Handle SerializedScorer object
+        if isinstance(obj, SerializedScorer):
+            serialized = obj
+        # Handle dict object
+        elif isinstance(obj, dict):
+            # Parse the serialized data using our dataclass
+            try:
+                serialized = SerializedScorer(**obj)
+            except Exception as e:
+                raise MlflowException.invalid_parameter_value(
+                    f"Failed to parse serialized scorer data: {e}"
+                )
+        else:
             raise MlflowException.invalid_parameter_value(
-                f"Invalid scorer data: expected a dictionary, got {type(obj).__name__}. "
-                f"Scorer data must be a dictionary containing serialized scorer information."
-            )
-
-        # Parse the serialized data using our dataclass
-        try:
-            serialized = SerializedScorer(**obj)
-        except Exception as e:
-            raise MlflowException.invalid_parameter_value(
-                f"Failed to parse serialized scorer data: {e}"
+                f"Invalid scorer data: expected a SerializedScorer object or dictionary, "
+                f"got {type(obj).__name__}. Scorer data must be either a SerializedScorer object "
+                "or a dictionary containing serialized scorer information."
             )
 
         # Log version information for debugging
@@ -130,6 +238,45 @@ class Scorer(BaseModel):
         elif serialized.call_source and serialized.call_signature and serialized.original_func_name:
             return cls._reconstruct_decorator_scorer(serialized)
 
+        # Handle InstructionsJudge scorers
+        elif serialized.instructions_judge_pydantic_data is not None:
+            from mlflow.genai.judges.instructions_judge import InstructionsJudge
+
+            data = serialized.instructions_judge_pydantic_data
+
+            field_specs = {
+                "instructions": str,
+                "model": str,
+            }
+
+            errors = []
+            for field, expected_type in field_specs.items():
+                if field not in data:
+                    errors.append(f"missing required field '{field}'")
+                elif not isinstance(data[field], expected_type):
+                    actual_type = type(data[field]).__name__
+                    errors.append(
+                        f"field '{field}' must be {expected_type.__name__}, got {actual_type}"
+                    )
+
+            if errors:
+                raise MlflowException.invalid_parameter_value(
+                    f"Failed to deserialize InstructionsJudge scorer '{serialized.name}': "
+                    f"{'; '.join(errors)}"
+                )
+
+            try:
+                return InstructionsJudge(
+                    name=serialized.name,
+                    instructions=data["instructions"],
+                    model=data["model"],
+                    # TODO: add aggregations here once we support boolean/numeric judge outputs
+                )
+            except Exception as e:
+                raise MlflowException.invalid_parameter_value(
+                    f"Failed to create InstructionsJudge scorer '{serialized.name}': {e}"
+                )
+
         # Invalid serialized data
         else:
             raise MlflowException.invalid_parameter_value(
@@ -148,24 +295,31 @@ class Scorer(BaseModel):
         from mlflow.genai.scorers.scorer_utils import recreate_function
 
         # Recreate the original function from source code
-        recreated_func = recreate_function(
-            serialized.call_source, serialized.call_signature, serialized.original_func_name
-        )
-
-        if not recreated_func:
+        try:
+            recreated_func = recreate_function(
+                serialized.call_source, serialized.call_signature, serialized.original_func_name
+            )
+        except Exception as e:
             raise MlflowException.invalid_parameter_value(
                 f"Failed to recreate function from source code. "
                 f"Scorer was created with MLflow version: "
                 f"{serialized.mlflow_version or 'unknown'}, "
                 f"serialization version: {serialized.serialization_version or 'unknown'}. "
-                f"Current MLflow version: {mlflow.__version__}"
+                f"Current MLflow version: {mlflow.__version__}. "
+                f"Error: {e}"
             )
 
         # Apply the scorer decorator to recreate the scorer
         # Rather than serializing and deserializing the `run` method of `Scorer`, we recreate the
         # Scorer using the original function and the `@scorer` decorator. This should be safe so
         # long as `@scorer` is a stable API.
-        return scorer(recreated_func, name=serialized.name, aggregations=serialized.aggregations)
+        scorer_instance = scorer(
+            recreated_func, name=serialized.name, aggregations=serialized.aggregations
+        )
+        # Cache the serialized data to prevent re-serialization issues with dynamic functions
+        original_serialized_data = asdict(serialized)
+        object.__setattr__(scorer_instance, "_cached_dump", original_serialized_data)
+        return scorer_instance
 
     def run(self, *, inputs=None, outputs=None, expectations=None, trace=None):
         from mlflow.evaluation import Assessment as LegacyAssessment
@@ -225,9 +379,9 @@ class Scorer(BaseModel):
         *,
         inputs: Any = None,
         outputs: Any = None,
-        expectations: Optional[dict[str, Any]] = None,
-        trace: Optional[Trace] = None,
-    ) -> Union[int, float, bool, str, Feedback, list[Feedback]]:
+        expectations: dict[str, Any] | None = None,
+        trace: Trace | None = None,
+    ) -> int | float | bool | str | Feedback | list[Feedback]:
         """
         Implement the custom scorer's logic here.
 
@@ -316,15 +470,330 @@ class Scorer(BaseModel):
         """
         raise NotImplementedError("Implementation of __call__ is required for Scorer class")
 
+    @property
+    def kind(self) -> ScorerKind:
+        return ScorerKind.CLASS
 
-@experimental
+    @experimental(version="3.2.0")
+    def register(self, *, name: str | None = None, experiment_id: str | None = None) -> "Scorer":
+        """
+        Register this scorer with the MLflow server.
+
+        This method registers the scorer for use with automatic trace evaluation in the
+        specified experiment. Once registered, the scorer can be started to begin
+        evaluating traces automatically.
+
+        Args:
+            name: Optional registered name for the scorer. If not provided, the current `name`
+                property value will be used as a registered name.
+            experiment_id: The ID of the MLflow experiment to register the scorer for.
+                If None, uses the currently active experiment.
+
+        Returns:
+            A new Scorer instance with server registration information.
+
+        Example:
+
+            .. code-block:: python
+
+                import mlflow
+                from mlflow.genai.scorers import RelevanceToQuery
+
+                # Register a built-in scorer
+                mlflow.set_experiment("my_genai_app")
+                registered_scorer = RelevanceToQuery().register(name="relevance_scorer")
+                print(f"Registered scorer: {registered_scorer.name}")
+
+                # Register a custom scorer
+                from mlflow.genai.scorers import scorer
+
+
+                @scorer
+                def custom_length_check(outputs) -> bool:
+                    return len(outputs) > 100
+
+
+                registered_custom = custom_length_check.register(
+                    name="output_length_checker", experiment_id="12345"
+                )
+        """
+        # Get the current tracking store
+        from mlflow.genai.scorers.registry import DatabricksStore, _get_scorer_store
+
+        self._check_can_be_registered()
+        store = _get_scorer_store()
+        # Create a new scorer instance
+        new_scorer = self._create_copy()
+
+        # If name is provided, update the copy's name
+        if name:
+            new_scorer.name = name
+            # Update cached dump to reflect the new name
+            if new_scorer._cached_dump is not None:
+                new_scorer._cached_dump["name"] = name
+
+        store.register_scorer(experiment_id, new_scorer)
+
+        if isinstance(store, DatabricksStore):
+            new_scorer._registered_backend = "databricks"
+        else:
+            new_scorer._registered_backend = "tracking"
+        return new_scorer
+
+    @experimental(version="3.2.0")
+    def start(
+        self,
+        *,
+        name: str | None = None,
+        experiment_id: str | None = None,
+        sampling_config: ScorerSamplingConfig,
+    ) -> "Scorer":
+        """
+        Start registered scoring with the specified sampling configuration.
+
+        This method activates automatic trace evaluation for the scorer. The scorer will
+        evaluate traces based on the provided sampling configuration, including the
+        sample rate and optional filter criteria.
+
+        Args:
+            name: Optional scorer name. If not provided, uses the scorer's registered
+                name or default name.
+            experiment_id: The ID of the MLflow experiment containing the scorer.
+                If None, uses the currently active experiment.
+            sampling_config: Configuration object containing:
+                - sample_rate: Fraction of traces to evaluate (0.0 to 1.0). Required.
+                - filter_string: Optional MLflow search_traces compatible filter string.
+
+        Returns:
+            A new Scorer instance with updated sampling configuration.
+
+        Example:
+            .. code-block:: python
+
+                import mlflow
+                from mlflow.genai.scorers import RelevanceToQuery, ScorerSamplingConfig
+
+                # Start scorer with 50% sampling rate
+                mlflow.set_experiment("my_genai_app")
+                scorer = RelevanceToQuery().register()
+                active_scorer = scorer.start(sampling_config=ScorerSamplingConfig(sample_rate=0.5))
+                print(f"Scorer is evaluating {active_scorer.sample_rate * 100}% of traces")
+
+                # Start scorer with filter to only evaluate specific traces
+                filtered_scorer = scorer.start(
+                    sampling_config=ScorerSamplingConfig(
+                        sample_rate=1.0, filter_string="YOUR_FILTER_STRING"
+                    )
+                )
+        """
+        from mlflow.genai.scorers.registry import DatabricksStore
+        from mlflow.tracking._tracking_service.utils import get_tracking_uri
+        from mlflow.utils.uri import is_databricks_uri
+
+        if not is_databricks_uri(get_tracking_uri()):
+            raise MlflowException(
+                "Scheduling scorers is only supported by Databricks tracking URI."
+            )
+
+        self._check_can_be_registered()
+
+        if sampling_config.sample_rate is not None and sampling_config.sample_rate <= 0:
+            raise MlflowException.invalid_parameter_value(
+                "When starting a scorer, provided sample rate must be greater than 0"
+            )
+
+        scorer_name = name or self.name
+
+        # Update the scorer on the server
+        return DatabricksStore.update_registered_scorer(
+            name=scorer_name,
+            scorer=self,
+            sample_rate=sampling_config.sample_rate,
+            filter_string=sampling_config.filter_string,
+            experiment_id=experiment_id,
+        )
+
+    @experimental(version="3.2.0")
+    def update(
+        self,
+        *,
+        name: str | None = None,
+        experiment_id: str | None = None,
+        sampling_config: ScorerSamplingConfig,
+    ) -> "Scorer":
+        """
+        Update the sampling configuration for this scorer.
+
+        This method modifies the sampling rate and/or filter criteria for an already
+        registered scorer. It can be used to dynamically adjust how many traces are
+        evaluated or change the filtering criteria without stopping and restarting
+        the scorer.
+
+        Args:
+            name: Optional scorer name. If not provided, uses the scorer's registered name
+                or default name.
+            experiment_id: The ID of the MLflow experiment containing the scorer.
+                If None, uses the currently active experiment.
+            sampling_config: Configuration object containing:
+                - sample_rate: New fraction of traces to evaluate (0.0 to 1.0). Optional.
+                - filter_string: New MLflow search_traces compatible filter string. Optional.
+
+        Returns:
+            A new Scorer instance with updated configuration.
+
+        Example:
+
+            .. code-block:: python
+
+                import mlflow
+                from mlflow.genai.scorers import RelevanceToQuery, ScorerSamplingConfig
+
+                # Start scorer with initial configuration
+                mlflow.set_experiment("my_genai_app")
+                scorer = RelevanceToQuery().register()
+                active_scorer = scorer.start(sampling_config=ScorerSamplingConfig(sample_rate=0.1))
+
+                # Update to increase sampling rate during high traffic
+                updated_scorer = active_scorer.update(
+                    sampling_config=ScorerSamplingConfig(sample_rate=0.5)
+                )
+                print(f"Updated sample rate: {updated_scorer.sample_rate}")
+
+                # Update to add filtering criteria
+                filtered_scorer = updated_scorer.update(
+                    sampling_config=ScorerSamplingConfig(filter_string="YOUR_FILTER_STRING")
+                )
+                print(f"Added filter: {filtered_scorer.filter_string}")
+        """
+        from mlflow.genai.scorers.registry import DatabricksStore
+        from mlflow.tracking._tracking_service.utils import get_tracking_uri
+        from mlflow.utils.uri import is_databricks_uri
+
+        if not is_databricks_uri(get_tracking_uri()):
+            raise MlflowException(
+                "Updating scheduled scorers is only supported by Databricks tracking URI."
+            )
+
+        self._check_can_be_registered()
+
+        scorer_name = name or self.name
+
+        # Update the scorer on the server
+        return DatabricksStore.update_registered_scorer(
+            name=scorer_name,
+            scorer=self,
+            sample_rate=sampling_config.sample_rate,
+            filter_string=sampling_config.filter_string,
+            experiment_id=experiment_id,
+        )
+
+    @experimental(version="3.2.0")
+    def stop(self, *, name: str | None = None, experiment_id: str | None = None) -> "Scorer":
+        """
+        Stop registered scoring by setting sample rate to 0.
+
+        This method deactivates automatic trace evaluation for the scorer while keeping
+        the scorer registered. The scorer can be restarted later using the start() method.
+
+        Args:
+            name: Optional scorer name. If not provided, uses the scorer's registered name
+                or default name.
+            experiment_id: The ID of the MLflow experiment containing the scorer.
+                If None, uses the currently active experiment.
+
+        Returns:
+            A new Scorer instance with sample rate set to 0.
+
+        Example:
+
+            .. code-block:: python
+
+                import mlflow
+                from mlflow.genai.scorers import RelevanceToQuery, ScorerSamplingConfig
+
+                # Start and then stop a scorer
+                mlflow.set_experiment("my_genai_app")
+                scorer = RelevanceToQuery().register()
+                active_scorer = scorer.start(sampling_config=ScorerSamplingConfig(sample_rate=0.5))
+                print(f"Scorer is active: {active_scorer.sample_rate > 0}")
+
+                # Stop the scorer
+                stopped_scorer = active_scorer.stop()
+                print(f"Scorer is active: {stopped_scorer.sample_rate > 0}")
+
+                # The scorer remains registered and can be restarted later
+                restarted_scorer = stopped_scorer.start(
+                    sampling_config=ScorerSamplingConfig(sample_rate=0.3)
+                )
+        """
+        from mlflow.tracking._tracking_service.utils import get_tracking_uri
+        from mlflow.utils.uri import is_databricks_uri
+
+        if not is_databricks_uri(get_tracking_uri()):
+            raise MlflowException(
+                "Stopping scheduled scorers is only supported by Databricks tracking URI."
+            )
+
+        self._check_can_be_registered()
+
+        scorer_name = name or self.name
+        return self.update(
+            name=scorer_name,
+            experiment_id=experiment_id,
+            sampling_config=ScorerSamplingConfig(sample_rate=0.0),
+        )
+
+    def _create_copy(self) -> "Scorer":
+        """
+        Create a copy of this scorer instance.
+        """
+        self._check_can_be_registered(
+            error_message="Scorer must be a builtin or decorator scorer to be copied."
+        )
+
+        copy = self.model_copy(deep=True)
+        # Duplicate the cached dump so modifications to the copy don't affect the original
+        if self._cached_dump is not None:
+            object.__setattr__(copy, "_cached_dump", dict(self._cached_dump))
+        return copy
+
+    def _check_can_be_registered(self, error_message: str | None = None) -> None:
+        # Allow InstructionsJudge (created via make_judge) to be registered
+        # despite being ScorerKind.CLASS since it has proper serialization support
+        from mlflow.genai.judges.instructions_judge import InstructionsJudge
+        from mlflow.genai.scorers.registry import DatabricksStore, _get_scorer_store
+
+        if isinstance(self, InstructionsJudge):
+            return
+
+        if self.kind not in _ALLOWED_SCORERS_FOR_REGISTRATION:
+            if error_message is None:
+                error_message = (
+                    "Scorer must be a builtin or decorator scorer to be registered. "
+                    f"Got {self.kind}."
+                )
+            raise MlflowException.invalid_parameter_value(error_message)
+
+        store = _get_scorer_store()
+        if (
+            isinstance(store, DatabricksStore)
+            and (model := getattr(self, "model", None))
+            and not model.startswith("databricks")
+        ):
+            raise MlflowException.invalid_parameter_value(
+                "The scorer's judge model must use Databricks as a model provider "
+                "in order to be registered or updated. Please use the default judge model or "
+                "specify a model value starting with `databricks:/`. "
+                f"Got {model}."
+            )
+
+
+@experimental(version="3.0.0")
 def scorer(
     func=None,
     *,
-    name: Optional[str] = None,
-    aggregations: Optional[
-        list[Union[Literal["min", "max", "mean", "median", "variance", "p90", "p99"], Callable]]
-    ] = None,
+    name: str | None = None,
+    aggregations: list[_AggregationType] | None = None,
 ):
     """
     A decorator to define a custom scorer that can be used in ``mlflow.genai.evaluate()``.
@@ -385,6 +854,17 @@ def scorer(
 
         The metric name will be determined by the scorer function's name or a custom name
         specified in the `name` parameter for the scorer.
+
+    Args:
+        func: The scorer function to be decorated.
+        name: The name of the scorer.
+        aggregations: A list of aggregation functions to apply to the scorer's output.
+            The aggregation functions can be either a string or a callable.
+
+            * If a string, it must be one of `["min", "max", "mean", "median", "variance", "p90"]`.
+            * If a callable, it must take a list of values and return a single value.
+
+            By default, "mean" is used as the aggregation function.
 
     Example:
 
@@ -459,7 +939,7 @@ def scorer(
 
     class CustomScorer(Scorer):
         # Store reference to the original function
-        _original_func: Optional[Callable] = PrivateAttr(default=None)
+        _original_func: Callable[..., Any] | None = PrivateAttr(default=None)
 
         def __init__(self, **data):
             super().__init__(**data)
@@ -471,6 +951,10 @@ def scorer(
 
         def __call__(self, *args, **kwargs):
             return func(*args, **kwargs)
+
+        @property
+        def kind(self) -> ScorerKind:
+            return ScorerKind.DECORATOR
 
     # Update the __call__ method's signature to match the original function
     # but add 'self' as the first parameter. This is required for MLflow to

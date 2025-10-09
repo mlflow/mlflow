@@ -2,8 +2,8 @@ import inspect
 import json
 import logging
 import os
-from collections import namedtuple
 from pathlib import Path
+from typing import Any, NamedTuple
 from unittest import mock
 
 import numpy as np
@@ -73,9 +73,11 @@ def spark_custom_env(tmp_path):
     return conda_env
 
 
-SparkModelWithData = namedtuple(
-    "SparkModelWithData", ["model", "spark_df", "pandas_df", "predictions"]
-)
+class SparkModelWithData(NamedTuple):
+    model: Any
+    spark_df: Any
+    pandas_df: Any
+    predictions: Any
 
 
 def _get_spark_session_with_retry(max_tries=3):
@@ -339,6 +341,9 @@ def test_transformer_model_export(spark_model_transformer, model_path, spark_cus
     assert spark_model_transformer.predictions == preds2
 
 
+@pytest.mark.skipif(
+    PYSPARK_VERSION.is_devrelease, reason="this test does not support PySpark dev version."
+)
 def test_model_deployment(spark_model_iris, model_path, spark_custom_env, monkeypatch):
     mlflow.spark.save_model(
         spark_model_iris.model,

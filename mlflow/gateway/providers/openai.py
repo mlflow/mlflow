@@ -5,7 +5,7 @@ from urllib.parse import urlparse, urlunparse
 
 from mlflow.environment_variables import MLFLOW_ENABLE_UC_FUNCTIONS
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.config import OpenAIAPIType, OpenAIConfig, RouteConfig
+from mlflow.gateway.config import EndpointConfig, OpenAIAPIType, OpenAIConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.utils import send_request, send_stream_request
@@ -169,7 +169,7 @@ class OpenAIAdapter(ProviderAdapter):
             choices=[
                 completions.Choice(
                     index=idx,
-                    text=c["message"]["content"],
+                    text=c.get("message", {}).get("content") or c.get("text") or "",
                     finish_reason=c["finish_reason"],
                 )
                 for idx, c in enumerate(resp["choices"])
@@ -246,7 +246,7 @@ class OpenAIProvider(BaseProvider):
     NAME = "OpenAI"
     CONFIG_TYPE = OpenAIConfig
 
-    def __init__(self, config: RouteConfig) -> None:
+    def __init__(self, config: EndpointConfig) -> None:
         super().__init__(config)
         if config.model.config is None or not isinstance(config.model.config, OpenAIConfig):
             # Should be unreachable

@@ -1,7 +1,8 @@
 import type { LoggedModelProto, RunEntity } from '../../types';
 import { useEffect, useMemo } from 'react';
 import { compact, sortBy, uniq } from 'lodash';
-import { QueryFunctionContext, useQueries } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import type { QueryFunctionContext } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { useQueries } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { MlflowService } from '../../sdk/MlflowService';
 import { useArrayMemo } from '../../../common/hooks/useArrayMemo';
 

@@ -256,7 +256,8 @@ def test_docker_user_specified_env_vars(volumes, environment, expected, os_envir
     image = mock.MagicMock()
     image.tags = ["image:tag"]
 
-    monkeypatch.setenvs(os_environ)
+    for name, value in os_environ.items():
+        monkeypatch.setenv(name, value)
     if "should_crash" in expected:
         expected.remove("should_crash")
         with pytest.raises(MlflowException, match="This project expects"):
@@ -290,7 +291,7 @@ def test_docker_build_image_local(tmp_path):
     dockerfile = tmp_path.joinpath("Dockerfile")
     dockerfile.write_text(
         """
-FROM python:3.9
+FROM python:3.10
 RUN pip --version
 """
     )

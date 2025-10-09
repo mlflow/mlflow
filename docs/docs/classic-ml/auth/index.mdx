@@ -1,3 +1,6 @@
+import Link from "@docusaurus/Link";
+import { APILink } from "@site/src/components/APILink";
+
 # MLflow Authentication
 
 :::note Experimental Feature
@@ -31,9 +34,9 @@ The secret key must be consistent across multiple servers to prevent validation 
 
 MLflow creates a default admin user on first startup:
 
-| Username | Password |
-|----------|----------|
-| `admin` | `password1234` |
+| Username | Password       |
+| -------- | -------------- |
+| `admin`  | `password1234` |
 
 :::tip Security Recommendation
 Update the default admin password immediately after first login using the `/api/2.0/mlflow/users/update-password` endpoint.
@@ -45,12 +48,12 @@ Update the default admin password immediately after first login using the `/api/
 
 MLflow uses a hierarchical permission system with four levels:
 
-| Permission | Read | Update | Delete | Manage |
-|------------|------|--------|--------|---------|
-| **READ** | ✅ | ❌ | ❌ | ❌ |
-| **EDIT** | ✅ | ✅ | ❌ | ❌ |
-| **MANAGE** | ✅ | ✅ | ✅ | ✅ |
-| **NO_PERMISSIONS** | ❌ | ❌ | ❌ | ❌ |
+| Permission         | Read | Update | Delete | Manage |
+| ------------------ | ---- | ------ | ------ | ------ |
+| **READ**           | ✅   | ❌     | ❌     | ❌     |
+| **EDIT**           | ✅   | ✅     | ❌     | ❌     |
+| **MANAGE**         | ✅   | ✅     | ✅     | ✅     |
+| **NO_PERMISSIONS** | ❌   | ❌     | ❌     | ❌     |
 
 The default permission for all users is **READ**, configurable in the auth configuration file.
 
@@ -97,6 +100,17 @@ export MLFLOW_TRACKING_USERNAME=your_username
 export MLFLOW_TRACKING_PASSWORD=your_password
 ```
 
+or
+
+```python
+import os
+
+os.environ["MLFLOW_TRACKING_USERNAME"] = "your_username"
+os.environ["MLFLOW_TRACKING_PASSWORD"] = "your_password"
+```
+
+and use those to authenticate with the tracking server:
+
 ```python
 import mlflow
 
@@ -125,6 +139,7 @@ Environment variables take precedence over credentials file. This allows for eas
 MLflow supports additional authentication methods and security configurations:
 
 #### Token-based Authentication
+
 ```python
 import os
 
@@ -132,6 +147,7 @@ os.environ["MLFLOW_TRACKING_TOKEN"] = "your_api_token"
 ```
 
 #### AWS SigV4 Authentication
+
 ```python
 import os
 
@@ -139,6 +155,7 @@ os.environ["MLFLOW_TRACKING_AWS_SIGV4"] = "true"
 ```
 
 #### Custom Authentication Headers
+
 ```python
 import os
 
@@ -146,6 +163,7 @@ os.environ["MLFLOW_TRACKING_AUTH"] = "custom_auth_header_value"
 ```
 
 #### TLS/SSL Configuration
+
 ```python
 import os
 
@@ -262,31 +280,31 @@ auth_client.update_registered_model_permission(
 
 #### User Management
 
-| Endpoint | Method | Description | Required Permission |
-|----------|--------|-------------|-------------------|
-| `/api/2.0/mlflow/users/create` | POST | Create new user | Admin only |
-| `/api/2.0/mlflow/users/get` | GET | Get user info | Self only |
-| `/api/2.0/mlflow/users/update-password` | PATCH | Update password | Self only |
-| `/api/2.0/mlflow/users/update-admin` | PATCH | Update admin status | Admin only |
-| `/api/2.0/mlflow/users/delete` | DELETE | Delete user | Admin only |
+| Endpoint                                | Method | Description         | Required Permission |
+| --------------------------------------- | ------ | ------------------- | ------------------- |
+| `/api/2.0/mlflow/users/create`          | POST   | Create new user     | Admin only          |
+| `/api/2.0/mlflow/users/get`             | GET    | Get user info       | Self only           |
+| `/api/2.0/mlflow/users/update-password` | PATCH  | Update password     | Self only           |
+| `/api/2.0/mlflow/users/update-admin`    | PATCH  | Update admin status | Admin only          |
+| `/api/2.0/mlflow/users/delete`          | DELETE | Delete user         | Admin only          |
 
 #### Experiment Permissions
 
-| Endpoint | Method | Required Permission |
-|----------|--------|-------------------|
-| `/api/2.0/mlflow/experiments/permissions/create` | POST | can_manage |
-| `/api/2.0/mlflow/experiments/permissions/get` | GET | can_manage |
-| `/api/2.0/mlflow/experiments/permissions/update` | PATCH | can_manage |
-| `/api/2.0/mlflow/experiments/permissions/delete` | DELETE | can_manage |
+| Endpoint                                         | Method | Required Permission |
+| ------------------------------------------------ | ------ | ------------------- |
+| `/api/2.0/mlflow/experiments/permissions/create` | POST   | can_manage          |
+| `/api/2.0/mlflow/experiments/permissions/get`    | GET    | can_manage          |
+| `/api/2.0/mlflow/experiments/permissions/update` | PATCH  | can_manage          |
+| `/api/2.0/mlflow/experiments/permissions/delete` | DELETE | can_manage          |
 
 #### Model Registry Permissions
 
-| Endpoint | Method | Required Permission |
-|----------|--------|-------------------|
-| `/api/2.0/mlflow/registered-models/permissions/create` | POST | can_manage |
-| `/api/2.0/mlflow/registered-models/permissions/get` | GET | can_manage |
-| `/api/2.0/mlflow/registered-models/permissions/update` | PATCH | can_manage |
-| `/api/2.0/mlflow/registered-models/permissions/delete` | DELETE | can_manage |
+| Endpoint                                               | Method | Required Permission |
+| ------------------------------------------------------ | ------ | ------------------- |
+| `/api/2.0/mlflow/registered-models/permissions/create` | POST   | can_manage          |
+| `/api/2.0/mlflow/registered-models/permissions/get`    | GET    | can_manage          |
+| `/api/2.0/mlflow/registered-models/permissions/update` | PATCH  | can_manage          |
+| `/api/2.0/mlflow/registered-models/permissions/delete` | DELETE | can_manage          |
 
 ### Enhanced Behavior
 
@@ -363,10 +381,10 @@ from flask import Flask
 from mlflow.server import app
 
 
-def create_app(app: Flask = app):
+def create_app(my_app: Flask = app):
     # Extend MLflow app with custom auth logic
-    app.add_url_rule(...)
-    return app
+    my_app.add_url_rule(...)
+    return my_app
 
 
 class MyAuthClient:
@@ -389,21 +407,25 @@ setup(
 ## Security Best Practices
 
 ### Password Security
+
 - Use strong passwords (minimum 12 characters)
 - Rotate credentials regularly
 - Store credentials securely using environment variables or secure credential files
 
 ### Network Security
+
 - Use HTTPS in production environments
 - Configure proper firewall rules
 - Consider using reverse proxy with additional security headers
 
 ### Database Security
+
 - Use encrypted connections to your database
 - Regularly backup authentication data
 - Implement proper database access controls
 
 ### Monitoring
+
 - Monitor authentication logs for suspicious activity
 - Set up alerts for failed authentication attempts
 - Regularly audit user permissions
@@ -413,21 +435,25 @@ setup(
 ### Common Issues
 
 **Secret Key Errors**
+
 ```
 Solution: Ensure MLFLOW_FLASK_SERVER_SECRET_KEY is set and consistent across all servers
 ```
 
 **Permission Denied (403)**
+
 ```
 Solution: Check user permissions using get_experiment_permission or get_registered_model_permission
 ```
 
 **Authentication Failed (401)**
+
 ```
 Solution: Verify username/password and ensure user exists in the system
 ```
 
 **Database Connection Issues**
+
 ```
 Solution: Verify database_uri in configuration and ensure database is accessible
 ```
@@ -435,11 +461,13 @@ Solution: Verify database_uri in configuration and ensure database is accessible
 ### Debugging Tips
 
 1. **Enable Debug Logging**
+
    ```bash
    export MLFLOW_LOGGING_LEVEL=DEBUG
    ```
 
 2. **Check User Permissions**
+
    ```python
    # Verify current user permissions
    user = auth_client.get_user("username")
@@ -472,4 +500,4 @@ To disable authentication, simply restart the server without the `--app-name bas
 
 ---
 
-**Need Help?** Check the [MLflow Authentication API Reference](https://mlflow.org/docs/latest/python_api/mlflow.server.auth.html) for detailed function documentation.
+**Need Help?** Check the <APILink fn="mlflow.server.auth" hash="">MLflow Authentication API Reference</APILink> for detailed function documentation.

@@ -8,6 +8,7 @@ from packaging.version import Version
 import mlflow.pytorch
 from mlflow.exceptions import MlflowException
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
+from mlflow.tracking.fluent import _initialize_logged_model
 from mlflow.utils.autologging_utils import (
     BatchMetricsLogger,
     ExceptionSafeAbstractClass,
@@ -296,7 +297,7 @@ class MlflowModelCheckpointCallback(pl.Callback, MlflowModelCheckpointCallbackBa
             if save_best_only=True, the decision to overwrite the current save file is made
             based on either the maximization or the minimization of the monitored quantity.
         save_weights_only: In automatic model checkpointing, if True, then
-            only the model’s weights will be saved. Otherwise, the optimizer states,
+            only the model's weights will be saved. Otherwise, the optimizer states,
             lr-scheduler states, etc are added in the checkpoint too.
         save_freq: `"epoch"` or integer. When using `"epoch"`, the callback
             saves the model after each epoch. When using integer, the callback
@@ -309,7 +310,7 @@ class MlflowModelCheckpointCallback(pl.Callback, MlflowModelCheckpointCallbackBa
         :caption: Example
 
         import mlflow
-        from mlflow.pytorch import MLflowModelCheckpointCallback
+        from mlflow.pytorch import MlflowModelCheckpointCallback
         from pytorch_lightning import Trainer
 
         mlflow.pytorch.autolog(checkpoint=True)
@@ -317,7 +318,7 @@ class MlflowModelCheckpointCallback(pl.Callback, MlflowModelCheckpointCallbackBa
         model = MyLightningModuleNet()  # A custom-pytorch lightning model
         train_loader = create_train_dataset_loader()
 
-        mlflow_checkpoint_callback = MLflowModelCheckpointCallback()
+        mlflow_checkpoint_callback = MlflowModelCheckpointCallback()
 
         trainer = Trainer(callbacks=[mlflow_checkpoint_callback])
 
@@ -477,7 +478,9 @@ def patched_fit(original, self, *args, **kwargs):
         log_models = get_autologging_config(mlflow.pytorch.FLAVOR_NAME, "log_models", True)
         model_id = None
         if log_models:
-            model_id = mlflow.initialize_logged_model(name="model").model_id
+            model_id = _initialize_logged_model(
+                name="model", flavor=mlflow.pytorch.FLAVOR_NAME
+            ).model_id
         metrics_logger = BatchMetricsLogger(run_id, tracking_uri, model_id=model_id)
 
         log_every_n_epoch = get_autologging_config(

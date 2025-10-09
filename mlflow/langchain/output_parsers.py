@@ -1,5 +1,5 @@
 from dataclasses import asdict
-from typing import Any, Iterator
+from typing import Any, AsyncIterator, Iterator
 from uuid import uuid4
 
 from langchain_core.messages.base import BaseMessage
@@ -22,7 +22,7 @@ from mlflow.types.llm import (
     ChatCompletionResponse,
     ChatMessage,
 )
-from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.annotations import deprecated
 
 
 @deprecated("mlflow.langchain.output_parser.ChatCompletionOutputParser")
@@ -81,6 +81,17 @@ class ChatCompletionOutputParser(BaseTransformOutputParser[str]):
                 choices=[ChatChunkChoice(delta=ChatChoiceDelta(content=chunk.content))]
             ).to_dict()
 
+    async def atransform(
+        self,
+        input: AsyncIterator[BaseMessage],
+        config: Any,
+        **kwargs: Any,
+    ) -> AsyncIterator[ChatCompletionChunk]:
+        async for chunk in input:
+            yield ChatCompletionChunk(
+                choices=[ChatChunkChoice(delta=ChatChoiceDelta(content=chunk.content))]
+            ).to_dict()
+
 
 @deprecated("mlflow.langchain.output_parser.ChatCompletionOutputParser")
 class StringResponseOutputParser(BaseTransformOutputParser[dict[str, Any]]):
@@ -103,7 +114,6 @@ class StringResponseOutputParser(BaseTransformOutputParser[dict[str, Any]]):
         return asdict(StringResponse(content=text))
 
 
-@experimental
 class ChatAgentOutputParser(BaseTransformOutputParser[str]):
     """
     OutputParser that wraps the string output into a dictionary representation of a

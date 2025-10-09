@@ -3,13 +3,11 @@ The ``mlflow.groq`` module provides an API for logging and loading Groq models.
 """
 
 from mlflow.groq._groq_autolog import patched_call
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
 FLAVOR_NAME = "groq"
 
 
-@experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_traces: bool = True,
@@ -18,7 +16,7 @@ def autolog(
 ):
     """
     Enables (or disables) and configures autologging from Groq to MLflow.
-    Only synchronous calls are supported. Asynchnorous APIs and streaming are not recorded.
+    Only synchronous calls are supported. Asynchronous APIs and streaming are not recorded.
 
     Args:
         log_traces: If ``True``, traces are logged for Groq models. If ``False``, no traces are

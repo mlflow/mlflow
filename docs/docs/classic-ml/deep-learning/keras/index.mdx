@@ -16,17 +16,19 @@ What makes Keras 3.0 truly special is its **multi-backend architecture**. Unlike
 <details>
   <summary>Why Keras 3.0 is a Game Changer</summary>
 
-  #### Multi-Backend Freedom
-  - 🔧 **TensorFlow**: Production-ready ecosystem with robust deployment options
-  - ⚡ **JAX**: High-performance computing with automatic differentiation and JIT compilation
-  - 🔬 **PyTorch**: Research-friendly interface with dynamic computation graphs
-  - 🔄 **Seamless Switching**: Change backends without rewriting your model code
+#### Multi-Backend Freedom
 
-  #### Universal Design Philosophy
-  - 🎯 **Beginner-Friendly**: Simple, intuitive APIs that make deep learning accessible
-  - 🚀 **Research-Ready**: Advanced features for cutting-edge experimentation
-  - 🏗️ **Production-Proven**: Battle-tested in enterprise environments worldwide
-  - 📚 **Comprehensive**: From basic neural networks to complex architectures
+- 🔧 **TensorFlow**: Production-ready ecosystem with robust deployment options
+- ⚡ **JAX**: High-performance computing with automatic differentiation and JIT compilation
+- 🔬 **PyTorch**: Research-friendly interface with dynamic computation graphs
+- 🔄 **Seamless Switching**: Change backends without rewriting your model code
+
+#### Universal Design Philosophy
+
+- 🎯 **Beginner-Friendly**: Simple, intuitive APIs that make deep learning accessible
+- 🚀 **Research-Ready**: Advanced features for cutting-edge experimentation
+- 🏗️ **Production-Proven**: Battle-tested in enterprise environments worldwide
+- 📚 **Comprehensive**: From basic neural networks to complex architectures
 
 </details>
 
@@ -59,25 +61,29 @@ model.fit(x_train, y_train, validation_data=(x_val, y_val), epochs=10)
 <details>
   <summary>What Gets Automatically Logged</summary>
 
-  #### Metrics
-  - 📊 **Training & Validation Loss**: Automatic tracking of loss functions across epochs
-  - 🎯 **Custom Metrics**: Any metrics you specify (accuracy, F1-score, etc.) are logged automatically
-  - 🛑 **Early Stopping Metrics**: When using `EarlyStopping`, MLflow logs `stopped_epoch`, `restored_epoch`, and restoration details
+#### Metrics
 
-  #### Parameters
-  - ⚙️ **Training Configuration**: All `fit()` parameters including batch size, epochs, and validation split
-  - 🧠 **Optimizer Details**: Optimizer name, learning rate, epsilon, and other hyperparameters
-  - 🛑 **Callback Parameters**: Early stopping settings like `min_delta`, `patience`, and `restore_best_weights`
+- 📊 **Training & Validation Loss**: Automatic tracking of loss functions across epochs
+- 🎯 **Custom Metrics**: Any metrics you specify (accuracy, F1-score, etc.) are logged automatically
+- 🛑 **Early Stopping Metrics**: When using `EarlyStopping`, MLflow logs `stopped_epoch`, `restored_epoch`, and restoration details
 
-  #### Artifacts
-  - 📋 **Model Summary**: Complete architecture overview logged at training start
-  - 🤖 **MLflow Model**: Full Keras model saved for easy deployment and inference
-  - 📊 **TensorBoard Logs**: Complete training history for detailed visualization
+#### Parameters
 
-  #### Smart Run Management
-  - 🚀 **Automatic Run Creation**: If no run exists, MLflow creates one automatically
-  - 🔄 **Flexible Run Handling**: Works with existing runs or creates new ones as needed
-  - ⏹️ **Intelligent Run Ending**: Automatically closes runs when training completes
+- ⚙️ **Training Configuration**: All `fit()` parameters including batch size, epochs, and validation split
+- 🧠 **Optimizer Details**: Optimizer name, learning rate, epsilon, and other hyperparameters
+- 🛑 **Callback Parameters**: Early stopping settings like `min_delta`, `patience`, and `restore_best_weights`
+
+#### Artifacts
+
+- 📋 **Model Summary**: Complete architecture overview logged at training start
+- 🤖 **MLflow Model**: Full Keras model saved for easy deployment and inference
+- 📊 **TensorBoard Logs**: Complete training history for detailed visualization
+
+#### Smart Run Management
+
+- 🚀 **Automatic Run Creation**: If no run exists, MLflow creates one automatically
+- 🔄 **Flexible Run Handling**: Works with existing runs or creates new ones as needed
+- ⏹️ **Intelligent Run Ending**: Automatically closes runs when training completes
 
 </details>
 
@@ -88,12 +94,12 @@ For users who need more control, MLflow's Keras integration also provides the po
 <details>
   <summary>Advanced Callback Capabilities</summary>
 
-  - 📋 **Custom Parameter Logging**: Selectively log specific parameters and hyperparameters
-  - 📈 **Granular Metrics Tracking**: Log metrics at custom intervals (per batch, per epoch, or custom frequencies)
-  - ⏱️ **Flexible Logging Frequency**: Choose between epoch-based or batch-based logging to match your monitoring needs
-  - 🎛️ **Custom Callback Extensions**: Subclass the callback to implement specialized logging for your unique requirements
-  - 🏷️ **Advanced Artifact Management**: Control exactly which artifacts get saved and when
-  - 🔍 **Performance Monitoring**: Add custom tracking for training time, memory usage, and convergence patterns
+- 📋 **Custom Parameter Logging**: Selectively log specific parameters and hyperparameters
+- 📈 **Granular Metrics Tracking**: Log metrics at custom intervals (per batch, per epoch, or custom frequencies)
+- ⏱️ **Flexible Logging Frequency**: Choose between epoch-based or batch-based logging to match your monitoring needs
+- 🎛️ **Custom Callback Extensions**: Subclass the callback to implement specialized logging for your unique requirements
+- 🏷️ **Advanced Artifact Management**: Control exactly which artifacts get saved and when
+- 🔍 **Performance Monitoring**: Add custom tracking for training time, memory usage, and convergence patterns
 
 </details>
 
@@ -111,12 +117,12 @@ os.environ["KERAS_BACKEND"] = "tensorflow"  # or "jax" or "torch"
 <details>
   <summary>Enterprise-Grade ML Operations</summary>
 
-  - 📝 **Model Versioning**: Track different model architectures and their performance over time
-  - 🎯 **Hyperparameter Optimization**: Log and compare results from hyperparameter sweeps with tools like Optuna
-  - 📦 **Artifact Management**: Store model checkpoints, training plots, and custom visualizations
-  - 👥 **Collaborative Development**: Share experiment results with team members through MLflow's UI
-  - 🔄 **Reproducibility**: Capture exact environments and dependencies for perfect experiment reproduction
-  - 📊 **Performance Analytics**: Detailed insights into training dynamics and model behavior
+- 📝 **Model Versioning**: Track different model architectures and their performance over time
+- 🎯 **Hyperparameter Optimization**: Log and compare results from hyperparameter sweeps with tools like Optuna
+- 📦 **Artifact Management**: Store model checkpoints, training plots, and custom visualizations
+- 👥 **Collaborative Development**: Share experiment results with team members through MLflow's UI
+- 🔄 **Reproducibility**: Capture exact environments and dependencies for perfect experiment reproduction
+- 📊 **Performance Analytics**: Detailed insights into training dynamics and model behavior
 
 </details>
 
@@ -150,24 +156,27 @@ In our comprehensive tutorial, you'll discover how to:
 <details>
   <summary>Complete Learning Path</summary>
 
-  #### Foundation Skills
-  - 🚀 Set up MLflow tracking for Keras 3.0 workflows across TensorFlow, JAX, and PyTorch backends
-  - ⚡ Enable comprehensive autologging with a single line of code: `mlflow.tensorflow.autolog()`
-  - 📊 Use `MlflowCallback` for advanced experiment logging and customization
-  - 📈 Implement custom logging strategies for both batch-level and epoch-level tracking
-  - 🎛️ Create specialized callback subclasses for advanced logging requirements
+#### Foundation Skills
 
-  #### Advanced Techniques
-  - 📊 Visualize and compare training results in the MLflow UI with custom metrics
-  - 🔄 Switch between backends while maintaining consistent experiment tracking
-  - 🎯 Optimize hyperparameters while automatically logging all trial results
-  - 📦 Package and version your models for seamless deployment
+- 🚀 Set up MLflow tracking for Keras 3.0 workflows across TensorFlow, JAX, and PyTorch backends
+- ⚡ Enable comprehensive autologging with a single line of code: `mlflow.tensorflow.autolog()`
+- 📊 Use `MlflowCallback` for advanced experiment logging and customization
+- 📈 Implement custom logging strategies for both batch-level and epoch-level tracking
+- 🎛️ Create specialized callback subclasses for advanced logging requirements
 
-  #### Production Readiness
-  - 🏭 Apply enterprise-grade tracking to your production deep learning projects
-  - 👥 Set up collaborative workflows for team-based model development
-  - 🔍 Monitor model performance and training dynamics at scale
-  - 📋 Implement model governance and approval workflows
+#### Advanced Techniques
+
+- 📊 Visualize and compare training results in the MLflow UI with custom metrics
+- 🔄 Switch between backends while maintaining consistent experiment tracking
+- 🎯 Optimize hyperparameters while automatically logging all trial results
+- 📦 Package and version your models for seamless deployment
+
+#### Production Readiness
+
+- 🏭 Apply enterprise-grade tracking to your production deep learning projects
+- 👥 Set up collaborative workflows for team-based model development
+- 🔍 Monitor model performance and training dynamics at scale
+- 📋 Implement model governance and approval workflows
 
 </details>
 

@@ -16,7 +16,7 @@ import logging
 import os
 import tempfile
 import warnings
-from typing import Any, Iterator, Optional, Union
+from typing import Any, Iterator
 
 import cloudpickle
 import pandas as pd
@@ -66,7 +66,6 @@ from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import ColSpec, DataType, Schema
-from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
     _get_databricks_serverless_env_vars,
     is_in_databricks_model_serving_environment,
@@ -126,7 +125,6 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 @docstring_version_compatibility_warning(FLAVOR_NAME)
 @trace_disabled  # Suppress traces for internal predict calls while saving model
@@ -144,7 +142,7 @@ def save_model(
     loader_fn=None,
     persist_dir=None,
     model_config=None,
-    streamable: Optional[bool] = None,
+    streamable: bool | None = None,
 ):
     """
     Save a LangChain model to a path on the local file system.
@@ -414,13 +412,12 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
-@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 @docstring_version_compatibility_warning(FLAVOR_NAME)
 @trace_disabled  # Suppress traces for internal predict calls while logging model
 def log_model(
     lc_model,
-    artifact_path: Optional[str] = None,
+    artifact_path: str | None = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -435,14 +432,14 @@ def log_model(
     run_id=None,
     model_config=None,
     streamable=None,
-    resources: Optional[Union[list[Resource], str]] = None,
-    prompts: Optional[list[Union[str, Prompt]]] = None,
-    name: Optional[str] = None,
-    params: Optional[dict[str, Any]] = None,
-    tags: Optional[dict[str, Any]] = None,
-    model_type: Optional[str] = None,
+    resources: list[Resource] | str | None = None,
+    prompts: list[str | Prompt] | None = None,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
     step: int = 0,
-    model_id: Optional[str] = None,
+    model_id: str | None = None,
 ):
     """
     Log a LangChain model as an MLflow artifact for the current run.
@@ -461,8 +458,7 @@ def log_model(
         artifact_path: Deprecated. Use `name` instead.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
-        registered_model_name: This argument may change or be removed in a
-            future release without warning. If given, create a model
+        registered_model_name: If given, create a model
             version under ``registered_model_name``, also creating a
             registered model if one with the given name does not exist.
         signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
@@ -657,9 +653,9 @@ class _LangChainModelWrapper:
 
     def predict(
         self,
-        data: Union[pd.DataFrame, list[Union[str, dict[str, Any]]], Any],
-        params: Optional[dict[str, Any]] = None,
-    ) -> list[Union[str, dict[str, Any]]]:
+        data: pd.DataFrame | list[str | dict[str, Any]] | Any,
+        params: dict[str, Any] | None = None,
+    ) -> list[str | dict[str, Any]]:
         """
         Args:
             data: Model input data.
@@ -692,7 +688,7 @@ class _LangChainModelWrapper:
 
     def _update_dependencies_schemas_in_prediction_context(
         self, callback_handlers
-    ) -> Optional[Context]:
+    ) -> Context | None:
         from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 
         if (
@@ -710,14 +706,13 @@ class _LangChainModelWrapper:
                 context.update(**schema)
             return context
 
-    @experimental
     def _predict_with_callbacks(
         self,
-        data: Union[pd.DataFrame, list[Union[str, dict[str, Any]]], Any],
-        params: Optional[dict[str, Any]] = None,
+        data: pd.DataFrame | list[str | dict[str, Any]] | Any,
+        params: dict[str, Any] | None = None,
         callback_handlers=None,
         convert_chat_responses=False,
-    ) -> list[Union[str, dict[str, Any]]]:
+    ) -> list[str | dict[str, Any]]:
         """
         Args:
             data: Model input data.
@@ -784,8 +779,8 @@ class _LangChainModelWrapper:
     def predict_stream(
         self,
         data: Any,
-        params: Optional[dict[str, Any]] = None,
-    ) -> Iterator[Union[str, dict[str, Any]]]:
+        params: dict[str, Any] | None = None,
+    ) -> Iterator[str | dict[str, Any]]:
         """
         Args:
             data: Model input data, only single input is allowed.
@@ -808,10 +803,10 @@ class _LangChainModelWrapper:
     def _predict_stream_with_callbacks(
         self,
         data: Any,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
         callback_handlers=None,
         convert_chat_responses=False,
-    ) -> Iterator[Union[str, dict[str, Any]]]:
+    ) -> Iterator[str | dict[str, Any]]:
         """
         Args:
             data: Model input data, only single input is allowed.
@@ -838,7 +833,7 @@ class _LangChainModelWrapper:
         )
 
 
-def _load_pyfunc(path: str, model_config: Optional[dict[str, Any]] = None):  # noqa: D417
+def _load_pyfunc(path: str, model_config: dict[str, Any] | None = None):
     """Load PyFunc implementation for LangChain. Called by ``pyfunc.load_model``.
 
     Args:
@@ -890,7 +885,6 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
     return model
 
 
-@experimental
 @docstring_version_compatibility_warning(FLAVOR_NAME)
 @trace_disabled  # Suppress traces while loading model
 def load_model(model_uri, dst_path=None):

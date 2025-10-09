@@ -9,11 +9,10 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.entities.span import SpanType
+from mlflow.tracing.constant import TokenUsageKey
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces
-
-IS_OLDER_THAN_0_114 = Version(crewai.__version__) < Version("0.114.0")
 
 # This is a special word for CrewAI to complete the agent execution: https://github.com/crewAIInc/crewAI/blob/c6a6c918e0eba167be1fb82831c73dd664c641e3/src/crewai/agents/parser.py#L7
 _FINAL_ANSWER_KEYWORD = "Final Answer:"
@@ -79,6 +78,21 @@ class AnyInt(int):
 
 ANY_INT = AnyInt()
 
+# CrewAI >= 0.175.0 changed behavior: TaskOutput.name falls back to description when None
+# See: https://github.com/crewAIInc/crewAI/pull/3382
+_CREWAI_VERSION = Version(crewai.__version__)
+_TASK_DESCRIPTION = "Analyze and select the best city for the trip"
+_TASK_DESCRIPTION_2 = "Compile an in-depth guide"
+
+
+def _get_expected_task_name(description: str) -> str | None:
+    """Get expected task name based on CrewAI version."""
+    return description if _CREWAI_VERSION >= Version("0.175.0") else None
+
+
+_TASK_NAME = _get_expected_task_name(_TASK_DESCRIPTION)
+_TASK_NAME_2 = _get_expected_task_name(_TASK_DESCRIPTION_2)
+
 _CREW_OUTPUT = {
     "json_dict": None,
     "pydantic": None,
@@ -86,8 +100,8 @@ _CREW_OUTPUT = {
     "tasks_output": [
         {
             "agent": "City Selection Expert",
-            "name": None,
-            "description": "Analyze and select the best city for the trip",
+            "name": _TASK_NAME,
+            "description": _TASK_DESCRIPTION,
             "expected_output": "Detailed report on the chosen city",
             "json_dict": None,
             "pydantic": None,
@@ -247,7 +261,7 @@ def test_kickoff_enable_disable_autolog(simple_agent_1, task_1, autolog):
         "description": "Analyze and select the best city for the trip",
         "expected_output": "Detailed report on the chosen city",
         "json_dict": None,
-        "name": None,
+        "name": _TASK_NAME,
         "output_format": "raw",
         "pydantic": None,
         "raw": _LLM_ANSWER,
@@ -270,19 +284,11 @@ def test_kickoff_enable_disable_autolog(simple_agent_1, task_1, autolog):
     assert span_3.parent_id is span_2.span_id
     assert span_3.inputs["messages"] is not None
     assert span_3.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
-    chat_attributes = span_3.get_attribute("mlflow.chat.messages")
-    assert len(chat_attributes) == 3
-    assert chat_attributes[0]["role"] == "system"
-    assert _AGENT_1_GOAL in chat_attributes[0]["content"]
-    assert chat_attributes[1]["role"] == "user"
-    assert _TASK_1_DESCRIPTION in chat_attributes[1]["content"]
-    assert chat_attributes[2]["role"] == "assistant"
-    assert _LLM_ANSWER in chat_attributes[2]["content"]
 
     # Create Long Term Memory
     span_4 = traces[0].data.spans[4]
     assert span_4.name == "CrewAgentExecutor._create_long_term_memory"
-    assert span_4.span_type == SpanType.RETRIEVER
+    assert span_4.span_type == SpanType.MEMORY
     assert span_4.parent_id is span_2.span_id
     assert span_4.inputs == {
         "output": {
@@ -292,6 +298,12 @@ def test_kickoff_enable_disable_autolog(simple_agent_1, task_1, autolog):
         }
     }
     assert span_4.outputs is None
+
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 9,
+        TokenUsageKey.OUTPUT_TOKENS: 12,
+        TokenUsageKey.TOTAL_TOKENS: 21,
+    }
 
     with patch("litellm.completion", return_value=_SIMPLE_CHAT_COMPLETION):
         mlflow.crewai.autolog(disable=True)
@@ -392,7 +404,7 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog):
         "description": "Analyze and select the best city for the trip",
         "expected_output": "Detailed report on the chosen city",
         "json_dict": None,
-        "name": None,
+        "name": _TASK_NAME,
         "output_format": "raw",
         "pydantic": None,
         "raw": _LLM_ANSWER,
@@ -413,14 +425,6 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog):
     assert span_3.parent_id is span_2.span_id
     assert span_3.inputs["messages"] is not None
     assert "Action: TestTool" in span_3.outputs
-    chat_attributes = span_3.get_attribute("mlflow.chat.messages")
-    assert len(chat_attributes) == 3
-    assert chat_attributes[0]["role"] == "system"
-    assert _AGENT_1_GOAL in chat_attributes[0]["content"]
-    assert chat_attributes[1]["role"] == "user"
-    assert _TASK_1_DESCRIPTION in chat_attributes[1]["content"]
-    assert chat_attributes[2]["role"] == "assistant"
-    assert "Action: TestTool" in chat_attributes[2]["content"]
     # LLM - return answer
     span_4 = traces[0].data.spans[4]
     assert span_4.name == "LLM.call_2"
@@ -428,34 +432,11 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog):
     assert span_4.parent_id is span_2.span_id
     assert span_4.inputs["messages"] is not None
     assert span_4.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
-    chat_attributes = span_4.get_attribute("mlflow.chat.messages")
-
-    if IS_OLDER_THAN_0_114:
-        assert len(chat_attributes) == 4
-    else:
-        assert len(chat_attributes) == 5
-    assert chat_attributes[0]["role"] == "system"
-    assert _AGENT_1_GOAL in chat_attributes[0]["content"]
-    assert chat_attributes[1]["role"] == "user"
-    assert _TASK_1_DESCRIPTION in chat_attributes[1]["content"]
-    assert chat_attributes[2]["role"] == "assistant"
-    assert "Tool Answer" in chat_attributes[2]["content"]
-
-    if IS_OLDER_THAN_0_114:
-        assert chat_attributes[3]["role"] == "assistant"
-        assert _LLM_ANSWER in chat_attributes[3]["content"]
-    else:
-        # Since 0.114.0 CrewAI includes Tool call observation in the LLM calls
-        # https://github.com/crewAIInc/crewAI/commit/efe27bd570d91f00af59f1d605d87e7b82c2bc88
-        assert chat_attributes[3]["role"] == "assistant"
-        assert '{"argument": "a"}' in chat_attributes[3]["content"]
-        assert chat_attributes[4]["role"] == "assistant"
-        assert _LLM_ANSWER in chat_attributes[4]["content"]
 
     # Create Long Term Memory
     span_5 = traces[0].data.spans[5]
     assert span_5.name == "CrewAgentExecutor._create_long_term_memory"
-    assert span_5.span_type == SpanType.RETRIEVER
+    assert span_5.span_type == SpanType.MEMORY
     assert span_5.parent_id is span_2.span_id
     assert span_5.inputs == {
         "output": {
@@ -465,6 +446,12 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog):
         }
     }
     assert span_5.outputs is None
+
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 18,
+        TokenUsageKey.OUTPUT_TOKENS: 24,
+        TokenUsageKey.TOTAL_TOKENS: 42,
+    }
 
 
 def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
@@ -496,7 +483,7 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
         "tasks_output": [
             {
                 "agent": "City Selection Expert",
-                "name": None,
+                "name": _TASK_NAME,
                 "description": "Analyze and select the best city for the trip",
                 "expected_output": "Detailed report on the chosen city",
                 "json_dict": None,
@@ -510,7 +497,7 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
                 "description": "Compile an in-depth guide",
                 "expected_output": "Comprehensive city guide",
                 "json_dict": None,
-                "name": None,
+                "name": _TASK_NAME_2,
                 "output_format": "raw",
                 "pydantic": None,
                 "raw": _LLM_ANSWER,
@@ -539,7 +526,7 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
         "description": "Analyze and select the best city for the trip",
         "expected_output": "Detailed report on the chosen city",
         "json_dict": None,
-        "name": None,
+        "name": _TASK_NAME,
         "output_format": "raw",
         "pydantic": None,
         "raw": _LLM_ANSWER,
@@ -562,19 +549,11 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
     assert span_3.parent_id is span_2.span_id
     assert span_3.inputs["messages"] is not None
     assert span_3.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
-    chat_attributes = span_3.get_attribute("mlflow.chat.messages")
-    assert len(chat_attributes) == 3
-    assert chat_attributes[0]["role"] == "system"
-    assert _AGENT_1_GOAL in chat_attributes[0]["content"]
-    assert chat_attributes[1]["role"] == "user"
-    assert _TASK_1_DESCRIPTION in chat_attributes[1]["content"]
-    assert chat_attributes[2]["role"] == "assistant"
-    assert _LLM_ANSWER in chat_attributes[2]["content"]
 
     # Create Long Term Memory
     span_4 = traces[0].data.spans[4]
     assert span_4.name == "CrewAgentExecutor._create_long_term_memory_1"
-    assert span_4.span_type == SpanType.RETRIEVER
+    assert span_4.span_type == SpanType.MEMORY
     assert span_4.parent_id is span_2.span_id
     assert span_4.inputs == {
         "output": {
@@ -599,7 +578,7 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
         "description": "Compile an in-depth guide",
         "expected_output": "Comprehensive city guide",
         "json_dict": None,
-        "name": None,
+        "name": _TASK_NAME_2,
         "output_format": "raw",
         "pydantic": None,
         "raw": _LLM_ANSWER,
@@ -622,18 +601,10 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
     assert span_7.parent_id is span_6.span_id
     assert span_7.inputs["messages"] is not None
     assert span_7.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
-    chat_attributes = span_7.get_attribute("mlflow.chat.messages")
-    assert len(chat_attributes) == 3
-    assert chat_attributes[0]["role"] == "system"
-    assert _AGENT_2_GOAL in chat_attributes[0]["content"]
-    assert chat_attributes[1]["role"] == "user"
-    assert _TASK_2_DESCRIPTION in chat_attributes[1]["content"]
-    assert chat_attributes[2]["role"] == "assistant"
-    assert _LLM_ANSWER in chat_attributes[2]["content"]
     # Create Long Term Memory
     span_8 = traces[0].data.spans[8]
     assert span_8.name == "CrewAgentExecutor._create_long_term_memory_2"
-    assert span_8.span_type == SpanType.RETRIEVER
+    assert span_8.span_type == SpanType.MEMORY
     assert span_8.parent_id is span_6.span_id
     assert span_8.inputs == {
         "output": {
@@ -643,6 +614,12 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
         }
     }
     assert span_8.outputs is None
+
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 18,
+        TokenUsageKey.OUTPUT_TOKENS: 24,
+        TokenUsageKey.TOTAL_TOKENS: 42,
+    }
 
 
 @pytest.mark.skipif(
@@ -689,7 +666,7 @@ def test_memory(simple_agent_1, task_1, monkeypatch, autolog):
         "description": "Analyze and select the best city for the trip",
         "expected_output": "Detailed report on the chosen city",
         "json_dict": None,
-        "name": None,
+        "name": _TASK_NAME,
         "output_format": "raw",
         "pydantic": None,
         "raw": _LLM_ANSWER,
@@ -709,7 +686,7 @@ def test_memory(simple_agent_1, task_1, monkeypatch, autolog):
     # LongTermMemory
     span_3 = traces[0].data.spans[3]
     assert span_3.name == "LongTermMemory.search"
-    assert span_3.span_type == SpanType.RETRIEVER
+    assert span_3.span_type == SpanType.MEMORY
     assert span_3.parent_id is span_2.span_id
     assert span_3.inputs == {
         "latest_n": 2,
@@ -720,7 +697,7 @@ def test_memory(simple_agent_1, task_1, monkeypatch, autolog):
     # ShortTermMemory
     span_4 = traces[0].data.spans[4]
     assert span_4.name == "ShortTermMemory.search"
-    assert span_4.span_type == SpanType.RETRIEVER
+    assert span_4.span_type == SpanType.MEMORY
     assert span_4.parent_id is span_2.span_id
     assert span_4.inputs == {"query": "Analyze and select the best city for the trip"}
     assert span_4.outputs == []
@@ -728,7 +705,7 @@ def test_memory(simple_agent_1, task_1, monkeypatch, autolog):
     # EntityMemory
     span_5 = traces[0].data.spans[5]
     assert span_5.name == "EntityMemory.search"
-    assert span_5.span_type == SpanType.RETRIEVER
+    assert span_5.span_type == SpanType.MEMORY
     assert span_5.parent_id is span_2.span_id
     assert span_5.inputs == {
         "query": "Analyze and select the best city for the trip",
@@ -742,33 +719,30 @@ def test_memory(simple_agent_1, task_1, monkeypatch, autolog):
     assert span_6.parent_id is span_2.span_id
     assert span_6.inputs["messages"] is not None
     assert span_6.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
-    chat_attributes = span_6.get_attribute("mlflow.chat.messages")
-    assert len(chat_attributes) == 3
-    assert chat_attributes[0]["role"] == "system"
-    assert _AGENT_1_GOAL in chat_attributes[0]["content"]
-    assert chat_attributes[1]["role"] == "user"
-    assert _TASK_1_DESCRIPTION in chat_attributes[1]["content"]
-    assert chat_attributes[2]["role"] == "assistant"
-    assert _LLM_ANSWER in chat_attributes[2]["content"]
 
     # ShortTermMemory.save
     span_7 = traces[0].data.spans[7]
     assert span_7.name == "ShortTermMemory.save"
-    assert span_7.span_type == SpanType.RETRIEVER
+    assert span_7.span_type == SpanType.MEMORY
     assert span_7.parent_id is span_2.span_id
-    assert span_7.inputs == {
-        "agent": "City Selection Expert",
+    # CrewAI changed the memory save input format - agent field was removed in newer versions
+    expected_memory_inputs = {
         "metadata": {
             "observation": "Analyze and select the best city for the trip",
         },
         "value": f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}",
     }
+    # Add agent field for older CrewAI versions
+    if _CREWAI_VERSION < Version("0.175.0"):
+        expected_memory_inputs["agent"] = "City Selection Expert"
+
+    assert span_7.inputs == expected_memory_inputs
     assert span_7.outputs is None
 
     # Create Long Term Memory
     span_8 = traces[0].data.spans[8]
     assert span_8.name == "CrewAgentExecutor._create_long_term_memory"
-    assert span_8.span_type == SpanType.RETRIEVER
+    assert span_8.span_type == SpanType.MEMORY
     assert span_8.parent_id is span_2.span_id
     assert span_8.inputs == {
         "output": {
@@ -827,7 +801,7 @@ def test_knowledge(simple_agent_1, task_1, monkeypatch, autolog):
         "description": "Analyze and select the best city for the trip",
         "expected_output": "Detailed report on the chosen city",
         "json_dict": None,
-        "name": None,
+        "name": _TASK_NAME,
         "output_format": "raw",
         "pydantic": None,
         "raw": _LLM_ANSWER,
@@ -859,19 +833,11 @@ def test_knowledge(simple_agent_1, task_1, monkeypatch, autolog):
     assert span_4.parent_id is span_2.span_id
     assert span_4.inputs["messages"] is not None
     assert span_4.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
-    chat_attributes = span_4.get_attribute("mlflow.chat.messages")
-    assert len(chat_attributes) == 3
-    assert chat_attributes[0]["role"] == "system"
-    assert _AGENT_1_GOAL in chat_attributes[0]["content"]
-    assert chat_attributes[1]["role"] == "user"
-    assert _TASK_1_DESCRIPTION in chat_attributes[1]["content"]
-    assert chat_attributes[2]["role"] == "assistant"
-    assert _LLM_ANSWER in chat_attributes[2]["content"]
 
     # Create Long Term Memory
     span_5 = traces[0].data.spans[5]
     assert span_5.name == "CrewAgentExecutor._create_long_term_memory"
-    assert span_5.span_type == SpanType.RETRIEVER
+    assert span_5.span_type == SpanType.MEMORY
     assert span_5.parent_id is span_2.span_id
     assert span_5.inputs == {
         "output": {
@@ -881,6 +847,12 @@ def test_knowledge(simple_agent_1, task_1, monkeypatch, autolog):
         }
     }
     assert span_5.outputs is None
+
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 9,
+        TokenUsageKey.OUTPUT_TOKENS: 12,
+        TokenUsageKey.TOTAL_TOKENS: 21,
+    }
 
 
 def test_kickoff_for_each(simple_agent_1, task_1, autolog):
@@ -928,7 +900,7 @@ def test_kickoff_for_each(simple_agent_1, task_1, autolog):
         "description": "Analyze and select the best city for the trip",
         "expected_output": "Detailed report on the chosen city",
         "json_dict": None,
-        "name": None,
+        "name": _TASK_NAME,
         "output_format": "raw",
         "pydantic": None,
         "raw": _LLM_ANSWER,
@@ -954,7 +926,7 @@ def test_kickoff_for_each(simple_agent_1, task_1, autolog):
     # Create Long Term Memory
     span_5 = traces[0].data.spans[5]
     assert span_5.name == "CrewAgentExecutor._create_long_term_memory"
-    assert span_5.span_type == SpanType.RETRIEVER
+    assert span_5.span_type == SpanType.MEMORY
     assert span_5.parent_id is span_3.span_id
     assert span_5.inputs == {
         "output": {
@@ -1017,7 +989,7 @@ def test_flow(simple_agent_1, task_1, autolog):
         "description": "Analyze and select the best city for the trip",
         "expected_output": "Detailed report on the chosen city",
         "json_dict": None,
-        "name": None,
+        "name": _TASK_NAME,
         "output_format": "raw",
         "pydantic": None,
         "raw": _LLM_ANSWER,
@@ -1040,18 +1012,10 @@ def test_flow(simple_agent_1, task_1, autolog):
     assert span_4.parent_id is span_3.span_id
     assert span_4.inputs["messages"] is not None
     assert span_4.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
-    chat_attributes = span_4.get_attribute("mlflow.chat.messages")
-    assert len(chat_attributes) == 3
-    assert chat_attributes[0]["role"] == "system"
-    assert _AGENT_1_GOAL in chat_attributes[0]["content"]
-    assert chat_attributes[1]["role"] == "user"
-    assert _TASK_1_DESCRIPTION in chat_attributes[1]["content"]
-    assert chat_attributes[2]["role"] == "assistant"
-    assert _LLM_ANSWER in chat_attributes[2]["content"]
     # Create Long Term Memory
     span_5 = traces[0].data.spans[5]
     assert span_5.name == "CrewAgentExecutor._create_long_term_memory"
-    assert span_5.span_type == SpanType.RETRIEVER
+    assert span_5.span_type == SpanType.MEMORY
     assert span_5.parent_id is span_3.span_id
     assert span_5.inputs == {
         "output": {

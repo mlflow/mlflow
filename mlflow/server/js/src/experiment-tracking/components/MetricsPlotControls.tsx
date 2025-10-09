@@ -6,7 +6,6 @@
  */
 
 import React from 'react';
-import _ from 'lodash';
 import { Button, LegacySelect, Switch, LegacyTooltip, Radio, QuestionMarkIcon } from '@databricks/design-system';
 import { Progress } from '../../common/components/Progress';
 import { CHART_TYPE_LINE, METRICS_PLOT_POLLING_INTERVAL_MS } from './MetricsPlotPanel';
@@ -230,7 +229,7 @@ class MetricsPlotControlsImpl extends React.Component<Props> {
               // eslint-disable-next-line max-len
               description="String for the download csv button to download metrics from this run offline in a CSV format"
             />
-            <i className="fas fa-download" />
+            <i className="fa fa-download" />
           </Button>
         </div>
       </div>

@@ -7,24 +7,23 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { Theme } from '@emotion/react';
+import type { Theme } from '@emotion/react';
 import { useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { useCombinedRunInputsOutputsModels } from '../../../hooks/logged-models/useCombinedRunInputsOutputsModels';
-import { RunInfoEntity } from '../../../types';
+import type { LoggedModelProto, RunInfoEntity } from '../../../types';
 import { ExperimentLoggedModelListPageTable } from '../../experiment-logged-models/ExperimentLoggedModelListPageTable';
 import {
   ExperimentLoggedModelListPageKnownColumns,
   useExperimentLoggedModelListPageTableColumns,
 } from '../../experiment-logged-models/hooks/useExperimentLoggedModelListPageTableColumns';
 import { ExperimentLoggedModelOpenDatasetDetailsContextProvider } from '../../experiment-logged-models/hooks/useExperimentLoggedModelOpenDatasetDetails';
-import {
+import type {
   UseGetRunQueryResponseInputs,
   UseGetRunQueryResponseOutputs,
   UseGetRunQueryResponseRunInfo,
 } from '../hooks/useGetRunQuery';
 import { ExperimentLoggedModelListPageColumnSelector } from '../../experiment-logged-models/ExperimentLoggedModelListPageColumnSelector';
-import { first, get } from 'lodash';
 
 const supportedAttributeColumnKeys = [
   ExperimentLoggedModelListPageKnownColumns.RelationshipType,
@@ -40,14 +39,20 @@ export const RunViewLoggedModelsTable = ({
   inputs,
   outputs,
   runInfo,
+  loggedModelsV3,
+  isLoadingLoggedModels = false,
+  loggedModelsError,
 }: {
   inputs?: UseGetRunQueryResponseInputs;
   outputs?: UseGetRunQueryResponseOutputs;
   runInfo?: RunInfoEntity | UseGetRunQueryResponseRunInfo;
+  loggedModelsV3: LoggedModelProto[];
+  isLoadingLoggedModels?: boolean;
+  loggedModelsError?: Error;
 }) => {
   const { theme } = useDesignSystemTheme();
 
-  const { models: loggedModels, isLoading, errors } = useCombinedRunInputsOutputsModels(inputs, outputs, runInfo);
+  const { models: loggedModels } = useCombinedRunInputsOutputsModels(inputs, outputs, runInfo, loggedModelsV3);
 
   const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({});
 
@@ -58,8 +63,6 @@ export const RunViewLoggedModelsTable = ({
     disableOrderBy: true,
     supportedAttributeColumnKeys,
   });
-
-  const modelLoadError = useMemo(() => first(errors), [errors]);
 
   return (
     <div css={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -90,11 +93,17 @@ export const RunViewLoggedModelsTable = ({
           overflow: 'hidden',
         }}
       >
-        {modelLoadError instanceof Error && modelLoadError.message && (
+        {loggedModelsError instanceof Error && loggedModelsError.message && (
           <>
             <Alert
               type="error"
-              message={modelLoadError.message}
+              description={loggedModelsError.message}
+              message={
+                <FormattedMessage
+                  defaultMessage="Error loading logged models"
+                  description="Error message displayed in the experiment run details page when loading logged models fails"
+                />
+              }
               closable={false}
               componentId="mlflow.run_page.logged_model.list.error"
             />
@@ -106,7 +115,7 @@ export const RunViewLoggedModelsTable = ({
             columnDefs={columnDefs}
             loggedModels={loggedModels}
             columnVisibility={columnVisibility}
-            isLoading={isLoading}
+            isLoading={isLoadingLoggedModels}
             isLoadingMore={false}
             moreResultsAvailable={false}
             disableLoadMore

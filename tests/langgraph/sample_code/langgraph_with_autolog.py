@@ -17,8 +17,8 @@ class OverallState:
 def my_tool():
     """
     Called as the very first node.
-    Side‑effect: add an MLflow tag to the *current* trace.
-    Must return a dict of state‑field updates.
+    Side-effect: add an MLflow tag to the *current* trace.
+    Must return a dict of state-field updates.
     """
     mlflow.update_current_trace(tags={"order_total": "hello"})
     return {"status": "done"}

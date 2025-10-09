@@ -8,7 +8,6 @@ from mlflow.models.dependencies_schemas import _get_dependencies_schema_from_mod
 from mlflow.models.model import _update_active_model_id_based_on_mlflow_model
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.annotations import experimental
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
@@ -48,7 +47,6 @@ def _load_model(model_uri, dst_path=None):
     return loaded_wrapper
 
 
-@experimental
 @trace_disabled  # Suppress traces for internal calls while loading model
 def load_model(model_uri, dst_path=None):
     """

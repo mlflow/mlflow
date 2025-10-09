@@ -4,14 +4,6 @@ import { setupServer } from '../../../../common/utils/setup-msw';
 import { useLoggedModelsForExperimentRunsTable } from './useLoggedModelsForExperimentRunsTable';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 
-// Enable feature flags
-jest.mock('../../../../common/utils/FeatureUtils', () => ({
-  ...jest.requireActual<typeof import('../../../../common/utils/FeatureUtils')>(
-    '../../../../common/utils/FeatureUtils',
-  ),
-  isExperimentLoggedModelsUIEnabled: jest.fn(() => true),
-}));
-
 describe('useLoggedModelsForExperimentRunsTable', () => {
   const server = setupServer();
 
@@ -55,7 +47,7 @@ describe('useLoggedModelsForExperimentRunsTable', () => {
   });
 
   test('should return logged models for experiment runs', async () => {
-    const { result } = renderHook(() => useLoggedModelsForExperimentRunsTable(['test-experiment']), {
+    const { result } = renderHook(() => useLoggedModelsForExperimentRunsTable({ experimentIds: ['test-experiment'] }), {
       wrapper: ({ children }) => <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>,
     });
     await waitFor(() => {

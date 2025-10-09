@@ -11,10 +11,10 @@ import sys
 import tempfile
 import time
 import uuid
-from contextlib import ExitStack, contextmanager
+from contextlib import contextmanager
 from functools import wraps
 from pathlib import Path
-from typing import Iterator, Optional
+from typing import Iterator
 from unittest import mock
 
 import pytest
@@ -43,7 +43,7 @@ def get_safe_port():
 
 
 def random_int(lo=1, hi=1e10):
-    return random.randint(lo, hi)
+    return random.randint(int(lo), int(hi))
 
 
 def random_str(size=12):
@@ -554,12 +554,6 @@ def mock_method_chain(mock_obj, methods, return_value=None, side_effect=None):
             mock_obj.side_effect = side_effect
 
 
-@contextmanager
-def multi_context(*cms):
-    with ExitStack() as stack:
-        yield list(map(stack.enter_context, cms))
-
-
 class StartsWithMatcher:
     def __init__(self, prefix):
         self.prefix = prefix
@@ -802,7 +796,7 @@ def skip_if_hf_hub_unhealthy():
     )
 
 
-def get_logged_model_by_name(name: str) -> Optional[LoggedModel]:
+def get_logged_model_by_name(name: str) -> LoggedModel | None:
     """
     Get a logged model by name. If multiple logged models with
     the same name exist, get the latest one.

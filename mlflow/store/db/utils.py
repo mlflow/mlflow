@@ -50,13 +50,16 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlExperimentTag,
     SqlInput,
     SqlInputTag,
+    SqlJob,
     SqlLatestMetric,
     SqlMetric,
     SqlParam,
     SqlRun,
+    SqlScorer,
+    SqlScorerVersion,
     SqlTag,
     SqlTraceInfo,
-    SqlTraceRequestMetadata,
+    SqlTraceMetadata,
     SqlTraceTag,
 )
 
@@ -95,7 +98,10 @@ def _all_tables_exist(engine):
         SqlInputTag.__tablename__,
         SqlTraceInfo.__tablename__,
         SqlTraceTag.__tablename__,
-        SqlTraceRequestMetadata.__tablename__,
+        SqlTraceMetadata.__tablename__,
+        SqlScorer.__tablename__,
+        SqlScorerVersion.__tablename__,
+        SqlJob.__tablename__,
     }
 
 
@@ -203,7 +209,7 @@ def _get_alembic_config(db_url, alembic_dir=None):
     return config
 
 
-def _upgrade_db(engine):  # noqa: D417
+def _upgrade_db(engine):
     """
     Upgrade the schema of an MLflow tracking database to the latest supported version.
     Note that schema migrations can be slow and are not guaranteed to be transactional -

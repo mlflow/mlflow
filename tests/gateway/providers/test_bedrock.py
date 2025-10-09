@@ -8,7 +8,7 @@ from mlflow.gateway.config import (
     AWSBaseConfig,
     AWSIdAndKey,
     AWSRole,
-    RouteConfig,
+    EndpointConfig,
 )
 from mlflow.gateway.providers.bedrock import AmazonBedrockModelProvider, AmazonBedrockProvider
 from mlflow.gateway.schemas import completions
@@ -336,7 +336,7 @@ def test_bedrock_aws_client(provider, config, aws_config):
         mock_client.return_value.assume_role = mock_assume_role
 
         provider = AmazonBedrockProvider(
-            RouteConfig(**_merge_model_and_aws_config(config, aws_config))
+            EndpointConfig(**_merge_model_and_aws_config(config, aws_config))
         )
         provider.get_bedrock_client()
 
@@ -394,10 +394,26 @@ async def test_bedrock_request_response(
         expected["model"] = config["model"]["name"]
 
         provider = AmazonBedrockProvider(
-            RouteConfig(**_merge_model_and_aws_config(config, aws_config))
+            EndpointConfig(**_merge_model_and_aws_config(config, aws_config))
         )
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == expected
 
         mock_request.assert_called_once()
         mock_request.assert_called_once_with(model_request)
+
+
+@pytest.mark.parametrize(
+    ("model_name", "expected"),
+    [
+        ("us.anthropic.claude-3-sonnet", AmazonBedrockModelProvider.ANTHROPIC),
+        ("apac.anthropic.claude-3-haiku", AmazonBedrockModelProvider.ANTHROPIC),
+        ("anthropic.claude-3-5-sonnet", AmazonBedrockModelProvider.ANTHROPIC),
+        ("ai21.jamba-1-5-large-v1:0", AmazonBedrockModelProvider.AI21),
+        ("cohere.embed-multilingual-v3", AmazonBedrockModelProvider.COHERE),
+        ("us.amazon.nova-premier-v1:0", AmazonBedrockModelProvider.AMAZON),
+    ],
+)
+def test_amazon_bedrock_model_provider(model_name, expected):
+    provider = AmazonBedrockModelProvider.of_str(model_name)
+    assert provider == expected

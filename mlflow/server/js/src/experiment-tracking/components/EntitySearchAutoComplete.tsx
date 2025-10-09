@@ -3,7 +3,7 @@ import {
   Button,
   CloseIcon,
   InfoFillIcon,
-  InfoIcon,
+  InfoSmallIcon,
   Input,
   LegacyTooltip,
   SearchIcon,
@@ -12,13 +12,12 @@ import {
 } from '@databricks/design-system';
 import { useIntl } from 'react-intl';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
-import {
+import type { ErrorWrapper } from '../../common/utils/ErrorWrapper';
+import type {
   EntitySearchAutoCompleteEntity,
   EntitySearchAutoCompleteOptionGroup,
-  getEntitySearchEntitiesAndIndices,
-  getFilteredOptionsFromEntityName,
 } from './EntitySearchAutoComplete.utils';
+import { getEntitySearchEntitiesAndIndices, getFilteredOptionsFromEntityName } from './EntitySearchAutoComplete.utils';
 import { shouldEnableMinMaxMetricsOnExperimentPage } from '../../common/utils/FeatureUtils';
 import {
   createQuickRegexpSearchFilter,
@@ -41,6 +40,7 @@ export type EntitySearchAutoCompleteCompleteProps = {
   placeholder?: string;
   useQuickFilter?: boolean;
   defaultActiveFirstOption?: boolean;
+  className?: string;
 };
 
 /**
@@ -56,6 +56,7 @@ export const EntitySearchAutoComplete = ({
   placeholder,
   useQuickFilter,
   defaultActiveFirstOption = true,
+  className,
 }: EntitySearchAutoCompleteCompleteProps) => {
   const { theme, getPrefixedClassName } = useDesignSystemTheme();
 
@@ -219,6 +220,7 @@ export const EntitySearchAutoComplete = ({
           width: 'auto',
         },
       }}
+      className={className}
     >
       <AutoComplete
         dropdownMatchSelectWidth={560}
@@ -234,7 +236,7 @@ export const EntitySearchAutoComplete = ({
         options={filteredOptions}
         onSelect={onSelect}
         value={text}
-        data-test-id="runs-search-autocomplete"
+        data-testid="runs-search-autocomplete"
         dropdownRender={(menu) => (
           <div
             css={{
@@ -268,7 +270,7 @@ export const EntitySearchAutoComplete = ({
           onBlur={onBlur}
           onChange={(e) => setText(e.target.value)}
           placeholder={placeholder}
-          data-test-id="search-box"
+          data-testid="search-box"
           suffix={
             <div css={{ display: 'flex', gap: 4, alignItems: 'center' }}>
               {text && (
@@ -279,7 +281,7 @@ export const EntitySearchAutoComplete = ({
                     setText('');
                   }}
                   type="link"
-                  data-test-id="clear-button"
+                  data-testid="clear-button"
                 >
                   <CloseIcon />
                 </Button>
@@ -339,7 +341,7 @@ export const EntitySearchAutoComplete = ({
                     type="link"
                     css={{ marginLeft: -theme.spacing.xs, marginRight: -theme.spacing.xs }}
                     icon={
-                      <InfoIcon
+                      <InfoSmallIcon
                         css={{
                           svg: {
                             width: theme.general.iconFontSize,

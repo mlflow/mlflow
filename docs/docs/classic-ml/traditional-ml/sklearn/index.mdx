@@ -12,17 +12,19 @@ Scikit-learn's philosophy of "ease of use without sacrificing flexibility" makes
 <details>
   <summary>Why Scikit-learn Dominates ML Workflows</summary>
 
-  #### Production-Proven Algorithms
-  - 📊 **Comprehensive Coverage**: Classification, regression, clustering, dimensionality reduction, and preprocessing
-  - 🔧 **Consistent API**: Unified `fit()`, `predict()`, and `transform()` methods across all estimators
-  - 🎯 **Battle-Tested**: Decades of optimization and real-world validation
-  - 📈 **Scalable Implementation**: Efficient algorithms optimized for performance
+#### Production-Proven Algorithms
 
-  #### Developer Experience Excellence
-  - 🚀 **Intuitive Design**: Clean, Pythonic APIs that feel natural to use
-  - 📚 **World-Class Documentation**: Comprehensive guides, examples, and API references
-  - 🔬 **Educational Focus**: Perfect for learning ML concepts with clear, well-documented examples
-  - 🛠️ **Extensive Ecosystem**: Seamless integration with pandas, NumPy, and visualization libraries
+- 📊 **Comprehensive Coverage**: Classification, regression, clustering, dimensionality reduction, and preprocessing
+- 🔧 **Consistent API**: Unified `fit()`, `predict()`, and `transform()` methods across all estimators
+- 🎯 **Battle-Tested**: Decades of optimization and real-world validation
+- 📈 **Scalable Implementation**: Efficient algorithms optimized for performance
+
+#### Developer Experience Excellence
+
+- 🚀 **Intuitive Design**: Clean, Pythonic APIs that feel natural to use
+- 📚 **World-Class Documentation**: Comprehensive guides, examples, and API references
+- 🔬 **Educational Focus**: Perfect for learning ML concepts with clear, well-documented examples
+- 🛠️ **Extensive Ecosystem**: Seamless integration with pandas, NumPy, and visualization libraries
 
 </details>
 
@@ -62,22 +64,25 @@ model.fit(iris.data, iris.target)
 <details>
   <summary>What Gets Automatically Captured</summary>
 
-  #### Comprehensive Parameter Tracking
-  - ⚙️ **Model Parameters**: All parameters from `estimator.get_params(deep=True)`
-  - 🔍 **Hyperparameter Search**: Best parameters from GridSearchCV and RandomizedSearchCV
-  - 📊 **Cross-Validation Results**: Complete CV metrics and parameter combinations
+#### Comprehensive Parameter Tracking
 
-  #### Training and Evaluation Metrics
-  - 📈 **Training Score**: Automatic logging of training performance via `estimator.score()`
-  - 🎯 **Classification Metrics**: Precision, recall, F1-score, accuracy, log loss, ROC AUC
-  - 📉 **Regression Metrics**: MSE, RMSE, MAE, R² score
-  - 🔄 **Cross-Validation**: Best CV score and detailed results for parameter search
+- ⚙️ **Model Parameters**: All parameters from `estimator.get_params(deep=True)`
+- 🔍 **Hyperparameter Search**: Best parameters from GridSearchCV and RandomizedSearchCV
+- 📊 **Cross-Validation Results**: Complete CV metrics and parameter combinations
 
-  #### Production-Ready Artifacts
-  - 🤖 **Serialized Models**: Support for both pickle and cloudpickle formats
-  - 📋 **Model Signatures**: Automatic input/output schema inference
-  - 📊 **Parameter Search Results**: Detailed CV results as artifacts
-  - 📄 **Metric Information**: JSON artifacts with metric call details
+#### Training and Evaluation Metrics
+
+- 📈 **Training Score**: Automatic logging of training performance via `estimator.score()`
+- 🎯 **Classification Metrics**: Precision, recall, F1-score, accuracy, log loss, ROC AUC
+- 📉 **Regression Metrics**: MSE, RMSE, MAE, R² score
+- 🔄 **Cross-Validation**: Best CV score and detailed results for parameter search
+
+#### Production-Ready Artifacts
+
+- 🤖 **Serialized Models**: Support for both pickle and cloudpickle formats
+- 📋 **Model Signatures**: Automatic input/output schema inference
+- 📊 **Parameter Search Results**: Detailed CV results as artifacts
+- 📄 **Metric Information**: JSON artifacts with metric call details
 
 </details>
 
@@ -88,11 +93,11 @@ MLflow provides deep integration with scikit-learn's parameter search capabiliti
 <details>
   <summary>Parameter Search Integration</summary>
 
-  - 🔍 **GridSearchCV Support**: Automatic child run creation for parameter combinations
-  - 🎲 **RandomizedSearchCV Support**: Efficient random parameter exploration tracking
-  - 📊 **Cross-Validation Metrics**: Complete CV results logged as artifacts
-  - 🏆 **Best Model Logging**: Separate logging of best estimator with optimal parameters
-  - 🎛️ **Configurable Tracking**: Control the number of child runs with `max_tuning_runs`
+- 🔍 **GridSearchCV Support**: Automatic child run creation for parameter combinations
+- 🎲 **RandomizedSearchCV Support**: Efficient random parameter exploration tracking
+- 📊 **Cross-Validation Metrics**: Complete CV results logged as artifacts
+- 🏆 **Best Model Logging**: Separate logging of best estimator with optimal parameters
+- 🎛️ **Configurable Tracking**: Control the number of child runs with `max_tuning_runs`
 
 </details>
 
@@ -103,17 +108,19 @@ Beyond training metrics, MLflow automatically captures evaluation metrics from y
 <details>
   <summary>Automatic Evaluation Tracking</summary>
 
-  #### Smart Metric Detection
-  - 🔍 **Sklearn Metrics Integration**: Automatic logging of `sklearn.metrics` function calls
-  - 📊 **Model Score Tracking**: Capture `model.score()` calls with dataset context
-  - 📝 **Dataset Naming**: Intelligent variable name detection for metric organization
-  - 🔄 **Multiple Evaluations**: Support for multiple datasets with automatic indexing
+#### Smart Metric Detection
 
-  #### Comprehensive Coverage
-  - 📈 **All Sklearn Metrics**: Classification, regression, clustering metrics automatically logged
-  - 🎯 **Custom Scorers**: Integration with sklearn's scorer system
-  - 📊 **Evaluation Context**: Metrics linked to specific datasets and model versions
-  - 📋 **Metric Documentation**: JSON artifacts documenting metric calculation details
+- 🔍 **Sklearn Metrics Integration**: Automatic logging of `sklearn.metrics` function calls
+- 📊 **Model Score Tracking**: Capture `model.score()` calls with dataset context
+- 📝 **Dataset Naming**: Intelligent variable name detection for metric organization
+- 🔄 **Multiple Evaluations**: Support for multiple datasets with automatic indexing
+
+#### Comprehensive Coverage
+
+- 📈 **All Sklearn Metrics**: Classification, regression, clustering metrics automatically logged
+- 🎯 **Custom Scorers**: Integration with sklearn's scorer system
+- 📊 **Evaluation Context**: Metrics linked to specific datasets and model versions
+- 📋 **Metric Documentation**: JSON artifacts documenting metric calculation details
 
 </details>
 
@@ -137,23 +144,26 @@ Our comprehensive developer guide covers the complete spectrum of scikit-learn-M
 <details>
   <summary>Complete Learning Journey</summary>
 
-  #### Foundation Skills
-  - ⚡ Set up one-line autologging for immediate experiment tracking across any scikit-learn workflow
-  - 🎛️ Master both automatic and manual logging approaches for different use cases
-  - 📊 Understand parameter tracking for simple estimators and complex meta-estimators
-  - 🔧 Configure advanced logging parameters for custom training scenarios
+#### Foundation Skills
 
-  #### Advanced Techniques
-  - 🔍 Implement comprehensive hyperparameter tuning with GridSearchCV and RandomizedSearchCV
-  - 📈 Leverage post-training metrics for automatic evaluation tracking
-  - 🚀 Deploy scikit-learn models with MLflow's serving infrastructure
-  - 📦 Work with different serialization formats and understand their trade-offs
+- ⚡ Set up one-line autologging for immediate experiment tracking across any scikit-learn workflow
+- 🎛️ Master both automatic and manual logging approaches for different use cases
+- 📊 Understand parameter tracking for simple estimators and complex meta-estimators
+- 🔧 Configure advanced logging parameters for custom training scenarios
 
-  #### Production Excellence
-  - 🏭 Build production-ready ML pipelines with proper experiment tracking and model governance
-  - 👥 Implement team collaboration workflows for shared scikit-learn model development
-  - 🔍 Set up model monitoring and performance tracking in production environments
-  - 📋 Establish model registry workflows for staging, approval, and deployment processes
+#### Advanced Techniques
+
+- 🔍 Implement comprehensive hyperparameter tuning with GridSearchCV and RandomizedSearchCV
+- 📈 Leverage post-training metrics for automatic evaluation tracking
+- 🚀 Deploy scikit-learn models with MLflow's serving infrastructure
+- 📦 Work with different serialization formats and understand their trade-offs
+
+#### Production Excellence
+
+- 🏭 Build production-ready ML pipelines with proper experiment tracking and model governance
+- 👥 Implement team collaboration workflows for shared scikit-learn model development
+- 🔍 Set up model monitoring and performance tracking in production environments
+- 📋 Establish model registry workflows for staging, approval, and deployment processes
 
 </details>
 

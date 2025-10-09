@@ -2,8 +2,8 @@ import { useMutation } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { Alert, Modal, Spacer } from '@databricks/design-system';
 import { useCallback, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { loggedModelsDataRequest } from '../../../hooks/logged-models/request.utils';
-import { LoggedModelProto } from '../../../types';
+import type { LoggedModelProto } from '../../../types';
+import { fetchAPI, getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 export const useExperimentLoggedModelDeleteModal = ({
   loggedModel,
@@ -22,7 +22,7 @@ export const useExperimentLoggedModelDeleteModal = ({
     }
   >({
     mutationFn: async ({ loggedModelId }) => {
-      await loggedModelsDataRequest(`ajax-api/2.0/mlflow/logged-models/${loggedModelId}`, 'DELETE');
+      await fetchAPI(getAjaxUrl(`ajax-api/2.0/mlflow/logged-models/${loggedModelId}`), 'DELETE');
     },
   });
 

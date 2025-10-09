@@ -6,6 +6,7 @@ EXCLUDED_FILES=(
     # ignore typos in i18n files, since they're not controlled by us
     "mlflow/server/js/src/lang/*.json"
     "mlflow/server/js/src/common/utils/StringUtils.ts"
+    "dev/clint/tests/rules/test_mlflow_class_name.py"
 )
 
 EXCLUDE_ARGS=""

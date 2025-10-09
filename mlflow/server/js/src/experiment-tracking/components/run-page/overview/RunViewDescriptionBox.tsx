@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { EditableNote } from '../../../../common/components/EditableNote';
-import { KeyValueEntity } from '../../../types';
+import type { KeyValueEntity } from '../../../../common/types';
 import { NOTE_CONTENT_TAG } from '../../../utils/NoteUtils';
 import { Button, PencilIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { useDispatch } from 'react-redux';
-import { ThunkDispatch } from '../../../../redux-types';
+import type { ThunkDispatch } from '../../../../redux-types';
 import { setTagApi } from '../../../actions';
 import { FormattedMessage, useIntl } from 'react-intl';
 

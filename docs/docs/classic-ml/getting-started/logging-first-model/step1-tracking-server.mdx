@@ -34,19 +34,22 @@ mlflow server --host 127.0.0.1 --port 8080
 Once the server starts running, you should see the following output:
 
 ```bash
-[2023-11-01 10:28:12 +0900] [28550] [INFO] Starting gunicorn 20.1.0
-[2023-11-01 10:28:12 +0900] [28550] [INFO] Listening at: http://127.0.0.1:8080 (28550)
-[2023-11-01 10:28:12 +0900] [28550] [INFO] Using worker: sync
-[2023-11-01 10:28:12 +0900] [28552] [INFO] Booting worker with pid: 28552
-[2023-11-01 10:28:12 +0900] [28553] [INFO] Booting worker with pid: 28553
-[2023-11-01 10:28:12 +0900] [28555] [INFO] Booting worker with pid: 28555
-[2023-11-01 10:28:12 +0900] [28558] [INFO] Booting worker with pid: 28558
-...
+INFO:     Started server process [28550]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8080 (Press CTRL+C to quit)
 ```
 
 :::note
 Remember the host and port name that your MLflow tracking server is assigned. You will need
 this information in the next section of this tutorial!
+:::
+
+:::info Security Note
+Starting with MLflow 3.5.0, the server includes built-in security features using industry-standard middleware libraries
+to protect against DNS rebinding and CORS attacks. By default, it only accepts connections from localhost.
+If you need to expose your server to other machines, see the [MLflow Server Security Guide](/ml/tracking/server/security)
+for proper configuration.
 :::
 
 Congratulations! Your MLflow environment is now set up and ready to go. As you progress, you'll

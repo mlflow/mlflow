@@ -34,21 +34,6 @@ def multi_modal_pipeline(component_multi_modal):
     return pipeline, task, processor, components
 
 
-def test_flavor_config_tf(small_qa_tf_pipeline):
-    expected = {
-        "task": "question-answering",
-        "instance_type": "QuestionAnsweringPipeline",
-        "pipeline_model_type": "TFMobileBertForQuestionAnswering",
-        "source_model_name": "csarron/mobilebert-uncased-squad-v2",
-        "model_binary": "model",
-        "framework": "tf",
-        "components": ["tokenizer"],
-        "tokenizer_type": "MobileBertTokenizerFast",
-    }
-    conf = build_flavor_config(small_qa_tf_pipeline)
-    assert conf == expected
-
-
 def test_flavor_config_pt_save_pretrained_false(small_qa_pipeline):
     expected = {
         "task": "question-answering",
