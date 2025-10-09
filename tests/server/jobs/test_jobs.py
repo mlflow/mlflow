@@ -1,3 +1,4 @@
+import concurrent.futures
 import multiprocessing
 import os
 import time
@@ -18,6 +19,7 @@ from mlflow.server import (
 from mlflow.server.handlers import _get_job_store
 from mlflow.server.jobs import get_job, job, submit_job
 from mlflow.server.jobs.utils import _launch_job_runner
+from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
 # TODO: Remove `pytest.mark.xfail` after fixing flakiness
@@ -484,3 +486,30 @@ def test_job_with_python_env(monkeypatch, tmp_path):
         wait_job_finalize(job_id, timeout=600)
         job = get_job(job_id)
         assert job.status == JobStatus.SUCCEEDED
+
+
+def test_start_job_is_atomic(tmp_path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test.function", '{"param": "value"}')
+    assert job.status == JobStatus.PENDING
+
+    results = []
+
+    def try_start_job():
+        try:
+            store.start_job(job.job_id)
+            return "success"
+        except MlflowException:
+            return "failed"
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        futures = [executor.submit(try_start_job) for _ in range(5)]
+        results = [f.result() for f in concurrent.futures.as_completed(futures)]
+
+    assert results.count("success") == 1
+    assert results.count("failed") == 4
+
+    final_job = store.get_job(job.job_id)
+    assert final_job.status == JobStatus.RUNNING
