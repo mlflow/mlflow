@@ -35,6 +35,7 @@ _logger = logging.getLogger(__name__)
 @experimental(version="3.5.0")
 @record_usage_event(PromptAdaptationEvent)
 def adapt_prompts(
+    *,
     predict_fn: Callable[..., Any],
     train_data: "EvaluationDatasetTypes",
     target_prompt_uris: list[str],
