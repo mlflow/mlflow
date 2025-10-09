@@ -37,8 +37,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
         self.engine = mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(db_uri)
-        if not mlflow.store.db.utils._all_tables_exist(self.engine):
-            mlflow.store.db.utils._initialize_tables(self.engine)
+        mlflow.store.db.utils._safe_initialize_tables(self.engine)
 
         SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
         self.ManagedSessionMaker = mlflow.store.db.utils._get_managed_session_maker(

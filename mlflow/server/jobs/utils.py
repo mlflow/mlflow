@@ -323,7 +323,7 @@ def _launch_huey_consumer(job_fn_fullname: str) -> None:
     threading.Thread(
         target=_huey_consumer_thread,
         name=f"MLflow-huey-consumer-{job_fn_fullname}-watcher",
-        daemon=True,
+        daemon=False,
     ).start()
 
 
