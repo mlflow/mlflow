@@ -155,6 +155,8 @@ def adapt_prompts(
             for prompt_name, prompt in optimizer_output.optimized_prompts.items()
         ],
         optimizer_name=optimizer.__class__.__name__,
+        initial_eval_score=optimizer_output.initial_eval_score,
+        final_eval_score=optimizer_output.final_eval_score,
     )
 
 

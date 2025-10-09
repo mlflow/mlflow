@@ -12,12 +12,7 @@ from mlflow.genai.scorers import scorer
 
 
 class MockPromptAdapter(BasePromptAdapter):
-    """Simple test adapter that returns improved versions of input prompts."""
-
     def optimize(self, eval_fn, train_data, target_prompts, optimizer_lm_params):
-        """
-        Simple optimization that appends 'optimized' to each prompt template.
-        """
         optimized_prompts = {}
         for prompt_name, template in target_prompts.items():
             # Simple optimization: add "Be precise and accurate. " prefix
@@ -26,7 +21,11 @@ class MockPromptAdapter(BasePromptAdapter):
         # Verify the optimization by calling eval_fn
         eval_fn(optimized_prompts, train_data)
 
-        return PromptAdapterOutput(optimized_prompts=optimized_prompts)
+        return PromptAdapterOutput(
+            optimized_prompts=optimized_prompts,
+            initial_eval_score=0.5,
+            final_eval_score=0.9,
+        )
 
 
 @pytest.fixture
@@ -113,6 +112,8 @@ def test_adapt_prompts_single_prompt(sample_translation_prompt, sample_dataset):
     assert "Be precise and accurate." in optimized_prompt.template
     expected_template = "Translate the following text to {{language}}: {{input_text}}"
     assert expected_template in optimized_prompt.template
+    assert result.initial_eval_score == 0.5
+    assert result.final_eval_score == 0.9
 
 
 def test_adapt_prompts_multiple_prompts(
@@ -135,6 +136,8 @@ def test_adapt_prompts_multiple_prompts(
     prompt_names = {prompt.name for prompt in result.optimized_prompts}
     assert sample_translation_prompt.name in prompt_names
     assert sample_summarization_prompt.name in prompt_names
+    assert result.initial_eval_score == 0.5
+    assert result.final_eval_score == 0.9
 
     for prompt in result.optimized_prompts:
         assert "Be precise and accurate." in prompt.template
@@ -216,6 +219,8 @@ def test_adapt_prompts_with_list_dataset(sample_translation_prompt, sample_summa
     )
 
     assert len(result.optimized_prompts) == 1
+    assert result.initial_eval_score == 0.5
+    assert result.final_eval_score == 0.9
 
 
 def test_adapt_prompts_llm_params_passed(sample_translation_prompt, sample_dataset):
@@ -268,7 +273,6 @@ def test_adapt_prompts_llm_params_passed(sample_translation_prompt, sample_datas
     ],
 )
 def test_output_equivalence_scorer_exact_match(program_outputs, expected_outputs, expected_score):
-    """Test the default output equivalence scorer with exact matches."""
     test_scorer = _make_output_equivalence_scorer("openai:/gpt-4o-mini")
     assert (
         test_scorer.run(inputs={}, outputs=program_outputs, expectations=expected_outputs)
@@ -277,7 +281,6 @@ def test_output_equivalence_scorer_exact_match(program_outputs, expected_outputs
 
 
 def test_output_equivalence_scorer_llm_judge():
-    """Test the default output equivalence scorer with LLM judge."""
     # Test pass case
     mock_pass = Mock(value="pass")
     with patch("mlflow.genai.judges.make_judge") as mock_make_judge:
@@ -312,7 +315,6 @@ def test_output_equivalence_scorer_llm_judge():
 
 
 def test_output_equivalence_scorer_error_handling():
-    """Test error handling in the default scorer."""
     with patch("mlflow.genai.judges.make_judge") as mock_make_judge:
         mock_judge = Mock(side_effect=Exception("API Error"))
         mock_make_judge.return_value = mock_judge
@@ -321,8 +323,6 @@ def test_output_equivalence_scorer_error_handling():
 
 
 def test_adapt_prompts_with_custom_scorers(sample_translation_prompt, sample_dataset):
-    """Test adapt_prompts with custom scorers."""
-
     # Create a custom scorer for case-insensitive matching
     @scorer(name="case_insensitive_match")
     def case_insensitive_match(outputs, expectations):
