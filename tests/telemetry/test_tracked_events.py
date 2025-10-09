@@ -414,7 +414,6 @@ def test_prompt_adaptation(mock_requests, mock_telemetry_client: TelemetryClient
         {
             "optimizer_type": "MockAdapter",
             "prompt_count": 1,
-            "custom_scorers": False,
             "scorer_count": None,
             "custom_objective": False,
         },
