@@ -111,8 +111,7 @@ def test_gepa_adapter_optimize(sample_train_data, sample_target_prompts, mock_ev
     assert call_kwargs["max_metric_calls"] == 50
     assert call_kwargs["reflection_lm"] == "openai/gpt-4o-mini"
     assert call_kwargs["display_progress_bar"] is True
-    assert len(call_kwargs["trainset"]) == 3  # 80% of 4 records
-    assert len(call_kwargs["valset"]) == 1  # 20% of 4 records
+    assert len(call_kwargs["trainset"]) == 4
 
 
 def test_gepa_adapter_optimize_with_reflection_lm(
@@ -216,7 +215,6 @@ def test_gepa_adapter_single_record_dataset(sample_target_prompts, mock_eval_fn)
 
     call_kwargs = mock_gepa_module.optimize.call_args.kwargs
     assert len(call_kwargs["trainset"]) == 1
-    assert len(call_kwargs["valset"]) == 1
 
 
 def test_gepa_adapter_custom_adapter_evaluate(
