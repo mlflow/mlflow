@@ -1,8 +1,6 @@
-import langchain
 import pytest
 from langchain_core.messages.base import BaseMessage
 from langchain_core.runnables.config import RunnableConfig
-from packaging.version import Version
 
 from mlflow.langchain.output_parsers import (
     ChatAgentOutputParser,
@@ -80,10 +78,6 @@ def test_chatcompletion_output_parser_parse_response():
         }
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="Test requires langchain >= 0.2.0 for availability of BaseMessage",
-)
 def test_chat_agent_output_parser_parse_response():
     parser = ChatAgentOutputParser()
     message = "The weather today is"
@@ -109,10 +103,6 @@ async def async_message_generator(messages):
         yield message
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="Test requires langchain >= 0.2.0 for availability of BaseMessage",
-)
 @pytest.mark.asyncio
 async def test_chatcompletion_output_parser_atransform():
     parser = ChatCompletionOutputParser()

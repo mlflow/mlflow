@@ -558,10 +558,6 @@ def test_langchain_log_huggingface_hub_model_metadata(model_path):
     assert type(loaded_model.steps[1]).__name__ == "HuggingFacePipeline"
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="Agent behavior is not stable across minor versions",
-)
 @pytest.mark.parametrize("return_intermediate_steps", [False, True])
 def test_langchain_agent_model_predict(return_intermediate_steps, monkeypatch):
     input_example = {"input": "What is 2 * 3?"}
@@ -627,10 +623,6 @@ def test_langchain_agent_model_predict(return_intermediate_steps, monkeypatch):
     assert response == expected_output
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="Agent behavior is not stable across minor versions",
-)
 def test_langchain_agent_model_predict_stream():
     input_example = {"input": "What is 2 * 3?"}
     with mlflow.start_run():
@@ -1961,10 +1953,6 @@ def test_databricks_dependency_extraction_from_retrieval_qa_chain(tmp_path):
     assert actual["vector_search_index"] == expected["vector_search_index"]
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="Langgraph are not supported the way we want in earlier versions",
-)
 def test_databricks_dependency_extraction_from_langgraph_agent(monkeypatch):
     from langchain_community.chat_models import ChatDatabricks
     from langchain_core.runnables import RunnableLambda
@@ -2016,10 +2004,6 @@ def test_databricks_dependency_extraction_from_langgraph_agent(monkeypatch):
         assert all(item in expected["function"] for item in actual["function"])
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.1.0"),
-    reason="Tools are not supported the way we want in earlier versions",
-)
 def test_databricks_dependency_extraction_from_agent_chain(monkeypatch):
     from langchain_community.chat_models import ChatDatabricks
 
@@ -2396,12 +2380,6 @@ def test_save_load_chain_that_relies_on_pickle_serialization(monkeypatch, model_
     # Not passing an input_example to avoid triggering prediction
     mlflow.langchain.save_model(chain, model_path)
 
-    if IS_PICKLE_SERIALIZATION_RESTRICTED and Version(langchain.__version__) < Version("0.1.14"):
-        # For LangChain between 0.1.12 and 0.1.14, MLflow cannot load a model that relies on pickle
-        # serialization, instead, raises an MlflowException with a message that explains the issue.
-        with pytest.raises(MlflowException, match=r"Since langchain-community 0.0.27, loading a"):
-            mlflow.langchain.load_model(model_path)
-        return
     loaded_model = mlflow.langchain.load_model(model_path)
 
     # Check if the deserialized model has the same endpoint and temperature
@@ -2915,7 +2893,7 @@ def test_simple_chat_model_stream_inference(fake_chat_stream_model, provide_sign
 
         chunk_iter = loaded_model.predict_stream(input_example)
 
-        finish_reason = None if Version(langchain.__version__) < Version("0.1.8") else "stop"
+        finish_reason = "stop"
 
         with mock.patch("time.time", return_value=1677858242):
             chunks = list(chunk_iter)
@@ -3379,9 +3357,6 @@ def test_langchain_model_streamable_param_in_log_model_for_lc_runnable_types(
         assert model_info.flavors["langchain"]["streamable"] is bool(streamable)
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.1.20"), reason="feature not existing"
-)
 def test_agent_executor_model_with_messages_input():
     question = {"messages": [{"role": "user", "content": "Who owns MLflow?"}]}
 
@@ -3446,10 +3421,6 @@ def test_signature_inference_succeeds_with_any_type(monkeypatch: pytest.MonkeyPa
     assert model_info.signature.outputs == schema
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="Configurable fields are not supported correctly in old versions",
-)
 def test_invoking_model_with_params():
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
@@ -3562,9 +3533,6 @@ def chain_accepts_list_messages():
     return prompt | fake_chat_model | StrOutputParser()
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.1.20"), reason="feature not existing"
-)
 @pytest.mark.parametrize(
     ("model", "should_convert", "input_example", "needs_env_var"),
     [
@@ -3679,10 +3647,6 @@ def test_log_langchain_model_with_prompt():
     )
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="Feature not existing",
-)
 def test_predict_with_callbacks_with_tracing(monkeypatch):
     # Simulate the model serving environment
     monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
