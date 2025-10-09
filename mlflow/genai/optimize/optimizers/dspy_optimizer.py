@@ -1,6 +1,5 @@
 import importlib.metadata
 import importlib.util
-import inspect
 import logging
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
@@ -11,7 +10,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize.optimizers import BasePromptOptimizer
 from mlflow.genai.optimize.optimizers.utils import parse_model_name
 from mlflow.genai.optimize.types import LLMParams, ObjectiveFn, OptimizerConfig, OptimizerOutput
-from mlflow.genai.optimize.util import infer_type_from_value
+from mlflow.genai.optimize.util import create_metric_from_scorers, infer_type_from_value
 from mlflow.genai.scorers import Scorer
 from mlflow.utils.annotations import experimental
 
@@ -170,33 +169,15 @@ class DSPyPromptOptimizer(BasePromptOptimizer):
         scorers: list[Scorer],
         objective: ObjectiveFn | None = None,
     ) -> Callable[["dspy.Example", "dspy.Example", Any], float]:
+        # Create the base metric using the utility function
+        base_metric = create_metric_from_scorers(scorers, objective)
+
         def metric(example: "dspy.Example", pred: "dspy.Example", trace=None) -> float:
-            scores = {}
             inputs = {key: example.get(key) for key in input_fields.keys()}
             expectations = {key: example.get(key) for key in output_fields.keys()}
             outputs = {key: pred.get(key) for key in output_fields.keys()}
 
-            for scorer in scorers:
-                kwargs = {"inputs": inputs, "outputs": outputs, "expectations": expectations}
-                signature = inspect.signature(scorer)
-                kwargs = {
-                    key: value for key, value in kwargs.items() if key in signature.parameters
-                }
-                scores[scorer.name] = scorer(**kwargs)
-            if objective is not None:
-                return objective(scores)
-            elif all(isinstance(score, (int, float, bool)) for score in scores.values()):
-                # Use total score by default if no objective is provided
-                return sum(scores.values())
-            else:
-                non_numerical_scorers = [
-                    k for k, v in scores.items() if not isinstance(v, (int, float, bool))
-                ]
-                raise MlflowException(
-                    f"Scorer [{','.join(non_numerical_scorers)}] return a string, Assessment or a "
-                    "list of Assessment. Please provide `objective` function to aggregate "
-                    "non-numerical values into a single value for optimization."
-                )
+            return base_metric(inputs, outputs, expectations)
 
         return metric
 

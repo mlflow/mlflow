@@ -152,9 +152,13 @@ class PromptAdapterOutput:
         optimized_prompts: The optimized prompts as
             a dict (prompt template name -> prompt template).
             e.g., {"question": "What is the capital of {{country}}?"}
+        initial_eval_score: The evaluation score before optimization (optional).
+        final_eval_score: The evaluation score after optimization (optional).
     """
 
     optimized_prompts: dict[str, str]
+    initial_eval_score: float | None = None
+    final_eval_score: float | None = None
 
 
 @experimental(version="3.5.0")
@@ -166,7 +170,11 @@ class PromptAdaptationResult:
     Args:
         optimized_prompts: The optimized prompts.
         optimizer_name: The name of the optimizer.
+        initial_eval_score: The evaluation score before optimization (optional).
+        final_eval_score: The evaluation score after optimization (optional).
     """
 
     optimized_prompts: list[PromptVersion]
     optimizer_name: str
+    initial_eval_score: float | None = None
+    final_eval_score: float | None = None

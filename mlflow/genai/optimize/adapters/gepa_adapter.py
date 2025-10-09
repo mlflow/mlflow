@@ -1,8 +1,11 @@
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from mlflow.genai.optimize.adapters.base import BasePromptAdapter, _EvalFunc
-from mlflow.genai.optimize.types import LLMParams, PromptAdapterOutput
+from mlflow.genai.optimize.types import EvaluationResultRecord, LLMParams, PromptAdapterOutput
 from mlflow.utils.annotations import experimental
+
+if TYPE_CHECKING:
+    import gepa
 
 
 @experimental(version="3.5.0")
@@ -148,7 +151,7 @@ class GepaPromptAdapter(BasePromptAdapter):
             def make_reflective_dataset(
                 self,
                 candidate: dict[str, str],
-                eval_batch: "gepa.EvaluationBatch",
+                eval_batch: "gepa.EvaluationBatch[EvaluationResultRecord, Any]",
                 components_to_update: list[str],
             ) -> dict[str, list[dict[str, Any]]]:
                 """
@@ -200,5 +203,32 @@ class GepaPromptAdapter(BasePromptAdapter):
         )
 
         optimized_prompts = gepa_result.best_candidate
+        initial_score, final_score = self._extract_eval_scores(gepa_result)
 
-        return PromptAdapterOutput(optimized_prompts=optimized_prompts)
+        return PromptAdapterOutput(
+            optimized_prompts=optimized_prompts,
+            initial_eval_score=initial_score,
+            final_eval_score=final_score,
+        )
+
+    def _extract_eval_scores(self, result: "gepa.GEPAResult") -> tuple[float | None, float | None]:
+        """
+        Extract initial and final evaluation scores from GEPA result.
+
+        Args:
+            result: GEPA optimization result
+
+        Returns:
+            Tuple of (initial_score, final_score), both can be None if unavailable
+        """
+        final_score = None
+        initial_score = None
+
+        scores = result.val_aggregate_scores
+        if scores and len(scores) > 0:
+            # The first score is the initial baseline score
+            initial_score = scores[0]
+            # The highest score is the final optimized score
+            final_score = max(scores)
+
+        return initial_score, final_score

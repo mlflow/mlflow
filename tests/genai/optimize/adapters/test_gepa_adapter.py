@@ -84,6 +84,7 @@ def test_gepa_adapter_optimize(sample_train_data, sample_target_prompts, mock_ev
         "system_prompt": "You are a highly skilled assistant.",
         "instruction": "Please answer this question carefully: {{question}}",
     }
+    mock_result.val_aggregate_scores = [0.5, 0.6, 0.8, 0.9]  # Mock scores for testing
     mock_gepa_module.optimize.return_value = mock_result
     mock_gepa_module.EvaluationBatch = MagicMock()
     adapter = GepaPromptAdapter(max_metric_calls=50, display_progress_bar=True)
@@ -101,6 +102,9 @@ def test_gepa_adapter_optimize(sample_train_data, sample_target_prompts, mock_ev
     assert result.optimized_prompts == mock_result.best_candidate
     assert "system_prompt" in result.optimized_prompts
     assert "instruction" in result.optimized_prompts
+    # Verify scores are extracted
+    assert result.initial_eval_score == 0.5  # First score
+    assert result.final_eval_score == 0.9  # Max score
 
     # Verify GEPA was called with correct parameters
     mock_gepa_module.optimize.assert_called_once()
@@ -125,6 +129,7 @@ def test_gepa_adapter_optimize_with_reflection_lm(
     }
     mock_result = Mock()
     mock_result.best_candidate = sample_target_prompts
+    mock_result.val_aggregate_scores = []
     mock_gepa_module.optimize.return_value = mock_result
     mock_gepa_module.EvaluationBatch = MagicMock()
 
@@ -153,6 +158,7 @@ def test_gepa_adapter_optimize_model_name_parsing(
     }
     mock_result = Mock()
     mock_result.best_candidate = sample_target_prompts
+    mock_result.val_aggregate_scores = []
     mock_gepa_module.optimize.return_value = mock_result
     mock_gepa_module.EvaluationBatch = MagicMock()
 
@@ -200,6 +206,7 @@ def test_gepa_adapter_single_record_dataset(sample_target_prompts, mock_eval_fn)
     }
     mock_result = Mock()
     mock_result.best_candidate = sample_target_prompts
+    mock_result.val_aggregate_scores = []
     mock_gepa_module.optimize.return_value = mock_result
     mock_gepa_module.EvaluationBatch = MagicMock()
 
@@ -228,6 +235,7 @@ def test_gepa_adapter_custom_adapter_evaluate(
     }
     mock_result = Mock()
     mock_result.best_candidate = sample_target_prompts
+    mock_result.val_aggregate_scores = []
     mock_gepa_module.optimize.return_value = mock_result
     mock_gepa_module.EvaluationBatch = MagicMock()
 

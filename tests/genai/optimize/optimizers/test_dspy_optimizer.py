@@ -169,7 +169,7 @@ def test_convert_to_dspy_metric_raises_on_non_numeric_score():
 
     with pytest.raises(
         MlflowException,
-        match=r"Scorer \[non_numeric_scorer\] return a string, Assessment or a list of Assessment.",
+        match=r"Scorers \[non_numeric_scorer \(type: str\)\] return non-numerical values",
     ):
         metric(
             dspy.Example(input_text="Hello", language="Spanish"),
