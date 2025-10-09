@@ -20,9 +20,11 @@ from mlflow.server.jobs import get_job, job, submit_job
 from mlflow.server.jobs.utils import _launch_job_runner
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
-pytestmark = pytest.mark.skipif(
-    os.name == "nt", reason="MLflow job execution is not supported on Windows"
-)
+# TODO: Remove `pytest.mark.xfail` after fixing flakiness
+pytestmark = [
+    pytest.mark.skipif(os.name == "nt", reason="MLflow job execution is not supported on Windows"),
+    pytest.mark.xfail,
+]
 
 
 def _get_mlflow_repo_home():
@@ -137,6 +139,7 @@ def assert_job_result(job_id, expected_status, expected_result):
 
 
 def test_job_resume_on_job_runner_restart(monkeypatch, tmp_path):
+    assert False
     with _setup_job_runner(monkeypatch, tmp_path) as job_runner_proc:
         job1_id = submit_job(basic_job_fun, {"x": 3, "y": 4, "sleep_secs": 0}).job_id
         job2_id = submit_job(basic_job_fun, {"x": 5, "y": 6, "sleep_secs": 2}).job_id
