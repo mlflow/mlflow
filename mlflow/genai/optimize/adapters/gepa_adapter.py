@@ -27,8 +27,6 @@ class GepaPromptAdapter(BasePromptAdapter):
             Default: None
         display_progress_bar: Whether to show a progress bar during optimization.
             Default: False
-        train_val_split_ratio: The ratio of the training set to the validation set.
-            Default: 0.8
 
     Example:
 
@@ -74,12 +72,10 @@ class GepaPromptAdapter(BasePromptAdapter):
         max_metric_calls: int = 100,
         reflection_lm: str | None = None,
         display_progress_bar: bool = False,
-        train_val_split_ratio: float = 0.8,
     ):
         self.max_metric_calls = max_metric_calls
         self.reflection_lm = reflection_lm
         self.display_progress_bar = display_progress_bar
-        self.train_val_split_ratio = train_val_split_ratio
 
     def optimize(
         self,
@@ -113,10 +109,6 @@ class GepaPromptAdapter(BasePromptAdapter):
             raise ImportError(
                 "GEPA is not installed. Please install it with: pip install gepa"
             ) from e
-
-        split_idx = int(len(train_data) * self.train_val_split_ratio)
-        gepa_trainset = train_data[:split_idx] if split_idx > 0 else train_data
-        gepa_valset = train_data[split_idx:] if split_idx < len(train_data) else train_data[:1]
 
         model_name = parse_model_name(optimizer_lm_params.model_name)
 
@@ -200,8 +192,7 @@ class GepaPromptAdapter(BasePromptAdapter):
 
         gepa_result = gepa.optimize(
             seed_candidate=target_prompts,
-            trainset=gepa_trainset,
-            valset=gepa_valset,
+            trainset=train_data,
             adapter=adapter,
             reflection_lm=reflection_lm,
             max_metric_calls=self.max_metric_calls,
