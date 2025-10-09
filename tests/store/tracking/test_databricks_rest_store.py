@@ -328,7 +328,7 @@ def test_delete_trace_tag(monkeypatch):
     sql_warehouse_id = "warehouse_456"
     request = DeleteTraceTag(
         trace_id=trace_id,
-        location=location,
+        location_id=location,
         key="k",
     )
     response.text = "{}"
