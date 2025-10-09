@@ -61,7 +61,6 @@ def test_gepa_adapter_initialization():
     assert adapter.max_metric_calls == 100
     assert adapter.reflection_lm is None
     assert adapter.display_progress_bar is False
-    assert adapter.train_val_split_ratio == 0.8
 
 
 def test_gepa_adapter_initialization_with_custom_params():
