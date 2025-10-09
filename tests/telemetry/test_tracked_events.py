@@ -762,15 +762,17 @@ def test_align_judge(mock_requests, mock_telemetry_client: TelemetryClient):
 
 
 def test_autologging(mock_requests, mock_telemetry_client: TelemetryClient):
-    mlflow.openai.autolog()
+    try:
+        mlflow.openai.autolog()
 
-    mlflow.autolog()
-    mock_telemetry_client.flush()
-    data = [record["data"] for record in mock_requests]
-    params = [event["params"] for event in data if event["event_name"] == AutologgingEvent.name]
-    assert (
-        json.dumps({"flavor": mlflow.openai.FLAVOR_NAME, "log_traces": True, "disable": False})
-        in params
-    )
-    assert json.dumps({"flavor": "all", "log_traces": True, "disable": False}) in params
-    mlflow.autolog(disable=True)
+        mlflow.autolog()
+        mock_telemetry_client.flush()
+        data = [record["data"] for record in mock_requests]
+        params = [event["params"] for event in data if event["event_name"] == AutologgingEvent.name]
+        assert (
+            json.dumps({"flavor": mlflow.openai.FLAVOR_NAME, "log_traces": True, "disable": False})
+            in params
+        )
+        assert json.dumps({"flavor": "all", "log_traces": True, "disable": False}) in params
+    finally:
+        mlflow.autolog(disable=True)
