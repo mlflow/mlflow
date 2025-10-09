@@ -517,7 +517,7 @@ def get_single_assessment_endpoint_v4(location: str, trace_id: str, assessment_i
     """
     Get the endpoint for a single assessment using the V4 API.
     """
-    return f"{_V4_TRACE_REST_API_PATH_PREFIX}/{location}/{trace_id}/assessment/{assessment_id}"
+    return f"{_V4_TRACE_REST_API_PATH_PREFIX}/{location}/{trace_id}/assessments/{assessment_id}"
 
 
 def get_logged_model_endpoint(model_id: str) -> str:
