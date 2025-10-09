@@ -469,7 +469,7 @@ class DatabricksTracingRestStore(RestStore):
                     sql_warehouse_id=MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
                 )
             )
-            endpoint = f"{get_single_trace_endpoint_v4(location, trace_id)}/assessment"
+            endpoint = f"{get_single_trace_endpoint_v4(location, trace_id)}/assessments"
             response_proto = self._call_endpoint(
                 CreateAssessment,
                 req_body,
