@@ -11,7 +11,6 @@ import shutil
 import types
 import warnings
 from functools import lru_cache
-from importlib.util import find_spec
 from typing import Any, Callable, NamedTuple
 
 import cloudpickle
@@ -200,12 +199,9 @@ def _get_map_of_special_chain_class_to_loader_arg():
         "langchain.chains.HypotheticalDocumentEmbedder": "embeddings",
     }
     # NB: SQLDatabaseChain was migrated to langchain_experimental beginning with version 0.0.247
+    # and is no longer supported in MLflow.
     if version.parse(langchain.__version__) <= version.parse("0.0.246"):
         class_name_to_loader_arg["langchain.chains.SQLDatabaseChain"] = "database"
-    else:
-        if find_spec("langchain_experimental"):
-            # Add this entry only if langchain_experimental is installed
-            class_name_to_loader_arg["langchain_experimental.sql.SQLDatabaseChain"] = "database"
 
     class_to_loader_arg = {
         _RetrieverChain: "retriever",

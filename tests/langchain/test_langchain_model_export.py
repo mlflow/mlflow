@@ -2,7 +2,6 @@ import inspect
 import json
 import os
 import shutil
-import sqlite3
 import sys
 import warnings
 from importlib.metadata import version
@@ -65,7 +64,7 @@ from langchain_community.chat_models import AzureChatOpenAI, ChatOpenAI
 from langchain_community.document_loaders import TextLoader
 from langchain_community.embeddings.fake import FakeEmbeddings
 from langchain_community.llms import OpenAI
-from langchain_community.utilities import SQLDatabase, TextRequestsWrapper
+from langchain_community.utilities import TextRequestsWrapper
 from langchain_community.vectorstores import FAISS
 from langchain_core.callbacks.base import BaseCallbackHandler
 from packaging import version
@@ -958,72 +957,6 @@ def test_log_and_load_subclass_of_specialized_chain():
     # Load the chain
     loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
     assert loaded_model == apichain_subclass
-
-
-def create_sqlite_db_file(db_dir):
-    # Connect to SQLite database (or create it if it doesn't exist)
-    with sqlite3.connect(db_dir) as conn:
-        # Create a cursor
-        c = conn.cursor()
-
-        # Create a dummy table
-        c.execute(
-            """
-            CREATE TABLE IF NOT EXISTS employees(
-                id INTEGER PRIMARY KEY,
-                name TEXT,
-                salary REAL,
-                department TEXT,
-                position TEXT,
-                hireDate TEXT);
-            """
-        )
-
-        # Insert dummy data into the table
-        c.execute(
-            """
-            INSERT INTO employees (name, salary, department, position, hireDate)
-            VALUES ('John Doe', 80000, 'IT', 'Engineer', '2023-06-26');
-            """
-        )
-
-
-def load_db(persist_dir):
-    db_file_path = os.path.join(persist_dir, "my_database.db")
-    sqlite_uri = f"sqlite:///{db_file_path}"
-    return SQLDatabase.from_uri(sqlite_uri)
-
-
-@pytest.mark.skipif(
-    version.parse(langchain.__version__) in (version.parse("0.1.14"), version.parse("0.1.15")),
-    reason="LangChain 0.1.14 and 0.1.15 has a bug in loading SQLDatabaseChain",
-)
-@pytest.mark.skipif(
-    IS_LANGCHAIN_03, reason="Saving SQLDatabaseChain does not work with LangChain 0.3.0"
-)
-def test_log_and_load_sql_database_chain(tmp_path):
-    from langchain_experimental.sql import SQLDatabaseChain
-
-    # Create the SQLDatabaseChain
-    db_file_path = tmp_path / "my_database.db"
-    sqlite_uri = f"sqlite:///{db_file_path}"
-    llm = OpenAI(temperature=0)
-    create_sqlite_db_file(db_file_path)
-    db = SQLDatabase.from_uri(sqlite_uri)
-    db_chain = SQLDatabaseChain.from_llm(llm, db)
-
-    # Log the SQLDatabaseChain
-    with mlflow.start_run():
-        logged_model = mlflow.langchain.log_model(
-            db_chain,
-            name="sql_database_chain",
-            loader_fn=load_db,
-            persist_dir=tmp_path,
-        )
-
-    # Load the chain
-    loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
-    assert loaded_model == db_chain
 
 
 def test_saving_not_implemented_for_memory():
