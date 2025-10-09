@@ -106,9 +106,8 @@ def autolog(
 
 
 def _convert_value_to_dict(value):
-    # autogen Image overrides __get_pydantic_core_schema__ method to implement
-    # serialization for Image objects, so we should not set 'serialize_as_any' here.
-    return value.model_dump() if isinstance(value, BaseModel) else value
+    # BaseChatMessage does not contain content and type attributes
+    return value.model_dump(serialize_as_any=True) if isinstance(value, BaseModel) else value
 
 
 def _get_all_subclasses(cls):
