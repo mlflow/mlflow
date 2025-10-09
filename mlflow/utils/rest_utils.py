@@ -119,7 +119,6 @@ def http_request(
     if extra_headers:
         headers = dict(**headers, **extra_headers)
 
-    # Inject x-databricks-traffic-id header if environment variable is set
     if traffic_id := _MLFLOW_DATABRICKS_TRAFFIC_ID.get():
         headers["x-databricks-traffic-id"] = traffic_id
 
