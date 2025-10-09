@@ -73,7 +73,7 @@ def create_metric_from_scorers(
                 k for k, v in scores.items() if not isinstance(v, (int, float, bool))
             ]
             raise MlflowException(
-                f"Scorer [{','.join(non_numerical_scorers)}] return a string, Assessment or "
+                f"Scorers [{','.join(non_numerical_scorers)}] return a string, Assessment or "
                 "a list of Assessment. Please provide `objective` function to aggregate "
                 "non-numerical values into a single value for optimization."
             )
