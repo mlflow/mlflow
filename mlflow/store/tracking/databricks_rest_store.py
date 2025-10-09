@@ -534,8 +534,9 @@ class DatabricksTracingRestStore(RestStore):
 
             endpoint = get_single_assessment_endpoint_v4(location, parsed_trace_id, assessment_id)
             endpoint = self._append_sql_warehouse_id_param(endpoint)
-            mask_param = ",".join(mask.paths)
-            if mask_param:
+
+            if mask.paths:
+                mask_param = ",".join(mask.paths)
                 endpoint = f"{endpoint}&update_mask={mask_param}"
 
             req_body = message_to_json(assessment)
@@ -586,4 +587,6 @@ class DatabricksTracingRestStore(RestStore):
             return super().delete_assessment(trace_id, assessment_id)
 
     def _append_sql_warehouse_id_param(self, endpoint: str) -> str:
-        return f"{endpoint}?sql_warehouse_id={MLFLOW_TRACING_SQL_WAREHOUSE_ID.get()}"
+        if sql_warehouse_id := MLFLOW_TRACING_SQL_WAREHOUSE_ID.get():
+            return f"{endpoint}?sql_warehouse_id={sql_warehouse_id}"
+        return endpoint
