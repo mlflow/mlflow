@@ -221,8 +221,6 @@ jobs:
             tests/tracking/fluent/test_fluent_autolog.py \
             tests/autologging
 
-  # It takes 9 ~ 10 minutes to run tests in `tests/models`. To make CI finish faster,
-  # run these tests in a separate job.
   models:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
@@ -252,10 +250,6 @@ jobs:
         run: |
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/models
 
-  # NOTE: numpy is pinned in this suite due to its heavy reliance on shap, which internally uses
-  # references to the now fully deprecated (as of 1.24.x) numpy types (i.e., np.bool).
-  # When the shap cross version tests are passing in a new release version of shap, this pin should
-  # be removed.
   evaluate:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
