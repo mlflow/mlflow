@@ -773,3 +773,4 @@ def test_autologging(mock_requests, mock_telemetry_client: TelemetryClient):
         in params
     )
     assert json.dumps({"flavor": "all", "log_traces": True, "disable": False}) in params
+    mlflow.autolog(disable=True)

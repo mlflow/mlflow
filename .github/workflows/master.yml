@@ -102,14 +102,7 @@ jobs:
           source dev/setup-ssh.sh
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
             --ignore-flavors --ignore=tests/examples --ignore=tests/evaluate \
-            --ignore tests/genai --ignore tests/telemetry tests
-
-      - name: Run telemetry tests
-        run: |
-          source .venv/bin/activate
-          # Run telemetry tests in a separate job because some tests (e.g. autologging) cannot
-          # be run together with spark tests
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/telemetry
+            --ignore tests/genai tests
 
       # TODO: Remove this step once support for pydantic v1 is dropped
       # - name: Run gateway tests with pydantic v1
