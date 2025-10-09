@@ -43,6 +43,7 @@ from mlflow.telemetry.events import (
     MakeJudgeEvent,
     McpRunEvent,
     MergeRecordsEvent,
+    PromptAdaptationEvent,
     PromptOptimizationEvent,
     StartTraceEvent,
 )
@@ -374,6 +375,44 @@ def test_prompt_optimization(mock_requests, mock_telemetry_client: TelemetryClie
             scorers=[sample_scorer],
         )
     validate_telemetry_record(mock_telemetry_client, mock_requests, PromptOptimizationEvent.name)
+
+
+def test_prompt_adaptation(mock_requests, mock_telemetry_client: TelemetryClient):
+    from mlflow.genai.optimize import adapt_prompts
+    from mlflow.genai.optimize.adapters import BasePromptAdapter
+    from mlflow.genai.optimize.types import PromptAdapterOutput
+
+    class MockAdapter(BasePromptAdapter):
+        def optimize(self, eval_fn, train_data, target_prompts, optimizer_lm_params):
+            return PromptAdapterOutput(optimized_prompts=target_prompts)
+
+    sample_prompt = mlflow.genai.register_prompt(
+        name="test_prompt_for_adaptation",
+        template="Translate {{input_text}} to {{language}}",
+    )
+
+    sample_data = [
+        {"inputs": {"input_text": "Hello", "language": "Spanish"}, "outputs": "Hola"},
+        {"inputs": {"input_text": "World", "language": "French"}, "outputs": "Monde"},
+    ]
+
+    def predict_fn(input_text, language):
+        mlflow.genai.load_prompt(f"prompts:/{sample_prompt.name}/{sample_prompt.version}")
+        return "translated"
+
+    adapt_prompts(
+        predict_fn=predict_fn,
+        train_data=sample_data,
+        target_prompt_uris=[f"prompts:/{sample_prompt.name}/{sample_prompt.version}"],
+        optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o-mini"),
+        optimizer=MockAdapter(),
+    )
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        PromptAdaptationEvent.name,
+        {"optimizer_type": "MockAdapter", "prompt_count": 1, "custom_eval_metric": False},
+    )
 
 
 def test_create_dataset(mock_requests, mock_telemetry_client: TelemetryClient):

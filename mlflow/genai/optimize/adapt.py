@@ -12,6 +12,8 @@ from mlflow.genai.optimize.adapters import BasePromptAdapter, get_default_adapte
 from mlflow.genai.optimize.types import EvaluationResultRecord, LLMParams, PromptAdaptationResult
 from mlflow.genai.prompts import load_prompt, register_prompt
 from mlflow.genai.utils.trace_utils import convert_predict_fn
+from mlflow.telemetry.events import PromptAdaptationEvent
+from mlflow.telemetry.track import record_usage_event
 from mlflow.utils import gorilla
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils.safety import _wrap_patch
@@ -21,6 +23,7 @@ if TYPE_CHECKING:
 
 
 @experimental(version="3.5.0")
+@record_usage_event(PromptAdaptationEvent)
 def adapt_prompts(
     predict_fn: Callable[..., Any],
     train_data: "EvaluationDatasetTypes",
