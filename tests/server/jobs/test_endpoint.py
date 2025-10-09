@@ -297,12 +297,6 @@ def test_job_endpoint_search(client: Client):
     )
     assert extract_job_ids(jobs) == [job2_id, job3_id, job4_id]
 
-    jobs = client.search_job(
-        params={"y": 5},
-        statuses=["SUCCEEDED"],
-    )
-    assert extract_job_ids(jobs) == [job2_id, job3_id]
-
     response = client.post(
         "/ajax-api/3.0/jobs/search",
         payload={

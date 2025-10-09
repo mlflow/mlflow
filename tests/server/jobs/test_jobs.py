@@ -23,6 +23,7 @@ pytestmark = [
     pytest.mark.xfail,
 ]
 
+
 def _get_mlflow_repo_home():
     root = str(Path(__file__).resolve().parents[3])
     return f"{root}{os.pathsep}{path}" if (path := os.environ.get("PYTHONPATH")) else root
