@@ -10,8 +10,10 @@ The job runner will:
   See module `mlflow/server/jobs/_huey_consumer.py` for details of Huey consumer.
 """
 
+import logging
 import os
 
+from mlflow.exceptions import MlflowException
 from mlflow.server import HUEY_STORAGE_PATH_ENV_VAR
 from mlflow.server.jobs import _ALLOWED_JOB_FUNCTION_LIST
 from mlflow.server.jobs.utils import (
@@ -21,10 +23,16 @@ from mlflow.server.jobs.utils import (
 )
 
 if __name__ == "__main__":
+    logger = logging.getLogger("mlflow.server.jobs._job_runner")
     _start_watcher_to_kill_job_runner_if_mlflow_server_dies()
     _enqueue_unfinished_jobs()
 
     huey_store_path = os.environ[HUEY_STORAGE_PATH_ENV_VAR]
 
     for job_fn_fullname in _ALLOWED_JOB_FUNCTION_LIST:
-        _launch_huey_consumer(job_fn_fullname)
+        try:
+            _launch_huey_consumer(job_fn_fullname)
+        except Exception as e:
+            logging.warning(
+                f"Launch Huey consumer for {job_fn_fullname} jobs failed, root cause: {repr(e)}"
+            )
