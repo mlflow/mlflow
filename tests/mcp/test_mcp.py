@@ -27,6 +27,7 @@ async def test_list_tools(client: Client):
         "delete_assessment",
         "delete_trace_tag",
         "delete_traces",
+        "evaluate_traces",
         "get_assessment",
         "get_trace",
         "log_expectation",
