@@ -116,6 +116,7 @@ def client(tmp_path_factory: pytest.TempPathFactory) -> Client:
         start_new_session=True,  # new session & process group
     ) as server_proc:
         try:
+            time.sleep(10)  # wait the job runner up
             # wait server up.
             deadline = time.time() + 15
             while time.time() < deadline:
