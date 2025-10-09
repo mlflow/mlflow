@@ -61,7 +61,6 @@ describe('MlflowClient', () => {
       expect(createdTraceInfo.clientRequestId).toBe('client-request-id');
       expect(createdTraceInfo.traceMetadata).toEqual({
         'meta-key': 'meta-value',
-        'mlflow.trace_schema.version': '3'
       });
       expect(createdTraceInfo.tags).toEqual({
         'tag-key': 'tag-value',
