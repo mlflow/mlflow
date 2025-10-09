@@ -11,9 +11,9 @@ The job runner will:
 """
 
 import os
-import time
 
 from mlflow.server import HUEY_STORAGE_PATH_ENV_VAR
+from mlflow.server.jobs import _ALLOWED_JOB_FUNCTION_LIST
 from mlflow.server.jobs.utils import (
     _enqueue_unfinished_jobs,
     _launch_huey_consumer,
@@ -26,17 +26,5 @@ if __name__ == "__main__":
 
     huey_store_path = os.environ[HUEY_STORAGE_PATH_ENV_VAR]
 
-    seen_huey_files = set()
-    huey_file_suffix = ".mlflow-huey-store"
-
-    while True:
-        time.sleep(0.5)
-        current_huey_files = set(os.listdir(huey_store_path))
-        new_huey_files = current_huey_files - seen_huey_files
-
-        for huey_file in new_huey_files:
-            if huey_file.endswith(huey_file_suffix):
-                job_fn_fullname = huey_file[: -len(huey_file_suffix)]
-                _launch_huey_consumer(job_fn_fullname)
-
-        seen_huey_files = current_huey_files
+    for job_fn_fullname in _ALLOWED_JOB_FUNCTION_LIST:
+        _launch_huey_consumer(job_fn_fullname)
