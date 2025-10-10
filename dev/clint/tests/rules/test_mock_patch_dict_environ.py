@@ -6,7 +6,6 @@ from clint.rules.mock_patch_dict_environ import MockPatchDictEnviron
 
 
 def test_mock_patch_dict_environ_with_string_literal(index_path: Path) -> None:
-    """Test detection of mock.patch.dict("os.environ", {...})"""
     code = """
 import os
 from unittest import mock
@@ -24,7 +23,6 @@ def test_func():
 
 
 def test_mock_patch_dict_environ_with_expression(index_path: Path) -> None:
-    """Test detection of mock.patch.dict(os.environ, {...})"""
     code = """
 import os
 from unittest import mock
@@ -42,7 +40,6 @@ def test_func():
 
 
 def test_mock_patch_dict_environ_as_decorator(index_path: Path) -> None:
-    """Test detection of @mock.patch.dict("os.environ", {...})"""
     code = """
 import os
 from unittest import mock
@@ -60,7 +57,6 @@ def test_func():
 
 
 def test_mock_patch_dict_environ_with_clear(index_path: Path) -> None:
-    """Test detection of mock.patch.dict with clear=True"""
     code = """
 import os
 from unittest import mock
@@ -78,7 +74,6 @@ def test_func():
 
 
 def test_mock_patch_dict_non_environ(index_path: Path) -> None:
-    """Test that mock.patch.dict with other dicts is not flagged"""
     code = """
 from unittest import mock
 
@@ -93,7 +88,6 @@ def test_func():
 
 
 def test_mock_patch_dict_environ_non_test_file(index_path: Path) -> None:
-    """Test that non-test files are not flagged"""
     code = """
 import os
 from unittest import mock
@@ -109,7 +103,6 @@ def normal_func():
 
 
 def test_mock_patch_dict_environ_with_mock_alias(index_path: Path) -> None:
-    """Test detection when mock module is imported with alias"""
     code = """
 import os
 from unittest import mock as mock_lib
@@ -127,7 +120,6 @@ def test_func():
 
 
 def test_mock_patch_dict_environ_nested_function_not_caught(index_path: Path) -> None:
-    """Nested functions are not considered to be 'in test'"""
     code = """
 import os
 from unittest import mock
@@ -141,21 +133,3 @@ def test_outer():
     config = Config(select={MockPatchDictEnviron.name})
     violations = lint_file(Path("test_file.py"), code, config, index_path)
     assert len(violations) == 0
-
-
-def test_mock_patch_dict_environ_from_mock_import(index_path: Path) -> None:
-    """Test detection when importing from mock directly"""
-    code = """
-import os
-from mock import patch
-
-# Bad - from mock import
-def test_func():
-    with patch.dict("os.environ", {"FOO": "bar"}):
-        pass
-"""
-    config = Config(select={MockPatchDictEnviron.name})
-    violations = lint_file(Path("test_file.py"), code, config, index_path)
-    assert len(violations) == 1
-    assert all(isinstance(v.rule, MockPatchDictEnviron) for v in violations)
-    assert violations[0].loc == Location(6, 9)

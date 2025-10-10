@@ -8,8 +8,7 @@ class MockPatchDictEnviron(Rule):
     def _message(self) -> str:
         return (
             "Do not use `mock.patch.dict` to modify `os.environ` in tests; "
-            "use pytest's monkeypatch fixture (monkeypatch.setenv / monkeypatch.delenv) instead. "
-            "See dev/guides/python.md for examples."
+            "use pytest's monkeypatch fixture (monkeypatch.setenv / monkeypatch.delenv) instead."
         )
 
     @staticmethod
@@ -26,7 +25,7 @@ class MockPatchDictEnviron(Rule):
 
         # Check if this is mock.patch.dict
         resolved = resolver.resolve(node.func)
-        if resolved not in (["mock", "patch", "dict"], ["unittest", "mock", "patch", "dict"]):
+        if resolved != ["unittest", "mock", "patch", "dict"]:
             return False
 
         # Check if the first argument is "os.environ" (string) or os.environ (expression)
