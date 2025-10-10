@@ -359,6 +359,10 @@ def test_prompt_optimization(mock_requests, mock_telemetry_client: TelemetryClie
         {"inputs": {"input_text": "World", "language": "French"}, "outputs": "Monde"},
     ]
 
+    @mlflow.genai.scorers.scorer
+    def exact_match_scorer(outputs, expectations):
+        return 1.0 if outputs == expectations["expected_response"] else 0.0
+
     def predict_fn(input_text, language):
         mlflow.genai.load_prompt(f"prompts:/{sample_prompt.name}/{sample_prompt.version}")
         return "translated"
@@ -368,6 +372,7 @@ def test_prompt_optimization(mock_requests, mock_telemetry_client: TelemetryClie
         train_data=sample_data,
         prompt_uris=[f"prompts:/{sample_prompt.name}/{sample_prompt.version}"],
         optimizer=MockAdapter(),
+        scorers=[exact_match_scorer],
     )
     validate_telemetry_record(
         mock_telemetry_client,
@@ -376,7 +381,7 @@ def test_prompt_optimization(mock_requests, mock_telemetry_client: TelemetryClie
         {
             "optimizer_type": "MockAdapter",
             "prompt_count": 1,
-            "scorer_count": None,
+            "scorer_count": 1,
             "custom_objective": False,
         },
     )

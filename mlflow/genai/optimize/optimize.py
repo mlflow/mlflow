@@ -17,7 +17,7 @@ from mlflow.genai.optimize.types import (
 )
 from mlflow.genai.optimize.util import create_metric_from_scorers
 from mlflow.genai.prompts import load_prompt, register_prompt
-from mlflow.genai.scorers import Scorer, scorer
+from mlflow.genai.scorers import Scorer
 from mlflow.genai.utils.trace_utils import convert_predict_fn
 from mlflow.telemetry.events import PromptOptimizationEvent
 from mlflow.telemetry.track import record_usage_event
@@ -39,7 +39,7 @@ def optimize_prompts(
     train_data: "EvaluationDatasetTypes",
     prompt_uris: list[str],
     optimizer: BasePromptOptimizer,
-    scorers: list[Scorer] | None = None,
+    scorers: list[Scorer],
     objective: ObjectiveFn | None = None,
 ) -> PromptOptimizationResult:
     """
@@ -74,8 +74,8 @@ def optimize_prompts(
             on the evaluation dataset and passed in function. For example,
             GepaPromptOptimizer(reflection_model="openai:/gpt-4o").
         scorers: List of scorers that evaluate the inputs, outputs and expectations.
-            If None, uses a default scorer that applies exact match for numeric types
-            and LLM judge for text.
+            Required parameter. Use builtin scorers like OutputEquivalence or Correctness,
+            or define custom scorers with the @scorer decorator.
         objective: A callable that computes the overall performance metric from individual
             scorer outputs. Takes a dict mapping scorer names to scores and returns a float
             value (greater is better). If None and all scorers return numerical values,
@@ -158,10 +158,6 @@ def optimize_prompts(
                 objective=weighted_objective,
             )
     """
-    # Use default scorer if none provided
-    if not scorers:
-        scorers = [_make_output_equivalence_scorer(optimizer.model_name)]
-
     # TODO: Add dataset validation
     converted_train_data = _convert_eval_set_to_df(train_data).to_dict("records")
     predict_fn = convert_predict_fn(
@@ -250,71 +246,3 @@ def _build_eval_fn(
             gorilla.revert(patch)
 
     return eval_fn
-
-
-def _make_output_equivalence_scorer(judge_model: str) -> Scorer:
-    """
-    Create an output equivalence scorer with a specific judge model.
-
-    Args:
-        judge_model: The model to use for LLM judge evaluation
-
-    Returns:
-        A Scorer that compares outputs against expected outputs
-    """
-
-    @scorer(name="output_equivalence")
-    def output_equivalence(outputs: Any, expectations: dict[str, Any]) -> float:
-        """
-        Compare outputs against expected outputs.
-
-        Uses exact match for numerical types and LLM judge for text types.
-
-        Args:
-            outputs: The actual output from the program
-            expectations: The expected output to match (can be a dict with expected_response key)
-
-        Returns:
-            A score between 0 and 1
-        """
-        from mlflow.genai.judges import make_judge
-
-        expected_value = expectations.get("expected_response")
-
-        # Handle exact match for numerical types
-        if isinstance(outputs, (int, float, bool)) and isinstance(
-            expected_value, (int, float, bool)
-        ):
-            return 1.0 if outputs == expected_value else 0.0
-
-        # Convert to strings for comparison
-        outputs_str = str(outputs)
-        expectations_str = str(expected_value)
-
-        # Use exact match first
-        if outputs_str == expectations_str:
-            return 1.0
-
-        # Use LLM judge for text outputs
-        judge = make_judge(
-            name="equivalence_judge",
-            instructions=(
-                "Compare {{outputs}} against {{expectations}}. "
-                "Evaluate if they are both semantically equivalent or convey the same meaning, "
-                "and if the output format matches the expected format "
-                "(e.g., JSON structure, list format, sentence structure). "
-                "Return 'pass' if they match in both content and format, 'fail' if they don't."
-            ),
-            model=judge_model,
-        )
-        try:
-            result = judge(
-                outputs={"outputs": outputs_str}, expectations={"outputs": expectations_str}
-            )
-            result_value = str(result.value).lower().strip()
-            return 1.0 if result_value == "pass" else 0.0
-        except Exception as e:
-            _logger.warning("Failed to compute score with LLM judge: %s", e)
-            return 0.0
-
-    return output_equivalence
