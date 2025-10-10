@@ -89,7 +89,7 @@ class SearchTracesTool(JudgeTool):
     ) -> list[TraceInfo]:
         """ """  # TODO
         # Extract and validate experiment ID from trace
-        experiment_id = self._validate_experiment_id(trace)
+        experiment_id = self._get_experiment_id(trace)
         locations = [experiment_id]
 
         # Default to chronological order
@@ -140,13 +140,14 @@ class SearchTracesTool(JudgeTool):
                     execution_duration=trace_obj.info.execution_duration,
                     assessments=trace_obj.info.assessments,
                 )
-                traces.append(trace_info)
 
             except Exception as e:
                 _logger.warning(
                     f"Failed to process trace {row.get('trace_id', 'unknown')}: {e}"
                 )
                 continue
+
+            traces.append(trace_info)
 
         _logger.debug(f"Retrieved {len(traces)} traces")
         return traces

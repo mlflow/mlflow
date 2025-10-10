@@ -10,7 +10,6 @@ from typing import Any
 
 from mlflow.entities.assessment import FeedbackValueType
 from mlflow.entities.span_status import SpanStatus
-from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_state import TraceState
 from mlflow.utils.annotations import experimental
 
@@ -85,18 +84,3 @@ class TraceInfo:
     response: str | None
     execution_duration: int | None
     assessments: list[Expectation | Feedback]
-
-
-@experimental(version="3.4.0")
-@dataclass
-class HistoricalTrace:
-    """
-    Historical trace containing trace metadata and request/response data.
-
-    Used for multi-turn evaluation to provide judges with conversation history
-    from previous interactions within the same session.
-    """
-
-    trace_info: TraceInfo
-    request: str | None
-    response: str | None
