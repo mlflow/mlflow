@@ -96,7 +96,7 @@ class DatabricksTracingRestStore(RestStore):
             The returned TraceInfo object from the backend.
         """
         try:
-            if trace_info.is_v4():
+            if trace_info._is_v4():
                 return self._start_trace_v4(trace_info)
 
         # Temporarily we capture all exceptions and fallback to v3 if the trace location is not uc
