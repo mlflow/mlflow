@@ -24,6 +24,7 @@ from mlflow.server.jobs.utils import (
 
 if __name__ == "__main__":
     logger = logging.getLogger("mlflow.server.jobs._job_runner")
+    server_up_time = int(time.time() * 1000)
     _start_watcher_to_kill_job_runner_if_mlflow_server_dies()
 
     huey_store_path = os.environ[HUEY_STORAGE_PATH_ENV_VAR]
@@ -37,4 +38,4 @@ if __name__ == "__main__":
             )
 
     time.sleep(10)  # wait for huey consumer launching
-    _enqueue_unfinished_jobs()
+    _enqueue_unfinished_jobs(server_up_time)
