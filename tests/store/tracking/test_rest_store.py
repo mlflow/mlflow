@@ -2315,18 +2315,24 @@ def test_register_scorer():
         name = "accuracy_scorer"
         serialized_scorer = "serialized_scorer_data"
 
-        # Mock response
         mock_response = mock.MagicMock()
         mock_response.version = 1
+        mock_response.scorer_id = "test-scorer-id"
+        mock_response.experiment_id = experiment_id
+        mock_response.name = name
+        mock_response.serialized_scorer = serialized_scorer
+        mock_response.creation_time = 1234567890
         mock_call_endpoint.return_value = mock_response
 
-        # Call the method
-        version = store.register_scorer(experiment_id, name, serialized_scorer)
+        scorer_version = store.register_scorer(experiment_id, name, serialized_scorer)
 
-        # Verify result
-        assert version == 1
+        assert scorer_version.scorer_version == 1
+        assert scorer_version.scorer_id == "test-scorer-id"
+        assert scorer_version.experiment_id == experiment_id
+        assert scorer_version.scorer_name == name
+        assert scorer_version._serialized_scorer == serialized_scorer
+        assert scorer_version.creation_time == 1234567890
 
-        # Verify API call
         mock_call_endpoint.assert_called_once_with(
             RegisterScorer,
             message_to_json(

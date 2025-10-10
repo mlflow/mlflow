@@ -1970,7 +1970,7 @@ class SqlAlchemyStore(AbstractStore):
                     RESOURCE_DOES_NOT_EXIST,
                 )
 
-    def register_scorer(self, experiment_id: str, name: str, serialized_scorer: str) -> int:
+    def register_scorer(self, experiment_id: str, name: str, serialized_scorer: str):
         """
         Register a scorer for an experiment.
 
@@ -1980,7 +1980,7 @@ class SqlAlchemyStore(AbstractStore):
             serialized_scorer: The serialized scorer string (JSON).
 
         Returns:
-            The new version number for the scorer.
+            mlflow.entities.ScorerVersion: The newly registered scorer version with scorer_id.
         """
         with self.ManagedSessionMaker() as session:
             # Validate experiment exists and is active
@@ -2026,8 +2026,9 @@ class SqlAlchemyStore(AbstractStore):
             )
 
             session.add(sql_scorer_version)
+            session.flush()
 
-            return new_version
+            return sql_scorer_version.to_mlflow_entity()
 
     def list_scorers(self, experiment_id):
         """

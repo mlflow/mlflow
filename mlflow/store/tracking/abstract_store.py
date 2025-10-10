@@ -1269,7 +1269,7 @@ class AbstractStore:
             "A SQL backend is required to use this feature."
         )
 
-    def register_scorer(self, experiment_id: str, name: str, serialized_scorer: str) -> int:
+    def register_scorer(self, experiment_id: str, name: str, serialized_scorer: str):
         """
         Register a scorer for an experiment.
 
@@ -1279,7 +1279,7 @@ class AbstractStore:
             serialized_scorer: The serialized scorer string (JSON).
 
         Returns:
-            The new version number for the scorer.
+            mlflow.entities.ScorerVersion: The newly registered scorer version with scorer_id.
         """
         raise NotImplementedError(self.__class__.__name__)
 
