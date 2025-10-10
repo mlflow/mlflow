@@ -18,6 +18,7 @@ from mlflow.genai.optimize.optimizers.utils import parse_model_name
 def test_parse_model_name_valid_formats(input_name, expected_output):
     assert parse_model_name(input_name) == expected_output
 
+
 @pytest.mark.parametrize(
     "invalid_name",
     [
@@ -35,7 +36,5 @@ def test_parse_model_name_valid_formats(input_name, expected_output):
     ],
 )
 def test_parse_model_name_invalid_formats(invalid_name):
-    with pytest.raises(
-        MlflowException, match="Invalid model name format|cannot be empty"
-    ):
+    with pytest.raises(MlflowException, match="Invalid model name format|cannot be empty"):
         parse_model_name(invalid_name)
