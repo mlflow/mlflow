@@ -993,7 +993,7 @@ class ExclusiveFileLock:
         self.fd = None
 
     def __enter__(self):
-        import fcntl
+        import fcntl  # clint: disable=lazy-builtin-import
 
         # Open file (create if missing)
         self.fd = open(self.path, "w")
@@ -1001,7 +1001,7 @@ class ExclusiveFileLock:
         fcntl.flock(self.fd, fcntl.LOCK_EX)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        import fcntl
+        import fcntl  # clint: disable=lazy-builtin-import
 
         # Release lock
         fcntl.flock(self.fd, fcntl.LOCK_UN)
