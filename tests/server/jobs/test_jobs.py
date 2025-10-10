@@ -497,7 +497,7 @@ def test_start_job_is_atomic(tmp_path: Path):
 
     results = []
 
-    def try_start_job():
+    def try_start_job() -> str:
         try:
             store.start_job(job.job_id)
             return "success"
