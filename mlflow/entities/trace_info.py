@@ -61,6 +61,9 @@ class TraceInfo(_MlflowObject):
         if self.execution_duration is not None:
             res.pop("execution_duration", None)
             res["execution_duration_ms"] = self.execution_duration
+        # override trace_id to be the same as trace_info.trace_id since it's parsed
+        # when converting to proto
+        res["trace_id"] = self.trace_id
         return res
 
     @classmethod
@@ -76,18 +79,7 @@ class TraceInfo(_MlflowObject):
             d["assessments"] = [Assessment.from_dictionary(a) for a in assessments]
 
         if trace_location := d.get("trace_location"):
-            trace_location = TraceLocation.from_dict(trace_location)
-            d["trace_location"] = trace_location
-
-            # V4 trace info has URI-format trace id and uc schema location
-            if trace_location.type == "UC_SCHEMA":
-                from mlflow.tracing.utils import construct_trace_id_v4
-
-                schema = trace_location.uc_schema
-                d["trace_id"] = construct_trace_id_v4(
-                    location=f"{schema.catalog_name}.{schema.schema_name}",
-                    trace_id=d["trace_id"],
-                )
+            d["trace_location"] = TraceLocation.from_dict(trace_location)
 
         if state := d.get("state"):
             d["state"] = TraceState(state)
