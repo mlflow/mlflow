@@ -264,7 +264,7 @@ def _make_output_equivalence_scorer(judge_model: str) -> Scorer:
     """
 
     @scorer(name="output_equivalence")
-    def output_equivalence(outputs: Any, expectations: Any) -> float:
+    def output_equivalence(outputs: Any, expectations: dict[str, Any]) -> float:
         """
         Compare outputs against expected outputs.
 
@@ -279,11 +279,7 @@ def _make_output_equivalence_scorer(judge_model: str) -> Scorer:
         """
         from mlflow.genai.judges import make_judge
 
-        # Extract expected_response if expectations is a dict
-        if isinstance(expectations, dict) and "expected_response" in expectations:
-            expected_value = expectations["expected_response"]
-        else:
-            expected_value = expectations
+        expected_value = expectations.get("expected_response")
 
         # Handle exact match for numerical types
         if isinstance(outputs, (int, float, bool)) and isinstance(
