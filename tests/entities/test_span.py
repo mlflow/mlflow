@@ -507,7 +507,7 @@ def test_span_from_otel_proto_with_location():
 
     # Convert to MLflow span with location
     location = "catalog.schema"
-    mlflow_span = Span.from_otel_proto(otel_proto, location=location)
+    mlflow_span = Span.from_otel_proto(otel_proto, location_id=location)
 
     # Verify basic fields
     assert mlflow_span.name == "proto_span_v4"

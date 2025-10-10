@@ -225,7 +225,7 @@ def test_trace_to_proto_and_from_proto():
     assert proto_trace_v4.trace_info.trace_location.uc_schema.schema_name == "schema"
     assert len(proto_trace_v4.spans) == len(trace.data.spans)
 
-    reconstructed_trace = trace_from_proto(proto_trace_v4, location="catalog.schema")
+    reconstructed_trace = trace_from_proto(proto_trace_v4, location_id="catalog.schema")
 
     assert reconstructed_trace.info.trace_id == trace_id
     assert reconstructed_trace.info.trace_location.uc_schema.catalog_name == "catalog"
@@ -268,7 +268,7 @@ def test_trace_from_proto_with_location_preserves_v4_trace_id():
     proto_trace = trace_to_proto(trace)
 
     # Reconstruct with location parameter
-    reconstructed_trace = trace_from_proto(proto_trace, location=uc_schema)
+    reconstructed_trace = trace_from_proto(proto_trace, location_id=uc_schema)
 
     # Verify that all spans have the correct v4 trace_id format
     for reconstructed_span in reconstructed_trace.data.spans:

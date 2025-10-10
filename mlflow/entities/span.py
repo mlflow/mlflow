@@ -352,7 +352,7 @@ class Span:
         )
 
     @classmethod
-    def from_otel_proto(cls, otel_proto_span, location: str | None = None) -> "Span":
+    def from_otel_proto(cls, otel_proto_span, location_id: str | None = None) -> "Span":
         """
         Create a Span from an OpenTelemetry protobuf span.
         This is an internal method used for receiving spans via OTel protocol.
@@ -372,8 +372,8 @@ class Span:
             status_code = OTelStatusCode.UNSET
 
         mlflow_trace_id = (
-            generate_trace_id_v4_from_otel_trace_id(trace_id, location)
-            if location
+            generate_trace_id_v4_from_otel_trace_id(trace_id, location_id)
+            if location_id
             else generate_mlflow_trace_id_from_otel_trace_id(trace_id)
         )
         otel_span = OTelReadableSpan(
