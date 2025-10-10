@@ -45,7 +45,7 @@ First, collect outputs from your existing model using MLflow tracing:
 ```python
 import mlflow
 import openai
-from mlflow.genai.optimize import LLMParams
+from mlflow.genai.optimize import GepaPromptOptimizer
 from mlflow.genai.datasets import create_dataset
 
 # Register your current prompt
@@ -146,7 +146,7 @@ result = mlflow.genai.optimize_prompts(
     predict_fn=predict_fn,
     train_data=dataset.to_df(),
     target_prompt_uris=[prompt.uri],
-    optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o-mini"),
+    optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-4o-mini"),
 )
 
 # View the optimized prompt
@@ -228,7 +228,7 @@ result = mlflow.genai.optimize_prompts(
     predict_fn=predict_fn,
     train_data=dataset,
     target_prompt_uris=[prompt.uri],
-    optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o-mini"),
+    optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-4o-mini"),
 )
 ```
 
@@ -294,7 +294,7 @@ Always test optimized prompts using <APILink fn="mlflow.genai.evaluate" /> befor
 small_dataset = dataset.sample(n=20)
 
 # Or use faster optimizer model
-optimizer_lm_params = LLMParams(model_name="openai:/gpt-4o-mini")
+optimizer = GepaPromptOptimizer(reflection_model="openai:/gpt-4o-mini")
 ```
 
 ### Issue: Dataset Creation Fails
@@ -333,4 +333,4 @@ print(f"Format compliance: {results.metrics['format_scorer']}")
 - [Optimize Prompts](/genai/prompt-registry/optimize-prompts): General prompt optimization guide
 - [Create and Edit Prompts](/genai/prompt-registry/create-and-edit-prompts): Prompt Registry basics
 - [Evaluate Prompts](/genai/eval-monitor/running-evaluation/prompts): Evaluate prompt performance
-- [MLflow Tracing](/genai/tracing/overview): Understanding MLflow tracing
+- [MLflow Tracing](/genai/tracing/): Understanding MLflow tracing

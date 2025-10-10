@@ -110,7 +110,7 @@ Register prompts and automatically optimize them with data-driven techniques:
 ```python
 import mlflow
 import openai
-from mlflow.genai.optimize import LLMParams
+from mlflow.genai.optimize import GepaPromptOptimizer
 
 # Register an initial prompt
 prompt = mlflow.genai.register_prompt(
@@ -142,7 +142,7 @@ result = mlflow.genai.optimize_prompts(
     predict_fn=predict_fn,
     train_data=train_data,
     target_prompt_uris=[prompt.uri],
-    optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o-mini"),
+    optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-4o-mini"),
 )
 
 # The optimized prompt is automatically registered as a new version

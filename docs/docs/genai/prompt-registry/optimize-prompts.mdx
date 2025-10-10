@@ -30,7 +30,7 @@ Here's a simple example of optimizing a prompt for better accuracy:
 ```python
 import mlflow
 import openai
-from mlflow.genai.optimize import LLMParams
+from mlflow.genai.optimize import GepaPromptOptimizer
 
 # Register initial prompt
 prompt = mlflow.genai.register_prompt(
@@ -62,7 +62,7 @@ result = mlflow.genai.optimize_prompts(
     predict_fn=predict_fn,
     train_data=dataset,
     target_prompt_uris=[prompt.uri],
-    optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o"),
+    optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-4o"),
 )
 
 # Use the optimized prompt
@@ -112,8 +112,8 @@ The <APILink fn="mlflow.genai.optimize_prompts" /> API requires the following co
       <td>List of prompt URIs to optimize (e.g., <code>["prompts:/qa/1"]</code>)</td>
     </tr>
     <tr>
-      <td><strong>Optimizer LM Params</strong></td>
-      <td>LLM configuration for the optimization algorithm using <APILink fn="mlflow.genai.optimize.LLMParams" /></td>
+      <td><strong>Optimizer</strong></td>
+      <td>Prompt optimizer instance (e.g., <APILink fn="mlflow.genai.optimize.GepaPromptOptimizer" />)</td>
     </tr>
   </tbody>
 </table>
@@ -176,16 +176,17 @@ target_prompt_uris = [
 ]
 ```
 
-### 4. Optimizer LM Parameters
+### 4. Optimizer
 
-Configure the LLM used for optimization:
+Create an optimizer instance for the optimization algorithm:
 
 ```python
-from mlflow.genai.optimize import LLMParams
+from mlflow.genai.optimize import GepaPromptOptimizer
 
-optimizer_lm_params = LLMParams(
-    model_name="openai:/gpt-4o",  # Powerful model for optimization
-    temperature=0.7,
+optimizer = GepaPromptOptimizer(
+    reflection_model="openai:/gpt-4o",  # Powerful model for optimization
+    max_metric_calls=100,
+    display_progress_bar=False,
 )
 ```
 
@@ -221,7 +222,7 @@ result = mlflow.genai.optimize_prompts(
     predict_fn=predict_fn,
     train_data=dataset,
     target_prompt_uris=[prompt.uri],
-    optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o"),
+    optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-4o"),
     scorers=[accuracy_scorer, brevity_scorer],
     objective=weighted_objective,
 )
@@ -236,13 +237,16 @@ from mlflow.genai.optimize import BasePromptOptimizer, PromptOptimizerOutput
 
 
 class MyCustomOptimizer(BasePromptOptimizer):
-    def optimize(self, eval_fn, train_data, target_prompts, optimizer_lm_params):
+    def __init__(self, model_name: str):
+        self.model_name = model_name
+
+    def optimize(self, eval_fn, train_data, target_prompts):
         # Your custom optimization logic
         optimized_prompts = {}
         for prompt_name, prompt_template in target_prompts.items():
             # Implement your algorithm
             optimized_prompts[prompt_name] = your_optimization_algorithm(
-                prompt_template, train_data, optimizer_lm_params
+                prompt_template, train_data, self.model_name
             )
 
         return PromptOptimizerOutput(optimized_prompts=optimized_prompts)
@@ -253,8 +257,7 @@ result = mlflow.genai.optimize_prompts(
     predict_fn=predict_fn,
     train_data=dataset,
     target_prompt_uris=[prompt.uri],
-    optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o"),
-    optimizer=MyCustomOptimizer(),
+    optimizer=MyCustomOptimizer(model_name="openai:/gpt-4o"),
 )
 ```
 
@@ -278,7 +281,7 @@ result = mlflow.genai.optimize_prompts(
     predict_fn=predict_fn,
     train_data=dataset,
     target_prompt_uris=[system_prompt.uri, user_prompt.uri],
-    optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o"),
+    optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-4o"),
 )
 
 # Access optimized prompts
@@ -322,7 +325,7 @@ result = mlflow.genai.optimize_prompts(
     predict_fn=predict_fn,
     train_data=dataset,
     target_prompt_uris=[prompt.uri],
-    optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o"),
+    optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-4o"),
     scorers=[Correctness(model="openai:/gpt-4o")],
 )
 ```
@@ -339,7 +342,7 @@ result = mlflow.genai.optimize_prompts(
     predict_fn=predict_fn,
     train_data=dataset,
     target_prompt_uris=[prompt.uri],
-    optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o"),
+    optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-4o"),
     scorers=[Safety(model="openai:/gpt-4o")],
 )
 ```
@@ -355,7 +358,7 @@ result = mlflow.genai.optimize_prompts(
 small_dataset = dataset[:20]
 
 # Use faster model for optimization
-optimizer_lm_params = LLMParams(model_name="openai:/gpt-4o-mini")
+optimizer = GepaPromptOptimizer(reflection_model="openai:/gpt-4o-mini")
 ```
 
 ### Issue: No Improvement Observed

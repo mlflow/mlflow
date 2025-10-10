@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Any
 
 from mlflow.genai.optimize.optimizers.base import BasePromptOptimizer, _EvalFunc
-from mlflow.genai.optimize.types import EvaluationResultRecord, LLMParams, PromptOptimizerOutput
+from mlflow.genai.optimize.types import EvaluationResultRecord, PromptOptimizerOutput
 from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
@@ -19,15 +19,12 @@ class GepaPromptOptimizer(BasePromptOptimizer):
     reflect on system behavior and propose improvements.
 
     Args:
+        reflection_model: Name of the model to use for reflection and optimization.
+            Format: "<provider>/<model>" or "<provider>:/<model>"
+            (e.g., "openai/gpt-4", "openai:/gpt-4o", "anthropic/claude-3-5-sonnet-20241022").
         max_metric_calls: Maximum number of evaluation calls during optimization.
             Higher values may lead to better results but increase optimization time.
             Default: 100
-        reflection_lm: Optional LLM model name for the reflection model.
-            This should be a stronger model used to reflect on and propose improvements.
-            Format: "<provider>/<model>" (e.g., "openai/gpt-4",
-            "anthropic/claude-3-5-sonnet-20241022").
-            If not provided, the task LLM will be used for reflection.
-            Default: None
         display_progress_bar: Whether to show a progress bar during optimization.
             Default: False
 
@@ -37,7 +34,6 @@ class GepaPromptOptimizer(BasePromptOptimizer):
 
             import mlflow
             import openai
-            from mlflow.genai.optimize import LLMParams
             from mlflow.genai.optimize.optimizers import GepaPromptOptimizer
 
             prompt = mlflow.genai.register_prompt(
@@ -63,8 +59,10 @@ class GepaPromptOptimizer(BasePromptOptimizer):
                 predict_fn=predict_fn,
                 train_data=dataset,
                 target_prompt_uris=[prompt.uri],
-                optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o"),
-                optimizer=GepaPromptOptimizer(display_progress_bar=True),
+                optimizer=GepaPromptOptimizer(
+                    reflection_model="openai:/gpt-4o",
+                    display_progress_bar=True,
+                ),
             )
 
             print(result.optimized_prompts[0].template)
@@ -72,12 +70,12 @@ class GepaPromptOptimizer(BasePromptOptimizer):
 
     def __init__(
         self,
+        reflection_model: str,
         max_metric_calls: int = 100,
-        reflection_lm: str | None = None,
         display_progress_bar: bool = False,
     ):
+        self.reflection_model = reflection_model
         self.max_metric_calls = max_metric_calls
-        self.reflection_lm = reflection_lm
         self.display_progress_bar = display_progress_bar
 
     def optimize(
@@ -85,7 +83,6 @@ class GepaPromptOptimizer(BasePromptOptimizer):
         eval_fn: _EvalFunc,
         train_data: list[dict[str, Any]],
         target_prompts: dict[str, str],
-        optimizer_lm_params: LLMParams,
     ) -> PromptOptimizerOutput:
         """
         Optimize the target prompts using GEPA algorithm.
@@ -98,7 +95,6 @@ class GepaPromptOptimizer(BasePromptOptimizer):
                 include the inputs and outputs fields with dict values.
             target_prompts: The target prompt templates to use. The key is the prompt template
                 name and the value is the prompt template.
-            optimizer_lm_params: The optimizer LLM parameters to use.
 
         Returns:
             The outputs of the prompt adapter that includes the optimized prompts
@@ -113,7 +109,7 @@ class GepaPromptOptimizer(BasePromptOptimizer):
                 "GEPA is not installed. Please install it with: pip install gepa"
             ) from e
 
-        model_name = parse_model_name(optimizer_lm_params.model_name)
+        reflection_model = parse_model_name(self.reflection_model)
 
         class MlflowGEPAAdapter(gepa.GEPAAdapter):
             def __init__(self, eval_function, prompts_dict):
@@ -191,13 +187,11 @@ class GepaPromptOptimizer(BasePromptOptimizer):
 
         adapter = MlflowGEPAAdapter(eval_fn, target_prompts)
 
-        reflection_lm = self.reflection_lm if self.reflection_lm else model_name
-
         gepa_result = gepa.optimize(
             seed_candidate=target_prompts,
             trainset=train_data,
             adapter=adapter,
-            reflection_lm=reflection_lm,
+            reflection_lm=reflection_model,
             max_metric_calls=self.max_metric_calls,
             display_progress_bar=self.display_progress_bar,
         )

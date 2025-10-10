@@ -8,28 +8,6 @@ from mlflow.utils.annotations import experimental
 ObjectiveFn = Callable[[dict[str, bool | float | str | Feedback | list[Feedback]]], float]
 
 
-@experimental(version="3.0.0")
-@dataclass
-class LLMParams:
-    """
-    Parameters for configuring a LLM Model.
-
-    Args:
-        model_name: Name of the model in the format `<provider>:/<model name>` or
-            `<provider>/<model name>`. For example, "openai:/gpt-4o", "anthropic:/claude-4",
-            or "openai/gpt-4o".
-        base_uri: Optional base URI for the API endpoint. If not provided,
-            the default endpoint for the provider will be used.
-        temperature: Optional sampling temperature for the model's outputs.
-            Higher values (e.g., 0.8) make the output more random,
-            while lower values (e.g., 0.2) make it more deterministic.
-    """
-
-    model_name: str
-    base_uri: str | None = None
-    temperature: float | None = None
-
-
 @experimental(version="3.5.0")
 @dataclass
 class EvaluationResultRecord:

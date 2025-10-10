@@ -9,10 +9,9 @@ from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.genai.evaluation.utils import (
     _convert_eval_set_to_df,
 )
-from mlflow.genai.optimize.optimizers import BasePromptOptimizer, get_default_optimizer
+from mlflow.genai.optimize.optimizers import BasePromptOptimizer
 from mlflow.genai.optimize.types import (
     EvaluationResultRecord,
-    LLMParams,
     ObjectiveFn,
     PromptOptimizationResult,
 )
@@ -39,15 +38,19 @@ def optimize_prompts(
     predict_fn: Callable[..., Any],
     train_data: "EvaluationDatasetTypes",
     target_prompt_uris: list[str],
-    optimizer_lm_params: LLMParams,
+    optimizer: BasePromptOptimizer,
     scorers: list[Scorer] | None = None,
     objective: ObjectiveFn | None = None,
-    optimizer: BasePromptOptimizer | None = None,
 ) -> PromptOptimizationResult:
     """
-    This API optimizes prompts used in the passed in function to produce similar
-    outputs as the outputs in the dataset. This API can be used to maintain the
-    outputs of `predict_fn` when the language model used in the function is changed.
+    Automatically optimize prompts using evaluation metrics and training data.
+
+    This function uses optimization algorithms (such as GEPA) to improve prompt
+    quality based on your evaluation criteria. It's ideal for:
+
+    - Improving prompt performance on specific tasks
+    - Adapting prompts when switching between language models
+    - Systematically enhancing prompt quality with data-driven techniques
 
     Args:
         predict_fn: a target function to be optimized. The callable should receive inputs
@@ -72,9 +75,9 @@ def optimize_prompts(
               that the predict_fn should produce.
         target_prompt_uris: a list of prompt uris to be optimized.
             The prompt templates should be used by the predict_fn.
-        optimizer_lm_params: model parameters used in the optimization algorithm.
-            The model name can be specified in the format
-            `<provider>:/<model>` (e.g., "openai:/gpt-4o")
+        optimizer: a prompt optimizer object that optimizes a set of prompts based
+            on the evaluation dataset and passed in function. For example,
+            GepaPromptOptimizer(reflection_model="openai:/gpt-4o").
         scorers: List of scorers that evaluate the inputs, outputs and expectations.
             If None, uses a default scorer that applies exact match for numeric types
             and LLM judge for text.
@@ -82,12 +85,10 @@ def optimize_prompts(
             scorer outputs. Takes a dict mapping scorer names to scores and returns a float
             value (greater is better). If None and all scorers return numerical values,
             uses sum of scores by default.
-        optimizer: an optional prompt optimizer object that optimizes a set of prompts based
-            on the evaluation dataset and passed in function.
-            If this argument is none, the default optimizer is used.
 
     Returns:
-        A list of optimized prompt versions.
+        The optimization result object that includes the optimized prompts
+        as a list of prompt versions and the optimizer name.
 
     Examples:
 
@@ -95,7 +96,7 @@ def optimize_prompts(
 
             import mlflow
             import openai
-            from mlflow.genai.optimize import LLMParams
+            from mlflow.genai.optimize.optimizers import GepaPromptOptimizer
 
             prompt = mlflow.genai.register_prompt(
                 name="qa",
@@ -120,7 +121,7 @@ def optimize_prompts(
                 predict_fn=predict_fn,
                 train_data=dataset,
                 target_prompt_uris=[prompt.uri],
-                optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o"),
+                optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-4o"),
             )
 
             print(result.optimized_prompts[0].template)
@@ -130,7 +131,7 @@ def optimize_prompts(
         .. code-block:: python
 
             import mlflow
-            from mlflow.genai.optimize import LLMParams
+            from mlflow.genai.optimize.optimizers import GepaPromptOptimizer
             from mlflow.genai.scorers import scorer
 
 
@@ -155,17 +156,14 @@ def optimize_prompts(
                 predict_fn=predict_fn,
                 train_data=dataset,
                 target_prompt_uris=[prompt.uri],
-                optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o"),
+                optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-4o"),
                 scorers=[accuracy_scorer, brevity_scorer],
                 objective=weighted_objective,
             )
     """
-    if optimizer is None:
-        optimizer = get_default_optimizer()
-
     # Use default scorer if none provided
     if not scorers:
-        scorers = [_make_output_equivalence_scorer(optimizer_lm_params.model_name)]
+        scorers = [_make_output_equivalence_scorer(optimizer.model_name)]
 
     # TODO: Add dataset validation
     converted_train_data = _convert_eval_set_to_df(train_data).to_dict("records")
@@ -179,9 +177,7 @@ def optimize_prompts(
     target_prompts = [load_prompt(prompt_uri) for prompt_uri in target_prompt_uris]
     target_prompts_dict = {prompt.name: prompt.template for prompt in target_prompts}
 
-    optimizer_output = optimizer.optimize(
-        eval_fn, converted_train_data, target_prompts_dict, optimizer_lm_params
-    )
+    optimizer_output = optimizer.optimize(eval_fn, converted_train_data, target_prompts_dict)
 
     return PromptOptimizationResult(
         optimized_prompts=[

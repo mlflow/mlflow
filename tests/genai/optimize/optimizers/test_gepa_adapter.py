@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 from mlflow.genai.optimize.optimizers.gepa_optimizer import GepaPromptOptimizer
-from mlflow.genai.optimize.types import EvaluationResultRecord, LLMParams, PromptOptimizerOutput
+from mlflow.genai.optimize.types import EvaluationResultRecord, PromptOptimizerOutput
 
 
 @pytest.fixture
@@ -57,18 +57,20 @@ def mock_eval_fn():
 
 
 def test_gepa_optimizer_initialization():
-    adapter = GepaPromptOptimizer()
+    adapter = GepaPromptOptimizer(reflection_model="openai:/gpt-4o")
+    assert adapter.reflection_model == "openai:/gpt-4o"
     assert adapter.max_metric_calls == 100
-    assert adapter.reflection_lm is None
     assert adapter.display_progress_bar is False
 
 
 def test_gepa_optimizer_initialization_with_custom_params():
     adapter = GepaPromptOptimizer(
-        max_metric_calls=100, reflection_lm="openai/gpt-4", display_progress_bar=True
+        reflection_model="openai:/gpt-4o",
+        max_metric_calls=100,
+        display_progress_bar=True,
     )
+    assert adapter.reflection_model == "openai:/gpt-4o"
     assert adapter.max_metric_calls == 100
-    assert adapter.reflection_lm == "openai/gpt-4"
     assert adapter.display_progress_bar is True
 
 
@@ -87,14 +89,15 @@ def test_gepa_optimizer_optimize(sample_train_data, sample_target_prompts, mock_
     mock_result.val_aggregate_scores = [0.5, 0.6, 0.8, 0.9]  # Mock scores for testing
     mock_gepa_module.optimize.return_value = mock_result
     mock_gepa_module.EvaluationBatch = MagicMock()
-    adapter = GepaPromptOptimizer(max_metric_calls=50, display_progress_bar=True)
-    optimizer_lm_params = LLMParams(model_name="openai/gpt-4o-mini")
+    adapter = GepaPromptOptimizer(
+        reflection_model="openai/gpt-4o-mini", max_metric_calls=50, display_progress_bar=True
+    )
+
     with patch.dict(sys.modules, mock_modules):
         result = adapter.optimize(
             eval_fn=mock_eval_fn,
             train_data=sample_train_data,
             target_prompts=sample_target_prompts,
-            optimizer_lm_params=optimizer_lm_params,
         )
 
     # Verify result
@@ -118,7 +121,7 @@ def test_gepa_optimizer_optimize(sample_train_data, sample_target_prompts, mock_
     assert len(call_kwargs["trainset"]) == 4
 
 
-def test_gepa_optimizer_optimize_with_reflection_lm(
+def test_gepa_optimizer_optimize_with_custom_reflection_model(
     sample_train_data, sample_target_prompts, mock_eval_fn
 ):
     mock_gepa_module = MagicMock()
@@ -133,14 +136,15 @@ def test_gepa_optimizer_optimize_with_reflection_lm(
     mock_gepa_module.optimize.return_value = mock_result
     mock_gepa_module.EvaluationBatch = MagicMock()
 
-    adapter = GepaPromptOptimizer(reflection_lm="anthropic/claude-3-5-sonnet-20241022")
-    optimizer_lm_params = LLMParams(model_name="openai/gpt-4o-mini")
+    adapter = GepaPromptOptimizer(
+        reflection_model="anthropic:/claude-3-5-sonnet-20241022",
+    )
+
     with patch.dict(sys.modules, mock_modules):
         adapter.optimize(
             eval_fn=mock_eval_fn,
             train_data=sample_train_data,
             target_prompts=sample_target_prompts,
-            optimizer_lm_params=optimizer_lm_params,
         )
 
     call_kwargs = mock_gepa_module.optimize.call_args.kwargs
@@ -162,14 +166,13 @@ def test_gepa_optimizer_optimize_model_name_parsing(
     mock_gepa_module.optimize.return_value = mock_result
     mock_gepa_module.EvaluationBatch = MagicMock()
 
-    adapter = GepaPromptOptimizer()
-    optimizer_lm_params = LLMParams(model_name="openai:/gpt-4o")
+    adapter = GepaPromptOptimizer(reflection_model="openai:/gpt-4o")
+
     with patch.dict(sys.modules, mock_modules):
         adapter.optimize(
             eval_fn=mock_eval_fn,
             train_data=sample_train_data,
             target_prompts=sample_target_prompts,
-            optimizer_lm_params=optimizer_lm_params,
         )
 
     call_kwargs = mock_gepa_module.optimize.call_args.kwargs
@@ -178,15 +181,13 @@ def test_gepa_optimizer_optimize_model_name_parsing(
 
 def test_gepa_optimizer_import_error(sample_train_data, sample_target_prompts, mock_eval_fn):
     with patch.dict("sys.modules", {"gepa": None}):
-        adapter = GepaPromptOptimizer()
-        optimizer_lm_params = LLMParams(model_name="openai/gpt-4o-mini")
+        adapter = GepaPromptOptimizer(reflection_model="openai:/gpt-4o")
 
         with pytest.raises(ImportError, match="GEPA is not installed"):
             adapter.optimize(
                 eval_fn=mock_eval_fn,
                 train_data=sample_train_data,
                 target_prompts=sample_target_prompts,
-                optimizer_lm_params=optimizer_lm_params,
             )
 
 
@@ -210,14 +211,13 @@ def test_gepa_optimizer_single_record_dataset(sample_target_prompts, mock_eval_f
     mock_gepa_module.optimize.return_value = mock_result
     mock_gepa_module.EvaluationBatch = MagicMock()
 
-    adapter = GepaPromptOptimizer()
-    optimizer_lm_params = LLMParams(model_name="openai/gpt-4o-mini")
+    adapter = GepaPromptOptimizer(reflection_model="openai:/gpt-4o")
+
     with patch.dict(sys.modules, mock_modules):
         adapter.optimize(
             eval_fn=mock_eval_fn,
             train_data=single_record_data,
             target_prompts=sample_target_prompts,
-            optimizer_lm_params=optimizer_lm_params,
         )
 
     call_kwargs = mock_gepa_module.optimize.call_args.kwargs
@@ -239,14 +239,13 @@ def test_gepa_optimizer_custom_adapter_evaluate(
     mock_gepa_module.optimize.return_value = mock_result
     mock_gepa_module.EvaluationBatch = MagicMock()
 
-    adapter = GepaPromptOptimizer()
-    optimizer_lm_params = LLMParams(model_name="openai/gpt-4o-mini")
+    adapter = GepaPromptOptimizer(reflection_model="openai:/gpt-4o")
+
     with patch.dict(sys.modules, mock_modules):
         result = adapter.optimize(
             eval_fn=mock_eval_fn,
             train_data=sample_train_data,
             target_prompts=sample_target_prompts,
-            optimizer_lm_params=optimizer_lm_params,
         )
 
     call_kwargs = mock_gepa_module.optimize.call_args.kwargs
