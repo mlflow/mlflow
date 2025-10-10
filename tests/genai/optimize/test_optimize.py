@@ -320,7 +320,12 @@ def test_adapt_prompts_with_custom_scorers(sample_translation_prompt, sample_dat
     # Create a custom scorer for case-insensitive matching
     @scorer(name="case_insensitive_match")
     def case_insensitive_match(outputs, expectations):
-        return 1.0 if str(outputs).lower() == str(expectations).lower() else 0.5
+        # Extract expected_response if expectations is a dict
+        if isinstance(expectations, dict) and "expected_response" in expectations:
+            expected_value = expectations["expected_response"]
+        else:
+            expected_value = expectations
+        return 1.0 if str(outputs).lower() == str(expected_value).lower() else 0.5
 
     class MetricTestAdapter(BasePromptOptimizer):
         def __init__(self):

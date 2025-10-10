@@ -218,7 +218,7 @@ def _build_eval_fn(
         def _run_single(record: dict[str, Any]):
             inputs = record["inputs"]
             # use expectations if provided, otherwise use outputs
-            outputs = record.get("expectations") or record.get("outputs")
+            outputs = record.get("expectations") or {"expected_response": record.get("outputs")}
             eval_request_id = str(uuid.uuid4())
             # set prediction context to retrieve the trace by the request id,
             # and set is_evaluate to True to disable async trace logging
@@ -272,20 +272,28 @@ def _make_output_equivalence_scorer(judge_model: str) -> Scorer:
 
         Args:
             outputs: The actual output from the program
-            expectations: The expected output to match
+            expectations: The expected output to match (can be a dict with expected_response key)
 
         Returns:
             A score between 0 and 1
         """
         from mlflow.genai.judges import make_judge
 
+        # Extract expected_response if expectations is a dict
+        if isinstance(expectations, dict) and "expected_response" in expectations:
+            expected_value = expectations["expected_response"]
+        else:
+            expected_value = expectations
+
         # Handle exact match for numerical types
-        if isinstance(outputs, (int, float, bool)) and isinstance(expectations, (int, float, bool)):
-            return 1.0 if outputs == expectations else 0.0
+        if isinstance(outputs, (int, float, bool)) and isinstance(
+            expected_value, (int, float, bool)
+        ):
+            return 1.0 if outputs == expected_value else 0.0
 
         # Convert to strings for comparison
         outputs_str = str(outputs)
-        expectations_str = str(expectations)
+        expectations_str = str(expected_value)
 
         # Use exact match first
         if outputs_str == expectations_str:
