@@ -1,4 +1,5 @@
 import logging
+from urllib.parse import quote
 
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 
@@ -42,7 +43,6 @@ from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH
 from mlflow.utils.databricks_tracing_utils import (
     assessment_to_proto,
     trace_from_proto,
-    trace_info_to_proto,
     trace_location_to_proto,
     uc_schema_location_from_proto,
     uc_schema_location_to_proto,
@@ -97,7 +97,7 @@ class DatabricksTracingRestStore(RestStore):
             The returned TraceInfo object from the backend.
         """
         try:
-            if trace_info.trace_location.uc_schema is not None:
+            if trace_info._is_v4():
                 return self._start_trace_v4(trace_info)
 
         # Temporarily we capture all exceptions and fallback to v3 if the trace location is not uc
@@ -114,7 +114,7 @@ class DatabricksTracingRestStore(RestStore):
         if location is None:
             raise MlflowException("Invalid trace ID format for v4 API.")
 
-        req_body = message_to_json(trace_info_to_proto(trace_info))
+        req_body = message_to_json(trace_info.to_proto())
         response_proto = self._call_endpoint(
             CreateTraceInfo,
             req_body,
@@ -207,7 +207,8 @@ class DatabricksTracingRestStore(RestStore):
         location, trace_id = parse_trace_id_v4(trace_id)
         if location is not None:
             sql_warehouse_id = MLFLOW_TRACING_SQL_WAREHOUSE_ID.get()
-            endpoint = f"{get_single_trace_endpoint_v4(location, trace_id)}/tags/{key}"
+            encoded_key = quote(key, safe="")
+            endpoint = f"{get_single_trace_endpoint_v4(location, trace_id)}/tags/{encoded_key}"
             req_body = message_to_json(DeleteTraceTag(sql_warehouse_id=sql_warehouse_id))
             self._call_endpoint(DeleteTraceTag, req_body, endpoint=endpoint)
             return
