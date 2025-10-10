@@ -2352,3 +2352,10 @@ def test_clear_active_model():
 def test_set_logged_model_tags_error():
     with pytest.raises(MlflowException, match="You may not have access to the logged model"):
         mlflow.set_logged_model_tags("non-existing-model-id", {"tag": "value"})
+
+
+def test_log_metrics_not_fetching_run_if_active():
+    with mlflow.start_run():
+        with mock.patch("mlflow.tracking.fluent.MlflowClient.get_run") as mock_client_get_run:
+            mlflow.log_metrics({"metric": 1})
+            mock_client_get_run.assert_not_called()
