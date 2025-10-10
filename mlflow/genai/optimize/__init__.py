@@ -3,22 +3,16 @@ from mlflow.genai.optimize.optimizers import BasePromptOptimizer, GepaPromptOpti
 from mlflow.genai.optimize.types import (
     EvaluationResultRecord,
     LLMParams,
-    OptimizerConfig,
-    OptimizerOutput,
-    PromptAdaptationResult,
-    PromptAdapterOutput,
     PromptOptimizationResult,
+    PromptOptimizerOutput,
 )
 
 __all__ = [
     "optimize_prompts",
-    "OptimizerConfig",
     "LLMParams",
     "PromptOptimizationResult",
-    "OptimizerOutput",
     "BasePromptOptimizer",
     "GepaPromptOptimizer",
     "EvaluationResultRecord",
-    "PromptAdapterOutput",
-    "PromptAdaptationResult",
+    "PromptOptimizerOutput",
 ]

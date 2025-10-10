@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Callable
 
-from mlflow.genai.optimize.types import EvaluationResultRecord, LLMParams, PromptAdapterOutput
+from mlflow.genai.optimize.types import EvaluationResultRecord, LLMParams, PromptOptimizerOutput
 from mlflow.utils.annotations import experimental
 
 # The evaluation function that takes candidate prompts as a dict
@@ -19,7 +19,7 @@ class BasePromptOptimizer(ABC):
         train_data: list[dict[str, Any]],
         target_prompts: dict[str, str],
         optimizer_lm_params: LLMParams,
-    ) -> PromptAdapterOutput:
+    ) -> PromptOptimizerOutput:
         """
         Optimize the target prompts using the given evaluation function,
         dataset and target prompt templates.

@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 from mlflow.genai.optimize.optimizers.gepa_optimizer import GepaPromptOptimizer
-from mlflow.genai.optimize.types import EvaluationResultRecord, LLMParams, PromptAdapterOutput
+from mlflow.genai.optimize.types import EvaluationResultRecord, LLMParams, PromptOptimizerOutput
 
 
 @pytest.fixture
@@ -98,7 +98,7 @@ def test_gepa_optimizer_optimize(sample_train_data, sample_target_prompts, mock_
         )
 
     # Verify result
-    assert isinstance(result, PromptAdapterOutput)
+    assert isinstance(result, PromptOptimizerOutput)
     assert result.optimized_prompts == mock_result.best_candidate
     assert "system_prompt" in result.optimized_prompts
     assert "instruction" in result.optimized_prompts

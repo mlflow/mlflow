@@ -232,7 +232,7 @@ result = mlflow.genai.optimize_prompts(
 Implement your own optimizer by extending <APILink fn="mlflow.genai.optimize.BasePromptOptimizer" />:
 
 ```python
-from mlflow.genai.optimize import BasePromptOptimizer, PromptAdapterOutput
+from mlflow.genai.optimize import BasePromptOptimizer, PromptOptimizerOutput
 
 
 class MyCustomOptimizer(BasePromptOptimizer):
@@ -245,7 +245,7 @@ class MyCustomOptimizer(BasePromptOptimizer):
                 prompt_template, train_data, optimizer_lm_params
             )
 
-        return PromptAdapterOutput(optimized_prompts=optimized_prompts)
+        return PromptOptimizerOutput(optimized_prompts=optimized_prompts)
 
 
 # Use custom optimizer

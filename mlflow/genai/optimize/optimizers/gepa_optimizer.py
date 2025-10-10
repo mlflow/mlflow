@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Any
 
 from mlflow.genai.optimize.optimizers.base import BasePromptOptimizer, _EvalFunc
-from mlflow.genai.optimize.types import EvaluationResultRecord, LLMParams, PromptAdapterOutput
+from mlflow.genai.optimize.types import EvaluationResultRecord, LLMParams, PromptOptimizerOutput
 from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
@@ -86,7 +86,7 @@ class GepaPromptOptimizer(BasePromptOptimizer):
         train_data: list[dict[str, Any]],
         target_prompts: dict[str, str],
         optimizer_lm_params: LLMParams,
-    ) -> PromptAdapterOutput:
+    ) -> PromptOptimizerOutput:
         """
         Optimize the target prompts using GEPA algorithm.
 
@@ -205,7 +205,7 @@ class GepaPromptOptimizer(BasePromptOptimizer):
         optimized_prompts = gepa_result.best_candidate
         initial_score, final_score = self._extract_eval_scores(gepa_result)
 
-        return PromptAdapterOutput(
+        return PromptOptimizerOutput(
             optimized_prompts=optimized_prompts,
             initial_eval_score=initial_score,
             final_eval_score=final_score,

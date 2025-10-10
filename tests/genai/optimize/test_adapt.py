@@ -6,7 +6,7 @@ import pytest
 import mlflow
 from mlflow.genai.optimize.adapt import _make_output_equivalence_scorer, optimize_prompts
 from mlflow.genai.optimize.optimizers.base import BasePromptOptimizer
-from mlflow.genai.optimize.types import EvaluationResultRecord, LLMParams, PromptAdapterOutput
+from mlflow.genai.optimize.types import EvaluationResultRecord, LLMParams, PromptOptimizerOutput
 from mlflow.genai.prompts import register_prompt
 from mlflow.genai.scorers import scorer
 
@@ -21,7 +21,7 @@ class MockPromptAdapter(BasePromptOptimizer):
         # Verify the optimization by calling eval_fn
         eval_fn(optimized_prompts, train_data)
 
-        return PromptAdapterOutput(
+        return PromptOptimizerOutput(
             optimized_prompts=optimized_prompts,
             initial_eval_score=0.5,
             final_eval_score=0.9,
@@ -167,7 +167,7 @@ def test_adapt_prompts_eval_function_behavior(sample_translation_prompt, sample_
                 assert result.score == 1
                 assert result.trace is not None
 
-            return PromptAdapterOutput(optimized_prompts=target_prompts)
+            return PromptOptimizerOutput(optimized_prompts=target_prompts)
 
     predict_called_count = 0
 
@@ -232,7 +232,7 @@ def test_adapt_prompts_llm_params_passed(sample_translation_prompt, sample_datas
             assert optimizer_lm_params.temperature == 0.5
             assert optimizer_lm_params.base_uri == "https://api.test.com"
 
-            return PromptAdapterOutput(optimized_prompts=target_prompts)
+            return PromptOptimizerOutput(optimized_prompts=target_prompts)
 
     testing_adapter = ParamsTestAdapter()
 
@@ -336,7 +336,7 @@ def test_adapt_prompts_with_custom_scorers(sample_translation_prompt, sample_dat
             # Run eval_fn and capture the scores
             results = eval_fn(target_prompts, dataset)
             self.captured_scores = [r.score for r in results]
-            return PromptAdapterOutput(optimized_prompts=target_prompts)
+            return PromptOptimizerOutput(optimized_prompts=target_prompts)
 
     testing_adapter = MetricTestAdapter()
 

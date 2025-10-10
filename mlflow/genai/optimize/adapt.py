@@ -14,7 +14,7 @@ from mlflow.genai.optimize.types import (
     EvaluationResultRecord,
     LLMParams,
     ObjectiveFn,
-    PromptAdaptationResult,
+    PromptOptimizationResult,
 )
 from mlflow.genai.optimize.util import create_metric_from_scorers
 from mlflow.genai.prompts import load_prompt, register_prompt
@@ -43,7 +43,7 @@ def optimize_prompts(
     scorers: list[Scorer] | None = None,
     objective: ObjectiveFn | None = None,
     optimizer: BasePromptOptimizer | None = None,
-) -> PromptAdaptationResult:
+) -> PromptOptimizationResult:
     """
     This API optimizes prompts used in the passed in function to produce similar
     outputs as the outputs in the dataset. This API can be used to maintain the
@@ -183,7 +183,7 @@ def optimize_prompts(
         eval_fn, converted_train_data, target_prompts_dict, optimizer_lm_params
     )
 
-    return PromptAdaptationResult(
+    return PromptOptimizationResult(
         optimized_prompts=[
             register_prompt(name=prompt_name, template=prompt)
             for prompt_name, prompt in optimizer_output.optimized_prompts.items()
