@@ -337,6 +337,17 @@ const sidebarsGenAI: SidebarsConfig = {
           ],
         },
         {
+          type: 'category',
+          label: 'AI Insights',
+          items: [
+            {
+              type: 'doc',
+              id: 'eval-monitor/ai-insights/ai-issue-discovery',
+              label: 'AI Issue Discovery',
+            },
+          ],
+        },
+        {
           type: 'doc',
           id: 'eval-monitor/legacy-llm-evaluation',
           label: 'LLM Evaluation (Legacy)',

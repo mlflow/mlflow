@@ -2,7 +2,7 @@ import time
 
 from pydantic import BaseModel, StrictFloat, StrictStr, ValidationError
 
-from mlflow.gateway.config import MlflowModelServingConfig, RouteConfig
+from mlflow.gateway.config import EndpointConfig, MlflowModelServingConfig
 from mlflow.gateway.constants import MLFLOW_SERVING_RESPONSE_KEY
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider
@@ -54,7 +54,7 @@ class MlflowModelServingProvider(BaseProvider):
     NAME = "MLflow Model Serving"
     CONFIG_TYPE = MlflowModelServingConfig
 
-    def __init__(self, config: RouteConfig) -> None:
+    def __init__(self, config: EndpointConfig) -> None:
         super().__init__(config)
         if config.model.config is None or not isinstance(
             config.model.config, MlflowModelServingConfig

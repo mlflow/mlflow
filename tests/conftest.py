@@ -82,7 +82,7 @@ def pytest_addoption(parser):
     )
 
 
-def pytest_configure(config):
+def pytest_configure(config: pytest.Config):
     config.addinivalue_line("markers", "requires_ssh")
     config.addinivalue_line("markers", "notrackingurimock")
     config.addinivalue_line("markers", "allow_infer_pip_requirements_fallback")
@@ -95,6 +95,14 @@ def pytest_configure(config):
     labels = fetch_pr_labels() or []
     if "fail-fast" in labels:
         config.option.maxfail = 1
+
+    # Register SQLAlchemy LegacyAPIWarning filter only if sqlalchemy is available
+    try:
+        import sqlalchemy  # noqa: F401
+
+        config.addinivalue_line("filterwarnings", "error::sqlalchemy.exc.LegacyAPIWarning")
+    except ImportError:
+        pass
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -468,12 +476,9 @@ def remote_backend_for_tracing_sdk_test():
             [
                 "uv",
                 "run",
-                "--with",
+                "--directory",
                 # Install from the dev version
                 mlflow_root,
-                "--python",
-                # Get current python version
-                f"{sys.version_info.major}.{sys.version_info.minor}",
                 "mlflow",
                 "server",
                 "--port",

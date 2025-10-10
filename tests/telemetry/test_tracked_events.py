@@ -22,6 +22,7 @@ from mlflow.pyfunc.model import ResponsesAgent, ResponsesAgentRequest, Responses
 from mlflow.telemetry.client import TelemetryClient
 from mlflow.telemetry.events import (
     AlignJudgeEvent,
+    AutologgingEvent,
     CreateDatasetEvent,
     CreateExperimentEvent,
     CreateLoggedModelEvent,
@@ -636,7 +637,7 @@ def test_git_model_versioning(mock_requests, mock_telemetry_client):
     [
         ("databricks:/llama-3.1-70b", "databricks", True, False),
         ("openai:/gpt-4o-mini", "openai", True, False),
-        ("endpoints:/my-endpoint", "endpoints", False, True),
+        ("endpoints:/my-endpoint", "endpoints", True, False),
         ("anthropic:/claude-3-opus", "anthropic", True, False),
     ],
 )
@@ -682,11 +683,14 @@ def test_invoke_custom_judge_model(
                     )
         else:
             with (
-                mock.patch("mlflow.genai.judges.utils._invoke_litellm", return_value=mock_response),
+                mock.patch(
+                    "mlflow.genai.judges.utils._invoke_litellm_and_handle_tools",
+                    return_value=mock_response,
+                ),
                 mock.patch("mlflow.genai.judges.utils._invoke_databricks_model") as mock_databricks,
             ):
                 # For databricks provider, mock the databricks model invocation
-                if expected_provider == "databricks":
+                if expected_provider in ["databricks", "endpoints"]:
                     from mlflow.genai.judges.utils import InvokeDatabricksModelOutput
 
                     mock_databricks.return_value = InvokeDatabricksModelOutput(
@@ -755,3 +759,20 @@ def test_align_judge(mock_requests, mock_telemetry_client: TelemetryClient):
     validate_telemetry_record(
         mock_telemetry_client, mock_requests, AlignJudgeEvent.name, expected_params
     )
+
+
+def test_autologging(mock_requests, mock_telemetry_client: TelemetryClient):
+    try:
+        mlflow.openai.autolog()
+
+        mlflow.autolog()
+        mock_telemetry_client.flush()
+        data = [record["data"] for record in mock_requests]
+        params = [event["params"] for event in data if event["event_name"] == AutologgingEvent.name]
+        assert (
+            json.dumps({"flavor": mlflow.openai.FLAVOR_NAME, "log_traces": True, "disable": False})
+            in params
+        )
+        assert json.dumps({"flavor": "all", "log_traces": True, "disable": False}) in params
+    finally:
+        mlflow.autolog(disable=True)

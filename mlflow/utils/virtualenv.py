@@ -240,6 +240,10 @@ def _get_virtualenv_activate_cmd(env_dir: Path) -> str:
     return f"source {activate_cmd}" if not is_windows() else str(activate_cmd)
 
 
+def _get_uv_env_creation_command(env_dir: str | Path, python_version: str) -> str:
+    return ["uv", "venv", str(env_dir), f"--python={python_version}"]
+
+
 def _create_virtualenv(
     local_model_path: Path,
     python_env: _PythonEnv,
@@ -281,7 +285,7 @@ def _create_virtualenv(
             f"Creating a new environment in {env_dir} with python "
             f"version {python_env.python} using uv"
         )
-        env_creation_cmd = ["uv", "venv", env_dir, f"--python={python_env.python}"]
+        env_creation_cmd = _get_uv_env_creation_command(env_dir, python_env.python)
         install_deps_cmd_prefix = "uv pip install"
         if python_install_dir:
             # Setting `UV_PYTHON_INSTALL_DIR` to make `uv env` install python into

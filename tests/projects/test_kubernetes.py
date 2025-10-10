@@ -11,9 +11,6 @@ from mlflow.projects import kubernetes as kb
 
 
 def test_run_command_creation():
-    """
-    Tests command creation.
-    """
     command = [
         "python train.py --alpha 0.5 --l1-ratio 0.1",
         "--comment 'foo bar'",

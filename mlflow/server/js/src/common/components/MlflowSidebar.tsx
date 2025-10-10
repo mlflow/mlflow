@@ -2,6 +2,7 @@ import {
   BeakerIcon,
   Button,
   DropdownMenu,
+  HomeIcon,
   ModelsIcon,
   PlusIcon,
   TextBoxIcon,
@@ -22,6 +23,8 @@ import {
 import Routes from '../../experiment-tracking/routes';
 import { FormattedMessage } from 'react-intl';
 
+const isHomeActive = (location: Location) => matchPath({ path: '/', end: true }, location.pathname);
+
 const isExperimentsActive = (location: Location) =>
   matchPath('/experiments/*', location.pathname) || matchPath('/compare-experiments/*', location.pathname);
 const isModelsActive = (location: Location) => matchPath('/models/*', location.pathname);
@@ -41,6 +44,25 @@ export function MlflowSidebar() {
   });
 
   const menuItems = [
+    {
+      key: 'home',
+      icon: <HomeIcon />,
+      linkProps: {
+        to: ExperimentTrackingRoutes.rootRoute,
+        isActive: isHomeActive,
+        children: <FormattedMessage defaultMessage="Home" description="Sidebar link for home page" />,
+      },
+      dropdownProps: {
+        componentId: 'mlflow_sidebar.create_experiment_button',
+        onClick: () => setShowCreateExperimentModal(true),
+        children: (
+          <FormattedMessage
+            defaultMessage="Experiment"
+            description="Sidebar button inside the 'new' popover to create new experiment"
+          />
+        ),
+      },
+    },
     {
       key: 'experiments',
       icon: <BeakerIcon />,
