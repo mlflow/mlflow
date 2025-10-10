@@ -131,13 +131,13 @@ class DatabricksTracingRestStore(RestStore):
             value: Expected tag value.
         """
 
-        def check_tag_set():
+        def is_tag_set() -> bool:
             trace_info = self.get_trace_info(f"{location}:{trace_id}")
             tags = {tag.key: tag.value for tag in trace_info.tags}
             return tags.get(key) == value
 
         self._poll_until(
-            condition_fn=check_tag_set,
+            condition_fn=is_tag_set,
             success_message=f"Tag '{key}' successfully set to '{value}'",
             timeout_message=f"Tag '{key}' update may not be immediately visible.",
         )
@@ -152,13 +152,13 @@ class DatabricksTracingRestStore(RestStore):
             key: Tag key to verify is deleted.
         """
 
-        def check_tag_deleted():
+        def is_tag_deleted() -> bool:
             trace_info = self.get_trace_info(f"{location}:{trace_id}")
             tags = {tag.key: tag.value for tag in trace_info.tags}
             return key not in tags
 
         self._poll_until(
-            condition_fn=check_tag_deleted,
+            condition_fn=is_tag_deleted,
             success_message=f"Tag '{key}' successfully deleted from trace",
             timeout_message=f"Tag '{key}' deletion may not be immediately visible.",
         )
