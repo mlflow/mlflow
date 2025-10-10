@@ -97,6 +97,7 @@ def optimize_prompts(
             import mlflow
             import openai
             from mlflow.genai.optimize.optimizers import GepaPromptOptimizer
+            from mlflow.genai.scorers import Correctness
 
             prompt = mlflow.genai.register_prompt(
                 name="qa",
@@ -122,6 +123,7 @@ def optimize_prompts(
                 train_data=dataset,
                 prompt_uris=[prompt.uri],
                 optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-4o"),
+                scorers=[Correctness(model="openai:/gpt-4o")],
             )
 
             print(result.optimized_prompts[0].template)

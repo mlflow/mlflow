@@ -31,6 +31,7 @@ Here's a simple example of optimizing a prompt for better accuracy:
 import mlflow
 import openai
 from mlflow.genai.optimize import GepaPromptOptimizer
+from mlflow.genai.scorers import Correctness
 
 # Register initial prompt
 prompt = mlflow.genai.register_prompt(
@@ -63,6 +64,7 @@ result = mlflow.genai.optimize_prompts(
     train_data=dataset,
     prompt_uris=[prompt.uri],
     optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-4o"),
+    scorers=[Correctness(model="openai:/gpt-4")],
 )
 
 # Use the optimized prompt
