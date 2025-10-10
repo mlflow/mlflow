@@ -35,17 +35,6 @@ class MockPatchAsDecorator(Rule):
         "tests/evaluate/logging/test_evaluation.py",  # 1
         "tests/genai/evaluate/test_context.py",  # 1
         "tests/genai/evaluate/test_evaluation.py",  # 1
-        "tests/pyfunc/test_pyfunc_model_with_type_hints.py",  # 1
-        "tests/server/test_security_integration.py",  # 1
-        "tests/store/artifact/test_azure_blob_artifact_repo.py",  # 1
-        "tests/store/artifact/test_dbfs_artifact_repo_delegation.py",  # 1
-        "tests/store/model_registry/test_rest_store.py",  # 1
-        "tests/store/tracking/test_abstract_store.py",  # 1
-        "tests/tracing/export/test_async_export_queue.py",  # 1
-        "tests/tracing/export/test_mlflow_v3_exporter.py",  # 1
-        "tests/tracing/test_fluent.py",  # 1
-        "tests/tracking/test_client.py",  # 1
-        "tests/transformers/test_transformers_llm_inference_utils.py",  # 1
     }
 
     def _message(self) -> str:

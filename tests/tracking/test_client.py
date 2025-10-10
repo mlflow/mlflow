@@ -853,76 +853,76 @@ def test_start_and_end_trace_before_all_span_end(async_logging_enabled):
     assert non_ended_span.status.status_code == SpanStatusCode.UNSET
 
 
-@mock.patch("mlflow.get_tracking_uri", return_value="databricks")
-def test_log_trace_with_databricks_tracking_uri(
-    databricks_tracking_uri, mock_store_start_trace, monkeypatch
-):
-    monkeypatch.setenv("MLFLOW_EXPERIMENT_NAME", "test")
-    monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
-    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
+def test_log_trace_with_databricks_tracking_uri(mock_store_start_trace, monkeypatch):
+    with mock.patch("mlflow.get_tracking_uri", return_value="databricks"):
+        monkeypatch.setenv("MLFLOW_EXPERIMENT_NAME", "test")
+        monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
+        monkeypatch.setattr(
+            mlflow.tracking.context.default_context, "_get_source_name", lambda: "test"
+        )
 
-    mock_experiment = mock.MagicMock()
-    mock_experiment.experiment_id = "test_experiment_id"
+        mock_experiment = mock.MagicMock()
+        mock_experiment.experiment_id = "test_experiment_id"
 
-    class TestModel:
-        def __init__(self):
-            self._client = MlflowClient()
+        class TestModel:
+            def __init__(self):
+                self._client = MlflowClient()
 
-        def predict(self, x, y):
-            root_span = self._client.start_trace(
-                name="predict",
-                inputs={"x": x, "y": y},
-                # Trying to override mlflow.user tag, which will be ignored
-                tags={"tag": "tag_value", "mlflow.user": "unknown"},
-            )
-            trace_id = root_span.trace_id
+            def predict(self, x, y):
+                root_span = self._client.start_trace(
+                    name="predict",
+                    inputs={"x": x, "y": y},
+                    # Trying to override mlflow.user tag, which will be ignored
+                    tags={"tag": "tag_value", "mlflow.user": "unknown"},
+                )
+                trace_id = root_span.trace_id
 
-            z = x + y
+                z = x + y
 
-            child_span = self._client.start_span(
-                "child_span_1",
-                span_type=SpanType.LLM,
-                trace_id=trace_id,
-                parent_id=root_span.span_id,
-                inputs={"z": z},
-            )
+                child_span = self._client.start_span(
+                    "child_span_1",
+                    span_type=SpanType.LLM,
+                    trace_id=trace_id,
+                    parent_id=root_span.span_id,
+                    inputs={"z": z},
+                )
 
-            z = z + 2
+                z = z + 2
 
-            self._client.end_span(
-                trace_id=trace_id,
-                span_id=child_span.span_id,
-                outputs={"output": z},
-                attributes={"delta": 2},
-            )
-            self._client.end_trace(trace_id, outputs=z, status="OK")
-            return z
+                self._client.end_span(
+                    trace_id=trace_id,
+                    span_id=child_span.span_id,
+                    outputs={"output": z},
+                    attributes={"delta": 2},
+                )
+                self._client.end_trace(trace_id, outputs=z, status="OK")
+                return z
 
-    model = TestModel()
+        model = TestModel()
 
-    with (
-        mock.patch(
-            "mlflow.tracing.client.TracingClient._upload_trace_data"
-        ) as mock_upload_trace_data,
-        mock.patch(
-            "mlflow.tracing.client.TracingClient.set_trace_tags",
-        ),
-        mock.patch(
-            "mlflow.tracing.client.TracingClient.set_trace_tag",
-        ),
-        mock.patch(
-            "mlflow.tracing.client.TracingClient.get_trace_info",
-        ),
-        mock.patch(
-            "mlflow.MlflowClient.get_experiment_by_name",
-            return_value=mock_experiment,
-        ),
-    ):
-        model.predict(1, 2)
-        mlflow.flush_trace_async_logging(terminate=True)
+        with (
+            mock.patch(
+                "mlflow.tracing.client.TracingClient._upload_trace_data"
+            ) as mock_upload_trace_data,
+            mock.patch(
+                "mlflow.tracing.client.TracingClient.set_trace_tags",
+            ),
+            mock.patch(
+                "mlflow.tracing.client.TracingClient.set_trace_tag",
+            ),
+            mock.patch(
+                "mlflow.tracing.client.TracingClient.get_trace_info",
+            ),
+            mock.patch(
+                "mlflow.MlflowClient.get_experiment_by_name",
+                return_value=mock_experiment,
+            ),
+        ):
+            model.predict(1, 2)
+            mlflow.flush_trace_async_logging(terminate=True)
 
-    mock_store_start_trace.assert_called_once()
-    mock_upload_trace_data.assert_called_once()
+        mock_store_start_trace.assert_called_once()
+        mock_upload_trace_data.assert_called_once()
 
 
 def test_start_and_end_trace_does_not_log_trace_when_disabled(

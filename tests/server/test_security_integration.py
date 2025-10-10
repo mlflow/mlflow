@@ -56,35 +56,37 @@ def test_cors_for_state_changing_requests(mlflow_app_client, origin, endpoint, e
         assert response.status_code != 403
 
 
-@mock.patch.dict("os.environ", {"MLFLOW_SERVER_CORS_ALLOWED_ORIGINS": "https://trusted-app.com"})
 def test_cors_with_configured_origins():
-    from flask import Flask
+    with mock.patch.dict(
+        "os.environ", {"MLFLOW_SERVER_CORS_ALLOWED_ORIGINS": "https://trusted-app.com"}
+    ):
+        from flask import Flask
 
-    from mlflow.server import handlers, security
+        from mlflow.server import handlers, security
 
-    app = Flask(__name__)
-    for http_path, handler, methods in handlers.get_endpoints():
-        app.add_url_rule(http_path, handler.__name__, handler, methods=methods)
+        app = Flask(__name__)
+        for http_path, handler, methods in handlers.get_endpoints():
+            app.add_url_rule(http_path, handler.__name__, handler, methods=methods)
 
-    security.init_security_middleware(app)
-    client = Client(app)
+        security.init_security_middleware(app)
+        client = Client(app)
 
-    test_cases = [
-        ("https://trusted-app.com", False),
-        ("http://evil.com", True),
-    ]
+        test_cases = [
+            ("https://trusted-app.com", False),
+            ("http://evil.com", True),
+        ]
 
-    for origin, should_block in test_cases:
-        response = client.post(
-            "/api/2.0/mlflow/experiments/search",
-            headers={"Origin": origin, "Content-Type": "application/json"},
-            data=json.dumps({}),
-        )
+        for origin, should_block in test_cases:
+            response = client.post(
+                "/api/2.0/mlflow/experiments/search",
+                headers={"Origin": origin, "Content-Type": "application/json"},
+                data=json.dumps({}),
+            )
 
-        if should_block:
-            assert response.status_code == 403
-        else:
-            assert response.status_code != 403
+            if should_block:
+                assert response.status_code == 403
+            else:
+                assert response.status_code != 403
 
 
 def test_security_headers_on_responses(mlflow_app_client):
