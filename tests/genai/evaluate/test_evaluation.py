@@ -222,7 +222,7 @@ def test_evaluate_with_predict_fn(is_predict_fn_traced, is_in_databricks):
 
 
 @pytest.mark.skip(reason="TODO: OSS MLflow backend doesn't support trace->run linking yet")
-def test_evaluate_with_traces(pass_full_dataframe):
+def test_evaluate_with_traces(pass_full_dataframe, monkeypatch: pytest.MonkeyPatch):
     questions = ["What is MLflow?", "What is Spark?"]
 
     @mlflow.trace(span_type=SpanType.AGENT)
@@ -280,11 +280,11 @@ def test_evaluate_with_traces(pass_full_dataframe):
         data = data[["trace"]]
 
     # Disable logging traces to MLflow to avoid calling mlflow APIs which need to be mocked
-    with mock.patch.dict("os.environ", {"AGENT_EVAL_LOG_TRACES_TO_MLFLOW_ENABLED": "false"}):
-        result = mlflow.genai.evaluate(
-            data=data,
-            scorers=[exact_match, is_concise, relevance, has_trace],
-        )
+    monkeypatch.setenv("AGENT_EVAL_LOG_TRACES_TO_MLFLOW_ENABLED", "false")
+    result = mlflow.genai.evaluate(
+        data=data,
+        scorers=[exact_match, is_concise, relevance, has_trace],
+    )
 
     metrics = result.metrics
     assert metrics["exact_match/mean"] == 0.0
