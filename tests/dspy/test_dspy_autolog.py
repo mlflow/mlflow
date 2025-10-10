@@ -16,7 +16,7 @@ from dspy.utils.dummies import DummyLM
 from packaging.version import Version
 
 import mlflow
-from mlflow.entities import Feedback, SpanType, Trace
+from mlflow.entities import Feedback, LoggedModelOutput, SpanType, Trace
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey, TraceMetadataKey
 from mlflow.version import IS_TRACING_SDK_ONLY
 
@@ -634,6 +634,40 @@ def test_autolog_log_compile(log_compiles):
         client = MlflowClient()
         artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
         assert "best_model.json" in artifacts
+
+        # verify that a dummy model output is logged
+        run = client.get_run(run.info.run_id)
+        assert len(run.outputs.model_outputs) == 1
+        assert isinstance(run.outputs.model_outputs[0], LoggedModelOutput)
+    else:
+        assert mlflow.last_active_run() is None
+
+
+@skip_when_testing_trace_sdk
+@pytest.mark.parametrize("log_compiles", [True, False])
+def test_autolog_log_compile_log_model_output_when_failure(log_compiles):
+    class DummyOptimizer(dspy.teleprompt.Teleprompter):
+        def compile(self, program, kwarg1=None, kwarg2=None):
+            raise Exception("test error")
+
+    mlflow.dspy.autolog(log_compiles=log_compiles)
+    dspy.settings.configure(lm=DummyLM([{"answer": "4", "reasoning": "reason"}]))
+
+    program = dspy.ChainOfThought("question -> answer")
+    optimizer = DummyOptimizer()
+
+    with pytest.raises(Exception, match="test error"):
+        optimizer.compile(program, kwarg1=1, kwarg2="2")
+
+    if log_compiles:
+        run = mlflow.last_active_run()
+        assert run is not None
+
+        # verify that a dummy model output is logged even when compilation fails
+        client = MlflowClient()
+        run = client.get_run(run.info.run_id)
+        assert len(run.outputs.model_outputs) == 1
+        assert isinstance(run.outputs.model_outputs[0], LoggedModelOutput)
     else:
         assert mlflow.last_active_run() is None
 
