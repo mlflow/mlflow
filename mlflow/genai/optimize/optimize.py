@@ -19,7 +19,7 @@ from mlflow.genai.optimize.util import create_metric_from_scorers
 from mlflow.genai.prompts import load_prompt, register_prompt
 from mlflow.genai.scorers import Scorer, scorer
 from mlflow.genai.utils.trace_utils import convert_predict_fn
-from mlflow.telemetry.events import PromptAdaptationEvent
+from mlflow.telemetry.events import PromptOptimizationEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.utils import gorilla
 from mlflow.utils.annotations import experimental
@@ -32,7 +32,7 @@ _logger = logging.getLogger(__name__)
 
 
 @experimental(version="3.5.0")
-@record_usage_event(PromptAdaptationEvent)
+@record_usage_event(PromptOptimizationEvent)
 def optimize_prompts(
     *,
     predict_fn: Callable[..., Any],

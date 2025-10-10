@@ -15,7 +15,6 @@ from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 from mlflow.genai.datasets import create_dataset
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.base import AlignmentOptimizer
-from mlflow.genai.optimize.types import LLMParams
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.pyfunc.model import ResponsesAgent, ResponsesAgentRequest, ResponsesAgentResponse
 from mlflow.telemetry.client import TelemetryClient
@@ -42,7 +41,7 @@ from mlflow.telemetry.events import (
     MakeJudgeEvent,
     McpRunEvent,
     MergeRecordsEvent,
-    PromptAdaptationEvent,
+    PromptOptimizationEvent,
     StartTraceEvent,
 )
 from mlflow.tracking.fluent import _create_dataset_input, _initialize_logged_model
@@ -338,14 +337,17 @@ def test_genai_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
         )
 
 
-def test_prompt_adaptation(mock_requests, mock_telemetry_client: TelemetryClient):
+def test_prompt_optimization(mock_requests, mock_telemetry_client: TelemetryClient):
     from mlflow.genai.optimize import optimize_prompts
     from mlflow.genai.optimize.optimizers import BasePromptOptimizer
-    from mlflow.genai.optimize.types import PromptAdapterOutput
+    from mlflow.genai.optimize.types import PromptOptimizerOutput
 
     class MockAdapter(BasePromptOptimizer):
-        def optimize(self, eval_fn, train_data, target_prompts, optimizer_lm_params):
-            return PromptAdapterOutput(optimized_prompts=target_prompts)
+        def __init__(self):
+            self.model_name = "openai:/gpt-4o-mini"
+
+        def optimize(self, eval_fn, train_data, target_prompts):
+            return PromptOptimizerOutput(optimized_prompts=target_prompts)
 
     sample_prompt = mlflow.genai.register_prompt(
         name="test_prompt_for_adaptation",
@@ -365,13 +367,12 @@ def test_prompt_adaptation(mock_requests, mock_telemetry_client: TelemetryClient
         predict_fn=predict_fn,
         train_data=sample_data,
         target_prompt_uris=[f"prompts:/{sample_prompt.name}/{sample_prompt.version}"],
-        optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o-mini"),
         optimizer=MockAdapter(),
     )
     validate_telemetry_record(
         mock_telemetry_client,
         mock_requests,
-        PromptAdaptationEvent.name,
+        PromptOptimizationEvent.name,
         {
             "optimizer_type": "MockAdapter",
             "prompt_count": 1,
