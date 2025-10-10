@@ -99,7 +99,7 @@ def test_export(is_async, monkeypatch):
     size_bytes = int(trace_info.trace_metadata.pop(TraceMetadataKey.SIZE_BYTES))
 
     # The total size of the trace should much with the size of the trace object
-    expected_size_bytes = len(Trace(info=trace_info, data=trace_data).to_json()).encode("utf-8")
+    expected_size_bytes = len(Trace(info=trace_info, data=trace_data).to_json().encode("utf-8"))
 
     assert size_bytes == expected_size_bytes
     assert size_stats[TraceSizeStatsKey.TOTAL_SIZE_BYTES] == expected_size_bytes
