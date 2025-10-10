@@ -1113,7 +1113,9 @@ class RestStore(AbstractStore):
     # Scorer Management APIs
     ############################################################################################
 
-    def register_scorer(self, experiment_id: str, name: str, serialized_scorer: str):
+    def register_scorer(
+        self, experiment_id: str, name: str, serialized_scorer: str
+    ) -> ScorerVersion:
         """
         Register a scorer for an experiment.
 
@@ -1123,7 +1125,7 @@ class RestStore(AbstractStore):
             serialized_scorer: String containing the serialized scorer data.
 
         Returns:
-            ScorerVersion: The newly registered scorer version with scorer_id.
+            ScorerVersion: The newly registered scorer version object.
         """
         req_body = message_to_json(
             RegisterScorer(
@@ -1138,8 +1140,6 @@ class RestStore(AbstractStore):
             req_body,
             endpoint="/api/3.0/mlflow/scorers/register",
         )
-        # Construct ScorerVersion directly from response (no second API call needed)
-        from mlflow.entities.scorer import ScorerVersion
 
         return ScorerVersion(
             experiment_id=response_proto.experiment_id,
