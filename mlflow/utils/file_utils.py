@@ -987,7 +987,7 @@ class ExclusiveFileLock:
     Exclusive file lock (only works on Unix system)
     """
 
-    def __init__(self, path):
+    def __init__(self, path: str):
         if os.name == "nt":
             raise MlflowException("ExclusiveFileLock class does not support Windows system.")
         self.path = path
