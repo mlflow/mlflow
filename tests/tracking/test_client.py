@@ -364,10 +364,13 @@ def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_
 
 
 @pytest.mark.parametrize("include_spans", [True, False])
-def test_client_search_traces_with_get_traces(mock_store, mock_artifact_repo, include_spans):
+@pytest.mark.parametrize("num_results", [0, 5])
+def test_client_search_traces_with_get_traces(
+    mock_store, mock_artifact_repo, include_spans, num_results
+):
     mock_trace_infos = [
         TraceInfo(
-            trace_id="tr-1234567",
+            trace_id=f"trace:/catalog.schema/{i}",
             trace_location=TraceLocation(
                 type=TraceLocationType.UC_SCHEMA,
                 uc_schema=UCSchemaLocation(catalog_name="catalog", schema_name="schema"),
@@ -375,19 +378,8 @@ def test_client_search_traces_with_get_traces(mock_store, mock_artifact_repo, in
             request_time=123,
             execution_duration=456,
             state=TraceState.OK,
-            tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts/1"},
-        ),
-        TraceInfo(
-            trace_id="tr-8910",
-            trace_location=TraceLocation(
-                type=TraceLocationType.UC_SCHEMA,
-                uc_schema=UCSchemaLocation(catalog_name="catalog", schema_name="schema"),
-            ),
-            request_time=456,
-            execution_duration=789,
-            state=TraceState.OK,
-            tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts/2"},
-        ),
+        )
+        for i in range(num_results)
     ]
     mock_store.search_traces.return_value = (mock_trace_infos, None)
     mock_store.batch_get_traces.return_value = [
@@ -395,7 +387,7 @@ def test_client_search_traces_with_get_traces(mock_store, mock_artifact_repo, in
     ]
 
     results = MlflowClient().search_traces(
-        experiment_ids=["1", "2", "3"],
+        locations=["catalog.schema"],
         include_spans=include_spans,
     )
     mock_store.search_traces.assert_called_once_with(
@@ -405,20 +397,64 @@ def test_client_search_traces_with_get_traces(mock_store, mock_artifact_repo, in
         order_by=None,
         page_token=None,
         model_id=None,
-        locations=["1", "2", "3"],
+        locations=["catalog.schema"],
     )
-    assert len(results) == 2
-    if include_spans:
+    assert len(results) == num_results
+
+    if include_spans and num_results > 0:
         mock_store.batch_get_traces.assert_called_once_with(
-            ["tr-1234567", "tr-8910"], "catalog.schema"
+            [f"trace:/catalog.schema/{i}" for i in range(num_results)],
+            "catalog.schema",
         )
     else:
         mock_store.batch_get_traces.assert_not_called()
+
     mock_artifact_repo.download_trace_data.assert_not_called()
 
     # The TraceInfo is already fetched prior to the upload_trace_data call,
     # so we should not call _get_trace_info again
     mock_store.get_trace_info.assert_not_called()
+
+
+def test_client_search_traces_with_large_results(mock_store, mock_artifact_repo):
+    mock_trace_infos = [
+        TraceInfo(
+            trace_id=f"trace:/catalog.schema/{i}",
+            trace_location=TraceLocation(
+                type=TraceLocationType.UC_SCHEMA,
+                uc_schema=UCSchemaLocation(catalog_name="catalog", schema_name="schema"),
+            ),
+            request_time=123,
+            execution_duration=456,
+            state=TraceState.OK,
+        )
+        for i in range(100)
+    ]
+    mock_store.search_traces.return_value = (mock_trace_infos, None)
+
+    mock_store.batch_get_traces.return_value = [
+        Trace(info=mock_trace_infos[0], data=TraceData(spans=[])) for i in range(10)
+    ]
+
+    results = MlflowClient().search_traces(locations=["catalog.schema"])
+    mock_store.search_traces.assert_called_once_with(
+        experiment_ids=None,
+        filter_string=None,
+        max_results=100,
+        order_by=None,
+        page_token=None,
+        model_id=None,
+        locations=["catalog.schema"],
+    )
+    assert len(results) == 100
+    assert mock_store.batch_get_traces.call_count == 10
+    assert mock_store.batch_get_traces.has_calls(
+        [
+            mock.call([f"trace:/catalog.schema/{j * 10 + i}" for i in range(10)], "catalog.schema")
+            for j in range(10)
+        ]
+    )
+    mock_artifact_repo.download_trace_data.assert_not_called()
 
 
 @pytest.mark.parametrize("include_spans", [True, False])

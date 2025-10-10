@@ -15,6 +15,7 @@ from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import UCSchemaLocation
 from mlflow.environment_variables import (
+    _MLFLOW_SEARCH_TRACES_MAX_BATCH_SIZE,
     MLFLOW_SEARCH_TRACES_MAX_THREADS,
     MLFLOW_TRACING_SQL_WAREHOUSE_ID,
 )
@@ -338,7 +339,11 @@ class TracingClient:
                             # UC schema location. Get full traces from v4 BatchGetTraces.
                             # All traces in a single call must be located in the same table.
                             trace_ids = [t.trace_id for t in location_trace_infos]
-                            traces.extend(self.store.batch_get_traces(trace_ids, location))
+                            traces.extend(
+                                self._download_spans_from_batch_get_traces(
+                                    trace_ids, location, executor
+                                )
+                            )
                         else:
                             # MLflow experiment location. Load spans from artifact repository.
                             traces.extend(
@@ -358,6 +363,24 @@ class TracingClient:
                 next_max_results = max_results - len(traces)
 
         return PagedList(traces, next_token)
+
+    def _download_spans_from_batch_get_traces(
+        self, trace_ids: list[str], location: str, executor: ThreadPoolExecutor
+    ) -> list[Trace]:
+        """
+        Fetch full traces including spans from the BatchGetTrace v4 endpoint.
+        BatchGetTrace endpoint only support up to 10 traces in a single call.
+        """
+        traces = []
+
+        def _fetch_minibatch(ids: list[str]) -> list[Trace]:
+            return self.store.batch_get_traces(ids, location) or []
+
+        batch_size = _MLFLOW_SEARCH_TRACES_MAX_BATCH_SIZE.get()
+        batches = [trace_ids[i : i + batch_size] for i in range(0, len(trace_ids), batch_size)]
+        for minibatch_traces in executor.map(_fetch_minibatch, batches):
+            traces.extend(minibatch_traces)
+        return traces
 
     def _download_spans_from_artifact_repo(self, trace_info: TraceInfo) -> Trace | None:
         """
