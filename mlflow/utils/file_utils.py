@@ -24,6 +24,7 @@ from concurrent.futures import as_completed
 from contextlib import contextmanager
 from dataclasses import dataclass
 from subprocess import CalledProcessError, TimeoutExpired
+from types import TracebackType
 from typing import Any
 from urllib.parse import unquote
 from urllib.request import pathname2url
@@ -992,7 +993,8 @@ class ExclusiveFileLock:
         self.path = path
         self.fd = None
 
-    def __enter__(self):
+    def __enter__(self) -> None:
+        # Python on Windows does not have `fcntl` module, so importing it lazily.
         import fcntl  # clint: disable=lazy-builtin-import
 
         # Open file (create if missing)
@@ -1000,7 +1002,13 @@ class ExclusiveFileLock:
         # Acquire exclusive lock (blocking)
         fcntl.flock(self.fd, fcntl.LOCK_EX)
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ):
+        # Python on Windows does not have `fcntl` module, so importing it lazily.
         import fcntl  # clint: disable=lazy-builtin-import
 
         # Release lock
