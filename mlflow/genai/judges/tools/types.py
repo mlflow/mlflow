@@ -81,8 +81,8 @@ class TraceInfo:
     trace_id: str
     request_time: int
     state: TraceState
-    request_preview: str | None
-    response_preview: str | None
+    request: str | None
+    response: str | None
     execution_duration: int | None
     assessments: list[Expectation | Feedback]
 
