@@ -811,7 +811,10 @@ mlflow.genai.scorers.ExpectationsGuidelines.model_post_init
 mlflow.genai.scorers.ExpectationsGuidelines.validate_columns
 mlflow.genai.scorers.Guidelines
 mlflow.genai.scorers.Guidelines.get_input_fields
-mlflow.genai.scorers.Guidelines.model_post_init
+mlflow.genai.scorers.OutputEquivalence
+mlflow.genai.scorers.OutputEquivalence.get_input_fields
+mlflow.genai.scorers.OutputEquivalence.model_post_init
+mlflow.genai.scorers.OutputEquivalence.validate_columns
 mlflow.genai.scorers.RelevanceToQuery
 mlflow.genai.scorers.RelevanceToQuery.get_input_fields
 mlflow.genai.scorers.RelevanceToQuery.model_post_init
@@ -834,6 +837,7 @@ mlflow.genai.scorers.base.ScorerSamplingConfig
 mlflow.genai.scorers.builtin_scorers.Correctness
 mlflow.genai.scorers.builtin_scorers.ExpectationsGuidelines
 mlflow.genai.scorers.builtin_scorers.Guidelines
+mlflow.genai.scorers.builtin_scorers.OutputEquivalence
 mlflow.genai.scorers.builtin_scorers.RelevanceToQuery
 mlflow.genai.scorers.builtin_scorers.RetrievalGroundedness
 mlflow.genai.scorers.builtin_scorers.RetrievalRelevance
