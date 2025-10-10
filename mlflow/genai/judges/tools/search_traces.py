@@ -2,15 +2,15 @@
 Search traces tool for MLflow GenAI judges.
 
 This module provides a tool for searching and retrieving traces from an MLflow experiment
-based on filter criteria, ordering, and result limits. It enables judges to analyze historical
+based on filter criteria, ordering, and result limits. It enables judges to analyze
 traces within the same experiment context.
 """
 
 import logging
 
 import mlflow
-from mlflow.entities.assessment import Expectation, Feedback
-from mlflow.entities.trace import Assessment, Trace
+from mlflow.entities.assessment import Assessment, Expectation, Feedback
+from mlflow.entities.trace import Trace
 from mlflow.entities.trace_location import TraceLocationType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.tools.base import JudgeTool
@@ -126,7 +126,7 @@ class SearchTracesTool(JudgeTool):
                     "response, execution_duration, and assessments. Supports filtering with "
                     "MLflow search syntax (e.g., 'attributes.status = \"OK\"'), custom ordering "
                     "(e.g., ['timestamp DESC']), and result limits. Use this to analyze patterns "
-                    "across historical traces or find specific traces matching criteria."
+                    "across traces or find specific traces matching criteria."
                 ),
                 parameters=ToolParamsSchema(
                     type="object",
