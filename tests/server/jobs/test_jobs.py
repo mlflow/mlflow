@@ -488,7 +488,7 @@ def test_job_with_python_env(monkeypatch, tmp_path):
         assert job.status == JobStatus.SUCCEEDED
 
 
-def test_start_job_is_atomic(tmp_path):
+def test_start_job_is_atomic(tmp_path: Path):
     backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
     store = SqlAlchemyJobStore(backend_store_uri)
 
