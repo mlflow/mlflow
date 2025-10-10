@@ -47,6 +47,7 @@ import mlflow
 import openai
 from mlflow.genai.optimize import GepaPromptOptimizer
 from mlflow.genai.datasets import create_dataset
+from mlflow.genai.scorers import OutputEquivalence
 
 # Register your current prompt
 prompt = mlflow.genai.register_prompt(
@@ -147,6 +148,7 @@ result = mlflow.genai.optimize_prompts(
     train_data=dataset.to_df(),
     prompt_uris=[prompt.uri],
     optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-4o-mini"),
+    scorers=[OutputEquivalence(model="openai:/gpt-4o")],
 )
 
 # View the optimized prompt

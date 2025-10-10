@@ -14,6 +14,7 @@ from mlflow.genai.scorers import (
     Correctness,
     ExpectationsGuidelines,
     Guidelines,
+    OutputEquivalence,
     RelevanceToQuery,
     RetrievalGroundedness,
     RetrievalRelevance,
@@ -539,6 +540,33 @@ def test_correctness(mock_is_correct):
     )
 
 
+def test_output_equivalence():
+    # Test with default model
+    scorer = OutputEquivalence()
+
+    # Test exact numerical match
+    result = scorer(outputs=42, expectations={"expected_response": 42})
+    assert result.name == "output_equivalence"
+    assert result.value == "yes"
+    assert "Exact numerical match" in result.rationale
+
+    # Test exact string match
+    result = scorer(outputs="Paris", expectations={"expected_response": "Paris"})
+    assert result.value == "yes"
+    assert "Exact string match" in result.rationale
+
+    # Test numerical mismatch
+    result = scorer(outputs=42, expectations={"expected_response": 43})
+    assert result.value == "no"
+    assert "Values do not match" in result.rationale
+
+    # Test with custom name and model
+    scorer_custom = OutputEquivalence(name="custom_output_equiv", model="openai:/gpt-4o-mini")
+    result = scorer_custom(outputs=100, expectations={"expected_response": 100})
+    assert result.name == "custom_output_equiv"
+    assert result.value == "yes"
+
+
 @pytest.mark.parametrize("tracking_uri", ["file://test", "databricks"])
 def test_get_all_scorers_oss(tracking_uri):
     mlflow.set_tracking_uri(tracking_uri)
@@ -546,7 +574,7 @@ def test_get_all_scorers_oss(tracking_uri):
     scorers = get_all_scorers()
 
     # Safety and RetrievalRelevance are only available in Databricks
-    assert len(scorers) == (7 if tracking_uri == "databricks" else 5)
+    assert len(scorers) == (8 if tracking_uri == "databricks" else 6)
     assert all(isinstance(scorer, Scorer) for scorer in scorers)
 
 
@@ -602,6 +630,12 @@ def test_correctness_get_input_fields():
     assert field_names == ["inputs", "outputs", "expectations"]
 
 
+def test_output_equivalence_get_input_fields():
+    output_equiv = OutputEquivalence(name="test")
+    field_names = [field.name for field in output_equiv.get_input_fields()]
+    assert field_names == ["outputs", "expectations"]
+
+
 def create_simple_trace(inputs=None, outputs=None):
     @mlflow.trace(name="test_span", span_type=SpanType.CHAIN)
     def _create(question):
@@ -625,6 +659,25 @@ def test_correctness_with_trace():
         assert result.name == "correctness"
         assert result.value is True
         mock_is_correct.assert_called_once()
+
+
+def test_output_equivalence_with_trace():
+    trace = create_simple_trace(outputs="Paris")
+
+    mlflow.log_expectation(
+        trace_id=trace.info.trace_id,
+        name="expected_response",
+        value="Paris",
+    )
+
+    trace_with_expectations = mlflow.get_trace(trace.info.trace_id)
+
+    scorer = OutputEquivalence()
+    result = scorer(trace=trace_with_expectations)
+
+    assert result.name == "output_equivalence"
+    assert result.value == "yes"
+    assert "Exact string match" in result.rationale
 
 
 def test_guidelines_with_trace():
@@ -800,6 +853,21 @@ def test_correctness_with_override_outputs():
         assert call_args[1]["expected_response"] == "Custom expected"
 
 
+def test_output_equivalence_with_override_outputs():
+    trace = create_simple_trace(outputs="Original output")
+    scorer = OutputEquivalence()
+
+    result = scorer(
+        trace=trace,
+        outputs="Custom output",
+        expectations={"expected_response": "Custom output"},
+    )
+
+    assert result.name == "output_equivalence"
+    assert result.value == "yes"
+    assert "Exact string match" in result.rationale
+
+
 def test_relevance_mixed_override():
     with patch("mlflow.genai.judges.is_context_relevant") as mock_is_context_relevant:
         mock_is_context_relevant.return_value = Feedback(
@@ -890,6 +958,23 @@ def test_correctness_default_extracts_from_trace():
         assert result.name == "correctness"
         assert result.value is True
         mock_is_correct.assert_called_once()
+
+
+def test_output_equivalence_default_extracts_from_trace():
+    trace = create_simple_trace(outputs="MLflow is a platform")
+
+    mlflow.log_expectation(
+        trace_id=trace.info.trace_id, name="expected_response", value="MLflow is a platform"
+    )
+
+    trace_with_expectations = mlflow.get_trace(trace.info.trace_id)
+
+    scorer = OutputEquivalence()
+    result = scorer(trace=trace_with_expectations)
+
+    assert result.name == "output_equivalence"
+    assert result.value == "yes"
+    assert "Exact string match" in result.rationale
 
 
 def test_backwards_compatibility():

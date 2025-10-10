@@ -39,7 +39,7 @@ def optimize_prompts(
     train_data: "EvaluationDatasetTypes",
     prompt_uris: list[str],
     optimizer: BasePromptOptimizer,
-    scorers: list[Scorer] | None = None,
+    scorers: list[Scorer],
     objective: ObjectiveFn | None = None,
 ) -> PromptOptimizationResult:
     """
@@ -74,8 +74,8 @@ def optimize_prompts(
             on the evaluation dataset and passed in function. For example,
             GepaPromptOptimizer(reflection_model="openai:/gpt-4o").
         scorers: List of scorers that evaluate the inputs, outputs and expectations.
-            If None, uses a default scorer that applies exact match for numeric types
-            and LLM judge for text.
+            Required parameter. Use builtin scorers like OutputEquivalence or Correctness,
+            or define custom scorers with the @scorer decorator.
         objective: A callable that computes the overall performance metric from individual
             scorer outputs. Takes a dict mapping scorer names to scores and returns a float
             value (greater is better). If None and all scorers return numerical values,
@@ -158,10 +158,6 @@ def optimize_prompts(
                 objective=weighted_objective,
             )
     """
-    # Use default scorer if none provided
-    if not scorers:
-        scorers = [_make_output_equivalence_scorer(optimizer.model_name)]
-
     # TODO: Add dataset validation
     converted_train_data = _convert_eval_set_to_df(train_data).to_dict("records")
     predict_fn = convert_predict_fn(

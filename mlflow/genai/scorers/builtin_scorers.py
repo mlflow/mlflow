@@ -1330,6 +1330,200 @@ class Correctness(BuiltInScorer):
         return _sanitize_scorer_feedback(feedback)
 
 
+@format_docstring(_MODEL_API_DOC)
+@experimental(version="3.5.0")
+class OutputEquivalence(BuiltInScorer):
+    """
+    OutputEquivalence compares outputs against expected outputs for semantic equivalence.
+
+    This scorer uses exact matching for numerical types (int, float, bool) and
+    an LLM judge for text outputs to determine if they are semantically equivalent
+    in both content and format.
+
+    You can invoke the scorer directly with a single input for testing, or pass it to
+    `mlflow.genai.evaluate` or `mlflow.genai.optimize_prompts` for evaluation.
+
+    Args:
+        name: The name of the scorer. Defaults to "output_equivalence".
+        model: {{ model }}
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import OutputEquivalence
+
+        # Numerical equivalence
+        assessment = OutputEquivalence()(
+            outputs=42,
+            expectations={"expected_response": 42},
+        )
+        print(assessment)  # value: 'pass', rationale: 'Exact numerical match'
+
+        # Text equivalence
+        assessment = OutputEquivalence()(
+            outputs="The capital is Paris",
+            expectations={"expected_response": "Paris is the capital"},
+        )
+        print(assessment)  # value: 'pass' (semantically equivalent)
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import OutputEquivalence
+
+        data = [
+            {
+                "outputs": "The capital is Paris",
+                "expectations": {"expected_response": "Paris"},
+            }
+        ]
+        result = mlflow.genai.evaluate(data=data, scorers=[OutputEquivalence()])
+    """
+
+    name: str = "output_equivalence"
+    model: str | None = None
+    required_columns: set[str] = {"outputs"}
+
+    @property
+    def instructions(self) -> str:
+        """Get the instructions of what this scorer evaluates."""
+        return (
+            "Compare {{outputs}} against {{expectations}}. "
+            "Evaluate if they are both semantically equivalent or convey the same meaning, "
+            "and if the output format matches the expected format "
+            "(e.g., JSON structure, list format, sentence structure). "
+            "Return 'yes' if they match in both content and format, 'no' if they don't."
+        )
+
+    def validate_columns(self, columns: set[str]) -> None:
+        super().validate_columns(columns)
+        if "expectations/expected_response" not in columns:
+            raise MissingColumnsException(self.name, {"expectations/expected_response"})
+
+    def get_input_fields(self) -> list[JudgeField]:
+        """
+        Get the input fields for the OutputEquivalence scorer.
+
+        Returns:
+            List of JudgeField objects defining the input fields.
+        """
+        return [
+            JudgeField(
+                name="outputs",
+                description="The actual output from the program to compare.",
+            ),
+            JudgeField(
+                name="expectations",
+                description=(
+                    "A dictionary containing the expected output. Must contain an "
+                    "'expected_response' key with the expected value, e.g. "
+                    "{'expected_response': 'Paris'}."
+                ),
+            ),
+        ]
+
+    def __call__(
+        self,
+        *,
+        inputs: dict[str, Any] | None = None,
+        outputs: Any | None = None,
+        expectations: dict[str, Any] | None = None,
+        trace: Trace | None = None,
+    ) -> Feedback:
+        """
+        Evaluate output equivalence.
+
+        This scorer can be used in two ways:
+        1. Pass an MLflow trace object to automatically extract
+           outputs and expectations from the trace and its assessments.
+        2. Directly provide outputs and expectations to evaluate.
+
+        Args:
+            inputs: A dictionary of input data (optional, not used in evaluation).
+            outputs: The actual output to compare. Optional when trace is provided.
+            expectations: A dictionary containing the expected output. Must contain an
+                'expected_response' key. Optional when trace is provided.
+            trace: MLflow trace object containing the execution to evaluate. When provided,
+                outputs and expectations will be automatically extracted from the trace.
+
+        Returns:
+            Feedback object with 'yes'/'no' value and rationale
+        """
+        # Use resolve_scorer_fields to extract fields from trace if provided
+        fields = resolve_scorer_fields(
+            trace,
+            self,
+            inputs,
+            outputs,
+            expectations,
+            model=self.model,
+            extract_expectations=True,
+        )
+        _validate_required_fields(fields, self, "OutputEquivalence scorer")
+
+        # Validate that expected_response is present
+        if not fields.expectations or fields.expectations.get("expected_response") is None:
+            raise MlflowException(
+                "OutputEquivalence scorer requires `expected_response` in the "
+                "`expectations` dictionary."
+            )
+
+        # Extract the expected response
+        expected_output = fields.expectations.get("expected_response")
+        actual_output = fields.outputs
+
+        # Handle exact match for numerical types
+        if isinstance(actual_output, (int, float, bool)) and isinstance(
+            expected_output, (int, float, bool)
+        ):
+            if actual_output == expected_output:
+                return Feedback(
+                    name=self.name,
+                    value="yes",
+                    rationale="Exact numerical match",
+                )
+            else:
+                return Feedback(
+                    name=self.name,
+                    value="no",
+                    rationale=f"Values do not match: {actual_output} != {expected_output}",
+                )
+
+        # Convert to strings for comparison
+        outputs_str = str(actual_output)
+        expectations_str = str(expected_output)
+
+        # Use exact match first
+        if outputs_str == expectations_str:
+            return Feedback(
+                name=self.name,
+                value="yes",
+                rationale="Exact string match",
+            )
+
+        # Use LLM judge for semantic equivalence
+        from mlflow.genai.judges.builtin import _sanitize_feedback
+        from mlflow.genai.judges.prompts.output_equivalence import (
+            OUTPUT_EQUIVALENCE_FEEDBACK_NAME,
+            get_prompt,
+        )
+
+        model = self.model or get_default_model()
+        assessment_name = self.name or OUTPUT_EQUIVALENCE_FEEDBACK_NAME
+
+        prompt = get_prompt(
+            output=outputs_str,
+            expected_output=expectations_str,
+        )
+        feedback = invoke_judge_model(model, prompt, assessment_name=assessment_name)
+
+        return _sanitize_feedback(feedback)
+
+
 @experimental(version="3.0.0")
 def get_all_scorers() -> list[BuiltInScorer]:
     """
@@ -1357,6 +1551,7 @@ def get_all_scorers() -> list[BuiltInScorer]:
         RelevanceToQuery(),
         RetrievalSufficiency(),
         RetrievalGroundedness(),
+        OutputEquivalence(),
     ]
     if is_databricks_uri(mlflow.get_tracking_uri()):
         scorers.extend([Safety(), RetrievalRelevance()])
