@@ -265,7 +265,7 @@ def test_job_queue_parallelism(monkeypatch, tmp_path):
         p2_peak_parallelism = 0
         p3_peak_parallelism = 0
 
-        deadline = time.time() + 180
+        deadline = time.time() + 60
         while time.time() < deadline:
             p2_parallelism = 0
             p3_parallelism = 0
