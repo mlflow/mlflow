@@ -86,6 +86,8 @@ jobs:
           # Ensure `databricks-connect` and `databricks-agents` are not installed
           pip uninstall -y databricks-connect databricks-agents
           pip install --no-deps --force-reinstall pyspark
+          # install uv==0.8.18 to meet tool.uv requirements in pyproject.toml
+          pip install uv==0.8.18
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Import check
@@ -219,8 +221,6 @@ jobs:
             tests/tracking/fluent/test_fluent_autolog.py \
             tests/autologging
 
-  # It takes 9 ~ 10 minutes to run tests in `tests/models`. To make CI finish faster,
-  # run these tests in a separate job.
   models:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
@@ -250,10 +250,6 @@ jobs:
         run: |
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/models
 
-  # NOTE: numpy is pinned in this suite due to its heavy reliance on shap, which internally uses
-  # references to the now fully deprecated (as of 1.24.x) numpy types (i.e., np.bool).
-  # When the shap cross version tests are passing in a new release version of shap, this pin should
-  # be removed.
   evaluate:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
@@ -274,16 +270,18 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          source ./dev/install-common-deps.sh
-          pip install pyspark torch transformers langchain langchain-experimental '.[genai]' 'shap<0.47.0' lightgbm xgboost
+          uv sync --extra extras --extra jobs --extra genai
+          uv pip install \
+            -r requirements/test-requirements.txt \
+            torch transformers 'pyspark<3.5.6' langchain langchain-experimental 'shap<0.47.0' lightgbm xgboost
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
+          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
       - name: Run tests with delta
         run: |
-          pytest tests/evaluate/test_default_evaluator_delta.py
+          uv run pytest tests/evaluate/test_default_evaluator_delta.py
 
   genai:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false

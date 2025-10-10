@@ -6,7 +6,7 @@ import pytest
 
 from mlflow.deployments.server.config import Endpoint
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.config import RouteModelInfo
+from mlflow.gateway.config import EndpointModelInfo
 from mlflow.metrics.genai.model_utils import (
     _parse_model_uri,
     call_deployments_api,
@@ -363,7 +363,7 @@ def test_score_model_gateway_completions():
             return_value=Endpoint(
                 name="my-route",
                 endpoint_type="llm/v1/completions",
-                model=RouteModelInfo(provider="openai"),
+                model=EndpointModelInfo(provider="openai"),
                 endpoint_url="my-route",
                 limit=None,
             ),
@@ -408,7 +408,7 @@ def test_score_model_gateway_chat():
             return_value=Endpoint(
                 name="my-route",
                 endpoint_type="llm/v1/chat",
-                model=RouteModelInfo(provider="openai"),
+                model=EndpointModelInfo(provider="openai"),
                 endpoint_url="my-route",
                 limit=None,
             ),

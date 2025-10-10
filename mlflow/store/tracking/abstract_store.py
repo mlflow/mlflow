@@ -19,9 +19,9 @@ from mlflow.entities import (
 if TYPE_CHECKING:
     from mlflow.entities import EvaluationDataset
 from mlflow.entities.metric import MetricWithRunId
-from mlflow.entities.trace import Span
+from mlflow.entities.trace import Span, Trace
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
     MAX_RESULTS_GET_METRIC_HISTORY,
@@ -328,10 +328,25 @@ class AbstractStore:
         """
         raise NotImplementedError
 
+    def batch_get_traces(self, trace_ids: list[str], location: str) -> list[Trace]:
+        """
+        Get a batch of complete traces with spans for given trace ids.
+
+        Args:
+            trace_ids: List of trace IDs to fetch.
+            location: Location of the trace. For example, "catalog.schema" for UC schema.
+
+        Returns:
+            List of Trace objects.
+        """
+        # raise MlflowException so this can be captured by the handlers
+        # instead of default internal server error and retry
+        # TODO: ensure NotImplementedError can be translated to 501 error code in mlflow server
+        raise MlflowNotImplementedException()
+
     def get_online_trace_details(
         self,
         trace_id: str,
-        sql_warehouse_id: str,
         source_inference_table: str,
         source_databricks_request_id: str,
     ) -> str:
@@ -341,13 +356,13 @@ class AbstractStore:
 
     def search_traces(
         self,
-        experiment_ids: list[str],
+        experiment_ids: list[str] | None = None,
         filter_string: str | None = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: list[str] | None = None,
         page_token: str | None = None,
         model_id: str | None = None,
-        sql_warehouse_id: str | None = None,
+        locations: list[str] | None = None,
     ) -> tuple[list[TraceInfo], str | None]:
         """
         Return traces that match the given list of search expressions within the experiments.
@@ -360,8 +375,7 @@ class AbstractStore:
             page_token: Token specifying the next page of results. It should be obtained from
                 a ``search_traces`` call.
             model_id: If specified, return traces associated with the model ID.
-            sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
-                searching traces in inference tables.
+            locations: A list of locations to search over.
 
         Returns:
             A tuple of a list of :py:class:`TraceInfo <mlflow.entities.TraceInfo>` objects that
@@ -463,13 +477,15 @@ class AbstractStore:
         """
         raise NotImplementedError
 
-    def log_spans(self, experiment_id: str, spans: list[Span]) -> list[Span]:
+    def log_spans(self, location: str, spans: list[Span], tracking_uri=None) -> list[Span]:
         """
         Log multiple span entities to the tracking store.
 
         Args:
-            experiment_id: The experiment ID to log spans to.
+            location: The location to log spans to. Can be either experiment ID or the
+                full UC table name.
             spans: List of Span entities to log. All spans must belong to the same trace.
+            tracking_uri: The tracking URI to use. Default to None.
 
         Returns:
             List of logged Span entities.
@@ -479,12 +495,12 @@ class AbstractStore:
         """
         raise NotImplementedError
 
-    async def log_spans_async(self, experiment_id: str, spans: list[Span]) -> list[Span]:
+    async def log_spans_async(self, location: str, spans: list[Span]) -> list[Span]:
         """
         Asynchronously log multiple span entities to the tracking store.
 
         Args:
-            experiment_id: The experiment ID to log spans to.
+            location: The location to log spans to.
             spans: List of Span entities to log. All spans must belong to the same trace.
 
         Returns:
