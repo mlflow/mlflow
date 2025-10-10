@@ -874,6 +874,17 @@ MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT = _EnvironmentVariable(
 #: (default: ``None``)
 MLFLOW_TRACING_SQL_WAREHOUSE_ID = _EnvironmentVariable("MLFLOW_TRACING_SQL_WAREHOUSE_ID", str, None)
 
+#: Timeout in seconds for polling trace tag updates to ensure backend consistency.
+#: (default: ``10.0``)
+MLFLOW_TRACE_TAG_POLL_TIMEOUT_SECONDS = _EnvironmentVariable(
+    "MLFLOW_TRACE_TAG_POLL_TIMEOUT_SECONDS", float, 10.0
+)
+
+#: Interval in seconds between polls when verifying trace tag updates.
+#: (default: ``0.5``)
+MLFLOW_TRACE_TAG_POLL_INTERVAL_SECONDS = _EnvironmentVariable(
+    "MLFLOW_TRACE_TAG_POLL_INTERVAL_SECONDS", float, 0.5
+)
 
 #: Specifies the location to send traces to. This can be either an MLflow experiment ID or a
 #: Databricks Unity Catalog (UC) schema (format: `<catalog_name>.<schema_name>`).
