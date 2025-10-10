@@ -1,3 +1,5 @@
+from unittest import mock
+
 import pytest
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -121,6 +123,55 @@ def test_backwards_compatibility_with_v2():
     assert trace_info.request_metadata == {"foo": "bar"}
     assert trace_info.timestamp_ms == 1234567890
     assert trace_info.execution_time_ms is None
+
+
+def test_trace_info_v4():
+    trace_info_v4 = TraceInfo(
+        # v4 trace info has URI-format trace id and uc schema location
+        trace_id="trace:/catalog.schema/test_trace_id",
+        trace_location=TraceLocation.from_databricks_uc_schema(
+            catalog_name="catalog", schema_name="schema"
+        ),
+        request_time=0,
+        state=TraceState.OK,
+        request_preview="request",
+        response_preview="response",
+        client_request_id="client_request_id",
+        tags={"key": "value"},
+    )
+    dict_trace_info_v4 = trace_info_v4.to_dict()
+    assert dict_trace_info_v4 == {
+        "trace_id": "test_trace_id",
+        "trace_location": {
+            "type": "UC_SCHEMA",
+            "uc_schema": {
+                "catalog_name": "catalog",
+                "schema_name": "schema",
+                "otel_spans_table_name": "mlflow_experiment_trace_otel_spans",
+                "otel_logs_table_name": "mlflow_experiment_trace_otel_logs",
+            },
+        },
+        "request_time": mock.ANY,
+        "state": "OK",
+        "request_preview": "request",
+        "response_preview": "response",
+        "client_request_id": "client_request_id",
+        "tags": {"key": "value"},
+    }
+    assert TraceInfo.from_dict(dict_trace_info_v4) == trace_info_v4
+
+    proto_trace_info_v4 = trace_info_v4.to_proto()
+    assert proto_trace_info_v4.trace_id == "test_trace_id"
+    assert proto_trace_info_v4.trace_location.uc_schema.catalog_name == "catalog"
+    assert proto_trace_info_v4.trace_location.uc_schema.schema_name == "schema"
+    assert proto_trace_info_v4.state == 1
+    assert proto_trace_info_v4.request_preview == "request"
+    assert proto_trace_info_v4.response_preview == "response"
+    assert proto_trace_info_v4.client_request_id == "client_request_id"
+    assert proto_trace_info_v4.tags == {"key": "value"}
+    assert len(proto_trace_info_v4.assessments) == 0
+
+    assert TraceInfo.from_proto(proto_trace_info_v4) == trace_info_v4
 
 
 @pytest.mark.parametrize("client_request_id", [None, "client_request_id"])

@@ -42,11 +42,7 @@ from mlflow.protos.service_pb2 import GetTraceInfoV3, StartTraceV3
 from mlflow.protos.service_pb2 import SetTraceTag as SetTraceTagV3
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
-from mlflow.utils.databricks_tracing_utils import (
-    assessment_to_proto,
-    trace_info_to_proto,
-    trace_to_proto,
-)
+from mlflow.utils.databricks_tracing_utils import assessment_to_proto, trace_to_proto
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _V3_TRACE_REST_API_PATH_PREFIX,
@@ -81,6 +77,15 @@ def create_mock_spans(diff_trace_id=False):
     mock_span2.to_otel_proto.return_value = otel_span2
 
     return [mock_span1, mock_span2]
+
+
+def _to_v4_trace(trace: Trace) -> Trace:
+    trace_location = TraceLocation.from_databricks_uc_schema("catalog", "schema")
+    trace.info.trace_location = trace_location
+    trace.info.trace_id = (
+        f"{TRACE_ID_V4_PREFIX}{trace_location.uc_schema.schema_location}/{trace.info.trace_id}"
+    )
+    return trace
 
 
 def _args(host_creds, endpoint, method, json_body, version, retry_timeout_seconds=None):
@@ -145,14 +150,11 @@ def test_create_trace_v4_uc_location(monkeypatch):
     # Mock successful v4 response
     response = mock.MagicMock()
     response.status_code = 200
-    expected_trace_info = MessageToDict(
-        trace_info_to_proto(trace_info), preserving_proto_field_name=True
-    )
+    expected_trace_info = MessageToDict(trace_info.to_proto(), preserving_proto_field_name=True)
     # The returned trace_id in proto should be otel_trace_id
     expected_trace_info.update({"trace_id": "123"})
     response.text = json.dumps(expected_trace_info)
 
-    expected_request = trace_info_to_proto(trace_info)
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
         result = store.start_trace(trace_info)
         _verify_requests(
@@ -160,7 +162,7 @@ def test_create_trace_v4_uc_location(monkeypatch):
             creds,
             "traces/catalog.schema/123/info",
             "POST",
-            message_to_json(expected_request),
+            message_to_json(trace_info.to_proto()),
             version="4.0",
             retry_timeout_seconds=1,
         )
@@ -205,6 +207,7 @@ def test_get_trace_info(monkeypatch):
         span.set_outputs({"output": "result"})
 
     trace = mlflow.get_trace(span.trace_id)
+    trace = _to_v4_trace(trace)
     mock_response = GetTraceInfo.Response(trace=trace_to_proto(trace))
 
     store = DatabricksTracingRestStore(lambda: MlflowHostCreds("https://test"))
@@ -231,7 +234,7 @@ def test_get_trace_info(monkeypatch):
         assert f"/traces/{location}/{span.trace_id}/info" in endpoint
 
         assert isinstance(result, TraceInfo)
-        assert result.trace_id == span.trace_id
+        assert result.trace_id == trace.info.trace_id
 
 
 def test_get_trace_info_fallback_to_v3():
@@ -391,15 +394,17 @@ def test_batch_get_traces(monkeypatch, sql_warehouse_id):
     trace1 = mlflow.get_trace(span1.trace_id)
     trace2 = mlflow.get_trace(span2.trace_id)
 
+    # trace obtained from OSS backend is still v3
+    trace1 = _to_v4_trace(trace1)
+    trace2 = _to_v4_trace(trace2)
+
     mock_response = BatchGetTraces.Response()
     mock_response.traces.extend([trace_to_proto(trace1), trace_to_proto(trace2)])
 
     store = DatabricksTracingRestStore(lambda: MlflowHostCreds("https://test"))
 
     location = "catalog.schema"
-    v4_trace_id_1 = f"{TRACE_ID_V4_PREFIX}{location}/{span1.trace_id}"
-    v4_trace_id_2 = f"{TRACE_ID_V4_PREFIX}{location}/{span2.trace_id}"
-    trace_ids = [v4_trace_id_1, v4_trace_id_2]
+    trace_ids = [trace1.info.trace_id, trace2.info.trace_id]
 
     with (
         mock.patch.object(store, "_call_endpoint", return_value=mock_response) as mock_call,
@@ -414,6 +419,7 @@ def test_batch_get_traces(monkeypatch, sql_warehouse_id):
         request_body = call_args[0][1]
         request_data = json.loads(request_body)
         assert request_data["sql_warehouse_id"] == "test-warehouse"
+        # trace_ids in the request payload should be original OTel format
         assert request_data["trace_ids"] == [span1.trace_id, span2.trace_id]
 
         endpoint = call_args[1]["endpoint"]
@@ -422,8 +428,8 @@ def test_batch_get_traces(monkeypatch, sql_warehouse_id):
         assert isinstance(result, list)
         assert len(result) == 2
         assert all(isinstance(trace, Trace) for trace in result)
-        assert result[0].info.trace_id == span1.trace_id
-        assert result[1].info.trace_id == span2.trace_id
+        assert result[0].info.trace_id == trace1.info.trace_id
+        assert result[1].info.trace_id == trace2.info.trace_id
 
 
 def test_search_traces_uc_schema(monkeypatch):
