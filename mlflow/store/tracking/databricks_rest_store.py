@@ -10,7 +10,6 @@ from mlflow.entities.assessment import ExpectationValue, FeedbackValue
 from mlflow.entities.trace_location import UCSchemaLocation as UCSchemaLocationEntity
 from mlflow.environment_variables import (
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
-    MLFLOW_TRACE_TAG_POLL_INTERVAL_SECONDS,
     MLFLOW_TRACE_TAG_POLL_TIMEOUT_SECONDS,
     MLFLOW_TRACING_SQL_WAREHOUSE_ID,
 )
@@ -95,7 +94,10 @@ class DatabricksTracingRestStore(RestStore):
         timeout_message: str,
     ) -> None:
         """
-        Poll until a condition function returns True.
+        Poll until a condition function returns True using exponential backoff.
+
+        The polling starts at 0.5s and doubles on each retry (0.5s, 1s, 2s, 4s, etc.)
+        until the timeout is reached.
 
         Args:
             condition_fn: A callable that returns True when the condition is met.
@@ -103,18 +105,20 @@ class DatabricksTracingRestStore(RestStore):
             timeout_message: Message to log if timeout is exceeded.
         """
         timeout = MLFLOW_TRACE_TAG_POLL_TIMEOUT_SECONDS.get()
-        interval = MLFLOW_TRACE_TAG_POLL_INTERVAL_SECONDS.get()
         start_time = time.time()
+        current_interval = 0.5  # Initial interval: 0.5 seconds
 
         while time.time() - start_time < timeout:
             try:
                 if condition_fn():
                     _logger.debug(success_message)
                     return
-                time.sleep(interval)
             except Exception as e:
-                _logger.debug(f"Error during polling: {e!s}")
-                time.sleep(interval)
+                _logger.debug(f"Error during polling: {e}")
+
+            time.sleep(current_interval)
+            # Exponential backoff: double the interval for next iteration
+            current_interval *= 2
 
         _logger.warning(
             f"{timeout_message} Backend took longer than {timeout}s to reflect the change."
