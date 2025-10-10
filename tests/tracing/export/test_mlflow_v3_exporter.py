@@ -27,7 +27,6 @@ from mlflow.protos import service_pb2 as pb
 from mlflow.tracing.constant import TraceMetadataKey, TraceSizeStatsKey
 from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
 from mlflow.tracing.provider import _get_trace_exporter
-from mlflow.utils.databricks_tracing_utils import trace_to_json
 
 _EXPERIMENT_ID = "dummy-experiment-id"
 
@@ -100,9 +99,7 @@ def test_export(is_async, monkeypatch):
     size_bytes = int(trace_info.trace_metadata.pop(TraceMetadataKey.SIZE_BYTES))
 
     # The total size of the trace should much with the size of the trace object
-    expected_size_bytes = len(
-        trace_to_json(Trace(info=trace_info, data=trace_data)).encode("utf-8")
-    )
+    expected_size_bytes = len(Trace(info=trace_info, data=trace_data).to_json().encode("utf-8"))
 
     assert size_bytes == expected_size_bytes
     assert size_stats[TraceSizeStatsKey.TOTAL_SIZE_BYTES] == expected_size_bytes
