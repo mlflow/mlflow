@@ -16,24 +16,18 @@ from mlflow.genai.judges.tools.search_traces import (
     _convert_assessments_to_tool_types,
     _get_experiment_id,
 )
-from mlflow.genai.judges.tools.types import (
-    Expectation as ToolExpectation,
-)
-from mlflow.genai.judges.tools.types import (
-    Feedback as ToolFeedback,
-)
-from mlflow.genai.judges.tools.types import (
-    TraceInfo as ToolTraceInfo,
-)
+from mlflow.genai.judges.tools.types import Expectation as ToolExpectation
+from mlflow.genai.judges.tools.types import Feedback as ToolFeedback
+from mlflow.genai.judges.tools.types import TraceInfo as ToolTraceInfo
 from mlflow.types.llm import ToolDefinition
 
 
-def test_search_traces_tool_name():
+def test_search_traces_tool_name() -> None:
     tool = SearchTracesTool()
     assert tool.name == "search_traces"
 
 
-def test_search_traces_tool_get_definition():
+def test_search_traces_tool_get_definition() -> None:
     tool = SearchTracesTool()
     definition = tool.get_definition()
 
@@ -50,7 +44,7 @@ def test_search_traces_tool_get_definition():
     assert "max_results" in properties
 
 
-def test_convert_assessments_to_tool_types_with_expectations():
+def test_convert_assessments_to_tool_types_with_expectations() -> None:
     source = AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user123")
     expectation = Expectation(
         name="test_expectation",
@@ -74,7 +68,7 @@ def test_convert_assessments_to_tool_types_with_expectations():
     assert result[0].value is True
 
 
-def test_convert_assessments_to_tool_types_with_feedback():
+def test_convert_assessments_to_tool_types_with_feedback() -> None:
     source = AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="judge-1")
     error = AssessmentError(
         error_code="VALIDATION_ERROR",
@@ -107,7 +101,7 @@ def test_convert_assessments_to_tool_types_with_feedback():
     assert result[0].stack_trace == "Stack trace here"
 
 
-def test_convert_assessments_to_tool_types_with_feedback_no_error():
+def test_convert_assessments_to_tool_types_with_feedback_no_error() -> None:
     source = AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user456")
     feedback = Feedback(
         name="feedback_no_error",
@@ -128,7 +122,7 @@ def test_convert_assessments_to_tool_types_with_feedback_no_error():
     assert result[0].stack_trace is None
 
 
-def test_convert_assessments_to_tool_types_mixed():
+def test_convert_assessments_to_tool_types_mixed() -> None:
     source = AssessmentSource(source_type=AssessmentSourceType.HUMAN)
     assessments = [
         Expectation(name="exp1", source=source, value=True),
@@ -142,7 +136,7 @@ def test_convert_assessments_to_tool_types_mixed():
     assert isinstance(result[1], ToolFeedback)
 
 
-def test_get_experiment_id_success():
+def test_get_experiment_id_success() -> None:
     trace_location = TraceLocation.from_experiment_id("exp-123")
     trace_info = TraceInfo(
         trace_id="trace-1",
@@ -157,7 +151,7 @@ def test_get_experiment_id_success():
     assert experiment_id == "exp-123"
 
 
-def test_get_experiment_id_no_trace_location():
+def test_get_experiment_id_no_trace_location() -> None:
     trace_info = TraceInfo(
         trace_id="trace-1",
         trace_location=None,
@@ -170,7 +164,7 @@ def test_get_experiment_id_no_trace_location():
         _get_experiment_id(trace)
 
 
-def test_get_experiment_id_not_mlflow_experiment():
+def test_get_experiment_id_not_mlflow_experiment() -> None:
     trace_location = TraceLocation(type=TraceLocationType.INFERENCE_TABLE)
     trace_info = TraceInfo(
         trace_id="trace-1",
@@ -184,7 +178,7 @@ def test_get_experiment_id_not_mlflow_experiment():
         _get_experiment_id(trace)
 
 
-def test_get_experiment_id_no_experiment_id():
+def test_get_experiment_id_no_experiment_id() -> None:
     trace_location = TraceLocation(type=TraceLocationType.MLFLOW_EXPERIMENT)
     trace_info = TraceInfo(
         trace_id="trace-1",
@@ -199,7 +193,7 @@ def test_get_experiment_id_no_experiment_id():
 
 
 @pytest.fixture
-def mock_trace():
+def mock_trace() -> Trace:
     trace_location = TraceLocation.from_experiment_id("exp-456")
     trace_info = TraceInfo(
         trace_id="trace-current",
@@ -211,7 +205,7 @@ def mock_trace():
 
 
 @pytest.fixture
-def mock_search_traces_df():
+def mock_search_traces_df() -> pd.DataFrame:
     trace_data = [
         {
             "trace_id": "trace-1",
@@ -235,7 +229,9 @@ def mock_search_traces_df():
     return pd.DataFrame(trace_data)
 
 
-def test_search_traces_tool_invoke_success(mock_trace, mock_search_traces_df):
+def test_search_traces_tool_invoke_success(
+    mock_trace: Trace, mock_search_traces_df: pd.DataFrame
+) -> None:
     tool = SearchTracesTool()
 
     source = AssessmentSource(source_type=AssessmentSourceType.HUMAN)
@@ -288,7 +284,9 @@ def test_search_traces_tool_invoke_success(mock_trace, mock_search_traces_df):
     assert len(result[1].assessments) == 0
 
 
-def test_search_traces_tool_invoke_with_order_by(mock_trace, mock_search_traces_df):
+def test_search_traces_tool_invoke_with_order_by(
+    mock_trace: Trace, mock_search_traces_df: pd.DataFrame
+) -> None:
     tool = SearchTracesTool()
 
     mock_trace1_info = TraceInfo(
@@ -328,7 +326,9 @@ def test_search_traces_tool_invoke_with_order_by(mock_trace, mock_search_traces_
     assert len(result) == 2
 
 
-def test_search_traces_tool_invoke_default_order_by(mock_trace, mock_search_traces_df):
+def test_search_traces_tool_invoke_default_order_by(
+    mock_trace: Trace, mock_search_traces_df: pd.DataFrame
+) -> None:
     tool = SearchTracesTool()
 
     mock_trace1_info = TraceInfo(
@@ -363,7 +363,7 @@ def test_search_traces_tool_invoke_default_order_by(mock_trace, mock_search_trac
     assert len(result) == 2
 
 
-def test_search_traces_tool_invoke_empty_results(mock_trace):
+def test_search_traces_tool_invoke_empty_results(mock_trace: Trace) -> None:
     tool = SearchTracesTool()
     empty_df = pd.DataFrame(columns=["trace_id", "trace", "request", "response"])
 
@@ -374,7 +374,7 @@ def test_search_traces_tool_invoke_empty_results(mock_trace):
     assert result == []
 
 
-def test_search_traces_tool_invoke_search_fails(mock_trace):
+def test_search_traces_tool_invoke_search_fails(mock_trace: Trace) -> None:
     tool = SearchTracesTool()
 
     with mock.patch("mlflow.search_traces", side_effect=Exception("Search failed")):
@@ -382,7 +382,7 @@ def test_search_traces_tool_invoke_search_fails(mock_trace):
             tool.invoke(mock_trace)
 
 
-def test_search_traces_tool_invoke_invalid_trace_json(mock_trace):
+def test_search_traces_tool_invoke_invalid_trace_json(mock_trace: Trace) -> None:
     tool = SearchTracesTool()
 
     invalid_df = pd.DataFrame(
@@ -400,7 +400,9 @@ def test_search_traces_tool_invoke_invalid_trace_json(mock_trace):
     assert len(result) == 0
 
 
-def test_search_traces_tool_invoke_partial_failure(mock_trace, mock_search_traces_df):
+def test_search_traces_tool_invoke_partial_failure(
+    mock_trace: Trace, mock_search_traces_df: pd.DataFrame
+) -> None:
     tool = SearchTracesTool()
 
     corrupted_df = mock_search_traces_df.copy()
@@ -426,7 +428,9 @@ def test_search_traces_tool_invoke_partial_failure(mock_trace, mock_search_trace
     assert result[0].trace_id == "trace-2"
 
 
-def test_search_traces_tool_invoke_no_filter(mock_trace, mock_search_traces_df):
+def test_search_traces_tool_invoke_no_filter(
+    mock_trace: Trace, mock_search_traces_df: pd.DataFrame
+) -> None:
     tool = SearchTracesTool()
 
     mock_trace1_info = TraceInfo(
